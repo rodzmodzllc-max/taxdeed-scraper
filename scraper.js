@@ -12,20 +12,13 @@ async function runScraper() {
   }
 
   // --- AUTOMATIC URL SANITIZATION ---
-  // 1. Remove hidden spaces/newlines
   supabaseUrl = supabaseUrl.trim();
-  
-  // 2. Force https:// if missing
   if (!supabaseUrl.startsWith('http')) {
     supabaseUrl = `https://${supabaseUrl}`;
   }
-  
-  // 3. Remove trailing slash to prevent double slashes in the path
   if (supabaseUrl.endsWith('/')) {
     supabaseUrl = supabaseUrl.slice(0, -1);
   }
-
-  // 4. Validate the fixed URL so it doesn't crash blindly later
   try {
     new URL(supabaseUrl);
   } catch (err) {
@@ -44,11 +37,15 @@ async function runScraper() {
     const page = await browser.newPage();
     console.log('Puppeteer launched successfully with system Chrome.');
 
-    const tableName = 'tax_deeds';
+    // 1. UPDATED TABLE NAME
+    const tableName = 'properties';
 
+    // 2. UPDATED DATA TO MATCH YOUR ACTUAL COLUMNS
     const scrapedData = {
-      property_id: '12345',
-      status: 'active'
+      state: 'FL',
+      county: 'Miami-Dade',
+      address: '123 Test Street, Miami, FL',
+      owner: 'John Doe'
     };
 
     console.log(`Sending data to: ***/rest/v1/${tableName}`);
