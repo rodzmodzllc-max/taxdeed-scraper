@@ -12,13 +12,10 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v5
 
-      - name: Set up Node.js 24
+      - name: Set up Node.js
         uses: actions/setup-node@v5
         with:
-          node-version: '24.x'
-
-      - name: Verify Node Version
-        run: node -v
+          node-version: '22'
 
       - name: Install Dependencies
         run: npm install
