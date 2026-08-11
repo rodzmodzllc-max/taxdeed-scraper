@@ -8,11 +8,14 @@ on:
 jobs:
   scrape:
     runs-on: ubuntu-latest
-    container:
-      image: node:22-alpine
     steps:
       - name: Checkout Repository
-        uses: actions/checkout@v5
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '22'
 
       - name: Install Dependencies
         run: npm install
