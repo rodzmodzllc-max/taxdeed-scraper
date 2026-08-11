@@ -188,7 +188,11 @@ async function scrapeAuctionDate(page, subdomain, dateStr) {
       }, nextImgIndex);
 
       if (!clicked) break;
-      await page.waitForTimeout(1300); // let the async page update settle
+      // page.waitForTimeout() was removed in recent Puppeteer versions
+      // (confirmed live: "page.waitForTimeout is not a function" broke
+      // every county's pagination in production). Plain setTimeout works
+      // across all versions.
+      await new Promise(resolve => setTimeout(resolve, 1300));
 
       const afterClickItems = await extractCurrentPageItems();
       const beforeClickSize = allItems.size;
