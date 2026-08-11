@@ -2,23 +2,26 @@ name: Run Tax Deed Scraper
 
 on:
   schedule:
+    # Runs automatically every day at 6:00 AM UTC (2:00 AM EDT)
     - cron: '0 6 * * *'
   workflow_dispatch:
 
 jobs:
   scrape:
     runs-on: ubuntu-latest
+
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
       - name: Set up Node.js 22
-        uses: actions/setup-node@v5
+        uses: actions/setup-node@v4
         with:
           node-version: '22'
+          cache: 'npm'
 
       - name: Install Dependencies
-        run: npm install
+        run: npm ci
 
       - name: Run Scraper Script
         env:
