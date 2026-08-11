@@ -92,10 +92,20 @@ async function getAuctionDates(page, subdomain, monthsAhead) {
           if (dayMatch) found.push(dayMatch);
         }
       });
-      return found;
+      // Diagnostic info so a future 0-results run tells us WHY from the
+      // logs alone, instead of needing another manual investigation round:
+      // if calboxCount is 0, the page didn't render the calendar as
+      // expected (wrong content/layout/blocked); if calboxCount is high
+      // but found stays empty, the extraction regex itself needs another
+      // look.
+      return { found, calboxCount: document.querySelectorAll('div.CALBOX').length, pageTitle: document.title };
     });
 
-    monthDates.forEach(day => {
+    if (monthDates.found.length === 0) {
+      console.log(`    [debug] ${mm}/${yyyy}: 0 dates found, calboxCount=${monthDates.calboxCount}, pageTitle="${monthDates.pageTitle}"`);
+    }
+
+    monthDates.found.forEach(day => {
       dates.push(`${mm}/${String(day).padStart(2, '0')}/${yyyy}`);
     });
   }
@@ -277,6 +287,23 @@ async function runScraper() {
 
     const page = await browser.newPage();
     page.setDefaultNavigationTimeout(60000);
+
+    // IMPORTANT: after fixing the div.CALBOX extraction bug (verified
+    // correct live in a real browser — found exactly ["6","20"] for
+    // Miami-Dade's August calendar), a real CI run STILL found 0 dates for
+    // every county. The extraction logic itself is right; something about
+    // Puppeteer's default headless environment gets different content than
+    // a normal browser does. The two standard causes for this class of bug:
+    // (1) Puppeteer's default UA includes "HeadlessChrome", which some
+    //     legacy/WAF-protected sites detect and serve reduced content to;
+    // (2) Puppeteer's default viewport (800x600) may trigger a different
+    //     mobile-oriented layout than the desktop one we verified against.
+    // This has NOT yet been confirmed live against this specific site in a
+    // real headless run — if dates are still 0 after this, the cause is
+    // something else and needs fresh investigation (e.g. capture a
+    // screenshot or page.content() dump from inside the Action itself).
+    await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+    await page.setViewport({ width: 1440, height: 900 });
 
     const allRows = [];
 
