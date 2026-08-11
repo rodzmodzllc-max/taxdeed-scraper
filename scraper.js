@@ -6,6 +6,13 @@ const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
 // ---------------------------------------------------------------------------
 // COUNTY CONFIG
 // ---------------------------------------------------------------------------
+// Verified live against miamidade.realtaxdeed.com and duval.realtaxdeed.com
+// (same DOM structure confirmed on both — this is one shared RealAuction
+// "RealTaxDeed" template, so one scraper function covers every county below).
+//
+// Subdomain convention is "countyname.realtaxdeed.com" (lowercase, no spaces).
+// All 15 counties below have had their subdomain confirmed live (Aug 2026).
+// Counties that only run Foreclosure sales (no Taxdeed) are left out.
 const COUNTIES = [
   { state: 'FL', county: 'Miami-Dade',   subdomain: 'miamidade',   verified: true },
   { state: 'FL', county: 'Duval',        subdomain: 'duval',       verified: true },
@@ -81,7 +88,7 @@ async function scrapeAuctionDate(page, subdomain, dateStr) {
   const url = `https://${subdomain}.realtaxdeed.com/index.cfm?zaction=AUCTION&Zmethod=PREVIEW&AUCTIONDATE=${dateStr}`;
   await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
 
-  const allItems = new Map();
+  const allItems = new Map(); // itemId -> data, dedup across pagination clicks
 
   const extractCurrentPageItems = () => page.evaluate(() => {
     const results = [];
@@ -105,6 +112,12 @@ async function scrapeAuctionDate(page, subdomain, dateStr) {
           data[lastLabel] = (data[lastLabel] || '') + ', ' + val.textContent.trim();
         }
       });
+
+      // Extra check for owner fields inside attributes or alternate labels
+      const ownerEl = item.querySelector('.AD_DTA[data-lbl*="Owner"]');
+      if (ownerEl) {
+        data['Owner Name'] = ownerEl.textContent.trim();
+      }
 
       const link = item.querySelector('a[href*="folio"], a[href*="parcel"], a');
       data.parcelLink = link ? link.getAttribute('href') : null;
@@ -149,8 +162,8 @@ async function scrapeAuctionDate(page, subdomain, dateStr) {
     }
   }
 
-  await paginateSection(0);
-  await paginateSection(2);
+  await paginateSection(0); // "Running Auctions" section
+  await paginateSection(2); // "Closed or Canceled" section
 
   return Array.from(allItems.values());
 }
@@ -167,7 +180,7 @@ function toDbRow(item, county) {
     state: county.state,
     county: county.county,
     address: addressRaw,
-    owner: ownerRaw?.trim() || 'Unknown',
+    owner: ownerRaw?.trim() || 'Unknown', // Guaranteed non-null fallback
     opening_bid: parseMoney(item['Opening Bid']),
     assessed_value: parseMoney(item['Assessed Value']) ?? 0,
     status: item.status || 'Unknown',
@@ -190,7 +203,7 @@ async function upsertToSupabase(rows) {
 
   for (let i = 0; i < rows.length; i += BATCH_SIZE) {
     const batch = rows.slice(i, i + BATCH_SIZE);
-    const response = await fetch(`${supabaseUrl}/rest/v1/${tableName}?on_conflict=case_number`, {
+    const response = await fetch(`${supabaseUrl}/rest/v1/${tableName}?on_conflict=county,case_number`, {
       method: 'POST',
       headers: {
         'apikey': supabaseKey,
