@@ -26,6 +26,9 @@ const COUNTIES = [
 
 const HOW_MANY_MONTHS_AHEAD = 2; // Scan current month + this many future months
 
+// Helper delay function to replace deprecated page.waitForTimeout
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
 // ---------------------------------------------------------------------------
 // PARSING HELPERS
 // ---------------------------------------------------------------------------
@@ -44,61 +47,6 @@ async function getAuctionDates(page, subdomain, monthsAhead) {
   const dates = [];
   const now = new Date();
 
-  // Set standard browser user-agent to avoid headless detection
-  await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
-
-  for (let m = 0; m <= monthsAhead; m++) {
-    const target = new Date(now.getFullYear(), now.getMonth() + m, 1);
-    const monthNum = target.getMonth() + 1;
-    const mm = String(monthNum).padStart(2, '0');
-    const yyyy = target.getFullYear();
-
-    const calUrl = `https://${subdomain}.realtaxdeed.com/index.cfm?zaction=user&zmethod=calendar&month=${monthNum}&year=${yyyy}`;
-    
-    try {
-      await page.goto(calUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
-      await new Promise(r => setTimeout(r, 2000)); // Delay for dynamic DOM hydration
-
-      const monthDates = await page.evaluate(() => {
-        const found = [];
-
-        // 1. Scan links containing AUCTIONDATE parameters
-        document.querySelectorAll('a[href*="AUCTIONDATE"]').forEach(a => {
-          const href = a.getAttribute('href') || '';
-          const match = href.match(/AUCTIONDATE=([^&]+)/i);
-          if (match) found.push(decodeURIComponent(match[1]));
-        });
-
-        // 2. Scan RealAuction day cells (.Cday, .CALDAY, td)
-        document.querySelectorAll('.Cday, .CALDAY, td.day, td').forEach(el => {
-          const text = el.textContent || '';
-          if (/(tax\s*deed|\btd\b)/i.test(text)) {
-            const dayMatch = text.match(/\b([1-9]|[12][0-9]|3[01])\b/);
-            if (dayMatch) found.push(dayMatch[1]);
-          }
-        });
-
-        return [...new Set(found)];
-      });
-
-      monthDates.forEach(dateVal => {
-        if (dateVal.includes('/')) {
-          dates.push(dateVal);
-        } else {
-          dates.push(`${mm}/${String(dateVal).padStart(2, '0')}/${yyyy}`);
-        }
-      });
-    } catch (err) {
-      console.error(`Error loading calendar for ${subdomain} (${monthNum}/${yyyy}): ${err.message}`);
-    }
-  }
-
-  return [...new Set(dates)];
-}
-  return [...new Set(dates)];async function getAuctionDates(page, subdomain, monthsAhead) {
-  const dates = [];
-  const now = new Date();
-
   // Set standard browser user-agent to bypass basic automated scraper blocks
   await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
 
@@ -112,7 +60,7 @@ async function getAuctionDates(page, subdomain, monthsAhead) {
     
     try {
       await page.goto(calUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
-      await page.waitForTimeout(2000); // Allow dynamic calendar JS to render
+      await delay(2000); // Allow dynamic calendar JS to render
 
       const monthDates = await page.evaluate(() => {
         const found = [];
@@ -219,7 +167,7 @@ async function scrapeAuctionDate(page, subdomain, dateStr) {
       }, nextImgIndex);
 
       if (!clicked) break;
-      await page.waitForTimeout(1300);
+      await delay(1300);
 
       const afterClickItems = await extractCurrentPageItems();
       const beforeClickSize = allItems.size;
@@ -348,4 +296,4 @@ async function runScraper() {
   }
 }
 
-runScraper();make
+runScraper();
