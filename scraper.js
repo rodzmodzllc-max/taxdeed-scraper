@@ -76,18 +76,23 @@ async function getAuctionDates(page, subdomain, monthsAhead) {
 
     const monthDates = await page.evaluate(() => {
       const found = [];
-      // Each calendar day cell containing "Tax Deed" text has a click handler
-      // that navigates to the PREVIEW page. We just need the day number and
-      // whether it says "Tax Deed" — we rebuild the PREVIEW URL ourselves
-      // rather than depending on the exact onclick JS.
-      document.querySelectorAll('td').forEach(td => {
-        if (/Tax Deed/i.test(td.textContent) && /\d+\s*\/\s*\d+\s*TD/i.test(td.textContent)) {
-          const dayMatch = td.querySelector(':scope > *:first-child')?.textContent?.trim()
-            || td.textContent.trim().match(/^\d+/)?.[0];
-          if (dayMatch) found.push(dayMatch.match(/\d+/)?.[0]);
+      // Verified live: calendar days are NOT <td> cells — the whole
+      // calendar renders inside one big <td>, and each day is a
+      // `div.CALBOX`. Inside a day with an event, the day number is a
+      // raw text node directly in the CALBOX (e.g. "6 Tax Deed0 / 9 TD..."),
+      // followed by a `span.CALTEXT` holding the event details. My first
+      // version queried `td` elements and tried to read the day number
+      // from the box's first *element* child — which is that CALTEXT
+      // span, not the day number — so extraction silently failed on every
+      // county (0 dates found everywhere) despite the page itself loading
+      // fine. Reading the box's own leading text instead fixes it.
+      document.querySelectorAll('div.CALBOX').forEach(box => {
+        if (/Tax Deed/i.test(box.textContent) && /\d+\s*\/\s*\d+\s*TD/i.test(box.textContent)) {
+          const dayMatch = box.textContent.trim().match(/^\d+/)?.[0];
+          if (dayMatch) found.push(dayMatch);
         }
       });
-      return found.filter(Boolean);
+      return found;
     });
 
     monthDates.forEach(day => {
