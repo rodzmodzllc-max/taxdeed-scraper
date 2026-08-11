@@ -1,7 +1,5 @@
 name: Run Tax Deed Scraper
 
-name: Run Tax Deed Scraper
-
 on:
   schedule:
     - cron: '0 6 * * *'
