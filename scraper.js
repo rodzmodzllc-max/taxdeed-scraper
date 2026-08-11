@@ -21,8 +21,8 @@ async function runScraper() {
     const page = await browser.newPage();
     console.log('Puppeteer launched successfully with system Chrome.');
 
-    // Replace 'your_table_name' with your actual Supabase table name
-    const tableName = 'your_table_name';
+    // Replace 'tax_deeds' with your actual Supabase table name
+    const tableName = 'tax_deeds';
 
     const scrapedData = {
       property_id: '12345',
