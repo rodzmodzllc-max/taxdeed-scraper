@@ -5,7 +5,7 @@ async function runScraper() {
   console.log('Starting tax deed scraper...');
   
   try {
-    // Example of inserting data into a table named 'tax_deeds' using standard fetch
+    // Direct REST API call using native fetch (no Supabase SDK or WebSockets required)
     const response = await fetch(`${supabaseUrl}/rest/v1/tax_deeds`, {
       method: 'POST',
       headers: {
@@ -15,7 +15,6 @@ async function runScraper() {
         'Prefer': 'return=representation'
       },
       body: JSON.stringify({
-        // Add your scraped data fields here
         property_id: '12345',
         status: 'active'
       })
@@ -23,7 +22,7 @@ async function runScraper() {
 
     if (!response.ok) {
       const errorText = await response.text();
-      throw new Error(`Supabase error: ${response.status} - ${errorText}`);
+      throw new Error(`Supabase REST error: ${response.status} - ${errorText}`);
     }
 
     const data = await response.json();
