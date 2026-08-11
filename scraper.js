@@ -30,7 +30,8 @@ async function runScraper() {
       state: 'FL',
       county: 'Miami-Dade',
       address: '123 Test Street, Miami, FL',
-      owner: 'John Doe'
+      owner: 'John Doe',
+      opening_bid: 1000  // Added this to satisfy the database rule
     };
 
     console.log(`Sending data to: ***/rest/v1/${tableName}`);
