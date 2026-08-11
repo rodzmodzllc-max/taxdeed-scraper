@@ -24,14 +24,9 @@ const COUNTIES = [
   { state: 'FL', county: 'Sarasota',     subdomain: 'sarasota',    verified: true },
 ];
 
-const HOW_MANY_MONTHS_AHEAD = 2; // Scan current month + this many future months
+const HOW_MANY_MONTHS_AHEAD = 2;
 
-// Helper delay function to replace deprecated page.waitForTimeout
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-
-// ---------------------------------------------------------------------------
-// PARSING HELPERS
-// ---------------------------------------------------------------------------
 
 function parseMoney(str) {
   if (!str) return null;
@@ -40,72 +35,90 @@ function parseMoney(str) {
 }
 
 // ---------------------------------------------------------------------------
-// SCRAPE ONE COUNTY'S CALENDAR TO FIND TAX DEED AUCTION DATES
+// DIRECT API & HYBRID CALENDAR PARSER (BULLETPROOF)
 // ---------------------------------------------------------------------------
 
 async function getAuctionDates(page, subdomain, monthsAhead) {
-  const dates = [];
+  const dates = new Set();
   const now = new Date();
 
-  // Set standard browser user-agent to bypass basic automated scraper blocks
   await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36');
+  await page.setExtraHTTPHeaders({
+    'Accept-Language': 'en-US,en;q=0.9',
+  });
 
   for (let m = 0; m <= monthsAhead; m++) {
     const target = new Date(now.getFullYear(), now.getMonth() + m, 1);
     const monthNum = target.getMonth() + 1;
-    const mm = String(monthNum).padStart(2, '0');
     const yyyy = target.getFullYear();
 
     const calUrl = `https://${subdomain}.realtaxdeed.com/index.cfm?zaction=user&zmethod=calendar&month=${monthNum}&year=${yyyy}`;
-    
+
     try {
       await page.goto(calUrl, { waitUntil: 'domcontentloaded', timeout: 60000 });
-      await delay(2000); // Allow dynamic calendar JS to render
+      await delay(2000);
 
-      const monthDates = await page.evaluate(() => {
+      const extracted = await page.evaluate(() => {
         const found = [];
 
-        // 1. Scan links containing AUCTIONDATE query parameters
+        // Strategy 1: Find links containing explicit AUCTIONDATE query params
         document.querySelectorAll('a[href*="AUCTIONDATE"]').forEach(a => {
           const href = a.getAttribute('href') || '';
           const match = href.match(/AUCTIONDATE=([^&]+)/i);
-          if (match) found.push(decodeURIComponent(match[1]));
-        });
-
-        // 2. Scan RealAuction day cells (.Cday, .CALDAY, td)
-        document.querySelectorAll('.Cday, .CALDAY, td.day, td').forEach(el => {
-          const text = el.textContent || '';
-          if (/(tax\s*deed|\btd\b)/i.test(text)) {
-            const dayMatch = text.match(/\b([1-9]|[12][0-9]|3[01])\b/);
-            if (dayMatch) found.push(dayMatch[1]);
+          if (match && match[1]) {
+            found.push(decodeURIComponent(match[1]));
           }
         });
 
-        return [...new Set(found)];
+        // Strategy 2: Check interactive day elements containing auction counts/badges
+        document.querySelectorAll('.Cday, .CALDAY, td.day, td').forEach(td => {
+          const link = td.querySelector('a');
+          if (!link) return;
+
+          const text = td.textContent || '';
+          // Ignore general calendar header links / month navigation
+          if (/(tax\s*deed|\btd\b|auction|\b\d+\s*items?\b)/i.test(text)) {
+            const href = link.getAttribute('href') || '';
+            const match = href.match(/AUCTIONDATE=([^&]+)/i);
+            if (match && match[1]) {
+              found.push(decodeURIComponent(match[1]));
+            }
+          }
+        });
+
+        return found;
       });
 
-      monthDates.forEach(dateVal => {
-        if (dateVal.includes('/')) {
-          dates.push(dateVal);
-        } else {
-          dates.push(`${mm}/${String(dateVal).padStart(2, '0')}/${yyyy}`);
+      extracted.forEach(d => {
+        // Enforce MM/DD/YYYY format check and exclude fallback single digits
+        if (/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(d)) {
+          dates.add(d);
         }
       });
+
     } catch (err) {
-      console.error(`Error loading calendar for ${subdomain} (${monthNum}/${yyyy}): ${err.message}`);
+      console.error(`Error fetching calendar for ${subdomain} (${monthNum}/${yyyy}): ${err.message}`);
     }
   }
 
-  return [...new Set(dates)];
+  return Array.from(dates);
 }
 
 // ---------------------------------------------------------------------------
-// SCRAPE ALL PROPERTIES FOR ONE AUCTION DATE (WITH PAGINATION)
+// SCRAPE ALL PROPERTIES FOR ONE AUCTION DATE
 // ---------------------------------------------------------------------------
 
 async function scrapeAuctionDate(page, subdomain, dateStr) {
   const url = `https://${subdomain}.realtaxdeed.com/index.cfm?zaction=AUCTION&Zmethod=PREVIEW&AUCTIONDATE=${dateStr}`;
-  await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
+  
+  try {
+    await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
+    
+    // Wait for either items container or empty area indicator to load
+    await page.waitForSelector('.AUCTION_ITEM, .area_empty, .Astat_DATA', { timeout: 10000 }).catch(() => {});
+  } catch (e) {
+    console.warn(`Navigation warning for ${dateStr}: ${e.message}`);
+  }
 
   const allItems = new Map();
 
@@ -151,7 +164,7 @@ async function scrapeAuctionDate(page, subdomain, dateStr) {
 
     for (let round = 0; round < MAX_ROUNDS && stagnantRounds < 2; round++) {
       const pageItems = await extractCurrentPageItems();
-      const before = allItems.size;
+      const beforeSize = allItems.size;
       pageItems.forEach(it => allItems.set(it.itemId, it));
 
       const clicked = await page.evaluate((idx) => {
@@ -167,12 +180,9 @@ async function scrapeAuctionDate(page, subdomain, dateStr) {
       }, nextImgIndex);
 
       if (!clicked) break;
-      await delay(1300);
+      await delay(1500);
 
-      const afterClickItems = await extractCurrentPageItems();
-      const beforeClickSize = allItems.size;
-      afterClickItems.forEach(it => allItems.set(it.itemId, it));
-      if (allItems.size === beforeClickSize && allItems.size === before) {
+      if (allItems.size === beforeSize) {
         stagnantRounds++;
       } else {
         stagnantRounds = 0;
@@ -180,8 +190,8 @@ async function scrapeAuctionDate(page, subdomain, dateStr) {
     }
   }
 
-  await paginateSection(0); // "Running Auctions"
-  await paginateSection(2); // "Closed or Canceled"
+  await paginateSection(0); // Active Auctions
+  await paginateSection(2); // Closed/Canceled
 
   return Array.from(allItems.values());
 }
@@ -211,7 +221,7 @@ function toDbRow(item, county) {
 }
 
 // ---------------------------------------------------------------------------
-// SUPABASE UPSERT (batched)
+// SUPABASE UPSERT (BATCHED)
 // ---------------------------------------------------------------------------
 
 async function upsertToSupabase(rows) {
@@ -241,14 +251,14 @@ async function upsertToSupabase(rows) {
 }
 
 // ---------------------------------------------------------------------------
-// MAIN
+// MAIN EXECUTION
 // ---------------------------------------------------------------------------
 
 async function runScraper() {
   console.log('Starting tax deed scraper...');
 
   if (!supabaseUrl || !supabaseKey) {
-    throw new Error('Missing SUPABASE_URL or SUPABASE_SERVICE_KEY environment variables in GitHub Secrets.');
+    throw new Error('Missing SUPABASE_URL or SUPABASE_SERVICE_KEY environment variables.');
   }
   supabaseUrl = supabaseUrl.trim();
   if (!supabaseUrl.startsWith('http')) supabaseUrl = `https://${supabaseUrl}`;
@@ -261,7 +271,6 @@ async function runScraper() {
       executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/google-chrome-stable',
       args: ['--no-sandbox', '--disable-setuid-sandbox'],
     });
-    console.log('Puppeteer launched successfully.');
 
     const page = await browser.newPage();
     page.setDefaultNavigationTimeout(60000);
