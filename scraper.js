@@ -6,13 +6,6 @@ const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
 // ---------------------------------------------------------------------------
 // COUNTY CONFIG
 // ---------------------------------------------------------------------------
-// Verified live against miamidade.realtaxdeed.com and duval.realtaxdeed.com
-// (same DOM structure confirmed on both — this is one shared RealAuction
-// "RealTaxDeed" template, so one scraper function covers every county below).
-//
-// Subdomain convention is "countyname.realtaxdeed.com" (lowercase, no spaces).
-// All 15 counties below have had their subdomain confirmed live (Aug 2026).
-// Counties that only run Foreclosure sales (no Taxdeed) are left out.
 const COUNTIES = [
   { state: 'FL', county: 'Miami-Dade',   subdomain: 'miamidade',   verified: true },
   { state: 'FL', county: 'Duval',        subdomain: 'duval',       verified: true },
@@ -31,7 +24,7 @@ const COUNTIES = [
   { state: 'FL', county: 'Sarasota',     subdomain: 'sarasota',    verified: true },
 ];
 
-const HOW_MANY_MONTHS_AHEAD = 2; // scan current month + this many future months
+const HOW_MANY_MONTHS_AHEAD = 2; // Scan current month + this many future months
 
 // ---------------------------------------------------------------------------
 // PARSING HELPERS
@@ -56,20 +49,19 @@ async function getAuctionDates(page, subdomain, monthsAhead) {
     const mm = String(target.getMonth() + 1).padStart(2, '0');
     const yyyy = target.getFullYear();
 
-    const selCalDate = `{ts '${yyyy}-${mm}-01 00:00:00'}`;
-    const calUrl = `https://${subdomain}.realtaxdeed.com/index.cfm?zaction=user&zmethod=calendar&selCalDate=${encodeURIComponent(selCalDate)}`;
+    const calUrl = `https://${subdomain}.realtaxdeed.com/index.cfm?zaction=user&zmethod=calendar&month=${mm}&year=${yyyy}`;
     await page.goto(calUrl, { waitUntil: 'networkidle2', timeout: 60000 });
 
     const monthDates = await page.evaluate(() => {
       const found = [];
-      document.querySelectorAll('td').forEach(td => {
-        if (/Tax Deed/i.test(td.textContent) && /\d+\s*\/\s*\d+\s*TD/i.test(td.textContent)) {
-          const dayMatch = td.querySelector(':scope > *:first-child')?.textContent?.trim()
-            || td.textContent.trim().match(/^\d+/)?.[0];
-          if (dayMatch) found.push(dayMatch.match(/\d+/)?.[0]);
+      document.querySelectorAll('td.CALDAY, td[class*="day"]').forEach(td => {
+        const text = td.textContent || '';
+        if (/tax\s*deed|td/i.test(text)) {
+          const dayMatch = text.match(/\b([1-9]|[12][0-9]|3[01])\b/);
+          if (dayMatch) found.push(dayMatch[1]);
         }
       });
-      return found.filter(Boolean);
+      return [...new Set(found)];
     });
 
     monthDates.forEach(day => {
@@ -88,7 +80,7 @@ async function scrapeAuctionDate(page, subdomain, dateStr) {
   const url = `https://${subdomain}.realtaxdeed.com/index.cfm?zaction=AUCTION&Zmethod=PREVIEW&AUCTIONDATE=${dateStr}`;
   await page.goto(url, { waitUntil: 'networkidle2', timeout: 60000 });
 
-  const allItems = new Map(); // itemId -> data, dedup across pagination clicks
+  const allItems = new Map();
 
   const extractCurrentPageItems = () => page.evaluate(() => {
     const results = [];
@@ -113,7 +105,6 @@ async function scrapeAuctionDate(page, subdomain, dateStr) {
         }
       });
 
-      // Extra check for owner fields inside attributes or alternate labels
       const ownerEl = item.querySelector('.AD_DTA[data-lbl*="Owner"]');
       if (ownerEl) {
         data['Owner Name'] = ownerEl.textContent.trim();
@@ -162,8 +153,8 @@ async function scrapeAuctionDate(page, subdomain, dateStr) {
     }
   }
 
-  await paginateSection(0); // "Running Auctions" section
-  await paginateSection(2); // "Closed or Canceled" section
+  await paginateSection(0); // "Running Auctions"
+  await paginateSection(2); // "Closed or Canceled"
 
   return Array.from(allItems.values());
 }
@@ -180,7 +171,7 @@ function toDbRow(item, county) {
     state: county.state,
     county: county.county,
     address: addressRaw,
-    owner: ownerRaw?.trim() || 'Unknown', // Guaranteed non-null fallback
+    owner: ownerRaw?.trim() || 'Unknown',
     opening_bid: parseMoney(item['Opening Bid']),
     assessed_value: parseMoney(item['Assessed Value']) ?? 0,
     status: item.status || 'Unknown',
@@ -278,4 +269,4 @@ async function runScraper() {
   }
 }
 
-runScraper();
+runScraper();make
