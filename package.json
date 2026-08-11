@@ -4,8 +4,7 @@
   "description": "",
   "main": "scraper.js",
   "scripts": {
-    "start": "node scraper.js",
-    "install-chrome": "puppeteer browsers install chrome"
+    "start": "node scraper.js"
   },
   "dependencies": {
     "puppeteer": "^25.5.0"
