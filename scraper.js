@@ -54,22 +54,35 @@ async function getAuctionDates(page, subdomain, monthsAhead) {
 
     const monthDates = await page.evaluate(() => {
       const found = [];
-      document.querySelectorAll('td.CALDAY, td[class*="day"]').forEach(td => {
-        const text = td.textContent || '';
-        if (/tax\s*deed|td/i.test(text)) {
+      
+      // Look for calendar day cells and links on RealAuction
+      document.querySelectorAll('td, div.day, a').forEach(el => {
+        const text = el.textContent || '';
+        const href = el.getAttribute('href') || '';
+        
+        // Match dates embedded in links or cells containing auction counts
+        const urlMatch = href.match(/AUCTIONDATE=([\d\/]+)/i);
+        if (urlMatch) {
+          found.push(urlMatch[1]);
+        } else if (/\b\d+\s*(TD|Tax\s*Deed)\b/i.test(text)) {
           const dayMatch = text.match(/\b([1-9]|[12][0-9]|3[01])\b/);
           if (dayMatch) found.push(dayMatch[1]);
         }
       });
+      
       return [...new Set(found)];
     });
 
-    monthDates.forEach(day => {
-      dates.push(`${mm}/${String(day).padStart(2, '0')}/${yyyy}`);
+    monthDates.forEach(dateVal => {
+      if (dateVal.includes('/')) {
+        dates.push(dateVal);
+      } else {
+        dates.push(`${mm}/${String(dateVal).padStart(2, '0')}/${yyyy}`);
+      }
     });
   }
 
-  return dates;
+  return [...new Set(dates)];
 }
 
 // ---------------------------------------------------------------------------
