@@ -18,7 +18,7 @@ async function runScraper() {
   console.log('Starting tax deed scraper...');
   
   try {
-    // Add your scraping logic here
+    // Add your scraping and database insert logic here
     
     console.log('Scraper finished successfully.');
   } catch (error) {
