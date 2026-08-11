@@ -10,11 +10,12 @@ async function runScraper() {
   try {
     browser = await puppeteer.launch({
       headless: true,
+      executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/google-chrome-stable',
       args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
     
     const page = await browser.newPage();
-    console.log('Puppeteer launched successfully.');
+    console.log('Puppeteer launched successfully with system Chrome.');
 
     const scrapedData = {
       property_id: '12345',
