@@ -6,6 +6,10 @@ const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
 async function runScraper() {
   console.log('Starting tax deed scraper...');
   
+  if (!supabaseUrl || !supabaseKey) {
+    throw new Error('Missing SUPABASE_URL or SUPABASE_SERVICE_KEY environment variables in GitHub Secrets.');
+  }
+
   let browser;
   try {
     browser = await puppeteer.launch({
@@ -17,12 +21,15 @@ async function runScraper() {
     const page = await browser.newPage();
     console.log('Puppeteer launched successfully with system Chrome.');
 
+    // Replace 'your_table_name' with your actual Supabase table name
+    const tableName = 'your_table_name';
+
     const scrapedData = {
       property_id: '12345',
       status: 'active'
     };
 
-    const response = await fetch(`${supabaseUrl}/rest/v1/your_table_name`, {
+    const response = await fetch(`${supabaseUrl}/rest/v1/${tableName}`, {
       method: 'POST',
       headers: {
         'apikey': supabaseKey,
