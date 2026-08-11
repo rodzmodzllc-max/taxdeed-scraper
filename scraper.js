@@ -1,6 +1,5 @@
 const puppeteer = require('puppeteer');
 
-// Load environment variables
 let supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_SERVICE_KEY;
 
@@ -11,20 +10,9 @@ async function runScraper() {
     throw new Error('Missing SUPABASE_URL or SUPABASE_SERVICE_KEY environment variables in GitHub Secrets.');
   }
 
-  // --- AUTOMATIC URL SANITIZATION ---
   supabaseUrl = supabaseUrl.trim();
-  if (!supabaseUrl.startsWith('http')) {
-    supabaseUrl = `https://${supabaseUrl}`;
-  }
-  if (supabaseUrl.endsWith('/')) {
-    supabaseUrl = supabaseUrl.slice(0, -1);
-  }
-  try {
-    new URL(supabaseUrl);
-  } catch (err) {
-    throw new Error(`CRITICAL: Even after auto-formatting, the Supabase URL is invalid. Check the GitHub Secret. Masked length: ${supabaseUrl.length}`);
-  }
-  // -----------------------------------
+  if (!supabaseUrl.startsWith('http')) supabaseUrl = `https://${supabaseUrl}`;
+  if (supabaseUrl.endsWith('/')) supabaseUrl = supabaseUrl.slice(0, -1);
 
   let browser;
   try {
@@ -35,12 +23,9 @@ async function runScraper() {
     });
     
     const page = await browser.newPage();
-    console.log('Puppeteer launched successfully with system Chrome.');
+    console.log('Puppeteer launched successfully.');
 
-    // 1. UPDATED TABLE NAME
     const tableName = 'properties';
-
-    // 2. UPDATED DATA TO MATCH YOUR ACTUAL COLUMNS
     const scrapedData = {
       state: 'FL',
       county: 'Miami-Dade',
@@ -66,17 +51,12 @@ async function runScraper() {
       throw new Error(`Supabase REST error (${response.status}): ${errorText}`);
     }
 
-    const result = await response.json();
-    console.log('Successfully saved data to Supabase:', result);
-    console.log('Scraper finished successfully.');
-
+    console.log('Successfully saved data to Supabase!');
   } catch (error) {
     console.error('Error running tax deed scraper:', error);
     process.exit(1);
   } finally {
-    if (browser) {
-      await browser.close();
-    }
+    if (browser) await browser.close();
   }
 }
 
