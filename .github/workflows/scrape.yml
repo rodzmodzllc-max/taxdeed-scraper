@@ -2,8 +2,8 @@ name: Florida Tax Deed Scraper Schedule
 
 on:
   schedule:
-    - cron: '0 6 * * *' # Runs every day at 6:00 AM UTC
-  workflow_dispatch: # Allows manual trigger from GitHub UI
+    - cron: '0 6 * * *'
+  workflow_dispatch:
 
 jobs:
   scrape:
@@ -15,7 +15,7 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
 
       - name: Install Dependencies
         run: npm ci
@@ -23,5 +23,5 @@ jobs:
       - name: Run Scraper
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }} # <-- Matches your GitHub Secret name
         run: node scraper.js
