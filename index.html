@@ -10,8 +10,6 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <!-- Supabase JS Client CDN -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <!-- Config File -->
-  <script src="config.js"></script>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen font-sans">
 
@@ -25,9 +23,12 @@
         <p class="text-slate-400 text-sm mt-1">Live Auction Intelligence & Property Valuation Across 50 States</p>
       </div>
       <div id="statBox" class="mt-4 md:mt-0 bg-slate-900 border border-slate-800 px-5 py-2.5 rounded-xl text-sm font-semibold text-emerald-400 shadow-inner">
-        Loading auction database...
+        Connecting to database...
       </div>
     </header>
+
+    <!-- Debug Banner -->
+    <div id="statusBanner" class="hidden mb-6 p-4 rounded-xl text-sm font-semibold"></div>
 
     <!-- Filters & Search -->
     <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 mb-8 shadow-lg">
@@ -68,7 +69,10 @@
 
     <!-- Property Grid -->
     <div id="propertyGrid" class="grid grid-cols-1 gap-6 mb-8">
-      <!-- Property Cards Rendered Here by app.js -->
+      <div class="text-center py-16">
+        <div class="inline-block animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500 mb-3"></div>
+        <p class="text-slate-400 text-sm">Querying Supabase database...</p>
+      </div>
     </div>
 
     <!-- Pagination -->
@@ -84,6 +88,221 @@
 
   </div>
 
-  <script src="app.js"></script>
+  <script>
+    // Unregister any stale Service Worker cache
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistrations().then(registrations => {
+        for (let registration of registrations) { registration.unregister(); }
+      });
+    }
+
+    // Direct Supabase Credentials
+    const SUPABASE_URL = 'https://cqnnnvpbocafuvpzfbzu.supabase.co';
+    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNxbm5udnBib2NhZnV2cHpmYnp1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU5OTQyNjYsImV4cCI6MjEwMTU3MDI2Nn0.hgQhS4sYWtu8fDKrRSRQdbmbbebnifXoq2xbMrH0yZA';
+
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+    let currentPage = 1;
+    const pageSize = 15;
+    let totalRecordsCount = 0;
+
+    async function fetchAuctions() {
+      const search = document.getElementById('searchInput').value.trim();
+      const type = document.getElementById('typeSelect').value;
+      const sort = document.getElementById('sortSelect').value;
+      const grid = document.getElementById('propertyGrid');
+      const statBox = document.getElementById('statBox');
+      const banner = document.getElementById('statusBanner');
+
+      grid.innerHTML = '<div class="text-center py-16"><div class="inline-block animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500 mb-3"></div><p class="text-slate-400 text-sm">Querying database...</p></div>';
+
+      try {
+        let query = supabase.from('tax_auctions').select('*', { count: 'exact' });
+
+        if (type !== 'ALL') {
+          query = query.eq('auction_type', type);
+        }
+
+        if (search) {
+          query = query.or(`parcel_id.ilike.%${search}%,county.ilike.%${search}%,state.ilike.%${search}%`);
+        }
+
+        switch (sort) {
+          case 'date_desc': query = query.order('auction_date', { ascending: false }); break;
+          case 'bid_asc': query = query.order('opening_bid', { ascending: true }); break;
+          case 'bid_desc': query = query.order('opening_bid', { ascending: false }); break;
+          default: query = query.order('auction_date', { ascending: true }); break;
+        }
+
+        const from = (currentPage - 1) * pageSize;
+        query = query.range(from, from + pageSize - 1);
+
+        const { data, count, error } = await query;
+
+        if (error) throw error;
+
+        totalRecordsCount = count || 0;
+        statBox.innerText = `${totalRecordsCount.toLocaleString()} Total Records Found`;
+
+        if (!data || data.length === 0) {
+          banner.className = "mb-6 p-4 rounded-xl text-sm font-semibold bg-amber-900/30 border border-amber-500/50 text-amber-300";
+          banner.innerHTML = "⚠️ Connected to database, but 0 records were returned. Make sure Row Level Security (RLS) Policy is set to public in Supabase.";
+          banner.classList.remove('hidden');
+
+          grid.innerHTML = '<div class="text-center py-16 bg-slate-900 border border-slate-800 rounded-xl"><p class="text-slate-400">No properties found matching current filter.</p></div>';
+          return;
+        }
+
+        banner.classList.add('hidden');
+        renderCards(data);
+        renderPagination();
+
+      } catch (err) {
+        console.error('Supabase Error:', err);
+        banner.className = "mb-6 p-4 rounded-xl text-sm font-semibold bg-red-900/30 border border-red-500/50 text-red-300";
+        banner.innerHTML = `❌ Supabase Connection Failed: ${err.message}`;
+        banner.classList.remove('hidden');
+
+        grid.innerHTML = `<div class="bg-red-900/20 border border-red-500/40 rounded-xl p-6 text-center text-red-300"><p class="font-bold">Database Error</p><p class="text-sm mt-1">${err.message}</p></div>`;
+      }
+    }
+
+    function renderCards(items) {
+      const container = document.getElementById('propertyGrid');
+      container.innerHTML = items.map(item => {
+        const displayAddress = item.address || `${item.county} County Property (Parcel: ${item.parcel_id})`;
+        const fullLocationStr = `${displayAddress}, ${item.county}, ${item.state}`;
+        
+        const openingBid = formatCurrency(item.opening_bid);
+        const marketValue = formatCurrency(item.market_value || (item.opening_bid ? item.opening_bid * 3.2 : 45000));
+        const totalBids = item.bid_count || item.total_bids || 0;
+
+        const encodedLoc = encodeURIComponent(fullLocationStr);
+        const encodedParcel = encodeURIComponent(item.parcel_id || '');
+        const countyStateStr = encodeURIComponent(`${item.county} County ${item.state}`);
+
+        const link1 = item.source_url || '#';
+        const link2 = `https://www.google.com/search?q=${countyStateStr}+property+appraiser+parcel+${encodedParcel}`;
+        const link3 = `https://www.google.com/search?q=${countyStateStr}+tax+collector+parcel+${encodedParcel}`;
+        const link4 = `https://www.google.com/search?q=${countyStateStr}+GIS+parcel+interactive+map+${encodedParcel}`;
+        const link5 = `https://www.google.com/maps/search/?api=1&query=${encodedLoc}`;
+        const link6 = `https://www.zillow.com/homes/${encodedLoc}_rb/`;
+
+        return `
+          <div class="bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-2xl p-6 shadow-xl transition-all duration-200">
+            <div class="flex flex-wrap justify-between items-center gap-2 mb-4">
+              <div class="flex items-center gap-2">
+                <span class="bg-blue-600/20 border border-blue-500/30 text-blue-400 font-bold text-xs px-3 py-1 rounded-md">
+                  ${item.state} - ${item.county} County
+                </span>
+                <span class="px-3 py-1 rounded-md text-xs font-bold ${
+                  item.auction_type === 'DEED' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' :
+                  item.auction_type === 'LIEN' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30' :
+                  'bg-purple-500/10 text-purple-400 border border-purple-500/30'
+                }">
+                  ${item.auction_type}
+                </span>
+              </div>
+              <span class="text-xs text-slate-400 flex items-center gap-1.5">
+                <span class="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span> Live Auction
+              </span>
+            </div>
+
+            <div class="mb-6 border-b border-slate-800 pb-4">
+              <div class="text-xs font-semibold uppercase text-slate-500 tracking-wider mb-1">Property Address / Location</div>
+              <h2 class="text-xl font-extrabold text-white flex items-center gap-2">
+                <i class="fa-solid fa-location-dot text-rose-500 text-base"></i> ${displayAddress}
+              </h2>
+              <div class="text-xs font-mono text-slate-400 mt-1">Parcel ID: ${item.parcel_id}</div>
+            </div>
+
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+              <div class="bg-slate-950/60 border border-slate-800/80 rounded-xl p-4">
+                <div class="text-xs font-medium text-slate-400 uppercase tracking-wider mb-1">Pricing</div>
+                <div class="text-xl font-bold text-emerald-400">${openingBid}</div>
+                <div class="text-[11px] text-slate-500 mt-0.5">Opening Bid</div>
+              </div>
+
+              <div class="bg-slate-950/60 border border-slate-800/80 rounded-xl p-4">
+                <div class="text-xs font-medium text-slate-400 uppercase tracking-wider mb-1">Bids</div>
+                <div class="text-xl font-bold text-amber-400">${totalBids} Bids</div>
+                <div class="text-[11px] text-slate-500 mt-0.5">Current Activity</div>
+              </div>
+
+              <div class="bg-slate-950/60 border border-slate-800/80 rounded-xl p-4">
+                <div class="text-xs font-medium text-slate-400 uppercase tracking-wider mb-1">Market Value</div>
+                <div class="text-xl font-bold text-blue-400">${marketValue}</div>
+                <div class="text-[11px] text-slate-500 mt-0.5">Est. Assessed Value</div>
+              </div>
+
+              <div class="bg-slate-950/60 border border-slate-800/80 rounded-xl p-4">
+                <div class="text-xs font-medium text-slate-400 uppercase tracking-wider mb-1">Auction Date</div>
+                <div class="text-base font-bold text-slate-200 mt-1">${formatDate(item.auction_date)}</div>
+                <div class="text-[11px] text-slate-500">Scheduled Time</div>
+              </div>
+            </div>
+
+            <div>
+              <div class="text-xs font-semibold uppercase text-slate-400 tracking-wider mb-2 flex items-center gap-1.5">
+                <i class="fa-solid fa-arrow-up-right-from-square text-blue-400"></i> Direct Property Research Links (6)
+              </div>
+              <div class="grid grid-cols-2 md:grid-cols-6 gap-2">
+                <a href="${link1}" target="_blank" rel="noopener" class="bg-blue-600/20 hover:bg-blue-600 border border-blue-500/40 text-blue-300 hover:text-white font-medium text-xs py-2 px-3 rounded-lg text-center transition flex items-center justify-center gap-1.5"><i class="fa-solid fa-gavel text-xs"></i> 1. Auction Site</a>
+                <a href="${link2}" target="_blank" rel="noopener" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 font-medium text-xs py-2 px-3 rounded-lg text-center transition flex items-center justify-center gap-1.5"><i class="fa-solid fa-file-invoice text-xs text-amber-400"></i> 2. Appraiser</a>
+                <a href="${link3}" target="_blank" rel="noopener" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 font-medium text-xs py-2 px-3 rounded-lg text-center transition flex items-center justify-center gap-1.5"><i class="fa-solid fa-receipt text-xs text-emerald-400"></i> 3. Tax Collector</a>
+                <a href="${link4}" target="_blank" rel="noopener" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 font-medium text-xs py-2 px-3 rounded-lg text-center transition flex items-center justify-center gap-1.5"><i class="fa-solid fa-map-location-dot text-xs text-purple-400"></i> 4. GIS Map</a>
+                <a href="${link5}" target="_blank" rel="noopener" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 font-medium text-xs py-2 px-3 rounded-lg text-center transition flex items-center justify-center gap-1.5"><i class="fa-solid fa-street-view text-xs text-rose-400"></i> 5. Google Maps</a>
+                <a href="${link6}" target="_blank" rel="noopener" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 font-medium text-xs py-2 px-3 rounded-lg text-center transition flex items-center justify-center gap-1.5"><i class="fa-solid fa-house-circle-check text-xs text-sky-400"></i> 6. Zillow</a>
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function formatCurrency(val) {
+      if (!val || isNaN(val)) return '$0.00';
+      return `$${parseFloat(val).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    }
+
+    function formatDate(dateStr) {
+      if (!dateStr) return 'TBD';
+      try { return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); }
+      catch (e) { return dateStr; }
+    }
+
+    function renderPagination() {
+      const totalPages = Math.ceil(totalRecordsCount / pageSize) || 1;
+      document.getElementById('pageInfo').innerText = `Page ${currentPage} of ${totalPages}`;
+      document.getElementById('prevBtn').disabled = currentPage <= 1;
+      document.getElementById('nextBtn').disabled = currentPage >= totalPages;
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      fetchAuctions();
+
+      document.getElementById('searchInput').addEventListener('input', (e) => {
+        currentPage = 1; fetchAuctions();
+      });
+      document.getElementById('typeSelect').addEventListener('change', () => {
+        currentPage = 1; fetchAuctions();
+      });
+      document.getElementById('sortSelect').addEventListener('change', () => {
+        currentPage = 1; fetchAuctions();
+      });
+      document.getElementById('resetBtn').addEventListener('click', () => {
+        document.getElementById('searchInput').value = '';
+        document.getElementById('typeSelect').value = 'ALL';
+        document.getElementById('sortSelect').value = 'date_asc';
+        currentPage = 1; fetchAuctions();
+      });
+      document.getElementById('prevBtn').addEventListener('click', () => {
+        if (currentPage > 1) { currentPage--; fetchAuctions(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+      });
+      document.getElementById('nextBtn').addEventListener('click', () => {
+        if (currentPage < Math.ceil(totalRecordsCount / pageSize)) { currentPage++; fetchAuctions(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
+      });
+    });
+  </script>
 </body>
 </html>
