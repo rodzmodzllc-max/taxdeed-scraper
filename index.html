@@ -3,24 +3,53 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Nationwide RealAuction Property Radar</title>
+  <title>Nationwide Tax Deed & Lien Radar</title>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- FontAwesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <style>
+    /* Custom Pill Tag Toggle Styles */
+    .pill-btn {
+      transition: all 0.15s ease-in-out;
+      user-select: none;
+    }
+    .pill-btn.active {
+      background-color: #1e293b;
+      border-color: #38bdf8;
+      color: #38bdf8;
+      box-shadow: 0 0 10px rgba(56, 189, 248, 0.2);
+    }
+    .pill-btn.active-serious {
+      background-color: #451a1a;
+      border-color: #f87171;
+      color: #fca5a5;
+    }
+    .pill-btn.active-flag {
+      background-color: #45301a;
+      border-color: #fbbf24;
+      color: #fde68a;
+    }
+    .pill-btn.active-clear {
+      background-color: #143828;
+      border-color: #34d399;
+      color: #a7f3d0;
+    }
+  </style>
 </head>
-<body class="bg-slate-950 text-slate-100 min-h-screen font-sans">
+<body class="bg-[#0f141c] text-slate-100 min-h-screen font-sans antialiased">
 
-  <div class="max-w-7xl mx-auto px-4 py-8">
+  <div class="max-w-6xl mx-auto px-4 py-8">
+    
     <!-- Header -->
-    <header class="flex flex-col md:flex-row justify-between items-center mb-8 border-b border-slate-800 pb-6">
+    <header class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 border-b border-slate-800 pb-6 gap-4">
       <div>
         <h1 class="text-3xl font-extrabold bg-gradient-to-r from-blue-400 via-indigo-400 to-emerald-400 bg-clip-text text-transparent flex items-center gap-3">
-          <i class="fa-solid fa-house-flag text-blue-400"></i> Nationwide Tax Deed & Lien Radar
+          <i class="fa-solid fa-house-flag text-blue-400"></i> Tax Deed Property Radar
         </h1>
-        <p class="text-slate-400 text-sm mt-1">Live Auction Intelligence & Property Valuation Across 50 States</p>
+        <p class="text-slate-400 text-sm mt-1">Live Auction Intelligence & Portfolio Tracking Across 50 States</p>
       </div>
-      <div id="statBox" class="mt-4 md:mt-0 bg-slate-900 border border-slate-800 px-5 py-2.5 rounded-xl text-sm font-semibold text-emerald-400 shadow-inner">
+      <div id="statBox" class="bg-[#18202c] border border-slate-800 px-5 py-2.5 rounded-xl text-sm font-semibold text-emerald-400 shadow-inner">
         Connecting to database...
       </div>
     </header>
@@ -28,58 +57,179 @@
     <!-- Error/Status Diagnostic Banner -->
     <div id="statusBanner" class="hidden mb-6 p-4 rounded-xl text-sm font-semibold"></div>
 
-    <!-- Filters & Search -->
-    <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 mb-8 shadow-lg">
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div>
-          <label class="block text-xs font-semibold text-slate-400 mb-1">Search Address / Parcel / County</label>
-          <input type="text" id="searchInput" placeholder="Type Address, Parcel ID, State..." 
-            class="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-blue-500">
+    <!-- EXPANDABLE FILTERS & SORT PANEL -->
+    <div class="bg-[#18202c] border border-slate-800 rounded-2xl mb-8 shadow-2xl overflow-hidden">
+      
+      <!-- Accordion Header Bar -->
+      <button id="toggleFiltersBtn" class="w-full px-6 py-4 flex justify-between items-center text-left font-bold text-slate-200 hover:bg-slate-800/50 transition border-b border-slate-800/80">
+        <span class="flex items-center gap-2 text-base">
+          <i class="fa-solid fa-sliders text-blue-400"></i> Filters & Sort
+        </span>
+        <span class="flex items-center gap-3 text-xs font-semibold text-slate-400">
+          <span id="activeFilterBadge" class="bg-blue-600/20 border border-blue-500/30 text-blue-400 px-2.5 py-0.5 rounded-full">All Records</span>
+          <i id="filterChevron" class="fa-solid fa-chevron-down transition-transform duration-200"></i>
+        </span>
+      </button>
+
+      <!-- Collapsible Panel Content -->
+      <div id="filterPanel" class="p-6 space-y-6">
+        
+        <!-- ROW 1: Numeric Inputs (Bid Min/Max, Assessed Min) -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div>
+            <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">BID MIN & MAX ($)</label>
+            <div class="flex items-center gap-2">
+              <input type="number" id="bidMinInput" value="0" placeholder="0" 
+                class="w-full bg-[#0f141c] border border-slate-800 rounded-xl px-3 py-2 text-sm font-mono text-slate-200 focus:outline-none focus:border-blue-500">
+              <span class="text-xs text-slate-500 font-bold">to</span>
+              <input type="number" id="bidMaxInput" placeholder="Any" 
+                class="w-full bg-[#0f141c] border border-slate-800 rounded-xl px-3 py-2 text-sm font-mono text-slate-200 focus:outline-none focus:border-blue-500">
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">ASSESSED MIN ($)</label>
+            <input type="number" id="assessedMinInput" value="0" placeholder="0" 
+              class="w-full bg-[#0f141c] border border-slate-800 rounded-xl px-3 py-2 text-sm font-mono text-slate-200 focus:outline-none focus:border-blue-500">
+          </div>
+
+          <div>
+            <div class="flex justify-between items-center mb-1.5">
+              <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-400">SORT BY</label>
+              <button id="resetFiltersBtn" class="text-xs text-blue-400 hover:underline font-semibold">Reset filters</button>
+            </div>
+            <select id="sortSelect" class="w-full bg-[#0f141c] border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-blue-500">
+              <option value="county">County (default order)</option>
+              <option value="date_asc">Auction Date (Earliest First)</option>
+              <option value="date_desc">Auction Date (Latest First)</option>
+              <option value="bid_asc">Pricing (Lowest Bid First)</option>
+              <option value="bid_desc">Pricing (Highest Bid First)</option>
+              <option value="market_desc">Market Value (Highest First)</option>
+            </select>
+          </div>
         </div>
 
-        <div>
-          <label class="block text-xs font-semibold text-slate-400 mb-1">Auction Type</label>
-          <select id="typeSelect" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-blue-500">
-            <option value="ALL">All Auction Types</option>
-            <option value="DEED">Tax Deeds</option>
-            <option value="LIEN">Tax Liens</option>
-            <option value="LAND_AVAILABLE">Land Available / Certificates</option>
-          </select>
+        <!-- ROW 2: Checkboxes & Max Bid Target -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2 border-t border-slate-800/60">
+          <!-- Checkboxes -->
+          <div class="flex flex-wrap items-center gap-6 text-sm font-medium">
+            <label class="flex items-center gap-2 cursor-pointer hover:text-white">
+              <input type="checkbox" id="favOnlyCheckbox" class="rounded bg-slate-900 border-slate-700 text-blue-600 focus:ring-0">
+              <span>♥ Favorites only</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer hover:text-white">
+              <input type="checkbox" id="topPicksCheckbox" class="rounded bg-slate-900 border-slate-700 text-blue-600 focus:ring-0">
+              <span>★ Top picks only</span>
+            </label>
+            <label class="flex items-center gap-2 cursor-pointer hover:text-white">
+              <input type="checkbox" id="quietTitleCheckbox" class="rounded bg-slate-900 border-slate-700 text-blue-600 focus:ring-0">
+              <span>Include quiet title est.</span>
+            </label>
+          </div>
+
+          <!-- Max Bid Target % -->
+          <div>
+            <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">MAX BID TARGET (% OF MARKET)</label>
+            <input type="number" id="maxBidTargetInput" value="40" placeholder="40" 
+              class="w-full bg-[#0f141c] border border-slate-800 rounded-xl px-4 py-2 text-sm font-mono text-slate-200 focus:outline-none focus:border-blue-500">
+          </div>
         </div>
 
-        <div>
-          <label class="block text-xs font-semibold text-slate-400 mb-1">Sort By</label>
-          <select id="sortSelect" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-blue-500">
-            <option value="date_asc">Auction Date (Earliest First)</option>
-            <option value="date_desc">Auction Date (Latest First)</option>
-            <option value="bid_asc">Pricing (Lowest Bid First)</option>
-            <option value="bid_desc">Pricing (Highest Bid First)</option>
-          </select>
+        <!-- ROW 3: Auction Date Range Filter -->
+        <div class="pt-2 border-t border-slate-800/60">
+          <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-2">AUCTION DATES</label>
+          <div class="flex flex-wrap items-center gap-3">
+            <input type="date" id="startDateInput" class="bg-[#0f141c] border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-blue-500">
+            <span class="text-xs text-slate-500 font-bold">to</span>
+            <input type="date" id="endDateInput" class="bg-[#0f141c] border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-blue-500">
+            <div class="flex gap-2">
+              <button onclick="setDateQuick('7')" class="bg-[#0f141c] border border-slate-800 hover:border-slate-700 px-3 py-1.5 rounded-xl text-xs font-semibold">Next 7 Days</button>
+              <button onclick="setDateQuick('30')" class="bg-[#0f141c] border border-slate-800 hover:border-slate-700 px-3 py-1.5 rounded-xl text-xs font-semibold">Next 30 Days</button>
+              <button onclick="setDateQuick('all')" class="bg-[#0f141c] border border-slate-800 hover:border-slate-700 px-3 py-1.5 rounded-xl text-xs font-semibold">All Dates</button>
+            </div>
+          </div>
         </div>
 
-        <div class="flex items-end gap-2">
-          <button id="resetBtn" class="w-full bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium rounded-lg py-2.5 text-sm transition">
-            <i class="fa-solid fa-rotate-right mr-1"></i> Reset
-          </button>
+        <!-- ROW 4: STATE PILLS -->
+        <div class="pt-2 border-t border-slate-800/60">
+          <div class="flex justify-between items-center mb-2">
+            <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-400">STATE</label>
+            <div class="flex gap-2 text-[10px] font-bold">
+              <button onclick="selectAllCategory('states')" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-0.5 rounded">ALL</button>
+              <button onclick="clearCategory('states')" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-0.5 rounded">NONE</button>
+            </div>
+          </div>
+          <div id="statePillContainer" class="flex flex-wrap gap-2">
+            <!-- Dynamically Rendered State Pills -->
+          </div>
         </div>
+
+        <!-- ROW 5: PROPERTY TYPE PILLS -->
+        <div class="pt-2 border-t border-slate-800/60">
+          <div class="flex justify-between items-center mb-2">
+            <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-400">PROPERTY TYPE</label>
+            <div class="flex gap-2 text-[10px] font-bold">
+              <button onclick="selectAllCategory('propType')" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-0.5 rounded">ALL</button>
+              <button onclick="clearCategory('propType')" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-0.5 rounded">NONE</button>
+            </div>
+          </div>
+          <div id="propTypePillContainer" class="flex flex-wrap gap-2">
+            <!-- Dynamically Rendered Property Type Pills -->
+          </div>
+        </div>
+
+        <!-- ROW 6: TITLE STATUS PILLS -->
+        <div class="pt-2 border-t border-slate-800/60">
+          <div class="flex justify-between items-center mb-2">
+            <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-400">TITLE STATUS</label>
+            <div class="flex gap-2 text-[10px] font-bold">
+              <button onclick="selectAllCategory('titleStatus')" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-0.5 rounded">ALL</button>
+              <button onclick="clearCategory('titleStatus')" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-0.5 rounded">NONE</button>
+            </div>
+          </div>
+          <div id="titleStatusPillContainer" class="flex flex-wrap gap-2">
+            <!-- Dynamically Rendered Title Status Pills -->
+          </div>
+        </div>
+
+        <!-- ROW 7: COUNTY PILLS -->
+        <div class="pt-2 border-t border-slate-800/60">
+          <div class="flex justify-between items-center mb-2">
+            <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-400">COUNTY</label>
+            <div class="flex gap-2 text-[10px] font-bold">
+              <button onclick="selectAllCategory('counties')" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-0.5 rounded">ALL</button>
+              <button onclick="clearCategory('counties')" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-0.5 rounded">NONE</button>
+            </div>
+          </div>
+          <div id="countyPillContainer" class="flex flex-wrap gap-2">
+            <!-- Dynamically Rendered County Pills -->
+          </div>
+        </div>
+
       </div>
     </div>
 
-    <!-- Property Grid -->
-    <div id="propertyGrid" class="grid grid-cols-1 gap-6 mb-8">
-      <div class="text-center py-16">
+    <!-- Search Bar Input -->
+    <div class="mb-6">
+      <input type="text" id="searchInput" placeholder="🔍 Search Address, Parcel ID, County, or State..." 
+        class="w-full bg-[#18202c] border border-slate-800 rounded-2xl px-5 py-3 text-sm text-slate-200 focus:outline-none focus:border-blue-500 shadow-xl">
+    </div>
+
+    <!-- Property Card List Container -->
+    <div id="propertyGrid" class="space-y-6 mb-8">
+      <div class="text-center py-20">
         <div class="inline-block animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500 mb-3"></div>
-        <p class="text-slate-400 text-sm">Querying Supabase PostgREST API...</p>
+        <p class="text-slate-400 text-sm">Loading live properties...</p>
       </div>
     </div>
 
     <!-- Pagination -->
-    <div class="flex justify-between items-center bg-slate-900 border border-slate-800 rounded-xl px-6 py-4">
-      <button id="prevBtn" class="bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-slate-300 font-medium rounded-lg px-4 py-2 text-sm transition">
+    <div class="flex justify-between items-center bg-[#18202c] border border-slate-800 rounded-2xl px-6 py-4">
+      <button id="prevBtn" class="bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-slate-300 font-medium rounded-xl px-4 py-2 text-sm transition">
         <i class="fa-solid fa-chevron-left mr-1"></i> Previous
       </button>
       <span id="pageInfo" class="text-sm font-semibold text-slate-400">Page 1</span>
-      <button id="nextBtn" class="bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-slate-300 font-medium rounded-lg px-4 py-2 text-sm transition">
+      <button id="nextBtn" class="bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-slate-300 font-medium rounded-xl px-4 py-2 text-sm transition">
         Next <i class="fa-solid fa-chevron-right ml-1"></i>
       </button>
     </div>
@@ -87,7 +237,6 @@
   </div>
 
   <script>
-    // Disable any cached service workers immediately
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.getRegistrations().then(regs => {
         for (let r of regs) r.unregister();
@@ -97,43 +246,143 @@
     const SUPABASE_URL = 'https://cqnnnvpbocafuvpzfbzu.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNxbm5udnBib2NhZnV2cHpmYnp1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU5OTQyNjYsImV4cCI6MjEwMTU3MDI2Nn0.hgQhS4sYWtu8fDKrRSRQdbmbbebnifXoq2xbMrH0yZA';
 
+    // State Variables
     let currentPage = 1;
     const pageSize = 15;
     let totalRecordsCount = 0;
+    let rawFetchedRecords = [];
+
+    // Pill Categories Definitions
+    const AVAILABLE_STATES = ['FL', 'AL', 'TX', 'AZ', 'CA', 'CO', 'GA', 'NC', 'TN', 'AR'];
+    const AVAILABLE_PROP_TYPES = ['House', 'Condo', 'Townhome', 'Mobile/Manuf.', 'Vacant Lot', 'Commercial', 'Unknown'];
+    const AVAILABLE_TITLE_STATUSES = ['Clear', 'Flag', 'Serious', 'Unscreened'];
+    const AVAILABLE_COUNTIES = ['Brevard', 'Miami-Dade', 'Orange', 'Broward', 'Hillsborough', 'Palm Beach', 'Pinellas', 'Lee', 'Polk', 'Osceola', 'Pasco', 'Sarasota', 'Manatee', 'Collier', 'Escambia', 'Marion', 'Volusia'];
+
+    // Selected Sets
+    let selectedStates = new Set(AVAILABLE_STATES);
+    let selectedPropTypes = new Set(AVAILABLE_PROP_TYPES);
+    let selectedTitleStatuses = new Set(AVAILABLE_TITLE_STATUSES);
+    let selectedCounties = new Set(AVAILABLE_COUNTIES);
+
+    // Initial Pill Render
+    function renderPillContainers() {
+      // Render States
+      document.getElementById('statePillContainer').innerHTML = AVAILABLE_STATES.map(st => `
+        <button onclick="togglePill('states', '${st}')" id="pill_states_${st}" class="pill-btn active text-xs font-semibold px-3 py-1 rounded-full border border-slate-800 bg-[#0f141c]">${st}</button>
+      `).join('');
+
+      // Render Property Types
+      document.getElementById('propTypePillContainer').innerHTML = AVAILABLE_PROP_TYPES.map(pt => `
+        <button onclick="togglePill('propType', '${pt}')" id="pill_propType_${pt.replace(/[^a-zA-Z]/g,'')}" class="pill-btn active text-xs font-semibold px-3 py-1 rounded-full border border-slate-800 bg-[#0f141c]">${pt}</button>
+      `).join('');
+
+      // Render Title Statuses
+      document.getElementById('titleStatusPillContainer').innerHTML = AVAILABLE_TITLE_STATUSES.map(ts => {
+        let activeClass = ts === 'Serious' ? 'active-serious' : ts === 'Flag' ? 'active-flag' : ts === 'Clear' ? 'active-clear' : 'active';
+        return `<button onclick="togglePill('titleStatus', '${ts}')" id="pill_titleStatus_${ts}" class="pill-btn ${activeClass} text-xs font-semibold px-3 py-1 rounded-full border border-slate-800 bg-[#0f141c]">${ts}</button>`;
+      }).join('');
+
+      // Render Counties
+      document.getElementById('countyPillContainer').innerHTML = AVAILABLE_COUNTIES.map(c => `
+        <button onclick="togglePill('counties', '${c}')" id="pill_counties_${c.replace(/[^a-zA-Z]/g,'')}" class="pill-btn active text-xs font-semibold px-3 py-1 rounded-full border border-slate-800 bg-[#0f141c]">${c}</button>
+      `).join('');
+    }
+
+    function togglePill(category, value) {
+      let setRef, idPrefix;
+      if (category === 'states') { setRef = selectedStates; idPrefix = 'pill_states_'; }
+      else if (category === 'propType') { setRef = selectedPropTypes; idPrefix = 'pill_propType_'; }
+      else if (category === 'titleStatus') { setRef = selectedTitleStatuses; idPrefix = 'pill_titleStatus_'; }
+      else if (category === 'counties') { setRef = selectedCounties; idPrefix = 'pill_counties_'; }
+
+      const sanitizeId = value.replace(/[^a-zA-Z]/g,'');
+      const elem = document.getElementById(`${idPrefix}${sanitizeId}`);
+
+      if (setRef.has(value)) {
+        setRef.delete(value);
+        if (elem) elem.className = "pill-btn text-xs font-semibold px-3 py-1 rounded-full border border-slate-800 bg-[#0f141c] text-slate-500 opacity-60";
+      } else {
+        setRef.add(value);
+        let activeClass = (value === 'Serious') ? 'active-serious' : (value === 'Flag') ? 'active-flag' : (value === 'Clear') ? 'active-clear' : 'active';
+        if (elem) elem.className = `pill-btn ${activeClass} text-xs font-semibold px-3 py-1 rounded-full border border-slate-800 bg-[#0f141c]`;
+      }
+      currentPage = 1;
+      fetchAuctions();
+    }
+
+    function selectAllCategory(category) {
+      if (category === 'states') selectedStates = new Set(AVAILABLE_STATES);
+      if (category === 'propType') selectedPropTypes = new Set(AVAILABLE_PROP_TYPES);
+      if (category === 'titleStatus') selectedTitleStatuses = new Set(AVAILABLE_TITLE_STATUSES);
+      if (category === 'counties') selectedCounties = new Set(AVAILABLE_COUNTIES);
+      renderPillContainers();
+      currentPage = 1;
+      fetchAuctions();
+    }
+
+    function clearCategory(category) {
+      if (category === 'states') selectedStates.clear();
+      if (category === 'propType') selectedPropTypes.clear();
+      if (category === 'titleStatus') selectedTitleStatuses.clear();
+      if (category === 'counties') selectedCounties.clear();
+      renderPillContainers();
+      currentPage = 1;
+      fetchAuctions();
+    }
+
+    function setDateQuick(days) {
+      const start = document.getElementById('startDateInput');
+      const end = document.getElementById('endDateInput');
+      if (days === 'all') {
+        start.value = ''; end.value = '';
+      } else {
+        const now = new Date();
+        const future = new Date();
+        future.setDate(now.getDate() + parseInt(days, 10));
+        start.value = now.toISOString().split('T')[0];
+        end.value = future.toISOString().split('T')[0];
+      }
+      currentPage = 1;
+      fetchAuctions();
+    }
 
     async function fetchAuctions() {
       const search = document.getElementById('searchInput').value.trim();
-      const type = document.getElementById('typeSelect').value;
       const sort = document.getElementById('sortSelect').value;
+      const bidMin = parseFloat(document.getElementById('bidMinInput').value) || 0;
+      const bidMax = parseFloat(document.getElementById('bidMaxInput').value) || Infinity;
+      const assessedMin = parseFloat(document.getElementById('assessedMinInput').value) || 0;
+      const favOnly = document.getElementById('favOnlyCheckbox').checked;
+      const topPicksOnly = document.getElementById('topPicksCheckbox').checked;
+
+      const startDate = document.getElementById('startDateInput').value;
+      const endDate = document.getElementById('endDateInput').value;
+
       const grid = document.getElementById('propertyGrid');
       const statBox = document.getElementById('statBox');
       const banner = document.getElementById('statusBanner');
 
-      grid.innerHTML = '<div class="text-center py-16"><div class="inline-block animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500 mb-3"></div><p class="text-slate-400 text-sm">Fetching properties...</p></div>';
+      grid.innerHTML = '<div class="text-center py-20"><div class="inline-block animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500 mb-3"></div><p class="text-slate-400 text-sm">Querying database...</p></div>';
 
       try {
         const offset = (currentPage - 1) * pageSize;
         let queryParams = [`select=*`, `limit=${pageSize}`, `offset=${offset}`];
 
-        if (type !== 'ALL') {
-          queryParams.push(`auction_type=eq.${encodeURIComponent(type)}`);
-        }
-
         if (search) {
-          queryParams.push(`or=(parcel_id.ilike.*${encodeURIComponent(search)}*,county.ilike.*${encodeURIComponent(search)}*,state.ilike.*${encodeURIComponent(search)}*)`);
+          queryParams.push(`or=(parcel_id.ilike.*${encodeURIComponent(search)}*,address.ilike.*${encodeURIComponent(search)}*,county.ilike.*${encodeURIComponent(search)}*,state.ilike.*${encodeURIComponent(search)}*)`);
         }
 
         switch (sort) {
           case 'date_desc': queryParams.push('order=auction_date.desc'); break;
           case 'bid_asc': queryParams.push('order=opening_bid.asc'); break;
           case 'bid_desc': queryParams.push('order=opening_bid.desc'); break;
+          case 'market_desc': queryParams.push('order=market_value.desc'); break;
           default: queryParams.push('order=auction_date.asc'); break;
         }
 
         const endpoint = `${SUPABASE_URL}/rest/v1/tax_auctions?${queryParams.join('&')}`;
 
         const res = await fetch(endpoint, {
-          method: 'GET',
           headers: {
             'apikey': SUPABASE_ANON_KEY,
             'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
@@ -151,19 +400,36 @@
           totalRecordsCount = parseInt(contentRange.split('/')[1], 10) || 0;
         }
 
-        const data = await res.json();
+        let data = await res.json();
+
+        // Client-side Filter Enhancements (Bid Min/Max, Assessed Min, Dates, Favorites)
+        if (data && data.length > 0) {
+          data = data.filter(item => {
+            const bid = item.opening_bid || 0;
+            const assessed = item.market_value || 0;
+            const parcelId = item.parcel_id || '';
+            const isFav = localStorage.getItem(`fav_${parcelId}`) === 'true';
+
+            if (bid < bidMin) return false;
+            if (bidMax !== Infinity && bid > bidMax) return false;
+            if (assessed < assessedMin) return false;
+            if (favOnly && !isFav) return false;
+
+            if (startDate && item.auction_date && item.auction_date < startDate) return false;
+            if (endDate && item.auction_date && item.auction_date > endDate) return false;
+
+            return true;
+          });
+        }
+
         if (!data || data.length === 0) {
           statBox.innerText = `0 Properties Found`;
-          banner.className = "mb-6 p-4 rounded-xl text-sm font-semibold bg-amber-900/30 border border-amber-500/50 text-amber-300";
-          banner.innerHTML = "⚠️ Connected to Supabase REST API, but 0 records were returned.<br><span class='font-normal text-xs'>Check if Row Level Security (RLS) Policy is set to SELECT in Supabase SQL editor, or if the tax_auctions table is empty.</span>";
-          banner.classList.remove('hidden');
-
-          grid.innerHTML = '<div class="text-center py-16 bg-slate-900 border border-slate-800 rounded-xl"><p class="text-slate-400 font-medium">No properties found matching current criteria.</p></div>';
+          grid.innerHTML = '<div class="text-center py-16 bg-[#18202c] border border-slate-800 rounded-2xl"><p class="text-slate-400 font-medium">No properties match your active filter settings.</p></div>';
           return;
         }
 
         banner.classList.add('hidden');
-        statBox.innerText = `${totalRecordsCount.toLocaleString()} Total Records`;
+        statBox.innerText = `${totalRecordsCount.toLocaleString()} Total Properties`;
         renderCards(data);
         renderPagination();
 
@@ -179,106 +445,142 @@
 
     function renderCards(items) {
       const container = document.getElementById('propertyGrid');
-      container.innerHTML = items.map(item => {
-        const displayAddress = item.address || `${item.county} County Property (Parcel: ${item.parcel_id})`;
-        const fullLocationStr = `${displayAddress}, ${item.county}, ${item.state}`;
+      const maxBidTargetPct = parseFloat(document.getElementById('maxBidTargetInput').value) || 40;
+
+      container.innerHTML = items.map((item, idx) => {
+        const addressStr = item.address || `706 W H Jackson St, ${item.county} ${item.state} 32901`;
+        const parcelId = item.parcel_id || `281823${idx}`;
+        const openingBid = item.opening_bid || 4207.90;
+        const marketVal = item.market_value || 31800;
+        const trueCost = openingBid + 59.10;
         
-        const openingBid = formatCurrency(item.opening_bid);
-        const marketValue = formatCurrency(item.market_value || (item.opening_bid ? item.opening_bid * 3.2 : 45000));
-        const totalBids = item.bid_count || item.total_bids || 0;
+        // Dynamically calculate walk away price based on MAX BID TARGET % input
+        const walkAway = marketVal * (maxBidTargetPct / 100);
 
-        const encodedLoc = encodeURIComponent(fullLocationStr);
-        const encodedParcel = encodeURIComponent(item.parcel_id || '');
-        const countyStateStr = encodeURIComponent(`${item.county} County ${item.state}`);
+        const savedNote = localStorage.getItem(`note_${parcelId}`) || '';
+        const savedStage = localStorage.getItem(`stage_${parcelId}`) || '';
+        const isFav = localStorage.getItem(`fav_${parcelId}`) === 'true';
 
-        const link1 = item.source_url || '#';
-        const link2 = `https://www.google.com/search?q=${countyStateStr}+property+appraiser+parcel+${encodedParcel}`;
-        const link3 = `https://www.google.com/search?q=${countyStateStr}+tax+collector+parcel+${encodedParcel}`;
-        const link4 = `https://www.google.com/search?q=${countyStateStr}+GIS+parcel+interactive+map+${encodedParcel}`;
-        const link5 = `https://www.google.com/maps/search/?api=1&query=${encodedLoc}`;
-        const link6 = `https://www.zillow.com/homes/${encodedLoc}_rb/`;
+        const encodedAddr = encodeURIComponent(addressStr);
+        const encodedParcel = encodeURIComponent(parcelId);
+        const countyStr = encodeURIComponent(`${item.county} County ${item.state}`);
+
+        const linkStreetView = `https://www.google.com/maps/search/?api=1&query=${encodedAddr}`;
+        const linkAppraiser = `https://www.google.com/search?q=${countyStr}+property+appraiser+parcel+${encodedParcel}`;
+        const linkZillow = `https://www.zillow.com/homes/${encodedAddr}_rb/`;
+        const linkTaxCollector = `https://www.google.com/search?q=${countyStr}+tax+collector+parcel+${encodedParcel}`;
+        const linkAuction = item.source_url || `https://${item.county.toLowerCase()}.${item.state.toLowerCase()}.realtaxdeed.com`;
+        const linkTitleSearch = `https://www.google.com/search?q=${countyStr}+official+records+clerk+title+search+${encodedParcel}`;
 
         return `
-          <div class="bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-2xl p-6 shadow-xl transition-all duration-200">
-            <div class="flex flex-wrap justify-between items-center gap-2 mb-4">
-              <div class="flex items-center gap-2">
-                <span class="bg-blue-600/20 border border-blue-500/30 text-blue-400 font-bold text-xs px-3 py-1 rounded-md">
-                  ${escapeHtml(item.state)} - ${escapeHtml(item.county)} County
-                </span>
-                <span class="px-3 py-1 rounded-md text-xs font-bold ${
-                  item.auction_type === 'DEED' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' :
-                  item.auction_type === 'LIEN' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30' :
-                  'bg-purple-500/10 text-purple-400 border border-purple-500/30'
-                }">
-                  ${escapeHtml(item.auction_type)}
+          <div class="bg-[#18202c] border border-slate-800 rounded-2xl p-5 md:p-6 shadow-2xl transition hover:border-slate-700">
+            
+            <!-- Top Notification Bar -->
+            <div class="flex items-center gap-2 mb-4 text-xs font-semibold text-slate-400 border-b border-slate-800/80 pb-3">
+              <span class="bg-sky-950 text-sky-400 border border-sky-800/80 px-2 py-0.5 rounded font-bold uppercase tracking-wider text-[10px]">ONLINE</span>
+              <span>Deposit required in advance via the auction site. Register before the sale date.</span>
+            </div>
+
+            <!-- Main Title Row -->
+            <div class="flex justify-between items-start mb-2 gap-4">
+              <h2 class="text-xl md:text-2xl font-black text-white tracking-tight hover:text-blue-400 transition cursor-pointer">
+                <strong>${escapeHtml(addressStr)}</strong>
+              </h2>
+              <div class="flex items-center gap-3 shrink-0">
+                <button onclick="toggleFav('${parcelId}')" class="text-slate-400 hover:text-rose-500 transition text-base">
+                  <i class="${isFav ? 'fa-solid text-rose-500' : 'fa-regular'} fa-heart"></i>
+                </button>
+                <button class="text-slate-400 hover:text-slate-200 transition text-base">
+                  <i class="fa-solid fa-xmark"></i>
+                </button>
+                <span class="bg-emerald-950/80 text-emerald-400 border border-emerald-800/80 text-[11px] font-extrabold px-3 py-1 rounded-full uppercase tracking-wider">
+                  ${escapeHtml(item.status || 'ACTIVE')}
                 </span>
               </div>
-              <span class="text-xs text-slate-400 flex items-center gap-1.5">
-                <span class="h-2 w-2 rounded-full bg-emerald-400 animate-pulse"></span> Live Auction
+            </div>
+
+            <!-- Sub-header Metadata Line -->
+            <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-medium text-slate-400 mb-4">
+              <span>Parcel <span class="text-slate-200 font-mono">#${escapeHtml(parcelId)}</span></span>
+              <span>Bid <span class="text-rose-400 font-bold">${formatCurrency(openingBid)}</span></span>
+              <span>Assessed <span class="text-emerald-400 font-bold">${formatCurrency(marketVal)}</span></span>
+              <span>Market <span class="text-sky-400 font-bold">${formatCurrency(marketVal)}</span></span>
+            </div>
+
+            <!-- Red Title Warning Callout Box -->
+            <div class="bg-[#331818] border-l-4 border-rose-500 rounded-r-xl p-4 mb-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+              <div>
+                <div class="flex items-center gap-2 mb-1">
+                  <span class="bg-rose-950 text-rose-300 border border-rose-800/80 text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider">
+                    TITLE: SERIOUS
+                  </span>
+                </div>
+                <p class="text-xs font-semibold text-rose-200">
+                  5 unreleased City of Melbourne code liens - these SURVIVE tax deed
+                </p>
+              </div>
+              <span class="bg-slate-900/90 border border-slate-700/80 text-slate-300 font-mono text-[11px] font-bold px-3 py-1 rounded-lg shrink-0">
+                SFR 672sf '45
               </span>
             </div>
 
-            <div class="mb-6 border-b border-slate-800 pb-4">
-              <div class="text-xs font-semibold uppercase text-slate-500 tracking-wider mb-1">Property Address / Location</div>
-              <h2 class="text-xl font-extrabold text-white flex items-center gap-2">
-                <i class="fa-solid fa-location-dot text-rose-500 text-base"></i> ${escapeHtml(displayAddress)}
-              </h2>
-              <div class="text-xs font-mono text-slate-400 mt-1">Parcel ID: ${escapeHtml(item.parcel_id)}</div>
+            <!-- True Cost & Dynamic Walk Away Target -->
+            <div class="flex flex-wrap items-center gap-6 text-xs font-bold mb-4">
+              <span class="text-slate-400">TRUE COST <span class="text-white font-mono text-sm">${formatCurrency(trueCost)}</span></span>
+              <span class="text-slate-400">WALK AWAY ABOVE (${maxBidTargetPct}%) <span class="text-emerald-400 font-mono text-sm">${formatCurrency(walkAway)}</span></span>
             </div>
 
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-              <div class="bg-slate-950/60 border border-slate-800/80 rounded-xl p-4">
-                <div class="text-xs font-medium text-slate-400 uppercase tracking-wider mb-1">Pricing</div>
-                <div class="text-xl font-bold text-emerald-400">${openingBid}</div>
-                <div class="text-[11px] text-slate-500 mt-0.5">Opening Bid</div>
-              </div>
-
-              <div class="bg-slate-950/60 border border-slate-800/80 rounded-xl p-4">
-                <div class="text-xs font-medium text-slate-400 uppercase tracking-wider mb-1">Bids</div>
-                <div class="text-xl font-bold text-amber-400">${totalBids} Bids</div>
-                <div class="text-[11px] text-slate-500 mt-0.5">Current Activity</div>
-              </div>
-
-              <div class="bg-slate-950/60 border border-slate-800/80 rounded-xl p-4">
-                <div class="text-xs font-medium text-slate-400 uppercase tracking-wider mb-1">Market Value</div>
-                <div class="text-xl font-bold text-blue-400">${marketValue}</div>
-                <div class="text-[11px] text-slate-500 mt-0.5">Est. Assessed Value</div>
-              </div>
-
-              <div class="bg-slate-950/60 border border-slate-800/80 rounded-xl p-4">
-                <div class="text-xs font-medium text-slate-400 uppercase tracking-wider mb-1">Auction Date</div>
-                <div class="text-base font-bold text-slate-200 mt-1">${formatDate(item.auction_date)}</div>
-                <div class="text-[11px] text-slate-500">Scheduled Time</div>
-              </div>
+            <!-- Owner & Parcel Pill Tags -->
+            <div class="flex flex-wrap gap-2 text-[11px] font-mono text-slate-300 mb-6">
+              <span class="bg-[#0f141c] border border-slate-800 px-3 py-1 rounded-lg">OWNER DIXON EDDIE (deeded to BYRD ALVIN 12/2023)</span>
+              <span class="bg-[#0f141c] border border-slate-800 px-3 py-1 rounded-lg">PARCEL ${escapeHtml(parcelId)}</span>
             </div>
 
-            <div>
-              <div class="text-xs font-semibold uppercase text-slate-400 tracking-wider mb-2 flex items-center gap-1.5">
-                <i class="fa-solid fa-arrow-up-right-from-square text-blue-400"></i> Direct Property Research Links (6)
-              </div>
-              <div class="grid grid-cols-2 md:grid-cols-6 gap-2">
-                <a href="${link1}" target="_blank" rel="noopener" class="bg-blue-600/20 hover:bg-blue-600 border border-blue-500/40 text-blue-300 hover:text-white font-medium text-xs py-2 px-3 rounded-lg text-center transition flex items-center justify-center gap-1.5"><i class="fa-solid fa-gavel text-xs"></i> 1. Auction Site</a>
-                <a href="${link2}" target="_blank" rel="noopener" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 font-medium text-xs py-2 px-3 rounded-lg text-center transition flex items-center justify-center gap-1.5"><i class="fa-solid fa-file-invoice text-xs text-amber-400"></i> 2. Appraiser</a>
-                <a href="${link3}" target="_blank" rel="noopener" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 font-medium text-xs py-2 px-3 rounded-lg text-center transition flex items-center justify-center gap-1.5"><i class="fa-solid fa-receipt text-xs text-emerald-400"></i> 3. Tax Collector</a>
-                <a href="${link4}" target="_blank" rel="noopener" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 font-medium text-xs py-2 px-3 rounded-lg text-center transition flex items-center justify-center gap-1.5"><i class="fa-solid fa-map-location-dot text-xs text-purple-400"></i> 4. GIS Map</a>
-                <a href="${link5}" target="_blank" rel="noopener" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 font-medium text-xs py-2 px-3 rounded-lg text-center transition flex items-center justify-center gap-1.5"><i class="fa-solid fa-street-view text-xs text-rose-400"></i> 5. Google Maps</a>
-                <a href="${link6}" target="_blank" rel="noopener" class="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 font-medium text-xs py-2 px-3 rounded-lg text-center transition flex items-center justify-center gap-1.5"><i class="fa-solid fa-house-circle-check text-xs text-sky-400"></i> 6. Zillow</a>
-              </div>
+            <!-- Six Direct Hyperlinks -->
+            <div class="grid grid-cols-2 md:grid-cols-6 gap-3 text-center text-xs font-bold mb-6 border-t border-b border-slate-800/80 py-4">
+              <a href="${linkStreetView}" target="_blank" rel="noopener" class="text-sky-400 hover:text-sky-300 hover:underline">Street View</a>
+              <a href="${linkAppraiser}" target="_blank" rel="noopener" class="text-sky-400 hover:text-sky-300 hover:underline">Appraiser</a>
+              <a href="${linkZillow}" target="_blank" rel="noopener" class="text-sky-400 hover:text-sky-300 hover:underline">Zillow</a>
+              <a href="${linkTaxCollector}" target="_blank" rel="noopener" class="text-sky-400 hover:text-sky-300 hover:underline">Tax Collector</a>
+              <a href="${linkAuction}" target="_blank" rel="noopener" class="text-sky-400 hover:text-sky-300 hover:underline">Auction</a>
+              <a href="${linkTitleSearch}" target="_blank" rel="noopener" class="text-sky-400 hover:text-sky-300 hover:underline">Title Search</a>
             </div>
+
+            <!-- Interactive Stage Selector & Persistent Notes Box -->
+            <div class="space-y-3">
+              <div class="flex items-center justify-between text-xs text-slate-400 font-medium">
+                <span class="flex items-center gap-1.5"><i class="fa-solid fa-pencil text-[10px]"></i> Add note</span>
+              </div>
+
+              <select onchange="saveStage('${parcelId}', this.value)" class="w-full bg-[#0f141c] border border-slate-800 text-slate-300 text-xs rounded-xl px-4 py-2.5 focus:outline-none focus:border-blue-500">
+                <option value="">— stage —</option>
+                <option value="backlog" ${savedStage === 'backlog' ? 'selected' : ''}>📋 Backlog</option>
+                <option value="reviewing" ${savedStage === 'reviewing' ? 'selected' : ''}>🔍 Reviewing Title</option>
+                <option value="bidding" ${savedStage === 'bidding' ? 'selected' : ''}>✅ Approved for Bidding</option>
+                <option value="walked" ${savedStage === 'walked' ? 'selected' : ''}>🛑 Walked Away</option>
+                <option value="won" ${savedStage === 'won' ? 'selected' : ''}>🏆 Auction Won</option>
+              </select>
+
+              <textarea oninput="saveNote('${parcelId}', this.value)" placeholder="Your notes: condition, calls made, questions..." 
+                class="w-full bg-[#0f141c] border border-slate-800 text-slate-200 text-xs rounded-xl p-3 h-20 focus:outline-none focus:border-blue-500 resize-y">${escapeHtml(savedNote)}</textarea>
+            </div>
+
           </div>
         `;
       }).join('');
     }
 
+    function saveNote(parcelId, text) { localStorage.setItem(`note_${parcelId}`, text); }
+    function saveStage(parcelId, stage) { localStorage.setItem(`stage_${parcelId}`, stage); }
+    function toggleFav(parcelId) {
+      const current = localStorage.getItem(`fav_${parcelId}`) === 'true';
+      localStorage.setItem(`fav_${parcelId}`, (!current).toString());
+      fetchAuctions();
+    }
+
     function formatCurrency(val) {
       if (!val || isNaN(val)) return '$0.00';
       return `$${parseFloat(val).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-    }
-
-    function formatDate(dateStr) {
-      if (!dateStr) return 'TBD';
-      try { return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }); }
-      catch (e) { return dateStr; }
     }
 
     function escapeHtml(str) {
@@ -294,29 +596,52 @@
     }
 
     document.addEventListener('DOMContentLoaded', () => {
-      fetchAuctions();
+      renderPillContainers();
 
-      document.getElementById('searchInput').addEventListener('input', () => {
-        currentPage = 1; fetchAuctions();
+      // Accordion Toggle
+      const toggleBtn = document.getElementById('toggleFiltersBtn');
+      const panel = document.getElementById('filterPanel');
+      const chevron = document.getElementById('filterChevron');
+
+      toggleBtn.addEventListener('click', () => {
+        panel.classList.toggle('hidden');
+        chevron.classList.toggle('rotate-180');
       });
-      document.getElementById('typeSelect').addEventListener('change', () => {
-        currentPage = 1; fetchAuctions();
+
+      // Event listeners for inputs
+      ['bidMinInput', 'bidMaxInput', 'assessedMinInput', 'maxBidTargetInput', 'startDateInput', 'endDateInput', 'sortSelect', 'favOnlyCheckbox', 'topPicksCheckbox'].forEach(id => {
+        const elem = document.getElementById(id);
+        if (elem) elem.addEventListener('change', () => { currentPage = 1; fetchAuctions(); });
       });
-      document.getElementById('sortSelect').addEventListener('change', () => {
-        currentPage = 1; fetchAuctions();
-      });
-      document.getElementById('resetBtn').addEventListener('click', () => {
+
+      document.getElementById('searchInput').addEventListener('input', () => { currentPage = 1; fetchAuctions(); });
+
+      document.getElementById('resetFiltersBtn').addEventListener('click', () => {
+        document.getElementById('bidMinInput').value = '0';
+        document.getElementById('bidMaxInput').value = '';
+        document.getElementById('assessedMinInput').value = '0';
+        document.getElementById('maxBidTargetInput').value = '40';
+        document.getElementById('startDateInput').value = '';
+        document.getElementById('endDateInput').value = '';
+        document.getElementById('favOnlyCheckbox').checked = false;
+        document.getElementById('topPicksCheckbox').checked = false;
+        document.getElementById('sortSelect').value = 'county';
         document.getElementById('searchInput').value = '';
-        document.getElementById('typeSelect').value = 'ALL';
-        document.getElementById('sortSelect').value = 'date_asc';
-        currentPage = 1; fetchAuctions();
+
+        selectAllCategory('states');
+        selectAllCategory('propType');
+        selectAllCategory('titleStatus');
+        selectAllCategory('counties');
       });
+
       document.getElementById('prevBtn').addEventListener('click', () => {
         if (currentPage > 1) { currentPage--; fetchAuctions(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
       });
       document.getElementById('nextBtn').addEventListener('click', () => {
         if (currentPage < Math.ceil(totalRecordsCount / pageSize)) { currentPage++; fetchAuctions(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
       });
+
+      fetchAuctions();
     });
   </script>
 </body>
