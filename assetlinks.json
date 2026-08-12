@@ -1,0 +1,8 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "dev.pages.rodz_taxdeeds.twa",
+    "sha256_cert_fingerprints": ["79:D5:6A:60:05:F1:B0:22:C7:6A:AA:F2:0A:0B:62:F9:B4:50:9A:4A:C7:A5:68:30:19:C3:7C:60:03:9D:59:B6"]
+  }
+}]

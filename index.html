@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nationwide RealAuction Property Radar</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <!-- Supabase JS Client CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Config File -->
+  <script src="config.js"></script>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen font-sans">
+
+  <div class="max-w-7xl mx-auto px-4 py-8">
+    <!-- Header -->
+    <header class="flex flex-col md:flex-row justify-between items-center mb-8 border-b border-slate-800 pb-6">
+      <div>
+        <h1 class="text-3xl font-extrabold bg-gradient-to-r from-blue-400 via-indigo-400 to-emerald-400 bg-clip-text text-transparent flex items-center gap-3">
+          <i class="fa-solid fa-house-flag text-blue-400"></i> Nationwide Tax Deed & Lien Radar
+        </h1>
+        <p class="text-slate-400 text-sm mt-1">Live Auction Intelligence & Property Valuation Across 50 States</p>
+      </div>
+      <div id="statBox" class="mt-4 md:mt-0 bg-slate-900 border border-slate-800 px-5 py-2.5 rounded-xl text-sm font-semibold text-emerald-400 shadow-inner">
+        Loading auction database...
+      </div>
+    </header>
+
+    <!-- Filters & Search -->
+    <div class="bg-slate-900 border border-slate-800 rounded-xl p-4 mb-8 shadow-lg">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 mb-1">Search Address / Parcel / County</label>
+          <input type="text" id="searchInput" placeholder="Type Address, Parcel ID, State..." 
+            class="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-blue-500">
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 mb-1">Auction Type</label>
+          <select id="typeSelect" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-blue-500">
+            <option value="ALL">All Auction Types</option>
+            <option value="DEED">Tax Deeds</option>
+            <option value="LIEN">Tax Liens</option>
+            <option value="LAND_AVAILABLE">Land Available / Certificates</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-semibold text-slate-400 mb-1">Sort By</label>
+          <select id="sortSelect" class="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-sm text-slate-200 focus:outline-none focus:border-blue-500">
+            <option value="date_asc">Auction Date (Earliest First)</option>
+            <option value="date_desc">Auction Date (Latest First)</option>
+            <option value="bid_asc">Pricing (Lowest Bid First)</option>
+            <option value="bid_desc">Pricing (Highest Bid First)</option>
+          </select>
+        </div>
+
+        <div class="flex items-end gap-2">
+          <button id="resetBtn" class="w-full bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium rounded-lg py-2.5 text-sm transition">
+            <i class="fa-solid fa-rotate-right mr-1"></i> Reset
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Property Grid -->
+    <div id="propertyGrid" class="grid grid-cols-1 gap-6 mb-8">
+      <!-- Property Cards Rendered Here by app.js -->
+    </div>
+
+    <!-- Pagination -->
+    <div class="flex justify-between items-center bg-slate-900 border border-slate-800 rounded-xl px-6 py-4">
+      <button id="prevBtn" class="bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-slate-300 font-medium rounded-lg px-4 py-2 text-sm transition">
+        <i class="fa-solid fa-chevron-left mr-1"></i> Previous
+      </button>
+      <span id="pageInfo" class="text-sm font-semibold text-slate-400">Page 1</span>
+      <button id="nextBtn" class="bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-slate-300 font-medium rounded-lg px-4 py-2 text-sm transition">
+        Next <i class="fa-solid fa-chevron-right ml-1"></i>
+      </button>
+    </div>
+
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

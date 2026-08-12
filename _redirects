@@ -1,0 +1,5 @@
+# Cloudflare Pages strips directories beginning with a dot, so .well-known/
+# never survives deployment. The file lives at the root instead and this
+# rewrites the path Android actually requests. Status 200 = internal rewrite,
+# not a redirect — Android's asset-link verifier will not follow a 301/302.
+/.well-known/assetlinks.json  /assetlinks.json  200
