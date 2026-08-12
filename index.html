@@ -8,8 +8,6 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <!-- FontAwesome Icons -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <!-- Supabase JS Client CDN -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen font-sans">
 
@@ -27,7 +25,7 @@
       </div>
     </header>
 
-    <!-- Debug Banner -->
+    <!-- Error/Status Diagnostic Banner -->
     <div id="statusBanner" class="hidden mb-6 p-4 rounded-xl text-sm font-semibold"></div>
 
     <!-- Filters & Search -->
@@ -71,7 +69,7 @@
     <div id="propertyGrid" class="grid grid-cols-1 gap-6 mb-8">
       <div class="text-center py-16">
         <div class="inline-block animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500 mb-3"></div>
-        <p class="text-slate-400 text-sm">Querying Supabase database...</p>
+        <p class="text-slate-400 text-sm">Querying Supabase PostgREST API...</p>
       </div>
     </div>
 
@@ -89,18 +87,15 @@
   </div>
 
   <script>
-    // Unregister any stale Service Worker cache
+    // Disable any cached service workers immediately
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations().then(registrations => {
-        for (let registration of registrations) { registration.unregister(); }
+      navigator.serviceWorker.getRegistrations().then(regs => {
+        for (let r of regs) r.unregister();
       });
     }
 
-    // Direct Supabase Credentials
     const SUPABASE_URL = 'https://cqnnnvpbocafuvpzfbzu.supabase.co';
     const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNxbm5udnBib2NhZnV2cHpmYnp1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU5OTQyNjYsImV4cCI6MjEwMTU3MDI2Nn0.hgQhS4sYWtu8fDKrRSRQdbmbbebnifXoq2xbMrH0yZA';
-
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
     let currentPage = 1;
     const pageSize = 15;
@@ -114,53 +109,68 @@
       const statBox = document.getElementById('statBox');
       const banner = document.getElementById('statusBanner');
 
-      grid.innerHTML = '<div class="text-center py-16"><div class="inline-block animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500 mb-3"></div><p class="text-slate-400 text-sm">Querying database...</p></div>';
+      grid.innerHTML = '<div class="text-center py-16"><div class="inline-block animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500 mb-3"></div><p class="text-slate-400 text-sm">Fetching properties...</p></div>';
 
       try {
-        let query = supabase.from('tax_auctions').select('*', { count: 'exact' });
+        const offset = (currentPage - 1) * pageSize;
+        let queryParams = [`select=*`, `limit=${pageSize}`, `offset=${offset}`];
 
         if (type !== 'ALL') {
-          query = query.eq('auction_type', type);
+          queryParams.push(`auction_type=eq.${encodeURIComponent(type)}`);
         }
 
         if (search) {
-          query = query.or(`parcel_id.ilike.%${search}%,county.ilike.%${search}%,state.ilike.%${search}%`);
+          queryParams.push(`or=(parcel_id.ilike.*${encodeURIComponent(search)}*,county.ilike.*${encodeURIComponent(search)}*,state.ilike.*${encodeURIComponent(search)}*)`);
         }
 
         switch (sort) {
-          case 'date_desc': query = query.order('auction_date', { ascending: false }); break;
-          case 'bid_asc': query = query.order('opening_bid', { ascending: true }); break;
-          case 'bid_desc': query = query.order('opening_bid', { ascending: false }); break;
-          default: query = query.order('auction_date', { ascending: true }); break;
+          case 'date_desc': queryParams.push('order=auction_date.desc'); break;
+          case 'bid_asc': queryParams.push('order=opening_bid.asc'); break;
+          case 'bid_desc': queryParams.push('order=opening_bid.desc'); break;
+          default: queryParams.push('order=auction_date.asc'); break;
         }
 
-        const from = (currentPage - 1) * pageSize;
-        query = query.range(from, from + pageSize - 1);
+        const endpoint = `${SUPABASE_URL}/rest/v1/tax_auctions?${queryParams.join('&')}`;
 
-        const { data, count, error } = await query;
+        const res = await fetch(endpoint, {
+          method: 'GET',
+          headers: {
+            'apikey': SUPABASE_ANON_KEY,
+            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+            'Prefer': 'count=exact'
+          }
+        });
 
-        if (error) throw error;
+        if (!res.ok) {
+          const errBody = await res.text();
+          throw new Error(`HTTP ${res.status} ${res.statusText}: ${errBody}`);
+        }
 
-        totalRecordsCount = count || 0;
-        statBox.innerText = `${totalRecordsCount.toLocaleString()} Total Records Found`;
+        const contentRange = res.headers.get('content-range');
+        if (contentRange && contentRange.includes('/')) {
+          totalRecordsCount = parseInt(contentRange.split('/')[1], 10) || 0;
+        }
 
+        const data = await res.json();
         if (!data || data.length === 0) {
+          statBox.innerText = `0 Properties Found`;
           banner.className = "mb-6 p-4 rounded-xl text-sm font-semibold bg-amber-900/30 border border-amber-500/50 text-amber-300";
-          banner.innerHTML = "⚠️ Connected to database, but 0 records were returned. Make sure Row Level Security (RLS) Policy is set to public in Supabase.";
+          banner.innerHTML = "⚠️ Connected to Supabase REST API, but 0 records were returned.<br><span class='font-normal text-xs'>Check if Row Level Security (RLS) Policy is set to SELECT in Supabase SQL editor, or if the tax_auctions table is empty.</span>";
           banner.classList.remove('hidden');
 
-          grid.innerHTML = '<div class="text-center py-16 bg-slate-900 border border-slate-800 rounded-xl"><p class="text-slate-400">No properties found matching current filter.</p></div>';
+          grid.innerHTML = '<div class="text-center py-16 bg-slate-900 border border-slate-800 rounded-xl"><p class="text-slate-400 font-medium">No properties found matching current criteria.</p></div>';
           return;
         }
 
         banner.classList.add('hidden');
+        statBox.innerText = `${totalRecordsCount.toLocaleString()} Total Records`;
         renderCards(data);
         renderPagination();
 
       } catch (err) {
-        console.error('Supabase Error:', err);
+        console.error('Fetch Error:', err);
         banner.className = "mb-6 p-4 rounded-xl text-sm font-semibold bg-red-900/30 border border-red-500/50 text-red-300";
-        banner.innerHTML = `❌ Supabase Connection Failed: ${err.message}`;
+        banner.innerHTML = `❌ Connection Error: ${err.message}`;
         banner.classList.remove('hidden');
 
         grid.innerHTML = `<div class="bg-red-900/20 border border-red-500/40 rounded-xl p-6 text-center text-red-300"><p class="font-bold">Database Error</p><p class="text-sm mt-1">${err.message}</p></div>`;
@@ -193,14 +203,14 @@
             <div class="flex flex-wrap justify-between items-center gap-2 mb-4">
               <div class="flex items-center gap-2">
                 <span class="bg-blue-600/20 border border-blue-500/30 text-blue-400 font-bold text-xs px-3 py-1 rounded-md">
-                  ${item.state} - ${item.county} County
+                  ${escapeHtml(item.state)} - ${escapeHtml(item.county)} County
                 </span>
                 <span class="px-3 py-1 rounded-md text-xs font-bold ${
                   item.auction_type === 'DEED' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' :
                   item.auction_type === 'LIEN' ? 'bg-amber-500/10 text-amber-400 border border-amber-500/30' :
                   'bg-purple-500/10 text-purple-400 border border-purple-500/30'
                 }">
-                  ${item.auction_type}
+                  ${escapeHtml(item.auction_type)}
                 </span>
               </div>
               <span class="text-xs text-slate-400 flex items-center gap-1.5">
@@ -211,9 +221,9 @@
             <div class="mb-6 border-b border-slate-800 pb-4">
               <div class="text-xs font-semibold uppercase text-slate-500 tracking-wider mb-1">Property Address / Location</div>
               <h2 class="text-xl font-extrabold text-white flex items-center gap-2">
-                <i class="fa-solid fa-location-dot text-rose-500 text-base"></i> ${displayAddress}
+                <i class="fa-solid fa-location-dot text-rose-500 text-base"></i> ${escapeHtml(displayAddress)}
               </h2>
-              <div class="text-xs font-mono text-slate-400 mt-1">Parcel ID: ${item.parcel_id}</div>
+              <div class="text-xs font-mono text-slate-400 mt-1">Parcel ID: ${escapeHtml(item.parcel_id)}</div>
             </div>
 
             <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
@@ -271,6 +281,11 @@
       catch (e) { return dateStr; }
     }
 
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
     function renderPagination() {
       const totalPages = Math.ceil(totalRecordsCount / pageSize) || 1;
       document.getElementById('pageInfo').innerText = `Page ${currentPage} of ${totalPages}`;
@@ -281,7 +296,7 @@
     document.addEventListener('DOMContentLoaded', () => {
       fetchAuctions();
 
-      document.getElementById('searchInput').addEventListener('input', (e) => {
+      document.getElementById('searchInput').addEventListener('input', () => {
         currentPage = 1; fetchAuctions();
       });
       document.getElementById('typeSelect').addEventListener('change', () => {
