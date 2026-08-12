@@ -1,4 +1,4 @@
-name: Florida Tax Deed Scraper Schedule
+name: Nationwide 50-State Tax Deed Scraper Schedule
 
 on:
   schedule:
@@ -8,8 +8,14 @@ on:
 
 jobs:
   scrape:
+    name: Scrape (${{ matrix.auction_type }})
     runs-on: ubuntu-latest
-    timeout-minutes: 30 # Safety timeout for 67 counties
+    timeout-minutes: 360 # 6 hours max per matrix runner
+
+    strategy:
+      fail-fast: false # If one category fails, the other two continue running
+      matrix:
+        auction_type: [liens, deeds, land_available]
 
     steps:
       - name: Checkout code
@@ -19,12 +25,15 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
+          cache: 'npm'
 
       - name: Install Dependencies
-        run: npm ci
+        run: npm ci || npm install
 
-      - name: Run Statewide Scraper
+      - name: Run Scraper for ${{ matrix.auction_type }}
         env:
+          AUCTION_TYPE: ${{ matrix.auction_type }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-        run: node scraper.js
+          # PROXY_URL: ${{ secrets.PROXY_URL }} # Uncomment if using proxies
+        run: node scraper.js --type=${{ matrix.auction_type }}
