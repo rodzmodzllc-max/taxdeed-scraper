@@ -10,15 +10,15 @@ jobs:
   scrape:
     name: Scrape (${{ matrix.auction_type }})
     runs-on: ubuntu-latest
-    timeout-minutes: 360 # 6 hours max per matrix runner
+    timeout-minutes: 360 # Up to 6 hours max per runner
 
     strategy:
-      fail-fast: false # If one category fails, the other two continue running
+      fail-fast: false # Keeps other matrix jobs running if one fails
       matrix:
         auction_type: [liens, deeds, land_available]
 
     steps:
-      - name: Checkout code
+      - name: Checkout repository code
         uses: actions/checkout@v4
 
       - name: Setup Node.js
@@ -35,5 +35,5 @@ jobs:
           AUCTION_TYPE: ${{ matrix.auction_type }}
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-          # PROXY_URL: ${{ secrets.PROXY_URL }} # Uncomment if using proxies
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: node scraper.js --type=${{ matrix.auction_type }}
