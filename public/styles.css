@@ -253,16 +253,24 @@ h1 .brand-accent{color:#60A5FA}
   border:1px solid var(--card-line);border-radius:10px}
 .map-hint{font-size:.66rem;color:var(--ink-soft);margin-bottom:.4rem;text-align:center}
 #mapHost svg{width:100%;height:auto;display:block;max-height:52vh}
-/* Counties with no properties: visible for orientation but inert. */
+/* Colored by confirmed auction format, not by whether we currently have
+   properties loaded - a county keeps its blue/red/amber color even between
+   sync runs. Counties with no confirmed format yet stay neutral gray (see
+   COUNTY_FORMAT in app.js). Only has-data counties are actually clickable -
+   coloring is informational for the rest. */
 #mapHost path{fill:var(--card-line);stroke:var(--paper);stroke-width:1.2;
-  transition:fill .12s;pointer-events:none}
-#mapHost path.has-data{fill:var(--ink-soft);pointer-events:auto;cursor:pointer}
-#mapHost path.has-data:hover{fill:var(--brass)}
-#mapHost path.sel{fill:var(--accent)}
-#mapHost path.sel:hover{fill:var(--brass)}
-.map-legend{display:flex;justify-content:center;gap:.8rem;margin-top:.4rem;font-size:.62rem;color:var(--ink-soft)}
+  transition:fill .12s,stroke .12s;pointer-events:none}
+#mapHost path.has-data{pointer-events:auto;cursor:pointer}
+#mapHost path.fmt-online{fill:var(--accent)}
+#mapHost path.fmt-inperson{fill:var(--bad)}
+#mapHost path.fmt-fixed{fill:var(--brass)}
+#mapHost path.has-data:hover{opacity:.75}
+#mapHost path.sel{stroke:var(--ink);stroke-width:2.6}
+#mapHost path.sel:hover{opacity:.75}
+.map-legend{display:flex;flex-wrap:wrap;justify-content:center;gap:.7rem;margin-top:.45rem;font-size:.62rem;color:var(--ink-soft)}
 .map-legend i{display:inline-block;width:.6rem;height:.6rem;border-radius:2px;margin-right:.25rem;vertical-align:middle}
-.lg-sel{background:var(--accent)} .lg-has{background:var(--ink-soft)} .lg-none{background:var(--card-line)}
+.lg-online{background:var(--accent)} .lg-inperson{background:var(--bad)}
+.lg-fixed{background:var(--brass)} .lg-none{background:var(--card-line)}
 .chipx{font-size:.72rem;padding:.28rem .6rem;border-radius:999px;border:1px solid var(--card-line);
   background:var(--paper);color:var(--ink-soft);cursor:pointer;user-select:none}
 .chipx.on{background:var(--accent-soft);color:var(--accent);border-color:var(--accent);font-weight:600}
