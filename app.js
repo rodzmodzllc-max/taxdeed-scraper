@@ -58,11 +58,22 @@ const COUNTY_INFO = {
 
 let ALL = [], CALENDAR = {}, NOTES = {}, FAVS = new Set(), HIDDEN = new Set(), ME = null;
 
+const LEDGERS = {
+  auction: { title: "Auctions & Bidding", sub: "Open to competitive bidding at a live county auction." },
+  laft: { title: "Lands Available", sub: "Fixed price from Clerk." },
+  certificate: { title: "Tax Certificates", sub: "County-held liens available for direct purchase - not property." }
+};
+
 const state = {
   bidMin: null, bidMax: null, assessedMin: null,
   sortBy: "county", favoritesOnly: false, topPicksOnly: false, soonOnly: false,
   includeQT: false, maxBidPct: 40,
   statusView: "all",
+  ledger: "auction",
+  search: "",
+  // Counties the user has expanded via a county-group's <details> disclosure.
+  // Re-applied on every render() since render() rebuilds #main from scratch.
+  expandedCounties: new Set(),
   counties: new Set(), types: new Set(TYPE_ORDER), liens: new Set(LIEN_ORDER)
 };
 
@@ -76,6 +87,44 @@ function goneExpired(p) {
 const fmtMoney = n => "$" + Number(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtShort = n => "$" + Math.round(Number(n)).toLocaleString("en-US");
 const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+// Small icon-prefix for the quick-action reference links, shared by the
+// compact card row and the roomier detail-modal buttons so the two stay
+// visually consistent.
+const LINK_ICON = {
+  "Street View": "🛰", "Appraiser": "🏛", "Zillow": "🏠", "Tax Collector": "💰",
+  "Auction": "🔨", "LAFT": "🔨", "Lands Available Listing": "🔨",
+  "County Auction Site": "🔨", "County-Held Liens List": "📋", "Title Search": "📜"
+};
+const linkIcon = label => LINK_ICON[label] ? `<span class="link-icon">${LINK_ICON[label]}</span>` : "";
+
+// Small "ⓘ" tooltip affordance - keyboard-focusable (not hover-only) so it
+// works on touch devices too. `tip` is plain text, escaped for the
+// data-tip attribute the CSS ::after reads it from.
+const infoTip = tip => `<i class="info-tip" tabindex="0" data-tip="${esc(tip)}">i</i>`;
+const TRUE_COST_TIP = "Opening bid + Florida doc stamps (0.70/$100) + recording fee, plus half the assessed value on homesteaded parcels (FS 197.502(6)(c)). An estimate, not a quote.";
+
+// Properties synced from the statewide harvest pipeline (as opposed to the
+// hand-researched watchlist) never get url_zillow / url_streetview from the
+// sync script - the harvester doesn't collect them, so the column is left
+// out of that upsert on purpose so it doesn't blank out a hand-researched
+// link for the same property on a later re-sync. Build a best-effort search
+// link from the address instead, client-side, only when the real one is
+// missing - this never touches the database, so a hand-researched link
+// (when one exists) always wins and is never at risk of being overwritten.
+// Tax Collector / Title Search have no such generic URL - both are
+// per-county lookups that need real research, so those stay blank until
+// the data pipeline actually captures them.
+function fallbackZillowUrl(p) {
+  if (p.url_zillow) return p.url_zillow;
+  if (!p.address) return "";
+  return `https://www.zillow.com/homes/${encodeURIComponent(p.address + ", " + p.county + " County, FL")}_rb/`;
+}
+function fallbackStreetviewUrl(p) {
+  if (p.url_streetview) return p.url_streetview;
+  if (!p.address) return "";
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.address + ", " + p.county + " County, FL")}`;
+}
 
 function propType(p) {
   const s = (p.prop_type || "").toLowerCase();
@@ -177,11 +226,32 @@ sb.auth.onAuthStateChange((_e, session) => {
   }
 })();
 
+// Animated card-shaped placeholders shown while the first Supabase fetch is
+// in flight, instead of a bare "Loading" line. render() replaces #main's
+// entire innerHTML once real data is in, so this needs no manual cleanup.
+function renderSkeleton() {
+  const main = document.getElementById("main");
+  if (!main) return;
+  const group = `
+    <div class="skeleton-group">
+      <div class="skel skel-title"></div>
+      <div class="skel skel-line w40"></div>
+      <div class="skel skel-line w80"></div>
+      <div class="skel skel-line w60"></div>
+      <div class="skel-grid">
+        <div class="skel skel-box"></div><div class="skel skel-box"></div>
+        <div class="skel skel-box"></div><div class="skel skel-box"></div>
+      </div>
+    </div>`;
+  main.innerHTML = group.repeat(3);
+}
+
 async function showApp() {
   if (gate) gate.hidden = true;
   if (app) app.hidden = false;
   const genEl = document.getElementById("generatedAt");
   if (genEl) genEl.textContent = "Loading";
+  renderSkeleton();
   await loadAll();
   state.counties = new Set(countyNames());
   buildAllChips();
@@ -224,6 +294,7 @@ function toggleCounty(name) {
   const on = state.counties.has(name);
   document.querySelectorAll('#countyChips .chipx').forEach(c => { if (c.dataset.value === name) c.classList.toggle("on", on); });
   if (mapLoaded) document.querySelectorAll('#mapHost path[data-county]').forEach(p => { if (p.dataset.county === name) p.classList.toggle("sel", on); });
+  syncCountyQuickSelect();
   updateBadge();
   render();
 }
@@ -243,7 +314,58 @@ function buildChips(id, values, set, labelFn, classFn) {
     el.appendChild(c);
   });
 }
-function buildAllChips() { buildChips("countyChips", countyNames(), state.counties); buildChips("typeChips", TYPE_ORDER, state.types); buildChips("lienChips", LIEN_ORDER, state.liens, v => LIEN_LABEL[v], v => "lien-" + v); }
+
+// County chips carry a "(n)" count and sort busiest-first, so the picker
+// itself answers "how many properties does this county have" instead of
+// just being an alphabetical toggle list.
+function countyCounts() {
+  const m = new Map();
+  ALL.forEach(p => m.set(p.county, (m.get(p.county) || 0) + 1));
+  return m;
+}
+function countyNamesByCount() {
+  const counts = countyCounts();
+  return countyNames().slice().sort((a, b) => (counts.get(b) || 0) - (counts.get(a) || 0) || a.localeCompare(b));
+}
+// The quick "Select County" dropdown is a single-pick shortcut over the same
+// state.counties set the multi-select chips drive - picking one county here
+// narrows to just that county; picking "All Counties" restores the full set.
+// It can't represent an arbitrary multi-county selection made via the chips,
+// so it just falls back to showing "All Counties" whenever the selection
+// isn't exactly zero-or-one county.
+function syncCountyQuickSelect() {
+  const el = document.getElementById("countyQuick");
+  if (!el) return;
+  el.value = state.counties.size === 1 ? Array.from(state.counties)[0] : "ALL";
+}
+function buildAllChips() {
+  const counts = countyCounts();
+  const names = countyNamesByCount();
+  buildChips("countyChips", names, state.counties, v => `${v} (${counts.get(v) || 0})`);
+  buildChips("typeChips", TYPE_ORDER, state.types);
+  buildChips("lienChips", LIEN_ORDER, state.liens, v => LIEN_LABEL[v], v => "lien-" + v);
+  const countyQuickEl = document.getElementById("countyQuick");
+  if (countyQuickEl) {
+    countyQuickEl.innerHTML = `<option value="ALL">All Counties</option>` +
+      names.map(v => `<option value="${esc(v)}">${esc(v)} (${counts.get(v) || 0})</option>`).join("");
+    syncCountyQuickSelect();
+  }
+  // "N of M selected" badges on the Advanced Filters dropdown summaries.
+  const typeCountEl = document.getElementById("typeCount");
+  if (typeCountEl) typeCountEl.textContent = `${state.types.size}/${TYPE_ORDER.length}`;
+  const lienCountEl = document.getElementById("lienCount");
+  if (lienCountEl) lienCountEl.textContent = `${state.liens.size}/${LIEN_ORDER.length}`;
+  const countyCountEl = document.getElementById("countyCount");
+  if (countyCountEl) countyCountEl.textContent = `${state.counties.size}/${names.length}`;
+}
+
+function matchesSearch(p) {
+  if (!state.search) return true;
+  const q = state.search.toLowerCase();
+  return (p.address || "").toLowerCase().includes(q) ||
+    (p.parcel || "").toLowerCase().includes(q) ||
+    (p.case_no || "").toLowerCase().includes(q);
+}
 
 function passes(p) {
   if (HIDDEN.has(p.id) || goneExpired(p)) return false;
@@ -253,6 +375,7 @@ function passes(p) {
   if (state.topPicksOnly && !isTopPick(p)) return false;
   if (state.soonOnly) { const d = daysUntil(p); if (d === null || d < 0 || d > SOON_DAYS) return false; }
   if (!state.counties.has(p.county)) return false;
+  if (!matchesSearch(p)) return false;
   // Certificates aren't screened for title and don't have a property type -
   // the type/lien chip filters only make sense for deed/LAFT rows.
   if (p.source !== "certificate" && (!state.types.has(propType(p)) || !state.liens.has(p.lien_level))) return false;
@@ -291,8 +414,16 @@ function card(p, showCounty) {
   const titleLine = hasAddress ? esc(p.address) : `Parcel #${esc(p.parcel || "Unknown")} (${esc(p.county)} County Lot)`;
   const hasBid = p.bid !== null && p.bid !== undefined;
 
+  // Potential equity / spread: market value minus opening bid, whenever
+  // there's both a bid and a market figure to compare it to.
+  const spreadAmt = hasBid && marketOf(p) > 0 ? marketOf(p) - Number(p.bid) : null;
+  const spreadBadge = spreadAmt !== null
+    ? `<div class="spread-badge">Potential equity ${spreadAmt >= 0 ? "+" : "-"}${fmtShort(Math.abs(spreadAmt))} <span class="spread-mult">(${valueRatio(p).toFixed(1)}× market/bid)</span></div>`
+    : "";
+
+  const overWalk = hasBid && Number(p.bid) > maxBid(p);
   el.innerHTML = `
-    ${top ? `<div class="toppick-banner"> Top pick <span class="ratio-pill">${valueRatio(p).toFixed(1)}- market vs bid</span></div>` : ""}
+    ${top ? `<div class="toppick-banner">★ Top pick <span class="ratio-pill">${valueRatio(p).toFixed(1)}× market vs bid</span></div>` : ""}
     ${tag}
     <div class="prop-top">
       <div class="prop-address">${titleLine}</div>
@@ -300,20 +431,21 @@ function card(p, showCounty) {
         <button class="icon-btn heart-btn${fav ? " on" : ""}" data-action="fav" data-pid="${p.id}" type="button" title="Favorite">${fav ? "♥" : "♡"}</button>
         <button class="icon-btn remove-btn" data-action="hide" data-pid="${p.id}" type="button" title="Hide">✕</button>
         ${cd}
+        <span class="lien-pill ${esc(p.lien_level)}">${LIEN_LABEL[p.lien_level] || p.lien_level}</span>
         <span class="pill ${esc(p.status)}">${esc(p.status)}</span>
       </div>
     </div>
     <div class="prop-meta">
       <span>Parcel #${esc(p.parcel || "Unknown")}</span>
-      <span class="meta-bid">Bid ${hasBid ? fmtMoney(p.bid) : "N/A"}</span>
-      <span class="meta-assessed">Assessed ${p.assessed ? fmtShort(p.assessed) : "N/A"}</span>
-      <span class="meta-market">Market ${p.market ? fmtShort(p.market) : "N/A"}</span>
     </div>
-    ${hasBid ? `
-    <div class="cost-row">
-      <span class="cost-item"><span class="cost-tag">True cost</span> <b>${fmtShort(trueCost(p))}</b></span>
-      <span class="cost-item ${Number(p.bid) > maxBid(p) ? "over" : "under"}"><span class="cost-tag">Walk away above</span> <b>${fmtShort(maxBid(p))}</b></span>
-    </div>` : ""}
+    ${spreadBadge}
+    <div class="card-stat-grid">
+      <div class="card-stat"><div class="card-stat-label">Opening Bid</div><div class="card-stat-val bid">${hasBid ? fmtMoney(p.bid) : "N/A"}</div></div>
+      <div class="card-stat"><div class="card-stat-label">Assessed</div><div class="card-stat-val assessed">${p.assessed ? fmtShort(p.assessed) : "N/A"}</div></div>
+      <div class="card-stat"><div class="card-stat-label">Est. Market</div><div class="card-stat-val market">${p.market ? fmtShort(p.market) : "N/A"}</div></div>
+      <div class="card-stat"><div class="card-stat-label">True Cost ${infoTip(TRUE_COST_TIP)}</div><div class="card-stat-val">${hasBid ? fmtShort(trueCost(p)) : "N/A"}</div></div>
+      ${hasBid ? `<div class="card-stat wide"><span class="card-stat-label">Walk away above</span><span class="card-stat-val ${overWalk ? "over" : "under"}">${fmtShort(maxBid(p))}</span></div>` : ""}
+    </div>
     <div class="lien-banner ${esc(p.lien_level)}">
       <div class="lien-toprow"><span class="lien-label">Title: ${LIEN_LABEL[p.lien_level] || p.lien_level}</span><span class="type-badge">${esc(p.prop_type || "Type: Unknown")}</span></div>
       <span class="lien-text">${esc(p.lien_note || "")}</span>
@@ -323,14 +455,15 @@ function card(p, showCounty) {
       ${p.parcel ? `<button class="copy-btn" data-action="copy" data-copy="${esc(p.parcel)}" type="button"><span class="copy-tag">Parcel</span><span class="copy-val">${esc(p.parcel)}</span></button>` : ""}
     </div>
     <div class="prop-links">
-      ${p.url_streetview ? `<a href="${esc(p.url_streetview)}" target="_blank" rel="noopener">Street View</a>` : ''}
-      ${p.url_appraiser ? `<a href="${esc(p.url_appraiser)}" target="_blank" rel="noopener">Appraiser</a>` : ''}
-      ${p.url_zillow ? `<a href="${esc(p.url_zillow)}" target="_blank" rel="noopener">Zillow</a>` : ''}
-      ${p.url_taxcoll ? `<a href="${esc(p.url_taxcoll)}" target="_blank" rel="noopener">Collector</a>` : ''}
-      ${p.url_auction ? `<a href="${esc(p.url_auction)}" target="_blank" rel="noopener">${p.source === "laft" ? "LAFT" : "Auction"}</a>` : ''}
-      ${p.url_title ? `<a href="${esc(p.url_title)}" target="_blank" rel="noopener">Title Search</a>` : ''}
+      ${fallbackStreetviewUrl(p) ? `<a href="${esc(fallbackStreetviewUrl(p))}" target="_blank" rel="noopener">${linkIcon("Street View")}Street View</a>` : ''}
+      ${p.url_appraiser ? `<a href="${esc(p.url_appraiser)}" target="_blank" rel="noopener">${linkIcon("Appraiser")}Appraiser</a>` : ''}
+      ${fallbackZillowUrl(p) ? `<a href="${esc(fallbackZillowUrl(p))}" target="_blank" rel="noopener">${linkIcon("Zillow")}Zillow</a>` : ''}
+      ${p.url_taxcoll ? `<a href="${esc(p.url_taxcoll)}" target="_blank" rel="noopener">${linkIcon("Tax Collector")}Collector</a>` : ''}
+      ${p.url_auction ? `<a href="${esc(p.url_auction)}" target="_blank" rel="noopener">${linkIcon("Auction")}${p.source === "laft" ? "LAFT" : "Auction"}</a>` : ''}
+      ${p.url_title ? `<a href="${esc(p.url_title)}" target="_blank" rel="noopener">${linkIcon("Title Search")}Title Search</a>` : ''}
     </div>
     ${p.url_auction ? `<a class="cta-btn" href="${esc(p.url_auction)}" target="_blank" rel="noopener">${p.source === "laft" ? "View Lands Available Listing" : "Bid on County Auction Site"}</a>` : ''}
+    <button class="detail-btn" data-action="viewdetails" data-pid="${p.id}" type="button">View Full Property Page</button>
     ${noteHtml(p)}`;
   return el;
 }
@@ -382,9 +515,104 @@ function certCard(p, showCounty) {
       <button class="copy-btn" data-action="copy" data-copy="${esc(p.case_no || "")}" type="button"><span class="copy-tag">Account</span><span class="copy-val">${esc(p.case_no || "Unknown")}</span></button>
     </div>
     ${p.url_auction ? `<a class="cta-btn" href="${esc(p.url_auction)}" target="_blank" rel="noopener">View on County-Held Liens List</a>` : ''}
+    <button class="detail-btn" data-action="viewdetails" data-pid="${p.id}" type="button">View Full Property Page</button>
     ${noteHtml(p)}`;
   return el;
 }
+
+// ==================== property detail modal ("full property page") ====================
+// Same underlying data as the card, laid out roomier with big tappable link
+// buttons instead of the compact 3-across grid - triggered by the card's
+// "View Full Property Page" button (data-action="viewdetails").
+function detailHtml(p) {
+  const isCert = p.source === "certificate";
+  const hasBid = p.bid !== null && p.bid !== undefined;
+  const fav = FAVS.has(p.id);
+  const links = [
+    ["Street View", fallbackStreetviewUrl(p)],
+    ["Appraiser", p.url_appraiser],
+    ["Zillow", fallbackZillowUrl(p)],
+    ["Tax Collector", p.url_taxcoll],
+    [p.source === "laft" ? "Lands Available Listing" : (isCert ? "County-Held Liens List" : "County Auction Site"), p.url_auction],
+    ["Title Search", p.url_title]
+  ].filter(([, href]) => href);
+  const title = isCert ? `Certificate #${esc(p.certificate_no || "Unknown")}` :
+    (p.address && p.address.trim() ? esc(p.address) : `Parcel #${esc(p.parcel || "Unknown")} (${esc(p.county)} County Lot)`);
+
+  const stats = [];
+  if (!isCert) {
+    stats.push(["Opening Bid", hasBid ? fmtMoney(p.bid) : "N/A"]);
+    stats.push(["Assessed Value", p.assessed ? fmtShort(p.assessed) : "N/A"]);
+    stats.push(["Market Value", p.market ? fmtShort(p.market) : "N/A"]);
+    if (hasBid) {
+      stats.push(["True Cost Est.", fmtShort(trueCost(p))]);
+      stats.push(["Walk Away Above", fmtShort(maxBid(p))]);
+      if (marketOf(p) > 0) {
+        const spreadAmt = marketOf(p) - Number(p.bid);
+        stats.push(["Potential Equity", `${spreadAmt >= 0 ? "+" : "-"}${fmtShort(Math.abs(spreadAmt))} (${valueRatio(p).toFixed(1)}×)`]);
+      }
+    }
+  } else {
+    stats.push(["Amount", hasBid ? fmtMoney(p.bid) : "N/A"]);
+    if (p.interest_rate) stats.push(["Interest Rate", p.interest_rate + "%"]);
+    stats.push(["Tax Year", p.tax_year || "N/A"]);
+    stats.push(["Issued", p.issued_date ? fmtDate(p.issued_date) : "N/A"]);
+    stats.push(["Expires", p.expiration_date ? fmtDate(p.expiration_date) : "N/A"]);
+  }
+
+  return `
+    <button class="detail-close" data-action="closedetail" type="button">✕</button>
+    <div class="prop-county-tag">${esc(p.county)} County${isCert ? " · Certificate" : (p.source === "laft" ? " · Lands Available" : " · Auction")}</div>
+    <h2 class="detail-address">${title}</h2>
+    <div class="prop-top-actions" style="margin:.2rem 0 .5rem">
+      <button class="icon-btn heart-btn${fav ? " on" : ""}" data-action="fav" data-pid="${p.id}" type="button">${fav ? "♥ Favorited" : "♡ Favorite"}</button>
+      ${!isCert ? `<span class="pill ${esc(p.status)}">${esc(p.status)}</span>` : ""}
+    </div>
+    ${!isCert ? `<div class="lien-banner ${esc(p.lien_level)}">
+      <div class="lien-toprow"><span class="lien-label">Title: ${LIEN_LABEL[p.lien_level] || p.lien_level}</span><span class="type-badge">${esc(p.prop_type || "Type: Unknown")}</span></div>
+      <span class="lien-text">${esc(p.lien_note || "")}</span>
+    </div>` : ""}
+    <div class="detail-grid">
+      ${stats.map(([label, val]) => `<div class="detail-stat"><span class="detail-stat-label">${esc(label)}${label === "True Cost Est." ? " " + infoTip(TRUE_COST_TIP) : ""}</span><span class="detail-stat-val">${esc(val)}</span></div>`).join("")}
+    </div>
+    <div class="copy-row">
+      ${!isCert ? `<button class="copy-btn owner-tag${p.owner_name ? "" : " unknown"}" ${p.owner_name ? `data-action="copy" data-copy="${esc(p.owner_name)}"` : ""} type="button"><span class="copy-tag">Owner</span><span class="copy-val">${esc(p.owner_name || "Unknown")}</span></button>` : ""}
+      <button class="copy-btn" data-action="copy" data-copy="${esc(p.parcel || p.case_no || "")}" type="button"><span class="copy-tag">${isCert ? "Account" : "Parcel"}</span><span class="copy-val">${esc(p.parcel || p.case_no || "Unknown")}</span></button>
+    </div>
+    <div class="detail-links">
+      ${links.length ? links.map(([label, href]) => `<a href="${esc(href)}" target="_blank" rel="noopener">${linkIcon(label)}${esc(label)} →</a>`).join("") : `<span style="font-size:.78rem;color:var(--ink-soft)">No reference links harvested for this property yet.</span>`}
+    </div>
+    ${noteHtml(p)}`;
+}
+
+function openDetail(p) {
+  const modal = document.getElementById("detailModal");
+  const inner = document.getElementById("detailModalInner");
+  if (!modal || !inner) return;
+  // .prop-card so the existing fav/hide/copy/savenote click delegation
+  // (which looks for `.closest('.prop-card')`) keeps working inside the modal.
+  inner.className = "detail-modal-inner prop-card";
+  inner.innerHTML = detailHtml(p);
+  modal.hidden = false;
+  document.body.style.overflow = "hidden";
+}
+function closeDetail() {
+  const modal = document.getElementById("detailModal");
+  if (!modal) return;
+  modal.hidden = true;
+  document.body.style.overflow = "";
+}
+// After a fav toggle, if this property's detail modal happens to be open,
+// rebuild it so the heart icon reflects the change instead of going stale.
+function refreshOpenDetail(pid) {
+  const modal = document.getElementById("detailModal");
+  if (!modal || modal.hidden) return;
+  const p = ALL.find(x => x.id === pid);
+  if (p) openDetail(p);
+}
+const detailModalEl = document.getElementById("detailModal");
+if (detailModalEl) detailModalEl.addEventListener("click", e => { if (e.target === detailModalEl) closeDetail(); });
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeDetail(); });
 
 // Card-level actions: favorite, hide, copy-to-clipboard, save note. Nothing
 // wired these up before, so the buttons on the card were dead clicks.
@@ -405,11 +633,18 @@ document.addEventListener("click", async e => {
       if (!error) FAVS.add(pid);
     }
     render();
+    refreshOpenDetail(pid);
   } else if (action === "hide") {
     if (!ME || !pid) return;
     btn.disabled = true;
     const { error } = await sb.from("hidden").insert({ user_id: ME.id, property_id: pid });
-    if (!error) { HIDDEN.add(pid); render(); } else { btn.disabled = false; }
+    if (!error) { HIDDEN.add(pid); render(); closeDetail(); } else { btn.disabled = false; }
+  } else if (action === "viewdetails") {
+    if (!pid) return;
+    const p = ALL.find(x => x.id === pid);
+    if (p) openDetail(p);
+  } else if (action === "closedetail") {
+    closeDetail();
   } else if (action === "copy") {
     const val = btn.dataset.copy;
     if (!val) return;
@@ -443,23 +678,48 @@ document.addEventListener("click", async e => {
   }
 });
 
+// Three separate ledgers (Auctions, Lands Available, Certificates), one
+// visible at a time via the tab bar - not one long page where Lands
+// Available sat under 300+ auction cards and read as "not populated"
+// because nobody scrolled that far to find it.
 function render() {
   const main = document.getElementById("main"); if (!main) return; main.innerHTML = "";
-  section(main, "Auctions & Bidding", "Open to competitive bidding.", ALL.filter(p => p.source === "auction"), "auction");
-  section(main, "Lands Available", "Fixed price from Clerk.", ALL.filter(p => p.source === "laft"), "laft");
-  section(main, "Tax Certificates", "County-held liens available for direct purchase - not property.", ALL.filter(p => p.source === "certificate"), "certificate");
-  const pool = ALL.filter(passes);
+  if (!LEDGERS[state.ledger]) state.ledger = "auction";
+  const activeLedger = state.ledger;
+  const cfg = LEDGERS[activeLedger];
+  const inLedger = p => p.source === activeLedger;
+  const { shown } = section(main, cfg.title, cfg.sub, ALL.filter(inLedger), activeLedger);
+
+  const tabCounts = { auction: 0, laft: 0, certificate: 0 };
+  ALL.forEach(p => { if (p.source in tabCounts) tabCounts[p.source]++; });
+  document.querySelectorAll("#ledgerTabs .ledger-tab").forEach(btn => {
+    const src = btn.dataset.ledger;
+    btn.classList.toggle("on", src === activeLedger);
+    const countEl = document.getElementById("tabCount" + src[0].toUpperCase() + src.slice(1));
+    if (countEl) countEl.textContent = tabCounts[src] || 0;
+  });
+
+  // Expand/Collapse-all button label reflects whether every county currently
+  // in view is already expanded.
+  const expandAllBtn = document.getElementById("expandAllBtn");
+  if (expandAllBtn) {
+    const countiesInLedger = new Set(shown.map(p => p.county));
+    const allOpen = countiesInLedger.size > 0 && Array.from(countiesInLedger).every(c => state.expandedCounties.has(c));
+    expandAllBtn.textContent = allOpen ? "Collapse all" : "Expand all";
+    expandAllBtn.dataset.mode = allOpen ? "collapse" : "expand";
+  }
 
   const chipTotal = document.getElementById("chipTotal");
-  if (chipTotal) chipTotal.textContent = pool.length;
+  if (chipTotal) chipTotal.textContent = shown.length;
 
-  // Active/Gone counts ignore the current statusView so both chips stay
-  // meaningful no matter which one is currently selected.
+  // Active/Gone counts ignore the current statusView (and are scoped to the
+  // active ledger, same as Shown) so both chips stay meaningful no matter
+  // which one is currently selected.
   const savedView = state.statusView;
   state.statusView = "live";
-  const activeCount = ALL.filter(passes).length;
+  const activeCount = ALL.filter(inLedger).filter(passes).length;
   state.statusView = "gone";
-  const goneCount = ALL.filter(passes).length;
+  const goneCount = ALL.filter(inLedger).filter(passes).length;
   state.statusView = savedView;
   const chipActive = document.getElementById("chipActive");
   if (chipActive) chipActive.textContent = activeCount;
@@ -489,19 +749,141 @@ function sortRows(rows) {
   return cmp ? rows.slice().sort(cmp) : rows;
 }
 
+// ==================== county grouping ====================
+// Each ledger is organized into one collapsible <details> per county (name,
+// a date/format line, and an "N/M active" count) instead of one long flat
+// card list - the structure a county with 300+ properties needs to stay
+// scannable, and the reason Lands Available used to read as "not populated"
+// when it was buried under an unbroken run of auction cards.
+
+// Auctions have a real per-county sale date (county_calendar, or a fallback
+// to the properties' own sale_date); Lands Available and certificates don't
+// run on a single county-wide date, so they get a static descriptor instead.
+function countySecondaryLine(ledgerKey, county, countyRows) {
+  if (ledgerKey === "auction") {
+    const calDates = (CALENDAR[county] || []).slice().sort();
+    const propDates = countyRows.map(p => p.sale_date).filter(Boolean).sort();
+    const d = calDates[0] || propDates[0];
+    return d ? `Auction ${fmtDate(d)}` : "No sale currently scheduled";
+  }
+  if (ledgerKey === "laft") return "Lands Available - fixed price, available now";
+  return "County-held certificates";
+}
+
+// COUNTY_INFO carries per-county logistics (online vs in-person, deposit
+// rules, quirks) that only matters once you've drilled into a specific
+// county's auction - shown inside the open <details>, not on every card.
+// Most entries use fmt as a short category tag ("Online", "In person",
+// "Fixed price") with the specifics in note - but a few (Charlotte, Palm
+// Beach, Hendry) cram a whole freeform sentence into fmt with no note at
+// all. Detect that shape so those don't render as a giant run-on pill.
+const KNOWN_FMT_TAGS = new Set(["Online", "In person", "Fixed price"]);
+function countyInfoBannerHtml(county) {
+  const info = COUNTY_INFO[county];
+  if (!info) return "";
+  const isTag = KNOWN_FMT_TAGS.has(info.fmt);
+  const pillText = isTag ? info.fmt : "Note";
+  const pillClass = "fmt-pill" + (info.fmt === "In person" ? " inperson" : "");
+  const bodyText = isTag ? (info.note || "") : (info.fmt + (info.note ? " " + info.note : ""));
+  return `<div class="county-info"><span class="${pillClass}">${esc(pillText)}</span><span>${esc(bodyText)}</span></div>`;
+}
+
+// Auction groups sort soonest-sale-first (so the most time-sensitive county
+// is the first thing an investor sees); other ledgers sort alphabetically.
+function countyGroupSortKey(ledgerKey, county, countyRows) {
+  if (ledgerKey === "auction") {
+    const calDates = (CALENDAR[county] || []).slice().sort();
+    const propDates = countyRows.map(p => p.sale_date).filter(Boolean).sort();
+    return calDates[0] || propDates[0] || "9999-99-99";
+  }
+  return county;
+}
+
+// Returns { shown } - shown is the FULL filtered+sorted list (used for the
+// Shown/Active/Gone counts, the Expand/Collapse-all button, and CSV export).
 function section(container, title, sub, rows, kind) {
   const sec = document.createElement("section"); sec.className = "mega-section";
   sec.innerHTML = `<div class="mega-head"><h2>${title}</h2><p class="mega-sub">${sub}</p></div>`;
   const shown = sortRows(rows.filter(passes));
-  if (!shown.length) { const e = document.createElement("div"); e.className = "empty-state"; e.textContent = "Nothing found."; sec.appendChild(e); container.appendChild(sec); return []; }
-  const list = document.createElement("div"); list.className = "prop-list flat";
+  if (!shown.length) {
+    const e = document.createElement("div"); e.className = "empty-state";
+    e.textContent = state.search ? `Nothing found for "${state.search}".` : "Nothing found.";
+    sec.appendChild(e); container.appendChild(sec);
+    return { shown };
+  }
+
+  // Per-county "N/M active" ignores the current statusView, same trick the
+  // Active/Gone summary chips use, so the badge stays meaningful no matter
+  // which status filter is selected.
+  const savedView = state.statusView;
+  state.statusView = "all";
+  const allForCounts = rows.filter(passes);
+  state.statusView = savedView;
+  const totalsByCounty = new Map(), activeByCounty = new Map();
+  allForCounts.forEach(p => {
+    totalsByCounty.set(p.county, (totalsByCounty.get(p.county) || 0) + 1);
+    if (!isGone(p)) activeByCounty.set(p.county, (activeByCounty.get(p.county) || 0) + 1);
+  });
+
+  const groups = new Map();
+  shown.forEach(p => {
+    if (!groups.has(p.county)) groups.set(p.county, []);
+    groups.get(p.county).push(p);
+  });
+
+  const orderedCounties = Array.from(groups.keys()).sort((a, b) => {
+    const ka = countyGroupSortKey(kind, a, groups.get(a));
+    const kb = countyGroupSortKey(kind, b, groups.get(b));
+    if (ka !== kb) return ka < kb ? -1 : 1;
+    return a.localeCompare(b);
+  });
+
   const renderCard = kind === "certificate" ? certCard : card;
-  shown.forEach(p => list.appendChild(renderCard(p, true)));
-  sec.appendChild(list); container.appendChild(sec); return shown;
+  orderedCounties.forEach(county => {
+    const countyRows = groups.get(county);
+    const total = totalsByCounty.get(county) ?? countyRows.length;
+    const active = activeByCounty.get(county) ?? countyRows.length;
+    // A search in progress auto-opens every group that has a match, so
+    // results are visible immediately instead of hiding behind a collapse.
+    const isOpen = !!state.search || state.expandedCounties.has(county);
+
+    const det = document.createElement("details");
+    det.className = "county-group";
+    det.dataset.county = county;
+    if (isOpen) det.open = true;
+
+    const summary = document.createElement("summary");
+    summary.className = "county-head";
+    summary.innerHTML = `
+      <div>
+        <div class="county-name">${esc(county)}</div>
+        <div class="county-meta">${esc(countySecondaryLine(kind, county, countyRows))}</div>
+      </div>
+      <div class="county-right">
+        <span class="county-count">${active}/${total} active</span>
+        <span class="county-chevron"></span>
+      </div>`;
+    det.appendChild(summary);
+
+    if (kind === "auction") {
+      const bannerHtml = countyInfoBannerHtml(county);
+      if (bannerHtml) det.insertAdjacentHTML("beforeend", bannerHtml);
+    }
+
+    const list = document.createElement("div"); list.className = "prop-list";
+    countyRows.forEach(p => list.appendChild(renderCard(p, false)));
+    det.appendChild(list);
+
+    sec.appendChild(det);
+  });
+
+  container.appendChild(sec);
+  return { shown };
 }
 
 function updateBadge() {
   let n = 0;
+  if (state.search) n++;
   if (state.bidMin || state.bidMax || state.assessedMin) n++;
   if (state.sortBy !== "county") n++;
   if (state.favoritesOnly || state.topPicksOnly || state.soonOnly) n++;
@@ -520,6 +902,108 @@ function updateBadge() {
 // install, and the county map) rendered but did nothing on click/change.
 
 let mapLoaded = false;
+
+// ---- ledger tabs (Auctions / Lands Available / Certificates) ----
+document.querySelectorAll("#ledgerTabs .ledger-tab[data-ledger]").forEach(btn => {
+  btn.addEventListener("click", () => {
+    if (state.ledger === btn.dataset.ledger) return;
+    state.ledger = btn.dataset.ledger;
+    render();
+  });
+});
+
+// ---- quick controls: search, county dropdown, expand/collapse all, CSV export ----
+const searchInputEl = document.getElementById("searchInput");
+if (searchInputEl) searchInputEl.addEventListener("input", () => {
+  state.search = searchInputEl.value.trim();
+  updateBadge();
+  render();
+});
+
+const countyQuickEl = document.getElementById("countyQuick");
+if (countyQuickEl) countyQuickEl.addEventListener("change", () => {
+  const v = countyQuickEl.value;
+  state.counties = v === "ALL" ? new Set(countyNames()) : new Set([v]);
+  // Picking one specific county is a strong signal the user wants to see
+  // straight into it, not just narrow the filter and leave it collapsed.
+  if (v !== "ALL") state.expandedCounties.add(v);
+  buildAllChips();
+  if (mapLoaded) refreshMapPaths();
+  updateBadge();
+  render();
+});
+
+// County groups are native <details> - the browser handles the actual
+// show/hide. We only need to mirror the open state into expandedCounties so
+// a county the user expanded stays expanded across the next full re-render
+// (every filter/search/sort change rebuilds #main from scratch). "toggle"
+// doesn't bubble, so this listener has to run in the capture phase.
+const mainEl = document.getElementById("main");
+if (mainEl) mainEl.addEventListener("toggle", e => {
+  const det = e.target;
+  if (!det.classList || !det.classList.contains("county-group")) return;
+  const county = det.dataset.county;
+  if (!county) return;
+  if (det.open) state.expandedCounties.add(county); else state.expandedCounties.delete(county);
+}, true);
+
+const expandAllBtn = document.getElementById("expandAllBtn");
+if (expandAllBtn) expandAllBtn.addEventListener("click", () => {
+  const inLedger = p => p.source === state.ledger;
+  const countiesInLedger = new Set(ALL.filter(inLedger).filter(passes).map(p => p.county));
+  if (expandAllBtn.dataset.mode === "collapse") countiesInLedger.forEach(c => state.expandedCounties.delete(c));
+  else countiesInLedger.forEach(c => state.expandedCounties.add(c));
+  render();
+});
+
+// CSV export - everything currently matching the active ledger's filters
+// (not just the visible page), so it's a complete export regardless of
+// pagination.
+const exportCsvBtn = document.getElementById("exportCsvBtn");
+if (exportCsvBtn) exportCsvBtn.addEventListener("click", () => {
+  const inLedger = p => p.source === state.ledger;
+  const rows = sortRows(ALL.filter(inLedger).filter(passes));
+  if (!rows.length) return;
+  const cols = [
+    ["County", p => p.county],
+    ["Source", p => p.source],
+    ["Address", p => p.address || ""],
+    ["Parcel", p => p.parcel || ""],
+    ["Case/Account #", p => p.case_no || ""],
+    ["Owner", p => p.owner_name || ""],
+    ["Status", p => p.status || ""],
+    ["Property Type", p => p.prop_type || ""],
+    ["Title Status", p => LIEN_LABEL[p.lien_level] || p.lien_level || ""],
+    ["Opening Bid", p => p.bid ?? ""],
+    ["Assessed Value", p => p.assessed ?? ""],
+    ["Market Value", p => p.market ?? ""],
+    ["Potential Equity ($)", p => (p.bid != null && marketOf(p) > 0) ? Math.round(marketOf(p) - Number(p.bid)) : ""],
+    ["Potential Equity (x bid)", p => (Number(p.bid) > 0 && marketOf(p) > 0) ? valueRatio(p).toFixed(2) : ""],
+    ["True Cost Est.", p => p.bid != null ? Math.round(trueCost(p)) : ""],
+    ["Sale/Auction Date", p => p.sale_date || ""],
+    ["Certificate #", p => p.certificate_no || ""],
+    ["Tax Year", p => p.tax_year || ""],
+    ["Issued Date", p => p.issued_date || ""],
+    ["Expiration Date", p => p.expiration_date || ""],
+    ["Interest Rate", p => p.interest_rate ?? ""],
+    ["Street View", p => fallbackStreetviewUrl(p)],
+    ["Appraiser", p => p.url_appraiser || ""],
+    ["Zillow", p => fallbackZillowUrl(p)],
+    ["Tax Collector", p => p.url_taxcoll || ""],
+    ["Auction/LAFT Listing", p => p.url_auction || ""],
+    ["Title Search", p => p.url_title || ""]
+  ];
+  const csvEscape = v => { const s = String(v ?? ""); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+  const lines = [cols.map(c => csvEscape(c[0])).join(",")];
+  rows.forEach(p => lines.push(cols.map(c => csvEscape(c[1](p))).join(",")));
+  const blob = new Blob([lines.join("\r\n")], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  const stamp = new Date().toISOString().slice(0, 10);
+  a.href = url; a.download = `taxdeed-${state.ledger}-${stamp}.csv`;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+});
 
 // ---- open/close ----
 const filtersToggleBtn = document.getElementById("filtersToggle");
@@ -568,13 +1052,15 @@ if (resetBtn) resetBtn.addEventListener("click", () => {
   state.bidMin = null; state.bidMax = null; state.assessedMin = null;
   state.sortBy = "county"; state.favoritesOnly = false; state.topPicksOnly = false;
   state.soonOnly = false; state.includeQT = false; state.maxBidPct = 40;
-  state.statusView = "all";
+  state.statusView = "all"; state.search = "";
   state.counties = new Set(countyNames()); state.types = new Set(TYPE_ORDER); state.liens = new Set(LIEN_ORDER);
+  state.expandedCounties.clear();
 
   ["bidMin", "bidMax", "assessedMin"].forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
   const maxBidEl = document.getElementById("maxBidPct"); if (maxBidEl) maxBidEl.value = "40";
   const sortEl = document.getElementById("sortBy"); if (sortEl) sortEl.value = "county";
   ["favOnly", "topOnly", "soonOnly", "qtToggle"].forEach(id => { const el = document.getElementById(id); if (el) el.checked = false; });
+  const searchEl = document.getElementById("searchInput"); if (searchEl) searchEl.value = "";
 
   buildAllChips();
   if (mapLoaded) refreshMapPaths();

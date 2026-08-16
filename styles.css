@@ -1,89 +1,196 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+
+/* ---- Institutional slate/navy + emerald palette. Header is always dark
+   slate-900 (like a bank/title-company portal), independent of the light/
+   dark body theme toggle below - --header-* variables don't change between
+   themes on purpose. ---- */
 :root {
-  --ink:#1A1F26; --ink-soft:#4B5563; --paper:#E7E1CE; --paper-line:#CFC7AC;
-  --card:#FFFFFF; --card-line:#E3DFCF; --accent:#2E5266; --accent-soft:#E4EBEE;
-  --brass:#A8763B; --ok:#2F7B4F; --ok-bg:#E3F1E8; --bad:#B23A2E; --bad-bg:#F8E7E4;
-  --warn:#9A6B0C; --warn-bg:#F6EDD9;
-  --shadow:0 1px 2px rgba(26,31,38,.06),0 4px 14px rgba(26,31,38,.06);
+  --ink:#0F172A; --ink-soft:#64748B; --paper:#F8FAFC; --paper-line:#E2E8F0;
+  --card:#FFFFFF; --card-line:#E2E8F0; --accent:#2563EB; --accent-soft:#DBEAFE;
+  --brass:#D97706; --ok:#059669; --ok-bg:#ECFDF5; --bad:#DC2626; --bad-bg:#FEF2F2;
+  --warn:#D97706; --warn-bg:#FFFBEB;
+  --shadow:0 1px 2px rgba(15,23,42,.06),0 4px 14px rgba(15,23,42,.08);
 }
 :root[data-theme="dark"]{
-  --ink:#EDE9DC; --ink-soft:#A9A392; --paper:#12161B; --paper-line:#262C33;
-  --card:#1B222A; --card-line:#2A323B; --accent:#7FAFC7; --accent-soft:#202B32;
-  --brass:#C99B5C; --ok:#5FBE8A; --ok-bg:#16281F; --bad:#E28579; --bad-bg:#2E1B19;
-  --warn:#D9AA4C; --warn-bg:#2C2412;
-  --shadow:0 1px 2px rgba(0,0,0,.4),0 6px 20px rgba(0,0,0,.35);
+  --ink:#F1F5F9; --ink-soft:#94A3B8; --paper:#0B1220; --paper-line:#1E293B;
+  --card:#111B2E; --card-line:#233047; --accent:#60A5FA; --accent-soft:#16294A;
+  --brass:#FBBF24; --ok:#34D399; --ok-bg:#062A20; --bad:#F87171; --bad-bg:#3A1414;
+  --warn:#FBBF24; --warn-bg:#332405;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 6px 20px rgba(0,0,0,.4);
 }
 @media (prefers-color-scheme:dark){
   :root:not([data-theme="light"]){
-    --ink:#EDE9DC; --ink-soft:#A9A392; --paper:#12161B; --paper-line:#262C33;
-    --card:#1B222A; --card-line:#2A323B; --accent:#7FAFC7; --accent-soft:#202B32;
-    --brass:#C99B5C; --ok:#5FBE8A; --ok-bg:#16281F; --bad:#E28579; --bad-bg:#2E1B19;
-    --warn:#D9AA4C; --warn-bg:#2C2412;
-    --shadow:0 1px 2px rgba(0,0,0,.4),0 6px 20px rgba(0,0,0,.35);
+    --ink:#F1F5F9; --ink-soft:#94A3B8; --paper:#0B1220; --paper-line:#1E293B;
+    --card:#111B2E; --card-line:#233047; --accent:#60A5FA; --accent-soft:#16294A;
+    --brass:#FBBF24; --ok:#34D399; --ok-bg:#062A20; --bad:#F87171; --bad-bg:#3A1414;
+    --warn:#FBBF24; --warn-bg:#332405;
+    --shadow:0 1px 2px rgba(0,0,0,.4),0 6px 20px rgba(0,0,0,.4);
   }
 }
+/* Header stays dark navy no matter the theme - the one deliberately
+   theme-independent surface, like a title company / bank portal chrome. */
+:root{ --header-bg:#0F172A; --header-line:#1E293B; --header-ink:#F1F5F9; --header-ink-soft:#94A3B8; }
+
 *{box-sizing:border-box}
 html,body{margin:0;padding:0}
 body{
   background:var(--paper); color:var(--ink);
-  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  font-family:'Inter',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
   -webkit-font-smoothing:antialiased; max-width:680px; margin:0 auto;
   padding-bottom:3rem; overflow-x:hidden;
 }
 a{color:var(--accent)} button{font-family:inherit}
+.mono{font-family:ui-monospace,Consolas,monospace}
 
-/* ---- auth gate ---- */
-#authGate{max-width:340px;margin:14vh auto;padding:0 1.2rem;text-align:center}
-#authGate h1{font-family:Georgia,serif;font-size:1.6rem;margin:.2rem 0 .3rem}
-#authGate p{font-size:.85rem;color:var(--ink-soft);margin:0 0 1.4rem}
+/* ---- auth gate: dedicated sign-in screen - centered card over a subtle
+   navy-to-emerald gradient wash, brand mark + tagline up top, instead of
+   bare centered text on the plain page background. ---- */
+#authGate{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1.2rem;
+  background:
+    radial-gradient(ellipse 90% 60% at 15% -10%, color-mix(in srgb, var(--ok) 16%, transparent), transparent),
+    radial-gradient(ellipse 90% 60% at 100% 110%, color-mix(in srgb, var(--header-bg) 30%, transparent), transparent),
+    var(--paper)}
+/* The ID selector above beats the UA [hidden]{display:none} rule on
+   specificity, so #authGate would stay visible (as display:flex) even while
+   hidden without this override - same class of bug as an earlier
+   .pagination-bar[hidden] miss in this app. */
+#authGate[hidden]{display:none}
+.auth-card{width:100%;max-width:360px;background:var(--card);border:1px solid var(--card-line);
+  border-radius:16px;box-shadow:0 1px 2px rgba(15,23,42,.06),0 16px 40px rgba(15,23,42,.14);
+  padding:2rem 1.6rem 1.7rem;text-align:center}
+.auth-brand{display:flex;align-items:center;justify-content:center;gap:.5rem;margin-bottom:1rem}
+#authGate h1{font-family:'Inter',sans-serif;font-weight:800;font-size:1.35rem;margin:0;
+  letter-spacing:-.01em;color:var(--ink)}
+.auth-tagline{font-size:.78rem;color:var(--ink-soft);line-height:1.4;margin:0 0 1.5rem}
+#authGate p.auth-lead{font-size:.85rem;color:var(--ink-soft);margin:0 0 1.2rem}
 #authGate input{
-  width:100%;padding:.6rem .7rem;margin-bottom:.6rem;font-size:.95rem;
-  border:1px solid var(--card-line);border-radius:8px;background:var(--card);color:var(--ink);
+  width:100%;padding:.65rem .75rem;margin-bottom:.6rem;font-size:.95rem;
+  border:1px solid var(--card-line);border-radius:8px;background:var(--paper);color:var(--ink);
 }
+#authGate input:focus{outline:2px solid var(--accent);outline-offset:1px}
+/* --header-bg (not --ink) on purpose: --ink flips to a light color in dark
+   theme (it's the body text color), which would leave white button text
+   unreadable on a now-light background. --header-bg is the one color this
+   app deliberately keeps dark navy in both themes. */
 #authGate button{
-  width:100%;padding:.65rem;font-size:.95rem;font-weight:600;border:none;border-radius:8px;
-  background:var(--accent);color:var(--paper);cursor:pointer;
+  width:100%;padding:.7rem;font-size:.92rem;font-weight:700;border:none;border-radius:8px;
+  background:var(--header-bg);color:#fff;cursor:pointer;margin-top:.2rem;letter-spacing:.01em;
 }
-#authGate button:disabled{opacity:.5;cursor:default}
+#authGate button:hover{background:var(--ok)}
+#authGate button:disabled{opacity:.5;cursor:default;background:var(--header-bg)}
 .auth-msg{margin-top:.9rem;font-size:.82rem;min-height:1.2em}
 .auth-msg.err{color:var(--bad)}
 
-/* ---- masthead ---- */
-/* Deliberately NOT sticky. With the filters panel open this block is tall
-   enough to cover most of the screen, so pinning it hid the property list. */
-.masthead{background:var(--paper);
-  border-bottom:1px solid var(--paper-line);padding:1.1rem 1.1rem .7rem}
+/* ---- masthead: always dark slate-900, regardless of light/dark theme ---- */
+/* Deliberately NOT sticky itself. With the filters panel open this block is
+   tall enough to cover most of the screen, so pinning it hid the property
+   list - the .quick-controls bar below handles "reachable while scrolling"
+   instead (sticky on mobile only). */
+.masthead{background:var(--header-bg); color:var(--header-ink);
+  border-bottom:1px solid var(--header-line);padding:1.1rem 1.1rem .7rem}
 .eyebrow-row{display:flex;align-items:center;justify-content:space-between;gap:.6rem;margin:0 0 .25rem}
 .eyebrow{font-family:ui-monospace,Consolas,monospace;font-size:.68rem;letter-spacing:.14em;
   text-transform:uppercase;color:var(--brass);margin:0}
 .header-btns{display:flex;align-items:center;gap:.4rem;flex-shrink:0}
 .hbtn{display:inline-flex;align-items:center;gap:.3rem;font-size:.7rem;font-weight:600;
-  color:var(--ink-soft);background:var(--card);border:1px solid var(--card-line);
+  color:var(--header-ink-soft);background:rgba(255,255,255,.06);border:1px solid var(--header-line);
   border-radius:999px;padding:.25rem .6rem;cursor:pointer;line-height:1}
-h1{font-family:Georgia,"Iowan Old Style",serif;font-size:1.5rem;line-height:1.15;
-  margin:0 0 .15rem;letter-spacing:-.01em}
-.generated{font-size:.78rem;color:var(--ink-soft);margin:0 0 .7rem}
+h1{font-family:'Inter',sans-serif;font-weight:800;font-size:1.5rem;line-height:1.15;
+  margin:0 0 .15rem;letter-spacing:-.01em;color:var(--header-ink)}
+h1 .brand-accent{color:#60A5FA}
+.tagline{font-size:.82rem;line-height:1.45;color:var(--header-ink-soft);margin:0 0 .55rem;max-width:46ch}
+.generated{font-size:.78rem;color:var(--header-ink-soft);margin:0 0 .7rem}
+
+/* ---- disclaimer callout: the title-search caveat promoted out of the
+   footer fine print into something investors actually see before they act
+   on a title badge. ---- */
+.disclaimer-badge{display:flex;align-items:flex-start;gap:.4rem;font-size:.72rem;line-height:1.4;
+  color:var(--header-ink-soft);background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.35);
+  border-radius:8px;padding:.45rem .6rem;margin:0 0 .7rem}
+.disclaimer-badge b{color:var(--header-ink);font-weight:700}
+.disclaimer-badge .dot{flex-shrink:0}
+
+/* ---- slim brand strip: pinned above the (deliberately non-sticky, see
+   below) masthead so the brand mark stays visible while scrolling a long
+   card list, without the taller filters-bearing masthead needing to pin
+   itself (that hid the property list - see the note on .masthead). ---- */
+.topbar{position:sticky;top:0;z-index:35;display:flex;align-items:center;gap:.5rem;
+  background:var(--header-bg);border-bottom:1px solid var(--header-line);
+  padding:.5rem 1.1rem}
+.brand-mark{flex-shrink:0;display:block}
+.brand-name{font-family:'Inter',sans-serif;font-weight:800;font-size:.85rem;
+  color:var(--header-ink);letter-spacing:-.01em}
+.brand-name .brand-accent{color:var(--ok)}
+@media (min-width:1024px){.topbar{padding:.5rem 1.6rem}}
+
+/* ---- ledger tabs: the top-level Auctions / Lands Available / Certificates
+   switcher. First thing under the masthead so both ledgers are visible right
+   after sign-in, instead of Lands Available being buried under 300+ auction
+   cards on one long scrolling page. ---- */
+.ledger-tabs{display:flex;gap:.4rem;overflow-x:auto;scrollbar-width:none;margin-bottom:.7rem}
+.ledger-tabs::-webkit-scrollbar{display:none}
+.ledger-tab{flex:1 1 auto;display:flex;align-items:center;justify-content:center;gap:.35rem;
+  white-space:nowrap;background:rgba(255,255,255,.05);border:1px solid var(--header-line);border-radius:10px;
+  padding:.55rem .6rem;font-size:.78rem;font-weight:600;color:var(--header-ink-soft);
+  font-family:inherit;cursor:pointer}
+.ledger-tab:active{opacity:.7}
+.ledger-tab.on{border-color:#60A5FA;border-width:2px;padding:.5rem .55rem;
+  background:rgba(96,165,250,.15);color:#93C5FD}
+.ledger-tab b{font-family:ui-monospace,Consolas,monospace;font-variant-numeric:tabular-nums;
+  font-size:.85rem}
+
+/* ---- quick controls: search + county + per-page + CSV export. Sticky on
+   mobile only (top:0) so they stay reachable while scrolling a long card
+   list, without stickying the whole (much taller) masthead. ---- */
+.quick-controls{background:var(--card);border:1px solid var(--card-line);border-radius:12px;
+  padding:.65rem .7rem;margin:.8rem 0 .6rem;display:flex;flex-wrap:wrap;gap:.5rem;box-shadow:var(--shadow)}
+.qc-field{position:relative;flex:1 1 160px}
+.qc-field input,.qc-field select{width:100%;font-family:inherit;font-size:.82rem;
+  padding:.5rem .6rem .5rem 2rem;border-radius:8px;border:1px solid var(--card-line);
+  background:var(--paper);color:var(--ink);appearance:none}
+.qc-field select{padding-left:2rem;padding-right:1.8rem;cursor:pointer}
+.qc-icon{position:absolute;left:.6rem;top:50%;transform:translateY(-50%);width:14px;height:14px;
+  color:var(--ink-soft);pointer-events:none}
+.qc-chevron{position:absolute;right:.6rem;top:50%;transform:translateY(-50%);width:9px;height:9px;
+  border-right:2px solid var(--ink-soft);border-bottom:2px solid var(--ink-soft);
+  transform:translateY(-70%) rotate(45deg);pointer-events:none}
+/* --header-bg, not --ink - see the note on #authGate button above; same
+   dark-in-both-themes button chrome, same reason. */
+.export-btn{flex:0 0 auto;display:inline-flex;align-items:center;gap:.35rem;font-size:.78rem;
+  font-weight:700;color:#fff;background:var(--header-bg);border:none;border-radius:8px;
+  padding:.5rem .8rem;cursor:pointer;white-space:nowrap}
+.export-btn:hover{background:var(--accent)}
+.expand-all-btn{flex:0 0 auto;font-size:.78rem;font-weight:700;color:var(--ink);
+  background:var(--paper);border:1px solid var(--card-line);border-radius:8px;
+  padding:.5rem .8rem;cursor:pointer;white-space:nowrap;font-family:inherit}
+.expand-all-btn:hover{border-color:var(--accent);color:var(--accent)}
+@media (max-width:640px){
+  .quick-controls{position:sticky;top:0;z-index:30;margin-top:0;border-radius:0;
+    border-left:none;border-right:none}
+}
+
 .summary-strip{display:flex;gap:.5rem;overflow-x:auto;padding-bottom:.15rem;
   scrollbar-width:none;margin-bottom:.7rem}
 .summary-strip::-webkit-scrollbar{display:none}
-.chip{flex:0 0 auto;display:flex;align-items:baseline;gap:.35rem;background:var(--card);
-  border:1px solid var(--card-line);border-radius:999px;padding:.32rem .75rem;
-  font-size:.78rem;white-space:nowrap;color:var(--ink);font-family:inherit;cursor:pointer}
+.chip{flex:0 0 auto;display:flex;align-items:baseline;gap:.35rem;background:rgba(255,255,255,.05);
+  border:1px solid var(--header-line);border-radius:999px;padding:.32rem .75rem;
+  font-size:.78rem;white-space:nowrap;color:var(--header-ink);font-family:inherit;cursor:pointer}
 .chip:active{opacity:.7}
 .chip.on{border-width:2px;padding:.28rem .71rem}
-.chip.total.on{border-color:var(--accent);background:var(--accent-soft)}
-.chip.ok.on{border-color:var(--ok);background:var(--ok-bg)}
-.chip.bad.on{border-color:var(--bad);background:var(--bad-bg)}
+.chip.total.on{border-color:#60A5FA;background:rgba(96,165,250,.15)}
+.chip.ok.on{border-color:var(--ok);background:rgba(5,150,105,.18)}
+.chip.bad.on{border-color:var(--bad);background:rgba(220,38,38,.18)}
 .chip b{font-family:ui-monospace,Consolas,monospace;font-variant-numeric:tabular-nums;font-size:.85rem}
-.chip.total b{color:var(--accent)} .chip.ok b{color:var(--ok)} .chip.bad b{color:var(--bad)}
+.chip.total b{color:#93C5FD} .chip.ok b{color:#6EE7B7} .chip.bad b{color:#FCA5A5}
 
 /* ---- filters ---- */
 .filters-toggle{width:100%;display:flex;align-items:center;justify-content:space-between;
-  background:var(--card);border:1px solid var(--card-line);border-radius:12px;
-  padding:.6rem .85rem;font-size:.85rem;font-weight:600;color:var(--ink);cursor:pointer}
-.filters-badge{background:var(--accent);color:var(--card);font-size:.68rem;font-weight:700;
+  background:rgba(255,255,255,.05);border:1px solid var(--header-line);border-radius:12px;
+  padding:.6rem .85rem;font-size:.85rem;font-weight:600;color:var(--header-ink);cursor:pointer}
+.filters-badge{background:var(--accent);color:#fff;font-size:.68rem;font-weight:700;
   padding:.08rem .44rem;border-radius:999px;font-family:ui-monospace,Consolas,monospace}
-.chevron{width:9px;height:9px;border-right:2px solid var(--ink-soft);
-  border-bottom:2px solid var(--ink-soft);transform:rotate(-45deg);transition:transform .18s}
+.chevron{width:9px;height:9px;border-right:2px solid var(--header-ink-soft);
+  border-bottom:2px solid var(--header-ink-soft);transform:rotate(-45deg);transition:transform .18s}
 .filters-toggle.open .chevron{transform:rotate(45deg)}
 /* Capped height with its own scroll: 14 county chips plus type and title rows
    overflow a phone screen, and the bottom rows were unreachable. */
@@ -91,11 +198,37 @@ h1{font-family:Georgia,"Iowan Old Style",serif;font-size:1.5rem;line-height:1.15
   border-radius:12px;padding:.7rem .8rem;margin-top:.5rem;
   max-height:60vh;overflow-y:auto;-webkit-overflow-scrolling:touch}
 .filters-panel.open{display:block}
+/* ---- filters panel: organized into clearly separated sections instead of
+   one long run-on list of rows, so it reads as "clean" rather than
+   convoluted even with a dozen+ controls in play. ---- */
+.filters-section{padding-bottom:.7rem;margin-bottom:.7rem;border-bottom:1px solid var(--card-line)}
+.filters-section:last-child{border-bottom:none;margin-bottom:0;padding-bottom:0}
+.filters-section-head{display:flex;align-items:center;justify-content:space-between;gap:.5rem;margin-bottom:.5rem}
+.filters-section-title{font-size:.7rem;font-weight:800;text-transform:uppercase;
+  letter-spacing:.06em;color:var(--ink-soft)}
 .filters-row{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;margin-bottom:.55rem}
 .filters-row:last-child{margin-bottom:0}
 .filters-group{flex-direction:column;align-items:stretch;gap:.25rem}
 .group-head{display:flex;align-items:center;justify-content:space-between;gap:.5rem}
-.group-actions{display:flex;gap:.3rem;flex-shrink:0}
+.group-actions{display:flex;gap:.3rem;flex-shrink:0;margin-bottom:.4rem}
+
+/* Property Type / Title Status / County collapse behind a click-to-expand
+   "dropdown" summary instead of always showing their full chip list. */
+.filter-dropdown{border:1px solid var(--card-line);border-radius:9px;margin-bottom:.5rem;
+  background:var(--paper);overflow:hidden}
+.filter-dropdown:last-child{margin-bottom:0}
+.filter-dropdown summary{list-style:none;cursor:pointer;padding:.55rem .7rem;
+  font-size:.78rem;font-weight:700;color:var(--ink);display:flex;align-items:center;
+  justify-content:space-between;gap:.5rem}
+.filter-dropdown summary::-webkit-details-marker{display:none}
+.filter-dropdown summary::after{content:"";width:8px;height:8px;flex-shrink:0;
+  border-right:2px solid var(--ink-soft);border-bottom:2px solid var(--ink-soft);
+  transform:rotate(45deg);transition:transform .15s;margin-left:auto}
+.filter-dropdown[open] summary::after{transform:rotate(225deg)}
+.filter-dropdown-count{font-family:ui-monospace,Consolas,monospace;font-size:.68rem;
+  font-weight:600;color:var(--accent);background:var(--accent-soft);border-radius:999px;
+  padding:.05rem .45rem;margin-right:auto;margin-left:.5rem}
+.filter-dropdown-body{padding:0 .7rem .65rem}
 .mini-btn{font-size:.62rem;text-transform:uppercase;letter-spacing:.05em;font-weight:700;
   color:var(--accent);background:none;border:1px solid var(--card-line);border-radius:5px;
   padding:.1rem .35rem;cursor:pointer}
@@ -137,41 +270,69 @@ h1{font-family:Georgia,"Iowan Old Style",serif;font-size:1.5rem;line-height:1.15
 main{padding:.9rem 1.1rem 0}
 .mega-section{margin-bottom:1.2rem}
 .mega-head{margin-bottom:.55rem}
-.mega-head h2{font-family:Georgia,serif;font-size:1.2rem;margin:0 0 .15rem}
+.mega-head h2{font-family:'Inter',sans-serif;font-weight:800;font-size:1.2rem;margin:0 0 .15rem}
 .mega-sub{font-size:.76rem;color:var(--ink-soft);margin:0}
 
+/* ---- county grouping: each ledger is organized into one collapsible
+   <details> per county (name, an auction date/format line, and an "N/M
+   active" count) instead of one long flat card list - the structure a
+   county with 300+ properties needs to stay scannable. ---- */
 .county-group{background:var(--card);border:1px solid var(--card-line);border-radius:14px;
-  margin-bottom:.7rem;box-shadow:var(--shadow);overflow:hidden}
+  margin-bottom:.7rem;box-shadow:var(--shadow);overflow:hidden;transition:border-color .12s}
+.county-group:hover{border-color:color-mix(in srgb,var(--accent) 35%,var(--card-line) 65%)}
 .county-group[open]{padding-bottom:.3rem}
 summary.county-head{list-style:none;cursor:pointer;padding:.85rem 1rem;display:flex;
   align-items:center;justify-content:space-between;gap:.75rem}
 summary.county-head::-webkit-details-marker{display:none}
-.county-name{font-family:Georgia,serif;font-size:1.05rem}
+.county-name{font-family:'Inter',sans-serif;font-weight:700;font-size:1.05rem;color:var(--ink)}
 .county-meta{font-size:.74rem;color:var(--ink-soft);margin-top:.1rem}
-.county-right{display:flex;align-items:center;gap:.5rem;flex-shrink:0}
-.county-count{font-family:ui-monospace,Consolas,monospace;font-size:.78rem;color:var(--ink-soft)}
-.county-group[open] .chevron{transform:rotate(45deg)}
-.county-info{display:flex;gap:.4rem;margin:0 .6rem .5rem;padding:.45rem .6rem;
-  background:var(--accent-soft);border-radius:8px;font-size:.7rem;line-height:1.35;color:var(--ink-soft)}
-.fmt-pill{flex-shrink:0;font-weight:700;font-size:.62rem;text-transform:uppercase;
-  color:var(--accent);background:var(--card);border-radius:4px;padding:.1rem .35rem}
+.county-right{display:flex;align-items:center;gap:.6rem;flex-shrink:0}
+.county-count{font-family:ui-monospace,Consolas,monospace;font-variant-numeric:tabular-nums;
+  font-size:.78rem;font-weight:600;color:var(--ink-soft);white-space:nowrap}
+/* Chevron is scoped to the county summary (not the shared .chevron class,
+   which is tuned for the dark masthead's --header-ink-soft) so it stays
+   visible against the light card background in both themes. */
+.county-chevron{width:8px;height:8px;flex-shrink:0;border-right:2px solid var(--ink-soft);
+  border-bottom:2px solid var(--ink-soft);transform:rotate(45deg);transition:transform .15s}
+.county-group[open] .county-chevron{transform:rotate(225deg)}
+.county-info{display:flex;align-items:flex-start;gap:.5rem;margin:0 .6rem .6rem;padding:.5rem .65rem;
+  background:var(--accent-soft);border-radius:8px;font-size:.74rem;line-height:1.4;color:var(--ink)}
+.fmt-pill{flex-shrink:0;font-weight:700;font-size:.6rem;text-transform:uppercase;letter-spacing:.03em;
+  color:var(--accent);background:var(--card);border-radius:4px;padding:.15rem .4rem;margin-top:.05rem}
 .fmt-pill.inperson{color:var(--brass)}
 
 .prop-list{padding:0 .6rem;display:flex;flex-direction:column;gap:.5rem}
 .prop-list.flat{padding:0}
+/* flex-col at every breakpoint (not just desktop) so footer/link rows stay
+   pinned to the bottom and every card in a row reads the same height. */
 .prop-card{border:1px solid var(--card-line);border-left:3px solid var(--card-line);
-  border-radius:10px;padding:.7rem .8rem;background:color-mix(in srgb,var(--card) 96%,var(--ink) 4%)}
+  border-radius:12px;padding:.7rem .8rem;background:var(--card);box-shadow:var(--shadow);
+  display:flex;flex-direction:column}
 .prop-card.cert-card{border-left-color:var(--accent)}
 .prop-card.favorited{border-left-color:var(--brass)}
-.prop-card.toppick{border-left-color:var(--ok);background:color-mix(in srgb,var(--ok-bg) 30%,var(--card) 70%)}
+.prop-card.toppick{border-left-color:var(--ok);background:color-mix(in srgb,var(--ok-bg) 35%,var(--card) 65%)}
 .prop-card.toppick.favorited{border-left-color:var(--brass)}
-.toppick-banner{display:flex;align-items:center;gap:.35rem;font-size:.68rem;font-weight:800;
-  text-transform:uppercase;letter-spacing:.05em;color:var(--ok);margin-bottom:.3rem}
+/* Top Pick: soft green fill + a bold (2px) outline, called out in the spec
+   as its own badge treatment distinct from the plain status pill. */
+.toppick-banner{display:inline-flex;align-items:center;gap:.35rem;font-size:.68rem;font-weight:800;
+  text-transform:uppercase;letter-spacing:.05em;color:var(--ok);margin-bottom:.4rem;
+  background:var(--ok-bg);border:2px solid var(--ok);border-radius:999px;padding:.22rem .6rem .22rem .5rem}
 .ratio-pill{font-family:ui-monospace,Consolas,monospace;font-weight:700;text-transform:none;
-  background:var(--ok-bg);border-radius:4px;padding:.05rem .3rem}
+  background:var(--card);border-radius:4px;padding:.05rem .3rem}
+
+/* Compact title-status pill, shown alongside the availability status pill so
+   the title screen result is scannable without reading the banner below -
+   emerald/clear, amber/flag, red/serious, gray/unscreened. */
+.lien-pill{flex-shrink:0;font-size:.66rem;font-weight:700;text-transform:uppercase;
+  padding:.22rem .5rem;border-radius:999px;white-space:nowrap;border:1px solid transparent}
+.lien-pill.clean{color:var(--ok);background:var(--ok-bg);border-color:color-mix(in srgb,var(--ok) 40%,transparent)}
+.lien-pill.flag{color:var(--warn);background:var(--warn-bg);border-color:color-mix(in srgb,var(--warn) 40%,transparent)}
+.lien-pill.serious{color:var(--bad);background:var(--bad-bg);border-color:color-mix(in srgb,var(--bad) 40%,transparent)}
+.lien-pill.unscreened{color:var(--ink-soft);background:var(--paper-line)}
 .prop-top{display:flex;justify-content:space-between;align-items:flex-start;gap:.6rem}
-.prop-address{font-size:.92rem;font-weight:600;line-height:1.3}
-.prop-county-tag{font-size:.66rem;text-transform:uppercase;color:var(--brass);margin-bottom:.15rem}
+.prop-address{font-size:.92rem;font-weight:700;line-height:1.3;
+  overflow:hidden;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical}
+.prop-county-tag{font-size:.66rem;font-weight:700;text-transform:uppercase;color:var(--accent);margin-bottom:.15rem}
 .prop-top-actions{flex-shrink:0;display:flex;align-items:center;gap:.3rem}
 .icon-btn{border:none;background:transparent;font-size:1.05rem;line-height:1;cursor:pointer;
   padding:.1rem .25rem;color:var(--ink-soft)}
@@ -189,17 +350,59 @@ summary.county-head::-webkit-details-marker{display:none}
 
 .prop-meta{font-family:ui-monospace,Consolas,monospace;font-variant-numeric:tabular-nums;
   font-size:.74rem;color:var(--ink-soft);margin-top:.3rem;display:flex;flex-wrap:wrap;gap:.15rem .6rem}
-.meta-bid{color:#c23b3b;font-weight:700}
-.meta-assessed{color:#2f7b4f;font-weight:700}
-.meta-market{color:#2e6fd9;font-weight:700}
-:root[data-theme="dark"] .meta-bid{color:#e28579}
-:root[data-theme="dark"] .meta-assessed{color:#5fbe8a}
-:root[data-theme="dark"] .meta-market{color:#7fb0f0}
-@media (prefers-color-scheme:dark){
-  :root:not([data-theme="light"]) .meta-bid{color:#e28579}
-  :root:not([data-theme="light"]) .meta-assessed{color:#5fbe8a}
-  :root:not([data-theme="light"]) .meta-market{color:#7fb0f0}
-}
+.meta-bid{color:var(--bad);font-weight:700}
+.meta-assessed{color:var(--ok);font-weight:700}
+.meta-market{color:var(--accent);font-weight:700}
+
+/* ---- card stat grid: the four headline numbers (bid / assessed / market /
+   true cost) as labeled boxes instead of a run-on inline meta line, so the
+   figures investors compare most are the easiest ones to scan. Walk-away
+   spans the full width as a footer row within the same grid. ---- */
+.card-stat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:.4rem;margin-top:.45rem}
+.card-stat{background:var(--paper);border:1px solid var(--card-line);border-radius:8px;
+  padding:.4rem .55rem}
+.card-stat.wide{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;
+  background:none;border:none;border-top:1px dashed var(--card-line);border-radius:0;
+  padding:.35rem 0 0}
+.card-stat-label{display:flex;align-items:center;gap:.25rem;font-size:.62rem;text-transform:uppercase;
+  letter-spacing:.04em;color:var(--ink-soft);margin-bottom:.1rem}
+.card-stat.wide .card-stat-label{margin-bottom:0}
+.card-stat-val{font-family:ui-monospace,Consolas,monospace;font-variant-numeric:tabular-nums;
+  font-size:.86rem;font-weight:700;color:var(--ink)}
+.card-stat-val.bid{color:var(--bad)}
+.card-stat-val.assessed{color:var(--ok)}
+.card-stat-val.market{color:var(--accent)}
+.card-stat-val.over{color:var(--bad)}
+.card-stat-val.under{color:var(--ok)}
+
+/* ---- info tooltip: small "ⓘ" affordance for the True Cost calculation
+   breakdown (doc stamps, recording, homestead adjustment) - keyboard
+   focusable so it isn't hover-only on touch devices. ---- */
+.info-tip{position:relative;display:inline-flex;align-items:center;justify-content:center;
+  width:13px;height:13px;border-radius:50%;background:var(--card-line);color:var(--ink-soft);
+  font-size:.6rem;font-style:normal;line-height:1;cursor:help;flex-shrink:0}
+/* Anchored to the icon's right edge (opens leftward) rather than centered -
+   these icons tend to sit in a card's right-hand column, and a centered
+   popover would run off the edge of a narrow phone screen. */
+.info-tip::after{content:attr(data-tip);position:absolute;right:-8px;left:auto;bottom:calc(100% + 6px);
+  transform:translateY(4px);width:190px;max-width:68vw;background:var(--header-bg);
+  color:#fff;font-size:.68rem;font-weight:400;line-height:1.4;text-transform:none;
+  letter-spacing:normal;border-radius:8px;padding:.5rem .6rem;box-shadow:var(--shadow);
+  opacity:0;visibility:hidden;transition:opacity .12s,transform .12s;pointer-events:none;z-index:20}
+.info-tip::before{content:"";position:absolute;right:2px;left:auto;bottom:100%;
+  border:5px solid transparent;border-top-color:var(--header-bg);margin-bottom:-2px;
+  opacity:0;visibility:hidden;transition:opacity .12s;z-index:20}
+.info-tip:hover::after,.info-tip:focus::after{opacity:1;visibility:visible;transform:translateY(0)}
+.info-tip:hover::before,.info-tip:focus::before{opacity:1;visibility:visible}
+
+/* ---- potential equity / spread badge: market value minus opening bid,
+   shown wherever there's a bid and a market figure to compare it to. ---- */
+.spread-badge{display:inline-flex;align-items:baseline;gap:.3rem;font-family:'Inter',sans-serif;
+  font-size:.72rem;font-weight:700;color:var(--ok);background:var(--ok-bg);
+  border:1px solid color-mix(in srgb,var(--ok) 35%,transparent);border-radius:999px;
+  padding:.2rem .55rem;margin-top:.35rem}
+.spread-badge .spread-mult{font-family:ui-monospace,Consolas,monospace;font-weight:600;opacity:.85}
+
 .cost-row{display:flex;flex-wrap:wrap;gap:.2rem .8rem;margin-top:.4rem;font-size:.72rem;
   font-family:ui-monospace,Consolas,monospace;font-variant-numeric:tabular-nums}
 .cost-tag{text-transform:uppercase;font-size:.6rem;color:var(--ink-soft)}
@@ -233,14 +436,26 @@ summary.county-head::-webkit-details-marker{display:none}
 .copy-tag{flex-shrink:0;text-transform:uppercase;font-size:.6rem;opacity:.75}
 
 .prop-links{display:flex;flex-wrap:wrap;gap:.35rem;margin-top:.55rem}
-.prop-links a{flex:1 1 calc(33.333% - .24rem);text-align:center;font-size:.68rem;font-weight:600;
+.prop-links a{flex:1 1 calc(33.333% - .24rem);display:flex;align-items:center;justify-content:center;
+  gap:.28rem;text-align:center;font-size:.68rem;font-weight:600;
   text-decoration:none;padding:.38rem .25rem;border-radius:7px;background:var(--accent-soft);
   color:var(--accent);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.prop-links a:hover{background:var(--accent);color:#fff}
+.prop-links a .link-icon{flex-shrink:0;font-size:.8em}
 
 .cta-btn{display:block;text-align:center;margin-top:.55rem;padding:.6rem .5rem;border-radius:8px;
-  background:var(--ok);color:var(--card);font-weight:700;font-size:.82rem;text-decoration:none;
+  background:var(--ok);color:#fff;font-weight:700;font-size:.82rem;text-decoration:none;
   letter-spacing:.01em}
 .cta-btn:hover{filter:brightness(1.08)}
+
+/* institutional dark "View Details" CTA - matches the CSV export button.
+   --header-bg, not --ink - see the note on #authGate button above: --ink
+   flips light in dark theme, which left this white-on-white in dark mode
+   before this fix. */
+.detail-btn{display:block;text-align:center;margin-top:.4rem;padding:.5rem .5rem;border-radius:8px;
+  background:var(--header-bg);color:#fff;font-weight:700;font-size:.76rem;text-decoration:none;
+  letter-spacing:.01em;border:none;cursor:pointer;font-family:inherit}
+.detail-btn:hover{background:var(--accent)}
 
 .notes-block{margin-top:.5rem;border-top:1px solid var(--card-line);padding-top:.45rem}
 .notes-head{display:flex;align-items:center;justify-content:space-between;gap:.5rem;
@@ -255,8 +470,58 @@ summary.county-head::-webkit-details-marker{display:none}
   padding:.3rem .4rem;border-radius:6px;border:1px solid var(--card-line);
   background:var(--paper);color:var(--ink);resize:vertical}
 .note-save{align-self:flex-start;font-size:.68rem;font-weight:600;padding:.25rem .7rem;
-  border-radius:6px;border:none;background:var(--accent);color:var(--paper);cursor:pointer}
+  border-radius:6px;border:none;background:var(--accent);color:#fff;cursor:pointer}
 .note-save.saved{background:var(--ok)}
+
+/* ---- property detail modal: the "full property page" - same data as the
+   card, laid out roomier, with big tappable link buttons instead of the
+   compact 3-across grid. ---- */
+.detail-modal{position:fixed;inset:0;z-index:100;background:rgba(15,23,42,.6);
+  display:flex;align-items:flex-end;justify-content:center;padding:0}
+.detail-modal[hidden]{display:none}
+.detail-modal-inner{background:var(--paper);width:100%;max-width:600px;max-height:92vh;
+  overflow-y:auto;border-radius:16px 16px 0 0;padding:1rem 1.1rem 1.6rem;position:relative;
+  -webkit-overflow-scrolling:touch}
+@media (min-width:640px){
+  .detail-modal{align-items:center;padding:1.5rem}
+  .detail-modal-inner{border-radius:16px;max-height:88vh}
+}
+.detail-close{position:sticky;top:0;float:right;border:none;background:var(--card);
+  color:var(--ink-soft);width:2rem;height:2rem;border-radius:999px;font-size:1.1rem;
+  cursor:pointer;box-shadow:var(--shadow);margin-bottom:.3rem}
+.detail-address{font-family:'Inter',sans-serif;font-weight:800;font-size:1.25rem;
+  line-height:1.25;margin:.3rem 0 .2rem;clear:both}
+.detail-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:.6rem;
+  margin:.8rem 0}
+.detail-stat{background:var(--card);border:1px solid var(--card-line);border-radius:10px;
+  padding:.55rem .65rem}
+.detail-stat-label{font-size:.62rem;text-transform:uppercase;letter-spacing:.04em;
+  color:var(--ink-soft);display:block;margin-bottom:.15rem}
+.detail-stat-val{font-family:ui-monospace,Consolas,monospace;font-variant-numeric:tabular-nums;
+  font-size:1rem;font-weight:700}
+.detail-links{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:.5rem;
+  margin:.9rem 0}
+.detail-links a{display:flex;align-items:center;justify-content:center;gap:.35rem;text-align:center;
+  font-size:.8rem;font-weight:700;text-decoration:none;padding:.65rem .5rem;border-radius:10px;
+  background:var(--accent-soft);color:var(--accent)}
+.detail-links a:hover{filter:brightness(1.05)}
+.detail-links a .link-icon{flex-shrink:0}
+
+/* ---- skeleton loaders: card-shaped shimmer placeholders shown while the
+   first Supabase fetch is in flight, instead of a bare "Loading" line. ---- */
+.skeleton-group{background:var(--card);border:1px solid var(--card-line);border-radius:14px;
+  margin-bottom:.7rem;box-shadow:var(--shadow);padding:.85rem 1rem}
+.skel{position:relative;overflow:hidden;background:var(--card-line);border-radius:6px}
+.skel::after{content:"";position:absolute;inset:0;
+  background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--card) 60%,transparent),transparent);
+  animation:skel-shimmer 1.4s ease-in-out infinite}
+@keyframes skel-shimmer{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+.skel-title{height:16px;width:55%;margin-bottom:.6rem}
+.skel-line{height:11px;margin-bottom:.5rem}
+.skel-line.w60{width:60%} .skel-line.w80{width:80%} .skel-line.w40{width:40%}
+.skel-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:.5rem;margin-top:.6rem}
+.skel-box{height:38px;border-radius:8px}
+@media (prefers-reduced-motion:reduce){.skel::after{animation:none}}
 
 .empty-state{text-align:center;padding:2rem 1rem;color:var(--ink-soft);font-size:.85rem}
 footer{padding:1.2rem 1.1rem 0;font-size:.72rem;color:var(--ink-soft);text-align:center}
@@ -274,7 +539,8 @@ footer{padding:1.2rem 1.1rem 0;font-size:.72rem;color:var(--ink-soft);text-align
   .prop-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));
     gap:.75rem;padding:0 .9rem;align-items:start}
   .prop-list.flat{padding:0}
-  .prop-card{height:100%;display:flex;flex-direction:column}
+  .prop-card{height:100%}
   .notes-block{margin-top:auto}
+  .quick-controls{position:static}
 }
 @media (prefers-reduced-motion:reduce){.chevron{transition:none}}
