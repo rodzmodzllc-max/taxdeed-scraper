@@ -243,7 +243,25 @@ function buildChips(id, values, set, labelFn, classFn) {
     el.appendChild(c);
   });
 }
-function buildAllChips() { buildChips("countyChips", countyNames(), state.counties); buildChips("typeChips", TYPE_ORDER, state.types); buildChips("lienChips", LIEN_ORDER, state.liens, v => LIEN_LABEL[v], v => "lien-" + v); }
+
+// County chips carry a "(n)" count and sort busiest-first, so the picker
+// itself answers "how many properties does this county have" instead of
+// just being an alphabetical toggle list.
+function countyCounts() {
+  const m = new Map();
+  ALL.forEach(p => m.set(p.county, (m.get(p.county) || 0) + 1));
+  return m;
+}
+function countyNamesByCount() {
+  const counts = countyCounts();
+  return countyNames().slice().sort((a, b) => (counts.get(b) || 0) - (counts.get(a) || 0) || a.localeCompare(b));
+}
+function buildAllChips() {
+  const counts = countyCounts();
+  buildChips("countyChips", countyNamesByCount(), state.counties, v => `${v} (${counts.get(v) || 0})`);
+  buildChips("typeChips", TYPE_ORDER, state.types);
+  buildChips("lienChips", LIEN_ORDER, state.liens, v => LIEN_LABEL[v], v => "lien-" + v);
+}
 
 function passes(p) {
   if (HIDDEN.has(p.id) || goneExpired(p)) return false;
