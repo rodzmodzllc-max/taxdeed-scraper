@@ -84,6 +84,19 @@ function goneExpired(p) {
   return (Date.now() - Date.parse(p.gone_since)) > hours * 3600 * 1000;
 }
 
+// An auction whose sale date has already come and gone is no longer open for
+// bidding, no matter what the scraper's last-seen `status` says - that only
+// flips to dropped/sold/notfound once a re-scrape happens to notice, which
+// can lag days behind the actual sale. A passed calendar date isn't
+// ambiguous the way a scrape-detected removal can be, so this doesn't wait
+// for a grace period the way goneExpired() does for favorited/noted rows.
+// LAFT and certificates aren't tied to a single sale date, so they're exempt.
+function isPastDue(p) {
+  if (p.source !== "auction") return false;
+  const d = daysUntil(p);
+  return d !== null && d < 0;
+}
+
 const fmtMoney = n => "$" + Number(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtShort = n => "$" + Math.round(Number(n)).toLocaleString("en-US");
 const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
@@ -368,7 +381,7 @@ function matchesSearch(p) {
 }
 
 function passes(p) {
-  if (HIDDEN.has(p.id) || goneExpired(p)) return false;
+  if (HIDDEN.has(p.id) || goneExpired(p) || isPastDue(p)) return false;
   if (state.statusView === "gone" && !isGone(p)) return false;
   if (state.statusView === "live" && isGone(p)) return false;
   if (state.favoritesOnly && !FAVS.has(p.id)) return false;
