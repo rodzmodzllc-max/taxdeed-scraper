@@ -79,6 +79,10 @@
       <button class="chip total" data-status="all" type="button">Shown&nbsp;<b id="chipTotal">0</b></button>
       <button class="chip ok" data-status="live" type="button">Active&nbsp;<b id="chipActive">0</b></button>
       <button class="chip bad" data-status="gone" type="button">Gone&nbsp;<b id="chipGone">0</b></button>
+      <!-- Past-due auctions never show in Shown/Active/Gone (see isPastDue in
+           app.js) so notes/favorites on a property you won don't just vanish
+           once its sale date passes - this is the only place to still find them. -->
+      <button class="chip archive" data-status="archive" type="button" title="Auctions whose sale date has passed - kept here so your notes on them aren't lost">Archive&nbsp;<b id="chipArchive">0</b></button>
     </div>
     <!-- Quick controls: instant search + a single-pick county dropdown (the
          detailed multi-select county/type/lien chips still live in Filters &

@@ -100,6 +100,11 @@ h1{font-family:'Inter',sans-serif;font-weight:800;font-size:1.5rem;line-height:1
 h1 .brand-accent{color:#60A5FA}
 .tagline{font-size:.82rem;line-height:1.45;color:var(--header-ink-soft);margin:0 0 .55rem;max-width:46ch}
 .generated{font-size:.78rem;color:var(--header-ink-soft);margin:0 0 .7rem}
+/* Sync pipeline runs on a PC, not a server - nothing guarantees it ran
+   today. This makes a dead sync visually loud instead of reading the same
+   as "quiet week, nothing new". --warn is already used for county-format
+   notes, reusing it here keeps the palette to one "pay attention" color. */
+.generated.stale{color:var(--warn);font-weight:700}
 
 /* ---- disclaimer callout: the title-search caveat promoted out of the
    footer fine print into something investors actually see before they act
@@ -180,8 +185,9 @@ h1 .brand-accent{color:#60A5FA}
 .chip.total.on{border-color:#60A5FA;background:rgba(96,165,250,.15)}
 .chip.ok.on{border-color:var(--ok);background:rgba(5,150,105,.18)}
 .chip.bad.on{border-color:var(--bad);background:rgba(220,38,38,.18)}
+.chip.archive.on{border-color:#FBBF24;background:rgba(251,191,36,.15)}
 .chip b{font-family:ui-monospace,Consolas,monospace;font-variant-numeric:tabular-nums;font-size:.85rem}
-.chip.total b{color:#93C5FD} .chip.ok b{color:#6EE7B7} .chip.bad b{color:#FCA5A5}
+.chip.total b{color:#93C5FD} .chip.ok b{color:#6EE7B7} .chip.bad b{color:#FCA5A5} .chip.archive b{color:#FCD34D}
 
 /* ---- filters ---- */
 .filters-toggle{width:100%;display:flex;align-items:center;justify-content:space-between;
@@ -347,6 +353,8 @@ summary.county-head::-webkit-details-marker{display:none}
   white-space:nowrap;background:var(--paper-line);color:var(--ink-soft)}
 .countdown.soon{background:var(--warn-bg);color:var(--warn)}
 .countdown.urgent{background:var(--bad-bg);color:var(--bad)}
+/* Archive view only - muted on purpose, this is a record not an alert. */
+.countdown.past{background:var(--card-line);color:var(--ink-soft)}
 
 .prop-meta{font-family:ui-monospace,Consolas,monospace;font-variant-numeric:tabular-nums;
   font-size:.74rem;color:var(--ink-soft);margin-top:.3rem;display:flex;flex-wrap:wrap;gap:.15rem .6rem}

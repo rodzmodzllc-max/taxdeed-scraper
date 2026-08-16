@@ -30,6 +30,11 @@ const SOON_DAYS = 14;
 
 const GONE_HOURS_DEFAULT = 24;
 const GONE_HOURS_FLAGGED = 48;
+// The sync pipeline runs on a PC, not a server - nothing guarantees it ran
+// today. Past this many hours since the newest row's updated_at, the "Data
+// updated" line switches from a plain timestamp to a warning, since a quiet
+// ledger and a dead sync both look identical otherwise.
+const STALE_DATA_HOURS = 36;
 const GONE_STATUSES = ["dropped", "sold", "notfound"];
 const isGone = p => GONE_STATUSES.includes(p.status);
 
@@ -295,7 +300,14 @@ async function loadAll() {
   const newest = ALL.reduce((a, p) => (p.updated_at > a ? p.updated_at : a), "");
   const genEl = document.getElementById("generatedAt");
   const eyeEl = document.getElementById("eyebrow");
-  if (genEl) genEl.textContent = newest ? "Data updated " + new Date(newest).toLocaleString() : "No data yet.";
+  if (genEl) {
+    const staleHours = newest ? (Date.now() - Date.parse(newest)) / 3600000 : null;
+    const isStale = staleHours !== null && staleHours > STALE_DATA_HOURS;
+    genEl.classList.toggle("stale", isStale);
+    genEl.textContent = !newest ? "No data yet." :
+      isStale ? "⚠ Data updated " + new Date(newest).toLocaleString() + " - sync may be behind" :
+      "Data updated " + new Date(newest).toLocaleString();
+  }
   if (eyeEl) eyeEl.textContent = "Field Ledger - " + countyNames().length + " Counties - " + BUILD;
 }
 
@@ -381,9 +393,20 @@ function matchesSearch(p) {
 }
 
 function passes(p) {
-  if (HIDDEN.has(p.id) || goneExpired(p) || isPastDue(p)) return false;
-  if (state.statusView === "gone" && !isGone(p)) return false;
-  if (state.statusView === "live" && isGone(p)) return false;
+  if (HIDDEN.has(p.id) || goneExpired(p)) return false;
+  // Archive is a different mode, not a sub-filter of live/gone: it shows
+  // ONLY past-due auctions (the record of what already closed, so notes/
+  // stage on a property you won don't just vanish once the sale date
+  // passes), while every other view excludes them outright. Keep this
+  // check ahead of the live/gone branch below so the two modes can't leak
+  // into each other.
+  const archiving = state.statusView === "archive";
+  if (archiving) { if (!isPastDue(p)) return false; }
+  else if (isPastDue(p)) return false;
+  if (!archiving) {
+    if (state.statusView === "gone" && !isGone(p)) return false;
+    if (state.statusView === "live" && isGone(p)) return false;
+  }
   if (state.favoritesOnly && !FAVS.has(p.id)) return false;
   if (state.topPicksOnly && !isTopPick(p)) return false;
   if (state.soonOnly) { const d = daysUntil(p); if (d === null || d < 0 || d > SOON_DAYS) return false; }
@@ -421,6 +444,7 @@ function card(p, showCounty) {
   const d = daysUntil(p);
   let cd = "";
   if (d !== null && d >= 0) { const cls = d <= 3 ? "urgent" : d <= SOON_DAYS ? "soon" : ""; cd = `<span class="countdown ${cls}">${d === 0 ? "TODAY" : d + "d"}</span>`; }
+  else if (d !== null && d < 0) { cd = `<span class="countdown past">${-d}d ago</span>`; }
   const tag = showCounty ? `<div class="prop-county-tag">${esc(p.county)}${p.sale_date ? " - " + fmtDate(p.sale_date) : ""}</div>` : (p.sale_date ? `<div class="prop-county-tag">Sale ${new Date(p.sale_date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}</div>` : "");
 
   const hasAddress = p.address && p.address.trim();
@@ -725,19 +749,23 @@ function render() {
   const chipTotal = document.getElementById("chipTotal");
   if (chipTotal) chipTotal.textContent = shown.length;
 
-  // Active/Gone counts ignore the current statusView (and are scoped to the
-  // active ledger, same as Shown) so both chips stay meaningful no matter
-  // which one is currently selected.
+  // Active/Gone/Archive counts ignore the current statusView (and are
+  // scoped to the active ledger, same as Shown) so every chip stays
+  // meaningful no matter which one is currently selected.
   const savedView = state.statusView;
   state.statusView = "live";
   const activeCount = ALL.filter(inLedger).filter(passes).length;
   state.statusView = "gone";
   const goneCount = ALL.filter(inLedger).filter(passes).length;
+  state.statusView = "archive";
+  const archiveCount = ALL.filter(inLedger).filter(passes).length;
   state.statusView = savedView;
   const chipActive = document.getElementById("chipActive");
   if (chipActive) chipActive.textContent = activeCount;
   const chipGone = document.getElementById("chipGone");
   if (chipGone) chipGone.textContent = goneCount;
+  const chipArchive = document.getElementById("chipArchive");
+  if (chipArchive) chipArchive.textContent = archiveCount;
   document.querySelectorAll(".summary-strip .chip[data-status]").forEach(c => c.classList.toggle("on", c.dataset.status === state.statusView));
 
   const hiddenInfo = document.getElementById("hiddenInfo");
@@ -827,9 +855,12 @@ function section(container, title, sub, rows, kind) {
 
   // Per-county "N/M active" ignores the current statusView, same trick the
   // Active/Gone summary chips use, so the badge stays meaningful no matter
-  // which status filter is selected.
+  // which status filter is selected. Archive is the one exception: forcing
+  // "all" there would flip passes() out of archive mode entirely and zero
+  // out every county badge, so stay in "archive" rather than "all" when
+  // that's the active view.
   const savedView = state.statusView;
-  state.statusView = "all";
+  state.statusView = savedView === "archive" ? "archive" : "all";
   const allForCounts = rows.filter(passes);
   state.statusView = savedView;
   const totalsByCounty = new Map(), activeByCounty = new Map();
