@@ -2,14 +2,14 @@
 // signal at a courthouse.
 //
 // Strategy is deliberately split:
-//   * App shell (html/css/js/icons) - cache-first, so it launches instantly.
-//   * Everything else, including all Supabase traffic - network-only.
+//   * App shell (html/css/js/icons) -  cache-first, so it launches instantly.
+//   * Everything else, including all Supabase traffic -  network-only.
 //     Property data, notes and auth must never be served stale, and caching
 //     authenticated API responses on disk would be a privacy problem.
 
 // Bump this on every deploy that changes the shell, otherwise returning users
 // keep the old CSS/JS from cache and your fix appears not to have shipped.
-const CACHE = "tdw-shell-v7";
+const CACHE = "tdw-shell-v6";
 const SHELL = [
   "/",
   "/index.html",
@@ -24,7 +24,7 @@ const SHELL = [
 self.addEventListener("install", e => {
   e.waitUntil(
     caches.open(CACHE)
-      // addAll is atomic - one 404 would reject the whole install, so add
+      // addAll is atomic -  one 404 would reject the whole install, so add
       // individually and tolerate misses.
       .then(c => Promise.all(SHELL.map(u => c.add(u).catch(() => {}))))
       .then(() => self.skipWaiting())
@@ -57,7 +57,7 @@ self.addEventListener("fetch", e => {
     return;
   }
 
-  // Icons never change without a filename change - cache-first is safe.
+  // Icons never change without a filename change -  cache-first is safe.
   if (/\.(png|ico|svg|webmanifest)$/i.test(url.pathname)) {
     e.respondWith(
       caches.match(req).then(hit => hit || fetch(req).then(res => {
@@ -69,7 +69,7 @@ self.addEventListener("fetch", e => {
   }
 
   // Code (css/js): NETWORK FIRST. Cache-first here meant a deploy silently did
-  // not reach anyone who already had the app open - the cached copy just kept
+  // not reach anyone who already had the app open -  the cached copy just kept
   // winning. Cache is now only a fallback for being offline.
   e.respondWith(
     fetch(req)

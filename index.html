@@ -1,662 +1,131 @@
-<!DOCTYPE html>
-<html lang="en" class="dark">
+<!doctype html>
+<html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Nationwide Tax Deed & Lien Radar</title>
-  <!-- Tailwind CSS CDN -->
-  <script src="https://cdn.tailwindcss.com"></script>
-  <!-- FontAwesome Icons -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <style>
-    .pill-btn {
-      transition: all 0.15s ease-in-out;
-      user-select: none;
-    }
-    .pill-btn.active {
-      background-color: #1e293b;
-      border-color: #38bdf8;
-      color: #38bdf8;
-      box-shadow: 0 0 10px rgba(56, 189, 248, 0.2);
-    }
-    .pill-btn.active-serious {
-      background-color: #451a1a;
-      border-color: #f87171;
-      color: #fca5a5;
-    }
-    .pill-btn.active-flag {
-      background-color: #45301a;
-      border-color: #fbbf24;
-      color: #fde68a;
-    }
-    .pill-btn.active-clear {
-      background-color: #143828;
-      border-color: #34d399;
-      color: #a7f3d0;
-    }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>FL Tax Deed Watchlist</title>
+<link rel="stylesheet" href="styles.css">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#2E5266">
+<link rel="icon" href="icons/icon-192.png">
+<!-- iOS has no manifest support for these; it needs its own tags. -->
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Tax Deeds">
+<script src="config.js"></script>
 </head>
-<body class="bg-[#0f141c] text-slate-100 min-h-screen font-sans antialiased">
+<body>
 
-  <div class="max-w-6xl mx-auto px-4 py-8">
-    
-    <!-- Header -->
-    <header class="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 border-b border-slate-800 pb-6 gap-4">
-      <div>
-        <h1 class="text-3xl font-extrabold bg-gradient-to-r from-blue-400 via-indigo-400 to-emerald-400 bg-clip-text text-transparent flex items-center gap-3">
-          <i class="fa-solid fa-house-flag text-blue-400"></i> Tax Deed Property Radar
-        </h1>
-        <p class="text-slate-400 text-sm mt-1">Live Auction Intelligence & Portfolio Tracking Across 50 States</p>
+<!-- ============ sign in ============ -->
+<div id="authGate" hidden>
+  <h1>FL Tax Deed Watchlist</h1>
+  <p>Sign in to continue.</p>
+  <form id="authForm">
+    <input type="email" id="email" placeholder="Email" autocomplete="username" required>
+    <input type="password" id="password" placeholder="Password" autocomplete="current-password" required>
+    <button type="submit" id="signInBtn">Sign in</button>
+  </form>
+  <div class="auth-msg" id="authMsg"></div>
+</div>
+
+<!-- ============ app ============ -->
+<div id="app" hidden>
+  <div class="masthead">
+    <div class="eyebrow-row">
+      <p class="eyebrow" id="eyebrow">Field Ledger</p>
+      <span class="header-btns">
+        <button class="hbtn" id="themeBtn" type="button" title="Switch theme"><span id="themeIcon">☼</span><span id="themeLabel">Auto</span></button>
+        <button class="hbtn" id="installBtn" type="button" title="Install app" hidden>⬇ Install</button>
+        <button class="hbtn" id="signOutBtn" type="button" title="Sign out">Sign out</button>
+      </span>
+    </div>
+    <h1>FL Tax Deed Watchlist</h1>
+    <p class="generated" id="generatedAt">Loading…</p>
+    <div class="summary-strip">
+      <button class="chip total" data-status="all" type="button">Shown&nbsp;<b id="chipTotal">0</b></button>
+      <button class="chip ok" data-status="live" type="button">Active&nbsp;<b id="chipActive">0</b></button>
+      <button class="chip bad" data-status="gone" type="button">Gone&nbsp;<b id="chipGone">0</b></button>
+    </div>
+    <button class="filters-toggle" id="filtersToggle" type="button">
+      <span>Filters &amp; Sort</span>
+      <span style="display:flex;align-items:center;gap:.55rem">
+        <span class="filters-badge" id="filtersBadge" hidden>0</span><span class="chevron"></span>
+      </span>
+    </button>
+    <div class="filters-panel" id="filtersPanel">
+      <div class="filters-row">
+        <div class="field"><span class="field-label">Bid min</span><input type="number" id="bidMin" placeholder="0" min="0" step="100"></div>
+        <span class="to-sep">to</span>
+        <div class="field"><span class="field-label">Bid max</span><input type="number" id="bidMax" placeholder="Any" min="0" step="100"></div>
+        <div class="field"><span class="field-label">Assessed min</span><input type="number" id="assessedMin" placeholder="0" min="0" step="1000"></div>
       </div>
-      <div id="statBox" class="bg-[#18202c] border border-slate-800 px-5 py-2.5 rounded-xl text-sm font-semibold text-emerald-400 shadow-inner">
-        Connecting to database...
+      <div class="filters-row">
+        <div class="field"><span class="field-label">Sort by</span>
+          <select id="sortBy">
+            <option value="county">County (default order)</option>
+            <option value="dateAsc">Sale date: soonest first</option>
+            <option value="dateDesc">Sale date: latest first</option>
+            <option value="bidAsc">Opening bid: low to high</option>
+            <option value="bidDesc">Opening bid: high to low</option>
+            <option value="assessedAsc">Assessed: low to high</option>
+            <option value="assessedDesc">Assessed: high to low</option>
+            <option value="spreadDesc">Best value: market ÷ bid</option>
+            <option value="address">Address: A to Z</option>
+          </select>
+        </div>
+        <button class="reset-btn" id="resetBtn" type="button">Reset filters</button>
       </div>
-    </header>
-
-    <!-- Status Diagnostic Banner -->
-    <div id="statusBanner" class="hidden mb-6 p-4 rounded-xl text-sm font-semibold"></div>
-
-    <!-- EXPANDABLE FILTERS & SORT PANEL -->
-    <div class="bg-[#18202c] border border-slate-800 rounded-2xl mb-8 shadow-2xl overflow-hidden">
-      
-      <!-- Accordion Header Bar -->
-      <button id="toggleFiltersBtn" class="w-full px-6 py-4 flex justify-between items-center text-left font-bold text-slate-200 hover:bg-slate-800/50 transition border-b border-slate-800/80">
-        <span class="flex items-center gap-2 text-base">
-          <i class="fa-solid fa-sliders text-blue-400"></i> Filters & Sort Controls
-        </span>
-        <span class="flex items-center gap-3 text-xs font-semibold text-slate-400">
-          <span id="activeFilterBadge" class="bg-blue-600/20 border border-blue-500/30 text-blue-400 px-2.5 py-0.5 rounded-full">Click to Expand</span>
-          <i id="filterChevron" class="fa-solid fa-chevron-down transition-transform duration-200"></i>
-        </span>
-      </button>
-
-      <!-- Collapsible Panel Content -->
-      <div id="filterPanel" class="p-6 space-y-6">
-        
-        <!-- ROW 1: Numeric Inputs (Bid Min/Max, Assessed Min, Sort) -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div>
-            <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">BID MIN & MAX ($)</label>
-            <div class="flex items-center gap-2">
-              <input type="number" id="bidMinInput" value="0" placeholder="0" 
-                class="w-full bg-[#0f141c] border border-slate-800 rounded-xl px-3 py-2 text-sm font-mono text-slate-200 focus:outline-none focus:border-blue-500">
-              <span class="text-xs text-slate-500 font-bold">to</span>
-              <input type="number" id="bidMaxInput" placeholder="Any" 
-                class="w-full bg-[#0f141c] border border-slate-800 rounded-xl px-3 py-2 text-sm font-mono text-slate-200 focus:outline-none focus:border-blue-500">
-            </div>
-          </div>
-
-          <div>
-            <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1.5">ASSESSED MIN ($)</label>
-            <input type="number" id="assessedMinInput" value="0" placeholder="0" 
-              class="w-full bg-[#0f141c] border border-slate-800 rounded-xl px-3 py-2 text-sm font-mono text-slate-200 focus:outline-none focus:border-blue-500">
-          </div>
-
-          <div>
-            <div class="flex justify-between items-center mb-1.5">
-              <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-400">SORT BY</label>
-              <button id="resetFiltersBtn" class="text-xs text-blue-400 hover:underline font-semibold">Reset filters</button>
-            </div>
-            <select id="sortSelect" class="w-full bg-[#0f141c] border border-slate-800 rounded-xl px-3 py-2 text-sm text-slate-200 focus:outline-none focus:border-blue-500">
-              <option value="date_asc">Auction Date (Earliest First)</option>
-              <option value="date_desc">Auction Date (Latest First)</option>
-              <option value="bid_asc">Pricing (Lowest Bid First)</option>
-              <option value="bid_desc">Pricing (Highest Bid First)</option>
-              <option value="market_desc">Market Value (Highest First)</option>
-            </select>
-          </div>
+      <div class="filters-row">
+        <label class="tog"><input type="checkbox" id="favOnly"> <span>♡ Favorites only</span></label>
+        <label class="tog"><input type="checkbox" id="topOnly"> <span>★ Top picks only</span></label>
+        <label class="tog"><input type="checkbox" id="soonOnly"> <span>⏱ Closing in 14 days</span></label>
+        <label class="tog"><input type="checkbox" id="qtToggle"> <span>Include quiet title est.</span></label>
+      </div>
+      <div class="filters-row">
+        <div class="field"><span class="field-label">Max bid target (% of market)</span><input type="number" id="maxBidPct" value="40" min="1" max="100" step="5"></div>
+        <span class="reset-btn" id="hiddenInfo" hidden><span id="hiddenCount">0</span> hidden · <button class="reset-btn" id="restoreHiddenBtn" type="button">Restore all</button></span>
+      </div>
+      <div class="filters-row filters-group">
+        <div class="group-head"><span class="field-label">Property type</span>
+          <span class="group-actions"><button class="mini-btn" data-group="types" data-mode="all" type="button">All</button><button class="mini-btn" data-group="types" data-mode="none" type="button">None</button></span>
         </div>
-
-        <!-- ROW 2: Checkboxes & Max Bid Target -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 pt-2 border-t border-slate-800/60">
-          <div class="flex flex-wrap items-center gap-6 text-sm font-medium">
-            <label class="flex items-center gap-2 cursor-pointer hover:text-white">
-              <input type="checkbox" id="favOnlyCheckbox" class="rounded bg-slate-900 border-slate-700 text-blue-600 focus:ring-0">
-              <span>♥ Favorites only</span>
-            </label>
-            <label class="flex items-center gap-2 cursor-pointer hover:text-white">
-              <input type="checkbox" id="topPicksCheckbox" class="rounded bg-slate-900 border-slate-700 text-blue-600 focus:ring-0">
-              <span>★ Top picks only</span>
-            </label>
-          </div>
-
-          <div>
-            <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">MAX BID TARGET (% OF MARKET)</label>
-            <input type="number" id="maxBidTargetInput" value="40" placeholder="40" 
-              class="w-full bg-[#0f141c] border border-slate-800 rounded-xl px-4 py-2 text-sm font-mono text-slate-200 focus:outline-none focus:border-blue-500">
-          </div>
+        <div class="chips" id="typeChips"></div>
+      </div>
+      <div class="filters-row filters-group">
+        <div class="group-head"><span class="field-label">Title status</span>
+          <span class="group-actions"><button class="mini-btn" data-group="liens" data-mode="all" type="button">All</button><button class="mini-btn" data-group="liens" data-mode="none" type="button">None</button></span>
         </div>
-
-        <!-- ROW 3: STATE PILLS (CHOOSE A STATE FIRST) -->
-        <div class="pt-2 border-t border-slate-800/60">
-          <div class="flex justify-between items-center mb-2">
-            <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-400">STATE (Select a state to filter counties)</label>
-            <div class="flex gap-2 text-[10px] font-bold">
-              <button onclick="clearStateSelection()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-0.5 rounded">SHOW ALL STATES</button>
-            </div>
-          </div>
-          <div id="statePillContainer" class="flex flex-wrap gap-2">
-            <!-- Dynamically Rendered State Pills -->
-          </div>
+        <div class="chips" id="lienChips"></div>
+      </div>
+      <div class="filters-row filters-group">
+        <div class="group-head"><span class="field-label">County</span>
+          <span class="group-actions">
+            <button class="mini-btn" id="mapBtn" type="button">🗺 Map</button>
+            <button class="mini-btn" data-group="counties" data-mode="all" type="button">All</button>
+            <button class="mini-btn" data-group="counties" data-mode="none" type="button">None</button>
+          </span>
         </div>
-
-        <!-- ROW 4: DEPENDENT COUNTY PILLS (ONLY VISIBLE WHEN A STATE IS CHOSEN) -->
-        <div id="countySection" class="hidden pt-2 border-t border-slate-800/60">
-          <div class="flex justify-between items-center mb-2">
-            <label id="countySectionTitle" class="block text-[11px] font-bold uppercase tracking-wider text-blue-400">COUNTIES IN SELECTED STATE</label>
-            <div class="flex gap-2 text-[10px] font-bold">
-              <button onclick="selectAllCounties()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-0.5 rounded">ALL</button>
-              <button onclick="clearAllCounties()" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-0.5 rounded">NONE</button>
-            </div>
-          </div>
-          <div id="countyPillContainer" class="flex flex-wrap gap-2">
-            <!-- Dynamically Rendered Dependent County Pills -->
-          </div>
+        <div class="map-wrap" id="mapWrap" hidden>
+          <div class="map-hint">Tap counties to include or exclude. Shaded counties have properties.</div>
+          <div id="mapHost"></div>
         </div>
-
-        <!-- ROW 5: PROPERTY TYPE PILLS -->
-        <div class="pt-2 border-t border-slate-800/60">
-          <div class="flex justify-between items-center mb-2">
-            <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-400">PROPERTY TYPE</label>
-            <div class="flex gap-2 text-[10px] font-bold">
-              <button onclick="selectAllCategory('propType')" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-0.5 rounded">ALL</button>
-              <button onclick="clearCategory('propType')" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-0.5 rounded">NONE</button>
-            </div>
-          </div>
-          <div id="propTypePillContainer" class="flex flex-wrap gap-2">
-            <!-- Property Type Pills -->
-          </div>
-        </div>
-
-        <!-- ROW 6: TITLE STATUS PILLS -->
-        <div class="pt-2 border-t border-slate-800/60">
-          <div class="flex justify-between items-center mb-2">
-            <label class="block text-[11px] font-bold uppercase tracking-wider text-slate-400">TITLE STATUS</label>
-            <div class="flex gap-2 text-[10px] font-bold">
-              <button onclick="selectAllCategory('titleStatus')" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-0.5 rounded">ALL</button>
-              <button onclick="clearCategory('titleStatus')" class="bg-slate-800 hover:bg-slate-700 text-slate-300 px-2 py-0.5 rounded">NONE</button>
-            </div>
-          </div>
-          <div id="titleStatusPillContainer" class="flex flex-wrap gap-2">
-            <!-- Title Status Pills -->
-          </div>
-        </div>
-
-        <!-- EXPLICIT APPLY FILTERS BUTTON -->
-        <div class="pt-4 border-t border-slate-800 flex justify-end">
-          <button id="applyFiltersBtn" class="bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl px-6 py-2.5 text-sm transition flex items-center gap-2 shadow-lg">
-            <i class="fa-solid fa-magnifying-glass"></i> Apply Filters
-          </button>
-        </div>
-
+        <div class="chips" id="countyChips"></div>
       </div>
     </div>
-
-    <!-- Search Input Bar -->
-    <div class="mb-6 flex gap-3">
-      <input type="text" id="searchInput" placeholder="🔍 Search Street Address, Parcel ID, County, or State..." 
-        class="w-full bg-[#18202c] border border-slate-800 rounded-2xl px-5 py-3 text-sm text-slate-200 focus:outline-none focus:border-blue-500 shadow-xl">
-      <button id="searchBarBtn" class="bg-blue-600 hover:bg-blue-500 text-white font-bold px-6 rounded-2xl text-sm transition">
-        Search
-      </button>
-    </div>
-
-    <!-- Property Card List Container -->
-    <div id="propertyGrid" class="space-y-6 mb-8">
-      <div class="text-center py-20">
-        <div class="inline-block animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500 mb-3"></div>
-        <p class="text-slate-400 text-sm">Loading live properties...</p>
-      </div>
-    </div>
-
-    <!-- Pagination -->
-    <div class="flex justify-between items-center bg-[#18202c] border border-slate-800 rounded-2xl px-6 py-4">
-      <button id="prevBtn" class="bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-slate-300 font-medium rounded-xl px-4 py-2 text-sm transition">
-        <i class="fa-solid fa-chevron-left mr-1"></i> Previous
-      </button>
-      <span id="pageInfo" class="text-sm font-semibold text-slate-400">Page 1</span>
-      <button id="nextBtn" class="bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:cursor-not-allowed text-slate-300 font-medium rounded-xl px-4 py-2 text-sm transition">
-        Next <i class="fa-solid fa-chevron-right ml-1"></i>
-      </button>
-    </div>
-
   </div>
 
-  <script>
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.getRegistrations().then(regs => {
-        for (let r of regs) r.unregister();
-      });
-    }
-
-    const SUPABASE_URL = 'https://cqnnnvpbocafuvpzfbzu.supabase.co';
-    const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImNxbm5udnBib2NhZnV2cHpmYnp1Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU5OTQyNjYsImV4cCI6MjEwMTU3MDI2Nn0.hgQhS4sYWtu8fDKrRSRQdbmbbebnifXoq2xbMrH0yZA';
-
-    let currentPage = 1;
-    const pageSize = 15;
-    let totalRecordsCount = 0;
-
-    // State to County Dictionary
-    const STATE_COUNTIES = {
-      AL: ['Clay', 'Escambia', 'Jackson', 'Lee', 'Marion', 'Monroe', 'Washington', 'Mobile', 'Baldwin', 'Jefferson'],
-      AZ: ['Apache', 'Mohave', 'Maricopa', 'Pima', 'Pinal', 'Yuma', 'Coconino', 'Yavapai'],
-      AR: ['Calhoun', 'Clay', 'Jackson', 'Marion', 'Polk', 'Pulaski', 'Benton', 'Washington'],
-      CA: ['Orange', 'Los Angeles', 'Riverside', 'San Bernardino', 'San Diego', 'Alameda', 'Sacramento'],
-      CO: ['Adams', 'Jackson', 'Larimer', 'Denver', 'El Paso', 'Arapahoe', 'Weld', 'Boulder'],
-      FL: ['Miami-Dade', 'Broward', 'Palm Beach', 'Hillsborough', 'Orange', 'Pinellas', 'Duval', 'Lee', 'Polk', 'Brevard', 'Osceola', 'Pasco', 'Sarasota', 'Manatee', 'Collier', 'Escambia', 'Marion', 'Volusia']
-    };
-
-    const AVAILABLE_STATES = ['AL', 'AZ', 'AR', 'CA', 'CO', 'FL'];
-    const AVAILABLE_PROP_TYPES = ['House', 'Condo', 'Townhome', 'Mobile/Manuf.', 'Vacant Lot', 'Commercial', 'Unknown'];
-    const AVAILABLE_TITLE_STATUSES = ['Clear', 'Flag', 'Serious', 'Unscreened'];
-
-    // Selected Filters
-    let selectedState = null; // Single selected state or null for ALL
-    let selectedCounties = new Set();
-    let selectedPropTypes = new Set(AVAILABLE_PROP_TYPES);
-    let selectedTitleStatuses = new Set(AVAILABLE_TITLE_STATUSES);
-
-    // Initial Pill Render
-    function renderPillContainers() {
-      // Render States
-      document.getElementById('statePillContainer').innerHTML = AVAILABLE_STATES.map(st => `
-        <button onclick="selectState('${st}')" id="pill_state_${st}" class="pill-btn ${selectedState === st ? 'active' : ''} text-xs font-semibold px-3 py-1 rounded-full border border-slate-800 bg-[#0f141c]">${st}</button>
-      `).join('');
-
-      // Render Property Types
-      document.getElementById('propTypePillContainer').innerHTML = AVAILABLE_PROP_TYPES.map(pt => `
-        <button onclick="togglePill('propType', '${pt}')" id="pill_propType_${pt.replace(/[^a-zA-Z]/g,'')}" class="pill-btn ${selectedPropTypes.has(pt) ? 'active' : ''} text-xs font-semibold px-3 py-1 rounded-full border border-slate-800 bg-[#0f141c]">${pt}</button>
-      `).join('');
-
-      // Render Title Statuses
-      document.getElementById('titleStatusPillContainer').innerHTML = AVAILABLE_TITLE_STATUSES.map(ts => {
-        let isSel = selectedTitleStatuses.has(ts);
-        let activeClass = !isSel ? '' : (ts === 'Serious' ? 'active-serious' : ts === 'Flag' ? 'active-flag' : ts === 'Clear' ? 'active-clear' : 'active');
-        return `<button onclick="togglePill('titleStatus', '${ts}')" id="pill_titleStatus_${ts}" class="pill-btn ${activeClass} text-xs font-semibold px-3 py-1 rounded-full border border-slate-800 bg-[#0f141c]">${ts}</button>`;
-      }).join('');
-
-      renderCountyPills();
-    }
-
-    function selectState(st) {
-      if (selectedState === st) {
-        selectedState = null; // Unselect state
-      } else {
-        selectedState = st;
-      }
-      
-      // Reset selected counties to state's default counties
-      if (selectedState && STATE_COUNTIES[selectedState]) {
-        selectedCounties = new Set(STATE_COUNTIES[selectedState]);
-      } else {
-        selectedCounties.clear();
-      }
-
-      renderPillContainers();
-    }
-
-    function clearStateSelection() {
-      selectedState = null;
-      selectedCounties.clear();
-      renderPillContainers();
-    }
-
-    function renderCountyPills() {
-      const section = document.getElementById('countySection');
-      const container = document.getElementById('countyPillContainer');
-      const title = document.getElementById('countySectionTitle');
-
-      if (!selectedState || !STATE_COUNTIES[selectedState]) {
-        section.classList.add('hidden');
-        container.innerHTML = '';
-        return;
-      }
-
-      title.innerText = `COUNTIES IN ${selectedState}`;
-      section.classList.remove('hidden');
-
-      const counties = STATE_COUNTIES[selectedState];
-      container.innerHTML = counties.map(c => `
-        <button onclick="toggleCountyPill('${c}')" id="pill_county_${c.replace(/[^a-zA-Z]/g,'')}" class="pill-btn ${selectedCounties.has(c) ? 'active' : ''} text-xs font-semibold px-3 py-1 rounded-full border border-slate-800 bg-[#0f141c]">${c}</button>
-      `).join('');
-    }
-
-    function toggleCountyPill(c) {
-      if (selectedCounties.has(c)) {
-        selectedCounties.delete(c);
-      } else {
-        selectedCounties.add(c);
-      }
-      renderCountyPills();
-    }
-
-    function selectAllCounties() {
-      if (selectedState && STATE_COUNTIES[selectedState]) {
-        selectedCounties = new Set(STATE_COUNTIES[selectedState]);
-        renderCountyPills();
-      }
-    }
-
-    function clearAllCounties() {
-      selectedCounties.clear();
-      renderCountyPills();
-    }
-
-    function togglePill(category, value) {
-      let setRef = (category === 'propType') ? selectedPropTypes : selectedTitleStatuses;
-      if (setRef.has(value)) {
-        setRef.delete(value);
-      } else {
-        setRef.add(value);
-      }
-      renderPillContainers();
-    }
-
-    function selectAllCategory(category) {
-      if (category === 'propType') selectedPropTypes = new Set(AVAILABLE_PROP_TYPES);
-      if (category === 'titleStatus') selectedTitleStatuses = new Set(AVAILABLE_TITLE_STATUSES);
-      renderPillContainers();
-    }
-
-    function clearCategory(category) {
-      if (category === 'propType') selectedPropTypes.clear();
-      if (category === 'titleStatus') selectedTitleStatuses.clear();
-      renderPillContainers();
-    }
-
-    async function fetchAuctions() {
-      const search = document.getElementById('searchInput').value.trim();
-      const sort = document.getElementById('sortSelect').value;
-      const bidMin = parseFloat(document.getElementById('bidMinInput').value) || 0;
-      const bidMax = parseFloat(document.getElementById('bidMaxInput').value) || null;
-
-      const grid = document.getElementById('propertyGrid');
-      const statBox = document.getElementById('statBox');
-      const banner = document.getElementById('statusBanner');
-
-      grid.innerHTML = '<div class="text-center py-20"><div class="inline-block animate-spin rounded-full h-10 w-10 border-b-2 border-blue-500 mb-3"></div><p class="text-slate-400 text-sm">Querying PostgREST database...</p></div>';
-
-      try {
-        const offset = (currentPage - 1) * pageSize;
-        let queryParams = [`select=*`, `limit=${pageSize}`, `offset=${offset}`];
-
-        // State Filter
-        if (selectedState) {
-          queryParams.push(`state=eq.${encodeURIComponent(selectedState)}`);
-        }
-
-        // County Filter
-        if (selectedState && selectedCounties.size > 0 && STATE_COUNTIES[selectedState] && selectedCounties.size < STATE_COUNTIES[selectedState].length) {
-          const countyList = Array.from(selectedCounties).map(c => `"${c}"`).join(',');
-          queryParams.push(`county=in.(${encodeURIComponent(countyList)})`);
-        }
-
-        // Price Min / Max
-        if (bidMin > 0) queryParams.push(`opening_bid=gte.${bidMin}`);
-        if (bidMax) queryParams.push(`opening_bid=lte.${bidMax}`);
-
-        // Search Query
-        if (search) {
-          queryParams.push(`or=(parcel_id.ilike.*${encodeURIComponent(search)}*,address.ilike.*${encodeURIComponent(search)}*,county.ilike.*${encodeURIComponent(search)}*,state.ilike.*${encodeURIComponent(search)}*)`);
-        }
-
-        // Sort Order
-        switch (sort) {
-          case 'date_desc': queryParams.push('order=auction_date.desc'); break;
-          case 'bid_asc': queryParams.push('order=opening_bid.asc'); break;
-          case 'bid_desc': queryParams.push('order=opening_bid.desc'); break;
-          case 'market_desc': queryParams.push('order=market_value.desc'); break;
-          default: queryParams.push('order=auction_date.asc'); break;
-        }
-
-        const endpoint = `${SUPABASE_URL}/rest/v1/tax_auctions?${queryParams.join('&')}`;
-
-        const res = await fetch(endpoint, {
-          headers: {
-            'apikey': SUPABASE_ANON_KEY,
-            'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
-            'Prefer': 'count=exact'
-          }
-        });
-
-        if (!res.ok) {
-          const errBody = await res.text();
-          throw new Error(`HTTP ${res.status} ${res.statusText}: ${errBody}`);
-        }
-
-        const contentRange = res.headers.get('content-range');
-        if (contentRange && contentRange.includes('/')) {
-          totalRecordsCount = parseInt(contentRange.split('/')[1], 10) || 0;
-        }
-
-        let data = await res.json();
-
-        if (!data || data.length === 0) {
-          statBox.innerText = `0 Properties Found`;
-          grid.innerHTML = '<div class="text-center py-16 bg-[#18202c] border border-slate-800 rounded-2xl"><p class="text-slate-400 font-medium">No properties match your current filter settings.</p></div>';
-          return;
-        }
-
-        banner.classList.add('hidden');
-        statBox.innerText = `${totalRecordsCount.toLocaleString()} Total Properties`;
-        renderCards(data);
-        renderPagination();
-
-      } catch (err) {
-        console.error('Fetch Error:', err);
-        banner.className = "mb-6 p-4 rounded-xl text-sm font-semibold bg-red-900/30 border border-red-500/50 text-red-300";
-        banner.innerHTML = `❌ Connection Error: ${err.message}`;
-        banner.classList.remove('hidden');
-
-        grid.innerHTML = `<div class="bg-red-900/20 border border-red-500/40 rounded-xl p-6 text-center text-red-300"><p class="font-bold">Database Error</p><p class="text-sm mt-1">${err.message}</p></div>`;
-      }
-    }
-
-    function renderCards(items) {
-      const container = document.getElementById('propertyGrid');
-      const maxBidTargetPct = parseFloat(document.getElementById('maxBidTargetInput').value) || 40;
-
-      container.innerHTML = items.map((item, idx) => {
-        // Unique Address & Record Data per item
-        const streetNum = 100 + ((item.id || idx) * 17) % 900;
-        const streetNames = ['Main St', 'Jackson St', 'Oak Ave', 'Washington Blvd', 'Maple Dr', 'Cedar Ln', 'Lake View Dr', 'Pine St'];
-        const streetName = streetNames[(item.id || idx) % streetNames.length];
-        
-        const addressStr = item.address || `${streetNum} W ${streetName}, ${item.county} ${item.state} 32901`;
-        const parcelId = item.parcel_id || `${item.state}-${item.county.substring(0,3).toUpperCase()}-${1000 + idx}`;
-        const openingBid = item.opening_bid || (450 + (idx * 125.50));
-        const marketVal = item.market_value || (openingBid * 3.5);
-        const trueCost = openingBid + 59.10;
-        const walkAway = marketVal * (maxBidTargetPct / 100);
-
-        const savedNote = localStorage.getItem(`note_${parcelId}`) || '';
-        const savedStage = localStorage.getItem(`stage_${parcelId}`) || '';
-        const isFav = localStorage.getItem(`fav_${parcelId}`) === 'true';
-
-        // WORKING HYPERLINKS
-        const cleanAddressStr = encodeURIComponent(`${addressStr}, ${item.county}, ${item.state}`);
-        const cleanParcel = encodeURIComponent(parcelId);
-        const countySearchStr = encodeURIComponent(`${item.county} County ${item.state}`);
-
-        const linkStreetView = `https://www.google.com/maps/search/?api=1&query=${cleanAddressStr}`;
-        const linkAppraiser = `https://www.google.com/search?q=${countySearchStr}+property+appraiser+parcel+${cleanParcel}`;
-        const linkZillow = `https://www.zillow.com/homes/${cleanAddressStr}_rb/`;
-        const linkTaxCollector = `https://www.google.com/search?q=${countySearchStr}+tax+collector+parcel+${cleanParcel}`;
-        const linkAuction = item.source_url || `https://${item.county.toLowerCase()}.${item.state.toLowerCase()}.realtaxdeed.com`;
-        const linkTitleSearch = `https://www.google.com/search?q=${countySearchStr}+official+records+clerk+title+search+${cleanParcel}`;
-
-        return `
-          <div class="bg-[#18202c] border border-slate-800 rounded-2xl p-5 md:p-6 shadow-2xl transition hover:border-slate-700">
-            
-            <!-- Top Notification Bar -->
-            <div class="flex items-center gap-2 mb-4 text-xs font-semibold text-slate-400 border-b border-slate-800/80 pb-3">
-              <span class="bg-sky-950 text-sky-400 border border-sky-800/80 px-2 py-0.5 rounded font-bold uppercase tracking-wider text-[10px]">ONLINE</span>
-              <span>Deposit required in advance via the auction site. Register before the sale date.</span>
-            </div>
-
-            <!-- Main Title Row -->
-            <div class="flex justify-between items-start mb-2 gap-4">
-              <h2 class="text-xl md:text-2xl font-black text-white tracking-tight hover:text-blue-400 transition cursor-pointer">
-                <strong>${escapeHtml(addressStr)}</strong>
-              </h2>
-              <div class="flex items-center gap-3 shrink-0">
-                <button onclick="toggleFav('${parcelId}')" class="text-slate-400 hover:text-rose-500 transition text-base">
-                  <i class="${isFav ? 'fa-solid text-rose-500' : 'fa-regular'} fa-heart"></i>
-                </button>
-                <button class="text-slate-400 hover:text-slate-200 transition text-base">
-                  <i class="fa-solid fa-xmark"></i>
-                </button>
-                <span class="bg-emerald-950/80 text-emerald-400 border border-emerald-800/80 text-[11px] font-extrabold px-3 py-1 rounded-full uppercase tracking-wider">
-                  ${escapeHtml(item.status || 'LIVE')}
-                </span>
-              </div>
-            </div>
-
-            <!-- Sub-header Metadata Line -->
-            <div class="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs font-medium text-slate-400 mb-4">
-              <span>Parcel <span class="text-slate-200 font-mono">#${escapeHtml(parcelId)}</span></span>
-              <span>Bid <span class="text-rose-400 font-bold">${formatCurrency(openingBid)}</span></span>
-              <span>Assessed <span class="text-emerald-400 font-bold">${formatCurrency(marketVal)}</span></span>
-              <span>Market <span class="text-sky-400 font-bold">${formatCurrency(marketVal)}</span></span>
-            </div>
-
-            <!-- Red Title Warning Callout Box -->
-            <div class="bg-[#331818] border-l-4 border-rose-500 rounded-r-xl p-4 mb-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
-              <div>
-                <div class="flex items-center gap-2 mb-1">
-                  <span class="bg-rose-950 text-rose-300 border border-rose-800/80 text-[10px] font-black px-2 py-0.5 rounded uppercase tracking-wider">
-                    TITLE: SERIOUS
-                  </span>
-                </div>
-                <p class="text-xs font-semibold text-rose-200">
-                  5 unreleased City of Melbourne code liens - these SURVIVE tax deed
-                </p>
-              </div>
-              <span class="bg-slate-900/90 border border-slate-700/80 text-slate-300 font-mono text-[11px] font-bold px-3 py-1 rounded-lg shrink-0">
-                SFR 672sf '45
-              </span>
-            </div>
-
-            <!-- True Cost & Dynamic Walk Away Target -->
-            <div class="flex flex-wrap items-center gap-6 text-xs font-bold mb-4">
-              <span class="text-slate-400">TRUE COST <span class="text-white font-mono text-sm">${formatCurrency(trueCost)}</span></span>
-              <span class="text-slate-400">WALK AWAY ABOVE (${maxBidTargetPct}%) <span class="text-emerald-400 font-mono text-sm">${formatCurrency(walkAway)}</span></span>
-            </div>
-
-            <!-- Owner & Parcel Pill Tags -->
-            <div class="flex flex-wrap gap-2 text-[11px] font-mono text-slate-300 mb-6">
-              <span class="bg-[#0f141c] border border-slate-800 px-3 py-1 rounded-lg">OWNER DIXON EDDIE (deeded to BYRD ALVIN 12/2023)</span>
-              <span class="bg-[#0f141c] border border-slate-800 px-3 py-1 rounded-lg">PARCEL ${escapeHtml(parcelId)}</span>
-            </div>
-
-            <!-- Six Working Direct Hyperlinks -->
-            <div class="grid grid-cols-2 md:grid-cols-6 gap-3 text-center text-xs font-bold mb-6 border-t border-b border-slate-800/80 py-4">
-              <a href="${linkStreetView}" target="_blank" rel="noopener" class="text-sky-400 hover:text-sky-300 hover:underline">Street View</a>
-              <a href="${linkAppraiser}" target="_blank" rel="noopener" class="text-sky-400 hover:text-sky-300 hover:underline">Appraiser</a>
-              <a href="${linkZillow}" target="_blank" rel="noopener" class="text-sky-400 hover:text-sky-300 hover:underline">Zillow</a>
-              <a href="${linkTaxCollector}" target="_blank" rel="noopener" class="text-sky-400 hover:text-sky-300 hover:underline">Tax Collector</a>
-              <a href="${linkAuction}" target="_blank" rel="noopener" class="text-sky-400 hover:text-sky-300 hover:underline">Auction</a>
-              <a href="${linkTitleSearch}" target="_blank" rel="noopener" class="text-sky-400 hover:text-sky-300 hover:underline">Title Search</a>
-            </div>
-
-            <!-- Interactive Stage Selector & Persistent Notes Box -->
-            <div class="space-y-3">
-              <div class="flex items-center justify-between text-xs text-slate-400 font-medium">
-                <span class="flex items-center gap-1.5"><i class="fa-solid fa-pencil text-[10px]"></i> Add note</span>
-              </div>
-
-              <select onchange="saveStage('${parcelId}', this.value)" class="w-full bg-[#0f141c] border border-slate-800 text-slate-300 text-xs rounded-xl px-4 py-2.5 focus:outline-none focus:border-blue-500">
-                <option value="">— stage —</option>
-                <option value="backlog" ${savedStage === 'backlog' ? 'selected' : ''}>📋 Backlog</option>
-                <option value="reviewing" ${savedStage === 'reviewing' ? 'selected' : ''}>🔍 Reviewing Title</option>
-                <option value="bidding" ${savedStage === 'bidding' ? 'selected' : ''}>✅ Approved for Bidding</option>
-                <option value="walked" ${savedStage === 'walked' ? 'selected' : ''}>🛑 Walked Away</option>
-                <option value="won" ${savedStage === 'won' ? 'selected' : ''}>🏆 Auction Won</option>
-              </select>
-
-              <textarea oninput="saveNote('${parcelId}', this.value)" placeholder="Your notes: condition, calls made, questions..." 
-                class="w-full bg-[#0f141c] border border-slate-800 text-slate-200 text-xs rounded-xl p-3 h-20 focus:outline-none focus:border-blue-500 resize-y">${escapeHtml(savedNote)}</textarea>
-            </div>
-
-          </div>
-        `;
-      }).join('');
-    }
-
-    function saveNote(parcelId, text) { localStorage.setItem(`note_${parcelId}`, text); }
-    function saveStage(parcelId, stage) { localStorage.setItem(`stage_${parcelId}`, stage); }
-    function toggleFav(parcelId) {
-      const current = localStorage.getItem(`fav_${parcelId}`) === 'true';
-      localStorage.setItem(`fav_${parcelId}`, (!current).toString());
-      fetchAuctions();
-    }
-
-    function formatCurrency(val) {
-      if (!val || isNaN(val)) return '$0.00';
-      return `$${parseFloat(val).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-    }
-
-    function escapeHtml(str) {
-      if (!str) return '';
-      return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-    }
-
-    function renderPagination() {
-      const totalPages = Math.ceil(totalRecordsCount / pageSize) || 1;
-      document.getElementById('pageInfo').innerText = `Page ${currentPage} of ${totalPages}`;
-      document.getElementById('prevBtn').disabled = currentPage <= 1;
-      document.getElementById('nextBtn').disabled = currentPage >= totalPages;
-    }
-
-    document.addEventListener('DOMContentLoaded', () => {
-      renderPillContainers();
-
-      // Accordion Toggle
-      const toggleBtn = document.getElementById('toggleFiltersBtn');
-      const panel = document.getElementById('filterPanel');
-      const chevron = document.getElementById('filterChevron');
-
-      toggleBtn.addEventListener('click', () => {
-        panel.classList.toggle('hidden');
-        chevron.classList.toggle('rotate-180');
-      });
-
-      // Explicit Apply Filters Button
-      document.getElementById('applyFiltersBtn').addEventListener('click', () => {
-        currentPage = 1;
-        fetchAuctions();
-      });
-
-      document.getElementById('searchBarBtn').addEventListener('click', () => {
-        currentPage = 1;
-        fetchAuctions();
-      });
-
-      document.getElementById('resetFiltersBtn').addEventListener('click', () => {
-        document.getElementById('bidMinInput').value = '0';
-        document.getElementById('bidMaxInput').value = '';
-        document.getElementById('assessedMinInput').value = '0';
-        document.getElementById('maxBidTargetInput').value = '40';
-        document.getElementById('sortSelect').value = 'date_asc';
-        document.getElementById('searchInput').value = '';
-
-        clearStateSelection();
-        selectAllCategory('propType');
-        selectAllCategory('titleStatus');
-        
-        currentPage = 1;
-        fetchAuctions();
-      });
-
-      document.getElementById('prevBtn').addEventListener('click', () => {
-        if (currentPage > 1) { currentPage--; fetchAuctions(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
-      });
-      document.getElementById('nextBtn').addEventListener('click', () => {
-        if (currentPage < Math.ceil(totalRecordsCount / pageSize)) { currentPage++; fetchAuctions(); window.scrollTo({ top: 0, behavior: 'smooth' }); }
-      });
-
-      fetchAuctions();
-    });
-  </script>
+  <main id="main"></main>
+
+  <footer>
+    Links open Street View, the county property appraiser, Zillow, the Tax Collector, the live auction listing, and the Clerk's Official Records.<br><br>
+    ★ <b>Top pick</b> = title screen came back clear AND market value is at least 12× the opening bid. A shortlisting aid, not advice.<br><br>
+    <b>True cost</b> adds Florida doc stamps (0.70/$100), recording, and — on homesteaded parcels — the half-assessed-value minimum under FS 197.502(6)(c). It is an estimate.<br><br>
+    Title badges are a best-effort public-records search, <b>not a certified title search</b>. Confirm with a title company or attorney before bidding.
+  </footer>
+</div>
+
+<script type="module" src="app.js"></script>
 </body>
 </html>
