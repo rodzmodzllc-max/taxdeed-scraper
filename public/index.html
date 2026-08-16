@@ -42,6 +42,7 @@
       </span>
     </div>
     <h1>FL Tax Deed Watchlist</h1>
+    <p class="tagline">Institutional-grade coverage of Florida tax deed auctions, Lands Available, and certificate opportunities — one ledger, every county.</p>
     <p class="generated" id="generatedAt">Loading…</p>
     <!-- Two (really three) separate ledgers, front and center right after sign-in -
          not one long scroll where Lands Available sits under 300+ auction cards. -->
@@ -69,17 +70,7 @@
         <select id="countyQuick"><option value="ALL">All Counties</option></select>
         <span class="qc-chevron"></span>
       </div>
-      <div class="qc-field" style="flex:0 1 150px">
-        <span class="qc-icon">▤</span>
-        <select id="perPageSelect">
-          <option value="6">6 / page</option>
-          <option value="12" selected>12 / page</option>
-          <option value="24">24 / page</option>
-          <option value="48">48 / page</option>
-          <option value="0">Show all</option>
-        </select>
-        <span class="qc-chevron"></span>
-      </div>
+      <button class="expand-all-btn" id="expandAllBtn" type="button">Expand all</button>
       <button class="export-btn" id="exportCsvBtn" type="button">⬇ Export CSV</button>
     </div>
     <button class="filters-toggle" id="filtersToggle" type="button">
@@ -179,12 +170,6 @@
   </div>
 
   <main id="main"></main>
-
-  <div class="pagination-bar" id="paginationBar" hidden>
-    <button class="page-btn" id="prevPageBtn" type="button">← Prev</button>
-    <span class="page-indicator" id="pageIndicator">Page <b id="currentPageNum">1</b> of <b id="totalPagesNum">1</b></span>
-    <button class="page-btn" id="nextPageBtn" type="button">Next →</button>
-  </div>
 
   <footer>
     Links open Street View, the county property appraiser, Zillow, the Tax Collector, the live auction listing, and the Clerk's Official Records.<br><br>

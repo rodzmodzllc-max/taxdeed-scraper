@@ -59,7 +59,7 @@ const COUNTY_INFO = {
 let ALL = [], CALENDAR = {}, NOTES = {}, FAVS = new Set(), HIDDEN = new Set(), ME = null;
 
 const LEDGERS = {
-  auction: { title: "Auctions & Bidding", sub: "Open to competitive bidding." },
+  auction: { title: "Auctions & Bidding", sub: "Open to competitive bidding at a live county auction." },
   laft: { title: "Lands Available", sub: "Fixed price from Clerk." },
   certificate: { title: "Tax Certificates", sub: "County-held liens available for direct purchase - not property." }
 };
@@ -70,7 +70,10 @@ const state = {
   includeQT: false, maxBidPct: 40,
   statusView: "all",
   ledger: "auction",
-  search: "", perPage: 12, page: 1,
+  search: "",
+  // Counties the user has expanded via a county-group's <details> disclosure.
+  // Re-applied on every render() since render() rebuilds #main from scratch.
+  expandedCounties: new Set(),
   counties: new Set(), types: new Set(TYPE_ORDER), liens: new Set(LIEN_ORDER)
 };
 
@@ -233,7 +236,6 @@ function toggleCounty(name) {
   document.querySelectorAll('#countyChips .chipx').forEach(c => { if (c.dataset.value === name) c.classList.toggle("on", on); });
   if (mapLoaded) document.querySelectorAll('#mapHost path[data-county]').forEach(p => { if (p.dataset.county === name) p.classList.toggle("sel", on); });
   syncCountyQuickSelect();
-  state.page = 1;
   updateBadge();
   render();
 }
@@ -248,7 +250,6 @@ function buildChips(id, values, set, labelFn, classFn) {
       if (id === "countyChips") { toggleCounty(v); return; }
       set.has(v) ? set.delete(v) : set.add(v);
       c.classList.toggle("on");
-      state.page = 1;
       updateBadge(); render();
     });
     el.appendChild(c);
@@ -627,7 +628,7 @@ function render() {
   const activeLedger = state.ledger;
   const cfg = LEDGERS[activeLedger];
   const inLedger = p => p.source === activeLedger;
-  const { shown, totalPages } = section(main, cfg.title, cfg.sub, ALL.filter(inLedger), activeLedger);
+  const { shown } = section(main, cfg.title, cfg.sub, ALL.filter(inLedger), activeLedger);
 
   const tabCounts = { auction: 0, laft: 0, certificate: 0 };
   ALL.forEach(p => { if (p.source in tabCounts) tabCounts[p.source]++; });
@@ -638,18 +639,14 @@ function render() {
     if (countEl) countEl.textContent = tabCounts[src] || 0;
   });
 
-  // Pagination bar: hidden entirely when everything fits on one page.
-  const paginationBar = document.getElementById("paginationBar");
-  if (paginationBar) {
-    paginationBar.hidden = shown.length === 0 || totalPages <= 1;
-    const curEl = document.getElementById("currentPageNum");
-    const totEl = document.getElementById("totalPagesNum");
-    if (curEl) curEl.textContent = state.page;
-    if (totEl) totEl.textContent = totalPages;
-    const prevBtn = document.getElementById("prevPageBtn");
-    const nextBtn = document.getElementById("nextPageBtn");
-    if (prevBtn) prevBtn.disabled = state.page <= 1;
-    if (nextBtn) nextBtn.disabled = state.page >= totalPages;
+  // Expand/Collapse-all button label reflects whether every county currently
+  // in view is already expanded.
+  const expandAllBtn = document.getElementById("expandAllBtn");
+  if (expandAllBtn) {
+    const countiesInLedger = new Set(shown.map(p => p.county));
+    const allOpen = countiesInLedger.size > 0 && Array.from(countiesInLedger).every(c => state.expandedCounties.has(c));
+    expandAllBtn.textContent = allOpen ? "Collapse all" : "Expand all";
+    expandAllBtn.dataset.mode = allOpen ? "collapse" : "expand";
   }
 
   const chipTotal = document.getElementById("chipTotal");
@@ -692,9 +689,58 @@ function sortRows(rows) {
   return cmp ? rows.slice().sort(cmp) : rows;
 }
 
-// Returns { shown, totalPages } - shown is the FULL filtered+sorted list
-// (used for the Shown/Active/Gone counts and CSV export), independent of
-// which page is currently displayed. perPage: 0 means "show all" (no cap).
+// ==================== county grouping ====================
+// Each ledger is organized into one collapsible <details> per county (name,
+// a date/format line, and an "N/M active" count) instead of one long flat
+// card list - the structure a county with 300+ properties needs to stay
+// scannable, and the reason Lands Available used to read as "not populated"
+// when it was buried under an unbroken run of auction cards.
+
+// Auctions have a real per-county sale date (county_calendar, or a fallback
+// to the properties' own sale_date); Lands Available and certificates don't
+// run on a single county-wide date, so they get a static descriptor instead.
+function countySecondaryLine(ledgerKey, county, countyRows) {
+  if (ledgerKey === "auction") {
+    const calDates = (CALENDAR[county] || []).slice().sort();
+    const propDates = countyRows.map(p => p.sale_date).filter(Boolean).sort();
+    const d = calDates[0] || propDates[0];
+    return d ? `Auction ${fmtDate(d)}` : "No sale currently scheduled";
+  }
+  if (ledgerKey === "laft") return "Lands Available - fixed price, available now";
+  return "County-held certificates";
+}
+
+// COUNTY_INFO carries per-county logistics (online vs in-person, deposit
+// rules, quirks) that only matters once you've drilled into a specific
+// county's auction - shown inside the open <details>, not on every card.
+// Most entries use fmt as a short category tag ("Online", "In person",
+// "Fixed price") with the specifics in note - but a few (Charlotte, Palm
+// Beach, Hendry) cram a whole freeform sentence into fmt with no note at
+// all. Detect that shape so those don't render as a giant run-on pill.
+const KNOWN_FMT_TAGS = new Set(["Online", "In person", "Fixed price"]);
+function countyInfoBannerHtml(county) {
+  const info = COUNTY_INFO[county];
+  if (!info) return "";
+  const isTag = KNOWN_FMT_TAGS.has(info.fmt);
+  const pillText = isTag ? info.fmt : "Note";
+  const pillClass = "fmt-pill" + (info.fmt === "In person" ? " inperson" : "");
+  const bodyText = isTag ? (info.note || "") : (info.fmt + (info.note ? " " + info.note : ""));
+  return `<div class="county-info"><span class="${pillClass}">${esc(pillText)}</span><span>${esc(bodyText)}</span></div>`;
+}
+
+// Auction groups sort soonest-sale-first (so the most time-sensitive county
+// is the first thing an investor sees); other ledgers sort alphabetically.
+function countyGroupSortKey(ledgerKey, county, countyRows) {
+  if (ledgerKey === "auction") {
+    const calDates = (CALENDAR[county] || []).slice().sort();
+    const propDates = countyRows.map(p => p.sale_date).filter(Boolean).sort();
+    return calDates[0] || propDates[0] || "9999-99-99";
+  }
+  return county;
+}
+
+// Returns { shown } - shown is the FULL filtered+sorted list (used for the
+// Shown/Active/Gone counts, the Expand/Collapse-all button, and CSV export).
 function section(container, title, sub, rows, kind) {
   const sec = document.createElement("section"); sec.className = "mega-section";
   sec.innerHTML = `<div class="mega-head"><h2>${title}</h2><p class="mega-sub">${sub}</p></div>`;
@@ -703,18 +749,76 @@ function section(container, title, sub, rows, kind) {
     const e = document.createElement("div"); e.className = "empty-state";
     e.textContent = state.search ? `Nothing found for "${state.search}".` : "Nothing found.";
     sec.appendChild(e); container.appendChild(sec);
-    return { shown, totalPages: 1 };
+    return { shown };
   }
-  const perPage = state.perPage;
-  const totalPages = perPage > 0 ? Math.max(1, Math.ceil(shown.length / perPage)) : 1;
-  if (state.page > totalPages) state.page = totalPages;
-  if (state.page < 1) state.page = 1;
-  const pageItems = perPage > 0 ? shown.slice((state.page - 1) * perPage, state.page * perPage) : shown;
-  const list = document.createElement("div"); list.className = "prop-list flat";
+
+  // Per-county "N/M active" ignores the current statusView, same trick the
+  // Active/Gone summary chips use, so the badge stays meaningful no matter
+  // which status filter is selected.
+  const savedView = state.statusView;
+  state.statusView = "all";
+  const allForCounts = rows.filter(passes);
+  state.statusView = savedView;
+  const totalsByCounty = new Map(), activeByCounty = new Map();
+  allForCounts.forEach(p => {
+    totalsByCounty.set(p.county, (totalsByCounty.get(p.county) || 0) + 1);
+    if (!isGone(p)) activeByCounty.set(p.county, (activeByCounty.get(p.county) || 0) + 1);
+  });
+
+  const groups = new Map();
+  shown.forEach(p => {
+    if (!groups.has(p.county)) groups.set(p.county, []);
+    groups.get(p.county).push(p);
+  });
+
+  const orderedCounties = Array.from(groups.keys()).sort((a, b) => {
+    const ka = countyGroupSortKey(kind, a, groups.get(a));
+    const kb = countyGroupSortKey(kind, b, groups.get(b));
+    if (ka !== kb) return ka < kb ? -1 : 1;
+    return a.localeCompare(b);
+  });
+
   const renderCard = kind === "certificate" ? certCard : card;
-  pageItems.forEach(p => list.appendChild(renderCard(p, true)));
-  sec.appendChild(list); container.appendChild(sec);
-  return { shown, totalPages };
+  orderedCounties.forEach(county => {
+    const countyRows = groups.get(county);
+    const total = totalsByCounty.get(county) ?? countyRows.length;
+    const active = activeByCounty.get(county) ?? countyRows.length;
+    // A search in progress auto-opens every group that has a match, so
+    // results are visible immediately instead of hiding behind a collapse.
+    const isOpen = !!state.search || state.expandedCounties.has(county);
+
+    const det = document.createElement("details");
+    det.className = "county-group";
+    det.dataset.county = county;
+    if (isOpen) det.open = true;
+
+    const summary = document.createElement("summary");
+    summary.className = "county-head";
+    summary.innerHTML = `
+      <div>
+        <div class="county-name">${esc(county)}</div>
+        <div class="county-meta">${esc(countySecondaryLine(kind, county, countyRows))}</div>
+      </div>
+      <div class="county-right">
+        <span class="county-count">${active}/${total} active</span>
+        <span class="county-chevron"></span>
+      </div>`;
+    det.appendChild(summary);
+
+    if (kind === "auction") {
+      const bannerHtml = countyInfoBannerHtml(county);
+      if (bannerHtml) det.insertAdjacentHTML("beforeend", bannerHtml);
+    }
+
+    const list = document.createElement("div"); list.className = "prop-list";
+    countyRows.forEach(p => list.appendChild(renderCard(p, false)));
+    det.appendChild(list);
+
+    sec.appendChild(det);
+  });
+
+  container.appendChild(sec);
+  return { shown };
 }
 
 function updateBadge() {
@@ -744,16 +848,14 @@ document.querySelectorAll("#ledgerTabs .ledger-tab[data-ledger]").forEach(btn =>
   btn.addEventListener("click", () => {
     if (state.ledger === btn.dataset.ledger) return;
     state.ledger = btn.dataset.ledger;
-    state.page = 1;
     render();
   });
 });
 
-// ---- quick controls: search, county dropdown, per-page, CSV export ----
+// ---- quick controls: search, county dropdown, expand/collapse all, CSV export ----
 const searchInputEl = document.getElementById("searchInput");
 if (searchInputEl) searchInputEl.addEventListener("input", () => {
   state.search = searchInputEl.value.trim();
-  state.page = 1;
   updateBadge();
   render();
 });
@@ -762,22 +864,37 @@ const countyQuickEl = document.getElementById("countyQuick");
 if (countyQuickEl) countyQuickEl.addEventListener("change", () => {
   const v = countyQuickEl.value;
   state.counties = v === "ALL" ? new Set(countyNames()) : new Set([v]);
-  state.page = 1;
+  // Picking one specific county is a strong signal the user wants to see
+  // straight into it, not just narrow the filter and leave it collapsed.
+  if (v !== "ALL") state.expandedCounties.add(v);
   buildAllChips();
   if (mapLoaded) refreshMapPaths();
   updateBadge();
   render();
 });
 
-const perPageEl = document.getElementById("perPageSelect");
-if (perPageEl) {
-  state.perPage = Number(perPageEl.value);
-  perPageEl.addEventListener("change", () => {
-    state.perPage = Number(perPageEl.value);
-    state.page = 1;
-    render();
-  });
-}
+// County groups are native <details> - the browser handles the actual
+// show/hide. We only need to mirror the open state into expandedCounties so
+// a county the user expanded stays expanded across the next full re-render
+// (every filter/search/sort change rebuilds #main from scratch). "toggle"
+// doesn't bubble, so this listener has to run in the capture phase.
+const mainEl = document.getElementById("main");
+if (mainEl) mainEl.addEventListener("toggle", e => {
+  const det = e.target;
+  if (!det.classList || !det.classList.contains("county-group")) return;
+  const county = det.dataset.county;
+  if (!county) return;
+  if (det.open) state.expandedCounties.add(county); else state.expandedCounties.delete(county);
+}, true);
+
+const expandAllBtn = document.getElementById("expandAllBtn");
+if (expandAllBtn) expandAllBtn.addEventListener("click", () => {
+  const inLedger = p => p.source === state.ledger;
+  const countiesInLedger = new Set(ALL.filter(inLedger).filter(passes).map(p => p.county));
+  if (expandAllBtn.dataset.mode === "collapse") countiesInLedger.forEach(c => state.expandedCounties.delete(c));
+  else countiesInLedger.forEach(c => state.expandedCounties.add(c));
+  render();
+});
 
 // CSV export - everything currently matching the active ledger's filters
 // (not just the visible page), so it's a complete export regardless of
@@ -828,12 +945,6 @@ if (exportCsvBtn) exportCsvBtn.addEventListener("click", () => {
   URL.revokeObjectURL(url);
 });
 
-// ---- pagination prev/next ----
-const prevPageBtnEl = document.getElementById("prevPageBtn");
-if (prevPageBtnEl) prevPageBtnEl.addEventListener("click", () => { if (state.page > 1) { state.page--; render(); window.scrollTo({ top: 0, behavior: "smooth" }); } });
-const nextPageBtnEl = document.getElementById("nextPageBtn");
-if (nextPageBtnEl) nextPageBtnEl.addEventListener("click", () => { state.page++; render(); window.scrollTo({ top: 0, behavior: "smooth" }); });
-
 // ---- open/close ----
 const filtersToggleBtn = document.getElementById("filtersToggle");
 const filtersPanelEl = document.getElementById("filtersPanel");
@@ -851,7 +962,6 @@ function bindNumber(id, key, fallback) {
   el.addEventListener("input", () => {
     const v = el.value.trim();
     state[key] = v === "" ? (fallback === undefined ? null : fallback) : Number(v);
-    state.page = 1;
     updateBadge();
     render();
   });
@@ -863,13 +973,13 @@ bindNumber("maxBidPct", "maxBidPct", 40);
 
 // ---- sort ----
 const sortByEl = document.getElementById("sortBy");
-if (sortByEl) sortByEl.addEventListener("change", () => { state.sortBy = sortByEl.value; state.page = 1; updateBadge(); render(); });
+if (sortByEl) sortByEl.addEventListener("change", () => { state.sortBy = sortByEl.value; updateBadge(); render(); });
 
 // ---- checkboxes ----
 function bindCheckbox(id, key) {
   const el = document.getElementById(id);
   if (!el) return;
-  el.addEventListener("change", () => { state[key] = el.checked; state.page = 1; updateBadge(); render(); });
+  el.addEventListener("change", () => { state[key] = el.checked; updateBadge(); render(); });
 }
 bindCheckbox("favOnly", "favoritesOnly");
 bindCheckbox("topOnly", "topPicksOnly");
@@ -882,15 +992,15 @@ if (resetBtn) resetBtn.addEventListener("click", () => {
   state.bidMin = null; state.bidMax = null; state.assessedMin = null;
   state.sortBy = "county"; state.favoritesOnly = false; state.topPicksOnly = false;
   state.soonOnly = false; state.includeQT = false; state.maxBidPct = 40;
-  state.statusView = "all"; state.search = ""; state.perPage = 12; state.page = 1;
+  state.statusView = "all"; state.search = "";
   state.counties = new Set(countyNames()); state.types = new Set(TYPE_ORDER); state.liens = new Set(LIEN_ORDER);
+  state.expandedCounties.clear();
 
   ["bidMin", "bidMax", "assessedMin"].forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
   const maxBidEl = document.getElementById("maxBidPct"); if (maxBidEl) maxBidEl.value = "40";
   const sortEl = document.getElementById("sortBy"); if (sortEl) sortEl.value = "county";
   ["favOnly", "topOnly", "soonOnly", "qtToggle"].forEach(id => { const el = document.getElementById(id); if (el) el.checked = false; });
   const searchEl = document.getElementById("searchInput"); if (searchEl) searchEl.value = "";
-  const perPageResetEl = document.getElementById("perPageSelect"); if (perPageResetEl) perPageResetEl.value = "12";
 
   buildAllChips();
   if (mapLoaded) refreshMapPaths();
@@ -900,7 +1010,7 @@ if (resetBtn) resetBtn.addEventListener("click", () => {
 
 // ---- status summary chips (Shown / Active / Gone) ----
 document.querySelectorAll(".summary-strip .chip[data-status]").forEach(c => {
-  c.addEventListener("click", () => { state.statusView = c.dataset.status; state.page = 1; render(); });
+  c.addEventListener("click", () => { state.statusView = c.dataset.status; render(); });
 });
 
 // ---- restore hidden ----
@@ -923,7 +1033,6 @@ document.querySelectorAll(".mini-btn[data-group]").forEach(btn => {
     if (mode === "all") values.forEach(v => setRef.add(v));
     buildAllChips();
     if (group === "counties" && mapLoaded) refreshMapPaths();
-    state.page = 1;
     updateBadge();
     render();
   });

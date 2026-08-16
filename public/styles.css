@@ -75,6 +75,7 @@ a{color:var(--accent)} button{font-family:inherit}
 h1{font-family:'Inter',sans-serif;font-weight:800;font-size:1.5rem;line-height:1.15;
   margin:0 0 .15rem;letter-spacing:-.01em;color:var(--header-ink)}
 h1 .brand-accent{color:#60A5FA}
+.tagline{font-size:.82rem;line-height:1.45;color:var(--header-ink-soft);margin:0 0 .55rem;max-width:46ch}
 .generated{font-size:.78rem;color:var(--header-ink-soft);margin:0 0 .7rem}
 
 /* ---- ledger tabs: the top-level Auctions / Lands Available / Certificates
@@ -112,6 +113,10 @@ h1 .brand-accent{color:#60A5FA}
   font-weight:700;color:#fff;background:var(--ink);border:none;border-radius:8px;
   padding:.5rem .8rem;cursor:pointer;white-space:nowrap}
 .export-btn:hover{background:var(--accent)}
+.expand-all-btn{flex:0 0 auto;font-size:.78rem;font-weight:700;color:var(--ink);
+  background:var(--paper);border:1px solid var(--card-line);border-radius:8px;
+  padding:.5rem .8rem;cursor:pointer;white-space:nowrap;font-family:inherit}
+.expand-all-btn:hover{border-color:var(--accent);color:var(--accent)}
 @media (max-width:640px){
   .quick-controls{position:sticky;top:0;z-index:30;margin-top:0;border-radius:0;
     border-left:none;border-right:none}
@@ -221,21 +226,32 @@ main{padding:.9rem 1.1rem 0}
 .mega-head h2{font-family:'Inter',sans-serif;font-weight:800;font-size:1.2rem;margin:0 0 .15rem}
 .mega-sub{font-size:.76rem;color:var(--ink-soft);margin:0}
 
+/* ---- county grouping: each ledger is organized into one collapsible
+   <details> per county (name, an auction date/format line, and an "N/M
+   active" count) instead of one long flat card list - the structure a
+   county with 300+ properties needs to stay scannable. ---- */
 .county-group{background:var(--card);border:1px solid var(--card-line);border-radius:14px;
-  margin-bottom:.7rem;box-shadow:var(--shadow);overflow:hidden}
+  margin-bottom:.7rem;box-shadow:var(--shadow);overflow:hidden;transition:border-color .12s}
+.county-group:hover{border-color:color-mix(in srgb,var(--accent) 35%,var(--card-line) 65%)}
 .county-group[open]{padding-bottom:.3rem}
 summary.county-head{list-style:none;cursor:pointer;padding:.85rem 1rem;display:flex;
   align-items:center;justify-content:space-between;gap:.75rem}
 summary.county-head::-webkit-details-marker{display:none}
-.county-name{font-family:'Inter',sans-serif;font-weight:700;font-size:1.05rem}
+.county-name{font-family:'Inter',sans-serif;font-weight:700;font-size:1.05rem;color:var(--ink)}
 .county-meta{font-size:.74rem;color:var(--ink-soft);margin-top:.1rem}
-.county-right{display:flex;align-items:center;gap:.5rem;flex-shrink:0}
-.county-count{font-family:ui-monospace,Consolas,monospace;font-size:.78rem;color:var(--ink-soft)}
-.county-group[open] .chevron{transform:rotate(45deg)}
-.county-info{display:flex;gap:.4rem;margin:0 .6rem .5rem;padding:.45rem .6rem;
-  background:var(--accent-soft);border-radius:8px;font-size:.7rem;line-height:1.35;color:var(--ink-soft)}
-.fmt-pill{flex-shrink:0;font-weight:700;font-size:.62rem;text-transform:uppercase;
-  color:var(--accent);background:var(--card);border-radius:4px;padding:.1rem .35rem}
+.county-right{display:flex;align-items:center;gap:.6rem;flex-shrink:0}
+.county-count{font-family:ui-monospace,Consolas,monospace;font-variant-numeric:tabular-nums;
+  font-size:.78rem;font-weight:600;color:var(--ink-soft);white-space:nowrap}
+/* Chevron is scoped to the county summary (not the shared .chevron class,
+   which is tuned for the dark masthead's --header-ink-soft) so it stays
+   visible against the light card background in both themes. */
+.county-chevron{width:8px;height:8px;flex-shrink:0;border-right:2px solid var(--ink-soft);
+  border-bottom:2px solid var(--ink-soft);transform:rotate(45deg);transition:transform .15s}
+.county-group[open] .county-chevron{transform:rotate(225deg)}
+.county-info{display:flex;align-items:flex-start;gap:.5rem;margin:0 .6rem .6rem;padding:.5rem .65rem;
+  background:var(--accent-soft);border-radius:8px;font-size:.74rem;line-height:1.4;color:var(--ink)}
+.fmt-pill{flex-shrink:0;font-weight:700;font-size:.6rem;text-transform:uppercase;letter-spacing:.03em;
+  color:var(--accent);background:var(--card);border-radius:4px;padding:.15rem .4rem;margin-top:.05rem}
 .fmt-pill.inperson{color:var(--brass)}
 
 .prop-list{padding:0 .6rem;display:flex;flex-direction:column;gap:.5rem}
@@ -349,17 +365,6 @@ summary.county-head::-webkit-details-marker{display:none}
 .note-save{align-self:flex-start;font-size:.68rem;font-weight:600;padding:.25rem .7rem;
   border-radius:6px;border:none;background:var(--accent);color:#fff;cursor:pointer}
 .note-save.saved{background:var(--ok)}
-
-/* ---- pagination bar ---- */
-.pagination-bar{display:flex;align-items:center;justify-content:space-between;gap:.6rem;
-  margin:1rem 0;padding-top:.8rem;border-top:1px solid var(--card-line)}
-.pagination-bar[hidden]{display:none}
-.page-btn{padding:.5rem .9rem;border:1px solid var(--card-line);border-radius:8px;
-  background:var(--card);color:var(--ink);font-size:.8rem;font-weight:600;cursor:pointer;
-  font-family:inherit}
-.page-btn:disabled{opacity:.45;cursor:default}
-.page-indicator{font-size:.78rem;color:var(--ink-soft);white-space:nowrap}
-.page-indicator b{color:var(--ink)}
 
 /* ---- property detail modal: the "full property page" - same data as the
    card, laid out roomier, with big tappable link buttons instead of the
