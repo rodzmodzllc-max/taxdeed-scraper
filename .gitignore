@@ -1,0 +1,13 @@
+# Secrets - never commit these
+.env
+.env.*
+sync-config.local.json
+*.local.json
+
+# Node
+node_modules/
+npm-debug.log*
+
+# OS/editor cruft
+.DS_Store
+Thumbs.db
