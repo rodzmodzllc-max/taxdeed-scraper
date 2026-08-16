@@ -1,9 +1,23 @@
 name: Nationwide 50-State Tax Deed Scraper Schedule
 
+# DISABLED (auto-run) — the daily cron below is commented out.
+#
+# scraper.js does not actually scrape any county site: scrapeCountyRecords()
+# generates simulated records with Math.sin()-based pseudo-randomness, and
+# most of US_STATES' counties are placeholder names ("County-1", etc).
+# It also writes to a `tax_auctions` table with a different schema
+# (state/parcel_id/opening_bid/auction_type/auction_date) that the live app
+# never reads from - the app reads `properties`, populated by the separate
+# PC-based sync scripts (sync-to-supabase.ps1 / sync-harvest-to-supabase.ps1).
+#
+# Net effect while this ran on a schedule: zero impact on production data,
+# while burning up to three 360-minute CI runners every day. Left as
+# workflow_dispatch only so it can still be triggered by hand (e.g. while
+# building this out into a real scraper against `properties`), without
+# spending CI minutes on autopilot for a job that doesn't do anything yet.
 on:
-  schedule:
-    # Runs every day at 06:00 UTC (2:00 AM EDT)
-    - cron: '0 6 * * *'
+  # schedule:
+  #   - cron: '0 6 * * *'   # was: every day at 06:00 UTC (2:00 AM EDT)
   workflow_dispatch: # Allows manual trigger anytime from GitHub UI
 
 jobs:
