@@ -61,6 +61,56 @@ const COUNTY_INFO = {
   "Glades":{fmt:"In person",note:"No sale currently scheduled."}
 };
 
+// County-map coloring: "online" (blue) vs "in-person" (red) vs "fixed" (fixed-
+// price/Lands-Available-only, amber). A county with NO entry here means its
+// format hasn't been confirmed yet - it stays neutral gray on the map rather
+// than guessing. This is deliberately separate from COUNTY_INFO above (which
+// drives the free-text logistics note/pill) since COUNTY_INFO only covers 15
+// hand-annotated counties, while this covers every county we've been able to
+// confirm one way or the other.
+//
+// Sources: the 44 Realauction-platform counties below (realtaxdeed.com /
+// realforeclose.com) are online by construction - that platform IS an online
+// bidding site. Levy and Okaloosa are on other online platforms (TaxSmartWeb
+// and Bid4Assets respectively) and are scraped by their own harvest scripts.
+// The in-person counties were confirmed against each County Clerk's own tax
+// deed sale page (courthouse address/time, no bidding platform mentioned).
+//
+// Known conflict, not silently resolved: Hendry has a registered Realauction
+// host (hendry.realtaxdeed.com) but COUNTY_INFO's hand-researched note says
+// "Not on Realauction - Clerk runs the sale from a PDF notice." We trust the
+// more specific note here and mark Hendry in-person, but this needs a human
+// to actually confirm with the Hendry Clerk's office (863-675-5217).
+//
+// Left unclassified (shown gray - "not yet confirmed"): Gadsden, Lafayette,
+// Liberty, Union. Each county's Clerk site either didn't load, didn't state
+// a format, or had no active sale listed at research time.
+const COUNTY_FORMAT = {
+  // --- Online (Realauction: realtaxdeed.com / realforeclose.com) ---
+  "Alachua":"online","Baker":"online","Bay":"online","Brevard":"online",
+  "Broward":"online","Calhoun":"online","Charlotte":"online","Citrus":"online",
+  "Clay":"online","Duval":"online","Escambia":"online","Flagler":"online",
+  "Gilchrist":"online","Gulf":"online","Hernando":"online","Highlands":"online",
+  "Indian River":"online","Jackson":"online","Lake":"online","Lee":"online",
+  "Leon":"online","Manatee":"online","Marion":"online","Martin":"online",
+  "Miami-Dade":"online","Monroe":"online","Nassau":"online","Okeechobee":"online",
+  "Orange":"online","Osceola":"online","Palm Beach":"online","Pasco":"online",
+  "Pinellas":"online","Polk":"online","Putnam":"online","Santa Rosa":"online",
+  "Sarasota":"online","Seminole":"online","St. Johns":"online","St. Lucie":"online",
+  "Suwannee":"online","Volusia":"online","Walton":"online","Washington":"online",
+  // --- Online (other platforms) ---
+  "Levy":"online",     // TaxSmartWeb - "Levy County has chosen to conduct this tax sale via the Internet"
+  "Okaloosa":"online", // Bid4Assets - handled by harvest_okaloosa_bid4assets.ps1
+  // --- In person (courthouse sale, confirmed via Clerk site) ---
+  "DeSoto":"in-person","Collier":"in-person","Hendry":"in-person","Glades":"in-person",
+  "Bradford":"in-person","Columbia":"in-person","Dixie":"in-person","Franklin":"in-person",
+  "Hamilton":"in-person","Hardee":"in-person","Holmes":"in-person","Jefferson":"in-person",
+  "Madison":"in-person","Sumter":"in-person","Taylor":"in-person","Wakulla":"in-person",
+  // --- Fixed price only (no competitive bidding) ---
+  "Hillsborough":"fixed"
+  // Gadsden, Lafayette, Liberty, Union: intentionally omitted - unconfirmed.
+};
+
 let ALL = [], CALENDAR = {}, NOTES = {}, FAVS = new Set(), HIDDEN = new Set(), ME = null;
 
 const LEDGERS = {
@@ -1151,8 +1201,21 @@ function refreshMapPaths() {
   const withData = new Set(countyNames());
   mapHostEl.querySelectorAll("path[data-county]").forEach(p => {
     const name = p.dataset.county;
-    p.classList.toggle("has-data", withData.has(name));
+    const fmt = COUNTY_FORMAT[name];
+    const hasData = withData.has(name);
+    p.classList.toggle("has-data", hasData);
     p.classList.toggle("sel", state.counties.has(name));
+    // Color by confirmed auction format (independent of whether we currently
+    // have any properties loaded for that county) - blue/red/amber cover every
+    // county whose format we've confirmed; unconfirmed ones stay neutral gray.
+    p.classList.toggle("fmt-online", fmt === "online");
+    p.classList.toggle("fmt-inperson", fmt === "in-person");
+    p.classList.toggle("fmt-fixed", fmt === "fixed");
+    const fmtLabel = fmt === "online" ? "Online auction" : fmt === "in-person" ? "In-person auction" : fmt === "fixed" ? "Fixed price only" : "Format not yet confirmed";
+    const countLabel = hasData ? " - currently tracking properties here" : " - no properties currently tracked";
+    let titleEl = p.querySelector("title");
+    if (!titleEl) { titleEl = document.createElementNS("http://www.w3.org/2000/svg", "title"); p.appendChild(titleEl); }
+    titleEl.textContent = `${name}: ${fmtLabel}${countLabel}`;
   });
 }
 async function ensureMapLoaded() {
