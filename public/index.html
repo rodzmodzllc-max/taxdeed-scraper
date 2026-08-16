@@ -20,18 +20,41 @@
 
 <!-- ============ sign in ============ -->
 <div id="authGate" hidden>
-  <h1>FL Tax Deed Watchlist</h1>
-  <p>Sign in to continue.</p>
-  <form id="authForm">
-    <input type="email" id="email" placeholder="Email" autocomplete="username" required>
-    <input type="password" id="password" placeholder="Password" autocomplete="current-password" required>
-    <button type="submit" id="signInBtn">Sign in</button>
-  </form>
-  <div class="auth-msg" id="authMsg"></div>
+  <div class="auth-card">
+    <div class="auth-brand">
+      <svg class="brand-mark" width="30" height="30" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <rect width="32" height="32" rx="8" fill="#0F172A"/>
+        <path d="M9 21.5L16 8l7 13.5" stroke="#F1F5F9" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+        <circle cx="16" cy="15" r="2.1" fill="#059669"/>
+        <path d="M7 24.5h18" stroke="#059669" stroke-width="2.2" stroke-linecap="round"/>
+      </svg>
+      <h1>FL Tax Deed Watchlist</h1>
+    </div>
+    <p class="auth-tagline">Florida Tax Deed Intelligence &amp; Auction Watchlist</p>
+    <p class="auth-lead">Sign in to continue.</p>
+    <form id="authForm">
+      <input type="email" id="email" placeholder="Email" autocomplete="username" required>
+      <input type="password" id="password" placeholder="Password" autocomplete="current-password" required>
+      <button type="submit" id="signInBtn">Sign in</button>
+    </form>
+    <div class="auth-msg" id="authMsg"></div>
+  </div>
 </div>
 
 <!-- ============ app ============ -->
 <div id="app" hidden>
+  <!-- Slim brand strip, pinned above the (deliberately non-sticky) masthead
+       below - see the note on .masthead for why the taller block isn't the
+       one that pins itself. -->
+  <div class="topbar">
+    <svg class="brand-mark" width="22" height="22" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+      <rect width="32" height="32" rx="8" fill="#0F172A"/>
+      <path d="M9 21.5L16 8l7 13.5" stroke="#F1F5F9" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>
+      <circle cx="16" cy="15" r="2.1" fill="#059669"/>
+      <path d="M7 24.5h18" stroke="#059669" stroke-width="2.2" stroke-linecap="round"/>
+    </svg>
+    <span class="brand-name">FL Tax Deed<span class="brand-accent">•</span>Watchlist</span>
+  </div>
   <div class="masthead">
     <div class="eyebrow-row">
       <p class="eyebrow" id="eyebrow">Field Ledger</p>
@@ -43,6 +66,7 @@
     </div>
     <h1>FL Tax Deed Watchlist</h1>
     <p class="tagline">Institutional-grade coverage of Florida tax deed auctions, Lands Available, and certificate opportunities — one ledger, every county.</p>
+    <p class="disclaimer-badge"><span class="dot">⚠</span><span><b>Best-effort public records search</b> — not a certified title search. Always verify with a title professional before bidding.</span></p>
     <p class="generated" id="generatedAt">Loading…</p>
     <!-- Two (really three) separate ledgers, front and center right after sign-in -
          not one long scroll where Lands Available sits under 300+ auction cards. -->

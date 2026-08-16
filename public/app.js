@@ -88,6 +88,22 @@ const fmtMoney = n => "$" + Number(n).toLocaleString("en-US", { minimumFractionD
 const fmtShort = n => "$" + Math.round(Number(n)).toLocaleString("en-US");
 const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
+// Small icon-prefix for the quick-action reference links, shared by the
+// compact card row and the roomier detail-modal buttons so the two stay
+// visually consistent.
+const LINK_ICON = {
+  "Street View": "🛰", "Appraiser": "🏛", "Zillow": "🏠", "Tax Collector": "💰",
+  "Auction": "🔨", "LAFT": "🔨", "Lands Available Listing": "🔨",
+  "County Auction Site": "🔨", "County-Held Liens List": "📋", "Title Search": "📜"
+};
+const linkIcon = label => LINK_ICON[label] ? `<span class="link-icon">${LINK_ICON[label]}</span>` : "";
+
+// Small "ⓘ" tooltip affordance - keyboard-focusable (not hover-only) so it
+// works on touch devices too. `tip` is plain text, escaped for the
+// data-tip attribute the CSS ::after reads it from.
+const infoTip = tip => `<i class="info-tip" tabindex="0" data-tip="${esc(tip)}">i</i>`;
+const TRUE_COST_TIP = "Opening bid + Florida doc stamps (0.70/$100) + recording fee, plus half the assessed value on homesteaded parcels (FS 197.502(6)(c)). An estimate, not a quote.";
+
 // Properties synced from the statewide harvest pipeline (as opposed to the
 // hand-researched watchlist) never get url_zillow / url_streetview from the
 // sync script - the harvester doesn't collect them, so the column is left
@@ -210,11 +226,32 @@ sb.auth.onAuthStateChange((_e, session) => {
   }
 })();
 
+// Animated card-shaped placeholders shown while the first Supabase fetch is
+// in flight, instead of a bare "Loading" line. render() replaces #main's
+// entire innerHTML once real data is in, so this needs no manual cleanup.
+function renderSkeleton() {
+  const main = document.getElementById("main");
+  if (!main) return;
+  const group = `
+    <div class="skeleton-group">
+      <div class="skel skel-title"></div>
+      <div class="skel skel-line w40"></div>
+      <div class="skel skel-line w80"></div>
+      <div class="skel skel-line w60"></div>
+      <div class="skel-grid">
+        <div class="skel skel-box"></div><div class="skel skel-box"></div>
+        <div class="skel skel-box"></div><div class="skel skel-box"></div>
+      </div>
+    </div>`;
+  main.innerHTML = group.repeat(3);
+}
+
 async function showApp() {
   if (gate) gate.hidden = true;
   if (app) app.hidden = false;
   const genEl = document.getElementById("generatedAt");
   if (genEl) genEl.textContent = "Loading";
+  renderSkeleton();
   await loadAll();
   state.counties = new Set(countyNames());
   buildAllChips();
@@ -384,8 +421,9 @@ function card(p, showCounty) {
     ? `<div class="spread-badge">Potential equity ${spreadAmt >= 0 ? "+" : "-"}${fmtShort(Math.abs(spreadAmt))} <span class="spread-mult">(${valueRatio(p).toFixed(1)}× market/bid)</span></div>`
     : "";
 
+  const overWalk = hasBid && Number(p.bid) > maxBid(p);
   el.innerHTML = `
-    ${top ? `<div class="toppick-banner"> Top pick <span class="ratio-pill">${valueRatio(p).toFixed(1)}- market vs bid</span></div>` : ""}
+    ${top ? `<div class="toppick-banner">★ Top pick <span class="ratio-pill">${valueRatio(p).toFixed(1)}× market vs bid</span></div>` : ""}
     ${tag}
     <div class="prop-top">
       <div class="prop-address">${titleLine}</div>
@@ -393,21 +431,21 @@ function card(p, showCounty) {
         <button class="icon-btn heart-btn${fav ? " on" : ""}" data-action="fav" data-pid="${p.id}" type="button" title="Favorite">${fav ? "♥" : "♡"}</button>
         <button class="icon-btn remove-btn" data-action="hide" data-pid="${p.id}" type="button" title="Hide">✕</button>
         ${cd}
+        <span class="lien-pill ${esc(p.lien_level)}">${LIEN_LABEL[p.lien_level] || p.lien_level}</span>
         <span class="pill ${esc(p.status)}">${esc(p.status)}</span>
       </div>
     </div>
     <div class="prop-meta">
       <span>Parcel #${esc(p.parcel || "Unknown")}</span>
-      <span class="meta-bid">Bid ${hasBid ? fmtMoney(p.bid) : "N/A"}</span>
-      <span class="meta-assessed">Assessed ${p.assessed ? fmtShort(p.assessed) : "N/A"}</span>
-      <span class="meta-market">Market ${p.market ? fmtShort(p.market) : "N/A"}</span>
     </div>
     ${spreadBadge}
-    ${hasBid ? `
-    <div class="cost-row">
-      <span class="cost-item"><span class="cost-tag">True cost</span> <b>${fmtShort(trueCost(p))}</b></span>
-      <span class="cost-item ${Number(p.bid) > maxBid(p) ? "over" : "under"}"><span class="cost-tag">Walk away above</span> <b>${fmtShort(maxBid(p))}</b></span>
-    </div>` : ""}
+    <div class="card-stat-grid">
+      <div class="card-stat"><div class="card-stat-label">Opening Bid</div><div class="card-stat-val bid">${hasBid ? fmtMoney(p.bid) : "N/A"}</div></div>
+      <div class="card-stat"><div class="card-stat-label">Assessed</div><div class="card-stat-val assessed">${p.assessed ? fmtShort(p.assessed) : "N/A"}</div></div>
+      <div class="card-stat"><div class="card-stat-label">Est. Market</div><div class="card-stat-val market">${p.market ? fmtShort(p.market) : "N/A"}</div></div>
+      <div class="card-stat"><div class="card-stat-label">True Cost ${infoTip(TRUE_COST_TIP)}</div><div class="card-stat-val">${hasBid ? fmtShort(trueCost(p)) : "N/A"}</div></div>
+      ${hasBid ? `<div class="card-stat wide"><span class="card-stat-label">Walk away above</span><span class="card-stat-val ${overWalk ? "over" : "under"}">${fmtShort(maxBid(p))}</span></div>` : ""}
+    </div>
     <div class="lien-banner ${esc(p.lien_level)}">
       <div class="lien-toprow"><span class="lien-label">Title: ${LIEN_LABEL[p.lien_level] || p.lien_level}</span><span class="type-badge">${esc(p.prop_type || "Type: Unknown")}</span></div>
       <span class="lien-text">${esc(p.lien_note || "")}</span>
@@ -417,12 +455,12 @@ function card(p, showCounty) {
       ${p.parcel ? `<button class="copy-btn" data-action="copy" data-copy="${esc(p.parcel)}" type="button"><span class="copy-tag">Parcel</span><span class="copy-val">${esc(p.parcel)}</span></button>` : ""}
     </div>
     <div class="prop-links">
-      ${fallbackStreetviewUrl(p) ? `<a href="${esc(fallbackStreetviewUrl(p))}" target="_blank" rel="noopener">Street View</a>` : ''}
-      ${p.url_appraiser ? `<a href="${esc(p.url_appraiser)}" target="_blank" rel="noopener">Appraiser</a>` : ''}
-      ${fallbackZillowUrl(p) ? `<a href="${esc(fallbackZillowUrl(p))}" target="_blank" rel="noopener">Zillow</a>` : ''}
-      ${p.url_taxcoll ? `<a href="${esc(p.url_taxcoll)}" target="_blank" rel="noopener">Collector</a>` : ''}
-      ${p.url_auction ? `<a href="${esc(p.url_auction)}" target="_blank" rel="noopener">${p.source === "laft" ? "LAFT" : "Auction"}</a>` : ''}
-      ${p.url_title ? `<a href="${esc(p.url_title)}" target="_blank" rel="noopener">Title Search</a>` : ''}
+      ${fallbackStreetviewUrl(p) ? `<a href="${esc(fallbackStreetviewUrl(p))}" target="_blank" rel="noopener">${linkIcon("Street View")}Street View</a>` : ''}
+      ${p.url_appraiser ? `<a href="${esc(p.url_appraiser)}" target="_blank" rel="noopener">${linkIcon("Appraiser")}Appraiser</a>` : ''}
+      ${fallbackZillowUrl(p) ? `<a href="${esc(fallbackZillowUrl(p))}" target="_blank" rel="noopener">${linkIcon("Zillow")}Zillow</a>` : ''}
+      ${p.url_taxcoll ? `<a href="${esc(p.url_taxcoll)}" target="_blank" rel="noopener">${linkIcon("Tax Collector")}Collector</a>` : ''}
+      ${p.url_auction ? `<a href="${esc(p.url_auction)}" target="_blank" rel="noopener">${linkIcon("Auction")}${p.source === "laft" ? "LAFT" : "Auction"}</a>` : ''}
+      ${p.url_title ? `<a href="${esc(p.url_title)}" target="_blank" rel="noopener">${linkIcon("Title Search")}Title Search</a>` : ''}
     </div>
     ${p.url_auction ? `<a class="cta-btn" href="${esc(p.url_auction)}" target="_blank" rel="noopener">${p.source === "laft" ? "View Lands Available Listing" : "Bid on County Auction Site"}</a>` : ''}
     <button class="detail-btn" data-action="viewdetails" data-pid="${p.id}" type="button">View Full Property Page</button>
@@ -535,14 +573,14 @@ function detailHtml(p) {
       <span class="lien-text">${esc(p.lien_note || "")}</span>
     </div>` : ""}
     <div class="detail-grid">
-      ${stats.map(([label, val]) => `<div class="detail-stat"><span class="detail-stat-label">${esc(label)}</span><span class="detail-stat-val">${esc(val)}</span></div>`).join("")}
+      ${stats.map(([label, val]) => `<div class="detail-stat"><span class="detail-stat-label">${esc(label)}${label === "True Cost Est." ? " " + infoTip(TRUE_COST_TIP) : ""}</span><span class="detail-stat-val">${esc(val)}</span></div>`).join("")}
     </div>
     <div class="copy-row">
       ${!isCert ? `<button class="copy-btn owner-tag${p.owner_name ? "" : " unknown"}" ${p.owner_name ? `data-action="copy" data-copy="${esc(p.owner_name)}"` : ""} type="button"><span class="copy-tag">Owner</span><span class="copy-val">${esc(p.owner_name || "Unknown")}</span></button>` : ""}
       <button class="copy-btn" data-action="copy" data-copy="${esc(p.parcel || p.case_no || "")}" type="button"><span class="copy-tag">${isCert ? "Account" : "Parcel"}</span><span class="copy-val">${esc(p.parcel || p.case_no || "Unknown")}</span></button>
     </div>
     <div class="detail-links">
-      ${links.length ? links.map(([label, href]) => `<a href="${esc(href)}" target="_blank" rel="noopener">${esc(label)} →</a>`).join("") : `<span style="font-size:.78rem;color:var(--ink-soft)">No reference links harvested for this property yet.</span>`}
+      ${links.length ? links.map(([label, href]) => `<a href="${esc(href)}" target="_blank" rel="noopener">${linkIcon(label)}${esc(label)} →</a>`).join("") : `<span style="font-size:.78rem;color:var(--ink-soft)">No reference links harvested for this property yet.</span>`}
     </div>
     ${noteHtml(p)}`;
 }

@@ -42,19 +42,42 @@ body{
 a{color:var(--accent)} button{font-family:inherit}
 .mono{font-family:ui-monospace,Consolas,monospace}
 
-/* ---- auth gate ---- */
-#authGate{max-width:340px;margin:14vh auto;padding:0 1.2rem;text-align:center}
-#authGate h1{font-family:'Inter',sans-serif;font-weight:800;font-size:1.6rem;margin:.2rem 0 .3rem}
-#authGate p{font-size:.85rem;color:var(--ink-soft);margin:0 0 1.4rem}
+/* ---- auth gate: dedicated sign-in screen - centered card over a subtle
+   navy-to-emerald gradient wash, brand mark + tagline up top, instead of
+   bare centered text on the plain page background. ---- */
+#authGate{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1.2rem;
+  background:
+    radial-gradient(ellipse 90% 60% at 15% -10%, color-mix(in srgb, var(--ok) 16%, transparent), transparent),
+    radial-gradient(ellipse 90% 60% at 100% 110%, color-mix(in srgb, var(--header-bg) 30%, transparent), transparent),
+    var(--paper)}
+/* The ID selector above beats the UA [hidden]{display:none} rule on
+   specificity, so #authGate would stay visible (as display:flex) even while
+   hidden without this override - same class of bug as an earlier
+   .pagination-bar[hidden] miss in this app. */
+#authGate[hidden]{display:none}
+.auth-card{width:100%;max-width:360px;background:var(--card);border:1px solid var(--card-line);
+  border-radius:16px;box-shadow:0 1px 2px rgba(15,23,42,.06),0 16px 40px rgba(15,23,42,.14);
+  padding:2rem 1.6rem 1.7rem;text-align:center}
+.auth-brand{display:flex;align-items:center;justify-content:center;gap:.5rem;margin-bottom:1rem}
+#authGate h1{font-family:'Inter',sans-serif;font-weight:800;font-size:1.35rem;margin:0;
+  letter-spacing:-.01em;color:var(--ink)}
+.auth-tagline{font-size:.78rem;color:var(--ink-soft);line-height:1.4;margin:0 0 1.5rem}
+#authGate p.auth-lead{font-size:.85rem;color:var(--ink-soft);margin:0 0 1.2rem}
 #authGate input{
-  width:100%;padding:.6rem .7rem;margin-bottom:.6rem;font-size:.95rem;
-  border:1px solid var(--card-line);border-radius:8px;background:var(--card);color:var(--ink);
+  width:100%;padding:.65rem .75rem;margin-bottom:.6rem;font-size:.95rem;
+  border:1px solid var(--card-line);border-radius:8px;background:var(--paper);color:var(--ink);
 }
+#authGate input:focus{outline:2px solid var(--accent);outline-offset:1px}
+/* --header-bg (not --ink) on purpose: --ink flips to a light color in dark
+   theme (it's the body text color), which would leave white button text
+   unreadable on a now-light background. --header-bg is the one color this
+   app deliberately keeps dark navy in both themes. */
 #authGate button{
-  width:100%;padding:.65rem;font-size:.95rem;font-weight:600;border:none;border-radius:8px;
-  background:var(--accent);color:#fff;cursor:pointer;
+  width:100%;padding:.7rem;font-size:.92rem;font-weight:700;border:none;border-radius:8px;
+  background:var(--header-bg);color:#fff;cursor:pointer;margin-top:.2rem;letter-spacing:.01em;
 }
-#authGate button:disabled{opacity:.5;cursor:default}
+#authGate button:hover{background:var(--ok)}
+#authGate button:disabled{opacity:.5;cursor:default;background:var(--header-bg)}
 .auth-msg{margin-top:.9rem;font-size:.82rem;min-height:1.2em}
 .auth-msg.err{color:var(--bad)}
 
@@ -77,6 +100,28 @@ h1{font-family:'Inter',sans-serif;font-weight:800;font-size:1.5rem;line-height:1
 h1 .brand-accent{color:#60A5FA}
 .tagline{font-size:.82rem;line-height:1.45;color:var(--header-ink-soft);margin:0 0 .55rem;max-width:46ch}
 .generated{font-size:.78rem;color:var(--header-ink-soft);margin:0 0 .7rem}
+
+/* ---- disclaimer callout: the title-search caveat promoted out of the
+   footer fine print into something investors actually see before they act
+   on a title badge. ---- */
+.disclaimer-badge{display:flex;align-items:flex-start;gap:.4rem;font-size:.72rem;line-height:1.4;
+  color:var(--header-ink-soft);background:rgba(251,191,36,.1);border:1px solid rgba(251,191,36,.35);
+  border-radius:8px;padding:.45rem .6rem;margin:0 0 .7rem}
+.disclaimer-badge b{color:var(--header-ink);font-weight:700}
+.disclaimer-badge .dot{flex-shrink:0}
+
+/* ---- slim brand strip: pinned above the (deliberately non-sticky, see
+   below) masthead so the brand mark stays visible while scrolling a long
+   card list, without the taller filters-bearing masthead needing to pin
+   itself (that hid the property list - see the note on .masthead). ---- */
+.topbar{position:sticky;top:0;z-index:35;display:flex;align-items:center;gap:.5rem;
+  background:var(--header-bg);border-bottom:1px solid var(--header-line);
+  padding:.5rem 1.1rem}
+.brand-mark{flex-shrink:0;display:block}
+.brand-name{font-family:'Inter',sans-serif;font-weight:800;font-size:.85rem;
+  color:var(--header-ink);letter-spacing:-.01em}
+.brand-name .brand-accent{color:var(--ok)}
+@media (min-width:1024px){.topbar{padding:.5rem 1.6rem}}
 
 /* ---- ledger tabs: the top-level Auctions / Lands Available / Certificates
    switcher. First thing under the masthead so both ledgers are visible right
@@ -109,8 +154,10 @@ h1 .brand-accent{color:#60A5FA}
 .qc-chevron{position:absolute;right:.6rem;top:50%;transform:translateY(-50%);width:9px;height:9px;
   border-right:2px solid var(--ink-soft);border-bottom:2px solid var(--ink-soft);
   transform:translateY(-70%) rotate(45deg);pointer-events:none}
+/* --header-bg, not --ink - see the note on #authGate button above; same
+   dark-in-both-themes button chrome, same reason. */
 .export-btn{flex:0 0 auto;display:inline-flex;align-items:center;gap:.35rem;font-size:.78rem;
-  font-weight:700;color:#fff;background:var(--ink);border:none;border-radius:8px;
+  font-weight:700;color:#fff;background:var(--header-bg);border:none;border-radius:8px;
   padding:.5rem .8rem;cursor:pointer;white-space:nowrap}
 .export-btn:hover{background:var(--accent)}
 .expand-all-btn{flex:0 0 auto;font-size:.78rem;font-weight:700;color:var(--ink);
@@ -265,10 +312,23 @@ summary.county-head::-webkit-details-marker{display:none}
 .prop-card.favorited{border-left-color:var(--brass)}
 .prop-card.toppick{border-left-color:var(--ok);background:color-mix(in srgb,var(--ok-bg) 35%,var(--card) 65%)}
 .prop-card.toppick.favorited{border-left-color:var(--brass)}
-.toppick-banner{display:flex;align-items:center;gap:.35rem;font-size:.68rem;font-weight:800;
-  text-transform:uppercase;letter-spacing:.05em;color:var(--ok);margin-bottom:.3rem}
+/* Top Pick: soft green fill + a bold (2px) outline, called out in the spec
+   as its own badge treatment distinct from the plain status pill. */
+.toppick-banner{display:inline-flex;align-items:center;gap:.35rem;font-size:.68rem;font-weight:800;
+  text-transform:uppercase;letter-spacing:.05em;color:var(--ok);margin-bottom:.4rem;
+  background:var(--ok-bg);border:2px solid var(--ok);border-radius:999px;padding:.22rem .6rem .22rem .5rem}
 .ratio-pill{font-family:ui-monospace,Consolas,monospace;font-weight:700;text-transform:none;
-  background:var(--ok-bg);border-radius:4px;padding:.05rem .3rem}
+  background:var(--card);border-radius:4px;padding:.05rem .3rem}
+
+/* Compact title-status pill, shown alongside the availability status pill so
+   the title screen result is scannable without reading the banner below -
+   emerald/clear, amber/flag, red/serious, gray/unscreened. */
+.lien-pill{flex-shrink:0;font-size:.66rem;font-weight:700;text-transform:uppercase;
+  padding:.22rem .5rem;border-radius:999px;white-space:nowrap;border:1px solid transparent}
+.lien-pill.clean{color:var(--ok);background:var(--ok-bg);border-color:color-mix(in srgb,var(--ok) 40%,transparent)}
+.lien-pill.flag{color:var(--warn);background:var(--warn-bg);border-color:color-mix(in srgb,var(--warn) 40%,transparent)}
+.lien-pill.serious{color:var(--bad);background:var(--bad-bg);border-color:color-mix(in srgb,var(--bad) 40%,transparent)}
+.lien-pill.unscreened{color:var(--ink-soft);background:var(--paper-line)}
 .prop-top{display:flex;justify-content:space-between;align-items:flex-start;gap:.6rem}
 .prop-address{font-size:.92rem;font-weight:700;line-height:1.3;
   overflow:hidden;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical}
@@ -293,6 +353,47 @@ summary.county-head::-webkit-details-marker{display:none}
 .meta-bid{color:var(--bad);font-weight:700}
 .meta-assessed{color:var(--ok);font-weight:700}
 .meta-market{color:var(--accent);font-weight:700}
+
+/* ---- card stat grid: the four headline numbers (bid / assessed / market /
+   true cost) as labeled boxes instead of a run-on inline meta line, so the
+   figures investors compare most are the easiest ones to scan. Walk-away
+   spans the full width as a footer row within the same grid. ---- */
+.card-stat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:.4rem;margin-top:.45rem}
+.card-stat{background:var(--paper);border:1px solid var(--card-line);border-radius:8px;
+  padding:.4rem .55rem}
+.card-stat.wide{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;
+  background:none;border:none;border-top:1px dashed var(--card-line);border-radius:0;
+  padding:.35rem 0 0}
+.card-stat-label{display:flex;align-items:center;gap:.25rem;font-size:.62rem;text-transform:uppercase;
+  letter-spacing:.04em;color:var(--ink-soft);margin-bottom:.1rem}
+.card-stat.wide .card-stat-label{margin-bottom:0}
+.card-stat-val{font-family:ui-monospace,Consolas,monospace;font-variant-numeric:tabular-nums;
+  font-size:.86rem;font-weight:700;color:var(--ink)}
+.card-stat-val.bid{color:var(--bad)}
+.card-stat-val.assessed{color:var(--ok)}
+.card-stat-val.market{color:var(--accent)}
+.card-stat-val.over{color:var(--bad)}
+.card-stat-val.under{color:var(--ok)}
+
+/* ---- info tooltip: small "ⓘ" affordance for the True Cost calculation
+   breakdown (doc stamps, recording, homestead adjustment) - keyboard
+   focusable so it isn't hover-only on touch devices. ---- */
+.info-tip{position:relative;display:inline-flex;align-items:center;justify-content:center;
+  width:13px;height:13px;border-radius:50%;background:var(--card-line);color:var(--ink-soft);
+  font-size:.6rem;font-style:normal;line-height:1;cursor:help;flex-shrink:0}
+/* Anchored to the icon's right edge (opens leftward) rather than centered -
+   these icons tend to sit in a card's right-hand column, and a centered
+   popover would run off the edge of a narrow phone screen. */
+.info-tip::after{content:attr(data-tip);position:absolute;right:-8px;left:auto;bottom:calc(100% + 6px);
+  transform:translateY(4px);width:190px;max-width:68vw;background:var(--header-bg);
+  color:#fff;font-size:.68rem;font-weight:400;line-height:1.4;text-transform:none;
+  letter-spacing:normal;border-radius:8px;padding:.5rem .6rem;box-shadow:var(--shadow);
+  opacity:0;visibility:hidden;transition:opacity .12s,transform .12s;pointer-events:none;z-index:20}
+.info-tip::before{content:"";position:absolute;right:2px;left:auto;bottom:100%;
+  border:5px solid transparent;border-top-color:var(--header-bg);margin-bottom:-2px;
+  opacity:0;visibility:hidden;transition:opacity .12s;z-index:20}
+.info-tip:hover::after,.info-tip:focus::after{opacity:1;visibility:visible;transform:translateY(0)}
+.info-tip:hover::before,.info-tip:focus::before{opacity:1;visibility:visible}
 
 /* ---- potential equity / spread badge: market value minus opening bid,
    shown wherever there's a bid and a market figure to compare it to. ---- */
@@ -335,18 +436,24 @@ summary.county-head::-webkit-details-marker{display:none}
 .copy-tag{flex-shrink:0;text-transform:uppercase;font-size:.6rem;opacity:.75}
 
 .prop-links{display:flex;flex-wrap:wrap;gap:.35rem;margin-top:.55rem}
-.prop-links a{flex:1 1 calc(33.333% - .24rem);text-align:center;font-size:.68rem;font-weight:600;
+.prop-links a{flex:1 1 calc(33.333% - .24rem);display:flex;align-items:center;justify-content:center;
+  gap:.28rem;text-align:center;font-size:.68rem;font-weight:600;
   text-decoration:none;padding:.38rem .25rem;border-radius:7px;background:var(--accent-soft);
   color:var(--accent);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.prop-links a:hover{background:var(--accent);color:#fff}
+.prop-links a .link-icon{flex-shrink:0;font-size:.8em}
 
 .cta-btn{display:block;text-align:center;margin-top:.55rem;padding:.6rem .5rem;border-radius:8px;
   background:var(--ok);color:#fff;font-weight:700;font-size:.82rem;text-decoration:none;
   letter-spacing:.01em}
 .cta-btn:hover{filter:brightness(1.08)}
 
-/* institutional dark "View Details" CTA - matches the CSV export button */
+/* institutional dark "View Details" CTA - matches the CSV export button.
+   --header-bg, not --ink - see the note on #authGate button above: --ink
+   flips light in dark theme, which left this white-on-white in dark mode
+   before this fix. */
 .detail-btn{display:block;text-align:center;margin-top:.4rem;padding:.5rem .5rem;border-radius:8px;
-  background:var(--ink);color:#fff;font-weight:700;font-size:.76rem;text-decoration:none;
+  background:var(--header-bg);color:#fff;font-weight:700;font-size:.76rem;text-decoration:none;
   letter-spacing:.01em;border:none;cursor:pointer;font-family:inherit}
 .detail-btn:hover{background:var(--accent)}
 
@@ -394,10 +501,27 @@ summary.county-head::-webkit-details-marker{display:none}
   font-size:1rem;font-weight:700}
 .detail-links{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:.5rem;
   margin:.9rem 0}
-.detail-links a{display:flex;align-items:center;justify-content:center;text-align:center;
+.detail-links a{display:flex;align-items:center;justify-content:center;gap:.35rem;text-align:center;
   font-size:.8rem;font-weight:700;text-decoration:none;padding:.65rem .5rem;border-radius:10px;
   background:var(--accent-soft);color:var(--accent)}
 .detail-links a:hover{filter:brightness(1.05)}
+.detail-links a .link-icon{flex-shrink:0}
+
+/* ---- skeleton loaders: card-shaped shimmer placeholders shown while the
+   first Supabase fetch is in flight, instead of a bare "Loading" line. ---- */
+.skeleton-group{background:var(--card);border:1px solid var(--card-line);border-radius:14px;
+  margin-bottom:.7rem;box-shadow:var(--shadow);padding:.85rem 1rem}
+.skel{position:relative;overflow:hidden;background:var(--card-line);border-radius:6px}
+.skel::after{content:"";position:absolute;inset:0;
+  background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--card) 60%,transparent),transparent);
+  animation:skel-shimmer 1.4s ease-in-out infinite}
+@keyframes skel-shimmer{0%{transform:translateX(-100%)}100%{transform:translateX(100%)}}
+.skel-title{height:16px;width:55%;margin-bottom:.6rem}
+.skel-line{height:11px;margin-bottom:.5rem}
+.skel-line.w60{width:60%} .skel-line.w80{width:80%} .skel-line.w40{width:40%}
+.skel-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:.5rem;margin-top:.6rem}
+.skel-box{height:38px;border-radius:8px}
+@media (prefers-reduced-motion:reduce){.skel::after{animation:none}}
 
 .empty-state{text-align:center;padding:2rem 1rem;color:var(--ink-soft);font-size:.85rem}
 footer{padding:1.2rem 1.1rem 0;font-size:.72rem;color:var(--ink-soft);text-align:center}
