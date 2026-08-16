@@ -88,6 +88,28 @@ const fmtMoney = n => "$" + Number(n).toLocaleString("en-US", { minimumFractionD
 const fmtShort = n => "$" + Math.round(Number(n)).toLocaleString("en-US");
 const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
+// Properties synced from the statewide harvest pipeline (as opposed to the
+// hand-researched watchlist) never get url_zillow / url_streetview from the
+// sync script - the harvester doesn't collect them, so the column is left
+// out of that upsert on purpose so it doesn't blank out a hand-researched
+// link for the same property on a later re-sync. Build a best-effort search
+// link from the address instead, client-side, only when the real one is
+// missing - this never touches the database, so a hand-researched link
+// (when one exists) always wins and is never at risk of being overwritten.
+// Tax Collector / Title Search have no such generic URL - both are
+// per-county lookups that need real research, so those stay blank until
+// the data pipeline actually captures them.
+function fallbackZillowUrl(p) {
+  if (p.url_zillow) return p.url_zillow;
+  if (!p.address) return "";
+  return `https://www.zillow.com/homes/${encodeURIComponent(p.address + ", " + p.county + " County, FL")}_rb/`;
+}
+function fallbackStreetviewUrl(p) {
+  if (p.url_streetview) return p.url_streetview;
+  if (!p.address) return "";
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.address + ", " + p.county + " County, FL")}`;
+}
+
 function propType(p) {
   const s = (p.prop_type || "").toLowerCase();
   if (!s || s.includes("unknown")) return "Unknown";
@@ -395,9 +417,9 @@ function card(p, showCounty) {
       ${p.parcel ? `<button class="copy-btn" data-action="copy" data-copy="${esc(p.parcel)}" type="button"><span class="copy-tag">Parcel</span><span class="copy-val">${esc(p.parcel)}</span></button>` : ""}
     </div>
     <div class="prop-links">
-      ${p.url_streetview ? `<a href="${esc(p.url_streetview)}" target="_blank" rel="noopener">Street View</a>` : ''}
+      ${fallbackStreetviewUrl(p) ? `<a href="${esc(fallbackStreetviewUrl(p))}" target="_blank" rel="noopener">Street View</a>` : ''}
       ${p.url_appraiser ? `<a href="${esc(p.url_appraiser)}" target="_blank" rel="noopener">Appraiser</a>` : ''}
-      ${p.url_zillow ? `<a href="${esc(p.url_zillow)}" target="_blank" rel="noopener">Zillow</a>` : ''}
+      ${fallbackZillowUrl(p) ? `<a href="${esc(fallbackZillowUrl(p))}" target="_blank" rel="noopener">Zillow</a>` : ''}
       ${p.url_taxcoll ? `<a href="${esc(p.url_taxcoll)}" target="_blank" rel="noopener">Collector</a>` : ''}
       ${p.url_auction ? `<a href="${esc(p.url_auction)}" target="_blank" rel="noopener">${p.source === "laft" ? "LAFT" : "Auction"}</a>` : ''}
       ${p.url_title ? `<a href="${esc(p.url_title)}" target="_blank" rel="noopener">Title Search</a>` : ''}
@@ -469,9 +491,9 @@ function detailHtml(p) {
   const hasBid = p.bid !== null && p.bid !== undefined;
   const fav = FAVS.has(p.id);
   const links = [
-    ["Street View", p.url_streetview],
+    ["Street View", fallbackStreetviewUrl(p)],
     ["Appraiser", p.url_appraiser],
-    ["Zillow", p.url_zillow],
+    ["Zillow", fallbackZillowUrl(p)],
     ["Tax Collector", p.url_taxcoll],
     [p.source === "laft" ? "Lands Available Listing" : (isCert ? "County-Held Liens List" : "County Auction Site"), p.url_auction],
     ["Title Search", p.url_title]
@@ -926,9 +948,9 @@ if (exportCsvBtn) exportCsvBtn.addEventListener("click", () => {
     ["Issued Date", p => p.issued_date || ""],
     ["Expiration Date", p => p.expiration_date || ""],
     ["Interest Rate", p => p.interest_rate ?? ""],
-    ["Street View", p => p.url_streetview || ""],
+    ["Street View", p => fallbackStreetviewUrl(p)],
     ["Appraiser", p => p.url_appraiser || ""],
-    ["Zillow", p => p.url_zillow || ""],
+    ["Zillow", p => fallbackZillowUrl(p)],
     ["Tax Collector", p => p.url_taxcoll || ""],
     ["Auction/LAFT Listing", p => p.url_auction || ""],
     ["Title Search", p => p.url_title || ""]
