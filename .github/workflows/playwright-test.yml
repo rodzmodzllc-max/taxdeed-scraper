@@ -1,0 +1,73 @@
+name: Playwright regression test
+
+# Exercises the front end against a mocked Supabase client (tests/vendor/
+# supabase-stub.js) in a real headless browser and checks ~100 DOM
+# assertions (tests/run_test.mjs) covering filters, sorting, the county map,
+# the Archive/stale-data-warning views, CSV export, and the detail modal.
+# Catches front-end regressions before they ship - this repo has shipped a
+# couple of stale/broken deploys by hand in the past that a smoke test like
+# this would have caught.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  # The fixture's one calendar-formatted assertion (staleWarningText) is
+  # locked to a fixed UTC timestamp - keep the runner's clock in UTC so it
+  # doesn't drift with GitHub's runner locale.
+  TZ: UTC
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install Playwright + Chromium
+        run: |
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+
+      - name: Build a throwaway serve directory (public/ + test fixtures)
+        run: |
+          set -euo pipefail
+          rm -rf /tmp/serve
+          mkdir -p /tmp/serve
+          cp -r public/. /tmp/serve/
+          cp -r tests/vendor /tmp/serve/vendor
+          cp tests/config.js /tmp/serve/config.js
+          # fl-counties.svg lives at repo root (not mirrored into public/,
+          # same as config.js) but app.js fetches it at runtime for the
+          # county map - without it the map never renders and the map
+          # assertions below hang waiting for SVG paths that don't exist.
+          if [ -f fl-counties.svg ]; then
+            cp fl-counties.svg /tmp/serve/fl-counties.svg
+          else
+            echo "::error::fl-counties.svg not found at repo root - county map test will fail"
+            exit 1
+          fi
+
+          # Production index.html deliberately has no importmap (it loads the
+          # real @supabase/supabase-js from esm.sh) - inject one only in this
+          # throwaway copy so app.js resolves to the local fixture stub
+          # instead of hitting the network.
+          sed -i 's#<script src="config.js"></script>#<script src="config.js"></script>\n<script type="importmap">{"imports":{"https://esm.sh/@supabase/supabase-js@2":"./vendor/supabase-stub.js"}}</script>#' /tmp/serve/index.html
+          grep -q 'importmap' /tmp/serve/index.html
+
+      - name: Serve app
+        run: |
+          nohup python3 -m http.server 8934 --directory /tmp/serve > /tmp/http.log 2>&1 &
+          sleep 1
+          curl -sf http://localhost:8934/index.html > /dev/null
+
+      - name: Run regression test
+        run: node tests/run_test.mjs

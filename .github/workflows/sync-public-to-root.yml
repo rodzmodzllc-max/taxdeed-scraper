@@ -1,0 +1,70 @@
+name: Sync public/ to repo root
+
+# Cloudflare Pages deploys this repo from its ROOT, not from public/.
+# public/ is the folder that actually gets edited day to day, so whenever
+# it changes on main we mirror the deployed files back down to root
+# automatically instead of relying on a human to remember to do it by hand
+# (which is how this repo ended up stale on the live site more than once).
+#
+# Only the files that are actually part of the deployed bundle are synced -
+# root also holds config.js, scraper.js, schema*.sql, package.json, etc.
+# that are NOT part of the public/ mirror and must be left alone.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "public/**"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: sync-public-to-root
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Mirror deployed files from public/ to root
+        run: |
+          set -euo pipefail
+
+          # Exact file set confirmed to be the deployed bundle in public/.
+          # Update this list if the deployed file set ever changes.
+          FILES="_headers app.js index.html manifest.webmanifest styles.css sw.js"
+
+          for f in $FILES; do
+            if [ -f "public/$f" ]; then
+              cp "public/$f" "./$f"
+            else
+              echo "::warning::public/$f not found, skipping"
+            fi
+          done
+
+          # icons/ is part of the deployed bundle too; mirror it wholesale.
+          if [ -d "public/icons" ]; then
+            mkdir -p ./icons
+            rsync -a --delete public/icons/ ./icons/
+          fi
+
+      - name: Commit and push if anything changed
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          if git diff --quiet; then
+            echo "Root already matches public/ - nothing to sync."
+            exit 0
+          fi
+
+          git add _headers app.js index.html manifest.webmanifest styles.css sw.js icons
+          git commit -m "Auto-sync: mirror public/ to repo root [skip ci]"
+          git push
