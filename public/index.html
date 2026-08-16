@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>FL Tax Deed Watchlist</title>
+<link rel="stylesheet" href="styles.css">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#2E5266">
+<link rel="icon" href="icons/icon-192.png">
+<!-- iOS has no manifest support for these; it needs its own tags. -->
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Tax Deeds">
+<script src="config.js"></script>
+</head>
+<body>
+
+<!-- ============ sign in ============ -->
+<div id="authGate" hidden>
+  <h1>FL Tax Deed Watchlist</h1>
+  <p>Sign in to continue.</p>
+  <form id="authForm">
+    <input type="email" id="email" placeholder="Email" autocomplete="username" required>
+    <input type="password" id="password" placeholder="Password" autocomplete="current-password" required>
+    <button type="submit" id="signInBtn">Sign in</button>
+  </form>
+  <div class="auth-msg" id="authMsg"></div>
+</div>
+
+<!-- ============ app ============ -->
+<div id="app" hidden>
+  <div class="masthead">
+    <div class="eyebrow-row">
+      <p class="eyebrow" id="eyebrow">Field Ledger</p>
+      <span class="header-btns">
+        <button class="hbtn" id="themeBtn" type="button" title="Switch theme"><span id="themeIcon">☼</span><span id="themeLabel">Auto</span></button>
+        <button class="hbtn" id="installBtn" type="button" title="Install app" hidden>⬇ Install</button>
+        <button class="hbtn" id="signOutBtn" type="button" title="Sign out">Sign out</button>
+      </span>
+    </div>
+    <h1>FL Tax Deed Watchlist</h1>
+    <p class="generated" id="generatedAt">Loading…</p>
+    <!-- Two (really three) separate ledgers, front and center right after sign-in -
+         not one long scroll where Lands Available sits under 300+ auction cards. -->
+    <div class="ledger-tabs" id="ledgerTabs">
+      <button class="ledger-tab" data-ledger="auction" type="button">Tax Deeds / Auctions <b id="tabCountAuction">0</b></button>
+      <button class="ledger-tab" data-ledger="laft" type="button">Lands Available / OTC <b id="tabCountLaft">0</b></button>
+      <button class="ledger-tab" data-ledger="certificate" type="button">Certificates <b id="tabCountCertificate">0</b></button>
+    </div>
+    <div class="summary-strip">
+      <button class="chip total" data-status="all" type="button">Shown&nbsp;<b id="chipTotal">0</b></button>
+      <button class="chip ok" data-status="live" type="button">Active&nbsp;<b id="chipActive">0</b></button>
+      <button class="chip bad" data-status="gone" type="button">Gone&nbsp;<b id="chipGone">0</b></button>
+    </div>
+    <!-- Quick controls: instant search + a single-pick county dropdown (the
+         detailed multi-select county/type/lien chips still live in Filters &
+         Sort below), a per-page limit so hundreds of cards don't render at
+         once, and a one-click CSV export of whatever's currently filtered. -->
+    <div class="quick-controls" id="quickControls">
+      <div class="qc-field">
+        <span class="qc-icon">🔍</span>
+        <input type="text" id="searchInput" placeholder="Search address or parcel…" autocomplete="off">
+      </div>
+      <div class="qc-field">
+        <span class="qc-icon">📍</span>
+        <select id="countyQuick"><option value="ALL">All Counties</option></select>
+        <span class="qc-chevron"></span>
+      </div>
+      <div class="qc-field" style="flex:0 1 150px">
+        <span class="qc-icon">▤</span>
+        <select id="perPageSelect">
+          <option value="6">6 / page</option>
+          <option value="12" selected>12 / page</option>
+          <option value="24">24 / page</option>
+          <option value="48">48 / page</option>
+          <option value="0">Show all</option>
+        </select>
+        <span class="qc-chevron"></span>
+      </div>
+      <button class="export-btn" id="exportCsvBtn" type="button">⬇ Export CSV</button>
+    </div>
+    <button class="filters-toggle" id="filtersToggle" type="button">
+      <span>Filters &amp; Sort</span>
+      <span style="display:flex;align-items:center;gap:.55rem">
+        <span class="filters-badge" id="filtersBadge" hidden>0</span><span class="chevron"></span>
+      </span>
+    </button>
+    <div class="filters-panel" id="filtersPanel">
+
+      <div class="filters-section">
+        <div class="filters-section-head">
+          <span class="filters-section-title">Price</span>
+          <button class="reset-btn" id="resetBtn" type="button">Reset all filters</button>
+        </div>
+        <div class="filters-row">
+          <div class="field"><span class="field-label">Bid min</span><input type="number" id="bidMin" placeholder="0" min="0" step="100"></div>
+          <span class="to-sep">to</span>
+          <div class="field"><span class="field-label">Bid max</span><input type="number" id="bidMax" placeholder="Any" min="0" step="100"></div>
+          <div class="field"><span class="field-label">Assessed min</span><input type="number" id="assessedMin" placeholder="0" min="0" step="1000"></div>
+        </div>
+        <div class="filters-row">
+          <div class="field"><span class="field-label">Max bid target (% of market)</span><input type="number" id="maxBidPct" value="40" min="1" max="100" step="5"></div>
+        </div>
+      </div>
+
+      <div class="filters-section">
+        <div class="filters-section-head"><span class="filters-section-title">Sort &amp; Display</span></div>
+        <div class="filters-row">
+          <div class="field" style="flex:1 1 100%">
+            <select id="sortBy">
+              <option value="county">Sort: County (default order)</option>
+              <option value="dateAsc">Sort: Sale date, soonest first</option>
+              <option value="dateDesc">Sort: Sale date, latest first</option>
+              <option value="bidAsc">Sort: Opening bid, low to high</option>
+              <option value="bidDesc">Sort: Opening bid, high to low</option>
+              <option value="assessedAsc">Sort: Assessed, low to high</option>
+              <option value="assessedDesc">Sort: Assessed, high to low</option>
+              <option value="spreadDesc">Sort: Best value, market ÷ bid</option>
+              <option value="address">Sort: Address, A to Z</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="filters-section">
+        <div class="filters-section-head"><span class="filters-section-title">Quick Toggles</span></div>
+        <div class="filters-row">
+          <label class="tog"><input type="checkbox" id="favOnly"> <span>♡ Favorites only</span></label>
+          <label class="tog"><input type="checkbox" id="topOnly"> <span>★ Top picks only</span></label>
+          <label class="tog"><input type="checkbox" id="soonOnly"> <span>⏱ Closing in 14 days</span></label>
+          <label class="tog"><input type="checkbox" id="qtToggle"> <span>Include quiet title est.</span></label>
+        </div>
+        <span class="reset-btn" id="hiddenInfo" hidden><span id="hiddenCount">0</span> hidden · <button class="reset-btn" id="restoreHiddenBtn" type="button">Restore all</button></span>
+      </div>
+
+      <!-- Advanced multi-select filters, collapsed behind dropdown-style
+           <details> disclosures so the panel doesn't read as a wall of
+           chips - each summary shows how many are currently selected. -->
+      <div class="filters-section">
+        <div class="filters-section-head"><span class="filters-section-title">Advanced Filters</span></div>
+
+        <details class="filter-dropdown">
+          <summary>Property Type <span class="filter-dropdown-count" id="typeCount"></span></summary>
+          <div class="filter-dropdown-body">
+            <div class="group-actions"><button class="mini-btn" data-group="types" data-mode="all" type="button">All</button><button class="mini-btn" data-group="types" data-mode="none" type="button">None</button></div>
+            <div class="chips" id="typeChips"></div>
+          </div>
+        </details>
+
+        <details class="filter-dropdown">
+          <summary>Title Status <span class="filter-dropdown-count" id="lienCount"></span></summary>
+          <div class="filter-dropdown-body">
+            <div class="group-actions"><button class="mini-btn" data-group="liens" data-mode="all" type="button">All</button><button class="mini-btn" data-group="liens" data-mode="none" type="button">None</button></div>
+            <div class="chips" id="lienChips"></div>
+          </div>
+        </details>
+
+        <details class="filter-dropdown">
+          <summary>County (multi-select) <span class="filter-dropdown-count" id="countyCount"></span></summary>
+          <div class="filter-dropdown-body">
+            <div class="group-actions">
+              <button class="mini-btn" id="mapBtn" type="button">🗺 Map</button>
+              <button class="mini-btn" data-group="counties" data-mode="all" type="button">All</button>
+              <button class="mini-btn" data-group="counties" data-mode="none" type="button">None</button>
+            </div>
+            <div class="map-wrap" id="mapWrap" hidden>
+              <div class="map-hint">Tap counties to include or exclude. Shaded counties have properties.</div>
+              <div id="mapHost"></div>
+            </div>
+            <div class="chips" id="countyChips"></div>
+          </div>
+        </details>
+      </div>
+
+    </div>
+  </div>
+
+  <main id="main"></main>
+
+  <div class="pagination-bar" id="paginationBar" hidden>
+    <button class="page-btn" id="prevPageBtn" type="button">← Prev</button>
+    <span class="page-indicator" id="pageIndicator">Page <b id="currentPageNum">1</b> of <b id="totalPagesNum">1</b></span>
+    <button class="page-btn" id="nextPageBtn" type="button">Next →</button>
+  </div>
+
+  <footer>
+    Links open Street View, the county property appraiser, Zillow, the Tax Collector, the live auction listing, and the Clerk's Official Records.<br><br>
+    ★ <b>Top pick</b> = title screen came back clear AND market value is at least 12× the opening bid. A shortlisting aid, not advice.<br><br>
+    <b>True cost</b> adds Florida doc stamps (0.70/$100), recording, and — on homesteaded parcels — the half-assessed-value minimum under FS 197.502(6)(c). It is an estimate.<br><br>
+    Title badges are a best-effort public-records search, <b>not a certified title search</b>. Confirm with a title company or attorney before bidding.
+  </footer>
+</div>
+
+<!-- ============ property detail modal ("full property page") ============ -->
+<div class="detail-modal" id="detailModal" hidden>
+  <div class="detail-modal-inner" id="detailModalInner"></div>
+</div>
+
+<script type="module" src="app.js"></script>
+</body>
+</html>
