@@ -9,7 +9,7 @@
 
 // Bump this on every deploy that changes the shell, otherwise returning users
 // keep the old CSS/JS from cache and your fix appears not to have shipped.
-const CACHE = "tdw-shell-v6";
+const CACHE = "tdw-shell-v7";
 const SHELL = [
   "/",
   "/index.html",

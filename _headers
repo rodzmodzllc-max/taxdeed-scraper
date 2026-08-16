@@ -29,8 +29,14 @@
   Cache-Control: public, max-age=604800
 
 # Baseline hardening. This app holds private research and an auth session.
+# CSP: scripts/styles only from self + the CDNs the app actually uses
+# (esm.sh for the Supabase client, Google Fonts for Inter); Supabase itself
+# is the only allowed fetch/XHR target besides same-origin. Data is rendered
+# from Supabase content into the DOM, so this is a real second line of
+# defense against injected-content XSS, not just a checkbox.
 /*
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   X-Frame-Options: DENY
   Permissions-Policy: geolocation=(), microphone=(), camera=()
+  Content-Security-Policy: default-src 'self'; script-src 'self' https://esm.sh; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://*.supabase.co https://esm.sh; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
