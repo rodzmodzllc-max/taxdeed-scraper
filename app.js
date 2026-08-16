@@ -58,11 +58,18 @@ const COUNTY_INFO = {
 
 let ALL = [], CALENDAR = {}, NOTES = {}, FAVS = new Set(), HIDDEN = new Set(), ME = null;
 
+const LEDGERS = {
+  auction: { title: "Auctions & Bidding", sub: "Open to competitive bidding." },
+  laft: { title: "Lands Available", sub: "Fixed price from Clerk." },
+  certificate: { title: "Tax Certificates", sub: "County-held liens available for direct purchase - not property." }
+};
+
 const state = {
   bidMin: null, bidMax: null, assessedMin: null,
   sortBy: "county", favoritesOnly: false, topPicksOnly: false, soonOnly: false,
   includeQT: false, maxBidPct: 40,
   statusView: "all",
+  ledger: "auction",
   counties: new Set(), types: new Set(TYPE_ORDER), liens: new Set(LIEN_ORDER)
 };
 
@@ -461,23 +468,40 @@ document.addEventListener("click", async e => {
   }
 });
 
+// Three separate ledgers (Auctions, Lands Available, Certificates), one
+// visible at a time via the tab bar - not one long page where Lands
+// Available sat under 300+ auction cards and read as "not populated"
+// because nobody scrolled that far to find it.
 function render() {
   const main = document.getElementById("main"); if (!main) return; main.innerHTML = "";
-  section(main, "Auctions & Bidding", "Open to competitive bidding.", ALL.filter(p => p.source === "auction"), "auction");
-  section(main, "Lands Available", "Fixed price from Clerk.", ALL.filter(p => p.source === "laft"), "laft");
-  section(main, "Tax Certificates", "County-held liens available for direct purchase - not property.", ALL.filter(p => p.source === "certificate"), "certificate");
-  const pool = ALL.filter(passes);
+  if (!LEDGERS[state.ledger]) state.ledger = "auction";
+  const activeLedger = state.ledger;
+  const cfg = LEDGERS[activeLedger];
+  const inLedger = p => p.source === activeLedger;
+  section(main, cfg.title, cfg.sub, ALL.filter(inLedger), activeLedger);
+
+  const tabCounts = { auction: 0, laft: 0, certificate: 0 };
+  ALL.forEach(p => { if (p.source in tabCounts) tabCounts[p.source]++; });
+  document.querySelectorAll("#ledgerTabs .ledger-tab").forEach(btn => {
+    const src = btn.dataset.ledger;
+    btn.classList.toggle("on", src === activeLedger);
+    const countEl = document.getElementById("tabCount" + src[0].toUpperCase() + src.slice(1));
+    if (countEl) countEl.textContent = tabCounts[src] || 0;
+  });
+
+  const pool = ALL.filter(inLedger).filter(passes);
 
   const chipTotal = document.getElementById("chipTotal");
   if (chipTotal) chipTotal.textContent = pool.length;
 
-  // Active/Gone counts ignore the current statusView so both chips stay
-  // meaningful no matter which one is currently selected.
+  // Active/Gone counts ignore the current statusView (and are scoped to the
+  // active ledger, same as Shown) so both chips stay meaningful no matter
+  // which one is currently selected.
   const savedView = state.statusView;
   state.statusView = "live";
-  const activeCount = ALL.filter(passes).length;
+  const activeCount = ALL.filter(inLedger).filter(passes).length;
   state.statusView = "gone";
-  const goneCount = ALL.filter(passes).length;
+  const goneCount = ALL.filter(inLedger).filter(passes).length;
   state.statusView = savedView;
   const chipActive = document.getElementById("chipActive");
   if (chipActive) chipActive.textContent = activeCount;
@@ -538,6 +562,15 @@ function updateBadge() {
 // install, and the county map) rendered but did nothing on click/change.
 
 let mapLoaded = false;
+
+// ---- ledger tabs (Auctions / Lands Available / Certificates) ----
+document.querySelectorAll("#ledgerTabs .ledger-tab[data-ledger]").forEach(btn => {
+  btn.addEventListener("click", () => {
+    if (state.ledger === btn.dataset.ledger) return;
+    state.ledger = btn.dataset.ledger;
+    render();
+  });
+});
 
 // ---- open/close ----
 const filtersToggleBtn = document.getElementById("filtersToggle");
