@@ -27,6 +27,11 @@ const RECORDING_FEE = 30;
 const QUIET_TITLE_EST = 3000;
 const TOP_PICK_RATIO = 12;
 const SOON_DAYS = 14;
+// "My Bid List" is a small, deliberately-capped shortlist (separate from the
+// unlimited ♥ Favorites) for the handful of properties someone's actually
+// planning to show up and bid on - the cap forces prioritization instead of
+// it turning into a second copy of the whole ledger.
+const BID_LIST_MAX = 10;
 
 const GONE_HOURS_DEFAULT = 24;
 const GONE_HOURS_FLAGGED = 48;
@@ -201,6 +206,10 @@ const COUNTY_LINKS = {
 };
 
 let ALL = [], CALENDAR = {}, NOTES = {}, FAVS = new Set(), HIDDEN = new Set(), ME = null, IS_ADMIN = false;
+// BIDLIST is the membership set (fast "is this on the list" checks);
+// BIDLIST_ORDER is the same ids in the order they were added, oldest first -
+// the bid list modal reverses it to show the most recently added one on top.
+let BIDLIST = new Set(), BIDLIST_ORDER = [];
 
 const LEDGERS = {
   auction: { title: "Auctions & Bidding", sub: "Open to competitive bidding at a live county auction." },
@@ -551,22 +560,28 @@ async function refreshAdminApprovals() {
 
 async function loadAll() {
   const today = new Date().toISOString().slice(0, 10);
-  const [props, notes, favs, hid, cal] = await Promise.all([
+  const [props, notes, favs, hid, cal, bidlist] = await Promise.all([
     sb.from("properties").select("*").order("county").order("case_no"),
     sb.from("notes").select("*"),
     sb.from("favorites").select("property_id"),
     sb.from("hidden").select("property_id"),
-    sb.from("county_calendar").select("county,sale_date").gte("sale_date", today).order("sale_date")
+    sb.from("county_calendar").select("county,sale_date").gte("sale_date", today).order("sale_date"),
+    sb.from("bid_list").select("property_id").order("added_at")
   ]);
-  if (props.error) { 
+  if (props.error) {
     const genEl = document.getElementById("generatedAt");
-    if (genEl) genEl.textContent = "Error: " + props.error.message; 
-    return; 
+    if (genEl) genEl.textContent = "Error: " + props.error.message;
+    return;
   }
   ALL = props.data || [];
   NOTES = {}; (notes.data || []).forEach(n => { (NOTES[n.property_id] = NOTES[n.property_id] || []).push(n); });
   FAVS = new Set((favs.data || []).map(r => r.property_id));
   HIDDEN = new Set((hid.data || []).map(r => r.property_id));
+  // Missing table (schema-v7-bidlist.sql not run yet) fails soft, same as
+  // every other migration-gated feature here - the list just starts empty
+  // instead of blocking sign-in.
+  BIDLIST_ORDER = bidlist.error ? [] : (bidlist.data || []).map(r => r.property_id);
+  BIDLIST = new Set(BIDLIST_ORDER);
   CALENDAR = {}; if (!cal.error) { (cal.data || []).forEach(r => { (CALENDAR[r.county] = CALENDAR[r.county] || []).push(r.sale_date); }); }
   const newest = ALL.reduce((a, p) => (p.updated_at > a ? p.updated_at : a), "");
   const genEl = document.getElementById("generatedAt");
@@ -743,6 +758,20 @@ function noteHtml(p) {
   </div>`;
 }
 
+// Shared "add/remove bid list" toggle - distinct from the ♥ Favorite button:
+// this one is capped at BID_LIST_MAX and meant for the short list of
+// properties someone's actually planning to show up and bid on, rather than
+// a general watch flag. `compact` renders the small icon-only version used
+// on cards; the full labeled version is used in the detail modal.
+function bidListBtnHtml(p, compact) {
+  const on = BIDLIST.has(p.id);
+  const label = on ? "On bid list — tap to remove" : `Add to bid list (max ${BID_LIST_MAX})`;
+  if (compact) {
+    return `<button class="icon-btn bid-btn${on ? " on" : ""}" data-action="bidlist" data-pid="${p.id}" type="button" title="${esc(label)}">${on ? "⚑" : "⚐"}</button>`;
+  }
+  return `<button class="icon-btn bid-btn${on ? " on" : ""}" data-action="bidlist" data-pid="${p.id}" type="button" title="${esc(label)}">${on ? "⚑ On Bid List" : "⚐ Add to Bid List"}</button>`;
+}
+
 function card(p, showCounty) {
   const el = document.createElement("div");
   const fav = FAVS.has(p.id), top = isTopPick(p);
@@ -771,6 +800,7 @@ function card(p, showCounty) {
       <div class="prop-address">${titleLine}</div>
       <div class="prop-top-actions">
         <button class="icon-btn heart-btn${fav ? " on" : ""}" data-action="fav" data-pid="${p.id}" type="button" title="Favorite">${fav ? "♥" : "♡"}</button>
+        ${bidListBtnHtml(p, true)}
         <button class="icon-btn remove-btn" data-action="hide" data-pid="${p.id}" type="button" title="Hide">✕</button>
         ${cd}
         <span class="lien-pill ${esc(p.lien_level)}">${LIEN_LABEL[p.lien_level] || p.lien_level}</span>
@@ -837,6 +867,7 @@ function certCard(p, showCounty) {
       <div class="prop-address">Certificate #${esc(p.certificate_no || "Unknown")}</div>
       <div class="prop-top-actions">
         <button class="icon-btn heart-btn${fav ? " on" : ""}" data-action="fav" data-pid="${p.id}" type="button" title="Favorite">${fav ? "♥" : "♡"}</button>
+        ${bidListBtnHtml(p, true)}
         <button class="icon-btn remove-btn" data-action="hide" data-pid="${p.id}" type="button" title="Hide">✕</button>
         ${cd}
       </div>
@@ -906,6 +937,7 @@ function detailHtml(p) {
     <h2 class="detail-address">${title}</h2>
     <div class="prop-top-actions" style="margin:.2rem 0 .5rem">
       <button class="icon-btn heart-btn${fav ? " on" : ""}" data-action="fav" data-pid="${p.id}" type="button">${fav ? "♥ Favorited" : "♡ Favorite"}</button>
+      ${bidListBtnHtml(p, false)}
       ${!isCert ? `<span class="pill ${esc(p.status)}">${esc(p.status)}</span>` : ""}
     </div>
     ${!isCert ? `<div class="lien-banner ${esc(p.lien_level)}">
@@ -925,6 +957,16 @@ function detailHtml(p) {
     ${noteHtml(p)}`;
 }
 
+// Both the detail modal and the bid list modal are fixed-position overlays
+// that can be open at the same time (viewing a property's full page from
+// inside the bid list) - background scroll should stay locked as long as
+// EITHER one is open, not just whichever closed most recently.
+function syncBodyScrollLock() {
+  const detailOpen = !document.getElementById("detailModal")?.hidden;
+  const bidListOpen = !document.getElementById("bidListModal")?.hidden;
+  document.body.style.overflow = (detailOpen || bidListOpen) ? "hidden" : "";
+}
+
 function openDetail(p) {
   const modal = document.getElementById("detailModal");
   const inner = document.getElementById("detailModalInner");
@@ -934,13 +976,13 @@ function openDetail(p) {
   inner.className = "detail-modal-inner prop-card";
   inner.innerHTML = detailHtml(p);
   modal.hidden = false;
-  document.body.style.overflow = "hidden";
+  syncBodyScrollLock();
 }
 function closeDetail() {
   const modal = document.getElementById("detailModal");
   if (!modal) return;
   modal.hidden = true;
-  document.body.style.overflow = "";
+  syncBodyScrollLock();
 }
 // After a fav toggle, if this property's detail modal happens to be open,
 // rebuild it so the heart icon reflects the change instead of going stale.
@@ -952,7 +994,71 @@ function refreshOpenDetail(pid) {
 }
 const detailModalEl = document.getElementById("detailModal");
 if (detailModalEl) detailModalEl.addEventListener("click", e => { if (e.target === detailModalEl) closeDetail(); });
-document.addEventListener("keydown", e => { if (e.key === "Escape") closeDetail(); });
+
+// ==================== "My Bid List" modal ====================
+// A small, separate overlay (same structural pattern as the detail modal)
+// listing just the up-to-BID_LIST_MAX properties someone has added to their
+// bid list, most-recently-added first. Reuses card()/certCard() so a bid
+// list row looks and behaves exactly like it does in the main ledger -
+// same fav/hide/notes/links - plus the bid-list toggle to remove it here.
+function bidListRows() {
+  // Most-recently-added first; silently drops any id no longer in ALL
+  // (e.g. a property the sync pipeline has since removed).
+  return BIDLIST_ORDER.slice().reverse()
+    .map(id => ALL.find(p => p.id === id))
+    .filter(Boolean);
+}
+function renderBidListModal() {
+  const inner = document.getElementById("bidListModalInner");
+  if (!inner) return;
+  const rows = bidListRows();
+  const countLabel = `${BIDLIST.size}/${BID_LIST_MAX}`;
+  const listHtml = rows.length
+    ? ""
+    : `<div class="empty-state">Your bid list is empty. Click ⚐ on any property to save it here — up to ${BID_LIST_MAX}.</div>`;
+  inner.innerHTML = `
+    <button class="detail-close" data-action="closebidlist" type="button">✕</button>
+    <h2 class="detail-address" style="margin-top:.1rem">⚑ My Bid List <span style="color:var(--ink-soft);font-weight:600">(${countLabel})</span></h2>
+    <p class="mega-sub" style="margin:0 0 .8rem">The short list of properties you're actually planning to bid on — separate from ♡ Favorites, capped at ${BID_LIST_MAX} to keep it focused.</p>
+    ${listHtml}
+    <div class="prop-list flat" id="bidListRows"></div>`;
+  const listEl = document.getElementById("bidListRows");
+  if (listEl) rows.forEach(p => listEl.appendChild(p.source === "certificate" ? certCard(p, true) : card(p, true)));
+}
+function openBidList() {
+  const modal = document.getElementById("bidListModal");
+  if (!modal) return;
+  renderBidListModal();
+  modal.hidden = false;
+  syncBodyScrollLock();
+}
+function closeBidList() {
+  const modal = document.getElementById("bidListModal");
+  if (!modal) return;
+  modal.hidden = true;
+  syncBodyScrollLock();
+}
+// After adding/removing a bid list item (from anywhere - a ledger card, the
+// detail modal, or the bid list modal itself), rebuild the modal in place if
+// it's currently open so it never shows a stale list.
+function refreshBidListModal() {
+  const modal = document.getElementById("bidListModal");
+  if (!modal || modal.hidden) return;
+  renderBidListModal();
+}
+const bidListModalEl = document.getElementById("bidListModal");
+if (bidListModalEl) bidListModalEl.addEventListener("click", e => { if (e.target === bidListModalEl) closeBidList(); });
+const bidListToggleBtn = document.getElementById("bidListToggle");
+if (bidListToggleBtn) bidListToggleBtn.addEventListener("click", () => openBidList());
+
+// Escape closes whichever overlay is on top - the detail modal, if it's the
+// one currently open over the bid list modal, otherwise the bid list modal.
+document.addEventListener("keydown", e => {
+  if (e.key !== "Escape") return;
+  const detailModal = document.getElementById("detailModal");
+  if (detailModal && !detailModal.hidden) { closeDetail(); return; }
+  closeBidList();
+});
 
 // Card-level actions: favorite, hide, copy-to-clipboard, save note. Nothing
 // wired these up before, so the buttons on the card were dead clicks.
@@ -974,17 +1080,44 @@ document.addEventListener("click", async e => {
     }
     render();
     refreshOpenDetail(pid);
+    refreshBidListModal();
   } else if (action === "hide") {
     if (!ME || !pid) return;
     btn.disabled = true;
     const { error } = await sb.from("hidden").insert({ user_id: ME.id, property_id: pid });
     if (!error) { HIDDEN.add(pid); render(); closeDetail(); } else { btn.disabled = false; }
+  } else if (action === "bidlist") {
+    if (!ME || !pid) return;
+    // Checked before disabling the button, so a full list leaves it clickable
+    // (this early-returns instead of falling into the disable/re-render path
+    // below, which would otherwise leave the button stuck disabled).
+    if (!BIDLIST.has(pid) && BIDLIST.size >= BID_LIST_MAX) {
+      alert(`Your bid list already has ${BID_LIST_MAX} properties - remove one before adding another.`);
+      return;
+    }
+    btn.disabled = true;
+    if (BIDLIST.has(pid)) {
+      const { error } = await sb.from("bid_list").delete().eq("user_id", ME.id).eq("property_id", pid);
+      if (!error) { BIDLIST.delete(pid); BIDLIST_ORDER = BIDLIST_ORDER.filter(id => id !== pid); }
+    } else {
+      const { error } = await sb.from("bid_list").insert({ user_id: ME.id, property_id: pid });
+      if (error) {
+        // Server-side backstop (schema-v7-bidlist.sql's trigger) tripped -
+        // most likely two tabs racing to add the 10th/11th item at once.
+        if (/full|limit/i.test(error.message || "")) alert(`Your bid list already has ${BID_LIST_MAX} properties - remove one before adding another.`);
+      } else { BIDLIST.add(pid); BIDLIST_ORDER.push(pid); }
+    }
+    render();
+    refreshOpenDetail(pid);
+    refreshBidListModal();
   } else if (action === "viewdetails") {
     if (!pid) return;
     const p = ALL.find(x => x.id === pid);
     if (p) openDetail(p);
   } else if (action === "closedetail") {
     closeDetail();
+  } else if (action === "closebidlist") {
+    closeBidList();
   } else if (action === "copy") {
     const val = btn.dataset.copy;
     if (!val) return;
@@ -1023,6 +1156,9 @@ document.addEventListener("click", async e => {
 // Available sat under 300+ auction cards and read as "not populated"
 // because nobody scrolled that far to find it.
 function render() {
+  const bidListCountEl = document.getElementById("bidListCount");
+  if (bidListCountEl) bidListCountEl.textContent = `${BIDLIST.size}/${BID_LIST_MAX}`;
+
   const main = document.getElementById("main"); if (!main) return; main.innerHTML = "";
   if (!LEDGERS[state.ledger]) state.ledger = "auction";
   const activeLedger = state.ledger;
