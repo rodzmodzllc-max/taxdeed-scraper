@@ -205,6 +205,11 @@ h1 .brand-accent{color:#60A5FA}
 .chip.archive.on{border-color:#FBBF24;background:rgba(251,191,36,.15)}
 .chip b{font-family:ui-monospace,Consolas,monospace;font-variant-numeric:tabular-nums;font-size:.85rem}
 .chip.total b{color:#93C5FD} .chip.ok b{color:#6EE7B7} .chip.bad b{color:#FCA5A5} .chip.archive b{color:#FCD34D}
+/* Bid List chip always reads as "on" (border+bg), not just when active like
+   the status-view chips above - it's a button that opens a modal, not a
+   toggle in that filter group, so it should look permanently inviting. */
+.chip.bidlist{border-width:2px;padding:.28rem .71rem;border-color:#60A5FA;background:rgba(96,165,250,.15)}
+.chip.bidlist b{color:#93C5FD}
 
 /* ---- filters ---- */
 .filters-toggle{width:100%;display:flex;align-items:center;justify-content:space-between;
@@ -389,6 +394,7 @@ summary.county-head::-webkit-details-marker{display:none}
 .icon-btn{border:none;background:transparent;font-size:1.05rem;line-height:1;cursor:pointer;
   padding:.1rem .25rem;color:var(--ink-soft)}
 .heart-btn.on{color:var(--brass)}
+.bid-btn.on{color:var(--accent)}
 .remove-btn:hover{color:var(--bad)}
 .pill{flex-shrink:0;font-size:.66rem;font-weight:700;text-transform:uppercase;
   padding:.22rem .5rem;border-radius:999px;white-space:nowrap}
@@ -540,6 +546,14 @@ summary.county-head::-webkit-details-marker{display:none}
   .detail-modal{align-items:center;padding:1.5rem}
   .detail-modal-inner{border-radius:16px;max-height:88vh}
 }
+/* My Bid List modal reuses the detail-modal shell (same overlay, close
+   button, scroll behavior) but holds up to BID_LIST_MAX full property cards
+   rather than one roomy detail page - wider than the single-property detail
+   modal so its .prop-list.flat can fall into the same auto-fill grid
+   (min 330px/column, see the 1024px breakpoint below) instead of forcing
+   ten cards into one long single-file scroll on a big screen. */
+.bidlist-modal-inner{max-width:600px}
+@media (min-width:1024px){.bidlist-modal-inner{max-width:1000px}}
 .detail-close{position:sticky;top:0;float:right;border:none;background:var(--card);
   color:var(--ink-soft);width:2rem;height:2rem;border-radius:999px;font-size:1.1rem;
   cursor:pointer;box-shadow:var(--shadow);margin-bottom:.3rem}
