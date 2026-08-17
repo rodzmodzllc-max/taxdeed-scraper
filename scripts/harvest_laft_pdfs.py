@@ -11,11 +11,14 @@ covered by harvest_lienhub_certificates.ps1) - do not merge the two.
 As of 2026-08, none of the 67 counties had ANY automated LAFT coverage - a
 67-county research pass (see LAFT_coverage_audit.xlsx delivered separately)
 found the list is published as a real, scrapable HTML table in ~20 counties,
-behind a search portal in ~27, and as a PDF in a handful, including the 3
-below that were individually confirmed live (fetched and read) before being
-added here. This script covers the PDF ones specifically - the confirmed-URL
-list lives in ../data/laft_pdf_sources.csv, one row per county, so adding a
-county is a CSV edit, not a code change.
+behind a search portal in ~27, and as a PDF in a handful. This script covers
+the PDF ones specifically - the confirmed-URL list lives in
+../data/laft_pdf_sources.csv, one row per county, so adding a county is a CSV
+edit, not a code change. Every row was individually confirmed live (fetched
+and read, not just found in a search result) before being added - see the
+CSV's Notes column for what was confirmed and when. Sumter was checked and
+found to publish its list as plain HTML on the clerk site rather than a PDF -
+deliberately excluded here, would need a separate HTML scraper.
 
 Deliberately conservative about what's actually confirmed: a county that
 *might* publish LAFT as a PDF (e.g. a dead/stale link, or a page seen only in
@@ -61,19 +64,28 @@ HEADER_MAP = {
     "case number": "case_no", "case #": "case_no", "case no": "case_no",
     "sale #": "case_no", "sale number": "case_no",
     "file no.": "case_no", "file no": "case_no", "file number": "case_no",
+    # "Tax Deed #" (Pasco) and bare "certificate" / "certificate:" (Glades,
+    # F.S. 197.502(7) statutory template - the colon is already stripped by
+    # normalize_header before this dict is consulted).
+    "tax deed #": "case_no", "tax deed number": "case_no",
     "certificate #": "certificate_no", "certificate number": "certificate_no",
     "cert. no": "certificate_no", "cert no": "certificate_no", "cert. no.": "certificate_no",
+    "certificate": "certificate_no", "tax certificate #": "certificate_no",
     "parcel id": "parcel", "parcel #": "parcel", "parcel number": "parcel",
     "parcel identification number": "parcel",
     "owner": "owner_name", "owners": "owner_name", "owner(s)": "owner_name",
+    "name in which assessed": "owner_name",
     "auction date": "sale_date", "sale date": "sale_date",
     "original sale date": "sale_date", "tax deed sale date": "sale_date",
+    "date of tax deed sale": "sale_date",
     "escheatment date": "escheatment_date", "expiration date": "escheatment_date",
     "amount to purchase": "bid", "opening bid": "bid", "minimum bid": "bid",
     "original opening bid": "bid", "purchase price": "bid", "price": "bid",
+    "initial bid": "bid",
     "assessed value": "assessed", "property address": "address", "address": "address",
     "taxes address": "address",
     "legal description": "legal_desc", "description": "legal_desc",
+    "description of property": "legal_desc",
     # If this column has a value, the property has already been sold and is
     # no longer available - confirmed on Hendry's PDF ("SOLD TO"). Rows with
     # a non-blank sold_to are filtered out in _rows_from_table below rather
