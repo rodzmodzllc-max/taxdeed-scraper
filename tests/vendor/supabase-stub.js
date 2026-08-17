@@ -30,18 +30,55 @@ function futureDate(days) {
   return d.toISOString().slice(0, 10);
 }
 
+// ?profile= switches which approval-gate scenario the signed-in test user
+// (u1) lands in, so all three app.js paths (approved/normal, pending, admin
+// with a pending queue) are screenshot/assert-able without a real Supabase
+// project:
+//   (default)  approved=true,  is_admin=false - the pre-approval-gate tests
+//   pending    approved=false, is_admin=false - shows #pendingGate
+//   admin      approved=true,  is_admin=true  - shows the admin panel, with
+//                                               one other account pending
+//   notable    approved=true,  is_admin=false, profiles table absent - the
+//              "migration not run yet" fallback (falls back to showApp())
+const PROFILE_MODE = new URLSearchParams(location.search).get("profile") || "default";
+
+const PROFILES_TABLE = PROFILE_MODE === "notable" ? null : [
+  PROFILE_MODE === "pending"
+    ? { id: "u1", email: "test@example.com", approved: false, is_admin: false, requested_at: "2026-08-10T00:00:00Z" }
+    : { id: "u1", email: "test@example.com", approved: true, is_admin: PROFILE_MODE === "admin", requested_at: "2026-08-01T00:00:00Z" },
+  ...(PROFILE_MODE === "admin" ? [
+    { id: "u2", email: "newperson@example.com", approved: false, is_admin: false, requested_at: "2026-08-16T00:00:00Z" }
+  ] : [])
+];
+
 class MockQuery {
-  constructor(table) { this.table = table; this._op = "select"; }
+  constructor(table) { this.table = table; this._op = "select"; this._filters = []; this._single = false; }
   select() { return this; }
   order() { return this; }
-  eq() { return this; }
+  eq(col, val) { this._filters.push([col, val]); return this; }
   gte() { return this; }
+  maybeSingle() { this._single = true; return this; }
   insert(row) { this._op = "insert"; this._row = row; return this; }
+  update(patch) { this._op = "update"; this._row = patch; return this; }
   delete() { this._op = "delete"; return this; }
   upsert(row) { this._op = "upsert"; this._row = row; return this; }
   then(resolve) {
     let result = { data: [], error: null };
-    if (this._op === "select") {
+    if (this.table === "profiles") {
+      if (PROFILES_TABLE === null) {
+        // Simulates schema-v6-approvals.sql not having been run yet.
+        result = { data: null, error: { message: 'relation "public.profiles" does not exist', code: "42P01" } };
+      } else {
+        const matches = row => this._filters.every(([c, v]) => row[c] === v);
+        if (this._op === "update") {
+          PROFILES_TABLE.forEach(row => { if (matches(row)) Object.assign(row, this._row); });
+          result = { data: null, error: null };
+        } else {
+          const rows = PROFILES_TABLE.filter(matches);
+          result = { data: this._single ? (rows[0] || null) : rows, error: null };
+        }
+      }
+    } else if (this._op === "select") {
       if (this.table === "properties") result.data = FIXTURE_PROPERTIES;
       else if (this.table === "notes") result.data = [];
       else if (this.table === "favorites") result.data = [];
@@ -53,12 +90,31 @@ class MockQuery {
   }
 }
 
+// ?authtest=1 forces the sign-in gate to show (no session) instead of
+// auto-signing-in, so the sign-up/sign-in toggle can be screenshot-tested.
+const FORCE_GATE = new URLSearchParams(location.search).get("authtest") === "1";
+
 export function createClient() {
   return {
     auth: {
-      async getSession() { return { data: { session: { user: { id: "u1", email: "test@example.com" } } } }; },
-      onAuthStateChange(cb) { setTimeout(() => cb("SIGNED_IN", { user: { id: "u1", email: "test@example.com" } }), 0); return { data: { subscription: { unsubscribe() {} } } }; },
+      async getSession() {
+        if (FORCE_GATE) return { data: { session: null } };
+        return { data: { session: { user: { id: "u1", email: "test@example.com" } } } };
+      },
+      onAuthStateChange(cb) {
+        if (!FORCE_GATE) setTimeout(() => cb("SIGNED_IN", { user: { id: "u1", email: "test@example.com" } }), 0);
+        return { data: { subscription: { unsubscribe() {} } } };
+      },
       async signInWithPassword() { return { error: null }; },
+      async signUp({ email }) {
+        // Simulate the "check your email" (no immediate session) outcome -
+        // the more interesting UI path to verify, since the auto-confirmed
+        // path just reuses the existing onAuthStateChange->showApp flow.
+        if (email && email.includes("autoconfirm")) {
+          return { data: { user: { id: "u2", email }, session: { user: { id: "u2", email } } }, error: null };
+        }
+        return { data: { user: { id: "u2", email }, session: null }, error: null };
+      },
       async signOut() { return {}; }
     },
     from(table) { return new MockQuery(table); }
