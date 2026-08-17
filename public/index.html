@@ -26,12 +26,14 @@
       <h1>FL Tax Deed Watchlist</h1>
     </div>
     <p class="auth-tagline">Florida Tax Deed Intelligence &amp; Auction Watchlist</p>
-    <p class="auth-lead">Sign in to continue.</p>
+    <p class="auth-lead" id="authLead">Sign in to continue.</p>
     <form id="authForm">
       <input type="email" id="email" placeholder="Email" autocomplete="username" required>
       <input type="password" id="password" placeholder="Password" autocomplete="current-password" required>
+      <input type="password" id="passwordConfirm" placeholder="Confirm password" autocomplete="new-password" hidden>
       <button type="submit" id="signInBtn">Sign in</button>
     </form>
+    <button class="auth-mode-toggle" id="authModeToggle" type="button">Need an account? Create one</button>
     <div class="auth-msg" id="authMsg"></div>
   </div>
 </div>
@@ -176,10 +178,20 @@
               <button class="mini-btn" data-group="counties" data-mode="none" type="button">None</button>
             </div>
             <div class="map-wrap" id="mapWrap" hidden>
-              <div class="map-hint">Tap counties to include or exclude. Shaded counties have properties.</div>
+              <div class="map-hint">Colored counties have a confirmed auction format - tap one with properties loaded to filter to it.</div>
               <div id="mapHost"></div>
+              <div class="map-legend">
+                <span><i class="lg-online"></i>Online auction</span>
+                <span><i class="lg-inperson"></i>In person</span>
+                <span><i class="lg-fixed"></i>Fixed price only</span>
+                <span><i class="lg-none"></i>Not yet confirmed</span>
+              </div>
             </div>
             <div class="chips" id="countyChips"></div>
+            <div class="county-ref-links" id="countyRefLinks" hidden>
+              <div class="county-ref-links-head">No live data yet for these counties — verify directly on the county's own sites:</div>
+              <div class="county-ref-list" id="countyRefList"></div>
+            </div>
           </div>
         </details>
       </div>
