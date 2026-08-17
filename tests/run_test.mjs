@@ -474,7 +474,7 @@ const EXPECTED = {
   disclaimerBadgeVisible: true,
   cardStatGridCount: 8,
   lienPillFirstText: 'Clear',
-  infoTipCount: 9,
+  infoTipCount: 1,
   linkIconPresent: true,
   toppickBannerText: '★ Top pick 18.0× market vs bid',
 };
