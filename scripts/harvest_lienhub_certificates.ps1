@@ -81,29 +81,37 @@ $all = @()
 $i = 0
 foreach ($row in $counties) {
     $i++
-    # Confirmed live 2026-08: hitting all 32 counties back-to-back with no
-    # delay got 403 Forbidden from 31 of 32 (only Nassau came through) in a
-    # 5-second run - LienHub (or a WAF in front of it) is rate-limiting/
-    # bot-blocking rapid sequential requests from a single CI-runner IP, not
-    # rejecting the request shape itself (Nassau's 403-free run returned 10
-    # real certificates with the exact same code path). A jittered delay
-    # plus a one-time retry-after-backoff on failure is the fix, not another
-    # change to the request format.
-    if ($i -gt 1) { Start-Sleep -Seconds (Get-Random -Minimum 3 -Maximum 7) }
+    # Confirmed live 2026-08 across TWO CI runs. Run A (no delay at all):
+    # 403 from 31/32 (only Nassau came through) in ~5s total - proved this is
+    # a WAF/bot-block reacting to request velocity, not a request-format bug
+    # (Nassau's 403-free run returned 10 real certificates via the identical
+    # code path). Run B (3-7s jittered delay + single 15s-backoff retry):
+    # 9/32 succeeded (1679 certificates total, incl. Lake/Orange/Santa
+    # Rosa/Seminole/St. Lucie/Sumter, plus Lee/Pinellas legitimately empty) -
+    # a real improvement over run A, and 8 of those 9 succeeded specifically
+    # ON the retry (only Nassau succeeded on the very first attempt), proving
+    # the backoff approach works when given enough runway. But 23/32 still
+    # exhausted the single retry and 403'd anyway - one 15s backoff isn't
+    # long enough most of the time. This revision adds a second retry with a
+    # longer backoff (escalating 20s then 45s) and widens the base
+    # inter-county delay, rather than changing approach again.
+    if ($i -gt 1) { Start-Sleep -Seconds (Get-Random -Minimum 4 -Maximum 9) }
     $slug = Get-Slug $row.County
     $base = "https://lienhub.com/county/$slug/countyheld/certificates"
     Write-Host ("[{0}/{1}] {2} ({3})" -f $i, $counties.Count, $row.County, $slug) -ForegroundColor Cyan
 
     try {
         $getResp = $null
-        for ($attempt = 1; $attempt -le 2; $attempt++) {
+        $backoffs = @(20, 45)
+        for ($attempt = 1; $attempt -le ($backoffs.Count + 1); $attempt++) {
             try {
                 $getResp = Invoke-WebRequest -Uri $base -UserAgent $ua -TimeoutSec 25 -SessionVariable session -ErrorAction Stop
                 break
             } catch {
-                if ($attempt -lt 2) {
-                    Write-Host ("      GET attempt {0} failed ({1}) - backing off and retrying once" -f $attempt, $_.Exception.Message) -ForegroundColor Yellow
-                    Start-Sleep -Seconds 15
+                if ($attempt -le $backoffs.Count) {
+                    $wait = $backoffs[$attempt - 1]
+                    Write-Host ("      GET attempt {0} failed ({1}) - backing off {2}s and retrying" -f $attempt, $_.Exception.Message, $wait) -ForegroundColor Yellow
+                    Start-Sleep -Seconds $wait
                 } else {
                     throw
                 }
