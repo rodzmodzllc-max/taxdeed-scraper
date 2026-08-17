@@ -22,235 +22,257 @@
 
 <!-- ============ sign in ============ -->
 <div id="authGate" hidden>
-  <div class="auth-card">
-    <div class="auth-brand">
-      <img class="brand-mark" src="icons/icon-192.png?v=2" width="30" height="30" alt="" aria-hidden="true">
-      <h1>FL Tax Deed Watchlist</h1>
-    </div>
-    <p class="auth-tagline">Florida Tax Deed Intelligence &amp; Auction Watchlist</p>
-    <p class="auth-lead" id="authLead">Sign in to continue.</p>
-    <form id="authForm">
-      <input type="email" id="email" placeholder="Email" autocomplete="username" required>
-      <input type="password" id="password" placeholder="Password" autocomplete="current-password" required>
-      <input type="password" id="passwordConfirm" placeholder="Confirm password" autocomplete="new-password" hidden>
-      <button type="submit" id="signInBtn">Sign in</button>
-    </form>
-    <button class="auth-mode-toggle" id="authModeToggle" type="button">Need an account? Create one</button>
-    <div class="auth-msg" id="authMsg"></div>
-  </div>
+<div class="auth-card">
+<div class="auth-brand">
+<img class="brand-mark" src="icons/icon-192.png?v=2" width="30" height="30" alt="" aria-hidden="true">
+<h1>FL Tax Deed Watchlist</h1>
+</div>
+<p class="auth-tagline">Florida Tax Deed Intelligence &amp; Auction Watchlist</p>
+<p class="auth-lead" id="authLead">Sign in to continue.</p>
+<form id="authForm">
+<input type="email" id="email" placeholder="Email" autocomplete="username" required>
+<input type="password" id="password" placeholder="Password" autocomplete="current-password" required>
+<input type="password" id="passwordConfirm" placeholder="Confirm password" autocomplete="new-password" hidden>
+<button type="submit" id="signInBtn">Sign in</button>
+</form>
+<button class="auth-mode-toggle" id="authModeToggle" type="button">Need an account? Create one</button>
+<div class="auth-msg" id="authMsg"></div>
+</div>
 </div>
 
 <!-- ============ pending approval ============
-     Shown instead of the app for a signed-in account whose profiles.approved
-     is still false (see schema-v6-approvals.sql) - the account exists and
-     can authenticate, but every ledger table is walled off by RLS until the
-     owner approves it, so there'd be nothing to show here anyway. -->
+Shown instead of the app for a signed-in account whose profiles.approved
+is still false (see schema-v6-approvals.sql) - the account exists and
+can authenticate, but every ledger table is walled off by RLS until the
+owner approves it, so there'd be nothing to show here anyway. -->
 <div id="pendingGate" hidden>
-  <div class="auth-card">
-    <div class="auth-brand">
-      <img class="brand-mark" src="icons/icon-192.png?v=2" width="30" height="30" alt="" aria-hidden="true">
-      <h1>FL Tax Deed Watchlist</h1>
-    </div>
-    <p class="auth-lead">Account created — awaiting approval.</p>
-    <p class="auth-tagline" style="margin-bottom:1.4rem">The owner has been notified. You'll get access to the ledgers once your account is approved - no need to sign up again.</p>
-    <button class="auth-mode-toggle" id="pendingSignOutBtn" type="button" style="padding-top:0">Sign out</button>
-  </div>
+<div class="auth-card">
+<div class="auth-brand">
+<img class="brand-mark" src="icons/icon-192.png?v=2" width="30" height="30" alt="" aria-hidden="true">
+<h1>FL Tax Deed Watchlist</h1>
+</div>
+<p class="auth-lead">Account created — awaiting approval.</p>
+<p class="auth-tagline" style="margin-bottom:1.4rem">The owner has been notified. You'll get access to the ledgers once your account is approved - no need to sign up again.</p>
+<button class="auth-mode-toggle" id="pendingSignOutBtn" type="button" style="padding-top:0">Sign out</button>
+</div>
 </div>
 
 <!-- ============ app ============ -->
 <div id="app" hidden>
-  <!-- Slim brand strip, pinned above the (deliberately non-sticky) masthead
-       below - see the note on .masthead for why the taller block isn't the
-       one that pins itself. -->
-  <div class="topbar">
-    <img class="brand-mark" src="icons/icon-192.png?v=2" width="22" height="22" alt="" aria-hidden="true">
-    <span class="brand-name">FL Tax Deed<span class="brand-accent">•</span>Watchlist</span>
-  </div>
-  <!-- Admin-only: visible when the signed-in account's profiles.is_admin is
-       true AND at least one other account is awaiting approval. Everyone
-       else never sees this section (and can't - RLS only lets admins read
-       other people's profiles rows in the first place). -->
-  <div class="admin-approvals" id="adminApprovals" hidden>
-    <div class="admin-approvals-head">🔔 Pending sign-ups awaiting your approval</div>
-    <div class="admin-approvals-list" id="adminApprovalsList"></div>
-  </div>
-  <div class="masthead">
-    <div class="eyebrow-row">
-      <p class="eyebrow" id="eyebrow">Field Ledger</p>
-      <span class="header-btns">
-        <button class="hbtn" id="themeBtn" type="button" title="Switch theme"><span id="themeIcon">☼</span><span id="themeLabel">Auto</span></button>
-        <button class="hbtn" id="installBtn" type="button" title="Install app" hidden>⬇ Install</button>
-        <button class="hbtn" id="signOutBtn" type="button" title="Sign out">Sign out</button>
-      </span>
-    </div>
-    <h1>FL Tax Deed Watchlist</h1>
-    <p class="tagline">Institutional-grade coverage of Florida tax deed auctions, Lands Available, and certificate opportunities — one ledger, every county.</p>
-    <p class="disclaimer-badge"><span class="dot">⚠</span><span><b>Best-effort public records search</b> — not a certified title search. Always verify with a title professional before bidding.</span></p>
-    <p class="generated" id="generatedAt">Loading…</p>
-    <!-- Two (really three) separate ledgers, front and center right after sign-in -
-         not one long scroll where Lands Available sits under 300+ auction cards. -->
-    <div class="ledger-tabs" id="ledgerTabs">
-      <button class="ledger-tab" data-ledger="auction" type="button">Tax Deeds / Auctions <b id="tabCountAuction">0</b></button>
-      <button class="ledger-tab" data-ledger="laft" type="button">Lands Available / OTC <b id="tabCountLaft">0</b></button>
-      <button class="ledger-tab" data-ledger="certificate" type="button">Certificates <b id="tabCountCertificate">0</b></button>
-    </div>
-    <div class="summary-strip">
-      <button class="chip total" data-status="all" type="button">Shown&nbsp;<b id="chipTotal">0</b></button>
-      <button class="chip ok" data-status="live" type="button">Active&nbsp;<b id="chipActive">0</b></button>
-      <button class="chip bad" data-status="gone" type="button">Gone&nbsp;<b id="chipGone">0</b></button>
-      <!-- Past-due auctions never show in Shown/Active/Gone (see isPastDue in
-           app.js) so notes/favorites on a property you won don't just vanish
-           once its sale date passes - this is the only place to still find them. -->
-      <button class="chip archive" data-status="archive" type="button" title="Auctions whose sale date has passed - kept here so your notes on them aren't lost">Archive&nbsp;<b id="chipArchive">0</b></button>
-      <!-- Not a status-view filter chip like the four above (no data-status,
-           so it's excluded from that click-toggle group in app.js) - this
-           opens the separate My Bid List modal instead. -->
-      <button class="chip bidlist" id="bidListToggle" type="button" title="Your capped shortlist of properties to actually bid on">⚑ Bid List&nbsp;<b id="bidListCount">0/10</b></button>
-    </div>
-    <!-- Quick controls: instant search + a single-pick county dropdown (the
-         detailed multi-select county/type/lien chips still live in Filters &
-         Sort below), a per-page limit so hundreds of cards don't render at
-         once, and a one-click CSV export of whatever's currently filtered. -->
-    <div class="quick-controls" id="quickControls">
-      <div class="qc-field">
-        <span class="qc-icon">🔍</span>
-        <input type="text" id="searchInput" placeholder="Search address or parcel…" autocomplete="off">
-      </div>
-      <div class="qc-field">
-        <span class="qc-icon">📍</span>
-        <select id="countyQuick"><option value="ALL">All Counties</option></select>
-        <span class="qc-chevron"></span>
-      </div>
-      <button class="expand-all-btn" id="expandAllBtn" type="button">Expand all</button>
-      <button class="export-btn" id="exportCsvBtn" type="button">⬇ Export CSV</button>
-    </div>
-    <button class="filters-toggle" id="filtersToggle" type="button">
-      <span>Filters &amp; Sort</span>
-      <span style="display:flex;align-items:center;gap:.55rem">
-        <span class="filters-badge" id="filtersBadge" hidden>0</span><span class="chevron"></span>
-      </span>
-    </button>
-    <div class="filters-panel" id="filtersPanel">
+<!-- Slim brand strip, pinned above the (deliberately non-sticky) masthead
+below - see the note on .masthead for why the taller block isn't the
+one that pins itself. -->
+<div class="topbar">
+<img class="brand-mark" src="icons/icon-192.png?v=2" width="22" height="22" alt="" aria-hidden="true">
+<span class="brand-name">FL Tax Deed<span class="brand-accent">•</span>Watchlist</span>
+</div>
+<!-- Admin-only: visible when the signed-in account's profiles.is_admin is
+true AND at least one other account is awaiting approval. Everyone
+else never sees this section (and can't - RLS only lets admins read
+other people's profiles rows in the first place). -->
+<div class="admin-approvals" id="adminApprovals" hidden>
+<div class="admin-approvals-head">🔔 Pending sign-ups awaiting your approval</div>
+<div class="admin-approvals-list" id="adminApprovalsList"></div>
+</div>
+<div class="masthead">
+<div class="eyebrow-row">
+<p class="eyebrow" id="eyebrow">Field Ledger</p>
+<span class="header-btns">
+<button class="hbtn" id="themeBtn" type="button" title="Switch theme"><span id="themeIcon">☼</span><span id="themeLabel">Auto</span></button>
+<button class="hbtn" id="installBtn" type="button" title="Install app" hidden>⬇ Install</button>
+<button class="hbtn" id="changePasswordBtn" type="button" title="Change password">🔑 Password</button>
+<button class="hbtn" id="signOutBtn" type="button" title="Sign out">Sign out</button>
+</span>
+</div>
+<h1>FL Tax Deed Watchlist</h1>
+<p class="tagline">Institutional-grade coverage of Florida tax deed auctions, Lands Available, and certificate opportunities — one ledger, every county.</p>
+<p class="disclaimer-badge"><span class="dot">⚠</span><span><b>Best-effort public records search</b> — not a certified title search. Always verify with a title professional before bidding.</span></p>
+<p class="generated" id="generatedAt">Loading…</p>
+<!-- Two (really three) separate ledgers, front and center right after sign-in -
+not one long scroll where Lands Available sits under 300+ auction cards. -->
+<div class="ledger-tabs" id="ledgerTabs">
+<button class="ledger-tab" data-ledger="auction" type="button">Tax Deeds / Auctions <b id="tabCountAuction">0</b></button>
+<button class="ledger-tab" data-ledger="laft" type="button">Lands Available / OTC <b id="tabCountLaft">0</b></button>
+<button class="ledger-tab" data-ledger="certificate" type="button">Certificates <b id="tabCountCertificate">0</b></button>
+</div>
+<div class="summary-strip">
+<button class="chip total" data-status="all" type="button">Shown&nbsp;<b id="chipTotal">0</b></button>
+<button class="chip ok" data-status="live" type="button">Active&nbsp;<b id="chipActive">0</b></button>
+<button class="chip bad" data-status="gone" type="button">Gone&nbsp;<b id="chipGone">0</b></button>
+<!-- Past-due auctions never show in Shown/Active/Gone (see isPastDue in
+app.js) so notes/favorites on a property you won don't just vanish
+once its sale date passes - this is the only place to still find them. -->
+<button class="chip archive" data-status="archive" type="button" title="Auctions whose sale date has passed - kept here so your notes on them aren't lost">Archive&nbsp;<b id="chipArchive">0</b></button>
+<!-- Not a status-view filter chip like the four above (no data-status,
+so it's excluded from that click-toggle group in app.js) - this
+opens the separate My Bid List modal instead. -->
+<button class="chip bidlist" id="bidListToggle" type="button" title="Your capped shortlist of properties to actually bid on">⚑ Bid List&nbsp;<b id="bidListCount">0/10</b></button>
+</div>
+<!-- Quick controls: instant search + a single-pick county dropdown (the
+detailed multi-select county/type/lien chips still live in Filters &
+Sort below), a per-page limit so hundreds of cards don't render at
+once, and a one-click CSV export of whatever's currently filtered. -->
+<div class="quick-controls" id="quickControls">
+<div class="qc-field">
+<span class="qc-icon">🔍</span>
+<input type="text" id="searchInput" placeholder="Search address or parcel…" autocomplete="off">
+</div>
+<div class="qc-field">
+<span class="qc-icon">📍</span>
+<select id="countyQuick"><option value="ALL">All Counties</option></select>
+<span class="qc-chevron"></span>
+</div>
+<button class="expand-all-btn" id="expandAllBtn" type="button">Expand all</button>
+<button class="export-btn" id="exportCsvBtn" type="button">⬇ Export CSV</button>
+</div>
+<button class="filters-toggle" id="filtersToggle" type="button">
+<span>Filters &amp; Sort</span>
+<span style="display:flex;align-items:center;gap:.55rem">
+<span class="filters-badge" id="filtersBadge" hidden>0</span><span class="chevron"></span>
+</span>
+</button>
+<div class="filters-panel" id="filtersPanel">
 
-      <div class="filters-section">
-        <div class="filters-section-head">
-          <span class="filters-section-title">Price</span>
-          <button class="reset-btn" id="resetBtn" type="button">Reset all filters</button>
-        </div>
-        <div class="filters-row">
-          <div class="field"><span class="field-label">Bid min</span><input type="number" id="bidMin" placeholder="0" min="0" step="100"></div>
-          <span class="to-sep">to</span>
-          <div class="field"><span class="field-label">Bid max</span><input type="number" id="bidMax" placeholder="Any" min="0" step="100"></div>
-          <div class="field"><span class="field-label">Assessed min</span><input type="number" id="assessedMin" placeholder="0" min="0" step="1000"></div>
-        </div>
-        <div class="filters-row">
-          <div class="field"><span class="field-label">Max bid target (% of market)</span><input type="number" id="maxBidPct" value="40" min="1" max="100" step="5"></div>
-        </div>
-      </div>
+<div class="filters-section">
+<div class="filters-section-head">
+<span class="filters-section-title">Price</span>
+<button class="reset-btn" id="resetBtn" type="button">Reset all filters</button>
+</div>
+<div class="filters-row">
+<div class="field"><span class="field-label">Bid min</span><input type="number" id="bidMin" placeholder="0" min="0" step="100"></div>
+<span class="to-sep">to</span>
+<div class="field"><span class="field-label">Bid max</span><input type="number" id="bidMax" placeholder="Any" min="0" step="100"></div>
+<div class="field"><span class="field-label">Assessed min</span><input type="number" id="assessedMin" placeholder="0" min="0" step="1000"></div>
+</div>
+<div class="filters-row">
+<div class="field"><span class="field-label">Max bid target (% of market)</span><input type="number" id="maxBidPct" value="40" min="1" max="100" step="5"></div>
+</div>
+</div>
 
-      <div class="filters-section">
-        <div class="filters-section-head"><span class="filters-section-title">Sort &amp; Display</span></div>
-        <div class="filters-row">
-          <div class="field" style="flex:1 1 100%">
-            <select id="sortBy">
-              <option value="county">Sort: County (default order)</option>
-              <option value="dateAsc">Sort: Sale date, soonest first</option>
-              <option value="dateDesc">Sort: Sale date, latest first</option>
-              <option value="bidAsc">Sort: Opening bid, low to high</option>
-              <option value="bidDesc">Sort: Opening bid, high to low</option>
-              <option value="assessedAsc">Sort: Assessed, low to high</option>
-              <option value="assessedDesc">Sort: Assessed, high to low</option>
-              <option value="spreadDesc">Sort: Best value, market ÷ bid</option>
-              <option value="address">Sort: Address, A to Z</option>
-            </select>
-          </div>
-        </div>
-      </div>
+<div class="filters-section">
+<div class="filters-section-head"><span class="filters-section-title">Sort &amp; Display</span></div>
+<div class="filters-row">
+<div class="field" style="flex:1 1 100%">
+<select id="sortBy">
+<option value="county">Sort: County (default order)</option>
+<option value="dateAsc">Sort: Sale date, soonest first</option>
+<option value="dateDesc">Sort: Sale date, latest first</option>
+<option value="bidAsc">Sort: Opening bid, low to high</option>
+<option value="bidDesc">Sort: Opening bid, high to low</option>
+<option value="assessedAsc">Sort: Assessed, low to high</option>
+<option value="assessedDesc">Sort: Assessed, high to low</option>
+<option value="spreadDesc">Sort: Best value, market ÷ bid</option>
+<option value="address">Sort: Address, A to Z</option>
+</select>
+</div>
+</div>
+</div>
 
-      <div class="filters-section">
-        <div class="filters-section-head"><span class="filters-section-title">Quick Toggles</span></div>
-        <div class="filters-row">
-          <label class="tog"><input type="checkbox" id="favOnly"> <span>♡ Favorites only</span></label>
-          <label class="tog"><input type="checkbox" id="topOnly"> <span>★ Top picks only</span></label>
-          <label class="tog"><input type="checkbox" id="soonOnly"> <span>⏱ Closing in 14 days</span></label>
-          <label class="tog"><input type="checkbox" id="qtToggle"> <span>Include quiet title est.</span></label>
-        </div>
-        <span class="reset-btn" id="hiddenInfo" hidden><span id="hiddenCount">0</span> hidden · <button class="reset-btn" id="restoreHiddenBtn" type="button">Restore all</button></span>
-      </div>
+<div class="filters-section">
+<div class="filters-section-head"><span class="filters-section-title">Quick Toggles</span></div>
+<div class="filters-row">
+<label class="tog"><input type="checkbox" id="favOnly"> <span>♡ Favorites only</span></label>
+<label class="tog"><input type="checkbox" id="topOnly"> <span>★ Top picks only</span></label>
+<label class="tog"><input type="checkbox" id="soonOnly"> <span>⏱ Closing in 14 days</span></label>
+<label class="tog"><input type="checkbox" id="qtToggle"> <span>Include quiet title est.</span></label>
+</div>
+<span class="reset-btn" id="hiddenInfo" hidden><span id="hiddenCount">0</span> hidden · <button class="reset-btn" id="restoreHiddenBtn" type="button">Restore all</button></span>
+</div>
 
-      <!-- Advanced multi-select filters, collapsed behind dropdown-style
-           <details> disclosures so the panel doesn't read as a wall of
-           chips - each summary shows how many are currently selected. -->
-      <div class="filters-section">
-        <div class="filters-section-head"><span class="filters-section-title">Advanced Filters</span></div>
+<!-- Advanced multi-select filters, collapsed behind dropdown-style
+<details> disclosures so the panel doesn't read as a wall of
+chips - each summary shows how many are currently selected. -->
+<div class="filters-section">
+<div class="filters-section-head"><span class="filters-section-title">Advanced Filters</span></div>
 
-        <details class="filter-dropdown">
-          <summary>Property Type <span class="filter-dropdown-count" id="typeCount"></span></summary>
-          <div class="filter-dropdown-body">
-            <div class="group-actions"><button class="mini-btn" data-group="types" data-mode="all" type="button">All</button><button class="mini-btn" data-group="types" data-mode="none" type="button">None</button></div>
-            <div class="chips" id="typeChips"></div>
-          </div>
-        </details>
+<details class="filter-dropdown">
+<summary>Property Type <span class="filter-dropdown-count" id="typeCount"></span></summary>
+<div class="filter-dropdown-body">
+<div class="group-actions"><button class="mini-btn" data-group="types" data-mode="all" type="button">All</button><button class="mini-btn" data-group="types" data-mode="none" type="button">None</button></div>
+<div class="chips" id="typeChips"></div>
+</div>
+</details>
 
-        <details class="filter-dropdown">
-          <summary>Title Status <span class="filter-dropdown-count" id="lienCount"></span></summary>
-          <div class="filter-dropdown-body">
-            <div class="group-actions"><button class="mini-btn" data-group="liens" data-mode="all" type="button">All</button><button class="mini-btn" data-group="liens" data-mode="none" type="button">None</button></div>
-            <div class="chips" id="lienChips"></div>
-          </div>
-        </details>
+<details class="filter-dropdown">
+<summary>Title Status <span class="filter-dropdown-count" id="lienCount"></span></summary>
+<div class="filter-dropdown-body">
+<div class="group-actions"><button class="mini-btn" data-group="liens" data-mode="all" type="button">All</button><button class="mini-btn" data-group="liens" data-mode="none" type="button">None</button></div>
+<div class="chips" id="lienChips"></div>
+</div>
+</details>
 
-        <details class="filter-dropdown">
-          <summary>County (multi-select) <span class="filter-dropdown-count" id="countyCount"></span></summary>
-          <div class="filter-dropdown-body">
-            <div class="group-actions">
-              <button class="mini-btn" id="mapBtn" type="button">🗺 Map</button>
-              <button class="mini-btn" data-group="counties" data-mode="all" type="button">All</button>
-              <button class="mini-btn" data-group="counties" data-mode="none" type="button">None</button>
-            </div>
-            <div class="map-wrap" id="mapWrap" hidden>
-              <div class="map-hint">Colored counties have a confirmed auction format - tap one with properties loaded to filter to it.</div>
-              <div id="mapHost"></div>
-              <div class="map-legend">
-                <span><i class="lg-online"></i>Online auction</span>
-                <span><i class="lg-inperson"></i>In person</span>
-                <span><i class="lg-fixed"></i>Fixed price only</span>
-                <span><i class="lg-none"></i>Not yet confirmed</span>
-              </div>
-            </div>
-            <div class="chips" id="countyChips"></div>
-            <div class="county-ref-links" id="countyRefLinks" hidden>
-              <div class="county-ref-links-head">No live data yet for these counties — verify directly on the county's own sites:</div>
-              <div class="county-ref-list" id="countyRefList"></div>
-            </div>
-          </div>
-        </details>
-      </div>
+<details class="filter-dropdown">
+<summary>County (multi-select) <span class="filter-dropdown-count" id="countyCount"></span></summary>
+<div class="filter-dropdown-body">
+<div class="group-actions">
+<button class="mini-btn" id="mapBtn" type="button">🗺 Map</button>
+<button class="mini-btn" data-group="counties" data-mode="all" type="button">All</button>
+<button class="mini-btn" data-group="counties" data-mode="none" type="button">None</button>
+</div>
+<div class="map-wrap" id="mapWrap" hidden>
+<div class="map-hint">Colored counties have a confirmed auction format - tap one with properties loaded to filter to it.</div>
+<div id="mapHost"></div>
+<div class="map-legend">
+<span><i class="lg-online"></i>Online auction</span>
+<span><i class="lg-inperson"></i>In person</span>
+<span><i class="lg-fixed"></i>Fixed price only</span>
+<span><i class="lg-none"></i>Not yet confirmed</span>
+</div>
+</div>
+<div class="chips" id="countyChips"></div>
+<div class="county-ref-links" id="countyRefLinks" hidden>
+<div class="county-ref-links-head">No live data yet for these counties — verify directly on the county's own sites:</div>
+<div class="county-ref-list" id="countyRefList"></div>
+</div>
+</div>
+</details>
+</div>
 
-    </div>
-  </div>
+</div>
+</div>
 
-  <main id="main"></main>
+<main id="main"></main>
 
-  <footer>
-    Links open Street View, the county property appraiser, Zillow, the Tax Collector, the live auction listing, and the Clerk's Official Records.<br><br>
-    ★ <b>Top pick</b> = title screen came back clear AND market value is at least 12× the opening bid. A shortlisting aid, not advice.<br><br>
-    <b>Fees</b> (shown on each property's full page) are Florida doc stamps (0.70/$100), recording, and — on homesteaded parcels — the half-assessed-value minimum under FS 197.502(6)(c), added on top of whatever the actual winning bid turns out to be. It is an estimate.<br><br>
-    Title badges are a best-effort public-records search, <b>not a certified title search</b>. Confirm with a title company or attorney before bidding.
-  </footer>
+<footer>
+Links open Street View, the county property appraiser, Zillow, the Tax Collector, the live auction listing, and the Clerk's Official Records.<br><br>
+★ <b>Top pick</b> = title screen came back clear AND market value is at least 12× the opening bid. A shortlisting aid, not advice.<br><br>
+<b>Fees</b> (shown on each property's full page) are Florida doc stamps (0.70/$100), recording, and — on homesteaded parcels — the half-assessed-value minimum under FS 197.502(6)(c), added on top of whatever the actual winning bid turns out to be. It is an estimate.<br><br>
+Title badges are a best-effort public-records search, <b>not a certified title search</b>. Confirm with a title company or attorney before bidding.
+</footer>
 </div>
 
 <!-- ============ "My Bid List" modal ============ -->
 <!-- Placed before detailModal in the DOM so, when both are open at once
-     (viewing a property's full page from inside the bid list), detailModal
-     paints on top at the same z-index - later sibling wins. -->
+(viewing a property's full page from inside the bid list), detailModal
+paints on top at the same z-index - later sibling wins. -->
 <div class="detail-modal" id="bidListModal" hidden>
-  <div class="detail-modal-inner bidlist-modal-inner" id="bidListModalInner"></div>
+<div class="detail-modal-inner bidlist-modal-inner" id="bidListModalInner"></div>
 </div>
 
 <!-- ============ property detail modal ("full property page") ============ -->
 <div class="detail-modal" id="detailModal" hidden>
-  <div class="detail-modal-inner" id="detailModalInner"></div>
+<div class="detail-modal-inner" id="detailModalInner"></div>
+</div>
+
+<!-- ============ change password modal ============
+Reuses the .detail-modal shell (same overlay/close-button/scroll pattern
+as bidListModal and detailModal above). See app.js for the flow: current
+password is re-verified via signInWithPassword before calling
+sb.auth.updateUser() - a plain updateUser() alone would let anyone using
+an already-open signed-in session change the password without proving
+they know the existing one. -->
+<div class="detail-modal" id="changePasswordModal" hidden>
+<div class="detail-modal-inner" id="changePasswordModalInner">
+<button class="detail-close" id="changePasswordCloseBtn" type="button" aria-label="Close">&times;</button>
+<h2 class="detail-address" style="font-size:1.15rem">Change password</h2>
+<form id="changePasswordForm">
+<input type="password" id="cpCurrent" placeholder="Current password" autocomplete="current-password" required>
+<input type="password" id="cpNew" placeholder="New password (min 6 characters)" autocomplete="new-password" required minlength="6">
+<input type="password" id="cpConfirm" placeholder="Confirm new password" autocomplete="new-password" required minlength="6">
+<button type="submit" id="cpSubmitBtn">Update password</button>
+</form>
+<div class="auth-msg" id="cpMsg"></div>
+</div>
 </div>
 
 <script type="module" src="app.js"></script>
