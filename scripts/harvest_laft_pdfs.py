@@ -194,23 +194,43 @@ def extract_rows(pdf_bytes: bytes, county: str, source_url: str) -> list[dict]:
             return []
 
         rows: list[dict] = []
+        text_strategy_settings = {
+            "vertical_strategy": "text",
+            "horizontal_strategy": "text",
+            "snap_tolerance": 3,
+            "join_tolerance": 3,
+        }
         for page in pdf.pages:
             page_tables = page.extract_tables()
+            # Always also try the text-alignment strategy, even when the
+            # default (line-based) detector found something - a table can be
+            # "found" with the wrong column boundaries (e.g. a merged
+            # header/data cell) and silently yield zero valid rows, which
+            # looks identical to "no table at all" unless both strategies
+            # get a chance. Whichever strategy produces usable rows wins;
+            # if both do, results are deduped by (case_no, parcel) below.
             if not page_tables:
-                # Some counties (confirmed on Marion) publish this as
-                # whitespace-aligned text with no ruling lines at all -
-                # pdfplumber's default (line-based) table detector finds
-                # nothing there. Retry with its text-alignment strategy,
-                # which infers columns from character positions instead of
-                # drawn borders, before concluding the page has no table.
-                page_tables = page.extract_tables(table_settings={
-                    "vertical_strategy": "text",
-                    "horizontal_strategy": "text",
-                    "snap_tolerance": 3,
-                    "join_tolerance": 3,
-                })
-            for table in page_tables:
-                rows.extend(_rows_from_table(table, county, source_url))
+                page_tables = page.extract_tables(table_settings=text_strategy_settings)
+                strategy_used = ["text"] * len(page_tables)
+            else:
+                strategy_used = ["lines"] * len(page_tables)
+                extra = page.extract_tables(table_settings=text_strategy_settings)
+                page_tables = page_tables + extra
+                strategy_used = strategy_used + ["text"] * len(extra)
+
+            for table, strat in zip(page_tables, strategy_used):
+                found = _rows_from_table(table, county, source_url)
+                if not found and table:
+                    # Diagnostic only, never fatal - lets a CI run reveal
+                    # exactly why a real, non-empty PDF still produced 0
+                    # rows (e.g. Hendry: visually a real bordered table, but
+                    # worth confirming pdfplumber sees the same header row)
+                    # instead of guessing blind from outside the sandbox.
+                    header_preview = table[0][:8] if table else []
+                    print(f"      [debug] {strat} strategy found a "
+                          f"{len(table)}-row table but 0 usable rows - "
+                          f"header: {header_preview}", flush=True)
+                rows.extend(found)
 
         if not rows:
             # Neither table strategy found anything grid-like at all (e.g. a
@@ -219,6 +239,22 @@ def extract_rows(pdf_bytes: bytes, county: str, source_url: str) -> list[dict]:
             # either). Fall back to scanning the raw text for known field
             # labels.
             rows = extract_label_value_rows(full_text, county, source_url)
+            if not rows:
+                snippet = re.sub(r"\s+", " ", full_text).strip()[:300]
+                print(f"      [debug] no table detected by either strategy "
+                      f"and no labels matched - text starts: {snippet!r}",
+                      flush=True)
+
+        # Dedupe in case both strategies independently found the same row.
+        seen = set()
+        deduped = []
+        for r in rows:
+            key = (r.get("case_no"), r.get("parcel"))
+            if key in seen:
+                continue
+            seen.add(key)
+            deduped.append(r)
+        rows = deduped
     return rows
 
 
