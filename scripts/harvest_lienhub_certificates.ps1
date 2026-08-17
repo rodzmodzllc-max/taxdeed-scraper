@@ -81,12 +81,34 @@ $all = @()
 $i = 0
 foreach ($row in $counties) {
     $i++
+    # Confirmed live 2026-08: hitting all 32 counties back-to-back with no
+    # delay got 403 Forbidden from 31 of 32 (only Nassau came through) in a
+    # 5-second run - LienHub (or a WAF in front of it) is rate-limiting/
+    # bot-blocking rapid sequential requests from a single CI-runner IP, not
+    # rejecting the request shape itself (Nassau's 403-free run returned 10
+    # real certificates with the exact same code path). A jittered delay
+    # plus a one-time retry-after-backoff on failure is the fix, not another
+    # change to the request format.
+    if ($i -gt 1) { Start-Sleep -Seconds (Get-Random -Minimum 3 -Maximum 7) }
     $slug = Get-Slug $row.County
     $base = "https://lienhub.com/county/$slug/countyheld/certificates"
     Write-Host ("[{0}/{1}] {2} ({3})" -f $i, $counties.Count, $row.County, $slug) -ForegroundColor Cyan
 
     try {
-        $getResp = Invoke-WebRequest -Uri $base -UserAgent $ua -TimeoutSec 25 -SessionVariable session -ErrorAction Stop
+        $getResp = $null
+        for ($attempt = 1; $attempt -le 2; $attempt++) {
+            try {
+                $getResp = Invoke-WebRequest -Uri $base -UserAgent $ua -TimeoutSec 25 -SessionVariable session -ErrorAction Stop
+                break
+            } catch {
+                if ($attempt -lt 2) {
+                    Write-Host ("      GET attempt {0} failed ({1}) - backing off and retrying once" -f $attempt, $_.Exception.Message) -ForegroundColor Yellow
+                    Start-Sleep -Seconds 15
+                } else {
+                    throw
+                }
+            }
+        }
         $html = $getResp.Content
 
         $metaTag = [regex]::Match($html, '<meta[^>]*name=["'']csrf_token["''][^>]*>')
