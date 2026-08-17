@@ -90,7 +90,11 @@ def normalize_header(h: str) -> str | None:
 
 
 def looks_empty(text: str) -> bool:
-    low = text.lower()
+    # Collapse all whitespace (including the mid-phrase line breaks PDF text
+    # extraction leaves behind, e.g. DeSoto's placeholder wraps as "NO
+    # PROPERTIES\nAT THIS TIME") so EMPTY_MARKERS matches regardless of how
+    # the source PDF wrapped the line.
+    low = re.sub(r"\s+", " ", text.lower())
     return any(marker in low for marker in EMPTY_MARKERS)
 
 
@@ -110,6 +114,17 @@ def extract_rows(pdf_bytes: bytes, county: str, source_url: str) -> list[dict]:
                 if not any(field_names):
                     continue  # not a recognizable data table - e.g. a stray formatting grid
                 for raw in body:
+                    # Defense in depth: a "no properties" notice can render as a
+                    # 1-column/1-row table rather than page-level text (this is
+                    # what actually happened for DeSoto - looks_empty() missed
+                    # it because of a mid-phrase line break, and every cell in
+                    # the row was the same placeholder sentence). Skip a row
+                    # outright if every non-empty cell is itself an empty
+                    # marker - it is never real property data.
+                    cell_texts = [str(c).strip() for c in raw if c and str(c).strip()]
+                    if cell_texts and all(looks_empty(c) for c in cell_texts):
+                        continue
+
                     record: dict = {"county": county, "source": "laft", "url_auction": source_url}
                     for i, field in enumerate(field_names):
                         if not field or i >= len(raw) or raw[i] is None:

@@ -56,16 +56,32 @@ foreach ($p in $harvest) {
         $skipped++
         continue
     }
-    $rows += [ordered]@{
+    # `address` is NOT NULL on the properties table. Most LAFT PDFs don't
+    # publish a street address at all (Marion's columns are just Sale #/Sale
+    # date/Parcel #/Description - no address), so unlike the auction
+    # harvester this can't skip rows that lack one. Instead, omit the key
+    # entirely when blank rather than sending an explicit JSON null -
+    # PostgREST then falls back to the column default, same as
+    # sync-certificates-to-supabase.ps1 already does for every optional
+    # column it doesn't send. Fall back to the legal description or parcel
+    # ID so the property still shows *something* in the UI.
+    $addr = $p.address
+    if ([string]::IsNullOrWhiteSpace($addr)) { $addr = $p.legal_desc }
+    if ([string]::IsNullOrWhiteSpace($addr) -and -not [string]::IsNullOrWhiteSpace($p.parcel)) { $addr = "Parcel $($p.parcel)" }
+    if ([string]::IsNullOrWhiteSpace($addr) -and -not [string]::IsNullOrWhiteSpace($p.case_no)) { $addr = "Case $($p.case_no)" }
+    if ([string]::IsNullOrWhiteSpace($addr)) { $addr = "Address not published - see county PDF" }
+
+    $row = [ordered]@{
         source      = "laft"
         county      = $p.county
         case_no     = if ($p.case_no) { $p.case_no } else { $p.parcel }
         parcel      = $p.parcel
-        address     = $p.address
+        address     = $addr
         bid         = ToNum $p.bid
         sale_date   = ConvertTo-IsoDate $p.sale_date
         url_auction = $p.url_auction
     }
+    $rows += $row
 }
 
 if ($rows.Count -eq 0) { Write-Output "Every harvested row was missing both case_no and parcel - nothing to sync."; exit 0 }
