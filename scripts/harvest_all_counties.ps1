@@ -59,16 +59,33 @@ foreach ($c in $counties) {
     $jar = Join-Path $tmpDir ("ra_" + $c.County + ".txt")
     Remove-Item $jar -ErrorAction SilentlyContinue
 
-    $cal = & curl -s -c $jar -A $ua --max-time 20 "https://$hostName/index.cfm?zaction=USER&zmethod=CALENDAR" 2>$null
-    # Quote style around dayid=... varies by county skin - most Realauction
-    # sites emit dayid='MM/DD/YYYY' (single quotes), but at least Suwannee's
-    # emits dayid="MM/DD/YYYY" (double quotes). The old single-quote-only
-    # pattern silently matched zero dates on those counties, which then hit
-    # the "no auction days" branch below and got skipped entirely even
-    # though they had real, upcoming, fully-populated auctions - this is
-    # exactly what happened to Suwannee. Match either quote character.
-    $dates = [regex]::Matches(($cal -join "`n"), "CALSELT[^>]*dayid=['`"](\d{2}/\d{2}/\d{4})['`"]") |
-             ForEach-Object { $_.Groups[1].Value } | Select-Object -Unique
+    # The calendar page defaults to showing ONLY the currently-displayed
+    # month - confirmed live on Suwannee: the default page showed just
+    # 08/06/2026 (already past), while the site's own "September >" link
+    # revealed a fully-populated 09/03/2026 auction (2 pages of listings)
+    # that the single-month fetch below would silently miss entirely,
+    # exactly like the "no auction days" bug this same block used to have
+    # for the quote-style mismatch. Realauction's own "next month" link
+    # hits this same CALENDAR endpoint with a selCalDate={ts 'YYYY-MM-01
+    # 00:00:00'} param, so walk the current month plus the next 2 that way
+    # to catch anything scheduled up to ~3 months out, not just this month.
+    $dates = @()
+    for ($mOffset = 0; $mOffset -lt 3; $mOffset++) {
+        $monthStart = (Get-Date).AddMonths($mOffset)
+        $tsLiteral = "{{ts '{0:yyyy-MM}-01 00:00:00'}}" -f $monthStart
+        $calUrl = "https://$hostName/index.cfm?zaction=user&zmethod=calendar&selCalDate=" + [uri]::EscapeDataString($tsLiteral)
+        $cal = & curl -s -c $jar -A $ua --max-time 20 $calUrl 2>$null
+        # Quote style around dayid=... varies by county skin - most Realauction
+        # sites emit dayid='MM/DD/YYYY' (single quotes), but at least Suwannee's
+        # emits dayid="MM/DD/YYYY" (double quotes). The old single-quote-only
+        # pattern silently matched zero dates on those counties, which then hit
+        # the "no auction days" branch below and got skipped entirely even
+        # though they had real, upcoming, fully-populated auctions - this is
+        # exactly what happened to Suwannee. Match either quote character.
+        $dates += [regex]::Matches(($cal -join "`n"), "CALSELT[^>]*dayid=['`"](\d{2}/\d{2}/\d{4})['`"]") |
+                  ForEach-Object { $_.Groups[1].Value }
+    }
+    $dates = $dates | Select-Object -Unique
     if (-not $dates) { Write-Host "      no auction days" -ForegroundColor DarkGray; continue }
 
     foreach ($date in $dates) {
