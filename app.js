@@ -111,6 +111,95 @@ const COUNTY_FORMAT = {
   // Gadsden, Lafayette, Liberty, Union: intentionally omitted - unconfirmed.
 };
 
+// Authoritative list of all 67 FL counties (exact spelling matches
+// fl-counties.svg's data-county attributes). This is the "county universe"
+// used to populate the filter chips/dropdown - deliberately independent of
+// which counties currently have live scraped rows in `ALL`, so a county with
+// zero properties right now still shows up (as "(0)") instead of silently
+// disappearing from the picker.
+const ALL_COUNTIES = [
+  "Alachua", "Baker", "Bay", "Bradford", "Brevard", "Broward", "Calhoun", "Charlotte", "Citrus", "Clay", "Collier", "Columbia", "DeSoto", "Dixie", "Duval", "Escambia", "Flagler", "Franklin", "Gadsden", "Gilchrist", "Glades", "Gulf", "Hamilton", "Hardee", "Hendry", "Hernando", "Highlands", "Hillsborough", "Holmes", "Indian River", "Jackson", "Jefferson", "Lafayette", "Lake", "Lee", "Leon", "Levy", "Liberty", "Madison", "Manatee", "Marion", "Martin", "Miami-Dade", "Monroe", "Nassau", "Okaloosa", "Okeechobee", "Orange", "Osceola", "Palm Beach", "Pasco", "Pinellas", "Polk", "Putnam", "Santa Rosa", "Sarasota", "Seminole", "St. Johns", "St. Lucie", "Sumter", "Suwannee", "Taylor", "Union", "Volusia", "Wakulla", "Walton", "Washington"
+];
+
+// Reference links per county so a county with 0 scraped properties (or any
+// property, really) can still be manually verified against the county's own
+// official sites. Compiled via web research - Property Appraiser sites were
+// individually confirmed; auction links use the county's Realauction/
+// Bid4Assets host where one exists, falling back to the County Clerk's tax
+// deed sale page for in-person counties. Tax Collector sites come from the
+// same county-registry research used elsewhere in this project. If a link
+// ever 404s, that's a site having moved, not a scraper bug - report it so
+// this table can be corrected.
+const COUNTY_LINKS = {
+  "Alachua": { appraiser: "https://www.acpafl.org/", auction: "https://alachua.realtaxdeed.com", taxcoll: "https://www.alachuatax.com" },
+  "Baker": { appraiser: "https://bakerpa.com/", auction: "https://baker.realtaxdeed.com", taxcoll: "https://www.bakercountytaxcollector.com" },
+  "Bay": { appraiser: "https://baypa.net/", auction: "https://bay.realtaxdeed.com", taxcoll: "https://www.baytaxcollector.com" },
+  "Bradford": { appraiser: "https://www.bradfordappraiser.com/", auction: "https://bradfordclerk.com/tax-deeds-and-foreclosure-sales/", taxcoll: "https://www.bradfordtaxcollector.com" },
+  "Brevard": { appraiser: "https://www.bcpao.us/", auction: "https://brevard.realforeclose.com", taxcoll: "https://www.brevardtaxcollector.com" },
+  "Broward": { appraiser: "https://bcpa.net/", auction: "https://broward.realtaxdeed.com", taxcoll: "https://www.broward.org/RecordsTaxesTreasury" },
+  "Calhoun": { appraiser: "https://calhounpa.net/", auction: "https://calhoun.realforeclose.com", taxcoll: "https://www.calhouncoutytaxcollector.com" },
+  "Charlotte": { appraiser: "https://www.ccappraiser.com/", auction: "https://charlotte.realforeclose.com", taxcoll: "https://www.charlottetaxcollector.com" },
+  "Citrus": { appraiser: "https://www.citruspa.org/", auction: "https://citrus.realtaxdeed.com", taxcoll: "https://www.citrustaxcollector.org" },
+  "Clay": { appraiser: "https://www.ccpao.com/", auction: "https://clay.realtaxdeed.com", taxcoll: "https://www.claycountytaxcollector.com" },
+  "Collier": { appraiser: "https://www.collierappraiser.com/", auction: "https://app.collierclerk.com/LFOfficialRecords/Browse.aspx?dbid=0&startid=1600&repo=OFFICIALRECORDSPROD", taxcoll: "https://www.colliertax.com" },
+  "Columbia": { appraiser: "https://columbia.floridapa.com/", auction: "https://columbiaclerk.com/clerk-services/tax-deeds/upcoming-tax-deed-sales/", taxcoll: "https://www.columbiataxcollector.com" },
+  "DeSoto": { appraiser: "https://www.desotopa.com/", auction: "https://www.desotoclerk.com/public-sales/tax-deeds/", taxcoll: "https://www.desototaxcollector.com" },
+  "Dixie": { appraiser: "https://www.qpublic.net/fl/dixie/", auction: "https://dixieclerk.com/departments-services/court-services/tax-deed-sales/", taxcoll: "https://www.dixietaxcollector.com" },
+  "Duval": { appraiser: "https://www.coj.net/departments/property-appraiser", auction: "https://duval.realtaxdeed.com", taxcoll: "https://www.duvaltax.com" },
+  "Escambia": { appraiser: "https://www.escpa.org/", auction: "https://escambia.realtaxdeed.com", taxcoll: "https://www.escambiataxcollector.com" },
+  "Flagler": { appraiser: "https://flaglerpa.com/", auction: "https://flagler.realtaxdeed.com", taxcoll: "https://www.flaglertax.com" },
+  "Franklin": { appraiser: "https://franklincountypa.net/", auction: "https://www.taxcertsale.com/FranklinTaxSale/(S(gq5dmdvop2s3ej45323mbyiu))/Default.aspx", taxcoll: "https://www.franklintaxcollector.org" },
+  "Gadsden": { appraiser: "https://gadsdenpa.com/", auction: "https://gadsdenfl.realtaxlien.com/", taxcoll: "https://www.gadsdentaxcollector.com" },
+  "Gilchrist": { appraiser: "https://www.qpublic.net/fl/gilchrist/", auction: "https://gilchrist.realtaxdeed.com", taxcoll: "https://www.gilchristtaxcollector.com" },
+  "Glades": { appraiser: "https://qpublic.net/fl/glades/", auction: "https://gladesclerk.com/clerk-services/tax-deeds/", taxcoll: "https://www.gladestaxcollector.com" },
+  "Gulf": { appraiser: "https://gulfpa.com/", auction: "https://gulf.realtaxdeed.com", taxcoll: "https://www.gulftaxcollector.com" },
+  "Hamilton": { appraiser: "https://hamiltonpa.com/", auction: "https://hamiltonclerk.com/tax-deeds/", taxcoll: "https://www.hamiltontaxcollector.com" },
+  "Hardee": { appraiser: "https://hardeepa.com/", auction: "https://www.hardeeclerk.com/departments/tax-deeds/tax-deed-sales/", taxcoll: "https://www.hardeetaxcollector.org" },
+  "Hendry": { appraiser: "https://hendryprop.com/", auction: "https://hendry.realtaxdeed.com", taxcoll: "https://www.hendrytaxcollector.org" },
+  "Hernando": { appraiser: "https://hernandopa-fl.us/", auction: "https://hernando.realtaxdeed.com", taxcoll: "https://www.hernandotax.us" },
+  "Highlands": { appraiser: "https://www.hcpao.org/", auction: "https://highlands.realtaxdeed.com", taxcoll: "https://www.highlandstaxcollector.com" },
+  "Hillsborough": { appraiser: "https://www.hcpafl.org/", auction: "https://hillsborough.realtaxdeed.com", taxcoll: "https://www.hillstax.org" },
+  "Holmes": { appraiser: "https://www.qpublic.net/fl/holmes/", auction: "https://holmesclerk.com/courts/foreclosures-tax-deeds/tax-deeds/", taxcoll: "https://www.holmestaxcollector.com" },
+  "Indian River": { appraiser: "https://www.ircpa.org/", auction: "https://indian-river.realtaxdeed.com", taxcoll: "https://www.irctax.com" },
+  "Jackson": { appraiser: "https://jacksonpa.com/", auction: "https://jackson.realtaxdeed.com", taxcoll: "https://www.jacksontaxcollector.co" },
+  "Jefferson": { appraiser: "https://jeffersonpa.net/", auction: "https://www.jeffersonclerk.com/clerk-services/property-sales/tax-deed-sales/", taxcoll: "https://www.jeffersontaxcollector.com" },
+  "Lafayette": { appraiser: "https://www.lafayettepa.com/", auction: "https://www.lafayetteclerk.com/tax-deeds/", taxcoll: "https://www.lafayettetaxtaxcollector.com" },
+  "Lake": { appraiser: "https://www.lakecopropappr.com/", auction: "https://lake.realtaxdeed.com", taxcoll: "https://www.laketax.com" },
+  "Lee": { appraiser: "https://www.leepa.org/", auction: "https://lee.realtaxdeed.com", taxcoll: "https://www.leetc.com" },
+  "Leon": { appraiser: "https://www.leonpa.gov/", auction: "https://leon.realtaxdeed.com", taxcoll: "https://www.leontaxcollector.net" },
+  "Levy": { appraiser: "https://www.qpublic.net/fl/levy/", auction: "https://online.levyclerk.com/TaxSmartWeb", taxcoll: "https://www.levytaxcollector.com" },
+  "Liberty": { appraiser: "https://libertypa.org/", auction: "https://libertyclerk.com/courts/tax-deeds/", taxcoll: "https://www.libertytaxcollector.com" },
+  "Madison": { appraiser: "https://madisonpa.com/", auction: "https://www.madisonclerk.com/tax-deed-sales/", taxcoll: "https://www.madisontaxcollector.com" },
+  "Manatee": { appraiser: "https://www.manateepao.gov/", auction: "https://manatee.realforeclose.com", taxcoll: "https://www.taxcol.org" },
+  "Marion": { appraiser: "https://www.pa.marion.fl.us/", auction: "https://marion.realtaxdeed.com", taxcoll: "https://www.mariontax.com" },
+  "Martin": { appraiser: "https://www.pamartinfl.gov/", auction: "https://martin.realtaxdeed.com", taxcoll: "https://www.martintaxcollector.com" },
+  "Miami-Dade": { appraiser: "https://www.miamidadepa.gov/", auction: "https://miami-dade.realtaxdeed.com", taxcoll: "https://www.mdctaxcollector.gov" },
+  "Monroe": { appraiser: "https://www.mcpafl.org/", auction: "https://monroe.realtaxdeed.com", taxcoll: "https://www.monroetaxcollector.com" },
+  "Nassau": { appraiser: "https://www.nassauflpa.com/", auction: "https://nassau.realtaxdeed.com", taxcoll: "https://www.nassautaxcollector.com" },
+  "Okaloosa": { appraiser: "https://www.okaloosapa.com/", auction: "https://www.bid4assets.com/OkaloosaFLTax/listings", taxcoll: "https://www.okaloosatax.com" },
+  "Okeechobee": { appraiser: "https://www.okeechobeepa.com/", auction: "https://okeechobee.realtaxdeed.com", taxcoll: "https://www.okeechobeetaxcollector.com" },
+  "Orange": { appraiser: "https://www.ocpafl.org/", auction: "https://orange.realtaxdeed.com", taxcoll: "https://www.octaxcol.com" },
+  "Osceola": { appraiser: "https://www.property-appraiser.org/", auction: "https://osceola.realtaxdeed.com", taxcoll: "https://www.osceolataxcollector.org" },
+  "Palm Beach": { appraiser: "https://www.pbcpao.gov/", auction: "https://palm-beach.realtaxdeed.com", taxcoll: "https://www.pbctax.com" },
+  "Pasco": { appraiser: "https://pascopa.com/", auction: "https://pasco.realtaxdeed.com", taxcoll: "https://www.pascotaxes.com" },
+  "Pinellas": { appraiser: "https://www.pcpao.gov/", auction: "https://pinellas.realtaxdeed.com", taxcoll: "https://www.pinellastaxcollector.gov" },
+  "Polk": { appraiser: "https://www.polkflpa.gov/", auction: "https://polk.realtaxdeed.com", taxcoll: "https://www.polktaxes.com" },
+  "Putnam": { appraiser: "https://pa.putnam-fl.com/", auction: "https://putnam.realtaxdeed.com", taxcoll: "https://www.putnamcountytaxcollector.com" },
+  "Santa Rosa": { appraiser: "https://srcpa.gov/", auction: "https://santa-rosa.realtaxdeed.com", taxcoll: "https://www.santarosatax.com" },
+  "Sarasota": { appraiser: "https://www.sc-pa.com/", auction: "https://sarasota.realtaxdeed.com", taxcoll: "https://www.sarasotataxcollector.com" },
+  "Seminole": { appraiser: "https://www.scpafl.org/", auction: "https://seminole.realtaxdeed.com", taxcoll: "https://www.seminoletax.org" },
+  "St. Johns": { appraiser: "https://www.sjcpa.gov/", auction: "https://saintjohns.realtaxdeed.com", taxcoll: "https://www.sjctax.us" },
+  "St. Lucie": { appraiser: "https://www.paslc.gov/", auction: "https://st-lucie.realforeclose.com", taxcoll: "https://www.tcslc.com" },
+  "Sumter": { appraiser: "https://www.sumterpa.com/", auction: "https://www.sumterclerk.com/public-records/tax-deeds/tax-deed-sales/", taxcoll: "https://www.sumtertaxcollector.com" },
+  "Suwannee": { appraiser: "https://www.suwanneepa.com/", auction: "https://suwannee.realtaxdeed.com", taxcoll: "https://www.suwanneetaxcollector.com" },
+  "Taylor": { appraiser: "https://www.qpublic.net/fl/taylor/", auction: "https://taylorclerk.com/departments/tax-deeds/", taxcoll: "https://www.taylorcountytaxcollector.com" },
+  "Union": { appraiser: "https://union.floridapa.com/", auction: "https://unionclerk.com/tax-deed-sales/", taxcoll: "https://www.unioncountytaxcollector.com" },
+  "Volusia": { appraiser: "https://vcpa.vcgov.org/", auction: "https://volusia.realtaxdeed.com", taxcoll: "https://www.volusiataxcollector.org" },
+  "Wakulla": { appraiser: "https://mywakullapa.com/", auction: "https://wakullaclerk.org/official_records/tax_deed_sales.php", taxcoll: "https://www.wakullataxcollector.com" },
+  "Walton": { appraiser: "https://waltonpa.com/", auction: "https://walton.realforeclose.com", taxcoll: "https://www.waltontaxcollector.com" },
+  "Washington": { appraiser: "https://www.qpublic.net/fl/washington/", auction: "https://washington.realtaxdeed.com", taxcoll: "https://www.washingtontaxcollector.com" },
+};
+
 let ALL = [], CALENDAR = {}, NOTES = {}, FAVS = new Set(), HIDDEN = new Set(), ME = null;
 
 const LEDGERS = {
@@ -231,21 +320,77 @@ const fmtDate = d => new Date(d + "T00:00:00").toLocaleDateString("en-US", { mon
 const gate = document.getElementById("authGate");
 const app = document.getElementById("app");
 const authMsg = document.getElementById("authMsg");
+const authLead = document.getElementById("authLead");
+const authModeToggle = document.getElementById("authModeToggle");
+const passwordConfirmEl = document.getElementById("passwordConfirm");
+
+// "Sign in" is the default; the toggle flips this to a self-serve signup
+// flow (sb.auth.signUp). NOTE: this only controls whether a Supabase Auth
+// account can be created - it doesn't grant that account access to any
+// data. Every table is still gated by Supabase Row Level Security, which
+// this toggle has no say over.
+let authMode = "signin";
+function setAuthMode(mode) {
+  authMode = mode;
+  const signUp = mode === "signup";
+  if (authLead) authLead.textContent = signUp ? "Create an account." : "Sign in to continue.";
+  const btn = document.getElementById("signInBtn");
+  if (btn) btn.textContent = signUp ? "Create account" : "Sign in";
+  if (authModeToggle) authModeToggle.textContent = signUp ? "Already have an account? Sign in" : "Need an account? Create one";
+  if (passwordConfirmEl) { passwordConfirmEl.hidden = !signUp; passwordConfirmEl.required = signUp; passwordConfirmEl.value = ""; }
+  const pw = document.getElementById("password");
+  if (pw) pw.autocomplete = signUp ? "new-password" : "current-password";
+  if (authMsg) { authMsg.className = "auth-msg"; authMsg.textContent = ""; }
+}
+if (authModeToggle) {
+  authModeToggle.addEventListener("click", () => setAuthMode(authMode === "signin" ? "signup" : "signin"));
+}
 
 const authForm = document.getElementById("authForm");
 if (authForm) {
   authForm.addEventListener("submit", async e => {
     e.preventDefault();
     const btn = document.getElementById("signInBtn");
+    const email = document.getElementById("email").value.trim();
+    const password = document.getElementById("password").value;
+
+    if (authMode === "signup") {
+      if (passwordConfirmEl && password !== passwordConfirmEl.value) {
+        if (authMsg) { authMsg.className = "auth-msg err"; authMsg.textContent = "Passwords don't match."; }
+        return;
+      }
+      if (btn) btn.disabled = true;
+      if (authMsg) { authMsg.className = "auth-msg"; authMsg.textContent = "Creating account"; }
+      const { data, error } = await sb.auth.signUp({ email, password });
+      if (btn) btn.disabled = false;
+      if (error) {
+        if (authMsg) { authMsg.className = "auth-msg err"; authMsg.textContent = error.message; }
+        return;
+      }
+      // Two outcomes depending on the project's email-confirmation setting:
+      // a session comes back immediately (auto-confirmed - the
+      // onAuthStateChange listener below takes it from here and shows the
+      // app), or Supabase requires a confirmation click first and there's
+      // no session yet - in that case, drop back to the sign-in view with
+      // an explanatory message instead of silently doing nothing.
+      if (!data.session) {
+        // setAuthMode() clears authMsg as part of resetting the form, so the
+        // confirmation message has to be set AFTER switching modes, not before.
+        setAuthMode("signin");
+        if (authMsg) {
+          authMsg.className = "auth-msg";
+          authMsg.textContent = "Account created — check your email to confirm it, then sign in.";
+        }
+      }
+      return;
+    }
+
     if (btn) btn.disabled = true;
     if (authMsg) {
       authMsg.className = "auth-msg";
       authMsg.textContent = "Signing in";
     }
-    const { error } = await sb.auth.signInWithPassword({
-      email: document.getElementById("email").value.trim(),
-      password: document.getElementById("password").value
-    });
+    const { error } = await sb.auth.signInWithPassword({ email, password });
     if (btn) btn.disabled = false;
     if (error && authMsg) {
       authMsg.className = "auth-msg err";
@@ -321,7 +466,7 @@ async function showApp() {
   if (genEl) genEl.textContent = "Loading";
   renderSkeleton();
   await loadAll();
-  state.counties = new Set(countyNames());
+  state.counties = new Set(ALL_COUNTIES);
   buildAllChips();
   updateBadge();
   render();
@@ -400,7 +545,11 @@ function countyCounts() {
 }
 function countyNamesByCount() {
   const counts = countyCounts();
-  return countyNames().slice().sort((a, b) => (counts.get(b) || 0) - (counts.get(a) || 0) || a.localeCompare(b));
+  // Sorts ALL 67 counties busiest-first (not just the ones with live rows),
+  // so the picker always shows the full state - counties with 0 properties
+  // sink to the bottom, alphabetically among themselves, instead of
+  // disappearing.
+  return ALL_COUNTIES.slice().sort((a, b) => (counts.get(b) || 0) - (counts.get(a) || 0) || a.localeCompare(b));
 }
 // The quick "Select County" dropdown is a single-pick shortcut over the same
 // state.counties set the multi-select chips drive - picking one county here
@@ -416,7 +565,7 @@ function syncCountyQuickSelect() {
 function buildAllChips() {
   const counts = countyCounts();
   const names = countyNamesByCount();
-  buildChips("countyChips", names, state.counties, v => `${v} (${counts.get(v) || 0})`);
+  buildChips("countyChips", names, state.counties, v => `${v} (${counts.get(v) || 0})`, v => (counts.get(v) ? "" : "chip-empty"));
   buildChips("typeChips", TYPE_ORDER, state.types);
   buildChips("lienChips", LIEN_ORDER, state.liens, v => LIEN_LABEL[v], v => "lien-" + v);
   const countyQuickEl = document.getElementById("countyQuick");
@@ -432,6 +581,37 @@ function buildAllChips() {
   if (lienCountEl) lienCountEl.textContent = `${state.liens.size}/${LIEN_ORDER.length}`;
   const countyCountEl = document.getElementById("countyCount");
   if (countyCountEl) countyCountEl.textContent = `${state.counties.size}/${names.length}`;
+  buildCountyRefLinks(counts, names);
+}
+
+// Counties with 0 scraped properties still get a chip (see countyNamesByCount
+// / ALL_COUNTIES above), but a chip alone doesn't let anyone actually verify
+// anything about a county the scraper hasn't reached yet. This renders a
+// direct-link row - Appraiser / Auction / Tax Collector - for every county
+// currently at 0, reusing the same LINK_ICON glyphs used elsewhere so it
+// reads as the same kind of control as the property-level reference links.
+function buildCountyRefLinks(counts, names) {
+  const wrap = document.getElementById("countyRefLinks");
+  const list = document.getElementById("countyRefList");
+  if (!wrap || !list) return;
+  const empties = names.filter(v => !counts.get(v));
+  if (!empties.length) { wrap.hidden = true; list.innerHTML = ""; return; }
+  wrap.hidden = false;
+  list.innerHTML = empties.map(v => {
+    const links = COUNTY_LINKS[v];
+    if (!links) return `<div class="county-ref-row"><span class="county-ref-name">${esc(v)}</span><span class="county-ref-none">no reference links on file</span></div>`;
+    const item = (label, url) => url
+      ? `<a href="${esc(url)}" target="_blank" rel="noopener">${linkIcon(label)}${label}</a>`
+      : "";
+    return `<div class="county-ref-row">
+      <span class="county-ref-name">${esc(v)}</span>
+      <span class="county-ref-links-row">
+        ${item("Appraiser", links.appraiser)}
+        ${item("Auction", links.auction)}
+        ${item("Tax Collector", links.taxcoll)}
+      </span>
+    </div>`;
+  }).join("");
 }
 
 function matchesSearch(p) {
@@ -983,7 +1163,7 @@ function updateBadge() {
   if (state.favoritesOnly || state.topPicksOnly || state.soonOnly) n++;
   if (state.statusView !== "all") n++;
   if (state.maxBidPct !== 40) n++;
-  if (state.counties.size !== countyNames().length) n++;
+  if (state.counties.size !== ALL_COUNTIES.length) n++;
   if (state.types.size !== TYPE_ORDER.length) n++;
   if (state.liens.size !== LIEN_ORDER.length) n++;
   const b = document.getElementById("filtersBadge");
@@ -1017,7 +1197,7 @@ if (searchInputEl) searchInputEl.addEventListener("input", () => {
 const countyQuickEl = document.getElementById("countyQuick");
 if (countyQuickEl) countyQuickEl.addEventListener("change", () => {
   const v = countyQuickEl.value;
-  state.counties = v === "ALL" ? new Set(countyNames()) : new Set([v]);
+  state.counties = v === "ALL" ? new Set(ALL_COUNTIES) : new Set([v]);
   // Picking one specific county is a strong signal the user wants to see
   // straight into it, not just narrow the filter and leave it collapsed.
   if (v !== "ALL") state.expandedCounties.add(v);
@@ -1147,7 +1327,7 @@ if (resetBtn) resetBtn.addEventListener("click", () => {
   state.sortBy = "county"; state.favoritesOnly = false; state.topPicksOnly = false;
   state.soonOnly = false; state.includeQT = false; state.maxBidPct = 40;
   state.statusView = "all"; state.search = "";
-  state.counties = new Set(countyNames()); state.types = new Set(TYPE_ORDER); state.liens = new Set(LIEN_ORDER);
+  state.counties = new Set(ALL_COUNTIES); state.types = new Set(TYPE_ORDER); state.liens = new Set(LIEN_ORDER);
   state.expandedCounties.clear();
 
   ["bidMin", "bidMax", "assessedMin"].forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
@@ -1182,7 +1362,7 @@ document.querySelectorAll(".mini-btn[data-group]").forEach(btn => {
   btn.addEventListener("click", () => {
     const group = btn.dataset.group, mode = btn.dataset.mode;
     const setRef = group === "types" ? state.types : group === "liens" ? state.liens : state.counties;
-    const values = group === "types" ? TYPE_ORDER : group === "liens" ? LIEN_ORDER : countyNames();
+    const values = group === "types" ? TYPE_ORDER : group === "liens" ? LIEN_ORDER : ALL_COUNTIES;
     setRef.clear();
     if (mode === "all") values.forEach(v => setRef.add(v));
     buildAllChips();

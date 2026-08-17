@@ -78,6 +78,9 @@ a{color:var(--accent)} button{font-family:inherit}
 }
 #authGate button:hover{background:var(--ok)}
 #authGate button:disabled{opacity:.5;cursor:default;background:var(--header-bg)}
+#authGate button.auth-mode-toggle{width:100%;background:none;border:none;padding:.55rem 0 0;margin:0;
+  font-size:.78rem;color:var(--accent);cursor:pointer;text-decoration:underline;font-weight:400}
+#authGate button.auth-mode-toggle:hover{background:none;text-decoration:none}
 .auth-msg{margin-top:.9rem;font-size:.82rem;min-height:1.2em}
 .auth-msg.err{color:var(--bad)}
 
@@ -277,6 +280,27 @@ h1 .brand-accent{color:#60A5FA}
 .chipx.lien-clean.on{background:var(--ok-bg);color:var(--ok);border-color:var(--ok)}
 .chipx.lien-flag.on{background:var(--warn-bg);color:var(--warn);border-color:var(--warn)}
 .chipx.lien-serious.on{background:var(--bad-bg);color:var(--bad);border-color:var(--bad)}
+/* Counties with 0 live properties still get a chip (so all 67 always show),
+   just dimmer/dashed so it visually reads as "no data yet" rather than
+   looking identical to a county that's just unselected. */
+.chipx.chip-empty{opacity:.55;border-style:dashed}
+.chipx.chip-empty.on{opacity:.85}
+
+/* ---- county reference links: Appraiser / Auction / Tax Collector links
+   for counties with 0 scraped properties, so they can still be manually
+   verified against the county's own official sites. ---- */
+.county-ref-links{margin-top:.7rem;padding-top:.65rem;border-top:1px dashed var(--card-line)}
+.county-ref-links-head{font-size:.68rem;color:var(--ink-soft);margin-bottom:.5rem;line-height:1.35}
+.county-ref-list{display:flex;flex-direction:column;gap:.35rem;max-height:220px;overflow-y:auto}
+.county-ref-row{display:flex;align-items:center;justify-content:space-between;gap:.6rem;
+  flex-wrap:wrap;font-size:.72rem;padding:.3rem .1rem;border-bottom:1px solid var(--card-line)}
+.county-ref-row:last-child{border-bottom:none}
+.county-ref-name{font-weight:600;color:var(--ink);min-width:6.5rem}
+.county-ref-links-row{display:flex;gap:.7rem;flex-wrap:wrap}
+.county-ref-links-row a{color:var(--accent);text-decoration:none;font-size:.72rem;
+  display:inline-flex;align-items:center;gap:.15rem}
+.county-ref-links-row a:hover{text-decoration:underline}
+.county-ref-none{color:var(--ink-soft);font-style:italic;font-size:.7rem}
 .reset-btn{font-size:.72rem;color:var(--accent);background:none;border:none;cursor:pointer;
   padding:.3rem 0;text-decoration:underline}
 .tog{display:flex;align-items:center;gap:.35rem;font-size:.78rem;color:var(--ink);cursor:pointer}
