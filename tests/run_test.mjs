@@ -379,7 +379,10 @@ const EXPECTED = {
   ledgerTabCounts: ['Tax Deeds / Auctions 11', 'Lands Available / OTC 1', 'Certificates 1'],
   auctionTabOnByDefault: true,
   cardCount: 9,
-  countyChipLabels: ['Alachua (3)', 'Duval (2)', 'Escambia (2)', 'Marion (2)', 'Baker (1)', 'Bay (1)', 'Brevard (1)', 'Charlotte (1)'],
+  // All 67 counties now show (busiest-first, then alphabetical among the
+  // zero-count ones) instead of only the ~8 with live scraped data - see
+  // ALL_COUNTIES in app.js.
+  countyChipLabels: ['Alachua (3)', 'Duval (2)', 'Escambia (2)', 'Marion (2)', 'Baker (1)', 'Bay (1)', 'Brevard (1)', 'Charlotte (1)', 'Bradford (0)', 'Broward (0)', 'Calhoun (0)', 'Citrus (0)', 'Clay (0)', 'Collier (0)', 'Columbia (0)', 'DeSoto (0)', 'Dixie (0)', 'Flagler (0)', 'Franklin (0)', 'Gadsden (0)', 'Gilchrist (0)', 'Glades (0)', 'Gulf (0)', 'Hamilton (0)', 'Hardee (0)', 'Hendry (0)', 'Hernando (0)', 'Highlands (0)', 'Hillsborough (0)', 'Holmes (0)', 'Indian River (0)', 'Jackson (0)', 'Jefferson (0)', 'Lafayette (0)', 'Lake (0)', 'Lee (0)', 'Leon (0)', 'Levy (0)', 'Liberty (0)', 'Madison (0)', 'Manatee (0)', 'Martin (0)', 'Miami-Dade (0)', 'Monroe (0)', 'Nassau (0)', 'Okaloosa (0)', 'Okeechobee (0)', 'Orange (0)', 'Osceola (0)', 'Palm Beach (0)', 'Pasco (0)', 'Pinellas (0)', 'Polk (0)', 'Putnam (0)', 'Santa Rosa (0)', 'Sarasota (0)', 'Seminole (0)', 'St. Johns (0)', 'St. Lucie (0)', 'Sumter (0)', 'Suwannee (0)', 'Taylor (0)', 'Union (0)', 'Volusia (0)', 'Wakulla (0)', 'Walton (0)', 'Washington (0)'],
   filtersOpenAfterClick: true,
   brevardGroupMeta: /^Auction [A-Z][a-z]{2} \d{1,2}, \d{4}$/,
   brevardGroupCount: '1/1 active',
