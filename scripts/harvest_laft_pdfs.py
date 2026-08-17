@@ -60,16 +60,25 @@ UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like 
 HEADER_MAP = {
     "case number": "case_no", "case #": "case_no", "case no": "case_no",
     "sale #": "case_no", "sale number": "case_no",
+    "file no.": "case_no", "file no": "case_no", "file number": "case_no",
     "certificate #": "certificate_no", "certificate number": "certificate_no",
+    "cert. no": "certificate_no", "cert no": "certificate_no", "cert. no.": "certificate_no",
     "parcel id": "parcel", "parcel #": "parcel", "parcel number": "parcel",
+    "parcel identification number": "parcel",
     "owner": "owner_name", "owners": "owner_name", "owner(s)": "owner_name",
     "auction date": "sale_date", "sale date": "sale_date",
     "original sale date": "sale_date", "tax deed sale date": "sale_date",
     "escheatment date": "escheatment_date", "expiration date": "escheatment_date",
-    "amount to purchase": "bid", "opening bid": "bid",
+    "amount to purchase": "bid", "opening bid": "bid", "minimum bid": "bid",
     "original opening bid": "bid", "purchase price": "bid", "price": "bid",
     "assessed value": "assessed", "property address": "address", "address": "address",
+    "taxes address": "address",
     "legal description": "legal_desc", "description": "legal_desc",
+    # If this column has a value, the property has already been sold and is
+    # no longer available - confirmed on Hendry's PDF ("SOLD TO"). Rows with
+    # a non-blank sold_to are filtered out in _rows_from_table below rather
+    # than surfaced as a currently-purchasable property.
+    "sold to": "sold_to", "sold": "sold_to", "purchaser": "sold_to",
 }
 
 # Phrases seen in an otherwise-empty PDF that mean "no properties right now"
@@ -124,6 +133,13 @@ def _rows_from_table(table: list, county: str, source_url: str) -> list[dict]:
             val = str(raw[i]).strip()
             if val:
                 record[field] = val
+        # A "SOLD TO" (or similar) column with a value means this property
+        # has already been purchased and is no longer available - confirmed
+        # on Hendry's PDF, which keeps sold rows on the same list rather
+        # than removing them. Never surface those as a currently-available
+        # property.
+        if record.get("sold_to"):
+            continue
         # A row needs at least a case/parcel identifier to be worth keeping -
         # matches the same "skip if no case/address" discipline
         # sync-harvest-to-supabase.ps1 already applies to the auction ledger.
@@ -162,11 +178,11 @@ def extract_label_value_rows(full_text: str, county: str, source_url: str) -> li
         if not value or looks_empty(value):
             continue
         if field == anchor_field or current is None:
-            if current and (current.get("case_no") or current.get("parcel")):
+            if current and (current.get("case_no") or current.get("parcel")) and not current.get("sold_to"):
                 records.append(current)
             current = {"county": county, "source": "laft", "url_auction": source_url}
         current[field] = value
-    if current and (current.get("case_no") or current.get("parcel")):
+    if current and (current.get("case_no") or current.get("parcel")) and not current.get("sold_to"):
         records.append(current)
     return records
 
