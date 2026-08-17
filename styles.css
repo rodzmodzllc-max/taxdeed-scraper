@@ -394,8 +394,19 @@ summary.county-head::-webkit-details-marker{display:none}
 .lien-pill.flag{color:var(--warn);background:var(--warn-bg);border-color:color-mix(in srgb,var(--warn) 40%,transparent)}
 .lien-pill.serious{color:var(--bad);background:var(--bad-bg);border-color:color-mix(in srgb,var(--bad) 40%,transparent)}
 .lien-pill.unscreened{color:var(--ink-soft);background:var(--paper-line)}
-.prop-top{display:flex;justify-content:space-between;align-items:flex-start;gap:.6rem}
-.prop-address{font-size:.92rem;font-weight:700;line-height:1.3;
+/* flex-wrap - the actions row (heart/bid/hide icons + countdown + 2 pills)
+   can legitimately need 200px+ on its own once every icon/pill is present.
+   Without wrap, that row was claiming its full width first (it's
+   flex-shrink:0) and squeezing the address/title down to a couple of
+   characters on phone-width screens - reported as "card shows almost
+   nothing, not the address." Letting the row wrap means the actions drop to
+   their own line under the title once both can't fit side by side, instead
+   of both being force-fit onto one line. */
+.prop-top{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-start;gap:.3rem .6rem}
+/* min-width:160px (as a flex-basis, via the flex shorthand) keeps the title
+   from shrinking past a legible width before flex-wrap kicks in and moves
+   the actions row below it. */
+.prop-address{flex:1 1 160px;min-width:160px;font-size:.92rem;font-weight:700;line-height:1.3;
   overflow:hidden;display:-webkit-box;-webkit-line-clamp:1;-webkit-box-orient:vertical}
 .prop-county-tag{font-size:.66rem;font-weight:700;text-transform:uppercase;color:var(--accent);margin-bottom:.15rem}
 .prop-top-actions{flex-shrink:0;display:flex;align-items:center;gap:.3rem}
