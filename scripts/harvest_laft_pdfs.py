@@ -98,45 +98,111 @@ def looks_empty(text: str) -> bool:
     return any(marker in low for marker in EMPTY_MARKERS)
 
 
-def extract_rows(pdf_bytes: bytes, county: str, source_url: str) -> list[dict]:
+def _rows_from_table(table: list, county: str, source_url: str) -> list[dict]:
     rows: list[dict] = []
+    if not table or len(table) < 2:
+        return rows
+    header_row, *body = table
+    field_names = [normalize_header(h) for h in header_row]
+    if not any(field_names):
+        return rows  # not a recognizable data table - e.g. a stray formatting grid
+    for raw in body:
+        # Defense in depth: a "no properties" notice can render as a
+        # 1-column/1-row table rather than page-level text (this is what
+        # actually happened for DeSoto - looks_empty() missed it because of
+        # a mid-phrase line break, and every cell in the row was the same
+        # placeholder sentence). Skip a row outright if every non-empty cell
+        # is itself an empty marker - it is never real property data.
+        cell_texts = [str(c).strip() for c in raw if c and str(c).strip()]
+        if cell_texts and all(looks_empty(c) for c in cell_texts):
+            continue
+
+        record: dict = {"county": county, "source": "laft", "url_auction": source_url}
+        for i, field in enumerate(field_names):
+            if not field or i >= len(raw) or raw[i] is None:
+                continue
+            val = str(raw[i]).strip()
+            if val:
+                record[field] = val
+        # A row needs at least a case/parcel identifier to be worth keeping -
+        # matches the same "skip if no case/address" discipline
+        # sync-harvest-to-supabase.ps1 already applies to the auction ledger.
+        if record.get("case_no") or record.get("parcel"):
+            rows.append(record)
+    return rows
+
+
+# Every HEADER_MAP key, longest-first so e.g. "sale date" matches before the
+# more generic "sale #" would ever get a chance to swallow it. Used by
+# extract_label_value_rows() below - the last-resort parser for counties
+# that publish LAFT as plain "Label: value" text rather than any kind of
+# grid pdfplumber can detect as a table (confirmed on Marion: two properties,
+# each just "Sale #: ... Sale Date: ... Parcel #: ... Description: ...", no
+# ruling lines and no whitespace-aligned columns either).
+_LABEL_PATTERN = re.compile(
+    r"(?i)(" + "|".join(re.escape(k) for k in sorted(HEADER_MAP, key=len, reverse=True)) + r")\s*:?\s+"
+)
+
+
+def extract_label_value_rows(full_text: str, county: str, source_url: str) -> list[dict]:
+    matches = list(_LABEL_PATTERN.finditer(full_text))
+    if not matches:
+        return []
+    # The field of the very first label seen is treated as the per-property
+    # anchor: seeing it again means a new property block has started. This
+    # works regardless of which field a given county happens to lead with.
+    anchor_field = HEADER_MAP[matches[0].group(1).lower()]
+
+    records: list[dict] = []
+    current: dict | None = None
+    for i, m in enumerate(matches):
+        field = HEADER_MAP[m.group(1).lower()]
+        value_end = matches[i + 1].start() if i + 1 < len(matches) else len(full_text)
+        value = re.sub(r"\s+", " ", full_text[m.end():value_end]).strip(" .,;:-")
+        if not value or looks_empty(value):
+            continue
+        if field == anchor_field or current is None:
+            if current and (current.get("case_no") or current.get("parcel")):
+                records.append(current)
+            current = {"county": county, "source": "laft", "url_auction": source_url}
+        current[field] = value
+    if current and (current.get("case_no") or current.get("parcel")):
+        records.append(current)
+    return records
+
+
+def extract_rows(pdf_bytes: bytes, county: str, source_url: str) -> list[dict]:
     with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
         full_text = "\n".join(p.extract_text() or "" for p in pdf.pages)
         if looks_empty(full_text):
             return []
 
+        rows: list[dict] = []
         for page in pdf.pages:
-            for table in page.extract_tables():
-                if not table or len(table) < 2:
-                    continue
-                header_row, *body = table
-                field_names = [normalize_header(h) for h in header_row]
-                if not any(field_names):
-                    continue  # not a recognizable data table - e.g. a stray formatting grid
-                for raw in body:
-                    # Defense in depth: a "no properties" notice can render as a
-                    # 1-column/1-row table rather than page-level text (this is
-                    # what actually happened for DeSoto - looks_empty() missed
-                    # it because of a mid-phrase line break, and every cell in
-                    # the row was the same placeholder sentence). Skip a row
-                    # outright if every non-empty cell is itself an empty
-                    # marker - it is never real property data.
-                    cell_texts = [str(c).strip() for c in raw if c and str(c).strip()]
-                    if cell_texts and all(looks_empty(c) for c in cell_texts):
-                        continue
+            page_tables = page.extract_tables()
+            if not page_tables:
+                # Some counties (confirmed on Marion) publish this as
+                # whitespace-aligned text with no ruling lines at all -
+                # pdfplumber's default (line-based) table detector finds
+                # nothing there. Retry with its text-alignment strategy,
+                # which infers columns from character positions instead of
+                # drawn borders, before concluding the page has no table.
+                page_tables = page.extract_tables(table_settings={
+                    "vertical_strategy": "text",
+                    "horizontal_strategy": "text",
+                    "snap_tolerance": 3,
+                    "join_tolerance": 3,
+                })
+            for table in page_tables:
+                rows.extend(_rows_from_table(table, county, source_url))
 
-                    record: dict = {"county": county, "source": "laft", "url_auction": source_url}
-                    for i, field in enumerate(field_names):
-                        if not field or i >= len(raw) or raw[i] is None:
-                            continue
-                        val = str(raw[i]).strip()
-                        if val:
-                            record[field] = val
-                    # A row needs at least a case/parcel identifier to be worth keeping -
-                    # matches the same "skip if no case/address" discipline
-                    # sync-harvest-to-supabase.ps1 already applies to the auction ledger.
-                    if record.get("case_no") or record.get("parcel"):
-                        rows.append(record)
+        if not rows:
+            # Neither table strategy found anything grid-like at all (e.g. a
+            # "Sale #: ... Sale Date: ... Parcel #: ..." label block per
+            # property, with no column alignment to detect as a table
+            # either). Fall back to scanning the raw text for known field
+            # labels.
+            rows = extract_label_value_rows(full_text, county, source_url)
     return rows
 
 
