@@ -42,10 +42,28 @@ function ConvertTo-IsoDateFlexible($s) {
     return $null
 }
 
+function ToNum($s) {
+    if ($null -eq $s -or [string]::IsNullOrWhiteSpace([string]$s)) { return $null }
+    $c = ([string]$s) -replace '[^0-9.]', ''
+    if ($c -match '^\d+(\.\d+)?$') { return [double]$c }
+    return $null
+}
+
 $rows = @()
 $skipped = 0
 foreach ($p in $harvest) {
     if ([string]::IsNullOrWhiteSpace($p.case_no)) { $skipped++; continue }
+
+    # `address` and `bid` are both NOT NULL on the properties table with no
+    # DB default (same constraint the LAFT sync hit) - LienHub usually
+    # publishes a property_address, but fall back the same way LAFT does so
+    # a missing address never becomes a failed insert.
+    $addr = $p.address
+    if ([string]::IsNullOrWhiteSpace($addr)) { $addr = "Account $($p.case_no)" }
+
+    $bidVal = ToNum $p.bid
+    if ($null -eq $bidVal) { $bidVal = 0 }
+
     $rows += [ordered]@{
         source          = "certificate"
         county          = $p.county
@@ -54,7 +72,12 @@ foreach ($p in $harvest) {
         tax_year        = $p.tax_year
         issued_date     = ConvertTo-IsoDateFlexible $p.issued_date
         expiration_date = ConvertTo-IsoDateFlexible $p.expiration_date
-        bid             = $p.bid
+        bid             = $bidVal
+        address         = $addr
+        owner_name      = if ([string]::IsNullOrWhiteSpace($p.owner_name)) { $null } else { $p.owner_name }
+        parcel          = if ([string]::IsNullOrWhiteSpace($p.parcel)) { $null } else { $p.parcel }
+        assessed        = ToNum $p.assessed
+        interest_rate   = ToNum $p.interest_rate
         url_auction     = $p.url_auction
     }
 }
