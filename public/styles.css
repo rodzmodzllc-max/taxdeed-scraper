@@ -45,24 +45,24 @@ a{color:var(--accent)} button{font-family:inherit}
 /* ---- auth gate: dedicated sign-in screen - centered card over a subtle
    navy-to-emerald gradient wash, brand mark + tagline up top, instead of
    bare centered text on the plain page background. ---- */
-#authGate{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1.2rem;
+#authGate, #pendingGate{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1.2rem;
   background:
     radial-gradient(ellipse 90% 60% at 15% -10%, color-mix(in srgb, var(--ok) 16%, transparent), transparent),
     radial-gradient(ellipse 90% 60% at 100% 110%, color-mix(in srgb, var(--header-bg) 30%, transparent), transparent),
     var(--paper)}
 /* The ID selector above beats the UA [hidden]{display:none} rule on
-   specificity, so #authGate would stay visible (as display:flex) even while
-   hidden without this override - same class of bug as an earlier
-   .pagination-bar[hidden] miss in this app. */
-#authGate[hidden]{display:none}
+   specificity, so #authGate/#pendingGate would stay visible (as
+   display:flex) even while hidden without this override - same class of
+   bug as an earlier .pagination-bar[hidden] miss in this app. */
+#authGate[hidden], #pendingGate[hidden]{display:none}
 .auth-card{width:100%;max-width:360px;background:var(--card);border:1px solid var(--card-line);
   border-radius:16px;box-shadow:0 1px 2px rgba(15,23,42,.06),0 16px 40px rgba(15,23,42,.14);
   padding:2rem 1.6rem 1.7rem;text-align:center}
 .auth-brand{display:flex;align-items:center;justify-content:center;gap:.5rem;margin-bottom:1rem}
-#authGate h1{font-family:'Inter',sans-serif;font-weight:800;font-size:1.35rem;margin:0;
+#authGate h1, #pendingGate h1{font-family:'Inter',sans-serif;font-weight:800;font-size:1.35rem;margin:0;
   letter-spacing:-.01em;color:var(--ink)}
 .auth-tagline{font-size:.78rem;color:var(--ink-soft);line-height:1.4;margin:0 0 1.5rem}
-#authGate p.auth-lead{font-size:.85rem;color:var(--ink-soft);margin:0 0 1.2rem}
+#authGate p.auth-lead, #pendingGate p.auth-lead{font-size:.85rem;color:var(--ink-soft);margin:0 0 1.2rem}
 #authGate input{
   width:100%;padding:.65rem .75rem;margin-bottom:.6rem;font-size:.95rem;
   border:1px solid var(--card-line);border-radius:8px;background:var(--paper);color:var(--ink);
@@ -72,15 +72,15 @@ a{color:var(--accent)} button{font-family:inherit}
    theme (it's the body text color), which would leave white button text
    unreadable on a now-light background. --header-bg is the one color this
    app deliberately keeps dark navy in both themes. */
-#authGate button{
+#authGate button, #pendingGate button{
   width:100%;padding:.7rem;font-size:.92rem;font-weight:700;border:none;border-radius:8px;
   background:var(--header-bg);color:#fff;cursor:pointer;margin-top:.2rem;letter-spacing:.01em;
 }
-#authGate button:hover{background:var(--ok)}
-#authGate button:disabled{opacity:.5;cursor:default;background:var(--header-bg)}
-#authGate button.auth-mode-toggle{width:100%;background:none;border:none;padding:.55rem 0 0;margin:0;
+#authGate button:hover, #pendingGate button:hover{background:var(--ok)}
+#authGate button:disabled, #pendingGate button:disabled{opacity:.5;cursor:default;background:var(--header-bg)}
+#authGate button.auth-mode-toggle, #pendingGate button.auth-mode-toggle{width:100%;background:none;border:none;padding:.55rem 0 0;margin:0;
   font-size:.78rem;color:var(--accent);cursor:pointer;text-decoration:underline;font-weight:400}
-#authGate button.auth-mode-toggle:hover{background:none;text-decoration:none}
+#authGate button.auth-mode-toggle:hover, #pendingGate button.auth-mode-toggle:hover{background:none;text-decoration:none}
 .auth-msg{margin-top:.9rem;font-size:.82rem;min-height:1.2em}
 .auth-msg.err{color:var(--bad)}
 
@@ -130,6 +130,20 @@ h1 .brand-accent{color:#60A5FA}
   color:var(--header-ink);letter-spacing:-.01em}
 .brand-name .brand-accent{color:var(--ok)}
 @media (min-width:1024px){.topbar{padding:.5rem 1.6rem}}
+
+/* ---- admin: pending sign-up approvals banner ---- */
+.admin-approvals{background:var(--warn-bg);border-bottom:1px solid var(--warn);
+  padding:.6rem 1.1rem}
+.admin-approvals-head{font-size:.72rem;font-weight:700;color:var(--warn);margin-bottom:.4rem;
+  text-transform:uppercase;letter-spacing:.02em}
+.admin-approvals-list{display:flex;flex-direction:column;gap:.4rem}
+.admin-approval-row{display:flex;align-items:center;gap:.7rem;flex-wrap:wrap;
+  font-size:.78rem;background:var(--card);border:1px solid var(--card-line);
+  border-radius:8px;padding:.4rem .6rem}
+.admin-approval-email{font-weight:600;color:var(--ink)}
+.admin-approval-when{color:var(--ink-soft);font-size:.7rem;flex:1}
+.admin-approve-btn{background:var(--ok-bg);color:var(--ok);border-color:var(--ok)}
+@media (min-width:1024px){.admin-approvals{padding:.6rem 1.6rem}}
 
 /* ---- ledger tabs: the top-level Auctions / Lands Available / Certificates
    switcher. First thing under the masthead so both ledgers are visible right

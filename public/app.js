@@ -200,7 +200,7 @@ const COUNTY_LINKS = {
   "Washington": { appraiser: "https://www.qpublic.net/fl/washington/", auction: "https://washington.realtaxdeed.com", taxcoll: "https://www.washingtontaxcollector.com" },
 };
 
-let ALL = [], CALENDAR = {}, NOTES = {}, FAVS = new Set(), HIDDEN = new Set(), ME = null;
+let ALL = [], CALENDAR = {}, NOTES = {}, FAVS = new Set(), HIDDEN = new Set(), ME = null, IS_ADMIN = false;
 
 const LEDGERS = {
   auction: { title: "Auctions & Bidding", sub: "Open to competitive bidding at a live county auction." },
@@ -319,6 +319,7 @@ const fmtDate = d => new Date(d + "T00:00:00").toLocaleDateString("en-US", { mon
 
 const gate = document.getElementById("authGate");
 const app = document.getElementById("app");
+const pendingGate = document.getElementById("pendingGate");
 const authMsg = document.getElementById("authMsg");
 const authLead = document.getElementById("authLead");
 const authModeToggle = document.getElementById("authModeToggle");
@@ -403,12 +404,47 @@ const signOutBtn = document.getElementById("signOutBtn");
 if (signOutBtn) {
   signOutBtn.addEventListener("click", () => doSignOut(null));
 }
+const pendingSignOutBtn = document.getElementById("pendingSignOutBtn");
+if (pendingSignOutBtn) {
+  pendingSignOutBtn.addEventListener("click", () => doSignOut(null));
+}
 
 async function doSignOut(reason) {
   stopIdleWatch();
   if (reason) sessionStorage.setItem("tdw_signout_reason", reason);
   await sb.auth.signOut();
   location.reload();
+}
+
+function showPending() {
+  stopIdleWatch();
+  if (gate) gate.hidden = true;
+  if (app) app.hidden = true;
+  if (pendingGate) pendingGate.hidden = false;
+}
+
+// Gatekeeper between "signed in" and "sees the app": every account also
+// needs an approved row in public.profiles (see schema-v6-approvals.sql).
+// Self-serve sign-up creates the auth account instantly, but a DB trigger
+// creates its profiles row with approved=false - actual ledger access stays
+// blocked by RLS until the owner flips that to true (from the admin panel
+// in showApp(), or directly in the Supabase table editor).
+async function checkApprovalAndEnter(session) {
+  ME = session.user;
+  const { data: profile, error } = await sb.from("profiles").select("approved,is_admin").eq("id", ME.id).maybeSingle();
+  if (error) {
+    // Most likely schema-v6-approvals.sql hasn't been run against this
+    // project yet (profiles table doesn't exist) - fall back to the
+    // pre-approval-gate behavior instead of locking everyone out because of
+    // a migration nobody's applied. Once the migration runs, this query
+    // stops erroring and the gate takes effect on the next sign-in.
+    IS_ADMIN = false;
+    showApp();
+    return;
+  }
+  IS_ADMIN = !!(profile && profile.is_admin);
+  if (profile && profile.approved) showApp();
+  else showPending();
 }
 
 let lastActivity = Date.now();
@@ -425,13 +461,13 @@ function startIdleWatch() {
 document.addEventListener("visibilitychange", () => { if (!document.hidden) markActive(); });
 
 sb.auth.onAuthStateChange((_e, session) => {
-  if (session && session.user) { ME = session.user; showApp(); }
-  else if (gate && app) { gate.hidden = false; app.hidden = true; }
+  if (session && session.user) { checkApprovalAndEnter(session); }
+  else if (gate && app) { gate.hidden = false; app.hidden = true; if (pendingGate) pendingGate.hidden = true; }
 });
 
 (async () => {
   const { data } = await sb.auth.getSession();
-  if (data.session) { ME = data.session.user; showApp(); }
+  if (data.session) { checkApprovalAndEnter(data.session); }
   else if (gate) {
     gate.hidden = false;
     const why = sessionStorage.getItem("tdw_signout_reason");
@@ -461,6 +497,7 @@ function renderSkeleton() {
 
 async function showApp() {
   if (gate) gate.hidden = true;
+  if (pendingGate) pendingGate.hidden = true;
   if (app) app.hidden = false;
   const genEl = document.getElementById("generatedAt");
   if (genEl) genEl.textContent = "Loading";
@@ -471,6 +508,39 @@ async function showApp() {
   updateBadge();
   render();
   startIdleWatch();
+  if (IS_ADMIN) refreshAdminApprovals();
+}
+
+// Admin-only: lists every account still waiting on approved=true (see
+// schema-v6-approvals.sql) with a one-click Approve button. Only ever
+// fetches anything for an admin account - profiles' RLS only lets a
+// non-admin see their own row, so this silently returns nothing (not an
+// error) for everyone else, but it's still gated behind IS_ADMIN so
+// non-admins never even make the request.
+async function refreshAdminApprovals() {
+  const wrap = document.getElementById("adminApprovals");
+  const list = document.getElementById("adminApprovalsList");
+  if (!wrap || !list) return;
+  const { data, error } = await sb.from("profiles").select("id,email,requested_at").eq("approved", false).order("requested_at");
+  if (error || !data || !data.length) { wrap.hidden = true; list.innerHTML = ""; return; }
+  wrap.hidden = false;
+  list.innerHTML = data.map(p => `
+    <span class="admin-approval-row" data-id="${esc(p.id)}">
+      <span class="admin-approval-email">${esc(p.email || p.id)}</span>
+      <span class="admin-approval-when">requested ${fmtDate((p.requested_at || "").slice(0, 10))}</span>
+      <button class="mini-btn admin-approve-btn" type="button" data-id="${esc(p.id)}">✓ Approve</button>
+    </span>`).join("");
+  list.querySelectorAll(".admin-approve-btn").forEach(btn => {
+    btn.addEventListener("click", async () => {
+      btn.disabled = true;
+      btn.textContent = "Approving…";
+      const { error: updErr } = await sb.from("profiles")
+        .update({ approved: true, approved_at: new Date().toISOString() })
+        .eq("id", btn.dataset.id);
+      if (updErr) { btn.disabled = false; btn.textContent = "✓ Approve"; alert("Couldn't approve: " + updErr.message); return; }
+      refreshAdminApprovals();
+    });
+  });
 }
 
 async function loadAll() {

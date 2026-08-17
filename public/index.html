@@ -8,9 +8,11 @@
 <link rel="stylesheet" href="styles.css">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#0F172A">
-<link rel="icon" href="icons/icon-192.png">
+<!-- ?v=2 cache-busts the re-logo'd icon files - see sw.js's comment on
+     SHELL for why a filename-only swap wasn't enough for returning users. -->
+<link rel="icon" href="icons/icon-192.png?v=2">
 <!-- iOS has no manifest support for these; it needs its own tags. -->
-<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=2">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Tax Deeds">
@@ -22,7 +24,7 @@
 <div id="authGate" hidden>
   <div class="auth-card">
     <div class="auth-brand">
-      <img class="brand-mark" src="icons/icon-192.png" width="30" height="30" alt="" aria-hidden="true">
+      <img class="brand-mark" src="icons/icon-192.png?v=2" width="30" height="30" alt="" aria-hidden="true">
       <h1>FL Tax Deed Watchlist</h1>
     </div>
     <p class="auth-tagline">Florida Tax Deed Intelligence &amp; Auction Watchlist</p>
@@ -38,14 +40,39 @@
   </div>
 </div>
 
+<!-- ============ pending approval ============
+     Shown instead of the app for a signed-in account whose profiles.approved
+     is still false (see schema-v6-approvals.sql) - the account exists and
+     can authenticate, but every ledger table is walled off by RLS until the
+     owner approves it, so there'd be nothing to show here anyway. -->
+<div id="pendingGate" hidden>
+  <div class="auth-card">
+    <div class="auth-brand">
+      <img class="brand-mark" src="icons/icon-192.png?v=2" width="30" height="30" alt="" aria-hidden="true">
+      <h1>FL Tax Deed Watchlist</h1>
+    </div>
+    <p class="auth-lead">Account created — awaiting approval.</p>
+    <p class="auth-tagline" style="margin-bottom:1.4rem">The owner has been notified. You'll get access to the ledgers once your account is approved - no need to sign up again.</p>
+    <button class="auth-mode-toggle" id="pendingSignOutBtn" type="button" style="padding-top:0">Sign out</button>
+  </div>
+</div>
+
 <!-- ============ app ============ -->
 <div id="app" hidden>
   <!-- Slim brand strip, pinned above the (deliberately non-sticky) masthead
        below - see the note on .masthead for why the taller block isn't the
        one that pins itself. -->
   <div class="topbar">
-    <img class="brand-mark" src="icons/icon-192.png" width="22" height="22" alt="" aria-hidden="true">
+    <img class="brand-mark" src="icons/icon-192.png?v=2" width="22" height="22" alt="" aria-hidden="true">
     <span class="brand-name">FL Tax Deed<span class="brand-accent">•</span>Watchlist</span>
+  </div>
+  <!-- Admin-only: visible when the signed-in account's profiles.is_admin is
+       true AND at least one other account is awaiting approval. Everyone
+       else never sees this section (and can't - RLS only lets admins read
+       other people's profiles rows in the first place). -->
+  <div class="admin-approvals" id="adminApprovals" hidden>
+    <div class="admin-approvals-head">🔔 Pending sign-ups awaiting your approval</div>
+    <div class="admin-approvals-list" id="adminApprovalsList"></div>
   </div>
   <div class="masthead">
     <div class="eyebrow-row">
