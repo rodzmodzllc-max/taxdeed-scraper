@@ -361,6 +361,37 @@ results.linkIconPresent = (await page.locator('.prop-links a').first().innerHTML
 // upgraded pill-style banner renders with its ratio callout.
 results.toppickBannerText = (await page.locator('.toppick-banner').first().textContent().catch(() => '')) || '';
 
+// --- My Bid List: a small capped shortlist (⚐/⚑), separate from the
+// uncapped ♥ Favorites - add from a card, open the modal, remove from
+// inside the modal, close it. Nothing above this point touches bid_list,
+// so it should still read 0/10 going in. ---
+results.bidListChipTextInitial = (await page.locator('#bidListCount').textContent() || '').trim();
+if ((await page.locator('#expandAllBtn').textContent()) === 'Expand all') {
+  await page.click('#expandAllBtn');
+  await page.waitForTimeout(150);
+}
+const firstBidBtn = page.locator('.prop-card .bid-btn').first();
+await firstBidBtn.scrollIntoViewIfNeeded();
+results.bidBtnIconBefore = (await firstBidBtn.textContent() || '').trim();
+await firstBidBtn.click();
+await page.waitForTimeout(150);
+results.bidBtnIconAfterAdd = (await firstBidBtn.textContent() || '').trim();
+results.bidListChipTextAfterAdd = (await page.locator('#bidListCount').textContent() || '').trim();
+
+await page.click('#bidListToggle');
+await page.waitForTimeout(200);
+results.bidListModalVisible = await page.locator('#bidListModal').isVisible();
+results.bidListModalCardCount = await page.locator('#bidListModal .prop-card').count();
+
+await page.locator('#bidListModal .bid-btn').first().click();
+await page.waitForTimeout(200);
+results.bidListModalCardCountAfterRemove = await page.locator('#bidListModal .prop-card').count();
+results.bidListChipTextAfterRemove = (await page.locator('#bidListCount').textContent() || '').trim();
+
+await page.click('[data-action="closebidlist"]');
+await page.waitForTimeout(150);
+results.bidListModalHiddenAfterClose = await page.locator('#bidListModal').isHidden();
+
 await browser.close();
 
 // ============================================================
@@ -477,6 +508,15 @@ const EXPECTED = {
   infoTipCount: 1,
   linkIconPresent: true,
   toppickBannerText: '★ Top pick 18.0× market vs bid',
+  bidListChipTextInitial: '0/10',
+  bidBtnIconBefore: '⚐',
+  bidBtnIconAfterAdd: '⚑',
+  bidListChipTextAfterAdd: '1/10',
+  bidListModalVisible: true,
+  bidListModalCardCount: 1,
+  bidListModalCardCountAfterRemove: 0,
+  bidListChipTextAfterRemove: '0/10',
+  bidListModalHiddenAfterClose: true,
 };
 
 const mismatches = [];
