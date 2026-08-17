@@ -107,14 +107,40 @@ def looks_empty(text: str) -> bool:
     return any(marker in low for marker in EMPTY_MARKERS)
 
 
+def _find_header_row(table: list) -> tuple[int, list] | None:
+    """Return (row_index, field_names) for whichever row looks most like a
+    real header, or None if no row is a plausible match.
+
+    Can't just assume row 0 - confirmed on Hendry, whose PDF renders the
+    title, the multi-line disclaimer paragraph, AND the actual data all
+    inside one pdfplumber-detected table (one bordered box with internal
+    divider lines), so the real "File No. / Cert. No / ..." header sits
+    several rows down, with the title text ("LIST OF LANDS AVAILABLE FOR
+    TAXES") misidentified as row 0 instead. Score every row by how many
+    cells normalize to a known field and take the best one, requiring at
+    least 2 matches so a stray coincidental match (e.g. a "Description"
+    sentence in the preamble) can't be mistaken for a real header.
+    """
+    best_idx, best_fields, best_score = None, None, 1
+    for idx, row in enumerate(table):
+        fields = [normalize_header(c) for c in row]
+        score = sum(1 for f in fields if f)
+        if score > best_score:
+            best_idx, best_fields, best_score = idx, fields, score
+    if best_idx is None:
+        return None
+    return best_idx, best_fields
+
+
 def _rows_from_table(table: list, county: str, source_url: str) -> list[dict]:
     rows: list[dict] = []
     if not table or len(table) < 2:
         return rows
-    header_row, *body = table
-    field_names = [normalize_header(h) for h in header_row]
-    if not any(field_names):
+    found_header = _find_header_row(table)
+    if not found_header:
         return rows  # not a recognizable data table - e.g. a stray formatting grid
+    header_idx, field_names = found_header
+    body = table[header_idx + 1:]
     for raw in body:
         # Defense in depth: a "no properties" notice can render as a
         # 1-column/1-row table rather than page-level text (this is what
