@@ -56,38 +56,41 @@ foreach ($p in $harvest) {
         $skipped++
         continue
     }
-    # `address` is NOT NULL on the properties table. Most LAFT PDFs don't
-    # publish a street address at all (Marion's columns are just Sale #/Sale
-    # date/Parcel #/Description - no address), so unlike the auction
-    # harvester this can't skip rows that lack one. Instead, omit the key
-    # entirely when blank rather than sending an explicit JSON null -
-    # PostgREST then falls back to the column default, same as
-    # sync-certificates-to-supabase.ps1 already does for every optional
-    # column it doesn't send. Fall back to the legal description or parcel
-    # ID so the property still shows *something* in the UI.
+    # `address` and `bid` are both NOT NULL on the properties table, and
+    # neither has a database default - confirmed live: omitting `bid`
+    # entirely (rather than sending an explicit null) still failed with the
+    # same "violates not-null constraint" error, so the column really has no
+    # DEFAULT clause to fall back to. That means both need a real value
+    # computed here, not just "don't send null".
+    #
+    # Most LAFT PDFs don't publish a street address at all (Marion's columns
+    # are just Sale #/Sale date/Parcel #/Description - no address) and often
+    # don't publish a price either (same PDF, no price column) - unlike the
+    # auction harvester this can't just skip rows that lack them. Fall back
+    # to the legal description or parcel/case ID for address so the property
+    # still shows *something* in the UI, and to 0 for bid so "no published
+    # price" is visually obvious rather than silently wrong.
     $addr = $p.address
     if ([string]::IsNullOrWhiteSpace($addr)) { $addr = $p.legal_desc }
     if ([string]::IsNullOrWhiteSpace($addr) -and -not [string]::IsNullOrWhiteSpace($p.parcel)) { $addr = "Parcel $($p.parcel)" }
     if ([string]::IsNullOrWhiteSpace($addr) -and -not [string]::IsNullOrWhiteSpace($p.case_no)) { $addr = "Case $($p.case_no)" }
     if ([string]::IsNullOrWhiteSpace($addr)) { $addr = "Address not published - see county PDF" }
 
+    $bidVal = ToNum $p.bid
+    if ($null -eq $bidVal) { $bidVal = 0 }
+
     $row = [ordered]@{
         source      = "laft"
         county      = $p.county
         case_no     = if ($p.case_no) { $p.case_no } else { $p.parcel }
         address     = $addr
+        bid         = $bidVal
         url_auction = $p.url_auction
     }
-    # `bid` is also NOT NULL, and most LAFT PDFs simply don't publish a
-    # price (confirmed on Marion - the same PDF that has no address column
-    # also has no price column). `parcel`/`sale_date` aren't currently known
-    # to be NOT NULL, but apply the same discipline to them too rather than
-    # wait for the next county to hit the same class of bug: omit the key
-    # entirely instead of sending an explicit JSON null whenever the
-    # harvester didn't actually find a value, so PostgREST falls back to
-    # each column's own default.
-    $bidVal = ToNum $p.bid
-    if ($null -ne $bidVal) { $row["bid"] = $bidVal }
+    # `parcel`/`sale_date` haven't thrown a not-null error, so they're
+    # presumably nullable - keep omitting the key rather than sending null
+    # when the harvester didn't find a value, letting PostgREST leave them
+    # genuinely NULL instead of inventing a fake parcel/date.
     if (-not [string]::IsNullOrWhiteSpace($p.parcel)) { $row["parcel"] = $p.parcel }
     $saleDate = ConvertTo-IsoDate $p.sale_date
     if ($null -ne $saleDate) { $row["sale_date"] = $saleDate }
