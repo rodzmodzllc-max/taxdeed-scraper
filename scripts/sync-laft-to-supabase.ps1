@@ -87,13 +87,16 @@ foreach ($p in $harvest) {
         bid         = $bidVal
         url_auction = $p.url_auction
     }
-    # `parcel`/`sale_date` haven't thrown a not-null error, so they're
-    # presumably nullable - keep omitting the key rather than sending null
-    # when the harvester didn't find a value, letting PostgREST leave them
-    # genuinely NULL instead of inventing a fake parcel/date.
-    if (-not [string]::IsNullOrWhiteSpace($p.parcel)) { $row["parcel"] = $p.parcel }
-    $saleDate = ConvertTo-IsoDate $p.sale_date
-    if ($null -ne $saleDate) { $row["sale_date"] = $saleDate }
+    # `parcel`/`sale_date` are nullable, but PostgREST's bulk-insert endpoint
+    # requires every object in a batch to have the SAME set of keys - confirmed
+    # live: mixing rows that omit `parcel`/`sale_date` (when a county's PDF
+    # didn't publish them) with rows that include them fails the whole batch
+    # with { "code": "PGRST102", "message": "All object keys must match" },
+    # even though `parcel`/`sale_date` are individually nullable columns. So
+    # every row must always carry the same key set - use $null explicitly
+    # instead of conditionally omitting the key.
+    $row["parcel"] = if (-not [string]::IsNullOrWhiteSpace($p.parcel)) { $p.parcel } else { $null }
+    $row["sale_date"] = ConvertTo-IsoDate $p.sale_date
 
     $rows += $row
 }
