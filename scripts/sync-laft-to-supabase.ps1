@@ -75,12 +75,23 @@ foreach ($p in $harvest) {
         source      = "laft"
         county      = $p.county
         case_no     = if ($p.case_no) { $p.case_no } else { $p.parcel }
-        parcel      = $p.parcel
         address     = $addr
-        bid         = ToNum $p.bid
-        sale_date   = ConvertTo-IsoDate $p.sale_date
         url_auction = $p.url_auction
     }
+    # `bid` is also NOT NULL, and most LAFT PDFs simply don't publish a
+    # price (confirmed on Marion - the same PDF that has no address column
+    # also has no price column). `parcel`/`sale_date` aren't currently known
+    # to be NOT NULL, but apply the same discipline to them too rather than
+    # wait for the next county to hit the same class of bug: omit the key
+    # entirely instead of sending an explicit JSON null whenever the
+    # harvester didn't actually find a value, so PostgREST falls back to
+    # each column's own default.
+    $bidVal = ToNum $p.bid
+    if ($null -ne $bidVal) { $row["bid"] = $bidVal }
+    if (-not [string]::IsNullOrWhiteSpace($p.parcel)) { $row["parcel"] = $p.parcel }
+    $saleDate = ConvertTo-IsoDate $p.sale_date
+    if ($null -ne $saleDate) { $row["sale_date"] = $saleDate }
+
     $rows += $row
 }
 
