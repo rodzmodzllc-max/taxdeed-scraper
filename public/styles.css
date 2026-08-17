@@ -98,6 +98,14 @@ a{color:var(--accent)} button{font-family:inherit}
 .hbtn{display:inline-flex;align-items:center;gap:.3rem;font-size:.7rem;font-weight:600;
   color:var(--header-ink-soft);background:rgba(255,255,255,.06);border:1px solid var(--header-line);
   border-radius:999px;padding:.25rem .6rem;cursor:pointer;line-height:1}
+/* Without this, the [hidden] attribute on #installBtn (see app.js - it's
+   only un-hidden once a real beforeinstallprompt fires) does nothing: an
+   author rule setting `display` on the same element beats the UA
+   stylesheet's `[hidden]{display:none}` on a specificity tie, so ".hbtn
+   {display:inline-flex}" alone was silently keeping Install permanently
+   visible - and clicking it with no captured prompt is a dead click,
+   exactly the "install button that does nothing" bug. */
+.hbtn[hidden]{display:none}
 h1{font-family:'Inter',sans-serif;font-weight:800;font-size:1.5rem;line-height:1.15;
   margin:0 0 .15rem;letter-spacing:-.01em;color:var(--header-ink)}
 h1 .brand-accent{color:#60A5FA}
@@ -554,6 +562,15 @@ summary.county-head::-webkit-details-marker{display:none}
    ten cards into one long single-file scroll on a big screen. */
 .bidlist-modal-inner{max-width:600px}
 @media (min-width:1024px){.bidlist-modal-inner{max-width:1000px}}
+/* Queued-while-full properties, shown below the main bid-list card grid -
+   a plain stacked list (not cards) since these aren't on the list yet, just
+   waiting their turn. */
+.bidlist-pending{margin-top:1rem;padding-top:.8rem;border-top:1px dashed var(--card-line)}
+.bidlist-pending-head{font-size:.72rem;font-weight:700;color:var(--ink-soft);margin-bottom:.5rem}
+.bidlist-pending-row{display:flex;justify-content:space-between;align-items:center;gap:.6rem;
+  font-size:.82rem;padding:.4rem 0;border-bottom:1px solid var(--card-line)}
+.bidlist-pending-row:last-child{border-bottom:none}
+.bid-btn.pending{color:var(--warn)}
 .detail-close{position:sticky;top:0;float:right;border:none;background:var(--card);
   color:var(--ink-soft);width:2rem;height:2rem;border-radius:999px;font-size:1.1rem;
   cursor:pointer;box-shadow:var(--shadow);margin-bottom:.3rem}

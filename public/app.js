@@ -210,6 +210,10 @@ let ALL = [], CALENDAR = {}, NOTES = {}, FAVS = new Set(), HIDDEN = new Set(), M
 // BIDLIST_ORDER is the same ids in the order they were added, oldest first -
 // the bid list modal reverses it to show the most recently added one on top.
 let BIDLIST = new Set(), BIDLIST_ORDER = [];
+// Ids someone tried to add while the list was already full, in the order
+// they tried - not persisted (in-memory/this session only), auto-promoted
+// into BIDLIST oldest-first the moment a slot frees up. See promoteNextPending().
+let BID_LIST_PENDING = [];
 
 const LEDGERS = {
   auction: { title: "Auctions & Bidding", sub: "Open to competitive bidding at a live county auction." },
@@ -763,13 +767,24 @@ function noteHtml(p) {
 // properties someone's actually planning to show up and bid on, rather than
 // a general watch flag. `compact` renders the small icon-only version used
 // on cards; the full labeled version is used in the detail modal.
+//
+// Three states, not two: on the list (⚑), queued (⏳ - list was full when
+// they clicked, so this one is waiting and gets added automatically the
+// moment a slot frees up, no need to come back and click again), or neither
+// (⚐, click to add or queue).
 function bidListBtnHtml(p, compact) {
   const on = BIDLIST.has(p.id);
-  const label = on ? "On bid list — tap to remove" : `Add to bid list (max ${BID_LIST_MAX})`;
+  const pending = !on && BID_LIST_PENDING.includes(p.id);
+  const icon = on ? "⚑" : pending ? "⏳" : "⚐";
+  const label = on ? "On bid list — tap to remove"
+    : pending ? "Bid list is full - queued, will be added automatically once a slot frees up (tap to cancel)"
+    : `Add to bid list (max ${BID_LIST_MAX})`;
+  const cls = on ? " on" : pending ? " pending" : "";
   if (compact) {
-    return `<button class="icon-btn bid-btn${on ? " on" : ""}" data-action="bidlist" data-pid="${p.id}" type="button" title="${esc(label)}">${on ? "⚑" : "⚐"}</button>`;
+    return `<button class="icon-btn bid-btn${cls}" data-action="bidlist" data-pid="${p.id}" type="button" title="${esc(label)}">${icon}</button>`;
   }
-  return `<button class="icon-btn bid-btn${on ? " on" : ""}" data-action="bidlist" data-pid="${p.id}" type="button" title="${esc(label)}">${on ? "⚑ On Bid List" : "⚐ Add to Bid List"}</button>`;
+  const fullLabel = on ? "⚑ On Bid List" : pending ? "⏳ Queued — adds automatically" : "⚐ Add to Bid List";
+  return `<button class="icon-btn bid-btn${cls}" data-action="bidlist" data-pid="${p.id}" type="button" title="${esc(label)}">${fullLabel}</button>`;
 }
 
 function card(p, showCounty) {
@@ -1008,20 +1023,34 @@ function bidListRows() {
     .map(id => ALL.find(p => p.id === id))
     .filter(Boolean);
 }
+// Short human label for a pending-queue row - doesn't need to match the
+// card's title logic exactly, just be recognizable at a glance.
+function shortPropLabel(p) {
+  if (p.source === "certificate") return `Certificate #${esc(p.certificate_no || "Unknown")}`;
+  if (p.address && p.address.trim()) return esc(p.address);
+  return `Parcel #${esc(p.parcel || "Unknown")} (${esc(p.county)} County)`;
+}
 function renderBidListModal() {
   const inner = document.getElementById("bidListModalInner");
   if (!inner) return;
   const rows = bidListRows();
+  const pendingRows = BID_LIST_PENDING.map(id => ALL.find(p => p.id === id)).filter(Boolean);
   const countLabel = `${BIDLIST.size}/${BID_LIST_MAX}`;
   const listHtml = rows.length
     ? ""
     : `<div class="empty-state">Your bid list is empty. Click ⚐ on any property to save it here — up to ${BID_LIST_MAX}.</div>`;
+  const pendingHtml = pendingRows.length ? `
+    <div class="bidlist-pending">
+      <div class="bidlist-pending-head">⏳ Waiting for a slot (${pendingRows.length}) - added automatically, oldest first, as you remove items above</div>
+      ${pendingRows.map(p => `<div class="bidlist-pending-row"><span>${shortPropLabel(p)}</span><button class="reset-btn" data-action="bidlist" data-pid="${p.id}" type="button">Cancel</button></div>`).join("")}
+    </div>` : "";
   inner.innerHTML = `
     <button class="detail-close" data-action="closebidlist" type="button">✕</button>
     <h2 class="detail-address" style="margin-top:.1rem">⚑ My Bid List <span style="color:var(--ink-soft);font-weight:600">(${countLabel})</span></h2>
     <p class="mega-sub" style="margin:0 0 .8rem">The short list of properties you're actually planning to bid on — separate from ♡ Favorites, capped at ${BID_LIST_MAX} to keep it focused.</p>
     ${listHtml}
-    <div class="prop-list flat" id="bidListRows"></div>`;
+    <div class="prop-list flat" id="bidListRows"></div>
+    ${pendingHtml}`;
   const listEl = document.getElementById("bidListRows");
   if (listEl) rows.forEach(p => listEl.appendChild(p.source === "certificate" ? certCard(p, true) : card(p, true)));
 }
@@ -1045,6 +1074,20 @@ function refreshBidListModal() {
   const modal = document.getElementById("bidListModal");
   if (!modal || modal.hidden) return;
   renderBidListModal();
+}
+// Called right after a bid list removal frees up a slot - adds queued
+// properties (oldest attempt first) until either the queue is empty or the
+// list is full again, so "the bid list was full when I clicked" resolves
+// itself instead of requiring a repeat click.
+async function promoteNextPending() {
+  while (BID_LIST_PENDING.length && BIDLIST.size < BID_LIST_MAX) {
+    const nextId = BID_LIST_PENDING.shift();
+    if (BIDLIST.has(nextId)) continue; // already added some other way - skip
+    const { error } = await sb.from("bid_list").insert({ user_id: ME.id, property_id: nextId });
+    if (!error) { BIDLIST.add(nextId); BIDLIST_ORDER.push(nextId); }
+    // On error, just drop this one and keep working through the rest of the
+    // queue rather than getting stuck on it.
+  }
 }
 const bidListModalEl = document.getElementById("bidListModal");
 if (bidListModalEl) bidListModalEl.addEventListener("click", e => { if (e.target === bidListModalEl) closeBidList(); });
@@ -1088,23 +1131,31 @@ document.addEventListener("click", async e => {
     if (!error) { HIDDEN.add(pid); render(); closeDetail(); } else { btn.disabled = false; }
   } else if (action === "bidlist") {
     if (!ME || !pid) return;
-    // Checked before disabling the button, so a full list leaves it clickable
-    // (this early-returns instead of falling into the disable/re-render path
-    // below, which would otherwise leave the button stuck disabled).
-    if (!BIDLIST.has(pid) && BIDLIST.size >= BID_LIST_MAX) {
-      alert(`Your bid list already has ${BID_LIST_MAX} properties - remove one before adding another.`);
-      return;
-    }
-    btn.disabled = true;
     if (BIDLIST.has(pid)) {
+      // Remove - then immediately try to promote the oldest queued property
+      // into the slot that just opened up, so "full" is never a dead end.
+      btn.disabled = true;
       const { error } = await sb.from("bid_list").delete().eq("user_id", ME.id).eq("property_id", pid);
-      if (!error) { BIDLIST.delete(pid); BIDLIST_ORDER = BIDLIST_ORDER.filter(id => id !== pid); }
+      if (!error) {
+        BIDLIST.delete(pid); BIDLIST_ORDER = BIDLIST_ORDER.filter(id => id !== pid);
+        await promoteNextPending();
+      }
+    } else if (BID_LIST_PENDING.includes(pid)) {
+      // Already queued - a second click cancels the queued attempt instead
+      // of queueing it again.
+      BID_LIST_PENDING = BID_LIST_PENDING.filter(id => id !== pid);
+    } else if (BIDLIST.size >= BID_LIST_MAX) {
+      // Full: queue it rather than just discarding the click. It gets added
+      // automatically, in the order people tried, as slots free up.
+      BID_LIST_PENDING.push(pid);
     } else {
+      btn.disabled = true;
       const { error } = await sb.from("bid_list").insert({ user_id: ME.id, property_id: pid });
       if (error) {
         // Server-side backstop (schema-v7-bidlist.sql's trigger) tripped -
-        // most likely two tabs racing to add the 10th/11th item at once.
-        if (/full|limit/i.test(error.message || "")) alert(`Your bid list already has ${BID_LIST_MAX} properties - remove one before adding another.`);
+        // most likely two tabs racing to fill the last slot at once. Queue
+        // it instead of failing outright, same as the client-side full case.
+        if (/full|limit/i.test(error.message || "")) BID_LIST_PENDING.push(pid);
       } else { BIDLIST.add(pid); BIDLIST_ORDER.push(pid); }
     }
     render();
@@ -1157,7 +1208,7 @@ document.addEventListener("click", async e => {
 // because nobody scrolled that far to find it.
 function render() {
   const bidListCountEl = document.getElementById("bidListCount");
-  if (bidListCountEl) bidListCountEl.textContent = `${BIDLIST.size}/${BID_LIST_MAX}`;
+  if (bidListCountEl) bidListCountEl.textContent = `${BIDLIST.size}/${BID_LIST_MAX}` + (BID_LIST_PENDING.length ? ` +${BID_LIST_PENDING.length}⏳` : "");
 
   const main = document.getElementById("main"); if (!main) return; main.innerHTML = "";
   if (!LEDGERS[state.ledger]) state.ledger = "auction";
