@@ -9,7 +9,10 @@
 
 // Bump this on every deploy that changes the shell, otherwise returning users
 // keep the old CSS/JS from cache and your fix appears not to have shipped.
-const CACHE = "tdw-shell-v7";
+// v8: icon URLs below got a ?v=2 cache-buster (see comment there) - bumping
+// this too forces the old cached (pre-relogo) icons out of everyone's
+// Cache Storage immediately instead of waiting on their natural expiry.
+const CACHE = "tdw-shell-v8";
 const SHELL = [
   "/",
   "/index.html",
@@ -17,8 +20,15 @@ const SHELL = [
   "/app.js",
   "/config.js",
   "/manifest.webmanifest",
-  "/icons/icon-192.png",
-  "/icons/icon-512.png"
+  // Icon bytes changed (new logo) but the filenames didn't, and /icons/* is
+  // served with a 7-day Cache-Control (see _headers) plus this worker's own
+  // cache-first icon handling below - two layers that would otherwise keep
+  // serving the old logo to anyone who'd already visited. The ?v=2 query
+  // string makes this a new URL to both caches, so it's fetched fresh once,
+  // then stays cache-first (fast) after that. Bump to v3/v4/etc next time
+  // the icon files themselves change again.
+  "/icons/icon-192.png?v=2",
+  "/icons/icon-512.png?v=2"
 ];
 
 self.addEventListener("install", e => {
@@ -57,7 +67,7 @@ self.addEventListener("fetch", e => {
     return;
   }
 
-  // Icons never change without a filename change -  cache-first is safe.
+  // Icons never change without a filename (or ?v=) change - cache-first is safe.
   if (/\.(png|ico|svg|webmanifest)$/i.test(url.pathname)) {
     e.respondWith(
       caches.match(req).then(hit => hit || fetch(req).then(res => {
@@ -69,7 +79,7 @@ self.addEventListener("fetch", e => {
   }
 
   // Code (css/js): NETWORK FIRST. Cache-first here meant a deploy silently did
-  // not reach anyone who already had the app open -  the cached copy just kept
+  // not reach anyone who already had the app open - the cached copy just kept
   // winning. Cache is now only a fallback for being offline.
   e.respondWith(
     fetch(req)
