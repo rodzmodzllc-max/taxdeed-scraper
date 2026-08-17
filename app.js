@@ -259,7 +259,7 @@ const linkIcon = label => LINK_ICON[label] ? `<span class="link-icon">${LINK_ICO
 // works on touch devices too. `tip` is plain text, escaped for the
 // data-tip attribute the CSS ::after reads it from.
 const infoTip = tip => `<i class="info-tip" tabindex="0" data-tip="${esc(tip)}">i</i>`;
-const TRUE_COST_TIP = "Opening bid + Florida doc stamps (0.70/$100) + recording fee, plus half the assessed value on homesteaded parcels (FS 197.502(6)(c)). An estimate, not a quote.";
+const FEES_TIP = "Florida doc stamps (0.70/$100) + recording fee, plus half the assessed value on homesteaded parcels (FS 197.502(6)(c)). Added on top of whatever the actual winning bid turns out to be - estimated here using the opening bid, since the real winning bid isn't known in advance.";
 
 // Properties synced from the statewide harvest pipeline (as opposed to the
 // hand-researched watchlist) never get url_zillow / url_streetview from the
@@ -299,9 +299,15 @@ const marketOf = p => Number(p.market || p.assessed || 0);
 const valueRatio = p => (Number(p.bid) > 0 ? marketOf(p) / Number(p.bid) : 0);
 const isTopPick = p => p.lien_level === "clean" && valueRatio(p) >= TOP_PICK_RATIO;
 const homesteadSurcharge = p => (p.homestead ? Number(p.assessed || 0) / 2 : 0);
-function trueCost(p) {
-  const base = Number(p.bid) + homesteadSurcharge(p);
-  return base + base * DOC_STAMP_RATE + RECORDING_FEE + (state.includeQT ? QUIET_TITLE_EST : 0);
+function fees(p) {
+  // Fee/add-on cost only - NOT a total acquisition cost. We don't know the
+  // actual winning bid in advance (only the opening bid), so this shows
+  // what gets layered on top of whatever bid wins, rather than pretending
+  // the opening bid is the final price.
+  const bid = Number(p.bid) || 0;
+  const base = bid + homesteadSurcharge(p);
+  const total = base + base * DOC_STAMP_RATE + RECORDING_FEE + (state.includeQT ? QUIET_TITLE_EST : 0);
+  return total - bid;
 }
 const maxBid = p => marketOf(p) * (state.maxBidPct / 100);
 function daysUntil(p) {
@@ -758,7 +764,6 @@ function card(p, showCounty) {
     ? `<div class="spread-badge">Potential equity ${spreadAmt >= 0 ? "+" : "-"}${fmtShort(Math.abs(spreadAmt))} <span class="spread-mult">(${valueRatio(p).toFixed(1)}× market/bid)</span></div>`
     : "";
 
-  const overWalk = hasBid && Number(p.bid) > maxBid(p);
   el.innerHTML = `
     ${top ? `<div class="toppick-banner">★ Top pick <span class="ratio-pill">${valueRatio(p).toFixed(1)}× market vs bid</span></div>` : ""}
     ${tag}
@@ -780,8 +785,6 @@ function card(p, showCounty) {
       <div class="card-stat"><div class="card-stat-label">Opening Bid</div><div class="card-stat-val bid">${hasBid ? fmtMoney(p.bid) : "N/A"}</div></div>
       <div class="card-stat"><div class="card-stat-label">Assessed</div><div class="card-stat-val assessed">${p.assessed ? fmtShort(p.assessed) : "N/A"}</div></div>
       <div class="card-stat"><div class="card-stat-label">Est. Market</div><div class="card-stat-val market">${p.market ? fmtShort(p.market) : "N/A"}</div></div>
-      <div class="card-stat"><div class="card-stat-label">True Cost ${infoTip(TRUE_COST_TIP)}</div><div class="card-stat-val">${hasBid ? fmtShort(trueCost(p)) : "N/A"}</div></div>
-      ${hasBid ? `<div class="card-stat wide"><span class="card-stat-label">Walk away above</span><span class="card-stat-val ${overWalk ? "over" : "under"}">${fmtShort(maxBid(p))}</span></div>` : ""}
     </div>
     <div class="lien-banner ${esc(p.lien_level)}">
       <div class="lien-toprow"><span class="lien-label">Title: ${LIEN_LABEL[p.lien_level] || p.lien_level}</span><span class="type-badge">${esc(p.prop_type || "Type: Unknown")}</span></div>
@@ -882,7 +885,7 @@ function detailHtml(p) {
     stats.push(["Assessed Value", p.assessed ? fmtShort(p.assessed) : "N/A"]);
     stats.push(["Market Value", p.market ? fmtShort(p.market) : "N/A"]);
     if (hasBid) {
-      stats.push(["True Cost Est.", fmtShort(trueCost(p))]);
+      stats.push(["Fees", fmtShort(fees(p))]);
       stats.push(["Walk Away Above", fmtShort(maxBid(p))]);
       if (marketOf(p) > 0) {
         const spreadAmt = marketOf(p) - Number(p.bid);
@@ -910,7 +913,7 @@ function detailHtml(p) {
       <span class="lien-text">${esc(p.lien_note || "")}</span>
     </div>` : ""}
     <div class="detail-grid">
-      ${stats.map(([label, val]) => `<div class="detail-stat"><span class="detail-stat-label">${esc(label)}${label === "True Cost Est." ? " " + infoTip(TRUE_COST_TIP) : ""}</span><span class="detail-stat-val">${esc(val)}</span></div>`).join("")}
+      ${stats.map(([label, val]) => `<div class="detail-stat"><span class="detail-stat-label">${esc(label)}${label === "Fees" ? " " + infoTip(FEES_TIP) : ""}</span><span class="detail-stat-val">${esc(val)}</span></div>`).join("")}
     </div>
     <div class="copy-row">
       ${!isCert ? `<button class="copy-btn owner-tag${p.owner_name ? "" : " unknown"}" ${p.owner_name ? `data-action="copy" data-copy="${esc(p.owner_name)}"` : ""} type="button"><span class="copy-tag">Owner</span><span class="copy-val">${esc(p.owner_name || "Unknown")}</span></button>` : ""}
@@ -1323,7 +1326,7 @@ if (exportCsvBtn) exportCsvBtn.addEventListener("click", () => {
     ["Market Value", p => p.market ?? ""],
     ["Potential Equity ($)", p => (p.bid != null && marketOf(p) > 0) ? Math.round(marketOf(p) - Number(p.bid)) : ""],
     ["Potential Equity (x bid)", p => (Number(p.bid) > 0 && marketOf(p) > 0) ? valueRatio(p).toFixed(2) : ""],
-    ["True Cost Est.", p => p.bid != null ? Math.round(trueCost(p)) : ""],
+    ["Fees", p => p.bid != null ? Math.round(fees(p)) : ""],
     ["Sale/Auction Date", p => p.sale_date || ""],
     ["Certificate #", p => p.certificate_no || ""],
     ["Tax Year", p => p.tax_year || ""],

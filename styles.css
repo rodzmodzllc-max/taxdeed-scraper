@@ -429,7 +429,7 @@ summary.county-head::-webkit-details-marker{display:none}
 .card-stat-val.over{color:var(--bad)}
 .card-stat-val.under{color:var(--ok)}
 
-/* ---- info tooltip: small "ⓘ" affordance for the True Cost calculation
+/* ---- info tooltip: small "ⓘ" affordance for the Fees calculation
    breakdown (doc stamps, recording, homestead adjustment) - keyboard
    focusable so it isn't hover-only on touch devices. ---- */
 .info-tip{position:relative;display:inline-flex;align-items:center;justify-content:center;
