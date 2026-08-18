@@ -1258,8 +1258,8 @@ function render() {
   // in view is already expanded.
   const expandAllBtn = document.getElementById("expandAllBtn");
   if (expandAllBtn) {
-    const countiesInLedger = new Set(shown.map(p => p.county));
-    const allOpen = countiesInLedger.size > 0 && Array.from(countiesInLedger).every(c => state.expandedCounties.has(c));
+    const keysInLedger = new Set(shown.map(p => groupKeyOf(activeLedger, p.county, p.sale_date)));
+    const allOpen = keysInLedger.size > 0 && Array.from(keysInLedger).every(k => state.expandedCounties.has(k));
     expandAllBtn.textContent = allOpen ? "Collapse all" : "Expand all";
     expandAllBtn.dataset.mode = allOpen ? "collapse" : "expand";
   }
@@ -1309,22 +1309,33 @@ function sortRows(rows) {
 }
 
 // ==================== county grouping ====================
-// Each ledger is organized into one collapsible <details> per county (name,
-// a date/format line, and an "N/M active" count) instead of one long flat
+// Each ledger is organized into one collapsible <details> group (name, a
+// date/format line, and an "N/M active" count) instead of one long flat
 // card list - the structure a county with 300+ properties needs to stay
 // scannable, and the reason Lands Available used to read as "not populated"
 // when it was buried under an unbroken run of auction cards.
+//
+// Auctions additionally split each county into one group PER SALE DATE
+// (instead of one group for the whole county) - a county running four
+// auctions this month is four separate accordion rows, each labeled with
+// its own date and its own "N/M active" count for just that date's cases.
+// Before this, every date's properties were rolled into a single group
+// labeled with only the earliest date, so the badge silently summed every
+// upcoming auction while the label implied just one (e.g. Hillsborough
+// showing "55/55 active - Auction Aug 20" when Aug 20 itself only had 14
+// cases and the other 41 belonged to three other August dates).
 
-// Auctions have a real per-county sale date (county_calendar, or a fallback
-// to the properties' own sale_date); Lands Available and certificates don't
-// run on a single county-wide date, so they get a static descriptor instead.
-function countySecondaryLine(ledgerKey, county, countyRows) {
-  if (ledgerKey === "auction") {
-    const calDates = (CALENDAR[county] || []).slice().sort();
-    const propDates = countyRows.map(p => p.sale_date).filter(Boolean).sort();
-    const d = calDates[0] || propDates[0];
-    return d ? `Auction ${fmtDate(d)}` : "No sale currently scheduled";
-  }
+// groupKeyOf identifies a distinct county-group: for auctions that's
+// county+date (so each sale date gets its own row); every other ledger
+// still has exactly one group per county, same as before.
+function groupKeyOf(ledgerKey, county, date) {
+  return ledgerKey === "auction" ? `${county}||${date || "TBD"}` : county;
+}
+
+// Lands Available and certificates don't run on a single county-wide date,
+// so they get a static descriptor instead of a real date.
+function groupSecondaryLine(ledgerKey, date) {
+  if (ledgerKey === "auction") return date ? `Auction ${fmtDate(date)}` : "Date not yet scheduled";
   if (ledgerKey === "laft") return "Lands Available - fixed price, available now";
   return "County-held certificates";
 }
@@ -1347,14 +1358,11 @@ function countyInfoBannerHtml(county) {
   return `<div class="county-info"><span class="${pillClass}">${esc(pillText)}</span><span>${esc(bodyText)}</span></div>`;
 }
 
-// Auction groups sort soonest-sale-first (so the most time-sensitive county
-// is the first thing an investor sees); other ledgers sort alphabetically.
-function countyGroupSortKey(ledgerKey, county, countyRows) {
-  if (ledgerKey === "auction") {
-    const calDates = (CALENDAR[county] || []).slice().sort();
-    const propDates = countyRows.map(p => p.sale_date).filter(Boolean).sort();
-    return calDates[0] || propDates[0] || "9999-99-99";
-  }
+// Groups sort soonest-sale-first within each county for auctions (so the
+// most time-sensitive date is the first thing an investor sees), then by
+// county name; other ledgers just sort alphabetically by county.
+function groupSortKey(ledgerKey, county, date) {
+  if (ledgerKey === "auction") return `${date || "9999-99-99"}|${county}`;
   return county;
 }
 
@@ -1371,47 +1379,50 @@ function section(container, title, sub, rows, kind) {
     return { shown };
   }
 
-  // Per-county "N/M active" ignores the current statusView, same trick the
+  // Per-group "N/M active" ignores the current statusView, same trick the
   // Active/Gone summary chips use, so the badge stays meaningful no matter
   // which status filter is selected. Archive is the one exception: forcing
   // "all" there would flip passes() out of archive mode entirely and zero
-  // out every county badge, so stay in "archive" rather than "all" when
+  // out every group's badge, so stay in "archive" rather than "all" when
   // that's the active view.
   const savedView = state.statusView;
   state.statusView = savedView === "archive" ? "archive" : "all";
   const allForCounts = rows.filter(passes);
   state.statusView = savedView;
-  const totalsByCounty = new Map(), activeByCounty = new Map();
+  const totalsByGroup = new Map(), activeByGroup = new Map();
   allForCounts.forEach(p => {
-    totalsByCounty.set(p.county, (totalsByCounty.get(p.county) || 0) + 1);
-    if (!isGone(p)) activeByCounty.set(p.county, (activeByCounty.get(p.county) || 0) + 1);
+    const k = groupKeyOf(kind, p.county, p.sale_date);
+    totalsByGroup.set(k, (totalsByGroup.get(k) || 0) + 1);
+    if (!isGone(p)) activeByGroup.set(k, (activeByGroup.get(k) || 0) + 1);
   });
 
   const groups = new Map();
   shown.forEach(p => {
-    if (!groups.has(p.county)) groups.set(p.county, []);
-    groups.get(p.county).push(p);
+    const k = groupKeyOf(kind, p.county, p.sale_date);
+    if (!groups.has(k)) groups.set(k, { county: p.county, date: p.sale_date, rows: [] });
+    groups.get(k).rows.push(p);
   });
 
-  const orderedCounties = Array.from(groups.keys()).sort((a, b) => {
-    const ka = countyGroupSortKey(kind, a, groups.get(a));
-    const kb = countyGroupSortKey(kind, b, groups.get(b));
-    if (ka !== kb) return ka < kb ? -1 : 1;
-    return a.localeCompare(b);
+  const orderedKeys = Array.from(groups.keys()).sort((ka, kb) => {
+    const ga = groups.get(ka), gb = groups.get(kb);
+    const sa = groupSortKey(kind, ga.county, ga.date), sb = groupSortKey(kind, gb.county, gb.date);
+    if (sa !== sb) return sa < sb ? -1 : 1;
+    return ga.county.localeCompare(gb.county);
   });
 
   const renderCard = kind === "certificate" ? certCard : card;
-  orderedCounties.forEach(county => {
-    const countyRows = groups.get(county);
-    const total = totalsByCounty.get(county) ?? countyRows.length;
-    const active = activeByCounty.get(county) ?? countyRows.length;
+  orderedKeys.forEach(key => {
+    const { county, date, rows: countyRows } = groups.get(key);
+    const total = totalsByGroup.get(key) ?? countyRows.length;
+    const active = activeByGroup.get(key) ?? countyRows.length;
     // A search in progress auto-opens every group that has a match, so
     // results are visible immediately instead of hiding behind a collapse.
-    const isOpen = !!state.search || state.expandedCounties.has(county);
+    const isOpen = !!state.search || state.expandedCounties.has(key);
 
     const det = document.createElement("details");
     det.className = "county-group";
     det.dataset.county = county;
+    det.dataset.groupKey = key;
     if (isOpen) det.open = true;
 
     const summary = document.createElement("summary");
@@ -1419,7 +1430,7 @@ function section(container, title, sub, rows, kind) {
     summary.innerHTML = `
       <div>
         <div class="county-name">${esc(county)}</div>
-        <div class="county-meta">${esc(countySecondaryLine(kind, county, countyRows))}</div>
+        <div class="county-meta">${esc(groupSecondaryLine(kind, date))}</div>
       </div>
       <div class="county-right">
         <span class="county-count">${active}/${total} active</span>
@@ -1488,7 +1499,13 @@ if (countyQuickEl) countyQuickEl.addEventListener("change", () => {
   state.counties = v === "ALL" ? new Set(ALL_COUNTIES) : new Set([v]);
   // Picking one specific county is a strong signal the user wants to see
   // straight into it, not just narrow the filter and leave it collapsed.
-  if (v !== "ALL") state.expandedCounties.add(v);
+  // Auctions can have several date-groups for the same county, so expand
+  // every one of them, not just a single "county" key.
+  if (v !== "ALL") {
+    const keys = new Set([v]);
+    ALL.forEach(p => { if (p.county === v) keys.add(groupKeyOf(p.source, v, p.sale_date)); });
+    keys.forEach(k => state.expandedCounties.add(k));
+  }
   buildAllChips();
   if (mapLoaded) refreshMapPaths();
   updateBadge();
@@ -1504,17 +1521,17 @@ const mainEl = document.getElementById("main");
 if (mainEl) mainEl.addEventListener("toggle", e => {
   const det = e.target;
   if (!det.classList || !det.classList.contains("county-group")) return;
-  const county = det.dataset.county;
-  if (!county) return;
-  if (det.open) state.expandedCounties.add(county); else state.expandedCounties.delete(county);
+  const key = det.dataset.groupKey || det.dataset.county;
+  if (!key) return;
+  if (det.open) state.expandedCounties.add(key); else state.expandedCounties.delete(key);
 }, true);
 
 const expandAllBtn = document.getElementById("expandAllBtn");
 if (expandAllBtn) expandAllBtn.addEventListener("click", () => {
   const inLedger = p => p.source === state.ledger;
-  const countiesInLedger = new Set(ALL.filter(inLedger).filter(passes).map(p => p.county));
-  if (expandAllBtn.dataset.mode === "collapse") countiesInLedger.forEach(c => state.expandedCounties.delete(c));
-  else countiesInLedger.forEach(c => state.expandedCounties.add(c));
+  const keysInLedger = new Set(ALL.filter(inLedger).filter(passes).map(p => groupKeyOf(state.ledger, p.county, p.sale_date)));
+  if (expandAllBtn.dataset.mode === "collapse") keysInLedger.forEach(k => state.expandedCounties.delete(k));
+  else keysInLedger.forEach(k => state.expandedCounties.add(k));
   render();
 });
 
