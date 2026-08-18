@@ -106,7 +106,7 @@ not one long scroll where Lands Available sits under 300+ auction cards. -->
 <button class="chip bad" data-status="gone" type="button">Gone&nbsp;<b id="chipGone">0</b></button>
 <!-- Past-due auctions never show in Shown/Active/Gone (see isPastDue in
 app.js) so notes/favorites on a property you won don't just vanish
-once its sale date passes. -->
+once its sale date passes - this is the only place to still find them. -->
 <button class="chip archive" data-status="archive" type="button" title="Auctions whose sale date has passed - kept here so your notes on them aren't lost">Archive&nbsp;<b id="chipArchive">0</b></button>
 <!-- Not a status-view filter chip like the four above (no data-status,
 so it's excluded from that click-toggle group in app.js) - this
@@ -240,7 +240,7 @@ chips - each summary shows how many are currently selected. -->
 
 <footer>
 Links open Street View, the county property appraiser, Zillow, the Tax Collector, the live auction listing, and the Clerk's Official Records.<br><br>
-★ <b>Top pick</b> = title screen came back clear AND market value is at least 12· the opening bid. A shortlisting aid, not advice.<br><br>
+★ <b>Top pick</b> = title screen came back clear AND market value is at least 12× the opening bid. A shortlisting aid, not advice.<br><br>
 <b>Fees</b> (shown on each property's full page) are Florida doc stamps (0.70/$100), recording, and — on homesteaded parcels — the half-assessed-value minimum under FS 197.502(6)(c), added on top of whatever the actual winning bid turns out to be. It is an estimate.<br><br>
 Title badges are a best-effort public-records search, <b>not a certified title search</b>. Confirm with a title company or attorney before bidding.
 </footer>
@@ -277,6 +277,7 @@ they know the existing one. -->
 <button type="submit" id="cpSubmitBtn">Update password</button>
 </form>
 <div class="auth-msg" id="cpMsg"></div>
+</div>
 </div>
 
 <script type="module" src="app.js"></script>
