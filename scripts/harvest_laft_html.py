@@ -115,6 +115,24 @@ EMPTY_MARKERS = (
     "no lands available",
 )
 
+# Putnam publishes real, current LAFT data (confirmed live 2026-08, 38
+# properties) but not as a column-oriented table at all - it's a layout
+# table where each property spans two rows: a 2-cell row ("T.D. <case>" /
+# owner name) followed by a 3-cell row cramming links, legal description +
+# parcel, and the three dates/price together into single cells. The
+# header-row-by-content scan above finds nothing here (there's no row where
+# multiple cells match a known column name - every cell is a paragraph of
+# mixed text), so without this fallback Putnam would silently report 0
+# properties despite having real, valuable data. Written as a structural
+# pattern match (any table with "T.D. <case>" 2-cell rows), not a
+# county-name check, so it applies automatically if another county turns
+# out to share the same template.
+_TD_CASE_RE = re.compile(r"^T\.D\.\s*(\S+)")
+_PARCEL_SPLIT_RE = re.compile(r"Parcel Number\s*([\w.\-]+)", re.IGNORECASE)
+_AUCTION_DATE_RE = re.compile(r"Auction date:\s*([\d/]+)", re.IGNORECASE)
+_AVAILABLE_DATE_RE = re.compile(r"Available for Purchase:\s*([\d/]+)", re.IGNORECASE)
+_PRICE_RE = re.compile(r"Estimated Purchase Price:\s*\$?([\d,]+\.\d{2})", re.IGNORECASE)
+
 
 def normalize_header(h: str) -> str | None:
     if not h:
@@ -170,6 +188,57 @@ def _table_to_rows(table) -> list[list[str]]:
     return rows
 
 
+def _rows_from_card_table(rows: list[list[str]], county: str, source_url: str) -> list[dict]:
+    """See the _TD_CASE_RE comment above - fallback for Putnam-style "two
+    rows per property, no header" tables. Scans for a 2-cell row starting
+    with "T.D. <case>" followed by a 3-cell detail row, and pulls fields out
+    of the crammed-together cell text with the same labeled-field regexes
+    the PDF harvester's extract_label_value_rows() uses for Marion."""
+    out: list[dict] = []
+    i = 0
+    while i < len(rows):
+        row = rows[i]
+        if len(row) == 2:
+            m = _TD_CASE_RE.match(row[0].strip())
+            if m and i + 1 < len(rows) and len(rows[i + 1]) == 3:
+                case_no = m.group(1)
+                owner_name = row[1].strip()
+                detail = rows[i + 1]
+                legal_and_parcel = detail[1]
+                parcel_m = _PARCEL_SPLIT_RE.search(legal_and_parcel)
+                legal_desc = (legal_and_parcel[:parcel_m.start()] if parcel_m else legal_and_parcel).strip()
+                dates_price = detail[2]
+                auction_m = _AUCTION_DATE_RE.search(dates_price)
+                avail_m = _AVAILABLE_DATE_RE.search(dates_price)
+                price_m = _PRICE_RE.search(dates_price)
+
+                record: dict = {
+                    "county": county, "source": "laft", "url_auction": source_url,
+                    "case_no": case_no,
+                }
+                if owner_name:
+                    record["owner_name"] = owner_name
+                if legal_desc:
+                    record["legal_desc"] = legal_desc
+                if parcel_m:
+                    record["parcel"] = parcel_m.group(1)
+                if auction_m:
+                    record["sale_date"] = auction_m.group(1)
+                if avail_m:
+                    # Not one of the standard fields sync-laft-to-supabase.ps1
+                    # reads - kept in the JSON/CSV artifact for visibility
+                    # (when the property actually becomes purchasable) even
+                    # though it isn't synced to Supabase today.
+                    record["available_date"] = avail_m.group(1)
+                if price_m:
+                    record["bid"] = price_m.group(1)
+                out.append(finalize_record(record))
+                i += 2
+                continue
+        i += 1
+    return out
+
+
 def extract_rows(html: bytes, county: str, source_url: str) -> list[dict]:
     soup = BeautifulSoup(html, "html.parser")
     page_text = soup.get_text(" ", strip=True)
@@ -192,6 +261,13 @@ def extract_rows(html: bytes, county: str, source_url: str) -> list[dict]:
             best = (header_idx, field_names, rows)
 
     if not best:
+        # No table had a real header row - try the card-style fallback
+        # (Putnam) before giving up entirely.
+        for table in soup.find_all("table"):
+            rows = _table_to_rows(table)
+            card_rows = _rows_from_card_table(rows, county, source_url)
+            if card_rows:
+                return [r for r in card_rows if not r.get("sold_to")]
         return []
     header_idx, field_names, rows = best
     body = rows[header_idx + 1:]

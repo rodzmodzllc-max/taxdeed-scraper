@@ -15,15 +15,26 @@ $ErrorActionPreference = "Stop"
 # CI-adapted: reads SUPABASE_URL / SUPABASE_SERVICE_KEY from environment
 # variables (GitHub Actions secrets).
 #
-# Run harvest_laft_pdfs.py (PDF-published counties) and harvest_laft_html.py
-# (HTML-table counties - added 2026-08, see that script's own docstring for
-# which counties and why) first, then this. Both harvesters write the same
-# row shape to two separate JSON files - this script merges them before
-# syncing, so it's the only thing that needs to know both harvesters exist.
+# Run harvest_laft_pdfs.py (PDF-published counties) first, then this -
+# that one's required. Two more harvesters cover other LAFT formats and are
+# OPTIONAL (Test-Path guarded below) so this script still works standalone
+# if either hasn't run yet:
+#   - harvest_laft_html.py: plain static-table counties (added 2026-08)
+#   - harvest_laft_realtdm.py: counties on the RealTDM case-management
+#     platform (added 2026-08) - a shared multi-tenant search-portal system,
+#     different vendor from both of the above
+# All three write the same row shape to separate JSON files - this script
+# merges them before syncing, so it's the only thing that needs to know all
+# three harvesters exist. Each optional file is guaranteed valid JSON when
+# present (every harvester always writes the file, even an empty `[]`, so a
+# missing file really does mean "never ran" not "ran and found nothing").
 
 $here     = $PSScriptRoot
 $jsonPath = Join-Path $here "../out/harvest_laft.json"
-$htmlJsonPath = Join-Path $here "../out/harvest_laft_html.json"
+$optionalSources = @(
+    @{ Path = Join-Path $here "../out/harvest_laft_html.json"; Label = "HTML-table counties (harvest_laft_html.json)" },
+    @{ Path = Join-Path $here "../out/harvest_laft_realtdm.json"; Label = "RealTDM-platform counties (harvest_laft_realtdm.json)" }
+)
 
 $supabaseUrl = $env:SUPABASE_URL
 $serviceRoleKey = $env:SUPABASE_SERVICE_KEY
@@ -34,21 +45,17 @@ if (-not (Test-Path $jsonPath)) {
     throw "Missing $jsonPath - run harvest_laft_pdfs.py first."
 }
 
-# harvest_laft_html.json is optional here (Test-Path guarded) so this script
-# still works standalone if that harvester hasn't been run yet - it's not
-# required the way harvest_laft.json is. When it exists it's guaranteed to
-# be valid JSON (harvest_laft_html.py always writes the file, even an empty
-# `[]`, so a missing file really does mean "never ran" not "ran and found
-# nothing").
 $harvest = @(Get-Content $jsonPath -Raw | ConvertFrom-Json)
-if (Test-Path $htmlJsonPath) {
-    $htmlHarvest = @(Get-Content $htmlJsonPath -Raw | ConvertFrom-Json)
-    if ($htmlHarvest.Count -gt 0) {
-        Write-Output "Merging $($htmlHarvest.Count) properties from the HTML-table counties (harvest_laft_html.json)."
-        $harvest = @($harvest) + @($htmlHarvest)
+foreach ($src in $optionalSources) {
+    if (Test-Path $src.Path) {
+        $extra = @(Get-Content $src.Path -Raw | ConvertFrom-Json)
+        if ($extra.Count -gt 0) {
+            Write-Output "Merging $($extra.Count) properties from $($src.Label)."
+            $harvest = @($harvest) + @($extra)
+        }
+    } else {
+        Write-Output "No $($src.Label) file found - skipping."
     }
-} else {
-    Write-Output "No harvest_laft_html.json found - skipping HTML-table counties for this run."
 }
 
 if (-not $harvest -or $harvest.Count -eq 0) {
