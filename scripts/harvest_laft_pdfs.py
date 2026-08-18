@@ -110,6 +110,42 @@ def normalize_header(h: str) -> str | None:
     return HEADER_MAP.get(key)
 
 
+def normalize_parcel(p: str) -> str:
+    """Light, non-destructive cleanup of a parcel/folio number as extracted
+    from PDF cell text: trims stray whitespace PDF extraction leaves around
+    tokens and collapses internal whitespace, then uppercases. Never touches
+    digits, dashes, or leading zeros - those are part of the county's real
+    parcel format and altering them would make the displayed number wrong."""
+    return re.sub(r"\s+", "", p.strip()).upper()
+
+
+def canonical_key(value: str) -> str:
+    """Strip every non-alphanumeric character and uppercase, producing a
+    format-independent matching key. Two parcel numbers that print
+    differently only because of dash/space placement (e.g.
+    "10-27-25-C1-00001.0100" vs "102725C100001.0100") collapse to the same
+    key here."""
+    return re.sub(r"[^A-Z0-9]", "", value.upper())
+
+
+def finalize_record(record: dict) -> dict:
+    """Applied to every extracted row right before it's kept. Normalizes the
+    displayed parcel value and - when the source PDF doesn't publish a real
+    case/file number - derives a stable, format-independent case_no from the
+    parcel so sync-laft-to-supabase.ps1's on_conflict(source,county,case_no)
+    upsert always recognizes the same physical property across harvest runs,
+    even if the PDF's parcel formatting drifts slightly between runs (this
+    is what was causing Hendry's duplicate-card bug: two harvests of the
+    same property extracted its parcel with different punctuation, so each
+    run's case_no fallback - previously just the raw parcel string - never
+    matched the other run's row, and both stuck around as separate rows)."""
+    if record.get("parcel"):
+        record["parcel"] = normalize_parcel(record["parcel"])
+    if not record.get("case_no") and record.get("parcel"):
+        record["case_no"] = canonical_key(record["parcel"])
+    return record
+
+
 def looks_empty(text: str) -> bool:
     # Collapse all whitespace (including the mid-phrase line breaks PDF text
     # extraction leaves behind, e.g. DeSoto's placeholder wraps as "NO
@@ -182,7 +218,7 @@ def _rows_from_table(table: list, county: str, source_url: str) -> list[dict]:
         # matches the same "skip if no case/address" discipline
         # sync-harvest-to-supabase.ps1 already applies to the auction ledger.
         if record.get("case_no") or record.get("parcel"):
-            rows.append(record)
+            rows.append(finalize_record(record))
     return rows
 
 
@@ -217,11 +253,11 @@ def extract_label_value_rows(full_text: str, county: str, source_url: str) -> li
             continue
         if field == anchor_field or current is None:
             if current and (current.get("case_no") or current.get("parcel")) and not current.get("sold_to"):
-                records.append(current)
+                records.append(finalize_record(current))
             current = {"county": county, "source": "laft", "url_auction": source_url}
         current[field] = value
     if current and (current.get("case_no") or current.get("parcel")) and not current.get("sold_to"):
-        records.append(current)
+        records.append(finalize_record(current))
     return records
 
 
