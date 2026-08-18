@@ -14,15 +14,26 @@ name: Harvest FL tax deed data and sync to Supabase
 #                 against Supabase once (see repo root) - until then this
 #                 job's sync step will fail loudly, which is intentional so
 #                 it doesn't get missed.
-#   laft:         harvest_laft_pdfs.py (PDF-published counties - see
-#                 ../data/laft_pdf_sources.csv) AND harvest_laft_html.py
-#                 (HTML-table counties - see ../data/laft_html_sources.csv,
-#                 added 2026-08 after a fresh county-by-county check), both
-#                 synced to `properties` (source='laft') by the same sync
-#                 script. Once a day. Most of Florida's larger counties gate
-#                 LAFT behind a search portal instead of a plain PDF/table -
-#                 neither harvester here handles those; each CSV grows as
-#                 more counties get confirmed one of the two ways.
+#   laft:         Three harvesters, one sync script, all tagged
+#                 `properties` (source='laft'). Once a day.
+#                   - harvest_laft_pdfs.py: PDF-published counties
+#                     (../data/laft_pdf_sources.csv)
+#                   - harvest_laft_html.py: plain static-HTML-table counties
+#                     (../data/laft_html_sources.csv)
+#                   - harvest_laft_realtdm.py: counties on the RealTDM
+#                     shared case-management platform
+#                     (../data/laft_realtdm_counties.csv) - a real HTML
+#                     form POST, no JS engine needed despite looking like a
+#                     JS search app
+#                 All three added/expanded 2026-08 after a from-scratch
+#                 67-county research pass. A meaningful chunk of the rest of
+#                 Florida's counties gate LAFT behind a DIFFERENT search
+#                 portal (Pioneer/TaxSmartWeb, Landmark Web, a custom
+#                 ASP.NET disclaimer-postback, Miami-Dade's GovHub) - none
+#                 of the three harvesters here handle those yet; each CSV
+#                 grows as more counties get confirmed on a format already
+#                 handled, and a fourth harvester would be needed to add
+#                 another platform.
 #
 # All three jobs upload their raw harvest as a workflow artifact (30-day
 # retention) regardless of whether the Supabase sync succeeds, so a bad sync
@@ -134,6 +145,12 @@ jobs:
         if: always()
         run: python3 scripts/harvest_laft_html.py
 
+      - name: Harvest Lands Available for Taxes RealTDM-platform counties
+        # Same independence rationale as the HTML-table step above - a
+        # third, unrelated vendor platform (see harvest_laft_realtdm.py).
+        if: always()
+        run: python3 scripts/harvest_laft_realtdm.py
+
       - name: Upload raw harvest as artifact
         if: always()
         uses: actions/upload-artifact@v4
@@ -142,6 +159,7 @@ jobs:
           path: |
             out/harvest_laft.*
             out/harvest_laft_html.*
+            out/harvest_laft_realtdm.*
           retention-days: 30
           if-no-files-found: warn
 
