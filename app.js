@@ -343,6 +343,15 @@ const authMsg = document.getElementById("authMsg");
 const authLead = document.getElementById("authLead");
 const authModeToggle = document.getElementById("authModeToggle");
 const passwordConfirmEl = document.getElementById("passwordConfirm");
+// Extra sign-up-only profile fields - same hidden/required toggle pattern as
+// passwordConfirmEl above, driven by setAuthMode(). Only relevant to signup;
+// signin never shows or requires them.
+const firstNameEl = document.getElementById("firstName");
+const lastNameEl = document.getElementById("lastName");
+const companyEl = document.getElementById("company");
+const addressEl = document.getElementById("address");
+const phoneEl = document.getElementById("phone");
+const SIGNUP_PROFILE_FIELDS = [firstNameEl, lastNameEl, companyEl, addressEl, phoneEl];
 
 // "Sign in" is the default; the toggle flips this to a self-serve signup
 // flow (sb.auth.signUp). NOTE: this only controls whether a Supabase Auth
@@ -358,6 +367,7 @@ function setAuthMode(mode) {
   if (btn) btn.textContent = signUp ? "Create account" : "Sign in";
   if (authModeToggle) authModeToggle.textContent = signUp ? "Already have an account? Sign in" : "Need an account? Create one";
   if (passwordConfirmEl) { passwordConfirmEl.hidden = !signUp; passwordConfirmEl.required = signUp; passwordConfirmEl.value = ""; }
+  SIGNUP_PROFILE_FIELDS.forEach(el => { if (el) { el.hidden = !signUp; el.required = signUp; el.value = ""; } });
   const pw = document.getElementById("password");
   if (pw) pw.autocomplete = signUp ? "new-password" : "current-password";
   if (authMsg) { authMsg.className = "auth-msg"; authMsg.textContent = ""; }
@@ -379,9 +389,27 @@ if (authForm) {
         if (authMsg) { authMsg.className = "auth-msg err"; authMsg.textContent = "Passwords don't match."; }
         return;
       }
+      const firstName = firstNameEl ? firstNameEl.value.trim() : "";
+      const lastName = lastNameEl ? lastNameEl.value.trim() : "";
+      const company = companyEl ? companyEl.value.trim() : "";
+      const address = addressEl ? addressEl.value.trim() : "";
+      const phone = phoneEl ? phoneEl.value.trim() : "";
+      // All five are required - Company has no separate "skip" control, since
+      // someone with no company enters "Independent" there instead.
+      if (!firstName || !lastName || !company || !address || !phone) {
+        if (authMsg) {
+          authMsg.className = "auth-msg err";
+          authMsg.textContent = "Please fill in all fields. No company? Enter \"Independent\".";
+        }
+        return;
+      }
       if (btn) btn.disabled = true;
       if (authMsg) { authMsg.className = "auth-msg"; authMsg.textContent = "Creating account"; }
-      const { data, error } = await sb.auth.signUp({ email, password });
+      const { data, error } = await sb.auth.signUp({
+        email,
+        password,
+        options: { data: { first_name: firstName, last_name: lastName, company, address, phone } }
+      });
       if (btn) btn.disabled = false;
       if (error) {
         if (authMsg) { authMsg.className = "auth-msg err"; authMsg.textContent = error.message; }
