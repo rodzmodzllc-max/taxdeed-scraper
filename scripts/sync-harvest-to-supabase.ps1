@@ -93,3 +93,47 @@ for ($i = 0; $i -lt $rows.Count; $i += $batchSize) {
 
 Write-Output "Done. $sent properties upserted to Supabase (existing owner/lien research untouched)."
 Write-Output "Counties covered: $((($rows | ForEach-Object { $_.county }) | Select-Object -Unique).Count)"
+
+# ---- Close out properties that fell off the Waiting feed ----
+# harvest_all_counties.ps1 only ever scrapes each date's "Auctions Waiting"
+# list (RealForeclose's own term for it) - a property leaves that feed the
+# moment it's redeemed, canceled, or actually sold at the table. Until now
+# nothing here ever noticed: this script always omits `status` from the
+# upsert payload (see header comment - that's deliberate, so hand-research
+# isn't clobbered), so an existing 'active' row just sat there forever,
+# even hours after the county's own site had already moved it to "Auctions
+# Closed or Canceled". Confirmed live on Charlotte: the app kept showing
+# "10/10 active" well after the county's site showed only 4 still waiting.
+#
+# Fix: for every auction-sourced property still marked 'active' whose sale
+# date has already arrived, if its (county, case_no) isn't in what we just
+# harvested, it has left the Waiting feed - flip it to 'closed'. This can't
+# distinguish Redeemed from Canceled from Sold (that needs scraping the
+# Closed/Canceled section too, which nothing here does yet), but it's the
+# difference between an accurate "closed" badge and a stale "active" one
+# that's flat wrong days or weeks after the fact.
+$today = (Get-Date).ToString("yyyy-MM-dd")
+$harvestedKeys = [System.Collections.Generic.HashSet[string]]::new()
+foreach ($r in $rows) { $harvestedKeys.Add("$($r.county)|$($r.case_no)") | Out-Null }
+
+$activeUrl = "$supabaseUrl/rest/v1/properties?source=eq.auction&status=eq.active&sale_date=lte.$today&select=id,county,case_no&limit=5000"
+$activeRows = Invoke-RestMethod -Uri $activeUrl -Method Get -Headers $headers
+
+$staleIds = @()
+foreach ($ar in $activeRows) {
+    if (-not $harvestedKeys.Contains("$($ar.county)|$($ar.case_no)")) { $staleIds += $ar.id }
+}
+
+if ($staleIds.Count -gt 0) {
+    Write-Output "Closing out $($staleIds.Count) properties whose sale date passed and are no longer on the Waiting feed..."
+    $patchHeaders = $headers.Clone()
+    $patchHeaders["Prefer"] = "return=minimal"
+    for ($i = 0; $i -lt $staleIds.Count; $i += $batchSize) {
+        $idBatch = $staleIds[$i..([math]::Min($i + $batchSize - 1, $staleIds.Count - 1))]
+        $patchUrl = "$supabaseUrl/rest/v1/properties?id=in.(" + ($idBatch -join ",") + ")"
+        Invoke-RestMethod -Uri $patchUrl -Method Patch -Headers $patchHeaders -Body ([System.Text.Encoding]::UTF8.GetBytes('{"status":"closed"}')) | Out-Null
+    }
+    Write-Output "Done closing out stale properties."
+} else {
+    Write-Output "No stale active properties to close out."
+}
