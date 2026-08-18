@@ -1018,7 +1018,8 @@ function detailHtml(p) {
 function syncBodyScrollLock() {
   const detailOpen = !document.getElementById("detailModal")?.hidden;
   const bidListOpen = !document.getElementById("bidListModal")?.hidden;
-  document.body.style.overflow = (detailOpen || bidListOpen) ? "hidden" : "";
+  const hiddenModalOpen = !document.getElementById("hiddenModal")?.hidden;
+  document.body.style.overflow = (detailOpen || bidListOpen || hiddenModalOpen) ? "hidden" : "";
 }
 
 function openDetail(p) {
@@ -1133,12 +1134,112 @@ if (bidListModalEl) bidListModalEl.addEventListener("click", e => { if (e.target
 const bidListToggleBtn = document.getElementById("bidListToggle");
 if (bidListToggleBtn) bidListToggleBtn.addEventListener("click", () => openBidList());
 
+// ==================== "Hidden Properties" modal ====================
+// Hiding a property (the ✕ button) used to be one-way per item - the only
+// way back was "Restore all", which blindly un-hides everything at once
+// with no way to see what you'd get back first. This gives every hidden
+// property its own row so a mis-click is recoverable individually, while
+// properties that are no longer active (sale date already passed, or the
+// county's own listing dropped it and stayed gone past the grace period in
+// goneExpired()) are shown but can't be restored - bringing one of those
+// back would just have it filtered right back out, or worse, look like a
+// still-live listing when it isn't.
+function isRecoverable(p) {
+  return !goneExpired(p) && !isPastDue(p);
+}
+function hiddenRows() {
+  // Silently drops any id no longer in ALL (e.g. a property the sync
+  // pipeline has since removed outright) - same convention as bidListRows().
+  return Array.from(HIDDEN).map(id => ALL.find(p => p.id === id)).filter(Boolean);
+}
+function hiddenRow(p) {
+  const el = document.createElement("div");
+  const active = isRecoverable(p);
+  el.className = "hidden-row" + (active ? "" : " inactive");
+  const countyLine = `${esc(p.county)} County` + (p.sale_date ? " · " + fmtDate(p.sale_date) : "");
+  const inactiveReason = isPastDue(p) ? "Sale date already passed" : "No longer listed by the county";
+  el.innerHTML = `
+    <div class="hidden-row-info">
+      <span class="hidden-row-label">${shortPropLabel(p)}</span>
+      <span class="hidden-row-meta">${countyLine}</span>
+      ${active ? "" : `<span class="hidden-row-inactive-tag">${inactiveReason} - can't be restored</span>`}
+    </div>
+    ${active
+      ? `<button class="reset-btn" data-action="restore" data-pid="${p.id}" type="button">Restore</button>`
+      : `<span class="hidden-row-unavailable">Not active</span>`}`;
+  return el;
+}
+function renderHiddenModal() {
+  const inner = document.getElementById("hiddenModalInner");
+  if (!inner) return;
+  const rows = hiddenRows();
+  const activeCount = rows.filter(isRecoverable).length;
+  const listHtml = rows.length
+    ? ""
+    : `<div class="empty-state">Nothing hidden right now. Tap ✕ on any property to hide it - hidden properties show up here so you can bring one back if you hid it by mistake.</div>`;
+  inner.innerHTML = `
+    <button class="detail-close" data-action="closehidden" type="button">✕</button>
+    <h2 class="detail-address" style="margin-top:.1rem">Hidden Properties <span style="color:var(--ink-soft);font-weight:600">(${rows.length})</span></h2>
+    <p class="mega-sub" style="margin:0 0 .8rem">Properties you've hidden with ✕. Still-active ones can be brought back below; ones no longer active (sale date passed, or the county dropped the listing) can't be.</p>
+    ${listHtml}
+    <div class="hidden-list" id="hiddenListRows"></div>
+    ${activeCount ? `<button class="reset-btn" id="restoreAllActiveBtn" type="button" style="margin-top:.7rem">Restore all active (${activeCount})</button>` : ""}`;
+  const listEl = document.getElementById("hiddenListRows");
+  if (listEl) rows.forEach(p => listEl.appendChild(hiddenRow(p)));
+  const restoreAllBtn = document.getElementById("restoreAllActiveBtn");
+  if (restoreAllBtn) restoreAllBtn.addEventListener("click", restoreAllActive);
+}
+function openHiddenModal() {
+  const modal = document.getElementById("hiddenModal");
+  if (!modal) return;
+  renderHiddenModal();
+  modal.hidden = false;
+  syncBodyScrollLock();
+}
+function closeHiddenModal() {
+  const modal = document.getElementById("hiddenModal");
+  if (!modal) return;
+  modal.hidden = true;
+  syncBodyScrollLock();
+}
+// After a restore (single or "restore all active"), rebuild the modal in
+// place if it's currently open so it never shows a stale list - same
+// convention as refreshBidListModal().
+function refreshHiddenModal() {
+  const modal = document.getElementById("hiddenModal");
+  if (!modal || modal.hidden) return;
+  renderHiddenModal();
+}
+// Bulk-restores only the still-active hidden properties, leaving no-longer-
+// active ones hidden (there'd be no point un-hiding something that's just
+// going to get filtered right back out by goneExpired()/isPastDue()).
+async function restoreAllActive() {
+  if (!ME) return;
+  const activeIds = hiddenRows().filter(isRecoverable).map(p => p.id);
+  if (!activeIds.length) return;
+  const btn = document.getElementById("restoreAllActiveBtn");
+  if (btn) btn.disabled = true;
+  const { error } = await sb.from("hidden").delete().eq("user_id", ME.id).in("property_id", activeIds);
+  if (!error) {
+    activeIds.forEach(id => HIDDEN.delete(id));
+    render();
+    refreshHiddenModal();
+  } else if (btn) { btn.disabled = false; }
+}
+const hiddenModalEl = document.getElementById("hiddenModal");
+if (hiddenModalEl) hiddenModalEl.addEventListener("click", e => { if (e.target === hiddenModalEl) closeHiddenModal(); });
+const hiddenListBtn = document.getElementById("hiddenListBtn");
+if (hiddenListBtn) hiddenListBtn.addEventListener("click", () => openHiddenModal());
+
 // Escape closes whichever overlay is on top - the detail modal, if it's the
-// one currently open over the bid list modal, otherwise the bid list modal.
+// one currently open over the bid list / hidden modals, otherwise whichever
+// of those two is open.
 document.addEventListener("keydown", e => {
   if (e.key !== "Escape") return;
   const detailModal = document.getElementById("detailModal");
   if (detailModal && !detailModal.hidden) { closeDetail(); return; }
+  const hiddenModal = document.getElementById("hiddenModal");
+  if (hiddenModal && !hiddenModal.hidden) { closeHiddenModal(); return; }
   closeBidList();
 });
 
@@ -1172,10 +1273,15 @@ document.addEventListener("click", async e => {
     // fix that actually stops the accidental click before it does anything.
     const hiddenProp = ALL.find(x => x.id === pid);
     const label = hiddenProp && hiddenProp.address ? `"${hiddenProp.address}"` : "this property";
-    if (!window.confirm(`Hide ${label}? It'll disappear from every view here. You can bring everything back later from the hidden-properties panel, but there's no per-property undo.`)) return;
+    if (!window.confirm(`Hide ${label}? It'll disappear from every view here. You can bring it back later from the hidden-properties panel.`)) return;
     btn.disabled = true;
     const { error } = await sb.from("hidden").insert({ user_id: ME.id, property_id: pid });
-    if (!error) { HIDDEN.add(pid); render(); closeDetail(); } else { btn.disabled = false; }
+    if (!error) { HIDDEN.add(pid); render(); closeDetail(); refreshHiddenModal(); } else { btn.disabled = false; }
+  } else if (action === "restore") {
+    if (!ME || !pid) return;
+    btn.disabled = true;
+    const { error } = await sb.from("hidden").delete().eq("user_id", ME.id).eq("property_id", pid);
+    if (!error) { HIDDEN.delete(pid); render(); refreshHiddenModal(); } else { btn.disabled = false; }
   } else if (action === "bidlist") {
     if (!ME || !pid) return;
     if (BIDLIST.has(pid)) {
@@ -1216,6 +1322,8 @@ document.addEventListener("click", async e => {
     closeDetail();
   } else if (action === "closebidlist") {
     closeBidList();
+  } else if (action === "closehidden") {
+    closeHiddenModal();
   } else if (action === "copy") {
     const val = btn.dataset.copy;
     if (!val) return;
@@ -1305,8 +1413,8 @@ function render() {
   if (chipArchive) chipArchive.textContent = archiveCount;
   document.querySelectorAll(".summary-strip .chip[data-status]").forEach(c => c.classList.toggle("on", c.dataset.status === state.statusView));
 
-  const hiddenInfo = document.getElementById("hiddenInfo");
-  if (hiddenInfo) hiddenInfo.hidden = HIDDEN.size === 0;
+  const hiddenListBtn = document.getElementById("hiddenListBtn");
+  if (hiddenListBtn) hiddenListBtn.hidden = HIDDEN.size === 0;
 
   const hiddenCount = document.getElementById("hiddenCount");
   if (hiddenCount) hiddenCount.textContent = HIDDEN.size;
@@ -1687,15 +1795,11 @@ document.querySelectorAll(".summary-strip .chip[data-status]").forEach(c => {
   c.addEventListener("click", () => { state.statusView = c.dataset.status; render(); });
 });
 
-// ---- restore hidden ----
-const restoreHiddenBtn = document.getElementById("restoreHiddenBtn");
-if (restoreHiddenBtn) restoreHiddenBtn.addEventListener("click", async () => {
-  if (!ME) return;
-  restoreHiddenBtn.disabled = true;
-  const { error } = await sb.from("hidden").delete().eq("user_id", ME.id);
-  restoreHiddenBtn.disabled = false;
-  if (!error) { HIDDEN.clear(); render(); }
-});
+// ---- hidden properties: view & restore ----
+// The old blind "Restore all" button (no way to see what you'd get back, and
+// no way to restore just one) has been replaced by hiddenListBtn opening the
+// Hidden Properties modal - see the "Hidden Properties" modal section above
+// for openHiddenModal/restoreAllActive/the per-item "restore" click action.
 
 // ---- group all/none mini-buttons (types / liens / counties) ----
 document.querySelectorAll(".mini-btn[data-group]").forEach(btn => {

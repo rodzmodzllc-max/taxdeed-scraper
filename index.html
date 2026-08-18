@@ -181,7 +181,7 @@ once, and a one-click CSV export of whatever's currently filtered. -->
 <label class="tog"><input type="checkbox" id="soonOnly"> <span>⏱ Closing in 14 days</span></label>
 <label class="tog"><input type="checkbox" id="qtToggle"> <span>Include quiet title est.</span></label>
 </div>
-<span class="reset-btn" id="hiddenInfo" hidden><span id="hiddenCount">0</span> hidden · <button class="reset-btn" id="restoreHiddenBtn" type="button">Restore all</button></span>
+<button class="reset-btn" id="hiddenListBtn" type="button" hidden><span id="hiddenCount">0</span> hidden - view &amp; recover</button>
 </div>
 
 <!-- Advanced multi-select filters, collapsed behind dropdown-style
@@ -252,6 +252,13 @@ Title badges are a best-effort public-records search, <b>not a certified title s
 paints on top at the same z-index - later sibling wins. -->
 <div class="detail-modal" id="bidListModal" hidden>
 <div class="detail-modal-inner bidlist-modal-inner" id="bidListModalInner"></div>
+</div>
+
+<!-- ============ "Hidden Properties" modal ============ -->
+<!-- Same placement rationale as the bid list modal above - stays before
+detailModal in the DOM so the detail modal always paints on top of it. -->
+<div class="detail-modal" id="hiddenModal" hidden>
+<div class="detail-modal-inner bidlist-modal-inner" id="hiddenModalInner"></div>
 </div>
 
 <!-- ============ property detail modal ("full property page") ============ -->

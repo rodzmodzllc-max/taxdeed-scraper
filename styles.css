@@ -592,6 +592,25 @@ summary.county-head::-webkit-details-marker{display:none}
   font-size:.82rem;padding:.4rem 0;border-bottom:1px solid var(--card-line)}
 .bidlist-pending-row:last-child{border-bottom:none}
 .bid-btn.pending{color:var(--warn)}
+
+/* Hidden Properties modal rows - same plain-stacked-list treatment as
+   .bidlist-pending-row above (not full cards; a hidden property just needs
+   enough context to recognize it and a Restore button, not the whole card
+   UI). .inactive rows (sale date passed, or the county's own listing
+   dropped it past goneExpired()'s grace period) are dimmed and get a
+   disabled-reading label instead of a working Restore button - restoring
+   one would just have it filtered right back out. */
+.hidden-list{display:flex;flex-direction:column}
+.hidden-row{display:flex;justify-content:space-between;align-items:center;gap:.8rem;
+  font-size:.82rem;padding:.55rem 0;border-bottom:1px solid var(--card-line)}
+.hidden-row:last-child{border-bottom:none}
+.hidden-row.inactive{opacity:.55}
+.hidden-row-info{display:flex;flex-direction:column;gap:.1rem;min-width:0}
+.hidden-row-label{color:var(--ink);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hidden-row-meta{font-size:.72rem;color:var(--ink-soft)}
+.hidden-row-inactive-tag{font-size:.68rem;color:var(--warn)}
+.hidden-row-unavailable{font-size:.72rem;color:var(--ink-soft);white-space:nowrap;flex-shrink:0}
+.hidden-row .reset-btn{flex-shrink:0}
 .detail-close{position:sticky;top:0;float:right;border:none;background:var(--card);
   color:var(--ink-soft);width:2rem;height:2rem;border-radius:999px;font-size:1.1rem;
   cursor:pointer;box-shadow:var(--shadow);margin-bottom:.3rem}
