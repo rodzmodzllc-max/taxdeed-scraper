@@ -443,21 +443,21 @@ summary.county-head::-webkit-details-marker{display:none}
 .meta-assessed{color:var(--ok);font-weight:700}
 .meta-market{color:var(--accent);font-weight:700}
 
-/* ---- card stat grid: the four headline numbers (bid / assessed / market /
-   true cost) as labeled boxes instead of a run-on inline meta line, so the
-   figures investors compare most are the easiest ones to scan. Walk-away
-   spans the full width as a footer row within the same grid. ---- */
-.card-stat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:.4rem;margin-top:.45rem}
+/* ---- card stat grid: the three headline numbers the card keeps (opening
+   bid / parcel # / estimated market value for deed & LAFT cards; amount /
+   account # / expiration for certificate cards) as labeled boxes instead of
+   a run-on inline meta line. Everything else that used to live on the card
+   - assessed value, potential equity, fees, the full title-status banner,
+   owner/parcel copy buttons, notes - moved to the full property page so the
+   card itself stays scannable at a glance. min-width:0 lets a box shrink
+   instead of overflowing the grid when a parcel # runs long. ---- */
+.card-stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.4rem;margin-top:.45rem}
 .card-stat{background:var(--paper);border:1px solid var(--card-line);border-radius:8px;
-  padding:.4rem .55rem}
-.card-stat.wide{grid-column:1/-1;display:flex;align-items:center;justify-content:space-between;
-  background:none;border:none;border-top:1px dashed var(--card-line);border-radius:0;
-  padding:.35rem 0 0}
+  padding:.4rem .5rem;min-width:0}
 .card-stat-label{display:flex;align-items:center;gap:.25rem;font-size:.62rem;text-transform:uppercase;
   letter-spacing:.04em;color:var(--ink-soft);margin-bottom:.1rem}
-.card-stat.wide .card-stat-label{margin-bottom:0}
 .card-stat-val{font-family:ui-monospace,Consolas,monospace;font-variant-numeric:tabular-nums;
-  font-size:.86rem;font-weight:700;color:var(--ink)}
+  font-size:.8rem;font-weight:700;color:var(--ink);overflow-wrap:anywhere}
 .card-stat-val.bid{color:var(--bad)}
 .card-stat-val.assessed{color:var(--ok)}
 .card-stat-val.market{color:var(--accent)}
@@ -537,14 +537,14 @@ summary.county-head::-webkit-details-marker{display:none}
   letter-spacing:.01em}
 .cta-btn:hover{filter:brightness(1.08)}
 
-/* institutional dark "View Details" CTA - matches the CSV export button.
-   --header-bg, not --ink - see the note on #authGate button above: --ink
-   flips light in dark theme, which left this white-on-white in dark mode
-   before this fix. */
-.detail-btn{display:block;text-align:center;margin-top:.4rem;padding:.5rem .5rem;border-radius:8px;
-  background:var(--header-bg);color:#fff;font-weight:700;font-size:.76rem;text-decoration:none;
-  letter-spacing:.01em;border:none;cursor:pointer;font-family:inherit}
-.detail-btn:hover{background:var(--accent)}
+/* Deliberately a small text link, not a filled button - the card already
+   has one strong call to action (the CTA button above, when there's an
+   auction/LAFT listing to go to); "view everything else about this
+   property" is a lighter-weight, secondary action. */
+.detail-btn{display:inline-block;margin-top:.5rem;padding:0;background:none;border:none;
+  color:var(--accent);font-weight:600;font-size:.74rem;text-decoration:none;cursor:pointer;
+  font-family:inherit}
+.detail-btn:hover{text-decoration:underline}
 
 .notes-block{margin-top:.5rem;border-top:1px solid var(--card-line);padding-top:.45rem}
 .notes-head{display:flex;align-items:center;justify-content:space-between;gap:.5rem;
