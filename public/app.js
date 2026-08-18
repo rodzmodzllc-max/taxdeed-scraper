@@ -40,7 +40,14 @@ const GONE_HOURS_FLAGGED = 48;
 // updated" line switches from a plain timestamp to a warning, since a quiet
 // ledger and a dead sync both look identical otherwise.
 const STALE_DATA_HOURS = 36;
-const GONE_STATUSES = ["dropped", "sold", "notfound"];
+// "closed" = left the county's "Auctions Waiting" feed after its sale date
+// arrived, without a fresh harvest row to explain why (redeemed, canceled,
+// or actually sold at the table - sync-harvest-to-supabase.ps1 can't tell
+// which, since it only ever diffs against what's still listed, not against
+// the county's separate "Closed or Canceled" page). Still counts as gone
+// so the active badge reflects reality instead of a stale "active" pill
+// sitting there long after the county's own site moved on.
+const GONE_STATUSES = ["dropped", "sold", "notfound", "closed"];
 const isGone = p => GONE_STATUSES.includes(p.status);
 
 const TYPE_ORDER = ["House", "Condo", "Townhome", "Mobile/Manuf.", "Vacant Lot", "Commercial", "Unknown"];
@@ -335,6 +342,10 @@ function saleTime(p) {
 }
 const countyNames = () => Array.from(new Set(ALL.map(p => p.county)));
 const fmtDate = d => new Date(d + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+// Long form (weekday + full month) used only for the date-divider headers
+// that separate auction groups by sale date - fmtDate's short form stays
+// in the per-county meta line and everywhere else unchanged.
+const fmtDateLong = d => new Date(d + "T00:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
 
 const gate = document.getElementById("authGate");
 const app = document.getElementById("app");
@@ -1007,7 +1018,8 @@ function detailHtml(p) {
 function syncBodyScrollLock() {
   const detailOpen = !document.getElementById("detailModal")?.hidden;
   const bidListOpen = !document.getElementById("bidListModal")?.hidden;
-  document.body.style.overflow = (detailOpen || bidListOpen) ? "hidden" : "";
+  const hiddenModalOpen = !document.getElementById("hiddenModal")?.hidden;
+  document.body.style.overflow = (detailOpen || bidListOpen || hiddenModalOpen) ? "hidden" : "";
 }
 
 function openDetail(p) {
@@ -1122,12 +1134,112 @@ if (bidListModalEl) bidListModalEl.addEventListener("click", e => { if (e.target
 const bidListToggleBtn = document.getElementById("bidListToggle");
 if (bidListToggleBtn) bidListToggleBtn.addEventListener("click", () => openBidList());
 
+// ==================== "Hidden Properties" modal ====================
+// Hiding a property (the ✕ button) used to be one-way per item - the only
+// way back was "Restore all", which blindly un-hides everything at once
+// with no way to see what you'd get back first. This gives every hidden
+// property its own row so a mis-click is recoverable individually, while
+// properties that are no longer active (sale date already passed, or the
+// county's own listing dropped it and stayed gone past the grace period in
+// goneExpired()) are shown but can't be restored - bringing one of those
+// back would just have it filtered right back out, or worse, look like a
+// still-live listing when it isn't.
+function isRecoverable(p) {
+  return !goneExpired(p) && !isPastDue(p);
+}
+function hiddenRows() {
+  // Silently drops any id no longer in ALL (e.g. a property the sync
+  // pipeline has since removed outright) - same convention as bidListRows().
+  return Array.from(HIDDEN).map(id => ALL.find(p => p.id === id)).filter(Boolean);
+}
+function hiddenRow(p) {
+  const el = document.createElement("div");
+  const active = isRecoverable(p);
+  el.className = "hidden-row" + (active ? "" : " inactive");
+  const countyLine = `${esc(p.county)} County` + (p.sale_date ? " · " + fmtDate(p.sale_date) : "");
+  const inactiveReason = isPastDue(p) ? "Sale date already passed" : "No longer listed by the county";
+  el.innerHTML = `
+    <div class="hidden-row-info">
+      <span class="hidden-row-label">${shortPropLabel(p)}</span>
+      <span class="hidden-row-meta">${countyLine}</span>
+      ${active ? "" : `<span class="hidden-row-inactive-tag">${inactiveReason} - can't be restored</span>`}
+    </div>
+    ${active
+      ? `<button class="reset-btn" data-action="restore" data-pid="${p.id}" type="button">Restore</button>`
+      : `<span class="hidden-row-unavailable">Not active</span>`}`;
+  return el;
+}
+function renderHiddenModal() {
+  const inner = document.getElementById("hiddenModalInner");
+  if (!inner) return;
+  const rows = hiddenRows();
+  const activeCount = rows.filter(isRecoverable).length;
+  const listHtml = rows.length
+    ? ""
+    : `<div class="empty-state">Nothing hidden right now. Tap ✕ on any property to hide it - hidden properties show up here so you can bring one back if you hid it by mistake.</div>`;
+  inner.innerHTML = `
+    <button class="detail-close" data-action="closehidden" type="button">✕</button>
+    <h2 class="detail-address" style="margin-top:.1rem">Hidden Properties <span style="color:var(--ink-soft);font-weight:600">(${rows.length})</span></h2>
+    <p class="mega-sub" style="margin:0 0 .8rem">Properties you've hidden with ✕. Still-active ones can be brought back below; ones no longer active (sale date passed, or the county dropped the listing) can't be.</p>
+    ${listHtml}
+    <div class="hidden-list" id="hiddenListRows"></div>
+    ${activeCount ? `<button class="reset-btn" id="restoreAllActiveBtn" type="button" style="margin-top:.7rem">Restore all active (${activeCount})</button>` : ""}`;
+  const listEl = document.getElementById("hiddenListRows");
+  if (listEl) rows.forEach(p => listEl.appendChild(hiddenRow(p)));
+  const restoreAllBtn = document.getElementById("restoreAllActiveBtn");
+  if (restoreAllBtn) restoreAllBtn.addEventListener("click", restoreAllActive);
+}
+function openHiddenModal() {
+  const modal = document.getElementById("hiddenModal");
+  if (!modal) return;
+  renderHiddenModal();
+  modal.hidden = false;
+  syncBodyScrollLock();
+}
+function closeHiddenModal() {
+  const modal = document.getElementById("hiddenModal");
+  if (!modal) return;
+  modal.hidden = true;
+  syncBodyScrollLock();
+}
+// After a restore (single or "restore all active"), rebuild the modal in
+// place if it's currently open so it never shows a stale list - same
+// convention as refreshBidListModal().
+function refreshHiddenModal() {
+  const modal = document.getElementById("hiddenModal");
+  if (!modal || modal.hidden) return;
+  renderHiddenModal();
+}
+// Bulk-restores only the still-active hidden properties, leaving no-longer-
+// active ones hidden (there'd be no point un-hiding something that's just
+// going to get filtered right back out by goneExpired()/isPastDue()).
+async function restoreAllActive() {
+  if (!ME) return;
+  const activeIds = hiddenRows().filter(isRecoverable).map(p => p.id);
+  if (!activeIds.length) return;
+  const btn = document.getElementById("restoreAllActiveBtn");
+  if (btn) btn.disabled = true;
+  const { error } = await sb.from("hidden").delete().eq("user_id", ME.id).in("property_id", activeIds);
+  if (!error) {
+    activeIds.forEach(id => HIDDEN.delete(id));
+    render();
+    refreshHiddenModal();
+  } else if (btn) { btn.disabled = false; }
+}
+const hiddenModalEl = document.getElementById("hiddenModal");
+if (hiddenModalEl) hiddenModalEl.addEventListener("click", e => { if (e.target === hiddenModalEl) closeHiddenModal(); });
+const hiddenListBtn = document.getElementById("hiddenListBtn");
+if (hiddenListBtn) hiddenListBtn.addEventListener("click", () => openHiddenModal());
+
 // Escape closes whichever overlay is on top - the detail modal, if it's the
-// one currently open over the bid list modal, otherwise the bid list modal.
+// one currently open over the bid list / hidden modals, otherwise whichever
+// of those two is open.
 document.addEventListener("keydown", e => {
   if (e.key !== "Escape") return;
   const detailModal = document.getElementById("detailModal");
   if (detailModal && !detailModal.hidden) { closeDetail(); return; }
+  const hiddenModal = document.getElementById("hiddenModal");
+  if (hiddenModal && !hiddenModal.hidden) { closeHiddenModal(); return; }
   closeBidList();
 });
 
@@ -1154,9 +1266,22 @@ document.addEventListener("click", async e => {
     refreshBidListModal();
   } else if (action === "hide") {
     if (!ME || !pid) return;
+    // Hide used to fire on a single click with no confirmation - easy to fat-
+    // finger on a phone. There's no per-property undo (only "restore all" via
+    // the hidden-count panel), so a mis-click meant re-finding the property
+    // in the full ledger to bring it back. A confirm() dialog is the cheapest
+    // fix that actually stops the accidental click before it does anything.
+    const hiddenProp = ALL.find(x => x.id === pid);
+    const label = hiddenProp && hiddenProp.address ? `"${hiddenProp.address}"` : "this property";
+    if (!window.confirm(`Hide ${label}? It'll disappear from every view here. You can bring it back later from the hidden-properties panel.`)) return;
     btn.disabled = true;
     const { error } = await sb.from("hidden").insert({ user_id: ME.id, property_id: pid });
-    if (!error) { HIDDEN.add(pid); render(); closeDetail(); } else { btn.disabled = false; }
+    if (!error) { HIDDEN.add(pid); render(); closeDetail(); refreshHiddenModal(); } else { btn.disabled = false; }
+  } else if (action === "restore") {
+    if (!ME || !pid) return;
+    btn.disabled = true;
+    const { error } = await sb.from("hidden").delete().eq("user_id", ME.id).eq("property_id", pid);
+    if (!error) { HIDDEN.delete(pid); render(); refreshHiddenModal(); } else { btn.disabled = false; }
   } else if (action === "bidlist") {
     if (!ME || !pid) return;
     if (BIDLIST.has(pid)) {
@@ -1197,6 +1322,8 @@ document.addEventListener("click", async e => {
     closeDetail();
   } else if (action === "closebidlist") {
     closeBidList();
+  } else if (action === "closehidden") {
+    closeHiddenModal();
   } else if (action === "copy") {
     const val = btn.dataset.copy;
     if (!val) return;
@@ -1258,8 +1385,8 @@ function render() {
   // in view is already expanded.
   const expandAllBtn = document.getElementById("expandAllBtn");
   if (expandAllBtn) {
-    const countiesInLedger = new Set(shown.map(p => p.county));
-    const allOpen = countiesInLedger.size > 0 && Array.from(countiesInLedger).every(c => state.expandedCounties.has(c));
+    const keysInLedger = new Set(shown.map(p => groupKeyOf(activeLedger, p.county, p.sale_date)));
+    const allOpen = keysInLedger.size > 0 && Array.from(keysInLedger).every(k => state.expandedCounties.has(k));
     expandAllBtn.textContent = allOpen ? "Collapse all" : "Expand all";
     expandAllBtn.dataset.mode = allOpen ? "collapse" : "expand";
   }
@@ -1286,8 +1413,8 @@ function render() {
   if (chipArchive) chipArchive.textContent = archiveCount;
   document.querySelectorAll(".summary-strip .chip[data-status]").forEach(c => c.classList.toggle("on", c.dataset.status === state.statusView));
 
-  const hiddenInfo = document.getElementById("hiddenInfo");
-  if (hiddenInfo) hiddenInfo.hidden = HIDDEN.size === 0;
+  const hiddenListBtn = document.getElementById("hiddenListBtn");
+  if (hiddenListBtn) hiddenListBtn.hidden = HIDDEN.size === 0;
 
   const hiddenCount = document.getElementById("hiddenCount");
   if (hiddenCount) hiddenCount.textContent = HIDDEN.size;
@@ -1309,22 +1436,33 @@ function sortRows(rows) {
 }
 
 // ==================== county grouping ====================
-// Each ledger is organized into one collapsible <details> per county (name,
-// a date/format line, and an "N/M active" count) instead of one long flat
+// Each ledger is organized into one collapsible <details> group (name, a
+// date/format line, and an "N/M active" count) instead of one long flat
 // card list - the structure a county with 300+ properties needs to stay
 // scannable, and the reason Lands Available used to read as "not populated"
 // when it was buried under an unbroken run of auction cards.
+//
+// Auctions additionally split each county into one group PER SALE DATE
+// (instead of one group for the whole county) - a county running four
+// auctions this month is four separate accordion rows, each labeled with
+// its own date and its own "N/M active" count for just that date's cases.
+// Before this, every date's properties were rolled into a single group
+// labeled with only the earliest date, so the badge silently summed every
+// upcoming auction while the label implied just one (e.g. Hillsborough
+// showing "55/55 active - Auction Aug 20" when Aug 20 itself only had 14
+// cases and the other 41 belonged to three other August dates).
 
-// Auctions have a real per-county sale date (county_calendar, or a fallback
-// to the properties' own sale_date); Lands Available and certificates don't
-// run on a single county-wide date, so they get a static descriptor instead.
-function countySecondaryLine(ledgerKey, county, countyRows) {
-  if (ledgerKey === "auction") {
-    const calDates = (CALENDAR[county] || []).slice().sort();
-    const propDates = countyRows.map(p => p.sale_date).filter(Boolean).sort();
-    const d = calDates[0] || propDates[0];
-    return d ? `Auction ${fmtDate(d)}` : "No sale currently scheduled";
-  }
+// groupKeyOf identifies a distinct county-group: for auctions that's
+// county+date (so each sale date gets its own row); every other ledger
+// still has exactly one group per county, same as before.
+function groupKeyOf(ledgerKey, county, date) {
+  return ledgerKey === "auction" ? `${county}||${date || "TBD"}` : county;
+}
+
+// Lands Available and certificates don't run on a single county-wide date,
+// so they get a static descriptor instead of a real date.
+function groupSecondaryLine(ledgerKey, date) {
+  if (ledgerKey === "auction") return date ? `Auction ${fmtDate(date)}` : "Date not yet scheduled";
   if (ledgerKey === "laft") return "Lands Available - fixed price, available now";
   return "County-held certificates";
 }
@@ -1347,14 +1485,11 @@ function countyInfoBannerHtml(county) {
   return `<div class="county-info"><span class="${pillClass}">${esc(pillText)}</span><span>${esc(bodyText)}</span></div>`;
 }
 
-// Auction groups sort soonest-sale-first (so the most time-sensitive county
-// is the first thing an investor sees); other ledgers sort alphabetically.
-function countyGroupSortKey(ledgerKey, county, countyRows) {
-  if (ledgerKey === "auction") {
-    const calDates = (CALENDAR[county] || []).slice().sort();
-    const propDates = countyRows.map(p => p.sale_date).filter(Boolean).sort();
-    return calDates[0] || propDates[0] || "9999-99-99";
-  }
+// Groups sort soonest-sale-first within each county for auctions (so the
+// most time-sensitive date is the first thing an investor sees), then by
+// county name; other ledgers just sort alphabetically by county.
+function groupSortKey(ledgerKey, county, date) {
+  if (ledgerKey === "auction") return `${date || "9999-99-99"}|${county}`;
   return county;
 }
 
@@ -1371,47 +1506,66 @@ function section(container, title, sub, rows, kind) {
     return { shown };
   }
 
-  // Per-county "N/M active" ignores the current statusView, same trick the
+  // Per-group "N/M active" ignores the current statusView, same trick the
   // Active/Gone summary chips use, so the badge stays meaningful no matter
   // which status filter is selected. Archive is the one exception: forcing
   // "all" there would flip passes() out of archive mode entirely and zero
-  // out every county badge, so stay in "archive" rather than "all" when
+  // out every group's badge, so stay in "archive" rather than "all" when
   // that's the active view.
   const savedView = state.statusView;
   state.statusView = savedView === "archive" ? "archive" : "all";
   const allForCounts = rows.filter(passes);
   state.statusView = savedView;
-  const totalsByCounty = new Map(), activeByCounty = new Map();
+  const totalsByGroup = new Map(), activeByGroup = new Map();
   allForCounts.forEach(p => {
-    totalsByCounty.set(p.county, (totalsByCounty.get(p.county) || 0) + 1);
-    if (!isGone(p)) activeByCounty.set(p.county, (activeByCounty.get(p.county) || 0) + 1);
+    const k = groupKeyOf(kind, p.county, p.sale_date);
+    totalsByGroup.set(k, (totalsByGroup.get(k) || 0) + 1);
+    if (!isGone(p)) activeByGroup.set(k, (activeByGroup.get(k) || 0) + 1);
   });
 
   const groups = new Map();
   shown.forEach(p => {
-    if (!groups.has(p.county)) groups.set(p.county, []);
-    groups.get(p.county).push(p);
+    const k = groupKeyOf(kind, p.county, p.sale_date);
+    if (!groups.has(k)) groups.set(k, { county: p.county, date: p.sale_date, rows: [] });
+    groups.get(k).rows.push(p);
   });
 
-  const orderedCounties = Array.from(groups.keys()).sort((a, b) => {
-    const ka = countyGroupSortKey(kind, a, groups.get(a));
-    const kb = countyGroupSortKey(kind, b, groups.get(b));
-    if (ka !== kb) return ka < kb ? -1 : 1;
-    return a.localeCompare(b);
+  const orderedKeys = Array.from(groups.keys()).sort((ka, kb) => {
+    const ga = groups.get(ka), gb = groups.get(kb);
+    const sa = groupSortKey(kind, ga.county, ga.date), sb = groupSortKey(kind, gb.county, gb.date);
+    if (sa !== sb) return sa < sb ? -1 : 1;
+    return ga.county.localeCompare(gb.county);
   });
 
   const renderCard = kind === "certificate" ? certCard : card;
-  orderedCounties.forEach(county => {
-    const countyRows = groups.get(county);
-    const total = totalsByCounty.get(county) ?? countyRows.length;
-    const active = activeByCounty.get(county) ?? countyRows.length;
+  // Auctions are grouped by county+date (see groupKeyOf above); a date
+  // header inserted whenever the date changes turns a run of same-day
+  // counties into one visually distinct cluster instead of every county
+  // repeating its own small "Auction {date}" line with nothing higher-level
+  // separating one sale date from the next.
+  let lastDividerDate;
+  const showDateDividers = kind === "auction";
+  orderedKeys.forEach(key => {
+    const { county, date, rows: countyRows } = groups.get(key);
+    const total = totalsByGroup.get(key) ?? countyRows.length;
+    const active = activeByGroup.get(key) ?? countyRows.length;
+
+    if (showDateDividers && date !== lastDividerDate) {
+      lastDividerDate = date;
+      const divider = document.createElement("div");
+      divider.className = "date-divider";
+      divider.textContent = date ? fmtDateLong(date) : "Date not yet scheduled";
+      sec.appendChild(divider);
+    }
+
     // A search in progress auto-opens every group that has a match, so
     // results are visible immediately instead of hiding behind a collapse.
-    const isOpen = !!state.search || state.expandedCounties.has(county);
+    const isOpen = !!state.search || state.expandedCounties.has(key);
 
     const det = document.createElement("details");
     det.className = "county-group";
     det.dataset.county = county;
+    det.dataset.groupKey = key;
     if (isOpen) det.open = true;
 
     const summary = document.createElement("summary");
@@ -1419,7 +1573,7 @@ function section(container, title, sub, rows, kind) {
     summary.innerHTML = `
       <div>
         <div class="county-name">${esc(county)}</div>
-        <div class="county-meta">${esc(countySecondaryLine(kind, county, countyRows))}</div>
+        <div class="county-meta">${esc(groupSecondaryLine(kind, date))}</div>
       </div>
       <div class="county-right">
         <span class="county-count">${active}/${total} active</span>
@@ -1488,7 +1642,13 @@ if (countyQuickEl) countyQuickEl.addEventListener("change", () => {
   state.counties = v === "ALL" ? new Set(ALL_COUNTIES) : new Set([v]);
   // Picking one specific county is a strong signal the user wants to see
   // straight into it, not just narrow the filter and leave it collapsed.
-  if (v !== "ALL") state.expandedCounties.add(v);
+  // Auctions can have several date-groups for the same county, so expand
+  // every one of them, not just a single "county" key.
+  if (v !== "ALL") {
+    const keys = new Set([v]);
+    ALL.forEach(p => { if (p.county === v) keys.add(groupKeyOf(p.source, v, p.sale_date)); });
+    keys.forEach(k => state.expandedCounties.add(k));
+  }
   buildAllChips();
   if (mapLoaded) refreshMapPaths();
   updateBadge();
@@ -1504,17 +1664,17 @@ const mainEl = document.getElementById("main");
 if (mainEl) mainEl.addEventListener("toggle", e => {
   const det = e.target;
   if (!det.classList || !det.classList.contains("county-group")) return;
-  const county = det.dataset.county;
-  if (!county) return;
-  if (det.open) state.expandedCounties.add(county); else state.expandedCounties.delete(county);
+  const key = det.dataset.groupKey || det.dataset.county;
+  if (!key) return;
+  if (det.open) state.expandedCounties.add(key); else state.expandedCounties.delete(key);
 }, true);
 
 const expandAllBtn = document.getElementById("expandAllBtn");
 if (expandAllBtn) expandAllBtn.addEventListener("click", () => {
   const inLedger = p => p.source === state.ledger;
-  const countiesInLedger = new Set(ALL.filter(inLedger).filter(passes).map(p => p.county));
-  if (expandAllBtn.dataset.mode === "collapse") countiesInLedger.forEach(c => state.expandedCounties.delete(c));
-  else countiesInLedger.forEach(c => state.expandedCounties.add(c));
+  const keysInLedger = new Set(ALL.filter(inLedger).filter(passes).map(p => groupKeyOf(state.ledger, p.county, p.sale_date)));
+  if (expandAllBtn.dataset.mode === "collapse") keysInLedger.forEach(k => state.expandedCounties.delete(k));
+  else keysInLedger.forEach(k => state.expandedCounties.add(k));
   render();
 });
 
@@ -1635,15 +1795,11 @@ document.querySelectorAll(".summary-strip .chip[data-status]").forEach(c => {
   c.addEventListener("click", () => { state.statusView = c.dataset.status; render(); });
 });
 
-// ---- restore hidden ----
-const restoreHiddenBtn = document.getElementById("restoreHiddenBtn");
-if (restoreHiddenBtn) restoreHiddenBtn.addEventListener("click", async () => {
-  if (!ME) return;
-  restoreHiddenBtn.disabled = true;
-  const { error } = await sb.from("hidden").delete().eq("user_id", ME.id);
-  restoreHiddenBtn.disabled = false;
-  if (!error) { HIDDEN.clear(); render(); }
-});
+// ---- hidden properties: view & restore ----
+// The old blind "Restore all" button (no way to see what you'd get back, and
+// no way to restore just one) has been replaced by hiddenListBtn opening the
+// Hidden Properties modal - see the "Hidden Properties" modal section above
+// for openHiddenModal/restoreAllActive/the per-item "restore" click action.
 
 // ---- group all/none mini-buttons (types / liens / counties) ----
 document.querySelectorAll(".mini-btn[data-group]").forEach(btn => {

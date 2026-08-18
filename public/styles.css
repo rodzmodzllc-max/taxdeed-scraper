@@ -338,6 +338,16 @@ main{padding:.9rem 1.1rem 0}
 .mega-head h2{font-family:'Inter',sans-serif;font-weight:800;font-size:1.2rem;margin:0 0 .15rem}
 .mega-sub{font-size:.76rem;color:var(--ink-soft);margin:0}
 
+/* Auctions are grouped by county+date (app.js groupKeyOf) - this divider
+   sits above each new date cluster so a run of same-day counties reads as
+   one visual group instead of every county card repeating its own small
+   date line with nothing higher-level separating one sale date from the
+   next. Suppressed right after the section title (.mega-head) so the very
+   first cluster doesn't get a redundant rule line under the h2. */
+.date-divider{font-family:'Inter',sans-serif;font-weight:800;font-size:.95rem;color:var(--ink);
+  margin:1.1rem 0 .55rem;padding-top:.7rem;border-top:1px solid var(--card-line)}
+.mega-head+.date-divider{margin-top:0;padding-top:0;border-top:none}
+
 /* ---- county grouping: each ledger is organized into one collapsible
    <details> per county (name, an auction date/format line, and an "N/M
    active" count) instead of one long flat card list - the structure a
@@ -418,7 +428,7 @@ summary.county-head::-webkit-details-marker{display:none}
 .pill{flex-shrink:0;font-size:.66rem;font-weight:700;text-transform:uppercase;
   padding:.22rem .5rem;border-radius:999px;white-space:nowrap}
 .pill.active,.pill.available{color:var(--ok);background:var(--ok-bg)}
-.pill.dropped,.pill.sold{color:var(--bad);background:var(--bad-bg)}
+.pill.dropped,.pill.sold,.pill.closed{color:var(--bad);background:var(--bad-bg)}
 .pill.notfound{color:var(--warn);background:var(--warn-bg)}
 .countdown{font-size:.66rem;font-weight:700;padding:.22rem .5rem;border-radius:999px;
   white-space:nowrap;background:var(--paper-line);color:var(--ink-soft)}
@@ -582,6 +592,25 @@ summary.county-head::-webkit-details-marker{display:none}
   font-size:.82rem;padding:.4rem 0;border-bottom:1px solid var(--card-line)}
 .bidlist-pending-row:last-child{border-bottom:none}
 .bid-btn.pending{color:var(--warn)}
+
+/* Hidden Properties modal rows - same plain-stacked-list treatment as
+   .bidlist-pending-row above (not full cards; a hidden property just needs
+   enough context to recognize it and a Restore button, not the whole card
+   UI). .inactive rows (sale date passed, or the county's own listing
+   dropped it past goneExpired()'s grace period) are dimmed and get a
+   disabled-reading label instead of a working Restore button - restoring
+   one would just have it filtered right back out. */
+.hidden-list{display:flex;flex-direction:column}
+.hidden-row{display:flex;justify-content:space-between;align-items:center;gap:.8rem;
+  font-size:.82rem;padding:.55rem 0;border-bottom:1px solid var(--card-line)}
+.hidden-row:last-child{border-bottom:none}
+.hidden-row.inactive{opacity:.55}
+.hidden-row-info{display:flex;flex-direction:column;gap:.1rem;min-width:0}
+.hidden-row-label{color:var(--ink);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hidden-row-meta{font-size:.72rem;color:var(--ink-soft)}
+.hidden-row-inactive-tag{font-size:.68rem;color:var(--warn)}
+.hidden-row-unavailable{font-size:.72rem;color:var(--ink-soft);white-space:nowrap;flex-shrink:0}
+.hidden-row .reset-btn{flex-shrink:0}
 .detail-close{position:sticky;top:0;float:right;border:none;background:var(--card);
   color:var(--ink-soft);width:2rem;height:2rem;border-radius:999px;font-size:1.1rem;
   cursor:pointer;box-shadow:var(--shadow);margin-bottom:.3rem}
