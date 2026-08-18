@@ -1165,6 +1165,14 @@ document.addEventListener("click", async e => {
     refreshBidListModal();
   } else if (action === "hide") {
     if (!ME || !pid) return;
+    // Hide used to fire on a single click with no confirmation - easy to fat-
+    // finger on a phone. There's no per-property undo (only "restore all" via
+    // the hidden-count panel), so a mis-click meant re-finding the property
+    // in the full ledger to bring it back. A confirm() dialog is the cheapest
+    // fix that actually stops the accidental click before it does anything.
+    const hiddenProp = ALL.find(x => x.id === pid);
+    const label = hiddenProp && hiddenProp.address ? `"${hiddenProp.address}"` : "this property";
+    if (!window.confirm(`Hide ${label}? It'll disappear from every view here. You can bring everything back later from the hidden-properties panel, but there's no per-property undo.`)) return;
     btn.disabled = true;
     const { error } = await sb.from("hidden").insert({ user_id: ME.id, property_id: pid });
     if (!error) { HIDDEN.add(pid); render(); closeDetail(); } else { btn.disabled = false; }
