@@ -14,13 +14,15 @@ name: Harvest FL tax deed data and sync to Supabase
 #                 against Supabase once (see repo root) - until then this
 #                 job's sync step will fail loudly, which is intentional so
 #                 it doesn't get missed.
-#   laft:         harvest_laft_pdfs.py (Lands Available for Taxes, PDF-
-#                 published counties only - see ../data/laft_pdf_sources.csv
-#                 for the confirmed-live list), then synced to `properties`
-#                 (source='laft'). Once a day. A 67-county research pass
-#                 found most counties publish LAFT as an HTML table or a
-#                 search portal rather than a PDF - this job only covers the
-#                 PDF ones; the CSV grows as more counties get confirmed.
+#   laft:         harvest_laft_pdfs.py (PDF-published counties - see
+#                 ../data/laft_pdf_sources.csv) AND harvest_laft_html.py
+#                 (HTML-table counties - see ../data/laft_html_sources.csv,
+#                 added 2026-08 after a fresh county-by-county check), both
+#                 synced to `properties` (source='laft') by the same sync
+#                 script. Once a day. Most of Florida's larger counties gate
+#                 LAFT behind a search portal instead of a plain PDF/table -
+#                 neither harvester here handles those; each CSV grows as
+#                 more counties get confirmed one of the two ways.
 #
 # All three jobs upload their raw harvest as a workflow artifact (30-day
 # retention) regardless of whether the Supabase sync succeeds, so a bad sync
@@ -119,17 +121,27 @@ jobs:
           python-version: '3.12'
 
       - name: Install Python dependencies
-        run: pip install pdfplumber requests
+        run: pip install pdfplumber requests beautifulsoup4
 
       - name: Harvest Lands Available for Taxes PDFs
         run: python3 scripts/harvest_laft_pdfs.py
+
+      - name: Harvest Lands Available for Taxes HTML-table counties
+        # Independent of the PDF harvester (different counties, different
+        # script) - always() so a bad run of one never silently skips the
+        # other, matching the per-county try/except discipline inside each
+        # script itself.
+        if: always()
+        run: python3 scripts/harvest_laft_html.py
 
       - name: Upload raw harvest as artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: harvest-laft-${{ github.run_id }}
-          path: out/harvest_laft.*
+          path: |
+            out/harvest_laft.*
+            out/harvest_laft_html.*
           retention-days: 30
           if-no-files-found: warn
 
