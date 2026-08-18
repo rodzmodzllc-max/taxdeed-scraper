@@ -1,0 +1,8 @@
+County,Subdomain,Notes
+Alachua,alachua,Confirmed live 2026-08 with 4 real properties. Status ID for "List of Lands - Available For Public" on this tenant: 1171 (looked up dynamically at harvest time, not hardcoded - each tenant numbers its own statuses).
+Highlands,highlands,Confirmed live 2026-08 with 3 real properties. Status ID on this tenant: 1857.
+Lee,lee,Confirmed live 2026-08 - real tenant (not a TEST placeholder), case-status lookup not individually exercised beyond confirming the tenant loads correctly.
+Sarasota,sarasota,Confirmed live 2026-08 - real tenant (not a TEST placeholder).
+Flagler,flagler,Confirmed live 2026-08 - real tenant (not a TEST placeholder).
+Santa Rosa,santarosa,Confirmed live 2026-08 - real tenant (not a TEST placeholder).
+Washington,washington,Confirmed live 2026-08 - real tenant (not a TEST placeholder).
