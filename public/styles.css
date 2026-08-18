@@ -640,3 +640,15 @@ footer{padding:1.2rem 1.1rem 0;font-size:.72rem;color:var(--ink-soft);text-align
   .quick-controls{position:static}
 }
 @media (prefers-reduced-motion:reduce){.chevron{transition:none}}
+
+#changePasswordModal input{
+  width:100%;padding:.65rem .75rem;margin-bottom:.6rem;font-size:.95rem;
+  border:1px solid var(--card-line);border-radius:8px;background:var(--paper);color:var(--ink);
+}
+#changePasswordModal input:focus{outline:2px solid var(--accent);outline-offset:1px}
+#changePasswordModal button[type="submit"]{
+  width:100%;padding:.7rem;font-size:.92rem;font-weight:700;border:none;border-radius:8px;
+  background:var(--header-bg);color:#fff;cursor:pointer;margin-top:.2rem;letter-spacing:.01em;
+}
+#changePasswordModal button[type="submit"]:hover{background:var(--ok)}
+#changePasswordModal button[type="submit"]:disabled{opacity:.5;cursor:default;background:var(--header-bg)}

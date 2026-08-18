@@ -343,6 +343,15 @@ const authMsg = document.getElementById("authMsg");
 const authLead = document.getElementById("authLead");
 const authModeToggle = document.getElementById("authModeToggle");
 const passwordConfirmEl = document.getElementById("passwordConfirm");
+// Extra sign-up-only profile fields - same hidden/required toggle pattern as
+// passwordConfirmEl above, driven by setAuthMode(). Only relevant to signup;
+// signin never shows or requires them.
+const firstNameEl = document.getElementById("firstName");
+const lastNameEl = document.getElementById("lastName");
+const companyEl = document.getElementById("company");
+const addressEl = document.getElementById("address");
+const phoneEl = document.getElementById("phone");
+const SIGNUP_PROFILE_FIELDS = [firstNameEl, lastNameEl, companyEl, addressEl, phoneEl];
 
 // "Sign in" is the default; the toggle flips this to a self-serve signup
 // flow (sb.auth.signUp). NOTE: this only controls whether a Supabase Auth
@@ -358,6 +367,7 @@ function setAuthMode(mode) {
   if (btn) btn.textContent = signUp ? "Create account" : "Sign in";
   if (authModeToggle) authModeToggle.textContent = signUp ? "Already have an account? Sign in" : "Need an account? Create one";
   if (passwordConfirmEl) { passwordConfirmEl.hidden = !signUp; passwordConfirmEl.required = signUp; passwordConfirmEl.value = ""; }
+  SIGNUP_PROFILE_FIELDS.forEach(el => { if (el) { el.hidden = !signUp; el.required = signUp; el.value = ""; } });
   const pw = document.getElementById("password");
   if (pw) pw.autocomplete = signUp ? "new-password" : "current-password";
   if (authMsg) { authMsg.className = "auth-msg"; authMsg.textContent = ""; }
@@ -379,9 +389,27 @@ if (authForm) {
         if (authMsg) { authMsg.className = "auth-msg err"; authMsg.textContent = "Passwords don't match."; }
         return;
       }
+      const firstName = firstNameEl ? firstNameEl.value.trim() : "";
+      const lastName = lastNameEl ? lastNameEl.value.trim() : "";
+      const company = companyEl ? companyEl.value.trim() : "";
+      const address = addressEl ? addressEl.value.trim() : "";
+      const phone = phoneEl ? phoneEl.value.trim() : "";
+      // All five are required - Company has no separate "skip" control, since
+      // someone with no company enters "Independent" there instead.
+      if (!firstName || !lastName || !company || !address || !phone) {
+        if (authMsg) {
+          authMsg.className = "auth-msg err";
+          authMsg.textContent = "Please fill in all fields. No company? Enter \"Independent\".";
+        }
+        return;
+      }
       if (btn) btn.disabled = true;
       if (authMsg) { authMsg.className = "auth-msg"; authMsg.textContent = "Creating account"; }
-      const { data, error } = await sb.auth.signUp({ email, password });
+      const { data, error } = await sb.auth.signUp({
+        email,
+        password,
+        options: { data: { first_name: firstName, last_name: lastName, company, address, phone } }
+      });
       if (btn) btn.disabled = false;
       if (error) {
         if (authMsg) { authMsg.className = "auth-msg err"; authMsg.textContent = error.message; }
@@ -1728,3 +1756,92 @@ window.addEventListener("appinstalled", () => {
   if (installBtnEl) installBtnEl.hidden = true;
   deferredInstallPrompt = null;
 });
+// ============ change password modal ============
+// Reuses the .detail-modal shell pattern already used by detailModal/bidListModal.
+// Flow: re-verify the current password via signInWithPassword() before calling
+// sb.auth.updateUser() - a plain updateUser() alone would let anyone using an
+// already-open signed-in session change the password without proving they
+// know the existing one.
+(function () {
+  const openBtn = document.getElementById("changePasswordBtn");
+  const modal = document.getElementById("changePasswordModal");
+  const closeBtn = document.getElementById("changePasswordCloseBtn");
+  const form = document.getElementById("changePasswordForm");
+  const msgEl = document.getElementById("cpMsg");
+  const submitBtn = document.getElementById("cpSubmitBtn");
+  if (!openBtn || !modal || !form) return;
+
+  function showMsg(text, isErr) {
+    if (!msgEl) return;
+    msgEl.textContent = text || "";
+    msgEl.className = "auth-msg" + (isErr ? " err" : "");
+  }
+
+  function openModal() {
+    form.reset();
+    showMsg("", false);
+    modal.hidden = false;
+  }
+
+  function closeModal() {
+    modal.hidden = true;
+    form.reset();
+    showMsg("", false);
+  }
+
+  openBtn.addEventListener("click", openModal);
+  if (closeBtn) closeBtn.addEventListener("click", closeModal);
+  modal.addEventListener("click", (e) => {
+    if (e.target === modal) closeModal();
+  });
+
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    if (!ME || !ME.email) {
+      showMsg("You must be signed in to change your password.", true);
+      return;
+    }
+    const current = document.getElementById("cpCurrent").value;
+    const next = document.getElementById("cpNew").value;
+    const confirm = document.getElementById("cpConfirm").value;
+
+    if (next.length < 6) {
+      showMsg("New password must be at least 6 characters.", true);
+      return;
+    }
+    if (next !== confirm) {
+      showMsg("New password and confirmation do not match.", true);
+      return;
+    }
+
+    if (submitBtn) submitBtn.disabled = true;
+    showMsg("Verifying current password...", false);
+
+    try {
+      const { error: verifyErr } = await sb.auth.signInWithPassword({
+        email: ME.email,
+        password: current,
+      });
+      if (verifyErr) {
+        showMsg("Current password is incorrect.", true);
+        if (submitBtn) submitBtn.disabled = false;
+        return;
+      }
+
+      showMsg("Updating password...", false);
+      const { error: updateErr } = await sb.auth.updateUser({ password: next });
+      if (updateErr) {
+        showMsg(updateErr.message || "Could not update password.", true);
+        if (submitBtn) submitBtn.disabled = false;
+        return;
+      }
+
+      showMsg("Password updated successfully.", false);
+      setTimeout(closeModal, 1500);
+    } catch (err) {
+      showMsg((err && err.message) || "Unexpected error updating password.", true);
+    } finally {
+      if (submitBtn) submitBtn.disabled = false;
+    }
+  });
+})();
