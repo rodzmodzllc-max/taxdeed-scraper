@@ -338,6 +338,16 @@ main{padding:.9rem 1.1rem 0}
 .mega-head h2{font-family:'Inter',sans-serif;font-weight:800;font-size:1.2rem;margin:0 0 .15rem}
 .mega-sub{font-size:.76rem;color:var(--ink-soft);margin:0}
 
+/* Auctions are grouped by county+date (app.js groupKeyOf) - this divider
+   sits above each new date cluster so a run of same-day counties reads as
+   one visual group instead of every county card repeating its own small
+   date line with nothing higher-level separating one sale date from the
+   next. Suppressed right after the section title (.mega-head) so the very
+   first cluster doesn't get a redundant rule line under the h2. */
+.date-divider{font-family:'Inter',sans-serif;font-weight:800;font-size:.95rem;color:var(--ink);
+  margin:1.1rem 0 .55rem;padding-top:.7rem;border-top:1px solid var(--card-line)}
+.mega-head+.date-divider{margin-top:0;padding-top:0;border-top:none}
+
 /* ---- county grouping: each ledger is organized into one collapsible
    <details> per county (name, an auction date/format line, and an "N/M
    active" count) instead of one long flat card list - the structure a

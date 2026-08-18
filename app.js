@@ -335,6 +335,10 @@ function saleTime(p) {
 }
 const countyNames = () => Array.from(new Set(ALL.map(p => p.county)));
 const fmtDate = d => new Date(d + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+// Long form (weekday + full month) used only for the date-divider headers
+// that separate auction groups by sale date - fmtDate's short form stays
+// in the per-county meta line and everywhere else unchanged.
+const fmtDateLong = d => new Date(d + "T00:00:00").toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric", year: "numeric" });
 
 const gate = document.getElementById("authGate");
 const app = document.getElementById("app");
@@ -1411,10 +1415,26 @@ function section(container, title, sub, rows, kind) {
   });
 
   const renderCard = kind === "certificate" ? certCard : card;
+  // Auctions are grouped by county+date (see groupKeyOf above); a date
+  // header inserted whenever the date changes turns a run of same-day
+  // counties into one visually distinct cluster instead of every county
+  // repeating its own small "Auction {date}" line with nothing higher-level
+  // separating one sale date from the next.
+  let lastDividerDate;
+  const showDateDividers = kind === "auction";
   orderedKeys.forEach(key => {
     const { county, date, rows: countyRows } = groups.get(key);
     const total = totalsByGroup.get(key) ?? countyRows.length;
     const active = activeByGroup.get(key) ?? countyRows.length;
+
+    if (showDateDividers && date !== lastDividerDate) {
+      lastDividerDate = date;
+      const divider = document.createElement("div");
+      divider.className = "date-divider";
+      divider.textContent = date ? fmtDateLong(date) : "Date not yet scheduled";
+      sec.appendChild(divider);
+    }
+
     // A search in progress auto-opens every group that has a match, so
     // results are visible immediately instead of hiding behind a collapse.
     const isOpen = !!state.search || state.expandedCounties.has(key);
