@@ -840,13 +840,16 @@ function card(p, showCounty) {
   const titleLine = hasAddress ? esc(p.address) : `Parcel #${esc(p.parcel || "Unknown")} (${esc(p.county)} County Lot)`;
   const hasBid = p.bid !== null && p.bid !== undefined;
 
-  // Potential equity / spread: market value minus opening bid, whenever
-  // there's both a bid and a market figure to compare it to.
-  const spreadAmt = hasBid && marketOf(p) > 0 ? marketOf(p) - Number(p.bid) : null;
-  const spreadBadge = spreadAmt !== null
-    ? `<div class="spread-badge">Potential equity ${spreadAmt >= 0 ? "+" : "-"}${fmtShort(Math.abs(spreadAmt))} <span class="spread-mult">(${valueRatio(p).toFixed(1)}× market/bid)</span></div>`
-    : "";
-
+  // Kept deliberately lean: header, opening bid, parcel #, and an estimated
+  // market value (sourced from Zillow/the county appraiser - see
+  // fallbackZillowUrl) are the only figures that matter for a first glance.
+  // Everything else that used to live here - assessed value, potential
+  // equity, the full title-status banner, owner/parcel copy buttons, notes -
+  // moved to the full property page (openDetail/detailHtml), one click away
+  // via the small link at the bottom. The county Tax Collector and Title
+  // Search links, and the standalone Auction icon-link, moved there too -
+  // the CTA button below already covers "go to the auction," so a second,
+  // smaller Auction link right next to it was pure redundancy.
   el.innerHTML = `
     ${top ? `<div class="toppick-banner">★ Top pick <span class="ratio-pill">${valueRatio(p).toFixed(1)}× market vs bid</span></div>` : ""}
     ${tag}
@@ -861,34 +864,18 @@ function card(p, showCounty) {
         <span class="pill ${esc(p.status)}">${esc(p.status)}</span>
       </div>
     </div>
-    <div class="prop-meta">
-      <span>Parcel #${esc(p.parcel || "Unknown")}</span>
-    </div>
-    ${spreadBadge}
     <div class="card-stat-grid">
       <div class="card-stat"><div class="card-stat-label">Opening Bid</div><div class="card-stat-val bid">${hasBid ? fmtMoney(p.bid) : "N/A"}</div></div>
-      <div class="card-stat"><div class="card-stat-label">Assessed</div><div class="card-stat-val assessed">${p.assessed ? fmtShort(p.assessed) : "N/A"}</div></div>
+      <div class="card-stat"><div class="card-stat-label">Parcel #</div><div class="card-stat-val">${esc(p.parcel || "Unknown")}</div></div>
       <div class="card-stat"><div class="card-stat-label">Est. Market</div><div class="card-stat-val market">${p.market ? fmtShort(p.market) : "N/A"}</div></div>
-    </div>
-    <div class="lien-banner ${esc(p.lien_level)}">
-      <div class="lien-toprow"><span class="lien-label">Title: ${LIEN_LABEL[p.lien_level] || p.lien_level}</span><span class="type-badge">${esc(p.prop_type || "Type: Unknown")}</span></div>
-      <span class="lien-text">${esc(p.lien_note || "")}</span>
-    </div>
-    <div class="copy-row">
-      <button class="copy-btn owner-tag${p.owner_name ? "" : " unknown"}" ${p.owner_name ? `data-action="copy" data-copy="${esc(p.owner_name)}"` : ""} type="button"><span class="copy-tag">Owner</span><span class="copy-val">${esc(p.owner_name || "Unknown")}</span></button>
-      ${p.parcel ? `<button class="copy-btn" data-action="copy" data-copy="${esc(p.parcel)}" type="button"><span class="copy-tag">Parcel</span><span class="copy-val">${esc(p.parcel)}</span></button>` : ""}
     </div>
     <div class="prop-links">
       ${fallbackStreetviewUrl(p) ? `<a href="${esc(fallbackStreetviewUrl(p))}" target="_blank" rel="noopener">${linkIcon("Street View")}Street View</a>` : ''}
       ${p.url_appraiser ? `<a href="${esc(p.url_appraiser)}" target="_blank" rel="noopener">${linkIcon("Appraiser")}Appraiser</a>` : ''}
       ${fallbackZillowUrl(p) ? `<a href="${esc(fallbackZillowUrl(p))}" target="_blank" rel="noopener">${linkIcon("Zillow")}Zillow</a>` : ''}
-      ${p.url_taxcoll ? `<a href="${esc(p.url_taxcoll)}" target="_blank" rel="noopener">${linkIcon("Tax Collector")}Collector</a>` : ''}
-      ${p.url_auction ? `<a href="${esc(p.url_auction)}" target="_blank" rel="noopener">${linkIcon("Auction")}${p.source === "laft" ? "LAFT" : "Auction"}</a>` : ''}
-      ${p.url_title ? `<a href="${esc(p.url_title)}" target="_blank" rel="noopener">${linkIcon("Title Search")}Title Search</a>` : ''}
     </div>
     ${p.url_auction ? `<a class="cta-btn" href="${esc(p.url_auction)}" target="_blank" rel="noopener">${p.source === "laft" ? "View Lands Available Listing" : "Bid on County Auction Site"}</a>` : ''}
-    <button class="detail-btn" data-action="viewdetails" data-pid="${p.id}" type="button">View Full Property Page</button>
-    ${noteHtml(p)}`;
+    <button class="detail-btn" data-action="viewdetails" data-pid="${p.id}" type="button">View full property page →</button>`;
   return el;
 }
 
@@ -915,6 +902,11 @@ function certCard(p, showCounty) {
     cd = `<span class="countdown ${cls}">${expDays === 0 ? "TODAY" : expDays + "d to expire"}</span>`;
   }
 
+  // Same lean-card treatment as card() above: header, the amount, the
+  // account #, and the one date that actually drives a decision (expiration
+  // - a redeemed-or-not clock, more decision-relevant on a cert than the
+  // issue date or tax year). Interest rate, issued date, tax year, and the
+  // account-# copy button moved to the full property page.
   el.innerHTML = `
     ${tag}
     <div class="prop-top">
@@ -926,22 +918,13 @@ function certCard(p, showCounty) {
         ${cd}
       </div>
     </div>
-    <div class="prop-meta">
-      <span>Account #${esc(p.case_no || "Unknown")}</span>
-      <span>Tax year ${esc(p.tax_year || "N/A")}</span>
-      <span class="meta-bid">Amount ${p.bid ? fmtMoney(p.bid) : "N/A"}</span>
-      ${p.interest_rate ? `<span>Rate ${esc(p.interest_rate)}%</span>` : ""}
-    </div>
-    <div class="prop-meta">
-      <span>Issued ${p.issued_date ? fmtDate(p.issued_date) : "N/A"}</span>
-      <span>Expires ${p.expiration_date ? fmtDate(p.expiration_date) : "N/A"}</span>
-    </div>
-    <div class="copy-row">
-      <button class="copy-btn" data-action="copy" data-copy="${esc(p.case_no || "")}" type="button"><span class="copy-tag">Account</span><span class="copy-val">${esc(p.case_no || "Unknown")}</span></button>
+    <div class="card-stat-grid">
+      <div class="card-stat"><div class="card-stat-label">Amount</div><div class="card-stat-val bid">${p.bid ? fmtMoney(p.bid) : "N/A"}</div></div>
+      <div class="card-stat"><div class="card-stat-label">Account #</div><div class="card-stat-val">${esc(p.case_no || "Unknown")}</div></div>
+      <div class="card-stat"><div class="card-stat-label">Expires</div><div class="card-stat-val">${p.expiration_date ? fmtDate(p.expiration_date) : "N/A"}</div></div>
     </div>
     ${p.url_auction ? `<a class="cta-btn" href="${esc(p.url_auction)}" target="_blank" rel="noopener">View on County-Held Liens List</a>` : ''}
-    <button class="detail-btn" data-action="viewdetails" data-pid="${p.id}" type="button">View Full Property Page</button>
-    ${noteHtml(p)}`;
+    <button class="detail-btn" data-action="viewdetails" data-pid="${p.id}" type="button">View full property page →</button>`;
   return el;
 }
 
