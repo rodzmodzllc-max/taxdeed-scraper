@@ -15,10 +15,15 @@ $ErrorActionPreference = "Stop"
 # CI-adapted: reads SUPABASE_URL / SUPABASE_SERVICE_KEY from environment
 # variables (GitHub Actions secrets).
 #
-# Run harvest_laft_pdfs.py first, then this.
+# Run harvest_laft_pdfs.py (PDF-published counties) and harvest_laft_html.py
+# (HTML-table counties - added 2026-08, see that script's own docstring for
+# which counties and why) first, then this. Both harvesters write the same
+# row shape to two separate JSON files - this script merges them before
+# syncing, so it's the only thing that needs to know both harvesters exist.
 
 $here     = $PSScriptRoot
 $jsonPath = Join-Path $here "../out/harvest_laft.json"
+$htmlJsonPath = Join-Path $here "../out/harvest_laft_html.json"
 
 $supabaseUrl = $env:SUPABASE_URL
 $serviceRoleKey = $env:SUPABASE_SERVICE_KEY
@@ -29,9 +34,25 @@ if (-not (Test-Path $jsonPath)) {
     throw "Missing $jsonPath - run harvest_laft_pdfs.py first."
 }
 
-$harvest = Get-Content $jsonPath -Raw | ConvertFrom-Json
+# harvest_laft_html.json is optional here (Test-Path guarded) so this script
+# still works standalone if that harvester hasn't been run yet - it's not
+# required the way harvest_laft.json is. When it exists it's guaranteed to
+# be valid JSON (harvest_laft_html.py always writes the file, even an empty
+# `[]`, so a missing file really does mean "never ran" not "ran and found
+# nothing").
+$harvest = @(Get-Content $jsonPath -Raw | ConvertFrom-Json)
+if (Test-Path $htmlJsonPath) {
+    $htmlHarvest = @(Get-Content $htmlJsonPath -Raw | ConvertFrom-Json)
+    if ($htmlHarvest.Count -gt 0) {
+        Write-Output "Merging $($htmlHarvest.Count) properties from the HTML-table counties (harvest_laft_html.json)."
+        $harvest = @($harvest) + @($htmlHarvest)
+    }
+} else {
+    Write-Output "No harvest_laft_html.json found - skipping HTML-table counties for this run."
+}
+
 if (-not $harvest -or $harvest.Count -eq 0) {
-    Write-Output "harvest_laft.json is empty - no LAFT properties currently listed at any of the confirmed counties. Nothing to sync (not an error)."
+    Write-Output "Both harvests are empty - no LAFT properties currently listed at any of the confirmed counties. Nothing to sync (not an error)."
     exit 0
 }
 
