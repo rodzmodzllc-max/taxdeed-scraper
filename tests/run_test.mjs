@@ -24,10 +24,10 @@ const launchOpts = fs.existsSync(SANDBOX_CHROMIUM) ? { executablePath: SANDBOX_C
 // setup (not real app bugs) - anything NOT matching one of these fails the
 // build instead of being silently ignored.
 const ALLOWED_ERROR_SUBSTRINGS = [
-  'net::ERR_TUNNEL_CONNECTION_FAILED',                 // sandboxed egress proxy artifact
-  'A bad HTTP response code (404) was received',       // no icons/ in the fixture serve dir
-  'the server responded with a status of 404',         // same
-  '<path> attribute d: Expected number',               // fl-counties.svg path-parsing quirk
+  'net::ERR_TUNNEL_CONNECTION_FAILED', // sandboxed egress proxy artifact
+  'A bad HTTP response code (404) was received', // no icons/ in the fixture serve dir
+  'the server responded with a status of 404', // same
+  '<path> attribute d: Expected number', // fl-counties.svg path-parsing quirk
 ];
 
 const errors = [];
@@ -35,6 +35,11 @@ const browser = await chromium.launch(launchOpts);
 const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
 page.on('pageerror', e => errors.push('pageerror: ' + e.message));
 page.on('console', msg => { if (msg.type() === 'error') errors.push('console.error: ' + msg.text()); });
+// The "hide" action now confirms before it does anything (a real user would
+// click OK) - Playwright auto-dismisses unhandled dialogs, which silently
+// no-ops every hide in this test and cascades into wrong counts everywhere
+// downstream. Auto-accept so hide behaves the way a real click would.
+page.on('dialog', dialog => dialog.accept());
 
 await page.goto(BASE_URL, { waitUntil: 'networkidle' });
 await page.waitForTimeout(500);
@@ -50,6 +55,10 @@ results.countyDropdownOpenOnLoad = await page.locator('#countyChips').first().ev
 // --- county groups are also collapsed by default on load (native <details>,
 // state.expandedCounties starts empty) ---
 results.countyGroupOpenOnLoad = await page.locator('.county-group').first().evaluate(el => el.open);
+// Auctions are grouped by county+date (see groupKeyOf in app.js), not just
+// county - Duval/Escambia/Marion each have two live fixture properties on
+// two different sale dates, so each contributes two groups here: Alachua(1)
+// + Brevard(1) + Charlotte(1) + Duval(2) + Escambia(2) + Marion(2) = 9.
 results.countyGroupCount = await page.locator('.county-group').count();
 
 // --- ledger tabs: default view is Auctions only (p1/p5-p12 live, p2 auction
@@ -68,7 +77,9 @@ await page.waitForTimeout(100);
 results.filtersOpenAfterClick = await page.locator('#filtersPanel').evaluate(el => el.classList.contains('open'));
 
 // --- county group header content: name, "Auction {date}" meta line (or the
-// county_calendar-driven date for Brevard specifically), and "N/M active" count ---
+// county_calendar-driven date for Brevard specifically), and "N/M active" count.
+// Brevard and Alachua each have exactly one live auction property in this
+// fixture, so data-county still resolves to a single element for them. ---
 results.brevardGroupMeta = await page.locator('.county-group[data-county="Brevard"] .county-meta').textContent();
 results.brevardGroupCount = await page.locator('.county-group[data-county="Brevard"] .county-count').textContent();
 results.alachuaGroupMeta = await page.locator('.county-group[data-county="Alachua"] .county-meta').textContent();
@@ -190,11 +201,14 @@ await page.click('#expandAllBtn');
 await page.waitForTimeout(150);
 
 // --- restore hidden button visibility toggling via hide action ---
+// The old #hiddenInfo counter text was replaced by the Hidden Properties
+// feature's #hiddenListBtn (a "N hidden - view & recover" button that stays
+// hidden until HIDDEN.size > 0, opening the recover modal on click).
 const removeBtn = page.locator('.remove-btn').first();
 await removeBtn.click();
 await page.waitForTimeout(200);
 results.cardsAfterHide = await page.locator('.prop-card').count();
-results.hiddenInfoVisible = await page.locator('#hiddenInfo').isVisible();
+results.hiddenListBtnVisible = await page.locator('#hiddenListBtn').isVisible();
 
 // --- switch to Lands Available tab (fixture p3, Bay county) ---
 await page.click('.ledger-tab[data-ledger="laft"]');
@@ -211,8 +225,14 @@ await page.click('.ledger-tab[data-ledger="certificate"]');
 await page.waitForTimeout(150);
 results.certCardCount = await page.locator('.cert-card').count();
 results.certCardTitle = await page.locator('.cert-card .prop-address').first().textContent();
-results.certCardAccount = await page.locator('.cert-card .prop-meta span').first().textContent();
-results.certCardAmount = (await page.locator('.cert-card .meta-bid').first().textContent()).trim();
+// Cert cards were pared down to a 3-box stat grid (Amount / Account # /
+// Expires) - everything else (tax year, issued date, interest rate, the
+// account-# copy button) moved to the full property page. Read the stat
+// boxes by position instead of the old .prop-meta/.meta-bid text lines,
+// which no longer exist on the card.
+results.certCardAmount = (await page.locator('.cert-card .card-stat-grid .card-stat').nth(0).locator('.card-stat-val').textContent() || '').trim();
+results.certCardAccount = (await page.locator('.cert-card .card-stat-grid .card-stat').nth(1).locator('.card-stat-val').textContent() || '').trim();
+results.certCardExpires = (await page.locator('.cert-card .card-stat-grid .card-stat').nth(2).locator('.card-stat-val').textContent() || '').trim();
 results.certCardCta = await page.locator('.cert-card .cta-btn').first().textContent();
 results.certCardExpiresCountdown = await page.locator('.cert-card .countdown').count();
 
@@ -250,15 +270,21 @@ await page.click('.summary-strip .chip[data-status="live"]');
 await page.waitForTimeout(150);
 
 // ============================================================
-// Phase 8: search, county quick-select, CSV export, spread badge,
-// detail modal. Fixture now has 9 live auction properties (p1, p5-p12;
-// p2 is gone/expired) across Alachua, Brevard, Charlotte, Duval(x2),
-// Escambia(x2), Marion(x2) - minus whichever one got hidden earlier.
+// Phase 8: search, county quick-select, CSV export, card cleanup, detail
+// modal. Fixture now has 9 live auction properties (p1, p5-p12; p2 is
+// gone/expired) across Alachua, Brevard, Charlotte, Duval(x2), Escambia(x2),
+// Marion(x2) - minus whichever one got hidden earlier.
 // ============================================================
 
-// --- spread badge: p1 has bid 5000 / market 90000 -> should show ---
+// --- card cleanup: cards were pared down to header + a 3-box stat grid
+// (Opening Bid / Parcel # / Est. Market) + 3 reference links (Street View /
+// Appraiser / Zillow) + an optional CTA + a small "view full property page"
+// link. Assessed value, potential equity (the old .spread-badge), the full
+// title-status banner, owner/parcel copy buttons, and notes all moved to
+// the detail modal only - .spread-badge no longer exists anywhere on a
+// card, confirmed by asserting its count is now 0. ---
+results.cardStatLabelsFirst = await page.locator('.prop-card').first().locator('.card-stat-label').allTextContents();
 results.spreadBadgeCount = await page.locator('.spread-badge').count();
-results.spreadBadgeFirstText = (await page.locator('.spread-badge').first().textContent() || '').trim();
 
 // --- collapse everything first, so the next search test genuinely proves a
 // search auto-opens a matching county rather than finding it already open
@@ -267,7 +293,13 @@ if ((await page.locator('#expandAllBtn').textContent()) === 'Collapse all') {
   await page.click('#expandAllBtn');
   await page.waitForTimeout(150);
 }
-results.duvalGroupClosedBeforeSearch = await page.locator('.county-group[data-county="Duval"]').evaluate(el => el.open);
+// Duval renders as two county-groups now (one per sale date - see
+// countyGroupCount above), so this can't be a single-element .evaluate()
+// the way it could when every county was guaranteed exactly one group;
+// .evaluateAll(...).some(...) degrades to the same boolean a single-match
+// .evaluate() would have returned when there's only one match, and stays
+// correct now that there are two.
+results.duvalGroupClosedBeforeSearch = await page.locator('.county-group[data-county="Duval"]').evaluateAll(els => els.some(el => el.open));
 
 // --- search: "Searchable" should isolate p7 (12 Searchable Blvd, Duval) and
 // auto-expand its county group even though it was just collapsed ---
@@ -275,17 +307,20 @@ await page.fill('#searchInput', 'Searchable');
 await page.waitForTimeout(200);
 results.searchFilteredCardCount = await page.locator('.prop-card').count();
 results.searchFilteredAddress = (await page.locator('.prop-card .prop-address').first().textContent() || '').trim();
-results.searchAutoExpandsMatch = await page.locator('.county-group[data-county="Duval"]').evaluate(el => el.open);
+results.searchAutoExpandsMatch = await page.locator('.county-group[data-county="Duval"]').evaluateAll(els => els.some(el => el.open));
 await page.fill('#searchInput', '');
 await page.waitForTimeout(150);
 results.cardCountAfterClearingSearch = await page.locator('.prop-card').count();
 
-// --- county quick-select dropdown: pick Duval (p6 + p7) - should auto-expand it ---
+// --- county quick-select dropdown: pick Duval (p6 + p7) - should auto-expand
+// both of its date-groups (see the countyQuick change handler in app.js,
+// which adds every groupKeyOf() for the picked county to expandedCounties,
+// not just one) ---
 await page.selectOption('#countyQuick', 'Duval');
 await page.waitForTimeout(150);
 results.cardCountAfterCountyQuickDuval = await page.locator('.prop-card').count();
 results.duvalChipOnAfterQuickSelect = await page.locator('#countyChips .chipx[data-value="Duval"]').evaluate(el => el.classList.contains('on')).catch(() => null);
-results.duvalGroupOpenAfterQuickSelect = await page.locator('.county-group[data-county="Duval"]').evaluate(el => el.open);
+results.duvalGroupOpenAfterQuickSelect = await page.locator('.county-group[data-county="Duval"]').evaluateAll(els => els.some(el => el.open));
 await page.selectOption('#countyQuick', 'ALL');
 await page.waitForTimeout(150);
 results.cardCountAfterCountyQuickAll = await page.locator('.prop-card').count();
@@ -314,7 +349,7 @@ await page.click('#exportCsvBtn');
 const download = await downloadPromise;
 results.csvDownloadFilename = download.suggestedFilename();
 
-// --- detail modal: needs a visible "View Full Property Page" button, so
+// --- detail modal: needs a visible "View full property page" link, so
 // make sure everything is expanded again first (county quick-select above
 // only guarantees Duval). ---
 await page.click('#expandAllBtn');
@@ -323,6 +358,12 @@ if ((await page.locator('#expandAllBtn').textContent()) === 'Expand all') {
   await page.click('#expandAllBtn');
   await page.waitForTimeout(150);
 }
+// County groups sort by nearest sale date first, not alphabetically by
+// county, so the nearest-date card would normally be Brevard's p12 (2 days
+// out) rather than Alachua's p1 - but the remove-btn hide test above this
+// already hid that exact card (it always hides whichever card is currently
+// first), so by the time we get here the first remaining card is p1
+// (Alachua, 3 days out), which has all 6 link types set in the fixture.
 const firstDetailBtn = page.locator('.detail-btn[data-action="viewdetails"]').first();
 await firstDetailBtn.click();
 await page.waitForTimeout(150);
@@ -406,7 +447,7 @@ const EXPECTED = {
   typeDropdownOpenOnLoad: false,
   countyDropdownOpenOnLoad: false,
   countyGroupOpenOnLoad: false,
-  countyGroupCount: 6,
+  countyGroupCount: 9,
   ledgerTabCounts: ['Tax Deeds / Auctions 11', 'Lands Available / OTC 1', 'Certificates 1'],
   auctionTabOnByDefault: true,
   cardCount: 9,
@@ -454,7 +495,7 @@ const EXPECTED = {
   countyGroupsClosedAfterReset: true,
   expandAllLabelAfterReset: 'Expand all',
   cardsAfterHide: 8,
-  hiddenInfoVisible: true,
+  hiddenListBtnVisible: true,
   laftTabOnAfterClick: true,
   auctionTabOffAfterLaftClick: false,
   laftCardCount: 1,
@@ -462,8 +503,9 @@ const EXPECTED = {
   laftGroupMeta: 'Lands Available - fixed price, available now',
   certCardCount: 1,
   certCardTitle: 'Certificate #CERT-42',
-  certCardAccount: 'Account #ACC-999',
-  certCardAmount: 'Amount $1,234.56',
+  certCardAmount: '$1,234.56',
+  certCardAccount: 'ACC-999',
+  certCardExpires: /^[A-Z][a-z]{2} \d{1,2}, \d{4}$/,
   certCardCta: 'View on County-Held Liens List',
   certCardExpiresCountdown: 1,
   cardCountBackOnAuctionTab: 8,
@@ -478,8 +520,10 @@ const EXPECTED = {
   archiveCardAgoBadge: '6d ago',
   staleWarningClassPresent: 1,
   staleWarningText: '⚠ Data updated 8/12/2026, 12:00:00 AM - sync may be behind',
-  spreadBadgeCount: 8,
-  spreadBadgeFirstText: 'Potential equity +$85,000 (18.0× market/bid)',
+  // Cards were pared down to header + Opening Bid / Parcel # / Est. Market;
+  // potential equity (the old .spread-badge) moved to the detail modal only.
+  cardStatLabelsFirst: ['Opening Bid', 'Parcel #', 'Est. Market'],
+  spreadBadgeCount: 0,
   duvalGroupClosedBeforeSearch: false,
   searchFilteredCardCount: 1,
   searchFilteredAddress: '12 Searchable Blvd',
