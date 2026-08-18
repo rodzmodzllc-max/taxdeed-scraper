@@ -40,7 +40,14 @@ const GONE_HOURS_FLAGGED = 48;
 // updated" line switches from a plain timestamp to a warning, since a quiet
 // ledger and a dead sync both look identical otherwise.
 const STALE_DATA_HOURS = 36;
-const GONE_STATUSES = ["dropped", "sold", "notfound"];
+// "closed" = left the county's "Auctions Waiting" feed after its sale date
+// arrived, without a fresh harvest row to explain why (redeemed, canceled,
+// or actually sold at the table - sync-harvest-to-supabase.ps1 can't tell
+// which, since it only ever diffs against what's still listed, not against
+// the county's separate "Closed or Canceled" page). Still counts as gone
+// so the active badge reflects reality instead of a stale "active" pill
+// sitting there long after the county's own site moved on.
+const GONE_STATUSES = ["dropped", "sold", "notfound", "closed"];
 const isGone = p => GONE_STATUSES.includes(p.status);
 
 const TYPE_ORDER = ["House", "Condo", "Townhome", "Mobile/Manuf.", "Vacant Lot", "Commercial", "Unknown"];

@@ -428,7 +428,7 @@ summary.county-head::-webkit-details-marker{display:none}
 .pill{flex-shrink:0;font-size:.66rem;font-weight:700;text-transform:uppercase;
   padding:.22rem .5rem;border-radius:999px;white-space:nowrap}
 .pill.active,.pill.available{color:var(--ok);background:var(--ok-bg)}
-.pill.dropped,.pill.sold{color:var(--bad);background:var(--bad-bg)}
+.pill.dropped,.pill.sold,.pill.closed{color:var(--bad);background:var(--bad-bg)}
 .pill.notfound{color:var(--warn);background:var(--warn-bg)}
 .countdown{font-size:.66rem;font-weight:700;padding:.22rem .5rem;border-radius:999px;
   white-space:nowrap;background:var(--paper-line);color:var(--ink-soft)}
