@@ -19,7 +19,7 @@ const sb = createClient(cfg.supabaseUrl, cfg.supabasePublishableKey, {
   }
 });
 
-const BUILD = "v6 - 2026-08-06";
+const BUILD = "v7 - 2026-08-19";
 const IDLE_MINUTES = 5;
 
 const DOC_STAMP_RATE = 0.007;
