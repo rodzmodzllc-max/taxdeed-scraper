@@ -443,21 +443,35 @@ summary.county-head::-webkit-details-marker{display:none}
 .meta-assessed{color:var(--ok);font-weight:700}
 .meta-market{color:var(--accent);font-weight:700}
 
-/* ---- card stat grid: the three headline numbers the card keeps (opening
-   bid / parcel # / estimated market value for deed & LAFT cards; amount /
-   account # / expiration for certificate cards) as labeled boxes instead of
-   a run-on inline meta line. Everything else that used to live on the card
-   - assessed value, potential equity, fees, the full title-status banner,
-   owner/parcel copy buttons, notes - moved to the full property page so the
-   card itself stays scannable at a glance. min-width:0 lets a box shrink
-   instead of overflowing the grid when a parcel # runs long. ---- */
+/* ---- parcel # reference line: a quiet single line right under the address
+   on deed/LAFT cards (the headline numbers below are Opening Bid + Est.
+   Value now, so parcel # steps back to a plain reference, not a stat box). */
+.prop-parcel-line{font-family:ui-monospace,Consolas,monospace;font-variant-numeric:tabular-nums;
+  font-size:.72rem;color:var(--ink-soft);margin-top:.2rem}
+
+/* ---- card stat grid: the headline numbers the card keeps as labeled boxes
+   instead of a run-on inline meta line. Everything else that used to live
+   on the card - assessed value, potential equity, fees, the full
+   title-status banner, owner/parcel copy buttons, notes - moved to the full
+   property page so the card itself stays scannable at a glance. min-width:0
+   lets a box shrink instead of overflowing the grid when a value runs long.
+   Certificate cards (amount / account # / expiration) keep the plain
+   3-column .card-stat-grid; deed & LAFT cards add .card-stat-grid-2 to drop
+   to 2 columns for just Opening Bid + Est. Value/Assessed - per the user,
+   these two are "the selling point of the card" (cost vs. worth at a
+   glance), so .card-stat-headline gives them extra size/weight instead of
+   splitting attention across three same-sized boxes. ---- */
 .card-stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.4rem;margin-top:.45rem}
+.card-stat-grid.card-stat-grid-2{grid-template-columns:repeat(2,1fr);gap:.5rem}
 .card-stat{background:var(--paper);border:1px solid var(--card-line);border-radius:8px;
   padding:.4rem .5rem;min-width:0}
+.card-stat-headline{padding:.55rem .65rem;border-width:1.5px;border-color:var(--accent-line,var(--card-line));
+  background:var(--paper-raised,var(--paper))}
 .card-stat-label{display:flex;align-items:center;gap:.25rem;font-size:.62rem;text-transform:uppercase;
   letter-spacing:.04em;color:var(--ink-soft);margin-bottom:.1rem}
 .card-stat-val{font-family:ui-monospace,Consolas,monospace;font-variant-numeric:tabular-nums;
   font-size:.8rem;font-weight:700;color:var(--ink);overflow-wrap:anywhere}
+.card-stat-headline .card-stat-val{font-size:1.05rem}
 .card-stat-val.bid{color:var(--bad)}
 .card-stat-val.assessed{color:var(--ok)}
 .card-stat-val.market{color:var(--accent)}

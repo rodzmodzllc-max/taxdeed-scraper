@@ -271,7 +271,8 @@ const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&am
 const LINK_ICON = {
   "Street View": "🛰", "Appraiser": "🏛", "Zillow": "🏠", "Tax Collector": "💰",
   "Auction": "🔨", "LAFT": "🔨", "Lands Available Listing": "🔨",
-  "County Auction Site": "🔨", "County-Held Liens List": "📋", "Title Search": "📜"
+  "County Auction Site": "🔨", "County-Held Liens List": "📋", "Title Search": "📜",
+  "Clerk of Courts": "⚖", "GIS Map": "🗺"
 };
 const linkIcon = label => LINK_ICON[label] ? `<span class="link-icon">${LINK_ICON[label]}</span>` : "";
 
@@ -840,16 +841,23 @@ function card(p, showCounty) {
   const titleLine = hasAddress ? esc(p.address) : `Parcel #${esc(p.parcel || "Unknown")} (${esc(p.county)} County Lot)`;
   const hasBid = p.bid !== null && p.bid !== undefined;
 
-  // Kept deliberately lean: header, opening bid, parcel #, and an estimated
-  // market value (sourced from Zillow/the county appraiser - see
-  // fallbackZillowUrl) are the only figures that matter for a first glance.
-  // Everything else that used to live here - assessed value, potential
-  // equity, the full title-status banner, owner/parcel copy buttons, notes -
-  // moved to the full property page (openDetail/detailHtml), one click away
-  // via the small link at the bottom. The county Tax Collector and Title
+  // Kept deliberately lean: header, parcel #, opening bid, and an estimated
+  // value (real market value when we have it, otherwise the county's
+  // assessed value as a stand-in - see marketOf()) are the only figures
+  // that matter for a first glance. Everything else that used to live here -
+  // the full title-status banner, owner/parcel copy buttons, notes - moved
+  // to the full property page (openDetail/detailHtml), one click away via
+  // the small link at the bottom. The county Tax Collector and Title
   // Search links, and the standalone Auction icon-link, moved there too -
   // the CTA button below already covers "go to the auction," so a second,
   // smaller Auction link right next to it was pure redundancy.
+  //
+  // Opening Bid + Est. Value are the two headline numbers - the whole pitch
+  // of a tax deed/LAFT listing is "what will it cost me vs. what's it
+  // worth" - so they get a 2-up grid instead of being crowded by a third
+  // box; Parcel # moves to a quiet reference line right under the address.
+  const marketVal = marketOf(p);
+  const usingAssessed = !p.market && p.assessed;
   el.innerHTML = `
     ${top ? `<div class="toppick-banner">★ Top pick <span class="ratio-pill">${valueRatio(p).toFixed(1)}× market vs bid</span></div>` : ""}
     ${tag}
@@ -864,10 +872,10 @@ function card(p, showCounty) {
         <span class="pill ${esc(p.status)}">${esc(p.status)}</span>
       </div>
     </div>
-    <div class="card-stat-grid">
-      <div class="card-stat"><div class="card-stat-label">Opening Bid</div><div class="card-stat-val bid">${hasBid ? fmtMoney(p.bid) : "N/A"}</div></div>
-      <div class="card-stat"><div class="card-stat-label">Parcel #</div><div class="card-stat-val">${esc(p.parcel || "Unknown")}</div></div>
-      <div class="card-stat"><div class="card-stat-label">Est. Market</div><div class="card-stat-val market">${p.market ? fmtShort(p.market) : "N/A"}</div></div>
+    ${hasAddress ? `<div class="prop-parcel-line">Parcel # ${esc(p.parcel || "Unknown")}</div>` : ""}
+    <div class="card-stat-grid card-stat-grid-2">
+      <div class="card-stat card-stat-headline"><div class="card-stat-label">Opening Bid</div><div class="card-stat-val bid">${hasBid ? fmtMoney(p.bid) : "N/A"}</div></div>
+      <div class="card-stat card-stat-headline"><div class="card-stat-label">${usingAssessed ? "Assessed Value" : "Est. Market"}</div><div class="card-stat-val market">${marketVal ? fmtShort(marketVal) : "N/A"}</div></div>
     </div>
     <div class="prop-links">
       ${fallbackStreetviewUrl(p) ? `<a href="${esc(fallbackStreetviewUrl(p))}" target="_blank" rel="noopener">${linkIcon("Street View")}Street View</a>` : ''}
@@ -942,7 +950,13 @@ function detailHtml(p) {
     ["Zillow", fallbackZillowUrl(p)],
     ["Tax Collector", p.url_taxcoll],
     [p.source === "laft" ? "Lands Available Listing" : (isCert ? "County-Held Liens List" : "County Auction Site"), p.url_auction],
-    ["Title Search", p.url_title]
+    ["Title Search", p.url_title],
+    // Populated per-property by the harvesters (url_clerk/url_gis), same as
+    // url_title/url_taxcoll above - not filled in yet for most counties, so
+    // these simply won't render until that scraper work lands (see the
+    // .filter() below).
+    ["Clerk of Courts", p.url_clerk],
+    ["GIS Map", p.url_gis]
   ].filter(([, href]) => href);
   const title = isCert ? `Certificate #${esc(p.certificate_no || "Unknown")}` :
     (p.address && p.address.trim() ? esc(p.address) : `Parcel #${esc(p.parcel || "Unknown")} (${esc(p.county)} County Lot)`);
