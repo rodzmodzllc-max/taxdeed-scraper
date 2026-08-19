@@ -276,14 +276,17 @@ await page.waitForTimeout(150);
 // Marion(x2) - minus whichever one got hidden earlier.
 // ============================================================
 
-// --- card cleanup: cards were pared down to header + a 3-box stat grid
-// (Opening Bid / Parcel # / Est. Market) + 3 reference links (Street View /
-// Appraiser / Zillow) + an optional CTA + a small "view full property page"
-// link. Assessed value, potential equity (the old .spread-badge), the full
-// title-status banner, owner/parcel copy buttons, and notes all moved to
-// the detail modal only - .spread-badge no longer exists anywhere on a
-// card, confirmed by asserting its count is now 0. ---
+// --- card cleanup: cards were pared down to header + a quiet parcel-#
+// reference line + a 2-box headline stat grid (Opening Bid / Est. Market,
+// falling back to Assessed Value when no real market figure is scraped -
+// these two are the actual "cost vs. worth" pitch of the listing) + 3
+// reference links (Street View / Appraiser / Zillow) + an optional CTA + a
+// small "view full property page" link. Potential equity (the old
+// .spread-badge), the full title-status banner, owner/parcel copy buttons,
+// and notes all moved to the detail modal only - .spread-badge no longer
+// exists anywhere on a card, confirmed by asserting its count is now 0. ---
 results.cardStatLabelsFirst = await page.locator('.prop-card').first().locator('.card-stat-label').allTextContents();
+results.cardParcelLineFirst = (await page.locator('.prop-card').first().locator('.prop-parcel-line').textContent() || '').trim();
 results.spreadBadgeCount = await page.locator('.spread-badge').count();
 
 // --- collapse everything first, so the next search test genuinely proves a
@@ -520,9 +523,13 @@ const EXPECTED = {
   archiveCardAgoBadge: '6d ago',
   staleWarningClassPresent: 1,
   staleWarningText: '⚠ Data updated 8/12/2026, 12:00:00 AM - sync may be behind',
-  // Cards were pared down to header + Opening Bid / Parcel # / Est. Market;
-  // potential equity (the old .spread-badge) moved to the detail modal only.
-  cardStatLabelsFirst: ['Opening Bid', 'Parcel #', 'Est. Market'],
+  // Cards were pared down to header + a quiet Parcel # line + a 2-box
+  // Opening Bid / Est. Market headline grid; potential equity (the old
+  // .spread-badge) moved to the detail modal only. p1 (first remaining
+  // card after the earlier hide) has a real market figure, so it reads
+  // "Est. Market" rather than falling back to "Assessed Value".
+  cardStatLabelsFirst: ['Opening Bid', 'Est. Market'],
+  cardParcelLineFirst: 'Parcel # 111',
   spreadBadgeCount: 0,
   duvalGroupClosedBeforeSearch: false,
   searchFilteredCardCount: 1,
