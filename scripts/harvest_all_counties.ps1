@@ -15,19 +15,19 @@ $ProgressPreference = "SilentlyContinue"
 # location so it runs the same on a GitHub Actions runner as anywhere else.
 # curl.exe -> curl (Windows-only alias; ubuntu-latest ships plain curl).
 #
-# Output: harvest_all.json  (+ harvest_all.csv for eyeballing)
+# Output: harvest_all.json (+ harvest_all.csv for eyeballing)
 
 $here = $PSScriptRoot
-$ua  = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+$ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
 $csv = Join-Path $here "../data/realauction_counties.csv"
 $outDir = Join-Path $here "../out"
 New-Item -ItemType Directory -Force -Path $outDir | Out-Null
 $outJson = Join-Path $outDir "harvest_all.json"
-$outCsv  = Join-Path $outDir "harvest_all.csv"
+$outCsv = Join-Path $outDir "harvest_all.csv"
 $tmpDir = [System.IO.Path]::GetTempPath()
 
 function Get-Field($block, $label) {
-    # Labels look like:  @CAD_LBL\" scope=\"row\">Opening Bid:@F ... @CAD_DTA\">VALUE
+    # Labels look like: @CAD_LBL\" scope=\"row\">Opening Bid:@F ... @CAD_DTA\">VALUE
     $pat = [regex]::Escape($label) + ':(?:@F|<)[\s\S]{0,200}?CAD_DTA\\">\s*([^@<]*(?:<a[^>]*>([^<]*)</a>)?[^@<]*)'
     $m = [regex]::Match($block, $pat)
     if (-not $m.Success) { return $null }
@@ -83,10 +83,10 @@ foreach ($c in $counties) {
         # though they had real, upcoming, fully-populated auctions - this is
         # exactly what happened to Suwannee. Match either quote character.
         $dates += [regex]::Matches(($cal -join "`n"), "CALSELT[^>]*dayid=['`"](\d{2}/\d{2}/\d{4})['`"]") |
-                  ForEach-Object { $_.Groups[1].Value }
+            ForEach-Object { $_.Groups[1].Value }
     }
     $dates = $dates | Select-Object -Unique
-    if (-not $dates) { Write-Host "      no auction days" -ForegroundColor DarkGray; continue }
+    if (-not $dates) { Write-Host "  no auction days" -ForegroundColor DarkGray; continue }
 
     foreach ($date in $dates) {
         & curl -s -b $jar -c $jar -A $ua --max-time 20 `
@@ -125,24 +125,34 @@ foreach ($c in $counties) {
                 $addr = (($addrLine + ", " + $city) -replace '^,\s*','' -replace ',\s*$','').Trim()
 
                 $all += [pscustomobject]@{
-                    _key       = $key
-                    county     = $c.County -replace '-',' '
-                    host       = $hostName
-                    sale_date  = $date
-                    case       = $case
-                    cert       = (Get-Field $b 'Certificate #')
-                    bid        = $bid
-                    assessed   = ToNum (Get-Field $b 'Assessed Value')
-                    parcel     = ((Get-Field $b 'Parcel ID') -replace '<[^>]+>','').Trim()
-                    appraiser  = Get-Href $b 'Parcel ID'
-                    address    = $addr
-                    auction_url= "https://$hostName/index.cfm?zaction=AUCTION&zmethod=PREVIEW&AuctionDate=$date"
+                    _key        = $key
+                    # Use the CSV's County column as-is - it already matches the
+                    # frontend's canonical spelling (e.g. "Miami-Dade", "St. Lucie").
+                    # This used to run `-replace '-',' '` here, which silently
+                    # turned "Miami-Dade" into "Miami Dade" on every sync. The
+                    # frontend's county filter (state.counties, built from
+                    # ALL_COUNTIES in app.js) only matches exact canonical
+                    # spelling, so every Miami-Dade row synced under the mangled
+                    # name was invisible in the app - see improvement-roadmap.md
+                    # for the 2026-08-24 audit that caught this (33 stranded rows,
+                    # backfilled once by hand; this fix stops it recurring).
+                    county      = $c.County
+                    host        = $hostName
+                    sale_date   = $date
+                    case        = $case
+                    cert        = (Get-Field $b 'Certificate #')
+                    bid         = $bid
+                    assessed    = ToNum (Get-Field $b 'Assessed Value')
+                    parcel      = ((Get-Field $b 'Parcel ID') -replace '<[^>]+>','').Trim()
+                    appraiser   = Get-Href $b 'Parcel ID'
+                    address     = $addr
+                    auction_url = "https://$hostName/index.cfm?zaction=AUCTION&zmethod=PREVIEW&AuctionDate=$date"
                 }
                 $kept++
             }
             if ($newOnPage -eq 0) { break }
         }
-        if ($kept -gt 0) { Write-Host ("      {0}  {1} properties (of {2} seen)" -f $date, $kept, $seen) -ForegroundColor Green }
+        if ($kept -gt 0) { Write-Host ("  {0} {1} properties (of {2} seen)" -f $date, $kept, $seen) -ForegroundColor Green }
     }
 }
 
