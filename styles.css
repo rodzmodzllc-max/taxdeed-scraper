@@ -109,6 +109,13 @@ a{color:var(--accent)} button{font-family:inherit}
 h1{font-family:'Inter',sans-serif;font-weight:800;font-size:1.65rem;line-height:1.15;
   margin:0.25rem 0 .2rem;letter-spacing:-.01em;color:var(--header-ink)}
 h1 .brand-accent{color:#60A5FA}
+/* Logo lockup - gives the masthead an actual brand mark instead of text
+alone. Replaces a bare <h1> with [logo][title] side by side, sized well
+above the 22px topbar mark so it reads as the header's focal point. */
+.brand-lockup{display:flex;align-items:center;gap:.7rem;margin:0.3rem 0 .2rem}
+.brand-lockup h1{margin:0}
+.brand-mark-lg{flex-shrink:0;display:block;border-radius:11px;
+  box-shadow:0 1px 3px rgba(0,0,0,.35)}
 .tagline{font-size:.875rem;line-height:1.5;color:var(--header-ink-soft);margin:0 0 .75rem;max-width:52ch;font-weight:400}
 .generated{font-size:.8rem;color:var(--header-ink-soft);margin:0 0 .9rem;font-weight:500}
 /* Sync pipeline runs on a PC, not a server - nothing guarantees it ran
@@ -290,21 +297,50 @@ h1 .brand-accent{color:#60A5FA}
 /* Colored by confirmed auction format, not by whether we currently have
    properties loaded - a county keeps its blue/red/amber color even between
    sync runs. Counties with no confirmed format yet stay neutral gray (see
-   COUNTY_FORMAT in app.js). Only has-data counties are actually clickable -
-   coloring is informational for the rest. */
+   COUNTY_FORMAT in app.js). Every county is clickable now (see
+   zoomToCounty() in app.js) - a first tap zooms in and names the county
+   regardless of data; only a second tap on a has-data county actually
+   toggles the filter, so a no-data county stays informational only. */
 #mapHost path{fill:var(--card-line);stroke:var(--paper);stroke-width:1.2;
-  transition:fill .12s,stroke .12s;pointer-events:none}
-#mapHost path.has-data{pointer-events:auto;cursor:pointer}
+  transition:fill .12s,stroke .12s;cursor:pointer}
 #mapHost path.fmt-online{fill:var(--accent)}
 #mapHost path.fmt-inperson{fill:var(--bad)}
 #mapHost path.fmt-fixed{fill:var(--brass)}
-#mapHost path.has-data:hover{opacity:.75}
+#mapHost path:hover{opacity:.75}
 #mapHost path.sel{stroke:var(--ink);stroke-width:2.6}
 #mapHost path.sel:hover{opacity:.75}
 .map-legend{display:flex;flex-wrap:wrap;justify-content:center;gap:.7rem;margin-top:.45rem;font-size:.62rem;color:var(--ink-soft)}
 .map-legend i{display:inline-block;width:.6rem;height:.6rem;border-radius:2px;margin-right:.25rem;vertical-align:middle}
 .lg-online{background:var(--accent)} .lg-inperson{background:var(--bad)}
 .lg-fixed{background:var(--brass)} .lg-none{background:var(--card-line)}
+
+/* ---- zoomed-county banner: the actual fix for "you can't see the name" -
+   67 counties have no room for legible labels at the state-wide zoom
+   level, so the name only becomes readable once a tap zooms into one
+   county (see zoomToCounty()/zoomToState() in app.js). ---- */
+.map-zoom-banner{display:flex;align-items:center;justify-content:space-between;gap:.5rem;
+  margin-bottom:.4rem;padding:.4rem .55rem;background:var(--card);
+  border:1px solid var(--card-line);border-radius:8px}
+/* Same bug class as the #installBtn[hidden] fix elsewhere in this file: an
+   author rule setting `display` on the same element beats the UA
+   stylesheet's `[hidden]{display:none}` on a specificity tie, so without
+   this override, toggling the .hidden property in app.js's zoomToState()
+   would silently do nothing and the banner would stay visibly on-screen
+   even in the full-state (non-zoomed) view. */
+.map-zoom-banner[hidden]{display:none}
+.map-zoom-name{font-family:'Inter',sans-serif;font-weight:800;font-size:.85rem;color:var(--ink)}
+/* County-seat marker shown only while zoomed - centroid-based (see
+   computeCountyCentroids() in app.js), not a hand-placed coordinate, so it
+   lands sensibly on any of the 67 shapes without per-county tuning.
+   pointer-events:none is required, not cosmetic: without it the dot/label
+   sits exactly on top of the county's own click target (they share the
+   same centroid) and silently swallows the second tap that's supposed to
+   toggle the filter. */
+.zoom-seat-label{pointer-events:none}
+.seat-dot{fill:var(--ink);stroke:var(--paper);stroke-width:1.5}
+.seat-label-text{font-family:'Inter',sans-serif;font-weight:700;font-size:15px;
+  fill:var(--ink);text-anchor:middle;paint-order:stroke;stroke:var(--paper);
+  stroke-width:3px;stroke-linejoin:round}
 .chipx{font-size:.72rem;padding:.28rem .6rem;border-radius:999px;border:1px solid var(--card-line);
   background:var(--paper);color:var(--ink-soft);cursor:pointer;user-select:none}
 .chipx.on{background:var(--accent-soft);color:var(--accent);border-color:var(--accent);font-weight:600}

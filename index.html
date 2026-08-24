@@ -89,7 +89,10 @@ other people's profiles rows in the first place). -->
 <button class="hbtn" id="signOutBtn" type="button" title="Sign out">Sign out</button>
 </span>
 </div>
+<div class="brand-lockup">
+<img class="brand-mark-lg" src="icons/icon-192.png?v=2" width="48" height="48" alt="" aria-hidden="true">
 <h1>FL Tax Deed Watchlist</h1>
+</div>
 <p class="tagline">Institutional-grade coverage of Florida tax deed auctions, Lands Available, and certificate opportunities — one ledger, every county.</p>
 <p class="disclaimer-badge"><span class="dot">⚠</span><span><b>Best-effort public records search</b> — not a certified title search. Always verify with a title professional before bidding.</span></p>
 <p class="generated" id="generatedAt">Loading…</p>
@@ -245,7 +248,15 @@ chips - each summary shows how many are currently selected. -->
 <button class="mini-btn" data-group="counties" data-mode="none" type="button">None</button>
 </div>
 <div class="map-wrap" id="mapWrap" hidden>
-<div class="map-hint">Colored counties have a confirmed auction format - tap one with properties loaded to filter to it.</div>
+<div class="map-hint" id="mapHint">Colored counties have a confirmed auction format. Tap a county to zoom in and see its name - tap it again to filter to it.</div>
+<!-- Shown only while zoomed into one county (see zoomToCounty() in app.js) -
+the state-wide view has no room to label all 67 counties legibly, so
+this is where the name actually becomes readable instead of only living
+in an SVG <title> hover tooltip nobody on a touch device will ever see. -->
+<div class="map-zoom-banner" id="mapZoomBanner" hidden>
+<span class="map-zoom-name" id="mapZoomName"></span>
+<button class="mini-btn" id="mapZoomOutBtn" type="button">↺ Full map</button>
+</div>
 <div id="mapHost"></div>
 <div class="map-legend">
 <span><i class="lg-online"></i>Online auction</span>

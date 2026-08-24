@@ -19,6 +19,10 @@ const sb = createClient(cfg.supabaseUrl, cfg.supabasePublishableKey, {
   }
 });
 
+// Internal build reference only (deploy verification, support requests) -
+// deliberately not surfaced anywhere in the UI. Showing a raw "v7 -
+// 2026-08-19" build tag in the header read as an unfinished/dev-mode
+// artifact to end users, so the eyebrow below no longer includes it.
 const BUILD = "v7 - 2026-08-19";
 const IDLE_MINUTES = 5;
 
@@ -678,7 +682,7 @@ async function loadAll() {
       isStale ? "⚠ Data updated " + new Date(newest).toLocaleString() + " - sync may be behind" :
       "Data updated " + new Date(newest).toLocaleString();
   }
-  if (eyeEl) eyeEl.textContent = "Field Ledger - " + countyNames().length + " Counties - " + BUILD;
+  if (eyeEl) eyeEl.textContent = "Field Ledger - " + countyNames().length + " Counties Tracked";
 }
 
 // County chips and the county map (below) both drive state.counties, so a
@@ -1713,7 +1717,7 @@ if (countyQuickEl) countyQuickEl.addEventListener("change", () => {
     keys.forEach(k => state.expandedCounties.add(k));
   }
   buildAllChips();
-  if (mapLoaded) refreshMapPaths();
+  if (mapLoaded) { refreshMapPaths(); if (zoomedCounty) zoomToState(); }
   updateBadge();
   render();
 });
@@ -1902,7 +1906,7 @@ if (resetBtn) resetBtn.addEventListener("click", () => {
   const searchEl = document.getElementById("searchInput"); if (searchEl) searchEl.value = "";
 
   buildAllChips();
-  if (mapLoaded) refreshMapPaths();
+  if (mapLoaded) { refreshMapPaths(); if (zoomedCounty) zoomToState(); }
   updateBadge();
   render();
 });
@@ -1959,16 +1963,184 @@ function refreshMapPaths() {
     titleEl.textContent = `${name}: ${fmtLabel}${countLabel}`;
   });
 }
-// Major Florida cities for map labels - approximate SVG coordinates
+// Major Florida cities for map labels, shown only at the state-wide zoom
+// level (see zoomToCounty()/zoomToState() below, which hide this group and
+// swap in a single county-seat label instead). Coordinates are in the SVG's
+// own user-space units (fl-counties.svg's viewBox is "0 0 1000 960") rather
+// than percentages - percentage resolution on <text> x/y isn't guaranteed
+// to track a changing viewBox the way plain numbers do, and this map now
+// changes its viewBox on every zoom.
 const FLORIDA_CITIES = [
-  { name: "Miami", x: "88%", y: "92%", size: "large" },
-  { name: "Tampa", x: "28%", y: "65%", size: "large" },
-  { name: "Jacksonville", x: "68%", y: "18%", size: "large" },
-  { name: "Orlando", x: "55%", y: "50%", size: "medium" },
-  { name: "Fort Lauderdale", x: "85%", y: "88%", size: "medium" },
-  { name: "Tallahassee", x: "32%", y: "12%", size: "small" },
-  { name: "Saint Petersburg", x: "25%", y: "70%", size: "small" },
+  { name: "Miami", x: 880, y: 883.2, size: "large" },
+  { name: "Tampa", x: 280, y: 624, size: "large" },
+  { name: "Jacksonville", x: 680, y: 172.8, size: "large" },
+  { name: "Orlando", x: 550, y: 480, size: "medium" },
+  { name: "Fort Lauderdale", x: 850, y: 844.8, size: "medium" },
+  { name: "Tallahassee", x: 320, y: 115.2, size: "small" },
+  { name: "Saint Petersburg", x: 250, y: 672, size: "small" },
 ];
+
+// County seat (or best-known primary city) for each of the 67 counties -
+// used as the "then show cities" label once a tap zooms into a county (see
+// zoomToCounty() below). Cross-checked 1:1 against ALL_COUNTIES so every
+// county the filter/map knows about has a matching seat here.
+const COUNTY_SEATS = {
+  "Alachua": "Gainesville", "Baker": "Macclenny", "Bay": "Panama City",
+  "Bradford": "Starke", "Brevard": "Titusville", "Broward": "Fort Lauderdale",
+  "Calhoun": "Blountstown", "Charlotte": "Punta Gorda", "Citrus": "Inverness",
+  "Clay": "Green Cove Springs", "Collier": "Naples", "Columbia": "Lake City",
+  "DeSoto": "Arcadia", "Dixie": "Cross City", "Duval": "Jacksonville",
+  "Escambia": "Pensacola", "Flagler": "Bunnell", "Franklin": "Apalachicola",
+  "Gadsden": "Quincy", "Gilchrist": "Trenton", "Glades": "Moore Haven",
+  "Gulf": "Port St. Joe", "Hamilton": "Jasper", "Hardee": "Wauchula",
+  "Hendry": "LaBelle", "Hernando": "Brooksville", "Highlands": "Sebring",
+  "Hillsborough": "Tampa", "Holmes": "Bonifay", "Indian River": "Vero Beach",
+  "Jackson": "Marianna", "Jefferson": "Monticello", "Lafayette": "Mayo",
+  "Lake": "Tavares", "Lee": "Fort Myers", "Leon": "Tallahassee",
+  "Levy": "Bronson", "Liberty": "Bristol", "Madison": "Madison",
+  "Manatee": "Bradenton", "Marion": "Ocala", "Martin": "Stuart",
+  "Miami-Dade": "Miami", "Monroe": "Key West", "Nassau": "Fernandina Beach",
+  "Okaloosa": "Crestview", "Okeechobee": "Okeechobee", "Orange": "Orlando",
+  "Osceola": "Kissimmee", "Palm Beach": "West Palm Beach", "Pasco": "Dade City",
+  "Pinellas": "Clearwater", "Polk": "Bartow", "Putnam": "Palatka",
+  "Santa Rosa": "Milton", "Sarasota": "Sarasota", "Seminole": "Sanford",
+  "St. Johns": "St. Augustine", "St. Lucie": "Fort Pierce", "Sumter": "Bushnell",
+  "Suwannee": "Live Oak", "Taylor": "Perry", "Union": "Lake Butler",
+  "Volusia": "DeLand", "Wakulla": "Crawfordville", "Walton": "DeFuniak Springs",
+  "Washington": "Chipley"
+};
+
+// Populated once per map load from each county path's real getBBox() (see
+// computeCountyCentroids()) rather than hand-placed coordinates - works for
+// all 67 shapes without needing per-county tuning, at the cost of an
+// occasional label that lands slightly off for a very non-convex county
+// (Monroe's Keys chain being the main one) since a bounding-box center
+// isn't always inside the polygon itself.
+let countyCentroids = new Map();
+let baseViewBox = null;
+let zoomedCounty = null;
+
+function computeCountyCentroids() {
+  countyCentroids.clear();
+  if (!mapHostEl) return;
+  mapHostEl.querySelectorAll("path[data-county]").forEach(p => {
+    try {
+      const b = p.getBBox();
+      countyCentroids.set(p.dataset.county, { cx: b.x + b.width / 2, cy: b.y + b.height / 2, bbox: b });
+    } catch { /* not rendered yet (e.g. panel opened while hidden) - that
+                 county just won't get a seat label until the next reopen */ }
+  });
+}
+
+// Animates the SVG's viewBox attribute between two [x,y,w,h] arrays.
+// viewBox isn't CSS-transitionable on its own, so this hand-rolls the tween
+// with a plain rAF loop instead of pulling in an animation library for one
+// effect.
+function tweenViewBox(svg, from, to, duration = 320) {
+  const start = (typeof performance !== "undefined" ? performance.now() : Date.now());
+  function step(now) {
+    const t = Math.min(1, (now - start) / duration);
+    const eased = 1 - Math.pow(1 - t, 3);
+    const cur = from.map((v, i) => v + (to[i] - v) * eased);
+    svg.setAttribute("viewBox", cur.join(" "));
+    if (t < 1) requestAnimationFrame(step);
+  }
+  requestAnimationFrame(step);
+}
+
+function currentViewBoxOf(svg) {
+  const raw = svg.getAttribute("viewBox");
+  return (raw ? raw.split(/\s+/).map(Number) : baseViewBox).slice();
+}
+
+// Renders (or clears) the single county-seat dot+label shown only while
+// zoomed - see the comment on countyCentroids above for why this is
+// centroid-based instead of a hand-placed coordinate per county.
+function renderZoomSeatLabel(svg, name) {
+  const ns = "http://www.w3.org/2000/svg";
+  let g = svg.querySelector(".zoom-seat-label");
+  if (!g) { g = document.createElementNS(ns, "g"); g.setAttribute("class", "zoom-seat-label"); svg.appendChild(g); }
+  g.innerHTML = "";
+  const c = countyCentroids.get(name);
+  if (!c) return;
+  const dot = document.createElementNS(ns, "circle");
+  dot.setAttribute("cx", c.cx); dot.setAttribute("cy", c.cy); dot.setAttribute("r", 4);
+  dot.setAttribute("class", "seat-dot");
+  g.appendChild(dot);
+  const seat = COUNTY_SEATS[name];
+  if (seat) {
+    const text = document.createElementNS(ns, "text");
+    text.setAttribute("x", c.cx);
+    text.setAttribute("y", c.cy - 12);
+    text.setAttribute("class", "seat-label-text");
+    text.textContent = seat;
+    g.appendChild(text);
+  }
+}
+
+// Zooms the map into one county, names it in the banner above the map, and
+// swaps the state-wide city labels for that county's own seat label - the
+// concrete fix for "the map filter needs to be clearer, you can't see the
+// name": the name now only lives in an always-visible banner instead of an
+// SVG <title> hover tooltip that a touch device would never trigger.
+function zoomToCounty(name) {
+  const svg = mapHostEl && mapHostEl.querySelector("svg");
+  const path = mapHostEl && mapHostEl.querySelector(`path[data-county="${name}"]`);
+  if (!svg || !path || !baseViewBox) return;
+  const c = countyCentroids.get(name);
+  const bbox = c ? c.bbox : path.getBBox();
+
+  // Pad well beyond the county's own bbox so neighboring counties stay
+  // partly visible for context, and give tiny counties (Union, Gilchrist)
+  // a sane minimum window instead of an absurd pixel-tight crop.
+  const pad = Math.max(bbox.width, bbox.height) * 0.6 + 40;
+  let x = bbox.x - pad, y = bbox.y - pad;
+  let w = bbox.width + pad * 2, h = bbox.height + pad * 2;
+
+  // Keep the same aspect ratio as the full-state view so the panel never
+  // looks squashed mid-zoom.
+  const aspect = baseViewBox[2] / baseViewBox[3];
+  if (w / h > aspect) { const nh = w / aspect; y -= (nh - h) / 2; h = nh; }
+  else { const nw = h * aspect; x -= (nw - w) / 2; w = nw; }
+
+  // Never zoom OUT past the full state, and never pan past its edges.
+  w = Math.min(w, baseViewBox[2]); h = Math.min(h, baseViewBox[3]);
+  x = Math.max(baseViewBox[0], Math.min(x, baseViewBox[0] + baseViewBox[2] - w));
+  y = Math.max(baseViewBox[1], Math.min(y, baseViewBox[1] + baseViewBox[3] - h));
+
+  tweenViewBox(svg, currentViewBoxOf(svg), [x, y, w, h]);
+  zoomedCounty = name;
+
+  const cityLabels = svg.querySelector(".city-labels");
+  if (cityLabels) cityLabels.style.display = "none";
+  renderZoomSeatLabel(svg, name);
+
+  const banner = document.getElementById("mapZoomBanner");
+  const nameEl = document.getElementById("mapZoomName");
+  const hint = document.getElementById("mapHint");
+  const seat = COUNTY_SEATS[name];
+  if (nameEl) nameEl.textContent = name + " County" + (seat ? " · " + seat : "");
+  if (banner) banner.hidden = false;
+  if (hint) hint.hidden = true;
+}
+
+// Reverses zoomToCounty() - back to the full 67-county state view.
+function zoomToState() {
+  const svg = mapHostEl && mapHostEl.querySelector("svg");
+  if (!svg || !baseViewBox) return;
+  tweenViewBox(svg, currentViewBoxOf(svg), baseViewBox);
+  zoomedCounty = null;
+
+  const cityLabels = svg.querySelector(".city-labels");
+  if (cityLabels) cityLabels.style.display = "";
+  const seatG = svg.querySelector(".zoom-seat-label");
+  if (seatG) seatG.innerHTML = "";
+
+  const banner = document.getElementById("mapZoomBanner");
+  const hint = document.getElementById("mapHint");
+  if (banner) banner.hidden = true;
+  if (hint) hint.hidden = false;
+}
 
 async function ensureMapLoaded() {
   if (mapLoaded || !mapHostEl) return;
@@ -1979,6 +2151,7 @@ async function ensureMapLoaded() {
     // Add city labels as SVG text elements
     const svg = mapHostEl.querySelector("svg");
     if (svg) {
+      baseViewBox = (svg.getAttribute("viewBox") || "0 0 1000 960").split(/\s+/).map(Number);
       const ns = "http://www.w3.org/2000/svg";
       const g = document.createElementNS(ns, "g");
       g.setAttribute("class", "city-labels");
@@ -1999,17 +2172,39 @@ async function ensureMapLoaded() {
 
     mapLoaded = true;
     refreshMapPaths();
+    computeCountyCentroids();
+    // Every county is clickable now, not just has-data ones (see the CSS
+    // comment above #mapHost path) - a first tap on any county zooms in and
+    // names it; a second tap on the SAME county while already zoomed toggles
+    // the filter, and only then only if it actually has data to filter to.
+    // Tapping a different county while zoomed just re-zooms to that one.
     mapHostEl.addEventListener("click", e => {
       const path = e.target.closest("path[data-county]");
-      if (!path || !path.classList.contains("has-data")) return;
-      toggleCounty(path.dataset.county);
+      if (!path) return;
+      const name = path.dataset.county;
+      if (zoomedCounty === name) {
+        if (path.classList.contains("has-data")) toggleCounty(name);
+      } else {
+        zoomToCounty(name);
+      }
     });
   } catch { /* offline or fetch blocked - map picker just stays closed */ }
 }
+const mapZoomOutBtnEl = document.getElementById("mapZoomOutBtn");
+if (mapZoomOutBtnEl) mapZoomOutBtnEl.addEventListener("click", () => zoomToState());
+
 if (mapBtnEl && mapWrapEl) {
   mapBtnEl.addEventListener("click", async () => {
     mapWrapEl.hidden = !mapWrapEl.hidden;
-    if (!mapWrapEl.hidden) { await ensureMapLoaded(); refreshMapPaths(); }
+    if (!mapWrapEl.hidden) {
+      await ensureMapLoaded();
+      refreshMapPaths();
+      if (!countyCentroids.size) computeCountyCentroids();
+    } else if (zoomedCounty) {
+      // Closing the panel while zoomed - reset so reopening starts fresh
+      // at the full-state view instead of picking up mid-zoom.
+      zoomToState();
+    }
   });
 }
 
