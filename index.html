@@ -168,7 +168,7 @@ once, and a one-click CSV export of whatever's currently filtered. -->
 <div class="filters-section">
 <div class="filters-section-head"><span class="filters-section-title">Sort &amp; Display</span></div>
 <div class="filters-row">
-<div class="field" style="flex:1 1 100%">
+<div class="field" style="flex:1 1 48%">
 <select id="sortBy">
 <option value="county">Sort: County (default order)</option>
 <option value="dateAsc">Sort: Sale date, soonest first</option>
@@ -179,6 +179,24 @@ once, and a one-click CSV export of whatever's currently filtered. -->
 <option value="assessedDesc">Sort: Assessed, high to low</option>
 <option value="spreadDesc">Sort: Best value, market ÷ bid</option>
 <option value="address">Sort: Address, A to Z</option>
+</select>
+</div>
+<!-- Tiebreaker sort - applies within ties left by the primary sort above
+(e.g. several properties with the same sale date), or as the whole sort
+when the primary is left on "County (default order)", which has no
+comparator of its own. Excludes "county" since that option has no
+comparator to apply as a tiebreaker either. -->
+<div class="field" style="flex:1 1 48%">
+<select id="sortSecondary">
+<option value="">Then by: (none)</option>
+<option value="dateAsc">Then by: Sale date, soonest first</option>
+<option value="dateDesc">Then by: Sale date, latest first</option>
+<option value="bidAsc">Then by: Opening bid, low to high</option>
+<option value="bidDesc">Then by: Opening bid, high to low</option>
+<option value="assessedAsc">Then by: Assessed, low to high</option>
+<option value="assessedDesc">Then by: Assessed, high to low</option>
+<option value="spreadDesc">Then by: Best value, market ÷ bid</option>
+<option value="address">Then by: Address, A to Z</option>
 </select>
 </div>
 </div>

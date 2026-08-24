@@ -230,7 +230,7 @@ const LEDGERS = {
 
 const state = {
   bidMin: null, bidMax: null, assessedMin: null,
-  sortBy: "county", favoritesOnly: false, topPicksOnly: false, soonOnly: false,
+  sortBy: "county", sortSecondary: "", favoritesOnly: false, topPicksOnly: false, soonOnly: false,
   hideOldListings: false,
   includeQT: false, maxBidPct: 40,
   statusView: "all",
@@ -1460,19 +1460,35 @@ function render() {
   if (hiddenCount) hiddenCount.textContent = HIDDEN.size;
 }
 
+// Both the primary "Sort" dropdown and the secondary "Then by" tiebreaker
+// dropdown pick from this same set of comparators, so a comparator added
+// here (or a bug fixed here) automatically applies to both.
+const SORT_COMPARATORS = {
+  dateAsc: (a, b) => saleTime(a) - saleTime(b),
+  dateDesc: (a, b) => saleTime(b) - saleTime(a),
+  bidAsc: (a, b) => Number(a.bid || 0) - Number(b.bid || 0),
+  bidDesc: (a, b) => Number(b.bid || 0) - Number(a.bid || 0),
+  assessedAsc: (a, b) => Number(a.assessed || 0) - Number(b.assessed || 0),
+  assessedDesc: (a, b) => Number(b.assessed || 0) - Number(a.assessed || 0),
+  spreadDesc: (a, b) => valueRatio(b) - valueRatio(a),
+  address: (a, b) => (a.address || "").localeCompare(b.address || "")
+};
+
 function sortRows(rows) {
-  const cmp = {
-    dateAsc: (a, b) => saleTime(a) - saleTime(b),
-    dateDesc: (a, b) => saleTime(b) - saleTime(a),
-    bidAsc: (a, b) => Number(a.bid || 0) - Number(b.bid || 0),
-    bidDesc: (a, b) => Number(b.bid || 0) - Number(a.bid || 0),
-    assessedAsc: (a, b) => Number(a.assessed || 0) - Number(b.assessed || 0),
-    assessedDesc: (a, b) => Number(b.assessed || 0) - Number(a.assessed || 0),
-    spreadDesc: (a, b) => valueRatio(b) - valueRatio(a),
-    address: (a, b) => (a.address || "").localeCompare(b.address || "")
-  }[state.sortBy];
-  // "county" (default) keeps the query's own county/case_no order - no sort.
-  return cmp ? rows.slice().sort(cmp) : rows;
+  const primary = SORT_COMPARATORS[state.sortBy];
+  const secondary = SORT_COMPARATORS[state.sortSecondary];
+  // "county" (default) has no comparator of its own and keeps the query's
+  // own county/case_no order - if no tiebreaker is set either, there's
+  // nothing to sort by, so skip the copy+sort entirely (matches the old
+  // no-secondary-sort behavior exactly).
+  if (!primary && !secondary) return rows;
+  return rows.slice().sort((a, b) => {
+    if (primary) {
+      const r = primary(a, b);
+      if (r !== 0) return r;
+    }
+    return secondary ? secondary(a, b) : 0;
+  });
 }
 
 // ==================== county grouping ====================
@@ -1648,6 +1664,7 @@ function updateBadge() {
   if (state.search) n++;
   if (state.bidMin || state.bidMax || state.assessedMin) n++;
   if (state.sortBy !== "county") n++;
+  if (state.sortSecondary) n++;
   if (state.favoritesOnly || state.topPicksOnly || state.soonOnly || state.hideOldListings) n++;
   if (state.statusView !== "all") n++;
   if (state.maxBidPct !== 40) n++;
@@ -1843,6 +1860,8 @@ bindNumber("maxBidPct", "maxBidPct", 40);
 // ---- sort ----
 const sortByEl = document.getElementById("sortBy");
 if (sortByEl) sortByEl.addEventListener("change", () => { state.sortBy = sortByEl.value; updateBadge(); render(); });
+const sortSecondaryEl = document.getElementById("sortSecondary");
+if (sortSecondaryEl) sortSecondaryEl.addEventListener("change", () => { state.sortSecondary = sortSecondaryEl.value; updateBadge(); render(); });
 
 // ---- checkboxes ----
 function bindCheckbox(id, key) {
@@ -1860,7 +1879,7 @@ bindCheckbox("qtToggle", "includeQT");
 const resetBtn = document.getElementById("resetBtn");
 if (resetBtn) resetBtn.addEventListener("click", () => {
   state.bidMin = null; state.bidMax = null; state.assessedMin = null;
-  state.sortBy = "county"; state.favoritesOnly = false; state.topPicksOnly = false;
+  state.sortBy = "county"; state.sortSecondary = ""; state.favoritesOnly = false; state.topPicksOnly = false;
   state.soonOnly = false; state.hideOldListings = false; state.includeQT = false; state.maxBidPct = 40;
   state.statusView = "all"; state.search = "";
   state.counties = new Set(ALL_COUNTIES); state.types = new Set(TYPE_ORDER); state.liens = new Set(LIEN_ORDER);
@@ -1878,6 +1897,7 @@ if (resetBtn) resetBtn.addEventListener("click", () => {
   if (assessedMinEl) assessedMinEl.value = "";
   const maxBidEl = document.getElementById("maxBidPct"); if (maxBidEl) maxBidEl.value = "40";
   const sortEl = document.getElementById("sortBy"); if (sortEl) sortEl.value = "county";
+  const sortSecEl = document.getElementById("sortSecondary"); if (sortSecEl) sortSecEl.value = "";
   ["favOnly", "topOnly", "soonOnly", "hideOldOnly", "qtToggle"].forEach(id => { const el = document.getElementById(id); if (el) el.checked = false; });
   const searchEl = document.getElementById("searchInput"); if (searchEl) searchEl.value = "";
 
