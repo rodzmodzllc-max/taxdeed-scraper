@@ -296,11 +296,22 @@ const FEES_TIP = "Florida doc stamps (0.70/$100) + recording fee, plus half the 
 // the data pipeline actually captures them.
 function fallbackZillowUrl(p) {
   if (p.url_zillow) return p.url_zillow;
+  // Zillow's own search doesn't take raw lat/long, only its address-search
+  // form - so geocoding (see scripts/geocode_properties.py) can't sharpen
+  // this one the way it does Street View below. Keep the address-search
+  // fallback as-is.
   if (!p.address) return "";
   return `https://www.zillow.com/homes/${encodeURIComponent(p.address + ", " + p.county + " County, FL")}_rb/`;
 }
 function fallbackStreetviewUrl(p) {
   if (p.url_streetview) return p.url_streetview;
+  // Prefer a direct coordinate link once geocode_properties.py has filled
+  // these in (schema-v8-geocoding.sql) - lands on the actual parcel instead
+  // of Google's best guess from an address search, which can miss on rural
+  // routes, new subdivisions, or a scraped address with a typo.
+  if (typeof p.latitude === "number" && typeof p.longitude === "number") {
+    return `https://www.google.com/maps/search/?api=1&query=${p.latitude},${p.longitude}`;
+  }
   if (!p.address) return "";
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.address + ", " + p.county + " County, FL")}`;
 }
