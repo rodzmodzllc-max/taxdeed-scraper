@@ -188,9 +188,22 @@ await page.waitForTimeout(300);
 results.mapWrapVisible = await page.locator('#mapWrap').isVisible();
 results.mapPathCount = await page.locator('#mapHost path[data-county]').count();
 results.mapHasDataCount = await page.locator('#mapHost path.has-data').count();
-// click Alachua's path (has data in fixture) to toggle it off
+
+// A first tap on any county (has-data or not) zooms in and names it in the
+// banner - it must NOT touch the filter yet. That's the point of the
+// two-step interaction: you always see which county you're about to
+// filter to before committing to it (see zoomToCounty() in app.js).
 const alachuaPath = page.locator('#mapHost path[data-county="Alachua"]');
 const alachuaSelBefore = await alachuaPath.evaluate(el => el.classList.contains('sel'));
+await alachuaPath.click({ force: true });
+await page.waitForTimeout(500); // the zoom viewBox tween runs ~320ms
+results.alachuaSelAfterFirstTap = await alachuaPath.evaluate(el => el.classList.contains('sel'));
+results.alachuaChipOnAfterFirstTap = await page.locator('#countyChips .chipx[data-value="Alachua"]').evaluate(el => el.classList.contains('on'));
+results.mapZoomBannerVisibleAfterTap = await page.locator('#mapZoomBanner').isVisible();
+results.mapZoomNameTextAfterTap = await page.locator('#mapZoomName').textContent();
+results.mapHintHiddenAfterTap = await page.locator('#mapHint').isHidden();
+
+// A second tap on the SAME (now-zoomed) county actually toggles the filter.
 await alachuaPath.click({ force: true });
 await page.waitForTimeout(150);
 const alachuaSelAfter = await alachuaPath.evaluate(el => el.classList.contains('sel'));
@@ -198,6 +211,12 @@ const alachuaChipOnAfter = await page.locator('#countyChips .chipx[data-value="A
 results.alachuaSelBefore = alachuaSelBefore;
 results.alachuaSelAfter = alachuaSelAfter;
 results.alachuaChipOnAfterMapClick = alachuaChipOnAfter;
+
+// "Full map" zoom-out button returns to the state-wide view.
+await page.click('#mapZoomOutBtn');
+await page.waitForTimeout(500);
+results.mapZoomBannerHiddenAfterZoomOut = await page.locator('#mapZoomBanner').isHidden();
+results.mapHintVisibleAfterZoomOut = await page.locator('#mapHint').isVisible();
 
 // --- reset button: also collapses every county group back to closed ---
 await page.click('#resetBtn');
@@ -502,8 +521,15 @@ const EXPECTED = {
   mapPathCount: 67,
   mapHasDataCount: 8,
   alachuaSelBefore: true,
+  alachuaSelAfterFirstTap: true,
+  alachuaChipOnAfterFirstTap: true,
+  mapZoomBannerVisibleAfterTap: true,
+  mapZoomNameTextAfterTap: 'Alachua County · Gainesville',
+  mapHintHiddenAfterTap: true,
   alachuaSelAfter: false,
   alachuaChipOnAfterMapClick: false,
+  mapZoomBannerHiddenAfterZoomOut: true,
+  mapHintVisibleAfterZoomOut: true,
   cardsAfterReset: 9,
   alachuaSelAfterReset: true,
   countyGroupsClosedAfterReset: true,
