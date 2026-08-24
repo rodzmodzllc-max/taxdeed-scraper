@@ -672,6 +672,17 @@ summary.county-head::-webkit-details-marker{display:none}
 .hidden-row-inactive-tag{font-size:.68rem;color:var(--warn)}
 .hidden-row-unavailable{font-size:.72rem;color:var(--ink-soft);white-space:nowrap;flex-shrink:0}
 .hidden-row .reset-btn{flex-shrink:0}
+
+/* Shared error toast - see showErrorToast() in app.js. Every write action
+   (favorite/hide/restore/bid-list/note) used to fail completely silently on
+   error - the button just re-enabled with no explanation. Fixed to the
+   bottom so it never shifts layout or covers the header/filters; tap to
+   dismiss early, otherwise auto-hides on its own. */
+.err-toast{position:fixed;left:50%;bottom:1.2rem;transform:translateX(-50%) translateY(1rem);
+  max-width:min(92vw,420px);background:var(--bad);color:#fff;font-size:.82rem;font-weight:600;
+  padding:.7rem 1rem;border-radius:10px;box-shadow:var(--shadow);z-index:9999;cursor:pointer;
+  opacity:0;pointer-events:none;transition:opacity .18s ease,transform .18s ease}
+.err-toast.show{opacity:1;pointer-events:auto;transform:translateX(-50%) translateY(0)}
 .detail-close{position:sticky;top:0;float:right;border:none;background:var(--card);
   color:var(--ink-soft);width:2rem;height:2rem;border-radius:999px;font-size:1.1rem;
   cursor:pointer;box-shadow:var(--shadow);margin-bottom:.3rem}
