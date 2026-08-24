@@ -270,6 +270,33 @@ const fmtMoney = n => "$" + Number(n).toLocaleString("en-US", { minimumFractionD
 const fmtShort = n => "$" + Math.round(Number(n)).toLocaleString("en-US");
 const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
+// Shared error toast for the write actions below (favorite, hide, restore,
+// bid list, notes). These used to fail completely silently on a Supabase
+// error - the button just re-enabled with zero indication anything went
+// wrong. One small dismissable banner beats duplicating that logic five
+// times, and beats a jarring native alert() (used for the admin-approval
+// flow only, left as-is since that's a rarer, already-attention-grabbing
+// action). Auto-hides; tap dismisses early.
+let errToastTimer = null;
+function showErrorToast(msg) {
+  let el = document.getElementById("errToast");
+  if (!el) {
+    el = document.createElement("div");
+    el.id = "errToast";
+    el.className = "err-toast";
+    el.addEventListener("click", hideErrorToast);
+    document.body.appendChild(el);
+  }
+  el.textContent = msg;
+  el.classList.add("show");
+  clearTimeout(errToastTimer);
+  errToastTimer = setTimeout(hideErrorToast, 5000);
+}
+function hideErrorToast() {
+  const el = document.getElementById("errToast");
+  if (el) el.classList.remove("show");
+}
+
 // Small icon-prefix for the quick-action reference links, shared by the
 // compact card row and the roomier detail-modal buttons so the two stay
 // visually consistent.
@@ -1268,7 +1295,7 @@ async function restoreAllActive() {
     activeIds.forEach(id => HIDDEN.delete(id));
     render();
     refreshHiddenModal();
-  } else if (btn) { btn.disabled = false; }
+  } else { if (btn) btn.disabled = false; showErrorToast("Couldn't restore: " + error.message); }
 }
 const hiddenModalEl = document.getElementById("hiddenModal");
 if (hiddenModalEl) hiddenModalEl.addEventListener("click", e => { if (e.target === hiddenModalEl) closeHiddenModal(); });
@@ -1300,10 +1327,10 @@ document.addEventListener("click", async e => {
     btn.disabled = true;
     if (FAVS.has(pid)) {
       const { error } = await sb.from("favorites").delete().eq("user_id", ME.id).eq("property_id", pid);
-      if (!error) FAVS.delete(pid);
+      if (!error) FAVS.delete(pid); else showErrorToast("Couldn't update favorite: " + error.message);
     } else {
       const { error } = await sb.from("favorites").insert({ user_id: ME.id, property_id: pid });
-      if (!error) FAVS.add(pid);
+      if (!error) FAVS.add(pid); else showErrorToast("Couldn't update favorite: " + error.message);
     }
     render();
     refreshOpenDetail(pid);
@@ -1320,12 +1347,12 @@ document.addEventListener("click", async e => {
     if (!window.confirm(`Hide ${label}? It'll disappear from every view here. You can bring it back later from the hidden-properties panel.`)) return;
     btn.disabled = true;
     const { error } = await sb.from("hidden").insert({ user_id: ME.id, property_id: pid });
-    if (!error) { HIDDEN.add(pid); render(); closeDetail(); refreshHiddenModal(); } else { btn.disabled = false; }
+    if (!error) { HIDDEN.add(pid); render(); closeDetail(); refreshHiddenModal(); } else { btn.disabled = false; showErrorToast("Couldn't hide: " + error.message); }
   } else if (action === "restore") {
     if (!ME || !pid) return;
     btn.disabled = true;
     const { error } = await sb.from("hidden").delete().eq("user_id", ME.id).eq("property_id", pid);
-    if (!error) { HIDDEN.delete(pid); render(); refreshHiddenModal(); } else { btn.disabled = false; }
+    if (!error) { HIDDEN.delete(pid); render(); refreshHiddenModal(); } else { btn.disabled = false; showErrorToast("Couldn't restore: " + error.message); }
   } else if (action === "bidlist") {
     if (!ME || !pid) return;
     if (BIDLIST.has(pid)) {
@@ -1336,7 +1363,7 @@ document.addEventListener("click", async e => {
       if (!error) {
         BIDLIST.delete(pid); BIDLIST_ORDER = BIDLIST_ORDER.filter(id => id !== pid);
         await promoteNextPending();
-      }
+      } else { showErrorToast("Couldn't update bid list: " + error.message); }
     } else if (BID_LIST_PENDING.includes(pid)) {
       // Already queued - a second click cancels the queued attempt instead
       // of queueing it again.
@@ -1352,7 +1379,11 @@ document.addEventListener("click", async e => {
         // Server-side backstop (schema-v7-bidlist.sql's trigger) tripped -
         // most likely two tabs racing to fill the last slot at once. Queue
         // it instead of failing outright, same as the client-side full case.
+        // Any OTHER error (network blip, RLS denial, etc.) isn't expected
+        // and silently dropping it would leave someone tapping ⚐ with no
+        // idea whether it worked - surface those.
         if (/full|limit/i.test(error.message || "")) BID_LIST_PENDING.push(pid);
+        else showErrorToast("Couldn't add to bid list: " + error.message);
       } else { BIDLIST.add(pid); BIDLIST_ORDER.push(pid); }
     }
     render();
@@ -1389,7 +1420,7 @@ document.addEventListener("click", async e => {
       { property_id: pid, author_id: ME.id, author_email: ME.email, stage, body },
       { onConflict: "property_id,author_id" }
     );
-    if (error) { btn.disabled = false; return; }
+    if (error) { btn.disabled = false; showErrorToast("Couldn't save note: " + error.message); return; }
     const rows = NOTES[pid] || (NOTES[pid] = []);
     const mine = rows.find(n => n.author_id === ME.id);
     const now = new Date().toISOString();
