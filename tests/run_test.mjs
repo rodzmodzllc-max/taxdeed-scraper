@@ -114,12 +114,23 @@ await page.waitForTimeout(100);
 results.brevardOpenAfterManualReopen = await page.locator('.county-group[data-county="Brevard"]').evaluate(el => el.open);
 
 // --- bid min filter ---
+// #bidMin is a range slider (Phase 2) - Playwright's page.fill() does not
+// support input[type=range] ("Malformed value"), so the value has to be set
+// directly and an 'input' event dispatched by hand to trigger the same
+// listener bindBidRangeSliders() wires up in app.js. '0' (the slider's min)
+// is the range-slider equivalent of the old empty-string "no filter" state.
 const beforeBidFilter = await page.locator('.prop-card').count();
-await page.fill('#bidMin', '10000');
+await page.locator('#bidMin').evaluate(el => {
+  el.value = '10000';
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+});
 await page.waitForTimeout(150);
 results.bidMinCardCountAfter = await page.locator('.prop-card').count();
 results.bidMinBeforeCount = beforeBidFilter;
-await page.fill('#bidMin', '');
+await page.locator('#bidMin').evaluate(el => {
+  el.value = '0';
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+});
 await page.waitForTimeout(100);
 
 // --- sort by ---
