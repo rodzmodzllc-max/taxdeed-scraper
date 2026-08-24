@@ -144,9 +144,20 @@ once, and a one-click CSV export of whatever's currently filtered. -->
 <button class="reset-btn" id="resetBtn" type="button">Reset all filters</button>
 </div>
 <div class="filters-row">
-<div class="field"><span class="field-label">Bid min</span><input type="number" id="bidMin" placeholder="0" min="0" step="100"></div>
+<div class="price-range-section">
+<span class="field-label">Bid Range</span>
+<div class="price-range-controls">
+<div class="price-range-sliders">
+<input type="range" id="bidMin" class="slider" min="0" max="1000000" step="10000" value="0">
+<input type="range" id="bidMax" class="slider slider-right" min="0" max="1000000" step="10000" value="1000000">
+</div>
+<div class="price-range-display">
+<div class="price-input"><span id="bidMinDisplay">$0</span></div>
 <span class="to-sep">to</span>
-<div class="field"><span class="field-label">Bid max</span><input type="number" id="bidMax" placeholder="Any" min="0" step="100"></div>
+<div class="price-input"><span id="bidMaxDisplay">Any</span></div>
+</div>
+</div>
+</div>
 <div class="field"><span class="field-label">Assessed min</span><input type="number" id="assessedMin" placeholder="0" min="0" step="1000"></div>
 </div>
 <div class="filters-row">
@@ -179,6 +190,7 @@ once, and a one-click CSV export of whatever's currently filtered. -->
 <label class="tog"><input type="checkbox" id="favOnly"> <span>♡ Favorites only</span></label>
 <label class="tog"><input type="checkbox" id="topOnly"> <span>★ Top picks only</span></label>
 <label class="tog"><input type="checkbox" id="soonOnly"> <span>⏱ Closing in 14 days</span></label>
+<label class="tog"><input type="checkbox" id="hideOldOnly"> <span>🕐 Hide listings 7+ days old</span></label>
 <label class="tog"><input type="checkbox" id="qtToggle"> <span>Include quiet title est.</span></label>
 </div>
 <button class="reset-btn" id="hiddenListBtn" type="button" hidden><span id="hiddenCount">0</span> hidden - view &amp; recover</button>

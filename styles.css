@@ -90,7 +90,7 @@ a{color:var(--accent)} button{font-family:inherit}
    list - the .quick-controls bar below handles "reachable while scrolling"
    instead (sticky on mobile only). */
 .masthead{background:var(--header-bg); color:var(--header-ink);
-  border-bottom:1px solid var(--header-line);padding:1.1rem 1.1rem .7rem}
+  border-bottom:2px solid var(--header-line);padding:1.4rem 1.1rem 1rem}
 .eyebrow-row{display:flex;align-items:center;justify-content:space-between;gap:.6rem;margin:0 0 .25rem}
 .eyebrow{font-family:ui-monospace,Consolas,monospace;font-size:.68rem;letter-spacing:.14em;
   text-transform:uppercase;color:var(--brass);margin:0}
@@ -106,11 +106,11 @@ a{color:var(--accent)} button{font-family:inherit}
    visible - and clicking it with no captured prompt is a dead click,
    exactly the "install button that does nothing" bug. */
 .hbtn[hidden]{display:none}
-h1{font-family:'Inter',sans-serif;font-weight:800;font-size:1.5rem;line-height:1.15;
-  margin:0 0 .15rem;letter-spacing:-.01em;color:var(--header-ink)}
+h1{font-family:'Inter',sans-serif;font-weight:800;font-size:1.65rem;line-height:1.15;
+  margin:0.25rem 0 .2rem;letter-spacing:-.01em;color:var(--header-ink)}
 h1 .brand-accent{color:#60A5FA}
-.tagline{font-size:.82rem;line-height:1.45;color:var(--header-ink-soft);margin:0 0 .55rem;max-width:46ch}
-.generated{font-size:.78rem;color:var(--header-ink-soft);margin:0 0 .7rem}
+.tagline{font-size:.875rem;line-height:1.5;color:var(--header-ink-soft);margin:0 0 .75rem;max-width:52ch;font-weight:400}
+.generated{font-size:.8rem;color:var(--header-ink-soft);margin:0 0 .9rem;font-weight:500}
 /* Sync pipeline runs on a PC, not a server - nothing guarantees it ran
    today. This makes a dead sync visually loud instead of reading the same
    as "quiet week, nothing new". --warn is already used for county-format
@@ -148,8 +148,10 @@ h1 .brand-accent{color:#60A5FA}
 .admin-approval-row{display:flex;align-items:center;gap:.7rem;flex-wrap:wrap;
   font-size:.78rem;background:var(--card);border:1px solid var(--card-line);
   border-radius:8px;padding:.4rem .6rem}
-.admin-approval-email{font-weight:600;color:var(--ink)}
-.admin-approval-when{color:var(--ink-soft);font-size:.7rem;flex:1}
+.admin-approval-info{display:flex;flex-direction:column;gap:.1rem;flex:1}
+.admin-approval-name{font-weight:600;color:var(--ink)}
+.admin-approval-email{font-size:.72rem;color:var(--ink-soft)}
+.admin-approval-when{color:var(--ink-soft);font-size:.7rem}
 .admin-approve-btn{background:var(--ok-bg);color:var(--ok);border-color:var(--ok)}
 @media (min-width:1024px){.admin-approvals{padding:.6rem 1.6rem}}
 
@@ -157,15 +159,16 @@ h1 .brand-accent{color:#60A5FA}
    switcher. First thing under the masthead so both ledgers are visible right
    after sign-in, instead of Lands Available being buried under 300+ auction
    cards on one long scrolling page. ---- */
-.ledger-tabs{display:flex;gap:.4rem;overflow-x:auto;scrollbar-width:none;margin-bottom:.7rem}
+.ledger-tabs{display:flex;gap:.5rem;overflow-x:auto;scrollbar-width:none;margin:1rem 0 .85rem;padding-bottom:.1rem}
 .ledger-tabs::-webkit-scrollbar{display:none}
 .ledger-tab{flex:1 1 auto;display:flex;align-items:center;justify-content:center;gap:.35rem;
-  white-space:nowrap;background:rgba(255,255,255,.05);border:1px solid var(--header-line);border-radius:10px;
-  padding:.55rem .6rem;font-size:.78rem;font-weight:600;color:var(--header-ink-soft);
-  font-family:inherit;cursor:pointer}
-.ledger-tab:active{opacity:.7}
-.ledger-tab.on{border-color:#60A5FA;border-width:2px;padding:.5rem .55rem;
-  background:rgba(96,165,250,.15);color:#93C5FD}
+  white-space:nowrap;background:rgba(255,255,255,.06);border:1.5px solid var(--header-line);border-radius:12px;
+  padding:.6rem .7rem;font-size:.8rem;font-weight:600;color:var(--header-ink-soft);
+  font-family:inherit;cursor:pointer;transition:all 0.2s ease}
+.ledger-tab:hover{background:rgba(255,255,255,.12);border-color:#93C5FD}
+.ledger-tab:active{opacity:.8}
+.ledger-tab.on{border-color:#60A5FA;border-width:2px;padding:.55rem .65rem;
+  background:rgba(96,165,250,.2);color:#93C5FD}
 .ledger-tab b{font-family:ui-monospace,Consolas,monospace;font-variant-numeric:tabular-nums;
   font-size:.85rem}
 
@@ -199,14 +202,15 @@ h1 .brand-accent{color:#60A5FA}
     border-left:none;border-right:none}
 }
 
-.summary-strip{display:flex;gap:.5rem;overflow-x:auto;padding-bottom:.15rem;
-  scrollbar-width:none;margin-bottom:.7rem}
+.summary-strip{display:flex;gap:.6rem;overflow-x:auto;padding-bottom:.15rem;
+  scrollbar-width:none;margin-bottom:.9rem;flex-wrap:wrap}
 .summary-strip::-webkit-scrollbar{display:none}
-.chip{flex:0 0 auto;display:flex;align-items:baseline;gap:.35rem;background:rgba(255,255,255,.05);
-  border:1px solid var(--header-line);border-radius:999px;padding:.32rem .75rem;
-  font-size:.78rem;white-space:nowrap;color:var(--header-ink);font-family:inherit;cursor:pointer}
-.chip:active{opacity:.7}
-.chip.on{border-width:2px;padding:.28rem .71rem}
+.chip{flex:0 0 auto;display:flex;align-items:baseline;gap:.35rem;background:rgba(255,255,255,.06);
+  border:1.5px solid var(--header-line);border-radius:999px;padding:.35rem .8rem;
+  font-size:.8rem;white-space:nowrap;color:var(--header-ink);font-family:inherit;cursor:pointer;transition:all 0.2s ease}
+.chip:hover{background:rgba(255,255,255,.12);border-color:var(--header-ink)}
+.chip:active{opacity:.8}
+.chip.on{border-width:2px;padding:.3rem .75rem}
 .chip.total.on{border-color:#60A5FA;background:rgba(96,165,250,.15)}
 .chip.ok.on{border-color:var(--ok);background:rgba(5,150,105,.18)}
 .chip.bad.on{border-color:var(--bad);background:rgba(220,38,38,.18)}
@@ -370,6 +374,10 @@ summary.county-head::-webkit-details-marker{display:none}
 .county-chevron{width:8px;height:8px;flex-shrink:0;border-right:2px solid var(--ink-soft);
   border-bottom:2px solid var(--ink-soft);transform:rotate(45deg);transition:transform .15s}
 .county-group[open] .county-chevron{transform:rotate(225deg)}
+.freshness-badge{display:inline-flex;align-items:center;font-size:.68rem;font-weight:600;
+  padding:.2rem .4rem;border-radius:4px;white-space:nowrap;color:var(--accent);
+  background:color-mix(in srgb,var(--accent) 12%,var(--paper) 88%)}
+.freshness-badge.stale{color:#d97706;background:color-mix(in srgb,#d97706 12%,var(--paper) 88%)}
 .county-info{display:flex;align-items:flex-start;gap:.5rem;margin:0 .6rem .6rem;padding:.5rem .65rem;
   background:var(--accent-soft);border-radius:8px;font-size:.74rem;line-height:1.4;color:var(--ink)}
 .fmt-pill{flex-shrink:0;font-weight:700;font-size:.6rem;text-transform:uppercase;letter-spacing:.03em;
@@ -392,6 +400,9 @@ summary.county-head::-webkit-details-marker{display:none}
 .toppick-banner{display:inline-flex;align-items:center;gap:.35rem;font-size:.68rem;font-weight:800;
   text-transform:uppercase;letter-spacing:.05em;color:var(--ok);margin-bottom:.4rem;
   background:var(--ok-bg);border:2px solid var(--ok);border-radius:999px;padding:.22rem .6rem .22rem .5rem}
+.closed-banner{display:inline-flex;align-items:center;gap:.3rem;font-size:.7rem;font-weight:800;
+  text-transform:uppercase;letter-spacing:.04em;color:#fff;margin-bottom:.4rem;
+  background:var(--bad);border:2px solid var(--bad);border-radius:8px;padding:.25rem .55rem;width:100%}
 .ratio-pill{font-family:ui-monospace,Consolas,monospace;font-weight:700;text-transform:none;
   background:var(--card);border-radius:4px;padding:.05rem .3rem}
 
@@ -695,3 +706,41 @@ footer{padding:1.2rem 1.1rem 0;font-size:.72rem;color:var(--ink-soft);text-align
 }
 #changePasswordModal button[type="submit"]:hover{background:var(--ok)}
 #changePasswordModal button[type="submit"]:disabled{opacity:.5;cursor:default;background:var(--header-bg)}
+
+/* ---- Price range sliders ---- */
+.price-range-section{flex:1 1 100%;display:flex;flex-direction:column;gap:.5rem}
+.price-range-controls{display:flex;flex-direction:column;gap:.6rem}
+.price-range-sliders{position:relative;height:24px;display:flex;align-items:center}
+.slider{position:absolute;width:100%;height:5px;top:50%;transform:translateY(-50%);background:transparent;
+  border:none;border-radius:5px;pointer-events:none;appearance:none;outline:none;
+  -webkit-appearance:none;z-index:5}
+.slider::-webkit-slider-thumb{appearance:none;-webkit-appearance:none;width:18px;height:18px;
+  border-radius:50%;background:var(--accent);border:2px solid #fff;cursor:pointer;
+  box-shadow:0 2px 4px rgba(0,0,0,.2);pointer-events:auto;z-index:7}
+.slider::-moz-range-thumb{width:18px;height:18px;border-radius:50%;background:var(--accent);
+  border:2px solid #fff;cursor:pointer;box-shadow:0 2px 4px rgba(0,0,0,.2);pointer-events:auto;z-index:7}
+.slider-right{z-index:6}
+.slider::-webkit-slider-runnable-track{background:linear-gradient(to right,
+  var(--card-line) 0%,var(--card-line) 0%,
+  var(--accent) 0%,var(--accent) 100%,
+  var(--card-line) 100%,var(--card-line) 100%);
+  height:5px;border-radius:5px;border:none}
+.slider::-moz-range-track{background:var(--card-line);height:5px;border-radius:5px;border:none}
+.slider:focus{outline:none}
+.price-range-display{display:flex;align-items:center;gap:.4rem;justify-content:center}
+.price-input{display:inline-flex;align-items:center;gap:.2rem;padding:.3rem .5rem;
+  background:var(--paper);border:1px solid var(--card-line);border-radius:6px;
+  font-family:ui-monospace,Consolas,monospace;font-size:.8rem;min-width:80px;text-align:center;color:var(--accent);font-weight:600}
+.price-input span{display:inline-block}
+
+/* ---- Map city labels ---- */
+.city-labels{pointer-events:none}
+.city-label{font-family:'Inter',sans-serif;font-weight:700;fill:var(--ink-soft);
+  text-shadow:1px 1px 3px rgba(255,255,255,.8),1px 1px 6px rgba(0,0,0,.15);
+  pointer-events:none;opacity:.7;transition:opacity 0.2s ease}
+.city-label.city-large{font-size:14px}
+.city-label.city-medium{font-size:11px}
+.city-label.city-small{font-size:9px}
+@media (prefers-color-scheme:dark){
+  .city-label{fill:var(--header-ink-soft);text-shadow:1px 1px 2px rgba(0,0,0,.6),1px 1px 4px rgba(0,0,0,.3)}
+}

@@ -231,6 +231,7 @@ const LEDGERS = {
 const state = {
   bidMin: null, bidMax: null, assessedMin: null,
   sortBy: "county", favoritesOnly: false, topPicksOnly: false, soonOnly: false,
+  hideOldListings: false,
   includeQT: false, maxBidPct: 40,
   statusView: "all",
   ledger: "auction",
@@ -336,6 +337,27 @@ function daysUntil(p) {
   const d = new Date(p.sale_date + "T00:00:00");
   return Math.ceil((d - new Date().setHours(0, 0, 0, 0)) / 86400000);
 }
+
+// Days since this property was last updated by the scraper
+function daysSinceUpdate(p) {
+  if (!p.updated_at) return 0;
+  const d = new Date(p.updated_at);
+  return Math.floor((Date.now() - d) / 86400000);
+}
+
+// Calculate freshness status for a group of properties (e.g., one county)
+function getGroupFreshness(rows) {
+  if (!rows || rows.length === 0) return { isStale: false, timestamp: null, hours: null };
+  const newest = rows.reduce((a, p) => (p.updated_at && p.updated_at > a ? p.updated_at : a), "");
+  if (!newest) return { isStale: false, timestamp: null, hours: null };
+  const hours = (Date.now() - Date.parse(newest)) / 3600000;
+  return {
+    isStale: hours > STALE_DATA_HOURS,
+    timestamp: newest,
+    hours: Math.round(hours)
+  };
+}
+
 function saleTime(p) {
   if (!p.sale_date) return Infinity;
   const t = Date.parse(p.sale_date);
@@ -580,15 +602,22 @@ async function refreshAdminApprovals() {
   const wrap = document.getElementById("adminApprovals");
   const list = document.getElementById("adminApprovalsList");
   if (!wrap || !list) return;
-  const { data, error } = await sb.from("profiles").select("id,email,requested_at").eq("approved", false).order("requested_at");
+  const { data, error } = await sb.from("profiles").select("id,email,first_name,last_name,company,requested_at").eq("approved", false).order("requested_at");
   if (error || !data || !data.length) { wrap.hidden = true; list.innerHTML = ""; return; }
   wrap.hidden = false;
-  list.innerHTML = data.map(p => `
+  list.innerHTML = data.map(p => {
+    const name = [p.first_name, p.last_name].filter(Boolean).join(" ") || "Unknown";
+    const company = p.company ? ` (${p.company})` : "";
+    return `
     <span class="admin-approval-row" data-id="${esc(p.id)}">
-      <span class="admin-approval-email">${esc(p.email || p.id)}</span>
+      <span class="admin-approval-info">
+        <span class="admin-approval-name">${esc(name)}${company}</span>
+        <span class="admin-approval-email">${esc(p.email)}</span>
+      </span>
       <span class="admin-approval-when">requested ${fmtDate((p.requested_at || "").slice(0, 10))}</span>
       <button class="mini-btn admin-approve-btn" type="button" data-id="${esc(p.id)}">✓ Approve</button>
-    </span>`).join("");
+    </span>`;
+  }).join("");
   list.querySelectorAll(".admin-approve-btn").forEach(btn => {
     btn.addEventListener("click", async () => {
       btn.disabled = true;
@@ -775,6 +804,7 @@ function passes(p) {
   if (state.favoritesOnly && !FAVS.has(p.id)) return false;
   if (state.topPicksOnly && !isTopPick(p)) return false;
   if (state.soonOnly) { const d = daysUntil(p); if (d === null || d < 0 || d > SOON_DAYS) return false; }
+  if (state.hideOldListings) { const d = daysSinceUpdate(p); if (d >= 7) return false; }
   if (!state.counties.has(p.county)) return false;
   if (!matchesSearch(p)) return false;
   // Certificates aren't screened for title and don't have a property type -
@@ -858,7 +888,9 @@ function card(p, showCounty) {
   // box; Parcel # moves to a quiet reference line right under the address.
   const marketVal = marketOf(p);
   const usingAssessed = !p.market && p.assessed;
+  const isClosed = isGone(p);
   el.innerHTML = `
+    ${isClosed ? `<div class="closed-banner">✓ Closed - ${esc(p.status)}</div>` : ""}
     ${top ? `<div class="toppick-banner">★ Top pick <span class="ratio-pill">${valueRatio(p).toFixed(1)}× market vs bid</span></div>` : ""}
     ${tag}
     <div class="prop-top">
@@ -868,7 +900,7 @@ function card(p, showCounty) {
         ${bidListBtnHtml(p, true)}
         <button class="icon-btn remove-btn" data-action="hide" data-pid="${p.id}" type="button" title="Hide">✕</button>
         ${cd}
-        <span class="lien-pill ${esc(p.lien_level)}">${LIEN_LABEL[p.lien_level] || p.lien_level}</span>
+        ${!isClosed ? `<span class="lien-pill ${esc(p.lien_level)}">${LIEN_LABEL[p.lien_level] || p.lien_level}</span>` : ""}
         <span class="pill ${esc(p.status)}">${esc(p.status)}</span>
       </div>
     </div>
@@ -1567,12 +1599,18 @@ function section(container, title, sub, rows, kind) {
 
     const summary = document.createElement("summary");
     summary.className = "county-head";
+    const freshness = getGroupFreshness(countyRows);
+    const freshnessBadge = freshness.timestamp ?
+      `<span class="freshness-badge ${freshness.isStale ? 'stale' : 'fresh'}" title="Last synced ${new Date(freshness.timestamp).toLocaleString()}">
+         ${freshness.isStale ? '⚠ Stale' : '✓ Fresh'} (${freshness.hours}h ago)
+       </span>` : '';
     summary.innerHTML = `
       <div>
         <div class="county-name">${esc(county)}</div>
         <div class="county-meta">${esc(groupSecondaryLine(kind, date))}</div>
       </div>
       <div class="county-right">
+        ${freshnessBadge}
         <span class="county-count">${active}/${total} active</span>
         <span class="county-chevron"></span>
       </div>`;
@@ -1599,7 +1637,7 @@ function updateBadge() {
   if (state.search) n++;
   if (state.bidMin || state.bidMax || state.assessedMin) n++;
   if (state.sortBy !== "county") n++;
-  if (state.favoritesOnly || state.topPicksOnly || state.soonOnly) n++;
+  if (state.favoritesOnly || state.topPicksOnly || state.soonOnly || state.hideOldListings) n++;
   if (state.statusView !== "all") n++;
   if (state.maxBidPct !== 40) n++;
   if (state.counties.size !== ALL_COUNTIES.length) n++;
@@ -1734,6 +1772,49 @@ if (filtersToggleBtn && filtersPanelEl) {
   });
 }
 
+// ---- range sliders for bid filtering ----
+function bindBidRangeSliders() {
+  const minSlider = document.getElementById("bidMin");
+  const maxSlider = document.getElementById("bidMax");
+  const minDisplay = document.getElementById("bidMinDisplay");
+  const maxDisplay = document.getElementById("bidMaxDisplay");
+
+  if (!minSlider || !maxSlider) return;
+
+  function updateBidRange() {
+    const min = Number(minSlider.value);
+    const max = Number(maxSlider.value);
+
+    if (min > max) {
+      minSlider.value = max;
+    }
+
+    state.bidMin = min > 0 ? min : null;
+    state.bidMax = max < 1000000 ? max : null;
+
+    if (minDisplay) minDisplay.textContent = min > 0 ? fmtMoney(min) : "$0";
+    if (maxDisplay) maxDisplay.textContent = max < 1000000 ? fmtMoney(max) : "Any";
+
+    // Update CSS variables for slider track fill
+    const percent1 = (min / 1000000) * 100;
+    const percent2 = (max / 1000000) * 100;
+    minSlider.style.setProperty("--value1", percent1 + "%");
+    minSlider.style.setProperty("--value2", percent2 + "%");
+    maxSlider.style.setProperty("--value1", percent1 + "%");
+    maxSlider.style.setProperty("--value2", percent2 + "%");
+
+    updateBadge();
+    render();
+  }
+
+  minSlider.addEventListener("input", updateBidRange);
+  maxSlider.addEventListener("input", updateBidRange);
+
+  // Initialize display
+  updateBidRange();
+}
+bindBidRangeSliders();
+
 // ---- number inputs ----
 function bindNumber(id, key, fallback) {
   const el = document.getElementById(id);
@@ -1745,8 +1826,6 @@ function bindNumber(id, key, fallback) {
     render();
   });
 }
-bindNumber("bidMin", "bidMin");
-bindNumber("bidMax", "bidMax");
 bindNumber("assessedMin", "assessedMin");
 bindNumber("maxBidPct", "maxBidPct", 40);
 
@@ -1763,6 +1842,7 @@ function bindCheckbox(id, key) {
 bindCheckbox("favOnly", "favoritesOnly");
 bindCheckbox("topOnly", "topPicksOnly");
 bindCheckbox("soonOnly", "soonOnly");
+bindCheckbox("hideOldOnly", "hideOldListings");
 bindCheckbox("qtToggle", "includeQT");
 
 // ---- reset ----
@@ -1770,15 +1850,24 @@ const resetBtn = document.getElementById("resetBtn");
 if (resetBtn) resetBtn.addEventListener("click", () => {
   state.bidMin = null; state.bidMax = null; state.assessedMin = null;
   state.sortBy = "county"; state.favoritesOnly = false; state.topPicksOnly = false;
-  state.soonOnly = false; state.includeQT = false; state.maxBidPct = 40;
+  state.soonOnly = false; state.hideOldListings = false; state.includeQT = false; state.maxBidPct = 40;
   state.statusView = "all"; state.search = "";
   state.counties = new Set(ALL_COUNTIES); state.types = new Set(TYPE_ORDER); state.liens = new Set(LIEN_ORDER);
   state.expandedCounties.clear();
 
-  ["bidMin", "bidMax", "assessedMin"].forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
+  const bidMinEl = document.getElementById("bidMin");
+  const bidMaxEl = document.getElementById("bidMax");
+  if (bidMinEl) { bidMinEl.value = "0"; bidMinEl.style.setProperty("--value1", "0%"); }
+  if (bidMaxEl) { bidMaxEl.value = "1000000"; bidMaxEl.style.setProperty("--value2", "100%"); }
+  const minDisplayEl = document.getElementById("bidMinDisplay");
+  const maxDisplayEl = document.getElementById("bidMaxDisplay");
+  if (minDisplayEl) minDisplayEl.textContent = "$0";
+  if (maxDisplayEl) maxDisplayEl.textContent = "Any";
+  const assessedMinEl = document.getElementById("assessedMin");
+  if (assessedMinEl) assessedMinEl.value = "";
   const maxBidEl = document.getElementById("maxBidPct"); if (maxBidEl) maxBidEl.value = "40";
   const sortEl = document.getElementById("sortBy"); if (sortEl) sortEl.value = "county";
-  ["favOnly", "topOnly", "soonOnly", "qtToggle"].forEach(id => { const el = document.getElementById(id); if (el) el.checked = false; });
+  ["favOnly", "topOnly", "soonOnly", "hideOldOnly", "qtToggle"].forEach(id => { const el = document.getElementById(id); if (el) el.checked = false; });
   const searchEl = document.getElementById("searchInput"); if (searchEl) searchEl.value = "";
 
   buildAllChips();
@@ -1839,11 +1928,44 @@ function refreshMapPaths() {
     titleEl.textContent = `${name}: ${fmtLabel}${countLabel}`;
   });
 }
+// Major Florida cities for map labels - approximate SVG coordinates
+const FLORIDA_CITIES = [
+  { name: "Miami", x: "88%", y: "92%", size: "large" },
+  { name: "Tampa", x: "28%", y: "65%", size: "large" },
+  { name: "Jacksonville", x: "68%", y: "18%", size: "large" },
+  { name: "Orlando", x: "55%", y: "50%", size: "medium" },
+  { name: "Fort Lauderdale", x: "85%", y: "88%", size: "medium" },
+  { name: "Tallahassee", x: "32%", y: "12%", size: "small" },
+  { name: "Saint Petersburg", x: "25%", y: "70%", size: "small" },
+];
+
 async function ensureMapLoaded() {
   if (mapLoaded || !mapHostEl) return;
   try {
     const res = await fetch("fl-counties.svg");
     mapHostEl.innerHTML = await res.text();
+
+    // Add city labels as SVG text elements
+    const svg = mapHostEl.querySelector("svg");
+    if (svg) {
+      const ns = "http://www.w3.org/2000/svg";
+      const g = document.createElementNS(ns, "g");
+      g.setAttribute("class", "city-labels");
+
+      FLORIDA_CITIES.forEach(city => {
+        const text = document.createElementNS(ns, "text");
+        text.setAttribute("x", city.x);
+        text.setAttribute("y", city.y);
+        text.setAttribute("text-anchor", "middle");
+        text.setAttribute("class", `city-label city-${city.size}`);
+        text.setAttribute("data-city", city.name);
+        text.textContent = city.name;
+        g.appendChild(text);
+      });
+
+      svg.appendChild(g);
+    }
+
     mapLoaded = true;
     refreshMapPaths();
     mapHostEl.addEventListener("click", e => {
