@@ -1,0 +1,3 @@
+County,BaseUrl,Notes
+Okeechobee,https://pioneer.okeechobeelandmark.com/TaxSmartWebLive/,Confirmed live 2026-08-25 - real "Search for Lands Available" tab returns 0 current properties (confirmed 0 is correct - no grid renders at all on a true zero-result search on this platform - not a harvest failure).
+Citrus,https://search.citrusclerk.org/TaxSmartWeb,Confirmed live 2026-08-25 with 5 real properties (JPL Investments Corp, IL IL IRA Investments LLC, Rajendra Inc, Savvy FL LLC x2). Page also displays a notice that sale-related inquiries should be emailed to TaxDeeds@CitrusClerk.org, but the Lands Available search itself is fully queryable live through this portal - not email-only.
