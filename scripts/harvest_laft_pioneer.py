@@ -13,44 +13,42 @@ search.citrusclerk.org/TaxSmartWeb) - so counties are onboarded here one at
 a time as each one's base URL is confirmed, via ../data/laft_pioneer_counties.csv
 (columns: County, BaseUrl, Notes).
 
-Confirmed live via the browser on both counties above: the search UI is a
-tabbed ASP.NET-rendered page (jQuery + jqGrid, NOT Blazor/SignalR - no
-websocket, a plain server-rendered HTML response). There is no CSRF/anti-
-forgery hidden field on either confirmed county's form. The "Lands
-Available" tab's submit button is a plain <button type="submit"
-name="buttonSubmitLandsAvailable"> with an empty value, inside a single
-<form method="post"> whose action is the county's base URL (sometimes with
-a trailing slash added by the server). Submitting the form with every
-other field left at its default/empty value reproduces exactly what a
-real user gets by loading the page and clicking straight to "Search for
-Lands Available" with no filters - confirmed via the browser's native
-click + full-page-navigation on both counties (Citrus returned 5 real
-properties, Okeechobee genuinely returned 0).
+USES A REAL HEADLESS BROWSER (Playwright/Chromium), unlike every other LAFT
+harvester in this repo, which all reproduce their target site's search with
+a plain `requests` POST. This is not a stylistic choice - it's a confirmed
+requirement for this specific vendor:
 
-IMPORTANT caveat, not yet fully resolved: reproducing this same POST via
-the browser's fetch() API (same-origin, same form data, same cookies)
-did NOT return the results grid - it silently re-rendered the blank
-search form instead, even though the real click-triggered navigation
-worked every time. The likely explanation is a page-level CSP or
-Referrer-Policy restriction that constrains in-browser fetch() but has no
-bearing on a standalone HTTP client - `requests` here is not a browser and
-isn't subject to that page's CSP, so it should behave like the successful
-native-navigation case rather than the failed fetch() case. This has NOT
-been independently verified against the live sites from outside a
-browser (this sandbox's network egress can't reach arbitrary external
-domains either) - if a production run of this script keeps coming back
-empty for a county confirmed to have live properties, that mismatch
-theory is the first thing to revisit (next step would be adding a
-Playwright-based fallback that drives a real headless browser click
-instead of a raw POST, at the cost of a much heavier CI job).
+  1. Confirmed live via the browser (2026-08-25) that a *real* click on the
+     "Search for Lands Available" button (name="buttonSubmitLandsAvailable",
+     a plain <button type="submit"> with no CSRF/anti-forgery hidden field
+     anywhere on the page) followed by a full-page navigation returns the
+     results grid correctly - e.g. Citrus returned 5 real properties,
+     Okeechobee genuinely returned 0.
+  2. A first attempt at this harvester reproduced that same POST with
+     Python's `requests` library (same form fields, same button name/value,
+     a `requests.Session()` carrying cookies from an earlier GET, a Referer
+     header) - CONFIRMED LIVE IN PRODUCTION (2026-08-25, workflow run #50)
+     that this comes back empty even for Citrus, which has 5 real live
+     properties. Not a false zero from a network hiccup - it silently
+     re-renders the blank search form instead of the results grid, every
+     time, exactly like the browser's own fetch() API did when this was
+     first being reverse-engineered (see git history for that version if
+     you need the discarded `requests`-based approach). Whatever
+     distinguishes a genuine browser-navigation POST from either a fetch()
+     or a standalone HTTP client's POST on this vendor's stack is not
+     understood - possibly some combination of header ordering, TLS/HTTP2
+     fingerprinting, or a request property neither a browser's fetch() nor
+     `requests` reproduces. It wasn't worth chasing further once a working
+     alternative (drive an actual browser) was available.
+  3. Playwright reproduces the exact thing that's confirmed to work: load
+     the page, click the real button, wait for the real navigation, read
+     the real resulting HTML. No form-serialization guesswork needed.
 
 Zero-results counties (Okeechobee) render NO grid/table at all and no
 "Results for Lands Available Search" heading - this is indistinguishable
-in the HTML from "the search silently failed", which is exactly why the
-fetch()-vs-navigation mismatch above matters: a false "0 results" is a
-silent failure mode this script cannot currently tell apart from a real
-zero, beyond logging it clearly so a human can sanity-check a suspicious
-run.
+in the HTML from a failed search. Since Playwright reproduces genuine
+browser behavior (the one mechanism confirmed to distinguish a real zero
+from a false one), a "no grid" result here is trusted as a real zero.
 
 Results table: when there ARE results, they render into a jqGrid table
 (<table class="... ui-jqgrid-btable ...">, observed id="TaxDeed" on
@@ -66,8 +64,14 @@ Pagination: not yet handled beyond logging a loud warning if the grid's
 own "View X - Y of Z" footer text reports more rows than were parsed -
 every LAFT list checked across every platform so far has been small
 (single digits to low dozens), so this is treated as an unlikely edge
-case worth flagging rather than a routine case worth the complexity of a
-second per-county request.
+case worth flagging rather than a routine case worth the complexity of
+driving the grid's own pagination controls.
+
+CI note: this is the only LAFT harvester step that needs
+`playwright install chromium --with-deps` before it can run - see the
+"Install Playwright browser" step immediately before this script's step
+in harvest-and-sync.yml. That install alone typically costs @30-60s of
+job time, on top of the ~1-2s per county the actual harvest takes.
 
 Output: harvest_laft_pioneer.json / .csv - kept separate from the other
 three harvesters' outputs. sync-laft-to-supabase.ps1 merges all four.
@@ -80,8 +84,8 @@ import re
 import sys
 from pathlib import Path
 
-import requests
 from bs4 import BeautifulSoup
+from playwright.sync_api import sync_playwright
 
 HERE = Path(__file__).resolve().parent
 SOURCES_CSV = HERE / "../data/laft_pioneer_counties.csv"
@@ -91,7 +95,7 @@ OUT_CSV = OUT_DIR / "harvest_laft_pioneer.csv"
 
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
 
-SEARCH_BUTTON_NAME = "buttonSubmitLandsAvailable"
+SEARCH_BUTTON_SELECTOR = 'button[name="buttonSubmitLandsAvailable"]'
 
 # aria-describedby suffix -> output field name. Matched with str.endswith()
 # against each <td>'s aria-describedby, NOT an exact/prefix match, since the
@@ -113,79 +117,29 @@ FIELD_SUFFIXES = {
 VIEW_COUNT_RE = re.compile(r"View\s+\d+\s*-\s*\d+\s+of\s+(\d+)", re.IGNORECASE)
 
 
-def _serialize_form(form, base_url: str) -> tuple[str, dict[str, str]]:
-    """Reproduce jQuery's $(form).serialize() closely enough for this
-    vendor's forms: every named, non-disabled input/select/textarea at its
-    current value. Submit buttons are excluded here (browsers only send the
-    ONE button that was actually clicked) - the caller adds that one
-    separately."""
-    action = form.get("action") or base_url
-    data: dict[str, str] = {}
-    for el in form.find_all(["input", "select", "textarea"]):
-        name = el.get("name")
-        if not name or el.get("disabled") is not None:
-            continue
-        tag = el.name
-        if tag == "input":
-            itype = (el.get("type") or "text").lower()
-            if itype in ("submit", "button", "reset", "image", "checkbox", "radio"):
-                # Checkboxes/radios only serialize when checked; none of
-                # this vendor's confirmed counties use them on the search
-                # form, so unconditionally skipping keeps this simple
-                # rather than guessing at a "checked" default.
-                if itype in ("checkbox", "radio") and el.get("checked") is not None:
-                    data[name] = el.get("value", "on")
-                continue
-            data[name] = el.get("value", "")
-        elif tag == "textarea":
-            data[name] = el.text or ""
-        elif tag == "select":
-            selected = el.find("option", selected=True)
-            if selected is None:
-                selected = el.find("option")
-            data[name] = selected.get("value", selected.get_text(strip=True)) if selected else ""
-    return action, data
+def harvest_county(browser, county: str, base_url: str) -> list[dict]:
+    page = browser.new_page(user_agent=UA)
+    try:
+        page.goto(base_url, timeout=30_000, wait_until="load")
+        page.click(SEARCH_BUTTON_SELECTOR, timeout=10_000)
+        # The click submits a real <form method="post"> - wait for the
+        # resulting full-page navigation to finish loading rather than any
+        # fixed sleep, matching how this was confirmed to work by hand.
+        page.wait_for_load_state("load", timeout=30_000)
+        html = page.content()
+    finally:
+        page.close()
+    return _parse_results(html, county, base_url)
 
 
-def harvest_county(session: requests.Session, county: str, base_url: str) -> list[dict]:
-    resp = session.get(base_url, headers={"User-Agent": UA}, timeout=30)
-    resp.raise_for_status()
-    soup = BeautifulSoup(resp.content, "html.parser")
-
-    form = soup.find("form")
-    if form is None:
-        raise RuntimeError("no <form> found on the search page - page structure may have changed")
-
-    btn = form.find("button", attrs={"name": SEARCH_BUTTON_NAME})
-    if btn is None:
-        raise RuntimeError(f'no "{SEARCH_BUTTON_NAME}" submit button found - page structure may have changed')
-
-    action, form_data = _serialize_form(form, base_url)
-    form_data[SEARCH_BUTTON_NAME] = btn.get("value", "")
-
-    if action.startswith("/"):
-        from urllib.parse import urljoin
-        action = urljoin(base_url, action)
-
-    resp = session.post(
-        action,
-        data=form_data,
-        headers={"User-Agent": UA, "Referer": base_url},
-        timeout=30,
-    )
-    resp.raise_for_status()
-    return _parse_results(resp.content, county, base_url)
-
-
-def _parse_results(html: bytes, county: str, source_url: str) -> list[dict]:
+def _parse_results(html: str, county: str, source_url: str) -> list[dict]:
     soup = BeautifulSoup(html, "html.parser")
     table = soup.find("table", class_=lambda c: c and "ui-jqgrid-btable" in c.split())
     if table is None:
         # No grid at all is this platform's normal rendering for a true
         # zero-result search (confirmed live on Okeechobee) - not
         # necessarily an error, so this returns cleanly rather than
-        # raising. See the fetch()-vs-navigation caveat in the module
-        # docstring for the one thing that COULD make this a false zero.
+        # raising.
         return []
 
     out: list[dict] = []
@@ -227,19 +181,23 @@ def main() -> int:
         sources = list(csv.DictReader(f))
 
     all_rows: list[dict] = []
-    for i, src in enumerate(sources, 1):
-        county, base_url = src["County"], src["BaseUrl"]
-        print(f"[{i}/{len(sources)}] {county}", flush=True)
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
         try:
-            session = requests.Session()
-            rows = harvest_county(session, county, base_url)
-            if rows:
-                print(f"    {len(rows)} properties", flush=True)
-                all_rows.extend(rows)
-            else:
-                print("    no properties currently listed", flush=True)
-        except Exception as exc:  # noqa: BLE001 - one bad county must not kill the whole run
-            print(f"    ERROR: {exc}", flush=True)
+            for i, src in enumerate(sources, 1):
+                county, base_url = src["County"], src["BaseUrl"]
+                print(f"[{i}/{len(sources)}] {county}", flush=True)
+                try:
+                    rows = harvest_county(browser, county, base_url)
+                    if rows:
+                        print(f"    {len(rows)} properties", flush=True)
+                        all_rows.extend(rows)
+                    else:
+                        print("    no properties currently listed", flush=True)
+                except Exception as exc:  # noqa: BLE001 - one bad county must not kill the whole run
+                    print(f"    ERROR: {exc}", flush=True)
+        finally:
+            browser.close()
 
     with open(OUT_JSON, "w", encoding="utf-8") as f:
         json.dump(all_rows, f, indent=2)
