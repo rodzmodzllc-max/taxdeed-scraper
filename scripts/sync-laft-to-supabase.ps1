@@ -16,7 +16,7 @@ $ErrorActionPreference = "Stop"
 # variables (GitHub Actions secrets).
 #
 # Run harvest_laft_pdfs.py (PDF-published counties) first, then this -
-# that one's required. Four more harvesters cover other LAFT formats and
+# that one's required. Five more harvesters cover other LAFT formats and
 # are OPTIONAL (Test-Path guarded below) so this script still works
 # standalone if any of them hasn't run yet:
 # - harvest_laft_html.py: plain static-table counties (added 2026-08)
@@ -30,9 +30,12 @@ $ErrorActionPreference = "Stop"
 #   search tool (added 2026-08-25) - a fifth distinct vendor/platform,
 #   single-county (not CSV-driven, unlike the others) since no other
 #   county has been found on this exact system
-# All five write the same row shape to separate JSON files - this script
+# - harvest_laft_stlucie.py: St. Lucie County's AcclaimWeb/TributeWeb
+#   tax-deed search tool (added 2026-08-25) - a sixth distinct
+#   vendor/platform, also single-county so far
+# All six write the same row shape to separate JSON files - this script
 # merges them before syncing, so it's the only thing that needs to know all
-# five harvesters exist. Each optional file is guaranteed valid JSON when
+# six harvesters exist. Each optional file is guaranteed valid JSON when
 # present (every harvester always writes the file, even an empty `[]`, so a
 # missing file really does mean "never ran" not "ran and found nothing").
 
@@ -42,7 +45,8 @@ $optionalSources = @(
     @{ Path = Join-Path $here "../out/harvest_laft_html.json"; Label = "HTML-table counties (harvest_laft_html.json)" },
     @{ Path = Join-Path $here "../out/harvest_laft_realtdm.json"; Label = "RealTDM-platform counties (harvest_laft_realtdm.json)" },
     @{ Path = Join-Path $here "../out/harvest_laft_pioneer.json"; Label = "Pioneer/TaxSmartWeb-platform counties (harvest_laft_pioneer.json)" },
-    @{ Path = Join-Path $here "../out/harvest_laft_orange.json"; Label = "Orange County TDSM (harvest_laft_orange.json)" }
+    @{ Path = Join-Path $here "../out/harvest_laft_orange.json"; Label = "Orange County TDSM (harvest_laft_orange.json)" },
+    @{ Path = Join-Path $here "../out/harvest_laft_stlucie.json"; Label = "St. Lucie County AcclaimWeb (harvest_laft_stlucie.json)" }
 )
 
 $supabaseUrl = $env:SUPABASE_URL
@@ -147,7 +151,7 @@ if ($rows.Count -eq 0) { Write-Output "Every harvested row was missing both case
 # `ON CONFLICT DO UPDATE` rejects a whole batch if any two rows in it share
 # the same conflict-target key ("ON CONFLICT DO UPDATE command cannot
 # affect row a second time"), not just the duplicated rows. LAFT merges
-# five independent harvesters' output before this point, so a collision
+# six independent harvesters' output before this point, so a collision
 # is more plausible here than in any single-source sync: two harvesters
 # could in principle both report the same physical property (e.g. if a
 # county were ever added to more than one source CSV by mistake), or a
