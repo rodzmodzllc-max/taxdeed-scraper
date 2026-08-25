@@ -43,11 +43,13 @@ name: Harvest FL tax deed data and sync to Supabase
 #     JS search app
 #   - harvest_laft_pioneer.py: counties on the Pioneer/TaxSmartWeb
 #     platform (../data/laft_pioneer_counties.csv) - one domain per
-#     county rather than a shared subdomain, also a real HTML form
-#     POST reproduced with `requests` (no JS engine) - see that
-#     script's own module docstring for an open caveat about a
-#     browser-fetch-vs-navigation mismatch found while reverse-
-#     engineering it, not yet independently verified in production
+#     county rather than a shared subdomain. The ONE LAFT harvester that
+#     needs a real headless browser (Playwright/Chromium) rather than a
+#     plain `requests` POST - confirmed live 2026-08-25 that a plain POST
+#     (from `requests` or the browser's own fetch() API) silently returns
+#     the blank search form instead of real results, even though a real
+#     browser click + navigation works every time. See that script's own
+#     module docstring for the full story.
 #   All four added/expanded 2026-08 after a from-scratch
 #   67-county research pass. A meaningful chunk of the rest of
 #   Florida's counties gate LAFT behind a DIFFERENT search
@@ -175,7 +177,18 @@ jobs:
           python-version: '3.12'
 
       - name: Install Python dependencies
-        run: pip install pdfplumber requests beautifulsoup4
+        run: pip install pdfplumber requests beautifulsoup4 playwright
+
+      - name: Install Playwright browser
+        # Only the Pioneer/TaxSmartWeb step below needs a real browser -
+        # every other LAFT harvester reproduces its target with a plain
+        # `requests` POST. See harvest_laft_pioneer.py's module docstring
+        # for why a real browser is required there (a plain POST, whether
+        # from `requests` or from the browser's own fetch() API, was
+        # confirmed live 2026-08-25 to silently return the blank search
+        # form instead of real results). --with-deps installs the system
+        # libraries Chromium needs on the bare ubuntu-latest runner image.
+        run: playwright install --with-deps chromium
 
       - name: Harvest Lands Available for Taxes PDFs
         run: python3 scripts/harvest_laft_pdfs.py
@@ -208,10 +221,8 @@ jobs:
 
       - name: Harvest Lands Available for Taxes Pioneer/TaxSmartWeb-platform counties
         # Same independence rationale again - a fourth, unrelated vendor
-        # platform (see harvest_laft_pioneer.py's module docstring,
-        # including an open caveat about a browser-fetch-vs-navigation
-        # mismatch found while reverse-engineering it that hasn't been
-        # independently verified in production yet).
+        # platform, uniquely requiring the real Chromium browser installed
+        # above (see harvest_laft_pioneer.py's module docstring).
         if: always()
         run: python3 scripts/harvest_laft_pioneer.py
 
