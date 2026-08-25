@@ -5,51 +5,57 @@ name: Harvest FL tax deed data and sync to Supabase
 # involved anymore.
 #
 # deeds: harvest_all_counties.ps1 (44 Realauction counties) +
-#        harvest_okaloosa_bid4assets.ps1 (Bid4Assets), then synced
-#        to the `properties` table (source='auction'). Twice a day.
-#        A sanity check runs after the sync (see scripts/sanity_check_deeds.ps1)
-#        that fails the job - triggering the repo's existing "failed
-#        workflows only" email notification, already confirmed active under
-#        Settings -> Notifications -> Actions - if too few counties show
-#        fresh active data, the class of "ran clean but harvested nothing
-#        useful" bug that let the Hillsborough county-count mislabeling go
-#        unnoticed until a manual cross-check (see improvement-roadmap.md).
-#        Finally, scripts/geocode_properties.py backfills latitude/longitude
-#        on up to 250 not-yet-geocoded rows per run (free US Census Bureau
-#        Geocoder), so the frontend's Street View link lands on the actual
-#        parcel instead of an address-search guess. Requires
-#        schema-v8-geocoding.sql to have been run against Supabase once
-#        (see repo root) - until then this step fails loudly, same
-#        intentional-failure pattern as the certificates sync below.
+#   harvest_okaloosa_bid4assets.ps1 (Bid4Assets), then synced
+#   to the `properties` table (source='auction'). Twice a day.
+#   A sanity check runs after the sync (see scripts/sanity_check_deeds.ps1)
+#   that fails the job - triggering the repo's existing "failed
+#   workflows only" email notification, already confirmed active under
+#   Settings -> Notifications -> Actions - if too few counties show
+#   fresh active data, the class of "ran clean but harvested nothing
+#   useful" bug that let the Hillsborough county-count mislabeling go
+#   unnoticed until a manual cross-check (see improvement-roadmap.md).
+#   Finally, scripts/geocode_properties.py backfills latitude/longitude
+#   on up to 250 not-yet-geocoded rows per run (free US Census Bureau
+#   Geocoder), so the frontend's Street View link lands on the actual
+#   parcel instead of an address-search guess. Requires
+#   schema-v8-geocoding.sql to have been run against Supabase once
+#   (see repo root) - until then this step fails loudly, same
+#   intentional-failure pattern as the certificates sync below.
 # certificates: harvest_lienhub_certificates.ps1 (32 LienHub counties),
-#        then synced to `properties` (source='certificate'). Once a
-#        day. EXPERIMENTAL - see the script's own header comment.
-#        Requires schema-v4-certificates.sql to have been run
-#        against Supabase once (see repo root) - until then this
-#        job's sync step will fail loudly, which is intentional so
-#        it doesn't get missed.
-# laft: Three harvesters, one sync script, all tagged
-#        `properties` (source='laft'). Once a day.
-#        - harvest_laft_pdfs.py: PDF-published counties
-#          (../data/laft_pdf_sources.csv)
-#        - harvest_laft_html.py: plain static-HTML-table counties
-#          (../data/laft_html_sources.csv) - 3 of these 18 counties
-#          (Escambia, Columbia, Union) route through a ScraperAPI proxy
-#          fallback when directly blocked - see SCRAPERAPI_KEY below.
-#        - harvest_laft_realtdm.py: counties on the RealTDM
-#          shared case-management platform
-#          (../data/laft_realtdm_counties.csv) - a real HTML
-#          form POST, no JS engine needed despite looking like a
-#          JS search app
-#        All three added/expanded 2026-08 after a from-scratch
-#        67-county research pass. A meaningful chunk of the rest of
-#        Florida's counties gate LAFT behind a DIFFERENT search
-#        portal (Pioneer/TaxSmartWeb, Landmark Web, a custom
-#        ASP.NET disclaimer-postback, Miami-Dade's GovHub) - none
-#        of the three harvesters here handle those yet; each CSV
-#        grows as more counties get confirmed on a format already
-#        handled, and a fourth harvester would be needed to add
-#        another platform.
+#   then synced to `properties` (source='certificate'). Once a
+#   day. EXPERIMENTAL - see the script's own header comment.
+#   Requires schema-v4-certificates.sql to have been run
+#   against Supabase once (see repo root) - until then this
+#   job's sync step will fail loudly, which is intentional so
+#   it doesn't get missed.
+# laft: Four harvesters, one sync script, all tagged
+#   `properties` (source='laft'). Once a day.
+#   - harvest_laft_pdfs.py: PDF-published counties
+#     (../data/laft_pdf_sources.csv)
+#   - harvest_laft_html.py: plain static-HTML-table counties
+#     (../data/laft_html_sources.csv) - 3 of these 18 counties
+#     (Escambia, Columbia, Union) route through a ScraperAPI proxy
+#     fallback when directly blocked - see SCRAPERAPI_KEY below.
+#   - harvest_laft_realtdm.py: counties on the RealTDM
+#     shared case-management platform
+#     (../data/laft_realtdm_counties.csv) - a real HTML
+#     form POST, no JS engine needed despite looking like a
+#     JS search app
+#   - harvest_laft_pioneer.py: counties on the Pioneer/TaxSmartWeb
+#     platform (../data/laft_pioneer_counties.csv) - one domain per
+#     county rather than a shared subdomain, also a real HTML form
+#     POST reproduced with `requests` (no JS engine) - see that
+#     script's own module docstring for an open caveat about a
+#     browser-fetch-vs-navigation mismatch found while reverse-
+#     engineering it, not yet independently verified in production
+#   All four added/expanded 2026-08 after a from-scratch
+#   67-county research pass. A meaningful chunk of the rest of
+#   Florida's counties gate LAFT behind a DIFFERENT search
+#   portal (a custom ASP.NET disclaimer-postback, Miami-Dade's
+#   GovHub) - none of the four harvesters here handle those yet;
+#   each CSV grows as more counties get confirmed on a format
+#   already handled, and a fifth harvester would be needed to add
+#   another platform.
 #
 # All three jobs upload their raw harvest as a workflow artifact (30-day
 # retention) regardless of whether the Supabase sync succeeds, so a bad sync
@@ -58,10 +64,10 @@ name: Harvest FL tax deed data and sync to Supabase
 
 on:
   schedule:
-    - cron: '0 10 * * *'  # ~6:00 AM ET (10:00 UTC) - deeds + okaloosa
-    - cron: '0 22 * * *'  # ~6:00 PM ET (22:00 UTC) - deeds + okaloosa
-    - cron: '0 12 * * *'  # ~8:00 AM ET (12:00 UTC) - certificates + laft
-  workflow_dispatch:  # manual trigger from the Actions tab, runs all jobs
+    - cron: '0 10 * * *' # ~6:00 AM ET (10:00 UTC) - deeds + okaloosa
+    - cron: '0 22 * * *' # ~6:00 PM ET (22:00 UTC) - deeds + okaloosa
+    - cron: '0 12 * * *' # ~8:00 AM ET (12:00 UTC) - certificates + laft
+  workflow_dispatch: # manual trigger from the Actions tab, runs all jobs
 
 concurrency:
   group: harvest-and-sync
@@ -85,7 +91,7 @@ jobs:
 
       - name: Harvest Okaloosa (Bid4Assets)
         shell: pwsh
-        continue-on-error: true  # never verified end-to-end yet - don't let it block the main sync
+        continue-on-error: true # never verified end-to-end yet - don't let it block the main sync
         run: ./scripts/harvest_okaloosa_bid4assets.ps1
 
       - name: Upload raw harvest as artifact
@@ -200,6 +206,15 @@ jobs:
         if: always()
         run: python3 scripts/harvest_laft_realtdm.py
 
+      - name: Harvest Lands Available for Taxes Pioneer/TaxSmartWeb-platform counties
+        # Same independence rationale again - a fourth, unrelated vendor
+        # platform (see harvest_laft_pioneer.py's module docstring,
+        # including an open caveat about a browser-fetch-vs-navigation
+        # mismatch found while reverse-engineering it that hasn't been
+        # independently verified in production yet).
+        if: always()
+        run: python3 scripts/harvest_laft_pioneer.py
+
       - name: Upload raw harvest as artifact
         if: always()
         uses: actions/upload-artifact@v4
@@ -209,6 +224,7 @@ jobs:
             out/harvest_laft.*
             out/harvest_laft_html.*
             out/harvest_laft_realtdm.*
+            out/harvest_laft_pioneer.*
           retention-days: 30
           if-no-files-found: warn
 
