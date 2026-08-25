@@ -19,17 +19,17 @@ $ErrorActionPreference = "Stop"
 # that one's required. Two more harvesters cover other LAFT formats and are
 # OPTIONAL (Test-Path guarded below) so this script still works standalone
 # if either hasn't run yet:
-#   - harvest_laft_html.py: plain static-table counties (added 2026-08)
-#   - harvest_laft_realtdm.py: counties on the RealTDM case-management
-#     platform (added 2026-08) - a shared multi-tenant search-portal system,
-#     different vendor from both of the above
+# - harvest_laft_html.py: plain static-table counties (added 2026-08)
+# - harvest_laft_realtdm.py: counties on the RealTDM case-management
+#   platform (added 2026-08) - a shared multi-tenant search-portal system,
+#   different vendor from both of the above
 # All three write the same row shape to separate JSON files - this script
 # merges them before syncing, so it's the only thing that needs to know all
 # three harvesters exist. Each optional file is guaranteed valid JSON when
 # present (every harvester always writes the file, even an empty `[]`, so a
 # missing file really does mean "never ran" not "ran and found nothing").
 
-$here     = $PSScriptRoot
+$here = $PSScriptRoot
 $jsonPath = Join-Path $here "../out/harvest_laft.json"
 $optionalSources = @(
     @{ Path = Join-Path $here "../out/harvest_laft_html.json"; Label = "HTML-table counties (harvest_laft_html.json)" },
@@ -130,6 +130,36 @@ foreach ($p in $harvest) {
 }
 
 if ($rows.Count -eq 0) { Write-Output "Every harvested row was missing both case_no and parcel - nothing to sync."; exit 0 }
+
+# De-duplicate on (county, case_no) - the same conflict target used by the
+# upsert below (on_conflict=source,county,case_no). This is the same bug
+# class that took down the certificates sync entirely (see
+# sync-certificates-to-supabase.ps1's history): Postgres's
+# `ON CONFLICT DO UPDATE` rejects a whole batch if any two rows in it share
+# the same conflict-target key ("ON CONFLICT DO UPDATE command cannot
+# affect row a second time"), not just the duplicated rows. LAFT merges
+# three independent harvesters' output before this point, so a collision
+# is more plausible here than in any single-source sync: two harvesters
+# could in principle both report the same physical property (e.g. if a
+# county were ever added to more than one source CSV by mistake), or a
+# single harvester's own case_no-from-parcel fallback could collide the
+# same way Hendry's did before that was fixed at the harvest level. No
+# such collision has been observed in production as of 2026-08-25 - this
+# is a preventive fix, added so a future collision degrades gracefully
+# (a few rows deduped) instead of failing the sync for all 32 counties at
+# once. Keeps the last-seen row per key, matching this script's own
+# safe-merge/upsert semantics elsewhere.
+$deduped = [ordered]@{}
+foreach ($r in $rows) {
+    $key = "$($r.county)|$($r.case_no)"
+    $deduped[$key] = $r
+}
+$dupeCount = $rows.Count - $deduped.Count
+$rows = @($deduped.Values)
+if ($dupeCount -gt 0) {
+    Write-Output "De-duplicated $dupeCount row(s) sharing a (county, case_no) key with another row in this harvest."
+}
+
 Write-Output "Prepared $($rows.Count) LAFT properties ($skipped skipped for missing case_no/parcel)."
 
 $headers = @{

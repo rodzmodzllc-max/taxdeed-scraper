@@ -18,16 +18,16 @@ alone reproduces it. Confirmed live via the browser's network panel on
 Alachua and Highlands before writing this script.
 
 Two real requests per county, no more:
-  1. GET the list page. Each tenant assigns its OWN numeric ID to each case
-     status (confirmed: Alachua's "List of Lands - Available For Public" is
-     status 1171; Highlands' is 1857 - NOT a shared enum across tenants),
-     but the status LABEL TEXT is identical across tenants (same vendor
-     template) - the ID is embedded in the page as
-     `<a data-status-id="NNNN">List of Lands - Available For Public</a>`,
-     so it's looked up per county rather than hardcoded.
-  2. POST the same URL with `filtercasestatus=<that ID>` and the rest of
-     the form's fields empty/default. The response HTML contains the
-     result cards directly - no separate AJAX/JSON call to chase down.
+1. GET the list page. Each tenant assigns its OWN numeric ID to each case
+status (confirmed: Alachua's "List of Lands - Available For Public" is
+status 1171; Highlands' is 1857 - NOT a shared enum across tenants),
+but the status LABEL TEXT is identical across tenants (same vendor
+template) - the ID is embedded in the page as
+`<a data-status-id="NNNN">List of Lands - Available For Public</a>`,
+so it's looked up per county rather than hardcoded.
+2. POST the same URL with `filtercasestatus=<that ID>` and the rest of
+the form's fields empty/default. The response HTML contains the
+result cards directly - no separate AJAX/JSON call to chase down.
 
 A few RealTDM subdomains that LOOK like real tenants from search results
 turn out to be unconfigured placeholders - confirmed live: osceola.realtdm.com
@@ -67,7 +67,20 @@ OUT_CSV = OUT_DIR / "harvest_laft_realtdm.csv"
 
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
 
-STATUS_LABEL = "List of Lands - Available For Public"
+# Different RealTDM tenants word this status differently even though it's
+# the same status semantically. Confirmed live 2026-08: Alachua's and
+# Highlands' tenants use the full "List of Lands - Available For Public",
+# but Flagler's and Santa Rosa's tenants use the shorter "List of Lands"
+# for what is otherwise the identical status - checked directly on each
+# tenant's own /public/cases/list page via its data-status-id links.
+# Before this fix, Flagler and Santa Rosa ERRORed on every single run
+# ("status ... not found on this tenant") - not because they have no LAFT
+# list, but because the exact-string match only ever tried the long
+# variant. Tried in order, first match wins; exact string match (not a
+# substring/contains check) so this can't accidentally match some other,
+# unrelated status on a tenant that happens to contain "List of Lands" as
+# a fragment of a longer label.
+STATUS_LABELS = ("List of Lands - Available For Public", "List of Lands")
 
 # .search + rest-of-string capture, not \S+ - confirmed live some counties'
 # case numbers contain a space (Alachua: "TD 2025-003"), others don't
@@ -89,7 +102,6 @@ def _reformat_date(s: str) -> str | None:
     except ValueError:
         return s or None  # pass through unrecognized shapes rather than drop the data
 
-
 def _is_placeholder_tenant(soup: BeautifulSoup) -> bool:
     """Confirmed live: osceola.realtdm.com and nassau.realtdm.com both exist
     as DNS/routes but were never configured for that county - the page
@@ -100,13 +112,17 @@ def _is_placeholder_tenant(soup: BeautifulSoup) -> bool:
     header = soup.find(string=re.compile(r"\bTEST\b"))
     return header is not None and soup.title is not None and "TEST" in soup.title.get_text()
 
-
-def _find_status_id(soup: BeautifulSoup, label: str) -> str | None:
+def _find_status_id(soup: BeautifulSoup, labels: tuple[str, ...]) -> tuple[str, str] | None:
+    """Return (status_id, matched_label) for the first of `labels` found on
+    this tenant's page, or None if none of them are present. Exact text
+    match against each `<a data-status-id="...">` link's text, tried in
+    the order given in `labels` - see the STATUS_LABELS comment for why
+    more than one variant needs to be tried."""
     for a in soup.find_all("a", attrs={"data-status-id": True}):
-        if a.get_text(strip=True) == label:
-            return a["data-status-id"]
+        text = a.get_text(strip=True)
+        if text in labels:
+            return a["data-status-id"], text
     return None
-
 
 def _parse_cases(html: bytes, county: str, source_url: str) -> list[dict]:
     soup = BeautifulSoup(html, "html.parser")
@@ -144,7 +160,6 @@ def _parse_cases(html: bytes, county: str, source_url: str) -> list[dict]:
             out.append(record)
     return out
 
-
 def harvest_county(session: requests.Session, county: str, subdomain: str) -> list[dict]:
     url = f"https://{subdomain}.realtdm.com/public/cases/list"
     resp = session.get(url, headers={"User-Agent": UA}, timeout=30)
@@ -154,9 +169,12 @@ def harvest_county(session: requests.Session, county: str, subdomain: str) -> li
     if _is_placeholder_tenant(soup):
         raise RuntimeError(f"{subdomain}.realtdm.com is an unconfigured placeholder tenant (renders as \"TEST\") - not a real county instance")
 
-    status_id = _find_status_id(soup, STATUS_LABEL)
-    if not status_id:
-        raise RuntimeError(f'status "{STATUS_LABEL}" not found on this tenant - label wording may differ here')
+    found = _find_status_id(soup, STATUS_LABELS)
+    if not found:
+        raise RuntimeError(f'none of the known "List of Lands" status labels {STATUS_LABELS!r} were found on this tenant - label wording may differ here')
+    status_id, matched_label = found
+    if matched_label != STATUS_LABELS[0]:
+        print(f" (matched alternate label {matched_label!r})", flush=True)
 
     form_data = {
         "filterPageNumber": "1",
@@ -182,7 +200,6 @@ def harvest_county(session: requests.Session, county: str, subdomain: str) -> li
     resp.raise_for_status()
     return _parse_cases(resp.content, county, url)
 
-
 def main() -> int:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     with open(SOURCES_CSV, newline="", encoding="utf-8") as f:
@@ -196,12 +213,12 @@ def main() -> int:
             session = requests.Session()
             rows = harvest_county(session, county, subdomain)
             if rows:
-                print(f"      {len(rows)} properties", flush=True)
+                print(f"  {len(rows)} properties", flush=True)
                 all_rows.extend(rows)
             else:
-                print("      no properties currently listed", flush=True)
+                print("  no properties currently listed", flush=True)
         except Exception as exc:  # noqa: BLE001 - one bad county must not kill the whole run
-            print(f"      ERROR: {exc}", flush=True)
+            print(f"  ERROR: {exc}", flush=True)
 
     with open(OUT_JSON, "w", encoding="utf-8") as f:
         json.dump(all_rows, f, indent=2)
@@ -222,7 +239,6 @@ def main() -> int:
     print("=" * 50)
     print(f"Saved: {OUT_JSON}")
     return 0
-
 
 if __name__ == "__main__":
     sys.exit(main())

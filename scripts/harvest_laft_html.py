@@ -19,9 +19,8 @@ This is a from-scratch replacement pass, and it came back far more
 conservative: of the 26 counties actually fetched and read, only 4 turned
 out to be real static HTML tables. Most large counties gate the list behind
 a search portal instead - RealTDM/Realauction case search, Landmark Web, a
-custom ASP.NET disclaimer-postback (clerk.org's app02 "Accept" gate, used by
-both Volusia and Charlotte), or a JS "report" app (Miami-Dade's GovHub).
-Those need portal/form automation, not a simple GET+parse, and are
+custom ASP.NET disclaimer-postback, or a JS "report" app (Miami-Dade's
+GovHub). Those need portal/form automation, not a simple GET+parse, and are
 deliberately NOT handled by this script - see the commit this shipped in
 for the full county-by-county writeup.)
 
@@ -40,6 +39,13 @@ Escambia - 6+ decorative tables before the real one) or serve it from an
 embedded iframe on a completely different subdomain than the page a person
 would actually load (confirmed on Leon - leonclerk.com is just a wrapper;
 the real table lives at lforms.leonclerk.com and is what's in the CSV).
+
+Send a full, browser-realistic header set (not just User-Agent) on every
+request - confirmed live 2026-08: 3 of these 18 counties (Escambia,
+Columbia, Union) returned a 403 with only a User-Agent header set, despite
+the exact same page loading fine in an ordinary browser and currently
+having real (or legitimately empty) content - i.e. not a dead link, a
+request-shape block. See BROWSER_HEADERS below.
 
 Output: harvest_laft_html.json / .csv - kept separate from
 harvest_laft.json (the PDF harvester's own output) so this never has to
@@ -63,6 +69,28 @@ OUT_JSON = OUT_DIR / "harvest_laft_html.json"
 OUT_CSV = OUT_DIR / "harvest_laft_html.csv"
 
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+
+# A bare User-Agent header is enough for 15 of these 18 counties, but 3
+# (Escambia, Columbia, Union - confirmed live 2026-08) return a 403 with
+# just that, from what looks like basic WAF/bot-detection gating on a
+# thin, non-browser-realistic header set rather than blocking the UA
+# string itself (both sites load fine, with real/legitimately-empty
+# content, when opened in an actual browser). Sending the same header set
+# a real browser sends is the standard fix for this class of block and is
+# harmless for every county that was already working with UA alone.
+# NOTE: if a county still 403s with this full header set, the block is
+# more likely IP-range-based (e.g. blocking GitHub Actions' datacenter
+# IPs specifically) than header-based, and would need a different fix
+# (e.g. a proxy) - check the next run's log before assuming this alone
+# closes the gap.
+BROWSER_HEADERS = {
+    "User-Agent": UA,
+    "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+    "Accept-Language": "en-US,en;q=0.9",
+    "Accept-Encoding": "gzip, deflate, br",
+    "Connection": "keep-alive",
+    "Upgrade-Insecure-Requests": "1",
+}
 
 # Confirmed live 2026-08 (see laft_html_sources.csv Notes column for detail
 # per county) - preserved verbatim on every row from that county rather than
@@ -133,7 +161,6 @@ _AUCTION_DATE_RE = re.compile(r"Auction date:\s*([\d/]+)", re.IGNORECASE)
 _AVAILABLE_DATE_RE = re.compile(r"Available for Purchase:\s*([\d/]+)", re.IGNORECASE)
 _PRICE_RE = re.compile(r"Estimated Purchase Price:\s*\$?([\d,]+\.\d{2})", re.IGNORECASE)
 
-
 def normalize_header(h: str) -> str | None:
     if not h:
         return None
@@ -141,14 +168,11 @@ def normalize_header(h: str) -> str | None:
     key = re.sub(r"\s+", " ", key).strip()
     return HEADER_MAP.get(key)
 
-
 def normalize_parcel(p: str) -> str:
     return re.sub(r"\s+", "", p.strip()).upper()
 
-
 def canonical_key(value: str) -> str:
     return re.sub(r"[^A-Z0-9]", "", value.upper())
-
 
 def finalize_record(record: dict) -> dict:
     if record.get("parcel"):
@@ -157,11 +181,9 @@ def finalize_record(record: dict) -> dict:
         record["case_no"] = canonical_key(record["parcel"])
     return record
 
-
 def looks_empty(text: str) -> bool:
     low = re.sub(r"\s+", " ", text.lower())
     return any(marker in low for marker in EMPTY_MARKERS)
-
 
 def _find_header_row(rows: list[list[str]]) -> tuple[int, list] | None:
     """Same discipline as the PDF harvester's _find_header_row: can't assume
@@ -178,7 +200,6 @@ def _find_header_row(rows: list[list[str]]) -> tuple[int, list] | None:
         return None
     return best_idx, best_fields
 
-
 def _table_to_rows(table) -> list[list[str]]:
     rows = []
     for tr in table.find_all("tr"):
@@ -186,7 +207,6 @@ def _table_to_rows(table) -> list[list[str]]:
         if cells:
             rows.append([c.get_text(strip=True) for c in cells])
     return rows
-
 
 def _rows_from_card_table(rows: list[list[str]], county: str, source_url: str) -> list[dict]:
     """See the _TD_CASE_RE comment above - fallback for Putnam-style "two
@@ -237,7 +257,6 @@ def _rows_from_card_table(rows: list[list[str]], county: str, source_url: str) -
                 continue
         i += 1
     return out
-
 
 def extract_rows(html: bytes, county: str, source_url: str) -> list[dict]:
     soup = BeautifulSoup(html, "html.parser")
@@ -296,7 +315,6 @@ def extract_rows(html: bytes, county: str, source_url: str) -> list[dict]:
             out.append(finalize_record(record))
     return out
 
-
 def main() -> int:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     with open(SOURCES_CSV, newline="", encoding="utf-8") as f:
@@ -307,16 +325,16 @@ def main() -> int:
         county, url = src["County"], src["Url"]
         print(f"[{i}/{len(sources)}] {county}", flush=True)
         try:
-            resp = requests.get(url, headers={"User-Agent": UA}, timeout=30)
+            resp = requests.get(url, headers=BROWSER_HEADERS, timeout=30)
             resp.raise_for_status()
             rows = extract_rows(resp.content, county, url)
             if rows:
-                print(f"      {len(rows)} properties", flush=True)
+                print(f"  {len(rows)} properties", flush=True)
                 all_rows.extend(rows)
             else:
-                print("      no properties currently listed", flush=True)
+                print("  no properties currently listed", flush=True)
         except Exception as exc:  # noqa: BLE001 - one bad county must not kill the whole run
-            print(f"      ERROR: {exc}", flush=True)
+            print(f"  ERROR: {exc}", flush=True)
 
     with open(OUT_JSON, "w", encoding="utf-8") as f:
         json.dump(all_rows, f, indent=2)
@@ -337,7 +355,6 @@ def main() -> int:
     print("=" * 50)
     print(f"Saved: {OUT_JSON}")
     return 0
-
 
 if __name__ == "__main__":
     sys.exit(main())
