@@ -28,7 +28,7 @@ name: Harvest FL tax deed data and sync to Supabase
 #   against Supabase once (see repo root) - until then this
 #   job's sync step will fail loudly, which is intentional so
 #   it doesn't get missed.
-# laft: Six harvesters, one sync script, all tagged
+# laft: Seven harvesters, one sync script, all tagged
 #   `properties` (source='laft'). Once a day.
 #   - harvest_laft_pdfs.py: PDF-published counties
 #     (../data/laft_pdf_sources.csv) - also covers Volusia's ASP.NET
@@ -70,7 +70,15 @@ name: Harvest FL tax deed data and sync to Supabase
 #     headless browser (same class of hidden-panel dependency as
 #     Pioneer's tab-activation bug) - see that script's own module
 #     docstring.
-#   All six added/expanded 2026-08 after a from-scratch 67-county
+#   - harvest_laft_osceola.py: Osceola County's own NewVision Systems
+#     search tool (officialrecords.osceolaclerk.org/browserviewtd/) - a
+#     seventh, unrelated platform found on 2026-08-25, not CSV-driven
+#     since no other county has been found on it yet. Also needs a real
+#     headless browser (same hidden-tab dependency as Pioneer/St. Lucie),
+#     plus its own ag-Grid virtualization handling (a real headless-browser
+#     requirement none of the other six harvesters need) - see that
+#     script's own module docstring.
+#   All seven added/expanded 2026-08 after a from-scratch 67-county
 #   research pass plus a follow-up pass on 5 newly-discovered platforms.
 #   A meaningful chunk of the rest of Florida's counties still gate LAFT
 #   behind a DIFFERENT search portal (Miami-Dade's GovHub/TaxSys chief
@@ -199,8 +207,8 @@ jobs:
         run: pip install pdfplumber requests beautifulsoup4 playwright
 
       - name: Install Playwright browser
-        # The Pioneer/TaxSmartWeb and St. Lucie/AcclaimWeb steps below are
-        # the only ones needing a real browser - every other LAFT harvester
+        # The Pioneer/TaxSmartWeb, St. Lucie/AcclaimWeb, and Osceola/NewVision
+        # steps below are the only ones needing a real browser - every other LAFT harvester
         # reproduces its target with a plain `requests` POST. See each
         # script's module docstring for why a real browser is required
         # there (a plain POST, whether from `requests` or from the
@@ -264,6 +272,16 @@ jobs:
         if: always()
         run: python3 scripts/harvest_laft_stlucie.py
 
+      - name: Harvest Lands Available for Taxes Osceola County (NewVision)
+        # Same independence rationale again - a seventh, unrelated platform
+        # (Osceola's own NewVision Systems search tool, not a shared vendor
+        # CSV like the others since no second county has turned up on it).
+        # Also requires the real Chromium browser installed above, plus its
+        # own ag-Grid scroll/virtualization handling - see
+        # harvest_laft_osceola.py's module docstring.
+        if: always()
+        run: python3 scripts/harvest_laft_osceola.py
+
       - name: Upload raw harvest as artifact
         if: always()
         uses: actions/upload-artifact@v4
@@ -276,6 +294,7 @@ jobs:
             out/harvest_laft_pioneer.*
             out/harvest_laft_orange.*
             out/harvest_laft_stlucie.*
+            out/harvest_laft_osceola.*
           retention-days: 30
           if-no-files-found: warn
 
