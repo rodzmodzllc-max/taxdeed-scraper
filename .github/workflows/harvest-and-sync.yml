@@ -33,7 +33,9 @@ name: Harvest FL tax deed data and sync to Supabase
 #        - harvest_laft_pdfs.py: PDF-published counties
 #          (../data/laft_pdf_sources.csv)
 #        - harvest_laft_html.py: plain static-HTML-table counties
-#          (../data/laft_html_sources.csv)
+#          (../data/laft_html_sources.csv) - 3 of these 18 counties
+#          (Escambia, Columbia, Union) route through a ScraperAPI proxy
+#          fallback when directly blocked - see SCRAPERAPI_KEY below.
 #        - harvest_laft_realtdm.py: counties on the RealTDM
 #          shared case-management platform
 #          (../data/laft_realtdm_counties.csv) - a real HTML
@@ -178,6 +180,18 @@ jobs:
         # other, matching the per-county try/except discipline inside each
         # script itself.
         if: always()
+        env:
+          # Proxy fallback for the 3 counties (Escambia, Columbia, Union)
+          # whose WAF 403s GitHub Actions' runner IPs specifically even with
+          # a full browser header set (confirmed live 2026-08-25 - see
+          # harvest_laft_html.py's module docstring and SCRAPERAPI_KEY
+          # comment). Free tier at https://www.scraperapi.com (5,000
+          # requests/month; this job only needs ~90/month). Every other
+          # county in this step is unaffected whether or not this secret is
+          # set - it's only read as a fallback after a direct 403. Add this
+          # secret at Settings -> Secrets and variables -> Actions once a
+          # free ScraperAPI account exists.
+          SCRAPERAPI_KEY: ${{ secrets.SCRAPERAPI_KEY }}
         run: python3 scripts/harvest_laft_html.py
 
       - name: Harvest Lands Available for Taxes RealTDM-platform counties
