@@ -47,6 +47,15 @@ the exact same page loading fine in an ordinary browser and currently
 having real (or legitimately empty) content - i.e. not a dead link, a
 request-shape block. See BROWSER_HEADERS below.
 
+CONFIRMED LIVE 2026-08-25 (workflow run #46): the fuller header set did
+NOT fix Escambia/Columbia/Union - all three still 403 with it. Since the
+same pages load fine from an ordinary (non-datacenter) IP, this points to
+an IP-range block on GitHub Actions' runner IPs rather than anything
+request-shape related, which no header change can fix. Left in place
+anyway (harmless, and it may still help other counties or future WAF
+configs) but do not assume this closes the gap for those three without
+checking the next run's log.
+
 Output: harvest_laft_html.json / .csv - kept separate from
 harvest_laft.json (the PDF harvester's own output) so this never has to
 touch that script. sync-laft-to-supabase.ps1 reads both.
@@ -78,16 +87,28 @@ UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like 
 # content, when opened in an actual browser). Sending the same header set
 # a real browser sends is the standard fix for this class of block and is
 # harmless for every county that was already working with UA alone.
-# NOTE: if a county still 403s with this full header set, the block is
-# more likely IP-range-based (e.g. blocking GitHub Actions' datacenter
-# IPs specifically) than header-based, and would need a different fix
-# (e.g. a proxy) - check the next run's log before assuming this alone
-# closes the gap.
+# CONFIRMED LIVE 2026-08-25: it did NOT actually fix those three (still
+# 403 - see the module docstring) but is left in place as a harmless,
+# still-plausibly-correct improvement.
+#
+# Accept-Encoding deliberately omits "br" (Brotli) - confirmed live
+# 2026-08-25: advertising it caused several counties (Sumter, Dixie,
+# Franklin, Gulf, Holmes, Lafayette) to come back with "Some characters
+# could not be decoded, and were replaced with REPLACEMENT CHARACTER."
+# The `requests` library only auto-decompresses Brotli if the optional
+# `brotli`/`brotlicffi` package is installed, which it isn't here - so a
+# server that takes the hint and actually sends Brotli-encoded content
+# gets silently mangled into garbage bytes on this end. Every one of those
+# six counties happened to still resolve to "no properties currently
+# listed" this run because looks_empty() apparently still matched through
+# the corruption, but that's luck, not a guarantee for a real, non-empty
+# row - so this stays gzip/deflate only, which `requests` decodes
+# natively and no county has ever failed on.
 BROWSER_HEADERS = {
     "User-Agent": UA,
     "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
     "Accept-Language": "en-US,en;q=0.9",
-    "Accept-Encoding": "gzip, deflate, br",
+    "Accept-Encoding": "gzip, deflate",
     "Connection": "keep-alive",
     "Upgrade-Insecure-Requests": "1",
 }
