@@ -28,7 +28,7 @@ name: Harvest FL tax deed data and sync to Supabase
 #   against Supabase once (see repo root) - until then this
 #   job's sync step will fail loudly, which is intentional so
 #   it doesn't get missed.
-# laft: Five harvesters, one sync script, all tagged
+# laft: Six harvesters, one sync script, all tagged
 #   `properties` (source='laft'). Once a day.
 #   - harvest_laft_pdfs.py: PDF-published counties
 #     (../data/laft_pdf_sources.csv) - also covers Volusia's ASP.NET
@@ -48,13 +48,13 @@ name: Harvest FL tax deed data and sync to Supabase
 #     JS search app
 #   - harvest_laft_pioneer.py: counties on the Pioneer/TaxSmartWeb
 #     platform (../data/laft_pioneer_counties.csv) - one domain per
-#     county rather than a shared subdomain. The ONE LAFT harvester that
-#     needs a real headless browser (Playwright/Chromium) rather than a
-#     plain `requests` POST - confirmed live 2026-08-25 that a plain POST
-#     (from `requests` or the browser's own fetch() API) silently returns
-#     the blank search form instead of real results, even though a real
-#     browser click + navigation works every time. See that script's own
-#     module docstring for the full story.
+#     county rather than a shared subdomain. Needs a real headless
+#     browser (Playwright/Chromium) rather than a plain `requests` POST -
+#     confirmed live 2026-08-25 that a plain POST (from `requests` or
+#     the browser's own fetch() API) silently returns the blank search
+#     form instead of real results, even though a real browser click +
+#     navigation works every time. See that script's own module
+#     docstring for the full story.
 #   - harvest_laft_orange.py: Orange County's own Comptroller-run "TDSM"
 #     tax-deed search tool (or.occompt.com/recorder/tdsmweb/) - a fifth,
 #     unrelated platform found on 2026-08-25, not CSV-driven since no
@@ -63,11 +63,18 @@ name: Harvest FL tax deed data and sync to Supabase
 #     plain server-rendered form POST with Status=Lands Available. See
 #     that script's own module docstring for the full access-pattern
 #     writeup.
-#   All five added/expanded 2026-08 after a from-scratch 67-county
+#   - harvest_laft_stlucie.py: St. Lucie County's AcclaimWeb/TributeWeb
+#     tax-deed search tool (acclaimweb.stlucieclerk.gov/TributeWeb/) - a
+#     sixth, unrelated platform found on 2026-08-25, not CSV-driven since
+#     no other county has been found on it yet. Also needs a real
+#     headless browser (same class of hidden-panel dependency as
+#     Pioneer's tab-activation bug) - see that script's own module
+#     docstring.
+#   All six added/expanded 2026-08 after a from-scratch 67-county
 #   research pass plus a follow-up pass on 5 newly-discovered platforms.
 #   A meaningful chunk of the rest of Florida's counties still gate LAFT
 #   behind a DIFFERENT search portal (Miami-Dade's GovHub/TaxSys chief
-#   among them) - none of the five harvesters here handle those yet;
+#   among them) - none of the six harvesters here handle those yet;
 #   each CSV grows as more counties get confirmed on a format already
 #   handled, and a new harvester is needed to add another platform.
 #
@@ -78,10 +85,10 @@ name: Harvest FL tax deed data and sync to Supabase
 
 on:
   schedule:
-    - cron: '0 10 * * *' # ~6:00 AM ET (10:00 UTC) - deeds + okaloosa
-    - cron: '0 22 * * *' # ~6:00 PM ET (22:00 UTC) - deeds + okaloosa
-    - cron: '0 12 * * *' # ~8:00 AM ET (12:00 UTC) - certificates + laft
-  workflow_dispatch: # manual trigger from the Actions tab, runs all jobs
+    - cron: '0 10 * * *'  # ~6:00 AM ET (10:00 UTC) - deeds + okaloosa
+    - cron: '0 22 * * *'  # ~6:00 PM ET (22:00 UTC) - deeds + okaloosa
+    - cron: '0 12 * * *'  # ~8:00 AM ET (12:00 UTC) - certificates + laft
+  workflow_dispatch:  # manual trigger from the Actions tab, runs all jobs
 
 concurrency:
   group: harvest-and-sync
@@ -105,7 +112,7 @@ jobs:
 
       - name: Harvest Okaloosa (Bid4Assets)
         shell: pwsh
-        continue-on-error: true # never verified end-to-end yet - don't let it block the main sync
+        continue-on-error: true  # never verified end-to-end yet - don't let it block the main sync
         run: ./scripts/harvest_okaloosa_bid4assets.ps1
 
       - name: Upload raw harvest as artifact
@@ -192,14 +199,15 @@ jobs:
         run: pip install pdfplumber requests beautifulsoup4 playwright
 
       - name: Install Playwright browser
-        # Only the Pioneer/TaxSmartWeb step below needs a real browser -
-        # every other LAFT harvester reproduces its target with a plain
-        # `requests` POST. See harvest_laft_pioneer.py's module docstring
-        # for why a real browser is required there (a plain POST, whether
-        # from `requests` or from the browser's own fetch() API, was
-        # confirmed live 2026-08-25 to silently return the blank search
-        # form instead of real results). --with-deps installs the system
-        # libraries Chromium needs on the bare ubuntu-latest runner image.
+        # The Pioneer/TaxSmartWeb and St. Lucie/AcclaimWeb steps below are
+        # the only ones needing a real browser - every other LAFT harvester
+        # reproduces its target with a plain `requests` POST. See each
+        # script's module docstring for why a real browser is required
+        # there (a plain POST, whether from `requests` or from the
+        # browser's own fetch() API, was confirmed live 2026-08-25 to
+        # silently return the blank search form instead of real results).
+        # --with-deps installs the system libraries Chromium needs on the
+        # bare ubuntu-latest runner image.
         run: playwright install --with-deps chromium
 
       - name: Harvest Lands Available for Taxes PDFs
@@ -247,6 +255,15 @@ jobs:
         if: always()
         run: python3 scripts/harvest_laft_orange.py
 
+      - name: Harvest Lands Available for Taxes St. Lucie County (AcclaimWeb)
+        # Same independence rationale again - a sixth, unrelated platform
+        # (St. Lucie's AcclaimWeb/TributeWeb tax-deed search, not a shared
+        # vendor CSV like the others since no second county has turned up
+        # on it). Also requires the real Chromium browser installed above -
+        # see harvest_laft_stlucie.py's module docstring.
+        if: always()
+        run: python3 scripts/harvest_laft_stlucie.py
+
       - name: Upload raw harvest as artifact
         if: always()
         uses: actions/upload-artifact@v4
@@ -258,6 +275,7 @@ jobs:
             out/harvest_laft_realtdm.*
             out/harvest_laft_pioneer.*
             out/harvest_laft_orange.*
+            out/harvest_laft_stlucie.*
           retention-days: 30
           if-no-files-found: warn
 
