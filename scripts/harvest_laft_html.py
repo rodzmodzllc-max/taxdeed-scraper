@@ -38,7 +38,11 @@ the real data table inside old nested-table page layouts (confirmed live on
 Escambia - 6+ decorative tables before the real one) or serve it from an
 embedded iframe on a completely different subdomain than the page a person
 would actually load (confirmed on Leon - leonclerk.com is just a wrapper;
-the real table lives at lforms.leonclerk.com and is what's in the CSV).
+the real table lives at lforms.leonclerk.com and is what's in the CSV), or
+bury it dozens of blank Excel-export rows into one giant frameset-sheet
+table (confirmed on Gadsden - see laft_html_sources.csv's Notes for that
+county; also the reason the header-row scan can't assume the header is near
+the top of the table).
 
 Send a full, browser-realistic header set (not just User-Agent) on every
 request - confirmed live 2026-08: 3 of these 18 counties (Escambia,
@@ -180,7 +184,7 @@ def fetch(session: requests.Session, url: str) -> requests.Response:
     last_exc: Exception | None = None
     for attempt in range(1, SCRAPERAPI_MAX_ATTEMPTS + 1):
         print(
-            f"  direct request blocked (403) - retrying via ScraperAPI proxy "
+            f"    direct request blocked (403) - retrying via ScraperAPI proxy "
             f"(attempt {attempt}/{SCRAPERAPI_MAX_ATTEMPTS})...",
             flush=True,
         )
@@ -225,19 +229,20 @@ NOTES_BY_COUNTY = {
 # special-case a county by name in the parsing logic itself.
 HEADER_MAP = {
     "case number": "case_no", "case #": "case_no", "case no": "case_no",
-    "case number date": "case_no",  # Manatee: "Case Number / Date" (slash stripped)
+    "case number date": "case_no", # Manatee: "Case Number / Date" (slash stripped)
     "sale #": "case_no", "sale number": "case_no",
     "file no.": "case_no", "file no": "case_no", "file number": "case_no",
-    "clerks filenumber": "case_no",  # Escambia: "Clerk's FileNumber" (apostrophe stripped)
+    "clerks filenumber": "case_no", # Escambia: "Clerk's FileNumber" (apostrophe stripped)
     "tax deed #": "case_no", "tax deed number": "case_no",
     "certificate #": "certificate_no", "certificate number": "certificate_no",
     "cert. no": "certificate_no", "cert no": "certificate_no", "cert. no.": "certificate_no",
     "certificate": "certificate_no", "tax certificate #": "certificate_no",
-    "certification number": "certificate_no",  # Leon
+    "certification number": "certificate_no", # Leon
     "parcel id": "parcel", "parcel #": "parcel", "parcel number": "parcel",
     "parcel identification number": "parcel",
     "owner": "owner_name", "owners": "owner_name", "owner(s)": "owner_name",
     "name in which assessed": "owner_name",
+    "last owner of record": "owner_name", # Gadsden
     "auction date": "sale_date", "sale date": "sale_date", "sales date": "sale_date",
     "original sale date": "sale_date", "tax deed sale date": "sale_date",
     "date of tax deed sale": "sale_date",
@@ -447,12 +452,12 @@ def main() -> int:
             resp = fetch(session, url)
             rows = extract_rows(resp.content, county, url)
             if rows:
-                print(f"  {len(rows)} properties", flush=True)
+                print(f"    {len(rows)} properties", flush=True)
                 all_rows.extend(rows)
             else:
-                print("  no properties currently listed", flush=True)
+                print("    no properties currently listed", flush=True)
         except Exception as exc:  # noqa: BLE001 - one bad county must not kill the whole run
-            print(f"  ERROR: {exc}", flush=True)
+            print(f"    ERROR: {exc}", flush=True)
 
     with open(OUT_JSON, "w", encoding="utf-8") as f:
         json.dump(all_rows, f, indent=2)
