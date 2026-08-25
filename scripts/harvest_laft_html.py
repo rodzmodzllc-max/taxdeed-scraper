@@ -77,6 +77,7 @@ import json
 import os
 import re
 import sys
+import time
 from pathlib import Path
 
 import requests
@@ -135,29 +136,79 @@ BROWSER_HEADERS = {
 SCRAPERAPI_KEY = os.environ.get("SCRAPERAPI_KEY", "").strip()
 SCRAPERAPI_ENDPOINT = "https://api.scraperapi.com/"
 
+# Confirmed live 2026-08-25 (first real run with a key configured): the 403
+# IP-block workaround itself works correctly - all 3 blocked counties (
+# Escambia, Columbia, Union) correctly triggered the proxy fallback - but
+# ScraperAPI's own proxy pool returned a transient "500 Server Error:
+# Internal Server Error" for 2 of the 3 (Escambia, Union) rather than page
+# content. Columbia, hit in the exact same run through the exact same code
+# path, succeeded on the first try - so this isn't a fundamental block on
+# those 2 counties, it's node-level flakiness in ScraperAPI's own pool (a
+# single bad/overloaded proxy node in the rotation, not specific to any one
+# target site). Retrying a couple of times before giving up costs nothing
+# beyond the retried requests themselves, still comfortably inside the free
+# tier's monthly quota for 3 counties checked once a day.
+SCRAPERAPI_MAX_ATTEMPTS = 3
+SCRAPERAPI_RETRY_DELAY_SECONDS = 4
+
 def fetch(session: requests.Session, url: str) -> requests.Response:
     """GET `url` directly first - this is free and works for every county
     that isn't actually IP-blocked (15 of 18, confirmed live). Only on a 403
-    does this retry once through the ScraperAPI proxy (see SCRAPERAPI_KEY
-    comment above), which routes the request through a rotating
-    non-datacenter IP and gets past an IP-reputation block that no header
-    change can fix. A non-403 error (timeout, DNS failure, 500, etc.) is
-    left alone and propagates as-is - the proxy fallback is specifically for
-    the IP-block signature (403 despite a full browser header set), not a
-    general retry-on-any-error wrapper, so a genuinely broken/dead source
-    still surfaces as its own distinct error rather than being masked."""
+    does this fall back to the ScraperAPI proxy (see SCRAPERAPI_KEY comment
+    above), which routes the request through a rotating non-datacenter IP
+    and gets past an IP-reputation block that no header change can fix -
+    retried up to SCRAPERAPI_MAX_ATTEMPTS times since the proxy pool itself
+    occasionally 500s on an individual node (see SCRAPERAPI_MAX_ATTEMPTS
+    comment). A non-403 error on the DIRECT request (timeout, DNS failure,
+    500, etc.) is left alone and propagates as-is without ever touching the
+    proxy - the fallback is specifically for the IP-block signature (403
+    despite a full browser header set), not a general retry-on-any-error
+    wrapper, so a genuinely broken/dead source still surfaces as its own
+    distinct error rather than being masked."""
     resp = session.get(url, headers=BROWSER_HEADERS, timeout=30)
-    if resp.status_code == 403:
-        if not SCRAPERAPI_KEY:
-            raise RuntimeError(
-                "blocked with 403 (this is the known IP-range block on GitHub "
-                "Actions runners, not a dead source - see module docstring) and "
-                "SCRAPERAPI_KEY is not set, so there's no proxy to fall back to"
+    if resp.status_code != 403:
+        resp.raise_for_status()
+        return resp
+
+    if not SCRAPERAPI_KEY:
+        raise RuntimeError(
+            "blocked with 403 (this is the known IP-range block on GitHub "
+            "Actions runners, not a dead source - see module docstring) and "
+            "SCRAPERAPI_KEY is not set, so there's no proxy to fall back to"
+        )
+
+    last_exc: Exception | None = None
+    for attempt in range(1, SCRAPERAPI_MAX_ATTEMPTS + 1):
+        print(
+            f"  direct request blocked (403) - retrying via ScraperAPI proxy "
+            f"(attempt {attempt}/{SCRAPERAPI_MAX_ATTEMPTS})...",
+            flush=True,
+        )
+        try:
+            resp = session.get(
+                SCRAPERAPI_ENDPOINT,
+                # country_code=us: these are all Florida county government
+                # sites - forcing a US-sourced proxy IP avoids ever routing
+                # through a non-US node that a .gov-adjacent site's WAF might
+                # treat with even more suspicion than a plain datacenter IP.
+                # Doesn't cost extra credits on ScraperAPI's plans (unlike
+                # e.g. premium=true, deliberately not used here for that
+                # reason - the free tier's rotating datacenter pool is what's
+                # actually needed to dodge an IP-reputation block, not a
+                # premium/residential pool).
+                params={"api_key": SCRAPERAPI_KEY, "url": url, "country_code": "us"},
+                timeout=60,
             )
-        print("  direct request blocked (403) - retrying via ScraperAPI proxy...", flush=True)
-        resp = session.get(SCRAPERAPI_ENDPOINT, params={"api_key": SCRAPERAPI_KEY, "url": url}, timeout=60)
-    resp.raise_for_status()
-    return resp
+            resp.raise_for_status()
+            return resp
+        except requests.exceptions.HTTPError as exc:
+            last_exc = exc
+            print(f"    proxy attempt {attempt} failed: {exc}", flush=True)
+            if attempt < SCRAPERAPI_MAX_ATTEMPTS:
+                time.sleep(SCRAPERAPI_RETRY_DELAY_SECONDS)
+
+    assert last_exc is not None
+    raise last_exc
 
 # Confirmed live 2026-08 (see laft_html_sources.csv Notes column for detail
 # per county) - preserved verbatim on every row from that county rather than
