@@ -56,6 +56,16 @@ anyway (harmless, and it may still help other counties or future WAF
 configs) but do not assume this closes the gap for those three without
 checking the next run's log.
 
+FIXED 2026-08-25 (added a proxy fallback): since the block is IP-based, the
+actual fix has to change where the request comes from, not what it looks
+like. `fetch()` below tries the direct request first (free, zero added
+latency, and confirmed live to work for all 15 non-blocked counties), and
+only on a 403 retries once through ScraperAPI (https://www.scraperapi.com,
+free tier - 5,000 requests/month, ~90/month is all these 3 counties need on
+a daily schedule), which proxies the request through a rotating
+non-datacenter IP pool and sidesteps the IP-reputation block. Requires the
+SCRAPERAPI_KEY repo secret; see harvest-and-sync.yml for how it's wired in.
+
 Output: harvest_laft_html.json / .csv - kept separate from
 harvest_laft.json (the PDF harvester's own output) so this never has to
 touch that script. sync-laft-to-supabase.ps1 reads both.
@@ -64,6 +74,7 @@ from __future__ import annotations
 
 import csv
 import json
+import os
 import re
 import sys
 from pathlib import Path
@@ -112,6 +123,41 @@ BROWSER_HEADERS = {
     "Connection": "keep-alive",
     "Upgrade-Insecure-Requests": "1",
 }
+
+# ScraperAPI proxy fallback for the counties whose WAF 403s GitHub Actions'
+# runner IPs specifically (Escambia, Columbia, Union - confirmed live
+# 2026-08-25, see module docstring). Free tier: 5,000 requests/month,
+# https://www.scraperapi.com - signed up for and configured by the project
+# owner, never by this script. Read from the SCRAPERAPI_KEY repo secret at
+# run time; intentionally NOT hardcoded or defaulted to anything, so a
+# missing key fails loudly (see fetch()) instead of silently skipping the
+# proxy step and reporting a blocked county as "0 properties."
+SCRAPERAPI_KEY = os.environ.get("SCRAPERAPI_KEY", "").strip()
+SCRAPERAPI_ENDPOINT = "https://api.scraperapi.com/"
+
+def fetch(session: requests.Session, url: str) -> requests.Response:
+    """GET `url` directly first - this is free and works for every county
+    that isn't actually IP-blocked (15 of 18, confirmed live). Only on a 403
+    does this retry once through the ScraperAPI proxy (see SCRAPERAPI_KEY
+    comment above), which routes the request through a rotating
+    non-datacenter IP and gets past an IP-reputation block that no header
+    change can fix. A non-403 error (timeout, DNS failure, 500, etc.) is
+    left alone and propagates as-is - the proxy fallback is specifically for
+    the IP-block signature (403 despite a full browser header set), not a
+    general retry-on-any-error wrapper, so a genuinely broken/dead source
+    still surfaces as its own distinct error rather than being masked."""
+    resp = session.get(url, headers=BROWSER_HEADERS, timeout=30)
+    if resp.status_code == 403:
+        if not SCRAPERAPI_KEY:
+            raise RuntimeError(
+                "blocked with 403 (this is the known IP-range block on GitHub "
+                "Actions runners, not a dead source - see module docstring) and "
+                "SCRAPERAPI_KEY is not set, so there's no proxy to fall back to"
+            )
+        print("  direct request blocked (403) - retrying via ScraperAPI proxy...", flush=True)
+        resp = session.get(SCRAPERAPI_ENDPOINT, params={"api_key": SCRAPERAPI_KEY, "url": url}, timeout=60)
+    resp.raise_for_status()
+    return resp
 
 # Confirmed live 2026-08 (see laft_html_sources.csv Notes column for detail
 # per county) - preserved verbatim on every row from that county rather than
@@ -342,12 +388,12 @@ def main() -> int:
         sources = list(csv.DictReader(f))
 
     all_rows: list[dict] = []
+    session = requests.Session()
     for i, src in enumerate(sources, 1):
         county, url = src["County"], src["Url"]
         print(f"[{i}/{len(sources)}] {county}", flush=True)
         try:
-            resp = requests.get(url, headers=BROWSER_HEADERS, timeout=30)
-            resp.raise_for_status()
+            resp = fetch(session, url)
             rows = extract_rows(resp.content, county, url)
             if rows:
                 print(f"  {len(rows)} properties", flush=True)
