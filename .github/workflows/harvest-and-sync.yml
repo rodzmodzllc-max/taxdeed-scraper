@@ -28,14 +28,19 @@ name: Harvest FL tax deed data and sync to Supabase
 #   against Supabase once (see repo root) - until then this
 #   job's sync step will fail loudly, which is intentional so
 #   it doesn't get missed.
-# laft: Four harvesters, one sync script, all tagged
+# laft: Five harvesters, one sync script, all tagged
 #   `properties` (source='laft'). Once a day.
 #   - harvest_laft_pdfs.py: PDF-published counties
-#     (../data/laft_pdf_sources.csv)
+#     (../data/laft_pdf_sources.csv) - also covers Volusia's ASP.NET
+#     disclaimer-postback page, which turned out to just redirect to a
+#     fixed, non-session-gated PDF URL (see that CSV's Volusia row).
 #   - harvest_laft_html.py: plain static-HTML-table counties
-#     (../data/laft_html_sources.csv) - 3 of these 18 counties
+#     (../data/laft_html_sources.csv) - 3 of these 19 counties
 #     (Escambia, Columbia, Union) route through a ScraperAPI proxy
-#     fallback when directly blocked - see SCRAPERAPI_KEY below.
+#     fallback when directly blocked - see SCRAPERAPI_KEY below. Also
+#     covers Gadsden's old Excel-frameset disclaimer page, which turned
+#     out to be plain static HTML with no real session gate at all (see
+#     that CSV's Gadsden row).
 #   - harvest_laft_realtdm.py: counties on the RealTDM
 #     shared case-management platform
 #     (../data/laft_realtdm_counties.csv) - a real HTML
@@ -50,14 +55,21 @@ name: Harvest FL tax deed data and sync to Supabase
 #     the blank search form instead of real results, even though a real
 #     browser click + navigation works every time. See that script's own
 #     module docstring for the full story.
-#   All four added/expanded 2026-08 after a from-scratch
-#   67-county research pass. A meaningful chunk of the rest of
-#   Florida's counties gate LAFT behind a DIFFERENT search
-#   portal (a custom ASP.NET disclaimer-postback, Miami-Dade's
-#   GovHub) - none of the four harvesters here handle those yet;
-#   each CSV grows as more counties get confirmed on a format
-#   already handled, and a fifth harvester would be needed to add
-#   another platform.
+#   - harvest_laft_orange.py: Orange County's own Comptroller-run "TDSM"
+#     tax-deed search tool (or.occompt.com/recorder/tdsmweb/) - a fifth,
+#     unrelated platform found on 2026-08-25, not CSV-driven since no
+#     other county has been found on it yet. Public guest access via a
+#     disclaimer "I Acknowledge" click (no login, no credentials) then a
+#     plain server-rendered form POST with Status=Lands Available. See
+#     that script's own module docstring for the full access-pattern
+#     writeup.
+#   All five added/expanded 2026-08 after a from-scratch 67-county
+#   research pass plus a follow-up pass on 5 newly-discovered platforms.
+#   A meaningful chunk of the rest of Florida's counties still gate LAFT
+#   behind a DIFFERENT search portal (Miami-Dade's GovHub/TaxSys chief
+#   among them) - none of the five harvesters here handle those yet;
+#   each CSV grows as more counties get confirmed on a format already
+#   handled, and a new harvester is needed to add another platform.
 #
 # All three jobs upload their raw harvest as a workflow artifact (30-day
 # retention) regardless of whether the Supabase sync succeeds, so a bad sync
@@ -226,6 +238,15 @@ jobs:
         if: always()
         run: python3 scripts/harvest_laft_pioneer.py
 
+      - name: Harvest Lands Available for Taxes Orange County (TDSM)
+        # Same independence rationale again - a fifth, unrelated platform
+        # (Orange County's own Comptroller-run search tool, not a shared
+        # vendor CSV like the others since no second county has turned up
+        # on it). Public guest disclaimer access only, no credentials -
+        # see harvest_laft_orange.py's module docstring.
+        if: always()
+        run: python3 scripts/harvest_laft_orange.py
+
       - name: Upload raw harvest as artifact
         if: always()
         uses: actions/upload-artifact@v4
@@ -236,6 +257,7 @@ jobs:
             out/harvest_laft_html.*
             out/harvest_laft_realtdm.*
             out/harvest_laft_pioneer.*
+            out/harvest_laft_orange.*
           retention-days: 30
           if-no-files-found: warn
 
