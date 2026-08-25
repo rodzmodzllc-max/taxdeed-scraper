@@ -18,31 +18,58 @@ harvester in this repo, which all reproduce their target site's search with
 a plain `requests` POST. This is not a stylistic choice - it's a confirmed
 requirement for this specific vendor:
 
-  1. Confirmed live via the browser (2026-08-25) that a *real* click on the
-     "Search for Lands Available" button (name="buttonSubmitLandsAvailable",
-     a plain <button type="submit"> with no CSRF/anti-forgery hidden field
-     anywhere on the page) followed by a full-page navigation returns the
-     results grid correctly - e.g. Citrus returned 5 real properties,
-     Okeechobee genuinely returned 0.
-  2. A first attempt at this harvester reproduced that same POST with
-     Python's `requests` library (same form fields, same button name/value,
-     a `requests.Session()` carrying cookies from an earlier GET, a Referer
-     header) - CONFIRMED LIVE IN PRODUCTION (2026-08-25, workflow run #50)
-     that this comes back empty even for Citrus, which has 5 real live
-     properties. Not a false zero from a network hiccup - it silently
-     re-renders the blank search form instead of the results grid, every
-     time, exactly like the browser's own fetch() API did when this was
-     first being reverse-engineered (see git history for that version if
-     you need the discarded `requests`-based approach). Whatever
-     distinguishes a genuine browser-navigation POST from either a fetch()
-     or a standalone HTTP client's POST on this vendor's stack is not
-     understood - possibly some combination of header ordering, TLS/HTTP2
-     fingerprinting, or a request property neither a browser's fetch() nor
-     `requests` reproduces. It wasn't worth chasing further once a working
-     alternative (drive an actual browser) was available.
-  3. Playwright reproduces the exact thing that's confirmed to work: load
-     the page, click the real button, wait for the real navigation, read
-     the real resulting HTML. No form-serialization guesswork needed.
+1. Confirmed live via the browser (2026-08-25) that a *real* click on the
+   "Search for Lands Available" button (name="buttonSubmitLandsAvailable",
+   a plain <button type="submit"> with no CSRF/anti-forgery hidden field
+   anywhere on the page) followed by a full-page navigation returns the
+   results grid correctly - e.g. Citrus returned 5 real properties,
+   Okeechobee genuinely returned 0.
+2. A first attempt at this harvester reproduced that same POST with
+   Python's `requests` library (same form fields, same button name/value,
+   a `requests.Session()` carrying cookies from an earlier GET, a Referer
+   header) - CONFIRMED LIVE IN PRODUCTION (2026-08-25, workflow run #50)
+   that this comes back empty even for Citrus, which has 5 real live
+   properties. Not a false zero from a network hiccup - it silently
+   re-renders the blank search form instead of the results grid, every
+   time, exactly like the browser's own fetch() API did when this was
+   first being reverse-engineered (see git history for that version if
+   you need the discarded `requests`-based approach). Whatever
+   distinguishes a genuine browser-navigation POST from either a fetch()
+   or a standalone HTTP client's POST on this vendor's stack is not
+   understood - possibly some combination of header ordering, TLS/HTTP2
+   fingerprinting, or a request property neither a browser's fetch() nor
+   `requests` reproduces. It wasn't worth chasing further once a working
+   alternative (drive an actual browser) was available.
+3. Playwright reproduces the exact thing that's confirmed to work: load
+   the page, click the real button, wait for the real navigation, read
+   the real resulting HTML. No form-serialization guesswork needed.
+
+SECOND FIX, confirmed live 2026-08-25 (first Playwright run, workflow
+#51): both counties failed with "element is not visible" on the
+buttonSubmitLandsAvailable click, every time - a genuine bug in the
+Playwright rewrite, not a vendor-side change. Root cause, confirmed live
+via the browser: this vendor's search page is a jQuery UI Tabs widget -
+one tab per search-criteria type (Sale Date, Certificate #, Case #,
+Parcel Id, Tax Collector #, Applicant, Owner, Status, "Lands Available",
+Surplus Funds), each with its own panel (`div.ui-tabs-panel`). Only the
+active tab's panel is visible; every other panel (including the "Lands
+Available" one, which is NOT the tab that's active by default) sits at
+`display:none` until its tab is clicked - confirmed live via
+getComputedStyle/getBoundingClientRect on Citrus: the button itself
+reports `display:inline-block` but a 0x0 rendered box, because its
+ancestor `div#tabs-10.ui-tabs-panel` is `display:none`. A plain `requests`
+POST never cared about this (it submits form fields whether or not
+they're visible in a browser), which is why the discarded first attempt
+above didn't need this step - but Playwright's click() enforces genuine
+visibility, so the tab must be activated first. The fix: click the tab
+link whose text is "Lands Available" before touching the search button.
+Matched by the link's TEXT, not by its `#tabs-N` href/id - confirmed live
+that id is per-county-unstable (Citrus's panel is `#tabs-10`, nothing
+about that number is assumed to hold on any other county).
+
+4. Playwright reproduces the exact thing that's confirmed to work: load
+   the page, activate the "Lands Available" tab, click the real button,
+   wait for the real navigation, read the real resulting HTML.
 
 Zero-results counties (Okeechobee) render NO grid/table at all and no
 "Results for Lands Available Search" heading - this is indistinguishable
@@ -70,11 +97,11 @@ driving the grid's own pagination controls.
 CI note: this is the only LAFT harvester step that needs
 `playwright install chromium --with-deps` before it can run - see the
 "Install Playwright browser" step immediately before this script's step
-in harvest-and-sync.yml. That install alone typically costs @30-60s of
+in harvest-and-sync.yml. That install alone typically costs ~30-60s of
 job time, on top of the ~1-2s per county the actual harvest takes.
 
 Output: harvest_laft_pioneer.json / .csv - kept separate from the other
-three harvesters' outputs. sync-laft-to-supabase.ps1 merges all four.
+harvesters' outputs. sync-laft-to-supabase.ps1 merges all of them.
 """
 from __future__ import annotations
 
@@ -95,6 +122,11 @@ OUT_CSV = OUT_DIR / "harvest_laft_pioneer.csv"
 
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
 
+# Matched by visible text, not by an ID - see module docstring's "SECOND
+# FIX" section. `:text-is()` requires an exact (trimmed) text match so this
+# can't accidentally activate some other tab whose label merely contains
+# "Lands Available" as a substring.
+LANDS_AVAILABLE_TAB_SELECTOR = '.ui-tabs-nav a:text-is("Lands Available")'
 SEARCH_BUTTON_SELECTOR = 'button[name="buttonSubmitLandsAvailable"]'
 
 # aria-describedby suffix -> output field name. Matched with str.endswith()
@@ -121,6 +153,11 @@ def harvest_county(browser, county: str, base_url: str) -> list[dict]:
     page = browser.new_page(user_agent=UA)
     try:
         page.goto(base_url, timeout=30_000, wait_until="load")
+        # Activate the "Lands Available" tab first - see module docstring's
+        # "SECOND FIX" section. Its panel (and the search button inside it)
+        # renders at display:none until this tab is clicked.
+        page.click(LANDS_AVAILABLE_TAB_SELECTOR, timeout=10_000)
+        page.wait_for_selector(SEARCH_BUTTON_SELECTOR, state="visible", timeout=10_000)
         page.click(SEARCH_BUTTON_SELECTOR, timeout=10_000)
         # The click submits a real <form method="post"> - wait for the
         # resulting full-page navigation to finish loading rather than any
