@@ -38,9 +38,16 @@ $ErrorActionPreference = "Stop"
 #   also single-county so far. Its ag-Grid results table required its own
 #   scroll-and-collect virtualization handling (see that script's module
 #   docstring) but writes the same row shape as every other harvester here.
-# All seven write the same row shape to separate JSON files - this script
+# - harvest_laft_hillsborough.py: Hillsborough County's OnBase-based
+#   Public Access View search tool (added 2026-08-25) - an eighth distinct
+#   vendor/platform, also single-county so far. Requires a Case
+#   Status='LANDS FOR SALE' filter (its default search just returns every
+#   tax-deed case regardless of status) and a per-case dedupe across
+#   duplicate document-type rows (see that script's module docstring) but
+#   writes the same row shape as every other harvester here.
+# All eight write the same row shape to separate JSON files - this script
 # merges them before syncing, so it's the only thing that needs to know all
-# seven harvesters exist. Each optional file is guaranteed valid JSON when
+# eight harvesters exist. Each optional file is guaranteed valid JSON when
 # present (every harvester always writes the file, even an empty `[]`, so a
 # missing file really does mean "never ran" not "ran and found nothing").
 
@@ -52,7 +59,8 @@ $optionalSources = @(
     @{ Path = Join-Path $here "../out/harvest_laft_pioneer.json"; Label = "Pioneer/TaxSmartWeb-platform counties (harvest_laft_pioneer.json)" },
     @{ Path = Join-Path $here "../out/harvest_laft_orange.json"; Label = "Orange County TDSM (harvest_laft_orange.json)" },
     @{ Path = Join-Path $here "../out/harvest_laft_stlucie.json"; Label = "St. Lucie County AcclaimWeb (harvest_laft_stlucie.json)" },
-    @{ Path = Join-Path $here "../out/harvest_laft_osceola.json"; Label = "Osceola County NewVision (harvest_laft_osceola.json)" }
+    @{ Path = Join-Path $here "../out/harvest_laft_osceola.json"; Label = "Osceola County NewVision (harvest_laft_osceola.json)" },
+    @{ Path = Join-Path $here "../out/harvest_laft_hillsborough.json"; Label = "Hillsborough County PAV (harvest_laft_hillsborough.json)" }
 )
 
 $supabaseUrl = $env:SUPABASE_URL
@@ -157,7 +165,7 @@ if ($rows.Count -eq 0) { Write-Output "Every harvested row was missing both case
 # `ON CONFLICT DO UPDATE` rejects a whole batch if any two rows in it share
 # the same conflict-target key ("ON CONFLICT DO UPDATE command cannot
 # affect row a second time"), not just the duplicated rows. LAFT merges
-# seven independent harvesters' output before this point, so a collision
+# eight independent harvesters' output before this point, so a collision
 # is more plausible here than in any single-source sync: two harvesters
 # could in principle both report the same physical property (e.g. if a
 # county were ever added to more than one source CSV by mistake), or a
