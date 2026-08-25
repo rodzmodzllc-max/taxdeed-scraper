@@ -6,3 +6,5 @@ Sarasota,sarasota,Confirmed live 2026-08 - real tenant (not a TEST placeholder).
 Flagler,flagler,Confirmed live 2026-08 - real tenant (not a TEST placeholder).
 Santa Rosa,santarosa,Confirmed live 2026-08 - real tenant (not a TEST placeholder).
 Washington,washington,Confirmed live 2026-08 - real tenant (not a TEST placeholder).
+Pinellas,pinellas,Added 2026-08-25 - confirmed real tenant (page title "realTDM : Pinellas - Case Search", not a TEST placeholder) with the standard "List of Lands - Available For Public" status option present. Resolves previously-stale/orphaned laft rows under Pinellas that no harvester was actually producing.
+Polk,polk,Added 2026-08-25 - confirmed real tenant (page title "realTDM : Polk - Case Search", not a TEST placeholder). Resolves previously-stale laft rows under Polk that no harvester was actually producing.
