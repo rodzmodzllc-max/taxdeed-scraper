@@ -1,104 +1,74 @@
 #!/usr/bin/env python3
 """
 Harvest "Lands Available for Taxes" (LAFT) listings from counties on the
-Pioneer/TaxSmartWeb platform (rebranded in the page footer as "Catalis
-Courts & Land Records, LLC") - a fourth distinct LAFT vendor, separate from
-the PDF counties, the plain-HTML-table counties, and the RealTDM counties
-(see harvest_laft_pdfs.py / harvest_laft_html.py / harvest_laft_realtdm.py).
+Pioneer Technology Group "TaxSmartWeb" platform (also branded Catalis /
+Landmark in some counties) - one deployment per county rather than a
+shared multi-tenant subdomain, so every county's base URL is confirmed
+individually and stored in ../data/laft_pioneer_counties.csv.
 
-Unlike RealTDM, this vendor does NOT use a shared subdomain convention -
-each county runs its own distinct domain (confirmed live 2026-08-25:
-Okeechobee is pioneer.okeechobeelandmark.com/TaxSmartWebLive/, Citrus is
-search.citrusclerk.org/TaxSmartWeb) - so counties are onboarded here one at
-a time as each one's base URL is confirmed, via ../data/laft_pioneer_counties.csv
-(columns: County, BaseUrl, Notes).
+=============================================================================
+2026-08-26 REWRITE - this harvester was silently returning 0 for counties
+that demonstrably had properties. Read this before changing it back.
+=============================================================================
 
-USES A REAL HEADLESS BROWSER (Playwright/Chromium), unlike every other LAFT
-harvester in this repo, which all reproduce their target site's search with
-a plain `requests` POST. This is not a stylistic choice - it's a confirmed
-requirement for this specific vendor:
+History, because this platform has now burned three separate approaches and
+the failure mode was identical and silent every time:
 
-1. Confirmed live via the browser (2026-08-25) that a *real* click on the
-   "Search for Lands Available" button (name="buttonSubmitLandsAvailable",
-   a plain <button type="submit"> with no CSRF/anti-forgery hidden field
-   anywhere on the page) followed by a full-page navigation returns the
-   results grid correctly - e.g. Citrus returned 5 real properties,
-   Okeechobee genuinely returned 0.
-2. A first attempt at this harvester reproduced that same POST with
-   Python's `requests` library (same form fields, same button name/value,
-   a `requests.Session()` carrying cookies from an earlier GET, a Referer
-   header) - CONFIRMED LIVE IN PRODUCTION (2026-08-25, workflow run #50)
-   that this comes back empty even for Citrus, which has 5 real live
-   properties. Not a false zero from a network hiccup - it silently
-   re-renders the blank search form instead of the results grid, every
-   time, exactly like the browser's own fetch() API did when this was
-   first being reverse-engineered (see git history for that version if
-   you need the discarded `requests`-based approach). Whatever
-   distinguishes a genuine browser-navigation POST from either a fetch()
-   or a standalone HTTP client's POST on this vendor's stack is not
-   understood - possibly some combination of header ordering, TLS/HTTP2
-   fingerprinting, or a request property neither a browser's fetch() nor
-   `requests` reproduces. It wasn't worth chasing further once a working
-   alternative (drive an actual browser) was available.
-3. Playwright reproduces the exact thing that's confirmed to work: load
-   the page, click the real button, wait for the real navigation, read
-   the real resulting HTML. No form-serialization guesswork needed.
+  Attempt 1 - plain `requests` POST of the search form. Returned 0 for
+  Citrus on a day Citrus had 5 real properties. Abandoned.
 
-SECOND FIX, confirmed live 2026-08-25 (first Playwright run, workflow
-#51): both counties failed with "element is not visible" on the
-buttonSubmitLandsAvailable click, every time - a genuine bug in the
-Playwright rewrite, not a vendor-side change. Root cause, confirmed live
-via the browser: this vendor's search page is a jQuery UI Tabs widget -
-one tab per search-criteria type (Sale Date, Certificate #, Case #,
-Parcel Id, Tax Collector #, Applicant, Owner, Status, "Lands Available",
-Surplus Funds), each with its own panel (`div.ui-tabs-panel`). Only the
-active tab's panel is visible; every other panel (including the "Lands
-Available" one, which is NOT the tab that's active by default) sits at
-`display:none` until its tab is clicked - confirmed live via
-getComputedStyle/getBoundingClientRect on Citrus: the button itself
-reports `display:inline-block` but a 0x0 rendered box, because its
-ancestor `div#tabs-10.ui-tabs-panel` is `display:none`. A plain `requests`
-POST never cared about this (it submits form fields whether or not
-they're visible in a browser), which is why the discarded first attempt
-above didn't need this step - but Playwright's click() enforces genuine
-visibility, so the tab must be activated first. The fix: click the tab
-link whose text is "Lands Available" before touching the search button.
-Matched by the link's TEXT, not by its `#tabs-N` href/id - confirmed live
-that id is per-county-unstable (Citrus's panel is `#tabs-10`, nothing
-about that number is assumed to hold on any other county).
+  Attempt 2 - Playwright, real browser, click the "Lands Available" tab
+  then click `buttonSubmitLandsAvailable`. This fixed a genuine bug (the
+  tab panel is display:none until its tab is clicked, so the button was
+  not clickable), and the run went green... but still returned 0 for
+  counties with live data.
 
-4. Playwright reproduces the exact thing that's confirmed to work: load
-   the page, activate the "Lands Available" tab, click the real button,
-   wait for the real navigation, read the real resulting HTML.
+  Attempt 3 (this one) - root-caused 2026-08-26 by checking five counties
+  BY HAND against the scraper's output. Hernando had 6 live properties and
+  Palm Beach had 2; the harvester reported 0 for both. Clay, St. Johns and
+  Walton were confirmed genuinely empty in the same pass, which is why the
+  bug hid for so long - most counties really are empty most of the time,
+  so "0" always looked plausible.
 
-Zero-results counties (Okeechobee) render NO grid/table at all and no
-"Results for Lands Available Search" heading - this is indistinguishable
-in the HTML from a failed search. Since Playwright reproduces genuine
-browser behavior (the one mechanism confirmed to distinguish a real zero
-from a false one), a "no grid" result here is trusted as a real zero.
+THE ACTUAL MECHANISM: the search form POST does NOT return the results.
+It re-renders the page with an EMPTY jqGrid skeleton (`<table id="TaxDeed">`).
+The rows arrive in a SECOND request the page fires afterwards:
 
-Results table: when there ARE results, they render into a jqGrid table
-(<table class="... ui-jqgrid-btable ...">, observed id="TaxDeed" on
-Citrus - the id is NOT assumed to be stable across counties, matched by
-class instead). Each data cell carries a stable `aria-describedby`
-attribute ending in a recognizable field-name suffix (e.g.
-"TaxDeed_Applicant", "TaxDeed_CaseNumber", "TaxDeed_CertificateNumber",
-"TaxDeed_ParcelID", "TaxDeed_SaleDate", "TaxDeed_Status") - matched by
-suffix here rather than assuming the "TaxDeed_" prefix is the same on
-every county.
+    GET {base}/Home/GridSearchData?SearchType=Lands+Available&_search=false
+        &rows=100&page=1&sidx=&sord=asc
 
-Pagination: not yet handled beyond logging a loud warning if the grid's
-own "View X - Y of Z" footer text reports more rows than were parsed -
-every LAFT list checked across every platform so far has been small
-(single digits to low dozens), so this is treated as an unlikely edge
-case worth flagging rather than a routine case worth the complexity of
-driving the grid's own pagination controls.
+Proven directly: a raw form POST to Hernando returned 57KB of HTML
+containing the grid skeleton but NOT case 2024-119TD and no record count;
+the six rows only existed in the DOM after the AJAX call completed. So any
+approach that POSTs and then parses the response HTML returns zero for
+every county - which is exactly what both previous attempts did. The
+Playwright version additionally raced this AJAX call: it read the grid
+immediately after clicking search, usually before the rows had landed.
 
-CI note: this is the only LAFT harvester step that needs
-`playwright install chromium --with-deps` before it can run - see the
-"Install Playwright browser" step immediately before this script's step
-in harvest-and-sync.yml. That install alone typically costs ~30-60s of
-job time, on top of the ~1-2s per county the actual harvest takes.
+THE FIX: skip the form entirely and call `GridSearchData` directly. Confirmed
+live on all five counties checked that this endpoint needs **no prior POST,
+no session, no cookie, and no tab click** - a cold GET on a freshly-loaded
+page returns correct results. That makes this harvester a plain `requests`
+call again, with NO Playwright dependency, and removes both the tab-click
+bug and the AJAX race in one move.
+
+This is an HTTP-level reproduction of a vendor search, which this project
+has an explicit standing lesson against trusting. That lesson is satisfied
+here rather than ignored: this endpoint was verified against counties KNOWN
+to have live data (Hernando returning exactly its 6, Palm Beach exactly its
+2, with case numbers and bid amounts matching what the rendered page shows),
+not merely against counties that happened to return zero.
+
+Two traps this deliberately avoids, both confirmed live:
+  - The page renders a DECOY header-only table before the real grid, so a
+    naive "first table on the page" selector yields a header row and no
+    data. Not an issue here since we never parse the HTML, but it is why
+    the HTML-parsing approach looked like it was "working".
+  - Counties with zero results omit the grid element ENTIRELY rather than
+    rendering an empty one with a "no records found" message. There is no
+    such message on this platform. `records` in the JSON is the only
+    trustworthy empty/non-empty signal, which is why it is cross-checked
+    below instead of inferring emptiness from a missing element.
 
 Output: harvest_laft_pioneer.json / .csv - kept separate from the other
 harvesters' outputs. sync-laft-to-supabase.ps1 merges all of them.
@@ -107,12 +77,10 @@ from __future__ import annotations
 
 import csv
 import json
-import re
 import sys
 from pathlib import Path
 
-from bs4 import BeautifulSoup
-from playwright.sync_api import sync_playwright
+import requests
 
 HERE = Path(__file__).resolve().parent
 SOURCES_CSV = HERE / "../data/laft_pioneer_counties.csv"
@@ -122,94 +90,112 @@ OUT_CSV = OUT_DIR / "harvest_laft_pioneer.csv"
 
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
 
-# Matched by visible text, not by an ID - see module docstring's "SECOND
-# FIX" section. `:text-is()` requires an exact (trimmed) text match so this
-# can't accidentally activate some other tab whose label merely contains
-# "Lands Available" as a substring.
-LANDS_AVAILABLE_TAB_SELECTOR = '.ui-tabs-nav a:text-is("Lands Available")'
-SEARCH_BUTTON_SELECTOR = 'button[name="buttonSubmitLandsAvailable"]'
+# Every confirmed deployment serves the grid endpoint at this path relative
+# to its own base URL, despite the base URLs themselves having no shared
+# convention at all (/TaxDeed, /TaxSmart/, /taxsmartweb, /TaxSmartWeb,
+# /TaxSmartWebLive/, and several at the bare host root - see the CSV).
+GRID_PATH = "Home/GridSearchData"
 
-# aria-describedby suffix -> output field name. Matched with str.endswith()
-# against each <td>'s aria-describedby, NOT an exact/prefix match, since the
-# prefix before the underscore (confirmed "TaxDeed_" on Citrus) is not
-# assumed stable across every county's grid configuration.
-FIELD_SUFFIXES = {
-    "Applicant": "applicant",
-    "CaseNumber": "case_no",
-    "CertificateNumber": "certificate_no",
-    "ParcelID": "parcel",
-    "SaleDate": "sale_date",
-    "Status": "status",
-    "OpeningBid": "bid",
-    "HighBid": "high_bid",
-    "Surplus": "surplus",
-    "Owners": "owners",
-}
+SEARCH_TYPE = "Lands Available"
 
-VIEW_COUNT_RE = re.compile(r"View\s+\d+\s*-\s*\d+\s+of\s+(\d+)", re.IGNORECASE)
+# Confirmed live cell order in the JSON payload. Matched positionally
+# because this endpoint returns bare arrays with no field names - unlike
+# every other harvester in this project, there is no header text to match
+# against. The order was verified identical across all five counties
+# checked; a mismatch is therefore worth failing loudly on rather than
+# silently misaligning, which is what CELL_COUNT below guards.
+CELL_FIELDS = [
+    "applicant",
+    "case_no",
+    "certificate_no",
+    "parcel",
+    "sale_date",
+    "status",
+    "bid",          # "Base Bid" - the opening bid, which is what we want
+    "high_bid",
+    "surplus",
+    "owners",
+]
+CELL_COUNT = len(CELL_FIELDS)
 
-
-def harvest_county(browser, county: str, base_url: str) -> list[dict]:
-    page = browser.new_page(user_agent=UA)
-    try:
-        page.goto(base_url, timeout=30_000, wait_until="load")
-        # Activate the "Lands Available" tab first - see module docstring's
-        # "SECOND FIX" section. Its panel (and the search button inside it)
-        # renders at display:none until this tab is clicked.
-        page.click(LANDS_AVAILABLE_TAB_SELECTOR, timeout=10_000)
-        page.wait_for_selector(SEARCH_BUTTON_SELECTOR, state="visible", timeout=10_000)
-        page.click(SEARCH_BUTTON_SELECTOR, timeout=10_000)
-        # The click submits a real <form method="post"> - wait for the
-        # resulting full-page navigation to finish loading rather than any
-        # fixed sleep, matching how this was confirmed to work by hand.
-        page.wait_for_load_state("load", timeout=30_000)
-        html = page.content()
-    finally:
-        page.close()
-    return _parse_results(html, county, base_url)
+# 25 is the platform default; no county checked has come close to 100, but
+# the count is cross-checked against `records` below so a county that ever
+# exceeds this is caught loudly rather than silently truncated.
+ROWS_PER_PAGE = 100
 
 
-def _parse_results(html: str, county: str, source_url: str) -> list[dict]:
-    soup = BeautifulSoup(html, "html.parser")
-    table = soup.find("table", class_=lambda c: c and "ui-jqgrid-btable" in c.split())
-    if table is None:
-        # No grid at all is this platform's normal rendering for a true
-        # zero-result search (confirmed live on Okeechobee) - not
-        # necessarily an error, so this returns cleanly rather than
-        # raising.
-        return []
+def _grid_url(base_url: str) -> str:
+    return f"{base_url.rstrip('/')}/{GRID_PATH}"
 
+
+def _clean(value) -> str:
+    return str(value).strip() if value is not None else ""
+
+
+def _parse_rows(payload: dict, county: str, base_url: str) -> tuple[list[dict], int]:
+    """Return (records, reported_total). `reported_total` is the platform's
+    own `records` count, cross-checked by the caller - see module docstring
+    for why that is the only trustworthy empty/non-empty signal here."""
+    reported = int(payload.get("records") or 0)
     out: list[dict] = []
-    for row in table.find_all("tr"):
-        cells = row.find_all("td")
-        if not cells:
+    for entry in payload.get("rows") or []:
+        cells = entry.get("cell") if isinstance(entry, dict) else entry
+        if not isinstance(cells, list):
             continue
-        record: dict = {}
-        for cell in cells:
-            described_by = cell.get("aria-describedby") or ""
-            for suffix, field in FIELD_SUFFIXES.items():
-                if described_by.endswith("_" + suffix):
-                    text = cell.get_text(strip=True)
-                    if text:
-                        record[field] = text
-                    break
-        if record.get("case_no") or record.get("parcel") or record.get("certificate_no"):
-            record["county"] = county
-            record["source"] = "laft"
-            record["url_auction"] = source_url
+        if len(cells) < CELL_COUNT:
+            print(
+                f"    WARNING: row has {len(cells)} cells, expected {CELL_COUNT} - "
+                f"vendor may have changed the grid columns; skipping this row rather "
+                f"than risk misaligning fields",
+                flush=True,
+            )
+            continue
+        record: dict = {"county": county, "source": "laft", "url_auction": base_url}
+        for i, field in enumerate(CELL_FIELDS):
+            value = _clean(cells[i])
+            if value:
+                record[field] = value
+        if record.get("case_no") or record.get("parcel"):
             out.append(record)
+    return out, reported
 
-    # Loud (non-fatal) pagination check - see module docstring.
-    footer_text = soup.get_text(" ", strip=True)
-    m = VIEW_COUNT_RE.search(footer_text)
-    if m and int(m.group(1)) > len(out):
+
+def harvest_county(session: requests.Session, county: str, base_url: str) -> list[dict]:
+    resp = session.get(
+        _grid_url(base_url),
+        params={
+            "SearchType": SEARCH_TYPE,
+            "_search": "false",
+            "rows": str(ROWS_PER_PAGE),
+            "page": "1",
+            "sidx": "",
+            "sord": "asc",
+        },
+        headers={"User-Agent": UA, "X-Requested-With": "XMLHttpRequest"},
+        timeout=30,
+    )
+    resp.raise_for_status()
+    try:
+        payload = resp.json()
+    except ValueError as exc:
+        raise RuntimeError(
+            f"grid endpoint did not return JSON (got {resp.headers.get('Content-Type')!r}) - "
+            f"base URL may be wrong or the vendor changed the endpoint: {exc}"
+        ) from exc
+
+    rows, reported = _parse_rows(payload, county, base_url)
+
+    # Loud, non-fatal cross-check. A genuine zero is normal on this platform
+    # and must stay quiet; a MISMATCH is the thing that hid the original bug
+    # for weeks, so it gets shouted about.
+    if reported != len(rows):
         print(
-            f'    WARNING: grid footer reports {m.group(1)} total rows but only '
-            f'{len(out)} were parsed - possible pagination not yet handled',
+            f"    WARNING: endpoint reports {reported} records but {len(rows)} were parsed"
+            + (f" - more than the {ROWS_PER_PAGE}-row page size, pagination now needed" if reported > ROWS_PER_PAGE else "")
+            + " - investigate before trusting this county's count",
             flush=True,
         )
-
-    return out
+    return rows
 
 
 def main() -> int:
@@ -218,23 +204,20 @@ def main() -> int:
         sources = list(csv.DictReader(f))
 
     all_rows: list[dict] = []
-    with sync_playwright() as p:
-        browser = p.chromium.launch()
+    for i, src in enumerate(sources, 1):
+        county, base_url = src["County"], src["BaseUrl"]
+        print(f"[{i}/{len(sources)}] {county}", flush=True)
         try:
-            for i, src in enumerate(sources, 1):
-                county, base_url = src["County"], src["BaseUrl"]
-                print(f"[{i}/{len(sources)}] {county}", flush=True)
-                try:
-                    rows = harvest_county(browser, county, base_url)
-                    if rows:
-                        print(f"    {len(rows)} properties", flush=True)
-                        all_rows.extend(rows)
-                    else:
-                        print("    no properties currently listed", flush=True)
-                except Exception as exc:  # noqa: BLE001 - one bad county must not kill the whole run
-                    print(f"    ERROR: {exc}", flush=True)
-        finally:
-            browser.close()
+            session = requests.Session()
+            rows = harvest_county(session, county, base_url)
+            if rows:
+                priced = sum(1 for r in rows if r.get("bid"))
+                print(f"    {len(rows)} properties ({priced} with a base bid)", flush=True)
+                all_rows.extend(rows)
+            else:
+                print("    no properties currently listed", flush=True)
+        except Exception as exc:  # noqa: BLE001 - one bad county must not kill the whole run
+            print(f"    ERROR: {exc}", flush=True)
 
     with open(OUT_JSON, "w", encoding="utf-8") as f:
         json.dump(all_rows, f, indent=2)
