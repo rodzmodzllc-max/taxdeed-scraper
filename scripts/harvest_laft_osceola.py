@@ -62,14 +62,33 @@ reorders columns later. The "Detail" column (index 0) is an action-button
 column with no real data ("View" literal text) and is explicitly dropped
 from the parsed record rather than being kept under a slugified key.
 
-Zero-results handling: not yet confirmed live what a genuine zero looks
-like on this platform (Osceola has had live LAFT properties whenever
-checked so far) - treated as a real zero if no `.ag-row` element appears
-within the wait timeout after clicking Search, consistent with every other
-LAFT vendor's "no grid rendered = no error, real zero" pattern used
-throughout this project. Worth re-confirming by hand if this ever silently
-returns 0 in production, per the same known-nonzero-county discipline used
-for Pioneer and St. Lucie.
+2026-08-25 PRODUCTION FAILURE AND FIX - read this before touching the
+selectors. The first production run of this harvester (workflow run #54)
+synced **0 properties** for a county confirmed by hand only hours earlier
+to have 10 live LANDA-status rows. It raised no exception; it simply took
+the "no grid rendered = real zero" branch and wrote an empty list. That is
+the exact silent-zero failure mode that cost this project two full build
+attempts on the Pioneer/TaxSmartWeb platform, and it is only catchable by
+cross-checking against a county KNOWN to have live data - which is why
+that discipline exists.
+
+Root cause (highest-confidence hypothesis): the original search-button
+selector was `button:text-is("Search")`, which is NOT anchored to the
+Lands Available form. This page was confirmed live to also carry a
+prominent "Run Lands Available Search" element that is a plain label with
+NO click handler at all, and there is no guarantee only one element
+matches bare "Search" text. The real trigger was identified live as the
+button carrying `ng-click="runSearch(true)"`, so the selector now keys off
+that handler attribute instead of visible text, with the old text match
+demoted to a loudly-logged fallback.
+
+Zero-results handling: a genuine zero is still treated as a real zero (no
+`.ag-row` within the timeout), consistent with every other LAFT vendor
+here - but it is no longer SILENT. `_log_zero_result_diagnostics` now
+reports whether the ag-Grid root and its header cells actually rendered:
+grid + headers present with no rows means a genuine zero, while a missing
+grid means the search never ran and it is a bug. That single line in the
+CI log is what would have caught run #54 immediately.
 
 CI note: relies on the same `playwright install chromium --with-deps` CI
 step already added for the Pioneer and St. Lucie harvesters.
@@ -99,7 +118,19 @@ UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like 
 # Matched by visible text, not by any id/href - see module docstring. Same
 # hidden-tab dependency confirmed on Pioneer and St. Lucie.
 LANDS_AVAILABLE_LINK_SELECTOR = 'a:text-is("Lands Available")'
-SEARCH_BUTTON_SELECTOR = 'button:text-is("Search")'
+
+# The REAL search trigger, keyed off its AngularJS handler rather than its
+# visible text. See the module docstring's "2026-08-25 production failure"
+# section: the original `button:text-is("Search")` selector is NOT anchored
+# to the Lands Available form and is the prime suspect for that run
+# harvesting 0 rows. This page was confirmed live to carry a prominent
+# "Run Lands Available Search" <span> that is a plain label with NO click
+# handler at all, so matching on visible text is actively dangerous here.
+SEARCH_BUTTON_SELECTOR = 'button[ng-click*="runSearch"]'
+# Only used if the ng-click selector finds nothing (e.g. the vendor
+# refactors away from that handler name) - deliberately a fallback, not the
+# primary, and logged loudly when it's the one that fires.
+SEARCH_BUTTON_FALLBACK_SELECTOR = 'button:text-is("Search")'
 HEADER_CELL_SELECTOR = ".ag-header-cell.ag-header-cell-not-grouped"
 ROW_SELECTOR = ".ag-row"
 VIEWPORT_SELECTOR = ".ag-body-viewport"
@@ -166,15 +197,31 @@ def harvest() -> list[dict]:
             # Activate the "Lands Available" search option first - see
             # module docstring. Its own Search button depends on this.
             page.click(LANDS_AVAILABLE_LINK_SELECTOR, timeout=10_000)
-            page.wait_for_selector(SEARCH_BUTTON_SELECTOR, state="visible", timeout=10_000)
-            page.click(SEARCH_BUTTON_SELECTOR, timeout=10_000)
+
+            # Prefer the ng-click-anchored selector; fall back to text only
+            # if that finds nothing, and say so loudly when it does.
+            search_selector = SEARCH_BUTTON_SELECTOR
+            if page.locator(SEARCH_BUTTON_SELECTOR).count() == 0:
+                print(
+                    f"    WARNING: no button matched {SEARCH_BUTTON_SELECTOR!r} - falling back to "
+                    f"{SEARCH_BUTTON_FALLBACK_SELECTOR!r}. The vendor may have changed its handler; "
+                    f"re-confirm this page by hand.",
+                    flush=True,
+                )
+                search_selector = SEARCH_BUTTON_FALLBACK_SELECTOR
+
+            page.wait_for_selector(search_selector, state="visible", timeout=10_000)
+            page.click(search_selector, timeout=10_000)
 
             # No grid rendering within the timeout is treated as a real
             # zero-result search - see module docstring's "Zero-results
-            # handling" section.
+            # handling" section. BUT a silent zero here was a real
+            # production bug once (run #54), so before accepting it, dump
+            # enough state to tell a true zero from a broken search.
             try:
                 page.wait_for_selector(ROW_SELECTOR, state="visible", timeout=15_000)
             except Exception:
+                _log_zero_result_diagnostics(page, search_selector)
                 browser.close()
                 return []
 
@@ -187,6 +234,44 @@ def harvest() -> list[dict]:
         finally:
             browser.close()
     return _parse_results(collected, header_labels, footer_text)
+
+
+def _log_zero_result_diagnostics(page, search_selector: str) -> None:
+    """Explain WHY no rows appeared, so a genuine 'this county has no
+    Lands Available properties right now' can be told apart from a broken
+    search at a glance in the CI log.
+
+    Added after run #54 harvested 0 rows for a county confirmed by hand to
+    have 10 live properties, with nothing in the log to distinguish the two
+    cases - the same silent-zero class of bug that cost this project two
+    build attempts on the Pioneer platform. Deliberately never raises: a
+    diagnostic failure must not turn a real zero into a crashed job.
+    """
+    try:
+        grid_present = page.locator(".ag-root").count() > 0
+        header_count = page.locator(HEADER_CELL_SELECTOR).count()
+        button_count = page.locator(search_selector).count()
+        body = page.inner_text("body") or ""
+        footer_hit = FOOTER_COUNT_RE.search(body)
+        print(
+            f"    zero-result diagnostics: ag-Grid present={grid_present}, "
+            f"header cells={header_count}, search buttons matched={button_count}, "
+            f"footer record count={footer_hit.group(1) if footer_hit else 'none found'}",
+            flush=True,
+        )
+        if grid_present and header_count > 0:
+            print(
+                "    -> grid and headers rendered but no rows: this looks like a GENUINE zero.",
+                flush=True,
+            )
+        else:
+            print(
+                "    -> grid/headers did NOT render: the search likely never ran. "
+                "This is probably a BUG, not a real zero - check the selectors.",
+                flush=True,
+            )
+    except Exception as exc:  # noqa: BLE001 - diagnostics must never break the run
+        print(f"    (zero-result diagnostics unavailable: {exc})", flush=True)
 
 
 def _slugify(label: str) -> str:
