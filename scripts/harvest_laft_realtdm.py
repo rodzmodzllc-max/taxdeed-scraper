@@ -13,21 +13,23 @@ selection triggers no visible network activity until you click "Process
 Search"), but turns out to be a plain HTML <form method="post"> - the
 "Process Search" click just submits a normal form POST back to the same
 URL and the server re-renders the page with results baked into the HTML.
-No JavaScript execution or session/cookie dance is required - `requests`
-alone reproduces it. Confirmed live via the browser's network panel on
-Alachua and Highlands before writing this script.
+No JavaScript execution is required - `requests` alone reproduces it.
+Confirmed live via the browser's network panel on Alachua and Highlands
+before writing this script.
 
-Two real requests per county, no more:
+Requests per county:
 1. GET the list page. Each tenant assigns its OWN numeric ID to each case
-status (confirmed: Alachua's "List of Lands - Available For Public" is
-status 1171; Highlands' is 1857 - NOT a shared enum across tenants),
-but the status LABEL TEXT is identical across tenants (same vendor
-template) - the ID is embedded in the page as
-`<a data-status-id="NNNN">List of Lands - Available For Public</a>`,
-so it's looked up per county rather than hardcoded.
+   status (confirmed: Alachua's "List of Lands - Available For Public" is
+   status 1171; Highlands' is 1857 - NOT a shared enum across tenants),
+   but the status LABEL TEXT is identical across tenants (same vendor
+   template) - the ID is embedded in the page as
+   `<a data-status-id="NNNN">List of Lands - Available For Public</a>`,
+   so it's looked up per county rather than hardcoded.
 2. POST the same URL with `filtercasestatus=<that ID>` and the rest of
-the form's fields empty/default. The response HTML contains the
-result cards directly - no separate AJAX/JSON call to chase down.
+   the form's fields empty/default. The response HTML contains the
+   result cards directly - no separate AJAX/JSON call to chase down.
+3. One POST to /public/cases/details PER CASE, to get the purchase price -
+   see "PURCHASE PRICE" below.
 
 A few RealTDM subdomains that LOOK like real tenants from search results
 turn out to be unconfigured placeholders - confirmed live: osceola.realtdm.com
@@ -35,14 +37,47 @@ and nassau.realtdm.com both render as clerk name "TEST" instead of a real
 county name. Treated as a hard signal to skip that tenant entirely rather
 than harvest garbage - see _is_placeholder_tenant().
 
-Known gap: the case-list view (what this script reads) does not surface a
-purchase price/bid or a street address at all - only case #, parcel #, and
-sale date. Getting the price would mean a THIRD request per case (the
-"cases/details" endpoint, one call per property rather than per county) -
-deliberately not built yet given the fan-out cost; `bid` is left absent and
-sync-laft-to-supabase.ps1 already defaults it to 0 (same as any other
-county with no published price), and `address` falls back to "Parcel X"
-via that same script's existing fallback chain.
+PURCHASE PRICE (added 2026-08-26 - this closes a real data-quality bug).
+The case-LIST view does not surface a purchase price at all. Its only
+monetary column is "Surplus Balance", which is NOT the price - it is
+leftover proceeds from the failed auction and is legitimately $0.00 on
+essentially every Lands Available case. Because nothing was mapped to
+`bid`, sync-laft-to-supabase.ps1's "no published price" fallback kicked in
+and every RealTDM property landed in the database with bid = 0, rendering
+as "$0" in the app. Confirmed 2026-08-26: that was ALL of Polk (16),
+Sarasota (14), Alachua (4), Highlands (3) and Lee (1) - 38 properties, the
+large majority of every $0 row in the whole LAFT dataset.
+
+The price does exist: it is on each case's DETAIL page, labelled
+"Purchase Price" (alongside "Redemption Amount"), reachable by POSTing
+`caseID` / `openCaseList` / `isPublic=1` to /public/cases/details. This
+harvester now does that, one request per case. The original decision to
+skip it cited "fan-out cost", but measured against real data that cost is
+~38 extra requests across 7 counties per run - negligible, and plainly
+worth it versus publishing a wrong $0 for every RealTDM property.
+
+IMPORTANT AND DELIBERATE - the figure captured here is the BASE purchase
+price, and it is slightly LOW. Confirmed live on all three counties
+checked: the server-rendered HTML carries a base figure (identical to the
+case's Redemption Amount), and the page's own client-side JS then adds
+recording fees, doc stamps and interest accrued as of today, landing
+~0.5-4% higher (e.g. Polk case 79816: raw 4,774.04 vs rendered 4,829.88).
+Since this harvester deliberately does not execute JS, it stores the base
+figure. That is a conservative, real, useful number - vastly better than
+the $0 it replaces - but it is NOT a final quote, and the true figure is
+date-sensitive. It must not be presented to a user as an exact amount to
+tender. If an exact figure is ever needed, either execute the page JS or
+reproduce the itemised calculation from the detail page's
+`modalPurchasePriceCalculations` line items (TDA_TC_CERTTOT, TDA_TC_DELTAX,
+TC_INT, PURCHASE_DOCSTAMPS, etc.).
+
+Parsing of that field is done by locating the visible label text
+"Purchase Price" and taking the nearest currency value, rather than by a
+fixed CSS path - the same match-a-stable-visible-label discipline used by
+every other harvester in this project. A case whose price cannot be found
+is left WITHOUT a bid (falling back to the old behaviour) and logged, so a
+vendor markup change degrades to the previous state rather than silently
+writing a wrong number.
 
 Output: harvest_laft_realtdm.json / .csv - kept separate from the PDF and
 plain-HTML harvesters' outputs. sync-laft-to-supabase.ps1 merges all three.
@@ -88,6 +123,24 @@ STATUS_LABELS = ("List of Lands - Available For Public", "List of Lands")
 # first space.
 CASE_NO_RE = re.compile(r"CASE #(.+)")
 
+# The detail page's own label for the figure we want. Matched as visible
+# text, not by CSS path - see the PURCHASE PRICE note in the module
+# docstring. Kept as a tuple so a vendor rewording can be added without
+# restructuring the lookup.
+PURCHASE_PRICE_LABELS = ("Purchase Price",)
+
+# A currency amount as the vendor renders it, e.g. "$4,829.88" or
+# "4,829.88". Anchored on the decimal cents so it can't match a bare case
+# number or a year.
+CURRENCY_RE = re.compile(r"\$?\s*(\d{1,3}(?:,\d{3})*(?:\.\d{2})|\d+\.\d{2})")
+
+# The list row carries the case's internal numeric ID, which the detail
+# endpoint needs. Confirmed live it appears both as a `data-caseid`
+# attribute and inside a checkbox value shaped "<caseID>|<caseNumber>" -
+# both are tried, since only one may survive a vendor markup tweak.
+CASE_ID_IN_VALUE_RE = re.compile(r"^(\d+)\|")
+
+
 # RealTDM's own date format ("Oct 21, 2025") isn't one
 # sync-laft-to-supabase.ps1's ConvertTo-IsoDate knows how to parse (it only
 # tries MM/dd/yyyy, M/d/yyyy, yyyy-MM-dd) - converted here at harvest time
@@ -102,6 +155,7 @@ def _reformat_date(s: str) -> str | None:
     except ValueError:
         return s or None  # pass through unrecognized shapes rather than drop the data
 
+
 def _is_placeholder_tenant(soup: BeautifulSoup) -> bool:
     """Confirmed live: osceola.realtdm.com and nassau.realtdm.com both exist
     as DNS/routes but were never configured for that county - the page
@@ -111,6 +165,7 @@ def _is_placeholder_tenant(soup: BeautifulSoup) -> bool:
     this makes it a loud skip instead."""
     header = soup.find(string=re.compile(r"\bTEST\b"))
     return header is not None and soup.title is not None and "TEST" in soup.title.get_text()
+
 
 def _find_status_id(soup: BeautifulSoup, labels: tuple[str, ...]) -> tuple[str, str] | None:
     """Return (status_id, matched_label) for the first of `labels` found on
@@ -124,6 +179,73 @@ def _find_status_id(soup: BeautifulSoup, labels: tuple[str, ...]) -> tuple[str, 
             return a["data-status-id"], text
     return None
 
+
+def _extract_case_id(card) -> str | None:
+    """The internal numeric case ID the detail endpoint keys off. Tries the
+    `data-caseid` attribute first, then a checkbox value shaped
+    "<caseID>|<caseNumber>" - see CASE_ID_IN_VALUE_RE. Returns None rather
+    than raising, so a card without one just skips its price lookup."""
+    if card.has_attr("data-caseid") and str(card["data-caseid"]).strip():
+        return str(card["data-caseid"]).strip()
+    node = card.select_one("[data-caseid]")
+    if node is not None and str(node.get("data-caseid", "")).strip():
+        return str(node["data-caseid"]).strip()
+    for inp in card.select("input[value]"):
+        m = CASE_ID_IN_VALUE_RE.match(str(inp.get("value", "")))
+        if m:
+            return m.group(1)
+    return None
+
+
+def _extract_purchase_price(html: bytes) -> str | None:
+    """Pull the "Purchase Price" figure out of a case detail page.
+
+    Matched by visible label text and then the nearest currency value,
+    NOT by a fixed CSS path - see the module docstring. Returns the raw
+    currency string (sync-laft-to-supabase.ps1's ToNum strips formatting)
+    or None if the label isn't found, so the caller can log it and leave
+    `bid` absent rather than write something wrong.
+    """
+    soup = BeautifulSoup(html, "html.parser")
+    for label in PURCHASE_PRICE_LABELS:
+        node = soup.find(string=re.compile(rf"\b{re.escape(label)}\b", re.IGNORECASE))
+        if node is None:
+            continue
+        # Walk outward from the label a few levels; the amount is rendered
+        # as a sibling/child within the same card, but the exact nesting
+        # depth differs slightly between tenants.
+        el = node.parent
+        for _ in range(4):
+            if el is None:
+                break
+            text = el.get_text(" ", strip=True)
+            # Drop the label itself before searching, so a label that
+            # happens to sit next to an unrelated number can't match.
+            after = text.split(label, 1)[-1] if label in text else text
+            m = CURRENCY_RE.search(after)
+            if m:
+                return m.group(1)
+            el = el.parent
+    return None
+
+
+def _fetch_purchase_price(session: requests.Session, base_url: str, case_id: str) -> str | None:
+    """One POST to the detail endpoint for a single case. Never raises -
+    a per-case network/parse failure must not abort the county, let alone
+    the run; the caller logs and leaves `bid` absent."""
+    try:
+        resp = session.post(
+            f"{base_url}/public/cases/details",
+            data={"caseID": case_id, "openCaseList": case_id, "isPublic": "1"},
+            headers={"User-Agent": UA},
+            timeout=30,
+        )
+        resp.raise_for_status()
+        return _extract_purchase_price(resp.content)
+    except Exception:  # noqa: BLE001 - deliberately swallowed, see docstring
+        return None
+
+
 def _parse_cases(html: bytes, county: str, source_url: str) -> list[dict]:
     soup = BeautifulSoup(html, "html.parser")
     cards = soup.select(".content-box.load-case")
@@ -135,6 +257,9 @@ def _parse_cases(html: bytes, county: str, source_url: str) -> list[dict]:
         if not m:
             continue
         record: dict = {"county": county, "source": "laft", "url_auction": source_url, "case_no": m.group(1)}
+        case_id = _extract_case_id(card)
+        if case_id:
+            record["_case_id"] = case_id
         for row in card.select(".data-row"):
             label_el = row.select_one(".data-label")
             value_el = row.select_one(".data-value")
@@ -155,13 +280,16 @@ def _parse_cases(html: bytes, county: str, source_url: str) -> list[dict]:
             # rather than mapped to something misleading (Surplus Balance
             # in particular is NOT the LAFT purchase price - a different
             # figure entirely, almost always $0.00 for a LAFT case - do not
-            # ever map it to `bid`).
+            # ever map it to `bid`). The real price comes from the detail
+            # page instead - see _fetch_purchase_price.
         if record.get("case_no") or record.get("parcel"):
             out.append(record)
     return out
 
+
 def harvest_county(session: requests.Session, county: str, subdomain: str) -> list[dict]:
-    url = f"https://{subdomain}.realtdm.com/public/cases/list"
+    base_url = f"https://{subdomain}.realtdm.com"
+    url = f"{base_url}/public/cases/list"
     resp = session.get(url, headers={"User-Agent": UA}, timeout=30)
     resp.raise_for_status()
     soup = BeautifulSoup(resp.content, "html.parser")
@@ -174,7 +302,7 @@ def harvest_county(session: requests.Session, county: str, subdomain: str) -> li
         raise RuntimeError(f'none of the known "List of Lands" status labels {STATUS_LABELS!r} were found on this tenant - label wording may differ here')
     status_id, matched_label = found
     if matched_label != STATUS_LABELS[0]:
-        print(f" (matched alternate label {matched_label!r})", flush=True)
+        print(f"    (matched alternate label {matched_label!r})", flush=True)
 
     form_data = {
         "filterPageNumber": "1",
@@ -198,7 +326,34 @@ def harvest_county(session: requests.Session, county: str, subdomain: str) -> li
     }
     resp = session.post(url, data=form_data, headers={"User-Agent": UA}, timeout=30)
     resp.raise_for_status()
-    return _parse_cases(resp.content, county, url)
+    rows = _parse_cases(resp.content, county, url)
+
+    # Second pass: one detail request per case for the purchase price. See
+    # the PURCHASE PRICE section of the module docstring for why this is
+    # worth the fan-out and why the figure is deliberately the base one.
+    priced = 0
+    missing_id = 0
+    unparsed = 0
+    for row in rows:
+        case_id = row.pop("_case_id", None)
+        if not case_id:
+            missing_id += 1
+            continue
+        price = _fetch_purchase_price(session, base_url, case_id)
+        if price:
+            row["bid"] = price
+            priced += 1
+        else:
+            unparsed += 1
+    if rows:
+        print(f"    purchase price: {priced}/{len(rows)} found", flush=True)
+        if missing_id:
+            print(f"    WARNING: {missing_id} case(s) had no extractable case ID - no price looked up for those", flush=True)
+        if unparsed:
+            print(f"    WARNING: {unparsed} case(s) returned no parseable \"Purchase Price\" - left without a bid rather than guessing", flush=True)
+
+    return rows
+
 
 def main() -> int:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -213,12 +368,12 @@ def main() -> int:
             session = requests.Session()
             rows = harvest_county(session, county, subdomain)
             if rows:
-                print(f"  {len(rows)} properties", flush=True)
+                print(f"    {len(rows)} properties", flush=True)
                 all_rows.extend(rows)
             else:
-                print("  no properties currently listed", flush=True)
+                print("    no properties currently listed", flush=True)
         except Exception as exc:  # noqa: BLE001 - one bad county must not kill the whole run
-            print(f"  ERROR: {exc}", flush=True)
+            print(f"    ERROR: {exc}", flush=True)
 
     with open(OUT_JSON, "w", encoding="utf-8") as f:
         json.dump(all_rows, f, indent=2)
@@ -232,13 +387,16 @@ def main() -> int:
     else:
         OUT_CSV.write_text("", encoding="utf-8")
 
+    with_bid = sum(1 for r in all_rows if r.get("bid"))
     print("")
     print("=" * 50)
     print(f"Harvested {len(all_rows)} LAFT properties total")
     print(f"Counties with matches: {len({r['county'] for r in all_rows})} of {len(sources)} checked")
+    print(f"With a purchase price: {with_bid} of {len(all_rows)}")
     print("=" * 50)
     print(f"Saved: {OUT_JSON}")
     return 0
+
 
 if __name__ == "__main__":
     sys.exit(main())
