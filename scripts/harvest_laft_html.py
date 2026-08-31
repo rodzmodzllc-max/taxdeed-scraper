@@ -328,7 +328,7 @@ def _table_to_rows(table) -> list[list[str]]:
     for tr in table.find_all("tr"):
         cells = tr.find_all(["th", "td"])
         if cells:
-            rows.append([c.get_text(strip=True) for c in cells])
+            rows.append([c.get_text(" ", strip=True) for c in cells])
     return rows
 
 def _rows_from_card_table(rows: list[list[str]], county: str, source_url: str) -> list[dict]:
