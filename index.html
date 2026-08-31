@@ -7,8 +7,8 @@
 <title>FL Tax Deed Watchlist</title>
 <link rel="stylesheet" href="styles.css">
 <!-- Loads AFTER styles.css on purpose: explore.css adds the split list+map
-     view and applies a handful of plain-specificity overrides to the card and
-     filter-bar classes above, which only win if it comes second. -->
+view and applies a handful of plain-specificity overrides to the card and
+filter-bar classes above, which only win if it comes second. -->
 <link rel="stylesheet" href="explore.css">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#0F172A">
@@ -50,10 +50,10 @@
 </div>
 
 <!-- ============ pending approval ============
-     Shown instead of the app for a signed-in account whose profiles.approved
-     is still false (see schema-v6-approvals.sql) - the account exists and
-     can authenticate, but every ledger table is walled off by RLS until the
-     owner approves it, so there'd be nothing to show here anyway. -->
+Shown instead of the app for a signed-in account whose profiles.approved
+is still false (see schema-v6-approvals.sql) - the account exists and
+can authenticate, but every ledger table is walled off by RLS until the
+owner approves it, so there'd be nothing to show here anyway. -->
 <div id="pendingGate" hidden>
 <div class="auth-card">
 <div class="auth-brand">
@@ -69,16 +69,16 @@
 <!-- ============ app ============ -->
 <div id="app" hidden>
 <!-- Slim brand strip, pinned above the (deliberately non-sticky) masthead
-     below - see the note on .masthead for why the taller block isn't the
-     one that pins itself. -->
+below - see the note on .masthead for why the taller block isn't the
+one that pins itself. -->
 <div class="topbar">
 <img class="brand-mark" src="icons/icon-192.png?v=2" width="22" height="22" alt="" aria-hidden="true">
 <span class="brand-name">FL Tax Deed<span class="brand-accent">•</span>Watchlist</span>
 </div>
 <!-- Admin-only: visible when the signed-in account's profiles.is_admin is
-     true AND at least one other account is awaiting approval. Everyone
-     else never sees this section (and can't - RLS only lets admins read
-     other people's profiles rows in the first place). -->
+true AND at least one other account is awaiting approval. Everyone
+else never sees this section (and can't - RLS only lets admins read
+other people's profiles rows in the first place). -->
 <div class="admin-approvals" id="adminApprovals" hidden>
 <div class="admin-approvals-head">🔔 Pending sign-ups awaiting your approval</div>
 <div class="admin-approvals-list" id="adminApprovalsList"></div>
@@ -101,7 +101,7 @@
 <p class="disclaimer-badge"><span class="dot">⚠</span><span><b>Best-effort public records search</b> — not a certified title search. Always verify with a title professional before bidding.</span></p>
 <p class="generated" id="generatedAt">Loading…</p>
 <!-- Two (really three) separate ledgers, front and center right after sign-in -
-     not one long scroll where Lands Available sits under 300+ auction cards. -->
+not one long scroll where Lands Available sits under 300+ auction cards. -->
 <div class="ledger-tabs" id="ledgerTabs">
 <button class="ledger-tab" data-ledger="auction" type="button">Tax Deeds / Auctions <b id="tabCountAuction">0</b></button>
 <button class="ledger-tab" data-ledger="laft" type="button">Lands Available / OTC <b id="tabCountLaft">0</b></button>
@@ -112,19 +112,19 @@
 <button class="chip ok" data-status="live" type="button">Active&nbsp;<b id="chipActive">0</b></button>
 <button class="chip bad" data-status="gone" type="button">Gone&nbsp;<b id="chipGone">0</b></button>
 <!-- Past-due auctions never show in Shown/Active/Gone (see isPastDue in
-     app.js) so notes/favorites on a property you won don't just vanish
-     once its sale date passes - this is the only place to still find them. -->
+app.js) so notes/favorites on a property you won don't just vanish
+once its sale date passes - this is the only place to still find them. -->
 <button class="chip archive" data-status="archive" type="button" title="Auctions whose sale date has passed - kept here so your notes on them aren't lost">Archive&nbsp;<b id="chipArchive">0</b></button>
 <!-- Not a status-view filter chip like the four above (no data-status,
-     so it's excluded from that click-toggle group in app.js) - this
-     opens the separate My Bid List modal instead. -->
+so it's excluded from that click-toggle group in app.js) - this
+opens the separate My Bid List modal instead. -->
 <button class="chip bidlist" id="bidListToggle" type="button" title="Your capped shortlist of properties to actually bid on">⚑ Bid List&nbsp;<b id="bidListCount">0/10</b></button>
 </div>
 <!-- Quick controls: instant search + a single-pick county dropdown (the
-     detailed multi-select county/type/lien chips still live in Filters &
-     Sort below), the List/Split/Map view switcher, a per-page limit so
-     hundreds of cards don't render at once, and a one-click CSV export of
-     whatever's currently filtered. -->
+detailed multi-select county/type/lien chips still live in Filters &
+Sort below), the List/Split/Map view switcher, a per-page limit so
+hundreds of cards don't render at once, and a one-click CSV export of
+whatever's currently filtered. -->
 <div class="quick-controls" id="quickControls">
 <div class="qc-field">
 <span class="qc-icon">🔍</span>
@@ -136,8 +136,8 @@
 <span class="qc-chevron"></span>
 </div>
 <!-- Handled entirely by explore.js - app.js knows nothing about view mode.
-     Split is hidden by CSS below 900px, where a half-width list would be
-     unusable rather than merely tight. -->
+Split is hidden by CSS below 900px, where a half-width list would be
+unusable rather than merely tight. -->
 <div class="view-toggle" id="viewToggle" role="group" aria-label="View mode">
 <button type="button" data-mode="list" aria-pressed="false"><span class="vt-icon">☰</span>List</button>
 <button type="button" data-mode="split" aria-pressed="false"><span class="vt-icon">◫</span>Split</button>
@@ -198,10 +198,10 @@
 </select>
 </div>
 <!-- Tiebreaker sort - applies within ties left by the primary sort above
-     (e.g. several properties with the same sale date), or as the whole sort
-     when the primary is left on "County (default order)", which has no
-     comparator of its own. Excludes "county" since that option has no
-     comparator to apply as a tiebreaker either. -->
+(e.g. several properties with the same sale date), or as the whole sort
+when the primary is left on "County (default order)", which has no
+comparator of its own. Excludes "county" since that option has no
+comparator to apply as a tiebreaker either. -->
 <div class="field" style="flex:1 1 48%">
 <select id="sortSecondary">
 <option value="">Then by: (none)</option>
@@ -231,8 +231,8 @@
 </div>
 
 <!-- Advanced multi-select filters, collapsed behind dropdown-style
-     <details> disclosures so the panel doesn't read as a wall of
-     chips - each summary shows how many are currently selected. -->
+<details> disclosures so the panel doesn't read as a wall of
+chips - each summary shows how many are currently selected. -->
 <div class="filters-section">
 <div class="filters-section-head"><span class="filters-section-title">Advanced Filters</span></div>
 
@@ -263,9 +263,9 @@
 <div class="map-wrap" id="mapWrap" hidden>
 <div class="map-hint" id="mapHint">Colored counties have a confirmed auction format. Tap a county to zoom in and see its name - tap it again to filter to it.</div>
 <!-- Shown only while zoomed into one county (see zoomToCounty() in app.js) -
-     the state-wide view has no room to label all 67 counties legibly, so
-     this is where the name actually becomes readable instead of only living
-     in an SVG <title> hover tooltip nobody on a touch device will ever see. -->
+the state-wide view has no room to label all 67 counties legibly, so
+this is where the name actually becomes readable instead of only living
+in an SVG <title> hover tooltip nobody on a touch device will ever see. -->
 <div class="map-zoom-banner" id="mapZoomBanner" hidden>
 <span class="map-zoom-name" id="mapZoomName"></span>
 <button class="mini-btn" id="mapZoomOutBtn" type="button">↺ Full map</button>
@@ -291,11 +291,11 @@
 </div>
 
 <!-- ============ explore shell: card list + county map ============
-     #main is exactly the list app.js has always rendered - it is untouched.
-     The map panel beside it is drawn by explore.js from the same filtered
-     rows the list just used (see the tdw:rendered contract in that file), so
-     the two panes can never disagree about what's in view. data-mode is set
-     by explore.js and drives the whole layout from CSS alone. -->
+#main is exactly the list app.js has always rendered - it is untouched.
+The map panel beside it is drawn by explore.js from the same filtered
+rows the list just used (see the tdw:rendered contract in that file), so
+the two panes can never disagree about what's in view. data-mode is set
+by explore.js and drives the whole layout from CSS alone. -->
 <div class="explore-shell" id="exploreShell" data-mode="list">
 <main id="main"></main>
 <aside class="explore-map-panel" id="exploreMapPanel">
@@ -313,10 +313,10 @@
 <button class="explore-map-reset" id="exploreMapReset" type="button" hidden>Clear county filter</button>
 </div>
 <!-- Said plainly on the panel rather than left to be inferred: a bubble is
-     a county-level count, not a parcel pin. Only ~2% of rows currently
-     carry latitude/longitude (see the header comment in explore.js), so
-     drawing these as street-level pins would be a precision the data
-     doesn't have. -->
+a county-level count, not a parcel pin. Only ~2% of rows currently
+carry latitude/longitude (see the header comment in explore.js), so
+drawing these as street-level pins would be a precision the data
+doesn't have. -->
 <p class="explore-map-note">Bubbles are county-level counts, sized by how many properties match your filters — not exact parcel locations.</p>
 </div>
 </aside>
@@ -332,15 +332,15 @@ Title badges are a best-effort public-records search, <b>not a certified title s
 
 <!-- ============ "My Bid List" modal ============ -->
 <!-- Placed before detailModal in the DOM so, when both are open at once
-     (viewing a property's full page from inside the bid list), detailModal
-     paints on top at the same z-index - later sibling wins. -->
+(viewing a property's full page from inside the bid list), detailModal
+paints on top at the same z-index - later sibling wins. -->
 <div class="detail-modal" id="bidListModal" hidden>
 <div class="detail-modal-inner bidlist-modal-inner" id="bidListModalInner"></div>
 </div>
 
 <!-- ============ "Hidden Properties" modal ============ -->
 <!-- Same placement rationale as the bid list modal above - stays before
-     detailModal in the DOM so the detail modal always paints on top of it. -->
+detailModal in the DOM so the detail modal always paints on top of it. -->
 <div class="detail-modal" id="hiddenModal" hidden>
 <div class="detail-modal-inner bidlist-modal-inner" id="hiddenModalInner"></div>
 </div>
@@ -351,12 +351,12 @@ Title badges are a best-effort public-records search, <b>not a certified title s
 </div>
 
 <!-- ============ change password modal ============
-     Reuses the .detail-modal shell (same overlay/close-button/scroll pattern
-     as bidListModal and detailModal above). See app.js for the flow: current
-     password is re-verified via signInWithPassword before calling
-     sb.auth.updateUser() - a plain updateUser() alone would let anyone using
-     an already-open signed-in session change the password without proving
-     they know the existing one. -->
+Reuses the .detail-modal shell (same overlay/close-button/scroll pattern
+as bidListModal and detailModal above). See app.js for the flow: current
+password is re-verified via signInWithPassword before calling
+sb.auth.updateUser() - a plain updateUser() alone would let anyone using
+an already-open signed-in session change the password without proving
+they know the existing one. -->
 <div class="detail-modal" id="changePasswordModal" hidden>
 <div class="detail-modal-inner" id="changePasswordModalInner">
 <button class="detail-close" id="changePasswordCloseBtn" type="button" aria-label="Close">&times;</button>
@@ -373,9 +373,9 @@ Title badges are a best-effort public-records search, <b>not a certified title s
 
 <script type="module" src="app.js"></script>
 <!-- Loaded after app.js: explore.js only ever reacts to the tdw:rendered
-     event app.js dispatches, so load order isn't strictly required - but
-     keeping it second matches the dependency direction and makes that
-     one-way relationship obvious from the markup. -->
+event app.js dispatches, so load order isn't strictly required - but
+keeping it second matches the dependency direction and makes that
+one-way relationship obvious from the markup. -->
 <script type="module" src="explore.js"></script>
 </body>
 </html>

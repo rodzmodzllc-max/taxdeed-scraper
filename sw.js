@@ -2,98 +2,98 @@
 // signal at a courthouse.
 //
 // Strategy is deliberately split:
-//  * App shell (html/css/js/icons) - cache-first, so it launches instantly.
-//  * Everything else, including all Supabase traffic - network-only.
-//    Property data, notes and auth must never be served stale, and caching
-//    authenticated API responses on disk would be a privacy problem.
+// * App shell (html/css/js/icons) - cache-first, so it launches instantly.
+// * Everything else, including all Supabase traffic - network-only.
+// Property data, notes and auth must never be served stale, and caching
+// authenticated API responses on disk would be a privacy problem.
 
 // Bump this on every deploy that changes the shell, otherwise returning users
 // keep the old CSS/JS from cache and your fix appears not to have shipped.
 // v8: icon URLs below got a ?v=2 cache-buster (see comment there) - bumping
-//     this too forces the old cached (pre-relogo) icons out of everyone's
-//     Cache Storage immediately instead of waiting on their natural expiry.
-// v9: added explore.css / explore.js (split list+map view) and fl-counties.svg
-//     to the shell. The SVG is now a real dependency of a primary view rather
-//     than of a filter-panel extra, so it belongs in the offline shell - the
-//     map is one of the things this PWA exists to still work without signal.
+// this too forces the old cached (pre-relogo) icons out of everyone's
+// Cache Storage immediately instead of waiting on their natural expiry.
+// v9: adds explore.css / explore.js (the split list+map view) and
+// fl-counties.svg. That SVG is now a dependency of a primary view rather
+// than of a filter-panel extra, so it belongs in the offline shell - the
+// map still working without signal is half the point of shipping a PWA.
 const CACHE = "tdw-shell-v9";
 const SHELL = [
-"/",
-"/index.html",
-"/styles.css",
-"/explore.css",
-"/app.js",
-"/explore.js",
-"/config.js",
-"/fl-counties.svg",
-"/manifest.webmanifest",
-// Icon bytes changed (new logo) but the filenames didn't, and /icons/* is
-// served with a 7-day Cache-Control (see _headers) plus this worker's own
-// cache-first icon handling below - two layers that would otherwise keep
-// serving the old logo to anyone who'd already visited. The ?v=2 query
-// string makes this a new URL to both caches, so it's fetched fresh once,
-// then stays cache-first (fast) after that. Bump to v3/v4/etc next time
-// the icon files themselves change again.
-"/icons/icon-192.png?v=2",
-"/icons/icon-512.png?v=2"
+  "/",
+  "/index.html",
+  "/styles.css",
+  "/explore.css",
+  "/app.js",
+  "/explore.js",
+  "/config.js",
+  "/fl-counties.svg",
+  "/manifest.webmanifest",
+  // Icon bytes changed (new logo) but the filenames didn't, and /icons/* is
+  // served with a 7-day Cache-Control (see _headers) plus this worker's own
+  // cache-first icon handling below - two layers that would otherwise keep
+  // serving the old logo to anyone who'd already visited. The ?v=2 query
+  // string makes this a new URL to both caches, so it's fetched fresh once,
+  // then stays cache-first (fast) after that. Bump to v3/v4/etc next time
+  // the icon files themselves change again.
+  "/icons/icon-192.png?v=2",
+  "/icons/icon-512.png?v=2"
 ];
 
 self.addEventListener("install", e => {
-e.waitUntil(
-caches.open(CACHE)
-// addAll is atomic - one 404 would reject the whole install, so add
-// individually and tolerate misses.
-.then(c => Promise.all(SHELL.map(u => c.add(u).catch(() => {}))))
-.then(() => self.skipWaiting())
-);
+  e.waitUntil(
+    caches.open(CACHE)
+      // addAll is atomic - one 404 would reject the whole install, so add
+      // individually and tolerate misses.
+      .then(c => Promise.all(SHELL.map(u => c.add(u).catch(() => {}))))
+      .then(() => self.skipWaiting())
+  );
 });
 
 self.addEventListener("activate", e => {
-e.waitUntil(
-caches.keys()
-.then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
-.then(() => self.clients.claim())
-);
+  e.waitUntil(
+    caches.keys()
+      .then(keys => Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k))))
+      .then(() => self.clients.claim())
+  );
 });
 
 self.addEventListener("fetch", e => {
-const req = e.request;
-if (req.method !== "GET") return;
+  const req = e.request;
+  if (req.method !== "GET") return;
 
-const url = new URL(req.url);
+  const url = new URL(req.url);
 
-// Never touch Supabase or any cross-origin request.
-if (url.origin !== self.location.origin) return;
+  // Never touch Supabase or any cross-origin request.
+  if (url.origin !== self.location.origin) return;
 
-// Navigations: try network first so a redeploy is picked up immediately,
-// fall back to the cached shell when offline.
-if (req.mode === "navigate") {
-e.respondWith(
-fetch(req).catch(() => caches.match("/index.html").then(r => r || Response.error()))
-);
-return;
-}
+  // Navigations: try network first so a redeploy is picked up immediately,
+  // fall back to the cached shell when offline.
+  if (req.mode === "navigate") {
+    e.respondWith(
+      fetch(req).catch(() => caches.match("/index.html").then(r => r || Response.error()))
+    );
+    return;
+  }
 
-// Icons never change without a filename (or ?v=) change - cache-first is safe.
-if (/\.(png|ico|svg|webmanifest)$/i.test(url.pathname)) {
-e.respondWith(
-caches.match(req).then(hit => hit || fetch(req).then(res => {
-if (res && res.ok) { const c = res.clone(); caches.open(CACHE).then(x => x.put(req, c)); }
-return res;
-}))
-);
-return;
-}
+  // Icons never change without a filename (or ?v=) change - cache-first is safe.
+  if (/\.(png|ico|svg|webmanifest)$/i.test(url.pathname)) {
+    e.respondWith(
+      caches.match(req).then(hit => hit || fetch(req).then(res => {
+        if (res && res.ok) { const c = res.clone(); caches.open(CACHE).then(x => x.put(req, c)); }
+        return res;
+      }))
+    );
+    return;
+  }
 
-// Code (css/js): NETWORK FIRST. Cache-first here meant a deploy silently did
-// not reach anyone who already had the app open - the cached copy just kept
-// winning. Cache is now only a fallback for being offline.
-e.respondWith(
-fetch(req)
-.then(res => {
-if (res && res.ok) { const c = res.clone(); caches.open(CACHE).then(x => x.put(req, c)); }
-return res;
-})
-.catch(() => caches.match(req))
-);
+  // Code (css/js): NETWORK FIRST. Cache-first here meant a deploy silently did
+  // not reach anyone who already had the app open - the cached copy just kept
+  // winning. Cache is now only a fallback for being offline.
+  e.respondWith(
+    fetch(req)
+      .then(res => {
+        if (res && res.ok) { const c = res.clone(); caches.open(CACHE).then(x => x.put(req, c)); }
+        return res;
+      })
+      .catch(() => caches.match(req))
+  );
 });
