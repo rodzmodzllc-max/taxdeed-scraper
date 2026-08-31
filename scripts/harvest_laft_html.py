@@ -287,7 +287,7 @@ _PRICE_RE = re.compile(r"Estimated Purchase Price:\s*\$?([\d,]+\.\d{2})", re.IGN
 def normalize_header(h: str) -> str | None:
     if not h:
         return None
-    key = re.sub(r"[^a-z0-9()#. ]", "", h.strip().lower())
+    key = re.sub(r"[^a-z0-9()#. ]", "", re.sub(r"\s+", " ", h.strip().lower()))
     key = re.sub(r"\s+", " ", key).strip()
     return HEADER_MAP.get(key)
 
