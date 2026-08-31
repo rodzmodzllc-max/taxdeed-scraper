@@ -62,6 +62,10 @@ let ledger = "auction";
 let openDetail = null;
 let svgLoaded = false;
 let centroids = new Map();     // county -> {cx, cy} in SVG user units
+let centroidsOk = false;       // false while the only measurements we have
+                               // came from a hidden (unlaid-out) SVG
+let pendingDraw = false;       // a draw was asked for while the panel had no
+                               // geometry yet; run it once it does
 let selectedCounty = null;     // county the map has filtered the list to
 
 const $ = id => document.getElementById(id);
@@ -132,14 +136,62 @@ async function ensureMap() {
 // does (see computeCountyCentroids in app.js). The tradeoff is a label that
 // can land slightly off inside a very concave county - Monroe's Keys chain
 // being the one that actually shows it.
+//
+// getBBox() on an element inside a display:none subtree returns zeros (or
+// throws) rather than failing loudly. This module loads while the auth gate
+// is still up and #app is hidden, so the FIRST measurement is always the
+// worthless one: every county comes back 0x0, every centroid lands on the
+// SVG origin, and all 67 bubbles stack in the top-left corner of Florida.
+// That shipped to the preview and is what this flag exists to stop - we only
+// trust a measurement pass that produced at least one real box, and redraw
+// once the panel is actually on screen (see watchForVisibility below).
 function computeCentroids(canvas) {
-  centroids.clear();
+  const next = new Map();
+  let sawRealGeometry = false;
   canvas.querySelectorAll("path[data-county]").forEach(p => {
     try {
       const b = p.getBBox();
-      centroids.set(p.dataset.county, { cx: b.x + b.width / 2, cy: b.y + b.height / 2 });
-    } catch { /* not laid out yet - redrawn on the next render */ }
+      if (b.width > 0 || b.height > 0) sawRealGeometry = true;
+      next.set(p.dataset.county, { cx: b.x + b.width / 2, cy: b.y + b.height / 2 });
+    } catch { /* not laid out yet - retried once the panel is visible */ }
   });
+  // Keep the previous good values rather than overwriting them with zeros if
+  // this pass happened to run while hidden again (e.g. a mode switch).
+  if (sawRealGeometry) {
+    centroids = next;
+    centroidsOk = true;
+  }
+  return sawRealGeometry;
+}
+
+// Redraw as soon as the map actually has layout. Covers both paths into a
+// visible panel: signing in (#app un-hidden by app.js's showApp) and any
+// later size change, which is also when a stale zero-measurement would
+// otherwise persist.
+function watchForVisibility() {
+  const canvas = $(CANVAS_ID);
+  const app = document.getElementById("app");
+  if (!canvas) return;
+
+  if (typeof ResizeObserver === "function") {
+    const ro = new ResizeObserver(() => {
+      if (canvas.clientWidth > 0 && (!centroidsOk || pendingDraw)) {
+        if (computeCentroids(canvas)) { pendingDraw = false; draw(); }
+      }
+    });
+    ro.observe(canvas);
+  }
+
+  // ResizeObserver alone can miss the display:none -> visible flip on some
+  // engines, so watch the attribute app.js actually toggles as well.
+  if (app && typeof MutationObserver === "function") {
+    const mo = new MutationObserver(() => {
+      if (!app.hidden && svgLoaded) {
+        if (computeCentroids(canvas)) { pendingDraw = false; draw(); }
+      }
+    });
+    mo.observe(app, { attributes: true, attributeFilter: ["hidden"] });
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -162,7 +214,10 @@ function draw() {
   if (!svg) return;
 
   canvas.dataset.ledger = ledger;
-  if (!centroids.size) computeCentroids(canvas);
+  // Never draw from measurements taken while hidden - that is what put every
+  // bubble on the origin. Defer instead; watchForVisibility() re-runs this
+  // the moment the panel has real geometry.
+  if (!centroidsOk && !computeCentroids(canvas)) { pendingDraw = true; return; }
 
   // Group the rows the list is currently showing, by county.
   const byCounty = new Map();
@@ -367,6 +422,7 @@ bindViewToggle();
 bindMapInteraction();
 bindListHover();
 bindReset();
+watchForVisibility();
 
 // Pick up a render that already happened before this module finished loading
 // (see the header note) - without this the map would stay empty until the
