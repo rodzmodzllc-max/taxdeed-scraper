@@ -964,7 +964,7 @@ function card(p, showCounty) {
 const CERT_SOON_DAYS = 90;
 function certDaysUntil(dateStr) {
   if (!dateStr) return null;
-  const d = new Date(dateStr + "T00:00:00");
+  const raw = new Date(dateStr + "T00:00:00"); const d = isNaN(raw) ? raw : Date.UTC(raw.getFullYear(), raw.getMonth(), raw.getDate());
   if (isNaN(d)) return null;
   const t = new Date(); return Math.round((d - Date.UTC(t.getFullYear(), t.getMonth(), t.getDate())) / 86400000);
 }
