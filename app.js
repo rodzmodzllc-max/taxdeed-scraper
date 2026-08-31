@@ -1493,6 +1493,19 @@ function render() {
 
   const hiddenCount = document.getElementById("hiddenCount");
   if (hiddenCount) hiddenCount.textContent = HIDDEN.size;
+
+  // Hand the just-rendered rows to the explore map (explore.js) - see the
+  // contract note at the top of that file. `shown` is the exact filtered +
+  // sorted set this list just drew, so the map can't disagree with the list
+  // about what's in view - there is deliberately no second copy of
+  // passes()/sortRows() over there to drift out of sync with this one.
+  // Stashing before dispatching matters: both files are type="module" so
+  // this one runs first, and if a render ever lands before explore.js has
+  // finished loading, an event-only handoff would be dropped silently and
+  // the map would sit empty until the next filter change.
+  const rendered = { rows: shown, ledger: activeLedger, openDetail };
+  window.__tdwLastRender = rendered;
+  window.dispatchEvent(new CustomEvent("tdw:rendered", { detail: rendered }));
 }
 
 // Both the primary "Sort" dropdown and the secondary "Then by" tiebreaker
