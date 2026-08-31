@@ -376,8 +376,8 @@ function fees(p) {
 const maxBid = p => marketOf(p) * (state.maxBidPct / 100);
 function daysUntil(p) {
   if (!p.sale_date) return null;
-  const d = new Date(p.sale_date + "T00:00:00");
-  return Math.ceil((d - new Date().setHours(0, 0, 0, 0)) / 86400000);
+  const [y, mo, da] = p.sale_date.split("-").map(Number); const d = Date.UTC(y, mo - 1, da);
+  const t = new Date(); return Math.round((d - Date.UTC(t.getFullYear(), t.getMonth(), t.getDate())) / 86400000);
 }
 
 // Days since this property was last updated by the scraper
@@ -649,7 +649,7 @@ async function refreshAdminApprovals() {
   wrap.hidden = false;
   list.innerHTML = data.map(p => {
     const name = [p.first_name, p.last_name].filter(Boolean).join(" ") || "Unknown";
-    const company = p.company ? ` (${p.company})` : "";
+    const company = p.company ? ` (${esc(p.company)})` : "";
     return `
     <span class="admin-approval-row" data-id="${esc(p.id)}">
       <span class="admin-approval-info">
@@ -966,7 +966,7 @@ function certDaysUntil(dateStr) {
   if (!dateStr) return null;
   const d = new Date(dateStr + "T00:00:00");
   if (isNaN(d)) return null;
-  return Math.ceil((d - new Date().setHours(0, 0, 0, 0)) / 86400000);
+  const t = new Date(); return Math.round((d - Date.UTC(t.getFullYear(), t.getMonth(), t.getDate())) / 86400000);
 }
 
 // Certificates are liens, not property - no address/owner/assessed/lien
