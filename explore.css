@@ -357,3 +357,106 @@ box-shadow:0 10px 30px rgba(15,23,42,.14)}
        were reading heavier than the ledger tabs beneath them. */
 .masthead .disclaimer-badge,
 .masthead .generated{font-size:.64rem;line-height:1.45}
+
+/* ==========================================================================
+   COUNTY DETAIL: pins, the card strip, the preview card
+   --------------------------------------------------------------------------
+   Tapping a county bubble now zooms the map into that county and swaps the
+   summary bubble for individual pins. Only about 2% of rows are geocoded
+   (and none of the Lands Available ones), so the strip of cards below the
+   map carries EVERY property in the county whether or not it has a pin, and
+   the strip's first line says how many could be placed. A map that showed 8
+   pins for a county of 241 without saying so would be worse than no map.
+   ========================================================================== */
+
+/* Zoomed in, the surrounding counties stay visible but recede - dropping
+   them entirely loses the sense of where in Florida you are. */
+.explore-map-canvas path[data-county].zoom-off{opacity:.22}
+.explore-map-canvas path[data-county].zoom-focus{fill:var(--accent-soft);
+stroke:var(--accent);stroke-width:1.4}
+
+.map-pin{cursor:pointer}
+.map-pin path{fill:var(--bad);stroke:#fff;stroke-width:1.2;
+paint-order:stroke;transition:fill .12s}
+.map-pin .pin-dot{fill:#fff;pointer-events:none}
+.map-pin:hover path{fill:var(--ink)}
+.map-pin.sel path{fill:var(--accent)}
+.map-pin:focus-visible{outline:none}
+.map-pin:focus-visible path{stroke:var(--ink);stroke-width:2.4}
+
+.explore-zoom-out{position:absolute;top:.55rem;left:.55rem;z-index:4;
+border:1px solid var(--card-line);background:var(--card);color:var(--ink);
+font-size:.72rem;font-weight:700;padding:.32rem .6rem;border-radius:999px;
+cursor:pointer;box-shadow:var(--shadow)}
+.explore-zoom-out:hover{border-color:var(--accent);color:var(--accent)}
+
+/* ---- the card strip ------------------------------------------------------
+   One horizontal rail rather than a grid: it has to sit under the map without
+   pushing it off screen, and a rail makes "there are more" obvious. */
+.explore-strip{border-top:1px solid var(--card-line);padding:.5rem .1rem 0;margin-top:.55rem}
+.strip-note{margin:0 0 .4rem;font-size:.68rem;color:var(--ink-soft)}
+.strip-note b{color:var(--ink)}
+.strip-rail{display:flex;gap:.4rem;overflow-x:auto;padding-bottom:.35rem;
+scrollbar-width:thin}
+.strip-card{flex:0 0 auto;max-width:200px;display:flex;flex-direction:column;
+align-items:flex-start;gap:.12rem;text-align:left;cursor:pointer;
+background:var(--paper);border:1px solid var(--card-line);border-radius:9px;
+padding:.4rem .55rem;position:relative}
+.strip-card:hover{border-color:var(--accent)}
+.strip-card.sel{border-color:var(--accent);background:var(--accent-soft)}
+/* A card whose property is actually on the map gets the left edge, so the
+   difference between "mapped" and "listed only" is visible at a glance. */
+.strip-card.mapped{border-left:3px solid var(--bad)}
+.strip-card.mapped.sel{border-left-color:var(--accent)}
+.strip-title{font-size:.72rem;font-weight:700;color:var(--ink);
+white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.strip-bid{font-family:ui-monospace,Consolas,monospace;font-size:.7rem;
+font-weight:700;color:var(--bad)}
+.strip-card:not(.mapped) .strip-bid{color:var(--ink-soft)}
+.strip-flag{position:absolute;top:.25rem;right:.35rem;font-size:.5rem;color:var(--bad)}
+.strip-card:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* ---- the preview card ----------------------------------------------------
+   Sits over the map rather than beside it: the panel is already narrow in
+   split view, and anchoring the card to the bottom keeps the pin you tapped
+   in sight above it. */
+.explore-preview{position:absolute;left:.55rem;right:.55rem;bottom:.55rem;z-index:6;
+background:var(--card);border:1px solid var(--card-line);border-radius:12px;
+padding:.6rem .7rem .55rem;box-shadow:0 12px 32px rgba(15,23,42,.22)}
+.preview-close{position:absolute;top:.3rem;right:.35rem;border:none;background:none;
+color:var(--ink-soft);font-size:.85rem;cursor:pointer;line-height:1;padding:.2rem}
+.preview-close:hover{color:var(--ink)}
+.preview-title{margin:0 1.2rem .05rem 0;font-size:.85rem;font-weight:800;color:var(--ink)}
+.preview-sub{margin:0 0 .45rem;font-size:.66rem;color:var(--ink-soft)}
+.preview-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:.35rem;margin:0 0 .5rem}
+.preview-stats dt{font-size:.58rem;text-transform:uppercase;letter-spacing:.05em;
+color:var(--ink-soft);margin:0}
+.preview-stats dd{margin:0;font-family:ui-monospace,Consolas,monospace;
+font-size:.76rem;font-weight:700;color:var(--ink);overflow-wrap:anywhere}
+.preview-open{width:100%;border:none;border-radius:8px;background:var(--accent);
+color:#fff;font-size:.74rem;font-weight:700;padding:.4rem;cursor:pointer}
+.preview-open:hover{filter:brightness(1.06)}
+
+/* The panel needs to be the positioning context for the zoom-out button and
+   the preview card. */
+.explore-map{position:relative}
+
+@media (prefers-reduced-motion:reduce){
+  .map-pin path{transition:none}
+}
+
+/* The zoom-out button and the preview card are children of the CANVAS, not of
+   the panel: anchored to the panel they sat on top of the "Where these are"
+   head row and on top of the card strip respectively. */
+.explore-map-canvas{position:relative}
+/* Zoomed in, the canvas gives back some height so the strip of cards is on
+   screen with it rather than below the fold of a sticky panel. */
+/* Scoped past the split-view rule above, which is more specific and would
+   otherwise keep the canvas at its statewide height. */
+.explore-map-canvas.zoomed,
+.explore-shell[data-mode="split"] .explore-map-canvas.zoomed,
+.explore-shell[data-mode="map"] .explore-map-canvas.zoomed{
+min-height:clamp(230px,32vh,340px)}
+
+.explore-zoom-out:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.preview-open:focus-visible,.preview-close:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
