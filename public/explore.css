@@ -460,3 +460,10 @@ min-height:clamp(230px,32vh,340px)}
 
 .explore-zoom-out:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .preview-open:focus-visible,.preview-close:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+
+/* The empty state now explains what search actually matches - "Nothing found"
+   with no hint is a dead end when the field you tried is not one of them. */
+/* .empty-state is centred, so the hint has to centre with it - left-aligned
+   inside a centred block it reads as a stray paragraph. */
+.empty-hint{display:block;margin:.45rem auto 0;font-size:.72rem;font-weight:500;
+color:var(--ink-soft);line-height:1.5;max-width:52ch;text-align:center}
