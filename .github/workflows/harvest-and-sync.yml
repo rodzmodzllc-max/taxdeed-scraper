@@ -344,6 +344,20 @@ jobs:
           retention-days: 30
           if-no-files-found: warn
 
+      - name: Sanity check - LAFT anomaly detection
+        # Advisory only (never fails the job) - flags a county that's
+        # previously had real data but produced 0 rows in today's fresh
+        # harvest, the same failure class sanity_check_deeds.ps1 catches
+        # for the deeds job. See sanity_check_laft.ps1's own header
+        # comment for why this has to run BEFORE the sync and compare
+        # against Supabase's existing counts, not after.
+        if: always()
+        shell: pwsh
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: ./scripts/sanity_check_laft.ps1
+
       - name: Sync to Supabase
         shell: pwsh
         env:
