@@ -238,6 +238,16 @@ function draw() {
     layer.setAttribute("class", "cluster-layer");
     svg.appendChild(layer);
   }
+
+  // Every redraw replaces all the bubble nodes. For a mouse that is
+  // invisible; for the keyboard it silently drops focus to the top of the
+  // document, so activating a bubble would lose your place every time -
+  // caught by the harness, which pressed Enter twice and found the second
+  // press went nowhere. Remember the focused county and restore it below.
+  const activeEl = document.activeElement;
+  const refocusCounty = activeEl && activeEl.classList &&
+    activeEl.classList.contains("cluster-bubble") ? activeEl.dataset.county : null;
+
   layer.innerHTML = "";
 
   const counts = Array.from(byCounty.values(), r => r.length);
@@ -257,6 +267,16 @@ function draw() {
       g.setAttribute("class", "cluster-bubble" + (selectedCounty === county ? " sel" : "") +
         (selectedCounty && selectedCounty !== county ? " dim" : ""));
       g.dataset.county = county;
+      // A bubble is a control, so it has to behave like one for anyone not
+      // using a mouse: focusable, announced, and operable from the keyboard.
+      // An SVG <g> gets none of that for free - without this the map is a
+      // mouse-only feature, which is the same gap the filter chips have.
+      g.setAttribute("tabindex", "0");
+      g.setAttribute("role", "button");
+      g.setAttribute("aria-label",
+        `${county} County, ${list.length} ${list.length === 1 ? "property" : "properties"}` +
+        (selectedCounty === county ? " - selected, activate to clear" : " - activate to filter the list"));
+      g.setAttribute("aria-pressed", selectedCounty === county ? "true" : "false");
 
       const circle = document.createElementNS(NS, "circle");
       circle.setAttribute("cx", c.cx);
@@ -273,6 +293,12 @@ function draw() {
 
       layer.appendChild(g);
     });
+
+  if (refocusCounty) {
+    const again = layer.querySelector(
+      `.cluster-bubble[data-county="${window.CSS && CSS.escape ? CSS.escape(refocusCounty) : refocusCounty}"]`);
+    if (again) again.focus();
+  }
 
   updateSummary(byCounty, max);
 }
@@ -325,6 +351,16 @@ function bindMapInteraction() {
   const canvas = $(CANVAS_ID);
   if (!canvas) return;
   const tip = $("clusterTip");
+
+  // Enter/Space on a focused bubble does what a click does. Space is
+  // preventDefault'd or the page scrolls out from under the selection.
+  canvas.addEventListener("keydown", e => {
+    if (e.key !== "Enter" && e.key !== " " && e.key !== "Spacebar") return;
+    const bubble = e.target.closest && e.target.closest(".cluster-bubble");
+    if (!bubble) return;
+    e.preventDefault();
+    applyCounty(bubble.dataset.county);
+  });
 
   canvas.addEventListener("click", e => {
     const bubble = e.target.closest(".cluster-bubble");
