@@ -161,9 +161,24 @@ box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 22%,transparent),var(--shad
 .card-stat-headline .card-stat-val{font-size:1.18rem;letter-spacing:-.02em}
 .card-stat-label{font-size:.6rem}
 .prop-county-tag{letter-spacing:.04em}
-/* A card with no bid is not a $0 card - make the difference visible rather
-   than rendering "N/A" in the same alarming red as a real opening bid. */
-.card-stat-val.bid:not(:has(*)):empty{color:var(--ink-soft)}
+
+/* "No published price" is not a price. The LAFT sync writes bid = 0 to mean
+   the county publishes no figure, and rendering that as "$0.00" in the same
+   alarm red as a real opening bid states something false on a bidding tool.
+   Muted, smaller, and in words - it should read as an absence. Words, not a
+   figure, so it also drops the tabular monospace the numbers use: it reads
+   better, and at roughly two-thirds the width "Not published" fits on one
+   line inside a narrow certificate tile instead of wrapping and making that
+   box taller than the two beside it. */
+.card-stat-val.unpublished{font-family:inherit;color:var(--ink-soft);font-size:.85rem;
+font-weight:600;letter-spacing:0;white-space:nowrap}
+.card-stat-headline .card-stat-val.unpublished{font-size:1rem}
+
+/* When there is no market/assessed figure at all, the second headline box
+   was a large "N/A" occupying half the most valuable space on the card -
+   most visible on exactly the LAFT rows that have the least data. Give the
+   opening bid the full width instead of pairing it with a placeholder. */
+.card-stat-grid.card-stat-grid-1{grid-template-columns:1fr}
 
 /* ---- filter bar -----------------------------------------------------------
    Same controls, laid out as one clean horizontal strip: search grows, the
@@ -190,6 +205,18 @@ border-radius:8px}
 .ledger-tab b{margin-left:.1rem;padding:.05rem .38rem;border-radius:999px;
 background:rgba(255,255,255,.12);font-size:.78rem}
 .ledger-tab.on b{background:rgba(96,165,250,.28)}
+
+/* ---- focus visibility -----------------------------------------------------
+   Both the filter chips and the map bubbles are controls built out of
+   non-interactive elements (<span>, SVG <g>), so neither gets a focus ring
+   from the browser. Once they're keyboard-operable they need a visible one,
+   or focus becomes invisible - worse than not being focusable at all. */
+.chipx:focus-visible,
+.cluster-bubble:focus-visible{outline:2px solid var(--accent);outline-offset:2px;
+border-radius:999px}
+/* Firefox draws SVG focus outlines tight to the glyph; a ring on the circle
+   itself reads more clearly at bubble sizes. */
+.cluster-bubble:focus-visible circle{stroke:var(--ink);stroke-width:3}
 
 /* ---- print / reduced motion ---------------------------------------------- */
 @media (prefers-reduced-motion:reduce){

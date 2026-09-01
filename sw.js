@@ -16,7 +16,12 @@
 // fl-counties.svg. That SVG is now a dependency of a primary view rather
 // than of a filter-panel extra, so it belongs in the offline shell - the
 // map still working without signal is half the point of shipping a PWA.
-const CACHE = "tdw-shell-v9";
+// v10: card/list changes (unpublished-bid labelling, single-tile headline,
+// keyboard-operable chips, lazy county groups) touch app.js, explore.js and
+// explore.css. Code is network-first so this isn't strictly load-bearing,
+// but the shell precache list should not keep handing out the previous
+// trio to a cold offline start.
+const CACHE = "tdw-shell-v10";
 const SHELL = [
   "/",
   "/index.html",
