@@ -26,7 +26,11 @@
 // stops the filters panel opening itself at >=1024px, and makes the bar
 // sticky at every width. Shell HTML is precached, so a returning user needs
 // this bump to see it.
-const CACHE = "tdw-shell-v11";
+// v12: county detail on the map - explore.js gains the lat/long projection,
+// the zoom, pins, the card strip and the preview card; explore.css their
+// styles. Code is network-first so this is not load-bearing, but the shell
+// precache should not hand a cold offline start the previous pair.
+const CACHE = "tdw-shell-v12";
 const SHELL = [
   "/",
   "/index.html",

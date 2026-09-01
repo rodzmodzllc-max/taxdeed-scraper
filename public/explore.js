@@ -67,6 +67,13 @@ let centroidsOk = false;       // false while the only measurements we have
 let pendingDraw = false;       // a draw was asked for while the panel had no
                                // geometry yet; run it once it does
 let selectedCounty = null;     // county the map has filtered the list to
+let zoomCounty = null;         // county the map is zoomed into, null = statewide
+let homeViewBox = null;        // the SVG's own viewBox, restored on zoom out
+let viewScale = 1;             // homeWidth / currentWidth - pins and labels
+                               // divide by this so they keep a constant size
+                               // on screen no matter how far we zoom
+let activeProp = null;         // property showing in the preview card
+let zoomAnim = null;           // in-flight viewBox tween
 
 const $ = id => document.getElementById(id);
 
@@ -195,6 +202,119 @@ function watchForVisibility() {
 }
 
 // ---------------------------------------------------------------------------
+// projection: lat/long -> SVG user units
+// ---------------------------------------------------------------------------
+// fl-counties.svg is a plain equirectangular projection, which is worth
+// stating precisely rather than assuming: the coefficients below are a
+// least-squares affine fit of all 67 counties' SVG bounding-box centres
+// against the same counties' real bounding-box centres taken from the US
+// Census county polygons. Worst residual across the 67 is 0.05 SVG units,
+// about 128 feet on the ground - so a pin sits on the right parcel, not just
+// in the right part of the county.
+//
+// The two cross terms are nearly zero (the projection is essentially
+// north-up, unrotated) but are kept because dropping them costs ~700 feet.
+//
+// Coefficients are fractions of the viewBox rather than absolute units, so
+// they still hold if the SVG is ever re-exported at a different size.
+const PROJ = {
+  x: { lon: 0.131515586, lat: -0.000001417, c: 11.525408765 },
+  y: { lon: 0.000002902, lat: -0.154887536, c: 4.801899887 }
+};
+
+function projectLatLng(lat, lon, vbW, vbH) {
+  return {
+    x: (PROJ.x.lon * lon + PROJ.x.lat * lat + PROJ.x.c) * vbW,
+    y: (PROJ.y.lon * lon + PROJ.y.lat * lat + PROJ.y.c) * vbH
+  };
+}
+
+// Rows carry latitude/longitude straight from Supabase (app.js selects *),
+// but only about 2% of them are geocoded today - none of the Lands Available
+// rows at all. So a pin is strictly opt-in per property: everything else
+// still appears in the strip of cards below the map, and the map says how
+// many it could not place rather than quietly showing fewer properties than
+// the list does.
+function hasPin(p) {
+  return typeof p.latitude === "number" && typeof p.longitude === "number" &&
+         isFinite(p.latitude) && isFinite(p.longitude);
+}
+
+// ---------------------------------------------------------------------------
+// zoom
+// ---------------------------------------------------------------------------
+function readHomeViewBox(svg) {
+  if (homeViewBox) return homeViewBox;
+  const vb = (svg.getAttribute("viewBox") || "").trim().split(/[\s,]+/).map(Number);
+  homeViewBox = vb.length === 4 && vb.every(isFinite)
+    ? { x: vb[0], y: vb[1], w: vb[2], h: vb[3] }
+    : { x: 0, y: 0, w: 1000, h: 960 };
+  return homeViewBox;
+}
+
+function setViewBox(svg, b) {
+  svg.setAttribute("viewBox", `${b.x} ${b.y} ${b.w} ${b.h}`);
+  viewScale = readHomeViewBox(svg).w / b.w;
+}
+
+// Tween rather than jump: a viewBox that snaps from the whole state to one
+// county gives no sense of WHERE that county was, which is most of the value
+// of zooming on a map at all. Honoured only when the user hasn't asked for
+// reduced motion.
+function animateViewBox(svg, to, done) {
+  if (zoomAnim) { cancelAnimationFrame(zoomAnim); zoomAnim = null; }
+  const reduce = window.matchMedia && window.matchMedia("(prefers-reduced-motion:reduce)").matches;
+  const cur = (svg.getAttribute("viewBox") || "").trim().split(/[\s,]+/).map(Number);
+  const from = cur.length === 4 && cur.every(isFinite)
+    ? { x: cur[0], y: cur[1], w: cur[2], h: cur[3] } : to;
+  if (reduce) { setViewBox(svg, to); if (done) done(); return; }
+  const t0 = performance.now(), MS = 420;
+  const ease = t => (t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2);
+  const step = now => {
+    const t = Math.min(1, (now - t0) / MS), k = ease(t);
+    setViewBox(svg, {
+      x: from.x + (to.x - from.x) * k, y: from.y + (to.y - from.y) * k,
+      w: from.w + (to.w - from.w) * k, h: from.h + (to.h - from.h) * k
+    });
+    if (t < 1) { zoomAnim = requestAnimationFrame(step); }
+    else { zoomAnim = null; if (done) done(); }
+  };
+  zoomAnim = requestAnimationFrame(step);
+}
+
+// Frame one county with padding, keeping the home aspect ratio so the shape
+// isn't stretched - a county box is rarely the same proportion as the panel.
+function countyViewBox(svg, county) {
+  const path = svg.querySelector(`path[data-county="${cssEscape(county)}"]`);
+  if (!path) return null;
+  let b;
+  try { b = path.getBBox(); } catch { return null; }
+  if (!(b.width > 0 && b.height > 0)) return null;
+  const home = readHomeViewBox(svg);
+  const aspect = home.w / home.h;
+  const pad = Math.max(b.width, b.height) * 0.18;
+  let w = b.width + pad * 2, h = b.height + pad * 2;
+  if (w / h > aspect) h = w / aspect; else w = h * aspect;
+  return { x: b.x + b.width / 2 - w / 2, y: b.y + b.height / 2 - h / 2, w, h };
+}
+
+function cssEscape(v) {
+  return window.CSS && CSS.escape ? CSS.escape(v) : String(v).replace(/"/g, '\\"');
+}
+
+function zoomTo(county) {
+  const canvas = $(CANVAS_ID);
+  const svg = canvas && canvas.querySelector("svg");
+  if (!svg) return;
+  readHomeViewBox(svg);
+  const box = county && countyViewBox(svg, county);
+  zoomCounty = box ? county : null;
+  activeProp = null;
+  animateViewBox(svg, box || homeViewBox, () => draw());
+  draw();
+}
+
+// ---------------------------------------------------------------------------
 // drawing
 // ---------------------------------------------------------------------------
 const NS = "http://www.w3.org/2000/svg";
@@ -238,6 +358,16 @@ function draw() {
     layer.setAttribute("class", "cluster-layer");
     svg.appendChild(layer);
   }
+
+  // Zoomed into a county: individual pins instead of one summary bubble.
+  // If the filters moved on and that county no longer has rows, fall back to
+  // the statewide view rather than showing an empty magnified county.
+  if (zoomCounty && !byCounty.has(zoomCounty)) { zoomOut(); return; }
+  if (zoomCounty) { drawPins(svg, layer, byCounty.get(zoomCounty) || []); return; }
+  if (canvas) canvas.classList.remove("zoomed");
+  renderStrip(null);
+  setBackVisible(false);
+  showPreviewHidden();
 
   // Every redraw replaces all the bubble nodes. For a mouse that is
   // invisible; for the keyboard it silently drops focus to the top of the
@@ -303,20 +433,246 @@ function draw() {
   updateSummary(byCounty, max);
 }
 
+// ---------------------------------------------------------------------------
+// county detail: pins, the card strip, and the preview card
+// ---------------------------------------------------------------------------
+// Pin geometry is divided by viewScale throughout. The viewBox shrinks as we
+// zoom, so anything sized in user units would balloon on screen - a pin has
+// to stay pin-sized however far in we are.
+function drawPins(svg, layer, list) {
+  svg.querySelectorAll("path[data-county]").forEach(path => {
+    path.classList.toggle("zoom-focus", path.dataset.county === zoomCounty);
+    path.classList.toggle("zoom-off", path.dataset.county !== zoomCounty);
+  });
+
+  const home = readHomeViewBox(svg);
+  layer.innerHTML = "";
+  const placed = list.filter(hasPin);
+
+  placed.forEach(p => {
+    const { x, y } = projectLatLng(p.latitude, p.longitude, home.w, home.h);
+    const g = document.createElementNS(NS, "g");
+    g.setAttribute("class", "map-pin" + (activeProp && activeProp.id === p.id ? " sel" : ""));
+    g.dataset.pid = String(p.id);
+    g.setAttribute("tabindex", "0");
+    g.setAttribute("role", "button");
+    g.setAttribute("aria-label", `${pinLabel(p)} - activate for details`);
+
+    const r = 7 / viewScale;
+    // A teardrop, drawn so its POINT is the coordinate - a circle centred on
+    // the spot reads as "somewhere around here", which is the opposite of
+    // what a geocoded parcel deserves.
+    const path = document.createElementNS(NS, "path");
+    path.setAttribute("d",
+      `M ${x} ${y} l ${-r * 0.72} ${-r * 1.25} a ${r} ${r} 0 1 1 ${r * 1.44} 0 Z`);
+    g.appendChild(path);
+    const dot = document.createElementNS(NS, "circle");
+    dot.setAttribute("cx", x); dot.setAttribute("cy", y - r * 1.25);
+    dot.setAttribute("r", r * 0.32);
+    dot.setAttribute("class", "pin-dot");
+    g.appendChild(dot);
+    layer.appendChild(g);
+  });
+
+  const canvas = $(CANVAS_ID);
+  if (canvas) canvas.classList.add("zoomed");
+  // Zooming destroys the bubble that was just activated. For a mouse that is
+  // invisible; for the keyboard it drops focus to the top of the document, so
+  // the county you just opened becomes unreachable without tabbing back
+  // through the whole page. Hand focus to the back control instead - it is
+  // the one thing every zoomed view has, and :focus-visible keeps a mouse
+  // user from seeing a ring they did not ask for.
+  const hadFocus = document.activeElement;
+  const cameFromBubble = hadFocus && hadFocus.classList &&
+    hadFocus.classList.contains("cluster-bubble");
+  // The county tooltip is a statewide affordance. Clicking a bubble leaves it
+  // on screen (the pointer never moves, so no mousemove fires to clear it),
+  // where it sits over the county you just zoomed into.
+  const tip = $("clusterTip");
+  if (tip) tip.classList.remove("show");
+  setBackVisible(true);
+  if (cameFromBubble || hadFocus === document.body) {
+    const back = $("exploreZoomOut");
+    if (back) back.focus();
+  }
+  renderStrip(list, placed.length);
+  updateSummary(new Map([[zoomCounty, list]]));
+}
+
+function pinLabel(p) {
+  const a = (p.address || "").trim();
+  if (a && !/^parcel\b/i.test(a)) return a;
+  if (p.certificate_no) return "Certificate #" + p.certificate_no;
+  return "Parcel " + (p.parcel || "unknown");
+}
+
+// The strip is built here rather than in index.html so the whole county-detail
+// view stays inside this module - app.js and the page markup know nothing
+// about it, same as the rest of the explore view.
+function stripEl() {
+  const map = document.querySelector(".explore-map");
+  if (!map) return null;
+  let strip = $("exploreStrip");
+  if (!strip) {
+    strip = document.createElement("div");
+    strip.id = "exploreStrip";
+    strip.className = "explore-strip";
+    strip.hidden = true;
+    const foot = map.querySelector(".explore-map-foot");
+    map.insertBefore(strip, foot || null);
+  }
+  return strip;
+}
+
+function renderStrip(list, placedCount) {
+  const strip = stripEl();
+  if (!strip) return;
+  if (!list) { strip.hidden = true; strip.innerHTML = ""; return; }
+
+  const missing = list.length - (placedCount || 0);
+  // Say plainly how many could not be placed. Showing 8 pins for a county of
+  // 241 properties without saying so would read as "this county has 8".
+  const note = !placedCount
+    ? `<p class="strip-note">None of these ${list.length} have mapped coordinates yet — pick one below.</p>`
+    : missing
+      ? `<p class="strip-note"><b>${placedCount}</b> of ${list.length} are mapped. The rest are listed here.</p>`
+      : `<p class="strip-note">All ${list.length} mapped.</p>`;
+
+  strip.innerHTML = note + '<div class="strip-rail">' + list.map(p => `
+    <button class="strip-card${hasPin(p) ? " mapped" : ""}${activeProp && activeProp.id === p.id ? " sel" : ""}"
+            type="button" data-pid="${escAttr(p.id)}">
+      <span class="strip-title">${escHtml(pinLabel(p))}</span>
+      <span class="strip-bid">${bidText(p)}</span>
+      ${hasPin(p) ? '<span class="strip-flag" aria-label="on the map">◉</span>' : ""}
+    </button>`).join("") + "</div>";
+  strip.hidden = false;
+}
+
+function bidText(p) {
+  const n = Number(p.bid);
+  return p.bid !== null && p.bid !== undefined && n > 0 ? fmtShort(n) : "Not published";
+}
+
+function escHtml(v) {
+  return String(v == null ? "" : v).replace(/[&<>"']/g,
+    c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+const escAttr = escHtml;
+
+// The preview card: enough to judge a property without leaving the map, and
+// one button through to the full page that already exists in app.js.
+function previewEl() {
+  const map = $(CANVAS_ID);
+  if (!map) return null;
+  let card = $("explorePreview");
+  if (!card) {
+    card = document.createElement("div");
+    card.id = "explorePreview";
+    card.className = "explore-preview";
+    card.hidden = true;
+    map.appendChild(card);
+    card.addEventListener("click", e => {
+      if (e.target.closest("[data-act='close']")) { showPreview(null); return; }
+      if (e.target.closest("[data-act='open']") && activeProp && openDetail) openDetail(activeProp);
+    });
+  }
+  return card;
+}
+
+function showPreview(p) {
+  activeProp = p;
+  const card = previewEl();
+  if (!card) return;
+  if (!p) { card.hidden = true; draw(); return; }
+
+  const market = Number(p.market || p.assessed || 0);
+  const rows2 = [
+    ["Opening bid", bidText(p)],
+    [p.market ? "Est. market" : "Assessed", market ? fmtShort(market) : "N/A"],
+    [p.source === "certificate" ? "Expires" : "Sale date",
+      (p.source === "certificate" ? p.expiration_date : p.sale_date) || "Not scheduled"]
+  ];
+  card.innerHTML = `
+    <button class="preview-close" type="button" data-act="close" aria-label="Close preview">✕</button>
+    <p class="preview-title">${escHtml(pinLabel(p))}</p>
+    <p class="preview-sub">${escHtml(p.county)} County${hasPin(p) ? "" : " · location not mapped"}</p>
+    <dl class="preview-stats">${rows2.map(([k, v]) =>
+      `<div><dt>${escHtml(k)}</dt><dd>${escHtml(v)}</dd></div>`).join("")}</dl>
+    <button class="preview-open" type="button" data-act="open">View full property page →</button>`;
+  card.hidden = false;
+  draw();
+}
+
+function setBackVisible(on) {
+  const map = $(CANVAS_ID);
+  if (!map) return;
+  let btn = $("exploreZoomOut");
+  if (!btn) {
+    btn = document.createElement("button");
+    btn.id = "exploreZoomOut";
+    btn.className = "explore-zoom-out";
+    btn.type = "button";
+    btn.textContent = "← All counties";
+    btn.addEventListener("click", () => zoomOut());
+    map.appendChild(btn);
+  }
+  btn.hidden = !on;
+}
+
+function zoomOut() {
+  const wasFiltered = selectedCounty;
+  zoomCounty = null;
+  activeProp = null;
+  showPreviewHidden();
+  const canvas = $(CANVAS_ID);
+  const svg = canvas && canvas.querySelector("svg");
+  if (svg) {
+    svg.querySelectorAll("path[data-county]").forEach(p => {
+      p.classList.remove("zoom-focus", "zoom-off");
+    });
+    animateViewBox(svg, readHomeViewBox(svg), () => draw());
+  }
+  // Zooming out is also "show me everything again" - leaving the list pinned
+  // to one county while the map shows the whole state is the kind of quiet
+  // mismatch this view exists to avoid.
+  if (wasFiltered) applyCounty(wasFiltered); else draw();
+}
+
+function showPreviewHidden() {
+  const card = $("explorePreview");
+  if (card) card.hidden = true;
+}
+
 function updateSummary(byCounty) {
+  const titleEl = document.querySelector(".explore-map-title");
+  if (titleEl) titleEl.textContent = zoomCounty ? `${zoomCounty} County` : "Where these are";
   const countEl = $("exploreMapCount");
   if (countEl) {
-    countEl.innerHTML = byCounty.size
-      ? `<b>${rows.length}</b> shown across <b>${byCounty.size}</b> ${byCounty.size === 1 ? "county" : "counties"}`
-      : "Nothing matches the current filters";
+    const inCounty = zoomCounty ? (byCounty.get(zoomCounty) || []).length : 0;
+    countEl.innerHTML = zoomCounty
+      ? `<b>${inCounty}</b> ${inCounty === 1 ? "property" : "properties"}`
+      : byCounty.size
+        ? `<b>${rows.length}</b> shown across <b>${byCounty.size}</b> ${byCounty.size === 1 ? "county" : "counties"}`
+        : "Nothing matches the current filters";
   }
   const resetBtn = $("exploreMapReset");
   if (resetBtn) resetBtn.hidden = !selectedCounty;
+  // The standing footnote describes the statewide bubbles. Zoomed in there
+  // are no bubbles - there are pins at real coordinates - so leaving it up
+  // would be describing the wrong map.
+  const note = document.querySelector(".explore-map-note");
+  if (note) {
+    note.textContent = zoomCounty
+      ? "Pins are the geocoded parcel locations we hold. Properties without coordinates are listed above but not pinned."
+      : "Bubbles are county-level counts, sized by how many properties match your filters \u2014 not exact parcel locations.";
+  }
   const hint = $("exploreMapHint");
   if (hint) {
-    hint.textContent = selectedCounty
-      ? `Filtered to ${selectedCounty} - tap it again to clear`
-      : "Tap a county to filter the list to it";
+    hint.textContent = zoomCounty
+      ? "Tap a pin or a card below for details"
+      : selectedCounty
+        ? `Filtered to ${selectedCounty} - tap it again to clear`
+        : "Tap a county to zoom in and filter the list to it";
   }
 }
 
@@ -338,7 +694,10 @@ function applyCounty(county) {
   select.value = next;
   select.dispatchEvent(new Event("change", { bubbles: true }));
   selectedCounty = next === "ALL" ? null : next;
-  draw();
+  // Filtering to a county and zooming into it are one gesture, not two:
+  // picking a county on a map should take you there.
+  if (next === "ALL") { if (zoomCounty) zoomTo(null); else draw(); }
+  else zoomTo(next);
   // On a phone the list sits below the map, so a tap that changes the list
   // should actually take you to it.
   if (next !== "ALL" && !window.matchMedia("(min-width:1024px)").matches) {
@@ -355,7 +714,10 @@ function bindMapInteraction() {
   // Enter/Space on a focused bubble does what a click does. Space is
   // preventDefault'd or the page scrolls out from under the selection.
   canvas.addEventListener("keydown", e => {
+    if (e.key === "Escape" && zoomCounty) { e.preventDefault(); zoomOut(); return; }
     if (e.key !== "Enter" && e.key !== " " && e.key !== "Spacebar") return;
+    const pin = e.target.closest && e.target.closest(".map-pin");
+    if (pin) { e.preventDefault(); showPreview(propById(pin.dataset.pid)); return; }
     const bubble = e.target.closest && e.target.closest(".cluster-bubble");
     if (!bubble) return;
     e.preventDefault();
@@ -363,8 +725,18 @@ function bindMapInteraction() {
   });
 
   canvas.addEventListener("click", e => {
+    // The preview card and the back control are children of the canvas so they
+    // can be positioned over the map. That puts their clicks through this
+    // handler too, and the "tap empty space to dismiss" branch below was
+    // closing the card the moment you pressed a button inside it.
+    if (e.target.closest("#explorePreview") || e.target.closest("#exploreZoomOut")) return;
+    const pin = e.target.closest(".map-pin");
+    if (pin) { showPreview(propById(pin.dataset.pid)); return; }
     const bubble = e.target.closest(".cluster-bubble");
     if (bubble) { applyCounty(bubble.dataset.county); return; }
+    // Zoomed in, a tap on empty space dismisses the preview rather than
+    // re-filtering to the county you are already inside.
+    if (zoomCounty) { if (activeProp) showPreview(null); return; }
     const path = e.target.closest("path[data-county]");
     // Tapping the county shape itself works too, but only where there's
     // something to filter to - otherwise it reads as a dead tap.
@@ -372,6 +744,7 @@ function bindMapInteraction() {
   });
 
   canvas.addEventListener("mousemove", e => {
+    if (zoomCounty) { if (tip) tip.classList.remove("show"); return; }
     const bubble = e.target.closest(".cluster-bubble");
     if (!bubble || !tip) { if (tip) tip.classList.remove("show"); clearFocus(); return; }
     const county = bubble.dataset.county;
@@ -430,6 +803,28 @@ function bindListHover() {
   });
 }
 
+function propById(id) {
+  return rows.find(p => String(p.id) === String(id)) || null;
+}
+
+// Delegated on the panel, because the strip is rebuilt on every draw.
+function bindStrip() {
+  const map = document.querySelector(".explore-map");
+  if (!map) return;
+  // Escape from anywhere in the panel - a strip card, the preview, the back
+  // button - is the way out of a county without reaching for the mouse.
+  map.addEventListener("keydown", e => {
+    if (e.key === "Escape" && zoomCounty) { e.preventDefault(); zoomOut(); }
+  });
+  map.addEventListener("click", e => {
+    const card = e.target.closest(".strip-card");
+    if (!card) return;
+    const p = propById(card.dataset.pid);
+    if (!p) return;
+    showPreview(activeProp && activeProp.id === p.id ? null : p);
+  });
+}
+
 function bindReset() {
   const btn = $("exploreMapReset");
   if (!btn) return;
@@ -449,6 +844,9 @@ function absorb(detail) {
   // filter-panel map, and the bubbles have to reflect that too.
   const select = $("countyQuick");
   selectedCounty = select && select.value !== "ALL" ? select.value : null;
+  // The county can also change from the dropdown, the chips or the filter
+  // panel's own map. Keep the zoom in step with whatever moved it.
+  if (svgLoaded && zoomCounty && zoomCounty !== selectedCounty) { zoomTo(selectedCounty); return; }
   if (svgLoaded) draw();
 }
 
@@ -458,6 +856,7 @@ bindViewToggle();
 bindMapInteraction();
 bindListHover();
 bindReset();
+bindStrip();
 watchForVisibility();
 
 // Pick up a render that already happened before this module finished loading
