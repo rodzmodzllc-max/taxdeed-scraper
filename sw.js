@@ -21,7 +21,12 @@
 // explore.css. Code is network-first so this isn't strictly load-bearing,
 // but the shell precache list should not keep handing out the previous
 // trio to a cold offline start.
-const CACHE = "tdw-shell-v10";
+// v11: the command-bar header - index.html moves the Filters & Sort toggle
+// into the control bar, and explore.css collapses the duplicated brand block,
+// stops the filters panel opening itself at >=1024px, and makes the bar
+// sticky at every width. Shell HTML is precached, so a returning user needs
+// this bump to see it.
+const CACHE = "tdw-shell-v11";
 const SHELL = [
   "/",
   "/index.html",

@@ -145,13 +145,16 @@ unusable rather than merely tight. -->
 </div>
 <button class="expand-all-btn" id="expandAllBtn" type="button">Expand all</button>
 <button class="export-btn" id="exportCsvBtn" type="button">⬇ Export CSV</button>
-</div>
+<!-- Moved inside the control bar (it used to sit on its own full-width row
+below it) so every filtering control lives in one strip, and so the panel
+can stay closed until asked for at every width - see explore.css. -->
 <button class="filters-toggle" id="filtersToggle" type="button">
 <span>Filters &amp; Sort</span>
 <span style="display:flex;align-items:center;gap:.55rem">
 <span class="filters-badge" id="filtersBadge" hidden>0</span><span class="chevron"></span>
 </span>
 </button>
+</div>
 <div class="filters-panel" id="filtersPanel">
 
 <div class="filters-section">
