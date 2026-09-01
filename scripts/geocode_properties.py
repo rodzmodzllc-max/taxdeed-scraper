@@ -94,11 +94,20 @@ def fetch_ungeocoded(limit):
     only with whatever budget is left over - see the priority-fix note in
     the module docstring for why this ordering matters. The two filters
     (`like`/`not.like` on the same pattern) are exact complements, so the
-    two fetches can never overlap."""
-    real = _fetch(limit, "like.*,*")
+    two fetches can never overlap.
+
+    The pattern is double-quoted (`"*,*"` not `*,*`) because these filters
+    ride inside a PostgREST `and=(...)` combinator, whose own top-level
+    parser splits on unquoted commas - an unquoted literal comma in the
+    LIKE pattern gets read as a condition separator instead of pattern
+    text, which PostgREST then rejects outright (400 Bad Request), not a
+    silent misparse. Caught live 2026-09-01: this exact bug shipped in the
+    first version of this fix and broke every run's geocoding step until
+    fixed here."""
+    real = _fetch(limit, 'like."*,*"')
     if len(real) >= limit:
         return real
-    junk = _fetch(limit - len(real), "not.like.*,*")
+    junk = _fetch(limit - len(real), 'not.like."*,*"')
     return real + junk
 
 
