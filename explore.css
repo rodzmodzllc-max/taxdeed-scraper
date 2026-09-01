@@ -223,3 +223,137 @@ border-radius:999px}
   .cluster-bubble circle,.prop-card{transition:none}
   .cluster-bubble:hover circle{transform:none}
 }
+
+/* ==========================================================================
+   COMMAND-BAR HEADER
+   --------------------------------------------------------------------------
+   The header used to run roughly 700px before the first property card: a
+   sticky brand strip, then a second 48px logo and <h1> repeating it, a
+   marketing tagline, a boxed disclaimer, a timestamp line, ledger tabs, five
+   status chips, a three-row control block, and - at >=1024px - the entire
+   Filters & Sort panel expanded by default with no way to collapse it. On a
+   915px-tall phone you scrolled a full screen and a half of chrome to reach
+   one listing; on a 900px desktop you saw no listing and no map at all.
+
+   Everything below is layout only. No control is removed, no label reworded,
+   no legal text dropped - the disclaimer still shows on every page load, just
+   as one line instead of a box. The pieces that were duplicating the sticky
+   bar are the only things hidden.
+   ========================================================================== */
+
+/* 1. The brand is already pinned in .topbar above. Repeating it at 48px with
+      an <h1> and a tagline directly underneath cost ~200px to say the same
+      thing twice. */
+.masthead .brand-lockup,
+.masthead .tagline{display:none}
+
+.masthead{padding:.7rem 1rem .55rem}
+
+/* 2. Identity + account actions on one line, quiet. */
+.eyebrow-row{margin:0 0 .35rem}
+.eyebrow{font-size:.62rem;letter-spacing:.12em}
+.header-btns .hbtn{font-size:.7rem;padding:.28rem .5rem}
+
+/* 3. The disclaimer and the data-freshness line were two stacked blocks, one
+      of them boxed. They are one wrapping line of fine print now. Both still
+      say exactly what they said before, and .generated.stale keeps its own
+      warning colour from styles.css. */
+.masthead .disclaimer-badge{display:inline;font-size:.67rem;line-height:1.5;
+margin:0;padding:0;border:0;background:none}
+.masthead .disclaimer-badge .dot{margin-right:.15rem}
+.masthead .generated{display:inline;font-size:.67rem;margin:0;font-weight:600}
+.masthead .generated::before{content:"·";margin:0 .4rem;opacity:.55}
+
+/* 4. Ledger tabs: still the primary switch, just not 3rem tall. */
+.ledger-tabs{margin:.6rem 0 .45rem;gap:.35rem}
+.ledger-tab{flex:1 1 0;justify-content:center;white-space:nowrap;
+padding:.45rem .6rem;font-size:.76rem;border-radius:9px}
+.ledger-tab.on{padding:.4rem .55rem}
+.ledger-tab b{font-size:.72rem}
+
+/* 5. Status chips: one scrollable row instead of wrapping onto two or three. */
+.summary-strip{margin:0 0 .55rem;gap:.35rem;flex-wrap:nowrap}
+.summary-strip .chip{flex:0 0 auto;font-size:.7rem;padding:.3rem .6rem}
+
+/* 6. The control bar is the one thing that should stay put while the list
+      scrolls, at every width - it was sticky on mobile only, and static on
+      desktop where the filters panel above it was tall enough to push it off
+      screen entirely. */
+.quick-controls{position:sticky;top:0;z-index:30;margin:0;
+border-radius:10px;box-shadow:0 1px 0 rgba(15,23,42,.04)}
+
+/* 7. Filters & Sort now lives in the bar and stays closed until asked for.
+      Below is the >=1024px rule that used to force the panel permanently open
+      (`display:block`) and hide its toggle - which is why a desktop visitor
+      landed on a screenful of sliders and checkboxes rather than on their
+      properties. explore.css loads after styles.css, so these win at equal
+      specificity.
+
+      The toggle itself was styled for the dark masthead it used to sit on -
+      translucent white fill, --header-ink text. Inside the light control bar
+      that is white text on a white button, i.e. invisible. It matches its
+      neighbours now. */
+.quick-controls .filters-toggle{width:auto;flex:0 0 auto;height:2.15rem;
+margin:0;padding:0 .7rem;gap:.45rem;border-radius:8px;font-size:.78rem;
+font-weight:700;white-space:nowrap;
+background:var(--paper);border:1px solid var(--card-line);color:var(--ink)}
+.quick-controls .filters-toggle:hover{border-color:var(--accent);color:var(--accent)}
+.quick-controls .filters-toggle .chevron{border-color:var(--ink-soft)}
+.quick-controls .filters-toggle:hover .chevron{border-color:var(--accent)}
+/* Open, or carrying active filters, it reads as engaged rather than idle. */
+.quick-controls .filters-toggle.open{background:var(--accent);border-color:var(--accent);color:#fff}
+.quick-controls .filters-toggle.open .chevron{border-color:#fff}
+.quick-controls .filters-toggle .filters-badge{margin:0}
+
+@media (min-width:1024px){
+  .filters-panel{display:none;max-height:70vh;overflow-y:auto}
+  .filters-panel.open{display:block}
+  .quick-controls .filters-toggle{display:inline-flex}
+  .masthead{padding:.75rem 1.6rem .6rem}
+  .quick-controls{position:sticky}
+}
+
+/* 8. Phone: the bar wraps to two rows - search across the top, then the
+      pickers and buttons - rather than three or four. Expand all and Export
+      keep their labels; they are the two controls people reach for by name. */
+@media (max-width:640px){
+  .quick-controls{gap:.35rem;padding:.45rem .5rem}
+  .qc-field{flex:1 1 100%}
+  .qc-field.qc-county{flex:1 1 45%;min-width:0}
+  .view-toggle{flex:0 0 auto}
+  .quick-controls .filters-toggle,
+  .quick-controls .expand-all-btn,
+  .quick-controls .export-btn{flex:1 1 auto;justify-content:center;
+  padding:0 .55rem;font-size:.74rem}
+}
+
+/* 9. With the header down to a strip, the list and the map get the screen.
+      The panel opens over the top of the list rather than shoving the whole
+      page down, so the properties stay where the eye left them. */
+.filters-panel{position:relative;z-index:29;margin-top:.45rem;
+box-shadow:0 10px 30px rgba(15,23,42,.14)}
+
+/* 10. With the header down to a strip there is more room beside the list, so
+       the map sticks a little higher and gets a taller canvas. Not stretched
+       to the full viewport: Florida's outline has a fixed aspect ratio, so a
+       full-height panel just centres the same silhouette inside a tall box
+       and adds dead space above and below it. */
+@media (min-width:1024px){
+  .explore-shell[data-mode="split"] .explore-map-panel{top:.9rem}
+  .explore-shell[data-mode="split"] .explore-map-canvas{min-height:clamp(360px,52vh,560px)}
+}
+
+/* 11. The ledger tabs and the status chips are single scrolling rows on a
+       phone - three tabs will not fit 412px at a readable size. Without an
+       affordance the third one just looks clipped, so both rows fade out at
+       the right edge while there is more to scroll to. */
+@media (max-width:1023px){
+  .ledger-tabs,
+  .summary-strip{-webkit-mask-image:linear-gradient(to right,#000 calc(100% - 28px),transparent);
+  mask-image:linear-gradient(to right,#000 calc(100% - 28px),transparent)}
+}
+
+/* 12. The disclaimer and freshness line are fine print, not a headline - they
+       were reading heavier than the ledger tabs beneath them. */
+.masthead .disclaimer-badge,
+.masthead .generated{font-size:.64rem;line-height:1.45}
