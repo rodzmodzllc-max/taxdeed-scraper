@@ -44,15 +44,15 @@ $here = $PSScriptRoot
 # merges the required harvest_laft.json PDF file in with everything else
 # before this script would ever get a per-file breakdown.
 $harvestFiles = @(
-    Join-Path $here "../out/harvest_laft.json",
-    Join-Path $here "../out/harvest_laft_html.json",
-    Join-Path $here "../out/harvest_laft_realtdm.json",
-    Join-Path $here "../out/harvest_laft_pioneer.json",
-    Join-Path $here "../out/harvest_laft_orange.json",
-    Join-Path $here "../out/harvest_laft_stlucie.json",
-    Join-Path $here "../out/harvest_laft_osceola.json",
-    Join-Path $here "../out/harvest_laft_hillsborough.json",
-    Join-Path $here "../out/harvest_laft_leon.json"
+    (Join-Path $here "../out/harvest_laft.json"),
+    (Join-Path $here "../out/harvest_laft_html.json"),
+    (Join-Path $here "../out/harvest_laft_realtdm.json"),
+    (Join-Path $here "../out/harvest_laft_pioneer.json"),
+    (Join-Path $here "../out/harvest_laft_orange.json"),
+    (Join-Path $here "../out/harvest_laft_stlucie.json"),
+    (Join-Path $here "../out/harvest_laft_osceola.json"),
+    (Join-Path $here "../out/harvest_laft_hillsborough.json"),
+    (Join-Path $here "../out/harvest_laft_leon.json")
 )
 
 # Today's per-county row counts across every harvester's fresh output.
