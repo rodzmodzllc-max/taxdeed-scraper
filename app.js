@@ -388,7 +388,11 @@ const JUNK_ADDRESSES = new Set([
   "description", "address", "property address", "legal description",
   "parcel", "parcel number", "parcel id",
   "na", "n a", "none", "null", "unknown", "tbd", "not available",
-  "no address", "no address available", "see legal", "-", "--"
+  "no address", "no address available", "see legal", "-", "--",
+  // Seen live in production: harvesters emit these where a county publishes
+  // no street address at all.
+  "no street", "no street county", "no site address", "no situs",
+  "address not available", "vacant", "vacant land", "vacant lot"
 ]);
 
 function realAddress(p) {
@@ -909,12 +913,39 @@ function buildCountyRefLinks(counts, names) {
   }).join("");
 }
 
+// Searching by address is close to useless on this data, and a bidder doesn't
+// know the addresses anyway - they arrive holding a case number off a county
+// auction site or a parcel number off the appraiser. Measured against
+// production: case_no is populated on 100% of all 3,084 rows and parcel on
+// ~98%, while only 174 rows have an address containing a comma (i.e. any city
+// at all) and plenty of the rest read "UNKNOWN" or "NO STREET COUNTY".
+//
+// So the identifiers are the real handles, and two things were wrong:
+// certificate_no was not searched AT ALL - which made all 1,552 certificates
+// unfindable by the one number printed on them - and identifiers were matched
+// as raw text, so a parcel copied from a county site as
+// "26-28-01-5210-3000-4260" would not match the same parcel stored as
+// "262801521030004260", or the reverse. Both sides are stripped to letters and
+// digits before comparing, so any punctuation the user pastes is forgiven.
+//
+// County and owner are matched as plain text: "polk" is the most natural thing
+// to type, and owner_name is populated on every certificate row.
+const squashId = v => String(v == null ? "" : v).replace(/[^0-9a-z]/gi, "").toLowerCase();
+
 function matchesSearch(p) {
   if (!state.search) return true;
-  const q = state.search.toLowerCase();
-  return (p.address || "").toLowerCase().includes(q) ||
-    (p.parcel || "").toLowerCase().includes(q) ||
-    (p.case_no || "").toLowerCase().includes(q);
+  const q = state.search.trim().toLowerCase();
+  if (!q) return true;
+
+  if ((p.address || "").toLowerCase().includes(q)) return true;
+  if ((p.county || "").toLowerCase().includes(q)) return true;
+  if ((p.owner_name || "").toLowerCase().includes(q)) return true;
+
+  const qid = squashId(q);
+  // A query of pure punctuation squashes to nothing, which would otherwise
+  // match every identifier via includes("").
+  if (!qid) return false;
+  return [p.case_no, p.parcel, p.certificate_no].some(v => squashId(v).includes(qid));
 }
 
 function passes(p) {
@@ -1696,7 +1727,13 @@ function section(container, title, sub, rows, kind) {
   const shown = sortRows(rows.filter(passes));
   if (!shown.length) {
     const e = document.createElement("div"); e.className = "empty-state";
-    e.textContent = state.search ? `Nothing found for "${state.search}".` : "Nothing found.";
+    if (state.search) {
+      e.innerHTML = `Nothing found for <b>${esc(state.search)}</b>.` +
+        `<span class="empty-hint">Search matches case #, parcel #, certificate #, owner and county. ` +
+        `Punctuation is ignored, so a parcel pasted from a county site matches either way.</span>`;
+    } else {
+      e.textContent = "Nothing found.";
+    }
     sec.appendChild(e); container.appendChild(sec);
     return { shown };
   }

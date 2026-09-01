@@ -30,7 +30,11 @@
 // the zoom, pins, the card strip and the preview card; explore.css their
 // styles. Code is network-first so this is not load-bearing, but the shell
 // precache should not hand a cold offline start the previous pair.
-const CACHE = "tdw-shell-v12";
+// v13: search now matches case #, parcel #, certificate # (which it never
+// did), owner and county, with punctuation stripped from identifiers - so
+// index.html's placeholder and app.js both changed, and the shell HTML is
+// precached.
+const CACHE = "tdw-shell-v13";
 const SHELL = [
   "/",
   "/index.html",
