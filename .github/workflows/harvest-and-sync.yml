@@ -186,7 +186,18 @@ jobs:
   certificates:
     name: Harvest certificates + sync (experimental)
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    # Raised 30 -> 60 on 2026-09-01: the harvest step's own inter-county
+    # jittered delays plus its escalating 20s/45s WAF-block backoff retries
+    # (see harvest_lienhub_certificates.ps1's header comment) are a real,
+    # deliberate anti-bot-block cost across 32 sequential LienHub sites,
+    # not a hang - runs have legitimately taken 24-29 minutes against the
+    # old 30-minute cap on ordinary days. A raw timeout kill loses the
+    # ENTIRE run's data (nothing is written to disk until all 32 counties
+    # finish), so 30 minutes left almost no margin for a day where more
+    # counties than usual hit the retry path. Each county's own worst case
+    # is still hard-bounded (three attempts of a 25s request timeout plus
+    # 20s+45s backoff), so this isn't masking a true infinite hang.
+    timeout-minutes: 60
     if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 12 * * *'
     steps:
       - name: Checkout repository
