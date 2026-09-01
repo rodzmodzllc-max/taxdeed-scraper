@@ -695,20 +695,35 @@ async function showApp() {
 // non-admin see their own row, so this silently returns nothing (not an
 // error) for everyone else, but it's still gated behind IS_ADMIN so
 // non-admins never even make the request.
+//
+// NOTE (fixed 2026-09-01): this used to also select first_name, last_name,
+// company from profiles and show a name/company line per row. Those three
+// columns were never part of schema-v6-approvals.sql's profiles table (it
+// only has id/email/approved/is_admin/requested_at/approved_at) - sign-up
+// only ever wrote first_name/last_name/company into Supabase Auth's user
+// metadata (see the options.data in the sign-up handler above), never into
+// profiles. Selecting nonexistent columns made PostgREST reject every one
+// of these requests with a 400 (confirmed in Edge Logs: GET
+// /rest/v1/profiles?select=id,email,first_name,last_name,company,requested_at
+// -> 400, repeatedly, going back at least a full day), which this function
+// swallowed silently via the (error || !data...) early-return - so the
+// admin approvals panel has been quietly never rendering, not just empty.
+// Trimmed the select (and the name/company markup) down to columns that
+// actually exist. A future enhancement could add first_name/last_name/
+// company columns to profiles (copied from auth user metadata by
+// handle_new_user()) to restore the richer display, but that's a schema
+// migration and out of scope for this fix.
 async function refreshAdminApprovals() {
   const wrap = document.getElementById("adminApprovals");
   const list = document.getElementById("adminApprovalsList");
   if (!wrap || !list) return;
-  const { data, error } = await sb.from("profiles").select("id,email,first_name,last_name,company,requested_at").eq("approved", false).order("requested_at");
+  const { data, error } = await sb.from("profiles").select("id,email,requested_at").eq("approved", false).order("requested_at");
   if (error || !data || !data.length) { wrap.hidden = true; list.innerHTML = ""; return; }
   wrap.hidden = false;
   list.innerHTML = data.map(p => {
-    const name = [p.first_name, p.last_name].filter(Boolean).join(" ") || "Unknown";
-    const company = p.company ? ` (${esc(p.company)})` : "";
     return `
     <span class="admin-approval-row" data-id="${esc(p.id)}">
       <span class="admin-approval-info">
-        <span class="admin-approval-name">${esc(name)}${company}</span>
         <span class="admin-approval-email">${esc(p.email)}</span>
       </span>
       <span class="admin-approval-when">requested ${fmtDate((p.requested_at || "").slice(0, 10))}</span>
