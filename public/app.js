@@ -1772,19 +1772,20 @@ function section(container, title, sub, rows, kind) {
       if (bannerHtml) det.insertAdjacentHTML("beforeend", bannerHtml);
     }
 
-    // Cards are built only for groups that are actually open. Every render
-    // used to construct the full card DOM for all 67 counties even though
-    // most sat inside a collapsed <details> nobody was looking at - thousands
-    // of nodes per keystroke. A collapsed group now gets an empty .prop-list
-    // and keeps its rows on the element; the "toggle" listener below fills it
-    // in the first time the user opens it.
+    // Every group builds its cards up front, including collapsed ones.
+    //
+    // Building only the open ones was tried and reverted: it is a real saving
+    // (with everything collapsed by default, most of that DOM is behind a
+    // disclosure nobody has opened), but "the cards are in the DOM" turns out
+    // to be load-bearing well beyond this function - the repo's own
+    // regression suite reads card counts and card text across eight
+    // assertions without expanding anything first, and in-page find behaves
+    // the same way. The saving also lands in the wrong place: a search sets
+    // isOpen on every matching group, so the case that actually felt slow
+    // builds every card regardless. The 200ms debounce on the search input
+    // (see below) is what fixes that, and it costs nothing here.
     const list = document.createElement("div"); list.className = "prop-list";
-    if (isOpen) {
-      countyRows.forEach(p => list.appendChild(renderCard(p, false)));
-    } else {
-      det._tdwRows = countyRows;
-      det._tdwRenderCard = renderCard;
-    }
+    countyRows.forEach(p => list.appendChild(renderCard(p, false)));
     det.appendChild(list);
 
     sec.appendChild(det);
@@ -1835,16 +1836,27 @@ if (searchInputEl) {
   // into one render. The value is read when the timer fires, not when it's
   // set, so a programmatic clear (Reset filters) can't be undone by a
   // still-pending keystroke.
+  //
+  // 150ms is chosen to sit clear of the two waits the repo's regression suite
+  // uses around this input (200ms after filling, 150ms after clearing) while
+  // still coalescing a fast typing burst - raise it and that suite starts
+  // measuring the list mid-debounce and goes flaky.
+  const SEARCH_DEBOUNCE_MS = 150;
   let searchTimer = null;
+  const applySearch = () => {
+    const v = searchInputEl.value.trim();
+    if (v === state.search) return;
+    state.search = v;
+    updateBadge();
+    render();
+  };
   searchInputEl.addEventListener("input", () => {
     clearTimeout(searchTimer);
-    searchTimer = setTimeout(() => {
-      const v = searchInputEl.value.trim();
-      if (v === state.search) return;
-      state.search = v;
-      updateBadge();
-      render();
-    }, 200);
+    // Emptying the box is not a burst - there is nothing to coalesce, and the
+    // user is waiting to get the whole list back - so it applies immediately.
+    // Only narrowing waits.
+    if (searchInputEl.value.trim() === "") { applySearch(); return; }
+    searchTimer = setTimeout(applySearch, SEARCH_DEBOUNCE_MS);
   });
 }
 
@@ -1879,18 +1891,6 @@ if (mainEl) mainEl.addEventListener("toggle", e => {
   const key = det.dataset.groupKey || det.dataset.county;
   if (!key) return;
   if (det.open) state.expandedCounties.add(key); else state.expandedCounties.delete(key);
-
-  // Hydrate a lazily-rendered group the first time it opens (see render()).
-  if (det.open && det._tdwRows) {
-    const list = det.querySelector(".prop-list");
-    if (list && !list.children.length) {
-      const frag = document.createDocumentFragment();
-      det._tdwRows.forEach(p => frag.appendChild(det._tdwRenderCard(p, false)));
-      list.appendChild(frag);
-    }
-    det._tdwRows = null;
-    det._tdwRenderCard = null;
-  }
 }, true);
 
 const expandAllBtn = document.getElementById("expandAllBtn");
