@@ -101,7 +101,7 @@ if (-not $harvest -or $harvest.Count -eq 0) {
 
 function ConvertTo-IsoDate($s) {
     if ([string]::IsNullOrWhiteSpace($s)) { return $null }
-    foreach ($fmt in @("MM/dd/yyyy", "M/d/yyyy", "yyyy-MM-dd")) {
+    foreach ($fmt in @("MM/dd/yyyy", "M/d/yyyy", "MM-dd-yyyy", "M-d-yyyy", "yyyy-MM-dd")) {
         try { return ([datetime]::ParseExact($s, $fmt, $null)).ToString("yyyy-MM-dd") } catch {}
     }
     return $null
