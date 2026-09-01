@@ -45,9 +45,17 @@ $ErrorActionPreference = "Stop"
 #   tax-deed case regardless of status) and a per-case dedupe across
 #   duplicate document-type rows (see that script's module docstring) but
 #   writes the same row shape as every other harvester here.
-# All eight write the same row shape to separate JSON files - this script
+# - harvest_laft_leon.py: Leon County's lforms.leonclerk.com portal (added
+#   2026-08-31) - a ninth distinct case: the page itself has no real HTML
+#   table (an empty DataTables skeleton populated client-side via AJAX), so
+#   unlike the other eight this harvester skips the rendered page entirely
+#   and hits the JSON data file (listoflands.txt) it loads from directly.
+#   Also removed from data/laft_html_sources.csv in the same round of
+#   commits, since the static-HTML scan that file feeds can never find real
+#   rows on that page.
+# All nine write the same row shape to separate JSON files - this script
 # merges them before syncing, so it's the only thing that needs to know all
-# eight harvesters exist. Each optional file is guaranteed valid JSON when
+# nine harvesters exist. Each optional file is guaranteed valid JSON when
 # present (every harvester always writes the file, even an empty `[]`, so a
 # missing file really does mean "never ran" not "ran and found nothing").
 
@@ -60,7 +68,8 @@ $optionalSources = @(
     @{ Path = Join-Path $here "../out/harvest_laft_orange.json"; Label = "Orange County TDSM (harvest_laft_orange.json)" },
     @{ Path = Join-Path $here "../out/harvest_laft_stlucie.json"; Label = "St. Lucie County AcclaimWeb (harvest_laft_stlucie.json)" },
     @{ Path = Join-Path $here "../out/harvest_laft_osceola.json"; Label = "Osceola County NewVision (harvest_laft_osceola.json)" },
-    @{ Path = Join-Path $here "../out/harvest_laft_hillsborough.json"; Label = "Hillsborough County PAV (harvest_laft_hillsborough.json)" }
+    @{ Path = Join-Path $here "../out/harvest_laft_hillsborough.json"; Label = "Hillsborough County PAV (harvest_laft_hillsborough.json)" },
+    @{ Path = Join-Path $here "../out/harvest_laft_leon.json"; Label = "Leon County (harvest_laft_leon.json)" }
 )
 
 $supabaseUrl = $env:SUPABASE_URL
