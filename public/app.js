@@ -374,6 +374,23 @@ const bidDisplay = p => (hasPublishedBid(p) ? fmtMoney(p.bid) : "Not published")
 // title, then again in the "Parcel #" reference line directly underneath.
 // Return "" when the address carries no real street information, so the card
 // falls back to its proper parcel-lot title and drops the duplicate line.
+//
+// The denylist below is for the other failure mode, seen live on Escambia: a
+// harvester picks up a COLUMN HEADER or an empty-field placeholder instead of
+// a value, and the card ends up titled "Case Account". These are matched as
+// whole strings only - a genuine street address that merely contains one of
+// these words ("1200 Account Rd") still has its number and its suffix and is
+// kept. Anything not on the list is trusted; guessing at "does this look like
+// an address" would eventually throw away a real one.
+const JUNK_ADDRESSES = new Set([
+  "case account", "case", "account", "case number", "account number",
+  "owner", "owner name", "owner of record", "last owner of record",
+  "description", "address", "property address", "legal description",
+  "parcel", "parcel number", "parcel id",
+  "na", "n a", "none", "null", "unknown", "tbd", "not available",
+  "no address", "no address available", "see legal", "-", "--"
+]);
+
 function realAddress(p) {
   const a = (p.address || "").trim();
   if (!a) return "";
@@ -382,8 +399,21 @@ function realAddress(p) {
   if (p.parcel && squash(a) === squash(p.parcel)) return "";
   // No letters at all means it's an identifier, not a street address.
   if (!/[a-z]/i.test(a)) return "";
+  // Collapse punctuation and runs of whitespace before the denylist check, so
+  // "Case / Account", "case  account" and "CASE ACCOUNT." all match.
+  if (JUNK_ADDRESSES.has(a.replace(/[^0-9a-z]+/gi, " ").trim().toLowerCase())) return "";
   return a;
 }
+
+// The card title when there is no usable address. Falls back a second time
+// when the parcel is missing too, rather than printing the literal string
+// "Parcel #Unknown (Escambia County Lot)", which reads like a data error
+// because it is one - it says nothing except that two fields are empty.
+const hasParcel = p => !!(p.parcel && String(p.parcel).trim() &&
+  !/^(unknown|n\/?a|none|null)$/i.test(String(p.parcel).trim()));
+const lotTitle = p => (hasParcel(p)
+  ? `Parcel #${esc(p.parcel)} (${esc(p.county)} County Lot)`
+  : `${esc(p.county)} County Lot (parcel # not published)`);
 
 const valueRatio = p => (Number(p.bid) > 0 ? marketOf(p) / Number(p.bid) : 0);
 const isTopPick = p => p.lien_level === "clean" && valueRatio(p) >= TOP_PICK_RATIO;
@@ -955,7 +985,7 @@ function card(p, showCounty) {
 
   const street = realAddress(p);
   const hasAddress = !!street;
-  const titleLine = hasAddress ? esc(street) : `Parcel #${esc(p.parcel || "Unknown")} (${esc(p.county)} County Lot)`;
+  const titleLine = hasAddress ? esc(street) : lotTitle(p);
   const bidPublished = hasPublishedBid(p);
 
   // Kept deliberately lean: header, parcel #, opening bid, and an estimated
@@ -991,7 +1021,7 @@ function card(p, showCounty) {
         <span class="pill ${esc(p.status)}">${esc(p.status)}</span>
       </div>
     </div>
-    ${hasAddress ? `<div class="prop-parcel-line">Parcel # ${esc(p.parcel || "Unknown")}</div>` : ""}
+    ${hasAddress && hasParcel(p) ? `<div class="prop-parcel-line">Parcel # ${esc(p.parcel)}</div>` : ""}
     <div class="card-stat-grid ${marketVal ? "card-stat-grid-2" : "card-stat-grid-1"}">
       <div class="card-stat card-stat-headline"><div class="card-stat-label">Opening Bid</div><div class="card-stat-val bid${bidPublished ? "" : " unpublished"}">${bidDisplay(p)}</div></div>
       ${marketVal ? `<div class="card-stat card-stat-headline"><div class="card-stat-label">${usingAssessed ? "Assessed Value" : "Est. Market"}</div><div class="card-stat-val market">${fmtShort(marketVal)}</div></div>` : ""}
@@ -1078,7 +1108,7 @@ function detailHtml(p) {
   ].filter(([, href]) => href);
   const detailStreet = isCert ? "" : realAddress(p);
   const title = isCert ? `Certificate #${esc(p.certificate_no || "Unknown")}` :
-    (detailStreet ? esc(detailStreet) : `Parcel #${esc(p.parcel || "Unknown")} (${esc(p.county)} County Lot)`);
+    (detailStreet ? esc(detailStreet) : lotTitle(p));
   const bidPublished = hasPublishedBid(p);
 
   const stats = [];
