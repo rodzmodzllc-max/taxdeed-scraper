@@ -1,0 +1,225 @@
+/* ============================================================================
+   Explore view - split "list + Florida map" layout, county cluster bubbles,
+   and the card/filter-bar polish that goes with them.
+
+   Deliberately a SEPARATE stylesheet from styles.css rather than edits spread
+   through it: everything the explore view adds (and the handful of overrides
+   it applies to existing card/filter classes) lives in one file that can be
+   removed in one line from index.html if it ever needs to come back out.
+   It loads AFTER styles.css, so plain-specificity overrides win without
+   needing !important anywhere.
+
+   Uses the same palette variables styles.css defines (--ink, --card, --accent,
+   --ok, --brass, ...) so it themes light/dark with the rest of the app for
+   free - no second set of colors to keep in sync.
+   ========================================================================= */
+
+/* ---- view toggle (List / Split / Map) -------------------------------------
+   A segmented control that sits in .quick-controls next to Expand all and
+   Export CSV. Follows the .expand-all-btn sizing so the row stays visually
+   even, but renders as one joined pill group rather than 3 loose buttons. */
+.view-toggle{flex:0 0 auto;display:inline-flex;align-items:center;
+background:var(--paper);border:1px solid var(--card-line);border-radius:8px;
+padding:2px;gap:2px}
+.view-toggle button{font-family:inherit;font-size:.74rem;font-weight:700;
+color:var(--ink-soft);background:none;border:none;border-radius:6px;
+padding:.38rem .6rem;cursor:pointer;white-space:nowrap;display:inline-flex;
+align-items:center;gap:.28rem;line-height:1}
+.view-toggle button:hover{color:var(--ink)}
+.view-toggle button.on{background:var(--accent);color:#fff}
+.view-toggle .vt-icon{font-size:.85em}
+/* The map is genuinely useless on a very narrow screen next to the list, so
+   phones get List/Map only - Split is hidden rather than disabled, since a
+   dead-looking third option reads as a bug. */
+@media (max-width:900px){ .view-toggle button[data-mode="split"]{display:none} }
+
+/* ---- the split shell ------------------------------------------------------
+   #main (the existing card list, untouched) and the map panel are siblings
+   inside .explore-shell. Mode is driven entirely by data-mode on the shell,
+   set by explore.js - no per-element show/hide logic in JS. */
+.explore-shell{display:block}
+.explore-map-panel{display:none}
+
+@media (min-width:1024px){
+  .explore-shell[data-mode="split"]{display:grid;
+    grid-template-columns:minmax(0,1fr) minmax(360px,440px);
+    gap:1.1rem;align-items:start;padding:0 1.6rem}
+  /* main already carries its own horizontal padding for the list-only view;
+     inside the grid the shell owns that instead, or the two would stack. */
+  .explore-shell[data-mode="split"] > main{padding-left:0;padding-right:0}
+  .explore-shell[data-mode="split"] .explore-map-panel{display:block;
+    position:sticky;top:3.1rem}
+  /* Split view halves the list's width, so its auto-fill card grid has to
+     drop to a single comfortable column instead of squeezing two narrow ones. */
+  .explore-shell[data-mode="split"] .prop-list{grid-template-columns:minmax(0,1fr)}
+}
+
+/* Map-only: the panel takes the full width and a taller frame, since it's
+   the whole view rather than a companion to the list. */
+.explore-shell[data-mode="map"] > main{display:none}
+.explore-shell[data-mode="map"] .explore-map-panel{display:block;
+  padding:0 1.1rem}
+@media (min-width:1024px){
+  .explore-shell[data-mode="map"] .explore-map-panel{padding:0 1.6rem;position:static}
+}
+/* Mobile split falls back to map-above-list, which is what a phone can
+   actually show - the sticky side-by-side only exists at >=1024px. */
+@media (max-width:1023px){
+  .explore-shell[data-mode="split"] .explore-map-panel{display:block;
+    padding:0 1.1rem;margin-bottom:.9rem}
+}
+
+/* ---- map panel chrome ---------------------------------------------------- */
+.explore-map{background:var(--card);border:1px solid var(--card-line);
+border-radius:14px;box-shadow:var(--shadow);padding:.75rem .8rem .6rem;
+display:flex;flex-direction:column;gap:.5rem}
+.explore-map-head{display:flex;align-items:baseline;justify-content:space-between;
+gap:.6rem;flex-wrap:wrap}
+.explore-map-title{font-family:'Inter',sans-serif;font-weight:800;font-size:.95rem;
+color:var(--ink);margin:0}
+.explore-map-count{font-family:ui-monospace,Consolas,monospace;
+font-variant-numeric:tabular-nums;font-size:.74rem;color:var(--ink-soft)}
+.explore-map-count b{color:var(--accent)}
+/* Honest about what the dots mean: with geocoding still sparse, a bubble is a
+   county-level cluster, not a parcel pin. Saying so here is cheaper than
+   someone assuming a dot is a street address and driving to it. */
+.explore-map-note{font-size:.66rem;line-height:1.35;color:var(--ink-soft);margin:0}
+.explore-map-canvas{position:relative;border-radius:10px;overflow:hidden;
+background:var(--paper)}
+.explore-map-canvas svg{width:100%;height:auto;display:block;max-height:64vh}
+@media (min-width:1024px){
+  .explore-shell[data-mode="split"] .explore-map-canvas svg{max-height:calc(100vh - 15rem)}
+}
+
+/* County shapes: quiet by default so the data bubbles on top are what the eye
+   lands on - the reverse of the filter-panel picker map, where the shapes
+   themselves are the interface. */
+.explore-map-canvas path[data-county]{fill:var(--card-line);stroke:var(--card);
+stroke-width:1;transition:fill .12s}
+.explore-map-canvas path[data-county].has-rows{fill:color-mix(in srgb,var(--accent) 18%,var(--card-line))}
+.explore-map-canvas path[data-county].sel{fill:color-mix(in srgb,var(--accent) 34%,var(--card-line))}
+
+/* ---- county cluster bubbles ----------------------------------------------
+   One per county with matching rows, radius scaled by count (sqrt, so a
+   40-property county doesn't drown a 4-property one at 10x the area). Same
+   read as the numbered clusters on a listing map, drawn in SVG space over
+   the state outline. */
+.cluster-bubble{cursor:pointer}
+.cluster-bubble circle{fill:var(--accent);stroke:var(--card);stroke-width:2;
+transition:transform .12s,fill .12s;transform-box:fill-box;transform-origin:center}
+.cluster-bubble text{font-family:'Inter',sans-serif;font-weight:800;fill:#fff;
+text-anchor:middle;dominant-baseline:central;pointer-events:none;
+paint-order:stroke;letter-spacing:-.02em}
+.cluster-bubble:hover circle{transform:scale(1.12)}
+.cluster-bubble.sel circle{fill:var(--ok)}
+.cluster-bubble.dim circle{opacity:.35}
+/* Ledger-specific bubble colors, so switching tabs is visible on the map too
+   and matches each ledger's own accent elsewhere in the app. */
+.explore-map-canvas[data-ledger="laft"] .cluster-bubble circle{fill:var(--brass)}
+.explore-map-canvas[data-ledger="certificate"] .cluster-bubble circle{fill:#7C3AED}
+.explore-map-canvas[data-ledger="laft"] .cluster-bubble.sel circle,
+.explore-map-canvas[data-ledger="certificate"] .cluster-bubble.sel circle{fill:var(--ok)}
+
+/* Tooltip follows the pointer rather than anchoring to the bubble - a bubble
+   near the panel edge would otherwise push its own tooltip off-screen. */
+.cluster-tip{position:absolute;pointer-events:none;z-index:5;
+background:var(--header-bg);color:#fff;border-radius:8px;padding:.4rem .55rem;
+font-size:.7rem;line-height:1.35;box-shadow:var(--shadow);opacity:0;
+transition:opacity .1s;max-width:210px}
+.cluster-tip.show{opacity:1}
+.cluster-tip b{display:block;font-size:.76rem;margin-bottom:.1rem}
+.cluster-tip span{color:#CBD5E1}
+
+.explore-map-empty{padding:1.6rem .8rem;text-align:center;font-size:.78rem;
+color:var(--ink-soft)}
+.explore-map-foot{display:flex;align-items:center;justify-content:space-between;
+gap:.5rem;flex-wrap:wrap}
+.explore-map-hint{font-size:.66rem;color:var(--ink-soft)}
+.explore-map-reset{font-size:.7rem;font-weight:700;color:var(--accent);
+background:none;border:none;cursor:pointer;padding:.2rem 0;font-family:inherit}
+.explore-map-reset[hidden]{display:none}
+
+/* ---- card polish ----------------------------------------------------------
+   Overrides, not a rewrite: card()/certCard() in app.js keep emitting exactly
+   the same markup. This tightens the visual hierarchy toward what a listing
+   card should lead with - price first, address second, everything else
+   quieter - and adds the hover affordance the old flat cards were missing. */
+.prop-card{transition:border-color .12s,box-shadow .12s,transform .12s}
+.prop-card:hover{border-color:color-mix(in srgb,var(--accent) 45%,var(--card-line));
+box-shadow:0 1px 2px rgba(15,23,42,.06),0 8px 22px rgba(15,23,42,.10)}
+@media (prefers-reduced-motion:no-preference){
+  @media (min-width:1024px){ .prop-card:hover{transform:translateY(-1px)} }
+}
+/* Highlighted from the map: hovering a county bubble lifts that county's
+   cards so the link between the two panes is visible, not implied. */
+.county-group.map-focus{border-color:var(--accent);
+box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 22%,transparent),var(--shadow)}
+
+.prop-address{font-size:.95rem;letter-spacing:-.01em}
+/* The two headline figures are the whole pitch of a listing (cost vs worth),
+   so they get real size instead of sitting in same-weight boxes. */
+.card-stat-headline .card-stat-val{font-size:1.18rem;letter-spacing:-.02em}
+.card-stat-label{font-size:.6rem}
+.prop-county-tag{letter-spacing:.04em}
+
+/* "No published price" is not a price. The LAFT sync writes bid = 0 to mean
+   the county publishes no figure, and rendering that as "$0.00" in the same
+   alarm red as a real opening bid states something false on a bidding tool.
+   Muted, smaller, and in words - it should read as an absence. Words, not a
+   figure, so it also drops the tabular monospace the numbers use: it reads
+   better, and at roughly two-thirds the width "Not published" fits on one
+   line inside a narrow certificate tile instead of wrapping and making that
+   box taller than the two beside it. */
+.card-stat-val.unpublished{font-family:inherit;color:var(--ink-soft);font-size:.85rem;
+font-weight:600;letter-spacing:0;white-space:nowrap}
+.card-stat-headline .card-stat-val.unpublished{font-size:1rem}
+
+/* When there is no market/assessed figure at all, the second headline box
+   was a large "N/A" occupying half the most valuable space on the card -
+   most visible on exactly the LAFT rows that have the least data. Give the
+   opening bid the full width instead of pairing it with a placeholder. */
+.card-stat-grid.card-stat-grid-1{grid-template-columns:1fr}
+
+/* ---- filter bar -----------------------------------------------------------
+   Same controls, laid out as one clean horizontal strip: search grows, the
+   county picker and the buttons hold their width, and everything shares a
+   single height so the row reads as a toolbar instead of stacked widgets. */
+.quick-controls{align-items:center;gap:.45rem;padding:.55rem .6rem;
+border-radius:12px}
+.quick-controls .qc-field input,
+.quick-controls .qc-field select{height:2.15rem;font-size:.8rem;border-radius:8px}
+.quick-controls .expand-all-btn,
+.quick-controls .export-btn{height:2.15rem;display:inline-flex;align-items:center;
+border-radius:8px}
+.qc-field{flex:1 1 200px;min-width:150px}
+.qc-field.qc-county{flex:0 1 190px}
+@media (min-width:1024px){
+  .quick-controls{flex-wrap:nowrap}
+  .qc-field{flex:1 1 auto}
+}
+
+/* Ledger tabs read as the primary switch they are: bigger, evenly weighted,
+   with the count set apart rather than crammed against the label. */
+.ledger-tab{padding:.62rem .8rem;font-size:.82rem;border-radius:10px}
+.ledger-tab.on{padding:.57rem .75rem}
+.ledger-tab b{margin-left:.1rem;padding:.05rem .38rem;border-radius:999px;
+background:rgba(255,255,255,.12);font-size:.78rem}
+.ledger-tab.on b{background:rgba(96,165,250,.28)}
+
+/* ---- focus visibility -----------------------------------------------------
+   Both the filter chips and the map bubbles are controls built out of
+   non-interactive elements (<span>, SVG <g>), so neither gets a focus ring
+   from the browser. Once they're keyboard-operable they need a visible one,
+   or focus becomes invisible - worse than not being focusable at all. */
+.chipx:focus-visible,
+.cluster-bubble:focus-visible{outline:2px solid var(--accent);outline-offset:2px;
+border-radius:999px}
+/* Firefox draws SVG focus outlines tight to the glyph; a ring on the circle
+   itself reads more clearly at bubble sizes. */
+.cluster-bubble:focus-visible circle{stroke:var(--ink);stroke-width:3}
+
+/* ---- print / reduced motion ---------------------------------------------- */
+@media (prefers-reduced-motion:reduce){
+  .cluster-bubble circle,.prop-card{transition:none}
+  .cluster-bubble:hover circle{transform:none}
+}

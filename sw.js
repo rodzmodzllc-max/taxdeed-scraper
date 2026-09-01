@@ -2,23 +2,35 @@
 // signal at a courthouse.
 //
 // Strategy is deliberately split:
-//   * App shell (html/css/js/icons) -  cache-first, so it launches instantly.
-//   * Everything else, including all Supabase traffic -  network-only.
-//     Property data, notes and auth must never be served stale, and caching
-//     authenticated API responses on disk would be a privacy problem.
+// * App shell (html/css/js/icons) - cache-first, so it launches instantly.
+// * Everything else, including all Supabase traffic - network-only.
+// Property data, notes and auth must never be served stale, and caching
+// authenticated API responses on disk would be a privacy problem.
 
 // Bump this on every deploy that changes the shell, otherwise returning users
 // keep the old CSS/JS from cache and your fix appears not to have shipped.
 // v8: icon URLs below got a ?v=2 cache-buster (see comment there) - bumping
 // this too forces the old cached (pre-relogo) icons out of everyone's
 // Cache Storage immediately instead of waiting on their natural expiry.
-const CACHE = "tdw-shell-v8";
+// v9: adds explore.css / explore.js (the split list+map view) and
+// fl-counties.svg. That SVG is now a dependency of a primary view rather
+// than of a filter-panel extra, so it belongs in the offline shell - the
+// map still working without signal is half the point of shipping a PWA.
+// v10: card/list changes (unpublished-bid labelling, single-tile headline,
+// keyboard-operable chips, lazy county groups) touch app.js, explore.js and
+// explore.css. Code is network-first so this isn't strictly load-bearing,
+// but the shell precache list should not keep handing out the previous
+// trio to a cold offline start.
+const CACHE = "tdw-shell-v10";
 const SHELL = [
   "/",
   "/index.html",
   "/styles.css",
+  "/explore.css",
   "/app.js",
+  "/explore.js",
   "/config.js",
+  "/fl-counties.svg",
   "/manifest.webmanifest",
   // Icon bytes changed (new logo) but the filenames didn't, and /icons/* is
   // served with a 7-day Cache-Control (see _headers) plus this worker's own
@@ -34,7 +46,7 @@ const SHELL = [
 self.addEventListener("install", e => {
   e.waitUntil(
     caches.open(CACHE)
-      // addAll is atomic -  one 404 would reject the whole install, so add
+      // addAll is atomic - one 404 would reject the whole install, so add
       // individually and tolerate misses.
       .then(c => Promise.all(SHELL.map(u => c.add(u).catch(() => {}))))
       .then(() => self.skipWaiting())

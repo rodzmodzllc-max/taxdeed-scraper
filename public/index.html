@@ -6,6 +6,10 @@
 <meta name="color-scheme" content="light dark">
 <title>FL Tax Deed Watchlist</title>
 <link rel="stylesheet" href="styles.css">
+<!-- Loads AFTER styles.css on purpose: explore.css adds the split list+map
+view and applies a handful of plain-specificity overrides to the card and
+filter-bar classes above, which only win if it comes second. -->
+<link rel="stylesheet" href="explore.css">
 <link rel="manifest" href="manifest.webmanifest">
 <meta name="theme-color" content="#0F172A">
 <!-- ?v=2 cache-busts the re-logo'd icon files - see sw.js's comment on
@@ -118,17 +122,26 @@ opens the separate My Bid List modal instead. -->
 </div>
 <!-- Quick controls: instant search + a single-pick county dropdown (the
 detailed multi-select county/type/lien chips still live in Filters &
-Sort below), a per-page limit so hundreds of cards don't render at
-once, and a one-click CSV export of whatever's currently filtered. -->
+Sort below), the List/Split/Map view switcher, a per-page limit so
+hundreds of cards don't render at once, and a one-click CSV export of
+whatever's currently filtered. -->
 <div class="quick-controls" id="quickControls">
 <div class="qc-field">
 <span class="qc-icon">🔍</span>
 <input type="text" id="searchInput" placeholder="Search address or parcel…" autocomplete="off">
 </div>
-<div class="qc-field">
+<div class="qc-field qc-county">
 <span class="qc-icon">📍</span>
 <select id="countyQuick"><option value="ALL">All Counties</option></select>
 <span class="qc-chevron"></span>
+</div>
+<!-- Handled entirely by explore.js - app.js knows nothing about view mode.
+Split is hidden by CSS below 900px, where a half-width list would be
+unusable rather than merely tight. -->
+<div class="view-toggle" id="viewToggle" role="group" aria-label="View mode">
+<button type="button" data-mode="list" aria-pressed="false"><span class="vt-icon">☰</span>List</button>
+<button type="button" data-mode="split" aria-pressed="false"><span class="vt-icon">◫</span>Split</button>
+<button type="button" data-mode="map" aria-pressed="false"><span class="vt-icon">🗺</span>Map</button>
 </div>
 <button class="expand-all-btn" id="expandAllBtn" type="button">Expand all</button>
 <button class="export-btn" id="exportCsvBtn" type="button">⬇ Export CSV</button>
@@ -277,7 +290,37 @@ in an SVG <title> hover tooltip nobody on a touch device will ever see. -->
 </div>
 </div>
 
+<!-- ============ explore shell: card list + county map ============
+#main is exactly the list app.js has always rendered - it is untouched.
+The map panel beside it is drawn by explore.js from the same filtered
+rows the list just used (see the tdw:rendered contract in that file), so
+the two panes can never disagree about what's in view. data-mode is set
+by explore.js and drives the whole layout from CSS alone. -->
+<div class="explore-shell" id="exploreShell" data-mode="list">
 <main id="main"></main>
+<aside class="explore-map-panel" id="exploreMapPanel">
+<div class="explore-map">
+<div class="explore-map-head">
+<h2 class="explore-map-title">Where these are</h2>
+<span class="explore-map-count" id="exploreMapCount"></span>
+</div>
+<div class="explore-map-canvas" id="exploreMapCanvas">
+<div class="explore-map-empty">Loading map…</div>
+</div>
+<div class="cluster-tip" id="clusterTip"></div>
+<div class="explore-map-foot">
+<span class="explore-map-hint" id="exploreMapHint">Tap a county to filter the list to it</span>
+<button class="explore-map-reset" id="exploreMapReset" type="button" hidden>Clear county filter</button>
+</div>
+<!-- Said plainly on the panel rather than left to be inferred: a bubble is
+a county-level count, not a parcel pin. Only ~2% of rows currently
+carry latitude/longitude (see the header comment in explore.js), so
+drawing these as street-level pins would be a precision the data
+doesn't have. -->
+<p class="explore-map-note">Bubbles are county-level counts, sized by how many properties match your filters — not exact parcel locations.</p>
+</div>
+</aside>
+</div>
 
 <footer>
 Links open Street View, the county property appraiser, Zillow, the Tax Collector, the live auction listing, and the Clerk's Official Records.<br><br>
@@ -329,5 +372,10 @@ they know the existing one. -->
 </div>
 
 <script type="module" src="app.js"></script>
+<!-- Loaded after app.js: explore.js only ever reacts to the tdw:rendered
+event app.js dispatches, so load order isn't strictly required - but
+keeping it second matches the dependency direction and makes that
+one-way relationship obvious from the markup. -->
+<script type="module" src="explore.js"></script>
 </body>
 </html>

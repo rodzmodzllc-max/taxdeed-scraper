@@ -360,6 +360,61 @@ function propType(p) {
 }
 
 const marketOf = p => Number(p.market || p.assessed || 0);
+
+// A scraped opening bid of exactly 0 means the county hasn't posted the
+// figure yet, not that the parcel is free. Rendering that as "$0.00" made
+// every unpublished row read like a giveaway - the single most misleading
+// thing on the card. Treat 0/null/undefined alike as "not published yet"
+// and say so in words, in muted type, so it can't be mistaken for a price.
+const hasPublishedBid = p => p.bid !== null && p.bid !== undefined && Number(p.bid) > 0;
+const bidDisplay = p => (hasPublishedBid(p) ? fmtMoney(p.bid) : "Not published");
+
+// Several counties dump the parcel number (or a bare "Parcel 12-34-56"
+// placeholder) into the address column. That printed twice: once as the card
+// title, then again in the "Parcel #" reference line directly underneath.
+// Return "" when the address carries no real street information, so the card
+// falls back to its proper parcel-lot title and drops the duplicate line.
+//
+// The denylist below is for the other failure mode, seen live on Escambia: a
+// harvester picks up a COLUMN HEADER or an empty-field placeholder instead of
+// a value, and the card ends up titled "Case Account". These are matched as
+// whole strings only - a genuine street address that merely contains one of
+// these words ("1200 Account Rd") still has its number and its suffix and is
+// kept. Anything not on the list is trusted; guessing at "does this look like
+// an address" would eventually throw away a real one.
+const JUNK_ADDRESSES = new Set([
+  "case account", "case", "account", "case number", "account number",
+  "owner", "owner name", "owner of record", "last owner of record",
+  "description", "address", "property address", "legal description",
+  "parcel", "parcel number", "parcel id",
+  "na", "n a", "none", "null", "unknown", "tbd", "not available",
+  "no address", "no address available", "see legal", "-", "--"
+]);
+
+function realAddress(p) {
+  const a = (p.address || "").trim();
+  if (!a) return "";
+  if (/^parcel\b/i.test(a)) return "";
+  const squash = s => s.replace(/[^0-9a-z]/gi, "").toLowerCase();
+  if (p.parcel && squash(a) === squash(p.parcel)) return "";
+  // No letters at all means it's an identifier, not a street address.
+  if (!/[a-z]/i.test(a)) return "";
+  // Collapse punctuation and runs of whitespace before the denylist check, so
+  // "Case / Account", "case  account" and "CASE ACCOUNT." all match.
+  if (JUNK_ADDRESSES.has(a.replace(/[^0-9a-z]+/gi, " ").trim().toLowerCase())) return "";
+  return a;
+}
+
+// The card title when there is no usable address. Falls back a second time
+// when the parcel is missing too, rather than printing the literal string
+// "Parcel #Unknown (Escambia County Lot)", which reads like a data error
+// because it is one - it says nothing except that two fields are empty.
+const hasParcel = p => !!(p.parcel && String(p.parcel).trim() &&
+  !/^(unknown|n\/?a|none|null)$/i.test(String(p.parcel).trim()));
+const lotTitle = p => (hasParcel(p)
+  ? `Parcel #${esc(p.parcel)} (${esc(p.county)} County Lot)`
+  : `${esc(p.county)} County Lot (parcel # not published)`);
+
 const valueRatio = p => (Number(p.bid) > 0 ? marketOf(p) / Number(p.bid) : 0);
 const isTopPick = p => p.lien_level === "clean" && valueRatio(p) >= TOP_PICK_RATIO;
 const homesteadSurcharge = p => (p.homestead ? Number(p.assessed || 0) / 2 : 0);
@@ -718,24 +773,43 @@ async function loadAll() {
 function toggleCounty(name) {
   if (state.counties.has(name)) state.counties.delete(name); else state.counties.add(name);
   const on = state.counties.has(name);
-  document.querySelectorAll('#countyChips .chipx').forEach(c => { if (c.dataset.value === name) c.classList.toggle("on", on); });
+  document.querySelectorAll('#countyChips .chipx').forEach(c => {
+    if (c.dataset.value !== name) return;
+    c.classList.toggle("on", on);
+    c.setAttribute("aria-pressed", on ? "true" : "false");
+  });
   if (mapLoaded) document.querySelectorAll('#mapHost path[data-county]').forEach(p => { if (p.dataset.county === name) p.classList.toggle("sel", on); });
   syncCountyQuickSelect();
   updateBadge();
   render();
 }
 
+// Chips are <span>s, so nothing about them was reachable without a mouse:
+// no tab stop, no Enter/Space activation, and a screen reader announced them
+// as plain text with no on/off state. role/tabindex/aria-pressed plus a
+// keydown handler make the whole filter panel operable from the keyboard
+// without changing the markup the stylesheet targets.
 function buildChips(id, values, set, labelFn, classFn) {
   const el = document.getElementById(id); if (!el) return; el.innerHTML = "";
   values.forEach(v => {
     const c = document.createElement("span");
     c.className = "chipx" + (set.has(v) ? " on" : "") + (classFn ? " " + classFn(v) : "");
     c.textContent = labelFn ? labelFn(v) : v; c.dataset.value = v;
-    c.addEventListener("click", () => {
+    c.setAttribute("role", "button");
+    c.setAttribute("tabindex", "0");
+    c.setAttribute("aria-pressed", set.has(v) ? "true" : "false");
+    const toggle = () => {
       if (id === "countyChips") { toggleCounty(v); return; }
       set.has(v) ? set.delete(v) : set.add(v);
       c.classList.toggle("on");
+      c.setAttribute("aria-pressed", set.has(v) ? "true" : "false");
       updateBadge(); render();
+    };
+    c.addEventListener("click", toggle);
+    c.addEventListener("keydown", e => {
+      if (e.key !== "Enter" && e.key !== " " && e.key !== "Spacebar") return;
+      e.preventDefault();   // stop Space from scrolling the panel
+      toggle();
     });
     el.appendChild(c);
   });
@@ -909,9 +983,10 @@ function card(p, showCounty) {
   else if (d !== null && d < 0) { cd = `<span class="countdown past">${-d}d ago</span>`; }
   const tag = showCounty ? `<div class="prop-county-tag">${esc(p.county)}${p.sale_date ? " - " + fmtDate(p.sale_date) : ""}</div>` : (p.sale_date ? `<div class="prop-county-tag">Sale ${new Date(p.sale_date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}</div>` : "");
 
-  const hasAddress = p.address && p.address.trim();
-  const titleLine = hasAddress ? esc(p.address) : `Parcel #${esc(p.parcel || "Unknown")} (${esc(p.county)} County Lot)`;
-  const hasBid = p.bid !== null && p.bid !== undefined;
+  const street = realAddress(p);
+  const hasAddress = !!street;
+  const titleLine = hasAddress ? esc(street) : lotTitle(p);
+  const bidPublished = hasPublishedBid(p);
 
   // Kept deliberately lean: header, parcel #, opening bid, and an estimated
   // value (real market value when we have it, otherwise the county's
@@ -946,10 +1021,10 @@ function card(p, showCounty) {
         <span class="pill ${esc(p.status)}">${esc(p.status)}</span>
       </div>
     </div>
-    ${hasAddress ? `<div class="prop-parcel-line">Parcel # ${esc(p.parcel || "Unknown")}</div>` : ""}
-    <div class="card-stat-grid card-stat-grid-2">
-      <div class="card-stat card-stat-headline"><div class="card-stat-label">Opening Bid</div><div class="card-stat-val bid">${hasBid ? fmtMoney(p.bid) : "N/A"}</div></div>
-      <div class="card-stat card-stat-headline"><div class="card-stat-label">${usingAssessed ? "Assessed Value" : "Est. Market"}</div><div class="card-stat-val market">${marketVal ? fmtShort(marketVal) : "N/A"}</div></div>
+    ${hasAddress && hasParcel(p) ? `<div class="prop-parcel-line">Parcel # ${esc(p.parcel)}</div>` : ""}
+    <div class="card-stat-grid ${marketVal ? "card-stat-grid-2" : "card-stat-grid-1"}">
+      <div class="card-stat card-stat-headline"><div class="card-stat-label">Opening Bid</div><div class="card-stat-val bid${bidPublished ? "" : " unpublished"}">${bidDisplay(p)}</div></div>
+      ${marketVal ? `<div class="card-stat card-stat-headline"><div class="card-stat-label">${usingAssessed ? "Assessed Value" : "Est. Market"}</div><div class="card-stat-val market">${fmtShort(marketVal)}</div></div>` : ""}
     </div>
     <div class="prop-links">
       ${fallbackStreetviewUrl(p) ? `<a href="${esc(fallbackStreetviewUrl(p))}" target="_blank" rel="noopener">${linkIcon("Street View")}Street View</a>` : ''}
@@ -1001,7 +1076,7 @@ function certCard(p, showCounty) {
       </div>
     </div>
     <div class="card-stat-grid">
-      <div class="card-stat"><div class="card-stat-label">Amount</div><div class="card-stat-val bid">${p.bid ? fmtMoney(p.bid) : "N/A"}</div></div>
+      <div class="card-stat"><div class="card-stat-label">Amount</div><div class="card-stat-val bid${hasPublishedBid(p) ? "" : " unpublished"}">${bidDisplay(p)}</div></div>
       <div class="card-stat"><div class="card-stat-label">Account #</div><div class="card-stat-val">${esc(p.case_no || "Unknown")}</div></div>
       <div class="card-stat"><div class="card-stat-label">Expires</div><div class="card-stat-val">${p.expiration_date ? fmtDate(p.expiration_date) : "N/A"}</div></div>
     </div>
@@ -1016,7 +1091,6 @@ function certCard(p, showCounty) {
 // "View Full Property Page" button (data-action="viewdetails").
 function detailHtml(p) {
   const isCert = p.source === "certificate";
-  const hasBid = p.bid !== null && p.bid !== undefined;
   const fav = FAVS.has(p.id);
   const links = [
     ["Street View", fallbackStreetviewUrl(p)],
@@ -1032,15 +1106,17 @@ function detailHtml(p) {
     ["Clerk of Courts", p.url_clerk],
     ["GIS Map", p.url_gis]
   ].filter(([, href]) => href);
+  const detailStreet = isCert ? "" : realAddress(p);
   const title = isCert ? `Certificate #${esc(p.certificate_no || "Unknown")}` :
-    (p.address && p.address.trim() ? esc(p.address) : `Parcel #${esc(p.parcel || "Unknown")} (${esc(p.county)} County Lot)`);
+    (detailStreet ? esc(detailStreet) : lotTitle(p));
+  const bidPublished = hasPublishedBid(p);
 
   const stats = [];
   if (!isCert) {
-    stats.push(["Opening Bid", hasBid ? fmtMoney(p.bid) : "N/A"]);
+    stats.push(["Opening Bid", bidDisplay(p)]);
     stats.push(["Assessed Value", p.assessed ? fmtShort(p.assessed) : "N/A"]);
     stats.push(["Market Value", p.market ? fmtShort(p.market) : "N/A"]);
-    if (hasBid) {
+    if (bidPublished) {
       stats.push(["Fees", fmtShort(fees(p))]);
       stats.push(["Walk Away Above", fmtShort(maxBid(p))]);
       if (marketOf(p) > 0) {
@@ -1049,7 +1125,7 @@ function detailHtml(p) {
       }
     }
   } else {
-    stats.push(["Amount", hasBid ? fmtMoney(p.bid) : "N/A"]);
+    stats.push(["Amount", bidDisplay(p)]);
     if (p.interest_rate) stats.push(["Interest Rate", p.interest_rate + "%"]);
     stats.push(["Tax Year", p.tax_year || "N/A"]);
     stats.push(["Issued", p.issued_date ? fmtDate(p.issued_date) : "N/A"]);
@@ -1493,6 +1569,19 @@ function render() {
 
   const hiddenCount = document.getElementById("hiddenCount");
   if (hiddenCount) hiddenCount.textContent = HIDDEN.size;
+
+  // Hand the just-rendered rows to the explore map (explore.js) - see the
+  // contract note at the top of that file. `shown` is the exact filtered +
+  // sorted set this list just drew, so the map can't disagree with the list
+  // about what's in view - there is deliberately no second copy of
+  // passes()/sortRows() over there to drift out of sync with this one.
+  // Stashing before dispatching matters: both files are type="module" so
+  // this one runs first, and if a render ever lands before explore.js has
+  // finished loading, an event-only handoff would be dropped silently and
+  // the map would sit empty until the next filter change.
+  const rendered = { rows: shown, ledger: activeLedger, openDetail };
+  window.__tdwLastRender = rendered;
+  window.dispatchEvent(new CustomEvent("tdw:rendered", { detail: rendered }));
 }
 
 // Both the primary "Sort" dropdown and the secondary "Then by" tiebreaker
@@ -1683,6 +1772,18 @@ function section(container, title, sub, rows, kind) {
       if (bannerHtml) det.insertAdjacentHTML("beforeend", bannerHtml);
     }
 
+    // Every group builds its cards up front, including collapsed ones.
+    //
+    // Building only the open ones was tried and reverted: it is a real saving
+    // (with everything collapsed by default, most of that DOM is behind a
+    // disclosure nobody has opened), but "the cards are in the DOM" turns out
+    // to be load-bearing well beyond this function - the repo's own
+    // regression suite reads card counts and card text across eight
+    // assertions without expanding anything first, and in-page find behaves
+    // the same way. The saving also lands in the wrong place: a search sets
+    // isOpen on every matching group, so the case that actually felt slow
+    // builds every card regardless. The 200ms debounce on the search input
+    // (see below) is what fixes that, and it costs nothing here.
     const list = document.createElement("div"); list.className = "prop-list";
     countyRows.forEach(p => list.appendChild(renderCard(p, false)));
     det.appendChild(list);
@@ -1728,11 +1829,36 @@ document.querySelectorAll("#ledgerTabs .ledger-tab[data-ledger]").forEach(btn =>
 
 // ---- quick controls: search, county dropdown, expand/collapse all, CSV export ----
 const searchInputEl = document.getElementById("searchInput");
-if (searchInputEl) searchInputEl.addEventListener("input", () => {
-  state.search = searchInputEl.value.trim();
-  updateBadge();
-  render();
-});
+if (searchInputEl) {
+  // Every keystroke used to trigger a full filter + sort + group + re-card of
+  // the entire ledger, which on a phone showed up as the search box lagging
+  // behind the typing. A short trailing debounce folds a burst of keystrokes
+  // into one render. The value is read when the timer fires, not when it's
+  // set, so a programmatic clear (Reset filters) can't be undone by a
+  // still-pending keystroke.
+  //
+  // 150ms is chosen to sit clear of the two waits the repo's regression suite
+  // uses around this input (200ms after filling, 150ms after clearing) while
+  // still coalescing a fast typing burst - raise it and that suite starts
+  // measuring the list mid-debounce and goes flaky.
+  const SEARCH_DEBOUNCE_MS = 150;
+  let searchTimer = null;
+  const applySearch = () => {
+    const v = searchInputEl.value.trim();
+    if (v === state.search) return;
+    state.search = v;
+    updateBadge();
+    render();
+  };
+  searchInputEl.addEventListener("input", () => {
+    clearTimeout(searchTimer);
+    // Emptying the box is not a burst - there is nothing to coalesce, and the
+    // user is waiting to get the whole list back - so it applies immediately.
+    // Only narrowing waits.
+    if (searchInputEl.value.trim() === "") { applySearch(); return; }
+    searchTimer = setTimeout(applySearch, SEARCH_DEBOUNCE_MS);
+  });
+}
 
 const countyQuickEl = document.getElementById("countyQuick");
 if (countyQuickEl) countyQuickEl.addEventListener("change", () => {
