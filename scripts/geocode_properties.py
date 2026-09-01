@@ -18,6 +18,21 @@ this is cheap to run every harvest cycle - most of the table gets geocoded
 once and never touched again, and only genuinely new properties cost an API
 call on the next run. BATCH_LIMIT caps how many rows one run will attempt,
 to stay a polite, well-behaved caller of a free public API.
+
+Priority fix (2026-09-01): only ~5.6% of rows ever carry a real street+city
+address (measured directly - see claude/search-and-card-data-reality.md in
+the project docs); the rest are junk placeholders like "NO STREET COUNTY"
+that the Census geocoder will never match. The original single unordered
+query fetched whatever Postgres's default scan order happened to return -
+in practice a STABLE set dominated by junk rows, since a failed attempt
+never changes latitude and therefore never leaves the `latitude IS NULL`
+pool or its position in that order. With BATCH_LIMIT=250 and ~2,900 junk
+rows ahead of most real ones in that stable order, the same ~250 junk rows
+were being retried every single run - measured live 2026-09-01: 147 rows
+with a genuine comma-containing address had been sitting at zero
+coordinates for over a week of twice-daily runs. Fixed by fetching the
+likely-real (comma-containing address) rows FIRST, in their own query, and
+only spending any leftover budget on the rest - see fetch_ungeocoded().
 """
 import os
 import sys
@@ -42,12 +57,23 @@ HEADERS = {
 }
 
 
-def fetch_ungeocoded(limit):
-    url = (
-        f"{SUPABASE_URL}/rest/v1/properties"
-        f"?latitude=is.null&address=not.is.null&select=id,address,county&limit={limit}"
+def _fetch(limit, address_filter):
+    """address_filter is a PostgREST filter value for the `address` column
+    (e.g. "like.*,*"), or None for no extra filter on it."""
+    params = {
+        "latitude": "is.null",
+        "select": "id,address,county",
+        "limit": str(limit),
+    }
+    if address_filter is None:
+        params["address"] = "not.is.null"
+    else:
+        # Can't repeat the `address` query-string key for two conditions,
+        # so combine both into one PostgREST `and=(...)` expression.
+        params["and"] = f"(address.not.is.null,address.{address_filter})"
+    resp = requests.get(
+        f"{SUPABASE_URL}/rest/v1/properties", headers=HEADERS, params=params, timeout=30
     )
-    resp = requests.get(url, headers=HEADERS, timeout=30)
     if resp.status_code == 400 and "latitude" in resp.text.lower():
         # Matches the certificates-sync failure pattern on purpose - a
         # missing column reads as "schema-v8-geocoding.sql hasn't been run
@@ -61,6 +87,19 @@ def fetch_ungeocoded(limit):
         sys.exit(1)
     resp.raise_for_status()
     return resp.json()
+
+
+def fetch_ungeocoded(limit):
+    """Likely-real (comma-containing) addresses first, junk-address rows
+    only with whatever budget is left over - see the priority-fix note in
+    the module docstring for why this ordering matters. The two filters
+    (`like`/`not.like` on the same pattern) are exact complements, so the
+    two fetches can never overlap."""
+    real = _fetch(limit, "like.*,*")
+    if len(real) >= limit:
+        return real
+    junk = _fetch(limit - len(real), "not.like.*,*")
+    return real + junk
 
 
 def geocode_one(address, county):
