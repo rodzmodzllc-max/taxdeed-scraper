@@ -9,6 +9,18 @@ name: Sync public/ to repo root
 # Only the files that are actually part of the deployed bundle are synced -
 # root also holds config.js, scraper.js, schema*.sql, package.json, etc.
 # that are NOT part of the public/ mirror and must be left alone.
+#
+# THE LIST BELOW IS THE WHOLE POINT OF FAILURE OF THIS WORKFLOW. It was
+# written when the bundle was six files, and the Explore map added four more
+# (explore.js, explore.css, fl-cities.json, fl-zips.json) without anybody
+# updating it. The result was silent and lasted several commits: public/ was
+# correct, main was green, and the live site was still serving a two-commit-old
+# explore.js and 404ing on fl-zips.json, because the sync job cheerfully
+# reported success after copying the six files it had heard of. A missing file
+# now fails the job instead of warning, and the guard step after it fails if
+# public/ holds a deployable file the list does not name - so the next time
+# somebody adds one, CI says so on that commit rather than the site going
+# quietly stale.
 
 on:
   push:
@@ -37,14 +49,19 @@ jobs:
           set -euo pipefail
 
           # Exact file set confirmed to be the deployed bundle in public/.
-          # Update this list if the deployed file set ever changes.
-          FILES="_headers app.js index.html manifest.webmanifest styles.css sw.js"
+          # Update this list if the deployed file set ever changes - and the
+          # guard step below will fail the build if you forget.
+          FILES="_headers app.js explore.css explore.js fl-cities.json fl-zips.json index.html manifest.webmanifest styles.css sw.js"
+          echo "FILES=$FILES" >> "$GITHUB_ENV"
 
           for f in $FILES; do
             if [ -f "public/$f" ]; then
               cp "public/$f" "./$f"
             else
-              echo "::warning::public/$f not found, skipping"
+              # Not a warning. A named file that has gone missing means the
+              # bundle changed shape and root is about to be wrong.
+              echo "::error::public/$f is named in FILES but does not exist"
+              exit 1
             fi
           done
 
@@ -53,6 +70,38 @@ jobs:
             mkdir -p ./icons
             rsync -a --delete public/icons/ ./icons/
           fi
+
+      # Catches the failure mode that started all this: a new deployable file
+      # lands in public/ and nothing mirrors it, because FILES never heard of
+      # it. Anything in public/ that is a real deployed asset must be named
+      # above; genuinely non-deployed files go in the skip list.
+      - name: Fail if public/ holds a deployable file FILES does not name
+        run: |
+          set -euo pipefail
+
+          # Files that live in public/ but are deliberately NOT mirrored.
+          NOT_DEPLOYED="README.md"
+
+          missing=""
+          for path in public/*; do
+            [ -f "$path" ] || continue
+            f="$(basename "$path")"
+            case " $FILES $NOT_DEPLOYED " in
+              *" $f "*) continue ;;
+            esac
+            missing="$missing $f"
+          done
+
+          if [ -n "$missing" ]; then
+            echo "::error::public/ holds deployable file(s) not mirrored to root:$missing"
+            echo "Add them to FILES in .github/workflows/sync-public-to-root.yml"
+            echo "(or to NOT_DEPLOYED if they genuinely should not ship)."
+            echo "Cloudflare Pages serves the ROOT copy - an unmirrored file"
+            echo "means the live site 404s or serves a stale version of it."
+            exit 1
+          fi
+
+          echo "Every deployable file in public/ is named in FILES."
 
       - name: Commit and push if anything changed
         run: |
@@ -65,6 +114,7 @@ jobs:
             exit 0
           fi
 
-          git add _headers app.js index.html manifest.webmanifest styles.css sw.js icons
+          # Same list the mirror step used, so the two can never drift apart.
+          git add $FILES icons
           git commit -m "Auto-sync: mirror public/ to repo root [skip ci]"
           git push
