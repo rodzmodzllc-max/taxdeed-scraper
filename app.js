@@ -580,17 +580,34 @@ function daysSinceUpdate(p) {
   return Math.floor((Date.now() - d) / 86400000);
 }
 
-// Calculate freshness status for a group of properties (e.g., one county)
-function getGroupFreshness(rows) {
-  if (!rows || rows.length === 0) return { isStale: false, timestamp: null, hours: null };
-  const newest = rows.reduce((a, p) => (p.updated_at && p.updated_at > a ? p.updated_at : a), "");
-  if (!newest) return { isStale: false, timestamp: null, hours: null };
-  const hours = (Date.now() - Date.parse(newest)) / 3600000;
-  return {
-    isStale: hours > STALE_DATA_HOURS,
-    timestamp: newest,
-    hours: Math.round(hours)
-  };
+// Is this one row's data behind? Same STALE_DATA_HOURS threshold the
+// dataset-wide line in Terms uses, applied per property rather than per
+// county group - a county can hold one row that stopped updating while the
+// rest of it syncs fine, and the group-level "newest wins" reduction hid
+// exactly that case.
+function isRowStale(p) {
+  if (!p || !p.updated_at) return false;
+  const t = Date.parse(p.updated_at);
+  if (isNaN(t)) return false;
+  return (Date.now() - t) / 3600000 > STALE_DATA_HOURS;
+}
+
+// The single status a card's left edge reports. Precedence matters and is
+// deliberate:
+//
+//   closed  - the outcome is known (sold, redeemed, cancelled, withdrawn).
+//             Whether the row synced recently is beside the point once the
+//             answer is in, so this wins outright.
+//   stale   - not closed, but this row has not been re-synced within
+//             STALE_DATA_HOURS. "We are not certain this is still current."
+//   active  - not closed, synced recently. Open, and believed accurate.
+//
+// Returned as a class name so the colour lives in CSS with the rest of the
+// palette rather than being written inline here.
+function cardStatus(p) {
+  if (isGone(p)) return "status-closed";
+  if (isRowStale(p)) return "status-stale";
+  return "status-active";
 }
 
 function saleTime(p) {
@@ -915,9 +932,13 @@ async function loadAll() {
   BIDLIST_ORDER = bidlist.error ? [] : (bidlist.data || []).map(r => r.property_id);
   BIDLIST = new Set(BIDLIST_ORDER);
   CALENDAR = {}; if (!cal.error) { (cal.data || []).forEach(r => { (CALENDAR[r.county] = CALENDAR[r.county] || []).push(r.sale_date); }); }
+  // Same sentence as before, written into the Terms modal instead of the
+  // masthead. The header is the logo and the title; when the whole dataset
+  // is behind, that is provenance and belongs with the rest of "where the
+  // numbers come from". Per-row staleness is now shown where it is actually
+  // actionable - as an amber edge on the individual card (see cardStatus).
   const newest = ALL.reduce((a, p) => (p.updated_at > a ? p.updated_at : a), "");
   const genEl = document.getElementById("generatedAt");
-  const eyeEl = document.getElementById("eyebrow");
   if (genEl) {
     const staleHours = newest ? (Date.now() - Date.parse(newest)) / 3600000 : null;
     const isStale = staleHours !== null && staleHours > STALE_DATA_HOURS;
@@ -926,7 +947,6 @@ async function loadAll() {
       isStale ? "⚠ Data updated " + new Date(newest).toLocaleString() + " - sync may be behind" :
       "Data updated " + new Date(newest).toLocaleString();
   }
-  if (eyeEl) eyeEl.textContent = "Field Ledger - " + countyNames().length + " Counties Tracked";
 }
 
 // County chips and the county map (below) both drive state.counties, so a
@@ -1165,7 +1185,7 @@ function bidListBtnHtml(p, compact) {
 function card(p, showCounty) {
   const el = document.createElement("div");
   const fav = FAVS.has(p.id), top = isTopPick(p);
-  el.className = "prop-card" + (fav ? " favorited" : "") + (top ? " toppick" : "");
+  el.className = "prop-card " + cardStatus(p) + (fav ? " favorited" : "") + (top ? " toppick" : "");
   const d = daysUntil(p);
   let cd = "";
   if (d !== null && d >= 0) { const cls = d <= 3 ? "urgent" : d <= SOON_DAYS ? "soon" : ""; cd = `<span class="countdown ${cls}">${d === 0 ? "TODAY" : d + "d"}</span>`; }
@@ -1239,7 +1259,7 @@ function certDaysUntil(dateStr) {
 function certCard(p, showCounty) {
   const el = document.createElement("div");
   const fav = FAVS.has(p.id);
-  el.className = "prop-card cert-card" + (fav ? " favorited" : "");
+  el.className = "prop-card cert-card " + cardStatus(p) + (fav ? " favorited" : "");
   const tag = showCounty ? `<div class="prop-county-tag">${esc(p.county)} County - Certificate</div>` : "";
   const expDays = certDaysUntil(p.expiration_date);
   let cd = "";
@@ -1365,7 +1385,12 @@ function openDetail(p) {
   if (!modal || !inner) return;
   // .prop-card so the existing fav/hide/copy/savenote click delegation
   // (which looks for `.closest('.prop-card')`) keeps working inside the modal.
-  inner.className = "detail-modal-inner prop-card";
+  // It takes the status edge too: the full page is the same property as the
+  // card you tapped, and a green edge in the list turning into no edge here
+  // would read as the status having been withdrawn on closer inspection.
+  // refreshOpenDetail() re-enters this function, so the class stays current
+  // after a favourite or a watchlist change rebuilds the modal.
+  inner.className = "detail-modal-inner prop-card " + cardStatus(p);
   inner.innerHTML = detailHtml(p);
   modal.hidden = false;
   pushBackLayer("detail", closeDetail);
@@ -1719,8 +1744,21 @@ function render() {
   const inLedger = p => p.source === activeLedger;
   const { shown } = section(main, cfg.title, cfg.sub, ALL.filter(inLedger), activeLedger);
 
+  // A raw count of every row in the source counted things the ledger will
+  // never show you: past-due auctions (archive-only, excluded from every
+  // normal view by isPastDue), rows you have hidden, and rows whose
+  // gone-grace period has expired. On Auctions that meant the tab advertised
+  // a number tens larger than the list beneath it, most of it archive.
+  //
+  // These are deliberately NOT scoped to the current filters - the tab says
+  // how much is in the ledger, which is what you need to decide whether to
+  // go there. How much matches your filters is the Shown chip's job.
   const tabCounts = { auction: 0, laft: 0, certificate: 0 };
-  ALL.forEach(p => { if (p.source in tabCounts) tabCounts[p.source]++; });
+  ALL.forEach(p => {
+    if (!(p.source in tabCounts)) return;
+    if (isPastDue(p) || HIDDEN.has(p.id) || goneExpired(p)) return;
+    tabCounts[p.source]++;
+  });
   document.querySelectorAll("#ledgerTabs .ledger-tab").forEach(btn => {
     const src = btn.dataset.ledger;
     const active = src === activeLedger;
@@ -1936,6 +1974,11 @@ function section(container, title, sub, rows, kind) {
       <p class="mega-sub">${sub}</p>
       ${cfg.how ? `<p class="ledger-how">${cfg.how}</p>` : ""}
       ${facts ? `<p class="ledger-facts">${esc(facts)}</p>` : ""}
+      <p class="ledger-legend" aria-label="What the colour on each card's left edge means">
+        <span class="lgd lgd-active">Active</span>
+        <span class="lgd lgd-stale">Not synced recently</span>
+        <span class="lgd lgd-closed">Closed</span>
+      </p>
       ${state.statusView === "archive" ? `<p class="ledger-mode-note" id="archiveModeNote">📁 Past auctions only — sale date already gone. <button class="ledger-mode-exit" id="exitArchiveBtn" type="button">Back to current listings</button></p>` : ""}
     </div>`;
   if (!shown.length) {
@@ -2018,20 +2061,15 @@ function section(container, title, sub, rows, kind) {
 
     const summary = document.createElement("summary");
     summary.className = "county-head";
-    // Sync telemetry, not bidder information. "✓ Fresh (3h ago)" answers a
-    // question only whoever runs the harvest has: is the pipeline keeping up.
-    // A bidder can do nothing with it, and "⚠ Stale" on a listing that is
-    // perfectly valid reads as a warning about the PROPERTY. Admin only.
+    // The "✓ Fresh (3h ago)" / "⚠ Stale" badge that used to sit here is gone
+    // entirely - it was briefly admin-only, and even for an admin it was a
+    // number nobody acted on, repeated once per county down the page.
     //
-    // The masthead's own "Data updated ..." line stays visible to everyone -
-    // that one is a single honest statement about the whole dataset (and the
-    // Terms modal points at it by name), not a per-county badge repeated
-    // down the page.
-    const freshness = IS_ADMIN ? getGroupFreshness(countyRows) : null;
-    const freshnessBadge = freshness && freshness.timestamp ?
-      `<span class="freshness-badge ${freshness.isStale ? 'stale' : 'fresh'}" title="Admin only - last synced ${new Date(freshness.timestamp).toLocaleString()}">
-         ${freshness.isStale ? '⚠ Stale' : '✓ Fresh'} (${freshness.hours}h ago)
-       </span>` : '';
+    // Staleness did not disappear with it; it moved to where it means
+    // something. A row whose own updated_at is behind gets an amber edge on
+    // its card (cardStatus below), next to the listing it is actually about,
+    // instead of an aggregate for the whole county group.
+    const freshnessBadge = '';
     summary.innerHTML = `
       <div>
         <div class="county-name">${esc(county)}</div>

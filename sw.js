@@ -46,7 +46,13 @@
 // #/certificates), own accent palette, own header. index.html, app.js and
 // styles.css all changed, and a half-updated shell here would serve the new
 // markup against the old stylesheet.
-const CACHE = "tdw-shell-v16";
+//
+// v17: the header collapsed to one bar (logo, title, account badge) and the
+// per-county freshness badge became a status colour on each card's left
+// edge. The account badge MOVED in the markup, from the masthead into the
+// sticky topbar - a cached index.html against a fresh app.js would leave
+// #accountBtn where nothing expects it.
+const CACHE = "tdw-shell-v17";
 const SHELL = [
   "/",
   "/index.html",

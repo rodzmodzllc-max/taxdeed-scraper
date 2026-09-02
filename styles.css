@@ -125,10 +125,10 @@ a{color:var(--accent)} button{font-family:inherit}
    list - the .quick-controls bar below handles "reachable while scrolling"
    instead (sticky on mobile only). */
 .masthead{background:var(--header-bg); color:var(--header-ink);
-  border-bottom:2px solid var(--header-line);padding:1.4rem 1.1rem 1rem}
-.eyebrow-row{display:flex;align-items:center;justify-content:space-between;gap:.6rem;margin:0 0 .25rem}
-.eyebrow{font-family:ui-monospace,Consolas,monospace;font-size:.68rem;letter-spacing:.14em;
-  text-transform:uppercase;color:var(--brass);margin:0}
+  border-bottom:2px solid var(--header-line);padding:.85rem 1.1rem .9rem}
+/* The account badge sits in the sticky .topbar with the brand now, pushed
+   to the right end of it - that bar is the entire header. */
+.topbar .header-btns{margin-left:auto}
 .header-btns{display:flex;align-items:center;gap:.4rem;flex-shrink:0}
 .hbtn{display:inline-flex;align-items:center;gap:.3rem;font-size:.7rem;font-weight:600;
   color:var(--header-ink-soft);background:rgba(255,255,255,.06);border:1px solid var(--header-line);
@@ -141,8 +141,8 @@ a{color:var(--accent)} button{font-family:inherit}
    visible - and clicking it with no captured prompt is a dead click,
    exactly the "install button that does nothing" bug. */
 .hbtn[hidden]{display:none}
-h1{font-family:'Inter',sans-serif;font-weight:800;font-size:1.65rem;line-height:1.15;
-  margin:0.25rem 0 .2rem;letter-spacing:-.01em;color:var(--header-ink)}
+h1{font-family:'Inter',sans-serif;font-weight:800;font-size:1.45rem;line-height:1.15;
+  margin:0;letter-spacing:-.01em;color:var(--header-ink)}
 h1 .brand-accent{color:#60A5FA}
 /* Logo lockup - gives the masthead an actual brand mark instead of text
 alone. Replaces a bare <h1> with [logo][title] side by side, sized well
@@ -152,7 +152,9 @@ above the 22px topbar mark so it reads as the header's focal point. */
 .brand-mark-lg{flex-shrink:0;display:block;border-radius:11px;
   box-shadow:0 1px 3px rgba(0,0,0,.35)}
 .tagline{font-size:.875rem;line-height:1.5;color:var(--header-ink-soft);margin:0 0 .75rem;max-width:52ch;font-weight:400}
-.generated{font-size:.8rem;color:var(--header-ink-soft);margin:0 0 .9rem;font-weight:500}
+/* Lives in the Terms modal now, not the masthead - so it takes the modal's
+   body colours rather than the dark header's. */
+.generated{font-size:.78rem;color:var(--ink-soft);margin:.3rem 0 .6rem;font-weight:600}
 /* Sync pipeline runs on a PC, not a server - nothing guarantees it ran
    today. This makes a dead sync visually loud instead of reading the same
    as "quiet week, nothing new". --warn is already used for county-format
@@ -497,10 +499,7 @@ summary.county-head::-webkit-details-marker{display:none}
 .county-chevron{width:8px;height:8px;flex-shrink:0;border-right:2px solid var(--ink-soft);
   border-bottom:2px solid var(--ink-soft);transform:rotate(45deg);transition:transform .15s}
 .county-group[open] .county-chevron{transform:rotate(225deg)}
-.freshness-badge{display:inline-flex;align-items:center;font-size:.68rem;font-weight:600;
-  padding:.2rem .4rem;border-radius:4px;white-space:nowrap;color:var(--accent);
-  background:color-mix(in srgb,var(--accent) 12%,var(--paper) 88%)}
-.freshness-badge.stale{color:#d97706;background:color-mix(in srgb,#d97706 12%,var(--paper) 88%)}
+/* .freshness-badge is gone - staleness is the card's amber left edge now. */
 .county-info{display:flex;align-items:flex-start;gap:.5rem;margin:0 .6rem .6rem;padding:.5rem .65rem;
   background:var(--accent-soft);border-radius:8px;font-size:.74rem;line-height:1.4;color:var(--ink)}
 .fmt-pill{flex-shrink:0;font-weight:700;font-size:.6rem;text-transform:uppercase;letter-spacing:.03em;
@@ -514,10 +513,35 @@ summary.county-head::-webkit-details-marker{display:none}
 .prop-card{border:1px solid var(--card-line);border-left:3px solid var(--card-line);
   border-radius:12px;padding:.7rem .8rem;background:var(--card);box-shadow:var(--shadow);
   display:flex;flex-direction:column}
-.prop-card.cert-card{border-left-color:var(--accent)}
-.prop-card.favorited{border-left-color:var(--brass)}
-.prop-card.toppick{border-left-color:var(--ok);background:color-mix(in srgb,var(--ok-bg) 35%,var(--card) 65%)}
-.prop-card.toppick.favorited{border-left-color:var(--brass)}
+/* ---- the card's left edge reports STATUS, and only status ---------------
+   It used to mean three different things at once - accent for a
+   certificate, brass for a favourite, green for a top pick - which is why
+   it could not be read as meaning anything. Both of those still announce
+   themselves perfectly well on their own: a favourite has a filled ♥ in the
+   card, a top pick has a "★ Top pick" banner across the top of it. So the
+   edge is free to carry the one thing that was previously only available as
+   a per-county "✓ Fresh (3h ago)" badge nobody acted on.
+
+   Green active, amber not-synced-recently, red closed. Precedence is set in
+   cardStatus() in app.js - closed beats stale beats active, because once the
+   outcome is known it does not matter how fresh the row is. The colours are
+   the theme's existing --ok/--warn/--bad, so they already carry the right
+   meaning everywhere else in the app and follow the light/dark palette. */
+.prop-card.status-active{border-left-color:var(--ok)}
+.prop-card.status-stale{border-left-color:var(--warn)}
+.prop-card.status-closed{border-left-color:var(--bad)}
+/* Top pick keeps its tint - that is a different axis (worth a look) from
+   status (still open), and the banner names it in words either way. */
+.prop-card.toppick{background:color-mix(in srgb,var(--ok-bg) 35%,var(--card) 65%)}
+
+/* A key for the three colours, in the ledger header where the list starts.
+   Quiet by design - the cards also carry a status pill and a closed banner,
+   so this confirms rather than being the only signal. */
+.ledger-legend{display:flex;flex-wrap:wrap;gap:.4rem .85rem;margin:.55rem 0 0;
+  font-size:.68rem;font-weight:600;color:var(--ink-soft)}
+.lgd{display:inline-flex;align-items:center;gap:.3rem}
+.lgd::before{content:"";width:3px;height:11px;border-radius:2px;background:currentColor}
+.lgd-active{color:var(--ok)} .lgd-stale{color:var(--warn)} .lgd-closed{color:var(--bad)}
 /* Top Pick: soft green fill + a bold (2px) outline, called out in the spec
    as its own badge treatment distinct from the plain status pill. */
 .toppick-banner{display:inline-flex;align-items:center;gap:.35rem;font-size:.68rem;font-weight:800;
