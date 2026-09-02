@@ -254,6 +254,16 @@ results.laftCardCount = await page.locator('.prop-card').count();
 // County is shown on the group header now, not a per-card tag.
 results.laftCountyGroupName = (await page.locator('.county-group .county-name').first().textContent() || '').trim();
 results.laftGroupMeta = (await page.locator('.county-group .county-meta').first().textContent() || '').trim();
+// The acres branch. p3's lot is 43,560 sq ft - exactly an acre, and over the
+// 20,000 threshold - so it must read "1.00 acres", not a six-digit square
+// footage nobody can picture. It is also vacant land with no building, so its
+// spec line has to carry the lot and NOTHING else: no "Built", no living
+// area. That is the majority shape of this inventory, and the reason each
+// fact renders independently rather than as one block.
+await page.locator('.county-group[data-county="Bay"] summary.county-head').click();
+await page.waitForTimeout(200);
+results.laftSpecBits = await page.locator('.prop-card').first().locator('.prop-spec span').allTextContents();
+results.laftValueLabel = (await page.locator('.prop-card').first().locator('.card-stat-label').nth(1).textContent() || '').trim();
 
 // --- switch to Certificates tab (fixture p4) ---
 await page.click('.ledger-tab[data-ledger="certificate"]');
@@ -336,8 +346,8 @@ await page.waitForTimeout(150);
 // ============================================================
 
 // --- card cleanup: cards were pared down to header + a quiet parcel-#
-// reference line + a 2-box headline stat grid (Opening Bid / Est. Market,
-// falling back to Assessed Value when no real market figure is scraped -
+// reference line + a 2-box headline stat grid (Opening Bid / the county's
+// own just value for a stated roll year, falling back to assessed value -
 // these two are the actual "cost vs. worth" pitch of the listing) + 3
 // reference links (Street View / Appraiser / Zillow) + an optional CTA + a
 // small "view full property page" link. Potential equity (the old
@@ -347,6 +357,32 @@ await page.waitForTimeout(150);
 results.cardStatLabelsFirst = await page.locator('.prop-card').first().locator('.card-stat-label').allTextContents();
 results.cardParcelLineFirst = (await page.locator('.prop-card').first().locator('.prop-parcel-line').textContent() || '').trim();
 results.spreadBadgeCount = await page.locator('.spread-badge').count();
+
+// --- county tax-roll facts on the card ---
+// scripts/enrich_property_details.py fills these from Florida's statewide
+// cadastral layer. The fixture carries three deliberately different states,
+// because that is what production looks like.
+//
+// p1 is fully enriched WITH a building.
+const p1Card = page.locator('.prop-card').first();
+results.cardSpecBits = await p1Card.locator('.prop-spec span').allTextContents();
+results.cardLastSale = (await p1Card.locator('.prop-lastsale').textContent() || '').replace(/\s+/g, ' ').trim();
+// The legal description is a paragraph of surveyor's shorthand. On the card
+// it is one clamped line - the full text lives in the title attribute and on
+// the full property page.
+results.cardLegalIsOneLine = await p1Card.locator('.prop-legal').evaluate(el =>
+  getComputedStyle(el).whiteSpace === 'nowrap' && getComputedStyle(el).textOverflow === 'ellipsis');
+results.cardLegalFullTextInTitle = ((await p1Card.locator('.prop-legal').getAttribute('title')) || '').startsWith('BEG 418 FT S');
+
+// A row the enrichment script has NOT matched must still render the lean
+// card it always was - no empty spec line, no orphan "Last sold" label.
+// p5 (500 Elm Way, Charlotte) is deliberately left unenriched in the fixture.
+const p5Card = page.locator('.prop-card:has-text("500 Elm Way")').first();
+results.unenrichedCardExtras = await p5Card.evaluate(el => [
+  el.querySelectorAll('.prop-spec').length,
+  el.querySelectorAll('.prop-lastsale').length,
+  el.querySelectorAll('.prop-legal').length
+].join(','));
 
 // --- collapse everything first, so the next search test genuinely proves a
 // search auto-opens a matching county rather than finding it already open
@@ -432,6 +468,28 @@ await page.waitForTimeout(150);
 results.detailModalVisibleAfterOpen = await page.locator('#detailModal').isVisible();
 results.detailModalHasAddress = await page.locator('#detailModalInner .detail-address').count();
 results.detailModalHasLinks = await page.locator('#detailModalInner .detail-links a').count();
+
+// --- the tax-roll facts on the full property page ---
+// The card carries the three-fact summary; the page carries the rest,
+// including the whole legal description rather than one clamped line.
+results.detailStatLabels = await page.locator('#detailModalInner .detail-stat-label').allTextContents();
+results.detailStatValues = await page.evaluate(() => {
+  const out = {};
+  document.querySelectorAll('#detailModalInner .detail-stat').forEach(el => {
+    out[el.querySelector('.detail-stat-label').textContent.trim()] =
+      el.querySelector('.detail-stat-val').textContent.trim();
+  });
+  return ['Year Built', 'Living Area', 'Lot Size', 'Buildings', 'Last Sale', 'Land Value'].map(k => out[k] || '-').join(' | ');
+});
+// Full text here, not the clamped card version.
+results.detailLegalIsFull = ((await page.locator('#detailModalInner .detail-legal p').textContent()) || '').trim().endsWith('S 50 FT TO POB');
+// "County Assessed Value" is always pushed, so the assessed figure is still
+// named and distinguishable from the just value above it - the two are
+// different numbers and the old page called one of them "Market Value".
+results.detailNamesBothValues = await page.evaluate(() => {
+  const labels = [...document.querySelectorAll('#detailModalInner .detail-stat-label')].map(e => e.textContent.trim());
+  return labels.includes('2025 County Just Value') && labels.includes('County Assessed Value');
+});
 
 // close via the close button
 await page.click('[data-action="closedetail"]');
@@ -812,6 +870,10 @@ const EXPECTED = {
   auctionTabOffAfterLaftClick: false,
   laftCardCount: 1,
   laftCountyGroupName: 'Bay',
+  laftSpecBits: ['1.00 acres lot'],
+  // A different roll year from p1's, so the label is genuinely per-row rather
+  // than a constant with a year hardcoded into it.
+  laftValueLabel: '2024 County Just Value',
   laftGroupMeta: 'Lands Available - fixed price, available now',
   certCardCount: 1,
   certCardTitle: 'Certificate #CERT-42',
@@ -837,12 +899,19 @@ const EXPECTED = {
   archiveCardAgoBadge: '6d ago',
   staleWarningClassPresent: 1,
   staleWarningText: '⚠ Data updated 8/12/2026, 12:00:00 AM - sync may be behind',
-  // Cards were pared down to header + a quiet Parcel # line + a 2-box
-  // Opening Bid / Est. Market headline grid; potential equity (the old
-  // .spread-badge) moved to the detail modal only. p1 (first remaining
-  // card after the earlier hide) has a real market figure, so it reads
-  // "Est. Market" rather than falling back to "Assessed Value".
-  cardStatLabelsFirst: ['Opening Bid', 'Est. Market'],
+  // The value box is named for what the number actually is. It used to read
+  // "Est. Market", which implied a live estimate this app has never had and
+  // cannot legitimately obtain - the Zestimate API was retired in 2021. It is
+  // the county appraiser's statutory just value, and value_year says which
+  // roll year, so the label can say so exactly.
+  cardStatLabelsFirst: ['Opening Bid', '2025 County Just Value'],
+  // 16,456 sq ft is under the 20,000 threshold, so the lot stays in square
+  // feet rather than being quoted as 0.38 acres.
+  cardSpecBits: ['Built 1958', '1,840 sq ft', '16,456 sq ft lot'],
+  cardLastSale: 'Last sold $41,500 in 2011',
+  cardLegalIsOneLine: true,
+  cardLegalFullTextInTitle: true,
+  unenrichedCardExtras: '0,0,0',
   cardParcelLineFirst: 'Parcel # 111',
   spreadBadgeCount: 0,
   duvalGroupClosedBeforeSearch: false,
@@ -860,6 +929,15 @@ const EXPECTED = {
   typeCountBadgeTextAfterNone: '0/7',
   typeCountBadgeTextAfterAll: '7/7',
   csvDownloadFilename: /^taxdeed-auction-\d{4}-\d{2}-\d{2}\.csv$/,
+  detailStatLabels: [
+    'Opening Bid', '2025 County Just Value', 'County Assessed Value', 'Land Value',
+    // "Fees i" - the label carries an info tooltip glyph.
+    'Fees i', 'Walk Away Above', 'Potential Equity',
+    'Year Built', 'Living Area', 'Lot Size', 'Buildings', 'Last Sale'
+  ],
+  detailStatValues: '1958 | 1,840 sq ft | 16,456 sq ft | 1 | $41,500 in 2011 | $22,000',
+  detailLegalIsFull: true,
+  detailNamesBothValues: true,
   detailModalVisibleAfterOpen: true,
   detailModalHasAddress: 1,
   detailModalHasLinks: 6,
