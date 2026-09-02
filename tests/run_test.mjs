@@ -568,6 +568,50 @@ results.auctionKeepsTypeLienAssessed = [
 // the other two the toggle could only ever produce an empty page.
 results.archiveRowHiddenPerLedger = ['auction', 'laft', 'certificate'].map(k => ledgerPages[k].archiveRowHidden);
 
+// --- the header is the logo and the title, and nothing else ---
+// The eyebrow ("FIELD LEDGER - N COUNTIES TRACKED"), the tagline and the
+// "Data updated" line are all out of the masthead. Asserting they are absent
+// FROM THE MASTHEAD specifically, not from the page - #generatedAt still
+// exists, it moved into Terms & disclaimer.
+results.mastheadLeftovers = await page.evaluate(() => {
+  const m = document.querySelector('.masthead');
+  if (!m) return 'no masthead';
+  return ['#eyebrow', '.tagline', '#generatedAt'].filter(sel => m.querySelector(sel)).join(',');
+});
+// The header is one bar: the sticky .topbar, holding the brand and the
+// account badge. The masthead below it is now just the dark ground the tabs
+// and chips sit on - if the brand or the badge ever reappears in it, that is
+// the old two-tier header creeping back.
+results.topbarHasBrandAndAccount = await page.evaluate(() => {
+  const t = document.querySelector('.topbar');
+  return !!(t && t.querySelector('.brand-name') && t.querySelector('#accountBtn'));
+});
+results.mastheadHasNoBrandOrAccount = await page.evaluate(() => {
+  const m = document.querySelector('.masthead');
+  if (!m) return 'no masthead';
+  return ['.brand-lockup', '.brand-name', '#accountBtn'].filter(sel => m.querySelector(sel)).join(',');
+});
+// The sync time is not deleted, just relocated to where provenance is
+// discussed - and it still carries the stale warning when the data is behind.
+results.generatedLivesInTerms = await page.evaluate(() =>
+  !!document.querySelector('#termsModal #generatedAt'));
+
+// --- card status edges replace the per-county freshness badge ---
+// Every card carries exactly one status, never two - the precedence in
+// cardStatus() (closed > stale > active) has to actually resolve, not stack.
+results.cardsWithoutExactlyOneStatus = await page.evaluate(() =>
+  [...document.querySelectorAll('.prop-card')].filter(el => {
+    const n = ['status-active', 'status-stale', 'status-closed'].filter(c => el.classList.contains(c)).length;
+    return n !== 1;
+  }).length);
+results.cardsOnScreenForThatCheck = (await page.locator('.prop-card').count()) > 0;
+// Every fixture row's updated_at is weeks behind its fixed "today", so the
+// whole list should read as not-synced-recently. If this ever comes back 0,
+// isRowStale() has stopped working rather than the data having improved.
+results.staleCardsPresent = (await page.locator('.prop-card.status-stale').count()) > 0;
+// And there is a key for the colours where the list starts.
+results.legendSwatchCount = await page.locator('.ledger-legend .lgd').count();
+
 // A ledger URL is a real entry point, not just a label the app writes after
 // the fact: a cold load on #/certificates must come up on Certificates.
 await page.goto(BASE_URL + '#/certificates', { waitUntil: 'networkidle' });
@@ -575,12 +619,12 @@ await page.waitForTimeout(1200);
 results.deepLinkLandsOnCertificates = await page.locator('.ledger-tab[data-ledger="certificate"]').evaluate(el => el.classList.contains('on'));
 results.deepLinkHeading = ((await page.locator('.ledger-head h2').textContent()) || '').trim();
 
-// ...and the admin who DOES want the sync telemetry still gets it. Without
-// this, "no badge anywhere" would also pass if the feature had simply been
-// deleted rather than gated.
+// The badge is now gone for EVERYONE, admin included - it was a number
+// nobody acted on, repeated once per county down the page. Checking the
+// admin view too, because that is the one place it survived last time.
 await page.goto(BASE_URL + '?profile=admin', { waitUntil: 'networkidle' });
 await page.waitForTimeout(1400);
-results.freshnessBadgesForAdmin = (await page.locator('.freshness-badge').count()) > 0;
+results.freshnessBadgesForAdmin = await page.locator('.freshness-badge').count();
 
 await browser.close();
 
@@ -599,13 +643,18 @@ const EXPECTED = {
   countyGroupCount: 9,
   // Tab labels became page names ("Auctions", not "Tax Deeds / Auctions") and
   // each carries a leading icon span, which allTextContents() concatenates.
-  ledgerTabCounts: ['\u2696\uFE0FAuctions 11', '\uD83C\uDFDE\uFE0FLands Available 1', '\uD83D\uDCDCCertificates 1'],
+  // Auctions is 9, not 11: the tab counts what the ledger will actually show,
+  // so the past-due row (archive-only) and the gone row whose grace period has
+  // expired are both excluded. Neither is reachable from this tab, and
+  // advertising them made the number disagree with the list underneath it.
+  ledgerTabCounts: ['\u2696\uFE0FAuctions 9', '\uD83C\uDFDE\uFE0FLands Available 1', '\uD83D\uDCDCCertificates 1'],
   auctionTabOnByDefault: true,
 
   // --- per-ledger pages ---
   freshnessBadgesForNormalUser: 0,
   countyGroupsPresentForThatCheck: true,
-  freshnessBadgesForAdmin: true,
+  // Gone for everyone now, admin included.
+  freshnessBadgesForAdmin: 0,
   watchlistChipLabel: '⚑ Watchlist 0/10',
   ledgerHashes: ['#/auctions', '#/lands', '#/certificates'],
   ledgerDocAttr: ['auction', 'laft', 'certificate'],
@@ -621,6 +670,14 @@ const EXPECTED = {
   certHidesTypeLienAssessed: [true, true, true],
   auctionKeepsTypeLienAssessed: [false, false, false],
   archiveRowHiddenPerLedger: [false, true, true],
+  mastheadLeftovers: '',
+  topbarHasBrandAndAccount: true,
+  mastheadHasNoBrandOrAccount: '',
+  generatedLivesInTerms: true,
+  cardsWithoutExactlyOneStatus: 0,
+  cardsOnScreenForThatCheck: true,
+  staleCardsPresent: true,
+  legendSwatchCount: 3,
   deepLinkLandsOnCertificates: true,
   deepLinkHeading: 'Tax Certificates',
   cardCount: 9,
