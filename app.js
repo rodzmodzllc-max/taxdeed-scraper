@@ -31,10 +31,18 @@ const RECORDING_FEE = 30;
 const QUIET_TITLE_EST = 3000;
 const TOP_PICK_RATIO = 12;
 const SOON_DAYS = 14;
-// "My Bid List" is a small, deliberately-capped shortlist (separate from the
-// unlimited ♥ Favorites) for the handful of properties someone's actually
-// planning to show up and bid on - the cap forces prioritization instead of
-// it turning into a second copy of the whole ledger.
+// "My Watchlist" is a small, deliberately-capped shortlist (separate from the
+// unlimited ♥ Favorites) for the handful of properties actually being tracked
+// - the cap forces prioritization instead of it turning into a second copy of
+// the whole ledger.
+//
+// NAMING: this was "My Bid List" until 2026-09-02. Only the user-facing copy
+// changed. The Supabase table is still `bid_list` and the 10-row cap is still
+// enforced by a trigger on it (schema-v7-bidlist.sql) - both backend-owned -
+// so the JS identifiers below (BIDLIST, BID_LIST_MAX, #bidListToggle, the
+// data-action="bidlist" hooks) deliberately keep the old name and match the
+// table rather than the label. Renaming them would put the front end and the
+// schema out of step for no user-visible gain.
 const BID_LIST_MAX = 10;
 
 const GONE_HOURS_DEFAULT = 24;
@@ -310,18 +318,53 @@ window.tdwBack = { push: pushBackLayer, pop: popBackLayer };
 let ALL = [], CALENDAR = {}, NOTES = {}, FAVS = new Set(), HIDDEN = new Set(), ME = null, IS_ADMIN = false;
 // BIDLIST is the membership set (fast "is this on the list" checks);
 // BIDLIST_ORDER is the same ids in the order they were added, oldest first -
-// the bid list modal reverses it to show the most recently added one on top.
+// the watchlist modal reverses it to show the most recently added one on top.
 let BIDLIST = new Set(), BIDLIST_ORDER = [];
 // Ids someone tried to add while the list was already full, in the order
 // they tried - not persisted (in-memory/this session only), auto-promoted
 // into BIDLIST oldest-first the moment a slot frees up. See promoteNextPending().
 let BID_LIST_PENDING = [];
 
+// The three ledgers are three different products that happen to share a
+// filter bar - you bid against other people on one, buy at a fixed price on
+// the second, and buy a lien rather than land on the third. They used to
+// differ by a heading and nothing else, which is why Lands Available read as
+// "the auctions page but emptier".
+//
+// Everything that makes a ledger feel like its own page is declared here:
+// `slug` is its URL (#/lands), `icon` plus the --led-* palette in styles.css
+// give it its own look, `how` says in one line what you actually DO on this
+// page, and `empty` is what it says when there is nothing to show - which is
+// a per-ledger question, since an empty auctions page and an empty
+// certificates page mean different things.
 const LEDGERS = {
-  auction: { title: "Auctions & Bidding", sub: "Open to competitive bidding at a live county auction." },
-  laft: { title: "Lands Available", sub: "Fixed price from Clerk." },
-  certificate: { title: "Tax Certificates", sub: "County-held liens available for direct purchase - not property." }
+  auction: {
+    slug: "auctions",
+    icon: "⚖️",
+    title: "Auctions & Bidding",
+    sub: "Open to competitive bidding at a live county auction.",
+    how: "You bid against other buyers on the county's own auction site. The figure shown is the opening bid, not the final price.",
+    empty: "No auctions match. Auctions appear here once a county schedules a sale date - try clearing filters, or check Lands Available for property that failed to sell at auction."
+  },
+  laft: {
+    slug: "lands",
+    icon: "🏞️",
+    title: "Lands Available for Taxes",
+    sub: "Failed to sell at auction. Buy from the Clerk at a fixed price - no bidding, no sale date.",
+    how: "No auction and no competition - first come, first served at the price shown. Statute adds taxes and fees accrued since the failed sale, so treat the figure as a floor.",
+    empty: "No Lands Available listings match. This list is small by nature - a county only adds a parcel here after it fails to sell at auction, and it leaves again as soon as someone buys it."
+  },
+  certificate: {
+    slug: "certificates",
+    icon: "📜",
+    title: "Tax Certificates",
+    sub: "County-held liens available for direct purchase - a debt secured by the property, not the property itself.",
+    how: "You are buying the lien, not the land. It earns interest until the owner redeems it; only if nobody redeems can you apply for a deed.",
+    empty: "No certificates match. Certificates are county-held liens - the list moves as owners redeem them."
+  }
 };
+const LEDGER_ORDER = ["auction", "laft", "certificate"];
+const SLUG_TO_LEDGER = Object.fromEntries(LEDGER_ORDER.map(k => [LEDGERS[k].slug, k]));
 
 const state = {
   bidMin: null, bidMax: null, assessedMin: null,
@@ -362,7 +405,7 @@ const fmtShort = n => "$" + Math.round(Number(n)).toLocaleString("en-US");
 const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
 // Shared error toast for the write actions below (favorite, hide, restore,
-// bid list, notes). These used to fail completely silently on a Supabase
+// watchlist, notes). These used to fail completely silently on a Supabase
 // error - the button just re-enabled with zero indication anything went
 // wrong. One small dismissable banner beats duplicating that logic five
 // times, and beats a jarring native alert() (used for the admin-approval
@@ -773,6 +816,11 @@ async function showApp() {
   if (gate) gate.hidden = true;
   if (pendingGate) pendingGate.hidden = true;
   if (app) app.hidden = false;
+  // A #/lands link, or a refresh while reading Certificates, should land back
+  // on that ledger rather than always on Auctions. Read before the first
+  // render so the right page paints once instead of flashing Auctions first.
+  const routed = ledgerFromHash();
+  if (routed) state.ledger = routed;
   const genEl = document.getElementById("generatedAt");
   if (genEl) genEl.textContent = "Loading";
   renderSkeleton();
@@ -780,7 +828,10 @@ async function showApp() {
   state.counties = new Set(ALL_COUNTIES);
   buildAllChips();
   updateBadge();
-  render();
+  // setLedger, not a bare render(): the palette, the document title, the
+  // per-ledger filter visibility and the canonical #/slug URL all have to be
+  // right on the first paint, not only after the first tab click.
+  setLedger(state.ledger, { silent: true });
   startIdleWatch();
   if (IS_ADMIN) refreshAdminApprovals();
 }
@@ -1086,11 +1137,11 @@ function noteHtml(p) {
   </div>`;
 }
 
-// Shared "add/remove bid list" toggle - distinct from the ♥ Favorite button:
-// this one is capped at BID_LIST_MAX and meant for the short list of
-// properties someone's actually planning to show up and bid on, rather than
-// a general watch flag. `compact` renders the small icon-only version used
-// on cards; the full labeled version is used in the detail modal.
+// Shared "add/remove watchlist" toggle - distinct from the ♥ Favorite button:
+// this one is capped at BID_LIST_MAX and is the short list actually being
+// tracked, rather than a general "interesting" flag. `compact` renders the
+// small icon-only version used on cards; the full labeled version is used in
+// the detail modal.
 //
 // Three states, not two: on the list (⚑), queued (⏳ - list was full when
 // they clicked, so this one is waiting and gets added automatically the
@@ -1100,14 +1151,14 @@ function bidListBtnHtml(p, compact) {
   const on = BIDLIST.has(p.id);
   const pending = !on && BID_LIST_PENDING.includes(p.id);
   const icon = on ? "⚑" : pending ? "⏳" : "⚐";
-  const label = on ? "On bid list — tap to remove"
-    : pending ? "Bid list is full - queued, will be added automatically once a slot frees up (tap to cancel)"
-    : `Add to bid list (max ${BID_LIST_MAX})`;
+  const label = on ? "On your watchlist — tap to remove"
+    : pending ? "Watchlist is full - queued, will be added automatically once a slot frees up (tap to cancel)"
+    : `Add to watchlist (max ${BID_LIST_MAX})`;
   const cls = on ? " on" : pending ? " pending" : "";
   if (compact) {
     return `<button class="icon-btn bid-btn${cls}" data-action="bidlist" data-pid="${p.id}" type="button" title="${esc(label)}">${icon}</button>`;
   }
-  const fullLabel = on ? "⚑ On Bid List" : pending ? "⏳ Queued — adds automatically" : "⚐ Add to Bid List";
+  const fullLabel = on ? "⚑ On Watchlist" : pending ? "⏳ Queued — adds automatically" : "⚐ Add to Watchlist";
   return `<button class="icon-btn bid-btn${cls}" data-action="bidlist" data-pid="${p.id}" type="button" title="${esc(label)}">${fullLabel}</button>`;
 }
 
@@ -1297,9 +1348,9 @@ function detailHtml(p) {
     ${noteHtml(p)}`;
 }
 
-// Both the detail modal and the bid list modal are fixed-position overlays
+// Both the detail modal and the watchlist modal are fixed-position overlays
 // that can be open at the same time (viewing a property's full page from
-// inside the bid list) - background scroll should stay locked as long as
+// inside the watchlist) - background scroll should stay locked as long as
 // EITHER one is open, not just whichever closed most recently.
 function syncBodyScrollLock() {
   const detailOpen = !document.getElementById("detailModal")?.hidden;
@@ -1338,10 +1389,10 @@ function refreshOpenDetail(pid) {
 const detailModalEl = document.getElementById("detailModal");
 if (detailModalEl) detailModalEl.addEventListener("click", e => { if (e.target === detailModalEl) closeDetail(); });
 
-// ==================== "My Bid List" modal ====================
+// ==================== "My Watchlist" modal ====================
 // A small, separate overlay (same structural pattern as the detail modal)
 // listing just the up-to-BID_LIST_MAX properties someone has added to their
-// bid list, most-recently-added first. Reuses card()/certCard() so a bid
+// watchlist, most-recently-added first. Reuses card()/certCard() so a
 // list row looks and behaves exactly like it does in the main ledger -
 // same fav/hide/notes/links - plus the bid-list toggle to remove it here.
 function bidListRows() {
@@ -1366,7 +1417,7 @@ function renderBidListModal() {
   const countLabel = `${BIDLIST.size}/${BID_LIST_MAX}`;
   const listHtml = rows.length
     ? ""
-    : `<div class="empty-state">Your bid list is empty. Click ⚐ on any property to save it here — up to ${BID_LIST_MAX}.</div>`;
+    : `<div class="empty-state">Your watchlist is empty. Click ⚐ on any property to save it here — up to ${BID_LIST_MAX}.</div>`;
   const pendingHtml = pendingRows.length ? `
     <div class="bidlist-pending">
       <div class="bidlist-pending-head">⏳ Waiting for a slot (${pendingRows.length}) - added automatically, oldest first, as you remove items above</div>
@@ -1374,8 +1425,8 @@ function renderBidListModal() {
     </div>` : "";
   inner.innerHTML = `
     <button class="detail-close" data-action="closebidlist" type="button">✕</button>
-    <h2 class="detail-address" style="margin-top:.1rem">⚑ My Bid List <span style="color:var(--ink-soft);font-weight:600">(${countLabel})</span></h2>
-    <p class="mega-sub" style="margin:0 0 .8rem">The short list of properties you're actually planning to bid on — separate from ♡ Favorites, capped at ${BID_LIST_MAX} to keep it focused.</p>
+    <h2 class="detail-address" style="margin-top:.1rem">⚑ My Watchlist <span style="color:var(--ink-soft);font-weight:600">(${countLabel})</span></h2>
+    <p class="mega-sub" style="margin:0 0 .8rem">The short list you're actively tracking — separate from ♡ Favorites, capped at ${BID_LIST_MAX} to keep it focused.</p>
     ${listHtml}
     <div class="prop-list flat" id="bidListRows"></div>
     ${pendingHtml}`;
@@ -1397,17 +1448,17 @@ function closeBidList() {
   popBackLayer("bidlist");
   syncBodyScrollLock();
 }
-// After adding/removing a bid list item (from anywhere - a ledger card, the
-// detail modal, or the bid list modal itself), rebuild the modal in place if
+// After adding/removing a watchlist item (from anywhere - a ledger card, the
+// detail modal, or the watchlist modal itself), rebuild the modal in place if
 // it's currently open so it never shows a stale list.
 function refreshBidListModal() {
   const modal = document.getElementById("bidListModal");
   if (!modal || modal.hidden) return;
   renderBidListModal();
 }
-// Called right after a bid list removal frees up a slot - adds queued
+// Called right after a watchlist removal frees up a slot - adds queued
 // properties (oldest attempt first) until either the queue is empty or the
-// list is full again, so "the bid list was full when I clicked" resolves
+// list is full again, so "the watchlist was full when I clicked" resolves
 // itself instead of requiring a repeat click.
 async function promoteNextPending() {
   while (BID_LIST_PENDING.length && BIDLIST.size < BID_LIST_MAX) {
@@ -1524,7 +1575,7 @@ const hiddenListBtn = document.getElementById("hiddenListBtn");
 if (hiddenListBtn) hiddenListBtn.addEventListener("click", () => openHiddenModal());
 
 // Escape closes whichever overlay is on top - the detail modal, if it's the
-// one currently open over the bid list / hidden modals, otherwise whichever
+// one currently open over the watchlist / hidden modals, otherwise whichever
 // of those two is open.
 document.addEventListener("keydown", e => {
   if (e.key !== "Escape") return;
@@ -1584,7 +1635,7 @@ document.addEventListener("click", async e => {
       if (!error) {
         BIDLIST.delete(pid); BIDLIST_ORDER = BIDLIST_ORDER.filter(id => id !== pid);
         await promoteNextPending();
-      } else { showErrorToast("Couldn't update bid list: " + error.message); }
+      } else { showErrorToast("Couldn't update watchlist: " + error.message); }
     } else if (BID_LIST_PENDING.includes(pid)) {
       // Already queued - a second click cancels the queued attempt instead
       // of queueing it again.
@@ -1604,7 +1655,7 @@ document.addEventListener("click", async e => {
         // and silently dropping it would leave someone tapping ⚐ with no
         // idea whether it worked - surface those.
         if (/full|limit/i.test(error.message || "")) BID_LIST_PENDING.push(pid);
-        else showErrorToast("Couldn't add to bid list: " + error.message);
+        else showErrorToast("Couldn't add to watchlist: " + error.message);
       } else { BIDLIST.add(pid); BIDLIST_ORDER.push(pid); }
     }
     render();
@@ -1672,7 +1723,18 @@ function render() {
   ALL.forEach(p => { if (p.source in tabCounts) tabCounts[p.source]++; });
   document.querySelectorAll("#ledgerTabs .ledger-tab").forEach(btn => {
     const src = btn.dataset.ledger;
-    btn.classList.toggle("on", src === activeLedger);
+    const active = src === activeLedger;
+    btn.classList.toggle("on", active);
+    // The tab strip is a <nav> of pages now, so the active one has to say so
+    // to a screen reader - the colour change alone announces nothing.
+    if (active) btn.setAttribute("aria-current", "page");
+    else btn.removeAttribute("aria-current");
+    // On a narrow phone the strip can still scroll. Whatever else is cut off,
+    // the tab for the page you are actually on must be fully visible - a
+    // half-clipped active tab is how the strip stops reading as navigation.
+    if (active && btn.scrollIntoView) {
+      try { btn.scrollIntoView({ block: "nearest", inline: "center" }); } catch { /* older engines */ }
+    }
     const countEl = document.getElementById("tabCount" + src[0].toUpperCase() + src.slice(1));
     if (countEl) countEl.textContent = tabCounts[src] || 0;
   });
@@ -1708,6 +1770,11 @@ function render() {
   const chipArchive = document.getElementById("chipArchive");
   if (chipArchive) chipArchive.textContent = archiveCount;
   document.querySelectorAll(".summary-strip .chip[data-status]").forEach(c => c.classList.toggle("on", c.dataset.status === state.statusView));
+  // The Shown/Active/Gone chips write to the same statusView the archive
+  // checkbox does, so clicking one of them has to visibly untick archive -
+  // otherwise the panel claims a mode the list isn't in.
+  const archiveTog = document.getElementById("archiveToggle");
+  if (archiveTog) archiveTog.checked = state.statusView === "archive";
 
   const hiddenListBtn = document.getElementById("hiddenListBtn");
   if (hiddenListBtn) hiddenListBtn.hidden = HIDDEN.size === 0;
@@ -1820,10 +1887,57 @@ function groupSortKey(ledgerKey, county, date) {
 
 // Returns { shown } - shown is the FULL filtered+sorted list (used for the
 // Shown/Active/Gone counts, the Expand/Collapse-all button, and CSV export).
+// The one piece of live, ledger-specific information in the page header,
+// built from the rows actually in view so it can't drift from the list under
+// it. Each ledger gets the fact that drives a decision on THAT ledger: when
+// the next auction closes, how cheap the cheapest fixed-price parcel is, how
+// many certificates are about to expire. A shared "N properties" line would
+// have been the same sentence three times.
+function ledgerFacts(kind, shown) {
+  const bits = [];
+  const counties = new Set(shown.map(p => p.county).filter(Boolean));
+  if (counties.size) bits.push(counties.size + " " + (counties.size === 1 ? "county" : "counties"));
+
+  if (kind === "auction") {
+    const upcoming = shown.map(p => daysUntil(p)).filter(d => d !== null && d >= 0);
+    if (upcoming.length) {
+      const soonest = Math.min.apply(null, upcoming);
+      bits.push(soonest === 0 ? "a sale closing today" : "next sale in " + soonest + " day" + (soonest === 1 ? "" : "s"));
+    }
+  } else if (kind === "laft") {
+    const priced = shown.filter(hasPublishedBid).map(p => Number(p.bid));
+    if (priced.length) bits.push("from " + fmtShort(Math.min.apply(null, priced)));
+  } else if (kind === "certificate") {
+    const expiring = shown.filter(p => {
+      const d = certDaysUntil(p.expiration_date);
+      return d !== null && d >= 0 && d <= CERT_SOON_DAYS;
+    }).length;
+    if (expiring) bits.push(expiring + " expiring within " + CERT_SOON_DAYS + " days");
+  }
+  return bits.join(" · ");
+}
+
 function section(container, title, sub, rows, kind) {
   const sec = document.createElement("section"); sec.className = "mega-section";
-  sec.innerHTML = `<div class="mega-head"><h2>${title}</h2><p class="mega-sub">${sub}</p></div>`;
   const shown = sortRows(rows.filter(passes));
+  const cfg = LEDGERS[kind] || {};
+  const facts = ledgerFacts(kind, shown);
+
+  // A page header, not a heading. Icon, name, what this ledger is, what you
+  // actually do on it, and one live fact - so arriving at Certificates from
+  // Auctions reads as going somewhere else, rather than as the same page with
+  // a different word at the top.
+  sec.innerHTML = `
+    <div class="mega-head ledger-head">
+      <div class="ledger-head-top">
+        <span class="ledger-head-icon" aria-hidden="true">${cfg.icon || ""}</span>
+        <h2>${title}</h2>
+      </div>
+      <p class="mega-sub">${sub}</p>
+      ${cfg.how ? `<p class="ledger-how">${cfg.how}</p>` : ""}
+      ${facts ? `<p class="ledger-facts">${esc(facts)}</p>` : ""}
+      ${state.statusView === "archive" ? `<p class="ledger-mode-note" id="archiveModeNote">📁 Past auctions only — sale date already gone. <button class="ledger-mode-exit" id="exitArchiveBtn" type="button">Back to current listings</button></p>` : ""}
+    </div>`;
   if (!shown.length) {
     const e = document.createElement("div"); e.className = "empty-state";
     if (state.search) {
@@ -1831,7 +1945,10 @@ function section(container, title, sub, rows, kind) {
         `<span class="empty-hint">Search matches case #, parcel #, certificate #, owner and county. ` +
         `Punctuation is ignored, so a parcel pasted from a county site matches either way.</span>`;
     } else {
-      e.textContent = "Nothing found.";
+      // "Nothing here" means something different on each ledger, and the old
+      // shared "Nothing found." made an empty Lands Available look broken
+      // rather than simply small - which it is, by design.
+      e.textContent = cfg.empty || "Nothing found.";
     }
     sec.appendChild(e); container.appendChild(sec);
     return { shown };
@@ -1901,9 +2018,18 @@ function section(container, title, sub, rows, kind) {
 
     const summary = document.createElement("summary");
     summary.className = "county-head";
-    const freshness = getGroupFreshness(countyRows);
-    const freshnessBadge = freshness.timestamp ?
-      `<span class="freshness-badge ${freshness.isStale ? 'stale' : 'fresh'}" title="Last synced ${new Date(freshness.timestamp).toLocaleString()}">
+    // Sync telemetry, not bidder information. "✓ Fresh (3h ago)" answers a
+    // question only whoever runs the harvest has: is the pipeline keeping up.
+    // A bidder can do nothing with it, and "⚠ Stale" on a listing that is
+    // perfectly valid reads as a warning about the PROPERTY. Admin only.
+    //
+    // The masthead's own "Data updated ..." line stays visible to everyone -
+    // that one is a single honest statement about the whole dataset (and the
+    // Terms modal points at it by name), not a per-county badge repeated
+    // down the page.
+    const freshness = IS_ADMIN ? getGroupFreshness(countyRows) : null;
+    const freshnessBadge = freshness && freshness.timestamp ?
+      `<span class="freshness-badge ${freshness.isStale ? 'stale' : 'fresh'}" title="Admin only - last synced ${new Date(freshness.timestamp).toLocaleString()}">
          ${freshness.isStale ? '⚠ Stale' : '✓ Fresh'} (${freshness.hours}h ago)
        </span>` : '';
     summary.innerHTML = `
@@ -1969,13 +2095,122 @@ function updateBadge() {
 
 let mapLoaded = false;
 
-// ---- ledger tabs (Auctions / Lands Available / Certificates) ----
+// ---- ledger navigation (Auctions / Lands Available / Certificates) -------
+//
+// Each ledger is a page with its own URL (#/auctions, #/lands,
+// #/certificates), so a link can point at one, a refresh lands back on the
+// one you were reading, and the address bar always says which page you're on.
+//
+// It uses replaceState, NOT pushState, on purpose. Two reasons:
+//
+// 1. Behaviour. These are top-level tabs. On Android, Back at the top level
+//    should leave the app, not walk back through every tab you looked at -
+//    three taps around the tab bar should not mean three taps to get out.
+//    Native tab bars don't stack history either.
+// 2. Safety. pushState here would race the BACK_LAYERS stack at the top of
+//    this file: closing a layer calls the ASYNCHRONOUS history.back(), so a
+//    push landing in the same click gets swallowed by a back() arriving a
+//    tick later, leaving the URL on one ledger and the UI on another.
+//    replaceState can't be undone by that back(), so the two mechanisms never
+//    touch.
+//
+// The cost is that Back doesn't move between ledgers. That's the intended
+// behaviour, not a limitation being worked around.
+function ledgerFromHash() {
+  const m = /^#\/?([a-z]+)/.exec(location.hash || "");
+  return m && SLUG_TO_LEDGER[m[1]] ? SLUG_TO_LEDGER[m[1]] : null;
+}
+
+function prefersReducedMotion() {
+  try { return window.matchMedia("(prefers-reduced-motion: reduce)").matches; } catch { return false; }
+}
+
+// Everything per-ledger that lives OUTSIDE the rendered list: the palette
+// hook, the browser tab name, and the filter controls a given ledger has no
+// use for. Kept in one place so adding a ledger doesn't mean hunting for the
+// four separate places that need to know about it.
+function applyLedgerChrome() {
+  const key = state.ledger;
+  const cfg = LEDGERS[key] || {};
+
+  // Drives the whole --led-* palette in styles.css: buttons, links, focus
+  // rings, map pins, chips and strip cards all recolour off this one
+  // attribute.
+  document.documentElement.dataset.ledger = key;
+
+  // The browser tab and the app switcher should say which page this is too.
+  document.title = (cfg.title ? cfg.title + " · " : "") + "FL Tax Deed Watchlist";
+
+  // Certificates are liens, not land: no property type, no title screening,
+  // no assessed value. passes() already ignores those filters there, so
+  // leaving the controls on screen only invited setting a filter that
+  // silently did nothing.
+  const isCert = key === "certificate";
+  ["typeDropdown", "lienDropdown", "assessedField"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.hidden = isCert;
+  });
+
+  // Archive is auction-only by definition - isPastDue() returns false for
+  // everything else, so on the other two ledgers the toggle could only ever
+  // produce an empty page.
+  const archiveRow = document.getElementById("archiveToggleRow");
+  if (archiveRow) archiveRow.hidden = key !== "auction";
+}
+
+function setLedger(key, opts) {
+  if (!LEDGERS[key]) key = "auction";
+  const changed = state.ledger !== key;
+  state.ledger = key;
+
+  // A status filter carried across ledgers is rarely what was meant - "Gone"
+  // on auctions and "Gone" on certificates are different questions, and
+  // archive is auction-only outright. Reset on an actual change only, so a
+  // page load restoring a ledger doesn't clobber a filter set a moment ago.
+  if (changed && state.statusView !== "all") {
+    state.statusView = "all";
+    const tog = document.getElementById("archiveToggle");
+    if (tog) tog.checked = false;
+    updateBadge();
+  }
+
+  try { history.replaceState(history.state, "", "#/" + LEDGERS[key].slug); } catch { /* file:// etc */ }
+  applyLedgerChrome();
+  render();
+
+  // A new page starts at the top. Without this, switching from deep inside a
+  // long auctions list drops you into the middle of the certificates list.
+  if (changed && !(opts && opts.silent)) {
+    window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? "auto" : "smooth" });
+  }
+}
+
 document.querySelectorAll("#ledgerTabs .ledger-tab[data-ledger]").forEach(btn => {
   btn.addEventListener("click", () => {
     if (state.ledger === btn.dataset.ledger) return;
-    state.ledger = btn.dataset.ledger;
-    render();
+    setLedger(btn.dataset.ledger);
   });
+});
+
+// Someone editing the address bar, or following a #/lands link into an
+// already-open tab. popstate is handled separately (see BACK_LAYERS at the
+// top of this file); this only fires for hash edits that didn't come from our
+// own replaceState, since replaceState never emits hashchange.
+window.addEventListener("hashchange", () => {
+  const key = ledgerFromHash();
+  if (key && key !== state.ledger) setLedger(key, { silent: true });
+});
+
+// Leaving archive mode from the notice in the page header. The notice only
+// exists while archive is on, so this is delegated rather than bound.
+document.addEventListener("click", e => {
+  const btn = e.target && e.target.closest && e.target.closest("#exitArchiveBtn");
+  if (!btn) return;
+  state.statusView = "all";
+  const tog = document.getElementById("archiveToggle");
+  if (tog) tog.checked = false;
+  updateBadge();
+  render();
 });
 
 // ---- quick controls: search, county dropdown, expand/collapse all, CSV export ----
@@ -2194,6 +2429,18 @@ bindCheckbox("soonOnly", "soonOnly");
 bindCheckbox("hideOldOnly", "hideOldListings");
 bindCheckbox("qtToggle", "includeQT");
 
+// Archive is a MODE (statusView), not a boolean flag, so it can't go through
+// bindCheckbox. Ticking it switches the whole view to past-due auctions;
+// unticking returns to "all" rather than to whatever status filter happened
+// to be selected before, which is the behaviour the old chip had and the
+// only one that isn't surprising.
+const archiveToggleEl = document.getElementById("archiveToggle");
+if (archiveToggleEl) archiveToggleEl.addEventListener("change", () => {
+  state.statusView = archiveToggleEl.checked ? "archive" : "all";
+  updateBadge();
+  render();
+});
+
 // ---- reset ----
 const resetBtn = document.getElementById("resetBtn");
 if (resetBtn) resetBtn.addEventListener("click", () => {
@@ -2217,7 +2464,7 @@ if (resetBtn) resetBtn.addEventListener("click", () => {
   const maxBidEl = document.getElementById("maxBidPct"); if (maxBidEl) maxBidEl.value = "40";
   const sortEl = document.getElementById("sortBy"); if (sortEl) sortEl.value = "county";
   const sortSecEl = document.getElementById("sortSecondary"); if (sortSecEl) sortSecEl.value = "";
-  ["favOnly", "topOnly", "soonOnly", "hideOldOnly", "qtToggle"].forEach(id => { const el = document.getElementById(id); if (el) el.checked = false; });
+  ["favOnly", "topOnly", "soonOnly", "hideOldOnly", "qtToggle", "archiveToggle"].forEach(id => { const el = document.getElementById(id); if (el) el.checked = false; });
   const searchEl = document.getElementById("searchInput"); if (searchEl) searchEl.value = "";
 
   buildAllChips();

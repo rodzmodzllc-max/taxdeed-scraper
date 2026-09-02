@@ -6,14 +6,14 @@
    themes on purpose. ---- */
 :root {
   --ink:#0F172A; --ink-soft:#64748B; --paper:#F8FAFC; --paper-line:#E2E8F0;
-  --card:#FFFFFF; --card-line:#E2E8F0; --accent:#2563EB; --accent-soft:#DBEAFE;
+  --card:#FFFFFF; --card-line:#E2E8F0; --accent:var(--led-accent); --accent-soft:var(--led-soft);
   --brass:#D97706; --ok:#059669; --ok-bg:#ECFDF5; --bad:#DC2626; --bad-bg:#FEF2F2;
   --warn:#D97706; --warn-bg:#FFFBEB;
   --shadow:0 1px 2px rgba(15,23,42,.06),0 4px 14px rgba(15,23,42,.08);
 }
 :root[data-theme="dark"]{
   --ink:#F1F5F9; --ink-soft:#94A3B8; --paper:#0B1220; --paper-line:#1E293B;
-  --card:#111B2E; --card-line:#233047; --accent:#60A5FA; --accent-soft:#16294A;
+  --card:#111B2E; --card-line:#233047; --accent:var(--led-accent-d); --accent-soft:var(--led-soft-d);
   --brass:#FBBF24; --ok:#34D399; --ok-bg:#062A20; --bad:#F87171; --bad-bg:#3A1414;
   --warn:#FBBF24; --warn-bg:#332405;
   --shadow:0 1px 2px rgba(0,0,0,.4),0 6px 20px rgba(0,0,0,.4);
@@ -21,7 +21,7 @@
 @media (prefers-color-scheme:dark){
   :root:not([data-theme="light"]){
     --ink:#F1F5F9; --ink-soft:#94A3B8; --paper:#0B1220; --paper-line:#1E293B;
-    --card:#111B2E; --card-line:#233047; --accent:#60A5FA; --accent-soft:#16294A;
+    --card:#111B2E; --card-line:#233047; --accent:var(--led-accent-d); --accent-soft:var(--led-soft-d);
     --brass:#FBBF24; --ok:#34D399; --ok-bg:#062A20; --bad:#F87171; --bad-bg:#3A1414;
     --warn:#FBBF24; --warn-bg:#332405;
     --shadow:0 1px 2px rgba(0,0,0,.4),0 6px 20px rgba(0,0,0,.4);
@@ -30,6 +30,41 @@
 /* Header stays dark navy no matter the theme - the one deliberately
    theme-independent surface, like a title company / bank portal chrome. */
 :root{ --header-bg:#0F172A; --header-line:#1E293B; --header-ink:#F1F5F9; --header-ink-soft:#94A3B8; }
+
+/* ---- Per-ledger accent -------------------------------------------------
+   Each ledger is its own page, and the cheapest honest way to make that
+   land is to recolour the app rather than decorate a header: --accent is
+   already threaded through buttons, links, focus rings, map pins, chips,
+   the filters toggle and the strip cards, so setting it per ledger changes
+   the whole surface at once.
+
+   The four --led-* values below are the ONLY thing data-ledger sets. The
+   theme blocks above still own --accent itself, each picking the light or
+   dark variant, so theme and ledger compose without either one having to
+   out-specify the other, and a new ledger needs four values here and
+   nothing else.
+
+   Auctions keep the original blue - it is what the app has always looked
+   like and it is still the busiest ledger. Lands Available is emerald: no
+   auction, fixed price, buy it now. Certificates are violet, and
+   deliberately not the amber already spoken for by --warn/--brass, since a
+   whole ledger tinted warning-yellow reads as "something is wrong here".
+
+   :root carries the auction values too, so anything rendering before the
+   first setLedger() (the auth gate, the skeleton) is never left with an
+   unresolved var(). */
+:root,
+:root[data-ledger="auction"]{ --led-accent:#2563EB; --led-soft:#DBEAFE; --led-accent-d:#60A5FA; --led-soft-d:#16294A;
+  --led-tint:37,99,235; --led-tint-d:96,165,250; }
+:root[data-ledger="laft"]{ --led-accent:#047857; --led-soft:#D1FAE5; --led-accent-d:#34D399; --led-soft-d:#062A20;
+  --led-tint:4,120,87; --led-tint-d:52,211,153; }
+:root[data-ledger="certificate"]{ --led-accent:#6D28D9; --led-soft:#EDE9FE; --led-accent-d:#A78BFA; --led-soft-d:#241A45;
+  --led-tint:109,40,217; --led-tint-d:167,139,250; }
+/* One RGB triple resolved per theme, so rgba() tints below don't each need
+   their own light/dark pair. */
+:root{ --led-rgb:var(--led-tint) }
+:root[data-theme="dark"]{ --led-rgb:var(--led-tint-d) }
+@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]){ --led-rgb:var(--led-tint-d) } }
 
 *{box-sizing:border-box}
 html,body{margin:0;padding:0}
@@ -172,12 +207,28 @@ above the 22px topbar mark so it reads as the header's focal point. */
   white-space:nowrap;background:rgba(255,255,255,.06);border:1.5px solid var(--header-line);border-radius:12px;
   padding:.6rem .7rem;font-size:.8rem;font-weight:600;color:var(--header-ink-soft);
   font-family:inherit;cursor:pointer;transition:all 0.2s ease}
-.ledger-tab:hover{background:rgba(255,255,255,.12);border-color:#93C5FD}
+.ledger-tab:hover{background:rgba(255,255,255,.12);border-color:var(--led-accent-d)}
 .ledger-tab:active{opacity:.8}
-.ledger-tab.on{border-color:#60A5FA;border-width:2px;padding:.55rem .65rem;
-  background:rgba(96,165,250,.2);color:#93C5FD}
+/* The masthead is dark navy in BOTH themes (see the --header-* note at the
+   top), so every accent used inside it takes --led-accent-d directly rather
+   than --accent, which flips to the light-mode variant and disappears
+   against navy. */
+/* The active tab is FILLED, not tinted. A 20% tint plus a border reads as
+   "this one is highlighted"; a solid block of the ledger's own colour reads
+   as "you are on this page", which is the point. Deliberately not a little
+   pointer/arrow under the tab: .ledger-tabs sets overflow-x:auto, which
+   makes overflow-y clip as well, so anything drawn below a tab is cut off. */
+.ledger-tab.on{border-color:var(--led-accent-d);border-width:2px;padding:.55rem .65rem;
+  background:var(--led-accent-d);color:#0B1220;font-weight:700}
+.ledger-tab.on:hover{background:var(--led-accent-d);opacity:.92}
 .ledger-tab b{font-family:ui-monospace,Consolas,monospace;font-variant-numeric:tabular-nums;
   font-size:.85rem}
+.ledger-tab.on b{background:rgba(11,18,32,.16);border-radius:999px;padding:.02rem .4rem}
+.ledger-tab-icon{font-size:.95rem;line-height:1}
+/* An accent rule under the whole strip ties the filled tab to the page it
+   opened without needing anything to escape the scroll container. */
+.ledger-tabs{border-bottom:2px solid rgba(var(--led-tint-d),.35);padding-bottom:.55rem}
+@media (prefers-reduced-motion:reduce){.ledger-tab{transition:none}}
 
 /* ---- quick controls: search + county + per-page + CSV export. Sticky on
    mobile only (top:0) so they stay reachable while scrolling a long card
@@ -218,17 +269,17 @@ above the 22px topbar mark so it reads as the header's focal point. */
 .chip:hover{background:rgba(255,255,255,.12);border-color:var(--header-ink)}
 .chip:active{opacity:.8}
 .chip.on{border-width:2px;padding:.3rem .75rem}
-.chip.total.on{border-color:#60A5FA;background:rgba(96,165,250,.15)}
+.chip.total.on{border-color:var(--led-accent-d);background:rgba(var(--led-tint-d),.15)}
 .chip.ok.on{border-color:var(--ok);background:rgba(5,150,105,.18)}
 .chip.bad.on{border-color:var(--bad);background:rgba(220,38,38,.18)}
-.chip.archive.on{border-color:#FBBF24;background:rgba(251,191,36,.15)}
 .chip b{font-family:ui-monospace,Consolas,monospace;font-variant-numeric:tabular-nums;font-size:.85rem}
-.chip.total b{color:#93C5FD} .chip.ok b{color:#6EE7B7} .chip.bad b{color:#FCA5A5} .chip.archive b{color:#FCD34D}
-/* Bid List chip always reads as "on" (border+bg), not just when active like
+/* .chip.archive is gone - Archive moved into Filters & Sort. */
+.chip.total b{color:var(--led-accent-d)} .chip.ok b{color:#6EE7B7} .chip.bad b{color:#FCA5A5}
+/* Watchlist chip always reads as "on" (border+bg), not just when active like
    the status-view chips above - it's a button that opens a modal, not a
    toggle in that filter group, so it should look permanently inviting. */
-.chip.bidlist{border-width:2px;padding:.28rem .71rem;border-color:#60A5FA;background:rgba(96,165,250,.15)}
-.chip.bidlist b{color:#93C5FD}
+.chip.bidlist{border-width:2px;padding:.28rem .71rem;border-color:var(--led-accent-d);background:rgba(var(--led-tint-d),.15)}
+.chip.bidlist b{color:var(--led-accent-d)}
 
 /* ---- filters ---- */
 .filters-toggle{width:100%;display:flex;align-items:center;justify-content:space-between;
@@ -371,12 +422,48 @@ above the 22px topbar mark so it reads as the header's focal point. */
 .reset-btn{font-size:.72rem;color:var(--accent);background:none;border:none;cursor:pointer;
   padding:.3rem 0;text-decoration:underline}
 .tog{display:flex;align-items:center;gap:.35rem;font-size:.78rem;color:var(--ink);cursor:pointer}
+/* The archive toggle carries its own count (it replaced a count chip), so it
+   needs the same tabular figures the chips use or the number jitters as it
+   changes. Scoped to b inside a toggle so no other toggle picks it up. */
+.tog b{font-family:ui-monospace,Consolas,monospace;font-variant-numeric:tabular-nums;
+  font-size:.72rem;font-weight:700;color:var(--ink-soft);background:var(--paper);
+  border:1px solid var(--card-line);border-radius:999px;padding:.02rem .38rem}
+.tog input:checked+span b{color:var(--accent);border-color:var(--accent)}
 
 main{padding:.9rem 1.1rem 0}
 .mega-section{margin-bottom:1.2rem}
 .mega-head{margin-bottom:.55rem}
 .mega-head h2{font-family:'Inter',sans-serif;font-weight:800;font-size:1.2rem;margin:0 0 .15rem}
 .mega-sub{font-size:.76rem;color:var(--ink-soft);margin:0}
+
+/* ---- the ledger page header ----------------------------------------------
+   A masthead for the page you are on, not a heading above a list. It carries
+   the ledger's icon and colour, what the ledger IS, what you actually do on
+   it, and one live fact computed from the rows in view (ledgerFacts() in
+   app.js). The left accent bar is the same --accent the rest of the page is
+   using, so the header, the buttons and the map all agree on which ledger
+   this is. */
+.ledger-head{background:var(--card);border:1px solid var(--card-line);
+  border-left:4px solid var(--accent);border-radius:12px;
+  padding:.85rem 1rem .9rem;margin-bottom:.8rem;box-shadow:var(--shadow)}
+.ledger-head-top{display:flex;align-items:center;gap:.55rem}
+.ledger-head-icon{font-size:1.35rem;line-height:1}
+.ledger-head h2{margin:0}
+.ledger-head .mega-sub{margin-top:.3rem;line-height:1.45}
+.ledger-how{font-size:.74rem;line-height:1.5;color:var(--ink);margin:.5rem 0 0;
+  background:var(--accent-soft);border-radius:8px;padding:.45rem .6rem}
+.ledger-facts{font-size:.72rem;font-weight:600;color:var(--accent);margin:.5rem 0 0;
+  font-variant-numeric:tabular-nums}
+/* Archive hides every current listing, so saying so - and offering the way
+   back - matters more now that the toggle lives in a collapsed panel and the
+   old always-visible Archive chip is gone. */
+.ledger-mode-note{display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;
+  font-size:.73rem;font-weight:600;color:var(--warn);margin:.55rem 0 0;
+  background:var(--warn-bg);border-radius:8px;padding:.4rem .55rem}
+.ledger-mode-exit{font-family:inherit;font-size:.71rem;font-weight:700;cursor:pointer;
+  color:var(--warn);background:none;border:1px solid var(--warn);border-radius:6px;
+  padding:.15rem .45rem}
+.ledger-mode-exit:hover{background:var(--warn);color:var(--card)}
 
 /* Auctions are grouped by county+date (app.js groupKeyOf) - this divider
    sits above each new date cluster so a run of same-day counties reads as

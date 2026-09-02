@@ -122,23 +122,29 @@ same buttons keep the same ids, so nothing that referenced them had to move. -->
 <p class="generated" id="generatedAt">Loading…</p>
 <!-- Two (really three) separate ledgers, front and center right after sign-in -
 not one long scroll where Lands Available sits under 300+ auction cards. -->
-<div class="ledger-tabs" id="ledgerTabs">
-<button class="ledger-tab" data-ledger="auction" type="button">Tax Deeds / Auctions <b id="tabCountAuction">0</b></button>
-<button class="ledger-tab" data-ledger="laft" type="button">Lands Available / OTC <b id="tabCountLaft">0</b></button>
-<button class="ledger-tab" data-ledger="certificate" type="button">Certificates <b id="tabCountCertificate">0</b></button>
-</div>
+<nav class="ledger-tabs" id="ledgerTabs" aria-label="Ledger">
+<button class="ledger-tab" data-ledger="auction" type="button"><span class="ledger-tab-icon" aria-hidden="true">⚖️</span>Auctions <b id="tabCountAuction">0</b></button>
+<button class="ledger-tab" data-ledger="laft" type="button"><span class="ledger-tab-icon" aria-hidden="true">🏞️</span>Lands Available <b id="tabCountLaft">0</b></button>
+<button class="ledger-tab" data-ledger="certificate" type="button"><span class="ledger-tab-icon" aria-hidden="true">📜</span>Certificates <b id="tabCountCertificate">0</b></button>
+</nav>
 <div class="summary-strip">
 <button class="chip total" data-status="all" type="button">Shown&nbsp;<b id="chipTotal">0</b></button>
 <button class="chip ok" data-status="live" type="button">Active&nbsp;<b id="chipActive">0</b></button>
 <button class="chip bad" data-status="gone" type="button">Gone&nbsp;<b id="chipGone">0</b></button>
-<!-- Past-due auctions never show in Shown/Active/Gone (see isPastDue in
-app.js) so notes/favorites on a property you won don't just vanish
-once its sale date passes - this is the only place to still find them. -->
-<button class="chip archive" data-status="archive" type="button" title="Auctions whose sale date has passed - kept here so your notes on them aren't lost">Archive&nbsp;<b id="chipArchive">0</b></button>
+<!-- The Archive chip used to sit here. It is now a toggle in Filters &
+Sort ("Quick Toggles" -> Show past auctions). It could not simply be
+deleted: past-due auctions are excluded from Shown/Active/Gone
+outright by isPastDue() in app.js, so with no way back into archive
+mode, every note, favorite and watchlist entry on a property whose
+sale date has passed becomes unreachable. Hidden, not removed. -->
 <!-- Not a status-view filter chip like the four above (no data-status,
 so it's excluded from that click-toggle group in app.js) - this
-opens the separate My Bid List modal instead. -->
-<button class="chip bidlist" id="bidListToggle" type="button" title="Your capped shortlist of properties to actually bid on">⚑ Bid List&nbsp;<b id="bidListCount">0/10</b></button>
+opens the separate My Watchlist modal instead.
+
+The id and class still say "bidList" on purpose: the Supabase table is
+`bid_list` and its 10-row cap is a trigger on that table, both owned by
+the backend. Only the label changed. -->
+<button class="chip bidlist" id="bidListToggle" type="button" title="The short list you're actively tracking - capped at 10">⚑ Watchlist&nbsp;<b id="bidListCount">0/10</b></button>
 </div>
 <!-- Quick controls: instant search + a single-pick county dropdown (the
 detailed multi-select county/type/lien chips still live in Filters &
@@ -197,7 +203,10 @@ can stay closed until asked for at every width - see explore.css. -->
 </div>
 </div>
 </div>
-<div class="field"><span class="field-label">Assessed min</span><input type="number" id="assessedMin" placeholder="0" min="0" step="1000"></div>
+<!-- id is here so applyLedgerChrome() in app.js can hide this on the
+Certificates page - a certificate is a lien, it has no assessed
+value, and passes() already ignores the filter there. -->
+<div class="field" id="assessedField"><span class="field-label">Assessed min</span><input type="number" id="assessedMin" placeholder="0" min="0" step="1000"></div>
 </div>
 <div class="filters-row">
 <div class="field"><span class="field-label">Max bid target (% of market)</span><input type="number" id="maxBidPct" value="40" min="1" max="100" step="5"></div>
@@ -249,6 +258,12 @@ comparator to apply as a tiebreaker either. -->
 <label class="tog"><input type="checkbox" id="soonOnly"> <span>⏱ Closing in 14 days</span></label>
 <label class="tog"><input type="checkbox" id="hideOldOnly"> <span>🕐 Hide listings 7+ days old</span></label>
 <label class="tog"><input type="checkbox" id="qtToggle"> <span>Include quiet title est.</span></label>
+<!-- Was the Archive chip in the summary strip. Archive is a MODE, not a
+sub-filter - it shows only past-due auctions and hides everything
+else - so it reads as a checkbox here far better than as a fourth
+count chip sitting next to Shown/Active/Gone, which it never
+belonged with. -->
+<label class="tog" id="archiveToggleRow"><input type="checkbox" id="archiveToggle"> <span>📁 Show past auctions&nbsp;<b id="chipArchive">0</b></span></label>
 </div>
 <button class="reset-btn" id="hiddenListBtn" type="button" hidden><span id="hiddenCount">0</span> hidden - view &amp; recover</button>
 </div>
@@ -259,7 +274,7 @@ chips - each summary shows how many are currently selected. -->
 <div class="filters-section">
 <div class="filters-section-head"><span class="filters-section-title">Advanced Filters</span></div>
 
-<details class="filter-dropdown">
+<details class="filter-dropdown" id="typeDropdown">
 <summary>Property Type <span class="filter-dropdown-count" id="typeCount"></span></summary>
 <div class="filter-dropdown-body">
 <div class="group-actions"><button class="mini-btn" data-group="types" data-mode="all" type="button">All</button><button class="mini-btn" data-group="types" data-mode="none" type="button">None</button></div>
@@ -267,7 +282,7 @@ chips - each summary shows how many are currently selected. -->
 </div>
 </details>
 
-<details class="filter-dropdown">
+<details class="filter-dropdown" id="lienDropdown">
 <summary>Title Status <span class="filter-dropdown-count" id="lienCount"></span></summary>
 <div class="filter-dropdown-body">
 <div class="group-actions"><button class="mini-btn" data-group="liens" data-mode="all" type="button">All</button><button class="mini-btn" data-group="liens" data-mode="none" type="button">None</button></div>
@@ -356,16 +371,16 @@ Title badges are a best-effort public-records search, <b>not a certified title s
 </footer>
 </div>
 
-<!-- ============ "My Bid List" modal ============ -->
+<!-- ============ "My Watchlist" modal ============ -->
 <!-- Placed before detailModal in the DOM so, when both are open at once
-(viewing a property's full page from inside the bid list), detailModal
+(viewing a property's full page from inside the watchlist), detailModal
 paints on top at the same z-index - later sibling wins. -->
 <div class="detail-modal" id="bidListModal" hidden>
 <div class="detail-modal-inner bidlist-modal-inner" id="bidListModalInner"></div>
 </div>
 
 <!-- ============ "Hidden Properties" modal ============ -->
-<!-- Same placement rationale as the bid list modal above - stays before
+<!-- Same placement rationale as the watchlist modal above - stays before
 detailModal in the DOM so the detail modal always paints on top of it. -->
 <div class="detail-modal" id="hiddenModal" hidden>
 <div class="detail-modal-inner bidlist-modal-inner" id="hiddenModalInner"></div>
@@ -452,7 +467,7 @@ nothing saying which is which. -->
 <p>This tool is provided as is, with no warranty of accuracy, completeness or fitness for any particular purpose. You are responsible for your own due diligence and for every bid you place. Nothing here creates an attorney-client, broker, or fiduciary relationship.</p>
 
 <h3>Your account</h3>
-<p>Access is granted by the account owner and may be withdrawn. Don't share your login. Notes, favorites and your bid list are stored against your account and visible only to you.</p>
+<p>Access is granted by the account owner and may be withdrawn. Don't share your login. Notes, favorites and your watchlist are stored against your account and visible only to you.</p>
 
 <p class="terms-note">Questions about any of this should go to the account owner.</p>
 </div>
