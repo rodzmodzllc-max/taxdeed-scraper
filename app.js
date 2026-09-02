@@ -253,6 +253,60 @@ const COUNTY_LINKS = {
   "Washington": { appraiser: "https://www.qpublic.net/fl/washington/", auction: "https://washington.realtaxdeed.com", taxcoll: "https://www.washingtoncountytaxcollector.com/" },
 };
 
+// ==================== Android back button ====================
+// A PWA is a single page, so the system Back gesture had nothing of ours to
+// pop and left the app outright - mid-task, with a modal open. Every
+// dismissible layer now pushes one history entry when it opens, and Back
+// closes the topmost one instead of exiting.
+//
+// The stack, not the browser's own entry, is the source of truth: a layer
+// closed from inside the app (a ✕, Escape, the map's back control) calls
+// history.back() itself so the entry it pushed goes away too, or Back would
+// need pressing twice to do anything visible. `popping` stops that from
+// recursing when the close was triggered BY a popstate.
+//
+// Exposed on window so explore.js - which is a separate module and has its
+// own layers, the county zoom and the pin preview - can use the same stack
+// and get the right ordering for free. It checks for this and degrades to
+// its current behaviour if app.js ever stops providing it.
+const BACK_LAYERS = [];
+let popping = false;
+// history.back() is ASYNCHRONOUS: its popstate arrives after whatever else
+// this click is doing. Choosing "Edit profile" closes the account menu AND
+// opens the modal, so without this counter the menu's own history.back()
+// landed a tick later and closed the modal that had just opened. Each
+// self-initiated back increments this, and the popstate it causes is
+// consumed here rather than being read as the user pressing Back.
+let selfBacks = 0;
+
+function pushBackLayer(name, close) {
+  if (BACK_LAYERS.some(l => l.name === name)) return;   // already open
+  BACK_LAYERS.push({ name, close });
+  try { history.pushState({ tdw: name }, ""); } catch { /* file:// etc */ }
+}
+
+function popBackLayer(name) {
+  const i = BACK_LAYERS.findIndex(l => l.name === name);
+  if (i < 0) return;
+  BACK_LAYERS.splice(i, 1);
+  if (!popping) {
+    selfBacks++;
+    try { history.back(); } catch { selfBacks--; }
+  }
+}
+
+window.addEventListener("popstate", () => {
+  // Our own history.back(), not the user's Back gesture.
+  if (selfBacks > 0) { selfBacks--; return; }
+  const layer = BACK_LAYERS.pop();
+  // Nothing of ours open: let Back do what it normally does and leave.
+  if (!layer) return;
+  popping = true;
+  try { layer.close(); } finally { popping = false; }
+});
+
+window.tdwBack = { push: pushBackLayer, pop: popBackLayer };
+
 let ALL = [], CALENDAR = {}, NOTES = {}, FAVS = new Set(), HIDDEN = new Set(), ME = null, IS_ADMIN = false;
 // BIDLIST is the membership set (fast "is this on the list" checks);
 // BIDLIST_ORDER is the same ids in the order they were added, oldest first -
@@ -650,6 +704,7 @@ function showPending() {
 // in showApp(), or directly in the Supabase table editor).
 async function checkApprovalAndEnter(session) {
   ME = session.user;
+  refreshAccountBadge();
   const { data: profile, error } = await sb.from("profiles").select("approved,is_admin").eq("id", ME.id).maybeSingle();
   if (error) {
     // Most likely schema-v6-approvals.sql hasn't been run against this
@@ -1262,12 +1317,14 @@ function openDetail(p) {
   inner.className = "detail-modal-inner prop-card";
   inner.innerHTML = detailHtml(p);
   modal.hidden = false;
+  pushBackLayer("detail", closeDetail);
   syncBodyScrollLock();
 }
 function closeDetail() {
   const modal = document.getElementById("detailModal");
   if (!modal) return;
   modal.hidden = true;
+  popBackLayer("detail");
   syncBodyScrollLock();
 }
 // After a fav toggle, if this property's detail modal happens to be open,
@@ -1330,12 +1387,14 @@ function openBidList() {
   if (!modal) return;
   renderBidListModal();
   modal.hidden = false;
+  pushBackLayer("bidlist", closeBidList);
   syncBodyScrollLock();
 }
 function closeBidList() {
   const modal = document.getElementById("bidListModal");
   if (!modal) return;
   modal.hidden = true;
+  popBackLayer("bidlist");
   syncBodyScrollLock();
 }
 // After adding/removing a bid list item (from anywhere - a ledger card, the
@@ -1425,12 +1484,14 @@ function openHiddenModal() {
   if (!modal) return;
   renderHiddenModal();
   modal.hidden = false;
+  pushBackLayer("hidden", closeHiddenModal);
   syncBodyScrollLock();
 }
 function closeHiddenModal() {
   const modal = document.getElementById("hiddenModal");
   if (!modal) return;
   modal.hidden = true;
+  popBackLayer("hidden");
   syncBodyScrollLock();
 }
 // After a restore (single or "restore all active"), rebuild the modal in
@@ -2045,9 +2106,16 @@ if (exportCsvBtn) exportCsvBtn.addEventListener("click", () => {
 const filtersToggleBtn = document.getElementById("filtersToggle");
 const filtersPanelEl = document.getElementById("filtersPanel");
 if (filtersToggleBtn && filtersPanelEl) {
+  const closeFilters = () => {
+    filtersPanelEl.classList.remove("open");
+    filtersToggleBtn.classList.remove("open");
+  };
   filtersToggleBtn.addEventListener("click", () => {
+    const opening = !filtersPanelEl.classList.contains("open");
     filtersPanelEl.classList.toggle("open");
     filtersToggleBtn.classList.toggle("open");
+    if (opening) pushBackLayer("filters", closeFilters);
+    else popBackLayer("filters");
   });
 }
 
@@ -2469,6 +2537,152 @@ function applyTheme(mode) {
 let themeMode = "auto";
 try { themeMode = localStorage.getItem(THEME_KEY) || "auto"; } catch { /* private mode - fall back to auto */ }
 applyTheme(themeMode);
+// ==================== account menu ====================
+// Theme, password, install and sign out used to sit loose in the header,
+// competing for width with the ledger tabs on a phone. They are all account
+// concerns, so one badge holds them. Every button kept its id, so the theme
+// and install wiring below needed no changes.
+const accountEl = document.getElementById("account");
+const accountBtn = document.getElementById("accountBtn");
+const accountMenu = document.getElementById("accountMenu");
+
+function accountMeta() {
+  // Name/company/address/phone live in the auth user's metadata (see the
+  // sign-up handler), not in public.profiles.
+  return (ME && ME.user_metadata) || {};
+}
+
+function closeAccountMenu() {
+  if (!accountMenu || accountMenu.hidden) return;
+  accountMenu.hidden = true;
+  if (accountBtn) accountBtn.setAttribute("aria-expanded", "false");
+  popBackLayer("account");
+}
+
+function openAccountMenu() {
+  if (!accountMenu) return;
+  const m = accountMeta();
+  const name = [m.first_name, m.last_name].filter(Boolean).join(" ").trim();
+  const nameEl = document.getElementById("accountName");
+  const mailEl = document.getElementById("accountEmail");
+  if (nameEl) nameEl.textContent = name || "Signed in";
+  if (mailEl) mailEl.textContent = (ME && ME.email) || "";
+  accountMenu.hidden = false;
+  accountBtn.setAttribute("aria-expanded", "true");
+  pushBackLayer("account", closeAccountMenu);
+}
+
+// Initials rather than a photo: no upload to store, and it still tells you at
+// a glance which account you are in.
+function refreshAccountBadge() {
+  const el = document.getElementById("accountInitials");
+  if (!el) return;
+  const m = accountMeta();
+  const initials = [m.first_name, m.last_name].filter(Boolean)
+    .map(v => String(v).trim().charAt(0).toUpperCase()).join("");
+  el.textContent = initials || (ME && ME.email ? ME.email.charAt(0).toUpperCase() : "·");
+}
+
+if (accountBtn) {
+  accountBtn.addEventListener("click", e => {
+    e.stopPropagation();
+    if (accountMenu.hidden) openAccountMenu(); else closeAccountMenu();
+  });
+  document.addEventListener("click", e => {
+    if (accountEl && !accountEl.contains(e.target)) closeAccountMenu();
+  });
+  document.addEventListener("keydown", e => { if (e.key === "Escape") closeAccountMenu(); });
+  // Any menu item closes the menu; each one's own handler does the work.
+  if (accountMenu) accountMenu.addEventListener("click", e => {
+    if (e.target.closest(".account-item")) closeAccountMenu();
+  });
+}
+
+// ==================== edit profile ====================
+const profileModal = document.getElementById("profileModal");
+const profileForm = document.getElementById("profileForm");
+const pfMsg = document.getElementById("pfMsg");
+const PF = id => document.getElementById(id);
+
+function closeProfileModal() {
+  if (!profileModal) return;
+  profileModal.hidden = true;
+  popBackLayer("profile");
+}
+
+function openProfileModal() {
+  if (!profileModal) return;
+  const m = accountMeta();
+  if (PF("pfFirst")) PF("pfFirst").value = m.first_name || "";
+  if (PF("pfLast")) PF("pfLast").value = m.last_name || "";
+  if (PF("pfCompany")) PF("pfCompany").value = m.company || "";
+  if (PF("pfAddress")) PF("pfAddress").value = m.address || "";
+  if (PF("pfPhone")) PF("pfPhone").value = m.phone || "";
+  if (pfMsg) { pfMsg.textContent = ""; pfMsg.className = "auth-msg"; }
+  profileModal.hidden = false;
+  pushBackLayer("profile", closeProfileModal);
+}
+
+const editProfileBtn = document.getElementById("editProfileBtn");
+if (editProfileBtn) editProfileBtn.addEventListener("click", openProfileModal);
+const profileCloseBtn = document.getElementById("profileCloseBtn");
+if (profileCloseBtn) profileCloseBtn.addEventListener("click", closeProfileModal);
+if (profileModal) profileModal.addEventListener("click", e => {
+  if (e.target === profileModal) closeProfileModal();
+});
+
+if (profileForm) profileForm.addEventListener("submit", async e => {
+  e.preventDefault();
+  const btn = document.getElementById("pfSubmitBtn");
+  const data = {
+    first_name: PF("pfFirst").value.trim(),
+    last_name: PF("pfLast").value.trim(),
+    company: PF("pfCompany").value.trim(),
+    address: PF("pfAddress").value.trim(),
+    phone: PF("pfPhone").value.trim()
+  };
+  if (Object.values(data).some(v => !v)) {
+    if (pfMsg) { pfMsg.className = "auth-msg err"; pfMsg.textContent = 'Please fill in all fields. No company? Enter "Independent".'; }
+    return;
+  }
+  if (btn) btn.disabled = true;
+  if (pfMsg) { pfMsg.className = "auth-msg"; pfMsg.textContent = "Saving…"; }
+  const { data: res, error } = await sb.auth.updateUser({ data });
+  if (btn) btn.disabled = false;
+  if (error) {
+    if (pfMsg) { pfMsg.className = "auth-msg err"; pfMsg.textContent = error.message; }
+    return;
+  }
+  // Keep the in-memory user in step so the badge and the menu update without
+  // a reload.
+  if (res && res.user) ME = res.user;
+  refreshAccountBadge();
+  if (pfMsg) { pfMsg.className = "auth-msg"; pfMsg.textContent = "Saved."; }
+  setTimeout(closeProfileModal, 700);
+});
+
+// ==================== terms & disclaimer ====================
+const termsModal = document.getElementById("termsModal");
+function closeTermsModal() {
+  if (!termsModal) return;
+  termsModal.hidden = true;
+  popBackLayer("terms");
+}
+function openTermsModal() {
+  if (!termsModal) return;
+  termsModal.hidden = false;
+  pushBackLayer("terms", closeTermsModal);
+}
+["termsBtn", "termsBtnMenu"].forEach(id => {
+  const b = document.getElementById(id);
+  if (b) b.addEventListener("click", openTermsModal);
+});
+const termsCloseBtn = document.getElementById("termsCloseBtn");
+if (termsCloseBtn) termsCloseBtn.addEventListener("click", closeTermsModal);
+if (termsModal) termsModal.addEventListener("click", e => {
+  if (e.target === termsModal) closeTermsModal();
+});
+
 const themeBtnEl = document.getElementById("themeBtn");
 if (themeBtnEl) themeBtnEl.addEventListener("click", () => {
   themeMode = THEME_CYCLE[(THEME_CYCLE.indexOf(themeMode) + 1) % THEME_CYCLE.length];
@@ -2529,10 +2743,12 @@ window.addEventListener("appinstalled", () => {
     form.reset();
     showMsg("", false);
     modal.hidden = false;
+    pushBackLayer("password", closeModal);
   }
 
   function closeModal() {
     modal.hidden = true;
+    popBackLayer("password");
     form.reset();
     showMsg("", false);
   }
