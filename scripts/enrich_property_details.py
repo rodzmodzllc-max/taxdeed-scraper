@@ -79,8 +79,27 @@ import requests
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
 SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "")
-BATCH_LIMIT = int(os.environ.get("ENRICH_BATCH_LIMIT", "300"))
-PER_COUNTY_LIMIT = int(os.environ.get("ENRICH_PER_COUNTY_LIMIT", "10"))
+# Raised 2026-09-02 from 300/10. Measured live at that point: 2,041 of 3,232
+# rows sat in counties this script has ALREADY matched successfully at least
+# once - i.e. they were merely queued behind the old per-run cap, not blocked
+# by anything. At 300/run that backlog needed ~7 runs (3+ days) to clear,
+# which is what kept mappable coordinates at a few hundred rows. These
+# limits clear it in 2-3 runs instead. Steady state stays cheap regardless:
+# `fdor_enriched_at` means only genuinely new rows are ever fetched again.
+BATCH_LIMIT = int(os.environ.get("ENRICH_BATCH_LIMIT", "1000"))
+PER_COUNTY_LIMIT = int(os.environ.get("ENRICH_PER_COUNTY_LIMIT", "40"))
+# A county whose parcel format this script can't match burns one request per
+# normalize_candidates() variant on every row - 8 wasted lookups per row now
+# that the trailing-"R" variants exist. Rather than let an unmatchable county
+# spend its whole enlarged slice proving the same thing 40 times, give up on
+# it after this many CONSECUTIVE misses within a single run and hand the
+# leftover budget to counties that are actually producing.
+#
+# This does not weaken the anti-starvation design: the county is still tried
+# from scratch on the very next run (misses are never stamped), so a format
+# fixed later still picks up its whole backlog - exactly what happened for
+# Duval. It only stops one run from wasting minutes on a known-bad format.
+COUNTY_MISS_STREAK = int(os.environ.get("ENRICH_COUNTY_MISS_STREAK", "6"))
 REQUEST_DELAY_SECONDS = 0.3  # polite pacing against a free public API
 FDOR_ENDPOINT = (
     "https://services9.arcgis.com/Gh9awoU677aKree0/arcgis/rest/services/"
@@ -494,7 +513,13 @@ def main():
         if not rows:
             continue
         county_matched = 0
+        miss_streak = 0
         for row in rows:
+            if miss_streak >= COUNTY_MISS_STREAK:
+                # Give up on this county for THIS run only - see the
+                # COUNTY_MISS_STREAK note above. Retried in full next run.
+                print(f"  [{county}] {miss_streak} consecutive misses - skipping the rest of this county's slice this run.")
+                break
             total_attempted += 1
             parcel = row.get("parcel")
             if not parcel:
@@ -513,11 +538,13 @@ def main():
             if attrs is None:
                 # Left unmarked on purpose - retried on a later run, so a
                 # county whose format gets cracked later picks up its backlog.
+                miss_streak += 1
                 time.sleep(REQUEST_DELAY_SECONDS)
                 continue
 
             total_matched += 1
             county_matched += 1
+            miss_streak = 0  # a hit proves the format works; keep going
 
             fields = build_update_fields(row, attrs, centroid)
             # Stamped only on a successful match, and in the same PATCH as the
