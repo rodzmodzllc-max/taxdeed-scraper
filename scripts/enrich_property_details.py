@@ -120,6 +120,17 @@ COUNTY_ALIASES = {
 # per-county special-casing yet) - counties that need something smarter
 # than these will show up with a 0%% match rate in this script's own
 # per-county summary, which is the signal to add a rule here.
+#
+# The trailing-"R" variants were added 2026-09-02 after discovering (via
+# fast PARCEL_ID-prefix LIKE queries against the FDOR layer, which stay
+# indexed/fast even though bare CO_NO or PHY_ADDR1 queries time out - see
+# the roadmap doc for the full investigation) that Duval's FDOR PARCEL_ID
+# is exactly its dash-stripped RE# plus a literal trailing "R"
+# (e.g. our stored "003709-0000" -> FDOR "0037090000R"), confirmed exact
+# across an 11/11 sample. Kept generic rather than Duval-only since it's a
+# cheap extra equality try that can only produce a false positive if some
+# other county's real PARCEL_ID happens to exactly equal
+# <our value>+"R", which is not realistic.
 def normalize_candidates(parcel):
     parcel = parcel.strip()
     seen = set()
@@ -133,6 +144,11 @@ def normalize_candidates(parcel):
         if value and value not in seen:
             seen.add(value)
             candidates.append(value)
+    for value in list(candidates):
+        with_r = value + "R"
+        if with_r not in seen:
+            seen.add(with_r)
+            candidates.append(with_r)
     return candidates
 
 
