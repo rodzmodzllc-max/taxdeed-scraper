@@ -86,18 +86,147 @@ font-variant-numeric:tabular-nums;font-size:.74rem;color:var(--ink-soft)}
 .explore-map-note{font-size:.66rem;line-height:1.35;color:var(--ink-soft);margin:0}
 .explore-map-canvas{position:relative;border-radius:10px;overflow:hidden;
 background:var(--paper)}
-.explore-map-canvas svg{width:100%;height:auto;display:block;max-height:64vh}
+/* fl-counties.svg's viewBox is 1170 x 1115. Kept as a variable so the
+   height cap and the width cap can't drift apart - if they do, the element
+   stops matching its content and the letterbox comes back. */
+.explore-map-canvas{--map-aspect:1.0493}
+.explore-map-canvas svg{width:100%;height:auto;display:block;
+  max-height:64vh;max-width:calc(64vh * var(--map-aspect));
+  border-radius:10px;border:1px solid var(--card-line)}
+
 @media (min-width:1024px){
-  .explore-shell[data-mode="split"] .explore-map-canvas svg{max-height:calc(100vh - 15rem)}
+  .explore-shell[data-mode="split"] .explore-map-canvas svg{
+    max-height:calc(100vh - 15rem);max-width:calc((100vh - 15rem) * var(--map-aspect))}
 }
 
 /* County shapes: quiet by default so the data bubbles on top are what the eye
    lands on - the reverse of the filter-panel picker map, where the shapes
    themselves are the interface. */
-.explore-map-canvas path[data-county]{fill:var(--card-line);stroke:var(--card);
+/* ==========================================================================
+   THE BASEMAP
+   --------------------------------------------------------------------------
+   This was a grey silhouette on a white page: no water, no neighbours, no
+   coastline. Florida read as a smudge rather than a peninsula, and the
+   panhandle's northern edge - a land border with Georgia and Alabama - had
+   nothing on the other side of it at all.
+
+   fl-counties.svg now ships a sea rect, the three neighbouring states as
+   flat landmasses, and orientation labels, all in the same projection and
+   all same-origin. No tiles, no third-party requests, no CSP change - see
+   the header of build_basemap.py.
+
+   One palette, defined once, so the map is not a pile of one-off colours.
+   Water and land are deliberately NOT --accent: the accent is the ledger's
+   own colour and it changes per page, while the Gulf of Mexico does not.
+   ========================================================================== */
+:root{
+  --map-sea:#D6E6F2; --map-sea-deep:#C3D9EA;
+  --map-land:#F4F1EA; --map-land-line:#DAD4C6;
+  --map-neighbor:#E7E4DC; --map-neighbor-ink:#A9A296;
+  --map-coast:rgba(31,58,92,.30);
+}
+:root[data-theme="dark"]{
+  --map-sea:#0C1B2E; --map-sea-deep:#091524;
+  --map-land:#1B2434; --map-land-line:#2E3A4D;
+  --map-neighbor:#161E2B; --map-neighbor-ink:#5A6577;
+  --map-coast:rgba(0,0,0,.55);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --map-sea:#0C1B2E; --map-sea-deep:#091524;
+    --map-land:#1B2434; --map-land-line:#2E3A4D;
+    --map-neighbor:#161E2B; --map-neighbor-ink:#5A6577;
+    --map-coast:rgba(0,0,0,.55);
+  }
+}
+
+/* The map is FRAMED, not bled.
+   The SVG letterboxes whenever the panel is wider than the map's own
+   aspect, which on a desktop full-map view was ~350px of empty on each
+   side. Painting that margin white made the map look like it was floating;
+   painting it sea-coloured looked better but was a lie - it turned the
+   west edge of Alabama into open water and left the land ending in the
+   middle of an ocean that carried on past it.
+   Capping the SVG's width to the same aspect its height is capped at makes
+   the element exactly fit its content, so the sea stops at a real edge and
+   the surround is honestly the card, not the Gulf. */
+/* Map and rail share a row on a wide screen and stack (rail hidden) below
+   it - see the media query further down. */
+.explore-map-stage{display:flex;gap:.9rem;align-items:stretch;justify-content:center}
+/* flex:1 1 auto, NOT 0 1 auto. The SVG inside is width:100%, so an
+   auto-width flex item gives it nothing to be 100% OF and the whole map
+   collapses to ~300px. The canvas takes the row and centres the map in it. */
+.explore-map-canvas{display:flex;justify-content:center;background:var(--paper);flex:1 1 auto;min-width:0}
+.explore-map-rail{display:none}
+
+/* Full-map mode on a desktop has the height to spare, and using it is what
+   actually closes the white gutters - Florida's outline is nearly square, so
+   the map's width is set by its height. 64vh left ~230px of empty either
+   side even with the rail in place. */
+@media (min-width:1100px){
+  /* min() against a viewport-minus-chrome figure as well as a flat vh:
+     76vh alone pushed the bottom of the map past the fold, because the map
+     starts ~265px down the page, not at the top of it. */
+  .explore-shell[data-mode="map"] .explore-map-canvas svg{
+    --map-h:min(76vh, calc(100vh - 17rem));
+    max-height:var(--map-h);max-width:calc(var(--map-h) * var(--map-aspect))}
+
+  .explore-shell[data-mode="map"] .explore-map-rail:not([hidden]){
+    display:block;flex:0 0 232px;overflow-y:auto;max-height:min(76vh, calc(100vh - 17rem));
+    border:1px solid var(--card-line);border-radius:10px;background:var(--card);padding:.5rem}
+}
+.rail-head{font-size:.66rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--ink-soft);padding:.15rem .35rem .4rem}
+.rail-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:.1rem}
+.rail-row{position:relative;width:100%;display:flex;align-items:baseline;gap:.5rem;
+  font-family:inherit;font-size:.76rem;color:var(--ink);background:none;border:none;
+  border-radius:6px;padding:.32rem .4rem;cursor:pointer;text-align:left;overflow:hidden}
+.rail-row:hover{background:var(--accent-soft)}
+.rail-row.on{background:var(--accent-soft);font-weight:700}
+.rail-name{flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rail-n{font-family:ui-monospace,Consolas,monospace;font-variant-numeric:tabular-nums;
+  font-size:.72rem;font-weight:700;color:var(--accent)}
+/* A bar rather than a second number: the count is already the number, and
+   the point of the rail is the SHAPE of the distribution at a glance. */
+.rail-bar{position:absolute;left:.4rem;right:.4rem;bottom:.12rem;height:2px;border-radius:2px;
+  background:linear-gradient(to right,var(--accent) var(--w),transparent var(--w));opacity:.5}
+.rail-row:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.map-sea{fill:var(--map-sea)}
+/* Flat, unstroked, and a shade off the Florida land tone: present enough
+   that the state line is a border between two lands rather than a coast,
+   quiet enough that it never competes with the counties. */
+/* Stroked in its own fill colour, not left unstroked. The three states are
+   concatenated county rings sharing edges, and two identically-filled
+   polygons that share an edge leave a one-pixel antialiasing seam along it -
+   invisible statewide, a set of grey creases across Alabama once a county
+   zoom magnifies the map. A hairline stroke of the same colour closes them. */
+.neighbor-land{fill:var(--map-neighbor);stroke:var(--map-neighbor);stroke-width:1;
+  stroke-linejoin:round}
+/* The coastline, for free: one shadow under the whole county group, always
+   in register with the counties because it IS the counties. A stroked
+   duplicate of all 67 paths would have added 33KB to the offline shell. */
+.map-counties{filter:drop-shadow(0 0 2.5px var(--map-coast))}
+/* ...but not while zoomed into a county. A CSS filter rasterises its whole
+   group at the current scale and clips to a filter region computed from the
+   group's bounding box - at county zoom that meant visible straight-edged
+   seams across the map where the region ran out, and a full-state raster
+   being regenerated on every frame of the zoom tween. The coastline halo is
+   statewide scenery; zoomed in, the county's own outline does that job. */
+.explore-map-canvas.zoomed .map-counties{filter:none}
+.map-label{font-family:'Inter',sans-serif;text-anchor:middle;pointer-events:none;
+  font-weight:600;letter-spacing:.22em;font-size:19px}
+.map-label-sea{fill:#5B87AE;opacity:.85}
+.map-label-land{fill:var(--map-neighbor-ink);letter-spacing:.3em;font-size:17px}
+:root[data-theme="dark"] .map-label-sea{fill:#4A6E92}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .map-label-sea{fill:#4A6E92}}
+/* Statewide furniture. Blown up to a single county's scale, "GEORGIA" in
+   90px letters across the top is absurd. */
+.explore-map-canvas.zoomed .map-context{display:none}
+
+.explore-map-canvas path[data-county]{fill:var(--map-land);stroke:var(--map-land-line);
 stroke-width:1;transition:fill .12s}
-.explore-map-canvas path[data-county].has-rows{fill:color-mix(in srgb,var(--accent) 18%,var(--card-line))}
-.explore-map-canvas path[data-county].sel{fill:color-mix(in srgb,var(--accent) 34%,var(--card-line))}
+.explore-map-canvas path[data-county].has-rows{fill:color-mix(in srgb,var(--accent) 22%,var(--map-land))}
+.explore-map-canvas path[data-county].sel{fill:color-mix(in srgb,var(--accent) 42%,var(--map-land))}
 
 /* ---- county cluster bubbles ----------------------------------------------
    One per county with matching rows, radius scaled by count (sqrt, so a
@@ -359,7 +488,13 @@ box-shadow:0 10px 30px rgba(15,23,42,.14)}
 
 /* Zoomed in, the surrounding counties stay visible but recede - dropping
    them entirely loses the sense of where in Florida you are. */
-.explore-map-canvas path[data-county].zoom-off{opacity:.22}
+/* opacity:.22 did not de-emphasise these counties so much as delete them:
+   the fill went transparent and what showed through was the page, so the
+   land around the county you zoomed into read as big blank panels. They are
+   still land - drawn in the land colour, a step quieter, with their borders
+   softened rather than their substance removed. */
+.explore-map-canvas path[data-county].zoom-off{
+  fill:var(--map-land);stroke:var(--map-land-line);opacity:.82}
 .explore-map-canvas path[data-county].zoom-focus{fill:var(--accent-soft);
 stroke:var(--accent);stroke-width:1.4}
 
@@ -463,18 +598,31 @@ color:var(--ink-soft);line-height:1.5;max-width:52ch;text-align:center}
    border or the water. */
 .city-marker{pointer-events:none}
 .city-marker circle{fill:var(--ink-soft);opacity:.75}
+/* stroke-width was never set, so the halo was the SVG default of 1 USER
+   unit - sub-pixel at the statewide zoom, i.e. no halo at all, which is why
+   the names read as heavy black text dropped on top of the map rather than
+   as part of it. Sized in em so it tracks the font size explore.js computes
+   per zoom level, and coloured as land rather than as the card, because
+   that is what is actually behind them now. */
 .city-marker text{font-family:Inter,system-ui,sans-serif;
-font-weight:600;fill:var(--ink);stroke:var(--card);paint-order:stroke fill;
-opacity:.9;letter-spacing:.01em}
+font-weight:600;fill:#243044;stroke:var(--map-land);stroke-width:.3em;
+paint-order:stroke fill;opacity:.92;letter-spacing:.01em}
+:root[data-theme="dark"] .city-marker text{fill:#DCE4F0}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]) .city-marker text{fill:#DCE4F0}}
 /* Zoomed in the county is filled, so the halo has to match that fill instead
    of the panel background or the text sits in a pale box of the wrong colour. */
-.explore-map-canvas.zoomed .city-marker text{stroke:var(--accent-soft)}
+.explore-map-canvas.zoomed .city-marker text{stroke:var(--accent-soft);stroke-width:.32em}
 .explore-map-canvas.zoomed .city-marker circle{fill:var(--ink);opacity:.55}
 
-/* A flat wash read as a placeholder rather than a map. Slightly deeper fill,
-   a firmer edge, and the neighbours kept faint for orientation. */
-.explore-map-canvas path[data-county].zoom-focus{fill:var(--accent-soft);
-stroke:var(--accent);stroke-width:1.1;stroke-linejoin:round}
+/* The county you are looking at is still LAND. Filling it solid accent made
+   it read as a selected UI element sitting on the map rather than as the
+   place itself, and it left the ZIP boundaries drawn inside it as blue lines
+   on a blue field. Land colour, warmed a touch so it separates from its
+   neighbours, and the accent doing the work at the edge where it belongs. */
+.explore-map-canvas path[data-county].zoom-focus{
+fill:color-mix(in srgb,var(--accent) 9%,var(--map-land));
+stroke:var(--accent);stroke-width:1.6;stroke-linejoin:round;
+vector-effect:non-scaling-stroke}
 
 /* A closed property's banner now carries WHY it closed. A sale that actually
    sold is the one outcome that is useful rather than merely final, so it
@@ -489,12 +637,18 @@ text-transform:none}
    property we can place is tinted and carries its count. */
 .zip-area{fill:none;stroke:var(--accent);stroke-opacity:.28;stroke-width:.6px;
 vector-effect:non-scaling-stroke;pointer-events:none}
-.zip-area.has-rows{fill:var(--bad);fill-opacity:.16;stroke:var(--bad);
-stroke-opacity:.65;stroke-width:1.2px}
+/* Was --bad. Red means closed/redeemed/withdrawn everywhere else in this
+   app - on a card's left edge, on a status pill - so painting the ZIP that
+   actually CONTAINS listings red said the opposite of what it meant. It is
+   the ledger accent now, the same colour the pins and the county outline
+   use, because it is pointing at the same thing they are. */
+.zip-area.has-rows{fill:var(--accent);fill-opacity:.16;stroke:var(--accent);
+stroke-opacity:.7;stroke-width:1.3px}
 .zip-label{text-anchor:middle;dominant-baseline:middle;pointer-events:none;
 font-family:ui-monospace,Consolas,monospace;font-weight:600;
-fill:var(--ink-soft);opacity:.5}
-.zip-label.has-rows{fill:var(--bad);opacity:.9;font-weight:700}
+fill:var(--ink-soft);opacity:.55;
+stroke:var(--map-land);stroke-width:.28em;paint-order:stroke fill}
+.zip-label.has-rows{fill:var(--accent);opacity:.95;font-weight:700}
 
 /* ==========================================================================
    ACCOUNT BADGE + MENU
