@@ -204,10 +204,18 @@ def is_junk_fdor_address(phy_addr1, phy_city):
 
 def fetch_needing_enrichment_counties():
     """All distinct counties that still have at least one row with a
-    parcel number but no prop_type - the fairness unit for PER_COUNTY_LIMIT."""
+    parcel number but no prop_type - the fairness unit for PER_COUNTY_LIMIT.
+
+    `parcel=not.is.null` alone still matches empty-string parcels (a real
+    row shape confirmed live 2026-09-02: some Citrus rows carry `parcel=''`
+    rather than NULL, presumably because the source listing genuinely had
+    no parcel number and a harvester wrote '' instead of leaving it NULL).
+    Those rows can never match anything here - excluding them keeps a
+    parcel-less county from consuming its PER_COUNTY_LIMIT slice on rows
+    this script can never fix, without changing the fairness design."""
     params = {
         "select": "county",
-        "parcel": "not.is.null",
+        "and": "(parcel.not.is.null,parcel.neq.\"\")",
         "prop_type": "is.null",
         "limit": "5000",
     }
@@ -219,10 +227,15 @@ def fetch_needing_enrichment_counties():
 
 
 def fetch_county_batch(county, limit):
+    # Same empty-string-parcel exclusion as fetch_needing_enrichment_counties()
+    # above, and for the same reason (confirmed live for Citrus 2026-09-02):
+    # `parcel=not.is.null` alone still matches `parcel=''` rows, which can
+    # never resolve through lookup_fdor() and would otherwise burn part of
+    # this county's PER_COUNTY_LIMIT slice every run on unfixable rows.
     params = {
         "select": "id,parcel,address,county",
         "county": f"eq.{county}",
-        "parcel": "not.is.null",
+        "and": "(parcel.not.is.null,parcel.neq.\"\")",
         "prop_type": "is.null",
         "limit": str(limit),
     }
