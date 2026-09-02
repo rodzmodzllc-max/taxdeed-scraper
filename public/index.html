@@ -86,11 +86,32 @@ other people's profiles rows in the first place). -->
 <div class="masthead">
 <div class="eyebrow-row">
 <p class="eyebrow" id="eyebrow">Field Ledger</p>
+<!-- One account badge instead of three loose buttons. Theme, password and
+sign out were competing for width with the ledger tabs on a phone; they are
+account concerns, so they live behind the badge with the rest of them. The
+same buttons keep the same ids, so nothing that referenced them had to move. -->
 <span class="header-btns">
-<button class="hbtn" id="themeBtn" type="button" title="Switch theme"><span id="themeIcon">☼</span><span id="themeLabel">Auto</span></button>
-<button class="hbtn" id="installBtn" type="button" title="Install app" hidden>⬇ Install</button>
-<button class="hbtn" id="changePasswordBtn" type="button" title="Change password">🔑 Password</button>
-<button class="hbtn" id="signOutBtn" type="button" title="Sign out">Sign out</button>
+<div class="account" id="account">
+  <button class="account-badge" id="accountBtn" type="button" aria-haspopup="menu"
+          aria-expanded="false" aria-controls="accountMenu" title="Account">
+    <span class="account-initials" id="accountInitials">·</span>
+    <span class="account-chev"></span>
+  </button>
+  <div class="account-menu" id="accountMenu" role="menu" hidden>
+    <div class="account-head">
+      <p class="account-name" id="accountName">Signed in</p>
+      <p class="account-email" id="accountEmail"></p>
+    </div>
+    <button class="account-item" id="editProfileBtn" type="button" role="menuitem">Edit profile</button>
+    <button class="account-item" id="changePasswordBtn" type="button" role="menuitem">Change password</button>
+    <button class="account-item" id="themeBtn" type="button" role="menuitem">
+      <span id="themeIcon">☼</span> Theme: <span id="themeLabel">Auto</span>
+    </button>
+    <button class="account-item" id="installBtn" type="button" role="menuitem" hidden>Install app</button>
+    <button class="account-item" id="termsBtnMenu" type="button" role="menuitem">Terms &amp; disclaimer</button>
+    <button class="account-item danger" id="signOutBtn" type="button" role="menuitem">Sign out</button>
+  </div>
+</div>
 </span>
 </div>
 <div class="brand-lockup">
@@ -98,7 +119,6 @@ other people's profiles rows in the first place). -->
 <h1>FL Tax Deed Watchlist</h1>
 </div>
 <p class="tagline">Institutional-grade coverage of Florida tax deed auctions, Lands Available, and certificate opportunities — one ledger, every county.</p>
-<p class="disclaimer-badge"><span class="dot">⚠</span><span><b>Best-effort public records search</b> — not a certified title search. Always verify with a title professional before bidding.</span></p>
 <p class="generated" id="generatedAt">Loading…</p>
 <!-- Two (really three) separate ledgers, front and center right after sign-in -
 not one long scroll where Lands Available sits under 300+ auction cards. -->
@@ -326,6 +346,9 @@ doesn't have. -->
 </div>
 
 <footer>
+<!-- The title-search warning used to sit in the header on every screen. It is
+one button here, and the full text lives in the modal it opens. -->
+<p class="footer-terms"><button class="terms-btn" id="termsBtn" type="button">Terms &amp; disclaimer</button></p>
 Links open Street View, the county property appraiser, Zillow, the Tax Collector, the live auction listing, and the Clerk's Official Records.<br><br>
 ★ <b>Top pick</b> = title screen came back clear AND market value is at least 12× the opening bid. A shortlisting aid, not advice.<br><br>
 <b>Fees</b> (shown on each property's full page) are Florida doc stamps (0.70/$100), recording, and — on homesteaded parcels — the half-assessed-value minimum under FS 197.502(6)(c), added on top of whatever the actual winning bid turns out to be. It is an estimate.<br><br>
@@ -371,6 +394,68 @@ they know the existing one. -->
 <button type="submit" id="cpSubmitBtn">Update password</button>
 </form>
 <div class="auth-msg" id="cpMsg"></div>
+</div>
+</div>
+
+<!-- ============ edit profile ============
+Name, company, address and phone are collected at sign-up and stored in the
+Supabase auth user's metadata, NOT in public.profiles (which only holds id,
+email, approved, is_admin and the two timestamps). So this edits them with
+sb.auth.updateUser({ data: ... }) - no table, no RLS policy, and a user can
+only ever reach their own record. -->
+<div class="detail-modal" id="profileModal" hidden>
+<div class="detail-modal-inner" id="profileModalInner">
+<button class="detail-close" id="profileCloseBtn" type="button" aria-label="Close">&times;</button>
+<h2 class="detail-address" style="font-size:1.15rem">Edit profile</h2>
+<p class="mega-sub" style="margin:0 0 .8rem">Your details. Email and approval status are managed by the account owner and can't be changed here.</p>
+<form id="profileForm">
+<!-- Real labels, not placeholder-only fields: a placeholder disappears the
+moment you type, which on a pre-filled form leaves five boxes of text with
+nothing saying which is which. -->
+<div class="pf-row">
+  <label class="pf-field"><span>First name</span>
+    <input type="text" id="pfFirst" autocomplete="given-name" required></label>
+  <label class="pf-field"><span>Last name</span>
+    <input type="text" id="pfLast" autocomplete="family-name" required></label>
+</div>
+<label class="pf-field"><span>Company</span>
+  <input type="text" id="pfCompany" placeholder="No company? Enter Independent" autocomplete="organization" required></label>
+<label class="pf-field"><span>Address</span>
+  <input type="text" id="pfAddress" autocomplete="street-address" required></label>
+<label class="pf-field"><span>Phone</span>
+  <input type="tel" id="pfPhone" autocomplete="tel" required></label>
+<button type="submit" id="pfSubmitBtn">Save changes</button>
+</form>
+<div class="auth-msg" id="pfMsg"></div>
+</div>
+</div>
+
+<!-- ============ terms & disclaimer ============ -->
+<div class="detail-modal" id="termsModal" hidden>
+<div class="detail-modal-inner" id="termsModalInner">
+<button class="detail-close" id="termsCloseBtn" type="button" aria-label="Close">&times;</button>
+<h2 class="detail-address" style="font-size:1.15rem">Terms &amp; disclaimer</h2>
+<div class="terms-body">
+<p class="terms-lead"><b>This is a research tool, not a title search.</b> Everything here is a best-effort reading of public records. It is not a certified title search, a title opinion, an appraisal, or legal or financial advice.</p>
+
+<h3>Before you bid</h3>
+<p>Confirm every figure against the county's own auction site, the Clerk of Court, the Property Appraiser and the Tax Collector, and have a title company or attorney review the parcel. A tax deed can carry liens, code enforcement actions, and other encumbrances this tool does not and cannot see.</p>
+
+<h3>Where the numbers come from</h3>
+<p>Property data is scraped from county and vendor websites on a schedule and can be wrong, incomplete, or out of date — a county can change or withdraw a listing at any time, including after our last sync. The "Data updated" time in the header tells you how fresh the last successful sync was.</p>
+<p><b>Opening bid</b> is the county's published opening figure. It is a floor, not the cost to acquire — on a Lands Available parcel, taxes and fees accrued since the failed sale are added under Fla. Stat. §197.502(7) and §197.542. "Not published" means the county has not posted a figure, not that the parcel is free.</p>
+<p><b>Estimated market / assessed value</b> comes from the county roll, not from an appraisal or a comparative market analysis.</p>
+<p><b>Fees</b> shown on a property page are an estimate — Florida documentary stamps (0.70 per $100), recording, and on homesteaded parcels the half-assessed-value minimum under Fla. Stat. §197.502(6)(c) — calculated on top of whatever the winning bid turns out to be.</p>
+<p><b>Title badges</b> and <b>★ Top pick</b> are shortlisting aids from an automated screen. A "Clear" badge is not a guarantee of clear title and Top pick is not a recommendation to bid.</p>
+
+<h3>No warranty</h3>
+<p>This tool is provided as is, with no warranty of accuracy, completeness or fitness for any particular purpose. You are responsible for your own due diligence and for every bid you place. Nothing here creates an attorney-client, broker, or fiduciary relationship.</p>
+
+<h3>Your account</h3>
+<p>Access is granted by the account owner and may be withdrawn. Don't share your login. Notes, favorites and your bid list are stored against your account and visible only to you.</p>
+
+<p class="terms-note">Questions about any of this should go to the account owner.</p>
+</div>
 </div>
 </div>
 

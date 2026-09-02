@@ -34,10 +34,14 @@
 // did), owner and county, with punctuation stripped from identifiers - so
 // index.html's placeholder and app.js both changed, and the shell HTML is
 // precached.
-// v14: city labels on the map (new fl-cities.json, now part of the offline
-// shell - the map without labels was the "looks stale" complaint) and the
-// closed-property outcome banner.
-const CACHE = "tdw-shell-v14";
+// v15: three rounds in one. City labels and the closed-property outcome
+// banner (fl-cities.json); ZIP areas inside a zoomed county (fl-zips.json);
+// the Android back button; and the account badge, which moved theme,
+// password, install and sign out out of the header and the title-search
+// warning down into a Terms modal. Both data files are in the offline shell -
+// a map with no labels or areas was the "looks stale" complaint, and the
+// courthouse is exactly where the connection is worst.
+const CACHE = "tdw-shell-v15";
 const SHELL = [
   "/",
   "/index.html",
@@ -48,6 +52,7 @@ const SHELL = [
   "/config.js",
   "/fl-counties.svg",
   "/fl-cities.json",
+  "/fl-zips.json",
   "/manifest.webmanifest",
   // Icon bytes changed (new logo) but the filenames didn't, and /icons/* is
   // served with a 7-day Cache-Control (see _headers) plus this worker's own

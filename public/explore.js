@@ -74,6 +74,7 @@ let viewScale = 1;             // homeWidth / currentWidth - pins and labels
                                // on screen no matter how far we zoom
 let activeProp = null;         // property showing in the preview card
 let cities = null;             // county -> [[name, lat, lon, population], ...]
+let zips = null;               // county -> [[zip, [[lon,lat], ...]], ...]
 let cityTop = [];              // the statewide majors, picked once on load
 let zoomAnim = null;           // in-flight viewBox tween
 
@@ -133,6 +134,7 @@ async function ensureMap() {
     computeCentroids(canvas);
     draw();
     loadCities();
+    loadZips();
   } catch {
     // Offline with a cold cache, or the file moved. The list is unaffected,
     // so degrade to a plain message instead of throwing into the console.
@@ -273,6 +275,83 @@ async function loadCities() {
       .slice(0, 9);
     draw();
   } catch { /* map is fine without labels */ }
+}
+
+// A county drawn as one flat shape reads as a diagram, not a map - there is
+// nothing to tell you which part of it you are looking at. fl-zips.json
+// carries every county's ZIP areas as simplified polygons (Census ZCTAs,
+// Douglas-Peucker at ~880m, 267KB raw / 73KB over the wire for the whole
+// state, median 3KB per county), which is enough structure to place a
+// property by eye.
+//
+// ZIP areas rather than city limits on purpose: incorporated places leave
+// unincorporated land blank, and unincorporated land is exactly where a lot
+// of tax deed inventory sits. ZIPs tile the whole county, and a bidder
+// already thinks in them.
+async function loadZips() {
+  try {
+    const res = await fetch("fl-zips.json");
+    if (!res.ok) return;
+    zips = await res.json();
+    if (zoomCounty) draw();
+  } catch { /* the map is fine without them */ }
+}
+
+// Areas containing a property we can actually place are tinted and counted;
+// the rest are outline only. With geocoding at 2% most areas are outline
+// only today, and that is the honest picture rather than a decorative one.
+function drawZipAreas(svg, county, pins) {
+  let layer = svg.querySelector(".zip-layer");
+  if (!layer) {
+    layer = document.createElementNS(NS, "g");
+    layer.setAttribute("class", "zip-layer");
+    svg.insertBefore(layer, svg.querySelector(".city-layer") || svg.querySelector(".cluster-layer") || null);
+  }
+  layer.innerHTML = "";
+  const list = zips && county && zips[county];
+  if (!list) return;
+
+  const home = readHomeViewBox(svg);
+  const upp = unitsPerPixel(svg);
+
+  const pointIn = (x, y, pts) => {
+    let hit = false;
+    for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+      const xi = pts[i][0], yi = pts[i][1], xj = pts[j][0], yj = pts[j][1];
+      if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi + 1e-12) + xi) hit = !hit;
+    }
+    return hit;
+  };
+
+  list.forEach(([zip, ring]) => {
+    const pts = ring.map(([lon, lat]) => {
+      const q = projectLatLng(lat, lon, home.w, home.h);
+      return [q.x, q.y];
+    });
+    const n = (pins || []).filter(q => pointIn(q.x, q.y, pts)).length;
+
+    const poly = document.createElementNS(NS, "polygon");
+    poly.setAttribute("points", pts.map(q => q[0].toFixed(1) + "," + q[1].toFixed(1)).join(" "));
+    poly.setAttribute("class", "zip-area" + (n ? " has-rows" : ""));
+    layer.appendChild(poly);
+
+    // Label the area only when there is room for the number - a ZIP printed
+    // across a sliver of coastline is noise. An area that HOLDS a property is
+    // the exception and always gets its count, however small it is: that
+    // label is the answer to "where are the properties", which is the whole
+    // reason the areas are drawn.
+    const xs = pts.map(q => q[0]), ys = pts.map(q => q[1]);
+    const w = (Math.max(...xs) - Math.min(...xs)) / upp;
+    const h = (Math.max(...ys) - Math.min(...ys)) / upp;
+    if (!n && (w < 44 || h < 26)) return;
+    const t = document.createElementNS(NS, "text");
+    t.setAttribute("x", (Math.min(...xs) + Math.max(...xs)) / 2);
+    t.setAttribute("y", (Math.min(...ys) + Math.max(...ys)) / 2);
+    t.setAttribute("font-size", 9 * upp);
+    t.setAttribute("class", "zip-label" + (n ? " has-rows" : ""));
+    t.textContent = n ? `${zip} · ${n}` : zip;
+    layer.appendChild(t);
+  });
 }
 
 // Labels are placed largest-first and any that would collide with one already
@@ -424,6 +503,14 @@ function cssEscape(v) {
   return window.CSS && CSS.escape ? CSS.escape(v) : String(v).replace(/"/g, '\\"');
 }
 
+// The county zoom and the pin preview are layers a user expects Back to undo,
+// same as a modal. app.js owns the stack so ordering across both modules is
+// right - the preview closes before the zoom because it was opened later.
+const back = {
+  push: (n, f) => { if (window.tdwBack) window.tdwBack.push(n, f); },
+  pop: n => { if (window.tdwBack) window.tdwBack.pop(n); }
+};
+
 function zoomTo(county) {
   const canvas = $(CANVAS_ID);
   const svg = canvas && canvas.querySelector("svg");
@@ -432,6 +519,8 @@ function zoomTo(county) {
   const box = county && countyViewBox(svg, county);
   zoomCounty = box ? county : null;
   activeProp = null;
+  if (zoomCounty) back.push("map-county", () => zoomOut());
+  else back.pop("map-county");
   animateViewBox(svg, box || homeViewBox, () => draw());
   draw();
 }
@@ -487,6 +576,7 @@ function draw() {
   if (zoomCounty && !byCounty.has(zoomCounty)) { zoomOut(); return; }
   if (zoomCounty) { drawPins(svg, layer, byCounty.get(zoomCounty) || []); return; }
   if (canvas) canvas.classList.remove("zoomed");
+  drawZipAreas(svg, null, null);
   renderStrip(null);
   setBackVisible(false);
   showPreviewHidden();
@@ -578,6 +668,8 @@ function drawPins(svg, layer, list) {
   const placed = list.filter(hasPin);
 
   const pinR = 7 * upp;
+  const pinPts = placed.map(p => projectLatLng(p.latitude, p.longitude, home.w, home.h));
+  drawZipAreas(svg, zoomCounty, pinPts);
   drawCities(svg, cities && cities[zoomCounty], placed.map(p => {
     const q = projectLatLng(p.latitude, p.longitude, home.w, home.h);
     return { x1: q.x - pinR, y1: q.y - pinR * 2.4, x2: q.x + pinR, y2: q.y };
@@ -717,7 +809,8 @@ function showPreview(p) {
   activeProp = p;
   const card = previewEl();
   if (!card) return;
-  if (!p) { card.hidden = true; draw(); return; }
+  if (!p) { card.hidden = true; back.pop("map-preview"); draw(); return; }
+  back.push("map-preview", () => showPreview(null));
 
   const market = Number(p.market || p.assessed || 0);
   const rows2 = [
@@ -757,6 +850,8 @@ function zoomOut() {
   const wasFiltered = selectedCounty;
   zoomCounty = null;
   activeProp = null;
+  back.pop("map-preview");
+  back.pop("map-county");
   showPreviewHidden();
   const canvas = $(CANVAS_ID);
   const svg = canvas && canvas.querySelector("svg");
