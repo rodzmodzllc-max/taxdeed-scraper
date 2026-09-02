@@ -568,6 +568,74 @@ results.auctionKeepsTypeLienAssessed = [
 // the other two the toggle could only ever produce an empty page.
 results.archiveRowHiddenPerLedger = ['auction', 'laft', 'certificate'].map(k => ledgerPages[k].archiveRowHidden);
 
+// --- the basemap is a map, not a silhouette ---
+// fl-counties.svg used to be 67 county paths and nothing else, which is why
+// Florida read as a grey smudge on a white page. It now ships the water, the
+// three neighbouring states and the orientation labels. All of it is
+// same-origin static geometry - if any of these counts go to zero, either
+// the basemap was regenerated without them or something is fetching the old
+// file.
+// Earlier sections leave a county selected, which would reduce the rail to
+// one row and prove nothing about ranking.
+await page.selectOption('#countyQuick', 'ALL');
+await page.waitForTimeout(300);
+await page.click('#viewToggle button[data-mode="map"]');
+await page.waitForTimeout(700);
+results.basemapLayers = await page.evaluate(() => {
+  const svg = document.querySelector('#exploreMapCanvas svg');
+  if (!svg) return 'no svg';
+  return [
+    svg.querySelectorAll('.map-sea').length,
+    svg.querySelectorAll('.neighbor-land').length,
+    svg.querySelectorAll('.map-context text').length,
+    svg.querySelectorAll('path[data-county]').length
+  ].join(',');
+});
+// The projection is pinned to the fit's own 1000x960 basis, so the basemap
+// can be reframed without moving a single pin. This is the frame it was
+// reframed TO - if it changes again, projectLatLng has to be re-checked.
+results.basemapViewBox = await page.getAttribute('#exploreMapCanvas svg', 'viewBox');
+
+// --- the county rail ---
+// Bubbles cannot be ranked by eye: an 8-property county and a 12-property
+// one are circles of almost the same size. The rail is the ranking, and it
+// fills the dead space Florida's nearly-square outline leaves beside a
+// wide map.
+// Deliberately structural rather than a fixed list of counties: whatever
+// filters earlier sections have left set, the rail must hold exactly one row
+// per county the map is drawing a bubble for, and the counts must agree with
+// the bubbles. Pinning the actual county names here would just re-assert the
+// fixture and would break every time an unrelated section changed a filter.
+results.railMatchesBubbles = await page.evaluate(() => {
+  const rail = [...document.querySelectorAll('#exploreMapRail .rail-row')]
+    .map(r => r.querySelector('.rail-name').textContent.trim() + ':' + r.querySelector('.rail-n').textContent.trim())
+    .sort();
+  const bubbles = [...document.querySelectorAll('#exploreMapCanvas .cluster-bubble')]
+    .map(g => g.dataset.county + ':' + g.querySelector('text').textContent.trim())
+    .sort();
+  return rail.length > 0 && JSON.stringify(rail) === JSON.stringify(bubbles);
+});
+results.railIsSortedDescending = await page.evaluate(() => {
+  const n = [...document.querySelectorAll('#exploreMapRail .rail-n')].map(e => +e.textContent);
+  return n.every((v, i) => i === 0 || n[i - 1] >= v);
+});
+// Zoomed into one county the rail would be a list of that one county, and
+// the strip of property cards under the map is already the better list.
+await page.click('.cluster-bubble circle');
+await page.waitForTimeout(1100);
+results.railHiddenWhenZoomed = await page.locator('#exploreMapRail').isHidden();
+// Scoped to the explore canvas on purpose: the filter panel inlines the
+// SAME basemap into #mapHost, so an unscoped query finds that copy first -
+// which is not zoomed, and the check would pass or fail on the wrong map.
+results.contextLabelsHiddenWhenZoomed = await page.evaluate(() => {
+  const g = document.querySelector('#exploreMapCanvas .map-context');
+  return !!g && getComputedStyle(g).display === 'none';
+});
+await page.click('#exploreZoomOut');
+await page.waitForTimeout(1100);
+await page.click('#viewToggle button[data-mode="list"]');
+await page.waitForTimeout(400);
+
 // --- the header is the logo and the title, and nothing else ---
 // The eyebrow ("FIELD LEDGER - N COUNTIES TRACKED"), the tagline and the
 // "Data updated" line are all out of the masthead. Asserting they are absent
@@ -670,6 +738,13 @@ const EXPECTED = {
   certHidesTypeLienAssessed: [true, true, true],
   auctionKeepsTypeLienAssessed: [false, false, false],
   archiveRowHiddenPerLedger: [false, true, true],
+  // sea rect, 3 neighbouring states, 4 orientation labels, 67 counties
+  basemapLayers: '1,3,4,67',
+  basemapViewBox: '-120 -130 1170 1115',
+  railMatchesBubbles: true,
+  railIsSortedDescending: true,
+  railHiddenWhenZoomed: true,
+  contextLabelsHiddenWhenZoomed: true,
   mastheadLeftovers: '',
   topbarHasBrandAndAccount: true,
   mastheadHasNoBrandOrAccount: '',
