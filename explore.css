@@ -494,3 +494,93 @@ stroke:var(--accent);stroke-width:1.1;stroke-linejoin:round}
 .closed-banner.sold{background:var(--ok);border-color:var(--ok)}
 .closed-when{margin-left:auto;font-weight:600;opacity:.85;letter-spacing:0;
 text-transform:none}
+
+/* ---- ZIP areas ------------------------------------------------------------
+   Structure inside the county, so a pin has somewhere to be rather than
+   floating on a flat shape. Outline-only by default; an area holding a
+   property we can place is tinted and carries its count. */
+.zip-area{fill:none;stroke:var(--accent);stroke-opacity:.28;stroke-width:.6px;
+vector-effect:non-scaling-stroke;pointer-events:none}
+.zip-area.has-rows{fill:var(--bad);fill-opacity:.16;stroke:var(--bad);
+stroke-opacity:.65;stroke-width:1.2px}
+.zip-label{text-anchor:middle;dominant-baseline:middle;pointer-events:none;
+font-family:ui-monospace,Consolas,monospace;font-weight:600;
+fill:var(--ink-soft);opacity:.5}
+.zip-label.has-rows{fill:var(--bad);opacity:.9;font-weight:700}
+
+/* ==========================================================================
+   ACCOUNT BADGE + MENU
+   --------------------------------------------------------------------------
+   Theme, password, install and sign out were four loose buttons in the
+   header, competing for width with the ledger tabs on a phone. They are all
+   account concerns, so one badge holds them and the header gets its width
+   back. Initials rather than a photo: nothing to upload or store, and it
+   still says at a glance which account you are in.
+   ========================================================================== */
+.account{position:relative}
+.account-badge{display:inline-flex;align-items:center;gap:.32rem;cursor:pointer;
+background:rgba(255,255,255,.10);border:1px solid var(--header-line);
+border-radius:999px;padding:.2rem .45rem .2rem .2rem;color:var(--header-ink)}
+.account-badge:hover{background:rgba(255,255,255,.18)}
+.account-badge:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.account-initials{display:inline-flex;align-items:center;justify-content:center;
+width:1.55rem;height:1.55rem;border-radius:999px;background:var(--accent);
+color:#fff;font-size:.68rem;font-weight:800;letter-spacing:.02em}
+.account-chev{width:6px;height:6px;border-right:2px solid var(--header-ink-soft);
+border-bottom:2px solid var(--header-ink-soft);transform:rotate(45deg);
+margin-right:.15rem;transition:transform .15s}
+.account-badge[aria-expanded="true"] .account-chev{transform:rotate(-135deg)}
+
+.account-menu{position:absolute;right:0;top:calc(100% + .4rem);z-index:60;
+min-width:14rem;background:var(--card);border:1px solid var(--card-line);
+border-radius:12px;padding:.3rem;box-shadow:0 14px 38px rgba(15,23,42,.28)}
+.account-head{padding:.45rem .55rem .5rem;border-bottom:1px solid var(--card-line);
+margin-bottom:.25rem}
+.account-name{margin:0;font-size:.82rem;font-weight:800;color:var(--ink);
+overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.account-email{margin:.1rem 0 0;font-size:.68rem;color:var(--ink-soft);
+overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* display:block on the item overrides the `hidden` attribute's UA display:none,
+   so "Install app" showed even before a beforeinstallprompt ever fired. */
+.account-item[hidden]{display:none}
+.account-item{display:block;width:100%;text-align:left;cursor:pointer;
+background:none;border:none;border-radius:8px;padding:.46rem .55rem;
+font-size:.78rem;font-weight:600;color:var(--ink)}
+.account-item:hover{background:var(--paper)}
+.account-item:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.account-item.danger{color:var(--bad)}
+.account-item.danger:hover{background:var(--bad-bg)}
+
+/* ---- terms ----------------------------------------------------------------
+   The title-search warning used to sit in the header on every screen, where
+   it was permanent furniture people stop reading. One button in the footer,
+   full text in the modal. */
+.footer-terms{margin:0 0 .8rem}
+.terms-btn{cursor:pointer;background:var(--card);border:1px solid var(--card-line);
+border-radius:999px;padding:.35rem .8rem;font-size:.74rem;font-weight:700;
+color:var(--ink)}
+.terms-btn:hover{border-color:var(--accent);color:var(--accent)}
+.terms-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.terms-body{font-size:.82rem;line-height:1.6;color:var(--ink)}
+.terms-body h3{margin:1rem 0 .3rem;font-size:.78rem;text-transform:uppercase;
+letter-spacing:.05em;color:var(--ink-soft)}
+.terms-body p{margin:0 0 .6rem}
+.terms-lead{padding:.6rem .7rem;background:var(--warn-bg);border:1px solid var(--warn);
+border-radius:10px}
+.terms-note{margin-top:.9rem;font-size:.74rem;color:var(--ink-soft)}
+
+/* ---- edit profile form ---------------------------------------------------- */
+.pf-row{display:flex;gap:.55rem}
+.pf-row .pf-field{flex:1 1 0;min-width:0}
+.pf-field{display:block;margin-bottom:.6rem}
+.pf-field > span{display:block;margin-bottom:.2rem;font-size:.68rem;font-weight:700;
+text-transform:uppercase;letter-spacing:.05em;color:var(--ink-soft)}
+#profileModal input{width:100%;padding:.6rem .7rem;font-size:.9rem;
+border:1px solid var(--card-line);border-radius:8px;background:var(--paper);
+color:var(--ink);font-family:inherit}
+#profileModal input:focus{outline:2px solid var(--accent);outline-offset:1px}
+#profileModal button[type="submit"]{width:100%;padding:.7rem;font-size:.92rem;
+font-weight:700;border:none;border-radius:8px;background:var(--header-bg);
+color:#fff;cursor:pointer;margin-top:.3rem;letter-spacing:.01em}
+#profileModal button[type="submit"]:hover{background:var(--ok)}
+#profileModal button[type="submit"]:disabled{opacity:.5;cursor:default;background:var(--header-bg)}
