@@ -74,18 +74,6 @@ one that pins itself. -->
 <div class="topbar">
 <img class="brand-mark" src="icons/icon-192.png?v=2" width="22" height="22" alt="" aria-hidden="true">
 <span class="brand-name">FL Tax Deed<span class="brand-accent">•</span>Watchlist</span>
-</div>
-<!-- Admin-only: visible when the signed-in account's profiles.is_admin is
-true AND at least one other account is awaiting approval. Everyone
-else never sees this section (and can't - RLS only lets admins read
-other people's profiles rows in the first place). -->
-<div class="admin-approvals" id="adminApprovals" hidden>
-<div class="admin-approvals-head">🔔 Pending sign-ups awaiting your approval</div>
-<div class="admin-approvals-list" id="adminApprovalsList"></div>
-</div>
-<div class="masthead">
-<div class="eyebrow-row">
-<p class="eyebrow" id="eyebrow">Field Ledger</p>
 <!-- One account badge instead of three loose buttons. Theme, password and
 sign out were competing for width with the ledger tabs on a phone; they are
 account concerns, so they live behind the badge with the rest of them. The
@@ -114,12 +102,24 @@ same buttons keep the same ids, so nothing that referenced them had to move. -->
 </div>
 </span>
 </div>
-<div class="brand-lockup">
-<img class="brand-mark-lg" src="icons/icon-192.png?v=2" width="48" height="48" alt="" aria-hidden="true">
-<h1>FL Tax Deed Watchlist</h1>
+<!-- Admin-only: visible when the signed-in account's profiles.is_admin is
+true AND at least one other account is awaiting approval. Everyone
+else never sees this section (and can't - RLS only lets admins read
+other people's profiles rows in the first place). -->
+<div class="admin-approvals" id="adminApprovals" hidden>
+<div class="admin-approvals-head">🔔 Pending sign-ups awaiting your approval</div>
+<div class="admin-approvals-list" id="adminApprovalsList"></div>
 </div>
-<p class="tagline">Institutional-grade coverage of Florida tax deed auctions, Lands Available, and certificate opportunities — one ledger, every county.</p>
-<p class="generated" id="generatedAt">Loading…</p>
+<!-- The header is the sticky .topbar above: logo, title, account badge.
+     This block is now purely the dark ground the ledger tabs and status
+     chips sit on.
+
+     It used to carry a second, larger copy of the brand plus a "FIELD
+     LEDGER - 8 COUNTIES TRACKED" eyebrow, a tagline and a "Data updated ..."
+     line. The big lockup was already hidden at every width (the topbar
+     says the same thing), so once the other three went there was nothing
+     left here but an empty band with the account badge stranded in it. -->
+<div class="masthead">
 <!-- Two (really three) separate ledgers, front and center right after sign-in -
 not one long scroll where Lands Available sits under 300+ auction cards. -->
 <nav class="ledger-tabs" id="ledgerTabs" aria-label="Ledger">
@@ -457,7 +457,13 @@ nothing saying which is which. -->
 <p>Confirm every figure against the county's own auction site, the Clerk of Court, the Property Appraiser and the Tax Collector, and have a title company or attorney review the parcel. A tax deed can carry liens, code enforcement actions, and other encumbrances this tool does not and cannot see.</p>
 
 <h3>Where the numbers come from</h3>
-<p>Property data is scraped from county and vendor websites on a schedule and can be wrong, incomplete, or out of date — a county can change or withdraw a listing at any time, including after our last sync. The "Data updated" time in the header tells you how fresh the last successful sync was.</p>
+<p>Property data is scraped from county and vendor websites on a schedule and can be wrong, incomplete, or out of date — a county can change or withdraw a listing at any time, including after our last sync.</p>
+<!-- Was a permanent line in the masthead. It is provenance, not a control -
+     it belongs with the rest of "where the numbers come from" rather than
+     above the tabs on every screen. app.js writes it here now; the amber
+     .generated.stale styling still applies when the sync is behind. -->
+<p class="generated" id="generatedAt">Loading…</p>
+<p>A property whose own row has not been re-synced recently carries an amber edge in the list, so a stale record is visible where you are actually reading, not only in aggregate here.</p>
 <p><b>Opening bid</b> is the county's published opening figure. It is a floor, not the cost to acquire — on a Lands Available parcel, taxes and fees accrued since the failed sale are added under Fla. Stat. §197.502(7) and §197.542. "Not published" means the county has not posted a figure, not that the parcel is free.</p>
 <p><b>Estimated market / assessed value</b> comes from the county roll, not from an appraisal or a comparative market analysis.</p>
 <p><b>Fees</b> shown on a property page are an estimate — Florida documentary stamps (0.70 per $100), recording, and on homesteaded parcels the half-assessed-value minimum under Fla. Stat. §197.502(6)(c) — calculated on top of whatever the winning bid turns out to be.</p>

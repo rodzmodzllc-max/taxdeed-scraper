@@ -241,28 +241,11 @@ border-radius:999px}
    bar are the only things hidden.
    ========================================================================== */
 
-/* 1. The brand is already pinned in .topbar above. Repeating it at 48px with
-      an <h1> and a tagline directly underneath cost ~200px to say the same
-      thing twice. */
-.masthead .brand-lockup,
-.masthead .tagline{display:none}
-
-.masthead{padding:.7rem 1rem .55rem}
-
-/* 2. Identity + account actions on one line, quiet. */
-.eyebrow-row{margin:0 0 .35rem}
-.eyebrow{font-size:.62rem;letter-spacing:.12em}
+/* 1. (was: hiding a second 48px brand lockup that the .topbar already
+      showed - the masthead carries no brand at all now, so there is nothing
+      left to hide. See index.html.) */
+.masthead{padding:.55rem 1rem}
 .header-btns .hbtn{font-size:.7rem;padding:.28rem .5rem}
-
-/* 3. The disclaimer and the data-freshness line were two stacked blocks, one
-      of them boxed. They are one wrapping line of fine print now. Both still
-      say exactly what they said before, and .generated.stale keeps its own
-      warning colour from styles.css. */
-.masthead .disclaimer-badge{display:inline;font-size:.67rem;line-height:1.5;
-margin:0;padding:0;border:0;background:none}
-.masthead .disclaimer-badge .dot{margin-right:.15rem}
-.masthead .generated{display:inline;font-size:.67rem;margin:0;font-weight:600}
-.masthead .generated::before{content:"·";margin:0 .4rem;opacity:.55}
 
 /* 4. Ledger tabs: still the primary switch, just not 3rem tall. */
 .ledger-tabs{margin:.6rem 0 .45rem;gap:.3rem}
@@ -361,10 +344,7 @@ box-shadow:0 10px 30px rgba(15,23,42,.14)}
   mask-image:linear-gradient(to right,#000 calc(100% - 28px),transparent)}
 }
 
-/* 12. The disclaimer and freshness line are fine print, not a headline - they
-       were reading heavier than the ledger tabs beneath them. */
-.masthead .disclaimer-badge,
-.masthead .generated{font-size:.64rem;line-height:1.45}
+/* 12. (was: masthead disclaimer + freshness sizing - both elements are gone) */
 
 /* ==========================================================================
    COUNTY DETAIL: pins, the card strip, the preview card
