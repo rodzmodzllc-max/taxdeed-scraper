@@ -49,15 +49,32 @@ small, capped slice (PER_COUNTY_LIMIT) each run, in a randomized county
 order, so a county that can never match still only ever spends its own
 small quota and can never block another county's rows.
 
-Incremental by design, same as geocode_properties.py: only ever touches
-rows where prop_type IS NULL (for the type backfill) - once a row is
-enriched it's never re-processed, so this is cheap to run every harvest
-cycle.
+Incremental by design, same as geocode_properties.py: a row is stamped with
+`fdor_enriched_at` on a successful match and never re-fetched afterwards, so
+this is cheap to run every harvest cycle. Rows that did NOT match are left
+unstamped and retried later on purpose, so a county whose parcel format gets
+cracked in a future revision picks up its whole backlog automatically.
+
+What it fills (expanded 2026-09-02 from just prop_type/address, after finding
+the layer exposes 121 fields rather than the 4 originally used):
+  * prop_type, address     - as before (address only over a junk placeholder)
+  * market                 - JV, the county appraiser's own statutory "just
+                             value"; `value_year` carries the assessment year
+                             alongside it so the UI can attribute the number
+                             honestly instead of implying a live estimate
+  * assessed, owner_name   - fill-blank only, never over a scraped value
+  * latitude/longitude     - the parcel polygon's centroid, which needs no
+                             street address and so lifts map/Street View
+                             coverage off the ~3.6% address-geocoding ceiling
+  * year_built, living_area, lot_sqft, num_buildings, land_value, legal_desc,
+    last_sale_price, last_sale_year - columns only this script populates
 """
 import os
 import random
 import sys
 import time
+from datetime import datetime, timezone
+
 import requests
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
@@ -69,6 +86,52 @@ FDOR_ENDPOINT = (
     "https://services9.arcgis.com/Gh9awoU677aKree0/arcgis/rest/services/"
     "Florida_Statewide_Cadastral/FeatureServer/0/query"
 )
+
+# The layer exposes 121 fields; this is the subset that maps onto something a
+# bidder actually wants to see on a property card. Confirmed live 2026-09-02
+# against a real matched parcel (Duval 0037090000R -> 6422 BLUEBIRD RD,
+# JACKSONVILLE: JV 68017, ACT_YR_BLT 1958, TOT_LVG_AR 1840, LND_SQFOOT 16456,
+# OWN_NAME "OAK CLIFF BIBLE CHURCH INCORPO", ASMNT_YR 2025).
+#
+# JV ("just value") is the single most valuable field here: it is the county
+# property appraiser's own statutory estimate of market value, which is
+# exactly the honest, attributable number this project needs (the app's
+# `market` column was only ~3.6% populated before this). It is NOT a Zestimate
+# and must never be labelled as a live/AVM estimate - the companion
+# `value_year` column carries ASMNT_YR so the UI can say whose number it is
+# and for which tax year.
+FDOR_OUT_FIELDS = ",".join([
+    "PARCEL_ID", "ASMNT_YR",
+    "PHY_ADDR1", "PHY_CITY", "PHY_ZIPCD",
+    "DOR_UC",
+    "JV", "AV_NSD", "LND_VAL", "JV_HMSTD",
+    "ACT_YR_BLT", "TOT_LVG_AR", "NO_BULDNG", "LND_SQFOOT",
+    "OWN_NAME", "S_LEGAL",
+    "SALE_PRC1", "SALE_YR1",
+])
+
+
+def _num(value):
+    """FDOR uses 0 as the 'no data' sentinel for every numeric field (a real
+    $0 just value / year built / square footage doesn't occur), so 0 and
+    blanks both become None rather than being written as a misleading 0."""
+    try:
+        num = float(value)
+    except (TypeError, ValueError):
+        return None
+    return num if num > 0 else None
+
+
+def _int(value):
+    num = _num(value)
+    return int(num) if num is not None else None
+
+
+def _text(value):
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
 
 if not SUPABASE_URL or not SERVICE_KEY:
     print("SUPABASE_URL / SUPABASE_SERVICE_KEY environment variables are not set - check the workflow's secrets.", file=sys.stderr)
@@ -219,8 +282,24 @@ def is_junk_fdor_address(phy_addr1, phy_city):
 
 
 def fetch_needing_enrichment_counties():
-    """All distinct counties that still have at least one row with a
-    parcel number but no prop_type - the fairness unit for PER_COUNTY_LIMIT.
+    """All distinct counties that still have at least one row with a parcel
+    number that this script hasn't successfully enriched yet - the fairness
+    unit for PER_COUNTY_LIMIT.
+
+    The "already done" marker is `fdor_enriched_at`, not `prop_type IS NULL`.
+    That changed 2026-09-02 when this script grew from filling one field
+    (prop_type) to filling a dozen: keying off prop_type would have
+    permanently locked out every row enriched by an earlier, narrower version
+    of this script, so the ~300 rows already typed would never receive the
+    just value, owner name, coordinates, year built or living area now
+    available to them. A dedicated timestamp column is set only on a
+    successful FDOR match, so each row is enriched exactly once and is never
+    re-fetched afterwards.
+
+    Rows that do NOT match stay unmarked and are retried on later runs - that
+    is deliberate, so that a county whose parcel format gets cracked later
+    (as Duval's was) picks up its backlog automatically. The per-county quota
+    below is what keeps those retries from starving anyone.
 
     `parcel=not.is.null` alone still matches empty-string parcels (a real
     row shape confirmed live 2026-09-02: some Citrus rows carry `parcel=''`
@@ -232,7 +311,7 @@ def fetch_needing_enrichment_counties():
     params = {
         "select": "county",
         "and": "(parcel.not.is.null,parcel.neq.\"\")",
-        "prop_type": "is.null",
+        "fdor_enriched_at": "is.null",
         "limit": "5000",
     }
     resp = requests.get(f"{SUPABASE_URL}/rest/v1/properties", headers=HEADERS, params=params, timeout=30)
@@ -248,11 +327,15 @@ def fetch_county_batch(county, limit):
     # `parcel=not.is.null` alone still matches `parcel=''` rows, which can
     # never resolve through lookup_fdor() and would otherwise burn part of
     # this county's PER_COUNTY_LIMIT slice every run on unfixable rows.
+    # Existing values come back too, because this script only ever FILLS
+    # BLANKS on columns a harvester also writes (market/assessed/owner_name/
+    # coordinates/prop_type) - a scraped value from the source listing always
+    # wins over the tax roll's copy of it.
     params = {
-        "select": "id,parcel,address,county",
+        "select": "id,parcel,address,county,prop_type,market,assessed,owner_name,latitude,longitude",
         "county": f"eq.{county}",
         "and": "(parcel.not.is.null,parcel.neq.\"\")",
-        "prop_type": "is.null",
+        "fdor_enriched_at": "is.null",
         "limit": str(limit),
     }
     resp = requests.get(f"{SUPABASE_URL}/rest/v1/properties", headers=HEADERS, params=params, timeout=30)
@@ -261,9 +344,22 @@ def fetch_county_batch(county, limit):
 
 
 def lookup_fdor(county, parcel):
+    """Returns (attributes, centroid, matched_candidate) or (None, None, None).
+
+    `returnCentroid=true` + `outSR=4326` asks the layer for each matched
+    parcel polygon's centroid in plain WGS84 lat/lon, with returnGeometry
+    off so the full ring coordinates don't come back too. This is the single
+    biggest win available here: geocoding coverage was stuck at ~3.6% because
+    the US Census geocoder can only match a real street address and ~94% of
+    these rows carry a junk placeholder instead (see the geocoding
+    starvation writeup in the roadmap doc). A parcel centroid needs no
+    address at all - every parcel that matches by number gets exact
+    coordinates, which is what makes the map pin, the Street View link and
+    the coordinate-based Zillow link work for those rows.
+    """
     co_no = COUNTY_CODES.get(COUNTY_ALIASES.get(county, county))
     if co_no is None:
-        return None, None  # unmapped county name - skip rather than guess
+        return None, None, None  # unmapped county name - skip rather than guess
     for candidate in normalize_candidates(parcel):
         # Escape single quotes defensively - parcel numbers are normally
         # digits/letters/dashes only, but never trust scraped input in a
@@ -271,7 +367,10 @@ def lookup_fdor(county, parcel):
         safe = candidate.replace("'", "''")
         params = {
             "where": f"PARCEL_ID='{safe}' AND CO_NO={co_no}",
-            "outFields": "PHY_ADDR1,PHY_CITY,PHY_ZIPCD,DOR_UC",
+            "outFields": FDOR_OUT_FIELDS,
+            "returnGeometry": "false",
+            "returnCentroid": "true",
+            "outSR": "4326",
             "f": "json",
         }
         resp = requests.get(FDOR_ENDPOINT, params=params, timeout=20)
@@ -279,8 +378,9 @@ def lookup_fdor(county, parcel):
         data = resp.json()
         features = data.get("features", [])
         if features:
-            return features[0].get("attributes", {}), candidate
-    return None, None
+            feature = features[0]
+            return feature.get("attributes", {}), feature.get("centroid"), candidate
+    return None, None, None
 
 
 def patch_property(property_id, fields):
@@ -291,19 +391,101 @@ def patch_property(property_id, fields):
     resp.raise_for_status()
 
 
+def build_update_fields(row, attrs, centroid):
+    """Map one matched FDOR record onto `properties` columns.
+
+    Two deliberately different rules apply, by column:
+
+    1. Columns a harvester ALSO writes (prop_type, market, assessed,
+       owner_name, latitude/longitude, address) are only ever used to FILL A
+       BLANK. A value scraped from the source auction listing is the more
+       authoritative one for that auction and is never overwritten by the tax
+       roll's copy of it. `address` keeps its existing extra guard: it is only
+       replaced when ours is a known junk placeholder AND the tax roll's is a
+       real street address.
+    2. Columns only this script populates (year_built, living_area, lot_sqft,
+       num_buildings, land_value, legal_desc, last_sale_*, value_year) are
+       written straight from the tax roll, since nothing else supplies them.
+
+    `homestead` is a special case: only positive evidence is written. A
+    homestead exemption on file (JV_HMSTD > 0) sets it True, but the absence
+    of one never writes False, because that column already carries a
+    non-null value on every row and a blanket overwrite would destroy
+    whatever a harvester legitimately recorded there.
+    """
+    fields = {}
+
+    prop_type = dor_use_to_prop_type(attrs.get("DOR_UC"))
+    if prop_type and not _text(row.get("prop_type")):
+        fields["prop_type"] = prop_type
+
+    just_value = _num(attrs.get("JV"))
+    if just_value is not None and _num(row.get("market")) is None:
+        fields["market"] = just_value
+
+    assessed = _num(attrs.get("AV_NSD"))
+    if assessed is not None and _num(row.get("assessed")) is None:
+        fields["assessed"] = assessed
+
+    owner = _text(attrs.get("OWN_NAME"))
+    if owner and not _text(row.get("owner_name")):
+        fields["owner_name"] = owner
+
+    # Parcel centroid -> coordinates, but only for rows that have none. A real
+    # geocode of a real street address is more precise than a polygon centroid
+    # on a large/irregular parcel, so an existing fix is never replaced.
+    if centroid and row.get("latitude") is None and row.get("longitude") is None:
+        lat, lon = centroid.get("y"), centroid.get("x")
+        if (
+            isinstance(lat, (int, float)) and isinstance(lon, (int, float))
+            # Sanity-bound to Florida rather than merely to valid lat/lon, so a
+            # bad projection or a swapped x/y can never silently drop a pin in
+            # the ocean or another state.
+            and 24.0 <= lat <= 31.5 and -88.0 <= lon <= -79.5
+        ):
+            fields["latitude"] = lat
+            fields["longitude"] = lon
+
+    if is_junk_address(row.get("address")) and not is_junk_fdor_address(
+        attrs.get("PHY_ADDR1"), attrs.get("PHY_CITY")
+    ):
+        zip_part = f" {_text(attrs.get('PHY_ZIPCD')) or ''}".rstrip()
+        fields["address"] = f"{attrs['PHY_ADDR1']}, {attrs['PHY_CITY']}, FL{zip_part}"
+
+    if _num(attrs.get("JV_HMSTD")) is not None:
+        fields["homestead"] = True
+
+    for column, value in (
+        ("year_built", _int(attrs.get("ACT_YR_BLT"))),
+        ("living_area", _int(attrs.get("TOT_LVG_AR"))),
+        ("lot_sqft", _int(attrs.get("LND_SQFOOT"))),
+        ("num_buildings", _int(attrs.get("NO_BULDNG"))),
+        ("land_value", _num(attrs.get("LND_VAL"))),
+        ("legal_desc", _text(attrs.get("S_LEGAL"))),
+        ("last_sale_price", _num(attrs.get("SALE_PRC1"))),
+        ("last_sale_year", _int(attrs.get("SALE_YR1"))),
+        ("value_year", _int(attrs.get("ASMNT_YR"))),
+    ):
+        if value is not None:
+            fields[column] = value
+
+    return fields
+
+
 def main():
     counties = fetch_needing_enrichment_counties()
-    print(f"{len(counties)} counties have rows needing enrichment (parcel set, prop_type NULL).")
+    print(f"{len(counties)} counties have rows needing enrichment (parcel set, not yet FDOR-enriched).")
     if not counties:
         print("Nothing to enrich.")
         return
 
     total_attempted = 0
     total_matched = 0
-    total_type_set = 0
-    total_address_fixed = 0
     total_unmapped_county = 0
     per_county_matches = {}
+    # Per-column fill counts, so a run's log says exactly which card fields got
+    # populated rather than just "N rows matched".
+    filled_counts = {}
 
     for county in counties:
         if total_attempted >= BATCH_LIMIT:
@@ -322,37 +504,33 @@ def main():
                 time.sleep(REQUEST_DELAY_SECONDS)
                 continue
             try:
-                attrs, matched_candidate = lookup_fdor(county, parcel)
+                attrs, centroid, matched_candidate = lookup_fdor(county, parcel)
             except requests.RequestException as e:
                 print(f"  [{county}] ERROR looking up parcel {parcel!r}: {e}", file=sys.stderr)
                 time.sleep(REQUEST_DELAY_SECONDS)
                 continue
 
             if attrs is None:
+                # Left unmarked on purpose - retried on a later run, so a
+                # county whose format gets cracked later picks up its backlog.
                 time.sleep(REQUEST_DELAY_SECONDS)
                 continue
 
             total_matched += 1
             county_matched += 1
-            fields = {}
 
-            prop_type = dor_use_to_prop_type(attrs.get("DOR_UC"))
-            if prop_type:
-                fields["prop_type"] = prop_type
-                total_type_set += 1
+            fields = build_update_fields(row, attrs, centroid)
+            # Stamped only on a successful match, and in the same PATCH as the
+            # data, so a row is never marked enriched unless its values landed.
+            fields["fdor_enriched_at"] = datetime.now(timezone.utc).isoformat()
 
-            if is_junk_address(row.get("address")) and not is_junk_fdor_address(
-                attrs.get("PHY_ADDR1"), attrs.get("PHY_CITY")
-            ):
-                zip_part = f" {attrs['PHY_ZIPCD']}" if attrs.get("PHY_ZIPCD") else ""
-                fields["address"] = f"{attrs['PHY_ADDR1']}, {attrs['PHY_CITY']}, FL{zip_part}"
-                total_address_fixed += 1
-
-            if fields:
-                try:
-                    patch_property(row["id"], fields)
-                except requests.RequestException as e:
-                    print(f"  [{county}] ERROR saving parcel {parcel!r} (matched via {matched_candidate!r}): {e}", file=sys.stderr)
+            try:
+                patch_property(row["id"], fields)
+                for column in fields:
+                    if column != "fdor_enriched_at":
+                        filled_counts[column] = filled_counts.get(column, 0) + 1
+            except requests.RequestException as e:
+                print(f"  [{county}] ERROR saving parcel {parcel!r} (matched via {matched_candidate!r}): {e}", file=sys.stderr)
 
             time.sleep(REQUEST_DELAY_SECONDS)
 
@@ -360,10 +538,12 @@ def main():
             per_county_matches[county] = (county_matched, len(rows))
 
     print(
-        f"Done. Attempted {total_attempted}, FDOR matches {total_matched} "
-        f"(prop_type set {total_type_set}, address fixed {total_address_fixed}), "
+        f"Done. Attempted {total_attempted}, FDOR matches {total_matched}, "
         f"unmapped-county rows skipped {total_unmapped_county}."
     )
+    print("Fields populated this run (column: rows filled):")
+    for column, count in sorted(filled_counts.items(), key=lambda kv: (-kv[1], kv[0])):
+        print(f"  {column}: {count}")
     print("Per-county match rate this run (matched/attempted) - a persistent 0 for a county across runs is the signal its parcel-number format needs a new normalize_candidates() rule:")
     for county, (matched, attempted) in sorted(per_county_matches.items()):
         print(f"  {county}: {matched}/{attempted}")
