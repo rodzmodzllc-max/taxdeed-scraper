@@ -342,10 +342,19 @@ by explore.js and drives the whole layout from CSS alone. -->
 <h2 class="explore-map-title">Where these are</h2>
 <span class="explore-map-count" id="exploreMapCount"></span>
 </div>
+<!-- The map and, on a wide screen, a ranked list of the counties in view.
+Florida's outline is nearly square, so a full-width map panel letterboxed
+it with ~350px of dead white on each side. The rail puts that space to
+work AND answers the question the bubbles are bad at - "which counties
+have the most, in order" - since eight bubbles of similar size can't be
+ranked by eye. -->
+<div class="explore-map-stage">
 <div class="explore-map-canvas" id="exploreMapCanvas">
 <div class="explore-map-empty">Loading map…</div>
 </div>
 <div class="cluster-tip" id="clusterTip"></div>
+<aside class="explore-map-rail" id="exploreMapRail" hidden aria-label="Counties in view"></aside>
+</div>
 <div class="explore-map-foot">
 <span class="explore-map-hint" id="exploreMapHint">Tap a county to filter the list to it</span>
 <button class="explore-map-reset" id="exploreMapReset" type="button" hidden>Clear county filter</button>

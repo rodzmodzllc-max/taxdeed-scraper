@@ -347,6 +347,8 @@ above the 22px topbar mark so it reads as the header's focal point. */
   border:1px solid var(--card-line);border-radius:10px}
 .map-hint{font-size:.66rem;color:var(--ink-soft);margin-bottom:.4rem;text-align:center}
 #mapHost svg{width:100%;height:auto;display:block;max-height:52vh}
+#mapHost{background:var(--map-sea)}
+#mapHost .map-counties{filter:drop-shadow(0 0 2px var(--map-coast))}
 /* Colored by confirmed auction format, not by whether we currently have
    properties loaded - a county keeps its blue/red/amber color even between
    sync runs. Counties with no confirmed format yet stay neutral gray (see
@@ -354,14 +356,16 @@ above the 22px topbar mark so it reads as the header's focal point. */
    zoomToCounty() in app.js) - a first tap zooms in and names the county
    regardless of data; only a second tap on a has-data county actually
    toggles the filter, so a no-data county stays informational only. */
-#mapHost path{fill:var(--card-line);stroke:var(--paper);stroke-width:1.2;
+/* Scoped to data-county: the basemap now also contains neighbour-state
+   paths, and an unscoped "#mapHost path" gave Georgia a county border. */
+#mapHost path[data-county]{fill:var(--map-land);stroke:var(--map-land-line);stroke-width:1.2;
   transition:fill .12s,stroke .12s;cursor:pointer}
-#mapHost path.fmt-online{fill:var(--accent)}
-#mapHost path.fmt-inperson{fill:var(--bad)}
-#mapHost path.fmt-fixed{fill:var(--brass)}
-#mapHost path:hover{opacity:.75}
-#mapHost path.sel{stroke:var(--ink);stroke-width:2.6}
-#mapHost path.sel:hover{opacity:.75}
+#mapHost path[data-county].fmt-online{fill:var(--accent)}
+#mapHost path[data-county].fmt-inperson{fill:var(--bad)}
+#mapHost path[data-county].fmt-fixed{fill:var(--brass)}
+#mapHost path[data-county]:hover{opacity:.75}
+#mapHost path[data-county].sel{stroke:var(--ink);stroke-width:2.6}
+#mapHost path[data-county].sel:hover{opacity:.75}
 .map-legend{display:flex;flex-wrap:wrap;justify-content:center;gap:.7rem;margin-top:.45rem;font-size:.62rem;color:var(--ink-soft)}
 .map-legend i{display:inline-block;width:.6rem;height:.6rem;border-radius:2px;margin-right:.25rem;vertical-align:middle}
 .lg-online{background:var(--accent)} .lg-inperson{background:var(--bad)}

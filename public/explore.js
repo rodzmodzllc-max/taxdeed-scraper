@@ -131,6 +131,8 @@ async function ensureMap() {
     const res = await fetch("fl-counties.svg");
     if (!res.ok) throw new Error("HTTP " + res.status);
     canvas.innerHTML = await res.text();
+    // Start watching now that there is a map to re-measure.
+    watchCanvasResize();
     computeCentroids(canvas);
     draw();
     loadCities();
@@ -220,17 +222,30 @@ function watchForVisibility() {
 // The two cross terms are nearly zero (the projection is essentially
 // north-up, unrotated) but are kept because dropping them costs ~700 feet.
 //
-// Coefficients are fractions of the viewBox rather than absolute units, so
-// they still hold if the SVG is ever re-exported at a different size.
+// The coefficients are fractions, so they need a basis to multiply by. That
+// basis is the ORIGINAL 1000x960 box the fit was computed against - a fixed
+// property of the fit, not of whatever viewBox the SVG happens to carry.
+//
+// It used to read the live viewBox, which was the same 1000x960 by
+// coincidence and stopped being so the moment the basemap grew a margin for
+// the Gulf, the Atlantic and the state line with Georgia. Worse, the viewBox
+// is rewritten on every county zoom, so the old form was one careless read
+// of the live value (rather than the cached "home" one) away from putting
+// every pin in the wrong place while zoomed in. Pinning it here removes the
+// coupling entirely: the basemap can be reframed without touching the
+// projection, and the projection can't drift when the view moves.
 const PROJ = {
   x: { lon: 0.131515586, lat: -0.000001417, c: 11.525408765 },
-  y: { lon: 0.000002902, lat: -0.154887536, c: 4.801899887 }
+  y: { lon: 0.000002902, lat: -0.154887536, c: 4.801899887 },
+  // The fit's own basis. Change these only by re-running the fit.
+  baseW: 1000,
+  baseH: 960
 };
 
-function projectLatLng(lat, lon, vbW, vbH) {
+function projectLatLng(lat, lon) {
   return {
-    x: (PROJ.x.lon * lon + PROJ.x.lat * lat + PROJ.x.c) * vbW,
-    y: (PROJ.y.lon * lon + PROJ.y.lat * lat + PROJ.y.c) * vbH
+    x: (PROJ.x.lon * lon + PROJ.x.lat * lat + PROJ.x.c) * PROJ.baseW,
+    y: (PROJ.y.lon * lon + PROJ.y.lat * lat + PROJ.y.c) * PROJ.baseH
   };
 }
 
@@ -311,7 +326,6 @@ function drawZipAreas(svg, county, pins) {
   const list = zips && county && zips[county];
   if (!list) return;
 
-  const home = readHomeViewBox(svg);
   const upp = unitsPerPixel(svg);
 
   const pointIn = (x, y, pts) => {
@@ -325,7 +339,7 @@ function drawZipAreas(svg, county, pins) {
 
   list.forEach(([zip, ring]) => {
     const pts = ring.map(([lon, lat]) => {
-      const q = projectLatLng(lat, lon, home.w, home.h);
+      const q = projectLatLng(lat, lon);
       return [q.x, q.y];
     });
     const n = (pins || []).filter(q => pointIn(q.x, q.y, pts)).length;
@@ -384,10 +398,16 @@ function drawCities(svg, list, blockers) {
     // The source dataset writes "Mc David" for McDavid, "Mc Intosh" for
     // McIntosh, and so on.
     const name = rawName.replace(/^Mc\s+(\S)/, (m, c) => "Mc" + c);
-    const { x, y } = projectLatLng(lat, lon, home.w, home.h);
+    const { x, y } = projectLatLng(lat, lon);
     // Rough text box: 0.52em average glyph width is close enough for a
     // collision test and costs nothing to compute.
-    const w = name.length * fs * 0.52, h = fs * 1.1;
+    // 0.52em per glyph under-measured real Inter text often enough that a
+    // label the collision test believed was clear still overlapped a count
+    // bubble by a few pixels on screen. The estimate is deliberately
+    // generous now - reserving slightly too much space costs an occasional
+    // label position, while reserving too little costs a name you cannot
+    // read, and the harness checks for exactly that overlap.
+    const w = name.length * fs * 0.58 + fs * 0.4, h = fs * 1.25;
     const gap = r + fs * 0.35;
 
     // Try the label above the dot first, then below, then out to each side.
@@ -450,12 +470,35 @@ function setViewBox(svg, b) {
 // relative to the HOME view, not to the screen, so in a ~570px-wide panel
 // showing a 1000-unit viewBox an 11-unit label rendered at about 6px and was
 // unreadable. Divide by this instead and a size means what it says.
+// Measured off the SVG ITSELF, not off the canvas that contains it.
+//
+// Those were the same number back when the SVG filled the canvas edge to
+// edge. They stopped being the same once the map got capped to its own
+// aspect ratio (so the element is narrower than the panel on a wide screen)
+// and a county rail took a slice of the row. Reading the container meant
+// every label and pin was sized against a box the map wasn't actually
+// drawn in - measured live, a name asking for 11px was rendering at 18px,
+// which is why the city names sat on the map like captions rather than
+// belonging to it.
+//
+// getBoundingClientRect() on the <svg> is the real drawn width, after
+// max-width, flexbox and letterboxing have all had their say.
 function unitsPerPixel(svg) {
-  const canvas = $(CANVAS_ID);
   const vb = (svg.getAttribute("viewBox") || "").trim().split(/[\s,]+/).map(Number);
-  const w = canvas ? canvas.clientWidth : 0;
-  if (!w || vb.length !== 4 || !isFinite(vb[2]) || !vb[2]) return 1;
-  return vb[2] / w;
+  if (vb.length !== 4 || !isFinite(vb[2]) || !vb[2]) return 1;
+  let w = svg.getBoundingClientRect().width;
+  if (!w) {
+    const canvas = $(CANVAS_ID);
+    w = canvas ? canvas.clientWidth : 0;
+  }
+  if (!w) return 1;
+  // With preserveAspectRatio the drawn scale is set by whichever axis is the
+  // tighter fit, so take the larger units-per-pixel of the two. Sizing off
+  // width alone overstated the scale whenever the panel was short and wide.
+  const h = svg.getBoundingClientRect().height;
+  const byW = vb[2] / w;
+  const byH = h ? vb[3] / h : byW;
+  return Math.max(byW, byH);
 }
 
 // Tween rather than jump: a viewBox that snaps from the whole state to one
@@ -491,6 +534,16 @@ function countyViewBox(svg, county) {
   let b;
   try { b = path.getBBox(); } catch { return null; }
   if (!(b.width > 0 && b.height > 0)) return null;
+  // Deliberately the HOME aspect, not the panel's.
+  //
+  // Matching the panel was tried, to stop the county letterboxing inside a
+  // wide desktop map, and it introduced a genuine ordering bug: the target
+  // box is computed here, and only afterwards does the .zoomed class change
+  // what the SVG is allowed to be sized to. So the aspect was measured
+  // against one width and applied against another, the two disagreed, and
+  // pins near the edge of the county ended up outside the drawn area - which
+  // is what the harness caught. Filling the panel needs the element's size
+  // to stop depending on the zoom state, not a different number here.
   const home = readHomeViewBox(svg);
   const aspect = home.w / home.h;
   const pad = Math.max(b.width, b.height) * 0.18;
@@ -668,15 +721,15 @@ function drawPins(svg, layer, list) {
   const placed = list.filter(hasPin);
 
   const pinR = 7 * upp;
-  const pinPts = placed.map(p => projectLatLng(p.latitude, p.longitude, home.w, home.h));
+  const pinPts = placed.map(p => projectLatLng(p.latitude, p.longitude));
   drawZipAreas(svg, zoomCounty, pinPts);
   drawCities(svg, cities && cities[zoomCounty], placed.map(p => {
-    const q = projectLatLng(p.latitude, p.longitude, home.w, home.h);
+    const q = projectLatLng(p.latitude, p.longitude);
     return { x1: q.x - pinR, y1: q.y - pinR * 2.4, x2: q.x + pinR, y2: q.y };
   }));
 
   placed.forEach(p => {
-    const { x, y } = projectLatLng(p.latitude, p.longitude, home.w, home.h);
+    const { x, y } = projectLatLng(p.latitude, p.longitude);
     const g = document.createElementNS(NS, "g");
     g.setAttribute("class", "map-pin" + (activeProp && activeProp.id === p.id ? " sel" : ""));
     g.dataset.pid = String(p.id);
@@ -872,7 +925,70 @@ function showPreviewHidden() {
   if (card) card.hidden = true;
 }
 
+// The counties in view, most first. This is the part of the map's job that
+// bubbles are genuinely bad at: a 12-property county and an 8-property one
+// are circles of almost the same size, and nothing on the map tells you
+// which of the eight you are looking at is the biggest. A list does that in
+// one glance, and it doubles as a keyboard-reachable way to pick a county -
+// the bubbles are pointer targets sized by data, which is a poor tap target
+// when the count is 1.
+function renderCountyRail(byCounty) {
+  const rail = $("exploreMapRail");
+  if (!rail) return;
+
+  // Zoomed into a county the rail would just be that one county, and the
+  // strip of property cards below the map is already the better list.
+  if (zoomCounty || !byCounty.size) {
+    rail.hidden = true;
+    rail.innerHTML = "";
+    return;
+  }
+
+  const entries = [...byCounty.entries()]
+    .map(([county, list]) => ({ county, n: list.length }))
+    .sort((a, b) => b.n - a.n || a.county.localeCompare(b.county));
+  const max = entries[0].n;
+
+  rail.hidden = false;
+  rail.innerHTML =
+    '<div class="rail-head">Counties in view</div>' +
+    '<ol class="rail-list">' +
+    entries.map(e => `
+      <li>
+        <button class="rail-row${e.county === selectedCounty ? " on" : ""}" type="button"
+                data-county="${escAttr(e.county)}">
+          <span class="rail-name">${escHtml(e.county)}</span>
+          <span class="rail-n">${e.n}</span>
+          <span class="rail-bar" style="--w:${Math.round((e.n / max) * 100)}%"></span>
+        </button>
+      </li>`).join("") +
+    '</ol>';
+
+  rail.querySelectorAll(".rail-row").forEach(btn => {
+    btn.addEventListener("click", () => applyCounty(btn.dataset.county));
+  });
+}
+
+// Everything drawn in user units - city names, pins, the strip - is sized
+// from the map's rendered size at draw time. Switching List -> Map, opening
+// the county rail, or just resizing the window all change that size, and
+// nothing redrew, so the map kept whatever scale it happened to be built
+// at. One observer, debounced, fixes all three at once.
+let resizeTimer = null;
+function watchCanvasResize() {
+  const canvas = $(CANVAS_ID);
+  if (!canvas || !window.ResizeObserver || canvas.dataset.resizeWatched) return;
+  canvas.dataset.resizeWatched = "1";
+  new ResizeObserver(() => {
+    clearTimeout(resizeTimer);
+    // Long enough that a drag-resize doesn't redraw on every frame, short
+    // enough that letting go feels immediate.
+    resizeTimer = setTimeout(() => { if (rows && rows.length) draw(); }, 120);
+  }).observe(canvas);
+}
+
 function updateSummary(byCounty) {
+  renderCountyRail(byCounty);
   const titleEl = document.querySelector(".explore-map-title");
   if (titleEl) titleEl.textContent = zoomCounty ? `${zoomCounty} County` : "Where these are";
   const countEl = $("exploreMapCount");

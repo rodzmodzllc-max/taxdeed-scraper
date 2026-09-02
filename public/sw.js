@@ -52,7 +52,12 @@
 // edge. The account badge MOVED in the markup, from the masthead into the
 // sticky topbar - a cached index.html against a fresh app.js would leave
 // #accountBtn where nothing expects it.
-const CACHE = "tdw-shell-v17";
+//
+// v18: the basemap was rebuilt. fl-counties.svg grew a sea rect, three
+// neighbouring states and orientation labels, and its viewBox moved - so a
+// cached copy of the OLD svg against the new explore.js would put every pin
+// 17% too far east, which is exactly the bug the projection change fixes.
+const CACHE = "tdw-shell-v18";
 const SHELL = [
   "/",
   "/index.html",
