@@ -183,6 +183,12 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 scripts/geocode_properties.py
 
+    - name: Backfill address/property-type enrichment (FL DOR statewide parcel lookup)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/enrich_property_details.py
+
   certificates:
     name: Harvest certificates + sync (experimental)
     runs-on: ubuntu-latest
