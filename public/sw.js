@@ -57,7 +57,13 @@
 // neighbouring states and orientation labels, and its viewBox moved - so a
 // cached copy of the OLD svg against the new explore.js would put every pin
 // 17% too far east, which is exactly the bug the projection change fixes.
-const CACHE = "tdw-shell-v18";
+//
+// v19: the county tax-roll columns (year_built, living_area, lot_sqft,
+// legal_desc, last_sale_*) now render, and the value box is relabelled from
+// "Est. Market" to the county's just value for a stated roll year. app.js and
+// styles.css changed together - a cached stylesheet against the new markup
+// would leave the new card lines unstyled.
+const CACHE = "tdw-shell-v19";
 const SHELL = [
   "/",
   "/index.html",

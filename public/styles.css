@@ -427,6 +427,39 @@ above the 22px topbar mark so it reads as the header's focal point. */
 .county-ref-none{color:var(--ink-soft);font-style:italic;font-size:.7rem}
 .reset-btn{font-size:.72rem;color:var(--accent);background:none;border:none;cursor:pointer;
   padding:.3rem 0;text-decoration:underline}
+/* ---- county tax-roll facts on a card -----------------------------------
+   The card is deliberately lean - headline numbers, one glance, everything
+   else on the full page - so these earn their place by being a single
+   compact line each rather than a second stat grid.
+
+   Coverage is partial by design (vacant land has a lot size and no building,
+   so year_built is blank on much of this inventory), which is why each line
+   renders only when it has something to say. A card with none of them has to
+   look like the old lean card, not like a card with holes in it. */
+.prop-spec{display:flex;flex-wrap:wrap;gap:.2rem .5rem;margin:.45rem 0 0;
+  font-size:.72rem;color:var(--ink-soft);font-weight:600}
+.prop-spec span{display:inline-flex;align-items:center}
+.prop-spec span+span::before{content:"·";margin-right:.5rem;opacity:.6}
+.prop-lastsale{margin:.3rem 0 0;font-size:.72rem;color:var(--ink-soft)}
+.prop-lastsale b{color:var(--ink);font-family:ui-monospace,Consolas,monospace;
+  font-variant-numeric:tabular-nums;font-weight:700}
+/* One line, clamped. A legal description is a paragraph of surveyor's
+   shorthand ("BEG 418 FT S AND 110 FT W OF INTER OF E AND W HALF SEC LI...")
+   and pasting it whole into a card would bury everything under it. Enough to
+   recognise the parcel here; the whole thing on the full page, and in the
+   title attribute for a hover. */
+.prop-legal{margin:.25rem 0 0;font-size:.68rem;line-height:1.35;color:var(--ink-soft);
+  font-family:ui-monospace,Consolas,monospace;opacity:.85;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+
+/* The full page has the room the card does not. */
+.detail-legal{margin:.7rem 0 .2rem;padding:.55rem .7rem;background:var(--paper);
+  border:1px solid var(--card-line);border-radius:8px}
+.detail-legal-label{display:block;font-size:.64rem;font-weight:700;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--ink-soft);margin-bottom:.25rem}
+.detail-legal p{margin:0;font-size:.72rem;line-height:1.5;color:var(--ink);
+  font-family:ui-monospace,Consolas,monospace;word-break:break-word}
+
 .tog{display:flex;align-items:center;gap:.35rem;font-size:.78rem;color:var(--ink);cursor:pointer}
 /* The archive toggle carries its own count (it replaced a count chip), so it
    needs the same tabular figures the chips use or the number jitters as it

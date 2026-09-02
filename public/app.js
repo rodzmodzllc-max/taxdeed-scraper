@@ -495,6 +495,71 @@ function propType(p) {
 
 const marketOf = p => Number(p.market || p.assessed || 0);
 
+// ==================== the county tax-roll columns ====================
+// scripts/enrich_property_details.py fills these from Florida's statewide
+// cadastral layer - the same tax roll every county property appraiser
+// submits to the state. Two things about that source shape every helper
+// below:
+//
+// 1. FDOR uses 0 as its "no data" sentinel on every numeric field. The
+//    enrichment script already maps 0 -> NULL so a card never says "built in
+//    year 0" or "last sold for $0", which means NULL here genuinely means
+//    "not on the roll" and not "zero". Every check is for null/absent, never
+//    for falsiness on a number that could legitimately be small.
+// 2. Coverage is partial and uneven ON PURPOSE. year_built and living_area
+//    are populated on far fewer rows than lot_sqft because much of this
+//    inventory is vacant land, which has a lot size and no building. So each
+//    field renders only when present, and a row with none of them has to
+//    look deliberately lean rather than broken.
+const hasNum = v => v !== null && v !== undefined && v !== "" && isFinite(Number(v));
+const fmtSqft = v => Number(v).toLocaleString("en-US") + " sq ft";
+// Lots are quoted in acres once they get big enough that a six-digit square
+// footage stops meaning anything to a reader.
+const lotSize = p => {
+  if (!hasNum(p.lot_sqft)) return "";
+  const sq = Number(p.lot_sqft);
+  return sq >= 20000 ? (sq / 43560).toFixed(2) + " acres" : fmtSqft(sq);
+};
+
+// The headline value figure, named honestly.
+//
+// This used to read "Est. Market", or "Assessed Value" when it had fallen
+// back to p.assessed - and "Est. Market" implied a live estimate the app has
+// never had. p.market is now the county appraiser's own statutory JUST
+// VALUE, and value_year says which roll year it came from, so the label can
+// finally say exactly what the number is: "2025 County Just Value".
+//
+// It is deliberately never called a Zestimate or an estimate of any kind.
+// Zillow's Zestimate API was retired in 2021 and there is no legitimate
+// scalable replacement, so the Zillow link-out remains the only honest route
+// to a live estimate. Saying so here is the point of the relabel.
+function valueLabel(p) {
+  if (hasNum(p.market)) {
+    return hasNum(p.value_year) ? `${p.value_year} County Just Value` : "County Just Value";
+  }
+  return "County Assessed Value";
+}
+
+// "Built 1958 · 1,840 sq ft · 0.38 acres" - whichever of the three exist.
+function specBits(p) {
+  const bits = [];
+  if (hasNum(p.year_built)) bits.push("Built " + p.year_built);
+  if (hasNum(p.living_area)) bits.push(fmtSqft(p.living_area));
+  const lot = lotSize(p);
+  if (lot) bits.push(lot + " lot");
+  return bits;
+}
+
+// What it last changed hands for. A tax-roll sale price of a few hundred
+// dollars is usually a quitclaim between related parties rather than an
+// arm's-length sale, so the year is always shown with it - the pair is
+// interpretable where the number alone is misleading.
+function lastSaleText(p) {
+  if (!hasNum(p.last_sale_price)) return "";
+  const amount = fmtShort(p.last_sale_price);
+  return hasNum(p.last_sale_year) ? `${amount} in ${p.last_sale_year}` : amount;
+}
+
 // A scraped opening bid of exactly 0 means the county hasn't posted the
 // figure yet, not that the parcel is free. Rendering that as "$0.00" made
 // every unpublished row read like a giveaway - the single most misleading
@@ -1213,7 +1278,8 @@ function card(p, showCounty) {
   // worth" - so they get a 2-up grid instead of being crowded by a third
   // box; Parcel # moves to a quiet reference line right under the address.
   const marketVal = marketOf(p);
-  const usingAssessed = !p.market && p.assessed;
+  const spec = specBits(p);
+  const sale = lastSaleText(p);
   const isClosed = isGone(p);
   el.innerHTML = `
     ${isClosed ? `<div class="closed-banner${Number(p.sold_price) > 0 ? " sold" : ""}">✓ ${esc(outcomeText(p))}${p.gone_since ? ` <span class="closed-when">${esc(fmtDate(String(p.gone_since).slice(0, 10)))}</span>` : ""}</div>` : ""}
@@ -1231,10 +1297,13 @@ function card(p, showCounty) {
       </div>
     </div>
     ${hasAddress && hasParcel(p) ? `<div class="prop-parcel-line">Parcel # ${esc(p.parcel)}</div>` : ""}
+    ${p.legal_desc ? `<div class="prop-legal" title="${esc(p.legal_desc)}">${esc(p.legal_desc)}</div>` : ""}
     <div class="card-stat-grid ${marketVal ? "card-stat-grid-2" : "card-stat-grid-1"}">
       <div class="card-stat card-stat-headline"><div class="card-stat-label">Opening Bid</div><div class="card-stat-val bid${bidPublished ? "" : " unpublished"}">${bidDisplay(p)}</div></div>
-      ${marketVal ? `<div class="card-stat card-stat-headline"><div class="card-stat-label">${usingAssessed ? "Assessed Value" : "Est. Market"}</div><div class="card-stat-val market">${fmtShort(marketVal)}</div></div>` : ""}
+      ${marketVal ? `<div class="card-stat card-stat-headline"><div class="card-stat-label">${esc(valueLabel(p))}</div><div class="card-stat-val market">${fmtShort(marketVal)}</div></div>` : ""}
     </div>
+    ${spec.length ? `<div class="prop-spec">${spec.map(b => `<span>${esc(b)}</span>`).join("")}</div>` : ""}
+    ${sale ? `<div class="prop-lastsale">Last sold <b>${esc(sale)}</b></div>` : ""}
     <div class="prop-links">
       ${fallbackStreetviewUrl(p) ? `<a href="${esc(fallbackStreetviewUrl(p))}" target="_blank" rel="noopener">${linkIcon("Street View")}Street View</a>` : ''}
       ${p.url_appraiser ? `<a href="${esc(p.url_appraiser)}" target="_blank" rel="noopener">${linkIcon("Appraiser")}Appraiser</a>` : ''}
@@ -1323,8 +1392,12 @@ function detailHtml(p) {
   const stats = [];
   if (!isCert) {
     stats.push(["Opening Bid", bidDisplay(p)]);
-    stats.push(["Assessed Value", p.assessed ? fmtShort(p.assessed) : "N/A"]);
-    stats.push(["Market Value", p.market ? fmtShort(p.market) : "N/A"]);
+    // Named for what it is - the appraiser's own just value for a stated roll
+    // year - rather than the old "Market Value", which implied a live
+    // estimate this app has never had and cannot legitimately obtain.
+    if (hasNum(p.market)) stats.push([valueLabel(p), fmtShort(p.market)]);
+    stats.push(["County Assessed Value", hasNum(p.assessed) ? fmtShort(p.assessed) : "N/A"]);
+    if (hasNum(p.land_value)) stats.push(["Land Value", fmtShort(p.land_value)]);
     if (bidPublished) {
       stats.push(["Fees", fmtShort(fees(p))]);
       stats.push(["Walk Away Above", fmtShort(maxBid(p))]);
@@ -1333,6 +1406,15 @@ function detailHtml(p) {
         stats.push(["Potential Equity", `${spreadAmt >= 0 ? "+" : "-"}${fmtShort(Math.abs(spreadAmt))} (${valueRatio(p).toFixed(1)}×)`]);
       }
     }
+    // Tax-roll facts about the property itself, after the money. Each is
+    // pushed only when the roll actually carried it - see the note on the
+    // helpers: NULL here means "not on the roll", never "zero".
+    if (hasNum(p.year_built)) stats.push(["Year Built", String(p.year_built)]);
+    if (hasNum(p.living_area)) stats.push(["Living Area", fmtSqft(p.living_area)]);
+    if (hasNum(p.lot_sqft)) stats.push(["Lot Size", lotSize(p)]);
+    if (hasNum(p.num_buildings)) stats.push(["Buildings", String(p.num_buildings)]);
+    const saleText = lastSaleText(p);
+    if (saleText) stats.push(["Last Sale", saleText]);
     if (isGone(p)) stats.push(["Outcome", outcomeText(p)]);
   } else {
     stats.push(["Amount", bidDisplay(p)]);
@@ -1358,6 +1440,10 @@ function detailHtml(p) {
     <div class="detail-grid">
       ${stats.map(([label, val]) => `<div class="detail-stat"><span class="detail-stat-label">${esc(label)}${label === "Fees" ? " " + infoTip(FEES_TIP) : ""}</span><span class="detail-stat-val">${esc(val)}</span></div>`).join("")}
     </div>
+    ${p.legal_desc ? `<div class="detail-legal">
+      <span class="detail-legal-label">Legal description</span>
+      <p>${esc(p.legal_desc)}</p>
+    </div>` : ""}
     <div class="copy-row">
       ${!isCert ? `<button class="copy-btn owner-tag${p.owner_name ? "" : " unknown"}" ${p.owner_name ? `data-action="copy" data-copy="${esc(p.owner_name)}"` : ""} type="button"><span class="copy-tag">Owner</span><span class="copy-val">${esc(p.owner_name || "Unknown")}</span></button>` : ""}
       <button class="copy-btn" data-action="copy" data-copy="${esc(p.parcel || p.case_no || "")}" type="button"><span class="copy-tag">${isCert ? "Account" : "Parcel"}</span><span class="copy-val">${esc(p.parcel || p.case_no || "Unknown")}</span></button>
@@ -2345,11 +2431,28 @@ if (exportCsvBtn) exportCsvBtn.addEventListener("click", () => {
     ["Property Type", p => p.prop_type || ""],
     ["Title Status", p => LIEN_LABEL[p.lien_level] || p.lien_level || ""],
     ["Opening Bid", p => p.bid ?? ""],
-    ["Assessed Value", p => p.assessed ?? ""],
-    ["Market Value", p => p.market ?? ""],
+    ["County Assessed Value", p => p.assessed ?? ""],
+    // "Market Value" as a column heading was the same overclaim the card
+    // carried: it is the appraiser's statutory just value for a stated roll
+    // year, and the year travels WITH it in its own column so a spreadsheet
+    // mixing rows from different roll years is still readable.
+    ["County Just Value", p => p.market ?? ""],
+    ["Just Value Year", p => p.value_year ?? ""],
     ["Potential Equity ($)", p => (p.bid != null && marketOf(p) > 0) ? Math.round(marketOf(p) - Number(p.bid)) : ""],
     ["Potential Equity (x bid)", p => (Number(p.bid) > 0 && marketOf(p) > 0) ? valueRatio(p).toFixed(2) : ""],
     ["Fees", p => p.bid != null ? Math.round(fees(p)) : ""],
+    // Tax-roll columns. Someone exporting to a spreadsheet is usually
+    // filtering or sorting on exactly these - lot size, age, what it last
+    // sold for - so leaving them out of the export while showing them on the
+    // card would have been the more annoying half of the job.
+    ["Year Built", p => p.year_built ?? ""],
+    ["Living Area (sq ft)", p => p.living_area ?? ""],
+    ["Lot Size (sq ft)", p => p.lot_sqft ?? ""],
+    ["Buildings", p => p.num_buildings ?? ""],
+    ["Land Value", p => p.land_value ?? ""],
+    ["Last Sale Price", p => p.last_sale_price ?? ""],
+    ["Last Sale Year", p => p.last_sale_year ?? ""],
+    ["Legal Description", p => p.legal_desc || ""],
     ["Sale/Auction Date", p => p.sale_date || ""],
     ["Certificate #", p => p.certificate_no || ""],
     ["Tax Year", p => p.tax_year || ""],
