@@ -157,9 +157,14 @@ results.heartTextBefore = heartBefore;
 results.heartTextAfter = await page.locator('.heart-btn').first().textContent();
 
 // --- theme toggle ---
+// Theme, password, install and sign out moved out of the header into the
+// account badge's menu, so it has to be opened before the toggle is
+// clickable. The assertions below are unchanged.
 const themeBefore = await page.locator('#themeLabel').textContent();
+await page.click('#accountBtn');
+await page.waitForTimeout(150);
 await page.click('#themeBtn');
-await page.waitForTimeout(100);
+await page.waitForTimeout(150);
 const themeAfter = await page.locator('#themeLabel').textContent();
 const dataTheme = await page.evaluate(() => document.documentElement.getAttribute('data-theme'));
 results.themeBefore = themeBefore;
@@ -426,7 +431,19 @@ results.detailModalHiddenAfterEscape = await page.locator('#detailModal').isHidd
 // --- redesign: brand mark / topbar, disclaimer badge, card stat grid,
 // lien-status pill, info tooltip, top-pick badge, icon-prefixed links ---
 results.topbarBrandVisible = await page.locator('.topbar .brand-mark').isVisible();
-results.disclaimerBadgeVisible = await page.locator('.disclaimer-badge').isVisible();
+// The title-search warning used to be a permanent badge in the header. It is
+// now behind a Terms button in the footer, so this checks the button is there
+// AND that the warning survived the move - which the old assertion could not
+// tell you, since it only looked at whether a badge was on screen.
+results.termsButtonVisible = await page.locator('#termsBtn').isVisible();
+await page.click('#termsBtn');
+await page.waitForTimeout(250);
+results.termsModalOpens = await page.locator('#termsModal').isVisible();
+results.termsCarryTitleWarning =
+  /not a certified title search/i.test(await page.locator('#termsModal').textContent());
+await page.click('#termsCloseBtn');
+await page.waitForTimeout(200);
+results.termsModalCloses = await page.locator('#termsModal').isHidden();
 results.cardStatGridCount = await page.locator('.prop-card .card-stat-grid').count();
 results.lienPillFirstText = (await page.locator('.prop-card .lien-pill').first().textContent() || '').trim();
 results.infoTipCount = await page.locator('.info-tip').count();
@@ -590,7 +607,10 @@ const EXPECTED = {
   detailModalHiddenAfterBackdropClick: true,
   detailModalHiddenAfterEscape: true,
   topbarBrandVisible: true,
-  disclaimerBadgeVisible: true,
+  termsButtonVisible: true,
+  termsModalOpens: true,
+  termsCarryTitleWarning: true,
+  termsModalCloses: true,
   cardStatGridCount: 8,
   lienPillFirstText: 'Clear',
   infoTipCount: 1,
