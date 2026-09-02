@@ -34,7 +34,10 @@
 // did), owner and county, with punctuation stripped from identifiers - so
 // index.html's placeholder and app.js both changed, and the shell HTML is
 // precached.
-const CACHE = "tdw-shell-v13";
+// v14: city labels on the map (new fl-cities.json, now part of the offline
+// shell - the map without labels was the "looks stale" complaint) and the
+// closed-property outcome banner.
+const CACHE = "tdw-shell-v14";
 const SHELL = [
   "/",
   "/index.html",
@@ -44,6 +47,7 @@ const SHELL = [
   "/explore.js",
   "/config.js",
   "/fl-counties.svg",
+  "/fl-cities.json",
   "/manifest.webmanifest",
   // Icon bytes changed (new logo) but the filenames didn't, and /icons/* is
   // served with a 7-day Cache-Control (see _headers) plus this worker's own

@@ -467,3 +467,30 @@ min-height:clamp(230px,32vh,340px)}
    inside a centred block it reads as a stray paragraph. */
 .empty-hint{display:block;margin:.45rem auto 0;font-size:.72rem;font-weight:500;
 color:var(--ink-soft);line-height:1.5;max-width:52ch;text-align:center}
+
+/* ---- city labels ----------------------------------------------------------
+   The map was a blue silhouette with pins on it and nothing to say where in
+   the county those pins are. Labels are drawn under the bubbles and pins, and
+   carry a paint-order halo so a name stays readable where it crosses a county
+   border or the water. */
+.city-marker{pointer-events:none}
+.city-marker circle{fill:var(--ink-soft);opacity:.75}
+.city-marker text{font-family:Inter,system-ui,sans-serif;
+font-weight:600;fill:var(--ink);stroke:var(--card);paint-order:stroke fill;
+opacity:.9;letter-spacing:.01em}
+/* Zoomed in the county is filled, so the halo has to match that fill instead
+   of the panel background or the text sits in a pale box of the wrong colour. */
+.explore-map-canvas.zoomed .city-marker text{stroke:var(--accent-soft)}
+.explore-map-canvas.zoomed .city-marker circle{fill:var(--ink);opacity:.55}
+
+/* A flat wash read as a placeholder rather than a map. Slightly deeper fill,
+   a firmer edge, and the neighbours kept faint for orientation. */
+.explore-map-canvas path[data-county].zoom-focus{fill:var(--accent-soft);
+stroke:var(--accent);stroke-width:1.1;stroke-linejoin:round}
+
+/* A closed property's banner now carries WHY it closed. A sale that actually
+   sold is the one outcome that is useful rather than merely final, so it
+   reads as a result instead of a rejection. */
+.closed-banner.sold{background:var(--ok);border-color:var(--ok)}
+.closed-when{margin-left:auto;font-weight:600;opacity:.85;letter-spacing:0;
+text-transform:none}
