@@ -54,6 +54,43 @@ const STALE_DATA_HOURS = 36;
 const GONE_STATUSES = ["dropped", "sold", "notfound", "closed"];
 const isGone = p => GONE_STATUSES.includes(p.status);
 
+// WHY a sale closed is the first thing a bidder asks about a property that
+// went away - redeemed by the owner, cancelled, or actually sold and for how
+// much - and it changes what they do next. A redemption means the owner paid
+// and the parcel is simply gone; a sale at 4x the opening bid tells you what
+// that market really pays.
+//
+// The harvesters do not capture it yet: `status` only ever holds
+// active/closed/dropped, and there is no column for the winning bid, so 361
+// closed auction rows currently say nothing but "closed". Everything below
+// reads `outcome` and `sold_price` defensively and falls back to today's
+// behaviour, so it starts working the day the pipeline fills them in without
+// another frontend change. See claude/closed-outcome-and-map-cities.md for
+// the field spec.
+const OUTCOME_LABEL = {
+  sold: "Sold", "sold to third party": "Sold", "third party": "Sold",
+  redeemed: "Redeemed", redemption: "Redeemed",
+  cancelled: "Cancelled", canceled: "Cancelled", "cancelled by bank": "Cancelled by bank",
+  "canceled by bank": "Cancelled by bank", bankruptcy: "Cancelled - bankruptcy",
+  withdrawn: "Withdrawn", postponed: "Postponed", rescheduled: "Rescheduled",
+  "struck to county": "Struck to county", county: "Struck to county",
+  "no bid": "No bids", nobid: "No bids", "no bids": "No bids",
+  "lands available": "Went to Lands Available", laft: "Went to Lands Available"
+};
+
+function outcomeText(p) {
+  const raw = String(p.outcome == null ? "" : p.outcome).trim().toLowerCase();
+  const label = OUTCOME_LABEL[raw] ||
+    (raw ? raw.charAt(0).toUpperCase() + raw.slice(1) : "");
+  const price = Number(p.sold_price);
+  if (label === "Sold" && price > 0) return `Sold - ${fmtMoney(price)}`;
+  if (label) return label;
+  // Nothing recorded yet. "Closed - closed" said nothing twice; say it once.
+  const st = String(p.status || "").toLowerCase();
+  if (st && st !== "closed") return st.charAt(0).toUpperCase() + st.slice(1);
+  return "Closed";
+}
+
 const TYPE_ORDER = ["House", "Condo", "Townhome", "Mobile/Manuf.", "Vacant Lot", "Commercial", "Unknown"];
 const LIEN_ORDER = ["clean", "flag", "serious", "unscreened"];
 const LIEN_LABEL = { clean: "Clear", flag: "Flag", serious: "Serious", unscreened: "Unscreened" };
@@ -1053,7 +1090,7 @@ function card(p, showCounty) {
   const usingAssessed = !p.market && p.assessed;
   const isClosed = isGone(p);
   el.innerHTML = `
-    ${isClosed ? `<div class="closed-banner">✓ Closed - ${esc(p.status)}</div>` : ""}
+    ${isClosed ? `<div class="closed-banner${Number(p.sold_price) > 0 ? " sold" : ""}">✓ ${esc(outcomeText(p))}${p.gone_since ? ` <span class="closed-when">${esc(fmtDate(String(p.gone_since).slice(0, 10)))}</span>` : ""}</div>` : ""}
     ${top ? `<div class="toppick-banner">★ Top pick <span class="ratio-pill">${valueRatio(p).toFixed(1)}× market vs bid</span></div>` : ""}
     ${tag}
     <div class="prop-top">
@@ -1170,6 +1207,7 @@ function detailHtml(p) {
         stats.push(["Potential Equity", `${spreadAmt >= 0 ? "+" : "-"}${fmtShort(Math.abs(spreadAmt))} (${valueRatio(p).toFixed(1)}×)`]);
       }
     }
+    if (isGone(p)) stats.push(["Outcome", outcomeText(p)]);
   } else {
     stats.push(["Amount", bidDisplay(p)]);
     if (p.interest_rate) stats.push(["Interest Rate", p.interest_rate + "%"]);
