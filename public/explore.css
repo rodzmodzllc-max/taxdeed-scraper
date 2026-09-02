@@ -265,7 +265,15 @@ margin:0;padding:0;border:0;background:none}
 .masthead .generated::before{content:"·";margin:0 .4rem;opacity:.55}
 
 /* 4. Ledger tabs: still the primary switch, just not 3rem tall. */
-.ledger-tabs{margin:.6rem 0 .45rem;gap:.35rem}
+.ledger-tabs{margin:.6rem 0 .45rem;gap:.3rem}
+/* Three tab labels plus icons and counts measured 445px against a 328-380px
+   viewport, so the strip always started mid-scroll with a tab clipped off
+   each edge. These are the app's primary navigation now - being able to see
+   all three at once matters more here than it did when they were a
+   secondary switcher. Tightening the icon, the type and the padding gets it
+   under the fold on a 360px phone; the active tab is also scrolled into view
+   from render() as a backstop for the very narrowest screens. */
+.ledger-tab-icon{font-size:.82rem}
 .ledger-tab{flex:1 1 0;justify-content:center;white-space:nowrap;
 padding:.45rem .6rem;font-size:.76rem;border-radius:9px}
 .ledger-tab.on{padding:.4rem .55rem}

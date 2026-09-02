@@ -41,7 +41,12 @@
 // warning down into a Terms modal. Both data files are in the offline shell -
 // a map with no labels or areas was the "looks stale" complaint, and the
 // courthouse is exactly where the connection is worst.
-const CACHE = "tdw-shell-v15";
+//
+// v16: each ledger became its own page - own URL (#/auctions, #/lands,
+// #/certificates), own accent palette, own header. index.html, app.js and
+// styles.css all changed, and a half-updated shell here would serve the new
+// markup against the old stylesheet.
+const CACHE = "tdw-shell-v16";
 const SHELL = [
   "/",
   "/index.html",
