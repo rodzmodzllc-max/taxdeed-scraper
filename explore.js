@@ -73,6 +73,8 @@ let viewScale = 1;             // homeWidth / currentWidth - pins and labels
                                // divide by this so they keep a constant size
                                // on screen no matter how far we zoom
 let activeProp = null;         // property showing in the preview card
+let cities = null;             // county -> [[name, lat, lon, population], ...]
+let cityTop = [];              // the statewide majors, picked once on load
 let zoomAnim = null;           // in-flight viewBox tween
 
 const $ = id => document.getElementById(id);
@@ -130,6 +132,7 @@ async function ensureMap() {
     canvas.innerHTML = await res.text();
     computeCentroids(canvas);
     draw();
+    loadCities();
   } catch {
     // Offline with a cold cache, or the file moved. The list is unaffected,
     // so degrade to a plain message instead of throwing into the console.
@@ -241,6 +244,112 @@ function hasPin(p) {
 }
 
 // ---------------------------------------------------------------------------
+// city labels
+// ---------------------------------------------------------------------------
+// Without them the map is a blue silhouette: correct, and unreadable. Zoomed
+// into a county it was worse - one flat shape with a couple of pins on it and
+// nothing to say WHERE in the county they are, which is the first thing
+// anyone wants to know.
+//
+// fl-cities.json is 472 places keyed by county, built from the US cities
+// dataset with each city's ZIP-level points averaged to a single point and
+// the county then re-derived by point-in-polygon against the Census county
+// boundaries - the dataset's own COUNTY column assigns by ZIP area and puts
+// Kissimmee in Polk. Five coastal places whose centre falls offshore (the
+// Keys, Holmes Beach) are snapped to the nearest county.
+//
+// Failure here is silent and non-fatal: no city file, no labels, same map as
+// before.
+async function loadCities() {
+  try {
+    const res = await fetch("fl-cities.json");
+    if (!res.ok) return;
+    cities = await res.json();
+    // Statewide we only want the handful that orient you at a glance.
+    cityTop = Object.keys(cities)
+      .reduce((all, c) => all.concat(cities[c]), [])
+      .filter(c => c[3] > 0)
+      .sort((a, b) => b[3] - a[3])
+      .slice(0, 9);
+    draw();
+  } catch { /* map is fine without labels */ }
+}
+
+// Labels are placed largest-first and any that would collide with one already
+// placed is dropped. Overlapping town names are worse than fewer of them.
+function drawCities(svg, list, blockers) {
+  let layer = svg.querySelector(".city-layer");
+  if (!layer) {
+    layer = document.createElementNS(NS, "g");
+    layer.setAttribute("class", "city-layer");
+    // Before the bubble/pin layer so a label can never sit over a pin.
+    const clusters = svg.querySelector(".cluster-layer");
+    svg.insertBefore(layer, clusters || null);
+  }
+  layer.innerHTML = "";
+  if (!list || !list.length) return;
+
+  const home = readHomeViewBox(svg);
+  // Sized in real screen pixels so a label reads the same at any zoom.
+  const upp = unitsPerPixel(svg);
+  const fs = (zoomCounty ? 13 : 11) * upp;
+  const r = 2.6 * upp;
+  // Count bubbles and property pins are the data; a town name half-hidden
+  // under one is worse than no town name, so they reserve their space first.
+  const placed = (blockers || []).slice();
+  const vb = (svg.getAttribute("viewBox") || "").trim().split(/[\s,]+/).map(Number);
+  const bounds = vb.length === 4 && vb.every(isFinite)
+    ? { x1: vb[0], y1: vb[1], x2: vb[0] + vb[2], y2: vb[1] + vb[3] } : null;
+
+  list.forEach(([rawName, lat, lon]) => {
+    // The source dataset writes "Mc David" for McDavid, "Mc Intosh" for
+    // McIntosh, and so on.
+    const name = rawName.replace(/^Mc\s+(\S)/, (m, c) => "Mc" + c);
+    const { x, y } = projectLatLng(lat, lon, home.w, home.h);
+    // Rough text box: 0.52em average glyph width is close enough for a
+    // collision test and costs nothing to compute.
+    const w = name.length * fs * 0.52, h = fs * 1.1;
+    const gap = r + fs * 0.35;
+
+    // Try the label above the dot first, then below, then out to each side.
+    // Dropping a name on the first collision lost Pensacola from Escambia -
+    // the county's own city, hidden because two pins happened to sit on it.
+    // Moving it is almost always better than losing it.
+    const cands = [
+      { cx: x, ty: y - gap, anchor: "middle", x1: x - w / 2, x2: x + w / 2, y1: y - gap - h, y2: y - gap },
+      { cx: x, ty: y + gap + h * 0.8, anchor: "middle", x1: x - w / 2, x2: x + w / 2, y1: y + gap, y2: y + gap + h },
+      { cx: x + gap, ty: y + h * 0.3, anchor: "start", x1: x + gap, x2: x + gap + w, y1: y - h / 2, y2: y + h / 2 },
+      { cx: x - gap, ty: y + h * 0.3, anchor: "end", x1: x - gap - w, x2: x - gap, y1: y - h / 2, y2: y + h / 2 }
+    ];
+
+    const pad = fs * 0.3;
+    const fits = c => {
+      if (bounds && (c.x1 < bounds.x1 + pad || c.x2 > bounds.x2 - pad ||
+                     c.y1 < bounds.y1 + pad || c.y2 > bounds.y2 - pad)) return false;
+      return !placed.some(b => !(c.x2 < b.x1 || c.x1 > b.x2 || c.y2 < b.y1 || c.y1 > b.y2));
+    };
+    const spot = cands.find(fits);
+    if (!spot) return;
+    placed.push(spot);
+
+    const g = document.createElementNS(NS, "g");
+    g.setAttribute("class", "city-marker");
+    const dot = document.createElementNS(NS, "circle");
+    dot.setAttribute("cx", x); dot.setAttribute("cy", y); dot.setAttribute("r", r);
+    g.appendChild(dot);
+    const t = document.createElementNS(NS, "text");
+    t.setAttribute("x", spot.cx);
+    t.setAttribute("y", spot.ty);
+    t.setAttribute("text-anchor", spot.anchor);
+    t.setAttribute("font-size", fs);
+    t.setAttribute("stroke-width", fs * 0.28);
+    t.textContent = name;
+    g.appendChild(t);
+    layer.appendChild(g);
+  });
+}
+
+// ---------------------------------------------------------------------------
 // zoom
 // ---------------------------------------------------------------------------
 function readHomeViewBox(svg) {
@@ -255,6 +364,19 @@ function readHomeViewBox(svg) {
 function setViewBox(svg, b) {
   svg.setAttribute("viewBox", `${b.x} ${b.y} ${b.w} ${b.h}`);
   viewScale = readHomeViewBox(svg).w / b.w;
+}
+
+// How many SVG user units make one CSS pixel on screen right now. Sizing pins
+// and labels off the viewBox ratio alone was wrong: it holds them constant
+// relative to the HOME view, not to the screen, so in a ~570px-wide panel
+// showing a 1000-unit viewBox an 11-unit label rendered at about 6px and was
+// unreadable. Divide by this instead and a size means what it says.
+function unitsPerPixel(svg) {
+  const canvas = $(CANVAS_ID);
+  const vb = (svg.getAttribute("viewBox") || "").trim().split(/[\s,]+/).map(Number);
+  const w = canvas ? canvas.clientWidth : 0;
+  if (!w || vb.length !== 4 || !isFinite(vb[2]) || !vb[2]) return 1;
+  return vb[2] / w;
 }
 
 // Tween rather than jump: a viewBox that snaps from the whole state to one
@@ -382,6 +504,7 @@ function draw() {
 
   const counts = Array.from(byCounty.values(), r => r.length);
   const max = counts.length ? Math.max(...counts) : 0;
+  const bubbleBoxes = [];
 
   // Biggest first so a small county's bubble is never buried under a large
   // neighbour's - later siblings paint on top in SVG.
@@ -421,8 +544,12 @@ function draw() {
       text.textContent = list.length;
       g.appendChild(text);
 
+      bubbleBoxes.push({ x1: c.cx - r, y1: c.cy - r, x2: c.cx + r, y2: c.cy + r });
       layer.appendChild(g);
     });
+
+  // After the bubbles, so their positions can reserve space.
+  drawCities(svg, cityTop, bubbleBoxes);
 
   if (refocusCounty) {
     const again = layer.querySelector(
@@ -446,8 +573,15 @@ function drawPins(svg, layer, list) {
   });
 
   const home = readHomeViewBox(svg);
+  const upp = unitsPerPixel(svg);
   layer.innerHTML = "";
   const placed = list.filter(hasPin);
+
+  const pinR = 7 * upp;
+  drawCities(svg, cities && cities[zoomCounty], placed.map(p => {
+    const q = projectLatLng(p.latitude, p.longitude, home.w, home.h);
+    return { x1: q.x - pinR, y1: q.y - pinR * 2.4, x2: q.x + pinR, y2: q.y };
+  }));
 
   placed.forEach(p => {
     const { x, y } = projectLatLng(p.latitude, p.longitude, home.w, home.h);
@@ -458,7 +592,7 @@ function drawPins(svg, layer, list) {
     g.setAttribute("role", "button");
     g.setAttribute("aria-label", `${pinLabel(p)} - activate for details`);
 
-    const r = 7 / viewScale;
+    const r = 7 * upp;
     // A teardrop, drawn so its POINT is the coordinate - a circle centred on
     // the spot reads as "somewhere around here", which is the opposite of
     // what a geocoded parcel deserves.
