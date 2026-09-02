@@ -288,13 +288,37 @@ await page.waitForTimeout(150);
 results.pastDueCardVisibleGoneView = await page.locator('.prop-card:has-text("Past Due Ln")').count();
 
 // --- Archive view: the inverse - shows ONLY the past-due auction, with a
-// "Nd ago" badge instead of the usual countdown ---
-await page.click('.summary-strip .chip[data-status="archive"]');
-await page.waitForTimeout(150);
+// "Nd ago" badge instead of the usual countdown.
+//
+// Archive is no longer a chip in the summary strip; it is a toggle inside
+// Filters & Sort, so the panel has to be opened first. The behaviour it
+// gates is unchanged, and #chipArchive still carries the count (it moved
+// into the toggle's label), so every assertion below is as it was. ---
+// The panel was already opened further up this file and never closed, so a
+// bare click on #filtersToggle here would CLOSE it and every locator below
+// would resolve to a hidden element. Ask for its state instead of assuming.
+const ensureFiltersOpen = async () => {
+  const open = await page.locator('#filtersPanel').evaluate(el => el.classList.contains('open'));
+  if (!open) { await page.click('#filtersToggle'); await page.waitForTimeout(200); }
+};
+await ensureFiltersOpen();
+results.archiveToggleInFilters = await page.locator('#archiveToggle').isVisible();
+results.archiveChipNotInStrip = await page.locator('.summary-strip .chip[data-status="archive"]').count();
+await page.click('#archiveToggle');
+await page.waitForTimeout(250);
 results.archiveChipCount = (await page.locator('#chipArchive').textContent()).trim();
 results.pastDueCardVisibleArchiveView = await page.locator('.prop-card:has-text("Past Due Ln")').count();
 results.archiveViewOtherCardsCount = await page.locator('.prop-card').count(); // should be 1 - archive is exclusive
 results.archiveCardAgoBadge = (await page.locator('.prop-card:has-text("Past Due Ln") .countdown.past').textContent().catch(() => '')) || '';
+// The page header has to say the list is showing past auctions only - with
+// the always-visible Archive chip gone, this notice is the only thing on
+// screen explaining why every current listing has vanished.
+results.archiveModeNoteShown = await page.locator('#archiveModeNote').isVisible();
+// ...and offer the way out of it.
+await page.click('#exitArchiveBtn');
+await page.waitForTimeout(200);
+results.archiveNoteGoneAfterExit = await page.locator('#archiveModeNote').count();
+results.archiveToggleUntickedAfterExit = await page.locator('#archiveToggle').isChecked();
 
 // --- stale-data warning: every fixture's updated_at is days old relative to
 // "today", so the newest-row calc should already be past STALE_DATA_HOURS ---
@@ -483,6 +507,81 @@ await page.click('[data-action="closebidlist"]');
 await page.waitForTimeout(150);
 results.bidListModalHiddenAfterClose = await page.locator('#bidListModal').isHidden();
 
+// ============================================================
+// Each ledger is its own page: own URL, own colour, own header, own set of
+// filters. These run last because two of them navigate.
+// ============================================================
+
+// Freshness is admin-only now. This account is a normal approved user
+// (PROFILE_MODE "default"), so no county group may carry the badge - and
+// there ARE county groups on screen, so this isn't passing on an empty page.
+results.freshnessBadgesForNormalUser = await page.locator('.freshness-badge').count();
+results.countyGroupsPresentForThatCheck = (await page.locator('.county-group').count()) > 0;
+
+// The watchlist rename reaches the chip, not just the modal.
+results.watchlistChipLabel = ((await page.locator('#bidListToggle').textContent()) || '').replace(/\s+/g, ' ').trim();
+
+// Walk the three ledgers and record what makes each one a distinct page.
+const ledgerPages = {};
+for (const key of ['auction', 'laft', 'certificate']) {
+  await page.click(`.ledger-tab[data-ledger="${key}"]`);
+  await page.waitForTimeout(400);
+  ledgerPages[key] = await page.evaluate(() => ({
+    hash: location.hash,
+    docLedger: document.documentElement.dataset.ledger,
+    accent: getComputedStyle(document.documentElement).getPropertyValue('--accent').trim(),
+    heading: (document.querySelector('.ledger-head h2') || {}).textContent || '',
+    hasHow: !!document.querySelector('.ledger-how'),
+    hasFacts: !!document.querySelector('.ledger-facts'),
+    titled: document.title,
+    typeHidden: !!(document.getElementById('typeDropdown') || {}).hidden,
+    lienHidden: !!(document.getElementById('lienDropdown') || {}).hidden,
+    assessedHidden: !!(document.getElementById('assessedField') || {}).hidden,
+    archiveRowHidden: !!(document.getElementById('archiveToggleRow') || {}).hidden
+  }));
+}
+results.ledgerHashes = ['auction', 'laft', 'certificate'].map(k => ledgerPages[k].hash);
+results.ledgerDocAttr = ['auction', 'laft', 'certificate'].map(k => ledgerPages[k].docLedger);
+results.ledgerHeadings = ['auction', 'laft', 'certificate'].map(k => ledgerPages[k].heading);
+results.ledgerTitles = ['auction', 'laft', 'certificate'].map(k => ledgerPages[k].titled);
+results.everyLedgerHasHowLine = ['auction', 'laft', 'certificate'].every(k => ledgerPages[k].hasHow);
+results.everyLedgerHasFactsLine = ['auction', 'laft', 'certificate'].every(k => ledgerPages[k].hasFacts);
+// Three different accents, not three copies of one - this is what actually
+// makes the pages feel different, so assert they really do differ rather
+// than only that the attribute changed.
+results.ledgerAccentsAllDifferent =
+  new Set(['auction', 'laft', 'certificate'].map(k => ledgerPages[k].accent)).size === 3;
+// A certificate is a lien: no property type, no title screening, no assessed
+// value. passes() already ignores those filters there, so the controls have
+// to go too or they invite setting a filter that does nothing.
+results.certHidesTypeLienAssessed = [
+  ledgerPages.certificate.typeHidden,
+  ledgerPages.certificate.lienHidden,
+  ledgerPages.certificate.assessedHidden
+];
+results.auctionKeepsTypeLienAssessed = [
+  ledgerPages.auction.typeHidden,
+  ledgerPages.auction.lienHidden,
+  ledgerPages.auction.assessedHidden
+];
+// Archive is auction-only - isPastDue() is false for everything else, so on
+// the other two the toggle could only ever produce an empty page.
+results.archiveRowHiddenPerLedger = ['auction', 'laft', 'certificate'].map(k => ledgerPages[k].archiveRowHidden);
+
+// A ledger URL is a real entry point, not just a label the app writes after
+// the fact: a cold load on #/certificates must come up on Certificates.
+await page.goto(BASE_URL + '#/certificates', { waitUntil: 'networkidle' });
+await page.waitForTimeout(1200);
+results.deepLinkLandsOnCertificates = await page.locator('.ledger-tab[data-ledger="certificate"]').evaluate(el => el.classList.contains('on'));
+results.deepLinkHeading = ((await page.locator('.ledger-head h2').textContent()) || '').trim();
+
+// ...and the admin who DOES want the sync telemetry still gets it. Without
+// this, "no badge anywhere" would also pass if the feature had simply been
+// deleted rather than gated.
+await page.goto(BASE_URL + '?profile=admin', { waitUntil: 'networkidle' });
+await page.waitForTimeout(1400);
+results.freshnessBadgesForAdmin = (await page.locator('.freshness-badge').count()) > 0;
+
 await browser.close();
 
 // ============================================================
@@ -498,8 +597,32 @@ const EXPECTED = {
   countyDropdownOpenOnLoad: false,
   countyGroupOpenOnLoad: false,
   countyGroupCount: 9,
-  ledgerTabCounts: ['Tax Deeds / Auctions 11', 'Lands Available / OTC 1', 'Certificates 1'],
+  // Tab labels became page names ("Auctions", not "Tax Deeds / Auctions") and
+  // each carries a leading icon span, which allTextContents() concatenates.
+  ledgerTabCounts: ['\u2696\uFE0FAuctions 11', '\uD83C\uDFDE\uFE0FLands Available 1', '\uD83D\uDCDCCertificates 1'],
   auctionTabOnByDefault: true,
+
+  // --- per-ledger pages ---
+  freshnessBadgesForNormalUser: 0,
+  countyGroupsPresentForThatCheck: true,
+  freshnessBadgesForAdmin: true,
+  watchlistChipLabel: '⚑ Watchlist 0/10',
+  ledgerHashes: ['#/auctions', '#/lands', '#/certificates'],
+  ledgerDocAttr: ['auction', 'laft', 'certificate'],
+  ledgerHeadings: ['Auctions & Bidding', 'Lands Available for Taxes', 'Tax Certificates'],
+  ledgerTitles: [
+    'Auctions & Bidding · FL Tax Deed Watchlist',
+    'Lands Available for Taxes · FL Tax Deed Watchlist',
+    'Tax Certificates · FL Tax Deed Watchlist'
+  ],
+  everyLedgerHasHowLine: true,
+  everyLedgerHasFactsLine: true,
+  ledgerAccentsAllDifferent: true,
+  certHidesTypeLienAssessed: [true, true, true],
+  auctionKeepsTypeLienAssessed: [false, false, false],
+  archiveRowHiddenPerLedger: [false, true, true],
+  deepLinkLandsOnCertificates: true,
+  deepLinkHeading: 'Tax Certificates',
   cardCount: 9,
   // All 67 counties now show (busiest-first, then alphabetical among the
   // zero-count ones) instead of only the ~8 with live scraped data - see
@@ -569,7 +692,12 @@ const EXPECTED = {
   pastDueCardVisibleDefault: 0,
   pastDueCardVisibleAllView: 0,
   pastDueCardVisibleGoneView: 0,
+  archiveToggleInFilters: true,
+  archiveChipNotInStrip: 0,
   archiveChipCount: '1',
+  archiveModeNoteShown: true,
+  archiveNoteGoneAfterExit: 0,
+  archiveToggleUntickedAfterExit: false,
   pastDueCardVisibleArchiveView: 1,
   archiveViewOtherCardsCount: 1,
   // Day-granular diff between two Date.now() reads in the same test run, so
