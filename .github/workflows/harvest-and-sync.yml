@@ -137,6 +137,18 @@ on:
     - cron: '0 22 * * *'  # ~6:00 PM ET (22:00 UTC) - deeds + okaloosa
     - cron: '0 12 * * *'  # ~8:00 AM ET (12:00 UTC) - certificates + laft
   workflow_dispatch:  # manual trigger from the Actions tab, runs all jobs
+    inputs:
+      force_harvest:
+        description: >-
+          Bypass scripts/harvest_cache.py entirely for this run (every LAFT
+          sub-harvester re-fetches and re-parses every source, and the
+          RealTDM purchase-price lookups all hit the network again) -
+          useful right after touching harvester/parsing logic, when a
+          cached-but-wrong result must not be trusted. Leave unchecked for
+          a normal manual run.
+        required: false
+        type: boolean
+        default: false
 
 concurrency:
   group: harvest-and-sync
@@ -251,6 +263,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 12 * * *'
+    env:
+      # Read by scripts/harvest_cache.py's load_cache() - "true" makes every
+      # LAFT sub-harvester in this job (PDFs, HTML-table, RealTDM's
+      # purchase-price lookups) act as if nothing had ever been cached, so
+      # every run's harvest is a full, unconditional fetch+parse. Empty
+      # string (the default on a scheduled run, which has no `inputs`
+      # context at all) is falsy to load_cache()'s check, so this is a
+      # no-op unless a workflow_dispatch run explicitly checks the box.
+      FORCE_HARVEST: ${{ github.event.inputs.force_harvest }}
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
