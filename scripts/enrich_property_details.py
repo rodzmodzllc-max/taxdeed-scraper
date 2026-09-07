@@ -402,6 +402,83 @@ def lookup_fdor(county, parcel):
     return None, None, None
 
 
+# Santa Rosa's own ArcGIS Hub open-data FeatureServer (discovered 2026-09-07,
+# see claude/parcel-format-research.md in the project docs): Santa Rosa's
+# local parcel numbering does not textually resemble the statewide FDOR
+# PARCEL_ID in any tried form (identity, dash/space-stripped, alnum-only,
+# +"R", truncated STR prefixes) - confirmed live across two separate
+# research passes with 5+ samples each, so lookup_fdor() above is a
+# permanent 0% match for this county specifically. This is a free,
+# no-API-key, county-run layer instead, whose own PAR_NUM field matches our
+# stored parcel value almost exactly (5 of 6 live samples: exact identity,
+# or identity with a trailing "M" stripped). It's a parcel/ownership layer,
+# not a CAMA/tax-roll layer, so it lacks just value, year built, living
+# area, legal description and sale history - it can only ever supply owner
+# name, address, lot size (converted from acreage) and a centroid. Its raw
+# attributes are normalized onto FDOR's own field names below so
+# build_update_fields() needs no changes to consume either source.
+SANTA_ROSA_GIS_ENDPOINT = (
+    "https://services.arcgis.com/Eg4L1xEv2R3abuQd/arcgis/rest/services/"
+    "ParcelsOpenData/FeatureServer/0/query"
+)
+SANTA_ROSA_OUT_FIELDS = "PAR_NUM,OwnerName,Addr1,Addr2,Addr3,City,Zip5,CALC_ACRE,PropertyUs"
+
+
+def _santa_rosa_candidates(parcel):
+    parcel = parcel.strip()
+    candidates = [parcel]
+    # Observed live: some stored Santa Rosa parcel values carry a trailing
+    # "M" that this layer's own PAR_NUM does not (e.g. a mobile-home-lot
+    # suffix from the source auction listing). Try both forms.
+    if len(parcel) > 1 and parcel[-1].upper() == "M":
+        candidates.append(parcel[:-1])
+    return candidates
+
+
+def lookup_santa_rosa_gis(parcel):
+    """Santa Rosa-only fallback, tried after lookup_fdor() misses for this
+    county. Same (attrs, centroid, matched_candidate) return shape as
+    lookup_fdor() - (None, None, None) on no match - so main()'s handling
+    doesn't need to know which source actually matched.
+    """
+    for candidate in _santa_rosa_candidates(parcel):
+        safe = candidate.replace("'", "''")
+        params = {
+            "where": f"PAR_NUM='{safe}'",
+            "outFields": SANTA_ROSA_OUT_FIELDS,
+            "returnGeometry": "false",
+            "returnCentroid": "true",
+            "outSR": "4326",
+            "f": "json",
+        }
+        resp = requests.get(SANTA_ROSA_GIS_ENDPOINT, params=params, timeout=20)
+        resp.raise_for_status()
+        data = resp.json()
+        features = data.get("features", [])
+        if not features:
+            continue
+        raw = features[0].get("attributes", {})
+        addr1 = next(
+            (v for v in (raw.get("Addr1"), raw.get("Addr2"), raw.get("Addr3"))
+             if v and str(v).strip()),
+            None,
+        )
+        acres = raw.get("CALC_ACRE")
+        try:
+            lot_sqft = round(float(acres) * 43560) if acres else None
+        except (TypeError, ValueError):
+            lot_sqft = None
+        attrs = {
+            "OWN_NAME": raw.get("OwnerName"),
+            "PHY_ADDR1": addr1,
+            "PHY_CITY": raw.get("City"),
+            "PHY_ZIPCD": raw.get("Zip5"),
+            "LND_SQFOOT": lot_sqft,
+        }
+        return attrs, features[0].get("centroid"), candidate
+    return None, None, None
+
+
 def patch_property(property_id, fields):
     url = f"{SUPABASE_URL}/rest/v1/properties?id=eq.{property_id}"
     patch_headers = dict(HEADERS)
@@ -534,6 +611,16 @@ def main():
                 print(f"  [{county}] ERROR looking up parcel {parcel!r}: {e}", file=sys.stderr)
                 time.sleep(REQUEST_DELAY_SECONDS)
                 continue
+
+            # Santa Rosa-only fallback: FDOR is a confirmed permanent 0% match
+            # for this county (see lookup_santa_rosa_gis()'s docstring), so a
+            # miss there is worth one extra request against the county's own
+            # GIS layer before counting it as a real miss.
+            if attrs is None and COUNTY_ALIASES.get(county, county) == "Santa Rosa":
+                try:
+                    attrs, centroid, matched_candidate = lookup_santa_rosa_gis(parcel)
+                except requests.RequestException as e:
+                    print(f"  [{county}] ERROR looking up parcel {parcel!r} via Santa Rosa GIS: {e}", file=sys.stderr)
 
             if attrs is None:
                 # Left unmarked on purpose - retried on a later run, so a
