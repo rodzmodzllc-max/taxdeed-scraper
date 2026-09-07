@@ -75,6 +75,14 @@ HEADER_MAP = {
     "certificate": "certificate_no", "tax certificate #": "certificate_no",
     "parcel id": "parcel", "parcel #": "parcel", "parcel number": "parcel",
     "parcel identification number": "parcel",
+    # Added 2026-09-07 after confirming on Volusia's LAFT PDF (see
+    # laft_pdf_sources.csv): pdfplumber's text-based table strategy can
+    # cluster this column's "Short Parcel ID Number" header into a cell
+    # that never includes "ID NUMBER", so the exact-string aliases above
+    # never fire and the whole table - real, currently-purchasable
+    # properties included - was being silently discarded as unrecognized.
+    "short parcel": "parcel", "short parcel id": "parcel",
+    "short parcel id number": "parcel",
     "owner": "owner_name", "owners": "owner_name", "owner(s)": "owner_name",
     "name in which assessed": "owner_name",
     "auction date": "sale_date", "sale date": "sale_date",
