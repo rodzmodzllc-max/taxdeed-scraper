@@ -59,7 +59,18 @@ def _cache_path(name: str) -> Path:
 
 
 def load_cache(name: str) -> dict:
-    """Load a harvester's cache, or an empty one. Never raises."""
+    """Load a harvester's cache, or an empty one. Never raises.
+
+    FORCE_HARVEST=true (any of "1"/"true"/"yes", case-insensitive) makes
+    this always return {} regardless of what's on disk - every caller of
+    load_cache() (harvest_laft_pdfs.py, harvest_laft_html.py, and the
+    purchase-price cache in harvest_laft_realtdm.py) then behaves exactly as
+    if nothing had ever been cached, which forces a full, unconditional
+    fetch+parse of everything on the next run. Centralized here rather than
+    duplicated per-harvester so a single env var covers all of them.
+    """
+    if os.environ.get("FORCE_HARVEST", "").strip().lower() in ("1", "true", "yes"):
+        return {}
     try:
         with open(_cache_path(name), encoding="utf-8") as fh:
             data = json.load(fh)
