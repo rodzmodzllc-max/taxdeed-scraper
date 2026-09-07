@@ -87,6 +87,8 @@ from pathlib import Path
 import requests
 from bs4 import BeautifulSoup
 
+from harvest_cache import conditional_get, load_cache, save_cache
+
 HERE = Path(__file__).resolve().parent
 SOURCES_CSV = HERE / "../data/laft_html_sources.csv"
 OUT_DIR = HERE / "../out"
@@ -155,7 +157,8 @@ SCRAPERAPI_ENDPOINT = "https://api.scraperapi.com/"
 SCRAPERAPI_MAX_ATTEMPTS = 3
 SCRAPERAPI_RETRY_DELAY_SECONDS = 4
 
-def fetch(session: requests.Session, url: str) -> requests.Response:
+def fetch(session: requests.Session, url: str, *, extra_headers: dict | None = None,
+          timeout: int = 30) -> requests.Response:
     """GET `url` directly first - this is free and works for every county
     that isn't actually IP-blocked (15 of 18, confirmed live). Only on a 403
     does this fall back to the ScraperAPI proxy (see SCRAPERAPI_KEY comment
@@ -168,8 +171,21 @@ def fetch(session: requests.Session, url: str) -> requests.Response:
     proxy - the fallback is specifically for the IP-block signature (403
     despite a full browser header set), not a general retry-on-any-error
     wrapper, so a genuinely broken/dead source still surfaces as its own
-    distinct error rather than being masked."""
-    resp = session.get(url, headers=BROWSER_HEADERS, timeout=30)
+    distinct error rather than being masked.
+
+    `extra_headers` (added 2026-09-07) layers on top of BROWSER_HEADERS for
+    the direct request only - this is how the change-detection cache (see
+    _CacheAwareFetcher below) sends If-None-Match/If-Modified-Since without
+    this function needing to know anything about caching. The ScraperAPI
+    proxy call deliberately does NOT forward these - its API only takes a
+    target url + api key, no custom request headers - so the 3 proxied
+    counties (Escambia, Columbia, Union) never get a 304 and always do a
+    full fetch+parse. That's a fail-safe default, not a bug: those 3 were
+    never conditional before this change either."""
+    req_headers = dict(BROWSER_HEADERS)
+    if extra_headers:
+        req_headers.update(extra_headers)
+    resp = session.get(url, headers=req_headers, timeout=timeout)
     if resp.status_code != 403:
         resp.raise_for_status()
         return resp
@@ -213,6 +229,23 @@ def fetch(session: requests.Session, url: str) -> requests.Response:
 
     assert last_exc is not None
     raise last_exc
+
+
+class _CacheAwareFetcher:
+    """Adapts fetch() to the plain `.get(url, headers=..., timeout=...)`
+    interface harvest_cache.conditional_get() expects, so this harvester
+    gets the same HTTP-conditional-request + content-hash caching already
+    proven in harvest_laft_pdfs.py, without conditional_get() needing to
+    know anything about fetch()'s ScraperAPI 403 fallback. conditional_get()
+    passes only the conditional validators (If-None-Match/If-Modified-Since)
+    as `headers` - fetch() layers those on top of BROWSER_HEADERS itself."""
+
+    def __init__(self, session: requests.Session):
+        self.session = session
+
+    def get(self, url: str, headers: dict | None = None, timeout: int = 30):
+        return fetch(self.session, url, extra_headers=headers, timeout=timeout)
+
 
 # Confirmed live 2026-08 (see laft_html_sources.csv Notes column for detail
 # per county) - preserved verbatim on every row from that county rather than
@@ -443,21 +476,62 @@ def main() -> int:
     with open(SOURCES_CSV, newline="", encoding="utf-8") as f:
         sources = list(csv.DictReader(f))
 
+    # Change detection - see scripts/harvest_cache.py for the full rationale
+    # and harvest_laft_pdfs.py for the original implementation of this same
+    # pattern. A county whose page is byte-identical to the one we already
+    # parsed costs nothing beyond (at most) the direct-fetch round trip,
+    # instead of a full BeautifulSoup extract_rows() pass over every <table>
+    # on the page. Any cache problem falls straight through to the original
+    # fetch-and-parse path, so the worst case is simply the old behaviour.
+    cache = load_cache("laft_html")
+    new_cache: dict = {}
+    reused = 0
+
     all_rows: list[dict] = []
     session = requests.Session()
+    fetcher = _CacheAwareFetcher(session)
     for i, src in enumerate(sources, 1):
         county, url = src["County"], src["Url"]
         print(f"[{i}/{len(sources)}] {county}", flush=True)
+        entry = cache.get(url)
         try:
-            resp = fetch(session, url)
-            rows = extract_rows(resp.content, county, url)
-            if rows:
-                print(f"    {len(rows)} properties", flush=True)
-                all_rows.extend(rows)
+            status, content, validators = conditional_get(fetcher, url, entry, timeout=30)
+
+            if status in ("not_modified", "unchanged") and entry and "rows" in entry:
+                rows = entry["rows"]
+                reused += 1
+                why = "server says unchanged" if status == "not_modified" else "identical content"
+                print(f"    unchanged ({why}) - reusing {len(rows)} cached rows, parse skipped", flush=True)
             else:
-                print("    no properties currently listed", flush=True)
+                if content is None:
+                    # 304 but no cached rows to reuse (cache was cleared, or
+                    # this entry predates row caching) - refetch
+                    # unconditionally rather than reporting zero rows.
+                    resp = fetch(session, url)
+                    content = resp.content
+                rows = extract_rows(content, county, url)
+                if rows:
+                    print(f"    {len(rows)} properties", flush=True)
+                else:
+                    print("    no properties currently listed", flush=True)
+
+            all_rows.extend(rows)
+            # Only cache rows we actually believe in - caching a zero-row
+            # parse would let one bad parse suppress a county until the page
+            # changes (same discipline as harvest_laft_pdfs.py).
+            if rows:
+                validators["rows"] = rows
+                new_cache[url] = validators
         except Exception as exc:  # noqa: BLE001 - one bad county must not kill the whole run
             print(f"    ERROR: {exc}", flush=True)
+            # Keep the previous good entry so a transient failure doesn't
+            # also throw away a usable cache for the next run.
+            if entry:
+                new_cache[url] = entry
+
+    save_cache("laft_html", new_cache)
+    if reused:
+        print(f"\n{reused} of {len(sources)} sources were unchanged - parse skipped for those.", flush=True)
 
     with open(OUT_JSON, "w", encoding="utf-8") as f:
         json.dump(all_rows, f, indent=2)
