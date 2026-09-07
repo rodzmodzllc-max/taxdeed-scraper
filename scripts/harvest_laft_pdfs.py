@@ -48,6 +48,8 @@ from pathlib import Path
 import pdfplumber
 import requests
 
+from harvest_cache import conditional_get, load_cache, save_cache
+
 HERE = Path(__file__).resolve().parent
 SOURCES_CSV = HERE / "../data/laft_pdf_sources.csv"
 OUT_DIR = HERE / "../out"
@@ -337,21 +339,60 @@ def main() -> int:
     with open(SOURCES_CSV, newline="", encoding="utf-8") as f:
         sources = list(csv.DictReader(f))
 
+    # Change detection - see scripts/harvest_cache.py for the full rationale.
+    # A county whose PDF is byte-identical to the one we already parsed costs
+    # nothing beyond (at most) the download, instead of a full pdfplumber
+    # parse. Any cache problem falls straight through to the original
+    # fetch-and-parse path, so the worst case is simply the old behaviour.
+    cache = load_cache("laft_pdf")
+    new_cache: dict = {}
+    reused = 0
+
     all_rows: list[dict] = []
     for i, src in enumerate(sources, 1):
         county, url = src["County"], src["Url"]
         print(f"[{i}/{len(sources)}] {county}", flush=True)
+        entry = cache.get(url)
         try:
-            resp = requests.get(url, headers={"User-Agent": UA}, timeout=30)
-            resp.raise_for_status()
-            rows = extract_rows(resp.content, county, url)
-            if rows:
-                print(f"      {len(rows)} properties", flush=True)
-                all_rows.extend(rows)
+            status, content, validators = conditional_get(
+                requests, url, entry, headers={"User-Agent": UA}, timeout=30
+            )
+
+            if status in ("not_modified", "unchanged") and entry and "rows" in entry:
+                rows = entry["rows"]
+                reused += 1
+                why = "server says unchanged" if status == "not_modified" else "identical content"
+                print(f"      unchanged ({why}) - reusing {len(rows)} cached rows, parse skipped", flush=True)
             else:
-                print("      no properties currently listed", flush=True)
+                if content is None:
+                    # 304 but we have no cached rows to reuse (cache was
+                    # cleared, or this entry predates row caching). Refetch
+                    # unconditionally rather than reporting zero rows.
+                    resp = requests.get(url, headers={"User-Agent": UA}, timeout=30)
+                    resp.raise_for_status()
+                    content = resp.content
+                rows = extract_rows(content, county, url)
+                if rows:
+                    print(f"      {len(rows)} properties", flush=True)
+                else:
+                    print("      no properties currently listed", flush=True)
+
+            all_rows.extend(rows)
+            # Only cache rows we actually believe in. Caching a zero-row parse
+            # would let one bad parse suppress a county until the PDF changed.
+            if rows:
+                validators["rows"] = rows
+                new_cache[url] = validators
         except Exception as exc:  # noqa: BLE001 - one bad county must not kill the whole run
             print(f"      ERROR: {exc}", flush=True)
+            # Keep the previous good entry so a transient failure doesn't also
+            # throw away a usable cache for the next run.
+            if entry:
+                new_cache[url] = entry
+
+    save_cache("laft_pdf", new_cache)
+    if reused:
+        print(f"\n{reused} of {len(sources)} sources were unchanged - parse skipped for those.", flush=True)
 
     with open(OUT_JSON, "w", encoding="utf-8") as f:
         json.dump(all_rows, f, indent=2)
