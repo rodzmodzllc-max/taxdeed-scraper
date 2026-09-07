@@ -109,10 +109,27 @@ name: Harvest FL tax deed data and sync to Supabase
 #   format already handled, and a new harvester is needed to add another
 #   platform.
 #
-# All three jobs upload their raw harvest as a workflow artifact (30-day
-# retention) regardless of whether the Supabase sync succeeds, so a bad sync
-# never means lost data - re-run just the sync by hand from the artifact if
+# All three harvest jobs upload their raw harvest as a workflow artifact
+# (30-day retention) regardless of whether the Supabase sync succeeds, so a bad
+# sync never means lost data - re-run just the sync by hand from the artifact if
 # needed.
+#
+# backup: a fourth job (scripts/export_backup.py) exports the live Supabase
+#   tables to plain JSON/CSV as a 90-day artifact. A raw harvest artifact only
+#   preserves what the counties published that day; it can NOT restore hand
+#   research (lien_level/lien_note/notes/favorites), the FDOR enrichment
+#   (just value, parcel coordinates, year built, living area, lot size, legal
+#   description, sale history), or the status/gone_since history that is
+#   derived from the sequence of harvests over time. This job is deliberately
+#   independent of the harvest jobs, so it still runs - and still produces a
+#   restorable copy - on a day when a harvester is broken.
+#
+# Change detection: the LAFT harvesters consult scripts/harvest_cache.py, which
+#   records each source's ETag / Last-Modified / content hash between runs (via
+#   the actions/cache step in the laft job). A county whose published list is
+#   unchanged since the last run skips the expensive re-parse entirely instead
+#   of being re-downloaded and re-parsed from scratch every single run. Any
+#   cache miss falls straight through to the original full fetch-and-parse.
 
 on:
   schedule:
@@ -242,6 +259,21 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+
+      - name: Restore harvest change-detection cache
+        # Persists scripts/harvest_cache.py's per-source ETag / Last-Modified /
+        # content-hash record between runs, which is what lets the harvesters
+        # skip re-parsing a county whose published list hasn't changed since
+        # last time. Rolling-cache pattern: the unique key means every run
+        # saves a fresh entry, and restore-keys pulls the most recent previous
+        # one. A cache miss is harmless - the harvesters simply do the full
+        # fetch-and-parse they always did.
+        uses: actions/cache@v4
+        with:
+          path: out/.harvest_cache
+          key: harvest-cache-laft-${{ github.run_id }}
+          restore-keys: |
+            harvest-cache-laft-
 
       - name: Install Python dependencies
         run: pip install pdfplumber requests beautifulsoup4 playwright
@@ -381,3 +413,45 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: ./scripts/sync-laft-to-supabase.ps1
+
+  backup:
+    name: Export database backup
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # Runs on the daily 12:00 UTC schedule alongside certificates/laft, and on
+    # any manual dispatch. Deliberately does NOT depend on the harvest jobs:
+    # the whole point is to capture what is in the database, so it must still
+    # produce a backup on a day when a harvester is broken - that is exactly
+    # the day a backup matters most.
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 12 * * *'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python dependencies
+        run: pip install requests
+
+      - name: Export Supabase tables to portable JSON/CSV
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/export_backup.py
+
+      - name: Upload database backup as artifact
+        # 90 days rather than the harvest jobs' 30: a raw harvest is
+        # reproducible by re-running the scraper, but hand research, the FDOR
+        # enrichment and the status/gone_since history in these tables are not
+        # reproducible from any source. Longer retention costs nothing and is
+        # the difference between an inconvenience and permanent data loss.
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: db-backup-${{ github.run_id }}
+          path: out/backup/
+          retention-days: 90
+          if-no-files-found: error
