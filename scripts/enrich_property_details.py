@@ -71,6 +71,7 @@ the layer exposes 121 fields rather than the 4 originally used):
 """
 import os
 import random
+import re
 import sys
 import time
 from datetime import datetime, timezone
@@ -213,6 +214,31 @@ COUNTY_ALIASES = {
 # cheap extra equality try that can only produce a false positive if some
 # other county's real PARCEL_ID happens to exactly equal
 # <our value>+"R", which is not realistic.
+# Added 2026-09-07 after live-testing Clay County (the roadmap's own
+# "blocked" list): Clay stores its RE-number with the section-township-range
+# collapsed into one 6-digit block before the first dash (e.g.
+# "410426-020240-000-00"), but FDOR's own PARCEL_ID for that identical
+# parcel splits STR into three explicit 2-digit groups instead
+# ("41-04-26-020240-000-00"). Confirmed live: 10/10 fresh unmatched Clay
+# samples matched FDOR exactly once expanded this way, with zero prior
+# candidates matching any of them. Kept generic (not Clay-only) - any other
+# county following the same six-digit-STR-block-then-dash convention would
+# benefit identically, and this returns None (no extra HTTP request spent)
+# for every county whose parcel doesn't start with exactly six digits then a
+# dash, which is why it's cheap to always try: checked live against fresh
+# samples from Brevard/Flagler/Lake/Suwannee and none of those four match
+# this shape (Brevard/Suwannee are bare digit strings with no dashes at
+# all, Flagler is a 20-char alphanumeric STRAP with no dashes, Lake's first
+# dash-delimited group is 10 digits, not 6) - so this is additive for Clay
+# without changing behavior for anyone else.
+_SIX_DIGIT_STR_BLOCK = re.compile(r"^(\d{2})(\d{2})(\d{2})-(.+)$")
+def _expand_str_block(parcel):
+    m = _SIX_DIGIT_STR_BLOCK.match(parcel)
+    if not m:
+        return None
+    return f"{m.group(1)}-{m.group(2)}-{m.group(3)}-{m.group(4)}"
+
+
 def normalize_candidates(parcel):
     parcel = parcel.strip()
     seen = set()
@@ -226,6 +252,10 @@ def normalize_candidates(parcel):
         if value and value not in seen:
             seen.add(value)
             candidates.append(value)
+    expanded = _expand_str_block(parcel)
+    if expanded and expanded not in seen:
+        seen.add(expanded)
+        candidates.append(expanded)
     for value in list(candidates):
         with_r = value + "R"
         if with_r not in seen:
