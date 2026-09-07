@@ -447,6 +447,47 @@ await page.click('#exportCsvBtn');
 const download = await downloadPromise;
 results.csvDownloadFilename = download.suggestedFilename();
 
+// The export's column list is a second, parallel copy of the card's field
+// list, and the two can drift apart silently - a column added to the card
+// and forgotten here exports a spreadsheet that is quietly missing the
+// thing the user filtered on. So read the file back and check the tax-roll
+// columns are there, in order, and that the enriched row's cells line up
+// under them.
+{
+  const csvText = fs.readFileSync(await download.path(), 'utf8');
+  const parseCsvLine = line => {
+    const out = []; let cur = '', q = false;
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (q) { if (c === '\"') { if (line[i + 1] === '\"') { cur += '\"'; i++; } else q = false; } else cur += c; }
+      else if (c === '\"') q = true;
+      else if (c === ',') { out.push(cur); cur = ''; }
+      else cur += c;
+    }
+    out.push(cur); return out;
+  };
+  const lines = csvText.split('\r\n').filter(Boolean);
+  const hdr = parseCsvLine(lines[0]);
+  const TAXROLL = ['Year Built', 'Living Area (sq ft)', 'Lot Size (sq ft)', 'Buildings',
+                   'Land Value', 'Last Sale Price', 'Last Sale Year', 'Legal Description'];
+  results.csvTaxRollColumns = TAXROLL.every(c => hdr.includes(c))
+    && TAXROLL.map(c => hdr.indexOf(c)).every((n, i, a) => i === 0 || n === a[i - 1] + 1);
+  // The just-value year travels as its own column rather than being baked
+  // into the heading, so a sheet mixing roll years is still readable.
+  results.csvValueYearColumn = hdr[hdr.indexOf('County Just Value') + 1] === 'Just Value Year';
+  // Every data row must have exactly as many cells as the header - the
+  // legal description contains commas, so an escaping slip shows up here.
+  results.csvRowsWellFormed = lines.slice(1).every(l => parseCsvLine(l).length === hdr.length);
+  const enriched = lines.slice(1).map(parseCsvLine)
+    .find(c => c[hdr.indexOf('Address')] === '1 Main St');
+  // Raw numbers, not the card's display strings: 43,560 sq ft reads as
+  // "1.00 acres" on a card but has to stay sortable in a spreadsheet.
+  results.csvEnrichedCells = ['County Just Value', 'Just Value Year', ...TAXROLL.slice(0, 7)]
+    .map(c => enriched ? enriched[hdr.indexOf(c)] : '?').join('|');
+  results.csvLegalUnclamped = !!enriched
+    && enriched[hdr.indexOf('Legal Description')].endsWith('S 50 FT TO POB');
+}
+
 // --- detail modal: needs a visible "View full property page" link, so
 // make sure everything is expanded again first (county quick-select above
 // only guarantees Duval). ---
@@ -929,6 +970,11 @@ const EXPECTED = {
   typeCountBadgeTextAfterNone: '0/7',
   typeCountBadgeTextAfterAll: '7/7',
   csvDownloadFilename: /^taxdeed-auction-\d{4}-\d{2}-\d{2}\.csv$/,
+  csvTaxRollColumns: true,
+  csvValueYearColumn: true,
+  csvRowsWellFormed: true,
+  csvEnrichedCells: '90000|2025|1958|1840|16456|1|22000|41500|2011',
+  csvLegalUnclamped: true,
   detailStatLabels: [
     'Opening Bid', '2025 County Just Value', 'County Assessed Value', 'Land Value',
     // "Fees i" - the label carries an info tooltip glyph.
