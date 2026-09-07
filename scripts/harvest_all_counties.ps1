@@ -48,7 +48,25 @@ function ToNum($s) {
 }
 
 $counties = Import-Csv $csv
-$all = @()
+# A List + HashSet rather than a plain @() array, for two separate reasons -
+# both of which were real, measured costs, not micro-optimisation:
+#
+#  1. `$all += $x` on a PowerShell array ALLOCATES A WHOLE NEW ARRAY and
+#     copies every existing element, every single time. Appending n rows is
+#     O(n^2) copying.
+#  2. The dedupe below used to be `if ($all | Where-Object { $_._key -eq $key })`
+#     - a full pipeline scan of every row harvested so far, run once per
+#     property block seen. At the volume this harvest now runs at (~12,000
+#     blocks seen to keep ~3,600 rows) that is ~20 MILLION comparisons,
+#     versus ~12,000 hash probes for the same result - and it degrades
+#     quadratically as more counties/inventory are added, so it gets worse
+#     precisely as the project grows.
+#
+# A HashSet lookup is O(1) and List.Add() is amortised O(1), so both costs
+# collapse to linear. Behaviour is otherwise identical: same rows, same
+# order, same first-wins dedupe semantics.
+$all = [System.Collections.Generic.List[object]]::new()
+$seenKeys = [System.Collections.Generic.HashSet[string]]::new()
 $ci = 0
 
 foreach ($c in $counties) {
@@ -113,7 +131,10 @@ foreach ($c in $counties) {
                 if (-not $case) { continue }
                 $case = ($case -replace '<[^>]+>','').Trim()
                 $key = "$($c.County)|$case"
-                if ($all | Where-Object { $_._key -eq $key }) { continue }
+                # HashSet.Add() returns $false if the key was already present,
+                # so this is both the membership test and the insert in one
+                # O(1) call - same first-wins semantics as the old scan.
+                if (-not $seenKeys.Add($key)) { continue }
                 $newOnPage++
 
                 $bid = ToNum (Get-Field $b 'Opening Bid')
@@ -124,8 +145,7 @@ foreach ($c in $counties) {
                 $city = if ($cityM.Success) { ($cityM.Groups[1].Value -replace '\s+',' ').Trim() } else { "" }
                 $addr = (($addrLine + ", " + $city) -replace '^,\s*','' -replace ',\s*$','').Trim()
 
-                $all += [pscustomobject]@{
-                    _key        = $key
+                $all.Add([pscustomobject]@{
                     # Use the CSV's County column as-is - it already matches the
                     # frontend's canonical spelling (e.g. "Miami-Dade", "St. Lucie").
                     # This used to run `-replace '-',' '` here, which silently
@@ -147,7 +167,7 @@ foreach ($c in $counties) {
                     appraiser   = Get-Href $b 'Parcel ID'
                     address     = $addr
                     auction_url = "https://$hostName/index.cfm?zaction=AUCTION&zmethod=PREVIEW&AuctionDate=$date"
-                }
+                })
                 $kept++
             }
             if ($newOnPage -eq 0) { break }
@@ -156,7 +176,10 @@ foreach ($c in $counties) {
     }
 }
 
-$all | Select-Object * -ExcludeProperty _key | ConvertTo-Json -Depth 4 | Set-Content $outJson -Encoding utf8
+# `_key` is no longer a property on these objects (the HashSet holds the dedupe
+# keys instead), so there is nothing left to exclude here - the emitted JSON is
+# byte-for-byte the same shape it always was.
+$all | ConvertTo-Json -Depth 4 | Set-Content $outJson -Encoding utf8
 $all | Select-Object county,sale_date,case,bid,assessed,parcel,address,appraiser,auction_url |
     Export-Csv $outCsv -NoTypeInformation -Encoding utf8
 
