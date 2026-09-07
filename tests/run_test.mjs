@@ -138,6 +138,15 @@ await page.selectOption('#sortBy', 'bidDesc');
 await page.waitForTimeout(150);
 const firstMeta = await page.locator('.prop-card .card-stat-val.bid').first().textContent();
 results.sortByBidDescFirst = firstMeta.trim();
+// New yield-desk sort options exist and don't error out when applied (only
+// one certificate fixture row exists, so there's nothing to prove about
+// ordering here - see tests/vendor/supabase-stub.js - just that selecting
+// either doesn't throw and the list still renders).
+results.sortByHasInterestOption = (await page.locator('#sortBy option[value="interestDesc"]').count()) === 1;
+results.sortByHasExpSoonOption = (await page.locator('#sortBy option[value="expSoonAsc"]').count()) === 1;
+await page.selectOption('#sortBy', 'interestDesc');
+await page.waitForTimeout(100);
+results.cardCountAfterInterestSort = await page.locator('.prop-card').count();
 await page.selectOption('#sortBy', 'county');
 
 // --- status chips ---
@@ -289,6 +298,37 @@ results.certCardAccount = (await page.locator('.cert-card .card-stat-grid .card-
 results.certCardExpires = (await page.locator('.cert-card .card-stat-grid .card-stat').nth(2).locator('.card-stat-val').textContent() || '').trim();
 results.certCardCta = await page.locator('.cert-card .cta-btn').first().textContent();
 results.certCardExpiresCountdown = await page.locator('.cert-card .countdown').count();
+
+// --- "yield desk" additions: the stat grid grows from 3 to 6 boxes
+// (Interest Rate / Est. Accrued Interest / TDA Eligibility appended after
+// the original three), plus a redemption-status pill next to the
+// expiration countdown. p4's issued_date (2023-06-01) is fixed and more
+// than CERT_TDA_WAIT_YEARS in the past, so "Eligible now" never drifts.
+// The accrued-interest dollar figure IS time-relative (simple interest
+// accrues every day), so it's checked against an independently-computed
+// expectation with a small tolerance rather than a frozen string - same
+// pattern this suite already uses for other date-relative fields.
+//
+// No detail modal opens here - opening one anywhere before the .prop-card
+// exact-count assertions further down (cardCountBackOnAuctionTab, the
+// search/county-quick counts, archive counts) would permanently add
+// #detailModalInner's own .prop-card class to the page and throw every one
+// of them off by +1 (the exact bug the LAFT bare-land check hit last
+// phase). The cert detail-page assertions live later in this file instead,
+// grouped with that same relocated block. ---
+results.certCardStatCount = await page.locator('.cert-card .card-stat-grid .card-stat').count();
+results.certCardInterestRate = (await page.locator('.cert-card .card-stat-grid .card-stat').nth(3).locator('.card-stat-val').textContent() || '').trim();
+results.certCardTdaEligibility = (await page.locator('.cert-card .card-stat-grid .card-stat').nth(5).locator('.card-stat-val').textContent() || '').trim();
+results.certCardStatusPill = (await page.locator('.cert-card .pill').textContent() || '').trim();
+const certAccruedText = (await page.locator('.cert-card .card-stat-grid .card-stat').nth(4).locator('.card-stat-val').textContent() || '').trim();
+{
+  // Mirrors accruedInterestEst(p4) in public/app.js exactly.
+  const issuedMs = Date.UTC(2023, 5, 1);
+  const years = Math.max(0, (Date.now() - issuedMs) / (365.25 * 86400000));
+  const expected = 1234.56 * 0.18 * years;
+  const got = Number(certAccruedText.replace(/[^0-9.]/g, ''));
+  results.certCardAccruedInterestPlausible = Math.abs(got - expected) < 2 && certAccruedText.startsWith('$');
+}
 
 // --- switch back to Auctions tab - expandedCounties from before should still hold ---
 await page.click('.ledger-tab[data-ledger="auction"]');
@@ -494,6 +534,14 @@ results.csvDownloadFilename = download.suggestedFilename();
   const enriched = lines.slice(1).map(parseCsvLine)
     .find(c => c[hdr.indexOf('Address')] === '1 Main St');
   results.csvHomesteadBlankForP1 = !!enriched && enriched[hdr.indexOf('Homestead Exemption')] === '';
+  // The two yield-desk columns are shared across all three ledgers' exports
+  // (one cols array, filtered by row - see the note on the tax-roll columns
+  // above about drift) - blank for a non-certificate row, not "N/A" or "0".
+  results.csvAccruedInterestColumn = hdr.includes('Est. Accrued Interest');
+  results.csvTdaEligibilityColumn = hdr.includes('TDA Eligibility Date');
+  results.csvYieldColumnsBlankForP1 = !!enriched
+    && enriched[hdr.indexOf('Est. Accrued Interest')] === ''
+    && enriched[hdr.indexOf('TDA Eligibility Date')] === '';
   // Raw numbers, not the card's display strings: 43,560 sq ft reads as
   // "1.00 acres" on a card but has to stay sortable in a spreadsheet.
   const ENRICHED_KEYS = ['County Just Value', 'Just Value Year', 'Year Built', 'Living Area (sq ft)',
@@ -639,6 +687,31 @@ if ((await page.locator('#expandAllBtn').textContent()) === 'Expand all') {
   await page.click('#expandAllBtn');
   await page.waitForTimeout(200);
 }
+
+// --- "junk land" quick filters: laft-only row, checked against the one
+// LAFT fixture (p3), which land_value===market makes bare land (see the
+// isBareLand branch this reuses) but is NOT a sliver (lot_sqft 43560 = 1
+// full acre) - so hideBareLandOnly should remove it and hideSlivers should
+// not. No new fixture row needed, and no detail modal opens here either. ---
+results.junkLandRowVisibleOnLaft = await page.locator('#junkLandRow').isVisible();
+// Scoped to #main, not bare .prop-card - #detailModalInner permanently
+// gains the .prop-card class after the very first detail-modal open
+// anywhere in this file (see the note further up), and by this point in
+// the suite one has already happened. #main never contains that shell.
+const mainCards = () => page.locator('#main .prop-card');
+results.laftCountBeforeJunkFilters = await mainCards().count();
+await page.click('#hideSliversOnly');
+await page.waitForTimeout(150);
+results.laftCountAfterHideSlivers = await mainCards().count();
+await page.click('#hideSliversOnly');
+await page.waitForTimeout(150);
+await page.click('#hideBareLandOnly');
+await page.waitForTimeout(150);
+results.laftCountAfterHideBareLand = await mainCards().count();
+await page.click('#hideBareLandOnly');
+await page.waitForTimeout(150);
+results.laftCountAfterUncheckingFilters = await mainCards().count();
+
 await page.locator('.prop-card').first().locator('.detail-btn').first().click();
 await page.waitForTimeout(300);
 results.laftBareLandStat = await page.evaluate(() => {
@@ -654,6 +727,78 @@ results.linkIconPresent = (await page.locator('.prop-links a').first().innerHTML
 // p1 (Alachua, clean/12x+ ratio potential) should be a top pick - confirm the
 // upgraded pill-style banner renders with its ratio callout.
 results.toppickBannerText = (await page.locator('.toppick-banner').first().textContent().catch(() => '')) || '';
+
+// --- junk-land row is laft-only; the CSV export button and auction cards'
+// equity-spread bar are per-ledger too. Auction ledger is active here. ---
+results.junkLandRowHiddenOnAuction = await page.locator('#junkLandRow').isHidden();
+results.exportBtnLabelAuction = (await page.locator('#exportCsvBtn').textContent() || '').trim();
+// p1 (bid 5000, market 90000) clears the bidPublished/marketVal>0 guard, so
+// its card should carry the bar; p2 (dropped/closed) shouldn't, since a
+// closed auction's bid-vs-value comparison stopped being the point.
+results.spreadBarPresentP1 = await page.locator('.prop-card:has-text("1 Main St") .spread-bar').count();
+
+// --- Certificates: the full property page carries two more derived
+// figures than the card (Est. Total Return needs the extra room), both
+// with an explanation tooltip. Safe to open here - every exact .prop-card
+// count assertion in this file has already run. ---
+await page.click('.ledger-tab[data-ledger="certificate"]');
+await page.waitForTimeout(150);
+results.exportBtnLabelCertificate = (await page.locator('#exportCsvBtn').textContent() || '').trim();
+
+// The certificate export is where the two yield columns actually carry a
+// value - re-download here (filename is ledger-scoped: taxdeed-certificate-
+// ...) and check p4's row instead of trusting the auction export above to
+// prove both branches.
+{
+  const certDownloadPromise = page.waitForEvent('download');
+  await page.click('#exportCsvBtn');
+  const certDownload = await certDownloadPromise;
+  const csvText = fs.readFileSync(await certDownload.path(), 'utf8');
+  const parseCsvLine = line => {
+    const out = []; let cur = '', q = false;
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (q) { if (c === '\"') { if (line[i + 1] === '\"') { cur += '\"'; i++; } else q = false; } else cur += c; }
+      else if (c === '\"') q = true;
+      else if (c === ',') { out.push(cur); cur = ''; }
+      else cur += c;
+    }
+    out.push(cur); return out;
+  };
+  const lines = csvText.split('\r\n').filter(Boolean);
+  const hdr = parseCsvLine(lines[0]);
+  const row = parseCsvLine(lines[1]);
+  const issuedMs = Date.UTC(2023, 5, 1);
+  const years = Math.max(0, (Date.now() - issuedMs) / (365.25 * 86400000));
+  const expected = 1234.56 * 0.18 * years;
+  const got = Number(row[hdr.indexOf('Est. Accrued Interest')]);
+  results.csvCertAccruedPlausible = Math.abs(got - expected) < 2;
+  results.csvCertTdaDate = row[hdr.indexOf('TDA Eligibility Date')];
+}
+
+if ((await page.locator('#expandAllBtn').textContent()) === 'Expand all') {
+  await page.click('#expandAllBtn');
+  await page.waitForTimeout(200);
+}
+await page.locator('.cert-card').first().locator('.detail-btn').first().click();
+await page.waitForTimeout(300);
+const certDetailText = await page.locator('#detailModalInner').textContent();
+results.certDetailHasAccrued = /Est\. Accrued Interest/.test(certDetailText);
+results.certDetailHasTotalReturn = /Est\. Total Return/.test(certDetailText);
+results.certDetailTdaEligibleNow = /TDA Eligibility[\s\S]{0,40}Eligible now/.test(certDetailText);
+results.certDetailYieldInfoTips = await page.locator(
+  '#detailModalInner .detail-stat:has-text("Est. Accrued Interest") .info-tip, ' +
+  '#detailModalInner .detail-stat:has-text("TDA Eligibility") .info-tip'
+).count();
+await page.click('[data-action="closedetail"]');
+await page.waitForTimeout(150);
+await page.click('.ledger-tab[data-ledger="laft"]');
+await page.waitForTimeout(150);
+results.exportBtnLabelLaft = (await page.locator('#exportCsvBtn').textContent() || '').trim();
+results.laftPurchasePriceLabel = (await page.locator('.prop-card .card-stat-label').first().textContent() || '').trim();
+results.laftCtaText = (await page.locator('.prop-card .cta-btn').first().textContent() || '').trim();
+await page.click('.ledger-tab[data-ledger="auction"]');
+await page.waitForTimeout(150);
 
 // --- My Bid List: a small capped shortlist (⚐/⚑), separate from the
 // uncapped ♥ Favorites - add from a card, open the modal, remove from
@@ -873,6 +1018,50 @@ await page.goto(BASE_URL + '?profile=admin', { waitUntil: 'networkidle' });
 await page.waitForTimeout(1400);
 results.freshnessBadgesForAdmin = await page.locator('.freshness-badge').count();
 
+// --- Desktop-width layout check (>=1024px breakpoint) ---
+// Everything above ran at the 390x844 mobile viewport, where the three
+// ledgers deliberately look identical (a single-column list) - the whole
+// point of the CSS in this phase only exists at desktop widths. Rather than
+// trust the stylesheet by reading selectors, read the actual computed
+// layout the browser produces, the same way the earlier flexbox
+// min-size-0 bug was only caught by checking getComputedStyle for real
+// instead of assuming the rule fired.
+await page.setViewportSize({ width: 1280, height: 900 });
+await page.goto(BASE_URL + '#/auctions', { waitUntil: 'networkidle' });
+await page.waitForTimeout(600);
+if ((await page.locator('#expandAllBtn').textContent()) === 'Expand all') {
+  await page.click('#expandAllBtn');
+  await page.waitForTimeout(200);
+}
+results.desktopAuctionListSingleColumn = await page.locator('.prop-list').first().evaluate(el =>
+  getComputedStyle(el).gridTemplateColumns.trim().split(' ').length === 1);
+await page.locator('.prop-card').first().locator('.detail-btn').first().click();
+await page.waitForTimeout(300);
+results.desktopAuctionModalDocksRight = await page.locator('#detailModal').evaluate(el =>
+  getComputedStyle(el).justifyContent === 'flex-end');
+await page.click('[data-action="closedetail"]');
+await page.waitForTimeout(150);
+
+await page.click('.ledger-tab[data-ledger="laft"]');
+await page.waitForTimeout(400);
+if ((await page.locator('#expandAllBtn').textContent()) === 'Expand all') {
+  await page.click('#expandAllBtn');
+  await page.waitForTimeout(200);
+}
+results.desktopLaftListIsMultiColumn = await page.locator('.prop-list').first().evaluate(el =>
+  getComputedStyle(el).gridTemplateColumns.trim().split(' ').length > 1);
+
+await page.click('.ledger-tab[data-ledger="certificate"]');
+await page.waitForTimeout(400);
+if ((await page.locator('#expandAllBtn').textContent()) === 'Expand all') {
+  await page.click('#expandAllBtn');
+  await page.waitForTimeout(200);
+}
+results.desktopCertListSingleColumn = await page.locator('.prop-list').first().evaluate(el =>
+  getComputedStyle(el).gridTemplateColumns.trim().split(' ').length === 1);
+results.desktopCertCardIsRow = await page.locator('.cert-card').first().evaluate(el =>
+  getComputedStyle(el).display === 'flex');
+
 await browser.close();
 
 // ============================================================
@@ -902,6 +1091,11 @@ const EXPECTED = {
   countyGroupsPresentForThatCheck: true,
   // Gone for everyone now, admin included.
   freshnessBadgesForAdmin: 0,
+  desktopAuctionListSingleColumn: true,
+  desktopAuctionModalDocksRight: true,
+  desktopLaftListIsMultiColumn: true,
+  desktopCertListSingleColumn: true,
+  desktopCertCardIsRow: true,
   watchlistChipLabel: '⚑ Watchlist 0/10',
   ledgerHashes: ['#/auctions', '#/lands', '#/certificates'],
   ledgerDocAttr: ['auction', 'laft', 'certificate'],
@@ -957,6 +1151,9 @@ const EXPECTED = {
   bidMinCardCountAfter: 2,
   bidMinBeforeCount: 9,
   sortByBidDescFirst: '$11,000.00',
+  sortByHasInterestOption: true,
+  sortByHasExpSoonOption: true,
+  cardCountAfterInterestSort: 9,
   goneChipOn: true,
   cardsUnderGoneView: 0,
   heartTextBefore: '♡',
@@ -997,6 +1194,11 @@ const EXPECTED = {
   laftValueLabel: '2024 County Just Value',
   laftHomesteadBadge: 'Homestead',
   laftBareLandStat: 'None (bare land)',
+  junkLandRowVisibleOnLaft: true,
+  laftCountBeforeJunkFilters: 1,
+  laftCountAfterHideSlivers: 1,
+  laftCountAfterHideBareLand: 0,
+  laftCountAfterUncheckingFilters: 1,
   laftGroupMeta: 'Lands Available - fixed price, available now',
   certCardCount: 1,
   certCardTitle: 'Certificate #CERT-42',
@@ -1005,6 +1207,11 @@ const EXPECTED = {
   certCardExpires: /^[A-Z][a-z]{2} \d{1,2}, \d{4}$/,
   certCardCta: 'View on County-Held Liens List',
   certCardExpiresCountdown: 1,
+  certCardStatCount: 6,
+  certCardInterestRate: '18%',
+  certCardTdaEligibility: 'Eligible now',
+  certCardStatusPill: 'Active',
+  certCardAccruedInterestPlausible: true,
   cardCountBackOnAuctionTab: 8,
   pastDueCardVisibleDefault: 0,
   pastDueCardVisibleAllView: 0,
@@ -1056,6 +1263,9 @@ const EXPECTED = {
   csvValueYearColumn: true,
   csvRowsWellFormed: true,
   csvHomesteadColumn: true,
+  csvAccruedInterestColumn: true,
+  csvTdaEligibilityColumn: true,
+  csvYieldColumnsBlankForP1: true,
   csvHomesteadBlankForP1: true,
   csvEnrichedCells: '90000|2025|1958|1840|16456|1|22000|68000|41500|2011',
   csvLegalUnclamped: true,
@@ -1094,6 +1304,19 @@ const EXPECTED = {
   infoTipCount: 4,
   linkIconPresent: true,
   toppickBannerText: '★ Top pick 18.0× market vs bid',
+  junkLandRowHiddenOnAuction: true,
+  exportBtnLabelAuction: '⬇ Export to Auction Sheet',
+  spreadBarPresentP1: 1,
+  exportBtnLabelCertificate: '⬇ Export Yield Ledger (CSV)',
+  csvCertAccruedPlausible: true,
+  csvCertTdaDate: '2025-06-01',
+  certDetailHasAccrued: true,
+  certDetailHasTotalReturn: true,
+  certDetailTdaEligibleNow: true,
+  certDetailYieldInfoTips: 2,
+  exportBtnLabelLaft: '⬇ Export OTC List (CSV)',
+  laftPurchasePriceLabel: 'Purchase Price',
+  laftCtaText: 'View Clerk Docket / Listing',
   bidListChipTextInitial: '0/10',
   bidBtnIconBefore: '⚐',
   bidBtnIconAfterAdd: '⚑',
