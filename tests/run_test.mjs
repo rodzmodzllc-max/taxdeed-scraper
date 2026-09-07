@@ -264,6 +264,15 @@ await page.locator('.county-group[data-county="Bay"] summary.county-head').click
 await page.waitForTimeout(200);
 results.laftSpecBits = await page.locator('.prop-card').first().locator('.prop-spec span').allTextContents();
 results.laftValueLabel = (await page.locator('.prop-card').first().locator('.card-stat-label').nth(1).textContent() || '').trim();
+// p3 is the one fixture row with homestead:true - the badge should show up
+// right on the card, not just buried in the detail page, since it's exactly
+// the kind of risk flag a bidder needs before clicking into anything.
+results.laftHomesteadBadge = (await page.locator('.prop-card').first().locator('.lien-pill.homestead').textContent() || '').trim();
+// The bare-land branch (p3) is checked later, in the detail-modal section -
+// #detailModalInner picks up a permanent "prop-card" class the first time
+// ANY detail page is opened (see openDetail's className assignment, never
+// reset by closeDetail), which would otherwise inflate every .prop-card
+// count assertion between here and there.
 
 // --- switch to Certificates tab (fixture p4) ---
 await page.click('.ledger-tab[data-ledger="certificate"]');
@@ -469,7 +478,8 @@ results.csvDownloadFilename = download.suggestedFilename();
   const lines = csvText.split('\r\n').filter(Boolean);
   const hdr = parseCsvLine(lines[0]);
   const TAXROLL = ['Year Built', 'Living Area (sq ft)', 'Lot Size (sq ft)', 'Buildings',
-                   'Land Value', 'Last Sale Price', 'Last Sale Year', 'Legal Description'];
+                   'Land Value', 'Building / Improvement Value', 'Last Sale Price',
+                   'Last Sale Year', 'Legal Description'];
   results.csvTaxRollColumns = TAXROLL.every(c => hdr.includes(c))
     && TAXROLL.map(c => hdr.indexOf(c)).every((n, i, a) => i === 0 || n === a[i - 1] + 1);
   // The just-value year travels as its own column rather than being baked
@@ -478,12 +488,18 @@ results.csvDownloadFilename = download.suggestedFilename();
   // Every data row must have exactly as many cells as the header - the
   // legal description contains commas, so an escaping slip shows up here.
   results.csvRowsWellFormed = lines.slice(1).every(l => parseCsvLine(l).length === hdr.length);
+  // A blank-by-default column that only ever asserts a positive - "" (not
+  // "No") for a row without a confirmed exemption on file.
+  results.csvHomesteadColumn = hdr.includes('Homestead Exemption');
   const enriched = lines.slice(1).map(parseCsvLine)
     .find(c => c[hdr.indexOf('Address')] === '1 Main St');
+  results.csvHomesteadBlankForP1 = !!enriched && enriched[hdr.indexOf('Homestead Exemption')] === '';
   // Raw numbers, not the card's display strings: 43,560 sq ft reads as
   // "1.00 acres" on a card but has to stay sortable in a spreadsheet.
-  results.csvEnrichedCells = ['County Just Value', 'Just Value Year', ...TAXROLL.slice(0, 7)]
-    .map(c => enriched ? enriched[hdr.indexOf(c)] : '?').join('|');
+  const ENRICHED_KEYS = ['County Just Value', 'Just Value Year', 'Year Built', 'Living Area (sq ft)',
+    'Lot Size (sq ft)', 'Buildings', 'Land Value', 'Building / Improvement Value',
+    'Last Sale Price', 'Last Sale Year'];
+  results.csvEnrichedCells = ENRICHED_KEYS.map(c => enriched ? enriched[hdr.indexOf(c)] : '?').join('|');
   results.csvLegalUnclamped = !!enriched
     && enriched[hdr.indexOf('Legal Description')].endsWith('S 50 FT TO POB');
 }
@@ -520,7 +536,7 @@ results.detailStatValues = await page.evaluate(() => {
     out[el.querySelector('.detail-stat-label').textContent.trim()] =
       el.querySelector('.detail-stat-val').textContent.trim();
   });
-  return ['Year Built', 'Living Area', 'Lot Size', 'Buildings', 'Last Sale', 'Land Value'].map(k => out[k] || '-').join(' | ');
+  return ['Year Built', 'Living Area', 'Lot Size', 'Buildings', 'Last Sale', 'Land Value', 'Building / Improvement Value'].map(k => out[k] || '-').join(' | ');
 });
 // Full text here, not the clamped card version.
 results.detailLegalIsFull = ((await page.locator('#detailModalInner .detail-legal p').textContent()) || '').trim().endsWith('S 50 FT TO POB');
@@ -531,6 +547,40 @@ results.detailNamesBothValues = await page.evaluate(() => {
   const labels = [...document.querySelectorAll('#detailModalInner .detail-stat-label')].map(e => e.textContent.trim());
   return labels.includes('2025 County Just Value') && labels.includes('County Assessed Value');
 });
+// p1 has no homestead exemption on file - the stat should not appear at
+// all (not "No"), since absence of the field is "not confirmed", never a
+// confirmed negative.
+results.homesteadStatAbsentForP1 = !(await page.evaluate(() =>
+  [...document.querySelectorAll('#detailModalInner .detail-stat-label')].some(e => e.textContent.trim() === 'Homestead Exemption')));
+// Florida-law reminder that survives every property, not just risky ones -
+// code/utility/IRS liens are never screened for by this app.
+results.muniLienNoteVisible = await page.locator('#detailModalInner .muni-lien-note').count();
+
+// --- Bid & profit calculator: the existing Fees/Walk-Away-Above math made
+// visible and interactive, rather than a second parallel calculator. ---
+results.calcDrawerPresent = await page.locator('#detailModalInner .calc-drawer').count();
+await page.click('#detailModalInner .calc-drawer summary');
+await page.waitForTimeout(150);
+// With no repair/lien-buffer entered yet, the ceiling and net figures match
+// what Walk Away Above and Gross Equity Spread already show elsewhere on
+// the same page - the drawer doesn't invent a second set of numbers.
+results.calcInitialMaxBid = (await page.locator('#calcMaxBidResult').textContent() || '').trim();
+results.calcInitialNet = (await page.locator('#calcNetResult').textContent() || '').trim();
+await page.fill('.calc-drawer input[data-calc-field="repair"]', '5000');
+await page.fill('.calc-drawer input[data-calc-field="muni"]', '1000');
+await page.waitForTimeout(150);
+results.calcNetAfterInput = (await page.locator('#calcNetResult').textContent() || '').trim();
+results.calcMaxBidAfterInput = (await page.locator('#calcMaxBidResult').textContent() || '').trim();
+// The repair estimate and lien buffer are the bidder's own numbers, not
+// server state - closing and reopening the SAME property's page should
+// find them still there (localStorage), not reset to blank.
+await page.click('[data-action="closedetail"]');
+await page.waitForTimeout(150);
+await firstDetailBtn.click();
+await page.waitForTimeout(150);
+await page.click('#detailModalInner .calc-drawer summary');
+await page.waitForTimeout(150);
+results.calcInputPersistsAfterReopen = await page.locator('.calc-drawer input[data-calc-field="repair"]').inputValue();
 
 // close via the close button
 await page.click('[data-action="closedetail"]');
@@ -551,6 +601,7 @@ await page.keyboard.press('Escape');
 await page.waitForTimeout(150);
 results.detailModalHiddenAfterEscape = await page.locator('#detailModal').isHidden();
 
+
 // --- redesign: brand mark / topbar, disclaimer badge, card stat grid,
 // lien-status pill, info tooltip, top-pick badge, icon-prefixed links ---
 results.topbarBrandVisible = await page.locator('.topbar .brand-mark').isVisible();
@@ -569,7 +620,36 @@ await page.waitForTimeout(200);
 results.termsModalCloses = await page.locator('#termsModal').isHidden();
 results.cardStatGridCount = await page.locator('.prop-card .card-stat-grid').count();
 results.lienPillFirstText = (await page.locator('.prop-card .lien-pill').first().textContent() || '').trim();
+results.homesteadBadgeAbsentForP1 = await page.locator('.prop-card').first().locator('.lien-pill.homestead').count();
 results.infoTipCount = await page.locator('.info-tip').count();
+// --- bare-land branch (p3, LAFT ledger): land_value equal to market means
+// the derived Building/Improvement stat should read as bare land, not a
+// misleading "$0". Safe to open a second property's detail page here -
+// every exact .prop-card count assertion in this file runs before this
+// point (see the note left where this check used to live, up on the LAFT
+// tab, before it turned out to inflate cardCountBackOnAuctionTab and
+// friends by counting the now-permanently-"prop-card"-classed
+// #detailModalInner shell as a ninth card).
+await page.click('.ledger-tab[data-ledger="laft"]');
+await page.waitForTimeout(150);
+// "Bay" was already expanded by the earlier LAFT-tab check and that state
+// persists across ledger switches - a blind click on its summary would
+// TOGGLE it closed again. Ask #expandAllBtn's own label instead of assuming.
+if ((await page.locator('#expandAllBtn').textContent()) === 'Expand all') {
+  await page.click('#expandAllBtn');
+  await page.waitForTimeout(200);
+}
+await page.locator('.prop-card').first().locator('.detail-btn').first().click();
+await page.waitForTimeout(300);
+results.laftBareLandStat = await page.evaluate(() => {
+  const el = [...document.querySelectorAll('#detailModalInner .detail-stat')]
+    .find(e => e.querySelector('.detail-stat-label').textContent.trim() === 'Building / Improvement Value');
+  return el ? el.querySelector('.detail-stat-val').textContent.trim() : null;
+});
+await page.click('[data-action="closedetail"]');
+await page.waitForTimeout(150);
+await page.click('.ledger-tab[data-ledger="auction"]');
+await page.waitForTimeout(150);
 results.linkIconPresent = (await page.locator('.prop-links a').first().innerHTML() || '').includes('link-icon');
 // p1 (Alachua, clean/12x+ ratio potential) should be a top pick - confirm the
 // upgraded pill-style banner renders with its ratio callout.
@@ -915,6 +995,8 @@ const EXPECTED = {
   // A different roll year from p1's, so the label is genuinely per-row rather
   // than a constant with a year hardcoded into it.
   laftValueLabel: '2024 County Just Value',
+  laftHomesteadBadge: 'Homestead',
+  laftBareLandStat: 'None (bare land)',
   laftGroupMeta: 'Lands Available - fixed price, available now',
   certCardCount: 1,
   certCardTitle: 'Certificate #CERT-42',
@@ -973,17 +1055,28 @@ const EXPECTED = {
   csvTaxRollColumns: true,
   csvValueYearColumn: true,
   csvRowsWellFormed: true,
-  csvEnrichedCells: '90000|2025|1958|1840|16456|1|22000|41500|2011',
+  csvHomesteadColumn: true,
+  csvHomesteadBlankForP1: true,
+  csvEnrichedCells: '90000|2025|1958|1840|16456|1|22000|68000|41500|2011',
   csvLegalUnclamped: true,
   detailStatLabels: [
     'Opening Bid', '2025 County Just Value', 'County Assessed Value', 'Land Value',
+    'Building / Improvement Value',
     // "Fees i" - the label carries an info tooltip glyph.
-    'Fees i', 'Walk Away Above', 'Potential Equity',
+    'Fees i', 'Walk Away Above', 'Gross Equity Spread',
     'Year Built', 'Living Area', 'Lot Size', 'Buildings', 'Last Sale'
   ],
-  detailStatValues: '1958 | 1,840 sq ft | 16,456 sq ft | 1 | $41,500 in 2011 | $22,000',
+  detailStatValues: '1958 | 1,840 sq ft | 16,456 sq ft | 1 | $41,500 in 2011 | $22,000 | $68,000',
   detailLegalIsFull: true,
   detailNamesBothValues: true,
+  homesteadStatAbsentForP1: true,
+  muniLienNoteVisible: 1,
+  calcDrawerPresent: 1,
+  calcInitialMaxBid: '$36,000',
+  calcInitialNet: '+$84,935',
+  calcNetAfterInput: '+$78,935',
+  calcMaxBidAfterInput: '$30,000',
+  calcInputPersistsAfterReopen: '5000',
   detailModalVisibleAfterOpen: true,
   detailModalHasAddress: 1,
   detailModalHasLinks: 6,
@@ -997,7 +1090,8 @@ const EXPECTED = {
   termsModalCloses: true,
   cardStatGridCount: 8,
   lienPillFirstText: 'Clear',
-  infoTipCount: 1,
+  homesteadBadgeAbsentForP1: 0,
+  infoTipCount: 4,
   linkIconPresent: true,
   toppickBannerText: '★ Top pick 18.0× market vs bid',
   bidListChipTextInitial: '0/10',

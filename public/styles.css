@@ -599,6 +599,8 @@ summary.county-head::-webkit-details-marker{display:none}
 .lien-pill.flag{color:var(--warn);background:var(--warn-bg);border-color:color-mix(in srgb,var(--warn) 40%,transparent)}
 .lien-pill.serious{color:var(--bad);background:var(--bad-bg);border-color:color-mix(in srgb,var(--bad) 40%,transparent)}
 .lien-pill.unscreened{color:var(--ink-soft);background:var(--paper-line)}
+.lien-pill.homestead{color:var(--warn);background:var(--warn-bg);
+  border-color:color-mix(in srgb,var(--warn) 40%,transparent);cursor:help}
 /* flex-wrap - the actions row (heart/bid/hide icons + countdown + 2 pills)
    can legitimately need 200px+ on its own once every icon/pill is present.
    Without wrap, that row was claiming its full width first (it's
@@ -712,6 +714,8 @@ summary.county-head::-webkit-details-marker{display:none}
 .lien-toprow{display:flex;align-items:center;justify-content:space-between;gap:.5rem;flex-wrap:wrap}
 .lien-label{font-size:.78rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em}
 .lien-text{font-size:.78rem;color:var(--ink);line-height:1.4;font-weight:500}
+.muni-lien-note{font-size:.68rem;color:var(--ink-soft);line-height:1.35;display:flex;
+  align-items:flex-start;gap:.3rem;margin-top:.1rem}
 .type-badge{font-size:.74rem;font-weight:800;color:var(--ink);background:var(--card);
   padding:.1rem .5rem;border-radius:5px;border:1px solid var(--card-line);white-space:nowrap}
 .lien-banner.clean{background:var(--ok-bg);border-color:var(--ok)}
@@ -851,6 +855,46 @@ summary.county-head::-webkit-details-marker{display:none}
   background:var(--accent-soft);color:var(--accent)}
 .detail-links a:hover{filter:brightness(1.05)}
 .detail-links a .link-icon{flex-shrink:0}
+
+/* Bid & profit calculator - same collapsed-by-default disclosure pattern as
+   .filter-dropdown (chevron rotates open), so it reads as consistent with
+   the rest of the app rather than a bolted-on widget. */
+/* #detailModalInner is also .prop-card (display:flex;flex-direction:column),
+   so this is laid out as a flex item, not a plain block child. overflow:hidden
+   sets its flexbox automatic minimum size to 0 (spec: min-size:auto computes
+   to 0 for a non-visible-overflow item) - without flex-shrink:0, the column
+   layout would rather crush THIS item to nothing than let the fixed-height
+   modal (max-height:92vh) scroll, since every sibling div's own content sets
+   an effective floor that resists shrinking and this was the one item happy
+   to go to zero. Confirmed live: without this line the drawer rendered at a
+   real 2px (exactly its two 1px borders, content clipped to nothing) despite
+   its own children measuring their normal height. */
+.calc-drawer{border:1px solid var(--card-line);border-radius:10px;margin:.8rem 0;
+  background:var(--paper);overflow:hidden;flex-shrink:0}
+.calc-drawer summary{list-style:none;cursor:pointer;padding:.6rem .75rem;
+  font-size:.82rem;font-weight:700;color:var(--ink);display:flex;align-items:center;
+  justify-content:space-between;gap:.5rem}
+.calc-drawer summary::-webkit-details-marker{display:none}
+.calc-drawer summary::after{content:"";width:8px;height:8px;flex-shrink:0;
+  border-right:2px solid var(--ink-soft);border-bottom:2px solid var(--ink-soft);
+  transform:rotate(45deg);transition:transform .15s}
+.calc-drawer[open] summary::after{transform:rotate(225deg)}
+.calc-body{padding:0 .75rem .75rem;display:flex;flex-direction:column;gap:.5rem}
+.calc-row{display:flex;align-items:center;justify-content:space-between;gap:.5rem;
+  font-size:.82rem}
+.calc-row b{font-family:ui-monospace,Consolas,monospace;font-variant-numeric:tabular-nums}
+.calc-row.calc-minus b{color:var(--ink-soft)}
+.calc-row.calc-total{padding-top:.35rem;border-top:1px dashed var(--card-line);
+  font-weight:800}
+.calc-row.calc-total b{font-size:1rem}
+.calc-row.calc-total b.neg{color:var(--bad)}
+.calc-input-row{display:flex;align-items:center;justify-content:space-between;gap:.5rem;
+  font-size:.78rem;color:var(--ink-soft)}
+.calc-input{width:6.5rem;text-align:right;font-family:ui-monospace,Consolas,monospace;
+  font-variant-numeric:tabular-nums;background:var(--card);color:var(--ink);
+  border:1px solid var(--card-line);border-radius:6px;padding:.3rem .4rem;font-size:.82rem}
+.calc-input:focus{outline:2px solid var(--accent);outline-offset:1px}
+.calc-divider{border-top:1px solid var(--card-line);margin:.1rem 0}
 
 /* ---- skeleton loaders: card-shaped shimmer placeholders shown while the
    first Supabase fetch is in flight, instead of a bare "Loading" line. ---- */
