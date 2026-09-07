@@ -239,6 +239,28 @@ def _expand_str_block(parcel):
     return f"{m.group(1)}-{m.group(2)}-{m.group(3)}-{m.group(4)}"
 
 
+# Added 2026-09-07 after live-testing Lake County (another of the roadmap's
+# "blocked" counties): Lake stores its parcel number as a 10-digit
+# section-township-range-parcel block, then a dash, then two more dashed
+# groups (e.g. "3217270004-000-12600"), but FDOR's own PARCEL_ID for that
+# identical parcel splits the leading 10 digits into four explicit groups
+# (2-2-2-4: township, range, section, parcel) instead of leaving them
+# concatenated ("32-17-27-0004-000-12600"), and leaves everything after the
+# first dash untouched. Confirmed live: 8/8 fresh unmatched Lake samples
+# matched FDOR exactly once expanded this way, with owner/address data
+# matching what was already on file. This is a ten-digit block, so it can
+# never collide with the six-digit Clay pattern above (Clay's regex requires
+# a dash immediately after exactly six digits; Lake's tenth digit is never a
+# dash), and it returns None (no extra request) for every other county's
+# shape, so it's additive exactly like the Clay rule.
+_TEN_DIGIT_STR_BLOCK = re.compile(r"^(\d{2})(\d{2})(\d{2})(\d{4})-(.+)$")
+def _expand_lake_str_block(parcel):
+    m = _TEN_DIGIT_STR_BLOCK.match(parcel)
+    if not m:
+        return None
+    return f"{m.group(1)}-{m.group(2)}-{m.group(3)}-{m.group(4)}-{m.group(5)}"
+
+
 def normalize_candidates(parcel):
     parcel = parcel.strip()
     seen = set()
@@ -256,6 +278,10 @@ def normalize_candidates(parcel):
     if expanded and expanded not in seen:
         seen.add(expanded)
         candidates.append(expanded)
+    expanded_lake = _expand_lake_str_block(parcel)
+    if expanded_lake and expanded_lake not in seen:
+        seen.add(expanded_lake)
+        candidates.append(expanded_lake)
     for value in list(candidates):
         with_r = value + "R"
         if with_r not in seen:
@@ -509,6 +535,108 @@ def lookup_santa_rosa_gis(parcel):
     return None, None, None
 
 
+# Palm Coast (Flagler's largest city, and the county's own tax-deed listings
+# are disproportionately Palm Coast lots) publishes its own external parcel/
+# CAMA layer (discovered 2026-09-07, see claude/parcel-format-research.md):
+# FDOR's own CO_NO=28 queries for Flagler are unreliable and time out
+# (confirmed via both WebFetch and Chrome), and even when they don't,
+# Flagler's stored 19-character parcel value (e.g. "0711317024000700120")
+# doesn't match FDOR's own PARCEL_ID in any tried form. This layer's
+# PARCELNO field uses the SAME digit order as our stored value, just with
+# dashes inserted at fixed group widths (2-2-2-4-5-4:
+# "0711317024000700120" -> "07-11-31-7024-00070-0120") - confirmed live 5/5
+# on fresh unmatched samples, including two containing embedded letters
+# (a "RP0B" block) and one Palm Coast vacant lot with a null situs address
+# (not a failure - the county genuinely has no address on file for it,
+# same caveat as lookup_fdor()'s own docstring). This layer has no
+# `returnCentroid` support at all (confirmed live - the key is simply absent
+# from the response) and no year-built/living-area/building-count fields
+# anywhere in its 174-field schema, so this can never populate those three
+# columns or lat/lon - but it DOES carry owner name, a full situs address,
+# just/assessed/land value, lot size (converted from acreage) and a legal
+# description, which is most of what lookup_fdor() itself would have given.
+FLAGLER_GIS_ENDPOINT = (
+    "https://gis.palmcoast.gov/hosting/rest/services/External/"
+    "FlaglerCountyParcels/MapServer/1/query"
+)
+FLAGLER_OUT_FIELDS = ",".join([
+    "PARCELNO", "file_as_name",
+    "situs_num", "situs_street_prefx", "situs_street", "situs_street_sufix",
+    "situs_unit", "situs_city", "situs_zip",
+    "JustVal", "Assessed_val", "mktland", "legal_acreage", "Legal",
+])
+
+
+def _flagler_candidates(parcel):
+    parcel = parcel.strip()
+    candidates = [parcel]
+    compact = parcel.replace("-", "")
+    if len(compact) == 19:
+        groups = []
+        idx = 0
+        for size in (2, 2, 2, 4, 5, 4):
+            groups.append(compact[idx:idx + size])
+            idx += size
+        dashed = "-".join(groups)
+        if dashed not in candidates:
+            # Try the known-correct dashed form first - it's the one that's
+            # actually verified to match this layer's PARCELNO.
+            candidates.insert(0, dashed)
+    return candidates
+
+
+def lookup_flagler_gis(parcel):
+    """Flagler-only fallback, tried after lookup_fdor() misses for this
+    county. Same (attrs, centroid, matched_candidate) return shape as
+    lookup_fdor() - (None, None, None) on no match, centroid always None
+    here since this layer doesn't support returnCentroid.
+    """
+    for candidate in _flagler_candidates(parcel):
+        safe = candidate.replace("'", "''")
+        params = {
+            "where": f"PARCELNO='{safe}'",
+            "outFields": FLAGLER_OUT_FIELDS,
+            "returnGeometry": "false",
+            "f": "json",
+        }
+        resp = requests.get(FLAGLER_GIS_ENDPOINT, params=params, timeout=20)
+        resp.raise_for_status()
+        data = resp.json()
+        features = data.get("features", [])
+        if not features:
+            continue
+        raw = features[0].get("attributes", {})
+        street = " ".join(
+            part for part in (
+                _text(raw.get("situs_num")),
+                _text(raw.get("situs_street_prefx")),
+                _text(raw.get("situs_street")),
+                _text(raw.get("situs_street_sufix")),
+            ) if part
+        )
+        unit = _text(raw.get("situs_unit"))
+        if unit:
+            street = f"{street} #{unit}" if street else f"#{unit}"
+        acres = raw.get("legal_acreage")
+        try:
+            lot_sqft = round(float(acres) * 43560) if acres else None
+        except (TypeError, ValueError):
+            lot_sqft = None
+        attrs = {
+            "OWN_NAME": raw.get("file_as_name"),
+            "PHY_ADDR1": street or None,
+            "PHY_CITY": raw.get("situs_city"),
+            "PHY_ZIPCD": raw.get("situs_zip"),
+            "JV": raw.get("JustVal"),
+            "AV_NSD": raw.get("Assessed_val"),
+            "LND_VAL": raw.get("mktland"),
+            "LND_SQFOOT": lot_sqft,
+            "S_LEGAL": raw.get("Legal"),
+        }
+        return attrs, None, candidate
+    return None, None, None
+
+
 def patch_property(property_id, fields):
     url = f"{SUPABASE_URL}/rest/v1/properties?id=eq.{property_id}"
     patch_headers = dict(HEADERS)
@@ -651,6 +779,16 @@ def main():
                     attrs, centroid, matched_candidate = lookup_santa_rosa_gis(parcel)
                 except requests.RequestException as e:
                     print(f"  [{county}] ERROR looking up parcel {parcel!r} via Santa Rosa GIS: {e}", file=sys.stderr)
+
+            # Flagler-only fallback, same reasoning as Santa Rosa's above:
+            # FDOR is unreliable/non-matching for this county specifically
+            # (see lookup_flagler_gis()'s docstring), so a miss there is
+            # worth one extra request against Palm Coast's own GIS layer.
+            if attrs is None and COUNTY_ALIASES.get(county, county) == "Flagler":
+                try:
+                    attrs, centroid, matched_candidate = lookup_flagler_gis(parcel)
+                except requests.RequestException as e:
+                    print(f"  [{county}] ERROR looking up parcel {parcel!r} via Flagler GIS: {e}", file=sys.stderr)
 
             if attrs is None:
                 # Left unmarked on purpose - retried on a later run, so a
