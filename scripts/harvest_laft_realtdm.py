@@ -88,11 +88,14 @@ import csv
 import json
 import re
 import sys
+import time
 from datetime import datetime
 from pathlib import Path
 
 import requests
 from bs4 import BeautifulSoup
+
+from harvest_cache import load_cache, save_cache
 
 HERE = Path(__file__).resolve().parent
 SOURCES_CSV = HERE / "../data/laft_realtdm_counties.csv"
@@ -139,6 +142,36 @@ CURRENCY_RE = re.compile(r"\$?\s*(\d{1,3}(?:,\d{3})*(?:\.\d{2})|\d+\.\d{2})")
 # attribute and inside a checkbox value shaped "<caseID>|<caseNumber>" -
 # both are tried, since only one may survive a vendor markup tweak.
 CASE_ID_IN_VALUE_RE = re.compile(r"^(\d+)\|")
+
+# How long a cached purchase-price lookup stays valid (added 2026-09-07,
+# see scripts/harvest_cache.py for the shared load_cache/save_cache this
+# reuses, and its FORCE_HARVEST=true bypass which applies here too).
+#
+# Deliberately much shorter than harvest_cache.py's own 7-day
+# MAX_ENTRY_AGE_SECONDS default: the PURCHASE PRICE section of this file's
+# own module docstring already establishes that the captured base figure is
+# itself date-sensitive (interest accrues day to day, even before the
+# client-side JS markup this harvester doesn't execute). Serving a cached
+# price across a day boundary would risk exactly the "a bid price update
+# gets missed" failure mode this project cares about - the user's own
+# request for this change specifically called that out.
+#
+# 12 hours means the once-daily scheduled `laft` job (0 12 * * * UTC) is
+# always more than a cache-lifetime removed from the previous day's fetch,
+# so every real production run refetches every real price - the cache
+# cannot go stale in production. It only pays off for same-day reruns
+# (a `workflow_dispatch` retry, or running the script twice in a row while
+# testing), which is exactly where the ~1-request-per-case fan-out cost
+# was otherwise being paid again for no reason. A stale/missing entry, like
+# every cache in this project, just falls through to a fresh fetch - there
+# is no path where a stale price can be served past this window.
+#
+# Deliberately NOT keyed to "an upcoming auction date within 24 hours" the
+# way the original request proposed: these are Lands Available for Taxes
+# properties, i.e. already past a failed auction with no further auction
+# date to be near - there is no "auction date" field on a LAFT case to
+# bypass against, so a date-based trigger would have nothing real to check.
+PRICE_CACHE_MAX_AGE_SECONDS = 12 * 3600
 
 
 # RealTDM's own date format ("Oct 21, 2025") isn't one
@@ -287,7 +320,8 @@ def _parse_cases(html: bytes, county: str, source_url: str) -> list[dict]:
     return out
 
 
-def harvest_county(session: requests.Session, county: str, subdomain: str) -> list[dict]:
+def harvest_county(session: requests.Session, county: str, subdomain: str,
+                    price_cache: dict, new_price_cache: dict) -> tuple[list[dict], int]:
     base_url = f"https://{subdomain}.realtdm.com"
     url = f"{base_url}/public/cases/list"
     resp = session.get(url, headers={"User-Agent": UA}, timeout=30)
@@ -331,28 +365,44 @@ def harvest_county(session: requests.Session, county: str, subdomain: str) -> li
     # Second pass: one detail request per case for the purchase price. See
     # the PURCHASE PRICE section of the module docstring for why this is
     # worth the fan-out and why the figure is deliberately the base one.
+    #
+    # Change detection (added 2026-09-07): a price fetched within the last
+    # PRICE_CACHE_MAX_AGE_SECONDS is reused instead of re-hit - see that
+    # constant's comment for why the window is short enough that this never
+    # serves a stale price on the real daily production schedule.
     priced = 0
+    reused = 0
     missing_id = 0
     unparsed = 0
+    now = time.time()
     for row in rows:
         case_id = row.pop("_case_id", None)
         if not case_id:
             missing_id += 1
             continue
-        price = _fetch_purchase_price(session, base_url, case_id)
+        cache_key = f"{subdomain}:{case_id}"
+        cached = price_cache.get(cache_key)
+        price = None
+        if cached and cached.get("price") and (now - float(cached.get("fetched_at", 0))) < PRICE_CACHE_MAX_AGE_SECONDS:
+            price = cached["price"]
+            reused += 1
+        else:
+            price = _fetch_purchase_price(session, base_url, case_id)
         if price:
             row["bid"] = price
             priced += 1
+            new_price_cache[cache_key] = {"price": price, "fetched_at": now}
         else:
             unparsed += 1
     if rows:
-        print(f"    purchase price: {priced}/{len(rows)} found", flush=True)
+        cache_note = f" ({reused} from cache)" if reused else ""
+        print(f"    purchase price: {priced}/{len(rows)} found{cache_note}", flush=True)
         if missing_id:
             print(f"    WARNING: {missing_id} case(s) had no extractable case ID - no price looked up for those", flush=True)
         if unparsed:
             print(f"    WARNING: {unparsed} case(s) returned no parseable \"Purchase Price\" - left without a bid rather than guessing", flush=True)
 
-    return rows
+    return rows, reused
 
 
 def main() -> int:
@@ -360,13 +410,22 @@ def main() -> int:
     with open(SOURCES_CSV, newline="", encoding="utf-8") as f:
         sources = list(csv.DictReader(f))
 
+    # Purchase-price change detection - see PRICE_CACHE_MAX_AGE_SECONDS above
+    # for the freshness window, and scripts/harvest_cache.py for load_cache/
+    # save_cache and the shared FORCE_HARVEST=true bypass (set that env var
+    # to force every case's price to be re-fetched regardless of cache age).
+    price_cache = load_cache("laft_realtdm_prices")
+    new_price_cache: dict = {}
+    total_reused = 0
+
     all_rows: list[dict] = []
     for i, src in enumerate(sources, 1):
         county, subdomain = src["County"], src["Subdomain"]
         print(f"[{i}/{len(sources)}] {county}", flush=True)
         try:
             session = requests.Session()
-            rows = harvest_county(session, county, subdomain)
+            rows, reused = harvest_county(session, county, subdomain, price_cache, new_price_cache)
+            total_reused += reused
             if rows:
                 print(f"    {len(rows)} properties", flush=True)
                 all_rows.extend(rows)
@@ -374,6 +433,11 @@ def main() -> int:
                 print("    no properties currently listed", flush=True)
         except Exception as exc:  # noqa: BLE001 - one bad county must not kill the whole run
             print(f"    ERROR: {exc}", flush=True)
+
+    save_cache("laft_realtdm_prices", new_price_cache)
+    if total_reused:
+        print(f"\n{total_reused} purchase-price lookup(s) served from cache (fetched within the last "
+              f"{PRICE_CACHE_MAX_AGE_SECONDS // 3600}h).", flush=True)
 
     with open(OUT_JSON, "w", encoding="utf-8") as f:
         json.dump(all_rows, f, indent=2)
