@@ -95,7 +95,7 @@ from pathlib import Path
 import requests
 from bs4 import BeautifulSoup
 
-from harvest_cache import load_cache, save_cache
+from harvest_cache import load_cache, record_cache_stats, save_cache
 
 HERE = Path(__file__).resolve().parent
 SOURCES_CSV = HERE / "../data/laft_realtdm_counties.csv"
@@ -321,7 +321,7 @@ def _parse_cases(html: bytes, county: str, source_url: str) -> list[dict]:
 
 
 def harvest_county(session: requests.Session, county: str, subdomain: str,
-                    price_cache: dict, new_price_cache: dict) -> tuple[list[dict], int]:
+                    price_cache: dict, new_price_cache: dict) -> tuple[list[dict], int, int]:
     base_url = f"https://{subdomain}.realtdm.com"
     url = f"{base_url}/public/cases/list"
     resp = session.get(url, headers={"User-Agent": UA}, timeout=30)
@@ -402,7 +402,11 @@ def harvest_county(session: requests.Session, county: str, subdomain: str,
         if unparsed:
             print(f"    WARNING: {unparsed} case(s) returned no parseable \"Purchase Price\" - left without a bid rather than guessing", flush=True)
 
-    return rows, reused
+    # "attempted" = every case a price lookup was actually possible for
+    # (has a case ID) - excludes missing_id, which was never a candidate for
+    # either a live fetch or a cache hit. This is the denominator
+    # record_cache_stats() uses in main(), not len(rows).
+    return rows, reused, priced + unparsed
 
 
 def main() -> int:
@@ -417,6 +421,7 @@ def main() -> int:
     price_cache = load_cache("laft_realtdm_prices")
     new_price_cache: dict = {}
     total_reused = 0
+    total_attempted = 0
 
     all_rows: list[dict] = []
     for i, src in enumerate(sources, 1):
@@ -424,8 +429,9 @@ def main() -> int:
         print(f"[{i}/{len(sources)}] {county}", flush=True)
         try:
             session = requests.Session()
-            rows, reused = harvest_county(session, county, subdomain, price_cache, new_price_cache)
+            rows, reused, attempted = harvest_county(session, county, subdomain, price_cache, new_price_cache)
             total_reused += reused
+            total_attempted += attempted
             if rows:
                 print(f"    {len(rows)} properties", flush=True)
                 all_rows.extend(rows)
@@ -435,6 +441,11 @@ def main() -> int:
             print(f"    ERROR: {exc}", flush=True)
 
     save_cache("laft_realtdm_prices", new_price_cache)
+    # Denominator is purchase-price lookups attempted, not len(sources) as in
+    # the other two harvesters' record_cache_stats() calls - this cache
+    # operates per-case, not per-source, so that's the unit a "hit ratio"
+    # actually means here.
+    record_cache_stats("laft_realtdm_prices", total_reused, total_attempted)
     if total_reused:
         print(f"\n{total_reused} purchase-price lookup(s) served from cache (fetched within the last "
               f"{PRICE_CACHE_MAX_AGE_SECONDS // 3600}h).", flush=True)
