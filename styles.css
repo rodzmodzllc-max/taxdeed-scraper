@@ -308,6 +308,13 @@ above the 22px topbar mark so it reads as the header's focal point. */
   letter-spacing:.06em;color:var(--ink-soft)}
 .filters-row{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;margin-bottom:.55rem}
 .filters-row:last-child{margin-bottom:0}
+/* Same bug class as #authGate[hidden]/#installBtn[hidden] elsewhere in this
+   file: .filters-row's own display:flex is an author rule, so it beats the
+   UA stylesheet's `[hidden]{display:none}` on a specificity tie - without
+   this, toggling the junk-land row's `hidden` property (see applyLedgerChrome
+   in app.js) sets the DOM property correctly but leaves it visually on
+   screen on every ledger. */
+.filters-row[hidden]{display:none}
 .filters-group{flex-direction:column;align-items:stretch;gap:.25rem}
 .group-head{display:flex;align-items:center;justify-content:space-between;gap:.5rem}
 .group-actions{display:flex;gap:.3rem;flex-shrink:0;margin-bottom:.4rem}
@@ -461,6 +468,15 @@ above the 22px topbar mark so it reads as the header's focal point. */
   font-family:ui-monospace,Consolas,monospace;word-break:break-word}
 
 .tog{display:flex;align-items:center;gap:.35rem;font-size:.78rem;color:var(--ink);cursor:pointer}
+/* Same bug class as #authGate[hidden]/#installBtn[hidden]/.filters-row[hidden]
+   elsewhere in this file: .tog's own display:flex is an author rule, so it
+   beats the UA stylesheet's `[hidden]{display:none}` on a specificity tie.
+   Confirmed live (not just reasoned about) on #archiveToggleRow: setting its
+   `hidden` property to true (applyLedgerChrome in app.js, non-auction
+   ledgers) left it fully visible on screen with real dimensions - the DOM
+   property was correct the whole time, only the paint was wrong. Filed as
+   a backlog item after the .filters-row fix and confirmed/fixed here. */
+.tog[hidden]{display:none}
 /* The archive toggle carries its own count (it replaced a count chip), so it
    needs the same tabular figures the chips use or the number jitters as it
    changes. Scoped to b inside a toggle so no other toggle picks it up. */
@@ -599,6 +615,8 @@ summary.county-head::-webkit-details-marker{display:none}
 .lien-pill.flag{color:var(--warn);background:var(--warn-bg);border-color:color-mix(in srgb,var(--warn) 40%,transparent)}
 .lien-pill.serious{color:var(--bad);background:var(--bad-bg);border-color:color-mix(in srgb,var(--bad) 40%,transparent)}
 .lien-pill.unscreened{color:var(--ink-soft);background:var(--paper-line)}
+.lien-pill.homestead{color:var(--warn);background:var(--warn-bg);
+  border-color:color-mix(in srgb,var(--warn) 40%,transparent);cursor:help}
 /* flex-wrap - the actions row (heart/bid/hide icons + countdown + 2 pills)
    can legitimately need 200px+ on its own once every icon/pill is present.
    Without wrap, that row was claiming its full width first (it's
@@ -712,6 +730,8 @@ summary.county-head::-webkit-details-marker{display:none}
 .lien-toprow{display:flex;align-items:center;justify-content:space-between;gap:.5rem;flex-wrap:wrap}
 .lien-label{font-size:.78rem;font-weight:800;text-transform:uppercase;letter-spacing:.05em}
 .lien-text{font-size:.78rem;color:var(--ink);line-height:1.4;font-weight:500}
+.muni-lien-note{font-size:.68rem;color:var(--ink-soft);line-height:1.35;display:flex;
+  align-items:flex-start;gap:.3rem;margin-top:.1rem}
 .type-badge{font-size:.74rem;font-weight:800;color:var(--ink);background:var(--card);
   padding:.1rem .5rem;border-radius:5px;border:1px solid var(--card-line);white-space:nowrap}
 .lien-banner.clean{background:var(--ok-bg);border-color:var(--ok)}
@@ -852,6 +872,46 @@ summary.county-head::-webkit-details-marker{display:none}
 .detail-links a:hover{filter:brightness(1.05)}
 .detail-links a .link-icon{flex-shrink:0}
 
+/* Bid & profit calculator - same collapsed-by-default disclosure pattern as
+   .filter-dropdown (chevron rotates open), so it reads as consistent with
+   the rest of the app rather than a bolted-on widget. */
+/* #detailModalInner is also .prop-card (display:flex;flex-direction:column),
+   so this is laid out as a flex item, not a plain block child. overflow:hidden
+   sets its flexbox automatic minimum size to 0 (spec: min-size:auto computes
+   to 0 for a non-visible-overflow item) - without flex-shrink:0, the column
+   layout would rather crush THIS item to nothing than let the fixed-height
+   modal (max-height:92vh) scroll, since every sibling div's own content sets
+   an effective floor that resists shrinking and this was the one item happy
+   to go to zero. Confirmed live: without this line the drawer rendered at a
+   real 2px (exactly its two 1px borders, content clipped to nothing) despite
+   its own children measuring their normal height. */
+.calc-drawer{border:1px solid var(--card-line);border-radius:10px;margin:.8rem 0;
+  background:var(--paper);overflow:hidden;flex-shrink:0}
+.calc-drawer summary{list-style:none;cursor:pointer;padding:.6rem .75rem;
+  font-size:.82rem;font-weight:700;color:var(--ink);display:flex;align-items:center;
+  justify-content:space-between;gap:.5rem}
+.calc-drawer summary::-webkit-details-marker{display:none}
+.calc-drawer summary::after{content:"";width:8px;height:8px;flex-shrink:0;
+  border-right:2px solid var(--ink-soft);border-bottom:2px solid var(--ink-soft);
+  transform:rotate(45deg);transition:transform .15s}
+.calc-drawer[open] summary::after{transform:rotate(225deg)}
+.calc-body{padding:0 .75rem .75rem;display:flex;flex-direction:column;gap:.5rem}
+.calc-row{display:flex;align-items:center;justify-content:space-between;gap:.5rem;
+  font-size:.82rem}
+.calc-row b{font-family:ui-monospace,Consolas,monospace;font-variant-numeric:tabular-nums}
+.calc-row.calc-minus b{color:var(--ink-soft)}
+.calc-row.calc-total{padding-top:.35rem;border-top:1px dashed var(--card-line);
+  font-weight:800}
+.calc-row.calc-total b{font-size:1rem}
+.calc-row.calc-total b.neg{color:var(--bad)}
+.calc-input-row{display:flex;align-items:center;justify-content:space-between;gap:.5rem;
+  font-size:.78rem;color:var(--ink-soft)}
+.calc-input{width:6.5rem;text-align:right;font-family:ui-monospace,Consolas,monospace;
+  font-variant-numeric:tabular-nums;background:var(--card);color:var(--ink);
+  border:1px solid var(--card-line);border-radius:6px;padding:.3rem .4rem;font-size:.82rem}
+.calc-input:focus{outline:2px solid var(--accent);outline-offset:1px}
+.calc-divider{border-top:1px solid var(--card-line);margin:.1rem 0}
+
 /* ---- skeleton loaders: card-shaped shimmer placeholders shown while the
    first Supabase fetch is in flight, instead of a bare "Loading" line. ---- */
 .skeleton-group{background:var(--card);border:1px solid var(--card-line);border-radius:14px;
@@ -938,4 +998,65 @@ footer{padding:1.2rem 1.1rem 0;font-size:.72rem;color:var(--ink-soft);text-align
 .city-label.city-small{font-size:9px}
 @media (prefers-color-scheme:dark){
   .city-label{fill:var(--header-ink-soft);text-shadow:1px 1px 2px rgba(0,0,0,.6),1px 1px 4px rgba(0,0,0,.3)}
+}
+
+/* ==================== Three distinct ledger layouts ====================
+   Auctions, Lands Available and Certificates already had their own colour,
+   header and filters (see the "three ledgers, three pages" work) - this
+   layer gives each a genuinely different SHAPE at desktop widths too, on
+   top of the same shared card/detail-modal markup and click/back-button
+   logic (deliberately untouched - see the project handoff for why a true
+   multi-pane rewrite was judged too risky to do blind). Below the 1024px
+   breakpoint all three fall back to the same single-column list - none of
+   this is worth fighting for on a phone screen. ---- */
+
+/* Opening-Bid-vs-Just-Value bar on auction cards - the same two numbers
+   already on the card, just a visual read of the spread instead of two
+   separate figures someone has to do the division on themselves. */
+.spread-bar{margin-top:.4rem}
+.spread-bar-track{height:6px;border-radius:999px;background:var(--card-line);overflow:hidden}
+.spread-bar-fill{height:100%;background:var(--accent);border-radius:999px}
+.spread-bar-labels{display:flex;justify-content:space-between;font-size:.62rem;
+  color:var(--ink-soft);margin-top:.25rem;font-family:ui-monospace,Consolas,monospace}
+
+/* Certificates: dense financial grid. The stat grid grows from 3 to 6
+   columns (Amount / Account# / Expires / Interest Rate / Est. Accrued
+   Interest / TDA Eligibility) and, on wide screens, sits beside the header
+   instead of below it - a spreadsheet row, not a stacked card. */
+.cert-stat-grid{grid-template-columns:repeat(3,1fr)}
+@media (min-width:1024px){
+  [data-ledger="certificate"] .prop-list{grid-template-columns:1fr}
+  /* .prop-card's own base rule sets flex-direction:column - without
+     overriding it back to row here, the flex-basis values below (480px
+     etc.) resolve against the CROSS axis instead of the main axis and the
+     stat grid renders ~480px TALL instead of wide. Caught by inspecting
+     actual computed height, not by trusting the rule fired - same category
+     of miss as the .calc-drawer min-size-0 bug from the prior phase. */
+  [data-ledger="certificate"] .cert-card{display:flex;flex-direction:row;align-items:center;flex-wrap:wrap;gap:.7rem 1rem;padding:.6rem .85rem}
+  [data-ledger="certificate"] .cert-card .prop-top{flex:0 0 auto;min-width:200px}
+  [data-ledger="certificate"] .cert-card .cert-stat-grid{flex:1 1 480px;margin-top:0;
+    grid-template-columns:repeat(6,minmax(90px,1fr))}
+  [data-ledger="certificate"] .cert-card .cta-btn,
+  [data-ledger="certificate"] .cert-card .detail-btn{flex:0 0 auto;width:auto;margin-top:0}
+}
+
+/* Lands Available: the visual catalog. Wider minimum card width than the
+   other two ledgers so the (currently text-only - see the project handoff
+   on satellite imagery) card reads as a browsable listing tile rather than
+   a dense row. */
+@media (min-width:1024px){
+  [data-ledger="laft"] .prop-list{grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:1rem}
+}
+
+/* Auctions: the event terminal. A narrower single-file list (instead of the
+   auto-fill catalog grid) reads as a worklist you scan top to bottom, and
+   the detail modal docks to the right edge as a due-diligence pane rather
+   than centering over the list - CSS-only, so the modal's open/close/
+   back-button behaviour (see the ledger-pages writeup on why that stays
+   fragile) is completely untouched. */
+@media (min-width:1024px){
+  [data-ledger="auction"] .prop-list{grid-template-columns:1fr;max-width:680px}
+  [data-ledger="auction"] .detail-modal{justify-content:flex-end;padding:0;background:rgba(15,23,42,.32)}
+  [data-ledger="auction"] .detail-modal-inner{max-width:480px;width:100%;height:100vh;max-height:100vh;
+    border-radius:0;box-shadow:-12px 0 32px rgba(0,0,0,.28)}
 }

@@ -227,6 +227,8 @@ value, and passes() already ignores the filter there. -->
 <option value="assessedDesc">Sort: Assessed, high to low</option>
 <option value="spreadDesc">Sort: Best value, market ÷ bid</option>
 <option value="address">Sort: Address, A to Z</option>
+<option value="interestDesc">Sort: Interest rate, high to low (Certificates)</option>
+<option value="expSoonAsc">Sort: Expiring soonest (Certificates)</option>
 </select>
 </div>
 <!-- Tiebreaker sort - applies within ties left by the primary sort above
@@ -264,6 +266,13 @@ else - so it reads as a checkbox here far better than as a fourth
 count chip sitting next to Shown/Active/Gone, which it never
 belonged with. -->
 <label class="tog" id="archiveToggleRow"><input type="checkbox" id="archiveToggle"> <span>📁 Show past auctions&nbsp;<b id="chipArchive">0</b></span></label>
+</div>
+<!-- Lands Available only. Hiding a "junk" parcel just filters it out of this
+list, same as any other filter here - it does not touch the row itself, so
+switching this off brings every hidden-by-this-toggle parcel straight back. -->
+<div class="filters-row" id="junkLandRow" hidden>
+<label class="tog"><input type="checkbox" id="hideSliversOnly"> <span>Hide slivers &lt; 0.10 acre</span></label>
+<label class="tog"><input type="checkbox" id="hideBareLandOnly"> <span>Hide zero-improvement parcels</span></label>
 </div>
 <button class="reset-btn" id="hiddenListBtn" type="button" hidden><span id="hiddenCount">0</span> hidden - view &amp; recover</button>
 </div>

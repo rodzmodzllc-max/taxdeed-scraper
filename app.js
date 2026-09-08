@@ -369,7 +369,7 @@ const SLUG_TO_LEDGER = Object.fromEntries(LEDGER_ORDER.map(k => [LEDGERS[k].slug
 const state = {
   bidMin: null, bidMax: null, assessedMin: null,
   sortBy: "county", sortSecondary: "", favoritesOnly: false, topPicksOnly: false, soonOnly: false,
-  hideOldListings: false,
+  hideOldListings: false, hideSlivers: false, hideBareLandOnly: false,
   includeQT: false, maxBidPct: 40,
   statusView: "all",
   ledger: "auction",
@@ -632,6 +632,77 @@ function fees(p) {
   return total - bid;
 }
 const maxBid = p => marketOf(p) * (state.maxBidPct / 100);
+
+// Just Value splits into land + whatever's built on it. FDOR supplies both
+// numbers separately (LND_VAL and JV) - this app already stored land_value,
+// so the improvement/building figure is one subtraction away, not a new
+// data dependency. Guards against a land_value scraped from a different,
+// stale source ever reading as negative "structure" value.
+const buildingValue = p => (hasNum(p.market) && hasNum(p.land_value) && Number(p.market) >= Number(p.land_value))
+  ? Number(p.market) - Number(p.land_value) : null;
+// Land value present, building value computes to (near) zero: this is
+// unimproved land, not a data gap - worth saying outright, since a bidder
+// skimming "House" as the type and a six-figure Just Value can otherwise
+// assume there's a structure that was actually demolished or never built.
+const isBareLand = p => { const bv = buildingValue(p); return bv !== null && bv <= 100; };
+
+const HOMESTEAD_TIP = "Homestead exemption on file with the county (FDOR JV_HMSTD > 0). Florida law (FS 197.502(6)(c)) adds half the assessed value to the statutory minimum bid on a homesteaded parcel, and post-sale writ-of-possession/eviction friction tends to run higher.";
+const MUNI_LIEN_TIP = "Code enforcement, utility, and IRS liens survive a Florida tax deed sale even though most mortgages are wiped out. Confirm directly with the Clerk's tax deed file before bidding - this app does not screen for them.";
+
+// ==================== Tax Certificates: derived yield-desk figures ====================
+// Every figure below is computed from fields the enrichment pipeline already
+// harvests (amount/bid, interest_rate, issued_date) - no new backend column.
+// Both are clearly labeled "Estimated" wherever shown, deliberately: real
+// accrual has statutory minimums this doesn't model, and a redemption stops
+// the clock on a date this app doesn't harvest, so these are a planning
+// figure, not the county's actual payoff quote.
+const CERT_TDA_WAIT_YEARS = 2; // FS 197.502 - earliest a TDA can be filed
+const ACCRUED_INTEREST_TIP = "Estimated with simple interest (bid rate x time since issuance) on the certificate amount. The county's actual redemption payoff may differ - Florida sets statutory minimum charges this doesn't model, and redemption stops accrual on a specific date this app doesn't track.";
+const TDA_ELIGIBLE_TIP = "A certificate holder may file a Tax Deed Application starting 2 years after the certificate's issue date (FS 197.502). Filing starts the county's own tax deed sale process on the underlying property - it doesn't happen automatically.";
+function parseISODate(s) {
+  if (!s) return null;
+  const [y, mo, da] = String(s).split("-").map(Number);
+  if (!y || !mo || !da) return null;
+  return Date.UTC(y, mo - 1, da);
+}
+function tdaEligibleMs(p) {
+  const t = parseISODate(p.issued_date);
+  if (t === null) return null;
+  const d = new Date(t);
+  return Date.UTC(d.getUTCFullYear() + CERT_TDA_WAIT_YEARS, d.getUTCMonth(), d.getUTCDate());
+}
+function tdaEligibleText(p) {
+  const t = tdaEligibleMs(p);
+  if (t === null) return "N/A";
+  return t <= Date.now() ? "Eligible now" : "Eligible " + new Date(t).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+function accruedInterestEst(p) {
+  if (!hasPublishedBid(p) || !hasNum(p.interest_rate) || !p.issued_date) return null;
+  const issued = parseISODate(p.issued_date);
+  if (issued === null) return null;
+  const years = Math.max(0, (Date.now() - issued) / (365.25 * 86400000));
+  return Number(p.bid) * (Number(p.interest_rate) / 100) * years;
+}
+
+// Personal bid-ceiling inputs (repair estimate, municipal lien buffer) are
+// the bidder's own numbers, not county data - kept in localStorage per
+// property rather than in Supabase, so no schema/RLS/backend change is
+// needed to let someone start using the calculator.
+const CALC_KEY_PREFIX = "tdw-calc-";
+function calcInputsFor(pid) {
+  try {
+    const raw = localStorage.getItem(CALC_KEY_PREFIX + pid);
+    if (!raw) return { repair: 0, muni: 0 };
+    const parsed = JSON.parse(raw);
+    return { repair: Number(parsed.repair) || 0, muni: Number(parsed.muni) || 0 };
+  } catch { return { repair: 0, muni: 0 }; }
+}
+function saveCalcInput(pid, field, value) {
+  const cur = calcInputsFor(pid);
+  cur[field] = Math.max(0, Number(value) || 0);
+  try { localStorage.setItem(CALC_KEY_PREFIX + pid, JSON.stringify(cur)); } catch { /* private mode - won't persist, calculator still works this session */ }
+  return cur;
+}
 function daysUntil(p) {
   if (!p.sale_date) return null;
   const [y, mo, da] = p.sale_date.split("-").map(Number); const d = Date.UTC(y, mo - 1, da);
@@ -1202,6 +1273,16 @@ function passes(p) {
   if (p.source !== "certificate" && (!state.types.has(propType(p)) || !state.liens.has(p.lien_level))) return false;
   if ((state.bidMin !== null && Number(p.bid) < state.bidMin) || (state.bidMax !== null && Number(p.bid) > state.bidMax)) return false;
   if (p.source !== "certificate" && state.assessedMin !== null && Number(p.assessed || 0) < state.assessedMin) return false;
+  // "Junk land" quick filters - Lands Available only, and each checks a real
+  // harvested/derived figure (lot_sqft, buildingValue) rather than a guess at
+  // buildability. A raw FDOR use-code filter ("00 Vacant, non-buildable") is
+  // NOT implemented here - the app only stores a translated label, not the
+  // 2-digit code the county actually uses to mark a parcel unbuildable. See
+  // the project handoff for that gap.
+  if (p.source === "laft") {
+    if (state.hideSlivers && hasNum(p.lot_sqft) && Number(p.lot_sqft) < 0.10 * 43560) return false;
+    if (state.hideBareLandOnly && isBareLand(p)) return false;
+  }
   return true;
 }
 
@@ -1251,6 +1332,9 @@ function card(p, showCounty) {
   const el = document.createElement("div");
   const fav = FAVS.has(p.id), top = isTopPick(p);
   el.className = "prop-card " + cardStatus(p) + (fav ? " favorited" : "") + (top ? " toppick" : "");
+  // Lets the 60s countdown-badge refresh (see refreshAuctionCountdowns) find
+  // this card's own row again without a full re-render.
+  el.dataset.pid = p.id;
   const d = daysUntil(p);
   let cd = "";
   if (d !== null && d >= 0) { const cls = d <= 3 ? "urgent" : d <= SOON_DAYS ? "soon" : ""; cd = `<span class="countdown ${cls}">${d === 0 ? "TODAY" : d + "d"}</span>`; }
@@ -1293,15 +1377,17 @@ function card(p, showCounty) {
         <button class="icon-btn remove-btn" data-action="hide" data-pid="${p.id}" type="button" title="Hide">✕</button>
         ${cd}
         ${!isClosed ? `<span class="lien-pill ${esc(p.lien_level)}">${LIEN_LABEL[p.lien_level] || p.lien_level}</span>` : ""}
+        ${!isClosed && p.homestead ? `<span class="lien-pill homestead" title="${esc(HOMESTEAD_TIP)}">Homestead</span>` : ""}
         <span class="pill ${esc(p.status)}">${esc(p.status)}</span>
       </div>
     </div>
     ${hasAddress && hasParcel(p) ? `<div class="prop-parcel-line">Parcel # ${esc(p.parcel)}</div>` : ""}
     ${p.legal_desc ? `<div class="prop-legal" title="${esc(p.legal_desc)}">${esc(p.legal_desc)}</div>` : ""}
     <div class="card-stat-grid ${marketVal ? "card-stat-grid-2" : "card-stat-grid-1"}">
-      <div class="card-stat card-stat-headline"><div class="card-stat-label">Opening Bid</div><div class="card-stat-val bid${bidPublished ? "" : " unpublished"}">${bidDisplay(p)}</div></div>
+      <div class="card-stat card-stat-headline"><div class="card-stat-label">${p.source === "laft" ? "Purchase Price" : "Opening Bid"}</div><div class="card-stat-val bid${bidPublished ? "" : " unpublished"}">${bidDisplay(p)}</div></div>
       ${marketVal ? `<div class="card-stat card-stat-headline"><div class="card-stat-label">${esc(valueLabel(p))}</div><div class="card-stat-val market">${fmtShort(marketVal)}</div></div>` : ""}
     </div>
+    ${p.source === "auction" && bidPublished && marketVal > 0 ? equitySpreadBarHtml(p) : ""}
     ${spec.length ? `<div class="prop-spec">${spec.map(b => `<span>${esc(b)}</span>`).join("")}</div>` : ""}
     ${sale ? `<div class="prop-lastsale">Last sold <b>${esc(sale)}</b></div>` : ""}
     <div class="prop-links">
@@ -1309,10 +1395,50 @@ function card(p, showCounty) {
       ${p.url_appraiser ? `<a href="${esc(p.url_appraiser)}" target="_blank" rel="noopener">${linkIcon("Appraiser")}Appraiser</a>` : ''}
       ${fallbackZillowUrl(p) ? `<a href="${esc(fallbackZillowUrl(p))}" target="_blank" rel="noopener">${linkIcon("Zillow")}Zillow</a>` : ''}
     </div>
-    ${p.url_auction ? `<a class="cta-btn" href="${esc(p.url_auction)}" target="_blank" rel="noopener">${p.source === "laft" ? "View Lands Available Listing" : "Bid on County Auction Site"}</a>` : ''}
+    ${p.url_auction ? `<a class="cta-btn" href="${esc(p.url_auction)}" target="_blank" rel="noopener">${p.source === "laft" ? "View Clerk Docket / Listing" : "Bid on County Auction Site"}</a>` : ''}
     <button class="detail-btn" data-action="viewdetails" data-pid="${p.id}" type="button">View full property page →</button>`;
   return el;
 }
+
+// A quick visual read of "what will it cost me vs. what's it worth" - the
+// same Opening-Bid-vs-Just-Value pair already on the card, just as a bar
+// instead of two numbers, since scanning a page of auctions for the ones
+// with real spread is what the Auctions ledger is actually for. Bid-side
+// width is clamped to 100% (a bid above the comparison value is real and
+// not uncommon at auction; the bar just tops out rather than overflowing).
+function equitySpreadBarHtml(p) {
+  const bid = Number(p.bid), val = marketOf(p);
+  if (!(val > 0)) return "";
+  const pct = Math.max(0, Math.min(100, (bid / val) * 100));
+  return `<div class="spread-bar" title="Opening bid vs. ${esc(valueLabel(p))}">
+    <div class="spread-bar-track"><div class="spread-bar-fill" style="width:${pct.toFixed(1)}%"></div></div>
+    <div class="spread-bar-labels"><span>Bid ${fmtShort(bid)}</span><span>${esc(valueLabel(p))} ${fmtShort(val)}</span></div>
+  </div>`;
+}
+
+// Date-only badges stay honest about the precision they actually have (no
+// auction start-time is harvested - see the project handoff), but they can
+// still be genuinely live: re-derive from the real sale_date on an interval
+// instead of only at the next full render, so "1d" flips to "TODAY" (and
+// "TODAY" to "1d ago") on its own.
+function refreshAuctionCountdowns() {
+  document.querySelectorAll(".prop-card:not(.cert-card)[data-pid]").forEach(cardEl => {
+    const el = cardEl.querySelector(".countdown");
+    if (!el) return;
+    const p = ALL.find(x => String(x.id) === cardEl.dataset.pid);
+    if (!p || !p.sale_date) return;
+    const d = daysUntil(p);
+    if (d === null) return;
+    if (d >= 0) {
+      el.className = "countdown" + (d <= 3 ? " urgent" : d <= SOON_DAYS ? " soon" : "");
+      el.textContent = d === 0 ? "TODAY" : d + "d";
+    } else {
+      el.className = "countdown past";
+      el.textContent = (-d) + "d ago";
+    }
+  });
+}
+setInterval(refreshAuctionCountdowns, 60000);
 
 const CERT_SOON_DAYS = 90;
 function certDaysUntil(dateStr) {
@@ -1329,6 +1455,7 @@ function certCard(p, showCounty) {
   const el = document.createElement("div");
   const fav = FAVS.has(p.id);
   el.className = "prop-card cert-card " + cardStatus(p) + (fav ? " favorited" : "");
+  el.dataset.pid = p.id;
   const tag = showCounty ? `<div class="prop-county-tag">${esc(p.county)} County - Certificate</div>` : "";
   const expDays = certDaysUntil(p.expiration_date);
   let cd = "";
@@ -1351,12 +1478,16 @@ function certCard(p, showCounty) {
         ${bidListBtnHtml(p, true)}
         <button class="icon-btn remove-btn" data-action="hide" data-pid="${p.id}" type="button" title="Hide">✕</button>
         ${cd}
+        <span class="pill ${esc(p.status)}" title="Redemption status">${isGone(p) ? esc(outcomeText(p)) : "Active"}</span>
       </div>
     </div>
-    <div class="card-stat-grid">
+    <div class="card-stat-grid cert-stat-grid">
       <div class="card-stat"><div class="card-stat-label">Amount</div><div class="card-stat-val bid${hasPublishedBid(p) ? "" : " unpublished"}">${bidDisplay(p)}</div></div>
       <div class="card-stat"><div class="card-stat-label">Account #</div><div class="card-stat-val">${esc(p.case_no || "Unknown")}</div></div>
       <div class="card-stat"><div class="card-stat-label">Expires</div><div class="card-stat-val">${p.expiration_date ? fmtDate(p.expiration_date) : "N/A"}</div></div>
+      <div class="card-stat"><div class="card-stat-label">Interest Rate</div><div class="card-stat-val">${hasNum(p.interest_rate) ? p.interest_rate + "%" : "N/A"}</div></div>
+      <div class="card-stat"><div class="card-stat-label">Est. Accrued Interest</div><div class="card-stat-val">${accruedInterestEst(p) !== null ? fmtShort(accruedInterestEst(p)) : "N/A"}</div></div>
+      <div class="card-stat"><div class="card-stat-label">TDA Eligibility</div><div class="card-stat-val">${tdaEligibleText(p)}</div></div>
     </div>
     ${p.url_auction ? `<a class="cta-btn" href="${esc(p.url_auction)}" target="_blank" rel="noopener">View on County-Held Liens List</a>` : ''}
     <button class="detail-btn" data-action="viewdetails" data-pid="${p.id}" type="button">View full property page →</button>`;
@@ -1367,6 +1498,44 @@ function certCard(p, showCounty) {
 // Same underlying data as the card, laid out roomier with big tappable link
 // buttons instead of the compact 3-across grid - triggered by the card's
 // "View Full Property Page" button (data-action="viewdetails").
+// The "Smart Bidding" drawer: the existing Fees/Walk-Away-Above math made
+// visible and interactive, rather than a second parallel calculator. Repair
+// estimate and municipal lien buffer are the bidder's own numbers (kept in
+// localStorage, not Supabase - see calcInputsFor). Deliberately does NOT
+// invent a "historical county close-rate multiplier" the way a first draft
+// of this might have - this app has no verified per-county closing-price
+// data yet (sold_price exists per row once a deed closes, so a real one is
+// buildable later from the app's own outcomes), and shipping a plausible-
+// looking guess would be exactly the kind of unsupported number this
+// feature exists to get rid of. The percentage here is the same
+// user-owned "Max bid target" setting already in Filters & Sort.
+function calcDrawerHtml(p) {
+  const calc = calcInputsFor(p.id);
+  const grossSpread = marketOf(p) - Number(p.bid);
+  const feesAmt = fees(p);
+  const netSpread = grossSpread - feesAmt - calc.repair - calc.muni;
+  const ceiling = maxBid(p);
+  const yourMaxBid = Math.max(0, ceiling - calc.repair - calc.muni);
+  return `
+    <details class="calc-drawer" data-pid="${p.id}">
+      <summary>Bid &amp; profit calculator</summary>
+      <div class="calc-body">
+        <div class="calc-row"><span>Gross Equity Spread</span><b>${grossSpread >= 0 ? "+" : "-"}${fmtShort(Math.abs(grossSpread))}</b></div>
+        <div class="calc-row calc-minus"><span>County &amp; closing fees ${infoTip(FEES_TIP)}</span><b>-${fmtShort(feesAmt)}</b></div>
+        <label class="calc-input-row"><span>Repair / rehab estimate</span>
+          <input type="number" class="calc-input" min="0" step="100" inputmode="numeric" data-calc-field="repair" value="${calc.repair || ""}" placeholder="$0">
+        </label>
+        <label class="calc-input-row"><span>Municipal lien buffer ${infoTip(MUNI_LIEN_TIP)}</span>
+          <input type="number" class="calc-input" min="0" step="100" inputmode="numeric" data-calc-field="muni" value="${calc.muni || ""}" placeholder="$0">
+        </label>
+        <div class="calc-row calc-total"><span>Net Profit Estimate</span><b id="calcNetResult" class="${netSpread < 0 ? "neg" : ""}">${netSpread >= 0 ? "+" : "-"}${fmtShort(Math.abs(netSpread))}</b></div>
+        <div class="calc-divider"></div>
+        <div class="calc-row"><span>Walk Away Above (${state.maxBidPct}% of Just Value)</span><b>${fmtShort(ceiling)}</b></div>
+        <div class="calc-row calc-total"><span>Your Max Bid</span><b id="calcMaxBidResult">${fmtShort(yourMaxBid)}</b></div>
+      </div>
+    </details>`;
+}
+
 function detailHtml(p) {
   const isCert = p.source === "certificate";
   const fav = FAVS.has(p.id);
@@ -1398,12 +1567,24 @@ function detailHtml(p) {
     if (hasNum(p.market)) stats.push([valueLabel(p), fmtShort(p.market)]);
     stats.push(["County Assessed Value", hasNum(p.assessed) ? fmtShort(p.assessed) : "N/A"]);
     if (hasNum(p.land_value)) stats.push(["Land Value", fmtShort(p.land_value)]);
+    // Just Value split into land vs. whatever's built on it - one FDOR-
+    // sourced subtraction, not a new field. A bare lot reads as exactly
+    // that instead of a mystery $0, which is the actual failure mode this
+    // guards against: "House" as the type plus a six-figure Just Value
+    // with nothing behind it usually means demolished or never built.
+    const bv = buildingValue(p);
+    if (bv !== null) stats.push(["Building / Improvement Value", isBareLand(p) ? "None (bare land)" : fmtShort(bv)]);
+    if (p.homestead) stats.push(["Homestead Exemption", "Yes"]);
     if (bidPublished) {
       stats.push(["Fees", fmtShort(fees(p))]);
       stats.push(["Walk Away Above", fmtShort(maxBid(p))]);
       if (marketOf(p) > 0) {
         const spreadAmt = marketOf(p) - Number(p.bid);
-        stats.push(["Potential Equity", `${spreadAmt >= 0 ? "+" : "-"}${fmtShort(Math.abs(spreadAmt))} (${valueRatio(p).toFixed(1)}×)`]);
+        // "Profit" implied the quiet title suit, municipal liens, and
+        // rehab that Florida tax deed math never nets out for free - this
+        // is the raw Just-Value-minus-bid baseline the calculator below
+        // actually subtracts those from, so it's named for what it is.
+        stats.push(["Gross Equity Spread", `${spreadAmt >= 0 ? "+" : "-"}${fmtShort(Math.abs(spreadAmt))} (${valueRatio(p).toFixed(1)}×)`]);
       }
     }
     // Tax-roll facts about the property itself, after the money. Each is
@@ -1422,6 +1603,12 @@ function detailHtml(p) {
     stats.push(["Tax Year", p.tax_year || "N/A"]);
     stats.push(["Issued", p.issued_date ? fmtDate(p.issued_date) : "N/A"]);
     stats.push(["Expires", p.expiration_date ? fmtDate(p.expiration_date) : "N/A"]);
+    const accrued = accruedInterestEst(p);
+    if (accrued !== null) {
+      stats.push(["Est. Accrued Interest", fmtShort(accrued)]);
+      stats.push(["Est. Total Return", fmtShort(Number(p.bid) + accrued)]);
+    }
+    stats.push(["TDA Eligibility", tdaEligibleText(p)]);
   }
 
   return `
@@ -1436,10 +1623,12 @@ function detailHtml(p) {
     ${!isCert ? `<div class="lien-banner ${esc(p.lien_level)}">
       <div class="lien-toprow"><span class="lien-label">Title: ${LIEN_LABEL[p.lien_level] || p.lien_level}</span><span class="type-badge">${esc(p.prop_type || "Type: Unknown")}</span></div>
       <span class="lien-text">${esc(p.lien_note || "")}</span>
+      <span class="muni-lien-note">${infoTip(MUNI_LIEN_TIP)} Verify municipal/utility/IRS liens - these survive a tax deed sale</span>
     </div>` : ""}
     <div class="detail-grid">
-      ${stats.map(([label, val]) => `<div class="detail-stat"><span class="detail-stat-label">${esc(label)}${label === "Fees" ? " " + infoTip(FEES_TIP) : ""}</span><span class="detail-stat-val">${esc(val)}</span></div>`).join("")}
+      ${stats.map(([label, val]) => `<div class="detail-stat"><span class="detail-stat-label">${esc(label)}${label === "Fees" ? " " + infoTip(FEES_TIP) : label === "Homestead Exemption" ? " " + infoTip(HOMESTEAD_TIP) : label === "Est. Accrued Interest" ? " " + infoTip(ACCRUED_INTEREST_TIP) : label === "TDA Eligibility" ? " " + infoTip(TDA_ELIGIBLE_TIP) : ""}</span><span class="detail-stat-val">${esc(val)}</span></div>`).join("")}
     </div>
+    ${!isCert && bidPublished && marketOf(p) > 0 ? calcDrawerHtml(p) : ""}
     ${p.legal_desc ? `<div class="detail-legal">
       <span class="detail-legal-label">Legal description</span>
       <p>${esc(p.legal_desc)}</p>
@@ -1815,6 +2004,30 @@ document.addEventListener("click", async e => {
   }
 });
 
+// The calculator's own inputs update in place (localStorage write + two
+// text nodes) rather than going through render()/openDetail() - a full
+// re-render on every keystroke would blow away cursor position and the
+// <details> open/closed state the user just set.
+document.addEventListener("input", e => {
+  const field = e.target.dataset.calcField;
+  if (!field) return;
+  const drawer = e.target.closest("[data-pid]");
+  const pid = drawer && drawer.dataset.pid;
+  const p = pid && ALL.find(x => x.id === pid);
+  if (!p) return;
+  const cur = saveCalcInput(pid, field, e.target.value);
+  const grossSpread = marketOf(p) - Number(p.bid);
+  const netSpread = grossSpread - fees(p) - cur.repair - cur.muni;
+  const yourMaxBid = Math.max(0, maxBid(p) - cur.repair - cur.muni);
+  const netEl = document.getElementById("calcNetResult");
+  const maxEl = document.getElementById("calcMaxBidResult");
+  if (netEl) {
+    netEl.textContent = `${netSpread >= 0 ? "+" : "-"}${fmtShort(Math.abs(netSpread))}`;
+    netEl.classList.toggle("neg", netSpread < 0);
+  }
+  if (maxEl) maxEl.textContent = fmtShort(yourMaxBid);
+});
+
 // Three separate ledgers (Auctions, Lands Available, Certificates), one
 // visible at a time via the tab bar - not one long page where Lands
 // Available sat under 300+ auction cards and read as "not populated"
@@ -1931,7 +2144,14 @@ const SORT_COMPARATORS = {
   assessedAsc: (a, b) => Number(a.assessed || 0) - Number(b.assessed || 0),
   assessedDesc: (a, b) => Number(b.assessed || 0) - Number(a.assessed || 0),
   spreadDesc: (a, b) => valueRatio(b) - valueRatio(a),
-  address: (a, b) => (a.address || "").localeCompare(b.address || "")
+  address: (a, b) => (a.address || "").localeCompare(b.address || ""),
+  // Yield-desk sorts - meaningful on Certificates, harmless no-ops elsewhere
+  // (deed/LAFT rows carry neither field, so they fall back to a stable 0).
+  interestDesc: (a, b) => Number(b.interest_rate || 0) - Number(a.interest_rate || 0),
+  expSoonAsc: (a, b) => {
+    const da = certDaysUntil(a.expiration_date), db = certDaysUntil(b.expiration_date);
+    return (da === null ? Infinity : da) - (db === null ? Infinity : db);
+  }
 };
 
 function sortRows(rows) {
@@ -2202,7 +2422,7 @@ function updateBadge() {
   if (state.bidMin || state.bidMax || state.assessedMin) n++;
   if (state.sortBy !== "county") n++;
   if (state.sortSecondary) n++;
-  if (state.favoritesOnly || state.topPicksOnly || state.soonOnly || state.hideOldListings) n++;
+  if (state.favoritesOnly || state.topPicksOnly || state.soonOnly || state.hideOldListings || state.hideSlivers || state.hideBareLandOnly) n++;
   if (state.statusView !== "all") n++;
   if (state.maxBidPct !== 40) n++;
   if (state.counties.size !== ALL_COUNTIES.length) n++;
@@ -2280,6 +2500,22 @@ function applyLedgerChrome() {
   // produce an empty page.
   const archiveRow = document.getElementById("archiveToggleRow");
   if (archiveRow) archiveRow.hidden = key !== "auction";
+
+  // "Junk land" filters (sliver size, zero-improvement) only mean anything
+  // once you're deciding whether a fixed-price OTC parcel is worth buying -
+  // an auction or certificate row doesn't have the concept.
+  const junkRow = document.getElementById("junkLandRow");
+  if (junkRow) junkRow.hidden = key !== "laft";
+
+  // The CSV export is the same file either way - only the label changes, so
+  // it reads as "the thing this ledger's desk actually wants" rather than a
+  // generic download button repeated three times.
+  const exportBtn = document.getElementById("exportCsvBtn");
+  if (exportBtn) {
+    exportBtn.textContent = key === "auction" ? "⬇ Export to Auction Sheet"
+      : key === "certificate" ? "⬇ Export Yield Ledger (CSV)"
+      : "⬇ Export OTC List (CSV)";
+  }
 }
 
 function setLedger(key, opts) {
@@ -2430,6 +2666,10 @@ if (exportCsvBtn) exportCsvBtn.addEventListener("click", () => {
     ["Status", p => p.status || ""],
     ["Property Type", p => p.prop_type || ""],
     ["Title Status", p => LIEN_LABEL[p.lien_level] || p.lien_level || ""],
+    // Positive evidence only, same rule the app itself follows (see
+    // homesteadSurcharge/the enrichment script's own comment on this
+    // column) - blank here means "not confirmed", never "confirmed no".
+    ["Homestead Exemption", p => p.homestead ? "Yes" : ""],
     ["Opening Bid", p => p.bid ?? ""],
     ["County Assessed Value", p => p.assessed ?? ""],
     // "Market Value" as a column heading was the same overclaim the card
@@ -2438,8 +2678,8 @@ if (exportCsvBtn) exportCsvBtn.addEventListener("click", () => {
     // mixing rows from different roll years is still readable.
     ["County Just Value", p => p.market ?? ""],
     ["Just Value Year", p => p.value_year ?? ""],
-    ["Potential Equity ($)", p => (p.bid != null && marketOf(p) > 0) ? Math.round(marketOf(p) - Number(p.bid)) : ""],
-    ["Potential Equity (x bid)", p => (Number(p.bid) > 0 && marketOf(p) > 0) ? valueRatio(p).toFixed(2) : ""],
+    ["Gross Equity Spread ($)", p => (p.bid != null && marketOf(p) > 0) ? Math.round(marketOf(p) - Number(p.bid)) : ""],
+    ["Gross Equity Spread (x bid)", p => (Number(p.bid) > 0 && marketOf(p) > 0) ? valueRatio(p).toFixed(2) : ""],
     ["Fees", p => p.bid != null ? Math.round(fees(p)) : ""],
     // Tax-roll columns. Someone exporting to a spreadsheet is usually
     // filtering or sorting on exactly these - lot size, age, what it last
@@ -2450,6 +2690,9 @@ if (exportCsvBtn) exportCsvBtn.addEventListener("click", () => {
     ["Lot Size (sq ft)", p => p.lot_sqft ?? ""],
     ["Buildings", p => p.num_buildings ?? ""],
     ["Land Value", p => p.land_value ?? ""],
+    // Raw subtraction (Just Value - Land Value), same one the property page
+    // shows - not re-derived differently here, so the two never disagree.
+    ["Building / Improvement Value", p => { const bv = buildingValue(p); return bv === null ? "" : Math.round(bv); }],
     ["Last Sale Price", p => p.last_sale_price ?? ""],
     ["Last Sale Year", p => p.last_sale_year ?? ""],
     ["Legal Description", p => p.legal_desc || ""],
@@ -2459,6 +2702,8 @@ if (exportCsvBtn) exportCsvBtn.addEventListener("click", () => {
     ["Issued Date", p => p.issued_date || ""],
     ["Expiration Date", p => p.expiration_date || ""],
     ["Interest Rate", p => p.interest_rate ?? ""],
+    ["Est. Accrued Interest", p => { const a = accruedInterestEst(p); return a === null ? "" : Math.round(a); }],
+    ["TDA Eligibility Date", p => { const t = tdaEligibleMs(p); return t === null ? "" : new Date(t).toISOString().slice(0, 10); }],
     ["Street View", p => fallbackStreetviewUrl(p)],
     ["Appraiser", p => p.url_appraiser || ""],
     ["Zillow", p => fallbackZillowUrl(p)],
@@ -2569,6 +2814,8 @@ bindCheckbox("topOnly", "topPicksOnly");
 bindCheckbox("soonOnly", "soonOnly");
 bindCheckbox("hideOldOnly", "hideOldListings");
 bindCheckbox("qtToggle", "includeQT");
+bindCheckbox("hideSliversOnly", "hideSlivers");
+bindCheckbox("hideBareLandOnly", "hideBareLandOnly");
 
 // Archive is a MODE (statusView), not a boolean flag, so it can't go through
 // bindCheckbox. Ticking it switches the whole view to past-due auctions;
@@ -2588,6 +2835,7 @@ if (resetBtn) resetBtn.addEventListener("click", () => {
   state.bidMin = null; state.bidMax = null; state.assessedMin = null;
   state.sortBy = "county"; state.sortSecondary = ""; state.favoritesOnly = false; state.topPicksOnly = false;
   state.soonOnly = false; state.hideOldListings = false; state.includeQT = false; state.maxBidPct = 40;
+  state.hideSlivers = false; state.hideBareLandOnly = false;
   state.statusView = "all"; state.search = "";
   state.counties = new Set(ALL_COUNTIES); state.types = new Set(TYPE_ORDER); state.liens = new Set(LIEN_ORDER);
   state.expandedCounties.clear();
@@ -2605,7 +2853,7 @@ if (resetBtn) resetBtn.addEventListener("click", () => {
   const maxBidEl = document.getElementById("maxBidPct"); if (maxBidEl) maxBidEl.value = "40";
   const sortEl = document.getElementById("sortBy"); if (sortEl) sortEl.value = "county";
   const sortSecEl = document.getElementById("sortSecondary"); if (sortSecEl) sortSecEl.value = "";
-  ["favOnly", "topOnly", "soonOnly", "hideOldOnly", "qtToggle", "archiveToggle"].forEach(id => { const el = document.getElementById(id); if (el) el.checked = false; });
+  ["favOnly", "topOnly", "soonOnly", "hideOldOnly", "qtToggle", "archiveToggle", "hideSliversOnly", "hideBareLandOnly"].forEach(id => { const el = document.getElementById(id); if (el) el.checked = false; });
   const searchEl = document.getElementById("searchInput"); if (searchEl) searchEl.value = "";
 
   buildAllChips();
