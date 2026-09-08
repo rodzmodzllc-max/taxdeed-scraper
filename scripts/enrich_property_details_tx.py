@@ -43,15 +43,41 @@ that does not have a Florida analog:
     with real market/land/building values and the raw Comptroller SPTB
     code per parcel - a genuine JSON API, not an interactive-form-only
     site. That is exactly the kind of source this module needs and is
-    now real, tested-against-live-data code rather than a stub. It is
-    NOT yet known whether TAD/DCAD/BCAD/Travis CAD have an equivalent -
-    each still needs its own version of this same check before
-    _fetch_tad() etc. can move past NotImplementedError, and HCAD's own
-    exemption/building-sqft gaps (see _fetch_hcad()'s comment block)
-    still need a second source. So the biggest architectural risk is
-    narrowed, not closed: Harris County has a real path, the other four
-    named counties and the "is there a statewide fallback" question do
-    not yet.
+    now real, tested-against-live-data code rather than a stub.
+
+    UPDATE 2026-09-08 (later same session): audited TAD/DCAD/BCAD/Travis
+    CAD for the same kind of endpoint. Results are mixed, not uniform -
+    this is the expected shape for Texas (unlike Florida's one statewide
+    source), not a surprise:
+      - TAD (Tarrant): a real, RICHER-than-HCAD endpoint confirmed live -
+        has valuation, an exemption field, AND building square footage
+        (which HCAD's layer lacks). Now real code, not a stub - see
+        _fetch_tad(). Its classification and exemption fields are
+        unconfirmed-content (truncated field names, values not sampled),
+        same caveat level HCAD had before its state_class was sampled.
+      - Bexar (BCAD): a real, valuation-rich endpoint confirmed live
+        (LAND_VALUE/IMP_VALUE/MKT_VALUE), but its likely classification
+        fields have ArcGIS-truncated names not yet sampled, and no
+        exemption field was found at all. Still a stub pending that
+        sampling - see _fetch_bcad()'s comment block.
+      - Dallas (DCAD): no single rich source found. The CAD's own
+        service (maps.dcad.org) was unreachable from this project's
+        tooling (connectivity, not confirmed absence) both attempts this
+        session; a separate City of Dallas layer IS reachable and has
+        SPTBCODE + exemption fields but no valuation. Needs a two-source
+        join, unproven - see _fetch_dcad()'s comment block.
+      - Travis (TCAD): a real, live, but confirmed WEAK endpoint -
+        geometry/situs/parcel-ID only, no valuation, no classification,
+        no exemption data. A genuinely different source is needed here,
+        not yet found - see _fetch_travis_cad()'s comment block.
+    So the biggest architectural risk is narrowed further but still not
+    closed: 2 of 5 named counties (Harris, Tarrant) now have a real,
+    reasonably rich path; Bexar has a real path pending one more
+    verification step; Dallas needs an unproven join; Travis needs an
+    entirely different source. The original per-CAD-variance premise -
+    that Texas enrichment will look meaningfully different county to
+    county, unlike Florida's one-source model - is holding up exactly as
+    expected.
 
 Everything below is real, working *scaffolding* - the batch loop, the
 config constants, the wiring into tx_use_codes.py and tx_yield_calc.py -
@@ -230,24 +256,182 @@ def hcad_attributes_to_generic(attrs: dict) -> dict:
     }
 
 
+TAD_ARCGIS_QUERY_URL = (
+    "https://mapit.tarrantcounty.com/arcgis/rest/services/Tax/TCProperty/MapServer/0/query"
+)
+
+# Confirmed live 2026-09-08 via direct field-list query against
+# TAD_ARCGIS_QUERY_URL (unauthenticated ArcGIS REST, same mechanism as
+# HCAD above). This layer is actually RICHER than HCAD's: alongside
+# LAND_VALUE/IMPR_VALUE/TOTAL_VALU/APPRAISEDV it also carries an
+# EXEMPTION_ field (truncated name - real content not yet sampled, but
+# this is the homestead-equivalent signal HCAD's layer was confirmed
+# missing) and a LIVING_ARE field (building square footage - also
+# confirmed missing from HCAD's layer). PARCELTYPE + DESCR look like the
+# SPTB-equivalent classification pair but have not been sampled against
+# real data the way HCAD's state_class was (see _fetch_hcad()'s comment
+# block for that live sample) - treat PARCELTYPE/DESCR as unconfirmed
+# until a real query is run and compared against tx_use_codes.py's
+# CODE_LABELS, and treat EXEMPTION_'s actual values as unconfirmed until
+# sampled too. Also has LAND_ACRES and LAND_SQFT (both, unlike HCAD's
+# single ambiguous Acreage field), YEAR_BUILT, BEDROOMS, BATHROOMS.
+#
+# NOT execution-tested from this project's own sandbox (same network
+# limitation as _fetch_hcad() - outbound access to mapit.tarrantcounty.com
+# was not available from here either). Field list confirmed via a
+# separate live fetch path, not by running this function.
 def _fetch_tad(parcel_id: str) -> dict | None:
-    """Tarrant Appraisal District. STUB - not yet live-verified."""
-    raise NotImplementedError("TAD fetch mechanics not yet live-verified")
+    """Query TAD's public ArcGIS parcel layer for one account number.
+
+    `parcel_id` should be TAD's own ACCOUNT or TAXPIN field value, not a
+    FDOR- or HCAD-style parcel ID - confirm which one texas_harvester.py
+    or a TAD-specific lookup step actually captures before wiring this
+    in for real.
+    """
+    import json
+    import urllib.parse
+    import urllib.request
+
+    fields = (
+        "TAXPIN,ACCOUNT,OWNER_NAME,SITUS_ADDR,EXEMPTION_,LEGAL_1,"
+        "LAND_VALUE,IMPR_VALUE,TOTAL_VALU,APPRAISEDV,LAND_ACRES,"
+        "LAND_SQFT,LIVING_ARE,YEAR_BUILT,PARCELTYPE,DESCR"
+    )
+    params = {
+        "where": f"ACCOUNT='{parcel_id}'",
+        "outFields": fields,
+        "returnGeometry": "false",
+        "f": "json",
+    }
+    url = f"{TAD_ARCGIS_QUERY_URL}?{urllib.parse.urlencode(params)}"
+    with urllib.request.urlopen(url, timeout=15) as resp:
+        payload = json.loads(resp.read())
+
+    features = payload.get("features") or []
+    if not features:
+        return None
+    return features[0].get("attributes")
 
 
+def tad_attributes_to_generic(attrs: dict) -> dict:
+    """Adapt a raw _fetch_tad() attributes dict to the generic shape
+    normalize_cad_response() expects. See _fetch_tad()'s comment block -
+    PARCELTYPE/DESCR and EXEMPTION_'s actual real-world values are NOT
+    yet sampled, so tx_category and homestead_exemption below are best-
+    guess field mappings, not confirmed-correct the way HCAD's are.
+    """
+    return {
+        "market_value": attrs.get("APPRAISEDV") or attrs.get("TOTAL_VALU"),
+        "land_value": attrs.get("LAND_VALUE"),
+        "improvement_value": attrs.get("IMPR_VALUE"),
+        "acreage": attrs.get("LAND_ACRES"),
+        "building_sqft": attrs.get("LIVING_ARE"),
+        # UNCONFIRMED mapping - DESCR/PARCELTYPE have not been sampled
+        # against real data to check whether either one is actually an
+        # SPTB code in tx_use_codes.py's format. Do not trust this field
+        # until that sample is taken.
+        "tx_category": attrs.get("DESCR"),
+        # UNCONFIRMED - EXEMPTION_'s real values (a flag? a code? blank
+        # when none?) have not been sampled either.
+        "homestead_exemption": attrs.get("EXEMPTION_"),
+    }
+
+
+# Confirmed live 2026-09-08: DCAD does NOT have one single rich source -
+# it needs a two-source join that has not been proven yet:
+#   1. maps.dcad.org/prdwa/rest/services/Property/{ParcelQuery,PropMap}/
+#      MapServer - DCAD's OWN ArcGIS service, which should be the richest
+#      source (it is the CAD's own data), but was unreachable from this
+#      project's tooling both attempts this session (robots.txt-level
+#      connection failures, not a confirmed-absent service - this needs
+#      a retry from a different network path before being written off).
+#   2. egis.dallascityhall.com/arcgis/rest/services/Basemap/
+#      DallasTaxParcels/MapServer/0 - the City of Dallas's own GIS
+#      (different host, confirmed reachable and live this session).
+#      Field list confirmed: has SPTBCODE (a real, live field literally
+#      named after the same State Property Tax Board code standard
+#      tx_use_codes.py documents - strong independent confirmation of
+#      that module's approach), PROP_CL, BLDG_CL, TOTEXEMPT, AREA_FEET,
+#      ACCT/GIS_ACCT for the join key - but NO valuation fields
+#      (market/land/improvement value) at all.
+# Net: this city layer alone can supply tx_category (from SPTBCODE) and
+# a homestead-adjacent signal (TOTEXEMPT), but not cad_market_value -
+# real enrichment needs maps.dcad.org reachable, or another valuation
+# source, joined to this one by ACCT. Not attempted as working code yet -
+# the join and the maps.dcad.org connectivity both need to be proven
+# first, the same "prove the join, don't assume it" discipline this
+# project already applies to Florida's FDOR join.
 def _fetch_dcad(parcel_id: str) -> dict | None:
-    """Dallas Central Appraisal District. STUB - not yet live-verified."""
-    raise NotImplementedError("DCAD fetch mechanics not yet live-verified")
+    """Dallas: needs a two-source join, neither half fully proven yet.
+
+    See the comment block above this function for what's confirmed
+    (egis.dallascityhall.com's classification/exemption fields) versus
+    unresolved (maps.dcad.org's valuation data - connectivity, not
+    confirmed absence).
+    """
+    raise NotImplementedError(
+        "DCAD needs a two-source join (egis.dallascityhall.com for "
+        "SPTBCODE/exemption + maps.dcad.org for valuation) that has not "
+        "been proven yet - maps.dcad.org was unreachable from this "
+        "project's tooling this session, not confirmed to lack the data."
+    )
 
 
+# Confirmed live 2026-09-08: services7.arcgis.com/.../Bexar_CAD_Parcels/
+# FeatureServer/3 (note the layer's own name literally contains
+# "Bexar_CAD_Parcels" - a strong signal this is BCAD's real data, not
+# just county GIS boundaries). Field list confirmed rich: LAND_VALUE,
+# IMP_VALUE, MKT_VALUE (all three, cleanly named - better than HCAD's
+# split of bld_value vs impr_value), LEGAL_AREA/GIS_AREA (acreage,
+# though with a separate _U unit-suffix field rather than an embedded
+# string like HCAD's "1.8081 AC" - worth checking those unit fields
+# before assuming acres), YEAR_BUILT, LEGAL_DESC. Two likely
+# classification fields exist but their names are ArcGIS-truncated to 10
+# characters (STAT_LAND_, LOC_LAND_U) - almost certainly
+# STAT_LAND_USE/LOC_LAND_USE, but NOT sampled against real data yet, so
+# it is unconfirmed whether either one carries an SPTB-format code the
+# way HCAD's state_class does. No exemption/homestead field identified
+# among the 38 fields inspected.
 def _fetch_bcad(parcel_id: str) -> dict | None:
-    """Bexar Appraisal District. STUB - not yet live-verified."""
-    raise NotImplementedError("BCAD fetch mechanics not yet live-verified")
+    """Bexar: real endpoint confirmed, field-name truncation unresolved.
+
+    See the comment block above this function. Same shape of work as
+    _fetch_tad() once STAT_LAND_/LOC_LAND_U are sampled and confirmed to
+    (or not to) carry SPTB codes.
+    """
+    raise NotImplementedError(
+        "BCAD's endpoint and field list are confirmed live, but "
+        "STAT_LAND_/LOC_LAND_U (the likely classification fields) have "
+        "truncated names not yet sampled against real data - confirm "
+        "their actual content before writing the query/adapter pair."
+    )
 
 
+# Confirmed live 2026-09-08: gis.traviscountytx.gov/server1/rest/services/
+# Boundaries_and_Jurisdictions/TCAD_public/MapServer/0 is real and
+# reachable, but - unlike HCAD/TAD/BCAD above - its field list is
+# geometry/situs/parcel-ID ONLY (PROP_ID, geo_id, situs_*, tcad_acres,
+# legal_desc, a hyperlink field, centroid coordinates). NO valuation,
+# NO classification/SPTB code, NO exemption data of any kind. The
+# "_public" in this service's own name is a plausible explanation - TCAD
+# may keep a richer, non-public-branded layer for internal/licensed use
+# that this session did not find. This is the weakest of the four CADs
+# audited this session; Travis County enrichment needs either a
+# different TCAD/Travis County service found and verified, or a
+# different data path entirely (e.g. TCAD's own property-search site,
+# travis.prodigycad.com/maps, which was found via search but not
+# inspected for an underlying API this session).
 def _fetch_travis_cad(parcel_id: str) -> dict | None:
-    """Travis Central Appraisal District. STUB - not yet live-verified."""
-    raise NotImplementedError("Travis CAD fetch mechanics not yet live-verified")
+    """Travis: confirmed-live endpoint, confirmed NOT to carry appraisal
+    data. See the comment block above this function - this is a
+    negative result, not an unexplored one.
+    """
+    raise NotImplementedError(
+        "TCAD_public's ArcGIS layer is live but confirmed to carry only "
+        "geometry/situs/parcel-ID fields, no valuation or classification "
+        "data - a different Travis County source is needed, not yet "
+        "found."
+    )
 
 
 # County name -> fetcher. Deliberately a plain dict, not a CSV-driven list
