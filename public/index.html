@@ -120,6 +120,19 @@ other people's profiles rows in the first place). -->
      says the same thing), so once the other three went there was nothing
      left here but an empty band with the account badge stranded in it. -->
 <div class="masthead">
+<!-- State switcher: which state's tax-sale universe you're looking at.
+First thing under the masthead, above the ledger tabs, since it changes
+what the three ledgers below even mean (see LEDGERS' .tx overrides and
+ledgerCopy() in app.js) - not a filter within a ledger, a different
+ledger set entirely. Texas starts genuinely empty (no harvester live
+yet - see harvesters/texas_harvester.py) by design, not a bug: the
+switcher, region filter, and dor_use_code/tx_category badges below are
+real, shipped ahead of TX data so the pipeline has somewhere to land
+the moment a harvester goes live. -->
+<nav class="region-tabs" id="regionTabs" aria-label="State">
+<button class="region-tab" data-region="FL" type="button"><span class="region-tab-icon" aria-hidden="true">🌴</span>Florida <b id="tabCountFL">0</b></button>
+<button class="region-tab" data-region="TX" type="button"><span class="region-tab-icon" aria-hidden="true">⭐</span>Texas <b id="tabCountTX">0</b></button>
+</nav>
 <!-- Two (really three) separate ledgers, front and center right after sign-in -
 not one long scroll where Lands Available sits under 300+ auction cards. -->
 <nav class="ledger-tabs" id="ledgerTabs" aria-label="Ledger">
@@ -299,7 +312,7 @@ chips - each summary shows how many are currently selected. -->
 </div>
 </details>
 
-<details class="filter-dropdown">
+<details class="filter-dropdown" id="countyDropdown">
 <summary>County (multi-select) <span class="filter-dropdown-count" id="countyCount"></span></summary>
 <div class="filter-dropdown-body">
 <div class="group-actions">
