@@ -87,7 +87,7 @@ from pathlib import Path
 import requests
 from bs4 import BeautifulSoup
 
-from harvest_cache import conditional_get, load_cache, save_cache
+from harvest_cache import conditional_get, load_cache, record_cache_stats, save_cache
 
 HERE = Path(__file__).resolve().parent
 SOURCES_CSV = HERE / "../data/laft_html_sources.csv"
@@ -530,6 +530,7 @@ def main() -> int:
                 new_cache[url] = entry
 
     save_cache("laft_html", new_cache)
+    record_cache_stats("laft_html", reused, len(sources))
     if reused:
         print(f"\n{reused} of {len(sources)} sources were unchanged - parse skipped for those.", flush=True)
 
