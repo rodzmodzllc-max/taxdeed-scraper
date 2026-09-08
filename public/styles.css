@@ -468,6 +468,15 @@ above the 22px topbar mark so it reads as the header's focal point. */
   font-family:ui-monospace,Consolas,monospace;word-break:break-word}
 
 .tog{display:flex;align-items:center;gap:.35rem;font-size:.78rem;color:var(--ink);cursor:pointer}
+/* Same bug class as #authGate[hidden]/#installBtn[hidden]/.filters-row[hidden]
+   elsewhere in this file: .tog's own display:flex is an author rule, so it
+   beats the UA stylesheet's `[hidden]{display:none}` on a specificity tie.
+   Confirmed live (not just reasoned about) on #archiveToggleRow: setting its
+   `hidden` property to true (applyLedgerChrome in app.js, non-auction
+   ledgers) left it fully visible on screen with real dimensions - the DOM
+   property was correct the whole time, only the paint was wrong. Filed as
+   a backlog item after the .filters-row fix and confirmed/fixed here. */
+.tog[hidden]{display:none}
 /* The archive toggle carries its own count (it replaced a count chip), so it
    needs the same tabular figures the chips use or the number jitters as it
    changes. Scoped to b inside a toggle so no other toggle picks it up. */

@@ -863,6 +863,14 @@ for (const key of ['auction', 'laft', 'certificate']) {
     assessedHidden: !!(document.getElementById('assessedField') || {}).hidden,
     archiveRowHidden: !!(document.getElementById('archiveToggleRow') || {}).hidden
   }));
+  // The DOM property alone isn't proof of anything ON SCREEN - it's exactly
+  // what missed the .filters-row[hidden]/author-CSS-specificity bug fixed in
+  // the ledger-layout phase (see #junkLandRow's own fix). #archiveToggleRow
+  // is a `.tog`, same "own display:flex beats the UA [hidden] rule on a
+  // specificity tie" bug class, and had never been checked visually before -
+  // read with Playwright's own visibility check, not page.evaluate, so a
+  // regression here can't hide behind the property alone again.
+  ledgerPages[key].archiveRowVisuallyHidden = await page.locator('#archiveToggleRow').isHidden();
 }
 results.ledgerHashes = ['auction', 'laft', 'certificate'].map(k => ledgerPages[k].hash);
 results.ledgerDocAttr = ['auction', 'laft', 'certificate'].map(k => ledgerPages[k].docLedger);
@@ -891,6 +899,7 @@ results.auctionKeepsTypeLienAssessed = [
 // Archive is auction-only - isPastDue() is false for everything else, so on
 // the other two the toggle could only ever produce an empty page.
 results.archiveRowHiddenPerLedger = ['auction', 'laft', 'certificate'].map(k => ledgerPages[k].archiveRowHidden);
+results.archiveRowVisuallyHiddenPerLedger = ['auction', 'laft', 'certificate'].map(k => ledgerPages[k].archiveRowVisuallyHidden);
 
 // --- the basemap is a map, not a silhouette ---
 // fl-counties.svg used to be 67 county paths and nothing else, which is why
@@ -1111,6 +1120,7 @@ const EXPECTED = {
   certHidesTypeLienAssessed: [true, true, true],
   auctionKeepsTypeLienAssessed: [false, false, false],
   archiveRowHiddenPerLedger: [false, true, true],
+  archiveRowVisuallyHiddenPerLedger: [false, true, true],
   // sea rect, 3 neighbouring states, 4 orientation labels, 67 counties
   basemapLayers: '1,3,4,67',
   basemapViewBox: '-120 -130 1170 1115',
