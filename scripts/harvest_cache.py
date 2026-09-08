@@ -99,6 +99,32 @@ def save_cache(name: str, entries: dict) -> None:
         print(f"      (cache not saved: {exc})", flush=True)
 
 
+def record_cache_stats(name: str, hits: int, total: int) -> None:
+    """Writes a tiny JSON stats file for one harvester's cache-hit ratio this
+    run, so the effect of the caching layer above is visible on the Actions
+    run page as one glanceable table instead of requiring someone to open
+    each step's raw log and find the "N of M sources were unchanged" /
+    "N purchase-price lookup(s) served from cache" line by hand (see
+    harvest_laft_pdfs.py, harvest_laft_html.py, harvest_laft_realtdm.py -
+    each already prints that line; this is additive, not a replacement).
+    Picked up by the `laft` job's "Cache hit-ratio summary" step in
+    harvest-and-sync.yml, which reads every file under CACHE_STATS_DIR and
+    appends a summary table to $GITHUB_STEP_SUMMARY.
+
+    Best effort by design, same as save_cache() above: a stats file we
+    failed to write just means that harvester is missing from the summary
+    table, never a reason to fail the harvest itself.
+    """
+    try:
+        stats_dir = Path(os.environ.get("CACHE_STATS_DIR", "out/cache_stats"))
+        stats_dir.mkdir(parents=True, exist_ok=True)
+        (stats_dir / f"{name}.json").write_text(
+            json.dumps({"name": name, "hits": hits, "total": total}), encoding="utf-8"
+        )
+    except OSError:
+        pass
+
+
 def conditional_get(session_or_requests, url: str, entry: dict | None, *,
                     headers: dict | None = None, timeout: int = 30):
     """GET `url`, sending validators from `entry` when we have them.
