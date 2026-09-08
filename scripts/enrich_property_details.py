@@ -58,6 +58,11 @@ cracked in a future revision picks up its whole backlog automatically.
 What it fills (expanded 2026-09-02 from just prop_type/address, after finding
 the layer exposes 121 fields rather than the 4 originally used):
   * prop_type, address     - as before (address only over a junk placeholder)
+  * dor_use_code           - added 2026-09-08: the raw 2-digit FL DOR use
+                             code (e.g. "01" Single Family) DOR_UC translates
+                             into prop_type's coarser label - kept alongside
+                             it rather than instead of it, since the UI can
+                             now show the state's own exact category
   * market                 - JV, the county appraiser's own statutory "just
                              value"; `value_year` carries the assessment year
                              alongside it so the UI can attribute the number
@@ -307,10 +312,38 @@ DOR_USE_LABELS = {
     40: "Vacant Industrial", 70: "Vacant Institutional",
     80: "Vacant Governmental",
 }
-def dor_use_to_prop_type(dor_uc):
+
+
+def _dor_use_int(dor_uc):
     try:
-        code = int(str(dor_uc).strip())
+        return int(str(dor_uc).strip())
     except (TypeError, ValueError):
+        return None
+
+
+def dor_use_code_str(dor_uc):
+    """The raw 2-digit FL DOR property-use code as a zero-padded string
+    ("00" Vacant Residential, "01" Single Family, "10" Vacant Commercial,
+    "40" Vacant Industrial, ...), or None. Added 2026-09-08: this script has
+    fetched DOR_UC from the FDOR layer since 2026-09-02, but only ever
+    translated it into the generic `prop_type` label below - the exact code
+    itself was never persisted, which was flagged as an open gap in this
+    project's own docs (a bidder wants the state's own category, not just
+    the coarse Residential/Commercial/Industrial/etc. bucket prop_type
+    gives). Reuses the same int-parsing dor_use_to_prop_type() uses, then
+    zero-pads to 2 digits, so both derive from one normalized reading of
+    whatever raw string format the FDOR layer happens to return (observed
+    live as a zero-padded 3-digit string, e.g. "001") rather than storing
+    that raw format verbatim."""
+    code = _dor_use_int(dor_uc)
+    if code is None or not (0 <= code <= 99):
+        return None
+    return f"{code:02d}"
+
+
+def dor_use_to_prop_type(dor_uc):
+    code = _dor_use_int(dor_uc)
+    if code is None:
         return None
     if code in DOR_USE_LABELS:
         return DOR_USE_LABELS[code]
@@ -719,6 +752,12 @@ def build_update_fields(row, attrs, centroid):
         ("last_sale_price", _num(attrs.get("SALE_PRC1"))),
         ("last_sale_year", _int(attrs.get("SALE_YR1"))),
         ("value_year", _int(attrs.get("ASMNT_YR"))),
+        # Raw code alongside the translated prop_type above - see
+        # dor_use_code_str()'s docstring. None for Santa Rosa/Flagler's
+        # fallback GIS layers, which never populate attrs["DOR_UC"] (they
+        # aren't the FDOR tax-roll layer), same as prop_type above for
+        # those two counties.
+        ("dor_use_code", dor_use_code_str(attrs.get("DOR_UC"))),
     ):
         if value is not None:
             fields[column] = value
