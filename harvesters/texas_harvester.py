@@ -100,14 +100,36 @@ future scoping work, flagged here so they aren't silently lost.
 
 --- Output contract ---
 
+UPDATED 2026-09-08, after 003_ledger_type_and_state_isolation.sql: this
+session's multi-state query-isolation work split what used to be one
+`source` field (both "which ledger" AND "which vendor") into two fields,
+because Texas - unlike Florida - has more than one vendor feeding the SAME
+ledger (e.g. both LGBS and PBFCM can feed Event Terminal/auction rows for
+different counties). `TexasSaleRow.source` below is NOT the vendor tag
+anymore - it is one of the three ledger values Florida already uses
+('auction' | 'laft' | 'certificate'), so the DB's
+sync_ledger_type_from_source trigger derives ledger_type for Texas rows
+the exact same way it already does for Florida rows, with zero special-
+casing. The vendor tag moved to the new `harvester_source` field.
+
 Every harvest_*() function should normalize to the same row shape,
 mirroring the core `properties` schema fields named in the original
 request:
     parcel_id, county, state ('TX'), auction_date, min_bid,
     cad_market_value, legal_description, address
-plus a `source` tag (e.g. 'tx_pbfcm', 'tx_lgbs', 'tx_govease') so rows can
-be traced back to their harvester, the same way Florida rows carry
-source='laft' etc.
+plus:
+  - `source`: which of the three ledgers this row belongs to, using
+    Florida's own three values so the DB trigger derives ledger_type
+    for free - 'auction' for a live-bid Sheriff/Constable sale (Event
+    Terminal), 'laft' for struck-off/resale inventory (OTC Catalog),
+    'certificate' for a redeemable deed already sold (Yield Desk). See
+    the open semantic-mismatch note on the 'certificate' mapping in
+    public/app.js's LEDGERS comment block and
+    claude/fl-tx-region-switcher.md - reusing FL's lien-shaped ledger slot
+    for TX's deed-shaped Yield Desk is a surface fit, not a clean one.
+  - `harvester_source`: the actual vendor/provenance tag (e.g. 'tx_pbfcm',
+    'tx_lgbs', 'tx_govease') so a row can still be traced back to which
+    harvester produced it, independent of which ledger it landed in.
 
 Never fabricate a field a source doesn't actually publish - leave it None
 and let a later CAD-enrichment pass fill it in if possible, the same
@@ -155,6 +177,20 @@ class TexasSaleRow:
     enrich_property_details_tx.py and tx_yield_calc.py; a harvester's job
     is to capture what the source actually publishes at listing time, not
     to derive anything).
+
+    `source` / `harvester_source` split 2026-09-08 (see the module
+    docstring's "Output contract" section) - `source` is the LEDGER
+    ('auction' | 'laft' | 'certificate', Florida's own three values so
+    003_ledger_type_and_state_isolation.sql's trigger derives ledger_type
+    automatically), `harvester_source` is the VENDOR tag
+    ('tx_pbfcm' | 'tx_lgbs' | 'tx_govease'). Each harvest_*() function
+    should set both - e.g. harvest_pbfcm() emits
+    source='laft', harvester_source='tx_pbfcm' for struck-off resale rows
+    (PBFCM's resale PDFs are OTC Catalog / struck-off inventory listings,
+    not live sale-date auctions - confirm this against real PDF content
+    once pbfcm.com is reachable, don't assume every PBFCM row is 'laft'
+    without checking, some client lists may turn out to be upcoming-sale
+    notices instead of struck-off inventory).
     """
 
     parcel_id: str | None
@@ -165,7 +201,8 @@ class TexasSaleRow:
     cad_market_value: float | None = None
     legal_description: str | None = None
     address: str | None = None
-    source: str = ""  # 'tx_pbfcm' | 'tx_lgbs' | 'tx_govease'
+    source: str = ""  # 'auction' | 'laft' | 'certificate' - which FL-shaped ledger this row belongs to
+    harvester_source: str = ""  # 'tx_pbfcm' | 'tx_lgbs' | 'tx_govease' - which vendor produced it
 
 
 def harvest_pbfcm(limit: int | None = None) -> list[TexasSaleRow]:
