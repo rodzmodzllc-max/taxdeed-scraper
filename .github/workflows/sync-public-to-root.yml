@@ -116,5 +116,5 @@ jobs:
 
           # Same list the mirror step used, so the two can never drift apart.
           git add $FILES icons
-          git commit -m "Auto-sync: mirror public/ to repo root [skip ci]"
+          git commit -m "Auto-sync: mirror public/ to repo root"
           git push
