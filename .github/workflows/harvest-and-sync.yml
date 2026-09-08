@@ -340,6 +340,17 @@ jobs:
         if: always()
         run: python3 scripts/harvest_laft_realtdm.py
 
+      - name: Cache hit-ratio summary
+        # Advisory only, never fails the job - reads the tiny per-harvester
+        # JSON stats files scripts/harvest_cache.py's record_cache_stats()
+        # writes for the three steps above (PDFs, HTML-table, RealTDM) and
+        # appends a markdown table to this run's summary page, so the
+        # caching layer's actual effect is visible at a glance instead of
+        # requiring someone to open each step's raw log. See
+        # scripts/print_cache_stats.py's module docstring.
+        if: always()
+        run: python3 scripts/print_cache_stats.py
+
       - name: Harvest Lands Available for Taxes Pioneer/TaxSmartWeb-platform counties
         # Same independence rationale again - a fourth, unrelated vendor
         # platform, uniquely requiring the real Chromium browser installed
