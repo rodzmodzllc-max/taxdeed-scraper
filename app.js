@@ -337,6 +337,25 @@ let BID_LIST_PENDING = [];
 // page, and `empty` is what it says when there is nothing to show - which is
 // a per-ledger question, since an empty auctions page and an empty
 // certificates page mean different things.
+// Each ledger's `tx` block overrides title/sub/how/empty when state.region
+// is "TX" (see ledgerCopy() below) - slug/icon stay shared since URL
+// routing and the tab strip's visual identity don't need to change per
+// state. The three Texas names come straight from the original roadmap
+// request: Event Terminal (Sheriff/Constable sales) for the auction slot,
+// OTC Catalog / Struck-Off Inventory for the laft slot, Yield Desk /
+// Redeemable Tax Deeds for the certificate slot.
+//
+// KNOWN OPEN QUESTION, not silently resolved - see the frontend spec doc
+// (claude/...-fl-tx-region-switcher.md): reusing the `certificate` ledger
+// slot for Texas's "Yield Desk" is a surface-level fit (both are the
+// third tab, both involve a redemption clock) but not a clean semantic
+// match. FL's certificate is an unmatured LIEN accruing interest before
+// any deed exists; TX's Yield Desk is a statutory redemption PREMIUM on a
+// deed the investor already bought at a Sheriff/Constable sale. They are
+// different instruments that happen to rhyme. Shipping this now (per
+// "build now, empty is fine") rather than blocking on a fourth-ledger
+// redesign - flagged here and in the spec doc for the next real look once
+// actual TX Yield Desk rows exist to design against.
 const LEDGERS = {
   auction: {
     slug: "auctions",
@@ -344,7 +363,13 @@ const LEDGERS = {
     title: "Auctions & Bidding",
     sub: "Open to competitive bidding at a live county auction.",
     how: "You bid against other buyers on the county's own auction site. The figure shown is the opening bid, not the final price.",
-    empty: "No auctions match. Auctions appear here once a county schedules a sale date - try clearing filters, or check Lands Available for property that failed to sell at auction."
+    empty: "No auctions match. Auctions appear here once a county schedules a sale date - try clearing filters, or check Lands Available for property that failed to sell at auction.",
+    tx: {
+      title: "Event Terminal — Sheriff/Constable Sales",
+      sub: "Open to competitive bidding at a county Sheriff's or Constable's sale.",
+      how: "You bid against other buyers, in person or via the county's vendor (LGBS, PBFCM, GovEase). The figure shown is the court-ordered minimum bid, not the final price.",
+      empty: "No Texas sales match yet. Texas harvesting isn't live yet - see harvesters/texas_harvester.py for status - so this is expected to be empty for now, not a bug."
+    }
   },
   laft: {
     slug: "lands",
@@ -352,7 +377,13 @@ const LEDGERS = {
     title: "Lands Available for Taxes",
     sub: "Failed to sell at auction. Buy from the Clerk at a fixed price - no bidding, no sale date.",
     how: "No auction and no competition - first come, first served at the price shown. Statute adds taxes and fees accrued since the failed sale, so treat the figure as a floor.",
-    empty: "No Lands Available listings match. This list is small by nature - a county only adds a parcel here after it fails to sell at auction, and it leaves again as soon as someone buys it."
+    empty: "No Lands Available listings match. This list is small by nature - a county only adds a parcel here after it fails to sell at auction, and it leaves again as soon as someone buys it.",
+    tx: {
+      title: "OTC Catalog — Struck-Off Inventory",
+      sub: "Failed to sell at auction; the taxing unit now holds it. Often purchasable directly (resale), subject to the same statutory redemption rights.",
+      how: "No competitive bidding - offered by the taxing unit (often via LGBS/PBFCM resale lists) at or above the minimum. A struck-off property already sold once can still be redeemed by the former owner, same as at auction.",
+      empty: "No Texas struck-off inventory matches yet. Texas harvesting isn't live yet - see harvesters/texas_harvester.py for status - so this is expected to be empty for now, not a bug."
+    }
   },
   certificate: {
     slug: "certificates",
@@ -360,11 +391,29 @@ const LEDGERS = {
     title: "Tax Certificates",
     sub: "County-held liens available for direct purchase - a debt secured by the property, not the property itself.",
     how: "You are buying the lien, not the land. It earns interest until the owner redeems it; only if nobody redeems can you apply for a deed.",
-    empty: "No certificates match. Certificates are county-held liens - the list moves as owners redeem them."
+    empty: "No certificates match. Certificates are county-held liens - the list moves as owners redeem them.",
+    tx: {
+      title: "Yield Desk — Redeemable Tax Deeds",
+      sub: "A deed you already own, still subject to the former owner's statutory right to redeem it for a premium (Tex. Tax Code §34.21).",
+      how: "Not a lien purchase - you own the deed. The former owner can redeem within 180 days (25% flat premium) or 2 years for homestead/agricultural/mineral property (25% year 1, 50% year 2), on the aggregate cost, not the bid alone.",
+      empty: "No Texas redeemable deeds match yet. Texas harvesting isn't live yet - see harvesters/texas_harvester.py for status - so this is expected to be empty for now, not a bug."
+    }
   }
 };
 const LEDGER_ORDER = ["auction", "laft", "certificate"];
 const SLUG_TO_LEDGER = Object.fromEntries(LEDGER_ORDER.map(k => [LEDGERS[k].slug, k]));
+
+// Region-aware ledger copy: merges a ledger's Texas overrides in on top of
+// its Florida-shaped base when state.region is "TX", otherwise returns the
+// base unchanged. Every place that used to read LEDGERS[key] directly for
+// display copy (page header, browser tab title, empty-state text) should
+// read ledgerCopy(key) instead so switching states actually changes the
+// words, not just which rows pass the region filter.
+function ledgerCopy(key) {
+  const base = LEDGERS[key] || {};
+  if (state.region === "TX" && base.tx) return { ...base, ...base.tx };
+  return base;
+}
 
 const state = {
   bidMin: null, bidMax: null, assessedMin: null,
@@ -373,6 +422,14 @@ const state = {
   includeQT: false, maxBidPct: 40,
   statusView: "all",
   ledger: "auction",
+  // Named `region`, not `state` (this object is already called `state` -
+  // `state.state` reading against the DB's own `properties.state` column
+  // would be a confusing collision), and it isn't a Set like counties/
+  // types/liens below because it's a single top-level view switch, same
+  // shape as `ledger` above, not a multi-select filter facet. Maps to the
+  // properties.state column via regionOf() (default 'FL' for every row
+  // that predates 002_add_texas_support.sql - see that migration).
+  region: "FL",
   search: "",
   // Counties the user has expanded via a county-group's <details> disclosure.
   // Re-applied on every render() since render() rebuilds #main from scratch.
@@ -403,6 +460,93 @@ function isPastDue(p) {
 const fmtMoney = n => "$" + Number(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtShort = n => "$" + Math.round(Number(n)).toLocaleString("en-US");
 const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+// Which state a row belongs to. Defaults to "FL" for any row that predates
+// the `properties.state` column (002_add_texas_support.sql) - same
+// backward-compatibility default the column itself uses, kept here too so
+// the frontend behaves correctly even a moment before that migration has
+// actually been run against production.
+const regionOf = p => (p && p.state) || "FL";
+
+// ---- FL DOR property-use code labels ----
+// Ported 1:1 from scripts/enrich_property_details.py's DOR_USE_LABELS /
+// dor_use_to_prop_type() so the raw code stored in properties.dor_use_code
+// (schema-v9-dor-use-code.sql) can be shown with the same label the backend
+// already derives prop_type from, rather than a second, driftable copy of
+// the mapping. Keep these two in sync if the Python side ever changes.
+const DOR_USE_LABELS = {
+  0: "Vacant Residential", 1: "Single Family", 2: "Mobile Home",
+  3: "Multi-Family", 4: "Condo", 5: "Cooperative", 6: "Retirement Home",
+  7: "Residential", 8: "Multi-Family", 9: "Residential Common Area",
+  10: "Vacant Commercial", 39: "Hotel/Motel",
+  40: "Vacant Industrial", 70: "Vacant Institutional",
+  80: "Vacant Governmental"
+};
+function dorUseLabel(rawCode) {
+  const code = parseInt(rawCode, 10);
+  if (!Number.isFinite(code)) return null;
+  if (code in DOR_USE_LABELS) return DOR_USE_LABELS[code];
+  if (code >= 0 && code <= 9) return "Residential";
+  if (code >= 10 && code <= 39) return "Commercial";
+  if (code >= 40 && code <= 49) return "Industrial";
+  if (code >= 50 && code <= 69) return "Agricultural";
+  if (code >= 70 && code <= 79) return "Institutional";
+  if (code >= 80 && code <= 89) return "Government";
+  if (code >= 90 && code <= 99) return "Miscellaneous";
+  return null;
+}
+
+// ---- TX Comptroller SPTB category labels ----
+// Ported 1:1 from scripts/tx_use_codes.py's CODE_LABELS / category_label().
+// Same caution applies here as in that module's docstring: individual CADs
+// are NOT required to follow this list exactly - it's a reasonable
+// statewide default, not a guarantee for any specific county.
+const TX_CATEGORY_LABELS = {
+  A: "Real, Residential", A1: "Single-Family Residential", A2: "Real, Residential, Mobile Home",
+  B: "Real, Residential (Multi-Family)", B1: "Real, Residential, Multi-Family (2 units)",
+  B2: "Real, Residential, Multi-Family (3-4 units)", B3: "Real, Residential, Multi-Family (5+ units)",
+  B4: "Real, Residential, Multi-Family (Condominium)",
+  C: "Vacant Lots / Land Tracts", C1: "Vacant Lots / Residential Tracts",
+  C2: "Vacant Lots / Colonia Tracts", C3: "Vacant Lots / Commercial Tracts",
+  D: "Agricultural / Open-Space Land", D1: "Qualified Open-Space / Agricultural Land",
+  D2: "Non-Qualified (Non-Exempt) Agricultural Land / Timberland",
+  E: "Farm & Ranch Improvements", E1: "Real, Farm & Ranch Improved",
+  F: "Commercial / Industrial Real Property", F1: "Commercial Real Property",
+  F2: "Industrial / Manufacturing Real Property",
+  G: "Oil, Gas & Mineral Reserves", G1: "Oil & Gas Reserves", G2: "Other (Non-Oil/Gas) Minerals",
+  J: "Utilities", J1: "Water Systems", J2: "Gas Companies", J3: "Electric Companies",
+  J4: "Telephone Companies", J5: "Railroads", J6: "Pipelines", J7: "Cable Television Companies",
+  L: "Commercial / Industrial Personal Property", L1: "Commercial Personal Property",
+  L2: "Industrial & Manufacturing Personal Property",
+  M: "Mobile / Other Tangible Personal Property", M1: "Tangible Other Personal, Mobile Homes",
+  M2: "Tangible Other Personal, Travel Trailers", M3: "Tangible Other Personal, Watercraft",
+  M4: "Tangible Other Personal, Aircraft",
+  X: "Exempt Property", X0: "Exempt Property (Total)", X1: "Exempt - Government-Owned"
+};
+function txCategoryLabel(raw) {
+  if (!raw) return null;
+  const code = String(raw).trim().toUpperCase();
+  if (!code) return null;
+  if (code in TX_CATEGORY_LABELS) return TX_CATEGORY_LABELS[code];
+  if (code[0] in TX_CATEGORY_LABELS) return TX_CATEGORY_LABELS[code[0]];
+  return null;
+}
+
+// One small badge showing the state's own raw classification code + label -
+// dor_use_code for FL, tx_category (raw SPTB code) for TX - reusing the
+// .type-badge look the detail modal already has. Returns "" when there's
+// nothing to show yet (not harvested/enriched), never a misleading
+// "Unknown" the way the FDOR-derived prop_type badge does elsewhere.
+function classificationBadgeHtml(p) {
+  if (regionOf(p) === "TX") {
+    if (!p.tx_category) return "";
+    const label = txCategoryLabel(p.tx_category);
+    return `<span class="type-badge" title="Texas Comptroller SPTB code - individual CADs aren't required to follow it exactly, verify per county">SPTB ${esc(p.tx_category)}${label ? " · " + esc(label) : ""}</span>`;
+  }
+  if (!p.dor_use_code) return "";
+  const label = dorUseLabel(p.dor_use_code);
+  return `<span class="type-badge">DOR ${esc(p.dor_use_code)}${label ? " · " + esc(label) : ""}</span>`;
+}
 
 // Shared error toast for the write actions below (favorite, hide, restore,
 // watchlist, notes). These used to fail completely silently on a Supabase
@@ -1262,17 +1406,25 @@ function passes(p) {
     if (state.statusView === "gone" && !isGone(p)) return false;
     if (state.statusView === "live" && isGone(p)) return false;
   }
+  // State/region gate first - everything below this line is a FL-shaped
+  // filter (county chips off ALL_COUNTIES/fl-counties.svg, prop-type/lien
+  // buckets derived from FL data, assessed value) that has no Texas
+  // equivalent built yet, so it's scoped to FL rows only rather than
+  // silently hiding every TX row behind a filter it can never satisfy.
+  if (regionOf(p) !== state.region) return false;
   if (state.favoritesOnly && !FAVS.has(p.id)) return false;
   if (state.topPicksOnly && !isTopPick(p)) return false;
   if (state.soonOnly) { const d = daysUntil(p); if (d === null || d < 0 || d > SOON_DAYS) return false; }
   if (state.hideOldListings) { const d = daysSinceUpdate(p); if (d >= 7) return false; }
-  if (!state.counties.has(p.county)) return false;
+  if (state.region === "FL" && !state.counties.has(p.county)) return false;
   if (!matchesSearch(p)) return false;
   // Certificates aren't screened for title and don't have a property type -
-  // the type/lien chip filters only make sense for deed/LAFT rows.
-  if (p.source !== "certificate" && (!state.types.has(propType(p)) || !state.liens.has(p.lien_level))) return false;
+  // the type/lien chip filters only make sense for FL deed/LAFT rows. Texas
+  // has no equivalent taxonomy built yet (see the county-filter note above),
+  // so every TX row skips this the same way certificates do.
+  if (state.region === "FL" && p.source !== "certificate" && (!state.types.has(propType(p)) || !state.liens.has(p.lien_level))) return false;
   if ((state.bidMin !== null && Number(p.bid) < state.bidMin) || (state.bidMax !== null && Number(p.bid) > state.bidMax)) return false;
-  if (p.source !== "certificate" && state.assessedMin !== null && Number(p.assessed || 0) < state.assessedMin) return false;
+  if (state.region === "FL" && p.source !== "certificate" && state.assessedMin !== null && Number(p.assessed || 0) < state.assessedMin) return false;
   // "Junk land" quick filters - Lands Available only, and each checks a real
   // harvested/derived figure (lot_sqft, buildingValue) rather than a guess at
   // buildability. A raw FDOR use-code filter ("00 Vacant, non-buildable") is
@@ -1382,6 +1534,7 @@ function card(p, showCounty) {
       </div>
     </div>
     ${hasAddress && hasParcel(p) ? `<div class="prop-parcel-line">Parcel # ${esc(p.parcel)}</div>` : ""}
+    ${classificationBadgeHtml(p) ? `<div class="prop-classification-line">${classificationBadgeHtml(p)}</div>` : ""}
     ${p.legal_desc ? `<div class="prop-legal" title="${esc(p.legal_desc)}">${esc(p.legal_desc)}</div>` : ""}
     <div class="card-stat-grid ${marketVal ? "card-stat-grid-2" : "card-stat-grid-1"}">
       <div class="card-stat card-stat-headline"><div class="card-stat-label">${p.source === "laft" ? "Purchase Price" : "Opening Bid"}</div><div class="card-stat-val bid${bidPublished ? "" : " unpublished"}">${bidDisplay(p)}</div></div>
@@ -1471,6 +1624,7 @@ function certCard(p, showCounty) {
   // account-# copy button moved to the full property page.
   el.innerHTML = `
     ${tag}
+    ${classificationBadgeHtml(p) ? `<div class="prop-classification-line">${classificationBadgeHtml(p)}</div>` : ""}
     <div class="prop-top">
       <div class="prop-address">Certificate #${esc(p.certificate_no || "Unknown")}</div>
       <div class="prop-top-actions">
@@ -1620,11 +1774,12 @@ function detailHtml(p) {
       ${bidListBtnHtml(p, false)}
       ${!isCert ? `<span class="pill ${esc(p.status)}">${esc(p.status)}</span>` : ""}
     </div>
-    ${!isCert ? `<div class="lien-banner ${esc(p.lien_level)}">
+    ${!isCert && regionOf(p) === "FL" ? `<div class="lien-banner ${esc(p.lien_level)}">
       <div class="lien-toprow"><span class="lien-label">Title: ${LIEN_LABEL[p.lien_level] || p.lien_level}</span><span class="type-badge">${esc(p.prop_type || "Type: Unknown")}</span></div>
       <span class="lien-text">${esc(p.lien_note || "")}</span>
       <span class="muni-lien-note">${infoTip(MUNI_LIEN_TIP)} Verify municipal/utility/IRS liens - these survive a tax deed sale</span>
     </div>` : ""}
+    ${regionOf(p) === "TX" && classificationBadgeHtml(p) ? `<div class="prop-classification-line" style="margin:.2rem 0 .5rem">${classificationBadgeHtml(p)}</div>` : ""}
     <div class="detail-grid">
       ${stats.map(([label, val]) => `<div class="detail-stat"><span class="detail-stat-label">${esc(label)}${label === "Fees" ? " " + infoTip(FEES_TIP) : label === "Homestead Exemption" ? " " + infoTip(HOMESTEAD_TIP) : label === "Est. Accrued Interest" ? " " + infoTip(ACCRUED_INTEREST_TIP) : label === "TDA Eligibility" ? " " + infoTip(TDA_ELIGIBLE_TIP) : ""}</span><span class="detail-stat-val">${esc(val)}</span></div>`).join("")}
     </div>
@@ -2039,7 +2194,7 @@ function render() {
   const main = document.getElementById("main"); if (!main) return; main.innerHTML = "";
   if (!LEDGERS[state.ledger]) state.ledger = "auction";
   const activeLedger = state.ledger;
-  const cfg = LEDGERS[activeLedger];
+  const cfg = ledgerCopy(activeLedger);
   const inLedger = p => p.source === activeLedger;
   const { shown } = section(main, cfg.title, cfg.sub, ALL.filter(inLedger), activeLedger);
 
@@ -2055,8 +2210,34 @@ function render() {
   const tabCounts = { auction: 0, laft: 0, certificate: 0 };
   ALL.forEach(p => {
     if (!(p.source in tabCounts)) return;
+    // Scoped to the active region so switching to Texas doesn't keep
+    // showing Florida's counts on the Auctions/Lands/Certificates tabs -
+    // each state has its own three-ledger universe (see LEDGERS' .tx
+    // overrides above).
+    if (regionOf(p) !== state.region) return;
     if (isPastDue(p) || HIDDEN.has(p.id) || goneExpired(p)) return;
     tabCounts[p.source]++;
+  });
+  // Region tabs: same "how much is here" logic as the ledger tabs, but
+  // counting the state dimension instead of the ledger dimension - not
+  // scoped to state.region itself (that would make FL always read 0 the
+  // moment TX was selected), so both counts stay meaningful regardless of
+  // which one is currently active.
+  const regionCounts = { FL: 0, TX: 0 };
+  ALL.forEach(p => {
+    const r = regionOf(p);
+    if (!(r in regionCounts)) return;
+    if (isPastDue(p) || HIDDEN.has(p.id) || goneExpired(p)) return;
+    regionCounts[r]++;
+  });
+  document.querySelectorAll("#regionTabs .region-tab").forEach(btn => {
+    const r = btn.dataset.region;
+    const active = r === state.region;
+    btn.classList.toggle("on", active);
+    if (active) btn.setAttribute("aria-current", "page");
+    else btn.removeAttribute("aria-current");
+    const countEl = document.getElementById("tabCount" + r);
+    if (countEl) countEl.textContent = regionCounts[r] || 0;
   });
   document.querySelectorAll("#ledgerTabs .ledger-tab").forEach(btn => {
     const src = btn.dataset.ledger;
@@ -2264,7 +2445,7 @@ function ledgerFacts(kind, shown) {
 function section(container, title, sub, rows, kind) {
   const sec = document.createElement("section"); sec.className = "mega-section";
   const shown = sortRows(rows.filter(passes));
-  const cfg = LEDGERS[kind] || {};
+  const cfg = ledgerCopy(kind);
   const facts = ledgerFacts(kind, shown);
 
   // A page header, not a heading. Icon, name, what this ledger is, what you
@@ -2475,25 +2656,38 @@ function prefersReducedMotion() {
 // four separate places that need to know about it.
 function applyLedgerChrome() {
   const key = state.ledger;
-  const cfg = LEDGERS[key] || {};
+  const cfg = ledgerCopy(key);
 
   // Drives the whole --led-* palette in styles.css: buttons, links, focus
   // rings, map pins, chips and strip cards all recolour off this one
   // attribute.
   document.documentElement.dataset.ledger = key;
+  // Separate from --led-*: region-tab colouring (styles.css) is fixed
+  // per-state rather than per-ledger, so it doesn't ride the same attribute.
+  document.documentElement.dataset.region = state.region;
 
   // The browser tab and the app switcher should say which page this is too.
-  document.title = (cfg.title ? cfg.title + " · " : "") + "FL Tax Deed Watchlist";
+  document.title = (cfg.title ? cfg.title + " · " : "") + (state.region === "TX" ? "TX Tax Sale Watchlist" : "FL Tax Deed Watchlist");
 
   // Certificates are liens, not land: no property type, no title screening,
   // no assessed value. passes() already ignores those filters there, so
   // leaving the controls on screen only invited setting a filter that
-  // silently did nothing.
+  // silently did nothing. Texas rows skip the same filters for a different
+  // reason (see passes()) - no FL-shaped taxonomy exists for them yet - so
+  // the county/type/lien/assessed controls hide for every TX ledger too,
+  // not just certificate/Yield Desk.
   const isCert = key === "certificate";
+  const isTx = state.region === "TX";
   ["typeDropdown", "lienDropdown", "assessedField"].forEach(id => {
     const el = document.getElementById(id);
-    if (el) el.hidden = isCert;
+    if (el) el.hidden = isCert || isTx;
   });
+  // County multi-select is entirely FL-shaped (ALL_COUNTIES/fl-counties.svg)
+  // - there is no Texas county picker yet (see the frontend spec doc), so
+  // it hides on TX rather than showing 67 irrelevant FL county chips next
+  // to an empty Texas list.
+  const countyDropdownEl = document.getElementById("countyDropdown");
+  if (countyDropdownEl) countyDropdownEl.hidden = isTx;
 
   // Archive is auction-only by definition - isPastDue() returns false for
   // everything else, so on the other two ledgers the toggle could only ever
@@ -2549,6 +2743,27 @@ document.querySelectorAll("#ledgerTabs .ledger-tab[data-ledger]").forEach(btn =>
   btn.addEventListener("click", () => {
     if (state.ledger === btn.dataset.ledger) return;
     setLedger(btn.dataset.ledger);
+  });
+});
+
+// Switches the state dimension (see state.region above), independent of
+// which ledger tab is active - flipping to Texas keeps you on, say,
+// Certificates/Yield Desk rather than bouncing back to Auctions, the same
+// way setLedger() doesn't touch state.region.
+function setRegion(region) {
+  if (region !== "FL" && region !== "TX") region = "FL";
+  const changed = state.region !== region;
+  if (!changed) return;
+  state.region = region;
+  applyLedgerChrome();
+  render();
+  window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? "auto" : "smooth" });
+}
+
+document.querySelectorAll("#regionTabs .region-tab[data-region]").forEach(btn => {
+  btn.addEventListener("click", () => {
+    if (state.region === btn.dataset.region) return;
+    setRegion(btn.dataset.region);
   });
 });
 
@@ -2657,6 +2872,7 @@ if (exportCsvBtn) exportCsvBtn.addEventListener("click", () => {
   const rows = sortRows(ALL.filter(inLedger).filter(passes));
   if (!rows.length) return;
   const cols = [
+    ["State", p => regionOf(p)],
     ["County", p => p.county],
     ["Source", p => p.source],
     ["Address", p => p.address || ""],
@@ -2665,6 +2881,11 @@ if (exportCsvBtn) exportCsvBtn.addEventListener("click", () => {
     ["Owner", p => p.owner_name || ""],
     ["Status", p => p.status || ""],
     ["Property Type", p => p.prop_type || ""],
+    // Raw state classification code, alongside the translated prop_type
+    // bucket above - one or the other is populated depending on region
+    // (dor_use_code for FL, tx_category for TX), never both.
+    ["DOR Use Code", p => p.dor_use_code || ""],
+    ["TX Category (SPTB)", p => p.tx_category || ""],
     ["Title Status", p => LIEN_LABEL[p.lien_level] || p.lien_level || ""],
     // Positive evidence only, same rule the app itself follows (see
     // homesteadSurcharge/the enrichment script's own comment on this
@@ -2698,6 +2919,13 @@ if (exportCsvBtn) exportCsvBtn.addEventListener("click", () => {
     ["Legal Description", p => p.legal_desc || ""],
     ["Sale/Auction Date", p => p.sale_date || ""],
     ["Certificate #", p => p.certificate_no || ""],
+    // Texas Yield Desk fields (002_add_texas_support.sql / tx_yield_calc.py)
+    // - blank for FL rows, and blank for TX rows until CAD/harvest data
+    // populates them.
+    ["TX Min Bid", p => p.min_bid ?? ""],
+    ["TX Redemption Period (months)", p => p.redemption_period_months ?? ""],
+    ["TX Redemption Expires", p => p.redemption_expiration_date || ""],
+    ["TX Max Statutory Return ($, informational only)", p => p.max_statutory_return_usd ?? ""],
     ["Tax Year", p => p.tax_year || ""],
     ["Issued Date", p => p.issued_date || ""],
     ["Expiration Date", p => p.expiration_date || ""],
@@ -2718,7 +2946,7 @@ if (exportCsvBtn) exportCsvBtn.addEventListener("click", () => {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   const stamp = new Date().toISOString().slice(0, 10);
-  a.href = url; a.download = `taxdeed-${state.ledger}-${stamp}.csv`;
+  a.href = url; a.download = `taxdeed-${state.region.toLowerCase()}-${state.ledger}-${stamp}.csv`;
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url);
 });
