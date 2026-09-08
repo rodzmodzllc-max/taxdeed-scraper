@@ -48,7 +48,7 @@ from pathlib import Path
 import pdfplumber
 import requests
 
-from harvest_cache import conditional_get, load_cache, save_cache
+from harvest_cache import conditional_get, load_cache, record_cache_stats, save_cache
 
 HERE = Path(__file__).resolve().parent
 SOURCES_CSV = HERE / "../data/laft_pdf_sources.csv"
@@ -399,6 +399,7 @@ def main() -> int:
                 new_cache[url] = entry
 
     save_cache("laft_pdf", new_cache)
+    record_cache_stats("laft_pdf", reused, len(sources))
     if reused:
         print(f"\n{reused} of {len(sources)} sources were unchanged - parse skipped for those.", flush=True)
 
