@@ -1,7 +1,7 @@
 {
-  "name": "FL Tax Deed Watchlist",
-  "short_name": "Tax Deeds",
-  "description": "Florida tax deed auctions and Lands Available for Taxes, with title screening, true acquisition cost, and shared team notes.",
+  "name": "Tax Acquisitions",
+  "short_name": "Tax Acq",
+  "description": "Tax deed, lien and resale auction intelligence across state desks, with title screening, true acquisition cost, and shared team notes.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

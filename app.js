@@ -19,6 +19,19 @@ const sb = createClient(cfg.supabaseUrl, cfg.supabasePublishableKey, {
   }
 });
 
+// Which state this PAGE is - not a filter the user can toggle, a fact
+// about which file loaded. public/index.html (FL) and public/tx.html (TX)
+// are genuinely separate pages/URLs, each setting <body data-state="..">,
+// specifically so the properties QUERY itself (see loadAll() below, which
+// calls the get_properties(p_state, ...) RPC from
+// 003_ledger_type_and_state_isolation.sql) is scoped server-side to one
+// state - no "fetch everything, filter client-side" combined query, and no
+// client-constructed request can accidentally omit the state scope, since
+// p_state has no default and PostgREST rejects a call that omits it.
+// Defaults to "FL" only for a stray direct load that skips the attribute
+// (there shouldn't be one - both shipped pages set it).
+const PAGE_STATE = document.body.dataset.state === "TX" ? "TX" : "FL";
+
 // Internal build reference only (deploy verification, support requests) -
 // deliberately not surfaced anywhere in the UI. Showing a raw "v7 -
 // 2026-08-19" build tag in the header read as an unfinished/dev-mode
@@ -337,7 +350,7 @@ let BID_LIST_PENDING = [];
 // page, and `empty` is what it says when there is nothing to show - which is
 // a per-ledger question, since an empty auctions page and an empty
 // certificates page mean different things.
-// Each ledger's `tx` block overrides title/sub/how/empty when state.region
+// Each ledger's `tx` block overrides title/sub/how/empty when PAGE_STATE
 // is "TX" (see ledgerCopy() below) - slug/icon stay shared since URL
 // routing and the tab strip's visual identity don't need to change per
 // state. The three Texas names come straight from the original roadmap
@@ -403,15 +416,17 @@ const LEDGERS = {
 const LEDGER_ORDER = ["auction", "laft", "certificate"];
 const SLUG_TO_LEDGER = Object.fromEntries(LEDGER_ORDER.map(k => [LEDGERS[k].slug, k]));
 
-// Region-aware ledger copy: merges a ledger's Texas overrides in on top of
-// its Florida-shaped base when state.region is "TX", otherwise returns the
-// base unchanged. Every place that used to read LEDGERS[key] directly for
-// display copy (page header, browser tab title, empty-state text) should
-// read ledgerCopy(key) instead so switching states actually changes the
-// words, not just which rows pass the region filter.
+// State-aware ledger copy: merges a ledger's Texas overrides in on top of
+// its Florida-shaped base when this PAGE is Texas (PAGE_STATE, set once at
+// load from <body data-state>, not a runtime toggle - see its declaration
+// near the top of this file), otherwise returns the base unchanged. Every
+// place that used to read LEDGERS[key] directly for display copy (page
+// header, browser tab title, empty-state text) should read ledgerCopy(key)
+// instead so the FL and TX pages actually show different words, not just
+// different rows.
 function ledgerCopy(key) {
   const base = LEDGERS[key] || {};
-  if (state.region === "TX" && base.tx) return { ...base, ...base.tx };
+  if (PAGE_STATE === "TX" && base.tx) return { ...base, ...base.tx };
   return base;
 }
 
@@ -422,14 +437,12 @@ const state = {
   includeQT: false, maxBidPct: 40,
   statusView: "all",
   ledger: "auction",
-  // Named `region`, not `state` (this object is already called `state` -
-  // `state.state` reading against the DB's own `properties.state` column
-  // would be a confusing collision), and it isn't a Set like counties/
-  // types/liens below because it's a single top-level view switch, same
-  // shape as `ledger` above, not a multi-select filter facet. Maps to the
-  // properties.state column via regionOf() (default 'FL' for every row
-  // that predates 002_add_texas_support.sql - see that migration).
-  region: "FL",
+  // Which state this is used to be a mutable filter here (`region`), toggled
+  // by clicking a tab while the frontend fetched the whole table and hid the
+  // other state's rows in JS. That's gone: FL and TX are now separate pages
+  // (public/index.html vs public/tx.html), each loading only via
+  // get_properties(PAGE_STATE, ...) - see PAGE_STATE near the top of this
+  // file and loadAll() below. There is nothing to toggle client-side anymore.
   search: "",
   // Counties the user has expanded via a county-group's <details> disclosure.
   // Re-applied on every render() since render() rebuilds #main from scratch.
@@ -1187,10 +1200,39 @@ async function refreshAdminApprovals() {
   });
 }
 
+// The properties fetch itself - scoped server-side to PAGE_STATE via the
+// get_properties(p_state, ...) RPC (003_ledger_type_and_state_isolation.sql)
+// instead of the old `sb.from("properties").select("*")`, which pulled every
+// state's rows over the wire and relied on client-side JS (state.region, in
+// the now-removed single-page toggle) to hide the ones that didn't belong.
+// That meant nothing actually stopped a bug - or a modified/malicious
+// client - from showing FL rows on what was supposed to be a TX-only view.
+// p_state has no SQL default, so PostgREST rejects a call that omits it.
+//
+// Falls back to the pre-RPC unscoped select() if the RPC itself doesn't
+// exist yet (production hasn't had 003_ledger_type_and_state_isolation.sql
+// run against it) - same "fails soft instead of breaking the whole page"
+// pattern as the bid_list fallback below, and for the same reason: this
+// codebase's own history (see CLAUDE.md) is that a migration gets written
+// and committed well before anyone actually runs it against Supabase. Until
+// it has, both pages behave exactly as they did before this rework (fetch
+// everything, filter client-side via regionOf()/PAGE_STATE in passes()) -
+// once it has, both pages upgrade to real server-side isolation with no
+// further deploy needed.
+async function fetchProperties() {
+  const rpc = await sb.rpc("get_properties", { p_state: PAGE_STATE });
+  if (!rpc.error) return rpc;
+  const msg = String(rpc.error.message || "");
+  const missingFn = rpc.error.code === "PGRST202" || /could not find the function|does not exist/i.test(msg);
+  if (!missingFn) return rpc;
+  console.warn("get_properties() RPC not found (003_ledger_type_and_state_isolation.sql not run yet?) - falling back to unscoped select(). Row-level isolation is client-side only until that migration runs.", rpc.error);
+  return sb.from("properties").select("*").order("county").order("case_no");
+}
+
 async function loadAll() {
   const today = new Date().toISOString().slice(0, 10);
   const [props, notes, favs, hid, cal, bidlist] = await Promise.all([
-    sb.from("properties").select("*").order("county").order("case_no"),
+    fetchProperties(),
     sb.from("notes").select("*"),
     sb.from("favorites").select("property_id"),
     sb.from("hidden").select("property_id"),
@@ -1406,25 +1448,29 @@ function passes(p) {
     if (state.statusView === "gone" && !isGone(p)) return false;
     if (state.statusView === "live" && isGone(p)) return false;
   }
-  // State/region gate first - everything below this line is a FL-shaped
-  // filter (county chips off ALL_COUNTIES/fl-counties.svg, prop-type/lien
-  // buckets derived from FL data, assessed value) that has no Texas
-  // equivalent built yet, so it's scoped to FL rows only rather than
-  // silently hiding every TX row behind a filter it can never satisfy.
-  if (regionOf(p) !== state.region) return false;
+  // Defensive state gate - loadAll() below only ever fetches rows for
+  // PAGE_STATE via the get_properties(p_state, ...) RPC, so this should
+  // never actually filter anything out; kept as a cheap belt-and-suspenders
+  // check rather than trusting every row in ALL to already be scoped
+  // correctly. Everything below this line is a FL-shaped filter (county
+  // chips off ALL_COUNTIES/fl-counties.svg, prop-type/lien buckets derived
+  // from FL data, assessed value) that has no Texas equivalent built yet,
+  // so it's scoped to the FL page only rather than silently hiding every TX
+  // row behind a filter it can never satisfy.
+  if (regionOf(p) !== PAGE_STATE) return false;
   if (state.favoritesOnly && !FAVS.has(p.id)) return false;
   if (state.topPicksOnly && !isTopPick(p)) return false;
   if (state.soonOnly) { const d = daysUntil(p); if (d === null || d < 0 || d > SOON_DAYS) return false; }
   if (state.hideOldListings) { const d = daysSinceUpdate(p); if (d >= 7) return false; }
-  if (state.region === "FL" && !state.counties.has(p.county)) return false;
+  if (PAGE_STATE === "FL" && !state.counties.has(p.county)) return false;
   if (!matchesSearch(p)) return false;
   // Certificates aren't screened for title and don't have a property type -
   // the type/lien chip filters only make sense for FL deed/LAFT rows. Texas
   // has no equivalent taxonomy built yet (see the county-filter note above),
   // so every TX row skips this the same way certificates do.
-  if (state.region === "FL" && p.source !== "certificate" && (!state.types.has(propType(p)) || !state.liens.has(p.lien_level))) return false;
+  if (PAGE_STATE === "FL" && p.source !== "certificate" && (!state.types.has(propType(p)) || !state.liens.has(p.lien_level))) return false;
   if ((state.bidMin !== null && Number(p.bid) < state.bidMin) || (state.bidMax !== null && Number(p.bid) > state.bidMax)) return false;
-  if (state.region === "FL" && p.source !== "certificate" && state.assessedMin !== null && Number(p.assessed || 0) < state.assessedMin) return false;
+  if (PAGE_STATE === "FL" && p.source !== "certificate" && state.assessedMin !== null && Number(p.assessed || 0) < state.assessedMin) return false;
   // "Junk land" quick filters - Lands Available only, and each checks a real
   // harvested/derived figure (lot_sqft, buildingValue) rather than a guess at
   // buildability. A raw FDOR use-code filter ("00 Vacant, non-buildable") is
@@ -2210,35 +2256,22 @@ function render() {
   const tabCounts = { auction: 0, laft: 0, certificate: 0 };
   ALL.forEach(p => {
     if (!(p.source in tabCounts)) return;
-    // Scoped to the active region so switching to Texas doesn't keep
-    // showing Florida's counts on the Auctions/Lands/Certificates tabs -
-    // each state has its own three-ledger universe (see LEDGERS' .tx
-    // overrides above).
-    if (regionOf(p) !== state.region) return;
+    // ALL only ever holds PAGE_STATE's own rows (loadAll() fetches via the
+    // state-scoped get_properties() RPC below), so no region check is
+    // needed here the way there used to be when ALL held every state's rows
+    // at once.
     if (isPastDue(p) || HIDDEN.has(p.id) || goneExpired(p)) return;
     tabCounts[p.source]++;
   });
-  // Region tabs: same "how much is here" logic as the ledger tabs, but
-  // counting the state dimension instead of the ledger dimension - not
-  // scoped to state.region itself (that would make FL always read 0 the
-  // moment TX was selected), so both counts stay meaningful regardless of
-  // which one is currently active.
-  const regionCounts = { FL: 0, TX: 0 };
-  ALL.forEach(p => {
-    const r = regionOf(p);
-    if (!(r in regionCounts)) return;
-    if (isPastDue(p) || HIDDEN.has(p.id) || goneExpired(p)) return;
-    regionCounts[r]++;
-  });
-  document.querySelectorAll("#regionTabs .region-tab").forEach(btn => {
-    const r = btn.dataset.region;
-    const active = r === state.region;
-    btn.classList.toggle("on", active);
-    if (active) btn.setAttribute("aria-current", "page");
-    else btn.removeAttribute("aria-current");
-    const countEl = document.getElementById("tabCount" + r);
-    if (countEl) countEl.textContent = regionCounts[r] || 0;
-  });
+  // #regionTabs used to be a JS-driven filter (click FL/TX, toggle
+  // state.region, re-render) with live cross-state counts computed here.
+  // Now that FL and TX are genuinely separate pages, #regionTabs is plain
+  // <a href> navigation between public/index.html and public/tx.html - see
+  // those files. There is nothing to compute or wire up here: no live count
+  // (that would require querying the OTHER state, which is exactly the
+  // combined/cross-state query this whole rework exists to avoid), and no
+  // active-tab toggling (each page's own markup already marks its own link
+  // current).
   document.querySelectorAll("#ledgerTabs .ledger-tab").forEach(btn => {
     const src = btn.dataset.ledger;
     const active = src === activeLedger;
@@ -2664,10 +2697,14 @@ function applyLedgerChrome() {
   document.documentElement.dataset.ledger = key;
   // Separate from --led-*: region-tab colouring (styles.css) is fixed
   // per-state rather than per-ledger, so it doesn't ride the same attribute.
-  document.documentElement.dataset.region = state.region;
+  // PAGE_STATE never changes at runtime (it's set once from <body
+  // data-state>), but documentElement.dataset.region is still set here
+  // rather than hand-added to each HTML file's <html> tag, so styles.css's
+  // selector stays in one place regardless of which page loaded it.
+  document.documentElement.dataset.region = PAGE_STATE;
 
   // The browser tab and the app switcher should say which page this is too.
-  document.title = (cfg.title ? cfg.title + " · " : "") + (state.region === "TX" ? "TX Tax Sale Watchlist" : "FL Tax Deed Watchlist");
+  document.title = (cfg.title ? cfg.title + " · " : "") + (PAGE_STATE === "TX" ? "Tax Acquisitions — Texas" : "Tax Acquisitions — Florida");
 
   // Certificates are liens, not land: no property type, no title screening,
   // no assessed value. passes() already ignores those filters there, so
@@ -2677,7 +2714,7 @@ function applyLedgerChrome() {
   // the county/type/lien/assessed controls hide for every TX ledger too,
   // not just certificate/Yield Desk.
   const isCert = key === "certificate";
-  const isTx = state.region === "TX";
+  const isTx = PAGE_STATE === "TX";
   ["typeDropdown", "lienDropdown", "assessedField"].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.hidden = isCert || isTx;
@@ -2746,26 +2783,12 @@ document.querySelectorAll("#ledgerTabs .ledger-tab[data-ledger]").forEach(btn =>
   });
 });
 
-// Switches the state dimension (see state.region above), independent of
-// which ledger tab is active - flipping to Texas keeps you on, say,
-// Certificates/Yield Desk rather than bouncing back to Auctions, the same
-// way setLedger() doesn't touch state.region.
-function setRegion(region) {
-  if (region !== "FL" && region !== "TX") region = "FL";
-  const changed = state.region !== region;
-  if (!changed) return;
-  state.region = region;
-  applyLedgerChrome();
-  render();
-  window.scrollTo({ top: 0, behavior: prefersReducedMotion() ? "auto" : "smooth" });
-}
-
-document.querySelectorAll("#regionTabs .region-tab[data-region]").forEach(btn => {
-  btn.addEventListener("click", () => {
-    if (state.region === btn.dataset.region) return;
-    setRegion(btn.dataset.region);
-  });
-});
+// setRegion() used to flip state.region client-side and re-render without a
+// page load - that's gone along with the region-tab click wiring it drove.
+// #regionTabs is now plain <a href> navigation between public/index.html
+// and public/tx.html (see applyLedgerChrome() above for the one thing that
+// still reads the state dimension - PAGE_STATE, a load-time constant, not a
+// click-driven one).
 
 // Someone editing the address bar, or following a #/lands link into an
 // already-open tab. popstate is handled separately (see BACK_LAYERS at the
@@ -2946,7 +2969,7 @@ if (exportCsvBtn) exportCsvBtn.addEventListener("click", () => {
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
   const stamp = new Date().toISOString().slice(0, 10);
-  a.href = url; a.download = `taxdeed-${state.region.toLowerCase()}-${state.ledger}-${stamp}.csv`;
+  a.href = url; a.download = `taxdeed-${PAGE_STATE.toLowerCase()}-${state.ledger}-${stamp}.csv`;
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url);
 });
