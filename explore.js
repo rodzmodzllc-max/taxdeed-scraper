@@ -56,6 +56,11 @@ const CANVAS_ID = "exploreMapCanvas";
 const MODE_KEY = "tdw_view_mode";
 const MODES = ["list", "split", "map"];
 
+// Which state desk this page is. Mirrors app.js's own PAGE_STATE constant
+// (read from the same <body data-state="FL|TX"> app.js sets) - this module
+// never reaches into app.js for it, same rule as everything else here.
+const PAGE_STATE = document.body.dataset.state === "TX" ? "TX" : "FL";
+
 // Live state, all of it derived from the last tdw:rendered event.
 let rows = [];
 let ledger = "auction";
@@ -128,7 +133,7 @@ async function ensureMap() {
   svgLoaded = true;                       // set first: a slow fetch must not
                                           // queue a second one behind it
   try {
-    const res = await fetch("fl-counties.svg");
+    const res = await fetch(PAGE_STATE === "TX" ? "tx-counties.svg" : "fl-counties.svg");
     if (!res.ok) throw new Error("HTTP " + res.status);
     canvas.innerHTML = await res.text();
     // Start watching now that there is a map to re-measure.
@@ -234,18 +239,36 @@ function watchForVisibility() {
 // every pin in the wrong place while zoomed in. Pinning it here removes the
 // coupling entirely: the basemap can be reframed without touching the
 // projection, and the projection can't drift when the view moves.
+// PROJ is now keyed by state, since tx-counties.svg is a second basemap with
+// its own basis. FL keeps the least-squares fit described above (still worth
+// reading in full); TX's coefficients come from build_tx_basemap.py's own
+// print-out - a DIRECT equirectangular projection (longitude scaled by
+// cos(mean latitude), corrected for TX's ~29.9deg reference latitude) rather
+// than a fit against a pre-existing shape, because tx-counties.svg was built
+// from scratch and there was nothing to fit against. Both forms end up in the
+// same shape here - fractions of a baseW x baseH basis - on purpose, so
+// projectLatLng() below needs no per-state branch beyond picking which one.
 const PROJ = {
-  x: { lon: 0.131515586, lat: -0.000001417, c: 11.525408765 },
-  y: { lon: 0.000002902, lat: -0.154887536, c: 4.801899887 },
-  // The fit's own basis. Change these only by re-running the fit.
-  baseW: 1000,
-  baseH: 960
+  FL: {
+    x: { lon: 0.131515586, lat: -0.000001417, c: 11.525408765 },
+    y: { lon: 0.000002902, lat: -0.154887536, c: 4.801899887 },
+    // The fit's own basis. Change these only by re-running the fit.
+    baseW: 1000,
+    baseH: 960
+  },
+  TX: {
+    x: { lon: 0.058139535, lat: 0, c: 6.313953488 },
+    y: { lon: 0, lat: -0.066666276, c: 2.493318735 },
+    baseW: 1000,
+    baseH: 1006
+  }
 };
 
 function projectLatLng(lat, lon) {
+  const p = PROJ[PAGE_STATE] || PROJ.FL;
   return {
-    x: (PROJ.x.lon * lon + PROJ.x.lat * lat + PROJ.x.c) * PROJ.baseW,
-    y: (PROJ.y.lon * lon + PROJ.y.lat * lat + PROJ.y.c) * PROJ.baseH
+    x: (p.x.lon * lon + p.x.lat * lat + p.x.c) * p.baseW,
+    y: (p.y.lon * lon + p.y.lat * lat + p.y.c) * p.baseH
   };
 }
 
@@ -279,7 +302,11 @@ function hasPin(p) {
 // before.
 async function loadCities() {
   try {
-    const res = await fetch("fl-cities.json");
+    // tx-cities.json doesn't exist yet (deliberately deferred - see
+    // fl-tx-region-switcher.md) - this 404s and falls into the catch below,
+    // same as being offline with a cold cache. The map is fine without city
+    // labels; this is not a silent failure to fix, it's the designed fallback.
+    const res = await fetch(PAGE_STATE === "TX" ? "tx-cities.json" : "fl-cities.json");
     if (!res.ok) return;
     cities = await res.json();
     // Statewide we only want the handful that orient you at a glance.
@@ -305,7 +332,8 @@ async function loadCities() {
 // already thinks in them.
 async function loadZips() {
   try {
-    const res = await fetch("fl-zips.json");
+    // tx-zips.json is likewise deferred - see loadCities() above.
+    const res = await fetch(PAGE_STATE === "TX" ? "tx-zips.json" : "fl-zips.json");
     if (!res.ok) return;
     zips = await res.json();
     if (zoomCounty) draw();

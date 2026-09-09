@@ -88,8 +88,12 @@ font-variant-numeric:tabular-nums;font-size:.74rem;color:var(--ink-soft)}
 background:var(--paper)}
 /* fl-counties.svg's viewBox is 1170 x 1115. Kept as a variable so the
    height cap and the width cap can't drift apart - if they do, the element
-   stops matching its content and the letterbox comes back. */
+   stops matching its content and the letterbox comes back. tx-counties.svg
+   was built with a different viewBox (1000 x 1006, ~square rather than
+   FL's tall/narrow shape) so the TX page overrides it below - a value tuned
+   for FL's silhouette would letterbox or crop Texas's. */
 .explore-map-canvas{--map-aspect:1.0493}
+body[data-state="TX"] .explore-map-canvas{--map-aspect:0.994}
 .explore-map-canvas svg{width:100%;height:auto;display:block;
   max-height:64vh;max-width:calc(64vh * var(--map-aspect));
   border-radius:10px;border:1px solid var(--card-line)}

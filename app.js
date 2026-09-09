@@ -2719,10 +2719,17 @@ function applyLedgerChrome() {
     const el = document.getElementById(id);
     if (el) el.hidden = isCert || isTx;
   });
-  // County multi-select is entirely FL-shaped (ALL_COUNTIES/fl-counties.svg)
-  // - there is no Texas county picker yet (see the frontend spec doc), so
-  // it hides on TX rather than showing 67 irrelevant FL county chips next
-  // to an empty Texas list.
+  // County multi-select still hides on TX, but NOT because there's no
+  // Texas basemap anymore - tx-counties.svg (254 counties) shipped and
+  // ensureMapLoaded()/MAJOR_CITIES above are already state-aware. What's
+  // still missing is the county UNIVERSE this panel is built around:
+  // ALL_COUNTIES is a hardcoded FL-67 array used to populate chips/counts
+  // independent of live data (see its own comment above), and the same
+  // "show every county, even with 0 properties" treatment for Texas's 254
+  // needs its own TX_ALL_COUNTIES plus a pass through every ALL_COUNTIES
+  // call site in this file - a real follow-up, not a map problem. Showing
+  // 67 Florida county chips next to an empty Texas list would be worse
+  // than hiding the panel, so it stays hidden on TX until that lands.
   const countyDropdownEl = document.getElementById("countyDropdown");
   if (countyDropdownEl) countyDropdownEl.hidden = isTx;
 
@@ -3139,7 +3146,8 @@ document.querySelectorAll(".mini-btn[data-group]").forEach(btn => {
   });
 });
 
-// ---- Florida county map ----
+// ---- filter-panel county map (state-aware: fl-counties.svg or
+// tx-counties.svg per PAGE_STATE - see ensureMapLoaded() below) ----
 const mapBtnEl = document.getElementById("mapBtn");
 const mapWrapEl = document.getElementById("mapWrap");
 const mapHostEl = document.getElementById("mapHost");
@@ -3165,13 +3173,14 @@ function refreshMapPaths() {
     titleEl.textContent = `${name}: ${fmtLabel}${countLabel}`;
   });
 }
-// Major Florida cities for map labels, shown only at the state-wide zoom
-// level (see zoomToCounty()/zoomToState() below, which hide this group and
-// swap in a single county-seat label instead). Coordinates are in the SVG's
-// own user-space units (fl-counties.svg's viewBox is "0 0 1000 960") rather
-// than percentages - percentage resolution on <text> x/y isn't guaranteed
-// to track a changing viewBox the way plain numbers do, and this map now
-// changes its viewBox on every zoom.
+// Major cities for map labels, shown only at the state-wide zoom level (see
+// zoomToCounty()/zoomToState() below, which hide this group and swap in a
+// single county-seat label instead). Coordinates are in each basemap's OWN
+// user-space units - fl-counties.svg's viewBox is "0 0 1000 960",
+// tx-counties.svg's is "0 0 1000 1006" - rather than percentages, since
+// percentage resolution on <text> x/y isn't guaranteed to track a changing
+// viewBox the way plain numbers do, and this map changes its viewBox on
+// every zoom. MAJOR_CITIES below picks the right list for PAGE_STATE.
 const FLORIDA_CITIES = [
   { name: "Miami", x: 880, y: 883.2, size: "large" },
   { name: "Tampa", x: 280, y: 624, size: "large" },
@@ -3181,11 +3190,40 @@ const FLORIDA_CITIES = [
   { name: "Tallahassee", x: 320, y: 115.2, size: "small" },
   { name: "Saint Petersburg", x: 250, y: 672, size: "small" },
 ];
+// Coordinates computed by the same project(lon,lat) function that generated
+// tx-counties.svg (see build_tx_basemap.py), not eyeballed - same approach
+// FL's list presumably used. Only the dozen biggest/most orienting places;
+// unlike Florida's 67-county COUNTY_SEATS below, a full 254-county Texas
+// seat list is deliberately deferred (see the note near COUNTY_SEATS).
+const TEXAS_CITIES = [
+  { name: "Houston", x: 769.2, y: 512.4, size: "large" },
+  { name: "San Antonio", x: 587.6, y: 534.9, size: "large" },
+  { name: "Dallas", x: 686.2, y: 310.1, size: "large" },
+  { name: "Fort Worth", x: 655.2, y: 311.5, size: "medium" },
+  { name: "Austin", x: 631.2, y: 478.4, size: "medium" },
+  { name: "El Paso", x: 123.0, y: 378.1, size: "medium" },
+  { name: "Corpus Christi", x: 651.4, y: 643.8, size: "small" },
+  { name: "Laredo", x: 530.2, y: 661.9, size: "small" },
+  { name: "Lubbock", x: 392.1, y: 256.3, size: "small" },
+  { name: "Amarillo", x: 393.5, y: 146.1, size: "small" },
+  { name: "Midland", x: 379.2, y: 362.3, size: "small" },
+  { name: "Brownsville", x: 645.5, y: 771.1, size: "small" },
+];
+const MAJOR_CITIES = PAGE_STATE === "TX" ? TEXAS_CITIES : FLORIDA_CITIES;
 
-// County seat (or best-known primary city) for each of the 67 counties -
-// used as the "then show cities" label once a tap zooms into a county (see
-// zoomToCounty() below). Cross-checked 1:1 against ALL_COUNTIES so every
-// county the filter/map knows about has a matching seat here.
+// County seat (or best-known primary city) for each of Florida's 67
+// counties - used as the "then show cities" label once a tap zooms into a
+// county (see zoomToCounty() below). Cross-checked 1:1 against ALL_COUNTIES
+// so every FL county the filter/map knows about has a matching seat here.
+//
+// FL-only, deliberately: there is no equivalent TX_COUNTY_SEATS for Texas's
+// 254 counties yet. zoomToCounty()/renderZoomSeatLabel() both already
+// guard every lookup with `if (seat)`, so a Texas county simply zooms in
+// with its dot and no seat label rather than throwing or showing a wrong
+// one - same graceful-gap pattern as COUNTY_FORMAT below (a Texas county
+// has no confirmed auction format on file either, and reads as neutral
+// gray "Format not yet confirmed" for exactly that reason, which is
+// honest: it hasn't been researched, not that TX auctions have no format).
 const COUNTY_SEATS = {
   "Alachua": "Gainesville", "Baker": "Macclenny", "Bay": "Panama City",
   "Bradford": "Starke", "Brevard": "Titusville", "Broward": "Fort Lauderdale",
@@ -3347,7 +3385,7 @@ function zoomToState() {
 async function ensureMapLoaded() {
   if (mapLoaded || !mapHostEl) return;
   try {
-    const res = await fetch("fl-counties.svg");
+    const res = await fetch(PAGE_STATE === "TX" ? "tx-counties.svg" : "fl-counties.svg");
     mapHostEl.innerHTML = await res.text();
 
     // Add city labels as SVG text elements
@@ -3358,7 +3396,7 @@ async function ensureMapLoaded() {
       const g = document.createElementNS(ns, "g");
       g.setAttribute("class", "city-labels");
 
-      FLORIDA_CITIES.forEach(city => {
+      MAJOR_CITIES.forEach(city => {
         const text = document.createElementNS(ns, "text");
         text.setAttribute("x", city.x);
         text.setAttribute("y", city.y);
