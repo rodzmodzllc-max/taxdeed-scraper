@@ -2704,7 +2704,7 @@ function applyLedgerChrome() {
   document.documentElement.dataset.region = PAGE_STATE;
 
   // The browser tab and the app switcher should say which page this is too.
-  document.title = (cfg.title ? cfg.title + " · " : "") + (PAGE_STATE === "TX" ? "TX Tax Sale Watchlist" : "FL Tax Deed Watchlist");
+  document.title = (cfg.title ? cfg.title + " · " : "") + (PAGE_STATE === "TX" ? "Tax Acquisitions — Texas" : "Tax Acquisitions — Florida");
 
   // Certificates are liens, not land: no property type, no title screening,
   // no assessed value. passes() already ignores those filters there, so
