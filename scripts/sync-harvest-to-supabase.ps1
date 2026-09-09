@@ -78,7 +78,14 @@ $headers = @{
     "Content-Type"  = "application/json"
     "Prefer"        = "resolution=merge-duplicates,return=minimal"
 }
-$endpoint = "$supabaseUrl/rest/v1/properties?on_conflict=source,county,case_no"
+# Preferred conflict target once 004_widen_unique_constraint_for_state.sql
+# has been run (adds `state` to the unique key so FL/TX same-named counties,
+# e.g. both have an Orange County, can't collide on one upserted row - see
+# that migration's header comment). Falls back to the old narrower target
+# below if that migration hasn't run yet against this Supabase project.
+$endpoint = "$supabaseUrl/rest/v1/properties?on_conflict=state,source,county,case_no"
+$fallbackEndpoint = "$supabaseUrl/rest/v1/properties?on_conflict=source,county,case_no"
+$useFallback = $false
 
 $batchSize = 40
 $sent = 0
@@ -86,7 +93,23 @@ for ($i = 0; $i -lt $rows.Count; $i += $batchSize) {
     $batch = $rows[$i..([math]::Min($i + $batchSize - 1, $rows.Count - 1))]
     $json = $batch | ConvertTo-Json -Depth 5
     if ($batch.Count -eq 1) { $json = "[$json]" }
-    Invoke-RestMethod -Uri $endpoint -Method Post -Headers $headers -Body ([System.Text.Encoding]::UTF8.GetBytes($json)) | Out-Null
+    $body = [System.Text.Encoding]::UTF8.GetBytes($json)
+    if ($useFallback) {
+        Invoke-RestMethod -Uri $fallbackEndpoint -Method Post -Headers $headers -Body $body | Out-Null
+    } else {
+        try {
+            Invoke-RestMethod -Uri $endpoint -Method Post -Headers $headers -Body $body | Out-Null
+        } catch {
+            $detail = "$($_.ErrorDetails.Message) $($_.Exception.Message)"
+            if ($detail -match '42P10|no unique or exclusion constraint') {
+                Write-Warning "State-aware unique constraint not found yet (004_widen_unique_constraint_for_state.sql not run against production?) - falling back to the older (source, county, case_no) conflict target for the rest of this run."
+                $useFallback = $true
+                Invoke-RestMethod -Uri $fallbackEndpoint -Method Post -Headers $headers -Body $body | Out-Null
+            } else {
+                throw
+            }
+        }
+    }
     $sent += $batch.Count
     Write-Output "  synced $sent / $($rows.Count)"
 }
