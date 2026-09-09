@@ -446,6 +446,64 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: ./scripts/sync-laft-to-supabase.ps1
 
+  texas:
+    name: Harvest Texas tax sales + sync (disabled - not yet implemented)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    # DISABLED on every schedule and even on workflow_dispatch: `if: false`
+    # short-circuits the whole job regardless of trigger. harvesters/
+    # texas_harvester.py's harvest_pbfcm()/harvest_lgbs()/harvest_govease()
+    # are still `raise NotImplementedError(...)` stubs (its main() currently
+    # just prints an "architectural draft" message and exits 0 without
+    # calling any of them), and enrich_property_details_tx.py's CAD lookups
+    # (_fetch_dcad/_fetch_bcad/_fetch_travis_cad) are stubs too. Flip this to
+    # `github.event_name == 'workflow_dispatch'` (manual-only, so it can be
+    # smoke-tested on demand without joining the nightly/cron schedule) once
+    # real harvesting logic lands, and only add real cron entries under `on:
+    # schedule:` above after that manual run has been verified end-to-end.
+    #
+    # Sync step targets `on_conflict=state,source,county,case_no` from day
+    # one (not the old FL-only on_conflict target) since Texas rows only
+    # ever exist post-004_widen_unique_constraint_for_state.sql - no
+    # fallback needed here the way the three FL sync scripts have one.
+    if: false
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python dependencies
+        run: pip install requests
+
+      - name: Harvest Texas tax sales (LGBS / PBFCM / GovEase)
+        run: python3 harvesters/texas_harvester.py
+
+      - name: Upload raw harvest as artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: harvest-texas-${{ github.run_id }}
+          path: out/harvest_texas.*
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: Sync to Supabase
+        # scripts/sync-texas-to-supabase.py does not exist yet either - this
+        # step is a placeholder for the same reason the harvest step above
+        # is. Write it alongside the real harvest_pbfcm()/harvest_lgbs()/
+        # harvest_govease() implementations, not before - there's nothing
+        # real to sync until those exist. When it's written, target
+        # on_conflict=state,source,county,case_no directly (see comment
+        # above the `if: false` line).
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/sync-texas-to-supabase.py
+
   backup:
     name: Export database backup
     runs-on: ubuntu-latest
