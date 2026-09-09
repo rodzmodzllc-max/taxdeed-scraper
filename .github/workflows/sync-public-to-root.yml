@@ -51,7 +51,16 @@ jobs:
           # Exact file set confirmed to be the deployed bundle in public/.
           # Update this list if the deployed file set ever changes - and the
           # guard step below will fail the build if you forget.
-          FILES="_headers app.js explore.css explore.js fl-cities.json fl-zips.json index.html manifest.webmanifest styles.css sw.js"
+          #
+          # tx.html was added to public/ for the FL/TX separate-pages pivot
+          # (see fl-tx-region-switcher.md) but never added here - so THIS
+          # workflow's own guard step correctly failed the job on that push,
+          # which meant the "commit and push" step below never ran either.
+          # Root, and therefore the live site, kept serving the pre-pivot
+          # single-page code with no tx.html at all even though public/ and
+          # main looked done. Exactly the failure mode this workflow's own
+          # comment above warns about, just with a new file this time.
+          FILES="_headers app.js explore.css explore.js fl-cities.json fl-zips.json index.html manifest.webmanifest styles.css sw.js tx.html"
           echo "FILES=$FILES" >> "$GITHUB_ENV"
 
           for f in $FILES; do
