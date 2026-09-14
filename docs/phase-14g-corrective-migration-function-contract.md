@@ -143,3 +143,5 @@ No rollback for schema-v9 was created or is warranted - it succeeded cleanly and
 ## 9. Recommended next action
 
 Not Phase 15. The corrected 005/005a package (this document, and the files themselves) is ready for a fresh production attempt: a fresh Gate A re-verification (the same discipline Phase 14C/14E established - query live rather than trust this document's own snapshot) followed by executing the corrected `005` (this time an actual DROP-then-CREATE, expected to succeed where the prior attempt failed at the DDL-shape level) and then `005a` (now correctly including the `ledger_type` grant exception), then Gate B. `schema-v9-dor-use-code.sql` does not need to be re-run (Section 7).
+
+**Update (Phase 14H, same day): done.** Both migrations were re-attempted against production exactly as designed here and both succeeded, verified live. Gate B passed in full; customer data boundary decision: CLOSED_WITH_LIMITATIONS (the `ledger_type` raw-REST exception named above is the one accepted limitation). Full account: `docs/phase-14h-production-retry-success.md`.
