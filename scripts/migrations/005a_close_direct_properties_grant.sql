@@ -233,6 +233,33 @@
 --   work identically (same check 005's own test plan calls for).
 --
 -- ============================================================
+-- CORRECTION, Phase 14D (Migration Reconciliation & Pre-Execution Re-Gate)
+-- ============================================================
+-- Phase 14C's live preflight found this file's grant list, as written
+-- through Phase 14B, named three columns - `outcome`, `sold_price`,
+-- `dor_use_code` - that do not exist on the live `public.properties`
+-- table, which would make the GRANT statement below fail outright on an
+-- unknown column name. Phase 14D's reconciliation (docs/phase-14d-
+-- migration-reconciliation.md) resolved this the same way it resolved 005
+-- (test_A_005_and_005a_column_lists_are_identical requires these two files
+-- to always agree, so the resolution must match):
+--
+--   * `outcome` and `sold_price` are REMOVED below - no writer anywhere in
+--     this repository, no tracked migration ever proposing to add them,
+--     and confirmed absent live. See 005's own "CORRECTION, Phase 14D"
+--     comment for the full reasoning (they are a deliberately-deferred
+--     frontend-ahead-of-backend feature, not a current part of the
+--     customer contract).
+--   * `dor_use_code` is KEPT below - it has a real tracked migration
+--     (schema-v9-dor-use-code.sql) and a real, currently-functioning
+--     writer, and is a genuinely intended, already-half-deployed part of
+--     the customer contract. Exactly as with 005, THIS MIGRATION MUST NOT
+--     BE RUN UNTIL schema-v9-dor-use-code.sql HAS BEEN RUN AND CONFIRMED
+--     LIVE, AND UNTIL 005 (as corrected) HAS ALSO BEEN RUN AND CONFIRMED -
+--     see docs/phase-14d-migration-reconciliation.md for the full,
+--     corrected execution order: schema-v9-dor-use-code.sql -> 005 -> 005a.
+--
+-- ============================================================
 -- THE PROPOSED GRANT CHANGE (NOT EXECUTED BY THIS SESSION)
 -- ============================================================
 revoke select on public.properties from anon;
@@ -250,7 +277,7 @@ grant select (
   certificate_no, tax_year, issued_date, expiration_date, interest_rate,
   latitude, longitude, url_appraiser, url_auction,
   url_taxcoll, url_title, url_streetview, url_zillow,
-  outcome, sold_price, gone_since, updated_at
+  gone_since, updated_at
 ) on public.properties to authenticated;
 
 -- anon intentionally receives no grant at all - see TARGET ARCHITECTURE

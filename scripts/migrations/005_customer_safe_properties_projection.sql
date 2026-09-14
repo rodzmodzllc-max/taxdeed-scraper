@@ -199,6 +199,59 @@
 -- - returning either of them under a different name or a nulled
 -- placeholder would not close the exposure this file exists to close for
 -- them.
+--
+-- CORRECTION, Phase 14D (Migration Reconciliation & Pre-Execution Re-Gate):
+-- Phase 14C's live preflight (docs/phase-14c-production-migration-
+-- verification.md) found this file, as written through Phase 14B, named
+-- three columns - `outcome`, `sold_price`, `dor_use_code` - that do not
+-- exist on the live `public.properties` table (confirmed via a direct
+-- information_schema.columns query against production: exactly 47 real
+-- columns, none of the three among them). Running this migration as-is
+-- would fail outright with a Postgres "column does not exist" error. Phase
+-- 14D's own repo-only reconciliation (docs/phase-14d-migration-
+-- reconciliation.md has the full analysis) found the three columns are NOT
+-- symmetric and resolved them differently:
+--
+--   * `outcome` and `sold_price` are REMOVED from the RETURNS TABLE/SELECT
+--     lists below. Neither has a writer anywhere in this repository
+--     (scripts/*.py, scripts/*.ps1, harvesters/*.py all confirmed to have
+--     zero references) and neither has ever had a tracked migration
+--     proposing to add them to `public.properties` - the only two places
+--     in this repo's entire git history that ever named them are this file
+--     and 005a, both written by Phase 14A/14B from Phase 13's field
+--     inventory without verifying a migration or live column actually
+--     backed them. The claude.ai Project's own historical docs
+--     (claude/closed-outcome-and-map-cities.md,
+--     claude/header-account-terms-and-the-deploy-mirror-gap.md) confirm
+--     `outcome`/`sold_price` are a deliberately-built-ahead-of-schedule
+--     frontend feature: public/app.js's `outcomeText()` and `OUTCOME_LABEL`
+--     already read `p.outcome`/`p.sold_price` defensively and fall back to
+--     today's `status`-only behavior, specifically so "it starts working
+--     the day the pipeline fills them in, with no further frontend
+--     change" - the backend/harvester half of that work was explicitly
+--     handed off and was never built by any session since. Omitting them
+--     here changes nothing observable (the frontend already tolerates
+--     their absence); a future phase that actually builds the outcome-
+--     capture harvester work should add them back via their own dedicated,
+--     tracked migration at that time - not by reintroducing them here
+--     speculatively.
+--   * `dor_use_code` is KEPT in both lists below, unlike the two above -
+--     unlike `outcome`/`sold_price`, it already has a real, tracked,
+--     purely-additive migration (schema-v9-dor-use-code.sql, committed
+--     2026-09-08) and a real, currently-functioning writer
+--     (scripts/enrich_property_details.py, which has populated it on its
+--     normal per-county schedule since 2026-09-02) - it is a genuinely
+--     intended, already-half-deployed part of the customer contract that
+--     simply never had its own migration run against this particular
+--     Supabase project (the same "tracked-but-never-run" failure pattern
+--     CLAUDE.md already documents for schema-v4/v5/v7/v8). Because this
+--     migration will fail if `dor_use_code` does not exist yet,
+--     schema-v9-dor-use-code.sql is now a formal, documented prerequisite
+--     of this file: THIS MIGRATION MUST NOT BE RUN UNTIL
+--     schema-v9-dor-use-code.sql HAS BEEN RUN AND CONFIRMED LIVE. See
+--     docs/phase-14d-migration-reconciliation.md for the full corrected
+--     execution order and the pre-execution checklist that must be re-run
+--     (a fresh Gate A) before either file is applied.
 create or replace function public.get_properties(
   p_state text,
   p_ledger_type text default null,
@@ -220,8 +273,7 @@ returns table (
   expiration_date date, interest_rate numeric, latitude double precision,
   longitude double precision, url_appraiser text, url_auction text,
   url_taxcoll text, url_title text, url_streetview text, url_zillow text,
-  outcome text, sold_price numeric, gone_since timestamptz,
-  updated_at timestamptz
+  gone_since timestamptz, updated_at timestamptz
 )
 language sql
 stable
@@ -237,7 +289,7 @@ as $$
     last_sale_year, sale_date, certificate_no, tax_year, issued_date,
     expiration_date, interest_rate, latitude, longitude, url_appraiser,
     url_auction, url_taxcoll, url_title, url_streetview, url_zillow,
-    outcome, sold_price, gone_since, updated_at
+    gone_since, updated_at
   from public.properties
   where state = p_state
     and (p_ledger_type is null or ledger_type = p_ledger_type)

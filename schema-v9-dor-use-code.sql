@@ -15,6 +15,20 @@
 -- (this table's existing SELECT policies already cover every column), and
 -- enrich_property_details.py backfills it incrementally on its normal
 -- per-county schedule - no separate backfill script required.
+--
+-- DEPENDENCY (added Phase 14D, Migration Reconciliation & Pre-Execution
+-- Re-Gate, 2026-09-14): this file was committed to the repo but never
+-- actually run against production (confirmed via a live information_
+-- schema.columns audit in Phase 14C - dor_use_code is absent from the live
+-- 47-column public.properties table). scripts/migrations/
+-- 005_customer_safe_properties_projection.sql's RETURNS TABLE clause names
+-- dor_use_code, so 005 will fail outright with a "column does not exist"
+-- error if run before this file. THIS MIGRATION MUST RUN BEFORE
+-- scripts/migrations/005_customer_safe_properties_projection.sql (and,
+-- transitively, before 005a). Corrected execution order: this file -> 005
+-- -> 005a. See docs/phase-14d-migration-reconciliation.md for the full
+-- reconciliation and the pre-execution checklist a fresh Gate A must
+-- re-verify before any of the three are applied.
 alter table public.properties add column if not exists dor_use_code text;
 
 comment on column public.properties.dor_use_code is
