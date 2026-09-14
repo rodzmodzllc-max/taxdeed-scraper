@@ -7,7 +7,7 @@ works without reaching into each submodule individually. See:
 
   - registry.py     - SourceStatus, SourceRecord, SOURCE_REGISTRY, get_source()
   - restrictions.py - Restriction, BLOCKS_CUSTOMER_DISPLAY, BLOCKS_API_EXPORT
-  - gate.py          - GateDecision, check_ingestion_gate(), filter_rows_for_customer_output(), filter_rows_for_api_export()
+  - gate.py          - GateDecision, check_ingestion_gate(), filter_rows_for_customer_output(), filter_rows_for_api_export(), project_row_for_customer_output(), project_row_for_api_export() (Phase 11)
   - provenance.py    - PipelineStage, FieldClassification, Provenance, advance(), derive(), origin_source_ids()
 """
 
@@ -16,6 +16,8 @@ from .gate import (
     check_ingestion_gate,
     filter_rows_for_api_export,
     filter_rows_for_customer_output,
+    project_row_for_api_export,
+    project_row_for_customer_output,
 )
 from .provenance import (
     FieldClassification,
@@ -33,13 +35,15 @@ from .registry import (
     all_sources,
     get_source,
 )
-from .restrictions import BLOCKS_API_EXPORT, BLOCKS_CUSTOMER_DISPLAY, Restriction
+from .restrictions import BLOCKS_API_EXPORT, BLOCKS_CUSTOMER_DISPLAY, FIELD_SHAPE_KEYWORDS, Restriction
 
 __all__ = [
     "GateDecision",
     "check_ingestion_gate",
     "filter_rows_for_api_export",
     "filter_rows_for_customer_output",
+    "project_row_for_api_export",
+    "project_row_for_customer_output",
     "FieldClassification",
     "PipelineStage",
     "Provenance",
@@ -54,5 +58,6 @@ __all__ = [
     "get_source",
     "BLOCKS_API_EXPORT",
     "BLOCKS_CUSTOMER_DISPLAY",
+    "FIELD_SHAPE_KEYWORDS",
     "Restriction",
 ]

@@ -35,7 +35,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from .registry import INGESTION_ALLOWED_STATUSES, SourceStatus, get_source
-from .restrictions import BLOCKS_API_EXPORT, BLOCKS_CUSTOMER_DISPLAY, Restriction
+from .restrictions import BLOCKS_API_EXPORT, BLOCKS_CUSTOMER_DISPLAY, FIELD_SHAPE_KEYWORDS, Restriction
 
 
 @dataclass(frozen=True)
@@ -123,3 +123,80 @@ def filter_rows_for_api_export(rows: list, source_id: str) -> list:
     if any(r in BLOCKS_API_EXPORT for r in decision.restrictions):
         return []
     return list(rows)
+
+
+def _strip_restricted_field_shapes(row: dict, restrictions: tuple[Restriction, ...]) -> dict:
+    """Return a NEW dict (the input `row` is never mutated - see
+    test_row_projection_does_not_mutate_the_input_row) with any key whose
+    name matches a field-shape keyword (restrictions.FIELD_SHAPE_KEYWORDS)
+    for a restriction the source actually carries removed. A restriction
+    with no entry in FIELD_SHAPE_KEYWORDS (e.g. RATE_LIMIT,
+    ATTRIBUTION_REQUIRED, RETENTION_PERIOD, OTHER_CONTRACTUAL_RESTRICTION -
+    restrictions that describe an obligation about HOW data is used, not
+    WHICH field is restricted) has nothing to strip here by design; those
+    are documented, not enforced by field removal, in
+    docs/customer-api-data-enforcement.md."""
+    projected = dict(row)
+    for restriction in restrictions:
+        keywords = FIELD_SHAPE_KEYWORDS.get(restriction)
+        if not keywords:
+            continue
+        for key in list(projected.keys()):
+            if any(kw in key.lower() for kw in keywords):
+                del projected[key]
+    return projected
+
+
+def _project_row(row: dict, source_id: str, blocking_restrictions: frozenset[Restriction]) -> dict | None:
+    """Shared implementation for project_row_for_customer_output() and
+    project_row_for_api_export() below - both are the same two-step
+    decision (whole-row gate, then field-shape stripping) against a
+    different blocking-restriction set."""
+    decision = check_ingestion_gate(source_id)
+    if not decision.allowed:
+        return None
+    if any(r in blocking_restrictions for r in decision.restrictions):
+        return None
+    return _strip_restricted_field_shapes(row, decision.restrictions)
+
+
+def project_row_for_customer_output(row: dict, source_id: str) -> dict | None:
+    """Phase 11 (Customer/API Data-Restriction Enforcement): the per-row,
+    field-aware counterpart to filter_rows_for_customer_output() above.
+    Given ONE already-harvested row (any dict - a Supabase upsert payload
+    row, in this codebase's actual usage) and the source_id it came from,
+    returns:
+      - None if the source fails the ingestion gate (see
+        check_ingestion_gate) OR carries a restriction in
+        BLOCKS_CUSTOMER_DISPLAY - the row must not reach a customer-visible
+        surface at all.
+      - Otherwise, a NEW dict (the input is never mutated) with any
+        restricted-content-shaped field (raw HTML / images / documents -
+        see restrictions.FIELD_SHAPE_KEYWORDS) removed, while every
+        unrestricted field is passed through unchanged.
+
+    This is deliberately the SAME governance decision
+    (check_ingestion_gate + BLOCKS_CUSTOMER_DISPLAY) filter_rows_for_
+    customer_output() already used for whole-source rejection - this
+    function does not duplicate that logic, it extends it to field
+    granularity. See scripts/sync-texas-to-supabase.py for this
+    codebase's one real call site: in this application's architecture
+    (a static frontend reading Supabase's `public.properties` table
+    directly, with no application server and no field-level RLS - see
+    docs/data-licensing.md), the row handed to the Supabase upsert IS the
+    customer-facing representation, so this is where that representation
+    must be projected."""
+    return _project_row(row, source_id, BLOCKS_CUSTOMER_DISPLAY)
+
+
+def project_row_for_api_export(row: dict, source_id: str) -> dict | None:
+    """Same shape as project_row_for_customer_output(), but for an
+    API/export surface specifically (BLOCKS_API_EXPORT, a superset of
+    BLOCKS_CUSTOMER_DISPLAY - see restrictions.py). Not currently called
+    by any production code path (this application has no export/API
+    surface distinct from the customer-facing `properties` table itself -
+    see docs/customer-api-data-enforcement.md's "Export path" section) -
+    provided so a future distinct export/API feature has a ready,
+    already-tested enforcement function to call rather than needing to
+    reinvent one."""
+    return _project_row(row, source_id, BLOCKS_API_EXPORT)

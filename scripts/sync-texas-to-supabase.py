@@ -45,23 +45,53 @@ TX-specific meaning), not two different figures.
 Run harvesters/texas_harvester.py first, then this.
 
 UPDATED 2026-09-14 (Phase 10A - Commercial Source Governance
-Infrastructure): this script now re-checks harvesters/governance's
-ingestion gate for each row's `harvester_source`, right before that row is
-added to the upsert payload. This is DEFENSE IN DEPTH, not the primary
-enforcement point (that's texas_harvester.py's main(), which now skips a
-non-approved vendor's harvest_*() function entirely - see that file's own
-Phase 10A comment) - it exists so that if out/harvest_texas.json is ever
-produced by some other path, or hand-edited, or left over from before a
-source's status changed, a row from a LEGAL_REVIEW_REQUIRED/BLOCKED/
-DISABLED/TERMS_CHANGED source still cannot reach Supabase's `properties`
-table through this script. This table has no field-level RLS - a row that
-reaches it is immediately customer-visible to every approved app user - so
-this really is the last real chokepoint before "customer output" in this
-codebase's current architecture (see docs/data-licensing.md's "Remaining
-risks" for the honest gap this leaves for a future finer-grained, per-field
-enforcement need). Rows for tx_lgbs/tx_realauction (both APPROVED) pass
-through unaffected - zero behavior change for either of those two
-production sources.
+Infrastructure): this script re-checks harvesters/governance's ingestion
+gate for each row's `harvester_source`, right before that row is added to
+the upsert payload. This is DEFENSE IN DEPTH, not the primary enforcement
+point (that's texas_harvester.py's main(), which skips a non-approved
+vendor's harvest_*() function entirely - see that file's own Phase 10A
+comment) - it exists so that if out/harvest_texas.json is ever produced by
+some other path, or hand-edited, or left over from before a source's
+status changed, a row from a LEGAL_REVIEW_REQUIRED/BLOCKED/DISABLED/
+TERMS_CHANGED source still cannot reach Supabase's `properties` table
+through this script.
+
+UPDATED 2026-09-14 (Phase 11 - Customer/API Data-Restriction Enforcement):
+closes the specific gap Phase 10A's own report named ("customer/API
+enforcement functions built/tested but NOT wired into frontend"). This
+application has no application server: `public/app.js` reads
+`public.properties` directly (via the `get_properties()` RPC or a plain
+`.select("*")`), the CSV export in app.js reads from the same
+already-fetched rows, and `supabase/functions/send-digest`'s
+`digest_candidates` RPC (service_role, bypassing RLS) also reads straight
+from `properties`. None of those three surfaces can invoke this Python
+governance package - they run in the browser or in a separate Deno
+runtime - and Phase 11's hard rules forbid a Supabase schema
+change/migration this phase, so no read-time enforcement point can be
+added to any of them without one. Given that constraint, this table has
+no field-level RLS, so a row that reaches it is immediately, unfilterably
+customer-visible to every approved app user through EVERY one of those
+three surfaces at once - meaning the row this script builds below IS the
+literal customer-facing representation in this codebase's actual
+architecture, and this script is therefore the one real, exercisable
+enforcement boundary for field-level restrictions too, not just whole-
+source ones. `harvesters/governance/gate.py`'s new
+`project_row_for_customer_output()` is called on every row below (see the
+row-building loop) - it performs the SAME whole-source check as
+check_ingestion_gate() below plus a customer-display-blocking-restriction
+check, THEN strips any individual restricted-content-shaped field
+(raw HTML / images / documents) from an otherwise-permitted row. As of
+this phase this is a verified NO-OP for tx_lgbs/tx_realauction (both
+APPROVED, zero restrictions - see
+tests/python/test_customer_api_enforcement.py's regression tests) - zero
+behavior change for either of those two production sources today; the
+mechanism exists and is tested so the day either source (or a future
+source) is registered APPROVED_WITH_RESTRICTIONS, enforcement is already
+wired rather than needing to be built under time pressure. See
+docs/customer-api-data-enforcement.md for the full architecture writeup,
+including the honest limitation this leaves: the write-time-only
+enforcement described here is the best available given the no-migration
+constraint, not a claim of independent read-time enforcement.
 """
 
 from __future__ import annotations
@@ -82,7 +112,7 @@ JSON_PATH = HERE / "../out/harvest_texas.json"
 # repo root (as .github/workflows/harvest-and-sync.yml's `texas` job does)
 # or from anywhere else.
 sys.path.insert(0, str(HERE / ".."))
-from harvesters.governance.gate import check_ingestion_gate  # noqa: E402
+from harvesters.governance.gate import check_ingestion_gate, project_row_for_customer_output  # noqa: E402
 
 BATCH_SIZE = 40  # matches the FL sync scripts' batch size
 
@@ -152,6 +182,7 @@ def main() -> None:
     deduped: dict[tuple[str, str], dict] = {}
     skipped = 0
     skipped_gate = 0
+    skipped_customer_restriction = 0
     gate_rejections: dict[str, int] = {}
     for p in harvest:
         case_no = p.get("account_number")
@@ -202,9 +233,23 @@ def main() -> None:
             row["latitude"] = lat
             row["longitude"] = lon
 
-        deduped[(county, case_no)] = row
+        # Phase 11: project the row through the same governance layer's
+        # customer-output check (whole-row block on a customer-display-
+        # blocking restriction, plus field-shape stripping - see this
+        # file's module docstring and harvesters/governance/gate.py). Not
+        # redundant with the check_ingestion_gate() call above: that gate
+        # checks only legal_status; this checks legal_status AND
+        # restrictions AND fields. For tx_lgbs/tx_realauction (both
+        # APPROVED, zero restrictions) this is a verified no-op - `row` is
+        # returned unchanged - see the Phase 11 regression tests.
+        projected_row = project_row_for_customer_output(row, harvester_source)
+        if projected_row is None:
+            skipped_customer_restriction += 1
+            continue
 
-    dupe_count = len(harvest) - skipped - skipped_gate - len(deduped)
+        deduped[(county, case_no)] = projected_row
+
+    dupe_count = len(harvest) - skipped - skipped_gate - skipped_customer_restriction - len(deduped)
     if dupe_count > 0:
         print(
             f"De-duplicated {dupe_count} row(s) sharing a (county, case_no) key with another row in this harvest.",
@@ -216,12 +261,22 @@ def main() -> None:
             f"{gate_rejections} - see harvesters/governance/registry.py for each source's current status.",
             file=sys.stderr,
         )
+    if skipped_customer_restriction > 0:
+        print(
+            f"Customer-output projection blocked {skipped_customer_restriction} row(s) whose source passed the "
+            "ingestion gate but carries a customer-display-blocking restriction (no_customer_display / "
+            "no_redistribution / source_only_display / field_specific_restriction) - see "
+            "harvesters/governance/gate.py's project_row_for_customer_output(). Not expected for "
+            "tx_lgbs/tx_realauction today (both carry zero restrictions).",
+            file=sys.stderr,
+        )
 
     rows = list(deduped.values())
     if not rows:
         print(
             f"Nothing to sync ({skipped} skipped for missing case_no/county/source, "
-            f"{skipped_gate} skipped by the ingestion gate).",
+            f"{skipped_gate} skipped by the ingestion gate, "
+            f"{skipped_customer_restriction} skipped by customer-output projection).",
             file=sys.stderr,
         )
         return
