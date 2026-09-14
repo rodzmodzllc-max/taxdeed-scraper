@@ -130,22 +130,38 @@ _TX_LGBS = SourceRecord(
     access_method="json_api_paginated",
     automation_status="READY - shipped and production-verified (workflow_dispatch run #128, 2026-09-14)",
     legal_status=SourceStatus.APPROVED,
-    commercial_use_status="Treated as approved by existing production practice - a public, unauthenticated JSON API with no access wall, live in this project's production pipeline since 2026-09-09. No formal Phase-8/9.5-style redistribution-rights document exists for LGBS specifically; flagged as a backfill item (see docs/commercial-data-inventory.md), not a reason to stop an already-shipped, already-verified source.",
-    storage_status="In production use - stored in Supabase `properties` table today.",
-    customer_display_status="In production use - displayed to approved app users today.",
-    redistribution_status="Not formally reviewed; no restriction encountered in practice.",
-    api_export_status="Not currently exposed through a customer-facing export/API distinct from the app itself.",
-    historical_retention_status="Retained indefinitely, same as every other production row.",
+    commercial_use_status=(
+        "PRODUCTION-PRACTICE APPROVAL, NOT FORMALLY RIGHTS-CLEARED - approval basis requires legal review "
+        "(Phase 10B finding). www.lgbs.com/legal-disclosures/ (a DIFFERENT subdomain of the same legal "
+        "entity) contains an affirmative prohibition: 'Reproduction, republication, retransmission, and/or "
+        "distribution of material contained within this web site is prohibited unless the prior permission "
+        "of Linebarger has been obtained.' Whether 'this web site' extends to taxsales.lgbs.com (the "
+        "subdomain/API this project actually uses, which has no terms page of its own) is genuinely "
+        "unresolved - see docs/lgbs-rights-audit.md Section 5. Not treated as either a block or a clearance."
+    ),
+    storage_status="In production use - stored in Supabase `properties` table today. See commercial_use_status above for the unresolved scope question this now sits under.",
+    customer_display_status="In production use - displayed to approved app users today. See commercial_use_status above.",
+    redistribution_status="LEGAL_REVIEW_REQUIRED - see commercial_use_status above; the www.lgbs.com/legal-disclosures/ prohibition is real, its scope as applied to taxsales.lgbs.com is what's unresolved.",
+    api_export_status="Not currently exposed through a customer-facing export/API distinct from the app itself. Would inherit the same open scope question above if built.",
+    historical_retention_status="Retained indefinitely, same as every other production row. No source-side retention restriction found or ruled out.",
     document_image_rights_status="N/A - LGBS's API does not publish images/documents.",
     attribution_required=False,
-    rate_limit="Polite pacing already implemented (0.3s between paginated requests) - not a source-stated requirement, a courtesy.",
-    robots_status="Not checked for a JSON API endpoint (robots.txt conventions target crawlable pages, not API consumption) - not evaluated as blocking in practice.",
-    terms_status="Not formally reviewed.",
+    rate_limit="Polite pacing already implemented (0.3s between paginated requests) - not a source-stated requirement, a courtesy. No source-stated rate limit was found (docs/lgbs-rights-audit.md Section 15).",
+    robots_status="OPEN - taxsales.lgbs.com/robots.txt is exactly 'User-agent: *' with no Disallow line (confirmed live, Phase 10B). The most permissive robots.txt found for any TX source reconnoitered to date.",
+    terms_status="No Terms of Use exists on taxsales.lgbs.com itself. www.lgbs.com (a different subdomain) has a legal-disclosures page with a redistribution prohibition of uncertain scope - see docs/lgbs-rights-audit.md.",
     review_date="2026-09-14",
-    reviewer="harvesters/texas_harvester.py module docstring (production verification pass)",
-    notes="Shipped 2026-09-09, production-verified 2026-09-14. Registered APPROVED to reflect existing production status, per Phase 10A's explicit instruction not to change verified LGBS behavior. See harvesters/texas_harvester.py's own module docstring for the full technical verification history.",
+    reviewer="Phase 10B formal rights audit (docs/lgbs-rights-audit.md)",
+    notes=(
+        "Shipped 2026-09-09, production-verified 2026-09-14 (Phase 10A). Formally rights-audited 2026-09-14 "
+        "(Phase 10B) - see docs/lgbs-rights-audit.md for the full review. legal_status intentionally left "
+        "APPROVED and unchanged by that audit: Phase 10B's hard rules forbid deactivating a production "
+        "harvester based solely on this project's own interpretation, and the audit's central finding (a "
+        "same-entity, different-subdomain prohibition of unresolved scope) was escalated to the user for a "
+        "human decision rather than acted on unilaterally. See docs/commercial-data-inventory.md for how "
+        "this status is distinguished from a formally rights-CLEARED source."
+    ),
     restrictions=(),
-    doc_refs=("harvesters/texas_harvester.py (module docstring)",),
+    doc_refs=("harvesters/texas_harvester.py (module docstring)", "docs/lgbs-rights-audit.md"),
 )
 
 _TX_REALAUCTION = SourceRecord(
@@ -157,24 +173,48 @@ _TX_REALAUCTION = SourceRecord(
     source_type="vendor_platform",
     official_or_vendor="vendor",
     access_method="html_calendar_plus_ajax_pagination",
-    automation_status="READY - shipped and production-verified (workflow_dispatch run #128, 2026-09-14)",
+    automation_status="READY - shipped and production-verified (workflow_dispatch run #128, 2026-09-14). See robots_status below for a Phase 10B finding that qualifies this.",
     legal_status=SourceStatus.APPROVED,
-    commercial_use_status="Treated as approved by existing production practice - the same RealAuction/RealForeclose platform already used in production for Florida (harvest_all_counties.ps1), now confirmed to be byte-for-byte the same markup/AJAX shape for Texas. No formal Phase-8/9.5-style redistribution-rights document exists for this vendor specifically; flagged as a backfill item, not a reason to stop an already-shipped, already-verified source.",
-    storage_status="In production use.",
-    customer_display_status="In production use.",
-    redistribution_status="Not formally reviewed; no restriction encountered in practice (same as the FL RealAuction integration this mirrors).",
+    commercial_use_status=(
+        "PRODUCTION-PRACTICE APPROVAL, NOT FORMALLY RIGHTS-CLEARED - approval basis requires legal review "
+        "(Phase 10B finding). No Terms of Use was found or reviewed for this vendor anywhere (neither on "
+        "realauction.com nor any county instance - see docs/realauction-rights-audit.md Section 5); this is "
+        "an absence of evidence, not evidence of absence, and is not read as permission. Compounded by the "
+        "robots.txt finding in robots_status below."
+    ),
+    storage_status="In production use. No source-side restriction found or ruled out (nothing was reviewable - see docs/realauction-rights-audit.md).",
+    customer_display_status="In production use. No source-side restriction found or ruled out.",
+    redistribution_status="UNKNOWN - no Terms of Use was reachable to review (docs/realauction-rights-audit.md Section 5/10).",
     api_export_status="Not currently exposed through a customer-facing export/API distinct from the app itself.",
-    historical_retention_status="Retained indefinitely, same as every other production row.",
-    document_image_rights_status="N/A - this vendor does not publish images/documents in the harvested feed.",
+    historical_retention_status="Retained indefinitely, same as every other production row. No source-side restriction found or ruled out.",
+    document_image_rights_status="Not confirmed either way this phase - this vendor's harvested TX fields include no image/document URLs, but this was not independently re-verified against the vendor's own terms (docs/realauction-rights-audit.md Section 13).",
     attribution_required=False,
-    rate_limit="Polite pacing already implemented (0.2s between AJAX pages) - not a source-stated requirement, a courtesy.",
-    robots_status="Not formally reviewed - mirrors the FL RealAuction integration's existing practice.",
-    terms_status="Not formally reviewed.",
+    rate_limit="Polite pacing already implemented (0.2s between AJAX pages) - not a source-stated requirement, a courtesy. No source-stated rate limit was found (nothing was reviewable).",
+    robots_status=(
+        "SIGNIFICANT PHASE 10B FINDING: every fetch attempted this phase against dallas.texas."
+        "sheriffsaleauctions.com, smith.texas.sheriffsaleauctions.com, and montgomery.texas.realforeclose.com "
+        "(root pages, an auction-preview page, and robots.txt itself) was refused by this session's "
+        "robots-respecting web-fetch tool with ROBOTS_DISALLOWED - consistently, across all 3 counties and "
+        "both TX hostname patterns. The literal robots.txt text could not be obtained through any tool "
+        "available this phase. harvest_realauction() uses Python's urllib.request directly and has NEVER "
+        "checked robots.txt at any point in its history - this is the first time this project has looked. "
+        "See docs/realauction-rights-audit.md Section 4/6 - escalated to the user, not acted on unilaterally."
+    ),
+    terms_status="No Terms of Use was found or reviewed for this vendor anywhere - see commercial_use_status above.",
     review_date="2026-09-14",
-    reviewer="harvesters/texas_harvester.py module docstring (production verification pass)",
-    notes="Shipped 2026-09-14, production-verified the same day. Registered APPROVED to reflect existing production status, per Phase 10A's explicit instruction not to change verified RealAuction behavior.",
+    reviewer="Phase 10B formal rights audit (docs/realauction-rights-audit.md)",
+    notes=(
+        "Shipped 2026-09-14, production-verified the same day (Phase 10A). Formally rights-audited 2026-09-14 "
+        "(Phase 10B) - see docs/realauction-rights-audit.md. legal_status intentionally left APPROVED and "
+        "unchanged: Phase 10B's hard rules forbid deactivating a production harvester based solely on this "
+        "project's own interpretation. The robots.txt finding above is, in the auditor's own assessment, the "
+        "single most actionable finding of Phase 10B - concrete and touching an already-running production "
+        "source - and is escalated to the user directly rather than acted on here. See "
+        "docs/commercial-data-inventory.md for how this status is distinguished from a formally "
+        "rights-CLEARED source."
+    ),
     restrictions=(),
-    doc_refs=("harvesters/texas_harvester.py (module docstring)",),
+    doc_refs=("harvesters/texas_harvester.py (module docstring)", "docs/realauction-rights-audit.md"),
 )
 
 _TX_HCTAX = SourceRecord(
