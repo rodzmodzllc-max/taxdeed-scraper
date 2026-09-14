@@ -92,6 +92,23 @@ docs/customer-api-data-enforcement.md for the full architecture writeup,
 including the honest limitation this leaves: the write-time-only
 enforcement described here is the best available given the no-migration
 constraint, not a claim of independent read-time enforcement.
+
+UPDATED 2026-09-14 (Phase 12 - Production Provenance & Data Lineage
+Integration): this script now also builds a `Provenance` record
+(harvesters/governance/provenance.py, via harvesters/texas_harvester.py's
+build_row_provenance()) for every row that reaches the upsert payload -
+genuinely one per record, sourced from the exact same gate_decision this
+script already computed, asserted to match it exactly (see the
+row-building loop below). This closes the gap docs/data-provenance.md
+itself named ("no production code path actually constructs a Provenance
+record yet"). These records are NOT sent to Supabase - there is no column
+or table for them (Phase 12 explicitly forbids a schema change/migration)
+- they exist only for this run's own audit-log summary (see the "Done."
+line near the end of main()) and for
+tests/python/test_provenance_integration.py. See
+docs/provenance-production-integration.md for the full architecture
+writeup, including why lineage is pipeline-side/ephemeral rather than
+persisted, and what a future database-level provenance store would need.
 """
 
 from __future__ import annotations
@@ -102,6 +119,7 @@ import re
 import sys
 import urllib.error
 import urllib.request
+from datetime import datetime, timezone
 from pathlib import Path
 
 HERE = Path(__file__).parent
@@ -113,6 +131,7 @@ JSON_PATH = HERE / "../out/harvest_texas.json"
 # or from anywhere else.
 sys.path.insert(0, str(HERE / ".."))
 from harvesters.governance.gate import check_ingestion_gate, project_row_for_customer_output  # noqa: E402
+from harvesters.texas_harvester import build_row_provenance  # noqa: E402  (Phase 12)
 
 BATCH_SIZE = 40  # matches the FL sync scripts' batch size
 
@@ -171,6 +190,20 @@ def main() -> None:
         print("harvest_texas.json is empty - nothing to sync.", file=sys.stderr)
         return
 
+    # Phase 12 (Production Provenance & Data Lineage Integration): this
+    # sync run IS the retrieval event whose lineage is being recorded here
+    # - out/harvest_texas.json carries no retrieval timestamp of its own
+    # (see build_row_provenance()'s own docstring on why main() and this
+    # script each generate their own retrieved_at rather than threading
+    # one value through the JSON file, which would be a file-shape change
+    # this phase's "no schema/file-shape expansion" spirit avoids). This
+    # timestamp is therefore "when this sync run processed the row," a
+    # legitimate and honestly-labeled retrieval/processing event in its
+    # own right, not a claim about when the harvester originally fetched
+    # it from the vendor (that earlier event is logged separately by
+    # harvesters/texas_harvester.py's own main()).
+    sync_retrieved_at = datetime.now(timezone.utc).isoformat()
+
     # De-duplicate on (county, case_no) - the same conflict-target key the
     # upsert below uses. Postgres's ON CONFLICT DO UPDATE rejects a batch
     # that would update the same conflict-target row twice in one statement
@@ -184,6 +217,7 @@ def main() -> None:
     skipped_gate = 0
     skipped_customer_restriction = 0
     gate_rejections: dict[str, int] = {}
+    provenance_by_source: dict[str, int] = {}  # Phase 12: audit summary, not persisted anywhere
     for p in harvest:
         case_no = p.get("account_number")
         county = p.get("county")
@@ -246,6 +280,23 @@ def main() -> None:
         if projected_row is None:
             skipped_customer_restriction += 1
             continue
+
+        # Phase 12: build this row's Provenance record - genuinely one per
+        # record entering the customer-facing dataset, per this phase's own
+        # objective. Built from the SAME gate_decision already computed
+        # above (not a second, independent lookup), so provenance can never
+        # diverge from what the governance layer actually decided about
+        # this row - see build_row_provenance()'s own docstring ("must
+        # never become an alternate path around governance"). Not sent to
+        # Supabase (no schema/column exists for it - Phase 12 Step 19);
+        # kept only for this run's audit summary below and asserted against
+        # in tests/python/test_provenance_integration.py.
+        row_provenance = build_row_provenance(harvester_source, retrieved_at=sync_retrieved_at)
+        assert row_provenance.restrictions == gate_decision.restrictions, (
+            "provenance restrictions diverged from the ingestion gate's own decision for "
+            f"'{harvester_source}' - this must never happen (see Phase 12 Step 16/17)"
+        )
+        provenance_by_source[harvester_source] = provenance_by_source.get(harvester_source, 0) + 1
 
         deduped[(county, case_no)] = projected_row
 
@@ -342,6 +393,11 @@ def main() -> None:
     counties = len({r["county"] for r in rows})
     print(f"Done. {sent} Texas properties upserted to Supabase (existing hand research untouched).", file=sys.stderr)
     print(f"Counties covered: {counties}", file=sys.stderr)
+    print(
+        f"Provenance (Phase 12, audit-only, not persisted): {provenance_by_source} "
+        f"@ retrieved_at={sync_retrieved_at} - see docs/provenance-production-integration.md",
+        file=sys.stderr,
+    )
 
 
 if __name__ == "__main__":
