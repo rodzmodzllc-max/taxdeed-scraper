@@ -187,30 +187,54 @@ def main() -> None:
         "Prefer": "resolution=merge-duplicates,return=minimal",
     }
 
+    # PostgREST's bulk upsert requires every object in one POST body to have
+    # IDENTICAL keys - it builds a single INSERT from the shape of the first
+    # row in the array, and rejects the whole batch with PGRST102 ("All
+    # object keys must match") the moment one row in that same batch has a
+    # different key set. CONFIRMED LIVE 2026-09-14 (workflow run #130): rows
+    # 1-400 synced fine across 10 batches that each happened to be
+    # internally homogeneous, then batch 11 (rows 400-436) mixed rows that
+    # do/don't have latitude+longitude (the intentional per-row omission
+    # above) and PGRST102'd, losing that entire batch even though every row
+    # in it was otherwise well-formed. Fix: split into two homogeneous
+    # groups - rows WITH latitude/longitude and rows WITHOUT - and batch/
+    # sync each group separately. Never add an explicit null for the
+    # missing-coordinate group instead (that would defeat the safe-merge
+    # comment above by erasing coordinates geocode_properties.py already
+    # backfilled).
+    with_geo = [r for r in rows if "latitude" in r]
+    without_geo = [r for r in rows if "latitude" not in r]
+
     sent = 0
-    for i in range(0, len(rows), BATCH_SIZE):
-        batch = rows[i : i + BATCH_SIZE]
-        body = json.dumps(batch).encode("utf-8")
-        req = urllib.request.Request(endpoint, data=body, headers=headers, method="POST")
-        try:
-            with urllib.request.urlopen(req, timeout=60) as resp:
-                resp.read()
-        except urllib.error.HTTPError as exc:
-            detail = exc.read().decode("utf-8", errors="replace")
-            if "42P10" in detail or "no unique or exclusion constraint" in detail:
-                print(
-                    "SYNC FAILED: Postgres reports no unique constraint matches "
-                    "on_conflict=state,source,county,case_no - "
-                    "004_widen_unique_constraint_for_state.sql has not been run "
-                    "against this Supabase project yet. Run it (see that "
-                    "migration's header comment), then re-run this sync.",
-                    file=sys.stderr,
-                )
-            else:
-                print(f"SYNC FAILED on batch starting at row {i}: {exc.code} {detail}", file=sys.stderr)
-            sys.exit(1)
-        sent += len(batch)
-        print(f"  synced {sent} / {len(rows)}", file=sys.stderr)
+    for label, group in (("with coordinates", with_geo), ("without coordinates", without_geo)):
+        if not group:
+            continue
+        for i in range(0, len(group), BATCH_SIZE):
+            batch = group[i : i + BATCH_SIZE]
+            body = json.dumps(batch).encode("utf-8")
+            req = urllib.request.Request(endpoint, data=body, headers=headers, method="POST")
+            try:
+                with urllib.request.urlopen(req, timeout=60) as resp:
+                    resp.read()
+            except urllib.error.HTTPError as exc:
+                detail = exc.read().decode("utf-8", errors="replace")
+                if "42P10" in detail or "no unique or exclusion constraint" in detail:
+                    print(
+                        "SYNC FAILED: Postgres reports no unique constraint matches "
+                        "on_conflict=state,source,county,case_no - "
+                        "004_widen_unique_constraint_for_state.sql has not been run "
+                        "against this Supabase project yet. Run it (see that "
+                        "migration's header comment), then re-run this sync.",
+                        file=sys.stderr,
+                    )
+                else:
+                    print(
+                        f"SYNC FAILED on '{label}' batch starting at row {i}: {exc.code} {detail}",
+                        file=sys.stderr,
+                    )
+                sys.exit(1)
+            sent += len(batch)
+            print(f"  synced {sent} / {len(rows)} ({label})", file=sys.stderr)
 
     counties = len({r["county"] for r in rows})
     print(f"Done. {sent} Texas properties upserted to Supabase (existing hand research untouched).", file=sys.stderr)
