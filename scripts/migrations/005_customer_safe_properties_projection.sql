@@ -32,11 +32,15 @@
 -- restrict which COLUMNS of an allowed row are returned. This means
 -- `harvester_source`, `ledger_type`, and `fdor_enriched_at` (Phase 13's
 -- "internal, code-convention-only" fields - see that doc's Section 6) are
--- transmitted to every approved browser session today, in full, even
--- though public/app.js's own code never reads or renders them. "The
--- frontend doesn't display it" is not access control - a different client
--- calling the same authenticated Supabase REST/RPC endpoint would see
--- them without needing to bypass anything.
+-- transmitted to every approved browser session today, in full. "The
+-- frontend doesn't display it" is not access control on its own - a
+-- different client calling the same authenticated Supabase REST/RPC
+-- endpoint would see them without needing to bypass anything - and, per
+-- the Phase 14B correction just above, `harvester_source` specifically
+-- is NOT one this migration can safely omit: app.js's own
+-- assessedSourceLabel() now legitimately reads it. `ledger_type`/
+-- `fdor_enriched_at` remain genuinely internal and are what this
+-- migration actually closes.
 --
 -- ============================================================
 -- CURRENT LIMITATION
@@ -168,18 +172,33 @@
 -- ============================================================
 -- THE PROPOSED FUNCTION (NOT EXECUTED BY THIS SESSION)
 -- ============================================================
--- `ledger_type`, `harvester_source`, and `fdor_enriched_at` are
--- deliberately absent from the RETURNS TABLE column list below - not
--- renamed, not nulled-out, simply not selected. `ledger_type` is
--- pipeline-routing metadata derived from `source` by
--- sync_ledger_type_from_source(); the frontend already re-derives
--- everything it needs from `source`/PAGE_STATE and never reads
--- ledger_type directly (confirmed this phase - zero references anywhere
--- in public/app.js). `harvester_source`/`fdor_enriched_at` are pipeline
--- bookkeeping with the same "never read by app.js" confirmation. Omitting
--- all three is the entire point of this migration - returning them under
--- a different name or a nulled placeholder would not close the exposure
--- this file exists to close.
+-- `ledger_type` and `fdor_enriched_at` are deliberately absent from the
+-- RETURNS TABLE column list below - not renamed, not nulled-out, simply
+-- not selected. `ledger_type` is pipeline-routing metadata derived from
+-- `source` by sync_ledger_type_from_source(); the frontend already
+-- re-derives everything it needs from `source`/PAGE_STATE and never reads
+-- ledger_type directly (confirmed - zero references anywhere in
+-- public/app.js, re-confirmed again Phase 14B). `fdor_enriched_at` is
+-- pipeline bookkeeping with the same "never read by app.js" confirmation.
+--
+-- CORRECTION, Phase 14B: `harvester_source` was originally on this
+-- deliberately-absent list too (Phase 14A's own reasoning at the time was
+-- correct - as of Phase 13, app.js truly never read it). That stopped
+-- being true within Phase 14A itself: the same phase's own
+-- `assessedSourceLabel(p)` fix (public/app.js) reads `p.harvester_source`
+-- directly to tell tx_lgbs rows from tx_realauction rows apart, so a
+-- Texas row's assessed-value label is CORRECT today only because
+-- `harvester_source` is still available on the row. Phase 14B's own fresh
+-- test suite (tests/python/test_phase14b_database_api_boundary.py, group
+-- J) caught this drift by re-checking app.js directly rather than trusting
+-- this file's own prior claim. `harvester_source` therefore moved back
+-- into the returned/selected column list below - it is a source-vendor
+-- code (e.g. "tx_lgbs"), not sensitive data, and the frontend now has a
+-- real, legitimate, load-bearing reason to read it. Omitting `ledger_type`
+-- and `fdor_enriched_at` remains the point of this migration for those two
+-- - returning either of them under a different name or a nulled
+-- placeholder would not close the exposure this file exists to close for
+-- them.
 create or replace function public.get_properties(
   p_state text,
   p_ledger_type text default null,
@@ -188,7 +207,7 @@ create or replace function public.get_properties(
   p_offset int default 0
 )
 returns table (
-  id uuid, state text, county text, source text,
+  id uuid, state text, county text, source text, harvester_source text,
   address text, parcel text, case_no text, owner_name text, status text,
   prop_type text, dor_use_code text, tx_category text, lien_level text,
   lien_note text, homestead boolean, bid numeric, assessed numeric,
@@ -209,9 +228,9 @@ stable
 security invoker
 as $$
   select
-    id, state, county, source, address, parcel, case_no, owner_name,
-    status, prop_type, dor_use_code, tx_category, lien_level, lien_note,
-    homestead, bid, assessed, market, value_year, min_bid,
+    id, state, county, source, harvester_source, address, parcel, case_no,
+    owner_name, status, prop_type, dor_use_code, tx_category, lien_level,
+    lien_note, homestead, bid, assessed, market, value_year, min_bid,
     redemption_period_months, redemption_expiration_date,
     max_statutory_return_usd, year_built, living_area, lot_sqft,
     num_buildings, land_value, legal_desc, last_sale_price,

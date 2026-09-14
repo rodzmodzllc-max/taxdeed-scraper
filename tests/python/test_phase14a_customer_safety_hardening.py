@@ -84,7 +84,14 @@ def test_A_proposed_migration_005_exists_and_is_explicitly_not_yet_run():
     returns_table_block = code_text.split("returns table (")[1].split(")")[0]
     select_block = code_text.split("select", 1)[1].split(" from ")[0]
     column_lists = returns_table_block + "\n" + select_block
-    for internal_field in ("harvester_source", "ledger_type", "fdor_enriched_at"):
+    # `harvester_source` is deliberately NOT checked here as of Phase 14B:
+    # it was originally excluded (correct as of Phase 13/early Phase 14A),
+    # but Phase 14A's own assessedSourceLabel() fix, later in this same
+    # phase, made app.js legitimately depend on reading it - so migration
+    # 005 was corrected (see its own "CORRECTION, Phase 14B" comment) to
+    # include it. tests/python/test_phase14b_database_api_boundary.py
+    # covers this field's presence explicitly now.
+    for internal_field in ("ledger_type", "fdor_enriched_at"):
         # Comments mentioning the field by name are fine (and expected);
         # what must not exist is the field as an actual selected/returned
         # column - i.e. as a bare identifier in either column list.
