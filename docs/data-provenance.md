@@ -1,6 +1,6 @@
 # Data provenance
 
-**Status:** Phase 10A (Commercial Source Governance Infrastructure), 2026-09-14, updated Phase 12 (Production Provenance & Data Lineage Integration), 2026-09-14. Companion to `docs/data-licensing.md` (restriction enforcement) and, as of Phase 12, `docs/provenance-production-integration.md` (the full write-up of how the model below is now actually wired into the real harvest/sync pipeline — this page stays the model reference; that page is the integration reference). This page is about lineage: for a given value, where did it come from, and what has happened to it since.
+**Status:** Phase 10A (Commercial Source Governance Infrastructure), 2026-09-14, updated Phase 12 (Production Provenance & Data Lineage Integration) and Phase 13 (Production Data Contract & Provenance Readiness Gate), 2026-09-14. Companion to `docs/data-licensing.md` (restriction enforcement), `docs/provenance-production-integration.md` (the full write-up of how the model below is now actually wired into the real harvest/sync pipeline — this page stays the model reference; that page is the integration reference), and, as of Phase 13, `docs/production-data-contract.md` (the field-by-field customer-facing contract this lineage model exists to describe — that page maps each real customer-visible column to SOURCE/ENRICHED/DERIVED per this page's own stage vocabulary). This page is about lineage: for a given value, where did it come from, and what has happened to it since.
 
 ## Repository audit finding (Phase 10A Step 1)
 
