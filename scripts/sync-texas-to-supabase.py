@@ -60,6 +60,33 @@ JSON_PATH = HERE / "../out/harvest_texas.json"
 
 BATCH_SIZE = 40  # matches the FL sync scripts' batch size
 
+# CONFIRMED LIVE 2026-09-14 (first real workflow_dispatch run of the `texas`
+# job, run #128): `public.properties` does NOT actually have a
+# `harvester_source` column, even though scripts/migrations/
+# 003_ledger_type_and_state_isolation.sql (which adds it, purely additively -
+# `add column if not exists`) has been sitting committed in this repo since
+# 2026-09-08. This is the exact same "migration file written and committed
+# but never actually run against production" failure this repo's CLAUDE.md
+# already documents for schema-v4-certificates.sql and schema-v7-bidlist.sql
+# - confirmed via `select column_name from information_schema.columns where
+# table_name='properties'` in the live Supabase SQL editor, which does not
+# list harvester_source (or its sibling ledger_type) at all.
+#
+# Sending it anyway is not a partial failure - PostgREST's PGRST204 ("Could
+# not find the 'harvester_source' column ... in the schema cache") rejects
+# the ENTIRE batch, which failed the entire first production sync run (436
+# harvested rows, 0 synced) even though every row was otherwise well-formed.
+# Browser-automation safety tooling blocks typing the ALTER TABLE statement
+# directly into the Supabase SQL Editor (same restriction CLAUDE.md notes
+# for RLS DDL), so this can't be self-service-fixed from here - a human
+# needs to run scripts/migrations/003_ledger_type_and_state_isolation.sql
+# (or at minimum its two `add column if not exists` lines) against the
+# `taxdeed` Supabase project directly. Until that happens, omit the field
+# entirely rather than crash every sync - flip this back to True once the
+# migration has actually been run (verify with the same information_schema
+# query first, don't just assume a re-run will work).
+SEND_HARVESTER_SOURCE = False
+
 _ISO_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
 
@@ -123,7 +150,6 @@ def main() -> None:
         row = {
             "state": "TX",
             "source": source,
-            "harvester_source": p.get("harvester_source") or None,
             "county": county,
             "case_no": case_no,
             "parcel": p.get("cause_number") or None,
@@ -134,6 +160,8 @@ def main() -> None:
             "sale_date": _iso_date_or_none(p.get("auction_date")),
             "legal_desc": p.get("legal_description") or None,
         }
+        if SEND_HARVESTER_SOURCE:
+            row["harvester_source"] = p.get("harvester_source") or None
         # latitude/longitude get the safe-merge treatment PER ROW, not just
         # script-wide: scripts/geocode_properties.py only ever fills these
         # in when they are still NULL, so sending an explicit null here for
