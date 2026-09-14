@@ -1764,12 +1764,17 @@ function calcDrawerHtml(p) {
 function detailHtml(p) {
   const isCert = p.source === "certificate";
   const fav = FAVS.has(p.id);
+  // The county/clerk auction listing (url_auction) used to sit in this same
+  // row as just another reference-link tile, tied for visual weight with
+  // Street View and Zillow - but it's the one link that actually DOES
+  // something (go bid, go buy), not just look something up. Pulled out into
+  // its own big detail-cta button below (same treatment card()'s .cta-btn
+  // already gives it in the list), so it isn't buried.
   const links = [
     ["Street View", fallbackStreetviewUrl(p)],
     ["Appraiser", p.url_appraiser],
     ["Zillow", fallbackZillowUrl(p)],
     ["Tax Collector", p.url_taxcoll],
-    [p.source === "laft" ? "Lands Available Listing" : (isCert ? "County-Held Liens List" : "County Auction Site"), p.url_auction],
     ["Title Search", p.url_title],
     // Populated per-property by the harvesters (url_clerk/url_gis), same as
     // url_title/url_taxcoll above - not filled in yet for most counties, so
@@ -1866,6 +1871,7 @@ function detailHtml(p) {
     <div class="detail-links">
       ${links.length ? links.map(([label, href]) => `<a href="${esc(href)}" target="_blank" rel="noopener">${linkIcon(label)}${esc(label)} →</a>`).join("") : `<span style="font-size:.78rem;color:var(--ink-soft)">No reference links harvested for this property yet.</span>`}
     </div>
+    ${p.url_auction ? `<a class="detail-cta" href="${esc(p.url_auction)}" target="_blank" rel="noopener">${svgIcon("gavel")}${p.source === "laft" ? "View Clerk Docket / Listing" : "Bid on County Auction Site"}</a>` : ""}
     ${noteHtml(p)}`;
 }
 
@@ -2132,6 +2138,7 @@ document.addEventListener("click", async e => {
     }
     render();
     refreshOpenDetail(pid);
+    if (typeof refreshDetailPanel === "function") refreshDetailPanel(pid);
     refreshBidListModal();
   } else if (action === "hide") {
     if (!ME || !pid) return;
@@ -2145,7 +2152,7 @@ document.addEventListener("click", async e => {
     if (!window.confirm(`Hide ${label}? It'll disappear from every view here. You can bring it back later from the hidden-properties panel.`)) return;
     btn.disabled = true;
     const { error } = await sb.from("hidden").insert({ user_id: ME.id, property_id: pid });
-    if (!error) { HIDDEN.add(pid); render(); closeDetail(); refreshHiddenModal(); } else { btn.disabled = false; showErrorToast("Couldn't hide: " + error.message); }
+    if (!error) { HIDDEN.add(pid); render(); closeDetail(); refreshHiddenModal(); if (typeof refreshDetailPanel === "function") refreshDetailPanel(pid); } else { btn.disabled = false; showErrorToast("Couldn't hide: " + error.message); }
   } else if (action === "restore") {
     if (!ME || !pid) return;
     btn.disabled = true;
@@ -2186,11 +2193,13 @@ document.addEventListener("click", async e => {
     }
     render();
     refreshOpenDetail(pid);
+    if (typeof refreshDetailPanel === "function") refreshDetailPanel(pid);
     refreshBidListModal();
   } else if (action === "viewdetails") {
     if (!pid) return;
     const p = ALL.find(x => x.id === pid);
     if (p) openDetail(p);
+    if (p && typeof selectProperty === "function") selectProperty(p);
   } else if (action === "closedetail") {
     closeDetail();
   } else if (action === "closebidlist") {
@@ -2370,6 +2379,13 @@ function render() {
   const rendered = { rows: shown, ledger: activeLedger, openDetail };
   window.__tdwLastRender = rendered;
   window.dispatchEvent(new CustomEvent("tdw:rendered", { detail: rendered }));
+
+  // Desktop-only additions layered on top of the render this function just
+  // did (nav shell / dashboard / table view / persistent detail panel) -
+  // see the "APP SHELL" section at the end of this file. Guarded by a
+  // typeof check so this file still runs standalone if that section is
+  // ever stripped.
+  if (typeof renderShellExtras === "function") renderShellExtras(shown, activeLedger);
 }
 
 // Both the primary "Sort" dropdown and the secondary "Then by" tiebreaker
@@ -3759,3 +3775,244 @@ window.addEventListener("appinstalled", () => {
     }
   });
 })();
+
+// ==================== APP SHELL ====================
+// Desktop dashboard/nav-rail/table/persistent-detail-panel layer, added on
+// top of the mobile-first ledger view above without changing any of it.
+// Everything here is additive: the three call sites above (render()'s
+// renderShellExtras() call, and the guarded refreshDetailPanel() calls in
+// the fav/hide/bidlist action branches) already exist and no-op harmlessly
+// if this section were ever removed. Nothing here reaches into Supabase
+// directly or invents data - every number comes from ALL[], the same
+// client-side array the existing ledger list/filters already read.
+
+// ---- page router (Dashboard / Auctions / Map) ----
+// Mobile gets the same three destinations via the bottom nav (#navBottom),
+// not a cut-down subset - the "full rebuild everywhere, including phone"
+// direction meant the new IA had to actually work at phone width, not just
+// render there and silently do nothing.
+let shellPage = "auctions";
+const SHELL_PAGES = { dashboard: "pageDashboard", auctions: "pageAuctions", map: "pageMap" };
+
+function showPage(name) {
+  if (!SHELL_PAGES[name]) name = "auctions";
+  const leavingMap = shellPage === "map" && name !== "map";
+
+  Object.entries(SHELL_PAGES).forEach(([key, id]) => {
+    const el = document.getElementById(id);
+    if (el) el.hidden = key !== name;
+  });
+  document.querySelectorAll(".nav-item[data-page], .nav-bottom-item[data-page]").forEach(btn => {
+    btn.classList.toggle("on", btn.dataset.page === name);
+  });
+
+  if (name === "map") {
+    // Mirrors what the old inline #mapBtn toggle used to do on open (see the
+    // now-dead mapBtnEl block above) - load the SVG once, then make sure
+    // paths/centroids are current every time the page is entered.
+    ensureMapLoaded().then(() => {
+      refreshMapPaths();
+      if (!countyCentroids.size) computeCountyCentroids();
+    });
+  } else if (leavingMap && zoomedCounty) {
+    // Same as the old toggle's close-while-zoomed branch - don't leave the
+    // map mid-zoom for the next visit.
+    zoomToState();
+  }
+
+  if (name === "dashboard") renderDashboard();
+
+  shellPage = name;
+  window.scrollTo({ top: 0, behavior: "auto" });
+}
+
+document.querySelectorAll(".nav-item[data-page], .nav-bottom-item[data-page]").forEach(btn => {
+  btn.addEventListener("click", () => showPage(btn.dataset.page));
+});
+const navWatchlistBtnEl = document.getElementById("navWatchlistBtn");
+if (navWatchlistBtnEl) navWatchlistBtnEl.addEventListener("click", () => openBidList());
+const navBottomWatchlistBtnEl = document.getElementById("navBottomWatchlistBtn");
+if (navBottomWatchlistBtnEl) navBottomWatchlistBtnEl.addEventListener("click", () => openBidList());
+
+// ---- Dashboard ----
+// Every figure here is a real count/sum over ALL[] (the client's already-
+// loaded property rows for this state), using the exact same exclusion
+// rules render()'s tabCounts uses - past-due auctions, hidden rows, and
+// gone-grace-expired rows don't count as "in" the ledger there, so they
+// don't count here either. Deliberately NOT scoped to whatever filters
+// happen to be active on the Auctions page (see the tabCounts comment) -
+// this is a portfolio-wide total, not a "matches your current filters"
+// number. There is no trend figure (no "+12% vs last 30 days") because
+// this app doesn't harvest or store historical snapshots to compute one
+// from - adding a fabricated trend was ruled out on purpose.
+function dashboardStats() {
+  const rows = ALL.filter(p => !isPastDue(p) && !HIDDEN.has(p.id) && !goneExpired(p));
+  const active = rows.filter(p => !isGone(p));
+  const totalValue = active.reduce((sum, p) => sum + marketOf(p), 0);
+
+  const byLedger = { auction: 0, laft: 0, certificate: 0 };
+  rows.forEach(p => { if (p.source in byLedger) byLedger[p.source]++; });
+
+  const byCounty = new Map();
+  active.forEach(p => {
+    const county = p.county || "Unknown";
+    const cur = byCounty.get(county) || { count: 0, value: 0 };
+    cur.count++;
+    cur.value += marketOf(p);
+    byCounty.set(county, cur);
+  });
+
+  return { rows, active, totalValue, byLedger, byCounty };
+}
+
+function renderDashboard() {
+  const statsEl = document.getElementById("dashStats");
+  if (!statsEl) return; // dashboard markup not present (older fixture, etc.)
+  const countyEl = document.getElementById("dashCountyRows");
+  const ledgerEl = document.getElementById("dashLedgerRows");
+  const subEl = document.getElementById("dashSubtitle");
+
+  const { rows, active, totalValue, byLedger, byCounty } = dashboardStats();
+  const ledgersWithData = Object.values(byLedger).filter(Boolean).length;
+
+  if (subEl) {
+    subEl.textContent = rows.length
+      ? `${rows.length} propert${rows.length === 1 ? "y" : "ies"} across ${ledgersWithData || 1} ledger${ledgersWithData === 1 ? "" : "s"} in ${byCounty.size} count${byCounty.size === 1 ? "y" : "ies"}.`
+      : "Nothing tracked yet - properties will show up here as counties are harvested.";
+  }
+
+  statsEl.innerHTML = `
+    <div class="stat-tile"><div class="stat-tile-label">Total Properties</div><div class="stat-tile-val">${rows.length}</div></div>
+    <div class="stat-tile"><div class="stat-tile-label">Active</div><div class="stat-tile-val accent">${active.length}</div></div>
+    <div class="stat-tile"><div class="stat-tile-label">Est. Total Value</div><div class="stat-tile-val">${fmtShort(totalValue)}</div><div class="stat-tile-sub">Sum of just/assessed value, active listings only</div></div>
+    <div class="stat-tile"><div class="stat-tile-label">Counties</div><div class="stat-tile-val">${byCounty.size}</div></div>`;
+
+  if (countyEl) {
+    const countyRows = Array.from(byCounty.entries()).sort((a, b) => b[1].count - a[1].count).slice(0, 8);
+    countyEl.innerHTML = countyRows.length
+      ? countyRows.map(([county, v]) => `
+        <div class="dash-row"><div class="dash-row-name">${svgIcon("pin")}${esc(county)} County</div><div class="dash-row-vals"><span><b>${v.count}</b> active</span><span>${fmtShort(v.value)}</span></div></div>`).join("")
+      : `<div class="dash-empty">No active properties yet.</div>`;
+  }
+
+  if (ledgerEl) {
+    ledgerEl.innerHTML = Object.keys(LEDGERS).map(key => {
+      const cfg = ledgerCopy(key);
+      const count = byLedger[key] || 0;
+      return `<div class="dash-row"><div class="dash-row-name">${LEDGERS[key].icon}${esc(cfg.title)}</div><div class="dash-row-vals"><b>${count}</b></div></div>`;
+    }).join("");
+  }
+
+  const navTotal = document.getElementById("navStatTotal");
+  const navActive = document.getElementById("navStatActive");
+  const navValue = document.getElementById("navStatValue");
+  if (navTotal) navTotal.textContent = rows.length;
+  if (navActive) navActive.textContent = active.length;
+  if (navValue) navValue.textContent = fmtShort(totalValue);
+}
+
+// ---- desktop data table ----
+// A dense, sortable-by-eye alternative to the card list for the Auctions
+// page, toggled by #tableToggleBtn - deliberately its OWN toggle rather
+// than a 4th mode bolted onto #quickControls .view-toggle, which explore.js
+// owns entirely (see the code comment on that element) and knows nothing
+// about a table mode. [data-listmode="table"] lives on <body> so the plain
+// CSS descendant selectors in the APP SHELL section of styles.css (scoped
+// to desktop widths only) can hide #main/.explore-map-panel and show
+// .data-table-wrap without either file needing to know about the other.
+function tableRow(p) {
+  const tr = document.createElement("tr");
+  tr.dataset.pid = p.id;
+  if (selectedPid != null && String(selectedPid) === String(p.id)) tr.classList.add("selected");
+  const fav = FAVS.has(p.id);
+  const isCert = p.source === "certificate";
+  const street = isCert ? "" : realAddress(p);
+  const titleLine = isCert ? `Certificate #${esc(p.certificate_no || "Unknown")}` : (street ? esc(street) : lotTitle(p));
+  const parcelLine = isCert ? esc(p.case_no || "") : (hasParcel(p) ? "Parcel # " + esc(p.parcel) : "");
+  const marketVal = marketOf(p);
+  tr.innerHTML = `
+    <td><div class="dt-address">${titleLine}</div>${parcelLine ? `<div class="dt-parcel">${parcelLine}</div>` : ""}</td>
+    <td>${esc(p.county)}</td>
+    <td class="dt-num">${bidDisplay(p)}</td>
+    <td class="dt-num">${marketVal ? fmtShort(marketVal) : "—"}</td>
+    <td><span class="pill ${esc(p.status)}">${esc(p.status)}</span></td>
+    <td><div class="dt-actions">
+      <button class="${fav ? "on" : ""}" data-action="fav" data-pid="${p.id}" type="button" title="Favorite">${fav ? "♥" : "♡"}</button>
+      ${bidListBtnHtml(p, true)}
+    </div></td>`;
+  return tr;
+}
+
+const tableToggleBtnEl = document.getElementById("tableToggleBtn");
+if (tableToggleBtnEl) {
+  tableToggleBtnEl.addEventListener("click", () => {
+    const on = document.body.dataset.listmode === "table";
+    if (on) { delete document.body.dataset.listmode; tableToggleBtnEl.classList.remove("on"); }
+    else { document.body.dataset.listmode = "table"; tableToggleBtnEl.classList.add("on"); }
+  });
+}
+
+// A click anywhere on a table row (but not on its own fav/watchlist
+// buttons, which the existing [data-action] delegation above already
+// handles) selects that property into the persistent detail panel.
+document.addEventListener("click", e => {
+  if (e.target.closest("button, a")) return;
+  const tr = e.target.closest(".data-table tbody tr[data-pid]");
+  if (!tr) return;
+  const p = ALL.find(x => String(x.id) === String(tr.dataset.pid));
+  if (p) selectProperty(p);
+});
+
+// ---- persistent detail panel (desktop) ----
+// Reuses detailHtml() + the "prop-card" class exactly the way openDetail()
+// does for the modal, so the same global [data-action] click delegation
+// (fav/hide/bidlist/copy/savenote) works inside the panel for free - no new
+// wiring needed there. Hidden entirely below 1024px (see styles.css); on
+// mobile the "View full property page" button still opens the full-screen
+// modal as it always has.
+let selectedPid = null;
+
+function clearDetailPanel() {
+  selectedPid = null;
+  const panel = document.getElementById("detailPanel");
+  if (!panel) return;
+  panel.className = "detail-panel";
+  panel.innerHTML = `<div class="detail-panel-empty">Select a property from the list to see its full page here.</div>`;
+  document.querySelectorAll(".data-table tbody tr.selected").forEach(tr => tr.classList.remove("selected"));
+}
+
+function selectProperty(p) {
+  const panel = document.getElementById("detailPanel");
+  if (!panel || !p) return;
+  selectedPid = p.id;
+  panel.className = "detail-panel prop-card " + cardStatus(p);
+  panel.innerHTML = detailHtml(p);
+  document.querySelectorAll(".data-table tbody tr[data-pid]").forEach(tr => {
+    tr.classList.toggle("selected", String(tr.dataset.pid) === String(p.id));
+  });
+}
+
+// Same defensive no-op pattern as refreshOpenDetail() for the modal: called
+// after every fav/hide/bidlist toggle, it only touches the panel if the
+// property just changed is the one currently shown there.
+function refreshDetailPanel(pid) {
+  if (selectedPid == null || String(selectedPid) !== String(pid)) return;
+  const p = ALL.find(x => String(x.id) === String(pid));
+  if (p) selectProperty(p); else clearDetailPanel();
+}
+
+// Called from the end of render() (see the guarded call there). Populates
+// the desktop table from the exact same `shown` rows the card list just
+// drew, and clears the detail panel if the property it's showing just
+// fell out of view (ledger switched, filtered away, hidden, etc.) instead
+// of leaving it displaying a now-orphaned property.
+function renderShellExtras(shown, activeLedger) {
+  const tbody = document.getElementById("dataTableBody");
+  if (tbody) {
+    tbody.innerHTML = "";
+    shown.forEach(p => tbody.appendChild(tableRow(p)));
+  }
+  if (selectedPid != null && !shown.some(p => String(p.id) === String(selectedPid))) {
+    clearDetailPanel();
+  }
+}
