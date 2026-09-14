@@ -60,32 +60,22 @@ JSON_PATH = HERE / "../out/harvest_texas.json"
 
 BATCH_SIZE = 40  # matches the FL sync scripts' batch size
 
-# CONFIRMED LIVE 2026-09-14 (first real workflow_dispatch run of the `texas`
-# job, run #128): `public.properties` does NOT actually have a
-# `harvester_source` column, even though scripts/migrations/
-# 003_ledger_type_and_state_isolation.sql (which adds it, purely additively -
-# `add column if not exists`) has been sitting committed in this repo since
-# 2026-09-08. This is the exact same "migration file written and committed
-# but never actually run against production" failure this repo's CLAUDE.md
-# already documents for schema-v4-certificates.sql and schema-v7-bidlist.sql
-# - confirmed via `select column_name from information_schema.columns where
-# table_name='properties'` in the live Supabase SQL editor, which does not
-# list harvester_source (or its sibling ledger_type) at all.
-#
-# Sending it anyway is not a partial failure - PostgREST's PGRST204 ("Could
-# not find the 'harvester_source' column ... in the schema cache") rejects
-# the ENTIRE batch, which failed the entire first production sync run (436
-# harvested rows, 0 synced) even though every row was otherwise well-formed.
-# Browser-automation safety tooling blocks typing the ALTER TABLE statement
-# directly into the Supabase SQL Editor (same restriction CLAUDE.md notes
-# for RLS DDL), so this can't be self-service-fixed from here - a human
-# needs to run scripts/migrations/003_ledger_type_and_state_isolation.sql
-# (or at minimum its two `add column if not exists` lines) against the
-# `taxdeed` Supabase project directly. Until that happens, omit the field
-# entirely rather than crash every sync - flip this back to True once the
-# migration has actually been run (verify with the same information_schema
-# query first, don't just assume a re-run will work).
-SEND_HARVESTER_SOURCE = False
+# RESTORED 2026-09-14: migrations 002_add_texas_support.sql,
+# 003_ledger_type_and_state_isolation.sql, and
+# 004_widen_unique_constraint_for_state.sql were run against production
+# (Marc, via the Supabase SQL Editor, per
+# claude/migration-002-003-004-execution-plan.md) and independently
+# reconfirmed live afterwards: `harvester_source` (and its sibling
+# ledger_type) now exist in `select column_name from
+# information_schema.columns where table_name='properties'`, the new
+# properties_state_source_county_case_no_key UNIQUE(state, source, county,
+# case_no) constraint replaced the old 3-column one, and all 3,366
+# pre-existing rows landed unchanged (zero data loss). See that migration
+# doc for the full verification queries. `harvester_source` is safe to send
+# again - flip back to False (and see the git history of this file for why)
+# only if a live information_schema check ever shows the column missing
+# again, e.g. against a different/earlier Supabase project.
+SEND_HARVESTER_SOURCE = True
 
 _ISO_DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 
