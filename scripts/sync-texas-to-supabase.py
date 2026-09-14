@@ -43,6 +43,25 @@ meaning) and Texas's own court-ordered statutory minimum (min_bid's
 TX-specific meaning), not two different figures.
 
 Run harvesters/texas_harvester.py first, then this.
+
+UPDATED 2026-09-14 (Phase 10A - Commercial Source Governance
+Infrastructure): this script now re-checks harvesters/governance's
+ingestion gate for each row's `harvester_source`, right before that row is
+added to the upsert payload. This is DEFENSE IN DEPTH, not the primary
+enforcement point (that's texas_harvester.py's main(), which now skips a
+non-approved vendor's harvest_*() function entirely - see that file's own
+Phase 10A comment) - it exists so that if out/harvest_texas.json is ever
+produced by some other path, or hand-edited, or left over from before a
+source's status changed, a row from a LEGAL_REVIEW_REQUIRED/BLOCKED/
+DISABLED/TERMS_CHANGED source still cannot reach Supabase's `properties`
+table through this script. This table has no field-level RLS - a row that
+reaches it is immediately customer-visible to every approved app user - so
+this really is the last real chokepoint before "customer output" in this
+codebase's current architecture (see docs/data-licensing.md's "Remaining
+risks" for the honest gap this leaves for a future finer-grained, per-field
+enforcement need). Rows for tx_lgbs/tx_realauction (both APPROVED) pass
+through unaffected - zero behavior change for either of those two
+production sources.
 """
 
 from __future__ import annotations
@@ -57,6 +76,13 @@ from pathlib import Path
 
 HERE = Path(__file__).parent
 JSON_PATH = HERE / "../out/harvest_texas.json"
+
+# See the module docstring's Phase 10A note above. Inserted (rather than
+# relying on cwd) so this script works the same whether it's run from the
+# repo root (as .github/workflows/harvest-and-sync.yml's `texas` job does)
+# or from anywhere else.
+sys.path.insert(0, str(HERE / ".."))
+from harvesters.governance.gate import check_ingestion_gate  # noqa: E402
 
 BATCH_SIZE = 40  # matches the FL sync scripts' batch size
 
@@ -125,12 +151,24 @@ def main() -> None:
     # key, same as that fix.
     deduped: dict[tuple[str, str], dict] = {}
     skipped = 0
+    skipped_gate = 0
+    gate_rejections: dict[str, int] = {}
     for p in harvest:
         case_no = p.get("account_number")
         county = p.get("county")
         source = p.get("source")
         if not case_no or not county or not source:
             skipped += 1
+            continue
+
+        # Phase 10A defense-in-depth check (see module docstring) - a row
+        # from a non-APPROVED/APPROVED_WITH_RESTRICTIONS vendor is dropped
+        # here even if it somehow made it into harvest_texas.json.
+        harvester_source = p.get("harvester_source")
+        gate_decision = check_ingestion_gate(harvester_source)
+        if not gate_decision.allowed:
+            skipped_gate += 1
+            gate_rejections[harvester_source or "(missing)"] = gate_rejections.get(harvester_source or "(missing)", 0) + 1
             continue
 
         address = (p.get("address") or "").strip() or f"Account {case_no}"
@@ -166,16 +204,26 @@ def main() -> None:
 
         deduped[(county, case_no)] = row
 
-    dupe_count = len(harvest) - skipped - len(deduped)
+    dupe_count = len(harvest) - skipped - skipped_gate - len(deduped)
     if dupe_count > 0:
         print(
             f"De-duplicated {dupe_count} row(s) sharing a (county, case_no) key with another row in this harvest.",
             file=sys.stderr,
         )
+    if skipped_gate > 0:
+        print(
+            f"Ingestion gate rejected {skipped_gate} row(s) (source not APPROVED/APPROVED_WITH_RESTRICTIONS): "
+            f"{gate_rejections} - see harvesters/governance/registry.py for each source's current status.",
+            file=sys.stderr,
+        )
 
     rows = list(deduped.values())
     if not rows:
-        print(f"Every harvested row was missing case_no/county/source ({skipped} skipped) - nothing to sync.", file=sys.stderr)
+        print(
+            f"Nothing to sync ({skipped} skipped for missing case_no/county/source, "
+            f"{skipped_gate} skipped by the ingestion gate).",
+            file=sys.stderr,
+        )
         return
     print(f"Prepared {len(rows)} properties ({skipped} skipped for missing case_no/county/source).", file=sys.stderr)
 

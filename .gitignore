@@ -11,3 +11,9 @@ npm-debug.log*
 # OS/editor cruft
 .DS_Store
 Thumbs.db
+
+# Python (harvesters/ and its governance/ subpackage are now real
+# importable packages as of Phase 10A - see harvesters/__init__.py)
+__pycache__/
+*.pyc
+out/

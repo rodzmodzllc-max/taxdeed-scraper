@@ -892,16 +892,39 @@ def main() -> None:
     scripts/sync-texas-to-supabase.py and .github/workflows/harvest-and-sync.yml's
     `texas` job both expect.
 
-    Vendors still raising NotImplementedError (harvest_pbfcm,
-    harvest_govease as of this writing) are skipped with a warning rather
-    than failing the whole run - matches this project's existing tolerance
-    pattern (e.g. the FL sync scripts' on_conflict fallback, and
-    sanity_check_deeds.ps1 tolerating individual county failures) of never
-    letting one unfinished/broken piece take down a harvest that otherwise
-    has real data to report.
+    UPDATED 2026-09-14 (Phase 10A - Commercial Source Governance
+    Infrastructure): before calling ANY harvest_*() function, this loop now
+    checks harvesters/governance's ingestion gate for that vendor's
+    source_id (the same string already used as `harvester_source`, e.g.
+    'tx_pbfcm'). A source whose registry status is LEGAL_REVIEW_REQUIRED,
+    BLOCKED, DISABLED, or TERMS_CHANGED is skipped WITHOUT calling its
+    harvest_*() function at all - this is a strictly additive safety net,
+    not a behavior change for any currently-working vendor:
+      - tx_lgbs and tx_realauction are both registered APPROVED (reflecting
+        their existing, already-shipped, already-verified production
+        status - see harvesters/governance/registry.py's own notes on each
+        entry), so the gate passes and both run exactly as before. Neither
+        harvest_lgbs() nor harvest_realauction() was modified by this phase.
+      - tx_pbfcm and tx_govease are both registered BLOCKED (per
+        claude/pbfcm-source-reconnaissance-blocked.md and
+        claude/govease-source-onboarding-blocked.md) - previously these
+        were "called, then caught a NotImplementedError"; now they are
+        skipped by the gate before ever being called. The net effect for
+        this run's output is identical (both are skipped either way), but
+        the gate is now the reason, and it would ALSO catch these two
+        sources the moment someone fills in their still-stubbed bodies
+        without separately re-reading the blocked-vendor docs - the
+        NotImplementedError stub and the gate are two independent layers,
+        deliberately redundant.
+    Harris County (tx_hctax) is registered LEGAL_REVIEW_REQUIRED and has no
+    entry in SOURCES below at all (no harvest_hctax() exists yet) - the
+    gate has nothing to check it against in this loop; its registry entry
+    exists so the source is representable, per Phase 10A Step 10.
     """
     import json
     from dataclasses import asdict
+
+    from governance.gate import check_ingestion_gate
 
     out_dir = HERE / "../out"
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -909,12 +932,21 @@ def main() -> None:
 
     all_rows: list[TexasSaleRow] = []
     for name, fn in SOURCES.items():
+        decision = check_ingestion_gate(name)
+        if not decision.allowed:
+            print(f"main: skipping {name} - ingestion gate rejected it ({decision.reason})", file=sys.stderr)
+            continue
+
         try:
             vendor_rows = fn()
         except NotImplementedError as exc:
+            # Still possible even for a gate-approved source: a source can
+            # be legally APPROVED while its harvester remains an
+            # unfinished architectural stub. Kept as a second safety net,
+            # unchanged from the pre-Phase-10A behavior.
             print(f"main: skipping {name} - {exc}", file=sys.stderr)
             continue
-        print(f"main: {name} produced {len(vendor_rows)} rows", file=sys.stderr)
+        print(f"main: {name} produced {len(vendor_rows)} rows ({decision.reason})", file=sys.stderr)
         all_rows.extend(vendor_rows)
 
     out_path.write_text(json.dumps([asdict(r) for r in all_rows], indent=2))
