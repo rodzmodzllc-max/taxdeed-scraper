@@ -369,10 +369,34 @@ let BID_LIST_PENDING = [];
 // "build now, empty is fine") rather than blocking on a fourth-ledger
 // redesign - flagged here and in the spec doc for the next real look once
 // actual TX Yield Desk rows exist to design against.
+// Terminal-style line-icon set (Feather-style: 24x24 viewBox, stroke only,
+// currentColor) - replaces the pictographic emoji this UI used to render
+// inline. Swapping a name in ICON_PATHS re-skins every caller at once.
+const ICON_PATHS = {
+  scale: '<path d="M12 3v18M5 7l3.5-3.5L12 7M5 7c0 2.8 1.6 5 3.5 5S12 9.8 12 7M19 7l-3.5-3.5L12 7M19 7c0 2.8-1.6 5-3.5 5S12 9.8 12 7M4 21h16"/>',
+  layers: '<path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/>',
+  doc: '<path d="M7 2h7l5 5v13a2 2 0 01-2 2H7a2 2 0 01-2-2V4a2 2 0 012-2z"/><path d="M9 12h6M9 16h6M9 8h2"/>',
+  bell: '<path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/>',
+  pin: '<path d="M12 21s-8-4.6-8-11a8 8 0 1116 0c0 6.4-8 11-8 11z"/><circle cx="12" cy="10" r="3"/>',
+  search: '<circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/>',
+  list: '<path d="M3 12h18M3 6h18M3 18h18"/>',
+  split: '<rect x="3" y="4" width="7" height="16"/><rect x="14" y="4" width="7" height="16"/>',
+  map: '<path d="M1 6l7-3 8 3 7-3v16l-7 3-8-3-1 3z"/><path d="M8 3v16M16 6v16"/>',
+  download: '<path d="M12 3v13M7 11l5 5 5-5M4 21h16"/>',
+  refresh: '<path d="M21 12a9 9 0 10-3.3 6.95M21 5v6h-6"/>',
+  eye: '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>',
+  building: '<path d="M4 21V9l8-5 8 5v12"/><path d="M9 21v-6h6v6M4 21h16"/>',
+  home: '<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/>',
+  dollar: '<path d="M12 2v20M17 6.5c0-1.9-2.2-3.5-5-3.5S7 4.6 7 6.5s2 3 5 3.5 5 1.6 5 3.5-2.2 3.5-5 3.5-5-1.6-5-3.5"/>',
+  clipboard: '<rect x="6" y="4" width="12" height="17" rx="1.5"/><path d="M9 4V3a1 1 0 011-1h4a1 1 0 011 1v1M9 11h6M9 15h6"/>',
+  gavel: '<path d="M13.5 5.5l5 5M8 11l-5.5 5.5a1 1 0 000 1.4l3.1 3.1a1 1 0 001.4 0L12.5 15.5M11 6.5l5-5 3.5 3.5-5 5-3.5-3.5z"/><path d="M17 17l4 4M3 21h9"/>'
+};
+const svgIcon = (name, cls) => `<svg class="${cls || "icon"}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON_PATHS[name] || ""}</svg>`;
+
 const LEDGERS = {
   auction: {
     slug: "auctions",
-    icon: "⚖️",
+    icon: svgIcon("scale"),
     title: "Auctions & Bidding",
     sub: "Open to competitive bidding at a live county auction.",
     how: "You bid against other buyers on the county's own auction site. The figure shown is the opening bid, not the final price.",
@@ -386,7 +410,7 @@ const LEDGERS = {
   },
   laft: {
     slug: "lands",
-    icon: "🏞️",
+    icon: svgIcon("layers"),
     title: "Lands Available for Taxes",
     sub: "Failed to sell at auction. Buy from the Clerk at a fixed price - no bidding, no sale date.",
     how: "No auction and no competition - first come, first served at the price shown. Statute adds taxes and fees accrued since the failed sale, so treat the figure as a floor.",
@@ -400,7 +424,7 @@ const LEDGERS = {
   },
   certificate: {
     slug: "certificates",
-    icon: "📜",
+    icon: svgIcon("doc"),
     title: "Tax Certificates",
     sub: "County-held liens available for direct purchase - a debt secured by the property, not the property itself.",
     how: "You are buying the lien, not the land. It earns interest until the owner redeems it; only if nobody redeems can you apply for a deed.",
@@ -473,6 +497,7 @@ function isPastDue(p) {
 const fmtMoney = n => "$" + Number(n).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const fmtShort = n => "$" + Math.round(Number(n)).toLocaleString("en-US");
 const esc = s => String(s == null ? "" : s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
 
 // Which state a row belongs to. Defaults to "FL" for any row that predates
 // the `properties.state` column (002_add_texas_support.sql) - same
@@ -592,12 +617,12 @@ function hideErrorToast() {
 // compact card row and the roomier detail-modal buttons so the two stay
 // visually consistent.
 const LINK_ICON = {
-  "Street View": "🛰", "Appraiser": "🏛", "Zillow": "🏠", "Tax Collector": "💰",
-  "Auction": "🔨", "LAFT": "🔨", "Lands Available Listing": "🔨",
-  "County Auction Site": "🔨", "County-Held Liens List": "📋", "Title Search": "📜",
-  "Clerk of Courts": "⚖", "GIS Map": "🗺"
+  "Street View": "eye", "Appraiser": "building", "Zillow": "home", "Tax Collector": "dollar",
+  "Auction": "gavel", "LAFT": "gavel", "Lands Available Listing": "gavel",
+  "County Auction Site": "gavel", "County-Held Liens List": "clipboard", "Title Search": "doc",
+  "Clerk of Courts": "scale", "GIS Map": "map"
 };
-const linkIcon = label => LINK_ICON[label] ? `<span class="link-icon">${LINK_ICON[label]}</span>` : "";
+const linkIcon = label => LINK_ICON[label] ? `<span class="link-icon">${svgIcon(LINK_ICON[label])}</span>` : "";
 
 // Small "ⓘ" tooltip affordance - keyboard-focusable (not hover-only) so it
 // works on touch devices too. `tip` is plain text, escaped for the
