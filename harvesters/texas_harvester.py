@@ -168,6 +168,42 @@ worth flagging here because they aren't obvious from the field names alone:
     Geocoder pass entirely (that script already only processes rows where
     latitude IS NULL, so this requires no change there - it will simply
     have nothing to do for these rows).
+
+--- harvest_realauction() shipped 2026-09-14 ---
+
+Texas's own instances of the same RealAuction/RealForeclose platform
+Florida's harvest_all_counties.ps1 already scrapes -
+`<county>.texas.sheriffsaleauctions.com` (most of the confirmed 24
+counties) or `<county>.texas.realforeclose.com` (Montgomery, Travis - a
+genuinely different hostname pattern, confirmed live, not just a branding
+difference). See the function's own docstring for the full live-
+verification writeup: the calendar's CALSELT/dayid markup and AITEM_-block
+AJAX pagination are byte-for-byte identical to Florida's, but the
+per-property field LABELS are Texas's own ("Cause Number" / "Account
+Number" rather than FL's "Case #" / "Parcel ID"), and - exactly like
+harvest_lgbs() - the legal Cause Number is not safely unique per parcel
+(confirmed live: one cause number can cover several separately-numbered
+sub-lots), so Account Number, not Cause Number, is what maps to this
+table's uniqueness-bearing `case_no` (via TexasSaleRow.account_number).
+
+data/tx_realauction_counties.csv's hostnames are a mix of individually
+browser-confirmed (Smith, Dallas, El Paso, San Patricio, Montgomery,
+Travis) and pattern-derived-but-unverified (the remaining 18, built from
+the confirmed `<lowercased county name, spaces removed>.texas.
+sheriffsaleauctions.com` convention) - see that CSV and the harvester's own
+docstring before assuming every row in it has been individually checked.
+
+Known open question, carried over unresolved from the original vendor
+research (claude/texas-vendor-reconnaissance.md): Dallas, Ellis, Galveston,
+Gregg, Hopkins, Llano, Nueces, Orange, El Paso and Victoria are harvested by
+BOTH LGBS and RealAuction. Both vendors' account/parcel-number formats look
+county-appraisal-district-native but have not been confirmed to actually
+match digit-for-digit for the same physical property, so
+sync-texas-to-supabase.py's (county, case_no) de-dup will NOT catch a
+same-property row harvested by both vendors unless their account-number
+strings happen to be identical - meaning these overlap counties may show
+duplicate-but-differently-keyed cards in the app until this is
+investigated and resolved. Not fixed here; flagging again so it isn't lost.
 """
 
 from __future__ import annotations
@@ -466,6 +502,279 @@ def harvest_lgbs(limit: int | None = None) -> list[TexasSaleRow]:
     return rows
 
 
+REALAUCTION_COUNTIES_CSV = HERE / "../data/tx_realauction_counties.csv"
+REALAUCTION_USER_AGENT = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+)
+
+# Texas's own field-label vocabulary for this vendor, confirmed live 2026-09-14
+# against Dallas County's 10/06/2026 sale (33 of 34 properties still
+# pending/"waiting") - genuinely different label text from Florida's own
+# RealAuction/RealForeclose skin (which uses "Case #", "Certificate #",
+# "Opening Bid", "Assessed Value", "Parcel ID"), so harvest_all_counties.ps1's
+# Get-Field label list could NOT simply be reused unchanged even though the
+# underlying platform, calendar markup (CALSELT/dayid - see below) and
+# AITEM_-block AJAX pagination are all identical to Florida's. Texas's own
+# label set: "Sale Type", "Cause Number", "Precinct/Sale Number",
+# "Adjudged Value", "Est. Min. Bid", "Account Number", "Property Address".
+REALAUCTION_FIELD_LABELS = (
+    "Sale Type",
+    "Cause Number",
+    "Account Number",
+    "Adjudged Value",
+    "Est. Min. Bid",
+    "Property Address",
+)
+
+
+def _realauction_get_field(block: str, label: str) -> str | None:
+    """Python port of harvest_all_counties.ps1's Get-Field - same CAD_LBL/
+    CAD_DTA pattern the FL script depends on, confirmed live to be the exact
+    same markup Texas's RealAuction/RealForeclose skin emits (2026-09-14,
+    Dallas County) despite the label TEXT itself differing from Florida's
+    (see REALAUCTION_FIELD_LABELS above)."""
+    import re
+
+    pat = re.escape(label) + r':(?:@F|<)[\s\S]{0,200}?CAD_DTA\\">\s*([^@<]*(?:<a[^>]*>([^<]*)</a>)?[^@<]*)'
+    m = re.search(pat, block)
+    if not m:
+        return None
+    v = m.group(2) if m.group(2) else m.group(1)
+    if v is None:
+        return None
+    v = v.replace('\\"', '"')
+    v = re.sub(r"\s+", " ", v).strip()
+    return v or None
+
+
+def _realauction_to_float(value: str | None) -> float | None:
+    if not value:
+        return None
+    import re
+
+    cleaned = re.sub(r"[^0-9.]", "", value)
+    try:
+        return float(cleaned) if cleaned else None
+    except ValueError:
+        return None
+
+
+def _realauction_date_to_iso(mmddyyyy: str) -> str | None:
+    try:
+        mm, dd, yyyy = mmddyyyy.split("/")
+        return f"{yyyy}-{mm}-{dd}"
+    except ValueError:
+        return None
+
+
+def harvest_realauction(limit: int | None = None) -> list[TexasSaleRow]:
+    """Harvest Texas's RealAuction/RealForeclose county sites
+    (`<county>.texas.sheriffsaleauctions.com` / `<county>.texas.realforeclose.com`).
+
+    CONFIRMED LIVE 2026-09-14, resolving the open question left from this
+    project's first pass at this vendor (see
+    claude/texas-vendor-reconnaissance.md): this is genuinely the same
+    RealAuction/RealForeclose platform Florida's harvest_all_counties.ps1
+    already scrapes (identical calendar markup, identical AJAX pagination),
+    NOT a different skin needing different scraping mechanics. The first
+    pass's "zero CALSELT/dayid matches" result was a false alarm caused by
+    checking a county (Smith) that simply had no scheduled sale in the
+    checked date range - not a markup difference. Verified directly against
+    Dallas County:
+
+      - Calendar days with a scheduled sale carry BOTH a `CALSELT` class
+        token and a `dayid="MM/DD/YYYY"` attribute on the same `<div
+        class="CALBOX ... CALSELT ">` element - byte-for-byte the same
+        pattern FL's `CALSELT[^>]*dayid=['"](\\d{2}/\\d{2}/\\d{4})['"]` regex
+        depends on.
+      - The per-property listing AJAX call
+        (`zaction=AUCTION&Zmethod=UPDATE&FNC=LOAD&AREA=W&PageDir=<n>`,
+        after first hitting `zaction=AUCTION&zmethod=PREVIEW&AuctionDate=...`
+        to seed session state) returns the identical `AITEM_`-delimited
+        block format FL's script splits on.
+      - Texas's own per-property field LABELS differ from Florida's (see
+        REALAUCTION_FIELD_LABELS) - most importantly "Cause Number" (the
+        legal tax-suit cause number - confirmed live to carry a "(N)"
+        sub-lot suffix, e.g. "TX-23-02150 (3)", matching the
+        "Precinct/Sale Number" field's "/3" - i.e. one cause number can
+        cover multiple separately-auctioned parcels, the EXACT same
+        multi-parcel-per-legal-case risk harvest_lgbs() already found and
+        designed around) and "Account Number" (the CAD parcel/account
+        number - confirmed live to be per-parcel-unique, e.g.
+        "00000478120000000" for Dallas CAD). This harvester therefore maps
+        Account Number -> TexasSaleRow.account_number (-> DB `case_no`) and
+        Cause Number -> TexasSaleRow.cause_number (-> DB `parcel`),
+        mirroring harvest_lgbs()'s account_number/cause_number split for
+        exactly the same reason: cause_number is not safely unique per
+        parcel, account_number is.
+
+    Every row surfaced this way is, by construction, sitting under a
+    specific scheduled AuctionDate on the calendar - unlike LGBS (whose
+    single API mixes scheduled-auction and struck-off-inventory rows keyed
+    off `status`), RealAuction gives no separate struck-off/resale feed, so
+    every row here maps to the 'auction' ledger (Event Terminal), never
+    'laft'. The "Sale Type" field was observed BLANK on every sampled
+    property this session (all "Tax Sale" calendar entries, none marked
+    resale) - if a future run finds it populated with something like
+    "RESALE" or "STRUCK OFF", that should be investigated before assuming
+    'auction' still applies, the same "don't trust one field name alone"
+    lesson harvest_lgbs() already learned from `sale_type`.
+
+    No lat/lon is published by this vendor (unlike LGBS's `geometry`) - left
+    None, same as every other non-LGBS source; scripts/geocode_properties.py
+    already backfills any row where latitude IS NULL, so this needs no
+    special handling here.
+
+    Hostnames for Angelina, Aransas, Atascosa, Caldwell, Cameron, Ellis,
+    Galveston, Gregg, Hopkins, Jackson, Kaufman, Llano, Matagorda, Nueces,
+    Orange, Tyler, Victoria, Wilson are PATTERN-DERIVED (lowercased county
+    name + ".texas.sheriffsaleauctions.com"), not individually browser-
+    confirmed - only Smith, Dallas, El Paso, San Patricio (the
+    ".sheriffsaleauctions.com" pattern) and Montgomery, Travis (the
+    ".texas.realforeclose.com" variant, confirmed live to be genuinely
+    different from the rest) were actually loaded and verified this
+    session. A wrong pattern-derived hostname fails this function's request
+    for that one county (caught and logged below, per-county, same as every
+    other per-county failure) rather than crashing the whole harvest -
+    correcting a bad guess just means fixing one row in
+    data/tx_realauction_counties.csv once it's noticed.
+
+    `limit`, when given, caps total rows returned across all counties
+    (stops early) - same contract as harvest_lgbs()'s `limit`.
+    """
+    import csv as csv_module
+    import http.cookiejar
+    import re
+    import time
+    import urllib.error
+    import urllib.parse
+    import urllib.request
+
+    if not REALAUCTION_COUNTIES_CSV.exists():
+        print(f"harvest_realauction: {REALAUCTION_COUNTIES_CSV} not found - nothing to harvest", file=sys.stderr)
+        return []
+
+    with open(REALAUCTION_COUNTIES_CSV, newline="", encoding="utf-8") as f:
+        counties = list(csv_module.DictReader(f))
+
+    rows: list[TexasSaleRow] = []
+    seen_keys: set[tuple[str, str]] = set()
+    counties_with_matches = 0
+    now = __import__("datetime").datetime.now()
+
+    for c in counties:
+        county_name = c["County"]
+        host = c["Host"]
+
+        jar = http.cookiejar.CookieJar()
+        opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
+
+        def _get(url: str, extra_headers: dict | None = None) -> str | None:
+            req = urllib.request.Request(url, headers={"User-Agent": REALAUCTION_USER_AGENT, **(extra_headers or {})})
+            try:
+                with opener.open(req, timeout=25) as resp:
+                    return resp.read().decode("utf-8", errors="replace")
+            except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError) as exc:
+                print(f"harvest_realauction: {county_name} request failed ({url}): {exc}", file=sys.stderr)
+                return None
+
+        # Walk the current month plus the next 2, same 3-month lookahead
+        # harvest_all_counties.ps1 uses, for the same reason: the calendar
+        # page only ever shows the currently-displayed month.
+        dates: list[str] = []
+        for month_offset in range(3):
+            total_month = now.month - 1 + month_offset
+            year = now.year + total_month // 12
+            month = total_month % 12 + 1
+            ts_literal = f"{{ts '{year:04d}-{month:02d}-01 00:00:00'}}"
+            cal_url = f"https://{host}/index.cfm?zaction=user&zmethod=calendar&selCalDate=" + urllib.parse.quote(ts_literal, safe="")
+            html = _get(cal_url)
+            if html is None:
+                continue
+            dates.extend(re.findall(r"CALSELT[^>]*dayid=['\"](\d{2}/\d{2}/\d{4})['\"]", html))
+        dates = sorted(set(dates))
+
+        if not dates:
+            print(f"harvest_realauction: {county_name} - no auction days in the next 3 months", file=sys.stderr)
+            continue
+
+        county_kept = 0
+        for date in dates:
+            preview_url = f"https://{host}/index.cfm?zaction=AUCTION&zmethod=PREVIEW&AuctionDate={date}"
+            calendar_referer_url = f"https://{host}/index.cfm?zaction=USER&zmethod=CALENDAR"
+            _get(preview_url, {"Referer": calendar_referer_url})
+
+            for page in range(12):
+                update_url = (
+                    f"https://{host}/index.cfm?zaction=AUCTION&Zmethod=UPDATE&FNC=LOAD"
+                    f"&AREA=W&PageDir={page}&doR=1&bypassPage=1&test=1"
+                )
+                txt = _get(
+                    update_url,
+                    {
+                        "Accept": "application/json, text/javascript, */*; q=0.01",
+                        "X-Requested-With": "XMLHttpRequest",
+                        "Referer": preview_url,
+                    },
+                )
+                if not txt or "AITEM_" not in txt:
+                    break
+
+                blocks = txt.split("AITEM_")[1:]
+                if not blocks:
+                    break
+
+                new_on_page = 0
+                for block in blocks:
+                    fields_found = {label: _realauction_get_field(block, label) for label in REALAUCTION_FIELD_LABELS}
+                    account_number = fields_found["Account Number"]
+                    if not account_number:
+                        continue
+                    key = (county_name, account_number)
+                    if key in seen_keys:
+                        continue
+                    seen_keys.add(key)
+                    new_on_page += 1
+
+                    rows.append(
+                        TexasSaleRow(
+                            account_number=account_number,
+                            county=county_name,
+                            auction_date=_realauction_date_to_iso(date),
+                            min_bid=_realauction_to_float(fields_found["Est. Min. Bid"]),
+                            cad_market_value=_realauction_to_float(fields_found["Adjudged Value"]),
+                            legal_description=None,  # not published in this feed - see docstring
+                            address=fields_found["Property Address"],
+                            cause_number=fields_found["Cause Number"],
+                            source="auction",  # every row here has a scheduled AuctionDate - see docstring
+                            harvester_source="tx_realauction",
+                        )
+                    )
+                    county_kept += 1
+
+                    if limit is not None and len(rows) >= limit:
+                        break
+                if limit is not None and len(rows) >= limit:
+                    break
+                if new_on_page == 0:
+                    break
+                time.sleep(0.2)  # polite pacing between pages, same rationale as harvest_lgbs()
+            if limit is not None and len(rows) >= limit:
+                break
+        if county_kept:
+            counties_with_matches += 1
+            print(f"harvest_realauction: {county_name} - {county_kept} properties across {len(dates)} sale date(s)", file=sys.stderr)
+        if limit is not None and len(rows) >= limit:
+            break
+
+    print(
+        f"harvest_realauction: kept {len(rows)} TX rows across {counties_with_matches}/{len(counties)} counties with matches",
+        file=sys.stderr,
+    )
+    return rows
+
+
 def harvest_govease(county_slugs: list[str] | None = None, limit: int | None = None) -> list[TexasSaleRow]:
     """Harvest GovEase's per-county live Texas tax-deed auctions.
 
@@ -505,6 +814,7 @@ UNSCOPED_CANDIDATE_VENDORS = {
 SOURCES = {
     "tx_pbfcm": harvest_pbfcm,
     "tx_lgbs": harvest_lgbs,
+    "tx_realauction": harvest_realauction,
     "tx_govease": harvest_govease,
 }
 
