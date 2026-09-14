@@ -1105,3 +1105,175 @@ footer{padding:1.2rem 1.1rem 0;font-size:.72rem;color:var(--ink-soft);text-align
   [data-ledger="auction"] .detail-modal-inner{max-width:480px;width:100%;height:100vh;max-height:100vh;
     border-radius:0;box-shadow:-12px 0 32px rgba(0,0,0,.28)}
 }
+
+/* ====================================================================
+   APP SHELL — sidebar nav (desktop) / bottom tab bar (mobile), a real
+   Dashboard page, a dense data-table list view, and a persistent
+   master-detail panel at wide desktop widths. Added on top of the
+   existing single-column app: every original id/class above still
+   renders and behaves exactly as before — this section only adds a
+   navigation layer and desktop-width enhancements around it. ==================================================================== */
+
+.app-shell{display:block}
+.nav-rail{display:none}
+.nav-bottom{display:none}
+
+/* ---- sidebar nav (>=1024px) ---- */
+@media (min-width:1024px){
+  body{max-width:none;margin:0;padding-bottom:0}
+  .app-shell{display:grid;grid-template-columns:224px minmax(0,1fr);align-items:start;min-height:100vh}
+  .nav-rail{
+    display:flex;flex-direction:column;position:sticky;top:0;align-self:start;height:100vh;
+    background:var(--header-bg);border-right:1px solid var(--header-line);
+    padding:.9rem .8rem;color:var(--header-ink);overflow-y:auto
+  }
+  .nav-rail-brand{display:flex;align-items:center;gap:.5rem;padding:.35rem .3rem .9rem;margin-bottom:.5rem;border-bottom:1px solid var(--header-line)}
+  .nav-rail-brand img{width:22px;height:22px;flex-shrink:0}
+  .nav-rail-brand span{font-family:var(--font-sans);font-weight:800;font-size:.92rem;color:var(--header-ink);white-space:nowrap}
+  .nav-rail-brand .brand-accent{color:var(--led-accent-d)}
+  .nav-list{display:flex;flex-direction:column;gap:.15rem;margin-bottom:.7rem}
+  .nav-item{display:flex;align-items:center;gap:.65rem;padding:.55rem .6rem;border-radius:3px;
+    border:none;background:none;color:var(--header-ink-soft);font-family:var(--font-sans);
+    font-size:.82rem;font-weight:600;cursor:pointer;text-align:left;width:100%}
+  .nav-item svg{width:16px;height:16px;flex-shrink:0}
+  .nav-item:hover{background:rgba(255,255,255,.07);color:var(--header-ink)}
+  .nav-item.on{background:var(--led-accent-d);color:#0B1220;font-weight:700}
+  .nav-rail-portfolio{margin-top:auto;padding:.8rem .65rem;border-top:1px solid var(--header-line);color:var(--header-ink)}
+  .nav-rail-portfolio h3{margin:0 0 .55rem;font-size:.66rem;font-weight:700;letter-spacing:.06em;
+    text-transform:uppercase;color:var(--header-ink-soft)}
+  .nav-rail-stat{display:flex;align-items:baseline;justify-content:space-between;padding:.22rem 0;font-size:.76rem}
+  .nav-rail-stat span:first-child{color:var(--header-ink-soft)}
+  .nav-rail-stat b{font-family:var(--font-mono);font-variant-numeric:tabular-nums;font-size:.86rem;color:var(--header-ink)}
+  .shell-main{min-width:0}
+  .topbar .brand-mark,.topbar .brand-name{display:none}
+  .topbar{justify-content:flex-end}
+}
+
+/* ---- bottom tab bar (<1024px) ---- */
+@media (max-width:1023.98px){
+  .nav-bottom{
+    display:flex;position:fixed;left:0;right:0;bottom:0;z-index:40;
+    background:var(--header-bg);border-top:1px solid var(--header-line);
+    padding:.35rem .2rem calc(.35rem + env(safe-area-inset-bottom));
+  }
+  body{padding-bottom:4.2rem}
+  .nav-bottom-item{flex:1 1 0;display:flex;flex-direction:column;align-items:center;gap:.2rem;
+    border:none;background:none;color:var(--header-ink-soft);font-family:var(--font-sans);
+    font-size:.62rem;font-weight:600;padding:.3rem .1rem;cursor:pointer}
+  .nav-bottom-item svg{width:18px;height:18px}
+  .nav-bottom-item.on{color:var(--led-accent-d)}
+}
+
+/* ---- page router: one .page visible at a time, driven by [hidden] ---- */
+.page{max-width:680px;margin:0 auto}
+@media (min-width:1024px){.page{max-width:none;padding:0 1.4rem 1.4rem}}
+
+/* ---- Dashboard page ---- */
+.dash-head{padding:1.1rem .6rem .3rem}
+@media (min-width:1024px){.dash-head{padding:1.3rem 0 .4rem}}
+.dash-head h1{margin:0 0 .2rem;font-family:var(--font-sans);font-weight:800;font-size:1.25rem;color:var(--ink)}
+.dash-head p{margin:0;font-size:.82rem;color:var(--ink-soft)}
+.dash-stats{display:grid;grid-template-columns:repeat(2,1fr);gap:.6rem;padding:.8rem .6rem}
+@media (min-width:640px){.dash-stats{grid-template-columns:repeat(4,1fr)}}
+@media (min-width:1024px){.dash-stats{padding:0 0 1rem}}
+.stat-tile{background:var(--card);border:1px solid var(--card-line);border-radius:3px;padding:.85rem .9rem}
+.stat-tile-label{font-size:.68rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-soft)}
+.stat-tile-val{font-family:var(--font-mono);font-variant-numeric:tabular-nums;font-weight:700;
+  font-size:1.5rem;color:var(--ink);margin-top:.2rem}
+.stat-tile-val.accent{color:var(--accent)}
+.stat-tile-sub{font-size:.72rem;color:var(--ink-soft);margin-top:.15rem}
+.dash-grid{display:grid;grid-template-columns:1fr;gap:.9rem;padding:.2rem .6rem 1.4rem}
+@media (min-width:1024px){.dash-grid{grid-template-columns:1.3fr 1fr;padding:0 0 1.4rem}}
+.dash-panel{background:var(--card);border:1px solid var(--card-line);border-radius:4px;overflow:hidden}
+.dash-panel-head{padding:.7rem .9rem;border-bottom:1px solid var(--card-line);font-family:var(--font-sans);
+  font-weight:700;font-size:.85rem;color:var(--ink)}
+.dash-row{display:flex;align-items:center;justify-content:space-between;gap:.6rem;
+  padding:.55rem .9rem;border-bottom:1px solid var(--card-line);font-size:.8rem}
+.dash-row:last-child{border-bottom:none}
+.dash-row-name{color:var(--ink);font-weight:600;display:flex;align-items:center;gap:.5rem}
+.dash-row-name svg{width:15px;height:15px;color:var(--ink-soft)}
+.dash-row-vals{display:flex;gap:1rem;font-family:var(--font-mono);font-variant-numeric:tabular-nums;color:var(--ink-soft)}
+.dash-row-vals b{color:var(--ink);font-weight:700}
+.dash-empty{padding:1.4rem .9rem;color:var(--ink-soft);font-size:.8rem;text-align:center}
+.dash-cta{display:inline-flex;align-items:center;gap:.4rem;margin:.7rem .9rem 0;padding:.5rem .8rem;
+  border-radius:3px;background:var(--accent);color:#fff;font-weight:700;font-size:.78rem;
+  text-decoration:none;border:none;cursor:pointer}
+
+/* ---- Auctions page: desktop table view + persistent detail panel ---- */
+/* .auctions-body has THREE children - .data-table-wrap, .explore-shell
+   (the card list/map, wrapping #main), and .detail-panel - but only two of
+   them are ever visible at once (table vs. list mode toggles which of the
+   first two shows). A plain 2-column grid put the third child on its own
+   implicit row instead of beside the list, pushing the detail panel full-
+   width below everything - caught in the fixture screenshot before ship.
+   Pinning both list-area children to column 1 and the panel to column 2/
+   row 1 keeps the layout correct regardless of which list view is active. */
+.auctions-body{display:block}
+@media (min-width:1024px){
+  .auctions-body{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:1.1rem;align-items:start}
+  .auctions-body>.data-table-wrap,.auctions-body>.explore-shell{grid-column:1;grid-row:1}
+  .auctions-body>.detail-panel{grid-column:2;grid-row:1}
+}
+@media (min-width:1280px){
+  .auctions-body{grid-template-columns:minmax(0,1fr) 420px}
+}
+.detail-panel{display:none}
+@media (min-width:1024px){
+  .detail-panel{display:block;position:sticky;top:.9rem;max-height:calc(100vh - 1.8rem);overflow-y:auto;
+    background:var(--card);border:1px solid var(--card-line);border-radius:4px;padding:1rem}
+  .detail-panel-empty{padding:2.2rem 1rem;text-align:center;color:var(--ink-soft);font-size:.82rem}
+  .detail-panel .detail-close{display:none}
+}
+
+.data-table-wrap{display:none}
+.table-toggle-btn{display:none}
+@media (min-width:1024px){
+  .table-toggle-btn{display:inline-flex;align-items:center;gap:.35rem;padding:.45rem .7rem;
+    border-radius:3px;border:1px solid var(--card-line);background:var(--card);color:var(--ink-soft);
+    font-size:.78rem;font-weight:600;cursor:pointer}
+  .table-toggle-btn svg{width:14px;height:14px}
+  .table-toggle-btn.on{color:var(--accent);border-color:var(--accent)}
+}
+[data-listmode="table"] #main{display:none}
+[data-listmode="table"] .data-table-wrap{display:block}
+[data-listmode="table"] .explore-map-panel{display:none}
+.data-table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--card-line);
+  border-radius:4px;overflow:hidden;font-size:.8rem}
+.data-table thead th{text-align:left;font-size:.66rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;
+  color:var(--ink-soft);padding:.55rem .7rem;border-bottom:1px solid var(--card-line);background:var(--paper)}
+.data-table tbody td{padding:.55rem .7rem;border-bottom:1px solid var(--card-line);vertical-align:middle;color:var(--ink)}
+.data-table tbody tr:last-child td{border-bottom:none}
+.data-table tbody tr{cursor:pointer}
+.data-table tbody tr:hover{background:var(--paper)}
+.data-table tbody tr.selected{background:var(--accent-soft)}
+.dt-address{font-weight:700;color:var(--ink)}
+.dt-parcel{font-family:var(--font-mono);font-size:.72rem;color:var(--ink-soft);margin-top:.1rem}
+.dt-num{font-family:var(--font-mono);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+.dt-actions{display:flex;gap:.35rem;justify-content:flex-end}
+.dt-actions button{border:1px solid var(--card-line);background:var(--card);border-radius:3px;
+  width:26px;height:26px;display:inline-flex;align-items:center;justify-content:center;
+  color:var(--ink-soft);cursor:pointer}
+.dt-actions button:hover{color:var(--accent);border-color:var(--accent)}
+.dt-actions button svg{width:14px;height:14px}
+.dt-actions button.on{color:var(--accent);border-color:var(--accent)}
+
+/* ---- quick-action tiles (detail links), upgraded from plain link row to
+   bordered icon-over-label tiles — applies everywhere the detail is shown
+   (mobile full page, desktop modal, desktop persistent panel), matching
+   the terminal-reference "Street View / Appraiser / Zillow" tile row. ---- */
+.detail-links{display:grid;grid-template-columns:repeat(2,1fr);gap:.5rem;margin:.7rem 0}
+@media (min-width:420px){.detail-links{grid-template-columns:repeat(4,1fr)}}
+.detail-links a{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.3rem;
+  padding:.65rem .3rem;border:1px solid var(--card-line);border-radius:3px;background:var(--paper);
+  color:var(--ink);text-decoration:none;font-size:.68rem;font-weight:600;text-align:center}
+.detail-links a:hover{border-color:var(--accent);color:var(--accent)}
+.detail-links a .link-icon{margin:0}
+.detail-links a .link-icon svg{width:18px;height:18px}
+.detail-cta{display:flex;align-items:center;justify-content:center;gap:.5rem;width:100%;margin:.6rem 0;
+  padding:.8rem 1rem;border-radius:3px;border:none;background:var(--ok);color:#fff;font-weight:700;
+  font-size:.85rem;text-decoration:none;cursor:pointer}
+.detail-cta:hover{filter:brightness(1.06)}
+.detail-cta svg{width:17px;height:17px}
+
+/* ---- Map page: the county picker, promoted to a first-class destination ---- */
+.map-page-wrap .map-wrap{border:none;padding:0}

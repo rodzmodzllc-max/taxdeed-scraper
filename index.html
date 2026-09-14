@@ -67,7 +67,23 @@ owner approves it, so there'd be nothing to show here anyway. -->
 </div>
 
 <!-- ============ app ============ -->
-<div id="app" hidden>
+<div id="app" class="app-shell" hidden>
+<nav class="nav-rail" id="navRail" aria-label="Main">
+<div class="nav-rail-brand"><img src="icons/icon-192.png?v=2" width="22" height="22" alt="" aria-hidden="true"><span>Tax<span class="brand-accent">•</span>Acquisitions</span></div>
+<div class="nav-list">
+<button class="nav-item" data-page="dashboard" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>Dashboard</button>
+<button class="nav-item on" data-page="auctions" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v18M5 7l3.5-3.5L12 7M5 7c0 2.8 1.6 5 3.5 5S12 9.8 12 7M19 7l-3.5-3.5L12 7M19 7c0 2.8-1.6 5-3.5 5S12 9.8 12 7M4 21h16"/></svg>Auctions</button>
+<button class="nav-item" data-page="map" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 6l7-3 8 3 7-3v16l-7 3-8-3-1 3z"/><path d="M8 3v16M16 6v16"/></svg>Map</button>
+<button class="nav-item" id="navWatchlistBtn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 21V4a1 1 0 011-1c1.2 0 1.2 1 3 1s1.8-1 3.5-1 1.3 1 3.5 1a1 1 0 011 1v9a1 1 0 01-1 1c-2.2 0-2.3-1-3.5-1s-1.3 1-3.5 1-1.8-1-3-1"/></svg>Watchlist <b id="navWatchlistCount">0/10</b></button>
+</div>
+<div class="nav-rail-portfolio" id="navPortfolio">
+<h3>Portfolio Overview</h3>
+<div class="nav-rail-stat"><span>Total Properties</span><b id="navStatTotal">0</b></div>
+<div class="nav-rail-stat"><span>Active</span><b id="navStatActive">0</b></div>
+<div class="nav-rail-stat"><span>Est. Value</span><b id="navStatValue">$0</b></div>
+</div>
+</nav>
+<div class="shell-main">
 <!-- Slim brand strip, pinned above the (deliberately non-sticky) masthead
 below - see the note on .masthead for why the taller block isn't the
 one that pins itself. -->
@@ -119,6 +135,25 @@ other people's profiles rows in the first place). -->
      line. The big lockup was already hidden at every width (the topbar
      says the same thing), so once the other three went there was nothing
      left here but an empty band with the account badge stranded in it. -->
+<section class="page" id="pageDashboard" hidden>
+<div class="dash-head">
+<h1>Dashboard</h1>
+<p id="dashSubtitle">Portfolio overview across every ledger.</p>
+</div>
+<div class="dash-stats" id="dashStats"></div>
+<div class="dash-grid">
+<div class="dash-panel">
+<div class="dash-panel-head">By County</div>
+<div id="dashCountyRows"></div>
+</div>
+<div class="dash-panel">
+<div class="dash-panel-head">By Ledger</div>
+<div id="dashLedgerRows"></div>
+</div>
+</div>
+</section>
+
+<section class="page" id="pageAuctions">
 <div class="masthead">
 <!-- State switcher: which state's tax-sale universe this page is. Used to
 be a JS-driven filter (click a tab, toggle state.region, re-render the
@@ -189,6 +224,7 @@ unusable rather than merely tight. -->
 <button type="button" data-mode="split" aria-pressed="false"><span class="vt-icon"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="7" height="16"/><rect x="14" y="4" width="7" height="16"/></svg></span>Split</button>
 <button type="button" data-mode="map" aria-pressed="false"><span class="vt-icon"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 6l7-3 8 3 7-3v16l-7 3-8-3-1 3z"/><path d="M8 3v16M16 6v16"/></svg></span>Map</button>
 </div>
+<button class="table-toggle-btn" id="tableToggleBtn" type="button" title="Dense table view"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h18M3 12h18M3 19h18"/></svg> Table</button>
 <button class="expand-all-btn" id="expandAllBtn" type="button">Expand all</button>
 <button class="export-btn" id="exportCsvBtn" type="button"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v13M7 11l5 5 5-5M4 21h16"/></svg> Export CSV</button>
 <!-- Moved inside the control bar (it used to sit on its own full-width row
@@ -323,27 +359,8 @@ chips - each summary shows how many are currently selected. -->
 <summary>County (multi-select) <span class="filter-dropdown-count" id="countyCount"></span></summary>
 <div class="filter-dropdown-body">
 <div class="group-actions">
-<button class="mini-btn" id="mapBtn" type="button"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 6l7-3 8 3 7-3v16l-7 3-8-3-1 3z"/><path d="M8 3v16M16 6v16"/></svg> Map</button>
 <button class="mini-btn" data-group="counties" data-mode="all" type="button">All</button>
 <button class="mini-btn" data-group="counties" data-mode="none" type="button">None</button>
-</div>
-<div class="map-wrap" id="mapWrap" hidden>
-<div class="map-hint" id="mapHint">Colored counties have a confirmed auction format. Tap a county to zoom in and see its name - tap it again to filter to it.</div>
-<!-- Shown only while zoomed into one county (see zoomToCounty() in app.js) -
-the state-wide view has no room to label all 67 counties legibly, so
-this is where the name actually becomes readable instead of only living
-in an SVG <title> hover tooltip nobody on a touch device will ever see. -->
-<div class="map-zoom-banner" id="mapZoomBanner" hidden>
-<span class="map-zoom-name" id="mapZoomName"></span>
-<button class="mini-btn" id="mapZoomOutBtn" type="button"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 10-3.3 6.95M21 5v6h-6"/></svg> Full map</button>
-</div>
-<div id="mapHost"></div>
-<div class="map-legend">
-<span><i class="lg-online"></i>Online auction</span>
-<span><i class="lg-inperson"></i>In person</span>
-<span><i class="lg-fixed"></i>Fixed price only</span>
-<span><i class="lg-none"></i>Not yet confirmed</span>
-</div>
 </div>
 <div class="chips" id="countyChips"></div>
 <div class="county-ref-links" id="countyRefLinks" hidden>
@@ -363,6 +380,13 @@ The map panel beside it is drawn by explore.js from the same filtered
 rows the list just used (see the tdw:rendered contract in that file), so
 the two panes can never disagree about what's in view. data-mode is set
 by explore.js and drives the whole layout from CSS alone. -->
+<div class="auctions-body">
+<div class="data-table-wrap" id="dataTableWrap">
+<table class="data-table" id="dataTable">
+<thead><tr><th>Property</th><th>County</th><th class="dt-num">Opening Bid</th><th class="dt-num">Value</th><th>Status</th><th></th></tr></thead>
+<tbody id="dataTableBody"></tbody>
+</table>
+</div>
 <div class="explore-shell" id="exploreShell" data-mode="list">
 <main id="main"></main>
 <aside class="explore-map-panel" id="exploreMapPanel">
@@ -397,6 +421,10 @@ doesn't have. -->
 </div>
 </aside>
 </div>
+<aside class="detail-panel" id="detailPanel">
+<div class="detail-panel-empty">Select a property from the list to see its full page here.</div>
+</aside>
+</div>
 
 <footer>
 <!-- The title-search warning used to sit in the header on every screen. It is
@@ -407,7 +435,38 @@ Links open Street View, the county property appraiser, Zillow, the Tax Collector
 <b>Fees</b> (shown on each property's full page) are Florida doc stamps (0.70/$100), recording, and — on homesteaded parcels — the half-assessed-value minimum under FS 197.502(6)(c), added on top of whatever the actual winning bid turns out to be. It is an estimate.<br><br>
 Title badges are a best-effort public-records search, <b>not a certified title search</b>. Confirm with a title company or attorney before bidding.
 </footer>
+</section>
+
+<section class="page" id="pageMap" hidden>
+<div class="dash-head">
+<h1>County Map</h1>
+<p>Colored counties have a confirmed auction format. Tap a county to zoom in - tap again to filter the Auctions list to it.</p>
 </div>
+<div class="map-page-wrap" style="padding:0 .6rem 1.4rem">
+<div class="map-wrap" id="mapWrap">
+<div class="map-hint" id="mapHint">Colored counties have a confirmed auction format. Tap a county to zoom in and see its name - tap it again to filter to it.</div>
+<div class="map-zoom-banner" id="mapZoomBanner" hidden>
+<span class="map-zoom-name" id="mapZoomName"></span>
+<button class="mini-btn" id="mapZoomOutBtn" type="button"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 10-3.3 6.95M21 5v6h-6"/></svg> Full map</button>
+</div>
+<div id="mapHost"></div>
+<div class="map-legend">
+<span><i class="lg-online"></i>Online auction</span>
+<span><i class="lg-inperson"></i>In person</span>
+<span><i class="lg-fixed"></i>Fixed price only</span>
+<span><i class="lg-none"></i>Not yet confirmed</span>
+</div>
+</div>
+</div>
+</section>
+</div>
+</div>
+<nav class="nav-bottom" id="navBottom" aria-label="Main">
+<button class="nav-bottom-item" data-page="dashboard" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>Dashboard</button>
+<button class="nav-bottom-item on" data-page="auctions" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v18M5 7l3.5-3.5L12 7M5 7c0 2.8 1.6 5 3.5 5S12 9.8 12 7M19 7l-3.5-3.5L12 7M19 7c0 2.8-1.6 5-3.5 5S12 9.8 12 7M4 21h16"/></svg>Auctions</button>
+<button class="nav-bottom-item" data-page="map" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 6l7-3 8 3 7-3v16l-7 3-8-3-1 3z"/><path d="M8 3v16M16 6v16"/></svg>Map</button>
+<button class="nav-bottom-item" id="navBottomWatchlistBtn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 21V4a1 1 0 011-1c1.2 0 1.2 1 3 1s1.8-1 3.5-1 1.3 1 3.5 1a1 1 0 011 1v9a1 1 0 01-1 1c-2.2 0-2.3-1-3.5-1s-1.3 1-3.5 1-1.8-1-3-1"/></svg>Watchlist</button>
+</nav>
 
 <!-- ============ "My Watchlist" modal ============ -->
 <!-- Placed before detailModal in the DOM so, when both are open at once
