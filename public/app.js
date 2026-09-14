@@ -474,6 +474,15 @@ const state = {
   counties: new Set(), types: new Set(TYPE_ORDER), liens: new Set(LIEN_ORDER)
 };
 
+// Id of the property currently shown in the desktop persistent detail panel
+// (see the "APP SHELL" section at the end of this file for
+// selectProperty()/clearDetailPanel()/renderShellExtras(), which all read
+// and write this). Declared up here, not down there, because render() can
+// run synchronously during page init - before the script has reached the
+// APP SHELL section - and render() calls renderShellExtras() on every pass,
+// which reads this value.
+let selectedPid = null;
+
 function goneExpired(p) {
   if (!isGone(p) || !p.gone_since) return false;
   const flagged = FAVS.has(p.id) || (NOTES[p.id] || []).some(n => n.body || n.stage);
@@ -3970,7 +3979,14 @@ document.addEventListener("click", e => {
 // wiring needed there. Hidden entirely below 1024px (see styles.css); on
 // mobile the "View full property page" button still opens the full-screen
 // modal as it always has.
-let selectedPid = null;
+// selectedPid itself is declared up near `state` (not here) - render() can
+// run synchronously during page init, before script execution ever reaches
+// this point in the file, and renderShellExtras() below reads selectedPid
+// on every render(). A `let` declared this far down stays in its temporal
+// dead zone until this line runs, so that first render() threw
+// "Cannot access 'selectedPid' before initialization" and broke the whole
+// page on load - caught by reading the live console after shipping the
+// first cut of this section, fixed by hoisting just the declaration.
 
 function clearDetailPanel() {
   selectedPid = null;
