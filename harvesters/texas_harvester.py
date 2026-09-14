@@ -1085,6 +1085,34 @@ def main() -> None:
             # unchanged from the pre-Phase-10A behavior.
             print(f"main: skipping {name} - {exc}", file=sys.stderr)
             continue
+        except Exception as exc:  # noqa: BLE001 - deliberate, see Phase 14A note below
+            # Phase 14A (Customer-Safety Hardening): harvest_lgbs()/
+            # harvest_realauction() already catch every NETWORK failure
+            # internally (urllib.error.URLError/HTTPError/TimeoutError, on
+            # a per-page/per-request basis - see each function's own try/
+            # except), so this branch is deliberately for everything else:
+            # an unexpected response shape, a parsing bug, or any other
+            # non-network exception a future vendor change could trigger.
+            # Before this fix, an uncaught exception here would propagate
+            # out of this loop entirely, meaning tx_lgbs failing would
+            # silently prevent tx_realauction from ever running too (dict
+            # insertion order runs lgbs before realauction - see SOURCES
+            # above) AND prevent out/harvest_texas.json from being written
+            # at all, since that write happens after this whole loop -
+            # confirmed by tracing this function's control flow, not
+            # assumed. This is exactly the vendor-failure-isolation gap
+            # docs/phase-14a-customer-safety-hardening.md's freshness audit
+            # names as a precondition for ever safely moving Texas off
+            # workflow_dispatch-only scheduling: one vendor's future,
+            # unanticipated breakage must never silently zero out the
+            # other vendor's otherwise-healthy data for that run. Isolating
+            # it here does not change today's behavior for either
+            # currently-working vendor (both have run clean; this is
+            # defense-in-depth for a failure mode that hasn't happened
+            # yet, the same "additive, not a behavior change" discipline
+            # Phase 10A's own gate check above used).
+            print(f"main: {name} raised an unexpected (non-network) error - continuing with remaining sources: {exc}", file=sys.stderr)
+            continue
         print(f"main: {name} produced {len(vendor_rows)} rows ({decision.reason})", file=sys.stderr)
         all_rows.extend(vendor_rows)
         rows_by_source[name] = rows_by_source.get(name, 0) + len(vendor_rows)
