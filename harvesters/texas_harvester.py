@@ -204,6 +204,49 @@ same-property row harvested by both vendors unless their account-number
 strings happen to be identical - meaning these overlap counties may show
 duplicate-but-differently-keyed cards in the app until this is
 investigated and resolved. Not fixed here; flagging again so it isn't lost.
+
+--- Production end-to-end verification, 2026-09-14 (run #128, workflow_dispatch) ---
+
+First actual run of this harvester through the real `texas` GitHub Actions
+job (not a local/synthetic test). Harvested successfully: tx_lgbs (411 rows,
+9 counties) and tx_realauction (25 rows, 4/24 counties with matches) both
+ran, combined into 436 total rows written to out/harvest_texas.json. Two
+real bugs found and fixed as a direct result of this being a genuine
+end-to-end run rather than a unit test:
+
+  1. Sync failed 100% (0 of 436 rows reached Supabase) - `harvester_source`
+     is sent in every row's payload but does not exist as a column on the
+     live `public.properties` table, even though the migration that adds it
+     (003_ledger_type_and_state_isolation.sql) has been committed since
+     2026-09-08. Same "migration written, never run against production"
+     failure CLAUDE.md already documents for schema-v4/schema-v7. Browser
+     automation cannot type the ALTER TABLE itself into the Supabase SQL
+     Editor (safety-tooling restriction), so scripts/sync-texas-to-supabase.py
+     now omits harvester_source (SEND_HARVESTER_SOURCE = False) until a
+     human runs that migration for real - see that script's own comment.
+  2. Per-county logging silently said nothing for a county whose calendar
+     DID have scheduled dates but whose AJAX pages yielded zero rows with a
+     parseable Account Number - indistinguishable in the log from a county
+     never visited at all. Hit 6/24 counties this run (Cameron, El Paso,
+     Galveston, Gregg, Orange, Victoria), including El Paso, an
+     individually browser-confirmed-good hostname - meaning this wasn't
+     only a pattern-derived-guess problem. Fixed: harvest_realauction() now
+     prints exactly one terminal line per county covering all three
+     outcomes (no auction days / N kept / dates-found-but-0-kept), so this
+     case is never silently identical to "not visited."
+
+Confirmed working correctly by this run: errors on one county/page never
+aborted the run (LGBS's page-6 timeout was caught, logged, and the harvest
+continued with what it already had; each RealAuction per-county failure is
+independently caught); Account Number (not Cause Number) is what
+sync-texas-to-supabase.py maps to case_no (see that script - unchanged by
+this pass); the (county, case_no) dedup and county/state/source values all
+came out as designed. NOT yet confirmed by this run: whether the 6
+dates-found-but-0-kept counties (especially El Paso) are a real parsing gap
+or a genuinely-empty calendar - the fix above makes this visible in future
+logs, but this run predates the fix, so it wasn't itself distinguishable at
+the time. See claude/texas-vendor-reconnaissance.md for the full verification
+writeup and the rerun's results.
 """
 
 from __future__ import annotations
@@ -765,6 +808,30 @@ def harvest_realauction(limit: int | None = None) -> list[TexasSaleRow]:
         if county_kept:
             counties_with_matches += 1
             print(f"harvest_realauction: {county_name} - {county_kept} properties across {len(dates)} sale date(s)", file=sys.stderr)
+        else:
+            # CONFIRMED LIVE 2026-09-14 (first real workflow_dispatch run):
+            # this branch was previously silent - a county whose calendar
+            # DID have scheduled dates but whose AJAX pages produced zero
+            # rows with a parseable Account Number printed nothing at all,
+            # indistinguishable in the log from a county that was never
+            # visited. That run hit this exact case for 6 of 24 counties
+            # (Cameron, El Paso, Galveston, Gregg, Orange, Victoria) - one
+            # of them, El Paso, is an individually browser-confirmed-good
+            # hostname, not a pattern-derived guess, so "no log line" could
+            # not be trusted to mean
+            # "verified empty" - it could equally mean a wrong page
+            # structure or a blocked/failed per-page request that didn't
+            # itself raise (a non-2xx body without AITEM_ in it, e.g.).
+            # Every county now gets exactly one terminal line covering all
+            # three outcomes (no auction days / N kept / dates-but-0-kept),
+            # so "no source this run" and "something to investigate" are
+            # never silently the same thing again.
+            print(
+                f"harvest_realauction: {county_name} - {len(dates)} sale date(s) found but 0 properties "
+                "parsed (calendar loaded; either the sale(s) genuinely list nothing yet, or the page "
+                "structure/field labels didn't match what this county's host returned - worth a manual check)",
+                file=sys.stderr,
+            )
         if limit is not None and len(rows) >= limit:
             break
 
