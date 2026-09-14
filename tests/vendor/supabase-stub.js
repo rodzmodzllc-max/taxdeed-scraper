@@ -124,6 +124,37 @@ export function createClient() {
       },
       async signOut() { return {}; }
     },
-    from(table) { return new MockQuery(table); }
+    from(table) { return new MockQuery(table); },
+    // Added Phase 15 (Customer Surface Security Audit): app.js's
+    // fetchProperties() has called sb.rpc("get_properties", {p_state})
+    // as its unconditional, primary path since
+    // 003_ledger_type_and_state_isolation.sql (2026-09-08), but this stub
+    // had no `rpc` method at all - `sb.rpc` was `undefined`, so calling it
+    // threw a synchronous TypeError inside fetchProperties()'s async body,
+    // an unhandled rejection that silently starved every downstream
+    // assertion in this suite of any property data (this went unnoticed
+    // because nothing in run_test.mjs checks for it directly - see
+    // docs/phase-15-customer-surface-security-audit.md). Only
+    // get_properties() is implemented (the one RPC app.js actually calls);
+    // any other function name mimics PostgREST's real "function not
+    // found" shape (PGRST202) so app.js's own missingFn fallback-detection
+    // logic can be exercised too if a future test needs it.
+    async rpc(fnName, args) {
+      if (fnName === "get_properties") {
+        const pState = args && args.p_state;
+        // This suite only ever loads index.html (data-state="FL", see
+        // PAGE_STATE in app.js), and FIXTURE_PROPERTIES has never carried
+        // an explicit `state` field - it was always implicitly FL, the
+        // same assumption the pre-RPC `sb.from("properties").select("*")`
+        // fallback made for every one of this file's existing DOM
+        // assertions. Returning the unfiltered fixture set for "FL" (and
+        // none for "TX", which this suite never actually requests) keeps
+        // every pre-existing assertion in run_test.mjs byte-identical
+        // while finally exercising the real RPC call path instead of
+        // silently throwing before it.
+        return { data: pState === "TX" ? [] : FIXTURE_PROPERTIES, error: null };
+      }
+      return { data: null, error: { message: `stub: unhandled rpc "${fnName}"`, code: "PGRST202" } };
+    }
   };
 }

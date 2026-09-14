@@ -70,6 +70,10 @@ Two items remain explicitly out of scope and unaffected by this phase, exactly a
 
 **Did not do:** modify either migration file (both ran exactly as committed at `e446504`); touch RLS; change any grant beyond what 005/005a themselves specify; expand Texas county coverage; change any source's legal status; dispatch any workflow; push to origin; weaken or delete any test; attempt to close the `ledger_type` raw-REST exception (a separate, future, explicitly-scoped decision if ever pursued) or the `TRUNCATE`/write-grant item.
 
+## Update (Phase 15, same day): the "47-column" figure used throughout this document was off by one
+
+This document (and Phase 14B/14D before it) described the customer-safe shape as "~47 columns." Phase 15's own field reconciliation found the real number is **48** (including `id`, the internal UUID that was apparently never counted even though it is always in the literal list) - confirmed directly against 005's actual `RETURNS TABLE` clause and against live production, where `authenticated`'s column-level SELECT grant count is 49 = 48 (005's output) + 1 (the `ledger_type` exception this document already describes). This changes no finding, no verification result, and no decision in this document - CLOSED_WITH_LIMITATIONS stands exactly as concluded below - it is a prose-label correction only. Full account: `docs/phase-15-customer-surface-security-audit.md`.
+
 ## 7. Recommended next action
 
 None required for this feature — the customer-safe projection work Phase 14A originally proposed is now fully live in production, closed to the extent designed, with its one remaining limitation named and accepted rather than silently left open. Any future work here (closing the `ledger_type` raw-REST gap, addressing the `TRUNCATE`/broad-write grant, or building the deferred `outcome`/`sold_price` harvester capture) is a new, separately-scoped decision for the user to authorize explicitly — not a continuation of this phase.
