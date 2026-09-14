@@ -219,8 +219,20 @@ def test_005_and_005a_column_lists_still_agree_after_the_correction():
     """Regression for test_A_005_and_005a_column_lists_are_identical
     (Phase 14B) - re-asserted here as a Phase 14D-scoped guard so a future
     reader of this file alone can see the invariant Phase 14D was
-    required to preserve, not just that it existed before."""
-    assert _005_returns_table_columns() == _005a_grant_columns()
+    required to preserve, not just that it existed before.
+
+    UPDATED, Phase 14E (Corrective Migration 005 / get_properties()
+    Function Contract): the invariant itself changed - get_properties()'s
+    own WHERE clause reads `ledger_type` internally (security invoker),
+    so 005a must grant it too even though 005 never returns it. See
+    tests/python/test_phase14b_database_api_boundary.py's
+    GRANT_ONLY_FOR_INTERNAL_FILTERING and its own updated test in this
+    same group for the full reasoning. The Phase 14D-era invariant (exact
+    equality) no longer holds; this guard now checks the corrected one:
+    005a = 005's output plus exactly that one documented exception."""
+    cols_005 = _005_returns_table_columns()
+    cols_005a = _005a_grant_columns()
+    assert cols_005a == cols_005 | {"ledger_type"}
 
 
 # ==================== no production SQL was executed, no schema/RLS/source changes ====================

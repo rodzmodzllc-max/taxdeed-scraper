@@ -252,6 +252,83 @@
 --     docs/phase-14d-migration-reconciliation.md for the full corrected
 --     execution order and the pre-execution checklist that must be re-run
 --     (a fresh Gate A) before either file is applied.
+--
+-- CORRECTION, Phase 14E (Corrective Migration 005 / get_properties()
+-- Function Contract). Phase 14C's execution attempt applied schema-v9
+-- successfully, then this file FAILED against live production with:
+--
+--   ERROR:  42P13: cannot change return type of existing function
+--   HINT:  Use DROP FUNCTION get_properties(text,text,text,integer,integer)
+--          first.
+--
+-- Root cause: the live function is `returns setof public.properties`
+-- (003_ledger_type_and_state_isolation.sql's original shape); this file
+-- replaces it with an explicit, named TABLE-of-columns return clause
+-- below. Postgres treats a `SETOF <table>` result and a named-columns
+-- TABLE result as different return-type shapes - `CREATE OR REPLACE
+-- FUNCTION` can change a function's body freely but never its return
+-- type; that requires dropping the function first. This was a genuine
+-- defect in this file's own design, present
+-- since Phase 14A first wrote it and never caught by any of Phases
+-- 14A/14B/14C/14D/14E's own review - every one of those reviews was
+-- static (reading SQL text, reasoning about columns/grants/RLS); this is
+-- the first phase to actually attempt the statement against the live
+-- function, which is what surfaced it. Full account:
+-- docs/phase-14f-production-migration-execution-attempt.md.
+--
+-- Fix: an explicit `drop function if exists ...` immediately before the
+-- (unchanged) `create or replace function`, both inside one transaction
+-- so no caller ever observes the function absent - Postgres DDL is
+-- already transactional and an uncommitted DROP is invisible to other
+-- sessions, but the transaction is made explicit here for clarity and so
+-- this file does not depend on the calling tool's own default behavior.
+-- `drop function if exists` (not a bare `drop function`) so this file
+-- stays idempotent if re-run after a partial/aborted attempt.
+--
+-- EXECUTE grant, corrected to avoid a silent privilege loss: this file
+-- previously granted EXECUTE to `authenticated` only (matching
+-- 003_ledger_type_and_state_isolation.sql's own original grant exactly).
+-- Phase 14C/14E's live audit found the *actual* live grant is broader -
+-- `service_role`, `authenticated`, `anon`, `postgres`, and `PUBLIC` all
+-- currently hold EXECUTE (PUBLIC alone already implies the other four;
+-- the live state lists them individually too, most likely from Supabase's
+-- own default project-template grants predating this project's own
+-- migrations, not anything 003 itself granted). Because `DROP FUNCTION`
+-- discards every grant the dropped function held, and this phase's own
+-- hard rule is "do not silently lose EXECUTE privileges," the grant
+-- statement below reproduces the exact live set rather than narrowing to
+-- just `authenticated` - narrowing this (a real, separate security
+-- decision, the same class of question as the TRUNCATE/write-grant item)
+-- is explicitly left to a future, separately-scoped phase, not decided
+-- here as a side effect of fixing the return-type defect.
+--
+-- CRITICAL FINDING, also Phase 14E: this function's own WHERE clause
+-- reads `ledger_type` (`... and (p_ledger_type is null or ledger_type =
+-- p_ledger_type) ...`) even though `ledger_type` is deliberately never
+-- part of this function's RETURNS TABLE/SELECT output (it is one of the
+-- two genuinely-internal fields this migration exists to stop exposing).
+-- Under `security invoker`, every column a function's body references -
+-- in a WHERE clause or ORDER BY, not only the SELECT list - is checked
+-- against the CALLING role's own column-level privileges. 005a (see that
+-- file's own corrected grant list) must therefore still grant
+-- `authenticated` SELECT on `ledger_type`, even though this function
+-- never returns it - otherwise every authenticated call to
+-- get_properties() would fail with "permission denied for column
+-- ledger_type" once 005a's narrowed grant took effect. `fdor_enriched_at`
+-- has no such dependency (never referenced anywhere in this function's
+-- body) and remains fully excludable from both the output and the grant.
+-- This does mean 005a cannot fully close the raw-table (`sb.from(
+-- "properties").select("ledger_type")`) path for `ledger_type`
+-- specifically - a client with direct table access can still read it,
+-- even though get_properties() itself never returns it. This is a named,
+-- accepted, narrow exception (ledger_type is pipeline-routing metadata,
+-- not restricted/legally-sensitive content, per this file's own WHY
+-- REQUIRED section above), not an oversight - see 005a's own corrected
+-- header for the full reasoning.
+begin;
+
+drop function if exists public.get_properties(text, text, text, int, int);
+
 create or replace function public.get_properties(
   p_state text,
   p_ledger_type text default null,
@@ -299,10 +376,22 @@ as $$
   offset p_offset;
 $$;
 
-grant execute on function public.get_properties(text, text, text, int, int) to authenticated;
+grant execute on function public.get_properties(text, text, text, int, int)
+  to service_role, authenticated, anon, postgres, public;
+
+commit;
 
 -- Rollback (the exact original 003_ledger_type_and_state_isolation.sql
--- definition, reproduced here so a revert never needs to be re-derived):
+-- definition, reproduced here so a revert never needs to be re-derived -
+-- corrected, Phase 14E, to also DROP FUNCTION first: reverting FROM this
+-- migration's named-columns TABLE return shape BACK TO `returns setof
+-- public.properties` is exactly the same return-type-change problem in
+-- reverse, so a rollback needs the same drop-then-create shape, not a
+-- bare CREATE OR REPLACE):
+--
+-- begin;
+--
+-- drop function if exists public.get_properties(text, text, text, int, int);
 --
 -- create or replace function public.get_properties(
 --   p_state text,
@@ -326,4 +415,7 @@ grant execute on function public.get_properties(text, text, text, int, int) to a
 --   offset p_offset;
 -- $$;
 --
--- grant execute on function public.get_properties(text, text, text, int, int) to authenticated;
+-- grant execute on function public.get_properties(text, text, text, int, int)
+--   to service_role, authenticated, anon, postgres, public;
+--
+-- commit;

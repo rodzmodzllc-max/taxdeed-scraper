@@ -58,6 +58,21 @@ def _005a_grant_columns() -> set[str]:
 # currently unread by any frontend code.
 INTERNAL_FIELDS = ("ledger_type", "fdor_enriched_at")
 
+# CORRECTION, Phase 14E (Corrective Migration 005 / get_properties()
+# Function Contract): `ledger_type` is internal in the sense INTERNAL_FIELDS
+# means (never returned by get_properties(), never a CSV/export column,
+# never read by app.js as a property) - but it is NOT absent from 005a's
+# own grant list the way `fdor_enriched_at` is. get_properties() (security
+# invoker, unchanged) reads `ledger_type` in its own WHERE clause to
+# implement the `p_ledger_type` filter, so `authenticated` must retain
+# column-level SELECT on it or every authenticated call to that function
+# fails with "permission denied for column ledger_type" - see 005's own
+# "CRITICAL FINDING" comment and 005a's own "CORRECTION, Phase 14E"
+# comment for the full reasoning. `fdor_enriched_at` has no such
+# dependency (never referenced anywhere in get_properties()'s body) and
+# remains the one field genuinely absent from both files' column lists.
+GRANT_ONLY_FOR_INTERNAL_FILTERING = {"ledger_type"}
+
 # The full universe of columns this repository's tracked migration/schema
 # history actually creates on public.properties, assembled from every
 # `add column` statement (see docs/phase-14b-database-api-boundary-
@@ -88,15 +103,27 @@ KNOWN_COLUMN_UNIVERSE = {
 # ==================== A: the two proposed migrations agree ====================
 
 
-def test_A_005_and_005a_column_lists_are_identical():
-    """005 (the RPC projection) and 005a (the base-table grant) must
-    protect the exact same column set - if they ever drift apart, either
-    the RPC would expose a column the raw table blocks (harmless but
-    inconsistent) or, worse, the raw table would block a column the RPC
-    still tries to select (which would break the RPC, per the invoker-
-    rights finding docs/phase-14b-database-api-boundary-readiness.md
-    Section 5 documents)."""
-    assert _005_returns_table_columns() == _005a_grant_columns()
+def test_A_005a_grant_columns_equal_005_output_columns_plus_the_documented_exception():
+    """CORRECTED, Phase 14E: 005 (the RPC projection) and 005a (the
+    base-table grant) no longer protect the exact same column set - see
+    GRANT_ONLY_FOR_INTERNAL_FILTERING above. The invariant this test
+    guards is now "005a's grant list equals 005's output list plus
+    exactly the documented ledger_type exception, nothing more, nothing
+    less" - if they drift apart in any OTHER way, either the RPC would
+    expose a column the raw table blocks (harmless but inconsistent) or,
+    worse, the raw table would block a column the RPC still tries to
+    select (which would break the RPC, per the invoker-rights finding
+    docs/phase-14b-database-api-boundary-readiness.md Section 5
+    documents, and per 005's own Phase 14E "CRITICAL FINDING" comment -
+    the exact failure mode that finding is about)."""
+    cols_005 = _005_returns_table_columns()
+    cols_005a = _005a_grant_columns()
+    assert cols_005a == cols_005 | GRANT_ONLY_FOR_INTERNAL_FILTERING, (
+        f"005a's grant columns must equal 005's output columns plus exactly "
+        f"{GRANT_ONLY_FOR_INTERNAL_FILTERING} - extra: "
+        f"{cols_005a - cols_005 - GRANT_ONLY_FOR_INTERNAL_FILTERING}, "
+        f"missing: {cols_005 - cols_005a}"
+    )
 
 
 def test_A_every_customer_visible_field_is_explicitly_allow_listed():
@@ -115,12 +142,22 @@ def test_A_every_customer_visible_field_is_explicitly_allow_listed():
 # ==================== B: internal fields cannot enter the projection ====================
 
 
-def test_B_internal_fields_absent_from_both_migrations_actual_column_lists():
+def test_B_internal_fields_absent_from_005s_actual_output_columns():
+    """Both genuinely-internal fields must never appear in 005's own
+    RETURNS TABLE/SELECT output - this is the customer-visibility
+    boundary that actually matters (what get_properties() returns to a
+    caller), unaffected by the Phase 14E ledger_type grant correction."""
     cols_005 = _005_returns_table_columns()
-    cols_005a = _005a_grant_columns()
     for internal in INTERNAL_FIELDS:
         assert internal not in cols_005, f"{internal!r} leaked into 005's returns-table list"
-        assert internal not in cols_005a, f"{internal!r} leaked into 005a's grant list"
+
+
+def test_B_fdor_enriched_at_absent_from_005as_grant_list_too():
+    """Unlike ledger_type (see GRANT_ONLY_FOR_INTERNAL_FILTERING),
+    fdor_enriched_at has no dependency inside get_properties()'s function
+    body at all, so it is the one field that must remain absent from
+    BOTH 005's output and 005a's grant - fully closed, no exception."""
+    assert "fdor_enriched_at" not in _005a_grant_columns()
 
 
 def test_B_harvester_source_IS_customer_visible_and_the_frontend_actually_needs_it():
@@ -135,12 +172,22 @@ def test_B_harvester_source_IS_customer_visible_and_the_frontend_actually_needs_
     assert "p.harvester_source" in app_js
 
 
-def test_B_ledger_type_not_customer_visible():
-    assert "ledger_type" not in _005a_grant_columns()
-
-
-def test_B_fdor_enriched_at_not_customer_visible():
-    assert "fdor_enriched_at" not in _005a_grant_columns()
+def test_B_ledger_type_not_in_005s_output_but_deliberately_in_005as_grant():
+    """CORRECTED, Phase 14E - not a mistake, the documented exception:
+    ledger_type must never be part of what get_properties() actually
+    returns (customer-visible = false), but 005a must still grant
+    column-level SELECT on it, because that function's own WHERE clause
+    reads it internally under security invoker. See
+    GRANT_ONLY_FOR_INTERNAL_FILTERING above and 005/005a's own
+    "CORRECTION, Phase 14E" comments for the full reasoning."""
+    assert "ledger_type" not in _005_returns_table_columns()
+    assert "ledger_type" in _005a_grant_columns()
+    app_js = _read("public", "app.js")
+    assert not re.search(r"[.\[]ledger_type\b", app_js), (
+        "ledger_type must still never be read as a property anywhere in "
+        "app.js, even though 005a now grants column-level SELECT on it "
+        "for get_properties()'s own internal use"
+    )
 
 
 # ==================== C: unknown fields fail closed ====================

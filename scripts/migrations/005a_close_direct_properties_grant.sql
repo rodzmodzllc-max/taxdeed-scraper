@@ -259,12 +259,69 @@
 --     see docs/phase-14d-migration-reconciliation.md for the full,
 --     corrected execution order: schema-v9-dor-use-code.sql -> 005 -> 005a.
 --
+-- CORRECTION, Phase 14E (Corrective Migration 005 / get_properties()
+-- Function Contract). Phase 14E's dependency analysis of the corrected
+-- 005 (its own "CRITICAL FINDING" comment, same phase) found that
+-- get_properties() - `security invoker`, unchanged by this file - reads
+-- `ledger_type` in its own WHERE clause (`... and (p_ledger_type is null
+-- or ledger_type = p_ledger_type) ...`) even though `ledger_type` is
+-- never part of that function's RETURNS TABLE/SELECT output. Under
+-- `security invoker`, every column a function's body references, in a
+-- WHERE clause or ORDER BY and not only the SELECT list, is checked
+-- against the CALLING role's own column-level privileges - so if this
+-- file's grant excluded `ledger_type` (as an earlier version of this file
+-- did, matching `ledger_type` being one of the two genuinely-internal
+-- fields this whole migration pair exists to stop exposing), every
+-- `authenticated` call to get_properties() would fail with "permission
+-- denied for column ledger_type" the moment this migration took effect -
+-- a production-breaking regression that would not surface in any static
+-- review of either file in isolation, only by tracing get_properties()'s
+-- actual function body against this file's actual grant list together.
+--
+-- Fix: `ledger_type` is added to the grant list below, on its own line,
+-- clearly separated from and commented apart from the genuinely
+-- customer-safe columns - granted ONLY because get_properties() needs to
+-- read it internally to filter, never because it is meant to be
+-- customer-visible. `fdor_enriched_at` has no such dependency (never
+-- referenced anywhere in get_properties()'s body) and remains fully
+-- excluded, exactly as before.
+--
+-- Consequence, named rather than hidden: this means 005a can no longer
+-- claim to fully close the raw-table path for `ledger_type` specifically
+-- - a client with direct table access (`sb.from("properties").select(
+-- "ledger_type")`) can still read it after this migration, even though
+-- get_properties() itself never returns it to any caller. This is a
+-- narrow, accepted, documented exception forced by SECURITY INVOKER
+-- privilege semantics, not an oversight: `ledger_type` is pipeline-
+-- routing metadata (this file's own WHY REQUIRED section, unchanged,
+-- already characterizes it and `fdor_enriched_at` together as carrying
+-- "no restricted/legally-sensitive content"), and the alternative -
+-- SECURITY DEFINER, so the function's internal filtering no longer needs
+-- the caller's own column privileges - is explicitly out of scope for
+-- this phase (it would bypass RLS/column privileges more broadly than
+-- this one narrow gap requires, and is a separate, larger architectural
+-- decision needing its own review, not a workaround for this issue).
+--
+-- test_A_005_and_005a_column_lists_are_identical (Phase 14B) is corrected
+-- accordingly in tests/python/test_phase14b_database_api_boundary.py: the
+-- invariant is no longer "005a's grant list equals 005's output list" but
+-- "005a's grant list equals 005's output list plus exactly the documented
+-- ledger_type exception" - see that test file's own updated comments.
+--
 -- ============================================================
 -- THE PROPOSED GRANT CHANGE (NOT EXECUTED BY THIS SESSION)
 -- ============================================================
 revoke select on public.properties from anon;
 revoke select on public.properties from authenticated;
 
+-- `ledger_type` is appended at the very end of the grant list below,
+-- deliberately NOT customer-visible (get_properties() never returns it,
+-- and it is not a CSV/export column) but required there anyway because
+-- that function's own WHERE clause reads it internally under `security
+-- invoker` - see the "CORRECTION, Phase 14E" comment above for the full
+-- reasoning. Kept on its own trailing line, separated from the genuinely
+-- customer-safe columns above it, rather than folded into that list, so
+-- this distinction stays visible to a future reader of this file.
 grant select (
   id, state, county, source, harvester_source,
   address, parcel, case_no, owner_name, status,
@@ -277,7 +334,8 @@ grant select (
   certificate_no, tax_year, issued_date, expiration_date, interest_rate,
   latitude, longitude, url_appraiser, url_auction,
   url_taxcoll, url_title, url_streetview, url_zillow,
-  gone_since, updated_at
+  gone_since, updated_at,
+  ledger_type
 ) on public.properties to authenticated;
 
 -- anon intentionally receives no grant at all - see TARGET ARCHITECTURE
