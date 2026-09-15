@@ -1824,10 +1824,15 @@ function detailHtml(p) {
     ["Zillow", fallbackZillowUrl(p)],
     ["Tax Collector", p.url_taxcoll],
     ["Title Search", p.url_title],
-    // Populated per-property by the harvesters (url_clerk/url_gis), same as
-    // url_title/url_taxcoll above - not filled in yet for most counties, so
-    // these simply won't render until that scraper work lands (see the
-    // .filter() below).
+    // url_clerk/url_gis are NOT production columns (confirmed against a live
+    // information_schema query, Phase 26/31/32A) - properties has no such
+    // fields today, on any row, in any county. These two entries are kept
+    // here, reading fields that don't exist, so this link tile starts
+    // rendering the day a future harvester phase actually adds them and
+    // begins populating them - same forward-compatible, defensive-read
+    // pattern as outcome/sold_price in outcomeText() above. Until then
+    // p.url_clerk/p.url_gis are always undefined and the .filter() below
+    // silently drops both - this is not a partial-coverage gap to fix.
     ["Clerk of Courts", p.url_clerk],
     ["GIS Map", p.url_gis]
   ].filter(([, href]) => href);
