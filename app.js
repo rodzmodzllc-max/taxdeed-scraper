@@ -1891,6 +1891,16 @@ function detailHtml(p) {
       stats.push(["Est. Accrued Interest", fmtShort(accrued)]);
       stats.push(["Est. Total Return", fmtShort(Number(p.bid) + accrued)]);
     }
+    // Certificates previously had no gone-status signal anywhere in this
+    // modal: the pill below used to be gated to !isCert (auctions/laft
+    // only), and this branch never pushed an "Outcome" stat the way the
+    // !isCert branch above does for isGone(p). A notfound/dropped/sold
+    // certificate's detail view therefore looked identical to an active
+    // one - Phase 32C Workflow 6 caught this. Both additions mirror
+    // patterns already used elsewhere (certCard()'s own list-card pill;
+    // the !isCert branch's existing Outcome stat) - no new function, no
+    // fabricated field, no schema/RPC change.
+    if (isGone(p)) stats.push(["Outcome", outcomeText(p)]);
     stats.push(["TDA Eligibility", tdaEligibleText(p)]);
   }
 
@@ -1901,7 +1911,7 @@ function detailHtml(p) {
     <div class="prop-top-actions" style="margin:.2rem 0 .5rem">
       <button class="icon-btn heart-btn${fav ? " on" : ""}" data-action="fav" data-pid="${p.id}" type="button">${fav ? "♥ Favorited" : "♡ Favorite"}</button>
       ${bidListBtnHtml(p, false)}
-      ${!isCert ? `<span class="pill ${esc(p.status)}">${esc(p.status)}</span>` : ""}
+      <span class="pill ${esc(p.status)}">${esc(p.status)}</span>
     </div>
     ${!isCert && regionOf(p) === "FL" ? `<div class="lien-banner ${esc(p.lien_level)}">
       <div class="lien-toprow"><span class="lien-label">Title: ${LIEN_LABEL[p.lien_level] || p.lien_level}</span><span class="type-badge">${esc(p.prop_type || "Type: Unknown")}</span></div>
