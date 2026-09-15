@@ -10,6 +10,7 @@ works without reaching into each submodule individually. See:
   - gate.py            - GateDecision, check_ingestion_gate(), filter_rows_for_customer_output(), filter_rows_for_api_export(), project_row_for_customer_output(), project_row_for_api_export() (Phase 11)
   - provenance.py      - PipelineStage, FieldClassification, Provenance, advance(), derive(), origin_source_ids()
   - authorization.py   - AuthorizationStatus, ProviderAuthorization, PROVIDER_AUTHORIZATIONS, check_authorized_use() (Phase 34A - provider/county-level "requested vs authorized" tracking, additive to and never weakening the gate above)
+  - source_catalog.py  - AcquisitionMethod, CoverageState, CatalogSource, gap_analysis() (Phase 35 - the discovery/classification-stage county/source catalog; distinct from, and never a substitute for, SOURCE_REGISTRY above)
 """
 
 from .authorization import (
@@ -54,6 +55,20 @@ from .registry import (
     get_source,
 )
 from .restrictions import BLOCKS_API_EXPORT, BLOCKS_CUSTOMER_DISPLAY, FIELD_SHAPE_KEYWORDS, Restriction
+from .source_catalog import (
+    AcquisitionMethod,
+    CatalogSource,
+    CoverageState,
+    FL_COUNTY_COUNT,
+    SourcePriorityTier,
+    TX_COUNTY_COUNT,
+    assert_matrix_completeness,
+    gap_analysis,
+    is_approved_status,
+    is_unknown_or_unreviewed_status,
+    load_fl_matrix,
+    load_tx_matrix,
+)
 
 __all__ = [
     "GateDecision",
@@ -93,4 +108,16 @@ __all__ = [
     "authorized_for_ingestion",
     "check_authorized_use",
     "effective_authorization_status",
+    "AcquisitionMethod",
+    "CatalogSource",
+    "CoverageState",
+    "FL_COUNTY_COUNT",
+    "SourcePriorityTier",
+    "TX_COUNTY_COUNT",
+    "assert_matrix_completeness",
+    "gap_analysis",
+    "is_approved_status",
+    "is_unknown_or_unreviewed_status",
+    "load_fl_matrix",
+    "load_tx_matrix",
 ]
