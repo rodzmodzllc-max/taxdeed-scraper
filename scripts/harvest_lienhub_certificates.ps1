@@ -49,6 +49,21 @@ $ProgressPreference = "SilentlyContinue"
 # Output: harvest_certificates.json / .csv (kept separate from
 # harvest_all.json - synced by sync-certificates-to-supabase.ps1, not
 # sync-harvest-to-supabase.ps1).
+#
+# Phase 23B: also writes harvest_certificates_status.json - a per-county
+# COMPLETE/INCOMPLETE completeness record, consumed by
+# sync-certificates-to-supabase.ps1's reconciliation step to decide which
+# counties are safe to reconcile stale `active` certificates against. See
+# claude/phase-23a-certificate-reconciliation-design.md. A county is marked
+# COMPLETE only when this harvester can positively confirm it retrieved the
+# server's own full reported result set for that county (recordsTotal is
+# present and the pagination loop actually reached it, whether that total is
+# zero or not) - never merely because the harvester "didn't throw" or
+# "returned an array". Every other outcome (GET failure after retries, a
+# missing csrf_token, a malformed response, a pagination stall before
+# reaching the reported total, or any other exception) is recorded as
+# INCOMPLETE, and that county's existing database rows are left untouched by
+# the sync step - this harvester makes no promises about them either way.
 
 $here = $PSScriptRoot
 $ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
@@ -57,6 +72,7 @@ $outDir = Join-Path $here "../out"
 New-Item -ItemType Directory -Force -Path $outDir | Out-Null
 $outJson = Join-Path $outDir "harvest_certificates.json"
 $outCsv  = Join-Path $outDir "harvest_certificates.csv"
+$outStatus = Join-Path $outDir "harvest_certificates_status.json"
 
 $counties = Import-Csv $registryPath | Where-Object { $_.Platform -eq 'LienHub' }
 if (-not $counties) { Write-Host "No LienHub counties found in $registryPath"; exit }
@@ -78,6 +94,7 @@ $columnNames = @(
 )
 
 $all = @()
+$countyStatus = @()
 $i = 0
 foreach ($row in $counties) {
     $i++
@@ -127,6 +144,12 @@ foreach ($row in $counties) {
         }
         if (-not $csrf) {
             Write-Host "      no csrf_token meta tag found - skipping (page structure may have changed)" -ForegroundColor Yellow
+            $countyStatus += [pscustomobject]@{
+                county   = $row.County
+                status   = "INCOMPLETE"
+                rowCount = 0
+                reason   = "csrf_token meta tag not found on GET response - page structure may have changed"
+            }
             continue
         }
 
@@ -161,7 +184,17 @@ foreach ($row in $counties) {
                 -Headers @{ "X-Requested-With" = "XMLHttpRequest" } `
                 -Body $bodyStr -ErrorAction Stop
 
+            # A DataTables server-side response without recordsTotal is not a
+            # shape this harvester understands - treat it as a malformed/
+            # failed page rather than silently letting a missing value
+            # coerce to 0, which would otherwise make an unparseable
+            # response indistinguishable from a genuinely empty county. The
+            # completeness signal below must be POSITIVE, never a default.
+            if ($null -eq $postResp.recordsTotal) {
+                throw "malformed DataTables response - missing recordsTotal (start=$start)"
+            }
             if ($null -eq $recordsTotal) { $recordsTotal = [int]$postResp.recordsTotal }
+
             $gotCount = 0
             if ($postResp.data) {
                 $pageRows = @($postResp.data)
@@ -171,8 +204,24 @@ foreach ($row in $counties) {
             $start += $length
         } while ($collected.Count -lt $recordsTotal -and $gotCount -gt 0)
 
+        # Pagination is only trustworthy as COMPLETE if the loop above exited
+        # because it reached the server's own reported total - not because a
+        # page came back with 0 rows before that total was reached (a
+        # stall/partial-failure mode that otherwise looks identical to
+        # "done"). This is the check that turns a merely-plausible-looking
+        # harvest into a positively-confirmed one.
+        if ($collected.Count -lt $recordsTotal) {
+            throw "pagination incomplete - collected $($collected.Count) of $recordsTotal reported before a page returned 0 rows"
+        }
+
         if ($collected.Count -eq 0) {
             Write-Host "      0 certificates currently listed (not an error - counties empty out year-round)"
+            $countyStatus += [pscustomobject]@{
+                county   = $row.County
+                status   = "COMPLETE"
+                rowCount = 0
+                reason   = "confirmed empty - server reported recordsTotal=0"
+            }
             continue
         }
 
@@ -202,13 +251,35 @@ foreach ($row in $counties) {
             }
         }
         Write-Host ("      {0} certificates" -f $collected.Count) -ForegroundColor Green
+        $countyStatus += [pscustomobject]@{
+            county   = $row.County
+            status   = "COMPLETE"
+            rowCount = $collected.Count
+            reason   = "full result set retrieved ($($collected.Count) of $recordsTotal reported)"
+        }
     } catch {
         Write-Host ("      ERROR: {0}" -f $_.Exception.Message) -ForegroundColor Red
+        $countyStatus += [pscustomobject]@{
+            county   = $row.County
+            status   = "INCOMPLETE"
+            rowCount = 0
+            reason   = "$($_.Exception.Message)"
+        }
         continue
     }
 }
 
-if ($all.Count -eq 0) { Write-Host "Nothing harvested this run."; exit }
+# Always written, even when nothing was harvested at all (every county
+# failed, or every county was confirmed complete-and-empty) - the sync step
+# needs this file to positively know which counties, if any, are safe to
+# reconcile against; its own absence must mean "reconcile nothing", never
+# "assume everything succeeded".
+$countyStatus | ConvertTo-Json -Depth 3 | Set-Content $outStatus -Encoding utf8
+$completeCount = @($countyStatus | Where-Object { $_.status -eq "COMPLETE" }).Count
+$incompleteCount = @($countyStatus | Where-Object { $_.status -eq "INCOMPLETE" }).Count
+Write-Host ("Completeness: {0} COMPLETE, {1} INCOMPLETE (of {2} counties attempted)" -f $completeCount, $incompleteCount, $countyStatus.Count)
+
+if ($all.Count -eq 0) { Write-Host "No certificate rows harvested this run (see completeness status above)."; exit }
 
 $all | ConvertTo-Json -Depth 4 | Set-Content $outJson -Encoding utf8
 $all | Export-Csv $outCsv -NoTypeInformation -Encoding utf8
