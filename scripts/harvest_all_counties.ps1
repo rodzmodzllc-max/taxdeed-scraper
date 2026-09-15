@@ -24,6 +24,16 @@ $outDir = Join-Path $here "../out"
 New-Item -ItemType Directory -Force -Path $outDir | Out-Null
 $outJson = Join-Path $outDir "harvest_all.json"
 $outCsv = Join-Path $outDir "harvest_all.csv"
+# Phase 30B: per-county completeness record, same shape and purpose as
+# harvest_lienhub_certificates.ps1's harvest_certificates_status.json -
+# consumed by sync-harvest-to-supabase.ps1's stale-row closeout to decide
+# which counties are safe to reconcile against. RealAuction's AJAX feed has
+# no server-reported total to positively confirm pagination reached (unlike
+# LienHub's recordsTotal), so COMPLETE here means "every transport-level
+# request this county's harvest made actually succeeded" - never merely
+# "the parsing loop didn't throw". See
+# claude/phase-30b-deed-completeness-and-closed-gone-since.md.
+$outStatus = Join-Path $outDir "harvest_all_status.json"
 $tmpDir = [System.IO.Path]::GetTempPath()
 
 function Get-Field($block, $label) {
@@ -67,15 +77,28 @@ $counties = Import-Csv $csv
 # order, same first-wins dedupe semantics.
 $all = [System.Collections.Generic.List[object]]::new()
 $seenKeys = [System.Collections.Generic.HashSet[string]]::new()
+$countyStatus = @()
 $ci = 0
 
-foreach ($c in $counties) {
+:countyLoop foreach ($c in $counties) {
     $ci++
     $hostName = $c.Host
     Write-Host ("[{0}/{1}] {2}" -f $ci, $counties.Count, $c.County) -ForegroundColor Cyan
 
     $jar = Join-Path $tmpDir ("ra_" + $c.County + ".txt")
     Remove-Item $jar -ErrorAction SilentlyContinue
+
+    # Phase 30B: this county is COMPLETE unless a transport-level request
+    # actually fails (curl exits non-zero, including --fail's non-2xx
+    # detection). A page/date that legitimately has nothing left is a
+    # content-level signal (no AITEM_ match, zero new blocks) and stays a
+    # normal loop-exit, not a failure - completeness tracks REQUEST success,
+    # not row count, exactly like harvest_lienhub_certificates.ps1's
+    # transport-failure paths (GET-retry exhaustion, malformed response)
+    # versus its content-level "confirmed empty" path.
+    $countyOk = $true
+    $countyFailReason = $null
+    $countyRowsBefore = $all.Count
 
     # The calendar page defaults to showing ONLY the currently-displayed
     # month - confirmed live on Suwannee: the default page showed just
@@ -92,7 +115,18 @@ foreach ($c in $counties) {
         $monthStart = (Get-Date).AddMonths($mOffset)
         $tsLiteral = "{{ts '{0:yyyy-MM}-01 00:00:00'}}" -f $monthStart
         $calUrl = "https://$hostName/index.cfm?zaction=user&zmethod=calendar&selCalDate=" + [uri]::EscapeDataString($tsLiteral)
-        $cal = & curl -s -c $jar -A $ua --max-time 20 $calUrl 2>$null
+        # --fail: makes curl report a non-2xx response as a real failure
+        # (exit 22) instead of silently returning the error page's body as
+        # if it were calendar HTML - purely an observational change (no
+        # different headers, cadence, or retries) so this script can finally
+        # tell "the county genuinely has nothing scheduled" apart from "the
+        # request didn't work". See the completeness-tracking comment above.
+        $cal = & curl -s --fail -c $jar -A $ua --max-time 20 $calUrl 2>$null
+        if ($LASTEXITCODE -ne 0) {
+            $countyOk = $false
+            $countyFailReason = "calendar fetch failed for month offset $mOffset (curl exit $LASTEXITCODE)"
+            break
+        }
         # Quote style around dayid=... varies by county skin - most Realauction
         # sites emit dayid='MM/DD/YYYY' (single quotes), but at least Suwannee's
         # emits dayid="MM/DD/YYYY" (double quotes). The old single-quote-only
@@ -104,20 +138,50 @@ foreach ($c in $counties) {
             ForEach-Object { $_.Groups[1].Value }
     }
     $dates = $dates | Select-Object -Unique
-    if (-not $dates) { Write-Host "  no auction days" -ForegroundColor DarkGray; continue }
 
-    foreach ($date in $dates) {
-        & curl -s -b $jar -c $jar -A $ua --max-time 20 `
+    if (-not $countyOk) {
+        Write-Host ("  INCOMPLETE: {0}" -f $countyFailReason) -ForegroundColor Red
+        $countyStatus += [pscustomobject]@{
+            county   = $c.County
+            status   = "INCOMPLETE"
+            rowCount = ($all.Count - $countyRowsBefore)
+            reason   = $countyFailReason
+        }
+        continue countyLoop
+    }
+    if (-not $dates) {
+        Write-Host "  no auction days" -ForegroundColor DarkGray
+        $countyStatus += [pscustomobject]@{
+            county   = $c.County
+            status   = "COMPLETE"
+            rowCount = 0
+            reason   = "confirmed no scheduled auctions - calendar fetch succeeded across all 3 month windows"
+        }
+        continue countyLoop
+    }
+
+    :dateLoop foreach ($date in $dates) {
+        & curl -s --fail -b $jar -c $jar -A $ua --max-time 20 `
             -H "Referer: https://$hostName/index.cfm?zaction=USER&zmethod=CALENDAR" `
             "https://$hostName/index.cfm?zaction=AUCTION&zmethod=PREVIEW&AuctionDate=$date" -o /dev/null 2>$null
+        if ($LASTEXITCODE -ne 0) {
+            $countyOk = $false
+            $countyFailReason = "preview/referer warm-up fetch failed for $date (curl exit $LASTEXITCODE)"
+            break dateLoop
+        }
 
         $kept = 0; $seen = 0
         for ($page = 0; $page -lt 12; $page++) {
-            $json = & curl -s -b $jar -c $jar -A $ua --max-time 25 `
+            $json = & curl -s --fail -b $jar -c $jar -A $ua --max-time 25 `
                 -H "Accept: application/json, text/javascript, */*; q=0.01" `
                 -H "X-Requested-With: XMLHttpRequest" `
                 -H "Referer: https://$hostName/index.cfm?zaction=AUCTION&zmethod=PREVIEW&AuctionDate=$date" `
                 "https://$hostName/index.cfm?zaction=AUCTION&Zmethod=UPDATE&FNC=LOAD&AREA=W&PageDir=$page&doR=1&bypassPage=1&test=1" 2>$null
+            if ($LASTEXITCODE -ne 0) {
+                $countyOk = $false
+                $countyFailReason = "paginated fetch failed for $date page $page (curl exit $LASTEXITCODE)"
+                break dateLoop
+            }
             $txt = $json -join ""
             if (-not $txt -or $txt -notmatch 'AITEM_') { break }
 
@@ -174,7 +238,34 @@ foreach ($c in $counties) {
         }
         if ($kept -gt 0) { Write-Host ("  {0} {1} properties (of {2} seen)" -f $date, $kept, $seen) -ForegroundColor Green }
     }
+
+    if ($countyOk) {
+        $countyStatus += [pscustomobject]@{
+            county   = $c.County
+            status   = "COMPLETE"
+            rowCount = ($all.Count - $countyRowsBefore)
+            reason   = "calendar + pagination retrieval succeeded for every auction date found, no transport-level failure"
+        }
+    } else {
+        Write-Host ("  INCOMPLETE: {0}" -f $countyFailReason) -ForegroundColor Red
+        $countyStatus += [pscustomobject]@{
+            county   = $c.County
+            status   = "INCOMPLETE"
+            rowCount = ($all.Count - $countyRowsBefore)
+            reason   = $countyFailReason
+        }
+    }
 }
+
+# Always written, even when every county failed - sync-harvest-to-supabase.ps1's
+# stale-row closeout needs this file to positively know which counties, if
+# any, are safe to reconcile against; its own absence must mean "reconcile
+# nothing", never "assume everything succeeded" (same discipline as
+# harvest_lienhub_certificates.ps1's harvest_certificates_status.json).
+$countyStatus | ConvertTo-Json -Depth 3 | Set-Content $outStatus -Encoding utf8
+$completeCount = @($countyStatus | Where-Object { $_.status -eq "COMPLETE" }).Count
+$incompleteCount = @($countyStatus | Where-Object { $_.status -eq "INCOMPLETE" }).Count
+Write-Host ("Completeness: {0} COMPLETE, {1} INCOMPLETE (of {2} counties attempted)" -f $completeCount, $incompleteCount, $countyStatus.Count)
 
 # `_key` is no longer a property on these objects (the HashSet holds the dedupe
 # keys instead), so there is nothing left to exclude here - the emitted JSON is
