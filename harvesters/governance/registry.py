@@ -399,22 +399,55 @@ _FL_REALAUCTION = SourceRecord(
     access_method="html_calendar_plus_ajax_pagination",
     automation_status="READY - this project's longest-running, most-verified production source.",
     legal_status=SourceStatus.APPROVED,
-    commercial_use_status="GRANDFATHERED - this is a long-standing production source that predates this governance framework entirely. No formal Phase-8/9.5-style redistribution-rights document exists for it. Registered APPROVED to reflect years of existing, unchallenged production use, not because a rights audit of this specific class ever happened. Flagged in docs/commercial-data-inventory.md as a backfill-review candidate, not as a reason to disrupt production.",
-    storage_status="In production use.",
-    customer_display_status="In production use.",
-    redistribution_status="Not formally reviewed.",
-    api_export_status="Not currently exposed through a customer-facing export/API distinct from the app itself.",
+    commercial_use_status=(
+        "PRODUCTION-PRACTICE APPROVAL, NOT FORMALLY RIGHTS-CLEARED (Phase 33.5 finding, 2026-09-15) - this is "
+        "the same vendor platform (RealAuction.com, LLC) already formally audited for its Texas instances in "
+        "Phase 10B (docs/realauction-rights-audit.md), which found no Terms of Use anywhere for this vendor "
+        "and a robots.txt-disallow signal on every TX hostname tested. Phase 33.5 tested this directly against "
+        "a live FLORIDA host for the first time: a fetch of alachua.realtaxdeed.com/robots.txt was refused by "
+        "this session's robots-respecting tooling with ROBOTS_DISALLOWED - the same signal, now confirmed on "
+        "Florida's own production hosts, not merely inferred from the Texas sibling. No Terms of Use was newly "
+        "found for realauction.com or any FL county instance this phase either. 'Grandfathered/APPROVED' "
+        "reflects years of unchallenged production use, not a rights review that ever concluded FL access is "
+        "permitted. See claude/phase-33-5-florida-production-source-rights-audit.md."
+    ),
+    storage_status="In production use. No source-side restriction found or ruled out - no Terms of Use has ever been located for this vendor.",
+    customer_display_status="In production use, unfiltered - all harvested fields (address, parcel, case #, certificate #, bid, assessed value, appraiser link) reach public/app.js's card view and CSV export as-is; Florida's pipeline never calls this governance package's field-projection functions.",
+    redistribution_status="UNKNOWN - no Terms of Use was reachable to review, same as tx_realauction (docs/realauction-rights-audit.md Section 5/10).",
+    api_export_status="Not currently exposed through a customer-facing export/API distinct from the app itself. The CSV export (public/app.js exportCsvBtn) does carry this source's fields to the user's own machine.",
     historical_retention_status="Retained indefinitely, same as every other production row.",
-    document_image_rights_status="Not formally reviewed.",
+    document_image_rights_status="Not formally reviewed. harvest_all_counties.ps1's field set (case, cert, bid, assessed, parcel, appraiser deep-link, address, auction_url) includes no image/document bytes - text/metadata only, consistent with tx_realauction's same finding.",
     attribution_required=False,
-    rate_limit="Existing polite pacing in harvest_all_counties.ps1, not a source-stated requirement.",
-    robots_status="Not formally reviewed.",
-    terms_status="Not formally reviewed.",
-    review_date="2026-09-14",
-    reviewer="Phase 10A repository audit (registered for state-agnostic design proof, not re-reviewed)",
-    notes="Registered so the registry is genuinely state-agnostic (Phase 10A Step 2), not just Texas-shaped. This entry does NOT change, gate, or otherwise touch Florida's actual PowerShell harvesting pipeline - nothing in that pipeline calls this Python governance package.",
+    rate_limit="Existing polite pacing in harvest_all_counties.ps1, not a source-stated requirement. harvest_all_counties.ps1 sets a spoofed desktop-Chrome User-Agent string and never checks robots.txt (curl has no robots.txt awareness) - confirmed by direct code read, Phase 33.5.",
+    robots_status=(
+        "SIGNIFICANT PHASE 33.5 FINDING: a direct fetch of https://alachua.realtaxdeed.com/robots.txt (a real, "
+        "in-production Florida host from data/realauction_counties.csv) was refused by this session's "
+        "robots-respecting web-fetch tool with ROBOTS_DISALLOWED. This extends Phase 10B's Texas-only finding "
+        "(docs/realauction-rights-audit.md Section 4) to Florida directly, rather than by inference from the "
+        "same vendor. The literal robots.txt text still could not be obtained by any tool available this "
+        "phase. harvest_all_counties.ps1 uses curl directly and has never checked robots.txt at any point in "
+        "its history. See claude/phase-33-5-florida-production-source-rights-audit.md."
+    ),
+    terms_status="No Terms of Use was found for realauction.com or any FL county instance this phase, same absence Phase 10B found for the TX instances - absence of evidence, not evidence of absence.",
+    review_date="2026-09-15",
+    reviewer="Phase 33.5 formal rights audit (claude/phase-33-5-florida-production-source-rights-audit.md), extending Phase 10B's tx_realauction audit to this sibling FL source",
+    notes=(
+        "Registered so the registry is genuinely state-agnostic (Phase 10A Step 2), not just Texas-shaped. "
+        "This entry does NOT change, gate, or otherwise touch Florida's actual PowerShell harvesting pipeline "
+        "- nothing in that pipeline calls this Python governance package, so nothing below is enforced today. "
+        "Phase 33.5 (2026-09-15) performed this source's first real rights audit and found a robots.txt-disallow "
+        "signal directly on a Florida host (see robots_status) - a materially stronger finding than the prior "
+        "'not formally reviewed' placeholder. legal_status intentionally left APPROVED and unchanged: this "
+        "phase's own rules forbid deactivating a running production harvester based solely on this project's "
+        "own interpretation, and forbid making the underlying legal determination. This finding is escalated "
+        "for an explicit human decision, not acted on here."
+    ),
     restrictions=(),
-    doc_refs=(),
+    doc_refs=(
+        "scripts/harvest_all_counties.ps1",
+        "docs/realauction-rights-audit.md",
+        "claude/phase-33-5-florida-production-source-rights-audit.md",
+    ),
 )
 
 _FL_LAFT_PDFS = SourceRecord(
@@ -428,22 +461,57 @@ _FL_LAFT_PDFS = SourceRecord(
     access_method="pdf_per_jurisdiction",
     automation_status="READY - long-standing production source (scripts/harvest_laft_pdfs.py).",
     legal_status=SourceStatus.APPROVED,
-    commercial_use_status="GRANDFATHERED - same caveat as fl_realauction above: long-standing production use, no formal rights-audit document exists specifically for this class. County-published LAFT lists are themselves official/government sources (not vendor-authored), which is a materially different starting posture than the blocked TX vendors, but that observation has not been formalized into a document the way Harris/hctax.net's has.",
+    commercial_use_status=(
+        "GRANDFATHERED, LOWER RELATIVE RISK BUT STILL NOT FORMALLY REVIEWED (Phase 33.5 finding, 2026-09-15) - "
+        "county-published LAFT lists are genuinely official/government sources (Clerks of Court publishing "
+        "their own statutory F.S. 197.502(7) lists), a materially different starting posture than the two "
+        "vendor-platform FL sources (fl_realauction, fl_lienhub_certificates) or the blocked TX vendors. Two "
+        "of the ~47 confirmed sources (Hendry, Glades) are hosted via Municode, a third-party municipal-code "
+        "hosting vendor, rather than the county's own domain - still county-authored content, just "
+        "third-party-hosted. No source in this class encountered any bot-defense, WAF, or robots.txt-disallow "
+        "signal this phase (unlike fl_realauction/fl_lienhub_certificates). One concrete, novel finding: "
+        "Volusia's own public LAFT page (data/laft_pdf_sources.csv) is a human-facing click-through disclaimer "
+        "gate (ASP.NET WebForms 'Accept' postback) in front of the PDF; harvest_laft_pdfs.py's confirmed URL "
+        "fetches the static PDF asset directly and never presents or accepts that disclaimer - see notes below. "
+        "No county's LAFT page terms, disclaimer text, or copyright notice was formally read against automated "
+        "reuse for any of the ~47 sources this phase or any prior phase."
+    ),
     storage_status="In production use.",
-    customer_display_status="In production use.",
-    redistribution_status="Not formally reviewed.",
-    api_export_status="Not currently exposed through a customer-facing export/API distinct from the app itself.",
+    customer_display_status="In production use, unfiltered - extracted text fields (case/parcel/bid/address/legal description) reach public/app.js's card view and CSV export as-is; Florida's pipeline never calls this governance package's field-projection functions.",
+    redistribution_status="Text-only extraction is the only activity performed (confirmed, Phase 33 - docs/image-rights-policy.md); the source PDF files themselves are never stored or re-served. Whether even the extracted TEXT is cleared for this project's commercial (not just informational) reuse was not formally reviewed for any individual county this phase.",
+    api_export_status="Not currently exposed through a customer-facing export/API distinct from the app itself. The CSV export (public/app.js exportCsvBtn) does carry this source's fields to the user's own machine.",
     historical_retention_status="Retained indefinitely, same as every other production row.",
-    document_image_rights_status="Not formally reviewed.",
+    document_image_rights_status="Not formally reviewed for redistribution of the PDF files themselves (LEGAL_REVIEW_REQUIRED per docs/image-rights-policy.md's classification table) - moot in practice today since this project only ever extracts text and never stores or re-serves the PDF bytes.",
     attribution_required=False,
     rate_limit=None,
-    robots_status="Not formally reviewed.",
-    terms_status="Not formally reviewed.",
-    review_date="2026-09-14",
-    reviewer="Phase 10A repository audit (registered for state-agnostic design proof, not re-reviewed)",
-    notes="Registered for state-agnostic design proof only - see fl_realauction's notes for the same caveat, which applies here too.",
+    robots_status="Not formally reviewed for any individual county site this phase; no bot-defense or WAF behavior was encountered by this harvester in its own operating history, unlike fl_lienhub_certificates.",
+    terms_status=(
+        "Not formally reviewed for any of the ~47 confirmed county sources. One new, specific finding (Phase "
+        "33.5): Volusia's public-facing LAFT page requires a human to click through an 'Accept' disclaimer "
+        "before the site's own UI reveals the PDF link; this project's harvester bypasses that disclaimer "
+        "entirely by fetching the confirmed static PDF URL directly (data/laft_pdf_sources.csv's own Volusia "
+        "note documents this explicitly). What that disclaimer actually says, and whether it constitutes a "
+        "binding usage restriction a human visitor would otherwise have to accept, was not read this phase."
+    ),
+    review_date="2026-09-15",
+    reviewer="Phase 33.5 formal rights audit (claude/phase-33-5-florida-production-source-rights-audit.md)",
+    notes=(
+        "Registered for state-agnostic design proof only - see fl_realauction's notes for the same governance-"
+        "package-doesn't-gate-Florida caveat, which applies here too. Phase 33.5 (2026-09-15) is this source's "
+        "first real rights audit: found this class carries materially lower risk than the other two grandfathered "
+        "FL sources (official/government origin, text-only extraction, no anti-bot defenses encountered), but "
+        "also found a genuine, previously-undocumented disclaimer-bypass pattern on at least one county "
+        "(Volusia) and confirmed that no per-county terms review has ever actually been performed across the "
+        "~47 sources in data/laft_pdf_sources.csv. legal_status intentionally left APPROVED and unchanged - "
+        "same reasoning as fl_realauction above."
+    ),
     restrictions=(),
-    doc_refs=(),
+    doc_refs=(
+        "scripts/harvest_laft_pdfs.py",
+        "data/laft_pdf_sources.csv",
+        "docs/image-rights-policy.md",
+        "claude/phase-33-5-florida-production-source-rights-audit.md",
+    ),
 )
 
 _FL_LIENHUB_CERTIFICATES = SourceRecord(
@@ -457,22 +525,54 @@ _FL_LIENHUB_CERTIFICATES = SourceRecord(
     access_method="html_scrape",
     automation_status="READY - production source, reliability fix shipped 2026-08-25 (see CLAUDE.md 'Certificates sync fix').",
     legal_status=SourceStatus.APPROVED,
-    commercial_use_status="GRANDFATHERED - same caveat as fl_realauction above.",
-    storage_status="In production use.",
-    customer_display_status="In production use.",
-    redistribution_status="Not formally reviewed.",
-    api_export_status="Not currently exposed through a customer-facing export/API distinct from the app itself.",
+    commercial_use_status=(
+        "GRANDFATHERED - HIGHEST-RISK OF THE THREE FL SOURCES (Phase 33.5 finding, 2026-09-15). LienHub is a "
+        "branded product of Grant Street Group (Pittsburgh, PA) - a third-party government-services vendor, "
+        "not a government entity itself - licensed to FL county tax collectors as an integrated 'County-Held "
+        "Tax Certificate Sales' product. This phase confirmed, from this project's OWN harvester code comments "
+        "(scripts/harvest_lienhub_certificates.ps1, lines ~101-115), that a live CI run with no inter-request "
+        "delay produced a 403 response from 31 of 32 counties, and the harvester's own commit history "
+        "explicitly attributes this to 'a WAF/bot-block reacting to request velocity, not a request-format "
+        "bug' - the current jittered-delay-plus-escalating-backoff-retry logic exists specifically to get "
+        "through that block, not because the vendor granted any exception. Independently, this phase's own "
+        "web-fetch attempts against lienhub.com (the certificate data page AND the /doc/terms User Agreement "
+        "page) both returned 403 as well, while the site's root page and /doc/privacy page did not - a pattern "
+        "consistent with the harvester's own documented WAF behavior. A Terms of Use ('User Agreement') was "
+        "located at lienhub.com/doc/terms but its content could not be read this phase because of that same "
+        "block - a genuine evidence gap, not an absence of terms. This is the only one of the three FL sources "
+        "where this project's own code contains direct, first-party evidence of an active anti-automation "
+        "control being detected and worked around, rather than merely 'not yet checked'."
+    ),
+    storage_status="In production use. No source-side restriction found or ruled out - the one located Terms of Use document has not yet been read.",
+    customer_display_status="In production use, unfiltered - all harvested fields (owner, address, certificate #, bid, assessed value, legal description) reach public/app.js's card view and CSV export as-is; Florida's pipeline never calls this governance package's field-projection functions.",
+    redistribution_status="Not formally reviewed - the located Terms of Use (lienhub.com/doc/terms) has not been read (blocked, see commercial_use_status).",
+    api_export_status="Not currently exposed through a customer-facing export/API distinct from the app itself. The CSV export (public/app.js exportCsvBtn) does carry this source's fields to the user's own machine.",
     historical_retention_status="Retained indefinitely, same as every other production row.",
-    document_image_rights_status="Not formally reviewed.",
+    document_image_rights_status="Not formally reviewed. This source's field set (account #, certificate #, dates, amounts, owner/property text, legal description) includes no image/document URLs by design (confirmed, Phase 33 - docs/image-rights-policy.md).",
     attribution_required=False,
-    rate_limit=None,
-    robots_status="Not formally reviewed.",
-    terms_status="Not formally reviewed.",
-    review_date="2026-09-14",
-    reviewer="Phase 10A repository audit (registered for state-agnostic design proof, not re-reviewed)",
-    notes="Registered for state-agnostic design proof only - see fl_realauction's notes for the same caveat, which applies here too.",
+    rate_limit="harvest_lienhub_certificates.ps1 applies a 4-9s jittered inter-county delay plus a two-step (20s/45s) backoff retry - added specifically in response to observed 403s at higher request rates (see commercial_use_status). This is this project's own defensive workaround for an observed technical control, not a limit the vendor has published or confirmed.",
+    robots_status="Not determined this phase - a direct fetch of lienhub.com/robots.txt itself returned 403 (the same bot-defense described in commercial_use_status), so even the robots.txt file's contents could not be obtained, let alone reviewed.",
+    terms_status="A Terms of Use ('User Agreement') exists at lienhub.com/doc/terms, located this phase, but its content could not be retrieved - every fetch attempt returned 403, consistent with the same bot-defense the harvester's own commit history describes. This is an unread, not an absent, document - a human reading it directly in an ordinary browser session is the concrete next step.",
+    review_date="2026-09-15",
+    reviewer="Phase 33.5 formal rights audit (claude/phase-33-5-florida-production-source-rights-audit.md)",
+    notes=(
+        "Registered for state-agnostic design proof only - see fl_realauction's notes for the same governance-"
+        "package-doesn't-gate-Florida caveat, which applies here too. Phase 33.5 (2026-09-15) is this source's "
+        "first real rights audit and found the single most concrete technical-access-control finding of any FL "
+        "source: this project's own harvester code documents an observed WAF/bot-block and was iterated "
+        "specifically to work around it, and this phase's own independent web-fetch attempts reproduced the "
+        "same block against both the data pages and the vendor's own Terms of Use page. legal_status "
+        "intentionally left APPROVED and unchanged - this phase's own rules forbid deactivating a running "
+        "production harvester based solely on this project's own interpretation, and forbid making the "
+        "underlying legal determination. Of the three FL sources audited this phase, this one most clearly "
+        "warrants a human reading the actual Terms of Use directly and deciding whether continued automated "
+        "retrieval is consistent with it."
+    ),
     restrictions=(),
-    doc_refs=(),
+    doc_refs=(
+        "scripts/harvest_lienhub_certificates.ps1",
+        "claude/phase-33-5-florida-production-source-rights-audit.md",
+    ),
 )
 
 

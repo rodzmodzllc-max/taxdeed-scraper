@@ -545,3 +545,48 @@ def test_every_new_phase33_source_cites_the_phase33_report():
     for source_id in ("fl_dor_statewide", "tx_comptroller_directory"):
         record = SOURCE_REGISTRY[source_id]
         assert "claude/phase-33-source-compliance-audit.md" in record.doc_refs, source_id
+
+
+# ---------------------------------------------------------------------------
+# Phase 33.5 additions: the three grandfathered Florida production sources
+# now carry a real rights-audit citation and annotated findings, but their
+# legal_status and ingestion-gate behavior are unchanged - this phase's own
+# rules forbid altering production approval unilaterally. These tests guard
+# both halves of that guarantee at once.
+# ---------------------------------------------------------------------------
+
+def test_phase33_5_grandfathered_fl_sources_still_approved_and_unenforced_but_now_documented():
+    for source_id in ("fl_realauction", "fl_laft_pdfs", "fl_lienhub_certificates"):
+        record = SOURCE_REGISTRY[source_id]
+        # legal_status/ingestion behavior: byte-for-byte unchanged by the audit.
+        assert record.legal_status == SourceStatus.APPROVED, source_id
+        decision = check_ingestion_gate(source_id)
+        assert decision.allowed is True, source_id
+        # documentation: the audit's own citation must now be present, and the
+        # placeholder "Not formally reviewed." must be gone from every status
+        # field this phase actually investigated (robots/terms at minimum).
+        assert "claude/phase-33-5-florida-production-source-rights-audit.md" in record.doc_refs, source_id
+        assert record.robots_status != "Not formally reviewed.", source_id
+        assert record.terms_status != "Not formally reviewed.", source_id
+        assert record.review_date == "2026-09-15", source_id
+
+
+def test_phase33_5_realauction_and_lienhub_carry_their_distinct_new_findings():
+    # Each of the two vendor-platform FL sources got a materially different
+    # kind of new evidence this phase - assert each one's specific finding
+    # actually landed in the registry, not just generic boilerplate text.
+    realauction = SOURCE_REGISTRY["fl_realauction"]
+    assert "ROBOTS_DISALLOWED" in realauction.robots_status
+    assert "alachua.realtaxdeed.com" in realauction.robots_status
+
+    lienhub = SOURCE_REGISTRY["fl_lienhub_certificates"]
+    assert "WAF" in lienhub.commercial_use_status
+    assert "403" in lienhub.commercial_use_status
+
+
+def test_phase33_5_did_not_touch_texas_or_other_florida_records():
+    # Narrow-annotation discipline: only the three named grandfathered FL
+    # sources were edited this phase. Spot-check a TX record and the newest
+    # Phase 33 FL record are untouched (still cite only their own phases).
+    assert "claude/phase-33-5-florida-production-source-rights-audit.md" not in SOURCE_REGISTRY["tx_realauction"].doc_refs
+    assert "claude/phase-33-5-florida-production-source-rights-audit.md" not in SOURCE_REGISTRY["fl_dor_statewide"].doc_refs
