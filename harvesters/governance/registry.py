@@ -476,6 +476,97 @@ _FL_LIENHUB_CERTIFICATES = SourceRecord(
 )
 
 
+_FL_DOR_STATEWIDE = SourceRecord(
+    source_id="fl_dor_statewide",
+    source_name="Florida Department of Revenue Property Tax Data Portal (statewide NAL/NAP assessment rolls, sales files, GIS)",
+    state="FL",
+    jurisdiction="statewide (all 67 counties, one source)",
+    source_url="https://floridarevenue.com/dataPortal/Pages/default.aspx",
+    source_type="government",
+    official_or_vendor="official",
+    access_method="direct_download_current_year; request_by_email_fax_mail_or_phone for historical years",
+    automation_status="DISCOVERED - current-year NAL/NAP assessment rolls, sales files (2009-present), and GIS files (2005-present) are directly downloadable today; not wired into any harvester in this codebase.",
+    legal_status=SourceStatus.LEGAL_REVIEW_REQUIRED,
+    commercial_use_status=(
+        "NO RESTRICTION FOUND; NO PERMISSION FOUND. Phase 33 web review (2026-09-15) of "
+        "floridarevenue.com/dataPortal/Pages/default.aspx and the linked "
+        "DataPortal_RequestAssessmentRollGISData.aspx page found no fee, no application/license "
+        "agreement, and no stated commercial-use, redistribution, or automated/bulk-access terms in "
+        "either direction. The page cites Florida Statutes Chapter 119 (the Public Records Act) as the "
+        "basis for disclosure and states files are screened to exclude confidential records (e.g. SSNs) "
+        "- a meaningfully different starting posture than any of the blocked TX vendors (statutory public "
+        "records vs. a vendor's proprietary terms), but per this project's standing rule, absence of a "
+        "prohibition is never read as permission. Not upgraded to APPROVED without an actual finding."
+    ),
+    storage_status="NO RESTRICTION FOUND; NO PERMISSION FOUND.",
+    customer_display_status="NO RESTRICTION FOUND; NO PERMISSION FOUND.",
+    redistribution_status="NO RESTRICTION FOUND; NO PERMISSION FOUND.",
+    api_export_status="NO RESTRICTION FOUND; NO PERMISSION FOUND.",
+    historical_retention_status="Historical NAL/NAP (2002-present), sales (2009-present), and GIS (2005-present) available by request; no stated retention restriction found on this project's own copy either way.",
+    document_image_rights_status="N/A - this source publishes tabular assessment/sales/GIS data, not images or documents.",
+    attribution_required=False,
+    rate_limit="No source-stated limit found. Current-year files are direct downloads; historical requests go through a human intake process (email/fax/phone), which is itself a natural pacing control.",
+    robots_status="Not reviewed this phase.",
+    terms_status="No Terms of Use / license page was located on floridarevenue.com's Data Portal section during this review; only the Chapter 119 public-records framing described above.",
+    review_date="2026-09-15",
+    reviewer="Phase 33 source-of-truth audit (WebFetch review of floridarevenue.com/dataPortal)",
+    notes=(
+        "NEW in Phase 33 - Florida's first statewide, government-first, currently-free source formally "
+        "entered into the registry (as opposed to fl_realauction/fl_laft_pdfs/fl_lienhub_certificates, "
+        "which are grandfathered vendor/county-by-county production sources never audited at all). "
+        "Represents the single-source-covers-67-counties pattern Phase 33 calls for, distinct from a "
+        "vendor/county entry. Not wired into any harvester - this is a discovery + partial-rights-review "
+        "entry, not an implementation. The Chapter 119 public-records basis is a genuinely stronger "
+        "starting position than any BLOCKED TX vendor, but 'stronger' is not the same as 'cleared' - "
+        "commercial redistribution and automated bulk-access rights specifically were not addressed "
+        "anywhere in the pages reviewed, so LEGAL_REVIEW_REQUIRED is the correct, conservative status "
+        "per Phase 33's own Rule 9."
+    ),
+    restrictions=(),
+    doc_refs=("claude/phase-33-source-compliance-audit.md",),
+)
+
+_TX_COMPTROLLER_DIRECTORY = SourceRecord(
+    source_id="tx_comptroller_directory",
+    source_name="Texas Comptroller of Public Accounts - official county-by-county Appraisal District Directory",
+    state="TX",
+    jurisdiction="statewide (all 254 counties, one directory mechanism - see notes on extraction status)",
+    source_url="https://comptroller.texas.gov/taxes/property-tax/county-directory/",
+    source_type="government",
+    official_or_vendor="official",
+    access_method="one_html_page_per_county (https://comptroller.texas.gov/taxes/property-tax/county-directory/<county>.php); no single bulk export confirmed this phase",
+    automation_status="DISCOVERED - confirmed real and periodically updated (Phase 33 web review, 2026-09-15); NOT extracted into this codebase for any of the 254 counties yet. Distinct from Property Tax Data Reports/Surveys (comptroller.texas.gov/taxes/property-tax/reports/), a separate statewide-statistics resource also not yet reviewed for licensing.",
+    legal_status=SourceStatus.DISCOVERED,
+    commercial_use_status="NOT YET REVIEWED - this phase confirmed the directory exists and its per-county URL pattern; it did not locate or review any Terms of Use, license, or commercial-use/redistribution language for comptroller.texas.gov.",
+    storage_status="NOT YET REVIEWED.",
+    customer_display_status="NOT YET REVIEWED.",
+    redistribution_status="NOT YET REVIEWED.",
+    api_export_status="NOT YET REVIEWED.",
+    historical_retention_status="NOT YET REVIEWED.",
+    document_image_rights_status="N/A - directory entries are contact/link information (appraisal district name, address, phone, website), not images or documents.",
+    attribution_required=False,
+    rate_limit=None,
+    robots_status="Not reviewed this phase.",
+    terms_status="Not reviewed this phase.",
+    review_date="2026-09-15",
+    reviewer="Phase 33 source-of-truth audit (WebSearch/WebFetch of comptroller.texas.gov)",
+    notes=(
+        "NEW in Phase 33 - registered at DISCOVERED (the least-developed status), deliberately not "
+        "advanced to LEGAL_REVIEW_REQUIRED or any higher state, because this phase did only enough work "
+        "to confirm the mechanism exists (one page per county, e.g. "
+        ".../county-directory/gonzales.php) and did not yet review its terms or extract the full 254-row "
+        "mapping. This is the correct next official-first target for closing Texas's county-to-appraisal-"
+        "district mapping gap (Phase 33 Section 15) in a future phase, following the same technical-"
+        "reconnaissance-then-rights-reconnaissance sequence docs/source-registry.md's 'Future source "
+        "onboarding process' already documents. Not a substitute for tx_hctax or any of the four BLOCKED "
+        "vendor entries - this is a directory of WHO to contact/link to per county, not itself a source "
+        "of auction/sale/parcel data."
+    ),
+    restrictions=(),
+    doc_refs=("claude/phase-33-source-compliance-audit.md",),
+)
+
+
 SOURCE_REGISTRY: dict[str, SourceRecord] = {
     r.source_id: r
     for r in (
@@ -486,9 +577,11 @@ SOURCE_REGISTRY: dict[str, SourceRecord] = {
         _TX_MVBA,
         _TX_CTSA,
         _TX_GOVEASE,
+        _TX_COMPTROLLER_DIRECTORY,
         _FL_REALAUCTION,
         _FL_LAFT_PDFS,
         _FL_LIENHUB_CERTIFICATES,
+        _FL_DOR_STATEWIDE,
     )
 }
 

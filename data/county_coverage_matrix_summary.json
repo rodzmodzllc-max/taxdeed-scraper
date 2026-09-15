@@ -1,0 +1,9 @@
+{
+  "fl_counties_total": 67,
+  "fl_counties_with_any_known_auction_source": 46,
+  "fl_counties_with_known_cert_source": 66,
+  "fl_counties_with_known_laft_source": 47,
+  "fl_counties_with_any_category_known": 66,
+  "tx_counties_total": 254,
+  "tx_counties_with_any_known_auction_source": 42
+}
