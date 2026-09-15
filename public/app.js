@@ -1962,8 +1962,20 @@ function syncBodyScrollLock() {
 // close. These two helpers are shared by all of them so the behavior (and
 // its correctness) is defined once.
 let modalReturnFocusEl = null;
-function focusIntoModal(modal) {
-  modalReturnFocusEl = document.activeElement;
+// returnEl lets a caller override what document.activeElement would
+// otherwise capture - needed for profile/change-password, whose trigger
+// buttons (editProfileBtn/changePasswordBtn) live INSIDE the account menu,
+// which the same click that opens them also closes (see the account
+// menu's own delegated click handler below). By the time Escape runs
+// restoreModalFocus() later, that trigger is inside a hidden container and
+// silently un-focusable - .focus() no-ops and activeElement falls back to
+// <body>, losing the user's place instead of returning them anywhere
+// useful. Passing accountBtn (still visible throughout) fixes this for
+// those two call sites; every other modal's trigger stays visible the
+// whole time, so the default document.activeElement capture is correct
+// there and is left alone.
+function focusIntoModal(modal, returnEl) {
+  modalReturnFocusEl = returnEl || document.activeElement;
   const closeBtn = modal && modal.querySelector(".detail-close");
   if (closeBtn) closeBtn.focus();
 }
@@ -3722,7 +3734,7 @@ function openProfileModal() {
   if (pfMsg) { pfMsg.textContent = ""; pfMsg.className = "auth-msg"; }
   profileModal.hidden = false;
   pushBackLayer("profile", closeProfileModal);
-  if (wasHidden) focusIntoModal(profileModal);
+  if (wasHidden) focusIntoModal(profileModal, document.getElementById("accountBtn"));
 }
 
 const editProfileBtn = document.getElementById("editProfileBtn");
@@ -3850,7 +3862,7 @@ window.addEventListener("appinstalled", () => {
     showMsg("", false);
     modal.hidden = false;
     pushBackLayer("password", closeModal);
-    if (wasHidden) focusIntoModal(modal);
+    if (wasHidden) focusIntoModal(modal, document.getElementById("accountBtn"));
   }
 
   function closeModal() {
