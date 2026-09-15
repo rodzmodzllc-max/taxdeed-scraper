@@ -248,14 +248,28 @@ if ($staleIds.Count -gt 0) {
 Write-Output "Marking $($staleIds.Count) certificate(s) notfound (absent from a COMPLETE county harvest this run)..."
 $patchHeaders = $headers.Clone()
 $patchHeaders["Prefer"] = "return=minimal"
-# Only status/outcome are ever written here - every other field
-# (owner_name, assessed, interest_rate, notes, favorites, hidden, etc.)
-# is left exactly as it was, same discipline as the upsert step above.
-# `outcome` records this as an inference, not a confirmed fact: LienHub's
+# Only status is ever written here - every other field (owner_name,
+# assessed, interest_rate, notes, favorites, hidden, etc.) is left exactly
+# as it was, same discipline as the upsert step above.
+# Phase 27: production `properties` has no `outcome` column (confirmed live
+# via Phase 26's forensic audit - see claude/phase-26-production-schema-
+# forensic-audit.md and claude/phase-27-certificate-reconciliation-schema-
+# truth-redesign.md), so this PATCH writes status only. This isn't a loss of
+# information: `gone_since` is already database-managed - a BEFORE UPDATE
+# trigger (`properties_gone_since` -> `track_gone_since()`) stamps it the
+# moment `status` transitions into ('dropped','sold','notfound') and clears
+# it if a row ever transitions back out, with no `source` filter, so it
+# fires identically for certificate rows without this script writing it.
+# `outcome` was never more than a same-PATCH narrative annotation ("no
+# longer listed") layered on top of that transition - LienHub's
 # county-held-liens listing only ever exposes currently-available
-# certificates, not a redemption/removal reason, so "no longer listed"
-# is what's actually known - not "redeemed" or "sold".
-$patchBody = [System.Text.Encoding]::UTF8.GetBytes('{"status":"notfound","outcome":"no longer listed"}')
+# certificates, never a redemption/removal reason, so there was never a
+# confirmed fact for it to record beyond what `status=notfound` (plus the
+# trigger-stamped `gone_since`) already captures. Do not resurrect `outcome`
+# or add a replacement narrative field here without a real production
+# column to back it - see Phase 14D's independent finding that this field
+# was deliberately deferred, not merely unimplemented.
+$patchBody = [System.Text.Encoding]::UTF8.GetBytes('{"status":"notfound"}')
 for ($i = 0; $i -lt $staleIds.Count; $i += $batchSize) {
 $idBatch = $staleIds[$i..([math]::Min($i + $batchSize - 1, $staleIds.Count - 1))]
 $patchUrl = "$supabaseUrl/rest/v1/properties?id=in.(" + ($idBatch -join ",") + ")"
