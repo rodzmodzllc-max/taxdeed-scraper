@@ -62,11 +62,13 @@ from .source_catalog import (
     FL_COUNTY_COUNT,
     SourcePriorityTier,
     TX_COUNTY_COUNT,
+    assert_every_terms_review_row_has_evidence,
     assert_matrix_completeness,
     gap_analysis,
     is_approved_status,
     is_unknown_or_unreviewed_status,
     load_fl_matrix,
+    load_terms_review,
     load_tx_matrix,
 )
 
@@ -114,10 +116,12 @@ __all__ = [
     "FL_COUNTY_COUNT",
     "SourcePriorityTier",
     "TX_COUNTY_COUNT",
+    "assert_every_terms_review_row_has_evidence",
     "assert_matrix_completeness",
     "gap_analysis",
     "is_approved_status",
     "is_unknown_or_unreviewed_status",
     "load_fl_matrix",
+    "load_terms_review",
     "load_tx_matrix",
 ]

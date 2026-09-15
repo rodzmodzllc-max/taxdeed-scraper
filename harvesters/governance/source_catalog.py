@@ -44,6 +44,15 @@ from .registry import SourceStatus
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 FL_MATRIX_PATH = REPO_ROOT / "data" / "fl_county_coverage_matrix.csv"
 TX_MATRIX_PATH = REPO_ROOT / "data" / "tx_county_coverage_matrix.csv"
+TERMS_REVIEW_PATH = REPO_ROOT / "data" / "phase36_terms_review.csv"
+
+# Phase 36 Section 11's exact rule, enforced as a constant so it is checked
+# the same way everywhere rather than re-derived per call site: a raw
+# per-dimension value equal to one of these means "we don't actually know",
+# and Section 11 requires that to be recorded as LEGAL_REVIEW_REQUIRED on
+# the source's overall legal_status - never left unresolved and never
+# quietly treated as permission.
+PHASE36_ESCALATES_TO_LEGAL_REVIEW = frozenset({"UNKNOWN", "UNK"})
 
 FL_COUNTY_COUNT = 67
 TX_COUNTY_COUNT = 254
@@ -268,6 +277,28 @@ def load_tx_matrix() -> list[dict[str, str]]:
     """The 254-row Texas county coverage matrix, read live from
     `data/tx_county_coverage_matrix.csv`."""
     return _read_matrix(TX_MATRIX_PATH)
+
+
+def load_terms_review() -> list[dict[str, str]]:
+    """Phase 36's per-source terms/commercial-use evidence ledger, read live
+    from `data/phase36_terms_review.csv`. Distinct from `load_fl_matrix()`/
+    `load_tx_matrix()` above (which track "does a source exist for this
+    county/category") and from `SOURCE_REGISTRY`/`PROVIDER_AUTHORIZATIONS`
+    (reserved for sources actually in, or being actively considered for,
+    the ingestion pipeline) - this is the narrower record of what an actual
+    terms-of-use/robots.txt review this phase found for a specific source,
+    with an `evidence_reference` for every row."""
+    return _read_matrix(TERMS_REVIEW_PATH)
+
+
+def assert_every_terms_review_row_has_evidence() -> None:
+    """Phase 36 Section 9's evidence-standard rule as a callable check: no
+    row in the terms-review ledger may assert a `legal_status` beyond the
+    earliest, least-asserted state (`DISCOVERED`) without a non-empty
+    `evidence_reference` naming what was actually consulted."""
+    for row in load_terms_review():
+        if row.get("legal_status") != "DISCOVERED" and not (row.get("evidence_reference") or "").strip():
+            raise AssertionError(f"{row.get('source_id')}: legal_status={row.get('legal_status')!r} has no evidence_reference")
 
 
 def gap_analysis() -> dict[str, object]:

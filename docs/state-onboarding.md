@@ -2,13 +2,28 @@
 
 **Status:** Phase 35 (County Source-of-Truth Catalog), 2026-09-15. Generalizes `docs/source-registry.md`'s existing "Future source onboarding process" (written against the single Harris County/`tx_hctax` case) into a repeatable pipeline that now has to serve two states and hundreds of counties, without collapsing the careful discovery-vs-authorization-vs-ingestion distinctions Phases 10A/34A/34B/35 each built.
 
-## The four stages, and which phase's data structure owns each one
+## The stages, and which phase's data structure owns each one
 
 ```
 1. CATALOG        -> harvesters/governance/source_catalog.py (Phase 35)
                       "what sources exist for this county, in this category,
                       and what do we currently know about them"
                       Most entries stop here. No automation, no ingestion.
+
+1.5 TERMS REVIEW   -> data/phase36_terms_review.csv, loaded via
+                      harvesters/governance/source_catalog.py::load_terms_review()
+                      (Phase 36)
+                      "for this specific catalog entry, what did we actually
+                      find when we looked at its terms of use / license /
+                      access controls, and what is the evidence" - narrower
+                      than the full step-2 rights reconnaissance below (it is
+                      research, not yet a registry decision), but the first
+                      point where "we found the right website" (stage 1) is
+                      explicitly distinguished from "we know what it
+                      permits." A row here is never better than
+                      LEGAL_REVIEW_REQUIRED - it cannot itself approve a
+                      source, only escalate an unresolved finding honestly
+                      instead of leaving it as a bare, ambiguous UNKNOWN.
 
 2. REGISTRY        -> harvesters/governance/registry.py (Phase 10A)
                       "this specific source_id is one this project actually
@@ -32,7 +47,7 @@
                       are produced.
 ```
 
-A catalog entry moving from stage 1 to stage 2 is a deliberate, human-reviewed decision — not something that happens by a source merely appearing in `data/fl_county_coverage_matrix.csv`/`data/tx_county_coverage_matrix.csv`. As of Phase 35, every catalog row for a source not already in `SOURCE_REGISTRY` sits at stage 1 only.
+A catalog entry moving from stage 1 to stage 2 is a deliberate, human-reviewed decision — not something that happens by a source merely appearing in `data/fl_county_coverage_matrix.csv`/`data/tx_county_coverage_matrix.csv`, or by acquiring a stage-1.5 terms-review row. As of Phase 36, 27 catalog-adjacent sources have a stage-1.5 terms-review finding; none of them has moved to stage 2 as a result — every one of Phase 35's catalog rows not already in `SOURCE_REGISTRY` still sits at stage 1 (or stage 1.5, for the 27 reviewed), never stage 2, until a human deliberately runs the six-step process below.
 
 ## The six-step promotion process (from stage 1 to a working, authorized ingestion path)
 
@@ -52,3 +67,11 @@ Unchanged in substance from `docs/source-registry.md`'s original Harris County t
 - Confirmation that the Florida DOR's `LocalOfficials.aspx` directory and the Texas Comptroller's county-directory index both exist and cover all counties in their respective states, but as interactive dropdown/lookup interfaces rather than a single bulk-listable page — meaning per-county extraction for the remaining 55 Florida and 212 Texas counties is real, bounded, future work, not an unknown quantity.
 
 None of this moves any source from stage 1 to stage 2. See `claude/phase-35-county-source-of-truth-catalog.md` for the full findings and `docs/data-completeness.md` for the exact, current completeness numbers.
+
+## What Phase 36 specifically added at stage 1.5
+
+- A 27-row terms-review ledger (`data/phase36_terms_review.csv`) covering the highest-priority sources from Phases 33–35: the LienHub and RealAuction provider/platform level, 4 individual RealAuction county deployments (Alachua, Volusia, Miami-Dade, Brevard in Florida; Travis in Texas), 12 individually reviewed Florida Property Appraiser sites, 2 statewide resources per state (Florida DOR's Data Portal; Texas's Comptroller Property Tax Reports and TNRIS/StratMap GIS layer), and 6 Texas Appraisal Districts.
+- A structural distinction, enforced by tests, between a source **actually reviewed this phase and found inconclusive** (escalates to `LEGAL_REVIEW_REQUIRED`, per Phase 36 Section 11's rule that an unresolved commercial-use/automated-access/customer-display/redistribution finding is never left as a bare `UNKNOWN`) and a source **not reviewable at all this phase** (a JavaScript portal with no extractable content — stays honestly at `DISCOVERED`, since no review actually happened).
+- Confirmation that the `SOURCE_REGISTRY`-level `APPROVED` status of `fl_realauction`/`fl_laft_pdfs`/`fl_lienhub_certificates` (grandfathered, Phase 10A) was **not** touched, upgraded, or reinterpreted by this new evidence — Phase 36 is read-only research, same as Phase 35, and the same six-step promotion process below still governs whether any of this evidence ever becomes a registry change.
+
+See `claude/phase-36-source-terms-commercial-verification.md` for the full source-by-source findings and evidence references.
