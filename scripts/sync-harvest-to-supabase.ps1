@@ -29,6 +29,7 @@ $ErrorActionPreference = "Stop"
 
 $here     = $PSScriptRoot
 $jsonPath = Join-Path $here "../out/harvest_all.json"
+$statusPath = Join-Path $here "../out/harvest_all_status.json"
 
 $supabaseUrl = $env:SUPABASE_URL
 $serviceRoleKey = $env:SUPABASE_SERVICE_KEY
@@ -128,35 +129,93 @@ Write-Output "Counties covered: $((($rows | ForEach-Object { $_.county }) | Sele
 # Closed or Canceled". Confirmed live on Charlotte: the app kept showing
 # "10/10 active" well after the county's site showed only 4 still waiting.
 #
-# Fix: for every auction-sourced property still marked 'active' whose sale
-# date has already arrived, if its (county, case_no) isn't in what we just
-# harvested, it has left the Waiting feed - flip it to 'closed'. This can't
-# distinguish Redeemed from Canceled from Sold (that needs scraping the
-# Closed/Canceled section too, which nothing here does yet), but it's the
-# difference between an accurate "closed" badge and a stale "active" one
-# that's flat wrong days or weeks after the fact.
-$today = (Get-Date).ToString("yyyy-MM-dd")
-$harvestedKeys = [System.Collections.Generic.HashSet[string]]::new()
-foreach ($r in $rows) { $harvestedKeys.Add("$($r.county)|$($r.case_no)") | Out-Null }
-
-$activeUrl = "$supabaseUrl/rest/v1/properties?source=eq.auction&status=eq.active&sale_date=lte.$today&select=id,county,case_no&limit=5000"
-$activeRows = Invoke-RestMethod -Uri $activeUrl -Method Get -Headers $headers
-
-$staleIds = @()
-foreach ($ar in $activeRows) {
-    if (-not $harvestedKeys.Contains("$($ar.county)|$($ar.case_no)")) { $staleIds += $ar.id }
+# Fix: for every FL auction-sourced property still marked 'active' whose sale
+# date has already arrived, if its (county, case_no) isn't in what a COMPLETE
+# county's harvest this run saw, it has left the Waiting feed - flip it to
+# 'closed'. This can't distinguish Redeemed from Canceled from Sold (that
+# needs scraping the Closed/Canceled section too, which nothing here does
+# yet), but it's the difference between an accurate "closed" badge and a
+# stale "active" one that's flat wrong days or weeks after the fact.
+#
+# Phase 30B: this closeout previously ran with no per-county completeness
+# gate at all - it queried and could close out EVERY active,
+# sale-date-passed auction property statewide, regardless of whether that
+# county's harvest this run actually succeeded. A county whose harvest
+# failed (network error, timeout, site change) would have every one of its
+# still-genuinely-listed properties wrongly flipped to 'closed', for the
+# exact same reason Phase 23B had to fix this for certificates - see
+# claude/phase-30b-deed-completeness-and-closed-gone-since.md. A property is
+# only ever closed out now if harvest_all_status.json (written by
+# harvest_all_counties.ps1 / harvest_okaloosa_bid4assets.ps1) explicitly
+# marks that specific county COMPLETE this run; the file's absence, or any
+# parse failure, fails CLOSED (zero counties eligible), never open - same
+# discipline as sync-certificates-to-supabase.ps1's reconciliation step.
+#
+# Phase 30B also adds `state=eq.FL` to the query below, which this closeout
+# never had: Texas's own RealAuction harvest also writes source='auction'
+# (harvesters/texas_harvester.py, source="auction"), and without a state
+# filter this closeout was one FL sync run away from silently closing out
+# any TX auction property whose sale_date passed, the moment one existed -
+# confirmed live this phase that TX currently has 47 active auction rows
+# and 0 with a passed sale_date yet, i.e. this had not yet fired by chance,
+# not because it couldn't.
+$completeCounties = [System.Collections.Generic.HashSet[string]]::new()
+if (Test-Path $statusPath) {
+    try {
+        $countyStatusRaw = Get-Content $statusPath -Raw | ConvertFrom-Json
+        foreach ($cs in @($countyStatusRaw)) {
+            if ($cs.status -eq "COMPLETE") { $completeCounties.Add([string]$cs.county) | Out-Null }
+        }
+        Write-Output "Reconciliation-eligible (COMPLETE) counties this run: $($completeCounties.Count)"
+    } catch {
+        Write-Warning "harvest_all_status.json could not be parsed - skipping stale-property closeout entirely this run (fail closed): $($_.Exception.Message)"
+        $completeCounties.Clear()
+    }
+} else {
+    Write-Warning "No harvest_all_status.json found - skipping stale-property closeout entirely this run (fail closed: no county can be assumed complete without explicit confirmation)."
 }
 
-if ($staleIds.Count -gt 0) {
-    Write-Output "Closing out $($staleIds.Count) properties whose sale date passed and are no longer on the Waiting feed..."
-    $patchHeaders = $headers.Clone()
-    $patchHeaders["Prefer"] = "return=minimal"
-    for ($i = 0; $i -lt $staleIds.Count; $i += $batchSize) {
-        $idBatch = $staleIds[$i..([math]::Min($i + $batchSize - 1, $staleIds.Count - 1))]
-        $patchUrl = "$supabaseUrl/rest/v1/properties?id=in.(" + ($idBatch -join ",") + ")"
-        Invoke-RestMethod -Uri $patchUrl -Method Patch -Headers $patchHeaders -Body ([System.Text.Encoding]::UTF8.GetBytes('{"status":"closed"}')) | Out-Null
+if ($completeCounties.Count -gt 0) {
+    $today = (Get-Date).ToString("yyyy-MM-dd")
+    # Harvested identity keys this run, scoped strictly per COMPLETE county -
+    # matches sync-certificates-to-supabase.ps1's $harvestedKeysByCounty.
+    $harvestedKeysByCounty = @{}
+    foreach ($r in $rows) {
+        if (-not $completeCounties.Contains([string]$r.county)) { continue }
+        if (-not $harvestedKeysByCounty.ContainsKey($r.county)) {
+            $harvestedKeysByCounty[$r.county] = [System.Collections.Generic.HashSet[string]]::new()
+        }
+        $harvestedKeysByCounty[$r.county].Add([string]$r.case_no) | Out-Null
     }
-    Write-Output "Done closing out stale properties."
+
+    $encodedCounties = ($completeCounties | ForEach-Object { [uri]::EscapeDataString($_) }) -join ","
+    $activeUrl = "$supabaseUrl/rest/v1/properties?state=eq.FL&source=eq.auction&status=eq.active&sale_date=lte.$today&county=in.($encodedCounties)&select=id,county,case_no&limit=5000"
+    $activeRows = Invoke-RestMethod -Uri $activeUrl -Method Get -Headers $headers
+
+    $staleIds = @()
+    foreach ($ar in $activeRows) {
+        # Defense in depth: re-check county membership even though the query
+        # above already filters on it (matches the certificate reconciliation
+        # step's own defensive re-check).
+        if (-not $completeCounties.Contains([string]$ar.county)) { continue }
+        $keysForCounty = $harvestedKeysByCounty[$ar.county]
+        $stillListed = $keysForCounty -and $keysForCounty.Contains([string]$ar.case_no)
+        if (-not $stillListed) { $staleIds += $ar.id }
+    }
+
+    if ($staleIds.Count -gt 0) {
+        Write-Output "Closing out $($staleIds.Count) properties whose sale date passed and are no longer on a COMPLETE county's Waiting feed..."
+        $patchHeaders = $headers.Clone()
+        $patchHeaders["Prefer"] = "return=minimal"
+        for ($i = 0; $i -lt $staleIds.Count; $i += $batchSize) {
+            $idBatch = $staleIds[$i..([math]::Min($i + $batchSize - 1, $staleIds.Count - 1))]
+            $patchUrl = "$supabaseUrl/rest/v1/properties?id=in.(" + ($idBatch -join ",") + ")"
+            Invoke-RestMethod -Uri $patchUrl -Method Patch -Headers $patchHeaders -Body ([System.Text.Encoding]::UTF8.GetBytes('{"status":"closed"}')) | Out-Null
+        }
+        Write-Output "Done closing out stale properties."
+    } else {
+        Write-Output "No stale active properties to close out in this run's COMPLETE counties."
+    }
 } else {
-    Write-Output "No stale active properties to close out."
+    Write-Output "Zero COMPLETE counties this run - stale-property closeout skipped entirely (nothing closed out)."
 }
