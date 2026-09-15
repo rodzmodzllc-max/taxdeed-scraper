@@ -621,6 +621,11 @@ function showErrorToast(msg) {
     el = document.createElement("div");
     el.id = "errToast";
     el.className = "err-toast";
+    // role="alert" (implicit aria-live="assertive") so a screen-reader user
+    // is actually told a write action (favorite/hide/restore/note) failed -
+    // previously this was silent to assistive tech, matching the visual
+    // toast's own transient, no-action-required nature.
+    el.setAttribute("role", "alert");
     el.addEventListener("click", hideErrorToast);
     document.body.appendChild(el);
   }
@@ -1905,7 +1910,7 @@ function detailHtml(p) {
   }
 
   return `
-    <button class="detail-close" data-action="closedetail" type="button">✕</button>
+    <button class="detail-close" data-action="closedetail" type="button" aria-label="Close">✕</button>
     <div class="prop-county-tag">${esc(p.county)} County${isCert ? " · Certificate" : (p.source === "laft" ? " · Lands Available" : " · Auction")}</div>
     <h2 class="detail-address">${title}</h2>
     <div class="prop-top-actions" style="margin:.2rem 0 .5rem">
@@ -1949,10 +1954,35 @@ function syncBodyScrollLock() {
   document.body.style.overflow = (detailOpen || bidListOpen || hiddenModalOpen) ? "hidden" : "";
 }
 
+// Phase 32D accessibility audit: none of this app's overlay modals moved
+// focus into themselves on open or restored it on close, so a keyboard or
+// screen-reader user who opened one (detail, watchlist, hidden-properties,
+// profile, terms, change-password) lost their place - focus stayed on a
+// now-visually-obscured trigger, or landed back at the top of the page on
+// close. These two helpers are shared by all of them so the behavior (and
+// its correctness) is defined once.
+let modalReturnFocusEl = null;
+function focusIntoModal(modal) {
+  modalReturnFocusEl = document.activeElement;
+  const closeBtn = modal && modal.querySelector(".detail-close");
+  if (closeBtn) closeBtn.focus();
+}
+function restoreModalFocus() {
+  const el = modalReturnFocusEl;
+  modalReturnFocusEl = null;
+  if (el && document.contains(el) && typeof el.focus === "function") el.focus();
+}
+
 function openDetail(p) {
   const modal = document.getElementById("detailModal");
   const inner = document.getElementById("detailModalInner");
   if (!modal || !inner) return;
+  // Only move focus in on a genuine open (modal was hidden) - openDetail()
+  // is also called to rebuild the modal's content in place while it's
+  // already open (e.g. after toggling favorite), and stealing focus back to
+  // the close button on every such refresh would fight whatever control
+  // inside the modal the user just used.
+  const wasHidden = modal.hidden;
   // .prop-card so the existing fav/hide/copy/savenote click delegation
   // (which looks for `.closest('.prop-card')`) keeps working inside the modal.
   // It takes the status edge too: the full page is the same property as the
@@ -1964,6 +1994,7 @@ function openDetail(p) {
   inner.innerHTML = detailHtml(p);
   modal.hidden = false;
   pushBackLayer("detail", closeDetail);
+  if (wasHidden) focusIntoModal(modal);
   syncBodyScrollLock();
 }
 function closeDetail() {
@@ -1972,6 +2003,7 @@ function closeDetail() {
   modal.hidden = true;
   popBackLayer("detail");
   syncBodyScrollLock();
+  restoreModalFocus();
 }
 // After a fav toggle, if this property's detail modal happens to be open,
 // rebuild it so the heart icon reflects the change instead of going stale.
@@ -2019,7 +2051,7 @@ function renderBidListModal() {
       ${pendingRows.map(p => `<div class="bidlist-pending-row"><span>${shortPropLabel(p)}</span><button class="reset-btn" data-action="bidlist" data-pid="${p.id}" type="button">Cancel</button></div>`).join("")}
     </div>` : "";
   inner.innerHTML = `
-    <button class="detail-close" data-action="closebidlist" type="button">✕</button>
+    <button class="detail-close" data-action="closebidlist" type="button" aria-label="Close">✕</button>
     <h2 class="detail-address" style="margin-top:.1rem">⚑ My Watchlist <span style="color:var(--ink-soft);font-weight:600">(${countLabel})</span></h2>
     <p class="mega-sub" style="margin:0 0 .8rem">The short list you're actively tracking — separate from ♡ Favorites, capped at ${BID_LIST_MAX} to keep it focused.</p>
     ${listHtml}
@@ -2031,9 +2063,11 @@ function renderBidListModal() {
 function openBidList() {
   const modal = document.getElementById("bidListModal");
   if (!modal) return;
+  const wasHidden = modal.hidden;
   renderBidListModal();
   modal.hidden = false;
   pushBackLayer("bidlist", closeBidList);
+  if (wasHidden) focusIntoModal(modal);
   syncBodyScrollLock();
 }
 function closeBidList() {
@@ -2042,6 +2076,7 @@ function closeBidList() {
   modal.hidden = true;
   popBackLayer("bidlist");
   syncBodyScrollLock();
+  restoreModalFocus();
 }
 // After adding/removing a watchlist item (from anywhere - a ledger card, the
 // detail modal, or the watchlist modal itself), rebuild the modal in place if
@@ -2114,7 +2149,7 @@ function renderHiddenModal() {
     ? ""
     : `<div class="empty-state">Nothing hidden right now. Tap ✕ on any property to hide it - hidden properties show up here so you can bring one back if you hid it by mistake.</div>`;
   inner.innerHTML = `
-    <button class="detail-close" data-action="closehidden" type="button">✕</button>
+    <button class="detail-close" data-action="closehidden" type="button" aria-label="Close">✕</button>
     <h2 class="detail-address" style="margin-top:.1rem">Hidden Properties <span style="color:var(--ink-soft);font-weight:600">(${rows.length})</span></h2>
     <p class="mega-sub" style="margin:0 0 .8rem">Properties you've hidden with ✕. Still-active ones can be brought back below; ones no longer active (sale date passed, or the county dropped the listing) can't be.</p>
     ${listHtml}
@@ -2128,9 +2163,11 @@ function renderHiddenModal() {
 function openHiddenModal() {
   const modal = document.getElementById("hiddenModal");
   if (!modal) return;
+  const wasHidden = modal.hidden;
   renderHiddenModal();
   modal.hidden = false;
   pushBackLayer("hidden", closeHiddenModal);
+  if (wasHidden) focusIntoModal(modal);
   syncBodyScrollLock();
 }
 function closeHiddenModal() {
@@ -2139,6 +2176,7 @@ function closeHiddenModal() {
   modal.hidden = true;
   popBackLayer("hidden");
   syncBodyScrollLock();
+  restoreModalFocus();
 }
 // After a restore (single or "restore all active"), rebuild the modal in
 // place if it's currently open so it never shows a stale list - same
@@ -2178,6 +2216,16 @@ document.addEventListener("keydown", e => {
   if (detailModal && !detailModal.hidden) { closeDetail(); return; }
   const hiddenModal = document.getElementById("hiddenModal");
   if (hiddenModal && !hiddenModal.hidden) { closeHiddenModal(); return; }
+  // profileModal/termsModal are declared further down the file (both plain
+  // top-level function declarations/consts, not IIFE-scoped like the
+  // change-password modal's own local Escape listener below) - by the time
+  // this fires on an actual keypress the module has finished loading, so
+  // referencing them here is safe even though they're defined later in
+  // source order.
+  const profileModalEl = document.getElementById("profileModal");
+  if (profileModalEl && !profileModalEl.hidden && typeof closeProfileModal === "function") { closeProfileModal(); return; }
+  const termsModalEl = document.getElementById("termsModal");
+  if (termsModalEl && !termsModalEl.hidden && typeof closeTermsModal === "function") { closeTermsModal(); return; }
   closeBidList();
 });
 
@@ -3659,10 +3707,12 @@ function closeProfileModal() {
   if (!profileModal) return;
   profileModal.hidden = true;
   popBackLayer("profile");
+  restoreModalFocus();
 }
 
 function openProfileModal() {
   if (!profileModal) return;
+  const wasHidden = profileModal.hidden;
   const m = accountMeta();
   if (PF("pfFirst")) PF("pfFirst").value = m.first_name || "";
   if (PF("pfLast")) PF("pfLast").value = m.last_name || "";
@@ -3672,6 +3722,7 @@ function openProfileModal() {
   if (pfMsg) { pfMsg.textContent = ""; pfMsg.className = "auth-msg"; }
   profileModal.hidden = false;
   pushBackLayer("profile", closeProfileModal);
+  if (wasHidden) focusIntoModal(profileModal);
 }
 
 const editProfileBtn = document.getElementById("editProfileBtn");
@@ -3718,11 +3769,14 @@ function closeTermsModal() {
   if (!termsModal) return;
   termsModal.hidden = true;
   popBackLayer("terms");
+  restoreModalFocus();
 }
 function openTermsModal() {
   if (!termsModal) return;
+  const wasHidden = termsModal.hidden;
   termsModal.hidden = false;
   pushBackLayer("terms", closeTermsModal);
+  if (wasHidden) focusIntoModal(termsModal);
 }
 ["termsBtn", "termsBtnMenu"].forEach(id => {
   const b = document.getElementById(id);
@@ -3791,10 +3845,12 @@ window.addEventListener("appinstalled", () => {
   }
 
   function openModal() {
+    const wasHidden = modal.hidden;
     form.reset();
     showMsg("", false);
     modal.hidden = false;
     pushBackLayer("password", closeModal);
+    if (wasHidden) focusIntoModal(modal);
   }
 
   function closeModal() {
@@ -3802,12 +3858,20 @@ window.addEventListener("appinstalled", () => {
     popBackLayer("password");
     form.reset();
     showMsg("", false);
+    restoreModalFocus();
   }
 
   openBtn.addEventListener("click", openModal);
   if (closeBtn) closeBtn.addEventListener("click", closeModal);
   modal.addEventListener("click", (e) => {
     if (e.target === modal) closeModal();
+  });
+  // Same per-feature Escape convention already used by the account menu
+  // above (openAccountMenu/closeAccountMenu's own keydown listener) rather
+  // than threading this IIFE-local closeModal() into the central overlay
+  // Escape handler.
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !modal.hidden) closeModal();
   });
 
   form.addEventListener("submit", async (e) => {
