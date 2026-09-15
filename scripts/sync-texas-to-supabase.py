@@ -43,6 +43,72 @@ meaning) and Texas's own court-ordered statutory minimum (min_bid's
 TX-specific meaning), not two different figures.
 
 Run harvesters/texas_harvester.py first, then this.
+
+UPDATED 2026-09-14 (Phase 10A - Commercial Source Governance
+Infrastructure): this script re-checks harvesters/governance's ingestion
+gate for each row's `harvester_source`, right before that row is added to
+the upsert payload. This is DEFENSE IN DEPTH, not the primary enforcement
+point (that's texas_harvester.py's main(), which skips a non-approved
+vendor's harvest_*() function entirely - see that file's own Phase 10A
+comment) - it exists so that if out/harvest_texas.json is ever produced by
+some other path, or hand-edited, or left over from before a source's
+status changed, a row from a LEGAL_REVIEW_REQUIRED/BLOCKED/DISABLED/
+TERMS_CHANGED source still cannot reach Supabase's `properties` table
+through this script.
+
+UPDATED 2026-09-14 (Phase 11 - Customer/API Data-Restriction Enforcement):
+closes the specific gap Phase 10A's own report named ("customer/API
+enforcement functions built/tested but NOT wired into frontend"). This
+application has no application server: `public/app.js` reads
+`public.properties` directly (via the `get_properties()` RPC or a plain
+`.select("*")`), the CSV export in app.js reads from the same
+already-fetched rows, and `supabase/functions/send-digest`'s
+`digest_candidates` RPC (service_role, bypassing RLS) also reads straight
+from `properties`. None of those three surfaces can invoke this Python
+governance package - they run in the browser or in a separate Deno
+runtime - and Phase 11's hard rules forbid a Supabase schema
+change/migration this phase, so no read-time enforcement point can be
+added to any of them without one. Given that constraint, this table has
+no field-level RLS, so a row that reaches it is immediately, unfilterably
+customer-visible to every approved app user through EVERY one of those
+three surfaces at once - meaning the row this script builds below IS the
+literal customer-facing representation in this codebase's actual
+architecture, and this script is therefore the one real, exercisable
+enforcement boundary for field-level restrictions too, not just whole-
+source ones. `harvesters/governance/gate.py`'s new
+`project_row_for_customer_output()` is called on every row below (see the
+row-building loop) - it performs the SAME whole-source check as
+check_ingestion_gate() below plus a customer-display-blocking-restriction
+check, THEN strips any individual restricted-content-shaped field
+(raw HTML / images / documents) from an otherwise-permitted row. As of
+this phase this is a verified NO-OP for tx_lgbs/tx_realauction (both
+APPROVED, zero restrictions - see
+tests/python/test_customer_api_enforcement.py's regression tests) - zero
+behavior change for either of those two production sources today; the
+mechanism exists and is tested so the day either source (or a future
+source) is registered APPROVED_WITH_RESTRICTIONS, enforcement is already
+wired rather than needing to be built under time pressure. See
+docs/customer-api-data-enforcement.md for the full architecture writeup,
+including the honest limitation this leaves: the write-time-only
+enforcement described here is the best available given the no-migration
+constraint, not a claim of independent read-time enforcement.
+
+UPDATED 2026-09-14 (Phase 12 - Production Provenance & Data Lineage
+Integration): this script now also builds a `Provenance` record
+(harvesters/governance/provenance.py, via harvesters/texas_harvester.py's
+build_row_provenance()) for every row that reaches the upsert payload -
+genuinely one per record, sourced from the exact same gate_decision this
+script already computed, asserted to match it exactly (see the
+row-building loop below). This closes the gap docs/data-provenance.md
+itself named ("no production code path actually constructs a Provenance
+record yet"). These records are NOT sent to Supabase - there is no column
+or table for them (Phase 12 explicitly forbids a schema change/migration)
+- they exist only for this run's own audit-log summary (see the "Done."
+line near the end of main()) and for
+tests/python/test_provenance_integration.py. See
+docs/provenance-production-integration.md for the full architecture
+writeup, including why lineage is pipeline-side/ephemeral rather than
+persisted, and what a future database-level provenance store would need.
 """
 
 from __future__ import annotations
@@ -53,10 +119,19 @@ import re
 import sys
 import urllib.error
 import urllib.request
+from datetime import datetime, timezone
 from pathlib import Path
 
 HERE = Path(__file__).parent
 JSON_PATH = HERE / "../out/harvest_texas.json"
+
+# See the module docstring's Phase 10A note above. Inserted (rather than
+# relying on cwd) so this script works the same whether it's run from the
+# repo root (as .github/workflows/harvest-and-sync.yml's `texas` job does)
+# or from anywhere else.
+sys.path.insert(0, str(HERE / ".."))
+from harvesters.governance.gate import check_ingestion_gate, project_row_for_customer_output  # noqa: E402
+from harvesters.texas_harvester import build_row_provenance  # noqa: E402  (Phase 12)
 
 BATCH_SIZE = 40  # matches the FL sync scripts' batch size
 
@@ -115,6 +190,20 @@ def main() -> None:
         print("harvest_texas.json is empty - nothing to sync.", file=sys.stderr)
         return
 
+    # Phase 12 (Production Provenance & Data Lineage Integration): this
+    # sync run IS the retrieval event whose lineage is being recorded here
+    # - out/harvest_texas.json carries no retrieval timestamp of its own
+    # (see build_row_provenance()'s own docstring on why main() and this
+    # script each generate their own retrieved_at rather than threading
+    # one value through the JSON file, which would be a file-shape change
+    # this phase's "no schema/file-shape expansion" spirit avoids). This
+    # timestamp is therefore "when this sync run processed the row," a
+    # legitimate and honestly-labeled retrieval/processing event in its
+    # own right, not a claim about when the harvester originally fetched
+    # it from the vendor (that earlier event is logged separately by
+    # harvesters/texas_harvester.py's own main()).
+    sync_retrieved_at = datetime.now(timezone.utc).isoformat()
+
     # De-duplicate on (county, case_no) - the same conflict-target key the
     # upsert below uses. Postgres's ON CONFLICT DO UPDATE rejects a batch
     # that would update the same conflict-target row twice in one statement
@@ -125,12 +214,26 @@ def main() -> None:
     # key, same as that fix.
     deduped: dict[tuple[str, str], dict] = {}
     skipped = 0
+    skipped_gate = 0
+    skipped_customer_restriction = 0
+    gate_rejections: dict[str, int] = {}
+    provenance_by_source: dict[str, int] = {}  # Phase 12: audit summary, not persisted anywhere
     for p in harvest:
         case_no = p.get("account_number")
         county = p.get("county")
         source = p.get("source")
         if not case_no or not county or not source:
             skipped += 1
+            continue
+
+        # Phase 10A defense-in-depth check (see module docstring) - a row
+        # from a non-APPROVED/APPROVED_WITH_RESTRICTIONS vendor is dropped
+        # here even if it somehow made it into harvest_texas.json.
+        harvester_source = p.get("harvester_source")
+        gate_decision = check_ingestion_gate(harvester_source)
+        if not gate_decision.allowed:
+            skipped_gate += 1
+            gate_rejections[harvester_source or "(missing)"] = gate_rejections.get(harvester_source or "(missing)", 0) + 1
             continue
 
         address = (p.get("address") or "").strip() or f"Account {case_no}"
@@ -164,18 +267,69 @@ def main() -> None:
             row["latitude"] = lat
             row["longitude"] = lon
 
-        deduped[(county, case_no)] = row
+        # Phase 11: project the row through the same governance layer's
+        # customer-output check (whole-row block on a customer-display-
+        # blocking restriction, plus field-shape stripping - see this
+        # file's module docstring and harvesters/governance/gate.py). Not
+        # redundant with the check_ingestion_gate() call above: that gate
+        # checks only legal_status; this checks legal_status AND
+        # restrictions AND fields. For tx_lgbs/tx_realauction (both
+        # APPROVED, zero restrictions) this is a verified no-op - `row` is
+        # returned unchanged - see the Phase 11 regression tests.
+        projected_row = project_row_for_customer_output(row, harvester_source)
+        if projected_row is None:
+            skipped_customer_restriction += 1
+            continue
 
-    dupe_count = len(harvest) - skipped - len(deduped)
+        # Phase 12: build this row's Provenance record - genuinely one per
+        # record entering the customer-facing dataset, per this phase's own
+        # objective. Built from the SAME gate_decision already computed
+        # above (not a second, independent lookup), so provenance can never
+        # diverge from what the governance layer actually decided about
+        # this row - see build_row_provenance()'s own docstring ("must
+        # never become an alternate path around governance"). Not sent to
+        # Supabase (no schema/column exists for it - Phase 12 Step 19);
+        # kept only for this run's audit summary below and asserted against
+        # in tests/python/test_provenance_integration.py.
+        row_provenance = build_row_provenance(harvester_source, retrieved_at=sync_retrieved_at)
+        assert row_provenance.restrictions == gate_decision.restrictions, (
+            "provenance restrictions diverged from the ingestion gate's own decision for "
+            f"'{harvester_source}' - this must never happen (see Phase 12 Step 16/17)"
+        )
+        provenance_by_source[harvester_source] = provenance_by_source.get(harvester_source, 0) + 1
+
+        deduped[(county, case_no)] = projected_row
+
+    dupe_count = len(harvest) - skipped - skipped_gate - skipped_customer_restriction - len(deduped)
     if dupe_count > 0:
         print(
             f"De-duplicated {dupe_count} row(s) sharing a (county, case_no) key with another row in this harvest.",
             file=sys.stderr,
         )
+    if skipped_gate > 0:
+        print(
+            f"Ingestion gate rejected {skipped_gate} row(s) (source not APPROVED/APPROVED_WITH_RESTRICTIONS): "
+            f"{gate_rejections} - see harvesters/governance/registry.py for each source's current status.",
+            file=sys.stderr,
+        )
+    if skipped_customer_restriction > 0:
+        print(
+            f"Customer-output projection blocked {skipped_customer_restriction} row(s) whose source passed the "
+            "ingestion gate but carries a customer-display-blocking restriction (no_customer_display / "
+            "no_redistribution / source_only_display / field_specific_restriction) - see "
+            "harvesters/governance/gate.py's project_row_for_customer_output(). Not expected for "
+            "tx_lgbs/tx_realauction today (both carry zero restrictions).",
+            file=sys.stderr,
+        )
 
     rows = list(deduped.values())
     if not rows:
-        print(f"Every harvested row was missing case_no/county/source ({skipped} skipped) - nothing to sync.", file=sys.stderr)
+        print(
+            f"Nothing to sync ({skipped} skipped for missing case_no/county/source, "
+            f"{skipped_gate} skipped by the ingestion gate, "
+            f"{skipped_customer_restriction} skipped by customer-output projection).",
+            file=sys.stderr,
+        )
         return
     print(f"Prepared {len(rows)} properties ({skipped} skipped for missing case_no/county/source).", file=sys.stderr)
 
@@ -239,6 +393,11 @@ def main() -> None:
     counties = len({r["county"] for r in rows})
     print(f"Done. {sent} Texas properties upserted to Supabase (existing hand research untouched).", file=sys.stderr)
     print(f"Counties covered: {counties}", file=sys.stderr)
+    print(
+        f"Provenance (Phase 12, audit-only, not persisted): {provenance_by_source} "
+        f"@ retrieved_at={sync_retrieved_at} - see docs/provenance-production-integration.md",
+        file=sys.stderr,
+    )
 
 
 if __name__ == "__main__":

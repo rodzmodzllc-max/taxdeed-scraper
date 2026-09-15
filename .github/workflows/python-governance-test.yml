@@ -1,0 +1,52 @@
+name: Python governance tests
+
+# Phase 10A (harvesters/governance/) added a source-registry / ingestion-gate
+# / provenance layer with its own test suite (tests/python/) but never wired
+# it into CI - this workflow closes that gap. Mirrors this repo's existing
+# playwright-test.yml pattern (same on: triggers, same "fail the build on
+# test failure" contract, same one-job-one-purpose shape) rather than
+# inventing a different CI convention or folding this into
+# harvest-and-sync.yml, which is a production data pipeline (scheduled
+# harvest/sync jobs against real Supabase credentials), not a test workflow -
+# these tests need neither Supabase credentials nor network access to any
+# vendor site (see tests/python/test_source_governance.py's own header
+# comment: pure unit tests against harvesters/governance/, no live HTTP
+# calls anywhere in the suite).
+#
+# No requirements.txt/pyproject.toml exists anywhere in this repo (every
+# existing Python job in harvest-and-sync.yml does a bare `pip install
+# <package>` per job instead - see e.g. its `texas` job's "Install Python
+# dependencies" step). Matched here rather than introducing a new
+# dependency-management convention: `pip install pytest` is the ENTIRE
+# runtime dependency this job adds - harvesters/governance/ itself and
+# tests/python/ import nothing beyond Python's own standard library.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  governance-tests:
+    if: "!contains(github.event.head_commit.message, 'Auto-sync: mirror public/ to repo root')"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install pytest
+        run: pip install pytest
+
+      # Deliberately NOT continue-on-error, NOT `|| true`, NOT a soft-fail
+      # wrapper of any kind (Phase 10B Step 3's explicit requirement) - a
+      # failing governance test fails this job, and a failing job on a
+      # required check blocks the merge the same way playwright-test.yml's
+      # job already does for frontend regressions.
+      - name: Run governance test suite (tests/python/)
+        run: pytest tests/python/ -v

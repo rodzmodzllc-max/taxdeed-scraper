@@ -325,6 +325,134 @@ class TexasSaleRow:
     harvester_source: str = ""  # 'tx_pbfcm' | 'tx_lgbs' | 'tx_govease' - which vendor produced it
 
 
+# ---------------------------------------------------------------------------
+# Phase 12 (Production Provenance & Data Lineage Integration)
+# ---------------------------------------------------------------------------
+#
+# FIELD_LINEAGE_MAP documents, as DATA (not as per-row Provenance objects -
+# see build_row_provenance()'s own docstring for why field-level lineage is
+# represented this way), the source-field -> TexasSaleRow-field mapping
+# each real harvester actually performs. This is the answer to Phase 12
+# Step 4/8's "field -> source -> source field -> transformation" question
+# for the two real production sources - read directly from harvest_lgbs()/
+# harvest_realauction()'s own row-construction code above, not invented.
+# Keyed by harvester_source, matching SourceRecord.source_id.
+#
+# A value of None means the field is NOT populated by that source (e.g.
+# RealAuction publishes no coordinates) - explicitly recorded as "not
+# provided" rather than omitted, so a future reader can tell "this source
+# doesn't have this field" apart from "nobody documented this yet".
+FIELD_LINEAGE_MAP: dict[str, dict[str, str | None]] = {
+    "tx_lgbs": {
+        "account_number": "account_nbr",
+        "county": "county (normalized via _lgbs_normalize_county())",
+        "auction_date": "sale_date_only",
+        "min_bid": "minimum_bid (parsed via _lgbs_to_float())",
+        "cad_market_value": "value (parsed via _lgbs_to_float())",
+        "legal_description": "sale_notes",
+        "address": "composed from multiple raw fields via _lgbs_compose_address()",
+        "cause_number": "cause_nbr",
+        "latitude": "geometry.coordinates[1] (parsed via _lgbs_to_float())",
+        "longitude": "geometry.coordinates[0] (parsed via _lgbs_to_float())",
+        "source": "status (mapped via LGBS_STATUS_TO_LEDGER)",
+    },
+    "tx_realauction": {
+        "account_number": "'Account Number' field (via _realauction_get_field())",
+        "county": "data/tx_realauction_counties.csv (the CSV row this harvest came from, not a per-row source field)",
+        "auction_date": "the calendar day's dayid attribute (via _realauction_date_to_iso())",
+        "min_bid": "'Est. Min. Bid' field (parsed via _realauction_to_float())",
+        "cad_market_value": "'Adjudged Value' field (parsed via _realauction_to_float())",
+        "legal_description": None,  # not published by this vendor
+        "address": "'Property Address' field",
+        "cause_number": "'Cause Number' field",
+        "latitude": None,  # not published by this vendor - see geocode_properties.py for the ENRICHED-stage backfill
+        "longitude": None,
+        "source": "constant 'auction' - see harvest_realauction()'s own docstring for why (no struck-off/resale feed)",
+    },
+}
+
+
+def build_row_provenance(harvester_source: str, *, retrieved_at: str):
+    """Construct a whole-row `Provenance` record (harvesters/governance/
+    provenance.py) for one already-harvested row, identified by its
+    `harvester_source` (e.g. "tx_lgbs") - the same string every
+    TexasSaleRow carries and the same string that survives the
+    TexasSaleRow -> out/harvest_texas.json -> sync-script-dict round trip
+    (unlike a full TexasSaleRow object, which does not - see this
+    function's two real call sites: harvesters/texas_harvester.py's
+    main(), which has real TexasSaleRow instances, and
+    scripts/sync-texas-to-supabase.py, which only ever has the plain dict
+    parsed back from that JSON file - accepting just the id string, the
+    one piece of data both call sites actually have, lets one function
+    serve both without a TexasSaleRow-shaped adapter). Phase 12
+    integration point - closes the gap docs/data-provenance.md's own
+    "Remaining risks" #1 named: "No production code path actually
+    constructs a Provenance record yet."
+
+    Deliberately WHOLE-ROW, not one Provenance object per field: this
+    pipeline harvests and normalizes a listing as a single unit (see
+    harvest_lgbs()/harvest_realauction() above - there is no point where
+    an individual field exists as a separately-tracked value before the
+    full TexasSaleRow is built), and nothing downstream in this codebase
+    reads a per-field Provenance object - generating 13 of them per row,
+    for thousands of rows, on every harvest run, for a story no code
+    consumes would be exactly the over-engineering Phase 12 Step 23 warns
+    against. Field-level lineage (Phase 12 Step 4/8's actual objective) is
+    answered instead by FIELD_LINEAGE_MAP above, which is real, checkable
+    data pulled from this module's own harvesting code, at zero per-row
+    runtime cost.
+
+    Stage is NORMALIZED, not RAW: this pipeline never persists the raw
+    API/HTML payload anywhere (parsed inline, in-memory, then discarded -
+    confirmed by inspection of harvest_lgbs()/harvest_realauction() above,
+    neither of which writes the raw response body anywhere) - constructing
+    a RAW-stage Provenance would claim a materialized artifact that does
+    not exist. See docs/provenance-production-integration.md's "Raw data
+    provenance" section for the full accounting of what is and is not
+    retained per source.
+
+    `source_url`/`restrictions` come from the existing registry/gate
+    (harvesters/governance/registry.py, harvesters/governance/gate.py) -
+    the SAME data check_ingestion_gate() already used to decide this row
+    was allowed to be harvested at all, not a second, independently
+    maintained copy. This is deliberate: provenance must never become an
+    alternate path around governance (Phase 12 Step 16) - it is a report
+    ON TOP OF that decision, sourced from it directly.
+    """
+    # Two valid import contexts for this module (see this function's own
+    # docstring on its two real call sites): run directly as __main__ (sys.
+    # path[0] is this file's own directory, harvesters/, so the bare
+    # `governance` package resolves - main()'s existing imports already
+    # rely on this) OR imported as `harvesters.texas_harvester` by
+    # scripts/sync-texas-to-supabase.py (which only puts the repo ROOT on
+    # sys.path, where `governance` isn't a top-level package - only
+    # `harvesters.governance` is). Try the bare form first (matches every
+    # other import in this file); fall back to the package-qualified form
+    # for the second context, rather than forcing the sync script to
+    # mutate sys.path further than it already does.
+    try:
+        from governance import FieldClassification, PipelineStage, Provenance, check_ingestion_gate
+        from governance.registry import get_source
+    except ImportError:
+        from harvesters.governance import FieldClassification, PipelineStage, Provenance, check_ingestion_gate
+        from harvesters.governance.registry import get_source
+
+    decision = check_ingestion_gate(harvester_source)
+    src = get_source(harvester_source)  # None for an unknown source - get_source() never raises (see registry.py)
+    source_url = src.source_url if src is not None else ""
+
+    return Provenance(
+        source_id=harvester_source,
+        source_url=source_url,
+        source_field=None,  # whole-row record - see FIELD_LINEAGE_MAP for per-field detail
+        retrieved_at=retrieved_at,
+        stage=PipelineStage.NORMALIZED,
+        classification=FieldClassification.PUBLIC,  # every TX field harvested to date is public tax-sale data - see docs/data-provenance.md
+        restrictions=decision.restrictions,
+        is_source_provided=True,
+    )
+
+
 def harvest_pbfcm(limit: int | None = None) -> list[TexasSaleRow]:
     """Harvest PBFCM per-county struck-off resale PDFs.
 
@@ -892,33 +1020,125 @@ def main() -> None:
     scripts/sync-texas-to-supabase.py and .github/workflows/harvest-and-sync.yml's
     `texas` job both expect.
 
-    Vendors still raising NotImplementedError (harvest_pbfcm,
-    harvest_govease as of this writing) are skipped with a warning rather
-    than failing the whole run - matches this project's existing tolerance
-    pattern (e.g. the FL sync scripts' on_conflict fallback, and
-    sanity_check_deeds.ps1 tolerating individual county failures) of never
-    letting one unfinished/broken piece take down a harvest that otherwise
-    has real data to report.
+    UPDATED 2026-09-14 (Phase 10A - Commercial Source Governance
+    Infrastructure): before calling ANY harvest_*() function, this loop now
+    checks harvesters/governance's ingestion gate for that vendor's
+    source_id (the same string already used as `harvester_source`, e.g.
+    'tx_pbfcm'). A source whose registry status is LEGAL_REVIEW_REQUIRED,
+    BLOCKED, DISABLED, or TERMS_CHANGED is skipped WITHOUT calling its
+    harvest_*() function at all - this is a strictly additive safety net,
+    not a behavior change for any currently-working vendor:
+      - tx_lgbs and tx_realauction are both registered APPROVED (reflecting
+        their existing, already-shipped, already-verified production
+        status - see harvesters/governance/registry.py's own notes on each
+        entry), so the gate passes and both run exactly as before. Neither
+        harvest_lgbs() nor harvest_realauction() was modified by this phase.
+      - tx_pbfcm and tx_govease are both registered BLOCKED (per
+        claude/pbfcm-source-reconnaissance-blocked.md and
+        claude/govease-source-onboarding-blocked.md) - previously these
+        were "called, then caught a NotImplementedError"; now they are
+        skipped by the gate before ever being called. The net effect for
+        this run's output is identical (both are skipped either way), but
+        the gate is now the reason, and it would ALSO catch these two
+        sources the moment someone fills in their still-stubbed bodies
+        without separately re-reading the blocked-vendor docs - the
+        NotImplementedError stub and the gate are two independent layers,
+        deliberately redundant.
+    Harris County (tx_hctax) is registered LEGAL_REVIEW_REQUIRED and has no
+    entry in SOURCES below at all (no harvest_hctax() exists yet) - the
+    gate has nothing to check it against in this loop; its registry entry
+    exists so the source is representable, per Phase 10A Step 10.
     """
     import json
     from dataclasses import asdict
+    from datetime import datetime, timezone
+
+    from governance.gate import check_ingestion_gate
 
     out_dir = HERE / "../out"
     out_dir.mkdir(parents=True, exist_ok=True)
     out_path = out_dir / "harvest_texas.json"
 
+    # Phase 12 (Production Provenance & Data Lineage Integration): one
+    # retrieval timestamp for this entire run - every row harvested below
+    # genuinely was retrieved within this one process invocation, so a
+    # single shared retrieved_at is an accurate record of the actual
+    # retrieval event, not an approximation. Provenance.retrieved_at is
+    # documented as "set once, at RAW/NORMALIZED, never updated by
+    # advance()/derive()" (docs/data-provenance.md) - this is that value.
+    retrieved_at = datetime.now(timezone.utc).isoformat()
+
     all_rows: list[TexasSaleRow] = []
+    rows_by_source: dict[str, int] = {}
     for name, fn in SOURCES.items():
+        decision = check_ingestion_gate(name)
+        if not decision.allowed:
+            print(f"main: skipping {name} - ingestion gate rejected it ({decision.reason})", file=sys.stderr)
+            continue
+
         try:
             vendor_rows = fn()
         except NotImplementedError as exc:
+            # Still possible even for a gate-approved source: a source can
+            # be legally APPROVED while its harvester remains an
+            # unfinished architectural stub. Kept as a second safety net,
+            # unchanged from the pre-Phase-10A behavior.
             print(f"main: skipping {name} - {exc}", file=sys.stderr)
             continue
-        print(f"main: {name} produced {len(vendor_rows)} rows", file=sys.stderr)
+        except Exception as exc:  # noqa: BLE001 - deliberate, see Phase 14A note below
+            # Phase 14A (Customer-Safety Hardening): harvest_lgbs()/
+            # harvest_realauction() already catch every NETWORK failure
+            # internally (urllib.error.URLError/HTTPError/TimeoutError, on
+            # a per-page/per-request basis - see each function's own try/
+            # except), so this branch is deliberately for everything else:
+            # an unexpected response shape, a parsing bug, or any other
+            # non-network exception a future vendor change could trigger.
+            # Before this fix, an uncaught exception here would propagate
+            # out of this loop entirely, meaning tx_lgbs failing would
+            # silently prevent tx_realauction from ever running too (dict
+            # insertion order runs lgbs before realauction - see SOURCES
+            # above) AND prevent out/harvest_texas.json from being written
+            # at all, since that write happens after this whole loop -
+            # confirmed by tracing this function's control flow, not
+            # assumed. This is exactly the vendor-failure-isolation gap
+            # docs/phase-14a-customer-safety-hardening.md's freshness audit
+            # names as a precondition for ever safely moving Texas off
+            # workflow_dispatch-only scheduling: one vendor's future,
+            # unanticipated breakage must never silently zero out the
+            # other vendor's otherwise-healthy data for that run. Isolating
+            # it here does not change today's behavior for either
+            # currently-working vendor (both have run clean; this is
+            # defense-in-depth for a failure mode that hasn't happened
+            # yet, the same "additive, not a behavior change" discipline
+            # Phase 10A's own gate check above used).
+            print(f"main: {name} raised an unexpected (non-network) error - continuing with remaining sources: {exc}", file=sys.stderr)
+            continue
+        print(f"main: {name} produced {len(vendor_rows)} rows ({decision.reason})", file=sys.stderr)
         all_rows.extend(vendor_rows)
+        rows_by_source[name] = rows_by_source.get(name, 0) + len(vendor_rows)
 
     out_path.write_text(json.dumps([asdict(r) for r in all_rows], indent=2))
     print(f"main: wrote {len(all_rows)} total TX rows to {out_path}", file=sys.stderr)
+
+    # Phase 12: log one Provenance summary line per source actually
+    # harvested this run - not one object per row (see
+    # build_row_provenance()'s own docstring for why per-row Provenance is
+    # built downstream, in scripts/sync-texas-to-supabase.py, rather than
+    # here: every row from the same source in the same run shares
+    # identical lineage metadata, so a per-source summary here is a
+    # complete, non-redundant audit record of this harvest event, without
+    # constructing and immediately discarding thousands of duplicate
+    # objects). Ephemeral - printed for audit purposes only, never written
+    # to out/harvest_texas.json or Supabase (see Phase 12 Step 19/6 - no
+    # schema/file-shape change).
+    for name, count in rows_by_source.items():
+        prov = build_row_provenance(name, retrieved_at=retrieved_at)
+        print(
+            f"main: provenance - {count} row(s) from '{name}' @ stage={prov.stage.value}, "
+            f"source_url={prov.source_url!r}, restrictions={[r.value for r in prov.restrictions]}, "
+            f"retrieved_at={prov.retrieved_at}",
+            file=sys.stderr,
+        )
 
 
 if __name__ == "__main__":

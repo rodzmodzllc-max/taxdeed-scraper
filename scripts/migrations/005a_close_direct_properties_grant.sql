@@ -1,0 +1,354 @@
+-- PROPOSED, NOT YET RUN. Written and reviewed as part of Phase 14B
+-- (Database/API Customer Boundary Design & Migration Readiness Gate),
+-- 2026-09-14 - matching this repo's own long-standing convention (see
+-- CLAUDE.md, and every prior migration file's own header) of writing a
+-- migration well before it is actually run against production, by hand, in
+-- the Supabase SQL Editor.
+--
+-- Phase 14B's own hard rules explicitly forbid: creating or altering
+-- production Supabase objects, running production migrations, and creating
+-- RLS policies (speculatively or otherwise). This file creates NO RLS
+-- policy and is NOT executed by this session - it is the Step 5 deliverable
+-- ("design migration 005A if necessary"), reviewable in this session's
+-- Phase 14B commit, not applied.
+--
+-- ============================================================
+-- WHY THIS FILE EXISTS (relationship to 005)
+-- ============================================================
+-- docs/phase-14b-database-api-boundary-readiness.md's Step 3 audit found
+-- that 005_customer_safe_properties_projection.sql, if run, closes the
+-- get_properties() RPC path but explicitly (and correctly, per its own
+-- comments) does NOT close the second real read path this project has
+-- always had: an authenticated client calling
+-- `sb.from("properties").select("*")` (public/app.js's own fallback, kept
+-- for resilience against a not-yet-migrated project) or any other
+-- authenticated client hitting `/rest/v1/properties` directly. Both routes
+-- bypass get_properties() entirely and go straight to the base table via
+-- PostgREST, which today grants a blanket `select *` to every row RLS
+-- allows through - RLS restricts which ROWS come back (is_approved()), not
+-- which COLUMNS. This file closes that second path WITHOUT touching RLS at
+-- all, using ordinary column-level GRANT/REVOKE - the same primitive
+-- Postgres has always had for exactly this problem, and one this project's
+-- existing service_role/authenticated/anon role structure already uses
+-- (migration 003's own `grant execute ... to authenticated` is the same
+-- idea applied to a function instead of a table).
+--
+-- ============================================================
+-- WHY REQUIRED
+-- ============================================================
+-- PostgREST (what Supabase's `/rest/v1/...` surface actually is) honors
+-- standard Postgres column-level privileges: a `select=*` request against a
+-- table only returns the columns the calling role actually has SELECT
+-- privilege on - if a role's grant is narrowed to specific columns,
+-- PostgREST returns exactly those columns for `select("*")` too, not an
+-- error and not the full row. This is a genuine, verifiable Postgres/
+-- PostgREST behavior (column-level GRANT has existed in Postgres since
+-- before Supabase did), not a guess about this specific project's schema.
+-- Right now `authenticated` (and, per the default Supabase project
+-- template, typically `anon` as well - see VERIFICATION REQUIRED below)
+-- holds table-level SELECT on every column of `public.properties`, so
+-- neither get_properties() being migration-005'd NOR any RLS policy
+-- change closes the raw-table path - only a grant change does.
+--
+-- ============================================================
+-- CURRENT LIMITATION
+-- ============================================================
+-- Every column on `public.properties`, including `ledger_type` and
+-- `fdor_enriched_at` (and, before the Phase 14B correction recorded in
+-- 005's own file, `harvester_source` too - see that file's "CORRECTION,
+-- Phase 14B" comment), is reachable today by any `authenticated`-role
+-- client that queries the base table directly instead of calling
+-- get_properties() - regardless of whether migration 005 has been run.
+-- This is the gap 005 named but declined to close (see that file's own
+-- TARGET ARCHITECTURE section) and the one this file exists to close.
+-- `harvester_source` itself is granted below, matching 005's own corrected
+-- column list exactly (test_A_005_and_005a_column_lists_are_identical
+-- enforces the two files can never drift apart on this again).
+--
+-- ============================================================
+-- WHY THIS APPROACH, NOT A REVOKE-AND-VIEW-SWAP
+-- ============================================================
+-- 005's own TARGET ARCHITECTURE section named two options for closing this
+-- path: (a) revoke base-table SELECT entirely and force every reader
+-- through a function/view, or (b) replace the table's PostgREST exposure
+-- with a narrower view. Both work, but both have a sharper edge than they
+-- first appear: get_properties() is defined `security invoker` (both in
+-- its current, live form and in 005's own proposed replacement) - meaning
+-- it runs with the CALLING role's own privileges, not the function
+-- owner's. If `authenticated`'s table-level SELECT were revoked entirely
+-- (option a) without also granting it something to select, get_properties()
+-- itself would start failing for every caller, since a security-invoker
+-- function cannot read columns its caller isn't allowed to read even
+-- inside the function body. A plain revoke-and-view-swap (option b) has
+-- the same interaction unless the view is itself granted to the role.
+--
+-- Column-level GRANT sidesteps this cleanly: `authenticated` keeps real,
+-- direct SELECT on `public.properties` - so get_properties() (security
+-- invoker, whether today's version or 005's) keeps working exactly as
+-- before with zero function change required beyond 005's own - but that
+-- grant is narrowed to exactly the same ~46-column customer-safe list 005
+-- already established as authoritative (docs/production-data-contract.md
+-- Section 5 / 005's own RETURNS TABLE clause). This closes the raw-table
+-- path to the same column set the RPC exposes, using one mechanism
+-- (GRANT/REVOKE) instead of two (function replacement + RLS/view redesign),
+-- touches no RLS policy at all (satisfying this phase's hard rule against
+-- creating one), and does not require knowing the LIVE, complete RLS
+-- policy set on `properties` - which this repository's tracked migration
+-- history cannot fully reconstruct (see VERIFICATION REQUIRED below) -
+-- because column-level grants are evaluated independently of, and prior
+-- to, RLS: a role either has SELECT on a column or it doesn't, and RLS
+-- narrows which ROWS a role sees only after that column-privilege check
+-- already passed.
+--
+-- ============================================================
+-- VERIFICATION REQUIRED BEFORE THIS CAN SAFELY RUN (not performed by this
+-- session - this is exactly the class of live-schema fact this repo's own
+-- tracked history cannot supply, per CLAUDE.md's own "Live pg_policies/
+-- information_schema ... is the source of truth, not the schema*.sql
+-- files" warning, now shown to extend to grants as well as policies)
+-- ============================================================
+-- 1. Confirm, live, that `public.properties` RLS is exactly what
+--    schema-v6-approvals.sql's tracked text says (one RESTRICTIVE
+--    is_approved() policy) PLUS at least one PERMISSIVE policy allowing
+--    SELECT for approved users. This repository's tracked migration
+--    history contains NO permissive policy for `properties` anywhere -
+--    only the restrictive gate - yet the application demonstrably works
+--    in production today, so a permissive policy (or an equivalent
+--    default-allow grant/policy) must exist live and is simply not
+--    captured in any file this repository's git history contains. This is
+--    the same "tracked history doesn't fully describe the live schema"
+--    gap Phase 13/14A already found for several columns and a geometry-
+--    related function/extension - now confirmed (by the absence of any
+--    permissive policy in tracked history despite a working production
+--    app) to extend to RLS policy definitions too. Do not run this
+--    migration, or any RLS change, without first reading the live
+--    `pg_policies` output for this table directly.
+-- 2. Confirm the exact current grants on `public.properties` (`\dp
+--    public.properties` or `information_schema.role_column_grants`) for
+--    both `anon` and `authenticated` - this file assumes both currently
+--    hold a blanket table-level SELECT (the Supabase project-template
+--    default), which this session could not confirm directly (see
+--    docs/phase-14b-database-api-boundary-readiness.md Step 7 - the read
+--    tools needed were denied by this environment's own production-reads
+--    classifier). If `anon` in fact has no SELECT grant on this table at
+--    all today (plausible, since RLS would block it from seeing real rows
+--    regardless), the REVOKE ... FROM anon statement below is a no-op, not
+--    a behavior change - confirm this either way before running, since a
+--    no-op REVOKE is harmless but an unexpectedly-needed one silently
+--    skipped is not.
+-- 3. Confirm every column name below still matches the live table exactly
+--    (the same caveat 005's own MIGRATION STEPS section already states -
+--    this repo's tracked history has no schema.sql/v2/v3, so a column
+--    listed here that was never actually run against this particular
+--    Supabase project would make the GRANT statement fail outright on an
+--    unknown column name - fail-closed, but should be caught before
+--    relying on it).
+-- 4. Run 005 (the get_properties() replacement) BEFORE this file, not
+--    after or standalone. If this file's GRANT is applied while
+--    get_properties() still has its current, live `select *` body, the
+--    RPC would immediately start failing for every caller (a
+--    security-invoker function selecting `harvester_source` etc. via `*`
+--    when its caller's grant no longer covers those columns) - a real,
+--    production-breaking ordering dependency between these two files, not
+--    a hypothetical one. 005 must land first; this file must never be run
+--    without it.
+--
+-- ============================================================
+-- TARGET ARCHITECTURE
+-- ============================================================
+-- `authenticated` retains SELECT on `public.properties`, narrowed to
+-- exactly the ~46 customer-safe columns 005/docs/production-data-
+-- contract.md Section 5 already treat as authoritative. `anon` loses
+-- SELECT entirely (matching the fact that RLS's is_approved() gate means
+-- an anonymous caller was never able to read a real row anyway - this
+-- makes the grant match the row-level reality instead of over-granting a
+-- role that RLS already fully blocks). `service_role` (used only by the
+-- harvest/sync scripts and the send-digest Edge Function, never by a
+-- customer's own browser session) is untouched - it bypasses RLS and,
+-- being a superuser-equivalent role in Supabase's model, is unaffected by
+-- a REVOKE targeting `anon`/`authenticated` specifically. Internal
+-- write/sync access is fully preserved.
+--
+-- ============================================================
+-- MIGRATION STEPS (for a human to run by hand, after completing every item
+-- under VERIFICATION REQUIRED above, and only after 005 has already been
+-- applied and confirmed working)
+-- ============================================================
+-- 1. Complete VERIFICATION REQUIRED items 1-3 above against the live
+--    project.
+-- 2. Confirm 005 is already applied (get_properties() returns the
+--    narrowed column set, not `select *`).
+-- 3. Run the REVOKE/GRANT statements below.
+-- 4. Immediately smoke-test: the frontend still loads and renders cards
+--    (uses get_properties(), unaffected in principle, but this is the
+--    step that would surface a missed column in either file); a raw
+--    authenticated REST call to `/rest/v1/properties?select=harvester_source`
+--    now returns an empty column set or a permission error instead of
+--    real values; a raw authenticated REST call to
+--    `/rest/v1/properties?select=*` now returns only the ~46 customer-safe
+--    columns instead of every column.
+-- 5. Confirm the CSV export and every card still render identically (same
+--    check 005's own test plan already calls for).
+--
+-- ============================================================
+-- ROLLBACK STRATEGY
+-- ============================================================
+-- GRANT/REVOKE are metadata-only, non-destructive to data - rolling back
+-- is re-granting full table-level SELECT to `authenticated` (and, if step
+-- 2 above confirmed anon held one, to `anon` too):
+--
+--   grant select on public.properties to authenticated;
+--   grant select on public.properties to anon;  -- only if anon held it before
+--
+-- No column, table, row, or RLS policy is ever dropped or altered by this
+-- migration - purely a privilege narrowing, reversible with two GRANT
+-- statements.
+--
+-- ============================================================
+-- DATA-SAFETY CONSIDERATIONS
+-- ============================================================
+-- - No existing row is modified, added, or deleted.
+-- - No RLS policy is created, dropped, or modified - this file deliberately
+--   does not touch RLS at all, satisfying this phase's own hard rule
+--   against speculative RLS changes. Whatever row-level access already
+--   exists continues to apply exactly as before, for exactly the columns
+--   this grant still allows.
+-- - service_role (all internal harvester/sync/backup/digest access) is
+--   completely unaffected.
+-- - The only behavior change is which COLUMNS `anon`/`authenticated` can
+--   select from the base table directly - confirmed harmless to the
+--   current frontend by the same "zero references anywhere in app.js"
+--   check 005's own tests already perform, since this file grants exactly
+--   the same column list 005 already established as the full customer
+--   contract.
+--
+-- ============================================================
+-- TEST PLAN
+-- ============================================================
+-- - Before running: complete VERIFICATION REQUIRED items 1-3.
+-- - After running: the four smoke-test checks under MIGRATION STEPS step 4.
+-- - After running: re-run this repo's existing Playwright frontend
+--   regression (tests/run_test.mjs) against a page pointed at the updated
+--   grants, confirming card rendering, CSV export, and every filter still
+--   work identically (same check 005's own test plan calls for).
+--
+-- ============================================================
+-- CORRECTION, Phase 14D (Migration Reconciliation & Pre-Execution Re-Gate)
+-- ============================================================
+-- Phase 14C's live preflight found this file's grant list, as written
+-- through Phase 14B, named three columns - `outcome`, `sold_price`,
+-- `dor_use_code` - that do not exist on the live `public.properties`
+-- table, which would make the GRANT statement below fail outright on an
+-- unknown column name. Phase 14D's reconciliation (docs/phase-14d-
+-- migration-reconciliation.md) resolved this the same way it resolved 005
+-- (test_A_005_and_005a_column_lists_are_identical requires these two files
+-- to always agree, so the resolution must match):
+--
+--   * `outcome` and `sold_price` are REMOVED below - no writer anywhere in
+--     this repository, no tracked migration ever proposing to add them,
+--     and confirmed absent live. See 005's own "CORRECTION, Phase 14D"
+--     comment for the full reasoning (they are a deliberately-deferred
+--     frontend-ahead-of-backend feature, not a current part of the
+--     customer contract).
+--   * `dor_use_code` is KEPT below - it has a real tracked migration
+--     (schema-v9-dor-use-code.sql) and a real, currently-functioning
+--     writer, and is a genuinely intended, already-half-deployed part of
+--     the customer contract. Exactly as with 005, THIS MIGRATION MUST NOT
+--     BE RUN UNTIL schema-v9-dor-use-code.sql HAS BEEN RUN AND CONFIRMED
+--     LIVE, AND UNTIL 005 (as corrected) HAS ALSO BEEN RUN AND CONFIRMED -
+--     see docs/phase-14d-migration-reconciliation.md for the full,
+--     corrected execution order: schema-v9-dor-use-code.sql -> 005 -> 005a.
+--
+-- CORRECTION, Phase 14E (Corrective Migration 005 / get_properties()
+-- Function Contract). Phase 14E's dependency analysis of the corrected
+-- 005 (its own "CRITICAL FINDING" comment, same phase) found that
+-- get_properties() - `security invoker`, unchanged by this file - reads
+-- `ledger_type` in its own WHERE clause (`... and (p_ledger_type is null
+-- or ledger_type = p_ledger_type) ...`) even though `ledger_type` is
+-- never part of that function's RETURNS TABLE/SELECT output. Under
+-- `security invoker`, every column a function's body references, in a
+-- WHERE clause or ORDER BY and not only the SELECT list, is checked
+-- against the CALLING role's own column-level privileges - so if this
+-- file's grant excluded `ledger_type` (as an earlier version of this file
+-- did, matching `ledger_type` being one of the two genuinely-internal
+-- fields this whole migration pair exists to stop exposing), every
+-- `authenticated` call to get_properties() would fail with "permission
+-- denied for column ledger_type" the moment this migration took effect -
+-- a production-breaking regression that would not surface in any static
+-- review of either file in isolation, only by tracing get_properties()'s
+-- actual function body against this file's actual grant list together.
+--
+-- Fix: `ledger_type` is added to the grant list below, on its own line,
+-- clearly separated from and commented apart from the genuinely
+-- customer-safe columns - granted ONLY because get_properties() needs to
+-- read it internally to filter, never because it is meant to be
+-- customer-visible. `fdor_enriched_at` has no such dependency (never
+-- referenced anywhere in get_properties()'s body) and remains fully
+-- excluded, exactly as before.
+--
+-- Consequence, named rather than hidden: this means 005a can no longer
+-- claim to fully close the raw-table path for `ledger_type` specifically
+-- - a client with direct table access (`sb.from("properties").select(
+-- "ledger_type")`) can still read it after this migration, even though
+-- get_properties() itself never returns it to any caller. This is a
+-- narrow, accepted, documented exception forced by SECURITY INVOKER
+-- privilege semantics, not an oversight: `ledger_type` is pipeline-
+-- routing metadata (this file's own WHY REQUIRED section, unchanged,
+-- already characterizes it and `fdor_enriched_at` together as carrying
+-- "no restricted/legally-sensitive content"), and the alternative -
+-- SECURITY DEFINER, so the function's internal filtering no longer needs
+-- the caller's own column privileges - is explicitly out of scope for
+-- this phase (it would bypass RLS/column privileges more broadly than
+-- this one narrow gap requires, and is a separate, larger architectural
+-- decision needing its own review, not a workaround for this issue).
+--
+-- test_A_005_and_005a_column_lists_are_identical (Phase 14B) is corrected
+-- accordingly in tests/python/test_phase14b_database_api_boundary.py: the
+-- invariant is no longer "005a's grant list equals 005's output list" but
+-- "005a's grant list equals 005's output list plus exactly the documented
+-- ledger_type exception" - see that test file's own updated comments.
+--
+-- ============================================================
+-- THE PROPOSED GRANT CHANGE (NOT EXECUTED BY THIS SESSION)
+-- ============================================================
+revoke select on public.properties from anon;
+revoke select on public.properties from authenticated;
+
+-- `ledger_type` is appended at the very end of the grant list below,
+-- deliberately NOT customer-visible (get_properties() never returns it,
+-- and it is not a CSV/export column) but required there anyway because
+-- that function's own WHERE clause reads it internally under `security
+-- invoker` - see the "CORRECTION, Phase 14E" comment above for the full
+-- reasoning. Kept on its own trailing line, separated from the genuinely
+-- customer-safe columns above it, rather than folded into that list, so
+-- this distinction stays visible to a future reader of this file.
+grant select (
+  id, state, county, source, harvester_source,
+  address, parcel, case_no, owner_name, status,
+  prop_type, dor_use_code, tx_category, lien_level, lien_note,
+  homestead, bid, assessed, market, value_year, min_bid,
+  redemption_period_months, redemption_expiration_date,
+  max_statutory_return_usd, year_built, living_area, lot_sqft,
+  num_buildings, land_value, legal_desc,
+  last_sale_price, last_sale_year, sale_date,
+  certificate_no, tax_year, issued_date, expiration_date, interest_rate,
+  latitude, longitude, url_appraiser, url_auction,
+  url_taxcoll, url_title, url_streetview, url_zillow,
+  gone_since, updated_at,
+  ledger_type
+) on public.properties to authenticated;
+
+-- anon intentionally receives no grant at all - see TARGET ARCHITECTURE
+-- above. If a future product decision needs an anonymous/public preview
+-- of properties data, that is a new product decision requiring its own
+-- explicit review, not something this migration should quietly enable by
+-- re-granting anon a column set designed for signed-in, approved users.
+
+-- Rollback (reproduced here so a revert never needs to be re-derived):
+--
+-- grant select on public.properties to authenticated;
+-- grant select on public.properties to anon;  -- only if anon held a
+--                                              -- blanket grant before this
+--                                              -- migration - confirm via
+--                                              -- VERIFICATION REQUIRED
+--                                              -- item 2 before deciding.

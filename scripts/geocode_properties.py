@@ -192,6 +192,37 @@ def main():
     # workflow the way the sanity check does - this step is additive
     # enrichment, not a correctness gate on the harvest itself.
 
+    # Phase 12 (Production Provenance & Data Lineage Integration): this is
+    # the one real, currently-running ENRICHED-stage step in this
+    # codebase's actual production pipeline (confirmed: this script has no
+    # `state` filter anywhere in _fetch()/fetch_ungeocoded() above - it
+    # runs against TX and FL rows alike). Logged here, plain-language,
+    # rather than as a harvesters/governance/provenance.py Provenance
+    # object: a `Provenance.source_id` is meant to identify a
+    # SOURCE_REGISTRY entry (a governed, restriction-bearing commercial
+    # source) - the free US Census Bureau Geocoder this script calls is
+    # neither commercial nor gated, so representing it as a fabricated
+    # registry-shaped source_id would be inventing structure this
+    # enrichment doesn't actually have, not integrating real provenance
+    # (Phase 12 Step 23 - do not over-engineer). What matters for the
+    # provenance record is the distinction this line documents: SOURCE
+    # VALUES (a row's originally-harvested `latitude`/`longitude`, if any)
+    # are NEVER touched here - only rows already NULL are ever selected
+    # (see fetch_ungeocoded()'s `latitude: "is.null"` filter above), so an
+    # ENRICHED value here always supplements, never overwrites, whatever a
+    # SOURCE value would have been. See
+    # docs/provenance-production-integration.md's "Enrichment lineage"
+    # section for the full accounting.
+    if geocoded:
+        print(
+            f"Provenance (Phase 12, audit-only, not persisted): ENRICHED {geocoded} propert"
+            f"{'y' if geocoded == 1 else 'ies'}' latitude/longitude via the free US Census Bureau "
+            "Geocoder (classification=DERIVED, is_source_provided=False - a project-computed "
+            "enrichment, not from any SOURCE_REGISTRY entry; supplements NULL values only, never "
+            "overwrites a source-provided value) - see docs/provenance-production-integration.md",
+            file=sys.stderr,
+        )
+
 
 if __name__ == "__main__":
     main()

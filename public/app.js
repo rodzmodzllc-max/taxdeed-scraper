@@ -405,7 +405,15 @@ const LEDGERS = {
       title: "Event Terminal — Sheriff/Constable Sales",
       sub: "Open to competitive bidding at a county Sheriff's or Constable's sale.",
       how: "You bid against other buyers, in person or via the county's vendor (LGBS, PBFCM, GovEase). The figure shown is the court-ordered minimum bid, not the final price.",
-      empty: "No Texas sales match yet. Texas harvesting isn't live yet - see harvesters/texas_harvester.py for status - so this is expected to be empty for now, not a bug."
+      // Phase 14A correction: the harvester/sync code has been real and run
+      // against production since 2026-09-09/09-14 (see
+      // harvesters/texas_harvester.py) - "isn't live yet" was stale and
+      // demonstrably false as a blanket technical claim. Texas harvesting
+      // runs on-demand only (no cron schedule yet - see
+      // docs/phase-14a-customer-safety-hardening.md's freshness contract),
+      // so an empty ledger here means no manual run has populated it
+      // recently, not that harvesting is unavailable.
+      empty: "No Texas sales match yet. Texas harvesting runs on-demand (not yet on an automatic schedule) - this list reflects the most recent manual harvest run, so an empty result can mean no recent run, not unavailable harvesting."
     }
   },
   laft: {
@@ -419,7 +427,9 @@ const LEDGERS = {
       title: "OTC Catalog — Struck-Off Inventory",
       sub: "Failed to sell at auction; the taxing unit now holds it. Often purchasable directly (resale), subject to the same statutory redemption rights.",
       how: "No competitive bidding - offered by the taxing unit (often via LGBS/PBFCM resale lists) at or above the minimum. A struck-off property already sold once can still be redeemed by the former owner, same as at auction.",
-      empty: "No Texas struck-off inventory matches yet. Texas harvesting isn't live yet - see harvesters/texas_harvester.py for status - so this is expected to be empty for now, not a bug."
+      // Phase 14A correction - see the parallel note on the auction ledger's
+      // `tx.empty` string above for why this changed.
+      empty: "No Texas struck-off inventory matches yet. Texas harvesting runs on-demand (not yet on an automatic schedule) - this list reflects the most recent manual harvest run, so an empty result can mean no recent run, not unavailable harvesting."
     }
   },
   certificate: {
@@ -433,7 +443,9 @@ const LEDGERS = {
       title: "Yield Desk — Redeemable Tax Deeds",
       sub: "A deed you already own, still subject to the former owner's statutory right to redeem it for a premium (Tex. Tax Code §34.21).",
       how: "Not a lien purchase - you own the deed. The former owner can redeem within 180 days (25% flat premium) or 2 years for homestead/agricultural/mineral property (25% year 1, 50% year 2), on the aggregate cost, not the bid alone.",
-      empty: "No Texas redeemable deeds match yet. Texas harvesting isn't live yet - see harvesters/texas_harvester.py for status - so this is expected to be empty for now, not a bug."
+      // Phase 14A correction - see the parallel note on the auction ledger's
+      // `tx.empty` string above for why this changed.
+      empty: "No Texas redeemable deeds match yet. Texas harvesting runs on-demand (not yet on an automatic schedule) - this list reflects the most recent manual harvest run, so an empty result can mean no recent run, not unavailable harvesting."
     }
   }
 };
@@ -712,6 +724,33 @@ const lotSize = p => {
   return sq >= 20000 ? (sq / 43560).toFixed(2) + " acres" : fmtSqft(sq);
 };
 
+// Phase 14A (Customer-Safety Hardening) - docs/phase-14a-customer-safety-
+// hardening.md's "assessed semantic audit" section traces every writer of
+// `assessed` and finds it is NOT one concept across states: for Texas rows
+// it is never a county-assessed figure at all - it's LGBS's raw CAD
+// "value" field (harvester_source tx_lgbs) or RealAuction's own
+// "Adjudged Value" (harvester_source tx_realauction, a court-set sale
+// value, not an appraisal district's assessment). Before this fix, every
+// Texas row with no `market` value (which is all of them - `market` is
+// FL-enrichment-only) fell through to the literal label "County Assessed
+// Value" below, implying the Florida statutory AV_NSD concept a Texas row
+// has never actually carried. This function exists so the label always
+// names the real upstream system for the number shown, never a borrowed
+// Florida label. (Florida's own `assessed` is not perfectly uniform
+// either - it's usually the harvesting vendor's own posted figure
+// [RealAuction/LienHub], backfilled only when absent by FDOR's statutory
+// AV_NSD - see the audit doc's writer trace for the full within-state
+// nuance, which this function does not attempt to distinguish per row
+// since no field on this table currently records which of the two wrote a
+// given FL row's value; documented as a future limitation, not fixed
+// here, since fixing it would require a new column.)
+function assessedSourceLabel(p) {
+  if (regionOf(p) !== "TX") return "County Assessed Value";
+  if (p.harvester_source === "tx_lgbs") return "TX CAD/Listed Value";
+  if (p.harvester_source === "tx_realauction") return "TX Adjudged Value";
+  return "TX Reported Value";
+}
+
 // The headline value figure, named honestly.
 //
 // This used to read "Est. Market", or "Assessed Value" when it had fallen
@@ -728,7 +767,7 @@ function valueLabel(p) {
   if (hasNum(p.market)) {
     return hasNum(p.value_year) ? `${p.value_year} County Just Value` : "County Just Value";
   }
-  return "County Assessed Value";
+  return assessedSourceLabel(p);
 }
 
 // "Built 1958 · 1,840 sq ft · 0.38 acres" - whichever of the three exist.
@@ -2263,8 +2302,23 @@ document.addEventListener("input", e => {
   const grossSpread = marketOf(p) - Number(p.bid);
   const netSpread = grossSpread - fees(p) - cur.repair - cur.muni;
   const yourMaxBid = Math.max(0, maxBid(p) - cur.repair - cur.muni);
-  const netEl = document.getElementById("calcNetResult");
-  const maxEl = document.getElementById("calcMaxBidResult");
+  // Phase 20 fix: detailHtml(p) (and this calc drawer inside it) can be
+  // rendered into more than one place at once - the full-screen modal
+  // (#detailModalInner) and, on desktop, the persistent detail panel
+  // (#detailPanel, see the "APP SHELL" section below) both call it for
+  // whichever property is currently open/selected, and both copies stay
+  // in the DOM even when one of them is CSS-hidden. That leaves two
+  // elements sharing id="calcNetResult"/id="calcMaxBidResult" at once, so
+  // a bare document.getElementById(...) here was silently grabbing
+  // whichever copy happens to come first in the document (in practice,
+  // always the same one, regardless of which drawer the user is actually
+  // typing into - the visible result never updated). `drawer` above is
+  // already exactly the one calc-drawer <details> the input event came
+  // from, so scoping the lookup to it (drawer.querySelector, not
+  // document.getElementById) always finds the pair of result elements
+  // belonging to the drawer being edited, whichever surface it's in.
+  const netEl = drawer.querySelector("#calcNetResult");
+  const maxEl = drawer.querySelector("#calcMaxBidResult");
   if (netEl) {
     netEl.textContent = `${netSpread >= 0 ? "+" : "-"}${fmtShort(Math.abs(netSpread))}`;
     netEl.classList.toggle("neg", netSpread < 0);
@@ -2973,6 +3027,13 @@ if (exportCsvBtn) exportCsvBtn.addEventListener("click", () => {
     ["Homestead Exemption", p => p.homestead ? "Yes" : ""],
     ["Opening Bid", p => p.bid ?? ""],
     ["County Assessed Value", p => p.assessed ?? ""],
+    // Phase 14A: the "County Assessed Value" header above can't itself vary
+    // per row, so this additive column carries the per-row honest answer to
+    // "what system actually produced that number" - see assessedSourceLabel()
+    // and docs/phase-14a-customer-safety-hardening.md's semantic audit. Never
+    // renames or removes the existing column above, so nothing that already
+    // reads this export by header name breaks.
+    ["Assessed/Value Field Source", p => assessedSourceLabel(p)],
     // "Market Value" as a column heading was the same overclaim the card
     // carried: it is the appraiser's statutory just value for a stated roll
     // year, and the year travels WITH it in its own column so a spreadsheet
