@@ -2302,8 +2302,23 @@ document.addEventListener("input", e => {
   const grossSpread = marketOf(p) - Number(p.bid);
   const netSpread = grossSpread - fees(p) - cur.repair - cur.muni;
   const yourMaxBid = Math.max(0, maxBid(p) - cur.repair - cur.muni);
-  const netEl = document.getElementById("calcNetResult");
-  const maxEl = document.getElementById("calcMaxBidResult");
+  // Phase 20 fix: detailHtml(p) (and this calc drawer inside it) can be
+  // rendered into more than one place at once - the full-screen modal
+  // (#detailModalInner) and, on desktop, the persistent detail panel
+  // (#detailPanel, see the "APP SHELL" section below) both call it for
+  // whichever property is currently open/selected, and both copies stay
+  // in the DOM even when one of them is CSS-hidden. That leaves two
+  // elements sharing id="calcNetResult"/id="calcMaxBidResult" at once, so
+  // a bare document.getElementById(...) here was silently grabbing
+  // whichever copy happens to come first in the document (in practice,
+  // always the same one, regardless of which drawer the user is actually
+  // typing into - the visible result never updated). `drawer` above is
+  // already exactly the one calc-drawer <details> the input event came
+  // from, so scoping the lookup to it (drawer.querySelector, not
+  // document.getElementById) always finds the pair of result elements
+  // belonging to the drawer being edited, whichever surface it's in.
+  const netEl = drawer.querySelector("#calcNetResult");
+  const maxEl = drawer.querySelector("#calcMaxBidResult");
   if (netEl) {
     netEl.textContent = `${netSpread >= 0 ? "+" : "-"}${fmtShort(Math.abs(netSpread))}`;
     netEl.classList.toggle("neg", netSpread < 0);

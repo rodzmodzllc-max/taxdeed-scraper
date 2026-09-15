@@ -638,26 +638,76 @@ await page.waitForTimeout(150);
 // With no repair/lien-buffer entered yet, the ceiling and net figures match
 // what Walk Away Above and Gross Equity Spread already show elsewhere on
 // the same page - the drawer doesn't invent a second set of numbers.
-results.calcInitialMaxBid = (await page.locator('#calcMaxBidResult').textContent() || '').trim();
-results.calcInitialNet = (await page.locator('#calcNetResult').textContent() || '').trim();
-await page.fill('.calc-drawer input[data-calc-field="repair"]', '5000');
-await page.fill('.calc-drawer input[data-calc-field="muni"]', '1000');
+//
+// Phase 20 regression coverage: "viewdetails" populates BOTH #detailModalInner
+// (this full-screen modal) and #detailPanel (the desktop persistent panel,
+// see the dedicated desktop-viewport check below) with their own copy of
+// detailHtml(p) - including their own #calcNetResult/#calcMaxBidResult pair -
+// at the same time, regardless of viewport. Every locator below is scoped to
+// #detailModalInner so it unambiguously targets the copy inside the modal
+// that's actually visible right now; before the Phase 20 fix (scoping the
+// input handler's own DOM lookup to the edited drawer via
+// drawer.querySelector instead of a bare document.getElementById), a bare
+// '#calcMaxBidResult'/'#calcNetResult'/'.calc-drawer ...' locator here hit
+// Playwright's strict-mode violation (two matching elements) - the exact
+// crash Phase 19 reproduced - and even once scoped to avoid that violation,
+// the modal's own result text never updated because the global listener was
+// always writing into the OTHER (panel) copy. So this block, once scoped,
+// fails against the unfixed app.js and passes against the fixed one.
+results.calcInitialMaxBid = (await page.locator('#detailModalInner #calcMaxBidResult').textContent() || '').trim();
+results.calcInitialNet = (await page.locator('#detailModalInner #calcNetResult').textContent() || '').trim();
+await page.fill('#detailModalInner .calc-drawer input[data-calc-field="repair"]', '5000');
+await page.fill('#detailModalInner .calc-drawer input[data-calc-field="muni"]', '1000');
 await page.waitForTimeout(150);
-results.calcNetAfterInput = (await page.locator('#calcNetResult').textContent() || '').trim();
-results.calcMaxBidAfterInput = (await page.locator('#calcMaxBidResult').textContent() || '').trim();
+results.calcNetAfterInput = (await page.locator('#detailModalInner #calcNetResult').textContent() || '').trim();
+results.calcMaxBidAfterInput = (await page.locator('#detailModalInner #calcMaxBidResult').textContent() || '').trim();
 // The repair estimate and lien buffer are the bidder's own numbers, not
 // server state - closing and reopening the SAME property's page should
 // find them still there (localStorage), not reset to blank.
-await page.click('[data-action="closedetail"]');
+//
+// Phase 20: every "✕" close button below is scoped to #detailModalInner for
+// the same reason the calculator locators above are - detailHtml(p) (data-
+// action="closedetail" button included) renders into #detailPanel too the
+// moment any property has ever been viewed, and that copy stays in the DOM
+// (just CSS-hidden below the desktop breakpoint) for the rest of the page's
+// life. A bare '[data-action="closedetail"]' selector is therefore
+// ambiguous from here on - Playwright picks "the first" match in document
+// order, which is #detailPanel's copy, then hangs forever waiting for an
+// element CSS hides to become visible. This never affects a real user (a
+// mouse click only ever targets the one element actually under the
+// pointer); it's a pre-existing gap in the test's own selectors, only
+// reachable once the calculator crash above it is fixed, so it's addressed
+// here alongside that fix rather than left to block this regression test.
+await page.click('#detailModalInner [data-action="closedetail"]');
 await page.waitForTimeout(150);
 await firstDetailBtn.click();
 await page.waitForTimeout(150);
 await page.click('#detailModalInner .calc-drawer summary');
 await page.waitForTimeout(150);
-results.calcInputPersistsAfterReopen = await page.locator('.calc-drawer input[data-calc-field="repair"]').inputValue();
+results.calcInputPersistsAfterReopen = await page.locator('#detailModalInner .calc-drawer input[data-calc-field="repair"]').inputValue();
+
+// Phase 20: explicit no-leakage check. The persistence check just above
+// only proves the SAME property keeps its own repair estimate after being
+// closed and reopened - it doesn't prove a DIFFERENT property stays clean.
+// Every calc input is read/written through calcInputsFor(p.id) /
+// saveCalcInput(pid, ...), a per-property localStorage key, so this is
+// expected to already hold; this makes it an explicit, checked assertion
+// instead of an unverified assumption.
+await page.click('#detailModalInner [data-action="closedetail"]');
+await page.waitForTimeout(150);
+const secondDetailBtn = page.locator('.detail-btn[data-action="viewdetails"]').nth(1);
+await secondDetailBtn.click();
+await page.waitForTimeout(150);
+await page.click('#detailModalInner .calc-drawer summary');
+await page.waitForTimeout(150);
+results.calcInputNoLeakToOtherProperty = await page.locator('#detailModalInner .calc-drawer input[data-calc-field="repair"]').inputValue();
+await page.click('#detailModalInner [data-action="closedetail"]');
+await page.waitForTimeout(150);
+await firstDetailBtn.click();
+await page.waitForTimeout(150);
 
 // close via the close button
-await page.click('[data-action="closedetail"]');
+await page.click('#detailModalInner [data-action="closedetail"]');
 await page.waitForTimeout(150);
 results.detailModalHiddenAfterCloseBtn = await page.locator('#detailModal').isHidden();
 
@@ -695,7 +745,13 @@ results.termsModalCloses = await page.locator('#termsModal').isHidden();
 results.cardStatGridCount = await page.locator('.prop-card .card-stat-grid').count();
 results.lienPillFirstText = (await page.locator('.prop-card .lien-pill').first().textContent() || '').trim();
 results.homesteadBadgeAbsentForP1 = await page.locator('.prop-card').first().locator('.lien-pill.homestead').count();
-results.infoTipCount = await page.locator('.info-tip').count();
+// Phase 20: scoped to #detailModalInner for the same reason as the
+// calculator and closedetail locators above - by this point in the file a
+// property has already been viewed, so detailHtml(p)'s own .info-tip
+// elements exist in BOTH #detailModalInner and #detailPanel's copies at
+// once, and a bare '.info-tip' selector was silently counting both (8
+// instead of the real, single-render count of 4).
+results.infoTipCount = await page.locator('#detailModalInner .info-tip').count();
 // --- bare-land branch (p3, LAFT ledger): land_value equal to market means
 // the derived Building/Improvement stat should read as bare land, not a
 // misleading "$0". Safe to open a second property's detail page here -
@@ -745,7 +801,7 @@ results.laftBareLandStat = await page.evaluate(() => {
     .find(e => e.querySelector('.detail-stat-label').textContent.trim() === 'Building / Improvement Value');
   return el ? el.querySelector('.detail-stat-val').textContent.trim() : null;
 });
-await page.click('[data-action="closedetail"]');
+await page.click('#detailModalInner [data-action="closedetail"]');
 await page.waitForTimeout(150);
 await page.click('.ledger-tab[data-ledger="auction"]');
 await page.waitForTimeout(150);
@@ -816,7 +872,7 @@ results.certDetailYieldInfoTips = await page.locator(
   '#detailModalInner .detail-stat:has-text("Est. Accrued Interest") .info-tip, ' +
   '#detailModalInner .detail-stat:has-text("TDA Eligibility") .info-tip'
 ).count();
-await page.click('[data-action="closedetail"]');
+await page.click('#detailModalInner [data-action="closedetail"]');
 await page.waitForTimeout(150);
 await page.click('.ledger-tab[data-ledger="laft"]');
 await page.waitForTimeout(150);
@@ -1074,8 +1130,41 @@ await page.locator('.prop-card').first().locator('.detail-btn').first().click();
 await page.waitForTimeout(300);
 results.desktopAuctionModalDocksRight = await page.locator('#detailModal').evaluate(el =>
   getComputedStyle(el).justifyContent === 'flex-end');
-await page.click('[data-action="closedetail"]');
+
+// Close the full-screen modal BEFORE touching the panel below: while open,
+// the modal is a fixed-position overlay that sits on top of #detailPanel in
+// the stacking order, so its own subtree intercepts every pointer event
+// over the panel (Playwright confirmed this concretely - a click on the
+// panel's calc-drawer <summary> kept getting swallowed by #detailModalInner
+// until the modal was closed first). This is normal overlay behavior, not a
+// defect: a real user can't interact with anything the modal is covering
+// either, they'd close it first too.
+await page.click('#detailModalInner [data-action="closedetail"]');
 await page.waitForTimeout(150);
+
+// Phase 20: the SAME viewdetails click above also called selectProperty(p),
+// which renders this property's own copy of detailHtml(p) - complete with
+// its own #calcNetResult/#calcMaxBidResult pair - into #detailPanel, the
+// persistent desktop panel that's visible at this >=1024px width (CSS-hides
+// it below that width, but it's still present and populated in the DOM at
+// every width - see the mobile-viewport calculator block above, which
+// exercises the #detailModalInner copy). This checks the panel surface
+// independently of the modal: its own calculator drawer opens, accepts its
+// own repair/lien-buffer input, and its own result elements update -
+// proving the Phase 20 fix (scoping the input handler's DOM lookup to the
+// specific drawer being edited, via drawer.querySelector instead of a bare
+// document.getElementById) works for BOTH places detailHtml(p) can be
+// rendered at once, not just the modal.
+results.detailPanelCalcDrawerPresent = await page.locator('#detailPanel .calc-drawer').count();
+await page.click('#detailPanel .calc-drawer summary');
+await page.waitForTimeout(150);
+results.detailPanelCalcInitialMaxBid = (await page.locator('#detailPanel #calcMaxBidResult').textContent() || '').trim();
+results.detailPanelCalcInitialNet = (await page.locator('#detailPanel #calcNetResult').textContent() || '').trim();
+await page.fill('#detailPanel .calc-drawer input[data-calc-field="repair"]', '5000');
+await page.fill('#detailPanel .calc-drawer input[data-calc-field="muni"]', '1000');
+await page.waitForTimeout(150);
+results.detailPanelCalcNetAfterInput = (await page.locator('#detailPanel #calcNetResult').textContent() || '').trim();
+results.detailPanelCalcMaxBidAfterInput = (await page.locator('#detailPanel #calcMaxBidResult').textContent() || '').trim();
 
 await page.click('.ledger-tab[data-ledger="laft"]');
 await page.waitForTimeout(400);
@@ -1128,6 +1217,20 @@ const EXPECTED = {
   freshnessBadgesForAdmin: 0,
   desktopAuctionListSingleColumn: true,
   desktopAuctionModalDocksRight: true,
+  // Phase 20 regression coverage for the desktop persistent panel surface -
+  // same fixture property and same math as the modal's calcInitial*/calc*AfterInput
+  // checks above, read from #detailPanel's own result elements instead.
+  // NOTE: this is a different fixture property than the mobile-viewport
+  // modal check above (the desktop block navigates fresh to #/auctions and
+  // opens whichever card sorts first there), so the dollar figures differ -
+  // what matters, and is what this regression test actually verifies, is
+  // that adding $5,000 repair + $1,000 lien buffer moves both results down
+  // by exactly that $6,000 combined amount, which it does here.
+  detailPanelCalcDrawerPresent: 1,
+  detailPanelCalcInitialMaxBid: '$47,200',
+  detailPanelCalcInitialNet: '+$106,893',
+  detailPanelCalcNetAfterInput: '+$100,893',
+  detailPanelCalcMaxBidAfterInput: '$41,200',
   desktopLaftListIsMultiColumn: true,
   desktopCertListSingleColumn: true,
   desktopCertCardIsRow: true,
@@ -1333,6 +1436,7 @@ const EXPECTED = {
   calcNetAfterInput: '+$78,935',
   calcMaxBidAfterInput: '$30,000',
   calcInputPersistsAfterReopen: '5000',
+  calcInputNoLeakToOtherProperty: '',
   detailModalVisibleAfterOpen: true,
   detailModalHasAddress: 1,
   detailModalHasLinks: 6,
