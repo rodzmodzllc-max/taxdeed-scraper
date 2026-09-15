@@ -23,6 +23,9 @@ from .authorization import (
     UsePermission,
     authorization_for_scope,
     authorizations_for_source,
+    authorized_for_api_export,
+    authorized_for_customer_output,
+    authorized_for_ingestion,
     check_authorized_use,
     effective_authorization_status,
 )
@@ -85,6 +88,9 @@ __all__ = [
     "UsePermission",
     "authorization_for_scope",
     "authorizations_for_source",
+    "authorized_for_api_export",
+    "authorized_for_customer_output",
+    "authorized_for_ingestion",
     "check_authorized_use",
     "effective_authorization_status",
 ]

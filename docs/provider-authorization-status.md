@@ -1,6 +1,26 @@
 # Provider authorization status
 
-**Status:** Phase 34A, 2026-09-15. The current, authoritative statement of what this project has and has not established for its two Florida vendor-platform sources. Supersedes the "Not formally reviewed"/robots.txt-and-WAF-only framing in `claude/phase-33-5-florida-production-source-rights-audit.md` now that actual agreement terms are on file - that document's findings are preserved, not erased, and remain correct as far as they went; this page reflects what the actual license text (as supplied) adds on top of them.
+**Status:** Phase 34A built this page, 2026-09-15; Phase 34B (same date) reviewed it against the new enforcement wiring and confirms neither status below changed - the review below adds the enforcement/lifecycle detail Phase 34B Section 17 asks for. The current, authoritative statement of what this project has and has not established for its two Florida vendor-platform sources. Supersedes the "Not formally reviewed"/robots.txt-and-WAF-only framing in `claude/phase-33-5-florida-production-source-rights-audit.md` now that actual agreement terms are on file - that document's findings are preserved, not erased, and remain correct as far as they went; this page reflects what the actual license text (as supplied) adds on top of them.
+
+## Lifecycle position (Phase 34B Section 17)
+
+Both records below sit at the same point in the authorization lifecycle - Section 17 asks that "requested / received / reviewed / approved / restricted / expired / revoked" be clearly distinguished, so, explicitly, for both `_LIENHUB_GRANT_STREET` and `_REALAUCTION_ALACHUA`/`_REALAUCTION_VOLUSIA`:
+
+| Lifecycle step | LienHub | RealAuction (Alachua/Volusia) |
+|---|---|---|
+| Requested (a request was sent to the provider) | No - `request_status=REQUEST_NOT_STARTED`, `requested_by=None`, `request_date=None` | No - same |
+| Received (a provider response/document was received) | No - `document.is_pending=True`, no response received | No - same |
+| Reviewed (the supplied terms were read and transcribed) | Yes - `reviewed_by`/`reviewed_at` populated, `document.scope_summary` transcribes the supplied terms | Yes - same |
+| Approved (any use dimension authorized) | No - every `scope.<dim>.authorized=False` | No - same |
+| Restricted (`APPROVED_WITH_RESTRICTIONS`, some but not all dimensions authorized) | No - not in a granted status at all | No - same |
+| Expired (`effective_authorization_status()` computes `EXPIRED`) | No - no `expiration_date` is set, so this can never trigger | No - same |
+| Revoked | No - `authorization_status` has never been `REVOKED` | No - same |
+
+In short: both records have been **reviewed** (the supplied terms are on file, structured, and transcribed) but never **requested, received, approved, restricted, expired, or revoked** - they sit at `LEGAL_REVIEW_REQUIRED`, the state for "we have terms to review and they do not establish authorization," not any later lifecycle state. Phase 34B did not move either record forward on its own initiative, consistent with the standing rule against inflating status without a real event to justify it.
+
+## Enforcement status (Phase 34B)
+
+Phase 34B added real production wiring (`harvesters/governance/authorization.py`'s `authorized_for_customer_output()`, wired into `scripts/sync-texas-to-supabase.py`) that *would* block both sources from customer-facing display if either were ever routed through that script - today neither is, since Florida's pipeline is entirely separate PowerShell/Python that does not import this governance package at all (see `docs/provider-authorization.md`'s "Production enforcement" section for the full picture and the named gap). So the practical, honest statement is: both sources are *governed on paper and enforced in tests* against this new boundary, but *not yet live-enforced* in Florida's actual production pipeline - unchanged from the position before Phase 34B, since Florida's pipeline was equally unreachable by the Phase 34A framework and by the pre-existing Phase 11 gate before it.
 
 ## LienHub / Grant Street Group
 

@@ -126,8 +126,22 @@ def test_B_projection_functions_remain_write_path_only_not_imported_by_frontend(
     assert "project_row_for_api_export" not in app_js
     # And they are still wired into the one real write-path call site -
     # regression of Phase 11/12, re-confirmed here rather than assumed.
+    #
+    # UPDATED Phase 34B: the sync script no longer calls
+    # gate.project_row_for_customer_output() directly - it now calls
+    # authorization.authorized_for_customer_output(), which calls that
+    # SAME function internally as its first step (see
+    # harvesters/governance/authorization.py) before adding its own,
+    # additive per-use/per-county check. Both halves of that chain are
+    # asserted here, so this test still catches either half being quietly
+    # dropped: the sync script must still route through the authorization
+    # wrapper, and that wrapper must still route through the original
+    # Phase 11 projection function, not bypass it.
     sync_src = _read("scripts", "sync-texas-to-supabase.py")
-    assert "project_row_for_customer_output(row, harvester_source)" in sync_src
+    assert "authorized_for_customer_output(row, harvester_source, county=county)" in sync_src
+    assert "project_row_for_customer_output(row, harvester_source)" not in sync_src
+    authorization_src = _read("harvesters", "governance", "authorization.py")
+    assert "project_row_for_customer_output(row, source_id)" in authorization_src
 
 
 def test_B_no_new_read_path_bypass_was_introduced_around_get_properties():

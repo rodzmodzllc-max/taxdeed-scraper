@@ -64,7 +64,7 @@ from dataclasses import dataclass, field
 from datetime import date, datetime
 from enum import Enum
 
-from .gate import check_ingestion_gate
+from .gate import check_ingestion_gate, project_row_for_api_export, project_row_for_customer_output
 from .registry import SourceStatus
 
 
@@ -95,6 +95,7 @@ class AuthorizationStatus(str, Enum):
     REVOKED = "REVOKED"
     LEGAL_REVIEW_REQUIRED = "LEGAL_REVIEW_REQUIRED"
     TERMS_CHANGED = "TERMS_CHANGED"
+    NOT_YET_EFFECTIVE = "NOT_YET_EFFECTIVE"  # Phase 34B Section 13: an effective_date in the future denies, same as EXPIRED denies past it
 
 
 # The ONLY two states under which any individual AuthorizationScope flag is
@@ -107,20 +108,13 @@ AUTHORIZATION_GRANTED_STATUSES = frozenset(
         AuthorizationStatus.APPROVED_WITH_RESTRICTIONS,
     }
 )
-
-# Terminal/blocking states that, once reached, mean "not authorized" no
-# matter what any individual scope flag says - checked by
-# effective_authorization_status() below before any per-use flag is even
-# consulted, per Step 13/14 ("the source must no longer be treated as
-# commercially authorized" once EXPIRED/REVOKED/TERMS_CHANGED).
-_ALWAYS_DENY_STATUSES = frozenset(
-    {
-        AuthorizationStatus.EXPIRED,
-        AuthorizationStatus.REVOKED,
-        AuthorizationStatus.TERMS_CHANGED,
-        AuthorizationStatus.DECLINED,
-    }
-)
+# Every other AuthorizationStatus member (REQUEST_NOT_STARTED, DRAFT,
+# CONTACTED, AWAITING_RESPONSE, RECEIVED, UNDER_REVIEW, DECLINED, EXPIRED,
+# REVOKED, LEGAL_REVIEW_REQUIRED, TERMS_CHANGED, NOT_YET_EFFECTIVE) denies -
+# there is deliberately no second "always deny" set to keep in sync with
+# this one; `not in AUTHORIZATION_GRANTED_STATUSES` is the single source of
+# truth `check_authorized_use()` and `ProviderAuthorization.__post_init__`
+# both consult.
 
 
 @dataclass(frozen=True)
@@ -316,26 +310,49 @@ class ProviderAuthorization:
                 "document on file (document.is_pending=False with a document_location) - never assert written "
                 "permission exists without a reference to what was written."
             )
+        # Phase 34B data-integrity guard: a record whose effective_date is
+        # AFTER its own expiration_date describes a window that never
+        # exists - catch this at construction time rather than letting
+        # effective_authorization_status() silently pick one interpretation.
+        if self.effective_date and self.expiration_date and self.effective_date > self.expiration_date:
+            raise ValueError(
+                f"authorization_id={self.authorization_id!r}: effective_date ({self.effective_date}) is after "
+                f"expiration_date ({self.expiration_date}) - this authorization window never exists."
+            )
 
 
 def effective_authorization_status(
     record: ProviderAuthorization, *, as_of: str | None = None
 ) -> AuthorizationStatus:
-    """Phase 34A Step 13/14: compute the status that actually governs
-    TODAY, which may differ from the status literally stored on the
-    record. REVOKED always wins (terminal). Otherwise, if `expiration_date`
-    has passed as of `as_of` (default: today, UTC date), the record is
-    treated as EXPIRED regardless of what `authorization_status` still
-    says - Step 13's "the source must no longer be treated as commercially
-    authorized" is enforced at read time here, not left to depend on some
-    future background job remembering to flip the stored field. Otherwise
-    the stored `authorization_status` is returned unchanged."""
+    """Phase 34A Step 13/14, extended by Phase 34B Section 13: compute the
+    status that actually governs TODAY (or `as_of`, for testing a specific
+    date), which may differ from the status literally stored on the
+    record - checked in this order:
+
+      1. REVOKED always wins (terminal) - a revoked record is REVOKED no
+         matter what its dates say.
+      2. A future `effective_date` (the authorization window has not
+         started yet) -> NOT_YET_EFFECTIVE, regardless of the stored
+         status. `ProviderAuthorization.__post_init__` already guarantees
+         effective_date <= expiration_date when both are set, so this
+         check and the next one are mutually exclusive on valid data.
+      3. A past `expiration_date` -> EXPIRED, regardless of the stored
+         status.
+      4. Otherwise, the stored `authorization_status` is returned
+         unchanged.
+
+    Step 13's "the source must no longer be treated as commercially
+    authorized" (and, symmetrically, "not yet" for a future-dated one) is
+    enforced HERE, at read time, rather than depending on some future
+    background job remembering to flip a stored field. `check_authorized_
+    use()` below always calls this function, never the raw stored field."""
     if record.authorization_status == AuthorizationStatus.REVOKED:
         return AuthorizationStatus.REVOKED
-    if record.expiration_date:
-        today = date.fromisoformat(as_of) if as_of else datetime.utcnow().date()
-        if today > date.fromisoformat(record.expiration_date):
-            return AuthorizationStatus.EXPIRED
+    today = date.fromisoformat(as_of) if as_of else datetime.utcnow().date()
+    if record.effective_date and today < date.fromisoformat(record.effective_date):
+        return AuthorizationStatus.NOT_YET_EFFECTIVE
+    if record.expiration_date and today > date.fromisoformat(record.expiration_date):
+        return AuthorizationStatus.EXPIRED
     return record.authorization_status
 
 
@@ -343,7 +360,13 @@ def effective_authorization_status(
 class UseDecision:
     """The result of check_authorized_use() below - mirrors gate.py's own
     GateDecision shape deliberately, so a caller already familiar with
-    that pattern reads this one the same way."""
+    that pattern reads this one the same way. `checked_at` (Phase 34B
+    Section 16) is a real wall-clock timestamp of when THIS decision was
+    computed - independent of `as_of` (which simulates "as of what date",
+    for testing) - so a logged denial carries enough to diagnose WHEN it
+    was checked, on top of source/county/use/status/reason. Nothing on
+    this dataclass is a secret, credential, or personal-data field -
+    source_id/county/use/status/reason/timestamp only."""
 
     source_id: str
     use: str
@@ -352,6 +375,7 @@ class UseDecision:
     ingestion_gate_allowed: bool
     authorization_status: AuthorizationStatus | None
     reason: str
+    checked_at: str = field(default_factory=lambda: datetime.utcnow().isoformat())
 
 
 def authorizations_for_source(source_id: str) -> tuple[ProviderAuthorization, ...]:
@@ -489,6 +513,109 @@ def check_authorized_use(
         authorization_status=effective_status,
         reason=f"authorization_id={record.authorization_id!r} is {effective_status.value} and authorizes '{use}'",
     )
+
+
+# ---------------------------------------------------------------------------
+# Phase 34B: production-boundary wrappers.
+#
+# These three functions are the actual "narrowest reliable shared
+# ingestion/sync boundary" Phase 34B Section 1/3 asks this phase to find -
+# each one composes the EXISTING, unmodified Phase 10A/11 gate function
+# with this module's new per-use authorization check, with one governing
+# design rule that makes wiring them into real production code safe:
+#
+#   A source_id with ZERO ProviderAuthorization records anywhere (today:
+#   every TX source - tx_lgbs, tx_realauction, tx_hctax, etc. - and every
+#   FL source other than fl_realauction/fl_lienhub_certificates) has NOT
+#   opted into the Phase 34A/34B framework, and these functions are a
+#   byte-for-byte no-op for it - the exact same decision the existing
+#   gate.py function alone would have made. A source_id that HAS at least
+#   one authorization record on file (today: fl_realauction,
+#   fl_lienhub_certificates) is held to the stricter standard: the
+#   specific use must be affirmatively authorized for the specific county
+#   asked about, or the row/use is denied.
+#
+# This is what "changing normal behavior for currently authorized sources"
+# (Section 1) is prohibited from doing, and what these functions are
+# built to structurally guarantee they never do - see
+# test_new_customer_output_check_is_a_no_op_for_sources_with_no_authorization_records
+# in tests/python/test_provider_authorization.py for the regression test
+# that proves it against the two real production TX sources.
+# ---------------------------------------------------------------------------
+
+
+def authorized_for_ingestion(source_id: str, *, county: str | None = None) -> bool:
+    """The 'raw acquisition' boundary (Section 3) - whether a harvester
+    should be allowed to run for this source_id at all. Deliberately
+    stays at check_ingestion_gate()'s existing, coarser question (is
+    legal_status APPROVED/APPROVED_WITH_RESTRICTIONS) for a source that
+    has not opted into the new framework - Section 3's own instruction
+    not to "unnecessarily prohibit internal discovery/diagnostic activity"
+    means raw acquisition is deliberately held to a lighter standard than
+    customer-facing exposure below; a source can be legitimately harvested
+    for internal/diagnostic purposes (e.g. building the county coverage
+    matrices in claude/phase-33-source-compliance-audit.md) without yet
+    having a full per-use commercial authorization on file. For a source
+    that HAS entered the new framework, this still requires
+    'automated_access' to be authorized for the given county specifically
+    - so fl_realauction/fl_lienhub_certificates, once/if this function is
+    ever actually wired into a harvester entry point, would correctly
+    deny automated harvesting today."""
+    if not authorizations_for_source(source_id):
+        return check_ingestion_gate(source_id).allowed
+    return check_authorized_use(source_id, "automated_access", county=county).allowed
+
+
+def authorized_for_customer_output(row: dict, source_id: str, *, county: str | None = None) -> dict | None:
+    """The 'customer-facing exposure' boundary (Section 4) - the row a
+    customer would actually see (frontend card view, or CSV export, in
+    this codebase's own architecture where the exported file and the
+    displayed card come from the same `public.properties` row - see
+    docs/data-licensing.md's own note that this app has no application
+    server separate from that table). Returns the row exactly as
+    gate.project_row_for_customer_output() would have (including its
+    existing field-shape stripping for NO_RAW_HTML/NO_IMAGES/NO_DOCUMENTS
+    restrictions - Section 7's source-vs-field distinction is already
+    handled there, not reinvented here), or None if either that function
+    or this module's own authorization check rejects it.
+    See the module-level note above for why this is a verified no-op for
+    any source_id with zero authorization records (today: every TX source)."""
+    projected = project_row_for_customer_output(row, source_id)
+    if projected is None:
+        return None
+    if not authorizations_for_source(source_id):
+        return projected
+    if not check_authorized_use(source_id, "customer_display", county=county).allowed:
+        return None
+    return projected
+
+
+def authorized_for_api_export(row: dict, source_id: str, *, county: str | None = None) -> dict | None:
+    """The 'export/API redistribution' boundary (Section 5/6) - stricter
+    than authorized_for_customer_output() above (a row can be fine to
+    display in-app but not fine to hand to the customer as a file or
+    through an API - Section 6's explicit 'do not confuse customer_display
+    with api_redistribution'). Checks BOTH 'customer_export' AND
+    'api_redistribution' for a source that has entered the framework
+    (this codebase's one real export today, the CSV download button in
+    public/app.js, is customer_export; api_redistribution covers a
+    future distinct API surface, per gate.project_row_for_api_export()'s
+    own docstring) - a row must be authorized for whichever surface it is
+    actually headed to, so the CALLER is expected to pass the one that
+    matches its own context; this function checks both because neither
+    surface exists as separate production code paths yet to disambiguate
+    by call site, so it is deliberately conservative here (denies if
+    EITHER is unauthorized) rather than picking one arbitrarily."""
+    projected = project_row_for_api_export(row, source_id)
+    if projected is None:
+        return None
+    if not authorizations_for_source(source_id):
+        return projected
+    export_decision = check_authorized_use(source_id, "customer_export", county=county)
+    api_decision = check_authorized_use(source_id, "api_redistribution", county=county)
+    if not (export_decision.allowed and api_decision.allowed):
+        return None
+    return projected
 
 
 # ---------------------------------------------------------------------------
