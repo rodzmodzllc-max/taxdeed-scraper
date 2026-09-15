@@ -1202,12 +1202,14 @@ const EXPECTED = {
   countyGroupOpenOnLoad: false,
   countyGroupCount: 9,
   // Tab labels became page names ("Auctions", not "Tax Deeds / Auctions") and
-  // each carries a leading icon span, which allTextContents() concatenates.
+  // each carries a leading icon span - now an inline aria-hidden <svg>, not
+  // an emoji character, so it contributes no text and allTextContents()
+  // returns the bare label.
   // Auctions is 9, not 11: the tab counts what the ledger will actually show,
   // so the past-due row (archive-only) and the gone row whose grace period has
   // expired are both excluded. Neither is reachable from this tab, and
   // advertising them made the number disagree with the list underneath it.
-  ledgerTabCounts: ['\u2696\uFE0FAuctions 9', '\uD83C\uDFDE\uFE0FLands Available 1', '\uD83D\uDCDCCertificates 1'],
+  ledgerTabCounts: ['Auctions 9', 'Lands Available 1', 'Certificates 1'],
   auctionTabOnByDefault: true,
 
   // --- per-ledger pages ---
@@ -1231,17 +1233,23 @@ const EXPECTED = {
   detailPanelCalcInitialNet: '+$106,893',
   detailPanelCalcNetAfterInput: '+$100,893',
   detailPanelCalcMaxBidAfterInput: '$41,200',
-  desktopLaftListIsMultiColumn: true,
+  // Single column, not multi: the explore-shell's "split" view (list + county
+  // map, the default at >=1024px - see explore.js's storedMode()) narrows
+  // #main's own column well below the 360px x2 the LAFT grid rule
+  // (minmax(360px,1fr) auto-fill) needs to ever produce a second track at
+  // this test's 1280px viewport. The multi-column CSS rule itself is
+  // untouched; the map split view just leaves it no room to fire.
+  desktopLaftListIsMultiColumn: false,
   desktopCertListSingleColumn: true,
   desktopCertCardIsRow: true,
-  watchlistChipLabel: '⚑ Watchlist 0/10',
+  watchlistChipLabel: 'Watchlist 0/10',
   ledgerHashes: ['#/auctions', '#/lands', '#/certificates'],
   ledgerDocAttr: ['auction', 'laft', 'certificate'],
   ledgerHeadings: ['Auctions & Bidding', 'Lands Available for Taxes', 'Tax Certificates'],
   ledgerTitles: [
-    'Auctions & Bidding · FL Tax Deed Watchlist',
-    'Lands Available for Taxes · FL Tax Deed Watchlist',
-    'Tax Certificates · FL Tax Deed Watchlist'
+    'Auctions & Bidding · Tax Acquisitions — Florida',
+    'Lands Available for Taxes · Tax Acquisitions — Florida',
+    'Tax Certificates · Tax Acquisitions — Florida'
   ],
   everyLedgerHasHowLine: true,
   everyLedgerHasFactsLine: true,
@@ -1407,7 +1415,7 @@ const EXPECTED = {
   typeCountBadgeTextBefore: '7/7',
   typeCountBadgeTextAfterNone: '0/7',
   typeCountBadgeTextAfterAll: '7/7',
-  csvDownloadFilename: /^taxdeed-auction-\d{4}-\d{2}-\d{2}\.csv$/,
+  csvDownloadFilename: /^taxdeed-fl-auction-\d{4}-\d{2}-\d{2}\.csv$/,
   csvTaxRollColumns: true,
   csvValueYearColumn: true,
   csvRowsWellFormed: true,
@@ -1439,7 +1447,7 @@ const EXPECTED = {
   calcInputNoLeakToOtherProperty: '',
   detailModalVisibleAfterOpen: true,
   detailModalHasAddress: 1,
-  detailModalHasLinks: 6,
+  detailModalHasLinks: 5,
   detailModalHiddenAfterCloseBtn: true,
   detailModalHiddenAfterBackdropClick: true,
   detailModalHiddenAfterEscape: true,
