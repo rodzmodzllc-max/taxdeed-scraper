@@ -1,10 +1,32 @@
-"""Phase 23B (Safe Certificate Status Reconciliation) tests.
+"""Phase 23B (Safe Certificate Status Reconciliation) tests, updated by
+Phase 27 (claude/phase-27-certificate-reconciliation-schema-truth-redesign.md)
+to match the *verified production schema*.
 
 Implements the Phase 23A design (claude/phase-23a-certificate-reconciliation-
-design.md): an existing `active` Florida LienHub certificate that is absent
-from a demonstrably COMPLETE county harvest is reconciled to
-`status='notfound', outcome='no longer listed'` - never for a county the
-harvester could not positively confirm it fully retrieved.
+design.md) as corrected by Phase 27: an existing `active` Florida LienHub
+certificate that is absent from a demonstrably COMPLETE county harvest is
+reconciled to `status='notfound'` - never for a county the harvester could
+not positively confirm it fully retrieved.
+
+Phase 27 removed `outcome` from the reconciliation PATCH. Phase 26's live
+forensic audit (claude/phase-26-production-schema-forensic-audit.md)
+confirmed production `properties` has no `outcome` column and no
+`sold_price` column - Phase 23B's original PATCH body
+(`{"status":"notfound","outcome":"no longer listed"}`) was rejected
+atomically in production with `PGRST204: Could not find the 'outcome'
+column of 'properties' in the schema cache`, and no false closures occurred
+because PostgREST validates the whole batch before writing anything. Phase
+14D (docs/phase-14d-migration-reconciliation.md) had already independently
+established that `outcome`/`sold_price` were deliberately deferred, not
+merely unimplemented, and built the sibling regression test
+`test_outcome_and_sold_price_have_no_writer_anywhere_in_the_repo` (in
+tests/python/test_phase14d_migration_reconciliation.py) that this file's
+fix must make pass again without weakening it. The status-only transition
+is not a loss of information: `gone_since` is a verified, trigger-managed
+production column (`properties_gone_since` -> `track_gone_since()`, no
+`source` filter) that stamps itself the moment `status` enters
+`('dropped','sold','notfound')`, so certificate rows get the same gone-
+tracking as every other source without this script writing it.
 
 ## Why this file mixes two kinds of test
 
@@ -203,27 +225,62 @@ def test_reconciliation_keys_on_case_no_not_certificate_no():
 
 def test_reconciliation_only_ever_patches_never_posts_or_deletes():
     """Reconciliation must never create new rows or delete rows - only
-    PATCH the status/outcome of rows already known to exist."""
+    PATCH the status of rows already known to exist."""
     section = _sync_reconciliation_section()
     assert "-Method Patch" in section
     assert "-Method Post" not in section
     assert "-Method Delete" not in section
 
 
-def test_reconciliation_patch_body_is_exactly_notfound_and_no_longer_listed():
+def test_reconciliation_patch_body_is_exactly_status_notfound():
+    """Phase 27: the PATCH body must be exactly `{"status":"notfound"}` -
+    only a column verified to exist in production (Phase 26's live audit)
+    is ever written."""
     section = _sync_reconciliation_section()
-    assert '\'{"status":"notfound","outcome":"no longer listed"}\'' in section
+    assert '\'{"status":"notfound"}\'' in section
+
+
+def test_reconciliation_patch_does_not_contain_outcome():
+    """Phase 27 Part 4 item 2: production `properties` has no `outcome`
+    column (Phase 26 forensic audit) - the PATCH body itself must never
+    reference it, or PostgREST rejects the whole batch with PGRST204
+    (the exact Phase 25 production failure this phase exists to fix)."""
+    section = _sync_reconciliation_section()
+    patch_body_idx = section.index("$patchBody = [System.Text.Encoding]::UTF8.GetBytes(")
+    patch_body_line = section[patch_body_idx:section.index("\n", patch_body_idx)]
+    assert "outcome" not in patch_body_line
+
+
+def test_reconciliation_patch_does_not_contain_sold_price():
+    """Phase 27 Part 4 item 3: production `properties` has no `sold_price`
+    column either (Phase 26 forensic audit) - same reasoning as the
+    `outcome` check above, and Phase 14D established both fields were
+    deliberately deferred together."""
+    section = _sync_reconciliation_section()
+    patch_body_idx = section.index("$patchBody = [System.Text.Encoding]::UTF8.GetBytes(")
+    patch_body_line = section[patch_body_idx:section.index("\n", patch_body_idx)]
+    assert "sold_price" not in patch_body_line
 
 
 def test_reconciliation_patch_writes_no_other_field():
-    """The PATCH body must carry only status and outcome - every other
-    column (owner_name, assessed, interest_rate, hand research, etc.) must
-    be left completely untouched, matching the upsert's own safe-merge
-    discipline."""
+    """The PATCH body must carry only `status` - every other column
+    (owner_name, assessed, interest_rate, hand research, `gone_since`,
+    etc.) must be left completely untouched, matching the upsert's own
+    safe-merge discipline. `gone_since` in particular must NOT be written
+    here - it is trigger-managed in production (verified live in Phase 27
+    Part 1: `properties_gone_since` -> `track_gone_since()`, no `source`
+    filter) and would be redundant/risky to also set from application
+    code."""
     section = _sync_reconciliation_section()
-    json_literal = '{"status":"notfound","outcome":"no longer listed"}'
+    json_literal = '{"status":"notfound"}'
     assert json_literal in section
-    assert json_literal.count(":") == 2  # exactly {"status": ..., "outcome": ...}, nothing else
+    assert json_literal.count(":") == 1  # exactly {"status": ...}, nothing else
+    # The PATCH body itself (not the surrounding explanatory comments, which
+    # correctly document *why* gone_since isn't written here) must not
+    # reference gone_since.
+    patch_body_idx = section.index("$patchBody = [System.Text.Encoding]::UTF8.GetBytes(")
+    patch_body_line = section[patch_body_idx:section.index("\n", patch_body_idx)]
+    assert "gone_since" not in patch_body_line
 
 
 def test_a_run_with_zero_complete_counties_reconciles_nothing():
@@ -302,18 +359,20 @@ def test_2_active_certificate_absent_from_complete_county_becomes_stale():
     assert _reconcile(existing, harvested, status) == {1}
 
 
-def test_3_absent_certificate_gets_outcome_no_longer_listed():
-    """The PATCH body producing this outcome is proven verbatim in
-    test_reconciliation_patch_body_is_exactly_notfound_and_no_longer_listed;
-    this test anchors that the same identity that goes stale under
-    _reconcile() (test_2, above) is exactly what the production PATCH body
-    (asserted here) is applied to - status and outcome are set together in
-    one PATCH, never separately."""
+def test_3_absent_certificate_transitions_to_status_notfound_only():
+    """The PATCH body producing this transition is proven verbatim in
+    test_reconciliation_patch_body_is_exactly_status_notfound; this test
+    anchors that the same identity that goes stale under _reconcile()
+    (test_2, above) is exactly what the production PATCH body (asserted
+    here) is applied to - `status` is the only field this PATCH ever sets.
+    `gone_since` still gets tracked (verified live in Phase 27 Part 1 as a
+    database trigger keyed off the `status` transition itself), it's just
+    never written by this script."""
     existing = [{"id": 1, "county": "Duval", "case_no": "A1"}]
     stale = _reconcile(existing, [], {"Duval": "COMPLETE"})
     assert stale == {1}
     section = _sync_reconciliation_section()
-    assert '{"status":"notfound","outcome":"no longer listed"}' in section
+    assert '{"status":"notfound"}' in section
 
 
 def test_4_failed_county_active_certificate_remains_active():
