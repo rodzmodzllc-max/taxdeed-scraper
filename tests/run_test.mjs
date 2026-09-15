@@ -193,12 +193,28 @@ await page.waitForTimeout(150);
 results.cardsAfterTypesAll = await page.locator('.prop-card').count();
 
 // --- county map ---
-// County chips/map now live inside a collapsed <details> dropdown; open it first.
+// County chips still live inside a collapsed <details> dropdown; open it
+// first (this part of the panel is unrelated to the map and still applies).
 await page.click('.filter-dropdown summary:has-text("County")');
 await page.waitForTimeout(100);
 results.countyDropdownOpenForMapTest = await page.locator('#countyChips').first().evaluate(el => el.closest('details').open);
-await page.click('#mapBtn');
+
+// Phase 19 (reconciliation with origin/main's app-shell rebuild): the map
+// is no longer a toggle nested inside this same County filter dropdown -
+// origin/main's rebuild (see docs/phase-18-ui-product-reconciliation.md
+// and docs/phase-19-reconciliation-execution.md) promoted it to its own
+// full-page destination, reached via the bottom nav (mobile, this
+// viewport) or the nav rail (desktop). #mapBtn no longer exists - this is
+// TEST_OBSOLETE, not a regression: the map's own zoom/filter logic below
+// is completely unchanged, only how you get to it changed. Verify the
+// actual new navigation behavior (can navigate to the Map page, it
+// renders, and the Auctions page is hidden while it's shown) rather than
+// just asserting a new selector exists.
+results.auctionsPageVisibleBeforeMapNav = await page.locator('#pageAuctions').isVisible();
+await page.click('.nav-bottom-item[data-page="map"]');
 await page.waitForTimeout(300);
+results.mapPageVisibleAfterNav = await page.locator('#pageMap').isVisible();
+results.auctionsPageHiddenWhileOnMap = await page.locator('#pageAuctions').isHidden();
 results.mapWrapVisible = await page.locator('#mapWrap').isVisible();
 results.mapPathCount = await page.locator('#mapHost path[data-county]').count();
 results.mapHasDataCount = await page.locator('#mapHost path.has-data').count();
@@ -231,6 +247,16 @@ await page.click('#mapZoomOutBtn');
 await page.waitForTimeout(500);
 results.mapZoomBannerHiddenAfterZoomOut = await page.locator('#mapZoomBanner').isHidden();
 results.mapHintVisibleAfterZoomOut = await page.locator('#mapHint').isVisible();
+
+// Return to the Auctions page - the rest of this suite (reset button,
+// ledger tabs, search, CSV export, etc.) lives there. showPage() only
+// toggles which <section class="page"> is hidden; it does not re-render
+// the ledger, so the county-group/filter state from before the map visit
+// is expected to still be exactly as this suite left it.
+await page.click('.nav-bottom-item[data-page="auctions"]');
+await page.waitForTimeout(200);
+results.auctionsPageVisibleAfterReturnFromMap = await page.locator('#pageAuctions').isVisible();
+results.mapPageHiddenAfterReturnFromMap = await page.locator('#pageMap').isHidden();
 
 // --- reset button: also collapses every county group back to closed ---
 await page.click('#resetBtn');
@@ -1175,6 +1201,14 @@ const EXPECTED = {
   cardsAfterTypesNone: 0,
   cardsAfterTypesAll: 9,
   countyDropdownOpenForMapTest: true,
+  // Phase 19: the map moved from a toggle inside this same County dropdown
+  // to its own full-page destination (origin/main's app-shell rebuild) -
+  // these five checks replace the old #mapBtn click with real navigation
+  // assertions (can reach the Map page, the Auctions page correctly hides
+  // while it's shown, and both are restored correctly on the way back).
+  auctionsPageVisibleBeforeMapNav: true,
+  mapPageVisibleAfterNav: true,
+  auctionsPageHiddenWhileOnMap: true,
   mapWrapVisible: true,
   mapPathCount: 67,
   mapHasDataCount: 8,
@@ -1188,6 +1222,8 @@ const EXPECTED = {
   alachuaChipOnAfterMapClick: false,
   mapZoomBannerHiddenAfterZoomOut: true,
   mapHintVisibleAfterZoomOut: true,
+  auctionsPageVisibleAfterReturnFromMap: true,
+  mapPageHiddenAfterReturnFromMap: true,
   cardsAfterReset: 9,
   alachuaSelAfterReset: true,
   countyGroupsClosedAfterReset: true,
