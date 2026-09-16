@@ -40,8 +40,11 @@ jobs:
         with:
           python-version: '3.12'
 
+      # pyyaml added Phase 42: tests/python/test_phase42_workflow_validation.py
+      # parses .github/workflows/lgbs-acquisition-validation.yml and would
+      # otherwise skip silently here, reporting green while asserting nothing.
       - name: Install pytest
-        run: pip install pytest
+        run: pip install pytest pyyaml
 
       # Deliberately NOT continue-on-error, NOT `|| true`, NOT a soft-fail
       # wrapper of any kind (Phase 10B Step 3's explicit requirement) - a
