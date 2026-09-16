@@ -56,6 +56,11 @@ on:
         required: false
         default: ''
         type: string
+      run_diagnostics:
+        description: 'Also run the read-only state-vs-area query diagnostics (18 small requests). Default off.'
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   # Never let two real acquisition runs hit the source concurrently.
@@ -91,6 +96,53 @@ jobs:
       # A CODE_FAILURE discovered here costs the source zero requests.
       - name: Pre-flight - acquisition test suite must pass
         run: pytest tests/python/test_phase39_acquisition_engine.py tests/python/test_phase40_roster_and_activation.py tests/python/test_phase41_controlled_acquisition.py tests/python/test_phase42_workflow_validation.py -q
+
+      # Phase 48. The acquisition pre-flight above deliberately does NOT
+      # gain the diagnostic's tests: with run_diagnostics off this workflow
+      # must behave exactly as it did before, and that includes which tests
+      # it runs. So the diagnostic brings its own gate, on the same
+      # principle - a broken diagnostic costs the source zero requests.
+      - name: Pre-flight - diagnostic test suite must pass
+        if: inputs.run_diagnostics
+        run: pytest tests/python/test_phase48_query_diagnostics.py -q
+
+      # Phase 48. Compares the state= and area= filters at three page
+      # sizes. The step NAME deliberately carries no query string: the
+      # Phase 42 guard against acquisition logic leaking into YAML scans
+      # executable lines and cannot tell a label from a request, and the
+      # guard is worth more than a descriptive step name.
+      #
+      # Read-only measurement, and deliberately BEFORE the
+      # acquisition step: this measures per-request latency, and running it
+      # after the acquisition would measure a source we had just pulled up
+      # to three 500-record pages from. Clean measurement first.
+      #
+      # `continue-on-error` is the point of the placement, not a softening:
+      # the diagnostic's own result stays visible as a failed step, while
+      # acquisition still runs. A measurement that could cancel the thing it
+      # was measuring alongside would be worse than no measurement. The
+      # acquisition step itself keeps its hard-fail contract untouched.
+      #
+      # Skipped entirely when run_diagnostics is false, which is the default:
+      # with it off this workflow does exactly what it did before.
+      - name: Query diagnostics (read-only, state vs area filters)
+        if: inputs.run_diagnostics
+        id: diagnostics
+        run: |
+          set -o pipefail
+          rc=0
+          python3 scripts/diagnose_lgbs_query_latency.py | tee diagnostics-console.log || rc=$?
+          echo "diagnostic exit code: $rc"
+          echo "exit_code=$rc" >> "$GITHUB_OUTPUT"
+          if [ "$rc" -eq 3 ]; then
+            echo "::warning::Query diagnostics measured NOTHING - every request was blocked before leaving the runner. This says nothing about LGBS."
+          fi
+          # Exiting 0 HERE does not swallow the failure: the code is recorded
+          # above and enforced by the final step below, after acquisition has
+          # had its turn. The alternative - continue-on-error - would have
+          # meant relaxing Phase 42's no-soft-fail guard, and a guard is
+          # worth more than the convenience.
+          exit 0
 
       - name: Guard - full mode requires explicit confirmation
         if: inputs.mode == 'full'
@@ -200,6 +252,22 @@ jobs:
       # engine never holds any (RetrievalMetadata has no field capable of
       # carrying one; asserted by test_c04 in
       # tests/python/test_phase39_acquisition_engine.py).
+      # Phase 48. Deferred enforcement of the diagnostic's exit code. It runs
+      # LAST so a diagnostic failure never prevents the acquisition it was
+      # measuring alongside, while still failing the job rather than being
+      # quietly absorbed.
+      - name: Fail if the query diagnostics did not complete
+        if: always() && inputs.run_diagnostics
+        run: |
+          rc="${{ steps.diagnostics.outputs.exit_code }}"
+          if [ -z "$rc" ]; then
+            echo "::error::the diagnostic step did not record an exit code"; exit 1
+          fi
+          if [ "$rc" -ne 0 ]; then
+            echo "::error::query diagnostics exited $rc"; exit 1
+          fi
+          echo "query diagnostics completed"
+
       - name: Upload acquisition artifact
         if: always()
         uses: actions/upload-artifact@v4
@@ -209,5 +277,6 @@ jobs:
             out/acquisition/
             acquisition-console.log
             denominator-console.log
+            diagnostics-console.log
           if-no-files-found: warn
           retention-days: 30

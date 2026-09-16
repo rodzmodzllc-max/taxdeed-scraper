@@ -370,3 +370,177 @@ def test_p48_23_county_reporting_does_not_touch_the_tally_or_the_status():
     run.tally.records_observed_at_source = 2
     run.finalize(expected_denominator=2)
     assert run.status == RunStatus.COMPLETE
+
+
+# ===========================================================================
+# 7. The optional run_diagnostics input on the acquisition workflow
+#
+# A standalone workflow file turned out to be undispatchable: GitHub only
+# lists workflows that exist on the DEFAULT branch, so a new file on a
+# feature branch never appears in the UI. lgbs-query-diagnostics.yml is kept
+# as the long-term home for when it is merged, but it is inert until then.
+# The diagnostic therefore also rides the acquisition workflow, which IS
+# listed from main, behind an input that defaults to off.
+#
+# The bar these tests hold: with run_diagnostics off, the workflow must do
+# exactly what it did before - same steps, same gates, same pre-flight.
+# ===========================================================================
+
+
+ACQ_WORKFLOW = REPO_ROOT / ".github" / "workflows" / "lgbs-acquisition-validation.yml"
+
+
+def acq() -> dict:
+    yaml = pytest.importorskip("yaml")
+    return yaml.safe_load(ACQ_WORKFLOW.read_text(encoding="utf-8"))
+
+
+def acq_inputs() -> dict:
+    d = acq()
+    return (d.get(True) or d.get("on"))["workflow_dispatch"]["inputs"]
+
+
+def acq_step(prefix: str) -> dict:
+    for s in acq()["jobs"]["acquire"]["steps"]:
+        if s.get("name", "").startswith(prefix):
+            return s
+    raise AssertionError(f"no step starting with {prefix!r}")
+
+
+def test_p48_24_run_diagnostics_input_exists_and_defaults_to_off():
+    i = acq_inputs()["run_diagnostics"]
+    assert i["type"] == "boolean"
+    assert i["default"] is False, "a network-touching extra must be opt-in"
+    assert i["required"] is False
+
+
+def test_p48_25_the_diagnostic_steps_run_only_when_requested():
+    assert acq_step("Query diagnostics")["if"] == "inputs.run_diagnostics"
+    assert acq_step("Pre-flight - diagnostic")["if"] == "inputs.run_diagnostics"
+
+
+def test_p48_26_diagnostic_failure_does_not_cancel_the_acquisition():
+    """A diagnostic must not prevent the acquisition it measures alongside -
+    but it must not be swallowed either. `continue-on-error` would have done
+    the first at the cost of relaxing Phase 42's no-soft-fail guard, so the
+    exit code is recorded instead and enforced by a final step after
+    acquisition has run."""
+    step = acq_step("Query diagnostics")
+    assert step.get("continue-on-error") is None, (
+        "Phase 42's no-soft-fail guard covers every step in this workflow"
+    )
+    assert 'echo "exit_code=$rc" >> "$GITHUB_OUTPUT"' in step["run"]
+
+    enforcer = acq_step("Fail if the query diagnostics did not complete")
+    assert enforcer["if"] == "always() && inputs.run_diagnostics"
+    assert "steps.diagnostics.outputs.exit_code" in enforcer["run"]
+    assert "exit 1" in enforcer["run"], "a failed diagnostic must still fail the job"
+
+
+def test_p48_26b_the_enforcer_runs_after_acquisition():
+    names = [s.get("name", "") for s in acq()["jobs"]["acquire"]["steps"]]
+    acquire = next(i for i, n in enumerate(names) if n.startswith("Run acquisition"))
+    enforcer = next(i for i, n in enumerate(names)
+                    if n.startswith("Fail if the query diagnostics"))
+    assert enforcer > acquire
+
+
+def test_p48_26c_an_unrecorded_exit_code_is_itself_a_failure():
+    """If the diagnostic step never ran to the point of writing its code,
+    the enforcer must not read that as success."""
+    enforcer = acq_step("Fail if the query diagnostics did not complete")
+    assert 'if [ -z "$rc" ]' in enforcer["run"]
+
+
+def test_p48_27_the_acquisition_step_keeps_its_hard_fail_contract():
+    step = acq_step("Run acquisition")
+    assert step.get("continue-on-error") is None
+    assert "|| true" not in step["run"]
+
+
+def test_p48_28_diagnostics_run_before_acquisition_touches_the_source():
+    """Latency measured after pulling three 500-record pages is not a clean
+    measurement of the same source."""
+    names = [s.get("name", "") for s in acq()["jobs"]["acquire"]["steps"]]
+    diag = next(i for i, n in enumerate(names) if n.startswith("Query diagnostics"))
+    acquire = next(i for i, n in enumerate(names) if n.startswith("Run acquisition"))
+    preflight = next(i for i, n in enumerate(names) if n.startswith("Pre-flight - diagnostic"))
+    assert preflight < diag < acquire
+
+
+def test_p48_29_existing_modes_and_full_guard_are_untouched():
+    i = acq_inputs()
+    assert i["mode"]["options"] == ["probe", "sample", "full"]
+    assert i["mode"]["default"] == "probe"
+    assert set(i) == {"mode", "confirm_full", "limit", "run_diagnostics"}
+
+    guard = acq_step("Guard - full mode")
+    assert guard["if"] == "inputs.mode == 'full'"
+    assert '!= "FULL"' in guard["run"] and "exit 1" in guard["run"]
+
+
+def test_p48_30_acquisition_preflight_did_not_absorb_the_diagnostic_tests():
+    """With run_diagnostics off the workflow must behave EXACTLY as before,
+    and that includes which tests the ungated pre-flight runs."""
+    step = acq_step("Pre-flight - acquisition test suite")
+    assert step.get("if") is None
+    assert "test_phase48" not in step["run"]
+    for expected in ("test_phase39", "test_phase40", "test_phase41", "test_phase42"):
+        assert expected in step["run"]
+
+
+def test_p48_31_diagnostics_add_no_secret_and_no_production_write():
+    text = ACQ_WORKFLOW.read_text(encoding="utf-8")
+    assert "secrets." not in text
+    step = acq_step("Query diagnostics")
+    body = "\n".join(l for l in step["run"].splitlines() if not l.strip().startswith("#"))
+    for forbidden in ("supabase", "SUPABASE", "psql", "curl ", "wget "):
+        assert forbidden not in body
+    assert "scripts/diagnose_lgbs_query_latency.py" in body
+
+
+def test_p48_32_the_diagnostic_console_log_is_collected():
+    up = acq_step("Upload acquisition artifact")
+    paths = up["with"]["path"].split()
+    assert "diagnostics-console.log" in paths
+    assert "out/acquisition/" in paths, "the diagnostic's JSON artifact lives here"
+
+
+def test_p48_33_state_and_area_denominators_stay_separate_end_to_end():
+    """The through-line of Phases 44-48: ?area=TX is not the Texas
+    denominator, and nothing in this phase may blur that."""
+    from harvesters.acquisition.run import (
+        TX_LGBS_AREA_TX_TOTAL,
+        TX_LGBS_STATE_DENOMINATOR,
+    )
+
+    assert TX_LGBS_STATE_DENOMINATOR == 4205
+    assert TX_LGBS_AREA_TX_TOTAL == 6309
+    assert TX_LGBS_STATE_DENOMINATOR != TX_LGBS_AREA_TX_TOTAL
+
+    measure = (REPO_ROOT / "scripts" / "measure_tx_denominator.py").read_text(encoding="utf-8")
+    assert "state=TX" in measure
+    assert "current_live_denominator" in measure
+
+    diag = SCRIPT.read_text(encoding="utf-8")
+    assert "current_live_denominator" not in diag, (
+        "the diagnostic measures latency, not denominators - it must not emit a "
+        "field that could be read as one"
+    )
+
+
+def test_p48_34_a_measured_area_total_never_becomes_the_denominator():
+    """Run 35113290312 observed area=TX at 6325. Neither that nor any other
+    area figure may be hard-coded as a TX denominator anywhere."""
+    # Substring matching would flag the diagnostic's docstring, which cites
+    # 6325 as the figure that MOTIVATED the script. Citing an observation is
+    # not hard-coding it, so this reads the actual constants with ast.
+    for path in (
+        REPO_ROOT / "scripts" / "measure_tx_denominator.py",
+        REPO_ROOT / "scripts" / "diagnose_lgbs_query_latency.py",
+        REPO_ROOT / "harvesters" / "acquisition" / "run.py",
+    ):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Constant) and node.value == 6325:
+                raise AssertionError(f"{path.name} uses 6325 as a VALUE, not just a citation")

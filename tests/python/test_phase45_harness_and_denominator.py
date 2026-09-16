@@ -92,7 +92,9 @@ def test_p45_02_workflow_is_still_dispatch_only():
 
 def test_p45_03_existing_inputs_survived():
     inputs = triggers()["workflow_dispatch"]["inputs"]
-    assert set(inputs) == {"mode", "confirm_full", "limit"}
+    # Phase 48 added `run_diagnostics`. The pin moves with it deliberately -
+    # its job is to catch an input nobody meant to add, not to freeze the set.
+    assert set(inputs) == {"mode", "confirm_full", "limit", "run_diagnostics"}
     assert inputs["mode"]["options"] == ["probe", "sample", "full"]
     assert inputs["mode"]["default"] == "probe"
 
