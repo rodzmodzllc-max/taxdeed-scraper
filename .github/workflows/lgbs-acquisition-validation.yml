@@ -51,6 +51,11 @@ on:
         required: false
         default: ''
         type: string
+      limit:
+        description: 'Optional sample size (positive integer, max 5000). Empty = 25. Ignored for probe/full.'
+        required: false
+        default: ''
+        type: string
 
 concurrency:
   # Never let two real acquisition runs hit the source concurrently.
@@ -108,16 +113,49 @@ jobs:
       # explicit no-soft-fail contract.
       - name: Run acquisition (${{ inputs.mode }})
         id: acquire
+        # Phase 45: `limit` reaches the shell through env, never through
+        # `${{ }}` interpolation - an input is attacker-controllable in
+        # principle and must not be pasted into a command line. It is
+        # validated as a positive integer <= 5000 before use, and an
+        # invalid value fails the job rather than silently falling back to
+        # a default (a silent fallback would make a typo look like a
+        # successful 25-record run).
+        env:
+          INPUT_LIMIT: ${{ inputs.limit }}
         run: |
           set -o pipefail
           case "${{ inputs.mode }}" in
             probe)  ARGS="--probe-only" ;;
-            sample) ARGS="--limit 25" ;;
+            sample)
+              LIMIT="${INPUT_LIMIT:-}"
+              if [ -z "$LIMIT" ]; then
+                LIMIT=25
+              else
+                case "$LIMIT" in
+                  *[!0-9]*) echo "::error::limit must be a positive integer, got '$LIMIT'"; exit 1 ;;
+                esac
+                if [ "$LIMIT" -lt 1 ] || [ "$LIMIT" -gt 5000 ]; then
+                  echo "::error::limit must be between 1 and 5000, got '$LIMIT'"; exit 1
+                fi
+              fi
+              ARGS="--limit $LIMIT" ;;
             full)   ARGS="--full" ;;
             *) echo "::error::unknown mode '${{ inputs.mode }}'"; exit 1 ;;
           esac
           echo "invoking: python3 scripts/run_lgbs_acquisition.py $ARGS"
           python3 scripts/run_lgbs_acquisition.py $ARGS | tee acquisition-console.log
+
+      # Phase 45: measurement only, and deliberately NOT part of the
+      # acquisition runner. It queries ?state=TX - the one query that can
+      # establish today's Texas denominator - and writes its own artifact.
+      # It never touches TX_LGBS_STATE_DENOMINATOR, so the historical
+      # 4,205 carry-forward and the current live figure stay distinguishable
+      # in the evidence. Skipped for probe, which is meant to stay minimal.
+      - name: Measure live TX denominator (validation only)
+        if: inputs.mode != 'probe'
+        run: |
+          set -o pipefail
+          python3 scripts/measure_tx_denominator.py | tee denominator-console.log
 
       # Surfaces the classification the RUNNER already computed. This reads
       # the artifact the runner wrote; it does not re-derive or re-classify
@@ -166,5 +204,6 @@ jobs:
           path: |
             out/acquisition/
             acquisition-console.log
+            denominator-console.log
           if-no-files-found: warn
           retention-days: 30

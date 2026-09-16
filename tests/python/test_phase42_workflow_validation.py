@@ -132,8 +132,31 @@ def test_06_default_mode_is_the_safest_one():
 
 
 def test_07_each_mode_maps_to_a_distinct_runner_invocation():
-    run = run_step(load_workflow())["run"]
-    assert "--probe-only" in run and "--limit 25" in run and "--full" in run
+    """Strengthened in Phase 45. This used to string-match `--limit 25`,
+    which stopped being literal when the optional `limit` input arrived. The
+    substring was never the point - the point is that each mode produces a
+    DIFFERENT, correct runner invocation - so this now executes the step's
+    real shell and asserts the resulting flags. Strictly stronger than the
+    check it replaces: a typo that previously still matched the substring
+    now fails here."""
+    import subprocess
+
+    script = run_step(load_workflow())["run"].replace("${{ inputs.mode }}", "$MODE")
+    script = script[: script.index('echo "invoking')] + 'echo "ARGS=$ARGS"\n'
+
+    def args_for(mode: str) -> str:
+        got = subprocess.run(
+            ["bash", "-c", script],
+            capture_output=True, text=True, env={"MODE": mode, "PATH": "/usr/bin:/bin"},
+        )
+        assert got.returncode == 0, f"mode={mode} failed: {got.stderr}"
+        return got.stdout.strip().removeprefix("ARGS=")
+
+    probe, sample, full = args_for("probe"), args_for("sample"), args_for("full")
+    assert probe == "--probe-only"
+    assert sample == "--limit 25", "an untouched `limit` input must still mean 25"
+    assert full == "--full"
+    assert len({probe, sample, full}) == 3, "each mode must be a distinct invocation"
 
 
 def test_08_workflow_is_manual_only_not_scheduled_or_on_push():
