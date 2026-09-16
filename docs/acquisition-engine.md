@@ -1,6 +1,6 @@
 # Acquisition engine
 
-**Status:** Phase 39 (Acquisition Engine & Full Data Activation), 2026-09-16. Companion to `docs/source-adapters.md` (the adapter inventory), `docs/acquisition-status.md` (what is acquirable today), `docs/two-state-data-architecture.md` (the five-layer model), and `docs/provider-authorization.md` (the authorization layer this engine defers to and never overrides).
+**Status:** Phase 40, 2026-09-16 (Phase 39 built the engine; Phase 40 activated measurement against live sources). Companion to `docs/source-adapters.md` (the adapter inventory), `docs/acquisition-status.md` (what is acquirable today), `docs/two-state-data-architecture.md` (the five-layer model), and `docs/provider-authorization.md` (the authorization layer this engine defers to and never overrides).
 
 ## 1. What it is
 
@@ -104,6 +104,14 @@ Every normalized record carries five prefixed keys (`_source_id`, `_source_recor
 - **No HTML_PUBLIC_SEARCH adapter.** The mechanism behind `fl_realauction`/`tx_realauction`/`fl_lienhub_certificates` — all of which are `LEGAL_REVIEW_REQUIRED` for production use and already served by working harvesters. Their blocker is legal, not technical; building a new acquisition path for them would spend engineering effort where it changes nothing.
 - **No frontend or API change.** Acquisition never expands customer access (Section 40).
 - **No `harvest_govease()` implementation.** Section 23's "do not implement a speculative scraper simply to eliminate the stub" — it remains a documented stub, and its `BLOCKED` status is unchanged.
+
+## 8b. Phase 40: what live measurement added
+
+The engine was exercised against real sources for the first time. Three things came out of it that shaped the code:
+
+1. **`roster.py`** — a new module holding *observed* source footprints, kept deliberately separate from the researched coverage matrices. An empirical measurement must never silently rewrite a governance record with its own evidence trail.
+2. **Measurement is not acquisition.** The acquisition maps gained a `records_observed_at_source` column, distinct from `records_acquired`. Phase 40 measured that `tx_lgbs` holds 4,197 records across 95 Texas counties; it acquired none of them. The two claims live in separate columns so they cannot be conflated.
+3. **Instrument error is not source behavior.** The retrieval path used for live verification truncates long responses, which made a 500-record page look like a 50-record page. It would have been easy to "fix" `LGBS_PAGE_SIZE` on the strength of that. Checking the `next` link proved the API honors `limit=500`, and the setting was left alone.
 
 ## 9. Migration path for the existing harvesters
 

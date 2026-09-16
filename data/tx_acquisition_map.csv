@@ -1,258 +1,278 @@
-state,county,source_id,source_name,category,acquisition_mechanism,adapter_implemented,discovery_status,verification_status,technical_status,technical_testing_permitted,authorization_status,production_status,records_seen,records_acquired,coverage_percentage,last_success,failure_reason,notes
-TX,Anderson,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Andrews,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Angelina,tx_realauction,Texas RealAuction/RealForeclose county sites (sheriffsaleauctions.com / realforeclose.com),AUCTION|AUCTION_DATE|OPENING_BID|CASE_NUMBER,HTML_PUBLIC_SEARCH,NO,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_SUCCESS,YES,APPROVED,ENABLED,0,0,,,,
-TX,Aransas,tx_realauction,Texas RealAuction/RealForeclose county sites (sheriffsaleauctions.com / realforeclose.com),AUCTION|AUCTION_DATE|OPENING_BID|CASE_NUMBER,HTML_PUBLIC_SEARCH,NO,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_SUCCESS,YES,APPROVED,ENABLED,0,0,,,,
-TX,Archer,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Armstrong,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Atascosa,tx_realauction,Texas RealAuction/RealForeclose county sites (sheriffsaleauctions.com / realforeclose.com),AUCTION|AUCTION_DATE|OPENING_BID|CASE_NUMBER,HTML_PUBLIC_SEARCH,NO,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_SUCCESS,YES,APPROVED,ENABLED,0,0,,,,
-TX,Austin,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Bailey,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Bandera,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Bastrop,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Baylor,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Bee,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Bell,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Bexar,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,0,0,,,,
-TX,Blanco,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Borden,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Bosque,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Bowie,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Brazoria,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Brazos,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Brewster,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Briscoe,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Brooks,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Brown,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Burleson,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Burnet,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Caldwell,tx_realauction,Texas RealAuction/RealForeclose county sites (sheriffsaleauctions.com / realforeclose.com),AUCTION|AUCTION_DATE|OPENING_BID|CASE_NUMBER,HTML_PUBLIC_SEARCH,NO,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_SUCCESS,YES,APPROVED,ENABLED,0,0,,,,
-TX,Calhoun,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Callahan,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Cameron,tx_realauction,Texas RealAuction/RealForeclose county sites (sheriffsaleauctions.com / realforeclose.com),AUCTION|AUCTION_DATE|OPENING_BID|CASE_NUMBER,HTML_PUBLIC_SEARCH,NO,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_SUCCESS,YES,APPROVED,ENABLED,0,0,,,,
-TX,Camp,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Carson,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Cass,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Castro,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Chambers,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Cherokee,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Childress,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Clay,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Cochran,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Coke,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Coleman,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Collin,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Collingsworth,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Colorado,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Comal,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Comanche,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Concho,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Cooke,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Coryell,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Cottle,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Crane,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Crockett,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Crosby,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Culberson,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Dallam,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Dallas,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,0,0,,,,
-TX,Dallas,tx_realauction,Texas RealAuction/RealForeclose county sites (sheriffsaleauctions.com / realforeclose.com),AUCTION|AUCTION_DATE|OPENING_BID|CASE_NUMBER,HTML_PUBLIC_SEARCH,NO,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_SUCCESS,YES,APPROVED,ENABLED,0,0,,,,
-TX,Dawson,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,DeWitt,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Deaf Smith,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Delta,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Denton,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Dickens,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Dimmit,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Donley,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Duval,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Eastland,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Ector,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Edwards,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,El Paso,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,0,0,,,,
-TX,El Paso,tx_realauction,Texas RealAuction/RealForeclose county sites (sheriffsaleauctions.com / realforeclose.com),AUCTION|AUCTION_DATE|OPENING_BID|CASE_NUMBER,HTML_PUBLIC_SEARCH,NO,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_SUCCESS,YES,APPROVED,ENABLED,0,0,,,,
-TX,Ellis,tx_realauction,Texas RealAuction/RealForeclose county sites (sheriffsaleauctions.com / realforeclose.com),AUCTION|AUCTION_DATE|OPENING_BID|CASE_NUMBER,HTML_PUBLIC_SEARCH,NO,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_SUCCESS,YES,APPROVED,ENABLED,0,0,,,,
-TX,Erath,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Falls,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Fannin,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Fayette,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Fisher,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Floyd,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Foard,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Fort Bend,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Franklin,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Freestone,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Frio,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Gaines,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Galveston,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,0,0,,,,
-TX,Galveston,tx_realauction,Texas RealAuction/RealForeclose county sites (sheriffsaleauctions.com / realforeclose.com),AUCTION|AUCTION_DATE|OPENING_BID|CASE_NUMBER,HTML_PUBLIC_SEARCH,NO,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_SUCCESS,YES,APPROVED,ENABLED,0,0,,,,
-TX,Garza,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Gillespie,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Glasscock,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Goliad,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Gonzales,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Gray,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Grayson,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Gregg,tx_realauction,Texas RealAuction/RealForeclose county sites (sheriffsaleauctions.com / realforeclose.com),AUCTION|AUCTION_DATE|OPENING_BID|CASE_NUMBER,HTML_PUBLIC_SEARCH,NO,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_SUCCESS,YES,APPROVED,ENABLED,0,0,,,,
-TX,Grimes,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Guadalupe,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Hale,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Hall,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Hamilton,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Hansford,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Hardeman,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Hardin,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,0,0,,,,
-TX,Harris,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,0,0,,,,
-TX,Harrison,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Hartley,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Haskell,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Hays,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Hemphill,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Henderson,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Hidalgo,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,0,0,,,,
-TX,Hill,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Hockley,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Hood,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Hopkins,tx_realauction,Texas RealAuction/RealForeclose county sites (sheriffsaleauctions.com / realforeclose.com),AUCTION|AUCTION_DATE|OPENING_BID|CASE_NUMBER,HTML_PUBLIC_SEARCH,NO,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_SUCCESS,YES,APPROVED,ENABLED,0,0,,,,
-TX,Houston,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Howard,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Hudspeth,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Hunt,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Hutchinson,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Irion,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Jack,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Jackson,tx_realauction,Texas RealAuction/RealForeclose county sites (sheriffsaleauctions.com / realforeclose.com),AUCTION|AUCTION_DATE|OPENING_BID|CASE_NUMBER,HTML_PUBLIC_SEARCH,NO,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_SUCCESS,YES,APPROVED,ENABLED,0,0,,,,
-TX,Jasper,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Jeff Davis,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Jefferson,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Jim Hogg,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Jim Wells,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Johnson,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Jones,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Karnes,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Kaufman,tx_realauction,Texas RealAuction/RealForeclose county sites (sheriffsaleauctions.com / realforeclose.com),AUCTION|AUCTION_DATE|OPENING_BID|CASE_NUMBER,HTML_PUBLIC_SEARCH,NO,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_SUCCESS,YES,APPROVED,ENABLED,0,0,,,,
-TX,Kendall,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Kenedy,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Kent,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Kerr,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Kimble,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,King,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Kinney,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Kleberg,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Knox,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,La Salle,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Lamar,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Lamb,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Lampasas,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Lavaca,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Lee,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Leon,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Liberty,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Limestone,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Lipscomb,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Live Oak,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Llano,tx_realauction,Texas RealAuction/RealForeclose county sites (sheriffsaleauctions.com / realforeclose.com),AUCTION|AUCTION_DATE|OPENING_BID|CASE_NUMBER,HTML_PUBLIC_SEARCH,NO,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_SUCCESS,YES,APPROVED,ENABLED,0,0,,,,
-TX,Loving,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Lubbock,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Lynn,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Madison,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Marion,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Martin,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Mason,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Matagorda,tx_realauction,Texas RealAuction/RealForeclose county sites (sheriffsaleauctions.com / realforeclose.com),AUCTION|AUCTION_DATE|OPENING_BID|CASE_NUMBER,HTML_PUBLIC_SEARCH,NO,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_SUCCESS,YES,APPROVED,ENABLED,0,0,,,,
-TX,Maverick,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,McCulloch,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,McLennan,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,McMullen,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Medina,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Menard,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Midland,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Milam,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Mills,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Mitchell,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Montague,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Montgomery,tx_realauction,Texas RealAuction/RealForeclose county sites (sheriffsaleauctions.com / realforeclose.com),AUCTION|AUCTION_DATE|OPENING_BID|CASE_NUMBER,HTML_PUBLIC_SEARCH,NO,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_SUCCESS,YES,APPROVED,ENABLED,0,0,,,,
-TX,Moore,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Morris,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Motley,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Nacogdoches,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Navarro,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Newton,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Nolan,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Nueces,tx_realauction,Texas RealAuction/RealForeclose county sites (sheriffsaleauctions.com / realforeclose.com),AUCTION|AUCTION_DATE|OPENING_BID|CASE_NUMBER,HTML_PUBLIC_SEARCH,NO,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_SUCCESS,YES,APPROVED,ENABLED,0,0,,,,
-TX,Ochiltree,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Oldham,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Orange,tx_realauction,Texas RealAuction/RealForeclose county sites (sheriffsaleauctions.com / realforeclose.com),AUCTION|AUCTION_DATE|OPENING_BID|CASE_NUMBER,HTML_PUBLIC_SEARCH,NO,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_SUCCESS,YES,APPROVED,ENABLED,0,0,,,,
-TX,Palo Pinto,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Panola,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Parker,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Parmer,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Pecos,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Polk,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Potter,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Presidio,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Rains,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Randall,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Reagan,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Real,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Red River,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Reeves,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Refugio,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Roberts,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Robertson,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Rockwall,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Runnels,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Rusk,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Sabine,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,San Augustine,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,San Jacinto,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,San Patricio,tx_realauction,Texas RealAuction/RealForeclose county sites (sheriffsaleauctions.com / realforeclose.com),AUCTION|AUCTION_DATE|OPENING_BID|CASE_NUMBER,HTML_PUBLIC_SEARCH,NO,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_SUCCESS,YES,APPROVED,ENABLED,0,0,,,,
-TX,San Saba,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Schleicher,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Scurry,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Shackelford,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Shelby,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Sherman,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Smith,tx_realauction,Texas RealAuction/RealForeclose county sites (sheriffsaleauctions.com / realforeclose.com),AUCTION|AUCTION_DATE|OPENING_BID|CASE_NUMBER,HTML_PUBLIC_SEARCH,NO,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_SUCCESS,YES,APPROVED,ENABLED,0,0,,,,
-TX,Somervell,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Starr,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Stephens,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Sterling,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Stonewall,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Sutton,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Swisher,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Tarrant,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,0,0,,,,
-TX,Taylor,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Terrell,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Terry,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Throckmorton,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Titus,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Tom Green,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Travis,tx_realauction,Texas RealAuction/RealForeclose county sites (sheriffsaleauctions.com / realforeclose.com),AUCTION|AUCTION_DATE|OPENING_BID|CASE_NUMBER,HTML_PUBLIC_SEARCH,NO,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_SUCCESS,YES,APPROVED,ENABLED,0,0,,,,
-TX,Trinity,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Tyler,tx_realauction,Texas RealAuction/RealForeclose county sites (sheriffsaleauctions.com / realforeclose.com),AUCTION|AUCTION_DATE|OPENING_BID|CASE_NUMBER,HTML_PUBLIC_SEARCH,NO,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_SUCCESS,YES,APPROVED,ENABLED,0,0,,,,
-TX,Upshur,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Upton,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Uvalde,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Val Verde,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Van Zandt,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Victoria,tx_realauction,Texas RealAuction/RealForeclose county sites (sheriffsaleauctions.com / realforeclose.com),AUCTION|AUCTION_DATE|OPENING_BID|CASE_NUMBER,HTML_PUBLIC_SEARCH,NO,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_SUCCESS,YES,APPROVED,ENABLED,0,0,,,,
-TX,Walker,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Waller,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Ward,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Washington,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Webb,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Wharton,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Wheeler,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Wichita,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Wilbarger,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Willacy,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Williamson,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Wilson,tx_realauction,Texas RealAuction/RealForeclose county sites (sheriffsaleauctions.com / realforeclose.com),AUCTION|AUCTION_DATE|OPENING_BID|CASE_NUMBER,HTML_PUBLIC_SEARCH,NO,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_SUCCESS,YES,APPROVED,ENABLED,0,0,,,,
-TX,Winkler,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Wise,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Wood,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Yoakum,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Young,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Zapata,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
-TX,Zavala,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+state,county,source_id,source_name,category,acquisition_mechanism,adapter_implemented,discovery_status,verification_status,technical_status,technical_testing_permitted,authorization_status,production_status,records_observed_at_source,records_seen,records_acquired,coverage_percentage,last_success,failure_reason,notes
+TX,Anderson,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,1,0,0,,,,
+TX,Andrews,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Angelina,tx_realauction,Texas RealAuction/RealForeclose county sites (sheriffsaleauctions.com / realforeclose.com),AUCTION|AUCTION_DATE|OPENING_BID|CASE_NUMBER,HTML_PUBLIC_SEARCH,NO,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_SUCCESS,YES,APPROVED,ENABLED,,0,0,,,,
+TX,Angelina,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,32,0,0,,,,
+TX,Aransas,tx_realauction,Texas RealAuction/RealForeclose county sites (sheriffsaleauctions.com / realforeclose.com),AUCTION|AUCTION_DATE|OPENING_BID|CASE_NUMBER,HTML_PUBLIC_SEARCH,NO,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_SUCCESS,YES,APPROVED,ENABLED,,0,0,,,,
+TX,Aransas,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,6,0,0,,,,
+TX,Archer,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Armstrong,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Atascosa,tx_realauction,Texas RealAuction/RealForeclose county sites (sheriffsaleauctions.com / realforeclose.com),AUCTION|AUCTION_DATE|OPENING_BID|CASE_NUMBER,HTML_PUBLIC_SEARCH,NO,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_SUCCESS,YES,APPROVED,ENABLED,,0,0,,,,
+TX,Atascosa,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,74,0,0,,,,
+TX,Austin,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Bailey,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Bandera,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Bastrop,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Baylor,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Bee,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,4,0,0,,,,
+TX,Bell,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Bexar,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,70,0,0,,,,
+TX,Blanco,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Borden,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Bosque,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,18,0,0,,,,
+TX,Bowie,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Brazoria,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Brazos,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Brewster,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Briscoe,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Brooks,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,6,0,0,,,,
+TX,Brown,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Burleson,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Burnet,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Caldwell,tx_realauction,Texas RealAuction/RealForeclose county sites (sheriffsaleauctions.com / realforeclose.com),AUCTION|AUCTION_DATE|OPENING_BID|CASE_NUMBER,HTML_PUBLIC_SEARCH,NO,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_SUCCESS,YES,APPROVED,ENABLED,,0,0,,,,
+TX,Caldwell,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,4,0,0,,,,
+TX,Calhoun,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Callahan,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Cameron,tx_realauction,Texas RealAuction/RealForeclose county sites (sheriffsaleauctions.com / realforeclose.com),AUCTION|AUCTION_DATE|OPENING_BID|CASE_NUMBER,HTML_PUBLIC_SEARCH,NO,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_SUCCESS,YES,APPROVED,ENABLED,,0,0,,,,
+TX,Cameron,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,74,0,0,,,,
+TX,Camp,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,1,0,0,,,,
+TX,Carson,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Cass,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,43,0,0,,,,
+TX,Castro,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Chambers,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Cherokee,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,10,0,0,,,,
+TX,Childress,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Clay,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Cochran,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Coke,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Coleman,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Collin,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,1,0,0,,,,
+TX,Collingsworth,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Colorado,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Comal,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Comanche,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Concho,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,9,0,0,,,,
+TX,Cooke,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Coryell,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Cottle,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Crane,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Crockett,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Crosby,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Culberson,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Dallam,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Dallas,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,539,0,0,,,,
+TX,Dallas,tx_realauction,Texas RealAuction/RealForeclose county sites (sheriffsaleauctions.com / realforeclose.com),AUCTION|AUCTION_DATE|OPENING_BID|CASE_NUMBER,HTML_PUBLIC_SEARCH,NO,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_SUCCESS,YES,APPROVED,ENABLED,,0,0,,,,
+TX,Dawson,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,DeWitt,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,3,0,0,,,,
+TX,Deaf Smith,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Delta,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,2,0,0,,,,
+TX,Denton,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Dickens,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Dimmit,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Donley,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Duval,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,19,0,0,,,,
+TX,Eastland,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Ector,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,48,0,0,,,,
+TX,Edwards,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,El Paso,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,41,0,0,,,,
+TX,El Paso,tx_realauction,Texas RealAuction/RealForeclose county sites (sheriffsaleauctions.com / realforeclose.com),AUCTION|AUCTION_DATE|OPENING_BID|CASE_NUMBER,HTML_PUBLIC_SEARCH,NO,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_SUCCESS,YES,APPROVED,ENABLED,,0,0,,,,
+TX,Ellis,tx_realauction,Texas RealAuction/RealForeclose county sites (sheriffsaleauctions.com / realforeclose.com),AUCTION|AUCTION_DATE|OPENING_BID|CASE_NUMBER,HTML_PUBLIC_SEARCH,NO,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_SUCCESS,YES,APPROVED,ENABLED,,0,0,,,,
+TX,Ellis,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,8,0,0,,,,
+TX,Erath,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,2,0,0,,,,
+TX,Falls,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,11,0,0,,,,
+TX,Fannin,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,6,0,0,,,,
+TX,Fayette,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Fisher,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Floyd,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Foard,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Fort Bend,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,11,0,0,,,,
+TX,Franklin,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,2,0,0,,,,
+TX,Freestone,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Frio,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,12,0,0,,,,
+TX,Gaines,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Galveston,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,176,0,0,,,,
+TX,Galveston,tx_realauction,Texas RealAuction/RealForeclose county sites (sheriffsaleauctions.com / realforeclose.com),AUCTION|AUCTION_DATE|OPENING_BID|CASE_NUMBER,HTML_PUBLIC_SEARCH,NO,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_SUCCESS,YES,APPROVED,ENABLED,,0,0,,,,
+TX,Garza,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Gillespie,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Glasscock,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Goliad,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,1,0,0,,,,
+TX,Gonzales,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,13,0,0,,,,
+TX,Gray,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Grayson,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Gregg,tx_realauction,Texas RealAuction/RealForeclose county sites (sheriffsaleauctions.com / realforeclose.com),AUCTION|AUCTION_DATE|OPENING_BID|CASE_NUMBER,HTML_PUBLIC_SEARCH,NO,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_SUCCESS,YES,APPROVED,ENABLED,,0,0,,,,
+TX,Gregg,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,35,0,0,,,,
+TX,Grimes,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Guadalupe,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Hale,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Hall,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Hamilton,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,7,0,0,,,,
+TX,Hansford,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Hardeman,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Hardin,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,9,0,0,,,,
+TX,Harris,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,405,0,0,,,,
+TX,Harrison,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Hartley,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Haskell,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Hays,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,10,0,0,,,,
+TX,Hemphill,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Henderson,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,13,0,0,,,,
+TX,Hidalgo,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,58,0,0,,,,
+TX,Hill,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Hockley,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Hood,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Hopkins,tx_realauction,Texas RealAuction/RealForeclose county sites (sheriffsaleauctions.com / realforeclose.com),AUCTION|AUCTION_DATE|OPENING_BID|CASE_NUMBER,HTML_PUBLIC_SEARCH,NO,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_SUCCESS,YES,APPROVED,ENABLED,,0,0,,,,
+TX,Hopkins,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,1,0,0,,,,
+TX,Houston,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,3,0,0,,,,
+TX,Howard,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Hudspeth,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Hunt,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,66,0,0,,,,
+TX,Hutchinson,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Irion,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Jack,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Jackson,tx_realauction,Texas RealAuction/RealForeclose county sites (sheriffsaleauctions.com / realforeclose.com),AUCTION|AUCTION_DATE|OPENING_BID|CASE_NUMBER,HTML_PUBLIC_SEARCH,NO,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_SUCCESS,YES,APPROVED,ENABLED,,0,0,,,,
+TX,Jackson,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,17,0,0,,,,
+TX,Jasper,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,143,0,0,,,,
+TX,Jeff Davis,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Jefferson,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,223,0,0,,,,
+TX,Jim Hogg,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,7,0,0,,,,
+TX,Jim Wells,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,23,0,0,,,,
+TX,Johnson,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Jones,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Karnes,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Kaufman,tx_realauction,Texas RealAuction/RealForeclose county sites (sheriffsaleauctions.com / realforeclose.com),AUCTION|AUCTION_DATE|OPENING_BID|CASE_NUMBER,HTML_PUBLIC_SEARCH,NO,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_SUCCESS,YES,APPROVED,ENABLED,,0,0,,,,
+TX,Kaufman,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,12,0,0,,,,
+TX,Kendall,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Kenedy,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Kent,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Kerr,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,9,0,0,,,,
+TX,Kimble,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,King,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Kinney,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Kleberg,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,7,0,0,,,,
+TX,Knox,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,La Salle,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,8,0,0,,,,
+TX,Lamar,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,31,0,0,,,,
+TX,Lamb,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Lampasas,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Lavaca,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Lee,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Leon,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,84,0,0,,,,
+TX,Liberty,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,113,0,0,,,,
+TX,Limestone,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,6,0,0,,,,
+TX,Lipscomb,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Live Oak,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,30,0,0,,,,
+TX,Llano,tx_realauction,Texas RealAuction/RealForeclose county sites (sheriffsaleauctions.com / realforeclose.com),AUCTION|AUCTION_DATE|OPENING_BID|CASE_NUMBER,HTML_PUBLIC_SEARCH,NO,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_SUCCESS,YES,APPROVED,ENABLED,,0,0,,,,
+TX,Llano,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,18,0,0,,,,
+TX,Loving,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Lubbock,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Lynn,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Madison,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,1,0,0,,,,
+TX,Marion,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,22,0,0,,,,
+TX,Martin,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Mason,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Matagorda,tx_realauction,Texas RealAuction/RealForeclose county sites (sheriffsaleauctions.com / realforeclose.com),AUCTION|AUCTION_DATE|OPENING_BID|CASE_NUMBER,HTML_PUBLIC_SEARCH,NO,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_SUCCESS,YES,APPROVED,ENABLED,,0,0,,,,
+TX,Matagorda,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,37,0,0,,,,
+TX,Maverick,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,14,0,0,,,,
+TX,McCulloch,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,McLennan,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,48,0,0,,,,
+TX,McMullen,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Medina,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Menard,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Midland,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Milam,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Mills,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Mitchell,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Montague,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,7,0,0,,,,
+TX,Montgomery,tx_realauction,Texas RealAuction/RealForeclose county sites (sheriffsaleauctions.com / realforeclose.com),AUCTION|AUCTION_DATE|OPENING_BID|CASE_NUMBER,HTML_PUBLIC_SEARCH,NO,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_SUCCESS,YES,APPROVED,ENABLED,,0,0,,,,
+TX,Montgomery,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,89,0,0,,,,
+TX,Moore,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Morris,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,6,0,0,,,,
+TX,Motley,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Nacogdoches,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Navarro,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,204,0,0,,,,
+TX,Newton,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Nolan,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Nueces,tx_realauction,Texas RealAuction/RealForeclose county sites (sheriffsaleauctions.com / realforeclose.com),AUCTION|AUCTION_DATE|OPENING_BID|CASE_NUMBER,HTML_PUBLIC_SEARCH,NO,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_SUCCESS,YES,APPROVED,ENABLED,,0,0,,,,
+TX,Nueces,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,49,0,0,,,,
+TX,Ochiltree,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Oldham,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Orange,tx_realauction,Texas RealAuction/RealForeclose county sites (sheriffsaleauctions.com / realforeclose.com),AUCTION|AUCTION_DATE|OPENING_BID|CASE_NUMBER,HTML_PUBLIC_SEARCH,NO,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_SUCCESS,YES,APPROVED,ENABLED,,0,0,,,,
+TX,Orange,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,223,0,0,,,,
+TX,Palo Pinto,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Panola,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,1,0,0,,,,
+TX,Parker,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,9,0,0,,,,
+TX,Parmer,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Pecos,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,1,0,0,,,,
+TX,Polk,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,17,0,0,,,,
+TX,Potter,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Presidio,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Rains,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Randall,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Reagan,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Real,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Red River,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,24,0,0,,,,
+TX,Reeves,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,2,0,0,,,,
+TX,Refugio,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Roberts,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Robertson,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,15,0,0,,,,
+TX,Rockwall,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,1,0,0,,,,
+TX,Runnels,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Rusk,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,1,0,0,,,,
+TX,Sabine,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,2,0,0,,,,
+TX,San Augustine,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,1,0,0,,,,
+TX,San Jacinto,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,San Patricio,tx_realauction,Texas RealAuction/RealForeclose county sites (sheriffsaleauctions.com / realforeclose.com),AUCTION|AUCTION_DATE|OPENING_BID|CASE_NUMBER,HTML_PUBLIC_SEARCH,NO,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_SUCCESS,YES,APPROVED,ENABLED,,0,0,,,,
+TX,San Patricio,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,109,0,0,,,,
+TX,San Saba,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Schleicher,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Scurry,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Shackelford,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Shelby,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,13,0,0,,,,
+TX,Sherman,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Smith,tx_realauction,Texas RealAuction/RealForeclose county sites (sheriffsaleauctions.com / realforeclose.com),AUCTION|AUCTION_DATE|OPENING_BID|CASE_NUMBER,HTML_PUBLIC_SEARCH,NO,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_SUCCESS,YES,APPROVED,ENABLED,,0,0,,,,
+TX,Smith,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,27,0,0,,,,
+TX,Somervell,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Starr,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,44,0,0,,,,
+TX,Stephens,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Sterling,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Stonewall,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Sutton,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Swisher,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Tarrant,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,410,0,0,,,,
+TX,Taylor,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Terrell,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Terry,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Throckmorton,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Titus,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,4,0,0,,,,
+TX,Tom Green,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,31,0,0,,,,
+TX,Travis,tx_realauction,Texas RealAuction/RealForeclose county sites (sheriffsaleauctions.com / realforeclose.com),AUCTION|AUCTION_DATE|OPENING_BID|CASE_NUMBER,HTML_PUBLIC_SEARCH,NO,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_SUCCESS,YES,APPROVED,ENABLED,,0,0,,,,
+TX,Trinity,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Tyler,tx_realauction,Texas RealAuction/RealForeclose county sites (sheriffsaleauctions.com / realforeclose.com),AUCTION|AUCTION_DATE|OPENING_BID|CASE_NUMBER,HTML_PUBLIC_SEARCH,NO,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_SUCCESS,YES,APPROVED,ENABLED,,0,0,,,,
+TX,Tyler,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,30,0,0,,,,
+TX,Upshur,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,16,0,0,,,,
+TX,Upton,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Uvalde,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Val Verde,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,33,0,0,,,,
+TX,Van Zandt,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,4,0,0,,,,
+TX,Victoria,tx_realauction,Texas RealAuction/RealForeclose county sites (sheriffsaleauctions.com / realforeclose.com),AUCTION|AUCTION_DATE|OPENING_BID|CASE_NUMBER,HTML_PUBLIC_SEARCH,NO,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_SUCCESS,YES,APPROVED,ENABLED,,0,0,,,,
+TX,Victoria,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,55,0,0,,,,
+TX,Walker,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Waller,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Ward,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Washington,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Webb,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Wharton,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Wheeler,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Wichita,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Wilbarger,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Willacy,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Williamson,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Wilson,tx_realauction,Texas RealAuction/RealForeclose county sites (sheriffsaleauctions.com / realforeclose.com),AUCTION|AUCTION_DATE|OPENING_BID|CASE_NUMBER,HTML_PUBLIC_SEARCH,NO,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_SUCCESS,YES,APPROVED,ENABLED,,0,0,,,,
+TX,Wilson,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,4,0,0,,,,
+TX,Winkler,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Wise,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,15,0,0,,,,
+TX,Wood,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,17,0,0,,,,
+TX,Yoakum,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Young,,,,NONE,NO,NOT_FOUND,UNVERIFIED,DISCOVERED,NO,UNKNOWN,NOT_ENABLED,,0,0,,,NO_SOURCE_IDENTIFIED,no promotable source named for this county in the Phase 33/35 coverage matrix
+TX,Zapata,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,11,0,0,,,,
+TX,Zavala,tx_lgbs,Linebarger Goggan Blair & Sampson - taxsales.lgbs.com public API,AUCTION|MINIMUM_BID|MARKET_VALUE|GIS,JSON_API,YES,DISCOVERED,CONTENT_VERIFIED,TECHNICAL_ACQUISITION_READY,YES,APPROVED,ENABLED,15,0,0,,,,

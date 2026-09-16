@@ -71,6 +71,15 @@ from .policy import (
     check_acquisition_policy,
     check_fallback_allowed,
 )
+from .roster import (
+    TX_LGBS_ROSTER_PATH,
+    UNATTRIBUTED_RESIDUAL,
+    ObservedCountyRecord,
+    load_tx_lgbs_roster,
+    observed_counties,
+    observed_record_count,
+    roster_totals,
+)
 from .result import (
     ACQUISITION_FAILURE_STATUSES,
     ACQUISITION_PRODUCED_RECORDS,
@@ -170,4 +179,12 @@ __all__ = [
     # checkpoint
     "Checkpoint",
     "CheckpointStore",
+    # roster (Phase 40)
+    "TX_LGBS_ROSTER_PATH",
+    "UNATTRIBUTED_RESIDUAL",
+    "ObservedCountyRecord",
+    "load_tx_lgbs_roster",
+    "observed_counties",
+    "observed_record_count",
+    "roster_totals",
 ]

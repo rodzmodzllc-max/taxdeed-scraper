@@ -36,6 +36,7 @@ from enum import Enum
 from ..governance.source_catalog import load_fl_matrix, load_tx_matrix
 from ..governance.verification import _source_ids_named_for_county
 from .categories import DataCategory, SourceTier
+from .roster import observed_counties
 
 
 class AcquisitionMechanism(str, Enum):
@@ -155,9 +156,21 @@ def build_county_configs(state: str) -> list[CountySourceConfig]:
     rows = load_fl_matrix() if state == "FL" else load_tx_matrix()
     configs: list[CountySourceConfig] = []
 
+    # Phase 40: the MEASURED tx_lgbs county footprint (95 counties), read
+    # from data/tx_lgbs_observed_county_roster.csv. The Phase 33/35 coverage
+    # matrix names tx_lgbs for only 8 counties - its own note says the full
+    # roster was never extracted. This set corrects the county ATTRIBUTION
+    # without editing the matrix itself (see roster.py's module docstring on
+    # why an empirical observation must not silently rewrite a researched
+    # governance record).
+    lgbs_observed = set(observed_counties("tx_lgbs", state="TX")) if state == "TX" else set()
+
     for row in rows:
         county = row["county"]
         named = list(_source_ids_named_for_county(state, row))
+
+        if state == "TX" and county in lgbs_observed and "tx_lgbs" not in named:
+            named.append("tx_lgbs")
 
         # Statewide sources are not named per-county in the coverage
         # matrices (those columns record per-county auction/certificate/LAFT

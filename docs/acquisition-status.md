@@ -1,10 +1,12 @@
 # Acquisition status
 
-**Status:** Phase 39, 2026-09-16. What this platform can technically acquire today, measured. Companion to `docs/florida-acquisition.md` and `docs/texas-acquisition.md`.
+**Status:** Phase 40, 2026-09-16 (supersedes the Phase 39 revision). What this platform can technically acquire today, measured. Companion to `docs/florida-acquisition.md` and `docs/texas-acquisition.md`.
 
 ## 1. The honest headline
 
-**No production acquisition run was performed in Phase 39.** Every `records_acquired` figure in `data/fl_acquisition_map.csv` and `data/tx_acquisition_map.csv` is `0`, and every `coverage_percentage` is blank.
+**No production acquisition run has been performed.** Every `records_acquired` figure in `data/fl_acquisition_map.csv` and `data/tx_acquisition_map.csv` is `0`, and every `coverage_percentage` is blank.
+
+Phase 40 did add a distinct, genuinely measured column: `records_observed_at_source`, populated for all 95 `tx_lgbs` counties from the API's own authoritative per-county `count` (4,197 records total). Measuring how many records a source *holds* is deliberately not the same claim as having *acquired* them, and the two live in separate columns so they can never be conflated.
 
 Two independent reasons, both real:
 
@@ -31,24 +33,26 @@ Computed from `data/fl_acquisition_map.csv` / `data/tx_acquisition_map.csv`.
 
 Internal technical testing is permitted for **all 226** rows: no Florida source carries an affirmative prohibition, so every open question there is commercial rather than a found block.
 
-### Texas — 257 county-source rows, 254 counties
+### Texas — 277 county-source rows, 254 counties (Phase 40 expanded from 257)
 
 | Technical state | Rows |
 |---|---|
-| `DISCOVERED` (no acquisition mechanism identified) | 225 |
+| `DISCOVERED` (no acquisition mechanism identified) | 158 |
+| `TECHNICAL_ACQUISITION_READY` (`LgbsAdapter`, measured roster) | **95** |
 | `TECHNICAL_ACQUISITION_SUCCESS` (existing `tx_realauction` production harvester) | 24 |
-| `TECHNICAL_ACQUISITION_READY` (new `LgbsAdapter`) | 8 |
 
 | Production status | Rows |
 |---|---|
-| `NOT_ENABLED` | 225 |
-| `ENABLED` | 32 |
+| `NOT_ENABLED` | 158 |
+| `ENABLED` | **119** |
 
-Internal technical testing is permitted for 32 rows and refused for 225 — the refusals are counties with no identified source at all, plus the four `BLOCKED` vendors, which testing does not unlock.
+Internal technical testing is permitted for 119 rows and refused for 158 — the refusals are counties with no identified source at all, plus the four `BLOCKED` vendors, which testing does not unlock.
+
+Phase 40 measured the `tx_lgbs` footprint at **95 counties** (previously 8 in the coverage matrix), moving 87 counties from `NONE` to `JSON_API`. See `claude/phase-40-lgbs-roster.md`.
 
 ## 3. Reading `production_status = ENABLED` correctly
 
-47 Florida rows and 32 Texas rows show `ENABLED`. That means the Phase 37 promotion gate currently allows `CUSTOMER_DISPLAY` for that specific source in that specific county. In Florida it is almost entirely `fl_laft_pdfs` (the only Florida source with no `ProviderAuthorization` record, so it remains on the pre-existing production no-op path); in Texas it is `tx_lgbs` and `tx_realauction`, neither of which has an authorization record either.
+47 Florida rows and 119 Texas rows show `ENABLED`. That means the Phase 37 promotion gate currently allows `CUSTOMER_DISPLAY` for that specific source in that specific county. In Florida it is almost entirely `fl_laft_pdfs` (the only Florida source with no `ProviderAuthorization` record, so it remains on the pre-existing production no-op path); in Texas it is `tx_lgbs` and `tx_realauction`, neither of which has an authorization record either.
 
 It does **not** mean the data has been acquired, that coverage has been measured, or that the remaining sources for that county are usable. A county row showing `ENABLED` for one source and `NOT_ENABLED` for three others is the normal case, and is exactly the granularity this map exists to preserve.
 

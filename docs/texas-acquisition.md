@@ -1,6 +1,6 @@
 # Texas acquisition
 
-**Status:** Phase 39, 2026-09-16. Companion to `docs/texas-data-map.md` (Phase 37/38's source map) and `docs/acquisition-status.md`.
+**Status:** Phase 40, 2026-09-16 (supersedes the Phase 39 revision). Companion to `docs/texas-data-map.md` (Phase 37/38's source map) and `docs/acquisition-status.md`.
 
 ## 1. Existing implementations: inspected, verified, preserved
 
@@ -28,23 +28,37 @@ These are contract checks, not acquisition runs. The pre-existing caveats stand 
 
 ## 3. Texas heterogeneity, stated numerically
 
-254 counties, 257 county-source config rows:
+254 counties, 277 county-source config rows (Phase 40 expanded this from 257):
 
 | Mechanism | Rows | Adapter implemented |
 |---|---|---|
-| `NONE` — no acquisition mechanism identified | 225 | — |
+| `NONE` — no acquisition mechanism identified | 158 | — |
 | `HTML_PUBLIC_SEARCH` — `tx_realauction` | 24 | No (working harvester exists) |
-| `JSON_API` — `tx_lgbs` | 8 | **Yes** |
+| `JSON_API` — `tx_lgbs` | **95** | **Yes** |
 
-Texas has no statewide equivalent to Florida's FDOR cadastral layer. Appraisal is administered by 254 independent CADs, each with its own site and data-access mechanics. That is the structural reason Florida got one adapter covering 67 counties this phase and Texas got one covering 8.
+Texas has no statewide equivalent to Florida's FDOR cadastral layer. Appraisal is administered by 254 independent CADs, each with its own site and data-access mechanics. That is the structural reason Florida is covered by one statewide layer while Texas depends on a multi-county vendor API plus per-CAD integrations.
 
-## 4. The LGBS coverage understatement
+## 4. The LGBS footprint, measured (Phase 40)
 
-The configuration attributes `tx_lgbs` to **8** counties, because that is what the Phase 33/35 coverage matrix names — its own note says the "full 45+ county roster [was] not re-extracted this phase."
+Phase 39 flagged that the coverage matrix named `tx_lgbs` for only 8 counties while the live API returned 6,309 rows. Phase 40 measured the actual footprint.
 
-The live API returns **6,309** Texas rows spanning far more than 8 counties. The matrix understates this source's real reach, and the authoritative roster is the API itself.
+**95 Texas counties**, not 8. Full detail in `claude/phase-40-lgbs-roster.md` and `data/tx_lgbs_observed_county_roster.csv`.
 
-This is the cheapest high-value Texas gap to close: one paginated walk of the live API, grouping by each row's own `county` field, produces the real roster and would likely move dozens of counties from `NONE` to `JSON_API`. It requires no new reconnaissance and no new source — only an environment with outbound access.
+| Query | Count |
+|---|---|
+| `?area=TX` | 6,309 |
+| `?state=TX` | 4,205 |
+| `?state=PA` (Philadelphia) | 2,104 |
+
+4,205 + 2,104 = 6,309 exactly, which both validates the measurement and proves Philadelphia is the only non-Texas county in the feed.
+
+**`area=TX` is 33.4% Pennsylvania data.** Phase 39 preserved the rule that the harvester filters on each row's own `state` field; this phase quantified it. Trusting the parameter would import 2,104 Philadelphia properties into the Texas ledger.
+
+Attribution: 4,197 of 4,205 records assigned to named counties (**99.81%**), with an explicitly recorded 8-record residual rather than a distributed or hidden one.
+
+Configured Texas coverage moved from 8 counties to 95 with no new scraper — the API is statewide, so the roster is configuration. `AcquisitionMechanism.NONE` fell from 225 county-source rows to 158.
+
+The roster lives in its own artifact and does **not** rewrite `data/tx_county_coverage_matrix.csv`: that matrix records what research established, with its own evidence trail, while the roster records what a source actually returned on a date. A test asserts the matrix is unmodified.
 
 ## 5. Blocked sources — unchanged, and testing does not unlock them
 
@@ -64,4 +78,4 @@ The acquisition policy gate refuses the four `BLOCKED` sources for **both** purp
 
 1. Outbound access — Texas harvesting currently runs on `workflow_dispatch` only, not a schedule, so a Texas row's freshness already depends on someone triggering it manually. That pre-existing gap is unchanged.
 2. Nothing else for `tx_lgbs`: it is `APPROVED`, has no authorization record, passes the promotion gate, and the adapter is built and tested.
-3. For everything else: either an authorization resolution (`tx_hctax`) or a source that does not currently exist (the 225 `NONE` counties).
+3. For everything else: either an authorization resolution (`tx_hctax`) or a source that does not currently exist (the 158 `NONE` counties).
