@@ -200,6 +200,12 @@ class AcquisitionResult:
     retrievals: tuple[RetrievalMetadata, ...] = field(default_factory=tuple)
     records: tuple[dict, ...] = field(default_factory=tuple)
     checkpoint: dict | None = None
+    # Phase 41: why records were skipped, keyed by a `run.RejectionReason`
+    # value. Additive and optional - an adapter that does not classify its
+    # skips leaves this empty, and `records_skipped` remains the total.
+    # Without this, a run cannot report Phase 41 Section 8's required
+    # `non_tx_rejected` separately from an ordinary unmapped-status skip.
+    rejections_by_reason: dict = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         # Structural guarantee for Section 70 ("no fabricated coverage"):

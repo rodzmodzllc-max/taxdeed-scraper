@@ -142,6 +142,10 @@ class JsonApiAdapter(SourceAdapter):
         warnings: list[str] = []
         page = 0
         source_timestamp: str | None = None
+        # Phase 41: per-reason skip classification, so a run can report
+        # non-TX rejections separately from unmapped-status ones. Reset per
+        # acquire() call, never accumulated across runs.
+        self._rejections = {}
 
         while url:
             page += 1
@@ -194,6 +198,7 @@ class JsonApiAdapter(SourceAdapter):
         unique, duplicates = deduplicate(records)
         if duplicates:
             warnings.append(f"{duplicates} duplicate record(s) dropped by idempotency key")
+            self._rejections["DUPLICATE"] = self._rejections.get("DUPLICATE", 0) + duplicates
 
         if not unique:
             status = AcquisitionStatus.NO_DATA
@@ -218,6 +223,7 @@ class JsonApiAdapter(SourceAdapter):
             retrievals=tuple(self._retrievals),
             raw_storage_status=self._raw_storage_status(),
             checkpoint={"next_url": url} if url else None,
+            rejections_by_reason=dict(getattr(self, "_rejections", {})),
         )
 
     def normalize(self, raw_record: dict) -> dict | None:  # pragma: no cover - overridden
@@ -231,21 +237,34 @@ class LgbsAdapter(JsonApiAdapter):
     def __init__(self, transport=None, config: AdapterConfig | None = None):
         super().__init__(config or LGBS_CONFIG, transport)
 
+    def _reject(self, reason: str) -> None:
+        """Record WHY a record was skipped. Phase 41 Section 8 requires
+        non-TX rejections to be reportable separately; without this the run
+        layer can only see an undifferentiated `records_skipped` total."""
+        if not hasattr(self, "_rejections"):
+            self._rejections = {}
+        self._rejections[reason] = self._rejections.get(reason, 0) + 1
+
     def normalize(self, raw_record: dict) -> dict | None:
         status_to_ledger, compose_address, normalize_county, to_float = _lgbs_helpers()
 
         # Preserved semantics, verbatim from harvest_lgbs():
         # 1. area=TX is not a strict state filter - check each row's state.
+        #    Phase 40 measured this at 2,104 of 6,309 rows (33.4%) being
+        #    Philadelphia, PA, so this branch is load-bearing, not defensive.
         if raw_record.get("state") != "TX":
+            self._reject("OUT_OF_STATE")
             return None
         # 2. Ledger classification keys off `status`, never `sale_type`.
         ledger = status_to_ledger.get(raw_record.get("status"))
         if ledger is None:
+            self._reject("UNMAPPED_STATUS")
             return None
 
         county = normalize_county(raw_record.get("county"))
         account_number = raw_record.get("account_nbr") or None
         if not county or not account_number:
+            self._reject("MISSING_IDENTITY")
             return None
 
         coords = ((raw_record.get("geometry") or {}).get("coordinates")) or [None, None]

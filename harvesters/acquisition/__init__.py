@@ -20,6 +20,8 @@ Modules:
   - config.py       - county->mechanism configuration (Sections 5, 26, 47)
   - completeness.py - coverage metrics, missing-data reasons, source health (Sections 33-36)
   - checkpoint.py   - resumability (Section 56)
+  - roster.py       - observed source footprints, measured (Phase 40)
+  - run.py          - acquisition runs + denominator validation (Phase 41)
   - adapters/       - concrete adapters (JSON API, ArcGIS REST)
 """
 
@@ -70,6 +72,17 @@ from .policy import (
     binary_content_allowed,
     check_acquisition_policy,
     check_fallback_allowed,
+)
+from .run import (
+    TX_LGBS_AREA_TX_TOTAL,
+    TX_LGBS_PA_TOTAL,
+    TX_LGBS_STATE_DENOMINATOR,
+    TX_LGBS_UNATTRIBUTED,
+    AcquisitionRun,
+    DenominatorCheck,
+    RejectionReason,
+    RunStatus,
+    RunTally,
 )
 from .roster import (
     TX_LGBS_ROSTER_PATH,
@@ -187,4 +200,14 @@ __all__ = [
     "observed_counties",
     "observed_record_count",
     "roster_totals",
+    # run (Phase 41)
+    "TX_LGBS_AREA_TX_TOTAL",
+    "TX_LGBS_PA_TOTAL",
+    "TX_LGBS_STATE_DENOMINATOR",
+    "TX_LGBS_UNATTRIBUTED",
+    "AcquisitionRun",
+    "DenominatorCheck",
+    "RejectionReason",
+    "RunStatus",
+    "RunTally",
 ]
