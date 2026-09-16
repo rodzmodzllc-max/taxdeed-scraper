@@ -152,7 +152,11 @@ jobs:
       # 4,205 carry-forward and the current live figure stay distinguishable
       # in the evidence. Skipped for probe, which is meant to stay minimal.
       - name: Measure live TX denominator (validation only)
-        if: inputs.mode != 'probe'
+        # Phase 46: `always() &&` added. Without it a failed acquisition step
+        # cancels this one, which is exactly what happened on run
+        # 35109232214 - the measurement is independent of acquisition and
+        # losing it to an unrelated failure is the opposite of useful.
+        if: always() && inputs.mode != 'probe'
         run: |
           set -o pipefail
           python3 scripts/measure_tx_denominator.py | tee denominator-console.log

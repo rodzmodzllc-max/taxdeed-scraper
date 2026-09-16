@@ -45,7 +45,7 @@ from ..result import (
     RetrievalMetadata,
     build_result,
 )
-from ..transport import SchemaError
+from ..transport import SchemaError, TransportError
 
 # Import the existing, verified LGBS normalizers rather than copying them.
 _HARVESTERS_DIR = Path(__file__).resolve().parents[2]
@@ -147,12 +147,29 @@ class JsonApiAdapter(SourceAdapter):
         # acquire() call, never accumulated across runs.
         self._rejections = {}
 
+        # Phase 46. `failure` holds the transport error that interrupted the
+        # walk, if any. It is caught HERE rather than allowed to escape to
+        # SourceAdapter.acquire()'s handler, because that handler has no
+        # access to these locals and therefore builds its result with no
+        # records at all - which is how run #3 (35109232214) retrieved a
+        # 500-record page and then reported records_seen=0. Every record
+        # already retrieved must survive a later page's failure.
+        failure: TransportError | None = None
+
         while url:
             page += 1
             page_started = utc_now_iso()
-            response = self.transport.get(url)
-            payload = response.json()
-            page_records = self.extract_records(payload)
+            try:
+                response = self.transport.get(url)
+                payload = response.json()
+                page_records = self.extract_records(payload)
+            except TransportError as exc:
+                # `url` is deliberately left pointing at the page that
+                # failed, so the checkpoint below resumes by RETRYING it
+                # rather than skipping past it. Skipping would silently
+                # drop that page's records from any resumed run.
+                failure = exc
+                break
             source_timestamp = source_timestamp or response.source_updated_at
 
             page_acquired = 0
@@ -200,7 +217,22 @@ class JsonApiAdapter(SourceAdapter):
             warnings.append(f"{duplicates} duplicate record(s) dropped by idempotency key")
             self._rejections["DUPLICATE"] = self._rejections.get("DUPLICATE", 0) + duplicates
 
-        if not unique:
+        errors: tuple[str, ...] = ()
+        if failure is not None:
+            # The failure status wins over SUCCESS/PARTIAL_SUCCESS even when
+            # records were retrieved. A walk that did not finish is not a
+            # success that happens to carry an error - and because this
+            # status is in ACQUISITION_FAILURE_STATUSES and NOT in
+            # ACQUISITION_PRODUCED_RECORDS, AcquisitionRun.finalize() lands
+            # on INCOMPLETE. That is stricter than the PARTIAL a
+            # records-carrying success would have produced, not weaker.
+            status = failure.status
+            errors = (f"{failure.error_code}: {failure}",)
+            warnings.append(
+                f"page {page} failed after {len(unique)} record(s) had already been retrieved; "
+                "those records are retained and the run is not complete"
+            )
+        elif not unique:
             status = AcquisitionStatus.NO_DATA
         elif failed:
             status = AcquisitionStatus.PARTIAL_SUCCESS
@@ -217,6 +249,7 @@ class JsonApiAdapter(SourceAdapter):
             records_failed=failed,
             records_skipped=skipped + duplicates,
             categories=tuple(c.value for c in self.categories),
+            errors=errors,
             warnings=tuple(warnings),
             source_timestamp=source_timestamp,
             retrieval_method=self.config.retrieval_method,

@@ -191,8 +191,16 @@ def test_p45_13_guard_still_precedes_the_network_step():
 
 
 def test_p45_14_denominator_step_exists_and_skips_probe():
+    """Corrected in Phase 46. This originally pinned the condition as exactly
+    `inputs.mode != 'probe'`, which encoded a flaw: without `always()`, a
+    failed acquisition step cancels this one, and that is precisely what
+    happened on run 35109232214 - the measurement was lost to a failure it
+    has nothing to do with. The assertion now pins the corrected condition
+    and keeps checking both halves of it."""
     step = step_named("Measure live TX denominator")
-    assert step["if"] == "inputs.mode != 'probe'"
+    assert step["if"] == "always() && inputs.mode != 'probe'"
+    assert "always()" in step["if"], "acquisition failing must not cancel the measurement"
+    assert "inputs.mode != 'probe'" in step["if"], "probe stays minimal"
     assert "scripts/measure_tx_denominator.py" in step["run"]
 
 
