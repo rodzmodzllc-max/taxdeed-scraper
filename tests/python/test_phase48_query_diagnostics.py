@@ -472,7 +472,11 @@ def test_p48_29_existing_modes_and_full_guard_are_untouched():
     i = acq_inputs()
     assert i["mode"]["options"] == ["probe", "sample", "full"]
     assert i["mode"]["default"] == "probe"
-    assert set(i) == {"mode", "confirm_full", "limit", "run_diagnostics"}
+    # Phase 50 added `run_transport_diagnostics`; the pin moves with it for
+    # the same reason test_p45_03 gives, and stays exact.
+    assert set(i) == {
+        "mode", "confirm_full", "limit", "run_diagnostics", "run_transport_diagnostics",
+    }
 
     guard = acq_step("Guard - full mode")
     assert guard["if"] == "inputs.mode == 'full'"

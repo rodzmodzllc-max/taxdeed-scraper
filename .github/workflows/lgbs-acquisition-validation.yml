@@ -61,6 +61,11 @@ on:
         required: false
         default: false
         type: boolean
+      run_transport_diagnostics:
+        description: 'Also run the read-only transport-reuse diagnostic (16 small requests, same-process vs new-process). Default off.'
+        required: false
+        default: false
+        type: boolean
 
 concurrency:
   # Never let two real acquisition runs hit the source concurrently.
@@ -142,6 +147,43 @@ jobs:
           # had its turn. The alternative - continue-on-error - would have
           # meant relaxing Phase 42's no-soft-fail guard, and a guard is
           # worth more than the convenience.
+          exit 0
+
+      # Phase 50. Its own gate, on the same principle as Phase 48's: with
+      # the flag off this workflow runs exactly the tests it ran before, and
+      # a broken diagnostic costs the source zero requests.
+      - name: Pre-flight - transport diagnostic test suite must pass
+        if: inputs.run_transport_diagnostics
+        run: pytest tests/python/test_phase50_transport_diagnostics.py -q
+
+      # Phase 50. Compares requests issued from the SAME long-lived process
+      # against requests issued from a BRAND NEW process, alternating the
+      # two on each URL so that a position-in-sequence effect - the decisive
+      # finding of Phase 48A - hits both modes equally instead of favouring
+      # whichever ran first. The step NAME carries no query string for the
+      # same reason the Phase 48 step's does not: the Phase 42 guard scans
+      # executable lines and cannot tell a label from a request.
+      #
+      # Read-only, GET-only, and deliberately BEFORE the acquisition step,
+      # so it is not measuring a source this job has just pulled pages from.
+      #
+      # Exiting 0 here does not swallow a failure: the code is recorded and
+      # enforced by the final step below, after acquisition has had its
+      # turn. `continue-on-error` would have meant relaxing Phase 42's
+      # no-soft-fail guard, and the guard is worth more than the
+      # convenience.
+      - name: Transport reuse diagnostics (read-only, process isolation)
+        if: inputs.run_transport_diagnostics
+        id: transport_diagnostics
+        run: |
+          set -o pipefail
+          rc=0
+          python3 scripts/diagnose_lgbs_transport_reuse.py | tee transport-diagnostics-console.log || rc=$?
+          echo "transport diagnostic exit code: $rc"
+          echo "exit_code=$rc" >> "$GITHUB_OUTPUT"
+          if [ "$rc" -eq 3 ]; then
+            echo "::warning::Transport diagnostics measured NOTHING - every request was blocked before leaving the runner. This says nothing about the source."
+          fi
           exit 0
 
       - name: Guard - full mode requires explicit confirmation
@@ -268,6 +310,19 @@ jobs:
           fi
           echo "query diagnostics completed"
 
+      # Phase 50. Same deferred-enforcement contract as the step above.
+      - name: Fail if the transport diagnostics did not complete
+        if: always() && inputs.run_transport_diagnostics
+        run: |
+          rc="${{ steps.transport_diagnostics.outputs.exit_code }}"
+          if [ -z "$rc" ]; then
+            echo "::error::the transport diagnostic step did not record an exit code"; exit 1
+          fi
+          if [ "$rc" -ne 0 ]; then
+            echo "::error::transport diagnostics exited $rc"; exit 1
+          fi
+          echo "transport diagnostics completed"
+
       - name: Upload acquisition artifact
         if: always()
         uses: actions/upload-artifact@v4
@@ -278,5 +333,6 @@ jobs:
             acquisition-console.log
             denominator-console.log
             diagnostics-console.log
+            transport-diagnostics-console.log
           if-no-files-found: warn
           retention-days: 30

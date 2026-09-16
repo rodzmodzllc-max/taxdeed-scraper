@@ -49,6 +49,20 @@ complete denominator and `pagination_validated` is true. If either fails,
 the measurement is reported as NOT validated and the figure is not treated
 as a denominator.
 
+The zero case (Phase 50)
+------------------------
+`count == 0` used to short-circuit to `pagination_validated = true` and
+`current_live_denominator = 0` on the strength of that single envelope,
+because "an empty dataset is complete by definition". That reasoning is
+sound about datasets and wrong about measurements: neither boundary check
+is available to confirm it. `offset = -1` is not a request this script
+will invent, and `offset = 0` returning nothing is indistinguishable from
+a source that is momentarily empty. Phase 48A observed this very source
+answering five requests and then timing out thirteen consecutive times, so
+"the one response we got said zero" is not a foundation to certify a
+denominator on. A zero count now fails closed like every other figure here
+whose completeness could not be confirmed, with the reason named.
+
 This script performs NO acquisition, retains NO records, imports no
 database driver, and contains no DML. It reads three single-record
 responses and writes one JSON file to `out/` (gitignored).
@@ -86,6 +100,10 @@ ARTIFACT_PATH = ARTIFACT_DIR / "phase45_tx_denominator.json"
 
 BASE_URL = "https://taxsales.lgbs.com/api/property_sales/"
 STATE_QUERY = "state=TX"
+
+# Phase 50. Named so the artifact, the console and the tests all refer to
+# the same condition by the same string rather than three paraphrases.
+ZERO_COUNT_REASON = "ZERO_COUNT_REQUIRES_VERIFICATION"
 
 
 def _url(*, limit: int = 1, offset: int | None = None) -> str:
@@ -141,6 +159,7 @@ def main() -> int:
         "denominator_delta": None,
         "pagination_validated": False,
         "pagination_evidence": [],
+        "failure_reason": None,
         "environment_status": None,
         "governance_gate": None,
         "production_data_modified": False,
@@ -170,6 +189,7 @@ def main() -> int:
     print(f"environment_status         = {status}")
     print(f"  detail: {detail[:160]}")
     if payload is None:
+        artifact["failure_reason"] = "SOURCE_NOT_REACHED"
         print("  denominator NOT measured - the source was never reached.")
         print("  NOTE: this is an environment/source condition, not a measurement of zero.")
         _write(artifact)
@@ -178,6 +198,7 @@ def main() -> int:
     claimed = payload.get("count")
     if not isinstance(claimed, int) or claimed < 0:
         artifact["environment_status"] = "SOURCE_ERROR"
+        artifact["failure_reason"] = "MALFORMED_COUNT"
         print(f"  envelope 'count' was not a non-negative integer: {claimed!r}")
         _write(artifact)
         return 4
@@ -188,19 +209,30 @@ def main() -> int:
     )
 
     if claimed == 0:
-        # An empty dataset is measurable and complete, but it is a finding,
-        # not a routine result - say so rather than reporting a tidy zero.
-        artifact["current_live_denominator"] = 0
-        artifact["denominator_delta"] = 0 - TX_LGBS_STATE_DENOMINATOR
-        artifact["pagination_validated"] = True
-        print("  source reports ZERO Texas records - this is a finding, not a normal measurement.")
+        # Phase 50. FAIL CLOSED. Neither boundary check is available for a
+        # zero count, so this figure is unverifiable, and an unverifiable
+        # figure is not a denominator no matter how tidy it looks. No
+        # `offset=-1` request is invented to manufacture one.
+        artifact["current_live_denominator"] = None
+        artifact["denominator_delta"] = None
+        artifact["pagination_validated"] = False
+        artifact["failure_reason"] = ZERO_COUNT_REASON
+        artifact["pagination_evidence"].append(
+            {"check": "zero_count_requires_verification", "url": _url(limit=1),
+             "claimed_count": 0, "results_returned": len(payload.get("results") or []),
+             "passed": False, "reason": ZERO_COUNT_REASON}
+        )
+        print("  source reports ZERO Texas records.")
+        print(f"  {ZERO_COUNT_REASON} - a zero count cannot be boundary-verified;")
+        print("  current_live_denominator left null rather than recording an unverified figure.")
         _write(artifact)
-        return 0
+        return 5
 
     # ---- 2. last record must terminate the walk --------------------------
     status, detail, last = _fetch(transport, _url(limit=1, offset=claimed - 1))
     if last is None:
         artifact["environment_status"] = status
+        artifact["failure_reason"] = "BOUNDARY_REQUEST_FAILED"
         print(f"  completeness check 1 failed to fetch: {status} {detail[:120]}")
         _write(artifact)
         return 3
@@ -217,6 +249,7 @@ def main() -> int:
     status, detail, past = _fetch(transport, _url(limit=1, offset=claimed))
     if past is None:
         artifact["environment_status"] = status
+        artifact["failure_reason"] = "BOUNDARY_REQUEST_FAILED"
         print(f"  completeness check 2 failed to fetch: {status} {detail[:120]}")
         _write(artifact)
         return 3
@@ -243,6 +276,7 @@ def main() -> int:
         # completeness could not be confirmed is not a denominator, and
         # recording it as one is exactly the kind of quiet overclaim this
         # script exists to prevent.
+        artifact["failure_reason"] = "BOUNDARY_CHECK_FAILED"
         print("pagination_validated       = NO - 'count' could not be confirmed complete;")
         print("  current_live_denominator left NOT_MEASURED rather than recording an unverified figure.")
 
