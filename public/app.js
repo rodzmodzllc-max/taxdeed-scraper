@@ -650,11 +650,33 @@ const LINK_ICON = {
 };
 const linkIcon = label => LINK_ICON[label] ? `<span class="link-icon">${svgIcon(LINK_ICON[label])}</span>` : "";
 
+// Phase 35: provenance for reference links. Street View/Zillow are the only
+// two with a client-side fallback (fallbackStreetviewUrl/fallbackZillowUrl
+// above build a best-effort search URL when the harvester didn't supply a
+// real one) - "estimated" here means exactly and only that: this link was
+// guessed from the address string client-side, not confirmed by any
+// source. A truthy p.url_streetview/p.url_zillow means the real, harvester-
+// supplied link rendered instead, so no suffix. Every other link label
+// (Appraiser, Tax Collector, Title Search, Clerk of Courts, GIS Map) is
+// always a direct backend passthrough with no client construction (see
+// detailHtml()/card() - only Street View and Zillow ever call a fallback
+// builder), so they never get this suffix.
+const isEstimatedLink = (label, p) =>
+  (label === "Street View" && !p.url_streetview) || (label === "Zillow" && !p.url_zillow);
+
 // Small "ⓘ" tooltip affordance - keyboard-focusable (not hover-only) so it
 // works on touch devices too. `tip` is plain text, escaped for the
 // data-tip attribute the CSS ::after reads it from.
 const infoTip = tip => `<i class="info-tip" tabindex="0" data-tip="${esc(tip)}">i</i>`;
 const FEES_TIP = "Florida doc stamps (0.70/$100) + recording fee, plus half the assessed value on homesteaded parcels (FS 197.502(6)(c)). Added on top of whatever the actual winning bid turns out to be - estimated here using the opening bid, since the real winning bid isn't known in advance.";
+// Phase 35: these three stats were already calculated, client-side, from
+// raw county-sourced fields - they just had no infoTip() marking them as
+// such, unlike Fees/Homestead/Accrued Interest/TDA Eligibility right below.
+// Reusing the exact same infoTip() mechanism rather than inventing a new
+// "calculated" UI pattern.
+const EQUITY_SPREAD_TIP = "Calculated by this app: County Just/Assessed Value minus the opening bid. Not a profit estimate - it doesn't account for fees, repairs, municipal liens, or the real winning bid, which is usually higher than the opening bid.";
+const WALK_AWAY_TIP = "Calculated by this app: County Just/Assessed Value times your Max Bid % setting (in the calculator below). A ceiling you set, not a county figure.";
+const BUILDING_VALUE_TIP = "Calculated by this app: County Just Value minus Land Value from the same tax roll. Not a separate appraisal - if the roll doesn't carry both figures, this is left off rather than guessed.";
 
 // Properties synced from the statewide harvest pipeline (as opposed to the
 // hand-researched watchlist) never get url_zillow / url_streetview from the
@@ -979,6 +1001,37 @@ function cardStatus(p) {
   if (isGone(p)) return "status-closed";
   if (isRowStale(p)) return "status-stale";
   return "status-active";
+}
+
+// Phase 35: the one printed, per-row freshness line (provenance section of
+// the detail modal). Built entirely from p.updated_at - the same field and
+// the same STALE_DATA_HOURS threshold isRowStale()/cardStatus() already use
+// for the card's amber edge, just finally rendered as text somewhere a
+// viewer can actually read it instead of only a border color. Deliberately
+// does NOT introduce a "verified" concept distinct from "synced" - the
+// backend has no separate verification timestamp/workflow, so labeling
+// this "last verified" would claim something the data doesn't support.
+function lastSyncedText(p) {
+  if (!p || !p.updated_at) return "Sync date unavailable";
+  const t = Date.parse(p.updated_at);
+  if (isNaN(t)) return "Sync date unavailable";
+  const days = Math.floor((Date.now() - t) / 86400000);
+  const when = new Date(p.updated_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+  const ago = days <= 0 ? "today" : days === 1 ? "1 day ago" : days + " days ago";
+  return (isRowStale(p) ? "⚠ Data may be stale — last synced " : "Last synced ") + when + " (" + ago + ")";
+}
+
+// Phase 35: p.harvester_source was already read internally (only to pick
+// value-label wording, see assessedSourceLabel()) but never shown to the
+// user. This is the plain, honest version of it - no taxonomy invented, no
+// mapping to a friendlier name that might be wrong (this file doesn't have
+// a confirmed full list of every harvester_source value across FL and TX),
+// just the raw value with underscores turned into spaces and each word
+// capitalized. Returns null (not a placeholder string) when the field is
+// absent, so callers can omit the row entirely rather than print "Unknown".
+function harvesterSourceLabel(p) {
+  if (!p || !p.harvester_source) return null;
+  return String(p.harvester_source).replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
 }
 
 function saleTime(p) {
@@ -1668,9 +1721,9 @@ function card(p, showCounty) {
     ${spec.length ? `<div class="prop-spec">${spec.map(b => `<span>${esc(b)}</span>`).join("")}</div>` : ""}
     ${sale ? `<div class="prop-lastsale">Last sold <b>${esc(sale)}</b></div>` : ""}
     <div class="prop-links">
-      ${fallbackStreetviewUrl(p) ? `<a href="${esc(fallbackStreetviewUrl(p))}" target="_blank" rel="noopener">${linkIcon("Street View")}Street View</a>` : ''}
+      ${fallbackStreetviewUrl(p) ? `<a href="${esc(fallbackStreetviewUrl(p))}" target="_blank" rel="noopener"${isEstimatedLink("Street View", p) ? ' title="Estimated search link, built from the address - not confirmed by the county"' : ""}>${linkIcon("Street View")}Street View</a>` : ''}
       ${p.url_appraiser ? `<a href="${esc(p.url_appraiser)}" target="_blank" rel="noopener">${linkIcon("Appraiser")}Appraiser</a>` : ''}
-      ${fallbackZillowUrl(p) ? `<a href="${esc(fallbackZillowUrl(p))}" target="_blank" rel="noopener">${linkIcon("Zillow")}Zillow</a>` : ''}
+      ${fallbackZillowUrl(p) ? `<a href="${esc(fallbackZillowUrl(p))}" target="_blank" rel="noopener"${isEstimatedLink("Zillow", p) ? ' title="Estimated search link, built from the address - not confirmed by the county"' : ""}>${linkIcon("Zillow")}Zillow</a>` : ''}
     </div>
     ${p.url_auction ? `<a class="cta-btn" href="${esc(p.url_auction)}" target="_blank" rel="noopener">${p.source === "laft" ? "View Clerk Docket / Listing" : "Bid on County Auction Site"}</a>` : ''}
     <button class="detail-btn" data-action="viewdetails" data-pid="${p.id}" type="button">View full property page →</button>`;
@@ -1925,7 +1978,7 @@ function detailHtml(p) {
     </div>` : ""}
     ${regionOf(p) === "TX" && classificationBadgeHtml(p) ? `<div class="prop-classification-line" style="margin:.2rem 0 .5rem">${classificationBadgeHtml(p)}</div>` : ""}
     <div class="detail-grid">
-      ${stats.map(([label, val]) => `<div class="detail-stat"><span class="detail-stat-label">${esc(label)}${label === "Fees" ? " " + infoTip(FEES_TIP) : label === "Homestead Exemption" ? " " + infoTip(HOMESTEAD_TIP) : label === "Est. Accrued Interest" ? " " + infoTip(ACCRUED_INTEREST_TIP) : label === "TDA Eligibility" ? " " + infoTip(TDA_ELIGIBLE_TIP) : ""}</span><span class="detail-stat-val">${esc(val)}</span></div>`).join("")}
+      ${stats.map(([label, val]) => `<div class="detail-stat"><span class="detail-stat-label">${esc(label)}${label === "Fees" ? " " + infoTip(FEES_TIP) : label === "Homestead Exemption" ? " " + infoTip(HOMESTEAD_TIP) : label === "Est. Accrued Interest" ? " " + infoTip(ACCRUED_INTEREST_TIP) : label === "TDA Eligibility" ? " " + infoTip(TDA_ELIGIBLE_TIP) : label === "Gross Equity Spread" ? " " + infoTip(EQUITY_SPREAD_TIP) : label === "Walk Away Above" ? " " + infoTip(WALK_AWAY_TIP) : label === "Building / Improvement Value" ? " " + infoTip(BUILDING_VALUE_TIP) : ""}</span><span class="detail-stat-val">${esc(val)}</span></div>`).join("")}
     </div>
     ${!isCert && bidPublished && marketOf(p) > 0 ? calcDrawerHtml(p) : ""}
     ${p.legal_desc ? `<div class="detail-legal">
@@ -1937,9 +1990,13 @@ function detailHtml(p) {
       <button class="copy-btn" data-action="copy" data-copy="${esc(p.parcel || p.case_no || "")}" type="button"><span class="copy-tag">${isCert ? "Account" : "Parcel"}</span><span class="copy-val">${esc(p.parcel || p.case_no || "Unknown")}</span></button>
     </div>
     <div class="detail-links">
-      ${links.length ? links.map(([label, href]) => `<a href="${esc(href)}" target="_blank" rel="noopener">${linkIcon(label)}${esc(label)} →</a>`).join("") : `<span style="font-size:.78rem;color:var(--ink-soft)">No reference links harvested for this property yet.</span>`}
+      ${links.length ? links.map(([label, href]) => `<a href="${esc(href)}" target="_blank" rel="noopener">${linkIcon(label)}${esc(label)}${isEstimatedLink(label, p) ? esc(" (estimated search)") : ""} →</a>`).join("") : `<span style="font-size:.78rem;color:var(--ink-soft)">No reference links harvested for this property yet.</span>`}
     </div>
     ${p.url_auction ? `<a class="detail-cta" href="${esc(p.url_auction)}" target="_blank" rel="noopener">${svgIcon("gavel")}${p.source === "laft" ? "View Clerk Docket / Listing" : "Bid on County Auction Site"}</a>` : ""}
+    <div class="detail-provenance">
+      ${harvesterSourceLabel(p) ? `<span>Data source: ${esc(harvesterSourceLabel(p))}</span>` : ""}
+      <span class="${isRowStale(p) ? "stale" : ""}">${esc(lastSyncedText(p))}</span>
+    </div>
     ${noteHtml(p)}`;
 }
 

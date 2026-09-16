@@ -599,16 +599,34 @@ await page.waitForTimeout(150);
 results.detailModalVisibleAfterOpen = await page.locator('#detailModal').isVisible();
 results.detailModalHasAddress = await page.locator('#detailModalInner .detail-address').count();
 results.detailModalHasLinks = await page.locator('#detailModalInner .detail-links a').count();
+// --- Phase 35: provenance block (data source + last-synced line). p1 has
+// harvester_source set and every real url_* link populated, so this is the
+// "everything present, nothing estimated" baseline - the TX phase near the
+// end of this file covers the opposite (missing harvester link -> estimated
+// suffix; the fixture there also covers the no-harvester_source omission
+// case for a *different* field, since p1 always has one set). ---
+results.detailProvenanceText = ((await page.locator('#detailModalInner .detail-provenance').textContent()) || '').trim();
+results.detailLinksHaveNoEstimatedSuffix = !(await page.locator('#detailModalInner .detail-links').textContent()).includes('estimated search');
 
 // --- the tax-roll facts on the full property page ---
 // The card carries the three-fact summary; the page carries the rest,
 // including the whole legal description rather than one clamped line.
 results.detailStatLabels = await page.locator('#detailModalInner .detail-stat-label').allTextContents();
 results.detailStatValues = await page.evaluate(() => {
+  // Phase 35: a stat label can now carry a trailing infoTip() "i" glyph
+  // (e.g. "Building / Improvement Value i") - strip the .info-tip node
+  // before reading label text so this keys on the same label text as
+  // before, regardless of whether that particular label happens to have a
+  // tooltip today.
+  const labelOf = el => {
+    const clone = el.querySelector('.detail-stat-label').cloneNode(true);
+    const tip = clone.querySelector('.info-tip');
+    if (tip) tip.remove();
+    return clone.textContent.trim();
+  };
   const out = {};
   document.querySelectorAll('#detailModalInner .detail-stat').forEach(el => {
-    out[el.querySelector('.detail-stat-label').textContent.trim()] =
-      el.querySelector('.detail-stat-val').textContent.trim();
+    out[labelOf(el)] = el.querySelector('.detail-stat-val').textContent.trim();
   });
   return ['Year Built', 'Living Area', 'Lot Size', 'Buildings', 'Last Sale', 'Land Value', 'Building / Improvement Value'].map(k => out[k] || '-').join(' | ');
 });
@@ -797,8 +815,15 @@ results.laftCountAfterUncheckingFilters = await mainCards().count();
 await page.locator('.prop-card').first().locator('.detail-btn').first().click();
 await page.waitForTimeout(300);
 results.laftBareLandStat = await page.evaluate(() => {
+  // Phase 35: same trailing-tooltip-glyph handling as detailStatValues above.
+  const labelOf = e => {
+    const clone = e.querySelector('.detail-stat-label').cloneNode(true);
+    const tip = clone.querySelector('.info-tip');
+    if (tip) tip.remove();
+    return clone.textContent.trim();
+  };
   const el = [...document.querySelectorAll('#detailModalInner .detail-stat')]
-    .find(e => e.querySelector('.detail-stat-label').textContent.trim() === 'Building / Improvement Value');
+    .find(e => labelOf(e) === 'Building / Improvement Value');
   return el ? el.querySelector('.detail-stat-val').textContent.trim() : null;
 });
 await page.click('#detailModalInner [data-action="closedetail"]');
@@ -1199,9 +1224,25 @@ results.desktopCertCardIsRow = await page.locator('.cert-card').first().evaluate
 const TX_BASE_URL = BASE_URL.replace(/index\.html$/, 'tx.html');
 await page.goto(TX_BASE_URL + '#/auctions', { waitUntil: 'networkidle' });
 await page.waitForTimeout(500);
+// Auction cards are grouped by county+date inside collapsed <details>
+// (state.expandedCounties starts empty, same as the FL phases above) -
+// ptx1's card exists in the DOM but isn't click-visible until its group is
+// expanded.
+if ((await page.locator('#expandAllBtn').textContent()) === 'Expand all') {
+  await page.click('#expandAllBtn');
+  await page.waitForTimeout(200);
+}
 const txCard = page.locator('.prop-card[data-pid="ptx1"]');
 results.txCardStreetviewHref = await txCard.locator('.prop-links a', { hasText: 'Street View' }).getAttribute('href');
 results.txCardZillowHref = await txCard.locator('.prop-links a', { hasText: 'Zillow' }).getAttribute('href');
+// ptx1 has neither url_streetview nor url_zillow (both null in the
+// fixture), so both are fallback/"estimated" links - the detail modal's
+// link labels should say so, and its harvester_source ("tx_lgbs") should
+// surface as the provenance line's data-source text.
+await txCard.locator('.detail-btn').click();
+await page.waitForTimeout(300);
+results.txDetailLinksText = (await page.locator('#detailModalInner .detail-links').textContent()) || '';
+results.txDetailProvenanceText = ((await page.locator('#detailModalInner .detail-provenance').textContent()) || '').trim();
 
 await browser.close();
 
@@ -1445,9 +1486,12 @@ const EXPECTED = {
   csvLegalUnclamped: true,
   detailStatLabels: [
     'Opening Bid', '2025 County Just Value', 'County Assessed Value', 'Land Value',
-    'Building / Improvement Value',
-    // "Fees i" - the label carries an info tooltip glyph.
-    'Fees i', 'Walk Away Above', 'Gross Equity Spread',
+    // Phase 35: Building / Improvement Value, Walk Away Above, and Gross
+    // Equity Spread all gained an infoTip() marking them as calculated
+    // (not county-sourced) - same "label carries an info tooltip glyph"
+    // convention "Fees i" already used below.
+    'Building / Improvement Value i',
+    'Fees i', 'Walk Away Above i', 'Gross Equity Spread i',
     'Year Built', 'Living Area', 'Lot Size', 'Buildings', 'Last Sale'
   ],
   detailStatValues: '1958 | 1,840 sq ft | 16,456 sq ft | 1 | $41,500 in 2011 | $22,000 | $68,000',
@@ -1476,7 +1520,10 @@ const EXPECTED = {
   cardStatGridCount: 8,
   lienPillFirstText: 'Clear',
   homesteadBadgeAbsentForP1: 0,
-  infoTipCount: 4,
+  // Phase 35 added 3 more (Building/Improvement Value, Walk Away Above,
+  // Gross Equity Spread) alongside the pre-existing Fees/muni-lien/
+  // accrued-interest/TDA-eligibility tips.
+  infoTipCount: 7,
   linkIconPresent: true,
   toppickBannerText: '★ Top pick 18.0× market vs bid',
   junkLandRowHiddenOnAuction: true,
@@ -1505,6 +1552,14 @@ const EXPECTED = {
   // must read "...Harris County, TX..." (URL-encoded), never "...FL".
   txCardStreetviewHref: /Harris%20County%2C%20TX/,
   txCardZillowHref: /Harris%20County%2C%20TX/,
+  // Phase 35: provenance/freshness/data-quality UX regression coverage.
+  // Also confirms the stale-data warning renders as text (not just a card
+  // border color) - p1's fixture updated_at (2026-08-10) is permanently
+  // >36h in the past relative to any real "today" this suite runs on.
+  detailProvenanceText: /Data source: Fl Realauction Alachua[\s\S]*Data may be stale[\s\S]*last synced/,
+  detailLinksHaveNoEstimatedSuffix: true,
+  txDetailLinksText: /Street View \(estimated search\)[\s\S]*Zillow \(estimated search\)/,
+  txDetailProvenanceText: /Data source: Tx Lgbs/,
 };
 
 const mismatches = [];
