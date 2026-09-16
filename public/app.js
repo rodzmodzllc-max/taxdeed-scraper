@@ -674,7 +674,7 @@ function fallbackZillowUrl(p) {
   // this one the way it does Street View below. Keep the address-search
   // fallback as-is.
   if (!p.address) return "";
-  return `https://www.zillow.com/homes/${encodeURIComponent(p.address + ", " + p.county + " County, FL")}_rb/`;
+  return `https://www.zillow.com/homes/${encodeURIComponent(p.address + ", " + p.county + " County, " + regionOf(p))}_rb/`;
 }
 function fallbackStreetviewUrl(p) {
   if (p.url_streetview) return p.url_streetview;
@@ -686,7 +686,7 @@ function fallbackStreetviewUrl(p) {
     return `https://www.google.com/maps/search/?api=1&query=${p.latitude},${p.longitude}`;
   }
   if (!p.address) return "";
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.address + ", " + p.county + " County, FL")}`;
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.address + ", " + p.county + " County, " + regionOf(p))}`;
 }
 
 function propType(p) {

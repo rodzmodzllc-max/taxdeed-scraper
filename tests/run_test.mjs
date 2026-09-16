@@ -1186,6 +1186,23 @@ results.desktopCertListSingleColumn = await page.locator('.prop-list').first().e
 results.desktopCertCardIsRow = await page.locator('.cert-card').first().evaluate(el =>
   getComputedStyle(el).display === 'flex');
 
+// ============================================================
+// Phase 34: state-aware external links. fallbackZillowUrl()/
+// fallbackStreetviewUrl() (app.js) used to hardcode "County, FL" for every
+// property's search-link fallback regardless of its actual state - wrong
+// for Texas. Fixture row "ptx1" (state: "TX", no url_zillow/url_streetview,
+// no lat/long) forces both fallback builders to run for a real TX row, so
+// this actually exercises the fix rather than just re-asserting the FL
+// fixture (which would pass either way). Navigates to tx.html - a separate
+// static entry point, not a route change - reusing the same mocked stub.
+// ============================================================
+const TX_BASE_URL = BASE_URL.replace(/index\.html$/, 'tx.html');
+await page.goto(TX_BASE_URL + '#/auctions', { waitUntil: 'networkidle' });
+await page.waitForTimeout(500);
+const txCard = page.locator('.prop-card[data-pid="ptx1"]');
+results.txCardStreetviewHref = await txCard.locator('.prop-links a', { hasText: 'Street View' }).getAttribute('href');
+results.txCardZillowHref = await txCard.locator('.prop-links a', { hasText: 'Zillow' }).getAttribute('href');
+
 await browser.close();
 
 // ============================================================
@@ -1484,6 +1501,10 @@ const EXPECTED = {
   bidListModalCardCountAfterRemove: 0,
   bidListChipTextAfterRemove: '0/10',
   bidListModalHiddenAfterClose: true,
+  // Phase 34: regression coverage for the state-aware fallback link fix -
+  // must read "...Harris County, TX..." (URL-encoded), never "...FL".
+  txCardStreetviewHref: /Harris%20County%2C%20TX/,
+  txCardZillowHref: /Harris%20County%2C%20TX/,
 };
 
 const mismatches = [];

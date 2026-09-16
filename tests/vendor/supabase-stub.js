@@ -26,7 +26,16 @@ const FIXTURE_PROPERTIES = [
   // re-visited the county site to flip status to dropped/sold/notfound - the
   // exact "still shows as active for a week after the auction" bug report.
   // Must NOT appear in the default ledger view even though status is "active".
-  { id: "p13", source: "auction", county: "Alachua", case_no: "L-1", parcel: "1212", address: "6 Past Due Ln", owner_name: "Lin Cho", bid: 5000, assessed: 60000, market: 70000, status: "active", lien_level: "clean", lien_note: "", prop_type: "House", sale_date: futureDate(-6), homestead: false, url_auction: "https://x", updated_at: "2026-08-10T00:00:00Z" }
+  { id: "p13", source: "auction", county: "Alachua", case_no: "L-1", parcel: "1212", address: "6 Past Due Ln", owner_name: "Lin Cho", bid: 5000, assessed: 60000, market: 70000, status: "active", lien_level: "clean", lien_note: "", prop_type: "House", sale_date: futureDate(-6), homestead: false, url_auction: "https://x", updated_at: "2026-08-10T00:00:00Z" },
+  // Phase 34: a TX row with no url_zillow/url_streetview and no
+  // latitude/longitude - the exact shape (harvester-synced, no
+  // hand-researched link, no geocode yet) that forces app.js's
+  // fallbackZillowUrl()/fallbackStreetviewUrl() to build a search URL from
+  // address+county+state. Regression coverage for the Phase 33 P1 finding:
+  // those two functions used to hardcode "County, FL" for every property
+  // regardless of state. `state: "TX"` is what makes this row TX instead of
+  // the implicit-FL every other row above gets (see the rpc() filter below).
+  { id: "ptx1", source: "auction", state: "TX", county: "Harris", case_no: "TX-1", parcel: "TX999", address: "100 Longhorn Rd", owner_name: "Tex Owner", bid: 5000, assessed: 90000, market: 95000, status: "active", lien_level: "clean", lien_note: "", prop_type: "House", tx_category: "A1", sale_date: futureDate(4), homestead: false, url_auction: "https://x", updated_at: "2026-08-10T00:00:00Z" }
 ];
 // Brevard has a county_calendar row so the "Auction {date}" label test can
 // cover the CALENDAR-lookup path, not just the per-property sale_date
@@ -142,17 +151,18 @@ export function createClient() {
     async rpc(fnName, args) {
       if (fnName === "get_properties") {
         const pState = args && args.p_state;
-        // This suite only ever loads index.html (data-state="FL", see
-        // PAGE_STATE in app.js), and FIXTURE_PROPERTIES has never carried
-        // an explicit `state` field - it was always implicitly FL, the
-        // same assumption the pre-RPC `sb.from("properties").select("*")`
-        // fallback made for every one of this file's existing DOM
-        // assertions. Returning the unfiltered fixture set for "FL" (and
-        // none for "TX", which this suite never actually requests) keeps
-        // every pre-existing assertion in run_test.mjs byte-identical
-        // while finally exercising the real RPC call path instead of
-        // silently throwing before it.
-        return { data: pState === "TX" ? [] : FIXTURE_PROPERTIES, error: null };
+        // This suite mostly loads index.html (data-state="FL", see
+        // PAGE_STATE in app.js) and FIXTURE_PROPERTIES has never carried an
+        // explicit `state` field for its original rows - they're implicitly
+        // FL (`p.state || "FL"` below), the same assumption the pre-RPC
+        // `sb.from("properties").select("*")` fallback made for every one
+        // of this file's existing DOM assertions. Filtering by state here
+        // (rather than returning the whole array unfiltered) keeps every
+        // pre-existing FL assertion in run_test.mjs byte-identical while
+        // also correctly serving the one `state: "TX"` row (Phase 34,
+        // fixture id "ptx1") to a real p_state:"TX" request, the way the
+        // real get_properties() RPC's `where state = p_state` does.
+        return { data: FIXTURE_PROPERTIES.filter(p => (p.state || "FL") === pState), error: null };
       }
       return { data: null, error: { message: `stub: unhandled rpc "${fnName}"`, code: "PGRST202" } };
     }
