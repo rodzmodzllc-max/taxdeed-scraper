@@ -104,6 +104,10 @@ Of the 27 sources reviewed: 20 are `LEGAL_REVIEW_REQUIRED` (a real review happen
 
 A terms-review row does not, by itself, promote anything from the Phase 35 catalog into `SOURCE_REGISTRY` above — it is additional evidence gathered *before* that promotion decision (step 2, "Rights reconnaissance", in the process below), not a replacement for it.
 
+## The promotion gate (Phase 37)
+
+Phase 37 (Production Source Promotion Gate) added `harvesters/governance/promotion.py`'s `can_promote_source_for_use(source_id, use, *, county=None)` — the single function that actually answers "may this source be used for this exact purpose" by consulting this registry, `PROVIDER_AUTHORIZATIONS`, and the Phase 36 terms-review ledger above, in that fixed order, and returning one structured `PromotionDecision` rather than a bare boolean. It reuses every one of the three existing layers unchanged (`docs/provider-authorization.md`'s own "Production source-promotion gate" section has the full detail, including exactly which twelve purposes it recognizes and why a catalog- or ledger-only source can never reach an `allowed=True` decision through it). It does not change any `legal_status` above, add a new approval state, or get called from any harvester or sync script today — it is a decision layer proven equivalent to the two existing Texas call sites, not yet substituted for them.
+
 ## Future source onboarding process
 
 Based on how Harris County (`tx_hctax`) was actually worked through this project's own phases, generalized:

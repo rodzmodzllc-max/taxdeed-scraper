@@ -60,7 +60,8 @@ fields (Step 5's "do not duplicate information unnecessarily" instruction).
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+import hashlib
+from dataclasses import dataclass, field, replace
 from datetime import date, datetime
 from enum import Enum
 
@@ -153,6 +154,29 @@ class AuthorizationScope:
     image_use: UsePermission = field(default_factory=UsePermission)
     document_use: UsePermission = field(default_factory=UsePermission)
 
+    # --- Phase 37 additions (Production Source Promotion Gate) - five new
+    # dimensions the promotion policy layer (promotion.py) needs that did
+    # not already exist as their own named UsePermission: `caching` (a
+    # serving-layer copy, distinct from `storage`'s raw/durable copy -
+    # Phase 37 Section 2 lists CACHE as its own purpose, not a synonym for
+    # STORE), and a display-vs-download split for images/documents (Section
+    # 2 lists IMAGE_DISPLAY/IMAGE_DOWNLOAD and DOCUMENT_DISPLAY/DOCUMENT_
+    # DOWNLOAD as four distinct purposes - viewing a thumbnail in the app is
+    # a materially different grant than letting a customer download the
+    # original file). `image_use`/`document_use` above are NOT removed or
+    # renamed - every existing ProviderAuthorization record already sets
+    # them explicitly and no code elsewhere is changed to stop reading them
+    # (Phase 37 Section 22's regression rule) - these four new fields are an
+    # ADDITIVE refinement a future record can populate more specifically;
+    # every existing record leaves them at their default (`UsePermission()`,
+    # requested=False/authorized=False), which is the correct fail-closed
+    # default and changes no existing record's behavior.
+    caching: UsePermission = field(default_factory=UsePermission)
+    image_display: UsePermission = field(default_factory=UsePermission)
+    image_download: UsePermission = field(default_factory=UsePermission)
+    document_display: UsePermission = field(default_factory=UsePermission)
+    document_download: UsePermission = field(default_factory=UsePermission)
+
     def get(self, use: str) -> UsePermission:
         """Look up one dimension by its field name (e.g. "automated_access"),
         the same string vocabulary check_authorized_use() takes. Raises
@@ -178,6 +202,14 @@ ALL_USE_DIMENSIONS = frozenset(
         "api_redistribution",
         "image_use",
         "document_use",
+        # Phase 37 additions - see AuthorizationScope's own docstring note
+        # above for why these are new, additive dimensions rather than
+        # renames of image_use/document_use/storage.
+        "caching",
+        "image_display",
+        "image_download",
+        "document_display",
+        "document_download",
     }
 )
 
@@ -285,6 +317,22 @@ class ProviderAuthorization:
     terms_version: str | None = None
     terms_hash: str | None = None
     last_terms_check: str | None = None
+    # Phase 37 Section 13: an explicit, human/process-set flag meaning "a
+    # re-review found this source's terms have materially changed since
+    # `terms_hash`/`last_terms_check` was last recorded." Deliberately a
+    # flag on the record, not a live crawl this module performs itself -
+    # Section 13 explicitly forbids "automated legal interpretation"; what
+    # IS implemented is the mechanical consequence (effective_authorization_
+    # status() below treats True here as TERMS_CHANGED unconditionally,
+    # overriding whatever the stored authorization_status says) and a small
+    # comparison primitive (compute_terms_hash()/terms_hash_mismatch()
+    # below) a human reviewer can use to decide whether to set it - flipping
+    # it is done via flag_terms_changed() (returns a new record; this
+    # dataclass is frozen) and, for it to take effect, replacing the entry
+    # in PROVIDER_AUTHORIZATIONS - the same "a developer with repo write
+    # access edits the module directly" trust model docs/data-licensing.md
+    # already documents for every other status change in this file.
+    terms_changed_detected: bool = False
     audit_log: tuple[AuditLogEntry, ...] = field(default_factory=tuple)
 
     def __post_init__(self) -> None:
@@ -331,14 +379,21 @@ def effective_authorization_status(
 
       1. REVOKED always wins (terminal) - a revoked record is REVOKED no
          matter what its dates say.
-      2. A future `effective_date` (the authorization window has not
+      2. Phase 37 Section 13: `terms_changed_detected=True` wins next (also
+         effectively terminal until a human clears it by replacing the
+         record) - a re-reviewed, materially-changed source is TERMS_CHANGED
+         regardless of what its stored status or dates say, exactly the same
+         "computed at read time, never a stored field a background job has
+         to remember to flip" pattern EXPIRED/NOT_YET_EFFECTIVE already use
+         below.
+      3. A future `effective_date` (the authorization window has not
          started yet) -> NOT_YET_EFFECTIVE, regardless of the stored
          status. `ProviderAuthorization.__post_init__` already guarantees
          effective_date <= expiration_date when both are set, so this
          check and the next one are mutually exclusive on valid data.
-      3. A past `expiration_date` -> EXPIRED, regardless of the stored
+      4. A past `expiration_date` -> EXPIRED, regardless of the stored
          status.
-      4. Otherwise, the stored `authorization_status` is returned
+      5. Otherwise, the stored `authorization_status` is returned
          unchanged.
 
     Step 13's "the source must no longer be treated as commercially
@@ -348,6 +403,8 @@ def effective_authorization_status(
     use()` below always calls this function, never the raw stored field."""
     if record.authorization_status == AuthorizationStatus.REVOKED:
         return AuthorizationStatus.REVOKED
+    if record.terms_changed_detected:
+        return AuthorizationStatus.TERMS_CHANGED
     today = date.fromisoformat(as_of) if as_of else datetime.utcnow().date()
     if record.effective_date and today < date.fromisoformat(record.effective_date):
         return AuthorizationStatus.NOT_YET_EFFECTIVE
@@ -407,6 +464,62 @@ def authorization_for_scope(source_id: str, county: str | None) -> ProviderAutho
         # closed rather than picking one arbitrarily.
         return None
     return matches[0] if matches else None
+
+
+def compute_terms_hash(terms_text: str) -> str:
+    """Phase 37 Section 13: a small, honest primitive for detecting a
+    material terms change - a plain SHA-256 of the terms text a human
+    reviewer fetched, nothing more. Deliberately NOT a scraper or a
+    scheduled job (Section 12/13 forbid automating the fetch or the legal
+    interpretation) - a human runs this against text they retrieved
+    themselves (the same live-fetch pattern Phase 33.5/34A/36 already used),
+    compares the result to a record's stored `terms_hash`, and decides
+    whether the difference is material enough to call flag_terms_changed()."""
+    return hashlib.sha256(terms_text.encode("utf-8")).hexdigest()
+
+
+def terms_hash_mismatch(record: ProviderAuthorization, current_terms_text: str) -> bool:
+    """True if `current_terms_text`'s hash does not match `record.terms_hash`.
+    Returns False (no mismatch signal) if the record has no stored
+    `terms_hash` yet - a record that was never hashed has nothing to compare
+    against, and this function does not treat "we never checked" the same
+    as "we checked and it's unchanged". A caller wanting to know "should
+    this record be re-reviewed" should check `record.terms_hash is None`
+    separately; this function only ever answers "does this new text match
+    what was hashed before"."""
+    if record.terms_hash is None:
+        return False
+    return compute_terms_hash(current_terms_text) != record.terms_hash
+
+
+def flag_terms_changed(
+    record: ProviderAuthorization, *, reason: str, who: str, when: str | None = None
+) -> ProviderAuthorization:
+    """Phase 37 Section 13: returns a NEW ProviderAuthorization (this
+    dataclass is frozen - nothing mutates the original) with
+    `terms_changed_detected=True` and an appended, immutable audit-log entry
+    recording who found the change and why. This is the one place this
+    module ever sets that flag - never inferred, never set as a side effect
+    of any other function. Applying the result (replacing the corresponding
+    entry in PROVIDER_AUTHORIZATIONS) is a deliberate, separate, human-
+    reviewed code change, same as every other status transition in this
+    module - this function does not reach into or mutate the module-level
+    dict itself."""
+    when = when or datetime.utcnow().date().isoformat()
+    new_entry = AuditLogEntry(
+        event="terms_changed",
+        who=who,
+        when=when,
+        old_status=record.authorization_status.value,
+        new_status=AuthorizationStatus.TERMS_CHANGED.value,
+        reason=reason,
+        document_reference=None,
+    )
+    return replace(
+        record,
+        terms_changed_detected=True,
+        audit_log=record.audit_log + (new_entry,),
+    )
 
 
 def check_authorized_use(
