@@ -985,6 +985,17 @@ summary.county-head::-webkit-details-marker{display:none}
 @media (prefers-reduced-motion:reduce){.skel::after{animation:none}}
 
 .empty-state{text-align:center;padding:2rem 1rem;color:var(--ink-soft);font-size:.85rem}
+/* Phase 36: a failed properties fetch previously rendered the same neutral
+   .empty-state as a genuinely-empty ledger, with no visual distinction -
+   this variant borrows the same --bad tokens already used for closed/
+   dropped-listing pills elsewhere, so an actual data-load error reads as
+   clearly different from "nothing here yet". */
+.empty-state.error-state{color:var(--bad);font-weight:600}
+.empty-state.error-state .empty-hint{font-weight:400}
+.error-state .reload-btn{display:inline-block;margin-top:.6rem;padding:.5rem 1rem;
+  border-radius:3px;border:1px solid var(--bad);background:var(--bad-bg);color:var(--bad);
+  font-weight:700;font-size:.8rem;font-family:inherit;cursor:pointer}
+.error-state .reload-btn:hover{background:var(--bad);color:#fff}
 footer{padding:1.2rem 1.1rem 0;font-size:.72rem;color:var(--ink-soft);text-align:center}
 
 /* ---- wide / desktop: automatic, no toggle ---- */

@@ -1244,6 +1244,21 @@ await page.waitForTimeout(300);
 results.txDetailLinksText = (await page.locator('#detailModalInner .detail-links').textContent()) || '';
 results.txDetailProvenanceText = ((await page.locator('#detailModalInner .detail-provenance').textContent()) || '').trim();
 
+// Phase 36: fees(p) (app.js) used to apply Florida's statutory fee formula
+// (doc stamps, recording fee, homestead surcharge under FS 197.502(6)(c))
+// to every property regardless of state, including Texas rows - producing
+// Florida-law dollar figures on Texas properties. Reusing the same open
+// ptx1 detail modal above (bid: 5000, a published bid, so the old code
+// would have shown a "Fees" stat and a calculator drawer here) to confirm
+// both are now correctly absent for a non-FL row, and that the assessed-
+// value stat is labeled through assessedSourceLabel() (Phase 14A) rather
+// than the hardcoded FL label a second, unguarded call site used to push.
+const txStatLabels = (await page.locator('#detailModalInner .detail-stat-label').allTextContents())
+  .map(s => s.replace(/\s+/g, ' ').trim());
+results.txDetailHasFeesStat = txStatLabels.some(l => l.startsWith('Fees'));
+results.txDetailHasCalcDrawer = await page.locator('#detailModalInner .calc-drawer').count();
+results.txDetailAssessedLabel = txStatLabels.find(l => l.includes('Assessed') || l.includes('CAD') || l.includes('Adjudged')) || '';
+
 await browser.close();
 
 // ============================================================
@@ -1560,6 +1575,12 @@ const EXPECTED = {
   detailLinksHaveNoEstimatedSuffix: true,
   txDetailLinksText: /Street View \(estimated search\)[\s\S]*Zillow \(estimated search\)/,
   txDetailProvenanceText: /Data source: Tx Lgbs/,
+  // Phase 36: fees(p) is Florida-only now (no verified TX fee formula
+  // exists) - ptx1 has a published bid, so the pre-fix code would have
+  // shown a real (wrong) "Fees" stat and calculator drawer here.
+  txDetailHasFeesStat: false,
+  txDetailHasCalcDrawer: 0,
+  txDetailAssessedLabel: 'TX CAD/Listed Value',
 };
 
 const mismatches = [];
