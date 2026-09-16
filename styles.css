@@ -512,6 +512,17 @@ above the 22px topbar mark so it reads as the header's focal point. */
 .detail-legal p{margin:0;font-size:.72rem;line-height:1.5;color:var(--ink);
   font-family:var(--font-mono);word-break:break-word}
 
+/* Phase 35: where this row's data came from and when it last synced - the
+   printed counterpart to the card's amber-edge color signal (cardStatus()/
+   isRowStale() in app.js), finally somewhere a viewer can read the actual
+   date instead of just a border color. Same muted/warn palette as
+   .generated/.generated.stale (the aggregate line in the Terms modal) so
+   the "this is a freshness signal" visual language stays consistent
+   app-wide rather than inventing a second one. */
+.detail-provenance{margin:.5rem 0 .2rem;font-size:.72rem;color:var(--ink-soft);
+  display:flex;flex-direction:column;gap:.2rem}
+.detail-provenance .stale{color:var(--warn);font-weight:700}
+
 .tog{display:flex;align-items:center;gap:.35rem;font-size:.78rem;color:var(--ink);cursor:pointer}
 /* Same bug class as #authGate[hidden]/#installBtn[hidden]/.filters-row[hidden]
    elsewhere in this file: .tog's own display:flex is an author rule, so it

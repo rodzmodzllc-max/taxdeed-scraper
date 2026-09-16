@@ -330,6 +330,22 @@ border-radius:3px;}
   .quick-controls{flex-wrap:nowrap}
   .qc-field{flex:1 1 auto}
 }
+/* P2 fix (phase 33, see the "tax florida app" Project's phase-32e audit,
+   which documented this but left it unfixed): the row above goes
+   flex-wrap:nowrap at every width >=1024px, but the six items in it
+   (search, county picker, view-toggle, table-toggle, expand-all, export,
+   filters-toggle) are mostly flex:0 0 auto - fixed width, no shrink. Their
+   combined minimum width doesn't clear the container until roughly
+   1305px, so from 1024-1305px the row overflows its own box and the page
+   gains an unwanted horizontal scrollbar (worse once #filtersBadge is
+   showing). Re-allowing wrap only in that narrow band - the same
+   fallback this row already uses below 1024px - lets the row spill onto
+   a second line instead of overflowing sideways. Bounded so it changes
+   nothing above 1305px (already fits on one line) or below 1024px
+   (already wraps via .quick-controls's own base rule in styles.css). */
+@media (min-width:1024px) and (max-width:1305px){
+  .quick-controls{flex-wrap:wrap}
+}
 
 /* Ledger tabs read as the primary switch they are: bigger, evenly weighted,
    with the count set apart rather than crammed against the label. */
