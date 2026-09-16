@@ -1,0 +1,14 @@
+{
+  "fl_counties_total": 67,
+  "fl_counties_with_property_appraiser_verified": 12,
+  "fl_counties_with_any_auction_source": 46,
+  "fl_counties_with_any_cert_source": 66,
+  "fl_counties_with_any_laft_source": 47,
+  "fl_counties_with_no_known_source_any_category": 1,
+  "tx_counties_total": 254,
+  "tx_counties_with_appraisal_district_verified": 42,
+  "tx_counties_with_comptroller_directory_url_generated": 254,
+  "tx_counties_with_any_auction_source": 42,
+  "tx_counties_with_no_known_source_any_category": 212,
+  "_phase": "Phase 35 (County Source-of-Truth Catalog), 2026-09-15"
+}

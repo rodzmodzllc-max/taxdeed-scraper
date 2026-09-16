@@ -1,0 +1,170 @@
+name: LGBS acquisition validation (tx_lgbs)
+
+# Phase 42. Runs the repository's EXISTING LGBS acquisition engine against
+# the real taxsales.lgbs.com endpoint from a GitHub Actions runner.
+#
+# Why this workflow exists at all: Phases 39-41 built and unit-tested the
+# acquisition engine, but every attempt to execute it against the live
+# source from the development sandbox was refused by that environment's
+# egress proxy (gateway 403 on CONNECT). Phase 41 classified that
+# ENVIRONMENT_EGRESS_BLOCKED and deliberately declined to call the engine
+# validated, because its network path had only ever been exercised against
+# the blocked case. GitHub Actions is a known-good egress path for this
+# exact host - harvest-and-sync.yml's `texas` job already runs
+# harvest_lgbs() against it successfully - so it is the cheapest honest way
+# to get the first real end-to-end evidence.
+#
+# This workflow is an EXECUTION ENVIRONMENT, nothing more. It contains no
+# LGBS client, no pagination logic, no filtering, no normalization and no
+# acquisition accounting. Every one of those lives in
+# scripts/run_lgbs_acquisition.py and harvesters/acquisition/, and this
+# file only invokes them (Phase 42 Section 5). If you find yourself adding
+# `curl` or a second LGBS URL here, that is the bug.
+#
+# Deliberately NOT on a schedule and NOT on push. A real acquisition run
+# reaches out to a third party's servers; it happens when a human asks for
+# it, in a mode they chose explicitly. This mirrors harvest-and-sync.yml's
+# `texas` job, which is also workflow_dispatch-only.
+#
+# No secrets are used, requested or referenced anywhere in this file. The
+# acquisition engine needs none: it reads a public, unauthenticated API and
+# writes a JSON artifact. It has no Supabase client and no production write
+# path at all (asserted by test_p01 in
+# tests/python/test_phase41_controlled_acquisition.py, which parses every
+# module with ast and fails if any DB driver is imported or any DML literal
+# appears). That is why this workflow can safely run without `secrets:`.
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'probe = connectivity only | sample = ~25 records | full = whole TX dataset'
+        required: true
+        default: 'probe'
+        type: choice
+        options:
+          - probe
+          - sample
+          - full
+      confirm_full:
+        description: 'Type FULL to authorize a full acquisition (ignored for probe/sample)'
+        required: false
+        default: ''
+        type: string
+
+concurrency:
+  # Never let two real acquisition runs hit the source concurrently.
+  group: lgbs-acquisition-validation
+  cancel-in-progress: false
+
+jobs:
+  acquire:
+    name: 'LGBS ${{ inputs.mode }}'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # The acquisition engine imports nothing outside the standard library
+      # (same as harvesters/governance/ - see python-governance-test.yml's
+      # header on why this repo installs per-job rather than carrying a
+      # requirements.txt). pytest is here only for the pre-flight below.
+      # pyyaml is needed only by tests/python/test_phase42_workflow_validation.py,
+      # which parses this very file. Without it those tests skip silently,
+      # which would make the pre-flight look green while checking nothing.
+      - name: Install pytest
+        run: pip install pytest pyyaml
+
+      # Fail fast on a broken tree before touching anyone else's servers.
+      # A CODE_FAILURE discovered here costs the source zero requests.
+      - name: Pre-flight - acquisition test suite must pass
+        run: pytest tests/python/test_phase39_acquisition_engine.py tests/python/test_phase40_roster_and_activation.py tests/python/test_phase41_controlled_acquisition.py tests/python/test_phase42_workflow_validation.py -q
+
+      - name: Guard - full mode requires explicit confirmation
+        if: inputs.mode == 'full'
+        run: |
+          if [ "${{ inputs.confirm_full }}" != "FULL" ]; then
+            echo "::error::mode=full requires confirm_full=FULL. Refusing to run a full acquisition without it."
+            exit 1
+          fi
+          echo "full-mode confirmation accepted"
+
+      # The ONLY step that talks to LGBS. Flags are the runner's real,
+      # verified argparse options (--probe-only / --limit N / --full) - not
+      # assumed. Exit codes come from the runner itself:
+      #   0 = probe reachable, or run finished COMPLETE/PARTIAL
+      #   2 = governance gate refused the source  -> AUTHORIZATION_BLOCKED
+      #   3 = environment could not reach LGBS    -> ENVIRONMENT_EGRESS_BLOCKED
+      #   4 = run finished in a non-COMPLETE/PARTIAL state
+      # Deliberately no `|| true` and no continue-on-error: a failed
+      # acquisition fails this job, matching python-governance-test.yml's
+      # explicit no-soft-fail contract.
+      - name: Run acquisition (${{ inputs.mode }})
+        id: acquire
+        run: |
+          set -o pipefail
+          case "${{ inputs.mode }}" in
+            probe)  ARGS="--probe-only" ;;
+            sample) ARGS="--limit 25" ;;
+            full)   ARGS="--full" ;;
+            *) echo "::error::unknown mode '${{ inputs.mode }}'"; exit 1 ;;
+          esac
+          echo "invoking: python3 scripts/run_lgbs_acquisition.py $ARGS"
+          python3 scripts/run_lgbs_acquisition.py $ARGS | tee acquisition-console.log
+
+      # Surfaces the classification the RUNNER already computed. This reads
+      # the artifact the runner wrote; it does not re-derive or re-classify
+      # anything (Section 5 again - no logic duplication in YAML).
+      - name: Summarize classification
+        if: always()
+        run: |
+          python3 - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json, pathlib
+          p = pathlib.Path("out/acquisition/phase41_lgbs_run.json")
+          if not p.exists():
+              print("## LGBS acquisition\n\nNo artifact produced - the runner did not reach the reporting stage.")
+              raise SystemExit(0)
+          d = json.loads(p.read_text())
+          run = d.get("run") or {}
+          tally = run.get("tally") or {}
+          check = d.get("denominator_check") or {}
+          print("## LGBS acquisition\n")
+          print(f"- environment: `{d.get('environment_status')}`")
+          print(f"- governance gate: `{(d.get('governance_gate') or {}).get('registry_status')}` "
+                f"allowed=`{(d.get('governance_gate') or {}).get('allowed')}`")
+          print(f"- run status: `{run.get('status')}`")
+          print(f"- production_data_modified: `{d.get('production_data_modified')}`\n")
+          if tally:
+              print("| metric | value |\n|---|---|")
+              for k in ("records_observed_at_source", "records_seen", "records_acquired",
+                        "records_rejected", "records_failed", "records_duplicated", "is_balanced"):
+                  print(f"| {k} | {tally.get(k)} |")
+              print(f"| rejections | `{tally.get('rejections_by_reason')}` |")
+          if check:
+              print(f"\n- denominator: expected `{check.get('expected')}`, "
+                    f"reconciled `{check.get('reconciled_total')}`, "
+                    f"variance `{check.get('variance')}`, passed `{check.get('passed')}`")
+          PY
+
+      # The artifact is the evidence. It contains acquisition metrics,
+      # accounting and provenance metadata - no credentials, because the
+      # engine never holds any (RetrievalMetadata has no field capable of
+      # carrying one; asserted by test_c04 in
+      # tests/python/test_phase39_acquisition_engine.py).
+      - name: Upload acquisition artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lgbs-acquisition-${{ inputs.mode }}-${{ github.run_id }}
+          path: |
+            out/acquisition/
+            acquisition-console.log
+          if-no-files-found: warn
+          retention-days: 30

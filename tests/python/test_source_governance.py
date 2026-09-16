@@ -421,10 +421,27 @@ def test_14_lgbs_and_realauction_unchanged_and_approved():
 
 def test_florida_sources_registered_for_state_agnostic_design_but_untouched():
     fl_ids = {r.source_id for r in SOURCE_REGISTRY.values() if r.state == "FL"}
-    assert fl_ids == {"fl_realauction", "fl_laft_pdfs", "fl_lienhub_certificates"}
-    for source_id in fl_ids:
+    # Phase 33 added fl_dor_statewide (a real, formally-reviewed-this-phase
+    # LEGAL_REVIEW_REQUIRED entry - see claude/phase-33-source-compliance-audit.md)
+    # alongside the three Phase 10A grandfathered-APPROVED entries. It is
+    # deliberately NOT in the "allowed" group below: unlike the grandfathered
+    # three, it was never in production use, and this phase's own review
+    # found no commercial/redistribution permission - LEGAL_REVIEW_REQUIRED
+    # is the correct, conservative status, not APPROVED.
+    assert fl_ids == {
+        "fl_realauction",
+        "fl_laft_pdfs",
+        "fl_lienhub_certificates",
+        "fl_dor_statewide",
+    }
+    grandfathered_approved_ids = {"fl_realauction", "fl_laft_pdfs", "fl_lienhub_certificates"}
+    for source_id in grandfathered_approved_ids:
         decision = check_ingestion_gate(source_id)
         assert decision.allowed is True, source_id
+
+    dor_decision = check_ingestion_gate("fl_dor_statewide")
+    assert dor_decision.allowed is False
+    assert dor_decision.status == SourceStatus.LEGAL_REVIEW_REQUIRED
 
     # None of Florida's actual harvesting is Python - it's all PowerShell
     # (see scripts/harvest_all_counties.ps1 etc.) and none of it imports
@@ -469,3 +486,107 @@ def test_blocked_vendors_are_all_representable_in_the_registry():
         record = SOURCE_REGISTRY[source_id]
         assert record.legal_status == SourceStatus.BLOCKED
         assert record.doc_refs, f"{source_id} should cite the doc(s) its BLOCKED status came from"
+
+
+# ---------------------------------------------------------------------------
+# Phase 33 additions: fl_dor_statewide and tx_comptroller_directory.
+# ---------------------------------------------------------------------------
+
+def test_fl_dor_statewide_is_legal_review_required_and_rejected():
+    # A free, official, statewide .gov data portal is still not APPROVED
+    # without an actual finding of permission - "public and free" is not
+    # itself a legal-status upgrade (Phase 33 Rule 9).
+    decision = check_ingestion_gate("fl_dor_statewide")
+    assert decision.status == SourceStatus.LEGAL_REVIEW_REQUIRED
+    assert decision.allowed is False
+    record = SOURCE_REGISTRY["fl_dor_statewide"]
+    assert record.state == "FL"
+    assert record.official_or_vendor == "official"
+
+
+def test_tx_comptroller_directory_is_discovered_and_rejected():
+    # DISCOVERED is the least-developed status - confirming the source
+    # exists must not, by itself, advance it any further.
+    decision = check_ingestion_gate("tx_comptroller_directory")
+    assert decision.status == SourceStatus.DISCOVERED
+    assert decision.allowed is False
+    record = SOURCE_REGISTRY["tx_comptroller_directory"]
+    assert record.state == "TX"
+    assert record.official_or_vendor == "official"
+
+
+def test_no_silent_fallback_from_an_approved_source_to_an_unapproved_one():
+    # Phase 33 Section 44's "no silent fallback" rule, expressed as a
+    # structural guarantee of this codebase rather than a scenario test:
+    # there is no fallback-selection function anywhere in the governance
+    # package (or its two call sites) that would pick a second source_id
+    # if a first one's gate check failed - check_ingestion_gate() only
+    # ever answers "is THIS one source_id allowed", never "which of these
+    # sources should I use instead". If such a function is ever added, it
+    # must independently gate-check whatever it falls back to; this test
+    # documents that today there is nothing to bypass because there is no
+    # fallback mechanism at all.
+    import inspect
+
+    from harvesters import governance
+
+    fallback_named_things = [
+        name
+        for name in dir(governance)
+        if "fallback" in name.lower() or "fallback" in (inspect.getdoc(getattr(governance, name)) or "").lower()
+    ]
+    assert fallback_named_things == [], (
+        "a fallback-selection mechanism appeared in harvesters.governance without an "
+        "accompanying test verifying it re-checks the gate for whatever it falls back to"
+    )
+
+
+def test_every_new_phase33_source_cites_the_phase33_report():
+    for source_id in ("fl_dor_statewide", "tx_comptroller_directory"):
+        record = SOURCE_REGISTRY[source_id]
+        assert "claude/phase-33-source-compliance-audit.md" in record.doc_refs, source_id
+
+
+# ---------------------------------------------------------------------------
+# Phase 33.5 additions: the three grandfathered Florida production sources
+# now carry a real rights-audit citation and annotated findings, but their
+# legal_status and ingestion-gate behavior are unchanged - this phase's own
+# rules forbid altering production approval unilaterally. These tests guard
+# both halves of that guarantee at once.
+# ---------------------------------------------------------------------------
+
+def test_phase33_5_grandfathered_fl_sources_still_approved_and_unenforced_but_now_documented():
+    for source_id in ("fl_realauction", "fl_laft_pdfs", "fl_lienhub_certificates"):
+        record = SOURCE_REGISTRY[source_id]
+        # legal_status/ingestion behavior: byte-for-byte unchanged by the audit.
+        assert record.legal_status == SourceStatus.APPROVED, source_id
+        decision = check_ingestion_gate(source_id)
+        assert decision.allowed is True, source_id
+        # documentation: the audit's own citation must now be present, and the
+        # placeholder "Not formally reviewed." must be gone from every status
+        # field this phase actually investigated (robots/terms at minimum).
+        assert "claude/phase-33-5-florida-production-source-rights-audit.md" in record.doc_refs, source_id
+        assert record.robots_status != "Not formally reviewed.", source_id
+        assert record.terms_status != "Not formally reviewed.", source_id
+        assert record.review_date == "2026-09-15", source_id
+
+
+def test_phase33_5_realauction_and_lienhub_carry_their_distinct_new_findings():
+    # Each of the two vendor-platform FL sources got a materially different
+    # kind of new evidence this phase - assert each one's specific finding
+    # actually landed in the registry, not just generic boilerplate text.
+    realauction = SOURCE_REGISTRY["fl_realauction"]
+    assert "ROBOTS_DISALLOWED" in realauction.robots_status
+    assert "alachua.realtaxdeed.com" in realauction.robots_status
+
+    lienhub = SOURCE_REGISTRY["fl_lienhub_certificates"]
+    assert "WAF" in lienhub.commercial_use_status
+    assert "403" in lienhub.commercial_use_status
+
+
+def test_phase33_5_did_not_touch_texas_or_other_florida_records():
+    # Narrow-annotation discipline: only the three named grandfathered FL
+    # sources were edited this phase. Spot-check a TX record and the newest
+    # Phase 33 FL record are untouched (still cite only their own phases).
+    assert "claude/phase-33-5-florida-production-source-rights-audit.md" not in SOURCE_REGISTRY["tx_realauction"].doc_refs
+    assert "claude/phase-33-5-florida-production-source-rights-audit.md" not in SOURCE_REGISTRY["fl_dor_statewide"].doc_refs

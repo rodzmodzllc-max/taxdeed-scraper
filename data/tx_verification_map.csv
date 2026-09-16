@@ -1,0 +1,766 @@
+state,county,source_id_or_label,category,in_source_registry,discovered,verification_status,technical_acquisition_status,authorization_status_for_customer_display,production_enabled_for_customer_display,evidence_reference
+TX,Anderson,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Anderson,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Anderson,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Andrews,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Andrews,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Andrews,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Angelina,tx_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"harvesters/texas_harvester.py (harvest_realauction), docs/realauction-rights-audit.md"
+TX,Angelina,Texas Comptroller county directory,appraisal_district,NO,YES,MECHANISM_CONFIRMED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Angelina,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Aransas,tx_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"harvesters/texas_harvester.py (harvest_realauction), docs/realauction-rights-audit.md"
+TX,Aransas,Texas Comptroller county directory,appraisal_district,NO,YES,MECHANISM_CONFIRMED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Aransas,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Archer,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Archer,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Archer,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Armstrong,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Armstrong,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Armstrong,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Atascosa,tx_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"harvesters/texas_harvester.py (harvest_realauction), docs/realauction-rights-audit.md"
+TX,Atascosa,Texas Comptroller county directory,appraisal_district,NO,YES,MECHANISM_CONFIRMED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Atascosa,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Austin,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Austin,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Austin,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Bailey,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Bailey,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Bailey,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Bandera,MVBA,auction,NO,YES,MECHANISM_CONFIRMED,NOT_ACQUIRED,BLOCKED,NO,data/tx_county_coverage_matrix.csv
+TX,Bandera,Texas Comptroller county directory,appraisal_district,NO,YES,MECHANISM_CONFIRMED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Bandera,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Bastrop,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Bastrop,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Bastrop,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Baylor,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Baylor,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Baylor,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Bee,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Bee,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Bee,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Bell,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Bell,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Bell,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Bexar,tx_lgbs,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"harvesters/texas_harvester.py (harvest_lgbs), docs/lgbs-rights-audit.md"
+TX,Bexar,Texas Comptroller county directory,appraisal_district,NO,YES,MECHANISM_CONFIRMED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Bexar,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Blanco,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Blanco,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Blanco,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Borden,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Borden,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Borden,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Bosque,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Bosque,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Bosque,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Bowie,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Bowie,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Bowie,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Brazoria,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Brazoria,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Brazoria,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Brazos,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Brazos,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Brazos,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Brewster,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Brewster,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Brewster,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Briscoe,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Briscoe,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Briscoe,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Brooks,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Brooks,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Brooks,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Brown,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Brown,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Brown,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Burleson,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Burleson,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Burleson,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Burnet,MVBA,auction,NO,YES,MECHANISM_CONFIRMED,NOT_ACQUIRED,BLOCKED,NO,data/tx_county_coverage_matrix.csv
+TX,Burnet,Texas Comptroller county directory,appraisal_district,NO,YES,MECHANISM_CONFIRMED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Burnet,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Caldwell,tx_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"harvesters/texas_harvester.py (harvest_realauction), docs/realauction-rights-audit.md"
+TX,Caldwell,Texas Comptroller county directory,appraisal_district,NO,YES,MECHANISM_CONFIRMED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Caldwell,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Calhoun,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Calhoun,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Calhoun,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Callahan,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Callahan,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Callahan,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Cameron,tx_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"harvesters/texas_harvester.py (harvest_realauction), docs/realauction-rights-audit.md"
+TX,Cameron,Texas Comptroller county directory,appraisal_district,NO,YES,MECHANISM_CONFIRMED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Cameron,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Camp,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Camp,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Camp,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Carson,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Carson,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Carson,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Cass,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Cass,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Cass,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Castro,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Castro,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Castro,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Chambers,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Chambers,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Chambers,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Cherokee,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Cherokee,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Cherokee,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Childress,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Childress,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Childress,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Clay,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Clay,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Clay,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Cochran,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Cochran,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Cochran,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Coke,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Coke,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Coke,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Coleman,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Coleman,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Coleman,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Collin,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Collin,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Collin,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Collingsworth,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Collingsworth,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Collingsworth,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Colorado,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Colorado,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Colorado,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Comal,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Comal,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Comal,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Comanche,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Comanche,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Comanche,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Concho,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Concho,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Concho,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Cooke,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Cooke,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Cooke,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Coryell,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Coryell,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Coryell,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Cottle,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Cottle,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Cottle,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Crane,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Crane,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Crane,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Crockett,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Crockett,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Crockett,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Crosby,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Crosby,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Crosby,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Culberson,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Culberson,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Culberson,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Dallam,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Dallam,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Dallam,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Dallas,tx_lgbs,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"harvesters/texas_harvester.py (harvest_lgbs), docs/lgbs-rights-audit.md"
+TX,Dallas,tx_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"harvesters/texas_harvester.py (harvest_realauction), docs/realauction-rights-audit.md"
+TX,Dallas,Texas Comptroller county directory,appraisal_district,NO,YES,MECHANISM_CONFIRMED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Dallas,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Dawson,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Dawson,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Dawson,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,DeWitt,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,DeWitt,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,DeWitt,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Deaf Smith,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Deaf Smith,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Deaf Smith,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Delta,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Delta,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Delta,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Denton,GovEase,auction,NO,YES,MECHANISM_CONFIRMED,NOT_ACQUIRED,BLOCKED,NO,data/tx_county_coverage_matrix.csv
+TX,Denton,Texas Comptroller county directory,appraisal_district,NO,YES,MECHANISM_CONFIRMED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Denton,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Dickens,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Dickens,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Dickens,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Dimmit,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Dimmit,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Dimmit,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Donley,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Donley,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Donley,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Duval,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Duval,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Duval,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Eastland,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Eastland,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Eastland,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Ector,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Ector,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Ector,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Edwards,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Edwards,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Edwards,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,El Paso,tx_lgbs,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"harvesters/texas_harvester.py (harvest_lgbs), docs/lgbs-rights-audit.md"
+TX,El Paso,tx_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"harvesters/texas_harvester.py (harvest_realauction), docs/realauction-rights-audit.md"
+TX,El Paso,Texas Comptroller county directory,appraisal_district,NO,YES,MECHANISM_CONFIRMED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,El Paso,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Ellis,tx_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"harvesters/texas_harvester.py (harvest_realauction), docs/realauction-rights-audit.md"
+TX,Ellis,Texas Comptroller county directory,appraisal_district,NO,YES,MECHANISM_CONFIRMED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Ellis,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Erath,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Erath,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Erath,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Falls,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Falls,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Falls,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Fannin,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Fannin,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Fannin,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Fayette,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Fayette,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Fayette,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Fisher,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Fisher,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Fisher,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Floyd,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Floyd,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Floyd,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Foard,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Foard,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Foard,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Fort Bend,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Fort Bend,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Fort Bend,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Franklin,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Franklin,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Franklin,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Freestone,MVBA,auction,NO,YES,MECHANISM_CONFIRMED,NOT_ACQUIRED,BLOCKED,NO,data/tx_county_coverage_matrix.csv
+TX,Freestone,Texas Comptroller county directory,appraisal_district,NO,YES,MECHANISM_CONFIRMED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Freestone,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Frio,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Frio,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Frio,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Gaines,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Gaines,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Gaines,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Galveston,tx_lgbs,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"harvesters/texas_harvester.py (harvest_lgbs), docs/lgbs-rights-audit.md"
+TX,Galveston,tx_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"harvesters/texas_harvester.py (harvest_realauction), docs/realauction-rights-audit.md"
+TX,Galveston,Texas Comptroller county directory,appraisal_district,NO,YES,MECHANISM_CONFIRMED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Galveston,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Garza,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Garza,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Garza,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Gillespie,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Gillespie,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Gillespie,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Glasscock,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Glasscock,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Glasscock,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Goliad,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Goliad,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Goliad,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Gonzales,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Gonzales,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Gonzales,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Gray,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Gray,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Gray,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Grayson,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Grayson,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Grayson,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Gregg,tx_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"harvesters/texas_harvester.py (harvest_realauction), docs/realauction-rights-audit.md"
+TX,Gregg,Texas Comptroller county directory,appraisal_district,NO,YES,MECHANISM_CONFIRMED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Gregg,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Grimes,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Grimes,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Grimes,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Guadalupe,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Guadalupe,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Guadalupe,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Hale,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Hale,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Hale,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Hall,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Hall,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Hall,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Hamilton,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Hamilton,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Hamilton,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Hansford,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Hansford,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Hansford,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Hardeman,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Hardeman,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Hardeman,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Hardin,tx_lgbs,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"harvesters/texas_harvester.py (harvest_lgbs), docs/lgbs-rights-audit.md"
+TX,Hardin,Texas Comptroller county directory,appraisal_district,NO,YES,MECHANISM_CONFIRMED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Hardin,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Harris,tx_lgbs,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"harvesters/texas_harvester.py (harvest_lgbs), docs/lgbs-rights-audit.md"
+TX,Harris,Texas Comptroller county directory,appraisal_district,NO,YES,MECHANISM_CONFIRMED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Harris,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Harrison,MVBA,auction,NO,YES,MECHANISM_CONFIRMED,NOT_ACQUIRED,BLOCKED,NO,data/tx_county_coverage_matrix.csv
+TX,Harrison,Texas Comptroller county directory,appraisal_district,NO,YES,MECHANISM_CONFIRMED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Harrison,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Hartley,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Hartley,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Hartley,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Haskell,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Haskell,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Haskell,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Hays,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Hays,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Hays,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Hemphill,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Hemphill,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Hemphill,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Henderson,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Henderson,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Henderson,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Hidalgo,tx_lgbs,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"harvesters/texas_harvester.py (harvest_lgbs), docs/lgbs-rights-audit.md"
+TX,Hidalgo,Texas Comptroller county directory,appraisal_district,NO,YES,MECHANISM_CONFIRMED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Hidalgo,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Hill,MVBA,auction,NO,YES,MECHANISM_CONFIRMED,NOT_ACQUIRED,BLOCKED,NO,data/tx_county_coverage_matrix.csv
+TX,Hill,Texas Comptroller county directory,appraisal_district,NO,YES,MECHANISM_CONFIRMED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Hill,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Hockley,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Hockley,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Hockley,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Hood,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Hood,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Hood,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Hopkins,tx_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"harvesters/texas_harvester.py (harvest_realauction), docs/realauction-rights-audit.md"
+TX,Hopkins,Texas Comptroller county directory,appraisal_district,NO,YES,MECHANISM_CONFIRMED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Hopkins,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Houston,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Houston,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Houston,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Howard,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Howard,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Howard,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Hudspeth,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Hudspeth,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Hudspeth,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Hunt,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Hunt,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Hunt,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Hutchinson,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Hutchinson,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Hutchinson,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Irion,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Irion,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Irion,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Jack,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Jack,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Jack,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Jackson,tx_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"harvesters/texas_harvester.py (harvest_realauction), docs/realauction-rights-audit.md"
+TX,Jackson,Texas Comptroller county directory,appraisal_district,NO,YES,MECHANISM_CONFIRMED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Jackson,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Jasper,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Jasper,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Jasper,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Jeff Davis,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Jeff Davis,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Jeff Davis,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Jefferson,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Jefferson,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Jefferson,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Jim Hogg,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Jim Hogg,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Jim Hogg,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Jim Wells,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Jim Wells,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Jim Wells,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Johnson,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Johnson,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Johnson,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Jones,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Jones,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Jones,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Karnes,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Karnes,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Karnes,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Kaufman,tx_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"harvesters/texas_harvester.py (harvest_realauction), docs/realauction-rights-audit.md"
+TX,Kaufman,Texas Comptroller county directory,appraisal_district,NO,YES,MECHANISM_CONFIRMED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Kaufman,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Kendall,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Kendall,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Kendall,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Kenedy,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Kenedy,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Kenedy,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Kent,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Kent,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Kent,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Kerr,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Kerr,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Kerr,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Kimble,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Kimble,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Kimble,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,King,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,King,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,King,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Kinney,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Kinney,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Kinney,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Kleberg,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Kleberg,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Kleberg,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Knox,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Knox,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Knox,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,La Salle,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,La Salle,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,La Salle,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Lamar,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Lamar,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Lamar,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Lamb,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Lamb,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Lamb,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Lampasas,MVBA,auction,NO,YES,MECHANISM_CONFIRMED,NOT_ACQUIRED,BLOCKED,NO,data/tx_county_coverage_matrix.csv
+TX,Lampasas,Texas Comptroller county directory,appraisal_district,NO,YES,MECHANISM_CONFIRMED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Lampasas,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Lavaca,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Lavaca,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Lavaca,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Lee,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Lee,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Lee,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Leon,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Leon,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Leon,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Liberty,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Liberty,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Liberty,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Limestone,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Limestone,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Limestone,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Lipscomb,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Lipscomb,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Lipscomb,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Live Oak,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Live Oak,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Live Oak,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Llano,tx_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"harvesters/texas_harvester.py (harvest_realauction), docs/realauction-rights-audit.md"
+TX,Llano,Texas Comptroller county directory,appraisal_district,NO,YES,MECHANISM_CONFIRMED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Llano,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Loving,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Loving,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Loving,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Lubbock,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Lubbock,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Lubbock,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Lynn,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Lynn,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Lynn,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Madison,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Madison,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Madison,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Marion,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Marion,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Marion,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Martin,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Martin,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Martin,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Mason,MVBA,auction,NO,YES,MECHANISM_CONFIRMED,NOT_ACQUIRED,BLOCKED,NO,data/tx_county_coverage_matrix.csv
+TX,Mason,Texas Comptroller county directory,appraisal_district,NO,YES,MECHANISM_CONFIRMED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Mason,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Matagorda,tx_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"harvesters/texas_harvester.py (harvest_realauction), docs/realauction-rights-audit.md"
+TX,Matagorda,Texas Comptroller county directory,appraisal_district,NO,YES,MECHANISM_CONFIRMED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Matagorda,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Maverick,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Maverick,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Maverick,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,McCulloch,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,McCulloch,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,McCulloch,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,McLennan,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,McLennan,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,McLennan,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,McMullen,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,McMullen,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,McMullen,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Medina,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Medina,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Medina,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Menard,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Menard,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Menard,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Midland,MVBA,auction,NO,YES,MECHANISM_CONFIRMED,NOT_ACQUIRED,BLOCKED,NO,data/tx_county_coverage_matrix.csv
+TX,Midland,Texas Comptroller county directory,appraisal_district,NO,YES,MECHANISM_CONFIRMED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Midland,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Milam,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Milam,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Milam,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Mills,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Mills,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Mills,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Mitchell,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Mitchell,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Mitchell,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Montague,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Montague,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Montague,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Montgomery,tx_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"harvesters/texas_harvester.py (harvest_realauction), docs/realauction-rights-audit.md"
+TX,Montgomery,Texas Comptroller county directory,appraisal_district,NO,YES,MECHANISM_CONFIRMED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Montgomery,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Moore,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Moore,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Moore,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Morris,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Morris,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Morris,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Motley,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Motley,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Motley,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Nacogdoches,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Nacogdoches,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Nacogdoches,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Navarro,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Navarro,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Navarro,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Newton,MVBA,auction,NO,YES,MECHANISM_CONFIRMED,NOT_ACQUIRED,BLOCKED,NO,data/tx_county_coverage_matrix.csv
+TX,Newton,Texas Comptroller county directory,appraisal_district,NO,YES,MECHANISM_CONFIRMED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Newton,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Nolan,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Nolan,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Nolan,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Nueces,tx_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"harvesters/texas_harvester.py (harvest_realauction), docs/realauction-rights-audit.md"
+TX,Nueces,Texas Comptroller county directory,appraisal_district,NO,YES,MECHANISM_CONFIRMED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Nueces,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Ochiltree,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Ochiltree,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Ochiltree,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Oldham,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Oldham,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Oldham,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Orange,tx_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"harvesters/texas_harvester.py (harvest_realauction), docs/realauction-rights-audit.md"
+TX,Orange,Texas Comptroller county directory,appraisal_district,NO,YES,MECHANISM_CONFIRMED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Orange,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Palo Pinto,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Palo Pinto,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Palo Pinto,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Panola,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Panola,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Panola,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Parker,GovEase,auction,NO,YES,MECHANISM_CONFIRMED,NOT_ACQUIRED,BLOCKED,NO,data/tx_county_coverage_matrix.csv
+TX,Parker,Texas Comptroller county directory,appraisal_district,NO,YES,MECHANISM_CONFIRMED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Parker,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Parmer,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Parmer,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Parmer,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Pecos,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Pecos,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Pecos,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Polk,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Polk,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Polk,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Potter,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Potter,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Potter,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Presidio,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Presidio,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Presidio,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Rains,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Rains,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Rains,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Randall,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Randall,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Randall,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Reagan,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Reagan,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Reagan,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Real,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Real,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Real,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Red River,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Red River,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Red River,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Reeves,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Reeves,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Reeves,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Refugio,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Refugio,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Refugio,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Roberts,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Roberts,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Roberts,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Robertson,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Robertson,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Robertson,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Rockwall,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Rockwall,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Rockwall,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Runnels,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Runnels,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Runnels,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Rusk,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Rusk,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Rusk,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Sabine,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Sabine,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Sabine,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,San Augustine,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,San Augustine,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,San Augustine,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,San Jacinto,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,San Jacinto,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,San Jacinto,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,San Patricio,tx_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"harvesters/texas_harvester.py (harvest_realauction), docs/realauction-rights-audit.md"
+TX,San Patricio,Texas Comptroller county directory,appraisal_district,NO,YES,MECHANISM_CONFIRMED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,San Patricio,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,San Saba,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,San Saba,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,San Saba,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Schleicher,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Schleicher,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Schleicher,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Scurry,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Scurry,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Scurry,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Shackelford,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Shackelford,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Shackelford,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Shelby,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Shelby,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Shelby,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Sherman,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Sherman,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Sherman,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Smith,tx_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"harvesters/texas_harvester.py (harvest_realauction), docs/realauction-rights-audit.md"
+TX,Smith,Texas Comptroller county directory,appraisal_district,NO,YES,MECHANISM_CONFIRMED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Smith,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Somervell,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Somervell,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Somervell,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Starr,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Starr,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Starr,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Stephens,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Stephens,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Stephens,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Sterling,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Sterling,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Sterling,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Stonewall,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Stonewall,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Stonewall,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Sutton,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Sutton,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Sutton,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Swisher,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Swisher,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Swisher,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Tarrant,tx_lgbs,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"harvesters/texas_harvester.py (harvest_lgbs), docs/lgbs-rights-audit.md"
+TX,Tarrant,Texas Comptroller county directory,appraisal_district,NO,YES,MECHANISM_CONFIRMED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Tarrant,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Taylor,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Taylor,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Taylor,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Terrell,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Terrell,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Terrell,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Terry,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Terry,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Terry,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Throckmorton,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Throckmorton,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Throckmorton,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Titus,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Titus,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Titus,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Tom Green,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Tom Green,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Tom Green,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Travis,tx_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"harvesters/texas_harvester.py (harvest_realauction), docs/realauction-rights-audit.md"
+TX,Travis,Texas Comptroller county directory,appraisal_district,NO,YES,MECHANISM_CONFIRMED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Travis,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Trinity,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Trinity,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Trinity,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Tyler,tx_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"harvesters/texas_harvester.py (harvest_realauction), docs/realauction-rights-audit.md"
+TX,Tyler,Texas Comptroller county directory,appraisal_district,NO,YES,MECHANISM_CONFIRMED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Tyler,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Upshur,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Upshur,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Upshur,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Upton,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Upton,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Upton,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Uvalde,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Uvalde,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Uvalde,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Val Verde,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Val Verde,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Val Verde,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Van Zandt,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Van Zandt,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Van Zandt,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Victoria,tx_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"harvesters/texas_harvester.py (harvest_realauction), docs/realauction-rights-audit.md"
+TX,Victoria,Texas Comptroller county directory,appraisal_district,NO,YES,MECHANISM_CONFIRMED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Victoria,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Walker,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Walker,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Walker,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Waller,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Waller,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Waller,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Ward,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Ward,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Ward,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Washington,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Washington,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Washington,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Webb,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Webb,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Webb,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Wharton,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Wharton,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Wharton,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Wheeler,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Wheeler,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Wheeler,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Wichita,GovEase,auction,NO,YES,MECHANISM_CONFIRMED,NOT_ACQUIRED,BLOCKED,NO,data/tx_county_coverage_matrix.csv
+TX,Wichita,Texas Comptroller county directory,appraisal_district,NO,YES,MECHANISM_CONFIRMED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Wichita,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Wilbarger,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Wilbarger,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Wilbarger,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Willacy,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Willacy,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Willacy,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Williamson,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Williamson,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Williamson,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Wilson,tx_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"harvesters/texas_harvester.py (harvest_realauction), docs/realauction-rights-audit.md"
+TX,Wilson,Texas Comptroller county directory,appraisal_district,NO,YES,MECHANISM_CONFIRMED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Wilson,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Winkler,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Winkler,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Winkler,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Wise,GovEase,auction,NO,YES,MECHANISM_CONFIRMED,NOT_ACQUIRED,BLOCKED,NO,data/tx_county_coverage_matrix.csv
+TX,Wise,Texas Comptroller county directory,appraisal_district,NO,YES,MECHANISM_CONFIRMED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Wise,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Wood,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Wood,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Wood,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Yoakum,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Yoakum,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Yoakum,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Young,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Young,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Young,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Zapata,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Zapata,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Zapata,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Zavala,UNKNOWN,auction,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv
+TX,Zavala,Texas Comptroller county directory,appraisal_district,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/tx_county_coverage_matrix.csv
+TX,Zavala,UNKNOWN,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/tx_county_coverage_matrix.csv

@@ -93,6 +93,27 @@ including the honest limitation this leaves: the write-time-only
 enforcement described here is the best available given the no-migration
 constraint, not a claim of independent read-time enforcement.
 
+UPDATED 2026-09-15 (Phase 34B - Authorization Gate Integration & Source-
+Policy Hardening): the row-building loop below now calls
+harvesters.governance.authorization.authorized_for_customer_output()
+instead of calling gate.project_row_for_customer_output() directly.
+authorized_for_customer_output() calls that SAME function internally
+first (identical whole-source-plus-field-shape check, completely
+unmodified), then adds ONE more check: if the row's harvester_source has
+at least one ProviderAuthorization record on file anywhere (Phase 34A;
+see harvesters/governance/authorization.py), the row is additionally
+rejected unless that source is authorized for 'customer_display' in this
+row's own county specifically. For tx_lgbs/tx_realauction - the only two
+sources that actually reach this script - ZERO authorization records
+exist as of Phase 34B, so authorizations_for_source() returns () and this
+new check is a byte-for-byte no-op; see
+test_new_customer_output_check_is_a_no_op_for_sources_with_no_authorization_records
+in tests/python/test_provider_authorization.py for the regression test
+that proves it. This is deliberately additive, not a rewrite of this
+script's existing Phase 10A/11/12 logic: the ingestion gate check two
+lines below, the Provenance construction below that, and every other line
+of this script are unchanged.
+
 UPDATED 2026-09-14 (Phase 12 - Production Provenance & Data Lineage
 Integration): this script now also builds a `Provenance` record
 (harvesters/governance/provenance.py, via harvesters/texas_harvester.py's
@@ -130,7 +151,8 @@ JSON_PATH = HERE / "../out/harvest_texas.json"
 # repo root (as .github/workflows/harvest-and-sync.yml's `texas` job does)
 # or from anywhere else.
 sys.path.insert(0, str(HERE / ".."))
-from harvesters.governance.gate import check_ingestion_gate, project_row_for_customer_output  # noqa: E402
+from harvesters.governance.authorization import authorized_for_customer_output  # noqa: E402  (Phase 34B)
+from harvesters.governance.gate import check_ingestion_gate  # noqa: E402
 from harvesters.texas_harvester import build_row_provenance  # noqa: E402  (Phase 12)
 
 BATCH_SIZE = 40  # matches the FL sync scripts' batch size
@@ -267,16 +289,22 @@ def main() -> None:
             row["latitude"] = lat
             row["longitude"] = lon
 
-        # Phase 11: project the row through the same governance layer's
-        # customer-output check (whole-row block on a customer-display-
-        # blocking restriction, plus field-shape stripping - see this
-        # file's module docstring and harvesters/governance/gate.py). Not
-        # redundant with the check_ingestion_gate() call above: that gate
-        # checks only legal_status; this checks legal_status AND
-        # restrictions AND fields. For tx_lgbs/tx_realauction (both
-        # APPROVED, zero restrictions) this is a verified no-op - `row` is
-        # returned unchanged - see the Phase 11 regression tests.
-        projected_row = project_row_for_customer_output(row, harvester_source)
+        # Phase 11 (extended Phase 34B): project the row through the same
+        # governance layer's customer-output check (whole-row block on a
+        # customer-display-blocking restriction, plus field-shape
+        # stripping - see this file's module docstring and
+        # harvesters/governance/gate.py), NOW ALSO checked against Phase
+        # 34A's per-use, per-county authorization records via
+        # authorized_for_customer_output() (see this file's Phase 34B
+        # docstring note above). Not redundant with the check_ingestion_
+        # gate() call above: that gate checks only legal_status; this
+        # checks legal_status AND restrictions AND fields AND (for any
+        # source that has entered the Phase 34A framework) per-county
+        # commercial authorization. For tx_lgbs/tx_realauction (both
+        # APPROVED, zero restrictions, zero authorization records) this is
+        # a verified no-op - `row` is returned unchanged - see both the
+        # Phase 11 regression tests and the new Phase 34B ones.
+        projected_row = authorized_for_customer_output(row, harvester_source, county=county)
         if projected_row is None:
             skipped_customer_restriction += 1
             continue
@@ -315,10 +343,12 @@ def main() -> None:
     if skipped_customer_restriction > 0:
         print(
             f"Customer-output projection blocked {skipped_customer_restriction} row(s) whose source passed the "
-            "ingestion gate but carries a customer-display-blocking restriction (no_customer_display / "
-            "no_redistribution / source_only_display / field_specific_restriction) - see "
-            "harvesters/governance/gate.py's project_row_for_customer_output(). Not expected for "
-            "tx_lgbs/tx_realauction today (both carry zero restrictions).",
+            "ingestion gate but either carries a customer-display-blocking restriction (no_customer_display / "
+            "no_redistribution / source_only_display / field_specific_restriction - see "
+            "harvesters/governance/gate.py's project_row_for_customer_output()) or, for a source that has "
+            "entered the Phase 34A authorization framework, lacks a per-county 'customer_display' authorization "
+            "(see harvesters/governance/authorization.py's authorized_for_customer_output()). Not expected for "
+            "tx_lgbs/tx_realauction today (both carry zero restrictions and have no authorization records).",
             file=sys.stderr,
         )
 
