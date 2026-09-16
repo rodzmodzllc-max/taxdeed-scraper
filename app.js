@@ -883,6 +883,19 @@ function fees(p) {
   // actual winning bid in advance (only the opening bid), so this shows
   // what gets layered on top of whatever bid wins, rather than pretending
   // the opening bid is the final price.
+  //
+  // Phase 36 fix: this formula is Florida-specific by construction - doc
+  // stamps at FL's own statutory rate (FS 201.02), a flat recording fee,
+  // and a homestead surcharge that only exists under FS 197.502(6)(c).
+  // Before this fix it was applied unconditionally to every property,
+  // including Texas rows, silently presenting Florida-statute dollar
+  // figures as if they were a Texas closing-cost estimate. No verified
+  // Texas fee/closing-cost formula exists anywhere in this codebase, so -
+  // per this phase's own "do not invent a value the backend/data doesn't
+  // support" rule - this returns null for any non-FL row instead of
+  // guessing one. Every call site must treat null as "not available for
+  // this state", never as $0.
+  if (regionOf(p) !== "FL") return null;
   const bid = Number(p.bid) || 0;
   const base = bid + homesteadSurcharge(p);
   const total = base + base * DOC_STAMP_RATE + RECORDING_FEE + (state.includeQT ? QUIET_TITLE_EST : 0);
@@ -1265,10 +1278,26 @@ async function showApp() {
   const genEl = document.getElementById("generatedAt");
   if (genEl) genEl.textContent = "Loading";
   renderSkeleton();
-  await loadAll();
+  const loaded = await loadAll();
   state.counties = new Set(ALL_COUNTIES);
   buildAllChips();
   updateBadge();
+  // Phase 36 fix: a failed properties fetch used to fall straight through
+  // into setLedger()/render() with ALL still empty, so every ledger's
+  // normal "Nothing found here" / "Nothing tracked yet" empty-state copy
+  // painted over a real fetch error - the only trace of the failure was a
+  // few words in the small #generatedAt masthead line. This is the one
+  // place that distinguishes "genuinely no data" from "couldn't load
+  // data" before any ledger view renders.
+  if (!loaded) {
+    const mainEl = document.getElementById("main");
+    if (mainEl) mainEl.innerHTML =
+      `<div class="empty-state error-state">⚠ Couldn't load property data right now.` +
+      `<span class="empty-hint">Check your connection and reload the page. If this keeps happening, the data source may be temporarily unavailable.</span>` +
+      `<button type="button" class="reload-btn" onclick="location.reload()">Reload</button></div>`;
+    startIdleWatch();
+    return;
+  }
   // setLedger, not a bare render(): the palette, the document title, the
   // per-ledger filter visibility and the canonical #/slug URL all have to be
   // right on the first paint, not only after the first tab click.
@@ -1373,7 +1402,7 @@ async function loadAll() {
   if (props.error) {
     const genEl = document.getElementById("generatedAt");
     if (genEl) genEl.textContent = "Error: " + props.error.message;
-    return;
+    return false;
   }
   ALL = props.data || [];
   NOTES = {}; (notes.data || []).forEach(n => { (NOTES[n.property_id] = NOTES[n.property_id] || []).push(n); });
@@ -1400,6 +1429,7 @@ async function loadAll() {
       isStale ? "⚠ Data updated " + new Date(newest).toLocaleString() + " - sync may be behind" :
       "Data updated " + new Date(newest).toLocaleString();
   }
+  return true;
 }
 
 // County chips and the county map (below) both drive state.counties, so a
@@ -1906,7 +1936,14 @@ function detailHtml(p) {
     // year - rather than the old "Market Value", which implied a live
     // estimate this app has never had and cannot legitimately obtain.
     if (hasNum(p.market)) stats.push([valueLabel(p), fmtShort(p.market)]);
-    stats.push(["County Assessed Value", hasNum(p.assessed) ? fmtShort(p.assessed) : "N/A"]);
+    // Phase 36 fix: this used to hardcode the label "County Assessed Value"
+    // here, bypassing assessedSourceLabel() (Phase 14A) which exists
+    // specifically so a Texas row's p.assessed - LGBS's raw CAD value or
+    // RealAuction's "Adjudged Value", never a county appraiser's assessment -
+    // isn't mislabeled with Florida's statutory AV_NSD concept. This is the
+    // same field/value, just now routed through the label helper this
+    // detail modal had never actually called.
+    stats.push([assessedSourceLabel(p), hasNum(p.assessed) ? fmtShort(p.assessed) : "N/A"]);
     if (hasNum(p.land_value)) stats.push(["Land Value", fmtShort(p.land_value)]);
     // Just Value split into land vs. whatever's built on it - one FDOR-
     // sourced subtraction, not a new field. A bare lot reads as exactly
@@ -1917,7 +1954,11 @@ function detailHtml(p) {
     if (bv !== null) stats.push(["Building / Improvement Value", isBareLand(p) ? "None (bare land)" : fmtShort(bv)]);
     if (p.homestead) stats.push(["Homestead Exemption", "Yes"]);
     if (bidPublished) {
-      stats.push(["Fees", fmtShort(fees(p))]);
+      // Phase 36 fix: fees(p) now returns null for non-FL rows (see its own
+      // comment) rather than a Florida-statute dollar figure - only show
+      // this stat when there's a real number behind it.
+      const feesAmt = fees(p);
+      if (feesAmt !== null) stats.push(["Fees", fmtShort(feesAmt)]);
       stats.push(["Walk Away Above", fmtShort(maxBid(p))]);
       if (marketOf(p) > 0) {
         const spreadAmt = marketOf(p) - Number(p.bid);
@@ -1940,7 +1981,10 @@ function detailHtml(p) {
     if (isGone(p)) stats.push(["Outcome", outcomeText(p)]);
   } else {
     stats.push(["Amount", bidDisplay(p)]);
-    if (p.interest_rate) stats.push(["Interest Rate", p.interest_rate + "%"]);
+    // Phase 36 fix: was a truthy check, which silently hid a genuine 0%
+    // certificate interest rate identically to a missing one - certCard()
+    // and the CSV export already used hasNum() for this same field.
+    if (hasNum(p.interest_rate)) stats.push(["Interest Rate", p.interest_rate + "%"]);
     stats.push(["Tax Year", p.tax_year || "N/A"]);
     stats.push(["Issued", p.issued_date ? fmtDate(p.issued_date) : "N/A"]);
     stats.push(["Expires", p.expiration_date ? fmtDate(p.expiration_date) : "N/A"]);
@@ -1980,7 +2024,11 @@ function detailHtml(p) {
     <div class="detail-grid">
       ${stats.map(([label, val]) => `<div class="detail-stat"><span class="detail-stat-label">${esc(label)}${label === "Fees" ? " " + infoTip(FEES_TIP) : label === "Homestead Exemption" ? " " + infoTip(HOMESTEAD_TIP) : label === "Est. Accrued Interest" ? " " + infoTip(ACCRUED_INTEREST_TIP) : label === "TDA Eligibility" ? " " + infoTip(TDA_ELIGIBLE_TIP) : label === "Gross Equity Spread" ? " " + infoTip(EQUITY_SPREAD_TIP) : label === "Walk Away Above" ? " " + infoTip(WALK_AWAY_TIP) : label === "Building / Improvement Value" ? " " + infoTip(BUILDING_VALUE_TIP) : ""}</span><span class="detail-stat-val">${esc(val)}</span></div>`).join("")}
     </div>
-    ${!isCert && bidPublished && marketOf(p) > 0 ? calcDrawerHtml(p) : ""}
+    ${/* Phase 36 fix: the calculator's Net Profit Estimate subtracts fees(p),
+        which is now null for non-FL rows (no verified TX fee formula exists) -
+        gating this to FL avoids computing a profit estimate that silently
+        treats a missing Florida-specific fee figure as $0. */ ""}
+    ${!isCert && bidPublished && marketOf(p) > 0 && regionOf(p) === "FL" ? calcDrawerHtml(p) : ""}
     ${p.legal_desc ? `<div class="detail-legal">
       <span class="detail-legal-label">Legal description</span>
       <p>${esc(p.legal_desc)}</p>
@@ -3157,7 +3205,13 @@ if (exportCsvBtn) exportCsvBtn.addEventListener("click", () => {
     // homesteadSurcharge/the enrichment script's own comment on this
     // column) - blank here means "not confirmed", never "confirmed no".
     ["Homestead Exemption", p => p.homestead ? "Yes" : ""],
-    ["Opening Bid", p => p.bid ?? ""],
+    // Phase 36 fix: was `p.bid ?? ""`, which exported the literal `0`
+    // sentinel this app's own writers use for "bid not published" as if it
+    // were a real $0 opening bid - hasPublishedBid()/bidDisplay() already
+    // treat that 0 as "Not published" everywhere else in the UI (card,
+    // certCard, detailHtml); the CSV export was the one place still reading
+    // the raw column value.
+    ["Opening Bid", p => hasPublishedBid(p) ? p.bid : ""],
     ["County Assessed Value", p => p.assessed ?? ""],
     // Phase 14A: the "County Assessed Value" header above can't itself vary
     // per row, so this additive column carries the per-row honest answer to
@@ -3172,9 +3226,18 @@ if (exportCsvBtn) exportCsvBtn.addEventListener("click", () => {
     // mixing rows from different roll years is still readable.
     ["County Just Value", p => p.market ?? ""],
     ["Just Value Year", p => p.value_year ?? ""],
-    ["Gross Equity Spread ($)", p => (p.bid != null && marketOf(p) > 0) ? Math.round(marketOf(p) - Number(p.bid)) : ""],
+    // Phase 36 fix: the `p.bid != null` guard here was always true (bid is a
+    // NOT NULL column - "not published" is represented by the value 0, not
+    // null), so an unpublished-bid row exported a "Gross Equity Spread"
+    // equal to the entire market value, computed against a $0 bid it was
+    // never really offered at. hasPublishedBid() is the same check the rest
+    // of the app already uses for this field.
+    ["Gross Equity Spread ($)", p => (hasPublishedBid(p) && marketOf(p) > 0) ? Math.round(marketOf(p) - Number(p.bid)) : ""],
     ["Gross Equity Spread (x bid)", p => (Number(p.bid) > 0 && marketOf(p) > 0) ? valueRatio(p).toFixed(2) : ""],
-    ["Fees", p => p.bid != null ? Math.round(fees(p)) : ""],
+    // Phase 36 fix: same dead-guard bug as Gross Equity Spread above, plus
+    // fees(p) itself now returns null for non-FL rows (see its own comment) -
+    // both are handled here rather than exporting a wrong number.
+    ["Fees", p => { if (!hasPublishedBid(p)) return ""; const f = fees(p); return f === null ? "" : Math.round(f); }],
     // Tax-roll columns. Someone exporting to a spreadsheet is usually
     // filtering or sorting on exactly these - lot size, age, what it last
     // sold for - so leaving them out of the export while showing them on the
