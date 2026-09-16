@@ -277,6 +277,20 @@ class AcquisitionRun:
             self.errors.extend(result.errors)
         self.warnings.extend(result.warnings)
 
+        # Phase 48, REPORTING ONLY. `per_county` is written here and read
+        # only by `county_coverage()`; nothing else in the engine touches it,
+        # so what follows cannot affect the tally, the run status, any
+        # completion gate, or acquisition semantics.
+        #
+        # A caller that knows its jurisdiction passes `county` and gets the
+        # old single-bucket behavior (an ArcGIS per-county acquisition, say).
+        # A statewide multi-county source like tx_lgbs has no single county
+        # to pass, so run_lgbs_acquisition.py called this without one and
+        # `county_coverage()` came back EMPTY even for run 35113290312's 213
+        # real records across real Texas counties (Phase 47's finding). In
+        # that case each record's OWN normalized `county` is the correct
+        # bucket - the records already carry it; only the grouping was
+        # missing.
         if county:
             bucket = self.per_county.setdefault(
                 county,
@@ -286,6 +300,22 @@ class AcquisitionRun:
             bucket["records_failed"] += result.records_failed
             bucket["records_rejected"] += result.records_skipped
             bucket["attempts"] += 1
+        else:
+            for record in result.records:
+                name = record.get("county")
+                if not name:
+                    # No county on the record: deliberately not bucketed
+                    # under a placeholder. A missing county is visible as a
+                    # gap between the tally and the per-county rows, which
+                    # is more honest than inventing an "UNKNOWN" county that
+                    # would then be compared against a roster denominator.
+                    continue
+                bucket = self.per_county.setdefault(
+                    name,
+                    {"records_acquired": 0, "records_failed": 0, "records_rejected": 0, "attempts": 0},
+                )
+                bucket["records_acquired"] += 1
+                bucket["attempts"] = 1
 
     @staticmethod
     def _duplicates_from_warnings(result: AcquisitionResult) -> int:

@@ -1,0 +1,95 @@
+name: LGBS query diagnostics (tx_lgbs)
+
+# Phase 48. Read-only measurement of how taxsales.lgbs.com responds to
+# `?state=TX` versus `?area=TX` at three page sizes.
+#
+# Why a SEPARATE workflow rather than a fourth mode on
+# lgbs-acquisition-validation.yml: that workflow's `mode` input is pinned by
+# tests to exactly [probe, sample, full], and its steps are an acquisition
+# pipeline with a full-mode confirmation guard. A diagnostic is neither an
+# acquisition nor a mode of one, and bolting it on would mean loosening a
+# gate to make room for something that does not belong behind it. This file
+# acquires nothing.
+#
+# What it does: 18 requests, largest `limit` 100, one attempt each, paced at
+# 0.5s. No records are acquired, normalized or stored. No secrets are used
+# or referenced. No database client exists anywhere in the invoked script.
+#
+# workflow_dispatch only - no schedule, no push, no pull_request. It reaches
+# a third party's servers; a human asks for it.
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  # Never run diagnostics while an acquisition validation run is in flight -
+  # two concurrent probes of the same host would contaminate each other's
+  # latency measurements, which is the one thing this workflow measures.
+  group: lgbs-acquisition-validation
+  cancel-in-progress: false
+
+jobs:
+  diagnose:
+    name: 'LGBS query diagnostics'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install pytest
+        run: pip install pytest pyyaml
+
+      # Fail fast on a broken tree before touching anyone else's servers -
+      # the same pre-flight contract the acquisition workflow uses.
+      - name: Pre-flight - diagnostic test suite must pass
+        run: pytest tests/python/test_phase48_query_diagnostics.py -q
+
+      # Deliberately no `|| true` and no continue-on-error. Exit 3 means
+      # every request was blocked before leaving the runner, which is a
+      # failed measurement and should fail the job rather than be reported
+      # as though the source had been observed.
+      - name: Run query diagnostics
+        run: |
+          set -o pipefail
+          python3 scripts/diagnose_lgbs_query_latency.py | tee diagnostics-console.log
+
+      - name: Summarize
+        if: always()
+        run: |
+          python3 - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json, pathlib
+          p = pathlib.Path("out/acquisition/phase48_query_diagnostics.json")
+          if not p.exists():
+              print("## LGBS query diagnostics\n\nNo artifact produced.")
+              raise SystemExit(0)
+          d = json.loads(p.read_text())
+          print("## LGBS query diagnostics\n")
+          inst = d.get("instrument") or {}
+          print(f"- attempts per request: `{inst.get('attempts_per_request')}`, "
+                f"timeout `{inst.get('timeout_seconds')}s`, trials `{inst.get('trials_per_query')}`\n")
+          print("| query | url | outcome | ok/trials | median | count |")
+          print("|---|---|---|---|---|---|")
+          for r in d.get("summary") or []:
+              med = f"{r['latency_median']}s" if r.get("latency_median") is not None else "-"
+              counts = ", ".join(str(c) for c in r.get("envelope_counts_seen") or []) or "-"
+              print(f"| {r['label']} | `{r['url']}` | {r['query_outcome']} | "
+                    f"{r['successes']}/{r['trials']} | {med} | {counts} |")
+          PY
+
+      - name: Upload diagnostics artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: lgbs-query-diagnostics-${{ github.run_id }}
+          path: |
+            out/acquisition/
+            diagnostics-console.log
+          if-no-files-found: warn
+          retention-days: 30
