@@ -1,0 +1,336 @@
+state,county,source_id_or_label,category,in_source_registry,discovered,verification_status,technical_acquisition_status,authorization_status_for_customer_display,production_enabled_for_customer_display,evidence_reference
+FL,Alachua,fl_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,LEGAL_REVIEW_REQUIRED,NO,"scripts/harvest_all_counties.ps1, claude/phase-33-5-florida-production-source-rights-audit.md, harvesters/governance/authorization.py"
+FL,Alachua,fl_lienhub_certificates,tax_certificate,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_lienhub_certificates.ps1, harvesters/governance/authorization.py"
+FL,Alachua,fl_laft_pdfs,laft_deed_list,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"scripts/harvest_laft_pdfs.py, data/laft_pdf_sources.csv, claude/phase-33-5-florida-production-source-rights-audit.md"
+FL,Alachua,FDOR Statewide Cadastral FeatureServer,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Alachua,UNKNOWN,property_appraisal,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/fl_county_coverage_matrix.csv
+FL,Baker,fl_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_all_counties.ps1, claude/phase-33-5-florida-production-source-rights-audit.md, harvesters/governance/authorization.py"
+FL,Baker,fl_lienhub_certificates,tax_certificate,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_lienhub_certificates.ps1, harvesters/governance/authorization.py"
+FL,Baker,fl_laft_pdfs,laft_deed_list,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"scripts/harvest_laft_pdfs.py, data/laft_pdf_sources.csv, claude/phase-33-5-florida-production-source-rights-audit.md"
+FL,Baker,FDOR Statewide Cadastral FeatureServer,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Baker,UNKNOWN,property_appraisal,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/fl_county_coverage_matrix.csv
+FL,Bay,fl_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_all_counties.ps1, claude/phase-33-5-florida-production-source-rights-audit.md, harvesters/governance/authorization.py"
+FL,Bay,fl_lienhub_certificates,tax_certificate,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_lienhub_certificates.ps1, harvesters/governance/authorization.py"
+FL,Bay,fl_laft_pdfs,laft_deed_list,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"scripts/harvest_laft_pdfs.py, data/laft_pdf_sources.csv, claude/phase-33-5-florida-production-source-rights-audit.md"
+FL,Bay,FDOR Statewide Cadastral FeatureServer,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Bay,UNKNOWN,property_appraisal,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/fl_county_coverage_matrix.csv
+FL,Bradford,fl_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_all_counties.ps1, claude/phase-33-5-florida-production-source-rights-audit.md, harvesters/governance/authorization.py"
+FL,Bradford,fl_lienhub_certificates,tax_certificate,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_lienhub_certificates.ps1, harvesters/governance/authorization.py"
+FL,Bradford,fl_laft_pdfs,laft_deed_list,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"scripts/harvest_laft_pdfs.py, data/laft_pdf_sources.csv, claude/phase-33-5-florida-production-source-rights-audit.md"
+FL,Bradford,FDOR Statewide Cadastral FeatureServer,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Bradford,UNKNOWN,property_appraisal,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/fl_county_coverage_matrix.csv
+FL,Brevard,fl_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_all_counties.ps1, claude/phase-33-5-florida-production-source-rights-audit.md, harvesters/governance/authorization.py"
+FL,Brevard,fl_lienhub_certificates,tax_certificate,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_lienhub_certificates.ps1, harvesters/governance/authorization.py"
+FL,Brevard,fl_laft_pdfs,laft_deed_list,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"scripts/harvest_laft_pdfs.py, data/laft_pdf_sources.csv, claude/phase-33-5-florida-production-source-rights-audit.md"
+FL,Brevard,FDOR Statewide Cadastral FeatureServer,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Brevard,Brevard County Property Appraiser,property_appraisal,NO,YES,MECHANISM_CONFIRMED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Broward,fl_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_all_counties.ps1, claude/phase-33-5-florida-production-source-rights-audit.md, harvesters/governance/authorization.py"
+FL,Broward,fl_lienhub_certificates,tax_certificate,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_lienhub_certificates.ps1, harvesters/governance/authorization.py"
+FL,Broward,fl_laft_pdfs,laft_deed_list,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"scripts/harvest_laft_pdfs.py, data/laft_pdf_sources.csv, claude/phase-33-5-florida-production-source-rights-audit.md"
+FL,Broward,FDOR Statewide Cadastral FeatureServer,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Broward,Broward County Property Appraiser,property_appraisal,NO,YES,MECHANISM_CONFIRMED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Calhoun,fl_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_all_counties.ps1, claude/phase-33-5-florida-production-source-rights-audit.md, harvesters/governance/authorization.py"
+FL,Calhoun,fl_lienhub_certificates,tax_certificate,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_lienhub_certificates.ps1, harvesters/governance/authorization.py"
+FL,Calhoun,fl_laft_pdfs,laft_deed_list,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"scripts/harvest_laft_pdfs.py, data/laft_pdf_sources.csv, claude/phase-33-5-florida-production-source-rights-audit.md"
+FL,Calhoun,FDOR Statewide Cadastral FeatureServer,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Calhoun,UNKNOWN,property_appraisal,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/fl_county_coverage_matrix.csv
+FL,Charlotte,fl_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_all_counties.ps1, claude/phase-33-5-florida-production-source-rights-audit.md, harvesters/governance/authorization.py"
+FL,Charlotte,fl_lienhub_certificates,tax_certificate,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_lienhub_certificates.ps1, harvesters/governance/authorization.py"
+FL,Charlotte,fl_laft_pdfs,laft_deed_list,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"scripts/harvest_laft_pdfs.py, data/laft_pdf_sources.csv, claude/phase-33-5-florida-production-source-rights-audit.md"
+FL,Charlotte,FDOR Statewide Cadastral FeatureServer,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Charlotte,UNKNOWN,property_appraisal,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/fl_county_coverage_matrix.csv
+FL,Citrus,fl_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_all_counties.ps1, claude/phase-33-5-florida-production-source-rights-audit.md, harvesters/governance/authorization.py"
+FL,Citrus,fl_lienhub_certificates,tax_certificate,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_lienhub_certificates.ps1, harvesters/governance/authorization.py"
+FL,Citrus,fl_laft_pdfs,laft_deed_list,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"scripts/harvest_laft_pdfs.py, data/laft_pdf_sources.csv, claude/phase-33-5-florida-production-source-rights-audit.md"
+FL,Citrus,FDOR Statewide Cadastral FeatureServer,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Citrus,UNKNOWN,property_appraisal,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/fl_county_coverage_matrix.csv
+FL,Clay,fl_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_all_counties.ps1, claude/phase-33-5-florida-production-source-rights-audit.md, harvesters/governance/authorization.py"
+FL,Clay,fl_lienhub_certificates,tax_certificate,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_lienhub_certificates.ps1, harvesters/governance/authorization.py"
+FL,Clay,fl_laft_pdfs,laft_deed_list,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"scripts/harvest_laft_pdfs.py, data/laft_pdf_sources.csv, claude/phase-33-5-florida-production-source-rights-audit.md"
+FL,Clay,FDOR Statewide Cadastral FeatureServer,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Clay,UNKNOWN,property_appraisal,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/fl_county_coverage_matrix.csv
+FL,Collier,fl_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_all_counties.ps1, claude/phase-33-5-florida-production-source-rights-audit.md, harvesters/governance/authorization.py"
+FL,Collier,fl_lienhub_certificates,tax_certificate,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_lienhub_certificates.ps1, harvesters/governance/authorization.py"
+FL,Collier,fl_laft_pdfs,laft_deed_list,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"scripts/harvest_laft_pdfs.py, data/laft_pdf_sources.csv, claude/phase-33-5-florida-production-source-rights-audit.md"
+FL,Collier,FDOR Statewide Cadastral FeatureServer,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Collier,UNKNOWN,property_appraisal,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/fl_county_coverage_matrix.csv
+FL,Columbia,fl_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_all_counties.ps1, claude/phase-33-5-florida-production-source-rights-audit.md, harvesters/governance/authorization.py"
+FL,Columbia,fl_lienhub_certificates,tax_certificate,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_lienhub_certificates.ps1, harvesters/governance/authorization.py"
+FL,Columbia,fl_laft_pdfs,laft_deed_list,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"scripts/harvest_laft_pdfs.py, data/laft_pdf_sources.csv, claude/phase-33-5-florida-production-source-rights-audit.md"
+FL,Columbia,FDOR Statewide Cadastral FeatureServer,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Columbia,UNKNOWN,property_appraisal,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/fl_county_coverage_matrix.csv
+FL,DeSoto,fl_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_all_counties.ps1, claude/phase-33-5-florida-production-source-rights-audit.md, harvesters/governance/authorization.py"
+FL,DeSoto,fl_lienhub_certificates,tax_certificate,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_lienhub_certificates.ps1, harvesters/governance/authorization.py"
+FL,DeSoto,fl_laft_pdfs,laft_deed_list,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"scripts/harvest_laft_pdfs.py, data/laft_pdf_sources.csv, claude/phase-33-5-florida-production-source-rights-audit.md"
+FL,DeSoto,FDOR Statewide Cadastral FeatureServer,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,DeSoto,UNKNOWN,property_appraisal,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/fl_county_coverage_matrix.csv
+FL,Dixie,fl_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_all_counties.ps1, claude/phase-33-5-florida-production-source-rights-audit.md, harvesters/governance/authorization.py"
+FL,Dixie,fl_lienhub_certificates,tax_certificate,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_lienhub_certificates.ps1, harvesters/governance/authorization.py"
+FL,Dixie,fl_laft_pdfs,laft_deed_list,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"scripts/harvest_laft_pdfs.py, data/laft_pdf_sources.csv, claude/phase-33-5-florida-production-source-rights-audit.md"
+FL,Dixie,FDOR Statewide Cadastral FeatureServer,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Dixie,UNKNOWN,property_appraisal,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/fl_county_coverage_matrix.csv
+FL,Duval,fl_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_all_counties.ps1, claude/phase-33-5-florida-production-source-rights-audit.md, harvesters/governance/authorization.py"
+FL,Duval,fl_lienhub_certificates,tax_certificate,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_lienhub_certificates.ps1, harvesters/governance/authorization.py"
+FL,Duval,fl_laft_pdfs,laft_deed_list,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"scripts/harvest_laft_pdfs.py, data/laft_pdf_sources.csv, claude/phase-33-5-florida-production-source-rights-audit.md"
+FL,Duval,FDOR Statewide Cadastral FeatureServer,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Duval,Duval County Property Appraiser,property_appraisal,NO,YES,MECHANISM_CONFIRMED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Escambia,fl_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_all_counties.ps1, claude/phase-33-5-florida-production-source-rights-audit.md, harvesters/governance/authorization.py"
+FL,Escambia,fl_lienhub_certificates,tax_certificate,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_lienhub_certificates.ps1, harvesters/governance/authorization.py"
+FL,Escambia,fl_laft_pdfs,laft_deed_list,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"scripts/harvest_laft_pdfs.py, data/laft_pdf_sources.csv, claude/phase-33-5-florida-production-source-rights-audit.md"
+FL,Escambia,FDOR Statewide Cadastral FeatureServer,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Escambia,UNKNOWN,property_appraisal,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/fl_county_coverage_matrix.csv
+FL,Flagler,fl_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_all_counties.ps1, claude/phase-33-5-florida-production-source-rights-audit.md, harvesters/governance/authorization.py"
+FL,Flagler,fl_lienhub_certificates,tax_certificate,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_lienhub_certificates.ps1, harvesters/governance/authorization.py"
+FL,Flagler,fl_laft_pdfs,laft_deed_list,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"scripts/harvest_laft_pdfs.py, data/laft_pdf_sources.csv, claude/phase-33-5-florida-production-source-rights-audit.md"
+FL,Flagler,FDOR Statewide Cadastral FeatureServer,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Flagler,UNKNOWN,property_appraisal,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/fl_county_coverage_matrix.csv
+FL,Franklin,fl_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_all_counties.ps1, claude/phase-33-5-florida-production-source-rights-audit.md, harvesters/governance/authorization.py"
+FL,Franklin,fl_lienhub_certificates,tax_certificate,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_lienhub_certificates.ps1, harvesters/governance/authorization.py"
+FL,Franklin,fl_laft_pdfs,laft_deed_list,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"scripts/harvest_laft_pdfs.py, data/laft_pdf_sources.csv, claude/phase-33-5-florida-production-source-rights-audit.md"
+FL,Franklin,FDOR Statewide Cadastral FeatureServer,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Franklin,UNKNOWN,property_appraisal,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/fl_county_coverage_matrix.csv
+FL,Gadsden,fl_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_all_counties.ps1, claude/phase-33-5-florida-production-source-rights-audit.md, harvesters/governance/authorization.py"
+FL,Gadsden,fl_lienhub_certificates,tax_certificate,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_lienhub_certificates.ps1, harvesters/governance/authorization.py"
+FL,Gadsden,fl_laft_pdfs,laft_deed_list,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"scripts/harvest_laft_pdfs.py, data/laft_pdf_sources.csv, claude/phase-33-5-florida-production-source-rights-audit.md"
+FL,Gadsden,FDOR Statewide Cadastral FeatureServer,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Gadsden,UNKNOWN,property_appraisal,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/fl_county_coverage_matrix.csv
+FL,Gilchrist,fl_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_all_counties.ps1, claude/phase-33-5-florida-production-source-rights-audit.md, harvesters/governance/authorization.py"
+FL,Gilchrist,fl_lienhub_certificates,tax_certificate,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_lienhub_certificates.ps1, harvesters/governance/authorization.py"
+FL,Gilchrist,fl_laft_pdfs,laft_deed_list,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"scripts/harvest_laft_pdfs.py, data/laft_pdf_sources.csv, claude/phase-33-5-florida-production-source-rights-audit.md"
+FL,Gilchrist,FDOR Statewide Cadastral FeatureServer,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Gilchrist,UNKNOWN,property_appraisal,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/fl_county_coverage_matrix.csv
+FL,Glades,fl_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_all_counties.ps1, claude/phase-33-5-florida-production-source-rights-audit.md, harvesters/governance/authorization.py"
+FL,Glades,fl_lienhub_certificates,tax_certificate,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_lienhub_certificates.ps1, harvesters/governance/authorization.py"
+FL,Glades,fl_laft_pdfs,laft_deed_list,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"scripts/harvest_laft_pdfs.py, data/laft_pdf_sources.csv, claude/phase-33-5-florida-production-source-rights-audit.md"
+FL,Glades,FDOR Statewide Cadastral FeatureServer,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Glades,UNKNOWN,property_appraisal,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/fl_county_coverage_matrix.csv
+FL,Gulf,fl_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_all_counties.ps1, claude/phase-33-5-florida-production-source-rights-audit.md, harvesters/governance/authorization.py"
+FL,Gulf,fl_lienhub_certificates,tax_certificate,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_lienhub_certificates.ps1, harvesters/governance/authorization.py"
+FL,Gulf,fl_laft_pdfs,laft_deed_list,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"scripts/harvest_laft_pdfs.py, data/laft_pdf_sources.csv, claude/phase-33-5-florida-production-source-rights-audit.md"
+FL,Gulf,FDOR Statewide Cadastral FeatureServer,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Gulf,UNKNOWN,property_appraisal,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/fl_county_coverage_matrix.csv
+FL,Hamilton,fl_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_all_counties.ps1, claude/phase-33-5-florida-production-source-rights-audit.md, harvesters/governance/authorization.py"
+FL,Hamilton,fl_lienhub_certificates,tax_certificate,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_lienhub_certificates.ps1, harvesters/governance/authorization.py"
+FL,Hamilton,fl_laft_pdfs,laft_deed_list,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"scripts/harvest_laft_pdfs.py, data/laft_pdf_sources.csv, claude/phase-33-5-florida-production-source-rights-audit.md"
+FL,Hamilton,FDOR Statewide Cadastral FeatureServer,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Hamilton,UNKNOWN,property_appraisal,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/fl_county_coverage_matrix.csv
+FL,Hardee,fl_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_all_counties.ps1, claude/phase-33-5-florida-production-source-rights-audit.md, harvesters/governance/authorization.py"
+FL,Hardee,fl_lienhub_certificates,tax_certificate,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_lienhub_certificates.ps1, harvesters/governance/authorization.py"
+FL,Hardee,fl_laft_pdfs,laft_deed_list,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"scripts/harvest_laft_pdfs.py, data/laft_pdf_sources.csv, claude/phase-33-5-florida-production-source-rights-audit.md"
+FL,Hardee,FDOR Statewide Cadastral FeatureServer,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Hardee,UNKNOWN,property_appraisal,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/fl_county_coverage_matrix.csv
+FL,Hendry,fl_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_all_counties.ps1, claude/phase-33-5-florida-production-source-rights-audit.md, harvesters/governance/authorization.py"
+FL,Hendry,fl_lienhub_certificates,tax_certificate,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_lienhub_certificates.ps1, harvesters/governance/authorization.py"
+FL,Hendry,fl_laft_pdfs,laft_deed_list,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"scripts/harvest_laft_pdfs.py, data/laft_pdf_sources.csv, claude/phase-33-5-florida-production-source-rights-audit.md"
+FL,Hendry,FDOR Statewide Cadastral FeatureServer,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Hendry,UNKNOWN,property_appraisal,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/fl_county_coverage_matrix.csv
+FL,Hernando,fl_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_all_counties.ps1, claude/phase-33-5-florida-production-source-rights-audit.md, harvesters/governance/authorization.py"
+FL,Hernando,fl_lienhub_certificates,tax_certificate,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_lienhub_certificates.ps1, harvesters/governance/authorization.py"
+FL,Hernando,fl_laft_pdfs,laft_deed_list,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"scripts/harvest_laft_pdfs.py, data/laft_pdf_sources.csv, claude/phase-33-5-florida-production-source-rights-audit.md"
+FL,Hernando,FDOR Statewide Cadastral FeatureServer,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Hernando,UNKNOWN,property_appraisal,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/fl_county_coverage_matrix.csv
+FL,Highlands,fl_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_all_counties.ps1, claude/phase-33-5-florida-production-source-rights-audit.md, harvesters/governance/authorization.py"
+FL,Highlands,fl_lienhub_certificates,tax_certificate,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_lienhub_certificates.ps1, harvesters/governance/authorization.py"
+FL,Highlands,fl_laft_pdfs,laft_deed_list,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"scripts/harvest_laft_pdfs.py, data/laft_pdf_sources.csv, claude/phase-33-5-florida-production-source-rights-audit.md"
+FL,Highlands,FDOR Statewide Cadastral FeatureServer,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Highlands,UNKNOWN,property_appraisal,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/fl_county_coverage_matrix.csv
+FL,Hillsborough,fl_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_all_counties.ps1, claude/phase-33-5-florida-production-source-rights-audit.md, harvesters/governance/authorization.py"
+FL,Hillsborough,fl_lienhub_certificates,tax_certificate,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_lienhub_certificates.ps1, harvesters/governance/authorization.py"
+FL,Hillsborough,fl_laft_pdfs,laft_deed_list,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"scripts/harvest_laft_pdfs.py, data/laft_pdf_sources.csv, claude/phase-33-5-florida-production-source-rights-audit.md"
+FL,Hillsborough,FDOR Statewide Cadastral FeatureServer,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Hillsborough,Hillsborough County Property Appraiser,property_appraisal,NO,YES,MECHANISM_CONFIRMED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Holmes,fl_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_all_counties.ps1, claude/phase-33-5-florida-production-source-rights-audit.md, harvesters/governance/authorization.py"
+FL,Holmes,fl_lienhub_certificates,tax_certificate,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_lienhub_certificates.ps1, harvesters/governance/authorization.py"
+FL,Holmes,fl_laft_pdfs,laft_deed_list,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"scripts/harvest_laft_pdfs.py, data/laft_pdf_sources.csv, claude/phase-33-5-florida-production-source-rights-audit.md"
+FL,Holmes,FDOR Statewide Cadastral FeatureServer,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Holmes,UNKNOWN,property_appraisal,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/fl_county_coverage_matrix.csv
+FL,Indian River,fl_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_all_counties.ps1, claude/phase-33-5-florida-production-source-rights-audit.md, harvesters/governance/authorization.py"
+FL,Indian River,fl_lienhub_certificates,tax_certificate,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_lienhub_certificates.ps1, harvesters/governance/authorization.py"
+FL,Indian River,fl_laft_pdfs,laft_deed_list,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"scripts/harvest_laft_pdfs.py, data/laft_pdf_sources.csv, claude/phase-33-5-florida-production-source-rights-audit.md"
+FL,Indian River,FDOR Statewide Cadastral FeatureServer,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Indian River,UNKNOWN,property_appraisal,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/fl_county_coverage_matrix.csv
+FL,Jackson,fl_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_all_counties.ps1, claude/phase-33-5-florida-production-source-rights-audit.md, harvesters/governance/authorization.py"
+FL,Jackson,fl_lienhub_certificates,tax_certificate,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_lienhub_certificates.ps1, harvesters/governance/authorization.py"
+FL,Jackson,fl_laft_pdfs,laft_deed_list,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"scripts/harvest_laft_pdfs.py, data/laft_pdf_sources.csv, claude/phase-33-5-florida-production-source-rights-audit.md"
+FL,Jackson,FDOR Statewide Cadastral FeatureServer,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Jackson,UNKNOWN,property_appraisal,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/fl_county_coverage_matrix.csv
+FL,Jefferson,fl_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_all_counties.ps1, claude/phase-33-5-florida-production-source-rights-audit.md, harvesters/governance/authorization.py"
+FL,Jefferson,fl_lienhub_certificates,tax_certificate,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_lienhub_certificates.ps1, harvesters/governance/authorization.py"
+FL,Jefferson,fl_laft_pdfs,laft_deed_list,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"scripts/harvest_laft_pdfs.py, data/laft_pdf_sources.csv, claude/phase-33-5-florida-production-source-rights-audit.md"
+FL,Jefferson,FDOR Statewide Cadastral FeatureServer,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Jefferson,UNKNOWN,property_appraisal,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/fl_county_coverage_matrix.csv
+FL,Lafayette,fl_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_all_counties.ps1, claude/phase-33-5-florida-production-source-rights-audit.md, harvesters/governance/authorization.py"
+FL,Lafayette,fl_lienhub_certificates,tax_certificate,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_lienhub_certificates.ps1, harvesters/governance/authorization.py"
+FL,Lafayette,fl_laft_pdfs,laft_deed_list,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"scripts/harvest_laft_pdfs.py, data/laft_pdf_sources.csv, claude/phase-33-5-florida-production-source-rights-audit.md"
+FL,Lafayette,FDOR Statewide Cadastral FeatureServer,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Lafayette,UNKNOWN,property_appraisal,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/fl_county_coverage_matrix.csv
+FL,Lake,fl_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_all_counties.ps1, claude/phase-33-5-florida-production-source-rights-audit.md, harvesters/governance/authorization.py"
+FL,Lake,fl_lienhub_certificates,tax_certificate,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_lienhub_certificates.ps1, harvesters/governance/authorization.py"
+FL,Lake,fl_laft_pdfs,laft_deed_list,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"scripts/harvest_laft_pdfs.py, data/laft_pdf_sources.csv, claude/phase-33-5-florida-production-source-rights-audit.md"
+FL,Lake,FDOR Statewide Cadastral FeatureServer,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Lake,UNKNOWN,property_appraisal,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/fl_county_coverage_matrix.csv
+FL,Lee,fl_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_all_counties.ps1, claude/phase-33-5-florida-production-source-rights-audit.md, harvesters/governance/authorization.py"
+FL,Lee,fl_lienhub_certificates,tax_certificate,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_lienhub_certificates.ps1, harvesters/governance/authorization.py"
+FL,Lee,fl_laft_pdfs,laft_deed_list,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"scripts/harvest_laft_pdfs.py, data/laft_pdf_sources.csv, claude/phase-33-5-florida-production-source-rights-audit.md"
+FL,Lee,FDOR Statewide Cadastral FeatureServer,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Lee,Lee County Property Appraiser,property_appraisal,NO,YES,MECHANISM_CONFIRMED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Leon,fl_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_all_counties.ps1, claude/phase-33-5-florida-production-source-rights-audit.md, harvesters/governance/authorization.py"
+FL,Leon,fl_lienhub_certificates,tax_certificate,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_lienhub_certificates.ps1, harvesters/governance/authorization.py"
+FL,Leon,fl_laft_pdfs,laft_deed_list,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"scripts/harvest_laft_pdfs.py, data/laft_pdf_sources.csv, claude/phase-33-5-florida-production-source-rights-audit.md"
+FL,Leon,FDOR Statewide Cadastral FeatureServer,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Leon,UNKNOWN,property_appraisal,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/fl_county_coverage_matrix.csv
+FL,Levy,fl_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_all_counties.ps1, claude/phase-33-5-florida-production-source-rights-audit.md, harvesters/governance/authorization.py"
+FL,Levy,fl_lienhub_certificates,tax_certificate,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_lienhub_certificates.ps1, harvesters/governance/authorization.py"
+FL,Levy,fl_laft_pdfs,laft_deed_list,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"scripts/harvest_laft_pdfs.py, data/laft_pdf_sources.csv, claude/phase-33-5-florida-production-source-rights-audit.md"
+FL,Levy,FDOR Statewide Cadastral FeatureServer,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Levy,UNKNOWN,property_appraisal,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/fl_county_coverage_matrix.csv
+FL,Liberty,fl_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_all_counties.ps1, claude/phase-33-5-florida-production-source-rights-audit.md, harvesters/governance/authorization.py"
+FL,Liberty,fl_lienhub_certificates,tax_certificate,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_lienhub_certificates.ps1, harvesters/governance/authorization.py"
+FL,Liberty,fl_laft_pdfs,laft_deed_list,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"scripts/harvest_laft_pdfs.py, data/laft_pdf_sources.csv, claude/phase-33-5-florida-production-source-rights-audit.md"
+FL,Liberty,FDOR Statewide Cadastral FeatureServer,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Liberty,UNKNOWN,property_appraisal,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/fl_county_coverage_matrix.csv
+FL,Madison,fl_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_all_counties.ps1, claude/phase-33-5-florida-production-source-rights-audit.md, harvesters/governance/authorization.py"
+FL,Madison,fl_lienhub_certificates,tax_certificate,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_lienhub_certificates.ps1, harvesters/governance/authorization.py"
+FL,Madison,fl_laft_pdfs,laft_deed_list,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"scripts/harvest_laft_pdfs.py, data/laft_pdf_sources.csv, claude/phase-33-5-florida-production-source-rights-audit.md"
+FL,Madison,FDOR Statewide Cadastral FeatureServer,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Madison,UNKNOWN,property_appraisal,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/fl_county_coverage_matrix.csv
+FL,Manatee,fl_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_all_counties.ps1, claude/phase-33-5-florida-production-source-rights-audit.md, harvesters/governance/authorization.py"
+FL,Manatee,fl_lienhub_certificates,tax_certificate,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_lienhub_certificates.ps1, harvesters/governance/authorization.py"
+FL,Manatee,fl_laft_pdfs,laft_deed_list,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"scripts/harvest_laft_pdfs.py, data/laft_pdf_sources.csv, claude/phase-33-5-florida-production-source-rights-audit.md"
+FL,Manatee,FDOR Statewide Cadastral FeatureServer,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Manatee,UNKNOWN,property_appraisal,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/fl_county_coverage_matrix.csv
+FL,Marion,fl_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_all_counties.ps1, claude/phase-33-5-florida-production-source-rights-audit.md, harvesters/governance/authorization.py"
+FL,Marion,fl_lienhub_certificates,tax_certificate,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_lienhub_certificates.ps1, harvesters/governance/authorization.py"
+FL,Marion,fl_laft_pdfs,laft_deed_list,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"scripts/harvest_laft_pdfs.py, data/laft_pdf_sources.csv, claude/phase-33-5-florida-production-source-rights-audit.md"
+FL,Marion,FDOR Statewide Cadastral FeatureServer,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Marion,UNKNOWN,property_appraisal,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/fl_county_coverage_matrix.csv
+FL,Martin,fl_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_all_counties.ps1, claude/phase-33-5-florida-production-source-rights-audit.md, harvesters/governance/authorization.py"
+FL,Martin,fl_lienhub_certificates,tax_certificate,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_lienhub_certificates.ps1, harvesters/governance/authorization.py"
+FL,Martin,fl_laft_pdfs,laft_deed_list,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"scripts/harvest_laft_pdfs.py, data/laft_pdf_sources.csv, claude/phase-33-5-florida-production-source-rights-audit.md"
+FL,Martin,FDOR Statewide Cadastral FeatureServer,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Martin,UNKNOWN,property_appraisal,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/fl_county_coverage_matrix.csv
+FL,Miami-Dade,fl_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_all_counties.ps1, claude/phase-33-5-florida-production-source-rights-audit.md, harvesters/governance/authorization.py"
+FL,Miami-Dade,fl_lienhub_certificates,tax_certificate,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_lienhub_certificates.ps1, harvesters/governance/authorization.py"
+FL,Miami-Dade,fl_laft_pdfs,laft_deed_list,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"scripts/harvest_laft_pdfs.py, data/laft_pdf_sources.csv, claude/phase-33-5-florida-production-source-rights-audit.md"
+FL,Miami-Dade,FDOR Statewide Cadastral FeatureServer,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Miami-Dade,Property Appraiser of Miami-Dade County,property_appraisal,NO,YES,MECHANISM_CONFIRMED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Monroe,fl_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_all_counties.ps1, claude/phase-33-5-florida-production-source-rights-audit.md, harvesters/governance/authorization.py"
+FL,Monroe,fl_lienhub_certificates,tax_certificate,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_lienhub_certificates.ps1, harvesters/governance/authorization.py"
+FL,Monroe,fl_laft_pdfs,laft_deed_list,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"scripts/harvest_laft_pdfs.py, data/laft_pdf_sources.csv, claude/phase-33-5-florida-production-source-rights-audit.md"
+FL,Monroe,FDOR Statewide Cadastral FeatureServer,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Monroe,UNKNOWN,property_appraisal,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/fl_county_coverage_matrix.csv
+FL,Nassau,fl_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_all_counties.ps1, claude/phase-33-5-florida-production-source-rights-audit.md, harvesters/governance/authorization.py"
+FL,Nassau,fl_lienhub_certificates,tax_certificate,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_lienhub_certificates.ps1, harvesters/governance/authorization.py"
+FL,Nassau,fl_laft_pdfs,laft_deed_list,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"scripts/harvest_laft_pdfs.py, data/laft_pdf_sources.csv, claude/phase-33-5-florida-production-source-rights-audit.md"
+FL,Nassau,FDOR Statewide Cadastral FeatureServer,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Nassau,UNKNOWN,property_appraisal,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/fl_county_coverage_matrix.csv
+FL,Okaloosa,fl_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_all_counties.ps1, claude/phase-33-5-florida-production-source-rights-audit.md, harvesters/governance/authorization.py"
+FL,Okaloosa,fl_lienhub_certificates,tax_certificate,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_lienhub_certificates.ps1, harvesters/governance/authorization.py"
+FL,Okaloosa,fl_laft_pdfs,laft_deed_list,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"scripts/harvest_laft_pdfs.py, data/laft_pdf_sources.csv, claude/phase-33-5-florida-production-source-rights-audit.md"
+FL,Okaloosa,FDOR Statewide Cadastral FeatureServer,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Okaloosa,UNKNOWN,property_appraisal,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/fl_county_coverage_matrix.csv
+FL,Okeechobee,fl_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_all_counties.ps1, claude/phase-33-5-florida-production-source-rights-audit.md, harvesters/governance/authorization.py"
+FL,Okeechobee,fl_lienhub_certificates,tax_certificate,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_lienhub_certificates.ps1, harvesters/governance/authorization.py"
+FL,Okeechobee,fl_laft_pdfs,laft_deed_list,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"scripts/harvest_laft_pdfs.py, data/laft_pdf_sources.csv, claude/phase-33-5-florida-production-source-rights-audit.md"
+FL,Okeechobee,FDOR Statewide Cadastral FeatureServer,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Okeechobee,UNKNOWN,property_appraisal,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/fl_county_coverage_matrix.csv
+FL,Orange,fl_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_all_counties.ps1, claude/phase-33-5-florida-production-source-rights-audit.md, harvesters/governance/authorization.py"
+FL,Orange,fl_lienhub_certificates,tax_certificate,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_lienhub_certificates.ps1, harvesters/governance/authorization.py"
+FL,Orange,fl_laft_pdfs,laft_deed_list,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"scripts/harvest_laft_pdfs.py, data/laft_pdf_sources.csv, claude/phase-33-5-florida-production-source-rights-audit.md"
+FL,Orange,FDOR Statewide Cadastral FeatureServer,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Orange,Orange County Property Appraiser,property_appraisal,NO,YES,MECHANISM_CONFIRMED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Osceola,fl_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_all_counties.ps1, claude/phase-33-5-florida-production-source-rights-audit.md, harvesters/governance/authorization.py"
+FL,Osceola,fl_lienhub_certificates,tax_certificate,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_lienhub_certificates.ps1, harvesters/governance/authorization.py"
+FL,Osceola,fl_laft_pdfs,laft_deed_list,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"scripts/harvest_laft_pdfs.py, data/laft_pdf_sources.csv, claude/phase-33-5-florida-production-source-rights-audit.md"
+FL,Osceola,FDOR Statewide Cadastral FeatureServer,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Osceola,UNKNOWN,property_appraisal,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/fl_county_coverage_matrix.csv
+FL,Palm Beach,fl_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_all_counties.ps1, claude/phase-33-5-florida-production-source-rights-audit.md, harvesters/governance/authorization.py"
+FL,Palm Beach,fl_lienhub_certificates,tax_certificate,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_lienhub_certificates.ps1, harvesters/governance/authorization.py"
+FL,Palm Beach,fl_laft_pdfs,laft_deed_list,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"scripts/harvest_laft_pdfs.py, data/laft_pdf_sources.csv, claude/phase-33-5-florida-production-source-rights-audit.md"
+FL,Palm Beach,FDOR Statewide Cadastral FeatureServer,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Palm Beach,Palm Beach County Property Appraiser,property_appraisal,NO,YES,MECHANISM_CONFIRMED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Pasco,fl_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_all_counties.ps1, claude/phase-33-5-florida-production-source-rights-audit.md, harvesters/governance/authorization.py"
+FL,Pasco,fl_lienhub_certificates,tax_certificate,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_lienhub_certificates.ps1, harvesters/governance/authorization.py"
+FL,Pasco,fl_laft_pdfs,laft_deed_list,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"scripts/harvest_laft_pdfs.py, data/laft_pdf_sources.csv, claude/phase-33-5-florida-production-source-rights-audit.md"
+FL,Pasco,FDOR Statewide Cadastral FeatureServer,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Pasco,Pasco County Property Appraiser,property_appraisal,NO,YES,MECHANISM_CONFIRMED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Pinellas,fl_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_all_counties.ps1, claude/phase-33-5-florida-production-source-rights-audit.md, harvesters/governance/authorization.py"
+FL,Pinellas,fl_lienhub_certificates,tax_certificate,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_lienhub_certificates.ps1, harvesters/governance/authorization.py"
+FL,Pinellas,fl_laft_pdfs,laft_deed_list,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"scripts/harvest_laft_pdfs.py, data/laft_pdf_sources.csv, claude/phase-33-5-florida-production-source-rights-audit.md"
+FL,Pinellas,FDOR Statewide Cadastral FeatureServer,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Pinellas,Pinellas County Property Appraiser,property_appraisal,NO,YES,MECHANISM_CONFIRMED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Polk,fl_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_all_counties.ps1, claude/phase-33-5-florida-production-source-rights-audit.md, harvesters/governance/authorization.py"
+FL,Polk,fl_lienhub_certificates,tax_certificate,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_lienhub_certificates.ps1, harvesters/governance/authorization.py"
+FL,Polk,fl_laft_pdfs,laft_deed_list,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"scripts/harvest_laft_pdfs.py, data/laft_pdf_sources.csv, claude/phase-33-5-florida-production-source-rights-audit.md"
+FL,Polk,FDOR Statewide Cadastral FeatureServer,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Polk,Polk County Property Appraiser,property_appraisal,NO,YES,MECHANISM_CONFIRMED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Putnam,fl_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_all_counties.ps1, claude/phase-33-5-florida-production-source-rights-audit.md, harvesters/governance/authorization.py"
+FL,Putnam,fl_lienhub_certificates,tax_certificate,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_lienhub_certificates.ps1, harvesters/governance/authorization.py"
+FL,Putnam,fl_laft_pdfs,laft_deed_list,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"scripts/harvest_laft_pdfs.py, data/laft_pdf_sources.csv, claude/phase-33-5-florida-production-source-rights-audit.md"
+FL,Putnam,FDOR Statewide Cadastral FeatureServer,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Putnam,UNKNOWN,property_appraisal,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/fl_county_coverage_matrix.csv
+FL,Santa Rosa,fl_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_all_counties.ps1, claude/phase-33-5-florida-production-source-rights-audit.md, harvesters/governance/authorization.py"
+FL,Santa Rosa,fl_lienhub_certificates,tax_certificate,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_lienhub_certificates.ps1, harvesters/governance/authorization.py"
+FL,Santa Rosa,fl_laft_pdfs,laft_deed_list,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"scripts/harvest_laft_pdfs.py, data/laft_pdf_sources.csv, claude/phase-33-5-florida-production-source-rights-audit.md"
+FL,Santa Rosa,FDOR Statewide Cadastral FeatureServer,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Santa Rosa,UNKNOWN,property_appraisal,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/fl_county_coverage_matrix.csv
+FL,Sarasota,fl_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_all_counties.ps1, claude/phase-33-5-florida-production-source-rights-audit.md, harvesters/governance/authorization.py"
+FL,Sarasota,fl_lienhub_certificates,tax_certificate,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_lienhub_certificates.ps1, harvesters/governance/authorization.py"
+FL,Sarasota,fl_laft_pdfs,laft_deed_list,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"scripts/harvest_laft_pdfs.py, data/laft_pdf_sources.csv, claude/phase-33-5-florida-production-source-rights-audit.md"
+FL,Sarasota,FDOR Statewide Cadastral FeatureServer,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Sarasota,UNKNOWN,property_appraisal,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/fl_county_coverage_matrix.csv
+FL,Seminole,fl_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_all_counties.ps1, claude/phase-33-5-florida-production-source-rights-audit.md, harvesters/governance/authorization.py"
+FL,Seminole,fl_lienhub_certificates,tax_certificate,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_lienhub_certificates.ps1, harvesters/governance/authorization.py"
+FL,Seminole,fl_laft_pdfs,laft_deed_list,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"scripts/harvest_laft_pdfs.py, data/laft_pdf_sources.csv, claude/phase-33-5-florida-production-source-rights-audit.md"
+FL,Seminole,FDOR Statewide Cadastral FeatureServer,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Seminole,UNKNOWN,property_appraisal,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/fl_county_coverage_matrix.csv
+FL,St. Johns,fl_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_all_counties.ps1, claude/phase-33-5-florida-production-source-rights-audit.md, harvesters/governance/authorization.py"
+FL,St. Johns,fl_lienhub_certificates,tax_certificate,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_lienhub_certificates.ps1, harvesters/governance/authorization.py"
+FL,St. Johns,fl_laft_pdfs,laft_deed_list,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"scripts/harvest_laft_pdfs.py, data/laft_pdf_sources.csv, claude/phase-33-5-florida-production-source-rights-audit.md"
+FL,St. Johns,FDOR Statewide Cadastral FeatureServer,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,St. Johns,UNKNOWN,property_appraisal,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/fl_county_coverage_matrix.csv
+FL,St. Lucie,fl_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_all_counties.ps1, claude/phase-33-5-florida-production-source-rights-audit.md, harvesters/governance/authorization.py"
+FL,St. Lucie,fl_lienhub_certificates,tax_certificate,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_lienhub_certificates.ps1, harvesters/governance/authorization.py"
+FL,St. Lucie,fl_laft_pdfs,laft_deed_list,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"scripts/harvest_laft_pdfs.py, data/laft_pdf_sources.csv, claude/phase-33-5-florida-production-source-rights-audit.md"
+FL,St. Lucie,FDOR Statewide Cadastral FeatureServer,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,St. Lucie,UNKNOWN,property_appraisal,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/fl_county_coverage_matrix.csv
+FL,Sumter,fl_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_all_counties.ps1, claude/phase-33-5-florida-production-source-rights-audit.md, harvesters/governance/authorization.py"
+FL,Sumter,fl_lienhub_certificates,tax_certificate,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_lienhub_certificates.ps1, harvesters/governance/authorization.py"
+FL,Sumter,fl_laft_pdfs,laft_deed_list,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"scripts/harvest_laft_pdfs.py, data/laft_pdf_sources.csv, claude/phase-33-5-florida-production-source-rights-audit.md"
+FL,Sumter,FDOR Statewide Cadastral FeatureServer,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Sumter,UNKNOWN,property_appraisal,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/fl_county_coverage_matrix.csv
+FL,Suwannee,fl_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_all_counties.ps1, claude/phase-33-5-florida-production-source-rights-audit.md, harvesters/governance/authorization.py"
+FL,Suwannee,fl_lienhub_certificates,tax_certificate,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_lienhub_certificates.ps1, harvesters/governance/authorization.py"
+FL,Suwannee,fl_laft_pdfs,laft_deed_list,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"scripts/harvest_laft_pdfs.py, data/laft_pdf_sources.csv, claude/phase-33-5-florida-production-source-rights-audit.md"
+FL,Suwannee,FDOR Statewide Cadastral FeatureServer,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Suwannee,UNKNOWN,property_appraisal,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/fl_county_coverage_matrix.csv
+FL,Taylor,fl_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_all_counties.ps1, claude/phase-33-5-florida-production-source-rights-audit.md, harvesters/governance/authorization.py"
+FL,Taylor,fl_lienhub_certificates,tax_certificate,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_lienhub_certificates.ps1, harvesters/governance/authorization.py"
+FL,Taylor,fl_laft_pdfs,laft_deed_list,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"scripts/harvest_laft_pdfs.py, data/laft_pdf_sources.csv, claude/phase-33-5-florida-production-source-rights-audit.md"
+FL,Taylor,FDOR Statewide Cadastral FeatureServer,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Taylor,UNKNOWN,property_appraisal,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/fl_county_coverage_matrix.csv
+FL,Union,fl_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_all_counties.ps1, claude/phase-33-5-florida-production-source-rights-audit.md, harvesters/governance/authorization.py"
+FL,Union,fl_lienhub_certificates,tax_certificate,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_lienhub_certificates.ps1, harvesters/governance/authorization.py"
+FL,Union,fl_laft_pdfs,laft_deed_list,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"scripts/harvest_laft_pdfs.py, data/laft_pdf_sources.csv, claude/phase-33-5-florida-production-source-rights-audit.md"
+FL,Union,FDOR Statewide Cadastral FeatureServer,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Union,UNKNOWN,property_appraisal,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/fl_county_coverage_matrix.csv
+FL,Volusia,fl_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,LEGAL_REVIEW_REQUIRED,NO,"scripts/harvest_all_counties.ps1, claude/phase-33-5-florida-production-source-rights-audit.md, harvesters/governance/authorization.py"
+FL,Volusia,fl_lienhub_certificates,tax_certificate,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_lienhub_certificates.ps1, harvesters/governance/authorization.py"
+FL,Volusia,fl_laft_pdfs,laft_deed_list,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"scripts/harvest_laft_pdfs.py, data/laft_pdf_sources.csv, claude/phase-33-5-florida-production-source-rights-audit.md"
+FL,Volusia,FDOR Statewide Cadastral FeatureServer,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Volusia,Volusia County Property Appraiser's Office,property_appraisal,NO,YES,MECHANISM_CONFIRMED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Wakulla,fl_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_all_counties.ps1, claude/phase-33-5-florida-production-source-rights-audit.md, harvesters/governance/authorization.py"
+FL,Wakulla,fl_lienhub_certificates,tax_certificate,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_lienhub_certificates.ps1, harvesters/governance/authorization.py"
+FL,Wakulla,fl_laft_pdfs,laft_deed_list,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"scripts/harvest_laft_pdfs.py, data/laft_pdf_sources.csv, claude/phase-33-5-florida-production-source-rights-audit.md"
+FL,Wakulla,FDOR Statewide Cadastral FeatureServer,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Wakulla,UNKNOWN,property_appraisal,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/fl_county_coverage_matrix.csv
+FL,Walton,fl_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_all_counties.ps1, claude/phase-33-5-florida-production-source-rights-audit.md, harvesters/governance/authorization.py"
+FL,Walton,fl_lienhub_certificates,tax_certificate,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_lienhub_certificates.ps1, harvesters/governance/authorization.py"
+FL,Walton,fl_laft_pdfs,laft_deed_list,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"scripts/harvest_laft_pdfs.py, data/laft_pdf_sources.csv, claude/phase-33-5-florida-production-source-rights-audit.md"
+FL,Walton,FDOR Statewide Cadastral FeatureServer,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Walton,UNKNOWN,property_appraisal,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/fl_county_coverage_matrix.csv
+FL,Washington,fl_realauction,auction,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_all_counties.ps1, claude/phase-33-5-florida-production-source-rights-audit.md, harvesters/governance/authorization.py"
+FL,Washington,fl_lienhub_certificates,tax_certificate,YES,YES,CONTENT_VERIFIED,ACQUIRED,UNKNOWN,NO,"scripts/harvest_lienhub_certificates.ps1, harvesters/governance/authorization.py"
+FL,Washington,fl_laft_pdfs,laft_deed_list,YES,YES,CONTENT_VERIFIED,ACQUIRED,APPROVED,YES,"scripts/harvest_laft_pdfs.py, data/laft_pdf_sources.csv, claude/phase-33-5-florida-production-source-rights-audit.md"
+FL,Washington,FDOR Statewide Cadastral FeatureServer,gis,NO,YES,UNVERIFIED,NOT_ACQUIRED,DISCOVERED,NO,data/fl_county_coverage_matrix.csv
+FL,Washington,UNKNOWN,property_appraisal,NO,YES,UNVERIFIED,NOT_ACQUIRED,UNKNOWN,NO,data/fl_county_coverage_matrix.csv

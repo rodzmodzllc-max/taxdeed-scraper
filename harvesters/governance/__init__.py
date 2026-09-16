@@ -12,6 +12,7 @@ works without reaching into each submodule individually. See:
   - authorization.py   - AuthorizationStatus, ProviderAuthorization, PROVIDER_AUTHORIZATIONS, check_authorized_use() (Phase 34A - provider/county-level "requested vs authorized" tracking, additive to and never weakening the gate above)
   - source_catalog.py  - AcquisitionMethod, CoverageState, CatalogSource, gap_analysis() (Phase 35 - the discovery/classification-stage county/source catalog; distinct from, and never a substitute for, SOURCE_REGISTRY above)
   - promotion.py        - PROMOTION_USES, PromotionDecision, can_promote_source_for_use() (Phase 37 - the single "may this source be used for this exact purpose" decision, composing (1)/(2)/(3) above in a fixed, fail-closed order; holds no authorization data of its own)
+  - verification.py     - DiscoveryStatus, VerificationStatus, TechnicalAcquisitionStatus, DataMissingReason, CountyReadinessState, SourceVerificationRecord, VendorCandidate, county_readiness()/all_county_readiness() (Phase 37/38 - the engineering-progress axis: how far has this project gotten in finding/inspecting/acquiring a source, kept strictly separate from legal authorization above; production status is always computed live via promotion.py, never stored)
 """
 
 from .authorization import (
@@ -65,6 +66,24 @@ from .promotion import (
     can_promote_source_for_use,
 )
 from .restrictions import BLOCKS_API_EXPORT, BLOCKS_CUSTOMER_DISPLAY, FIELD_SHAPE_KEYWORDS, Restriction
+from .verification import (
+    CountyReadinessState,
+    DataMissingReason,
+    DiscoveryStatus,
+    SOURCE_VERIFICATION_RECORDS,
+    SourceVerificationRecord,
+    TechnicalAcquisitionStatus,
+    VENDOR_CANDIDATES,
+    VendorCandidate,
+    VerificationStatus,
+    all_county_readiness,
+    all_vendor_candidates,
+    all_verification_records,
+    county_readiness,
+    full_county_readiness,
+    get_verification_record,
+    production_enabled_for_county,
+)
 from .source_catalog import (
     AcquisitionMethod,
     CatalogSource,
@@ -141,4 +160,20 @@ __all__ = [
     "load_fl_matrix",
     "load_terms_review",
     "load_tx_matrix",
+    "CountyReadinessState",
+    "DataMissingReason",
+    "DiscoveryStatus",
+    "SOURCE_VERIFICATION_RECORDS",
+    "SourceVerificationRecord",
+    "TechnicalAcquisitionStatus",
+    "VENDOR_CANDIDATES",
+    "VendorCandidate",
+    "VerificationStatus",
+    "all_county_readiness",
+    "all_vendor_candidates",
+    "all_verification_records",
+    "county_readiness",
+    "full_county_readiness",
+    "get_verification_record",
+    "production_enabled_for_county",
 ]
