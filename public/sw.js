@@ -74,7 +74,24 @@
 // unscalable-off meta against a fresh stylesheet (or vice versa) would
 // leave the disappearing-nav bug in place for exactly the returning users
 // on the courthouse wifi this cache exists to help.
-const CACHE = "tdw-shell-v20";
+//
+// v21: three fixes from testing the packaged Android app (TWA). (1) dropped
+// viewport-fit=cover from index.html/tx.html - it made the fixed bottom nav
+// visibly shift/move once packaged as a TWA, which handles edge-to-edge
+// insets differently than a plain Chrome tab; the zoom-lock from v20 stays.
+// (2) real bug fix: #app (id="app" class="app-shell") stayed visible behind
+// the sign-in screen because `.app-shell{display:block}` ties in specificity
+// with the browser's own `[hidden]{display:none}` and, being later in the
+// cascade, was winning - so scrolling past the login card on #authGate (not
+// position:fixed, just min-height:100vh) reached the live ledger underneath.
+// Added .app-shell[hidden]{display:none}, same fix already applied to
+// #authGate/#pendingGate/.filters-row elsewhere in this file. (3) dropped
+// the 1px outline from .detail-stat/.card-stat/.stat-tile - a page full of
+// bordered boxes read as an itemized receipt; replaced with a soft shadow
+// (detail-stat/stat-tile) or a plain background tint (card-stat, which
+// already sits inside another bordered card). index.html, tx.html and
+// styles.css all changed together.
+const CACHE = "tdw-shell-v21";
 const SHELL = [
   "/",
   "/index.html",

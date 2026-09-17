@@ -742,9 +742,15 @@ summary.county-head::-webkit-details-marker{display:none}
    splitting attention across three same-sized boxes. ---- */
 .card-stat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.4rem;margin-top:.45rem}
 .card-stat-grid.card-stat-grid-2{grid-template-columns:repeat(2,1fr);gap:.5rem}
-.card-stat{background:var(--paper);border:1px solid var(--card-line);border-radius:3px;
+/* Phase (mobile UX pass): dropped the 1px outline that used to box every
+   one of these in - three+ bordered rectangles per card, on a page full of
+   bordered cards, read as an itemized receipt rather than a property
+   listing. A subtle background tint against the card's own surface is
+   enough separation; the numbers themselves (mono, tabular, color-coded
+   above) still carry the visual weight. */
+.card-stat{background:var(--paper);border-radius:4px;
   padding:.4rem .5rem;min-width:0}
-.card-stat-headline{padding:.55rem .65rem;border-width:1.5px;border-color:var(--accent-line,var(--card-line));
+.card-stat-headline{padding:.55rem .65rem .55rem .55rem;border-left:3px solid var(--accent);
   background:var(--paper-raised,var(--paper))}
 .card-stat-label{display:flex;align-items:center;gap:.25rem;font-size:.62rem;text-transform:uppercase;
   letter-spacing:.04em;color:var(--ink-soft);margin-bottom:.1rem}
@@ -924,8 +930,11 @@ summary.county-head::-webkit-details-marker{display:none}
   line-height:1.25;margin:.3rem 0 .2rem;clear:both}
 .detail-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:.6rem;
   margin:.8rem 0}
-.detail-stat{background:var(--card);border:1px solid var(--card-line);border-radius:3px;
-  padding:.55rem .65rem}
+/* Phase (mobile UX pass): border -> soft shadow, same reasoning as
+   .card-stat above - a grid of outlined boxes was the "purchase receipt"
+   look. box-shadow lifts each tile off the page instead of outlining it. */
+.detail-stat{background:var(--card);border-radius:6px;
+  padding:.55rem .65rem;box-shadow:var(--shadow)}
 .detail-stat-label{font-size:.62rem;text-transform:uppercase;letter-spacing:.04em;
   color:var(--ink-soft);display:block;margin-bottom:.15rem}
 .detail-stat-val{font-family:var(--font-mono);font-variant-numeric:tabular-nums;
@@ -1147,6 +1156,19 @@ footer{padding:1.2rem 1.1rem 0;font-size:.72rem;color:var(--ink-soft);text-align
    navigation layer and desktop-width enhancements around it. ==================================================================== */
 
 .app-shell{display:block}
+/* Bug fix (mobile UX pass): #app carries both id="app" and class="app-shell",
+   and is given the `hidden` attribute pre-login (index.html). The `hidden`
+   attribute's UA-stylesheet rule (`[hidden]{display:none}`) has the exact
+   same specificity as this plain class selector, and this rule is the one
+   that appears later in the cascade - so on a specificity tie, THIS rule
+   silently wins and #app stays visible and in normal flow the whole time
+   the sign-in screen is showing. #authGate/#pendingGate aren't position:
+   fixed, they're inline flow (min-height:100vh) - so #app sitting visible
+   right after them in the DOM was reachable by scrolling straight past the
+   login card ("scroll up and see the ledger" on the sign-in screen). Same
+   bug class as #authGate[hidden]/#installBtn[hidden]/.filters-row[hidden]
+   elsewhere in this file - this one instance was missed. */
+.app-shell[hidden]{display:none}
 .nav-rail{display:none}
 .nav-bottom{display:none}
 
@@ -1208,7 +1230,9 @@ footer{padding:1.2rem 1.1rem 0;font-size:.72rem;color:var(--ink-soft);text-align
 .dash-stats{display:grid;grid-template-columns:repeat(2,1fr);gap:.6rem;padding:.8rem .6rem}
 @media (min-width:640px){.dash-stats{grid-template-columns:repeat(4,1fr)}}
 @media (min-width:1024px){.dash-stats{padding:0 0 1rem}}
-.stat-tile{background:var(--card);border:1px solid var(--card-line);border-radius:3px;padding:.85rem .9rem}
+/* Phase (mobile UX pass): border -> soft shadow, same reasoning as
+   .card-stat/.detail-stat above. */
+.stat-tile{background:var(--card);border-radius:6px;padding:.85rem .9rem;box-shadow:var(--shadow)}
 .stat-tile-label{font-size:.68rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-soft)}
 .stat-tile-val{font-family:var(--font-mono);font-variant-numeric:tabular-nums;font-weight:700;
   font-size:1.5rem;color:var(--ink);margin-top:.2rem}
