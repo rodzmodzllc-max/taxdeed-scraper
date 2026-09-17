@@ -78,6 +78,14 @@ owner approves it, so there'd be nothing to show here anyway. -->
 <button class="nav-item" data-page="map" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 6l7-3 8 3 7-3v16l-7 3-8-3-1 3z"/><path d="M8 3v16M16 6v16"/></svg>Map</button>
 <button class="nav-item" id="navWatchlistBtn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 21V4a1 1 0 011-1c1.2 0 1.2 1 3 1s1.8-1 3.5-1 1.3 1 3.5 1a1 1 0 011 1v9a1 1 0 01-1 1c-2.2 0-2.3-1-3.5-1s-1.3 1-3.5 1-1.8-1-3-1"/></svg>Watchlist <b id="navWatchlistCount">0/10</b></button>
 </div>
+<!-- Same account menu as the header badge and the Dashboard's own Settings
+button - a third entry point, matching the reference design's sidebar gear
+icon. Deliberately not a fourth nav-list item wired to a new page: unlike
+Dashboard/Auctions/Map/Watchlist, there's no separate "Settings page" -
+just the existing theme/password/install/sign-out menu. -->
+<div class="nav-rail-foot">
+<button class="nav-item" id="navSettingsBtn" type="button" aria-haspopup="true" aria-controls="accountMenu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 004.6 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.6a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>Settings</button>
+</div>
 <div class="nav-rail-portfolio" id="navPortfolio">
 <h3>Portfolio Overview</h3>
 <div class="nav-rail-stat"><span>Total Properties</span><b id="navStatTotal">0</b></div>
@@ -157,6 +165,14 @@ easy to miss on a phone. See openAccountMenu() in app.js. -->
 <div class="dash-panel">
 <div class="dash-panel-head">By Ledger</div>
 <div id="dashLedgerRows"></div>
+</div>
+<!-- Real, not fabricated: built straight from each row's own sale_date in
+renderDashboard()'s upcomingAuctionRows() - no synthetic "recent activity"
+feed, since this project has no events/audit-log table to source one from
+honestly. -->
+<div class="dash-panel">
+<div class="dash-panel-head">Upcoming Auctions</div>
+<div id="dashUpcomingRows"></div>
 </div>
 </div>
 </section>

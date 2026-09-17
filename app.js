@@ -389,7 +389,14 @@ const ICON_PATHS = {
   home: '<path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/>',
   dollar: '<path d="M12 2v20M17 6.5c0-1.9-2.2-3.5-5-3.5S7 4.6 7 6.5s2 3 5 3.5 5 1.6 5 3.5-2.2 3.5-5 3.5-5-1.6-5-3.5"/>',
   clipboard: '<rect x="6" y="4" width="12" height="17" rx="1.5"/><path d="M9 4V3a1 1 0 011-1h4a1 1 0 011 1v1M9 11h6M9 15h6"/>',
-  gavel: '<path d="M13.5 5.5l5 5M8 11l-5.5 5.5a1 1 0 000 1.4l3.1 3.1a1 1 0 001.4 0L12.5 15.5M11 6.5l5-5 3.5 3.5-5 5-3.5-3.5z"/><path d="M17 17l4 4M3 21h9"/>'
+  gavel: '<path d="M13.5 5.5l5 5M8 11l-5.5 5.5a1 1 0 000 1.4l3.1 3.1a1 1 0 001.4 0L12.5 15.5M11 6.5l5-5 3.5 3.5-5 5-3.5-3.5z"/><path d="M17 17l4 4M3 21h9"/>',
+  // Added for the Dashboard stat-tile icon chips and the Risk & Legal /
+  // GIS & Location detail cards (Phase 51 visual rebuild) - a plain
+  // checkmark-in-circle (Active properties) and a compass-ish pin variant
+  // (location/coordinates) alongside the existing `pin` (county markers).
+  check: '<circle cx="12" cy="12" r="9"/><path d="M8.5 12.5l2.3 2.3L16 10"/>',
+  compass: '<circle cx="12" cy="12" r="9"/><path d="M15 9l-2 6-6 2 2-6z"/>',
+  gear: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 004.6 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.6a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/>'
 };
 const svgIcon = (name, cls) => `<svg class="${cls || "icon"}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON_PATHS[name] || ""}</svg>`;
 
@@ -709,6 +716,43 @@ function fallbackStreetviewUrl(p) {
   }
   if (!p.address) return "";
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(p.address + ", " + p.county + " County, " + regionOf(p))}`;
+}
+
+// ==================== property photos (Phase 51) ====================
+// p.photo_url follows the NULL/''/real-value contract documented in
+// scripts/fetch_property_photos.py: NULL = not checked yet, '' = checked,
+// no Street View coverage there (common for vacant land), a real value =
+// a cached public Supabase Storage image. Both non-real states render the
+// exact same honest placeholder - the UI never distinguishes "haven't
+// looked yet" from "looked, nothing there" because neither is a photo, and
+// pretending otherwise (a fake stock house image, a broken <img>) would be
+// worse than a plain placeholder in both cases.
+function hasPhoto(p) { return typeof p.photo_url === "string" && p.photo_url.length > 0; }
+// cls picks the size via CSS (card vs. detail-hero) - one markup shape,
+// two presentations, same pattern as photoOrPlaceholder's callers below.
+function photoOrPlaceholder(p, cls) {
+  if (hasPhoto(p)) {
+    return `<div class="${cls} has-photo"><img src="${esc(p.photo_url)}" alt="" loading="lazy" width="640" height="400"></div>`;
+  }
+  // Compact bar, not a full-size empty photo box - see the CSS comment on
+  // .prop-card-photo.no-photo. Most rows don't have a cached photo yet
+  // (the harvest pipeline is real but not activated - see CLAUDE.md's
+  // "Property photos" section), and a blank photo-sized rectangle on every
+  // single card would waste far more space than the honest small "no photo"
+  // strip this renders instead.
+  return `<div class="${cls} no-photo">${svgIcon(isBareLand(p) ? "layers" : "building")}<span>No photo available</span></div>`;
+}
+// A small, free, key-less embedded map (OpenStreetMap's own export/embed
+// iframe) for the detail view's GIS & Location card - only ever rendered
+// when scripts/geocode_properties.py has actually filled in real
+// coordinates (see hasNum(p.latitude) guard at the call site), so this
+// never draws a map pin at a guessed location. A ~0.006 degree box is
+// roughly a 2-3 block window at Florida/Texas latitudes - enough to place
+// the parcel in its neighborhood without needing a zoom control.
+function osmEmbedUrl(lat, lon) {
+  const d = 0.006;
+  const bbox = [lon - d, lat - d, lon + d, lat + d].join("%2C");
+  return `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${lat}%2C${lon}`;
 }
 
 function propType(p) {
@@ -1727,6 +1771,7 @@ function card(p, showCounty) {
   el.innerHTML = `
     ${isClosed ? `<div class="closed-banner${Number(p.sold_price) > 0 ? " sold" : ""}">✓ ${esc(outcomeText(p))}${p.gone_since ? ` <span class="closed-when">${esc(fmtDate(String(p.gone_since).slice(0, 10)))}</span>` : ""}</div>` : ""}
     ${top ? `<div class="toppick-banner">★ Top pick <span class="ratio-pill">${valueRatio(p).toFixed(1)}× market vs bid</span></div>` : ""}
+    ${photoOrPlaceholder(p, "prop-card-photo")}
     ${tag}
     <div class="prop-top">
       <div class="prop-address">${titleLine}</div>
@@ -1897,6 +1942,78 @@ function calcDrawerHtml(p) {
     </details>`;
 }
 
+// ==================== detail sections (Phase 51 visual rebuild) ====================
+// The flat single .detail-grid (still used as-is for certificates below -
+// a lien instrument isn't a parcel with a photo/GIS location the way a
+// deed/LAFT row is, and Marc's reference design never depicts one) is
+// grouped into labeled cards for deed/LAFT properties: Financial /
+// Property Details / History pull from the exact same `stats` computation
+// as before (just tagged with a group name), and Risk & Legal / GIS &
+// Location are new - built from real fields only (coordinates, when
+// scripts/geocode_properties.py has filled them in) or, for the categories
+// this pipeline has zero real data for anywhere (liens, judgments,
+// foreclosure, code violations - see claude/phase-33-source-compliance-audit.md
+// and friends), an explicit "Not tracked" label rather than a fabricated
+// "None found" that would misrepresent an unresearched field as a clean
+// search result.
+function detailStatTip(label) {
+  if (label === "Fees") return infoTip(FEES_TIP);
+  if (label === "Homestead Exemption") return infoTip(HOMESTEAD_TIP);
+  if (label === "Est. Accrued Interest") return infoTip(ACCRUED_INTEREST_TIP);
+  if (label === "TDA Eligibility") return infoTip(TDA_ELIGIBLE_TIP);
+  if (label === "Gross Equity Spread") return infoTip(EQUITY_SPREAD_TIP);
+  if (label === "Walk Away Above") return infoTip(WALK_AWAY_TIP);
+  if (label === "Building / Improvement Value") return infoTip(BUILDING_VALUE_TIP);
+  return "";
+}
+function detailStatTileHtml([label, val]) {
+  const tip = detailStatTip(label);
+  return `<div class="detail-stat"><span class="detail-stat-label">${esc(label)}${tip ? " " + tip : ""}</span><span class="detail-stat-val">${esc(val)}</span></div>`;
+}
+function detailSectionHtml(title, bodyHtml, extraClass) {
+  return `<div class="detail-section${extraClass ? " " + extraClass : ""}">
+    <div class="detail-section-head">${esc(title)}</div>
+    ${bodyHtml}
+  </div>`;
+}
+function statGroupHtml(title, list) {
+  if (!list.length) return "";
+  return detailSectionHtml(title, `<div class="detail-grid">${list.map(detailStatTileHtml).join("")}</div>`);
+}
+// Always rendered for a deed/LAFT property (never for a certificate) - the
+// point is to make the absence of this data visible and honest, not to
+// hide the card when there's nothing to show.
+function riskLegalCardHtml() {
+  const rows = ["Liens", "Judgments", "Foreclosure", "Code Violations"];
+  const kv = rows.map(r => `<div class="kv-row"><span class="kv-label">${r}</span><span class="kv-val muted">Not tracked</span></div>`).join("");
+  return detailSectionHtml("Risk & Legal",
+    `<p class="detail-section-note">Not part of this app's data pipeline yet — always verify liens, judgments, foreclosure status and code-enforcement actions directly with the county Clerk of Court and Code Enforcement office before bidding.</p>
+     <div class="kv-list">${kv}</div>`, "risk-legal-card");
+}
+// Coordinates only ever come from scripts/geocode_properties.py's real
+// Census Bureau geocode - never guessed here - so a present latitude/
+// longitude is always genuine and safe to drop straight into a map embed.
+function gisLocationCardHtml(p) {
+  const hasCoords = hasNum(p.latitude) && hasNum(p.longitude);
+  const kv = `
+    <div class="kv-row"><span class="kv-label">Latitude</span><span class="kv-val${hasCoords ? " mono" : " muted"}">${hasCoords ? p.latitude.toFixed(5) : "Not yet geocoded"}</span></div>
+    <div class="kv-row"><span class="kv-label">Longitude</span><span class="kv-val${hasCoords ? " mono" : " muted"}">${hasCoords ? p.longitude.toFixed(5) : "Not yet geocoded"}</span></div>`;
+  const embed = hasCoords ? `<div class="detail-map-embed"><iframe src="${esc(osmEmbedUrl(p.latitude, p.longitude))}" loading="lazy" title="Property location map" referrerpolicy="no-referrer-when-downgrade"></iframe></div>` : "";
+  return detailSectionHtml("GIS & Location", `<div class="kv-list">${kv}</div>${embed}`);
+}
+// Kept as the exact original .detail-provenance markup/text (two plain
+// <span>s: "Data source: X" and lastSyncedText()'s own wording) inside the
+// new labeled card - tests/run_test.mjs's detailProvenanceText regex reads
+// this element's raw text, so the wording and span structure are
+// untouched; only the surrounding heading/card chrome is new.
+function provenanceCardHtml(p) {
+  const body = `<div class="detail-provenance">
+      ${harvesterSourceLabel(p) ? `<span>Data source: ${esc(harvesterSourceLabel(p))}</span>` : ""}
+      <span class="${isRowStale(p) ? "stale" : ""}">${esc(lastSyncedText(p))}</span>
+    </div>`;
+  return detailSectionHtml("Data Quality & Provenance", body, "provenance-card");
+}
+
 function detailHtml(p) {
   const isCert = p.source === "certificate";
   const fav = FAVS.has(p.id);
@@ -1929,13 +2046,17 @@ function detailHtml(p) {
     (detailStreet ? esc(detailStreet) : lotTitle(p));
   const bidPublished = hasPublishedBid(p);
 
+  // Each non-cert entry carries a 3rd element - which grouped card it lands
+  // in below (Financial / Property Details / History) - see statGroupHtml().
+  // The certificate branch below is untouched: 2-element entries, still
+  // rendered as the single flat .detail-grid it always has been.
   const stats = [];
   if (!isCert) {
-    stats.push(["Opening Bid", bidDisplay(p)]);
+    stats.push(["Opening Bid", bidDisplay(p), "financial"]);
     // Named for what it is - the appraiser's own just value for a stated roll
     // year - rather than the old "Market Value", which implied a live
     // estimate this app has never had and cannot legitimately obtain.
-    if (hasNum(p.market)) stats.push([valueLabel(p), fmtShort(p.market)]);
+    if (hasNum(p.market)) stats.push([valueLabel(p), fmtShort(p.market), "financial"]);
     // Phase 36 fix: this used to hardcode the label "County Assessed Value"
     // here, bypassing assessedSourceLabel() (Phase 14A) which exists
     // specifically so a Texas row's p.assessed - LGBS's raw CAD value or
@@ -1943,42 +2064,42 @@ function detailHtml(p) {
     // isn't mislabeled with Florida's statutory AV_NSD concept. This is the
     // same field/value, just now routed through the label helper this
     // detail modal had never actually called.
-    stats.push([assessedSourceLabel(p), hasNum(p.assessed) ? fmtShort(p.assessed) : "N/A"]);
-    if (hasNum(p.land_value)) stats.push(["Land Value", fmtShort(p.land_value)]);
+    stats.push([assessedSourceLabel(p), hasNum(p.assessed) ? fmtShort(p.assessed) : "N/A", "financial"]);
+    if (hasNum(p.land_value)) stats.push(["Land Value", fmtShort(p.land_value), "financial"]);
     // Just Value split into land vs. whatever's built on it - one FDOR-
     // sourced subtraction, not a new field. A bare lot reads as exactly
     // that instead of a mystery $0, which is the actual failure mode this
     // guards against: "House" as the type plus a six-figure Just Value
     // with nothing behind it usually means demolished or never built.
     const bv = buildingValue(p);
-    if (bv !== null) stats.push(["Building / Improvement Value", isBareLand(p) ? "None (bare land)" : fmtShort(bv)]);
-    if (p.homestead) stats.push(["Homestead Exemption", "Yes"]);
+    if (bv !== null) stats.push(["Building / Improvement Value", isBareLand(p) ? "None (bare land)" : fmtShort(bv), "financial"]);
+    if (p.homestead) stats.push(["Homestead Exemption", "Yes", "financial"]);
     if (bidPublished) {
       // Phase 36 fix: fees(p) now returns null for non-FL rows (see its own
       // comment) rather than a Florida-statute dollar figure - only show
       // this stat when there's a real number behind it.
       const feesAmt = fees(p);
-      if (feesAmt !== null) stats.push(["Fees", fmtShort(feesAmt)]);
-      stats.push(["Walk Away Above", fmtShort(maxBid(p))]);
+      if (feesAmt !== null) stats.push(["Fees", fmtShort(feesAmt), "financial"]);
+      stats.push(["Walk Away Above", fmtShort(maxBid(p)), "financial"]);
       if (marketOf(p) > 0) {
         const spreadAmt = marketOf(p) - Number(p.bid);
         // "Profit" implied the quiet title suit, municipal liens, and
         // rehab that Florida tax deed math never nets out for free - this
         // is the raw Just-Value-minus-bid baseline the calculator below
         // actually subtracts those from, so it's named for what it is.
-        stats.push(["Gross Equity Spread", `${spreadAmt >= 0 ? "+" : "-"}${fmtShort(Math.abs(spreadAmt))} (${valueRatio(p).toFixed(1)}×)`]);
+        stats.push(["Gross Equity Spread", `${spreadAmt >= 0 ? "+" : "-"}${fmtShort(Math.abs(spreadAmt))} (${valueRatio(p).toFixed(1)}×)`, "financial"]);
       }
     }
     // Tax-roll facts about the property itself, after the money. Each is
     // pushed only when the roll actually carried it - see the note on the
     // helpers: NULL here means "not on the roll", never "zero".
-    if (hasNum(p.year_built)) stats.push(["Year Built", String(p.year_built)]);
-    if (hasNum(p.living_area)) stats.push(["Living Area", fmtSqft(p.living_area)]);
-    if (hasNum(p.lot_sqft)) stats.push(["Lot Size", lotSize(p)]);
-    if (hasNum(p.num_buildings)) stats.push(["Buildings", String(p.num_buildings)]);
+    if (hasNum(p.year_built)) stats.push(["Year Built", String(p.year_built), "property"]);
+    if (hasNum(p.living_area)) stats.push(["Living Area", fmtSqft(p.living_area), "property"]);
+    if (hasNum(p.lot_sqft)) stats.push(["Lot Size", lotSize(p), "property"]);
+    if (hasNum(p.num_buildings)) stats.push(["Buildings", String(p.num_buildings), "property"]);
     const saleText = lastSaleText(p);
-    if (saleText) stats.push(["Last Sale", saleText]);
-    if (isGone(p)) stats.push(["Outcome", outcomeText(p)]);
+    if (saleText) stats.push(["Last Sale", saleText, "history"]);
+    if (isGone(p)) stats.push(["Outcome", outcomeText(p), "history"]);
   } else {
     stats.push(["Amount", bidDisplay(p)]);
     // Phase 36 fix: was a truthy check, which silently hid a genuine 0%
@@ -2021,9 +2142,17 @@ function detailHtml(p) {
       <span class="muni-lien-note">${infoTip(MUNI_LIEN_TIP)} Verify municipal/utility/IRS liens - these survive a tax deed sale</span>
     </div>` : ""}
     ${regionOf(p) === "TX" && classificationBadgeHtml(p) ? `<div class="prop-classification-line" style="margin:.2rem 0 .5rem">${classificationBadgeHtml(p)}</div>` : ""}
+    ${isCert ? `
     <div class="detail-grid">
-      ${stats.map(([label, val]) => `<div class="detail-stat"><span class="detail-stat-label">${esc(label)}${label === "Fees" ? " " + infoTip(FEES_TIP) : label === "Homestead Exemption" ? " " + infoTip(HOMESTEAD_TIP) : label === "Est. Accrued Interest" ? " " + infoTip(ACCRUED_INTEREST_TIP) : label === "TDA Eligibility" ? " " + infoTip(TDA_ELIGIBLE_TIP) : label === "Gross Equity Spread" ? " " + infoTip(EQUITY_SPREAD_TIP) : label === "Walk Away Above" ? " " + infoTip(WALK_AWAY_TIP) : label === "Building / Improvement Value" ? " " + infoTip(BUILDING_VALUE_TIP) : ""}</span><span class="detail-stat-val">${esc(val)}</span></div>`).join("")}
-    </div>
+      ${stats.map(detailStatTileHtml).join("")}
+    </div>` : `
+    ${photoOrPlaceholder(p, "detail-hero-photo")}
+    ${statGroupHtml("Financial", stats.filter(s => s[2] === "financial"))}
+    ${statGroupHtml("Property Details", stats.filter(s => s[2] === "property"))}
+    ${statGroupHtml("History", stats.filter(s => s[2] === "history"))}
+    ${riskLegalCardHtml()}
+    ${gisLocationCardHtml(p)}
+    `}
     ${/* Phase 36 fix: the calculator's Net Profit Estimate subtracts fees(p),
         which is now null for non-FL rows (no verified TX fee formula exists) -
         gating this to FL avoids computing a profit estimate that silently
@@ -2037,14 +2166,14 @@ function detailHtml(p) {
       ${!isCert ? `<button class="copy-btn owner-tag${p.owner_name ? "" : " unknown"}" ${p.owner_name ? `data-action="copy" data-copy="${esc(p.owner_name)}"` : ""} type="button"><span class="copy-tag">Owner</span><span class="copy-val">${esc(p.owner_name || "Unknown")}</span></button>` : ""}
       <button class="copy-btn" data-action="copy" data-copy="${esc(p.parcel || p.case_no || "")}" type="button"><span class="copy-tag">${isCert ? "Account" : "Parcel"}</span><span class="copy-val">${esc(p.parcel || p.case_no || "Unknown")}</span></button>
     </div>
-    <div class="detail-links">
+    ${detailSectionHtml("Research & Sources", `<div class="detail-links">
       ${links.length ? links.map(([label, href]) => `<a href="${esc(href)}" target="_blank" rel="noopener">${linkIcon(label)}${esc(label)}${isEstimatedLink(label, p) ? esc(" (estimated search)") : ""} →</a>`).join("") : `<span style="font-size:.78rem;color:var(--ink-soft)">No reference links harvested for this property yet.</span>`}
-    </div>
+    </div>`)}
     ${p.url_auction ? `<a class="detail-cta" href="${esc(p.url_auction)}" target="_blank" rel="noopener">${svgIcon("gavel")}${p.source === "laft" ? "View Clerk Docket / Listing" : "Bid on County Auction Site"}</a>` : ""}
-    <div class="detail-provenance">
+    ${isCert ? `<div class="detail-provenance">
       ${harvesterSourceLabel(p) ? `<span>Data source: ${esc(harvesterSourceLabel(p))}</span>` : ""}
       <span class="${isRowStale(p) ? "stale" : ""}">${esc(lastSyncedText(p))}</span>
-    </div>
+    </div>` : provenanceCardHtml(p)}
     ${noteHtml(p)}`;
 }
 
@@ -4124,6 +4253,14 @@ if (navWatchlistBtnEl) navWatchlistBtnEl.addEventListener("click", () => openBid
 const navBottomWatchlistBtnEl = document.getElementById("navBottomWatchlistBtn");
 if (navBottomWatchlistBtnEl) navBottomWatchlistBtnEl.addEventListener("click", () => openBidList());
 
+// Sidebar Settings entry (Phase 51 visual rebuild) - same account menu as
+// the header badge and the Dashboard's own Settings button, just a third
+// entry point matching the reference design's sidebar gear icon. No new
+// menu, no new page - openAccountMenu() already exists and is the single
+// source of truth for theme/password/install/sign-out.
+const navSettingsBtnEl = document.getElementById("navSettingsBtn");
+if (navSettingsBtnEl) navSettingsBtnEl.addEventListener("click", e => { e.stopPropagation(); openAccountMenu(); });
+
 // Deep-link support for the Map page's FL/TX switcher (#regionTabsMap):
 // index.html#map / tx.html#map opens straight to the Map tab instead of
 // dropping you on the default Auctions landing - the whole point of a
@@ -4161,11 +4298,31 @@ function dashboardStats() {
   return { rows, active, totalValue, byLedger, byCounty };
 }
 
+// Real, not fabricated: grouped straight from each row's own sale_date -
+// no synthetic "Recent Activity" feed (that would need an events/audit-log
+// table this project doesn't have) sits anywhere near this. Soonest-first,
+// grouped by (date, county) so "Sep 22, Hillsborough, 43 properties" reads
+// the way a person planning auction days actually thinks about it.
+function upcomingAuctionRows(active) {
+  const byKey = new Map();
+  active.forEach(p => {
+    if (!p.sale_date) return;
+    const d = daysUntil(p);
+    if (d === null || d < 0) return; // already passed - not "upcoming"
+    const key = p.sale_date + "|" + (p.county || "Unknown");
+    const cur = byKey.get(key) || { date: p.sale_date, county: p.county || "Unknown", count: 0 };
+    cur.count++;
+    byKey.set(key, cur);
+  });
+  return Array.from(byKey.values()).sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0).slice(0, 6);
+}
+
 function renderDashboard() {
   const statsEl = document.getElementById("dashStats");
   if (!statsEl) return; // dashboard markup not present (older fixture, etc.)
   const countyEl = document.getElementById("dashCountyRows");
   const ledgerEl = document.getElementById("dashLedgerRows");
+  const upcomingEl = document.getElementById("dashUpcomingRows");
   const subEl = document.getElementById("dashSubtitle");
 
   const { rows, active, totalValue, byLedger, byCounty } = dashboardStats();
@@ -4177,11 +4334,14 @@ function renderDashboard() {
       : "Nothing tracked yet - properties will show up here as counties are harvested.";
   }
 
+  // Icon chip + figure, matching the reference design's Dashboard tiles -
+  // svgIcon() names are the existing shared icon set (see ICON_PATHS), not
+  // new art, so every other caller of these icons stays visually consistent.
   statsEl.innerHTML = `
-    <div class="stat-tile"><div class="stat-tile-label">Total Properties</div><div class="stat-tile-val">${rows.length}</div></div>
-    <div class="stat-tile"><div class="stat-tile-label">Active</div><div class="stat-tile-val accent">${active.length}</div></div>
-    <div class="stat-tile"><div class="stat-tile-label">Est. Total Value</div><div class="stat-tile-val">${fmtShort(totalValue)}</div><div class="stat-tile-sub">Sum of just/assessed value, active listings only</div></div>
-    <div class="stat-tile"><div class="stat-tile-label">Counties</div><div class="stat-tile-val">${byCounty.size}</div></div>`;
+    <div class="stat-tile"><span class="stat-tile-icon">${svgIcon("building")}</span><div><div class="stat-tile-label">Total Properties</div><div class="stat-tile-val">${rows.length}</div></div></div>
+    <div class="stat-tile"><span class="stat-tile-icon accent">${svgIcon("check")}</span><div><div class="stat-tile-label">Active</div><div class="stat-tile-val accent">${active.length}</div></div></div>
+    <div class="stat-tile"><span class="stat-tile-icon">${svgIcon("dollar")}</span><div><div class="stat-tile-label">Est. Total Value</div><div class="stat-tile-val">${fmtShort(totalValue)}</div><div class="stat-tile-sub">Sum of just/assessed value, active listings only</div></div></div>
+    <div class="stat-tile"><span class="stat-tile-icon">${svgIcon("pin")}</span><div><div class="stat-tile-label">Counties</div><div class="stat-tile-val">${byCounty.size}</div></div></div>`;
 
   if (countyEl) {
     const countyRows = Array.from(byCounty.entries()).sort((a, b) => b[1].count - a[1].count).slice(0, 8);
@@ -4197,6 +4357,14 @@ function renderDashboard() {
       const count = byLedger[key] || 0;
       return `<div class="dash-row"><div class="dash-row-name">${LEDGERS[key].icon}${esc(cfg.title)}</div><div class="dash-row-vals"><b>${count}</b></div></div>`;
     }).join("");
+  }
+
+  if (upcomingEl) {
+    const upcoming = upcomingAuctionRows(active);
+    upcomingEl.innerHTML = upcoming.length
+      ? upcoming.map(u => `
+        <div class="dash-row"><div class="dash-row-name">${svgIcon("gavel")}${esc(fmtDate(u.date))}, ${esc(u.county)} County</div><div class="dash-row-vals"><span><b>${u.count}</b> propert${u.count === 1 ? "y" : "ies"}</span></div></div>`).join("")
+      : `<div class="dash-empty">No upcoming sale dates on file yet.</div>`;
   }
 
   const navTotal = document.getElementById("navStatTotal");
