@@ -218,6 +218,18 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 scripts/enrich_property_details.py
 
+      # Flood is the first Risk & Legal panel field with a real source. It
+      # needs only lat/lon, which the geocoding step above has already
+      # backfilled, and FEMA's National Flood Hazard Layer is a free public
+      # national API - no per-county integration, unlike liens/judgments/code
+      # violations. No-ops cleanly (exit 0) until
+      # scripts/migrations/010_flood_hazard.sql has been applied.
+      - name: Backfill FEMA flood hazard (National Flood Hazard Layer)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/enrich_flood_zone.py
+
       - name: Backfill property photos (Street View Static API)
         # No-ops cleanly (exit 0) until a GOOGLE_MAPS_API_KEY secret exists -
         # see scripts/fetch_property_photos.py's module docstring and
