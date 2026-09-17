@@ -444,3 +444,40 @@ def test_p52_37_provenance_doc_covers_every_new_column(enrich):
     doc = PROVENANCE_DOC.read_text(encoding="utf-8")
     for column in enrich.OPTIONAL_COLUMNS:
         assert column in doc, column
+
+
+# ---------------------------------------------------------------------------
+# 9. Parcel normalization - the space/dash separator gap
+# ---------------------------------------------------------------------------
+
+def test_p52_38_space_separated_parcels_get_a_dash_candidate(enrich):
+    """Measured 2026-09-17: Alachua sat at 11% enriched across 118 rows because
+    we store "12734 001 000" and the layer holds "12734-001-000". Every other
+    candidate either strips separators or leaves them alone, so a county using
+    the same segments with a different separator could never match. Both of
+    these resolve live under this rule and under no other."""
+    for stored, expected in (
+        ("12734 001 000", "12734-001-000"),
+        ("06400 100 000", "06400-100-000"),
+    ):
+        assert expected in enrich.normalize_candidates(stored), stored
+
+
+def test_p52_39_the_as_is_form_is_still_tried_first(enrich):
+    """Counties that already match exactly must not pay an extra request."""
+    assert enrich.normalize_candidates("00310-012-000")[0] == "00310-012-000"
+
+
+def test_p52_40_dash_separated_parcels_gain_no_redundant_candidate(enrich):
+    """A parcel with no spaces should produce no space-substituted form - an
+    unproven extra candidate is one more request per row, per county, per run
+    against a free public API."""
+    candidates = enrich.normalize_candidates("00310-012-000")
+    assert len(candidates) == len(set(candidates))
+    assert "00310 012 000" not in candidates
+
+
+def test_p52_41_candidate_list_has_no_duplicates(enrich):
+    for stored in ("12734 001 000", "00310-012-000", "3030520754130", "A0031920000"):
+        candidates = enrich.normalize_candidates(stored)
+        assert len(candidates) == len(set(candidates)), stored

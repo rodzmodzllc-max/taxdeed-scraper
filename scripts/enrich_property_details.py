@@ -367,6 +367,20 @@ def normalize_candidates(parcel):
         parcel,
         parcel.replace("-", ""),
         parcel.replace(" ", ""),
+        # Space -> dash. Added 2026-09-17 after measuring Alachua stuck at 11%
+        # enriched with 118 rows: we store "12734 001 000" and the layer holds
+        # "12734-001-000". Every existing candidate here either removes
+        # separators or leaves them alone, so a county that uses the same
+        # segments with a different separator could never match. Confirmed
+        # live against two real unenriched Alachua parcels, both of which
+        # resolve under this rule and under no other:
+        #     "12734 001 000" -> 12734-001-000
+        #     "06400 100 000" -> 06400-100-000
+        # The reverse (dash -> space) is deliberately NOT added: no county has
+        # been observed needing it, and an unproven candidate is one more
+        # request per row against a free public API for every county on every
+        # run.
+        parcel.replace(" ", "-"),
         "".join(ch for ch in parcel if ch.isalnum()),
     ):
         if value and value not in seen:
