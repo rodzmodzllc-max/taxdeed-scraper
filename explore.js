@@ -89,6 +89,13 @@ const $ = id => document.getElementById(id);
 // view mode
 // ---------------------------------------------------------------------------
 function storedMode() {
+  // A nav-triggered "show me the map" request (see app.js's showPage("map")
+  // and the window.__tdwRequestedViewMode comment there) wins over whatever
+  // was last persisted - a cold load straight into index.html#map should
+  // land on the map even if a previous visit left the toggle on List.
+  if (window.__tdwRequestedViewMode && MODES.includes(window.__tdwRequestedViewMode)) {
+    return window.__tdwRequestedViewMode;
+  }
   try {
     const m = localStorage.getItem(MODE_KEY);
     if (MODES.includes(m)) return m;
@@ -122,6 +129,19 @@ function bindViewToggle() {
   });
   setMode(storedMode(), false);
 }
+
+// Phase 53: the view-toggle itself only offers List/Split now (see
+// index.html/tx.html) - "Map" is reached from the nav bar instead, which
+// isn't inside this module's DOM at all (app.js owns it). app.js's
+// showPage("map") dispatches this event rather than reaching into
+// explore.js's internals directly, same one-way-event contract as
+// tdw:rendered above. persist:true so a nav-triggered switch into map view
+// sticks the same way a toggle click would (e.g. across a Florida/Texas
+// navigation, which reloads this module fresh and reads storedMode()).
+window.addEventListener("tdw:setviewmode", e => {
+  const mode = e && e.detail && e.detail.mode;
+  if (mode) setMode(mode, true);
+});
 
 // ---------------------------------------------------------------------------
 // basemap
@@ -1047,6 +1067,35 @@ function updateSummary(byCounty) {
         ? `Filtered to ${selectedCounty} - tap it again to clear`
         : "Tap a county to zoom in and filter the list to it";
   }
+  renderBubbleLegend(byCounty);
+}
+
+// A key for what the bubbles actually mean, built from the real counts on
+// screen right now rather than a fixed set of made-up sample sizes - this
+// map has no fixed scale (a 3-county filtered view and the full statewide
+// list both range MIN_R..MAX_R), so a static legend would describe the
+// wrong range as often as the right one. Mirrors radiusFor()'s own sqrt
+// scaling (area, not radius, should track county size) at a fixed small/
+// large swatch size, since the legend sits outside the map's own SVG
+// viewBox and has no shared scale with it to draw from directly. Hidden
+// once zoomed into a county: pins replace bubbles there, and a pin isn't
+// sized by count.
+function renderBubbleLegend(byCounty) {
+  const el = $("exploreMapLegend");
+  if (!el) return;
+  if (zoomCounty || !byCounty.size) { el.hidden = true; return; }
+  const counts = Array.from(byCounty.values(), list => list.length);
+  const max = Math.max(...counts), min = Math.min(...counts);
+  const DOT_MIN = 7, DOT_MAX = 19;
+  const dot = n => max <= 0 ? DOT_MIN : Math.round(DOT_MIN + (DOT_MAX - DOT_MIN) * Math.sqrt(n / max));
+  const steps = min === max ? [max] : [min, max];
+  el.hidden = false;
+  el.innerHTML =
+    '<span class="map-legend-label">Bubble size = properties in that county</span>' +
+    steps.map(n => `
+      <span class="map-legend-item">
+        <i class="map-legend-dot" style="--d:${dot(n)}px"></i>${n}
+      </span>`).join("");
 }
 
 // ---------------------------------------------------------------------------

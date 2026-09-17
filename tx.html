@@ -242,11 +242,15 @@ whatever's currently filtered. -->
 </div>
 <!-- Handled entirely by explore.js - app.js knows nothing about view mode.
 Split is hidden by CSS below 900px, where a half-width list would be
-unusable rather than merely tight. -->
+unusable rather than merely tight.
+Phase 53: Map dropped from this toggle - the nav bar's own Map item is
+now the only entry point into map mode (it routes into this same explore.js
+view via the tdw:setviewmode event; see SHELL_PAGES/showPage() in app.js).
+Two ways to reach the identical map read as two different maps, which is
+exactly what this phase collapsed. -->
 <div class="view-toggle" id="viewToggle" role="group" aria-label="View mode">
 <button type="button" data-mode="list" aria-pressed="false"><span class="vt-icon"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h18M3 6h18M3 18h18"/></svg></span>List</button>
 <button type="button" data-mode="split" aria-pressed="false"><span class="vt-icon"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="7" height="16"/><rect x="14" y="4" width="7" height="16"/></svg></span>Split</button>
-<button type="button" data-mode="map" aria-pressed="false"><span class="vt-icon"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 6l7-3 8 3 7-3v16l-7 3-8-3-1 3z"/><path d="M8 3v16M16 6v16"/></svg></span>Map</button>
 </div>
 <button class="table-toggle-btn" id="tableToggleBtn" type="button" title="Dense table view"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h18M3 12h18M3 19h18"/></svg> Table</button>
 <button class="expand-all-btn" id="expandAllBtn" type="button">Expand all</button>
@@ -432,6 +436,11 @@ ranked by eye. -->
 <div class="cluster-tip" id="clusterTip"></div>
 <aside class="explore-map-rail" id="exploreMapRail" hidden aria-label="Counties in view"></aside>
 </div>
+<!-- Real counts from the current bubbles, not a fixed key - see
+updateSummary() in explore.js. Hidden once zoomed into a county, where
+bubbles are replaced by real geocoded pins and a size scale no longer
+applies. -->
+<div class="explore-map-legend" id="exploreMapLegend" hidden></div>
 <div class="explore-map-foot">
 <span class="explore-map-hint" id="exploreMapHint">Tap a county to filter the list to it</span>
 <button class="explore-map-reset" id="exploreMapReset" type="button" hidden>Clear county filter</button>
@@ -461,38 +470,17 @@ Title badges are a best-effort public-records search, <b>not a certified title s
 </footer>
 </section>
 
-<section class="page" id="pageMap" hidden>
-<div class="dash-head">
-<h1>County Map</h1>
-<p>Colored counties have a confirmed auction format. Tap a county to zoom in - tap again to filter the Auctions list to it.</p>
-</div>
-<!-- Same FL/TX switcher as the Auctions masthead (#regionTabs) - a second
-copy, not a shared id, since both pages sit in this same document (see
-SHELL_PAGES in app.js) and two elements can't share an id. Plain cross-page
-navigation like the original, but to #map specifically so you land back on
-the Map tab of the other state instead of its default Auctions view - see
-the location.hash === "#map" check near the page router in app.js. -->
-<nav class="region-tabs map-region-tabs" id="regionTabsMap" aria-label="State">
-<a class="region-tab" data-region="FL" href="index.html#map"><span class="region-tab-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-8-4.6-8-11a8 8 0 1116 0c0 6.4-8 11-8 11z"/><circle cx="12" cy="10" r="3"/></svg></span>Florida</a>
-<a class="region-tab on" data-region="TX" href="tx.html#map" aria-current="page"><span class="region-tab-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-8-4.6-8-11a8 8 0 1116 0c0 6.4-8 11-8 11z"/><circle cx="12" cy="10" r="3"/></svg></span>Texas</a>
-</nav>
-<div class="map-page-wrap" style="padding:0 .6rem 1.4rem">
-<div class="map-wrap" id="mapWrap">
-<div class="map-hint" id="mapHint">Colored counties have a confirmed auction format. Tap a county to zoom in and see its name - tap it again to filter to it.</div>
-<div class="map-zoom-banner" id="mapZoomBanner" hidden>
-<span class="map-zoom-name" id="mapZoomName"></span>
-<button class="mini-btn" id="mapZoomOutBtn" type="button"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12a9 9 0 10-3.3 6.95M21 5v6h-6"/></svg> Full map</button>
-</div>
-<div id="mapHost"></div>
-<div class="map-legend">
-<span><i class="lg-online"></i>Online auction</span>
-<span><i class="lg-inperson"></i>In person</span>
-<span><i class="lg-fixed"></i>Fixed price only</span>
-<span><i class="lg-none"></i>Not yet confirmed</span>
-</div>
-</div>
-</div>
-</section>
+<!-- Phase 53: the legacy #pageMap section (format-colored county SVG, its own
+FL/TX switcher, its own zoom banner) is REMOVED, not hidden - it was the
+second, worse map that stood in for the Auctions page's own "Where these
+are" bubble map any time someone reached Map from the nav bar. That richer
+map (search bar + county picker + ledger filters already sit right above it
+in the Auctions toolbar, real per-county counts, tap-to-zoom, a floating
+preview card) is what nav Map now opens directly - see showPage() in app.js
+and the tdw:setviewmode listener in explore.js. The JS that drove this
+section (ensureMapLoaded, zoomToCounty, computeCountyCentroids, etc. in
+app.js) is left in place as documented dead code rather than torn out of
+several still-live call sites - see the comment above mapBtnEl there. -->
 </div>
 </div>
 <nav class="nav-bottom" id="navBottom" aria-label="Main">

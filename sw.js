@@ -138,7 +138,28 @@
 // Auctions/Map/Watchlist items, opening the same account menu as the
 // header badge and the Dashboard's own Settings button - no new page.
 // index.html, tx.html, styles.css and app.js all changed together.
-const CACHE = "tdw-shell-v23";
+// v24: Phase 53, one map instead of two. Marc's screen recording pointed out
+// that the nav bar's Map and the Auctions view-toggle's Map opened two
+// different maps for the same idea - a plain county-by-auction-format SVG
+// on its own page, and explore.js's own richer "Where these are" bubble map
+// (real per-county counts, one-tap zoom+filter, a floating preview card,
+// real geocoded pins once zoomed in - all built from actual filtered rows).
+// The second one was strictly the better map, so it's now the only one.
+// (1) The standalone #pageMap section, its #regionTabsMap FL/TX switcher,
+// and the Map button in #viewToggle are removed from index.html/tx.html.
+// (2) app.js's showPage() routes "map" as a virtual destination instead -
+// it shows the Auctions page and dispatches a new tdw:setviewmode event
+// that explore.js listens for (mirroring the existing tdw:rendered/
+// window.__tdwLastRender stash pattern, for the same module-load-order
+// reason). The legacy #pageMap-driving JS (ensureMapLoaded, zoomToCounty,
+// computeCountyCentroids, etc.) is left in app.js as documented dead code
+// rather than stripped from several still-live filter-sync call sites -
+// see the comment above mapBtnEl there. (3) The surviving map gets a small
+// honest legend (renderBubbleLegend() in explore.js) showing what bubble
+// size actually means, built from the real counts on screen - not a fixed
+// key, since this map has no fixed scale. index.html, tx.html, styles.css,
+// explore.css, app.js and explore.js all changed together.
+const CACHE = "tdw-shell-v24";
 const SHELL = [
   "/",
   "/index.html",
