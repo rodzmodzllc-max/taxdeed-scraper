@@ -70,6 +70,16 @@
 
 *{box-sizing:border-box}
 html,body{margin:0;padding:0}
+/* Nearly every size in this file is set in rem against the 16px UA default,
+   which is fine on a laptop but reads as too small/dense on a phone held at
+   arm's length - reported as "the app looks zoomed out, I can't read it".
+   Bumping the root size under this one query scales every rem-based font,
+   padding and gap in the file proportionally (icons/borders set in raw px
+   are untouched, which is fine - it's the text that was unreadable), without
+   having to touch each component's rule individually. 112.5% = 18px root. */
+@media (max-width:640px){
+  html{font-size:112.5%}
+}
 body{
   background:var(--paper); color:var(--ink);
   font-family:var(--font-sans);

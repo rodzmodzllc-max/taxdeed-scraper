@@ -2,7 +2,19 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- user-scalable=no + maximum-scale=1: pinch-zoom is disabled on purpose.
+     This is a fixed-position-bottom-nav app (see .nav-bottom in styles.css);
+     mobile browsers detach `position:fixed` elements from the visual
+     viewport while pinch-zoomed, so the nav bar visibly disappears/slides
+     off-screen once a user zooms in. Rather than leave that broken, the
+     text itself is sized to be legible at 1x (see the mobile html{font-size}
+     bump in styles.css) and zoom is turned off so the nav bar can't be
+     knocked out from under it. viewport-fit=cover activates the
+     env(safe-area-inset-*) values .nav-bottom already asks for (they were
+     previously inert without this), so the tab bar clears the home
+     indicator / rounded corners on notched phones instead of the browser
+     silently substituting 0. -->
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
 <title>Tax Acquisitions — Florida</title>
 <link rel="stylesheet" href="styles.css">
