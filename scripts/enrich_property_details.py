@@ -73,9 +73,48 @@ the layer exposes 121 fields rather than the 4 originally used):
                              coverage off the ~3.6% address-geocoding ceiling
   * year_built, living_area, lot_sqft, num_buildings, land_value, legal_desc,
     last_sale_price, last_sale_year - columns only this script populates
+  * expanded 2026-09-17 (phase 52) after checking the FDOR 2025 NAL/SDF/NAP
+    User's Guide for what the layer's other fields actually mean, since the
+    layer itself supplies no field descriptions at all (all 127 aliases are
+    identical to their names):
+      taxable_value        TV_NSD, post-exemption, beside assessed's AV_NSD
+      improvement_value    DERIVED, JV - LND_VAL - see improvement_value_from()
+      acreage              DERIVED, LND_SQFOOT / 43560 - a unit conversion
+      land_use             PA_UC, the county's own code beside the state's
+      effective_year_built EFF_YR_BLT, renovation-aware vs year_built's
+                           ACT_YR_BLT - the gap between them is the renovation
+      num_res_units        NO_RES_UNT - units on the parcel, NOT bedrooms
+      last_sale_month      SALE_MO1
+      last_sale_qual_code  QUAL_CD1 - whether that sale is market evidence at
+                           all; a tax roll's latest sale is very often a $100
+                           intra-family quitclaim the appraiser disqualified
+      last_sale_vi_code    VI_CD1 - vacant/improved AT THE TIME OF THAT SALE
+      last_sale_or_book/   OR_BOOK1/OR_PAGE1/CLERK_NO1 - the county clerk's
+        _or_page/_clerk_no official-records lookup key, i.e. the entry point
+                           to a real title/lien check
+      prior_sale_*         SALE_PRC2/YR2/MO2/QUAL_CD2 - direction, not just a
+                           number
+      fdor_alt_key         ALT_KEY, raw and under its own name; the "tax
+                           collector account number" reading of it is an
+                           unvalidated hypothesis and is not asserted here
+
+Deliberately NOT filled from this layer, and why - so this does not get
+re-litigated every time someone reads the field list (see also
+docs/fdor-field-provenance.md):
+  * delinquent_tax - DEL_VAL is NOT delinquent value. The guide defines it as
+    the "[r]eduction in just value resulting from the deletion of improvements
+    on the property since the previous assessment", i.e. a demolition
+    adjustment. Writing it into a back-taxes column would print an invented
+    dollar figure on the screen where someone decides what to bid.
+  * annual_tax - the NAL is a VALUE roll, not a bill roll. It contains no tax
+    amount of any kind. That comes from a tax collector, not from here.
+  * beds, baths, zoning, subdivision, municipality - confirmed absent from the
+    NAL layout entirely. NO_RES_UNT is units and NBRHD_CD is a county-defined
+    neighbourhood code, neither of which is what those columns mean.
 """
 import os
 import random
+from collections import Counter
 import re
 import sys
 import time
@@ -92,6 +131,21 @@ SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "")
 # which is what kept mappable coordinates at a few hundred rows. These
 # limits clear it in 2-3 runs instead. Steady state stays cheap regardless:
 # `fdor_enriched_at` means only genuinely new rows are ever fetched again.
+# Phase 51. This script reads FLORIDA's statewide cadastral layer, so it can
+# only ever enrich Florida rows. `properties` gained Texas rows in
+# 002_add_texas_support.sql and nobody rescoped this script, so 449 TX rows
+# across 14 counties sat in a Florida-only queue: never matchable, never
+# stamped, and therefore re-attempted on every single run. Measured live
+# 2026-09-17 - 0 of 449 enriched, Galveston alone 176 rows. The waste was not
+# just the stall: up to 14 TX counties x COUNTY_MISS_STREAK rows x ~8
+# normalisation candidates is roughly 670 pointless requests per run against
+# a free public state API.
+#
+# An env var rather than a hard-coded literal so a future state with its own
+# statewide layer can reuse this runner by pointing it at that state's
+# endpoint - but the DEFAULT is FL, because FDOR_ENDPOINT is Florida's.
+ENRICH_STATE = os.environ.get("ENRICH_STATE", "FL")
+
 BATCH_LIMIT = int(os.environ.get("ENRICH_BATCH_LIMIT", "1000"))
 PER_COUNTY_LIMIT = int(os.environ.get("ENRICH_PER_COUNTY_LIMIT", "40"))
 # A county whose parcel format this script can't match burns one request per
@@ -125,14 +179,53 @@ FDOR_ENDPOINT = (
 # and must never be labelled as a live/AVM estimate - the companion
 # `value_year` column carries ASMNT_YR so the UI can say whose number it is
 # and for which tax year.
+# Phase 52 expansion. Every field added below was checked against the Florida
+# Department of Revenue "2025 NAL/SDF/NAP User's Guide" before being mapped,
+# because the layer metadata cannot be used for this: all 127 of its fields
+# report an `alias` identical to their `name`, so the service tells you a
+# column exists and nothing about what is in it.
+#
+# That check is not ceremony. DEL_VAL reads like "delinquent value" and is
+# defined as "Reduction in just value resulting from the deletion of
+# improvements on the property since the previous assessment" - a demolition
+# adjustment. Mapping it to a `delinquent_tax` column on the strength of its
+# name would have put a made-up back-taxes figure on the screen where someone
+# decides what to bid. It is deliberately NOT requested here.
+#
+# Also confirmed absent from the NAL layout entirely, so no amount of field
+# expansion will produce them and the design-gap columns for them stay NULL
+# until a real source is acquired: billed tax, taxes due, delinquent tax,
+# bedrooms, bathrooms, zoning, subdivision name, municipality.
+# See docs/fdor-field-provenance.md.
 FDOR_OUT_FIELDS = ",".join([
     "PARCEL_ID", "ASMNT_YR",
     "PHY_ADDR1", "PHY_CITY", "PHY_ZIPCD",
     "DOR_UC",
-    "JV", "AV_NSD", "LND_VAL", "JV_HMSTD",
-    "ACT_YR_BLT", "TOT_LVG_AR", "NO_BULDNG", "LND_SQFOOT",
+    # PA_UC is the COUNTY's own use code ("County-defined use codes"), kept
+    # beside DOR_UC rather than instead of it: DOR_UC is state-defined and so
+    # comparable across counties, PA_UC is not, and only the county's code
+    # matches what that county's own appraiser site will show.
+    "PA_UC",
+    "JV", "AV_NSD", "TV_NSD", "LND_VAL", "JV_HMSTD",
+    "ACT_YR_BLT", "EFF_YR_BLT",
+    "TOT_LVG_AR", "NO_BULDNG", "NO_RES_UNT", "LND_SQFOOT",
     "OWN_NAME", "S_LEGAL",
-    "SALE_PRC1", "SALE_YR1",
+    # The most recent sale, with the codes that say whether it means
+    # anything. QUAL_CD1 ("Code denoting the property appraiser's sales
+    # qualification decisions") is the important one - a tax roll's latest
+    # "sale" is very often a $100 intra-family quitclaim that the appraiser
+    # has disqualified precisely so it is not read as market evidence.
+    "SALE_PRC1", "SALE_YR1", "SALE_MO1", "QUAL_CD1", "VI_CD1",
+    # Clerk lookup key: book + page + instrument number is the entry point
+    # into the county clerk's official records, i.e. the first real step of a
+    # title/lien check rather than a guess about one.
+    "OR_BOOK1", "OR_PAGE1", "CLERK_NO1",
+    # The prior sale. One sale is a number; two are a direction.
+    "SALE_PRC2", "SALE_YR2", "SALE_MO2", "QUAL_CD2",
+    # Stored under its own name - the guide calls it an "[o]ptional alternate
+    # key identifier some counties use", which is not the same statement as
+    # "tax collector account number". See ALT_KEY in migration 009.
+    "ALT_KEY",
 ])
 
 
@@ -418,18 +511,22 @@ def fetch_needing_enrichment_counties():
     this script can never fix, without changing the fairness design."""
     params = {
         "select": "county",
+        "state": f"eq.{ENRICH_STATE}",
         "and": "(parcel.not.is.null,parcel.neq.\"\")",
         "fdor_enriched_at": "is.null",
         "limit": "5000",
     }
     resp = requests.get(f"{SUPABASE_URL}/rest/v1/properties", headers=HEADERS, params=params, timeout=30)
     resp.raise_for_status()
-    counties = sorted({row["county"] for row in resp.json() if row.get("county")})
+    outstanding = Counter(row["county"] for row in resp.json() if row.get("county"))
+    counties = sorted(outstanding)
     random.shuffle(counties)
-    return counties
+    # (county, outstanding) rather than bare names: fetch_county_batch() needs
+    # the count to size this run's random window - see its docstring.
+    return [(county, outstanding[county]) for county in counties]
 
 
-def fetch_county_batch(county, limit):
+def fetch_county_batch(county, limit, outstanding=None):
     # Same empty-string-parcel exclusion as fetch_needing_enrichment_counties()
     # above, and for the same reason (confirmed live for Citrus 2026-09-02):
     # `parcel=not.is.null` alone still matches `parcel=''` rows, which can
@@ -439,11 +536,32 @@ def fetch_county_batch(county, limit):
     # BLANKS on columns a harvester also writes (market/assessed/owner_name/
     # coordinates/prop_type) - a scraped value from the source listing always
     # wins over the tax roll's copy of it.
+    # Phase 51. `order` + a random `offset` per run. Without them PostgREST
+    # returns the same rows in the same scan order every time, and because a
+    # miss is never stamped, the SAME rows lead the slice forever - so a
+    # county whose first COUNTY_MISS_STREAK rows all miss is abandoned at that
+    # same row on every future run and never advances. Measured live on
+    # 2026-09-17: Miami-Dade 2/251 enriched, yet its unenriched parcel
+    # 0131230340860 returns a full record from the layer on request. The row
+    # was matchable the whole time; it was simply never reached.
+    #
+    # `order` is required for `offset` to mean anything, and a random window
+    # start means consecutive runs explore different parts of the backlog
+    # rather than re-proving the same six misses. Rows skipped this run are
+    # not lost - they are still unstamped, and a later run's window covers
+    # them. This does not weaken the anti-starvation design; it completes it,
+    # extending the same fairness from between-counties to within-a-county.
+    offset = 0
+    if outstanding and outstanding > limit:
+        offset = random.randrange(0, outstanding - limit + 1)
     params = {
         "select": "id,parcel,address,county,prop_type,market,assessed,owner_name,latitude,longitude",
+        "state": f"eq.{ENRICH_STATE}",
         "county": f"eq.{county}",
         "and": "(parcel.not.is.null,parcel.neq.\"\")",
         "fdor_enriched_at": "is.null",
+        "order": "id.asc",
+        "offset": str(offset),
         "limit": str(limit),
     }
     resp = requests.get(f"{SUPABASE_URL}/rest/v1/properties", headers=HEADERS, params=params, timeout=30)
@@ -670,12 +788,173 @@ def lookup_flagler_gis(parcel):
     return None, None, None
 
 
+# Phase 52. Columns that migration 009 (and, for a few, 007) adds and that an
+# older database will not have yet. This script runs from a workflow against
+# whatever schema production currently has, and PostgREST rejects an entire
+# PATCH if any single key in it is not a column - so an expanded writer
+# deployed before its migration would not degrade, it would stop enriching
+# anything at all, silently, on every row.
+#
+# Rather than couple the deploy order, the writer asks the database once per
+# run which of these it actually has and writes only those. Before the
+# migration it behaves exactly like the pre-expansion script; after it, the
+# new columns start filling with no redeploy. The run log says which columns
+# were skipped and why, so "the migration has not been applied" is visible
+# instead of looking like a source that stopped returning data.
+OPTIONAL_COLUMNS = (
+    "taxable_value",
+    "improvement_value",
+    "land_use",
+    "acreage",
+    "effective_year_built",
+    "num_res_units",
+    "last_sale_month",
+    "last_sale_qual_code",
+    "last_sale_vi_code",
+    "last_sale_or_book",
+    "last_sale_or_page",
+    "last_sale_clerk_no",
+    "prior_sale_price",
+    "prior_sale_year",
+    "prior_sale_month",
+    "prior_sale_qual_code",
+    "fdor_alt_key",
+)
+
+_available_optional_columns = None
+
+
+def _column_exists(column):
+    """`limit=0` asks PostgREST to project the column and return no rows, so
+    this costs one round trip and transfers nothing. A 200 means the column
+    is real; a 4xx naming it means it is not."""
+    try:
+        resp = requests.get(
+            f"{SUPABASE_URL}/rest/v1/properties",
+            headers=HEADERS,
+            params={"select": column, "limit": "0"},
+            timeout=15,
+        )
+    except requests.RequestException:
+        return False
+    return resp.status_code == 200
+
+
+def available_optional_columns():
+    """Memoised per process. Probes the whole set in one request first, which
+    is the normal case once the migration is in, and only falls back to
+    per-column probing when that request fails."""
+    global _available_optional_columns
+    if _available_optional_columns is not None:
+        return _available_optional_columns
+
+    if _column_exists(",".join(OPTIONAL_COLUMNS)):
+        _available_optional_columns = frozenset(OPTIONAL_COLUMNS)
+    else:
+        _available_optional_columns = frozenset(
+            column for column in OPTIONAL_COLUMNS if _column_exists(column)
+        )
+
+    missing = [c for c in OPTIONAL_COLUMNS if c not in _available_optional_columns]
+    if missing:
+        print(
+            f"  NOTE: {len(missing)} expanded column(s) are not in this database and "
+            f"will not be written: {', '.join(missing)}. "
+            "Apply scripts/migrations/009_fdor_verified_field_expansion.sql to enable them."
+        )
+    return _available_optional_columns
+
+
+def drop_unavailable_columns(fields):
+    """Filter a built patch down to columns this database actually has.
+
+    Only OPTIONAL_COLUMNS are ever dropped. A base column going missing is a
+    real fault and is left to fail loudly rather than be silently swallowed."""
+    available = available_optional_columns()
+    return {
+        key: value for key, value in fields.items()
+        if key not in OPTIONAL_COLUMNS or key in available
+    }
+
+
 def patch_property(property_id, fields):
+    fields = drop_unavailable_columns(fields)
+    if not fields:
+        return
     url = f"{SUPABASE_URL}/rest/v1/properties?id=eq.{property_id}"
     patch_headers = dict(HEADERS)
     patch_headers["Prefer"] = "return=minimal"
     resp = requests.patch(url, headers=patch_headers, json=fields, timeout=15)
     resp.raise_for_status()
+
+
+SQFT_PER_ACRE = 43560.0
+
+
+def _code(value):
+    """FDOR's code fields (QUAL_CD1, VI_CD1, PA_UC, ALT_KEY, OR_BOOK1 ...)
+    arrive as a mix of strings, ints and floats depending on how the layer
+    typed the column, and blank/0 is the no-data sentinel throughout.
+
+    Kept as text rather than parsed: these are identifiers, not quantities.
+    An official-record book number and a county use code both have leading
+    zeros that matter and neither is ever arithmetic. A float that happens to
+    be integral (ArcGIS returns 3.0 for an integer column often enough) is
+    rendered without its decimal tail so "3.0" never becomes a book number.
+    """
+    if value is None:
+        return None
+    if isinstance(value, float) and value.is_integer():
+        value = int(value)
+    text = str(value).strip()
+    if not text or text in {"0", "00", "000"}:
+        return None
+    return text
+
+
+def _month(value):
+    """FDOR sale months. 0/blank is no-data, and anything outside 1-12 is a
+    corrupt row rather than a month, so it is dropped instead of stored - the
+    database has a CHECK for the same thing and a bad value would otherwise
+    fail the whole patch for that row."""
+    month = _int(value)
+    if month is None or not 1 <= month <= 12:
+        return None
+    return month
+
+
+def improvement_value_from(attrs):
+    """JV - LND_VAL.
+
+    The NAL layout has no improvement-value field, so this is a derivation
+    and is labelled as one everywhere it appears: it is the just value NOT
+    attributable to the land, which includes special-feature value as well as
+    the structures. Returned only when both inputs are real and the result is
+    positive - a land value at or above just value means either a vacant
+    parcel or a roll quirk, and neither is an improvement figure worth
+    showing.
+    """
+    just_value = _num(attrs.get("JV"))
+    land_value = _num(attrs.get("LND_VAL"))
+    if just_value is None or land_value is None:
+        return None
+    improvement = just_value - land_value
+    return improvement if improvement > 0 else None
+
+
+def acreage_from(attrs):
+    """LND_SQFOOT / 43560.
+
+    A unit conversion, not a reinterpretation: the guide defines LND_SQFOOT
+    as the "[e]quivalent square footage of the site regardless of the
+    information in fields 42 and 43", i.e. it is already normalised to square
+    feet whatever unit basis that county assessed the land on, so no
+    LND_UNTS_CD branching is needed or appropriate here.
+    """
+    sqft = _num(attrs.get("LND_SQFOOT"))
+    if sqft is None:
+        return None
+    return round(sqft / SQFT_PER_ACRE, 4)
 
 
 def build_update_fields(row, attrs, centroid):
@@ -691,8 +970,18 @@ def build_update_fields(row, attrs, centroid):
        replaced when ours is a known junk placeholder AND the tax roll's is a
        real street address.
     2. Columns only this script populates (year_built, living_area, lot_sqft,
-       num_buildings, land_value, legal_desc, last_sale_*, value_year) are
-       written straight from the tax roll, since nothing else supplies them.
+       num_buildings, land_value, legal_desc, last_sale_*, prior_sale_*,
+       value_year, taxable_value, improvement_value, acreage, land_use,
+       effective_year_built, num_res_units, fdor_alt_key) are written straight
+       from the tax roll, since nothing else supplies them.
+
+    Both rules are ADDITIVE in the same way and for the same reason: a value
+    is only ever put into `fields` when it is not None, so a parcel whose roll
+    record omits a field leaves whatever is already stored for that column
+    untouched. An absent source field is not evidence that the stored value is
+    wrong, and this script must never turn silence into a NULL - a row
+    enriched last month from a complete record would otherwise be stripped
+    this month by a thinner one.
 
     `homestead` is a special case: only positive evidence is written. A
     homestead exemption on file (JV_HMSTD > 0) sets it True, but the absence
@@ -758,9 +1047,55 @@ def build_update_fields(row, attrs, centroid):
         # aren't the FDOR tax-roll layer), same as prop_type above for
         # those two counties.
         ("dor_use_code", dor_use_code_str(attrs.get("DOR_UC"))),
+
+        # ------------------------------------------------------------------
+        # Phase 52 expansion. Definitions quoted in migration 009; every one
+        # was read out of the FDOR 2025 NAL/SDF/NAP User's Guide rather than
+        # inferred from the field name.
+        # ------------------------------------------------------------------
+        # TV_NSD is taxable (post-exemption) where AV_NSD above is assessed
+        # (pre-exemption). The gap between them IS the exemption, which is
+        # what the homestead-risk feature is about, so they are stored as two
+        # columns and never collapsed into one.
+        ("taxable_value", _num(attrs.get("TV_NSD"))),
+        ("improvement_value", improvement_value_from(attrs)),
+        ("acreage", acreage_from(attrs)),
+        # The county's own use code, beside the state's. Not cross-county
+        # comparable, which is exactly why it is not merged with dor_use_code.
+        ("land_use", _code(attrs.get("PA_UC"))),
+        ("effective_year_built", _int(attrs.get("EFF_YR_BLT"))),
+        ("num_res_units", _int(attrs.get("NO_RES_UNT"))),
+        # Last sale: the qualification code travels with the price, always.
+        ("last_sale_month", _month(attrs.get("SALE_MO1"))),
+        ("last_sale_qual_code", _code(attrs.get("QUAL_CD1"))),
+        ("last_sale_vi_code", _code(attrs.get("VI_CD1"))),
+        ("last_sale_or_book", _code(attrs.get("OR_BOOK1"))),
+        ("last_sale_or_page", _code(attrs.get("OR_PAGE1"))),
+        ("last_sale_clerk_no", _code(attrs.get("CLERK_NO1"))),
+        # Prior sale.
+        ("prior_sale_price", _num(attrs.get("SALE_PRC2"))),
+        ("prior_sale_year", _int(attrs.get("SALE_YR2"))),
+        ("prior_sale_month", _month(attrs.get("SALE_MO2"))),
+        ("prior_sale_qual_code", _code(attrs.get("QUAL_CD2"))),
+        # Raw, under its own name. See migration 009 - the tax-collector
+        # reading of this field is an unvalidated hypothesis, per county.
+        ("fdor_alt_key", _code(attrs.get("ALT_KEY"))),
     ):
         if value is not None:
             fields[column] = value
+
+    # The sale-order CHECK in migration 009 pins FDOR's most-recent-first
+    # ordering. A roll that violates it would fail the whole row's patch and
+    # cost this property every other field too, so the prior sale is dropped
+    # instead - the anomaly is not worth losing the just value over.
+    last_year = fields.get("last_sale_year", _int(row.get("last_sale_year")))
+    prior_year = fields.get("prior_sale_year")
+    if last_year is not None and prior_year is not None and prior_year > last_year:
+        for column in (
+            "prior_sale_price", "prior_sale_year",
+            "prior_sale_month", "prior_sale_qual_code",
+        ):
+            fields.pop(column, None)
 
     return fields
 
@@ -780,10 +1115,12 @@ def main():
     # populated rather than just "N rows matched".
     filled_counts = {}
 
-    for county in counties:
+    for county, outstanding in counties:
         if total_attempted >= BATCH_LIMIT:
             break
-        rows = fetch_county_batch(county, min(PER_COUNTY_LIMIT, BATCH_LIMIT - total_attempted))
+        rows = fetch_county_batch(
+            county, min(PER_COUNTY_LIMIT, BATCH_LIMIT - total_attempted), outstanding
+        )
         if not rows:
             continue
         county_matched = 0

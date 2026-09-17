@@ -17,9 +17,10 @@ name: Python governance tests
 # existing Python job in harvest-and-sync.yml does a bare `pip install
 # <package>` per job instead - see e.g. its `texas` job's "Install Python
 # dependencies" step). Matched here rather than introducing a new
-# dependency-management convention: `pip install pytest` is the ENTIRE
-# runtime dependency this job adds - harvesters/governance/ itself and
-# tests/python/ import nothing beyond Python's own standard library.
+# dependency-management convention - see the install step below for what is
+# installed and why each package is there. harvesters/governance/ itself
+# still imports nothing beyond the standard library; the additions are for
+# test files that read a workflow's YAML or import a production script.
 
 on:
   push:
@@ -43,8 +44,23 @@ jobs:
       # pyyaml added Phase 42: tests/python/test_phase42_workflow_validation.py
       # parses .github/workflows/lgbs-acquisition-validation.yml and would
       # otherwise skip silently here, reporting green while asserting nothing.
+      #
+      # requests added Phase 52. The suite still makes no network call - that
+      # contract is unchanged, and every test that touches a request fakes it.
+      # But tests/python/test_phase51_enrichment_scoping.py and
+      # test_phase52_fdor_field_expansion.py drive the REAL
+      # scripts/enrich_property_details.py rather than a copy of its logic,
+      # and importing that module imports requests. Without it here, all 66 of
+      # those tests error out at collection with ModuleNotFoundError while the
+      # other 623 pass - which is how this was found.
+      #
+      # Installing it is deliberately preferred over stubbing requests into
+      # sys.modules in the fixtures: a stub would make CI green against a fake
+      # the production script never runs with, which is the wrong direction
+      # for a suite whose whole purpose is catching things that only show up
+      # against the real thing.
       - name: Install pytest
-        run: pip install pytest pyyaml
+        run: pip install pytest pyyaml requests
 
       # Deliberately NOT continue-on-error, NOT `|| true`, NOT a soft-fail
       # wrapper of any kind (Phase 10B Step 3's explicit requirement) - a
