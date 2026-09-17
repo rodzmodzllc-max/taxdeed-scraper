@@ -434,6 +434,100 @@ flow down the tree, not sideways between siblings — moved the declaration up
 to their shared `.explore-map` ancestor). Service worker bumped to
 `tdw-shell-v26`.
 
+## Satellite basemap: Mapbox → Google Maps (Phase 56, done)
+
+Marc got a real Google Maps API key ("google gave me a demo api to test")
+and, asked directly how he wanted it wired in, chose to switch providers
+outright rather than keep Mapbox as an option or run both — his answer,
+verbatim button label: **"Switch to Google Maps."** This phase rips out
+Phase 55's Mapbox GL JS implementation and rebuilds the same Satellite
+toggle on the Google Maps JavaScript API. The feature itself (toggle button,
+bubbles-then-pins model, event contract with explore.js, off-by-default
+behavior) is unchanged — see Phase 55's section above for that design; this
+section only covers what changed underneath it.
+
+**What changed:**
+
+- **`public/satellite-map.js`** — Mapbox GL JS (`mapboxgl.Map`,
+  `mapboxgl.Marker`, `mapboxgl.Popup`, a CDN `<script>`/`<link>` pair) is
+  replaced with the Google Maps JavaScript API, loaded via Google's own
+  official dynamic-library-loader bootstrap (reproduced from
+  developers.google.com/maps/documentation/javascript/load-maps-js-api,
+  installed inline in this file rather than as a separate `<script>` tag in
+  the HTML — same behavior). `google.maps.importLibrary("maps")` /
+  `("marker")` pull in `Map`/`InfoWindow` and `AdvancedMarkerElement` only
+  once a key is configured and the user clicks Satellite — same lazy,
+  off-by-default contract Phase 55 established, just a different library.
+  `mapTypeId: "hybrid"` gives satellite imagery + labels (closest match to
+  the reference mockup); `mapId: "DEMO_MAP_ID"` is Google's own placeholder
+  Map ID, meant exactly for testing `AdvancedMarkerElement` without first
+  creating a real Map ID in Cloud Console — fine for a demo key, worth
+  swapping for a real Map ID later if this key is upgraded. All the
+  provider-agnostic logic (county grouping, zoomed-vs-statewide detection,
+  `selectCounty()`'s select-and-dispatch pattern, `loadCentroids()`,
+  `radiusPx()`, `pinLabel()`, the `tdw:maprendered` wiring) is untouched.
+- **`config.js`** — `mapboxToken` is replaced with `googleMapsApiKey`,
+  holding the actual key Marc supplied
+  (`AIzaSyCw-tvRxNh5ahP3VbqBAOQMGeJJ6befaqc`). Flagged in the file's own
+  comment: unlike the Supabase publishable key, this key isn't scoped by
+  row-level security, so it's only as safe as its own Google Cloud Console
+  restrictions (HTTP referrer + Maps JavaScript API only) — worth doing in
+  Cloud Console even though it's outside this repo.
+- **`public/_headers` (CSP)** — **this is a materially bigger relaxation
+  than Phase 55's Mapbox addition**, not a like-for-like swap:
+  - `'unsafe-eval'` is now allowed in `script-src`. Per Google's own CSP
+    guidance
+    (developers.google.com/maps/documentation/javascript/content-security-policy),
+    the Maps JS API requires it — the library uses dynamic code execution
+    internally for its on-demand library loader, and this is true even in
+    Google's strictest documented CSP recipe, not just the permissive one.
+    This genuinely weakens this app's defense-in-depth against
+    injected-content XSS (see `_headers`' own top-of-file comment on why
+    that defense exists) — if an attacker ever got script content into the
+    page some other way, `'unsafe-eval'` gives it a strictly wider toolbox
+    than the Mapbox-only CSP did.
+  - `script-src`/`img-src`/`connect-src` now allow wildcarded Google domains
+    (`*.googleapis.com`, `*.gstatic.com`, `*.google.com`) rather than one
+    pinned host the way `api.mapbox.com` was — Google doesn't publish a
+    narrower single-host alternative for the JS API.
+  - Scoped down from Google's own published "allowlist" CSP recipe where
+    this app's actual usage didn't need it (no `*.ggpht.com`,
+    `*.googleusercontent.com`, or `frame-src` — those cover Street View/
+    Places photos and an iframe this app doesn't use). If Satellite mode
+    ever throws a CSP violation after a future Google Maps feature is added,
+    check this policy first.
+  - This was Marc's call to make, same as the original satellite-vs-privacy
+    trade-off in Phase 55 — flagged to him directly when this shipped, not
+    silently absorbed into "swap the provider."
+- **`public/explore.css`** — Mapbox-specific selectors
+  (`.mapboxgl-popup-content`, `.mapboxgl-popup-tip`,
+  `.mapboxgl-canvas-container`) are gone. Google's `InfoWindow` renders its
+  chrome via reserved `.gm-style-iw*` classes (in current versions, inside a
+  closed shadow root besides), so overriding it the way Mapbox's popup CSS
+  was overridden isn't reliable — left at Google's own default chrome; only
+  the content passed to `setContent()` (`.sat-popup-*`) is styled here, same
+  as before.
+- **`tests/run_test.mjs`** — the "Mapbox GL JS not loaded when unconfigured"
+  check now checks for `window.google.maps.importLibrary` instead
+  (`googleMapsNotLoadedWithNoToken`, renamed from
+  `mapboxGlNotLoadedWithNoToken`). `tests/config.js` already had no
+  `mapboxToken`/needs no `googleMapsApiKey` — the "not configured" path this
+  test exercises needed no fixture change.
+- Service worker bumped to `tdw-shell-v27`.
+
+**Verification:** 250/250 `tests/run_test.mjs` checks pass against the
+unconfigured path (real deploy default until this ships). The configured
+path was smoke-tested locally with Marc's real key — the bootstrap loads and
+the toggle's control flow (loading message → map init → marker rendering)
+runs correctly, but this sandbox's own network egress policy blocks
+`maps.googleapis.com` outright (confirmed via the proxy's own connection log,
+not a guess), so full live tile rendering could only be exercised as far as
+the graceful "couldn't load, check your connection" fallback path — which is
+itself a real, intentional code path, not a stand-in for missing coverage.
+Live rendering needs to be confirmed on the actual deployed site, the same
+way Phase 54/55 were verified after delivery, not assumed from this
+sandbox's test run.
+
 ## Known landmines / do-not-repeat mistakes
 
 - Miami-Dade is the only county with a hyphen in `data/realauction_counties.csv` — a blanket `-replace '-',' '` once silently renamed it to "Miami Dade", which didn't match the frontend's canonical `"Miami-Dade"` and hid 33 live listings. Fixed; don't reintroduce a blanket hyphen transform.

@@ -268,12 +268,12 @@ results.mapClusterBubbleCountLaftOnly = await page.locator('#exploreMapCanvas .c
 await page.click('#mapLedgerPills [data-ledger="all"]');
 await page.waitForTimeout(150);
 
-// --- Phase 55: satellite/terrain basemap toggle ---
-// tests/config.js deliberately carries no mapboxToken (see its own comment),
-// so this exercises the "not configured yet" path - the one every real
-// deploy hits until Marc adds his own token. Mapbox GL JS must NOT be
-// fetched at all in this state: clicking Satellite with no token is just a
-// DOM swap and a message, zero network/CSP surface.
+// --- Phase 55/56: satellite/terrain basemap toggle ---
+// tests/config.js deliberately carries no googleMapsApiKey (see its own
+// comment), so this exercises the "not configured yet" path - the one every
+// real deploy hits until Marc's key is present. The Google Maps loader must
+// NOT be installed at all in this state: clicking Satellite with no key is
+// just a DOM swap and a message, zero network/CSP surface.
 results.mapStyleOutlineOnByDefault = await page.locator('#mapStyleOutline').evaluate(el => el.classList.contains('on'));
 results.satelliteCanvasHiddenByDefault = await page.locator('#satelliteMapCanvas').isHidden();
 await page.click('#mapStyleSatellite');
@@ -282,7 +282,7 @@ results.mapStyleSatelliteOnAfterClick = await page.locator('#mapStyleSatellite')
 results.outlineCanvasHiddenAfterSatelliteClick = await page.locator('#exploreMapCanvas').isHidden();
 results.satelliteCanvasVisibleAfterClick = await page.locator('#satelliteMapCanvas').isVisible();
 results.satelliteSetupMessageShownWithNoToken = await page.locator('.satellite-map-setup').isVisible();
-results.mapboxGlNotLoadedWithNoToken = await page.evaluate(() => typeof window.mapboxgl === 'undefined');
+results.googleMapsNotLoadedWithNoToken = await page.evaluate(() => typeof window.google === 'undefined' || !(window.google.maps && window.google.maps.importLibrary));
 // Switching back restores the outline map exactly as it was - explore.js
 // never re-measures (centroidsOk stays true across the hide/show, see
 // satellite-map.js's header note), so this is really testing that hiding it
@@ -1463,16 +1463,16 @@ const EXPECTED = {
   mapAllPillOffAfterLedgerClick: false,
   // Bay is the fixture's one Lands Available county.
   mapClusterBubbleCountLaftOnly: 1,
-  // Phase 55: the Satellite toggle, exercised against tests/config.js's
-  // deliberately blank mapboxToken - the "not set up yet" path every real
-  // deploy hits until Marc adds his own token. See satellite-map.js.
+  // Phase 55/56: the Satellite toggle, exercised against tests/config.js's
+  // deliberately blank googleMapsApiKey - the "not set up yet" path every
+  // real deploy hits until Marc's key is present. See satellite-map.js.
   mapStyleOutlineOnByDefault: true,
   satelliteCanvasHiddenByDefault: true,
   mapStyleSatelliteOnAfterClick: true,
   outlineCanvasHiddenAfterSatelliteClick: true,
   satelliteCanvasVisibleAfterClick: true,
   satelliteSetupMessageShownWithNoToken: true,
-  mapboxGlNotLoadedWithNoToken: true,
+  googleMapsNotLoadedWithNoToken: true,
   outlineCanvasVisibleAfterSwitchBack: true,
   mapClusterBubbleCountAfterSwitchBack: 7,
   auctionsPageVisibleAfterReturnFromMap: true,

@@ -620,9 +620,9 @@ event app.js dispatches, so load order isn't strictly required - but
 keeping it second matches the dependency direction and makes that
 one-way relationship obvious from the markup. -->
 <script type="module" src="explore.js"></script>
-<!-- Phase 55: independent of explore.js (same tdw:maprendered contract,
+<!-- Phase 55/56: independent of explore.js (same tdw:maprendered contract,
 own module) - owns the optional Satellite basemap toggle. No-ops until
-config.js carries a Mapbox token; see satellite-map.js's header. -->
+config.js carries a googleMapsApiKey; see satellite-map.js's header. -->
 <script type="module" src="satellite-map.js"></script>
 </body>
 </html>
