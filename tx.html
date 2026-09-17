@@ -138,9 +138,15 @@ other people's profiles rows in the first place). -->
      says the same thing), so once the other three went there was nothing
      left here but an empty band with the account badge stranded in it. -->
 <section class="page" id="pageDashboard" hidden>
-<div class="dash-head">
+<div class="dash-head dash-head-row">
+<div>
 <h1>Dashboard</h1>
 <p id="dashSubtitle">Portfolio overview across every ledger.</p>
+</div>
+<!-- Same account menu as the header badge (theme, password, install, sign
+out) - just a second, more visible entry point, since the badge alone is
+easy to miss on a phone. See openAccountMenu() in app.js. -->
+<button class="dash-settings-btn" id="dashSettingsBtn" type="button" aria-haspopup="true" aria-controls="accountMenu" title="Settings"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 004.6 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.6a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg><span>Settings</span></button>
 </div>
 <div class="dash-stats" id="dashStats"></div>
 <div class="dash-grid">
@@ -444,6 +450,16 @@ Title badges are a best-effort public-records search, <b>not a certified title s
 <h1>County Map</h1>
 <p>Colored counties have a confirmed auction format. Tap a county to zoom in - tap again to filter the Auctions list to it.</p>
 </div>
+<!-- Same FL/TX switcher as the Auctions masthead (#regionTabs) - a second
+copy, not a shared id, since both pages sit in this same document (see
+SHELL_PAGES in app.js) and two elements can't share an id. Plain cross-page
+navigation like the original, but to #map specifically so you land back on
+the Map tab of the other state instead of its default Auctions view - see
+the location.hash === "#map" check near the page router in app.js. -->
+<nav class="region-tabs map-region-tabs" id="regionTabsMap" aria-label="State">
+<a class="region-tab" data-region="FL" href="index.html#map"><span class="region-tab-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-8-4.6-8-11a8 8 0 1116 0c0 6.4-8 11-8 11z"/><circle cx="12" cy="10" r="3"/></svg></span>Florida</a>
+<a class="region-tab on" data-region="TX" href="tx.html#map" aria-current="page"><span class="region-tab-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-8-4.6-8-11a8 8 0 1116 0c0 6.4-8 11-8 11z"/><circle cx="12" cy="10" r="3"/></svg></span>Texas</a>
+</nav>
 <div class="map-page-wrap" style="padding:0 .6rem 1.4rem">
 <div class="map-wrap" id="mapWrap">
 <div class="map-hint" id="mapHint">Colored counties have a confirmed auction format. Tap a county to zoom in and see its name - tap it again to filter to it.</div>

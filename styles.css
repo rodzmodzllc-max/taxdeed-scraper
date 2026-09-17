@@ -1227,6 +1227,17 @@ footer{padding:1.2rem 1.1rem 0;font-size:.72rem;color:var(--ink-soft);text-align
 @media (min-width:1024px){.dash-head{padding:1.3rem 0 .4rem}}
 .dash-head h1{margin:0 0 .2rem;font-family:var(--font-sans);font-weight:800;font-size:1.25rem;color:var(--ink)}
 .dash-head p{margin:0;font-size:.82rem;color:var(--ink-soft)}
+/* Settings button sits beside the title/subtitle rather than under them -
+   .dash-head-row only changes layout, .dash-head's own padding is untouched
+   so the plain (no-button) .dash-head elsewhere still looks the same. */
+.dash-head-row{display:flex;align-items:flex-start;justify-content:space-between;gap:.6rem}
+.dash-settings-btn{flex:0 0 auto;display:inline-flex;align-items:center;gap:.35rem;
+  margin-top:.1rem;font-size:.78rem;font-weight:700;font-family:inherit;color:var(--ink);
+  background:var(--card);border:1px solid var(--card-line);border-radius:8px;
+  padding:.45rem .7rem;cursor:pointer;white-space:nowrap}
+.dash-settings-btn:hover{border-color:var(--accent);color:var(--accent)}
+.dash-settings-btn svg{width:15px;height:15px}
+@media (max-width:400px){.dash-settings-btn span{display:none}}
 .dash-stats{display:grid;grid-template-columns:repeat(2,1fr);gap:.6rem;padding:.8rem .6rem}
 @media (min-width:640px){.dash-stats{grid-template-columns:repeat(4,1fr)}}
 @media (min-width:1024px){.dash-stats{padding:0 0 1rem}}
@@ -1332,4 +1343,18 @@ footer{padding:1.2rem 1.1rem 0;font-size:.72rem;color:var(--ink-soft);text-align
 .detail-cta svg{width:17px;height:17px}
 
 /* ---- Map page: the county picker, promoted to a first-class destination ---- */
-.map-page-wrap .map-wrap{border:none;padding:0}
+/* Was border:none;padding:0 - edge-to-edge with no card chrome at all,
+   the one page in the app with none, next to Dashboard/Auctions panels
+   that are all a proper card. Framing it like the rest fixes that without
+   touching anything else the terminal reskin did. */
+.map-page-wrap .map-wrap{background:var(--card);border:1px solid var(--card-line);
+  border-radius:14px;box-shadow:var(--shadow);padding:.6rem;overflow:hidden}
+/* Same FL/TX switcher as the Auctions masthead (#regionTabs), but sitting on
+   the page's own light background instead of the dark masthead band -
+   .region-tab's default colors (translucent white fill, --header-ink-soft
+   text) assume that dark header and are near-invisible here. */
+.map-region-tabs{margin:0 .6rem .8rem}
+.map-region-tabs .region-tab{background:var(--paper);border-color:var(--card-line);color:var(--ink-soft)}
+.map-region-tabs .region-tab:hover{background:var(--accent-soft);color:var(--ink)}
+/* Round dots read better than 2px-radius squares for an at-a-glance legend. */
+.map-legend i{border-radius:50%}

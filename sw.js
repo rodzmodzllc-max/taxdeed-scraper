@@ -91,7 +91,23 @@
 // (detail-stat/stat-tile) or a plain background tint (card-stat, which
 // already sits inside another bordered card). index.html, tx.html and
 // styles.css all changed together.
-const CACHE = "tdw-shell-v21";
+// v22: nav-perfection pass on Dashboard and Map. (1) Dashboard gets a
+// Settings button next to the title (id="dashSettingsBtn" in index.html and
+// tx.html) that opens the exact same account menu as the header badge - see
+// the new listener right after the accountBtn wiring in app.js. (2) The Map
+// page gets its own FL/TX switcher (#regionTabsMap, styled by
+// .map-region-tabs so it doesn't inherit #regionTabs' dark-masthead colors)
+// linking to index.html#map / tx.html#map - a new location.hash === "#map"
+// check near the page router in app.js opens straight to the Map tab
+// instead of the default Auctions landing. Texas has no live harvester yet
+// (see harvesters/texas_harvester.py) so its map is genuinely empty until
+// then - same "ship the page ahead of the data" pattern as the Auctions
+// region tabs already used. (3) The Map panel itself gets a proper card
+// frame (background/border/radius/shadow) instead of edge-to-edge with no
+// chrome at all - it was the one page in the app without one - and the
+// legend swatches became round dots instead of 2px-radius squares.
+// index.html, tx.html, styles.css and app.js all changed together.
+const CACHE = "tdw-shell-v22";
 const SHELL = [
   "/",
   "/index.html",

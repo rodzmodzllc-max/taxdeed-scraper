@@ -3829,6 +3829,15 @@ if (accountBtn) {
   });
 }
 
+// Dashboard's own Settings button opens the exact same menu as the header
+// account badge - one popover, two entry points, so it isn't only reachable
+// via the small badge on a phone.
+const dashSettingsBtn = document.getElementById("dashSettingsBtn");
+if (dashSettingsBtn) dashSettingsBtn.addEventListener("click", e => {
+  e.stopPropagation();
+  openAccountMenu();
+});
+
 // ==================== edit profile ====================
 const profileModal = document.getElementById("profileModal");
 const profileForm = document.getElementById("profileForm");
@@ -4114,6 +4123,12 @@ const navWatchlistBtnEl = document.getElementById("navWatchlistBtn");
 if (navWatchlistBtnEl) navWatchlistBtnEl.addEventListener("click", () => openBidList());
 const navBottomWatchlistBtnEl = document.getElementById("navBottomWatchlistBtn");
 if (navBottomWatchlistBtnEl) navBottomWatchlistBtnEl.addEventListener("click", () => openBidList());
+
+// Deep-link support for the Map page's FL/TX switcher (#regionTabsMap):
+// index.html#map / tx.html#map opens straight to the Map tab instead of
+// dropping you on the default Auctions landing - the whole point of a
+// same-tab toggle is not losing your place when you cross states.
+if (location.hash === "#map") showPage("map");
 
 // ---- Dashboard ----
 // Every figure here is a real count/sum over ALL[] (the client's already-
