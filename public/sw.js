@@ -107,7 +107,38 @@
 // chrome at all - it was the one page in the app without one - and the
 // legend swatches became round dots instead of 2px-radius squares.
 // index.html, tx.html, styles.css and app.js all changed together.
-const CACHE = "tdw-shell-v22";
+// v23: Phase 51 visual rebuild pass 1 (Dashboard, property cards, and the
+// full property page), moving the app toward Marc's dark-navy sidebar
+// reference design using only real data - no fabricated fields, no new
+// interaction model bolted on. (1) Dashboard stat tiles get an icon chip
+// (renderDashboard() in app.js) and a new third panel, Upcoming Auctions -
+// built from real sale_date rows only (upcomingAuctionRows()), no synthetic
+// "recent activity" feed (this project has no events/audit-log table to
+// source one from honestly). (2) Every property card and the full property
+// page now show a photo strip - a real cached Street View image when
+// properties.photo_url has one (see schema-v10-property-photos.sql /
+// scripts/fetch_property_photos.py), otherwise a compact "No photo
+// available" bar, never a blank photo-sized box and never a fake image
+// (photoOrPlaceholder() in app.js). (3) The full property page
+// (detailHtml()) is reorganized into labeled cards - Financial / Property
+// Details / History (the same stats as before, just grouped), plus two new
+// ones built from real fields only: GIS & Location (real latitude/
+// longitude from scripts/geocode_properties.py, with a free key-less
+// OpenStreetMap embed when coordinates exist) and Risk & Legal, which is
+// intentionally NOT a fake "None found" - liens/judgments/foreclosure/code-
+// enforcement data has zero real rows anywhere in this pipeline (see
+// claude/phase-33-source-compliance-audit.md and friends), so every row
+// reads "Not tracked" with a plain-language disclaimer instead. The
+// existing reference links are relabeled "Research & Sources" and the
+// existing provenance line becomes a "Data Quality & Provenance" card -
+// same text, same tests/run_test.mjs assertions, new chrome around it.
+// Certificates are untouched (no photo/GIS/Risk & Legal section - a lien
+// instrument isn't a parcel the way a deed/LAFT row is). (4) The sidebar
+// gets a Settings entry (navSettingsBtn) next to the existing Dashboard/
+// Auctions/Map/Watchlist items, opening the same account menu as the
+// header badge and the Dashboard's own Settings button - no new page.
+// index.html, tx.html, styles.css and app.js all changed together.
+const CACHE = "tdw-shell-v23";
 const SHELL = [
   "/",
   "/index.html",

@@ -632,6 +632,24 @@ summary.county-head::-webkit-details-marker{display:none}
 .prop-card{border:1px solid var(--card-line);border-left:3px solid var(--card-line);
   border-radius:4px;padding:.7rem .8rem;background:var(--card);box-shadow:var(--shadow);
   display:flex;flex-direction:column}
+/* Property photo strip (Phase 51 visual rebuild) - bleeds to the card's own
+   edges via negative margins matching .prop-card's padding above, so it
+   reads as a photo banner rather than an inset thumbnail. Real photo when
+   photo_url is a real cached Street View image (see hasPhoto() in app.js);
+   otherwise a plain muted icon placeholder - never a fake/stock image, and
+   never different-looking for "not checked yet" vs. "checked, no coverage"
+   (see the NULL/''/real-value contract note on photoOrPlaceholder()). */
+.prop-card-photo{margin:-.7rem -.8rem .6rem;border-radius:3px 3px 0 0;overflow:hidden;
+  background:var(--paper)}
+.prop-card-photo.has-photo{aspect-ratio:16/9}
+.prop-card-photo.has-photo img{width:100%;height:100%;object-fit:cover;display:block}
+/* Deliberately a slim bar, not a blank photo-sized box - see the comment on
+   photoOrPlaceholder() in app.js. Most rows have no cached photo yet, and a
+   tall empty rectangle repeated down the whole list would read as broken,
+   not "coming soon". */
+.prop-card-photo.no-photo{display:flex;align-items:center;justify-content:center;gap:.4rem;
+  height:2.2rem;color:var(--ink-soft);font-size:.68rem;font-weight:600}
+.prop-card-photo.no-photo svg{width:16px;height:16px;opacity:.6;flex-shrink:0}
 /* ---- the card's left edge reports STATUS, and only status ---------------
    It used to mean three different things at once - accent for a
    certificate, brass for a favourite, green for a top pick - which is why
@@ -939,6 +957,44 @@ summary.county-head::-webkit-details-marker{display:none}
   color:var(--ink-soft);display:block;margin-bottom:.15rem}
 .detail-stat-val{font-family:var(--font-mono);font-variant-numeric:tabular-nums;
   font-size:1rem;font-weight:700}
+
+/* ==================== detail sections (Phase 51 visual rebuild) ====================
+   Financial / Property Details / History / Risk & Legal / GIS & Location /
+   Research & Sources / Data Quality & Provenance - each a labeled card in
+   the deed/LAFT full property page. See detailSectionHtml()/statGroupHtml()
+   in app.js. The detail modal is a fairly narrow column even on desktop
+   (see .detail-panel/[data-ledger="auction"] .detail-modal-inner below), so
+   these stack full-width by design rather than trying to force a
+   multi-column layout into ~420-480px. */
+.detail-hero-photo{margin:.5rem 0 .8rem;border-radius:8px;overflow:hidden;
+  background:var(--paper);color:var(--ink-soft)}
+.detail-hero-photo.has-photo{aspect-ratio:16/10}
+.detail-hero-photo.has-photo img{width:100%;height:100%;object-fit:cover;display:block}
+/* Same "slim bar, not a blank box" reasoning as .prop-card-photo.no-photo -
+   one per detail page instead of dozens down a list, but still not worth a
+   tall empty rectangle before the photo pipeline is populated. */
+.detail-hero-photo.no-photo{display:flex;align-items:center;justify-content:center;gap:.5rem;
+  height:2.6rem;font-size:.78rem;font-weight:600}
+.detail-hero-photo.no-photo svg{width:18px;height:18px;opacity:.55;flex-shrink:0}
+.detail-section{margin:.8rem 0;padding:.75rem .8rem;background:var(--card);
+  border:1px solid var(--card-line);border-radius:8px}
+.detail-section-head{font-family:var(--font-sans);font-weight:800;font-size:.78rem;
+  letter-spacing:.02em;color:var(--ink);margin-bottom:.5rem}
+.detail-section .detail-grid,.detail-section .detail-links{margin:0}
+.detail-section-note{margin:0 0 .55rem;font-size:.72rem;line-height:1.45;color:var(--ink-soft)}
+.kv-list{display:flex;flex-direction:column}
+.kv-row{display:flex;align-items:baseline;justify-content:space-between;gap:.6rem;
+  padding:.35rem 0;border-bottom:1px dashed var(--card-line);font-size:.78rem}
+.kv-row:last-child{border-bottom:none}
+.kv-label{color:var(--ink-soft)}
+.kv-val{font-weight:700;color:var(--ink);text-align:right}
+.kv-val.muted{font-weight:600;color:var(--ink-soft);font-style:italic}
+.kv-val.mono{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+.kv-val.stale{color:var(--warn)}
+.kv-val.ok{color:var(--ok)}
+.risk-legal-card .detail-section-head{color:var(--warn)}
+.detail-map-embed{margin-top:.6rem;border-radius:6px;overflow:hidden;border:1px solid var(--card-line)}
+.detail-map-embed iframe{display:block;width:100%;height:180px;border:none}
 .detail-links{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:.5rem;
   margin:.9rem 0}
 .detail-links a{display:flex;align-items:center;justify-content:center;gap:.35rem;text-align:center;
@@ -1192,7 +1248,13 @@ footer{padding:1.2rem 1.1rem 0;font-size:.72rem;color:var(--ink-soft);text-align
   .nav-item svg{width:16px;height:16px;flex-shrink:0}
   .nav-item:hover{background:rgba(255,255,255,.07);color:var(--header-ink)}
   .nav-item.on{background:var(--led-accent-d);color:#0B1220;font-weight:700}
-  .nav-rail-portfolio{margin-top:auto;padding:.8rem .65rem;border-top:1px solid var(--header-line);color:var(--header-ink)}
+  /* Settings sits in its own small footer block, not the primary nav-list -
+     it's an entry point to the account menu, not a page like the four
+     above it (see the HTML comment on #navSettingsBtn). margin-top:auto
+     pushes it (and the portfolio block after it) to the bottom of the
+     rail even when the primary nav-list is short. */
+  .nav-rail-foot{margin-top:auto;padding-top:.5rem;border-top:1px solid var(--header-line)}
+  .nav-rail-portfolio{padding:.8rem .65rem;border-top:1px solid var(--header-line);color:var(--header-ink)}
   .nav-rail-portfolio h3{margin:0 0 .55rem;font-size:.66rem;font-weight:700;letter-spacing:.06em;
     text-transform:uppercase;color:var(--header-ink-soft)}
   .nav-rail-stat{display:flex;align-items:baseline;justify-content:space-between;padding:.22rem 0;font-size:.76rem}
@@ -1243,14 +1305,24 @@ footer{padding:1.2rem 1.1rem 0;font-size:.72rem;color:var(--ink-soft);text-align
 @media (min-width:1024px){.dash-stats{padding:0 0 1rem}}
 /* Phase (mobile UX pass): border -> soft shadow, same reasoning as
    .card-stat/.detail-stat above. */
-.stat-tile{background:var(--card);border-radius:6px;padding:.85rem .9rem;box-shadow:var(--shadow)}
+/* Icon chip + figure (Phase 51 visual rebuild) - .stat-tile is now a flex
+   row: a colored rounded-square icon on the left, label/value/sub stacked
+   on the right, matching the reference design's Dashboard tiles instead of
+   a bare number in a box. Markup: <span class="stat-tile-icon">+ <div>
+   wrapping the existing label/val/sub - see renderDashboard(). */
+.stat-tile{display:flex;align-items:flex-start;gap:.7rem;background:var(--card);border-radius:8px;
+  padding:.85rem .9rem;box-shadow:var(--shadow)}
+.stat-tile-icon{flex:0 0 auto;display:flex;align-items:center;justify-content:center;
+  width:2.15rem;height:2.15rem;border-radius:8px;background:var(--accent-soft);color:var(--accent)}
+.stat-tile-icon svg{width:18px;height:18px}
+.stat-tile-icon.accent{background:var(--accent);color:#fff}
 .stat-tile-label{font-size:.68rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-soft)}
 .stat-tile-val{font-family:var(--font-mono);font-variant-numeric:tabular-nums;font-weight:700;
   font-size:1.5rem;color:var(--ink);margin-top:.2rem}
 .stat-tile-val.accent{color:var(--accent)}
 .stat-tile-sub{font-size:.72rem;color:var(--ink-soft);margin-top:.15rem}
 .dash-grid{display:grid;grid-template-columns:1fr;gap:.9rem;padding:.2rem .6rem 1.4rem}
-@media (min-width:1024px){.dash-grid{grid-template-columns:1.3fr 1fr;padding:0 0 1.4rem}}
+@media (min-width:1024px){.dash-grid{grid-template-columns:repeat(auto-fit,minmax(280px,1fr));padding:0 0 1.4rem}}
 .dash-panel{background:var(--card);border:1px solid var(--card-line);border-radius:4px;overflow:hidden}
 .dash-panel-head{padding:.7rem .9rem;border-bottom:1px solid var(--card-line);font-family:var(--font-sans);
   font-weight:700;font-size:.85rem;color:var(--ink)}

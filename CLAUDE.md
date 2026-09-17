@@ -82,6 +82,69 @@ no-coverage row every run), a real value = a public Storage URL to show as
 the property's photo. A missing/empty photo renders as a plain placeholder,
 never a fabricated or stock image standing in for the actual property.
 
+## Visual rebuild toward Marc's reference design (Phase 51, in progress)
+
+Marc supplied a 5-panel reference mockup (dark-navy sidebar nav, property
+photos, Risk & Legal panel, GIS panel, Research & Sources, watchlist stage
+stepper) and asked for a "full rebuild," explicitly choosing to source
+missing data legally rather than fabricate it, and "back end should source
+the images" (→ the photo pipeline above). This is being done in passes, not
+one giant unreviewable diff — pass 1 (this one) covers Dashboard, every
+property card, and the full property page (`detailHtml()`/`openDetail()`
+in `app.js`). Each pass ships real, tested, honestly-labeled functionality
+only; nothing here is a mockup or a placeholder page.
+
+**What pass 1 built**, all real data, no new interaction model:
+- Dashboard stat tiles get an icon chip; a third panel, **Upcoming
+  Auctions**, is built straight from real `sale_date` rows
+  (`upcomingAuctionRows()`) — soonest first, grouped by date + county.
+- Every property card and the full property page show a **photo strip** —
+  `photo_url` when the pipeline above has cached one, otherwise a compact
+  "No photo available" bar (`photoOrPlaceholder()`) — never a blank
+  photo-sized box, never a fake image.
+- The full property page's stats are now grouped into labeled cards
+  (**Financial / Property Details / History** — same figures as before,
+  just organized), plus two new ones: **GIS & Location** (real
+  latitude/longitude from `scripts/geocode_properties.py`, with a free,
+  key-less OpenStreetMap embed when coordinates exist) and **Risk &
+  Legal**, which reads "Not tracked" for every row (liens, judgments,
+  foreclosure, code violations) rather than a fabricated "None found" —
+  this data has zero real rows anywhere in the pipeline (see
+  `phase-33-source-compliance-audit.md` and friends). The existing
+  reference links became a "Research & Sources" card and the existing
+  sync-provenance line became a "Data Quality & Provenance" card — same
+  text, same `tests/run_test.mjs` assertions, new chrome around it.
+  Certificates are untouched (a lien instrument isn't a parcel).
+- Sidebar gets a **Settings** entry (`navSettingsBtn`) next to Dashboard/
+  Auctions/Map/Watchlist, opening the same account menu as the header
+  badge — no new page behind it.
+
+**Deliberately not built in pass 1, and why:**
+- **No tab bar** (Overview/Financial/Property/History/Risk/GIS/Permits/
+  Documents) on the full property page, even though the reference mockup
+  shows one. A Financial/Property/History tab would just re-show the exact
+  same fields the Overview cards already show — there's no additional
+  depth in the data model to put behind them. Permits and Documents have
+  **zero real backing data anywhere in this project** — building those
+  tabs, even empty ones, would imply data coverage that doesn't exist.
+- **No "Research"/"Reports" sidebar nav items.** A dedicated Research page
+  would just duplicate the per-property source links already on the full
+  property page; Reports would just be the existing CSV export, which
+  already lives in the Auctions toolbar where it's contextually clear.
+  Happy to build either out for real if Marc wants a distinct page.
+- **No embedded "Property Opportunity Map" on Dashboard** (reference panel
+  1) — redundant with the dedicated Map page and meaningfully more
+  engineering for this pass; a real candidate for a later pass.
+- **No "Recent Activity" feed** — the reference mockup's "New property
+  added 2h ago" style entries would need a real events/audit-log table
+  this project doesn't have. Not fabricated.
+
+**Clear next real-data candidate:** FEMA's National Flood Hazard Layer API
+is free, legal, and unresearched-so-far in this project — a genuine way to
+eventually turn the Risk & Legal card's Flood Zone concern (from the
+reference) into a real field, the same way `photo_url` and
+`latitude`/`longitude` went from "not tracked" to real. Not started.
+
 ## Known landmines / do-not-repeat mistakes
 
 - Miami-Dade is the only county with a hyphen in `data/realauction_counties.csv` — a blanket `-replace '-',' '` once silently renamed it to "Miami Dade", which didn't match the frontend's canonical `"Miami-Dade"` and hid 33 live listings. Fixed; don't reintroduce a blanket hyphen transform.
