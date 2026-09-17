@@ -1,32 +1,45 @@
 // ============================================================================
-// Explore view: split "card list + Florida map" layout with per-county
-// cluster bubbles, plus the List / Split / Map switcher.
+// Map page: the county cluster-bubble / real-pin map that lives on its own
+// nav destination (#pageMap in index.html/tx.html), county rail, floating
+// preview card, and (once zoomed into a county) the property-card strip.
+//
+// Phase 54: this module used to also run the Auctions page's List/Split/Map
+// view-toggle, with the map as a panel embedded beside the card list. That
+// made "go to Map" feel like nothing had really happened - same masthead,
+// same ledger tabs, same toolbar, just the panel next to the list changed.
+// Map is a real page now, with its own header and its own toolbar (search,
+// county select, an All/Auctions/Lands Available/Certificates ledger-pill
+// row, a Watchlist-only pill - see #pageMap's markup), and this module's job
+// shrank to match: it draws that page, full stop. There is no more List or
+// Split mode here, no more shared shell with the Auctions list, and no more
+// cross-highlighting a county-group in a list that isn't on this page.
 //
 // WHY THIS IS A SEPARATE MODULE, not code inside app.js:
-// app.js is ~2400 lines and owns every filter, every render path and all of
-// the Supabase wiring. This file adds a second *view* of data app.js has
-// already filtered, and it does that without reaching into app.js's internals
-// at all. The entire contract between them is one event:
+// app.js is ~4500 lines and owns every filter, every render path and all of
+// the Supabase wiring. This file draws a second, independent *view* of data
+// app.js has already filtered, and it does that without reaching into
+// app.js's internals at all. The entire contract between them is one event:
 //
-//     window.addEventListener("tdw:rendered", e => e.detail)
+//     window.addEventListener("tdw:maprendered", e => e.detail)
 //        -> { rows, ledger, openDetail }
 //
-// dispatched at the end of app.js's render(). `rows` is the exact
-// filtered+sorted set the list just drew, so the map can never disagree with
-// the list about what's in view - no second copy of passes()/sortRows() here
-// to drift out of sync. That was the specific failure mode worth designing
-// out: two filter implementations that agree on day one and quietly diverge
-// on day thirty.
+// dispatched by app.js's renderMapPage() - see that function and mapFilter
+// near the page router in app.js. `rows` is the exact set the Map page's own
+// toolbar just filtered ALL[] down to, computed independently of the
+// Auctions page's own state/passes() (the Map page has no single active
+// ledger, and its four controls are a different, portfolio-wide question -
+// see renderMapPage()'s own comment for why that's deliberate, not drift).
 //
-// app.js also parks that same payload on window.__tdwLastRender before
+// app.js also parks that same payload on window.__tdwMapLastRender before
 // dispatching, and this module reads it on startup. Both files are
 // type="module" (so both are deferred and app.js runs first), and app.js's
-// first render() is behind an await on Supabase - so in practice the listener
-// below is always registered in time. "In practice" is doing too much work
-// there: if a render ever DOES land first, an event-only contract drops it
-// silently and the map sits empty until the user happens to touch a filter.
-// Caught exactly that way in the local harness, where the stand-in for app.js
-// renders synchronously. One line on each side makes the ordering irrelevant.
+// first renderMapPage() call happens well after Supabase data has loaded -
+// so in practice the listener below is always registered in time.
+// "In practice" is doing too much work there: if a render ever DOES land
+// first, an event-only contract drops it silently and the map sits empty
+// until the user happens to touch the toolbar. One stashed value on each
+// side makes the ordering irrelevant, same pattern app.js's own
+// tdw:rendered/window.__tdwLastRender already used for the list.
 //
 // WHY COUNTY BUBBLES AND NOT PARCEL PINS:
 // Measured against the live database (2026-08-31): of 2,837 properties, only
@@ -51,19 +64,16 @@
 // courthouse, which the PWA is explicitly built for.
 // ============================================================================
 
-const SHELL_ID = "exploreShell";
 const CANVAS_ID = "exploreMapCanvas";
-const MODE_KEY = "tdw_view_mode";
-const MODES = ["list", "split", "map"];
 
 // Which state desk this page is. Mirrors app.js's own PAGE_STATE constant
 // (read from the same <body data-state="FL|TX"> app.js sets) - this module
 // never reaches into app.js for it, same rule as everything else here.
 const PAGE_STATE = document.body.dataset.state === "TX" ? "TX" : "FL";
 
-// Live state, all of it derived from the last tdw:rendered event.
+// Live state, all of it derived from the last tdw:maprendered event.
 let rows = [];
-let ledger = "auction";
+let ledger = "all";
 let openDetail = null;
 let svgLoaded = false;
 let centroids = new Map();     // county -> {cx, cy} in SVG user units
@@ -84,64 +94,6 @@ let cityTop = [];              // the statewide majors, picked once on load
 let zoomAnim = null;           // in-flight viewBox tween
 
 const $ = id => document.getElementById(id);
-
-// ---------------------------------------------------------------------------
-// view mode
-// ---------------------------------------------------------------------------
-function storedMode() {
-  // A nav-triggered "show me the map" request (see app.js's showPage("map")
-  // and the window.__tdwRequestedViewMode comment there) wins over whatever
-  // was last persisted - a cold load straight into index.html#map should
-  // land on the map even if a previous visit left the toggle on List.
-  if (window.__tdwRequestedViewMode && MODES.includes(window.__tdwRequestedViewMode)) {
-    return window.__tdwRequestedViewMode;
-  }
-  try {
-    const m = localStorage.getItem(MODE_KEY);
-    if (MODES.includes(m)) return m;
-  } catch { /* private mode - fall through to the default */ }
-  // Split is the point of the redesign, but it needs the width to make sense;
-  // a phone opening straight into a half-width list would be worse than the
-  // list it replaced.
-  return window.matchMedia("(min-width:1024px)").matches ? "split" : "list";
-}
-
-function setMode(mode, persist) {
-  if (!MODES.includes(mode)) mode = "list";
-  const shell = $(SHELL_ID);
-  if (shell) shell.dataset.mode = mode;
-  document.querySelectorAll("#viewToggle button[data-mode]").forEach(b => {
-    b.classList.toggle("on", b.dataset.mode === mode);
-    b.setAttribute("aria-pressed", b.dataset.mode === mode ? "true" : "false");
-  });
-  if (persist) { try { localStorage.setItem(MODE_KEY, mode); } catch { /* not persisted, still applied */ } }
-  // The SVG is only fetched when a map is actually going to be visible, so
-  // list-only users never pay for it.
-  if (mode !== "list") ensureMap();
-}
-
-function bindViewToggle() {
-  const wrap = $("viewToggle");
-  if (!wrap) return;
-  wrap.addEventListener("click", e => {
-    const btn = e.target.closest("button[data-mode]");
-    if (btn) setMode(btn.dataset.mode, true);
-  });
-  setMode(storedMode(), false);
-}
-
-// Phase 53: the view-toggle itself only offers List/Split now (see
-// index.html/tx.html) - "Map" is reached from the nav bar instead, which
-// isn't inside this module's DOM at all (app.js owns it). app.js's
-// showPage("map") dispatches this event rather than reaching into
-// explore.js's internals directly, same one-way-event contract as
-// tdw:rendered above. persist:true so a nav-triggered switch into map view
-// sticks the same way a toggle click would (e.g. across a Florida/Texas
-// navigation, which reloads this module fresh and reads storedMode()).
-window.addEventListener("tdw:setviewmode", e => {
-  const mode = e && e.detail && e.detail.mode;
-  if (mode) setMode(mode, true);
-});
 
 // ---------------------------------------------------------------------------
 // basemap
@@ -1101,13 +1053,13 @@ function renderBubbleLegend(byCounty) {
 // ---------------------------------------------------------------------------
 // interaction
 // ---------------------------------------------------------------------------
-// Clicking a bubble drives the EXISTING county dropdown rather than reaching
-// into app.js's state: #countyQuick's change handler already narrows the
-// filter, expands that county's groups and re-renders. Reusing it means the
-// map can't develop its own subtly different idea of what "filter to a
-// county" means, and app.js needed no second edit to support this.
+// Clicking a bubble drives the Map page's OWN county select (#mapCountySelect,
+// built by app.js's buildMapCountySelect()) rather than this module keeping a
+// second, independent idea of "which county is picked." Dispatching a change
+// event on it runs app.js's own listener, which updates mapFilter.county and
+// re-dispatches tdw:maprendered - same round trip the toolbar itself takes.
 function applyCounty(county) {
-  const select = $("countyQuick");
+  const select = $("mapCountySelect");
   if (!select) return;
   const next = selectedCounty === county ? "ALL" : county;
   // A county with no rows in this ledger isn't in the dropdown; ignore rather
@@ -1120,12 +1072,6 @@ function applyCounty(county) {
   // picking a county on a map should take you there.
   if (next === "ALL") { if (zoomCounty) zoomTo(null); else draw(); }
   else zoomTo(next);
-  // On a phone the list sits below the map, so a tap that changes the list
-  // should actually take you to it.
-  if (next !== "ALL" && !window.matchMedia("(min-width:1024px)").matches) {
-    const main = document.getElementById("main");
-    if (main) main.scrollIntoView({ behavior: "smooth", block: "start" });
-  }
 }
 
 function bindMapInteraction() {
@@ -1168,7 +1114,7 @@ function bindMapInteraction() {
   canvas.addEventListener("mousemove", e => {
     if (zoomCounty) { if (tip) tip.classList.remove("show"); return; }
     const bubble = e.target.closest(".cluster-bubble");
-    if (!bubble || !tip) { if (tip) tip.classList.remove("show"); clearFocus(); return; }
+    if (!bubble || !tip) { if (tip) tip.classList.remove("show"); return; }
     const county = bubble.dataset.county;
     const list = rows.filter(p => p.county === county);
     const bids = list.map(p => Number(p.bid)).filter(n => n > 0);
@@ -1183,45 +1129,10 @@ function bindMapInteraction() {
     tip.style.left = (x > box.width - 220 ? Math.max(4, x - 216) : x + 14) + "px";
     tip.style.top = Math.max(4, y - 12) + "px";
     tip.classList.add("show");
-    focusCounty(county);
   });
 
   canvas.addEventListener("mouseleave", () => {
     if (tip) tip.classList.remove("show");
-    clearFocus();
-  });
-}
-
-// Two-way highlight: hovering a bubble outlines that county's group in the
-// list, and hovering a group's header pulses its bubble. Without it the two
-// panes read as unrelated widgets that happen to sit side by side.
-function focusCounty(county) {
-  document.querySelectorAll("#main .county-group").forEach(g => {
-    g.classList.toggle("map-focus", g.dataset.county === county);
-  });
-}
-function clearFocus() {
-  document.querySelectorAll("#main .county-group.map-focus").forEach(g => g.classList.remove("map-focus"));
-}
-
-function bindListHover() {
-  const main = document.getElementById("main");
-  if (!main) return;
-  main.addEventListener("mouseover", e => {
-    const group = e.target.closest(".county-group");
-    if (!group) return;
-    const svg = $(CANVAS_ID);
-    if (!svg) return;
-    svg.querySelectorAll(".cluster-bubble").forEach(b => {
-      b.classList.toggle("sel", b.dataset.county === group.dataset.county || b.dataset.county === selectedCounty);
-    });
-  });
-  main.addEventListener("mouseleave", () => {
-    const svg = $(CANVAS_ID);
-    if (!svg) return;
-    svg.querySelectorAll(".cluster-bubble").forEach(b => {
-      b.classList.toggle("sel", b.dataset.county === selectedCounty);
-    });
   });
 }
 
@@ -1261,22 +1172,22 @@ function absorb(detail) {
   rows = Array.isArray(d.rows) ? d.rows : [];
   ledger = d.ledger || ledger;
   openDetail = d.openDetail || openDetail;
-  // The county dropdown is the source of truth for "am I filtered to one
-  // county" - the user can change it from the dropdown, the chips or the
-  // filter-panel map, and the bubbles have to reflect that too.
-  const select = $("countyQuick");
+  // The Map page's own county select (#mapCountySelect) is the source of
+  // truth for "am I filtered to one county" - the user can change it from the
+  // dropdown itself or by clicking a bubble (applyCounty drives the same
+  // select), and the bubbles have to reflect whichever one moved it.
+  ensureMap();
+  const select = $("mapCountySelect");
   selectedCounty = select && select.value !== "ALL" ? select.value : null;
-  // The county can also change from the dropdown, the chips or the filter
-  // panel's own map. Keep the zoom in step with whatever moved it.
+  // The county can also change straight from the dropdown. Keep the zoom in
+  // step with whatever moved it.
   if (svgLoaded && zoomCounty && zoomCounty !== selectedCounty) { zoomTo(selectedCounty); return; }
   if (svgLoaded) draw();
 }
 
-window.addEventListener("tdw:rendered", e => absorb(e.detail));
+window.addEventListener("tdw:maprendered", e => absorb(e.detail));
 
-bindViewToggle();
 bindMapInteraction();
-bindListHover();
 bindReset();
 bindStrip();
 watchForVisibility();
@@ -1284,4 +1195,4 @@ watchForVisibility();
 // Pick up a render that already happened before this module finished loading
 // (see the header note) - without this the map would stay empty until the
 // next filter change.
-if (window.__tdwLastRender) absorb(window.__tdwLastRender);
+if (window.__tdwMapLastRender) absorb(window.__tdwMapLastRender);
