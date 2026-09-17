@@ -30,6 +30,29 @@ $ErrorActionPreference = "Stop"
 
 $supabaseUrl = $env:SUPABASE_URL
 $serviceRoleKey = $env:SUPABASE_SERVICE_KEY
+
+# --------------------------------------------------------------------------
+# Supabase's new `sb_secret_...` keys are REFUSED on any request whose
+# User-Agent looks like a browser - their docs are explicit that the check
+# "matches on the User-Agent header". PowerShell's Invoke-RestMethod sends a
+# default UA that begins "Mozilla/5.0 ...  PowerShell/7.x", so Supabase reads
+# every call in this script as coming from a browser and answers:
+#
+#   { "message": "Forbidden use of secret API key in browser",
+#     "hint": "Secret API keys can only be used in a protected environment
+#              and should never be used in a browser. ..." }
+#
+# That is what broke the whole pipeline on 2026-09-15: run #140 succeeded at
+# 12:38, #141 failed at 13:10, and every deeds/certificate/LAFT sync since has
+# failed the same way with no code change on our side. The legacy service_role
+# JWT had no such check, so the breakage dates from the switch to a secret key,
+# not from anything this repo did.
+#
+# Every Supabase call below therefore passes an explicit, honest,
+# non-browser User-Agent. This is not evading a control - the control exists
+# to stop secret keys being used from real browsers, and this is a CI job on a
+# GitHub runner. Naming the tool plainly is what the header is for.
+$SupabaseUserAgent = "taxdeed-scraper/1.0 (+https://github.com/rodzmodzllc-max/taxdeed-scraper; GitHub Actions)"
 if ([string]::IsNullOrWhiteSpace($supabaseUrl) -or [string]::IsNullOrWhiteSpace($serviceRoleKey)) {
     throw "SUPABASE_URL / SUPABASE_SERVICE_KEY environment variables are not set - check the workflow's secrets."
 }
@@ -76,7 +99,7 @@ $headers = @{
     "Authorization" = "Bearer $serviceRoleKey"
 }
 $existingUrl = "$supabaseUrl/rest/v1/properties?source=eq.laft&select=county&limit=5000"
-$existingRows = Invoke-RestMethod -Uri $existingUrl -Method Get -Headers $headers
+$existingRows = Invoke-RestMethod -Uri $existingUrl -Method Get -Headers $headers -UserAgent $SupabaseUserAgent
 $existingCounts = @{}
 foreach ($r in $existingRows) {
     if (-not $r.county) { continue }

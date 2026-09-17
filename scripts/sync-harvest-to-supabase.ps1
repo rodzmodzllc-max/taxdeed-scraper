@@ -33,6 +33,29 @@ $statusPath = Join-Path $here "../out/harvest_all_status.json"
 
 $supabaseUrl = $env:SUPABASE_URL
 $serviceRoleKey = $env:SUPABASE_SERVICE_KEY
+
+# --------------------------------------------------------------------------
+# Supabase's new `sb_secret_...` keys are REFUSED on any request whose
+# User-Agent looks like a browser - their docs are explicit that the check
+# "matches on the User-Agent header". PowerShell's Invoke-RestMethod sends a
+# default UA that begins "Mozilla/5.0 ...  PowerShell/7.x", so Supabase reads
+# every call in this script as coming from a browser and answers:
+#
+#   { "message": "Forbidden use of secret API key in browser",
+#     "hint": "Secret API keys can only be used in a protected environment
+#              and should never be used in a browser. ..." }
+#
+# That is what broke the whole pipeline on 2026-09-15: run #140 succeeded at
+# 12:38, #141 failed at 13:10, and every deeds/certificate/LAFT sync since has
+# failed the same way with no code change on our side. The legacy service_role
+# JWT had no such check, so the breakage dates from the switch to a secret key,
+# not from anything this repo did.
+#
+# Every Supabase call below therefore passes an explicit, honest,
+# non-browser User-Agent. This is not evading a control - the control exists
+# to stop secret keys being used from real browsers, and this is a CI job on a
+# GitHub runner. Naming the tool plainly is what the header is for.
+$SupabaseUserAgent = "taxdeed-scraper/1.0 (+https://github.com/rodzmodzllc-max/taxdeed-scraper; GitHub Actions)"
 if ([string]::IsNullOrWhiteSpace($supabaseUrl) -or [string]::IsNullOrWhiteSpace($serviceRoleKey)) {
     throw "SUPABASE_URL / SUPABASE_SERVICE_KEY environment variables are not set - check the workflow's secrets."
 }
@@ -96,16 +119,16 @@ for ($i = 0; $i -lt $rows.Count; $i += $batchSize) {
     if ($batch.Count -eq 1) { $json = "[$json]" }
     $body = [System.Text.Encoding]::UTF8.GetBytes($json)
     if ($useFallback) {
-        Invoke-RestMethod -Uri $fallbackEndpoint -Method Post -Headers $headers -Body $body | Out-Null
+        Invoke-RestMethod -Uri $fallbackEndpoint -Method Post -Headers $headers -Body $body -UserAgent $SupabaseUserAgent | Out-Null
     } else {
         try {
-            Invoke-RestMethod -Uri $endpoint -Method Post -Headers $headers -Body $body | Out-Null
+            Invoke-RestMethod -Uri $endpoint -Method Post -Headers $headers -Body $body -UserAgent $SupabaseUserAgent | Out-Null
         } catch {
             $detail = "$($_.ErrorDetails.Message) $($_.Exception.Message)"
             if ($detail -match '42P10|no unique or exclusion constraint') {
                 Write-Warning "State-aware unique constraint not found yet (004_widen_unique_constraint_for_state.sql not run against production?) - falling back to the older (source, county, case_no) conflict target for the rest of this run."
                 $useFallback = $true
-                Invoke-RestMethod -Uri $fallbackEndpoint -Method Post -Headers $headers -Body $body | Out-Null
+                Invoke-RestMethod -Uri $fallbackEndpoint -Method Post -Headers $headers -Body $body -UserAgent $SupabaseUserAgent | Out-Null
             } else {
                 throw
             }
@@ -190,7 +213,7 @@ if ($completeCounties.Count -gt 0) {
 
     $encodedCounties = ($completeCounties | ForEach-Object { [uri]::EscapeDataString($_) }) -join ","
     $activeUrl = "$supabaseUrl/rest/v1/properties?state=eq.FL&source=eq.auction&status=eq.active&sale_date=lte.$today&county=in.($encodedCounties)&select=id,county,case_no&limit=5000"
-    $activeRows = Invoke-RestMethod -Uri $activeUrl -Method Get -Headers $headers
+    $activeRows = Invoke-RestMethod -Uri $activeUrl -Method Get -Headers $headers -UserAgent $SupabaseUserAgent
 
     $staleIds = @()
     foreach ($ar in $activeRows) {
@@ -210,7 +233,7 @@ if ($completeCounties.Count -gt 0) {
         for ($i = 0; $i -lt $staleIds.Count; $i += $batchSize) {
             $idBatch = $staleIds[$i..([math]::Min($i + $batchSize - 1, $staleIds.Count - 1))]
             $patchUrl = "$supabaseUrl/rest/v1/properties?id=in.(" + ($idBatch -join ",") + ")"
-            Invoke-RestMethod -Uri $patchUrl -Method Patch -Headers $patchHeaders -Body ([System.Text.Encoding]::UTF8.GetBytes('{"status":"closed"}')) | Out-Null
+            Invoke-RestMethod -Uri $patchUrl -Method Patch -Headers $patchHeaders -Body ([System.Text.Encoding]::UTF8.GetBytes('{"status":"closed"}')) -UserAgent $SupabaseUserAgent | Out-Null
         }
         Write-Output "Done closing out stale properties."
     } else {

@@ -41,6 +41,29 @@ $ErrorActionPreference = "Stop"
 
 $supabaseUrl = $env:SUPABASE_URL
 $serviceRoleKey = $env:SUPABASE_SERVICE_KEY
+
+# --------------------------------------------------------------------------
+# Supabase's new `sb_secret_...` keys are REFUSED on any request whose
+# User-Agent looks like a browser - their docs are explicit that the check
+# "matches on the User-Agent header". PowerShell's Invoke-RestMethod sends a
+# default UA that begins "Mozilla/5.0 ...  PowerShell/7.x", so Supabase reads
+# every call in this script as coming from a browser and answers:
+#
+#   { "message": "Forbidden use of secret API key in browser",
+#     "hint": "Secret API keys can only be used in a protected environment
+#              and should never be used in a browser. ..." }
+#
+# That is what broke the whole pipeline on 2026-09-15: run #140 succeeded at
+# 12:38, #141 failed at 13:10, and every deeds/certificate/LAFT sync since has
+# failed the same way with no code change on our side. The legacy service_role
+# JWT had no such check, so the breakage dates from the switch to a secret key,
+# not from anything this repo did.
+#
+# Every Supabase call below therefore passes an explicit, honest,
+# non-browser User-Agent. This is not evading a control - the control exists
+# to stop secret keys being used from real browsers, and this is a CI job on a
+# GitHub runner. Naming the tool plainly is what the header is for.
+$SupabaseUserAgent = "taxdeed-scraper/1.0 (+https://github.com/rodzmodzllc-max/taxdeed-scraper; GitHub Actions)"
 if ([string]::IsNullOrWhiteSpace($supabaseUrl) -or [string]::IsNullOrWhiteSpace($serviceRoleKey)) {
     throw "SUPABASE_URL / SUPABASE_SERVICE_KEY environment variables are not set - check the workflow's secrets."
 }
@@ -55,7 +78,7 @@ $headers = @{
 # ---- Hard check: how many counties have fresh active auction data? ----
 $sinceIso = (Get-Date).ToUniversalTime().AddHours(-26).ToString("yyyy-MM-ddTHH:mm:ssZ")
 $freshUrl = "$supabaseUrl/rest/v1/properties?source=eq.auction&status=eq.active&updated_at=gte.$sinceIso&select=county&limit=5000"
-$freshRows = Invoke-RestMethod -Uri $freshUrl -Method Get -Headers $headers
+$freshRows = Invoke-RestMethod -Uri $freshUrl -Method Get -Headers $headers -UserAgent $SupabaseUserAgent
 $freshCounties = ($freshRows | ForEach-Object { $_.county } | Select-Object -Unique)
 $freshCount = ($freshCounties | Measure-Object).Count
 
@@ -69,10 +92,10 @@ try {
     $today = (Get-Date).ToString("yyyy-MM-dd")
     $weekOut = (Get-Date).AddDays(7).ToString("yyyy-MM-dd")
     $calUrl = "$supabaseUrl/rest/v1/county_calendar?sale_date=gte.$today&sale_date=lte.$weekOut&select=county,sale_date&limit=1000"
-    $calRows = Invoke-RestMethod -Uri $calUrl -Method Get -Headers $headers
+    $calRows = Invoke-RestMethod -Uri $calUrl -Method Get -Headers $headers -UserAgent $SupabaseUserAgent
 
     $activeUrl = "$supabaseUrl/rest/v1/properties?source=eq.auction&status=eq.active&sale_date=gte.$today&sale_date=lte.$weekOut&select=county,sale_date&limit=5000"
-    $activeRows = Invoke-RestMethod -Uri $activeUrl -Method Get -Headers $headers
+    $activeRows = Invoke-RestMethod -Uri $activeUrl -Method Get -Headers $headers -UserAgent $SupabaseUserAgent
     $activeKeys = [System.Collections.Generic.HashSet[string]]::new()
     foreach ($a in $activeRows) { $activeKeys.Add("$($a.county)|$($a.sale_date)") | Out-Null }
 
