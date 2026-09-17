@@ -63,7 +63,18 @@
 // "Est. Market" to the county's just value for a stated roll year. app.js and
 // styles.css changed together - a cached stylesheet against the new markup
 // would leave the new card lines unstyled.
-const CACHE = "tdw-shell-v19";
+//
+// v20: mobile legibility/zoom fix. index.html and tx.html's viewport meta
+// gained maximum-scale=1, user-scalable=no, viewport-fit=cover (pinch-zoom
+// was pulling the fixed .nav-bottom tab bar off-screen - browsers detach
+// position:fixed elements from the visual viewport while zoomed), and
+// styles.css gained a mobile html{font-size} bump so the UI is legible at
+// 1x without needing to zoom in the first place. All three precached shell
+// files changed together - a cached index.html serving the old
+// unscalable-off meta against a fresh stylesheet (or vice versa) would
+// leave the disappearing-nav bug in place for exactly the returning users
+// on the courthouse wifi this cache exists to help.
+const CACHE = "tdw-shell-v20";
 const SHELL = [
   "/",
   "/index.html",
