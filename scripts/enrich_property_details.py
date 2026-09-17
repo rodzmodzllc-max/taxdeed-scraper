@@ -76,6 +76,7 @@ the layer exposes 121 fields rather than the 4 originally used):
 """
 import os
 import random
+from collections import Counter
 import re
 import sys
 import time
@@ -92,6 +93,21 @@ SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "")
 # which is what kept mappable coordinates at a few hundred rows. These
 # limits clear it in 2-3 runs instead. Steady state stays cheap regardless:
 # `fdor_enriched_at` means only genuinely new rows are ever fetched again.
+# Phase 51. This script reads FLORIDA's statewide cadastral layer, so it can
+# only ever enrich Florida rows. `properties` gained Texas rows in
+# 002_add_texas_support.sql and nobody rescoped this script, so 449 TX rows
+# across 14 counties sat in a Florida-only queue: never matchable, never
+# stamped, and therefore re-attempted on every single run. Measured live
+# 2026-09-17 - 0 of 449 enriched, Galveston alone 176 rows. The waste was not
+# just the stall: up to 14 TX counties x COUNTY_MISS_STREAK rows x ~8
+# normalisation candidates is roughly 670 pointless requests per run against
+# a free public state API.
+#
+# An env var rather than a hard-coded literal so a future state with its own
+# statewide layer can reuse this runner by pointing it at that state's
+# endpoint - but the DEFAULT is FL, because FDOR_ENDPOINT is Florida's.
+ENRICH_STATE = os.environ.get("ENRICH_STATE", "FL")
+
 BATCH_LIMIT = int(os.environ.get("ENRICH_BATCH_LIMIT", "1000"))
 PER_COUNTY_LIMIT = int(os.environ.get("ENRICH_PER_COUNTY_LIMIT", "40"))
 # A county whose parcel format this script can't match burns one request per
@@ -418,18 +434,22 @@ def fetch_needing_enrichment_counties():
     this script can never fix, without changing the fairness design."""
     params = {
         "select": "county",
+        "state": f"eq.{ENRICH_STATE}",
         "and": "(parcel.not.is.null,parcel.neq.\"\")",
         "fdor_enriched_at": "is.null",
         "limit": "5000",
     }
     resp = requests.get(f"{SUPABASE_URL}/rest/v1/properties", headers=HEADERS, params=params, timeout=30)
     resp.raise_for_status()
-    counties = sorted({row["county"] for row in resp.json() if row.get("county")})
+    outstanding = Counter(row["county"] for row in resp.json() if row.get("county"))
+    counties = sorted(outstanding)
     random.shuffle(counties)
-    return counties
+    # (county, outstanding) rather than bare names: fetch_county_batch() needs
+    # the count to size this run's random window - see its docstring.
+    return [(county, outstanding[county]) for county in counties]
 
 
-def fetch_county_batch(county, limit):
+def fetch_county_batch(county, limit, outstanding=None):
     # Same empty-string-parcel exclusion as fetch_needing_enrichment_counties()
     # above, and for the same reason (confirmed live for Citrus 2026-09-02):
     # `parcel=not.is.null` alone still matches `parcel=''` rows, which can
@@ -439,11 +459,32 @@ def fetch_county_batch(county, limit):
     # BLANKS on columns a harvester also writes (market/assessed/owner_name/
     # coordinates/prop_type) - a scraped value from the source listing always
     # wins over the tax roll's copy of it.
+    # Phase 51. `order` + a random `offset` per run. Without them PostgREST
+    # returns the same rows in the same scan order every time, and because a
+    # miss is never stamped, the SAME rows lead the slice forever - so a
+    # county whose first COUNTY_MISS_STREAK rows all miss is abandoned at that
+    # same row on every future run and never advances. Measured live on
+    # 2026-09-17: Miami-Dade 2/251 enriched, yet its unenriched parcel
+    # 0131230340860 returns a full record from the layer on request. The row
+    # was matchable the whole time; it was simply never reached.
+    #
+    # `order` is required for `offset` to mean anything, and a random window
+    # start means consecutive runs explore different parts of the backlog
+    # rather than re-proving the same six misses. Rows skipped this run are
+    # not lost - they are still unstamped, and a later run's window covers
+    # them. This does not weaken the anti-starvation design; it completes it,
+    # extending the same fairness from between-counties to within-a-county.
+    offset = 0
+    if outstanding and outstanding > limit:
+        offset = random.randrange(0, outstanding - limit + 1)
     params = {
         "select": "id,parcel,address,county,prop_type,market,assessed,owner_name,latitude,longitude",
+        "state": f"eq.{ENRICH_STATE}",
         "county": f"eq.{county}",
         "and": "(parcel.not.is.null,parcel.neq.\"\")",
         "fdor_enriched_at": "is.null",
+        "order": "id.asc",
+        "offset": str(offset),
         "limit": str(limit),
     }
     resp = requests.get(f"{SUPABASE_URL}/rest/v1/properties", headers=HEADERS, params=params, timeout=30)
@@ -780,10 +821,12 @@ def main():
     # populated rather than just "N rows matched".
     filled_counts = {}
 
-    for county in counties:
+    for county, outstanding in counties:
         if total_attempted >= BATCH_LIMIT:
             break
-        rows = fetch_county_batch(county, min(PER_COUNTY_LIMIT, BATCH_LIMIT - total_attempted))
+        rows = fetch_county_batch(
+            county, min(PER_COUNTY_LIMIT, BATCH_LIMIT - total_attempted), outstanding
+        )
         if not rows:
             continue
         county_matched = 0
