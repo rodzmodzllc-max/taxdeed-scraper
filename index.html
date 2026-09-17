@@ -9,12 +9,15 @@
      off-screen once a user zooms in. Rather than leave that broken, the
      text itself is sized to be legible at 1x (see the mobile html{font-size}
      bump in styles.css) and zoom is turned off so the nav bar can't be
-     knocked out from under it. viewport-fit=cover activates the
-     env(safe-area-inset-*) values .nav-bottom already asks for (they were
-     previously inert without this), so the tab bar clears the home
-     indicator / rounded corners on notched phones instead of the browser
-     silently substituting 0. -->
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+     knocked out from under it.
+     NOTE: viewport-fit=cover was tried here to activate env(safe-area-inset-*)
+     for .nav-bottom, but was pulled back out - reported as the fixed nav bar
+     visibly moving/shifting once the app was packaged as an Android TWA,
+     which handles edge-to-edge/system-bar insets differently than a plain
+     Chrome tab. Not worth the instability for a cosmetic safe-area gain;
+     env(safe-area-inset-bottom) just resolves to 0 without it, same as
+     before this was ever added. -->
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <meta name="color-scheme" content="light dark">
 <title>Tax Acquisitions — Florida</title>
 <link rel="stylesheet" href="styles.css">
