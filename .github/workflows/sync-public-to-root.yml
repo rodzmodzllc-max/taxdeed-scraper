@@ -60,7 +60,12 @@ jobs:
           # single-page code with no tx.html at all even though public/ and
           # main looked done. Exactly the failure mode this workflow's own
           # comment above warns about, just with a new file this time.
-          FILES="_headers app.js explore.css explore.js fl-cities.json fl-zips.json index.html manifest.webmanifest styles.css sw.js tx.html tx-counties.svg"
+          # county-centroids.json and satellite-map.js added in Phase 55 (the
+          # Map page's optional satellite/terrain basemap toggle) - same
+          # mirrored-asset pattern as fl-cities.json/fl-zips.json/
+          # tx-counties.svg just above, not the fl-counties.svg root-only
+          # exception noted below.
+          FILES="_headers app.js county-centroids.json explore.css explore.js fl-cities.json fl-zips.json index.html manifest.webmanifest satellite-map.js styles.css sw.js tx.html tx-counties.svg"
           echo "FILES=$FILES" >> "$GITHUB_ENV"
 
           for f in $FILES; do
