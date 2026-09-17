@@ -218,6 +218,97 @@ assertions replaced with checks against the real new behavior, following
 that file's own pre-existing "TEST_OBSOLETE" precedent) — 236/236 checks
 pass. Service worker bumped to `tdw-shell-v24`.
 
+## Map is its own page again — a fuller rebuild, not another tweak (Phase 54, done)
+
+Phase 53 fixed "two different maps" but traded it for a new complaint. Marc's
+feedback, verbatim: *"The map button should be its own page and auctions
+shoild be just the list i want to feel the change between the two not just
+acting like the button and in the map still doesnt look like the earlier
+mock up not even close we keep doing small adjustments instead of the
+complet design."* Three real problems in that one message:
+
+1. Nav **Map** was a virtual route into Auctions-in-map-mode — same
+   masthead, same ledger tabs, same toolbar, just the side panel swapped for
+   a map. It never felt like navigating anywhere.
+2. Auctions was supposed to go back to being just the list, full stop — not
+   a list with a map mode still available behind a toggle.
+3. The map's own visual treatment hadn't meaningfully moved toward the
+   reference mockup (`f88a239b-image.png`, its Panel 3) since Phase 53 —
+   several small patches in a row instead of one decisive pass.
+
+**What actually changed:**
+
+- **`index.html`/`tx.html`:** `#pageMap` is a real `<section class="page">`
+  again — its own `<h1>Map</h1>` + subtitle, and its own toolbar
+  (`#mapSearchInput`, `#mapCountySelect`, `#mapLedgerPills` with
+  `data-ledger="all|auction|laft|certificate"` colored-dot pills,
+  `#mapWatchlistOnly`) — none of it borrowed from the Auctions page's own
+  `#quickControls`/`#ledgerTabs`. The Auctions page loses `#viewToggle`
+  (List/Split) and the `.explore-shell`/`.explore-map-panel` wrapper it used
+  to embed the map beside `#main` — `#main` sits directly in `.auctions-body`
+  now, unwrapped, full width. The actual map markup (`.explore-map`,
+  `#exploreMapCanvas`, `#exploreMapRail`, `#exploreMapLegend`, etc.) just
+  *moved* from inside the old panel into `#pageMap` — same inner structure,
+  new home.
+- **`app.js`:** a small, deliberately independent filter layer for the Map
+  page — `mapFilter` (`{search, county, ledger, watchlistOnly}`, declared up
+  near `selectedPid` for the same TDZ reason documented there: `render()`
+  can run synchronously during page init, before the script reaches this
+  section, and it calls `renderMapPage()` on every pass), `computeMapRows()`
+  (filters `ALL[]` directly — every ledger at once, past-due/hidden/
+  gone-expired excluded same as `dashboardStats()` — **not** `passes()`,
+  which encodes the Auctions page's own ledger-scoped filter panel that this
+  toolbar doesn't expose), `buildMapCountySelect()`, and `renderMapPage()`
+  (dispatches the `tdw:maprendered` event explore.js consumes, plus a
+  `window.__tdwMapLastRender` stash for the same module-load-order reason
+  `tdw:rendered`/`window.__tdwLastRender` already exists for the list).
+  `SHELL_PAGES`/`showPage()` route `"map"` to a real page again, not a
+  virtual mode switch.
+- **`explore.js`:** dropped the whole List/Split/Map view-toggle machinery
+  it used to run for the Auctions page (`MODE_KEY`, `MODES`, `storedMode()`,
+  `setMode()`, `bindViewToggle()`, the `tdw:setviewmode` listener) — this
+  module is now solely the Map page's renderer. Also dropped the map↔list
+  cross-highlight (`focusCounty()`/`clearFocus()`/`bindListHover()`), which
+  only ever made sense when a bubble and an adjacent card list shared one
+  screen. `absorb()` now listens for `tdw:maprendered` and reads
+  `#mapCountySelect` (not `#countyQuick`); `applyCounty()` drives that same
+  select instead of the Auctions page's dropdown.
+- **`explore.css`:** new rules for the page's own chrome (`.map-page-head`,
+  `.map-toolbar`, `.map-ledger-pills`/`.map-watch-pill`/`.pill-dot-*` —
+  colored dots reusing the app's existing per-ledger accent colors, blue/
+  green/purple, plus a new `--watch`/`--watch-soft` rose pair for the
+  watchlist-only pill, deliberately distinct since it's a cross-ledger flag,
+  not a fourth ledger). The full-size map treatment that used to be gated
+  behind `.explore-shell[data-mode="map"]` is now the standing rule for
+  `.map-page-map`, since there's only one mode. All the dead List/Split CSS
+  (`.view-toggle`, `.explore-shell[data-mode=...]` and its responsive
+  variants) is deleted, not left as an orphan — `styles.css`'s
+  `.auctions-body` grid and `[data-listmode="table"]` rule both updated to
+  target `#main` directly now that `.explore-shell` no longer wraps it.
+- **Deliberately not changed:** the honest county-bubble-then-real-pins
+  model from Phase 53. The mockup's individual parcel pins scattered across
+  the whole state are still not built — only ~2% of properties are geocoded
+  (see the header comment in `explore.js`), and pins for the other 98% would
+  fabricate a precision this data doesn't have. What moved toward the
+  mockup is the page-level chrome around that honest map: a real header, a
+  real toolbar with colored filter pills, a full-bleed stage — not the data
+  model underneath it.
+
+Caught a real bug while wiring this up: the first cut of `mapFilter`
+crashed the whole page on load (`Cannot access 'mapFilter' before
+initialization`) — `bindBidRangeSliders()` calls `render()` synchronously at
+module top level, before the script reaches the "Map page" section further
+down, so a `let` declared only down there was still in its temporal dead
+zone. Fixed the same way `selectedPid` was, per the comment already on that
+line: hoist the declaration up next to it.
+
+`tests/run_test.mjs` was rewritten to match — the old shared-map assertions
+(`#exploreShell`'s `data-mode`, county-chip toggling via a bubble tap)
+replaced with checks against the Map page's own controls
+(`#mapCountySelect`, `#mapLedgerPills`, `#mapWatchlistOnly`), plus new
+checks that `#viewToggle`/`#exploreMapPanel` are gone from Auctions — 241/241
+checks pass. Service worker bumped to `tdw-shell-v25`.
+
 ## Known landmines / do-not-repeat mistakes
 
 - Miami-Dade is the only county with a hyphen in `data/realauction_counties.csv` — a blanket `-replace '-',' '` once silently renamed it to "Miami Dade", which didn't match the frontend's canonical `"Miami-Dade"` and hid 33 live listings. Fixed; don't reintroduce a blanket hyphen transform.

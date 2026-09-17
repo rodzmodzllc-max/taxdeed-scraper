@@ -159,7 +159,36 @@
 // size actually means, built from the real counts on screen - not a fixed
 // key, since this map has no fixed scale. index.html, tx.html, styles.css,
 // explore.css, app.js and explore.js all changed together.
-const CACHE = "tdw-shell-v24";
+// v25: Phase 54, Map is its own page again - and a fuller redesign, not
+// another small adjustment. Marc's explicit feedback rejected Phase 53's
+// virtual-route approach: switching to Map didn't feel like going anywhere
+// (same masthead/ledger-tabs/toolbar, just the panel swapped), and Auctions
+// needed to go back to being just the list. So: (1) #pageMap is a real
+// <section class="page"> again in index.html/tx.html, with its own header
+// ("Map" + subtitle) and its own toolbar - search, a county select, an
+// All/Auctions/Lands Available/Certificates ledger-pill row, a Watchlist-
+// only pill - none of it borrowed from the Auctions page's own controls.
+// (2) app.js gets a small independent filter layer for it (mapFilter,
+// computeMapRows(), buildMapCountySelect(), renderMapPage()) that reads
+// ALL[] directly rather than the Auctions page's own state/passes()
+// pipeline - the Map page shows every ledger at once and isn't scoped to
+// whatever the Auctions page's filters happen to be set to, the same
+// portfolio-wide philosophy dashboardStats() already uses for the
+// Dashboard. (3) explore.js drops the List/Split/Map view-toggle it used
+// to run entirely - MODE_KEY/MODES/storedMode()/setMode()/bindViewToggle()
+// and the cross-highlight between a map bubble and an adjacent card list
+// (focusCounty()/clearFocus()/bindListHover(), meaningless once the map and
+// the list are different pages) are all gone - and consumes a new
+// tdw:maprendered event (replacing tdw:rendered/tdw:setviewmode for this
+// module) dispatched by renderMapPage(). (4) The Auctions page loses
+// #viewToggle and the .explore-shell/.explore-map-panel it used to embed
+// the map beside #main - Auctions is just the list now, full width.
+// (5) The map itself keeps every honest-data property from Phase 53 (county
+// bubbles sized by real counts, tap-to-zoom into real geocoded pins, the
+// floating preview card, the bubble-size legend) - only the page's own
+// chrome around it changed. index.html, tx.html, styles.css, explore.css,
+// app.js and explore.js all changed together.
+const CACHE = "tdw-shell-v25";
 const SHELL = [
   "/",
   "/index.html",

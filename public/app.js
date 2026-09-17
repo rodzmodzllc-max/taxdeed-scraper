@@ -502,6 +502,16 @@ const state = {
 // which reads this value.
 let selectedPid = null;
 
+// The Map page's own toolbar state (search/county/ledger/watchlist-only -
+// see computeMapRows()/renderMapPage() in the "Map page (Phase 54)" section
+// near the end of this file). Same TDZ reason as selectedPid just above:
+// render() calls renderMapPage() on every pass and can run synchronously
+// during page init, before the script has reached that section, and a
+// `let` declared only down there stays in its temporal dead zone until
+// that line runs - caught the same way selectedPid's bug was, by reading
+// the console after the first cut of this section broke page load.
+let mapFilter = { search: "", county: "ALL", ledger: "all", watchlistOnly: false };
+
 function goneExpired(p) {
   if (!isGone(p) || !p.gone_since) return false;
   const flagged = FAVS.has(p.id) || (NOTES[p.id] || []).some(n => n.body || n.stage);
@@ -1622,9 +1632,14 @@ function buildCountyRefLinks(counts, names) {
 // to type, and owner_name is populated on every certificate row.
 const squashId = v => String(v == null ? "" : v).replace(/[^0-9a-z]/gi, "").toLowerCase();
 
-function matchesSearch(p) {
-  if (!state.search) return true;
-  const q = state.search.trim().toLowerCase();
+// Factored out of matchesSearch() so the Map page's own search box (see
+// mapFilter/computeMapRows() near the page router) can reuse the exact same
+// matching rules against its own query string, rather than the Auctions
+// page's state.search - the two pages filter independently (see the Phase
+// 54 comment on SHELL_PAGES), but "what counts as a match" should not be a
+// second implementation that can drift from this one.
+function textMatches(p, qRaw) {
+  const q = (qRaw || "").trim().toLowerCase();
   if (!q) return true;
 
   if ((p.address || "").toLowerCase().includes(q)) return true;
@@ -1637,6 +1652,8 @@ function matchesSearch(p) {
   if (!qid) return false;
   return [p.case_no, p.parcel, p.certificate_no].some(v => squashId(v).includes(qid));
 }
+
+function matchesSearch(p) { return textMatches(p, state.search); }
 
 function passes(p) {
   if (HIDDEN.has(p.id) || goneExpired(p)) return false;
@@ -2739,18 +2756,23 @@ function render() {
   const hiddenCount = document.getElementById("hiddenCount");
   if (hiddenCount) hiddenCount.textContent = HIDDEN.size;
 
-  // Hand the just-rendered rows to the explore map (explore.js) - see the
-  // contract note at the top of that file. `shown` is the exact filtered +
-  // sorted set this list just drew, so the map can't disagree with the list
-  // about what's in view - there is deliberately no second copy of
-  // passes()/sortRows() over there to drift out of sync with this one.
-  // Stashing before dispatching matters: both files are type="module" so
-  // this one runs first, and if a render ever lands before explore.js has
-  // finished loading, an event-only handoff would be dropped silently and
-  // the map would sit empty until the next filter change.
+  // Stash + dispatch for anything else on this page that wants to know the
+  // list just redrew (currently nothing does directly - explore.js moved to
+  // its own tdw:maprendered contract when Map became a real page, see the
+  // Phase 54 comment on SHELL_PAGES - but this stays a real event rather
+  // than being deleted outright, on the same "don't make ordering matter"
+  // reasoning as tdw:maprendered below).
   const rendered = { rows: shown, ledger: activeLedger, openDetail };
   window.__tdwLastRender = rendered;
   window.dispatchEvent(new CustomEvent("tdw:rendered", { detail: rendered }));
+
+  // Every call to render() means ALL[]/HIDDEN/BIDLIST could have changed
+  // (a filter, a data reload, a favorite or hide action) - the Map page's
+  // own renderMapPage() is cheap (an array filter, no DOM list to rebuild),
+  // so keep it live continuously rather than trying to track every call
+  // site that could invalidate it separately. It's a no-op cost when the
+  // Map page isn't the one currently visible.
+  renderMapPage();
 
   // Desktop-only additions layered on top of the render this function just
   // did (nav shell / dashboard / table view / persistent detail panel) -
@@ -4225,56 +4247,41 @@ window.addEventListener("appinstalled", () => {
 // direction meant the new IA had to actually work at phone width, not just
 // render there and silently do nothing.
 let shellPage = "auctions";
-// Phase 53: "map" is no longer its own <section class="page"> - Marc
-// pointed out (screen recording, 2026-09-17) that having both a dedicated
-// Map page (the plain county-by-auction-format SVG below, in the now-dead
-// ensureMapLoaded()/zoomToCounty()/refreshMapPaths() block a few hundred
-// lines up - left in place as inert dead code, same tolerated pattern as
-// the pre-existing mapBtnEl comment right above it, since mapHostEl/
-// mapWrapEl are now permanently null and every one of those functions
-// already null-guards on them) AND a separate, better "Where these are"
-// bubble map inside the Auctions filter toolbar (explore.js, driven by
-// the same real filtered rows the list shows - see that file's own header
-// comment) was two different maps for one concept, and the second one was
-// strictly the nicer, more useful one. So "Map" in the nav is now a
-// virtual route: it shows the Auctions page and asks explore.js to switch
-// into its own "map" view mode (see the tdw:setviewmode dispatch below) -
-// there's only one map in the app now, reached from the nav bar exactly
-// the same way it was already reachable from the Auctions view-toggle,
-// which is why that redundant toggle button was removed (see index.html/
-// tx.html - the toggle now only has List/Split).
-const SHELL_PAGES = { dashboard: "pageDashboard", auctions: "pageAuctions" };
+// Phase 54: Map is a real top-level page again, not a mode of the Auctions
+// page. Phase 53 made nav Map a virtual route into Auctions-in-map-view,
+// which fixed the "two different maps" problem but traded it for a new
+// complaint: switching to Map didn't feel like going anywhere, since it was
+// the exact same masthead/ledger-tabs/toolbar with the list swapped for a
+// map. Marc's ask this time was explicit - Map should be its own page, and
+// Auctions should go back to being just the list. So:
+// - #pageMap is back as a real <section class="page"> (see index.html/
+//   tx.html), with its own header and its own toolbar (search, county
+//   select, an All/Auctions/Lands Available/Certificates ledger-pill row,
+//   a Watchlist-only pill) - none of it borrowed from the Auctions page's
+//   own controls.
+// - That toolbar drives mapFilter (below) and computeMapRows()/
+//   renderMapPage(), which filter ALL[] independently of state/passes() -
+//   the Auctions page's own filter pipeline - and hand the result to
+//   explore.js over a dedicated tdw:maprendered event, the same one-way-
+//   event-contract style tdw:rendered already used. explore.js no longer
+//   has a List/Split/Map switcher at all; it IS the Map page's renderer now.
+// - The Auctions page's #viewToggle (List/Split) and its embedded
+//   .explore-map-panel are removed - Auctions is just the list.
+const SHELL_PAGES = { dashboard: "pageDashboard", auctions: "pageAuctions", map: "pageMap" };
 
 function showPage(name) {
-  // The nav-highlight name can be "map" even though the underlying page
-  // shown is "auctions" - resolved separately from `targetPage` below so
-  // the Map nav button reads as active while a click on it is really just
-  // Auctions-in-map-mode under the hood.
-  const targetPage = name === "map" ? "auctions" : name;
-  if (!SHELL_PAGES[targetPage]) name = targetPage = "auctions";
+  if (!SHELL_PAGES[name]) name = "auctions";
 
   Object.entries(SHELL_PAGES).forEach(([key, id]) => {
     const el = document.getElementById(id);
-    if (el) el.hidden = key !== targetPage;
+    if (el) el.hidden = key !== name;
   });
   document.querySelectorAll(".nav-item[data-page], .nav-bottom-item[data-page]").forEach(btn => {
     btn.classList.toggle("on", btn.dataset.page === name);
   });
 
-  if (name === "map") {
-    // Same stash-before-dispatch pattern as tdw:rendered above, and for the
-    // same reason: both files are type="module" scripts that run in order,
-    // so a cold load straight into index.html#map (see the deep-link check
-    // near the bottom of this file) calls showPage("map") - and dispatches
-    // this event - before explore.js's own top-level code has even run, let
-    // alone registered a listener for it. Parking the request on window
-    // means explore.js's bindViewToggle() can still pick it up on its own
-    // startup even when it missed the live event.
-    window.__tdwRequestedViewMode = "map";
-    window.dispatchEvent(new CustomEvent("tdw:setviewmode", { detail: { mode: "map" } }));
-  }
-
-  if (targetPage === "dashboard") renderDashboard();
+  if (name === "dashboard") renderDashboard();
+  if (name === "map") renderMapPage();
 
   shellPage = name;
   window.scrollTo({ top: 0, behavior: "auto" });
@@ -4296,13 +4303,94 @@ if (navBottomWatchlistBtnEl) navBottomWatchlistBtnEl.addEventListener("click", (
 const navSettingsBtnEl = document.getElementById("navSettingsBtn");
 if (navSettingsBtnEl) navSettingsBtnEl.addEventListener("click", e => { e.stopPropagation(); openAccountMenu(); });
 
-// Deep-link: index.html#map / tx.html#map opens straight into the map view
-// (see showPage()'s "map" virtual route above) instead of the default
-// Auctions landing. The FL/TX switcher no longer needs its own #map-suffixed
-// links to preserve this across a state switch - explore.js's view mode
-// (list/split/map) persists in localStorage, same origin for both pages, so
-// switching states via the plain #regionTabs links already carries it over.
+// Deep-link: index.html#map / tx.html#map opens straight onto the Map page
+// instead of the default Auctions landing.
 if (location.hash === "#map") showPage("map");
+
+// ---- Map page (Phase 54) ----
+// Its own small filter state (mapFilter, declared up near selectedPid for
+// the TDZ reason explained there), deliberately independent of the
+// Auctions page's `state` object: the Map page can show every ledger at
+// once (there is no single-ledger concept to inherit), and "what's on the
+// map" is a portfolio-wide question the same way the Dashboard's stats are -
+// not "whatever the Auctions list happens to be scoped to right now". Every
+// property that would appear on ANY ledger page is a map candidate, which
+// is also why the ledger picker here is a filter *within* the map ("All"
+// really means all three), not a page-select the way #ledgerTabs is.
+
+// Same base exclusions dashboardStats() uses (past-due, hidden, gone-grace-
+// expired don't count as "in" the portfolio anywhere), plus the Map page's
+// own four controls. Deliberately not passes() - that function encodes the
+// Auctions page's ledger-scoped filter panel (price range, property type,
+// title status, quick toggles...), none of which this toolbar exposes, and
+// bolting the map onto it would mean either faking values for filters the
+// user never touched or quietly making the map agree with whatever the
+// Auctions page's filters happen to be set to - the exact coupling Phase 53
+// (see its comment on renderBubbleLegend) was trying to get away from by
+// giving the map its own page in the first place.
+function computeMapRows() {
+  return ALL.filter(p => {
+    if (isPastDue(p) || HIDDEN.has(p.id) || goneExpired(p)) return false;
+    if (regionOf(p) !== PAGE_STATE) return false;
+    if (mapFilter.ledger !== "all" && p.source !== mapFilter.ledger) return false;
+    if (mapFilter.watchlistOnly && !BIDLIST.has(p.id)) return false;
+    if (mapFilter.county !== "ALL" && p.county !== mapFilter.county) return false;
+    if (!textMatches(p, mapFilter.search)) return false;
+    return true;
+  });
+}
+
+// Counts are portfolio-wide (every ledger, like countyCounts() itself),
+// same as the Auctions page's own #countyQuick - see that dropdown's build
+// note above for why "counts don't shrink with the current ledger" is the
+// existing, intentional behavior here too, not a new inconsistency.
+function buildMapCountySelect() {
+  const el = document.getElementById("mapCountySelect");
+  if (!el) return;
+  const counts = countyCounts();
+  const names = countyNamesByCount();
+  el.innerHTML = `<option value="ALL">All Counties</option>` +
+    names.map(v => `<option value="${esc(v)}">${esc(v)} (${counts.get(v) || 0})</option>`).join("");
+  el.value = mapFilter.county;
+}
+
+// The one-way handoff to explore.js, same shape and same reasoning as
+// render()'s tdw:rendered dispatch: `rows` is the exact filtered set this
+// function just computed, so the map can't disagree with the toolbar above
+// it about what's on screen.
+function renderMapPage() {
+  buildMapCountySelect();
+  const rows = computeMapRows();
+  const rendered = { rows, ledger: mapFilter.ledger, openDetail };
+  window.__tdwMapLastRender = rendered;
+  window.dispatchEvent(new CustomEvent("tdw:maprendered", { detail: rendered }));
+}
+
+const mapSearchInputEl = document.getElementById("mapSearchInput");
+if (mapSearchInputEl) mapSearchInputEl.addEventListener("input", () => {
+  mapFilter.search = mapSearchInputEl.value;
+  renderMapPage();
+});
+const mapCountySelectEl = document.getElementById("mapCountySelect");
+if (mapCountySelectEl) mapCountySelectEl.addEventListener("change", () => {
+  mapFilter.county = mapCountySelectEl.value;
+  renderMapPage();
+});
+document.querySelectorAll("#mapLedgerPills [data-ledger]").forEach(btn => {
+  btn.addEventListener("click", () => {
+    if (mapFilter.ledger === btn.dataset.ledger) return;
+    mapFilter.ledger = btn.dataset.ledger;
+    document.querySelectorAll("#mapLedgerPills [data-ledger]").forEach(b => b.classList.toggle("on", b === btn));
+    renderMapPage();
+  });
+});
+const mapWatchlistPillEl = document.getElementById("mapWatchlistOnly");
+if (mapWatchlistPillEl) mapWatchlistPillEl.addEventListener("click", () => {
+  mapFilter.watchlistOnly = !mapFilter.watchlistOnly;
+  mapWatchlistPillEl.classList.toggle("on", mapFilter.watchlistOnly);
+  mapWatchlistPillEl.setAttribute("aria-pressed", mapFilter.watchlistOnly ? "true" : "false");
+  renderMapPage();
+});
 
 // ---- Dashboard ----
 // Every figure here is a real count/sum over ALL[] (the client's already-
