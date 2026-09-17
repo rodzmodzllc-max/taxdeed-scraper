@@ -17,5 +17,22 @@
 // is live.
 window.TDW_CONFIG = {
   supabaseUrl: "https://cqnnnvpbocafuvpzfbzu.supabase.co",
-  supabasePublishableKey: "sb_publishable_rk5440vza8jwE04v0Rn08w_vltFMEyQ"
+  supabasePublishableKey: "sb_publishable_rk5440vza8jwE04v0Rn08w_vltFMEyQ",
+
+  // Optional. Powers the "Satellite" toggle on the Map page (satellite-map.js) -
+  // a real satellite/terrain basemap (Mapbox GL JS) as an alternative to the
+  // app's own same-origin outline map, which stays the default and needs no
+  // key. Leave this blank and the toggle still shows, but switching to
+  // Satellite just explains it isn't set up yet - nothing breaks either way.
+  //
+  // To turn it on:
+  //   1. Sign up free at https://www.mapbox.com/ (Mapbox's free tier covers
+  //      50,000 map loads/month - see mapbox.com/pricing for current terms).
+  //   2. Go to https://account.mapbox.com/access-tokens/ and copy your
+  //      "Default public token" (starts with "pk.").
+  //   3. Paste it below and redeploy.
+  // This token is a PUBLIC token, meant to be shipped in client-side code
+  // (same category as the Supabase publishable key above) - Mapbox's own
+  // dashboard is where you'd restrict it to this site's URL if you want that.
+  mapboxToken: ""
 };

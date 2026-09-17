@@ -84,6 +84,11 @@
    list, so it gets the width and height budget that implies. */
 .map-page-body{padding:0 1.6rem 1.6rem}
 @media (max-width:640px){ .map-page-body{padding:0 1rem 1rem} }
+@media (max-width:640px){
+  .explore-map-head{flex-wrap:wrap;gap:.4rem .6rem}
+  .explore-map-head-right{gap:.5rem}
+  .map-style-toggle button{padding:.28rem .5rem;font-size:.64rem}
+}
 .map-page-map{max-width:none}
 
 /* ---- map panel chrome ---------------------------------------------------- */
@@ -97,6 +102,18 @@ color:var(--ink);margin:0}
 .explore-map-count{font-family:var(--font-mono);
 font-variant-numeric:tabular-nums;font-size:.74rem;color:var(--ink-soft)}
 .explore-map-count b{color:var(--accent)}
+.explore-map-head-right{display:flex;align-items:center;gap:.7rem}
+
+/* Phase 55: Map / Satellite - same segmented-pill idiom as .map-ledger-pills,
+   scaled down to fit a card header rather than the page toolbar. */
+.map-style-toggle{flex:0 0 auto;display:inline-flex;align-items:center;
+  background:var(--paper);border:1px solid var(--card-line);border-radius:999px;
+  padding:2px;gap:2px}
+.map-style-toggle button{border:none;background:none;font-family:var(--font-sans);
+  font-weight:700;font-size:.68rem;color:var(--ink-soft);padding:.3rem .62rem;
+  border-radius:999px;cursor:pointer;line-height:1}
+.map-style-toggle button.on{background:var(--card);color:var(--ink);box-shadow:var(--shadow)}
+.map-style-toggle button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 /* Honest about what the dots mean: with geocoding still sparse, a bubble is a
    county-level cluster, not a parcel pin. Saying so here is cheaper than
    someone assuming a dot is a street address and driving to it. */
@@ -109,11 +126,70 @@ background:var(--paper)}
    was built with a different viewBox (1000 x 1006, ~square rather than
    FL's tall/narrow shape) so the TX page overrides it below - a value tuned
    for FL's silhouette would letterbox or crop Texas's. */
-.explore-map-canvas{--map-aspect:1.0493}
-body[data-state="TX"] .explore-map-canvas{--map-aspect:0.994}
+/* Set on .explore-map (the card that wraps BOTH basemaps), not on
+   .explore-map-canvas alone - Phase 55's satellite-map-canvas is a sibling of
+   the outline canvas, not a descendant of it, so a custom property scoped to
+   .explore-map-canvas would never reach it (custom properties inherit down
+   the tree from whatever element declares them, not sideways to siblings).
+   One definition here, both basemaps read it via var(--map-aspect) below. */
+.explore-map{--map-aspect:1.0493}
+body[data-state="TX"] .explore-map{--map-aspect:0.994}
 .explore-map-canvas svg{width:100%;height:auto;display:block;
   max-height:64vh;max-width:calc(64vh * var(--map-aspect));
   border-radius:10px;border:1px solid var(--card-line)}
+
+/* Phase 55: the satellite/terrain basemap shares the outline map's stage and
+   aspect ratio (--map-aspect, set per state just above) so switching styles
+   doesn't reflow the card around it. Real height (not height:auto like the
+   SVG) because Mapbox GL needs a sized box to render into - it measures the
+   container at init and on resize, it doesn't shrink-wrap content. Plain
+   [hidden] would lose to the flex/aspect-ratio rules below on specificity
+   (same selector weight, and this stylesheet loads after the UA sheet), so
+   the attribute gets its own rule rather than relying on the default. */
+.satellite-map-canvas{position:relative;width:100%;aspect-ratio:var(--map-aspect);
+  max-height:64vh;border-radius:10px;border:1px solid var(--card-line);
+  overflow:hidden;background:var(--map-land)}
+.satellite-map-canvas[hidden]{display:none}
+/* The outline canvas has always set display:flex directly (never toggled
+   hidden before Phase 55's style switch existed) - same specificity tie as
+   above, same fix: give [hidden] the extra selector weight it needs to win. */
+.explore-map-canvas[hidden]{display:none}
+.satellite-map-canvas .mapboxgl-canvas-container,
+.satellite-map-canvas .mapboxgl-map{border-radius:10px}
+.satellite-map-setup{position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:.4rem;text-align:center;
+  padding:1.5rem;font-family:var(--font-sans);color:var(--ink-soft);font-size:.8rem;
+  line-height:1.5}
+.satellite-map-setup b{color:var(--ink);font-size:.85rem}
+.satellite-map-setup code{font-family:var(--font-mono);background:var(--paper);
+  border:1px solid var(--card-line);border-radius:4px;padding:.05rem .32rem;font-size:.76rem}
+
+/* County bubbles and property pins are plain positioned HTML (mapboxgl.Marker
+   elements), not canvas drawing, specifically so they can be styled with the
+   same CSS custom properties and data-ledger convention the SVG map's own
+   .cluster-bubble/.map-pin already use (see draw()/drawPins() in explore.js) -
+   one accent language for both basemaps instead of a second hard-coded
+   palette that could quietly drift from the first. */
+.sat-county-bubble{display:flex;align-items:center;justify-content:center;
+  border-radius:50%;background:var(--accent);color:#fff;border:2px solid var(--card);
+  box-shadow:0 1px 4px rgba(0,0,0,.35);font-family:var(--font-sans);font-weight:800;
+  cursor:pointer;user-select:none}
+.satellite-map-canvas[data-ledger="laft"] .sat-county-bubble{background:var(--brass)}
+.satellite-map-canvas[data-ledger="certificate"] .sat-county-bubble{background:#7C3AED}
+.sat-county-bubble.sel{background:var(--ok) !important}
+.sat-pin{width:16px;height:16px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);
+  background:var(--bad);border:1.5px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.4);
+  cursor:pointer}
+.sat-pin.sel{background:var(--accent)}
+.mapboxgl-popup-content{background:var(--card) !important;color:var(--ink) !important;
+  font-family:var(--font-sans) !important;border-radius:8px !important;
+  box-shadow:var(--shadow) !important;padding:.7rem .8rem !important}
+.mapboxgl-popup-tip{border-top-color:var(--card) !important;border-bottom-color:var(--card) !important}
+.sat-popup-addr{font-weight:700;font-size:.8rem;margin:0 0 .2rem}
+.sat-popup-meta{font-size:.72rem;color:var(--ink-soft);margin:0 0 .5rem}
+.sat-popup-open{font-family:var(--font-sans);font-size:.72rem;font-weight:700;
+  color:#fff;background:var(--accent);border:none;border-radius:6px;padding:.3rem .6rem;
+  cursor:pointer}
 
 /* County shapes: quiet by default so the data bubbles on top are what the eye
    lands on - the reverse of the filter-panel picker map, where the shapes

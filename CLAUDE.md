@@ -309,6 +309,131 @@ replaced with checks against the Map page's own controls
 checks that `#viewToggle`/`#exploreMapPanel` are gone from Auctions — 241/241
 checks pass. Service worker bumped to `tdw-shell-v25`.
 
+## Satellite/terrain basemap — a toggle, not a replacement (Phase 55, done; needs Marc's own Mapbox token to actually light up)
+
+Marc sent a screen recording after Phase 54 shipped, with this feedback:
+*"Analyze the video as you can ser we still havent corrected the map there is
+no distiction on the map and auction buttons. Auction should just be the list
+and map the actual 3d map as in the mock up. You have not even close to the
+mock up requested."*
+
+Two separate things were going on in that message:
+
+1. The video showed the **old, pre-Phase-54 deployed site** — Marc hadn't
+   applied/pushed the Phase 54 patch yet, so what he was testing still had
+   Phase 53's "Map is a virtual route into Auctions" behavior. Not a real
+   regression, just a not-yet-applied patch. Explained to him plainly.
+2. "The actual 3d map like the mockup" is a genuine, previously undisclosed
+   architectural fork, not a styling complaint. Re-examined the reference
+   mockup's Map panel specifically: it's a real satellite/terrain photo-style
+   basemap (Google Maps/Mapbox aesthetic — real coastline texture, terrain
+   shading, labeled cities over photographic imagery), not a nicer version of
+   this app's own flat same-origin SVG map. Matching it for real requires a
+   third-party map-tile provider. That collides with a deliberate,
+   long-standing decision: `public/_headers`' CSP has always been `img-src
+   'self' data:` only, specifically so no outside company can see which
+   parcels a signed-in user is browsing (see explore.js's own header comment,
+   there since Phase 53/54). Third-party tiles necessarily leak that.
+
+That trade-off is Marc's to make, not mine to guess at, so it was put to him
+directly: keep improving the honest same-origin map, or bring in a real
+satellite/terrain provider and accept that a third party sees tile requests.
+**His answer, verbatim button label: "Real satellite/terrain with a toggle to
+our current style map."** Both views, switchable, neither replacing the
+other — not the straight swap he could have asked for instead.
+
+### What shipped
+
+- **`public/satellite-map.js`** (new) — a module independent of explore.js,
+  same reasoning explore.js's own header gives for being independent of
+  app.js: it draws a second view of data app.js already filtered, over the
+  same one-way `tdw:maprendered` event explore.js listens to (`{ rows,
+  ledger, openDetail }`). The two map modules don't reach into each other;
+  `#mapStyleToggle`'s click handlers just show one canvas and hide the other.
+- **`public/county-centroids.json`** (new) — real lat/lng centroids for all
+  67 FL counties and 254 TX counties, needed to place a county-level bubble
+  on a real-world map (the outline map doesn't need this — it projects
+  lat/lng into its own SVG's user-unit space instead). Computed
+  deterministically from `us-atlas`'s Census-Bureau-derived county TopoJSON
+  via `topojson-client` + `@turf/turf`'s `centerOfMass()`, in a scratch
+  directory (`npm install us-atlas topojson-client @turf/turf`) — NOT
+  web-fetched. A first attempt to pull this from a GitHub gist via WebFetch
+  returned fabricated coordinates for roughly half the rows (obvious
+  repeating-decimal fake patterns like `.21234567`, `.31234567` — a
+  summarization model confabulating values for rows it couldn't actually
+  read) and was discarded outright before it touched the repo. County names
+  verified to match `app.js`'s `ALL_COUNTIES` (FL) and `tx-counties.svg`'s
+  `data-county` attributes (TX) exactly, zero diffs.
+- **The toggle itself**: `#mapStyleToggle` in the "Where these are" card
+  head (`.map-style-toggle`, same segmented-pill idiom as the toolbar's
+  ledger pills) — "Map" (outline, default) / "Satellite". Switching shows
+  `#satelliteMapCanvas` and hides `#exploreMapCanvas` or vice versa via the
+  `hidden` attribute (needed a `.explore-map-canvas[hidden]{display:none}`
+  rule, since the existing `.explore-map-canvas{display:flex}` was tied with
+  `[hidden]`'s UA-stylesheet rule on specificity and had been winning by
+  source order — see explore.css). The outline map's own centroid geometry
+  is unaffected by being hidden/shown (explore.js only measures once,
+  `centroidsOk` latches true — see its own header note), so no coordination
+  with explore.js was needed for the toggle to work correctly both ways.
+- **Same honest bubble-then-pins model as the outline map**: statewide,
+  county bubbles sized by count (same `.cluster-bubble` accent colors, reused
+  via CSS custom properties and a mirrored `data-ledger` attribute rather
+  than a second hard-coded palette). Once `#mapCountySelect` narrows to one
+  county — via the toolbar or by clicking a bubble, which calls the exact
+  same select-and-dispatch pattern as explore.js's own `applyCounty()` — the
+  satellite map switches to real geocoded pins for that county and flies the
+  camera in. A pin click opens a `mapboxgl.Popup` with a "View details"
+  button wired to the same `openDetail` the event contract already carries.
+- **Off by default, safe when unconfigured**: `config.js` gets a new
+  `mapboxToken` field (blank by default, with the sign-up steps in a
+  comment — same public-token category as the Supabase publishable key right
+  above it, safe to ship client-side). `satellite-map.js` never fetches
+  Mapbox's script, its CSS, or a single tile unless BOTH a token is present
+  AND the user has actually clicked Satellite. With no token (which is every
+  deploy until Marc adds one — `tests/config.js` deliberately has none, so
+  CI exercises exactly this path) clicking Satellite just swaps in a plain
+  "Satellite view isn't set up yet, add a token in config.js" message. Zero
+  network calls, zero new CSP surface touched, in that state.
+- **`public/_headers`**: CSP extended to allow `api.mapbox.com`
+  (script/style/connect) and `worker-src 'self' blob:` (Mapbox GL JS spins up
+  a worker from a blob URL) — with a comment explaining this is a deliberate,
+  Marc-approved exception to the `img-src 'self' data:` privacy rule the
+  outline map has relied on since Phase 53, not an oversight. `events.
+  mapbox.com` (Mapbox's own telemetry) is deliberately left off the
+  allowlist — blocking it doesn't break tiles.
+- Mapbox GL JS is loaded from `https://api.mapbox.com/mapbox-gl-js/v3.30.0/`
+  (current stable per Mapbox's own install guide as of this phase) — bump
+  the pinned version in `satellite-map.js`'s `MAPBOX_GL_VERSION` constant
+  next time it's worth checking for a newer one.
+- `.github/workflows/sync-public-to-root.yml`'s `FILES` list gained
+  `county-centroids.json` and `satellite-map.js` — same mirrored-asset
+  pattern as `fl-cities.json`/`tx-counties.svg`, not the `fl-counties.svg`
+  root-only exception.
+
+### What's still needed from Marc
+
+The feature is fully built and tested, but **inert until Marc supplies his
+own Mapbox token** — that's a real account only he can create, not something
+that can be generated on his behalf. Once he has one (free at mapbox.com,
+free tier covers 50,000 map loads/month as of this writing — see
+mapbox.com/pricing for current terms; copy the "Default public token" from
+account.mapbox.com/access-tokens), it's one line in `config.js` and a
+redeploy — no code changes.
+
+### Verification
+
+250/250 `tests/run_test.mjs` checks pass (241 carried over from Phase 54 +
+9 new, covering the toggle's default state, the no-token setup message, that
+Mapbox GL JS is NOT fetched when unconfigured, and that switching back to
+the outline map restores it correctly). Screenshots taken at desktop
+(1400×900) and mobile (390×844) width, light and dark theme, both toggle
+states — caught one real bug along the way (the `--map-aspect` custom
+property was scoped to `.explore-map-canvas`, which the new sibling
+`.satellite-map-canvas` could never inherit from since custom properties
+flow down the tree, not sideways between siblings — moved the declaration up
+to their shared `.explore-map` ancestor). Service worker bumped to
+`tdw-shell-v26`.
+
 ## Known landmines / do-not-repeat mistakes
 
 - Miami-Dade is the only county with a hyphen in `data/realauction_counties.csv` — a blanket `-replace '-',' '` once silently renamed it to "Miami Dade", which didn't match the frontend's canonical `"Miami-Dade"` and hid 33 live listings. Fixed; don't reintroduce a blanket hyphen transform.

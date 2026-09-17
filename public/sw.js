@@ -188,7 +188,23 @@
 // floating preview card, the bubble-size legend) - only the page's own
 // chrome around it changed. index.html, tx.html, styles.css, explore.css,
 // app.js and explore.js all changed together.
-const CACHE = "tdw-shell-v25";
+// v26: Phase 55, an optional satellite/terrain basemap alongside the outline
+// map, not instead of it. Marc's follow-up on the Phase 54 recording ("the
+// actual 3d map like the mockup") turned out to name a real trade-off: the
+// mockup's Map panel is a photographic satellite/terrain basemap, which
+// means a third party (asked directly, Marc chose "real satellite/terrain
+// WITH A TOGGLE to our current style map" - both, switchable, see CLAUDE.md's
+// Phase 55 section). New: satellite-map.js, a module independent of
+// explore.js (same tdw:maprendered contract, no shared internals), and
+// county-centroids.json (real Census-derived county centroids for FL/TX,
+// computed via us-atlas/topojson/turf - not fabricated, not fetched
+// pre-computed from a source we couldn't verify). Both ship in the shell so
+// the toggle and its "not set up yet" message work offline; Mapbox GL JS
+// itself is loaded from api.mapbox.com only when a token is configured AND
+// the user actually clicks Satellite - never pre-cached, never fetched
+// speculatively. index.html, tx.html, explore.css, _headers (CSP) and
+// config.js changed alongside these two new files.
+const CACHE = "tdw-shell-v26";
 const SHELL = [
   "/",
   "/index.html",
@@ -196,10 +212,12 @@ const SHELL = [
   "/explore.css",
   "/app.js",
   "/explore.js",
+  "/satellite-map.js",
   "/config.js",
   "/fl-counties.svg",
   "/fl-cities.json",
   "/fl-zips.json",
+  "/county-centroids.json",
   "/manifest.webmanifest",
   // Icon bytes changed (new logo) but the filenames didn't, and /icons/* is
   // served with a 7-day Cache-Control (see _headers) plus this worker's own
