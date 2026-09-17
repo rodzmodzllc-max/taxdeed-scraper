@@ -230,6 +230,18 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 scripts/enrich_flood_zone.py
 
+      # NAIP aerial imagery: USDA/USGS, public domain, no API key, no
+      # billing account, and no restriction on storing or re-serving the
+      # bytes - which is why this runs today and the Street View step below
+      # still does not. Aerial rather than street-level, which also covers
+      # the vacant and unimproved parcels Street View has no imagery for at
+      # all. No-ops cleanly until migration 011 is applied.
+      - name: Backfill property imagery (USDA NAIP aerial)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/enrich_property_photos_naip.py
+
       - name: Backfill property photos (Street View Static API)
         # No-ops cleanly (exit 0) until a GOOGLE_MAPS_API_KEY secret exists -
         # see scripts/fetch_property_photos.py's module docstring and

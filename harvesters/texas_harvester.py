@@ -252,6 +252,7 @@ writeup and the rerun's results.
 from __future__ import annotations
 
 import csv
+import os
 import sys
 from dataclasses import dataclass, fields
 from pathlib import Path
@@ -487,6 +488,13 @@ def harvest_pbfcm(limit: int | None = None) -> list[TexasSaleRow]:
 LGBS_API_URL = "https://taxsales.lgbs.com/api/property_sales/"
 LGBS_PAGE_SIZE = 500  # confirmed live 2026-09-09 that the API honors limit=500
 
+# Phase 57. A page is retried this many times TOTAL (not in addition to a
+# first try) before the walk gives up - the same total-attempts convention
+# `max_retries` uses elsewhere in this repo, stated explicitly because that
+# ambiguity has bitten this codebase before.
+LGBS_PAGE_ATTEMPTS = int(os.environ.get("LGBS_PAGE_ATTEMPTS", "4"))
+LGBS_RETRY_BACKOFF_SECONDS = float(os.environ.get("LGBS_RETRY_BACKOFF_SECONDS", "1.5"))
+
 # Authoritative status -> ledger mapping, confirmed 2026-09-09 by
 # cross-referencing /api/sale_status/'s 8-value enum against real sampled
 # rows. `sale_type` (SALE/RESALE/STRUCK OFF/FUTURE SALE) is NOT reliable
@@ -552,7 +560,7 @@ def _lgbs_compose_address(raw: dict) -> str | None:
     return ", ".join(pieces) if pieces else None
 
 
-def harvest_lgbs(limit: int | None = None) -> list[TexasSaleRow]:
+def harvest_lgbs(limit: int | None = None, stats: dict | None = None) -> list[TexasSaleRow]:
     """Harvest Linebarger Goggan Blair & Sampson's public tax-sale API.
 
     API confirmed live 2026-09-09 via a real browser session (this
@@ -600,13 +608,54 @@ def harvest_lgbs(limit: int | None = None) -> list[TexasSaleRow]:
     skipped_status: dict[str, int] = {}
     page_num = 0
 
+    pages_retried = 0
+    truncated_at_page: int | None = None
+
     while url:
         page_num += 1
-        try:
-            with urllib.request.urlopen(url, timeout=30) as resp:
-                payload = json.loads(resp.read())
-        except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError) as exc:
-            print(f"harvest_lgbs: request failed on page {page_num} ({url}): {exc}", file=sys.stderr)
+
+        # Phase 57. Retry a failed page instead of abandoning the walk.
+        #
+        # This loop used to `break` on the first network error and return
+        # whatever it had, which is a silent fail-open: a truncated harvest
+        # is indistinguishable from a complete one to every caller, and the
+        # only clue was a stderr line nothing consumed. Phases 45-50
+        # established that this API's failures cluster on request POSITION
+        # rather than on query shape - i.e. exactly the transient, retryable
+        # kind - so one bad page part-way through the walk was silently
+        # costing every page after it.
+        #
+        # Measured 2026-09-17: 440 rows live in production from a roster that
+        # observed 97 counties and ~4,205 genuine TX records (6,309 envelope
+        # records less the 2,104 Philadelphia rows the `area=TX` leak lets
+        # through). Retrying is the difference between stopping at the first
+        # hiccup and walking the whole feed.
+        payload = None
+        for attempt in range(1, LGBS_PAGE_ATTEMPTS + 1):
+            try:
+                with urllib.request.urlopen(url, timeout=30) as resp:
+                    payload = json.loads(resp.read())
+                break
+            except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, ValueError) as exc:
+                if attempt == LGBS_PAGE_ATTEMPTS:
+                    print(
+                        f"harvest_lgbs: page {page_num} failed after {LGBS_PAGE_ATTEMPTS} "
+                        f"attempts ({url}): {exc} - TRUNCATING the walk here, so this "
+                        "harvest is INCOMPLETE",
+                        file=sys.stderr,
+                    )
+                    break
+                backoff = LGBS_RETRY_BACKOFF_SECONDS * (2 ** (attempt - 1))
+                pages_retried += 1
+                print(
+                    f"harvest_lgbs: page {page_num} attempt {attempt} failed ({exc}) - "
+                    f"retrying in {backoff:.1f}s",
+                    file=sys.stderr,
+                )
+                time.sleep(backoff)
+
+        if payload is None:
+            truncated_at_page = page_num
             break
 
         for raw in payload.get("results", []):
@@ -664,10 +713,34 @@ def harvest_lgbs(limit: int | None = None) -> list[TexasSaleRow]:
             time.sleep(0.3)  # polite pacing between pages - same rationale as
             # enrich_property_details_tx.py's REQUEST_DELAY_SECONDS
 
+    # `complete` means the walk reached the end of the feed - either the API
+    # stopped handing back a `next` link, or the caller's own `limit` was
+    # satisfied. It does NOT mean every record was kept: rows are dropped on
+    # purpose for being non-TX or for carrying a resolved/in-limbo status.
+    # A truncated walk is the one case where "fewer rows" means "we do not
+    # know what we missed", which is why it is reported separately.
+    complete = truncated_at_page is None
+    if stats is not None:
+        stats.update(
+            {
+                "complete": complete,
+                "pages_walked": page_num,
+                "pages_retried": pages_retried,
+                "truncated_at_page": truncated_at_page,
+                "raw_rows_seen": seen_raw,
+                "rows_kept": len(rows),
+                "counties_seen": sorted(counties_seen),
+                "skipped_non_tx": skipped_non_tx,
+                "skipped_status": dict(skipped_status),
+            }
+        )
+
     print(
         f"harvest_lgbs: kept {len(rows)} TX rows across {len(counties_seen)} counties "
         f"({seen_raw} raw rows walked over {page_num} page(s), {skipped_non_tx} non-TX "
-        f"rows dropped, dropped-status breakdown: {skipped_status})",
+        f"rows dropped, dropped-status breakdown: {skipped_status}) - "
+        f"walk {'COMPLETE' if complete else 'INCOMPLETE'}"
+        + ("" if complete else f", truncated at page {truncated_at_page}"),
         file=sys.stderr,
     )
     return rows
@@ -1049,6 +1122,7 @@ def main() -> None:
     gate has nothing to check it against in this loop; its registry entry
     exists so the source is representable, per Phase 10A Step 10.
     """
+    import inspect
     import json
     from dataclasses import asdict
     from datetime import datetime, timezone
@@ -1070,14 +1144,24 @@ def main() -> None:
 
     all_rows: list[TexasSaleRow] = []
     rows_by_source: dict[str, int] = {}
+    status_by_source: dict[str, dict] = {}
     for name, fn in SOURCES.items():
         decision = check_ingestion_gate(name)
         if not decision.allowed:
             print(f"main: skipping {name} - ingestion gate rejected it ({decision.reason})", file=sys.stderr)
             continue
 
+        source_stats: dict = {}
         try:
-            vendor_rows = fn()
+            # Only harvest_lgbs() reports completeness today (Phase 57); the
+            # others take no `stats` argument and are called unchanged. A
+            # source that reports nothing is recorded as "unknown", never as
+            # "complete" - absence of a signal is not a clean bill of health,
+            # the same rule the FL deed/certificate status files already use.
+            if "stats" in inspect.signature(fn).parameters:
+                vendor_rows = fn(stats=source_stats)
+            else:
+                vendor_rows = fn()
         except NotImplementedError as exc:
             # Still possible even for a gate-approved source: a source can
             # be legally APPROVED while its harvester remains an
@@ -1113,12 +1197,50 @@ def main() -> None:
             # Phase 10A's own gate check above used).
             print(f"main: {name} raised an unexpected (non-network) error - continuing with remaining sources: {exc}", file=sys.stderr)
             continue
-        print(f"main: {name} produced {len(vendor_rows)} rows ({decision.reason})", file=sys.stderr)
+        completeness = source_stats.get("complete")
+        label = {True: "COMPLETE", False: "INCOMPLETE", None: "completeness-unknown"}[completeness]
+        print(
+            f"main: {name} produced {len(vendor_rows)} rows, walk {label} ({decision.reason})",
+            file=sys.stderr,
+        )
         all_rows.extend(vendor_rows)
         rows_by_source[name] = rows_by_source.get(name, 0) + len(vendor_rows)
+        status_by_source[name] = {
+            "rows": len(vendor_rows),
+            "complete": completeness,
+            **{k: v for k, v in source_stats.items() if k != "complete"},
+        }
 
     out_path.write_text(json.dumps([asdict(r) for r in all_rows], indent=2))
     print(f"main: wrote {len(all_rows)} total TX rows to {out_path}", file=sys.stderr)
+
+    # Phase 57. A sibling status file, deliberately NOT folded into
+    # harvest_texas.json - that file's shape is the sync script's input
+    # contract and is left untouched. This mirrors the status files the
+    # Florida deed and certificate harvesters already write, and exists for
+    # the same reason: a short harvest and a truncated harvest look
+    # identical in the row file, and only one of them means "we do not know
+    # what we missed".
+    #
+    # Nothing consumes this yet. The TX sync is upsert-only - it never
+    # closes out or deletes rows a harvest did not mention - so a truncated
+    # run under-delivers rather than destroying data, and gating the sync on
+    # completeness is not required for safety today. It WOULD be required
+    # before Texas ever gets a close-out step like Florida's, which is
+    # precisely when this file needs to already exist.
+    status_path = out_dir / "harvest_texas_status.json"
+    status_path.write_text(
+        json.dumps(
+            {"retrieved_at": retrieved_at, "sources": status_by_source}, indent=2, sort_keys=True
+        )
+    )
+    incomplete = [n for n, st in status_by_source.items() if st.get("complete") is False]
+    if incomplete:
+        print(
+            f"main: WARNING - {len(incomplete)} source(s) returned an INCOMPLETE walk: "
+            f"{', '.join(incomplete)}. Row counts for those sources are a floor, not a total.",
+            file=sys.stderr,
+        )
 
     # Phase 12: log one Provenance summary line per source actually
     # harvested this run - not one object per row (see
