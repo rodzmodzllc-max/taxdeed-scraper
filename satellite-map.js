@@ -13,8 +13,18 @@
 // satellite/terrain basemap, Google-Maps-style. That's a genuine trade-off,
 // not a styling gap: it needs a third party. Asked directly, Marc chose
 // "real satellite/terrain WITH A TOGGLE to our current style map" - both
-// views, switchable, neither one replacing the other. That's what this file
-// builds. See CLAUDE.md's Phase 55 section for the full exchange.
+// views, switchable, neither one replacing the other. See CLAUDE.md's Phase
+// 55 section for the full exchange.
+//
+// PHASE 56: MAPBOX -> GOOGLE MAPS
+// Phase 55 shipped on Mapbox GL JS. Marc then got a real Google Maps API key
+// ("google gave me a demo api to test") and, asked directly how he wanted it
+// wired in, chose "Switch to Google Maps" - a full replacement, not a second
+// provider option. This file now uses the Google Maps JavaScript API
+// exclusively: same toggle, same bubbles-then-pins model, same event
+// contract, different renderer underneath. See config.js's
+// googleMapsApiKey comment and CLAUDE.md's Phase 56 section for the CSP
+// trade-off that came with this switch (materially larger than Mapbox's).
 //
 // WHY A SEPARATE MODULE, not code inside explore.js:
 // Same reasoning explore.js's own header gives for being separate from
@@ -26,14 +36,15 @@
 // handlers (bound in this file) just show one canvas and hide the other.
 //
 // WHY THIS IS OFF BY DEFAULT AND SAFE WHEN UNCONFIGURED:
-// Mapbox GL JS needs an access token only Marc can obtain (a free Mapbox
-// account - see config.js's mapboxToken comment for the exact steps). This
-// file never fetches Mapbox's script, CSS, or a single tile unless BOTH (a)
-// window.TDW_CONFIG.mapboxToken is non-empty AND (b) the user has actually
-// clicked "Satellite" at least once. Until then the toggle button is fully
-// visible (so the feature is discoverable) but inert as far as network
-// traffic goes - clicking it with no token just swaps in a plain-language
-// setup message, no different from any other empty state in this app.
+// The Google Maps JS API needs an API key only Marc can obtain/manage - see
+// config.js's googleMapsApiKey comment. This file never injects Google's
+// loader script or fetches a single tile unless BOTH (a)
+// window.TDW_CONFIG.googleMapsApiKey is non-empty AND (b) the user has
+// actually clicked "Satellite" at least once. Until then the toggle button
+// is fully visible (so the feature is discoverable) but inert as far as
+// network traffic goes - clicking it with no key just swaps in a
+// plain-language setup message, no different from any other empty state in
+// this app.
 //
 // WHAT'S DELIBERATELY THE SAME AS THE OUTLINE MAP, AND WHY:
 // Statewide, this draws one bubble per county (sized by count, coloured by
@@ -58,31 +69,38 @@ const PAGE_STATE = document.body.dataset.state === "TX" ? "TX" : "FL";
 // without excess ocean/neighbor-state padding. Not derived from data (there's
 // no "centroid of all counties" reason to prefer over a plain eyeballed
 // state center) - just a sane initial camera, same spirit as the outline
-// map's own fixed viewBox.
+// map's own fixed viewBox. [lng, lat] kept as the tuple shape (matches
+// county-centroids.json / the properties table's lng-then-lat convention);
+// converted to Google's {lat, lng} object shape at each call site.
 const STATEWIDE_VIEW = {
-  FL: { center: [-81.6, 28.1], zoom: 5.6 },
-  TX: { center: [-99.3, 31.4], zoom: 5.1 }
+  FL: { center: [-81.6, 28.1], zoom: 6 },
+  TX: { center: [-99.3, 31.4], zoom: 5.4 }
 };
 
-const MAPBOX_GL_VERSION = "v3.30.0"; // bump alongside a check of
-  // https://docs.mapbox.com/mapbox-gl-js/guides/install/ for a newer stable
+// Google's own placeholder Map ID, meant exactly for this situation - trying
+// out Advanced Markers without first creating a real Map ID in Cloud Console.
+// Fine for Marc's "demo api to test" key; swap for a real Map ID (Google
+// Cloud Console -> Maps Management -> Map IDs) if/when this moves off the
+// demo key. A Map ID is required for AdvancedMarkerElement - it isn't
+// optional the way a Mapbox style URL was.
+const GOOGLE_MAP_ID = "DEMO_MAP_ID";
 
 let rows = [];
 let ledger = "all";
 let openDetail = null;
 
-let activeStyle = "outline";   // "outline" | "satellite" - which canvas shows
-let gl = null;                 // the mapboxgl module, once loaded
-let map = null;                // the mapboxgl.Map instance, once created
-let loadState = "idle";        // "idle" | "loading" | "ready" | "unconfigured" | "error"
-let markers = [];              // live mapboxgl.Marker instances, cleared each redraw
-let popup = null;
-let lastZoomedCounty = null;   // county last flown to, so redraws don't re-fly
-                               // the camera on every unrelated toolbar change
+let activeStyle = "outline";      // "outline" | "satellite" - which canvas shows
+let map = null;                   // the google.maps.Map instance, once created
+let AdvancedMarkerElement = null; // class ref, once the "marker" library loads
+let infoWindow = null;            // shared google.maps.InfoWindow
+let loadState = "idle";           // "idle" | "loading" | "ready" | "unconfigured" | "error"
+let markers = [];                 // live AdvancedMarkerElement instances, cleared each redraw
+let lastZoomedCounty = null;      // county last flown to, so redraws don't re-fly
+                                   // the camera on every unrelated toolbar change
 
-function mapboxToken() {
-  const t = (window.TDW_CONFIG || {}).mapboxToken;
-  return typeof t === "string" ? t.trim() : "";
+function googleMapsApiKey() {
+  const k = (window.TDW_CONFIG || {}).googleMapsApiKey;
+  return typeof k === "string" ? k.trim() : "";
 }
 
 // ---------------------------------------------------------------------------
@@ -112,33 +130,49 @@ function setStyle(style) {
   // caches it), so nothing needs to be told to redraw on switching back to it.
   if (style === "satellite") {
     ensureSatelliteMap();
-    // Container was just un-hidden; Mapbox measured it at whatever size it
-    // had (possibly 0x0) if init happened earlier while hidden. resize() is
-    // a no-op if nothing changed, so it's safe to always call.
-    if (map) requestAnimationFrame(() => map.resize());
+    // Container was just un-hidden; if init happened earlier while hidden,
+    // Google may have measured a 0x0 box. Google Maps doesn't expose a
+    // Mapbox-style resize() - the documented way to make it re-measure is
+    // firing its own "resize" event through google.maps.event.
+    if (map && window.google && window.google.maps && window.google.maps.event) {
+      requestAnimationFrame(() => window.google.maps.event.trigger(map, "resize"));
+    }
     renderSatellite();
   }
 }
 
 // ---------------------------------------------------------------------------
-// lazy Mapbox GL load + map init
+// lazy Google Maps JS API load + map init
 // ---------------------------------------------------------------------------
-function loadMapboxGl() {
-  if (window.mapboxgl) return Promise.resolve(window.mapboxgl);
-  if (loadMapboxGl._p) return loadMapboxGl._p;
-  loadMapboxGl._p = new Promise((resolve, reject) => {
-    const link = document.createElement("link");
-    link.rel = "stylesheet";
-    link.href = `https://api.mapbox.com/mapbox-gl-js/${MAPBOX_GL_VERSION}/mapbox-gl.css`;
-    document.head.appendChild(link);
-
-    const script = document.createElement("script");
-    script.src = `https://api.mapbox.com/mapbox-gl-js/${MAPBOX_GL_VERSION}/mapbox-gl.js`;
-    script.onload = () => resolve(window.mapboxgl);
-    script.onerror = () => reject(new Error("Mapbox GL JS failed to load"));
-    document.head.appendChild(script);
-  });
-  return loadMapboxGl._p;
+// Google's own official dynamic-library-loader bootstrap (see
+// https://developers.google.com/maps/documentation/javascript/load-maps-js-api),
+// reproduced verbatim from Google's docs and installed inline here instead of
+// as a separate <script> tag in index.html/tx.html - identical behavior:
+// after this runs once, google.maps.importLibrary(...) is defined and the
+// rest of this file uses it to pull in the "maps" and "marker" libraries on
+// demand, only when a key is configured and the user has clicked Satellite.
+function installGoogleMapsBootstrap(apiKey) {
+  if (window.google && window.google.maps && window.google.maps.importLibrary) return;
+  (g => {
+    let h, a, k;
+    const p = "The Google Maps JavaScript API", c = "google", l = "importLibrary", q = "__ib__";
+    const m = document, b = window;
+    b[c] = b[c] || {};
+    const d = b[c].maps || (b[c].maps = {});
+    const r = new Set(), e = new URLSearchParams();
+    const u = () => h || (h = new Promise(async (f, n) => {
+      a = m.createElement("script");
+      e.set("libraries", [...r] + "");
+      for (k in g) e.set(k.replace(/[A-Z]/g, t => "_" + t[0].toLowerCase()), g[k]);
+      e.set("callback", c + ".maps." + q);
+      a.src = `https://maps.${c}apis.com/maps/api/js?` + e;
+      d[q] = f;
+      a.onerror = () => { h = null; n(new Error(p + " could not load.")); };
+      a.nonce = m.querySelector("script[nonce]")?.nonce || "";
+      m.head.append(a);
+    }));
+    d[l] ? console.warn(p + " only loads once. Ignoring:", g) : d[l] = (f, ...n) => r.add(f) && u().then(() => d[l](f, ...n));
+  })({ key: apiKey, v: "weekly" });
 }
 
 function setupMessage(html) {
@@ -149,12 +183,12 @@ function setupMessage(html) {
 
 async function ensureSatelliteMap() {
   if (loadState === "ready" || loadState === "loading") return;
-  const token = mapboxToken();
-  if (!token) {
+  const key = googleMapsApiKey();
+  if (!key) {
     loadState = "unconfigured";
     setupMessage(
       `<b>Satellite view isn't set up yet</b>` +
-      `<span>Add a free Mapbox token as <code>mapboxToken</code> in ` +
+      `<span>Add a Google Maps API key as <code>googleMapsApiKey</code> in ` +
       `<code>config.js</code>, then reload. The outline map on the left ` +
       `still works fully without one.</span>`
     );
@@ -163,24 +197,24 @@ async function ensureSatelliteMap() {
   loadState = "loading";
   setupMessage(`<b>Loading satellite map…</b>`);
   try {
-    gl = await loadMapboxGl();
-    gl.accessToken = token;
+    installGoogleMapsBootstrap(key);
+    const { Map, InfoWindow } = await google.maps.importLibrary("maps");
+    ({ AdvancedMarkerElement } = await google.maps.importLibrary("marker"));
     const canvas = $(CANVAS_ID);
     canvas.innerHTML = "";
     const view = STATEWIDE_VIEW[PAGE_STATE] || STATEWIDE_VIEW.FL;
-    map = new gl.Map({
-      container: canvas,
-      style: "mapbox://styles/mapbox/satellite-streets-v12",
-      center: view.center,
+    map = new Map(canvas, {
+      center: { lat: view.center[1], lng: view.center[0] },
       zoom: view.zoom,
-      attributionControl: true
+      mapId: GOOGLE_MAP_ID,
+      mapTypeId: "hybrid", // satellite imagery + labels - closest match to the reference mockup
+      streetViewControl: false,
+      fullscreenControl: false,
+      mapTypeControl: false
     });
-    map.addControl(new gl.NavigationControl({ showCompass: false }), "top-right");
-    popup = new gl.Popup({ closeButton: true, closeOnClick: false, offset: 14 });
-    map.on("load", () => {
-      loadState = "ready";
-      renderSatellite();
-    });
+    infoWindow = new InfoWindow();
+    loadState = "ready";
+    renderSatellite();
   } catch (err) {
     loadState = "error";
     setupMessage(
@@ -227,7 +261,7 @@ function pinLabel(p) {
 }
 
 function clearMarkers() {
-  markers.forEach(m => m.remove());
+  markers.forEach(m => { m.map = null; });
   markers = [];
 }
 
@@ -263,7 +297,8 @@ async function renderSatellite() {
     const cc = await loadCentroids();
     const center = cc[selectedCounty];
     if (center && lastZoomedCounty !== selectedCounty) {
-      map.flyTo({ center: [center.lng, center.lat], zoom: 10, essential: true });
+      map.panTo({ lat: center.lat, lng: center.lng });
+      map.setZoom(10);
       lastZoomedCounty = selectedCounty;
     }
     list.filter(hasPin).forEach(p => {
@@ -272,10 +307,14 @@ async function renderSatellite() {
       el.setAttribute("role", "button");
       el.setAttribute("tabindex", "0");
       el.setAttribute("aria-label", pinLabel(p) + " - view details");
-      el.addEventListener("click", () => showPropertyPopup(p, [p.longitude, p.latitude]));
-      const m = new gl.Marker({ element: el, anchor: "bottom" })
-        .setLngLat([p.longitude, p.latitude])
-        .addTo(map);
+      const position = { lat: p.latitude, lng: p.longitude };
+      el.addEventListener("click", () => showPropertyPopup(p, position));
+      const m = new AdvancedMarkerElement({
+        map,
+        position,
+        content: el,
+        anchor: undefined // AdvancedMarkerElement anchors bottom-center by default, matching the pin's own drop-shape origin
+      });
       markers.push(m);
     });
     return;
@@ -287,8 +326,9 @@ async function renderSatellite() {
     // Only recenter statewide if we're not already roughly there - avoids
     // yanking the camera back every render while the user is panning around.
     const c = map.getCenter();
-    if (Math.abs(c.lng - v.center[0]) > 4 || Math.abs(c.lat - v.center[1]) > 4) {
-      map.jumpTo({ center: v.center, zoom: v.zoom });
+    if (Math.abs(c.lng() - v.center[0]) > 4 || Math.abs(c.lat() - v.center[1]) > 4) {
+      map.setCenter({ lat: v.center[1], lng: v.center[0] });
+      map.setZoom(v.zoom);
     }
   }
 
@@ -316,15 +356,17 @@ async function renderSatellite() {
       el.addEventListener("keydown", e => {
         if (e.key === "Enter" || e.key === " ") { e.preventDefault(); selectCounty(county); }
       });
-      const m = new gl.Marker({ element: el, anchor: "center" })
-        .setLngLat([center.lng, center.lat])
-        .addTo(map);
+      const m = new AdvancedMarkerElement({
+        map,
+        position: { lat: center.lat, lng: center.lng },
+        content: el
+      });
       markers.push(m);
     });
 }
 
-function showPropertyPopup(p, lngLat) {
-  if (!popup || !map) return;
+function showPropertyPopup(p, position) {
+  if (!infoWindow || !map) return;
   const bids = Number(p.bid);
   const priceLine = bids > 0
     ? new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(bids)
@@ -339,7 +381,9 @@ function showPropertyPopup(p, lngLat) {
   btn.textContent = "View details";
   btn.addEventListener("click", () => { if (openDetail) openDetail(p); });
   el.appendChild(btn);
-  popup.setLngLat(lngLat).setDOMContent(el).addTo(map);
+  infoWindow.setPosition(position);
+  infoWindow.setContent(el);
+  infoWindow.open(map);
 }
 
 function escapeHtml(s) {

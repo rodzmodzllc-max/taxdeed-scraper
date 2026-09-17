@@ -199,12 +199,14 @@
 // county-centroids.json (real Census-derived county centroids for FL/TX,
 // computed via us-atlas/topojson/turf - not fabricated, not fetched
 // pre-computed from a source we couldn't verify). Both ship in the shell so
-// the toggle and its "not set up yet" message work offline; Mapbox GL JS
-// itself is loaded from api.mapbox.com only when a token is configured AND
+// the toggle and its "not set up yet" message work offline; the actual map
+// library (Google Maps JavaScript API as of Phase 56, swapped in for the
+// original Mapbox GL JS) is only injected when a key is configured AND
 // the user actually clicks Satellite - never pre-cached, never fetched
 // speculatively. index.html, tx.html, explore.css, _headers (CSP) and
-// config.js changed alongside these two new files.
-const CACHE = "tdw-shell-v26";
+// config.js changed alongside these two new files, and again in Phase 56
+// for the provider swap.
+const CACHE = "tdw-shell-v27";
 const SHELL = [
   "/",
   "/index.html",

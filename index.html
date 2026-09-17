@@ -485,15 +485,16 @@ only where it lives changed, not how it draws. -->
 <div class="explore-map-canvas" id="exploreMapCanvas">
 <div class="explore-map-empty">Loading map…</div>
 </div>
-<!-- Phase 55: a second, optional basemap for this same stage - a real
-satellite/terrain map (Mapbox GL JS), toggled against the outline map
+<!-- Phase 55/56: a second, optional basemap for this same stage - a real
+satellite/terrain map (Google Maps JavaScript API, swapped in for the
+original Mapbox version in Phase 56), toggled against the outline map
 above via #mapStyleToggle. See satellite-map.js for why this is a
 separate module (same one-way tdw:maprendered contract explore.js
-uses) and CLAUDE.md's Phase 55 section for the trade-off this
+uses) and CLAUDE.md's Phase 55/56 sections for the trade-off this
 represents (a third party now sees the tiles a signed-in user
 requests, opt-in per click, off by default) - Marc chose this
-explicitly after it was raised to him. Hidden until Marc supplies a
-Mapbox token in config.js; see satellite-map.js's setup message. -->
+explicitly after it was raised to him. Hidden until config.js carries
+a googleMapsApiKey; see satellite-map.js's setup message. -->
 <div class="satellite-map-canvas" id="satelliteMapCanvas" hidden></div>
 <div class="cluster-tip" id="clusterTip"></div>
 <aside class="explore-map-rail" id="exploreMapRail" hidden aria-label="Counties in view"></aside>
@@ -639,9 +640,9 @@ event app.js dispatches, so load order isn't strictly required - but
 keeping it second matches the dependency direction and makes that
 one-way relationship obvious from the markup. -->
 <script type="module" src="explore.js"></script>
-<!-- Phase 55: independent of explore.js (same tdw:maprendered contract,
+<!-- Phase 55/56: independent of explore.js (same tdw:maprendered contract,
 own module) - owns the optional Satellite basemap toggle. No-ops until
-config.js carries a Mapbox token; see satellite-map.js's header. -->
+config.js carries a googleMapsApiKey; see satellite-map.js's header. -->
 <script type="module" src="satellite-map.js"></script>
 </body>
 </html>
