@@ -1291,18 +1291,20 @@ footer{padding:1.2rem 1.1rem 0;font-size:.72rem;color:var(--ink-soft);text-align
   text-decoration:none;border:none;cursor:pointer}
 
 /* ---- Auctions page: desktop table view + persistent detail panel ---- */
-/* .auctions-body has THREE children - .data-table-wrap, .explore-shell
-   (the card list/map, wrapping #main), and .detail-panel - but only two of
-   them are ever visible at once (table vs. list mode toggles which of the
-   first two shows). A plain 2-column grid put the third child on its own
-   implicit row instead of beside the list, pushing the detail panel full-
-   width below everything - caught in the fixture screenshot before ship.
-   Pinning both list-area children to column 1 and the panel to column 2/
-   row 1 keeps the layout correct regardless of which list view is active. */
+/* .auctions-body has THREE children - .data-table-wrap, #main (the card
+   list - Phase 54 removed the .explore-shell wrapper that used to carry an
+   embedded map beside it; see the Phase 54 comment above the auctions-body
+   markup in index.html/tx.html), and .detail-panel - but only two of them
+   are ever visible at once (table vs. list mode toggles which of the first
+   two shows). A plain 2-column grid put the third child on its own implicit
+   row instead of beside the list, pushing the detail panel full-width below
+   everything - caught in the fixture screenshot before ship. Pinning both
+   list-area children to column 1 and the panel to column 2/row 1 keeps the
+   layout correct regardless of which list view is active. */
 .auctions-body{display:block}
 @media (min-width:1024px){
   .auctions-body{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:1.1rem;align-items:start}
-  .auctions-body>.data-table-wrap,.auctions-body>.explore-shell{grid-column:1;grid-row:1}
+  .auctions-body>.data-table-wrap,.auctions-body>#main{grid-column:1;grid-row:1}
   .auctions-body>.detail-panel{grid-column:2;grid-row:1}
 }
 @media (min-width:1280px){
@@ -1327,7 +1329,6 @@ footer{padding:1.2rem 1.1rem 0;font-size:.72rem;color:var(--ink-soft);text-align
 }
 [data-listmode="table"] #main{display:none}
 [data-listmode="table"] .data-table-wrap{display:block}
-[data-listmode="table"] .explore-map-panel{display:none}
 .data-table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--card-line);
   border-radius:4px;overflow:hidden;font-size:.8rem}
 .data-table thead th{text-align:left;font-size:.66rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;

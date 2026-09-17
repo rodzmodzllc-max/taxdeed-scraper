@@ -34,9 +34,24 @@
 # is the only allowed fetch/XHR target besides same-origin. Data is rendered
 # from Supabase content into the DOM, so this is a real second line of
 # defense against injected-content XSS, not just a checkbox.
+#
+# Phase 55 added api.mapbox.com (script/style/connect) and worker-src blob:
+# for the Map page's optional Satellite toggle (satellite-map.js). This is a
+# deliberate, explicit exception to the img-src 'self' data: rule the Map
+# page's own SVG basemap comment (see explore.js) has documented since Phase
+# 53/54: a real satellite/terrain basemap means SOME third party (Mapbox)
+# necessarily learns the map tiles a signed-in user's browser requests, which
+# is the exact leak that rule existed to prevent. Marc explicitly chose this
+# trade-off (real satellite/terrain, as a toggle alongside the existing
+# same-origin map, not a replacement for it) after it was raised to him
+# directly - see CLAUDE.md's Phase 55 section. The same-origin map remains
+# the default and needs no third party at all; Satellite is opt-in per
+# session, per click. events.mapbox.com (Mapbox's own telemetry ping) is
+# deliberately NOT allowlisted - blocking it doesn't break map tiles, and
+# there's no reason to let a second Mapbox endpoint see anything.
 /*
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   X-Frame-Options: DENY
   Permissions-Policy: geolocation=(), microphone=(), camera=()
-  Content-Security-Policy: default-src 'self'; script-src 'self' https://esm.sh; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; connect-src 'self' https://*.supabase.co https://esm.sh; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
+  Content-Security-Policy: default-src 'self'; script-src 'self' https://esm.sh https://api.mapbox.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://api.mapbox.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob: https://api.mapbox.com; connect-src 'self' https://*.supabase.co https://esm.sh https://api.mapbox.com https://*.tiles.mapbox.com; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'

@@ -253,18 +253,6 @@ whatever's currently filtered. -->
 <select id="countyQuick"><option value="ALL">All Counties</option></select>
 <span class="qc-chevron"></span>
 </div>
-<!-- Handled entirely by explore.js - app.js knows nothing about view mode.
-Split is hidden by CSS below 900px, where a half-width list would be
-unusable rather than merely tight. -->
-<!-- Phase 53: Map dropped from this toggle - the nav bar's own Map item is
-now the only entry point into map mode (it routes into this same explore.js
-view via the tdw:setviewmode event; see SHELL_PAGES/showPage() in app.js).
-Two ways to reach the identical map read as two different maps, which is
-exactly what this phase collapsed. -->
-<div class="view-toggle" id="viewToggle" role="group" aria-label="View mode">
-<button type="button" data-mode="list" aria-pressed="false"><span class="vt-icon"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h18M3 6h18M3 18h18"/></svg></span>List</button>
-<button type="button" data-mode="split" aria-pressed="false"><span class="vt-icon"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="7" height="16"/><rect x="14" y="4" width="7" height="16"/></svg></span>Split</button>
-</div>
 <button class="table-toggle-btn" id="tableToggleBtn" type="button" title="Dense table view"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h18M3 12h18M3 19h18"/></svg> Table</button>
 <button class="expand-all-btn" id="expandAllBtn" type="button">Expand all</button>
 <button class="export-btn" id="exportCsvBtn" type="button"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v13M7 11l5 5 5-5M4 21h16"/></svg> Export CSV</button>
@@ -415,12 +403,15 @@ chips - each summary shows how many are currently selected. -->
 </div>
 </div>
 
-<!-- ============ explore shell: card list + county map ============
-#main is exactly the list app.js has always rendered - it is untouched.
-The map panel beside it is drawn by explore.js from the same filtered
-rows the list just used (see the tdw:rendered contract in that file), so
-the two panes can never disagree about what's in view. data-mode is set
-by explore.js and drives the whole layout from CSS alone. -->
+<!-- ============ Auctions body: card list, full width ============
+Phase 54: this used to be a two-pane "explore shell" - #main plus a county
+map panel beside it, switched between List/Split/Map by #viewToggle. Marc's
+ask was explicit: Auctions should just be the list, and Map should be its
+own page you actually feel yourself navigating to (see #pageMap below, and
+the Phase 54 comment on SHELL_PAGES in app.js). So #main is unwrapped - no
+shell, no mode, no embedded map - and the desktop table view (#tableToggleBtn,
+a wholly separate feature from the old view-toggle) still sits right beside
+it exactly as before. -->
 <div class="auctions-body">
 <div class="data-table-wrap" id="dataTableWrap">
 <table class="data-table" id="dataTable">
@@ -428,45 +419,7 @@ by explore.js and drives the whole layout from CSS alone. -->
 <tbody id="dataTableBody"></tbody>
 </table>
 </div>
-<div class="explore-shell" id="exploreShell" data-mode="list">
 <main id="main"></main>
-<aside class="explore-map-panel" id="exploreMapPanel">
-<div class="explore-map">
-<div class="explore-map-head">
-<h2 class="explore-map-title">Where these are</h2>
-<span class="explore-map-count" id="exploreMapCount"></span>
-</div>
-<!-- The map and, on a wide screen, a ranked list of the counties in view.
-Florida's outline is nearly square, so a full-width map panel letterboxed
-it with ~350px of dead white on each side. The rail puts that space to
-work AND answers the question the bubbles are bad at - "which counties
-have the most, in order" - since eight bubbles of similar size can't be
-ranked by eye. -->
-<div class="explore-map-stage">
-<div class="explore-map-canvas" id="exploreMapCanvas">
-<div class="explore-map-empty">Loading map…</div>
-</div>
-<div class="cluster-tip" id="clusterTip"></div>
-<aside class="explore-map-rail" id="exploreMapRail" hidden aria-label="Counties in view"></aside>
-</div>
-<!-- Real counts from the current bubbles, not a fixed key - see
-updateSummary() in explore.js. Hidden once zoomed into a county, where
-bubbles are replaced by real geocoded pins and a size scale no longer
-applies. -->
-<div class="explore-map-legend" id="exploreMapLegend" hidden></div>
-<div class="explore-map-foot">
-<span class="explore-map-hint" id="exploreMapHint">Tap a county to filter the list to it</span>
-<button class="explore-map-reset" id="exploreMapReset" type="button" hidden>Clear county filter</button>
-</div>
-<!-- Said plainly on the panel rather than left to be inferred: a bubble is
-a county-level count, not a parcel pin. Only ~2% of rows currently
-carry latitude/longitude (see the header comment in explore.js), so
-drawing these as street-level pins would be a precision the data
-doesn't have. -->
-<p class="explore-map-note">Bubbles are county-level counts, sized by how many properties match your filters — not exact parcel locations.</p>
-</div>
-</aside>
-</div>
 <aside class="detail-panel" id="detailPanel">
 <div class="detail-panel-empty">Select a property from the list to see its full page here.</div>
 </aside>
@@ -483,17 +436,85 @@ Title badges are a best-effort public-records search, <b>not a certified title s
 </footer>
 </section>
 
-<!-- Phase 53: the legacy #pageMap section (format-colored county SVG, its own
-FL/TX switcher, its own zoom banner) is REMOVED, not hidden - it was the
-second, worse map that stood in for the Auctions page's own "Where these
-are" bubble map any time someone reached Map from the nav bar. That richer
-map (search bar + county picker + ledger filters already sit right above it
-in the Auctions toolbar, real per-county counts, tap-to-zoom, a floating
-preview card) is what nav Map now opens directly - see showPage() in app.js
-and the tdw:setviewmode listener in explore.js. The JS that drove this
-section (ensureMapLoaded, zoomToCounty, computeCountyCentroids, etc. in
-app.js) is left in place as documented dead code rather than torn out of
-several still-live call sites - see the comment above mapBtnEl there. -->
+<!-- ============ Map (Phase 54) ============
+Its own top-level page, not a mode of Auctions and not a virtual route into
+one - see the Phase 54 comment on SHELL_PAGES/showPage() in app.js for why
+that distinction was the whole point of this rebuild. Its own header, its
+own toolbar (search, county select, an All/Auctions/Lands Available/
+Certificates ledger-pill row, a Watchlist-only pill), all independent of
+the Auctions page's own filters - see mapFilter/computeMapRows()/
+renderMapPage() in app.js. The map itself (bubbles, county rail, legend,
+zoomed-in pins, floating preview card) is explore.js's existing renderer;
+only where it lives changed, not how it draws. -->
+<section class="page" id="pageMap" hidden>
+<div class="map-page-head">
+<h1>Map</h1>
+<p>Explore auctions, lands available and certificates by county across Florida.</p>
+</div>
+<div class="map-toolbar" id="mapToolbar">
+<div class="qc-field map-toolbar-search">
+<span class="qc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></span>
+<input type="text" id="mapSearchInput" placeholder="Search case #, parcel #, owner, county…" title="Matches case number, parcel number, certificate number, owner name, county and address." autocomplete="off">
+</div>
+<div class="qc-field qc-county map-toolbar-county">
+<span class="qc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-8-4.6-8-11a8 8 0 1116 0c0 6.4-8 11-8 11z"/><circle cx="12" cy="10" r="3"/></svg></span>
+<select id="mapCountySelect"><option value="ALL">All Counties</option></select>
+<span class="qc-chevron"></span>
+</div>
+<div class="map-ledger-pills" id="mapLedgerPills" role="group" aria-label="Ledger">
+<button type="button" class="on" data-ledger="all"><span class="pill-dot pill-dot-all" aria-hidden="true"></span>All</button>
+<button type="button" data-ledger="auction"><span class="pill-dot pill-dot-auction" aria-hidden="true"></span>Auctions</button>
+<button type="button" data-ledger="laft"><span class="pill-dot pill-dot-laft" aria-hidden="true"></span>Lands Available</button>
+<button type="button" data-ledger="certificate"><span class="pill-dot pill-dot-certificate" aria-hidden="true"></span>Certificates</button>
+</div>
+<button type="button" class="map-watch-pill" id="mapWatchlistOnly" aria-pressed="false"><span class="pill-dot pill-dot-watch" aria-hidden="true"></span>Watchlist only</button>
+</div>
+<div class="map-page-body">
+<div class="explore-map map-page-map">
+<div class="explore-map-head">
+<h2 class="explore-map-title">Where these are</h2>
+<div class="explore-map-head-right">
+<div class="map-style-toggle" id="mapStyleToggle" role="group" aria-label="Map style">
+<button type="button" class="on" data-style="outline" id="mapStyleOutline">Map</button>
+<button type="button" data-style="satellite" id="mapStyleSatellite">Satellite</button>
+</div>
+<span class="explore-map-count" id="exploreMapCount"></span>
+</div>
+</div>
+<div class="explore-map-stage">
+<div class="explore-map-canvas" id="exploreMapCanvas">
+<div class="explore-map-empty">Loading map…</div>
+</div>
+<!-- Phase 55: a second, optional basemap for this same stage - a real
+satellite/terrain map (Mapbox GL JS), toggled against the outline map
+above via #mapStyleToggle. See satellite-map.js for why this is a
+separate module (same one-way tdw:maprendered contract explore.js
+uses) and CLAUDE.md's Phase 55 section for the trade-off this
+represents (a third party now sees the tiles a signed-in user
+requests, opt-in per click, off by default) - Marc chose this
+explicitly after it was raised to him. Hidden until Marc supplies a
+Mapbox token in config.js; see satellite-map.js's setup message. -->
+<div class="satellite-map-canvas" id="satelliteMapCanvas" hidden></div>
+<div class="cluster-tip" id="clusterTip"></div>
+<aside class="explore-map-rail" id="exploreMapRail" hidden aria-label="Counties in view"></aside>
+</div>
+<!-- Real counts from the current bubbles, not a fixed key - see
+updateSummary() in explore.js. Hidden once zoomed into a county, where
+bubbles are replaced by real geocoded pins and a size scale no longer
+applies. -->
+<div class="explore-map-legend" id="exploreMapLegend" hidden></div>
+<div class="explore-map-foot">
+<span class="explore-map-hint" id="exploreMapHint">Tap a county to filter to it</span>
+<button class="explore-map-reset" id="exploreMapReset" type="button" hidden>Clear county filter</button>
+</div>
+<!-- Said plainly rather than left to be inferred: a bubble is a county-level
+count, not a parcel pin. Only ~2% of rows currently carry latitude/
+longitude (see the header comment in explore.js), so drawing these as
+street-level pins would be a precision the data doesn't have. -->
+<p class="explore-map-note">Bubbles are county-level counts, sized by how many properties match — not exact parcel locations. Zoom into a county to see the properties we hold real coordinates for.</p>
+</div>
+</div>
+</section>
 </div>
 </div>
 <nav class="nav-bottom" id="navBottom" aria-label="Main">
@@ -618,5 +639,9 @@ event app.js dispatches, so load order isn't strictly required - but
 keeping it second matches the dependency direction and makes that
 one-way relationship obvious from the markup. -->
 <script type="module" src="explore.js"></script>
+<!-- Phase 55: independent of explore.js (same tdw:maprendered contract,
+own module) - owns the optional Satellite basemap toggle. No-ops until
+config.js carries a Mapbox token; see satellite-map.js's header. -->
+<script type="module" src="satellite-map.js"></script>
 </body>
 </html>

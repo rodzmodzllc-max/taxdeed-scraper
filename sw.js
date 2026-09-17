@@ -159,7 +159,52 @@
 // size actually means, built from the real counts on screen - not a fixed
 // key, since this map has no fixed scale. index.html, tx.html, styles.css,
 // explore.css, app.js and explore.js all changed together.
-const CACHE = "tdw-shell-v24";
+// v25: Phase 54, Map is its own page again - and a fuller redesign, not
+// another small adjustment. Marc's explicit feedback rejected Phase 53's
+// virtual-route approach: switching to Map didn't feel like going anywhere
+// (same masthead/ledger-tabs/toolbar, just the panel swapped), and Auctions
+// needed to go back to being just the list. So: (1) #pageMap is a real
+// <section class="page"> again in index.html/tx.html, with its own header
+// ("Map" + subtitle) and its own toolbar - search, a county select, an
+// All/Auctions/Lands Available/Certificates ledger-pill row, a Watchlist-
+// only pill - none of it borrowed from the Auctions page's own controls.
+// (2) app.js gets a small independent filter layer for it (mapFilter,
+// computeMapRows(), buildMapCountySelect(), renderMapPage()) that reads
+// ALL[] directly rather than the Auctions page's own state/passes()
+// pipeline - the Map page shows every ledger at once and isn't scoped to
+// whatever the Auctions page's filters happen to be set to, the same
+// portfolio-wide philosophy dashboardStats() already uses for the
+// Dashboard. (3) explore.js drops the List/Split/Map view-toggle it used
+// to run entirely - MODE_KEY/MODES/storedMode()/setMode()/bindViewToggle()
+// and the cross-highlight between a map bubble and an adjacent card list
+// (focusCounty()/clearFocus()/bindListHover(), meaningless once the map and
+// the list are different pages) are all gone - and consumes a new
+// tdw:maprendered event (replacing tdw:rendered/tdw:setviewmode for this
+// module) dispatched by renderMapPage(). (4) The Auctions page loses
+// #viewToggle and the .explore-shell/.explore-map-panel it used to embed
+// the map beside #main - Auctions is just the list now, full width.
+// (5) The map itself keeps every honest-data property from Phase 53 (county
+// bubbles sized by real counts, tap-to-zoom into real geocoded pins, the
+// floating preview card, the bubble-size legend) - only the page's own
+// chrome around it changed. index.html, tx.html, styles.css, explore.css,
+// app.js and explore.js all changed together.
+// v26: Phase 55, an optional satellite/terrain basemap alongside the outline
+// map, not instead of it. Marc's follow-up on the Phase 54 recording ("the
+// actual 3d map like the mockup") turned out to name a real trade-off: the
+// mockup's Map panel is a photographic satellite/terrain basemap, which
+// means a third party (asked directly, Marc chose "real satellite/terrain
+// WITH A TOGGLE to our current style map" - both, switchable, see CLAUDE.md's
+// Phase 55 section). New: satellite-map.js, a module independent of
+// explore.js (same tdw:maprendered contract, no shared internals), and
+// county-centroids.json (real Census-derived county centroids for FL/TX,
+// computed via us-atlas/topojson/turf - not fabricated, not fetched
+// pre-computed from a source we couldn't verify). Both ship in the shell so
+// the toggle and its "not set up yet" message work offline; Mapbox GL JS
+// itself is loaded from api.mapbox.com only when a token is configured AND
+// the user actually clicks Satellite - never pre-cached, never fetched
+// speculatively. index.html, tx.html, explore.css, _headers (CSP) and
+// config.js changed alongside these two new files.
+const CACHE = "tdw-shell-v26";
 const SHELL = [
   "/",
   "/index.html",
@@ -167,10 +212,12 @@ const SHELL = [
   "/explore.css",
   "/app.js",
   "/explore.js",
+  "/satellite-map.js",
   "/config.js",
   "/fl-counties.svg",
   "/fl-cities.json",
   "/fl-zips.json",
+  "/county-centroids.json",
   "/manifest.webmanifest",
   // Icon bytes changed (new logo) but the filenames didn't, and /icons/* is
   // served with a 7-day Cache-Control (see _headers) plus this worker's own
