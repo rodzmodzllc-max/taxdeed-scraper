@@ -218,6 +218,17 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 scripts/enrich_property_details.py
 
+      - name: Backfill property photos (Street View Static API)
+        # No-ops cleanly (exit 0) until a GOOGLE_MAPS_API_KEY secret exists -
+        # see scripts/fetch_property_photos.py's module docstring and
+        # CLAUDE.md's "Property photos" section. Requires
+        # schema-v10-property-photos.sql to have been run once first.
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+        run: python3 scripts/fetch_property_photos.py
+
   certificates:
     name: Harvest certificates + sync (experimental)
     runs-on: ubuntu-latest

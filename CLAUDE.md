@@ -53,6 +53,35 @@ The Claude Code browser-automation safety classifier blocks typing raw DDL (`CRE
 
 **No CI/CD for the frontend beyond the mirror bot.** Cloudflare Pages deploys from the repo root, which the `Auto-sync: mirror public/ to repo root` GitHub Action keeps up to date whenever `public/` changes. There is no `npm run build` and no test suite for the frontend itself — edits under `public/` are the actual source of truth.
 
+## Property photos — real, server-sourced, not yet activated
+
+`properties.photo_url` (schema-v10-property-photos.sql) holds a real Google
+Street View Static image for the address, fetched server-side by
+`scripts/fetch_property_photos.py` and cached in the public `property-photos`
+Supabase Storage bucket - never fetched live from the browser, so no Google
+API key ever reaches the client and each address is paid for once, not once
+per page view. Wired into `harvest-and-sync.yml`'s `deeds` job, right after
+the geocoding/enrichment steps, `PHOTO_BATCH_LIMIT` (default 50) rows per run.
+
+**Not live yet - needs one thing only Marc can create:** a Google Cloud
+project with the Street View Static API enabled, a billing account attached
+(Google's free monthly credit comfortably covers this app's traffic), and an
+API key from it added as a `GOOGLE_MAPS_API_KEY` repo secret (Settings ->
+Secrets and variables -> Actions). Until that secret exists,
+`fetch_property_photos.py` prints one line saying so and exits 0 - the job
+doesn't fail, photos just don't populate yet. Same shipped-ahead-of-the-
+credential pattern this repo already uses for `texas_harvester.py`'s
+still-stubbed `harvest_pbfcm()`/`harvest_govease()`.
+
+`photo_url` has three states, and the frontend must treat them exactly this
+way - never synthesize a fourth: `NULL` = not yet checked, `''` (empty
+string) = checked, no Street View coverage at that address (common for
+vacant land/rural parcels - this sentinel, not `NULL`, is what stops
+`fetch_property_photos.py` from re-spending a metadata call on the same
+no-coverage row every run), a real value = a public Storage URL to show as
+the property's photo. A missing/empty photo renders as a plain placeholder,
+never a fabricated or stock image standing in for the actual property.
+
 ## Known landmines / do-not-repeat mistakes
 
 - Miami-Dade is the only county with a hyphen in `data/realauction_counties.csv` — a blanket `-replace '-',' '` once silently renamed it to "Miami Dade", which didn't match the frontend's canonical `"Miami-Dade"` and hid 33 live listings. Fixed; don't reintroduce a blanket hyphen transform.
