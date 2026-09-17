@@ -404,62 +404,14 @@ above the 22px topbar mark so it reads as the header's focal point. */
 .to-sep{color:var(--ink-soft);font-size:.78rem;padding-top:1.1rem}
 .chips{display:flex;flex-wrap:wrap;gap:.35rem}
 
-/* ---- Florida county map picker ---- */
-.map-wrap{margin:.4rem 0 .5rem;padding:.5rem;background:var(--paper);
-  border:1px solid var(--card-line);border-radius:3px;}
-.map-hint{font-size:.66rem;color:var(--ink-soft);margin-bottom:.4rem;text-align:center}
-#mapHost svg{width:100%;height:auto;display:block;max-height:52vh}
-#mapHost{background:var(--map-sea)}
-#mapHost .map-counties{filter:drop-shadow(0 0 2px var(--map-coast))}
-/* Colored by confirmed auction format, not by whether we currently have
-   properties loaded - a county keeps its blue/red/amber color even between
-   sync runs. Counties with no confirmed format yet stay neutral gray (see
-   COUNTY_FORMAT in app.js). Every county is clickable now (see
-   zoomToCounty() in app.js) - a first tap zooms in and names the county
-   regardless of data; only a second tap on a has-data county actually
-   toggles the filter, so a no-data county stays informational only. */
-/* Scoped to data-county: the basemap now also contains neighbour-state
-   paths, and an unscoped "#mapHost path" gave Georgia a county border. */
-#mapHost path[data-county]{fill:var(--map-land);stroke:var(--map-land-line);stroke-width:1.2;
-  transition:fill .12s,stroke .12s;cursor:pointer}
-#mapHost path[data-county].fmt-online{fill:var(--accent)}
-#mapHost path[data-county].fmt-inperson{fill:var(--bad)}
-#mapHost path[data-county].fmt-fixed{fill:var(--brass)}
-#mapHost path[data-county]:hover{opacity:.75}
-#mapHost path[data-county].sel{stroke:var(--ink);stroke-width:2.6}
-#mapHost path[data-county].sel:hover{opacity:.75}
-.map-legend{display:flex;flex-wrap:wrap;justify-content:center;gap:.7rem;margin-top:.45rem;font-size:.62rem;color:var(--ink-soft)}
-.map-legend i{display:inline-block;width:.6rem;height:.6rem;border-radius:2px;margin-right:.25rem;vertical-align:middle}
-.lg-online{background:var(--accent)} .lg-inperson{background:var(--bad)}
-.lg-fixed{background:var(--brass)} .lg-none{background:var(--card-line)}
-
-/* ---- zoomed-county banner: the actual fix for "you can't see the name" -
-   67 counties have no room for legible labels at the state-wide zoom
-   level, so the name only becomes readable once a tap zooms into one
-   county (see zoomToCounty()/zoomToState() in app.js). ---- */
-.map-zoom-banner{display:flex;align-items:center;justify-content:space-between;gap:.5rem;
-  margin-bottom:.4rem;padding:.4rem .55rem;background:var(--card);
-  border:1px solid var(--card-line);border-radius:8px}
-/* Same bug class as the #installBtn[hidden] fix elsewhere in this file: an
-   author rule setting `display` on the same element beats the UA
-   stylesheet's `[hidden]{display:none}` on a specificity tie, so without
-   this override, toggling the .hidden property in app.js's zoomToState()
-   would silently do nothing and the banner would stay visibly on-screen
-   even in the full-state (non-zoomed) view. */
-.map-zoom-banner[hidden]{display:none}
-.map-zoom-name{font-family:var(--font-sans);font-weight:800;font-size:.85rem;color:var(--ink)}
-/* County-seat marker shown only while zoomed - centroid-based (see
-   computeCountyCentroids() in app.js), not a hand-placed coordinate, so it
-   lands sensibly on any of the 67 shapes without per-county tuning.
-   pointer-events:none is required, not cosmetic: without it the dot/label
-   sits exactly on top of the county's own click target (they share the
-   same centroid) and silently swallows the second tap that's supposed to
-   toggle the filter. */
-.zoom-seat-label{pointer-events:none}
-.seat-dot{fill:var(--ink);stroke:var(--paper);stroke-width:1.5}
-.seat-label-text{font-family:var(--font-sans);font-weight:700;font-size:15px;
-  fill:var(--ink);text-anchor:middle;paint-order:stroke;stroke:var(--paper);
-  stroke-width:3px;stroke-linejoin:round}
+/* Phase 53: the legacy #pageMap picker/zoom-banner/seat-label CSS that used
+to live here (.map-wrap, #mapHost, .map-legend/.lg-*, .map-zoom-banner,
+.zoom-seat-label, .seat-dot/.seat-label-text) is removed along with the
+#pageMap markup it styled (see index.html/tx.html) - the JS that built it
+(ensureMapLoaded, zoomToCounty, renderZoomSeatLabel, etc. in app.js) is left
+in place as documented dead code, but nothing in the DOM can match these
+selectors any more, so the CSS itself is deleted rather than kept as an
+orphan. explore.css's .explore-map-* rules are the one map's styling now. */
 .chipx{font-size:.72rem;padding:.28rem .6rem;border-radius:3px;border:1px solid var(--card-line);
   background:var(--paper);color:var(--ink-soft);cursor:pointer;user-select:none}
 .chipx.on{background:var(--accent-soft);color:var(--accent);border-color:var(--accent);font-weight:600}
@@ -1414,19 +1366,7 @@ footer{padding:1.2rem 1.1rem 0;font-size:.72rem;color:var(--ink-soft);text-align
 .detail-cta:hover{filter:brightness(1.06)}
 .detail-cta svg{width:17px;height:17px}
 
-/* ---- Map page: the county picker, promoted to a first-class destination ---- */
-/* Was border:none;padding:0 - edge-to-edge with no card chrome at all,
-   the one page in the app with none, next to Dashboard/Auctions panels
-   that are all a proper card. Framing it like the rest fixes that without
-   touching anything else the terminal reskin did. */
-.map-page-wrap .map-wrap{background:var(--card);border:1px solid var(--card-line);
-  border-radius:14px;box-shadow:var(--shadow);padding:.6rem;overflow:hidden}
-/* Same FL/TX switcher as the Auctions masthead (#regionTabs), but sitting on
-   the page's own light background instead of the dark masthead band -
-   .region-tab's default colors (translucent white fill, --header-ink-soft
-   text) assume that dark header and are near-invisible here. */
-.map-region-tabs{margin:0 .6rem .8rem}
-.map-region-tabs .region-tab{background:var(--paper);border-color:var(--card-line);color:var(--ink-soft)}
-.map-region-tabs .region-tab:hover{background:var(--accent-soft);color:var(--ink)}
-/* Round dots read better than 2px-radius squares for an at-a-glance legend. */
-.map-legend i{border-radius:50%}
+/* Phase 53: the standalone Map page's own card chrome/FL-TX switcher/legend
+overrides (.map-page-wrap, .map-region-tabs, .map-legend i) that used to
+live here are removed with the #pageMap section itself - see the note by
+.chipx above. */

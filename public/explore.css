@@ -265,6 +265,24 @@ transition:opacity .1s;max-width:210px}
 
 .explore-map-empty{padding:1.6rem .8rem;text-align:center;font-size:.78rem;
 color:var(--ink-soft)}
+/* Bubble-size key. Content and dot sizes are computed per-draw in
+   renderBubbleLegend() (explore.js) from the counties actually on screen -
+   this file only supplies the chrome. */
+.explore-map-legend{display:flex;align-items:center;flex-wrap:wrap;gap:.55rem .9rem;
+  padding:.1rem .1rem .05rem}
+.explore-map-legend[hidden]{display:none}
+.map-legend-label{font-size:.66rem;color:var(--ink-soft)}
+.map-legend-item{display:inline-flex;align-items:center;gap:.32rem;
+  font-family:var(--font-mono);font-variant-numeric:tabular-nums;
+  font-size:.72rem;font-weight:700;color:var(--ink)}
+.map-legend-dot{display:inline-block;width:var(--d,10px);height:var(--d,10px);
+  border-radius:50%;background:var(--accent);flex:0 0 auto}
+/* Match whichever ledger's bubbles are currently drawn (see the equivalent
+   .cluster-bubble overrides above) - .explore-map-legend is a sibling of
+   the canvas, not a descendant, so this keys off the canvas's own
+   data-ledger via the shared .explore-map wrapper. */
+.explore-map:has(.explore-map-canvas[data-ledger="laft"]) .map-legend-dot{background:var(--brass)}
+.explore-map:has(.explore-map-canvas[data-ledger="certificate"]) .map-legend-dot{background:#7C3AED}
 .explore-map-foot{display:flex;align-items:center;justify-content:space-between;
 gap:.5rem;flex-wrap:wrap}
 .explore-map-hint{font-size:.66rem;color:var(--ink-soft)}

@@ -201,68 +201,74 @@ results.countyDropdownOpenForMapTest = await page.locator('#countyChips').first(
 
 // Phase 19 (reconciliation with origin/main's app-shell rebuild): the map
 // is no longer a toggle nested inside this same County filter dropdown -
-// origin/main's rebuild (see docs/phase-18-ui-product-reconciliation.md
-// and docs/phase-19-reconciliation-execution.md) promoted it to its own
-// full-page destination, reached via the bottom nav (mobile, this
-// viewport) or the nav rail (desktop). #mapBtn no longer exists - this is
-// TEST_OBSOLETE, not a regression: the map's own zoom/filter logic below
-// is completely unchanged, only how you get to it changed. Verify the
-// actual new navigation behavior (can navigate to the Map page, it
-// renders, and the Auctions page is hidden while it's shown) rather than
-// just asserting a new selector exists.
+// origin/main's rebuild promoted it to its own full-page destination,
+// reached via the bottom nav. #mapBtn no longer exists.
+//
+// Phase 53 (this map page, one map fixed): Marc pointed out that having
+// BOTH that dedicated Map page (a plain county-by-auction-format SVG) AND
+// explore.js's own richer "Where these are" bubble map (reached only via
+// the Auctions view-toggle) was two different maps for one concept - and
+// the second one was strictly the nicer, more useful one (real per-county
+// counts, one-tap zoom+filter, a floating preview card, real geocoded pins
+// once zoomed in). So nav Map is now a virtual route into the Auctions page
+// with that same map view active (see showPage()'s "map" branch and
+// explore.js's tdw:setviewmode listener) - #pageMap, #mapWrap, #mapHost,
+// #mapZoomBanner/#mapHint/#mapZoomOutBtn, and the "Map" entry in
+// #viewToggle are all gone (see index.html/tx.html). TEST_OBSOLETE, not a
+// regression, same as the Phase 19 rewrite above: verify the actual new
+// behavior (nav Map shows Auctions with explore.js's map active, real
+// county bubbles, one tap zooms AND filters, and a way back out) rather
+// than asserting the old two-page, two-step selectors still exist.
 results.auctionsPageVisibleBeforeMapNav = await page.locator('#pageAuctions').isVisible();
 await page.click('.nav-bottom-item[data-page="map"]');
-await page.waitForTimeout(300);
-results.mapPageVisibleAfterNav = await page.locator('#pageMap').isVisible();
-results.auctionsPageHiddenWhileOnMap = await page.locator('#pageAuctions').isHidden();
-results.mapWrapVisible = await page.locator('#mapWrap').isVisible();
-results.mapPathCount = await page.locator('#mapHost path[data-county]').count();
-results.mapHasDataCount = await page.locator('#mapHost path.has-data').count();
+await page.waitForTimeout(400); // ensureMap() fetches + parses the basemap SVG
+results.auctionsPageVisibleOnMapNav = await page.locator('#pageAuctions').isVisible();
+results.exploreShellModeAfterMapNav = await page.locator('#exploreShell').getAttribute('data-mode');
+results.navMapBtnOnAfterMapNav = await page.locator('.nav-bottom-item[data-page="map"]').evaluate(el => el.classList.contains('on'));
+results.mapPathCount = await page.locator('#exploreMapCanvas path[data-county]').count();
+results.mapClusterBubbleCount = await page.locator('#exploreMapCanvas .cluster-bubble').count();
 
-// A first tap on any county (has-data or not) zooms in and names it in the
-// banner - it must NOT touch the filter yet. That's the point of the
-// two-step interaction: you always see which county you're about to
-// filter to before committing to it (see zoomToCounty() in app.js).
-const alachuaPath = page.locator('#mapHost path[data-county="Alachua"]');
-const alachuaSelBefore = await alachuaPath.evaluate(el => el.classList.contains('sel'));
-await alachuaPath.click({ force: true });
+// One tap on a county's bubble zooms in AND filters the list to it in the
+// same gesture - not the old page's separate zoom-then-filter two-step
+// (see applyCounty() in explore.js: "Filtering to a county and zooming
+// into it are one gesture, not two").
+const alachuaBubble = page.locator('#exploreMapCanvas .cluster-bubble[data-county="Alachua"]');
+await alachuaBubble.click({ force: true });
 await page.waitForTimeout(500); // the zoom viewBox tween runs ~320ms
-results.alachuaSelAfterFirstTap = await alachuaPath.evaluate(el => el.classList.contains('sel'));
-results.alachuaChipOnAfterFirstTap = await page.locator('#countyChips .chipx[data-value="Alachua"]').evaluate(el => el.classList.contains('on'));
-results.mapZoomBannerVisibleAfterTap = await page.locator('#mapZoomBanner').isVisible();
-results.mapZoomNameTextAfterTap = await page.locator('#mapZoomName').textContent();
-results.mapHintHiddenAfterTap = await page.locator('#mapHint').isHidden();
+// "on" alone doesn't prove the narrowing happened - every county chip is
+// "on" by default (it means "included in the filter", and nothing is
+// excluded until you pick one). Duval flipping OFF is the real signal that
+// applyCounty() replaced state.counties with the single-county set rather
+// than just toggling Alachua - see applyCounty()'s comment in explore.js.
+results.alachuaChipOnAfterBubbleTap = await page.locator('#countyChips .chipx[data-value="Alachua"]').evaluate(el => el.classList.contains('on'));
+results.duvalChipOnAfterBubbleTap = await page.locator('#countyChips .chipx[data-value="Duval"]').evaluate(el => el.classList.contains('on'));
+results.mapCanvasZoomedAfterTap = await page.locator('#exploreMapCanvas').evaluate(el => el.classList.contains('zoomed'));
+results.exploreMapResetVisibleAfterTap = await page.locator('#exploreMapReset').isVisible();
 
-// A second tap on the SAME (now-zoomed) county actually toggles the filter.
-await alachuaPath.click({ force: true });
-await page.waitForTimeout(150);
-const alachuaSelAfter = await alachuaPath.evaluate(el => el.classList.contains('sel'));
-const alachuaChipOnAfter = await page.locator('#countyChips .chipx[data-value="Alachua"]').evaluate(el => el.classList.contains('on'));
-results.alachuaSelBefore = alachuaSelBefore;
-results.alachuaSelAfter = alachuaSelAfter;
-results.alachuaChipOnAfterMapClick = alachuaChipOnAfter;
-
-// "Full map" zoom-out button returns to the state-wide view.
-await page.click('#mapZoomOutBtn');
+// "Clear county filter" undoes both halves of that one gesture at once -
+// Duval (and every other county) back "on", the map back out to statewide.
+await page.click('#exploreMapReset');
 await page.waitForTimeout(500);
-results.mapZoomBannerHiddenAfterZoomOut = await page.locator('#mapZoomBanner').isHidden();
-results.mapHintVisibleAfterZoomOut = await page.locator('#mapHint').isVisible();
+results.duvalChipOnAfterMapReset = await page.locator('#countyChips .chipx[data-value="Duval"]').evaluate(el => el.classList.contains('on'));
+results.mapCanvasZoomedAfterReset = await page.locator('#exploreMapCanvas').evaluate(el => el.classList.contains('zoomed'));
 
 // Return to the Auctions page - the rest of this suite (reset button,
-// ledger tabs, search, CSV export, etc.) lives there. showPage() only
-// toggles which <section class="page"> is hidden; it does not re-render
-// the ledger, so the county-group/filter state from before the map visit
-// is expected to still be exactly as this suite left it.
+// ledger tabs, search, CSV export, etc.) expects the list view, not
+// whatever view mode this map detour left active. showPage() only toggles
+// nav highlighting and which virtual view is requested; it does not
+// re-render the ledger, so the county-group/filter state from before the
+// map visit is expected to still be exactly as this suite left it.
 await page.click('.nav-bottom-item[data-page="auctions"]');
 await page.waitForTimeout(200);
 results.auctionsPageVisibleAfterReturnFromMap = await page.locator('#pageAuctions').isVisible();
-results.mapPageHiddenAfterReturnFromMap = await page.locator('#pageMap').isHidden();
+await page.click('#viewToggle button[data-mode="list"]');
+await page.waitForTimeout(200);
 
 // --- reset button: also collapses every county group back to closed ---
 await page.click('#resetBtn');
 await page.waitForTimeout(150);
 results.cardsAfterReset = await page.locator('.prop-card').count();
-results.alachuaSelAfterReset = await alachuaPath.evaluate(el => el.classList.contains('sel'));
+results.alachuaSelAfterReset = await page.locator('#exploreMapCanvas path[data-county="Alachua"]').evaluate(el => el.classList.contains('sel'));
 results.countyGroupsClosedAfterReset = await page.locator('.county-group').evaluateAll(els => els.every(el => !el.open));
 results.expandAllLabelAfterReset = await page.locator('#expandAllBtn').textContent();
 
@@ -1019,7 +1025,10 @@ results.archiveRowVisuallyHiddenPerLedger = ['auction', 'laft', 'certificate'].m
 // one row and prove nothing about ranking.
 await page.selectOption('#countyQuick', 'ALL');
 await page.waitForTimeout(300);
-await page.click('#viewToggle button[data-mode="map"]');
+// Phase 53: #viewToggle dropped its Map button (see the county-map section
+// above) - the nav bar is the only entry point into map mode now, and it
+// reaches the exact same explore.js view this section exercises.
+await page.click('.nav-bottom-item[data-page="map"]');
 await page.waitForTimeout(700);
 results.basemapLayers = await page.evaluate(() => {
   const svg = document.querySelector('#exploreMapCanvas svg');
@@ -1064,9 +1073,10 @@ results.railIsSortedDescending = await page.evaluate(() => {
 await page.click('.cluster-bubble circle');
 await page.waitForTimeout(1100);
 results.railHiddenWhenZoomed = await page.locator('#exploreMapRail').isHidden();
-// Scoped to the explore canvas on purpose: the filter panel inlines the
-// SAME basemap into #mapHost, so an unscoped query finds that copy first -
-// which is not zoomed, and the check would pass or fail on the wrong map.
+// Scoped to the explore canvas on purpose (harmless now that #mapHost's
+// standalone-page clone of this same basemap is gone with Phase 53, but
+// there is no reason for this query to stop being explicit about which
+// map it means).
 results.contextLabelsHiddenWhenZoomed = await page.evaluate(() => {
   const g = document.querySelector('#exploreMapCanvas .map-context');
   return !!g && getComputedStyle(g).display === 'none';
@@ -1074,6 +1084,7 @@ results.contextLabelsHiddenWhenZoomed = await page.evaluate(() => {
 await page.click('#exploreZoomOut');
 await page.waitForTimeout(1100);
 await page.click('#viewToggle button[data-mode="list"]');
+await page.click('.nav-bottom-item[data-page="auctions"]');
 await page.waitForTimeout(400);
 
 // --- the header is the logo and the title, and nothing else ---
@@ -1386,30 +1397,30 @@ const EXPECTED = {
   cardsAfterTypesAll: 9,
   countyDropdownOpenForMapTest: true,
   // Phase 19: the map moved from a toggle inside this same County dropdown
-  // to its own full-page destination (origin/main's app-shell rebuild) -
-  // these five checks replace the old #mapBtn click with real navigation
-  // assertions (can reach the Map page, the Auctions page correctly hides
-  // while it's shown, and both are restored correctly on the way back).
+  // to its own full-page destination (origin/main's app-shell rebuild).
+  // Phase 53: that dedicated Map page is gone too - nav Map now opens the
+  // Auctions page with explore.js's own bubble map active (one map, not
+  // two - see the Phase 53 comment above the test steps that produce these).
   auctionsPageVisibleBeforeMapNav: true,
-  mapPageVisibleAfterNav: true,
-  auctionsPageHiddenWhileOnMap: true,
-  mapWrapVisible: true,
+  auctionsPageVisibleOnMapNav: true,
+  exploreShellModeAfterMapNav: 'map',
+  navMapBtnOnAfterMapNav: true,
   mapPathCount: 67,
-  mapHasDataCount: 8,
-  alachuaSelBefore: true,
-  alachuaSelAfterFirstTap: true,
-  alachuaChipOnAfterFirstTap: true,
-  mapZoomBannerVisibleAfterTap: true,
-  mapZoomNameTextAfterTap: 'Alachua County · Gainesville',
-  mapHintHiddenAfterTap: true,
-  alachuaSelAfter: false,
-  alachuaChipOnAfterMapClick: false,
-  mapZoomBannerHiddenAfterZoomOut: true,
-  mapHintVisibleAfterZoomOut: true,
+  // 6, not the fixture's full 8 counties-with-rows: this section runs after
+  // several earlier filter tests, and the bubbles reflect whatever the list
+  // is currently showing (see the tdw:rendered contract), not a fixed
+  // count - same "structural, not a pinned fixture list" reasoning as
+  // railMatchesBubbles below.
+  mapClusterBubbleCount: 6,
+  alachuaChipOnAfterBubbleTap: true,
+  duvalChipOnAfterBubbleTap: false,
+  mapCanvasZoomedAfterTap: true,
+  exploreMapResetVisibleAfterTap: true,
+  duvalChipOnAfterMapReset: true,
+  mapCanvasZoomedAfterReset: false,
   auctionsPageVisibleAfterReturnFromMap: true,
-  mapPageHiddenAfterReturnFromMap: true,
   cardsAfterReset: 9,
-  alachuaSelAfterReset: true,
+  alachuaSelAfterReset: false,
   countyGroupsClosedAfterReset: true,
   expandAllLabelAfterReset: 'Expand all',
   cardsAfterHide: 8,

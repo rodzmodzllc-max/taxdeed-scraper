@@ -3583,6 +3583,20 @@ document.querySelectorAll(".mini-btn[data-group]").forEach(btn => {
 
 // ---- filter-panel county map (state-aware: fl-counties.svg or
 // tx-counties.svg per PAGE_STATE - see ensureMapLoaded() below) ----
+// Phase 53: this whole block (through zoomToState()/ensureMapLoaded()/the
+// mapZoomOutBtnEl and mapBtnEl listeners) is now dead code, same as the
+// already-existing mapBtnEl dead-code note below - #pageMap, #mapWrap,
+// #mapHost and #mapZoomBanner/#mapHint/#mapZoomOutBtn no longer exist in
+// index.html/tx.html (see showPage()'s "map" virtual route: the nav's Map
+// button now opens explore.js's own county-bubble map instead), so
+// mapBtnEl/mapWrapEl/mapHostEl are permanently null and every function in
+// this block no-ops on its own null guard. Left in place rather than
+// stripped out because refreshMapPaths()/computeCountyCentroids() are also
+// called from a few filter-sync call sites elsewhere in this file (county
+// chip toggles, reset, etc.) - removing this block cleanly would mean
+// touching each of those call sites too, for a code-cleanliness win with no
+// behavior change, so it's deferred rather than risked in the same pass as
+// the actual nav fix. Safe to delete entirely in a future cleanup pass.
 const mapBtnEl = document.getElementById("mapBtn");
 const mapWrapEl = document.getElementById("mapWrap");
 const mapHostEl = document.getElementById("mapHost");
@@ -4211,35 +4225,56 @@ window.addEventListener("appinstalled", () => {
 // direction meant the new IA had to actually work at phone width, not just
 // render there and silently do nothing.
 let shellPage = "auctions";
-const SHELL_PAGES = { dashboard: "pageDashboard", auctions: "pageAuctions", map: "pageMap" };
+// Phase 53: "map" is no longer its own <section class="page"> - Marc
+// pointed out (screen recording, 2026-09-17) that having both a dedicated
+// Map page (the plain county-by-auction-format SVG below, in the now-dead
+// ensureMapLoaded()/zoomToCounty()/refreshMapPaths() block a few hundred
+// lines up - left in place as inert dead code, same tolerated pattern as
+// the pre-existing mapBtnEl comment right above it, since mapHostEl/
+// mapWrapEl are now permanently null and every one of those functions
+// already null-guards on them) AND a separate, better "Where these are"
+// bubble map inside the Auctions filter toolbar (explore.js, driven by
+// the same real filtered rows the list shows - see that file's own header
+// comment) was two different maps for one concept, and the second one was
+// strictly the nicer, more useful one. So "Map" in the nav is now a
+// virtual route: it shows the Auctions page and asks explore.js to switch
+// into its own "map" view mode (see the tdw:setviewmode dispatch below) -
+// there's only one map in the app now, reached from the nav bar exactly
+// the same way it was already reachable from the Auctions view-toggle,
+// which is why that redundant toggle button was removed (see index.html/
+// tx.html - the toggle now only has List/Split).
+const SHELL_PAGES = { dashboard: "pageDashboard", auctions: "pageAuctions" };
 
 function showPage(name) {
-  if (!SHELL_PAGES[name]) name = "auctions";
-  const leavingMap = shellPage === "map" && name !== "map";
+  // The nav-highlight name can be "map" even though the underlying page
+  // shown is "auctions" - resolved separately from `targetPage` below so
+  // the Map nav button reads as active while a click on it is really just
+  // Auctions-in-map-mode under the hood.
+  const targetPage = name === "map" ? "auctions" : name;
+  if (!SHELL_PAGES[targetPage]) name = targetPage = "auctions";
 
   Object.entries(SHELL_PAGES).forEach(([key, id]) => {
     const el = document.getElementById(id);
-    if (el) el.hidden = key !== name;
+    if (el) el.hidden = key !== targetPage;
   });
   document.querySelectorAll(".nav-item[data-page], .nav-bottom-item[data-page]").forEach(btn => {
     btn.classList.toggle("on", btn.dataset.page === name);
   });
 
   if (name === "map") {
-    // Mirrors what the old inline #mapBtn toggle used to do on open (see the
-    // now-dead mapBtnEl block above) - load the SVG once, then make sure
-    // paths/centroids are current every time the page is entered.
-    ensureMapLoaded().then(() => {
-      refreshMapPaths();
-      if (!countyCentroids.size) computeCountyCentroids();
-    });
-  } else if (leavingMap && zoomedCounty) {
-    // Same as the old toggle's close-while-zoomed branch - don't leave the
-    // map mid-zoom for the next visit.
-    zoomToState();
+    // Same stash-before-dispatch pattern as tdw:rendered above, and for the
+    // same reason: both files are type="module" scripts that run in order,
+    // so a cold load straight into index.html#map (see the deep-link check
+    // near the bottom of this file) calls showPage("map") - and dispatches
+    // this event - before explore.js's own top-level code has even run, let
+    // alone registered a listener for it. Parking the request on window
+    // means explore.js's bindViewToggle() can still pick it up on its own
+    // startup even when it missed the live event.
+    window.__tdwRequestedViewMode = "map";
+    window.dispatchEvent(new CustomEvent("tdw:setviewmode", { detail: { mode: "map" } }));
   }
 
-  if (name === "dashboard") renderDashboard();
+  if (targetPage === "dashboard") renderDashboard();
 
   shellPage = name;
   window.scrollTo({ top: 0, behavior: "auto" });
@@ -4261,10 +4296,12 @@ if (navBottomWatchlistBtnEl) navBottomWatchlistBtnEl.addEventListener("click", (
 const navSettingsBtnEl = document.getElementById("navSettingsBtn");
 if (navSettingsBtnEl) navSettingsBtnEl.addEventListener("click", e => { e.stopPropagation(); openAccountMenu(); });
 
-// Deep-link support for the Map page's FL/TX switcher (#regionTabsMap):
-// index.html#map / tx.html#map opens straight to the Map tab instead of
-// dropping you on the default Auctions landing - the whole point of a
-// same-tab toggle is not losing your place when you cross states.
+// Deep-link: index.html#map / tx.html#map opens straight into the map view
+// (see showPage()'s "map" virtual route above) instead of the default
+// Auctions landing. The FL/TX switcher no longer needs its own #map-suffixed
+// links to preserve this across a state switch - explore.js's view mode
+// (list/split/map) persists in localStorage, same origin for both pages, so
+// switching states via the plain #regionTabs links already carries it over.
 if (location.hash === "#map") showPage("map");
 
 // ---- Dashboard ----

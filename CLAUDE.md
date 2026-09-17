@@ -133,8 +133,9 @@ only; nothing here is a mockup or a placeholder page.
   already lives in the Auctions toolbar where it's contextually clear.
   Happy to build either out for real if Marc wants a distinct page.
 - **No embedded "Property Opportunity Map" on Dashboard** (reference panel
-  1) — redundant with the dedicated Map page and meaningfully more
-  engineering for this pass; a real candidate for a later pass.
+  1) — redundant with the app's own map (see Phase 53 below) and
+  meaningfully more engineering for this pass; a real candidate for a
+  later pass.
 - **No "Recent Activity" feed** — the reference mockup's "New property
   added 2h ago" style entries would need a real events/audit-log table
   this project doesn't have. Not fabricated.
@@ -144,6 +145,78 @@ is free, legal, and unresearched-so-far in this project — a genuine way to
 eventually turn the Risk & Legal card's Flood Zone concern (from the
 reference) into a real field, the same way `photo_url` and
 `latitude`/`longitude` went from "not tracked" to real. Not started.
+
+## One map, not two (Phase 53, done)
+
+Marc sent a screen recording and asked: "The map from navigation should be
+the one in the filter list which means we only need the map option at the
+navigation bar." He was right that the app had two maps for one idea:
+
+1. A standalone `#pageMap` page (nav bar → Map) — a plain FL/TX county SVG
+   colored by confirmed auction format only, with its own zoom/tap-to-filter
+   logic (`ensureMapLoaded()`/`zoomToCounty()`/`computeCountyCentroids()`/
+   `refreshMapPaths()` in `app.js`).
+2. `explore.js`'s own "Where these are" bubble map — reachable only via the
+   Auctions page's List/Split/**Map** view-toggle — built from the actual
+   filtered rows, with real per-county counts, one-tap zoom **and** filter
+   in a single gesture, a floating property preview card, and (once zoomed
+   into a county) real geocoded pins for the properties that have them.
+
+The second one was strictly the richer, more honest map. The fix: nav
+**Map** now opens the Auctions page with that same map view active, instead
+of a second, worse map. Concretely —
+
+- `index.html`/`tx.html`: `#pageMap` (and its `#regionTabsMap` FL/TX
+  switcher, `#mapWrap`/`#mapHost`/`#mapZoomBanner`/`#mapHint`) is removed
+  entirely, and `#viewToggle` drops its `data-mode="map"` button — List and
+  Split are all it offers now, since Map is reached from the nav bar.
+- `app.js`: `SHELL_PAGES` no longer has a `map` entry. `showPage("map")` is
+  a virtual route — it shows the Auctions page, highlights the nav's Map
+  button, and dispatches a new `tdw:setviewmode` custom event (with a
+  `window.__tdwRequestedViewMode` stash for the same module-load-order race
+  the existing `tdw:rendered`/`window.__tdwLastRender` pattern already
+  solves — `app.js` and `explore.js` are both non-async `type="module"`
+  scripts, so a cold load into `index.html#map` can call `showPage("map")`
+  before `explore.js` has registered a listener for it).
+- `explore.js`: a `tdw:setviewmode` listener calls `setMode(mode, true)`,
+  and `storedMode()` checks `window.__tdwRequestedViewMode` first, before
+  its usual `localStorage`/media-query default — so a nav-triggered request
+  wins over whatever view mode was last persisted.
+- The old `#pageMap`-driving JS block in `app.js` is **left in place as
+  documented dead code**, not deleted — `refreshMapPaths()`/
+  `computeCountyCentroids()` etc. are also called from a few still-live
+  filter-sync call sites elsewhere in the file, and untangling those
+  cleanly was judged a separate, lower-value pass from the actual nav fix.
+  `mapBtnEl`/`mapWrapEl`/`mapHostEl` are now permanently `null` (their
+  elements don't exist in the DOM any more) and every function in that
+  block already null-guards on them, so it's inert, not a bug risk. Safe to
+  delete outright in a future cleanup.
+- `styles.css`: the now-orphaned `#pageMap`-specific rules (`.map-wrap`,
+  `#mapHost`, `.map-legend`/`.lg-*`, `.map-zoom-banner`, `.zoom-seat-label`/
+  `.seat-dot`, `.map-page-wrap`, `.map-region-tabs`) are deleted outright —
+  unlike the JS, this CSS had no other call sites, so there was no reason
+  to keep it as an orphan.
+- `explore.css`/`explore.js`: the surviving map gets one small addition —
+  a bubble-size legend (`renderBubbleLegend()`) showing what the dot sizes
+  actually mean, built from the real min/max county counts on screen at
+  draw time rather than a fixed key (this map has no fixed scale — a
+  3-county filtered view and the full statewide list both range across the
+  same `radiusFor()` min/max). It's real, not fabricated: same data the
+  bubbles themselves already encode, just made explicit. Hidden once zoomed
+  into a county, where pins replace bubbles and a size scale no longer
+  applies.
+- **Deliberately not built:** the mockup's individual parcel pins on the
+  statewide view. Only ~2% of properties are geocoded (see the header
+  comment in `explore.js`) — pins for the other 98% would fabricate a
+  precision this data doesn't have. County-level bubbles (statewide) and
+  real geocoded pins (once zoomed into a county) is the honest version of
+  the same idea, and it already existed; this phase just made it the only
+  map instead of building a second, faker one.
+
+`tests/run_test.mjs` was rewritten to match (the old `#pageMap`-dependent
+assertions replaced with checks against the real new behavior, following
+that file's own pre-existing "TEST_OBSOLETE" precedent) — 236/236 checks
+pass. Service worker bumped to `tdw-shell-v24`.
 
 ## Known landmines / do-not-repeat mistakes
 
