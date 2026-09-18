@@ -1,0 +1,64 @@
+name: Probe RealAuction field labels (READ-ONLY evidence)
+
+# Evidence run for the Citrus/Hernando empty-parcel gap. Push-triggered on its
+# own probe branch because workflow_dispatch only works for workflows already
+# on main; nothing here should ever fire on a schedule. GET only, no secrets,
+# no database. Delete this file with the probe branch once the evidence is in.
+
+on:
+  push:
+    branches: ['probe/realauction-labels']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    name: Gather RealAuction label evidence
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install requests
+      - name: Run the read-only probe
+        run: python3 scripts/probe_realauction_labels.py
+
+      - name: PowerShell field-extraction regression tests
+        shell: pwsh
+        run: pwsh -NoProfile -File tests/pwsh/realauction_fields.tests.ps1
+
+      # Same requests production makes twice a day; no sync step, no secrets.
+      - name: Run the full RealAuction harvester (validation, no sync)
+        shell: pwsh
+        run: ./scripts/harvest_all_counties.ps1
+
+      - name: Summarize harvester output for the affected and control counties
+        run: |
+          python3 - <<'PY'
+          import json, collections
+          rows = json.load(open("out/harvest_all.json"))
+          by = collections.defaultdict(list)
+          for r in rows: by[r["county"]].append(r)
+          print(f"total rows {len(rows)}; counties {len(by)}")
+          for c in ["Citrus", "Hernando", "Alachua", "Lee", "Miami-Dade", "Brevard"]:
+              rs = by.get(c, [])
+              print(f"{c}: n={len(rs)} parcel={sum(1 for r in rs if r.get('parcel'))} "
+                    f"appraiser={sum(1 for r in rs if r.get('appraiser'))} alt_key={sum(1 for r in rs if r.get('alt_key'))}")
+              for r in rs[:2]:
+                  print("   ", {k: r.get(k) for k in ("case","parcel","alt_key","appraiser")})
+          tot_p = sum(1 for r in rows if r.get("parcel")); tot_a = sum(1 for r in rows if r.get("appraiser")); tot_k = sum(1 for r in rows if r.get("alt_key"))
+          print(f"ALL: parcel={tot_p} appraiser={tot_a} alt_key={tot_k}")
+          print("counties with alt_key:", sorted({r['county'] for r in rows if r.get('alt_key')}))
+          PY
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: realauction-label-evidence
+          path: out/probe_realauction_labels.json
+          if-no-files-found: warn
+          retention-days: 14
