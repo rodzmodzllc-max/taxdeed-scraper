@@ -466,13 +466,21 @@ section only covers what changed underneath it.
   provider-agnostic logic (county grouping, zoomed-vs-statewide detection,
   `selectCounty()`'s select-and-dispatch pattern, `loadCentroids()`,
   `radiusPx()`, `pinLabel()`, the `tdw:maprendered` wiring) is untouched.
-- **`config.js`** — `mapboxToken` is replaced with `googleMapsApiKey`,
-  holding the actual key Marc supplied
-  (`AIzaSyCw-tvRxNh5ahP3VbqBAOQMGeJJ6befaqc`). Flagged in the file's own
-  comment: unlike the Supabase publishable key, this key isn't scoped by
-  row-level security, so it's only as safe as its own Google Cloud Console
-  restrictions (HTTP referrer + Maps JavaScript API only) — worth doing in
-  Cloud Console even though it's outside this repo.
+- **`config.js`** — `mapboxToken` is replaced with `googleMapsApiKey`.
+  **The key is deliberately blank in the repo (2026-09-18).** A live key was
+  briefly committed here and in `config.js`; unlike the Supabase publishable
+  key, a Google Maps key is not scoped by row-level security and it bills a
+  real Cloud account, so a public repo is the wrong place for one that has
+  no restrictions on it yet. Google Cloud Console was unreachable at the time
+  (2-step verification became mandatory on 2026-08-26 and was not yet
+  enabled), so the key could not be restricted, and it was rotated instead.
+  **Anything committed here lives in git history forever - blanking the file
+  does not un-publish it.** Before a key goes back in this slot it must be
+  restricted in Cloud Console to (a) HTTP referrers for this site's domains
+  and (b) the Maps JavaScript API only. With the slot blank, the satellite
+  toggle degrades to its own "not set up yet" message and nothing breaks -
+  that path is covered by `tests/config.js`, which deliberately carries no
+  key.
 - **`public/_headers` (CSP)** — **this is a materially bigger relaxation
   than Phase 55's Mapbox addition**, not a like-for-like swap:
   - `'unsafe-eval'` is now allowed in `script-src`. Per Google's own CSP

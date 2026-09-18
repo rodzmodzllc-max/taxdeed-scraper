@@ -46,5 +46,5 @@ window.TDW_CONFIG = {
   // Google provides specifically for testing without creating a real one -
   // fine for a demo key; swap in a real Map ID later if this key is
   // upgraded off the demo/free tier.
-  googleMapsApiKey: "AIzaSyCw-tvRxNh5ahP3VbqBAOQMGeJJ6befaqc"
+  googleMapsApiKey: ""
 };
