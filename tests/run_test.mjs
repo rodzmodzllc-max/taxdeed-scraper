@@ -268,12 +268,12 @@ results.mapClusterBubbleCountLaftOnly = await page.locator('#exploreMapCanvas .c
 await page.click('#mapLedgerPills [data-ledger="all"]');
 await page.waitForTimeout(150);
 
-// --- Phase 55/56/57: three-way satellite/terrain basemap toggle ---
+// --- Phase 55/56/57/60: three-way satellite/terrain basemap toggle ---
 // tests/config.js deliberately carries neither googleMapsApiKey nor
-// mapboxToken (see its own comment), so this exercises the "not configured
+// maptilerKey (see its own comment), so this exercises the "not configured
 // yet" path for BOTH providers independently - the one every real deploy
 // hits until a given provider's key is present. Neither provider's loader
-// may be installed in this state: clicking either button with no key/token
+// may be installed in this state: clicking either button with no key
 // is just a DOM swap and a message, zero network/CSP surface, and clicking
 // one must never touch the other provider's state.
 results.mapStyleOutlineOnByDefault = await page.locator('#mapStyleOutline').evaluate(el => el.classList.contains('on'));
@@ -296,20 +296,20 @@ await page.waitForTimeout(150);
 results.outlineCanvasVisibleAfterGoogleSwitchBack = await page.locator('#exploreMapCanvas').isVisible();
 results.mapClusterBubbleCountAfterGoogleSwitchBack = await page.locator('#exploreMapCanvas .cluster-bubble').count();
 
-// Same three checks again for the Mapbox button - independent provider,
+// Same three checks again for the MapTiler button - independent provider,
 // independent state, same "not configured yet" path.
-await page.click('#mapStyleMapbox');
+await page.click('#mapStyleMaptiler');
 await page.waitForTimeout(150);
-results.mapStyleMapboxOnAfterClick = await page.locator('#mapStyleMapbox').evaluate(el => el.classList.contains('on'));
-results.outlineCanvasHiddenAfterMapboxClick = await page.locator('#exploreMapCanvas').isHidden();
-results.satelliteCanvasVisibleAfterMapboxClick = await page.locator('#satelliteMapCanvas').isVisible();
-results.satelliteSetupMessageShownWithNoMapboxToken = await page.locator('.satellite-map-setup').isVisible();
-results.mapboxGlNotLoadedWithNoToken = await page.evaluate(() => typeof window.mapboxgl === 'undefined');
+results.mapStyleMaptilerOnAfterClick = await page.locator('#mapStyleMaptiler').evaluate(el => el.classList.contains('on'));
+results.outlineCanvasHiddenAfterMaptilerClick = await page.locator('#exploreMapCanvas').isHidden();
+results.satelliteCanvasVisibleAfterMaptilerClick = await page.locator('#satelliteMapCanvas').isVisible();
+results.satelliteSetupMessageShownWithNoMaptilerKey = await page.locator('.satellite-map-setup').isVisible();
+results.maplibreGlNotLoadedWithNoKey = await page.evaluate(() => typeof window.maplibregl === 'undefined');
 
 await page.click('#mapStyleOutline');
 await page.waitForTimeout(150);
-results.outlineCanvasVisibleAfterMapboxSwitchBack = await page.locator('#exploreMapCanvas').isVisible();
-results.mapClusterBubbleCountAfterMapboxSwitchBack = await page.locator('#exploreMapCanvas .cluster-bubble').count();
+results.outlineCanvasVisibleAfterMaptilerSwitchBack = await page.locator('#exploreMapCanvas').isVisible();
+results.mapClusterBubbleCountAfterMaptilerSwitchBack = await page.locator('#exploreMapCanvas .cluster-bubble').count();
 
 // Return to the Auctions page - just the card list now, no embedded map and
 // no List/Split view-toggle (Marc: "auctions shoild be just the list").
@@ -1533,9 +1533,9 @@ const EXPECTED = {
   mapAllPillOffAfterLedgerClick: false,
   // Bay is the fixture's one Lands Available county.
   mapClusterBubbleCountLaftOnly: 1,
-  // Phase 55/56/57: the three-way Map/Google/Mapbox toggle, exercised
+  // Phase 55/56/57/60: the three-way Map/Google/MapTiler toggle, exercised
   // against tests/config.js's deliberately blank googleMapsApiKey and
-  // mapboxToken - the "not set up yet" path every real deploy hits until a
+  // maptilerKey - the "not set up yet" path every real deploy hits until a
   // given provider's key is present. See satellite-map.js.
   mapStyleOutlineOnByDefault: true,
   satelliteCanvasHiddenByDefault: true,
@@ -1546,13 +1546,13 @@ const EXPECTED = {
   googleMapsNotLoadedWithNoKey: true,
   outlineCanvasVisibleAfterGoogleSwitchBack: true,
   mapClusterBubbleCountAfterGoogleSwitchBack: 7,
-  mapStyleMapboxOnAfterClick: true,
-  outlineCanvasHiddenAfterMapboxClick: true,
-  satelliteCanvasVisibleAfterMapboxClick: true,
-  satelliteSetupMessageShownWithNoMapboxToken: true,
-  mapboxGlNotLoadedWithNoToken: true,
-  outlineCanvasVisibleAfterMapboxSwitchBack: true,
-  mapClusterBubbleCountAfterMapboxSwitchBack: 7,
+  mapStyleMaptilerOnAfterClick: true,
+  outlineCanvasHiddenAfterMaptilerClick: true,
+  satelliteCanvasVisibleAfterMaptilerClick: true,
+  satelliteSetupMessageShownWithNoMaptilerKey: true,
+  maplibreGlNotLoadedWithNoKey: true,
+  outlineCanvasVisibleAfterMaptilerSwitchBack: true,
+  mapClusterBubbleCountAfterMaptilerSwitchBack: 7,
   auctionsPageVisibleAfterReturnFromMap: true,
   viewToggleGoneFromAuctions: 0,
   exploreMapPanelGoneFromAuctions: 0,
