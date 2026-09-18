@@ -2014,12 +2014,50 @@ function statGroupHtml(title, list) {
 // Always rendered for a deed/LAFT property (never for a certificate) - the
 // point is to make the absence of this data visible and honest, not to
 // hide the card when there's nothing to show.
-function riskLegalCardHtml() {
+// Flood is the ONE row in this card with a real source behind it
+// (scripts/enrich_flood_zone.py, FEMA's National Flood Hazard Layer). The
+// other four still have zero real data anywhere in the pipeline and keep
+// their honest "Not tracked".
+//
+// Three states, and collapsing any two of them is the whole risk here:
+//   flood_checked_at NULL      -> nobody has looked          -> "Not checked"
+//   flood_zone 'UNMAPPED'      -> FEMA publishes NO map here -> "Not mapped by FEMA"
+//   a zone letter              -> a real determination       -> zone + SFHA answer
+//
+// "FEMA does not map this parcel" is NOT "FEMA found minimal hazard". UNMAPPED
+// must never render as low risk, which is why it gets its own wording and
+// never borrows zone X's.
+//
+// flood_sfha is shown as the headline rather than the zone letter because it
+// is the field that actually drives the federal mandatory flood-insurance
+// requirement on a mortgaged property - zone letters are easy to misread, the
+// flag is not.
+function floodRowHtml(p) {
+  const checked = typeof p.flood_checked_at === "string" && p.flood_checked_at;
+  if (!checked) {
+    return `<div class="kv-row"><span class="kv-label">Flood Zone</span><span class="kv-val muted">Not checked</span></div>`;
+  }
+  const on = String(p.flood_checked_at).slice(0, 10);
+  if (p.flood_zone === "UNMAPPED") {
+    return `<div class="kv-row"><span class="kv-label">Flood Zone</span><span class="kv-val muted">Not mapped by FEMA <span class="kv-sub">(checked ${esc(on)} — no flood map covers this parcel, which is not the same as low risk)</span></span></div>`;
+  }
+  const zone = esc(p.flood_zone || "");
+  const sub = p.flood_zone_subtype ? ` — ${esc(p.flood_zone_subtype)}` : "";
+  // flood_sfha is deliberately tri-state: true / false / null (unknown).
+  const sfha = p.flood_sfha === true
+    ? `<span class="kv-flag kv-flag-warn">In a Special Flood Hazard Area</span>`
+    : p.flood_sfha === false
+      ? `<span class="kv-flag">Not in a Special Flood Hazard Area</span>`
+      : "";
+  const bfe = hasNum(p.flood_bfe) ? ` <span class="kv-sub">Base flood elevation ${p.flood_bfe} ft</span>` : "";
+  return `<div class="kv-row"><span class="kv-label">Flood Zone</span><span class="kv-val">Zone ${zone}${sub} ${sfha}<span class="kv-sub">FEMA NFHL, checked ${esc(on)}${p.flood_firm_id ? ` · FIRM ${esc(p.flood_firm_id)}` : ""}</span>${bfe}</span></div>`;
+}
+function riskLegalCardHtml(p) {
   const rows = ["Liens", "Judgments", "Foreclosure", "Code Violations"];
   const kv = rows.map(r => `<div class="kv-row"><span class="kv-label">${r}</span><span class="kv-val muted">Not tracked</span></div>`).join("");
   return detailSectionHtml("Risk & Legal",
-    `<p class="detail-section-note">Not part of this app's data pipeline yet — always verify liens, judgments, foreclosure status and code-enforcement actions directly with the county Clerk of Court and Code Enforcement office before bidding.</p>
-     <div class="kv-list">${kv}</div>`, "risk-legal-card");
+    `<p class="detail-section-note">Flood zone comes from FEMA's National Flood Hazard Layer. Liens, judgments, foreclosure status and code-enforcement actions are not part of this app's data pipeline — always verify those directly with the county Clerk of Court and Code Enforcement office before bidding.</p>
+     <div class="kv-list">${floodRowHtml(p || {})}${kv}</div>`, "risk-legal-card");
 }
 // Coordinates only ever come from scripts/geocode_properties.py's real
 // Census Bureau geocode - never guessed here - so a present latitude/
@@ -2104,6 +2142,11 @@ function detailHtml(p) {
     // with nothing behind it usually means demolished or never built.
     const bv = buildingValue(p);
     if (bv !== null) stats.push(["Building / Improvement Value", isBareLand(p) ? "None (bare land)" : fmtShort(bv), "financial"]);
+    // Phase 52 (FDOR TV_NSD). Taxable is POST-exemption where `assessed`
+    // above is pre-exemption - the gap between them is the exemption itself,
+    // which is exactly what the homestead row below is about, so both are
+    // shown rather than collapsed into one number.
+    if (hasNum(p.taxable_value)) stats.push(["Taxable Value", fmtShort(p.taxable_value), "financial"]);
     if (p.homestead) stats.push(["Homestead Exemption", "Yes", "financial"]);
     if (bidPublished) {
       // Phase 36 fix: fees(p) now returns null for non-FL rows (see its own
@@ -2125,9 +2168,23 @@ function detailHtml(p) {
     // pushed only when the roll actually carried it - see the note on the
     // helpers: NULL here means "not on the roll", never "zero".
     if (hasNum(p.year_built)) stats.push(["Year Built", String(p.year_built), "property"]);
+    // Phase 52 (FDOR EFF_YR_BLT). Only shown when it actually differs from
+    // the actual year built - an effective year equal to the real one tells
+    // the reader nothing, while a 1950 house with an effective year of 1998
+    // has been substantially rebuilt, and that gap is the whole point of the
+    // field.
+    if (hasNum(p.effective_year_built) && p.effective_year_built !== p.year_built) {
+      stats.push(["Effective Year Built", String(p.effective_year_built), "property"]);
+    }
     if (hasNum(p.living_area)) stats.push(["Living Area", fmtSqft(p.living_area), "property"]);
     if (hasNum(p.lot_sqft)) stats.push(["Lot Size", lotSize(p), "property"]);
+    // Phase 52, derived from LND_SQFOOT - a unit conversion, not a second
+    // measurement, so it is shown beside Lot Size rather than instead of it.
+    if (hasNum(p.acreage)) stats.push(["Acreage", `${Number(p.acreage).toFixed(2)} ac`, "property"]);
     if (hasNum(p.num_buildings)) stats.push(["Buildings", String(p.num_buildings), "property"]);
+    // FDOR NO_RES_UNT - dwelling units on the parcel, NOT bedrooms. The NAL
+    // layout has no bedroom or bathroom field at all.
+    if (hasNum(p.num_res_units)) stats.push(["Residential Units", String(p.num_res_units), "property"]);
     const saleText = lastSaleText(p);
     if (saleText) stats.push(["Last Sale", saleText, "history"]);
     if (isGone(p)) stats.push(["Outcome", outcomeText(p), "history"]);
@@ -2181,7 +2238,7 @@ function detailHtml(p) {
     ${statGroupHtml("Financial", stats.filter(s => s[2] === "financial"))}
     ${statGroupHtml("Property Details", stats.filter(s => s[2] === "property"))}
     ${statGroupHtml("History", stats.filter(s => s[2] === "history"))}
-    ${riskLegalCardHtml()}
+    ${riskLegalCardHtml(p)}
     ${gisLocationCardHtml(p)}
     `}
     ${/* Phase 36 fix: the calculator's Net Profit Estimate subtracts fees(p),

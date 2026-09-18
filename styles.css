@@ -1371,3 +1371,15 @@ footer{padding:1.2rem 1.1rem 0;font-size:.72rem;color:var(--ink-soft);text-align
 overrides (.map-page-wrap, .map-region-tabs, .map-legend i) that used to
 live here are removed with the #pageMap section itself - see the note by
 .chipx above. */
+
+
+/* Phase 58: the flood row in Risk & Legal. `kv-sub` is the provenance line
+   under a value (which source, checked when) - the card's other rows read
+   "Not tracked" with nothing under them, so this is the first place a value
+   needs to carry its own attribution. `kv-flag-warn` is deliberately the
+   only attention colour in this card: being inside a Special Flood Hazard
+   Area is the one fact here that changes what a bidder has to budget for. */
+.kv-sub { display: block; margin-top: 2px; font-size: 12px; color: var(--muted); line-height: 1.35; }
+.kv-flag { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px;
+  font-size: 11px; font-weight: 600; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+.kv-flag-warn { border-color: transparent; background: var(--watch-soft, rgba(220,38,38,.12)); color: var(--watch, #b91c1c); }
