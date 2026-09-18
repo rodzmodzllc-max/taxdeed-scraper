@@ -74,5 +74,5 @@ window.TDW_CONFIG = {
   // rodz-taxdeeds.pages.dev only - so it's useless anywhere else even if
   // this line stays blank for a while. Marc adds it here himself, from his
   // own machine, the same way the Mapbox token attempt worked.
-  maptilerKey: ""
+  maptilerKey: "WFuGKBBIcpvuVLPLpnca"
 };
