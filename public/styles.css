@@ -1190,7 +1190,7 @@ footer{padding:1.2rem 1.1rem 0;font-size:.72rem;color:var(--ink-soft);text-align
     padding:.9rem .8rem;color:var(--header-ink);overflow-y:auto
   }
   .nav-rail-brand{display:flex;align-items:center;gap:.5rem;padding:.35rem .3rem .9rem;margin-bottom:.5rem;border-bottom:1px solid var(--header-line)}
-  .nav-rail-brand img{width:32px;height:32px;flex-shrink:0}
+  .nav-rail-brand img{width:44px;height:44px;flex-shrink:0}
   .nav-rail-brand span{font-family:var(--font-sans);font-weight:800;font-size:.92rem;color:var(--header-ink);white-space:nowrap}
   .nav-rail-brand .brand-accent{color:var(--led-accent-d)}
   .nav-list{display:flex;flex-direction:column;gap:.15rem;margin-bottom:.7rem}
