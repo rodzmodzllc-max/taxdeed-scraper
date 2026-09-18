@@ -11,9 +11,6 @@ Pasco, Citrus), take a few live unenriched parcels and ask the FDOR layer:
                a stored value with trailing characters/whitespace;
   3. prefix  - `PARCEL_ID LIKE '<short prefix>%'`, up to 5 neighbours, to see
                the county's real PARCEL_ID shape next to ours;
-  4. count   - `CO_NO=n` with returnCountOnly, to confirm the county is even
-               present in the layer.
-
 Returned PARCEL_IDs are printed with repr() so whitespace is visible.
 GET only; the one Supabase read is `select=parcel,address,source`.
 """
@@ -51,7 +48,11 @@ def fdor(where: str, extra: dict | None = None) -> dict:
     params = {"where": where, "outFields": "PARCEL_ID,ASMNT_YR,CO_NO,PHY_ADDR1",
               "returnGeometry": "false", "resultRecordCount": 5, "f": "json"}
     params.update(extra or {})
-    r = requests.get(FDOR_ENDPOINT, params=params, headers=UA, timeout=30)
+    try:
+        r = requests.get(FDOR_ENDPOINT, params=params, headers=UA, timeout=25)
+    except requests.RequestException as exc:
+        time.sleep(DELAY)
+        return {"error": f"{type(exc).__name__}"}
     time.sleep(DELAY)
     try:
         d = r.json()
@@ -98,8 +99,10 @@ def main() -> int:
     evidence = {}
     for county in COUNTIES:
         co_no = COUNTY_CODES.get(COUNTY_ALIASES.get(county, county))
-        entry = {"co_no": co_no, "county_count": fdor(f"CO_NO={co_no}", {"returnCountOnly": "true"}), "parcels": []}
-        _log(f"=== {county} (CO_NO={co_no}) layer count: {entry['county_count']}")
+        # No county-wide count: `CO_NO=n` alone is the scan shape the layer
+        # is already known to hang on (timed out at 30 s on the first run).
+        entry = {"co_no": co_no, "parcels": []}
+        _log(f"=== {county} (CO_NO={co_no})")
         for row in stored_unenriched(county):
             parcel = row["parcel"].strip()
             cands = normalize_candidates(parcel)
@@ -125,7 +128,7 @@ def main() -> int:
     (OUT_DIR / "probe_fl_parcel_formats.json").write_text(json.dumps(evidence, indent=2, default=str))
     L = ["# FL parcel-format probe", ""]
     for county, e in evidence.items():
-        L += [f"## {county} (CO_NO={e['co_no']}, layer count {e['county_count']})", ""]
+        L += [f"## {county} (CO_NO={e['co_no']})", ""]
         for rec in e["parcels"]:
             hit = [c for c, v in rec["exact"].items() if v.get("hits")]
             L.append(f"- stored `{rec['stored']}` ({rec['source']}): exact **{'HIT via ' + hit[0] if hit else 'miss'}**")
