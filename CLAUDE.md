@@ -1089,6 +1089,71 @@ new labeled fields via the `:has()` rule in both directions; `#filtersToggle`
 crossing fix keeps both handles and their displayed values consistent after
 a cross instead of drifting apart.
 
+## Map: dropdown-selected county didn't zoom, MapTiler popup unstyled (Phase 64, done)
+
+Marc reported "Property pins and preview are still an issue" with a
+screenshot of the Map page's MapTiler view: filtered to Highlands County (1
+property), the satellite pin itself was correctly flown-in and drawn, but
+everything AROUND it was wrong - the page still read "Where these are" / "1
+shown across 1 county" / "Bubble size = properties in that county" / "Bubbles
+are county-level counts... not exact parcel locations", all statewide-view
+copy, sitting above what was actually a single zoomed-in, real-coordinate
+pin. Two independent bugs, both in the "pins and preview" area, fixed
+together:
+
+- **Picking a county straight from `#mapCountySelect` (the Filters panel)
+  left the outline map's own `zoomCounty` stuck at `null`.** `explore.js`'s
+  `absorb()` only called `zoomTo(selectedCounty)` to re-sync when `zoomCounty`
+  was ALREADY truthy - so the very first time a county came from the dropdown
+  rather than a bubble tap, nothing re-synced it. `draw()`/`drawPins()`
+  gate showing real pins vs. one summary bubble on that same `zoomCounty`,
+  and `updateSummary()`/`renderBubbleLegend()` (title, count, note, hint,
+  legend) gate on it too - so the outline map kept showing ONE statewide
+  bubble instead of zooming to that county's pins, and all the surrounding
+  text kept describing a bubble view. `computeMapRows()` in `app.js` already
+  narrows `rows` to exactly one county whenever `mapFilter.county !== "ALL"`
+  (see its own comment), so there's no legitimate state where a county is
+  selected but the map should stay in multi-county statewide mode - the
+  `zoomCounty &&` guard was pure bug, not a deliberate case. Fixed by
+  comparing `zoomCounty !== selectedCounty` directly, with no truthiness
+  guard, so both directions (selecting a county from the dropdown, and
+  clearing one) always resync. Google and MapTiler were never affected by
+  this half - `satellite-map.js`'s `renderGoogle()`/`renderMaptiler()`
+  compute their own `zoomed` independently from `selectedCounty`, not from
+  `explore.js`'s `zoomCounty` - which is exactly why the pin in Marc's
+  screenshot was already correct while the text around it wasn't: two
+  modules disagreeing about the same state.
+- **The MapTiler property-pin popup rendered in MapLibre's bare default
+  chrome**, not the app's themed card. `explore.css`'s popup rules still
+  targeted `.mapboxgl-popup-content`/`.mapboxgl-popup-tip` - correct back
+  when this file's own header comment described a Mapbox GL JS popup (pre-
+  Phase-60), but Phase 60 swapped the provider for MapLibre GL JS, an
+  independent fork, not a Mapbox build. MapLibre 4.x's own stylesheet ships
+  its popup chrome under `.maplibregl-popup-*`, not `.mapboxgl-popup-*` -
+  confirmed by pulling `maplibre-gl@4.7.1` (the exact version pinned in
+  `satellite-map.js`'s `MAPLIBRE_GL_VERSION`) from npm and grepping its CSS.
+  So neither rule had matched anything since Phase 60 shipped - the "preview"
+  card Marc gets after tapping a MapTiler pin was plain white with square
+  corners and no shadow instead of the app's card theme, regardless of the
+  zoom-sync bug above. Renamed both selectors to the correct
+  `.maplibregl-popup-*` prefix.
+
+**Verification**: 265/265 `tests/run_test.mjs` checks still pass. A targeted
+manual Playwright check (not added to the permanent suite - it drives
+`#mapCountySelect` directly with `selectOption()` rather than a bubble tap,
+which the existing map test block doesn't exercise) confirmed that selecting
+a county straight from the dropdown now flips `#exploreMapCanvas` to
+`.zoomed`, switches the title to "`<County> County`", switches the note to
+the pins copy, hides the bubble-size legend, switches the hint to "Tap a pin
+or a card below for details," and shows "Clear county filter" - matching
+bubble-tap behavior exactly. The popup CSS fix couldn't be exercised live in
+that same check: `tests/config.js` ships no `maptilerKey` (deliberately, so
+the suite never makes a real network call to a paid-tier-adjacent provider -
+see that file's own comment), so MapLibre never actually loads under test;
+the fix was instead verified by downloading the pinned `maplibre-gl` version
+from npm directly and confirming its shipped CSS uses the `.maplibregl-`
+prefix the app's rules now match.
+
 ## Known landmines / do-not-repeat mistakes
 
 - Miami-Dade is the only county with a hyphen in `data/realauction_counties.csv` — a blanket `-replace '-',' '` once silently renamed it to "Miami Dade", which didn't match the frontend's canonical `"Miami-Dade"` and hid 33 live listings. Fixed; don't reintroduce a blanket hyphen transform.
