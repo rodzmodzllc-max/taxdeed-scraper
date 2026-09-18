@@ -189,3 +189,14 @@ def test_label_value_parser_applies_the_same_gate(laft):
     assert [r["case_no"] for r in rows] == ["2025-001", "2025-002"]
     assert rows[0]["parcel"] == "12734-001-000"
     assert "parcel" not in rows[1]
+
+
+# --- harvest cache ------------------------------------------------------------
+
+
+def test_parser_version_was_bumped_past_the_pre_gate_parser(laft):
+    # harvest_cache reuses parsed rows for an unchanged PDF across runs, keyed on
+    # PARSER_VERSION. Version 1 produced the junk rows; if it were ever reused,
+    # cached Leon/Volusia/Pasco rows would resurrect them after cleanup.
+    import harvest_cache
+    assert harvest_cache.PARSER_VERSION >= 2
