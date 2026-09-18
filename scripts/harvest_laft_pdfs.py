@@ -138,6 +138,64 @@ def canonical_key(value: str) -> str:
     return re.sub(r"[^A-Z0-9]", "", value.upper())
 
 
+# Longest real parcel observed statewide is 25 characters before whitespace
+# removal (Hernando's "R27 222 19 1560 0000 0081"); a value past this is a
+# sentence, not an identifier.
+MAX_PARCEL_LEN = 40
+
+
+def looks_like_parcel(value) -> bool:
+    """True when an extracted cell is plausibly a parcel/folio number.
+
+    Every Florida county's parcel format carries digits - a digit-free value
+    is a column header ("PARCEL NUMBER", "ID NUMBER") or a footnote fragment
+    ("CURRENT PURCHASE PRICE, C"), and a value longer than MAX_PARCEL_LEN is a
+    disclaimer paragraph that pdfplumber folded into the parcel column. All of
+    those reached production as rows before this check existed (Leon, Volusia,
+    Pasco, 2026-09-18).
+    """
+    if value is None:
+        return False
+    raw = str(value)
+    if normalize_header(raw):
+        return False
+    norm = normalize_parcel(raw)
+    if not norm or len(norm) > MAX_PARCEL_LEN:
+        return False
+    return any(ch.isdigit() for ch in norm)
+
+
+def is_plausible_record(record: dict) -> bool:
+    """Whether an extracted row is a real, currently-available property.
+
+    Mutates `record`: a parcel cell that is not parcel-shaped is never kept.
+    Two different failures hide in that cell:
+
+      * a column header ("PARCEL NUMBER", "Parcel #") or a value past
+        MAX_PARCEL_LEN (a disclaimer paragraph folded into the column) means
+        the whole row was mis-parsed - its other cells, case_no included, are
+        the same header/footnote text - so the record is dropped outright;
+      * a short digit-free placeholder or fragment ("N/A", "ID NUMBER") is
+        not an identifier, so the parcel is removed, and the row survives
+        only if the PDF gave it a case number of its own.
+    """
+    if record.get("sold_to"):
+        return False
+    parcel = record.get("parcel")
+    if parcel is not None:
+        raw = str(parcel)
+        preview = re.sub(r"\s+", " ", raw)[:60]
+        if normalize_header(raw) or len(normalize_parcel(raw)) > MAX_PARCEL_LEN:
+            print(f"      [debug] dropped row whose parcel cell is a header/paragraph: {preview!r}",
+                  flush=True)
+            return False
+        if not looks_like_parcel(raw):
+            print(f"      [debug] discarded non-parcel value in parcel column: {preview!r}",
+                  flush=True)
+            del record["parcel"]
+    return bool(record.get("case_no") or record.get("parcel"))
+
+
 def finalize_record(record: dict) -> dict:
     """Applied to every extracted row right before it's kept. Normalizes the
     displayed parcel value and - when the source PDF doesn't publish a real
@@ -221,13 +279,13 @@ def _rows_from_table(table: list, county: str, source_url: str) -> list[dict]:
         # has already been purchased and is no longer available - confirmed
         # on Hendry's PDF, which keeps sold rows on the same list rather
         # than removing them. Never surface those as a currently-available
-        # property.
-        if record.get("sold_to"):
-            continue
-        # A row needs at least a case/parcel identifier to be worth keeping -
-        # matches the same "skip if no case/address" discipline
-        # sync-harvest-to-supabase.ps1 already applies to the auction ledger.
-        if record.get("case_no") or record.get("parcel"):
+        # property. A row also needs a case/parcel identifier to be worth
+        # keeping - the same "skip if no case/address" discipline
+        # sync-harvest-to-supabase.ps1 applies to the auction ledger - and
+        # that identifier has to look like one: both pdfplumber strategies
+        # run on every page (see extract_rows), so one strategy's header row
+        # routinely lands as a body row of the other's table.
+        if is_plausible_record(record):
             rows.append(finalize_record(record))
     return rows
 
@@ -262,11 +320,11 @@ def extract_label_value_rows(full_text: str, county: str, source_url: str) -> li
         if not value or looks_empty(value):
             continue
         if field == anchor_field or current is None:
-            if current and (current.get("case_no") or current.get("parcel")) and not current.get("sold_to"):
+            if current and is_plausible_record(current):
                 records.append(finalize_record(current))
             current = {"county": county, "source": "laft", "url_auction": source_url}
         current[field] = value
-    if current and (current.get("case_no") or current.get("parcel")) and not current.get("sold_to"):
+    if current and is_plausible_record(current):
         records.append(finalize_record(current))
     return records
 
