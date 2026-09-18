@@ -59,8 +59,12 @@ jobs:
       # the production script never runs with, which is the wrong direction
       # for a suite whose whole purpose is catching things that only show up
       # against the real thing.
+      #
+      # pdfplumber added with tests/python/test_laft_pdf_parcel_plausibility.py,
+      # which imports the real scripts/harvest_laft_pdfs.py (same reasoning as
+      # requests above). No PDF is ever opened by the suite.
       - name: Install pytest
-        run: pip install pytest pyyaml requests
+        run: pip install pytest pyyaml requests pdfplumber
 
       # Deliberately NOT continue-on-error, NOT `|| true`, NOT a soft-fail
       # wrapper of any kind (Phase 10B Step 3's explicit requirement) - a
