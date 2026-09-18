@@ -880,6 +880,74 @@ Google's own docs (daily quota, pauses rather than charges if exceeded, not
 meant for production), and it isn't domain-restricted the way the MapTiler
 key is - tightening that is a follow-up, not yet done.
 
+## Property photo CSP gap, satellite bubble sizing, and stale popups (Phase 62, done)
+
+Three bug reports from Marc, all fixed in one pass since two were quick and
+concrete and the third needed the code review this phase's investigation
+started with:
+
+**1. "Still no photos of the properties" - `img-src` never granted Supabase.**
+`properties.photo_url` (see the "Property photos" section above) has been
+populating real Supabase Storage URLs for a while and `app.js` has rendered
+`<img src="${p.photo_url}">` for them since Phase 51, but `public/_headers`'
+CSP `img-src` directive only ever granted `'self' data: blob:` plus the map
+providers - never `https://*.supabase.co`. `connect-src` had it (that
+governs `fetch`/XHR, which is how the Supabase *client* talks to the API),
+but `img-src` governs `<img>` loads specifically, and nothing granted that.
+Confirmed via live Supabase query that 300 real `photo_url` rows exist,
+100% consistently under this same Storage host - every one of them was being
+silently CSP-blocked from ever rendering. Fixed by adding
+`https://*.supabase.co` to `img-src`. This doesn't weaken the privacy
+posture `img-src`'s restrictiveness exists for (see `_headers`' own
+top-of-file comment) - the `property-photos` bucket is a public bucket by
+design, so these URLs were never private in the first place.
+
+**2. "The property bubbles or pins are way too big" - real geography needed
+smaller bubbles than the abstract map.** Confirmed via Marc's own
+screenshots (both Google and MapTiler): five-plus county bubbles piled on
+top of each other around the Tampa/Orlando corridor, unreadable. Root cause:
+`satellite-map.js`'s `radiusPx()` used the same 15-34px radius range as
+`explore.js`'s `radiusFor()` (13-38 SVG units) - but explore.js draws on an
+abstract, hand-drawn SVG shape with room built in between counties, while
+satellite-map.js places bubbles at REAL county centroids on a real map,
+where several of Florida's busiest counties (Hillsborough/Pinellas/Pasco/
+Polk, Orange/Seminole/Osceola) are genuinely close together. The same pixel
+range that reads fine on the stylized map overlaps badly on the true-to-life
+one, worst on a narrow phone screen showing the whole state at once. Cut
+`MIN_R`/`MAX_R` from 15/34 to 8/18 (roughly half the diameter) - still
+sqrt-scaled so bubble *area* tracks property count, just sized for real
+geographic density. No test coverage existed for exact bubble pixel size
+(nothing to break), and this only touches `satellite-map.js` - explore.js's
+own map is untouched and unaffected.
+
+**3. "Toggling through Auctions/Lands Available/Certificates... should
+distinguish each category, not populate all the same" - an open popup
+outlived the render that should have cleared it.** Confirmed via Marc's
+screenshot: filtered to Broward + Lands Available with zero matches ("Where
+these are" correctly said "Nothing matches the current filters"), yet a
+popup for a property was still shown on the map. The underlying data
+filtering was never wrong - `computeMapRows()` in `app.js` already scopes
+rows to `mapFilter.ledger` correctly - but `clearGoogleMarkers()`/
+`clearMaptilerMarkers()` (called at the top of every `renderGoogle()`/
+`renderMaptiler()` pass, i.e. every ledger/county/filter change) only ever
+cleared the marker array. A `google.maps.InfoWindow` and a
+`maplibregl.Popup` opened by clicking a pin are their OWN objects, not
+markers - clearing markers never touched an already-open one, so it just
+sat on screen showing whatever property was last clicked, regardless of
+which ledger or county the map had since switched to. Fixed by closing
+`googleState.infoWindow`/removing `maptilerState.popup` inside those same
+two clear functions, so every re-render (not just marker changes) also
+closes any stale popup.
+
+**Verification:** 265/265 `tests/run_test.mjs` checks pass (no new checks -
+none of the three bugs had a gap in existing coverage worth a dedicated
+regression test: the CSP fix isn't DOM-observable from the fixture, which
+ships no real Supabase Storage photo URLs; the bubble-size fix has no pixel
+assertion to update; the popup fix would need a real map provider actually
+loaded, which the fixture deliberately never configures - same limitation
+Phase 61's own regression test notes). Service worker bumped to
+`tdw-shell-v31`.
+
 ## Known landmines / do-not-repeat mistakes
 
 - Miami-Dade is the only county with a hyphen in `data/realauction_counties.csv` — a blanket `-replace '-',' '` once silently renamed it to "Miami Dade", which didn't match the frontend's canonical `"Miami-Dade"` and hid 33 live listings. Fixed; don't reintroduce a blanket hyphen transform.
