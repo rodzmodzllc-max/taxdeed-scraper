@@ -101,3 +101,127 @@ def test_get_without_caller_headers_keeps_the_user_agent(probe, monkeypatch):
     monkeypatch.setattr(probe.requests, "get", lambda url, **kw: seen.update(kw))
     probe._get("https://example.test/y")
     assert seen["headers"] == probe.UA
+
+
+# --- Galveston DBF identity join --------------------------------------------
+
+
+def _synthetic_dbf(rows, fields):
+    """Minimal dBase III file: 32-byte header + 32-byte field descriptors + 0x0D + records."""
+    import struct
+    rec_len = 1 + sum(l for _, l in fields)
+    header_len = 32 + 32 * len(fields) + 1
+    out = bytearray(struct.pack("<4BIHH", 3, 26, 9, 18, len(rows), header_len, rec_len)) + b"\0" * 20
+    for name, ln in fields:
+        desc = bytearray(32)
+        desc[:len(name)] = name.encode("ascii")
+        desc[11] = ord("C")
+        desc[16] = ln
+        out += desc
+    out += b"\x0D"
+    for r in rows:
+        out += b" "
+        for name, ln in fields:
+            out += str(r.get(name, "")).ljust(ln)[:ln].encode("latin-1")
+    return bytes(out)
+
+
+GAL_FIELDS = [("GEOID", 20), ("PID", 10), ("SITUS", 30), ("LANDUSE", 6), ("ACRES", 10),
+              ("VAL26LAND", 12), ("VAL26IMP", 12), ("VAL26TOT", 12)]
+GAL_ROWS = [
+    {"GEOID": "3510-0065-2002-002", "PID": "123456", "SITUS": "2823 AVENUE O 1/2", "LANDUSE": "A1",
+     "ACRES": "0.118", "VAL26LAND": "50000", "VAL26IMP": "422600", "VAL26TOT": "472600"},
+    {"GEOID": "0197-0060-0000-000", "PID": "223456", "SITUS": "", "LANDUSE": "C1",
+     "ACRES": "1.0", "VAL26LAND": "18450", "VAL26IMP": "0", "VAL26TOT": "18450"},
+    {"GEOID": "9999-0000-0000-001", "PID": "323456", "SITUS": "X", "LANDUSE": "A1",
+     "ACRES": "0.2", "VAL26LAND": "1", "VAL26IMP": "2", "VAL26TOT": "3"},
+]
+
+
+def test_parse_dbf_records_round_trips_a_synthetic_file(probe):
+    blob = _synthetic_dbf(GAL_ROWS, GAL_FIELDS)
+    header = probe.parse_dbf_header(blob)
+    assert header["record_count"] == 3 and header["field_count"] == 8
+    recs = list(probe.parse_dbf_records(blob, header))
+    assert [r["GEOID"] for r in recs] == [r["GEOID"] for r in GAL_ROWS]
+    assert recs[0]["VAL26TOT"] == "472600"
+
+
+def test_identity_join_matches_stored_case_no_to_geoid_digits(probe):
+    blob = _synthetic_dbf(GAL_ROWS, GAL_FIELDS)
+    header = probe.parse_dbf_header(blob)
+    stored = ["351000652002002", "019700600000000", "000000000000000"]
+    j = probe.galveston_identity_join(blob, header, stored)
+    assert j["records_parsed"] == 3
+    assert j["matched_via_geoid"] == 2 and j["matched_via_pid"] == 0
+    assert j["unmatched"] == 1 and j["unmatched_examples"] == ["000000000000000"]
+    assert j["ambiguous_geoid"] == 0
+    ex = j["examples"][0]
+    assert ex["stored_case_no"] == "351000652002002" and ex["GEOID"] == "3510-0065-2002-002"
+    assert ex["VAL26TOT"] == "472600" and ex["SITUS"] == "2823 AVENUE O 1/2"
+
+
+def test_identity_join_flags_duplicate_geoids_as_ambiguous(probe):
+    rows = GAL_ROWS + [dict(GAL_ROWS[0], PID="999999")]
+    blob = _synthetic_dbf(rows, GAL_FIELDS)
+    j = probe.galveston_identity_join(blob, probe.parse_dbf_header(blob), ["351000652002002"])
+    assert j["matched_via_geoid"] == 1 and j["ambiguous_geoid"] == 1
+
+
+def test_tx_verdict_is_driven_by_the_identity_join(probe):
+    base = {"dbf": {"fields": []}, "has_value_field": True, "has_account_field": True}
+    assert probe.verdict_tx({**base, "identity_join": {"stored_accounts": 203, "matched_via_geoid": 200}}) == "VIABLE"
+    assert probe.verdict_tx({**base, "identity_join": {"stored_accounts": 203, "matched_via_geoid": 50}}) == "PARTIAL"
+    assert probe.verdict_tx({**base, "identity_join": {"stored_accounts": 203, "matched_via_geoid": 0}}) == "NOT_VIABLE"
+    assert probe.verdict_tx({"dbf": None}) == "NOT_VIABLE"
+
+
+# --- FL direct ALT_KEY lookup -------------------------------------------------
+
+
+class _Resp:
+    def __init__(self, payload, status=200):
+        self._p, self.status_code = payload, status
+
+    def json(self):
+        return self._p
+
+    def raise_for_status(self):
+        pass
+
+
+def test_altkey_lookup_prefers_the_query_form_that_returns_features(probe, monkeypatch):
+    calls = []
+
+    def fake_get(url, **kw):
+        calls.append(kw.get("params", {}))
+        params = kw.get("params", {})
+        if params.get("f") == "json" and "where" not in params:
+            return _Resp({"fields": [{"name": "ALT_KEY", "type": "esriFieldTypeDouble"}]})
+        where = params["where"]
+        if where.startswith("ALT_KEY='"):
+            return _Resp({"error": {"code": 400, "message": "Cannot perform query"}})
+        key = where.split("=")[1]
+        hits = {"2102746": ["21 3507-01-3-12"], "1028868": ["17E19S27 10000 005S"]}
+        return _Resp({"features": [{"attributes": {"PARCEL_ID": p}} for p in hits.get(key, [])]})
+
+    monkeypatch.setattr(probe.requests, "get", fake_get)
+    monkeypatch.setattr(probe.time, "sleep", lambda *_: None)
+    out = probe.probe_altkey_lookups({"Citrus": ["1028868", "0000001"], "Hernando": ["00190947"]})
+    assert out["layer_altkey_type"] == "esriFieldTypeDouble"
+    assert out["working_form"] == "numeric"
+    assert out["form_trials"]["quoted"]["error"]
+    assert out["counties"]["Citrus"] == {
+        "tried": 2, "one_to_one_hits": 1, "multi_hits": 0, "misses": 1, "errors": [],
+        "examples": [{"key": "1028868", "fdor_parcel_id": "17E19S27 10000 005S"}]}
+    assert out["counties"]["Hernando"]["misses"] == 1
+    # a leading-zero key is sent as a bare integer under the numeric form
+    assert any(p.get("where") == "ALT_KEY=190947" for p in calls)
+
+
+def test_altkey_lookup_stops_when_neither_form_works(probe, monkeypatch):
+    monkeypatch.setattr(probe.requests, "get",
+                        lambda url, **kw: _Resp({"error": {"code": 400}}) if "where" in kw.get("params", {}) else _Resp({"fields": []}))
+    monkeypatch.setattr(probe.time, "sleep", lambda *_: None)
+    out = probe.probe_altkey_lookups({"Brevard": ["2102746"]})
+    assert out["working_form"] is None and out["counties"] == {}

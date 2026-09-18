@@ -234,6 +234,84 @@ def realauction_live_keys(county: str, host: str, labels: tuple[str, ...]) -> di
 
 
 # --------------------------------------------------------------------------
+# FL: direct per-key ALT_KEY lookup (the enrichment-shaped query)
+# --------------------------------------------------------------------------
+def fgio_layer_fields() -> dict:
+    """{field name: esri type} from the layer's own metadata (one GET)."""
+    r = _get(FGIO_LAYER, params={"f": "json"})
+    r.raise_for_status()
+    d = r.json()
+    return {f["name"]: f.get("type") for f in d.get("fields", [])}
+
+
+def fgio_altkey_lookup(key: str, numeric: bool) -> dict:
+    """One exact ALT_KEY query. Returns {'parcel_ids': [...], 'error': str|None}.
+
+    The prior finding "ALT_KEY filter -> HTTP 400 every county" was recorded
+    with a quoted literal. If ALT_KEY is a numeric field, ArcGIS rejects the
+    quoted form and accepts the bare number - so both forms are tried on a
+    known-good Brevard key first and the working one is used everywhere.
+    """
+    k = key.strip()
+    if numeric:
+        if not k.isdigit():
+            return {"parcel_ids": [], "error": "non-numeric key"}
+        where = f"ALT_KEY={int(k)}"
+    else:
+        where = f"ALT_KEY='{k}'"
+    r = _get(f"{FGIO_LAYER}/query", params={
+        "where": where, "outFields": "PARCEL_ID,ALT_KEY,CO_NO",
+        "returnGeometry": "false", "resultRecordCount": 10, "f": "json"})
+    try:
+        d = r.json()
+    except ValueError:
+        return {"parcel_ids": [], "error": f"non-JSON HTTP {r.status_code}"}
+    if "error" in d:
+        return {"parcel_ids": [], "error": json.dumps(d["error"])[:160]}
+    return {"parcel_ids": [f["attributes"].get("PARCEL_ID") for f in d.get("features", [])],
+            "error": None}
+
+
+def probe_altkey_lookups(keys_by_county: dict[str, list[str]], sample_per_county: int = 8) -> dict:
+    """Try the direct lookup on a handful of keys per county. Read-only."""
+    out = {"layer_altkey_type": None, "working_form": None, "form_trials": {}, "counties": {}}
+    try:
+        out["layer_altkey_type"] = fgio_layer_fields().get("ALT_KEY")
+    except Exception as exc:  # noqa: BLE001
+        out["form_trials"]["metadata"] = f"{exc!r}"[:160]
+    # Brevard 2102746 -> PARCEL_ID '21 3507-01-3-12' was proven by the paged
+    # scan, so it is the control key for choosing the query form.
+    for form, numeric in (("numeric", True), ("quoted", False)):
+        res = fgio_altkey_lookup("2102746", numeric)
+        out["form_trials"][form] = res
+        if res["parcel_ids"] and out["working_form"] is None:
+            out["working_form"] = form
+        time.sleep(0.3)
+    if out["working_form"] is None:
+        return out
+    numeric = out["working_form"] == "numeric"
+    for county, keys in keys_by_county.items():
+        tried, hits, multi, errors, examples = 0, 0, 0, [], []
+        for k in keys[:sample_per_county]:
+            res = fgio_altkey_lookup(k, numeric)
+            tried += 1
+            if res["error"]:
+                errors.append(f"{k}: {res['error']}"[:120])
+            elif len(res["parcel_ids"]) == 1:
+                hits += 1
+                if len(examples) < 5:
+                    examples.append({"key": k, "fdor_parcel_id": res["parcel_ids"][0]})
+            elif len(res["parcel_ids"]) > 1:
+                multi += 1
+            time.sleep(0.3)
+        out["counties"][county] = {"tried": tried, "one_to_one_hits": hits,
+                                   "multi_hits": multi, "misses": tried - hits - multi - len(errors),
+                                   "errors": errors[:4], "examples": examples}
+        _log(f"{county}: ALT_KEY lookup {hits}/{tried} 1:1 hits")
+    return out
+
+
+# --------------------------------------------------------------------------
 # FL: pull PARCEL_ID + ALT_KEY for a county
 # --------------------------------------------------------------------------
 def fgio_county_pairs(co_no: int, county: str) -> dict:
@@ -422,6 +500,83 @@ def parse_dbf_header(blob: bytes) -> dict:
             "fields": fields}
 
 
+def parse_dbf_records(blob: bytes, header: dict, max_records: int | None = None):
+    """Yield {field: str} per non-deleted record, decoding latin-1 and stripping."""
+    fields = header["fields"]
+    rec_len = header["record_length"]
+    pos = header["header_length"]
+    n = 0
+    while pos + rec_len <= len(blob):
+        rec = blob[pos:pos + rec_len]
+        pos += rec_len
+        if rec[:1] == b"*":
+            continue
+        row, off = {}, 1
+        for f in fields:
+            row[f["name"]] = rec[off:off + f["length"]].decode("latin-1", "replace").strip()
+            off += f["length"]
+        yield row
+        n += 1
+        if max_records and n >= max_records:
+            break
+
+
+def _digits(v: str) -> str:
+    return re.sub(r"[^0-9]", "", v or "")
+
+
+def fetch_stored_tx_accounts(county: str) -> list[str]:
+    """Stored case_no (the CAD account number for TX rows) - SELECT only."""
+    if not SUPABASE_URL or not SERVICE_KEY:
+        return []
+    url = (f"{SUPABASE_URL}/rest/v1/properties?select=case_no&state=eq.TX"
+           f"&county=eq.{requests.utils.quote(county)}&source=in.(auction,laft)&limit=2000")
+    r = _get(url, headers={"apikey": SERVICE_KEY, "Authorization": f"Bearer {SERVICE_KEY}"})
+    r.raise_for_status()
+    return sorted({(row.get("case_no") or "").strip() for row in r.json() if row.get("case_no")})
+
+
+def galveston_identity_join(dbf_blob: bytes, header: dict, stored: list[str]) -> dict:
+    """Do our stored Galveston accounts appear in the DBF's GEOID or PID?
+
+    Our case_no for Galveston is a 15-digit string (e.g. 351000652002002);
+    Galveston CAD's Geo ID prints as 3510-0065-2002-002. Compared digits-only
+    on both sides - no other normalisation, no fuzzy matching.
+    """
+    by_geoid, by_pid = {}, {}
+    sample_geoid, sample_pid = [], []
+    n = 0
+    for row in parse_dbf_records(dbf_blob, header):
+        n += 1
+        g = _digits(row.get("GEOID", ""))
+        pid = row.get("PID", "").strip()
+        if g:
+            by_geoid.setdefault(g, []).append(row)
+        if pid:
+            by_pid.setdefault(pid, []).append(row)
+        if len(sample_geoid) < 3 and row.get("GEOID"):
+            sample_geoid.append(row["GEOID"])
+        if len(sample_pid) < 3 and pid:
+            sample_pid.append(pid)
+    matched_geoid = [a for a in stored if _digits(a) in by_geoid]
+    matched_pid = [a for a in stored if a in by_pid]
+    ambiguous = [a for a in matched_geoid if len(by_geoid[_digits(a)]) > 1]
+    examples = []
+    for a in matched_geoid[:5]:
+        r0 = by_geoid[_digits(a)][0]
+        examples.append({"stored_case_no": a, "GEOID": r0.get("GEOID"), "PID": r0.get("PID"),
+                         "SITUS": r0.get("SITUS"), "LANDUSE": r0.get("LANDUSE"),
+                         "ACRES": r0.get("ACRES"), "VAL26LAND": r0.get("VAL26LAND"),
+                         "VAL26IMP": r0.get("VAL26IMP"), "VAL26TOT": r0.get("VAL26TOT")})
+    return {"records_parsed": n, "distinct_geoid": len(by_geoid), "distinct_pid": len(by_pid),
+            "sample_geoid": sample_geoid, "sample_pid": sample_pid,
+            "stored_accounts": len(stored), "matched_via_geoid": len(matched_geoid),
+            "matched_via_pid": len(matched_pid), "ambiguous_geoid": len(ambiguous),
+            "unmatched": len(stored) - len(set(matched_geoid) | set(matched_pid)),
+            "unmatched_examples": [a for a in stored if _digits(a) not in by_geoid and a not in by_pid][:5],
+            "examples": examples}
+
+
 def probe_galveston_dbf() -> dict:
     """Locate, download and describe the published Parcel DBF. Read-only."""
     res = {"source_page": GALVESTON_GIS_PAGE, "candidate_urls": [],
@@ -462,9 +617,12 @@ def probe_galveston_dbf() -> dict:
                         continue
                     info["dbf_member"] = dbfs[0]
                     with zf.open(dbfs[0]) as fh:
-                        res["dbf"] = parse_dbf_header(fh.read(65536))
+                        dbf_blob = fh.read()
+                        res["dbf"] = parse_dbf_header(dbf_blob[:65536])
+                        res["_dbf_blob"] = dbf_blob
             elif url.lower().endswith(".dbf") or blob[:1] in (b"\x03", b"\x30", b"\x05"):
                 res["dbf"] = parse_dbf_header(blob[:65536])
+                res["_dbf_blob"] = blob
             else:
                 res["errors"].append(f"{url}: not a zip or dbf")
                 continue
@@ -477,19 +635,39 @@ def probe_galveston_dbf() -> dict:
         names = [f["name"].lower() for f in res["dbf"]["fields"]]
         res["appraisal_fields_present"] = sorted(
             {w for w in WANTED_TX_FIELDS if any(w in n for n in names)})
+        # Galveston's own column names (PID, GEOID, VAL26LAND/IMP/TOT) are
+        # terser than the first heuristic expected - "val" and "pid"/"geoid"
+        # count, and the identity join below is what actually decides.
         res["has_value_field"] = any(
-            any(k in n for k in ("market", "appraised", "assessed", "value"))
+            any(k in n for k in ("market", "appraised", "assessed", "value", "val"))
             for n in names)
         res["has_year_built"] = any(
             any(k in n for k in ("yr_built", "year_built", "yrblt")) for n in names)
         res["has_owner_field"] = any("owner" in n or "name" in n for n in names)
         res["has_account_field"] = any(
-            any(k in n for k in ("account", "acct", "prop_id", "propid", "geo_id"))
+            any(k in n for k in ("account", "acct", "prop_id", "propid", "geo_id", "pid", "geoid"))
             for n in names)
+        blob = res.pop("_dbf_blob", None)
+        if blob is not None:
+            try:
+                stored = fetch_stored_tx_accounts("Galveston")
+                _log(f"Galveston: {len(stored)} stored accounts; parsing DBF records for the identity join")
+                res["identity_join"] = galveston_identity_join(blob, res["dbf"], stored)
+                _log(f"Galveston: {res['identity_join']['matched_via_geoid']} of {len(stored)} "
+                     f"stored accounts match a DBF GEOID")
+            except Exception as exc:  # noqa: BLE001
+                res["errors"].append(f"identity join: {exc!r}"[:200])
+    else:
+        res.pop("_dbf_blob", None)
     return res
 
 
 # --------------------------------------------------------------------------
+def _write_evidence_json(evidence: dict) -> None:
+    (OUT_DIR / "probe_enrichment_sources.json").write_text(
+        json.dumps(evidence, indent=2, default=str), encoding="utf-8")
+
+
 def verdict_fl(rows: list[dict]) -> str:
     scored = [r for r in rows if r.get("rows_examined")]
     if not scored or all(r["strategy_used"] is None for r in scored):
@@ -507,6 +685,14 @@ def verdict_fl(rows: list[dict]) -> str:
 
 def verdict_tx(g: dict) -> str:
     if not g.get("dbf"):
+        return "NOT_VIABLE"
+    j = g.get("identity_join") or {}
+    if j.get("stored_accounts"):
+        pct = 100.0 * (j.get("matched_via_geoid", 0) + 0) / j["stored_accounts"]
+        if pct >= 80 and g.get("has_value_field"):
+            return "VIABLE"
+        if pct > 0:
+            return "PARTIAL"
         return "NOT_VIABLE"
     if g.get("has_account_field") and (g.get("has_value_field") or g.get("has_year_built")):
         return "VIABLE"
@@ -539,24 +725,45 @@ def main() -> int:
     evidence["stored_account_counts"] = {
         k: (len(v) if isinstance(v, list) else v) for k, v in stored.items()}
 
+    # Each FL county is a long paged pull (Hillsborough alone is hundreds of
+    # thousands of parcels). Persist after every county so a job timeout
+    # keeps the counties already measured instead of losing the whole run.
     fl_rows = []
+    evidence["fl_results"] = fl_rows
+    evidence["status"] = "in progress"
+    _write_evidence_json(evidence)
+    # PROBE_FL_SCAN=0 skips the county-wide paged scans (measured 2026-09-18:
+    # HTTP 400 for four of five counties, 26,000-record cap on the fifth) and
+    # goes straight to the per-key lookups below.
+    do_scan = os.environ.get("PROBE_FL_SCAN", "1") != "0"
+    keys_by_county: dict[str, list[str]] = {}
     for county, co_no in FL_COUNTIES.items():
         accounts = stored.get(county) if isinstance(stored.get(county), list) else []
+        keys_by_county[county] = accounts
+        if not do_scan:
+            continue
         _log(f"--- FL {county} (CO_NO={co_no}), {len(accounts)} accounts")
         row = analyse_fl_county(county, co_no, accounts)
         row["key_source"] = "stored parcel column"
         fl_rows.append(row)
+        _write_evidence_json(evidence)
     live_key_runs = {}
+    evidence["fl_live_keys"] = live_key_runs
     for county, cfg in FL_LIVE_KEY_COUNTIES.items():
         _log(f"--- FL {county} (CO_NO={cfg['co_no']}), live appraiser keys from {cfg['host']}")
         live = realauction_live_keys(county, cfg["host"], cfg["labels"])
         live_key_runs[county] = live
+        keys_by_county[county] = live["keys"]
+        if not do_scan:
+            continue
         row = analyse_fl_county(county, cfg["co_no"], live["keys"])
         row["key_source"] = f"live RealAuction {'/'.join(cfg['labels'])}"
         row["errors"] = (live["errors"] + row["errors"])[:6]
         fl_rows.append(row)
-    evidence["fl_live_keys"] = live_key_runs
-    evidence["fl_results"] = fl_rows
+        _write_evidence_json(evidence)
+    _log("--- FL direct ALT_KEY lookups")
+    evidence["fl_altkey_lookup"] = probe_altkey_lookups(keys_by_county)
+    _write_evidence_json(evidence)
     evidence["fl_verdict"] = verdict_fl(fl_rows)
 
     _log("--- TX Galveston DBF")
@@ -564,9 +771,8 @@ def main() -> int:
     evidence["tx_galveston"] = gal
     evidence["tx_verdict"] = verdict_tx(gal)
     evidence["finished_utc"] = datetime.now(timezone.utc).isoformat()
-
-    (OUT_DIR / "probe_enrichment_sources.json").write_text(
-        json.dumps(evidence, indent=2, default=str), encoding="utf-8")
+    evidence["status"] = "complete"
+    _write_evidence_json(evidence)
 
     # Human-readable summary
     L = [f"# Enrichment source probe - evidence", "",
@@ -588,6 +794,20 @@ def main() -> int:
             L += [f"- `{e['stored_account']}` -> `{e['fdor_parcel_id']}`" for e in r["examples"]]
         if r["errors"]:
             L += ["", f"### {r['county']} - errors", ""] + [f"- `{e}`" for e in r["errors"]]
+    lk = evidence.get("fl_altkey_lookup") or {}
+    L += ["", "## FL direct ALT_KEY lookup (per-key, enrichment-shaped)", "",
+          f"- ALT_KEY field type: `{lk.get('layer_altkey_type')}`",
+          f"- working query form: **{lk.get('working_form')}** "
+          f"(numeric: {json.dumps(lk.get('form_trials', {}).get('numeric'))[:120]}; "
+          f"quoted: {json.dumps(lk.get('form_trials', {}).get('quoted'))[:120]})", "",
+          "| County | Tried | 1:1 hits | Multi | Misses | Errors |", "|---|---|---|---|---|---|"]
+    for c, r in (lk.get("counties") or {}).items():
+        L.append(f"| {c} | {r['tried']} | {r['one_to_one_hits']} | {r['multi_hits']} | {r['misses']} | {len(r['errors'])} |")
+    for c, r in (lk.get("counties") or {}).items():
+        if r["examples"]:
+            L += ["", f"### {c} - direct lookup proof", ""] + [f"- `{e['key']}` -> `{e['fdor_parcel_id']}`" for e in r["examples"]]
+        if r["errors"]:
+            L += ["", f"### {c} - lookup errors", ""] + [f"- `{e}`" for e in r["errors"]]
     L += ["", "## TX Galveston DBF", ""]
     if gal.get("download"):
         d = gal["download"]
@@ -603,6 +823,18 @@ def main() -> int:
                   f"- value field: {gal.get('has_value_field')}",
                   f"- year built: {gal.get('has_year_built')}",
                   f"- owner field: {gal.get('has_owner_field')}"]
+            j = gal.get("identity_join")
+            if j:
+                L += ["", "### Galveston identity join (stored case_no vs DBF)", "",
+                      f"- records parsed: {j['records_parsed']:,}; distinct GEOID {j['distinct_geoid']:,}, distinct PID {j['distinct_pid']:,}",
+                      f"- sample GEOID: {j['sample_geoid']}  sample PID: {j['sample_pid']}",
+                      f"- stored accounts: {j['stored_accounts']}; matched via GEOID: **{j['matched_via_geoid']}**; "
+                      f"via PID: {j['matched_via_pid']}; ambiguous: {j['ambiguous_geoid']}; unmatched: {j['unmatched']}",
+                      f"- unmatched examples: {j['unmatched_examples']}", ""]
+                for e in j["examples"]:
+                    L.append(f"- `{e['stored_case_no']}` -> GEOID `{e['GEOID']}` PID `{e['PID']}` "
+                             f"situs `{e['SITUS']}` landuse `{e['LANDUSE']}` acres `{e['ACRES']}` "
+                             f"VAL26 land/imp/tot `{e['VAL26LAND']}`/`{e['VAL26IMP']}`/`{e['VAL26TOT']}`")
     else:
         L += ["- No DBF retrieved.", ""] + [f"- `{e}`" for e in gal.get("errors", [])[:8]]
     (OUT_DIR / "probe-evidence.md").write_text("\n".join(L), encoding="utf-8")
