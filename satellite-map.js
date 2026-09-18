@@ -23,18 +23,29 @@
 // PHASE 57: BOTH PROVIDERS, USER'S CHOICE
 // After seeing Google Maps working live, Marc asked to have Mapbox back too
 // - "as a backup, or even just a map toggle to have all three options" - and
-// sent his Mapbox token back. So the toggle is now three-way: the same-
+// sent his Mapbox token back. So the toggle became three-way: the same-
 // origin outline map (default, no third party), Google, and Mapbox - each
 // independent, each off/inert until its own key/token is present, neither
-// one replacing the other. This file now owns two provider implementations
-// side by side rather than picking one; see the "GOOGLE PROVIDER" and
-// "MAPBOX PROVIDER" sections below. Kept as one file rather than split into
-// three (a Google-only and Mapbox-only version were each their own file at
-// different points in this project's history) because the two providers
-// share most of their surrounding logic (county grouping, centroids,
-// zoomed-vs-statewide detection, the toolbar contract) and a single toggle
-// dispatch is simpler to reason about than cross-module wiring for what's
-// still, at heart, one feature with two swappable backends.
+// one replacing the other.
+//
+// PHASE 60: MAPBOX -> MAPTILER
+// The Mapbox token Marc provided kept getting flagged by GitHub's push-
+// protection secret scanner as a "Mapbox Secret Access Token," and Mapbox's
+// dashboard requires a payment method on file to create a fresh, narrowly-
+// scoped replacement token - a real paywall, not just friction. Rather than
+// have Marc hand over a card for a bonus third map view, this file now uses
+// MapTiler instead of Mapbox: a free tier that needs no payment method at
+// all (5,000 map sessions/month, confirmed via MapTiler's own pricing page),
+// using MapLibre GL JS - an open-source fork of Mapbox GL JS with the same
+// API - so the provider swap below is close to a 1:1 rename rather than a
+// rewrite. This file now owns two provider implementations side by side
+// rather than picking one; see the "GOOGLE PROVIDER" and "MAPTILER
+// PROVIDER" sections below. Kept as one file rather than split into three
+// because the two providers share most of their surrounding logic (county
+// grouping, centroids, zoomed-vs-statewide detection, the toolbar contract)
+// and a single toggle dispatch is simpler to reason about than cross-module
+// wiring for what's still, at heart, one feature with two swappable
+// backends.
 //
 // WHY A SEPARATE MODULE, not code inside explore.js:
 // Same reasoning explore.js's own header gives for being separate from
@@ -46,15 +57,15 @@
 // handlers (bound in this file) just show one canvas and hide the other.
 //
 // WHY EACH PROVIDER IS OFF BY DEFAULT AND SAFE WHEN UNCONFIGURED:
-// Google needs an API key (window.TDW_CONFIG.googleMapsApiKey) and Mapbox
-// needs an access token (window.TDW_CONFIG.mapboxToken) - each only Marc can
+// Google needs an API key (window.TDW_CONFIG.googleMapsApiKey) and MapTiler
+// needs an API key (window.TDW_CONFIG.maptilerKey) - each only Marc can
 // obtain/manage, see config.js's comments. This file never injects either
 // provider's loader script or fetches a single tile for a provider unless
-// BOTH (a) that provider's key/token is non-empty AND (b) the user has
-// actually clicked that provider's button at least once. Clicking a
-// provider's button with no key/token just swaps in a plain-language setup
-// message naming that provider - no different from any other empty state in
-// this app, and it never touches the other provider's state.
+// BOTH (a) that provider's key is non-empty AND (b) the user has actually
+// clicked that provider's button at least once. Clicking a provider's
+// button with no key just swaps in a plain-language setup message naming
+// that provider - no different from any other empty state in this app, and
+// it never touches the other provider's state.
 //
 // WHAT'S DELIBERATELY THE SAME AS THE OUTLINE MAP, AND WHY:
 // Statewide, each provider draws one bubble per county (sized by count,
@@ -80,8 +91,8 @@ const PAGE_STATE = document.body.dataset.state === "TX" ? "TX" : "FL";
 // without excess ocean/neighbor-state padding. Not derived from data (there's
 // no "centroid of all counties" reason to prefer over a plain eyeballed
 // state center) - just a sane initial camera, same spirit as the outline
-// map's own fixed viewBox. Shared by both providers; Google and Mapbox each
-// convert the [lng, lat] tuple into their own center-object shape.
+// map's own fixed viewBox. Shared by both providers; Google and MapTiler
+// each convert the [lng, lat] tuple into their own center-object shape.
 const STATEWIDE_VIEW = {
   FL: { center: [-81.6, 28.1], zoom: 5.6 },
   TX: { center: [-99.3, 31.4], zoom: 5.1 }
@@ -91,29 +102,29 @@ let rows = [];
 let ledger = "all";
 let openDetail = null;
 
-let activeStyle = "outline"; // "outline" | "google" | "mapbox" - which canvas shows
+let activeStyle = "outline"; // "outline" | "google" | "maptiler" - which canvas shows
 
 function googleMapsApiKey() {
   const k = (window.TDW_CONFIG || {}).googleMapsApiKey;
   return typeof k === "string" ? k.trim() : "";
 }
 
-function mapboxToken() {
-  const t = (window.TDW_CONFIG || {}).mapboxToken;
-  return typeof t === "string" ? t.trim() : "";
+function maptilerKey() {
+  const k = (window.TDW_CONFIG || {}).maptilerKey;
+  return typeof k === "string" ? k.trim() : "";
 }
 
 // ---------------------------------------------------------------------------
-// style toggle - three-way: outline (default, no third party) / google / mapbox
+// style toggle - three-way: outline (default, no third party) / google / maptiler
 // ---------------------------------------------------------------------------
 function bindStyleToggle() {
   const outlineBtn = $("mapStyleOutline");
   const googleBtn = $("mapStyleGoogle");
-  const mapboxBtn = $("mapStyleMapbox");
+  const maptilerBtn = $("mapStyleMaptiler");
   if (!outlineBtn) return;
   outlineBtn.addEventListener("click", () => setStyle("outline"));
   if (googleBtn) googleBtn.addEventListener("click", () => setStyle("google"));
-  if (mapboxBtn) mapboxBtn.addEventListener("click", () => setStyle("mapbox"));
+  if (maptilerBtn) maptilerBtn.addEventListener("click", () => setStyle("maptiler"));
 }
 
 function setStyle(style) {
@@ -121,12 +132,12 @@ function setStyle(style) {
   activeStyle = style;
   const outlineBtn = $("mapStyleOutline");
   const googleBtn = $("mapStyleGoogle");
-  const mapboxBtn = $("mapStyleMapbox");
+  const maptilerBtn = $("mapStyleMaptiler");
   const outlineCanvas = $("exploreMapCanvas");
   const satCanvas = $(CANVAS_ID);
   if (outlineBtn) outlineBtn.classList.toggle("on", style === "outline");
   if (googleBtn) googleBtn.classList.toggle("on", style === "google");
-  if (mapboxBtn) mapboxBtn.classList.toggle("on", style === "mapbox");
+  if (maptilerBtn) maptilerBtn.classList.toggle("on", style === "maptiler");
   if (outlineCanvas) outlineCanvas.hidden = style !== "outline";
   if (satCanvas) satCanvas.hidden = style === "outline";
   // The outline map's own centroids/geometry stay correct while hidden (see
@@ -138,10 +149,10 @@ function setStyle(style) {
       requestAnimationFrame(() => window.google.maps.event.trigger(googleState.map, "resize"));
     }
     renderGoogle();
-  } else if (style === "mapbox") {
-    ensureMapboxMap();
-    if (mapboxState.map) requestAnimationFrame(() => mapboxState.map.resize());
-    renderMapbox();
+  } else if (style === "maptiler") {
+    ensureMaptilerMap();
+    if (maptilerState.map) requestAnimationFrame(() => maptilerState.map.resize());
+    renderMaptiler();
   }
 }
 
@@ -227,7 +238,7 @@ function groupByCounty() {
 // Fine for Marc's demo key; swap for a real Map ID (Google Cloud Console ->
 // Maps Management -> Map IDs) if/when this moves off the demo key. A Map ID
 // is required for AdvancedMarkerElement - it isn't optional the way a
-// Mapbox style URL was.
+// MapTiler style URL was.
 const GOOGLE_MAP_ID = "DEMO_MAP_ID";
 
 const googleState = {
@@ -411,91 +422,96 @@ function showGooglePopup(p, position) {
 }
 
 // ============================================================================
-// MAPBOX PROVIDER
+// MAPTILER PROVIDER
 // ============================================================================
-const MAPBOX_GL_VERSION = "v3.30.0"; // bump alongside a check of
-  // https://docs.mapbox.com/mapbox-gl-js/guides/install/ for a newer stable
+// MapLibre GL JS - an open-source, API-compatible fork of Mapbox GL JS (see
+// this file's header, Phase 60). Loaded from a CDN rather than a provider's
+// own host, since MapTiler doesn't host the library itself the way Mapbox
+// does at api.mapbox.com; unpkg mirrors the published npm package verbatim.
+const MAPLIBRE_GL_VERSION = "4.7.1"; // bump alongside a check of
+  // https://www.npmjs.com/package/maplibre-gl for a newer stable
 
-const mapboxState = {
-  gl: null,          // the mapboxgl module, once loaded
-  map: null,          // the mapboxgl.Map instance, once created
+const maptilerState = {
+  gl: null,          // the maplibregl module, once loaded
+  map: null,          // the maplibregl.Map instance, once created
   loadState: "idle",  // "idle" | "loading" | "ready" | "unconfigured" | "error"
   markers: [],
   popup: null,
   lastZoomedCounty: null
 };
 
-function loadMapboxGl() {
-  if (window.mapboxgl) return Promise.resolve(window.mapboxgl);
-  if (loadMapboxGl._p) return loadMapboxGl._p;
-  loadMapboxGl._p = new Promise((resolve, reject) => {
+function loadMapLibreGl() {
+  if (window.maplibregl) return Promise.resolve(window.maplibregl);
+  if (loadMapLibreGl._p) return loadMapLibreGl._p;
+  loadMapLibreGl._p = new Promise((resolve, reject) => {
     const link = document.createElement("link");
     link.rel = "stylesheet";
-    link.href = `https://api.mapbox.com/mapbox-gl-js/${MAPBOX_GL_VERSION}/mapbox-gl.css`;
+    link.href = `https://unpkg.com/maplibre-gl@${MAPLIBRE_GL_VERSION}/dist/maplibre-gl.css`;
     document.head.appendChild(link);
 
     const script = document.createElement("script");
-    script.src = `https://api.mapbox.com/mapbox-gl-js/${MAPBOX_GL_VERSION}/mapbox-gl.js`;
-    script.onload = () => resolve(window.mapboxgl);
-    script.onerror = () => reject(new Error("Mapbox GL JS failed to load"));
+    script.src = `https://unpkg.com/maplibre-gl@${MAPLIBRE_GL_VERSION}/dist/maplibre-gl.js`;
+    script.onload = () => resolve(window.maplibregl);
+    script.onerror = () => reject(new Error("MapLibre GL JS failed to load"));
     document.head.appendChild(script);
   });
-  return loadMapboxGl._p;
+  return loadMapLibreGl._p;
 }
 
-async function ensureMapboxMap() {
-  if (mapboxState.loadState === "ready" || mapboxState.loadState === "loading") return;
-  const token = mapboxToken();
-  if (!token) {
-    mapboxState.loadState = "unconfigured";
+async function ensureMaptilerMap() {
+  if (maptilerState.loadState === "ready" || maptilerState.loadState === "loading") return;
+  const key = maptilerKey();
+  if (!key) {
+    maptilerState.loadState = "unconfigured";
     setupMessage(
-      `<b>Mapbox satellite view isn't set up yet</b>` +
-      `<span>Add a free Mapbox token as <code>mapboxToken</code> in ` +
+      `<b>MapTiler satellite view isn't set up yet</b>` +
+      `<span>Add a free MapTiler key as <code>maptilerKey</code> in ` +
       `<code>config.js</code>, then reload. The outline map on the left ` +
       `still works fully without one.</span>`
     );
     return;
   }
-  mapboxState.loadState = "loading";
-  setupMessage(`<b>Loading Mapbox satellite map…</b>`);
+  maptilerState.loadState = "loading";
+  setupMessage(`<b>Loading MapTiler satellite map…</b>`);
   try {
-    mapboxState.gl = await loadMapboxGl();
-    mapboxState.gl.accessToken = token;
+    maptilerState.gl = await loadMapLibreGl();
     const canvas = $(CANVAS_ID);
     canvas.innerHTML = "";
     const view = STATEWIDE_VIEW[PAGE_STATE] || STATEWIDE_VIEW.FL;
-    mapboxState.map = new mapboxState.gl.Map({
+    maptilerState.map = new maptilerState.gl.Map({
       container: canvas,
-      style: "mapbox://styles/mapbox/satellite-streets-v12",
+      // "hybrid" = satellite imagery + labels, MapTiler's closest match to
+      // Mapbox's old satellite-streets-v12 style this replaced.
+      style: `https://api.maptiler.com/maps/hybrid/style.json?key=${key}`,
       center: view.center,
       zoom: view.zoom,
       attributionControl: true
     });
-    mapboxState.map.addControl(new mapboxState.gl.NavigationControl({ showCompass: false }), "top-right");
-    mapboxState.popup = new mapboxState.gl.Popup({ closeButton: true, closeOnClick: false, offset: 14 });
-    mapboxState.map.on("load", () => {
-      mapboxState.loadState = "ready";
-      renderMapbox();
+    maptilerState.map.addControl(new maptilerState.gl.NavigationControl({ showCompass: false }), "top-right");
+    maptilerState.popup = new maptilerState.gl.Popup({ closeButton: true, closeOnClick: false, offset: 14 });
+    maptilerState.map.on("load", () => {
+      maptilerState.loadState = "ready";
+      renderMaptiler();
     });
   } catch (err) {
-    mapboxState.loadState = "error";
+    maptilerState.loadState = "error";
     setupMessage(
-      `<b>Mapbox satellite map couldn't load</b>` +
+      `<b>MapTiler satellite map couldn't load</b>` +
       `<span>Check your connection and reload. The outline map still ` +
       `works offline - switch back with the Map button above.</span>`
     );
   }
 }
 
-function clearMapboxMarkers() {
-  mapboxState.markers.forEach(m => m.remove());
-  mapboxState.markers = [];
+function clearMaptilerMarkers() {
+  maptilerState.markers.forEach(m => m.remove());
+  maptilerState.markers = [];
 }
 
-async function renderMapbox() {
-  if (activeStyle !== "mapbox" || mapboxState.loadState !== "ready" || !mapboxState.map) return;
-  const gl = mapboxState.gl;
-  const map = mapboxState.map;
+async function renderMaptiler() {
+  if (activeStyle !== "maptiler" || maptilerState.loadState !== "ready" || !maptilerState.map) return;
+  const gl = maptilerState.gl;
+  const map = maptilerState.map;
   const canvas = $(CANVAS_ID);
   if (canvas) canvas.dataset.ledger = ledger;
 
@@ -503,15 +519,15 @@ async function renderMapbox() {
   const selectedCounty = ($("mapCountySelect") || {}).value || "ALL";
   const zoomed = selectedCounty !== "ALL" && byCounty.has(selectedCounty);
 
-  clearMapboxMarkers();
+  clearMaptilerMarkers();
 
   if (zoomed) {
     const list = byCounty.get(selectedCounty) || [];
     const cc = await loadCentroids();
     const center = cc[selectedCounty];
-    if (center && mapboxState.lastZoomedCounty !== selectedCounty) {
+    if (center && maptilerState.lastZoomedCounty !== selectedCounty) {
       map.flyTo({ center: [center.lng, center.lat], zoom: 10, essential: true });
-      mapboxState.lastZoomedCounty = selectedCounty;
+      maptilerState.lastZoomedCounty = selectedCounty;
     }
     list.filter(hasPin).forEach(p => {
       const el = document.createElement("div");
@@ -519,16 +535,16 @@ async function renderMapbox() {
       el.setAttribute("role", "button");
       el.setAttribute("tabindex", "0");
       el.setAttribute("aria-label", pinLabel(p) + " - view details");
-      el.addEventListener("click", () => showMapboxPopup(p, [p.longitude, p.latitude]));
+      el.addEventListener("click", () => showMaptilerPopup(p, [p.longitude, p.latitude]));
       const m = new gl.Marker({ element: el, anchor: "bottom" })
         .setLngLat([p.longitude, p.latitude])
         .addTo(map);
-      mapboxState.markers.push(m);
+      maptilerState.markers.push(m);
     });
     return;
   }
 
-  mapboxState.lastZoomedCounty = null;
+  maptilerState.lastZoomedCounty = null;
   if (STATEWIDE_VIEW[PAGE_STATE]) {
     const v = STATEWIDE_VIEW[PAGE_STATE];
     const c = map.getCenter();
@@ -563,12 +579,12 @@ async function renderMapbox() {
       const m = new gl.Marker({ element: el, anchor: "center" })
         .setLngLat([center.lng, center.lat])
         .addTo(map);
-      mapboxState.markers.push(m);
+      maptilerState.markers.push(m);
     });
 }
 
-function showMapboxPopup(p, lngLat) {
-  if (!mapboxState.popup || !mapboxState.map) return;
+function showMaptilerPopup(p, lngLat) {
+  if (!maptilerState.popup || !maptilerState.map) return;
   const el = document.createElement("div");
   el.innerHTML =
     `<p class="sat-popup-addr">${escapeHtml(pinLabel(p))}</p>` +
@@ -579,7 +595,7 @@ function showMapboxPopup(p, lngLat) {
   btn.textContent = "View details";
   btn.addEventListener("click", () => { if (openDetail) openDetail(p); });
   el.appendChild(btn);
-  mapboxState.popup.setLngLat(lngLat).setDOMContent(el).addTo(mapboxState.map);
+  maptilerState.popup.setLngLat(lngLat).setDOMContent(el).addTo(maptilerState.map);
 }
 
 // ---------------------------------------------------------------------------
@@ -592,7 +608,7 @@ function absorb(detail) {
   ledger = d.ledger || ledger;
   openDetail = d.openDetail || openDetail;
   renderGoogle();
-  renderMapbox();
+  renderMaptiler();
 }
 
 window.addEventListener("tdw:maprendered", e => absorb(e.detail));

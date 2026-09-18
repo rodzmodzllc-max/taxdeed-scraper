@@ -477,7 +477,7 @@ only where it lives changed, not how it draws. -->
 <div class="map-style-toggle" id="mapStyleToggle" role="group" aria-label="Map style">
 <button type="button" class="on" data-style="outline" id="mapStyleOutline">Map</button>
 <button type="button" data-style="google" id="mapStyleGoogle">Google</button>
-<button type="button" data-style="mapbox" id="mapStyleMapbox">Mapbox</button>
+<button type="button" data-style="maptiler" id="mapStyleMaptiler">MapTiler</button>
 </div>
 <span class="explore-map-count" id="exploreMapCount"></span>
 </div>
@@ -486,16 +486,16 @@ only where it lives changed, not how it draws. -->
 <div class="explore-map-canvas" id="exploreMapCanvas">
 <div class="explore-map-empty">Loading map…</div>
 </div>
-<!-- Phase 55/56/57: two optional third-party basemaps for this same stage -
-real satellite/terrain via Google Maps or Mapbox, either one toggled
+<!-- Phase 55/56/57/60: two optional third-party basemaps for this same stage -
+real satellite/terrain via Google Maps or MapTiler, either one toggled
 against the outline map above via #mapStyleToggle (three-way: Map /
-Google / Mapbox). See satellite-map.js for why this is a separate
+Google / MapTiler). See satellite-map.js for why this is a separate
 module (same one-way tdw:maprendered contract explore.js uses) and
-CLAUDE.md's Phase 55/56/57 sections for the trade-off this represents
+CLAUDE.md's Phase 55/56/57/60 sections for the trade-off this represents
 (a third party now sees the tiles a signed-in user requests, opt-in
 per click, off by default) - Marc chose this explicitly after it was
 raised to him. Each provider is hidden behind its own setup message
-until config.js carries its key (googleMapsApiKey / mapboxToken); see
+until config.js carries its key (googleMapsApiKey / maptilerKey); see
 satellite-map.js's setup messages. -->
 <div class="satellite-map-canvas" id="satelliteMapCanvas" hidden></div>
 <div class="cluster-tip" id="clusterTip"></div>
@@ -642,8 +642,8 @@ event app.js dispatches, so load order isn't strictly required - but
 keeping it second matches the dependency direction and makes that
 one-way relationship obvious from the markup. -->
 <script type="module" src="explore.js"></script>
-<!-- Phase 55/56/57: independent of explore.js (same tdw:maprendered contract,
-own module) - owns the optional Google/Mapbox satellite basemap toggle.
+<!-- Phase 55/56/57/60: independent of explore.js (same tdw:maprendered contract,
+own module) - owns the optional Google/MapTiler satellite basemap toggle.
 Each provider no-ops until config.js carries its own key; see
 satellite-map.js's header. -->
 <script type="module" src="satellite-map.js"></script>
