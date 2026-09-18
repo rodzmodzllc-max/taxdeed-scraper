@@ -1,0 +1,36 @@
+name: Probe RealAuction field labels (READ-ONLY evidence)
+
+# Evidence run for the Citrus/Hernando empty-parcel gap. Push-triggered on its
+# own probe branch because workflow_dispatch only works for workflows already
+# on main; nothing here should ever fire on a schedule. GET only, no secrets,
+# no database. Delete this file with the probe branch once the evidence is in.
+
+on:
+  push:
+    branches: ['probe/realauction-labels']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    name: Gather RealAuction label evidence
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install requests
+      - name: Run the read-only probe
+        run: python3 scripts/probe_realauction_labels.py
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: realauction-label-evidence
+          path: out/probe_realauction_labels.json
+          if-no-files-found: warn
+          retention-days: 14
