@@ -77,6 +77,20 @@ FGIO_LAYER = (
 # FL DOR county codes for the three counties under test (alphabetical 11-77).
 FL_COUNTIES = {"Hillsborough": 39, "Brevard": 15, "Suwannee": 71}
 
+# Two more counties whose RealAuction skin publishes NO parcel number at all,
+# only the property appraiser's own key (confirmed live 2026-09-18, Actions
+# run 35402576827): Citrus labels it "Alternate Key", Hernando "Parcel Key".
+# Their stored `parcel` is '' for every row, so the keys are read live from
+# the same public listing pages the harvester reads, and tested against
+# FDOR's ALT_KEY exactly like the stored accounts above. If they join 1:1,
+# those 50 rows become enrichable through the same ALT_KEY -> PARCEL_ID map.
+FL_LIVE_KEY_COUNTIES = {
+    "Citrus":   {"co_no": 19, "host": "citrus.realtaxdeed.com",   "labels": ("Alternate Key",)},
+    "Hernando": {"co_no": 37, "host": "hernando.realtaxdeed.com", "labels": ("Parcel Key",)},
+}
+REALAUCTION_UA = {"User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+                                 "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36")}
+
 GALVESTON_GIS_PAGE = "https://galvestoncad.org/gis-data/"
 
 # Appraisal attributes that would make the Galveston DBF useful: these are the
@@ -126,6 +140,91 @@ def fetch_stored_accounts() -> dict[str, list[str]]:
         out[county] = sorted(set(vals))
         _log(f"{county}: {len(out[county])} distinct stored accounts")
     return out
+
+
+# --------------------------------------------------------------------------
+# FL: live appraiser keys from RealAuction skins that publish no parcel number
+# --------------------------------------------------------------------------
+def extract_alt_keys(listing_text: str, labels: tuple[str, ...]) -> list[str]:
+    """Values under the given labels, one per AITEM_ block, in page order.
+
+    Same block split and the same label -> CAD_DTA regex shape as
+    harvest_all_counties.ps1's Get-Field, applied to the raw JSON-escaped
+    listing text. Anchor text wins when the value is a link.
+    """
+    keys: list[str] = []
+    for block in re.split(r"AITEM_", listing_text)[1:]:
+        for label in labels:
+            m = re.search(re.escape(label) + r':(?:@F|<)[\s\S]{0,200}?CAD_DTA\\?">\s*'
+                          r'([^@<]*(?:<a[^>]*>([^<]*)</a>)?[^@<]*)', block)
+            if m:
+                v = (m.group(2) or m.group(1)).replace('\\"', '"')
+                v = re.sub(r"\s+", " ", v).strip()
+                if v:
+                    keys.append(v)
+                break
+    return keys
+
+
+def realauction_live_keys(county: str, host: str, labels: tuple[str, ...]) -> dict:
+    """Appraiser keys from the county's next auction date(s), read-only.
+
+    Calendar for this month + next two -> preview warm-up -> the same
+    paginated AJAX listing the harvester reads, up to 3 pages per date and
+    at most 2 dates, so this stays a few dozen requests. Nothing is stored.
+    """
+    result = {"county": county, "host": host, "dates": [], "keys": [], "errors": [], "requests": 0}
+    s = requests.Session()
+    s.headers.update(REALAUCTION_UA)
+    today = datetime.now(timezone.utc)
+    y, mth = today.year, today.month
+    dates: list[str] = []
+    for _ in range(3):
+        try:
+            r = s.get(f"https://{host}/index.cfm", timeout=30, params={
+                "zaction": "user", "zmethod": "calendar",
+                "selCalDate": f"{{ts '{y:04d}-{mth:02d}-01 00:00:00'}}"})
+            result["requests"] += 1
+            r.raise_for_status()
+            dates += re.findall(r"CALSELT[^>]*dayid=['\"](\d{2}/\d{2}/\d{4})['\"]", r.text)
+        except requests.RequestException as exc:
+            result["errors"].append(f"calendar {y}-{mth:02d}: {exc!r}"[:200])
+        mth += 1
+        if mth == 13:
+            y, mth = y + 1, 1
+        time.sleep(0.5)
+    dates = list(dict.fromkeys(dates))
+    result["dates"] = dates
+    for d in dates[:2]:
+        preview = f"https://{host}/index.cfm?zaction=AUCTION&zmethod=PREVIEW&AuctionDate={d}"
+        try:
+            s.get(preview, timeout=30, headers={
+                "Referer": f"https://{host}/index.cfm?zaction=USER&zmethod=CALENDAR"}).raise_for_status()
+            result["requests"] += 1
+        except requests.RequestException as exc:
+            result["errors"].append(f"preview {d}: {exc!r}"[:200])
+            continue
+        for page in range(3):
+            try:
+                r = s.get(f"https://{host}/index.cfm", timeout=30, params={
+                    "zaction": "AUCTION", "Zmethod": "UPDATE", "FNC": "LOAD", "AREA": "W",
+                    "PageDir": str(page), "doR": "1", "bypassPage": "1", "test": "1"},
+                    headers={"Accept": "application/json, text/javascript, */*; q=0.01",
+                             "X-Requested-With": "XMLHttpRequest", "Referer": preview})
+                result["requests"] += 1
+                r.raise_for_status()
+            except requests.RequestException as exc:
+                result["errors"].append(f"listing {d} p{page}: {exc!r}"[:200])
+                break
+            found = extract_alt_keys(r.text, labels)
+            if not found:
+                break
+            result["keys"] += found
+            time.sleep(0.5)
+    result["keys"] = sorted(set(result["keys"]))
+    _log(f"{county}: {len(result['keys'])} distinct live appraiser keys from {len(dates)} date(s), "
+         f"{result['requests']} requests")
+    return result
 
 
 # --------------------------------------------------------------------------
@@ -438,7 +537,19 @@ def main() -> int:
     for county, co_no in FL_COUNTIES.items():
         accounts = stored.get(county) if isinstance(stored.get(county), list) else []
         _log(f"--- FL {county} (CO_NO={co_no}), {len(accounts)} accounts")
-        fl_rows.append(analyse_fl_county(county, co_no, accounts))
+        row = analyse_fl_county(county, co_no, accounts)
+        row["key_source"] = "stored parcel column"
+        fl_rows.append(row)
+    live_key_runs = {}
+    for county, cfg in FL_LIVE_KEY_COUNTIES.items():
+        _log(f"--- FL {county} (CO_NO={cfg['co_no']}), live appraiser keys from {cfg['host']}")
+        live = realauction_live_keys(county, cfg["host"], cfg["labels"])
+        live_key_runs[county] = live
+        row = analyse_fl_county(county, cfg["co_no"], live["keys"])
+        row["key_source"] = f"live RealAuction {'/'.join(cfg['labels'])}"
+        row["errors"] = (live["errors"] + row["errors"])[:6]
+        fl_rows.append(row)
+    evidence["fl_live_keys"] = live_key_runs
     evidence["fl_results"] = fl_rows
     evidence["fl_verdict"] = verdict_fl(fl_rows)
 
@@ -459,12 +570,12 @@ def main() -> int:
          f"- **FL ALT_KEY -> PARCEL_ID mapping: {evidence['fl_verdict']}**",
          f"- **TX Galveston CAD DBF: {evidence['tx_verdict']}**", "",
          "## FL results", "",
-         "| County | Rows examined | FGIO pulled | Exact | Ambiguous | Unmatched | 1:1 % | Strategy |",
-         "|---|---|---|---|---|---|---|---|"]
+         "| County | Key source | Rows examined | FGIO pulled | Exact | Ambiguous | Unmatched | 1:1 % | Strategy |",
+         "|---|---|---|---|---|---|---|---|---|"]
     for r in fl_rows:
-        L.append(f"| {r['county']} | {r['rows_examined']} | {r['fgio_records_pulled']} | "
-                 f"{r['exact_matches']} | {r['ambiguous_matches']} | {r['unmatched']} | "
-                 f"{r['one_to_one_pct']} | {r['strategy_used']} |")
+        L.append(f"| {r['county']} | {r.get('key_source', '')} | {r['rows_examined']} | "
+                 f"{r['fgio_records_pulled']} | {r['exact_matches']} | {r['ambiguous_matches']} | "
+                 f"{r['unmatched']} | {r['one_to_one_pct']} | {r['strategy_used']} |")
     for r in fl_rows:
         if r["examples"]:
             L += ["", f"### {r['county']} - proof of join (account -> PARCEL_ID)", ""]
