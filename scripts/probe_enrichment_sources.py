@@ -490,6 +490,11 @@ def probe_galveston_dbf() -> dict:
 
 
 # --------------------------------------------------------------------------
+def _write_evidence_json(evidence: dict) -> None:
+    (OUT_DIR / "probe_enrichment_sources.json").write_text(
+        json.dumps(evidence, indent=2, default=str), encoding="utf-8")
+
+
 def verdict_fl(rows: list[dict]) -> str:
     scored = [r for r in rows if r.get("rows_examined")]
     if not scored or all(r["strategy_used"] is None for r in scored):
@@ -539,14 +544,22 @@ def main() -> int:
     evidence["stored_account_counts"] = {
         k: (len(v) if isinstance(v, list) else v) for k, v in stored.items()}
 
+    # Each FL county is a long paged pull (Hillsborough alone is hundreds of
+    # thousands of parcels). Persist after every county so a job timeout
+    # keeps the counties already measured instead of losing the whole run.
     fl_rows = []
+    evidence["fl_results"] = fl_rows
+    evidence["status"] = "in progress"
+    _write_evidence_json(evidence)
     for county, co_no in FL_COUNTIES.items():
         accounts = stored.get(county) if isinstance(stored.get(county), list) else []
         _log(f"--- FL {county} (CO_NO={co_no}), {len(accounts)} accounts")
         row = analyse_fl_county(county, co_no, accounts)
         row["key_source"] = "stored parcel column"
         fl_rows.append(row)
+        _write_evidence_json(evidence)
     live_key_runs = {}
+    evidence["fl_live_keys"] = live_key_runs
     for county, cfg in FL_LIVE_KEY_COUNTIES.items():
         _log(f"--- FL {county} (CO_NO={cfg['co_no']}), live appraiser keys from {cfg['host']}")
         live = realauction_live_keys(county, cfg["host"], cfg["labels"])
@@ -555,8 +568,7 @@ def main() -> int:
         row["key_source"] = f"live RealAuction {'/'.join(cfg['labels'])}"
         row["errors"] = (live["errors"] + row["errors"])[:6]
         fl_rows.append(row)
-    evidence["fl_live_keys"] = live_key_runs
-    evidence["fl_results"] = fl_rows
+        _write_evidence_json(evidence)
     evidence["fl_verdict"] = verdict_fl(fl_rows)
 
     _log("--- TX Galveston DBF")
@@ -564,9 +576,8 @@ def main() -> int:
     evidence["tx_galveston"] = gal
     evidence["tx_verdict"] = verdict_tx(gal)
     evidence["finished_utc"] = datetime.now(timezone.utc).isoformat()
-
-    (OUT_DIR / "probe_enrichment_sources.json").write_text(
-        json.dumps(evidence, indent=2, default=str), encoding="utf-8")
+    evidence["status"] = "complete"
+    _write_evidence_json(evidence)
 
     # Human-readable summary
     L = [f"# Enrichment source probe - evidence", "",
