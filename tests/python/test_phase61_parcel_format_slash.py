@@ -1,4 +1,4 @@
-"""Tests for Phase 60 - the slash -> dash parcel normalization rule.
+"""Tests for Phase 61 - the slash -> dash parcel normalization rule.
 
 Why this rule exists, and why it is narrow:
 
@@ -44,9 +44,9 @@ SCRIPT = REPO / "scripts" / "enrich_property_details.py"
 def enrich(monkeypatch):
     monkeypatch.setenv("SUPABASE_URL", "https://example.test")
     monkeypatch.setenv("SUPABASE_SERVICE_KEY", "not-a-real-key")
-    spec = importlib.util.spec_from_file_location("_p60_enrich", SCRIPT)
+    spec = importlib.util.spec_from_file_location("_p61_enrich", SCRIPT)
     mod = importlib.util.module_from_spec(spec)
-    sys.modules["_p60_enrich"] = mod
+    sys.modules["_p61_enrich"] = mod
     spec.loader.exec_module(mod)
     return mod
 
@@ -66,17 +66,17 @@ CONFIRMED_LIVE = (
 
 
 @pytest.mark.parametrize("stored,expected", CONFIRMED_LIVE)
-def test_p60_01_slash_form_yields_the_dashed_candidate(enrich, stored, expected):
+def test_p61_01_slash_form_yields_the_dashed_candidate(enrich, stored, expected):
     """Each parcel confirmed live must actually be produced by the rule."""
     assert expected in enrich.normalize_candidates(stored), stored
 
 
-def test_p60_02_as_is_form_is_still_tried_first(enrich):
+def test_p61_02_as_is_form_is_still_tried_first(enrich):
     """A county that already matches exactly must not pay an extra request."""
     assert enrich.normalize_candidates("2402-503-0089-000-1")[0] == "2402-503-0089-000-1"
 
 
-def test_p60_03_parcels_without_a_slash_gain_no_candidate(enrich):
+def test_p61_03_parcels_without_a_slash_gain_no_candidate(enrich):
     """The rule must be free for the other 66 counties. For a parcel with no
     slash the substitution equals the parcel itself, which the dedupe set
     already dropped - so the candidate count must be unchanged."""
@@ -87,24 +87,24 @@ def test_p60_03_parcels_without_a_slash_gain_no_candidate(enrich):
         assert len(candidates) == len(set(candidates)), stored
 
 
-def test_p60_04_the_reverse_rule_is_not_added(enrich):
+def test_p61_04_the_reverse_rule_is_not_added(enrich):
     """dash -> slash is deliberately NOT a candidate: no county has been
     observed needing it, and an unproven candidate costs a request per row."""
     candidates = enrich.normalize_candidates("2402-503-0089-000-1")
     assert not any("/" in c for c in candidates)
 
 
-def test_p60_05_candidate_list_stays_deduplicated(enrich):
+def test_p61_05_candidate_list_stays_deduplicated(enrich):
     for stored, _ in CONFIRMED_LIVE:
         candidates = enrich.normalize_candidates(stored)
         assert len(candidates) == len(set(candidates)), stored
 
 
-def test_p60_06_alnum_only_form_did_not_already_cover_this(enrich):
+def test_p61_06_alnum_only_form_did_not_already_cover_this(enrich):
     """Guards the claim that this rule is genuinely new. The alnum-only
     candidate strips the slash too, but it also strips every dash, giving a
     form the layer does not hold - which is why St. Lucie's certificate rows
-    missed under the pre-Phase-60 candidate set."""
+    missed under the pre-Phase-61 candidate set."""
     candidates = enrich.normalize_candidates("2403-602-0056-000/8")
     assert "240360200560008" in candidates      # the alnum-only form
     assert "2403-602-0056-000-8" in candidates   # the form that actually matches
