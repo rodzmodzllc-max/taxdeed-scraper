@@ -1197,9 +1197,29 @@ function absorb(detail) {
   ensureMap();
   const select = $("mapCountySelect");
   selectedCounty = select && select.value !== "ALL" ? select.value : null;
-  // The county can also change straight from the dropdown. Keep the zoom in
-  // step with whatever moved it.
-  if (svgLoaded && zoomCounty && zoomCounty !== selectedCounty) { zoomTo(selectedCounty); return; }
+  // The county can also change straight from the dropdown (the Filters
+  // panel), not just by tapping a bubble. computeMapRows() in app.js already
+  // narrows `rows` to that one county whenever mapFilter.county isn't "ALL"
+  // (see its own comment), so a non-null selectedCounty always means exactly
+  // one county's worth of rows here - there's no legitimate "statewide, but
+  // also filtered to one county" state to preserve. Previously this only
+  // re-synced when zoomCounty was ALREADY truthy, so picking a county from
+  // the dropdown while still zoomed OUT left zoomCounty stuck at null:
+  // draw() (and drawPins()) kept drawing one lone summary bubble instead of
+  // that county's real pins, and updateSummary()/renderBubbleLegend() kept
+  // showing the statewide title, "Bubble size" legend, and "not exact parcel
+  // locations" note for what Google/MapTiler (which compute their own zoomed
+  // state independently from selectedCounty, not from this zoomCounty) were
+  // already correctly rendering as a zoomed-in, real-coordinate pin - a
+  // three-basemaps-disagree bug Marc reported from the MapTiler view
+  // (screenshot: "Where these are" / "1 shown across 1 county" / "Bubble
+  // size..." copy sitting above a single real pin already flown in on
+  // Highlands County). Comparing the two directly, with no zoomCounty
+  // truthiness check, keeps all three basemaps and the shared summary text
+  // in sync however the county was chosen - and still self-corrects safely
+  // if a county somehow isn't in the SVG, since zoomTo() itself falls back
+  // zoomCounty to null when countyViewBox() can't find a box for it.
+  if (svgLoaded && zoomCounty !== selectedCounty) { zoomTo(selectedCounty); return; }
   if (svgLoaded) draw();
 }
 

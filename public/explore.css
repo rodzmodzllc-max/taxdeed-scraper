@@ -199,14 +199,24 @@ body[data-state="TX"] .explore-map{--map-aspect:0.994}
    these class names and can change them between releases, and they render
    inside a closed shadow root in current versions besides, so overriding
    them isn't reliable. Left at Google's own default chrome on that path.
-   Mapbox's popup chrome (.mapboxgl-popup-*) IS plain, overridable CSS,
-   so that path gets themed to match the app - both paths' actual content
-   (passed to setContent()/setDOMContent()) is the same .sat-popup-* markup
-   either way. */
-.mapboxgl-popup-content{background:var(--card) !important;color:var(--ink) !important;
+   MapLibre's popup chrome IS plain, overridable CSS, so that path gets
+   themed to match the app - both paths' actual content (passed to
+   setContent()/setDOMContent()) is the same .sat-popup-* markup either way.
+   Phase 63: these were still named .mapboxgl-popup-* from when this file's
+   comment (and satellite-map.js's provider) meant Mapbox GL JS itself.
+   Phase 60 swapped the provider for MapLibre GL JS - an independent fork,
+   not a Mapbox build - and MapLibre 4.x's own stylesheet ships its popup
+   chrome under a .maplibregl-popup-* prefix, not .mapboxgl-popup-* (verified
+   against the actual maplibre-gl@4.7.1 package, the version pinned in
+   satellite-map.js's MAPLIBRE_GL_VERSION). So these rules never matched
+   anything: every MapTiler property-pin popup rendered in MapLibre's bare
+   default chrome (plain white, square corners, no shadow) instead of the
+   app's card theme, however Marc reported it - "preview" covers this popup,
+   not just the pin. */
+.maplibregl-popup-content{background:var(--card) !important;color:var(--ink) !important;
   font-family:var(--font-sans) !important;border-radius:8px !important;
   box-shadow:var(--shadow) !important;padding:.7rem .8rem !important}
-.mapboxgl-popup-tip{border-top-color:var(--card) !important;border-bottom-color:var(--card) !important}
+.maplibregl-popup-tip{border-top-color:var(--card) !important;border-bottom-color:var(--card) !important}
 .sat-popup-addr{font-weight:700;font-size:.8rem;margin:0 0 .2rem}
 .sat-popup-meta{font-size:.72rem;color:var(--ink-soft);margin:0 0 .5rem}
 .sat-popup-open{font-family:var(--font-sans);font-size:.72rem;font-weight:700;
