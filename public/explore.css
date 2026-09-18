@@ -155,12 +155,16 @@ body[data-state="TX"] .explore-map{--map-aspect:0.994}
    hidden before Phase 55's style switch existed) - same specificity tie as
    above, same fix: give [hidden] the extra selector weight it needs to win. */
 .explore-map-canvas[hidden]{display:none}
-/* Phase 56/57: two providers can render into this same canvas (never both at
-   once - only the active one is un-hidden). Google Maps renders into a plain
-   internal div structure and fills its parent (.satellite-map-canvas,
-   already rounded+clipped via overflow:hidden above) with no extra rule
-   needed. Mapbox GL draws its own canvas/container that needs its corners
-   explicitly rounded to match. */
+/* Phase 56/57/60/61: this class is shared by BOTH providers' canvases, each
+   its own DOM node as of Phase 61 (see satellite-map.js's header for why
+   they used to share one node, and why that was a bug - only the active
+   one is ever un-hidden, but each keeps its own live map/markers now, no
+   hand-off needed). Google Maps renders into a plain internal div structure
+   and fills its parent (.satellite-map-canvas, already rounded+clipped via
+   overflow:hidden above) with no extra rule needed. MapLibre GL (Phase 60's
+   replacement for Mapbox GL - same CSS class prefix, see satellite-map.js's
+   header) draws its own canvas/container that needs its corners explicitly
+   rounded to match. */
 .satellite-map-canvas .mapboxgl-canvas-container,
 .satellite-map-canvas .mapboxgl-map{border-radius:10px}
 .satellite-map-setup{position:absolute;inset:0;display:flex;flex-direction:column;

@@ -473,9 +473,11 @@ only where it lives changed, not how it draws. -->
 <div class="explore-map-canvas" id="exploreMapCanvas">
 <div class="explore-map-empty">Loading map…</div>
 </div>
-<!-- Phase 55: a second, optional basemap for this same stage - see the
-matching comment in index.html and satellite-map.js. -->
-<div class="satellite-map-canvas" id="satelliteMapCanvas" hidden></div>
+<!-- Phase 55/61: two optional basemaps for this same stage, each with its
+own canvas as of Phase 61 - see the matching comment in index.html and
+satellite-map.js's header for why. -->
+<div class="satellite-map-canvas" id="satelliteMapCanvasGoogle" hidden></div>
+<div class="satellite-map-canvas" id="satelliteMapCanvasMaptiler" hidden></div>
 <div class="cluster-tip" id="clusterTip"></div>
 <aside class="explore-map-rail" id="exploreMapRail" hidden aria-label="Counties in view"></aside>
 </div>

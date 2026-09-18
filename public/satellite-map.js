@@ -47,6 +47,34 @@
 // wiring for what's still, at heart, one feature with two swappable
 // backends.
 //
+// PHASE 61: SEPARATE CANVASES PER PROVIDER (bug fix)
+// Phases 56/57/60 had Google and the GL-based provider (Mapbox, then
+// MapTiler) share ONE DOM node (#satelliteMapCanvas), on the theory that
+// "never both at once - only the active one is un-hidden" (see explore.css's
+// old comment) was enough. It wasn't: each provider's ensure*Map() claims
+// that shared node by wiping it with canvas.innerHTML = "" the FIRST time
+// it initializes, then never touches it again (ensure*Map() early-returns
+// once that provider's own loadState is "ready"). So whichever provider is
+// activated SECOND wipes out the first provider's live map/markers when it
+// takes the node over - and because the first provider's ensure*Map() never
+// re-runs, clicking back to it just calls its render*() against a map
+// object whose container div no longer has that map's content, or was
+// deleted from under it. This was never caught because tests/config.js
+// ships neither key (see the test file's own comment on that block), so
+// the suite only ever exercises the "not configured" path for both
+// providers - each stays "idle", so the fixture never triggers the actual
+// hand-off. It surfaced only once Marc had BOTH a real Google key and a
+// real MapTiler key live at once and clicked both buttons in one session
+// (Phase 60's own header already flagged that the "both configured, tiles
+// really render" path was never live-verified in the sandbox - this is
+// exactly the gap that note was warning about).
+// Fix: give each provider its own permanent canvas
+// (#satelliteMapCanvasGoogle / #satelliteMapCanvasMaptiler) instead of
+// sharing one - switching styles now only ever toggles which of the two
+// (already-initialized, independent) DOM nodes is hidden, the same way the
+// outline map and the satellite group have always coexisted. Neither
+// provider's ensure*Map() needs to reclaim anything from the other anymore.
+//
 // WHY A SEPARATE MODULE, not code inside explore.js:
 // Same reasoning explore.js's own header gives for being separate from
 // app.js - this draws a second, independent view of the same data, so it
@@ -84,7 +112,10 @@
 // ============================================================================
 
 const $ = id => document.getElementById(id);
-const CANVAS_ID = "satelliteMapCanvas";
+// Phase 61: each provider gets its own permanent canvas - see this file's
+// header note on why sharing one node between two map libraries was buggy.
+const GOOGLE_CANVAS_ID = "satelliteMapCanvasGoogle";
+const MAPTILER_CANVAS_ID = "satelliteMapCanvasMaptiler";
 const PAGE_STATE = document.body.dataset.state === "TX" ? "TX" : "FL";
 
 // Roughly centers each state in frame at a zoom that shows the whole thing
@@ -134,12 +165,16 @@ function setStyle(style) {
   const googleBtn = $("mapStyleGoogle");
   const maptilerBtn = $("mapStyleMaptiler");
   const outlineCanvas = $("exploreMapCanvas");
-  const satCanvas = $(CANVAS_ID);
+  const googleCanvas = $(GOOGLE_CANVAS_ID);
+  const maptilerCanvas = $(MAPTILER_CANVAS_ID);
   if (outlineBtn) outlineBtn.classList.toggle("on", style === "outline");
   if (googleBtn) googleBtn.classList.toggle("on", style === "google");
   if (maptilerBtn) maptilerBtn.classList.toggle("on", style === "maptiler");
   if (outlineCanvas) outlineCanvas.hidden = style !== "outline";
-  if (satCanvas) satCanvas.hidden = style === "outline";
+  // Phase 61: each provider owns its own canvas now, so switching styles is
+  // just independent show/hide per node - no shared element to hand off.
+  if (googleCanvas) googleCanvas.hidden = style !== "google";
+  if (maptilerCanvas) maptilerCanvas.hidden = style !== "maptiler";
   // The outline map's own centroids/geometry stay correct while hidden (see
   // this file's header note on why - explore.js only measures once and
   // caches it), so nothing needs to be told to redraw on switching back to it.
@@ -156,8 +191,8 @@ function setStyle(style) {
   }
 }
 
-function setupMessage(html) {
-  const canvas = $(CANVAS_ID);
+function setupMessage(canvasId, html) {
+  const canvas = $(canvasId);
   if (!canvas) return;
   canvas.innerHTML = `<div class="satellite-map-setup">${html}</div>`;
 }
@@ -287,6 +322,7 @@ async function ensureGoogleMap() {
   if (!key) {
     googleState.loadState = "unconfigured";
     setupMessage(
+      GOOGLE_CANVAS_ID,
       `<b>Google satellite view isn't set up yet</b>` +
       `<span>Add a Google Maps API key as <code>googleMapsApiKey</code> in ` +
       `<code>config.js</code>, then reload. The outline map on the left ` +
@@ -295,12 +331,12 @@ async function ensureGoogleMap() {
     return;
   }
   googleState.loadState = "loading";
-  setupMessage(`<b>Loading Google satellite map…</b>`);
+  setupMessage(GOOGLE_CANVAS_ID, `<b>Loading Google satellite map…</b>`);
   try {
     installGoogleMapsBootstrap(key);
     const { Map, InfoWindow } = await google.maps.importLibrary("maps");
     ({ AdvancedMarkerElement: googleState.AdvancedMarkerElement } = await google.maps.importLibrary("marker"));
-    const canvas = $(CANVAS_ID);
+    const canvas = $(GOOGLE_CANVAS_ID);
     canvas.innerHTML = "";
     const view = STATEWIDE_VIEW[PAGE_STATE] || STATEWIDE_VIEW.FL;
     googleState.map = new Map(canvas, {
@@ -318,6 +354,7 @@ async function ensureGoogleMap() {
   } catch (err) {
     googleState.loadState = "error";
     setupMessage(
+      GOOGLE_CANVAS_ID,
       `<b>Google satellite map couldn't load</b>` +
       `<span>Check your connection and reload. The outline map still ` +
       `works offline - switch back with the Map button above.</span>`
@@ -334,7 +371,7 @@ async function renderGoogle() {
   if (activeStyle !== "google" || googleState.loadState !== "ready" || !googleState.map) return;
   const map = googleState.map;
   const AdvancedMarkerElement = googleState.AdvancedMarkerElement;
-  const canvas = $(CANVAS_ID);
+  const canvas = $(GOOGLE_CANVAS_ID);
   if (canvas) canvas.dataset.ledger = ledger;
 
   const byCounty = groupByCounty();
@@ -464,6 +501,7 @@ async function ensureMaptilerMap() {
   if (!key) {
     maptilerState.loadState = "unconfigured";
     setupMessage(
+      MAPTILER_CANVAS_ID,
       `<b>MapTiler satellite view isn't set up yet</b>` +
       `<span>Add a free MapTiler key as <code>maptilerKey</code> in ` +
       `<code>config.js</code>, then reload. The outline map on the left ` +
@@ -472,10 +510,10 @@ async function ensureMaptilerMap() {
     return;
   }
   maptilerState.loadState = "loading";
-  setupMessage(`<b>Loading MapTiler satellite map…</b>`);
+  setupMessage(MAPTILER_CANVAS_ID, `<b>Loading MapTiler satellite map…</b>`);
   try {
     maptilerState.gl = await loadMapLibreGl();
-    const canvas = $(CANVAS_ID);
+    const canvas = $(MAPTILER_CANVAS_ID);
     canvas.innerHTML = "";
     const view = STATEWIDE_VIEW[PAGE_STATE] || STATEWIDE_VIEW.FL;
     maptilerState.map = new maptilerState.gl.Map({
@@ -496,6 +534,7 @@ async function ensureMaptilerMap() {
   } catch (err) {
     maptilerState.loadState = "error";
     setupMessage(
+      MAPTILER_CANVAS_ID,
       `<b>MapTiler satellite map couldn't load</b>` +
       `<span>Check your connection and reload. The outline map still ` +
       `works offline - switch back with the Map button above.</span>`
@@ -512,7 +551,7 @@ async function renderMaptiler() {
   if (activeStyle !== "maptiler" || maptilerState.loadState !== "ready" || !maptilerState.map) return;
   const gl = maptilerState.gl;
   const map = maptilerState.map;
-  const canvas = $(CANVAS_ID);
+  const canvas = $(MAPTILER_CANVAS_ID);
   if (canvas) canvas.dataset.ledger = ledger;
 
   const byCounty = groupByCounty();
