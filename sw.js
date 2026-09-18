@@ -200,14 +200,16 @@
 // computed via us-atlas/topojson/turf - not fabricated, not fetched
 // pre-computed from a source we couldn't verify). Both ship in the shell so
 // the toggle and its "not set up yet" message work offline; the actual map
-// libraries (Google Maps JavaScript API and Mapbox GL JS, both live as of
-// Phase 57 - Phase 56 briefly had Google only) are each only injected when
-// that provider's own key is configured AND the user actually clicks that
-// provider's button - never pre-cached, never fetched speculatively.
+// libraries (Google Maps JavaScript API and, as of Phase 60, MapLibre GL JS
+// - Phase 56 briefly had Google only, Phase 57-59 had Mapbox GL JS in the
+// second slot) are each only injected when that provider's own key is
+// configured AND the user actually clicks that provider's button - never
+// pre-cached, never fetched speculatively.
 // index.html, tx.html, explore.css, _headers (CSP) and config.js changed
-// alongside these two new files, and again in Phase 56 (provider swap) and
-// Phase 57 (both providers, three-way toggle).
-const CACHE = "tdw-shell-v28";
+// alongside these two new files, and again in Phase 56 (provider swap),
+// Phase 57 (both providers, three-way toggle) and Phase 60 (Mapbox ->
+// MapTiler, same reasoning).
+const CACHE = "tdw-shell-v29"; // bumped for Phase 60's satellite-map.js/config.js changes
 const SHELL = [
   "/",
   "/index.html",
