@@ -464,7 +464,7 @@ only where it lives changed, not how it draws. -->
 <div class="map-style-toggle" id="mapStyleToggle" role="group" aria-label="Map style">
 <button type="button" class="on" data-style="outline" id="mapStyleOutline">Map</button>
 <button type="button" data-style="google" id="mapStyleGoogle">Google</button>
-<button type="button" data-style="mapbox" id="mapStyleMapbox">Mapbox</button>
+<button type="button" data-style="maptiler" id="mapStyleMaptiler">MapTiler</button>
 </div>
 <span class="explore-map-count" id="exploreMapCount"></span>
 </div>
@@ -621,8 +621,8 @@ event app.js dispatches, so load order isn't strictly required - but
 keeping it second matches the dependency direction and makes that
 one-way relationship obvious from the markup. -->
 <script type="module" src="explore.js"></script>
-<!-- Phase 55/56/57: independent of explore.js (same tdw:maprendered contract,
-own module) - owns the optional Google/Mapbox satellite basemap toggle.
+<!-- Phase 55/56/57/60: independent of explore.js (same tdw:maprendered contract,
+own module) - owns the optional Google/MapTiler satellite basemap toggle.
 Each provider no-ops until config.js carries its own key; see
 satellite-map.js's header. -->
 <script type="module" src="satellite-map.js"></script>
