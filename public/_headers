@@ -91,9 +91,23 @@
 # api.maptiler.com, replaces api.mapbox.com and *.tiles.mapbox.com in
 # img-src/connect-src. Net effect on the allowlist is a lateral swap, not a
 # further widening: one third-party map provider's domains for another's.
+#
+# Phase 62 added https://*.supabase.co to img-src. properties.photo_url
+# (schema-v10-property-photos.sql, see CLAUDE.md's "Property photos" section)
+# has been populating real photo URLs in Supabase Storage for a while, and
+# app.js has rendered <img src="${p.photo_url}"> for them since Phase 51 -
+# but img-src never granted the Supabase host, only connect-src did (which
+# governs fetch/XHR, not <img> loads). Every property photo was silently
+# CSP-blocked from ever rendering, with no visible network request in some
+# enforcement modes - confirmed directly against live data (300 real
+# photo_url rows exist, all under this same Storage host) before this fix
+# went in. Supabase Storage URLs for this bucket are already public (that's
+# the whole point of `property-photos` being a public bucket), so this
+# doesn't expose anything img-src's original privacy rule was protecting -
+# it just lets the browser actually load what the app already fetches.
 /*
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   X-Frame-Options: DENY
   Permissions-Policy: geolocation=(), microphone=(), camera=()
-  Content-Security-Policy: default-src 'self'; script-src 'self' https://esm.sh 'unsafe-eval' https://*.googleapis.com https://*.gstatic.com *.google.com blob: https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob: https://*.googleapis.com https://*.gstatic.com *.google.com https://api.maptiler.com; connect-src 'self' https://*.supabase.co https://esm.sh https://*.googleapis.com *.google.com https://*.gstatic.com https://api.maptiler.com; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
+  Content-Security-Policy: default-src 'self'; script-src 'self' https://esm.sh 'unsafe-eval' https://*.googleapis.com https://*.gstatic.com *.google.com blob: https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob: https://*.googleapis.com https://*.gstatic.com *.google.com https://api.maptiler.com https://*.supabase.co; connect-src 'self' https://*.supabase.co https://esm.sh https://*.googleapis.com *.google.com https://*.gstatic.com https://api.maptiler.com; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'

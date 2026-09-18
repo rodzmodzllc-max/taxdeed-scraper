@@ -218,8 +218,21 @@ function hasPin(p) {
          isFinite(p.latitude) && isFinite(p.longitude);
 }
 
+// Phase 62: these bubbles sit at REAL county centroids on a real geographic
+// map, unlike explore.js's own radiusFor() (13-38 units), which places
+// bubbles on an abstract, hand-drawn SVG shape with room deliberately built
+// in between counties. Florida's actual geography doesn't have that room -
+// several of its most active counties (Hillsborough/Pinellas/Pasco/Polk,
+// Orange/Seminole/Osceola) sit genuinely close together on a real map, so
+// the old 30-68px-diameter range (MIN_R 15 / MAX_R 34) overlapped into an
+// unreadable stack of circles at statewide zoom, worst on a narrow phone
+// screen - confirmed directly from Marc's own screenshot (both Google and
+// MapTiler showing five-plus bubbles piled on each other around Tampa/
+// Orlando). Cut roughly in half; still sqrt-scaled so area (not radius)
+// tracks count, just sized for real-world density instead of a friendlier
+// abstract layout.
 function radiusPx(count, max) {
-  const MIN_R = 15, MAX_R = 34;
+  const MIN_R = 8, MAX_R = 18;
   if (max <= 1) return MIN_R;
   return MIN_R + (MAX_R - MIN_R) * Math.sqrt(count / max);
 }
@@ -365,6 +378,15 @@ async function ensureGoogleMap() {
 function clearGoogleMarkers() {
   googleState.markers.forEach(m => { m.map = null; });
   googleState.markers = [];
+  // Phase 62: an InfoWindow is its own object, not a marker - clearing
+  // markers never touched it, so a popup opened from one ledger/county
+  // stayed pinned on screen after switching to another (Auctions -> Lands
+  // Available, or a different county), showing a property that ledger no
+  // longer even includes. Confirmed live via Marc's own screenshot: a
+  // Broward "Lands Available" filter with zero matches ("Nothing matches
+  // the current filters") still showed an open popup for an Auctions-ledger
+  // parcel from before the switch. Every re-render must close it too.
+  if (googleState.infoWindow) googleState.infoWindow.close();
 }
 
 async function renderGoogle() {
@@ -545,6 +567,9 @@ async function ensureMaptilerMap() {
 function clearMaptilerMarkers() {
   maptilerState.markers.forEach(m => m.remove());
   maptilerState.markers = [];
+  // Phase 62: same fix as clearGoogleMarkers() above, for the MapLibre
+  // Popup, which is likewise its own object clearing markers never reached.
+  if (maptilerState.popup) maptilerState.popup.remove();
 }
 
 async function renderMaptiler() {
