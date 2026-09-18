@@ -1,6 +1,6 @@
 # Phase 65: Enrichment Diagnostics & Probe Execution Framework
 
-**Status:** Diagnostic and probe infrastructure complete. Baseline measurements pending.
+**Status:** Diagnostic and probe infrastructure complete. Baseline measured and probes executed 2026-09-18 (push-triggered on a probe branch; see Evidence below).
 
 **Scope:** Enrichment coverage audit, read-only evidence probe for blocked enrichment routes, and setup for targeted enrichment improvements.
 
@@ -183,3 +183,72 @@ No new migrations are needed for this phase - only diagnostic/evidence gathering
 - `docs/fdor-field-provenance.md` - authoritative source of each FDOR field meaning
 - `claude/parcel-enrichment-and-gis-plan.md` - overall enrichment architecture
 - Phase 51-62 sections in `CLAUDE.md` - frontend redesign context (photos, coordinates, property details)
+
+
+## Evidence (2026-09-18, Actions runs 35404152650 / 35405458491)
+
+All read-only. Artifacts: `enrichment-evidence-branch` on those runs.
+
+### Coverage baseline
+
+- Audit script output matched the direct SQL baseline exactly: **1,458 / 2,500
+  auction+LAFT rows enriched (58.3%)** before the LAFT junk-row cleanup;
+  **1,458 / 2,495 (58.4%)** after it (5 parser-artifact rows removed, see
+  `scripts/migrations/013_remove_laft_header_rows.sql`).
+- By source: auction 1,325/1,921 (69.0%), LAFT 133/574 (23.2%), certificate
+  658/1,667 (39.5%, reported, not in the headline). TX: 0/531.
+
+### FL account-number counties (Hillsborough 132, Brevard 49, Suwannee 20) - FDOR query behaviour
+
+- County-wide pulls from the FDOR FeatureServer are not a route: `returnIdsOnly`
+  and `resultOffset` paging return HTTP 400 for Hillsborough, Suwannee, Citrus
+  and Hernando; Brevard paged to 26,000 records and then 400.
+- Inside that Brevard slice, **6 of 6 reachable stored accounts matched
+  `ALT_KEY` 1:1** (`2102746 -> 21 3507-01-3-12`, `2103356 -> 21 3517-00-315`,
+  ...). Brevard's stored "parcel" is therefore FDOR's `ALT_KEY`.
+- Direct per-key lookup is refused: `ALT_KEY` is `esriFieldTypeString` and both
+  `ALT_KEY=2102746` and `ALT_KEY='2102746'` return HTTP 400 even for that
+  proven key. The FeatureServer only answers exact `PARCEL_ID` filters.
+- **Classification:** FDOR identifier mismatch (we hold the account/ALT_KEY,
+  the layer is keyed on PARCEL_ID) + FDOR query behaviour (no ALT_KEY filter,
+  no county scan). Not fixable in `enrich_property_details.py`. The route
+  that remains is the same agency's bulk tax-roll download (FDOR NAL files,
+  which carry both `PARCEL_ID` and `ALT_KEY`), a new source that the
+  governance framework requires a human to promote (`docs/provider-authorization.md`).
+
+### Citrus (25) and Hernando (25) - no parcel published, appraiser key captured
+
+- Live RealAuction blocks (run 35402576827) show no `Parcel ID` field on either
+  skin: Citrus publishes `Alternate Key` (e.g. 1028868, linking to
+  citruspa.org `pin=1028868`), Hernando `Parcel Key` (e.g. 00190947, linking to
+  propsearch.hernandocountypa-florida.us/parcel/00190947). PR #18 captures the
+  appraiser link into `url_appraiser` (0 -> 50 rows on the next deeds sync)
+  and the key as `alt_key` in the harvest artifact, never as a parcel.
+- Those keys do not resolve through FDOR either (same ALT_KEY refusal above):
+  10/10 live keys per county, 0 hits. **Classification:** source limitation
+  (no parcel number on the listing) + FDOR query behaviour. Parcel stays
+  empty; the card keeps saying "parcel # not published".
+
+### TX Galveston (183 LAFT + 20 auction) - viable on data, gated on governance
+
+- Galveston CAD publishes `parcels.zip` (47.6 MB, 190,731 records, 26 fields)
+  with `GEOID`, `PID`, `NAME`, `SITUS`, `LEGAL`, `ACRES`, `LANDUSE`, `EXEMPT` and
+  `VAL26LAND` / `VAL26IMP` / `VAL26TOT`. The first probe run's `NOT_VIABLE`
+  verdict was a keyword-heuristic false negative (fixed).
+- Our stored Galveston `case_no` (the CAD account from LGBS / RealAuction) is
+  the Geo ID without dashes: **195 of 203 stored accounts match a DBF `GEOID`
+  digits-only** (2 ambiguous, 8 unmatched), e.g. `000200320000000 ->
+  0002-0032-0000-000`, PID 131618, 810 WESTWARD AVE LA MARQUE, land/imp/total
+  24,910 / 233,250 / 258,160.
+- **Not implemented.** `data/tx_county_coverage_matrix.csv` records Galveston
+  CAD as DISCOVERED with no Terms-of-Use/robots review and "automated
+  ingestion not authorized by this entry", and `harvesters/governance` denies
+  every production use for a discovery-only source by construction. Promoting
+  it is a human-reviewed registry change. What the evidence supports, once
+  authorized: a fill-blanks-only enrichment (market = VAL26TOT, land_value,
+  improvement_value, value_year 2026, acreage, lot_sqft, legal_desc, land_use,
+  owner_name) keyed on GEOID digits, stamped with its own `*_enriched_at`
+  column and `field_provenance` entries naming the CAD file and vintage.
+- Liberty (113) and Leon TX (84): same LGBS account-number identity; no CAD
+  publication checked yet - same governance path applies before any check
+  becomes a pipeline.
