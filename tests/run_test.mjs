@@ -277,14 +277,22 @@ await page.waitForTimeout(150);
 // is just a DOM swap and a message, zero network/CSP surface, and clicking
 // one must never touch the other provider's state.
 results.mapStyleOutlineOnByDefault = await page.locator('#mapStyleOutline').evaluate(el => el.classList.contains('on'));
-results.satelliteCanvasHiddenByDefault = await page.locator('#satelliteMapCanvas').isHidden();
+// Phase 61: each provider now has its own canvas (see satellite-map.js's
+// header for the shared-canvas bug this replaced), so both must be hidden.
+results.satelliteCanvasHiddenByDefault =
+  await page.locator('#satelliteMapCanvasGoogle').isHidden() &&
+  await page.locator('#satelliteMapCanvasMaptiler').isHidden();
 
 await page.click('#mapStyleGoogle');
 await page.waitForTimeout(150);
 results.mapStyleGoogleOnAfterClick = await page.locator('#mapStyleGoogle').evaluate(el => el.classList.contains('on'));
 results.outlineCanvasHiddenAfterGoogleClick = await page.locator('#exploreMapCanvas').isHidden();
-results.satelliteCanvasVisibleAfterGoogleClick = await page.locator('#satelliteMapCanvas').isVisible();
-results.satelliteSetupMessageShownWithNoGoogleKey = await page.locator('.satellite-map-setup').isVisible();
+results.satelliteCanvasVisibleAfterGoogleClick = await page.locator('#satelliteMapCanvasGoogle').isVisible();
+// Scoped to Google's own canvas: with separate canvases per provider
+// (Phase 61), each keeps its own setup message once shown, so a bare
+// '.satellite-map-setup' locator matches both providers' (one hidden) once
+// both have been clicked at least once in this test run.
+results.satelliteSetupMessageShownWithNoGoogleKey = await page.locator('#satelliteMapCanvasGoogle .satellite-map-setup').isVisible();
 results.googleMapsNotLoadedWithNoKey = await page.evaluate(() => typeof window.google === 'undefined' || !(window.google.maps && window.google.maps.importLibrary));
 
 // Switching back restores the outline map exactly as it was - explore.js
@@ -302,14 +310,34 @@ await page.click('#mapStyleMaptiler');
 await page.waitForTimeout(150);
 results.mapStyleMaptilerOnAfterClick = await page.locator('#mapStyleMaptiler').evaluate(el => el.classList.contains('on'));
 results.outlineCanvasHiddenAfterMaptilerClick = await page.locator('#exploreMapCanvas').isHidden();
-results.satelliteCanvasVisibleAfterMaptilerClick = await page.locator('#satelliteMapCanvas').isVisible();
-results.satelliteSetupMessageShownWithNoMaptilerKey = await page.locator('.satellite-map-setup').isVisible();
+results.satelliteCanvasVisibleAfterMaptilerClick = await page.locator('#satelliteMapCanvasMaptiler').isVisible();
+results.satelliteSetupMessageShownWithNoMaptilerKey = await page.locator('#satelliteMapCanvasMaptiler .satellite-map-setup').isVisible();
 results.maplibreGlNotLoadedWithNoKey = await page.evaluate(() => typeof window.maplibregl === 'undefined');
 
 await page.click('#mapStyleOutline');
 await page.waitForTimeout(150);
 results.outlineCanvasVisibleAfterMaptilerSwitchBack = await page.locator('#exploreMapCanvas').isVisible();
 results.mapClusterBubbleCountAfterMaptilerSwitchBack = await page.locator('#exploreMapCanvas .cluster-bubble').count();
+
+// Phase 61 regression guard: Google and MapTiler used to share one canvas
+// node, which meant activating one after the other had already claimed it
+// silently orphaned the first (see satellite-map.js's header for the full
+// bug). tests/config.js ships no keys, so this can't exercise real map
+// instances, but it does exercise the exact click sequence that surfaced
+// the bug (Google, then MapTiler, then back to Google) against the DOM-
+// level contract: each provider must own a visible/hidden state completely
+// independent of the other's.
+await page.click('#mapStyleGoogle');
+await page.waitForTimeout(150);
+await page.click('#mapStyleMaptiler');
+await page.waitForTimeout(150);
+await page.click('#mapStyleGoogle');
+await page.waitForTimeout(150);
+results.googleCanvasVisibleAfterGoogleMaptilerGoogleSequence = await page.locator('#satelliteMapCanvasGoogle').isVisible();
+results.maptilerCanvasHiddenAfterGoogleMaptilerGoogleSequence = await page.locator('#satelliteMapCanvasMaptiler').isHidden();
+results.mapStyleGoogleOnAfterReturningFromMaptiler = await page.locator('#mapStyleGoogle').evaluate(el => el.classList.contains('on'));
+await page.click('#mapStyleOutline');
+await page.waitForTimeout(150);
 
 // Return to the Auctions page - just the card list now, no embedded map and
 // no List/Split view-toggle (Marc: "auctions shoild be just the list").
@@ -1553,6 +1581,9 @@ const EXPECTED = {
   maplibreGlNotLoadedWithNoKey: true,
   outlineCanvasVisibleAfterMaptilerSwitchBack: true,
   mapClusterBubbleCountAfterMaptilerSwitchBack: 7,
+  googleCanvasVisibleAfterGoogleMaptilerGoogleSequence: true,
+  maptilerCanvasHiddenAfterGoogleMaptilerGoogleSequence: true,
+  mapStyleGoogleOnAfterReturningFromMaptiler: true,
   auctionsPageVisibleAfterReturnFromMap: true,
   viewToggleGoneFromAuctions: 0,
   exploreMapPanelGoneFromAuctions: 0,
