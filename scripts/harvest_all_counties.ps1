@@ -36,26 +36,9 @@ $outCsv = Join-Path $outDir "harvest_all.csv"
 $outStatus = Join-Path $outDir "harvest_all_status.json"
 $tmpDir = [System.IO.Path]::GetTempPath()
 
-function Get-Field($block, $label) {
-    # Labels look like: @CAD_LBL\" scope=\"row\">Opening Bid:@F ... @CAD_DTA\">VALUE
-    $pat = [regex]::Escape($label) + ':(?:@F|<)[\s\S]{0,200}?CAD_DTA\\">\s*([^@<]*(?:<a[^>]*>([^<]*)</a>)?[^@<]*)'
-    $m = [regex]::Match($block, $pat)
-    if (-not $m.Success) { return $null }
-    $v = if ($m.Groups[2].Success -and $m.Groups[2].Value) { $m.Groups[2].Value } else { $m.Groups[1].Value }
-    return ($v -replace '\\"','"' -replace '\s+',' ').Trim()
-}
-function Get-Href($block, $label) {
-    $pat = [regex]::Escape($label) + ':[\s\S]{0,200}?href=\\"([^\\"]+)\\"'
-    $m = [regex]::Match($block, $pat)
-    if ($m.Success) { return ($m.Groups[1].Value -replace '&amp;','&') }
-    return $null
-}
-function ToNum($s) {
-    if (-not $s) { return $null }
-    $c = ($s -replace '[^0-9.]','')
-    if ($c -match '^\d+(\.\d+)?$') { return [double]$c }
-    return $null
-}
+# Get-Field / Get-Href / ToNum / Get-ParcelFields live in a dot-sourced file so
+# tests/pwsh/realauction_fields.tests.ps1 can run them against captured blocks.
+. (Join-Path $here "realauction_fields.ps1")
 
 $counties = Import-Csv $csv
 # A List + HashSet rather than a plain @() array, for two separate reasons -
@@ -208,6 +191,7 @@ $ci = 0
                 $cityM = [regex]::Match($b, 'Property Address:[\s\S]{0,400}?CAD_DTA\\">[^@]*@[A-Z]CAD_LBL\\"[^>]*>\s*@[A-Z]CAD_DTA\\">([^@<]+)')
                 $city = if ($cityM.Success) { ($cityM.Groups[1].Value -replace '\s+',' ').Trim() } else { "" }
                 $addr = (($addrLine + ", " + $city) -replace '^,\s*','' -replace ',\s*$','').Trim()
+                $pf = Get-ParcelFields $b
 
                 $all.Add([pscustomobject]@{
                     # Use the CSV's County column as-is - it already matches the
@@ -227,8 +211,12 @@ $ci = 0
                     cert        = (Get-Field $b 'Certificate #')
                     bid         = $bid
                     assessed    = ToNum (Get-Field $b 'Assessed Value')
-                    parcel      = ((Get-Field $b 'Parcel ID') -replace '<[^>]+>','').Trim()
-                    appraiser   = Get-Href $b 'Parcel ID'
+                    parcel      = $pf.parcel
+                    appraiser   = $pf.appraiser
+                    # Appraiser-side key some skins publish instead of a parcel
+                    # number (Citrus, Hernando) - see Get-ParcelFields. Not a
+                    # parcel, not synced; carried in the artifact as evidence.
+                    alt_key     = $pf.alt_key
                     address     = $addr
                     auction_url = "https://$hostName/index.cfm?zaction=AUCTION&zmethod=PREVIEW&AuctionDate=$date"
                 })
@@ -271,7 +259,7 @@ Write-Host ("Completeness: {0} COMPLETE, {1} INCOMPLETE (of {2} counties attempt
 # keys instead), so there is nothing left to exclude here - the emitted JSON is
 # byte-for-byte the same shape it always was.
 $all | ConvertTo-Json -Depth 4 | Set-Content $outJson -Encoding utf8
-$all | Select-Object county,sale_date,case,bid,assessed,parcel,address,appraiser,auction_url |
+$all | Select-Object county,sale_date,case,bid,assessed,parcel,address,appraiser,alt_key,auction_url |
     Export-Csv $outCsv -NoTypeInformation -Encoding utf8
 
 Write-Host ""
@@ -282,5 +270,6 @@ Write-Host ("With bid amount: {0}" -f ($all | Where-Object { $_.bid }).Count)
 Write-Host ("With assessed value from the feed: {0}" -f ($all | Where-Object { $_.assessed }).Count)
 Write-Host ("With parcel ID: {0}" -f ($all | Where-Object { $_.parcel }).Count)
 Write-Host ("With appraiser deep-link: {0}" -f ($all | Where-Object { $_.appraiser }).Count)
+Write-Host ("With appraiser key but no parcel ID published: {0}" -f ($all | Where-Object { $_.alt_key }).Count)
 Write-Host "==================================================" -ForegroundColor Cyan
 Write-Host "Saved: $outJson"
