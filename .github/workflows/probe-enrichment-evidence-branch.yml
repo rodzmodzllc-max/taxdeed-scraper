@@ -1,0 +1,65 @@
+name: Enrichment audit + FDOR probe (READ-ONLY, probe branch)
+
+# Temporary push-triggered twin of audit-enrichment-coverage.yml and
+# probe-enrichment-sources.yml (PR #16): those only become dispatchable once
+# they are on main, and this branch exists to gather evidence now. Same
+# scripts, same read-only contract (GET only, no writes, no schema access).
+# Delete with the probe branch.
+
+on:
+  push:
+    branches: ['probe/realauction-labels']
+
+permissions:
+  contents: read
+
+jobs:
+  evidence:
+    name: Coverage audit + FDOR/Galveston probe
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install requests
+      - name: Verify read credentials are present
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SUPABASE_URL:-}" ] || [ -z "${SUPABASE_SERVICE_KEY:-}" ]; then
+            echo "::error::SUPABASE_URL / SUPABASE_SERVICE_KEY not available to this job"; exit 1
+          fi
+          echo "Credentials present (values never printed)."
+      - name: Enrichment coverage audit (read-only)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/audit_enrichment_coverage.py
+      - name: Audit summary
+        if: always()
+        run: cat out/enrichment-audit.md || true
+      - name: FDOR + Galveston probe (read-only)
+        if: always()
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/probe_enrichment_sources.py
+      - name: Probe summary
+        if: always()
+        run: cat out/probe-evidence.md || true
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: enrichment-evidence-branch
+          path: |
+            out/enrichment_audit.json
+            out/enrichment-audit.md
+            out/probe_enrichment_sources.json
+            out/probe-evidence.md
+          if-no-files-found: warn
+          retention-days: 14
