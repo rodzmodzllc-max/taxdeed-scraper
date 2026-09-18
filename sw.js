@@ -210,7 +210,7 @@
 // Phase 57 (both providers, three-way toggle), Phase 60 (Mapbox ->
 // MapTiler) and Phase 61 (split the shared satellite canvas into one per
 // provider - see CLAUDE.md's Phase 61 section for the bug this fixed).
-const CACHE = "tdw-shell-v30"; // bumped for Phase 61's satellite-map.js/index.html/tx.html/explore.css changes
+const CACHE = "tdw-shell-v31"; // bumped for Phase 62's satellite-map.js (bubble sizing + stale-popup fix) and _headers (photo CSP) changes
 const SHELL = [
   "/",
   "/index.html",
