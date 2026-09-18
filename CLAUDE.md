@@ -790,6 +790,96 @@ slot was swapped for MapTiler instead:
   rendered map in this environment. First real check happens once Marc
   adds his key and reloads.
 
+## Satellite basemap: shared-canvas toggle bug (Phase 61, done)
+
+Predicted risk in Phase 60's own "not yet live-verified" note came true the
+first time it could: Marc got a real `googleMapsApiKey` (a Google Maps Demo
+Key - see below) live alongside the already-live `maptilerKey`, and reported
+"both maps populated but both in terrain and once i choose maptiler it won't
+switch back to google maps." Root cause was structural, not new to Phase 60:
+Phases 56/57/60 had Google and the GL-based provider (Mapbox, then MapTiler)
+share ONE DOM node, `#satelliteMapCanvas`, on the assumption that "never
+both at once - only the active one is un-hidden" (explore.css's old comment)
+was sufficient. It wasn't - each provider's `ensure*Map()` claims that node
+with `canvas.innerHTML = ""` the first time it initializes, then never
+touches it again (`ensure*Map()` early-returns once that provider's own
+`loadState` is `"ready"`). So whichever provider a viewer clicks SECOND
+wipes out the first provider's live map/markers when it takes the node over,
+and clicking back to the first provider just calls its `render*()` against a
+map object whose container div either no longer holds that map's content or
+was deleted out from under it. Never caught by the test suite because
+`tests/config.js` ships neither key (deliberately, per its own comment), so
+Playwright only ever exercises the "not configured yet" path for both
+providers - each stays `"idle"`, so the fixture never reaches the actual
+hand-off. Confirmed live via Marc's own screenshot: the "Google" toggle
+button showed `.on`, but the rendered tiles were MapTiler's (visible
+attribution: "MapLibre | © MapTiler © OpenStreetMap contributors").
+
+- **`public/satellite-map.js`** - `CANVAS_ID` (shared) replaced with
+  `GOOGLE_CANVAS_ID` (`satelliteMapCanvasGoogle`) and `MAPTILER_CANVAS_ID`
+  (`satelliteMapCanvasMaptiler`), each provider's permanent own node.
+  `setupMessage()` now takes a canvas id parameter instead of assuming the
+  shared one. `setStyle()` shows/hides both independently
+  (`googleCanvas.hidden = style !== "google"`, same for maptiler) instead of
+  toggling one shared `satCanvas`. `ensureGoogleMap()`/`ensureMaptilerMap()`,
+  `renderGoogle()`/`renderMaptiler()` all target their own canvas constant.
+  No provider's init logic needs to reclaim anything from the other anymore.
+- **`public/index.html` / `public/tx.html`** - the single
+  `<div id="satelliteMapCanvas">` became two sibling divs,
+  `#satelliteMapCanvasGoogle` and `#satelliteMapCanvasMaptiler`, both
+  `class="satellite-map-canvas"` (so all existing CSS, which targets the
+  class, needed zero changes) and both `hidden` by default.
+- **`public/explore.css`** - no rule changes (selectors are class-based, and
+  both canvases share the class), just corrected a stale comment that
+  described the two providers as sharing one node.
+- **`tests/run_test.mjs`** - the three `#satelliteMapCanvas` locators split
+  to target `#satelliteMapCanvasGoogle` / `#satelliteMapCanvasMaptiler` as
+  appropriate; `satelliteCanvasHiddenByDefault` now checks both are hidden.
+  The two `.satellite-map-setup` visibility checks got scoped to their own
+  canvas (`#satelliteMapCanvasGoogle .satellite-map-setup`, etc.) since with
+  independent canvases, both providers' setup messages can now coexist in
+  the DOM at once (one hidden) once each has been clicked - a bare
+  `.satellite-map-setup` locator started matching two elements and failing
+  Playwright's strict mode the moment this fix was in place, which is itself
+  a good sign the old shared-node behavior was gone. Added a regression test
+  that runs the exact sequence that surfaced the bug (click Google, click
+  MapTiler, click Google again) and asserts each canvas's visibility and the
+  toggle's `.on` state came back correctly. **265/265 checks pass** (3 new
+  checks: `googleCanvasVisibleAfterGoogleMaptilerGoogleSequence`,
+  `maptilerCanvasHiddenAfterGoogleMaptilerGoogleSequence`,
+  `mapStyleGoogleOnAfterReturningFromMaptiler`).
+- **Still only verified with real tiles for one provider’s "return trip" at
+  a time via manual click-through, not by Playwright** - the fixture config
+  still ships neither key, so the regression test above proves the DOM-level
+  contract (visibility/state) is correct, not that two real map libraries
+  genuinely coexist without a deeper conflict (e.g. both loading their CSS/
+  JS onto the page at once). Worth a manual recheck if either provider's
+  loader ever changes.
+
+## Google Maps key: Demo Key, and the account-wide 2SV wall (Phase 61)
+
+`googleMapsApiKey` had been blank since Phase 56 (original key compromised
+via public git history, rotation blocked because Google Cloud Console
+required 2-Step Verification that wasn't enabled on Marc's account). Marc
+proposed Google's free "Maps Demo Key" as a workaround, on the theory that
+its own docs don't mention any 2FA requirement (true - the Demo Key concept
+itself needs no billing info and no stated 2SV). In practice this didn't
+route around anything: Google Cloud now enforces 2-Step Verification
+**account-wide, for all of Google Cloud console, effective August 26,
+2026** - confirmed live via a "Google Cloud access blocked" page that
+appeared even on the Maps Terms-of-Service acceptance step the Demo Key flow
+itself requires. So enabling 2SV is now an unavoidable prerequisite for
+*any* Google Maps key, demo or production. Marc enabled 2SV on his Google
+account (Authenticator + phone number); Google Cloud unblocked within
+about a minute, and the same tab that had been showing "access blocked" went
+straight through to a `gmp-demo-project-137937982` demo project and handed
+back a live Demo Key. Marc added it to `config.js` himself (same
+can't-commit-a-live-credential handoff as every other key in this repo).
+Two caveats worth remembering: it's explicitly testing/prototyping-only per
+Google's own docs (daily quota, pauses rather than charges if exceeded, not
+meant for production), and it isn't domain-restricted the way the MapTiler
+key is - tightening that is a follow-up, not yet done.
+
 ## Known landmines / do-not-repeat mistakes
 
 - Miami-Dade is the only county with a hyphen in `data/realauction_counties.csv` — a blanket `-replace '-',' '` once silently renamed it to "Miami Dade", which didn't match the frontend's canonical `"Miami-Dade"` and hid 33 live listings. Fixed; don't reintroduce a blanket hyphen transform.
