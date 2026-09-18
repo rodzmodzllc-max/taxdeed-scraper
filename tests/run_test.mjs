@@ -25,6 +25,7 @@ const launchOpts = fs.existsSync(SANDBOX_CHROMIUM) ? { executablePath: SANDBOX_C
 // build instead of being silently ignored.
 const ALLOWED_ERROR_SUBSTRINGS = [
   'net::ERR_TUNNEL_CONNECTION_FAILED', // sandboxed egress proxy artifact
+  'net::ERR_CERT_AUTHORITY_INVALID', // same proxy, TLS-intercepting variant (2026-09)
   'A bad HTTP response code (404) was received', // no icons/ in the fixture serve dir
   'the server responded with a status of 404', // same
   '<path> attribute d: Expected number', // fl-counties.svg path-parsing quirk
@@ -1356,6 +1357,17 @@ results.txDetailHasFeesStat = txStatLabels.some(l => l.startsWith('Fees'));
 results.txDetailHasCalcDrawer = await page.locator('#detailModalInner .calc-drawer').count();
 results.txDetailAssessedLabel = txStatLabels.find(l => l.includes('Assessed') || l.includes('CAD') || l.includes('Adjudged')) || '';
 
+// TX identity labeling: harvesters/texas_harvester.py stores the court
+// CAUSE number in `parcel` and the CAD account number in `case_no` (account
+// is the uniqueness-bearing key there). The card's reference line and the
+// detail page's copy buttons must caption those values for what they are -
+// ptx1 has parcel "TX999" (a cause number) and case_no "TX-1" (the account).
+// FL rows keep "Parcel #" (cardParcelLineFirst above).
+results.txCardParcelLine = ((await txCard.locator('.prop-parcel-line').textContent()) || '').trim();
+const txCopyTags = await page.locator('#detailModalInner .copy-row .copy-btn').evaluateAll(btns =>
+  btns.map(b => (b.querySelector('.copy-tag')?.textContent || '').trim() + '=' + (b.querySelector('.copy-val')?.textContent || '').trim()));
+results.txDetailCopyTags = txCopyTags.join('|');
+
 // ============================================================
 // Phase 58: property deep-linking. openDetail() (app.js) writes
 // "#/<ledger-slug>/<id>" via history.replaceState onto the SAME history
@@ -1760,6 +1772,10 @@ const EXPECTED = {
   txDetailHasFeesStat: false,
   txDetailHasCalcDrawer: 0,
   txDetailAssessedLabel: 'TX CAD/Listed Value',
+  // TX identity labeling: `parcel` is the cause number on Texas rows and
+  // `case_no` the CAD account - never captioned "Parcel #".
+  txCardParcelLine: 'Cause # TX999',
+  txDetailCopyTags: 'Owner=Tex Owner|Account=TX-1|Cause #=TX999',
   // Phase 58: property deep-linking regression coverage.
   deepLinkHashHasPid: true,
   deepLinkModalVisibleOnColdStart: true,

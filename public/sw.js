@@ -210,7 +210,7 @@
 // Phase 57 (both providers, three-way toggle), Phase 60 (Mapbox ->
 // MapTiler) and Phase 61 (split the shared satellite canvas into one per
 // provider - see CLAUDE.md's Phase 61 section for the bug this fixed).
-const CACHE = "tdw-shell-v32"; // bumped for Phase 63's TX offline shell fix (tx.html/tx-counties.svg now precached, offline navigate fallback is now path-aware)
+const CACHE = "tdw-shell-v33"; // bumped for the TX "Cause #" identifier labeling (app.js precached)
 const SHELL = [
   "/",
   "/index.html",
