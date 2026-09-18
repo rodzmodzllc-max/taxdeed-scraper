@@ -105,9 +105,20 @@
 # the whole point of `property-photos` being a public bucket), so this
 # doesn't expose anything img-src's original privacy rule was protecting -
 # it just lets the browser actually load what the app already fetches.
+#
+# Phase 63 added frame-src https://www.openstreetmap.org - the exact same
+# bug class as the img-src gap just above, for a different resource type.
+# osmEmbedUrl() (app.js) has rendered a free, key-less OpenStreetMap
+# <iframe> embed on every geocoded property's "GIS & Location" card since
+# Phase 51, but with no frame-src directive set, CSP falls back to
+# default-src 'self' for frames - which doesn't cover a cross-origin embed
+# at all, so the iframe was silently blocked and that card rendered an
+# empty box for every property that actually has coordinates. This is
+# unrelated to X-Frame-Options: DENY below, which controls whether OTHER
+# sites can frame THIS app, not what this app is allowed to frame.
 /*
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   X-Frame-Options: DENY
   Permissions-Policy: geolocation=(), microphone=(), camera=()
-  Content-Security-Policy: default-src 'self'; script-src 'self' https://esm.sh 'unsafe-eval' https://*.googleapis.com https://*.gstatic.com *.google.com blob: https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob: https://*.googleapis.com https://*.gstatic.com *.google.com https://api.maptiler.com https://*.supabase.co; connect-src 'self' https://*.supabase.co https://esm.sh https://*.googleapis.com *.google.com https://*.gstatic.com https://api.maptiler.com; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
+  Content-Security-Policy: default-src 'self'; script-src 'self' https://esm.sh 'unsafe-eval' https://*.googleapis.com https://*.gstatic.com *.google.com blob: https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob: https://*.googleapis.com https://*.gstatic.com *.google.com https://api.maptiler.com https://*.supabase.co; connect-src 'self' https://*.supabase.co https://esm.sh https://*.googleapis.com *.google.com https://*.gstatic.com https://api.maptiler.com; frame-src https://www.openstreetmap.org; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'

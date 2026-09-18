@@ -389,8 +389,22 @@ function clearGoogleMarkers() {
   if (googleState.infoWindow) googleState.infoWindow.close();
 }
 
+// Phase 63: renderGoogle()/renderMaptiler() both await loadCentroids() (a
+// real network fetch the first time a provider is used) before adding
+// markers, but ran with no way to tell a stale call from the current one.
+// If a second tdw:maprendered event (a filter/ledger/county change) fires
+// before the first call's post-await continuation resumes - easy the first
+// time a provider loads, or on any slow connection - the second call's
+// clear*Markers() doesn't touch markers the FIRST call adds after it
+// resumes, so both calls' marker sets end up on the map at once, one of
+// them keyed to a filter state that's no longer current. Each render call
+// grabs a generation ticket and bails out after every await if a newer
+// call has since started.
+let googleRenderGen = 0;
+
 async function renderGoogle() {
   if (activeStyle !== "google" || googleState.loadState !== "ready" || !googleState.map) return;
+  const myGen = ++googleRenderGen;
   const map = googleState.map;
   const AdvancedMarkerElement = googleState.AdvancedMarkerElement;
   const canvas = $(GOOGLE_CANVAS_ID);
@@ -405,6 +419,7 @@ async function renderGoogle() {
   if (zoomed) {
     const list = byCounty.get(selectedCounty) || [];
     const cc = await loadCentroids();
+    if (myGen !== googleRenderGen) return; // superseded by a newer render
     const center = cc[selectedCounty];
     if (center && googleState.lastZoomedCounty !== selectedCounty) {
       map.panTo({ lat: center.lat, lng: center.lng });
@@ -419,6 +434,15 @@ async function renderGoogle() {
       el.setAttribute("aria-label", pinLabel(p) + " - view details");
       const position = { lat: p.latitude, lng: p.longitude };
       el.addEventListener("click", () => showGooglePopup(p, position));
+      // Phase 63: role="button"/tabindex="0" alone don't make a plain <div>
+      // fire "click" on Enter/Space the way a real <button> would - the
+      // county bubble markers below already add this same handler, pins
+      // never did, in either provider. Without it, a keyboard-only user can
+      // tab to a pin but Enter does nothing - no way to open its popup,
+      // even though the identical gesture works on the default outline map.
+      el.addEventListener("keydown", e => {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); showGooglePopup(p, position); }
+      });
       const m = new AdvancedMarkerElement({ map, position, content: el });
       googleState.markers.push(m);
     });
@@ -436,6 +460,7 @@ async function renderGoogle() {
   }
 
   const cc = await loadCentroids();
+  if (myGen !== googleRenderGen) return; // superseded by a newer render
   const counts = Array.from(byCounty.values(), r => r.length);
   const max = counts.length ? Math.max(...counts) : 0;
 
@@ -572,8 +597,12 @@ function clearMaptilerMarkers() {
   if (maptilerState.popup) maptilerState.popup.remove();
 }
 
+// Phase 63: same stale-render race as googleRenderGen above, for MapTiler.
+let maptilerRenderGen = 0;
+
 async function renderMaptiler() {
   if (activeStyle !== "maptiler" || maptilerState.loadState !== "ready" || !maptilerState.map) return;
+  const myGen = ++maptilerRenderGen;
   const gl = maptilerState.gl;
   const map = maptilerState.map;
   const canvas = $(MAPTILER_CANVAS_ID);
@@ -588,6 +617,7 @@ async function renderMaptiler() {
   if (zoomed) {
     const list = byCounty.get(selectedCounty) || [];
     const cc = await loadCentroids();
+    if (myGen !== maptilerRenderGen) return; // superseded by a newer render
     const center = cc[selectedCounty];
     if (center && maptilerState.lastZoomedCounty !== selectedCounty) {
       map.flyTo({ center: [center.lng, center.lat], zoom: 10, essential: true });
@@ -600,6 +630,11 @@ async function renderMaptiler() {
       el.setAttribute("tabindex", "0");
       el.setAttribute("aria-label", pinLabel(p) + " - view details");
       el.addEventListener("click", () => showMaptilerPopup(p, [p.longitude, p.latitude]));
+      // Phase 63: same fix as the Google provider above - a plain <div>
+      // never fires "click" on Enter/Space no matter what role/tabindex say.
+      el.addEventListener("keydown", e => {
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); showMaptilerPopup(p, [p.longitude, p.latitude]); }
+      });
       const m = new gl.Marker({ element: el, anchor: "bottom" })
         .setLngLat([p.longitude, p.latitude])
         .addTo(map);
@@ -618,6 +653,7 @@ async function renderMaptiler() {
   }
 
   const cc = await loadCentroids();
+  if (myGen !== maptilerRenderGen) return; // superseded by a newer render
   const counts = Array.from(byCounty.values(), r => r.length);
   const max = counts.length ? Math.max(...counts) : 0;
 

@@ -1258,13 +1258,30 @@ async function checkApprovalAndEnter(session) {
   refreshAccountBadge();
   const { data: profile, error } = await sb.from("profiles").select("approved,is_admin").eq("id", ME.id).maybeSingle();
   if (error) {
-    // Most likely schema-v6-approvals.sql hasn't been run against this
-    // project yet (profiles table doesn't exist) - fall back to the
-    // pre-approval-gate behavior instead of locking everyone out because of
-    // a migration nobody's applied. Once the migration runs, this query
-    // stops erroring and the gate takes effect on the next sign-in.
-    IS_ADMIN = false;
-    showApp();
+    // Phase 63: only the specific "schema-v6-approvals.sql hasn't been run
+    // yet" case (the profiles table itself doesn't exist) should fall back
+    // to pre-gate behavior - same missing-table/missing-function narrowing
+    // fetchProperties() already does above, for the same reason. The old
+    // version treated EVERY error identically (a transient network blip, a
+    // timeout, an RLS misconfiguration - exactly the RESTRICTIVE-without-
+    // PERMISSIVE class of bug that has taken this site down before, see
+    // CLAUDE.md) as "let them in anyway," which is a real access-control
+    // gap: an unapproved or misconfigured account could get full access
+    // any time this one query merely failed for an unrelated reason.
+    // Anything else fails CLOSED - show the pending screen and let the
+    // user retry (a refresh re-runs this), rather than silently granting
+    // access.
+    const msg = String(error.message || "");
+    const missingTable = error.code === "PGRST205" || error.code === "42P01" ||
+      /could not find the table|relation .*profiles.* does not exist/i.test(msg);
+    if (missingTable) {
+      console.warn("profiles table not found (schema-v6-approvals.sql not run yet?) - falling back to pre-approval-gate behavior.", error);
+      IS_ADMIN = false;
+      showApp();
+      return;
+    }
+    console.error("Approval check failed - failing closed.", error);
+    showPending();
     return;
   }
   IS_ADMIN = !!(profile && profile.is_admin);
@@ -1285,8 +1302,25 @@ function startIdleWatch() {
 ["mousemove", "mousedown", "keydown", "touchstart", "wheel", "scroll"].forEach(ev => window.addEventListener(ev, markActive, { passive: true, capture: true }));
 document.addEventListener("visibilitychange", () => { if (!document.hidden) markActive(); });
 
-sb.auth.onAuthStateChange((_e, session) => {
-  if (session && session.user) { checkApprovalAndEnter(session); }
+sb.auth.onAuthStateChange((event, session) => {
+  if (session && session.user) {
+    // Phase 63: autoRefreshToken fires TOKEN_REFRESHED roughly hourly for
+    // any open tab, and USER_UPDATED fires right after the profile-edit/
+    // change-password flows below - neither is a real sign-in, but this
+    // used to treat every event identically, re-running the FULL
+    // checkApprovalAndEnter() -> showApp() bootstrap: refetch every table,
+    // repaint a loading skeleton over the whole app, and unconditionally
+    // reset state.counties back to "all counties" (see showApp()), silently
+    // discarding whatever county filter the user had set. A user who
+    // filters to one county and leaves the tab open would find that filter
+    // reset with no visible cause and a jarring reload flash an hour or so
+    // later. Only a genuine sign-in - or the tab's very first load, where ME
+    // is still unset - needs the full bootstrap; anything else just needs
+    // ME kept current so refreshAccountBadge()/RLS-scoped queries still see
+    // the right user.
+    if (event === "SIGNED_IN" || !ME) { checkApprovalAndEnter(session); }
+    else { ME = session.user; }
+  }
   else if (gate && app) { gate.hidden = false; app.hidden = true; if (pendingGate) pendingGate.hidden = true; }
 });
 
@@ -2446,8 +2480,20 @@ async function promoteNextPending() {
     if (BIDLIST.has(nextId)) continue; // already added some other way - skip
     const { error } = await sb.from("bid_list").insert({ user_id: ME.id, property_id: nextId });
     if (!error) { BIDLIST.add(nextId); BIDLIST_ORDER.push(nextId); }
-    // On error, just drop this one and keep working through the rest of the
-    // queue rather than getting stuck on it.
+    else {
+      // Phase 63: this used to drop a failed promotion with zero feedback -
+      // the manual "add to watchlist" click handler above already calls
+      // showErrorToast() for this exact same insert failing, so silently
+      // eating it here (just because it's automatic, not a direct click)
+      // was an inconsistency, not a deliberate choice. The UI promises
+      // queued properties get "added automatically... as you remove items
+      // above" - without this, one could vanish from the queue with no
+      // explanation the moment that promise breaks (including if
+      // `bid_list` itself doesn't exist yet in this environment - see
+      // CLAUDE.md's bid_list gap note).
+      const p = ALL.find(x => x.id === nextId);
+      showErrorToast(`Couldn't add ${p ? (p.address || "that property") : "a queued property"} to the watchlist: ${error.message}`);
+    }
   }
 }
 const bidListModalEl = document.getElementById("bidListModal");
@@ -3529,7 +3575,11 @@ if (exportCsvBtn) exportCsvBtn.addEventListener("click", () => {
     ["Auction/LAFT Listing", p => p.url_auction || ""],
     ["Title Search", p => p.url_title || ""]
   ];
-  const csvEscape = v => { const s = String(v ?? ""); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+  // Phase 63: the row-terminator below is "\r\n", and this regex used to
+  // only test for a comma/quote/"\n" - a harvested text field (e.g.
+  // legal_desc) containing a lone "\r" with no "\n" would be emitted
+  // unquoted, able to be misread as a row boundary by a stricter CSV parser.
+  const csvEscape = v => { const s = String(v ?? ""); return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
   const lines = [cols.map(c => csvEscape(c[0])).join(",")];
   rows.forEach(p => lines.push(cols.map(c => csvEscape(c[1](p))).join(",")));
   const blob = new Blob([lines.join("\r\n")], { type: "text/csv;charset=utf-8;" });
@@ -3545,14 +3595,20 @@ if (exportCsvBtn) exportCsvBtn.addEventListener("click", () => {
 const filtersToggleBtn = document.getElementById("filtersToggle");
 const filtersPanelEl = document.getElementById("filtersPanel");
 if (filtersToggleBtn && filtersPanelEl) {
+  // Phase 63: aria-expanded kept in sync with the "open" class - every
+  // other disclosure control in the app (the account menu, both Settings
+  // buttons) already carries this; this one never did, so a screen-reader
+  // user got no announced open/closed state expanding Filters & Sort.
   const closeFilters = () => {
     filtersPanelEl.classList.remove("open");
     filtersToggleBtn.classList.remove("open");
+    filtersToggleBtn.setAttribute("aria-expanded", "false");
   };
   filtersToggleBtn.addEventListener("click", () => {
     const opening = !filtersPanelEl.classList.contains("open");
     filtersPanelEl.classList.toggle("open");
     filtersToggleBtn.classList.toggle("open");
+    filtersToggleBtn.setAttribute("aria-expanded", String(opening));
     if (opening) pushBackLayer("filters", closeFilters);
     else popBackLayer("filters");
   });
@@ -3567,12 +3623,28 @@ function bindBidRangeSliders() {
 
   if (!minSlider || !maxSlider) return;
 
-  function updateBidRange() {
-    const min = Number(minSlider.value);
-    const max = Number(maxSlider.value);
+  function updateBidRange(e) {
+    let min = Number(minSlider.value);
+    let max = Number(maxSlider.value);
 
+    // Phase 63: when the two handles cross, snap the handle the user did
+    // NOT just move to match the one they did - not always Min - and,
+    // critically, keep these local min/max vars in sync with whatever the
+    // sliders end up at. The old version only fixed minSlider's DOM value
+    // and kept computing state.bidMin/the label/the track fill from the
+    // stale pre-correction `min`, so state.bidMin could end up greater than
+    // state.bidMax - passes()'s bid filter (`bid < bidMin || bid > bidMax`)
+    // then excludes every single property, silently emptying the whole
+    // ledger, while the label kept showing a dollar figure that no longer
+    // matched where the handle visually sat.
     if (min > max) {
-      minSlider.value = max;
+      if (e && e.target === maxSlider) {
+        minSlider.value = max;
+        min = max;
+      } else {
+        maxSlider.value = min;
+        max = min;
+      }
     }
 
     state.bidMin = min > 0 ? min : null;
