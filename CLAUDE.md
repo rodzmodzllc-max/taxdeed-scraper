@@ -11,8 +11,9 @@ A private, invite-only web app that tracks Florida county tax-deed auctions, tax
 **`rodzmodzllc-max/taxdeed-scraper`** (public — flipped from private 2026-08-31 to sidestep a GitHub Actions billing block; see the project roadmap for details) is the **only real repo**. There is no `taxdeed-app` repo — that name doesn't exist on GitHub; if you ever find a local clone with that remote, its origin is stale/dead (this happened once — see below) and should be discarded in favor of a fresh clone of `taxdeed-scraper`, or just browse it via the authenticated Chrome tab.
 
 It's a monorepo containing **both** the frontend and the backend:
-- Frontend source lives under `public/` (`index.html`, `app.js`, `styles.css`, `config.js`, `sw.js`, etc.) — vanilla JS/HTML/CSS, no framework, no build step.
+- Frontend source lives under `public/` (`index.html`, `tx.html`, `app.js`, `explore.js`, `satellite-map.js`, `styles.css`, `explore.css`, `sw.js`, `_headers`, etc.) — vanilla JS/HTML/CSS, no framework, no build step.
 - A GitHub Actions bot auto-commits with the message `Auto-sync: mirror public/ to repo root [skip ci]`, keeping copies of those same files at the **repo root** in sync with `public/` — this is what Cloudflare Pages actually deploys from. When editing the frontend, edit the files under `public/`; the root-level copies are generated, not hand-edited.
+- **`config.js` is the one exception — corrected 2026-09-18.** This file previously (wrongly) listed it as living under `public/` alongside the mirrored files. It doesn't: `public/config.js` does not exist, `config.js` only exists at repo root, and `.github/workflows/sync-public-to-root.yml`'s own `FILES` list deliberately excludes it (same reason `fl-counties.svg`/`tx-counties.svg` are root-only - see that workflow's header comment). It holds live third-party keys (Supabase publishable, Google Maps, MapTiler - see the Phase 55/56/57/60/61 sections below) that get added directly at the root by Marc from his own machine, never mirrored from a `public/` copy. If you ever create or edit `public/config.js`, the workflow's own guard step ("Fail if public/ holds a deployable file FILES does not name") will fail CI - edit the root copy directly instead. `tests/config.js` is a separate, third thing again: a fixture file for the Playwright suite, deliberately shipping no real keys.
 - Backend: `.github/workflows/` (scheduled harvest/sync jobs), `scripts/` and `data/` (PowerShell + Python harvesters), `supabase/functions/` (at least one Edge Function, `notify-approval`), `schema-v*.sql` migration files at repo root.
 - Repo debris cleanup done 2026-09-01: `test.txt`, `taxdeed-site-updated.zip`, a formerly-committed `node_modules/` — are gone, along with the dead scraper subsystem next to it (see the Known landmines section below for what that used to be).
 
@@ -948,12 +949,152 @@ loaded, which the fixture deliberately never configures - same limitation
 Phase 61's own regression test notes). Service worker bumped to
 `tdw-shell-v31`.
 
+## Full front-end audit and fix pass (Phase 63, done)
+
+Marc asked for a full audit of the entire front end. Four parallel reviews
+covered `app.js`, `explore.js`/`satellite-map.js`, the HTML/CSS, and the
+PWA shell/CSP/config - 18 concrete findings came back, and all 18 were
+fixed in this pass. Grouped by file:
+
+**`app.js`**
+- **Bid-range slider crossing corrupted the filter.** When the Min/Max
+  handles crossed, only the slider's DOM value got corrected - `state.bidMin`/
+  the label/the track fill kept using the stale, pre-correction number, so
+  `state.bidMin` could end up greater than `state.bidMax` and `passes()`'s
+  bid filter silently excluded every property. `updateBidRange()` now snaps
+  whichever handle the user did NOT just move (via `e.target`) and keeps
+  every downstream value in sync with the corrected sliders.
+- **The approval gate failed open on ANY `profiles` query error**, not just
+  "the migration hasn't been run" - a transient network error, a timeout, or
+  an RLS misconfiguration (the exact class of bug that's taken this site
+  down once before, see the RESTRICTIVE/PERMISSIVE lesson above) let an
+  unapproved account straight into the app. `checkApprovalAndEnter()` now
+  narrows the fallback to an actual missing-table error (mirroring
+  `fetchProperties()`'s own `PGRST202` narrowing) and fails CLOSED - shows
+  the pending screen - for anything else.
+- **Every Supabase auth event re-ran the full app bootstrap.**
+  `onAuthStateChange` didn't discriminate event types, so `TOKEN_REFRESHED`
+  (fired automatically roughly hourly) and `USER_UPDATED` (fired by the
+  profile-edit/change-password flows) triggered the same full
+  `showApp()` reload as a real sign-in - refetching every table, repainting
+  a loading skeleton, and unconditionally resetting `state.counties` back to
+  "all counties," silently discarding a user's county filter mid-session.
+  Now only `event === "SIGNED_IN"` (or the tab's very first load, where `ME`
+  is still unset) triggers the full bootstrap; anything else just updates
+  `ME`.
+- **Watchlist auto-promotion swallowed insert errors.** The manual "add to
+  watchlist" click handler already calls `showErrorToast()` on failure;
+  `promoteNextPending()` (the same insert, fired automatically when a slot
+  frees up) silently dropped a failed item with zero feedback. Now surfaces
+  the same toast.
+- **CSV export didn't escape a bare carriage return** - only `[",\n]` was
+  tested, not `\r`, which could corrupt row boundaries in a harvested text
+  field containing a lone `\r`. Regex now includes it.
+
+**`explore.js` / `satellite-map.js`**
+- **Escape closed both the preview card and the county zoom at once**,
+  unlike the hardware/Android Back button, which correctly closes only the
+  topmost layer (preview first, since it was opened later - see `back`'s own
+  comment). Both keydown listeners (`bindMapInteraction()`,
+  `bindStrip()`) now share a `handleEscapeToExitTopLayer()` helper that
+  checks `activeProp` before `zoomCounty`, with `stopPropagation()` on the
+  inner canvas listener so the outer panel listener doesn't double-handle
+  the same keypress.
+- **Satellite-map pins were `role="button" tabindex="0"` but keyboard-dead**
+  - a plain `<div>` doesn't fire `click` on Enter/Space the way a real
+  `<button>` does, and unlike the county bubble markers a few lines below
+  (which already had this), pins in both Google and MapTiler never got a
+  `keydown` handler. Added, matching the bubbles' existing pattern.
+- **Overlapping async renders could leave stale markers on screen.**
+  `renderGoogle()`/`renderMaptiler()` both `await loadCentroids()` (a real
+  network fetch the first time a provider loads) before adding markers, with
+  no way to tell a stale call from a current one - a second
+  `tdw:maprendered` event (filter/ledger/county change) firing before the
+  first call's post-await continuation resumed left both calls' markers on
+  the map at once. Each render call now grabs a generation ticket
+  (`googleRenderGen`/`maptilerRenderGen`) and bails out after every `await`
+  if a newer call has since started.
+
+**HTML/CSS** (`index.html`, `tx.html`, `styles.css`)
+- **The sign-in/sign-up form had no accessible labels** - every field relied
+  on `placeholder` only, unlike `#profileForm`, which already fixed this
+  exact pattern with real `<label>` wrappers. `#authForm`'s fields are now
+  wrapped in `.auth-field` labels; `hidden`/`required` stay on the `<input>`
+  itself (unchanged, so `app.js`'s `setAuthMode()` needed no changes), and a
+  new `.auth-field:has(input[hidden]){display:none}` rule hides the whole
+  label - including its text - whenever its input is hidden, so a field
+  name never floats visible above a field that isn't.
+- **`#filtersToggle` had no `aria-expanded`/`aria-controls`**, unlike every
+  other disclosure control in the app (account menu, both Settings buttons).
+  Added statically in HTML (`aria-controls="filtersPanel"`) and kept in sync
+  in JS (`aria-expanded` toggled alongside the existing `.open` class).
+- **`--muted`/`--line` were never defined anywhere** (`.kv-sub`/`.kv-flag`
+  on the Risk & Legal flood-hazard card) - this app's real tokens are
+  `--ink-soft`/`--card-line`, used everywhere else in the file. With no
+  fallback given, these were invalid at computed-value time and could
+  render invisible or wrong in both themes. Fixed to use the real tokens.
+- **The flood-hazard warning flag used the Watchlist's pink accent**
+  (`--watch`/`--watch-soft`) instead of a real danger color, because those
+  variables ARE defined elsewhere (explore.css) so `var()`'s fallback never
+  applied - it read as decorative rather than a risk flag, and was
+  confusable with the unrelated Watchlist feature. Now uses `--bad`/
+  `--bad-bg`, this app's actual danger tokens.
+- **Dead CSS removed**: `.hbtn`/`.hbtn[hidden]`, `.brand-lockup`/
+  `.brand-mark-lg`, `.disclaimer-badge` - all zero references anywhere in
+  either HTML file or in `app.js` (confirmed via grep before deleting;
+  `#installBtn` now uses `.account-item`, not `.hbtn`, from a past
+  redesign). `.city-label`/`.city-labels` were deliberately NOT touched
+  here even though they don't appear in static HTML either - they're
+  generated by the already-documented-dead `#pageMap` JS block in `app.js`
+  (see Phase 53 above, "safe to delete outright in a future cleanup") and
+  removing the CSS half alone would conflate two separate cleanups.
+
+**PWA shell / CSP / config** (`sw.js`, `_headers`, `config.js`)
+- **The property GIS map embed was silently CSP-blocked** - same bug class
+  as Phase 62's `img-src`/Supabase gap, different directive: no `frame-src`
+  was ever set, so CSP fell back to `default-src 'self'` for frames, which
+  doesn't cover the cross-origin OpenStreetMap `<iframe>` `osmEmbedUrl()`
+  renders on every geocoded property's card. Added
+  `frame-src https://www.openstreetmap.org` (unrelated to `X-Frame-Options:
+  DENY`, which controls the opposite direction - whether other sites can
+  frame this app).
+- **Texas offline cold starts served the Florida shell.** The service
+  worker's offline navigate fallback hardcoded `caches.match("/index.html")`
+  regardless of the requested path, and `tx.html`/`tx-counties.svg` were
+  never precached at all - even though `tx.html` is a full separate
+  deployed page and both files are fetched at runtime whenever
+  `PAGE_STATE === "TX"`. Both now precached in `SHELL`, and the fallback
+  picks between `/index.html`/`/tx.html` based on `url.pathname`. Cache
+  bumped to `tdw-shell-v32`.
+- **`config.js`'s own comments claimed the Google/MapTiler keys were
+  "deliberately blank"** when both are actually live (populated in Phase 60/
+  61) - misleading to anyone reading the shipped file in isolation, and a
+  risk that a future edit "fixes" a perceived blank by overwriting a working
+  key. Comments corrected to describe the actual state.
+- **This file itself (near the top) wrongly listed `config.js` as living
+  under `public/`** alongside the mirrored files - it doesn't; `public/
+  config.js` doesn't exist, `config.js` is root-only, and
+  `sync-public-to-root.yml`'s own `FILES` list deliberately excludes it
+  (its own guard step would fail CI if anyone created `public/config.js`).
+  Corrected, with a note on why.
+
+**Verification:** 265/265 `tests/run_test.mjs` checks pass (unchanged count
+- none of the 18 fixes needed new fixture coverage to exercise). Three
+targeted manual Playwright checks (not added to the permanent suite, since
+each needs either a forced auth-gate state or direct slider `input` events
+the fixture's sign-in flow and existing test structure don't set up)
+confirmed: the sign-up mode toggle correctly reveals/hides `#authForm`'s
+new labeled fields via the `:has()` rule in both directions; `#filtersToggle`
+`aria-expanded` tracks open/closed correctly; and the bid-range slider
+crossing fix keeps both handles and their displayed values consistent after
+a cross instead of drifting apart.
+
 ## Known landmines / do-not-repeat mistakes
 
 - Miami-Dade is the only county with a hyphen in `data/realauction_counties.csv` — a blanket `-replace '-',' '` once silently renamed it to "Miami Dade", which didn't match the frontend's canonical `"Miami-Dade"` and hid 33 live listings. Fixed; don't reintroduce a blanket hyphen transform.
 - `scraper.js` no longer exists (removed 2026-09-01, repo debris cleanup). Historical note: it used to be a disabled, non-functional 50-state simulated scraper (`Math.sin()`-based fake data, writing to a `tax_auctions` table the frontend never read), kept `workflow_dispatch`-only so it couldn't burn CI minutes doing nothing. It, its package.json/package-lock.json, and its `.github/workflows/scrape.yml` workflow were all removed together. It was never the real pipeline.
-- `public/config.js` intentionally ships a public Supabase **publishable** key client-side — this is expected and safe (RLS enforces everything). The **service_role** key must never appear in this repo or in client-side code, only in `sync-config.local.json` (gitignored) and GitHub Actions secrets.
-- There was an earlier leaked-key incident (see comments in `public/config.js`) that prompted migrating from the legacy long-lived `anon`/`service_role` JWTs to the new revocable `sb_publishable_...`/`sb_secret_...` key format. Legacy key revocation was still pending user action as of the last audit — check current status before assuming it's done.
+- Root `config.js` (not under `public/` — see the note near the top of this file) intentionally ships a public Supabase **publishable** key client-side — this is expected and safe (RLS enforces everything). The **service_role** key must never appear in this repo or in client-side code, only in `sync-config.local.json` (gitignored) and GitHub Actions secrets.
+- There was an earlier leaked-key incident (see comments in root `config.js`) that prompted migrating from the legacy long-lived `anon`/`service_role` JWTs to the new revocable `sb_publishable_...`/`sb_secret_...` key format. Legacy key revocation was still pending user action as of the last audit — check current status before assuming it's done.
 - The "every write action fails silently" bug (favorite/hide/restore/bid-list/notes) that earlier audits in this project flagged **was fixed 2026-08-24** (commit `a732779`, "Surface write errors instead of failing silently") — a shared `showErrorToast()` helper now surfaces every one of those errors. Don't re-flag it without checking the current file first.
 - Bid-on-auction links in `app.js` are **entirely data-driven** from `p.url_auction` (populated by the harvesters) and conditionally rendered — `${p.url_auction ? '<a ...>Bid on County Auction Site</a>' : ''}`. There is no frontend-constructed URL, so a "broken bid link" cannot render; the only failure mode is an absent bid button on a property the harvester didn't attach a URL to. Confirmed by code inspection 2026-08-25.
 - This sandbox has no git push access to `taxdeed-scraper` (git proxy reports the repo isn't in this session's authorized set) and no `gh`/git-clone credentials for it either — reach it through the authenticated Chrome browser tab (GitHub web UI for edits/uploads, raw file view or `document.body.innerText` via `javascript_tool` for reading — `get_page_text` truncates large files at ~50KB, so `app.js` needs the `innerText` approach or a range-limited fetch).

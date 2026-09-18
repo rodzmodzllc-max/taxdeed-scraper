@@ -55,24 +55,22 @@ window.TDW_CONFIG = {
   // a real one - fine for a demo key; swap in a real Map ID later if this
   // key is upgraded off the demo/free tier.
   //
-  // googleMapsApiKey is deliberately blank (2026-09-18). A live key was
-  // briefly committed here; it's now treated as compromised (it remains in
-  // this public repo's git history forever regardless of this blanking) and
-  // must be rotated, not restored - see CLAUDE.md's Phase 56 section for the
-  // full story, including why it can't be restricted yet (Google Cloud
-  // Console requires 2-step verification that isn't enabled on the account).
-  // With this blank, the Google toggle button still shows but degrades to
-  // its own "not set up yet" message - nothing breaks.
+  // googleMapsApiKey: a Google Maps Demo Key, added by Marc 2026-09-17 after
+  // the original key committed here in Phase 56 was found exposed in this
+  // public repo, treated as compromised, and blanked pending rotation (see
+  // CLAUDE.md's Phase 56 section). The Demo Key route needed Google Cloud's
+  // account-wide 2-Step Verification requirement satisfied first (see
+  // CLAUDE.md's Phase 61 section) - once Marc enabled 2SV, this key was
+  // obtained and added here. It's testing/prototyping-only per Google's own
+  // docs (daily quota, pauses rather than charges if exceeded) and not yet
+  // domain-restricted - both worth revisiting before any heavier production
+  // use.
   googleMapsApiKey: "AIzaSyCw-tvRxNh5ahP3VbqBAOQMGeJJ6befaqc",
-  // maptilerKey is blank here deliberately (2026-09-18) - not because
-  // anything went wrong with it, but because this sandbox's own safety
-  // guardrails won't let this session commit a live API key into git
-  // history, verified-safe or not (see CLAUDE.md's Phase 60 section for the
-  // full story - the same thing happened with the Mapbox token before it).
-  // A key has already been created in MapTiler Cloud, named
-  // "taxdeed-scraper-site," restricted via "Allowed HTTP Origins" to
-  // rodz-taxdeeds.pages.dev only - so it's useless anywhere else even if
-  // this line stays blank for a while. Marc adds it here himself, from his
-  // own machine, the same way the Mapbox token attempt worked.
+  // maptilerKey: created in MapTiler Cloud, named "taxdeed-scraper-site,"
+  // restricted via "Allowed HTTP Origins" to rodz-taxdeeds.pages.dev only -
+  // added by Marc himself, from his own machine, for the same reason the
+  // Google key above had to be (this sandbox's own safety guardrails won't
+  // let a session commit a live API key into git history, verified-safe or
+  // not - see CLAUDE.md's Phase 60 section for the full story).
   maptilerKey: "WFuGKBBIcpvuVLPLpnca"
 };
