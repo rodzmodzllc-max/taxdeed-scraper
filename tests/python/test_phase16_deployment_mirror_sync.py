@@ -44,6 +44,12 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 DEPLOYED_BUNDLE_FILES = (
     "_headers",
     "app.js",
+    # Added Phase 54/55 (map page rebuild + satellite basemap toggle). Both
+    # went into sync-public-to-root.yml's FILES list at the time but not into
+    # this one, which turned main red on every push until it was noticed -
+    # which is the exact drift the companion test below exists to catch.
+    "county-centroids.json",
+    "satellite-map.js",
     "explore.css",
     "explore.js",
     "fl-cities.json",
