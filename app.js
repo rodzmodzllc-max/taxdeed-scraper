@@ -1329,6 +1329,11 @@ async function showApp() {
   // render so the right page paints once instead of flashing Auctions first.
   const routed = ledgerFromHash();
   if (routed) state.ledger = routed;
+  // Phase 58: same idea, one level deeper - #/auctions/12345 should reopen
+  // that property's card, not just land on the Auctions list. Captured here,
+  // before setLedger() below replaces the hash with the bare "#/slug" (losing
+  // the id), and used once ALL is loaded further down.
+  const deepLinkedPid = pidFromHash();
   const genEl = document.getElementById("generatedAt");
   if (genEl) genEl.textContent = "Loading";
   renderSkeleton();
@@ -1358,6 +1363,15 @@ async function showApp() {
   setLedger(state.ledger, { silent: true });
   startIdleWatch();
   if (IS_ADMIN) refreshAdminApprovals();
+  // Phase 58: reopen the deep-linked property, if the URL named one and it's
+  // still in ALL (unfiltered by ledger/status - a certificate's card should
+  // reopen even if the Auctions tab happens to be active). A dead/stale id
+  // just silently falls through to the plain ledger list - no error state,
+  // same as a normal 404 in this app's spirit of never fabricating content.
+  if (deepLinkedPid != null) {
+    const p = ALL.find(x => String(x.id) === deepLinkedPid);
+    if (p) openDetail(p);
+  }
 }
 
 // Admin-only: lists every account still waiting on approved=true (see
@@ -2257,6 +2271,22 @@ function openDetail(p) {
   inner.innerHTML = detailHtml(p);
   modal.hidden = false;
   pushBackLayer("detail", closeDetail);
+  // Phase 58: fold this property's id into the URL - "#/auctions/12345" -
+  // so the card survives a reload, not just a same-tab Back press. Every
+  // outbound reference link (Street View, Zillow, Appraiser, the county
+  // auction/clerk site) opens target="_blank" specifically so leaving never
+  // means leaving THIS tab - but a phone's OS can still evict a backgrounded
+  // tab under memory pressure, and reopening it after that is a fresh load,
+  // not a resume. pidFromHash()/the reopen block in showApp() is the other
+  // half of this - see its own comment. replaceState, not pushState: the new
+  // history ENTRY for "back closes this modal" already came from
+  // pushBackLayer() just above; this only edits that same entry's URL, it
+  // doesn't add a second one. Runs on every open, not just wasHidden ones,
+  // so the id stays correct if this is a refresh-in-place (favorite toggle,
+  // watchlist change) rather than a fresh open.
+  try {
+    history.replaceState(history.state, "", "#/" + LEDGERS[state.ledger].slug + "/" + p.id);
+  } catch { /* file:// etc */ }
   if (wasHidden) focusIntoModal(modal);
   syncBodyScrollLock();
 }
@@ -3112,6 +3142,22 @@ let mapLoaded = false;
 function ledgerFromHash() {
   const m = /^#\/?([a-z]+)/.exec(location.hash || "");
   return m && SLUG_TO_LEDGER[m[1]] ? SLUG_TO_LEDGER[m[1]] : null;
+}
+
+// Phase 58: a property's URL fragment - "#/auctions/12345" - so a bookmark,
+// a share, or coming BACK to the app after tapping an outbound link (every
+// reference/bid/Street View/Zillow link opens target="_blank", but a mobile
+// browser can still evict a backgrounded tab under memory pressure - see
+// openDetail()'s own comment) lands back on that same property card instead
+// of the bare ledger list. Deliberately a separate reader from
+// ledgerFromHash() above rather than one combined parse: the two are read at
+// different points in showApp() (the id has to be captured before setLedger()
+// overwrites the hash down to the bare "#/slug"), and keeping them as two
+// single-purpose one-liners is easier to follow than one regex doing both
+// jobs.
+function pidFromHash() {
+  const m = /^#\/?[a-z]+\/([^/?#]+)/.exec(location.hash || "");
+  return m ? m[1] : null;
 }
 
 function prefersReducedMotion() {
