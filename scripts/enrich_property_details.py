@@ -381,6 +381,24 @@ def normalize_candidates(parcel):
         # request per row against a free public API for every county on every
         # run.
         parcel.replace(" ", "-"),
+        # Slash -> dash. Added 2026-09-18 after measuring St. Lucie at 58%
+        # enriched overall but 0 of 16 on its LienHub certificate rows while
+        # its auction rows sat at 28 of 29 - the same county, the same layer,
+        # so the format was already cracked and only these rows' separator
+        # differed. We store "2403-602-0056-000/8"; the layer holds
+        # "2403-602-0056-000-8". Confirmed live against eight real unenriched
+        # St. Lucie parcels, 8 of 8, each returning a real situs address and
+        # just value (e.g. 4401-504-0043-000/3 -> 2269 SE UNION PARK DR,
+        # JV 51700). The source emits both separators for the same county -
+        # "2402-503-0089-000-1" is already stored with a dash - which is what
+        # makes this a formatting inconsistency rather than a different
+        # identifier.
+        #
+        # Costs nothing for the other 66 counties: only 20 rows statewide
+        # contain "/" at all (19 St. Lucie, 1 Pasco, measured 2026-09-18), and
+        # for any parcel without one this expression equals `parcel`, which
+        # the `seen` set below already dropped - so no county gains a request.
+        parcel.replace("/", "-"),
         "".join(ch for ch in parcel if ch.isalnum()),
     ):
         if value and value not in seen:
