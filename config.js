@@ -63,7 +63,7 @@ window.TDW_CONFIG = {
   // Console requires 2-step verification that isn't enabled on the account).
   // With this blank, the Google toggle button still shows but degrades to
   // its own "not set up yet" message - nothing breaks.
-  googleMapsApiKey: "",
+  googleMapsApiKey: "AIzaSyCw-tvRxNh5ahP3VbqBAOQMGeJJ6befaqc",
   // maptilerKey is blank here deliberately (2026-09-18) - not because
   // anything went wrong with it, but because this sandbox's own safety
   // guardrails won't let this session commit a live API key into git
