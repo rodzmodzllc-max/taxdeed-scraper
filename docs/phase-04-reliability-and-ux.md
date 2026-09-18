@@ -271,8 +271,8 @@ Based on project roadmap priorities:
 
 - `public/app.js`: Added geocoding functions, admin panel query enhancement
 - `public/styles.css`: Added freshness badge styling, admin approval layout
-- `PHASE_3_SUMMARY.md`: Per-county indicators documentation
-- `PHASE_4_SUMMARY.md`: This file
+- `docs/phase-03-county-freshness-indicators.md`: Per-county indicators documentation
+- `docs/phase-04-reliability-and-ux.md`: This file
 
 ---
 
