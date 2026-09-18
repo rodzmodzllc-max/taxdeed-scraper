@@ -210,10 +210,19 @@
 // Phase 57 (both providers, three-way toggle), Phase 60 (Mapbox ->
 // MapTiler) and Phase 61 (split the shared satellite canvas into one per
 // provider - see CLAUDE.md's Phase 61 section for the bug this fixed).
-const CACHE = "tdw-shell-v31"; // bumped for Phase 62's satellite-map.js (bubble sizing + stale-popup fix) and _headers (photo CSP) changes
+const CACHE = "tdw-shell-v32"; // bumped for Phase 63's TX offline shell fix (tx.html/tx-counties.svg now precached, offline navigate fallback is now path-aware)
 const SHELL = [
   "/",
   "/index.html",
+  // Phase 63: tx.html/tx-counties.svg were never precached even though
+  // tx.html is a full separate deployed page (same styles.css/app.js/
+  // explore.js/satellite-map.js, different data) and app.js/explore.js both
+  // fetch tx-counties.svg at runtime whenever PAGE_STATE is "TX". Without
+  // these, a Texas user offline (or on a bad connection) had nothing correct
+  // to fall back to - see the navigate handler below, which now picks
+  // between the two shells instead of always handing back index.html.
+  "/tx.html",
+  "/tx-counties.svg",
   "/styles.css",
   "/explore.css",
   "/app.js",
@@ -265,9 +274,18 @@ self.addEventListener("fetch", e => {
 
   // Navigations: try network first so a redeploy is picked up immediately,
   // fall back to the cached shell when offline.
+  //
+  // Phase 63: this used to hardcode "/index.html" as the offline fallback
+  // for EVERY navigation, regardless of which page was actually requested -
+  // a Texas user cold-starting offline (or on a bad connection) at /tx got
+  // served the Florida shell instead, the wrong app entirely. Pick the
+  // fallback from the requested path instead; tx.html is now precached
+  // above so this fallback has the right shell to hand back.
   if (req.mode === "navigate") {
+    const isTx = /^\/tx(\.html)?\/?$/i.test(url.pathname);
+    const fallbackPath = isTx ? "/tx.html" : "/index.html";
     e.respondWith(
-      fetch(req).catch(() => caches.match("/index.html").then(r => r || Response.error()))
+      fetch(req).catch(() => caches.match(fallbackPath).then(r => r || Response.error()))
     );
     return;
   }

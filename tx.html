@@ -36,14 +36,26 @@ filter-bar classes above, which only win if it comes second. -->
 <p class="auth-tagline">Texas Tax Sale Intelligence &amp; Auction Tracking</p>
 <p class="auth-lead" id="authLead">Sign in to continue.</p>
 <form id="authForm">
-<input type="text" id="firstName" placeholder="First name" autocomplete="given-name" hidden>
-<input type="text" id="lastName" placeholder="Last name" autocomplete="family-name" hidden>
-<input type="text" id="company" placeholder="Company (no company? enter Independent)" autocomplete="organization" hidden>
-<input type="text" id="address" placeholder="Address" autocomplete="street-address" hidden>
-<input type="tel" id="phone" placeholder="Phone number" autocomplete="tel" hidden>
-<input type="email" id="email" placeholder="Email" autocomplete="username" required>
-<input type="password" id="password" placeholder="Password" autocomplete="current-password" required>
-<input type="password" id="passwordConfirm" placeholder="Confirm password" autocomplete="new-password" hidden>
+<!-- Phase 63: real labels, not placeholder-only fields - see index.html's
+copy of this same comment for the full reasoning (this markup is
+deliberately identical across both pages, same as every other authForm
+field). -->
+<label class="auth-field"><span>First name</span>
+  <input type="text" id="firstName" autocomplete="given-name" hidden></label>
+<label class="auth-field"><span>Last name</span>
+  <input type="text" id="lastName" autocomplete="family-name" hidden></label>
+<label class="auth-field"><span>Company</span>
+  <input type="text" id="company" placeholder="No company? Enter Independent" autocomplete="organization" hidden></label>
+<label class="auth-field"><span>Address</span>
+  <input type="text" id="address" autocomplete="street-address" hidden></label>
+<label class="auth-field"><span>Phone number</span>
+  <input type="tel" id="phone" autocomplete="tel" hidden></label>
+<label class="auth-field"><span>Email</span>
+  <input type="email" id="email" autocomplete="username" required></label>
+<label class="auth-field"><span>Password</span>
+  <input type="password" id="password" autocomplete="current-password" required></label>
+<label class="auth-field"><span>Confirm password</span>
+  <input type="password" id="passwordConfirm" autocomplete="new-password" hidden></label>
 <button type="submit" id="signInBtn">Sign in</button>
 </form>
 <button class="auth-mode-toggle" id="authModeToggle" type="button">Need an account? Create one</button>
@@ -246,7 +258,7 @@ whatever's currently filtered. -->
 <!-- Moved inside the control bar (it used to sit on its own full-width row
 below it) so every filtering control lives in one strip, and so the panel
 can stay closed until asked for at every width - see explore.css. -->
-<button class="filters-toggle" id="filtersToggle" type="button">
+<button class="filters-toggle" id="filtersToggle" type="button" aria-expanded="false" aria-controls="filtersPanel">
 <span>Filters &amp; Sort</span>
 <span style="display:flex;align-items:center;gap:.55rem">
 <span class="filters-badge" id="filtersBadge" hidden>0</span><span class="chevron"></span>

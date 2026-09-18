@@ -899,6 +899,20 @@ function setBackVisible(on) {
   btn.hidden = !on;
 }
 
+// Phase 63: Escape should close exactly one layer, same as the hardware/
+// Android Back button already does (see back.push()'s own comment near its
+// definition - "the preview closes before the zoom because it was opened
+// later"). Both keydown listeners below used to check zoomCounty only and
+// call zoomOut() directly, which pops BOTH "map-preview" and "map-county" at
+// once - so dismissing a preview card with Escape unexpectedly snapped all
+// the way out to the statewide view instead of just closing the card.
+function handleEscapeToExitTopLayer(e) {
+  if (e.key !== "Escape") return false;
+  if (activeProp) { e.preventDefault(); showPreview(null); return true; }
+  if (zoomCounty) { e.preventDefault(); zoomOut(); return true; }
+  return false;
+}
+
 function zoomOut() {
   const wasFiltered = selectedCounty;
   zoomCounty = null;
@@ -1082,7 +1096,13 @@ function bindMapInteraction() {
   // Enter/Space on a focused bubble does what a click does. Space is
   // preventDefault'd or the page scrolls out from under the selection.
   canvas.addEventListener("keydown", e => {
-    if (e.key === "Escape" && zoomCounty) { e.preventDefault(); zoomOut(); return; }
+    // stopPropagation once handled here: canvas is a descendant of the
+    // .explore-map panel bindStrip() also listens on below, and without
+    // this an Escape that closed the preview here would keep bubbling and
+    // get handled AGAIN by that outer listener - which would then see
+    // zoomCounty still set and immediately zoom out too, right back to the
+    // same one-Escape-does-both bug this split was meant to fix.
+    if (handleEscapeToExitTopLayer(e)) { e.stopPropagation(); return; }
     if (e.key !== "Enter" && e.key !== " " && e.key !== "Spacebar") return;
     const pin = e.target.closest && e.target.closest(".map-pin");
     if (pin) { e.preventDefault(); showPreview(propById(pin.dataset.pid)); return; }
@@ -1146,9 +1166,7 @@ function bindStrip() {
   if (!map) return;
   // Escape from anywhere in the panel - a strip card, the preview, the back
   // button - is the way out of a county without reaching for the mouse.
-  map.addEventListener("keydown", e => {
-    if (e.key === "Escape" && zoomCounty) { e.preventDefault(); zoomOut(); }
-  });
+  map.addEventListener("keydown", e => { handleEscapeToExitTopLayer(e); });
   map.addEventListener("click", e => {
     const card = e.target.closest(".strip-card");
     if (!card) return;
