@@ -19,32 +19,63 @@ window.TDW_CONFIG = {
   supabaseUrl: "https://cqnnnvpbocafuvpzfbzu.supabase.co",
   supabasePublishableKey: "sb_publishable_rk5440vza8jwE04v0Rn08w_vltFMEyQ",
 
-  // Optional. Powers the "Satellite" toggle on the Map page (satellite-map.js) -
-  // a real satellite/terrain basemap (Google Maps JavaScript API) as an
-  // alternative to the app's own same-origin outline map, which stays the
-  // default and needs no key. Leave this blank and the toggle still shows,
-  // but switching to Satellite just explains it isn't set up yet - nothing
-  // breaks either way.
+  // Optional, independent of each other. Power the Map page's Google and
+  // Mapbox satellite toggle buttons (satellite-map.js) - each a real
+  // satellite/terrain basemap, as an alternative to the app's own
+  // same-origin outline map, which stays the default and needs no key.
+  // Leave either blank and that button still shows, but clicking it just
+  // explains it isn't set up yet - nothing breaks either way, and the two
+  // are unrelated: one can be configured without the other.
   //
-  // Phase 56: this replaced an earlier Mapbox-based version of the same
-  // toggle (mapboxToken, Phase 55) after Marc got a real Google Maps API key
-  // and chose to switch providers outright rather than keep both. The key
-  // below is the actual key he supplied for this purpose.
+  // Phase 55 shipped Mapbox only. Phase 56 replaced it with Google Maps
+  // only, at Marc's request. Phase 57 restored Mapbox alongside Google
+  // after Marc asked to have both, "as a backup, or even just a map toggle
+  // to have all three options" - so both providers are wired up, but as of
+  // 2026-09-18 BOTH keys are blank pending rotation - see the notes on each
+  // below.
   //
-  // This is a browser (client-side) API key - meant to be shipped in code,
-  // same category as the Supabase publishable key above - but unlike that
-  // key it isn't scoped by row-level security, so it's only as safe as its
-  // own restrictions. In Google Cloud Console (APIs & Services ->
-  // Credentials), this key should be restricted to: (a) HTTP referrers
-  // limited to this site's domain(s), and (b) the Maps JavaScript API only.
+  // Both are browser (client-side) keys - meant to be shipped in code, same
+  // category as the Supabase publishable key above - but unlike that key
+  // neither is scoped by row-level security, so each is only as safe as its
+  // own provider-side restrictions:
+  //   - googleMapsApiKey: in Google Cloud Console (APIs & Services ->
+  //     Credentials), restrict to HTTP referrers limited to this site's
+  //     domain(s) and to the Maps JavaScript API only.
+  //   - mapboxToken: in Mapbox's own dashboard (account.mapbox.com/access-
+  //     tokens), restrict this token's URL allowlist to this site's
+  //     domain(s).
   // Without those restrictions, anyone who reads this file's source (which
-  // is public, since it ships to every browser) could use the key elsewhere
-  // on Marc's Google Cloud billing. Worth doing in Cloud Console even though
-  // it doesn't change anything in this repo.
+  // is public, since it ships to every browser) could use either key
+  // elsewhere on Marc's billing. Worth doing in each provider's own console
+  // even though it doesn't change anything in this repo.
   //
-  // satellite-map.js uses Google's "DEMO_MAP_ID" placeholder Map ID, which
-  // Google provides specifically for testing without creating a real one -
-  // fine for a demo key; swap in a real Map ID later if this key is
-  // upgraded off the demo/free tier.
-  googleMapsApiKey: ""
+  // satellite-map.js's Google path uses Google's "DEMO_MAP_ID" placeholder
+  // Map ID, which Google provides specifically for testing without creating
+  // a real one - fine for a demo key; swap in a real Map ID later if this
+  // key is upgraded off the demo/free tier.
+  //
+  // googleMapsApiKey is deliberately blank (2026-09-18). A live key was
+  // briefly committed here; it's now treated as compromised (it remains in
+  // this public repo's git history forever regardless of this blanking) and
+  // must be rotated, not restored - see CLAUDE.md's Phase 56 section for the
+  // full story, including why it can't be restricted yet (Google Cloud
+  // Console requires 2-step verification that isn't enabled on the account).
+  // With this blank, the Google toggle button still shows but degrades to
+  // its own "not set up yet" message - nothing breaks.
+  googleMapsApiKey: "",
+  // mapboxToken is ALSO deliberately blank (2026-09-18, caught before ever
+  // reaching GitHub this time). GitHub's push-protection secret scanner
+  // rejected a push containing this token, classifying it as a "Mapbox
+  // Secret Access Token" - despite its "pk." prefix (normally Mapbox's
+  // public/client-safe token type), meaning it likely carries broader scope
+  // than a default public token should. Rather than override GitHub's block
+  // (which would have committed and published it), the token was pulled
+  // from the commit before it ever landed on origin/main - so unlike the
+  // Google key above, this one is NOT confirmed compromised/published, just
+  // pulled out of an abundance of caution. Before putting a token back in
+  // this slot: in Mapbox's dashboard (account.mapbox.com/access-tokens),
+  // check this token's actual scopes, create a fresh public-scope,
+  // URL-restricted token if the scopes look broader than needed, and rotate
+  // (delete) the old one regardless since Marc pasted it into a chat.
+  mapboxToken: ""
 };

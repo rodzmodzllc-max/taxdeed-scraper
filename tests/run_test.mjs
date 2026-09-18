@@ -268,29 +268,48 @@ results.mapClusterBubbleCountLaftOnly = await page.locator('#exploreMapCanvas .c
 await page.click('#mapLedgerPills [data-ledger="all"]');
 await page.waitForTimeout(150);
 
-// --- Phase 55/56: satellite/terrain basemap toggle ---
-// tests/config.js deliberately carries no googleMapsApiKey (see its own
-// comment), so this exercises the "not configured yet" path - the one every
-// real deploy hits until Marc's key is present. The Google Maps loader must
-// NOT be installed at all in this state: clicking Satellite with no key is
-// just a DOM swap and a message, zero network/CSP surface.
+// --- Phase 55/56/57: three-way satellite/terrain basemap toggle ---
+// tests/config.js deliberately carries neither googleMapsApiKey nor
+// mapboxToken (see its own comment), so this exercises the "not configured
+// yet" path for BOTH providers independently - the one every real deploy
+// hits until a given provider's key is present. Neither provider's loader
+// may be installed in this state: clicking either button with no key/token
+// is just a DOM swap and a message, zero network/CSP surface, and clicking
+// one must never touch the other provider's state.
 results.mapStyleOutlineOnByDefault = await page.locator('#mapStyleOutline').evaluate(el => el.classList.contains('on'));
 results.satelliteCanvasHiddenByDefault = await page.locator('#satelliteMapCanvas').isHidden();
-await page.click('#mapStyleSatellite');
+
+await page.click('#mapStyleGoogle');
 await page.waitForTimeout(150);
-results.mapStyleSatelliteOnAfterClick = await page.locator('#mapStyleSatellite').evaluate(el => el.classList.contains('on'));
-results.outlineCanvasHiddenAfterSatelliteClick = await page.locator('#exploreMapCanvas').isHidden();
-results.satelliteCanvasVisibleAfterClick = await page.locator('#satelliteMapCanvas').isVisible();
-results.satelliteSetupMessageShownWithNoToken = await page.locator('.satellite-map-setup').isVisible();
-results.googleMapsNotLoadedWithNoToken = await page.evaluate(() => typeof window.google === 'undefined' || !(window.google.maps && window.google.maps.importLibrary));
+results.mapStyleGoogleOnAfterClick = await page.locator('#mapStyleGoogle').evaluate(el => el.classList.contains('on'));
+results.outlineCanvasHiddenAfterGoogleClick = await page.locator('#exploreMapCanvas').isHidden();
+results.satelliteCanvasVisibleAfterGoogleClick = await page.locator('#satelliteMapCanvas').isVisible();
+results.satelliteSetupMessageShownWithNoGoogleKey = await page.locator('.satellite-map-setup').isVisible();
+results.googleMapsNotLoadedWithNoKey = await page.evaluate(() => typeof window.google === 'undefined' || !(window.google.maps && window.google.maps.importLibrary));
+
 // Switching back restores the outline map exactly as it was - explore.js
 // never re-measures (centroidsOk stays true across the hide/show, see
 // satellite-map.js's header note), so this is really testing that hiding it
 // didn't corrupt anything, not that it recomputed.
 await page.click('#mapStyleOutline');
 await page.waitForTimeout(150);
-results.outlineCanvasVisibleAfterSwitchBack = await page.locator('#exploreMapCanvas').isVisible();
-results.mapClusterBubbleCountAfterSwitchBack = await page.locator('#exploreMapCanvas .cluster-bubble').count();
+results.outlineCanvasVisibleAfterGoogleSwitchBack = await page.locator('#exploreMapCanvas').isVisible();
+results.mapClusterBubbleCountAfterGoogleSwitchBack = await page.locator('#exploreMapCanvas .cluster-bubble').count();
+
+// Same three checks again for the Mapbox button - independent provider,
+// independent state, same "not configured yet" path.
+await page.click('#mapStyleMapbox');
+await page.waitForTimeout(150);
+results.mapStyleMapboxOnAfterClick = await page.locator('#mapStyleMapbox').evaluate(el => el.classList.contains('on'));
+results.outlineCanvasHiddenAfterMapboxClick = await page.locator('#exploreMapCanvas').isHidden();
+results.satelliteCanvasVisibleAfterMapboxClick = await page.locator('#satelliteMapCanvas').isVisible();
+results.satelliteSetupMessageShownWithNoMapboxToken = await page.locator('.satellite-map-setup').isVisible();
+results.mapboxGlNotLoadedWithNoToken = await page.evaluate(() => typeof window.mapboxgl === 'undefined');
+
+await page.click('#mapStyleOutline');
+await page.waitForTimeout(150);
+results.outlineCanvasVisibleAfterMapboxSwitchBack = await page.locator('#exploreMapCanvas').isVisible();
+results.mapClusterBubbleCountAfterMapboxSwitchBack = await page.locator('#exploreMapCanvas .cluster-bubble').count();
 
 // Return to the Auctions page - just the card list now, no embedded map and
 // no List/Split view-toggle (Marc: "auctions shoild be just the list").
@@ -1309,6 +1328,57 @@ results.txDetailHasFeesStat = txStatLabels.some(l => l.startsWith('Fees'));
 results.txDetailHasCalcDrawer = await page.locator('#detailModalInner .calc-drawer').count();
 results.txDetailAssessedLabel = txStatLabels.find(l => l.includes('Assessed') || l.includes('CAD') || l.includes('Adjudged')) || '';
 
+// ============================================================
+// Phase 58: property deep-linking. openDetail() (app.js) writes
+// "#/<ledger-slug>/<id>" via history.replaceState onto the SAME history
+// entry pushBackLayer() already creates (never a second entry, so Android
+// back-button behavior is untouched), so that coming back to the app -
+// even after a full cold reload, e.g. a mobile OS evicting the
+// backgrounded PWA tab after the user tapped an outbound target="_blank"
+// link - reopens the exact same property card. Simulated with a brand-new
+// page/context navigated straight at the captured URL: a page.goto() that
+// only changes the current document's fragment is a same-document
+// navigation in real browsers (same as clicking an in-page anchor) and
+// would NOT exercise the cold-start reopen path at all, so this uses two
+// separate browser.newPage() contexts (each gets its own isolated storage)
+// rather than reusing the page above.
+// ============================================================
+const dlPage1 = await browser.newPage({ viewport: { width: 390, height: 844 } });
+dlPage1.on('dialog', d => d.accept());
+await dlPage1.goto(BASE_URL, { waitUntil: 'networkidle' });
+await dlPage1.waitForTimeout(500);
+await dlPage1.click('#expandAllBtn');
+await dlPage1.waitForTimeout(150);
+if ((await dlPage1.locator('#expandAllBtn').textContent()) === 'Expand all') {
+  await dlPage1.click('#expandAllBtn');
+  await dlPage1.waitForTimeout(150);
+}
+const dlPid = await dlPage1.locator('.prop-card[data-pid]').first().getAttribute('data-pid');
+await dlPage1.locator('.detail-btn[data-action="viewdetails"]').first().click();
+await dlPage1.waitForTimeout(300);
+const dlHash = await dlPage1.evaluate(() => location.hash);
+results.deepLinkHashHasPid = dlHash.includes('/' + dlPid);
+const dlAddress1 = ((await dlPage1.locator('#detailModalInner .detail-address').textContent()) || '').trim();
+await dlPage1.close();
+
+const dlPage2 = await browser.newPage({ viewport: { width: 390, height: 844 } });
+dlPage2.on('dialog', d => d.accept());
+await dlPage2.goto(BASE_URL + dlHash, { waitUntil: 'networkidle' });
+await dlPage2.waitForTimeout(1000);
+results.deepLinkModalVisibleOnColdStart = await dlPage2.locator('#detailModal').isVisible();
+const dlAddress2 = ((await dlPage2.locator('#detailModalInner .detail-address').textContent()) || '').trim();
+// Real content-equality check (not just "a modal appeared") - the cold
+// start has to reopen the SAME property, not just any property.
+results.deepLinkAddressMatchesAcrossColdStart = dlAddress1.length > 0 && dlAddress1 === dlAddress2;
+
+// Back from a cold-started deep link should close the modal and land on
+// the bare ledger hash - not leave the app, and not leave the pid behind.
+await dlPage2.goBack();
+await dlPage2.waitForTimeout(400);
+results.deepLinkModalHiddenAfterBack = await dlPage2.locator('#detailModal').isVisible();
+results.deepLinkHashClearedAfterBack = !(await dlPage2.evaluate(() => location.hash)).includes('/' + dlPid);
+await dlPage2.close();
+
 await browser.close();
 
 // ============================================================
@@ -1463,18 +1533,26 @@ const EXPECTED = {
   mapAllPillOffAfterLedgerClick: false,
   // Bay is the fixture's one Lands Available county.
   mapClusterBubbleCountLaftOnly: 1,
-  // Phase 55/56: the Satellite toggle, exercised against tests/config.js's
-  // deliberately blank googleMapsApiKey - the "not set up yet" path every
-  // real deploy hits until Marc's key is present. See satellite-map.js.
+  // Phase 55/56/57: the three-way Map/Google/Mapbox toggle, exercised
+  // against tests/config.js's deliberately blank googleMapsApiKey and
+  // mapboxToken - the "not set up yet" path every real deploy hits until a
+  // given provider's key is present. See satellite-map.js.
   mapStyleOutlineOnByDefault: true,
   satelliteCanvasHiddenByDefault: true,
-  mapStyleSatelliteOnAfterClick: true,
-  outlineCanvasHiddenAfterSatelliteClick: true,
-  satelliteCanvasVisibleAfterClick: true,
-  satelliteSetupMessageShownWithNoToken: true,
-  googleMapsNotLoadedWithNoToken: true,
-  outlineCanvasVisibleAfterSwitchBack: true,
-  mapClusterBubbleCountAfterSwitchBack: 7,
+  mapStyleGoogleOnAfterClick: true,
+  outlineCanvasHiddenAfterGoogleClick: true,
+  satelliteCanvasVisibleAfterGoogleClick: true,
+  satelliteSetupMessageShownWithNoGoogleKey: true,
+  googleMapsNotLoadedWithNoKey: true,
+  outlineCanvasVisibleAfterGoogleSwitchBack: true,
+  mapClusterBubbleCountAfterGoogleSwitchBack: 7,
+  mapStyleMapboxOnAfterClick: true,
+  outlineCanvasHiddenAfterMapboxClick: true,
+  satelliteCanvasVisibleAfterMapboxClick: true,
+  satelliteSetupMessageShownWithNoMapboxToken: true,
+  mapboxGlNotLoadedWithNoToken: true,
+  outlineCanvasVisibleAfterMapboxSwitchBack: true,
+  mapClusterBubbleCountAfterMapboxSwitchBack: 7,
   auctionsPageVisibleAfterReturnFromMap: true,
   viewToggleGoneFromAuctions: 0,
   exploreMapPanelGoneFromAuctions: 0,
@@ -1651,6 +1729,12 @@ const EXPECTED = {
   txDetailHasFeesStat: false,
   txDetailHasCalcDrawer: 0,
   txDetailAssessedLabel: 'TX CAD/Listed Value',
+  // Phase 58: property deep-linking regression coverage.
+  deepLinkHashHasPid: true,
+  deepLinkModalVisibleOnColdStart: true,
+  deepLinkAddressMatchesAcrossColdStart: true,
+  deepLinkModalHiddenAfterBack: false,
+  deepLinkHashClearedAfterBack: true,
 };
 
 const mismatches = [];

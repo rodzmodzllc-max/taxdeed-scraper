@@ -49,7 +49,7 @@
 # session, per click.
 #
 # Phase 56 swapped that provider from Mapbox to the Google Maps JavaScript
-# API (Marc's own choice, after he obtained a Google Maps key). This is a
+# API (Marc's own choice, after he obtained a Google Maps key). This was a
 # MATERIALLY BIGGER relaxation than the Mapbox version was, flagged here so
 # it isn't missed on a future read of this file:
 #   - 'unsafe-eval' is now allowed in script-src. Google's own CSP guidance
@@ -59,20 +59,32 @@
 #     weakening of this app's defense-in-depth against injected-content XSS
 #     (see this file's own header above): if an attacker ever got script
 #     content into the page some other way, 'unsafe-eval' gives it a strictly
-#     wider toolbox than it had under the Mapbox-only CSP.
-#   - script-src/img-src/connect-src now allow wildcarded Google domains
+#     wider toolbox than it had under a Mapbox-only CSP.
+#   - script-src/img-src/connect-src allow wildcarded Google domains
 #     (*.googleapis.com, *.gstatic.com, *.google.com) rather than one pinned
-#     host the way api.mapbox.com was - Google's docs don't offer a
+#     host the way api.mapbox.com is - Google's docs don't offer a
 #     narrower, single-host alternative for the JS API.
 # Scoped down from Google's own published "allowlist" CSP recipe where this
 # app's actual usage (Map + hybrid imagery + AdvancedMarkerElement +
 # InfoWindow - no Street View, no Places photos) didn't need the rest
-# (*.ggpht.com, *.googleusercontent.com, frame-src). If Satellite mode
+# (*.ggpht.com, *.googleusercontent.com, frame-src). If a satellite mode
 # breaks with a console CSP violation after adding a Google feature later,
 # check this policy first before assuming the code is wrong.
+#
+# Phase 57 put Mapbox BACK alongside Google, at Marc's request, rather than
+# one replacing the other - the Map page's toggle is now three-way (outline /
+# Google / Mapbox), so this policy grants BOTH providers' domains at once,
+# regardless of which one a given viewer ever actually clicks. That's a
+# larger standing allowlist than either provider needed alone: a compromised
+# script now has two third-party script/tile paths open (plus 'unsafe-eval')
+# instead of one. Each provider's own script/style/connect grant stays
+# exactly what that provider's own docs require - nothing broadened further
+# to combine them - but the fact that both are simultaneously live, all the
+# time, for every visitor, regardless of which button they click, is itself
+# the trade-off worth naming here.
 /*
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   X-Frame-Options: DENY
   Permissions-Policy: geolocation=(), microphone=(), camera=()
-  Content-Security-Policy: default-src 'self'; script-src 'self' https://esm.sh 'unsafe-eval' https://*.googleapis.com https://*.gstatic.com *.google.com blob:; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob: https://*.googleapis.com https://*.gstatic.com *.google.com; connect-src 'self' https://*.supabase.co https://esm.sh https://*.googleapis.com *.google.com https://*.gstatic.com; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'
+  Content-Security-Policy: default-src 'self'; script-src 'self' https://esm.sh 'unsafe-eval' https://*.googleapis.com https://*.gstatic.com *.google.com blob: https://api.mapbox.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://api.mapbox.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob: https://*.googleapis.com https://*.gstatic.com *.google.com https://api.mapbox.com; connect-src 'self' https://*.supabase.co https://esm.sh https://*.googleapis.com *.google.com https://*.gstatic.com https://api.mapbox.com https://*.tiles.mapbox.com; worker-src 'self' blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'

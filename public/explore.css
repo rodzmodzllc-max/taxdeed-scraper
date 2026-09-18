@@ -155,11 +155,14 @@ body[data-state="TX"] .explore-map{--map-aspect:0.994}
    hidden before Phase 55's style switch existed) - same specificity tie as
    above, same fix: give [hidden] the extra selector weight it needs to win. */
 .explore-map-canvas[hidden]{display:none}
-/* Phase 56: Google Maps renders into a plain internal div structure - unlike
-   Mapbox GL, it doesn't need its own corner-radius overrides here, since it
-   fills its parent (.satellite-map-canvas, already rounded+clipped via
-   overflow:hidden above) rather than drawing a canvas that pokes past it. */
-.satellite-map-canvas .gm-style{border-radius:10px}
+/* Phase 56/57: two providers can render into this same canvas (never both at
+   once - only the active one is un-hidden). Google Maps renders into a plain
+   internal div structure and fills its parent (.satellite-map-canvas,
+   already rounded+clipped via overflow:hidden above) with no extra rule
+   needed. Mapbox GL draws its own canvas/container that needs its corners
+   explicitly rounded to match. */
+.satellite-map-canvas .mapboxgl-canvas-container,
+.satellite-map-canvas .mapboxgl-map{border-radius:10px}
 .satellite-map-setup{position:absolute;inset:0;display:flex;flex-direction:column;
   align-items:center;justify-content:center;gap:.4rem;text-align:center;
   padding:1.5rem;font-family:var(--font-sans);color:var(--ink-soft);font-size:.8rem;
@@ -168,14 +171,14 @@ body[data-state="TX"] .explore-map{--map-aspect:0.994}
 .satellite-map-setup code{font-family:var(--font-mono);background:var(--paper);
   border:1px solid var(--card-line);border-radius:4px;padding:.05rem .32rem;font-size:.76rem}
 
-/* County bubbles and property pins are plain positioned HTML (the `content`
-   of a google.maps.marker.AdvancedMarkerElement - was a mapboxgl.Marker's
-   element pre-Phase-56, same idea, different library), not canvas drawing,
-   specifically so they can be styled with the same CSS custom properties and
-   data-ledger convention the SVG map's own .cluster-bubble/.map-pin already
-   use (see draw()/drawPins() in explore.js) - one accent language for both
-   basemaps instead of a second hard-coded palette that could quietly drift
-   from the first. */
+/* County bubbles and property pins are plain positioned HTML - the `content`
+   of a google.maps.marker.AdvancedMarkerElement on the Google path, a
+   mapboxgl.Marker's element on the Mapbox path, same idea, different
+   library - not canvas drawing, specifically so they can be styled with the
+   same CSS custom properties and data-ledger convention the SVG map's own
+   .cluster-bubble/.map-pin already use (see draw()/drawPins() in
+   explore.js) - one accent language for all three basemaps instead of a
+   second hard-coded palette that could quietly drift from the first. */
 .sat-county-bubble{display:flex;align-items:center;justify-content:center;
   border-radius:50%;background:var(--accent);color:#fff;border:2px solid var(--card);
   box-shadow:0 1px 4px rgba(0,0,0,.35);font-family:var(--font-sans);font-weight:800;
@@ -191,9 +194,15 @@ body[data-state="TX"] .explore-map{--map-aspect:0.994}
    pointer tail) is styled via its .gm-style-iw* classes - Google reserves
    these class names and can change them between releases, and they render
    inside a closed shadow root in current versions besides, so overriding
-   them isn't reliable the way overriding Mapbox's plain .mapboxgl-popup-*
-   classes was. Left at Google's own default chrome; only the content we
-   supply via setContent() (.sat-popup-*, below) is ours to style. */
+   them isn't reliable. Left at Google's own default chrome on that path.
+   Mapbox's popup chrome (.mapboxgl-popup-*) IS plain, overridable CSS,
+   so that path gets themed to match the app - both paths' actual content
+   (passed to setContent()/setDOMContent()) is the same .sat-popup-* markup
+   either way. */
+.mapboxgl-popup-content{background:var(--card) !important;color:var(--ink) !important;
+  font-family:var(--font-sans) !important;border-radius:8px !important;
+  box-shadow:var(--shadow) !important;padding:.7rem .8rem !important}
+.mapboxgl-popup-tip{border-top-color:var(--card) !important;border-bottom-color:var(--card) !important}
 .sat-popup-addr{font-weight:700;font-size:.8rem;margin:0 0 .2rem}
 .sat-popup-meta{font-size:.72rem;color:var(--ink-soft);margin:0 0 .5rem}
 .sat-popup-open{font-family:var(--font-sans);font-size:.72rem;font-weight:700;

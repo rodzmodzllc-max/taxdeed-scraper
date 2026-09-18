@@ -536,6 +536,175 @@ Live rendering needs to be confirmed on the actual deployed site, the same
 way Phase 54/55 were verified after delivery, not assumed from this
 sandbox's test run.
 
+**Update, confirmed live:** Marc verified the Google satellite view on the
+real deployed site after Phase 56 shipped — it works. See Phase 57 below for
+what came next.
+
+## Both satellite providers, three-way toggle (Phase 57, done)
+
+After confirming Google Maps worked live, Marc asked for Mapbox back too —
+verbatim: *"would like to have mapbox as a back up or even just map toggle
+to have all three options"* — and sent his Mapbox token
+(`pk.eyJ1Ijoicm9kem1vZHpsbGMi...`) back in the same message. Read plainly:
+he wants all three views available, switchable, none replacing another —
+the same spirit as Phase 55's original "toggle, not a replacement" decision,
+just extended to two third-party providers instead of one.
+
+**What changed:**
+
+- **`public/satellite-map.js`** — restructured to hold both provider
+  implementations side by side rather than one at a time: a `googleState`
+  object (Google Maps, same code as Phase 56) and a `mapboxState` object
+  (Mapbox GL JS, restored from Phase 55's git history — `git show
+  6e1d5b9:public/satellite-map.js` — rather than rewritten from scratch, so
+  the restored implementation is exactly what was already tested and
+  verified working in Phase 55, not a reconstruction). Kept as one file
+  instead of split into three, since the two providers share most of their
+  surrounding logic (county grouping, centroids, zoomed-vs-statewide
+  detection, the toolbar contract via `selectCounty()`) — see the file's own
+  header for the reasoning. Each provider lazy-loads its own script only
+  when its own button is clicked; clicking one never touches the other's
+  state, and both can independently be `ready`, `loading`, `unconfigured`,
+  or `error`.
+- **`#mapStyleToggle`** is now three buttons: `#mapStyleOutline` (Map,
+  default), `#mapStyleGoogle`, `#mapStyleMapbox` — replacing the old
+  two-button Map/Satellite pair. `#mapStyleSatellite` no longer exists as an
+  id anywhere in the app.
+- **`config.js`** — `googleMapsApiKey` and `mapboxToken` are independent of
+  each other; either can be blanked without affecting the other. **Update,
+  2026-09-18: both are currently blank.** `googleMapsApiKey` — the key
+  committed here in Phase 56 was found exposed in this public repo and
+  treated as compromised (see the Phase 56 section above and the "security:
+  blank the committed Google Maps API key" commit). `mapboxToken` — GitHub's
+  push-protection secret scanner rejected the push carrying this Phase 57
+  commit, classifying the token as a "Mapbox Secret Access Token" despite
+  its `pk.` (normally public/client-safe) prefix, meaning it likely carries
+  broader scope than a default public token. Pulled from the commit before
+  it ever reached GitHub, so — unlike the Google key — this one is not
+  confirmed published/compromised, just pulled out of caution; still needs
+  checking in Mapbox's dashboard and likely rotating before it goes back in.
+  Both toggle buttons still show but degrade to their own "not set up yet"
+  message until properly-restricted replacement credentials go in.
+- **`public/_headers` (CSP)** — grants both providers' domains
+  simultaneously rather than one replacing the other: Mapbox's
+  `api.mapbox.com`/`*.tiles.mapbox.com` sit alongside Google's
+  wildcarded domains and `'unsafe-eval'`. Flagged in-file: this is a larger
+  standing allowlist than either provider needed alone, live for every
+  visitor regardless of which button they ever click — not a further
+  broadening of either provider's own individual grant, but the fact that
+  both are simultaneously trusted, all the time, is itself worth naming.
+- **`public/explore.css`** — Mapbox's overridable `.mapboxgl-popup-*` chrome
+  rules are back (restored from Phase 55), alongside Google's
+  `.gm-style-iw*`-can't-be-overridden note from Phase 56. Both providers'
+  markers still share the same `.sat-county-bubble`/`.sat-pin` styling and
+  the same `.sat-popup-*` content markup — only the popup/marker *library*
+  differs, not the visual design.
+- **`tests/run_test.mjs`** — the toggle test now exercises both providers'
+  "not configured" paths independently (`mapStyleGoogleOnAfterClick` /
+  `mapStyleMapboxOnAfterClick` and friends) since `tests/config.js`
+  deliberately carries neither key. 257/257 checks pass.
+- Service worker bumped to `tdw-shell-v28`.
+
+**Verification:** 257/257 `tests/run_test.mjs` checks pass. Both providers
+were smoke-tested locally with Marc's real key/token — the sandbox's network
+egress policy blocks both `maps.googleapis.com` and (presumably)
+`api.mapbox.com`, so both fall through to their own graceful
+"couldn't load, check your connection" message in this environment, same
+limitation as Phase 56. Live rendering of both needs confirming on the
+actual deployed site after this ships.
+
+## Property deep-linking (Phase 58, done)
+
+Marc's request, verbatim: *"when you click a link on the app and go back to
+the app it should land on that same property card."* The scenario: a user
+opens a property, taps an outbound `target="_blank"` link (Zillow, Street
+View, the county auction site), then comes back — on mobile this can mean
+the OS evicted the backgrounded PWA tab entirely, so "coming back" is
+actually a full cold start of the app, not a resume.
+
+**What changed (`public/app.js` only):**
+
+- `pidFromHash()` — new helper alongside the existing `ledgerFromHash()`,
+  parses a trailing `/<id>` off the URL fragment (`#/auctions/12345` →
+  `"12345"`).
+- `openDetail(p)` — right after `pushBackLayer("detail", closeDetail)`, now
+  does `history.replaceState(history.state, "", "#/" + slug + "/" + p.id)`.
+  Deliberately `replaceState`, not `pushState`, and deliberately applied to
+  the SAME history entry `pushBackLayer` already created (that call already
+  did a `pushState` with an empty-string URL, i.e. "keep the current URL") —
+  this is what keeps the existing `BACK_LAYERS`/Android-back-button behavior
+  completely unchanged: closing the modal via Back still lands on the bare
+  ledger hash and leaves no extra history entry, whether the modal was
+  opened by a click or reopened automatically below.
+- `showApp()` — captures `pidFromHash()` once at startup, and after the
+  existing ledger-routing/idle-watch/admin-approvals setup, looks the id up
+  in `ALL` and calls `openDetail(p)` if found. This is what makes a cold
+  start at a deep-linked URL reopen the right card instead of just landing
+  on the bare list.
+
+**Why this is safe rather than a special case:** the URL fragment convention
+(`#/<ledger-slug>`) already existed for ledger routing; this only extends it
+one level deeper. No new history-management logic was added — the feature
+rides entirely on infrastructure (`BACK_LAYERS`, `pushBackLayer`) that was
+already there for the Android hardware-back-button behavior.
+
+**Testing pitfall worth remembering:** a `page.goto()` that only changes the
+current document's URL fragment is a same-document, in-page navigation in
+real browsers (same as clicking an anchor link) — it does **not** trigger a
+real reload or re-run any startup script. An early version of the smoke test
+for this feature gave a false pass because of exactly that: the modal
+"stayed open" simply because it was never closed, not because the
+cold-start reopen logic actually ran. The correct way to simulate a genuine
+cold start / tab eviction in Playwright is a **separate `browser.newPage()`**
+navigated directly at the full target URL (hash included) from the start,
+never a `goto()` on the same page that was already there. `tests/run_test.mjs`
+now has this coverage (`deepLinkHashHasPid`, `deepLinkModalVisibleOnColdStart`,
+`deepLinkAddressMatchesAcrossColdStart`, `deepLinkModalHiddenAfterBack`,
+`deepLinkHashClearedAfterBack`), built exactly that way — two isolated
+`newPage()` contexts, address-text equality checked across them rather than
+just "a modal appeared."
+
+**Verification:** 262/262 `tests/run_test.mjs` checks pass (257 pre-existing
++ 5 new for this feature).
+
+## Bigger brand-mark logo (Phase 59, done)
+
+Marc's request, verbatim: *"also the logo should be bigger next to the title
+as as my app icon should be displayed like that as well instead of the
+current little calendar and dollar sign."* Two separate things in that one
+sentence — the in-app logo, and the PWA/home-screen icon. Handled
+differently because only one of them is actually a code issue.
+
+**In-app logo (fixed):** the brand-mark `<img>` appears in three places —
+`.auth-brand img` (sign-in / pending-approval screens, was 30×30, now
+56×56, given its own `brand-mark-auth` class as a styling hook), `.topbar
+.brand-mark` (mobile sticky header, was 22×22, now 32×32), and
+`.nav-rail-brand img` (desktop sidebar, was 22×22, now 32×32) — bumped via
+both the HTML `width`/`height` attributes in `index.html`/`tx.html` *and*
+`public/styles.css`'s `.nav-rail-brand img{width:22px;height:22px}` rule
+(inside the `@media (min-width:1024px)` block), which would otherwise have
+silently kept overriding the HTML attribute on desktop — a CSS
+`width`/`height` rule always wins over the element's own attributes. Verified
+with a Playwright screenshot and a direct `clientWidth`/`clientHeight`
+measurement (32×32 confirmed rendered on desktop) before shipping, not just
+by reading the diff. 262/262 `tests/run_test.mjs` checks still pass.
+
+**App icon (not a code bug — user-side cache):** investigated directly —
+`public/icons/icon-192.png`, `icon-512.png`, and `apple-touch-icon.png` all
+show the navy/gold shield-with-house-gavel-columns-arrow logo, not a
+calendar-and-dollar-sign, both in this repo and cross-checked against the
+live `origin/main` branch. `sw.js`'s own code comments (`?v=2` cache-buster
+note) document a *prior* re-logo event that already replaced an old icon.
+The calendar-and-dollar-sign Marc is describing almost certainly doesn't
+exist in the current app at all — it's a stale, OS-level cached icon on an
+already-installed "Add to Home Screen" PWA shortcut from before that prior
+re-logo. This repo's own cache-busting (`?v=N` query strings, `sw.js` CACHE
+version bumps) only reaches the website's own Service-Worker Cache Storage
+and HTTP cache — it cannot reach an already-installed home-screen shortcut's
+icon, which is a separate OS-level cache (a known limitation, especially on
+iOS Safari). The fix is device-side: remove the existing home-screen
+shortcut and re-add it. No code change can push a fix for this.
+
 ## Known landmines / do-not-repeat mistakes
 
 - Miami-Dade is the only county with a hyphen in `data/realauction_counties.csv` — a blanket `-replace '-',' '` once silently renamed it to "Miami Dade", which didn't match the frontend's canonical `"Miami-Dade"` and hid 33 live listings. Fixed; don't reintroduce a blanket hyphen transform.
