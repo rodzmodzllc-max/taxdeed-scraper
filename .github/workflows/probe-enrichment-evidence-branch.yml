@@ -52,6 +52,12 @@ jobs:
       - name: Probe summary
         if: always()
         run: cat out/probe-evidence.md || true
+      - name: FL parcel-format probe (read-only)
+        if: always()
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/probe_fl_parcel_formats.py
       - name: Upload evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -62,5 +68,7 @@ jobs:
             out/enrichment-audit.md
             out/probe_enrichment_sources.json
             out/probe-evidence.md
+            out/probe_fl_parcel_formats.json
+            out/probe-fl-parcel-formats.md
           if-no-files-found: warn
           retention-days: 14
