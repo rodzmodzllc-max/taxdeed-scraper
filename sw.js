@@ -207,9 +207,10 @@
 // pre-cached, never fetched speculatively.
 // index.html, tx.html, explore.css, _headers (CSP) and config.js changed
 // alongside these two new files, and again in Phase 56 (provider swap),
-// Phase 57 (both providers, three-way toggle) and Phase 60 (Mapbox ->
-// MapTiler, same reasoning).
-const CACHE = "tdw-shell-v29"; // bumped for Phase 60's satellite-map.js/config.js changes
+// Phase 57 (both providers, three-way toggle), Phase 60 (Mapbox ->
+// MapTiler) and Phase 61 (split the shared satellite canvas into one per
+// provider - see CLAUDE.md's Phase 61 section for the bug this fixed).
+const CACHE = "tdw-shell-v30"; // bumped for Phase 61's satellite-map.js/index.html/tx.html/explore.css changes
 const SHELL = [
   "/",
   "/index.html",
