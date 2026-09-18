@@ -35,8 +35,15 @@ OUT_DIR = HERE / "../out"
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
 SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "")
 UA = {"User-Agent": "taxdeed-scraper-probe/1.0 (read-only parcel-format probe)"}
-COUNTIES = ["Lee", "Volusia", "Miami-Dade", "Leon", "Escambia", "Pinellas", "Lake", "Pasco", "Citrus"]
-PER_COUNTY = 5
+# Mode per county after the first run (Actions 35406185583):
+#   exact   - a normalization rule now exists; an exact HIT is the proof
+#   block   - same shape as matched rows but no exact row: ask whether the
+#             parcel's sub-block exists at all (one LIKE per parcel)
+#   permute - no neighbour under any prefix: try section/township/range orders
+COUNTIES = {"Lake": "exact", "Leon": "exact", "Citrus": "exact", "Pasco": "exact",
+            "Lee": "block", "Volusia": "block", "Miami-Dade": "block", "Pinellas": "permute"}
+EXTRA = {"Leon": ["110250CD0150", "142560VV0160"]}  # two-letter block form, 13-wide padding inferred
+PER_COUNTY = 6
 DELAY = 0.3
 
 
@@ -81,6 +88,27 @@ def stored_unenriched(county: str) -> list[dict]:
     return out[:PER_COUNTY]
 
 
+def block_prefixes(county: str, stored: str) -> list[str]:
+    alnum = re.sub(r"[^A-Za-z0-9]", "", stored)
+    if county == "Lee":
+        return [alnum[:8], alnum[:13]]          # STR+area, STR+area+block
+    if county == "Volusia":
+        return [alnum[:8], alnum[:10]]
+    if county == "Miami-Dade":
+        return [alnum[:10]]                     # folio through the subdivision block
+    return [alnum[:6]]
+
+
+def permutations_of_str(stored: str) -> list[str]:
+    import itertools
+    parts = stored.split("-")[:3]
+    out = []
+    for perm in itertools.permutations(parts):
+        out.append("".join(perm))
+        out.append("-".join(perm) + "-")
+    return out
+
+
 def short_prefixes(candidate: str) -> list[str]:
     alnum = re.sub(r"[^A-Za-z0-9]", "", candidate)
     out = []
@@ -97,13 +125,14 @@ def main() -> int:
         print("SUPABASE_URL / SUPABASE_SERVICE_KEY not set", file=sys.stderr)
         return 1
     evidence = {}
-    for county in COUNTIES:
+    for county, mode in COUNTIES.items():
         co_no = COUNTY_CODES.get(COUNTY_ALIASES.get(county, county))
         # No county-wide count: `CO_NO=n` alone is the scan shape the layer
         # is already known to hang on (timed out at 30 s on the first run).
-        entry = {"co_no": co_no, "parcels": []}
-        _log(f"=== {county} (CO_NO={co_no})")
-        for row in stored_unenriched(county):
+        entry = {"co_no": co_no, "mode": mode, "parcels": []}
+        _log(f"=== {county} (CO_NO={co_no}, mode={mode})")
+        rows = stored_unenriched(county) + [{"parcel": x, "source": "extra"} for x in EXTRA.get(county, [])]
+        for row in rows:
             parcel = row["parcel"].strip()
             cands = normalize_candidates(parcel)
             rec = {"stored": parcel, "source": row["source"], "address": row.get("address"),
@@ -114,11 +143,11 @@ def main() -> int:
                 if rec["exact"][c].get("hits"):
                     break
             exact_hit = any(v.get("hits") for v in rec["exact"].values())
-            if not exact_hit:
-                for c in cands[:2]:
-                    safe = c.replace("'", "''")
-                    rec["like_self"][c] = fdor(f"PARCEL_ID LIKE '{safe}%' AND CO_NO={co_no}")
-                for p in short_prefixes(cands[0]):
+            if not exact_hit and mode == "block":
+                for p in block_prefixes(county, cands[0]):
+                    rec["prefix"][p] = fdor(f"PARCEL_ID LIKE '{p}%' AND CO_NO={co_no}")
+            elif not exact_hit and mode == "permute" and not entry["parcels"]:
+                for p in permutations_of_str(parcel):
                     rec["prefix"][p] = fdor(f"PARCEL_ID LIKE '{p}%' AND CO_NO={co_no}")
             entry["parcels"].append(rec)
             _log(f"{county} {parcel!r}: exact={'HIT' if exact_hit else 'miss'}"
@@ -128,7 +157,7 @@ def main() -> int:
     (OUT_DIR / "probe_fl_parcel_formats.json").write_text(json.dumps(evidence, indent=2, default=str))
     L = ["# FL parcel-format probe", ""]
     for county, e in evidence.items():
-        L += [f"## {county} (CO_NO={e['co_no']})", ""]
+        L += [f"## {county} (CO_NO={e['co_no']}, mode {e['mode']})", ""]
         for rec in e["parcels"]:
             hit = [c for c, v in rec["exact"].items() if v.get("hits")]
             L.append(f"- stored `{rec['stored']}` ({rec['source']}): exact **{'HIT via ' + hit[0] if hit else 'miss'}**")
