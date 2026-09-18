@@ -359,6 +359,58 @@ def _expand_lake_str_block(parcel):
     return f"{m.group(1)}-{m.group(2)}-{m.group(3)}-{m.group(4)}-{m.group(5)}"
 
 
+# Added 2026-09-18 from live FDOR evidence (probe_fl_parcel_formats.py, Actions
+# run 35406185583): four more counties whose stored parcel is the layer's
+# PARCEL_ID with different separators/padding. Each helper returns None for
+# every other shape (no extra request spent), so all four are additive.
+#
+# Lake, second shape: the RealAuction listing now emits
+# "01-19-26-100000C00600" while the layer holds "01-19-26-1000-00C-01900" for
+# its neighbours - the trailing 12 characters split 4-3-5. (The older
+# "3217270004-000-12600" shape is still handled by _expand_lake_str_block.)
+_LAKE_DASHED_TAIL = re.compile(r"^(\d{2}-\d{2}-\d{2})-([0-9A-Z]{4})([0-9A-Z]{3})([0-9A-Z]{5})$")
+def _expand_lake_dashed_tail(parcel):
+    m = _LAKE_DASHED_TAIL.match(parcel)
+    if not m:
+        return None
+    return f"{m.group(1)}-{m.group(2)}-{m.group(3)}-{m.group(4)}"
+
+
+# Leon: we store "411137C0180"; the layer holds "411137  C0050" for its
+# neighbours - a fixed 13-character field, 6-digit STR then the block/lot
+# right-aligned in 7 (two spaces before a 5-character tail, one before a
+# 6-character tail such as "CD0150"). 13-character Leon values already hit.
+_LEON_SHORT = re.compile(r"^(\d{6})([A-Z]{1,2}\d{4})$")
+def _pad_leon_block(parcel):
+    m = _LEON_SHORT.match(parcel)
+    if not m:
+        return None
+    return f"{m.group(1)}{m.group(2).rjust(7)}"
+
+
+# Citrus (LAFT PDF): we store "19E17S35 2B0E0 0330"; the layer holds
+# "19E17S25      3B000 0320" - the section/subdivision block after the
+# 6-character township-range prefix is left-justified in 8, then the block
+# and lot separated by one space.
+_CITRUS_SPACED = re.compile(r"^(\d{2}[A-Z]\d{2}[A-Z])([0-9A-Z]{1,8}) ([0-9A-Z]+) ([0-9A-Z]+)$")
+def _pad_citrus_section(parcel):
+    m = _CITRUS_SPACED.match(parcel)
+    if not m:
+        return None
+    return f"{m.group(1)}{m.group(2).ljust(8)}{m.group(3)} {m.group(4)}"
+
+
+# Pasco: RealAuction emits the dashed "22-26-16-0010-00D00-0300" (matched as
+# stored for 41 rows) but some listings carry the same 19 characters with no
+# dashes, "16263101100060000A0" - the 2-2-2-4-5-4 groups re-dashed.
+_PASCO_DASHLESS = re.compile(r"^(\d{2})(\d{2})(\d{2})([0-9A-Z]{4})([0-9A-Z]{5})([0-9A-Z]{4})$")
+def _dash_pasco_groups(parcel):
+    m = _PASCO_DASHLESS.match(parcel)
+    if not m:
+        return None
+    return "-".join(m.groups())
+
+
 def normalize_candidates(parcel):
     parcel = parcel.strip()
     seen = set()
@@ -412,6 +464,11 @@ def normalize_candidates(parcel):
     if expanded_lake and expanded_lake not in seen:
         seen.add(expanded_lake)
         candidates.append(expanded_lake)
+    for shaped in (_expand_lake_dashed_tail(parcel), _pad_leon_block(parcel),
+                   _pad_citrus_section(parcel), _dash_pasco_groups(parcel)):
+        if shaped and shaped not in seen:
+            seen.add(shaped)
+            candidates.append(shaped)
     for value in list(candidates):
         with_r = value + "R"
         if with_r not in seen:
