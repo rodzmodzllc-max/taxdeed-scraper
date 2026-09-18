@@ -108,8 +108,14 @@ def _log(msg: str) -> None:
 
 
 def _get(url: str, **kw):
-    """The only network verb this module uses."""
-    return requests.get(url, headers=UA, timeout=TIMEOUT, **kw)
+    """The only network verb this module uses.
+
+    Callers may pass their own headers (the Supabase read adds apikey /
+    Authorization); they are merged over the probe's User-Agent rather than
+    passed alongside it, which requests rejects as a duplicate keyword.
+    """
+    headers = {**UA, **kw.pop("headers", {})}
+    return requests.get(url, headers=headers, timeout=TIMEOUT, **kw)
 
 
 # --------------------------------------------------------------------------

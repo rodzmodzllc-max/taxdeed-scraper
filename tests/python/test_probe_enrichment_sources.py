@@ -77,3 +77,27 @@ def test_live_key_counties_are_the_two_confirmed_ones(probe):
 
 def test_module_import_has_no_side_effects(probe):
     assert not (REPO / "tests" / "python" / "out").exists()
+
+
+def test_get_merges_caller_headers_over_the_probe_user_agent(probe, monkeypatch):
+    # The Supabase read passes apikey/Authorization headers; the first live run
+    # died with "got multiple values for keyword argument 'headers'".
+    seen = {}
+
+    def fake_get(url, **kw):
+        seen.update(kw)
+        return object()
+
+    monkeypatch.setattr(probe.requests, "get", fake_get)
+    probe._get("https://example.test/x", headers={"apikey": "k"}, params={"a": "1"})
+    assert seen["headers"]["apikey"] == "k"
+    assert seen["headers"]["User-Agent"] == probe.UA["User-Agent"]
+    assert seen["params"] == {"a": "1"}
+    assert seen["timeout"] == probe.TIMEOUT
+
+
+def test_get_without_caller_headers_keeps_the_user_agent(probe, monkeypatch):
+    seen = {}
+    monkeypatch.setattr(probe.requests, "get", lambda url, **kw: seen.update(kw))
+    probe._get("https://example.test/y")
+    assert seen["headers"] == probe.UA
