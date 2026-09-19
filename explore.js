@@ -881,6 +881,39 @@ function showPreview(p) {
     <button class="preview-open" type="button" data-act="open">View full property page →</button>`;
   card.hidden = false;
   draw();
+  syncSelection();
+}
+
+// Phase 65: one property, three views - the pin on the map, its card in the
+// strip, the preview over the map. draw() already rebuilds pins and the
+// strip with `.sel` on the active one; this adds what a rebuild can't:
+// bring the selected strip card into view (the rail scrolls horizontally,
+// so the card you picked from the map is often off-screen), and lift the
+// selected pin above its neighbours so it can't be buried under them.
+function syncSelection() {
+  const map = document.querySelector(".explore-map");
+  if (!map) return;
+  const id = activeProp ? String(activeProp.id) : null;
+  if (!id) return;
+  const card = map.querySelector(`.strip-card[data-pid="${cssEscape(id)}"]`);
+  if (card && typeof card.scrollIntoView === "function") {
+    card.scrollIntoView({ block: "nearest", inline: "center", behavior: "smooth" });
+  }
+  const pin = map.querySelector(`.map-pin[data-pid="${cssEscape(id)}"]`);
+  if (pin && pin.parentNode) pin.parentNode.appendChild(pin);
+}
+
+// Phase 65: hover linkage between the strip and the pins, in both directions.
+// `.hover` is a class rather than :hover because the two elements live in
+// different subtrees (an SVG <g> and a <button>) and only one of them can
+// actually be under the pointer.
+function setHoverLink(id) {
+  const map = document.querySelector(".explore-map");
+  if (!map) return;
+  map.querySelectorAll(".strip-card.hover, .map-pin.hover").forEach(el => el.classList.remove("hover"));
+  if (!id) return;
+  const sel = `[data-pid="${cssEscape(String(id))}"]`;
+  map.querySelectorAll(`.strip-card${sel}, .map-pin${sel}`).forEach(el => el.classList.add("hover"));
 }
 
 function setBackVisible(on) {
@@ -1132,7 +1165,13 @@ function bindMapInteraction() {
   });
 
   canvas.addEventListener("mousemove", e => {
-    if (zoomCounty) { if (tip) tip.classList.remove("show"); return; }
+    if (zoomCounty) {
+      if (tip) tip.classList.remove("show");
+      // Phase 65: pointer over a pin lights up that property's strip card.
+      const pin = e.target.closest && e.target.closest(".map-pin");
+      setHoverLink(pin ? pin.dataset.pid : null);
+      return;
+    }
     const bubble = e.target.closest(".cluster-bubble");
     if (!bubble || !tip) { if (tip) tip.classList.remove("show"); return; }
     const county = bubble.dataset.county;
@@ -1153,6 +1192,7 @@ function bindMapInteraction() {
 
   canvas.addEventListener("mouseleave", () => {
     if (tip) tip.classList.remove("show");
+    setHoverLink(null);
   });
 }
 
@@ -1174,6 +1214,22 @@ function bindStrip() {
     if (!p) return;
     showPreview(activeProp && activeProp.id === p.id ? null : p);
   });
+  // Phase 65: pointer over a strip card lights up that property's pin (and
+  // vice versa - see the canvas mousemove handler in bindMapInteraction).
+  // Delegated for the same reason the click is: the strip is rebuilt on
+  // every draw. Keyboard focus gets the same link so tabbing the rail
+  // shows where each card sits on the map.
+  const linkFrom = e => {
+    const card = e.target.closest && e.target.closest(".strip-card");
+    setHoverLink(card ? card.dataset.pid : null);
+  };
+  map.addEventListener("mouseover", e => { if (e.target.closest && e.target.closest("#exploreStrip")) linkFrom(e); });
+  map.addEventListener("mouseout", e => {
+    const strip = e.target.closest && e.target.closest("#exploreStrip");
+    if (strip && !(e.relatedTarget && strip.contains(e.relatedTarget))) setHoverLink(null);
+  });
+  map.addEventListener("focusin", e => { if (e.target.closest && e.target.closest("#exploreStrip")) linkFrom(e); });
+  map.addEventListener("focusout", e => { if (e.target.closest && e.target.closest("#exploreStrip")) setHoverLink(null); });
 }
 
 function bindReset() {

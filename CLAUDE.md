@@ -1154,6 +1154,82 @@ the fix was instead verified by downloading the pinned `maplibre-gl` version
 from npm directly and confirming its shipped CSS uses the `.maplibregl-`
 prefix the app's rules now match.
 
+## Frontend sprint: typed price range, card kicker/facts, map linkage (Phase 65, done)
+
+One focused frontend PR, no backend or data changes. What changed and why,
+by feature (all under `public/`, mirrored to root; `sw.js` → `tdw-shell-v33`):
+
+- **Typed min/max price** (`#bidMinInput`/`#bidMaxInput` in the Filters
+  panel's Bid Range section, replacing the read-only `#bidMinDisplay`/
+  `#bidMaxDisplay` labels). `bindBidRangeSliders()` in `app.js` now funnels
+  sliders AND fields through one writer, `applyBidRange(min, max, source)`,
+  so `state.bidMin`/`bidMax`, both sliders, both fields and the track fill
+  can never disagree. Typing filters as you go (250ms debounce), Enter or
+  leaving the field commits at once and drops the phone keyboard; there is
+  deliberately no Search button. A crossing snaps the control the user did
+  NOT touch (Phase 63's slider rule, now shared - note `source` is one of
+  `min`/`max`/`minInput`/`maxInput`, and the crossing check must test both
+  `max*` spellings; the first cut only tested `"max"` and snapped the wrong
+  side when the MAX FIELD was typed - caught by the new regression checks).
+  Typed values above the slider's $1M track are honoured by `passes()`; the
+  handle just pins to the track end. The slider's `step="10000"` means the
+  browser rounds a typed $9,000 to the nearest notch on the HANDLE only -
+  the filter keeps the exact typed value. `#searchInput` also gets Enter =
+  commit-now + blur. Reset goes through `bindBidRangeSliders.reset()`.
+- **Card kicker line** (`cardKickerHtml()`): the deed/LAFT card's first line
+  is now "AUCTION · Sale Sep 21, 2026" / "LANDS AVAILABLE · Fixed price ·
+  available now" / "AUCTION · Past sale date · …" / "AUCTION · Closed", ledger
+  word in the ledger's own `--accent`, phase word in the status palette
+  (`phase-soon` warn within `SOON_DAYS`, `phase-today`/`phase-past`/
+  `phase-closed` bad, `phase-fixed` ok). Replaces the old "SALE SEP 21"
+  `.prop-county-tag` on those cards (certificate cards keep theirs). The
+  status `.pill` is dropped on closed cards - the closed banner already says
+  it.
+- **Identifier row** (`.prop-ids`): `Parcel # …` and `Case …` side by side;
+  a missing parcel prints "Parcel # not published" (muted) rather than the
+  row silently shrinking. `.prop-parcel-line`'s text is unchanged, so the
+  existing `cardParcelLineFirst` check still holds.
+- **Facts row** (`cardFactsHtml()`): Location ("Geocoded" / "Not yet
+  geocoded" - `latitude`/`longitude` from `scripts/geocode_properties.py`),
+  Flood (`floodShort()`, the compact three-state version of
+  `floodRowHtml()`: "Not checked" / "Not mapped by FEMA" / "Zone X[ · SFHA]"),
+  and "Value ÷ bid N×" (the same `valueRatio()` `isTopPick()` screens on).
+  **This is NOT an MMV/return estimate** - no MMV column, formula or source
+  exists in the backend; the row is where one belongs once a real field
+  (e.g. `mmv` + `mmv_source` + `mmv_computed_at`) exists. Nothing invented.
+- **Whole-dollar bids on the card** (`bidDisplayCard()`): "$11,000" not
+  "$11,000.00" when the bid is a whole number - on a 360px phone the two
+  headline boxes are ~103px wide (measured) and the ".00" wrapped or got
+  cut. Bids with real cents keep them; the full page/table/cert cards keep
+  `bidDisplay()`. The headline figure also gets a phone-width `clamp()` -
+  and it lives in **`explore.css`**, not `styles.css`, because explore.css
+  loads later and its own `.card-stat-headline .card-stat-val{font-size:
+  1.18rem}` silently overrode the first attempt in styles.css (found by
+  enumerating matching rules in the browser, not by reading the diff).
+- **Desktop split view**: the card whose page is open in `#detailPanel`
+  gets `.prop-card.selected` (accent ring), set by `selectProperty()` and
+  re-applied by `card()` on re-render (reads the hoisted `selectedPid`, so
+  no new TDZ risk; `mapFilter` untouched).
+- **Map linkage** (`explore.js`): `syncSelection()` after `showPreview()`
+  scrolls the selected strip card into view and lifts the selected pin to
+  the top of its layer; `setHoverLink(id)` mirrors a `.hover` class between
+  a strip card and its pin in both directions (canvas `mousemove`, strip
+  `mouseover`/`focusin`). Pins/preview/strip already shared `.sel`. The
+  Google/MapTiler pins are NOT linked (they have their own popups and no
+  strip); deliberately left alone per "don't break the map providers".
+  Gotcha: explore.js already had a `cssEscape()` - a second declaration
+  crashed the whole module at load ("Identifier … already declared", map
+  empty). Grep before adding a helper here.
+- **Not a route**: `index.html#/map` is not a hash route (only ledger slugs
+  are) - the Map page is reached via the nav button. A screenshot script
+  that `goto`s `#/map` lands on Auctions; not a bug.
+
+`tests/run_test.mjs`: 265 → **289 checks** (typed price fields incl. the
+crossing rule and Enter, kicker/ids/facts text, strip↔pin↔preview
+selection and hover, LAFT kicker). `net::ERR_CERT_AUTHORITY_INVALID` added
+to the console allowlist (this sandbox's egress proxy CA on the esm.sh/
+fonts fetches; reproduces on unmodified main).
+
 ## Known landmines / do-not-repeat mistakes
 
 - Miami-Dade is the only county with a hyphen in `data/realauction_counties.csv` — a blanket `-replace '-',' '` once silently renamed it to "Miami Dade", which didn't match the frontend's canonical `"Miami-Dade"` and hid 33 live listings. Fixed; don't reintroduce a blanket hyphen transform.
