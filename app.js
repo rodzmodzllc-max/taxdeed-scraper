@@ -740,9 +740,24 @@ function fallbackStreetviewUrl(p) {
 function hasPhoto(p) { return typeof p.photo_url === "string" && p.photo_url.length > 0; }
 // cls picks the size via CSS (card vs. detail-hero) - one markup shape,
 // two presentations, same pattern as photoOrPlaceholder's callers below.
+// Phase 66: the two "no photo" states are told apart in WORDS only - same
+// slim bar, same icon, no broken-image look for either:
+//   photo_url NULL -> the photo pipeline has not looked at this address yet
+//   photo_url ''   -> it looked, and Google has no Street View coverage here
+//                     (common for vacant land / rural parcels) - a photo is
+//                     not coming, and saying "not available" would imply
+//                     one should exist.
+// Both come straight from the NULL/''/value contract documented on
+// properties.photo_url (CLAUDE.md, "Property photos") - nothing inferred.
+function photoStateText(p) {
+  return p.photo_url === "" ? "No Street View coverage at this address" : "Photo not checked yet";
+}
 function photoOrPlaceholder(p, cls) {
   if (hasPhoto(p)) {
-    return `<div class="${cls} has-photo"><img src="${esc(p.photo_url)}" alt="" loading="lazy" width="640" height="400"></div>`;
+    // The caption names what the image IS (a Google Street View still from
+    // scripts/fetch_property_photos.py), so it is never mistaken for a
+    // listing photo or a current-condition shot.
+    return `<div class="${cls} has-photo"><img src="${esc(p.photo_url)}" alt="" loading="lazy" width="640" height="400"><span class="photo-caption">Street View</span></div>`;
   }
   // Compact bar, not a full-size empty photo box - see the CSS comment on
   // .prop-card-photo.no-photo. Most rows don't have a cached photo yet
@@ -750,7 +765,7 @@ function photoOrPlaceholder(p, cls) {
   // "Property photos" section), and a blank photo-sized rectangle on every
   // single card would waste far more space than the honest small "no photo"
   // strip this renders instead.
-  return `<div class="${cls} no-photo">${svgIcon(isBareLand(p) ? "layers" : "building")}<span>No photo available</span></div>`;
+  return `<div class="${cls} no-photo">${svgIcon(isBareLand(p) ? "layers" : "building")}<span>${esc(photoStateText(p))}</span></div>`;
 }
 // A small, free, key-less embedded map (OpenStreetMap's own export/embed
 // iframe) for the detail view's GIS & Location card - only ever rendered
@@ -1829,7 +1844,13 @@ function cardKickerHtml(p, showCounty) {
     else if (d <= SOON_DAYS) { phase = "Sale " + when; cls = "phase-soon"; }
     else { phase = "Sale " + when; cls = "phase-upcoming"; }
   }
-  return `<div class="prop-kicker">${showCounty ? `<span class="kicker-county">${esc(p.county)}</span><span class="kicker-sep">·</span>` : ""}<span class="kicker-type kicker-${esc(p.source)}">${type}</span><span class="kicker-sep">·</span><span class="kicker-phase ${cls}">${esc(phase)}</span></div>`;
+  // Phase 66: county + state always lead the line, not only in flat lists -
+  // the card has to stand on its own in the watchlist modal, in search
+  // results and in a screenshot, where the county group header isn't there
+  // to say where the parcel is. (`showCounty` still selects the fuller
+  // wording the flat lists used.)
+  const where = showCounty ? `${esc(p.county)} County, ${esc(regionOf(p))}` : `${esc(p.county)}, ${esc(regionOf(p))}`;
+  return `<div class="prop-kicker"><span class="kicker-county">${where}</span><span class="kicker-sep">·</span><span class="kicker-type kicker-${esc(p.source)}">${type}</span><span class="kicker-sep">·</span><span class="kicker-phase ${cls}">${esc(phase)}</span></div>`;
 }
 
 // Phase 65: the compact card-level version of floodRowHtml() (full property
@@ -1930,7 +1951,6 @@ function card(p, showCounty) {
       ${p.case_no ? `<span class="prop-case-line">Case ${esc(p.case_no)}</span>` : ""}
     </div>
     ${classificationBadgeHtml(p) ? `<div class="prop-classification-line">${classificationBadgeHtml(p)}</div>` : ""}
-    ${p.legal_desc ? `<div class="prop-legal" title="${esc(p.legal_desc)}">${esc(p.legal_desc)}</div>` : ""}
     <div class="card-stat-grid ${marketVal ? "card-stat-grid-2" : "card-stat-grid-1"}">
       <div class="card-stat card-stat-headline"><div class="card-stat-label">${p.source === "laft" ? "Purchase Price" : "Opening Bid"}</div><div class="card-stat-val bid${bidPublished ? "" : " unpublished"}">${bidDisplayCard(p)}</div></div>
       ${marketVal ? `<div class="card-stat card-stat-headline"><div class="card-stat-label">${esc(valueLabel(p))}</div><div class="card-stat-val market">${fmtShort(marketVal)}</div></div>` : ""}
@@ -1938,7 +1958,11 @@ function card(p, showCounty) {
     ${p.source === "auction" && bidPublished && marketVal > 0 ? equitySpreadBarHtml(p) : ""}
     ${cardFactsHtml(p)}
     ${spec.length ? `<div class="prop-spec">${spec.map(b => `<span>${esc(b)}</span>`).join("")}</div>` : ""}
-    ${sale ? `<div class="prop-lastsale">Last sold <b>${esc(sale)}</b></div>` : ""}
+    ${sale || p.legal_desc ? `<details class="card-more">
+      <summary>More · ${[sale ? "last sale" : "", p.legal_desc ? "legal description" : ""].filter(Boolean).join(", ")}</summary>
+      ${sale ? `<div class="prop-lastsale">Last sold <b>${esc(sale)}</b></div>` : ""}
+      ${p.legal_desc ? `<div class="prop-legal" title="${esc(p.legal_desc)}">${esc(p.legal_desc)}</div>` : ""}
+    </details>` : ""}
     <div class="prop-links">
       ${fallbackStreetviewUrl(p) ? `<a href="${esc(fallbackStreetviewUrl(p))}" target="_blank" rel="noopener"${isEstimatedLink("Street View", p) ? ' title="Estimated search link, built from the address - not confirmed by the county"' : ""}>${linkIcon("Street View")}Street View</a>` : ''}
       ${p.url_appraiser ? `<a href="${esc(p.url_appraiser)}" target="_blank" rel="noopener">${linkIcon("Appraiser")}Appraiser</a>` : ''}
@@ -2114,15 +2138,104 @@ function detailStatTileHtml([label, val]) {
   const tip = detailStatTip(label);
   return `<div class="detail-stat"><span class="detail-stat-label">${esc(label)}${tip ? " " + tip : ""}</span><span class="detail-stat-val">${esc(val)}</span></div>`;
 }
-function detailSectionHtml(title, bodyHtml, extraClass) {
-  return `<div class="detail-section${extraClass ? " " + extraClass : ""}">
+// `id` (Phase 66) is the anchor the section nav jumps to - see
+// detailNavHtml(). Sections without one are simply not navigable.
+function detailSectionHtml(title, bodyHtml, extraClass, id) {
+  return `<div class="detail-section${extraClass ? " " + extraClass : ""}"${id ? ` data-section="${esc(id)}"` : ""}>
     <div class="detail-section-head">${esc(title)}</div>
     ${bodyHtml}
   </div>`;
 }
-function statGroupHtml(title, list) {
+function statGroupHtml(title, list, id) {
   if (!list.length) return "";
-  return detailSectionHtml(title, `<div class="detail-grid">${list.map(detailStatTileHtml).join("")}</div>`);
+  return detailSectionHtml(title, `<div class="detail-grid">${list.map(detailStatTileHtml).join("")}</div>`, "", id);
+}
+
+// ==================== Phase 66: opportunity summary ====================
+// What is known to be MISSING on a deed/LAFT row, each entry backed by a
+// real field state the backend distinguishes - never a guess about why:
+//   address   - realAddress() empty: the county listing carried no street
+//               address (parcel-only listing)
+//   parcel    - hasParcel() false: the county listing published no parcel #
+//   bid       - hasPublishedBid() false: bid NULL/0 = not posted yet
+//   value     - neither market (FDOR just value) nor assessed on the row
+//   sale date - auction with no sale_date (LAFT has none by design)
+//   photo     - NULL = pipeline has not looked; '' = no Street View coverage
+//   coords    - latitude/longitude NULL = scripts/geocode_properties.py has
+//               not placed it yet
+//   flood     - flood_checked_at NULL = not checked; UNMAPPED = FEMA has no map
+// Returned as short phrases for the summary's "Missing" cell; the full
+// property page's own sections still show each one in place.
+function dataGaps(p) {
+  const gaps = [];
+  if (!realAddress(p)) gaps.push("Street address (parcel-only listing)");
+  if (!hasParcel(p)) gaps.push("Parcel # not published");
+  if (!hasPublishedBid(p)) gaps.push(p.source === "laft" ? "Purchase price not published" : "Opening bid not published");
+  if (!hasNum(p.market) && !hasNum(p.assessed)) gaps.push("No county value on file");
+  if (p.source === "auction" && !p.sale_date) gaps.push("Sale date not scheduled");
+  if (!hasPhoto(p)) gaps.push(p.photo_url === "" ? "No Street View coverage" : "Photo not checked yet");
+  if (!(hasNum(p.latitude) && hasNum(p.longitude))) gaps.push("Not yet geocoded");
+  const fl = floodShort(p);
+  if (fl.cls === "muted") gaps.push(fl.text === "Not checked" ? "Flood zone not checked" : "Flood zone not mapped by FEMA");
+  return gaps;
+}
+
+// The "at a glance" block at the top of the full property page: six plain
+// questions, each answered from fields the row actually carries, with the
+// honest absence spelled out where it doesn't. No score, no estimate, no
+// recommendation - the one derived figure (value ÷ bid) is the same ratio
+// isTopPick() has always screened on, labelled as exactly that.
+function opportunitySummaryHtml(p) {
+  const region = regionOf(p);
+  const isLaft = p.source === "laft";
+  const what = isLaft ? "Lands Available for Taxes (fixed price, over the counter)" : `${region === "TX" ? "Texas" : "Florida"} tax deed auction`;
+  const src = harvesterSourceLabel(p);
+  const street = realAddress(p);
+  const where = `${street ? esc(street) : `<span class="muted">No street address in listing</span>`}<span class="opp-sub">${esc(p.county)} County, ${esc(region)}${hasParcel(p) ? ` · Parcel ${esc(p.parcel)}` : ""}${p.case_no ? ` · Case ${esc(p.case_no)}` : ""}</span>`;
+  let when, whenCls = "";
+  if (isGone(p)) { when = outcomeText(p); whenCls = "bad"; }
+  else if (isLaft) { when = "Available now - no auction date"; whenCls = "ok"; }
+  else if (!p.sale_date) { when = "Sale not scheduled"; whenCls = "muted"; }
+  else {
+    const d = daysUntil(p);
+    when = fmtDate(p.sale_date);
+    if (d === 0) { when += " · today"; whenCls = "bad"; }
+    else if (d !== null && d < 0) { when += ` · ${-d}d ago (past sale date)`; whenCls = "bad"; }
+    else if (d !== null) { when += ` · in ${d}d`; whenCls = d <= SOON_DAYS ? "warn" : ""; }
+  }
+  const bid = hasPublishedBid(p) ? fmtMoney(p.bid) : null;
+  let value, valueCls = "";
+  if (hasNum(p.market)) value = `${fmtShort(p.market)}<span class="opp-sub">${esc(valueLabel(p))}${hasNum(p.assessed) ? ` · ${esc(assessedSourceLabel(p))} ${fmtShort(p.assessed)}` : ""}</span>`;
+  else if (hasNum(p.assessed)) value = `${fmtShort(p.assessed)}<span class="opp-sub">${esc(assessedSourceLabel(p))} - no just value on file</span>`;
+  else { value = "No county value on file"; valueCls = "muted"; }
+  const ratio = bid && marketOf(p) > 0 ? `<span class="opp-sub">Value ÷ bid ${valueRatio(p).toFixed(1)}× (screening ratio, not a return)</span>` : "";
+  const gaps = dataGaps(p);
+  const missing = gaps.length
+    ? `<ul class="opp-gaps">${gaps.map(g => `<li>${esc(g)}</li>`).join("")}</ul>`
+    : `<span class="ok">Nothing flagged - every tracked field is present</span>`;
+  const cells = [
+    ["What", `${esc(what)}${src ? `<span class="opp-sub">Source: ${esc(src)}</span>` : ""}`, ""],
+    ["Where", where, ""],
+    ["When", esc(when), whenCls],
+    [isLaft ? "Price" : "Minimum bid", bid ? `${esc(bid)}${ratio}` : `<span class="muted">Not published</span>`, bid ? "bid" : ""],
+    ["Value on file", value, valueCls],
+    ["Missing", missing, gaps.length ? "" : "ok"]
+  ];
+  return detailSectionHtml("At a glance",
+    `<div class="opp-grid">${cells.map(([k, v, cls]) => `<div class="opp-cell"><span class="opp-label">${esc(k)}</span><span class="opp-val${cls ? " " + cls : ""}">${v}</span></div>`).join("")}</div>`,
+    "opp-summary", "summary");
+}
+
+// Jump pills across the top of the full property page, one per section
+// that actually rendered (built AFTER the body, by scanning it for
+// data-section anchors, so a row with no History section gets no dead
+// "History" pill). Scrolling is done by the "jump" click action below.
+const DETAIL_NAV_LABELS = { summary: "Summary", financial: "Financial", property: "Property", history: "History", risk: "Risk & Legal", map: "Map", sources: "Sources", provenance: "Data" };
+function detailNavHtml(bodyHtml) {
+  const ids = [];
+  bodyHtml.replace(/data-section="([a-z]+)"/g, (m, id) => { if (DETAIL_NAV_LABELS[id] && !ids.includes(id)) ids.push(id); return m; });
+  if (ids.length < 2) return "";
+  return `<nav class="detail-nav" aria-label="Sections">${ids.map(id => `<button type="button" data-action="jump" data-target="${id}">${DETAIL_NAV_LABELS[id]}</button>`).join("")}</nav>`;
 }
 // Always rendered for a deed/LAFT property (never for a certificate) - the
 // point is to make the absence of this data visible and honest, not to
@@ -2170,7 +2283,7 @@ function riskLegalCardHtml(p) {
   const kv = rows.map(r => `<div class="kv-row"><span class="kv-label">${r}</span><span class="kv-val muted">Not tracked</span></div>`).join("");
   return detailSectionHtml("Risk & Legal",
     `<p class="detail-section-note">Flood zone comes from FEMA's National Flood Hazard Layer. Liens, judgments, foreclosure status and code-enforcement actions are not part of this app's data pipeline — always verify those directly with the county Clerk of Court and Code Enforcement office before bidding.</p>
-     <div class="kv-list">${floodRowHtml(p || {})}${kv}</div>`, "risk-legal-card");
+     <div class="kv-list">${floodRowHtml(p || {})}${kv}</div>`, "risk-legal-card", "risk");
 }
 // Coordinates only ever come from scripts/geocode_properties.py's real
 // Census Bureau geocode - never guessed here - so a present latitude/
@@ -2181,7 +2294,11 @@ function gisLocationCardHtml(p) {
     <div class="kv-row"><span class="kv-label">Latitude</span><span class="kv-val${hasCoords ? " mono" : " muted"}">${hasCoords ? p.latitude.toFixed(5) : "Not yet geocoded"}</span></div>
     <div class="kv-row"><span class="kv-label">Longitude</span><span class="kv-val${hasCoords ? " mono" : " muted"}">${hasCoords ? p.longitude.toFixed(5) : "Not yet geocoded"}</span></div>`;
   const embed = hasCoords ? `<div class="detail-map-embed"><iframe src="${esc(osmEmbedUrl(p.latitude, p.longitude))}" loading="lazy" title="Property location map" referrerpolicy="no-referrer-when-downgrade"></iframe></div>` : "";
-  return detailSectionHtml("GIS & Location", `<div class="kv-list">${kv}</div>${embed}`);
+  // Phase 66: one step from the full page to the app's own Map page, zoomed
+  // to this county with this property selected (its pin, when it has one;
+  // its strip card and preview either way) - see showOnMap().
+  const mapBtn = `<button class="show-on-map-btn" type="button" data-action="showonmap" data-pid="${p.id}">${svgIcon("map")}${hasCoords ? "Show pin on the Map page" : "Show county on the Map page"}</button>`;
+  return detailSectionHtml("GIS & Location", `<div class="kv-list">${kv}</div>${embed}${mapBtn}`, "", "map");
 }
 // Kept as the exact original .detail-provenance markup/text (two plain
 // <span>s: "Data source: X" and lastSyncedText()'s own wording) inside the
@@ -2193,7 +2310,7 @@ function provenanceCardHtml(p) {
       ${harvesterSourceLabel(p) ? `<span>Data source: ${esc(harvesterSourceLabel(p))}</span>` : ""}
       <span class="${isRowStale(p) ? "stale" : ""}">${esc(lastSyncedText(p))}</span>
     </div>`;
-  return detailSectionHtml("Data Quality & Provenance", body, "provenance-card");
+  return detailSectionHtml("Data Quality & Provenance", body, "provenance-card", "provenance");
 }
 
 function detailHtml(p) {
@@ -2328,15 +2445,16 @@ function detailHtml(p) {
     stats.push(["TDA Eligibility", tdaEligibleText(p)]);
   }
 
-  return `
+  const html = `
     <button class="detail-close" data-action="closedetail" type="button" aria-label="Close">✕</button>
-    <div class="prop-county-tag">${esc(p.county)} County${isCert ? " · Certificate" : (p.source === "laft" ? " · Lands Available" : " · Auction")}</div>
+    <div class="prop-county-tag">${esc(p.county)} County, ${esc(regionOf(p))}${isCert ? " · Certificate" : (p.source === "laft" ? " · Lands Available" : " · Auction")}</div>
     <h2 class="detail-address">${title}</h2>
     <div class="prop-top-actions" style="margin:.2rem 0 .5rem">
       <button class="icon-btn heart-btn${fav ? " on" : ""}" data-action="fav" data-pid="${p.id}" type="button">${fav ? "♥ Favorited" : "♡ Favorite"}</button>
       ${bidListBtnHtml(p, false)}
       <span class="pill ${esc(p.status)}">${esc(p.status)}</span>
     </div>
+    <!--NAV-->
     ${!isCert && regionOf(p) === "FL" ? `<div class="lien-banner ${esc(p.lien_level)}">
       <div class="lien-toprow"><span class="lien-label">Title: ${LIEN_LABEL[p.lien_level] || p.lien_level}</span><span class="type-badge">${esc(p.prop_type || "Type: Unknown")}</span></div>
       <span class="lien-text">${esc(p.lien_note || "")}</span>
@@ -2348,9 +2466,10 @@ function detailHtml(p) {
       ${stats.map(detailStatTileHtml).join("")}
     </div>` : `
     ${photoOrPlaceholder(p, "detail-hero-photo")}
-    ${statGroupHtml("Financial", stats.filter(s => s[2] === "financial"))}
-    ${statGroupHtml("Property Details", stats.filter(s => s[2] === "property"))}
-    ${statGroupHtml("History", stats.filter(s => s[2] === "history"))}
+    ${opportunitySummaryHtml(p)}
+    ${statGroupHtml("Financial", stats.filter(s => s[2] === "financial"), "financial")}
+    ${statGroupHtml("Property Details", stats.filter(s => s[2] === "property"), "property")}
+    ${statGroupHtml("History", stats.filter(s => s[2] === "history"), "history")}
     ${riskLegalCardHtml(p)}
     ${gisLocationCardHtml(p)}
     `}
@@ -2369,13 +2488,16 @@ function detailHtml(p) {
     </div>
     ${detailSectionHtml("Research & Sources", `<div class="detail-links">
       ${links.length ? links.map(([label, href]) => `<a href="${esc(href)}" target="_blank" rel="noopener">${linkIcon(label)}${esc(label)}${isEstimatedLink(label, p) ? esc(" (estimated search)") : ""} →</a>`).join("") : `<span style="font-size:.78rem;color:var(--ink-soft)">No reference links harvested for this property yet.</span>`}
-    </div>`)}
+    </div>`, "", "sources")}
     ${p.url_auction ? `<a class="detail-cta" href="${esc(p.url_auction)}" target="_blank" rel="noopener">${svgIcon("gavel")}${p.source === "laft" ? "View Clerk Docket / Listing" : "Bid on County Auction Site"}</a>` : ""}
     ${isCert ? `<div class="detail-provenance">
       ${harvesterSourceLabel(p) ? `<span>Data source: ${esc(harvesterSourceLabel(p))}</span>` : ""}
       <span class="${isRowStale(p) ? "stale" : ""}">${esc(lastSyncedText(p))}</span>
     </div>` : provenanceCardHtml(p)}
     ${noteHtml(p)}`;
+  // Phase 66: the section nav is built from the sections that actually
+  // rendered above (see detailNavHtml), so it is spliced in afterwards.
+  return isCert ? html.replace("<!--NAV-->", "") : html.replace("<!--NAV-->", detailNavHtml(html));
 }
 
 // Both the detail modal and the watchlist modal are fixed-position overlays
@@ -2786,6 +2908,18 @@ document.addEventListener("click", async e => {
     const p = ALL.find(x => x.id === pid);
     if (p) openDetail(p);
     if (p && typeof selectProperty === "function") selectProperty(p);
+  } else if (action === "jump") {
+    // Phase 66: section nav on the full property page. Scrolls within
+    // whichever container is showing this page (the modal, or the desktop
+    // side panel) - both are their own scroll boxes.
+    const host = btn.closest(".detail-modal-inner, .detail-panel");
+    const target = host && host.querySelector(`[data-section="${btn.dataset.target}"]`);
+    if (target) target.scrollIntoView({ block: "start", behavior: "smooth" });
+    if (host) host.querySelectorAll(".detail-nav button").forEach(b => b.classList.toggle("on", b === btn));
+  } else if (action === "showonmap") {
+    if (!pid) return;
+    const p = ALL.find(x => String(x.id) === String(pid));
+    if (p) showOnMap(p);
   } else if (action === "closedetail") {
     closeDetail();
   } else if (action === "closebidlist") {
@@ -4674,6 +4808,31 @@ function renderMapPage() {
   const rendered = { rows, ledger: mapFilter.ledger, openDetail };
   window.__tdwMapLastRender = rendered;
   window.dispatchEvent(new CustomEvent("tdw:maprendered", { detail: rendered }));
+}
+
+// Phase 66: "Show on the Map page" from a property's full page. Closes the
+// modal (it is fixed-position over every page), clears any Map-page filter
+// that would hide the row, narrows the county select to this property's
+// county (the same select-and-dispatch path applyCounty() in explore.js
+// uses, so all three basemaps zoom in), then hands explore.js the id to
+// select once its pins/strip are drawn - via the same event-plus-stash
+// pattern tdw:maprendered/__tdwMapLastRender already use, since the map may
+// still be mid-zoom-animation when this runs.
+function showOnMap(p) {
+  if (!p) return;
+  closeDetail();
+  mapFilter.search = "";
+  mapFilter.watchlistOnly = false;
+  mapFilter.ledger = "all";
+  mapFilter.county = p.county;
+  const searchEl = document.getElementById("mapSearchInput");
+  if (searchEl) searchEl.value = "";
+  const watchEl = document.getElementById("mapWatchlistOnly");
+  if (watchEl) watchEl.classList.remove("on");
+  document.querySelectorAll("#mapLedgerPills [data-ledger]").forEach(b => b.classList.toggle("on", b.dataset.ledger === "all"));
+  window.__tdwMapSelectPid = String(p.id);
+  window.dispatchEvent(new CustomEvent("tdw:mapselect", { detail: { pid: String(p.id) } }));
+  showPage("map"); // renders the Map page, which re-dispatches tdw:maprendered
 }
 
 const mapSearchInputEl = document.getElementById("mapSearchInput");

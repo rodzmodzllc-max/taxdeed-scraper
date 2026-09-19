@@ -750,6 +750,16 @@ function drawPins(svg, layer, list) {
     dot.setAttribute("r", r * 0.32);
     dot.setAttribute("class", "pin-dot");
     g.appendChild(dot);
+    // Phase 66: a halo ring under the SELECTED pin only, so the one you
+    // picked is unmistakable even among a cluster of same-coloured pins.
+    // Drawn first (behind the teardrop) and only for the active property.
+    if (activeProp && activeProp.id === p.id) {
+      const halo = document.createElementNS(NS, "circle");
+      halo.setAttribute("cx", x); halo.setAttribute("cy", y - r * 1.25);
+      halo.setAttribute("r", r * 2.1);
+      halo.setAttribute("class", "pin-halo");
+      g.insertBefore(halo, g.firstChild);
+    }
     layer.appendChild(g);
   });
 
@@ -776,7 +786,31 @@ function drawPins(svg, layer, list) {
   }
   renderStrip(list, placed.length);
   updateSummary(new Map([[zoomCounty, list]]));
+  applyPendingSelect();
 }
+
+// Phase 66: app.js's "Show on the Map page" (showOnMap) asks for a property
+// to be selected once the map has zoomed into its county and drawn its
+// pins/strip. The request arrives (tdw:mapselect, plus the
+// window.__tdwMapSelectPid stash for the same module-load-order reason
+// tdw:maprendered has __tdwMapLastRender) before the zoom animation and
+// the redraw it triggers, so it is parked here and consumed by drawPins()
+// - the one place that knows the strip and pins now exist. Ignored if the
+// row is not in the zoomed county's list (filtered out, or the county
+// select rejected the value); a stale request never selects a wrong row.
+let pendingSelectPid = null;
+function applyPendingSelect() {
+  if (pendingSelectPid == null) return;
+  const p = propById(pendingSelectPid);
+  if (!p || p.county !== zoomCounty) return;
+  pendingSelectPid = null;
+  showPreview(p);
+}
+window.addEventListener("tdw:mapselect", e => {
+  pendingSelectPid = e.detail && e.detail.pid != null ? String(e.detail.pid) : null;
+  window.__tdwMapSelectPid = null;
+});
+if (window.__tdwMapSelectPid != null) { pendingSelectPid = String(window.__tdwMapSelectPid); window.__tdwMapSelectPid = null; }
 
 function pinLabel(p) {
   const a = (p.address || "").trim();
