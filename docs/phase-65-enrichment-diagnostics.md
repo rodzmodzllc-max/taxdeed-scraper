@@ -252,3 +252,24 @@ All read-only. Artifacts: `enrichment-evidence-branch` on those runs.
 - Liberty (113) and Leon TX (84): same LGBS account-number identity; no CAD
   publication checked yet - same governance path applies before any check
   becomes a pipeline.
+
+### FL counties with the same parcel shape as their matched rows - per-county classification
+
+`scripts/probe_fl_parcel_formats.py` (probe branch, Actions runs 35406185583 and
+35407266083) asked the layer, for live unenriched parcels: exact match with the
+production candidate rules, `LIKE` on the value itself, and `LIKE` on a short
+prefix to reveal the county's real `PARCEL_ID` shape.
+
+| County | Unenriched rows | Finding | Classification | Action |
+|---|---:|---|---|---|
+| Lake | 10 | layer holds `01-19-26-1000-00C-01900`; we store `01-19-26-100000C00600` (4-3-5 tail) | parcel normalization | rule added, **6/6 exact hits** |
+| Leon | 31 | layer holds `411137  C0050` (13-wide, tail right-aligned); we store `411137C0180` | parcel normalization | rule added, **8/8 exact hits** incl. `110250 CD0150` |
+| Citrus (LAFT) | 5 | layer holds `19E17S25      3B000 0320` (section block ljust 8); we store `19E17S35 2B0E0 0330` | parcel normalization | rule added, **5/5 exact hits** |
+| Escambia | 21 | 5/5 sampled rows hit exactly with existing rules | backlog (per-run quota) | none needed |
+| Volusia (auction) | 43 | 6/6 sampled auction rows hit exactly; LAFT samples have no block neighbours | backlog; a few LAFT parcels absent from the layer | none needed |
+| Miami-Dade | 43 | misses' subdivision blocks contain exactly one layer parcel ending `-0001` (condo master); unit folios absent; dash-stripped form still hits non-condo rows | source limitation (cadastral polygon layer omits condo units) | none possible via this layer |
+| Pasco | 8 | 19-char dashless values (`16263101100060000A0`); the 2-2-2-4-5-4 re-dashing that matches its 41 enriched rows gives 0/6 hits | unresolved (identifier shape) | rule tried and removed |
+| Lee | 59 | STRAPs with numeric area codes (`14-44-27-12-…`) have no layer rows under `14442712%`; alnum-area STRAPs (`07-45-27-L1-…`) hit | unresolved (layer encodes numeric-area STRAPs differently or omits them) | needs one more targeted query |
+| Pinellas | 11 | no layer rows under any section/township/range order, dashed or not | unresolved (layer shape unknown) | needs a contains-LIKE on the subdivision number |
+| Hillsborough / Brevard / Suwannee | 201 | stored value is the appraiser account (= FDOR `ALT_KEY`, proven for Brevard); layer refuses ALT_KEY filters and county scans | FDOR identifier mismatch + query behaviour | bulk NAL route, governance-gated |
+| Citrus / Hernando (auction) | 50 | no parcel published on the listing; appraiser key captured (PR #18) | source limitation | parcel stays empty, appraiser link added |
