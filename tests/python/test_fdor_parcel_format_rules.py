@@ -1,8 +1,8 @@
-"""Parcel-format rules added 2026-09-18 for Lake, Leon, Citrus and Pasco.
+"""Parcel-format rules added 2026-09-18 for Lake, Leon and Citrus.
 
 Every expected value below is a PARCEL_ID shape the FDOR layer returned
-live for that county (probe_fl_parcel_formats.py, Actions run 35406185583),
-or, for Pasco, the shape its 41 already-enriched rows are stored in. The
+live for that county (probe_fl_parcel_formats.py, Actions run 35406185583)
+and then confirmed by an exact hit on every sampled row (run 35407266083). The
 rules are additive: each returns None for any other shape, so no other
 county gains a candidate (and a request) from them.
 
@@ -70,21 +70,6 @@ def test_citrus_section_block_is_left_justified_in_8(enrich, stored, expected):
     assert expected in enrich.normalize_candidates(stored)
 
 
-@pytest.mark.parametrize("stored,expected", [
-    ("16263101100060000A0", "16-26-31-0110-00600-00A0"),
-    ("182509002000E000020", "18-25-09-0020-00E00-0020"),
-    ("1526240030000010370", "15-26-24-0030-00001-0370"),
-    ("212425002000C000000", "21-24-25-0020-00C00-0000"),
-])
-def test_pasco_dashless_19_is_regrouped_2_2_2_4_5_4(enrich, stored, expected):
-    assert enrich._dash_pasco_groups(stored) == expected
-    assert expected in enrich.normalize_candidates(stored)
-
-
-def test_pasco_already_dashed_values_are_left_alone(enrich):
-    assert enrich._dash_pasco_groups("22-26-16-0010-00D00-0300") is None
-
-
 @pytest.mark.parametrize("stored", [
     "02684-000-000",             # Alachua
     "26-43-23-C3-02762.0130",    # Lee
@@ -94,9 +79,10 @@ def test_pasco_already_dashed_values_are_left_alone(enrich):
     "33-29-15-07326-000-0200",   # Pinellas
     "410426-020240-000-00",      # Clay (six-digit STR rule)
     "3217270004-000-12600",      # Lake, older shape (ten-digit rule)
+    "16263101100060000A0",       # Pasco 19-char dashless (no proven rule)
     "R27 222 19 1560 0000 0081", # Hernando
 ])
 def test_other_counties_gain_no_candidate_from_the_new_rules(enrich, stored):
     for fn in (enrich._expand_lake_dashed_tail, enrich._pad_leon_block,
-               enrich._pad_citrus_section, enrich._dash_pasco_groups):
+               enrich._pad_citrus_section):
         assert fn(stored) is None, (fn.__name__, stored)
