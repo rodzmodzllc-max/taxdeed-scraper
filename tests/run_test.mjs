@@ -28,6 +28,7 @@ const ALLOWED_ERROR_SUBSTRINGS = [
   'A bad HTTP response code (404) was received', // no icons/ in the fixture serve dir
   'the server responded with a status of 404', // same
   '<path> attribute d: Expected number', // fl-counties.svg path-parsing quirk
+  'net::ERR_CERT_AUTHORITY_INVALID', // sandboxed egress proxy's own CA on the esm.sh/fonts fetches - not the app
 ];
 
 const errors = [];
@@ -132,6 +133,43 @@ await page.locator('#bidMin').evaluate(el => {
   el.dispatchEvent(new Event('input', { bubbles: true }));
 });
 await page.waitForTimeout(100);
+
+// --- Phase 65: typed min/max price, synced with the sliders ---
+// The old read-only $ labels under the sliders are real number fields now.
+// Dragging a slider fills the field; typing moves the slider and filters as
+// you type (debounced) with no Search button; Enter commits at once.
+await page.locator('#bidMin').evaluate(el => {
+  el.value = '10000';
+  el.dispatchEvent(new Event('input', { bubbles: true }));
+});
+await page.waitForTimeout(100);
+results.priceMinInputFollowsSlider = await page.locator('#bidMinInput').inputValue();
+results.priceMaxInputBlankWhenUncapped = await page.locator('#bidMaxInput').inputValue();
+// Typing a max of $9,000 with the min still at $10,000 is a crossing: the
+// control the user did NOT touch (min) snaps down to match, same rule the
+// sliders have had since Phase 63, so the filter can never be min > max.
+await page.fill('#bidMaxInput', '9000');
+await page.waitForTimeout(400); // > the 250ms field debounce
+results.priceMinSnappedToTypedMax = await page.locator('#bidMinInput').inputValue();
+// The slider's step is $10,000, so the browser rounds a typed $9,000 to the
+// nearest notch - the FILTER keeps the exact typed value (the card count
+// below proves that); the handle just sits within one step of it.
+results.priceSliderMaxWithinStepOfTypedMax = await page.locator('#bidMax').evaluate(el => Math.abs(Number(el.value) - 9000) <= Number(el.step));
+// Fixture bids: 2000, 3000, 4500, 5000, 5000, 6000, 7000, 8000, 9000 ... -
+// a $9,000 cap on both ends leaves exactly the one $9,000 row.
+results.priceCardCountAtTypedNineThousandBoth = await page.locator('.prop-card').count();
+// Enter commits immediately (no debounce wait) and leaves the field.
+await page.fill('#bidMinInput', '0');
+await page.locator('#bidMinInput').press('Enter');
+await page.waitForTimeout(50);
+results.priceCardCountAfterEnterMinZero = await page.locator('.prop-card').count();
+results.priceMinInputBlurredAfterEnter = await page.evaluate(() => document.activeElement && document.activeElement.id !== 'bidMinInput');
+// Clearing the max field means "no cap" again - every fixture row is back.
+await page.fill('#bidMaxInput', '');
+await page.waitForTimeout(400);
+results.priceCardCountAfterClearingMax = await page.locator('.prop-card').count();
+results.priceSliderMaxBackToTrackEnd = await page.locator('#bidMax').inputValue();
+results.priceSearchButtonAbsent = (await page.locator('#filtersPanel button:has-text("Search")').count()) === 0;
 
 // --- sort by ---
 await page.selectOption('#sortBy', 'bidDesc');
@@ -242,6 +280,43 @@ await page.waitForTimeout(500); // the zoom viewBox tween runs ~320ms
 results.mapCountySelectValueAfterBubbleTap = await page.locator('#mapCountySelect').inputValue();
 results.mapCanvasZoomedAfterTap = await page.locator('#exploreMapCanvas').evaluate(el => el.classList.contains('zoomed'));
 results.exploreMapResetVisibleAfterTap = await page.locator('#exploreMapReset').isVisible();
+
+// --- Phase 65: selected property <-> strip card <-> pin linkage ---
+// Zoomed into Alachua, the strip lists that county's rows. Clicking a strip
+// card selects the property everywhere at once: the card gets .sel, the
+// preview opens on that property, and (when the row is geocoded) its pin
+// gets .sel too. Hovering a strip card mirrors .hover onto its pin.
+const stripCards = page.locator('#exploreStrip .strip-card');
+results.stripCardCountForAlachua = await stripCards.count();
+await stripCards.first().click();
+await page.waitForTimeout(150);
+results.stripCardSelCountAfterClick = await page.locator('#exploreStrip .strip-card.sel').count();
+results.previewVisibleAfterStripClick = await page.locator('#explorePreview').isVisible();
+results.previewTitleMatchesStripCard = await page.evaluate(() => {
+  const card = document.querySelector('#exploreStrip .strip-card.sel');
+  const title = document.querySelector('#explorePreview .preview-title');
+  return !!card && !!title && card.querySelector('.strip-title').textContent.trim() === title.textContent.trim();
+});
+results.pinSelMatchesStripSel = await page.evaluate(() => {
+  const card = document.querySelector('#exploreStrip .strip-card.sel');
+  if (!card) return false;
+  const pins = document.querySelectorAll(`#exploreMapCanvas .map-pin[data-pid="${card.dataset.pid}"]`);
+  // No pin for an un-geocoded row is fine; a pin that exists must be .sel.
+  return pins.length === 0 || Array.from(pins).every(g => g.classList.contains('sel'));
+});
+await stripCards.nth(1).hover();
+await page.waitForTimeout(50);
+results.stripHoverLinksToPinWhenPresent = await page.evaluate(() => {
+  const hovered = document.querySelector('#exploreStrip .strip-card.hover');
+  if (!hovered) return false;
+  const pins = document.querySelectorAll(`#exploreMapCanvas .map-pin[data-pid="${hovered.dataset.pid}"]`);
+  return pins.length === 0 || Array.from(pins).every(g => g.classList.contains('hover'));
+});
+// Clicking the selected card again deselects (toggle), closing the preview.
+await page.locator('#exploreStrip .strip-card.sel').click();
+await page.waitForTimeout(150);
+results.previewHiddenAfterSecondStripClick = await page.locator('#explorePreview').isHidden();
+results.stripCardSelCountAfterToggleOff = await page.locator('#exploreStrip .strip-card.sel').count();
 
 // "Clear county filter" undoes both halves of that one gesture at once -
 // the select back to "ALL", the map back out to statewide.
@@ -388,6 +463,9 @@ await page.locator('.county-group[data-county="Bay"] summary.county-head').click
 await page.waitForTimeout(200);
 results.laftSpecBits = await page.locator('.prop-card').first().locator('.prop-spec span').allTextContents();
 results.laftValueLabel = (await page.locator('.prop-card').first().locator('.card-stat-label').nth(1).textContent() || '').trim();
+// Phase 65: a Lands Available row's first line names the ledger and says it
+// is a fixed-price listing, not a bidding event.
+results.laftKicker = await page.locator('.prop-card').first().locator('.prop-kicker').evaluate(el => Array.from(el.children).map(c => c.textContent.trim()).join(' '));
 // p3 is the one fixture row with homestead:true - the badge should show up
 // right on the card, not just buried in the detail page, since it's exactly
 // the kind of risk flag a bidder needs before clicking into anything.
@@ -521,6 +599,23 @@ await page.waitForTimeout(150);
 results.cardStatLabelsFirst = await page.locator('.prop-card').first().locator('.card-stat-label').allTextContents();
 results.cardParcelLineFirst = (await page.locator('.prop-card').first().locator('.prop-parcel-line').textContent() || '').trim();
 results.spreadBadgeCount = await page.locator('.spread-badge').count();
+// --- Phase 65: kicker line, identifier row, facts row ---
+// p1 (1 Main St): an open auction 3 days out -> "Auction · Sale <date>" with
+// the within-14-days phase colour; parcel AND case on one row; facts row
+// says plainly what is not known yet (no coordinates, flood never checked)
+// and shows the market ÷ bid ratio (90,000 / 5,000 = 18.0×) that isTopPick()
+// already screens on. Nothing on this row is invented - see cardFactsHtml().
+{
+  const first = page.locator('.prop-card').first();
+  // The kicker/facts are sibling <span>s with no whitespace text between
+  // them (CSS gap does the spacing), so join the pieces explicitly.
+  const spanText = el => Array.from(el.children).map(c => c.textContent.trim()).join(' ');
+  results.cardKickerFirst = await first.locator('.prop-kicker').evaluate(spanText);
+  results.cardKickerPhaseClassFirst = await first.locator('.kicker-phase').evaluate(el => Array.from(el.classList).find(c => c.startsWith('phase-')));
+  results.cardCaseLineFirst = (await first.locator('.prop-case-line').textContent() || '').trim();
+  results.cardFactsFirst = await first.locator('.prop-facts > span').evaluateAll(els => els.map(el => Array.from(el.children).map(c => c.textContent.trim()).join(' ')));
+  results.cardFactsMutedCountFirst = await first.locator('.prop-facts .muted').count();
+}
 
 // --- county tax-roll facts on the card ---
 // scripts/enrich_property_details.py fills these from Florida's statewide
@@ -1518,7 +1613,35 @@ const EXPECTED = {
   brevardOpenAfterManualReopen: true,
   bidMinCardCountAfter: 2,
   bidMinBeforeCount: 9,
-  sortByBidDescFirst: '$11,000.00',
+  priceMinInputFollowsSlider: '10000',
+  priceMaxInputBlankWhenUncapped: '',
+  priceMinSnappedToTypedMax: '9000',
+  priceSliderMaxWithinStepOfTypedMax: true,
+  priceCardCountAtTypedNineThousandBoth: 1,
+  // Auction-ledger bids at or under $9,000: 5000, 8000, 3000, 6000, 4500,
+  // 7000, 9000 (p3's $2,000 is Lands Available; p13 is past due; p2 closed).
+  priceCardCountAfterEnterMinZero: 7,
+  priceMinInputBlurredAfterEnter: true,
+  priceCardCountAfterClearingMax: 9,
+  priceSliderMaxBackToTrackEnd: '1000000',
+  priceSearchButtonAbsent: true,
+  // p1 (auction) + p4 (certificate); p13 is past due and computeMapRows()
+  // excludes it, same as dashboardStats().
+  stripCardCountForAlachua: 2,
+  stripCardSelCountAfterClick: 1,
+  previewVisibleAfterStripClick: true,
+  previewTitleMatchesStripCard: true,
+  pinSelMatchesStripSel: true,
+  stripHoverLinksToPinWhenPresent: true,
+  previewHiddenAfterSecondStripClick: true,
+  stripCardSelCountAfterToggleOff: 0,
+  cardKickerFirst: /^Auction · Sale [A-Z][a-z]{2} \d{1,2}, \d{4}$/, // p1's sale_date is "today + 3", so the date itself moves
+  cardKickerPhaseClassFirst: 'phase-soon',
+  cardCaseLineFirst: 'Case A-1',
+  cardFactsFirst: ['Location Not yet geocoded', 'Flood Not checked', 'Value ÷ bid 18.0×'],
+  cardFactsMutedCountFirst: 2,
+  laftKicker: 'Lands Available · Fixed price · available now',
+  sortByBidDescFirst: '$11,000', // Phase 65: whole-dollar bids drop the ".00" on the card (bidDisplayCard)
   sortByHasInterestOption: true,
   sortByHasExpSoonOption: true,
   cardCountAfterInterestSort: 9,

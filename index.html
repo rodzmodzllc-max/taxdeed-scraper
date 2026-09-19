@@ -299,10 +299,14 @@ can stay closed until asked for at every width - see explore.css. -->
 <input type="range" id="bidMin" class="slider" min="0" max="1000000" step="10000" value="0">
 <input type="range" id="bidMax" class="slider slider-right" min="0" max="1000000" step="10000" value="1000000">
 </div>
+<!-- Phase 65: the min/max are editable, not read-only labels. Typing filters
+as you go (debounced) and Enter/blur commits at once; the sliders above
+follow typed values and typed values follow the sliders. No Search button -
+auto-filtering already covers it. Blank max = no cap. -->
 <div class="price-range-display">
-<div class="price-input"><span id="bidMinDisplay">$0</span></div>
+<label class="price-input"><span class="price-prefix">$</span><input type="number" id="bidMinInput" inputmode="numeric" min="0" step="1000" placeholder="0" aria-label="Minimum opening bid"></label>
 <span class="to-sep">to</span>
-<div class="price-input"><span id="bidMaxDisplay">Any</span></div>
+<label class="price-input"><span class="price-prefix">$</span><input type="number" id="bidMaxInput" inputmode="numeric" min="0" step="1000" placeholder="Any" aria-label="Maximum opening bid"></label>
 </div>
 </div>
 </div>
