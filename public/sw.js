@@ -210,7 +210,7 @@
 // Phase 57 (both providers, three-way toggle), Phase 60 (Mapbox ->
 // MapTiler) and Phase 61 (split the shared satellite canvas into one per
 // provider - see CLAUDE.md's Phase 61 section for the bug this fixed).
-const CACHE = "tdw-shell-v33"; // bumped for Phase 65's frontend sprint (typed price fields, card kicker/ids/facts rows, map hover/selection linkage - app.js/explore.js/styles.css/explore.css/index.html/tx.html all changed)
+const CACHE = "tdw-shell-v34"; // bumped for Phase 66's property-intelligence sprint (At-a-glance summary + section nav on the full page, show-on-map, photo states, card disclosure - app.js/explore.js/styles.css/explore.css changed)
 const SHELL = [
   "/",
   "/index.html",

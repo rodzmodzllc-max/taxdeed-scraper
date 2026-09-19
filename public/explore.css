@@ -668,6 +668,10 @@ paint-order:stroke;transition:fill .12s}
 .map-pin .pin-dot{fill:#fff;pointer-events:none}
 .map-pin:hover path,.map-pin.hover path{fill:var(--ink)}
 .map-pin.sel path{fill:var(--accent);stroke:var(--ink);stroke-width:1.8}
+/* Phase 66: halo ring behind the selected pin (drawPins() adds it only for
+   the active property). Stroke-only so it never hides neighbouring pins. */
+.map-pin .pin-halo{fill:color-mix(in srgb,var(--accent) 18%,transparent);stroke:var(--accent);
+  stroke-width:1.5;pointer-events:none}
 .map-pin:focus-visible{outline:none}
 .map-pin:focus-visible path{stroke:var(--ink);stroke-width:2.4}
 

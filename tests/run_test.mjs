@@ -792,6 +792,30 @@ results.detailModalHasLinks = await page.locator('#detailModalInner .detail-link
 results.detailProvenanceText = ((await page.locator('#detailModalInner .detail-provenance').textContent()) || '').trim();
 results.detailLinksHaveNoEstimatedSuffix = !(await page.locator('#detailModalInner .detail-links').textContent()).includes('estimated search');
 
+// --- Phase 66: "At a glance" summary + section nav on the full page ---
+// p1: FL auction, real address, parcel + case, published bid, just value
+// AND assessed on file, no photo (NULL), no coordinates, flood never
+// checked -> exactly those three gaps listed, nothing invented.
+results.oppCellLabels = await page.locator('#detailModalInner .opp-cell .opp-label').allTextContents();
+// innerText, not textContent: the .opp-sub line is display:block, so the
+// rendered text has a break between the value and its sub-line.
+const oppText = n => page.locator('#detailModalInner .opp-cell').nth(n).locator('.opp-val').evaluate(el => el.innerText.replace(/\s+/g, ' ').trim());
+results.oppWhatText = await oppText(0);
+results.oppWhereText = await oppText(1);
+results.oppWhenClass = await page.locator('#detailModalInner .opp-cell').nth(2).locator('.opp-val').evaluate(el => el.className);
+results.oppBidText = await oppText(3);
+results.oppValueText = await oppText(4);
+results.oppGaps = await page.locator('#detailModalInner .opp-gaps li').allTextContents();
+results.detailNavLabels = await page.locator('#detailModalInner .detail-nav button').allTextContents();
+// Jumping to Risk & Legal scrolls the modal's own scroll box, and marks the pill.
+const scrollBefore = await page.locator('#detailModalInner').evaluate(el => el.scrollTop);
+await page.click('#detailModalInner .detail-nav button[data-target="risk"]');
+await page.waitForTimeout(500);
+results.detailNavJumpScrolled = (await page.locator('#detailModalInner').evaluate(el => el.scrollTop)) > scrollBefore;
+results.detailNavJumpMarksPill = await page.locator('#detailModalInner .detail-nav button[data-target="risk"]').evaluate(el => el.classList.contains('on'));
+results.showOnMapBtnText = ((await page.locator('#detailModalInner .show-on-map-btn').textContent()) || '').trim();
+await page.locator('#detailModalInner').evaluate(el => { el.scrollTop = 0; });
+
 // --- the tax-roll facts on the full property page ---
 // The card carries the three-fact summary; the page carries the rest,
 // including the whole legal description rather than one clamped line.
@@ -1502,6 +1526,53 @@ results.deepLinkModalHiddenAfterBack = await dlPage2.locator('#detailModal').isV
 results.deepLinkHashClearedAfterBack = !(await dlPage2.evaluate(() => location.hash)).includes('/' + dlPid);
 await dlPage2.close();
 
+// --- Phase 66: photo states, card disclosure, and "Show on the Map page" ---
+// A fresh page so this block owns its own state: nothing hidden, nothing
+// filtered, no modal open. p6 (77 Pine Ct) is the fixture's one row WITH a
+// photo (a labelled placard, not a real Street View still); p3 (3 Oak Ave,
+// Lands Available) carries photo_url '' = checked, no coverage; p1 (1 Main
+// St) has no photo_url at all = not checked yet.
+const p66 = await browser.newPage({ viewport: { width: 390, height: 844 } });
+p66.on('pageerror', e => errors.push('pageerror: ' + e.message));
+p66.on('console', msg => { if (msg.type() === 'error') errors.push('console.error: ' + msg.text()); });
+await p66.goto(BASE_URL, { waitUntil: 'networkidle' });
+await p66.waitForTimeout(500);
+if ((await p66.locator('#expandAllBtn').textContent()) === 'Expand all') { await p66.click('#expandAllBtn'); await p66.waitForTimeout(200); }
+const p6Card = p66.locator('.prop-card:has-text("77 Pine Ct")').first();
+results.photoCardHasPhoto = await p6Card.locator('.prop-card-photo.has-photo img').count();
+results.photoCardCaption = ((await p6Card.locator('.photo-caption').textContent()) || '').trim();
+// The banner is capped so the address and both headline figures still sit
+// on the first phone screen under it.
+results.photoCardBannerHeightCapped = await p6Card.locator('.prop-card-photo.has-photo').evaluate(el => el.getBoundingClientRect().height <= 170);
+results.photoNotCheckedText = ((await p66.locator('.prop-card:has-text("1 Main St") .prop-card-photo.no-photo').first().textContent()) || '').trim();
+results.cardMoreClosedByDefault = await p66.locator('.prop-card:has-text("1 Main St") details.card-more').first().evaluate(el => !el.open);
+results.cardMoreSummaryText = ((await p66.locator('.prop-card:has-text("1 Main St") details.card-more summary').first().textContent()) || '').trim();
+// No horizontal overflow at phone width, and the icon buttons have a real hit area.
+results.noHorizontalOverflowMobile = await p66.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1);
+results.iconBtnHitAreaMobile = await p66.locator('.prop-card .icon-btn').first().evaluate(el => { const r = el.getBoundingClientRect(); return r.width >= 32 && r.height >= 32; });
+await p66.click('.ledger-tab[data-ledger="laft"]');
+await p66.waitForTimeout(200);
+if ((await p66.locator('#expandAllBtn').textContent()) === 'Expand all') { await p66.click('#expandAllBtn'); await p66.waitForTimeout(200); }
+results.photoNoCoverageText = ((await p66.locator('.prop-card:has-text("3 Oak Ave") .prop-card-photo.no-photo').first().textContent()) || '').trim();
+await p66.click('.ledger-tab[data-ledger="auction"]');
+await p66.waitForTimeout(200);
+if ((await p66.locator('#expandAllBtn').textContent()) === 'Expand all') { await p66.click('#expandAllBtn'); await p66.waitForTimeout(200); }
+// Full page -> "Show county on the Map page": modal closes, Map page opens
+// filtered to Alachua, and p1 is the selected property there (strip card
+// .sel + preview open on it). p1 has no coordinates, so no pin is expected.
+await p66.locator('.prop-card:has-text("1 Main St") .detail-btn[data-action="viewdetails"]').first().click();
+await p66.waitForTimeout(200);
+await p66.click('#detailModalInner .show-on-map-btn');
+await p66.waitForTimeout(900); // county zoom tween + redraw
+results.showOnMapClosesModal = await p66.locator('#detailModal').isHidden();
+results.showOnMapOpensMapPage = await p66.locator('#pageMap').isVisible();
+results.showOnMapCountySelect = await p66.locator('#mapCountySelect').inputValue();
+results.showOnMapCanvasZoomed = await p66.locator('#exploreMapCanvas').evaluate(el => el.classList.contains('zoomed'));
+results.showOnMapPreviewVisible = await p66.locator('#explorePreview').isVisible();
+results.showOnMapPreviewTitle = ((await p66.locator('#explorePreview .preview-title').textContent()) || '').trim();
+results.showOnMapStripSelCount = await p66.locator('#exploreStrip .strip-card.sel').count();
+await p66.close();
+
 await browser.close();
 
 // ============================================================
@@ -1635,12 +1706,42 @@ const EXPECTED = {
   stripHoverLinksToPinWhenPresent: true,
   previewHiddenAfterSecondStripClick: true,
   stripCardSelCountAfterToggleOff: 0,
-  cardKickerFirst: /^Auction · Sale [A-Z][a-z]{2} \d{1,2}, \d{4}$/, // p1's sale_date is "today + 3", so the date itself moves
+  // Phase 66: county + state lead the line on every card. p1's sale_date is
+  // "today + 3", so the date itself moves.
+  cardKickerFirst: /^Alachua, FL · Auction · Sale [A-Z][a-z]{2} \d{1,2}, \d{4}$/,
   cardKickerPhaseClassFirst: 'phase-soon',
   cardCaseLineFirst: 'Case A-1',
   cardFactsFirst: ['Location Not yet geocoded', 'Flood Not checked', 'Value ÷ bid 18.0×'],
   cardFactsMutedCountFirst: 2,
-  laftKicker: 'Lands Available · Fixed price · available now',
+  laftKicker: 'Bay, FL · Lands Available · Fixed price · available now',
+  // Phase 66: "At a glance" summary + section nav + photo states + show-on-map
+  oppCellLabels: ['What', 'Where', 'When', 'Minimum bid', 'Value on file', 'Missing'],
+  oppWhatText: 'Florida tax deed auction Source: Fl Realauction Alachua',
+  oppWhereText: '1 Main St Alachua County, FL · Parcel 111 · Case A-1',
+  oppWhenClass: 'opp-val warn', // p1 sells in 3 days - inside SOON_DAYS
+  oppBidText: '$5,000.00 Value ÷ bid 18.0× (screening ratio, not a return)',
+  oppValueText: '$90,000 2025 County Just Value · County Assessed Value $80,000',
+  oppGaps: ['Photo not checked yet', 'Not yet geocoded', 'Flood zone not checked'],
+  detailNavLabels: ['Summary', 'Financial', 'Property', 'History', 'Risk & Legal', 'Map', 'Sources', 'Data'],
+  detailNavJumpScrolled: true,
+  detailNavJumpMarksPill: true,
+  showOnMapBtnText: 'Show county on the Map page',
+  photoCardHasPhoto: 1,
+  photoCardCaption: 'Street View',
+  photoCardBannerHeightCapped: true,
+  photoNotCheckedText: 'Photo not checked yet',
+  photoNoCoverageText: 'No Street View coverage at this address',
+  cardMoreClosedByDefault: true,
+  cardMoreSummaryText: 'More · last sale, legal description',
+  noHorizontalOverflowMobile: true,
+  iconBtnHitAreaMobile: true,
+  showOnMapClosesModal: true,
+  showOnMapOpensMapPage: true,
+  showOnMapCountySelect: 'Alachua',
+  showOnMapCanvasZoomed: true,
+  showOnMapPreviewVisible: true,
+  showOnMapPreviewTitle: '1 Main St',
+  showOnMapStripSelCount: 1,
   sortByBidDescFirst: '$11,000', // Phase 65: whole-dollar bids drop the ".00" on the card (bidDisplayCard)
   sortByHasInterestOption: true,
   sortByHasExpSoonOption: true,
