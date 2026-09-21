@@ -189,6 +189,7 @@ function setStyle(style) {
     if (maptilerState.map) requestAnimationFrame(() => maptilerState.map.resize());
     renderMaptiler();
   }
+  syncImageryToggle();
 }
 
 function setupMessage(canvasId, html) {
@@ -363,6 +364,8 @@ async function ensureGoogleMap() {
     });
     googleState.infoWindow = new InfoWindow();
     googleState.loadState = "ready";
+    if (imagery !== "satellite") googleState.map.setMapTypeId("roadmap");
+    syncImageryToggle();
     renderGoogle();
   } catch (err) {
     googleState.loadState = "error";
@@ -433,7 +436,12 @@ async function renderGoogle() {
       el.setAttribute("tabindex", "0");
       el.setAttribute("aria-label", pinLabel(p) + " - view details");
       const position = { lat: p.latitude, lng: p.longitude };
-      el.addEventListener("click", () => showGooglePopup(p, position));
+      el.dataset.pid = String(p.id);
+      // Phase 67: a pin selects the property in the SHARED preview panel
+      // (explore.js's showPreview, via tdw:pinselect) instead of opening this
+      // provider's own popup - one selection, one panel, whichever basemap
+      // is showing. showGooglePopup() below is retained but no longer wired.
+      el.addEventListener("click", () => selectPin(p));
       // Phase 63: role="button"/tabindex="0" alone don't make a plain <div>
       // fire "click" on Enter/Space the way a real <button> would - the
       // county bubble markers below already add this same handler, pins
@@ -441,11 +449,12 @@ async function renderGoogle() {
       // tab to a pin but Enter does nothing - no way to open its popup,
       // even though the identical gesture works on the default outline map.
       el.addEventListener("keydown", e => {
-        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); showGooglePopup(p, position); }
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); selectPin(p); }
       });
       const m = new AdvancedMarkerElement({ map, position, content: el });
       googleState.markers.push(m);
     });
+    applySelection("google");
     return;
   }
 
@@ -567,15 +576,18 @@ async function ensureMaptilerMap() {
       container: canvas,
       // "hybrid" = satellite imagery + labels, MapTiler's closest match to
       // Mapbox's old satellite-streets-v12 style this replaced.
-      style: `https://api.maptiler.com/maps/hybrid/style.json?key=${key}`,
+      style: maptilerStyleUrl(),
       center: view.center,
       zoom: view.zoom,
       attributionControl: true
     });
-    maptilerState.map.addControl(new maptilerState.gl.NavigationControl({ showCompass: false }), "top-right");
+    // Phase 67: zoom control bottom-right, out from under the imagery
+    // toggle (top-right overlay, see #mapImageryToggle).
+    maptilerState.map.addControl(new maptilerState.gl.NavigationControl({ showCompass: false }), "bottom-right");
     maptilerState.popup = new maptilerState.gl.Popup({ closeButton: true, closeOnClick: false, offset: 14 });
     maptilerState.map.on("load", () => {
       maptilerState.loadState = "ready";
+      syncImageryToggle();
       renderMaptiler();
     });
   } catch (err) {
@@ -629,17 +641,21 @@ async function renderMaptiler() {
       el.setAttribute("role", "button");
       el.setAttribute("tabindex", "0");
       el.setAttribute("aria-label", pinLabel(p) + " - view details");
-      el.addEventListener("click", () => showMaptilerPopup(p, [p.longitude, p.latitude]));
+      el.dataset.pid = String(p.id);
+      // Phase 67: shared preview panel, not this provider's popup - see the
+      // Google pin above. showMaptilerPopup() is retained but no longer wired.
+      el.addEventListener("click", () => selectPin(p));
       // Phase 63: same fix as the Google provider above - a plain <div>
       // never fires "click" on Enter/Space no matter what role/tabindex say.
       el.addEventListener("keydown", e => {
-        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); showMaptilerPopup(p, [p.longitude, p.latitude]); }
+        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); selectPin(p); }
       });
       const m = new gl.Marker({ element: el, anchor: "bottom" })
         .setLngLat([p.longitude, p.latitude])
         .addTo(map);
       maptilerState.markers.push(m);
     });
+    applySelection("maptiler");
     return;
   }
 
@@ -698,6 +714,93 @@ function showMaptilerPopup(p, lngLat) {
   maptilerState.popup.setLngLat(lngLat).setDOMContent(el).addTo(maptilerState.map);
 }
 
+// ============================================================================
+// PHASE 67: ONE SELECTION ACROSS ALL THREE BASEMAPS
+// ============================================================================
+// explore.js owns the selected property (activeProp) and the preview panel.
+// A pin tapped here asks it to select (tdw:pinselect); it answers every
+// selection change with tdw:mapselection { pid, lat, lng, focus }, and this
+// module marks the matching marker (.sel) and, on the active basemap,
+// centres on it. The zoom rule: never below the neighbourhood (SELECT_ZOOM)
+// so roads and lot lines are readable, never forced tighter than the user
+// already is, and no camera move at all for a property without coordinates
+// - the map stays where the county zoom left it and the panel says why.
+const SELECT_ZOOM = 16;
+let selection = { pid: null, lat: null, lng: null };
+
+function selectPin(p) {
+  window.dispatchEvent(new CustomEvent("tdw:pinselect", { detail: { pid: String(p.id) } }));
+}
+
+function applySelection(provider, focus) {
+  const pid = selection.pid;
+  const canvasId = provider === "google" ? GOOGLE_CANVAS_ID : MAPTILER_CANVAS_ID;
+  const canvas = $(canvasId);
+  if (canvas) {
+    canvas.querySelectorAll(".sat-pin.sel").forEach(el => el.classList.remove("sel"));
+    if (pid != null) {
+      const el = canvas.querySelector(`.sat-pin[data-pid="${CSS.escape(pid)}"]`);
+      if (el) el.classList.add("sel");
+    }
+  }
+  if (pid == null || activeStyle !== provider || selection.lat == null || selection.lng == null) return;
+  if (provider === "google" && googleState.map && googleState.loadState === "ready") {
+    const map = googleState.map;
+    const z = map.getZoom();
+    if (z < SELECT_ZOOM || focus) map.setZoom(Math.max(z, SELECT_ZOOM));
+    map.panTo({ lat: selection.lat, lng: selection.lng });
+  } else if (provider === "maptiler" && maptilerState.map && maptilerState.loadState === "ready") {
+    const map = maptilerState.map;
+    const z = map.getZoom();
+    map.easeTo({ center: [selection.lng, selection.lat], zoom: (z < SELECT_ZOOM || focus) ? Math.max(z, SELECT_ZOOM) : z, essential: true });
+  }
+}
+
+window.addEventListener("tdw:mapselection", e => {
+  const d = e.detail || {};
+  selection = { pid: d.pid == null ? null : String(d.pid), lat: d.lat, lng: d.lng };
+  applySelection("google", d.focus);
+  applySelection("maptiler", d.focus);
+});
+if (window.__tdwMapSelection) {
+  const d = window.__tdwMapSelection;
+  selection = { pid: d.pid == null ? null : String(d.pid), lat: d.lat, lng: d.lng };
+}
+
+// ---------------------------------------------------------------------------
+// Phase 67: imagery toggle (Satellite / Streets) for the two third-party
+// basemaps. Google flips mapTypeId between "hybrid" and "roadmap"; MapTiler
+// swaps the style URL between its hybrid and streets-v2 styles (HTML markers
+// survive a setStyle). Hidden on the outline map, which has no imagery.
+// Parcel/GIS layers: neither provider publishes US parcel boundaries, and
+// the backend holds no parcel geometry, so there is no parcel toggle - see
+// CLAUDE.md's Phase 67 audit.
+// ---------------------------------------------------------------------------
+let imagery = "satellite";
+function maptilerStyleUrl() {
+  const key = maptilerKey();
+  return `https://api.maptiler.com/maps/${imagery === "satellite" ? "hybrid" : "streets-v2"}/style.json?key=${key}`;
+}
+function syncImageryToggle() {
+  const wrap = $("mapImageryToggle");
+  if (!wrap) return;
+  const provider = activeStyle === "google" ? googleState : activeStyle === "maptiler" ? maptilerState : null;
+  wrap.hidden = !(provider && provider.loadState === "ready");
+  wrap.querySelectorAll("[data-imagery]").forEach(b => b.classList.toggle("on", b.dataset.imagery === imagery));
+}
+function setImagery(next) {
+  if (next === imagery) return;
+  imagery = next;
+  if (googleState.map && googleState.loadState === "ready") googleState.map.setMapTypeId(imagery === "satellite" ? "hybrid" : "roadmap");
+  if (maptilerState.map && maptilerState.loadState === "ready") maptilerState.map.setStyle(maptilerStyleUrl());
+  syncImageryToggle();
+}
+function bindImageryToggle() {
+  const wrap = $("mapImageryToggle");
+  if (!wrap) return;
+  wrap.querySelectorAll("[data-imagery]").forEach(b => b.addEventListener("click", () => setImagery(b.dataset.imagery)));
+}
+
 // ---------------------------------------------------------------------------
 // wiring - same contract explore.js uses, listened to independently (see
 // this file's header for why the two modules don't reach into each other)
@@ -715,3 +818,4 @@ window.addEventListener("tdw:maprendered", e => absorb(e.detail));
 if (window.__tdwMapLastRender) absorb(window.__tdwMapLastRender);
 
 bindStyleToggle();
+bindImageryToggle();

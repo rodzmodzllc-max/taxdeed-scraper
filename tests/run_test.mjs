@@ -1544,7 +1544,10 @@ results.photoCardCaption = ((await p6Card.locator('.photo-caption').textContent(
 // The banner is capped so the address and both headline figures still sit
 // on the first phone screen under it.
 results.photoCardBannerHeightCapped = await p6Card.locator('.prop-card-photo.has-photo').evaluate(el => el.getBoundingClientRect().height <= 170);
-results.photoNotCheckedText = ((await p66.locator('.prop-card:has-text("1 Main St") .prop-card-photo.no-photo').first().textContent()) || '').trim();
+// Phase 67: the placeholder names both absences (photo state, then the
+// location state) in two spans - read the photo one here.
+results.photoNotCheckedText = ((await p66.locator('.prop-card:has-text("1 Main St") .prop-card-photo.no-photo .vis-main').first().textContent()) || '').trim();
+results.placeholderLocationText = ((await p66.locator('.prop-card:has-text("1 Main St") .prop-card-photo.no-photo .vis-sub').first().textContent()) || '').trim();
 results.cardMoreClosedByDefault = await p66.locator('.prop-card:has-text("1 Main St") details.card-more').first().evaluate(el => !el.open);
 results.cardMoreSummaryText = ((await p66.locator('.prop-card:has-text("1 Main St") details.card-more summary').first().textContent()) || '').trim();
 // No horizontal overflow at phone width, and the icon buttons have a real hit area.
@@ -1553,7 +1556,7 @@ results.iconBtnHitAreaMobile = await p66.locator('.prop-card .icon-btn').first()
 await p66.click('.ledger-tab[data-ledger="laft"]');
 await p66.waitForTimeout(200);
 if ((await p66.locator('#expandAllBtn').textContent()) === 'Expand all') { await p66.click('#expandAllBtn'); await p66.waitForTimeout(200); }
-results.photoNoCoverageText = ((await p66.locator('.prop-card:has-text("3 Oak Ave") .prop-card-photo.no-photo').first().textContent()) || '').trim();
+results.photoNoCoverageText = ((await p66.locator('.prop-card:has-text("3 Oak Ave") .prop-card-photo.no-photo .vis-main').first().textContent()) || '').trim();
 await p66.click('.ledger-tab[data-ledger="auction"]');
 await p66.waitForTimeout(200);
 if ((await p66.locator('#expandAllBtn').textContent()) === 'Expand all') { await p66.click('#expandAllBtn'); await p66.waitForTimeout(200); }
@@ -1572,6 +1575,118 @@ results.showOnMapPreviewVisible = await p66.locator('#explorePreview').isVisible
 results.showOnMapPreviewTitle = ((await p66.locator('#explorePreview .preview-title').textContent()) || '').trim();
 results.showOnMapStripSelCount = await p66.locator('#exploreStrip .strip-card.sel').count();
 await p66.close();
+
+// --- Phase 67: the map workspace, pin selection, imagery hierarchy ---
+// Desktop first: the Map page is [toolbar] over [stage | side panel]; the
+// stage has real height and the outline map fills it; the strip is a
+// vertical list in the panel; a geocoded row (p5, Charlotte) gets a real
+// pin whose click selects it everywhere (pin .sel + halo, strip .sel, the
+// preview with its coordinates) and tells the other basemaps
+// (tdw:mapselection). Closing clears every one of those.
+const p67d = await browser.newPage({ viewport: { width: 1400, height: 900 } });
+p67d.on('pageerror', e => errors.push('pageerror: ' + e.message));
+p67d.on('console', msg => { if (msg.type() === 'error') errors.push('console.error: ' + msg.text()); });
+await p67d.goto(BASE_URL, { waitUntil: 'networkidle' });
+await p67d.waitForTimeout(500);
+await p67d.evaluate(() => { window.__selEvents = []; window.addEventListener('tdw:mapselection', e => window.__selEvents.push(e.detail)); });
+await p67d.click('.nav-item[data-page="map"]');
+await p67d.waitForTimeout(600);
+results.mapToolbarHoldsBasemapToggle = await p67d.locator('#mapToolbar #mapStyleToggle').count();
+results.mapWorkspaceTwoColumns = await p67d.locator('#mapWorkspace').evaluate(el => getComputedStyle(el).gridTemplateColumns.split(' ').length === 2);
+results.mapStageTallDesktop = await p67d.locator('#mapStage .explore-map-stage').evaluate(el => el.getBoundingClientRect().height >= 500);
+results.mapSvgFillsStageHeight = await p67d.locator('#exploreMapCanvas svg').evaluate(el => { const s = el.getBoundingClientRect().height, st = el.closest('.explore-map-stage').getBoundingClientRect().height; return s >= st * 0.95; });
+results.mapSidePanelVisible = await p67d.locator('#mapSidePanel').isVisible();
+results.mapImageryToggleHiddenOnOutline = await p67d.locator('#mapImageryToggle').isHidden();
+results.mapOldCardHeadGone = await p67d.locator('#pageMap .explore-map-head').count();
+await p67d.selectOption('#mapCountySelect', 'Charlotte');
+await p67d.waitForTimeout(700);
+results.charlottePinCount = await p67d.locator('#exploreMapCanvas .map-pin').count();
+results.stripVerticalOnDesktop = await p67d.locator('#exploreStrip .strip-rail').evaluate(el => getComputedStyle(el).flexDirection === 'column');
+results.stripInSidePanel = await p67d.locator('#mapSidePanel #exploreStrip').count();
+await p67d.locator('#exploreMapCanvas .map-pin[data-pid="p5"]').click({ force: true });
+await p67d.waitForTimeout(300);
+results.pinClickPreviewTitle = ((await p67d.locator('#explorePreview .preview-title').textContent()) || '').trim();
+results.pinClickPreviewInSidePanel = await p67d.locator('#mapSidePanel #explorePreview').count();
+results.pinClickPinSel = await p67d.locator('#exploreMapCanvas .map-pin.sel').count();
+results.pinClickHalo = await p67d.locator('#exploreMapCanvas .map-pin.sel .pin-halo').count();
+results.pinClickStripSel = await p67d.locator('#exploreStrip .strip-card.sel[data-pid="p5"]').count();
+results.previewKicker = ((await p67d.locator('#explorePreview .pv-kicker').textContent()) || '').trim();
+results.previewCoords = ((await p67d.locator('#explorePreview .pv-coords').textContent()) || '').trim();
+results.previewBid = ((await p67d.locator('#explorePreview .pv-val.bid').textContent()) || '').trim();
+results.previewValueLabel = ((await p67d.locator('#explorePreview .pv-stat small').textContent()) || '').trim();
+results.previewIds = await p67d.locator('#explorePreview .pv-ids dd').allTextContents();
+results.previewFlood = ((await p67d.locator('#explorePreview .pv-risk span:nth-child(2)').textContent()) || '').trim();
+results.previewMoreClosed = await p67d.locator('#explorePreview details.pv-more').evaluate(el => !el.open);
+results.selectionEventPid = await p67d.evaluate(() => { const e = window.__selEvents; return e.length ? e[e.length - 1].pid : null; });
+results.selectionEventHasCoords = await p67d.evaluate(() => { const e = window.__selEvents; const d = e[e.length - 1]; return !!d && typeof d.lat === 'number' && typeof d.lng === 'number'; });
+// Close via the preview's own close button: pin highlight, strip highlight
+// and the cross-basemap selection all clear together; the map stays zoomed.
+await p67d.click('#explorePreview .preview-close');
+await p67d.waitForTimeout(250);
+results.previewHiddenAfterClose = await p67d.locator('#explorePreview').isHidden();
+results.pinSelClearedAfterClose = await p67d.locator('#exploreMapCanvas .map-pin.sel').count();
+results.stripSelClearedAfterClose = await p67d.locator('#exploreStrip .strip-card.sel').count();
+results.selectionEventClearedPid = await p67d.evaluate(() => { const e = window.__selEvents; return e.length ? e[e.length - 1].pid : 'none'; });
+results.stillZoomedAfterClose = await p67d.locator('#exploreMapCanvas').evaluate(el => el.classList.contains('zoomed'));
+// Switching properties: Brevard's p12 is the other geocoded row.
+await p67d.selectOption('#mapCountySelect', 'Brevard');
+await p67d.waitForTimeout(700);
+await p67d.locator('#exploreMapCanvas .map-pin[data-pid="p12"]').click({ force: true });
+await p67d.waitForTimeout(300);
+results.switchPreviewTitle = ((await p67d.locator('#explorePreview .preview-title').textContent()) || '').trim();
+results.switchPinSelPid = await p67d.locator('#exploreMapCanvas .map-pin.sel').getAttribute('data-pid');
+// Imagery ladder, no key configured: a geocoded card gets the county
+// context mini-map (rung 3), built from the app's own basemap once it
+// scrolls into view; an un-geocoded card gets the two-part placeholder.
+await p67d.click('.nav-item[data-page="auctions"]');
+await p67d.waitForTimeout(400);
+if ((await p67d.locator('#expandAllBtn').textContent()) === 'Expand all') { await p67d.click('#expandAllBtn'); await p67d.waitForTimeout(200); }
+const p5Vis = p67d.locator('.prop-card:has-text("500 Elm Way") .prop-card-photo');
+results.geocodedCardVisualClass = await p5Vis.evaluate(el => el.classList.contains('minimap'));
+await p5Vis.scrollIntoViewIfNeeded();
+await p67d.waitForTimeout(600);
+results.minimapHydrated = await p5Vis.locator('svg .mm-county').count();
+results.minimapHasDot = await p5Vis.locator('svg .mm-dot').count();
+results.minimapCaption = ((await p5Vis.locator('.photo-caption').textContent()) || '').trim();
+results.minimapNeighborsDrawn = (await p5Vis.locator('svg .mm-neighbor').count()) > 0;
+// The static-image URL builders (rung 2), checked without a key in the
+// fixture: MapTiler is preferred, Google second, neither without coords.
+// Coordinates are fixed to six decimals in the URL (26.934200), so the
+// same row always yields the same URL - cacheable by the browser.
+results.staticUrlMaptiler = await p67d.evaluate(() => { const r = window.__tdwImagery.staticImageUrl({ latitude: 26.9342, longitude: -82.0454 }, { maptilerKey: 'TESTKEY' }); return r && r.provider + '|' + /^https:\/\/api\.maptiler\.com\/maps\/hybrid\/static\/-82\.045400,26\.934200,17\/640x320\.png\?markers=-82\.045400,26\.934200,red&key=TESTKEY$/.test(r.url); });
+results.staticUrlGoogle = await p67d.evaluate(() => { const r = window.__tdwImagery.staticImageUrl({ latitude: 26.9342, longitude: -82.0454 }, { googleMapsApiKey: 'GKEY' }); return r && r.provider + '|' + /^https:\/\/maps\.googleapis\.com\/maps\/api\/staticmap\?center=26\.934200,-82\.045400&zoom=17&size=640x320&scale=2&maptype=hybrid&markers=color:red%7C26\.934200,-82\.045400&key=GKEY$/.test(r.url); });
+results.staticUrlPrefersMaptiler = await p67d.evaluate(() => window.__tdwImagery.staticImageUrl({ latitude: 1, longitude: 2 }, { googleMapsApiKey: 'G', maptilerKey: 'M' }).provider);
+results.staticUrlNoCoords = await p67d.evaluate(() => window.__tdwImagery.staticImageUrl({ latitude: null, longitude: -82 }, { maptilerKey: 'M' }));
+results.staticUrlNoKey = await p67d.evaluate(() => window.__tdwImagery.staticImageUrl({ latitude: 1, longitude: 2 }, {}));
+await p67d.close();
+
+// Phone: the stage is still large, the preview is a sheet over the stage's
+// lower edge (not over the list under the map), collapsed by default with
+// a Details button that expands it, and nothing overflows sideways.
+const p67m = await browser.newPage({ viewport: { width: 360, height: 780 } });
+p67m.on('pageerror', e => errors.push('pageerror: ' + e.message));
+p67m.on('console', msg => { if (msg.type() === 'error') errors.push('console.error: ' + msg.text()); });
+await p67m.goto(BASE_URL, { waitUntil: 'networkidle' });
+await p67m.waitForTimeout(500);
+await p67m.click('.nav-bottom-item[data-page="map"]');
+await p67m.waitForTimeout(600);
+results.mapStageTallMobile = await p67m.locator('#mapStage .explore-map-stage').evaluate(el => el.getBoundingClientRect().height >= 320);
+results.mapNoOverflowMobile = await p67m.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1);
+await p67m.selectOption('#mapCountySelect', 'Charlotte');
+await p67m.waitForTimeout(700);
+await p67m.locator('#exploreMapCanvas .map-pin[data-pid="p5"]').click({ force: true });
+await p67m.waitForTimeout(300);
+results.mobilePreviewInStage = await p67m.locator('#mapStage .explore-map-stage > #explorePreview').count();
+results.mobilePreviewCollapsed = await p67m.locator('#explorePreview').evaluate(el => !el.classList.contains('expanded'));
+results.mobilePreviewBodyHiddenCollapsed = await p67m.locator('#explorePreview .pv-body').isHidden();
+results.mobilePreviewCoversLessThanHalfStage = await p67m.locator('#explorePreview').evaluate(el => el.getBoundingClientRect().height < el.closest('.explore-map-stage').getBoundingClientRect().height * 0.5);
+await p67m.click('#explorePreview .pv-expand');
+await p67m.waitForTimeout(200);
+results.mobilePreviewExpanded = await p67m.locator('#explorePreview').evaluate(el => el.classList.contains('expanded'));
+results.mobilePreviewBodyVisibleExpanded = await p67m.locator('#explorePreview .pv-body').isVisible();
+results.mobileStripStillReachable = await p67m.locator('#exploreStrip .strip-card').first().isVisible();
+results.mapNoOverflowMobileSelected = await p67m.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1);
+await p67m.close();
 
 await browser.close();
 
@@ -1742,6 +1857,59 @@ const EXPECTED = {
   showOnMapPreviewVisible: true,
   showOnMapPreviewTitle: '1 Main St',
   showOnMapStripSelCount: 1,
+  // Phase 67: map workspace, pin selection, imagery hierarchy
+  placeholderLocationText: 'Not yet geocoded',
+  mapToolbarHoldsBasemapToggle: 1,
+  mapWorkspaceTwoColumns: true,
+  mapStageTallDesktop: true,
+  mapSvgFillsStageHeight: true,
+  mapSidePanelVisible: true,
+  mapImageryToggleHiddenOnOutline: true,
+  mapOldCardHeadGone: 0,
+  charlottePinCount: 1,
+  stripVerticalOnDesktop: true,
+  stripInSidePanel: 1,
+  pinClickPreviewTitle: '500 Elm Way',
+  pinClickPreviewInSidePanel: 1,
+  pinClickPinSel: 1,
+  pinClickHalo: 1,
+  pinClickStripSel: 1,
+  previewKicker: /^Charlotte County, FL · Auction · Sale [A-Z][a-z]{2} \d{1,2}, \d{4}$/,
+  previewCoords: '26.93420, -82.04540',
+  previewBid: '$8,000.00',
+  previewValueLabel: 'County Just Value',
+  previewIds: ['444', 'D-1'],
+  previewFlood: 'Not checked',
+  previewMoreClosed: true,
+  selectionEventPid: 'p5',
+  selectionEventHasCoords: true,
+  previewHiddenAfterClose: true,
+  pinSelClearedAfterClose: 0,
+  stripSelClearedAfterClose: 0,
+  selectionEventClearedPid: null,
+  stillZoomedAfterClose: true,
+  switchPreviewTitle: '42 Palm Ave',
+  switchPinSelPid: 'p12',
+  geocodedCardVisualClass: true,
+  minimapHydrated: 1,
+  minimapHasDot: 1,
+  minimapCaption: 'Location in Charlotte County',
+  minimapNeighborsDrawn: true,
+  staticUrlMaptiler: 'maptiler|true',
+  staticUrlGoogle: 'google|true',
+  staticUrlPrefersMaptiler: 'maptiler',
+  staticUrlNoCoords: null,
+  staticUrlNoKey: null,
+  mapStageTallMobile: true,
+  mapNoOverflowMobile: true,
+  mobilePreviewInStage: 1,
+  mobilePreviewCollapsed: true,
+  mobilePreviewBodyHiddenCollapsed: true,
+  mobilePreviewCoversLessThanHalfStage: true,
+  mobilePreviewExpanded: true,
+  mobilePreviewBodyVisibleExpanded: true,
+  mobileStripStillReachable: true,
+  mapNoOverflowMobileSelected: true,
   sortByBidDescFirst: '$11,000', // Phase 65: whole-dollar bids drop the ".00" on the card (bidDisplayCard)
   sortByHasInterestOption: true,
   sortByHasExpSoonOption: true,

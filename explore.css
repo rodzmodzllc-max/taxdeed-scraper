@@ -294,18 +294,11 @@ body[data-state="TX"] .explore-map{--map-aspect:0.994}
    behind a data-mode selector - there is only one mode. Florida's outline is
    nearly square, so the map's width is set by its height; 64vh alone left
    ~230px of empty either side even with the rail in place. */
-@media (min-width:1100px){
-  /* min() against a viewport-minus-chrome figure as well as a flat vh:
-     76vh alone pushed the bottom of the map past the fold, because the map
-     starts a couple hundred px down the page, not at the top of it. */
-  .map-page-map .explore-map-canvas svg{
-    --map-h:min(76vh, calc(100vh - 17rem));
-    max-height:var(--map-h);max-width:calc(var(--map-h) * var(--map-aspect))}
-
-  .map-page-map .explore-map-rail:not([hidden]){
-    display:block;flex:0 0 232px;overflow-y:auto;max-height:min(76vh, calc(100vh - 17rem));
-    border:1px solid var(--card-line);border-radius:10px;background:var(--card);padding:.5rem}
-}
+/* Phase 67: the rail lives in the side panel now (see .map-side below), so
+   it is a plain block whenever it isn't hidden, at every width. The old
+   desktop-only svg height cap is superseded by the workspace rules at the
+   end of this file: the stage has a real height and the map fills it. */
+.map-side .explore-map-rail:not([hidden]){display:block}
 .rail-head{font-size:.66rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
   color:var(--ink-soft);padding:.15rem .35rem .4rem}
 .rail-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:.1rem}
@@ -715,21 +708,60 @@ font-weight:700;color:var(--bad)}
    Sits over the map rather than beside it: the panel is already narrow in
    split view, and anchoring the card to the bottom keeps the pin you tapped
    in sight above it. */
-.explore-preview{position:absolute;left:.55rem;right:.55rem;bottom:.55rem;z-index:6;
-background:var(--card);border:1px solid var(--card-line);border-radius:4px;
-padding:.6rem .7rem .55rem;box-shadow:0 12px 32px rgba(15,23,42,.22)}
-.preview-close{position:absolute;top:.3rem;right:.35rem;border:none;background:none;
-color:var(--ink-soft);font-size:.85rem;cursor:pointer;line-height:1;padding:.2rem}
+/* Phase 67: the preview is the top block of the side panel (desktop) or a
+   bottom sheet over the map (phone) - see the workspace rules at the end of
+   this file. This is its content styling, shared by both. */
+.explore-preview{position:relative;background:var(--card);border:1px solid var(--card-line);
+  border-left:3px solid var(--accent);border-radius:4px;padding:.65rem .75rem .6rem;
+  display:flex;flex-direction:column;gap:.5rem}
+.explore-preview[hidden]{display:none}
+.pv-head{position:relative;padding-right:1.6rem}
+.pv-kicker{font-size:.62rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;
+  color:var(--accent);margin-bottom:.15rem}
+.preview-title{margin:0;font-size:1rem;font-weight:800;line-height:1.25;color:var(--ink)}
+.preview-sub{margin:.1rem 0 0;font-size:.68rem;color:var(--ink-soft)}
+.preview-close{position:absolute;top:-.15rem;right:-.2rem;border:none;background:none;
+  color:var(--ink-soft);font-size:.95rem;cursor:pointer;line-height:1;padding:.2rem;
+  min-width:32px;min-height:32px;display:inline-flex;align-items:center;justify-content:center}
 .preview-close:hover{color:var(--ink)}
-.preview-title{margin:0 1.2rem .05rem 0;font-size:.85rem;font-weight:800;color:var(--ink)}
-.preview-sub{margin:0 0 .45rem;font-size:.66rem;color:var(--ink-soft)}
-.preview-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:.35rem;margin:0 0 .5rem}
-.preview-stats dt{font-size:.58rem;text-transform:uppercase;letter-spacing:.05em;
-color:var(--ink-soft);margin:0}
-.preview-stats dd{margin:0;font-family:var(--font-mono);
-font-size:.76rem;font-weight:700;color:var(--ink);overflow-wrap:anywhere}
-.preview-open{width:100%;border:none;border-radius:8px;background:var(--accent);
-color:#fff;font-size:.74rem;font-weight:700;padding:.4rem;cursor:pointer}
+.pv-visual{border-radius:3px;overflow:hidden;background:var(--paper)}
+.pv-visual.has-photo{aspect-ratio:2/1;max-height:150px;position:relative}
+.pv-visual.has-photo img{width:100%;height:100%;object-fit:cover;display:block}
+.pv-money{display:grid;grid-template-columns:1fr 1fr;gap:.5rem}
+.pv-stat{background:var(--paper);border-radius:3px;padding:.45rem .55rem;min-width:0;
+  border-left:3px solid var(--card-line)}
+.pv-stat:first-child{border-left-color:var(--bad)}
+.pv-label{display:block;font-size:.58rem;text-transform:uppercase;letter-spacing:.06em;
+  font-weight:700;color:var(--ink-soft);margin-bottom:.1rem}
+.pv-val{display:block;font-family:var(--font-mono);font-variant-numeric:tabular-nums;
+  font-size:.98rem;font-weight:700;color:var(--ink);overflow-wrap:anywhere}
+.pv-val.bid{color:var(--bad)}
+.pv-val.muted,.explore-preview .muted{font-family:var(--font-sans);font-size:.74rem;font-weight:600;
+  color:var(--ink-soft);font-style:italic}
+.pv-stat small{display:block;font-size:.62rem;color:var(--ink-soft);margin-top:.1rem}
+.pv-body{display:flex;flex-direction:column;gap:.45rem}
+.pv-ids{margin:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(90px,1fr));gap:.35rem .6rem}
+.pv-ids div{min-width:0}
+.pv-ids dt,.pv-more-list dt{font-size:.58rem;text-transform:uppercase;letter-spacing:.06em;
+  font-weight:700;color:var(--ink-soft);margin:0}
+.pv-ids dd,.pv-more-list dd{margin:0;font-family:var(--font-mono);font-variant-numeric:tabular-nums;
+  font-size:.74rem;font-weight:700;color:var(--ink);overflow-wrap:anywhere}
+.pv-loc,.pv-risk{font-size:.72rem;color:var(--ink);display:flex;flex-wrap:wrap;align-items:baseline;gap:.15rem .5rem}
+.pv-loc .pv-label,.pv-risk .pv-label{display:inline;margin:0}
+.pv-coords{font-family:var(--font-mono);font-variant-numeric:tabular-nums;font-weight:700}
+.pv-center{font-family:inherit;font-size:.66rem;font-weight:700;color:var(--accent);background:none;
+  border:1px solid var(--card-line);border-radius:3px;padding:.15rem .45rem;cursor:pointer;min-height:26px}
+.pv-center:hover{border-color:var(--accent)}
+.pv-risk .warn{color:var(--warn);font-weight:700}
+.pv-note{flex:1 1 100%;font-size:.62rem;color:var(--ink-soft)}
+.pv-more{font-size:.72rem}
+.pv-more summary{cursor:pointer;color:var(--ink-soft);font-size:.66rem;font-weight:700;
+  text-transform:uppercase;letter-spacing:.04em;min-height:28px;display:flex;align-items:center}
+.pv-more-list{margin:.35rem 0 0;display:grid;grid-template-columns:1fr 1fr;gap:.35rem .6rem}
+.pv-more-list div{min-width:0}
+.pv-expand{display:none}
+.preview-open{width:100%;border:none;border-radius:3px;background:var(--accent);
+  color:#fff;font-size:.76rem;font-weight:700;padding:.5rem;cursor:pointer;min-height:36px}
 .preview-open:hover{filter:brightness(1.06)}
 
 /* The panel needs to be the positioning context for the zoom-out button and
@@ -745,8 +777,10 @@ color:#fff;font-size:.74rem;font-weight:700;padding:.4rem;cursor:pointer}
    head row and on top of the card strip respectively. */
 .explore-map-canvas{position:relative}
 /* Zoomed in, the canvas gives back some height so the strip of cards is on
-   screen with it rather than below the fold of a sticky panel. */
+   screen with it rather than below the fold of a sticky panel. (Phase 67:
+   not on the Map page, where the stage has a fixed height - see below.) */
 .explore-map-canvas.zoomed{min-height:clamp(230px,32vh,340px)}
+.map-page-map .explore-map-canvas.zoomed{min-height:0}
 
 .explore-zoom-out:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .preview-open:focus-visible,.preview-close:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
@@ -893,3 +927,126 @@ font-weight:700;border:none;border-radius:3px;background:var(--header-bg);
 color:#fff;cursor:pointer;margin-top:.3rem;letter-spacing:.01em}
 #profileModal button[type="submit"]:hover{background:var(--ok)}
 #profileModal button[type="submit"]:disabled{opacity:.5;cursor:default;background:var(--header-bg)}
+
+/* ==========================================================================
+   PHASE 67: THE MAP WORKSPACE
+   --------------------------------------------------------------------------
+   The Map page is [toolbar] over [large stage | side panel]. The stage has a
+   REAL height (viewport minus chrome on desktop, a big fixed share on a
+   phone) and every basemap fills it - the outline SVG scales to the stage's
+   height and centres, Google and MapTiler fill it edge to edge. The side
+   panel is the property-intelligence column: counties in view statewide,
+   the county's property list once zoomed, and the selected property's
+   preview on top. On a phone the panel flows under the map and the preview
+   becomes a bottom sheet over the map's lower edge, above the tab bar.
+   ========================================================================== */
+.map-page{--map-side-w:380px;--map-chrome:8.6rem}
+@media (min-width:1024px){ .page.map-page{padding:0} }
+.map-toolbar{padding:.55rem 1rem;gap:.45rem;border-bottom:1px solid var(--card-line);
+  background:var(--card);position:relative;z-index:6}
+.map-page-title{font-family:var(--font-sans);font-weight:800;font-size:1rem;letter-spacing:-.01em;
+  margin:0 .35rem 0 0;color:var(--ink)}
+.map-toolbar .qc-field{flex:1 1 200px;max-width:300px}
+.map-toolbar .qc-field.qc-county{flex:0 1 180px}
+.map-toolbar .map-style-toggle{margin-left:auto}
+@media (max-width:640px){
+  .map-toolbar{padding:.5rem .6rem}
+  .map-page-title{flex:0 0 100%;font-size:.95rem;margin:0}
+  .map-toolbar .qc-field{flex:1 1 100%;max-width:none}
+  .map-toolbar .qc-field.qc-county{flex:1 1 44%}
+  .map-toolbar .map-style-toggle{margin-left:0;flex:1 1 50%;justify-content:center}
+  .map-watch-pill{flex:0 1 auto}
+}
+
+.map-workspace{display:grid;grid-template-columns:minmax(0,1fr) var(--map-side-w);
+  height:calc(100vh - var(--map-chrome));min-height:560px}
+@media (min-width:1600px){ .map-page{--map-side-w:420px} }
+@media (max-width:1023px){
+  .map-workspace{display:block;height:auto;min-height:0}
+}
+
+/* The stage: no card chrome, the map IS the surface. */
+.map-page-map{border:none;border-radius:0;box-shadow:none;padding:0;gap:0;
+  background:var(--map-sea);position:relative;display:flex;flex-direction:column;min-height:0;min-width:0}
+.map-page-map .explore-map-stage{flex:1 1 auto;min-height:0;position:relative;display:block}
+.map-page-map .explore-map-canvas{position:absolute;inset:0;display:flex;justify-content:center;
+  align-items:center;background:var(--map-sea);border-radius:0}
+.map-page-map .explore-map-canvas svg{width:auto;height:100%;max-height:100%;max-width:100%;
+  border:none;border-radius:0}
+.map-page-map .satellite-map-canvas{position:absolute;inset:0;width:100%;height:100%;
+  aspect-ratio:auto;max-height:none;border:none;border-radius:0}
+.map-page-map .satellite-map-canvas .mapboxgl-canvas-container,
+.map-page-map .satellite-map-canvas .mapboxgl-map,
+.map-page-map .satellite-map-canvas .maplibregl-map{border-radius:0}
+/* The absolute/flex rules above outrank the plain [hidden] rules earlier in
+   this file, so the basemap toggle's show/hide needs them restated here. */
+.map-page-map .explore-map-canvas[hidden],
+.map-page-map .satellite-map-canvas[hidden]{display:none}
+@media (max-width:1023px){
+  .map-page-map .explore-map-stage{height:58vh;min-height:340px}
+}
+@media (max-width:640px){
+  .map-page-map .explore-map-stage{height:56vh;min-height:320px}
+}
+
+/* Overlays on the stage: the hint/reset strip bottom-left, the imagery
+   toggle top-right, the zoom-out button top-left (existing). Compact, flat,
+   no pill stack. */
+.map-page-map .explore-map-foot{position:absolute;left:.6rem;bottom:.6rem;z-index:4;
+  background:color-mix(in srgb,var(--card) 88%,transparent);border:1px solid var(--card-line);
+  border-radius:3px;padding:.3rem .55rem;gap:.6rem;max-width:calc(100% - 1.2rem);
+  backdrop-filter:blur(4px)}
+.map-page-map .explore-map-hint{font-size:.66rem}
+.map-imagery-toggle{position:absolute;top:.6rem;right:.6rem;z-index:4;display:inline-flex;
+  background:var(--card);border:1px solid var(--card-line);border-radius:3px;overflow:hidden;
+  box-shadow:var(--shadow)}
+.map-imagery-toggle[hidden]{display:none}
+.map-imagery-toggle button{font-family:inherit;font-size:.68rem;font-weight:700;color:var(--ink-soft);
+  background:none;border:none;padding:.35rem .6rem;cursor:pointer;min-height:30px}
+.map-imagery-toggle button+button{border-left:1px solid var(--card-line)}
+.map-imagery-toggle button.on{background:var(--accent);color:#fff}
+.map-page-map .cluster-tip{z-index:5}
+/* Basemap toggle in the toolbar: same segmented idiom, flat corners. */
+.map-toolbar .map-style-toggle{border-radius:3px;padding:2px}
+.map-toolbar .map-style-toggle button{border-radius:2px;font-size:.72rem;padding:.38rem .65rem}
+
+/* The side panel. */
+.map-side{background:var(--card);border-left:1px solid var(--card-line);display:flex;
+  flex-direction:column;min-height:0;min-width:0}
+.map-side-head{display:flex;align-items:baseline;justify-content:space-between;gap:.6rem;
+  padding:.7rem .9rem .55rem;border-bottom:1px solid var(--card-line);flex-shrink:0}
+.map-side-head .explore-map-title{font-size:.95rem;margin:0}
+.map-side-body{flex:1 1 auto;min-height:0;overflow-y:auto;padding:.7rem .9rem 1rem;
+  display:flex;flex-direction:column;gap:.7rem}
+.map-side .explore-map-rail{border:none;background:none;padding:0;max-height:none;overflow:visible}
+.map-side .explore-map-legend{padding:0}
+.map-side .explore-map-note{font-size:.66rem;line-height:1.4;color:var(--ink-soft);margin:0}
+.map-side .explore-strip{border-top:none;padding:0;margin:0}
+/* Desktop: the strip is a vertical list in the panel, not a horizontal rail. */
+@media (min-width:1024px){
+  .map-side .strip-rail{flex-direction:column;overflow-x:visible;overflow-y:visible;gap:.3rem;padding:0}
+  .map-side .strip-card{max-width:none;width:100%;padding:.45rem .6rem .45rem .6rem}
+}
+.strip-sub{font-size:.62rem;color:var(--ink-soft);white-space:nowrap;overflow:hidden;
+  text-overflow:ellipsis;max-width:100%}
+@media (max-width:1023px){
+  .map-side{border-left:none;border-top:1px solid var(--card-line)}
+  .map-side-body{overflow:visible;padding:.6rem .8rem .9rem}
+  .map-side .strip-card{min-width:170px;max-width:220px}
+  /* The preview is a sheet over the lower edge of the map STAGE (explore.js
+     re-homes the node there on a phone): collapsed it shows the header + the
+     two money figures (~150px) and a Details button; expanded it grows to
+     most of the stage and scrolls. The property list under the map is never
+     covered, and the map stays visible around the sheet. */
+  .map-page-map .explore-map-stage > .explore-preview{position:absolute;left:.5rem;right:.5rem;
+    bottom:.5rem;z-index:8;border-radius:6px;border-left:none;border-top:3px solid var(--accent);
+    box-shadow:0 10px 30px rgba(15,23,42,.28);max-height:calc(100% - 3.2rem);overflow-y:auto;
+    padding:.55rem .7rem .6rem}
+  .map-page-map .explore-map-stage:has(.explore-preview:not([hidden])) .explore-map-foot{display:none}
+  .explore-preview .pv-body,.explore-preview .pv-visual,.explore-preview .preview-open{display:none}
+  .explore-preview.expanded .pv-body,.explore-preview.expanded .preview-open{display:flex}
+  .explore-preview.expanded .pv-visual{display:block}
+  .pv-expand{display:inline-flex;align-items:center;justify-content:center;min-height:34px;
+    font-family:inherit;font-size:.72rem;font-weight:700;color:var(--accent);background:var(--accent-soft);
+    border:none;border-radius:3px;cursor:pointer}
+}

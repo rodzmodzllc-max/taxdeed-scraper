@@ -136,13 +136,25 @@ async function ensureMap() {
 // That shipped to the preview and is what this flag exists to stop - we only
 // trust a measurement pass that produced at least one real box, and redraw
 // once the panel is actually on screen (see watchForVisibility below).
+// Phase 67: the county boxes are cached alongside the centroids. With the
+// Google or MapTiler basemap showing, the outline SVG is display:none and
+// getBBox() returns zeros - countyViewBox() then fell back to "no such
+// county" and the county zoom (and with it the strip/preview in the side
+// panel) silently never happened on those basemaps. The cached box lets the
+// zoom state, the property list and the preview work whichever basemap is
+// on screen; the outline map itself simply redraws when shown again.
+let countyBoxes = new Map();
 function computeCentroids(canvas) {
   const next = new Map();
+  const boxes = new Map();
   let sawRealGeometry = false;
   canvas.querySelectorAll("path[data-county]").forEach(p => {
     try {
       const b = p.getBBox();
-      if (b.width > 0 || b.height > 0) sawRealGeometry = true;
+      if (b.width > 0 || b.height > 0) {
+        sawRealGeometry = true;
+        boxes.set(p.dataset.county, { x: b.x, y: b.y, width: b.width, height: b.height });
+      }
       next.set(p.dataset.county, { cx: b.x + b.width / 2, cy: b.y + b.height / 2 });
     } catch { /* not laid out yet - retried once the panel is visible */ }
   });
@@ -150,6 +162,7 @@ function computeCentroids(canvas) {
   // this pass happened to run while hidden again (e.g. a mode switch).
   if (sawRealGeometry) {
     centroids = next;
+    countyBoxes = boxes;
     centroidsOk = true;
   }
   return sawRealGeometry;
@@ -532,8 +545,10 @@ function countyViewBox(svg, county) {
   const path = svg.querySelector(`path[data-county="${cssEscape(county)}"]`);
   if (!path) return null;
   let b;
-  try { b = path.getBBox(); } catch { return null; }
-  if (!(b.width > 0 && b.height > 0)) return null;
+  try { b = path.getBBox(); } catch { b = null; }
+  // Hidden (another basemap is showing): use the box measured while visible.
+  if (!(b && b.width > 0 && b.height > 0)) b = countyBoxes.get(county) || null;
+  if (!b) return null;
   // Deliberately the HOME aspect, not the panel's.
   //
   // Matching the panel was tried, to stop the county letterboxing inside a
@@ -822,17 +837,31 @@ function pinLabel(p) {
 // The strip is built here rather than in index.html so the whole county-detail
 // view stays inside this module - app.js and the page markup know nothing
 // about it, same as the rest of the explore view.
+// Phase 67: the strip and the preview live in the side panel (#mapSideBody,
+// see index.html's Phase 67 note) when the page has one, so the map stage
+// keeps its full height and the list reads as the panel's property list.
+// The old placement (inside .explore-map / the canvas) is the fallback so
+// nothing breaks if the markup ever lacks the panel.
+function sideHost() {
+  return $("mapSideBody") || document.querySelector(".explore-map");
+}
+// The element that contains BOTH the stage and the side panel - delegated
+// strip/preview listeners and the pin<->card lookups scope to it, since the
+// strip and the pins now live in different columns of the workspace.
+function workspaceEl() {
+  return $("mapWorkspace") || document.querySelector(".explore-map");
+}
 function stripEl() {
-  const map = document.querySelector(".explore-map");
-  if (!map) return null;
+  const host = sideHost();
+  if (!host) return null;
   let strip = $("exploreStrip");
   if (!strip) {
     strip = document.createElement("div");
     strip.id = "exploreStrip";
     strip.className = "explore-strip";
     strip.hidden = true;
-    const foot = map.querySelector(".explore-map-foot");
-    map.insertBefore(strip, foot || null);
+    const anchor = host.querySelector(".explore-map-note") || host.querySelector(".explore-map-foot");
+    host.insertBefore(strip, anchor || null);
   }
   return strip;
 }
@@ -855,10 +884,29 @@ function renderStrip(list, placedCount) {
     <button class="strip-card${hasPin(p) ? " mapped" : ""}${activeProp && activeProp.id === p.id ? " sel" : ""}"
             type="button" data-pid="${escAttr(p.id)}">
       <span class="strip-title">${escHtml(pinLabel(p))}</span>
+      <span class="strip-sub">${escHtml(stripSubText(p))}</span>
       <span class="strip-bid">${bidText(p)}</span>
       ${hasPin(p) ? '<span class="strip-flag" aria-label="on the map">◉</span>' : ""}
     </button>`).join("") + "</div>";
   strip.hidden = false;
+}
+
+// Phase 67: one quiet line under each strip card - ledger word and the one
+// date that matters - so the list in the side panel can be scanned without
+// opening each preview. Wording matches the cards' own kicker (app.js).
+function stripSubText(p) {
+  const f = facts(p);
+  if (f) return f.kicker;
+  if (p.source === "certificate") return "Certificate" + (p.expiration_date ? " · expires " + p.expiration_date : "");
+  if (p.source === "laft") return "Lands Available · fixed price";
+  return "Auction" + (p.sale_date ? " · sale " + p.sale_date : " · not scheduled");
+}
+// app.js hands over previewFacts() with each render (see absorb()); this is
+// the one place explore.js reads a property's labels from, so the honest
+// wording (value-year labels, "Not published", flood states) is defined in
+// app.js exactly once. Null when the payload predates Phase 67.
+function facts(p) {
+  return typeof previewFacts === "function" ? previewFacts(p) : null;
 }
 
 function bidText(p) {
@@ -874,49 +922,141 @@ const escAttr = escHtml;
 
 // The preview card: enough to judge a property without leaving the map, and
 // one button through to the full page that already exists in app.js.
+// Phase 67: where the preview lives depends on the viewport. Desktop: the
+// top of the side panel (the selected property is what the panel is about).
+// Phone: a sheet over the lower edge of the map STAGE itself - not fixed to
+// the viewport, which would sit on top of the property list under the map
+// and make picking the next property a two-step job. The node is re-homed
+// on every open, so rotating a tablet just works.
+function previewHost() {
+  const phone = window.matchMedia && window.matchMedia("(max-width:1023px)").matches;
+  const stage = document.querySelector("#mapStage .explore-map-stage");
+  if (phone && stage) return stage;
+  return sideHost() || $(CANVAS_ID);
+}
 function previewEl() {
-  const map = $(CANVAS_ID);
-  if (!map) return null;
+  const host = previewHost();
+  if (!host) return null;
   let card = $("explorePreview");
+  if (card && card.parentNode !== host) {
+    if (host.id === "mapSideBody") host.insertBefore(card, host.firstChild); else host.appendChild(card);
+  }
   if (!card) {
     card = document.createElement("div");
     card.id = "explorePreview";
     card.className = "explore-preview";
     card.hidden = true;
-    map.appendChild(card);
+    if (host.id === "mapSideBody") host.insertBefore(card, host.firstChild); else host.appendChild(card);
     card.addEventListener("click", e => {
       if (e.target.closest("[data-act='close']")) { showPreview(null); return; }
-      if (e.target.closest("[data-act='open']") && activeProp && openDetail) openDetail(activeProp);
+      if (e.target.closest("[data-act='open']") && activeProp && openDetail) { openDetail(activeProp); return; }
+      if (e.target.closest("[data-act='expand']")) { card.classList.toggle("expanded"); syncExpandLabel(card); return; }
+      if (e.target.closest("[data-act='center']") && activeProp) { announceSelection(activeProp, true); return; }
     });
   }
   return card;
 }
 
+function syncExpandLabel(card) {
+  const btn = card.querySelector("[data-act='expand']");
+  if (btn) {
+    const open = card.classList.contains("expanded");
+    btn.textContent = open ? "Less" : "Details";
+    btn.setAttribute("aria-expanded", String(open));
+  }
+}
+
+// Phase 67: the preview is the "intelligence panel" for one property - a
+// header, the two money figures, the identifiers, where it is, the one risk
+// field with a real source (flood), then everything else behind a
+// disclosure. Every label/value comes from app.js's previewFacts() so the
+// wording is the cards' wording; nothing is computed here. `.preview-title`
+// stays pinLabel(p) - the strip card's title - so the two are visibly the
+// same property (and the suite checks exactly that).
 function showPreview(p) {
+  const prev = activeProp;
   activeProp = p;
   const card = previewEl();
   if (!card) return;
-  if (!p) { card.hidden = true; back.pop("map-preview"); draw(); return; }
-  back.push("map-preview", () => showPreview(null));
+  if (!p) {
+    card.hidden = true;
+    card.classList.remove("expanded");
+    back.pop("map-preview");
+    draw();
+    announceSelection(null);
+    return;
+  }
+  if (!prev) back.push("map-preview", () => showPreview(null));
 
-  const market = Number(p.market || p.assessed || 0);
-  const rows2 = [
-    ["Opening bid", bidText(p)],
-    [p.market ? "Est. market" : "Assessed", market ? fmtShort(market) : "N/A"],
-    [p.source === "certificate" ? "Expires" : "Sale date",
-      (p.source === "certificate" ? p.expiration_date : p.sale_date) || "Not scheduled"]
-  ];
+  const f = facts(p);
+  const visual = typeof propertyVisual === "function" ? propertyVisual(p, "pv-visual") : "";
+  const money = f ? `
+    <div class="pv-money">
+      <div class="pv-stat"><span class="pv-label">${escHtml(f.bidLabel)}</span><b class="pv-val bid${f.bid ? "" : " muted"}">${escHtml(f.bid || "Not published")}</b></div>
+      <div class="pv-stat"><span class="pv-label">Value on file</span><b class="pv-val${f.value ? "" : " muted"}">${escHtml(f.value || "No county value on file")}</b>${f.valueLabel ? `<small>${escHtml(f.valueLabel)}</small>` : ""}</div>
+    </div>` : `
+    <div class="pv-money"><div class="pv-stat"><span class="pv-label">Opening bid</span><b class="pv-val bid">${bidText(p)}</b></div></div>`;
+  const ids = f ? `
+    <dl class="pv-ids">
+      <div><dt>${escHtml(f.parcelLabel)}</dt><dd${f.parcel ? "" : ' class="muted"'}>${escHtml(f.parcel || "Not published")}</dd></div>
+      ${f.caseNo ? `<div><dt>Case</dt><dd>${escHtml(f.caseNo)}</dd></div>` : ""}
+      ${f.source ? `<div><dt>Source</dt><dd>${escHtml(f.source)}</dd></div>` : ""}
+    </dl>` : "";
+  const loc = hasPin(p)
+    ? `<div class="pv-loc"><span class="pv-label">Location</span><span class="pv-coords">${p.latitude.toFixed(5)}, ${p.longitude.toFixed(5)}</span><button type="button" class="pv-center" data-act="center">Center on map</button></div>`
+    : `<div class="pv-loc"><span class="pv-label">Location</span><span class="muted">Not yet geocoded - listed in this county, not pinned</span></div>`;
+  const risk = f && f.flood ? `<div class="pv-risk"><span class="pv-label">Flood zone</span><span class="${f.flood.cls || ""}">${escHtml(f.flood.text)}</span><span class="pv-note">FEMA NFHL. Liens, judgments, code cases: not tracked.</span></div>` : "";
+  const more = f && f.more && f.more.length ? `
+    <details class="pv-more">
+      <summary>More · ${escHtml(f.more.map(m => m[0].toLowerCase()).slice(0, 3).join(", "))}${f.more.length > 3 ? "…" : ""}</summary>
+      <dl class="pv-more-list">${f.more.map(([k, v]) => `<div><dt>${escHtml(k)}</dt><dd>${escHtml(v)}</dd></div>`).join("")}</dl>
+    </details>` : "";
   card.innerHTML = `
-    <button class="preview-close" type="button" data-act="close" aria-label="Close preview">✕</button>
-    <p class="preview-title">${escHtml(pinLabel(p))}</p>
-    <p class="preview-sub">${escHtml(p.county)} County${hasPin(p) ? "" : " · location not mapped"}</p>
-    <dl class="preview-stats">${rows2.map(([k, v]) =>
-      `<div><dt>${escHtml(k)}</dt><dd>${escHtml(v)}</dd></div>`).join("")}</dl>
-    <button class="preview-open" type="button" data-act="open">View full property page →</button>`;
+    <div class="pv-head">
+      <div class="pv-kicker">${escHtml(f ? f.kicker : (p.county + " County"))}</div>
+      <p class="preview-title">${escHtml(pinLabel(p))}</p>
+      <p class="preview-sub">${escHtml(f ? f.where : (p.county + " County"))}${hasPin(p) ? "" : " · not pinned"}</p>
+      <button class="preview-close" type="button" data-act="close" aria-label="Close preview">✕</button>
+    </div>
+    ${visual}
+    ${money}
+    <button class="pv-expand" type="button" data-act="expand" aria-expanded="false">Details</button>
+    <div class="pv-body">
+      ${ids}
+      ${loc}
+      ${risk}
+      ${more}
+    </div>
+    <button class="preview-open" type="button" data-act="open">Full property page →</button>`;
   card.hidden = false;
+  card.dataset.pid = String(p.id);
+  if (typeof hydrateVisuals === "function") hydrateVisuals(card);
   draw();
   syncSelection();
+  announceSelection(p, false);
 }
+
+// Phase 67: the one selection, told to the other basemaps. satellite-map.js
+// listens for this to mark its own marker for the same property and, when
+// it is the active basemap, to centre on it (`focus` asks it to do so even
+// for a re-selection - the "Center on map" button). pid null = cleared.
+function announceSelection(p, focus) {
+  const detail = p
+    ? { pid: String(p.id), county: p.county, lat: hasPin(p) ? p.latitude : null, lng: hasPin(p) ? p.longitude : null, focus: !!focus }
+    : { pid: null, county: null, lat: null, lng: null, focus: false };
+  window.__tdwMapSelection = detail;
+  window.dispatchEvent(new CustomEvent("tdw:mapselection", { detail }));
+}
+// ...and the reverse: a pin tapped on Google/MapTiler selects here, so all
+// three basemaps share the one preview instead of each opening its own popup.
+window.addEventListener("tdw:pinselect", e => {
+  const pid = e.detail && e.detail.pid;
+  if (pid == null) return;
+  const p = propById(pid);
+  if (!p) return;
+  if (activeProp && String(activeProp.id) === String(pid)) { announceSelection(p, true); return; }
+  showPreview(p);
+});
 
 // Phase 65: one property, three views - the pin on the map, its card in the
 // strip, the preview over the map. draw() already rebuilds pins and the
@@ -925,7 +1065,7 @@ function showPreview(p) {
 // so the card you picked from the map is often off-screen), and lift the
 // selected pin above its neighbours so it can't be buried under them.
 function syncSelection() {
-  const map = document.querySelector(".explore-map");
+  const map = workspaceEl();
   if (!map) return;
   const id = activeProp ? String(activeProp.id) : null;
   if (!id) return;
@@ -942,7 +1082,7 @@ function syncSelection() {
 // different subtrees (an SVG <g> and a <button>) and only one of them can
 // actually be under the pointer.
 function setHoverLink(id) {
-  const map = document.querySelector(".explore-map");
+  const map = workspaceEl();
   if (!map) return;
   map.querySelectorAll(".strip-card.hover, .map-pin.hover").forEach(el => el.classList.remove("hover"));
   if (!id) return;
@@ -1003,7 +1143,10 @@ function zoomOut() {
 
 function showPreviewHidden() {
   const card = $("explorePreview");
-  if (card) card.hidden = true;
+  if (card) { card.hidden = true; card.classList.remove("expanded"); }
+  // Phase 67: the other basemaps must drop their highlight too (zoomOut()
+  // and a statewide redraw both come through here with activeProp cleared).
+  if (!activeProp && window.__tdwMapSelection && window.__tdwMapSelection.pid != null) announceSelection(null);
 }
 
 // The counties in view, most first. This is the part of the map's job that
@@ -1236,7 +1379,7 @@ function propById(id) {
 
 // Delegated on the panel, because the strip is rebuilt on every draw.
 function bindStrip() {
-  const map = document.querySelector(".explore-map");
+  const map = workspaceEl();
   if (!map) return;
   // Escape from anywhere in the panel - a strip card, the preview, the back
   // button - is the way out of a county without reaching for the mouse.
@@ -1275,11 +1418,21 @@ function bindReset() {
 // ---------------------------------------------------------------------------
 // wiring
 // ---------------------------------------------------------------------------
+// Phase 67: app.js also passes its label/visual helpers over the same
+// event, so the preview renders with the cards' own honest wording and the
+// same photo -> satellite still -> county context -> placeholder imagery.
+let previewFacts = null;
+let propertyVisual = null;
+let hydrateVisuals = null;
+
 function absorb(detail) {
   const d = detail || {};
   rows = Array.isArray(d.rows) ? d.rows : [];
   ledger = d.ledger || ledger;
   openDetail = d.openDetail || openDetail;
+  previewFacts = d.previewFacts || previewFacts;
+  propertyVisual = d.propertyVisual || propertyVisual;
+  hydrateVisuals = d.hydrateVisuals || hydrateVisuals;
   // The Map page's own county select (#mapCountySelect) is the source of
   // truth for "am I filtered to one county" - the user can change it from the
   // dropdown itself or by clicking a bubble (applyCounty drives the same
