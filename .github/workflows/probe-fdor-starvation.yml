@@ -1,0 +1,56 @@
+name: Probe FDOR starvation (READ-ONLY evidence)
+
+# Evidence-only. Runs scripts/probe_fdor_starvation.py, which asks the FDOR
+# statewide layer (and the Santa Rosa county GIS fallback) about every
+# unenriched Volusia / Escambia / Santa Rosa / Pasco auction and LAFT row
+# through the production lookup functions, plus a sample of each county's
+# certificate rows, and prints hit/miss per row. Nothing is written: no
+# PATCH, no schema change, no commit. The sandbox that authors this repo
+# cannot reach the layer, so the runner is the only place to measure it.
+#
+# No `schedule:`. Fires on pushes to its own evidence branch and on manual
+# dispatch only.
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - enrichment/fdor-starvation-probe
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    name: Ask the layer about the unenriched rows
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python dependencies
+        run: pip install requests
+
+      - name: Verify read credentials are present
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SUPABASE_URL:-}" ] || [ -z "${SUPABASE_SERVICE_KEY:-}" ]; then
+            echo "::error::SUPABASE_URL / SUPABASE_SERVICE_KEY not available to this job"
+            exit 1
+          fi
+
+      - name: Probe (read-only)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/probe_fdor_starvation.py
