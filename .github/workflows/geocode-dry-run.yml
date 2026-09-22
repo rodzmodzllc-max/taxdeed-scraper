@@ -1,0 +1,69 @@
+name: Geocoder dry run (READ-ONLY evidence)
+
+# Evidence run for scripts/geocode_properties.py, not part of the pipeline.
+# It runs the real geocoding pass against production rows that still have
+# no coordinates, with GEOCODE_DRY_RUN=1, so every Census answer is fetched,
+# verified against the row's own state and county, and LOGGED - but nothing
+# is written. The job log's closing summary ("Verified N, no match M,
+# rejected ...", then per-state verified/attempted) is the measured success
+# rate that docs/phase-68-geocoder-state-context.md reports.
+#
+# Why it exists as a workflow: the assistant's sandbox cannot reach
+# geocoding.geo.census.gov or the Supabase REST endpoint (egress policy), so
+# the only place the corrected query can be exercised against real rows
+# before it ships is a GitHub-hosted runner with the repo's read credentials.
+#
+# READ-ONLY: SELECTs from Supabase, GETs from the Census geocoder, no PATCH
+# (DRY_RUN short-circuits patch_property()), no schema change, no commit.
+# No `schedule:` on purpose - it runs on pushes to its own evidence branch
+# and on manual dispatch only.
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - enrichment/geocoder-state-context
+
+permissions:
+  contents: read
+
+jobs:
+  dry-run:
+    name: Geocode without writing (verified-match rate)
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python dependencies
+        run: pip install requests
+
+      - name: Verify read credentials are present
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SUPABASE_URL:-}" ] || [ -z "${SUPABASE_SERVICE_KEY:-}" ]; then
+            echo "::error::SUPABASE_URL / SUPABASE_SERVICE_KEY not available to this job"
+            exit 1
+          fi
+
+      # 600 > every row currently lacking coordinates AND carrying address
+      # context (comma or ZIP), so the priority tier is measured in full and
+      # the remainder samples the bare-street tier. Polite pacing (0.4 s
+      # between calls) makes this roughly 10 minutes.
+      - name: Geocode (dry run, nothing written)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          GEOCODE_DRY_RUN: "1"
+          GEOCODE_BATCH_LIMIT: "600"
+        run: python3 scripts/geocode_properties.py
