@@ -133,6 +133,49 @@ one); a TX row answered with a Florida point is rejected; the PATCH body
 never carries state/county; a row without state is skipped; every fetch
 targets `latitude IS NULL` with no state filter; dry run writes nothing.
 
+## Dry-run result on live rows (Actions run 35718854599, 2026-09-22)
+
+`GEOCODE_DRY_RUN=1 GEOCODE_BATCH_LIMIT=600` against production, nothing
+written. 600 rows fetched (every priority-tier row plus ~370 of the
+bare-street tier):
+
+| | attempted | verified | no match | rejected (county mismatch) | error |
+|---|---:|---:|---:|---:|---:|
+| FL | 531 | 257 | | | |
+| TX | 69 | 38 | | | |
+| **total** | **600** | **295 (49%)** | 295 | 9 | 1 |
+
+State mismatches: 0. Unverifiable (no county in the answer): 0 - the
+geographies endpoint returned a county for every match.
+
+Verified by county: Miami-Dade 130 (mostly the `777 NW 72 AVE` /
+`100 LINCOLN RD` certificate condo units, whose 55 siblings had already
+geocoded), Hillsborough 41, Brevard 15, Lee 13, Hernando 10, Leon 10,
+Volusia 10, Citrus 9, Suwannee 6, Escambia 5, Pinellas 3, Lake 2, Alachua 1,
+Flagler 1, Walton 1; Texas: Nueces 10, Atascosa 6, Cameron 4, Dallas 4,
+Smith 4, Travis 4, Caldwell 3, Llano 3.
+
+By ledger, joining the 162 verified bare-street queries back to their rows:
+**98 Florida auction rows and 38 Texas auction rows** gain a county-verified
+coordinate; the 133 context-row matches are almost all certificates.
+
+The 9 rejections are exactly the failure the old code wrote unchecked: a
+Citrus row answered from another county three times, a Lee row four times,
+one Atascosa and one Llano row - all discarded, left NULL.
+
+Bare street lines DO resolve once the county is not jammed into the city
+slot: `10020 ALAVISTA DR, FL -> 10020 ALAVISTA DR, GIBSONTON, FL, 33534`
+(Hillsborough, verified), `3703 40TH ST SW, FL -> LEHIGH ACRES` (Lee,
+verified), `14107 HORSESHOE TRL, TX -> BALCH SPRINGS, TX` (Dallas,
+verified). Residual limitation, stated plainly: a bare street that exists
+twice inside the same county (two cities, same street name and number)
+still resolves to whichever the Census ranks first; the county check
+cannot tell those apart. No such case was observed in this run.
+
+Production effect once merged: at `GEOCODE_BATCH_LIMIT=250` the first two
+scheduled deeds runs write those ~295 coordinates, after which the flood
+and NAIP imagery steps pick the new rows up on their own.
+
 ## Not done here, on purpose
 
 - The two wrong-county coordinates already stored (Lee -> Nevada, Leon ->

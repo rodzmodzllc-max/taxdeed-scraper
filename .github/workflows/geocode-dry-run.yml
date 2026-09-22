@@ -15,14 +15,12 @@ name: Geocoder dry run (READ-ONLY evidence)
 #
 # READ-ONLY: SELECTs from Supabase, GETs from the Census geocoder, no PATCH
 # (DRY_RUN short-circuits patch_property()), no schema change, no commit.
-# No `schedule:` on purpose - it runs on pushes to its own evidence branch
-# and on manual dispatch only.
+# No `schedule:` on purpose - manual dispatch only. (It ran once on push
+# while the fix was on its evidence branch: Actions run 35718854599,
+# 2026-09-22 - 295 of 600 rows verified, 9 wrong-county answers rejected.)
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - enrichment/geocoder-state-context
 
 permissions:
   contents: read
