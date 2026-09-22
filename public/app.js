@@ -925,9 +925,16 @@ function realAddress(p) {
 // because it is one - it says nothing except that two fields are empty.
 const hasParcel = p => !!(p.parcel && String(p.parcel).trim() &&
   !/^(unknown|n\/?a|none|null)$/i.test(String(p.parcel).trim()));
+// What `parcel` actually holds depends on the state. Florida harvesters store
+// the appraiser's parcel number. The Texas harvester stores the court CAUSE
+// number in `parcel` and the CAD account number in `case_no` (see
+// harvesters/texas_harvester.py - account is the uniqueness-bearing key
+// there). Labeling a cause number "Parcel #" misdescribes it, so every
+// place the value is captioned goes through this.
+const parcelLabel = p => (regionOf(p) === "TX" ? "Cause #" : "Parcel #");
 const lotTitle = p => (hasParcel(p)
-  ? `Parcel #${esc(p.parcel)} (${esc(p.county)} County Lot)`
-  : `${esc(p.county)} County Lot (parcel # not published)`);
+  ? `${parcelLabel(p)}${esc(p.parcel)} (${esc(p.county)} County Lot)`
+  : `${esc(p.county)} County Lot (${regionOf(p) === "TX" ? "cause # not published" : "parcel # not published"})`);
 
 const valueRatio = p => (Number(p.bid) > 0 ? marketOf(p) / Number(p.bid) : 0);
 const isTopPick = p => p.lien_level === "clean" && valueRatio(p) >= TOP_PICK_RATIO;
@@ -1850,7 +1857,7 @@ function card(p, showCounty) {
         <span class="pill ${esc(p.status)}">${esc(p.status)}</span>
       </div>
     </div>
-    ${hasAddress && hasParcel(p) ? `<div class="prop-parcel-line">Parcel # ${esc(p.parcel)}</div>` : ""}
+    ${hasAddress && hasParcel(p) ? `<div class="prop-parcel-line">${parcelLabel(p)} ${esc(p.parcel)}</div>` : ""}
     ${classificationBadgeHtml(p) ? `<div class="prop-classification-line">${classificationBadgeHtml(p)}</div>` : ""}
     ${p.legal_desc ? `<div class="prop-legal" title="${esc(p.legal_desc)}">${esc(p.legal_desc)}</div>` : ""}
     <div class="card-stat-grid ${marketVal ? "card-stat-grid-2" : "card-stat-grid-1"}">
@@ -2286,7 +2293,8 @@ function detailHtml(p) {
     </div>` : ""}
     <div class="copy-row">
       ${!isCert ? `<button class="copy-btn owner-tag${p.owner_name ? "" : " unknown"}" ${p.owner_name ? `data-action="copy" data-copy="${esc(p.owner_name)}"` : ""} type="button"><span class="copy-tag">Owner</span><span class="copy-val">${esc(p.owner_name || "Unknown")}</span></button>` : ""}
-      <button class="copy-btn" data-action="copy" data-copy="${esc(p.parcel || p.case_no || "")}" type="button"><span class="copy-tag">${isCert ? "Account" : "Parcel"}</span><span class="copy-val">${esc(p.parcel || p.case_no || "Unknown")}</span></button>
+      ${regionOf(p) === "TX" && !isCert ? `<button class="copy-btn" data-action="copy" data-copy="${esc(p.case_no || "")}" type="button"><span class="copy-tag">Account</span><span class="copy-val">${esc(p.case_no || "Unknown")}</span></button>` : ""}
+      <button class="copy-btn" data-action="copy" data-copy="${esc(p.parcel || p.case_no || "")}" type="button"><span class="copy-tag">${isCert ? "Account" : (regionOf(p) === "TX" ? "Cause #" : "Parcel")}</span><span class="copy-val">${esc(p.parcel || p.case_no || "Unknown")}</span></button>
     </div>
     ${detailSectionHtml("Research & Sources", `<div class="detail-links">
       ${links.length ? links.map(([label, href]) => `<a href="${esc(href)}" target="_blank" rel="noopener">${linkIcon(label)}${esc(label)}${isEstimatedLink(label, p) ? esc(" (estimated search)") : ""} →</a>`).join("") : `<span style="font-size:.78rem;color:var(--ink-soft)">No reference links harvested for this property yet.</span>`}
@@ -2418,7 +2426,7 @@ function bidListRows() {
 function shortPropLabel(p) {
   if (p.source === "certificate") return `Certificate #${esc(p.certificate_no || "Unknown")}`;
   if (p.address && p.address.trim()) return esc(p.address);
-  return `Parcel #${esc(p.parcel || "Unknown")} (${esc(p.county)} County)`;
+  return `${parcelLabel(p)}${esc(p.parcel || "Unknown")} (${esc(p.county)} County)`;
 }
 function renderBidListModal() {
   const inner = document.getElementById("bidListModalInner");
@@ -3490,7 +3498,7 @@ if (exportCsvBtn) exportCsvBtn.addEventListener("click", () => {
     ["County", p => p.county],
     ["Source", p => p.source],
     ["Address", p => p.address || ""],
-    ["Parcel", p => p.parcel || ""],
+    [PAGE_STATE === "TX" ? "Cause #" : "Parcel", p => p.parcel || ""],
     ["Case/Account #", p => p.case_no || ""],
     ["Owner", p => p.owner_name || ""],
     ["Status", p => p.status || ""],
@@ -4692,7 +4700,7 @@ function tableRow(p) {
   const isCert = p.source === "certificate";
   const street = isCert ? "" : realAddress(p);
   const titleLine = isCert ? `Certificate #${esc(p.certificate_no || "Unknown")}` : (street ? esc(street) : lotTitle(p));
-  const parcelLine = isCert ? esc(p.case_no || "") : (hasParcel(p) ? "Parcel # " + esc(p.parcel) : "");
+  const parcelLine = isCert ? esc(p.case_no || "") : (hasParcel(p) ? parcelLabel(p) + " " + esc(p.parcel) : "");
   const marketVal = marketOf(p);
   tr.innerHTML = `
     <td><div class="dt-address">${titleLine}</div>${parcelLine ? `<div class="dt-parcel">${parcelLine}</div>` : ""}</td>
