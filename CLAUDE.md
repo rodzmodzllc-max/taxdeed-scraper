@@ -1230,6 +1230,65 @@ selection and hover, LAFT kicker). `net::ERR_CERT_AUTHORITY_INVALID` added
 to the console allowlist (this sandbox's egress proxy CA on the esm.sh/
 fonts fetches; reproduces on unmodified main).
 
+## Property intelligence: at-a-glance summary, section nav, show-on-map (Phase 66, done)
+
+Stacked on Phase 65 (branch `feat/property-intelligence`, PR based on
+`feat/frontend-terminal-polish`, so its diff is only this work). Frontend
+only; `sw.js` → `tdw-shell-v34`.
+
+- **"At a glance" block** (`opportunitySummaryHtml()`), first section of the
+  full property page for deed/LAFT rows: What (ledger + state, and the
+  harvester source), Where (address or "No street address in listing",
+  county/state, parcel, case), When (sale date + "in Nd" / today / past /
+  LAFT "Available now" / closed outcome, coloured by urgency), Minimum bid
+  (or "Not published"; the value ÷ bid ratio is labelled "screening ratio,
+  not a return"), Value on file (just value + assessed, assessed alone, or
+  "No county value on file"), Missing (`dataGaps()`). **No score, no
+  estimate, no recommendation** - every cell is a field the row carries.
+- **`dataGaps(p)`** - the honest list of what a row does NOT have, each
+  wording tied to a backend-distinguishable state: parcel-only listing,
+  parcel # not published, bid/price not published, no county value, sale
+  date not scheduled (auction only), photo not checked (NULL) vs no Street
+  View coverage (''), not yet geocoded, flood not checked vs not mapped by
+  FEMA. Do not add a gap whose cause the backend cannot actually tell.
+- **Section nav** (`detailNavHtml()`): sticky jump pills (Summary /
+  Financial / Property / History / Risk & Legal / Map / Sources / Data)
+  built by scanning the rendered body for `data-section` anchors, so only
+  sections that exist get a pill. `detailSectionHtml()` grew an `id`
+  parameter; the `jump` click action scrolls within the modal or the
+  desktop side panel (both are their own scroll boxes). Gotcha: the modal
+  body is a flex column with a max-height - a child with `overflow:auto`
+  gets `min-height:0` there and was squeezed to a few pixels until
+  `flex-shrink:0` was set on `.detail-nav` (and `.detail-hero-photo`).
+  The nav sticks at `top:-1rem` with matching padding so scrolled content
+  can't show through the scroll box's own top padding.
+- **Show on the Map page** (`showOnMap()` in app.js, `data-action=
+  "showonmap"` from the GIS card): closes the modal, clears the Map page's
+  search/watchlist/ledger filters, sets `mapFilter.county`, stashes the id
+  in `window.__tdwMapSelectPid` + dispatches `tdw:mapselect`, then
+  `showPage("map")`. explore.js parks it in `pendingSelectPid` and
+  `drawPins()` consumes it (`applyPendingSelect()`) once the county is
+  zoomed and the strip exists - so the strip card, preview and (when
+  geocoded) pin all select together. A stale id for a row not in the
+  zoomed county is ignored, never mis-selected. Google/MapTiler untouched:
+  they still zoom to the county via the same select change.
+- **Selected pin halo** (`.pin-halo`, drawn in `drawPins()` only for
+  `activeProp`).
+- **Cards**: county + state now lead the kicker on every card
+  (`Alachua, FL · Auction · Sale …`); last sale + legal description fold
+  behind a `<details class="card-more">` ("More · last sale, legal
+  description") - the `.prop-legal` element and its `title` stay in the
+  DOM, so the one-line/clamp tests still pass; photo banner is 21:9 capped
+  at 170px with a "Street View" caption (it IS a Street View still, per the
+  photo pipeline); placeholder wording now distinguishes `photo_url` NULL
+  ("Photo not checked yet") from '' ("No Street View coverage at this
+  address") - text only, same bar, per the field's documented contract.
+  `.icon-btn` gets a 32px hit area, `.prop-links a` / `.detail-btn` 36px.
+- **Fixture** (`tests/vendor/supabase-stub.js`): p3 carries `photo_url: ""`,
+  p6 carries a data-URI SVG placard labelled "FIXTURE PHOTO" (not a real
+  property image) so the photo layout can be exercised and screenshotted.
+- `tests/run_test.mjs`: 289 → **316 checks**.
+
 ## Known landmines / do-not-repeat mistakes
 
 - Miami-Dade is the only county with a hyphen in `data/realauction_counties.csv` — a blanket `-replace '-',' '` once silently renamed it to "Miami Dade", which didn't match the frontend's canonical `"Miami-Dade"` and hid 33 live listings. Fixed; don't reintroduce a blanket hyphen transform.

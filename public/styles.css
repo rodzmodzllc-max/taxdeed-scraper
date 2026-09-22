@@ -577,8 +577,15 @@ summary.county-head::-webkit-details-marker{display:none}
    (see the NULL/''/real-value contract note on photoOrPlaceholder()). */
 .prop-card-photo{margin:-.7rem -.8rem .6rem;border-radius:3px 3px 0 0;overflow:hidden;
   background:var(--paper)}
-.prop-card-photo.has-photo{aspect-ratio:16/9}
+/* Phase 66: a real photo is a banner, not the whole card - a wide 21:9 crop
+   capped in height so the address and the two headline figures stay on
+   the first screen on a phone. The caption names what it is (a Street View
+   still), so it is never read as a listing or current-condition photo. */
+.prop-card-photo.has-photo{aspect-ratio:21/9;max-height:170px;position:relative}
 .prop-card-photo.has-photo img{width:100%;height:100%;object-fit:cover;display:block}
+.photo-caption{position:absolute;left:.5rem;bottom:.45rem;font-size:.6rem;font-weight:700;
+  text-transform:uppercase;letter-spacing:.06em;color:#fff;background:rgba(15,23,42,.62);
+  border-radius:3px;padding:.15rem .4rem;pointer-events:none}
 /* Deliberately a slim bar, not a blank photo-sized box - see the comment on
    photoOrPlaceholder() in app.js. Most rows have no cached photo yet, and a
    tall empty rectangle repeated down the whole list would read as broken,
@@ -672,8 +679,11 @@ summary.county-head::-webkit-details-marker{display:none}
   .prop-card.selected{box-shadow:0 0 0 2px var(--accent),var(--shadow)}
 }
 .prop-top-actions{flex-shrink:0;display:flex;align-items:center;gap:.3rem}
+/* Phase 66: 32px minimum hit area (the glyph itself stays the same size) so
+   heart / watchlist / hide are tappable on a phone without a precise thumb. */
 .icon-btn{border:none;background:transparent;font-size:1.05rem;line-height:1;cursor:pointer;
-  padding:.1rem .25rem;color:var(--ink-soft)}
+  padding:.1rem .25rem;color:var(--ink-soft);min-width:32px;min-height:32px;
+  display:inline-flex;align-items:center;justify-content:center}
 .heart-btn.on{color:var(--brass)}
 .bid-btn.on{color:var(--accent)}
 .remove-btn:hover{color:var(--bad)}
@@ -719,6 +729,21 @@ summary.county-head::-webkit-details-marker{display:none}
   letter-spacing:.05em;color:var(--ink-soft)}
 .prop-facts .muted{color:var(--ink-soft)}
 .prop-facts .warn{color:var(--warn);font-weight:700}
+/* Phase 66: progressive disclosure on the card. Last sale and the legal
+   description are reference material, not first-glance facts - folded
+   behind one line so the card stays short on a phone. Both stay in the DOM
+   (the legal text is still in the title attribute, the full page shows
+   both in full). */
+.card-more{margin-top:.4rem;font-size:.72rem}
+.card-more summary{cursor:pointer;list-style:none;display:inline-flex;align-items:center;gap:.3rem;
+  min-height:28px;color:var(--ink-soft);font-weight:600;font-size:.68rem;text-transform:uppercase;
+  letter-spacing:.04em}
+.card-more summary::-webkit-details-marker{display:none}
+.card-more summary::before{content:"";width:6px;height:6px;border-right:1.5px solid currentColor;
+  border-bottom:1.5px solid currentColor;transform:rotate(-45deg);transition:transform .12s;margin-right:.1rem}
+.card-more[open] summary::before{transform:rotate(45deg)}
+.card-more summary:hover{color:var(--accent)}
+.card-more .prop-lastsale,.card-more .prop-legal{margin-top:.3rem}
 
 /* ---- card stat grid: the headline numbers the card keeps as labeled boxes
    instead of a run-on inline meta line. Everything else that used to live
@@ -821,7 +846,7 @@ summary.county-head::-webkit-details-marker{display:none}
 
 .prop-links{display:flex;flex-wrap:wrap;gap:.35rem;margin-top:.55rem}
 .prop-links a{flex:1 1 calc(33.333% - .24rem);display:flex;align-items:center;justify-content:center;
-  gap:.28rem;text-align:center;font-size:.68rem;font-weight:600;
+  gap:.28rem;text-align:center;font-size:.68rem;font-weight:600;min-height:36px;
   text-decoration:none;padding:.38rem .25rem;border-radius:3px;background:var(--accent-soft);
   color:var(--accent);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .prop-links a:hover{background:var(--accent);color:#fff}
@@ -836,9 +861,9 @@ summary.county-head::-webkit-details-marker{display:none}
    has one strong call to action (the CTA button above, when there's an
    auction/LAFT listing to go to); "view everything else about this
    property" is a lighter-weight, secondary action. */
-.detail-btn{display:inline-block;margin-top:.5rem;padding:0;background:none;border:none;
-  color:var(--accent);font-weight:600;font-size:.74rem;text-decoration:none;cursor:pointer;
-  font-family:inherit}
+.detail-btn{display:inline-flex;align-items:center;min-height:36px;margin-top:.3rem;padding:0;
+  background:none;border:none;color:var(--accent);font-weight:600;font-size:.74rem;
+  text-decoration:none;cursor:pointer;font-family:inherit}
 .detail-btn:hover{text-decoration:underline}
 
 .notes-block{margin-top:.5rem;border-top:1px solid var(--card-line);padding-top:.45rem}
@@ -917,7 +942,7 @@ summary.county-head::-webkit-details-marker{display:none}
   padding:.7rem 1rem;border-radius:3px;box-shadow:var(--shadow);z-index:9999;cursor:pointer;
   opacity:0;pointer-events:none;transition:opacity .18s ease,transform .18s ease}
 .err-toast.show{opacity:1;pointer-events:auto;transform:translateX(-50%) translateY(0)}
-.detail-close{position:sticky;top:0;float:right;border:none;background:var(--card);
+.detail-close{position:sticky;top:0;z-index:4;float:right;border:none;background:var(--card);
   color:var(--ink-soft);width:2rem;height:2rem;border-radius:999px;font-size:1.1rem;
   cursor:pointer;box-shadow:var(--shadow);margin-bottom:.3rem}
 .detail-address{font-family:var(--font-sans);font-weight:800;font-size:1.25rem;
@@ -944,7 +969,7 @@ summary.county-head::-webkit-details-marker{display:none}
    multi-column layout into ~420-480px. */
 .detail-hero-photo{margin:.5rem 0 .8rem;border-radius:8px;overflow:hidden;
   background:var(--paper);color:var(--ink-soft)}
-.detail-hero-photo.has-photo{aspect-ratio:16/10}
+.detail-hero-photo.has-photo{aspect-ratio:16/9;max-height:260px;position:relative;flex-shrink:0}
 .detail-hero-photo.has-photo img{width:100%;height:100%;object-fit:cover;display:block}
 /* Same "slim bar, not a blank box" reasoning as .prop-card-photo.no-photo -
    one per detail page instead of dozens down a list, but still not worth a
@@ -971,6 +996,57 @@ summary.county-head::-webkit-details-marker{display:none}
 .risk-legal-card .detail-section-head{color:var(--warn)}
 .detail-map-embed{margin-top:.6rem;border-radius:6px;overflow:hidden;border:1px solid var(--card-line)}
 .detail-map-embed iframe{display:block;width:100%;height:180px;border:none}
+.show-on-map-btn{display:inline-flex;align-items:center;gap:.4rem;margin-top:.6rem;min-height:36px;
+  padding:.45rem .8rem;border-radius:3px;border:1px solid var(--accent);background:var(--accent-soft);
+  color:var(--accent);font-size:.78rem;font-weight:700;cursor:pointer}
+.show-on-map-btn svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2}
+.show-on-map-btn:hover{background:var(--accent);color:#fff}
+
+/* ==================== Phase 66: section nav + opportunity summary ====================
+   The full property page is a long single column. The nav is a sticky row of
+   jump pills (one per section that rendered - see detailNavHtml() in app.js)
+   so summary -> financial -> property -> risk -> map -> sources is one tap
+   each instead of a scroll hunt. Sticky inside the modal/panel's own scroll
+   box, under the close button. */
+.detail-nav{position:sticky;top:-1rem;z-index:3;display:flex;gap:.3rem;overflow-x:auto;
+  scrollbar-width:none;padding:1.35rem 0 .45rem;margin:0 0 .3rem;
+  background:var(--paper);border-bottom:1px solid var(--card-line);
+  /* flex-shrink:0 - the modal body is a flex column with a max-height, and a
+     child with overflow:auto gets min-height:0 there, so without this the
+     nav was squeezed to a few pixels while the page was taller than the
+     modal. top:-1rem + the extra padding-top: the scroll box has 1rem of
+     padding above the first child, and a sticky nav at top:0 would let the
+     scrolled content show through that strip. */
+  flex-shrink:0}
+.detail-nav::-webkit-scrollbar{display:none}
+.detail-nav button{flex:0 0 auto;min-height:32px;padding:.3rem .65rem;border-radius:999px;
+  border:1px solid var(--card-line);background:var(--card);color:var(--ink-soft);
+  font-size:.7rem;font-weight:700;letter-spacing:.02em;cursor:pointer;white-space:nowrap}
+.detail-nav button:hover{border-color:var(--accent);color:var(--accent)}
+.detail-nav button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+/* scroll-margin keeps a jumped-to section from tucking under the sticky nav */
+.detail-section[data-section]{scroll-margin-top:3.2rem}
+
+/* "At a glance": six labelled answers (opportunitySummaryHtml in app.js) -
+   what / where / when / minimum bid / value on file / missing. Two columns
+   where there is room, one on a phone. The accent edge marks it as the
+   page's headline block; the Missing cell is the honest one, listing every
+   tracked field this row does NOT have yet. */
+.opp-summary{border-left:3px solid var(--accent)}
+.opp-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.55rem .9rem}
+@media (max-width:480px){ .opp-grid{grid-template-columns:1fr} }
+.opp-cell{display:flex;flex-direction:column;gap:.15rem;min-width:0}
+.opp-cell:last-child{grid-column:1 / -1}
+.opp-label{font-size:.6rem;text-transform:uppercase;letter-spacing:.06em;font-weight:700;color:var(--ink-soft)}
+.opp-val{font-size:.85rem;font-weight:700;color:var(--ink);line-height:1.35;overflow-wrap:anywhere}
+.opp-val.bid{font-family:var(--font-mono);font-variant-numeric:tabular-nums;color:var(--bad);font-size:1rem}
+.opp-val.muted,.opp-val .muted{color:var(--ink-soft);font-style:italic;font-weight:600}
+.opp-val.ok{color:var(--ok)} .opp-val.warn{color:var(--warn)} .opp-val.bad{color:var(--bad)}
+.opp-sub{display:block;font-family:var(--font-sans);font-size:.7rem;font-weight:500;color:var(--ink-soft);
+  font-style:normal;margin-top:.1rem}
+.opp-gaps{margin:0;padding:0;list-style:none;display:flex;flex-wrap:wrap;gap:.3rem}
+.opp-gaps li{font-size:.68rem;font-weight:600;color:var(--ink-soft);background:var(--paper);
+  border:1px dashed var(--card-line);border-radius:3px;padding:.15rem .45rem}
 .detail-links{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:.5rem;
   margin:.9rem 0}
 .detail-links a{display:flex;align-items:center;justify-content:center;gap:.35rem;text-align:center;
