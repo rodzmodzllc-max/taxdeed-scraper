@@ -159,6 +159,15 @@ PER_COUNTY_LIMIT = int(os.environ.get("ENRICH_PER_COUNTY_LIMIT", "40"))
 # from scratch on the very next run (misses are never stamped), so a format
 # fixed later still picks up its whole backlog - exactly what happened for
 # Duval. It only stops one run from wasting minutes on a known-bad format.
+#
+# Phase 69 (2026-09-22): the streak is counted PER SOURCE within the county's
+# slice, not per county. Certificate rows (LienHub account numbers) and
+# auction/LAFT rows (the deed listing's parcel number) share a county's slice
+# but not an identifier scheme, and a county-wide streak let six certificate
+# misses abandon a county whose auction rows all matched - measured: Volusia
+# 50/50, Escambia 6/6, Santa Rosa 12/12 unenriched auction rows hit the layer
+# on request while their slices led with 228, 31 and 333 certificate rows.
+# The threshold itself is unchanged; it now bounds each ledger separately.
 COUNTY_MISS_STREAK = int(os.environ.get("ENRICH_COUNTY_MISS_STREAK", "6"))
 REQUEST_DELAY_SECONDS = 0.3  # polite pacing against a free public API
 FDOR_ENDPOINT = (
@@ -587,7 +596,10 @@ def fetch_county_batch(county, limit, outstanding=None):
     if outstanding and outstanding > limit:
         offset = random.randrange(0, outstanding - limit + 1)
     params = {
-        "select": "id,parcel,address,county,prop_type,market,assessed,owner_name,latitude,longitude",
+        # `source` is read so main() can keep one miss streak per ledger
+        # (Phase 69) - it is never filtered on here; every ledger's rows
+        # still share the county's slice exactly as before.
+        "select": "id,source,parcel,address,county,prop_type,market,assessed,owner_name,latitude,longitude",
         "state": f"eq.{ENRICH_STATE}",
         "county": f"eq.{county}",
         "and": "(parcel.not.is.null,parcel.neq.\"\")",
@@ -1156,14 +1168,33 @@ def main():
         if not rows:
             continue
         county_matched = 0
-        miss_streak = 0
+        county_attempted = 0
+        # Phase 69: one miss streak PER SOURCE (auction / laft / certificate),
+        # not one per county. The three ledgers carry different identifiers
+        # from different harvesters - a LienHub certificate's account number
+        # never resolves in a county where the deed listing's parcel number
+        # does - so a run of certificate misses says nothing about the
+        # auction rows behind them. Measured 2026-09-22 (docs/phase-69-fdor-
+        # starvation.md): Escambia's slice was 31 certificate rows followed
+        # by its 6 auction rows, so the county-wide streak abandoned it after
+        # six certificate misses on every run while all 6 auction rows
+        # matched the layer on request; Volusia 50/50 and Santa Rosa 12/12
+        # likewise. A source that has missed COUNTY_MISS_STREAK times in a
+        # row is skipped for the rest of the slice (no request spent), the
+        # other sources keep going, and the cap on runaway requests holds
+        # per source instead of per county - never more than
+        # COUNTY_MISS_STREAK consecutive misses are paid for any one ledger.
+        miss_streaks = {}
+        exhausted = set()
         for row in rows:
-            if miss_streak >= COUNTY_MISS_STREAK:
-                # Give up on this county for THIS run only - see the
-                # COUNTY_MISS_STREAK note above. Retried in full next run.
-                print(f"  [{county}] {miss_streak} consecutive misses - skipping the rest of this county's slice this run.")
-                break
+            source = row.get("source") or "unknown"
+            if miss_streaks.get(source, 0) >= COUNTY_MISS_STREAK:
+                if source not in exhausted:
+                    exhausted.add(source)
+                    print(f"  [{county}] {source}: {COUNTY_MISS_STREAK} consecutive misses - skipping this ledger's remaining rows in this county's slice this run.")
+                continue
             total_attempted += 1
+            county_attempted += 1
             parcel = row.get("parcel")
             if not parcel:
                 continue
@@ -1201,13 +1232,13 @@ def main():
             if attrs is None:
                 # Left unmarked on purpose - retried on a later run, so a
                 # county whose format gets cracked later picks up its backlog.
-                miss_streak += 1
+                miss_streaks[source] = miss_streaks.get(source, 0) + 1
                 time.sleep(REQUEST_DELAY_SECONDS)
                 continue
 
             total_matched += 1
             county_matched += 1
-            miss_streak = 0  # a hit proves the format works; keep going
+            miss_streaks[source] = 0  # a hit proves this ledger's format works; keep going
 
             fields = build_update_fields(row, attrs, centroid)
             # Stamped only on a successful match, and in the same PATCH as the
@@ -1225,7 +1256,11 @@ def main():
             time.sleep(REQUEST_DELAY_SECONDS)
 
         if rows:
-            per_county_matches[county] = (county_matched, len(rows))
+            # matched / rows actually looked up - not the slice length. The
+            # old denominator (len(rows)) printed "0/40" for a county the
+            # streak had abandoned after six lookups, which read as forty
+            # misses and hid the starvation this phase fixed.
+            per_county_matches[county] = (county_matched, county_attempted)
 
     print(
         f"Done. Attempted {total_attempted}, FDOR matches {total_matched}, "

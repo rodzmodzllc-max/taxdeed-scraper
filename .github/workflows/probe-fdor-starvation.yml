@@ -8,14 +8,12 @@ name: Probe FDOR starvation (READ-ONLY evidence)
 # PATCH, no schema change, no commit. The sandbox that authors this repo
 # cannot reach the layer, so the runner is the only place to measure it.
 #
-# No `schedule:`. Fires on pushes to its own evidence branch and on manual
-# dispatch only.
+# No `schedule:`. Manual dispatch only. (It ran once on push from its
+# evidence branch: Actions run 35722298578, 2026-09-22 - Volusia 51/57,
+# Escambia 6/6, Santa Rosa 12/12 auction/LAFT rows hit; Pasco swap 7/7.)
 
 on:
   workflow_dispatch:
-  push:
-    branches:
-      - enrichment/fdor-starvation-probe
 
 permissions:
   contents: read
