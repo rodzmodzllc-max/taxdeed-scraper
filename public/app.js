@@ -878,6 +878,16 @@ function lastSaleText(p) {
 // and say so in words, in muted type, so it can't be mistaken for a price.
 const hasPublishedBid = p => p.bid !== null && p.bid !== undefined && Number(p.bid) > 0;
 const bidDisplay = p => (hasPublishedBid(p) ? fmtMoney(p.bid) : "Not published");
+// Phase 65: the deed/LAFT CARD shows a whole-dollar bid when the bid IS a
+// whole dollar amount ("$11,000", not "$11,000.00") - on a phone the two
+// headline boxes are ~110px wide and the ".00" was the part that wrapped or
+// got cut. A bid that genuinely carries cents keeps them. The full property
+// page, table and certificate cards keep bidDisplay() unchanged.
+const bidDisplayCard = p => {
+  if (!hasPublishedBid(p)) return "Not published";
+  const n = Number(p.bid);
+  return Number.isInteger(n) ? fmtShort(n) : fmtMoney(n);
+};
 
 // Several counties dump the parcel number (or a bare "Parcel 12-34-56"
 // placeholder) into the address column. That printed twice: once as the card
@@ -1796,10 +1806,75 @@ function bidListBtnHtml(p, compact) {
   return `<button class="icon-btn bid-btn${cls}" data-action="bidlist" data-pid="${p.id}" type="button" title="${esc(label)}">${fullLabel}</button>`;
 }
 
+// Phase 65: the card's first line answers "what kind of listing is this, and
+// where is it in its life" in words, so auction vs. Lands Available vs.
+// upcoming vs. past-due vs. closed reads without decoding badge colours.
+// One line, two words-ish: a ledger word (coloured with the ledger's own
+// accent - the same --led-* token the tabs use, so no second palette) and a
+// phase word coloured by urgency. It REPLACES the old "SALE SEP 21" county
+// tag rather than adding to it; the countdown badge in the actions row is
+// unchanged (tests and the 60s refresh both key on it).
+function cardKickerHtml(p, showCounty) {
+  const type = p.source === "laft" ? "Lands Available" : "Auction";
+  let phase, cls;
+  if (isGone(p)) { phase = "Closed"; cls = "phase-closed"; }
+  else if (p.source === "laft") { phase = "Fixed price · available now"; cls = "phase-fixed"; }
+  else if (!p.sale_date) { phase = "Sale not scheduled"; cls = "phase-none"; }
+  else {
+    const d = daysUntil(p);
+    const when = fmtDate(p.sale_date);
+    if (d === null) { phase = "Sale " + when; cls = "phase-upcoming"; }
+    else if (d < 0) { phase = "Past sale date · " + when; cls = "phase-past"; }
+    else if (d === 0) { phase = "Sale today · " + when; cls = "phase-today"; }
+    else if (d <= SOON_DAYS) { phase = "Sale " + when; cls = "phase-soon"; }
+    else { phase = "Sale " + when; cls = "phase-upcoming"; }
+  }
+  return `<div class="prop-kicker">${showCounty ? `<span class="kicker-county">${esc(p.county)}</span><span class="kicker-sep">·</span>` : ""}<span class="kicker-type kicker-${esc(p.source)}">${type}</span><span class="kicker-sep">·</span><span class="kicker-phase ${cls}">${esc(phase)}</span></div>`;
+}
+
+// Phase 65: the compact card-level version of floodRowHtml() (full property
+// page) - same three honest states, same never-collapse rule: NULL
+// flood_checked_at is "nobody has looked", UNMAPPED is "FEMA publishes no
+// map here" (NOT low risk), a zone letter is a real determination.
+function floodShort(p) {
+  const checked = typeof p.flood_checked_at === "string" && p.flood_checked_at;
+  if (!checked) return { text: "Not checked", cls: "muted" };
+  if (p.flood_zone === "UNMAPPED") return { text: "Not mapped by FEMA", cls: "muted" };
+  const zone = "Zone " + (p.flood_zone || "?");
+  if (p.flood_sfha === true) return { text: zone + " · SFHA", cls: "warn" };
+  return { text: zone, cls: "" };
+}
+
+// Phase 65: the quiet facts row under the headline numbers. Every entry is
+// a field the backend actually has a state for - nothing here is derived
+// from a guess, and each "missing" wording says WHY it is missing:
+//   Location - latitude/longitude from scripts/geocode_properties.py;
+//              absent means the geocoder has not placed it yet (it runs in
+//              batches), not that the parcel has no location.
+//   Flood    - FEMA NFHL via scripts/enrich_flood_zone.py, see floodShort().
+//   Value/bid- the same market ÷ opening-bid ratio isTopPick() already
+//              screens on, now shown for every row that has both numbers.
+//              This is NOT an MMV / return estimate: no MMV field, formula
+//              or source exists anywhere in the backend yet. When one does
+//              (a real column such as mmv + mmv_source + mmv_computed_at),
+//              it belongs here as a fourth entry - see the PR notes.
+function cardFactsHtml(p) {
+  const facts = [];
+  const coords = hasNum(p.latitude) && hasNum(p.longitude);
+  facts.push(`<span><b>Location</b><span class="${coords ? "" : "muted"}">${coords ? "Geocoded" : "Not yet geocoded"}</span></span>`);
+  const fl = floodShort(p);
+  facts.push(`<span><b>Flood</b><span class="${fl.cls}">${esc(fl.text)}</span></span>`);
+  if (hasPublishedBid(p) && marketOf(p) > 0) {
+    facts.push(`<span><b>Value ÷ bid</b><span>${valueRatio(p).toFixed(1)}×</span></span>`);
+  }
+  return `<div class="prop-facts">${facts.join("")}</div>`;
+}
+
 function card(p, showCounty) {
   const el = document.createElement("div");
   const fav = FAVS.has(p.id), top = isTopPick(p);
-  el.className = "prop-card " + cardStatus(p) + (fav ? " favorited" : "") + (top ? " toppick" : "");
+  const isSelected = selectedPid != null && String(selectedPid) === String(p.id);
+  el.className = "prop-card " + cardStatus(p) + (fav ? " favorited" : "") + (top ? " toppick" : "") + (isSelected ? " selected" : "");
   // Lets the 60s countdown-badge refresh (see refreshAuctionCountdowns) find
   // this card's own row again without a full re-render.
   el.dataset.pid = p.id;
@@ -1807,7 +1882,7 @@ function card(p, showCounty) {
   let cd = "";
   if (d !== null && d >= 0) { const cls = d <= 3 ? "urgent" : d <= SOON_DAYS ? "soon" : ""; cd = `<span class="countdown ${cls}">${d === 0 ? "TODAY" : d + "d"}</span>`; }
   else if (d !== null && d < 0) { cd = `<span class="countdown past">${-d}d ago</span>`; }
-  const tag = showCounty ? `<div class="prop-county-tag">${esc(p.county)}${p.sale_date ? " - " + fmtDate(p.sale_date) : ""}</div>` : (p.sale_date ? `<div class="prop-county-tag">Sale ${new Date(p.sale_date + "T00:00:00").toLocaleDateString("en-US", { month: "short", day: "numeric" })}</div>` : "");
+  const tag = cardKickerHtml(p, showCounty);
 
   const street = realAddress(p);
   const hasAddress = !!street;
@@ -1847,17 +1922,21 @@ function card(p, showCounty) {
         ${cd}
         ${!isClosed ? `<span class="lien-pill ${esc(p.lien_level)}">${LIEN_LABEL[p.lien_level] || p.lien_level}</span>` : ""}
         ${!isClosed && p.homestead ? `<span class="lien-pill homestead" title="${esc(HOMESTEAD_TIP)}">Homestead</span>` : ""}
-        <span class="pill ${esc(p.status)}">${esc(p.status)}</span>
+        ${!isClosed ? `<span class="pill ${esc(p.status)}">${esc(p.status)}</span>` : ""}
       </div>
     </div>
-    ${hasAddress && hasParcel(p) ? `<div class="prop-parcel-line">Parcel # ${esc(p.parcel)}</div>` : ""}
+    <div class="prop-ids">
+      ${hasAddress ? (hasParcel(p) ? `<span class="prop-parcel-line">Parcel # ${esc(p.parcel)}</span>` : `<span class="prop-parcel-line muted">Parcel # not published</span>`) : ""}
+      ${p.case_no ? `<span class="prop-case-line">Case ${esc(p.case_no)}</span>` : ""}
+    </div>
     ${classificationBadgeHtml(p) ? `<div class="prop-classification-line">${classificationBadgeHtml(p)}</div>` : ""}
     ${p.legal_desc ? `<div class="prop-legal" title="${esc(p.legal_desc)}">${esc(p.legal_desc)}</div>` : ""}
     <div class="card-stat-grid ${marketVal ? "card-stat-grid-2" : "card-stat-grid-1"}">
-      <div class="card-stat card-stat-headline"><div class="card-stat-label">${p.source === "laft" ? "Purchase Price" : "Opening Bid"}</div><div class="card-stat-val bid${bidPublished ? "" : " unpublished"}">${bidDisplay(p)}</div></div>
+      <div class="card-stat card-stat-headline"><div class="card-stat-label">${p.source === "laft" ? "Purchase Price" : "Opening Bid"}</div><div class="card-stat-val bid${bidPublished ? "" : " unpublished"}">${bidDisplayCard(p)}</div></div>
       ${marketVal ? `<div class="card-stat card-stat-headline"><div class="card-stat-label">${esc(valueLabel(p))}</div><div class="card-stat-val market">${fmtShort(marketVal)}</div></div>` : ""}
     </div>
     ${p.source === "auction" && bidPublished && marketVal > 0 ? equitySpreadBarHtml(p) : ""}
+    ${cardFactsHtml(p)}
     ${spec.length ? `<div class="prop-spec">${spec.map(b => `<span>${esc(b)}</span>`).join("")}</div>` : ""}
     ${sale ? `<div class="prop-lastsale">Last sold <b>${esc(sale)}</b></div>` : ""}
     <div class="prop-links">
@@ -3201,7 +3280,7 @@ function section(container, title, sub, rows, kind) {
 function updateBadge() {
   let n = 0;
   if (state.search) n++;
-  if (state.bidMin || state.bidMax || state.assessedMin) n++;
+  if (state.bidMin !== null || state.bidMax !== null || state.assessedMin) n++;
   if (state.sortBy !== "county") n++;
   if (state.sortSecondary) n++;
   if (state.favoritesOnly || state.topPicksOnly || state.soonOnly || state.hideOldListings || state.hideSlivers || state.hideBareLandOnly) n++;
@@ -3433,6 +3512,16 @@ if (searchInputEl) {
     if (searchInputEl.value.trim() === "") { applySearch(); return; }
     searchTimer = setTimeout(applySearch, SEARCH_DEBOUNCE_MS);
   });
+  // Phase 65: Enter commits right away (skipping the debounce) and drops the
+  // phone keyboard so the results are visible. There is deliberately no
+  // Search button - the list already filters as you type.
+  searchInputEl.addEventListener("keydown", e => {
+    if (e.key !== "Enter") return;
+    e.preventDefault();
+    clearTimeout(searchTimer);
+    applySearch();
+    searchInputEl.blur();
+  });
 }
 
 const countyQuickEl = document.getElementById("countyQuick");
@@ -3615,47 +3704,58 @@ if (filtersToggleBtn && filtersPanelEl) {
 }
 
 // ---- range sliders for bid filtering ----
+// Phase 65: the two sliders and the two typed fields (#bidMinInput /
+// #bidMaxInput) are four views of one pair of values. Every path funnels
+// through applyBidRange(min, max, source) so state.bidMin/bidMax, both
+// sliders, both fields and the track fill can never disagree:
+//   - dragging a slider writes the typed fields (the old read-only labels),
+//   - typing writes the sliders (clamped to the slider's own 0..$1M track -
+//     a typed $2,500,000 cap is honoured by passes(), the handle just pins
+//     to the end of the track),
+//   - typing filters as you go (short debounce, same idea as #searchInput)
+//     and Enter / leaving the field commits immediately, so there is no
+//     Search button to press.
+// null in state still means "no bound", exactly as passes() expects.
+const BID_SLIDER_MAX = 1000000;
 function bindBidRangeSliders() {
   const minSlider = document.getElementById("bidMin");
   const maxSlider = document.getElementById("bidMax");
-  const minDisplay = document.getElementById("bidMinDisplay");
-  const maxDisplay = document.getElementById("bidMaxDisplay");
+  const minInput = document.getElementById("bidMinInput");
+  const maxInput = document.getElementById("bidMaxInput");
 
   if (!minSlider || !maxSlider) return;
 
-  function updateBidRange(e) {
-    let min = Number(minSlider.value);
-    let max = Number(maxSlider.value);
+  const clampToTrack = v => Math.max(0, Math.min(BID_SLIDER_MAX, v));
+  const parseField = el => {
+    if (!el) return null;
+    const v = el.value.trim();
+    if (v === "") return null;
+    const n = Number(v);
+    return Number.isFinite(n) && n >= 0 ? Math.floor(n) : null;
+  };
 
-    // Phase 63: when the two handles cross, snap the handle the user did
-    // NOT just move to match the one they did - not always Min - and,
-    // critically, keep these local min/max vars in sync with whatever the
-    // sliders end up at. The old version only fixed minSlider's DOM value
-    // and kept computing state.bidMin/the label/the track fill from the
-    // stale pre-correction `min`, so state.bidMin could end up greater than
-    // state.bidMax - passes()'s bid filter (`bid < bidMin || bid > bidMax`)
-    // then excludes every single property, silently emptying the whole
-    // ledger, while the label kept showing a dollar figure that no longer
-    // matched where the handle visually sat.
-    if (min > max) {
-      if (e && e.target === maxSlider) {
-        minSlider.value = max;
-        min = max;
-      } else {
-        maxSlider.value = min;
-        max = min;
-      }
+  // min/max here are the intended bounds (null = unbounded). `source` names
+  // which control the user just touched so a crossing snaps the OTHER one
+  // (Phase 63's rule for the sliders, now shared by the typed fields).
+  function applyBidRange(min, max, source) {
+    if (min !== null && max !== null && min > max) {
+      if (source === "max" || source === "maxInput") min = max; else max = min;
     }
+    state.bidMin = min !== null && min > 0 ? min : null;
+    state.bidMax = max;
 
-    state.bidMin = min > 0 ? min : null;
-    state.bidMax = max < 1000000 ? max : null;
-
-    if (minDisplay) minDisplay.textContent = min > 0 ? fmtMoney(min) : "$0";
-    if (maxDisplay) maxDisplay.textContent = max < 1000000 ? fmtMoney(max) : "Any";
+    const sMin = clampToTrack(min || 0);
+    const sMax = max === null ? BID_SLIDER_MAX : clampToTrack(max);
+    minSlider.value = String(sMin);
+    maxSlider.value = String(sMax);
+    // Typed fields only get rewritten when the change came from elsewhere -
+    // overwriting the field the user is mid-keystroke in would fight them.
+    if (minInput && source !== "minInput") minInput.value = state.bidMin === null ? "" : String(state.bidMin);
+    if (maxInput && source !== "maxInput") maxInput.value = state.bidMax === null ? "" : String(state.bidMax);
 
     // Update CSS variables for slider track fill
-    const percent1 = (min / 1000000) * 100;
-    const percent2 = (max / 1000000) * 100;
+    const percent1 = (sMin / BID_SLIDER_MAX) * 100;
+    const percent2 = (sMax / BID_SLIDER_MAX) * 100;
     minSlider.style.setProperty("--value1", percent1 + "%");
     minSlider.style.setProperty("--value2", percent2 + "%");
     maxSlider.style.setProperty("--value1", percent1 + "%");
@@ -3665,11 +3765,50 @@ function bindBidRangeSliders() {
     render();
   }
 
-  minSlider.addEventListener("input", updateBidRange);
-  maxSlider.addEventListener("input", updateBidRange);
+  function fromSliders(e) {
+    const min = Number(minSlider.value);
+    const max = Number(maxSlider.value);
+    // The right-hand end of the track means "no cap", as it always has.
+    applyBidRange(min, max >= BID_SLIDER_MAX ? null : max, e && e.target === maxSlider ? "max" : "min");
+  }
+  minSlider.addEventListener("input", fromSliders);
+  maxSlider.addEventListener("input", fromSliders);
+
+  const FIELD_DEBOUNCE_MS = 250;
+  let fieldTimer = null;
+  function bindField(el, which) {
+    if (!el) return;
+    const commit = () => {
+      clearTimeout(fieldTimer);
+      const min = which === "min" ? parseField(el) : state.bidMin;
+      const max = which === "max" ? parseField(el) : state.bidMax;
+      applyBidRange(min, max, which + "Input");
+    };
+    el.addEventListener("input", () => {
+      clearTimeout(fieldTimer);
+      fieldTimer = setTimeout(commit, FIELD_DEBOUNCE_MS);
+    });
+    el.addEventListener("change", commit);
+    el.addEventListener("keydown", e => {
+      if (e.key !== "Enter") return;
+      e.preventDefault();
+      commit();
+      // After Enter the field should show the value that actually applied
+      // (a crossing may have snapped it), and on a phone the keyboard
+      // should get out of the way of the results.
+      el.value = (which === "min" ? state.bidMin : state.bidMax) ?? "";
+      el.blur();
+    });
+  }
+  bindField(minInput, "min");
+  bindField(maxInput, "max");
+
+  // Expose the reset path so the Reset button below can go through the
+  // same single writer instead of poking four elements by hand.
+  bindBidRangeSliders.reset = () => applyBidRange(null, null, "reset");
 
   // Initialize display
-  updateBidRange();
+  applyBidRange(null, null, "init");
 }
 bindBidRangeSliders();
 
@@ -3730,14 +3869,10 @@ if (resetBtn) resetBtn.addEventListener("click", () => {
   state.counties = new Set(ALL_COUNTIES); state.types = new Set(TYPE_ORDER); state.liens = new Set(LIEN_ORDER);
   state.expandedCounties.clear();
 
-  const bidMinEl = document.getElementById("bidMin");
-  const bidMaxEl = document.getElementById("bidMax");
-  if (bidMinEl) { bidMinEl.value = "0"; bidMinEl.style.setProperty("--value1", "0%"); }
-  if (bidMaxEl) { bidMaxEl.value = "1000000"; bidMaxEl.style.setProperty("--value2", "100%"); }
-  const minDisplayEl = document.getElementById("bidMinDisplay");
-  const maxDisplayEl = document.getElementById("bidMaxDisplay");
-  if (minDisplayEl) minDisplayEl.textContent = "$0";
-  if (maxDisplayEl) maxDisplayEl.textContent = "Any";
+  // Sliders + typed price fields reset through their one shared writer
+  // (see bindBidRangeSliders). It renders once itself; the render() at the
+  // bottom of this handler runs again with the rest of the reset applied.
+  if (bindBidRangeSliders.reset) bindBidRangeSliders.reset();
   const assessedMinEl = document.getElementById("assessedMin");
   if (assessedMinEl) assessedMinEl.value = "";
   const maxBidEl = document.getElementById("maxBidPct"); if (maxBidEl) maxBidEl.value = "40";
@@ -4750,6 +4885,7 @@ function clearDetailPanel() {
   panel.className = "detail-panel";
   panel.innerHTML = `<div class="detail-panel-empty">Select a property from the list to see its full page here.</div>`;
   document.querySelectorAll(".data-table tbody tr.selected").forEach(tr => tr.classList.remove("selected"));
+  document.querySelectorAll("#main .prop-card.selected").forEach(c => c.classList.remove("selected"));
 }
 
 function selectProperty(p) {
@@ -4760,6 +4896,12 @@ function selectProperty(p) {
   panel.innerHTML = detailHtml(p);
   document.querySelectorAll(".data-table tbody tr[data-pid]").forEach(tr => {
     tr.classList.toggle("selected", String(tr.dataset.pid) === String(p.id));
+  });
+  // Phase 65: the card list marks the same selection the table does, so the
+  // card and the panel beside it visibly belong together. card() applies
+  // the same class on a full re-render (it reads selectedPid).
+  document.querySelectorAll("#main .prop-card[data-pid]").forEach(c => {
+    c.classList.toggle("selected", String(c.dataset.pid) === String(p.id));
   });
 }
 

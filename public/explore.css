@@ -437,6 +437,16 @@ box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 22%,transparent),var(--shad
 /* The two headline figures are the whole pitch of a listing (cost vs worth),
    so they get real size instead of sitting in same-weight boxes. */
 .card-stat-headline .card-stat-val{font-size:1.18rem;letter-spacing:-.02em}
+/* Phase 65: on a phone the two headline boxes are ~100-120px wide and a
+   "$11,000.00" at 1.18rem mono wrapped mid-number ("$11,000.0 / 0"). Scale
+   the figure with the viewport so a 9-10 character amount fits on one line
+   at 360px (measured: box 103px); .card-stat-val's overflow-wrap stays as
+   the last-resort fallback rather than clipping digits off a price. Lives
+   here, not in styles.css, because this later-loaded rule above would
+   otherwise override any same-specificity rule there. */
+@media (max-width:480px){
+  .card-stat-headline .card-stat-val{font-size:clamp(.82rem,4.8vw,1.18rem)}
+}
 .card-stat-label{font-size:.6rem}
 .prop-county-tag{letter-spacing:.04em}
 
@@ -656,8 +666,8 @@ stroke:var(--accent);stroke-width:1.4}
 .map-pin path{fill:var(--bad);stroke:#fff;stroke-width:1.2;
 paint-order:stroke;transition:fill .12s}
 .map-pin .pin-dot{fill:#fff;pointer-events:none}
-.map-pin:hover path{fill:var(--ink)}
-.map-pin.sel path{fill:var(--accent)}
+.map-pin:hover path,.map-pin.hover path{fill:var(--ink)}
+.map-pin.sel path{fill:var(--accent);stroke:var(--ink);stroke-width:1.8}
 .map-pin:focus-visible{outline:none}
 .map-pin:focus-visible path{stroke:var(--ink);stroke-width:2.4}
 
@@ -679,8 +689,12 @@ scrollbar-width:thin}
 align-items:flex-start;gap:.12rem;text-align:left;cursor:pointer;
 background:var(--paper);border:1px solid var(--card-line);border-radius:3px;
 padding:.4rem .55rem;position:relative}
-.strip-card:hover{border-color:var(--accent)}
-.strip-card.sel{border-color:var(--accent);background:var(--accent-soft)}
+/* Phase 65: .hover is the pin-side mirror of :hover - set by explore.js when
+   the pointer is over that property's pin, so pin and card light up as one.
+   .sel is the selection (pin, card and preview all show the same property). */
+.strip-card:hover,.strip-card.hover{border-color:var(--accent)}
+.strip-card.sel{border-color:var(--accent);background:var(--accent-soft);
+  box-shadow:0 0 0 1px var(--accent)}
 /* A card whose property is actually on the map gets the left edge, so the
    difference between "mapped" and "listed only" is visible at a glance. */
 .strip-card.mapped{border-left:3px solid var(--bad)}
