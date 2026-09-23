@@ -176,6 +176,13 @@ await page.selectOption('#sortBy', 'bidDesc');
 await page.waitForTimeout(150);
 const firstMeta = await page.locator('.prop-card .card-stat-val.bid').first().textContent();
 results.sortByBidDescFirst = firstMeta.trim();
+// Phase 71: every deed/LAFT card headline bid is a whole dollar - no "."
+// anywhere in the figure (certificate cards keep cents via bidDisplay()
+// and are excluded by the :not(.cert-card) filter).
+results.deedCardBidsWithCents = await page.evaluate(() =>
+  [...document.querySelectorAll('.prop-card:not(.cert-card) .card-stat-val.bid')]
+    .map(el => el.textContent.trim()).filter(t => t.startsWith('$') && t.includes('.')).length);
+results.deedCardBidsChecked = await page.locator('.prop-card:not(.cert-card) .card-stat-val.bid').count();
 // New yield-desk sort options exist and don't error out when applied (only
 // one certificate fixture row exists, so there's nothing to prove about
 // ordering here - see tests/vendor/supabase-stub.js - just that selecting
@@ -1743,6 +1750,8 @@ const EXPECTED = {
   showOnMapPreviewTitle: '1 Main St',
   showOnMapStripSelCount: 1,
   sortByBidDescFirst: '$11,000', // Phase 65: whole-dollar bids drop the ".00" on the card (bidDisplayCard)
+  deedCardBidsWithCents: 0,      // Phase 71: the card headline always rounds to a whole dollar
+  deedCardBidsChecked: 9,
   sortByHasInterestOption: true,
   sortByHasExpSoonOption: true,
   cardCountAfterInterestSort: 9,
