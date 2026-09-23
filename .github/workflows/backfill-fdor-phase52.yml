@@ -12,8 +12,19 @@ name: Backfill FDOR Phase 52 fields (fill-only, manual)
 #
 # The sandbox that authors this repo cannot reach the FDOR layer, so a runner
 # is the only place either step can execute. No `schedule:`.
+#
+# The `push` trigger exists because GitHub only registers a workflow for
+# `workflow_dispatch` once it has run from some branch (the same reason
+# probe-fdor-starvation.yml ran once from its evidence branch). It is scoped
+# to this workflow's own two files and, with no inputs present on a push,
+# MODE falls back to dry-run - a push can never reach the apply path.
 
 on:
+  push:
+    branches: ['**']
+    paths:
+      - '.github/workflows/backfill-fdor-phase52.yml'
+      - 'scripts/backfill_fdor_phase52_fields.py'
   workflow_dispatch:
     inputs:
       mode:
@@ -41,9 +52,13 @@ permissions:
 
 jobs:
   backfill:
-    name: ${{ inputs.mode }} - Phase 52 FDOR fields
+    name: ${{ inputs.mode || 'dry-run' }} - Phase 52 FDOR fields
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    env:
+      MODE: ${{ inputs.mode || 'dry-run' }}
+      PLAN_RUN_ID: ${{ inputs.plan_run_id || '' }}
+      CONFIRM: ${{ inputs.confirm_apply || '' }}
 
     steps:
       - name: Checkout repository
@@ -61,9 +76,6 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-          MODE: ${{ inputs.mode }}
-          CONFIRM: ${{ inputs.confirm_apply }}
-          PLAN_RUN_ID: ${{ inputs.plan_run_id }}
         run: |
           set -euo pipefail
           if [ -z "${SUPABASE_URL:-}" ] || [ -z "${SUPABASE_SERVICE_KEY:-}" ]; then
@@ -82,32 +94,33 @@ jobs:
           fi
 
       - name: Download the dry-run plan (apply only)
-        if: inputs.mode == 'apply'
+        if: env.MODE == 'apply'
         uses: actions/download-artifact@v4
         with:
-          name: fdor-backfill-dry-run-${{ inputs.plan_run_id }}
+          name: fdor-backfill-dry-run-${{ env.PLAN_RUN_ID }}
           path: plan
-          run-id: ${{ inputs.plan_run_id }}
+          run-id: ${{ env.PLAN_RUN_ID }}
           github-token: ${{ github.token }}
 
-      - name: Run (${{ inputs.mode }})
+      - name: Run
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-          BACKFILL_MODE: ${{ inputs.mode }}
-          BACKFILL_PLAN_IN: ${{ inputs.mode == 'apply' && 'plan/fdor_backfill_plan.json' || '' }}
-          BACKFILL_PLAN_OUT: out/fdor_backfill_${{ inputs.mode }}.json
+          BACKFILL_MODE: ${{ env.MODE }}
+          BACKFILL_PLAN_IN: ${{ env.MODE == 'apply' && 'plan/fdor_backfill_dry-run.json' || '' }}
+          BACKFILL_PLAN_OUT: out/fdor_backfill_${{ env.MODE }}.json
         run: |
           set -euo pipefail
-          python3 scripts/backfill_fdor_phase52_fields.py | tee out/backfill_${{ inputs.mode }}.log
+          mkdir -p out
+          python3 scripts/backfill_fdor_phase52_fields.py | tee out/backfill_${MODE}.log
 
       - name: Upload plan / result
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: fdor-backfill-${{ inputs.mode }}-${{ github.run_id }}
+          name: fdor-backfill-${{ env.MODE }}-${{ github.run_id }}
           path: |
-            out/fdor_backfill_${{ inputs.mode }}.json
-            out/backfill_${{ inputs.mode }}.log
+            out/fdor_backfill_${{ env.MODE }}.json
+            out/backfill_${{ env.MODE }}.log
           retention-days: 90
           if-no-files-found: error
