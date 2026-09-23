@@ -893,16 +893,15 @@ function lastSaleText(p) {
 // and say so in words, in muted type, so it can't be mistaken for a price.
 const hasPublishedBid = p => p.bid !== null && p.bid !== undefined && Number(p.bid) > 0;
 const bidDisplay = p => (hasPublishedBid(p) ? fmtMoney(p.bid) : "Not published");
-// Phase 65: the deed/LAFT CARD shows a whole-dollar bid when the bid IS a
-// whole dollar amount ("$11,000", not "$11,000.00") - on a phone the two
-// headline boxes are ~110px wide and the ".00" was the part that wrapped or
-// got cut. A bid that genuinely carries cents keeps them. The full property
-// page, table and certificate cards keep bidDisplay() unchanged.
-const bidDisplayCard = p => {
-  if (!hasPublishedBid(p)) return "Not published";
-  const n = Number(p.bid);
-  return Number.isInteger(n) ? fmtShort(n) : fmtMoney(n);
-};
+// Phase 65 / 71: the deed/LAFT CARD always shows the bid as a whole dollar,
+// rounded to the nearest dollar ("$324,265", never "$324,264.72") - on a
+// phone the two headline boxes are ~110px wide and a figure with cents
+// wrapped onto a second line, splitting the number (Marc's screenshot,
+// 2026-09-23: "$324,264.7" / "2"). The exact figure with cents is still
+// what the county publishes and still what the full property page, the
+// table and the certificate cards show via bidDisplay(); only the card's
+// headline rounds, the same way the spread bar under it already did.
+const bidDisplayCard = p => (hasPublishedBid(p) ? fmtShort(p.bid) : "Not published");
 
 // Several counties dump the parcel number (or a bare "Parcel 12-34-56"
 // placeholder) into the address column. That printed twice: once as the card
