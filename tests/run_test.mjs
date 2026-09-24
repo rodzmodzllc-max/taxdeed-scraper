@@ -33,7 +33,21 @@ const ALLOWED_ERROR_SUBSTRINGS = [
 
 const errors = [];
 const browser = await chromium.launch(launchOpts);
-const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+// Phase 67: fixture rows p5 and p12 carry coordinates, so a full property
+// page for either renders the GIS card's OpenStreetMap <iframe>
+// (osmEmbedUrl() in app.js). On a runner with real network access that is a
+// live request to a third party for a fixture row, which this suite has
+// never made: every page it opens serves a blank document for that host
+// instead. (This is hygiene, not the fix for the CI timeout this branch
+// hit - see the cold-load note by the #/certificates check further down.)
+const THIRD_PARTY_EMBED = /:\/\/(www\.)?openstreetmap\.org\//;
+async function newPage(opts) {
+  const pg = await browser.newPage(opts);
+  await pg.route(THIRD_PARTY_EMBED, route => route.fulfill({
+    status: 200, contentType: 'text/html', body: '<!doctype html><title>embed stubbed by the suite</title>' }));
+  return pg;
+}
+const page = await newPage({ viewport: { width: 390, height: 844 } });
 page.on('pageerror', e => errors.push('pageerror: ' + e.message));
 page.on('console', msg => { if (msg.type() === 'error') errors.push('console.error: ' + msg.text()); });
 // The "hide" action now confirms before it does anything (a real user would
@@ -271,6 +285,11 @@ await page.waitForTimeout(400); // ensureMap() fetches + parses the basemap SVG
 results.auctionsPageVisibleOnMapNav = await page.locator('#pageAuctions').isVisible();
 results.mapPageVisibleOnMapNav = await page.locator('#pageMap').isVisible();
 results.navMapBtnOnAfterMapNav = await page.locator('.nav-bottom-item[data-page="map"]').evaluate(el => el.classList.contains('on'));
+// Phase 67: the workspace layout dropped the Map page's subtitle ("...across
+// Florida"), which was its only state cue. The toolbar title now carries the
+// state, filled by applyLedgerChrome() from PAGE_STATE (never from a row's
+// county). Whitespace-normalised: the h1 is "Map" + a span " · Florida".
+results.mapPageTitleFlorida = ((await page.locator('#pageMap .map-page-title').textContent()) || '').replace(/\s+/g, ' ').trim();
 results.mapPathCount = await page.locator('#exploreMapCanvas path[data-county]').count();
 // Portfolio-wide (every ledger, not just whatever ledger tab Auctions
 // happens to be on) - see computeMapRows()'s comment in app.js for why the
@@ -1345,10 +1364,25 @@ results.legendSwatchCount = await page.locator('.ledger-legend .lgd').count();
 
 // A ledger URL is a real entry point, not just a label the app writes after
 // the fact: a cold load on #/certificates must come up on Certificates.
-await page.goto(BASE_URL + '#/certificates', { waitUntil: 'networkidle' });
-await page.waitForTimeout(1200);
-results.deepLinkLandsOnCertificates = await page.locator('.ledger-tab[data-ledger="certificate"]').evaluate(el => el.classList.contains('on'));
-results.deepLinkHeading = ((await page.locator('.ledger-head h2').textContent()) || '').trim();
+// A real cold load - a fresh page - not a goto on the page above: that page
+// is already on index.html, so a hash-only goto is a same-document
+// navigation (the Phase 58 note further down explains why that never
+// exercises a cold start). It also hung CI on this branch: the page above
+// has opened a geocoded row's full page (p5 / p12 carry coordinates since
+// Phase 67), whose GIS card attaches two lazy OpenStreetMap iframes and
+// detaches them on the next render. On Playwright's headless-shell build
+// the second, never-navigated frame never reports "networkidle", so
+// Playwright drops the flag on the main frame while the frames exist and,
+// with no further request to restart its idle timer, never restores it -
+// the next same-document goto with waitUntil: 'networkidle' then waits the
+// full 30 s (main never hit this: its fixture has no geocoded row). The
+// full Chromium build the sandbox suite runs on does not reproduce it.
+const certColdPage = await newPage({ viewport: { width: 390, height: 844 } });
+await certColdPage.goto(BASE_URL + '#/certificates', { waitUntil: 'networkidle' });
+await certColdPage.waitForTimeout(1200);
+results.deepLinkLandsOnCertificates = await certColdPage.locator('.ledger-tab[data-ledger="certificate"]').evaluate(el => el.classList.contains('on'));
+results.deepLinkHeading = ((await certColdPage.locator('.ledger-head h2').textContent()) || '').trim();
+await certColdPage.close();
 
 // The badge is now gone for EVERYONE, admin included - it was a number
 // nobody acted on, repeated once per county down the page. Checking the
@@ -1482,6 +1516,19 @@ results.txDetailHasFeesStat = txStatLabels.some(l => l.startsWith('Fees'));
 results.txDetailHasCalcDrawer = await page.locator('#detailModalInner .calc-drawer').count();
 results.txDetailAssessedLabel = txStatLabels.find(l => l.includes('Assessed') || l.includes('CAD') || l.includes('Adjudged')) || '';
 
+// Phase 67: the same state cue on the Texas page, reached the way a user
+// would - a cold load of tx.html#map (a fresh page, not a same-document
+// hash change, per the Phase 58 note below) - so the Map page itself, its
+// "Map · Texas" title and the 254-county Texas outline are all asserted on
+// the deployed-shape entry point, not inferred from the Florida page.
+const txMapPage = await newPage({ viewport: { width: 1280, height: 900 } });
+await txMapPage.goto(TX_BASE_URL + '#map', { waitUntil: 'networkidle' });
+await txMapPage.waitForTimeout(600);
+results.txMapPageVisibleOnColdLoad = await txMapPage.locator('#pageMap').isVisible();
+results.txMapPageTitleTexas = ((await txMapPage.locator('#pageMap .map-page-title').textContent()) || '').replace(/\s+/g, ' ').trim();
+results.txMapPathCount = await txMapPage.locator('#exploreMapCanvas path[data-county]').count();
+await txMapPage.close();
+
 // ============================================================
 // Phase 58: property deep-linking. openDetail() (app.js) writes
 // "#/<ledger-slug>/<id>" via history.replaceState onto the SAME history
@@ -1497,7 +1544,7 @@ results.txDetailAssessedLabel = txStatLabels.find(l => l.includes('Assessed') ||
 // separate browser.newPage() contexts (each gets its own isolated storage)
 // rather than reusing the page above.
 // ============================================================
-const dlPage1 = await browser.newPage({ viewport: { width: 390, height: 844 } });
+const dlPage1 = await newPage({ viewport: { width: 390, height: 844 } });
 dlPage1.on('dialog', d => d.accept());
 await dlPage1.goto(BASE_URL, { waitUntil: 'networkidle' });
 await dlPage1.waitForTimeout(500);
@@ -1515,7 +1562,7 @@ results.deepLinkHashHasPid = dlHash.includes('/' + dlPid);
 const dlAddress1 = ((await dlPage1.locator('#detailModalInner .detail-address').textContent()) || '').trim();
 await dlPage1.close();
 
-const dlPage2 = await browser.newPage({ viewport: { width: 390, height: 844 } });
+const dlPage2 = await newPage({ viewport: { width: 390, height: 844 } });
 dlPage2.on('dialog', d => d.accept());
 await dlPage2.goto(BASE_URL + dlHash, { waitUntil: 'networkidle' });
 await dlPage2.waitForTimeout(1000);
@@ -1539,7 +1586,7 @@ await dlPage2.close();
 // photo (a labelled placard, not a real Street View still); p3 (3 Oak Ave,
 // Lands Available) carries photo_url '' = checked, no coverage; p1 (1 Main
 // St) has no photo_url at all = not checked yet.
-const p66 = await browser.newPage({ viewport: { width: 390, height: 844 } });
+const p66 = await newPage({ viewport: { width: 390, height: 844 } });
 p66.on('pageerror', e => errors.push('pageerror: ' + e.message));
 p66.on('console', msg => { if (msg.type() === 'error') errors.push('console.error: ' + msg.text()); });
 await p66.goto(BASE_URL, { waitUntil: 'networkidle' });
@@ -1551,7 +1598,10 @@ results.photoCardCaption = ((await p6Card.locator('.photo-caption').textContent(
 // The banner is capped so the address and both headline figures still sit
 // on the first phone screen under it.
 results.photoCardBannerHeightCapped = await p6Card.locator('.prop-card-photo.has-photo').evaluate(el => el.getBoundingClientRect().height <= 170);
-results.photoNotCheckedText = ((await p66.locator('.prop-card:has-text("1 Main St") .prop-card-photo.no-photo').first().textContent()) || '').trim();
+// Phase 67: the placeholder names both absences (photo state, then the
+// location state) in two spans - read the photo one here.
+results.photoNotCheckedText = ((await p66.locator('.prop-card:has-text("1 Main St") .prop-card-photo.no-photo .vis-main').first().textContent()) || '').trim();
+results.placeholderLocationText = ((await p66.locator('.prop-card:has-text("1 Main St") .prop-card-photo.no-photo .vis-sub').first().textContent()) || '').trim();
 results.cardMoreClosedByDefault = await p66.locator('.prop-card:has-text("1 Main St") details.card-more').first().evaluate(el => !el.open);
 results.cardMoreSummaryText = ((await p66.locator('.prop-card:has-text("1 Main St") details.card-more summary').first().textContent()) || '').trim();
 // No horizontal overflow at phone width, and the icon buttons have a real hit area.
@@ -1560,7 +1610,7 @@ results.iconBtnHitAreaMobile = await p66.locator('.prop-card .icon-btn').first()
 await p66.click('.ledger-tab[data-ledger="laft"]');
 await p66.waitForTimeout(200);
 if ((await p66.locator('#expandAllBtn').textContent()) === 'Expand all') { await p66.click('#expandAllBtn'); await p66.waitForTimeout(200); }
-results.photoNoCoverageText = ((await p66.locator('.prop-card:has-text("3 Oak Ave") .prop-card-photo.no-photo').first().textContent()) || '').trim();
+results.photoNoCoverageText = ((await p66.locator('.prop-card:has-text("3 Oak Ave") .prop-card-photo.no-photo .vis-main').first().textContent()) || '').trim();
 await p66.click('.ledger-tab[data-ledger="auction"]');
 await p66.waitForTimeout(200);
 if ((await p66.locator('#expandAllBtn').textContent()) === 'Expand all') { await p66.click('#expandAllBtn'); await p66.waitForTimeout(200); }
@@ -1579,6 +1629,118 @@ results.showOnMapPreviewVisible = await p66.locator('#explorePreview').isVisible
 results.showOnMapPreviewTitle = ((await p66.locator('#explorePreview .preview-title').textContent()) || '').trim();
 results.showOnMapStripSelCount = await p66.locator('#exploreStrip .strip-card.sel').count();
 await p66.close();
+
+// --- Phase 67: the map workspace, pin selection, imagery hierarchy ---
+// Desktop first: the Map page is [toolbar] over [stage | side panel]; the
+// stage has real height and the outline map fills it; the strip is a
+// vertical list in the panel; a geocoded row (p5, Charlotte) gets a real
+// pin whose click selects it everywhere (pin .sel + halo, strip .sel, the
+// preview with its coordinates) and tells the other basemaps
+// (tdw:mapselection). Closing clears every one of those.
+const p67d = await newPage({ viewport: { width: 1400, height: 900 } });
+p67d.on('pageerror', e => errors.push('pageerror: ' + e.message));
+p67d.on('console', msg => { if (msg.type() === 'error') errors.push('console.error: ' + msg.text()); });
+await p67d.goto(BASE_URL, { waitUntil: 'networkidle' });
+await p67d.waitForTimeout(500);
+await p67d.evaluate(() => { window.__selEvents = []; window.addEventListener('tdw:mapselection', e => window.__selEvents.push(e.detail)); });
+await p67d.click('.nav-item[data-page="map"]');
+await p67d.waitForTimeout(600);
+results.mapToolbarHoldsBasemapToggle = await p67d.locator('#mapToolbar #mapStyleToggle').count();
+results.mapWorkspaceTwoColumns = await p67d.locator('#mapWorkspace').evaluate(el => getComputedStyle(el).gridTemplateColumns.split(' ').length === 2);
+results.mapStageTallDesktop = await p67d.locator('#mapStage .explore-map-stage').evaluate(el => el.getBoundingClientRect().height >= 500);
+results.mapSvgFillsStageHeight = await p67d.locator('#exploreMapCanvas svg').evaluate(el => { const s = el.getBoundingClientRect().height, st = el.closest('.explore-map-stage').getBoundingClientRect().height; return s >= st * 0.95; });
+results.mapSidePanelVisible = await p67d.locator('#mapSidePanel').isVisible();
+results.mapImageryToggleHiddenOnOutline = await p67d.locator('#mapImageryToggle').isHidden();
+results.mapOldCardHeadGone = await p67d.locator('#pageMap .explore-map-head').count();
+await p67d.selectOption('#mapCountySelect', 'Charlotte');
+await p67d.waitForTimeout(700);
+results.charlottePinCount = await p67d.locator('#exploreMapCanvas .map-pin').count();
+results.stripVerticalOnDesktop = await p67d.locator('#exploreStrip .strip-rail').evaluate(el => getComputedStyle(el).flexDirection === 'column');
+results.stripInSidePanel = await p67d.locator('#mapSidePanel #exploreStrip').count();
+await p67d.locator('#exploreMapCanvas .map-pin[data-pid="p5"]').click({ force: true });
+await p67d.waitForTimeout(300);
+results.pinClickPreviewTitle = ((await p67d.locator('#explorePreview .preview-title').textContent()) || '').trim();
+results.pinClickPreviewInSidePanel = await p67d.locator('#mapSidePanel #explorePreview').count();
+results.pinClickPinSel = await p67d.locator('#exploreMapCanvas .map-pin.sel').count();
+results.pinClickHalo = await p67d.locator('#exploreMapCanvas .map-pin.sel .pin-halo').count();
+results.pinClickStripSel = await p67d.locator('#exploreStrip .strip-card.sel[data-pid="p5"]').count();
+results.previewKicker = ((await p67d.locator('#explorePreview .pv-kicker').textContent()) || '').trim();
+results.previewCoords = ((await p67d.locator('#explorePreview .pv-coords').textContent()) || '').trim();
+results.previewBid = ((await p67d.locator('#explorePreview .pv-val.bid').textContent()) || '').trim();
+results.previewValueLabel = ((await p67d.locator('#explorePreview .pv-stat small').textContent()) || '').trim();
+results.previewIds = await p67d.locator('#explorePreview .pv-ids dd').allTextContents();
+results.previewFlood = ((await p67d.locator('#explorePreview .pv-risk span:nth-child(2)').textContent()) || '').trim();
+results.previewMoreClosed = await p67d.locator('#explorePreview details.pv-more').evaluate(el => !el.open);
+results.selectionEventPid = await p67d.evaluate(() => { const e = window.__selEvents; return e.length ? e[e.length - 1].pid : null; });
+results.selectionEventHasCoords = await p67d.evaluate(() => { const e = window.__selEvents; const d = e[e.length - 1]; return !!d && typeof d.lat === 'number' && typeof d.lng === 'number'; });
+// Close via the preview's own close button: pin highlight, strip highlight
+// and the cross-basemap selection all clear together; the map stays zoomed.
+await p67d.click('#explorePreview .preview-close');
+await p67d.waitForTimeout(250);
+results.previewHiddenAfterClose = await p67d.locator('#explorePreview').isHidden();
+results.pinSelClearedAfterClose = await p67d.locator('#exploreMapCanvas .map-pin.sel').count();
+results.stripSelClearedAfterClose = await p67d.locator('#exploreStrip .strip-card.sel').count();
+results.selectionEventClearedPid = await p67d.evaluate(() => { const e = window.__selEvents; return e.length ? e[e.length - 1].pid : 'none'; });
+results.stillZoomedAfterClose = await p67d.locator('#exploreMapCanvas').evaluate(el => el.classList.contains('zoomed'));
+// Switching properties: Brevard's p12 is the other geocoded row.
+await p67d.selectOption('#mapCountySelect', 'Brevard');
+await p67d.waitForTimeout(700);
+await p67d.locator('#exploreMapCanvas .map-pin[data-pid="p12"]').click({ force: true });
+await p67d.waitForTimeout(300);
+results.switchPreviewTitle = ((await p67d.locator('#explorePreview .preview-title').textContent()) || '').trim();
+results.switchPinSelPid = await p67d.locator('#exploreMapCanvas .map-pin.sel').getAttribute('data-pid');
+// Imagery ladder, no key configured: a geocoded card gets the county
+// context mini-map (rung 3), built from the app's own basemap once it
+// scrolls into view; an un-geocoded card gets the two-part placeholder.
+await p67d.click('.nav-item[data-page="auctions"]');
+await p67d.waitForTimeout(400);
+if ((await p67d.locator('#expandAllBtn').textContent()) === 'Expand all') { await p67d.click('#expandAllBtn'); await p67d.waitForTimeout(200); }
+const p5Vis = p67d.locator('.prop-card:has-text("500 Elm Way") .prop-card-photo');
+results.geocodedCardVisualClass = await p5Vis.evaluate(el => el.classList.contains('minimap'));
+await p5Vis.scrollIntoViewIfNeeded();
+await p67d.waitForTimeout(600);
+results.minimapHydrated = await p5Vis.locator('svg .mm-county').count();
+results.minimapHasDot = await p5Vis.locator('svg .mm-dot').count();
+results.minimapCaption = ((await p5Vis.locator('.photo-caption').textContent()) || '').trim();
+results.minimapNeighborsDrawn = (await p5Vis.locator('svg .mm-neighbor').count()) > 0;
+// The static-image URL builders (rung 2), checked without a key in the
+// fixture: MapTiler is preferred, Google second, neither without coords.
+// Coordinates are fixed to six decimals in the URL (26.934200), so the
+// same row always yields the same URL - cacheable by the browser.
+results.staticUrlMaptiler = await p67d.evaluate(() => { const r = window.__tdwImagery.staticImageUrl({ latitude: 26.9342, longitude: -82.0454 }, { maptilerKey: 'TESTKEY' }); return r && r.provider + '|' + /^https:\/\/api\.maptiler\.com\/maps\/hybrid\/static\/-82\.045400,26\.934200,17\/640x320\.png\?markers=-82\.045400,26\.934200,red&key=TESTKEY$/.test(r.url); });
+results.staticUrlGoogle = await p67d.evaluate(() => { const r = window.__tdwImagery.staticImageUrl({ latitude: 26.9342, longitude: -82.0454 }, { googleMapsApiKey: 'GKEY' }); return r && r.provider + '|' + /^https:\/\/maps\.googleapis\.com\/maps\/api\/staticmap\?center=26\.934200,-82\.045400&zoom=17&size=640x320&scale=2&maptype=hybrid&markers=color:red%7C26\.934200,-82\.045400&key=GKEY$/.test(r.url); });
+results.staticUrlPrefersMaptiler = await p67d.evaluate(() => window.__tdwImagery.staticImageUrl({ latitude: 1, longitude: 2 }, { googleMapsApiKey: 'G', maptilerKey: 'M' }).provider);
+results.staticUrlNoCoords = await p67d.evaluate(() => window.__tdwImagery.staticImageUrl({ latitude: null, longitude: -82 }, { maptilerKey: 'M' }));
+results.staticUrlNoKey = await p67d.evaluate(() => window.__tdwImagery.staticImageUrl({ latitude: 1, longitude: 2 }, {}));
+await p67d.close();
+
+// Phone: the stage is still large, the preview is a sheet over the stage's
+// lower edge (not over the list under the map), collapsed by default with
+// a Details button that expands it, and nothing overflows sideways.
+const p67m = await newPage({ viewport: { width: 360, height: 780 } });
+p67m.on('pageerror', e => errors.push('pageerror: ' + e.message));
+p67m.on('console', msg => { if (msg.type() === 'error') errors.push('console.error: ' + msg.text()); });
+await p67m.goto(BASE_URL, { waitUntil: 'networkidle' });
+await p67m.waitForTimeout(500);
+await p67m.click('.nav-bottom-item[data-page="map"]');
+await p67m.waitForTimeout(600);
+results.mapStageTallMobile = await p67m.locator('#mapStage .explore-map-stage').evaluate(el => el.getBoundingClientRect().height >= 320);
+results.mapNoOverflowMobile = await p67m.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1);
+await p67m.selectOption('#mapCountySelect', 'Charlotte');
+await p67m.waitForTimeout(700);
+await p67m.locator('#exploreMapCanvas .map-pin[data-pid="p5"]').click({ force: true });
+await p67m.waitForTimeout(300);
+results.mobilePreviewInStage = await p67m.locator('#mapStage .explore-map-stage > #explorePreview').count();
+results.mobilePreviewCollapsed = await p67m.locator('#explorePreview').evaluate(el => !el.classList.contains('expanded'));
+results.mobilePreviewBodyHiddenCollapsed = await p67m.locator('#explorePreview .pv-body').isHidden();
+results.mobilePreviewCoversLessThanHalfStage = await p67m.locator('#explorePreview').evaluate(el => el.getBoundingClientRect().height < el.closest('.explore-map-stage').getBoundingClientRect().height * 0.5);
+await p67m.click('#explorePreview .pv-expand');
+await p67m.waitForTimeout(200);
+results.mobilePreviewExpanded = await p67m.locator('#explorePreview').evaluate(el => el.classList.contains('expanded'));
+results.mobilePreviewBodyVisibleExpanded = await p67m.locator('#explorePreview .pv-body').isVisible();
+results.mobileStripStillReachable = await p67m.locator('#exploreStrip .strip-card').first().isVisible();
+results.mapNoOverflowMobileSelected = await p67m.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1);
+await p67m.close();
 
 await browser.close();
 
@@ -1749,6 +1911,59 @@ const EXPECTED = {
   showOnMapPreviewVisible: true,
   showOnMapPreviewTitle: '1 Main St',
   showOnMapStripSelCount: 1,
+  // Phase 67: map workspace, pin selection, imagery hierarchy
+  placeholderLocationText: 'Not yet geocoded',
+  mapToolbarHoldsBasemapToggle: 1,
+  mapWorkspaceTwoColumns: true,
+  mapStageTallDesktop: true,
+  mapSvgFillsStageHeight: true,
+  mapSidePanelVisible: true,
+  mapImageryToggleHiddenOnOutline: true,
+  mapOldCardHeadGone: 0,
+  charlottePinCount: 1,
+  stripVerticalOnDesktop: true,
+  stripInSidePanel: 1,
+  pinClickPreviewTitle: '500 Elm Way',
+  pinClickPreviewInSidePanel: 1,
+  pinClickPinSel: 1,
+  pinClickHalo: 1,
+  pinClickStripSel: 1,
+  previewKicker: /^Charlotte County, FL · Auction · Sale [A-Z][a-z]{2} \d{1,2}, \d{4}$/,
+  previewCoords: '26.93420, -82.04540',
+  previewBid: '$8,000.00',
+  previewValueLabel: 'County Just Value',
+  previewIds: ['444', 'D-1'],
+  previewFlood: 'Not checked',
+  previewMoreClosed: true,
+  selectionEventPid: 'p5',
+  selectionEventHasCoords: true,
+  previewHiddenAfterClose: true,
+  pinSelClearedAfterClose: 0,
+  stripSelClearedAfterClose: 0,
+  selectionEventClearedPid: null,
+  stillZoomedAfterClose: true,
+  switchPreviewTitle: '42 Palm Ave',
+  switchPinSelPid: 'p12',
+  geocodedCardVisualClass: true,
+  minimapHydrated: 1,
+  minimapHasDot: 1,
+  minimapCaption: 'Location in Charlotte County',
+  minimapNeighborsDrawn: true,
+  staticUrlMaptiler: 'maptiler|true',
+  staticUrlGoogle: 'google|true',
+  staticUrlPrefersMaptiler: 'maptiler',
+  staticUrlNoCoords: null,
+  staticUrlNoKey: null,
+  mapStageTallMobile: true,
+  mapNoOverflowMobile: true,
+  mobilePreviewInStage: 1,
+  mobilePreviewCollapsed: true,
+  mobilePreviewBodyHiddenCollapsed: true,
+  mobilePreviewCoversLessThanHalfStage: true,
+  mobilePreviewExpanded: true,
+  mobilePreviewBodyVisibleExpanded: true,
+  mobileStripStillReachable: true,
+  mapNoOverflowMobileSelected: true,
   sortByBidDescFirst: '$11,000', // Phase 65: whole-dollar bids drop the ".00" on the card (bidDisplayCard)
   deedCardBidsWithCents: 0,      // Phase 71: the card headline always rounds to a whole dollar
   deedCardBidsChecked: 9,
@@ -1777,6 +1992,7 @@ const EXPECTED = {
   auctionsPageVisibleOnMapNav: false,
   mapPageVisibleOnMapNav: true,
   navMapBtnOnAfterMapNav: true,
+  mapPageTitleFlorida: 'Map · Florida',
   mapPathCount: 67,
   // Portfolio-wide (every ledger) rather than scoped to whatever the
   // Auctions page's ledger tab/filters currently show - see
@@ -1993,6 +2209,10 @@ const EXPECTED = {
   txDetailHasFeesStat: false,
   txDetailHasCalcDrawer: 0,
   txDetailAssessedLabel: 'TX CAD/Listed Value',
+  // Phase 67: Map-page state cue on both entry points.
+  txMapPageVisibleOnColdLoad: true,
+  txMapPageTitleTexas: 'Map · Texas',
+  txMapPathCount: 254,
   // Phase 58: property deep-linking regression coverage.
   deepLinkHashHasPid: true,
   deepLinkModalVisibleOnColdStart: true,

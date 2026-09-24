@@ -585,7 +585,24 @@ summary.county-head::-webkit-details-marker{display:none}
 .prop-card-photo.has-photo img{width:100%;height:100%;object-fit:cover;display:block}
 .photo-caption{position:absolute;left:.5rem;bottom:.45rem;font-size:.6rem;font-weight:700;
   text-transform:uppercase;letter-spacing:.06em;color:#fff;background:rgba(15,23,42,.62);
-  border-radius:3px;padding:.15rem .4rem;pointer-events:none}
+  border-radius:3px;padding:.15rem .4rem;pointer-events:none;z-index:1}
+/* Phase 67: visual hierarchy rungs 2-4 (see propertyVisual() in app.js).
+   Rung 2 (static satellite) reuses .has-photo sizing above. Rung 3 is the
+   county context: the app's own county outline, framed 2:1, neighbours in
+   the land tone, the county tinted, one dot at the real coordinate. Rung 4
+   names both absences on the same slim bar as before. */
+.prop-card-photo.minimap,.detail-hero-photo.minimap{position:relative;aspect-ratio:21/9;max-height:170px;
+  background:var(--map-sea,#D6E6F2);overflow:hidden}
+.detail-hero-photo.minimap{aspect-ratio:16/7;max-height:220px}
+.minimap svg{position:absolute;inset:0;width:100%;height:100%;display:block}
+.minimap .mm-neighbor{fill:var(--map-neighbor,#E7E4DC);stroke:var(--map-land-line,#DAD4C6);stroke-width:1.2;vector-effect:non-scaling-stroke}
+.minimap .mm-county{fill:color-mix(in srgb,var(--accent) 22%,var(--map-land,#F4F1EA));stroke:var(--accent);stroke-width:1.4;vector-effect:non-scaling-stroke}
+.minimap .mm-halo{fill:color-mix(in srgb,var(--bad) 25%,transparent);stroke:var(--bad);stroke-width:1;vector-effect:non-scaling-stroke}
+.minimap .mm-dot{fill:var(--bad);stroke:#fff;stroke-width:1.2;vector-effect:non-scaling-stroke}
+.minimap.minimap-unavailable{aspect-ratio:auto;height:2.2rem}
+.prop-card-photo.no-photo .vis-sub,.detail-hero-photo.no-photo .vis-sub{color:var(--ink-soft);font-weight:500;opacity:.85}
+.prop-card-photo.no-photo .vis-sub::before,.detail-hero-photo.no-photo .vis-sub::before{content:"·";margin-right:.4rem;opacity:.6}
+.static-sat img{background:var(--paper)}
 /* Deliberately a slim bar, not a blank photo-sized box - see the comment on
    photoOrPlaceholder() in app.js. Most rows have no cached photo yet, and a
    tall empty rectangle repeated down the whole list would read as broken,

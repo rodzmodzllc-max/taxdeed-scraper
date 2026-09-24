@@ -468,12 +468,22 @@ the Auctions page's own filters - see mapFilter/computeMapRows()/
 renderMapPage() in app.js. The map itself (bubbles, county rail, legend,
 zoomed-in pins, floating preview card) is explore.js's existing renderer;
 only where it lives changed, not how it draws. -->
-<section class="page" id="pageMap" hidden>
-<div class="map-page-head">
-<h1>Map</h1>
-<p>Explore auctions, lands available and certificates by county across Florida.</p>
-</div>
+<!-- Phase 67: the Map page is a WORKSPACE - one compact toolbar, then a
+grid of [large map stage | property-intelligence side panel] on desktop,
+and [large map stage / side panel below, preview as a bottom sheet] on a
+phone. The page head (h1 + subtitle) folded into the toolbar's first cell
+and the "Where these are" card head into the side panel's head, so the
+map itself gets the height they used to take. All three basemaps (outline
+/ Google / MapTiler - satellite-map.js) share the same stage; the basemap
+toggle moved from the old card head into the toolbar. -->
+<section class="page map-page" id="pageMap" hidden>
 <div class="map-toolbar" id="mapToolbar">
+<!-- The state name is filled in by applyLedgerChrome() in app.js from
+PAGE_STATE (the <body data-state> this page loaded with), never from the
+rows or their counties - the same source the tab title and the
+html[data-region] attribute already use. A label only: the Florida/Texas
+switch itself is #regionTabs on the Auctions page. -->
+<h1 class="map-page-title">Map<span class="map-page-state" id="mapPageState"></span></h1>
 <div class="qc-field map-toolbar-search">
 <span class="qc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></span>
 <input type="text" id="mapSearchInput" placeholder="Search case #, parcel #, owner, county…" title="Matches case number, parcel number, certificate number, owner name, county and address." autocomplete="off">
@@ -490,20 +500,16 @@ only where it lives changed, not how it draws. -->
 <button type="button" data-ledger="certificate"><span class="pill-dot pill-dot-certificate" aria-hidden="true"></span>Certificates</button>
 </div>
 <button type="button" class="map-watch-pill" id="mapWatchlistOnly" aria-pressed="false"><span class="pill-dot pill-dot-watch" aria-hidden="true"></span>Watchlist only</button>
-</div>
-<div class="map-page-body">
-<div class="explore-map map-page-map">
-<div class="explore-map-head">
-<h2 class="explore-map-title">Where these are</h2>
-<div class="explore-map-head-right">
-<div class="map-style-toggle" id="mapStyleToggle" role="group" aria-label="Map style">
-<button type="button" class="on" data-style="outline" id="mapStyleOutline">Map</button>
+<!-- Basemap: the app's own outline map (default, no third party), Google
+Maps, or MapTiler - see satellite-map.js. Same ids as before Phase 67. -->
+<div class="map-style-toggle" id="mapStyleToggle" role="group" aria-label="Basemap">
+<button type="button" class="on" data-style="outline" id="mapStyleOutline">Outline</button>
 <button type="button" data-style="google" id="mapStyleGoogle">Google</button>
 <button type="button" data-style="maptiler" id="mapStyleMaptiler">MapTiler</button>
 </div>
-<span class="explore-map-count" id="exploreMapCount"></span>
 </div>
-</div>
+<div class="map-workspace" id="mapWorkspace">
+<div class="explore-map map-page-map" id="mapStage">
 <div class="explore-map-stage">
 <div class="explore-map-canvas" id="exploreMapCanvas">
 <div class="explore-map-empty">Loading map…</div>
@@ -526,23 +532,46 @@ satellite-map.js's header for the full bug writeup. -->
 <div class="satellite-map-canvas" id="satelliteMapCanvasGoogle" hidden></div>
 <div class="satellite-map-canvas" id="satelliteMapCanvasMaptiler" hidden></div>
 <div class="cluster-tip" id="clusterTip"></div>
-<aside class="explore-map-rail" id="exploreMapRail" hidden aria-label="Counties in view"></aside>
+<!-- Phase 67: imagery toggle for the two third-party basemaps only
+(Satellite / Streets) - hidden on the outline map, which has no imagery.
+Parcel/GIS layers: none of the three providers publishes US parcel
+boundaries, so there is deliberately no such button - see the Phase 67
+audit in CLAUDE.md. -->
+<div class="map-imagery-toggle" id="mapImageryToggle" role="group" aria-label="Imagery" hidden>
+<button type="button" class="on" data-imagery="satellite" id="mapImagerySatellite">Satellite</button>
+<button type="button" data-imagery="streets" id="mapImageryStreets">Streets</button>
 </div>
+<div class="explore-map-foot">
+<span class="explore-map-hint" id="exploreMapHint">Tap a county to filter to it</span>
+<button class="explore-map-reset" id="exploreMapReset" type="button" hidden>Clear county filter</button>
+</div>
+</div>
+</div>
+<!-- Phase 67: the property-intelligence side panel. Statewide it lists the
+counties in view (the rail) and the bubble legend; zoomed into a county
+it lists that county's properties (the strip, injected by explore.js);
+with a property selected the preview (also injected) sits at the top. On
+a phone this panel flows under the map and the preview becomes a bottom
+sheet - see explore.css. -->
+<aside class="map-side" id="mapSidePanel" aria-label="Property intelligence">
+<div class="map-side-head">
+<h2 class="explore-map-title">Where these are</h2>
+<span class="explore-map-count" id="exploreMapCount"></span>
+</div>
+<div class="map-side-body" id="mapSideBody">
+<aside class="explore-map-rail" id="exploreMapRail" hidden aria-label="Counties in view"></aside>
 <!-- Real counts from the current bubbles, not a fixed key - see
 updateSummary() in explore.js. Hidden once zoomed into a county, where
 bubbles are replaced by real geocoded pins and a size scale no longer
 applies. -->
 <div class="explore-map-legend" id="exploreMapLegend" hidden></div>
-<div class="explore-map-foot">
-<span class="explore-map-hint" id="exploreMapHint">Tap a county to filter to it</span>
-<button class="explore-map-reset" id="exploreMapReset" type="button" hidden>Clear county filter</button>
-</div>
 <!-- Said plainly rather than left to be inferred: a bubble is a county-level
 count, not a parcel pin. Only ~2% of rows currently carry latitude/
 longitude (see the header comment in explore.js), so drawing these as
 street-level pins would be a precision the data doesn't have. -->
 <p class="explore-map-note">Bubbles are county-level counts, sized by how many properties match — not exact parcel locations. Zoom into a county to see the properties we hold real coordinates for.</p>
 </div>
+</aside>
 </div>
 </section>
 </div>

@@ -23,7 +23,11 @@ const FIXTURE_PROPERTIES = [
   // CERT_TDA_WAIT_YEARS (2) in the past - true today and for the life of
   // this fixture, unlike a rolling offset.
   { id: "p4", source: "certificate", county: "Alachua", case_no: "ACC-999", certificate_no: "CERT-42", tax_year: "2022", bid: 1234.56, interest_rate: 18, issued_date: "2023-06-01", expiration_date: futureDate(20), url_auction: "https://lienhub.com/county/alachua/countyheld/certificates", updated_at: "2026-08-12T00:00:00Z" },
-  { id: "p5", source: "auction", county: "Charlotte", case_no: "D-1", parcel: "444", address: "500 Elm Way", owner_name: "Sam Lee", bid: 8000, assessed: 70000, market: 95000, status: "active", lien_level: "clean", lien_note: "", prop_type: "House", sale_date: futureDate(5), homestead: false, url_streetview: "https://x", url_appraiser: "https://x", url_auction: "https://x", updated_at: "2026-08-10T00:00:00Z" },
+  // Phase 67: p5 and p12 carry real-shaped coordinates (inside Charlotte and
+  // Brevard respectively) so the map's pin/selection/imagery paths can be
+  // exercised - every other row stays un-geocoded, which is the honest
+  // production picture (~2% coverage).
+  { id: "p5", source: "auction", county: "Charlotte", case_no: "D-1", parcel: "444", address: "500 Elm Way", owner_name: "Sam Lee", bid: 8000, assessed: 70000, market: 95000, status: "active", lien_level: "clean", lien_note: "", prop_type: "House", sale_date: futureDate(5), homestead: false, url_streetview: "https://x", url_appraiser: "https://x", url_auction: "https://x", updated_at: "2026-08-10T00:00:00Z", latitude: 26.9342, longitude: -82.0454 },
   { id: "p6", source: "auction", county: "Duval", case_no: "E-1", parcel: "555", address: "77 Pine Ct", owner_name: "Pat Kim", bid: 12000, assessed: 130000, market: 140000, status: "active", lien_level: "flag", lien_note: "code lien", prop_type: "Commercial", sale_date: futureDate(7), homestead: false, url_auction: "https://x", updated_at: "2026-08-10T00:00:00Z",
     // Phase 66: the one fixture row WITH a photo. A same-origin data: URI
     // (CSP allows data: in img-src) drawn as a plainly-labelled grey
@@ -36,7 +40,7 @@ const FIXTURE_PROPERTIES = [
   { id: "p9", source: "auction", county: "Escambia", case_no: "H-1", parcel: "888", address: "21 Harbor Ln", owner_name: "Nia Frost", bid: 4500, assessed: 48000, market: 52000, status: "active", lien_level: "clean", lien_note: "", prop_type: "Condo", sale_date: futureDate(13), homestead: false, url_auction: "https://x", updated_at: "2026-08-10T00:00:00Z" },
   { id: "p10", source: "auction", county: "Marion", case_no: "I-1", parcel: "999", address: "3 Ridge Rd", owner_name: "Omar Diaz", bid: 7000, assessed: 65000, market: 72000, status: "active", lien_level: "unscreened", lien_note: "", prop_type: "House", sale_date: futureDate(15), homestead: false, url_auction: "https://x", updated_at: "2026-08-10T00:00:00Z" },
   { id: "p11", source: "auction", county: "Marion", case_no: "J-1", parcel: "1010", address: "88 Cedar Ct", owner_name: "Priya Shah", bid: 9000, assessed: 85000, market: 91000, status: "active", lien_level: "clean", lien_note: "", prop_type: "Vacant Lot", sale_date: futureDate(17), homestead: false, url_auction: "https://x", updated_at: "2026-08-10T00:00:00Z" },
-  { id: "p12", source: "auction", county: "Brevard", case_no: "K-1", parcel: "1111", address: "42 Palm Ave", owner_name: "Kim Ng", bid: 11000, assessed: 100000, market: 118000, status: "active", lien_level: "clean", lien_note: "", prop_type: "House", sale_date: futureDate(2), homestead: false, url_auction: "https://x", updated_at: "2026-08-10T00:00:00Z" },
+  { id: "p12", source: "auction", county: "Brevard", case_no: "K-1", parcel: "1111", address: "42 Palm Ave", owner_name: "Kim Ng", bid: 11000, assessed: 100000, market: 118000, status: "active", lien_level: "clean", lien_note: "", prop_type: "House", sale_date: futureDate(2), homestead: false, url_auction: "https://x", updated_at: "2026-08-10T00:00:00Z", latitude: 28.3922, longitude: -80.6077 },
   // Past-due: sale date already came and went, but the scraper hasn't (yet)
   // re-visited the county site to flip status to dropped/sold/notfound - the
   // exact "still shows as active for a week after the auction" bug report.

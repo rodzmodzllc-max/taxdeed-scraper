@@ -767,6 +767,209 @@ function photoOrPlaceholder(p, cls) {
   // strip this renders instead.
   return `<div class="${cls} no-photo">${svgIcon(isBareLand(p) ? "layers" : "building")}<span>${esc(photoStateText(p))}</span></div>`;
 }
+
+// ==================== Phase 67: property visual hierarchy ====================
+// One deterministic ladder, decided from real fields only, and each rung
+// labelled for what it IS so a reader can never mistake one for another:
+//   1. a real Street View still (photo_url)                -> "Street View"
+//   2. a provider's static satellite image centred on the   -> "Satellite ·
+//      row's own coordinates (MapTiler Static Maps API, or     MapTiler/Google"
+//      Google Maps Static API) - only with coordinates AND a
+//      configured key, requested lazily, one per card in view
+//   3. the app's own county outline with the coordinate    -> "Location in
+//      dotted on it (same-origin SVG, no third party)          <county> County"
+//   4. a restrained placeholder naming both absences        -> "Photo not
+//      (photo state + not yet geocoded)                        checked yet ·
+//                                                              Not yet geocoded"
+// Never a generated "property photo", never a boundary the backend doesn't
+// have (there is no parcel geometry anywhere in this app), never a map
+// centred on a guessed location. The two third-party rungs send the row's
+// coordinates to that provider - the same trade-off Marc accepted for the
+// satellite basemaps (CLAUDE.md Phase 55/56), now applied per card; both
+// images carry the provider's own attribution baked in (MapTiler's static
+// endpoint renders "© MapTiler © OpenStreetMap contributors" in-image by
+// default; Google's renders its logo and "Map data ©"), plus the caption.
+// Licensing: MapTiler Static Maps is part of the free plan and allows
+// display in a web app with attribution; Google Maps Static API requires
+// the key's project to have that API enabled and bills per load - it is
+// the SECOND choice here for that reason and because the Demo Key in use
+// is testing-only (config.js). Neither image is cached or stored by this
+// app; each is a plain <img> the browser fetches on demand.
+const STATIC_IMG_W = 640, STATIC_IMG_H = 320, STATIC_IMG_ZOOM = 17;
+function staticImageUrl(p, cfg) {
+  const c = cfg || window.TDW_CONFIG || {};
+  if (!(hasNum(p.latitude) && hasNum(p.longitude))) return null;
+  const lat = Number(p.latitude).toFixed(6), lng = Number(p.longitude).toFixed(6);
+  const mt = typeof c.maptilerKey === "string" ? c.maptilerKey.trim() : "";
+  if (mt) {
+    return {
+      provider: "maptiler", label: "Satellite · MapTiler",
+      url: `https://api.maptiler.com/maps/hybrid/static/${lng},${lat},${STATIC_IMG_ZOOM}/${STATIC_IMG_W}x${STATIC_IMG_H}.png?markers=${lng},${lat},red&key=${encodeURIComponent(mt)}`
+    };
+  }
+  const g = typeof c.googleMapsApiKey === "string" ? c.googleMapsApiKey.trim() : "";
+  if (g) {
+    return {
+      provider: "google", label: "Satellite · Google",
+      url: `https://maps.googleapis.com/maps/api/staticmap?center=${lat},${lng}&zoom=${STATIC_IMG_ZOOM}&size=${STATIC_IMG_W}x${STATIC_IMG_H}&scale=2&maptype=hybrid&markers=color:red%7C${lat},${lng}&key=${encodeURIComponent(g)}`
+    };
+  }
+  return null;
+}
+// `cls` is the caller's size class (prop-card-photo / detail-hero-photo /
+// pv-visual). The Map page's preview ("pv-visual") skips rungs 3-4: the
+// map beside it already IS the location context, and its own Location line
+// says "not yet geocoded" in words.
+function propertyVisual(p, cls) {
+  if (hasPhoto(p)) return photoOrPlaceholder(p, cls);
+  const coords = hasNum(p.latitude) && hasNum(p.longitude);
+  const sat = coords ? staticImageUrl(p) : null;
+  if (sat) {
+    return `<div class="${cls} has-photo static-sat" data-provider="${sat.provider}" data-lat="${Number(p.latitude)}" data-lng="${Number(p.longitude)}" data-county="${esc(p.county)}"><img class="static-sat-img" src="${esc(sat.url)}" alt="Satellite image centred on this property's coordinates" loading="lazy" decoding="async" width="${STATIC_IMG_W}" height="${STATIC_IMG_H}"><span class="photo-caption">${esc(sat.label)}</span></div>`;
+  }
+  if (cls === "pv-visual") return "";
+  if (coords) {
+    return `<div class="${cls} minimap" data-lat="${Number(p.latitude)}" data-lng="${Number(p.longitude)}" data-county="${esc(p.county)}"><span class="photo-caption">Location in ${esc(p.county)} County</span></div>`;
+  }
+  return `<div class="${cls} no-photo">${svgIcon(isBareLand(p) ? "layers" : "building")}<span class="vis-main">${esc(photoStateText(p))}</span><span class="vis-sub">Not yet geocoded</span></div>`;
+}
+
+// Rung 3 renders from the app's own basemap SVG (fl-counties.svg /
+// tx-counties.svg - same-origin, already in the service-worker shell):
+// fetched and parsed ONCE, county path geometry and bounding boxes cached,
+// then each visual gets a tiny <svg> whose viewBox frames its county with
+// the neighbouring counties that fall inside that frame, and one dot at the
+// projected coordinate. Projection constants mirror explore.js's PROJ (the
+// least-squares fit documented there is the source of truth; these are a
+// copy so app.js does not import from explore.js).
+const MINIMAP_PROJ = {
+  FL: { x: { lon: 0.131515586, lat: -0.000001417, c: 11.525408765 }, y: { lon: 0.000002902, lat: -0.154887536, c: 4.801899887 }, baseW: 1000, baseH: 960 },
+  TX: { x: { lon: 0.058139535, lat: 0, c: 6.313953488 }, y: { lon: 0, lat: -0.066666276, c: 2.493318735 }, baseW: 1000, baseH: 1006 }
+};
+function minimapProject(lat, lon) {
+  const p = MINIMAP_PROJ[PAGE_STATE] || MINIMAP_PROJ.FL;
+  return { x: (p.x.lon * lon + p.x.lat * lat + p.x.c) * p.baseW, y: (p.y.lon * lon + p.y.lat * lat + p.y.c) * p.baseH };
+}
+let basemapGeom = null;        // { counties: Map<name, {d, box}> } once loaded
+let basemapGeomPromise = null;
+function loadBasemapGeom() {
+  if (basemapGeom) return Promise.resolve(basemapGeom);
+  if (basemapGeomPromise) return basemapGeomPromise;
+  basemapGeomPromise = fetch(PAGE_STATE === "TX" ? "tx-counties.svg" : "fl-counties.svg")
+    .then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.text(); })
+    .then(text => {
+      const doc = new DOMParser().parseFromString(text, "image/svg+xml");
+      // Measure in a hidden, laid-out SVG so getBBox() works (it needs a
+      // rendering context; a detached document returns zeros).
+      const probe = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+      probe.setAttribute("aria-hidden", "true");
+      probe.style.cssText = "position:absolute;width:1px;height:1px;left:-9999px;top:-9999px;overflow:hidden";
+      probe.setAttribute("viewBox", doc.documentElement.getAttribute("viewBox") || "0 0 1000 960");
+      document.body.appendChild(probe);
+      const counties = new Map();
+      doc.querySelectorAll("path[data-county]").forEach(src => {
+        const d = src.getAttribute("d");
+        if (!d) return;
+        const el = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        el.setAttribute("d", d);
+        probe.appendChild(el);
+        let b = null;
+        try { b = el.getBBox(); } catch { b = null; }
+        if (b && b.width > 0 && b.height > 0) counties.set(src.getAttribute("data-county"), { d, box: { x: b.x, y: b.y, w: b.width, h: b.height } });
+      });
+      probe.remove();
+      basemapGeom = { counties };
+      return basemapGeom;
+    })
+    .catch(() => { basemapGeom = { counties: new Map() }; return basemapGeom; });
+  return basemapGeomPromise;
+}
+function renderMinimapInto(host) {
+  const geom = basemapGeom;
+  if (!geom || host.querySelector("svg")) return;
+  const county = host.dataset.county;
+  const target = geom.counties.get(county);
+  const lat = Number(host.dataset.lat), lng = Number(host.dataset.lng);
+  if (!target || !isFinite(lat) || !isFinite(lng)) { host.classList.add("minimap-unavailable"); return; }
+  const pt = minimapProject(lat, lng);
+  // Frame: the county's box padded 25%, widened to a 2:1 landscape so it
+  // fills the same banner the photo would. Neighbours inside that frame
+  // are drawn quietly for context; the county itself is tinted.
+  const pad = Math.max(target.box.w, target.box.h) * 0.25;
+  let w = target.box.w + pad * 2, h = target.box.h + pad * 2;
+  if (w / h < 2) w = h * 2; else h = w / 2;
+  const vb = { x: target.box.x + target.box.w / 2 - w / 2, y: target.box.y + target.box.h / 2 - h / 2, w, h };
+  const inFrame = (b) => !(b.x + b.w < vb.x || b.x > vb.x + vb.w || b.y + b.h < vb.y || b.y > vb.y + vb.h);
+  const NS = "http://www.w3.org/2000/svg";
+  const svg = document.createElementNS(NS, "svg");
+  svg.setAttribute("viewBox", `${vb.x} ${vb.y} ${vb.w} ${vb.h}`);
+  svg.setAttribute("preserveAspectRatio", "xMidYMid slice");
+  svg.setAttribute("role", "img");
+  svg.setAttribute("aria-label", `Approximate location within ${county} County`);
+  geom.counties.forEach((c, name) => {
+    if (name === county || !inFrame(c.box)) return;
+    const path = document.createElementNS(NS, "path");
+    path.setAttribute("d", c.d);
+    path.setAttribute("class", "mm-neighbor");
+    svg.appendChild(path);
+  });
+  const own = document.createElementNS(NS, "path");
+  own.setAttribute("d", target.d);
+  own.setAttribute("class", "mm-county");
+  svg.appendChild(own);
+  const r = Math.max(vb.w, vb.h) * 0.014;
+  const halo = document.createElementNS(NS, "circle");
+  halo.setAttribute("cx", pt.x); halo.setAttribute("cy", pt.y); halo.setAttribute("r", r * 2.4);
+  halo.setAttribute("class", "mm-halo");
+  svg.appendChild(halo);
+  const dot = document.createElementNS(NS, "circle");
+  dot.setAttribute("cx", pt.x); dot.setAttribute("cy", pt.y); dot.setAttribute("r", r);
+  dot.setAttribute("class", "mm-dot");
+  svg.appendChild(dot);
+  host.insertBefore(svg, host.firstChild);
+}
+// Lazy: an IntersectionObserver hydrates a mini-map only when it scrolls
+// into view (a county group can hold dozens of cards), and the basemap is
+// fetched the first time any one of them does - never on page load.
+let minimapObserver = null;
+function hydrateVisuals(root) {
+  const scope = root || document;
+  const hosts = scope.querySelectorAll ? scope.querySelectorAll(".minimap:not([data-mm])") : [];
+  if (!hosts.length) return;
+  if (!minimapObserver && typeof IntersectionObserver === "function") {
+    minimapObserver = new IntersectionObserver(entries => {
+      entries.forEach(en => {
+        if (!en.isIntersecting) return;
+        minimapObserver.unobserve(en.target);
+        loadBasemapGeom().then(() => renderMinimapInto(en.target));
+      });
+    }, { rootMargin: "200px" });
+  }
+  hosts.forEach(h => {
+    h.dataset.mm = "1";
+    if (minimapObserver) minimapObserver.observe(h);
+    else loadBasemapGeom().then(() => renderMinimapInto(h));
+  });
+}
+// A static satellite image that fails (key revoked, provider down, offline)
+// steps down one rung to the county context instead of leaving a broken
+// image. Capture phase: <img> error events don't bubble.
+document.addEventListener("error", e => {
+  const img = e.target;
+  if (!(img instanceof HTMLImageElement) || !img.classList.contains("static-sat-img")) return;
+  const host = img.parentElement;
+  if (!host) return;
+  img.remove();
+  const cap = host.querySelector(".photo-caption");
+  host.classList.remove("has-photo", "static-sat");
+  if (host.classList.contains("pv-visual")) { host.remove(); return; }
+  host.classList.add("minimap");
+  if (cap) cap.textContent = `Location in ${host.dataset.county || ""} County`;
+  hydrateVisuals(host.parentElement);
+}, true);
+// Exposed for the regression suite (tests/run_test.mjs) to check the URL
+// builder without a key in the fixture - same pattern as __tdwMapLastRender.
+window.__tdwImagery = { staticImageUrl };
 // A small, free, key-less embedded map (OpenStreetMap's own export/embed
 // iframe) for the detail view's GIS & Location card - only ever rendered
 // when scripts/geocode_properties.py has actually filled in real
@@ -1828,7 +2031,12 @@ function bidListBtnHtml(p, compact) {
 // phase word coloured by urgency. It REPLACES the old "SALE SEP 21" county
 // tag rather than adding to it; the countdown badge in the actions row is
 // unchanged (tests and the 60s refresh both key on it).
-function cardKickerHtml(p, showCounty) {
+// Phase 67: the ledger word + phase word, as data, so the card kicker and
+// the Map page's preview/strip (previewFacts) say exactly the same thing.
+function kickerParts(p) {
+  if (p.source === "certificate") {
+    return { type: "Certificate", phase: p.expiration_date ? "Expires " + fmtDate(p.expiration_date) : "Expiry not published", cls: "phase-upcoming" };
+  }
   const type = p.source === "laft" ? "Lands Available" : "Auction";
   let phase, cls;
   if (isGone(p)) { phase = "Closed"; cls = "phase-closed"; }
@@ -1843,6 +2051,10 @@ function cardKickerHtml(p, showCounty) {
     else if (d <= SOON_DAYS) { phase = "Sale " + when; cls = "phase-soon"; }
     else { phase = "Sale " + when; cls = "phase-upcoming"; }
   }
+  return { type, phase, cls };
+}
+function cardKickerHtml(p, showCounty) {
+  const { type, phase, cls } = kickerParts(p);
   // Phase 66: county + state always lead the line, not only in flat lists -
   // the card has to stand on its own in the watchlist modal, in search
   // results and in a screenshot, where the county group header isn't there
@@ -1890,6 +2102,56 @@ function cardFactsHtml(p) {
   return `<div class="prop-facts">${facts.join("")}</div>`;
 }
 
+// Phase 67: the Map page's preview panel (explore.js) renders from THIS -
+// the same helpers and the same honest wording the cards use, handed over
+// with each tdw:maprendered payload so the two modules never duplicate a
+// label rule. Everything here is a field the row carries; nulls are shown
+// by the preview as "Not published" / "No county value on file" etc.
+function previewFacts(p) {
+  const isCert = p.source === "certificate";
+  const k = kickerParts(p);
+  const region = regionOf(p);
+  const where = `${p.county} County, ${region}`;
+  const more = [];
+  if (isCert) {
+    if (hasNum(p.interest_rate)) more.push(["Interest rate", p.interest_rate + "%"]);
+    if (p.tax_year) more.push(["Tax year", String(p.tax_year)]);
+    if (p.issued_date) more.push(["Issued", fmtDate(p.issued_date)]);
+    if (isGone(p)) more.push(["Outcome", outcomeText(p)]);
+    return {
+      kicker: `${where} · ${k.type} · ${k.phase}`, where, phaseCls: k.cls,
+      bidLabel: "Amount", bid: hasPublishedBid(p) ? fmtMoney(p.bid) : null,
+      value: null, valueLabel: null,
+      parcelLabel: "Account", parcel: p.case_no || null, caseNo: null,
+      source: harvesterSourceLabel(p), flood: null, more
+    };
+  }
+  const hasMarket = hasNum(p.market), hasAssessed = hasNum(p.assessed);
+  if (hasMarket && hasAssessed) more.push([assessedSourceLabel(p), fmtShort(p.assessed)]);
+  if (hasNum(p.land_value)) more.push(["Land value", fmtShort(p.land_value)]);
+  if (p.prop_type) more.push(["Type", String(p.prop_type)]);
+  if (hasNum(p.year_built)) more.push(["Year built", String(p.year_built)]);
+  if (hasNum(p.living_area)) more.push(["Living area", fmtSqft(p.living_area)]);
+  if (hasNum(p.lot_sqft)) more.push(["Lot size", lotSize(p)]);
+  const sale = lastSaleText(p);
+  if (sale) more.push(["Last sale", sale]);
+  if (p.lien_level && regionOf(p) === "FL") more.push(["Title screen", LIEN_LABEL[p.lien_level] || String(p.lien_level)]);
+  if (isGone(p)) more.push(["Outcome", outcomeText(p)]);
+  if (p.legal_desc) more.push(["Legal", String(p.legal_desc).length > 140 ? String(p.legal_desc).slice(0, 137) + "…" : String(p.legal_desc)]);
+  return {
+    kicker: `${where} · ${k.type} · ${k.phase}`, where, phaseCls: k.cls,
+    bidLabel: p.source === "laft" ? "Price" : "Minimum bid",
+    bid: hasPublishedBid(p) ? fmtMoney(p.bid) : null,
+    value: hasMarket ? fmtShort(p.market) : hasAssessed ? fmtShort(p.assessed) : null,
+    valueLabel: hasMarket ? valueLabel(p) : hasAssessed ? assessedSourceLabel(p) + " - no just value on file" : null,
+    parcelLabel: "Parcel", parcel: hasParcel(p) ? String(p.parcel) : null,
+    caseNo: p.case_no ? String(p.case_no) : null,
+    source: harvesterSourceLabel(p),
+    flood: floodShort(p),
+    more
+  };
+}
+
 function card(p, showCounty) {
   const el = document.createElement("div");
   const fav = FAVS.has(p.id), top = isTopPick(p);
@@ -1931,7 +2193,7 @@ function card(p, showCounty) {
   el.innerHTML = `
     ${isClosed ? `<div class="closed-banner${Number(p.sold_price) > 0 ? " sold" : ""}">✓ ${esc(outcomeText(p))}${p.gone_since ? ` <span class="closed-when">${esc(fmtDate(String(p.gone_since).slice(0, 10)))}</span>` : ""}</div>` : ""}
     ${top ? `<div class="toppick-banner">★ Top pick <span class="ratio-pill">${valueRatio(p).toFixed(1)}× market vs bid</span></div>` : ""}
-    ${photoOrPlaceholder(p, "prop-card-photo")}
+    ${propertyVisual(p, "prop-card-photo")}
     ${tag}
     <div class="prop-top">
       <div class="prop-address">${titleLine}</div>
@@ -2464,7 +2726,7 @@ function detailHtml(p) {
     <div class="detail-grid">
       ${stats.map(detailStatTileHtml).join("")}
     </div>` : `
-    ${photoOrPlaceholder(p, "detail-hero-photo")}
+    ${propertyVisual(p, "detail-hero-photo")}
     ${opportunitySummaryHtml(p)}
     ${statGroupHtml("Financial", stats.filter(s => s[2] === "financial"), "financial")}
     ${statGroupHtml("Property Details", stats.filter(s => s[2] === "property"), "property")}
@@ -2560,6 +2822,7 @@ function openDetail(p) {
   // after a favourite or a watchlist change rebuilds the modal.
   inner.className = "detail-modal-inner prop-card " + cardStatus(p);
   inner.innerHTML = detailHtml(p);
+  hydrateVisuals(inner);
   modal.hidden = false;
   pushBackLayer("detail", closeDetail);
   // Phase 58: fold this property's id into the URL - "#/auctions/12345" -
@@ -3125,6 +3388,7 @@ function render() {
   // typeof check so this file still runs standalone if that section is
   // ever stripped.
   if (typeof renderShellExtras === "function") renderShellExtras(shown, activeLedger);
+  hydrateVisuals(document.getElementById("main"));
 }
 
 // Both the primary "Sort" dropdown and the secondary "Then by" tiebreaker
@@ -3501,6 +3765,15 @@ function applyLedgerChrome() {
 
   // The browser tab and the app switcher should say which page this is too.
   document.title = (cfg.title ? cfg.title + " · " : "") + (PAGE_STATE === "TX" ? "Tax Acquisitions — Texas" : "Tax Acquisitions — Florida");
+
+  // Phase 67: the Map page's toolbar title carries the state as well ("Map ·
+  // Florida"). The old page subtitle ("...by county across Florida") was the
+  // Map page's only state cue and the workspace layout dropped it; without
+  // this a Texas map and a Florida map are told apart only by their outline.
+  // Same authoritative source as the two lines above - PAGE_STATE, never a
+  // row's county - and a label only, not a switch (that is #regionTabs).
+  const mapPageStateEl = document.getElementById("mapPageState");
+  if (mapPageStateEl) mapPageStateEl.textContent = " · " + (PAGE_STATE === "TX" ? "Texas" : "Florida");
 
   // Certificates are liens, not land: no property type, no title screening,
   // no assessed value. passes() already ignores those filters there, so
@@ -4804,7 +5077,9 @@ function buildMapCountySelect() {
 function renderMapPage() {
   buildMapCountySelect();
   const rows = computeMapRows();
-  const rendered = { rows, ledger: mapFilter.ledger, openDetail };
+  // Phase 67: the preview panel renders with the cards' own label/visual
+  // helpers - passed over the event so explore.js never duplicates a rule.
+  const rendered = { rows, ledger: mapFilter.ledger, openDetail, previewFacts, propertyVisual, hydrateVisuals };
   window.__tdwMapLastRender = rendered;
   window.dispatchEvent(new CustomEvent("tdw:maprendered", { detail: rendered }));
 }
@@ -5052,6 +5327,7 @@ function selectProperty(p) {
   selectedPid = p.id;
   panel.className = "detail-panel prop-card " + cardStatus(p);
   panel.innerHTML = detailHtml(p);
+  hydrateVisuals(panel);
   document.querySelectorAll(".data-table tbody tr[data-pid]").forEach(tr => {
     tr.classList.toggle("selected", String(tr.dataset.pid) === String(p.id));
   });

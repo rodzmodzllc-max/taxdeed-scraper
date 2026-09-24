@@ -1289,6 +1289,85 @@ only; `sw.js` → `tdw-shell-v34`.
   property image) so the photo layout can be exercised and screenshotted.
 - `tests/run_test.mjs`: 289 → **316 checks**.
 
+## Map workspace: large stage, side intelligence panel, one selection across three basemaps, imagery ladder (Phase 67, done)
+
+Stacked on Phase 66 (branch `feat/map-workspace`, PR based on
+`feat/property-intelligence`). Frontend only; `sw.js` → `tdw-shell-v35`.
+
+### The three basemaps, audited (all kept; none behave identically)
+
+| | Outline (`explore.js`) | Google (`satellite-map.js`) | MapTiler (`satellite-map.js`) |
+|---|---|---|---|
+| Library | own SVG (`fl-counties.svg`/`tx-counties.svg`), same-origin | Google Maps JavaScript API (weekly), `AdvancedMarkerElement` | MapLibre GL JS 4.7.1 (unpkg) + MapTiler styles |
+| Container | `#exploreMapCanvas` | `#satelliteMapCanvasGoogle` | `#satelliteMapCanvasMaptiler` |
+| Size before / after | svg capped `min(76vh, 100vh-17rem)`, letterboxed in a card / fills the stage: `100vh - 8.6rem` desktop, 56-58vh phone | `aspect-ratio` box, `max-height:64vh` / fills the stage | same as Google |
+| Default view | home viewBox; county = viewBox tween to county bbox | center FL/TX, zoom 5.6/5.1; county = `panTo` + zoom 10 | same numbers via `flyTo` |
+| Markers | SVG bubbles statewide, teardrop pins zoomed | HTML bubbles/pins as marker content | HTML bubbles/pins as `maplibregl.Marker` |
+| Clustering | one bubble per county (count), never per-parcel statewide | same | same |
+| Selection before / after | `.sel` + halo (Phase 66) / same, plus it announces `tdw:mapselection` | none (InfoWindow popup on pin) / `.sat-pin.sel` + pan/zoom to ≥16 on the active basemap | none (Popup) / same as Google via `easeTo` |
+| Satellite | no | `hybrid`; Streets = `roadmap` (imagery toggle) | `hybrid`; Streets = `streets-v2` |
+| Static image API | no (own county-context mini-map instead) | Maps Static API (`maps/api/staticmap`) - REQUIRES that API enabled on the key's project; the Demo Key is testing-only | Static Maps API (`maps/{style}/static/{lon},{lat},{z}/{w}x{h}.png`) - on the free plan |
+| Parcel / GIS layers | none (no parcel geometry in the backend) | none for US parcels | none (MapTiler cadastre does not cover the US) |
+| Key | none | `googleMapsApiKey` | `maptilerKey` (origin-restricted) |
+| Attribution | none required (own data) | rendered by the JS API / baked into static images (must not be hidden) | MapLibre `AttributionControl` on / baked into static images ("© MapTiler © OpenStreetMap contributors") |
+
+No basemap can draw a parcel boundary, so no "parcel" toggle exists and
+none is faked. Live tiles/static imagery could not be rendered in this
+sandbox (egress blocked, fixture ships no keys) - Google/MapTiler were
+verified to the "not set up yet" state and by code; first real check is on
+the deployed site with the live keys.
+
+### What changed
+- **Workspace** (`index.html`/`tx.html` `#pageMap`): one toolbar row
+  (title, search, county, ledger pills, watchlist, and the basemap toggle
+  moved out of the old card head), then `#mapWorkspace` = `#mapStage`
+  (`.explore-map.map-page-map`, the three canvases, an imagery toggle
+  overlay, the hint/reset strip as a bottom-left overlay) beside
+  `#mapSidePanel` (`.map-side-head` title/count, `#mapSideBody` with the
+  county rail, legend, note, and the preview + strip injected by
+  explore.js). `.map-page-head` and `.explore-map-head` are gone. Desktop
+  is a `1fr | 380px` grid (420px ≥1600px) at `calc(100vh - 8.6rem)`; below
+  1024px the panel flows under a 56-58vh stage.
+- **Preview** (`showPreview()` rewrite): kicker / address / county-state,
+  optional imagery, minimum bid + value on file, parcel/case/source,
+  location (coords + "Center on map", or "Not yet geocoded"), flood, a
+  `<details>` for the rest, "Full property page". Labels come from
+  app.js's `previewFacts(p)` (passed on `tdw:maprendered` with
+  `propertyVisual`/`hydrateVisuals`), so explore.js holds no label rules.
+  Phone: the node is re-homed into the stage as a bottom sheet (collapsed
+  = header + money + Details; `.expanded` = the rest). It was first built
+  as a viewport-fixed sheet and covered the property list under the map -
+  hence the re-homing (`previewHost()`).
+- **One selection**: explore.js owns it. Google/MapTiler pins dispatch
+  `tdw:pinselect` → `showPreview()`; every selection change dispatches
+  `tdw:mapselection {pid, lat, lng, focus}` (+ `__tdwMapSelection` stash)
+  → satellite-map.js marks `.sat-pin.sel` and, on the active basemap,
+  pans (zoom raised to `SELECT_ZOOM` 16 only if lower). Provider popups
+  (`showGooglePopup`/`showMaptilerPopup`) retained but unwired. Strip and
+  pins now live in different columns, so delegated listeners and
+  pin↔card lookups scope to `workspaceEl()` (`#mapWorkspace`), not
+  `.explore-map` - the first cut selected nothing because of exactly that.
+- **County zoom on a hidden outline map**: `countyViewBox()` used
+  `getBBox()`, which is 0×0 while the SVG is `display:none` (Google or
+  MapTiler showing) - so the strip/preview never appeared on those
+  basemaps. `computeCentroids()` now caches `countyBoxes` and
+  `countyViewBox()` falls back to them.
+- **Imagery ladder** (`propertyVisual(p, cls)` in app.js, used by cards,
+  the full page hero and the preview): 1 Street View still (`photo_url`)
+  → 2 static satellite centred on the row's coordinates
+  (`staticImageUrl()`: MapTiler first, Google second, only with coords AND
+  a key; `loading="lazy"`; captioned "Satellite · <provider>"; an `error`
+  steps down a rung) → 3 county context from the app's own basemap
+  (`renderMinimapInto()`, IntersectionObserver-hydrated, county tinted,
+  neighbours in frame, one dot; "Location in <county> County") → 4 the
+  two-part placeholder ("Photo not checked yet · Not yet geocoded"). The
+  preview skips rungs 3-4 (the map is the context there). Privacy: rung 2
+  sends a row's coordinates to the provider per card in view - the same
+  trade-off Marc accepted for the basemaps, now per card, default on when
+  a key exists.
+- **Fixture**: p5 (Charlotte) and p12 (Brevard) carry coordinates.
+- `tests/run_test.mjs`: 316 → **368 checks**.
+
 ## Known landmines / do-not-repeat mistakes
 
 - Miami-Dade is the only county with a hyphen in `data/realauction_counties.csv` — a blanket `-replace '-',' '` once silently renamed it to "Miami Dade", which didn't match the frontend's canonical `"Miami-Dade"` and hid 33 live listings. Fixed; don't reintroduce a blanket hyphen transform.
