@@ -33,7 +33,23 @@ const ALLOWED_ERROR_SUBSTRINGS = [
 
 const errors = [];
 const browser = await chromium.launch(launchOpts);
-const page = await browser.newPage({ viewport: { width: 390, height: 844 } });
+// Phase 67: fixture rows p5 and p12 carry coordinates, so a full property
+// page for either renders the GIS card's OpenStreetMap <iframe>
+// (osmEmbedUrl() in app.js), and that iframe stays in the hidden modal after
+// it closes. On a runner with real network access the embed keeps loading
+// Leaflet and tiles inside the frame, and Playwright's networkidle counts
+// child frames, so the later same-document goto to #/certificates timed out
+// at 30 s in CI - twice, never locally, where the host is unreachable and
+// fails at once. The suite never talks to a third party for a fixture row:
+// every page it opens serves a blank document for that host instead.
+const THIRD_PARTY_EMBED = /:\/\/(www\.)?openstreetmap\.org\//;
+async function newPage(opts) {
+  const pg = await browser.newPage(opts);
+  await pg.route(THIRD_PARTY_EMBED, route => route.fulfill({
+    status: 200, contentType: 'text/html', body: '<!doctype html><title>embed stubbed by the suite</title>' }));
+  return pg;
+}
+const page = await newPage({ viewport: { width: 390, height: 844 } });
 page.on('pageerror', e => errors.push('pageerror: ' + e.message));
 page.on('console', msg => { if (msg.type() === 'error') errors.push('console.error: ' + msg.text()); });
 // The "hide" action now confirms before it does anything (a real user would
@@ -1492,7 +1508,7 @@ results.txDetailAssessedLabel = txStatLabels.find(l => l.includes('Assessed') ||
 // hash change, per the Phase 58 note below) - so the Map page itself, its
 // "Map · Texas" title and the 254-county Texas outline are all asserted on
 // the deployed-shape entry point, not inferred from the Florida page.
-const txMapPage = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+const txMapPage = await newPage({ viewport: { width: 1280, height: 900 } });
 await txMapPage.goto(TX_BASE_URL + '#map', { waitUntil: 'networkidle' });
 await txMapPage.waitForTimeout(600);
 results.txMapPageVisibleOnColdLoad = await txMapPage.locator('#pageMap').isVisible();
@@ -1515,7 +1531,7 @@ await txMapPage.close();
 // separate browser.newPage() contexts (each gets its own isolated storage)
 // rather than reusing the page above.
 // ============================================================
-const dlPage1 = await browser.newPage({ viewport: { width: 390, height: 844 } });
+const dlPage1 = await newPage({ viewport: { width: 390, height: 844 } });
 dlPage1.on('dialog', d => d.accept());
 await dlPage1.goto(BASE_URL, { waitUntil: 'networkidle' });
 await dlPage1.waitForTimeout(500);
@@ -1533,7 +1549,7 @@ results.deepLinkHashHasPid = dlHash.includes('/' + dlPid);
 const dlAddress1 = ((await dlPage1.locator('#detailModalInner .detail-address').textContent()) || '').trim();
 await dlPage1.close();
 
-const dlPage2 = await browser.newPage({ viewport: { width: 390, height: 844 } });
+const dlPage2 = await newPage({ viewport: { width: 390, height: 844 } });
 dlPage2.on('dialog', d => d.accept());
 await dlPage2.goto(BASE_URL + dlHash, { waitUntil: 'networkidle' });
 await dlPage2.waitForTimeout(1000);
@@ -1557,7 +1573,7 @@ await dlPage2.close();
 // photo (a labelled placard, not a real Street View still); p3 (3 Oak Ave,
 // Lands Available) carries photo_url '' = checked, no coverage; p1 (1 Main
 // St) has no photo_url at all = not checked yet.
-const p66 = await browser.newPage({ viewport: { width: 390, height: 844 } });
+const p66 = await newPage({ viewport: { width: 390, height: 844 } });
 p66.on('pageerror', e => errors.push('pageerror: ' + e.message));
 p66.on('console', msg => { if (msg.type() === 'error') errors.push('console.error: ' + msg.text()); });
 await p66.goto(BASE_URL, { waitUntil: 'networkidle' });
@@ -1608,7 +1624,7 @@ await p66.close();
 // pin whose click selects it everywhere (pin .sel + halo, strip .sel, the
 // preview with its coordinates) and tells the other basemaps
 // (tdw:mapselection). Closing clears every one of those.
-const p67d = await browser.newPage({ viewport: { width: 1400, height: 900 } });
+const p67d = await newPage({ viewport: { width: 1400, height: 900 } });
 p67d.on('pageerror', e => errors.push('pageerror: ' + e.message));
 p67d.on('console', msg => { if (msg.type() === 'error') errors.push('console.error: ' + msg.text()); });
 await p67d.goto(BASE_URL, { waitUntil: 'networkidle' });
@@ -1688,7 +1704,7 @@ await p67d.close();
 // Phone: the stage is still large, the preview is a sheet over the stage's
 // lower edge (not over the list under the map), collapsed by default with
 // a Details button that expands it, and nothing overflows sideways.
-const p67m = await browser.newPage({ viewport: { width: 360, height: 780 } });
+const p67m = await newPage({ viewport: { width: 360, height: 780 } });
 p67m.on('pageerror', e => errors.push('pageerror: ' + e.message));
 p67m.on('console', msg => { if (msg.type() === 'error') errors.push('console.error: ' + msg.text()); });
 await p67m.goto(BASE_URL, { waitUntil: 'networkidle' });
