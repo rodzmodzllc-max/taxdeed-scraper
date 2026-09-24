@@ -35,13 +35,11 @@ const errors = [];
 const browser = await chromium.launch(launchOpts);
 // Phase 67: fixture rows p5 and p12 carry coordinates, so a full property
 // page for either renders the GIS card's OpenStreetMap <iframe>
-// (osmEmbedUrl() in app.js), and that iframe stays in the hidden modal after
-// it closes. On a runner with real network access the embed keeps loading
-// Leaflet and tiles inside the frame, and Playwright's networkidle counts
-// child frames, so the later same-document goto to #/certificates timed out
-// at 30 s in CI - twice, never locally, where the host is unreachable and
-// fails at once. The suite never talks to a third party for a fixture row:
-// every page it opens serves a blank document for that host instead.
+// (osmEmbedUrl() in app.js). On a runner with real network access that is a
+// live request to a third party for a fixture row, which this suite has
+// never made: every page it opens serves a blank document for that host
+// instead. (This is hygiene, not the fix for the CI timeout this branch
+// hit - see the cold-load note by the #/certificates check further down.)
 const THIRD_PARTY_EMBED = /:\/\/(www\.)?openstreetmap\.org\//;
 async function newPage(opts) {
   const pg = await browser.newPage(opts);
@@ -1366,10 +1364,25 @@ results.legendSwatchCount = await page.locator('.ledger-legend .lgd').count();
 
 // A ledger URL is a real entry point, not just a label the app writes after
 // the fact: a cold load on #/certificates must come up on Certificates.
-await page.goto(BASE_URL + '#/certificates', { waitUntil: 'networkidle' });
-await page.waitForTimeout(1200);
-results.deepLinkLandsOnCertificates = await page.locator('.ledger-tab[data-ledger="certificate"]').evaluate(el => el.classList.contains('on'));
-results.deepLinkHeading = ((await page.locator('.ledger-head h2').textContent()) || '').trim();
+// A real cold load - a fresh page - not a goto on the page above: that page
+// is already on index.html, so a hash-only goto is a same-document
+// navigation (the Phase 58 note further down explains why that never
+// exercises a cold start). It also hung CI on this branch: the page above
+// has opened a geocoded row's full page (p5 / p12 carry coordinates since
+// Phase 67), whose GIS card attaches two lazy OpenStreetMap iframes and
+// detaches them on the next render. On Playwright's headless-shell build
+// the second, never-navigated frame never reports "networkidle", so
+// Playwright drops the flag on the main frame while the frames exist and,
+// with no further request to restart its idle timer, never restores it -
+// the next same-document goto with waitUntil: 'networkidle' then waits the
+// full 30 s (main never hit this: its fixture has no geocoded row). The
+// full Chromium build the sandbox suite runs on does not reproduce it.
+const certColdPage = await newPage({ viewport: { width: 390, height: 844 } });
+await certColdPage.goto(BASE_URL + '#/certificates', { waitUntil: 'networkidle' });
+await certColdPage.waitForTimeout(1200);
+results.deepLinkLandsOnCertificates = await certColdPage.locator('.ledger-tab[data-ledger="certificate"]').evaluate(el => el.classList.contains('on'));
+results.deepLinkHeading = ((await certColdPage.locator('.ledger-head h2').textContent()) || '').trim();
+await certColdPage.close();
 
 // The badge is now gone for EVERYONE, admin included - it was a number
 // nobody acted on, repeated once per county down the page. Checking the
