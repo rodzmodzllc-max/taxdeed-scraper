@@ -1,0 +1,116 @@
+name: Backfill FDOR Phase 52 fields (fill-only, manual)
+
+# Manual-only, two-step remediation for rows enriched before the Phase 52
+# field expansion (see scripts/backfill_fdor_phase52_fields.py's header).
+#
+#   1. mode=dry-run   reads the target rows, asks the FDOR layer through the
+#                     unmodified production lookup path, writes NOTHING, and
+#                     uploads a plan artifact (fdor-backfill-dry-run-<run id>).
+#   2. mode=apply     downloads that plan by run id, re-reads every planned
+#                     row, and PATCHes only the five target columns that are
+#                     still empty at write time. Requires confirm_apply=APPLY.
+#
+# The sandbox that authors this repo cannot reach the FDOR layer, so a runner
+# is the only place either step can execute. No `schedule:`, no `push:` -
+# every run is an explicit dispatch.
+
+on:
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: "dry-run (writes nothing) or apply (fill-only writes from a dry-run plan)"
+        type: choice
+        options: [dry-run, apply]
+        default: dry-run
+      plan_run_id:
+        description: "apply only: the run id of the dry run whose plan artifact to apply"
+        type: string
+        default: ""
+      confirm_apply:
+        description: "apply only: type APPLY to confirm production writes"
+        type: string
+        default: ""
+
+# Serialised with the scheduled harvest so the two never PATCH concurrently.
+concurrency:
+  group: harvest-and-sync
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  backfill:
+    name: ${{ inputs.mode || 'dry-run' }} - Phase 52 FDOR fields
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    env:
+      MODE: ${{ inputs.mode || 'dry-run' }}
+      PLAN_RUN_ID: ${{ inputs.plan_run_id || '' }}
+      CONFIRM: ${{ inputs.confirm_apply || '' }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python dependencies
+        run: pip install requests
+
+      - name: Verify credentials and inputs
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SUPABASE_URL:-}" ] || [ -z "${SUPABASE_SERVICE_KEY:-}" ]; then
+            echo "::error::SUPABASE_URL / SUPABASE_SERVICE_KEY not available to this job"
+            exit 1
+          fi
+          if [ "$MODE" = "apply" ]; then
+            if [ "$CONFIRM" != "APPLY" ]; then
+              echo "::error::apply requires confirm_apply=APPLY"
+              exit 1
+            fi
+            if [ -z "$PLAN_RUN_ID" ]; then
+              echo "::error::apply requires plan_run_id (the dry run to apply)"
+              exit 1
+            fi
+          fi
+
+      - name: Download the dry-run plan (apply only)
+        if: env.MODE == 'apply'
+        uses: actions/download-artifact@v4
+        with:
+          name: fdor-backfill-dry-run-${{ env.PLAN_RUN_ID }}
+          path: plan
+          run-id: ${{ env.PLAN_RUN_ID }}
+          github-token: ${{ github.token }}
+
+      - name: Run
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          BACKFILL_MODE: ${{ env.MODE }}
+          BACKFILL_PLAN_IN: ${{ env.MODE == 'apply' && 'plan/fdor_backfill_dry-run.json' || '' }}
+          BACKFILL_PLAN_OUT: out/fdor_backfill_${{ env.MODE }}.json
+        run: |
+          set -euo pipefail
+          mkdir -p out
+          python3 scripts/backfill_fdor_phase52_fields.py | tee out/backfill_${MODE}.log
+
+      - name: Upload plan / result
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: fdor-backfill-${{ env.MODE }}-${{ github.run_id }}
+          path: |
+            out/fdor_backfill_${{ env.MODE }}.json
+            out/backfill_${{ env.MODE }}.log
+          retention-days: 90
+          if-no-files-found: error
