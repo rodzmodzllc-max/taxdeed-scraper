@@ -3766,6 +3766,15 @@ function applyLedgerChrome() {
   // The browser tab and the app switcher should say which page this is too.
   document.title = (cfg.title ? cfg.title + " · " : "") + (PAGE_STATE === "TX" ? "Tax Acquisitions — Texas" : "Tax Acquisitions — Florida");
 
+  // Phase 67: the Map page's toolbar title carries the state as well ("Map ·
+  // Florida"). The old page subtitle ("...by county across Florida") was the
+  // Map page's only state cue and the workspace layout dropped it; without
+  // this a Texas map and a Florida map are told apart only by their outline.
+  // Same authoritative source as the two lines above - PAGE_STATE, never a
+  // row's county - and a label only, not a switch (that is #regionTabs).
+  const mapPageStateEl = document.getElementById("mapPageState");
+  if (mapPageStateEl) mapPageStateEl.textContent = " · " + (PAGE_STATE === "TX" ? "Texas" : "Florida");
+
   // Certificates are liens, not land: no property type, no title screening,
   // no assessed value. passes() already ignores those filters there, so
   // leaving the controls on screen only invited setting a filter that

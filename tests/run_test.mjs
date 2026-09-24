@@ -271,6 +271,11 @@ await page.waitForTimeout(400); // ensureMap() fetches + parses the basemap SVG
 results.auctionsPageVisibleOnMapNav = await page.locator('#pageAuctions').isVisible();
 results.mapPageVisibleOnMapNav = await page.locator('#pageMap').isVisible();
 results.navMapBtnOnAfterMapNav = await page.locator('.nav-bottom-item[data-page="map"]').evaluate(el => el.classList.contains('on'));
+// Phase 67: the workspace layout dropped the Map page's subtitle ("...across
+// Florida"), which was its only state cue. The toolbar title now carries the
+// state, filled by applyLedgerChrome() from PAGE_STATE (never from a row's
+// county). Whitespace-normalised: the h1 is "Map" + a span " · Florida".
+results.mapPageTitleFlorida = ((await page.locator('#pageMap .map-page-title').textContent()) || '').replace(/\s+/g, ' ').trim();
 results.mapPathCount = await page.locator('#exploreMapCanvas path[data-county]').count();
 // Portfolio-wide (every ledger, not just whatever ledger tab Auctions
 // happens to be on) - see computeMapRows()'s comment in app.js for why the
@@ -1482,6 +1487,19 @@ results.txDetailHasFeesStat = txStatLabels.some(l => l.startsWith('Fees'));
 results.txDetailHasCalcDrawer = await page.locator('#detailModalInner .calc-drawer').count();
 results.txDetailAssessedLabel = txStatLabels.find(l => l.includes('Assessed') || l.includes('CAD') || l.includes('Adjudged')) || '';
 
+// Phase 67: the same state cue on the Texas page, reached the way a user
+// would - a cold load of tx.html#map (a fresh page, not a same-document
+// hash change, per the Phase 58 note below) - so the Map page itself, its
+// "Map · Texas" title and the 254-county Texas outline are all asserted on
+// the deployed-shape entry point, not inferred from the Florida page.
+const txMapPage = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+await txMapPage.goto(TX_BASE_URL + '#map', { waitUntil: 'networkidle' });
+await txMapPage.waitForTimeout(600);
+results.txMapPageVisibleOnColdLoad = await txMapPage.locator('#pageMap').isVisible();
+results.txMapPageTitleTexas = ((await txMapPage.locator('#pageMap .map-page-title').textContent()) || '').replace(/\s+/g, ' ').trim();
+results.txMapPathCount = await txMapPage.locator('#exploreMapCanvas path[data-county]').count();
+await txMapPage.close();
+
 // ============================================================
 // Phase 58: property deep-linking. openDetail() (app.js) writes
 // "#/<ledger-slug>/<id>" via history.replaceState onto the SAME history
@@ -1945,6 +1963,7 @@ const EXPECTED = {
   auctionsPageVisibleOnMapNav: false,
   mapPageVisibleOnMapNav: true,
   navMapBtnOnAfterMapNav: true,
+  mapPageTitleFlorida: 'Map · Florida',
   mapPathCount: 67,
   // Portfolio-wide (every ledger) rather than scoped to whatever the
   // Auctions page's ledger tab/filters currently show - see
@@ -2161,6 +2180,10 @@ const EXPECTED = {
   txDetailHasFeesStat: false,
   txDetailHasCalcDrawer: 0,
   txDetailAssessedLabel: 'TX CAD/Listed Value',
+  // Phase 67: Map-page state cue on both entry points.
+  txMapPageVisibleOnColdLoad: true,
+  txMapPageTitleTexas: 'Map · Texas',
+  txMapPathCount: 254,
   // Phase 58: property deep-linking regression coverage.
   deepLinkHashHasPid: true,
   deepLinkModalVisibleOnColdStart: true,

@@ -945,7 +945,10 @@ color:#fff;cursor:pointer;margin-top:.3rem;letter-spacing:.01em}
 .map-toolbar{padding:.55rem 1rem;gap:.45rem;border-bottom:1px solid var(--card-line);
   background:var(--card);position:relative;z-index:6}
 .map-page-title{font-family:var(--font-sans);font-weight:800;font-size:1rem;letter-spacing:-.01em;
-  margin:0 .35rem 0 0;color:var(--ink)}
+  margin:0 .35rem 0 0;color:var(--ink);white-space:nowrap}
+/* "Map · Florida" / "Map · Texas": the state half of the title, filled from
+   PAGE_STATE by app.js. Same weight, softer ink - a label, not a control. */
+.map-page-state{font-weight:700;color:var(--ink-soft)}
 .map-toolbar .qc-field{flex:1 1 200px;max-width:300px}
 .map-toolbar .qc-field.qc-county{flex:0 1 180px}
 .map-toolbar .map-style-toggle{margin-left:auto}
