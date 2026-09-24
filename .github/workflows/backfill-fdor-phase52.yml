@@ -11,20 +11,10 @@ name: Backfill FDOR Phase 52 fields (fill-only, manual)
 #                     still empty at write time. Requires confirm_apply=APPLY.
 #
 # The sandbox that authors this repo cannot reach the FDOR layer, so a runner
-# is the only place either step can execute. No `schedule:`.
-#
-# The `push` trigger exists because GitHub only registers a workflow for
-# `workflow_dispatch` once it has run from some branch (the same reason
-# probe-fdor-starvation.yml ran once from its evidence branch). It is scoped
-# to this workflow's own two files and, with no inputs present on a push,
-# MODE falls back to dry-run - a push can never reach the apply path.
+# is the only place either step can execute. No `schedule:`, no `push:` -
+# every run is an explicit dispatch.
 
 on:
-  push:
-    branches: ['**']
-    paths:
-      - '.github/workflows/backfill-fdor-phase52.yml'
-      - 'scripts/backfill_fdor_phase52_fields.py'
   workflow_dispatch:
     inputs:
       mode:
