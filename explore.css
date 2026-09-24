@@ -1049,6 +1049,15 @@ color:#fff;cursor:pointer;margin-top:.3rem;letter-spacing:.01em}
   .explore-preview .pv-body,.explore-preview .pv-visual,.explore-preview .preview-open{display:none}
   .explore-preview.expanded .pv-body,.explore-preview.expanded .preview-open{display:flex}
   .explore-preview.expanded .pv-visual{display:block}
+  /* Collapsed, the sheet must leave more than half the stage to the map. With
+     the real IBM Plex webfonts (the sandbox suite only ever saw the fallback
+     face) the kicker wraps to two lines on a 360px phone and the sheet sat at
+     exactly half the stage. Collapsed-only: the subtitle repeats the county
+     and state the kicker already carries, so it waits for Details; spacing
+     tightens a notch. Expanded, everything is back as designed. */
+  .map-page-map .explore-map-stage > .explore-preview:not(.expanded){gap:.4rem;padding:.5rem .65rem .5rem}
+  .explore-preview:not(.expanded) .preview-sub{display:none}
+  .explore-preview:not(.expanded) .pv-stat{padding:.35rem .5rem}
   .pv-expand{display:inline-flex;align-items:center;justify-content:center;min-height:34px;
     font-family:inherit;font-size:.72rem;font-weight:700;color:var(--accent);background:var(--accent-soft);
     border:none;border-radius:3px;cursor:pointer}
