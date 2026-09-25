@@ -2,15 +2,26 @@
 // so the filters-panel wiring can be exercised in a real browser without a
 // live Supabase project. Not shipped - test harness only.
 
+// Phase 72: the RealAuction sale-event page for a county host and ISO sale
+// date - the exact template harvest_all_counties.ps1 (FL) stores and
+// harvest_realauction() (TX) fetches: AuctionDate is MM/DD/YYYY.
+const txSaleUrl = (host, iso) => `https://${host}/index.cfm?zaction=AUCTION&zmethod=PREVIEW&AuctionDate=${iso.slice(5, 7)}/${iso.slice(8, 10)}/${iso.slice(0, 4)}`;
+
 const FIXTURE_PROPERTIES = [
   // harvester_source added Phase 35 (regression coverage for the new
   // "Data source" provenance line) - a plausible FL harvester id, chosen
   // freely since assessedSourceLabel() only branches on harvester_source
   // for TX rows; on FL it's ignored entirely, so this can't affect any
   // pre-existing FL assertion.
-  { id: "p1", source: "auction", county: "Alachua", case_no: "A-1", parcel: "111", address: "1 Main St", owner_name: "Jane Doe", bid: 5000, assessed: 80000, market: 90000, value_year: 2025, year_built: 1958, living_area: 1840, lot_sqft: 16456, num_buildings: 1, land_value: 22000, last_sale_price: 41500, last_sale_year: 2011, legal_desc: "BEG 418 FT S AND 110 FT W OF INTER OF E AND W HALF SEC LI AND L AND N RR W 100 FT N 50 FT E 100 FT S 50 FT TO POB", status: "active", lien_level: "clean", lien_note: "", prop_type: "House", sale_date: futureDate(3), homestead: false, harvester_source: "fl_realauction_alachua", url_streetview: "https://x", url_appraiser: "https://x", url_zillow: "https://x", url_taxcoll: "https://x", url_auction: "https://x", url_title: "https://x", updated_at: "2026-08-10T00:00:00Z" },
-  { id: "p2", source: "auction", county: "Baker", case_no: "B-1", parcel: "222", address: "", owner_name: null, bid: 15000, assessed: 40000, market: 42000, status: "dropped", lien_level: "serious", lien_note: "lien", prop_type: "Vacant Lot", sale_date: futureDate(30), homestead: false, url_auction: "https://x", updated_at: "2026-08-10T00:00:00Z", gone_since: "2026-08-01T00:00:00Z" },
-  { id: "p3", source: "laft", county: "Bay", case_no: "C-1", parcel: "333", address: "3 Oak Ave", owner_name: "Bob", bid: 2000, assessed: 60000, market: 61000, value_year: 2024, land_value: 61000, lot_sqft: 43560, last_sale_price: 100, last_sale_year: 2007, status: "available", lien_level: "unscreened", lien_note: "", prop_type: "Condo", sale_date: null, homestead: true, url_auction: "https://x", updated_at: "2026-08-11T00:00:00Z",
+  // Phase 72: url_auction_kind (migration 013) on every row that has a
+  // url_auction, matching what the real writers store: FL deed rows carry
+  // the RealAuction sale-date page ('sale'), LAFT rows the county list
+  // ('county'), certificates LienHub's county-held list ('county'). p7/p8
+  // exercise the two remaining kinds; p9 keeps a URL with NO kind (a row
+  // written before migration 013) so the neutral fallback label is covered.
+  { id: "p1", source: "auction", county: "Alachua", case_no: "A-1", parcel: "111", address: "1 Main St", owner_name: "Jane Doe", bid: 5000, assessed: 80000, market: 90000, value_year: 2025, year_built: 1958, living_area: 1840, lot_sqft: 16456, num_buildings: 1, land_value: 22000, last_sale_price: 41500, last_sale_year: 2011, legal_desc: "BEG 418 FT S AND 110 FT W OF INTER OF E AND W HALF SEC LI AND L AND N RR W 100 FT N 50 FT E 100 FT S 50 FT TO POB", status: "active", lien_level: "clean", lien_note: "", prop_type: "House", sale_date: futureDate(3), homestead: false, harvester_source: "fl_realauction_alachua", url_streetview: "https://x", url_appraiser: "https://x", url_zillow: "https://x", url_taxcoll: "https://x", url_auction: txSaleUrl("alachua.realtaxdeed.com", futureDate(3)), url_auction_kind: "sale", url_title: "https://x", updated_at: "2026-08-10T00:00:00Z" },
+  { id: "p2", source: "auction", county: "Baker", case_no: "B-1", parcel: "222", address: "", owner_name: null, bid: 15000, assessed: 40000, market: 42000, status: "dropped", lien_level: "serious", lien_note: "lien", prop_type: "Vacant Lot", sale_date: futureDate(30), homestead: false, url_auction: "https://x", url_auction_kind: "sale", updated_at: "2026-08-10T00:00:00Z", gone_since: "2026-08-01T00:00:00Z" },
+  { id: "p3", source: "laft", county: "Bay", case_no: "C-1", parcel: "333", address: "3 Oak Ave", owner_name: "Bob", bid: 2000, assessed: 60000, market: 61000, value_year: 2024, land_value: 61000, lot_sqft: 43560, last_sale_price: 100, last_sale_year: 2007, status: "available", lien_level: "unscreened", lien_note: "", prop_type: "Condo", sale_date: null, homestead: true, url_auction: "https://x", url_auction_kind: "county", updated_at: "2026-08-11T00:00:00Z",
     // Phase 66: photo_url '' is the pipeline's "checked, no Street View
     // coverage" sentinel (see CLAUDE.md "Property photos") - distinct from
     // NULL/absent (not checked yet), which every other row here has.
@@ -22,30 +33,30 @@ const FIXTURE_PROPERTIES = [
   // because the TDA-eligibility assertion depends on it landing more than
   // CERT_TDA_WAIT_YEARS (2) in the past - true today and for the life of
   // this fixture, unlike a rolling offset.
-  { id: "p4", source: "certificate", county: "Alachua", case_no: "ACC-999", certificate_no: "CERT-42", tax_year: "2022", bid: 1234.56, interest_rate: 18, issued_date: "2023-06-01", expiration_date: futureDate(20), url_auction: "https://lienhub.com/county/alachua/countyheld/certificates", updated_at: "2026-08-12T00:00:00Z" },
+  { id: "p4", source: "certificate", county: "Alachua", case_no: "ACC-999", certificate_no: "CERT-42", tax_year: "2022", bid: 1234.56, interest_rate: 18, issued_date: "2023-06-01", expiration_date: futureDate(20), url_auction: "https://lienhub.com/county/alachua/countyheld/certificates", url_auction_kind: "county", updated_at: "2026-08-12T00:00:00Z" },
   // Phase 67: p5 and p12 carry real-shaped coordinates (inside Charlotte and
   // Brevard respectively) so the map's pin/selection/imagery paths can be
   // exercised - every other row stays un-geocoded, which is the honest
   // production picture (~2% coverage).
-  { id: "p5", source: "auction", county: "Charlotte", case_no: "D-1", parcel: "444", address: "500 Elm Way", owner_name: "Sam Lee", bid: 8000, assessed: 70000, market: 95000, status: "active", lien_level: "clean", lien_note: "", prop_type: "House", sale_date: futureDate(5), homestead: false, url_streetview: "https://x", url_appraiser: "https://x", url_auction: "https://x", updated_at: "2026-08-10T00:00:00Z", latitude: 26.9342, longitude: -82.0454 },
-  { id: "p6", source: "auction", county: "Duval", case_no: "E-1", parcel: "555", address: "77 Pine Ct", owner_name: "Pat Kim", bid: 12000, assessed: 130000, market: 140000, status: "active", lien_level: "flag", lien_note: "code lien", prop_type: "Commercial", sale_date: futureDate(7), homestead: false, url_auction: "https://x", updated_at: "2026-08-10T00:00:00Z",
+  { id: "p5", source: "auction", county: "Charlotte", case_no: "D-1", parcel: "444", address: "500 Elm Way", owner_name: "Sam Lee", bid: 8000, assessed: 70000, market: 95000, status: "active", lien_level: "clean", lien_note: "", prop_type: "House", sale_date: futureDate(5), homestead: false, url_streetview: "https://x", url_appraiser: "https://x", url_auction: txSaleUrl("charlotte.realforeclose.com", futureDate(5)), url_auction_kind: "sale", updated_at: "2026-08-10T00:00:00Z", latitude: 26.9342, longitude: -82.0454 },
+  { id: "p6", source: "auction", county: "Duval", case_no: "E-1", parcel: "555", address: "77 Pine Ct", owner_name: "Pat Kim", bid: 12000, assessed: 130000, market: 140000, status: "active", lien_level: "flag", lien_note: "code lien", prop_type: "Commercial", sale_date: futureDate(7), homestead: false, url_auction: "https://x", url_auction_kind: "sale", updated_at: "2026-08-10T00:00:00Z",
     // Phase 66: the one fixture row WITH a photo. A same-origin data: URI
     // (CSP allows data: in img-src) drawn as a plainly-labelled grey
     // placard, so the photo layout can be exercised and screenshotted
     // without a real Street View image - it is not a real property photo
     // and is labelled as such in the image itself.
     photo_url: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='640' height='400'><rect width='100%' height='100%' fill='%2394a3b8'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='30' fill='%23ffffff'>FIXTURE PHOTO</text></svg>" },
-  { id: "p7", source: "auction", county: "Duval", case_no: "F-1", parcel: "666", address: "12 Searchable Blvd", owner_name: "Ana Ruiz", bid: 3000, assessed: 20000, market: 21000, status: "active", lien_level: "clean", lien_note: "", prop_type: "Vacant Lot", sale_date: futureDate(9), homestead: false, url_auction: "https://x", updated_at: "2026-08-10T00:00:00Z" },
-  { id: "p8", source: "auction", county: "Escambia", case_no: "G-1", parcel: "777", address: "9 Bayview Dr", owner_name: "Lee Chan", bid: 6000, assessed: 55000, market: 60000, status: "active", lien_level: "clean", lien_note: "", prop_type: "House", sale_date: futureDate(11), homestead: false, url_auction: "https://x", updated_at: "2026-08-10T00:00:00Z" },
+  { id: "p7", source: "auction", county: "Duval", case_no: "F-1", parcel: "666", address: "12 Searchable Blvd", owner_name: "Ana Ruiz", bid: 3000, assessed: 20000, market: 21000, status: "active", lien_level: "clean", lien_note: "", prop_type: "Vacant Lot", sale_date: futureDate(9), homestead: false, url_auction: "https://notices.collierclerk.com/notice/notice-of-application-for-tax-deed-26004/", url_auction_kind: "property", updated_at: "2026-08-10T00:00:00Z" },
+  { id: "p8", source: "auction", county: "Escambia", case_no: "G-1", parcel: "777", address: "9 Bayview Dr", owner_name: "Lee Chan", bid: 6000, assessed: 55000, market: 60000, status: "active", lien_level: "clean", lien_note: "", prop_type: "House", sale_date: futureDate(11), homestead: false, url_auction: "https://www.escambiaclerk.com/tax-deed-sales", url_auction_kind: "info", updated_at: "2026-08-10T00:00:00Z" },
   { id: "p9", source: "auction", county: "Escambia", case_no: "H-1", parcel: "888", address: "21 Harbor Ln", owner_name: "Nia Frost", bid: 4500, assessed: 48000, market: 52000, status: "active", lien_level: "clean", lien_note: "", prop_type: "Condo", sale_date: futureDate(13), homestead: false, url_auction: "https://x", updated_at: "2026-08-10T00:00:00Z" },
-  { id: "p10", source: "auction", county: "Marion", case_no: "I-1", parcel: "999", address: "3 Ridge Rd", owner_name: "Omar Diaz", bid: 7000, assessed: 65000, market: 72000, status: "active", lien_level: "unscreened", lien_note: "", prop_type: "House", sale_date: futureDate(15), homestead: false, url_auction: "https://x", updated_at: "2026-08-10T00:00:00Z" },
-  { id: "p11", source: "auction", county: "Marion", case_no: "J-1", parcel: "1010", address: "88 Cedar Ct", owner_name: "Priya Shah", bid: 9000, assessed: 85000, market: 91000, status: "active", lien_level: "clean", lien_note: "", prop_type: "Vacant Lot", sale_date: futureDate(17), homestead: false, url_auction: "https://x", updated_at: "2026-08-10T00:00:00Z" },
-  { id: "p12", source: "auction", county: "Brevard", case_no: "K-1", parcel: "1111", address: "42 Palm Ave", owner_name: "Kim Ng", bid: 11000, assessed: 100000, market: 118000, status: "active", lien_level: "clean", lien_note: "", prop_type: "House", sale_date: futureDate(2), homestead: false, url_auction: "https://x", updated_at: "2026-08-10T00:00:00Z", latitude: 28.3922, longitude: -80.6077 },
+  { id: "p10", source: "auction", county: "Marion", case_no: "I-1", parcel: "999", address: "3 Ridge Rd", owner_name: "Omar Diaz", bid: 7000, assessed: 65000, market: 72000, status: "active", lien_level: "unscreened", lien_note: "", prop_type: "House", sale_date: futureDate(15), homestead: false, url_auction: "https://x", url_auction_kind: "sale", updated_at: "2026-08-10T00:00:00Z" },
+  { id: "p11", source: "auction", county: "Marion", case_no: "J-1", parcel: "1010", address: "88 Cedar Ct", owner_name: "Priya Shah", bid: 9000, assessed: 85000, market: 91000, status: "active", lien_level: "clean", lien_note: "", prop_type: "Vacant Lot", sale_date: futureDate(17), homestead: false, url_auction: "https://x", url_auction_kind: "sale", updated_at: "2026-08-10T00:00:00Z" },
+  { id: "p12", source: "auction", county: "Brevard", case_no: "K-1", parcel: "1111", address: "42 Palm Ave", owner_name: "Kim Ng", bid: 11000, assessed: 100000, market: 118000, status: "active", lien_level: "clean", lien_note: "", prop_type: "House", sale_date: futureDate(2), homestead: false, url_auction: "https://x", url_auction_kind: "sale", updated_at: "2026-08-10T00:00:00Z", latitude: 28.3922, longitude: -80.6077 },
   // Past-due: sale date already came and went, but the scraper hasn't (yet)
   // re-visited the county site to flip status to dropped/sold/notfound - the
   // exact "still shows as active for a week after the auction" bug report.
   // Must NOT appear in the default ledger view even though status is "active".
-  { id: "p13", source: "auction", county: "Alachua", case_no: "L-1", parcel: "1212", address: "6 Past Due Ln", owner_name: "Lin Cho", bid: 5000, assessed: 60000, market: 70000, status: "active", lien_level: "clean", lien_note: "", prop_type: "House", sale_date: futureDate(-6), homestead: false, url_auction: "https://x", updated_at: "2026-08-10T00:00:00Z" },
+  { id: "p13", source: "auction", county: "Alachua", case_no: "L-1", parcel: "1212", address: "6 Past Due Ln", owner_name: "Lin Cho", bid: 5000, assessed: 60000, market: 70000, status: "active", lien_level: "clean", lien_note: "", prop_type: "House", sale_date: futureDate(-6), homestead: false, url_auction: "https://x", url_auction_kind: "sale", updated_at: "2026-08-10T00:00:00Z" },
   // Phase 34: a TX row with no url_zillow/url_streetview and no
   // latitude/longitude - the exact shape (harvester-synced, no
   // hand-researched link, no geocode yet) that forces app.js's
@@ -54,7 +65,23 @@ const FIXTURE_PROPERTIES = [
   // those two functions used to hardcode "County, FL" for every property
   // regardless of state. `state: "TX"` is what makes this row TX instead of
   // the implicit-FL every other row above gets (see the rpc() filter below).
-  { id: "ptx1", source: "auction", state: "TX", county: "Harris", case_no: "TX-1", parcel: "TX999", address: "100 Longhorn Rd", owner_name: "Tex Owner", bid: 5000, assessed: 90000, market: 95000, status: "active", lien_level: "clean", lien_note: "", prop_type: "House", tx_category: "A1", sale_date: futureDate(4), homestead: false, harvester_source: "tx_lgbs", url_auction: "https://x", updated_at: "2026-08-10T00:00:00Z" }
+  // Phase 72: ptx1 is an LGBS auction row, and LGBS rows carry NO auction
+  // link in production (the audit found no verified per-property or
+  // per-sale LGBS URL anywhere) - so no url_auction here; the UI must say
+  // "Auction link not published". tx_sale_status is LGBS's raw status.
+  { id: "ptx1", source: "auction", state: "TX", county: "Harris", case_no: "TX-1", parcel: "TX999", address: "100 Longhorn Rd", owner_name: "Tex Owner", bid: 5000, assessed: 90000, market: 95000, status: "active", lien_level: "clean", lien_note: "", prop_type: "House", tx_category: "A1", sale_date: futureDate(4), homestead: false, harvester_source: "tx_lgbs", tx_sale_status: "Scheduled for Online Auction", updated_at: "2026-08-10T00:00:00Z" },
+  // Phase 72 Texas shapes, each the exact form migration 013 / the Texas
+  // sync produce (case_no = account number, parcel = cause number):
+  //   ptx2  RealAuction, upcoming sale: the county sale-date page, kind 'sale'
+  //   ptx3  LGBS struck-off (laft ledger), raw status kept, no link
+  //   ptx4  RealAuction whose sale date has passed: link is not current
+  //   ptx5  RealAuction with no URL (county host not on the verified roster)
+  //   ptx6  LGBS "Available for Future Sale" (laft ledger), no link
+  { id: "ptx2", source: "auction", state: "TX", county: "Nueces", case_no: "9377-0051-0100", parcel: "2021DCV-4034-H (5)", address: "4013 Tilden St, Corpus Christi, TX", bid: 21800, min_bid: 21800, assessed: 25000, status: "active", sale_date: futureDate(12), harvester_source: "tx_realauction", url_auction: txSaleUrl("nueces.texas.sheriffsaleauctions.com", futureDate(12)), url_auction_kind: "sale", updated_at: "2026-09-24T00:00:00Z" },
+  { id: "ptx3", source: "laft", state: "TX", county: "Galveston", case_no: "129500040015000", parcel: "23-TX-0644", address: "VACANT LOT IN 6500 BLOCK OF OBRIEN ST, Hitchcock, TX 77563", bid: 4451.95, min_bid: 4451.95, status: "active", sale_date: null, harvester_source: "tx_lgbs", tx_sale_status: "Struck off to Jurisdiction", updated_at: "2026-09-23T00:00:00Z" },
+  { id: "ptx4", source: "auction", state: "TX", county: "Llano", case_no: "R000020419", parcel: "23101 (6)", address: "LOT 6 SUNRISE BEACH, Llano, TX", bid: 3942.08, min_bid: 3942.08, status: "active", sale_date: futureDate(-3), harvester_source: "tx_realauction", url_auction: txSaleUrl("llano.texas.sheriffsaleauctions.com", futureDate(-3)), url_auction_kind: "sale", updated_at: "2026-09-24T00:00:00Z" },
+  { id: "ptx5", source: "auction", state: "TX", county: "Atascosa", case_no: "17854", parcel: "20-11-0957-CVA (1)", address: "200 Oak St, Pleasanton, TX", bid: 1200, min_bid: 1200, status: "active", sale_date: futureDate(12), harvester_source: "tx_realauction", updated_at: "2026-09-24T00:00:00Z" },
+  { id: "ptx6", source: "laft", state: "TX", county: "Liberty", case_no: "000016000361003", parcel: "21DC-TX-00185", address: "TRACT 3, Liberty, TX", bid: 900, min_bid: 900, status: "active", sale_date: null, harvester_source: "tx_lgbs", tx_sale_status: "Available for Future Sale", updated_at: "2026-09-23T00:00:00Z" }
 ];
 // Brevard has a county_calendar row so the "Auction {date}" label test can
 // cover the CALENDAR-lookup path, not just the per-property sale_date

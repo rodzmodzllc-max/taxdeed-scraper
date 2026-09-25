@@ -58,11 +58,28 @@ def _005_sql() -> str:
     return _read("scripts", "migrations", "005_customer_safe_properties_projection.sql")
 
 
-def _005_returns_table_columns() -> set[str]:
-    sql = _005_sql()
+def _returns_table_columns(sql: str) -> set[str]:
     block = sql.split("returns table (")[1].split(")\nlanguage sql")[0]
+    # Comment lines inside the block are prose, not columns.
+    block = "\n".join(l for l in block.splitlines() if not l.strip().startswith("--"))
     entries = [e.strip() for e in block.replace("\n", " ").split(",") if e.strip()]
     return {e.split()[0] for e in entries}
+
+
+def _005_returns_table_columns() -> set[str]:
+    """The live get_properties() contract. 005 defined it; 012 (Phase 58)
+    and 013 (Phase 72) each dropped and recreated the function with columns
+    APPENDED, so the live RETURNS TABLE is the latest of those definitions.
+    Read the highest-numbered migration that (re)creates the function, so a
+    CSV column added alongside a projection change reconciles against the
+    contract that is actually live rather than against 005 alone."""
+    latest = None
+    for path in sorted((REPO_ROOT / "scripts" / "migrations").glob("*.sql")):
+        text = path.read_text(encoding="utf-8")
+        if "create function public.get_properties(" in text and "returns table (" in text:
+            latest = text
+    assert latest is not None
+    return _returns_table_columns(latest)
 
 
 def _csv_cols_block() -> str:

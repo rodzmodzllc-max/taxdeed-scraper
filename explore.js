@@ -1006,6 +1006,13 @@ function showPreview(p) {
     ? `<div class="pv-loc"><span class="pv-label">Location</span><span class="pv-coords">${p.latitude.toFixed(5)}, ${p.longitude.toFixed(5)}</span><button type="button" class="pv-center" data-act="center">Center on map</button></div>`
     : `<div class="pv-loc"><span class="pv-label">Location</span><span class="muted">Not yet geocoded - listed in this county, not pinned</span></div>`;
   const risk = f && f.flood ? `<div class="pv-risk"><span class="pv-label">Flood zone</span><span class="${f.flood.cls || ""}">${escHtml(f.flood.text)}</span><span class="pv-note">FEMA NFHL. Liens, judgments, code cases: not tracked.</span></div>` : "";
+  // Phase 72: the same auction link, with the same kind-driven wording, the
+  // card and the full page show (app.js auctionLinkInfo(), read from the
+  // database's url_auction_kind). No URL, or a sale date that has passed,
+  // is muted text - never an anchor.
+  const link = f && f.link ? `<div class="pv-auction"><span class="pv-label">Auction link</span>${f.link.href
+    ? `<a href="${escAttr(f.link.href)}" target="_blank" rel="noopener" data-auction-link="${escAttr(f.link.kind || "unknown")}"${f.link.note ? ` title="${escAttr(f.link.note)}"` : ""}>${escHtml(f.link.label)} ↗</a>`
+    : `<span class="muted" data-auction-link="none">${escHtml(f.link.label)}</span>`}</div>` : "";
   const more = f && f.more && f.more.length ? `
     <details class="pv-more">
       <summary>More · ${escHtml(f.more.map(m => m[0].toLowerCase()).slice(0, 3).join(", "))}${f.more.length > 3 ? "…" : ""}</summary>
@@ -1024,6 +1031,7 @@ function showPreview(p) {
     <div class="pv-body">
       ${ids}
       ${loc}
+      ${link}
       ${risk}
       ${more}
     </div>

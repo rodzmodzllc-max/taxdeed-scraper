@@ -173,6 +173,11 @@ foreach ($p in $harvest) {
         address     = $addr
         bid         = $bidVal
         url_auction = $p.url_auction
+        # Phase 72: every LAFT harvester (harvest_laft_*.py) sets url_auction
+        # to the county's Lands Available list page or PDF - a COUNTY page
+        # where the property can be found, never a per-property page - so
+        # the kind is 'county' whenever a URL is present (migration 013).
+        url_auction_kind = if ([string]::IsNullOrWhiteSpace($p.url_auction)) { $null } else { "county" }
     }
     # `parcel`/`sale_date` are nullable, but PostgREST's bulk-insert endpoint
     # requires every object in a batch to have the SAME set of keys - confirmed

@@ -14,6 +14,21 @@ redemption_period_months, redemption_expiration_date,
 max_statutory_return_usd - those are enrichment-time or hand-research
 fields, not harvest-time fields (see texas_harvester.py's module docstring).
 
+UPDATED 2026-09-25 (Phase 72 - auction-link provenance): three harvest-time
+fields are now sent, each ONLY when the harvester actually carries it, never
+as an explicit null:
+  url_auction + url_auction_kind  from TexasSaleRow.auction_url /
+      .auction_url_kind - today only harvest_realauction() sets them (the
+      county sale-date PREVIEW page it fetched, kind 'sale'). LGBS rows
+      carry neither, so the keys are omitted and the DB column stays null:
+      the UI then says "Auction link not published". A URL is never
+      composed here from a county name or a provider homepage.
+  tx_sale_status  from TexasSaleRow.sale_status - LGBS's raw status,
+      verbatim.
+Because PostgREST rejects a batch whose objects do not all share one key
+set (PGRST102 - see the coordinates note below), rows are batched by their
+exact key set, not just by whether they carry coordinates.
+
 Conflict target is `on_conflict=state,source,county,case_no` from day one -
 NOT the older FL-only `on_conflict=source,county,case_no` target the three
 FL sync scripts still fall back to. No fallback needed here: unlike the FL
@@ -289,6 +304,20 @@ def main() -> None:
             row["latitude"] = lat
             row["longitude"] = lon
 
+        # Phase 72: the auction link the harvester itself fetched, with what
+        # it opens (migration 013's url_auction_kind vocabulary). Both keys
+        # or neither - a URL without a kind is not sent, and a row without a
+        # URL sends nothing, so an LGBS row can never receive a link here.
+        auction_url = (p.get("auction_url") or "").strip()
+        auction_url_kind = (p.get("auction_url_kind") or "").strip()
+        if auction_url and auction_url_kind in ("property", "sale", "county", "info"):
+            row["url_auction"] = auction_url
+            row["url_auction_kind"] = auction_url_kind
+        # The vendor's own raw sale status, verbatim, when it published one.
+        sale_status = (p.get("sale_status") or "").strip()
+        if sale_status:
+            row["tx_sale_status"] = sale_status
+
         # Phase 11 (extended Phase 34B): project the row through the same
         # governance layer's customer-output check (whole-row block on a
         # customer-display-blocking restriction, plus field-shape
@@ -386,11 +415,17 @@ def main() -> None:
     # missing-coordinate group instead (that would defeat the safe-merge
     # comment above by erasing coordinates geocode_properties.py already
     # backfilled).
-    with_geo = [r for r in rows if "latitude" in r]
-    without_geo = [r for r in rows if "latitude" not in r]
+    # Phase 72: the same PGRST102 rule now has more than two shapes to
+    # respect (coordinates present or not, auction link present or not,
+    # tx_sale_status present or not), so group by the exact key set instead
+    # of by one field. Each group is internally homogeneous by construction.
+    groups: dict[tuple[str, ...], list[dict]] = {}
+    for r in rows:
+        groups.setdefault(tuple(sorted(r.keys())), []).append(r)
 
     sent = 0
-    for label, group in (("with coordinates", with_geo), ("without coordinates", without_geo)):
+    for keys, group in groups.items():
+        label = "+".join(k for k in ("latitude", "url_auction", "tx_sale_status") if k in keys) or "base columns only"
         if not group:
             continue
         for i in range(0, len(group), BATCH_SIZE):

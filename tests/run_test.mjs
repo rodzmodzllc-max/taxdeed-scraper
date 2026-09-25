@@ -109,6 +109,23 @@ results.expandAllLabelAfterClick = await page.locator('#expandAllBtn').textConte
 results.allCountyGroupsOpenAfterExpandAll = await page.locator('.county-group').evaluateAll(els => els.every(el => el.open));
 results.brevardCardVisibleAfterExpandAll = await page.locator('.county-group[data-county="Brevard"] .prop-card').first().isVisible();
 
+// --- Phase 72: the Florida card CTA reads url_auction_kind off the row
+// (migration 013) and says what the link opens. p1 = RealAuction sale-date
+// preview (kind "sale"), p7 = a Collier per-notice page (kind "property"),
+// p8 = a county information page (kind "info"), p9 = a URL with no kind
+// (written before the column existed) - neutral "View listing", never a
+// guessed kind. ---
+const flCtaOf = async pid => {
+  const a = page.locator(`.prop-card[data-pid="${pid}"] .cta-btn`).first();
+  return { text: ((await a.textContent()) || '').replace(/\s+/g, ' ').trim(), kind: await a.getAttribute('data-auction-link') };
+};
+results.flCardCtaSale = await flCtaOf('p1');
+results.flCardCtaSaleText = results.flCardCtaSale.text;
+results.flCardCtaSale = { kind: results.flCardCtaSale.kind };
+results.flCardCtaProperty = await flCtaOf('p7');
+results.flCardCtaInfo = await flCtaOf('p8');
+results.flCardCtaNoKind = await flCtaOf('p9');
+
 // --- county-info banner: short-tag shape (Brevard: "Online" + note) and the
 // long-freeform-fmt shape with no note (Charlotte - must not dump the whole
 // sentence into the small pill; falls back to a generic "Note" pill instead) ---
@@ -1516,6 +1533,109 @@ results.txDetailHasFeesStat = txStatLabels.some(l => l.startsWith('Fees'));
 results.txDetailHasCalcDrawer = await page.locator('#detailModalInner .calc-drawer').count();
 results.txDetailAssessedLabel = txStatLabels.find(l => l.includes('Assessed') || l.includes('CAD') || l.includes('Adjudged')) || '';
 
+// ============================================================
+// Phase 72: the auction link says what it is (url_auction_kind, read from
+// the row - migration 013), and Texas rows only link where a verified URL
+// exists. ptx1 is an LGBS auction row: no URL, "Auction link not published",
+// no anchor, and the gap named in the summary's Missing list. ptx2 is a
+// RealAuction row: the county's sale-date listing, labelled as such, with
+// the exact host + MM/DD/YYYY AuctionDate the harvester fetched, and never
+// worded as a property page. ptx5 has no URL (host not on the verified
+// roster): no link. ptx4's sale date has passed: no current link. ptx3/ptx6
+// are LGBS struck-off / future-sale rows: resale wording, no link.
+// ============================================================
+const txAuctionLinkOf = async scope => ({
+  text: ((await scope.locator('.cta-btn, .auction-link-none, .detail-cta').first().textContent()) || '').replace(/\s+/g, ' ').trim(),
+  kind: await scope.locator('[data-auction-link]').first().getAttribute('data-auction-link'),
+  anchors: await scope.locator('a.cta-btn, a.detail-cta').count()
+});
+// Labels that carry a fixture-relative sale date are checked as their own
+// RegExp-matched string; the kind/anchor pair stays an exact object.
+const splitLinkText = key => { results[key + 'Text'] = results[key].text; results[key] = { kind: results[key].kind, anchors: results[key].anchors }; };
+// The ptx1 modal is still open from the checks above.
+results.txLgbsDetailLink = await txAuctionLinkOf(page.locator('#detailModalInner'));
+results.txLgbsDetailGapsNameTheLink = ((await page.locator('#detailModalInner .opp-gaps').textContent()) || '').includes('Auction link not published');
+// The full page's "When" cell carries the vendor's raw status verbatim.
+results.txLgbsDetailWhen = ((await page.locator('#detailModalInner .opp-cell').nth(2).locator('.opp-val').textContent()) || '').replace(/\s+/g, ' ').trim();
+await page.keyboard.press('Escape');
+await page.waitForTimeout(300);
+results.txLgbsCardLink = await txAuctionLinkOf(txCard);
+results.txLgbsCardKicker = ((await txCard.locator('.kicker-phase').textContent()) || '').trim();
+const txRaCard = page.locator('.prop-card[data-pid="ptx2"]');
+results.txRaCardLink = await txAuctionLinkOf(txRaCard);
+results.txRaCardHref = await txRaCard.locator('a.cta-btn').getAttribute('href');
+results.txRaCardScopeNote = ((await txRaCard.locator('a.cta-btn').getAttribute('title')) || '').includes('not a page for this property alone');
+results.txRaCardLabelNotPropertySpecific = !/property|bid on/i.test(results.txRaCardLink.text);
+splitLinkText('txRaCardLink');
+await txRaCard.locator('.detail-btn').click();
+await page.waitForTimeout(300);
+results.txRaDetailLink = await txAuctionLinkOf(page.locator('#detailModalInner'));
+splitLinkText('txRaDetailLink');
+results.txRaDetailHref = await page.locator('#detailModalInner a.detail-cta').getAttribute('href');
+results.txRaDetailHrefMatchesCard = results.txRaDetailHref === results.txRaCardHref;
+results.txRaDetailProvenanceText = ((await page.locator('#detailModalInner .detail-provenance, #detailModalInner .provenance-card').first().textContent()) || '').replace(/\s+/g, ' ').trim();
+await page.keyboard.press('Escape');
+await page.waitForTimeout(300);
+results.txRaNoHostCardLink = await txAuctionLinkOf(page.locator('.prop-card[data-pid="ptx5"]'));
+// The RPC row itself carries the kind and the raw status - the UI reads
+// them, it does not derive them.
+results.txRpcRowsExposeKindAndStatus = await page.evaluate(() => {
+  const rows = (window.__tdwLastRender && window.__tdwLastRender.rows) || [];
+  const ra = rows.find(r => r.id === 'ptx2'), lg = rows.find(r => r.id === 'ptx1');
+  return !!ra && ra.url_auction_kind === 'sale' && !!lg && lg.tx_sale_status === 'Scheduled for Online Auction' && lg.url_auction == null;
+});
+// CSV on the Texas auctions ledger: the URL column says what it holds, the
+// kind travels beside it, and LGBS rows export an empty URL, not a guess.
+{
+  const txDownloadPromise = page.waitForEvent('download');
+  await page.click('#exportCsvBtn');
+  const txDownload = await txDownloadPromise;
+  const csvText = fs.readFileSync(await txDownload.path(), 'utf8');
+  const parseCsvLine = line => {
+    const out = []; let cur = '', q = false;
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (q) { if (c === '"') { if (line[i + 1] === '"') { cur += '"'; i++; } else q = false; } else cur += c; }
+      else if (c === '"') q = true;
+      else if (c === ',') { out.push(cur); cur = ''; }
+      else cur += c;
+    }
+    out.push(cur); return out;
+  };
+  const lines = csvText.split('\r\n').filter(Boolean);
+  const hdr = parseCsvLine(lines[0]);
+  const iCase = hdr.indexOf('Case/Account #'), iUrl = hdr.indexOf('Auction Listing URL'), iKind = hdr.indexOf('Auction URL Type'), iStatus = hdr.indexOf('TX Sale Status');
+  const rowsByCase = Object.fromEntries(lines.slice(1).map(parseCsvLine).map(c => [c[iCase], c]));
+  results.txCsvHeadersPresent = iUrl > 0 && iKind === iUrl + 1 && iStatus > 0 && !hdr.includes('Auction/LAFT Listing');
+  results.txCsvRealauctionRow = rowsByCase['9377-0051-0100'] ? [rowsByCase['9377-0051-0100'][iUrl] === results.txRaCardHref, rowsByCase['9377-0051-0100'][iKind]] : null;
+  results.txCsvLgbsRow = rowsByCase['TX-1'] ? [rowsByCase['TX-1'][iUrl], rowsByCase['TX-1'][iKind], rowsByCase['TX-1'][iStatus]] : null;
+}
+// Struck-off / future-sale LGBS rows live on the laft ledger.
+await page.click('.ledger-tab[data-ledger="laft"]');
+await page.waitForTimeout(200);
+if ((await page.locator('#expandAllBtn').count()) && (await page.locator('#expandAllBtn').textContent()) === 'Expand all') {
+  await page.click('#expandAllBtn');
+  await page.waitForTimeout(200);
+}
+results.txStruckOffKicker = ((await page.locator('.prop-card[data-pid="ptx3"] .kicker-phase').textContent()) || '').trim();
+results.txStruckOffLink = await txAuctionLinkOf(page.locator('.prop-card[data-pid="ptx3"]'));
+results.txFutureSaleKicker = ((await page.locator('.prop-card[data-pid="ptx6"] .kicker-phase').textContent()) || '').trim();
+results.txFutureSaleLink = await txAuctionLinkOf(page.locator('.prop-card[data-pid="ptx6"]'));
+await page.click('.ledger-tab[data-ledger="auction"]');
+await page.waitForTimeout(200);
+// A RealAuction row whose sale date has passed is excluded from the live
+// list (isPastDue), so it is reached the way a saved link would reach it: a
+// cold load of its own property page.
+{
+  const pastPage = await newPage({ viewport: { width: 390, height: 844 } });
+  await pastPage.goto(TX_BASE_URL + '#/auctions/ptx4', { waitUntil: 'networkidle' });
+  await pastPage.waitForTimeout(800);
+  results.txRaPastDetailVisible = await pastPage.locator('#detailModal').isVisible();
+  results.txRaPastDetailLink = await txAuctionLinkOf(pastPage.locator('#detailModalInner'));
+  splitLinkText('txRaPastDetailLink');
+  await pastPage.close();
+}
+
 // Phase 67: the same state cue on the Texas page, reached the way a user
 // would - a cold load of tx.html#map (a fresh page, not a same-document
 // hash change, per the Phase 58 note below) - so the Map page itself, its
@@ -1671,6 +1791,11 @@ results.previewValueLabel = ((await p67d.locator('#explorePreview .pv-stat small
 results.previewIds = await p67d.locator('#explorePreview .pv-ids dd').allTextContents();
 results.previewFlood = ((await p67d.locator('#explorePreview .pv-risk span:nth-child(2)').textContent()) || '').trim();
 results.previewMoreClosed = await p67d.locator('#explorePreview details.pv-more').evaluate(el => !el.open);
+// Phase 72: the preview carries the same kind-driven auction link as the
+// card and the full page (p5: a sale-date page, kind 'sale').
+results.previewAuctionLinkText = ((await p67d.locator('#explorePreview .pv-auction a').textContent()) || '').trim();
+results.previewAuctionLinkKind = await p67d.locator('#explorePreview .pv-auction a').getAttribute('data-auction-link');
+results.previewAuctionLinkHref = await p67d.locator('#explorePreview .pv-auction a').getAttribute('href');
 results.selectionEventPid = await p67d.evaluate(() => { const e = window.__selEvents; return e.length ? e[e.length - 1].pid : null; });
 results.selectionEventHasCoords = await p67d.evaluate(() => { const e = window.__selEvents; const d = e[e.length - 1]; return !!d && typeof d.lat === 'number' && typeof d.lng === 'number'; });
 // Close via the preview's own close button: pin highlight, strip highlight
@@ -1844,6 +1969,12 @@ const EXPECTED = {
   expandAllLabelAfterClick: 'Collapse all',
   allCountyGroupsOpenAfterExpandAll: true,
   brevardCardVisibleAfterExpandAll: true,
+  // Phase 72: kind-driven FL card CTA
+  flCardCtaSale: { kind: 'sale' },
+  flCardCtaSaleText: /^View sale listing for [A-Z][a-z]{2} \d{1,2}, \d{4}$/,
+  flCardCtaProperty: { text: 'View property listing', kind: 'property' },
+  flCardCtaInfo: { text: 'View county tax-sale information', kind: 'info' },
+  flCardCtaNoKind: { text: 'View listing', kind: 'unknown' },
   brevardBannerPill: 'Online',
   brevardBannerText: 'Deposit required in advance via the auction site.',
   charlotteBannerPill: 'Note',
@@ -1935,6 +2066,10 @@ const EXPECTED = {
   previewIds: ['444', 'D-1'],
   previewFlood: 'Not checked',
   previewMoreClosed: true,
+  // Phase 72: the map preview's auction link (p5, kind 'sale')
+  previewAuctionLinkText: /^View sale listing for [A-Z][a-z]{2} \d{1,2}, \d{4} ↗$/,
+  previewAuctionLinkKind: 'sale',
+  previewAuctionLinkHref: /^https:\/\/charlotte\.realforeclose\.com\/index\.cfm\?zaction=AUCTION&zmethod=PREVIEW&AuctionDate=\d{2}\/\d{2}\/\d{4}$/,
   selectionEventPid: 'p5',
   selectionEventHasCoords: true,
   previewHiddenAfterClose: true,
@@ -2063,7 +2198,7 @@ const EXPECTED = {
   certCardAmount: '$1,234.56',
   certCardAccount: 'ACC-999',
   certCardExpires: /^[A-Z][a-z]{2} \d{1,2}, \d{4}$/,
-  certCardCta: 'View on County-Held Liens List',
+  certCardCta: 'View county-held liens list',
   certCardExpiresCountdown: 1,
   certCardStatCount: 6,
   certCardInterestRate: '18%',
@@ -2181,7 +2316,7 @@ const EXPECTED = {
   certDetailYieldInfoTips: 2,
   exportBtnLabelLaft: '⬇ Export OTC List (CSV)',
   laftPurchasePriceLabel: 'Purchase Price',
-  laftCtaText: 'View Clerk Docket / Listing',
+  laftCtaText: 'View county Lands Available list',
   bidListChipTextInitial: '0/10',
   bidBtnIconBefore: '⚐',
   bidBtnIconAfterAdd: '⚑',
@@ -2202,13 +2337,41 @@ const EXPECTED = {
   detailProvenanceText: /Data source: Fl Realauction Alachua[\s\S]*Data may be stale[\s\S]*last synced/,
   detailLinksHaveNoEstimatedSuffix: true,
   txDetailLinksText: /Street View \(estimated search\)[\s\S]*Zillow \(estimated search\)/,
-  txDetailProvenanceText: /Data source: Tx Lgbs/,
+  txDetailProvenanceText: /Data source: LGBS \(taxsales\.lgbs\.com\)/,
   // Phase 36: fees(p) is Florida-only now (no verified TX fee formula
   // exists) - ptx1 has a published bid, so the pre-fix code would have
   // shown a real (wrong) "Fees" stat and calculator drawer here.
   txDetailHasFeesStat: false,
   txDetailHasCalcDrawer: 0,
   txDetailAssessedLabel: 'TX CAD/Listed Value',
+  // Phase 72: Texas auction links come from the row's url_auction +
+  // url_auction_kind (migration 013), never inferred in the browser.
+  txLgbsDetailLink: { text: 'Auction link not published', kind: 'none', anchors: 0 },
+  txLgbsDetailGapsNameTheLink: true,
+  txLgbsDetailWhen: /^[A-Z][a-z]{2} \d{1,2}, \d{4} · in \d+d · Scheduled for Online Auction$/,
+  txLgbsCardLink: { text: 'Auction link not published', kind: 'none', anchors: 0 },
+  txLgbsCardKicker: / · online$/,
+  txRaCardLink: { kind: 'sale', anchors: 1 },
+  txRaCardLinkText: /^View sale listing for [A-Z][a-z]{2} \d{1,2}, \d{4}$/,
+  txRaCardHref: /^https:\/\/nueces\.texas\.sheriffsaleauctions\.com\/index\.cfm\?zaction=AUCTION&zmethod=PREVIEW&AuctionDate=\d{2}\/\d{2}\/\d{4}$/,
+  txRaCardScopeNote: true,
+  txRaCardLabelNotPropertySpecific: true,
+  txRaDetailLink: { kind: 'sale', anchors: 1 },
+  txRaDetailLinkText: /^View sale listing for [A-Z][a-z]{2} \d{1,2}, \d{4}$/,
+  txRaDetailHrefMatchesCard: true,
+  txRaDetailProvenanceText: /Data source: RealAuction county sheriff-sale site/,
+  txRaNoHostCardLink: { text: 'Auction link not published', kind: 'none', anchors: 0 },
+  txRpcRowsExposeKindAndStatus: true,
+  txCsvHeadersPresent: true,
+  txCsvRealauctionRow: [true, 'sale'],
+  txCsvLgbsRow: ['', '', 'Scheduled for Online Auction'],
+  txStruckOffKicker: 'Struck off · resale inventory',
+  txStruckOffLink: { text: 'Auction link not published', kind: 'none', anchors: 0 },
+  txFutureSaleKicker: 'Future sale · not yet scheduled',
+  txFutureSaleLink: { text: 'Auction link not published', kind: 'none', anchors: 0 },
+  txRaPastDetailVisible: true,
+  txRaPastDetailLink: { kind: 'none', anchors: 0 },
+  txRaPastDetailLinkText: /^Sale listing no longer current · sale date [A-Z][a-z]{2} \d{1,2}, \d{4} has passed$/,
   // Phase 67: Map-page state cue on both entry points.
   txMapPageVisibleOnColdLoad: true,
   txMapPageTitleTexas: 'Map · Texas',

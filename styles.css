@@ -873,6 +873,14 @@ summary.county-head::-webkit-details-marker{display:none}
   background:var(--ok);color:#fff;font-weight:700;font-size:.82rem;text-decoration:none;
   letter-spacing:.01em}
 .cta-btn:hover{filter:brightness(1.08)}
+/* Phase 72: the auction-link slot when there is no link to show - the
+   source published none, or a sale-event page's date has passed. Plain
+   muted text in the button's place, never a disabled-looking button and
+   never an anchor. */
+.auction-link-none{display:block;text-align:center;margin-top:.55rem;padding:.45rem .5rem;
+  font-size:.74rem;font-weight:600;color:var(--ink-soft);font-style:italic}
+.detail-cta-none{margin:.6rem 0;padding:.6rem 1rem;font-size:.8rem;border:1px dashed var(--card-line);
+  border-radius:3px}
 
 /* Deliberately a small text link, not a filled button - the card already
    has one strong call to action (the CTA button above, when there's an

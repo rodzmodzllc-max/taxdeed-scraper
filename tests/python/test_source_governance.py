@@ -408,6 +408,12 @@ def test_14_lgbs_and_realauction_unchanged_and_approved():
         "longitude",
         "source",
         "harvester_source",
+        # Phase 72 (auction-link provenance) added exactly these three, and
+        # nothing else. Pinned here for the same reason as the rest of the
+        # set: a change to the production row shape must be deliberate.
+        "auction_url",
+        "auction_url_kind",
+        "sale_status",
     }
 
     # Both production sources are registered APPROVED (reflecting existing

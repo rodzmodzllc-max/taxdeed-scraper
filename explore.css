@@ -754,6 +754,12 @@ font-weight:700;color:var(--bad)}
 .pv-center:hover{border-color:var(--accent)}
 .pv-risk .warn{color:var(--warn);font-weight:700}
 .pv-note{flex:1 1 100%;font-size:.62rem;color:var(--ink-soft)}
+/* Phase 72: the auction link row - same kind-driven label as the card and
+   the full page; muted text when there is nothing to link to. */
+.pv-auction{font-size:.72rem;color:var(--ink);display:flex;flex-wrap:wrap;align-items:baseline;gap:.15rem .5rem}
+.pv-auction .pv-label{display:inline;margin:0}
+.pv-auction a{color:var(--accent);font-weight:700;text-decoration:none}
+.pv-auction a:hover{text-decoration:underline}
 .pv-more{font-size:.72rem}
 .pv-more summary{cursor:pointer;color:var(--ink-soft);font-size:.66rem;font-weight:700;
   text-transform:uppercase;letter-spacing:.04em;min-height:28px;display:flex;align-items:center}
