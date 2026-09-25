@@ -206,6 +206,19 @@ jobs:
       - name: Install Python dependencies (geocoding)
         run: pip install requests
 
+      # Phase B (auction-event history): record what this run's harvest saw
+      # as auction_events + auction_event_observations (migration 014). Runs
+      # AFTER the property sync above and only reads `properties` to resolve
+      # ids - it never writes the property snapshot. continue-on-error so a
+      # writer problem can never fail the property pipeline this job exists
+      # for; the step's own log line is the record of what it did.
+      - name: Record auction events (Phase B)
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/auction_events_writer.py --source fl
+
       - name: Backfill geocoding (US Census Bureau Geocoder)
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -539,6 +552,16 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 scripts/sync-texas-to-supabase.py
+
+      # Phase B (auction-event history): same writer as the deeds job, fed by
+      # out/harvest_texas.json. Texas has no per-county completeness file, so
+      # the writer applies no absence-based transitions here (see its header).
+      - name: Record auction events (Phase B)
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/auction_events_writer.py --source tx
 
   backup:
     name: Export database backup

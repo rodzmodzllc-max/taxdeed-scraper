@@ -417,9 +417,80 @@ the migration verbatim to a throwaway scratch database on a local PostgreSQL
 skipped where no local database is reachable, including in
 `python-governance-test.yml`; it never contacts the Supabase project.
 
-Production status at the time of writing: migration 014 exists in the
-repository and has been applied only to a local scratch database. It has NOT
-been applied to production; that requires separate explicit authorization.
+Production status: migration 014 was applied to production on 2026-09-25
+(version 20260925163457) after PR #32 was audited and merged; both tables
+were verified empty immediately afterward.
+
+## 27. Auction-event writers and current-state seed (Phase B)
+
+Added 2026-09-25. Phase B is the first code that writes the Section 26
+tables. It is additive: `properties` is never written by it, and every
+existing harvester and sync script is byte-for-byte unchanged.
+
+1. **Writer.** `scripts/auction_events_writer.py` runs as a workflow step
+   AFTER the existing property sync in the `deeds` job (`--source fl`,
+   fed by `out/harvest_all.json` + `out/harvest_all_status.json`) and in the
+   `texas` job (`--source tx`, fed by `out/harvest_texas.json`). It reads
+   `properties` only to resolve `property_id` for each harvested
+   `(state, source, county, case_no)`; a harvested row with no property row
+   (not yet synced, or dropped by the governance gate) gets no event. It
+   writes with the service role, like every sync script. The step is
+   `continue-on-error`, so a writer failure can never fail the property
+   pipeline. The Texas job's trigger is unchanged (`workflow_dispatch` only).
+2. **Sightings.** One per harvested auction row with a sale date: FL
+   RealAuction (feed `waiting`, raw_status "Auctions Waiting"), Okaloosa
+   Bid4Assets (feed `list`), TX RealAuction (feed `waiting`), TX LGBS rows
+   whose raw status is "Scheduled for Auction" or "Scheduled for Online
+   Auction" (feed `api`, raw_status verbatim). Any other LGBS status is
+   skipped, never labelled scheduled. LAFT/certificate rows and TX struck-off
+   or future-sale rows have no sale date and produce no event.
+3. **Event identity and idempotency.** `(property_id, scheduled_sale_date)`.
+   Seen again: the existing event gets `lifecycle = 'scheduled'`,
+   `last_seen_at`, the current link, and `opening_bid` only if it was null;
+   one new observation is appended. A new date for the same property is a
+   new event; the earlier event is never overwritten or deleted. One
+   `observed_at` per run, so duplicates within a harvest collapse to one
+   observation per event per run.
+4. **Lifecycle is explicit.** Every event row and observation carries a
+   lifecycle from the Section 26 vocabulary; the database default is not
+   relied on. Absence-based transitions need evidence and a completeness
+   gate: an earlier `scheduled` event becomes `superseded` only when its date
+   has not passed, its county's harvest this run was COMPLETE, and the
+   property is listed under a different date this run. A `scheduled` event
+   whose date has passed and which is absent from a COMPLETE county harvest
+   becomes `completed` - the same evidence the close-out uses for
+   `properties.status = 'closed'` - and its outcome stays `unknown`. Absence
+   from one harvest alone changes nothing. Texas has no per-county
+   completeness file, so no absence-based transition is applied to Texas
+   events in this phase.
+5. **Outcomes are not captured.** Every event Phase B creates or touches has
+   `outcome = 'unknown'`; `outcome_raw`, `outcome_observed_at`,
+   `outcome_effective_date`, `winning_bid`, `bid_count` and
+   `winning_bidder_ref` are never written (refused in code, asserted in
+   tests). `winning_bidder_ref` stays NULL.
+6. **Seed.** `scripts/seed_auction_events.py` creates an event for every
+   current `source = 'auction'` property with a `sale_date`, using the same
+   identity and the same payload rules, with one observation whose
+   `feed = 'seed'` and whose `raw_status` is the property's own `status` word,
+   so a seeded observation is never mistaken for a harvest sighting.
+   Lifecycle per row: active + date not passed → `scheduled`; active + date
+   passed → `pending_result`; closed + date passed → `completed`; closed +
+   date not passed → `scheduled` (re-listed under a later date); anything
+   else → `unknown`. `first_seen_at`/`last_seen_at` are the seed time, not a
+   reconstructed first sighting. It is dry-run by default (`--apply` to
+   write), wired into no workflow, idempotent (existing events are skipped
+   entirely), and it re-derives the eligible population from the database
+   at run time.
+7. **Boundaries.** No frontend surface reads these tables, `get_properties`
+   is unchanged, no analytics RPC exists, and no LGBS resolved statuses,
+   LAFT sold rows or RealAuction closed sections are harvested.
+
+Tests: `tests/python/test_phase_b_auction_event_writers.py` (writer and seed
+against an in-memory Store with the migration's uniqueness rules; artifact
+shape parsing; workflow wiring; pipeline files untouched; no bidder/outcome
+field writable). Production status at the time of writing: Phase B is
+implemented in a pull request that is not merged; the writer has not run
+against production and the seed has not been applied.
 
 ## Testing strategy
 
