@@ -384,10 +384,17 @@ does not change anything above.
    in this schema, and nothing planned, infers an outcome from absence.
 6. **Access.** RLS is enabled on both tables with exactly one PERMISSIVE
    SELECT policy each, to `authenticated`, gated on `public.is_approved()`.
-   No INSERT/UPDATE/DELETE policy exists; `anon` holds no privilege;
-   `authenticated` holds SELECT only; `service_role` (which bypasses RLS)
-   holds SELECT/INSERT/UPDATE/DELETE and is the only writer any later phase
-   may use, the same posture every sync script already has on `properties`.
+   No INSERT/UPDATE/DELETE policy exists; `anon` holds no privilege on
+   either table or on the observation table's identity sequence;
+   `authenticated` holds SELECT only on the tables and nothing on the
+   sequence; `service_role` (which bypasses RLS) holds the writer
+   privileges - SELECT/INSERT/UPDATE/DELETE on both tables and USAGE/SELECT
+   on `auction_event_observations_id_seq` - and, through the project's
+   default privileges, the same remaining privileges it already holds on
+   every production table. It is the only writer any later phase may use,
+   the same posture every sync script already has on `properties`. The
+   migration revokes the project's default table and sequence privileges
+   from `public`, `anon` and `authenticated` explicitly.
 7. **Bidder participation is not represented by this schema.** There is no
    bids table, no bidder table, no bidder or purchaser name, and
    `winning_bidder_ref` must stay NULL until a data-handling review (LAFT

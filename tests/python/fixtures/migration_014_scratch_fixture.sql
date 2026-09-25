@@ -23,6 +23,15 @@ end $$;
 
 grant usage on schema public to anon, authenticated, service_role;
 
+-- Supabase's own default privileges (read from pg_default_acl on the
+-- production project, 2026-09-25): every new table and sequence in public
+-- is granted to anon, authenticated and service_role at creation. Reproduced
+-- so that a migration's explicit REVOKEs are actually exercised here - on a
+-- bare cluster the client roles would hold nothing to begin with and a
+-- missing revoke would pass unnoticed.
+alter default privileges in schema public grant all on tables to anon, authenticated, service_role;
+alter default privileges in schema public grant all on sequences to anon, authenticated, service_role;
+
 create schema if not exists auth;
 -- Same signature and claim source as Supabase's own auth.uid().
 create or replace function auth.uid() returns uuid

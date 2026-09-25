@@ -294,7 +294,12 @@ grant select on table public.auction_events to authenticated;
 grant select on table public.auction_event_observations to authenticated;
 grant select, insert, update, delete on table public.auction_events to service_role;
 grant select, insert, update, delete on table public.auction_event_observations to service_role;
--- The identity column's sequence, for the future service_role writer.
+-- The identity column's sequence. The project's default privileges grant
+-- every new sequence in public to anon/authenticated as well (confirmed on
+-- pg_default_acl, 2026-09-25), which would let a client advance or reset the
+-- observation id counter even though it cannot insert. Revoke first, then
+-- grant only the future service_role writer what an identity insert needs.
+revoke all on sequence public.auction_event_observations_id_seq from public, anon, authenticated;
 grant usage, select on sequence public.auction_event_observations_id_seq to service_role;
 
 commit;

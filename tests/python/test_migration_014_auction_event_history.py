@@ -246,6 +246,11 @@ def test_s11_grants_anon_nothing_authenticated_select_service_role_dml():
     assert "grant select, insert, update, delete on table public.auction_events to service_role" in grants
     assert "grant select, insert, update, delete on table public.auction_event_observations to service_role" in grants
     assert "grant usage, select on sequence public.auction_event_observations_id_seq to service_role" in grants
+    # The identity sequence: the project's default privileges would otherwise
+    # hand it to the client roles, so the revoke must come before the grant.
+    seq_revoke = "revoke all on sequence public.auction_event_observations_id_seq from public, anon, authenticated"
+    assert seq_revoke in revokes
+    assert st.index(seq_revoke) < st.index("grant usage, select on sequence public.auction_event_observations_id_seq to service_role")
     assert not any(" to anon" in g or " to public" in g for g in grants)
 
 
@@ -392,12 +397,35 @@ def test_l03_rls_policies_and_grants(scratch):
         "auction_events:PERMISSIVE:SELECT:authenticated:is_approved()",
     ]
     out = scratch("select grantee||':'||table_name||':'||string_agg(privilege_type, ',' order by privilege_type) from information_schema.table_privileges where table_name like 'auction_event%' and grantee in ('anon','authenticated','service_role','PUBLIC') group by grantee, table_name order by grantee, table_name;")
-    assert out.split() == [
-        "authenticated:auction_event_observations:SELECT",
-        "authenticated:auction_events:SELECT",
-        "service_role:auction_event_observations:DELETE,INSERT,SELECT,UPDATE",
-        "service_role:auction_events:DELETE,INSERT,SELECT,UPDATE",
-    ]
+    rows = dict(line.rsplit(":", 1) for line in out.split())
+    # anon and PUBLIC: nothing at all; authenticated: SELECT only.
+    assert set(rows) == {"authenticated:auction_event_observations", "authenticated:auction_events",
+                         "service_role:auction_event_observations", "service_role:auction_events"}
+    assert rows["authenticated:auction_event_observations"] == "SELECT"
+    assert rows["authenticated:auction_events"] == "SELECT"
+    # service_role: the writer's DML at minimum. Supabase's default privileges
+    # also hand it the rest (REFERENCES/TRIGGER/TRUNCATE), which the migration
+    # deliberately leaves alone - service_role already holds ALL on every
+    # production table - so this asserts a superset, not an exact set.
+    for table in ("auction_event_observations", "auction_events"):
+        assert {"DELETE", "INSERT", "SELECT", "UPDATE"} <= set(rows[f"service_role:{table}"].split(","))
+    # The identity sequence: the fixture reproduces Supabase's default
+    # privileges (anon/authenticated/service_role get every new sequence), so
+    # this proves the migration's explicit revoke actually took effect.
+    out = scratch("""
+      select r||':'||string_agg(p, ',' order by p)
+      from (values ('anon'),('authenticated'),('service_role')) roles(r)
+      cross join (values ('USAGE'),('SELECT'),('UPDATE')) privs(p)
+      where has_sequence_privilege(r, 'public.auction_event_observations_id_seq', p)
+      group by r order by r;
+    """)
+    seq = dict(line.split(":", 1) for line in out.split())
+    assert set(seq) == {"service_role"}, out  # anon and authenticated hold nothing
+    assert {"SELECT", "USAGE"} <= set(seq["service_role"].split(","))
+    out = scratch("select coalesce(array_to_string(relacl, ';'), '(none)') from pg_class where relname = 'auction_event_observations_id_seq';")
+    # No anon, no authenticated, and no PUBLIC entry (an ACL item with an
+    # empty grantee, rendered as "=rwU/owner").
+    assert "anon=" not in out and "authenticated=" not in out and not re.search(r"(^|;)=", out.strip()), out
 
 
 def test_l04_event_identity_and_relisting(scratch):
@@ -418,6 +446,11 @@ def test_l05_vocabulary_checks_reject_property_status_words(scratch):
         assert "violates check constraint" in out, (column, value)
     out = scratch("update public.auction_events set bid_count = -1 where scheduled_sale_date = '2026-11-03';")
     assert "violates check constraint" in out
+    # The feed-presence window cannot run backwards.
+    out = scratch("update public.auction_events set last_seen_at = first_seen_at - interval '1 second' where scheduled_sale_date = '2026-11-03';")
+    assert 'violates check constraint "auction_events_seen_window_check"' in out
+    out = scratch("update public.auction_events set last_seen_at = first_seen_at + interval '1 hour' where scheduled_sale_date = '2026-11-03'; select (last_seen_at > first_seen_at)::text from public.auction_events where scheduled_sale_date = '2026-11-03';")
+    assert re.search(r"^true$", out, re.M), out
     out = scratch("update public.auction_events set lifecycle = 'superseded', outcome = 'unknown' where scheduled_sale_date = '2026-10-06'; select lifecycle||'/'||(updated_at >= created_at) from public.auction_events where scheduled_sale_date = '2026-10-06';")
     assert "superseded/t" in out
 
