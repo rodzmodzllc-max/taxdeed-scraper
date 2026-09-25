@@ -90,6 +90,17 @@ foreach ($p in $harvest) {
         sale_date     = ConvertTo-IsoDate $p.sale_date
         url_appraiser = $p.appraiser
         url_auction   = $p.auction_url
+        # Phase 72: every writer of url_auction also writes what that URL
+        # opens (migration 013). harvest_all_counties.ps1 stores the
+        # RealAuction sale-date PREVIEW page (index.cfm?zaction=AUCTION&
+        # zmethod=PREVIEW&AuctionDate=...) - a SALE-EVENT page, not a
+        # per-property page - so that is 'sale'. Any other non-empty
+        # auction_url a deed harvester ever produces is a county page
+        # ('county'); an empty one stays null so the UI can say
+        # "Auction link not published" rather than show a guess.
+        url_auction_kind = if ([string]::IsNullOrWhiteSpace($p.auction_url)) { $null }
+                           elseif ($p.auction_url -imatch 'zaction=auction&zmethod=preview&auctiondate=') { "sale" }
+                           else { "county" }
     }
 }
 

@@ -411,7 +411,13 @@ const LEDGERS = {
     tx: {
       title: "Event Terminal — Sheriff/Constable Sales",
       sub: "Open to competitive bidding at a county Sheriff's or Constable's sale.",
-      how: "You bid against other buyers, in person or via the county's vendor (LGBS, PBFCM, GovEase). The figure shown is the court-ordered minimum bid, not the final price.",
+      // Phase 72: name only the sources that actually supply rows today
+      // (LGBS listings and county RealAuction sheriff-sale sites - the two
+      // harvester_source values on production Texas rows). PBFCM, GovEase,
+      // MVBA and others are blocked or unimplemented in
+      // harvesters/governance/registry.py and supply nothing; naming them
+      // here read as if they did.
+      how: "You bid against other buyers, in person at the county's sale or on the county's designated online sale site. Current Texas sources: LGBS sale listings (taxsales.lgbs.com) and county RealAuction sheriff-sale sites. The figure shown is the court-ordered minimum bid, not the final price.",
       // Phase 14A correction: the harvester/sync code has been real and run
       // against production since 2026-09-09/09-14 (see
       // harvesters/texas_harvester.py) - "isn't live yet" was stale and
@@ -433,7 +439,9 @@ const LEDGERS = {
     tx: {
       title: "OTC Catalog — Struck-Off Inventory",
       sub: "Failed to sell at auction; the taxing unit now holds it. Often purchasable directly (resale), subject to the same statutory redemption rights.",
-      how: "No competitive bidding - offered by the taxing unit (often via LGBS/PBFCM resale lists) at or above the minimum. A struck-off property already sold once can still be redeemed by the former owner, same as at auction.",
+      // Phase 72: see the auction ledger's note above - only LGBS supplies
+      // struck-off rows today.
+      how: "No competitive bidding - offered by the taxing unit at or above the minimum. Rows here come from LGBS's struck-off and future-sale listings; the status on each card says which. A struck-off property already sold once can still be redeemed by the former owner, same as at auction.",
       // Phase 14A correction - see the parallel note on the auction ledger's
       // `tx.empty` string above for why this changed.
       empty: "No Texas struck-off inventory matches yet. Texas harvesting runs on-demand (not yet on an automatic schedule) - this list reflects the most recent manual harvest run, so an empty result can mean no recent run, not unavailable harvesting."
@@ -1323,9 +1331,61 @@ function lastSyncedText(p) {
 // just the raw value with underscores turned into spaces and each word
 // capitalized. Returns null (not a placeholder string) when the field is
 // absent, so callers can omit the row entirely rather than print "Unknown".
+// Phase 72: the two Texas values are confirmed against production (they are
+// the only two harvester_source values on any Texas row), so they get their
+// real names. Every other value keeps the raw title-cased fallback above -
+// the Florida list is still not confirmed end to end.
+const HARVESTER_SOURCE_NAMES = {
+  tx_lgbs: "LGBS (taxsales.lgbs.com)",
+  tx_realauction: "RealAuction county sheriff-sale site"
+};
 function harvesterSourceLabel(p) {
   if (!p || !p.harvester_source) return null;
-  return String(p.harvester_source).replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+  const raw = String(p.harvester_source);
+  if (HARVESTER_SOURCE_NAMES[raw]) return HARVESTER_SOURCE_NAMES[raw];
+  return raw.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+}
+
+// Phase 72: what the auction link IS, read from the database's own
+// url_auction_kind (migration 013) - never inferred here from
+// harvester_source, county or URL shape. The label has to make the link's
+// scope unmistakable: 'sale' opens the county's sale-date listing where this
+// property appears among others, not a page for this property alone, so it
+// is never worded as "bid on this property". No URL, or a 'sale' link whose
+// sale date has passed (the page then shows results, not a bid), renders as
+// muted text and never as an anchor. A URL whose kind was never recorded
+// (a row written before migration 013 by a writer that predates it) gets the
+// neutral "View listing", which claims nothing about scope.
+const AUCTION_LINK_KINDS = ["property", "sale", "county", "info"];
+function auctionLinkInfo(p) {
+  const href = p && p.url_auction ? String(p.url_auction).trim() : "";
+  const kind = p && AUCTION_LINK_KINDS.includes(p.url_auction_kind) ? p.url_auction_kind : null;
+  if (!href) return { href: null, kind: null, label: "Auction link not published", note: null };
+  if (kind === "sale") {
+    const d = p.sale_date ? daysUntil(p) : null;
+    if (isGone(p) || (d !== null && d < 0)) {
+      return { href: null, kind, label: "Sale listing no longer current" + (p.sale_date ? " · sale date " + fmtDate(p.sale_date) + " has passed" : ""), note: null };
+    }
+    return {
+      href, kind,
+      label: p.sale_date ? "View sale listing for " + fmtDate(p.sale_date) : "View sale listing",
+      note: "Opens the county's sale-date listing, where this property appears among the others scheduled that day - not a page for this property alone."
+    };
+  }
+  if (kind === "property") return { href, kind, label: "View property listing", note: null };
+  if (kind === "county") {
+    const label = p.source === "certificate" ? "View county-held liens list"
+      : p.source === "laft" ? "View county Lands Available list"
+      : "View county auction site";
+    return { href, kind, label, note: "A county page where this property can be found - not a page for this property alone." };
+  }
+  if (kind === "info") return { href, kind, label: "View county tax-sale information", note: null };
+  return { href, kind: null, label: "View listing", note: "The scope of this link has not been recorded." };
+}
+function auctionLinkHtml(p, cls) {
+  const l = auctionLinkInfo(p);
+  if (!l.href) return `<span class="${cls}-none auction-link-none" data-auction-link="none">${esc(l.label)}</span>`;
+  return `<a class="${cls}" href="${esc(l.href)}" target="_blank" rel="noopener" data-auction-link="${esc(l.kind || "unknown")}"${l.note ? ` title="${esc(l.note)}"` : ""}>${cls === "detail-cta" ? svgIcon("gavel") : ""}${esc(l.label)}</a>`;
 }
 
 function saleTime(p) {
@@ -2038,18 +2098,31 @@ function kickerParts(p) {
     return { type: "Certificate", phase: p.expiration_date ? "Expires " + fmtDate(p.expiration_date) : "Expiry not published", cls: "phase-upcoming" };
   }
   const type = p.source === "laft" ? "Lands Available" : "Auction";
+  // Phase 72: tx_sale_status is the Texas vendor's own raw status (migration
+  // 013). A Texas "laft" row is struck-off inventory or a not-yet-scheduled
+  // future sale, never Florida's statutory fixed-price list, so the Florida
+  // wording is not used for it; and a Texas auction row says whether the
+  // vendor scheduled it online or in person when the status records that.
+  const txStatus = p.tx_sale_status ? String(p.tx_sale_status) : "";
+  const isTx = regionOf(p) === "TX";
   let phase, cls;
   if (isGone(p)) { phase = "Closed"; cls = "phase-closed"; }
-  else if (p.source === "laft") { phase = "Fixed price · available now"; cls = "phase-fixed"; }
+  else if (p.source === "laft") {
+    if (!isTx) { phase = "Fixed price · available now"; cls = "phase-fixed"; }
+    else if (/future sale/i.test(txStatus)) { phase = "Future sale · not yet scheduled"; cls = "phase-none"; }
+    else if (/struck off/i.test(txStatus)) { phase = "Struck off · resale inventory"; cls = "phase-fixed"; }
+    else { phase = "Struck-off inventory · sale status not recorded"; cls = "phase-none"; }
+  }
   else if (!p.sale_date) { phase = "Sale not scheduled"; cls = "phase-none"; }
   else {
     const d = daysUntil(p);
     const when = fmtDate(p.sale_date);
-    if (d === null) { phase = "Sale " + when; cls = "phase-upcoming"; }
+    const mode = /online auction/i.test(txStatus) ? " · online" : /^scheduled for auction$/i.test(txStatus) ? " · in person" : "";
+    if (d === null) { phase = "Sale " + when + mode; cls = "phase-upcoming"; }
     else if (d < 0) { phase = "Past sale date · " + when; cls = "phase-past"; }
-    else if (d === 0) { phase = "Sale today · " + when; cls = "phase-today"; }
-    else if (d <= SOON_DAYS) { phase = "Sale " + when; cls = "phase-soon"; }
-    else { phase = "Sale " + when; cls = "phase-upcoming"; }
+    else if (d === 0) { phase = "Sale today · " + when + mode; cls = "phase-today"; }
+    else if (d <= SOON_DAYS) { phase = "Sale " + when + mode; cls = "phase-soon"; }
+    else { phase = "Sale " + when + mode; cls = "phase-upcoming"; }
   }
   return { type, phase, cls };
 }
@@ -2123,7 +2196,8 @@ function previewFacts(p) {
       bidLabel: "Amount", bid: hasPublishedBid(p) ? fmtMoney(p.bid) : null,
       value: null, valueLabel: null,
       parcelLabel: "Account", parcel: p.case_no || null, caseNo: null,
-      source: harvesterSourceLabel(p), flood: null, more
+      source: harvesterSourceLabel(p), flood: null, more,
+      link: auctionLinkInfo(p)
     };
   }
   const hasMarket = hasNum(p.market), hasAssessed = hasNum(p.assessed);
@@ -2148,7 +2222,10 @@ function previewFacts(p) {
     caseNo: p.case_no ? String(p.case_no) : null,
     source: harvesterSourceLabel(p),
     flood: floodShort(p),
-    more
+    more,
+    // Phase 72: the Map preview shows the same auction link, with the same
+    // kind-driven wording, as the card and the full page.
+    link: auctionLinkInfo(p)
   };
 }
 
@@ -2229,7 +2306,7 @@ function card(p, showCounty) {
       ${p.url_appraiser ? `<a href="${esc(p.url_appraiser)}" target="_blank" rel="noopener">${linkIcon("Appraiser")}Appraiser</a>` : ''}
       ${fallbackZillowUrl(p) ? `<a href="${esc(fallbackZillowUrl(p))}" target="_blank" rel="noopener"${isEstimatedLink("Zillow", p) ? ' title="Estimated search link, built from the address - not confirmed by the county"' : ""}>${linkIcon("Zillow")}Zillow</a>` : ''}
     </div>
-    ${p.url_auction ? `<a class="cta-btn" href="${esc(p.url_auction)}" target="_blank" rel="noopener">${p.source === "laft" ? "View Clerk Docket / Listing" : "Bid on County Auction Site"}</a>` : ''}
+    ${auctionLinkHtml(p, "cta-btn")}
     <button class="detail-btn" data-action="viewdetails" data-pid="${p.id}" type="button">View full property page →</button>`;
   return el;
 }
@@ -2324,7 +2401,7 @@ function certCard(p, showCounty) {
       <div class="card-stat"><div class="card-stat-label">Est. Accrued Interest</div><div class="card-stat-val">${accruedInterestEst(p) !== null ? fmtShort(accruedInterestEst(p)) : "N/A"}</div></div>
       <div class="card-stat"><div class="card-stat-label">TDA Eligibility</div><div class="card-stat-val">${tdaEligibleText(p)}</div></div>
     </div>
-    ${p.url_auction ? `<a class="cta-btn" href="${esc(p.url_auction)}" target="_blank" rel="noopener">View on County-Held Liens List</a>` : ''}
+    ${auctionLinkHtml(p, "cta-btn")}
     <button class="detail-btn" data-action="viewdetails" data-pid="${p.id}" type="button">View full property page →</button>`;
   return el;
 }
@@ -2434,6 +2511,10 @@ function dataGaps(p) {
   if (!hasPublishedBid(p)) gaps.push(p.source === "laft" ? "Purchase price not published" : "Opening bid not published");
   if (!hasNum(p.market) && !hasNum(p.assessed)) gaps.push("No county value on file");
   if (p.source === "auction" && !p.sale_date) gaps.push("Sale date not scheduled");
+  // Phase 72: no url_auction means the source published no link this
+  // pipeline could verify (every Texas LGBS row today). Said here as well as
+  // in the CTA slot, so the "Missing" list is complete.
+  if (!p.url_auction) gaps.push("Auction link not published");
   if (!hasPhoto(p)) gaps.push(p.photo_url === "" ? "No Street View coverage" : "Photo not checked yet");
   if (!(hasNum(p.latitude) && hasNum(p.longitude))) gaps.push("Not yet geocoded");
   const fl = floodShort(p);
@@ -2453,16 +2534,23 @@ function opportunitySummaryHtml(p) {
   const src = harvesterSourceLabel(p);
   const street = realAddress(p);
   const where = `${street ? esc(street) : `<span class="muted">No street address in listing</span>`}<span class="opp-sub">${esc(p.county)} County, ${esc(region)}${hasParcel(p) ? ` · Parcel ${esc(p.parcel)}` : ""}${p.case_no ? ` · Case ${esc(p.case_no)}` : ""}</span>`;
+  // Phase 72: a Texas row carries the vendor's own raw sale status
+  // (tx_sale_status, verbatim). It is shown as-is next to the date, and a
+  // struck-off / future-sale row is described by that status - never as an
+  // auction that is "available now".
+  const txStatus = p.tx_sale_status ? String(p.tx_sale_status) : "";
   let when, whenCls = "";
   if (isGone(p)) { when = outcomeText(p); whenCls = "bad"; }
+  else if (isLaft && txStatus) { when = `${txStatus} · no auction date`; whenCls = /future sale/i.test(txStatus) ? "muted" : "ok"; }
   else if (isLaft) { when = "Available now - no auction date"; whenCls = "ok"; }
-  else if (!p.sale_date) { when = "Sale not scheduled"; whenCls = "muted"; }
+  else if (!p.sale_date) { when = txStatus ? `Sale not scheduled · ${txStatus}` : "Sale not scheduled"; whenCls = "muted"; }
   else {
     const d = daysUntil(p);
     when = fmtDate(p.sale_date);
     if (d === 0) { when += " · today"; whenCls = "bad"; }
     else if (d !== null && d < 0) { when += ` · ${-d}d ago (past sale date)`; whenCls = "bad"; }
     else if (d !== null) { when += ` · in ${d}d`; whenCls = d <= SOON_DAYS ? "warn" : ""; }
+    if (txStatus) when += ` · ${txStatus}`;
   }
   const bid = hasPublishedBid(p) ? fmtMoney(p.bid) : null;
   let value, valueCls = "";
@@ -2750,7 +2838,7 @@ function detailHtml(p) {
     ${detailSectionHtml("Research & Sources", `<div class="detail-links">
       ${links.length ? links.map(([label, href]) => `<a href="${esc(href)}" target="_blank" rel="noopener">${linkIcon(label)}${esc(label)}${isEstimatedLink(label, p) ? esc(" (estimated search)") : ""} →</a>`).join("") : `<span style="font-size:.78rem;color:var(--ink-soft)">No reference links harvested for this property yet.</span>`}
     </div>`, "", "sources")}
-    ${p.url_auction ? `<a class="detail-cta" href="${esc(p.url_auction)}" target="_blank" rel="noopener">${svgIcon("gavel")}${p.source === "laft" ? "View Clerk Docket / Listing" : "Bid on County Auction Site"}</a>` : ""}
+    ${auctionLinkHtml(p, "detail-cta")}
     ${isCert ? `<div class="detail-provenance">
       ${harvesterSourceLabel(p) ? `<span>Data source: ${esc(harvesterSourceLabel(p))}</span>` : ""}
       <span class="${isRowStale(p) ? "stale" : ""}">${esc(lastSyncedText(p))}</span>
@@ -4057,6 +4145,8 @@ if (exportCsvBtn) exportCsvBtn.addEventListener("click", () => {
     ["TX Redemption Period (months)", p => p.redemption_period_months ?? ""],
     ["TX Redemption Expires", p => p.redemption_expiration_date || ""],
     ["TX Max Statutory Return ($, informational only)", p => p.max_statutory_return_usd ?? ""],
+    // Phase 72: the Texas vendor's raw sale status, verbatim (migration 013).
+    ["TX Sale Status", p => p.tx_sale_status || ""],
     ["Tax Year", p => p.tax_year || ""],
     ["Issued Date", p => p.issued_date || ""],
     ["Expiration Date", p => p.expiration_date || ""],
@@ -4067,7 +4157,12 @@ if (exportCsvBtn) exportCsvBtn.addEventListener("click", () => {
     ["Appraiser", p => p.url_appraiser || ""],
     ["Zillow", p => fallbackZillowUrl(p)],
     ["Tax Collector", p => p.url_taxcoll || ""],
-    ["Auction/LAFT Listing", p => p.url_auction || ""],
+    // Phase 72: the URL and, beside it, what it opens (property / sale /
+    // county / info - migration 013), so a sale-event page is never read as
+    // a per-property listing. "Auction Listing URL" replaces the old
+    // "Auction/LAFT Listing" heading, whose value was the same column.
+    ["Auction Listing URL", p => p.url_auction || ""],
+    ["Auction URL Type", p => p.url_auction ? (p.url_auction_kind || "") : ""],
     ["Title Search", p => p.url_title || ""]
   ];
   // Phase 63: the row-terminator below is "\r\n", and this regex used to

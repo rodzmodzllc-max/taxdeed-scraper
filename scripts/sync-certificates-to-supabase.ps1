@@ -133,6 +133,11 @@ parcel = if ([string]::IsNullOrWhiteSpace($p.parcel)) { $null } else { $p.parcel
 assessed = ToNum $p.assessed
 interest_rate = ToNum $p.interest_rate
 url_auction = $p.url_auction
+# Phase 72: harvest_lienhub_certificates.ps1 sets url_auction to LienHub's
+# county-held certificate LIST for the county - a county page where the
+# certificate can be found, not a per-certificate page - so 'county'
+# whenever a URL is present (migration 013).
+url_auction_kind = if ([string]::IsNullOrWhiteSpace($p.url_auction)) { $null } else { "county" }
 }
 }
 

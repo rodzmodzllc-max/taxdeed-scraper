@@ -324,6 +324,26 @@ class TexasSaleRow:
     longitude: float | None = None
     source: str = ""  # 'auction' | 'laft' | 'certificate' - which FL-shaped ledger this row belongs to
     harvester_source: str = ""  # 'tx_pbfcm' | 'tx_lgbs' | 'tx_govease' - which vendor produced it
+    # Phase 72 (auction-link provenance). `auction_url` is a URL the harvester
+    # itself fetched or read from the source - never composed from a county
+    # name or a provider homepage - and `auction_url_kind` says what it opens
+    # ('property' | 'sale' | 'county' | 'info', see migration 013). Both stay
+    # None when the source published nothing usable: sync-texas-to-supabase.py
+    # then omits url_auction entirely, so the DB column stays null and the UI
+    # says "Auction link not published" rather than showing a guess.
+    #   harvest_realauction(): the county's sale-date PREVIEW page it already
+    #     fetched (the same page Florida stores as url_auction), kind 'sale'.
+    #   harvest_lgbs(): None - no per-property or per-sale LGBS URL is known.
+    auction_url: str | None = None
+    auction_url_kind: str | None = None
+    # The vendor's own raw sale status, verbatim (LGBS: "Scheduled for
+    # Auction" / "Scheduled for Online Auction" / "Available for Future Sale" /
+    # "Struck off to Jurisdiction"). `source` above collapses those into a
+    # ledger; this keeps the distinction the UI needs to avoid describing a
+    # struck-off or not-yet-scheduled row as a scheduled auction. Maps to DB
+    # `tx_sale_status`. None for RealAuction (its "Sale Type" field has been
+    # observed blank; it is not a status vocabulary and is not stored here).
+    sale_status: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -356,6 +376,9 @@ FIELD_LINEAGE_MAP: dict[str, dict[str, str | None]] = {
         "latitude": "geometry.coordinates[1] (parsed via _lgbs_to_float())",
         "longitude": "geometry.coordinates[0] (parsed via _lgbs_to_float())",
         "source": "status (mapped via LGBS_STATUS_TO_LEDGER)",
+        "auction_url": None,  # no per-property or per-sale LGBS URL is known - never composed (Phase 72)
+        "auction_url_kind": None,
+        "sale_status": "status (verbatim, unmapped - Phase 72)",
     },
     "tx_realauction": {
         "account_number": "'Account Number' field (via _realauction_get_field())",
@@ -369,6 +392,9 @@ FIELD_LINEAGE_MAP: dict[str, dict[str, str | None]] = {
         "latitude": None,  # not published by this vendor - see geocode_properties.py for the ENRICHED-stage backfill
         "longitude": None,
         "source": "constant 'auction' - see harvest_realauction()'s own docstring for why (no struck-off/resale feed)",
+        "auction_url": "the sale-date PREVIEW page fetched for this row's county host + AuctionDate (Phase 72)",
+        "auction_url_kind": "constant 'sale' - a sale-event page, not a per-property page (Phase 72)",
+        "sale_status": None,  # 'Sale Type' is read but observed blank and is not a status vocabulary (Phase 72)
     },
 }
 
@@ -693,6 +719,10 @@ def harvest_lgbs(limit: int | None = None, stats: dict | None = None) -> list[Te
                     longitude=_lgbs_to_float(lon),
                     source=ledger,
                     harvester_source="tx_lgbs",
+                    # Phase 72: keep the vendor's own status verbatim alongside
+                    # the ledger it was mapped to. No auction_url: LGBS publishes
+                    # no per-property/per-sale page this harvester can read.
+                    sale_status=status,
                 )
             )
             counties_seen.add(county)
@@ -993,6 +1023,13 @@ def harvest_realauction(limit: int | None = None) -> list[TexasSaleRow]:
                             cause_number=fields_found["Cause Number"],
                             source="auction",  # every row here has a scheduled AuctionDate - see docstring
                             harvester_source="tx_realauction",
+                            # Phase 72: the sale-date preview page this loop fetched
+                            # a few lines up - the page this row was read from, and
+                            # the same URL template Florida stores as url_auction.
+                            # It is the SALE EVENT for this county and date, not a
+                            # per-property page, hence kind 'sale'.
+                            auction_url=preview_url,
+                            auction_url_kind="sale",
                         )
                     )
                     county_kept += 1
