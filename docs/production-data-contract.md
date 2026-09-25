@@ -53,7 +53,7 @@ No RAW stage is ever persisted (confirmed again this phase - no harvester writes
 - **Same account/parcel appearing at two different sources** (e.g. hypothetically both `tx_lgbs` and a future `tx_pbfcm`) -> two independent rows, since `source`/`harvester_source` are not part of the identity key comparison that matters here in the way `case_no` is; `(state, source, county, case_no)` treats them as different rows by construction whenever `source` differs, and there is no reconciliation step that would recognize they describe the same parcel.
 - **Same account, different county-vendor case_no shape** - not observed in production data as of this phase; not testable without live data, so not asserted either way.
 
-This is a genuine, real architectural limitation worth naming plainly (see Section 24), not resolved by this phase: **the data model conflates "the property" and "the listing" into one row.** A future sale-event/property split (a real design change) is documented as a future option, not built.
+This is a genuine, real architectural limitation worth naming plainly (see Section 24), not resolved by this phase: **the data model conflates "the property" and "the listing" into one row.** A future sale-event/property split (a real design change) is documented as a future option, not built. (Update 2026-09-25: the schema half of that split now exists as migration 014, Section 26 - two empty tables with no writers yet. `properties` itself is unchanged.)
 
 ## 5. Field inventory (customer-visible surface)
 
@@ -337,6 +337,82 @@ Documented as options, per Step 23 - none built this phase:
 - **Splitting `assessed` into two columns** (limitation #2), or renaming/re-labeling the Texas "County Assessed Value" display once its exact source-field semantics (especially LGBS's raw `"value"`) are independently confirmed against vendor documentation, if any is ever found.
 - **A Texas coordinate sanity bound**, mirroring the existing Florida one, the next time `geocode_properties.py` or LGBS's coordinate handling is touched.
 - **Populating `tx_category`/the redemption fields** - would require either fixing `enrich_property_details_tx.py` or building its replacement; explicitly not attempted this phase (would be new implementation, not contract documentation).
+
+## 26. Auction-event history contract (migration 014, Phase A - schema only)
+
+Added 2026-09-25 after the read-only auction-event history audit. Migration
+`scripts/migrations/014_auction_event_history.sql` creates two tables and
+nothing else. This section states the contract those tables establish; it
+does not change anything above.
+
+1. **`properties` remains the current-state representation.** One row per
+   `(state, source, county, case_no)`, upserted in place by every sync
+   script, exactly as Sections 3, 4 and 12 describe. Migration 014 does not
+   alter `properties`, any of its columns, constraints, triggers, indexes or
+   policies, and does not alter `get_properties()`.
+2. **`auction_events` represents individual scheduled auction events.** One
+   row per scheduled sale of one property, referencing `properties(id)` with
+   `ON DELETE RESTRICT`. Its `state`/`source`/`harvester_source`/`county`/
+   `case_no`/`ledger_type` are copied from the property at event creation and
+   are immutable on the event, so history survives a later change to the
+   property row. `opening_bid` is a snapshot at first observation, not a
+   mirror of `properties.bid`. `event_url`/`event_url_kind` are the event's
+   own link and kind (same four-value vocabulary as `url_auction_kind`,
+   migration 013), separate from the property's current link.
+3. **`auction_event_observations` preserves source observations over time.**
+   Append-only by application design: one row per `(event_id, observed_at)`
+   recording the feed read, the source's own status string verbatim
+   (`raw_status`), the normalization applied at that moment, the figures
+   shown, and the URL it was read from. Application code inserts only; no
+   trigger rewrites it; rows are never updated. Its FK to `auction_events` is
+   also `ON DELETE RESTRICT`.
+4. **`(property_id, scheduled_sale_date)` is the current event identity**,
+   enforced by a UNIQUE constraint. A property re-offered under a new date is
+   a new event; the earlier event is marked lifecycle `superseded`, never
+   overwritten or deleted. URL, county spelling, case-number formatting and
+   parcel are deliberately not identity. No cross-source property matching is
+   attempted: the same parcel under two sources is two properties and two
+   event streams.
+5. **Vocabularies.** `lifecycle` is one of `scheduled`, `completed`,
+   `cancelled`, `withdrawn`, `stayed`, `pending_result`, `superseded`,
+   `unknown`. `outcome` is one of `sold`, `redeemed`, `struck_off`,
+   `future_sale`, `no_sale`, `unknown`, default `unknown`. `properties.status`
+   words (`active`, `closed`, `notfound`, `dropped`) are not in either list.
+   **A listing that left its feed is not equivalent to "sold"**: it is
+   lifecycle `completed` (or `pending_result`) with outcome `unknown` until a
+   source states the result. **`unknown` outcomes remain `unknown`**; nothing
+   in this schema, and nothing planned, infers an outcome from absence.
+6. **Access.** RLS is enabled on both tables with exactly one PERMISSIVE
+   SELECT policy each, to `authenticated`, gated on `public.is_approved()`.
+   No INSERT/UPDATE/DELETE policy exists; `anon` holds no privilege;
+   `authenticated` holds SELECT only; `service_role` (which bypasses RLS)
+   holds SELECT/INSERT/UPDATE/DELETE and is the only writer any later phase
+   may use, the same posture every sync script already has on `properties`.
+7. **Bidder participation is not represented by this schema.** There is no
+   bids table, no bidder table, no bidder or purchaser name, and
+   `winning_bidder_ref` must stay NULL until a data-handling review (LAFT
+   purchaser names, RealAuction winner identifiers, the LGBS redistribution
+   scope question in `docs/lgbs-rights-audit.md`) has cleared what, if
+   anything, may be stored there. Bidder-level metrics of any kind remain
+   unavailable from this project's data.
+8. **No customer-facing outcome analytics are enabled by this phase.** Both
+   tables are created empty, no harvester or sync script writes to them, no
+   RPC reads them, and the frontend does not reference them. Rates that
+   depend on outcome coverage are not computable from this phase and no
+   figure derived from these tables may be shown to a user until a later,
+   separately authorized phase provides both writers and the coverage
+   denominators those figures need.
+
+Tests: `tests/python/test_migration_014_auction_event_history.py`. Its static
+layer reads the migration file and always runs in CI. Its live layer applies
+the migration verbatim to a throwaway scratch database on a local PostgreSQL
+(fixture: `tests/python/fixtures/migration_014_scratch_fixture.sql`) and is
+skipped where no local database is reachable, including in
+`python-governance-test.yml`; it never contacts the Supabase project.
+
+Production status at the time of writing: migration 014 exists in the
+repository and has been applied only to a local scratch database. It has NOT
+been applied to production; that requires separate explicit authorization.
 
 ## Testing strategy
 
