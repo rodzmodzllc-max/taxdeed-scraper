@@ -1,0 +1,32 @@
+name: PowerShell harvester tests
+
+# Runs tests/pwsh/*.tests.ps1 - regression tests for the PowerShell field
+# extraction shared by harvest_all_counties.ps1 (scripts/realauction_fields.ps1)
+# against real auction blocks captured from the live sites. Same triggers and
+# fail-the-build contract as python-governance-test.yml; kept separate because
+# it needs pwsh, not Python, and no network.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  pwsh-tests:
+    if: "!contains(github.event.head_commit.message, 'Auto-sync: mirror public/ to repo root')"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Run PowerShell harvester tests
+        shell: pwsh
+        run: |
+          $failed = 0
+          Get-ChildItem tests/pwsh -Filter *.tests.ps1 | ForEach-Object {
+            Write-Host "=== $($_.Name) ==="
+            & pwsh -NoProfile -File $_.FullName
+            if ($LASTEXITCODE -ne 0) { $failed++ }
+          }
+          if ($failed -gt 0) { exit 1 }
