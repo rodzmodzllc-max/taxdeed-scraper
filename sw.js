@@ -210,7 +210,7 @@
 // Phase 57 (both providers, three-way toggle), Phase 60 (Mapbox ->
 // MapTiler) and Phase 61 (split the shared satellite canvas into one per
 // provider - see CLAUDE.md's Phase 61 section for the bug this fixed).
-const CACHE = "tdw-shell-v38"; // bumped for Phase 72: kind-driven auction links (app.js/explore.js/styles.css/explore.css changed). v37 was Phase 67's map workspace (stage + side panel layout, shared preview across all three basemaps, imagery ladder, Map-page state cue - app.js/explore.js/satellite-map.js/styles.css/explore.css/index.html/tx.html changed). v36 is main's Phase 71 whole-dollar card bids; v35 was reserved for this PR but is skipped so the cache name never moves backwards.
+const CACHE = "tdw-shell-v39"; // bumped for the launch-readiness honesty pass (app.js/index.html/tx.html/styles.css/manifest copy). v38 was Phase 72: kind-driven auction links (app.js/explore.js/styles.css/explore.css changed). v37 was Phase 67's map workspace (stage + side panel layout, shared preview across all three basemaps, imagery ladder, Map-page state cue - app.js/explore.js/satellite-map.js/styles.css/explore.css/index.html/tx.html changed). v36 is main's Phase 71 whole-dollar card bids; v35 was reserved for this PR but is skipped so the cache name never moves backwards.
 const SHELL = [
   "/",
   "/index.html",

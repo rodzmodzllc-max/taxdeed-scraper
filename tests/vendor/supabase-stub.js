@@ -45,6 +45,10 @@ const FIXTURE_PROPERTIES = [
     // placard, so the photo layout can be exercised and screenshotted
     // without a real Street View image - it is not a real property photo
     // and is labelled as such in the image itself.
+    // Every stored image in production is USDA NAIP aerial imagery
+    // (photo_source usda_naip), so the fixture mirrors that source - the
+    // card must caption it as aerial imagery, never as Street View.
+    photo_source: "usda_naip",
     photo_url: "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='640' height='400'><rect width='100%' height='100%' fill='%2394a3b8'/><text x='50%' y='50%' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='30' fill='%23ffffff'>FIXTURE PHOTO</text></svg>" },
   { id: "p7", source: "auction", county: "Duval", case_no: "F-1", parcel: "666", address: "12 Searchable Blvd", owner_name: "Ana Ruiz", bid: 3000, assessed: 20000, market: 21000, status: "active", lien_level: "clean", lien_note: "", prop_type: "Vacant Lot", sale_date: futureDate(9), homestead: false, url_auction: "https://notices.collierclerk.com/notice/notice-of-application-for-tax-deed-26004/", url_auction_kind: "property", updated_at: "2026-08-10T00:00:00Z" },
   { id: "p8", source: "auction", county: "Escambia", case_no: "G-1", parcel: "777", address: "9 Bayview Dr", owner_name: "Lee Chan", bid: 6000, assessed: 55000, market: 60000, status: "active", lien_level: "clean", lien_note: "", prop_type: "House", sale_date: futureDate(11), homestead: false, url_auction: "https://www.escambiaclerk.com/tax-deed-sales", url_auction_kind: "info", updated_at: "2026-08-10T00:00:00Z" },
