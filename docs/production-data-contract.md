@@ -436,7 +436,12 @@ existing harvester and sync script is byte-for-byte unchanged.
    (not yet synced, or dropped by the governance gate) gets no event. It
    writes with the service role, like every sync script. The step is
    `continue-on-error`, so a writer failure can never fail the property
-   pipeline. The Texas job's trigger is unchanged (`workflow_dispatch` only).
+   pipeline - but it is never silent: the writer appends its result (OK or
+   FAILED) to the job summary, and a following step raises a
+   `::warning title=Phase B event recording failed` annotation plus a job
+   summary section stating that the property harvest and sync succeeded and
+   only the event recording failed. The Texas job's trigger is unchanged
+   (`workflow_dispatch` only).
 2. **Sightings.** One per harvested auction row with a sale date: FL
    RealAuction (feed `waiting`, raw_status "Auctions Waiting"), Okaloosa
    Bid4Assets (feed `list`), TX RealAuction (feed `waiting`), TX LGBS rows
@@ -447,7 +452,11 @@ existing harvester and sync script is byte-for-byte unchanged.
 3. **Event identity and idempotency.** `(property_id, scheduled_sale_date)`.
    Seen again: the existing event gets `lifecycle = 'scheduled'`,
    `last_seen_at`, the current link, and `opening_bid` only if it was null;
-   one new observation is appended. A new date for the same property is a
+   one new observation is appended. **Re-sighting** is explicit
+   (`RESIGHT_LIFECYCLE`): an event previously derived `completed`,
+   `superseded` or `unknown` whose own (property, date) is listed on a
+   scheduled feed again goes back to `scheduled`; the derived observation
+   stays in its history. A new date for the same property is a
    new event; the earlier event is never overwritten or deleted. One
    `observed_at` per run, so duplicates within a harvest collapse to one
    observation per event per run.
@@ -458,30 +467,59 @@ existing harvester and sync script is byte-for-byte unchanged.
    has not passed, its county's harvest this run was COMPLETE, and the
    property is listed under a different date this run. A `scheduled` event
    whose date has passed and which is absent from a COMPLETE county harvest
-   becomes `completed` - the same evidence the close-out uses for
-   `properties.status = 'closed'` - and its outcome stays `unknown`. Absence
-   from one harvest alone changes nothing. Texas has no per-county
+   becomes `completed` ONLY if its `last_seen_at` is on or after its
+   scheduled sale date (it stayed listed through the sale day - Section 26's
+   definition); if it was last seen BEFORE the sale date it becomes
+   `unknown` instead, because it left the feed before the sale could happen
+   and withdrawn / postponed / redeemed / corrected cannot be told apart.
+   The sale-day comparison uses the date at UTC-6, the earliest local date
+   anywhere in Florida. Its outcome stays `unknown` in every case. Absence
+   from one harvest alone changes nothing. Derived transitions are recorded
+   as observations with `feed = 'derived'` and `raw_status` NULL - an
+   inference, never a sighting of a feed; `evidence_url` is the replacing
+   listing's URL for a supersession and NULL otherwise. Texas has no per-county
    completeness file, so no absence-based transition is applied to Texas
    events in this phase.
-5. **Outcomes are not captured.** Every event Phase B creates or touches has
+5. **Write order.** PostgREST offers no multi-table transaction without a
+   schema/RPC change, so the guarantee is ordering plus compensation, not
+   atomicity. For an existing event the observation is stored first and the
+   event is patched after it, so an event's lifecycle / `last_seen_at` never
+   advance without their observation; a failed patch only leaves the event
+   lagging its evidence until the next run. A new event must exist before
+   its observation (foreign key): each batch is inserted, its observations
+   written immediately (idempotent on `(event_id, observed_at)`), and if
+   that fails the batch's just-inserted events are deleted again, filtered
+   on this run's `first_seen_at`, before the error is raised. Only if that
+   compensating delete also fails can an event exist without an
+   observation, and the error says so.
+6. **Outcomes are not captured.** Every event Phase B creates or touches has
    `outcome = 'unknown'`; `outcome_raw`, `outcome_observed_at`,
    `outcome_effective_date`, `winning_bid`, `bid_count` and
    `winning_bidder_ref` are never written (refused in code, asserted in
    tests). `winning_bidder_ref` stays NULL.
-6. **Seed.** `scripts/seed_auction_events.py` creates an event for every
-   current `source = 'auction'` property with a `sale_date`, using the same
-   identity and the same payload rules, with one observation whose
-   `feed = 'seed'` and whose `raw_status` is the property's own `status` word,
-   so a seeded observation is never mistaken for a harvest sighting.
-   Lifecycle per row: active + date not passed → `scheduled`; active + date
-   passed → `pending_result`; closed + date passed → `completed`; closed +
-   date not passed → `scheduled` (re-listed under a later date); anything
-   else → `unknown`. `first_seen_at`/`last_seen_at` are the seed time, not a
-   reconstructed first sighting. It is dry-run by default (`--apply` to
-   write), wired into no workflow, idempotent (existing events are skipped
-   entirely), and it re-derives the eligible population from the database
-   at run time.
-7. **Boundaries.** No frontend surface reads these tables, `get_properties`
+7. **Seed (conservative).** `scripts/seed_auction_events.py` seeds only
+   rows with present-tense source evidence, always as `scheduled`: FL rows
+   listed in the supplied harvest file (`out/harvest_all.json`) under the
+   same date, in a county COMPLETE in `out/harvest_all_status.json`; TX LGBS
+   rows whose own `tx_sale_status` is one of the two scheduled LGBS
+   statuses; TX RealAuction rows listed in the supplied
+   `out/harvest_texas.json`; each only when `status = 'active'` and the date
+   is today or later. It never seeds `completed` or `pending_result`: a
+   property's `closed` status is not evidence the listing was present through
+   its sale date, and an `active` row absent from the latest harvest is not
+   evidence it is scheduled. Every skipped row is counted by reason
+   (`closed_status_not_completion_evidence`, `contradictory_closed_future`,
+   `status_not_active`, `date_passed_presence_not_established`,
+   `no_harvest_evidence_supplied`, `county_harvest_not_complete`,
+   `absent_from_current_harvest`, `lgbs_status_not_scheduled`,
+   `unsupported_source`). Each seeded event gets one observation with
+   `feed = 'seed'` and the evidence's own status text as `raw_status`.
+   `first_seen_at`/`last_seen_at` are the seed time. It is dry-run by
+   default (`--apply` to write), wired into no workflow, idempotent, and
+   uses the writer's write order and compensation. Because the live
+   writer's first run records the same harvest-evidenced rows, the seed is
+   optional and not a precondition for activation.
+8. **Boundaries.** No frontend surface reads these tables, `get_properties`
    is unchanged, no analytics RPC exists, and no LGBS resolved statuses,
    LAFT sold rows or RealAuction closed sections are harvested.
 

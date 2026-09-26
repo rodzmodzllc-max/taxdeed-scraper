@@ -45,6 +45,9 @@ class MemoryStore:
         self.events: list[dict] = []
         self.observations: list[dict] = []
         self.patches: list[tuple[str, dict]] = []
+        self.deleted: list[str] = []
+        self.fail_observations = False   # simulate a failed observation write
+        self.fail_patch_after = None     # simulate a failed PATCH after N successes
         self._n = 0
 
     def fetch_properties(self, state, source):
@@ -68,6 +71,8 @@ class MemoryStore:
         return out
 
     def update_event(self, event_id, patch):
+        if self.fail_patch_after is not None and len(self.patches) >= self.fail_patch_after:
+            raise RuntimeError("simulated PATCH failure")
         if "lifecycle" in patch and patch["lifecycle"] not in w.LIFECYCLES:
             raise RuntimeError("check constraint")
         for e in self.events:
@@ -78,6 +83,8 @@ class MemoryStore:
         raise RuntimeError(f"no event {event_id}")
 
     def insert_observations(self, rows):
+        if self.fail_observations:
+            raise RuntimeError("simulated observation failure")
         for r in rows:
             key = (r["event_id"], r["observed_at"])
             if any((o["event_id"], o["observed_at"]) == key for o in self.observations):
@@ -85,6 +92,15 @@ class MemoryStore:
             if r["lifecycle"] not in w.LIFECYCLES:
                 raise RuntimeError("check constraint")
             self.observations.append(dict(r))
+
+    def delete_unobserved_events(self, event_ids, first_seen_at):
+        keep = []
+        for e in self.events:
+            if e["id"] in event_ids and e["first_seen_at"] == first_seen_at:
+                self.deleted.append(e["id"])
+            else:
+                keep.append(e)
+        self.events = keep
 
 
 def prop(pid, county, case_no, *, state="FL", sale_date=None, bid=1500, status="active", hs=None, url=None, kind=None):
@@ -185,6 +201,7 @@ def test_same_property_new_sale_date_creates_second_event_and_supersedes_with_ev
     assert by_date["2026-11-03"]["lifecycle"] == "scheduled" and by_date["2026-11-03"]["opening_bid"] == 1600.0
     sup = [o for o in store.observations if o["lifecycle"] == "superseded"]
     assert len(sup) == 1 and sup[0]["raw_status"] is None and "11/03/2026" in sup[0]["evidence_url"]
+    assert sup[0]["feed"] == "derived"  # an inference, never a sighting of the Waiting feed
     assert all(e["outcome"] == "unknown" for e in store.events)
 
 
@@ -201,22 +218,103 @@ def test_absence_alone_is_not_evidence():
     assert s3.events_completed == 0 and s3.events_superseded == 0
 
 
-def test_date_passed_and_absent_from_complete_county_becomes_completed_outcome_unknown():
+def test_listing_gone_before_its_sale_date_is_never_completed():
+    # Last seen 2026-09-25, sale date 2026-10-06; then absent from a COMPLETE
+    # county. It left the feed before the sale could happen -> 'unknown'.
     store = MemoryStore([prop("p1", "Lee", "2026000001", sale_date="2026-10-06")])
     run_fl(store, [fl_row("Lee", "2026000001", "10/06/2026")], T1)
-    later = w.record_sightings(store, w.sightings_from_fl_harvest([]), scope=("FL", "auction"), observed_at=T3,
+    later = w.record_sightings(store, [], scope=("FL", "auction"), observed_at=T3,
                                run_id=RUN, complete_counties={"Lee"}, today=date(2026, 10, 7))
-    assert later.events_completed == 1
+    assert later.events_completed == 0 and later.events_unknown == 1
+    ev = store.events[0]
+    assert ev["lifecycle"] == "unknown" and ev["outcome"] == "unknown"
+    obs = store.observations[-1]
+    assert (obs["feed"], obs["raw_status"], obs["lifecycle"], obs["outcome"], obs["evidence_url"]) == \
+        ("derived", None, "unknown", "unknown", None)
+    # Never any outcome word, and never a lifecycle that claims a reason.
+    assert all(o["lifecycle"] not in ("cancelled", "withdrawn", "stayed", "completed") for o in store.observations)
+
+
+def test_listing_seen_on_its_sale_date_then_absent_becomes_completed_outcome_unknown():
+    store = MemoryStore([prop("p1", "Lee", "2026000001", sale_date="2026-10-06")])
+    run_fl(store, [fl_row("Lee", "2026000001", "10/06/2026")], T1)
+    sale_day = "2026-10-06T10:00:00+00:00"   # the 06:00 ET harvest on the sale day
+    w.record_sightings(store, w.sightings_from_fl_harvest([fl_row("Lee", "2026000001", "10/06/2026")]),
+                       scope=("FL", "auction"), observed_at=sale_day, run_id=RUN, complete_counties={"Lee"},
+                       today=date(2026, 10, 6))
+    later = w.record_sightings(store, [], scope=("FL", "auction"), observed_at=T3,
+                               run_id=RUN, complete_counties={"Lee"}, today=date(2026, 10, 7))
+    assert later.events_completed == 1 and later.events_unknown == 0
     ev = store.events[0]
     assert ev["lifecycle"] == "completed" and ev["outcome"] == "unknown"
     obs = store.observations[-1]
-    assert obs["lifecycle"] == "completed" and obs["outcome"] == "unknown" and obs["raw_status"] is None
+    assert (obs["feed"], obs["raw_status"], obs["lifecycle"], obs["outcome"], obs["evidence_url"]) == \
+        ("derived", None, "completed", "unknown", None)
     # Without a completeness gate (Texas), nothing transitions.
     store2 = MemoryStore([prop("t1", "Nueces", "9377", state="TX", sale_date="2026-10-06", hs="tx_realauction")])
     w.record_sightings(store2, w.sightings_from_tx_harvest([tx_row("Nueces", "9377", "2026-10-06", "tx_realauction")]),
                        scope=("TX", "auction"), observed_at=T1, run_id=RUN, complete_counties=None, today=TODAY)
     w.record_sightings(store2, [], scope=("TX", "auction"), observed_at=T3, run_id=RUN, complete_counties=None, today=date(2026, 10, 7))
     assert store2.events[0]["lifecycle"] == "scheduled"
+
+
+def test_sale_day_boundary_is_conservative_across_florida_time_zones():
+    d = date(2026, 10, 6)
+    assert w.lifecycle_after_absence(d, "2026-10-06T10:00:00+00:00") == "completed"   # 04:00 at UTC-6
+    assert w.lifecycle_after_absence(d, "2026-10-06T05:59:00+00:00") == "unknown"     # still Oct 5 at UTC-6
+    assert w.lifecycle_after_absence(d, "2026-10-05T22:00:00+00:00") == "unknown"
+    assert w.lifecycle_after_absence(d, "2026-10-08T10:00:00Z") == "completed"
+    assert w.lifecycle_after_absence(d, None) == "unknown"
+    assert w.lifecycle_after_absence(d, "not a time") == "unknown"
+
+
+def test_resighted_completed_event_goes_back_to_scheduled_and_keeps_history():
+    store = MemoryStore([prop("p1", "Lee", "2026000001", sale_date="2026-10-06")])
+    sale_day = "2026-10-06T10:00:00+00:00"
+    run_fl(store, [fl_row("Lee", "2026000001", "10/06/2026")], sale_day)
+    w.record_sightings(store, [], scope=("FL", "auction"), observed_at=T3, run_id=RUN,
+                       complete_counties={"Lee"}, today=date(2026, 10, 7))
+    assert store.events[0]["lifecycle"] == "completed"
+    again = "2026-10-08T10:00:00+00:00"
+    s = w.record_sightings(store, w.sightings_from_fl_harvest([fl_row("Lee", "2026000001", "10/06/2026")]),
+                           scope=("FL", "auction"), observed_at=again, run_id=RUN, complete_counties={"Lee"},
+                           today=date(2026, 10, 8))
+    assert w.RESIGHT_LIFECYCLE == "scheduled"
+    assert s.events_seen_again == 1 and s.events_reopened == 1 and s.events_created == 0
+    assert store.events[0]["lifecycle"] == "scheduled" and store.events[0]["last_seen_at"] == again
+    assert [o["lifecycle"] for o in store.observations] == ["scheduled", "completed", "scheduled"]
+    assert [o["feed"] for o in store.observations] == ["waiting", "derived", "waiting"]
+
+
+def test_existing_event_is_never_advanced_before_its_observation_is_stored():
+    store = MemoryStore([prop("p1", "Lee", "2026000001", sale_date="2026-10-06")])
+    run_fl(store, [fl_row("Lee", "2026000001", "10/06/2026")], T1)
+    store.fail_observations = True
+    with pytest.raises(RuntimeError):
+        run_fl(store, [fl_row("Lee", "2026000001", "10/06/2026")], T2)
+    assert store.events[0]["last_seen_at"] == T1 and len(store.patches) == 0
+    # A PATCH failing after the observation is stored leaves the event
+    # lagging its evidence (never ahead of it); the next run catches up.
+    store.fail_observations = False
+    store.fail_patch_after = 0
+    with pytest.raises(RuntimeError):
+        run_fl(store, [fl_row("Lee", "2026000001", "10/06/2026")], T2)
+    assert store.events[0]["last_seen_at"] == T1 and [o["observed_at"] for o in store.observations] == [T1, T2]
+    store.fail_patch_after = None
+    run_fl(store, [fl_row("Lee", "2026000001", "10/06/2026")], "2026-09-26T10:00:00+00:00")
+    assert store.events[0]["last_seen_at"] == "2026-09-26T10:00:00+00:00" and len(store.events) == 1
+
+
+def test_new_event_without_its_first_observation_is_removed_again():
+    store = MemoryStore([prop("p1", "Lee", "2026000001", sale_date="2026-10-06")])
+    store.fail_observations = True
+    with pytest.raises(w.WriterError, match="removed again"):
+        run_fl(store, [fl_row("Lee", "2026000001", "10/06/2026")], T1)
+    assert store.events == [] and store.deleted == ["ev-1"] and store.observations == []
+    # The compensation only ever touches rows this run inserted.
+    store.fail_observations = False
+    run_fl(store, [fl_row("Lee", "2026000001", "10/06/2026")], T1)
+    assert len(store.events) == 1 and len(store.observations) == 1
 
 
 def test_property_identity_and_snapshot_untouched():
@@ -286,47 +384,86 @@ def test_invalid_lifecycle_fails_loudly():
 # ==================== seed ====================
 
 
-def test_seed_lifecycle_mapping():
-    t = TODAY
-    assert seedmod.seed_lifecycle("active", date(2026, 10, 6), t) == "scheduled"
-    assert seedmod.seed_lifecycle("active", date(2026, 9, 16), t) == "pending_result"
-    assert seedmod.seed_lifecycle("closed", date(2026, 9, 16), t) == "completed"
-    assert seedmod.seed_lifecycle("closed", date(2026, 10, 6), t) == "scheduled"
-    assert seedmod.seed_lifecycle("dropped", date(2026, 8, 6), t) == "unknown"
-    assert seedmod.seed_lifecycle(None, date(2026, 8, 6), t) == "unknown"
-
-
-def test_seed_is_idempotent_and_labels_its_observations():
-    store = MemoryStore([
+def seed_fixture():
+    return MemoryStore([
         prop("p1", "Lee", "A", sale_date="2026-10-06", bid=1500, url="https://lee.realforeclose.com/index.cfm?zaction=AUCTION&zmethod=PREVIEW&AuctionDate=10/06/2026", kind="sale"),
-        prop("p2", "Lee", "B", sale_date="2026-09-16", status="closed", bid=0),
-        prop("p3", "Lee", "C", sale_date=None),
-        prop("p4", "DeSoto", "D", sale_date="2026-09-16", status="active"),
-        prop("t1", "Nueces", "9377", state="TX", sale_date="2026-10-06", hs="tx_realauction", bid=21800),
+        prop("p2", "Lee", "B", sale_date="2026-09-16", status="closed", bid=0),       # closed, past
+        prop("p3", "Lee", "C", sale_date=None),                                        # no date: not a candidate
+        prop("p4", "DeSoto", "D", sale_date="2026-09-16", status="active"),           # active, past
+        prop("p5", "Lee", "E", sale_date="2026-10-20", status="active"),              # active, absent from harvest
+        prop("p6", "Lee", "F", sale_date="2026-10-20", status="closed"),              # closed + future: contradictory
+        prop("p7", "Bay", "G", sale_date="2026-10-06", status="active"),              # county not COMPLETE
+        prop("p8", "Lee", "H", sale_date="2026-08-06", status="dropped"),
+        dict(prop("t1", "Nueces", "9377", state="TX", sale_date="2026-10-06", hs="tx_realauction", bid=21800)),
+        dict(prop("t2", "Concho", "C-1", state="TX", sale_date="2026-10-06", hs="tx_lgbs"), tx_sale_status="Scheduled for Online Auction"),
+        dict(prop("t3", "Concho", "C-2", state="TX", sale_date="2026-10-06", hs="tx_lgbs"), tx_sale_status=None),
+        dict(prop("t4", "Concho", "C-3", state="TX", sale_date="2026-10-06", hs="tx_lgbs"), tx_sale_status="Sale Results Pending"),
     ])
-    s1 = seedmod.seed(store, observed_at=T1, run_id="seed-1", today=TODAY)
-    assert s1["eligible"] == 4 and s1["created"] == 4 and s1["observations"] == 4 and s1["already_present"] == 0
-    assert s1["by_lifecycle"] == {"FL/scheduled": 1, "FL/completed": 1, "FL/pending_result": 1, "TX/scheduled": 1}
-    assert all(o["feed"] == "seed" and o["harvest_run_id"] == "seed-1" for o in store.observations)
-    by_case = {e["case_no"]: e for e in store.events}
-    assert by_case["B"]["opening_bid"] is None            # bid 0 = not published
-    assert by_case["A"]["event_url_kind"] == "sale"
+
+
+def fl_evidence(rows, complete=("Lee",)):
+    return seedmod.Evidence(fl=seedmod.Evidence.index(w.sightings_from_fl_harvest(rows)), fl_complete=set(complete))
+
+
+def test_seed_only_seeds_rows_with_present_tense_evidence():
+    t = TODAY
+    ev = fl_evidence([fl_row("Lee", "A", "10/06/2026"), fl_row("Bay", "G", "10/06/2026")])
+    decide = lambda p: seedmod.seed_decision(p, t, ev)  # noqa: E731
+    by_id = {p["id"]: p for p in seed_fixture().properties}
+    assert decide(by_id["p1"]) == ("Auctions Waiting", "")
+    assert decide(by_id["p2"]) == (None, "closed_status_not_completion_evidence")
+    assert decide(by_id["p4"]) == (None, "date_passed_presence_not_established")
+    assert decide(by_id["p5"]) == (None, "absent_from_current_harvest")
+    assert decide(by_id["p6"]) == (None, "contradictory_closed_future")
+    assert decide(by_id["p7"]) == (None, "county_harvest_not_complete")
+    assert decide(by_id["p8"]) == (None, "status_not_active")
+    assert decide(by_id["t1"]) == (None, "no_harvest_evidence_supplied")
+    assert decide(by_id["t2"]) == ("Scheduled for Online Auction", "")
+    assert decide(by_id["t3"]) == (None, "lgbs_status_not_scheduled")
+    assert decide(by_id["t4"]) == (None, "lgbs_status_not_scheduled")
+    # No harvest file at all: no Florida row is seeded.
+    assert seedmod.seed_decision(by_id["p1"], t, seedmod.Evidence()) == (None, "no_harvest_evidence_supplied")
+    # The same row listed in the harvest under a DIFFERENT date is not evidence for this date.
+    moved = fl_evidence([fl_row("Lee", "A", "11/03/2026")])
+    assert seedmod.seed_decision(by_id["p1"], t, moved) == (None, "absent_from_current_harvest")
+
+
+def test_seed_never_writes_completed_or_pending_result_and_is_idempotent():
+    store = seed_fixture()
+    tx = seedmod.Evidence.index(w.sightings_from_tx_harvest([tx_row("Nueces", "9377", "2026-10-06", "tx_realauction")]))
+    ev = fl_evidence([fl_row("Lee", "A", "10/06/2026")])
+    ev.tx = tx
+    s1 = seedmod.seed(store, observed_at=T1, run_id="seed-1", today=TODAY, evidence=ev)
+    assert s1["candidates"] == 11 and s1["created"] == 3 and s1["observations"] == 3
+    assert s1["by_state"] == {"FL": 1, "TX": 2}
+    assert sum(s1["skipped"].values()) == 8
+    assert {e["lifecycle"] for e in store.events} == {"scheduled"}
     assert all(e["outcome"] == "unknown" for e in store.events)
-    assert {o["raw_status"] for o in store.observations} == {"active", "closed"}
-    s2 = seedmod.seed(store, observed_at=T2, run_id="seed-2", today=TODAY)
-    assert s2["created"] == 0 and s2["already_present"] == 4 and s2["observations"] == 0
-    assert len(store.events) == 4 and len(store.observations) == 4
+    assert all(o["feed"] == "seed" and o["harvest_run_id"] == "seed-1" for o in store.observations)
+    assert {o["raw_status"] for o in store.observations} == {"Auctions Waiting", "Scheduled for Online Auction"}
+    assert {e["case_no"] for e in store.events} == {"A", "9377", "C-1"}
+    s2 = seedmod.seed(store, observed_at=T2, run_id="seed-2", today=TODAY, evidence=ev)
+    assert s2["created"] == 0 and s2["already_present"] == 3 and s2["observations"] == 0
     # A harvest after the seed re-observes the seeded event rather than duplicating it.
     s3 = run_fl(store, [fl_row("Lee", "A", "10/06/2026")], T3)
-    assert s3.events_created == 0 and s3.events_seen_again == 1 and len(store.events) == 4
+    assert s3.events_created == 0 and s3.events_seen_again == 1 and len(store.events) == 3
 
 
-def test_seed_cli_is_dry_run_by_default(monkeypatch, capsys):
+def test_seed_removes_events_whose_observations_fail():
+    store = seed_fixture()
+    store.fail_observations = True
+    with pytest.raises(w.WriterError):
+        seedmod.seed(store, states=("FL",), observed_at=T1, run_id="seed-1", today=TODAY,
+                     evidence=fl_evidence([fl_row("Lee", "A", "10/06/2026")]))
+    assert store.events == [] and store.deleted
+
+
+def test_seed_cli_is_dry_run_by_default(monkeypatch, capsys, tmp_path):
     calls = []
 
     class FakeReal:
         def fetch_properties(self, state, source):
-            return [prop("p1", "Lee", "A", sale_date="2026-10-06")] if state == "FL" else []
+            return [prop("p1", "Lee", "A", sale_date="2099-10-06")] if state == "FL" else []
 
         def fetch_events(self, state, source):
             return []
@@ -341,10 +478,19 @@ def test_seed_cli_is_dry_run_by_default(monkeypatch, capsys):
         def insert_observations(self, rows):
             calls.append("obs")
 
+        def delete_unobserved_events(self, *_):
+            calls.append("delete")
+
     monkeypatch.setenv("SUPABASE_URL", "https://example.invalid")
     monkeypatch.setenv("SUPABASE_SERVICE_KEY", "not-a-real-key")
     monkeypatch.setattr(seedmod, "PostgrestStore", lambda url, key: FakeReal())
-    assert seedmod.main([]) == 0
+    harvest = tmp_path / "harvest_all.json"
+    status = tmp_path / "harvest_all_status.json"
+    harvest.write_text(json.dumps([fl_row("Lee", "A", "10/06/2099")]))
+    status.write_text(json.dumps([{"county": "Lee", "status": "COMPLETE"}]))
+    missing = tmp_path / "absent.json"
+    assert seedmod.main(["--fl-harvest-json", str(harvest), "--fl-status-json", str(status),
+                         "--tx-harvest-json", str(missing)]) == 0
     out = capsys.readouterr().out
     assert "DRY RUN - nothing written" in out and calls == []
     assert '"created": 1' in out
@@ -365,6 +511,16 @@ def test_workflow_runs_writer_after_each_property_sync_and_never_the_seed():
         step = job[job.rfind("- name:", 0, writer_pos):writer_pos]
         assert "continue-on-error: true" in step, "a writer failure must not fail the property pipeline"
         assert "SUPABASE_SERVICE_KEY" in step
+        # ...but a failure must be visible: a warning annotation + job summary,
+        # keyed to this step's own outcome and never to the harvest's.
+        sid = re.search(r"id: (phase_b_events_\w+)", step).group(1)
+        report = job[writer_pos:]
+        report = report[report.index("- name: Report Phase B event recording failure"):]
+        report = report[:report.index("\n      - name:", 1)] if "\n      - name:" in report[1:] else report
+        assert f"steps.{sid}.outcome == 'failure'" in report and "!cancelled()" in report
+        assert "::warning title=Phase B event recording failed" in report and "GITHUB_STEP_SUMMARY" in report
+        assert "Property harvest and sync succeeded" in report
+        assert "continue-on-error" not in report
     # Texas is still workflow_dispatch only - Phase B changes no schedule.
     assert "if: github.event_name == 'workflow_dispatch'" in texas
     assert yml.count("cron:") == 3
@@ -392,5 +548,23 @@ def test_data_contract_documents_phase_b():
     doc = (REPO / "docs" / "production-data-contract.md").read_text()
     section = doc.split("## 27. Auction-event writers")[1]
     for required in ("feed = 'seed'", "superseded", "completed", "outcome stays `unknown`", "winning_bidder_ref", "Texas",
-                     "`properties` is never written"):
+                     "`properties` is never written", "feed = 'derived'", "last_seen_at", "on or after its",
+                     "RESIGHT_LIFECYCLE", "ordering plus compensation", "::warning title=Phase B event recording failed",
+                     "never seeds `completed` or `pending_result`"):
         assert required in section, required
+
+
+def test_writer_failure_exits_nonzero_and_says_so_in_the_job_summary(tmp_path):
+    # Fails before any network call (the harvest file is missing), exactly as
+    # a broken run would, and must leave a visible FAILED section behind.
+    import os
+    import subprocess
+    summary = tmp_path / "summary.md"
+    env = {k: v for k, v in os.environ.items() if not k.startswith("SUPABASE")}
+    env["GITHUB_STEP_SUMMARY"] = str(summary)
+    proc = subprocess.run([sys.executable, str(REPO / "scripts" / "auction_events_writer.py"), "--source", "fl",
+                           "--harvest-json", str(tmp_path / "missing.json")], env=env, capture_output=True, text=True)
+    assert proc.returncode == 1
+    assert "ERROR" in proc.stderr
+    text = summary.read_text()
+    assert "Phase B event recording: FAILED" in text and "property harvest and sync already completed" in text

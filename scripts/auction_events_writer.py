@@ -36,16 +36,37 @@ LIFECYCLE RULES (Phase B)
   property is listed under a different date this run, and the earlier date
   was not. Absence from one harvest alone is not evidence.
 - A `scheduled` event whose date has passed and which is absent from a
-  COMPLETE county harvest becomes `completed` with outcome still `unknown` -
-  the same evidence sync-harvest-to-supabase.ps1's close-out already relies
-  on for `properties.status = 'closed'`. This is a lifecycle fact (the sale
-  date passed and the listing left the feed), not an outcome.
+  COMPLETE county harvest:
+    * last seen ON or AFTER its sale date -> `completed` (it stayed listed
+      through the sale day, then left the feed - migration 014's definition);
+    * last seen BEFORE its sale date      -> `unknown` (it left the feed
+      before the sale could happen; withdrawn / postponed / redeemed /
+      corrected are indistinguishable, so none is claimed).
+  Outcome stays `unknown` either way. See lifecycle_after_absence().
+- Re-sighting: an event whose own (property, date) is listed on a scheduled
+  feed again goes back to `scheduled`, whatever was derived for it before
+  (completed / superseded / unknown). The derived observation stays in the
+  history; the new sighting is recorded beside it (RESIGHT_LIFECYCLE).
+- Derived transitions are recorded as observations with feed = 'derived'
+  and raw_status NULL - they are inferences, never sightings of a feed.
 - Texas has no per-county completeness file, so neither supersession nor
   completion is applied to Texas events in this phase; they stay `scheduled`
   until a later phase captures results. Nothing is guessed.
 
 Each run stamps one `observed_at` (the run's start) on every observation it
-writes, so (event_id, observed_at) is unique per run by construction.
+writes, so (event_id, observed_at) is unique per run by construction, and
+observation inserts ignore an exact duplicate of that key.
+
+Write order (see record_sightings): an existing event's observation is
+stored before the event is patched; a new event's first observation is
+stored straight after its insert, and the insert is compensated (deleted)
+if that fails. This is ordering plus compensation - PostgREST offers no
+multi-table transaction without a schema/RPC change - not atomicity.
+
+Failure visibility: the workflow step is continue-on-error so a writer
+failure never fails the property harvest; the writer appends its result to
+the job summary ($GITHUB_STEP_SUMMARY) and the workflow raises a warning
+annotation when this step fails.
 
 Credentials come from SUPABASE_URL / SUPABASE_SERVICE_KEY, the same secrets
 every sync script uses; the service key is never logged. `--dry-run` reads
@@ -63,7 +84,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from dataclasses import dataclass, field
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Iterable, Protocol
 
@@ -237,10 +258,14 @@ class Store(Protocol):
     def insert_events(self, rows: list[dict]) -> list[dict]: ...
     def update_event(self, event_id: str, patch: dict) -> None: ...
     def insert_observations(self, rows: list[dict]) -> None: ...
+    def delete_unobserved_events(self, event_ids: list[str], first_seen_at: str) -> None: ...
 
 
-PROPERTY_COLUMNS = "id,state,source,county,case_no,harvester_source,ledger_type,sale_date,bid,status,url_auction,url_auction_kind"
-EVENT_COLUMNS = "id,property_id,state,source,county,case_no,scheduled_sale_date,lifecycle,outcome,opening_bid,event_url,event_url_kind,first_seen_at"
+PROPERTY_COLUMNS = "id,state,source,county,case_no,harvester_source,ledger_type,sale_date,bid,status,url_auction,url_auction_kind,tx_sale_status"
+EVENT_COLUMNS = "id,property_id,state,source,county,case_no,scheduled_sale_date,lifecycle,outcome,opening_bid,event_url,event_url_kind,first_seen_at,last_seen_at"
+
+# Observations are the evidence; they are written in batches of this size.
+BATCH = 500
 
 
 class PostgrestStore:
@@ -290,17 +315,24 @@ class PostgrestStore:
         return self._paged(f"auction_events?{q}")
 
     def insert_events(self, rows: list[dict]) -> list[dict]:
-        out: list[dict] = []
-        for i in range(0, len(rows), 500):
-            out.extend(self._request("POST", "auction_events", body=rows[i:i + 500], prefer="return=representation") or [])
-        return out
+        return self._request("POST", "auction_events", body=rows, prefer="return=representation") or []
 
     def update_event(self, event_id: str, patch: dict) -> None:
         self._request("PATCH", f"auction_events?id=eq.{urllib.parse.quote(event_id)}", body=patch, prefer="return=minimal")
 
     def insert_observations(self, rows: list[dict]) -> None:
-        for i in range(0, len(rows), 500):
-            self._request("POST", "auction_event_observations", body=rows[i:i + 500], prefer="return=minimal")
+        # Idempotent on the table's own unique key: re-sending the same
+        # (event_id, observed_at) is a no-op, never a second row.
+        self._request("POST", "auction_event_observations?on_conflict=event_id,observed_at", body=rows,
+                      prefer="return=minimal,resolution=ignore-duplicates")
+
+    def delete_unobserved_events(self, event_ids: list[str], first_seen_at: str) -> None:
+        # Compensation only: removes events THIS run inserted a moment ago
+        # whose first observation could not be written. The first_seen_at
+        # filter makes it impossible to touch an event from any other run.
+        ids = ",".join(urllib.parse.quote(i) for i in event_ids)
+        self._request("DELETE", f"auction_events?id=in.({ids})&first_seen_at=eq.{urllib.parse.quote(first_seen_at)}",
+                      prefer="return=minimal")
 
 
 class DryRunStore:
@@ -333,10 +365,60 @@ class DryRunStore:
     def insert_observations(self, rows: list[dict]) -> None:
         self.observations.extend(dict(r) for r in rows)
 
+    def delete_unobserved_events(self, event_ids: list[str], first_seen_at: str) -> None:
+        pass
+
 
 # ---------------------------------------------------------------------------
 # Core: record sightings.
 # ---------------------------------------------------------------------------
+
+# Feed label for observations the writer DERIVES (supersession, completion,
+# unknown) rather than reads off a source. Never a sighting of any feed.
+DERIVED_FEED = "derived"
+
+# Lifecycle applied when an event's own (property, date) is listed on a
+# scheduled feed again. The source currently lists it, so it is scheduled -
+# whatever this writer derived before (completed / superseded / unknown).
+# The earlier derived observation stays in history; nothing is deleted.
+RESIGHT_LIFECYCLE = "scheduled"
+
+# Florida sale days are local days, and the state spans two time zones. A
+# sighting counts as "on or after the sale date" using the date at UTC-6 -
+# the earliest local date anywhere in Florida at that instant - so a late
+# evening sighting the day BEFORE a sale can never count as a sale-day
+# sighting. (The scheduled harvests run at 10:00 and 22:00 UTC.)
+SALE_DAY_UTC_OFFSET = timezone(timedelta(hours=-6))
+
+
+def sighting_local_date(ts: Any) -> date | None:
+    """last_seen_at (ISO timestamptz) -> the conservative Florida-local date."""
+    if not ts:
+        return None
+    try:
+        dt = datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(SALE_DAY_UTC_OFFSET).date()
+
+
+def lifecycle_after_absence(scheduled_sale_date: date, last_seen_at: Any) -> str:
+    """The lifecycle for a `scheduled` event whose sale date has passed and
+    which is absent from a COMPLETE county feed.
+
+    - Last seen ON or AFTER its sale date -> 'completed': it stayed listed
+      through the sale day and then left the feed (migration 014's definition).
+    - Last seen BEFORE its sale date (or never recorded) -> 'unknown': it
+      left the feed before the sale could happen. Withdrawn, postponed,
+      redeemed, corrected - the feed does not say which, so nothing is
+      claimed. 'pending_result' is not used: it would assert that the sale
+      was held.
+    Outcome is 'unknown' in every case."""
+    seen = sighting_local_date(last_seen_at)
+    return "completed" if seen is not None and seen >= scheduled_sale_date else "unknown"
+
 
 @dataclass
 class Summary:
@@ -344,8 +426,10 @@ class Summary:
     unmatched: int = 0          # harvested rows with no property row (not synced / gated)
     events_created: int = 0
     events_seen_again: int = 0
+    events_reopened: int = 0    # re-sighted after a derived completed/superseded/unknown
     events_superseded: int = 0
     events_completed: int = 0
+    events_unknown: int = 0     # left the feed before the sale date
     observations: int = 0
     notes: list[str] = field(default_factory=list)
 
@@ -380,6 +464,11 @@ def _observation(event_id: str, *, observed_at: str, run_id: str | None, feed: s
     }
 
 
+def _batches(rows: list, size: int = BATCH) -> Iterable[list]:
+    for i in range(0, len(rows), size):
+        yield rows[i:i + size]
+
+
 def record_sightings(store: Store, sightings: list[Sighting], *, scope: tuple[str, str], observed_at: str,
                      run_id: str | None, complete_counties: set[str] | None, today: date) -> Summary:
     """Record one harvest's sightings for one (state, source) scope.
@@ -388,119 +477,145 @@ def record_sightings(store: Store, sightings: list[Sighting], *, scope: tuple[st
     / completion) is applied at all. The scope is processed even when the
     harvest produced no sightings in it, because a COMPLETE county with zero
     rows ("confirmed no scheduled auctions") is exactly the evidence that
-    its past-dated events are over."""
+    its past-dated events are over.
+
+    WRITE ORDER (no database transaction is available over PostgREST without
+    a schema/RPC change, so this is ordering plus compensation, not atomicity):
+    1. Existing events: every observation is written FIRST, then the event
+       is patched. An event's state (lifecycle, last_seen_at) therefore never
+       advances without its observation already stored. If a patch fails
+       after its observation is stored, the event merely lags its evidence
+       and the next run re-derives it - and a lagging last_seen_at can only
+       make the completion rule more conservative, never less.
+    2. New events (the observation needs the event's id, and the foreign key
+       needs the event first): each batch is inserted, then its observations
+       are written immediately; if those fail, this run's just-inserted,
+       never-observed events are deleted again (filtered on this run's
+       first_seen_at) before the error is raised. An event row never
+       survives without its first observation unless that compensating
+       delete itself fails, which is reported in the error."""
     summary = Summary(sightings=len(sightings))
+    state, source = scope
     in_scope = [s for s in sightings if (s.state, s.source) == scope]
     if len(in_scope) != len(sightings):
         summary.notes.append(f"{len(sightings) - len(in_scope)} sighting(s) outside scope {scope} ignored")
-    groups: dict[tuple[str, str], list[Sighting]] = {scope: in_scope}
 
-    for (state, source), group in groups.items():
-        props = {(p["county"], p["case_no"]): p for p in store.fetch_properties(state, source)}
-        existing = store.fetch_events(state, source)
-        by_key: dict[tuple[str, str], dict] = {(e["property_id"], str(e["scheduled_sale_date"])): e for e in existing}
-        by_property: dict[str, list[dict]] = {}
-        for e in existing:
-            by_property.setdefault(e["property_id"], []).append(e)
+    props = {(p["county"], p["case_no"]): p for p in store.fetch_properties(state, source)}
+    existing = store.fetch_events(state, source)
+    by_key: dict[tuple[str, str], dict] = {(e["property_id"], str(e["scheduled_sale_date"])): e for e in existing}
 
-        sighted: dict[tuple[str, str], Sighting] = {}
-        for s in group:
-            p = props.get((s.county, s.case_no))
-            if p is None:
-                summary.unmatched += 1
+    sighted: dict[tuple[str, str], Sighting] = {}
+    for s in in_scope:
+        p = props.get((s.county, s.case_no))
+        if p is None:
+            summary.unmatched += 1
+            continue
+        key = (p["id"], s.scheduled_sale_date)
+        if key in sighted:
+            continue  # duplicate row in one harvest: one observation per event per run
+        sighted[key] = s
+
+    # ---- plan: (observation, event_id, patch) for existing events, new rows
+    existing_ops: list[tuple[dict, str, dict]] = []
+    new_rows: list[tuple[dict, Sighting]] = []
+    for key, s in sighted.items():
+        p = props[(s.county, s.case_no)]
+        ev = by_key.get(key)
+        if ev is not None:
+            patch: dict = {"lifecycle": RESIGHT_LIFECYCLE if s.lifecycle == "scheduled" else s.lifecycle,
+                           "last_seen_at": observed_at}
+            if s.event_url:
+                patch["event_url"] = s.event_url
+                patch["event_url_kind"] = s.event_url_kind
+            if ev.get("opening_bid") is None and s.opening_bid is not None:
+                patch["opening_bid"] = s.opening_bid
+            _check_event_payload(patch)
+            obs = _observation(ev["id"], observed_at=observed_at, run_id=run_id, feed=s.feed,
+                               raw_status=s.raw_status, lifecycle=patch["lifecycle"],
+                               opening_bid=s.opening_bid, evidence_url=s.event_url)
+            existing_ops.append((obs, ev["id"], patch))
+            summary.events_seen_again += 1
+            if ev.get("lifecycle") != patch["lifecycle"]:
+                summary.events_reopened += 1
+        else:
+            row = {
+                "property_id": p["id"],
+                "state": state, "source": source,
+                "harvester_source": p.get("harvester_source"),
+                "county": p["county"], "case_no": p["case_no"],
+                "ledger_type": p.get("ledger_type"),
+                "scheduled_sale_date": s.scheduled_sale_date,
+                "event_url": s.event_url, "event_url_kind": s.event_url_kind,
+                "opening_bid": s.opening_bid,
+                "lifecycle": s.lifecycle,   # explicit, never the DB default
+                "outcome": "unknown",
+                "first_seen_at": observed_at, "last_seen_at": observed_at,
+            }
+            _check_event_payload(row)
+            new_rows.append((row, s))
+
+    # Absence-based transitions: only with a completeness gate, only for
+    # events that were `scheduled` before this run, and only for properties
+    # in COMPLETE counties. Derived observations carry feed 'derived' and no
+    # raw status - they record an inference, not a sighting.
+    if complete_counties is not None:
+        for ev in existing:
+            key = (ev["property_id"], str(ev["scheduled_sale_date"]))
+            if ev.get("lifecycle") != "scheduled" or key in sighted or ev.get("county") not in complete_counties:
                 continue
-            key = (p["id"], s.scheduled_sale_date)
-            if key in sighted:
-                continue  # duplicate row in one harvest: one observation per event per run
-            sighted[key] = s
-
-        observations: list[dict] = []
-        new_rows: list[dict] = []
-        new_keys: list[tuple[str, str]] = []
-        for key, s in sighted.items():
-            p = props[(s.county, s.case_no)]
-            ev = by_key.get(key)
-            if ev is not None:
-                patch: dict = {"lifecycle": s.lifecycle, "last_seen_at": observed_at}
-                if s.event_url:
-                    patch["event_url"] = s.event_url
-                    patch["event_url_kind"] = s.event_url_kind
-                if ev.get("opening_bid") is None and s.opening_bid is not None:
-                    patch["opening_bid"] = s.opening_bid
-                _check_event_payload(patch)
-                store.update_event(ev["id"], patch)
-                summary.events_seen_again += 1
-                observations.append(_observation(ev["id"], observed_at=observed_at, run_id=run_id, feed=s.feed,
-                                                 raw_status=s.raw_status, lifecycle=s.lifecycle,
-                                                 opening_bid=s.opening_bid, evidence_url=s.event_url))
+            ev_date = date.fromisoformat(str(ev["scheduled_sale_date"]))
+            if ev_date >= today:
+                # Not yet passed. Evidence of replacement = the same property
+                # is listed under a different date this run.
+                other = next((sighted[k] for k in sighted if k[0] == ev["property_id"]), None)
+                if other is None:
+                    continue  # absent but not re-listed: no evidence, leave scheduled
+                lifecycle, evidence = "superseded", other.event_url
+                summary.events_superseded += 1
             else:
-                row = {
-                    "property_id": p["id"],
-                    "state": state, "source": source,
-                    "harvester_source": p.get("harvester_source"),
-                    "county": p["county"], "case_no": p["case_no"],
-                    "ledger_type": p.get("ledger_type"),
-                    "scheduled_sale_date": s.scheduled_sale_date,
-                    "event_url": s.event_url, "event_url_kind": s.event_url_kind,
-                    "opening_bid": s.opening_bid,
-                    "lifecycle": s.lifecycle,   # explicit, never the DB default
-                    "outcome": "unknown",
-                    "first_seen_at": observed_at, "last_seen_at": observed_at,
-                }
-                _check_event_payload(row)
-                new_rows.append(row)
-                new_keys.append(key)
-
-        if new_rows:
-            inserted = store.insert_events(new_rows)
-            if len(inserted) != len(new_rows):
-                raise WriterError(f"inserted {len(inserted)} events for {len(new_rows)} rows")
-            for key, ins in zip(new_keys, inserted):
-                s = sighted[key]
-                observations.append(_observation(ins["id"], observed_at=observed_at, run_id=run_id, feed=s.feed,
-                                                 raw_status=s.raw_status, lifecycle=s.lifecycle,
-                                                 opening_bid=s.opening_bid, evidence_url=s.event_url))
-            summary.events_created += len(new_rows)
-
-        # Absence-based transitions: only with a completeness gate, only for
-        # events that were `scheduled` before this run, and only for
-        # properties in COMPLETE counties.
-        if complete_counties is not None:
-            sighted_props = {k[0] for k in sighted}
-            for ev in existing:
-                key = (ev["property_id"], str(ev["scheduled_sale_date"]))
-                if ev.get("lifecycle") != "scheduled" or key in sighted or ev.get("county") not in complete_counties:
-                    continue
-                ev_date = date.fromisoformat(str(ev["scheduled_sale_date"]))
-                if ev_date >= today:
-                    # Not yet passed. Evidence of replacement = the same
-                    # property is listed under a different date this run.
-                    other = next((sighted[k] for k in sighted if k[0] == ev["property_id"]), None)
-                    if other is None:
-                        continue  # absent but not re-listed: no evidence, leave scheduled
-                    patch = {"lifecycle": "superseded"}
-                    _check_event_payload(patch)
-                    store.update_event(ev["id"], patch)
-                    summary.events_superseded += 1
-                    observations.append(_observation(ev["id"], observed_at=observed_at, run_id=run_id, feed=other.feed,
-                                                     raw_status=None, lifecycle="superseded", opening_bid=None,
-                                                     evidence_url=other.event_url))
-                else:
-                    # Sale date passed and the listing is gone from a COMPLETE
-                    # county feed: the event is over. Outcome stays unknown.
-                    patch = {"lifecycle": "completed"}
-                    _check_event_payload(patch)
-                    store.update_event(ev["id"], patch)
+                lifecycle, evidence = lifecycle_after_absence(ev_date, ev.get("last_seen_at")), None
+                if lifecycle == "completed":
                     summary.events_completed += 1
-                    observations.append(_observation(ev["id"], observed_at=observed_at, run_id=run_id, feed="waiting",
-                                                     raw_status=None, lifecycle="completed", opening_bid=None,
-                                                     evidence_url=ev.get("event_url")))
-            if sighted_props and not complete_counties:
-                summary.notes.append(f"{state}/{source}: no COMPLETE county this run - no absence-based transitions")
+                else:
+                    summary.events_unknown += 1
+            patch = {"lifecycle": lifecycle}
+            _check_event_payload(patch)
+            obs = _observation(ev["id"], observed_at=observed_at, run_id=run_id, feed=DERIVED_FEED,
+                               raw_status=None, lifecycle=lifecycle, opening_bid=None, evidence_url=evidence)
+            existing_ops.append((obs, ev["id"], patch))
+        if sighted and not complete_counties:
+            summary.notes.append(f"{state}/{source}: no COMPLETE county this run - no absence-based transitions")
 
-        if observations:
+    # ---- 1. existing events: observations first, then patches
+    for batch in _batches([op[0] for op in existing_ops]):
+        store.insert_observations(batch)
+        summary.observations += len(batch)
+    for _obs, event_id, patch in existing_ops:
+        store.update_event(event_id, patch)
+
+    # ---- 2. new events: insert batch, observe it, compensate on failure
+    for batch in _batches(new_rows):
+        inserted = store.insert_events([row for row, _ in batch])
+        if len(inserted) != len(batch):
+            raise WriterError(f"inserted {len(inserted)} events for {len(batch)} rows")
+        observations = [
+            _observation(ins["id"], observed_at=observed_at, run_id=run_id, feed=s.feed,
+                         raw_status=s.raw_status, lifecycle=s.lifecycle,
+                         opening_bid=s.opening_bid, evidence_url=s.event_url)
+            for ins, (_row, s) in zip(inserted, batch)
+        ]
+        try:
             store.insert_observations(observations)
-            summary.observations += len(observations)
+        except Exception as exc:
+            ids = [ins["id"] for ins in inserted]
+            try:
+                store.delete_unobserved_events(ids, observed_at)
+            except Exception as comp_exc:
+                raise WriterError(f"observations failed ({exc}) AND compensating delete of {len(ids)} new events "
+                                  f"failed ({comp_exc}) - those events have no observation") from exc
+            raise WriterError(f"observations failed for {len(ids)} new events; they were removed again: {exc}") from exc
+        summary.events_created += len(batch)
+        summary.observations += len(observations)
 
     return summary
 
@@ -556,12 +671,29 @@ def main(argv: list[str] | None = None) -> int:
     print(f"auction_events_writer ({args.source.upper()}, {label}): {json.dumps(summary.as_dict())}")
     if args.dry_run and isinstance(store, DryRunStore):
         print(f"  would insert {len(store.inserted_events)} events, patch {len(store.updates)} events, append {len(store.observations)} observations")
+    write_step_summary(f"### Phase B event recording ({args.source.upper()}): OK ({label})\n\n"
+                       f"```\n{json.dumps(summary.as_dict(), indent=1)}\n```\n")
     return 0
+
+
+def write_step_summary(markdown: str) -> None:
+    """Append to the GitHub Actions job summary when running in Actions."""
+    path = os.environ.get("GITHUB_STEP_SUMMARY")
+    if not path:
+        return
+    try:
+        with open(path, "a", encoding="utf-8") as fh:
+            fh.write(markdown + "\n")
+    except OSError:
+        pass
 
 
 if __name__ == "__main__":
     try:
         sys.exit(main())
-    except WriterError as exc:
+    except Exception as exc:  # WriterError or anything unexpected: fail loudly, never silently
         print(f"auction_events_writer: ERROR - {exc}", file=sys.stderr)
+        write_step_summary("### Phase B event recording: FAILED\n\n"
+                           "The property harvest and sync already completed before this step; only the "
+                           f"auction-event recording failed.\n\n`{type(exc).__name__}: {str(exc)[:300]}`\n")
         sys.exit(1)
