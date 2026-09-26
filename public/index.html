@@ -121,7 +121,7 @@ just the existing theme/password/install/sign-out menu. -->
 <h3>Portfolio Overview</h3>
 <div class="nav-rail-stat"><span>Total Properties</span><b id="navStatTotal">0</b></div>
 <div class="nav-rail-stat"><span>Active</span><b id="navStatActive">0</b></div>
-<div class="nav-rail-stat"><span>Est. Value</span><b id="navStatValue">$0</b></div>
+<div class="nav-rail-stat"><span>County values</span><b id="navStatValue">$0</b></div>
 </div>
 </nav>
 <div class="shell-main">
@@ -240,7 +240,7 @@ not one long scroll where Lands Available sits under 300+ auction cards. -->
 <div class="summary-strip">
 <button class="chip total" data-status="all" type="button">Shown&nbsp;<b id="chipTotal">0</b></button>
 <button class="chip ok" data-status="live" type="button">Active&nbsp;<b id="chipActive">0</b></button>
-<button class="chip bad" data-status="gone" type="button">Gone&nbsp;<b id="chipGone">0</b></button>
+<button class="chip bad" data-status="gone" type="button" title="No longer on the source feed or list - why is not recorded">No longer listed&nbsp;<b id="chipGone">0</b></button>
 <!-- The Archive chip used to sit here. It is now a toggle in Filters &
 Sort ("Quick Toggles" -> Show past auctions). It could not simply be
 deleted: past-due auctions are excluded from Shown/Active/Gone
@@ -316,7 +316,7 @@ value, and passes() already ignores the filter there. -->
 <div class="field" id="assessedField"><span class="field-label">Assessed min</span><input type="number" id="assessedMin" placeholder="0" min="0" step="1000"></div>
 </div>
 <div class="filters-row">
-<div class="field"><span class="field-label">Max bid target (% of market)</span><input type="number" id="maxBidPct" value="40" min="1" max="100" step="5"></div>
+<div class="field"><span class="field-label">Your ceiling (% of county value)</span><input type="number" id="maxBidPct" value="40" min="1" max="100" step="5"></div>
 </div>
 </div>
 
@@ -332,7 +332,7 @@ value, and passes() already ignores the filter there. -->
 <option value="bidDesc">Sort: Opening bid, high to low</option>
 <option value="assessedAsc">Sort: Assessed, low to high</option>
 <option value="assessedDesc">Sort: Assessed, high to low</option>
-<option value="spreadDesc">Sort: Best value, market ÷ bid</option>
+<option value="spreadDesc">Sort: County value ÷ bid, high to low</option>
 <option value="address">Sort: Address, A to Z</option>
 <option value="interestDesc">Sort: Interest rate, high to low (Certificates)</option>
 <option value="expSoonAsc">Sort: Expiring soonest (Certificates)</option>
@@ -352,7 +352,7 @@ comparator to apply as a tiebreaker either. -->
 <option value="bidDesc">Then by: Opening bid, high to low</option>
 <option value="assessedAsc">Then by: Assessed, low to high</option>
 <option value="assessedDesc">Then by: Assessed, high to low</option>
-<option value="spreadDesc">Then by: Best value, market ÷ bid</option>
+<option value="spreadDesc">Then by: County value ÷ bid, high to low</option>
 <option value="address">Then by: Address, A to Z</option>
 </select>
 </div>
@@ -363,7 +363,7 @@ comparator to apply as a tiebreaker either. -->
 <div class="filters-section-head"><span class="filters-section-title">Quick Toggles</span></div>
 <div class="filters-row">
 <label class="tog"><input type="checkbox" id="favOnly"> <span>♡ Favorites only</span></label>
-<label class="tog"><input type="checkbox" id="topOnly"> <span>★ Top picks only</span></label>
+<label class="tog"><input type="checkbox" id="topOnly"> <span>Only value ÷ bid 12×+ with no lien flags noted</span></label>
 <label class="tog"><input type="checkbox" id="soonOnly"> <span>⏱ Closing in 14 days</span></label>
 <label class="tog"><input type="checkbox" id="hideOldOnly"> <span>🕐 Hide listings 7+ days old</span></label>
 <label class="tog"><input type="checkbox" id="qtToggle"> <span>Include quiet title est.</span></label>
@@ -399,7 +399,7 @@ chips - each summary shows how many are currently selected. -->
 </details>
 
 <details class="filter-dropdown" id="lienDropdown">
-<summary>Title Status <span class="filter-dropdown-count" id="lienCount"></span></summary>
+<summary>Manual lien notes <span class="filter-dropdown-count" id="lienCount"></span></summary>
 <div class="filter-dropdown-body">
 <div class="group-actions"><button class="mini-btn" data-group="liens" data-mode="all" type="button">All</button><button class="mini-btn" data-group="liens" data-mode="none" type="button">None</button></div>
 <div class="chips" id="lienChips"></div>
@@ -451,10 +451,10 @@ it exactly as before. -->
 <!-- The title-search warning used to sit in the header on every screen. It is
 one button here, and the full text lives in the modal it opens. -->
 <p class="footer-terms"><button class="terms-btn" id="termsBtn" type="button">Terms &amp; disclaimer</button></p>
-Links open Street View, the county property appraiser, Zillow, the Tax Collector, the live auction listing, and the Clerk's Official Records.<br><br>
-★ <b>Top pick</b> = title screen came back clear AND market value is at least 12× the opening bid. A shortlisting aid, not advice.<br><br>
-<b>Fees</b> (shown on each property's full page) are Florida doc stamps (0.70/$100), recording, and — on homesteaded parcels — the half-assessed-value minimum under FS 197.502(6)(c), added on top of whatever the actual winning bid turns out to be. It is an estimate.<br><br>
-Title badges are a best-effort public-records search, <b>not a certified title search</b>. Confirm with a title company or attorney before bidding.
+Links open outside sites where one is on file: a Google Maps search built by this app (or a researched Street View link), the county property appraiser, Zillow, the Tax Collector, the county's auction page as last harvested, and the Clerk's official-records search. They are not endorsements.<br><br>
+<b>Filter match</b> = the county value on file is at least 12× the opening bid AND a manual note found no lien flags. Arithmetic plus a manual note, not a recommendation to bid.<br><br>
+<b>Fees</b> (shown on each property's full page) are Florida doc stamps (0.70/$100), recording, and — on homesteaded parcels — the half-assessed-value minimum under FS 197.502(6)(c), added on top of whatever the actual winning bid turns out to be. It is an estimate. <i>Open question:</i> the county's opening bid on a homestead parcel may already include that half-assessed amount, so the homestead part may be counted twice; this is pending professional review.<br><br>
+Lien notes are manual, partial research notes, <b>not a title search</b>. Confirm title with a title company or attorney before bidding.
 </footer>
 </section>
 
@@ -669,7 +669,7 @@ nothing saying which is which. -->
 <p>Confirm every figure against the county's own auction site, the Clerk of Court, the Property Appraiser and the Tax Collector, and have a title company or attorney review the parcel. A tax deed can carry liens, code enforcement actions, and other encumbrances this tool does not and cannot see.</p>
 
 <h3>Where the numbers come from</h3>
-<p>Property data is scraped from county and vendor websites on a schedule and can be wrong, incomplete, or out of date — a county can change or withdraw a listing at any time, including after our last sync.</p>
+<p>Property data is collected from county and vendor websites (most Florida sources on a daily schedule) and can be wrong, incomplete, or out of date — a county can change or withdraw a listing at any time, including after our last sync.</p>
 <!-- Was a permanent line in the masthead. It is provenance, not a control -
      it belongs with the rest of "where the numbers come from" rather than
      above the tabs on every screen. app.js writes it here now; the amber
@@ -677,15 +677,15 @@ nothing saying which is which. -->
 <p class="generated" id="generatedAt" aria-live="polite">Loading…</p>
 <p>A property whose own row has not been re-synced recently carries an amber edge in the list, so a stale record is visible where you are actually reading, not only in aggregate here.</p>
 <p><b>Opening bid</b> is the county's published opening figure. It is a floor, not the cost to acquire — on a Lands Available parcel, taxes and fees accrued since the failed sale are added under Fla. Stat. §197.502(7) and §197.542. "Not published" means the county has not posted a figure, not that the parcel is free.</p>
-<p><b>Estimated market / assessed value</b> comes from the county roll, not from an appraisal or a comparative market analysis.</p>
-<p><b>Fees</b> shown on a property page are an estimate — Florida documentary stamps (0.70 per $100), recording, and on homesteaded parcels the half-assessed-value minimum under Fla. Stat. §197.502(6)(c) — calculated on top of whatever the winning bid turns out to be.</p>
-<p><b>Title badges</b> and <b>★ Top pick</b> are shortlisting aids from an automated screen. A "Clear" badge is not a guarantee of clear title and Top pick is not a recommendation to bid.</p>
+<p><b>County just / assessed value</b> comes from the county or state tax roll, not from an appraisal, a market-value estimate or a comparative market analysis.</p>
+<p><b>Fees</b> shown on a property page are an estimate — Florida documentary stamps (0.70 per $100), recording, and on homesteaded parcels the half-assessed-value minimum under Fla. Stat. §197.502(6)(c) — calculated on top of whatever the winning bid turns out to be. <b>Open question:</b> under §197.502(6)(c) the county's published opening bid on a homestead parcel may already include the half-assessed amount; if so, the homestead part of this estimate is counted twice. This is pending accountant/attorney review. Treat homestead fee figures as unconfirmed.</p>
+<p><b>Lien notes</b> are manual research notes entered on some listings. Most listings have none ("Not reviewed"), no review date is recorded, and they are not a title search or title opinion. "No flags noted" does not mean the title is clear. The <b>filter match</b> tag is arithmetic on county figures plus that manual note, not a recommendation to bid.</p>
 
 <h3>No warranty</h3>
 <p>This tool is provided as is, with no warranty of accuracy, completeness or fitness for any particular purpose. You are responsible for your own due diligence and for every bid you place. Nothing here creates an attorney-client, broker, or fiduciary relationship.</p>
 
 <h3>Your account</h3>
-<p>Access is granted by the account owner and may be withdrawn. Don't share your login. Notes, favorites and your watchlist are stored against your account and visible only to you.</p>
+<p>Access is granted by the account owner and may be withdrawn. Don't share your login. Favorites, hidden listings and your watchlist are stored against your account and are private to you. Team notes are shared: every approved member of this account can read the notes you leave on a property, along with the part of your email address before the @.</p>
 
 <p class="terms-note">Questions about any of this should go to the account owner.</p>
 </div>

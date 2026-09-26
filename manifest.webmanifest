@@ -1,7 +1,7 @@
 {
   "name": "Tax Acquisitions",
   "short_name": "Tax Acq",
-  "description": "Tax deed, lien and resale auction intelligence across state desks, with title screening, true acquisition cost, and shared team notes.",
+  "description": "Research tool for public tax deed, tax certificate and county-held property listings. Not a title search, appraisal, or legal or investment advice.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

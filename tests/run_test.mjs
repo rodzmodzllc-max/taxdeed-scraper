@@ -1008,6 +1008,11 @@ await page.waitForTimeout(250);
 results.termsModalOpens = await page.locator('#termsModal').isVisible();
 results.termsCarryTitleWarning =
   /not a certified title search/i.test(await page.locator('#termsModal').textContent());
+// Launch-readiness honesty pass: notes are readable by every approved member
+// (noteHtml renders other authors' notes), so the Terms must say they are
+// shared - they used to call them private.
+results.termsSayNotesShared = /Team notes are shared/.test(await page.locator('#termsModal').textContent());
+results.termsNoNotesPrivateClaim = !/notes[^.]*visible only to you/i.test(await page.locator('#termsModal').textContent());
 await page.click('#termsCloseBtn');
 await page.waitForTimeout(200);
 results.termsModalCloses = await page.locator('#termsModal').isHidden();
@@ -1142,7 +1147,7 @@ await page.locator('.cert-card').first().locator('.detail-btn').first().click();
 await page.waitForTimeout(300);
 const certDetailText = await page.locator('#detailModalInner').textContent();
 results.certDetailHasAccrued = /Est\. Accrued Interest/.test(certDetailText);
-results.certDetailHasTotalReturn = /Est\. Total Return/.test(certDetailText);
+results.certDetailHasTotalReturn = /Amount \+ est\. accrued interest/.test(certDetailText);
 results.certDetailTdaEligibleNow = /TDA Eligibility[\s\S]{0,40}Eligible now/.test(certDetailText);
 results.certDetailYieldInfoTips = await page.locator(
   '#detailModalInner .detail-stat:has-text("Est. Accrued Interest") .info-tip, ' +
@@ -1507,7 +1512,7 @@ if ((await page.locator('#expandAllBtn').textContent()) === 'Expand all') {
   await page.waitForTimeout(200);
 }
 const txCard = page.locator('.prop-card[data-pid="ptx1"]');
-results.txCardStreetviewHref = await txCard.locator('.prop-links a', { hasText: 'Street View' }).getAttribute('href');
+results.txCardStreetviewHref = await txCard.locator('.prop-links a', { hasText: 'Google Maps search' }).getAttribute('href');
 results.txCardZillowHref = await txCard.locator('.prop-links a', { hasText: 'Zillow' }).getAttribute('href');
 // ptx1 has neither url_streetview nor url_zillow (both null in the
 // fixture), so both are fallback/"estimated" links - the detail modal's
@@ -1517,6 +1522,14 @@ await txCard.locator('.detail-btn').click();
 await page.waitForTimeout(300);
 results.txDetailLinksText = (await page.locator('#detailModalInner .detail-links').textContent()) || '';
 results.txDetailProvenanceText = ((await page.locator('#detailModalInner .detail-provenance').textContent()) || '').trim();
+// Launch-readiness honesty pass: the Texas page must not carry Florida fee or
+// statute copy, or the Florida-only filter-match / quiet-title toggles.
+{
+  const txHtml = await page.content();
+  results.txNoFloridaStatuteCopy = !/197\.502|197\.542|doc stamps|documentary stamps/i.test(await page.locator('footer, #termsModal').allTextContents().then(t => t.join(' ')));
+  results.txNoFilterMatchToggle = (await page.locator('#topOnly').count()) === 0 && (await page.locator('#qtToggle').count()) === 0;
+  results.txNoFilterMatchBanner = !/toppick-banner/.test(txHtml);
+}
 
 // Phase 36: fees(p) (app.js) used to apply Florida's statutory fee formula
 // (doc stamps, recording fee, homestead surcharge under FS 197.502(6)(c))
@@ -2021,16 +2034,16 @@ const EXPECTED = {
   oppWhenClass: 'opp-val warn', // p1 sells in 3 days - inside SOON_DAYS
   oppBidText: '$5,000.00 Value ÷ bid 18.0× (screening ratio, not a return)',
   oppValueText: '$90,000 2025 County Just Value · County Assessed Value $80,000',
-  oppGaps: ['Photo not checked yet', 'Not yet geocoded', 'Flood zone not checked'],
+  oppGaps: ['Image not checked yet', 'Not yet geocoded', 'Flood zone not checked'],
   detailNavLabels: ['Summary', 'Financial', 'Property', 'History', 'Risk & Legal', 'Map', 'Sources', 'Data'],
   detailNavJumpScrolled: true,
   detailNavJumpMarksPill: true,
   showOnMapBtnText: 'Show county on the Map page',
   photoCardHasPhoto: 1,
-  photoCardCaption: 'Street View',
+  photoCardCaption: 'Aerial image · USDA NAIP',
   photoCardBannerHeightCapped: true,
-  photoNotCheckedText: 'Photo not checked yet',
-  photoNoCoverageText: 'No Street View coverage at this address',
+  photoNotCheckedText: 'Image not checked yet',
+  photoNoCoverageText: 'Checked - no stored image for this address',
   cardMoreClosedByDefault: true,
   cardMoreSummaryText: 'More · last sale, legal description',
   noHorizontalOverflowMobile: true,
@@ -2203,7 +2216,7 @@ const EXPECTED = {
   certCardStatCount: 6,
   certCardInterestRate: '18%',
   certCardTdaEligibility: 'Eligible now',
-  certCardStatusPill: 'Active',
+  certCardStatusPill: 'Listed',
   certCardAccruedInterestPlausible: true,
   cardCountBackOnAuctionTab: 8,
   pastDueCardVisibleDefault: 0,
@@ -2269,7 +2282,7 @@ const EXPECTED = {
     // (not county-sourced) - same "label carries an info tooltip glyph"
     // convention "Fees i" already used below.
     'Building / Improvement Value i',
-    'Fees i', 'Walk Away Above i', 'Gross Equity Spread i',
+    'Fees i', 'Your ceiling (% setting) i', 'County value minus bid i',
     'Year Built', 'Living Area', 'Lot Size', 'Buildings', 'Last Sale'
   ],
   detailStatValues: '1958 | 1,840 sq ft | 16,456 sq ft | 1 | $41,500 in 2011 | $22,000 | $68,000',
@@ -2295,19 +2308,21 @@ const EXPECTED = {
   termsModalOpens: true,
   termsCarryTitleWarning: true,
   termsModalCloses: true,
+  termsSayNotesShared: true,
+  termsNoNotesPrivateClaim: true,
   cardStatGridCount: 8,
-  lienPillFirstText: 'Clear',
+  lienPillFirstText: 'Lien notes: No flags noted',
   homesteadBadgeAbsentForP1: 0,
   // Phase 35 added 3 more (Building/Improvement Value, Walk Away Above,
   // Gross Equity Spread) alongside the pre-existing Fees/muni-lien/
   // accrued-interest/TDA-eligibility tips.
   infoTipCount: 7,
   linkIconPresent: true,
-  toppickBannerText: '★ Top pick 18.0× market vs bid',
+  toppickBannerText: 'Filter match 18.0× county value ÷ bid · no lien flags noted',
   junkLandRowHiddenOnAuction: true,
   exportBtnLabelAuction: '⬇ Export to Auction Sheet',
   spreadBarPresentP1: 1,
-  exportBtnLabelCertificate: '⬇ Export Yield Ledger (CSV)',
+  exportBtnLabelCertificate: '⬇ Export Certificates (CSV)',
   csvCertAccruedPlausible: true,
   csvCertTdaDate: '2025-06-01',
   certDetailHasAccrued: true,
@@ -2336,7 +2351,10 @@ const EXPECTED = {
   // >36h in the past relative to any real "today" this suite runs on.
   detailProvenanceText: /Data source: Fl Realauction Alachua[\s\S]*Data may be stale[\s\S]*last synced/,
   detailLinksHaveNoEstimatedSuffix: true,
-  txDetailLinksText: /Street View \(estimated search\)[\s\S]*Zillow \(estimated search\)/,
+  txNoFloridaStatuteCopy: true,
+  txNoFilterMatchToggle: true,
+  txNoFilterMatchBanner: true,
+  txDetailLinksText: /Google Maps search \(estimated search\)[\s\S]*Zillow \(estimated search\)/,
   txDetailProvenanceText: /Data source: LGBS \(taxsales\.lgbs\.com\)/,
   // Phase 36: fees(p) is Florida-only now (no verified TX fee formula
   // exists) - ptx1 has a published bid, so the pre-fix code would have

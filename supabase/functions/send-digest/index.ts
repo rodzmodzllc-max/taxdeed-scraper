@@ -47,6 +47,13 @@ function fmtMoney(n: number | null): string {
   return n == null ? "-" : `$${Number(n).toLocaleString()}`;
 }
 
+// Launch-readiness correction (2026-09-26): the property pipeline stores an
+// unpublished opening bid as 0 (see sync-laft-to-supabase.ps1 and the app's
+// hasPublishedBid()). $0 would read as a free parcel, so say what it means.
+function fmtBid(n: number | null): string {
+  return n != null && Number(n) > 0 ? fmtMoney(n) : "Not published";
+}
+
 type Row = {
   user_id: string;
   property_id: string;
@@ -68,9 +75,9 @@ function buildEmailHtml(rows: Row[]): string {
       <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0">${esc(p.county)}</td>
       <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0">${esc(p.address)}</td>
       <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0">${fmtDate(p.sale_date)} (${p.days_out}d)</td>
-      <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0">${fmtMoney(p.bid)}</td>
+      <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0">${fmtBid(p.bid)}</td>
       <td style="padding:6px 10px;border-bottom:1px solid #e2e8f0">${
-        p.url_auction ? `<a href="${esc(p.url_auction)}">Auction listing</a>` : ""
+        p.url_auction ? `<a href="${esc(p.url_auction)}">Source listing page</a>` : ""
       }</td>
     </tr>`
     )
@@ -78,7 +85,7 @@ function buildEmailHtml(rows: Row[]): string {
 
   return `
     <div style="font-family:system-ui,sans-serif;color:#0f172a">
-      <h2 style="margin:0 0 12px">${rows.length} favorited auction${rows.length === 1 ? "" : "s"} closing in the next ${DIGEST_DAYS} days</h2>
+      <h2 style="margin:0 0 12px">${rows.length} favorited propert${rows.length === 1 ? "y has its" : "ies have their"} scheduled sale date within the next ${DIGEST_DAYS} days</h2>
       <table style="border-collapse:collapse;width:100%">
         <tr style="text-align:left;background:#f1f5f9">
           <th style="padding:6px 10px">County</th>
@@ -90,8 +97,10 @@ function buildEmailHtml(rows: Row[]): string {
         ${rowsHtml}
       </table>
       <p style="color:#64748b;font-size:.9em;margin-top:16px">
-        You're getting this because these properties are in your favorites on the FL Tax Deed Watchlist.
-        Best-effort public records search - not a certified title search.
+        You're getting this because these properties are in your favorites in Tax Acquisitions.
+        Sale dates and bids are copied from county and vendor sources and can change, be postponed or be cancelled without notice - confirm on the official source before acting.
+        This is research information, not a title search and not legal, tax or investment advice.<br><br>
+        To stop these emails, remove these properties from your favorites. There is no one-click unsubscribe yet; contact the account owner if you want to stop receiving the digest.
       </p>
     </div>`;
 }
@@ -99,7 +108,7 @@ function buildEmailHtml(rows: Row[]): string {
 async function sendEmail(to: string, html: string, count: number): Promise<boolean> {
   if (!RESEND_API_KEY || !DIGEST_FROM_EMAIL) {
     console.error("RESEND_API_KEY / DIGEST_FROM_EMAIL not configured - skipping send, dumping to log instead");
-    console.log(`Would send to ${to}: ${count} closing-soon favorite(s)`);
+    console.log(`Would send to ${to}: ${count} favorite(s) with a sale date within ${DIGEST_DAYS} days`);
     return false;
   }
   // Swap this block for your provider of choice (SendGrid, Postmark, SES,
@@ -114,7 +123,7 @@ async function sendEmail(to: string, html: string, count: number): Promise<boole
     body: JSON.stringify({
       from: DIGEST_FROM_EMAIL,
       to,
-      subject: `${count} tax deed auction${count === 1 ? "" : "s"} closing soon`,
+      subject: `${count} favorited propert${count === 1 ? "y" : "ies"}: sale date within ${DIGEST_DAYS} days`,
       html,
     }),
   });
