@@ -106,15 +106,28 @@ function outcomeText(p) {
   const price = Number(p.sold_price);
   if (label === "Sold" && price > 0) return `Sold - ${fmtMoney(price)}`;
   if (label) return label;
-  // Nothing recorded yet. "Closed - closed" said nothing twice; say it once.
-  const st = String(p.status || "").toLowerCase();
-  if (st && st !== "closed") return st.charAt(0).toUpperCase() + st.slice(1);
-  return "Closed";
+  // Nothing recorded (no writer fills outcome/sold_price today, and neither
+  // column is in get_properties). Launch-readiness correction (2026-09-26):
+  // describe only what the pipeline observed - the listing disappeared from
+  // the feed or list it was harvested from - and never imply sold, redeemed
+  // or cancelled.
+  return GONE_STATUS_TEXT[String(p.status || "").toLowerCase()] || "No longer listed";
 }
+const GONE_STATUS_TEXT = {
+  closed: "No longer on the county's current auction feed",
+  notfound: "No longer on the county-held list",
+  dropped: "No longer listed"
+};
+const GONE_STATUS_CAVEAT = "The listing left the source feed or list after its date. Why (sold, redeemed, cancelled, postponed) is not recorded - check the county record.";
 
 const TYPE_ORDER = ["House", "Condo", "Townhome", "Mobile/Manuf.", "Vacant Lot", "Commercial", "Unknown"];
 const LIEN_ORDER = ["clean", "flag", "serious", "unscreened"];
-const LIEN_LABEL = { clean: "Clear", flag: "Flag", serious: "Serious", unscreened: "Unscreened" };
+// Launch-readiness correction (2026-09-26): lien_level is a MANUAL research
+// note set by hand on some listings (every synced row defaults to
+// "unscreened", see sync-harvest-to-supabase.ps1) with no review date. It is
+// not a title search, so no label may read as a title conclusion.
+const LIEN_LABEL = { clean: "No flags noted", flag: "Flagged", serious: "Serious flag", unscreened: "Not reviewed" };
+const LIEN_NOTES_CAVEAT = "Manual research notes on some listings - not a title search or title opinion, and no review date is recorded. \"No flags noted\" does not mean the title is clear.";
 const STAGES = ["", "researched", "drove by", "called clerk", "bidding", "won", "passed"];
 
 const COUNTY_INFO = {
@@ -405,7 +418,7 @@ const LEDGERS = {
     slug: "auctions",
     icon: svgIcon("scale"),
     title: "Auctions & Bidding",
-    sub: "Open to competitive bidding at a live county auction.",
+    sub: "Scheduled county tax deed sales, as last harvested from the county's auction site.",
     how: "You bid against other buyers on the county's own auction site. The figure shown is the opening bid, not the final price.",
     empty: "No auctions match. Auctions appear here once a county schedules a sale date - try clearing filters, or check Lands Available for property that failed to sell at auction.",
     tx: {
@@ -455,9 +468,9 @@ const LEDGERS = {
     how: "You are buying the lien, not the land. It earns interest until the owner redeems it; only if nobody redeems can you apply for a deed.",
     empty: "No certificates match. Certificates are county-held liens - the list moves as owners redeem them.",
     tx: {
-      title: "Yield Desk — Redeemable Tax Deeds",
+      title: "Redeemable Tax Deeds",
       sub: "A deed you already own, still subject to the former owner's statutory right to redeem it for a premium (Tex. Tax Code §34.21).",
-      how: "Not a lien purchase - you own the deed. The former owner can redeem within 180 days (25% flat premium) or 2 years for homestead/agricultural/mineral property (25% year 1, 50% year 2), on the aggregate cost, not the bid alone.",
+      how: "Not a lien purchase - you own the deed. The former owner can redeem within 180 days (25% flat premium) or 2 years for homestead/agricultural/mineral property (25% year 1, 50% year 2), on the aggregate cost, not the bid alone. General summary for orientation only - this app does not track redemption status or deadlines; confirm terms with a Texas attorney.",
       // Phase 14A correction - see the parallel note on the auction ledger's
       // `tx.empty` string above for why this changed.
       empty: "No Texas redeemable deeds match yet. Texas harvesting runs on-demand (not yet on an automatic schedule) - this list reflects the most recent manual harvest run, so an empty result can mean no recent run, not unavailable harvesting."
@@ -668,9 +681,9 @@ function hideErrorToast() {
 // compact card row and the roomier detail-modal buttons so the two stay
 // visually consistent.
 const LINK_ICON = {
-  "Street View": "eye", "Appraiser": "building", "Zillow": "home", "Tax Collector": "dollar",
+  "Street View": "eye", "Google Maps search": "eye", "Appraiser": "building", "Zillow": "home", "Tax Collector": "dollar",
   "Auction": "gavel", "LAFT": "gavel", "Lands Available Listing": "gavel",
-  "County Auction Site": "gavel", "County-Held Liens List": "clipboard", "Title Search": "doc",
+  "County Auction Site": "gavel", "County-Held Liens List": "clipboard", "Clerk Official Records": "doc",
   "Clerk of Courts": "scale", "GIS Map": "map"
 };
 const linkIcon = label => LINK_ICON[label] ? `<span class="link-icon">${svgIcon(LINK_ICON[label])}</span>` : "";
@@ -687,20 +700,20 @@ const linkIcon = label => LINK_ICON[label] ? `<span class="link-icon">${svgIcon(
 // detailHtml()/card() - only Street View and Zillow ever call a fallback
 // builder), so they never get this suffix.
 const isEstimatedLink = (label, p) =>
-  (label === "Street View" && !p.url_streetview) || (label === "Zillow" && !p.url_zillow);
+  label === "Google Maps search" || (label === "Street View" && !p.url_streetview) || (label === "Zillow" && !p.url_zillow);
 
 // Small "ⓘ" tooltip affordance - keyboard-focusable (not hover-only) so it
 // works on touch devices too. `tip` is plain text, escaped for the
 // data-tip attribute the CSS ::after reads it from.
 const infoTip = tip => `<i class="info-tip" tabindex="0" data-tip="${esc(tip)}">i</i>`;
-const FEES_TIP = "Florida doc stamps (0.70/$100) + recording fee, plus half the assessed value on homesteaded parcels (FS 197.502(6)(c)). Added on top of whatever the actual winning bid turns out to be - estimated here using the opening bid, since the real winning bid isn't known in advance.";
+const FEES_TIP = "Florida doc stamps (0.70/$100) + recording fee, plus half the assessed value on homesteaded parcels (FS 197.502(6)(c)). Added on top of whatever the actual winning bid turns out to be - estimated here using the opening bid, since the real winning bid isn't known in advance. Unresolved: the county's published opening bid on a homestead parcel may already include this half-assessed amount, in which case this estimate counts it twice. Pending accountant/attorney review.";
 // Phase 35: these three stats were already calculated, client-side, from
 // raw county-sourced fields - they just had no infoTip() marking them as
 // such, unlike Fees/Homestead/Accrued Interest/TDA Eligibility right below.
 // Reusing the exact same infoTip() mechanism rather than inventing a new
 // "calculated" UI pattern.
 const EQUITY_SPREAD_TIP = "Calculated by this app: County Just/Assessed Value minus the opening bid. Not a profit estimate - it doesn't account for fees, repairs, municipal liens, or the real winning bid, which is usually higher than the opening bid.";
-const WALK_AWAY_TIP = "Calculated by this app: County Just/Assessed Value times your Max Bid % setting (in the calculator below). A ceiling you set, not a county figure.";
+const WALK_AWAY_TIP = "Calculated by this app: County Just/Assessed Value times your ceiling % setting (in Filters). A number you choose, not a county figure and not a recommended bid.";
 const BUILDING_VALUE_TIP = "Calculated by this app: County Just Value minus Land Value from the same tax roll. Not a separate appraisal - if the roll doesn't carry both figures, this is left off rather than guessed.";
 
 // Properties synced from the statewide harvest pipeline (as opposed to the
@@ -723,6 +736,11 @@ function fallbackZillowUrl(p) {
   if (!p.address) return "";
   return `https://www.zillow.com/homes/${encodeURIComponent(p.address + ", " + p.county + " County, " + regionOf(p))}_rb/`;
 }
+// Launch-readiness correction (2026-09-26): unless a hand-researched
+// url_streetview exists, the link below is a Google Maps SEARCH built by this
+// app from the row's coordinates or address - not a Street View image and not
+// a county record - so it is labelled for what it is.
+function streetviewLinkLabel(p) { return p.url_streetview ? "Street View" : "Google Maps search"; }
 function fallbackStreetviewUrl(p) {
   if (p.url_streetview) return p.url_streetview;
   // Prefer a direct coordinate link once geocode_properties.py has filled
@@ -757,15 +775,33 @@ function hasPhoto(p) { return typeof p.photo_url === "string" && p.photo_url.len
 //                     one should exist.
 // Both come straight from the NULL/''/value contract documented on
 // properties.photo_url (CLAUDE.md, "Property photos") - nothing inferred.
+// Launch-readiness correction (2026-09-26): '' can be written by EITHER image
+// pipeline (the USDA NAIP enricher or the Street View fetcher) when it finds
+// nothing, so the wording must not name one provider. Measured 2026-09-26:
+// every stored photo_url in production has photo_source = 'usda_naip' (an
+// overhead aerial) and none is a Street View still.
 function photoStateText(p) {
-  return p.photo_url === "" ? "No Street View coverage at this address" : "Photo not checked yet";
+  return p.photo_url === "" ? "Checked - no stored image for this address" : "Image not checked yet";
+}
+// What the stored image IS, from photo_source (migration 011), never assumed.
+// NAIP is an overhead aerial of the area around the coordinates - not a
+// photo of the building, not street-level, and not current condition.
+const PHOTO_SOURCE_LABELS = { usda_naip: "Aerial image · USDA NAIP", google_streetview: "Street View" };
+function photoCaption(p) {
+  const base = PHOTO_SOURCE_LABELS[p.photo_source] || "Stored image · source not recorded";
+  const year = Number(p.photo_captured_year);
+  return year > 0 ? `${base} · ${year}` : base;
+}
+function photoAlt(p) {
+  return p.photo_source === "usda_naip" ? "Overhead aerial image of the area around this property (USDA NAIP)"
+    : p.photo_source === "google_streetview" ? "Street-level image near this address (Google Street View)"
+    : "Stored image for this property";
 }
 function photoOrPlaceholder(p, cls) {
   if (hasPhoto(p)) {
-    // The caption names what the image IS (a Google Street View still from
-    // scripts/fetch_property_photos.py), so it is never mistaken for a
-    // listing photo or a current-condition shot.
-    return `<div class="${cls} has-photo"><img src="${esc(p.photo_url)}" alt="" loading="lazy" width="640" height="400"><span class="photo-caption">Street View</span></div>`;
+    // The caption names what the image IS, read from photo_source, so an
+    // aerial is never presented as a street-level or listing photo.
+    return `<div class="${cls} has-photo" data-photo-source="${esc(p.photo_source || "unknown")}"><img src="${esc(p.photo_url)}" alt="${esc(photoAlt(p))}" loading="lazy" width="640" height="400"><span class="photo-caption" title="Imagery may be years old and does not show current condition.">${esc(photoCaption(p))}</span></div>`;
   }
   // Compact bar, not a full-size empty photo box - see the CSS comment on
   // .prop-card-photo.no-photo. Most rows don't have a cached photo yet
@@ -779,14 +815,15 @@ function photoOrPlaceholder(p, cls) {
 // ==================== Phase 67: property visual hierarchy ====================
 // One deterministic ladder, decided from real fields only, and each rung
 // labelled for what it IS so a reader can never mistake one for another:
-//   1. a real Street View still (photo_url)                -> "Street View"
+//   1. a stored image (photo_url), captioned from          -> "Aerial image ·
+//      photo_source (NAIP aerial or Street View still)         USDA NAIP" etc.
 //   2. a provider's static satellite image centred on the   -> "Satellite ·
 //      row's own coordinates (MapTiler Static Maps API, or     MapTiler/Google"
 //      Google Maps Static API) - only with coordinates AND a
 //      configured key, requested lazily, one per card in view
 //   3. the app's own county outline with the coordinate    -> "Location in
 //      dotted on it (same-origin SVG, no third party)          <county> County"
-//   4. a restrained placeholder naming both absences        -> "Photo not
+//   4. a restrained placeholder naming both absences        -> "Image not
 //      (photo state + not yet geocoded)                        checked yet ·
 //                                                              Not yet geocoded"
 // Never a generated "property photo", never a boundary the backend doesn't
@@ -1165,7 +1202,9 @@ const lotTitle = p => (hasParcel(p)
   : `${esc(p.county)} County Lot (parcel # not published)`);
 
 const valueRatio = p => (Number(p.bid) > 0 ? marketOf(p) / Number(p.bid) : 0);
-const isTopPick = p => p.lien_level === "clean" && valueRatio(p) >= TOP_PICK_RATIO;
+// Florida only: the filter match leans on manual lien notes, which Texas rows
+// never carry (passes() already skips the lien filter for TX).
+const isTopPick = p => regionOf(p) === "FL" && p.lien_level === "clean" && valueRatio(p) >= TOP_PICK_RATIO;
 const homesteadSurcharge = p => (p.homestead ? Number(p.assessed || 0) / 2 : 0);
 function fees(p) {
   // Fee/add-on cost only - NOT a total acquisition cost. We don't know the
@@ -1185,6 +1224,16 @@ function fees(p) {
   // guessing one. Every call site must treat null as "not available for
   // this state", never as $0.
   if (regionOf(p) !== "FL") return null;
+  // OPEN QUESTION (launch-readiness review, 2026-09-26) - NOT silently fixed:
+  // FS 197.502(6)(c) puts the half-assessed homestead amount INTO the opening
+  // bid. p.bid is the clerk's published opening bid, and 114 of 122 FL
+  // homestead auction rows with both figures had bid >= assessed/2 (median
+  // bid / (assessed/2) = 1.12) - consistent with it already being included,
+  // which would make homesteadSurcharge() below a double count. Not proven:
+  // our `assessed` is the FDOR roll figure, not necessarily the clerk's
+  // "latest assessed value", and 8 rows fall below half. Left unchanged and
+  // disclosed in FEES_TIP / Terms until an accountant or attorney confirms;
+  // tests/python/test_launch_readiness_honesty.py pins current behaviour.
   const bid = Number(p.bid) || 0;
   const base = bid + homesteadSurcharge(p);
   const total = base + base * DOC_STAMP_RATE + RECORDING_FEE + (state.includeQT ? QUIET_TITLE_EST : 0);
@@ -2048,11 +2097,11 @@ function noteHtml(p) {
   const list = others.map(n => `<div class="note-item"><span class="note-author">${esc((n.author_email || "teammate").split("@")[0])}</span>${n.stage ? `<span class="note-stage-tag">${esc(n.stage)}</span>` : ""}<br>${esc(n.body || "")}</div>`).join("");
   return `
   <div class="notes-block">
-    <div class="notes-head"><span>Team notes${rows.length ? " (" + rows.length + ")" : ""}</span></div>
+    <div class="notes-head"><span>Team notes${rows.length ? " (" + rows.length + ")" : ""}</span><span class="notes-visibility">Visible to all approved members, with your email name</span></div>
     ${list}
     <div class="note-editor">
       <select data-role="stage" data-pid="${p.id}">${STAGES.map(s => `<option value="${s}"${mine && mine.stage === s ? " selected" : ""}>${s === "" ? " - stage - " : s}</option>`).join("")}</select>
-      <textarea data-role="body" data-pid="${p.id}" rows="2" placeholder="Your note">${esc(mine ? mine.body : "")}</textarea>
+      <textarea data-role="body" data-pid="${p.id}" rows="2" placeholder="Your note (shared with approved members)">${esc(mine ? mine.body : "")}</textarea>
       <button class="note-save" data-action="savenote" data-pid="${p.id}" type="button">Save note</button>
     </div>
   </div>`;
@@ -2106,7 +2155,7 @@ function kickerParts(p) {
   const txStatus = p.tx_sale_status ? String(p.tx_sale_status) : "";
   const isTx = regionOf(p) === "TX";
   let phase, cls;
-  if (isGone(p)) { phase = "Closed"; cls = "phase-closed"; }
+  if (isGone(p)) { phase = "No longer listed"; cls = "phase-closed"; }
   else if (p.source === "laft") {
     if (!isTx) { phase = "Fixed price · available now"; cls = "phase-fixed"; }
     else if (/future sale/i.test(txStatus)) { phase = "Future sale · not yet scheduled"; cls = "phase-none"; }
@@ -2190,7 +2239,7 @@ function previewFacts(p) {
     if (hasNum(p.interest_rate)) more.push(["Interest rate", p.interest_rate + "%"]);
     if (p.tax_year) more.push(["Tax year", String(p.tax_year)]);
     if (p.issued_date) more.push(["Issued", fmtDate(p.issued_date)]);
-    if (isGone(p)) more.push(["Outcome", outcomeText(p)]);
+    if (isGone(p)) more.push(["Listing status", outcomeText(p)]);
     return {
       kicker: `${where} · ${k.type} · ${k.phase}`, where, phaseCls: k.cls,
       bidLabel: "Amount", bid: hasPublishedBid(p) ? fmtMoney(p.bid) : null,
@@ -2209,8 +2258,8 @@ function previewFacts(p) {
   if (hasNum(p.lot_sqft)) more.push(["Lot size", lotSize(p)]);
   const sale = lastSaleText(p);
   if (sale) more.push(["Last sale", sale]);
-  if (p.lien_level && regionOf(p) === "FL") more.push(["Title screen", LIEN_LABEL[p.lien_level] || String(p.lien_level)]);
-  if (isGone(p)) more.push(["Outcome", outcomeText(p)]);
+  if (p.lien_level && regionOf(p) === "FL") more.push(["Manual lien notes", LIEN_LABEL[p.lien_level] || String(p.lien_level)]);
+  if (isGone(p)) more.push(["Listing status", outcomeText(p)]);
   if (p.legal_desc) more.push(["Legal", String(p.legal_desc).length > 140 ? String(p.legal_desc).slice(0, 137) + "…" : String(p.legal_desc)]);
   return {
     kicker: `${where} · ${k.type} · ${k.phase}`, where, phaseCls: k.cls,
@@ -2268,8 +2317,8 @@ function card(p, showCounty) {
   const sale = lastSaleText(p);
   const isClosed = isGone(p);
   el.innerHTML = `
-    ${isClosed ? `<div class="closed-banner${Number(p.sold_price) > 0 ? " sold" : ""}">✓ ${esc(outcomeText(p))}${p.gone_since ? ` <span class="closed-when">${esc(fmtDate(String(p.gone_since).slice(0, 10)))}</span>` : ""}</div>` : ""}
-    ${top ? `<div class="toppick-banner">★ Top pick <span class="ratio-pill">${valueRatio(p).toFixed(1)}× market vs bid</span></div>` : ""}
+    ${isClosed ? `<div class="closed-banner${Number(p.sold_price) > 0 ? " sold" : ""}" title="${esc(GONE_STATUS_CAVEAT)}">${esc(outcomeText(p))}${p.gone_since ? ` <span class="closed-when">since ${esc(fmtDate(String(p.gone_since).slice(0, 10)))}</span>` : ""}</div>` : ""}
+    ${top ? `<div class="toppick-banner" title="Arithmetic on county figures plus a manual note - not a recommendation to bid">Filter match <span class="ratio-pill">${valueRatio(p).toFixed(1)}× county value ÷ bid · no lien flags noted</span></div>` : ""}
     ${propertyVisual(p, "prop-card-photo")}
     ${tag}
     <div class="prop-top">
@@ -2279,7 +2328,7 @@ function card(p, showCounty) {
         ${bidListBtnHtml(p, true)}
         <button class="icon-btn remove-btn" data-action="hide" data-pid="${p.id}" type="button" title="Hide">✕</button>
         ${cd}
-        ${!isClosed ? `<span class="lien-pill ${esc(p.lien_level)}">${LIEN_LABEL[p.lien_level] || p.lien_level}</span>` : ""}
+        ${!isClosed ? `<span class="lien-pill ${esc(p.lien_level)}" title="${esc(LIEN_NOTES_CAVEAT)}">Lien notes: ${LIEN_LABEL[p.lien_level] || p.lien_level}</span>` : ""}
         ${!isClosed && p.homestead ? `<span class="lien-pill homestead" title="${esc(HOMESTEAD_TIP)}">Homestead</span>` : ""}
         ${!isClosed ? `<span class="pill ${esc(p.status)}">${esc(p.status)}</span>` : ""}
       </div>
@@ -2302,7 +2351,7 @@ function card(p, showCounty) {
       ${p.legal_desc ? `<div class="prop-legal" title="${esc(p.legal_desc)}">${esc(p.legal_desc)}</div>` : ""}
     </details>` : ""}
     <div class="prop-links">
-      ${fallbackStreetviewUrl(p) ? `<a href="${esc(fallbackStreetviewUrl(p))}" target="_blank" rel="noopener"${isEstimatedLink("Street View", p) ? ' title="Estimated search link, built from the address - not confirmed by the county"' : ""}>${linkIcon("Street View")}Street View</a>` : ''}
+      ${fallbackStreetviewUrl(p) ? `<a href="${esc(fallbackStreetviewUrl(p))}" target="_blank" rel="noopener"${isEstimatedLink(streetviewLinkLabel(p), p) ? ' title="Search link built by this app from the coordinates or address - not a county record and not a Street View image"' : ""}>${linkIcon(streetviewLinkLabel(p))}${esc(streetviewLinkLabel(p))}</a>` : ''}
       ${p.url_appraiser ? `<a href="${esc(p.url_appraiser)}" target="_blank" rel="noopener">${linkIcon("Appraiser")}Appraiser</a>` : ''}
       ${fallbackZillowUrl(p) ? `<a href="${esc(fallbackZillowUrl(p))}" target="_blank" rel="noopener"${isEstimatedLink("Zillow", p) ? ' title="Estimated search link, built from the address - not confirmed by the county"' : ""}>${linkIcon("Zillow")}Zillow</a>` : ''}
     </div>
@@ -2390,7 +2439,7 @@ function certCard(p, showCounty) {
         ${bidListBtnHtml(p, true)}
         <button class="icon-btn remove-btn" data-action="hide" data-pid="${p.id}" type="button" title="Hide">✕</button>
         ${cd}
-        <span class="pill ${esc(p.status)}" title="Redemption status">${isGone(p) ? esc(outcomeText(p)) : "Active"}</span>
+        <span class="pill ${esc(p.status)}" title="Whether the certificate is on the county-held list - redemption status is not tracked">${isGone(p) ? esc(outcomeText(p)) : "Listed"}</span>
       </div>
     </div>
     <div class="card-stat-grid cert-stat-grid">
@@ -2430,9 +2479,10 @@ function calcDrawerHtml(p) {
   const yourMaxBid = Math.max(0, ceiling - calc.repair - calc.muni);
   return `
     <details class="calc-drawer" data-pid="${p.id}">
-      <summary>Bid &amp; profit calculator</summary>
+      <summary>Scenario worksheet (your inputs)</summary>
       <div class="calc-body">
-        <div class="calc-row"><span>Gross Equity Spread</span><b>${grossSpread >= 0 ? "+" : "-"}${fmtShort(Math.abs(grossSpread))}</b></div>
+        <p class="calc-disclaimer">Arithmetic on county figures and the numbers you enter. Not an appraisal, a profit forecast, or investment, legal or tax advice.</p>
+        <div class="calc-row"><span>County value minus bid</span><b>${grossSpread >= 0 ? "+" : "-"}${fmtShort(Math.abs(grossSpread))}</b></div>
         <div class="calc-row calc-minus"><span>County &amp; closing fees ${infoTip(FEES_TIP)}</span><b>-${fmtShort(feesAmt)}</b></div>
         <label class="calc-input-row"><span>Repair / rehab estimate</span>
           <input type="number" class="calc-input" min="0" step="100" inputmode="numeric" data-calc-field="repair" value="${calc.repair || ""}" placeholder="$0">
@@ -2440,10 +2490,10 @@ function calcDrawerHtml(p) {
         <label class="calc-input-row"><span>Municipal lien buffer ${infoTip(MUNI_LIEN_TIP)}</span>
           <input type="number" class="calc-input" min="0" step="100" inputmode="numeric" data-calc-field="muni" value="${calc.muni || ""}" placeholder="$0">
         </label>
-        <div class="calc-row calc-total"><span>Net Profit Estimate</span><b id="calcNetResult" class="${netSpread < 0 ? "neg" : ""}">${netSpread >= 0 ? "+" : "-"}${fmtShort(Math.abs(netSpread))}</b></div>
+        <div class="calc-row calc-total"><span>Value minus bid, est. fees and your inputs</span><b id="calcNetResult" class="${netSpread < 0 ? "neg" : ""}">${netSpread >= 0 ? "+" : "-"}${fmtShort(Math.abs(netSpread))}</b></div>
         <div class="calc-divider"></div>
-        <div class="calc-row"><span>Walk Away Above (${state.maxBidPct}% of Just Value)</span><b>${fmtShort(ceiling)}</b></div>
-        <div class="calc-row calc-total"><span>Your Max Bid</span><b id="calcMaxBidResult">${fmtShort(yourMaxBid)}</b></div>
+        <div class="calc-row"><span>Your ceiling (${state.maxBidPct}% of county value)</span><b>${fmtShort(ceiling)}</b></div>
+        <div class="calc-row calc-total"><span>Your ceiling after your inputs</span><b id="calcMaxBidResult">${fmtShort(yourMaxBid)}</b></div>
       </div>
     </details>`;
 }
@@ -2467,8 +2517,8 @@ function detailStatTip(label) {
   if (label === "Homestead Exemption") return infoTip(HOMESTEAD_TIP);
   if (label === "Est. Accrued Interest") return infoTip(ACCRUED_INTEREST_TIP);
   if (label === "TDA Eligibility") return infoTip(TDA_ELIGIBLE_TIP);
-  if (label === "Gross Equity Spread") return infoTip(EQUITY_SPREAD_TIP);
-  if (label === "Walk Away Above") return infoTip(WALK_AWAY_TIP);
+  if (label === "County value minus bid") return infoTip(EQUITY_SPREAD_TIP);
+  if (label === "Your ceiling (% setting)") return infoTip(WALK_AWAY_TIP);
   if (label === "Building / Improvement Value") return infoTip(BUILDING_VALUE_TIP);
   return "";
 }
@@ -2515,7 +2565,7 @@ function dataGaps(p) {
   // pipeline could verify (every Texas LGBS row today). Said here as well as
   // in the CTA slot, so the "Missing" list is complete.
   if (!p.url_auction) gaps.push("Auction link not published");
-  if (!hasPhoto(p)) gaps.push(p.photo_url === "" ? "No Street View coverage" : "Photo not checked yet");
+  if (!hasPhoto(p)) gaps.push(p.photo_url === "" ? "No stored image for this address" : "Image not checked yet");
   if (!(hasNum(p.latitude) && hasNum(p.longitude))) gaps.push("Not yet geocoded");
   const fl = floodShort(p);
   if (fl.cls === "muted") gaps.push(fl.text === "Not checked" ? "Flood zone not checked" : "Flood zone not mapped by FEMA");
@@ -2561,7 +2611,7 @@ function opportunitySummaryHtml(p) {
   const gaps = dataGaps(p);
   const missing = gaps.length
     ? `<ul class="opp-gaps">${gaps.map(g => `<li>${esc(g)}</li>`).join("")}</ul>`
-    : `<span class="ok">Nothing flagged - every tracked field is present</span>`;
+    : `<span class="ok">None of the gaps this app checks for</span>`;
   const cells = [
     ["What", `${esc(what)}${src ? `<span class="opp-sub">Source: ${esc(src)}</span>` : ""}`, ""],
     ["Where", where, ""],
@@ -2672,11 +2722,13 @@ function detailHtml(p) {
   // its own big detail-cta button below (same treatment card()'s .cta-btn
   // already gives it in the list), so it isn't buried.
   const links = [
-    ["Street View", fallbackStreetviewUrl(p)],
+    [streetviewLinkLabel(p), fallbackStreetviewUrl(p)],
     ["Appraiser", p.url_appraiser],
     ["Zillow", fallbackZillowUrl(p)],
     ["Tax Collector", p.url_taxcoll],
-    ["Title Search", p.url_title],
+    // url_title points at the Clerk's official-records search portal, not a
+    // title search - labelled as what it is.
+    ["Clerk Official Records", p.url_title],
     // url_clerk/url_gis are NOT production columns (confirmed against a live
     // information_schema query, Phase 26/31/32A) - properties has no such
     // fields today, on any row, in any county. These two entries are kept
@@ -2733,14 +2785,14 @@ function detailHtml(p) {
       // this stat when there's a real number behind it.
       const feesAmt = fees(p);
       if (feesAmt !== null) stats.push(["Fees", fmtShort(feesAmt), "financial"]);
-      stats.push(["Walk Away Above", fmtShort(maxBid(p)), "financial"]);
+      stats.push(["Your ceiling (% setting)", fmtShort(maxBid(p)), "financial"]);
       if (marketOf(p) > 0) {
         const spreadAmt = marketOf(p) - Number(p.bid);
         // "Profit" implied the quiet title suit, municipal liens, and
         // rehab that Florida tax deed math never nets out for free - this
         // is the raw Just-Value-minus-bid baseline the calculator below
         // actually subtracts those from, so it's named for what it is.
-        stats.push(["Gross Equity Spread", `${spreadAmt >= 0 ? "+" : "-"}${fmtShort(Math.abs(spreadAmt))} (${valueRatio(p).toFixed(1)}×)`, "financial"]);
+        stats.push(["County value minus bid", `${spreadAmt >= 0 ? "+" : "-"}${fmtShort(Math.abs(spreadAmt))} (${valueRatio(p).toFixed(1)}×)`, "financial"]);
       }
     }
     // Tax-roll facts about the property itself, after the money. Each is
@@ -2766,7 +2818,7 @@ function detailHtml(p) {
     if (hasNum(p.num_res_units)) stats.push(["Residential Units", String(p.num_res_units), "property"]);
     const saleText = lastSaleText(p);
     if (saleText) stats.push(["Last Sale", saleText, "history"]);
-    if (isGone(p)) stats.push(["Outcome", outcomeText(p), "history"]);
+    if (isGone(p)) stats.push(["Listing status", outcomeText(p), "history"]);
   } else {
     stats.push(["Amount", bidDisplay(p)]);
     // Phase 36 fix: was a truthy check, which silently hid a genuine 0%
@@ -2779,7 +2831,7 @@ function detailHtml(p) {
     const accrued = accruedInterestEst(p);
     if (accrued !== null) {
       stats.push(["Est. Accrued Interest", fmtShort(accrued)]);
-      stats.push(["Est. Total Return", fmtShort(Number(p.bid) + accrued)]);
+      stats.push(["Amount + est. accrued interest", fmtShort(Number(p.bid) + accrued)]);
     }
     // Certificates previously had no gone-status signal anywhere in this
     // modal: the pill below used to be gated to !isCert (auctions/laft
@@ -2790,7 +2842,7 @@ function detailHtml(p) {
     // patterns already used elsewhere (certCard()'s own list-card pill;
     // the !isCert branch's existing Outcome stat) - no new function, no
     // fabricated field, no schema/RPC change.
-    if (isGone(p)) stats.push(["Outcome", outcomeText(p)]);
+    if (isGone(p)) stats.push(["Listing status", outcomeText(p)]);
     stats.push(["TDA Eligibility", tdaEligibleText(p)]);
   }
 
@@ -2805,8 +2857,9 @@ function detailHtml(p) {
     </div>
     <!--NAV-->
     ${!isCert && regionOf(p) === "FL" ? `<div class="lien-banner ${esc(p.lien_level)}">
-      <div class="lien-toprow"><span class="lien-label">Title: ${LIEN_LABEL[p.lien_level] || p.lien_level}</span><span class="type-badge">${esc(p.prop_type || "Type: Unknown")}</span></div>
+      <div class="lien-toprow"><span class="lien-label">Manual lien notes: ${LIEN_LABEL[p.lien_level] || p.lien_level}</span><span class="type-badge">${esc(p.prop_type || "Type: Unknown")}</span></div>
       <span class="lien-text">${esc(p.lien_note || "")}</span>
+      <span class="lien-caveat">${esc(LIEN_NOTES_CAVEAT)}</span>
       <span class="muni-lien-note">${infoTip(MUNI_LIEN_TIP)} Verify municipal/utility/IRS liens - these survive a tax deed sale</span>
     </div>` : ""}
     ${regionOf(p) === "TX" && classificationBadgeHtml(p) ? `<div class="prop-classification-line" style="margin:.2rem 0 .5rem">${classificationBadgeHtml(p)}</div>` : ""}
@@ -3629,7 +3682,7 @@ function section(container, title, sub, rows, kind) {
       <p class="ledger-legend" aria-label="What the colour on each card's left edge means">
         <span class="lgd lgd-active">Active</span>
         <span class="lgd lgd-stale">Not synced recently</span>
-        <span class="lgd lgd-closed">Closed</span>
+        <span class="lgd lgd-closed">No longer listed</span>
       </p>
       ${state.statusView === "archive" ? `<p class="ledger-mode-note" id="archiveModeNote">📁 Past auctions only — sale date already gone. <button class="ledger-mode-exit" id="exitArchiveBtn" type="button">Back to current listings</button></p>` : ""}
     </div>`;
@@ -3908,7 +3961,7 @@ function applyLedgerChrome() {
   const exportBtn = document.getElementById("exportCsvBtn");
   if (exportBtn) {
     exportBtn.textContent = key === "auction" ? "⬇ Export to Auction Sheet"
-      : key === "certificate" ? "⬇ Export Yield Ledger (CSV)"
+      : key === "certificate" ? "⬇ Export Certificates (CSV)"
       : "⬇ Export OTC List (CSV)";
   }
 }
@@ -4083,7 +4136,7 @@ if (exportCsvBtn) exportCsvBtn.addEventListener("click", () => {
     // (dor_use_code for FL, tx_category for TX), never both.
     ["DOR Use Code", p => p.dor_use_code || ""],
     ["TX Category (SPTB)", p => p.tx_category || ""],
-    ["Title Status", p => LIEN_LABEL[p.lien_level] || p.lien_level || ""],
+    ["Manual Lien Notes (not a title search)", p => LIEN_LABEL[p.lien_level] || p.lien_level || ""],
     // Positive evidence only, same rule the app itself follows (see
     // homesteadSurcharge/the enrichment script's own comment on this
     // column) - blank here means "not confirmed", never "confirmed no".
@@ -4115,8 +4168,8 @@ if (exportCsvBtn) exportCsvBtn.addEventListener("click", () => {
     // equal to the entire market value, computed against a $0 bid it was
     // never really offered at. hasPublishedBid() is the same check the rest
     // of the app already uses for this field.
-    ["Gross Equity Spread ($)", p => (hasPublishedBid(p) && marketOf(p) > 0) ? Math.round(marketOf(p) - Number(p.bid)) : ""],
-    ["Gross Equity Spread (x bid)", p => (Number(p.bid) > 0 && marketOf(p) > 0) ? valueRatio(p).toFixed(2) : ""],
+    ["County Value Minus Opening Bid ($)", p => (hasPublishedBid(p) && marketOf(p) > 0) ? Math.round(marketOf(p) - Number(p.bid)) : ""],
+    ["County Value / Opening Bid (x)", p => (Number(p.bid) > 0 && marketOf(p) > 0) ? valueRatio(p).toFixed(2) : ""],
     // Phase 36 fix: same dead-guard bug as Gross Equity Spread above, plus
     // fees(p) itself now returns null for non-FL rows (see its own comment) -
     // both are handled here rather than exporting a wrong number.
@@ -4153,7 +4206,8 @@ if (exportCsvBtn) exportCsvBtn.addEventListener("click", () => {
     ["Interest Rate", p => p.interest_rate ?? ""],
     ["Est. Accrued Interest", p => { const a = accruedInterestEst(p); return a === null ? "" : Math.round(a); }],
     ["TDA Eligibility Date", p => { const t = tdaEligibleMs(p); return t === null ? "" : new Date(t).toISOString().slice(0, 10); }],
-    ["Street View", p => fallbackStreetviewUrl(p)],
+    ["Google Maps Search URL (built by app)", p => (p.url_streetview ? "" : fallbackStreetviewUrl(p))],
+    ["Street View URL (researched)", p => p.url_streetview || ""],
     ["Appraiser", p => p.url_appraiser || ""],
     ["Zillow", p => fallbackZillowUrl(p)],
     ["Tax Collector", p => p.url_taxcoll || ""],
@@ -4163,7 +4217,7 @@ if (exportCsvBtn) exportCsvBtn.addEventListener("click", () => {
     // "Auction/LAFT Listing" heading, whose value was the same column.
     ["Auction Listing URL", p => p.url_auction || ""],
     ["Auction URL Type", p => p.url_auction ? (p.url_auction_kind || "") : ""],
-    ["Title Search", p => p.url_title || ""]
+    ["Clerk Official Records URL", p => p.url_title || ""]
   ];
   // Phase 63: the row-terminator below is "\r\n", and this regex used to
   // only test for a comma/quote/"\n" - a harvested text field (e.g.
@@ -5303,7 +5357,7 @@ function renderDashboard() {
   statsEl.innerHTML = `
     <div class="stat-tile"><span class="stat-tile-icon">${svgIcon("building")}</span><div><div class="stat-tile-label">Total Properties</div><div class="stat-tile-val">${rows.length}</div></div></div>
     <div class="stat-tile"><span class="stat-tile-icon accent">${svgIcon("check")}</span><div><div class="stat-tile-label">Active</div><div class="stat-tile-val accent">${active.length}</div></div></div>
-    <div class="stat-tile"><span class="stat-tile-icon">${svgIcon("dollar")}</span><div><div class="stat-tile-label">Est. Total Value</div><div class="stat-tile-val">${fmtShort(totalValue)}</div><div class="stat-tile-sub">Sum of just/assessed value, active listings only</div></div></div>
+    <div class="stat-tile"><span class="stat-tile-icon">${svgIcon("dollar")}</span><div><div class="stat-tile-label">Sum of county values on file</div><div class="stat-tile-val">${fmtShort(totalValue)}</div><div class="stat-tile-sub">Sum of just/assessed value, active listings only</div></div></div>
     <div class="stat-tile"><span class="stat-tile-icon">${svgIcon("pin")}</span><div><div class="stat-tile-label">Counties</div><div class="stat-tile-val">${byCounty.size}</div></div></div>`;
 
   if (countyEl) {
