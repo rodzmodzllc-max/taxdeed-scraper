@@ -179,6 +179,13 @@ def test_outcome_and_sold_price_have_no_writer_anywhere_in_the_repo():
     for pattern in ("scripts/*.py", "scripts/*.ps1", "harvesters/**/*.py"):
         search_roots.extend(REPO_ROOT.glob(pattern))
     assert search_roots, "expected at least one script/harvester file to scan"
+    # Phase B (2026-09-25): the auction-event writers write
+    # `auction_events.outcome` (migration 014), a different table from the
+    # never-built `properties.outcome` this guard is about. They never write
+    # `properties` at all - asserted by
+    # tests/python/test_phase_b_auction_event_writers.py::test_writer_reads_but_never_writes_properties.
+    phase_b_event_writers = {"auction_events_writer.py", "seed_auction_events.py"}
+    search_roots = [p for p in search_roots if p.name not in phase_b_event_writers]
     for path in search_roots:
         text = path.read_text(errors="ignore")
         for field in DEFERRED_UNBUILT_FIELDS:
