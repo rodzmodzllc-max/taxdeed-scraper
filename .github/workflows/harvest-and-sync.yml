@@ -180,7 +180,14 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: harvest-deeds-${{ github.run_id }}
-          path: out/harvest_all.*
+          # `out/harvest_all.*` needs a dot right after `harvest_all`, so it
+          # never matched harvest_all_status.json (underscore, not dot) - the
+          # per-county completeness file the sync closeout and the Phase B
+          # writer both read. Listed explicitly so an offline re-run of either
+          # against this artifact sees the same evidence the job did.
+          path: |
+            out/harvest_all.*
+            out/harvest_all_status.json
           retention-days: 30
           if-no-files-found: warn
 
@@ -311,7 +318,11 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: harvest-certificates-${{ github.run_id }}
-          path: out/harvest_certificates.*
+          # Same glob shape as the deeds job: `.*` never matched the
+          # `_status.json` completeness file. Listed explicitly.
+          path: |
+            out/harvest_certificates.*
+            out/harvest_certificates_status.json
           retention-days: 30
           if-no-files-found: warn
 
@@ -559,7 +570,11 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: harvest-texas-${{ github.run_id }}
-          path: out/harvest_texas.*
+          # Same glob shape as the deeds job: `.*` never matched the
+          # `_status.json` completeness file. Listed explicitly.
+          path: |
+            out/harvest_texas.*
+            out/harvest_texas_status.json
           retention-days: 30
           if-no-files-found: warn
 
