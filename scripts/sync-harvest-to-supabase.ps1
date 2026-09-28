@@ -163,10 +163,10 @@ Write-Output "Counties covered: $((($rows | ForEach-Object { $_.county }) | Sele
 # Closed or Canceled". Confirmed live on Charlotte: the app kept showing
 # "10/10 active" well after the county's site showed only 4 still waiting.
 #
-# Fix: for every FL auction-sourced property still marked 'active' whose sale
-# date has already arrived, if its (county, case_no) isn't in what a COMPLETE
-# county's harvest this run saw, it has left the Waiting feed - flip it to
-# 'closed'. This can't distinguish Redeemed from Canceled from Sold (that
+# Fix: for every FL auction-sourced property still marked 'active' whose
+# Florida sale day has ended (see $floridaToday below), if its (county,
+# case_no) isn't in what a COMPLETE county's harvest this run saw, it has
+# left the Waiting feed - flip it to 'closed'. This can't distinguish Redeemed from Canceled from Sold (that
 # needs scraping the Closed/Canceled section too, which nothing here does
 # yet), but it's the difference between an accurate "closed" badge and a
 # stale "active" one that's flat wrong days or weeks after the fact.
@@ -210,7 +210,19 @@ if (Test-Path $statusPath) {
 }
 
 if ($completeCounties.Count -gt 0) {
-    $today = (Get-Date).ToString("yyyy-MM-dd")
+    # A sale date has passed only once the whole Florida sale day is over.
+    # Florida spans Eastern and Central time, so the day is measured at UTC-6
+    # - the earliest local date anywhere in Florida at this instant, the same
+    # convention as the Phase B event writer's SALE_DAY_UTC_OFFSET. UTC-6 is
+    # at or west of every Florida clock in both DST states (EDT -4, EST -5,
+    # CDT -5, CST -6), so this date is never later than any Florida-local
+    # date, and the comparison below is strict (`lt`, not `lte`). The old
+    # rule compared against the runner's own UTC date with `lte`: at the
+    # 22:00 UTC harvest that is already "tomorrow" from 8 pm ET on, and run
+    # #181 (00:16 UTC 2026-09-28) closed out 11 sales dated 09-28 during the
+    # evening of 09-27 in Florida. Nothing here infers that a sale happened -
+    # a row is closed only because it left a COMPLETE county's Waiting feed.
+    $floridaToday = [DateTime]::UtcNow.AddHours(-6).ToString("yyyy-MM-dd")
     # Harvested identity keys this run, scoped strictly per COMPLETE county -
     # matches sync-certificates-to-supabase.ps1's $harvestedKeysByCounty.
     $harvestedKeysByCounty = @{}
@@ -223,7 +235,7 @@ if ($completeCounties.Count -gt 0) {
     }
 
     $encodedCounties = ($completeCounties | ForEach-Object { [uri]::EscapeDataString($_) }) -join ","
-    $activeUrl = "$supabaseUrl/rest/v1/properties?state=eq.FL&source=eq.auction&status=eq.active&sale_date=lte.$today&county=in.($encodedCounties)&select=id,county,case_no&limit=5000"
+    $activeUrl = "$supabaseUrl/rest/v1/properties?state=eq.FL&source=eq.auction&status=eq.active&sale_date=lt.$floridaToday&county=in.($encodedCounties)&select=id,county,case_no&limit=5000"
     $activeRows = Invoke-RestMethod -Uri $activeUrl -Method Get -Headers $headers -UserAgent $SupabaseUserAgent
 
     $staleIds = @()
@@ -238,7 +250,7 @@ if ($completeCounties.Count -gt 0) {
     }
 
     if ($staleIds.Count -gt 0) {
-        Write-Output "Closing out $($staleIds.Count) properties whose sale date passed and are no longer on a COMPLETE county's Waiting feed..."
+        Write-Output "Closing out $($staleIds.Count) properties whose Florida sale day has ended (before $floridaToday at UTC-6) and are no longer on a COMPLETE county's Waiting feed..."
         $patchHeaders = $headers.Clone()
         $patchHeaders["Prefer"] = "return=minimal"
         for ($i = 0; $i -lt $staleIds.Count; $i += $batchSize) {

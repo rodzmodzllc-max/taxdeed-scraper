@@ -286,9 +286,12 @@ def test_closeout_query_is_scoped_to_state_source_status_and_complete_counties()
     reconciliation query: never touch another state, another source, a
     still-upcoming sale date, or a county this run didn't confirm complete.
     The `state=eq.FL` clause is the Phase 30B cross-state fix - it was
-    absent before this phase."""
+    absent before this phase. The date clause is `lt.$floridaToday` since
+    the 2026-09-28 remediation (it was `lte.$today` on the runner's UTC
+    clock, which closed out same-day sales the evening before in Florida -
+    see test_phase_b_remediation.py for that rule's own tests)."""
     section = _closeout_section()
-    assert "state=eq.FL&source=eq.auction&status=eq.active&sale_date=lte.$today&county=in.($encodedCounties)" in section
+    assert "state=eq.FL&source=eq.auction&status=eq.active&sale_date=lt.$floridaToday&county=in.($encodedCounties)" in section
 
 
 def test_closeout_rechecks_county_membership_defensively():
