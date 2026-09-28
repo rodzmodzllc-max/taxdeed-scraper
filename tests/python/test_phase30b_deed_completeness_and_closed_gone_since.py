@@ -286,9 +286,12 @@ def test_closeout_query_is_scoped_to_state_source_status_and_complete_counties()
     reconciliation query: never touch another state, another source, a
     still-upcoming sale date, or a county this run didn't confirm complete.
     The `state=eq.FL` clause is the Phase 30B cross-state fix - it was
-    absent before this phase."""
+    absent before this phase. The date clause is `lt.$floridaToday` since
+    the 2026-09-28 remediation (it was `lte.$today` on the runner's UTC
+    clock, which closed out same-day sales the evening before in Florida -
+    see test_phase_b_remediation.py for that rule's own tests)."""
     section = _closeout_section()
-    assert "state=eq.FL&source=eq.auction&status=eq.active&sale_date=lte.$today&county=in.($encodedCounties)" in section
+    assert "state=eq.FL&source=eq.auction&status=eq.active&sale_date=lt.$floridaToday&county=in.($encodedCounties)" in section
 
 
 def test_closeout_rechecks_county_membership_defensively():
@@ -334,15 +337,23 @@ def test_a_run_with_zero_complete_counties_closes_out_nothing():
     assert "Zero COMPLETE counties this run - stale-property closeout skipped entirely" in section
 
 
-def test_upsert_section_still_never_sends_status():
-    """The upsert step must remain exactly as safe-merge as before this
-    phase - status is only ever written by the separate closeout PATCH."""
+def test_upsert_section_sends_status_only_as_active_and_never_hand_research():
+    """The upsert step must remain safe-merge for hand research. Since the
+    2026-09-28 remediation it DOES send `status = "active"` - every harvested
+    row was read off a scheduled feed this run, and omitting status had left
+    re-listed rows falsely 'closed' (see test_phase_b_remediation.py). It
+    still never sends gone_since (trigger-managed, migration 006) or any
+    hand-researched column; 'closed' is still written only by the separate
+    closeout PATCH."""
     src = _sync_src()
     upsert_section = src[:src.index("# ---- Close out properties that fell off")]
     row_literal_start = upsert_section.index("$rows += [ordered]@{")
     row_literal = upsert_section[row_literal_start:upsert_section.index("}", row_literal_start)]
-    assert "status" not in row_literal
+    assert 'status        = "active"' in row_literal
+    assert '"closed"' not in row_literal
     assert "gone_since" not in row_literal
+    for hand_researched in ("owner_name", "lien_level", "lien_note", "notes", "homestead"):
+        assert hand_researched not in row_literal
 
 
 def test_whole_run_threshold_check_is_untouched_and_not_a_substitute():

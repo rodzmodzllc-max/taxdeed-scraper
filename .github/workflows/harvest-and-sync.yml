@@ -180,7 +180,14 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: harvest-deeds-${{ github.run_id }}
-          path: out/harvest_all.*
+          # `out/harvest_all.*` needs a dot right after `harvest_all`, so it
+          # never matched harvest_all_status.json (underscore, not dot) - the
+          # per-county completeness file the sync closeout and the Phase B
+          # writer both read. Listed explicitly so an offline re-run of either
+          # against this artifact sees the same evidence the job did.
+          path: |
+            out/harvest_all.*
+            out/harvest_all_status.json
           retention-days: 30
           if-no-files-found: warn
 
@@ -205,6 +212,35 @@ jobs:
 
       - name: Install Python dependencies (geocoding)
         run: pip install requests
+
+      # Phase B (auction-event history): record what this run's harvest saw
+      # as auction_events + auction_event_observations (migration 014). Runs
+      # AFTER the property sync above and only reads `properties` to resolve
+      # ids - it never writes the property snapshot. continue-on-error so a
+      # writer problem can never fail the property pipeline this job exists
+      # for; the step's own log line is the record of what it did.
+      - name: Record auction events (Phase B)
+        id: phase_b_events_fl
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/auction_events_writer.py --source fl
+
+      # Makes a Phase B failure visible without failing the property harvest:
+      # the step above is continue-on-error, so on its own a failure would
+      # leave the job green. This raises a warning annotation on the run and
+      # a job-summary section saying exactly which part failed.
+      - name: Report Phase B event recording failure
+        if: ${{ !cancelled() && steps.phase_b_events_fl.outcome == 'failure' }}
+        run: |
+          echo "::warning title=Phase B event recording failed (FL)::Property harvest and sync succeeded; Phase B auction-event recording FAILED. auction_events / auction_event_observations were not updated by this run - see the 'Record auction events (Phase B)' step log."
+          {
+            echo "## Phase B event recording (FL): FAILED"
+            echo ""
+            echo "- Property harvest and sync: **succeeded** (earlier steps)"
+            echo "- Phase B auction-event recording: **failed** - see the 'Record auction events (Phase B)' step log"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Backfill geocoding (US Census Bureau Geocoder)
         env:
@@ -282,7 +318,11 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: harvest-certificates-${{ github.run_id }}
-          path: out/harvest_certificates.*
+          # Same glob shape as the deeds job: `.*` never matched the
+          # `_status.json` completeness file. Listed explicitly.
+          path: |
+            out/harvest_certificates.*
+            out/harvest_certificates_status.json
           retention-days: 30
           if-no-files-found: warn
 
@@ -530,7 +570,11 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: harvest-texas-${{ github.run_id }}
-          path: out/harvest_texas.*
+          # Same glob shape as the deeds job: `.*` never matched the
+          # `_status.json` completeness file. Listed explicitly.
+          path: |
+            out/harvest_texas.*
+            out/harvest_texas_status.json
           retention-days: 30
           if-no-files-found: warn
 
@@ -539,6 +583,32 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 scripts/sync-texas-to-supabase.py
+
+      # Phase B (auction-event history): same writer as the deeds job, fed by
+      # out/harvest_texas.json. Texas has no per-county completeness file, so
+      # the writer applies no absence-based transitions here (see its header).
+      - name: Record auction events (Phase B)
+        id: phase_b_events_tx
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/auction_events_writer.py --source tx
+
+      # Makes a Phase B failure visible without failing the property harvest:
+      # the step above is continue-on-error, so on its own a failure would
+      # leave the job green. This raises a warning annotation on the run and
+      # a job-summary section saying exactly which part failed.
+      - name: Report Phase B event recording failure
+        if: ${{ !cancelled() && steps.phase_b_events_tx.outcome == 'failure' }}
+        run: |
+          echo "::warning title=Phase B event recording failed (TX)::Property harvest and sync succeeded; Phase B auction-event recording FAILED. auction_events / auction_event_observations were not updated by this run - see the 'Record auction events (Phase B)' step log."
+          {
+            echo "## Phase B event recording (TX): FAILED"
+            echo ""
+            echo "- Property harvest and sync: **succeeded** (earlier steps)"
+            echo "- Phase B auction-event recording: **failed** - see the 'Record auction events (Phase B)' step log"
+          } >> "$GITHUB_STEP_SUMMARY"
 
   backup:
     name: Export database backup
