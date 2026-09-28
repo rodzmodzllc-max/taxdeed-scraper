@@ -6,19 +6,31 @@ $ErrorActionPreference = "Stop"
 #
 # Safe-merge design: this script only ever sends the columns the harvester
 # actually knows (county, case_no, parcel, address, bid, assessed, sale_date,
-# url_appraiser, url_auction). It deliberately OMITS owner_name, status,
-# lien_level, lien_note, prop_type, homestead, url_streetview, url_zillow,
-# url_taxcoll, url_title from the payload.
+# url_appraiser, url_auction, url_auction_kind) plus `status = 'active'`,
+# which is harvest evidence too: every row in harvest_all.json was read off a
+# scheduled feed this run (RealAuction's "Auctions Waiting" list, Okaloosa's
+# upcoming Bid4Assets listing). It deliberately OMITS owner_name, lien_level,
+# lien_note, prop_type, homestead, url_streetview, url_zillow, url_taxcoll,
+# url_title and the gone-since timestamp from the payload.
 #
 # Why that matters: Postgres upsert (INSERT ... ON CONFLICT DO UPDATE) only
 # touches columns present in the request. Columns left out are never reset:
-#   - Brand-new properties get the table defaults (status='active',
-#     lien_level='unscreened', homestead=false) and null for the rest -
-#     exactly like a property that hasn't been screened yet.
+#   - Brand-new properties get the table defaults (lien_level='unscreened',
+#     homestead=false) and null for the rest - exactly like a property that
+#     hasn't been screened yet.
 #   - Properties already hand-researched keep their owner_name / lien_level /
 #     lien_note / notes untouched, even though this script re-syncs the same
 #     case_no every run (bid/sale_date can drift as an auction date
 #     approaches - those DO get refreshed).
+#   - `status` is sent because it is pipeline state, never hand research
+#     (docs/production-data-contract.md Section 12): only this script's own
+#     closeout below ever writes 'closed'. Before status was in the payload a
+#     property closed out in one run and re-listed by the county under a new
+#     date in a later run stayed 'closed' forever (15 such rows in run #181,
+#     all with future sale dates). A row on the Waiting feed is listed, so it
+#     is 'active'; a closed row that is NOT in the harvest is not in the
+#     payload and is not touched. The gone-since timestamp is trigger-managed
+#     (migration 006) and clears itself when status leaves the gone set.
 #
 # CI-adapted: reads SUPABASE_URL / SUPABASE_SERVICE_KEY from environment
 # variables (GitHub Actions secrets) instead of a local sync-config.local.json
@@ -90,6 +102,9 @@ foreach ($p in $harvest) {
         sale_date     = ConvertTo-IsoDate $p.sale_date
         url_appraiser = $p.appraiser
         url_auction   = $p.auction_url
+        # Listed on a scheduled feed this run => active (see header). This is
+        # what brings a previously closed-out, now re-listed row back.
+        status        = "active"
         # Phase 72: every writer of url_auction also writes what that URL
         # opens (migration 013). harvest_all_counties.ps1 stores the
         # RealAuction sale-date PREVIEW page (index.cfm?zaction=AUCTION&
