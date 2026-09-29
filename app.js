@@ -15,7 +15,14 @@ const sb = createClient(cfg.supabaseUrl, cfg.supabasePublishableKey, {
     storage: window.sessionStorage,
     persistSession: true,
     autoRefreshToken: true,
-    detectSessionInUrl: false
+    // SaaS hardening (2026-09-29): true so a password-reset link
+    // (sb.auth.resetPasswordForEmail -> e-mail -> back to this page) can
+    // complete: supabase-js reads the recovery token off the URL on load and
+    // emits PASSWORD_RECOVERY, handled in onAuthStateChange below. The
+    // token is consumed and removed from the URL by the library; ledger
+    // routing (#/auctions/...) is unaffected because a recovery URL carries
+    // a different fragment shape.
+    detectSessionInUrl: true
   }
 });
 
@@ -119,6 +126,19 @@ const GONE_STATUS_TEXT = {
   dropped: "No longer listed"
 };
 const GONE_STATUS_CAVEAT = "The listing left the source feed or list after its date. Why (sold, redeemed, cancelled, postponed) is not recorded - check the county record.";
+// The raw `status` column is a pipeline word (active/closed/dropped/
+// notfound/available), not a customer word: "closed" used to render as-is
+// and read as a closed sale. Rendered here as what the pipeline actually
+// observed, with the caveat as the tooltip. The CSS class keeps the raw
+// value so the existing colour rules still apply.
+const STATUS_PILL_LABEL = { active: "Listed", available: "Listed", closed: "Left feed", dropped: "Left list", notfound: "Not on list" };
+function cssEscape(v) { return (window.CSS && CSS.escape) ? CSS.escape(v) : String(v).replace(/["\\]/g, "\\$&"); }
+function statusPillHtml(p) {
+  const raw = String(p.status || "").toLowerCase();
+  const label = STATUS_PILL_LABEL[raw] || raw || "Unknown";
+  const tip = isGone(p) ? GONE_STATUS_CAVEAT : "On the source's list as of the last sync";
+  return `<span class="pill ${esc(raw)}" title="${esc(tip)}">${esc(label)}</span>`;
+}
 
 const TYPE_ORDER = ["House", "Condo", "Townhome", "Mobile/Manuf.", "Vacant Lot", "Commercial", "Unknown"];
 const LIEN_ORDER = ["clean", "flag", "serious", "unscreened"];
@@ -346,6 +366,9 @@ let ALL = [], CALENDAR = {}, NOTES = {}, FAVS = new Set(), HIDDEN = new Set(), M
 // BIDLIST_ORDER is the same ids in the order they were added, oldest first -
 // the watchlist modal reverses it to show the most recently added one on top.
 let BIDLIST = new Set(), BIDLIST_ORDER = [];
+// SaaS hardening (2026-09-29): dataset health rows (null = table not
+// present / not recorded yet) and the change signals for watched rows.
+let SOURCE_HEALTH = null, WATCH_CHANGES = null;
 // Ids someone tried to add while the list was already full, in the order
 // they tried - not persisted (in-memory/this session only), auto-promoted
 // into BIDLIST oldest-first the moment a slot frees up. See promoteNextPending().
@@ -439,7 +462,7 @@ const LEDGERS = {
       // docs/phase-14a-customer-safety-hardening.md's freshness contract),
       // so an empty ledger here means no manual run has populated it
       // recently, not that harvesting is unavailable.
-      empty: "No Texas sales match yet. Texas harvesting runs on-demand (not yet on an automatic schedule) - this list reflects the most recent manual harvest run, so an empty result can mean no recent run, not unavailable harvesting."
+      empty: "No Texas sales match yet. Texas harvesting runs on-demand (not yet on an automatic schedule) - this list reflects the most recent manual harvest run, so an empty result can mean no recent run, not unavailable harvesting. The Dashboard's Data sources panel shows when Texas was last harvested and whether that run was complete."
     }
   },
   laft: {
@@ -457,7 +480,7 @@ const LEDGERS = {
       how: "No competitive bidding - offered by the taxing unit at or above the minimum. Rows here come from LGBS's struck-off and future-sale listings; the status on each card says which. A struck-off property already sold once can still be redeemed by the former owner, same as at auction.",
       // Phase 14A correction - see the parallel note on the auction ledger's
       // `tx.empty` string above for why this changed.
-      empty: "No Texas struck-off inventory matches yet. Texas harvesting runs on-demand (not yet on an automatic schedule) - this list reflects the most recent manual harvest run, so an empty result can mean no recent run, not unavailable harvesting."
+      empty: "No Texas struck-off inventory matches yet. Texas harvesting runs on-demand (not yet on an automatic schedule) - this list reflects the most recent manual harvest run, so an empty result can mean no recent run, not unavailable harvesting. The Dashboard's Data sources panel shows when Texas was last harvested and whether that run was complete."
     }
   },
   certificate: {
@@ -473,7 +496,7 @@ const LEDGERS = {
       how: "Not a lien purchase - you own the deed. The former owner can redeem within 180 days (25% flat premium) or 2 years for homestead/agricultural/mineral property (25% year 1, 50% year 2), on the aggregate cost, not the bid alone. General summary for orientation only - this app does not track redemption status or deadlines; confirm terms with a Texas attorney.",
       // Phase 14A correction - see the parallel note on the auction ledger's
       // `tx.empty` string above for why this changed.
-      empty: "No Texas redeemable deeds match yet. Texas harvesting runs on-demand (not yet on an automatic schedule) - this list reflects the most recent manual harvest run, so an empty result can mean no recent run, not unavailable harvesting."
+      empty: "No Texas redeemable deeds match yet. Texas harvesting runs on-demand (not yet on an automatic schedule) - this list reflects the most recent manual harvest run, so an empty result can mean no recent run, not unavailable harvesting. The Dashboard's Data sources panel shows when Texas was last harvested and whether that run was complete."
     }
   }
 };
@@ -1339,9 +1362,10 @@ function isRowStale(p) {
 // The single status a card's left edge reports. Precedence matters and is
 // deliberate:
 //
-//   closed  - the outcome is known (sold, redeemed, cancelled, withdrawn).
-//             Whether the row synced recently is beside the point once the
-//             answer is in, so this wins outright.
+//   closed  - the listing left the source feed or list after its date. The
+//             outcome (sold, redeemed, cancelled, withdrawn) is NOT known or
+//             tracked - see GONE_STATUS_CAVEAT. Whether the row synced
+//             recently is beside the point once it has left, so this wins.
 //   stale   - not closed, but this row has not been re-synced within
 //             STALE_DATA_HOURS. "We are not certain this is still current."
 //   active  - not closed, synced recently. Open, and believed accurate.
@@ -1560,6 +1584,35 @@ if (authForm) {
   });
 }
 
+// ==================== forgot password (supported Supabase pattern) ====================
+// resetPasswordForEmail() e-mails a one-time link back to THIS page
+// (redirectTo must be on the project's Redirect URL allowlist - see
+// docs/production-configuration.md section 2). Opening it signs the user in
+// with a recovery session and emits PASSWORD_RECOVERY, which opens the
+// "Set a new password" form below. Nothing here handles tokens by hand.
+const forgotPasswordBtn = document.getElementById("forgotPasswordBtn");
+if (forgotPasswordBtn) forgotPasswordBtn.addEventListener("click", async () => {
+  const email = (document.getElementById("email")?.value || "").trim();
+  if (!email) {
+    if (authMsg) { authMsg.className = "auth-msg err"; authMsg.textContent = "Enter your email above first, then choose Forgot password."; }
+    return;
+  }
+  forgotPasswordBtn.disabled = true;
+  if (authMsg) { authMsg.className = "auth-msg"; authMsg.textContent = "Sending reset link"; }
+  const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname });
+  forgotPasswordBtn.disabled = false;
+  if (error) {
+    if (authMsg) { authMsg.className = "auth-msg err"; authMsg.textContent = error.message; }
+    return;
+  }
+  if (authMsg) {
+    authMsg.className = "auth-msg";
+    // Same wording whether or not the address exists - the request does not
+    // reveal which e-mails have accounts.
+    authMsg.textContent = "If an account exists for that email, a password-reset link has been sent. Open it in this browser to set a new password.";
+  }
+});
+
 const signOutBtn = document.getElementById("signOutBtn");
 if (signOutBtn) {
   signOutBtn.addEventListener("click", () => doSignOut(null));
@@ -1639,6 +1692,12 @@ function startIdleWatch() {
 document.addEventListener("visibilitychange", () => { if (!document.hidden) markActive(); });
 
 sb.auth.onAuthStateChange((event, session) => {
+  // Arrived from a password-reset e-mail: the recovery session is a real
+  // session (the app bootstraps as usual below), and on top of it the
+  // new-password form opens. getElementById at call time, not module-level
+  // consts - this callback can fire before the modal section further down
+  // has been evaluated.
+  if (event === "PASSWORD_RECOVERY" && typeof openRecoveryModal === "function") openRecoveryModal();
   if (session && session.user) {
     // Phase 63: autoRefreshToken fires TOKEN_REFRESHED roughly hourly for
     // any open tab, and USER_UPDATED fires right after the profile-edit/
@@ -1667,6 +1726,7 @@ sb.auth.onAuthStateChange((event, session) => {
     gate.hidden = false;
     const why = sessionStorage.getItem("tdw_signout_reason");
     if (why === "idle" && authMsg) { authMsg.textContent = `Signed out after ${IDLE_MINUTES} minutes of inactivity.`; sessionStorage.removeItem("tdw_signout_reason"); }
+    if (why === "deleted" && authMsg) { authMsg.textContent = "Your account and the data stored against it have been deleted."; sessionStorage.removeItem("tdw_signout_reason"); }
   }
 })();
 
@@ -1829,13 +1889,16 @@ async function fetchProperties() {
 
 async function loadAll() {
   const today = new Date().toISOString().slice(0, 10);
-  const [props, notes, favs, hid, cal, bidlist] = await Promise.all([
+  const [props, notes, favs, hid, cal, bidlist, health] = await Promise.all([
     fetchProperties(),
     sb.from("notes").select("*"),
     sb.from("favorites").select("property_id"),
     sb.from("hidden").select("property_id"),
     sb.from("county_calendar").select("county,sale_date").gte("sale_date", today).order("sale_date"),
-    sb.from("bid_list").select("property_id").order("added_at")
+    sb.from("bid_list").select("property_id").order("added_at"),
+    // Dataset health (migration 016). Missing table = not recorded yet,
+    // shown as such - never as healthy.
+    sb.from("source_health").select("*").order("source")
   ]);
   if (props.error) {
     const genEl = document.getElementById("generatedAt");
@@ -1852,6 +1915,15 @@ async function loadAll() {
   BIDLIST_ORDER = bidlist.error ? [] : (bidlist.data || []).map(r => r.property_id);
   BIDLIST = new Set(BIDLIST_ORDER);
   CALENDAR = {}; if (!cal.error) { (cal.data || []).forEach(r => { (CALENDAR[r.county] = CALENDAR[r.county] || []).push(r.sale_date); }); }
+  SOURCE_HEALTH = health.error ? null : (health.data || []);
+  // Diff ONCE per page load: the bootstrap can run loadAll() twice (the
+  // getSession() path and the SIGNED_IN event both reach showApp()), and a
+  // second diff would compare against the snapshot the first pass just
+  // wrote - erasing every signal. The snapshot itself is refreshed on every
+  // pass so the next page load compares against the latest watched set.
+  if (WATCH_CHANGES === null) WATCH_CHANGES = computeWatchChanges();
+  saveWatchSnapshot();
+  renderSourceHealthTerms();
   // Same sentence as before, written into the Terms modal instead of the
   // masthead. The header is the logo and the title; when the whole dataset
   // is behind, that is provenance and belongs with the rest of "where the
@@ -2097,11 +2169,11 @@ function noteHtml(p) {
   const list = others.map(n => `<div class="note-item"><span class="note-author">${esc((n.author_email || "teammate").split("@")[0])}</span>${n.stage ? `<span class="note-stage-tag">${esc(n.stage)}</span>` : ""}<br>${esc(n.body || "")}</div>`).join("");
   return `
   <div class="notes-block">
-    <div class="notes-head"><span>Team notes${rows.length ? " (" + rows.length + ")" : ""}</span><span class="notes-visibility">Visible to all approved members, with your email name</span></div>
+    <div class="notes-head"><span>Team notes${rows.length ? " (" + rows.length + ")" : ""}</span><span class="notes-visibility">Shared with every approved member, with your email name - not private</span></div>
     ${list}
     <div class="note-editor">
       <select data-role="stage" data-pid="${p.id}">${STAGES.map(s => `<option value="${s}"${mine && mine.stage === s ? " selected" : ""}>${s === "" ? " - stage - " : s}</option>`).join("")}</select>
-      <textarea data-role="body" data-pid="${p.id}" rows="2" placeholder="Your note (shared with approved members)">${esc(mine ? mine.body : "")}</textarea>
+      <textarea data-role="body" data-pid="${p.id}" rows="2" placeholder="Your note (shared - every approved member can read it)">${esc(mine ? mine.body : "")}</textarea>
       <button class="note-save" data-action="savenote" data-pid="${p.id}" type="button">Save note</button>
     </div>
   </div>`;
@@ -2219,7 +2291,7 @@ function cardFactsHtml(p) {
   const fl = floodShort(p);
   facts.push(`<span><b>Flood</b><span class="${fl.cls}">${esc(fl.text)}</span></span>`);
   if (hasPublishedBid(p) && marketOf(p) > 0) {
-    facts.push(`<span><b>Value ÷ bid</b><span>${valueRatio(p).toFixed(1)}×</span></span>`);
+    facts.push(`<span title="County value on file divided by the opening bid - a screening ratio, not a return"><b>Value ÷ bid</b><span>${valueRatio(p).toFixed(1)}×</span></span>`);
   }
   return `<div class="prop-facts">${facts.join("")}</div>`;
 }
@@ -2263,7 +2335,7 @@ function previewFacts(p) {
   if (p.legal_desc) more.push(["Legal", String(p.legal_desc).length > 140 ? String(p.legal_desc).slice(0, 137) + "…" : String(p.legal_desc)]);
   return {
     kicker: `${where} · ${k.type} · ${k.phase}`, where, phaseCls: k.cls,
-    bidLabel: p.source === "laft" ? "Price" : "Minimum bid",
+    bidLabel: p.source === "laft" && regionOf(p) !== "TX" ? "Price" : "Minimum bid",
     bid: hasPublishedBid(p) ? fmtMoney(p.bid) : null,
     value: hasMarket ? fmtShort(p.market) : hasAssessed ? fmtShort(p.assessed) : null,
     valueLabel: hasMarket ? valueLabel(p) : hasAssessed ? assessedSourceLabel(p) + " - no just value on file" : null,
@@ -2548,7 +2620,7 @@ function statGroupHtml(title, list, id) {
 //   bid       - hasPublishedBid() false: bid NULL/0 = not posted yet
 //   value     - neither market (FDOR just value) nor assessed on the row
 //   sale date - auction with no sale_date (LAFT has none by design)
-//   photo     - NULL = pipeline has not looked; '' = no Street View coverage
+//   photo     - NULL = pipeline has not looked; '' = checked, no stored image
 //   coords    - latitude/longitude NULL = scripts/geocode_properties.py has
 //               not placed it yet
 //   flood     - flood_checked_at NULL = not checked; UNMAPPED = FEMA has no map
@@ -2580,7 +2652,11 @@ function dataGaps(p) {
 function opportunitySummaryHtml(p) {
   const region = regionOf(p);
   const isLaft = p.source === "laft";
-  const what = isLaft ? "Lands Available for Taxes (fixed price, over the counter)" : `${region === "TX" ? "Texas" : "Florida"} tax deed auction`;
+  // A Texas "laft" row is LGBS struck-off / future-sale inventory, never
+  // Florida's statutory over-the-counter list - see kickerParts().
+  const what = isLaft
+    ? (region === "TX" ? "Texas struck-off / future-sale inventory (vendor listing)" : "Lands Available for Taxes (fixed price, over the counter)")
+    : `${region === "TX" ? "Texas" : "Florida"} tax deed auction`;
   const src = harvesterSourceLabel(p);
   const street = realAddress(p);
   const where = `${street ? esc(street) : `<span class="muted">No street address in listing</span>`}<span class="opp-sub">${esc(p.county)} County, ${esc(region)}${hasParcel(p) ? ` · Parcel ${esc(p.parcel)}` : ""}${p.case_no ? ` · Case ${esc(p.case_no)}` : ""}</span>`;
@@ -2629,7 +2705,7 @@ function opportunitySummaryHtml(p) {
 // that actually rendered (built AFTER the body, by scanning it for
 // data-section anchors, so a row with no History section gets no dead
 // "History" pill). Scrolling is done by the "jump" click action below.
-const DETAIL_NAV_LABELS = { summary: "Summary", financial: "Financial", property: "Property", history: "History", risk: "Risk & Legal", map: "Map", sources: "Sources", provenance: "Data" };
+const DETAIL_NAV_LABELS = { summary: "Summary", financial: "Financial", property: "Property", history: "History", events: "Sale events", risk: "Risk & Legal", map: "Map", sources: "Sources", provenance: "Data" };
 function detailNavHtml(bodyHtml) {
   const ids = [];
   bodyHtml.replace(/data-section="([a-z]+)"/g, (m, id) => { if (DETAIL_NAV_LABELS[id] && !ids.includes(id)) ids.push(id); return m; });
@@ -2708,8 +2784,85 @@ function provenanceCardHtml(p) {
   const body = `<div class="detail-provenance">
       ${harvesterSourceLabel(p) ? `<span>Data source: ${esc(harvesterSourceLabel(p))}</span>` : ""}
       <span class="${isRowStale(p) ? "stale" : ""}">${esc(lastSyncedText(p))}</span>
-    </div>`;
+    </div>
+    <button class="detail-btn detail-report-btn" data-action="support" data-topic="data" data-pid="${p.id}" type="button">Report a data problem</button>`;
   return detailSectionHtml("Data Quality & Provenance", body, "provenance-card", "provenance");
+}
+
+// ==================== Sale event history (Phase B, migration 014) ====================
+// One entry per scheduled sale date this app observed for the property
+// (auction_events), with what the source showed each time it was looked at
+// (auction_event_observations). Rendered into a placeholder after the modal
+// opens (hydrateEventHistory) because it is a second query. Rules, from
+// docs/production-data-contract.md section 26/27 and the Phase B writer:
+//   - outcome is ALWAYS shown as "Not tracked". The pipeline records no sale
+//     results, winning bids or purchasers, and a listing leaving the feed is
+//     lifecycle 'completed' with outcome 'unknown' - never "sold".
+//   - 'completed' is worded as "sale date passed - outcome not tracked".
+//   - 'superseded' means the source later listed the property under a new
+//     date; the older event is kept as history.
+const EVENT_LIFECYCLE_TEXT = {
+  scheduled: "Scheduled (as of the last observation)",
+  completed: "Sale date passed - outcome not tracked",
+  superseded: "Superseded by a later scheduled date",
+  cancelled: "Cancelled (source status)",
+  withdrawn: "Withdrawn (source status)",
+  stayed: "Stayed (source status)",
+  pending_result: "Sale date passed - result pending at the source",
+  unknown: "Unknown"
+};
+const EVENT_NOTE = "Observed from the source on the harvest schedule. \"Sale date passed\" means the listing left the source's feed after its date - it does not mean the property sold, was redeemed or was cancelled. This app records no sale results, winning bids or purchasers; check the county record.";
+function eventHistoryHtml(events, observations) {
+  if (!events.length) return `<p class="event-note">No sale events observed for this property yet. Event history starts with the first harvest after the auction-event writer went live; earlier sales are not reconstructed.</p>`;
+  const byEvent = {};
+  (observations || []).forEach(o => { (byEvent[o.event_id] = byEvent[o.event_id] || []).push(o); });
+  const items = events.map(ev => {
+    const obs = (byEvent[ev.id] || []).slice().sort((a, b) => (a.observed_at < b.observed_at ? -1 : 1));
+    const bids = obs.map(o => o.opening_bid).filter(v => v !== null && v !== undefined && Number(v) > 0).map(Number);
+    let bidLine;
+    if (!bids.length) bidLine = hasNum(ev.opening_bid) && Number(ev.opening_bid) > 0 ? `Opening bid recorded: ${fmtMoney(ev.opening_bid)}` : "Opening bid: not published";
+    else {
+      const distinct = bids.filter((v, i) => i === 0 || v !== bids[i - 1]);
+      bidLine = distinct.length > 1
+        ? `Opening bid observed: ${distinct.map(fmtMoney).join(" → ")} (changed ${distinct.length - 1} time${distinct.length - 1 === 1 ? "" : "s"})`
+        : `Opening bid observed: ${fmtMoney(bids[0])}`;
+    }
+    const life = String(ev.lifecycle || "unknown");
+    const first = ev.first_seen_at ? fmtDate(String(ev.first_seen_at).slice(0, 10)) : null;
+    const last = ev.last_seen_at ? fmtDate(String(ev.last_seen_at).slice(0, 10)) : null;
+    const seen = first && last ? (first === last ? `Observed ${first}` : `First observed ${first} · last observed ${last}`) : "";
+    const raw = obs.length ? obs[obs.length - 1].raw_status : ev.outcome_raw;
+    return `<div class="event-item" data-lifecycle="${esc(life)}">
+      <div class="ev-head"><span>Scheduled sale ${esc(fmtDate(ev.scheduled_sale_date))}</span><span class="ev-life ${esc(life)}">${esc(EVENT_LIFECYCLE_TEXT[life] || life)}</span></div>
+      <div class="ev-meta">${esc(seen)}${obs.length ? ` · ${obs.length} observation${obs.length === 1 ? "" : "s"}` : ""}${raw ? ` · source status "${esc(String(raw))}"` : ""}</div>
+      <div class="ev-meta">${esc(bidLine)}</div>
+      <div class="ev-outcome"><b>Outcome:</b> Not tracked</div>
+    </div>`;
+  });
+  return `<div class="event-list">${items.join("")}</div><p class="event-note">${esc(EVENT_NOTE)}</p>`;
+}
+function eventHistorySlotHtml(p) {
+  return detailSectionHtml("Sale event history", `<div data-events-for="${esc(p.id)}"><p class="event-note">Loading observed sale events…</p></div>`, "", "events");
+}
+async function hydrateEventHistory(container, p) {
+  const slot = container.querySelector(`[data-events-for="${cssEscape(String(p.id))}"]`);
+  if (!slot) return;
+  const ev = await sb.from("auction_events").select("*").eq("property_id", p.id).order("scheduled_sale_date", { ascending: false });
+  if (ev.error) {
+    const msg = String(ev.error.message || "");
+    const missing = ev.error.code === "PGRST205" || ev.error.code === "42P01" || /could not find the table|does not exist/i.test(msg);
+    slot.innerHTML = `<p class="event-note">${missing ? "Sale event history is not available on this deployment yet (migration 014 has not been applied)." : "Couldn't load sale event history: " + esc(msg)}</p>`;
+    return;
+  }
+  const events = ev.data || [];
+  let observations = [];
+  if (events.length) {
+    const obs = await sb.from("auction_event_observations").select("*").in("event_id", events.map(e => e.id)).order("observed_at");
+    if (!obs.error) observations = obs.data || [];
+  }
+  // The modal may have been re-rendered or closed meanwhile.
+  if (!document.contains(slot)) return;
+  slot.innerHTML = eventHistoryHtml(events, observations);
 }
 
 function detailHtml(p) {
@@ -2848,12 +3001,12 @@ function detailHtml(p) {
 
   const html = `
     <button class="detail-close" data-action="closedetail" type="button" aria-label="Close">✕</button>
-    <div class="prop-county-tag">${esc(p.county)} County, ${esc(regionOf(p))}${isCert ? " · Certificate" : (p.source === "laft" ? " · Lands Available" : " · Auction")}</div>
+    <div class="prop-county-tag">${esc(p.county)} County, ${esc(regionOf(p))}${isCert ? " · Certificate" : (p.source === "laft" ? (regionOf(p) === "TX" ? " · Struck-off inventory" : " · Lands Available") : " · Auction")}</div>
     <h2 class="detail-address">${title}</h2>
     <div class="prop-top-actions" style="margin:.2rem 0 .5rem">
       <button class="icon-btn heart-btn${fav ? " on" : ""}" data-action="fav" data-pid="${p.id}" type="button">${fav ? "♥ Favorited" : "♡ Favorite"}</button>
       ${bidListBtnHtml(p, false)}
-      <span class="pill ${esc(p.status)}">${esc(p.status)}</span>
+      ${statusPillHtml(p)}
     </div>
     <!--NAV-->
     ${!isCert && regionOf(p) === "FL" ? `<div class="lien-banner ${esc(p.lien_level)}">
@@ -2872,6 +3025,7 @@ function detailHtml(p) {
     ${statGroupHtml("Financial", stats.filter(s => s[2] === "financial"), "financial")}
     ${statGroupHtml("Property Details", stats.filter(s => s[2] === "property"), "property")}
     ${statGroupHtml("History", stats.filter(s => s[2] === "history"), "history")}
+    ${eventHistorySlotHtml(p)}
     ${riskLegalCardHtml(p)}
     ${gisLocationCardHtml(p)}
     `}
@@ -2890,7 +3044,8 @@ function detailHtml(p) {
     </div>
     ${detailSectionHtml("Research & Sources", `<div class="detail-links">
       ${links.length ? links.map(([label, href]) => `<a href="${esc(href)}" target="_blank" rel="noopener">${linkIcon(label)}${esc(label)}${isEstimatedLink(label, p) ? esc(" (estimated search)") : ""} →</a>`).join("") : `<span style="font-size:.78rem;color:var(--ink-soft)">No reference links harvested for this property yet.</span>`}
-    </div>`, "", "sources")}
+    </div>
+    <button class="detail-btn detail-report-btn" data-action="support" data-topic="source" data-pid="${p.id}" type="button">Report a source problem</button>`, "", "sources")}
     ${auctionLinkHtml(p, "detail-cta")}
     ${isCert ? `<div class="detail-provenance">
       ${harvesterSourceLabel(p) ? `<span>Data source: ${esc(harvesterSourceLabel(p))}</span>` : ""}
@@ -2964,6 +3119,7 @@ function openDetail(p) {
   inner.className = "detail-modal-inner prop-card " + cardStatus(p);
   inner.innerHTML = detailHtml(p);
   hydrateVisuals(inner);
+  if (p.source !== "certificate") hydrateEventHistory(inner, p);
   modal.hidden = false;
   pushBackLayer("detail", closeDetail);
   // Phase 58: fold this property's id into the URL - "#/auctions/12345" -
@@ -3042,6 +3198,7 @@ function renderBidListModal() {
     <button class="detail-close" data-action="closebidlist" type="button" aria-label="Close">✕</button>
     <h2 class="detail-address" style="margin-top:.1rem">⚑ My Watchlist <span style="color:var(--ink-soft);font-weight:600">(${countLabel})</span></h2>
     <p class="mega-sub" style="margin:0 0 .8rem">The short list you're actively tracking — separate from ♡ Favorites, capped at ${BID_LIST_MAX} to keep it focused.</p>
+    <div class="bidlist-changes" id="bidListChanges">${watchChangesHtml(WATCH_CHANGES)}</div>
     ${listHtml}
     <div class="prop-list flat" id="bidListRows"></div>
     ${pendingHtml}`;
@@ -3337,6 +3494,8 @@ document.addEventListener("click", async e => {
       btn.classList.add("copied");
       setTimeout(() => btn.classList.remove("copied"), 1200);
     } catch { /* clipboard permission denied - fail quietly */ }
+  } else if (action === "support") {
+    openSupportModal({ topic: btn.dataset.topic || "", pid });
   } else if (action === "savenote") {
     if (!ME || !pid) return;
     const cardEl = btn.closest(".prop-card");
@@ -4209,7 +4368,10 @@ if (exportCsvBtn) exportCsvBtn.addEventListener("click", () => {
     ["Google Maps Search URL (built by app)", p => (p.url_streetview ? "" : fallbackStreetviewUrl(p))],
     ["Street View URL (researched)", p => p.url_streetview || ""],
     ["Appraiser", p => p.url_appraiser || ""],
-    ["Zillow", p => fallbackZillowUrl(p)],
+    // A search URL this app builds from the address (or the researched link
+    // when one is on file) - the header says so, matching the Google Maps
+    // column above.
+    ["Zillow Search URL (built by app)", p => fallbackZillowUrl(p)],
     ["Tax Collector", p => p.url_taxcoll || ""],
     // Phase 72: the URL and, beside it, what it opens (property / sale /
     // county / info - migration 013), so a sale-event page is never read as
@@ -4959,6 +5121,283 @@ if (termsModal) termsModal.addEventListener("click", e => {
   if (e.target === termsModal) closeTermsModal();
 });
 
+
+// ==================== SaaS hardening (2026-09-29): dataset health ====================
+// One row per harvested dataset from public.source_health (migration 016),
+// written by scripts/source_health.py after each job's sync step. Health is
+// DERIVED here, at read time, and must stay in step with derive_health() in
+// that script:
+//   NOT_RUN     no attempt recorded
+//   FAILED      the last attempt's sync failed
+//   INCOMPLETE  synced, but the harvester's own completeness gate marked at
+//               least one unit (county / vendor source) INCOMPLETE
+//   STALE       scheduled source whose last success is older than 2x its
+//               cadence (a manual source is never STALE by the clock)
+//   HEALTHY     synced, every unit complete, within cadence
+const HEALTH_STALE_MULTIPLIER = 2;
+function healthOf(rec, now) {
+  const t = now || Date.now();
+  if (!rec || !rec.last_attempt_at) return "NOT_RUN";
+  if (rec.last_attempt_status === "FAILED") return "FAILED";
+  if (rec.completeness === "INCOMPLETE") return "INCOMPLETE";
+  if (rec.mode === "scheduled" && rec.cadence_hours) {
+    if (!rec.last_success_at) return "FAILED";
+    const age = (t - Date.parse(rec.last_success_at)) / 3600000;
+    if (age > rec.cadence_hours * HEALTH_STALE_MULTIPLIER) return "STALE";
+  }
+  return "HEALTHY";
+}
+const HEALTH_TEXT = { HEALTHY: "Healthy", INCOMPLETE: "Incomplete", FAILED: "Failed", STALE: "Stale", NOT_RUN: "Not run" };
+function relativeTime(iso) {
+  if (!iso) return "never";
+  const t = Date.parse(iso);
+  if (isNaN(t)) return "unknown";
+  const h = Math.round((Date.now() - t) / 3600000);
+  if (h < 1) return "under an hour ago";
+  if (h < 48) return `${h}h ago`;
+  return `${Math.round(h / 24)}d ago`;
+}
+function sourceHealthRowHtml(rec) {
+  const health = healthOf(rec);
+  const units = rec.units_total !== null && rec.units_total !== undefined
+    ? `${rec.units_complete}/${rec.units_total} units complete` : "completeness not gated";
+  const bits = [
+    rec.mode === "manual" ? "manual runs, no schedule" : (rec.cadence_hours ? `every ${rec.cadence_hours}h` : "scheduled"),
+    `last success ${relativeTime(rec.last_success_at)}`,
+    `last attempt ${relativeTime(rec.last_attempt_at)} (${String(rec.last_attempt_status || "?").toLowerCase()})`,
+    rec.row_count !== null && rec.row_count !== undefined ? `${rec.row_count} rows` : "row count unknown",
+    units
+  ];
+  const inc = (rec.incomplete_units || []).slice(0, 4);
+  const detail = inc.length ? ` · incomplete: ${inc.join(", ")}${(rec.incomplete_units || []).length > 4 ? ", …" : ""}` : (rec.error && health === "FAILED" ? ` · ${rec.error}` : "");
+  return `<div class="health-row" data-source="${esc(rec.source)}" data-health="${esc(health)}">
+    <span class="health-label">${esc(rec.label || rec.source)}</span>
+    <span class="health-badge ${esc(health.toLowerCase())}">${esc(HEALTH_TEXT[health] || health)}</span>
+    <span class="health-sub">${esc(bits.join(" · "))}${esc(detail)}</span>
+  </div>`;
+}
+function sourceHealthRowsHtml(rows, pageState) {
+  if (rows === null) {
+    return `<div class="dash-empty">Dataset health is not recorded yet on this deployment (migration 016 / scripts/source_health.py not live). The only freshness signal is the newest row date under Terms - a green workflow run does not by itself mean every dataset is complete.</div>`;
+  }
+  const mine = rows.filter(r => r.state === pageState || r.state === "ALL");
+  const rest = rows.filter(r => !(r.state === pageState || r.state === "ALL"));
+  const ordered = mine.concat(rest);
+  if (!ordered.length) return `<div class="dash-empty">No dataset has recorded a run yet.</div>`;
+  return ordered.map(sourceHealthRowHtml).join("");
+}
+function renderSourceHealthTerms() {
+  const el = document.getElementById("sourceHealthTerms");
+  if (!el) return;
+  el.innerHTML = SOURCE_HEALTH === null
+    ? `<p class="event-note">Per-dataset health is not recorded yet on this deployment; the line above is the newest row across every source, which can hide a source that stopped.</p>`
+    : sourceHealthRowsHtml(SOURCE_HEALTH, PAGE_STATE);
+}
+
+// ==================== SaaS hardening (2026-09-29): watchlist change signals ====================
+// What changed on the rows a user watches (watchlist + favorites) since
+// THIS BROWSER last loaded the app - computed from fields the app already
+// holds (sale date, opening bid, status, presence) against a snapshot in
+// localStorage. Per browser, per device; no server state, no e-mail, no
+// push (docs/production-configuration.md section 7 lists what those would
+// take). Nothing here infers an outcome: a row that left the dataset is
+// reported as exactly that.
+const WATCH_SNAPSHOT_KEY = "tdw_watch_snapshot_v1";
+function watchedIds() { return new Set([...BIDLIST, ...FAVS]); }
+function watchSnapshotOf(p) {
+  return { sale_date: p.sale_date || null, bid: hasPublishedBid(p) ? Number(p.bid) : null, status: String(p.status || ""), label: shortPropLabel(p), county: p.county || "" };
+}
+function readWatchSnapshot() {
+  try { const raw = localStorage.getItem(WATCH_SNAPSHOT_KEY); return raw ? JSON.parse(raw) : null; } catch { return null; }
+}
+function saveWatchSnapshot() {
+  try {
+    const rows = {};
+    watchedIds().forEach(id => { const p = ALL.find(x => x.id === id); if (p) rows[id] = watchSnapshotOf(p); });
+    localStorage.setItem(WATCH_SNAPSHOT_KEY, JSON.stringify({ savedAt: new Date().toISOString(), state: PAGE_STATE, rows }));
+  } catch { /* private mode - signals just won't persist */ }
+}
+function computeWatchChanges() {
+  const snap = readWatchSnapshot();
+  if (!snap || !snap.rows || snap.state !== PAGE_STATE) return { since: null, items: [] };
+  const items = [];
+  Object.entries(snap.rows).forEach(([id, was]) => {
+    const p = ALL.find(x => x.id === id);
+    const changes = [];
+    if (!p) {
+      changes.push("No longer in the current dataset - the listing left the source feed or list. Why is not recorded.");
+      items.push({ pid: id, label: was.label || id, county: was.county || "", changes, gone: true });
+      return;
+    }
+    const now = watchSnapshotOf(p);
+    if ((was.sale_date || null) !== (now.sale_date || null)) changes.push(`Sale date: ${was.sale_date ? fmtDate(was.sale_date) : "not scheduled"} → ${now.sale_date ? fmtDate(now.sale_date) : "not scheduled"}`);
+    if ((was.bid ?? null) !== (now.bid ?? null)) changes.push(`Opening bid: ${was.bid === null || was.bid === undefined ? "not published" : fmtMoney(was.bid)} → ${now.bid === null ? "not published" : fmtMoney(now.bid)}`);
+    if ((was.status || "") !== (now.status || "")) {
+      const to = STATUS_PILL_LABEL[now.status] || now.status || "unknown";
+      changes.push(`Status: ${STATUS_PILL_LABEL[was.status] || was.status || "unknown"} → ${to}${isGone(p) ? " (outcome not tracked)" : ""}`);
+    }
+    if (changes.length) items.push({ pid: id, label: now.label, county: now.county, changes, gone: false });
+  });
+  return { since: snap.savedAt || null, items };
+}
+function watchChangesHtml(wc) {
+  const watched = watchedIds().size;
+  if (!wc || !wc.since) {
+    return `<div class="dash-empty">No earlier visit recorded in this browser yet${watched ? ` - ${watched} watched propert${watched === 1 ? "y" : "ies"} snapshotted now` : ""}. Changes to sale date, opening bid, status or presence of your watchlist and favorites will be listed here on the next load.</div>
+      <p class="watch-changes-note">Tracked in this browser only. No e-mail or push notifications exist yet.</p>`;
+  }
+  const since = new Date(wc.since).toLocaleString();
+  if (!wc.items.length) {
+    return `<div class="dash-empty">No changes to your ${watched} watched propert${watched === 1 ? "y" : "ies"} since ${esc(since)}.</div>
+      <p class="watch-changes-note">Compares sale date, opening bid, status and presence. Tracked in this browser only - no e-mail or push notifications exist yet.</p>`;
+  }
+  return `<div class="watch-changes">${wc.items.map(it => `
+    <div class="watch-change" data-pid="${esc(it.pid)}">
+      <div class="wc-title">${it.label}${it.county ? ` <span class="muted">· ${esc(it.county)}</span>` : ""}</div>
+      <ul>${it.changes.map(c => `<li>${esc(c)}</li>`).join("")}</ul>
+    </div>`).join("")}</div>
+    <p class="watch-changes-note">Since ${esc(since)}, in this browser only. No e-mail or push notifications exist yet.</p>`;
+}
+
+// ==================== SaaS hardening (2026-09-29): account lifecycle + support + help modals ====================
+// All four reuse the .detail-modal shell and the BACK_LAYERS stack exactly
+// like the profile/terms/change-password modals above.
+function simpleModal(name, ids) {
+  const modal = document.getElementById(ids.modal);
+  if (!modal) return { open() {}, close() {} };
+  const close = () => { if (modal.hidden) return; modal.hidden = true; popBackLayer(name); restoreModalFocus(); };
+  const open = returnEl => { const wasHidden = modal.hidden; modal.hidden = false; pushBackLayer(name, close); if (wasHidden) focusIntoModal(modal, returnEl); };
+  const closeBtn = document.getElementById(ids.close);
+  if (closeBtn) closeBtn.addEventListener("click", close);
+  modal.addEventListener("click", e => { if (e.target === modal) close(); });
+  document.addEventListener("keydown", e => { if (e.key === "Escape" && !modal.hidden) close(); });
+  return { open, close, modal };
+}
+
+// ---- set a new password (after a reset link) ----
+const recoveryUi = simpleModal("recovery", { modal: "recoveryModal", close: "recoveryCloseBtn" });
+function openRecoveryModal() {
+  const form = document.getElementById("recoveryForm");
+  const msg = document.getElementById("rcMsg");
+  if (form) form.reset();
+  if (msg) { msg.textContent = ""; msg.className = "auth-msg"; }
+  recoveryUi.open();
+}
+(function () {
+  const form = document.getElementById("recoveryForm");
+  const msg = document.getElementById("rcMsg");
+  if (!form) return;
+  form.addEventListener("submit", async e => {
+    e.preventDefault();
+    const pw = document.getElementById("rcNew").value;
+    const confirm = document.getElementById("rcConfirm").value;
+    const btn = document.getElementById("rcSubmitBtn");
+    if (pw !== confirm) { if (msg) { msg.className = "auth-msg err"; msg.textContent = "Passwords don't match."; } return; }
+    if (btn) btn.disabled = true;
+    if (msg) { msg.className = "auth-msg"; msg.textContent = "Saving…"; }
+    const { error } = await sb.auth.updateUser({ password: pw });
+    if (btn) btn.disabled = false;
+    if (error) { if (msg) { msg.className = "auth-msg err"; msg.textContent = error.message; } return; }
+    if (msg) { msg.className = "auth-msg"; msg.textContent = "Password updated. You are signed in."; }
+    setTimeout(recoveryUi.close, 900);
+  });
+})();
+
+// ---- delete my account (public.delete_my_account(), migration 015) ----
+const deleteAccountUi = simpleModal("deleteaccount", { modal: "deleteAccountModal", close: "deleteAccountCloseBtn" });
+(function () {
+  const openBtn = document.getElementById("deleteAccountBtn");
+  const form = document.getElementById("deleteAccountForm");
+  const msg = document.getElementById("daMsg");
+  if (!openBtn || !form) return;
+  openBtn.addEventListener("click", () => {
+    form.reset();
+    if (msg) { msg.textContent = ""; msg.className = "auth-msg"; }
+    deleteAccountUi.open(document.getElementById("accountBtn"));
+  });
+  form.addEventListener("submit", async e => {
+    e.preventDefault();
+    const typed = (document.getElementById("daConfirm").value || "").trim();
+    const btn = document.getElementById("daSubmitBtn");
+    if (typed !== "DELETE") { if (msg) { msg.className = "auth-msg err"; msg.textContent = "Type DELETE (all capitals) to confirm."; } return; }
+    if (btn) btn.disabled = true;
+    if (msg) { msg.className = "auth-msg"; msg.textContent = "Deleting your account…"; }
+    const { error } = await sb.rpc("delete_my_account");
+    if (error) {
+      if (btn) btn.disabled = false;
+      const m = String(error.message || "");
+      const missing = error.code === "PGRST202" || /could not find the function|does not exist/i.test(m);
+      if (msg) {
+        msg.className = "auth-msg err";
+        msg.textContent = missing
+          ? "Account deletion is not available on this deployment yet (migration 015 has not been applied). Use Contact support to request deletion."
+          : "Couldn't delete the account: " + m;
+      }
+      return;
+    }
+    stopIdleWatch();
+    sessionStorage.setItem("tdw_signout_reason", "deleted");
+    try { localStorage.removeItem(WATCH_SNAPSHOT_KEY); } catch { /* ignore */ }
+    await sb.auth.signOut();
+    location.reload();
+  });
+})();
+
+// ---- contact support ----
+// Destination = TDW_CONFIG.supportEmail. Blank in the repository on purpose:
+// nothing here invents an address, and the modal says so until the
+// deployment owner sets one (docs/production-configuration.md section 4).
+const SUPPORT_TOPICS = [
+  ["support", "Contact support", "General question or problem using the app"],
+  ["data", "Report a data problem", "A figure, date, address or status on a property looks wrong"],
+  ["source", "Report a source problem", "A county or vendor link is dead, or a source stopped updating"],
+  ["account", "Account or billing question", "Sign-in, approval, access or billing"],
+  ["deletion", "Request account deletion", "If the in-app Delete my account option is unavailable"]
+];
+const supportUi = simpleModal("support", { modal: "supportModal", close: "supportCloseBtn" });
+function supportContext(ctx) {
+  const lines = [`Page: ${PAGE_STATE} · ${location.href.split("#")[0]}`, `Build: ${BUILD}`];
+  if (ctx && ctx.pid) {
+    const p = ALL.find(x => x.id === ctx.pid);
+    if (p) lines.push(`Property: ${p.county} County, ${regionOf(p)} · ${p.source} · case ${p.case_no || "?"} · parcel ${p.parcel || "?"} · id ${p.id}`, `Data source: ${harvesterSourceLabel(p) || "?"} · ${lastSyncedText(p)}`);
+  }
+  return lines;
+}
+function renderSupportModal(ctx) {
+  const body = document.getElementById("supportBody");
+  if (!body) return;
+  const email = String((window.TDW_CONFIG || {}).supportEmail || "").trim();
+  const context = supportContext(ctx);
+  const topics = SUPPORT_TOPICS.map(([key, title, sub]) => {
+    const subject = `[Tax Acquisitions] ${title}`;
+    const bodyText = `${title}\n\n(describe the problem here)\n\n---\n${context.join("\n")}`;
+    const active = ctx && ctx.topic === key ? " on" : "";
+    return email
+      ? `<a class="support-topic${active}" data-topic="${key}" href="mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(bodyText)}">${esc(title)}<span class="opp-sub">${esc(sub)}</span></a>`
+      : `<button type="button" class="support-topic${active}" data-topic="${key}" disabled>${esc(title)}<span class="opp-sub">${esc(sub)}</span></button>`;
+  }).join("");
+  body.innerHTML = `
+    ${email ? `<p>Pick a topic - it opens an e-mail to <b>${esc(email)}</b> with the details below filled in.</p>`
+             : `<div class="support-unconfigured" id="supportUnconfigured"><b>No support address is configured for this deployment yet.</b> The deployment owner sets <code>supportEmail</code> in config.js (see docs/production-configuration.md). Until then, the topics below cannot be sent from here.</div>`}
+    <div class="support-topics">${topics}</div>
+    <p class="support-context" id="supportContext">Included with the report:<br>${context.map(esc).join("<br>")}</p>`;
+}
+function openSupportModal(ctx) {
+  renderSupportModal(ctx || {});
+  supportUi.open();
+}
+["supportBtn", "supportBtnMenu"].forEach(id => {
+  const b = document.getElementById(id);
+  if (b) b.addEventListener("click", () => openSupportModal({}));
+});
+
+// ---- help: how to read this data ----
+const helpUi = simpleModal("help", { modal: "helpModal", close: "helpCloseBtn" });
+["helpBtn", "helpBtnMenu"].forEach(id => {
+  const b = document.getElementById(id);
+  if (b) b.addEventListener("click", () => helpUi.open());
+});
+
 const themeBtnEl = document.getElementById("themeBtn");
 if (themeBtnEl) themeBtnEl.addEventListener("click", () => {
   themeMode = THEME_CYCLE[(THEME_CYCLE.indexOf(themeMode) + 1) % THEME_CYCLE.length];
@@ -5384,6 +5823,11 @@ function renderDashboard() {
       : `<div class="dash-empty">No upcoming sale dates on file yet.</div>`;
   }
 
+  const sourceEl = document.getElementById("dashSourceRows");
+  if (sourceEl) sourceEl.innerHTML = sourceHealthRowsHtml(SOURCE_HEALTH, PAGE_STATE);
+  const watchEl = document.getElementById("dashWatchChanges");
+  if (watchEl) watchEl.innerHTML = watchChangesHtml(WATCH_CHANGES);
+
   const navTotal = document.getElementById("navStatTotal");
   const navActive = document.getElementById("navStatActive");
   const navValue = document.getElementById("navStatValue");
@@ -5416,7 +5860,7 @@ function tableRow(p) {
     <td>${esc(p.county)}</td>
     <td class="dt-num">${bidDisplay(p)}</td>
     <td class="dt-num">${marketVal ? fmtShort(marketVal) : "—"}</td>
-    <td><span class="pill ${esc(p.status)}">${esc(p.status)}</span></td>
+    <td>${statusPillHtml(p)}</td>
     <td><div class="dt-actions">
       <button class="${fav ? "on" : ""}" data-action="fav" data-pid="${p.id}" type="button" title="Favorite">${fav ? "♥" : "♡"}</button>
       ${bidListBtnHtml(p, true)}

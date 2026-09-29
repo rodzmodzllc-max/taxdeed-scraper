@@ -92,6 +92,31 @@ jobs:
           run-id: ${{ env.PLAN_RUN_ID }}
           github-token: ${{ github.token }}
 
+      - name: Decrypt the dry-run plan (apply only)
+        # The plan artifact is uploaded encrypted (it carries FDOR owner names
+        # and addresses per row - see scripts/artifact_evidence.py). Applying
+        # it needs the matching private key, held only in the
+        # ARTIFACT_PRIVATE_KEY secret. Without it the apply cannot proceed
+        # and says so; it never falls back to a plaintext plan.
+        if: env.MODE == 'apply'
+        env:
+          ARTIFACT_PRIVATE_KEY: ${{ secrets.ARTIFACT_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          enc="plan/private/fdor_backfill_dry-run.json.gpg"
+          if [ ! -f "$enc" ]; then
+            echo "::error::$enc not found in the dry-run artifact - was the dry run made before artifact encryption, or without ARTIFACT_PUBLIC_KEY set?"
+            exit 1
+          fi
+          if [ -z "${ARTIFACT_PRIVATE_KEY:-}" ]; then
+            echo "::error::ARTIFACT_PRIVATE_KEY secret is not set - cannot decrypt the dry-run plan"
+            exit 1
+          fi
+          export GNUPGHOME="$(mktemp -d)"
+          printf '%s' "$ARTIFACT_PRIVATE_KEY" | gpg --batch --import
+          gpg --batch --yes --output plan/fdor_backfill_dry-run.json --decrypt "$enc"
+          rm -rf "$GNUPGHOME"
+
       - name: Run
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -104,13 +129,22 @@ jobs:
           mkdir -p out
           python3 scripts/backfill_fdor_phase52_fields.py | tee out/backfill_${MODE}.log
 
-      - name: Upload plan / result
+      - name: Prepare artifact (public evidence + encrypted plan)
+        # The plan/result JSON and the log both carry per-row FDOR fields
+        # (owner_name among them). Public artifact = evidence only; the files
+        # themselves only as encrypted copies. See scripts/artifact_evidence.py.
+        if: always()
+        env:
+          ARTIFACT_PUBLIC_KEY: ${{ vars.ARTIFACT_PUBLIC_KEY }}
+        run: python3 scripts/artifact_evidence.py --job fdor-backfill-${{ env.MODE }} out/fdor_backfill_${{ env.MODE }}.json out/backfill_${{ env.MODE }}.log
+
+      - name: Upload artifact (evidence + encrypted plan / result)
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: fdor-backfill-${{ env.MODE }}-${{ github.run_id }}
           path: |
-            out/fdor_backfill_${{ env.MODE }}.json
-            out/backfill_${{ env.MODE }}.log
+            out/public/
+            out/private/
           retention-days: 90
           if-no-files-found: error

@@ -1880,6 +1880,216 @@ results.mobileStripStillReachable = await p67m.locator('#exploreStrip .strip-car
 results.mapNoOverflowMobileSelected = await p67m.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1);
 await p67m.close();
 
+// ==================== SaaS hardening (2026-09-29) ====================
+// Account lifecycle, support/help, sale-event history, dataset health,
+// watchlist change signals, and the customer-facing claim fixes. Each block
+// uses its own page so the main page's state above is untouched.
+
+// --- Sale event history on the full property page (Phase B tables via the
+// stub): p1 has one scheduled event whose opening bid changed between two
+// observations; p13 (past-due, reachable only by deep link) has a
+// completed event and an older superseded one. Outcome is always "Not
+// tracked" - the section must never say sold/redeemed/winner. ---
+const evPage = await newPage({ viewport: { width: 1200, height: 900 } });
+await evPage.goto(BASE_URL + '#/auctions/p1', { waitUntil: 'networkidle' });
+await evPage.waitForTimeout(600);
+results.eventSectionPresent = await evPage.locator('#detailModalInner [data-section="events"]').count();
+results.eventItemsP1 = await evPage.locator('#detailModalInner .event-item').count();
+results.eventLifecycleP1 = ((await evPage.locator('#detailModalInner .event-item .ev-life').first().textContent()) || '').trim();
+results.eventOutcomeP1 = ((await evPage.locator('#detailModalInner .event-item .ev-outcome').first().textContent()) || '').replace(/\s+/g, ' ').trim();
+results.eventBidChangeP1 = ((await evPage.locator('#detailModalInner .event-item .ev-meta').nth(1).textContent()) || '').trim();
+results.eventNavPill = await evPage.locator('#detailModalInner .detail-nav button[data-target="events"]').count();
+await evPage.close();
+const evPage2 = await newPage({ viewport: { width: 1200, height: 900 } });
+await evPage2.goto(BASE_URL + '#/auctions/p13', { waitUntil: 'networkidle' });
+await evPage2.waitForTimeout(600);
+results.eventItemsP13 = await evPage2.locator('#detailModalInner .event-item').evaluateAll(els => els.map(e => e.dataset.lifecycle));
+results.eventLifecycleP13First = ((await evPage2.locator('#detailModalInner .event-item .ev-life').first().textContent()) || '').trim();
+// The event entries themselves (not the explanatory note, which names the
+// words it forbids) must never contain an outcome claim.
+const evItemsText = (await evPage2.locator('#detailModalInner [data-section="events"] .event-item').allTextContents()).join(' ').toLowerCase();
+results.eventSectionNeverClaimsOutcome = !/\bsold\b|redeemed|winning bid|purchaser|struck off/.test(evItemsText);
+results.eventSectionSaysNotTracked = (evItemsText.match(/outcome: not tracked/g) || []).length;
+await evPage2.close();
+
+// --- Dashboard: dataset health (five stub rows, one per derived state)
+// and the watchlist change signals (first visit in a fresh browser). ---
+const dashPage = await newPage({ viewport: { width: 1200, height: 900 } });
+await dashPage.goto(BASE_URL, { waitUntil: 'networkidle' });
+await dashPage.waitForTimeout(500);
+await dashPage.click('.nav-item[data-page="dashboard"]');
+await dashPage.waitForTimeout(200);
+results.dashHealthRows = await dashPage.locator('#dashSourceRows .health-row').evaluateAll(els => els.map(e => e.dataset.source + ':' + e.dataset.health));
+results.dashHealthBadgeTexas = ((await dashPage.locator('#dashSourceRows .health-row[data-source="tx_sales"] .health-sub').textContent()) || '').includes('manual runs, no schedule');
+results.dashHealthIncompleteNames = ((await dashPage.locator('#dashSourceRows .health-row[data-source="fl_certificates"] .health-sub').textContent()) || '').includes('incomplete: Baker, Gulf');
+results.dashWatchFirstVisit = ((await dashPage.locator('#dashWatchChanges').textContent()) || '').includes('No earlier visit recorded in this browser yet');
+results.dashWatchNoNotificationsClaim = ((await dashPage.locator('#dashWatchChanges').textContent()) || '').includes('No e-mail or push notifications exist yet');
+await dashPage.close();
+const noHealthPage = await newPage({ viewport: { width: 1200, height: 900 } });
+await noHealthPage.goto(BASE_URL + '?health=none', { waitUntil: 'networkidle' });
+await noHealthPage.waitForTimeout(500);
+await noHealthPage.click('.nav-item[data-page="dashboard"]');
+await noHealthPage.waitForTimeout(200);
+results.dashHealthMissingTable = ((await noHealthPage.locator('#dashSourceRows').textContent()) || '').includes('not recorded yet');
+results.dashHealthMissingTableNoBadges = await noHealthPage.locator('#dashSourceRows .health-badge').count();
+await noHealthPage.close();
+
+// --- Watchlist change signals: seed the snapshot a previous visit would
+// have written (p1 with a lower bid, and a row that no longer exists) and
+// check the diff is reported from the rows the app actually loaded. ---
+const wcPage = await newPage({ viewport: { width: 1200, height: 900 } });
+const wcSaleDate = (() => { const d = new Date(); d.setDate(d.getDate() + 3); return d.toISOString().slice(0, 10); })();
+await wcPage.addInitScript(snap => { localStorage.setItem('tdw_watch_snapshot_v1', JSON.stringify(snap)); }, {
+  savedAt: '2026-09-20T12:00:00Z', state: 'FL',
+  rows: { p1: { sale_date: wcSaleDate, bid: 4000, status: 'active', label: '1 Main St', county: 'Alachua' },
+          gone1: { sale_date: null, bid: 100, status: 'active', label: 'Vanished Parcel', county: 'Baker' } }
+});
+await wcPage.goto(BASE_URL, { waitUntil: 'networkidle' });
+await wcPage.waitForTimeout(500);
+await wcPage.click('.nav-item[data-page="dashboard"]');
+await wcPage.waitForTimeout(200);
+results.watchChangeItems = await wcPage.locator('#dashWatchChanges .watch-change').evaluateAll(els => els.map(e => e.dataset.pid));
+results.watchChangeBidLine = ((await wcPage.locator('#dashWatchChanges .watch-change[data-pid="p1"] li').first().textContent()) || '').trim();
+results.watchChangeGoneLine = ((await wcPage.locator('#dashWatchChanges .watch-change[data-pid="gone1"] li').first().textContent()) || '').trim();
+results.watchChangeSnapshotRewritten = await wcPage.evaluate(() => { const s = JSON.parse(localStorage.getItem('tdw_watch_snapshot_v1')); return s.savedAt !== '2026-09-20T12:00:00Z' && !('gone1' in s.rows); });
+await wcPage.close();
+
+// --- Support and help modals. supportEmail is blank in tests/config.js, so
+// the unconfigured path renders first; then a configured address is set on
+// the live config object and the mailto links appear. ---
+const spPage = await newPage({ viewport: { width: 1200, height: 900 } });
+await spPage.goto(BASE_URL, { waitUntil: 'networkidle' });
+await spPage.waitForTimeout(500);
+await spPage.click('#supportBtn');
+await spPage.waitForTimeout(150);
+results.supportModalVisible = await spPage.locator('#supportModal').isVisible();
+results.supportUnconfiguredShown = await spPage.locator('#supportUnconfigured').count();
+results.supportTopicsDisabled = await spPage.locator('#supportBody .support-topic[disabled]').count();
+results.supportContextHasPage = ((await spPage.locator('#supportContext').textContent()) || '').includes('Page: FL');
+results.supportTopicLabels = await spPage.locator('#supportBody .support-topic').evaluateAll(els => els.map(e => e.firstChild.textContent.trim()));
+await spPage.click('#supportCloseBtn');
+await spPage.waitForTimeout(100);
+await spPage.click('#helpBtn');
+await spPage.waitForTimeout(150);
+results.helpModalVisible = await spPage.locator('#helpModal').isVisible();
+const helpText = (await spPage.locator('#helpBody').textContent()) || '';
+results.helpCoversRequiredTopics = ['Not published', 'Not checked', 'Not tracked', 'source of sale is authoritative', 'does not mean the property sold', 'not a title search', 'Before you bid'].every(t => helpText.includes(t));
+results.helpHasNoEmoji = !/[\u{1F300}-\u{1FAFF}]/u.test(helpText);
+await spPage.close();
+// "Report a data problem" from a property page (deep link opens the modal
+// at any width) with a configured address: the context names the property
+// and every topic is a mailto: link to that address.
+const spPage2 = await newPage({ viewport: { width: 1200, height: 900 } });
+await spPage2.goto(BASE_URL + '#/auctions/p1', { waitUntil: 'networkidle' });
+await spPage2.waitForTimeout(500);
+await spPage2.evaluate(() => { window.TDW_CONFIG.supportEmail = 'help@example.test'; });
+await spPage2.locator('#detailModalInner [data-action="support"][data-topic="data"]').click();
+await spPage2.waitForTimeout(150);
+results.supportFromPropertyHasContext = ((await spPage2.locator('#supportContext').textContent()) || '').includes('Property: Alachua County, FL');
+results.supportMailtoLinks = await spPage2.locator('#supportBody a.support-topic').count();
+results.supportMailtoHref = ((await spPage2.locator('#supportBody a.support-topic[data-topic="data"]').getAttribute('href')) || '').split('?')[0];
+results.supportSourceReportButton = await spPage2.locator('#detailModalInner [data-action="support"][data-topic="source"]').count();
+await spPage2.close();
+
+// --- Forgot password (supported Supabase pattern): empty e-mail is refused
+// locally; a real request goes to resetPasswordForEmail with redirectTo
+// = this page; the confirmation never reveals whether the address exists;
+// a provider error is shown as-is. ---
+const fpPage = await newPage({ viewport: { width: 390, height: 844 } });
+await fpPage.goto(BASE_URL + '?authtest=1', { waitUntil: 'networkidle' });
+await fpPage.waitForTimeout(300);
+await fpPage.click('#forgotPasswordBtn');
+await fpPage.waitForTimeout(100);
+results.forgotNeedsEmail = ((await fpPage.locator('#authMsg').textContent()) || '').includes('Enter your email above first');
+await fpPage.fill('#email', 'someone@example.com');
+await fpPage.click('#forgotPasswordBtn');
+await fpPage.waitForTimeout(200);
+results.forgotResetCall = await fpPage.evaluate(() => (window.__stubResetCalls || []).map(c => [c.email, c.redirectTo.endsWith('/index.html')]));
+results.forgotMessage = ((await fpPage.locator('#authMsg').textContent()) || '').trim();
+await fpPage.close();
+const fpFailPage = await newPage({ viewport: { width: 390, height: 844 } });
+await fpFailPage.goto(BASE_URL + '?authtest=1&resetfail=1', { waitUntil: 'networkidle' });
+await fpFailPage.waitForTimeout(300);
+await fpFailPage.fill('#email', 'someone@example.com');
+await fpFailPage.click('#forgotPasswordBtn');
+await fpFailPage.waitForTimeout(200);
+results.forgotErrorShown = ((await fpFailPage.locator('#authMsg').textContent()) || '').trim();
+await fpFailPage.close();
+
+// --- Arriving from the reset link: PASSWORD_RECOVERY opens the new-password
+// form, which calls updateUser({ password }). ---
+const rcPage = await newPage({ viewport: { width: 390, height: 844 } });
+await rcPage.goto(BASE_URL + '?recovery=1', { waitUntil: 'networkidle' });
+await rcPage.waitForTimeout(600);
+results.recoveryModalOpens = await rcPage.locator('#recoveryModal').isVisible();
+await rcPage.fill('#rcNew', 'newpass123');
+await rcPage.fill('#rcConfirm', 'different');
+await rcPage.click('#rcSubmitBtn');
+await rcPage.waitForTimeout(100);
+results.recoveryMismatchRefused = ((await rcPage.locator('#rcMsg').textContent()) || '').includes("don't match");
+await rcPage.fill('#rcConfirm', 'newpass123');
+await rcPage.click('#rcSubmitBtn');
+await rcPage.waitForTimeout(200);
+results.recoveryUpdateCall = await rcPage.evaluate(() => (window.__stubUpdateUserCalls || []).map(c => c.password));
+results.recoveryMessage = ((await rcPage.locator('#rcMsg').textContent()) || '').trim();
+await rcPage.close();
+
+// --- Delete my account: typed confirmation, the RPC, and the honest
+// "not available yet" message when migration 015 is not applied. ---
+const daPage = await newPage({ viewport: { width: 1200, height: 900 } });
+await daPage.goto(BASE_URL, { waitUntil: 'networkidle' });
+await daPage.waitForTimeout(500);
+await daPage.click('#accountBtn');
+await daPage.waitForTimeout(100);
+await daPage.click('#deleteAccountBtn');
+await daPage.waitForTimeout(150);
+results.deleteModalVisible = await daPage.locator('#deleteAccountModal').isVisible();
+results.deleteModalStatesScope = (await daPage.locator('#deleteAccountModal').textContent() || '').includes('Not affected');
+await daPage.fill('#daConfirm', 'nope');
+await daPage.click('#daSubmitBtn');
+await daPage.waitForTimeout(100);
+results.deleteWrongWordRefused = ((await daPage.locator('#daMsg').textContent()) || '').includes('Type DELETE');
+results.deleteNotCalledYet = await daPage.evaluate(() => window.__stubDeleteCalls || 0);
+await daPage.fill('#daConfirm', 'DELETE');
+await daPage.click('#daSubmitBtn');
+await daPage.waitForTimeout(1200);
+// The success path signs out and reloads; sessionStorage survives the
+// reload, and the stub's auto-session means the gate never clears it.
+results.deleteSignedOutReason = await daPage.evaluate(() => sessionStorage.getItem('tdw_signout_reason'));
+await daPage.close();
+const daMissingPage = await newPage({ viewport: { width: 1200, height: 900 } });
+await daMissingPage.goto(BASE_URL + '?rpcmissing=1', { waitUntil: 'networkidle' });
+await daMissingPage.waitForTimeout(500);
+await daMissingPage.click('#accountBtn');
+await daMissingPage.waitForTimeout(100);
+await daMissingPage.click('#deleteAccountBtn');
+await daMissingPage.waitForTimeout(150);
+await daMissingPage.fill('#daConfirm', 'DELETE');
+await daMissingPage.click('#daSubmitBtn');
+await daMissingPage.waitForTimeout(300);
+results.deleteMissingRpcMessage = ((await daMissingPage.locator('#daMsg').textContent()) || '').trim();
+results.deleteMissingRpcNoSignOut = await daMissingPage.evaluate(() => sessionStorage.getItem('tdw_signout_reason'));
+await daMissingPage.close();
+
+// --- Claim fixes: the raw pipeline status word is no longer shown as a
+// customer word; the notes editor says notes are shared; a Texas
+// struck-off row is never called "Lands Available". ---
+const clPage = await newPage({ viewport: { width: 1200, height: 900 } });
+await clPage.goto(BASE_URL + '#/auctions/p1', { waitUntil: 'networkidle' });
+await clPage.waitForTimeout(500);
+results.detailStatusPill = ((await clPage.locator('#detailModalInner .prop-top-actions .pill').textContent()) || '').trim();
+results.detailStatusPillClass = await clPage.locator('#detailModalInner .prop-top-actions .pill').evaluate(el => el.className);
+results.notesVisibilityText = ((await clPage.locator('#detailModalInner .notes-visibility').textContent()) || '').trim();
+results.tableHeaderValue = ((await clPage.locator('.data-table-wrap thead th').nth(3).textContent()) || '').trim();
+await clPage.close();
+const txClPage = await newPage({ viewport: { width: 1200, height: 900 } });
+await txClPage.goto(TX_BASE_URL + '#/lands/ptx3', { waitUntil: 'networkidle' });
+await txClPage.waitForTimeout(500);
+results.txStruckOffDetailTag = ((await txClPage.locator('#detailModalInner .prop-county-tag').textContent()) || '').trim();
+results.txStruckOffWhat = ((await txClPage.locator('#detailModalInner .opp-cell').first().textContent()) || '').replace(/\s+/g, ' ').trim();
+results.txStruckOffNeverLandsAvailable = !((await txClPage.locator('#detailModalInner').textContent()) || '').includes('Lands Available for Taxes');
+await txClPage.close();
+
 await browser.close();
 
 // ============================================================
@@ -1888,6 +2098,7 @@ await browser.close();
 // fields that legitimately vary with the real calendar date); anything else
 // is checked for strict equality (arrays/objects via JSON comparison).
 // ============================================================
+
 
 const EXPECTED = {
   appVisible: true,
@@ -2035,7 +2246,7 @@ const EXPECTED = {
   oppBidText: '$5,000.00 Value ÷ bid 18.0× (screening ratio, not a return)',
   oppValueText: '$90,000 2025 County Just Value · County Assessed Value $80,000',
   oppGaps: ['Image not checked yet', 'Not yet geocoded', 'Flood zone not checked'],
-  detailNavLabels: ['Summary', 'Financial', 'Property', 'History', 'Risk & Legal', 'Map', 'Sources', 'Data'],
+  detailNavLabels: ['Summary', 'Financial', 'Property', 'History', 'Sale events', 'Risk & Legal', 'Map', 'Sources', 'Data'],
   detailNavJumpScrolled: true,
   detailNavJumpMarksPill: true,
   showOnMapBtnText: 'Show county on the Map page',
@@ -2400,6 +2611,62 @@ const EXPECTED = {
   deepLinkAddressMatchesAcrossColdStart: true,
   deepLinkModalHiddenAfterBack: false,
   deepLinkHashClearedAfterBack: true,
+  // SaaS hardening (2026-09-29).
+  eventSectionPresent: 1,
+  eventItemsP1: 1,
+  eventLifecycleP1: 'Scheduled (as of the last observation)',
+  eventOutcomeP1: 'Outcome: Not tracked',
+  eventBidChangeP1: 'Opening bid observed: $4,500.00 → $5,000.00 (changed 1 time)',
+  eventNavPill: 1,
+  eventItemsP13: ['completed', 'superseded'],
+  eventLifecycleP13First: 'Sale date passed - outcome not tracked',
+  eventSectionNeverClaimsOutcome: true,
+  eventSectionSaysNotTracked: 2,
+  dashHealthRows: ['fl_deeds:HEALTHY', 'fl_certificates:INCOMPLETE', 'fl_laft:FAILED', 'db_backup:STALE', 'tx_sales:INCOMPLETE'],
+  dashHealthBadgeTexas: true,
+  dashHealthIncompleteNames: true,
+  dashWatchFirstVisit: true,
+  dashWatchNoNotificationsClaim: true,
+  dashHealthMissingTable: true,
+  dashHealthMissingTableNoBadges: 0,
+  watchChangeItems: ['p1', 'gone1'],
+  watchChangeBidLine: 'Opening bid: $4,000.00 → $5,000.00',
+  watchChangeGoneLine: 'No longer in the current dataset - the listing left the source feed or list. Why is not recorded.',
+  watchChangeSnapshotRewritten: true,
+  supportModalVisible: true,
+  supportUnconfiguredShown: 1,
+  supportTopicsDisabled: 5,
+  supportContextHasPage: true,
+  supportFromPropertyHasContext: true,
+  supportMailtoLinks: 5,
+  supportMailtoHref: 'mailto:help%40example.test',
+  supportSourceReportButton: 1,
+  supportTopicLabels: ['Contact support', 'Report a data problem', 'Report a source problem', 'Account or billing question', 'Request account deletion'],
+  helpModalVisible: true,
+  helpCoversRequiredTopics: true,
+  helpHasNoEmoji: true,
+  forgotNeedsEmail: true,
+  forgotResetCall: [['someone@example.com', true]],
+  forgotMessage: 'If an account exists for that email, a password-reset link has been sent. Open it in this browser to set a new password.',
+  forgotErrorShown: 'stub: reset refused',
+  recoveryModalOpens: true,
+  recoveryMismatchRefused: true,
+  recoveryUpdateCall: ['newpass123'],
+  recoveryMessage: 'Password updated. You are signed in.',
+  deleteModalVisible: true,
+  deleteModalStatesScope: true,
+  deleteWrongWordRefused: true,
+  deleteNotCalledYet: 0,
+  deleteSignedOutReason: 'deleted',
+  deleteMissingRpcMessage: 'Account deletion is not available on this deployment yet (migration 015 has not been applied). Use Contact support to request deletion.',
+  deleteMissingRpcNoSignOut: null,
+  detailStatusPill: 'Listed',
+  detailStatusPillClass: 'pill active',
+  notesVisibilityText: 'Shared with every approved member, with your email name - not private',
+  tableHeaderValue: 'County value',
+  txStruckOffDetailTag: 'Galveston County, TX · Struck-off inventory',
+  txStruckOffWhat: 'WhatTexas struck-off / future-sale inventory (vendor listing)Source: LGBS (taxsales.lgbs.com)',
+  txStruckOffNeverLandsAvailable: true,
 };
 
 const mismatches = [];

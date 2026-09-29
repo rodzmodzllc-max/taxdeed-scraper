@@ -117,11 +117,42 @@ const PROFILES_TABLE = PROFILE_MODE === "notable" ? null : [
   ] : [])
 ];
 
+// SaaS hardening (2026-09-29): Phase B event history for the fixture, read
+// by the full property page. p1 has one scheduled event with two
+// observations (an opening-bid change between them); p13 (past-due) has a
+// completed event whose outcome is - as in production, always - 'unknown'.
+const EVENT_ROWS = [
+  { id: "ev1", property_id: "p1", scheduled_sale_date: futureDate(3), lifecycle: "scheduled", outcome: "unknown", opening_bid: 5000, first_seen_at: "2026-09-01T10:00:00Z", last_seen_at: "2026-09-28T10:00:00Z", source: "auction", harvester_source: "fl_realauction_alachua", event_url_kind: "sale" },
+  { id: "ev2", property_id: "p13", scheduled_sale_date: futureDate(-6), lifecycle: "completed", outcome: "unknown", opening_bid: 5000, first_seen_at: "2026-08-20T10:00:00Z", last_seen_at: "2026-09-20T10:00:00Z", source: "auction", harvester_source: "fl_realauction_alachua", event_url_kind: "sale" },
+  { id: "ev3", property_id: "p13", scheduled_sale_date: futureDate(-40), lifecycle: "superseded", outcome: "unknown", opening_bid: 4800, first_seen_at: "2026-07-01T10:00:00Z", last_seen_at: "2026-08-10T10:00:00Z", source: "auction", harvester_source: "fl_realauction_alachua", event_url_kind: "sale" }
+];
+const OBSERVATION_ROWS = [
+  { id: 1, event_id: "ev1", observed_at: "2026-09-01T10:00:00Z", feed: "county_auction_site", raw_status: "scheduled", lifecycle: "scheduled", outcome: "unknown", opening_bid: 4500 },
+  { id: 2, event_id: "ev1", observed_at: "2026-09-28T10:00:00Z", feed: "county_auction_site", raw_status: "scheduled", lifecycle: "scheduled", outcome: "unknown", opening_bid: 5000 },
+  { id: 3, event_id: "ev2", observed_at: "2026-08-20T10:00:00Z", feed: "county_auction_site", raw_status: "scheduled", lifecycle: "scheduled", outcome: "unknown", opening_bid: 5000 },
+  { id: 4, event_id: "ev2", observed_at: "2026-09-20T10:00:00Z", feed: "county_auction_site", raw_status: null, lifecycle: "completed", outcome: "unknown", opening_bid: 5000 },
+  { id: 5, event_id: "ev3", observed_at: "2026-07-01T10:00:00Z", feed: "county_auction_site", raw_status: "scheduled", lifecycle: "scheduled", outcome: "unknown", opening_bid: 4800 }
+];
+// Dataset health rows (migration 016) - one healthy scheduled source, one
+// INCOMPLETE, one FAILED, one manual Texas source, one stale. `?health=none`
+// simulates the table not existing yet.
+const HEALTH_MODE = new URLSearchParams(location.search).get("health") || "default";
+const hoursAgo = h => new Date(Date.now() - h * 3600000).toISOString();
+const SOURCE_HEALTH_ROWS = HEALTH_MODE === "none" ? null : [
+  { source: "fl_deeds", label: "Florida deed auctions (county auction sites)", state: "FL", mode: "scheduled", cadence_hours: 12, last_attempt_at: hoursAgo(2), last_attempt_status: "SUCCESS", last_success_at: hoursAgo(2), last_run_id: "1001", row_count: 812, units_total: 46, units_complete: 46, units_incomplete: 0, incomplete_units: [], completeness: "COMPLETE", error: null },
+  { source: "fl_certificates", label: "Florida county-held certificates (LienHub)", state: "FL", mode: "scheduled", cadence_hours: 24, last_attempt_at: hoursAgo(3), last_attempt_status: "INCOMPLETE", last_success_at: hoursAgo(3), last_run_id: "1002", row_count: 391, units_total: 32, units_complete: 30, units_incomplete: 2, incomplete_units: ["Baker", "Gulf"], completeness: "INCOMPLETE", error: "2 unit(s) INCOMPLETE: Baker, Gulf" },
+  { source: "fl_laft", label: "Florida Lands Available for Taxes (county lists)", state: "FL", mode: "scheduled", cadence_hours: 24, last_attempt_at: hoursAgo(1), last_attempt_status: "FAILED", last_success_at: hoursAgo(25), last_run_id: "1003", row_count: 0, units_total: null, units_complete: null, units_incomplete: null, incomplete_units: [], completeness: "UNKNOWN", error: "sync step outcome: failure" },
+  { source: "tx_sales", label: "Texas tax sales (LGBS + county sheriff-sale sites) - manual runs", state: "TX", mode: "manual", cadence_hours: null, last_attempt_at: hoursAgo(200), last_attempt_status: "INCOMPLETE", last_success_at: hoursAgo(200), last_run_id: "1004", row_count: 531, units_total: 2, units_complete: 1, units_incomplete: 1, incomplete_units: ["lgbs"], completeness: "INCOMPLETE", error: "1 unit(s) INCOMPLETE: lgbs" },
+  { source: "db_backup", label: "Database backup export", state: "ALL", mode: "scheduled", cadence_hours: 24, last_attempt_at: hoursAgo(80), last_attempt_status: "SUCCESS", last_success_at: hoursAgo(80), last_run_id: "1005", row_count: 3000, units_total: 3, units_complete: 3, units_incomplete: 0, incomplete_units: [], completeness: "COMPLETE", error: null }
+];
+
 class MockQuery {
   constructor(table) { this.table = table; this._op = "select"; this._filters = []; this._single = false; }
   select() { return this; }
   order() { return this; }
   eq(col, val) { this._filters.push([col, val]); return this; }
+  in(col, vals) { this._filters.push([col, vals, "in"]); return this; }
+  limit() { return this; }
   gte() { return this; }
   maybeSingle() { this._single = true; return this; }
   insert(row) { this._op = "insert"; this._row = row; return this; }
@@ -145,7 +176,15 @@ class MockQuery {
         }
       }
     } else if (this._op === "select") {
+      const matches = row => this._filters.every(([c, v, kind]) => kind === "in" ? (v || []).includes(row[c]) : row[c] === v);
       if (this.table === "properties") result.data = FIXTURE_PROPERTIES;
+      else if (this.table === "auction_events") result.data = EVENT_ROWS.filter(matches);
+      else if (this.table === "auction_event_observations") result.data = OBSERVATION_ROWS.filter(matches);
+      else if (this.table === "source_health") {
+        result = SOURCE_HEALTH_ROWS === null
+          ? { data: null, error: { message: "Could not find the table 'public.source_health' in the schema cache", code: "PGRST205" } }
+          : { data: SOURCE_HEALTH_ROWS, error: null };
+      }
       else if (this.table === "notes") result.data = [];
       else if (this.table === "favorites") result.data = [];
       else if (this.table === "hidden") result.data = [];
@@ -169,6 +208,11 @@ export function createClient() {
       },
       onAuthStateChange(cb) {
         if (!FORCE_GATE) setTimeout(() => cb("SIGNED_IN", { user: { id: "u1", email: "test@example.com" } }), 0);
+        // ?recovery=1: what supabase-js emits after a password-reset link
+        // lands (detectSessionInUrl consumed the recovery token).
+        if (!FORCE_GATE && new URLSearchParams(location.search).get("recovery") === "1") {
+          setTimeout(() => cb("PASSWORD_RECOVERY", { user: { id: "u1", email: "test@example.com" } }), 10);
+        }
         return { data: { subscription: { unsubscribe() {} } } };
       },
       async signInWithPassword() { return { error: null }; },
@@ -181,7 +225,19 @@ export function createClient() {
         }
         return { data: { user: { id: "u2", email }, session: null }, error: null };
       },
-      async signOut() { return {}; }
+      async signOut() { return {}; },
+      // SaaS hardening: the two supported-pattern calls the account
+      // lifecycle uses. ?resetfail=1 makes the reset request fail so the
+      // error path is exercised too.
+      async resetPasswordForEmail(email, opts) {
+        window.__stubResetCalls = (window.__stubResetCalls || []).concat([{ email, redirectTo: opts && opts.redirectTo }]);
+        if (new URLSearchParams(location.search).get("resetfail") === "1") return { data: null, error: { message: "stub: reset refused" } };
+        return { data: {}, error: null };
+      },
+      async updateUser(attrs) {
+        window.__stubUpdateUserCalls = (window.__stubUpdateUserCalls || []).concat([attrs]);
+        return { data: { user: { id: "u1", email: "test@example.com", user_metadata: (attrs && attrs.data) || {} } }, error: null };
+      }
     },
     from(table) { return new MockQuery(table); },
     // Added Phase 15 (Customer Surface Security Audit): app.js's
@@ -199,6 +255,15 @@ export function createClient() {
     // found" shape (PGRST202) so app.js's own missingFn fallback-detection
     // logic can be exercised too if a future test needs it.
     async rpc(fnName, args) {
+      // SaaS hardening: self-service account deletion (migration 015).
+      // ?rpcmissing=1 mimics a deployment where 015 has not been applied.
+      if (fnName === "delete_my_account") {
+        window.__stubDeleteCalls = (window.__stubDeleteCalls || 0) + 1;
+        if (new URLSearchParams(location.search).get("rpcmissing") === "1") {
+          return { data: null, error: { message: "Could not find the function public.delete_my_account without parameters in the schema cache", code: "PGRST202" } };
+        }
+        return { data: null, error: null };
+      }
       if (fnName === "get_properties") {
         const pState = args && args.p_state;
         // This suite mostly loads index.html (data-state="FL", see

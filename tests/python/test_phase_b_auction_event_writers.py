@@ -529,10 +529,18 @@ def test_workflow_runs_writer_after_each_property_sync_and_never_the_seed():
 def test_existing_pipeline_files_do_not_reference_the_writer():
     for rel in ("scripts/sync-harvest-to-supabase.ps1", "scripts/sync-texas-to-supabase.py", "scripts/sync-laft-to-supabase.ps1",
                 "scripts/sync-certificates-to-supabase.ps1", "harvesters/texas_harvester.py", "scripts/harvest_all_counties.ps1",
-                "scripts/harvest_okaloosa_bid4assets.ps1", "public/app.js", "public/explore.js", "public/satellite-map.js",
+                "scripts/harvest_okaloosa_bid4assets.ps1", "public/explore.js", "public/satellite-map.js",
                 "public/index.html", "public/tx.html"):
         text = (REPO / rel).read_text(encoding="utf-8", errors="replace")
         assert "auction_events" not in text and "auction_event_writer" not in text, rel
+    # public/app.js READS the two event tables since the SaaS hardening PR
+    # (2026-09-29, "Sale event history" on the property page). It must
+    # never write them and never name the writer - see also
+    # test_migration_014_auction_event_history.py::test_s14.
+    app = (REPO / "public" / "app.js").read_text(encoding="utf-8")
+    assert "auction_event_writer" not in app and "auction_events_writer" not in app
+    for m in re.finditer(r'from\("(auction_events|auction_event_observations)"\)\.(\w+)\(', app):
+        assert m.group(2) == "select", m.group(0)
 
 
 def test_writer_reads_but_never_writes_properties():

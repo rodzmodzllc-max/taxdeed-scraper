@@ -56,6 +56,16 @@ The Claude Code browser-automation safety classifier blocks typing raw DDL (`CRE
 
 ## Property photos — real, server-sourced, not yet activated
 
+**Correction, 2026-09-29 (SaaS hardening):** the section below describes the
+Street View design. In production every stored `photo_url` today carries
+`photo_source = 'usda_naip'` (an overhead USDA aerial from
+`scripts/enrich_naip_imagery.py` / migration 011), and none is a Street View
+still. The frontend labels imagery from `photo_source` (`PHOTO_SOURCE_LABELS`
+in `app.js`) and never as "Street View" unless that column says so; `''`
+means "checked, no stored image", not specifically "no Street View coverage".
+Read the paragraphs below as the design of the Street View path, not as a
+description of what the live images are.
+
 `properties.photo_url` (schema-v10-property-photos.sql) holds a real Google
 Street View Static image for the address, fetched server-side by
 `scripts/fetch_property_photos.py` and cached in the public `property-photos`
@@ -1377,6 +1387,31 @@ the deployed site with the live keys.
 - The "every write action fails silently" bug (favorite/hide/restore/bid-list/notes) that earlier audits in this project flagged **was fixed 2026-08-24** (commit `a732779`, "Surface write errors instead of failing silently") — a shared `showErrorToast()` helper now surfaces every one of those errors. Don't re-flag it without checking the current file first.
 - Bid-on-auction links in `app.js` are **entirely data-driven** from `p.url_auction` (populated by the harvesters) and conditionally rendered — `${p.url_auction ? '<a ...>Bid on County Auction Site</a>' : ''}`. There is no frontend-constructed URL, so a "broken bid link" cannot render; the only failure mode is an absent bid button on a property the harvester didn't attach a URL to. Confirmed by code inspection 2026-08-25.
 - This sandbox has no git push access to `taxdeed-scraper` (git proxy reports the repo isn't in this session's authorized set) and no `gh`/git-clone credentials for it either — reach it through the authenticated Chrome browser tab (GitHub web UI for edits/uploads, raw file view or `document.body.innerText` via `javascript_tool` for reading — `get_page_text` truncates large files at ~50KB, so `app.js` needs the `innerText` approach or a range-limited fetch).
+
+## SaaS launch-readiness hardening (2026-09-29, PR open, not merged)
+
+Branch `feat/saas-readiness-hardening`. What it adds, and where to look:
+- **Migrations, not yet applied:** `scripts/migrations/015_customer_write_privileges_and_account_deletion.sql`
+  (customers read shared `properties`/`county_calendar` but can no longer
+  write them; anon closed out of every customer and legacy table; trigger
+  functions not callable by clients; `search_path` pinned; `delete_my_account()`)
+  and `016_source_health.sql` (per-dataset health table). Both have static +
+  live-Postgres tests (`tests/python/test_migration_015_*.py`, `..._016_*.py`)
+  that apply the files verbatim to a scratch cluster when one is reachable.
+- **Artifacts are evidence-only now:** every workflow uploads only
+  `out/public/` (an `*-evidence.json` with hashes/counts/field names, never a
+  row) and `out/private/` (OpenPGP-encrypted raw files, only when the
+  `ARTIFACT_PUBLIC_KEY` repository variable is set). Without that variable
+  no raw harvest and no restorable backup is retained anywhere - a launch
+  dependency. `scripts/artifact_evidence.py`; `tests/python/test_artifact_privacy.py`.
+- **Account lifecycle:** forgot-password (`resetPasswordForEmail`, needs the
+  Supabase Redirect URLs allowlist), `PASSWORD_RECOVERY` handler, self-service
+  deletion via the RPC, support/help modals (`supportEmail` in `config.js`,
+  blank on purpose), "Sale event history" card from the Phase B tables
+  (outcome always "Not tracked"), Dashboard "Data sources" and "Watchlist
+  changes" panels (per-browser localStorage snapshot, no notifications).
+- **Everything a person must set outside the repo** is in
+  `docs/production-configuration.md`.
 
 ## Where to look for more
 
