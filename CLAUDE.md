@@ -1413,6 +1413,23 @@ Full description: `docs/otc-inventory-model.md`. The stable facts:
   `purchase_amount_kind` are the honest columns and `hasPublishedBid()`
   reads the kind first.
 
+## State-extensible OTC framework (2026-09-29, code foundation only)
+
+`harvesters/governance/states.py` is the one place a state is declared
+(FL and TX; nothing else). `OtcRecord.validate()`, the registry validator,
+`scripts/laft_lifecycle.py` (`--state`, default FL) and
+`scripts/sanity_check_laft.ps1` (`$env:LAFT_STATE`, default FL) read it
+instead of FL/TX literals; the frontend's three modules read one
+state→assets table each instead of ternaries. `InventoryType` /
+`AmountKind` carry values (POST_SALE, STATE_HELD_TAX_LAND,
+ADJUDICATED_PROPERTY, QUOTED_ON_APPLICATION) that migration 017's
+constraints do NOT allow - `DB_SUPPORTED_*` pins what is storable and
+`to_properties_row()` / the lifecycle / the registry refuse the rest until
+a future migration widens them. A generic, unconfigured ArcGIS layer
+adapter exists (`harvesters/otc/adapters/arcgis.py`). No state beyond
+FL/TX is registered, no registry row was added, no migration applied.
+Full description: `docs/otc-inventory-model.md` section 11.
+
 ## SaaS launch-readiness hardening (2026-09-29, PR open, not merged)
 
 Branch `feat/saas-readiness-hardening`. What it adds, and where to look:

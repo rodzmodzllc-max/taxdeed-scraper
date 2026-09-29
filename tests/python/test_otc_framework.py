@@ -14,7 +14,8 @@ REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "scripts"))
 
 from harvesters.governance.county_source_registry import load_registry, lookup  # noqa: E402
-from harvesters.otc import AmountKind, InventoryType, OtcRecord, PurchaseUrlKind, SourceAuthority, UrlRef  # noqa: E402
+from harvesters.otc import (DB_SUPPORTED_AMOUNT_KINDS, DB_SUPPORTED_INVENTORY_TYPES, AmountKind, InventoryType,  # noqa: E402
+                            OtcRecord, PurchaseUrlKind, SourceAuthority, UrlRef)
 from harvesters.otc.adapters import TX_CANDIDATES, ColumnMap, TabularConfig, TabularListAdapter  # noqa: E402
 from harvesters.otc.adapters.tabular import list_as_of_from_name  # noqa: E402
 from harvesters.otc.gate import evaluate_source  # noqa: E402
@@ -36,14 +37,28 @@ def _rec(**kw):
 
 
 def test_m01_vocabularies_are_distinct_and_shared():
-    assert {i.value for i in InventoryType} == {"POST_SALE_FIXED_PRICE", "STRUCK_OFF_HELD_IN_TRUST", "FUTURE_RESALE"}
+    # What public.properties can store today (migration 017's constraints)
+    # is pinned separately from the model's wider vocabulary: the DB sets
+    # are exactly the three / seven original values, and every value the
+    # model adds beyond them is NOT in the 017 SQL (a future migration adds
+    # it; until then OtcRecord.to_properties_row() refuses it - see m06).
+    assert DB_SUPPORTED_INVENTORY_TYPES == {"POST_SALE_FIXED_PRICE", "STRUCK_OFF_HELD_IN_TRUST", "FUTURE_RESALE"}
+    assert {i.value for i in InventoryType} == DB_SUPPORTED_INVENTORY_TYPES | {"POST_SALE", "STATE_HELD_TAX_LAND", "ADJUDICATED_PROPERTY"}
     assert {a.value for a in SourceAuthority} == {"GOVERNMENT_DIRECT", "GOVERNMENT_PLATFORM", "VENDOR_COUNSEL", "VENDOR_AUCTION"}
+    assert DB_SUPPORTED_AMOUNT_KINDS == {"MINIMUM_PURCHASE_AMOUNT", "OPENING_BID", "ORIGINAL_OPENING_BID", "FIXED_PURCHASE_PRICE",
+                                         "ESTIMATED_PURCHASE_PRICE", "PUBLISHED_AMOUNT_KIND_UNSPECIFIED", "NOT_PUBLISHED"}
+    assert {k.value for k in AmountKind} == DB_SUPPORTED_AMOUNT_KINDS | {"QUOTED_ON_APPLICATION"}
     assert {k.value for k in AmountKind} == set(ls.AMOUNT_KINDS)
+    assert set(ls.DB_AMOUNT_KINDS) == DB_SUPPORTED_AMOUNT_KINDS
     assert {k.value for k in PurchaseUrlKind} == {"purchase_instructions", "offer_form", "bid_form", "application_form", "online_purchase"}
     sql = (REPO / "scripts/migrations/017_otc_inventory_provenance_lifecycle.sql").read_text(encoding="utf-8")
-    for enum in (InventoryType, SourceAuthority, AmountKind, PurchaseUrlKind):
+    for enum in (SourceAuthority, PurchaseUrlKind):
         for v in enum:
             assert f"'{v.value}'" in sql, v
+    for v in InventoryType:
+        assert (f"'{v.value}'" in sql) == (v.value in DB_SUPPORTED_INVENTORY_TYPES), v
+    for v in AmountKind:
+        assert (f"'{v.value}'" in sql) == (v.value in DB_SUPPORTED_AMOUNT_KINDS), v
 
 
 def test_m02_amount_rules_no_zero_sentinel_in_the_contract():

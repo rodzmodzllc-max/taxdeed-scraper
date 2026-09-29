@@ -11,12 +11,16 @@ from dataclasses import asdict, dataclass, field
 from datetime import date, datetime
 from enum import Enum
 
-from ..governance.county_source_registry import InventoryType, PurchaseUrlKind, SourceAuthority
+from ..governance import states
+from ..governance.county_source_registry import (DB_SUPPORTED_INVENTORY_TYPES, InventoryType,
+                                                 PurchaseUrlKind, SourceAuthority)
 
-__all__ = ["AmountKind", "InventoryType", "OtcRecord", "PurchaseUrlKind", "SourceAuthority", "UrlRef"]
+__all__ = ["AmountKind", "DB_SUPPORTED_AMOUNT_KINDS", "DB_SUPPORTED_INVENTORY_TYPES", "InventoryType",
+           "OtcRecord", "PurchaseUrlKind", "SourceAuthority", "UrlRef"]
 
 
 class AmountKind(str, Enum):
+    # --- carried by public.properties today (migration 017's check constraint)
     MINIMUM_PURCHASE_AMOUNT = "MINIMUM_PURCHASE_AMOUNT"
     OPENING_BID = "OPENING_BID"
     ORIGINAL_OPENING_BID = "ORIGINAL_OPENING_BID"
@@ -24,6 +28,24 @@ class AmountKind(str, Enum):
     ESTIMATED_PURCHASE_PRICE = "ESTIMATED_PURCHASE_PRICE"
     PUBLISHED_AMOUNT_KIND_UNSPECIFIED = "PUBLISHED_AMOUNT_KIND_UNSPECIFIED"
     NOT_PUBLISHED = "NOT_PUBLISHED"
+    # --- model vocabulary only: NOT in the 017 constraint, NOT storable until
+    #     a future migration widens it. The source publishes no figure at
+    #     all: the price is quoted to the applicant after an application
+    #     (the state-land-office pattern the 50-state audit found). Like
+    #     NOT_PUBLISHED it carries no amount - it says WHY there is none.
+    QUOTED_ON_APPLICATION = "QUOTED_ON_APPLICATION"
+
+
+# Exactly what migration 017's purchase_amount_kind constraint allows.
+DB_SUPPORTED_AMOUNT_KINDS = frozenset({
+    AmountKind.MINIMUM_PURCHASE_AMOUNT.value, AmountKind.OPENING_BID.value,
+    AmountKind.ORIGINAL_OPENING_BID.value, AmountKind.FIXED_PURCHASE_PRICE.value,
+    AmountKind.ESTIMATED_PURCHASE_PRICE.value, AmountKind.PUBLISHED_AMOUNT_KIND_UNSPECIFIED.value,
+    AmountKind.NOT_PUBLISHED.value,
+})
+
+# Amount kinds that mean "no figure was published" - the amount must be None.
+AMOUNTLESS_KINDS = frozenset({AmountKind.NOT_PUBLISHED, AmountKind.QUOTED_ON_APPLICATION})
 
 
 @dataclass(frozen=True)
@@ -68,8 +90,10 @@ class OtcRecord:
 
     def validate(self) -> list[str]:
         problems: list[str] = []
-        if self.state not in ("FL", "TX"):
-            problems.append(f"state {self.state!r}")
+        # A state is acceptable only if harvesters/governance/states.py
+        # registers it (FL and TX in production; tests register a temporary
+        # one). No env override, no pass-through of an unknown code.
+        problems.extend(states.state_problems(self.state))
         if not self.county or not self.case_no or not self.source_id:
             problems.append("county, case_no and source_id are required")
         if not isinstance(self.source_authority, SourceAuthority):
@@ -78,10 +102,10 @@ class OtcRecord:
             problems.append("inventory_type must be an InventoryType or None")
         if not isinstance(self.amount_kind, AmountKind):
             problems.append("amount_kind must be an AmountKind")
-        if self.amount is None and self.amount_kind is not AmountKind.NOT_PUBLISHED:
-            problems.append("an absent amount must be NOT_PUBLISHED")
-        if self.amount is not None and self.amount_kind is AmountKind.NOT_PUBLISHED:
-            problems.append("a present amount cannot be NOT_PUBLISHED")
+        if self.amount is None and self.amount_kind not in AMOUNTLESS_KINDS:
+            problems.append("an absent amount must be NOT_PUBLISHED or QUOTED_ON_APPLICATION")
+        if self.amount is not None and self.amount_kind in AMOUNTLESS_KINDS:
+            problems.append(f"a present amount cannot be {self.amount_kind.value}")
         if self.amount is not None and self.amount < 0:
             problems.append("amount cannot be negative")
         if (self.purchase_url is None) != (self.purchase_url_kind is None):
@@ -103,6 +127,14 @@ class OtcRecord:
         honest value. url_auction/url_auction_kind = the list page as a
         'county' link (migration 013's vocabulary), never the purchase URL."""
         problems = self.validate()
+        # Fail closed on vocabulary public.properties cannot store yet: the
+        # 017 check constraints would reject the row, and the alternative -
+        # relabelling to an FL/TX value - is exactly the mislabelling the
+        # framework exists to prevent.
+        if self.inventory_type is not None and self.inventory_type.value not in DB_SUPPORTED_INVENTORY_TYPES:
+            problems.append(f"inventory_type {self.inventory_type.value} is not storable in public.properties until a migration widens the check constraint")
+        if self.amount_kind.value not in DB_SUPPORTED_AMOUNT_KINDS:
+            problems.append(f"amount_kind {self.amount_kind.value} is not storable in public.properties until a migration widens the check constraint")
         if problems:
             raise ValueError("; ".join(problems))
         row = {

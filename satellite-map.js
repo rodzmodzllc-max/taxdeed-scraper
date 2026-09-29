@@ -116,8 +116,6 @@ const $ = id => document.getElementById(id);
 // header note on why sharing one node between two map libraries was buggy.
 const GOOGLE_CANVAS_ID = "satelliteMapCanvasGoogle";
 const MAPTILER_CANVAS_ID = "satelliteMapCanvasMaptiler";
-const PAGE_STATE = document.body.dataset.state === "TX" ? "TX" : "FL";
-
 // Roughly centers each state in frame at a zoom that shows the whole thing
 // without excess ocean/neighbor-state padding. Not derived from data (there's
 // no "centroid of all counties" reason to prefer over a plain eyeballed
@@ -128,6 +126,15 @@ const STATEWIDE_VIEW = {
   FL: { center: [-81.6, 28.1], zoom: 5.6 },
   TX: { center: [-99.3, 31.4], zoom: 5.1 }
 };
+
+// Same derivation as app.js/explore.js: the page's state, accepted only if
+// STATEWIDE_VIEW above has a camera for it (and county-centroids.json a
+// block - see loadCentroids). A state without both is not drawn over
+// Florida's; the page falls back to FL only so it still loads.
+const PAGE_STATE = (() => {
+  const wanted = document.body.dataset.state;
+  return wanted && Object.prototype.hasOwnProperty.call(STATEWIDE_VIEW, wanted) ? wanted : "FL";
+})();
 
 let rows = [];
 let ledger = "all";
@@ -352,7 +359,7 @@ async function ensureGoogleMap() {
     ({ AdvancedMarkerElement: googleState.AdvancedMarkerElement } = await google.maps.importLibrary("marker"));
     const canvas = $(GOOGLE_CANVAS_ID);
     canvas.innerHTML = "";
-    const view = STATEWIDE_VIEW[PAGE_STATE] || STATEWIDE_VIEW.FL;
+    const view = STATEWIDE_VIEW[PAGE_STATE];
     googleState.map = new Map(canvas, {
       center: { lat: view.center[1], lng: view.center[0] },
       zoom: view.zoom,
@@ -571,7 +578,7 @@ async function ensureMaptilerMap() {
     maptilerState.gl = await loadMapLibreGl();
     const canvas = $(MAPTILER_CANVAS_ID);
     canvas.innerHTML = "";
-    const view = STATEWIDE_VIEW[PAGE_STATE] || STATEWIDE_VIEW.FL;
+    const view = STATEWIDE_VIEW[PAGE_STATE];
     maptilerState.map = new maptilerState.gl.Map({
       container: canvas,
       // "hybrid" = satellite imagery + labels, MapTiler's closest match to

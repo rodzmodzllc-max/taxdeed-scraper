@@ -342,8 +342,13 @@ def test_e05_migration_019_dates_are_written_only_when_the_columns_exist(tmp_pat
 
 def test_s01_sanity_check_is_state_filtered():
     src = (REPO / "scripts/sanity_check_laft.ps1").read_text(encoding="utf-8")
-    assert "properties?state=eq.FL&source=eq.laft&select=county" in src
+    # One state per run, from $env:LAFT_STATE, defaulting to FL - never an
+    # unfiltered cross-state query, never an arbitrary string in the URL.
+    assert "properties?state=eq.$State&source=eq.laft&select=county" in src
+    assert 'IsNullOrWhiteSpace($env:LAFT_STATE)) { "FL" }' in src
+    assert "$State -notmatch '^[A-Z]{2}$'" in src and "throw" in src.split("$State -notmatch")[1].split("\n")[1]
     assert "properties?source=eq.laft&select=county" not in src
+    assert "state=eq.FL" not in src.split("$existingUrl")[1]
 
 
 def test_s02_sync_reactivates_on_upsert_and_never_writes_closed():

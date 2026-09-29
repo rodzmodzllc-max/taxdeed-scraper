@@ -30,6 +30,9 @@ from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 
+from . import states
+from .states import STATEWIDE_UNIT, PublishingUnit
+
 REPO_ROOT = Path(__file__).resolve().parent.parent.parent
 REGISTRY_PATH = REPO_ROOT / "data" / "county_source_registry.csv"
 
@@ -40,11 +43,38 @@ COLUMNS = [
     "last_checked", "completeness_status", "evidence_ref", "notes",
 ]
 
+# Columns the loader ACCEPTS after COLUMNS but the committed CSV, the
+# generator and migration 018 do not carry yet. `publishing_unit` (a
+# states.PublishingUnit value; blank = COUNTY, which every current row is)
+# lets a future registry describe a parish, borough, municipal or
+# statewide publisher without the FL/TX county assumption. Adding it to the
+# CSV, the generator and the 018 table is a separate, reviewed change
+# (docs/otc-inventory-model.md, "State extensibility").
+OPTIONAL_COLUMNS = ["publishing_unit"]
+
 
 class InventoryType(str, Enum):
+    # --- carried by public.properties today (migration 017's check constraint)
     POST_SALE_FIXED_PRICE = "POST_SALE_FIXED_PRICE"      # FL LAFT: purchasable now at a set price
     STRUCK_OFF_HELD_IN_TRUST = "STRUCK_OFF_HELD_IN_TRUST"  # TX: struck off to the taxing units, held in trust
     FUTURE_RESALE = "FUTURE_RESALE"                      # TX: awaiting a future resale process
+    # --- model vocabulary only: NOT in the 017 constraint, NOT storable until
+    #     a future migration widens it (see docs/otc-inventory-model.md).
+    #     They exist so the 50-state audit's inventory classes are named
+    #     honestly instead of being forced into an FL/TX label.
+    POST_SALE = "POST_SALE"                              # post-sale inventory offered by a unit without a published fixed price / process
+    STATE_HELD_TAX_LAND = "STATE_HELD_TAX_LAND"          # forfeited to and sold by a STATE agency (AR/MS/AL/WV pattern)
+    ADJUDICATED_PROPERTY = "ADJUDICATED_PROPERTY"        # adjudicated to a parish / municipality (LA pattern)
+
+
+# Exactly what migration 017's properties_inventory_type_check allows. A row
+# whose inventory type is outside this set cannot be written to
+# public.properties; OtcRecord.to_properties_row() refuses it.
+DB_SUPPORTED_INVENTORY_TYPES = frozenset({
+    InventoryType.POST_SALE_FIXED_PRICE.value,
+    InventoryType.STRUCK_OFF_HELD_IN_TRUST.value,
+    InventoryType.FUTURE_RESALE.value,
+})
 
 
 class SourceAuthority(str, Enum):
@@ -136,6 +166,8 @@ class CountySourceRow:
     completeness_status: str
     evidence_ref: str
     notes: str
+    # Optional (see OPTIONAL_COLUMNS). Blank in the CSV reads as COUNTY.
+    publishing_unit: str = PublishingUnit.COUNTY.value
 
     @property
     def is_production(self) -> bool:
@@ -158,10 +190,23 @@ def _enum_values(enum_cls) -> frozenset[str]:
 def validate_row(row: CountySourceRow, *, known_counties: dict[str, frozenset[str]] | None = None) -> list[str]:
     """Every problem with one row, as strings. Empty list = valid."""
     problems: list[str] = []
-    if row.state not in ("FL", "TX"):
-        problems.append(f"state {row.state!r}")
-    if known_counties and row.state in known_counties and row.county not in known_counties[row.state]:
-        problems.append(f"unknown {row.state} county {row.county!r}")
+    state_cfg = states.get_state(row.state)
+    problems.extend(state_problems_for_row(row))
+    unit = row.publishing_unit or PublishingUnit.COUNTY.value
+    if unit not in _enum_values(PublishingUnit):
+        problems.append(f"publishing_unit {row.publishing_unit!r}")
+    elif state_cfg is not None and unit not in state_cfg.publishing_units:
+        problems.append(f"publishing_unit {unit!r} is not one {row.state} publishes by")
+    if unit == PublishingUnit.STATE.value:
+        # A statewide publisher has no county; the row says so explicitly
+        # rather than borrowing a county name.
+        if row.county != STATEWIDE_UNIT:
+            problems.append(f"STATE-level row must use county {STATEWIDE_UNIT!r}, not {row.county!r}")
+    else:
+        if row.county == STATEWIDE_UNIT:
+            problems.append(f"county {STATEWIDE_UNIT!r} requires publishing_unit STATE")
+        if known_counties and row.state in known_counties and row.county not in known_counties[row.state]:
+            problems.append(f"unknown {row.state} county {row.county!r}")
     optional = {
         "inventory_type": InventoryType, "source_authority": SourceAuthority,
         "purchase_url_kind": PurchaseUrlKind,
@@ -194,8 +239,15 @@ def validate_row(row: CountySourceRow, *, known_counties: dict[str, frozenset[st
             problems.append("PRODUCTION_VERIFIED row has no source_id")
         if row.governance_status not in RUNNABLE_GOVERNANCE:
             problems.append(f"PRODUCTION_VERIFIED row with governance {row.governance_status!r}")
-        if row.state == "FL" and row.inventory_type != InventoryType.POST_SALE_FIXED_PRICE.value:
-            problems.append("FL production row must be POST_SALE_FIXED_PRICE")
+        # Per-state production inventory rule (states.StateConfig): FL rows
+        # are always the statutory fixed-price list; TX rows are struck-off /
+        # future-resale / unclassified. Same rule as before, read from the
+        # state's configuration instead of an `if state == "FL"`.
+        if state_cfg is not None and row.inventory_type not in state_cfg.production_inventory_types:
+            allowed = ", ".join(sorted(v or "(blank)" for v in state_cfg.production_inventory_types))
+            problems.append(f"{row.state} production row must carry one of: {allowed}")
+        if row.inventory_type and row.inventory_type not in DB_SUPPORTED_INVENTORY_TYPES:
+            problems.append(f"PRODUCTION_VERIFIED row carries inventory_type {row.inventory_type!r}, which public.properties cannot store yet")
     else:
         if row.harvester:
             problems.append("non-production row names a harvester")
@@ -215,12 +267,24 @@ def validate_row(row: CountySourceRow, *, known_counties: dict[str, frozenset[st
     return problems
 
 
+def state_problems_for_row(row: CountySourceRow) -> list[str]:
+    """The state half of validate_row(): the state must be registered in
+    harvesters/governance/states.py. Registration is a reviewed commit;
+    there is no way to pass an arbitrary state through here."""
+    return states.state_problems(row.state)
+
+
 def load_registry(path: Path | str = REGISTRY_PATH) -> list[CountySourceRow]:
+    """Read a registry CSV. The header must be COLUMNS exactly, optionally
+    followed by OPTIONAL_COLUMNS in order (the committed file carries only
+    COLUMNS; a fixture may carry `publishing_unit`)."""
     with open(path, newline="", encoding="utf-8") as fh:
         reader = csv.DictReader(fh)
-        if reader.fieldnames != COLUMNS:
-            raise ValueError(f"{path}: columns {reader.fieldnames} != {COLUMNS}")
-        return [CountySourceRow(**{c: (r.get(c) or "").strip() for c in COLUMNS}) for r in reader]
+        accepted = (COLUMNS, COLUMNS + OPTIONAL_COLUMNS)
+        if reader.fieldnames not in accepted:
+            raise ValueError(f"{path}: columns {reader.fieldnames} != {COLUMNS} (+ optional {OPTIONAL_COLUMNS})")
+        present = list(reader.fieldnames)
+        return [CountySourceRow(**{c: (r.get(c) or "").strip() for c in present}) for r in reader]
 
 
 def validate_registry(rows: list[CountySourceRow], *, known_counties: dict[str, frozenset[str]] | None = None) -> list[str]:
@@ -256,9 +320,14 @@ def lookup(rows: list[CountySourceRow], state: str, county: str, source_id: str 
 
 def to_db_rows(rows: list[CountySourceRow]) -> list[dict]:
     """The migration-018 table shape (nulls for blanks). Not written
-    anywhere yet - the bridge for a future, separately authorised load."""
+    anywhere yet - the bridge for a future, separately authorised load.
+    Emits COLUMNS only: the 018 table has no publishing_unit column, so a
+    row that is not COUNTY-level cannot be represented there yet and is
+    refused rather than silently flattened to a county."""
     out = []
     for r in rows:
+        if (r.publishing_unit or PublishingUnit.COUNTY.value) != PublishingUnit.COUNTY.value:
+            raise ValueError(f"{r.state}/{r.county}: publishing_unit {r.publishing_unit!r} has no column in migration 018")
         d = {c: (getattr(r, c) or None) for c in COLUMNS}
         out.append(d)
     return out

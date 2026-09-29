@@ -69,7 +69,16 @@ const CANVAS_ID = "exploreMapCanvas";
 // Which state desk this page is. Mirrors app.js's own PAGE_STATE constant
 // (read from the same <body data-state="FL|TX"> app.js sets) - this module
 // never reaches into app.js for it, same rule as everything else here.
-const PAGE_STATE = document.body.dataset.state === "TX" ? "TX" : "FL";
+// STATE_ASSETS mirrors app.js's STATE_META for the same reason: the states
+// this map has a basemap, city and zip file (and a PROJ fit) for. A state
+// outside it gets no Florida assets in its place - the page falls back to
+// FL only so it still loads, and app.js logs the mismatch.
+const STATE_ASSETS = {
+  FL: { basemap: "fl-counties.svg", cities: "fl-cities.json", zips: "fl-zips.json" },
+  TX: { basemap: "tx-counties.svg", cities: "tx-cities.json", zips: "tx-zips.json" }
+};
+const PAGE_STATE = STATE_ASSETS[document.body.dataset.state] ? document.body.dataset.state : "FL";
+const STATE_INFO = STATE_ASSETS[PAGE_STATE];
 
 // Live state, all of it derived from the last tdw:maprendered event.
 let rows = [];
@@ -105,7 +114,7 @@ async function ensureMap() {
   svgLoaded = true;                       // set first: a slow fetch must not
                                           // queue a second one behind it
   try {
-    const res = await fetch(PAGE_STATE === "TX" ? "tx-counties.svg" : "fl-counties.svg");
+    const res = await fetch(STATE_INFO.basemap);
     if (!res.ok) throw new Error("HTTP " + res.status);
     canvas.innerHTML = await res.text();
     // Start watching now that there is a map to re-measure.
@@ -250,7 +259,7 @@ const PROJ = {
 };
 
 function projectLatLng(lat, lon) {
-  const p = PROJ[PAGE_STATE] || PROJ.FL;
+  const p = PROJ[PAGE_STATE];   // every STATE_ASSETS key has its own fit; never another state's
   return {
     x: (p.x.lon * lon + p.x.lat * lat + p.x.c) * p.baseW,
     y: (p.y.lon * lon + p.y.lat * lat + p.y.c) * p.baseH
@@ -291,7 +300,7 @@ async function loadCities() {
     // fl-tx-region-switcher.md) - this 404s and falls into the catch below,
     // same as being offline with a cold cache. The map is fine without city
     // labels; this is not a silent failure to fix, it's the designed fallback.
-    const res = await fetch(PAGE_STATE === "TX" ? "tx-cities.json" : "fl-cities.json");
+    const res = await fetch(STATE_INFO.cities);
     if (!res.ok) return;
     cities = await res.json();
     // Statewide we only want the handful that orient you at a glance.
@@ -318,7 +327,7 @@ async function loadCities() {
 async function loadZips() {
   try {
     // tx-zips.json is likewise deferred - see loadCities() above.
-    const res = await fetch(PAGE_STATE === "TX" ? "tx-zips.json" : "fl-zips.json");
+    const res = await fetch(STATE_INFO.zips);
     if (!res.ok) return;
     zips = await res.json();
     if (zoomCounty) draw();
