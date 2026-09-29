@@ -2652,6 +2652,10 @@ function dataGaps(p) {
   // pipeline could verify (every Texas LGBS row today). Said here as well as
   // in the CTA slot, so the "Missing" list is complete.
   if (!p.url_auction) gaps.push("Auction link not published");
+  // Migration 017: a list page is never a purchase mechanism, so a LAFT /
+  // struck-off row with no purchase_url is missing that link, whatever
+  // else it carries.
+  if (p.source === "laft" && !p.purchase_url) gaps.push("Purchase link not on file");
   if (!hasPhoto(p)) gaps.push(p.photo_url === "" ? "No stored image for this address" : "Image not checked yet");
   if (!(hasNum(p.latitude) && hasNum(p.longitude))) gaps.push("Not yet geocoded");
   const fl = floodShort(p);
@@ -2720,7 +2724,7 @@ function opportunitySummaryHtml(p) {
 // that actually rendered (built AFTER the body, by scanning it for
 // data-section anchors, so a row with no History section gets no dead
 // "History" pill). Scrolling is done by the "jump" click action below.
-const DETAIL_NAV_LABELS = { summary: "Summary", financial: "Financial", property: "Property", history: "History", events: "Sale events", risk: "Risk & Legal", map: "Map", sources: "Sources", provenance: "Data" };
+const DETAIL_NAV_LABELS = { summary: "Summary", inventory: "Inventory", financial: "Financial", property: "Property", history: "History", events: "Sale events", risk: "Risk & Legal", map: "Map", sources: "Sources", provenance: "Data" };
 function detailNavHtml(bodyHtml) {
   const ids = [];
   bodyHtml.replace(/data-section="([a-z]+)"/g, (m, id) => { if (DETAIL_NAV_LABELS[id] && !ids.includes(id)) ids.push(id); return m; });
@@ -2775,6 +2779,73 @@ function riskLegalCardHtml(p) {
     `<p class="detail-section-note">Flood zone comes from FEMA's National Flood Hazard Layer. Liens, judgments, foreclosure status and code-enforcement actions are not part of this app's data pipeline — always verify those directly with the county Clerk of Court and Code Enforcement office before bidding.</p>
      <div class="kv-list">${floodRowHtml(p || {})}${kv}</div>`, "risk-legal-card", "risk");
 }
+// ==================== Inventory & Purchase (migrations 017 / 019) ====================
+// The over-the-counter facts a Lands Available / struck-off row carries
+// about the LISTING itself - what kind of inventory it is, what the source
+// called the amount, the certificate number, the list's own dates, where
+// the row was read from and where (if anywhere) a buyer actually acts, and
+// how current the source is. Kept apart from the Financial / Property cards
+// on purpose: those describe the parcel, this describes its place on the
+// county's (or vendor's) list. Every line is a stored column or an honest
+// "not published / not recorded"; nothing is inferred (no "available now"
+// from a missing date, no purchase link from a list page).
+const INVENTORY_TYPE_LABELS = {
+  POST_SALE_FIXED_PRICE: "Lands Available - fixed price, over the counter (F.S. 197.502(7))",
+  STRUCK_OFF_HELD_IN_TRUST: "Struck off to the taxing units, held in trust (Texas)",
+  FUTURE_RESALE: "Awaiting a future resale (Texas)"
+};
+const AMOUNT_KIND_LABELS = {
+  MINIMUM_PURCHASE_AMOUNT: "Minimum purchase amount", OPENING_BID: "Opening bid", ORIGINAL_OPENING_BID: "Original opening bid",
+  FIXED_PURCHASE_PRICE: "Purchase price", ESTIMATED_PURCHASE_PRICE: "Estimated purchase price",
+  PUBLISHED_AMOUNT_KIND_UNSPECIFIED: "Published amount - what the source called it was not recorded"
+};
+const SOURCE_AUTHORITY_LABELS = {
+  GOVERNMENT_DIRECT: "the county / clerk's own site", GOVERNMENT_PLATFORM: "a platform contracted by the county",
+  VENDOR_COUNSEL: "delinquent-tax counsel for the taxing units (vendor listing)", VENDOR_AUCTION: "an auction platform (vendor listing)"
+};
+const PURCHASE_URL_KIND_LABELS = {
+  purchase_instructions: "Purchase instructions", offer_form: "Offer form", bid_form: "Bid form",
+  application_form: "Application form", online_purchase: "Buy online"
+};
+const dateOnly = v => (v ? fmtDate(String(v).slice(0, 10)) : "");
+function inventoryCardHtml(p) {
+  if (p.source !== "laft") return "";
+  const tx = regionOf(p) === "TX";
+  const muted = t => `<span class="muted">${esc(t)}</span>`;
+  const row = (k, v, cls) => `<div class="kv-row"><span class="kv-label">${esc(k)}</span><span class="kv-val${cls ? " " + cls : ""}">${v}</span></div>`;
+  const link = (href, label) => `<a href="${esc(href)}" target="_blank" rel="noopener">${esc(label)} →</a>`;
+  const rows = [];
+  rows.push(row("Inventory", INVENTORY_TYPE_LABELS[p.inventory_type] ? esc(INVENTORY_TYPE_LABELS[p.inventory_type])
+    : muted("Not classified - the source has not said whether this is purchasable now")));
+  let amount;
+  if (p.purchase_amount_kind === "NOT_PUBLISHED") amount = muted("Not published by the source");
+  else if (hasNum(p.purchase_amount) && Number(p.purchase_amount) > 0) amount = `${esc(fmtMoney(p.purchase_amount))}<span class="kv-sub">${esc(AMOUNT_KIND_LABELS[p.purchase_amount_kind] || AMOUNT_KIND_LABELS.PUBLISHED_AMOUNT_KIND_UNSPECIFIED)}</span>`;
+  else if (hasPublishedBid(p)) amount = `${esc(fmtMoney(p.bid))}<span class="kv-sub">${esc(tx ? "Vendor minimum bid (legacy column)" : AMOUNT_KIND_LABELS.PUBLISHED_AMOUNT_KIND_UNSPECIFIED)}</span>`;
+  else amount = muted("Not published");
+  rows.push(row(tx ? "Amount" : "Price", amount));
+  if (p.certificate_no) rows.push(row("Certificate #", esc(p.certificate_no), "mono"));
+  // Migration 019 columns: rendered only when the API projects them, so an
+  // older RPC never shows a false "Not published".
+  if (p.available_date !== undefined) rows.push(row("Available for purchase", p.available_date ? esc(dateOnly(p.available_date)) : muted("Not published by the list")));
+  if (p.escheatment_date !== undefined) rows.push(row("Escheats to county", p.escheatment_date ? `${esc(dateOnly(p.escheatment_date))}<span class="kv-sub">Deadline stated by the county list (F.S. 197.502(8))</span>` : muted("Not published by the list")));
+  const listUrl = p.list_url || (p.url_auction_kind === "county" ? p.url_auction : null);
+  rows.push(row("Source list", listUrl ? link(listUrl, tx ? "Vendor list page" : "County list page") : muted(tx ? "No list URL published per property" : "No list URL published")));
+  if (p.document_url && p.document_url !== listUrl) rows.push(row("Source document", link(p.document_url, "List document (PDF / file)")));
+  rows.push(row("Purchase", p.purchase_url
+    ? link(p.purchase_url, PURCHASE_URL_KIND_LABELS[p.purchase_url_kind] || "Purchase link")
+    : muted(tx ? "No purchase link published - a vendor list page is not a purchase mechanism"
+               : "No online purchase link on file - the county list page is not a purchase mechanism; purchase goes through the county under F.S. 197.502(7)")));
+  rows.push(row("Published by", p.source_authority
+    ? `${esc(SOURCE_AUTHORITY_LABELS[p.source_authority] || p.source_authority)}${p.source_id ? `<span class="kv-sub mono">${esc(p.source_id)}</span>` : ""}`
+    : muted("Not recorded")));
+  rows.push(row("Last read from source", p.last_seen_at ? esc(dateOnly(p.last_seen_at)) : muted("Not yet recorded")));
+  if (p.list_as_of) rows.push(row("List as of", esc(dateOnly(p.list_as_of))));
+  if (p.source_published_at) rows.push(row("Source document dated", esc(dateOnly(p.source_published_at))));
+  if (p.first_seen_at) rows.push(row("First seen", esc(dateOnly(p.first_seen_at))));
+  if (p.delisted_at) rows.push(row("Left the list", esc(dateOnly(p.delisted_at)), "bad"));
+  return detailSectionHtml("Inventory & Purchase", `<div class="kv-list">${rows.join("")}</div>`, "inventory-card", "inventory");
+}
+
 // Coordinates only ever come from scripts/geocode_properties.py's real
 // Census Bureau geocode - never guessed here - so a present latitude/
 // longitude is always genuine and safe to drop straight into a map embed.
@@ -3037,6 +3108,7 @@ function detailHtml(p) {
     </div>` : `
     ${propertyVisual(p, "detail-hero-photo")}
     ${opportunitySummaryHtml(p)}
+    ${inventoryCardHtml(p)}
     ${statGroupHtml("Financial", stats.filter(s => s[2] === "financial"), "financial")}
     ${statGroupHtml("Property Details", stats.filter(s => s[2] === "property"), "property")}
     ${statGroupHtml("History", stats.filter(s => s[2] === "history"), "history")}

@@ -2096,7 +2096,45 @@ const txGroupMeta = await txClPage.locator('.county-group .county-meta').allText
 results.txStruckOffGroupMetaCount = txGroupMeta.length;
 results.txStruckOffGroupMetaText = txGroupMeta[0] ? txGroupMeta[0].trim() : null;
 results.txStruckOffGroupMetaNeverLandsAvailable = txGroupMeta.every(tx => !/Lands Available|available now/i.test(tx));
+// --- Enrichment phase: Inventory & Purchase card on a Texas struck-off row
+// (ptx3: STRUCK_OFF_HELD_IN_TRUST, no list/document/purchase URL, no
+// purchase_amount, legacy bid). Every line is a stored column or an honest
+// "not published"; the vendor list is never presented as a purchase path.
+const txInvRows = txClPage.locator('#detailModalInner .inventory-card .kv-row');
+results.txInventoryLabels = await txInvRows.locator('.kv-label').allTextContents();
+const txInvVal = n => txInvRows.nth(n).locator('.kv-val').evaluate(el => el.innerText.replace(/\s+/g, ' ').trim());
+results.txInventoryType = await txInvVal(0);
+results.txInventoryAmount = await txInvVal(1);
+results.txInventorySourceList = await txInvVal(2);
+results.txInventoryPurchase = await txInvVal(3);
+results.txInventoryAnchors = await txClPage.locator('#detailModalInner .inventory-card a').count();
+results.txInventoryGapNamesPurchaseLink = ((await txClPage.locator('#detailModalInner .opp-gaps').textContent()) || '').includes('Purchase link not on file');
 await txClPage.close();
+// --- Enrichment phase: the same card on a Florida Lands Available row
+// (p3: every 017/019 column the lifecycle + laft_source_fields write, no
+// purchase_url). Opened by deep link (cold start, Phase 58) so this page
+// is independent of the lands-list state above.
+const flInvPage = await newPage({ viewport: { width: 1200, height: 900 } });
+await flInvPage.goto(BASE_URL + '#/lands/p3', { waitUntil: 'networkidle' });
+await flInvPage.waitForTimeout(500);
+const flInvRows = flInvPage.locator('#detailModalInner .inventory-card .kv-row');
+results.flInventoryLabels = await flInvRows.locator('.kv-label').allTextContents();
+const flInvVal = n => flInvRows.nth(n).locator('.kv-val').evaluate(el => el.innerText.replace(/\s+/g, ' ').trim());
+results.flInventoryType = await flInvVal(0);
+results.flInventoryPrice = await flInvVal(1);
+results.flInventoryCertificate = await flInvVal(2);
+results.flInventoryAvailable = await flInvVal(3);
+results.flInventoryEscheat = await flInvVal(4);
+results.flInventorySourceListHref = await flInvRows.nth(5).locator('a').getAttribute('href');
+results.flInventoryDocumentHref = await flInvRows.nth(6).locator('a').getAttribute('href');
+results.flInventoryPurchase = await flInvVal(7);
+results.flInventoryPublishedBy = await flInvVal(8);
+results.flInventoryLastRead = await flInvVal(9);
+results.flInventoryListAsOf = await flInvVal(10);
+results.flInventoryDocDated = await flInvVal(11);
+results.flInventoryNavHasInventory = (await flInvPage.locator('#detailModalInner .detail-nav button').allTextContents()).includes('Inventory');
+results.flInventoryNoAiBadge = !/score|confidence|AI /i.test((await flInvPage.locator('#detailModalInner .inventory-card').textContent()) || '');
+await flInvPage.close();
 const flLandsPage = await newPage({ viewport: { width: 1200, height: 900 } });
 await flLandsPage.goto(BASE_URL + '#/lands', { waitUntil: 'networkidle' });
 await flLandsPage.waitForTimeout(400);
@@ -2701,6 +2739,29 @@ const EXPECTED = {
   bidLegacyNullNotPublished: false,
   bidLegacyPositiveStillPublished: true,
   bidTxVendorRowWithoutKindUsesLegacyRule: true,
+  // Enrichment phase: Inventory & Purchase card.
+  txInventoryLabels: ['Inventory', 'Amount', 'Source list', 'Purchase', 'Published by', 'Last read from source'],
+  txInventoryType: 'Struck off to the taxing units, held in trust (Texas)',
+  txInventoryAmount: '$4,451.95 Vendor minimum bid (legacy column)',
+  txInventorySourceList: 'No list URL published per property',
+  txInventoryPurchase: 'No purchase link published - a vendor list page is not a purchase mechanism',
+  txInventoryAnchors: 0,
+  txInventoryGapNamesPurchaseLink: true,
+  flInventoryLabels: ['Inventory', 'Price', 'Certificate #', 'Available for purchase', 'Escheats to county', 'Source list', 'Source document', 'Purchase', 'Published by', 'Last read from source', 'List as of', 'Source document dated'],
+  flInventoryType: 'Lands Available - fixed price, over the counter (F.S. 197.502(7))',
+  flInventoryPrice: '$2,000.00 Opening bid',
+  flInventoryCertificate: '2019-0042',
+  flInventoryAvailable: 'Jun 15, 2026',
+  flInventoryEscheat: 'Jul 1, 2029 Deadline stated by the county list (F.S. 197.502(8))',
+  flInventorySourceListHref: 'https://x',
+  flInventoryDocumentHref: 'https://x/list.pdf',
+  flInventoryPurchase: 'No online purchase link on file - the county list page is not a purchase mechanism; purchase goes through the county under F.S. 197.502(7)',
+  flInventoryPublishedBy: 'a platform contracted by the county fl_laft_pioneer',
+  flInventoryLastRead: 'Aug 11, 2026',
+  flInventoryListAsOf: 'Aug 10, 2026',
+  flInventoryDocDated: 'Aug 10, 2026',
+  flInventoryNavHasInventory: true,
+  flInventoryNoAiBadge: true,
 };
 
 const mismatches = [];

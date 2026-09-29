@@ -87,6 +87,8 @@ create table public.properties (
   flood_zone_subtype text, flood_sfha boolean, flood_bfe numeric, flood_firm_id text,
   flood_checked_at timestamptz, taxable_value numeric, improvement_value numeric,
   acreage numeric, land_use text, effective_year_built integer, num_res_units integer,
+  -- 009: internal per-column provenance (written since the 2026-09-29 enrichment phase)
+  field_provenance jsonb,
   last_sale_month smallint, last_sale_qual_code text, last_sale_vi_code text,
   last_sale_or_book text, last_sale_or_page text, last_sale_clerk_no text,
   prior_sale_price numeric, prior_sale_year integer, prior_sale_month smallint,

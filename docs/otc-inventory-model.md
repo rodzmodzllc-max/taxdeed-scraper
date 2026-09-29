@@ -127,6 +127,11 @@ found) are registry rows only - no harvester.
 |---|---|---|---|
 | `017_otc_inventory_provenance_lifecycle.sql` | **NO** | 006, 013 (015 in either order; 017 re-pins `search_path`) | yes - drop the added columns (see the file's footer); get_properties returns to 013's projection by re-running 013 section 3 |
 | `018_county_source_registry.sql` | **NO** | nothing | yes - drop the table |
+| `019_laft_list_dates.sql` | **NO** | 017 | yes - re-run 017 section 3, drop the two columns (see the file's footer) |
+
+Update 2026-09-29 (production activation): 017 and 018 are APPLIED in
+production (`20260929163745`) and the registry CSV is loaded; 019 is not
+applied (proposed with the enrichment PR).
 
 Both apply verbatim to a scratch cluster in
 `tests/python/test_migration_017_otc_provenance.py` (fixture:
@@ -142,6 +147,83 @@ created empty; `county_source_registry.to_db_rows()` produces the load.
   rendered, in which case the county stays FAILED / TRANSPORT_HTTP_404 with
   the reason recorded.
 - No source publishes a frequency; `source_published_at` / `list_as_of` are
-  written only when a source or document name carries a date (the tabular
-  adapter does this; the Florida harvesters do not yet).
+  written only when a source or document name carries a date. Since the
+  enrichment phase the PDF harvester reads `list_as_of` off the document
+  text ("as of MM/DD/YYYY" and friends) or an 8-digit date in the filename
+  (`laft_status.extract_list_as_of`), and the lifecycle writes
+  `source_published_at` from the document's HTTP Last-Modified; the HTML/
+  portal harvesters still publish neither.
 - `first_seen_at` is unknown for every pre-017 row and stays NULL.
+
+## 10. Enrichment mechanisms (2026-09-29)
+
+Everything here is a reusable pipeline step, not a one-off backfill, and
+none of it ran against production in the PR that added it.
+
+### 10.1 County-list fields carried onto the row (`scripts/laft_source_fields.py`)
+
+Runs inside `scripts/laft_lifecycle.py` on every laft job, on the OBSERVED
+rows only (a harvested row whose county is COMPLETE or INCOMPLETE this
+run - the same gate as `last_seen_at`). Match is the sync's own identity,
+`(state, source, county, case_no)`, exact - never an address, never across
+counties or states, never fuzzy; an ambiguous key (two database rows) is
+skipped. Columns: `legal_desc`, `owner_name` ("name in which assessed"),
+`assessed`, `certificate_no`, `homestead` (yes -> true, never false), and -
+once migration 019 exists - `escheatment_date`, `available_date`. Fill-blank
+only. Every write records a `county_list` entry in `field_provenance`.
+Counts reported: matched / unmatched / ambiguous / rows written / nothing
+to write / errored, per-column written / skipped-present / unparseable.
+
+### 10.2 Per-column provenance and precedence (`scripts/field_provenance.py`)
+
+`properties.field_provenance` (migration 009, previously never written)
+holds one entry per column: `{"source", "recorded_at", ...}` with the
+source-specific evidence (list URL + document hash + `list_as_of` for the
+county list; matched candidate spelling for the FDOR layer). Rule: a blank
+may be filled by any source; a stored value is replaced only by a strictly
+higher-ranked source (`hand_research` 3 > `county_list` = `fdor_nal` =
+`county_gis` 2 > `vendor_listing` 1). Equal rank never overwrites - first
+government source in stays. `scripts/enrich_property_details.py` now reads
+`field_provenance`, withholds any column a provenanced equal-or-stronger
+value already occupies, and writes its own `fdor_nal` / `county_gis`
+entries for every column it fills.
+
+### 10.3 Identifier plausibility gate (`laft_status.plausible_identifier`)
+
+Production held five FL LAFT rows whose parcel/case was heading or
+paragraph text (Volusia x3, Pasco x1, Escambia x1). The PDF and HTML
+parsers now drop any row whose parcel or case number has no digit, exceeds
+40 / 60 characters, or spans a line break, and count it as `rejected`. A
+document whose every row is rejected is INCOMPLETE / PARSE_FORMAT_CHANGE,
+never EMPTY - so the lifecycle can never close a county out on the strength
+of a parse failure. `harvest_cache.PARSER_VERSION` is bumped so cached
+pre-gate rows are re-parsed once. The five existing junk rows leave
+production on the next COMPLETE harvest of their county (the gated
+close-out), or by the explicit backfill listed in the PR - not by this code
+on its own.
+
+### 10.4 FDOR enricher hardening
+
+- Hendry list-form parcel normalization (`_expand_hendry_list_form`), from
+  the one verified production pair: `2-01-43-29-010-0050-F020` (list) ->
+  `2 29 43 01 010 0050-F02.0` (layer).
+- A candidate that resolves to more than one layer feature is AMBIGUOUS:
+  skipped, counted, never enriched from either feature (`resultRecordCount=2`).
+- Public CI logs carry row ids and counts only; parcel numbers and roll
+  values no longer appear in error lines.
+- Summary line: attempted / matched / written / unmatched / ambiguous /
+  errored / columns withheld by precedence.
+
+### 10.5 What is deliberately NOT done here
+
+- Texas: no LGBS retry, no blocked vendor, no CAD adapter for the eight
+  LGBS counties (none has a verified government property source in the
+  registry; adding one is a new source integration, out of scope), and
+  `purchase_amount` stays NULL for LGBS rows (017's rule: the Texas
+  minimum bid keeps its own meaning). `inventory_type` for the 421 rows
+  needs a future LGBS run that carries `tx_sale_status`.
+- Florida FDOR formats that could not be verified from this sandbox
+  (Citrus, Hillsborough, Indian River's short account numbers) are left
+  alone; the enricher's per-county match line is the signal to revisit.
+- No purchase URL is set for any county: the registry carries none that is
+  verified, and a list page is never a purchase URL.

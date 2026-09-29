@@ -49,7 +49,7 @@ import pdfplumber
 import requests
 
 from harvest_cache import PARSER_VERSION, conditional_get, load_cache, record_cache_stats, save_cache
-from laft_status import StatusRecorder, amount_kind_for_header, describe_exception
+from laft_status import StatusRecorder, amount_kind_for_header, describe_exception, extract_list_as_of, record_identifiers_plausible
 
 HERE = Path(__file__).resolve().parent
 SOURCES_CSV = HERE / "../data/laft_pdf_sources.csv"
@@ -231,7 +231,11 @@ def _find_header_row(table: list) -> tuple[int, list] | None:
     return best_idx, best_fields
 
 
-def _rows_from_table(table: list, county: str, source_url: str) -> list[dict]:
+def _rows_from_table(table: list, county: str, source_url: str, rejected: list | None = None) -> list[dict]:
+    """`rejected` (optional list) collects the count of rows dropped by the
+    identifier plausibility gate (laft_status.record_identifiers_plausible)
+    so extract_rows_with_outcome() can report them; the values themselves
+    are never logged."""
     rows: list[dict] = []
     if not table or len(table) < 2:
         return rows
@@ -274,6 +278,14 @@ def _rows_from_table(table: list, county: str, source_url: str) -> list[dict]:
         # matches the same "skip if no case/address" discipline
         # sync-harvest-to-supabase.ps1 already applies to the auction ledger.
         if record.get("case_no") or record.get("parcel"):
+            # Identifier plausibility gate: a wrapped column heading or a
+            # paragraph that landed in the parcel/case cell is not a
+            # property (Volusia "IDNUMBER", Pasco's whole-page run - see
+            # laft_status.plausible_identifier). Dropped whole, counted.
+            if not record_identifiers_plausible(record):
+                if rejected is not None:
+                    rejected.append(1)
+                continue
             rows.append(finalize_record(record))
     return rows
 
@@ -290,7 +302,7 @@ _LABEL_PATTERN = re.compile(
 )
 
 
-def extract_label_value_rows(full_text: str, county: str, source_url: str) -> list[dict]:
+def extract_label_value_rows(full_text: str, county: str, source_url: str, rejected: list | None = None) -> list[dict]:
     matches = list(_LABEL_PATTERN.finditer(full_text))
     if not matches:
         return []
@@ -308,15 +320,25 @@ def extract_label_value_rows(full_text: str, county: str, source_url: str) -> li
         if not value or looks_empty(value):
             continue
         if field == anchor_field or current is None:
-            if current and (current.get("case_no") or current.get("parcel")) and not current.get("sold_to"):
-                records.append(finalize_record(current))
+            _keep_label_record(current, records, rejected)
             current = {"county": county, "source": "laft", "url_auction": source_url}
         current[field] = value
         if field == "bid":
             current["bid_kind"] = amount_kind_for_header(m.group(1).lower())
-    if current and (current.get("case_no") or current.get("parcel")) and not current.get("sold_to"):
-        records.append(finalize_record(current))
+    _keep_label_record(current, records, rejected)
     return records
+
+
+def _keep_label_record(current: dict | None, records: list[dict], rejected: list | None) -> None:
+    if not current or not (current.get("case_no") or current.get("parcel")) or current.get("sold_to"):
+        return
+    # Same identifier gate as _rows_from_table: a "Parcel ID" label whose
+    # value ran on to the end of the page (Pasco, 2026-09) is not a parcel.
+    if not record_identifiers_plausible(current):
+        if rejected is not None:
+            rejected.append(1)
+        return
+    records.append(finalize_record(current))
 
 
 def extract_rows(pdf_bytes: bytes, county: str, source_url: str) -> list[dict]:
@@ -336,9 +358,14 @@ def extract_rows_with_outcome(pdf_bytes: bytes, county: str, source_url: str) ->
     any layout neither table strategy nor the label scanner recognises) is
     an INCOMPLETE observation - the list may well be empty, but this parser
     did not confirm it."""
-    outcome = {"empty_marker": False, "table_seen": False, "rows": 0}
+    outcome = {"empty_marker": False, "table_seen": False, "rows": 0, "rejected": 0, "list_as_of": None}
+    rejected: list = []
     with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
         full_text = "\n".join(p.extract_text() or "" for p in pdf.pages)
+        # The list's own as-of date, when the document states one (see
+        # laft_status.extract_list_as_of); the filename fallback is applied
+        # by main(), which knows the URL.
+        outcome["list_as_of"] = extract_list_as_of(full_text)
         if looks_empty(full_text):
             outcome["empty_marker"] = True
             return [], outcome
@@ -371,7 +398,7 @@ def extract_rows_with_outcome(pdf_bytes: bytes, county: str, source_url: str) ->
             for table, strat in zip(page_tables, strategy_used):
                 if table:
                     outcome["table_seen"] = True
-                found = _rows_from_table(table, county, source_url)
+                found = _rows_from_table(table, county, source_url, rejected)
                 if not found and table:
                     # Diagnostic only, never fatal - lets a CI run reveal
                     # exactly why a real, non-empty PDF still produced 0
@@ -390,7 +417,7 @@ def extract_rows_with_outcome(pdf_bytes: bytes, county: str, source_url: str) ->
             # property, with no column alignment to detect as a table
             # either). Fall back to scanning the raw text for known field
             # labels.
-            rows = extract_label_value_rows(full_text, county, source_url)
+            rows = extract_label_value_rows(full_text, county, source_url, rejected)
             if not rows:
                 snippet = re.sub(r"\s+", " ", full_text).strip()[:300]
                 print(f"      [debug] no table detected by either strategy "
@@ -408,6 +435,7 @@ def extract_rows_with_outcome(pdf_bytes: bytes, county: str, source_url: str) ->
             deduped.append(r)
         rows = deduped
     outcome["rows"] = len(rows)
+    outcome["rejected"] = len(rejected)
     return rows, outcome
 
 
@@ -467,6 +495,7 @@ def main() -> int:
                 reused += 1
                 why = "server says unchanged" if status == "not_modified" else "identical content"
                 print(f"      unchanged ({why}) - reusing {len(rows)} cached rows, parse skipped", flush=True)
+                doc_kw["list_as_of"] = entry.get("list_as_of") or extract_list_as_of(None, url_used)
                 recorder.complete(county, len(rows), from_cache=True, **status_kw, **doc_kw)
             else:
                 if content is None:
@@ -477,12 +506,23 @@ def main() -> int:
                     resp.raise_for_status()
                     content = resp.content
                 rows, outcome = extract_rows_with_outcome(content, county, url_used)
+                doc_kw["list_as_of"] = outcome.get("list_as_of") or extract_list_as_of(None, url_used)
+                if outcome.get("rejected"):
+                    print(f"      {outcome['rejected']} row(s) rejected by the identifier gate (not a parcel/case number)", flush=True)
                 if rows:
                     print(f"      {len(rows)} properties", flush=True)
                     recorder.complete(county, len(rows), **status_kw, **doc_kw)
                 elif outcome["empty_marker"]:
                     print("      no properties currently listed (document says so)", flush=True)
                     recorder.empty(county, "empty_marker", **status_kw, **doc_kw)
+                elif outcome.get("rejected"):
+                    # Every candidate row failed the identifier gate: the
+                    # parser found something but none of it was a property.
+                    # A layout change, not an empty list - never close-out.
+                    print("      0 usable rows - INCOMPLETE (every parsed row failed the identifier gate)", flush=True)
+                    recorder.incomplete(county, "PARSE_FORMAT_CHANGE",
+                                        "every parsed row failed the identifier plausibility gate",
+                                        **status_kw, **doc_kw)
                 else:
                     # Zero rows but the document never said it was empty:
                     # Brevard's procedural-only PDF, or a layout this parser
@@ -498,6 +538,7 @@ def main() -> int:
             # would let one bad parse suppress a county until the PDF changed.
             if rows:
                 validators["rows"] = rows
+                validators["list_as_of"] = doc_kw.get("list_as_of")
                 new_cache[url_used] = validators
         except Exception as exc:  # noqa: BLE001 - one bad county must not kill the whole run
             category, detail = describe_exception(exc)

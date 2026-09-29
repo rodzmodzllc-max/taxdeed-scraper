@@ -1438,6 +1438,60 @@ Branch `feat/saas-readiness-hardening`. What it adds, and where to look:
 - **Everything a person must set outside the repo** is in
   `docs/production-configuration.md`.
 
+## OTC/LAFT enrichment foundation (2026-09-29, PR after #37)
+
+Goal: raise the share of active FL/TX OTC-LAFT rows with source-supported
+enrichment without inventing anything. Everything is a reusable pipeline
+step; nothing ran against production in the PR. Full design in
+`docs/otc-inventory-model.md` section 10.
+
+- **`scripts/laft_source_fields.py`** (inside `laft_lifecycle.py`, every
+  laft job): carries the list-published columns the PowerShell sync drops -
+  `legal_desc`, `owner_name`, `assessed`, `certificate_no`, `homestead`
+  (yes -> true only) and, once migration 019 exists, `escheatment_date` /
+  `available_date` - onto the OBSERVED rows (COMPLETE/INCOMPLETE county
+  only), matched by the sync's own `(state, source, county, case_no)`
+  identity, fill-blank, one PATCH per row, counts-only logging.
+- **`scripts/field_provenance.py`**: `properties.field_provenance`
+  (migration 009, never written before) now holds one entry per column
+  with the source and its evidence. Precedence: a blank takes any source;
+  a stored value is replaced only by a strictly higher rank
+  (`hand_research` > `county_list` = `fdor_nal` = `county_gis` >
+  `vendor_listing`); equal rank never overwrites. `enrich_property_details.py`
+  reads it, withholds accordingly and writes its own entries.
+- **Identifier plausibility gate** (`laft_status.plausible_identifier`) in
+  the PDF/HTML parsers: a parcel/case with no digit, over 40/60 chars or
+  spanning a line break is not a property (the five junk rows in
+  production: Volusia x3, Pasco x1, Escambia x1). Rejected rows are
+  counted; a document whose every row is rejected is INCOMPLETE /
+  PARSE_FORMAT_CHANGE, never EMPTY. `harvest_cache.PARSER_VERSION` -> 2.
+- **`list_as_of`** read off the PDF text / filename
+  (`laft_status.extract_list_as_of`), `source_published_at` from the
+  document's Last-Modified - both written by the lifecycle's provenance
+  PATCH; never the retrieval time.
+- **FDOR enricher**: Hendry list-form normalization (verified production
+  pair), ambiguous multi-feature matches skipped (`resultRecordCount=2`),
+  parcel numbers redacted from public CI logs, summary counters
+  (matched/written/unmatched/ambiguous/errored/withheld).
+- **Migration `019_laft_list_dates.sql`** (NOT applied): `escheatment_date`,
+  `available_date` + `get_properties()` recreated with them. The lifecycle
+  probes for the columns and skips them until then.
+- **Frontend**: "Inventory & Purchase" card on the full property page for
+  every `laft` row (`inventoryCardHtml()` in `app.js`): inventory type,
+  amount with its source label, certificate number, the 019 dates (only
+  when the API projects them), source list / source document / purchase
+  links kept distinct ("No online purchase link on file - the county list
+  page is not a purchase mechanism"), publisher, last-read / list-as-of /
+  document-dated lines. `dataGaps()` names a missing purchase link. No
+  score, no badge, no estimate. `sw.js` -> `tdw-shell-v43`.
+- **Not done, on purpose**: no LGBS retry, no blocked vendor, no TX CAD
+  adapters (no verified government source for the 8 LGBS counties), TX
+  `purchase_amount` stays NULL (017's rule), no purchase URL for any county
+  (none verified), no FDOR rule for Citrus / Hillsborough / Indian River
+  (unverifiable from this sandbox). Production backfill (the five junk
+  rows, the first carry run) needs explicit authorization; the next
+  scheduled laft/deeds runs perform the carry and the gate on their own.
+
 ## Where to look for more
 
 - `claude/improvement-roadmap.md` in the "tax florida app" claude.ai Project — the full dated log of every fix, audit finding, and open decision. This is where new findings should be appended, not here.

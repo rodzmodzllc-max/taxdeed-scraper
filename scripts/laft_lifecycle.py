@@ -37,6 +37,13 @@ by hand. This script probes for them once and, when absent, limits itself
 to status reactivation and close-out (both on columns that exist today),
 saying so in the log. It never applies a migration.
 
+SOURCE FIELDS (2026-09-29, enrichment phase): after the provenance step,
+scripts/laft_source_fields.py carries the list-published columns the sync
+drops (legal_desc, owner_name, assessed, certificate_no, homestead, and -
+once migration 019 exists - escheatment_date / available_date) onto the
+same OBSERVED rows, fill-blank only, with field_provenance. That step
+needs none of the 017 columns and runs whether or not 017 is applied.
+
 Standard library only (like scripts/source_health.py). Every Supabase call
 sends an explicit non-browser User-Agent - see the sync script's comment
 on sb_secret keys.
@@ -53,11 +60,13 @@ import urllib.parse
 import urllib.request
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
+from email.utils import parsedate_to_datetime
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from laft_status import (AMOUNT_KINDS, CLOSEOUT_ELIGIBLE, load_status,  # noqa: E402
                          statuses_by_county)
+import laft_source_fields as SF  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parent
@@ -80,7 +89,8 @@ BATCH = 40
 # Columns that only exist once migration 017 is applied.
 MIGRATION_017_COLUMNS = ("last_seen_at", "delisted_at", "inventory_type", "source_authority", "source_id",
                          "list_url", "document_url", "purchase_amount", "purchase_amount_kind",
-                         "source_document_sha256", "source_etag", "source_last_modified", "otc_provenance")
+                         "source_document_sha256", "source_etag", "source_last_modified", "otc_provenance",
+                         "list_as_of", "source_published_at")
 
 
 def now_iso() -> str:
@@ -231,8 +241,16 @@ def provenance_payload(row: dict, gate: dict, retrieved_at: str) -> dict:
     document_url = entry.get("document_url") or None
     if document_url == list_url:
         document_url = document_url  # a PDF list is both the list and the document
+    list_as_of = entry.get("list_as_of") or None
+    published_at = published_at_from_last_modified(entry.get("document_last_modified"))
     return {
         "last_seen_at": retrieved_at,
+        # Currentness, from the source's own statements only: list_as_of is the
+        # date the harvester read off the document/filename; source_published_at
+        # is the server's Last-Modified for the document. Retrieval time is
+        # never written into either (migration 017's rule).
+        "list_as_of": list_as_of,
+        "source_published_at": published_at,
         "inventory_type": INVENTORY_TYPE,
         "source_authority": entry.get("source_class"),
         "source_id": entry.get("source_id") or gate.get("harvester"),
@@ -251,9 +269,27 @@ def provenance_payload(row: dict, gate: dict, retrieved_at: str) -> dict:
             "document_url": document_url,
             "inventory_type": "harvester constant (F.S. 197.502(7) Lands Available list)",
             "purchase_amount": ("not published by the source" if amount is None else f"source column/field: {kind}"),
+            "list_as_of": ("stated by the list document/filename" if list_as_of else "not stated by the source"),
+            "source_published_at": ("HTTP Last-Modified of the source document" if published_at else "no Last-Modified from the source"),
             "status_terminology": "active = on the county list this run; closed = absent from a COMPLETE/EMPTY harvest",
         },
     }
+
+
+def published_at_from_last_modified(value) -> str | None:
+    """RFC 1123 Last-Modified -> ISO 8601 UTC, or None. Deterministic; a
+    value that does not parse is dropped, never approximated."""
+    if not value or not str(value).strip():
+        return None
+    try:
+        dt = parsedate_to_datetime(str(value).strip())
+    except (TypeError, ValueError, IndexError):
+        return None
+    if dt is None:
+        return None
+    if dt.tzinfo is None:
+        dt = dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc).replace(microsecond=0).isoformat()
 
 
 def group_provenance(rows: list[tuple[str, dict]], gate: dict, retrieved_at: str) -> list[tuple[dict, list[str]]]:
@@ -297,17 +333,25 @@ class Api:
         with urllib.request.urlopen(req, timeout=60):
             self.requests_made += 1
 
-    def has_migration_017(self) -> bool:
-        """Probe the lifecycle columns. PostgREST answers HTTP 400 / 42703
-        for an unknown column."""
+    def has_columns(self, columns) -> bool:
+        """Probe a set of columns. PostgREST answers HTTP 400 / 42703 for
+        an unknown column."""
         try:
-            self.get(f"select={','.join(MIGRATION_017_COLUMNS)}&limit=0")
+            self.get(f"select={','.join(columns)}&limit=0")
             return True
         except urllib.error.HTTPError as exc:
             text = exc.read().decode(errors="replace")[:300]
             if exc.code == 400 or "42703" in text or "does not exist" in text:
                 return False
             raise
+
+    def has_migration_017(self) -> bool:
+        """Probe the lifecycle columns."""
+        return self.has_columns(MIGRATION_017_COLUMNS)
+
+    def has_migration_019(self) -> bool:
+        """Probe the list-date columns (escheatment_date, available_date)."""
+        return self.has_columns(tuple(SF.OPTIONAL_COLUMNS))
 
 
 def q(value: str) -> str:
@@ -318,13 +362,28 @@ def in_list(values: list[str]) -> str:
     return "(" + ",".join('"' + str(v).replace('"', '\\"') + '"' for v in values) + ")"
 
 
-def fetch_state_rows(api: Api, counties: list[str]) -> list[dict]:
+def fetch_state_rows(api: Api, counties: list[str], extra_columns=()) -> list[dict]:
+    """The state's laft rows for these counties: identity + status for the
+    lifecycle plan, plus the source-field columns (and field_provenance) the
+    fill-blank step needs to know what is already there."""
+    select = ["id", "county", "case_no", "status", "field_provenance", *SF.BASE_COLUMNS, *extra_columns]
     rows: list[dict] = []
     for i in range(0, len(counties), 25):
         chunk = counties[i:i + 25]
         rows.extend(api.get(f"state=eq.{STATE}&source=eq.{SOURCE}&county=in.{q(in_list(chunk))}"
-                            f"&select=id,county,case_no,status&limit=10000"))
+                            f"&select={','.join(select)}&limit=10000"))
     return rows
+
+
+def run_source_fields(observed: dict[str, dict[str, dict]], gates: dict[str, dict], db_rows: list[dict], api: Api,
+                      *, have_019: bool, retrieved_at: str) -> tuple[SF.Counters, list[str]]:
+    """The fill-blank carry of list-published fields (scripts/laft_source_fields.py)
+    onto the observed rows. Independent of migration 017; the 019 date
+    columns are included only when the database has them."""
+    columns = list(SF.BASE_COLUMNS) + (list(SF.OPTIONAL_COLUMNS) if have_019 else [])
+    updates, counters = SF.plan_source_fields(observed, db_rows, columns)
+    SF.execute_source_fields(api, updates, gates, retrieved_at, counters)
+    return counters, columns
 
 
 def execute(plan: Plan, gates: dict[str, dict], observed: dict[str, dict[str, dict]], api: Api,
@@ -410,16 +469,24 @@ def main(argv=None) -> int:
 
     api = Api(url, key, dry_run=args.dry_run)
     counties = sorted(gates)
-    db_rows = fetch_state_rows(api, counties) if counties else []
-    plan = plan_lifecycle(gates, observed, db_rows)
     have_017 = api.has_migration_017()
+    have_019 = api.has_migration_019()
+    db_rows = fetch_state_rows(api, counties, tuple(SF.OPTIONAL_COLUMNS) if have_019 else ()) if counties else []
+    plan = plan_lifecycle(gates, observed, db_rows)
     if not have_017:
         print("::notice title=laft_lifecycle::migration 017 not applied - reactivation and close-out only; last_seen_at and provenance columns are not written")
-    counts = execute(plan, gates, observed, api, have_017=have_017, retrieved_at=now_iso())
-    text = summarize(plan, gates, counts, have_017)
+    if not have_019:
+        print("::notice title=laft_lifecycle::migration 019 not applied - escheatment_date / available_date are not written")
+    retrieved_at = now_iso()
+    counts = execute(plan, gates, observed, api, have_017=have_017, retrieved_at=retrieved_at)
+    # Observed rows only: the same COMPLETE/INCOMPLETE gate as last_seen_at.
+    observed_gated = {c: rows for c, rows in observed.items() if gates.get(c, {}).get("status") in OBSERVED_STATUSES}
+    sf_counts, sf_columns = run_source_fields(observed_gated, gates, db_rows, api, have_019=have_019, retrieved_at=retrieved_at)
+    text = summarize(plan, gates, counts, have_017) + "\n" + SF.summarize(sf_counts, sf_columns)
     print(text + ("\n  (dry run - nothing written)" if args.dry_run else ""))
     report = {"observed": counts["observed"], "reactivated": counts["reactivated"], "closed": counts["closed"],
-              "provenance_patches": counts["provenance_patches"], "migration_017": have_017, "dry_run": args.dry_run,
+              "provenance_patches": counts["provenance_patches"], "migration_017": have_017, "migration_019": have_019,
+              "dry_run": args.dry_run, "source_fields": sf_counts.to_json(),
               "counties": {c: g["status"] for c, g in gates.items()}, "note": "counts and county names only; never a row value"}
     rp = Path(args.report)
     rp.parent.mkdir(parents=True, exist_ok=True)

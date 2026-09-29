@@ -66,6 +66,7 @@ name and, for HTTP errors, the status code.
 from __future__ import annotations
 
 import json
+import re
 import os
 import time
 from dataclasses import asdict, dataclass, field
@@ -139,6 +140,94 @@ AMOUNT_KIND_BY_HEADER = {
 }
 
 
+# ---------------------------------------------------------------------------
+# Identifier plausibility gate (2026-09-29, enrichment phase)
+# ---------------------------------------------------------------------------
+# Production held five FL LAFT rows whose "parcel" was header or paragraph
+# text a PDF/HTML parser had swallowed - Volusia "IDNUMBER" /
+# "CURRENTPURCHASEPRICE,C" / "WNISTHEORIGINALOPENING" (wrapped column
+# headings from the text-strategy table), Pasco a 400-character run of the
+# whole page (a label-scanner value that ran to the end of the text), and
+# Escambia a second header line whose case cell read "Account". None of
+# those can ever match a parcel layer, and each showed a customer a
+# "property" that does not exist. The rule below is the smallest
+# deterministic gate that rejects all five and accepts every real
+# identifier format observed in production (FL parcels up to 26 chars,
+# Hendry's "23-09 / Cert 15-2918" case numbers, TX "512026XX000151TDAXXX"):
+#   - an identifier contains at least one digit;
+#   - a parcel is at most IDENT_MAX_LEN characters, a case number at most
+#     CASE_MAX_LEN, after whitespace is collapsed;
+#   - it contains no line break.
+# A row whose parcel OR case number fails the gate is dropped whole and
+# counted in the parser outcome as `rejected` - never "repaired".
+IDENT_MAX_LEN = 40
+CASE_MAX_LEN = 60
+_HAS_DIGIT = re.compile(r"\d")
+
+
+def plausible_identifier(value, *, kind: str = "parcel") -> bool:
+    if value is None:
+        return False
+    text = re.sub(r"[ \t]+", " ", str(value)).strip()
+    if not text or "\n" in text or "\r" in text:
+        return False
+    if not _HAS_DIGIT.search(text):
+        return False
+    return len(text) <= (CASE_MAX_LEN if kind == "case_no" else IDENT_MAX_LEN)
+
+
+def record_identifiers_plausible(record: dict) -> bool:
+    """True when every identifier the record carries passes the gate (a
+    record with neither is the caller's problem, not this gate's)."""
+    parcel, case_no = record.get("parcel"), record.get("case_no")
+    if parcel is not None and str(parcel).strip() and not plausible_identifier(parcel, kind="parcel"):
+        return False
+    if case_no is not None and str(case_no).strip() and not plausible_identifier(case_no, kind="case_no"):
+        return False
+    return True
+
+
+# ---------------------------------------------------------------------------
+# List as-of date (2026-09-29, enrichment phase)
+# ---------------------------------------------------------------------------
+# migration 017's list_as_of: "the list's own as-of date (from its filename
+# or title) when it has one. Never the retrieval date." Two deterministic
+# readings, in order: a dated phrase in the document text ("as of
+# 09/15/2026", "updated 9/15/2026", "revised: 2026-09-15", "current as of
+# ..."), then an 8-digit YYYYMMDD in the document's filename (Pasco:
+# "...Taxes%2020260706.pdf"). Anything else -> None.
+_AS_OF_TEXT = re.compile(
+    r"(?i)\b(?:as of|updated|revised|last updated|current as of|list date|dated)\s*:?\s*"
+    r"(\d{1,2}/\d{1,2}/\d{4}|\d{4}-\d{2}-\d{2})")
+_FILENAME_DATE = re.compile(r"(?<!\d)((?:19|20)\d{2})(0[1-9]|1[0-2])(0[1-9]|[12]\d|3[01])(?!\d)")
+
+
+def _iso_or_none(text: str) -> str | None:
+    from datetime import datetime as _dt
+    for fmt in ("%m/%d/%Y", "%Y-%m-%d"):
+        try:
+            return _dt.strptime(text, fmt).date().isoformat()
+        except ValueError:
+            continue
+    return None
+
+
+def extract_list_as_of(document_text: str | None = None, url: str | None = None) -> str | None:
+    if document_text:
+        m = _AS_OF_TEXT.search(document_text)
+        if m:
+            iso = _iso_or_none(m.group(1))
+            if iso:
+                return iso
+    if url:
+        from urllib.parse import unquote as _unquote
+        name = _unquote(str(url)).rsplit("/", 1)[-1]
+        m = _FILENAME_DATE.search(name)
+        if m:
+            return _iso_or_none(f"{m.group(1)}-{m.group(2)}-{m.group(3)}")
+    return None
+
+
 def amount_kind_for_header(normalised_header: str | None) -> str:
     return AMOUNT_KIND_BY_HEADER.get((normalised_header or "").strip().lower(), "PUBLISHED_AMOUNT_KIND_UNSPECIFIED")
 
@@ -170,6 +259,9 @@ class CountyStatus:
     document_sha256: str | None = None
     document_etag: str | None = None
     document_last_modified: str | None = None
+    # The list's own as-of date (ISO), read off the document text or its
+    # filename by extract_list_as_of() - never the retrieval date.
+    list_as_of: str | None = None
     reason: str | None = None
 
     def validate(self) -> None:

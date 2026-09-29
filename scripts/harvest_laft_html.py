@@ -88,7 +88,8 @@ import requests
 from bs4 import BeautifulSoup
 
 from harvest_cache import PARSER_VERSION, conditional_get, load_cache, record_cache_stats, save_cache
-from laft_status import CategorizedError, StatusRecorder, amount_kind_for_header, describe_exception
+from laft_status import (CategorizedError, StatusRecorder, amount_kind_for_header, describe_exception,
+                         record_identifiers_plausible)
 
 HERE = Path(__file__).resolve().parent
 SOURCES_CSV = HERE / "../data/laft_html_sources.csv"
@@ -418,7 +419,8 @@ def _rows_from_card_table(rows: list[list[str]], county: str, source_url: str) -
                     record["bid"] = price_m.group(1)
                     # Putnam's own label: "Estimated Purchase Price".
                     record["bid_kind"] = "ESTIMATED_PURCHASE_PRICE"
-                out.append(finalize_record(record))
+                if record_identifiers_plausible(record):
+                    out.append(finalize_record(record))
                 i += 2
                 continue
         i += 1
@@ -443,7 +445,7 @@ def extract_rows_with_outcome(html: bytes, county: str, source_url: str) -> tupl
     structure was never seen populated - Sumter, Lafayette - or a page
     that changed shape) is INCOMPLETE: the list may be empty, this parser
     did not confirm it."""
-    outcome = {"empty_marker": False, "header_table_found": False, "card_rows": False, "rows": 0}
+    outcome = {"empty_marker": False, "header_table_found": False, "card_rows": False, "rows": 0, "rejected": 0}
     soup = BeautifulSoup(html, "html.parser")
     page_text = soup.get_text(" ", strip=True)
     if looks_empty(page_text):
@@ -505,6 +507,12 @@ def extract_rows_with_outcome(html: bytes, county: str, source_url: str) -> tupl
         if record.get("sold_to"):
             continue
         if record.get("case_no") or record.get("parcel"):
+            # Identifier plausibility gate (laft_status.plausible_identifier):
+            # a second header line ("Account" in Escambia's case column,
+            # 2026-09) is not a property. Dropped whole, counted.
+            if not record_identifiers_plausible(record):
+                outcome["rejected"] += 1
+                continue
             out.append(finalize_record(record))
     outcome["rows"] = len(out)
     return out, outcome
@@ -554,12 +562,22 @@ def main() -> int:
                     resp = fetch(session, url)
                     content = resp.content
                 rows, outcome = extract_rows_with_outcome(content, county, url)
+                if outcome.get("rejected"):
+                    print(f"    {outcome['rejected']} row(s) rejected by the identifier gate (not a parcel/case number)", flush=True)
                 if rows:
                     print(f"    {len(rows)} properties", flush=True)
                     recorder.complete(county, len(rows), **status_kw, **doc_kw)
                 elif outcome["empty_marker"]:
                     print("    no properties currently listed (page says so)", flush=True)
                     recorder.empty(county, "empty_marker", **status_kw, **doc_kw)
+                elif outcome.get("rejected"):
+                    # A recognised table whose every row failed the identifier
+                    # gate is a layout change, not an empty list - never EMPTY
+                    # (EMPTY would let the lifecycle close the county out).
+                    print("    0 usable rows - INCOMPLETE (every parsed row failed the identifier gate)", flush=True)
+                    recorder.incomplete(county, "PARSE_FORMAT_CHANGE",
+                                        "every parsed row failed the identifier plausibility gate",
+                                        **status_kw, **doc_kw)
                 elif outcome["header_table_found"]:
                     print("    no properties currently listed (recognised table, zero data rows)", flush=True)
                     recorder.empty(county, "empty_table", **status_kw, **doc_kw)
