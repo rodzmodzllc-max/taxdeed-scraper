@@ -26,6 +26,12 @@ const FIXTURE_PROPERTIES = [
   // purchase_amount + purchase_amount_kind, last_seen_at).
   { id: "p3", source: "laft", county: "Bay", case_no: "C-1", parcel: "333", address: "3 Oak Ave", owner_name: "Bob", bid: 2000, assessed: 60000, market: 61000, value_year: 2024, land_value: 61000, lot_sqft: 43560, last_sale_price: 100, last_sale_year: 2007, status: "available", lien_level: "unscreened", lien_note: "", prop_type: "Condo", sale_date: null, homestead: true, url_auction: "https://x", url_auction_kind: "county", updated_at: "2026-08-11T00:00:00Z",
     inventory_type: "POST_SALE_FIXED_PRICE", source_authority: "GOVERNMENT_PLATFORM", source_id: "fl_laft_pioneer", list_url: "https://x", purchase_amount: 2000, purchase_amount_kind: "OPENING_BID", last_seen_at: "2026-08-11T00:00:00Z",
+    // Enrichment phase: the list-published fields scripts/laft_source_fields.py
+    // carries (certificate number, migration 019's two dates) plus the
+    // document/currentness columns the lifecycle writes. purchase_url stays
+    // absent on purpose - no Florida county has a verified purchase link.
+    document_url: "https://x/list.pdf", certificate_no: "2019-0042", escheatment_date: "2029-07-01", available_date: "2026-06-15",
+    list_as_of: "2026-08-10", source_published_at: "2026-08-10T14:03:00Z",
     // Phase 66: photo_url '' is the pipeline's "checked, no Street View
     // coverage" sentinel (see CLAUDE.md "Property photos") - distinct from
     // NULL/absent (not checked yet), which every other row here has.

@@ -26,6 +26,7 @@ import yaml
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "scripts"))
 import laft_lifecycle as L  # noqa: E402
+import laft_source_fields as SF  # noqa: E402
 import laft_status as ls  # noqa: E402
 
 NOW = ls.now_iso()
@@ -135,9 +136,10 @@ def test_d10_provenance_payload_comes_from_the_status_entry_and_row_only():
 
 
 class _Store:
-    def __init__(self, rows, have_017):
+    def __init__(self, rows, have_017, have_019=False):
         self.rows = rows
         self.have_017 = have_017
+        self.have_019 = have_019
         self.patches: list[tuple[str, dict]] = []
 
 
@@ -157,10 +159,12 @@ def _server(store):
             qs = parse_qs(u.query)
             assert self.headers.get("User-Agent", "").startswith("taxdeed-scraper/")
             sel = qs.get("select", [""])[0]
-            if "last_seen_at" in sel and "limit" in qs:
-                if store.have_017:
+            if "limit" in qs and "county" not in qs:
+                # Column probes: 017 (lifecycle columns) and 019 (list dates).
+                present = store.have_017 if "last_seen_at" in sel else store.have_019
+                if present:
                     return self._send(200, b"[]")
-                return self._send(400, json.dumps({"code": "42703", "message": "column properties.last_seen_at does not exist"}).encode())
+                return self._send(400, json.dumps({"code": "42703", "message": f"column properties.{sel.split(',')[0]} does not exist"}).encode())
             assert qs.get("state") == ["eq.FL"] and qs.get("source") == ["eq.laft"], self.path
             counties = unquote(qs["county"][0])[len("in.("):-1].replace('"', "").split(",")
             self._send(200, json.dumps([r for r in store.rows if r["county"] in counties]).encode())
@@ -177,7 +181,7 @@ def _server(store):
     return srv
 
 
-def _run_script(tmp_path, store, *, dry_run=False):
+def _run_script(tmp_path, store, *, dry_run=False, harvest_rows=None):
     srv = _server(store)
     try:
         status = tmp_path / "status.json"
@@ -189,7 +193,7 @@ def _run_script(tmp_path, store, *, dry_run=False):
             {"county": "Union", "harvester": "fl_laft_html", "status": "FAILED", "checked_at": NOW, "error_category": "PROXY_FAILURE"},
         ]))
         harvest = tmp_path / "harvest_laft.json"
-        harvest.write_text(json.dumps([
+        harvest.write_text(json.dumps(harvest_rows if harvest_rows is not None else [
             {"county": "Marion", "case_no": "A", "bid": "1,200.00", "bid_kind": "MINIMUM_PURCHASE_AMOUNT", "owner_name": "Private Person", "address": "9 Hidden Ln"},
             {"county": "Marion", "parcel": "P-2"},
             {"county": "Union", "case_no": "U1"},
@@ -262,7 +266,10 @@ def test_e02_without_migration_017_only_status_is_written_and_the_script_says_so
     assert r.returncode == 0, r.stderr + r.stdout
     assert "migration 017 not applied" in r.stdout
     bodies = [b for _, b in store.patches]
-    assert all(set(b) <= {"status"} for b in bodies), bodies
+    # No 017 column is ever sent; the county-list carry (independent of 017,
+    # see test_e04) may still write its own fill-blank columns.
+    carry = set(SF.BASE_COLUMNS) | {"field_provenance"}
+    assert all(set(b) <= {"status"} or set(b) <= carry for b in bodies), bodies
     assert {"status": "active"} in bodies and {"status": "closed"} in bodies
     assert json.loads(report.read_text())["migration_017"] is False
 
@@ -275,6 +282,59 @@ def test_e03_dry_run_sends_no_patch_and_missing_status_file_closes_nothing(tmp_p
                          "--harvest", str(tmp_path / "harvest_laft.json"), "--report", str(tmp_path / "r.json")],
                         capture_output=True, text=True, env={k: v for k, v in os.environ.items() if not k.startswith("SUPABASE")}, cwd=tmp_path)
     assert r2.returncode == 0 and "not found" in r2.stdout and "close-out candidates: 0" in r2.stdout
+
+
+def test_e04_county_list_fields_are_carried_fill_blank_with_provenance_on_observed_rows_only(tmp_path):
+    """Marion A: owner_name blank in the DB -> written from the list, with a
+    county_list provenance entry; legal_desc already on file (tax roll) ->
+    left alone; Union U1 (FAILED county) -> never touched; the 019 date
+    columns are absent -> never sent."""
+    rows = [dict(r) for r in DB]
+    rows[0]["legal_desc"] = "LOT 1 BLK 2 (tax roll)"
+    rows[0]["field_provenance"] = {"legal_desc": {"source": "fdor_nal", "recorded_at": NOW}}
+    store = _Store(rows, have_017=True, have_019=False)
+    harvest = [
+        {"county": "Marion", "case_no": "A", "owner_name": "Private Person", "legal_desc": "LOT 1 BLK 2 PLAT 9 (list)",
+         "certificate_no": "2019-0042", "homestead": "N", "escheatment_date": "07/01/2029", "assessed": "$12,500"},
+        {"county": "Marion", "parcel": "P-2"},
+        {"county": "Union", "case_no": "U1", "owner_name": "Nobody"},
+    ]
+    r, report = _run_script(tmp_path, store, harvest_rows=harvest)
+    assert r.returncode == 0, r.stderr + r.stdout
+    carry = [(p, b) for p, b in store.patches if "field_provenance" in b]
+    assert len(carry) == 1 and carry[0][0].endswith("id=eq.id-a")
+    body = carry[0][1]
+    assert body["owner_name"] == "Private Person" and body["certificate_no"] == "2019-0042" and body["assessed"] == 12500.0
+    assert "legal_desc" not in body and "homestead" not in body and "escheatment_date" not in body
+    prov = body["field_provenance"]
+    assert prov["legal_desc"] == {"source": "fdor_nal", "recorded_at": NOW}  # kept verbatim
+    for col in ("owner_name", "certificate_no", "assessed"):
+        assert prov[col]["source"] == "county_list" and prov[col]["source_id"] == "fl_laft_pdfs"
+        assert prov[col]["list_url"] == "https://marion/page" and prov[col]["document_sha256"] == "deadbeef"
+    assert not any("id-u9" in p or "id-u1" in p for p, _ in carry)
+    rep = json.loads(report.read_text())
+    assert rep["migration_019"] is False
+    assert rep["source_fields"] == {**rep["source_fields"], "matched": 2, "unmatched": 0, "ambiguous": 0, "written_rows": 1,
+                                    "nothing_to_write": 1, "errored": 0, "fields_written": {"assessed": 1, "certificate_no": 1, "owner_name": 1},
+                                    "skipped_present": {"legal_desc": 1}}
+    text = r.stdout + (tmp_path / "summary.md").read_text() + report.read_text()
+    assert "Private Person" not in text and "2019-0042" not in text and "12,500" not in text and "12500" not in text
+
+
+def test_e05_migration_019_dates_are_written_only_when_the_columns_exist(tmp_path):
+    store = _Store([dict(r) for r in DB], have_017=True, have_019=True)
+    harvest = [{"county": "Marion", "case_no": "A", "escheatment_date": "07/01/2029", "available_date": "2026-09-01"},
+               {"county": "Marion", "parcel": "P-2", "escheatment_date": "not a date"}]
+    r, report = _run_script(tmp_path, store, harvest_rows=harvest)
+    assert r.returncode == 0, r.stderr + r.stdout
+    carry = [(p, b) for p, b in store.patches if "field_provenance" in b]
+    assert len(carry) == 1 and carry[0][0].endswith("id=eq.id-a")
+    assert carry[0][1]["escheatment_date"] == "2029-07-01" and carry[0][1]["available_date"] == "2026-09-01"
+    rep = json.loads(report.read_text())
+    assert rep["migration_019"] is True and rep["source_fields"]["unparseable"] == {"escheatment_date": 1}
+    # Currentness columns ride on the provenance PATCH, from the source's own statements only.
+    prov = [b for _, b in store.patches if "last_seen_at" in b]
+    assert prov and all(b["list_as_of"] is None and b["source_published_at"] is None for b in prov)
 
 
 # ==================== 3. structural: PowerShell + workflow ====================

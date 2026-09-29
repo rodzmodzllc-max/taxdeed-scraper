@@ -122,6 +122,9 @@ from datetime import datetime, timezone
 
 import requests
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from field_provenance import filter_by_provenance, merge_field_provenance, provenance_entry  # noqa: E402
+
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
 SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "")
 # Raised 2026-09-02 from 300/10. Measured live at that point: 2,041 of 3,232
@@ -368,6 +371,42 @@ def _expand_lake_str_block(parcel):
     return f"{m.group(1)}-{m.group(2)}-{m.group(3)}-{m.group(4)}-{m.group(5)}"
 
 
+# Added 2026-09-29 (enrichment phase) from production evidence, not from a
+# live FDOR call (this sandbox cannot reach the layer): Hendry's Lands
+# Available PDF prints its parcel numbers hyphenated with the section /
+# township / range groups in the OPPOSITE order from FDOR's PARCEL_ID, and
+# the final group without FDOR's decimal point. One property appears in
+# production under both spellings - the same clerk case (23-09), one row
+# harvested from the list, one older row that already matched the layer:
+#     list form   2-01-43-29-010-0050-F020
+#     FDOR form   2 29 43 01 010 0050-F02.0
+# and every FDOR-matched Hendry row carries the same "A BB CC DD EEE FFFF"
+# space-separated head with a "-XXX.X" (or ".XXXX") tail. The rule is the
+# exact structural transform between those two spellings: groups 2-4
+# reversed, hyphens between the first six groups become spaces, and the
+# 4-character seventh group splits as XXX.X. It matches only a
+# 7-group hyphenated shape of exactly these widths, so it returns None (no
+# extra request) for every other county's format. Verified against the
+# pair above; further pairs will be visible as Hendry's match rate once
+# the deeds job runs with this rule - a persistent 0 there is the signal
+# the rule needs a second look, same as every other rule here.
+_HENDRY_LIST_FORM = re.compile(r"^(\d)-(\d{2})-(\d{2})-(\d{2})-([A-Z0-9]{3})-(\d{4})-([A-Z0-9]{4})$")
+def _expand_hendry_list_form(parcel):
+    m = _HENDRY_LIST_FORM.match(parcel.upper())
+    if not m:
+        return None
+    a, b, c, d, e, f, g = m.groups()
+    return f"{a} {d} {c} {b} {e} {f}-{g[:3]}.{g[3]}"
+
+
+# Sentinel returned as the third element of lookup_fdor()'s tuple when a
+# candidate resolved to MORE THAN ONE feature in the layer. A parcel id is
+# unique within a county on the tax roll, so two hits mean the candidate is
+# not this row's identifier (or the layer is inconsistent) - the row is
+# skipped, counted as ambiguous, and never enriched from either feature.
+AMBIGUOUS_MATCH = "AMBIGUOUS_MATCH"
+
+
 def normalize_candidates(parcel):
     parcel = parcel.strip()
     seen = set()
@@ -421,6 +460,10 @@ def normalize_candidates(parcel):
     if expanded_lake and expanded_lake not in seen:
         seen.add(expanded_lake)
         candidates.append(expanded_lake)
+    expanded_hendry = _expand_hendry_list_form(parcel)
+    if expanded_hendry and expanded_hendry not in seen:
+        seen.add(expanded_hendry)
+        candidates.append(expanded_hendry)
     for value in list(candidates):
         with_r = value + "R"
         if with_r not in seen:
@@ -599,7 +642,7 @@ def fetch_county_batch(county, limit, outstanding=None):
         # `source` is read so main() can keep one miss streak per ledger
         # (Phase 69) - it is never filtered on here; every ledger's rows
         # still share the county's slice exactly as before.
-        "select": "id,source,parcel,address,county,prop_type,market,assessed,owner_name,latitude,longitude",
+        "select": "id,source,parcel,address,county,prop_type,market,assessed,owner_name,latitude,longitude,field_provenance",
         "state": f"eq.{ENRICH_STATE}",
         "county": f"eq.{county}",
         "and": "(parcel.not.is.null,parcel.neq.\"\")",
@@ -642,11 +685,17 @@ def lookup_fdor(county, parcel):
             "returnCentroid": "true",
             "outSR": "4326",
             "f": "json",
+            # Two records are enough to tell "exactly one" from "more than
+            # one" - a duplicate is rejected, never resolved by taking the
+            # first (see AMBIGUOUS_MATCH).
+            "resultRecordCount": "2",
         }
         resp = requests.get(FDOR_ENDPOINT, params=params, timeout=20)
         resp.raise_for_status()
         data = resp.json()
         features = data.get("features", [])
+        if len(features) > 1:
+            return None, None, AMBIGUOUS_MATCH
         if features:
             feature = features[0]
             return feature.get("attributes", {}), feature.get("centroid"), candidate
@@ -1154,6 +1203,11 @@ def main():
     total_attempted = 0
     total_matched = 0
     total_unmapped_county = 0
+    total_ambiguous = 0
+    total_unmatched = 0
+    total_written = 0
+    total_errored = 0
+    total_skipped_provenance = 0
     per_county_matches = {}
     # Per-column fill counts, so a run's log says exactly which card fields got
     # populated rather than just "N rows matched".
@@ -1205,9 +1259,18 @@ def main():
             try:
                 attrs, centroid, matched_candidate = lookup_fdor(county, parcel)
             except requests.RequestException as e:
-                print(f"  [{county}] ERROR looking up parcel {parcel!r}: {e}", file=sys.stderr)
+                # Row id only: a parcel number is a row value and this log is
+                # public CI output.
+                print(f"  [{county}] ERROR looking up row {row.get('id')}: {type(e).__name__}", file=sys.stderr)
+                total_errored += 1
                 time.sleep(REQUEST_DELAY_SECONDS)
                 continue
+            if matched_candidate == AMBIGUOUS_MATCH:
+                total_ambiguous += 1
+                print(f"  [{county}] row {row.get('id')}: candidate matched more than one layer feature - skipped (ambiguous)")
+                time.sleep(REQUEST_DELAY_SECONDS)
+                continue
+            provider = "fdor_nal"
 
             # Santa Rosa-only fallback: FDOR is a confirmed permanent 0% match
             # for this county (see lookup_santa_rosa_gis()'s docstring), so a
@@ -1216,8 +1279,9 @@ def main():
             if attrs is None and COUNTY_ALIASES.get(county, county) == "Santa Rosa":
                 try:
                     attrs, centroid, matched_candidate = lookup_santa_rosa_gis(parcel)
+                    provider = "county_gis"
                 except requests.RequestException as e:
-                    print(f"  [{county}] ERROR looking up parcel {parcel!r} via Santa Rosa GIS: {e}", file=sys.stderr)
+                    print(f"  [{county}] ERROR looking up row {row.get('id')} via Santa Rosa GIS: {type(e).__name__}", file=sys.stderr)
 
             # Flagler-only fallback, same reasoning as Santa Rosa's above:
             # FDOR is unreliable/non-matching for this county specifically
@@ -1226,13 +1290,15 @@ def main():
             if attrs is None and COUNTY_ALIASES.get(county, county) == "Flagler":
                 try:
                     attrs, centroid, matched_candidate = lookup_flagler_gis(parcel)
+                    provider = "county_gis"
                 except requests.RequestException as e:
-                    print(f"  [{county}] ERROR looking up parcel {parcel!r} via Flagler GIS: {e}", file=sys.stderr)
+                    print(f"  [{county}] ERROR looking up row {row.get('id')} via Flagler GIS: {type(e).__name__}", file=sys.stderr)
 
             if attrs is None:
                 # Left unmarked on purpose - retried on a later run, so a
                 # county whose format gets cracked later picks up its backlog.
                 miss_streaks[source] = miss_streaks.get(source, 0) + 1
+                total_unmatched += 1
                 time.sleep(REQUEST_DELAY_SECONDS)
                 continue
 
@@ -1241,17 +1307,34 @@ def main():
             miss_streaks[source] = 0  # a hit proves this ledger's format works; keep going
 
             fields = build_update_fields(row, attrs, centroid)
+            # Precedence (scripts/field_provenance.py): a column whose stored
+            # value carries a provenance entry of equal or higher rank (the
+            # county's own list, hand research) is never replaced by the tax
+            # roll's copy; build_update_fields' own fill-blank rules already
+            # decided everything else.
+            before = len(fields)
+            fields = filter_by_provenance(row, fields, provider)
+            total_skipped_provenance += before - len(fields)
+            # Every column written this run gets a provenance entry naming
+            # the layer and the candidate spelling that matched.
+            stamp = datetime.now(timezone.utc).isoformat()
+            if fields:
+                entry = provenance_entry(provider, recorded_at=stamp, matched_parcel_id=matched_candidate)
+                fields["field_provenance"] = merge_field_provenance(row.get("field_provenance"),
+                                                                    {column: dict(entry) for column in fields})
             # Stamped only on a successful match, and in the same PATCH as the
             # data, so a row is never marked enriched unless its values landed.
-            fields["fdor_enriched_at"] = datetime.now(timezone.utc).isoformat()
+            fields["fdor_enriched_at"] = stamp
 
             try:
                 patch_property(row["id"], fields)
+                total_written += 1
                 for column in fields:
-                    if column != "fdor_enriched_at":
+                    if column not in ("fdor_enriched_at", "field_provenance"):
                         filled_counts[column] = filled_counts.get(column, 0) + 1
             except requests.RequestException as e:
-                print(f"  [{county}] ERROR saving parcel {parcel!r} (matched via {matched_candidate!r}): {e}", file=sys.stderr)
+                total_errored += 1
+                print(f"  [{county}] ERROR saving row {row.get('id')}: {type(e).__name__}", file=sys.stderr)
 
             time.sleep(REQUEST_DELAY_SECONDS)
 
@@ -1263,7 +1346,9 @@ def main():
             per_county_matches[county] = (county_matched, county_attempted)
 
     print(
-        f"Done. Attempted {total_attempted}, FDOR matches {total_matched}, "
+        f"Done. Attempted {total_attempted}, matched {total_matched}, written {total_written}, "
+        f"unmatched {total_unmatched}, ambiguous (skipped) {total_ambiguous}, errored {total_errored}, "
+        f"columns withheld by provenance precedence {total_skipped_provenance}, "
         f"unmapped-county rows skipped {total_unmapped_county}."
     )
     print("Fields populated this run (column: rows filled):")
