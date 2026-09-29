@@ -87,7 +87,8 @@ from pathlib import Path
 import requests
 from bs4 import BeautifulSoup
 
-from harvest_cache import conditional_get, load_cache, record_cache_stats, save_cache
+from harvest_cache import PARSER_VERSION, conditional_get, load_cache, record_cache_stats, save_cache
+from laft_status import CategorizedError, StatusRecorder, amount_kind_for_header, describe_exception
 
 HERE = Path(__file__).resolve().parent
 SOURCES_CSV = HERE / "../data/laft_html_sources.csv"
@@ -191,10 +192,11 @@ def fetch(session: requests.Session, url: str, *, extra_headers: dict | None = N
         return resp
 
     if not SCRAPERAPI_KEY:
-        raise RuntimeError(
+        raise CategorizedError(
+            "PROXY_NOT_CONFIGURED",
             "blocked with 403 (this is the known IP-range block on GitHub "
             "Actions runners, not a dead source - see module docstring) and "
-            "SCRAPERAPI_KEY is not set, so there's no proxy to fall back to"
+            "SCRAPERAPI_KEY is not set, so there's no proxy to fall back to",
         )
 
     last_exc: Exception | None = None
@@ -228,7 +230,10 @@ def fetch(session: requests.Session, url: str, *, extra_headers: dict | None = N
                 time.sleep(SCRAPERAPI_RETRY_DELAY_SECONDS)
 
     assert last_exc is not None
-    raise last_exc
+    # Every proxy attempt failed. This is a PROXY failure, not a source
+    # failure and not an empty list - recorded as such so the county is
+    # FAILED in harvest_laft_status.json rather than a silent zero.
+    raise CategorizedError("PROXY_FAILURE", f"ScraperAPI proxy failed on all {SCRAPERAPI_MAX_ATTEMPTS} attempts: {last_exc}") from last_exc
 
 
 class _CacheAwareFetcher:
@@ -317,12 +322,15 @@ _AUCTION_DATE_RE = re.compile(r"Auction date:\s*([\d/]+)", re.IGNORECASE)
 _AVAILABLE_DATE_RE = re.compile(r"Available for Purchase:\s*([\d/]+)", re.IGNORECASE)
 _PRICE_RE = re.compile(r"Estimated Purchase Price:\s*\$?([\d,]+\.\d{2})", re.IGNORECASE)
 
+def normalize_header_key(h: str) -> str:
+    key = re.sub(r"[^a-z0-9()#. ]", "", re.sub(r"\s+", " ", (h or "").strip().lower()))
+    return re.sub(r"\s+", " ", key).strip()
+
+
 def normalize_header(h: str) -> str | None:
     if not h:
         return None
-    key = re.sub(r"[^a-z0-9()#. ]", "", re.sub(r"\s+", " ", h.strip().lower()))
-    key = re.sub(r"\s+", " ", key).strip()
-    return HEADER_MAP.get(key)
+    return HEADER_MAP.get(normalize_header_key(h))
 
 def normalize_parcel(p: str) -> str:
     return re.sub(r"\s+", "", p.strip()).upper()
@@ -408,6 +416,8 @@ def _rows_from_card_table(rows: list[list[str]], county: str, source_url: str) -
                     record["available_date"] = avail_m.group(1)
                 if price_m:
                     record["bid"] = price_m.group(1)
+                    # Putnam's own label: "Estimated Purchase Price".
+                    record["bid_kind"] = "ESTIMATED_PURCHASE_PRICE"
                 out.append(finalize_record(record))
                 i += 2
                 continue
@@ -415,16 +425,36 @@ def _rows_from_card_table(rows: list[list[str]], county: str, source_url: str) -
     return out
 
 def extract_rows(html: bytes, county: str, source_url: str) -> list[dict]:
+    return extract_rows_with_outcome(html, county, source_url)[0]
+
+
+def extract_rows_with_outcome(html: bytes, county: str, source_url: str) -> tuple[list[dict], dict]:
+    """(rows, outcome). `outcome` records what the parser SAW so a zero can
+    be classified honestly (see scripts/laft_status.py):
+
+        empty_marker        - the page says nothing is listed        -> EMPTY
+        header_table_found  - a table with a recognised header row was
+                              found; with zero data rows that is a real,
+                              published-but-empty list                -> EMPTY
+        card_rows           - Putnam-style card table matched
+        rows                - usable rows extracted
+
+    No recognised table, no card rows and no marker (a page whose table
+    structure was never seen populated - Sumter, Lafayette - or a page
+    that changed shape) is INCOMPLETE: the list may be empty, this parser
+    did not confirm it."""
+    outcome = {"empty_marker": False, "header_table_found": False, "card_rows": False, "rows": 0}
     soup = BeautifulSoup(html, "html.parser")
     page_text = soup.get_text(" ", strip=True)
     if looks_empty(page_text):
-        return []
+        outcome["empty_marker"] = True
+        return [], outcome
 
-    best: tuple[int, list, list[list[str]]] | None = None
+    best: tuple[int, list, list[list[str]], list[str]] | None = None
     best_score = 1
     for table in soup.find_all("table"):
         rows = _table_to_rows(table)
-        if len(rows) < 2:
+        if len(rows) < 1:
             continue
         found = _find_header_row(rows)
         if not found:
@@ -433,7 +463,7 @@ def extract_rows(html: bytes, county: str, source_url: str) -> list[dict]:
         score = sum(1 for f in field_names if f)
         if score > best_score:
             best_score = score
-            best = (header_idx, field_names, rows)
+            best = (header_idx, field_names, rows, [normalize_header_key(c) for c in rows[header_idx]])
 
     if not best:
         # No table had a real header row - try the card-style fallback
@@ -442,9 +472,13 @@ def extract_rows(html: bytes, county: str, source_url: str) -> list[dict]:
             rows = _table_to_rows(table)
             card_rows = _rows_from_card_table(rows, county, source_url)
             if card_rows:
-                return [r for r in card_rows if not r.get("sold_to")]
-        return []
-    header_idx, field_names, rows = best
+                outcome["card_rows"] = True
+                kept = [r for r in card_rows if not r.get("sold_to")]
+                outcome["rows"] = len(kept)
+                return kept, outcome
+        return [], outcome
+    outcome["header_table_found"] = True
+    header_idx, field_names, rows, header_keys = best
     body = rows[header_idx + 1:]
 
     note = NOTES_BY_COUNTY.get(county)
@@ -454,6 +488,7 @@ def extract_rows(html: bytes, county: str, source_url: str) -> list[dict]:
         if not cell_texts:
             continue
         if all(looks_empty(c) for c in cell_texts):
+            outcome["empty_marker"] = True
             continue
 
         record: dict = {"county": county, "source": "laft", "url_auction": source_url}
@@ -465,11 +500,14 @@ def extract_rows(html: bytes, county: str, source_url: str) -> list[dict]:
             val = raw[i].strip()
             if val:
                 record[field] = val
+                if field == "bid":
+                    record["bid_kind"] = amount_kind_for_header(header_keys[i] if i < len(header_keys) else None)
         if record.get("sold_to"):
             continue
         if record.get("case_no") or record.get("parcel"):
             out.append(finalize_record(record))
-    return out
+    outcome["rows"] = len(out)
+    return out, outcome
 
 def main() -> int:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -487,6 +525,8 @@ def main() -> int:
     new_cache: dict = {}
     reused = 0
 
+    recorder = StatusRecorder("fl_laft_html", source_class="GOVERNMENT_DIRECT", parser_version=str(PARSER_VERSION))
+
     all_rows: list[dict] = []
     session = requests.Session()
     fetcher = _CacheAwareFetcher(session)
@@ -494,14 +534,18 @@ def main() -> int:
         county, url = src["County"], src["Url"]
         print(f"[{i}/{len(sources)}] {county}", flush=True)
         entry = cache.get(url)
+        status_kw = dict(source_url=(src.get("SourcePage") or "").strip() or url, document_url=url)
         try:
             status, content, validators = conditional_get(fetcher, url, entry, timeout=30)
+            doc_kw = dict(document_sha256=validators.get("sha256"), document_etag=validators.get("etag"),
+                          document_last_modified=validators.get("last_modified"))
 
             if status in ("not_modified", "unchanged") and entry and "rows" in entry:
                 rows = entry["rows"]
                 reused += 1
                 why = "server says unchanged" if status == "not_modified" else "identical content"
                 print(f"    unchanged ({why}) - reusing {len(rows)} cached rows, parse skipped", flush=True)
+                recorder.complete(county, len(rows), from_cache=True, **status_kw, **doc_kw)
             else:
                 if content is None:
                     # 304 but no cached rows to reuse (cache was cleared, or
@@ -509,11 +553,21 @@ def main() -> int:
                     # unconditionally rather than reporting zero rows.
                     resp = fetch(session, url)
                     content = resp.content
-                rows = extract_rows(content, county, url)
+                rows, outcome = extract_rows_with_outcome(content, county, url)
                 if rows:
                     print(f"    {len(rows)} properties", flush=True)
+                    recorder.complete(county, len(rows), **status_kw, **doc_kw)
+                elif outcome["empty_marker"]:
+                    print("    no properties currently listed (page says so)", flush=True)
+                    recorder.empty(county, "empty_marker", **status_kw, **doc_kw)
+                elif outcome["header_table_found"]:
+                    print("    no properties currently listed (recognised table, zero data rows)", flush=True)
+                    recorder.empty(county, "empty_table", **status_kw, **doc_kw)
                 else:
-                    print("    no properties currently listed", flush=True)
+                    print("    0 rows, no recognised table and no empty marker - INCOMPLETE (unconfirmed empty)", flush=True)
+                    recorder.incomplete(county, "PARSE_NO_TABLE",
+                                        "no table with a recognised header, no card rows and no empty-list marker",
+                                        **status_kw, **doc_kw)
 
             all_rows.extend(rows)
             # Only cache rows we actually believe in - caching a zero-row
@@ -523,13 +577,17 @@ def main() -> int:
                 validators["rows"] = rows
                 new_cache[url] = validators
         except Exception as exc:  # noqa: BLE001 - one bad county must not kill the whole run
-            print(f"    ERROR: {exc}", flush=True)
+            category, _detail = describe_exception(exc)
+            print(f"    ERROR ({category}): {exc}", flush=True)
+            recorder.failed(county, exc, **status_kw)
             # Keep the previous good entry so a transient failure doesn't
             # also throw away a usable cache for the next run.
             if entry:
                 new_cache[url] = entry
 
     save_cache("laft_html", new_cache)
+    recorder.write()
+    print(recorder.summary_line(), flush=True)
     record_cache_stats("laft_html", reused, len(sources))
     if reused:
         print(f"\n{reused} of {len(sources)} sources were unchanged - parse skipped for those.", flush=True)

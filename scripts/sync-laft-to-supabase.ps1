@@ -171,7 +171,21 @@ foreach ($p in $harvest) {
         county      = $p.county
         case_no     = if ($p.case_no) { $p.case_no } else { $p.parcel }
         address     = $addr
+        # `bid` keeps the legacy 0-means-not-published sentinel because the
+        # column is NOT NULL with no default (see above). The honest amount
+        # semantics - a nullable purchase_amount plus purchase_amount_kind
+        # (NOT_PUBLISHED when the county published none) - are written by
+        # scripts/laft_lifecycle.py once migration 017 exists; the app's
+        # hasPublishedBid() reads that kind first and this sentinel second.
         bid         = $bidVal
+        # `status` is pipeline state, never hand research (same reasoning as
+        # sync-harvest-to-supabase.ps1's 2026-09-28 change): a row in this
+        # run's harvest is on the county's list today, so it is 'active'
+        # again even if scripts/laft_lifecycle.py closed it out earlier.
+        # Migration 006's trigger clears gone_since when status leaves the
+        # gone set. Nothing here ever writes 'closed' - only the lifecycle
+        # script does, and only for a COMPLETE/EMPTY county.
+        status      = "active"
         url_auction = $p.url_auction
         # Phase 72: every LAFT harvester (harvest_laft_*.py) sets url_auction
         # to the county's Lands Available list page or PDF - a COUNTY page

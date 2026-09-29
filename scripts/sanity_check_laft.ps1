@@ -98,7 +98,15 @@ $headers = @{
     "apikey"        = $serviceRoleKey
     "Authorization" = "Bearer $serviceRoleKey"
 }
-$existingUrl = "$supabaseUrl/rest/v1/properties?source=eq.laft&select=county&limit=5000"
+# state=eq.FL (2026-09-29, master LAFT audit Phase A3): this check compares
+# TODAY'S FLORIDA harvest files against what is on file, so the baseline
+# must be Florida rows only. Texas also writes source='laft' (LGBS
+# struck-off / future-sale rows, harvesters/texas_harvester.py), and
+# without the state filter every Texas LAFT county was reported as a
+# Florida county that "dropped to 0" on 2026-09-29 (Galveston, Liberty,
+# Leon, Maverick, Jim Wells, Hardin) - cross-state noise that buried the
+# one real anomaly in the same run (Hendry, a dead PDF link).
+$existingUrl = "$supabaseUrl/rest/v1/properties?state=eq.FL&source=eq.laft&select=county&limit=5000"
 $existingRows = Invoke-RestMethod -Uri $existingUrl -Method Get -Headers $headers -UserAgent $SupabaseUserAgent
 $existingCounts = @{}
 foreach ($r in $existingRows) {

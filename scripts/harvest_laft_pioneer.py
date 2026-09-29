@@ -78,9 +78,12 @@ from __future__ import annotations
 import csv
 import json
 import sys
+import time
 from pathlib import Path
 
 import requests
+
+from laft_status import CategorizedError, StatusRecorder, describe_exception
 
 HERE = Path(__file__).resolve().parent
 SOURCES_CSV = HERE / "../data/laft_pioneer_counties.csv"
@@ -123,6 +126,19 @@ CELL_COUNT = len(CELL_FIELDS)
 # exceeds this is caught loudly rather than silently truncated.
 ROWS_PER_PAGE = 100
 
+# "Base Bid" is the platform's own column name for the figure mapped to
+# `bid` - the opening bid the property failed to attract at auction.
+BID_KIND = "OPENING_BID"
+
+# Transport retry (2026-09-29, master LAFT audit Phase A6): Walton's
+# deployment reset the connection on the 2026-09-29 run and the county was
+# reported as ERROR / 0 rows. A connection-level failure (reset, refused,
+# DNS, timeout) is retried a couple of times with a short backoff before
+# the county is recorded FAILED. HTTP error responses (4xx/5xx) are NOT
+# retried - those are answers, not transport noise.
+TRANSPORT_ATTEMPTS = 3
+TRANSPORT_RETRY_DELAY_SECONDS = 3
+
 
 def _grid_url(base_url: str) -> str:
     return f"{base_url.rstrip('/')}/{GRID_PATH}"
@@ -155,33 +171,55 @@ def _parse_rows(payload: dict, county: str, base_url: str) -> tuple[list[dict], 
             value = _clean(cells[i])
             if value:
                 record[field] = value
+        if record.get("bid"):
+            record["bid_kind"] = BID_KIND
         if record.get("case_no") or record.get("parcel"):
             out.append(record)
     return out, reported
 
 
-def harvest_county(session: requests.Session, county: str, base_url: str) -> list[dict]:
-    resp = session.get(
-        _grid_url(base_url),
-        params={
-            "SearchType": SEARCH_TYPE,
-            "_search": "false",
-            "rows": str(ROWS_PER_PAGE),
-            "page": "1",
-            "sidx": "",
-            "sord": "asc",
-        },
-        headers={"User-Agent": UA, "X-Requested-With": "XMLHttpRequest"},
-        timeout=30,
-    )
+def _get_grid(session: requests.Session, base_url: str) -> requests.Response:
+    last_exc: Exception | None = None
+    for attempt in range(1, TRANSPORT_ATTEMPTS + 1):
+        try:
+            return session.get(
+                _grid_url(base_url),
+                params={
+                    "SearchType": SEARCH_TYPE,
+                    "_search": "false",
+                    "rows": str(ROWS_PER_PAGE),
+                    "page": "1",
+                    "sidx": "",
+                    "sord": "asc",
+                },
+                headers={"User-Agent": UA, "X-Requested-With": "XMLHttpRequest"},
+                timeout=30,
+            )
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as exc:
+            last_exc = exc
+            print(f"    transport failure on attempt {attempt}/{TRANSPORT_ATTEMPTS}: {type(exc).__name__}", flush=True)
+            if attempt < TRANSPORT_ATTEMPTS:
+                time.sleep(TRANSPORT_RETRY_DELAY_SECONDS)
+    assert last_exc is not None
+    raise last_exc
+
+
+def harvest_county(session: requests.Session, county: str, base_url: str) -> tuple[list[dict], dict]:
+    """(rows, outcome) - outcome carries the platform's own `records`
+    count, the only trustworthy empty signal on this platform (see the
+    module docstring), so the caller can record EMPTY vs INCOMPLETE."""
+    resp = _get_grid(session, base_url)
     resp.raise_for_status()
     try:
         payload = resp.json()
     except ValueError as exc:
-        raise RuntimeError(
+        raise CategorizedError(
+            "PARSE_FORMAT_CHANGE",
             f"grid endpoint did not return JSON (got {resp.headers.get('Content-Type')!r}) - "
-            f"base URL may be wrong or the vendor changed the endpoint: {exc}"
+            f"base URL may be wrong or the vendor changed the endpoint: {exc}",
         ) from exc
+    if not isinstance(payload, dict) or "records" not in payload:
+        raise CategorizedError("PARSE_FORMAT_CHANGE", "grid JSON has no `records` field - grid contract changed")
 
     rows, reported = _parse_rows(payload, county, base_url)
 
@@ -195,7 +233,7 @@ def harvest_county(session: requests.Session, county: str, base_url: str) -> lis
             + " - investigate before trusting this county's count",
             flush=True,
         )
-    return rows
+    return rows, {"reported": reported, "rows": len(rows)}
 
 
 def main() -> int:
@@ -203,21 +241,34 @@ def main() -> int:
     with open(SOURCES_CSV, newline="", encoding="utf-8") as f:
         sources = list(csv.DictReader(f))
 
+    recorder = StatusRecorder("fl_laft_pioneer", source_class="GOVERNMENT_PLATFORM")
+
     all_rows: list[dict] = []
     for i, src in enumerate(sources, 1):
         county, base_url = src["County"], src["BaseUrl"]
         print(f"[{i}/{len(sources)}] {county}", flush=True)
         try:
             session = requests.Session()
-            rows = harvest_county(session, county, base_url)
-            if rows:
+            rows, outcome = harvest_county(session, county, base_url)
+            all_rows.extend(rows)
+            if outcome["reported"] != outcome["rows"]:
+                recorder.incomplete(county, "PARSE_COUNT_MISMATCH",
+                                    f"platform reports {outcome['reported']} records, {outcome['rows']} parsed",
+                                    row_count=len(rows), source_url=base_url)
+            elif rows:
                 priced = sum(1 for r in rows if r.get("bid"))
                 print(f"    {len(rows)} properties ({priced} with a base bid)", flush=True)
-                all_rows.extend(rows)
+                recorder.complete(county, len(rows), source_url=base_url)
             else:
-                print("    no properties currently listed", flush=True)
+                print("    no properties currently listed (platform reports 0 records)", flush=True)
+                recorder.empty(county, "reported_count_zero", source_url=base_url)
         except Exception as exc:  # noqa: BLE001 - one bad county must not kill the whole run
-            print(f"    ERROR: {exc}", flush=True)
+            category, _detail = describe_exception(exc)
+            print(f"    ERROR ({category}): {exc}", flush=True)
+            recorder.failed(county, exc, source_url=base_url)
+
+    recorder.write()
+    print(recorder.summary_line(), flush=True)
 
     with open(OUT_JSON, "w", encoding="utf-8") as f:
         json.dump(all_rows, f, indent=2)

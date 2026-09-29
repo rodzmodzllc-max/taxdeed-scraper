@@ -100,6 +100,8 @@ from pathlib import Path
 import requests
 from bs4 import BeautifulSoup
 
+from laft_status import StatusRecorder, describe_exception
+
 HERE = Path(__file__).resolve().parent
 OUT_DIR = HERE / "../out"
 OUT_JSON = OUT_DIR / "harvest_laft_orange.json"
@@ -158,8 +160,20 @@ RECORD_RE = re.compile(
 
 NO_RESULTS_MARKERS = ("0 items found", "no items found", "no results found")
 
+BID_KIND = "MINIMUM_PURCHASE_AMOUNT"  # the results page's own label: "Min Bid"
+
+# A results page is only trusted as a results page if it still carries
+# the search app's own record-shaped text ("Tax Sale ... Sale Date: ...")
+# or one of its no-results phrases; anything else (the disclaimer page
+# served again, an error page) is a format/access change.
+RESULTS_PAGE_HINTS = ("tax sale", "sale date:", "applicant name:")
+
 
 def harvest() -> list[dict]:
+    return harvest_with_outcome()[0]
+
+
+def harvest_with_outcome() -> tuple[list[dict], dict]:
     session = requests.Session()
     session.headers.update({"User-Agent": UA})
 
@@ -173,16 +187,25 @@ def harvest() -> list[dict]:
     resp = session.post(SEARCH_POST_URL, data=SEARCH_FORM_DEFAULTS, timeout=30)
     resp.raise_for_status()
 
-    return _parse_results(resp.text)
+    return _parse_results_with_outcome(resp.text)
 
 
 def _parse_results(html: str) -> list[dict]:
+    return _parse_results_with_outcome(html)[0]
+
+
+def _parse_results_with_outcome(html: str) -> tuple[list[dict], dict]:
+    """(rows, outcome) - outcome: empty_marker (the app said 0 items),
+    page_recognised (the response looks like the TDSM results page)."""
     soup = BeautifulSoup(html, "html.parser")
     text = soup.get_text(" ", strip=True)
 
     low = text.lower()
+    outcome = {"empty_marker": False, "page_recognised": any(h in low for h in RESULTS_PAGE_HINTS), "rows": 0}
     if any(marker in low for marker in NO_RESULTS_MARKERS):
-        return []
+        outcome["empty_marker"] = True
+        outcome["page_recognised"] = True
+        return [], outcome
 
     out: list[dict] = []
     for case_no, sale_date, applicant, status, parcel, min_bid, high_bid in RECORD_RE.findall(text):
@@ -201,24 +224,47 @@ def _parse_results(html: str) -> list[dict]:
                 "applicant": applicant.strip(),
                 "parcel": parcel.strip(),
                 "bid": min_bid.strip(),
+                "bid_kind": BID_KIND,
                 "high_bid": high_bid.strip(),
             }
         )
-    return out
+    outcome["rows"] = len(out)
+    return out, outcome
+
+
+def record_outcome(recorder: StatusRecorder, rows: list[dict], outcome: dict) -> None:
+    if rows:
+        recorder.complete(COUNTY, len(rows), source_url=SOURCE_PAGE_URL)
+    elif outcome.get("empty_marker"):
+        recorder.empty(COUNTY, "empty_marker", source_url=SOURCE_PAGE_URL)
+    elif not outcome.get("page_recognised"):
+        recorder.incomplete(COUNTY, "PARSE_FORMAT_CHANGE",
+                            "response is not the TDSM results page (no record text, no no-results phrase)",
+                            source_url=SOURCE_PAGE_URL)
+    else:
+        recorder.incomplete(COUNTY, "UNCONFIRMED_EMPTY",
+                            "results page recognised but zero records matched and no no-results phrase",
+                            source_url=SOURCE_PAGE_URL)
 
 
 def main() -> int:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
+    recorder = StatusRecorder("fl_laft_orange", source_class="GOVERNMENT_DIRECT")
     print(f"[1/1] {COUNTY}", flush=True)
     try:
-        rows = harvest()
+        rows, outcome = harvest_with_outcome()
+        record_outcome(recorder, rows, outcome)
         if rows:
             print(f"    {len(rows)} properties", flush=True)
         else:
             print("    no properties currently listed", flush=True)
     except Exception as exc:  # noqa: BLE001 - never let this crash the whole CI job
-        print(f"    ERROR: {exc}", flush=True)
+        category, _detail = describe_exception(exc)
+        print(f"    ERROR ({category}): {exc}", flush=True)
+        recorder.failed(COUNTY, exc, source_url=SOURCE_PAGE_URL)
         rows = []
+    recorder.write()
+    print(recorder.summary_line(), flush=True)
 
     with open(OUT_JSON, "w", encoding="utf-8") as f:
         json.dump(rows, f, indent=2)

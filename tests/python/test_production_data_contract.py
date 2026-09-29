@@ -141,8 +141,14 @@ def test_D_missing_tx_min_bid_becomes_a_zero_bid_sentinel_not_null():
 
 
 def test_D_frontend_treats_a_zero_bid_as_not_published_not_free():
+    """Since migration 017 the rule reads purchase_amount_kind first (a row
+    that carries it is authoritative) and keeps the legacy `bid` sentinel
+    rule for rows without it - a 0/NULL bid is still never 'free'."""
     app_js = _read("public", "app.js")
-    assert 'const hasPublishedBid = p => p.bid !== null && p.bid !== undefined && Number(p.bid) > 0;' in app_js
+    fn = app_js[app_js.index("const hasPublishedBid = p => {"):app_js.index("window.__tdwHasPublishedBid")]
+    assert 'if (p.purchase_amount_kind === "NOT_PUBLISHED") return false;' in fn
+    assert "Number(p.purchase_amount) > 0) return true;" in fn
+    assert "return p.bid !== null && p.bid !== undefined && Number(p.bid) > 0;" in fn
     assert '"Not published"' in app_js
 
 

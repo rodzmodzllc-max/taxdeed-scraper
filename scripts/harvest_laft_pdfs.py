@@ -48,7 +48,8 @@ from pathlib import Path
 import pdfplumber
 import requests
 
-from harvest_cache import conditional_get, load_cache, record_cache_stats, save_cache
+from harvest_cache import PARSER_VERSION, conditional_get, load_cache, record_cache_stats, save_cache
+from laft_status import StatusRecorder, amount_kind_for_header, describe_exception
 
 HERE = Path(__file__).resolve().parent
 SOURCES_CSV = HERE / "../data/laft_pdf_sources.csv"
@@ -112,12 +113,52 @@ EMPTY_MARKERS = (
 )
 
 
+def normalize_header_key(h: str) -> str:
+    """The normalised header text HEADER_MAP is keyed by (also what
+    laft_status.amount_kind_for_header() reads the amount kind from)."""
+    key = re.sub(r"[^a-z0-9()#. ]", "", (h or "").strip().lower())
+    return re.sub(r"\s+", " ", key).strip()
+
+
 def normalize_header(h: str) -> str | None:
     if not h:
         return None
-    key = re.sub(r"[^a-z0-9()#. ]", "", h.strip().lower())
-    key = re.sub(r"\s+", " ", key).strip()
-    return HEADER_MAP.get(key)
+    return HEADER_MAP.get(normalize_header_key(h))
+
+
+# Municode-hosted PDFs (Hendry, Glades) live behind a per-document download
+# id that changes when the clerk uploads a new version - the registered
+# Hendry URL returned HTTP 404 on 2026-09-29. The clerk's own Municode node
+# page (the CSV's SourcePage) embeds the CURRENT download link, so on a 404
+# the harvester reads that page and follows the first munidocDownload link
+# it finds. Best effort, and honestly limited: the node page is largely
+# JavaScript-rendered, so the link may not be present in the static HTML;
+# when it is not, the county is recorded FAILED / TRANSPORT_HTTP_404 with
+# the reason, never as an empty list. Not verified against the live site
+# from this sandbox (egress blocked) - see docs/otc-inventory-model.md.
+MUNICODE_HOST = "mcclibraryfunctions.azurewebsites.us"
+_MUNIDOC_LINK_RE = re.compile(r"https?://mcclibraryfunctions\.azurewebsites\.us/api/munidocDownload/\d+/[0-9a-f]+/pdf", re.I)
+_MUNIDOC_RELATIVE_RE = re.compile(r"/api/munidocDownload/\d+/[0-9a-f]+/pdf", re.I)
+
+
+def discover_successor_pdf(source_page_html: str, current_url: str) -> str | None:
+    """First munidocDownload PDF link on the clerk's Municode node page that
+    is NOT the (dead) URL we already tried, or None."""
+    if not source_page_html:
+        return None
+    candidates = list(_MUNIDOC_LINK_RE.findall(source_page_html))
+    candidates += [f"https://{MUNICODE_HOST}{m}" for m in _MUNIDOC_RELATIVE_RE.findall(source_page_html)]
+    for cand in candidates:
+        if cand.rstrip("/") != current_url.rstrip("/"):
+            return cand
+    return None
+
+
+def source_class_for_url(url: str) -> str:
+    """Government-hosted document -> GOVERNMENT_DIRECT; a clerk document
+    published through a third-party document platform (Municode) ->
+    GOVERNMENT_PLATFORM. The clerk is the source of record either way."""
+    return "GOVERNMENT_PLATFORM" if MUNICODE_HOST in (url or "") else "GOVERNMENT_DIRECT"
 
 
 def normalize_parcel(p: str) -> str:
@@ -198,6 +239,7 @@ def _rows_from_table(table: list, county: str, source_url: str) -> list[dict]:
     if not found_header:
         return rows  # not a recognizable data table - e.g. a stray formatting grid
     header_idx, field_names = found_header
+    header_keys = [normalize_header_key(str(c)) if c else "" for c in table[header_idx]]
     body = table[header_idx + 1:]
     for raw in body:
         # Defense in depth: a "no properties" notice can render as a
@@ -217,6 +259,10 @@ def _rows_from_table(table: list, county: str, source_url: str) -> list[dict]:
             val = str(raw[i]).strip()
             if val:
                 record[field] = val
+                if field == "bid":
+                    # What the county's own column label says this amount
+                    # IS - carried through to purchase_amount_kind.
+                    record["bid_kind"] = amount_kind_for_header(header_keys[i] if i < len(header_keys) else None)
         # A "SOLD TO" (or similar) column with a value means this property
         # has already been purchased and is no longer available - confirmed
         # on Hendry's PDF, which keeps sold rows on the same list rather
@@ -266,16 +312,36 @@ def extract_label_value_rows(full_text: str, county: str, source_url: str) -> li
                 records.append(finalize_record(current))
             current = {"county": county, "source": "laft", "url_auction": source_url}
         current[field] = value
+        if field == "bid":
+            current["bid_kind"] = amount_kind_for_header(m.group(1).lower())
     if current and (current.get("case_no") or current.get("parcel")) and not current.get("sold_to"):
         records.append(finalize_record(current))
     return records
 
 
 def extract_rows(pdf_bytes: bytes, county: str, source_url: str) -> list[dict]:
+    return extract_rows_with_outcome(pdf_bytes, county, source_url)[0]
+
+
+def extract_rows_with_outcome(pdf_bytes: bytes, county: str, source_url: str) -> tuple[list[dict], dict]:
+    """(rows, outcome). `outcome` says what the parser actually SAW, so a
+    zero-row result can be classified honestly instead of reported as an
+    empty list:
+
+        empty_marker  - the document itself says nothing is listed (EMPTY)
+        table_seen    - pdfplumber found at least one table-like grid
+        rows          - number of usable property rows extracted
+
+    Zero rows with no empty marker (Brevard's procedural-text LOLA.pdf, or
+    any layout neither table strategy nor the label scanner recognises) is
+    an INCOMPLETE observation - the list may well be empty, but this parser
+    did not confirm it."""
+    outcome = {"empty_marker": False, "table_seen": False, "rows": 0}
     with pdfplumber.open(io.BytesIO(pdf_bytes)) as pdf:
         full_text = "\n".join(p.extract_text() or "" for p in pdf.pages)
         if looks_empty(full_text):
-            return []
+            outcome["empty_marker"] = True
+            return [], outcome
 
         rows: list[dict] = []
         text_strategy_settings = {
@@ -303,6 +369,8 @@ def extract_rows(pdf_bytes: bytes, county: str, source_url: str) -> list[dict]:
                 strategy_used = strategy_used + ["text"] * len(extra)
 
             for table, strat in zip(page_tables, strategy_used):
+                if table:
+                    outcome["table_seen"] = True
                 found = _rows_from_table(table, county, source_url)
                 if not found and table:
                     # Diagnostic only, never fatal - lets a CI run reveal
@@ -339,13 +407,38 @@ def extract_rows(pdf_bytes: bytes, county: str, source_url: str) -> list[dict]:
             seen.add(key)
             deduped.append(r)
         rows = deduped
-    return rows
+    outcome["rows"] = len(rows)
+    return rows, outcome
+
+
+def _fetch_with_successor(url: str, source_page: str | None, entry: dict | None):
+    """conditional_get(), plus the Municode successor-link discovery on a
+    404 (see discover_successor_pdf). Returns (status, content, validators,
+    url_used, discovered_from)."""
+    try:
+        status, content, validators = conditional_get(requests, url, entry, headers={"User-Agent": UA}, timeout=30)
+        return status, content, validators, url, None
+    except requests.exceptions.HTTPError as exc:
+        code = getattr(getattr(exc, "response", None), "status_code", None)
+        if code != 404 or not source_page:
+            raise
+        print("      registered PDF link returned 404 - looking for the current link on the clerk's source page", flush=True)
+        page = requests.get(source_page, headers={"User-Agent": UA}, timeout=30)
+        page.raise_for_status()
+        successor = discover_successor_pdf(page.text, url)
+        if not successor:
+            raise
+        print(f"      trying discovered successor: {successor}", flush=True)
+        status, content, validators = conditional_get(requests, successor, None, headers={"User-Agent": UA}, timeout=30)
+        return status, content, validators, successor, source_page
 
 
 def main() -> int:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     with open(SOURCES_CSV, newline="", encoding="utf-8") as f:
         sources = list(csv.DictReader(f))
+
+    recorder = StatusRecorder("fl_laft_pdfs", source_class="GOVERNMENT_DIRECT", parser_version=str(PARSER_VERSION))
 
     # Change detection - see scripts/harvest_cache.py for the full rationale.
     # A county whose PDF is byte-identical to the one we already parsed costs
@@ -359,46 +452,65 @@ def main() -> int:
     all_rows: list[dict] = []
     for i, src in enumerate(sources, 1):
         county, url = src["County"], src["Url"]
+        source_page = (src.get("SourcePage") or "").strip() or None
         print(f"[{i}/{len(sources)}] {county}", flush=True)
         entry = cache.get(url)
+        status_kw = dict(source_url=source_page or url, document_url=url, source_class=source_class_for_url(url))
         try:
-            status, content, validators = conditional_get(
-                requests, url, entry, headers={"User-Agent": UA}, timeout=30
-            )
+            status, content, validators, url_used, _discovered = _fetch_with_successor(url, source_page, entry)
+            status_kw["document_url"] = url_used
+            doc_kw = dict(document_sha256=validators.get("sha256"), document_etag=validators.get("etag"),
+                          document_last_modified=validators.get("last_modified"))
 
             if status in ("not_modified", "unchanged") and entry and "rows" in entry:
                 rows = entry["rows"]
                 reused += 1
                 why = "server says unchanged" if status == "not_modified" else "identical content"
                 print(f"      unchanged ({why}) - reusing {len(rows)} cached rows, parse skipped", flush=True)
+                recorder.complete(county, len(rows), from_cache=True, **status_kw, **doc_kw)
             else:
                 if content is None:
                     # 304 but we have no cached rows to reuse (cache was
                     # cleared, or this entry predates row caching). Refetch
                     # unconditionally rather than reporting zero rows.
-                    resp = requests.get(url, headers={"User-Agent": UA}, timeout=30)
+                    resp = requests.get(url_used, headers={"User-Agent": UA}, timeout=30)
                     resp.raise_for_status()
                     content = resp.content
-                rows = extract_rows(content, county, url)
+                rows, outcome = extract_rows_with_outcome(content, county, url_used)
                 if rows:
                     print(f"      {len(rows)} properties", flush=True)
+                    recorder.complete(county, len(rows), **status_kw, **doc_kw)
+                elif outcome["empty_marker"]:
+                    print("      no properties currently listed (document says so)", flush=True)
+                    recorder.empty(county, "empty_marker", **status_kw, **doc_kw)
                 else:
-                    print("      no properties currently listed", flush=True)
+                    # Zero rows but the document never said it was empty:
+                    # Brevard's procedural-only PDF, or a layout this parser
+                    # does not recognise. Not an authoritative empty list.
+                    print("      0 rows and no empty marker - INCOMPLETE (unconfirmed empty, parser saw "
+                          f"{'a table' if outcome['table_seen'] else 'no table'})", flush=True)
+                    recorder.incomplete(county, "PARSE_NO_TABLE" if not outcome["table_seen"] else "UNCONFIRMED_EMPTY",
+                                        "no recognisable data table and no empty-list marker in the PDF",
+                                        **status_kw, **doc_kw)
 
             all_rows.extend(rows)
             # Only cache rows we actually believe in. Caching a zero-row parse
             # would let one bad parse suppress a county until the PDF changed.
             if rows:
                 validators["rows"] = rows
-                new_cache[url] = validators
+                new_cache[url_used] = validators
         except Exception as exc:  # noqa: BLE001 - one bad county must not kill the whole run
-            print(f"      ERROR: {exc}", flush=True)
+            category, detail = describe_exception(exc)
+            print(f"      ERROR ({category}): {exc}", flush=True)
+            recorder.failed(county, exc, **status_kw)
             # Keep the previous good entry so a transient failure doesn't also
             # throw away a usable cache for the next run.
             if entry:
                 new_cache[url] = entry
 
     save_cache("laft_pdf", new_cache)
+    recorder.write()
+    print(recorder.summary_line(), flush=True)
     record_cache_stats("laft_pdf", reused, len(sources))
     if reused:
         print(f"\n{reused} of {len(sources)} sources were unchanged - parse skipped for those.", flush=True)

@@ -2101,6 +2101,16 @@ const flLandsPage = await newPage({ viewport: { width: 1200, height: 900 } });
 await flLandsPage.goto(BASE_URL + '#/lands', { waitUntil: 'networkidle' });
 await flLandsPage.waitForTimeout(400);
 results.flLandsGroupMetaText = ((await flLandsPage.locator('.county-group .county-meta').first().textContent()) || '').trim();
+// Migration 017 amount semantics in hasPublishedBid(): purchase_amount_kind
+// is authoritative when present; the legacy bid sentinel rule is unchanged
+// for rows without it. Exercised through the module's test hook because the
+// fixture deliberately adds no card for each branch.
+results.bidKindNotPublishedWinsOverSentinel = await flLandsPage.evaluate(() => window.__tdwHasPublishedBid({ bid: 2000, purchase_amount: null, purchase_amount_kind: 'NOT_PUBLISHED' }));
+results.bidKindPublishedAmountWinsOverZeroSentinel = await flLandsPage.evaluate(() => window.__tdwHasPublishedBid({ bid: 0, purchase_amount: 500, purchase_amount_kind: 'OPENING_BID' }));
+results.bidLegacyZeroSentinelNotPublished = await flLandsPage.evaluate(() => window.__tdwHasPublishedBid({ bid: 0 }));
+results.bidLegacyNullNotPublished = await flLandsPage.evaluate(() => window.__tdwHasPublishedBid({ bid: null }));
+results.bidLegacyPositiveStillPublished = await flLandsPage.evaluate(() => window.__tdwHasPublishedBid({ bid: 2000 }));
+results.bidTxVendorRowWithoutKindUsesLegacyRule = await flLandsPage.evaluate(() => window.__tdwHasPublishedBid({ bid: 4451.95, purchase_amount: null, purchase_amount_kind: null }));
 await flLandsPage.close();
 
 await browser.close();
@@ -2684,6 +2694,13 @@ const EXPECTED = {
   txStruckOffGroupMetaText: "Struck-off / future-sale inventory - no auction date; see each card's status",
   txStruckOffGroupMetaNeverLandsAvailable: true,
   flLandsGroupMetaText: 'Lands Available - fixed price, available now',
+  // Migration 017 amount semantics (hasPublishedBid).
+  bidKindNotPublishedWinsOverSentinel: false,
+  bidKindPublishedAmountWinsOverZeroSentinel: true,
+  bidLegacyZeroSentinelNotPublished: false,
+  bidLegacyNullNotPublished: false,
+  bidLegacyPositiveStillPublished: true,
+  bidTxVendorRowWithoutKindUsesLegacyRule: true,
 };
 
 const mismatches = [];

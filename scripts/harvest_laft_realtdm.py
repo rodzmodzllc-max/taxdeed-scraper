@@ -95,7 +95,8 @@ from pathlib import Path
 import requests
 from bs4 import BeautifulSoup
 
-from harvest_cache import load_cache, record_cache_stats, save_cache
+from harvest_cache import PARSER_VERSION, load_cache, record_cache_stats, save_cache
+from laft_status import CategorizedError, StatusRecorder, describe_exception
 
 HERE = Path(__file__).resolve().parent
 SOURCES_CSV = HERE / "../data/laft_realtdm_counties.csv"
@@ -172,6 +173,43 @@ CASE_ID_IN_VALUE_RE = re.compile(r"^(\d+)\|")
 # date to be near - there is no "auction date" field on a LAFT case to
 # bypass against, so a date-based trigger would have nothing real to check.
 PRICE_CACHE_MAX_AGE_SECONDS = 12 * 3600
+
+# EMPTY-VS-BROKEN (2026-09-29, master LAFT audit Phase A4). This harvester's
+# own docstring admitted that "0 results looks identical to no properties
+# right now". Two signals now separate them:
+#
+#   1. The results page must still be a recognisable realTDM case-list page
+#      (the `<a data-status-id=...>` status links are present). A response
+#      without them - a login/disclaimer interstitial, an error page, a
+#      vendor redesign - is a FORMAT CHANGE, never an empty list.
+#   2. A recognised page with zero `.content-box.load-case` cards is EMPTY
+#      only if it also carries one of the phrases below. None of these
+#      phrases has been captured from a live tenant yet (the audit could
+#      not reach the site), so until one is confirmed and added here a zero
+#      is recorded INCOMPLETE / UNCONFIRMED_EMPTY: the county's existing
+#      rows stay active and nothing is closed out on its account. That is
+#      the deliberate fail-closed default; adding the real phrase upgrades
+#      the signal, silence never does.
+REALTDM_EMPTY_MARKERS = (
+    "no cases found",
+    "no records found",
+    "no results found",
+    "no cases match",
+    "0 cases found",
+)
+
+# What the figure captured from the detail page IS: the case's purchase
+# price as the clerk publishes it (base figure - see PURCHASE PRICE above).
+BID_KIND = "FIXED_PURCHASE_PRICE"
+
+
+def _page_recognised(soup: BeautifulSoup) -> bool:
+    return soup.find("a", attrs={"data-status-id": True}) is not None
+
+
+def _empty_marker_present(soup: BeautifulSoup) -> bool:
+    text = re.sub(r"\s+", " ", soup.get_text(" ", strip=True).lower())
+    return any(marker in text for marker in REALTDM_EMPTY_MARKERS)
 
 
 # RealTDM's own date format ("Oct 21, 2025") isn't one
@@ -320,8 +358,20 @@ def _parse_cases(html: bytes, county: str, source_url: str) -> list[dict]:
     return out
 
 
+def classify_results_page(html: bytes, rows: list[dict]) -> dict:
+    """The empty-vs-broken outcome for one tenant's results POST - pure, so
+    it can be tested on captured HTML. Keys: page_recognised, empty_marker,
+    rows."""
+    soup = BeautifulSoup(html, "html.parser")
+    return {
+        "page_recognised": _page_recognised(soup),
+        "empty_marker": (not rows) and _empty_marker_present(soup),
+        "rows": len(rows),
+    }
+
+
 def harvest_county(session: requests.Session, county: str, subdomain: str,
-                    price_cache: dict, new_price_cache: dict) -> tuple[list[dict], int, int]:
+                    price_cache: dict, new_price_cache: dict) -> tuple[list[dict], dict, int, int]:
     base_url = f"https://{subdomain}.realtdm.com"
     url = f"{base_url}/public/cases/list"
     resp = session.get(url, headers={"User-Agent": UA}, timeout=30)
@@ -329,11 +379,11 @@ def harvest_county(session: requests.Session, county: str, subdomain: str,
     soup = BeautifulSoup(resp.content, "html.parser")
 
     if _is_placeholder_tenant(soup):
-        raise RuntimeError(f"{subdomain}.realtdm.com is an unconfigured placeholder tenant (renders as \"TEST\") - not a real county instance")
+        raise CategorizedError("PLACEHOLDER_TENANT", f"{subdomain}.realtdm.com is an unconfigured placeholder tenant (renders as \"TEST\") - not a real county instance")
 
     found = _find_status_id(soup, STATUS_LABELS)
     if not found:
-        raise RuntimeError(f'none of the known "List of Lands" status labels {STATUS_LABELS!r} were found on this tenant - label wording may differ here')
+        raise CategorizedError("PARSE_FORMAT_CHANGE", f'none of the known "List of Lands" status labels {STATUS_LABELS!r} were found on this tenant - label wording may differ here')
     status_id, matched_label = found
     if matched_label != STATUS_LABELS[0]:
         print(f"    (matched alternate label {matched_label!r})", flush=True)
@@ -361,6 +411,7 @@ def harvest_county(session: requests.Session, county: str, subdomain: str,
     resp = session.post(url, data=form_data, headers={"User-Agent": UA}, timeout=30)
     resp.raise_for_status()
     rows = _parse_cases(resp.content, county, url)
+    outcome = classify_results_page(resp.content, rows)
 
     # Second pass: one detail request per case for the purchase price. See
     # the PURCHASE PRICE section of the module docstring for why this is
@@ -390,6 +441,7 @@ def harvest_county(session: requests.Session, county: str, subdomain: str,
             price = _fetch_purchase_price(session, base_url, case_id)
         if price:
             row["bid"] = price
+            row["bid_kind"] = BID_KIND
             priced += 1
             new_price_cache[cache_key] = {"price": price, "fetched_at": now}
         else:
@@ -401,12 +453,13 @@ def harvest_county(session: requests.Session, county: str, subdomain: str,
             print(f"    WARNING: {missing_id} case(s) had no extractable case ID - no price looked up for those", flush=True)
         if unparsed:
             print(f"    WARNING: {unparsed} case(s) returned no parseable \"Purchase Price\" - left without a bid rather than guessing", flush=True)
+    outcome["price_unparsed"] = unparsed + missing_id
 
     # "attempted" = every case a price lookup was actually possible for
     # (has a case ID) - excludes missing_id, which was never a candidate for
     # either a live fetch or a cache hit. This is the denominator
     # record_cache_stats() uses in main(), not len(rows).
-    return rows, reused, priced + unparsed
+    return rows, outcome, reused, priced + unparsed
 
 
 def main() -> int:
@@ -423,24 +476,44 @@ def main() -> int:
     total_reused = 0
     total_attempted = 0
 
+    recorder = StatusRecorder("fl_laft_realtdm", source_class="GOVERNMENT_PLATFORM", parser_version=str(PARSER_VERSION))
+
     all_rows: list[dict] = []
     for i, src in enumerate(sources, 1):
         county, subdomain = src["County"], src["Subdomain"]
+        source_url = f"https://{subdomain}.realtdm.com/public/cases/list"
         print(f"[{i}/{len(sources)}] {county}", flush=True)
         try:
             session = requests.Session()
-            rows, reused, attempted = harvest_county(session, county, subdomain, price_cache, new_price_cache)
+            rows, outcome, reused, attempted = harvest_county(session, county, subdomain, price_cache, new_price_cache)
             total_reused += reused
             total_attempted += attempted
+            note = f"{outcome.get('price_unparsed', 0)} row(s) without a parseable purchase price" if outcome.get("price_unparsed") else None
             if rows:
                 print(f"    {len(rows)} properties", flush=True)
                 all_rows.extend(rows)
+                recorder.complete(county, len(rows), source_url=source_url, reason=note)
+            elif not outcome["page_recognised"]:
+                print("    results page not recognised as a realTDM case list - INCOMPLETE (format change?)", flush=True)
+                recorder.incomplete(county, "PARSE_FORMAT_CHANGE",
+                                    "results response carried no realTDM status links - page shape not recognised",
+                                    source_url=source_url)
+            elif outcome["empty_marker"]:
+                print("    no properties currently listed (tenant says so)", flush=True)
+                recorder.empty(county, "empty_marker", source_url=source_url)
             else:
-                print("    no properties currently listed", flush=True)
+                print("    0 cases and no empty-result marker - INCOMPLETE (unconfirmed empty; see REALTDM_EMPTY_MARKERS)", flush=True)
+                recorder.incomplete(county, "UNCONFIRMED_EMPTY",
+                                    "zero case cards on a recognised page, but no empty-result phrase confirmed for this platform",
+                                    source_url=source_url)
         except Exception as exc:  # noqa: BLE001 - one bad county must not kill the whole run
-            print(f"    ERROR: {exc}", flush=True)
+            category, _detail = describe_exception(exc)
+            print(f"    ERROR ({category}): {exc}", flush=True)
+            recorder.failed(county, exc, source_url=source_url)
 
     save_cache("laft_realtdm_prices", new_price_cache)
+    recorder.write()
+    print(recorder.summary_line(), flush=True)
     # Denominator is purchase-price lookups attempted, not len(sources) as in
     # the other two harvesters' record_cache_stats() calls - this cache
     # operates per-case, not per-source, so that's the unit a "hit ratio"

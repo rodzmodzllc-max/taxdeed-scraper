@@ -43,6 +43,8 @@ from pathlib import Path
 
 import requests
 
+from laft_status import CategorizedError, StatusRecorder, describe_exception
+
 HERE = Path(__file__).resolve().parent
 OUT_DIR = HERE / "../out"
 OUT_JSON = OUT_DIR / "harvest_laft_leon.json"
@@ -76,11 +78,15 @@ def _clean(value) -> str:
     return str(value).strip()
 
 
-def harvest() -> list[dict]:
-    resp = requests.get(DATA_URL, timeout=30, headers={"Accept": "application/json, text/plain, */*"})
-    resp.raise_for_status()
-    payload = resp.json()
-    entries = payload.get("data", []) if isinstance(payload, dict) else []
+BID_KIND = "OPENING_BID"  # the feed's own field name: Opening_Bid
+
+
+def parse_payload(payload) -> list[dict]:
+    """Rows from the JSON file's `{"data": [...]}` envelope. A payload
+    without that envelope is a format change, not an empty list."""
+    if not isinstance(payload, dict) or not isinstance(payload.get("data"), list):
+        raise CategorizedError("PARSE_FORMAT_CHANGE", "listoflands.txt no longer carries a {\"data\": [...]} envelope")
+    entries = payload["data"]
 
     out: list[dict] = []
     for entry in entries:
@@ -98,19 +104,38 @@ def harvest() -> list[dict]:
                 record["sale_date"] = sale_date
             except ValueError:
                 record["sale_date"] = sale_date  # pass through rather than drop the data
+        if record.get("bid"):
+            record["bid_kind"] = BID_KIND
         if record.get("case_no") or record.get("parcel"):
             out.append(record)
     return out
 
 
+def harvest() -> list[dict]:
+    resp = requests.get(DATA_URL, timeout=30, headers={"Accept": "application/json, text/plain, */*"})
+    resp.raise_for_status()
+    return parse_payload(resp.json())
+
+
 def main() -> int:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
+    recorder = StatusRecorder("fl_laft_leon", source_class="GOVERNMENT_DIRECT")
     print(f"[1/1] {COUNTY}", flush=True)
     try:
         rows = harvest()
+        if rows:
+            recorder.complete(COUNTY, len(rows), source_url=PAGE_URL, document_url=DATA_URL)
+        else:
+            # The envelope was present and its list was empty - the feed
+            # itself says nothing is listed.
+            recorder.empty(COUNTY, "empty_list", source_url=PAGE_URL, document_url=DATA_URL)
     except Exception as exc:  # noqa: BLE001 - report cleanly, don't crash the job
-        print(f"    ERROR: {exc}", flush=True)
+        category, _detail = describe_exception(exc)
+        print(f"    ERROR ({category}): {exc}", flush=True)
+        recorder.failed(COUNTY, exc, source_url=PAGE_URL, document_url=DATA_URL)
         rows = []
+    recorder.write()
+    print(recorder.summary_line(), flush=True)
 
     if rows:
         priced = sum(1 for r in rows if r.get("bid"))
