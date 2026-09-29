@@ -1430,6 +1430,23 @@ adapter exists (`harvesters/otc/adapters/arcgis.py`). No state beyond
 FL/TX is registered, no registry row was added, no migration applied.
 Full description: `docs/otc-inventory-model.md` section 11.
 
+## Alabama onboarding foundation (2026-09-29, no state activated)
+
+`harvesters/governance/states.py` registers **AL as a NON-production
+state** (representable, never runnable) and defines the ten
+`ACTIVATION_REQUIREMENTS`; `is_activated()` is what `otc.gate`,
+`CountySourceRow.runnable` and `scripts/laft_lifecycle.py` consult, so a
+registered-but-inactive state is refused before any request.
+`data/county_source_registry.csv` carries five extra columns
+(`publishing_unit`, `publishing_unit_name`, `amount_kind`,
+`update_frequency`, `source_terminology`) and ONE Alabama candidate row
+(SEARCH_EVIDENCE_ONLY, TERMS_NOT_VERIFIED, URL deliberately blank).
+`harvesters/otc/adapters/alabama.py` is the adapter CONTRACT (config,
+field map, as-published identifiers, status vocabulary, amount and
+purchase-path semantics, fixture parsing) with no transport; migration
+`020_state_extensible_vocabulary.sql` is written and NOT applied. The
+activation checklist and what is still unverified: `docs/alabama-onboarding.md`.
+
 ## SaaS launch-readiness hardening (2026-09-29, PR open, not merged)
 
 Branch `feat/saas-readiness-hardening`. What it adds, and where to look:

@@ -258,7 +258,13 @@ def test_l04_rpc_exposes_the_new_columns_to_approved_users_only(scratch):
 
 
 def test_l05_migration_018_takes_the_whole_registry_and_refuses_client_writes(scratch):
-    rows = to_db_rows(load_registry())
+    # 018's table holds FL/TX county rows; the Alabama state-level candidate
+    # (2026-09-29) needs migration 020 and is refused by the bridge, never
+    # flattened into this shape.
+    everything = load_registry()
+    with pytest.raises(ValueError, match="migration 018"):
+        to_db_rows(everything)
+    rows = to_db_rows([r for r in everything if r.state in ("FL", "TX")])
     cols = list(rows[0].keys())
 
     def lit(v):

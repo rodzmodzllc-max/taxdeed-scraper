@@ -311,6 +311,12 @@ def lifecycle_inventory(state: str) -> tuple[str | None, str | None]:
     cfg = states.get_state(state)
     if cfg is None:
         raise ValueError(f"state {state!r} is not registered (harvesters/governance/states.py)")
+    if not states.is_activated(state):
+        # Registered is not activated: a state whose sources have not been
+        # verified and authorised (Alabama today) never reaches the database,
+        # not even as a filter.
+        raise ValueError(f"state {state!r} is registered but not activated for production - blockers: "
+                         f"{', '.join(states.activation_blockers(state))}")
     if cfg.lifecycle_inventory_type is not None and cfg.lifecycle_inventory_type not in DB_SUPPORTED_INVENTORY_TYPES:
         # public.properties' check constraint (migration 017) would reject
         # the PATCH; refuse up front instead of failing per batch.

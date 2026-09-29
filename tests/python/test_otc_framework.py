@@ -13,6 +13,7 @@ import pytest
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "scripts"))
 
+from harvesters.governance.county_source_registry import AMOUNT_KINDS as csr_amount_kinds  # noqa: E402
 from harvesters.governance.county_source_registry import load_registry, lookup  # noqa: E402
 from harvesters.otc import (DB_SUPPORTED_AMOUNT_KINDS, DB_SUPPORTED_INVENTORY_TYPES, AmountKind, InventoryType,  # noqa: E402
                             OtcRecord, PurchaseUrlKind, SourceAuthority, UrlRef)
@@ -48,7 +49,7 @@ def test_m01_vocabularies_are_distinct_and_shared():
     assert DB_SUPPORTED_AMOUNT_KINDS == {"MINIMUM_PURCHASE_AMOUNT", "OPENING_BID", "ORIGINAL_OPENING_BID", "FIXED_PURCHASE_PRICE",
                                          "ESTIMATED_PURCHASE_PRICE", "PUBLISHED_AMOUNT_KIND_UNSPECIFIED", "NOT_PUBLISHED"}
     assert {k.value for k in AmountKind} == DB_SUPPORTED_AMOUNT_KINDS | {"QUOTED_ON_APPLICATION"}
-    assert {k.value for k in AmountKind} == set(ls.AMOUNT_KINDS)
+    assert {k.value for k in AmountKind} == set(ls.AMOUNT_KINDS) == set(csr_amount_kinds)
     assert set(ls.DB_AMOUNT_KINDS) == DB_SUPPORTED_AMOUNT_KINDS
     assert {k.value for k in PurchaseUrlKind} == {"purchase_instructions", "offer_form", "bid_form", "application_form", "online_purchase"}
     sql = (REPO / "scripts/migrations/017_otc_inventory_provenance_lifecycle.sql").read_text(encoding="utf-8")

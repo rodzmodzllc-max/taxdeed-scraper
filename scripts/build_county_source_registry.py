@@ -36,6 +36,11 @@ COLUMNS = [
     "canonical_url", "document_url", "purchase_url", "purchase_url_kind",
     "access_method", "machine_format", "verification_status", "governance_status",
     "last_checked", "completeness_status", "evidence_ref", "notes",
+    # 2026-09-29 (Alabama onboarding): the publishing-unit and semantics
+    # columns - county_source_registry.EXTENDED_COLUMNS. Every FL/TX row is
+    # COUNTY-level with the other four blank; migration 020 (NOT applied)
+    # adds them to the table.
+    "publishing_unit", "publishing_unit_name", "amount_kind", "update_frequency", "source_terminology",
 ]
 
 FL_INVENTORY = "POST_SALE_FIXED_PRICE"
@@ -63,6 +68,7 @@ def _completeness(county: str) -> str:
 
 def _row(**kw) -> dict:
     row = {c: "" for c in COLUMNS}
+    row["publishing_unit"] = "COUNTY"
     row.update(kw)
     return row
 
@@ -246,8 +252,38 @@ def tx_rows() -> list[dict]:
     return rows
 
 
+# Alabama (2026-09-29): ONE state-level candidate row for the researched
+# concept - tax-delinquent land held by the State and sold by the Alabama
+# Department of Revenue, Property Tax Division (State Land Commissioner),
+# reported (search index only) as per-county transcripts updated weekly,
+# with the purchase price quoted on application. Every field that would
+# need a fetched page to fill (URL, access method, machine format) is blank
+# or UNKNOWN on purpose: no URL is recorded until one has been read from
+# this repository, and SEARCH_EVIDENCE_ONLY / TERMS_NOT_VERIFIED keep the
+# gate shut (harvesters/otc/gate.py refuses the state before it even looks
+# at the row). See docs/alabama-onboarding.md for the activation checklist.
+AL_STATE_LAND = dict(
+    state="AL", county="STATEWIDE", source_id="al_ador_state_land", harvester="",
+    inventory_type="STATE_HELD_TAX_LAND", source_authority="GOVERNMENT_DIRECT",
+    canonical_url="", document_url="", purchase_url="", purchase_url_kind="",
+    access_method="UNKNOWN", machine_format="UNKNOWN",
+    verification_status="SEARCH_EVIDENCE_ONLY", governance_status="TERMS_NOT_VERIFIED",
+    last_checked="2026-09-29", completeness_status="UNKNOWN", evidence_ref=AUDIT,
+    notes="Researched concept only: state-held tax-delinquent land sold by ADOR Property Tax Division; per-county transcripts reported; price quoted on application. No page fetched from this repository; URL deliberately blank.",
+    publishing_unit="STATE",
+    publishing_unit_name="Alabama Department of Revenue, Property Tax Division (State Land Commissioner)",
+    amount_kind="QUOTED_ON_APPLICATION",
+    update_frequency="weekly (reported in search results; not verified)",
+    source_terminology="tax delinquent properties / land sold to the State of Alabama; transcript; price quote on application (research wording, unverified)",
+)
+
+
+def al_rows() -> list[dict]:
+    return [_row(**AL_STATE_LAND)]
+
+
 def build_rows() -> list[dict]:
-    rows = fl_production_rows() + fl_candidate_rows() + tx_rows()
+    rows = fl_production_rows() + fl_candidate_rows() + tx_rows() + al_rows()
     rows.sort(key=lambda r: (r["state"], r["county"], r["source_id"]))
     return rows
 

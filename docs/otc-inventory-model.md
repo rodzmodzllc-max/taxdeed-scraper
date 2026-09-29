@@ -414,3 +414,17 @@ rows; which spelling the layer's `PARCEL_ID` uses is unverified), Citrus
 parcel at all), Indian River LAFT (`d5-d3` account-style numbers; the
 county's `ALT_KEY` is 5-6 digits, so no rule follows), Escambia LAFT
 (the clerk's list publishes an empty Parcel ID cell - nothing to match).
+
+## 14. Alabama onboarding foundation (2026-09-29)
+
+Full description: `docs/alabama-onboarding.md`. The stable facts: `AL` is
+registered in `harvesters/governance/states.py` as a NON-production state
+(representable, never runnable); `ACTIVATION_REQUIREMENTS` (ten items) and
+`is_activated()` are consulted by `otc.gate.evaluate_source`,
+`CountySourceRow.runnable` and `scripts/laft_lifecycle.py`, so a
+registered-but-inactive state is refused before any request; the registry
+CSV carries `EXTENDED_COLUMNS` (publishing unit and name, amount kind,
+update frequency, source terminology) and one Alabama candidate row with
+no URL; `harvesters/otc/adapters/alabama.py` is the adapter contract with
+no transport; migration `020_state_extensible_vocabulary.sql` widens the
+017/018 constraints and adds the registry columns, and is NOT applied.
