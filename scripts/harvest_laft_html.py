@@ -89,7 +89,7 @@ from bs4 import BeautifulSoup
 
 from harvest_cache import PARSER_VERSION, conditional_get, load_cache, record_cache_stats, save_cache
 from laft_status import (CategorizedError, StatusRecorder, amount_kind_for_header, describe_exception,
-                         record_identifiers_plausible)
+                         extract_list_as_of, record_identifiers_plausible)
 
 HERE = Path(__file__).resolve().parent
 SOURCES_CSV = HERE / "../data/laft_html_sources.csv"
@@ -445,9 +445,15 @@ def extract_rows_with_outcome(html: bytes, county: str, source_url: str) -> tupl
     structure was never seen populated - Sumter, Lafayette - or a page
     that changed shape) is INCOMPLETE: the list may be empty, this parser
     did not confirm it."""
-    outcome = {"empty_marker": False, "header_table_found": False, "card_rows": False, "rows": 0, "rejected": 0}
+    outcome = {"empty_marker": False, "header_table_found": False, "card_rows": False, "rows": 0, "rejected": 0,
+               "list_as_of": None}
     soup = BeautifulSoup(html, "html.parser")
     page_text = soup.get_text(" ", strip=True)
+    # The page's own "as of / updated / list date" statement, if it makes
+    # one (laft_status.extract_list_as_of - the same phrase set the PDF
+    # harvester reads off the document text). Recorded on the county's
+    # status entry as list_as_of; never the retrieval time.
+    outcome["list_as_of"] = extract_list_as_of(page_text)
     if looks_empty(page_text):
         outcome["empty_marker"] = True
         return [], outcome
@@ -553,6 +559,7 @@ def main() -> int:
                 reused += 1
                 why = "server says unchanged" if status == "not_modified" else "identical content"
                 print(f"    unchanged ({why}) - reusing {len(rows)} cached rows, parse skipped", flush=True)
+                doc_kw["list_as_of"] = entry.get("list_as_of")
                 recorder.complete(county, len(rows), from_cache=True, **status_kw, **doc_kw)
             else:
                 if content is None:
@@ -562,6 +569,7 @@ def main() -> int:
                     resp = fetch(session, url)
                     content = resp.content
                 rows, outcome = extract_rows_with_outcome(content, county, url)
+                doc_kw["list_as_of"] = outcome.get("list_as_of")
                 if outcome.get("rejected"):
                     print(f"    {outcome['rejected']} row(s) rejected by the identifier gate (not a parcel/case number)", flush=True)
                 if rows:
@@ -593,6 +601,7 @@ def main() -> int:
             # changes (same discipline as harvest_laft_pdfs.py).
             if rows:
                 validators["rows"] = rows
+                validators["list_as_of"] = doc_kw.get("list_as_of")
                 new_cache[url] = validators
         except Exception as exc:  # noqa: BLE001 - one bad county must not kill the whole run
             category, _detail = describe_exception(exc)

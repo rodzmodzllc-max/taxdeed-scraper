@@ -77,7 +77,7 @@ from laft_status import (DB_AMOUNT_KINDS, CLOSEOUT_ELIGIBLE, load_status,  # noq
                          statuses_by_county)
 import laft_source_fields as SF  # noqa: E402
 from harvesters.governance import states  # noqa: E402
-from harvesters.governance.county_source_registry import DB_SUPPORTED_INVENTORY_TYPES  # noqa: E402
+from harvesters.governance.county_source_registry import DB_SUPPORTED_INVENTORY_TYPES, PurchaseUrlKind  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parent
@@ -148,6 +148,63 @@ def observed_by_county(rows: list[dict]) -> dict[str, dict[str, dict]]:
             continue
         out.setdefault(key[0], {})[key[1]] = r
     return out
+
+
+# Purchase-path kinds (migration 017 / county_source_registry.PurchaseUrlKind).
+# PROPERTY kinds are links a buyer uses for THIS parcel; INSTRUCTION kinds
+# are the county's process page. Both are stored in purchase_url +
+# purchase_url_kind; the kind is what keeps them apart downstream (the app
+# never presents an instructions page as a property link).
+PURCHASE_URL_KINDS = frozenset(k.value for k in PurchaseUrlKind)
+PROPERTY_PURCHASE_KINDS = frozenset({"online_purchase", "offer_form", "bid_form"})
+
+
+def load_registry_purchase_paths(registry_path: Path, state: str = DEFAULT_STATE) -> dict[tuple[str, str], tuple[str, str]]:
+    """(source_id, county) -> (purchase_url, purchase_url_kind) for the
+    state's PRODUCTION_VERIFIED registry rows that carry one. A source-
+    level path (an application / instructions page verified for that
+    county's source) - never a per-property link, which only a harvester
+    row can supply. Blank in the committed registry today: this returns {}
+    until a county's path is verified and added there."""
+    import csv
+    if not registry_path.is_file():
+        return {}
+    out: dict[tuple[str, str], tuple[str, str]] = {}
+    with open(registry_path, newline="", encoding="utf-8") as fh:
+        for r in csv.DictReader(fh):
+            if r.get("state") != state or r.get("verification_status") != "PRODUCTION_VERIFIED":
+                continue
+            url, kind = (r.get("purchase_url") or "").strip(), (r.get("purchase_url_kind") or "").strip()
+            if url and kind:
+                out[(r.get("source_id") or "", r.get("county") or "")] = (url, kind)
+    return out
+
+
+def purchase_path_of(row: dict, *, list_url: str | None, document_url: str | None, source_id: str | None,
+                     county: str | None, registry_paths: dict | None) -> tuple[str | None, str | None, str]:
+    """(purchase_url, purchase_url_kind, basis) for one observed row.
+
+    1. The harvester row's own purchase_url + purchase_url_kind - a link the
+       SOURCE published for this exact property (kind in PurchaseUrlKind).
+    2. Else the registry's source-level path for (source_id, county).
+    3. Else (None, None) - nothing is derived from a list page, a document
+       URL or a county homepage; the row keeps whatever it already holds.
+    A URL is accepted only if it is https and differs from the list and
+    document URLs (a list page is never a purchase URL - 017's rule)."""
+    def ok(url, kind):
+        return (isinstance(url, str) and url.startswith("https://") and kind in PURCHASE_URL_KINDS
+                and url != list_url and url != document_url)
+    url, kind = row.get("purchase_url"), row.get("purchase_url_kind")
+    if ok(url, kind):
+        level = "property-level" if kind in PROPERTY_PURCHASE_KINDS else "source-level"
+        return url, kind, f"{level} {kind} link published by the source for this property"
+    if registry_paths and source_id is not None and county is not None:
+        found = registry_paths.get((source_id, county))
+        if found and ok(*found):
+            url, kind = found
+            level = "property-level" if kind in PROPERTY_PURCHASE_KINDS else "source-level"
+            return url, kind, f"{level} {kind} page for this county's source (data/county_source_registry.csv)"
+    return None, None, "no purchase path published by the source or verified in the registry - none invented"
 
 
 def load_expected_units(registry_path: Path, state: str = DEFAULT_STATE) -> list[tuple[str, str]]:
@@ -261,11 +318,15 @@ def lifecycle_inventory(state: str) -> tuple[str | None, str | None]:
     return cfg.lifecycle_inventory_type, cfg.lifecycle_inventory_basis
 
 
-def provenance_payload(row: dict, gate: dict, retrieved_at: str, *, state: str = DEFAULT_STATE) -> dict:
+def provenance_payload(row: dict, gate: dict, retrieved_at: str, *, state: str = DEFAULT_STATE,
+                       registry_paths: dict | None = None) -> dict:
     """The migration-017 columns for one observed row. Every value comes
     from the harvester's own status entry or the row it read; nothing is
     derived from the county name or guessed. The inventory type is the
-    state's registered lifecycle type (FL: the statutory fixed-price list)."""
+    state's registered lifecycle type (FL: the statutory fixed-price list).
+    purchase_url / purchase_url_kind are set only when purchase_path_of()
+    finds one; otherwise the keys are absent so an existing value is never
+    overwritten with NULL."""
     entry = gate.get("entry") or {}
     inventory_type, inventory_basis = lifecycle_inventory(state)
     amount, kind = amount_of(row)
@@ -275,6 +336,10 @@ def provenance_payload(row: dict, gate: dict, retrieved_at: str, *, state: str =
         document_url = document_url  # a PDF list is both the list and the document
     list_as_of = entry.get("list_as_of") or None
     published_at = published_at_from_last_modified(entry.get("document_last_modified"))
+    source_id = entry.get("source_id") or gate.get("harvester")
+    purchase_url, purchase_kind, purchase_basis = purchase_path_of(
+        row, list_url=list_url, document_url=document_url, source_id=source_id, county=row.get("county"),
+        registry_paths=registry_paths)
     payload = {
         "last_seen_at": retrieved_at,
         # Currentness, from the source's own statements only: list_as_of is the
@@ -303,9 +368,13 @@ def provenance_payload(row: dict, gate: dict, retrieved_at: str, *, state: str =
             "purchase_amount": ("not published by the source" if amount is None else f"source column/field: {kind}"),
             "list_as_of": ("stated by the list document/filename" if list_as_of else "not stated by the source"),
             "source_published_at": ("HTTP Last-Modified of the source document" if published_at else "no Last-Modified from the source"),
+            "purchase_url": purchase_basis,
             "status_terminology": "active = on the county list this run; closed = absent from a COMPLETE/EMPTY harvest",
         },
     }
+    if purchase_url is not None:
+        payload["purchase_url"] = purchase_url
+        payload["purchase_url_kind"] = purchase_kind
     if inventory_type is None:
         # This state's lifecycle does not classify inventory: leave the
         # column untouched rather than writing NULL over a harvester's value.
@@ -330,11 +399,12 @@ def published_at_from_last_modified(value) -> str | None:
     return dt.astimezone(timezone.utc).replace(microsecond=0).isoformat()
 
 
-def group_provenance(rows: list[tuple[str, dict]], gate: dict, retrieved_at: str, *, state: str = DEFAULT_STATE) -> list[tuple[dict, list[str]]]:
+def group_provenance(rows: list[tuple[str, dict]], gate: dict, retrieved_at: str, *, state: str = DEFAULT_STATE,
+                     registry_paths: dict | None = None) -> list[tuple[dict, list[str]]]:
     """[(payload, [case_no...])] - identical payloads share one PATCH."""
     groups: dict[str, tuple[dict, list[str]]] = {}
     for case_no, row in rows:
-        payload = provenance_payload(row, gate, retrieved_at, state=state)
+        payload = provenance_payload(row, gate, retrieved_at, state=state, registry_paths=registry_paths)
         key = json.dumps(payload, sort_keys=True, default=str)
         groups.setdefault(key, (payload, []))[1].append(case_no)
     return list(groups.values())
@@ -425,7 +495,7 @@ def run_source_fields(observed: dict[str, dict[str, dict]], gates: dict[str, dic
 
 
 def execute(plan: Plan, gates: dict[str, dict], observed: dict[str, dict[str, dict]], api: Api,
-            *, state: str, have_017: bool, retrieved_at: str) -> dict:
+            *, state: str, have_017: bool, retrieved_at: str, registry_paths: dict | None = None) -> dict:
     counts = {"observed": len(plan.observe), "reactivated": 0, "closed": 0, "provenance_patches": 0}
     # 1. Reactivation (status column exists today).
     by_county: dict[str, list[str]] = {}
@@ -442,7 +512,7 @@ def execute(plan: Plan, gates: dict[str, dict], observed: dict[str, dict[str, di
         for county, case_no in plan.observe:
             obs_by_county.setdefault(county, []).append((case_no, observed[county][case_no]))
         for county, rows in obs_by_county.items():
-            for payload, keys in group_provenance(rows, gates[county], retrieved_at, state=state):
+            for payload, keys in group_provenance(rows, gates[county], retrieved_at, state=state, registry_paths=registry_paths):
                 for i in range(0, len(keys), BATCH):
                     api.patch(f"state=eq.{state}&source=eq.{SOURCE}&county=eq.{q(county)}&case_no=in.{q(in_list(keys[i:i + BATCH]))}",
                               payload)
@@ -509,6 +579,7 @@ def main(argv=None) -> int:
     elif not entries:
         print(f"::warning title=laft_lifecycle::{status_path} unreadable or empty - nothing is observed or closed this run (fail closed)")
     expected = load_expected_units(Path(args.registry), state)
+    registry_paths = load_registry_purchase_paths(Path(args.registry), state)
     gates = county_gates(entries, expected, max_age_hours=args.max_age_hours) if entries else {}
     observed = observed_by_county(load_harvest_rows([Path(p) for p in args.harvest]))
 
@@ -531,7 +602,8 @@ def main(argv=None) -> int:
     if not have_019:
         print("::notice title=laft_lifecycle::migration 019 not applied - escheatment_date / available_date are not written")
     retrieved_at = now_iso()
-    counts = execute(plan, gates, observed, api, state=state, have_017=have_017, retrieved_at=retrieved_at)
+    counts = execute(plan, gates, observed, api, state=state, have_017=have_017, retrieved_at=retrieved_at,
+                     registry_paths=registry_paths)
     # Observed rows only: the same COMPLETE/INCOMPLETE gate as last_seen_at.
     observed_gated = {c: rows for c, rows in observed.items() if gates.get(c, {}).get("status") in OBSERVED_STATUSES}
     sf_counts, sf_columns = run_source_fields(observed_gated, gates, db_rows, api, have_019=have_019, retrieved_at=retrieved_at)

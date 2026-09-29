@@ -2826,43 +2826,82 @@ const PURCHASE_URL_KIND_LABELS = {
   application_form: "Application form", online_purchase: "Buy online"
 };
 const dateOnly = v => (v ? fmtDate(String(v).slice(0, 10)) : "");
+// Purchase-path kinds (migration 017's purchase_url_kind vocabulary):
+// a PROPERTY-level action link the buyer uses for THIS parcel, versus a
+// source-level application / instructions page that explains the county's
+// process. Only the first is ever presented as "purchase this property";
+// the second is labelled as instructions; neither is ever synthesized from
+// a list page or a county homepage (both stay "No online purchase link on
+// file").
+const PROPERTY_PURCHASE_KINDS = ["online_purchase", "offer_form", "bid_form"];
+const INSTRUCTION_PURCHASE_KINDS = ["purchase_instructions", "application_form"];
+function purchasePathOf(p) {
+  if (!p || !p.purchase_url) return { kind: "none" };
+  if (PROPERTY_PURCHASE_KINDS.includes(p.purchase_url_kind)) return { kind: "property", url: p.purchase_url, label: PURCHASE_URL_KIND_LABELS[p.purchase_url_kind] };
+  if (INSTRUCTION_PURCHASE_KINDS.includes(p.purchase_url_kind)) return { kind: "instructions", url: p.purchase_url, label: PURCHASE_URL_KIND_LABELS[p.purchase_url_kind] };
+  // A URL with no recognised kind (a row written before the vocabulary
+  // existed) is shown only as instructions, never as a property action.
+  return { kind: "instructions", url: p.purchase_url, label: "Purchase link" };
+}
 function inventoryCardHtml(p) {
   if (p.source !== "laft") return "";
   const tx = regionOf(p) === "TX";
   const muted = t => `<span class="muted">${esc(t)}</span>`;
   const row = (k, v, cls) => `<div class="kv-row"><span class="kv-label">${esc(k)}</span><span class="kv-val${cls ? " " + cls : ""}">${v}</span></div>`;
+  const head = t => `<div class="kv-group-head">${esc(t)}</div>`;
   const link = (href, label) => `<a href="${esc(href)}" target="_blank" rel="noopener">${esc(label)} →</a>`;
-  const rows = [];
-  rows.push(row("Inventory", INVENTORY_TYPE_LABELS[p.inventory_type] ? esc(INVENTORY_TYPE_LABELS[p.inventory_type])
+  // ---- Inventory: what the list says about this parcel's availability.
+  const inv = [];
+  inv.push(row("Inventory", INVENTORY_TYPE_LABELS[p.inventory_type] ? esc(INVENTORY_TYPE_LABELS[p.inventory_type])
     : muted("Not classified - the source has not said whether this is purchasable now")));
   let amount;
   if (p.purchase_amount_kind === "NOT_PUBLISHED") amount = muted("Not published by the source");
   else if (hasNum(p.purchase_amount) && Number(p.purchase_amount) > 0) amount = `${esc(fmtMoney(p.purchase_amount))}<span class="kv-sub">${esc(AMOUNT_KIND_LABELS[p.purchase_amount_kind] || AMOUNT_KIND_LABELS.PUBLISHED_AMOUNT_KIND_UNSPECIFIED)}</span>`;
   else if (hasPublishedBid(p)) amount = `${esc(fmtMoney(p.bid))}<span class="kv-sub">${esc(tx ? "Vendor minimum bid (legacy column)" : AMOUNT_KIND_LABELS.PUBLISHED_AMOUNT_KIND_UNSPECIFIED)}</span>`;
   else amount = muted("Not published");
-  rows.push(row(tx ? "Amount" : "Price", amount));
-  if (p.certificate_no) rows.push(row("Certificate #", esc(p.certificate_no), "mono"));
+  inv.push(row(tx ? "Amount" : "Price", amount));
+  if (p.certificate_no) inv.push(row("Certificate #", esc(p.certificate_no), "mono"));
   // Migration 019 columns: rendered only when the API projects them, so an
   // older RPC never shows a false "Not published".
-  if (p.available_date !== undefined) rows.push(row("Available for purchase", p.available_date ? esc(dateOnly(p.available_date)) : muted("Not published by the list")));
-  if (p.escheatment_date !== undefined) rows.push(row("Escheats to county", p.escheatment_date ? `${esc(dateOnly(p.escheatment_date))}<span class="kv-sub">Deadline stated by the county list (F.S. 197.502(8))</span>` : muted("Not published by the list")));
+  if (p.available_date !== undefined) inv.push(row("Available for purchase", p.available_date ? esc(dateOnly(p.available_date)) : muted("Not published by the list")));
+  if (p.escheatment_date !== undefined) inv.push(row("Escheats to county", p.escheatment_date ? `${esc(dateOnly(p.escheatment_date))}<span class="kv-sub">Deadline stated by the county list (F.S. 197.502(8))</span>` : muted("Not published by the list")));
   const listUrl = p.list_url || (p.url_auction_kind === "county" ? p.url_auction : null);
-  rows.push(row("Source list", listUrl ? link(listUrl, tx ? "Vendor list page" : "County list page") : muted(tx ? "No list URL published per property" : "No list URL published")));
-  if (p.document_url && p.document_url !== listUrl) rows.push(row("Source document", link(p.document_url, "List document (PDF / file)")));
-  rows.push(row("Purchase", p.purchase_url
-    ? link(p.purchase_url, PURCHASE_URL_KIND_LABELS[p.purchase_url_kind] || "Purchase link")
-    : muted(tx ? "No purchase link published - a vendor list page is not a purchase mechanism"
-               : "No online purchase link on file - the county list page is not a purchase mechanism; purchase goes through the county under F.S. 197.502(7)")));
-  rows.push(row("Published by", p.source_authority
+  inv.push(row("Source list", listUrl ? link(listUrl, tx ? "Vendor list page" : "County list page") : muted(tx ? "No list URL published per property" : "No list URL published")));
+  if (p.document_url && p.document_url !== listUrl) inv.push(row("Source document", link(p.document_url, "List document (PDF / file)")));
+  if (p.list_as_of) inv.push(row("List as of", esc(dateOnly(p.list_as_of))));
+  if (p.source_published_at) inv.push(row("Source document dated", esc(dateOnly(p.source_published_at))));
+  inv.push(row("Published by", p.source_authority
     ? `${esc(SOURCE_AUTHORITY_LABELS[p.source_authority] || p.source_authority)}${p.source_id ? `<span class="kv-sub mono">${esc(p.source_id)}</span>` : ""}`
     : muted("Not recorded")));
-  rows.push(row("Last read from source", p.last_seen_at ? esc(dateOnly(p.last_seen_at)) : muted("Not yet recorded")));
-  if (p.list_as_of) rows.push(row("List as of", esc(dateOnly(p.list_as_of))));
-  if (p.source_published_at) rows.push(row("Source document dated", esc(dateOnly(p.source_published_at))));
-  if (p.first_seen_at) rows.push(row("First seen", esc(dateOnly(p.first_seen_at))));
-  if (p.delisted_at) rows.push(row("Left the list", esc(dateOnly(p.delisted_at)), "bad"));
-  return detailSectionHtml("Inventory & Purchase", `<div class="kv-list">${rows.join("")}</div>`, "inventory-card", "inventory");
+  inv.push(row("Last read from source", p.last_seen_at ? esc(dateOnly(p.last_seen_at)) : muted("Not yet recorded")));
+  if (p.first_seen_at) inv.push(row("First seen", esc(dateOnly(p.first_seen_at))));
+  if (p.delisted_at) inv.push(row("Left the list", esc(dateOnly(p.delisted_at)), "bad"));
+  // ---- Property: what is on file about the parcel itself (county list,
+  // tax roll). Every line is a stored column or an explicit "not on file".
+  const prop = [];
+  prop.push(row("Parcel #", p.parcel ? esc(p.parcel) : muted("Not published"), p.parcel ? "mono" : ""));
+  prop.push(row("Legal description", p.legal_desc ? `<span class="kv-wrap">${esc(p.legal_desc)}</span>` : muted("Not on file")));
+  prop.push(row(tx ? "Owner of record" : "Name in which assessed", p.owner_name ? esc(p.owner_name) : muted("Not on file")));
+  prop.push(row("Assessed value", hasNum(p.assessed) ? `${esc(fmtMoney(p.assessed))}${p.value_year ? `<span class="kv-sub">Tax year ${esc(String(p.value_year))}</span>` : ""}` : muted("Not on file")));
+  prop.push(row("Taxable value", hasNum(p.taxable_value) ? esc(fmtMoney(p.taxable_value)) : muted("Not on file")));
+  prop.push(row("Acreage", hasNum(p.acreage) ? esc(Number(p.acreage).toFixed(2) + " ac") : muted("Not on file")));
+  const use = [p.land_use ? `County use code ${p.land_use}` : null, p.dor_use_code ? `DOR use code ${p.dor_use_code}` : null, p.prop_type ? p.prop_type : null].filter(Boolean);
+  prop.push(row("Land use", use.length ? esc(use.join(" · ")) : muted("Not on file")));
+  if (!tx) prop.push(row("Homestead", p.homestead === true ? "Yes (per the list)" : muted("Not indicated by the list")));
+  // ---- Purchase path: kind-driven, never inferred from a list page.
+  const path = purchasePathOf(p);
+  let purchase;
+  if (path.kind === "property") purchase = `<a class="purchase-action" href="${esc(path.url)}" target="_blank" rel="noopener">${esc(path.label)} →</a><span class="kv-sub">Property-level link published by the source</span>`;
+  else if (path.kind === "instructions") purchase = `${link(path.url, "Application / purchase instructions")}<span class="kv-sub">${esc(path.label)} - the county's process page, not a link for this specific property</span>`;
+  else purchase = muted(tx ? "No online purchase link on file - a vendor list page is not a purchase mechanism"
+                           : "No online purchase link on file - the county list page is not a purchase mechanism; purchase goes through the county under F.S. 197.502(7)");
+  const buy = [row("Purchase", purchase)];
+  const body = `<div class="kv-list" data-group="inventory">${head("Inventory")}${inv.join("")}</div>
+    <div class="kv-list" data-group="property">${head("Property")}${prop.join("")}</div>
+    <div class="kv-list" data-group="purchase">${head("Purchase path")}${buy.join("")}</div>`;
+  return detailSectionHtml("Inventory & Purchase", body, "inventory-card", "inventory");
 }
+window.__tdwInventoryCardHtml = inventoryCardHtml;
 
 // Coordinates only ever come from scripts/geocode_properties.py's real
 // Census Bureau geocode - never guessed here - so a present latitude/

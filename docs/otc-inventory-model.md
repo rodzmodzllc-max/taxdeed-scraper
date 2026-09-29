@@ -330,3 +330,42 @@ remains impossible for anything that is not PRODUCTION_VERIFIED.
 - Basemaps, centroids, city/zip files, `MINIMAP_PROJ` / `PROJ` fits and
   the two HTML pages exist for FL and TX only. A third state needs its
   own real assets; none is fabricated.
+
+## 12. Purchase path, owner carry and list dates (2026-09-29)
+
+- **Purchase path** (`scripts/laft_lifecycle.py`: `purchase_path_of`,
+  `load_registry_purchase_paths`). `purchase_url` + `purchase_url_kind` are
+  stamped on an observed row from, in order: (1) the harvester row's own
+  `purchase_url`/`purchase_url_kind` - a link the source published for that
+  exact property; (2) the registry's source-level path for
+  `(source_id, county)` (an application / instructions page verified for
+  that county's source); (3) nothing - the keys are omitted from the PATCH
+  so an existing value is never nulled. A URL is accepted only if https,
+  its kind is in `PurchaseUrlKind`, and it differs from the list and
+  document URLs (a list page is never a purchase URL). `otc_provenance.
+  purchase_url` records which of the three applied. **No FL harvester
+  emits a per-property purchase link and the committed registry carries no
+  verified path, so nothing is stamped today** - RealTDM's detail page is a
+  POST endpoint, the portals are search grids, and no county page was
+  verified from this repository. The frontend (`purchasePathOf` in
+  `app.js`) renders PROPERTY kinds (`online_purchase`, `offer_form`,
+  `bid_form`) as the one prominent action, INSTRUCTION kinds
+  (`purchase_instructions`, `application_form`) and unknown kinds as
+  "Application / purchase instructions", and no URL as "No online purchase
+  link on file".
+- **Owner of record** from the grid harvesters: Pioneer, Osceola and
+  St. Lucie emit the list's owner cell as `owners`; `laft_source_fields.
+  HARVEST_KEY_ALIASES` reads it for `owner_name` (fill-blank, county_list
+  provenance). Previously dropped.
+- **Dates**: `laft_source_fields.parse_date` accepts every complete,
+  unambiguous shape the lists publish (ISO timestamps, `MM/DD/YY`, spelled
+  months, `MM/DD/YYYY hh:mm:ss AM`); incomplete or decorated cells stay
+  UNPARSEABLE. The HTML harvester now records a page-stated "as of /
+  updated / list date" as the county's `list_as_of` (same
+  `laft_status.extract_list_as_of` the PDF harvester uses); the lifecycle
+  writes it to `list_as_of`, never the retrieval time.
+- **Frontend**: the Inventory & Purchase card is three groups - Inventory
+  (type, price, certificate, the 019 dates, list/document, list-as-of,
+  published-by, last read), Property (parcel, legal description, name in
+  which assessed, assessed / taxable value, acreage, land use, homestead -
+  each a stored column or an explicit "Not on file") and Purchase path.
