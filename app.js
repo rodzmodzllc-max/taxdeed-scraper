@@ -3757,7 +3757,11 @@ function groupKeyOf(ledgerKey, county, date) {
 // so they get a static descriptor instead of a real date.
 function groupSecondaryLine(ledgerKey, date) {
   if (ledgerKey === "auction") return date ? `Auction ${fmtDate(date)}` : "Date not yet scheduled";
-  if (ledgerKey === "laft") return "Lands Available - fixed price, available now";
+  // A Texas "laft" row is LGBS struck-off or future-sale inventory (each
+  // card's kicker carries the vendor's own status), never Florida's
+  // statutory fixed-price list - same rule as kickerParts() and
+  // opportunitySummaryHtml(). Nothing here says it is purchasable today.
+  if (ledgerKey === "laft") return PAGE_STATE === "TX" ? "Struck-off / future-sale inventory - no auction date; see each card's status" : "Lands Available - fixed price, available now";
   return "County-held certificates";
 }
 
