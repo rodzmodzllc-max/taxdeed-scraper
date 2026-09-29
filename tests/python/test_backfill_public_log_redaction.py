@@ -26,6 +26,7 @@ import re
 import sys
 
 import pytest
+import requests
 
 REPO = pathlib.Path(__file__).resolve().parents[2]
 SCRIPT = REPO / "scripts" / "backfill_fdor_phase52_fields.py"
@@ -140,3 +141,84 @@ def test_every_per_row_print_is_redacted_at_source():
     assert "def public_log_view(rec)" in src
     for banned in ("owner_name", "address", "parcel", "matched_candidate", "gains"):
         assert f'"{banned}"' not in src.split("PUBLIC_LOG_KEYS = ")[1].split("\n")[0], banned
+
+
+# ---- exception path (found by the PR #36 audit) ----
+# A requests transport error's message embeds the full request URL, and the
+# FDOR / GIS lookups put the parcel number in the query string. The reason
+# field is allowlisted into the public log, so the reason must be built from
+# the exception CATEGORY, never from str(e).
+PARCEL_URL = ("HTTPSConnectionPool(host='services9.arcgis.com', port=443): Max retries exceeded with url: "
+              "/arcgis/rest/services/Florida_Statewide_Cadastral/FeatureServer/0/query?where=PARCEL_ID%3D%2712345-678-90%27&f=json "
+              "(Caused by NewConnectionError('boom'))")
+
+
+def test_dry_run_exception_reason_is_a_category_never_the_request(mod, tmp_path, capsys, monkeypatch):
+    row = {"id": "row-1", "state": "FL", "source": "auction", "county": "Marion", "parcel": PARCEL,
+           "address": ADDRESS, "owner_name": OWNER, "dor_use_code": None, "taxable_value": None,
+           "acreage": None, "land_use": None, "fdor_alt_key": None}
+    monkeypatch.setattr(mod, "fetch_targets", lambda: [row])
+
+    def boom(r):
+        raise requests.ConnectionError(PARCEL_URL)
+    monkeypatch.setattr(mod, "production_lookup", boom)
+    monkeypatch.setattr(mod.prod, "REQUEST_DELAY_SECONDS", 0)
+    summary = mod.run_dry_run()
+    out = capsys.readouterr().out
+    assert summary["exception"] == 1
+    row_lines = [l for l in out.splitlines() if l.startswith("ROW ")]
+    assert len(row_lines) == 1
+    logged = json.loads(row_lines[0][4:])
+    assert logged["case"] == "exception" and logged["reason"] == "ConnectionError"
+    # The "6. Exceptions" summary line carries the same sanitized reason.
+    assert "   - row-1 [Marion] ConnectionError" in out
+    for leak in (PARCEL, "12345", "where=", "PARCEL_ID", "arcgis", "query?", "Max retries", "NewConnectionError", "boom", "HTTPSConnectionPool"):
+        assert leak not in out, leak
+    for value in (OWNER, ADDRESS):
+        assert value not in out, value
+    # The plan file records the same category - the raw message is not kept anywhere.
+    plan = json.loads((tmp_path / "plan.json").read_text())
+    assert PARCEL_URL not in json.dumps(plan) and "arcgis" not in json.dumps(plan)
+
+
+def test_apply_error_reason_is_a_category_with_only_the_http_status(mod, tmp_path, capsys, monkeypatch):
+    plan = {"mode": "dry-run", "cutoff": mod.CUTOFF, "target_fields": list(mod.TARGET_FIELDS), "generated_at": "x",
+            "rows": [{"id": "row-1", "source": "auction", "county": "Marion", "parcel": PARCEL, "gains": {"acreage": 2.5}},
+                     {"id": "row-2", "source": "auction", "county": "Lake", "parcel": "999", "gains": {"acreage": 1.0}}]}
+    plan_in = tmp_path / "in.json"
+    plan_in.write_text(json.dumps(plan))
+    monkeypatch.setattr(mod, "PLAN_IN", str(plan_in))
+    monkeypatch.setattr(mod.prod, "REQUEST_DELAY_SECONDS", 0)
+
+    class FakeResponse:
+        status_code = 503
+
+    def fail(planned):
+        if planned["id"] == "row-1":
+            raise requests.ConnectionError(PARCEL_URL)
+        err = requests.HTTPError("503 Server Error: Service Unavailable for url: https://example.supabase.co/rest/v1/properties?id=eq.row-2&select=parcel%2C12345-678-90")
+        err.response = FakeResponse()
+        raise err
+    monkeypatch.setattr(mod, "apply_plan_row", fail)
+    result = mod.run_apply()
+    out = capsys.readouterr().out
+    err_lines = [l for l in out.splitlines() if l.startswith("ERR ")]
+    assert [json.loads(l[4:])["reason"] for l in err_lines] == ["ConnectionError", "HTTPError (HTTP 503)"]
+    assert "   error row-2 [Lake]: HTTPError (HTTP 503)" in out
+    for leak in (PARCEL, "12345", "where=", "arcgis", "for url", "supabase.co", "Max retries", "select="):
+        assert leak not in out, leak
+    assert [e["reason"] for e in result["errors"]] == ["ConnectionError", "HTTPError (HTTP 503)"]
+
+
+def test_raw_exception_text_never_reaches_a_reason_at_source():
+    src = SCRIPT.read_text(encoding="utf-8")
+    assert "safe_exception_reason(e)" in src
+    assert "{type(e).__name__}: {e}" not in src
+    assert "str(e)" not in src
+    body = src.split("def safe_exception_reason(exc):")[1].split("\ndef ")[0]
+    # Code lines only (the docstring names the things it must not use).
+    code = "\n".join(l for l in body.split('"""')[2].splitlines() if l.strip() and not l.strip().startswith("#"))
+    for forbidden in ("str(exc)", "{exc}", "repr(", ".args", ".request", ".url", "exc.response.text", "exc.response.content", "exc.response.reason"):
+        assert forbidden not in code, forbidden
+    # Only the class name and the integer status code are read.
+    assert 'type(exc).__name__' in code and 'getattr(response, "status_code", None)' in code and "isinstance(status, int)" in code

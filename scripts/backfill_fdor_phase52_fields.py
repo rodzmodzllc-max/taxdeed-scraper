@@ -120,6 +120,22 @@ def production_lookup(row):
 PUBLIC_LOG_KEYS = ("id", "source", "county", "case", "path", "strategy", "reason", "already", "roll_empty", "written")
 
 
+def safe_exception_reason(exc):
+    """A transport/HTTP error as an operational CATEGORY only, never its
+    message text: a requests exception message embeds the full request URL, and the FDOR /
+    GIS lookups put the parcel number in that URL's query string, so the raw
+    text would carry a parcel number into the public job log via the
+    `reason` field that public_log_view() allows through. The class name is
+    always safe; the HTTP status code is an int read from the response
+    object, never from the message. Nothing else from the exception is used."""
+    reason = type(exc).__name__
+    response = getattr(exc, "response", None)
+    status = getattr(response, "status_code", None)
+    if isinstance(status, int):
+        reason += f" (HTTP {status})"
+    return reason
+
+
 def public_log_view(rec):
     """The redacted form of a plan/apply record for the public job log."""
     view = {k: rec[k] for k in PUBLIC_LOG_KEYS if k in rec}
@@ -137,7 +153,7 @@ def plan_row(row):
     try:
         attrs, centroid, cand, path = production_lookup(row)
     except requests.RequestException as e:
-        rec.update(case="exception", reason=f"{type(e).__name__}: {e}"[:160])
+        rec.update(case="exception", reason=safe_exception_reason(e))
         return rec
     if path == "unmapped":
         rec.update(case="exception", reason="county not in COUNTY_CODES")
@@ -287,7 +303,7 @@ def run_apply():
         try:
             fields, reason = apply_plan_row(planned)
         except requests.RequestException as e:
-            errors.append({"id": planned["id"], "county": planned["county"], "reason": f"{type(e).__name__}: {e}"[:160]})
+            errors.append({"id": planned["id"], "county": planned["county"], "reason": safe_exception_reason(e)})
             print("ERR " + json.dumps(public_log_view(errors[-1]), separators=(",", ":")))
             time.sleep(prod.REQUEST_DELAY_SECONDS)
             continue
