@@ -2100,13 +2100,23 @@ results.txStruckOffGroupMetaNeverLandsAvailable = txGroupMeta.every(tx => !/Land
 // (ptx3: STRUCK_OFF_HELD_IN_TRUST, no list/document/purchase URL, no
 // purchase_amount, legacy bid). Every line is a stored column or an honest
 // "not published"; the vendor list is never presented as a purchase path.
-const txInvRows = txClPage.locator('#detailModalInner .inventory-card .kv-row');
-results.txInventoryLabels = await txInvRows.locator('.kv-label').allTextContents();
-const txInvVal = n => txInvRows.nth(n).locator('.kv-val').evaluate(el => el.innerText.replace(/\s+/g, ' ').trim());
-results.txInventoryType = await txInvVal(0);
-results.txInventoryAmount = await txInvVal(1);
-results.txInventorySourceList = await txInvVal(2);
-results.txInventoryPurchase = await txInvVal(3);
+// Rows are located by their label, not by index: the card is grouped
+// (Inventory / Property / Purchase path) and a group's rows depend on which
+// columns the row carries.
+const invVal = (page, label) => page.locator('#detailModalInner .inventory-card .kv-row')
+  .filter({ has: page.locator('.kv-label', { hasText: new RegExp('^' + label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$') }) })
+  .first().locator('.kv-val').evaluate(el => el.innerText.replace(/\s+/g, ' ').trim());
+const invHref = (page, label) => page.locator('#detailModalInner .inventory-card .kv-row')
+  .filter({ has: page.locator('.kv-label', { hasText: new RegExp('^' + label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '$') }) })
+  .first().locator('a').first().getAttribute('href');
+results.txInventoryLabels = await txClPage.locator('#detailModalInner .inventory-card .kv-label').allTextContents();
+results.txInventoryGroups = await txClPage.locator('#detailModalInner .inventory-card .kv-group-head').allTextContents();
+results.txInventoryType = await invVal(txClPage, 'Inventory');
+results.txInventoryAmount = await invVal(txClPage, 'Amount');
+results.txInventorySourceList = await invVal(txClPage, 'Source list');
+results.txInventoryPurchase = await invVal(txClPage, 'Purchase');
+results.txInventoryOwner = await invVal(txClPage, 'Owner of record');
+results.txInventoryParcel = await invVal(txClPage, 'Parcel #');
 results.txInventoryAnchors = await txClPage.locator('#detailModalInner .inventory-card a').count();
 results.txInventoryGapNamesPurchaseLink = ((await txClPage.locator('#detailModalInner .opp-gaps').textContent()) || '').includes('Purchase link not on file');
 await txClPage.close();
@@ -2117,21 +2127,74 @@ await txClPage.close();
 const flInvPage = await newPage({ viewport: { width: 1200, height: 900 } });
 await flInvPage.goto(BASE_URL + '#/lands/p3', { waitUntil: 'networkidle' });
 await flInvPage.waitForTimeout(500);
-const flInvRows = flInvPage.locator('#detailModalInner .inventory-card .kv-row');
-results.flInventoryLabels = await flInvRows.locator('.kv-label').allTextContents();
-const flInvVal = n => flInvRows.nth(n).locator('.kv-val').evaluate(el => el.innerText.replace(/\s+/g, ' ').trim());
-results.flInventoryType = await flInvVal(0);
-results.flInventoryPrice = await flInvVal(1);
-results.flInventoryCertificate = await flInvVal(2);
-results.flInventoryAvailable = await flInvVal(3);
-results.flInventoryEscheat = await flInvVal(4);
-results.flInventorySourceListHref = await flInvRows.nth(5).locator('a').getAttribute('href');
-results.flInventoryDocumentHref = await flInvRows.nth(6).locator('a').getAttribute('href');
-results.flInventoryPurchase = await flInvVal(7);
-results.flInventoryPublishedBy = await flInvVal(8);
-results.flInventoryLastRead = await flInvVal(9);
-results.flInventoryListAsOf = await flInvVal(10);
-results.flInventoryDocDated = await flInvVal(11);
+results.flInventoryLabels = await flInvPage.locator('#detailModalInner .inventory-card .kv-label').allTextContents();
+results.flInventoryGroups = await flInvPage.locator('#detailModalInner .inventory-card .kv-group-head').allTextContents();
+results.flInventoryType = await invVal(flInvPage, 'Inventory');
+results.flInventoryPrice = await invVal(flInvPage, 'Price');
+results.flInventoryCertificate = await invVal(flInvPage, 'Certificate #');
+results.flInventoryAvailable = await invVal(flInvPage, 'Available for purchase');
+results.flInventoryEscheat = await invVal(flInvPage, 'Escheats to county');
+results.flInventorySourceListHref = await invHref(flInvPage, 'Source list');
+results.flInventoryDocumentHref = await invHref(flInvPage, 'Source document');
+results.flInventoryPurchase = await invVal(flInvPage, 'Purchase');
+results.flInventoryPublishedBy = await invVal(flInvPage, 'Published by');
+results.flInventoryLastRead = await invVal(flInvPage, 'Last read from source');
+results.flInventoryListAsOf = await invVal(flInvPage, 'List as of');
+results.flInventoryDocDated = await invVal(flInvPage, 'Source document dated');
+// Property group: stored columns or an explicit "not on file" - p3 carries
+// parcel/owner/assessed/homestead and no legal description, taxable value
+// or acreage.
+results.flInventoryParcel = await invVal(flInvPage, 'Parcel #');
+results.flInventoryLegal = await invVal(flInvPage, 'Legal description');
+results.flInventoryOwner = await invVal(flInvPage, 'Name in which assessed');
+results.flInventoryAssessed = await invVal(flInvPage, 'Assessed value');
+results.flInventoryTaxable = await invVal(flInvPage, 'Taxable value');
+results.flInventoryAcreage = await invVal(flInvPage, 'Acreage');
+results.flInventoryLandUse = await invVal(flInvPage, 'Land use');
+results.flInventoryHomestead = await invVal(flInvPage, 'Homestead');
+results.flInventoryPurchaseActionCount = await flInvPage.locator('#detailModalInner .inventory-card a.purchase-action').count();
+// Purchase-path rendering is kind-driven. The fixture ships no row with a
+// purchase_url (no Florida county has a verified one), so the other states
+// are exercised through the module's own renderer on synthetic rows: a
+// PROPERTY-level kind is the one prominent action; an instructions kind is
+// an ordinary link labelled as instructions; a URL with no recognised kind
+// is never promoted to an action; no URL says so; a list page is never
+// turned into a purchase link.
+const purchaseUi = await flInvPage.evaluate(() => {
+  const base = { source: 'laft', state: 'FL', county: 'Bay', case_no: 'C-9', parcel: '9', inventory_type: 'POST_SALE_FIXED_PRICE',
+                 purchase_amount_kind: 'NOT_PUBLISHED', list_url: 'https://x', url_auction: 'https://x', url_auction_kind: 'county' };
+  const render = p => {
+    const d = document.createElement('div');
+    d.innerHTML = window.__tdwInventoryCardHtml(p);
+    const buy = d.querySelector('.kv-list[data-group="purchase"]');
+    return {
+      action: buy.querySelectorAll('a.purchase-action').length,
+      anchors: [...buy.querySelectorAll('a')].map(a => [a.textContent.trim(), a.getAttribute('href')]),
+      text: buy.querySelector('.kv-val').textContent.replace(/\s+/g, ' ').trim(),
+      groups: [...d.querySelectorAll('.kv-group-head')].map(e => e.textContent),
+      allAnchors: d.querySelectorAll('a').length
+    };
+  };
+  return {
+    property: render({ ...base, purchase_url: 'https://x/buy/C-9', purchase_url_kind: 'online_purchase' }),
+    offer: render({ ...base, purchase_url: 'https://x/offer/C-9', purchase_url_kind: 'offer_form' }),
+    instructions: render({ ...base, purchase_url: 'https://x/how-to-buy', purchase_url_kind: 'purchase_instructions' }),
+    application: render({ ...base, purchase_url: 'https://x/apply', purchase_url_kind: 'application_form' }),
+    unknownKind: render({ ...base, purchase_url: 'https://x/legacy', purchase_url_kind: null }),
+    none: render({ ...base })
+  };
+});
+results.purchasePathPropertyLevelShowsOneAction = purchaseUi.property.action === 1 && purchaseUi.offer.action === 1;
+results.purchasePathPropertyLevelAnchor = purchaseUi.property.anchors[0];
+results.purchasePathPropertyLevelCaption = /Property-level link published by the source/.test(purchaseUi.property.text) && !/instructions/i.test(purchaseUi.property.text);
+results.purchasePathInstructionsAnchor = purchaseUi.instructions.anchors[0];
+results.purchasePathInstructionsNeverAction = purchaseUi.instructions.action === 0 && purchaseUi.application.action === 0
+  && /not a link for this specific property/.test(purchaseUi.instructions.text) && /Application \/ purchase instructions/.test(purchaseUi.application.text);
+results.purchasePathUnknownKindNeverAction = purchaseUi.unknownKind.action === 0 && purchaseUi.unknownKind.anchors.length === 1 && /Application \/ purchase instructions/.test(purchaseUi.unknownKind.text);
+results.purchasePathNoneText = purchaseUi.none.text;
+results.purchasePathNoneHasNoAnchorInPurchaseGroup = purchaseUi.none.anchors.length === 0;
+results.purchasePathListPageIsOnlySourceListLink = purchaseUi.none.allAnchors === 1;
+results.inventoryCardGroups = purchaseUi.none.groups;
 results.flInventoryNavHasInventory = (await flInvPage.locator('#detailModalInner .detail-nav button').allTextContents()).includes('Inventory');
 results.flInventoryNoAiBadge = !/score|confidence|AI /i.test((await flInvPage.locator('#detailModalInner .inventory-card').textContent()) || '');
 await flInvPage.close();
@@ -2740,14 +2803,18 @@ const EXPECTED = {
   bidLegacyPositiveStillPublished: true,
   bidTxVendorRowWithoutKindUsesLegacyRule: true,
   // Enrichment phase: Inventory & Purchase card.
-  txInventoryLabels: ['Inventory', 'Amount', 'Source list', 'Purchase', 'Published by', 'Last read from source'],
+  txInventoryLabels: ['Inventory', 'Amount', 'Source list', 'Published by', 'Last read from source', 'Parcel #', 'Legal description', 'Owner of record', 'Assessed value', 'Taxable value', 'Acreage', 'Land use', 'Purchase'],
+  txInventoryGroups: ['Inventory', 'Property', 'Purchase path'],
   txInventoryType: 'Struck off to the taxing units, held in trust (Texas)',
   txInventoryAmount: '$4,451.95 Vendor minimum bid (legacy column)',
   txInventorySourceList: 'No list URL published per property',
-  txInventoryPurchase: 'No purchase link published - a vendor list page is not a purchase mechanism',
+  txInventoryPurchase: 'No online purchase link on file - a vendor list page is not a purchase mechanism',
+  txInventoryOwner: 'Not on file',
+  txInventoryParcel: '23-TX-0644',
   txInventoryAnchors: 0,
   txInventoryGapNamesPurchaseLink: true,
-  flInventoryLabels: ['Inventory', 'Price', 'Certificate #', 'Available for purchase', 'Escheats to county', 'Source list', 'Source document', 'Purchase', 'Published by', 'Last read from source', 'List as of', 'Source document dated'],
+  flInventoryLabels: ['Inventory', 'Price', 'Certificate #', 'Available for purchase', 'Escheats to county', 'Source list', 'Source document', 'List as of', 'Source document dated', 'Published by', 'Last read from source', 'Parcel #', 'Legal description', 'Name in which assessed', 'Assessed value', 'Taxable value', 'Acreage', 'Land use', 'Homestead', 'Purchase'],
+  flInventoryGroups: ['Inventory', 'Property', 'Purchase path'],
   flInventoryType: 'Lands Available - fixed price, over the counter (F.S. 197.502(7))',
   flInventoryPrice: '$2,000.00 Opening bid',
   flInventoryCertificate: '2019-0042',
@@ -2760,6 +2827,25 @@ const EXPECTED = {
   flInventoryLastRead: 'Aug 11, 2026',
   flInventoryListAsOf: 'Aug 10, 2026',
   flInventoryDocDated: 'Aug 10, 2026',
+  flInventoryParcel: '333',
+  flInventoryLegal: 'Not on file',
+  flInventoryOwner: 'Bob',
+  flInventoryAssessed: '$60,000.00 Tax year 2024',
+  flInventoryTaxable: 'Not on file',
+  flInventoryAcreage: 'Not on file',
+  flInventoryLandUse: 'Condo',
+  flInventoryHomestead: 'Yes (per the list)',
+  flInventoryPurchaseActionCount: 0,
+  purchasePathPropertyLevelShowsOneAction: true,
+  purchasePathPropertyLevelAnchor: ['Buy online →', 'https://x/buy/C-9'],
+  purchasePathPropertyLevelCaption: true,
+  purchasePathInstructionsAnchor: ['Application / purchase instructions →', 'https://x/how-to-buy'],
+  purchasePathInstructionsNeverAction: true,
+  purchasePathUnknownKindNeverAction: true,
+  purchasePathNoneText: 'No online purchase link on file - the county list page is not a purchase mechanism; purchase goes through the county under F.S. 197.502(7)',
+  purchasePathNoneHasNoAnchorInPurchaseGroup: true,
+  purchasePathListPageIsOnlySourceListLink: true,
+  inventoryCardGroups: ['Inventory', 'Property', 'Purchase path'],
   flInventoryNavHasInventory: true,
   flInventoryNoAiBadge: true,
 };

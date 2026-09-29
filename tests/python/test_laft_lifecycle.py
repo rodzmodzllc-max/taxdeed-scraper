@@ -385,3 +385,90 @@ def test_s03_workflow_wires_status_file_lifecycle_and_changes_no_schedule():
     texas = raw[raw.index("  texas:"):raw.index("\n  backup:")]
     assert "if: github.event_name == 'workflow_dispatch'" in texas and "laft_lifecycle" not in texas
     assert names.index("Sync to Supabase") < names.index("Record source health")
+
+
+# ==================== 4. purchase path (2026-09-29) ====================
+
+PP_URL = "https://county.invalid/lands/apply/2025-001"
+
+
+def _pp_gate(county="Marion", source_id="fl_laft_pdfs"):
+    g = _gates(**{county: "COMPLETE"})[county]
+    g["entry"]["source_id"] = source_id
+    g["entry"]["document_url"] = f"https://{county.lower()}/list.pdf"
+    return g
+
+
+def test_pp01_property_level_link_from_the_harvester_row_is_stamped_with_its_kind():
+    row = {"county": "Marion", "case_no": "A", "purchase_url": PP_URL, "purchase_url_kind": "online_purchase"}
+    p = L.provenance_payload(row, _pp_gate(), NOW)
+    assert p["purchase_url"] == PP_URL and p["purchase_url_kind"] == "online_purchase"
+    assert p["otc_provenance"]["purchase_url"].startswith("property-level online_purchase link published by the source")
+    for kind in ("offer_form", "bid_form"):
+        assert L.purchase_path_of({"purchase_url": PP_URL, "purchase_url_kind": kind}, list_url="https://l", document_url=None,
+                                  source_id="s", county="Marion", registry_paths=None)[2].startswith("property-level")
+    assert L.purchase_path_of({"purchase_url": PP_URL, "purchase_url_kind": "application_form"}, list_url="https://l", document_url=None,
+                              source_id="s", county="Marion", registry_paths=None)[2].startswith("source-level")
+
+
+def test_pp02_a_list_page_document_url_bad_scheme_or_unknown_kind_is_never_a_purchase_url():
+    gate = _pp_gate()
+    base = {"county": "Marion", "case_no": "A"}
+    for bad in ({"purchase_url": "https://marion", "purchase_url_kind": "online_purchase"},          # == list_url
+                {"purchase_url": "https://marion/list.pdf", "purchase_url_kind": "online_purchase"}, # == document_url
+                {"purchase_url": "http://county.invalid/x", "purchase_url_kind": "online_purchase"}, # not https
+                {"purchase_url": PP_URL, "purchase_url_kind": "homepage"},                          # unknown kind
+                {"purchase_url": PP_URL},                                                           # no kind
+                {"purchase_url_kind": "online_purchase"},                                           # no url
+                {}):
+        p = L.provenance_payload({**base, **bad}, gate, NOW)
+        assert "purchase_url" not in p and "purchase_url_kind" not in p, bad
+        assert p["otc_provenance"]["purchase_url"].startswith("no purchase path published")
+
+
+def test_pp03_registry_path_applies_to_its_exact_source_and_county_only_and_never_over_a_row_link():
+    reg = {("fl_laft_pdfs", "Marion"): ("https://marion.invalid/lands-available/how-to-buy", "purchase_instructions")}
+    p = L.provenance_payload({"county": "Marion", "case_no": "A"}, _pp_gate(), NOW, registry_paths=reg)
+    assert p["purchase_url"] == "https://marion.invalid/lands-available/how-to-buy" and p["purchase_url_kind"] == "purchase_instructions"
+    assert "source-level purchase_instructions page for this county's source" in p["otc_provenance"]["purchase_url"]
+    # Same source, another county: nothing. Same county, another source: nothing.
+    assert "purchase_url" not in L.provenance_payload({"county": "Volusia", "case_no": "B"}, _pp_gate("Volusia"), NOW, registry_paths=reg)
+    assert "purchase_url" not in L.provenance_payload({"county": "Marion", "case_no": "A"}, _pp_gate("Marion", "fl_laft_html"), NOW, registry_paths=reg)
+    # A registry entry that is the list page itself is refused too.
+    assert "purchase_url" not in L.provenance_payload({"county": "Marion", "case_no": "A"}, _pp_gate(), NOW,
+                                                      registry_paths={("fl_laft_pdfs", "Marion"): ("https://marion", "purchase_instructions")})
+    # The harvester row's own property-level link wins over the registry's page.
+    row = {"county": "Marion", "case_no": "A", "purchase_url": PP_URL, "purchase_url_kind": "online_purchase"}
+    assert L.provenance_payload(row, _pp_gate(), NOW, registry_paths=reg)["purchase_url"] == PP_URL
+
+
+def test_pp04_registry_purchase_paths_load_only_this_states_production_rows_and_the_committed_file_has_none(tmp_path):
+    reg = tmp_path / "r.csv"
+    reg.write_text("state,county,source_id,verification_status,purchase_url,purchase_url_kind\n"
+                   "FL,Marion,fl_laft_pdfs,PRODUCTION_VERIFIED,https://m/how,purchase_instructions\n"
+                   "FL,Volusia,fl_laft_pdfs,PRODUCTION_VERIFIED,,\n"
+                   "FL,Glades,fl_laft_pdfs,SEARCH_EVIDENCE_ONLY,https://g/how,purchase_instructions\n"
+                   "TX,Galveston,tx_lgbs,PRODUCTION_VERIFIED,https://t/how,purchase_instructions\n"
+                   "FL,Lee,fl_laft_realtdm,PRODUCTION_VERIFIED,https://l/how,\n")
+    assert L.load_registry_purchase_paths(reg, "FL") == {("fl_laft_pdfs", "Marion"): ("https://m/how", "purchase_instructions")}
+    assert L.load_registry_purchase_paths(reg, "TX") == {("tx_lgbs", "Galveston"): ("https://t/how", "purchase_instructions")}
+    assert L.load_registry_purchase_paths(tmp_path / "missing.csv", "FL") == {}
+    # The committed registry carries no verified purchase path for any county: nothing is stamped today.
+    assert L.load_registry_purchase_paths(REPO / "data/county_source_registry.csv", "FL") == {}
+
+
+def test_pp05_end_to_end_a_row_level_link_reaches_the_patch_and_rows_without_one_carry_no_key(tmp_path):
+    store = _Store([dict(r) for r in DB], have_017=True)
+    rows = [
+        {"county": "Marion", "case_no": "A", "bid": "1,200.00", "bid_kind": "MINIMUM_PURCHASE_AMOUNT",
+         "purchase_url": PP_URL, "purchase_url_kind": "online_purchase"},
+        {"county": "Marion", "parcel": "P-2"},
+    ]
+    r, report = _run_script(tmp_path, store, harvest_rows=rows)
+    assert r.returncode == 0, r.stderr + r.stdout
+    prov = [b for p, b in store.patches if "last_seen_at" in b]
+    with_link = [b for b in prov if "purchase_url" in b]
+    without = [b for b in prov if "purchase_url" not in b]
+    assert len(with_link) == 1 and with_link[0]["purchase_url"] == PP_URL and with_link[0]["purchase_url_kind"] == "online_purchase"
+    assert len(without) == 1 and "purchase_url_kind" not in without[0]
+    assert PP_URL not in r.stdout + (tmp_path / "summary.md").read_text()   # public log never carries a row value

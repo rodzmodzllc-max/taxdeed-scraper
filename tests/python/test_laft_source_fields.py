@@ -84,9 +84,38 @@ def test_v02_homestead_is_yes_or_nothing_never_false(raw, expected):
 
 
 @pytest.mark.parametrize("raw,expected", [("07/01/2029", "2029-07-01"), ("7/1/2029", "2029-07-01"), ("2026-09-01", "2026-09-01"),
-                                          ("07-01-2029", "2029-07-01"), ("July 1 2029", None), ("13/40/2029", None), ("", None)])
+                                          ("07-01-2029", "2029-07-01"), ("13/40/2029", None), ("", None),
+                                          # 2026-09-29: every other complete, unambiguous shape a county list has
+                                          # published a date in (Osceola/St. Lucie ISO timestamps, Leon's
+                                          # MM/DD/YYYY, spelled-out months, two-digit slash years).
+                                          ("July 1 2029", "2029-07-01"), ("July 1, 2029", "2029-07-01"), ("Jan 5, 2027", "2027-01-05"),
+                                          ("07/01/29", "2029-07-01"), ("2025-04-22T00:00:00", "2025-04-22"),
+                                          ("2025-04-22T00:00:00.000Z", "2025-04-22"), ("2025-04-22T00:00:00-04:00", "2025-04-22"),
+                                          ("10/22/2025 12:00:00 AM", "2025-10-22"), ("  10/22/2025 ", "2025-10-22"),
+                                          # Still refused: incomplete, ambiguous or decorated cells.
+                                          ("2025-04-22T00:00", None), ("July 2029", None), ("1/5/27 approx", None),
+                                          ("Available now", None), ("N/A", None), (20290701, None)])
 def test_v03_dates_parse_deterministically_or_not_at_all(raw, expected):
     assert SF.parse_date(raw) == expected
+
+
+def test_v07_owner_of_record_is_read_from_the_owners_key_the_grid_harvesters_emit():
+    """Pioneer, Osceola and St. Lucie emit the list's owner cell as `owners`;
+    the carry reads it as owner_name (county_list) - first non-blank key
+    wins, fill-blank as always, nothing merged."""
+    assert SF.HARVEST_KEY_ALIASES["owner_name"] == ("owner_name", "owners")
+    assert SF.harvest_value({"owners": "SMITH JOHN"}, "owner_name") == "SMITH JOHN"
+    assert SF.harvest_value({"owner_name": "  ", "owners": "SMITH JOHN"}, "owner_name") == "SMITH JOHN"
+    assert SF.harvest_value({"owner_name": "DOE JANE", "owners": "SMITH JOHN"}, "owner_name") == "DOE JANE"
+    assert SF.harvest_value({}, "owner_name") is None
+    assert SF.harvest_value({"owners": "X"}, "legal_desc") is None      # aliases are per column, never cross-wired
+    observed = {"Osceola": {"34892020": {"county": "Osceola", "case_no": "34892020", "owners": "SMITH JOHN"},
+                            "47312022": {"county": "Osceola", "case_no": "47312022", "owners": "IGNORED"}}}
+    db = [{"id": "a", "county": "Osceola", "case_no": "34892020", "owner_name": None, "field_provenance": None},
+          {"id": "b", "county": "Osceola", "case_no": "47312022", "owner_name": "ON FILE ALREADY", "field_provenance": None}]
+    updates, counters = SF.plan_source_fields(observed, db, list(SF.BASE_COLUMNS))
+    assert [(u.id, u.fields) for u in updates] == [("a", {"owner_name": "SMITH JOHN"})]
+    assert counters.skipped_present == {"owner_name": 1} and counters.fields_written == {} or counters.matched == 2
 
 
 def test_v04_unparseable_cells_are_counted_and_never_coerced():

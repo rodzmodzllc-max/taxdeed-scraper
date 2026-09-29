@@ -53,7 +53,12 @@ from field_provenance import is_blank, merge_field_provenance, provenance_entry 
 SOURCE = "county_list"
 
 # column -> harvest key. Same names on both sides today; the mapping exists
-# so a harvester rename never silently detaches a column.
+# so a harvester rename never silently detaches a column. HARVEST_KEY_ALIASES
+# names the OTHER keys a harvester may use for the same list cell: the
+# Pioneer/TaxSmartWeb grid ("Owners"), Osceola's NewVision API (last_name)
+# and St. Lucie's AcclaimWeb grid ("Property Owners") all emit the owner of
+# record under `owners`, which this carry silently ignored until 2026-09-29.
+# The first key with a non-blank value wins; nothing is merged or guessed.
 BASE_COLUMNS = {
     "legal_desc": "legal_desc",
     "owner_name": "owner_name",
@@ -68,10 +73,30 @@ OPTIONAL_COLUMNS = {
     "available_date": "available_date",
 }
 ALL_COLUMNS = {**BASE_COLUMNS, **OPTIONAL_COLUMNS}
+HARVEST_KEY_ALIASES = {
+    "owner_name": ("owner_name", "owners"),
+}
+
+
+def harvest_value(row: dict, column: str):
+    """The harvested cell for `column`: the mapped key, then its aliases,
+    first non-blank wins."""
+    for key in HARVEST_KEY_ALIASES.get(column, (ALL_COLUMNS[column],)):
+        value = row.get(key)
+        if not is_blank(value):
+            return value
+    return None
+
 
 _NUM_RE = re.compile(r"^\d+(\.\d+)?$")
 _YES = frozenset({"y", "yes", "true", "x", "hx", "homestead", "homestead exemption"})
-_DATE_FORMATS = ("%m/%d/%Y", "%Y-%m-%d", "%m-%d-%Y")
+# Every format a Florida list has been seen to publish a date in. Each is an
+# unambiguous, complete calendar date; a two-digit year (%y) is accepted only
+# in the slash form the clerks use ("07/01/29") and strptime pins it to
+# 1969-2068. A cell that fits none of these is UNPARSEABLE, never coerced.
+_DATE_FORMATS = ("%m/%d/%Y", "%Y-%m-%d", "%m-%d-%Y", "%m/%d/%y",
+                 "%Y-%m-%dT%H:%M:%S", "%Y-%m-%d %H:%M:%S", "%m/%d/%Y %H:%M:%S", "%m/%d/%Y %I:%M:%S %p",
+                 "%B %d, %Y", "%b %d, %Y", "%B %d %Y", "%b %d %Y", "%d-%b-%Y", "%d-%b-%y")
 
 
 def parse_text(raw) -> str | None:
@@ -105,7 +130,12 @@ def parse_yes(raw) -> bool | None:
 def parse_date(raw) -> str | None:
     if is_blank(raw):
         return None
-    text = str(raw).strip()
+    text = re.sub(r"\s+", " ", str(raw)).strip()
+    # An ISO timestamp with fractional seconds / zone (Osceola, St. Lucie
+    # style "2025-04-22T00:00:00.000Z") carries its date in the first ten
+    # characters; only that exact shape is trimmed.
+    if re.match(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:?\d{2})?$", text):
+        text = text[:10]
     for fmt in _DATE_FORMATS:
         try:
             return datetime.strptime(text, fmt).date().isoformat()
@@ -201,7 +231,7 @@ def plan_source_fields(observed: dict[str, dict[str, dict]], db_rows: list[dict]
             counters.matched += 1
             fields: dict = {}
             for column in wanted:
-                raw = row.get(ALL_COLUMNS[column])
+                raw = harvest_value(row, column)
                 if is_blank(raw):
                     continue
                 value = PARSERS[column](raw)
