@@ -59,8 +59,16 @@ jobs:
       # the production script never runs with, which is the wrong direction
       # for a suite whose whole purpose is catching things that only show up
       # against the real thing.
+      #
+      # beautifulsoup4 and pdfplumber added 2026-09-29 (FL LAFT reliability
+      # PR): tests/python/test_laft_harvester_gates.py and
+      # test_otc_framework.py drive the REAL scripts/harvest_laft_*.py
+      # parsers and harvesters/otc/adapters/tabular.py on fixtures, and those
+      # modules import bs4 / pdfplumber at module level. Same reasoning as
+      # requests above: install the real dependency, never stub it, so CI
+      # exercises what production runs. Still no network call anywhere.
       - name: Install pytest
-        run: pip install pytest pyyaml requests
+        run: pip install pytest pyyaml requests beautifulsoup4 pdfplumber
 
       # Deliberately NOT continue-on-error, NOT `|| true`, NOT a soft-fail
       # wrapper of any kind (Phase 10B Step 3's explicit requirement) - a
