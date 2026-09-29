@@ -2088,7 +2088,20 @@ await txClPage.waitForTimeout(500);
 results.txStruckOffDetailTag = ((await txClPage.locator('#detailModalInner .prop-county-tag').textContent()) || '').trim();
 results.txStruckOffWhat = ((await txClPage.locator('#detailModalInner .opp-cell').first().textContent()) || '').replace(/\s+/g, ' ').trim();
 results.txStruckOffNeverLandsAvailable = !((await txClPage.locator('#detailModalInner').textContent()) || '').includes('Lands Available for Taxes');
+// Residual from the final review of PR #35: the county-group header on the
+// Texas struck-off ledger used the Florida "Lands Available - fixed price,
+// available now" line. It must describe the inventory without claiming it
+// is purchasable today; the Florida page keeps the statutory wording.
+const txGroupMeta = await txClPage.locator('.county-group .county-meta').allTextContents();
+results.txStruckOffGroupMetaCount = txGroupMeta.length;
+results.txStruckOffGroupMetaText = txGroupMeta[0] ? txGroupMeta[0].trim() : null;
+results.txStruckOffGroupMetaNeverLandsAvailable = txGroupMeta.every(tx => !/Lands Available|available now/i.test(tx));
 await txClPage.close();
+const flLandsPage = await newPage({ viewport: { width: 1200, height: 900 } });
+await flLandsPage.goto(BASE_URL + '#/lands', { waitUntil: 'networkidle' });
+await flLandsPage.waitForTimeout(400);
+results.flLandsGroupMetaText = ((await flLandsPage.locator('.county-group .county-meta').first().textContent()) || '').trim();
+await flLandsPage.close();
 
 await browser.close();
 
@@ -2667,6 +2680,10 @@ const EXPECTED = {
   txStruckOffDetailTag: 'Galveston County, TX · Struck-off inventory',
   txStruckOffWhat: 'WhatTexas struck-off / future-sale inventory (vendor listing)Source: LGBS (taxsales.lgbs.com)',
   txStruckOffNeverLandsAvailable: true,
+  txStruckOffGroupMetaCount: 2,
+  txStruckOffGroupMetaText: "Struck-off / future-sale inventory - no auction date; see each card's status",
+  txStruckOffGroupMetaNeverLandsAvailable: true,
+  flLandsGroupMetaText: 'Lands Available - fixed price, available now',
 };
 
 const mismatches = [];

@@ -110,6 +110,40 @@ def production_lookup(row):
     return attrs, centroid, cand, path
 
 
+# What a per-row line in the PUBLIC workflow log may carry (this repository
+# is public, so every run's log is public). Operational facts only: the row
+# id (an opaque uuid), source, county, the match case/path/strategy, the
+# NAMES of the fields that would gain a value, and a reason. Never a field
+# VALUE from the row or from the roll (owner names, addresses, parcel
+# numbers, roll values), which stay in the plan/result file - and that file
+# is uploaded only as an encrypted artifact (scripts/artifact_evidence.py).
+PUBLIC_LOG_KEYS = ("id", "source", "county", "case", "path", "strategy", "reason", "already", "roll_empty", "written")
+
+
+def safe_exception_reason(exc):
+    """A transport/HTTP error as an operational CATEGORY only, never its
+    message text: a requests exception message embeds the full request URL, and the FDOR /
+    GIS lookups put the parcel number in that URL's query string, so the raw
+    text would carry a parcel number into the public job log via the
+    `reason` field that public_log_view() allows through. The class name is
+    always safe; the HTTP status code is an int read from the response
+    object, never from the message. Nothing else from the exception is used."""
+    reason = type(exc).__name__
+    response = getattr(exc, "response", None)
+    status = getattr(response, "status_code", None)
+    if isinstance(status, int):
+        reason += f" (HTTP {status})"
+    return reason
+
+
+def public_log_view(rec):
+    """The redacted form of a plan/apply record for the public job log."""
+    view = {k: rec[k] for k in PUBLIC_LOG_KEYS if k in rec}
+    if isinstance(rec.get("gains"), dict):
+        view["gain_fields"] = sorted(rec["gains"])
+    return view
+
+
 def plan_row(row):
     """Dry-run record for one row. Never writes."""
     rec = {"id": row["id"], "source": row["source"], "county": row["county"], "parcel": row.get("parcel")}
@@ -119,7 +153,7 @@ def plan_row(row):
     try:
         attrs, centroid, cand, path = production_lookup(row)
     except requests.RequestException as e:
-        rec.update(case="exception", reason=f"{type(e).__name__}: {e}"[:160])
+        rec.update(case="exception", reason=safe_exception_reason(e))
         return rec
     if path == "unmapped":
         rec.update(case="exception", reason="county not in COUNTY_CODES")
@@ -214,7 +248,7 @@ def run_dry_run():
     for row in rows:
         rec = plan_row(row)
         records.append(rec)
-        print("ROW " + json.dumps(rec, separators=(",", ":")))
+        print("ROW " + json.dumps(public_log_view(rec), separators=(",", ":")))
         time.sleep(prod.REQUEST_DELAY_SECONDS)
     s = summarize(records)
     print_report("DRY-RUN REPORT (nothing written)", s)
@@ -269,17 +303,17 @@ def run_apply():
         try:
             fields, reason = apply_plan_row(planned)
         except requests.RequestException as e:
-            errors.append({"id": planned["id"], "county": planned["county"], "reason": f"{type(e).__name__}: {e}"[:160]})
-            print("ERR " + json.dumps(errors[-1], separators=(",", ":")))
+            errors.append({"id": planned["id"], "county": planned["county"], "reason": safe_exception_reason(e)})
+            print("ERR " + json.dumps(public_log_view(errors[-1]), separators=(",", ":")))
             time.sleep(prod.REQUEST_DELAY_SECONDS)
             continue
         if reason:
             skipped.append({"id": planned["id"], "county": planned["county"], "reason": reason})
-            print("SKIP " + json.dumps(skipped[-1], separators=(",", ":")))
+            print("SKIP " + json.dumps(public_log_view(skipped[-1]), separators=(",", ":")))
         else:
             rec = {"id": planned["id"], "source": planned["source"], "county": planned["county"], "written": sorted(fields)}
             written.append(rec)
-            print("WROTE " + json.dumps(rec, separators=(",", ":")))
+            print("WROTE " + json.dumps(public_log_view(rec), separators=(",", ":")))
         time.sleep(prod.REQUEST_DELAY_SECONDS)
     counts = {f: sum(1 for w in written if f in w["written"]) for f in TARGET_FIELDS}
     print("\n=== APPLY REPORT ===")
