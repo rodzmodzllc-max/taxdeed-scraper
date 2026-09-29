@@ -37,7 +37,25 @@ const sb = createClient(cfg.supabaseUrl, cfg.supabasePublishableKey, {
 // p_state has no default and PostgREST rejects a call that omits it.
 // Defaults to "FL" only for a stray direct load that skips the attribute
 // (there shouldn't be one - both shipped pages set it).
-const PAGE_STATE = document.body.dataset.state === "TX" ? "TX" : "FL";
+//
+// STATE_META is the one table of states this app has a page and assets
+// for: the display name, the same-origin county basemap (the file the
+// service worker precaches) and the city/zip label files. Every other
+// state-dependent choice in this file reads it instead of an FL/TX ternary,
+// so a future state is one row here (plus its real assets, a page and a
+// MINIMAP_PROJ fit) - never a Florida asset standing in for it. A
+// data-state naming a state NOT in this table is an error, not Florida:
+// it is logged and the page falls back to FL only so the app still loads.
+const STATE_META = {
+  FL: { name: "Florida", basemap: "fl-counties.svg", cities: "fl-cities.json", zips: "fl-zips.json" },
+  TX: { name: "Texas", basemap: "tx-counties.svg", cities: "tx-cities.json", zips: "tx-zips.json" }
+};
+const PAGE_STATE = (() => {
+  const wanted = document.body.dataset.state;
+  if (wanted && !STATE_META[wanted]) console.error(`Unsupported <body data-state="${wanted}"> - no page/basemap assets for it; rendering FL`);
+  return STATE_META[wanted] ? wanted : "FL";
+})();
+const STATE_INFO = STATE_META[PAGE_STATE];
 
 // Internal build reference only (deploy verification, support requests) -
 // deliberately not surfaced anywhere in the UI. Showing a raw "v7 -
@@ -915,7 +933,7 @@ const MINIMAP_PROJ = {
   TX: { x: { lon: 0.058139535, lat: 0, c: 6.313953488 }, y: { lon: 0, lat: -0.066666276, c: 2.493318735 }, baseW: 1000, baseH: 1006 }
 };
 function minimapProject(lat, lon) {
-  const p = MINIMAP_PROJ[PAGE_STATE] || MINIMAP_PROJ.FL;
+  const p = MINIMAP_PROJ[PAGE_STATE];   // PAGE_STATE is always a STATE_META key; each has its own fit
   return { x: (p.x.lon * lon + p.x.lat * lat + p.x.c) * p.baseW, y: (p.y.lon * lon + p.y.lat * lat + p.y.c) * p.baseH };
 }
 let basemapGeom = null;        // { counties: Map<name, {d, box}> } once loaded
@@ -923,7 +941,7 @@ let basemapGeomPromise = null;
 function loadBasemapGeom() {
   if (basemapGeom) return Promise.resolve(basemapGeom);
   if (basemapGeomPromise) return basemapGeomPromise;
-  basemapGeomPromise = fetch(PAGE_STATE === "TX" ? "tx-counties.svg" : "fl-counties.svg")
+  basemapGeomPromise = fetch(STATE_INFO.basemap)
     .then(r => { if (!r.ok) throw new Error("HTTP " + r.status); return r.text(); })
     .then(text => {
       const doc = new DOMParser().parseFromString(text, "image/svg+xml");
@@ -4155,7 +4173,7 @@ function applyLedgerChrome() {
   document.documentElement.dataset.region = PAGE_STATE;
 
   // The browser tab and the app switcher should say which page this is too.
-  document.title = (cfg.title ? cfg.title + " · " : "") + (PAGE_STATE === "TX" ? "Tax Acquisitions — Texas" : "Tax Acquisitions — Florida");
+  document.title = (cfg.title ? cfg.title + " · " : "") + "Tax Acquisitions — " + STATE_INFO.name;
 
   // Phase 67: the Map page's toolbar title carries the state as well ("Map ·
   // Florida"). The old page subtitle ("...by county across Florida") was the
@@ -4164,7 +4182,7 @@ function applyLedgerChrome() {
   // Same authoritative source as the two lines above - PAGE_STATE, never a
   // row's county - and a label only, not a switch (that is #regionTabs).
   const mapPageStateEl = document.getElementById("mapPageState");
-  if (mapPageStateEl) mapPageStateEl.textContent = " · " + (PAGE_STATE === "TX" ? "Texas" : "Florida");
+  if (mapPageStateEl) mapPageStateEl.textContent = " · " + STATE_INFO.name;
 
   // Certificates are liens, not land: no property type, no title screening,
   // no assessed value. passes() already ignores those filters there, so
@@ -4798,7 +4816,8 @@ const TEXAS_CITIES = [
   { name: "Midland", x: 379.2, y: 362.3, size: "small" },
   { name: "Brownsville", x: 645.5, y: 771.1, size: "small" },
 ];
-const MAJOR_CITIES = PAGE_STATE === "TX" ? TEXAS_CITIES : FLORIDA_CITIES;
+const CITY_LABELS_BY_STATE = { FL: FLORIDA_CITIES, TX: TEXAS_CITIES };
+const MAJOR_CITIES = CITY_LABELS_BY_STATE[PAGE_STATE] || [];   // no labels rather than another state's
 
 // County seat (or best-known primary city) for each of Florida's 67
 // counties - used as the "then show cities" label once a tap zooms into a
@@ -4974,7 +4993,7 @@ function zoomToState() {
 async function ensureMapLoaded() {
   if (mapLoaded || !mapHostEl) return;
   try {
-    const res = await fetch(PAGE_STATE === "TX" ? "tx-counties.svg" : "fl-counties.svg");
+    const res = await fetch(STATE_INFO.basemap);
     mapHostEl.innerHTML = await res.text();
 
     // Add city labels as SVG text elements

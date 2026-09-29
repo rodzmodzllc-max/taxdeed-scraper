@@ -98,15 +98,24 @@ $headers = @{
     "apikey"        = $serviceRoleKey
     "Authorization" = "Bearer $serviceRoleKey"
 }
-# state=eq.FL (2026-09-29, master LAFT audit Phase A3): this check compares
-# TODAY'S FLORIDA harvest files against what is on file, so the baseline
-# must be Florida rows only. Texas also writes source='laft' (LGBS
-# struck-off / future-sale rows, harvesters/texas_harvester.py), and
-# without the state filter every Texas LAFT county was reported as a
-# Florida county that "dropped to 0" on 2026-09-29 (Galveston, Liberty,
-# Leon, Maverick, Jim Wells, Hardin) - cross-state noise that buried the
-# one real anomaly in the same run (Hendry, a dead PDF link).
-$existingUrl = "$supabaseUrl/rest/v1/properties?state=eq.FL&source=eq.laft&select=county&limit=5000"
+# state=eq.$State (2026-09-29, master LAFT audit Phase A3): this check
+# compares TODAY'S harvest files for ONE state against what is on file, so
+# the baseline must be that state's rows only. Texas also writes
+# source='laft' (LGBS struck-off / future-sale rows,
+# harvesters/texas_harvester.py), and without the state filter every Texas
+# LAFT county was reported as a Florida county that "dropped to 0" on
+# 2026-09-29 (Galveston, Liberty, Leon, Maverick, Jim Wells, Hardin) -
+# cross-state noise that buried the one real anomaly in the same run
+# (Hendry, a dead PDF link).
+#
+# The state comes from $env:LAFT_STATE (default FL - the only state whose
+# harvesters write these files today). Two capital letters only; anything
+# else is refused rather than passed into the query.
+$State = if ([string]::IsNullOrWhiteSpace($env:LAFT_STATE)) { "FL" } else { $env:LAFT_STATE.Trim().ToUpperInvariant() }
+if ($State -notmatch '^[A-Z]{2}$') {
+    throw "LAFT_STATE must be a two-letter state code, got '$State'"
+}
+$existingUrl = "$supabaseUrl/rest/v1/properties?state=eq.$State&source=eq.laft&select=county&limit=5000"
 $existingRows = Invoke-RestMethod -Uri $existingUrl -Method Get -Headers $headers -UserAgent $SupabaseUserAgent
 $existingCounts = @{}
 foreach ($r in $existingRows) {

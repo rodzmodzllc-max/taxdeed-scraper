@@ -227,3 +227,106 @@ on its own.
   alone; the enricher's per-county match line is the signal to revisit.
 - No purchase URL is set for any county: the registry carries none that is
   verified, and a list page is never a purchase URL.
+
+## 11. State extensibility (code foundation, 2026-09-29)
+
+The framework no longer assumes Florida or Texas anywhere a third state
+would have to edit code to pass. It also does not admit one: every
+mechanism below accepts exactly the states registered in
+`harvesters/governance/states.py` (FL and TX), and registering a state is
+a reviewed commit, not a configuration file or an environment variable.
+Nothing in this section activates a state, populates a row, or touches
+production; the 50-state audit's candidates (AR, MS, AL, WV, AZ, LA) are
+NOT registered and have no registry rows.
+
+### 11.1 What reads the state registry
+
+| Mechanism | Before | Now |
+|---|---|---|
+| `OtcRecord.validate()` | `state not in ("FL","TX")` | `states.state_problems(state)`; an unregistered or malformed code is rejected |
+| `county_source_registry.validate_row()` | `state not in ("FL","TX")`; `if state == "FL": must be POST_SALE_FIXED_PRICE` | state via the registry; the production inventory rule comes from `StateConfig.production_inventory_types` (FL: `POST_SALE_FIXED_PRICE` only; TX: blank / `STRUCK_OFF_HELD_IN_TRUST` / `FUTURE_RESALE` - unchanged) |
+| `scripts/laft_lifecycle.py` | module constants `STATE = "FL"`, `INVENTORY_TYPE = "POST_SALE_FIXED_PRICE"` | `--state` (default FL); refuses an unregistered state before any request; the inventory type it stamps is `StateConfig.lifecycle_inventory_type` (FL: the statutory list; TX: none, so the column is left alone) and must be storable |
+| `scripts/sanity_check_laft.ps1` | `state=eq.FL` literal | `$env:LAFT_STATE` (default FL, two capital letters or the script throws) |
+| `public/app.js`, `explore.js`, `satellite-map.js` | `PAGE_STATE === "TX" ? "tx-…" : "fl-…"` ternaries for basemap, city/zip files, titles, city labels, camera | one lookup table per module (`STATE_META` / `STATE_ASSETS` / `STATEWIDE_VIEW`); a `data-state` outside the table is logged as an error and the page falls back to FL only so it loads - no other state's assets are ever drawn for it |
+
+The workflow still runs `laft_lifecycle.py` and `sanity_check_laft.ps1`
+without a state argument, i.e. Florida, exactly as before.
+
+### 11.2 Publishing units
+
+`states.PublishingUnit` names what a registry row describes: `COUNTY`
+(FL, TX - every current row), `PARISH`, `BOROUGH`, `MUNICIPALITY`, `STATE`.
+A `STATE`-level row (a statewide land office) carries
+`county = STATEWIDE` (`states.STATEWIDE_UNIT`) and is not checked against
+a county list. The registry loader accepts an optional trailing
+`publishing_unit` column (`county_source_registry.OPTIONAL_COLUMNS`);
+**the committed CSV, the generator and migration 018 do not carry it** -
+blank reads as `COUNTY`, and `to_db_rows()` refuses a non-county row
+because the 018 table has no column for it.
+
+### 11.3 Vocabulary the database cannot store yet
+
+`InventoryType` gained `POST_SALE`, `STATE_HELD_TAX_LAND` and
+`ADJUDICATED_PROPERTY`; `AmountKind` (and `laft_status.AMOUNT_KINDS`)
+gained `QUOTED_ON_APPLICATION` (no figure is published; the price is
+quoted to an applicant - like `NOT_PUBLISHED`, the amount must be None).
+None of these is in migration 017's check constraints. The code keeps the
+two sets apart on purpose:
+
+- `DB_SUPPORTED_INVENTORY_TYPES` / `DB_SUPPORTED_AMOUNT_KINDS`
+  (`laft_status.DB_AMOUNT_KINDS`) are exactly 017's values.
+- `OtcRecord.to_properties_row()` raises for a value outside them; the
+  lifecycle refuses a state whose lifecycle type is outside them;
+  `validate_row()` refuses a PRODUCTION_VERIFIED row carrying one;
+  `laft_lifecycle.amount_of()` never emits `QUOTED_ON_APPLICATION`.
+
+An FL/TX label is never substituted for one of these values to make a row
+storable - that mislabelling is what the separation prevents.
+
+### 11.4 Future migration (proposed, NOT written, NOT applied)
+
+A later migration - 020 or whatever number is next when it is written -
+would, in one reviewed file:
+
+1. widen `properties_inventory_type_check` with the three inventory types
+   above and the `purchase_amount_kind` constraint with
+   `QUOTED_ON_APPLICATION`;
+2. add `publishing_unit text not null default 'COUNTY'` (checked against
+   the `PublishingUnit` values) to `public.county_source_registry`, and
+   the same column to `data/county_source_registry.csv` / the generator;
+3. nothing else - no backfill, no state row, no data.
+
+It is a prerequisite for storing any third state's rows; it is not a
+prerequisite for anything Florida or Texas does today.
+
+### 11.5 Generic ArcGIS layer adapter (`harvesters/otc/adapters/arcgis.py`)
+
+Several statewide publishers in the audit expose their inventory as an
+ArcGIS FeatureServer/MapServer layer. The adapter is configuration-driven
+and state-agnostic (`ArcGisLayerConfig`: endpoint, identifier attribute,
+field map, fixed county or county attribute, `where`, page size/cap),
+does not fetch (a `fetch_json(url)` callable is injected; the package's
+no-HTTP-imports test covers it), pages deterministically (ordered by the
+identifier, stopped by `exceededTransferLimit`, capped), records the
+endpoint / object id / `where` in each record's provenance, and returns
+`COMPLETE`, `EMPTY` (the layer itself returned zero features) or `FAILED`
+(transport error, ArcGIS error payload, malformed shape, page cap,
+unstable paging, a feature without an identifier) - a failure on any page
+discards every page. **No layer is configured**; no endpoint is named in
+the repository; running one still requires a `columns_verified`
+configuration and `gate.evaluate_source()` allowing the source, which
+remains impossible for anything that is not PRODUCTION_VERIFIED.
+
+### 11.6 What is still Florida/Texas-specific, on purpose
+
+- The nine LAFT harvesters, `sync-laft-to-supabase.ps1`, the FDOR enricher,
+  `texas_harvester.py` and the LGBS bridge: real sources, not framework.
+- `DEFAULT_HARVEST_FILES` / the default status path in the lifecycle
+  script (the FL harvesters' outputs); a third state passes its own.
+- The Texas copy branches in `app.js` (ledger `tx` overrides, `isTx`
+  filter hiding): content for a state that exists, not a switch.
+- `regionOf()`'s `|| "FL"` default for a row with no `state`; every real
+  row carries one and the RPC is state-scoped, so it is inert.
+- Basemaps, centroids, city/zip files, `MINIMAP_PROJ` / `PROJ` fits and
+  the two HTML pages exist for FL and TX only. A third state needs its
+  own real assets; none is fabricated.

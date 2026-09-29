@@ -13,7 +13,8 @@ all of them, and the adapter is exercised only on fixtures. Verification
 of them can run; that step is a human's, not this package's.
 """
 
-from .model import (AmountKind, InventoryType, OtcRecord, PurchaseUrlKind, SourceAuthority,
-                    UrlRef)
+from .model import (DB_SUPPORTED_AMOUNT_KINDS, DB_SUPPORTED_INVENTORY_TYPES, AmountKind, InventoryType,
+                    OtcRecord, PurchaseUrlKind, SourceAuthority, UrlRef)
 
-__all__ = ["AmountKind", "InventoryType", "OtcRecord", "PurchaseUrlKind", "SourceAuthority", "UrlRef"]
+__all__ = ["AmountKind", "DB_SUPPORTED_AMOUNT_KINDS", "DB_SUPPORTED_INVENTORY_TYPES", "InventoryType",
+           "OtcRecord", "PurchaseUrlKind", "SourceAuthority", "UrlRef"]
