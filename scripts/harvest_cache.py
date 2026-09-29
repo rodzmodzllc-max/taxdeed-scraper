@@ -43,7 +43,10 @@ import time
 from pathlib import Path
 
 # Bump this when extraction logic changes so cached rows are not reused.
-PARSER_VERSION = 1
+# 2: harvest_laft_pdfs.py gained the parcel plausibility gate
+#    (is_plausible_record); rows cached by the version-1 parser can still
+#    carry header/footnote text as parcel and must be re-parsed, not reused.
+PARSER_VERSION = 2
 
 CACHE_DIR = Path(__file__).resolve().parent / "../out/.harvest_cache"
 
