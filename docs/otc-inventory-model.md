@@ -369,3 +369,48 @@ remains impossible for anything that is not PRODUCTION_VERIFIED.
   published-by, last read), Property (parcel, legal description, name in
   which assessed, assessed / taxable value, acreage, land use, homestead -
   each a stored column or an explicit "Not on file") and Purchase path.
+
+## 13. FDOR enrichment: gates, alternate key, diagnostics (2026-09-29)
+
+`scripts/enrich_property_details.py`:
+- **Identifier plausibility gate** before any request: a stored `parcel`
+  that fails `laft_status.plausible_identifier` (no digit, over 40
+  characters, a line break) is counted `malformed_identifier` and never
+  looked up. Such values (a PDF paragraph, a heading fragment) used to spend
+  every candidate request on every run.
+- **Layer errors are not misses.** An ArcGIS error payload or a body with
+  no `features` list raises `FdorUnavailable` (counted
+  `source_unavailable`; the county's slice is abandoned for the run, rows
+  untouched); a non-JSON body raises `FdorParserRejection` (counted
+  `parser_rejection`, the row is skipped). Neither advances a ledger's
+  miss streak or stamps a row.
+- **Alternate key, county-scoped (`ALT_KEY_RULES`).** Escambia only:
+  production evidence (all 45 FDOR-matched Escambia rows carry a 9-digit
+  `ALT_KEY` with the county's `dd-dddd-ddd` account-number blocks; its 36
+  LienHub certificate rows carry exactly that account shape and never
+  match `PARCEL_ID`) supports looking up `ALT_KEY = <digits>` with `CO_NO`
+  27, only after every `PARCEL_ID` spelling missed, unique feature only,
+  and only when the returned feature's own `ALT_KEY` echoes the value.
+  Provenance records `matched_field: "ALT_KEY"`, `matched_alt_key` and the
+  layer's `PARCEL_ID`. No other county has a rule; the same shape in Bay,
+  Santa Rosa or Okaloosa is never tried.
+- **County use code "00" is a value.** `land_use` now uses `_use_code`,
+  which keeps an all-zero PA_UC (vacant residential in counties that mirror
+  the state scheme) and drops only None, blank and a numeric zero.
+- **Diagnostics.** The run prints and writes (`ENRICH_REPORT`, default
+  `out/public/fdor-enrichment.json`; a GitHub step-summary table) counts
+  for matched / written / already_populated / unmatched / ambiguous /
+  malformed_identifier / source_unavailable / parser_rejection / error /
+  withheld_by_provenance / alt_key_matches, per-county match rates, and
+  per county-and-ledger **identifier shapes** of unmatched rows
+  (`d10`, `A1d10`, `d2-d4-d3`): value-free, so a persistent shape can be
+  taken to a live verification without a parcel number ever entering a
+  public log.
+
+Still blocked pending one live lookup each (no rule was invented):
+Hillsborough (`d10` folios on auction/LAFT rows, `A1d10` on certificate
+rows; which spelling the layer's `PARCEL_ID` uses is unverified), Citrus
+(Pioneer grid strings such as `d2A1d2A1d2 d5 d3A1`; auction rows carry no
+parcel at all), Indian River LAFT (`d5-d3` account-style numbers; the
+county's `ALT_KEY` is 5-6 digits, so no rule follows), Escambia LAFT
+(the clerk's list publishes an empty Parcel ID cell - nothing to match).

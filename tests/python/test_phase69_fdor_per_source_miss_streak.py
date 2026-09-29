@@ -110,7 +110,9 @@ class Harness:
         - so candidates are collapsed back to their row key)."""
         keys = set()
         for where in self.lookups:
-            cand = re.search(r"PARCEL_ID='([^']*)'", where).group(1)
+            # A PARCEL_ID candidate or (Escambia, 2026-09-29) the alternate-key
+            # spelling of the same row's identifier - both collapse to the row key.
+            cand = re.search(r"(?:PARCEL_ID|ALT_KEY)='([^']*)'", where).group(1)
             key = re.sub(r"[^A-Za-z0-9]", "", cand).rstrip("R")
             if key.startswith(prefix):
                 keys.add(key)
@@ -166,7 +168,10 @@ def test_p69_04_certificates_still_get_their_turn_when_they_match(enrich, monkey
     """The change never skips a legitimate row: a certificate that matches
     resets the certificate streak exactly as before."""
     rows = rows_from_pattern("Duval", "cccccAccccc")
-    rows[3]["parcel"] = "HIT-CERT"  # 4th certificate matches
+    # 4th certificate matches. Carries a digit: since 2026-09-29 an identifier
+    # with no digit at all is refused by the plausibility gate before any
+    # request (it is a heading fragment, never a parcel or account number).
+    rows[3]["parcel"] = "HIT-CERT1"
     h = Harness(enrich, monkeypatch, "Duval", rows)
     enrich.main()
     assert set(h.patches) == {rows[3]["id"], rows[5]["id"]}
