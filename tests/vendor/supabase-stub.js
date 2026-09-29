@@ -21,7 +21,11 @@ const FIXTURE_PROPERTIES = [
   // written before migration 013) so the neutral fallback label is covered.
   { id: "p1", source: "auction", county: "Alachua", case_no: "A-1", parcel: "111", address: "1 Main St", owner_name: "Jane Doe", bid: 5000, assessed: 80000, market: 90000, value_year: 2025, year_built: 1958, living_area: 1840, lot_sqft: 16456, num_buildings: 1, land_value: 22000, last_sale_price: 41500, last_sale_year: 2011, legal_desc: "BEG 418 FT S AND 110 FT W OF INTER OF E AND W HALF SEC LI AND L AND N RR W 100 FT N 50 FT E 100 FT S 50 FT TO POB", status: "active", lien_level: "clean", lien_note: "", prop_type: "House", sale_date: futureDate(3), homestead: false, harvester_source: "fl_realauction_alachua", url_streetview: "https://x", url_appraiser: "https://x", url_zillow: "https://x", url_taxcoll: "https://x", url_auction: txSaleUrl("alachua.realtaxdeed.com", futureDate(3)), url_auction_kind: "sale", url_title: "https://x", updated_at: "2026-08-10T00:00:00Z" },
   { id: "p2", source: "auction", county: "Baker", case_no: "B-1", parcel: "222", address: "", owner_name: null, bid: 15000, assessed: 40000, market: 42000, status: "dropped", lien_level: "serious", lien_note: "lien", prop_type: "Vacant Lot", sale_date: futureDate(30), homestead: false, url_auction: "https://x", url_auction_kind: "sale", updated_at: "2026-08-10T00:00:00Z", gone_since: "2026-08-01T00:00:00Z" },
+  // p3 also carries migration 017's OTC columns as the FL LAFT lifecycle
+  // writes them (inventory_type, source_authority/source_id, list_url,
+  // purchase_amount + purchase_amount_kind, last_seen_at).
   { id: "p3", source: "laft", county: "Bay", case_no: "C-1", parcel: "333", address: "3 Oak Ave", owner_name: "Bob", bid: 2000, assessed: 60000, market: 61000, value_year: 2024, land_value: 61000, lot_sqft: 43560, last_sale_price: 100, last_sale_year: 2007, status: "available", lien_level: "unscreened", lien_note: "", prop_type: "Condo", sale_date: null, homestead: true, url_auction: "https://x", url_auction_kind: "county", updated_at: "2026-08-11T00:00:00Z",
+    inventory_type: "POST_SALE_FIXED_PRICE", source_authority: "GOVERNMENT_PLATFORM", source_id: "fl_laft_pioneer", list_url: "https://x", purchase_amount: 2000, purchase_amount_kind: "OPENING_BID", last_seen_at: "2026-08-11T00:00:00Z",
     // Phase 66: photo_url '' is the pipeline's "checked, no Street View
     // coverage" sentinel (see CLAUDE.md "Property photos") - distinct from
     // NULL/absent (not checked yet), which every other row here has.
@@ -82,10 +86,16 @@ const FIXTURE_PROPERTIES = [
   //   ptx5  RealAuction with no URL (county host not on the verified roster)
   //   ptx6  LGBS "Available for Future Sale" (laft ledger), no link
   { id: "ptx2", source: "auction", state: "TX", county: "Nueces", case_no: "9377-0051-0100", parcel: "2021DCV-4034-H (5)", address: "4013 Tilden St, Corpus Christi, TX", bid: 21800, min_bid: 21800, assessed: 25000, status: "active", sale_date: futureDate(12), harvester_source: "tx_realauction", url_auction: txSaleUrl("nueces.texas.sheriffsaleauctions.com", futureDate(12)), url_auction_kind: "sale", updated_at: "2026-09-24T00:00:00Z" },
-  { id: "ptx3", source: "laft", state: "TX", county: "Galveston", case_no: "129500040015000", parcel: "23-TX-0644", address: "VACANT LOT IN 6500 BLOCK OF OBRIEN ST, Hitchcock, TX 77563", bid: 4451.95, min_bid: 4451.95, status: "active", sale_date: null, harvester_source: "tx_lgbs", tx_sale_status: "Struck off to Jurisdiction", updated_at: "2026-09-23T00:00:00Z" },
+  // ptx3 / ptx6 carry migration 017's classification exactly as its backfill
+  // derives it from tx_sale_status: STRUCK_OFF_HELD_IN_TRUST vs FUTURE_RESALE,
+  // VENDOR_COUNSEL / tx_lgbs, no list/document/purchase URL (LGBS publishes
+  // none), purchase_amount untouched (null - min_bid keeps its own meaning).
+  { id: "ptx3", source: "laft", state: "TX", county: "Galveston", case_no: "129500040015000", parcel: "23-TX-0644", address: "VACANT LOT IN 6500 BLOCK OF OBRIEN ST, Hitchcock, TX 77563", bid: 4451.95, min_bid: 4451.95, status: "active", sale_date: null, harvester_source: "tx_lgbs", tx_sale_status: "Struck off to Jurisdiction", updated_at: "2026-09-23T00:00:00Z",
+    inventory_type: "STRUCK_OFF_HELD_IN_TRUST", source_authority: "VENDOR_COUNSEL", source_id: "tx_lgbs", list_url: null, document_url: null, purchase_url: null, purchase_amount: null, purchase_amount_kind: null },
   { id: "ptx4", source: "auction", state: "TX", county: "Llano", case_no: "R000020419", parcel: "23101 (6)", address: "LOT 6 SUNRISE BEACH, Llano, TX", bid: 3942.08, min_bid: 3942.08, status: "active", sale_date: futureDate(-3), harvester_source: "tx_realauction", url_auction: txSaleUrl("llano.texas.sheriffsaleauctions.com", futureDate(-3)), url_auction_kind: "sale", updated_at: "2026-09-24T00:00:00Z" },
   { id: "ptx5", source: "auction", state: "TX", county: "Atascosa", case_no: "17854", parcel: "20-11-0957-CVA (1)", address: "200 Oak St, Pleasanton, TX", bid: 1200, min_bid: 1200, status: "active", sale_date: futureDate(12), harvester_source: "tx_realauction", updated_at: "2026-09-24T00:00:00Z" },
-  { id: "ptx6", source: "laft", state: "TX", county: "Liberty", case_no: "000016000361003", parcel: "21DC-TX-00185", address: "TRACT 3, Liberty, TX", bid: 900, min_bid: 900, status: "active", sale_date: null, harvester_source: "tx_lgbs", tx_sale_status: "Available for Future Sale", updated_at: "2026-09-23T00:00:00Z" }
+  { id: "ptx6", source: "laft", state: "TX", county: "Liberty", case_no: "000016000361003", parcel: "21DC-TX-00185", address: "TRACT 3, Liberty, TX", bid: 900, min_bid: 900, status: "active", sale_date: null, harvester_source: "tx_lgbs", tx_sale_status: "Available for Future Sale", updated_at: "2026-09-23T00:00:00Z",
+    inventory_type: "FUTURE_RESALE", source_authority: "VENDOR_COUNSEL", source_id: "tx_lgbs", list_url: null, document_url: null, purchase_url: null, purchase_amount: null, purchase_amount_kind: null }
 ];
 // Brevard has a county_calendar row so the "Auction {date}" label test can
 // cover the CALENDAR-lookup path, not just the per-property sale_date

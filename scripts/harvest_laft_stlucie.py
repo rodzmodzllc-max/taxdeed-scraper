@@ -74,6 +74,8 @@ from pathlib import Path
 
 from playwright.sync_api import sync_playwright
 
+from laft_status import StatusRecorder, describe_exception
+
 HERE = Path(__file__).resolve().parent
 OUT_DIR = HERE / "../out"
 OUT_JSON = OUT_DIR / "harvest_laft_stlucie.json"
@@ -105,8 +107,14 @@ HEADER_FIELD_MAP = {
     "property owners": "owners",
 }
 
+BID_KIND = "OPENING_BID"  # the results grid's own header: "Opening Bid"
+
 
 def harvest() -> list[dict]:
+    return harvest_with_outcome()[0]
+
+
+def harvest_with_outcome() -> tuple[list[dict], dict]:
     with sync_playwright() as p:
         browser = p.chromium.launch()
         page = browser.new_page(user_agent=UA)
@@ -123,7 +131,7 @@ def harvest() -> list[dict]:
             html = page.content()
         finally:
             browser.close()
-    return _parse_results(html)
+    return _parse_results_with_outcome(html)
 
 
 def _slugify(label: str) -> str:
@@ -131,22 +139,32 @@ def _slugify(label: str) -> str:
 
 
 def _parse_results(html: str) -> list[dict]:
+    return _parse_results_with_outcome(html)[0]
+
+
+def _parse_results_with_outcome(html: str) -> tuple[list[dict], dict]:
+    """(rows, outcome). outcome["table_found"] is True when the results
+    grid rendered with a header row - a grid with zero data rows is then a
+    real, published-but-empty list (EMPTY). No grid at all is NOT a
+    confirmed zero: this module's own docstring records that what a genuine
+    zero looks like on this platform has never been observed, so that case
+    is INCOMPLETE / UNCONFIRMED_EMPTY."""
     from bs4 import BeautifulSoup
 
+    outcome = {"table_found": False, "rows": 0}
     soup = BeautifulSoup(html, "html.parser")
     table = soup.select_one(RESULTS_TABLE_SELECTOR)
     if table is None:
-        # No results table at all is treated as a real zero - see module
-        # docstring's "Zero-results handling" section.
-        return []
+        return [], outcome
 
     rows = table.find_all("tr")
     if not rows:
-        return []
+        return [], outcome
 
     header_cells = [c.get_text(strip=True) for c in rows[0].find_all(["td", "th"])]
     if not header_cells or not any(header_cells):
-        return []
+        return [], outcome
+    outcome["table_found"] = True
     field_names = [
         HEADER_FIELD_MAP.get(label.lower(), _slugify(label)) for label in header_cells
     ]
@@ -167,19 +185,39 @@ def _parse_results(html: str) -> list[dict]:
             record["county"] = COUNTY
             record["source"] = "laft"
             record["url_auction"] = BASE_URL
+            if record.get("bid"):
+                record["bid_kind"] = BID_KIND
             out.append(record)
 
-    return out
+    outcome["rows"] = len(out)
+    return out, outcome
+
+
+def record_outcome(recorder: StatusRecorder, rows: list[dict], outcome: dict) -> None:
+    if rows:
+        recorder.complete(COUNTY, len(rows), source_url=BASE_URL)
+    elif outcome.get("table_found"):
+        recorder.empty(COUNTY, "empty_table", source_url=BASE_URL)
+    else:
+        recorder.incomplete(COUNTY, "UNCONFIRMED_EMPTY",
+                            "no results grid rendered - a genuine zero has never been observed on this platform",
+                            source_url=BASE_URL)
 
 
 def main() -> int:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
+    recorder = StatusRecorder("fl_laft_stlucie", source_class="GOVERNMENT_PLATFORM")
     print(f"[1/1] {COUNTY}", flush=True)
     try:
-        rows = harvest()
+        rows, outcome = harvest_with_outcome()
+        record_outcome(recorder, rows, outcome)
     except Exception as exc:  # noqa: BLE001 - report cleanly, don't crash the job
-        print(f"    ERROR: {exc}", flush=True)
+        category, _detail = describe_exception(exc)
+        print(f"    ERROR ({category}): {exc}", flush=True)
+        recorder.failed(COUNTY, exc, source_url=BASE_URL)
         rows = []
+    recorder.write()
+    print(recorder.summary_line(), flush=True)
 
     if rows:
         print(f"    {len(rows)} properties", flush=True)

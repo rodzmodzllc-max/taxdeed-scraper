@@ -116,6 +116,8 @@ from pathlib import Path
 
 from playwright.sync_api import sync_playwright
 
+from laft_status import StatusRecorder, describe_exception
+
 HERE = Path(__file__).resolve().parent
 OUT_DIR = HERE / "../out"
 OUT_JSON = OUT_DIR / "harvest_laft_hillsborough.json"
@@ -151,6 +153,8 @@ HEADER_FIELD_MAP = {
 }
 DROPPED_HEADERS = {"", "document type"}
 
+BID_KIND = "OPENING_BID"  # the grid's own header: "Opening Bid"
+
 # Native-setter + dispatched-events pattern for Angular reactive-forms
 # fields - a plain Playwright `.fill()` was not trusted here without a live
 # confirmation, so this mirrors the exact JS confirmed live in the browser
@@ -184,6 +188,10 @@ def _three_year_window() -> tuple[str, str]:
 
 
 def harvest() -> list[dict]:
+    return harvest_with_outcome()[0]
+
+
+def harvest_with_outcome() -> tuple[list[dict], dict]:
     date_from, date_to = _three_year_window()
     with sync_playwright() as p:
         browser = p.chromium.launch()
@@ -211,7 +219,9 @@ def harvest() -> list[dict]:
                 page.wait_for_selector(RESULTS_TABLE_SELECTOR, state="visible", timeout=15_000)
             except Exception:
                 browser.close()
-                return []
+                # Nothing rendered - the search may have zero results, or
+                # the page may have stalled. Not a confirmed empty list.
+                return [], {"grid_rendered": False, "truncated": False, "rows": 0}
 
             body_text = page.inner_text("body")
             header_cells = page.eval_on_selector_all(
@@ -224,7 +234,7 @@ def harvest() -> list[dict]:
             )
         finally:
             browser.close()
-    return _parse_results(header_cells, body_rows, body_text)
+    return _parse_results_with_outcome(header_cells, body_rows, body_text)
 
 
 def _slugify(label: str) -> str:
@@ -232,8 +242,17 @@ def _slugify(label: str) -> str:
 
 
 def _parse_results(header_cells: list[str], body_rows: list[list[str]], body_text: str) -> list[dict]:
+    return _parse_results_with_outcome(header_cells, body_rows, body_text)[0]
+
+
+def _parse_results_with_outcome(header_cells: list[str], body_rows: list[list[str]], body_text: str) -> tuple[list[dict], dict]:
+    """(rows, outcome). grid_rendered = a header row was read from the
+    results grid; with zero body rows that is a rendered, empty grid
+    (EMPTY). truncated = the page's own more-results banner was shown, so
+    the inventory is INCOMPLETE even when rows were parsed."""
+    outcome = {"grid_rendered": bool(header_cells), "truncated": MORE_RESULTS_BANNER_TEXT in (body_text or "").lower(), "rows": 0}
     if not header_cells or not body_rows:
-        return []
+        return [], outcome
 
     field_names: list[str | None] = []
     for label in header_cells:
@@ -270,13 +289,15 @@ def _parse_results(header_cells: list[str], body_rows: list[list[str]], body_tex
         record["county"] = COUNTY
         record["source"] = "laft"
         record["url_auction"] = BASE_URL
+        if record.get("bid"):
+            record["bid_kind"] = BID_KIND
         out.append(record)
 
     # Loud (non-fatal) mismatch check - see module docstring's
     # "Zero-results / truncation handling" section. Not observed in
     # production with the Case Status filter applied as of 2026-08-25, but
     # kept as a safety net.
-    if MORE_RESULTS_BANNER_TEXT in (body_text or "").lower():
+    if outcome["truncated"]:
         print(
             "    WARNING: page reports more results than displayed even with the "
             "Case Status='LANDS FOR SALE' filter applied - this county's Lands "
@@ -285,17 +306,38 @@ def _parse_results(header_cells: list[str], body_rows: list[list[str]], body_tex
             flush=True,
         )
 
-    return out
+    outcome["rows"] = len(out)
+    return out, outcome
+
+
+def record_outcome(recorder: StatusRecorder, rows: list[dict], outcome: dict) -> None:
+    if outcome.get("truncated"):
+        recorder.incomplete(COUNTY, "PARSE_TRUNCATED", "page reports more results than displayed",
+                            row_count=len(rows), source_url=BASE_URL)
+    elif rows:
+        recorder.complete(COUNTY, len(rows), source_url=BASE_URL)
+    elif outcome.get("grid_rendered"):
+        recorder.empty(COUNTY, "empty_table", source_url=BASE_URL)
+    else:
+        recorder.incomplete(COUNTY, "UNCONFIRMED_EMPTY",
+                            "results grid did not render within the timeout - cannot confirm an empty list",
+                            source_url=BASE_URL)
 
 
 def main() -> int:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
+    recorder = StatusRecorder("fl_laft_hillsborough", source_class="GOVERNMENT_PLATFORM")
     print(f"[1/1] {COUNTY}", flush=True)
     try:
-        rows = harvest()
+        rows, outcome = harvest_with_outcome()
+        record_outcome(recorder, rows, outcome)
     except Exception as exc:  # noqa: BLE001 - report cleanly, don't crash the job
-        print(f"    ERROR: {exc}", flush=True)
+        category, _detail = describe_exception(exc)
+        print(f"    ERROR ({category}): {exc}", flush=True)
+        recorder.failed(COUNTY, exc, source_url=BASE_URL)
         rows = []
+    recorder.write()
+    print(recorder.summary_line(), flush=True)
 
     if rows:
         print(f"    {len(rows)} properties", flush=True)

@@ -16,8 +16,13 @@ who can do it and where.
 |---|---|---|
 | `scripts/migrations/015_customer_write_privileges_and_account_deletion.sql` | Approved customers can read shared `properties` / `county_calendar` but no longer INSERT/UPDATE/DELETE/TRUNCATE them (only `service_role` writes). Closes anon's grants on every customer table and the nine legacy tables the app never reads. Pins `search_path` on eight functions, revokes client EXECUTE on the two SECURITY DEFINER trigger functions, and adds `public.delete_my_account()`. | 005/005a/013 already live (they are) |
 | `scripts/migrations/016_source_health.sql` | Adds `public.source_health` (one row per dataset, written by `scripts/source_health.py`, approved read). | nothing |
+| `scripts/migrations/017_otc_inventory_provenance_lifecycle.sql` (2026-09-29, FL LAFT reliability + TX OTC foundation PR) | Adds the nullable OTC columns to `properties` - `inventory_type`, `source_authority`, `source_id`, `list_url` / `document_url` / `purchase_url` (+kind), `purchase_amount` + `purchase_amount_kind`, `first_seen_at` / `last_seen_at` / `delisted_at`, `source_published_at`, `list_as_of`, document hash/ETag/Last-Modified, `otc_provenance` - with check constraints, re-creates `get_properties()` with the customer-facing ones appended, and backfills deterministically (FL laft by county from `data/county_source_registry.csv`; TX by `harvester_source`; unresolved LGBS rows stay NULL). See `docs/otc-inventory-model.md`. | 006, 013 (015 in either order - 017 re-pins `search_path`) |
+| `scripts/migrations/018_county_source_registry.sql` (same PR) | Adds `public.county_source_registry` (empty; the content is `data/county_source_registry.csv`, loaded later via `county_source_registry.to_db_rows()`), approved read, `service_role` write. | nothing |
 
-Both are wrapped in `begin; ... commit;`. Read each file's header before
+All four are wrapped in `begin; ... commit;`. **None of them is applied.**
+`scripts/laft_lifecycle.py` (the `laft` job's last step) probes for 017's
+columns each run and, until they exist, writes `status` only and prints a
+notice - so the workflow works before or after 017. Read each file's header before
 running it: 015 lists the exact `pg_policies` state it expects. The
 frontend and the workflows in this PR work before or after either
 migration - `delete_my_account()` missing shows "not available on this
@@ -132,6 +137,20 @@ script) and shows it on the Dashboard ("Data sources"), in Terms ("Where
 the numbers come from") and on the Texas page's empty-ledger copy. STALE =
 last success older than 2x cadence; a manual source is never STALE by the
 clock, it is labelled manual with its last run date.
+
+## 6b. Florida LAFT status file and lifecycle (2026-09-29)
+
+Nothing to configure. Every LAFT harvester writes
+`out/harvest_laft_status.json` (per county: COMPLETE / EMPTY / INCOMPLETE /
+FAILED, transport/parse/empty-marker signals, error category, source URL),
+the artifact evidence and `source_health.py` read it, and
+`scripts/laft_lifecycle.py` closes out rows only for COMPLETE / EMPTY
+counties. Expect INCOMPLETE for realTDM counties with nothing listed until
+the platform's empty-result phrase is captured (see
+`docs/otc-inventory-model.md` section 2) and for Brevard's procedural PDF -
+both are honest, not failures. Hendry stays FAILED / TRANSPORT_HTTP_404
+until its current Municode PDF link is found (the harvester tries the
+clerk's node page first).
 
 ## 7. Change signals and notifications
 

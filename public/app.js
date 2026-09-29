@@ -1162,7 +1162,22 @@ function lastSaleText(p) {
 // every unpublished row read like a giveaway - the single most misleading
 // thing on the card. Treat 0/null/undefined alike as "not published yet"
 // and say so in words, in muted type, so it can't be mistaken for a price.
-const hasPublishedBid = p => p.bid !== null && p.bid !== undefined && Number(p.bid) > 0;
+// Migration 017 adds the honest amount columns: purchase_amount (nullable)
+// + purchase_amount_kind (what the source's own label called it, or
+// NOT_PUBLISHED). When a row carries the kind it is authoritative - a
+// NOT_PUBLISHED row is never "published" even if the legacy `bid` sentinel
+// disagrees, and a published purchase_amount counts even when `bid` is the
+// 0 sentinel. Rows without the kind (pre-017 rows, auction/certificate rows,
+// Texas vendor rows) keep the legacy rule: bid > 0 means published, 0/NULL
+// means not published (docs/production-data-contract.md section 9).
+const hasPublishedBid = p => {
+  if (p.purchase_amount_kind === "NOT_PUBLISHED") return false;
+  if (p.purchase_amount !== null && p.purchase_amount !== undefined && Number(p.purchase_amount) > 0) return true;
+  return p.bid !== null && p.bid !== undefined && Number(p.bid) > 0;
+};
+// Test hook (tests/run_test.mjs): the rule above is module-scoped, and the
+// fixture has no row that exercises every branch without adding cards.
+window.__tdwHasPublishedBid = hasPublishedBid;
 const bidDisplay = p => (hasPublishedBid(p) ? fmtMoney(p.bid) : "Not published");
 // Phase 65 / 71: the deed/LAFT CARD always shows the bid as a whole dollar,
 // rounded to the nearest dollar ("$324,265", never "$324,264.72") - on a

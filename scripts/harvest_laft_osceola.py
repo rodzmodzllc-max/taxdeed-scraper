@@ -84,6 +84,8 @@ from pathlib import Path
 
 import requests
 
+from laft_status import CategorizedError, StatusRecorder, describe_exception
+
 HERE = Path(__file__).resolve().parent
 OUT_DIR = HERE / "../out"
 OUT_JSON = OUT_DIR / "harvest_laft_osceola.json"
@@ -123,6 +125,8 @@ FIELD_MAP = {
 # NULL - the exact gap already observed on St. Lucie. Normalised here at
 # harvest time instead, so every harvester keeps writing the same shape.
 DATE_FIELDS = {"sale_date": "sale_date"}
+
+BID_KIND = "OPENING_BID"  # trans_amt is the platform's "Base Bid"
 
 
 def _normalise_date(value) -> str | None:
@@ -178,12 +182,21 @@ def _parse_response(payload) -> tuple[list[dict], int | None]:
             d = _normalise_date(entry.get(api_field))
             if d:
                 record[out_field] = d
+        if record.get("bid"):
+            record["bid_kind"] = BID_KIND
         if record.get("case_no") or record.get("parcel"):
             out.append(record)
     return out, reported
 
 
 def harvest() -> list[dict]:
+    return harvest_with_outcome()[0]
+
+
+def harvest_with_outcome() -> tuple[list[dict], dict]:
+    """(rows, {"reported": total-or-None, "rows": n}). `reported` is the
+    API's own _total_rows; when the response carries no records at all it
+    is None, and a zero then cannot be told from a broken parser."""
     resp = requests.post(
         API_URL,
         headers={
@@ -197,9 +210,10 @@ def harvest() -> list[dict]:
     try:
         payload = resp.json()
     except ValueError as exc:
-        raise RuntimeError(
+        raise CategorizedError(
+            "PARSE_FORMAT_CHANGE",
             f"search API did not return JSON (got {resp.headers.get('Content-Type')!r}) - "
-            f"the vendor may have changed the endpoint: {exc}"
+            f"the vendor may have changed the endpoint: {exc}",
         ) from exc
 
     rows, reported = _parse_response(payload)
@@ -213,17 +227,41 @@ def harvest() -> list[dict]:
             f"investigate before trusting this count",
             flush=True,
         )
-    return rows
+    return rows, {"reported": reported, "rows": len(rows)}
+
+
+def record_outcome(recorder: StatusRecorder, rows: list[dict], outcome: dict) -> None:
+    reported, n = outcome.get("reported"), outcome.get("rows", len(rows))
+    if reported is not None and reported != n:
+        recorder.incomplete(COUNTY, "PARSE_COUNT_MISMATCH", f"API reports {reported} rows, {n} parsed",
+                            row_count=n, source_url=BASE_URL)
+    elif rows:
+        recorder.complete(COUNTY, n, source_url=BASE_URL)
+    elif reported == 0:
+        recorder.empty(COUNTY, "reported_count_zero", source_url=BASE_URL)
+    else:
+        # No records AND no total - the API answered with nothing this
+        # parser can vouch for. Osceola has had live rows on every manual
+        # check to date, so this is far more likely a regression.
+        recorder.incomplete(COUNTY, "UNCONFIRMED_EMPTY",
+                            "search API returned no records and no _total_rows - cannot confirm an empty list",
+                            source_url=BASE_URL)
 
 
 def main() -> int:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
+    recorder = StatusRecorder("fl_laft_osceola", source_class="GOVERNMENT_PLATFORM")
     print(f"[1/1] {COUNTY}", flush=True)
     try:
-        rows = harvest()
+        rows, outcome = harvest_with_outcome()
+        record_outcome(recorder, rows, outcome)
     except Exception as exc:  # noqa: BLE001 - report cleanly, don't crash the job
-        print(f"    ERROR: {exc}", flush=True)
+        category, _detail = describe_exception(exc)
+        print(f"    ERROR ({category}): {exc}", flush=True)
+        recorder.failed(COUNTY, exc, source_url=BASE_URL)
         rows = []
+    recorder.write()
+    print(recorder.summary_line(), flush=True)
 
     if rows:
         priced = sum(1 for r in rows if r.get("bid"))

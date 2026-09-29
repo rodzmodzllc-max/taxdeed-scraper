@@ -540,11 +540,13 @@ jobs:
         # an OpenPGP-encrypted copy of each raw file under out/private/. See
         # scripts/artifact_evidence.py and docs/production-configuration.md.
         # LAFT rows carry owner names and addresses - exactly the data that
-        # must not sit in a public artifact.
+        # must not sit in a public artifact. The per-county status file
+        # (scripts/laft_status.py: county, harvester, status, counts, error
+        # category, source URL - never a row value) is included verbatim.
         if: always()
         env:
           ARTIFACT_PUBLIC_KEY: ${{ vars.ARTIFACT_PUBLIC_KEY }}
-        run: python3 scripts/artifact_evidence.py --job laft "out/harvest_laft*.*"
+        run: python3 scripts/artifact_evidence.py --job laft --status out/harvest_laft_status.json "out/harvest_laft*.*"
 
       - name: Upload artifact (evidence + encrypted raw)
         if: always()
@@ -591,9 +593,27 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-        # The LAFT harvesters write no per-county completeness file, so
-        # completeness is recorded as UNKNOWN here - honestly, not as COMPLETE.
-        run: python3 scripts/source_health.py --source fl_laft --label "Florida Lands Available for Taxes (county lists)" --state FL --mode scheduled --cadence-hours 24 --rows out/harvest_laft.json --outcome ${{ steps.sync.outcome }}
+        # Every LAFT harvester writes its counties into
+        # out/harvest_laft_status.json (scripts/laft_status.py) - COMPLETE /
+        # EMPTY / INCOMPLETE / FAILED per county - so fl_laft's completeness
+        # is derived from that file (a county not COMPLETE/EMPTY counts as
+        # incomplete) and its row count is the sum of the per-county counts.
+        run: python3 scripts/source_health.py --source fl_laft --label "Florida Lands Available for Taxes (county lists)" --state FL --mode scheduled --cadence-hours 24 --status out/harvest_laft_status.json --outcome ${{ steps.sync.outcome }}
+
+      - name: LAFT lifecycle - last_seen_at, gated close-out, reactivation
+        # scripts/laft_lifecycle.py, after the upsert: rows a COMPLETE or
+        # INCOMPLETE county actually read this run are observed (last_seen_at,
+        # back to 'active' if they had been closed); rows missing from a
+        # COMPLETE or EMPTY county's list are closed out. A FAILED, INCOMPLETE,
+        # STALE or NOT_RUN county closes nothing - fail closed, like the
+        # deeds job. Until migration 017 is applied it limits itself to the
+        # status column and says so; it never applies a migration, never
+        # re-harvests, never retries a source.
+        if: always() && steps.sync.outcome == 'success'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/laft_lifecycle.py
 
   texas:
     name: Harvest Texas tax sales (LGBS) + sync - manual only, not yet on cron
