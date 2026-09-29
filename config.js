@@ -19,6 +19,15 @@ window.TDW_CONFIG = {
   supabaseUrl: "https://cqnnnvpbocafuvpzfbzu.supabase.co",
   supabasePublishableKey: "sb_publishable_rk5440vza8jwE04v0Rn08w_vltFMEyQ",
 
+  // Support destination for "Contact support" / "Report a data problem" /
+  // "Report a source problem" / account or billing / deletion requests
+  // (SaaS hardening, 2026-09-29). Blank on purpose: the app shows "no
+  // support address is configured" until the deployment owner sets a
+  // mailbox the business actually reads. It becomes a public mailto: link,
+  // so use a shared address, not a personal one. See
+  // docs/production-configuration.md section 4.
+  supportEmail: "",
+
   // Optional, independent of each other. Power the Map page's Google and
   // MapTiler satellite toggle buttons (satellite-map.js) - each a real
   // satellite/terrain basemap, as an alternative to the app's own

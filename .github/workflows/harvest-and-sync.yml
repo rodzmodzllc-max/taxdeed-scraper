@@ -175,28 +175,53 @@ jobs:
         continue-on-error: true  # never verified end-to-end yet - don't let it block the main sync
         run: ./scripts/harvest_okaloosa_bid4assets.ps1
 
-      - name: Upload raw harvest as artifact
+      - name: Prepare artifact (public evidence + encrypted raw)
+        # Artifacts of a public repository are public. This writes
+        # out/public/deeds-evidence.json (run identity, the per-source
+        # completeness/status file verbatim, hashes, row counts, field names -
+        # never a row value) and, when the ARTIFACT_PUBLIC_KEY repository variable is set,
+        # an OpenPGP-encrypted copy of each raw file under out/private/. See
+        # scripts/artifact_evidence.py and docs/production-configuration.md.
+        # harvest_all_status.json (the per-county completeness file the sync
+        # closeout and the Phase B writer read) is passed as --status so it is
+        # reproduced verbatim inside the public evidence file.
+        if: always()
+        env:
+          ARTIFACT_PUBLIC_KEY: ${{ vars.ARTIFACT_PUBLIC_KEY }}
+        run: python3 scripts/artifact_evidence.py --job deeds --status out/harvest_all_status.json "out/harvest_all.*"
+
+      - name: Upload artifact (evidence + encrypted raw)
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: harvest-deeds-${{ github.run_id }}
-          # `out/harvest_all.*` needs a dot right after `harvest_all`, so it
-          # never matched harvest_all_status.json (underscore, not dot) - the
-          # per-county completeness file the sync closeout and the Phase B
-          # writer both read. Listed explicitly so an offline re-run of either
-          # against this artifact sees the same evidence the job did.
           path: |
-            out/harvest_all.*
-            out/harvest_all_status.json
+            out/public/
+            out/private/
           retention-days: 30
           if-no-files-found: warn
 
       - name: Sync to Supabase
+        id: sync
         shell: pwsh
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: ./scripts/sync-harvest-to-supabase.ps1
+
+      - name: Record source health
+        # Monitoring only (migration 016 + scripts/source_health.py): one row
+        # per dataset - last attempt, last success, row count, how many units
+        # the harvester's own completeness gate marked COMPLETE, the error.
+        # Never retries, never re-harvests, never fails the job; a missing
+        # source_health table is a warning, not an error. Reads the sync
+        # step's outcome so a failed sync is recorded as FAILED, not skipped.
+        if: always()
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/source_health.py --source fl_deeds --label "Florida deed auctions (county auction sites)" --state FL --mode scheduled --cadence-hours 12 --status out/harvest_all_status.json --rows out/harvest_all.json --outcome ${{ steps.sync.outcome }}
 
       - name: Sanity check - fresh county coverage
         shell: pwsh
@@ -313,25 +338,50 @@ jobs:
         shell: pwsh
         run: ./scripts/harvest_lienhub_certificates.ps1
 
-      - name: Upload raw harvest as artifact
+      - name: Prepare artifact (public evidence + encrypted raw)
+        # Artifacts of a public repository are public. This writes
+        # out/public/certificates-evidence.json (run identity, the per-source
+        # completeness/status file verbatim, hashes, row counts, field names -
+        # never a row value) and, when the ARTIFACT_PUBLIC_KEY repository variable is set,
+        # an OpenPGP-encrypted copy of each raw file under out/private/. See
+        # scripts/artifact_evidence.py and docs/production-configuration.md.
+        if: always()
+        env:
+          ARTIFACT_PUBLIC_KEY: ${{ vars.ARTIFACT_PUBLIC_KEY }}
+        run: python3 scripts/artifact_evidence.py --job certificates --status out/harvest_certificates_status.json "out/harvest_certificates.*"
+
+      - name: Upload artifact (evidence + encrypted raw)
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: harvest-certificates-${{ github.run_id }}
-          # Same glob shape as the deeds job: `.*` never matched the
-          # `_status.json` completeness file. Listed explicitly.
           path: |
-            out/harvest_certificates.*
-            out/harvest_certificates_status.json
+            out/public/
+            out/private/
           retention-days: 30
           if-no-files-found: warn
 
       - name: Sync to Supabase
+        id: sync
         shell: pwsh
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: ./scripts/sync-certificates-to-supabase.ps1
+
+      - name: Record source health
+        # Monitoring only (migration 016 + scripts/source_health.py): one row
+        # per dataset - last attempt, last success, row count, how many units
+        # the harvester's own completeness gate marked COMPLETE, the error.
+        # Never retries, never re-harvests, never fails the job; a missing
+        # source_health table is a warning, not an error. Reads the sync
+        # step's outcome so a failed sync is recorded as FAILED, not skipped.
+        if: always()
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/source_health.py --source fl_certificates --label "Florida county-held certificates (LienHub)" --state FL --mode scheduled --cadence-hours 24 --status out/harvest_certificates_status.json --rows out/harvest_certificates.json --outcome ${{ steps.sync.outcome }}
 
   laft:
     name: Harvest Lands Available PDFs + sync
@@ -482,21 +532,28 @@ jobs:
         if: always()
         run: python3 scripts/harvest_laft_leon.py
 
-      - name: Upload raw harvest as artifact
+      - name: Prepare artifact (public evidence + encrypted raw)
+        # Artifacts of a public repository are public. This writes
+        # out/public/laft-evidence.json (run identity, the per-source
+        # completeness/status file verbatim, hashes, row counts, field names -
+        # never a row value) and, when the ARTIFACT_PUBLIC_KEY repository variable is set,
+        # an OpenPGP-encrypted copy of each raw file under out/private/. See
+        # scripts/artifact_evidence.py and docs/production-configuration.md.
+        # LAFT rows carry owner names and addresses - exactly the data that
+        # must not sit in a public artifact.
+        if: always()
+        env:
+          ARTIFACT_PUBLIC_KEY: ${{ vars.ARTIFACT_PUBLIC_KEY }}
+        run: python3 scripts/artifact_evidence.py --job laft "out/harvest_laft*.*"
+
+      - name: Upload artifact (evidence + encrypted raw)
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: harvest-laft-${{ github.run_id }}
           path: |
-            out/harvest_laft.*
-            out/harvest_laft_html.*
-            out/harvest_laft_realtdm.*
-            out/harvest_laft_pioneer.*
-            out/harvest_laft_orange.*
-            out/harvest_laft_stlucie.*
-            out/harvest_laft_osceola.*
-            out/harvest_laft_hillsborough.*
-            out/harvest_laft_leon.*
+            out/public/
+            out/private/
           retention-days: 30
           if-no-files-found: warn
 
@@ -515,11 +572,28 @@ jobs:
         run: ./scripts/sanity_check_laft.ps1
 
       - name: Sync to Supabase
+        id: sync
         shell: pwsh
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: ./scripts/sync-laft-to-supabase.ps1
+
+      - name: Record source health
+        # Monitoring only (migration 016 + scripts/source_health.py): one row
+        # per dataset - last attempt, last success, row count, how many units
+        # the harvester's own completeness gate marked COMPLETE, the error.
+        # Never retries, never re-harvests, never fails the job; a missing
+        # source_health table is a warning, not an error. Reads the sync
+        # step's outcome so a failed sync is recorded as FAILED, not skipped.
+        if: always()
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        # The LAFT harvesters write no per-county completeness file, so
+        # completeness is recorded as UNKNOWN here - honestly, not as COMPLETE.
+        run: python3 scripts/source_health.py --source fl_laft --label "Florida Lands Available for Taxes (county lists)" --state FL --mode scheduled --cadence-hours 24 --rows out/harvest_laft.json --outcome ${{ steps.sync.outcome }}
 
   texas:
     name: Harvest Texas tax sales (LGBS) + sync - manual only, not yet on cron
@@ -565,24 +639,49 @@ jobs:
       - name: Harvest Texas tax sales (LGBS / PBFCM / GovEase)
         run: python3 harvesters/texas_harvester.py
 
-      - name: Upload raw harvest as artifact
+      - name: Prepare artifact (public evidence + encrypted raw)
+        # Artifacts of a public repository are public. This writes
+        # out/public/texas-evidence.json (run identity, the per-source
+        # completeness/status file verbatim, hashes, row counts, field names -
+        # never a row value) and, when the ARTIFACT_PUBLIC_KEY repository variable is set,
+        # an OpenPGP-encrypted copy of each raw file under out/private/. See
+        # scripts/artifact_evidence.py and docs/production-configuration.md.
+        if: always()
+        env:
+          ARTIFACT_PUBLIC_KEY: ${{ vars.ARTIFACT_PUBLIC_KEY }}
+        run: python3 scripts/artifact_evidence.py --job texas --status out/harvest_texas_status.json "out/harvest_texas.*"
+
+      - name: Upload artifact (evidence + encrypted raw)
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: harvest-texas-${{ github.run_id }}
-          # Same glob shape as the deeds job: `.*` never matched the
-          # `_status.json` completeness file. Listed explicitly.
           path: |
-            out/harvest_texas.*
-            out/harvest_texas_status.json
+            out/public/
+            out/private/
           retention-days: 30
           if-no-files-found: warn
 
       - name: Sync to Supabase
+        id: sync
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 scripts/sync-texas-to-supabase.py
+
+      - name: Record source health
+        # Monitoring only (migration 016 + scripts/source_health.py): one row
+        # per dataset - last attempt, last success, row count, how many units
+        # the harvester's own completeness gate marked COMPLETE, the error.
+        # Never retries, never re-harvests, never fails the job; a missing
+        # source_health table is a warning, not an error. Reads the sync
+        # step's outcome so a failed sync is recorded as FAILED, not skipped.
+        if: always()
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/source_health.py --source tx_sales --label "Texas tax sales (LGBS + county sheriff-sale sites) - manual runs" --state TX --mode manual --status out/harvest_texas_status.json --rows out/harvest_texas.json --outcome ${{ steps.sync.outcome }}
 
       # Phase B (auction-event history): same writer as the deeds job, fed by
       # out/harvest_texas.json. Texas has no per-county completeness file, so
@@ -633,12 +732,42 @@ jobs:
         run: pip install requests
 
       - name: Export Supabase tables to portable JSON/CSV
+        id: sync
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 scripts/export_backup.py
 
-      - name: Upload database backup as artifact
+      - name: Record source health
+        # Monitoring only (migration 016 + scripts/source_health.py): one row
+        # per dataset - last attempt, last success, row count, how many units
+        # the harvester's own completeness gate marked COMPLETE, the error.
+        # Never retries, never re-harvests, never fails the job; a missing
+        # source_health table is a warning, not an error. Reads the sync
+        # step's outcome so a failed sync is recorded as FAILED, not skipped.
+        if: always()
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/source_health.py --source db_backup --label "Database backup export" --state ALL --mode scheduled --cadence-hours 24 --status out/backup/manifest.json --outcome ${{ steps.sync.outcome }}
+
+      - name: Prepare artifact (public evidence + encrypted backup)
+        # A database backup holds `notes` (customer text and author e-mail)
+        # and every property row. It is NEVER uploaded in the clear: only
+        # out/public/backup-evidence.json (the manifest - table names, row
+        # counts, SHA-256 per file - verbatim) is always uploaded, and the
+        # tables themselves only as OpenPGP-encrypted copies under
+        # out/private/ when the ARTIFACT_PUBLIC_KEY repository variable is set. Until that
+        # secret exists, this job proves the export ran but retains no
+        # restorable copy - see docs/production-configuration.md, "Artifact
+        # encryption key" (a launch dependency).
+        if: always()
+        env:
+          ARTIFACT_PUBLIC_KEY: ${{ vars.ARTIFACT_PUBLIC_KEY }}
+        run: python3 scripts/artifact_evidence.py --job backup --status out/backup/manifest.json "out/backup/*"
+
+      - name: Upload artifact (evidence + encrypted backup)
         # 90 days rather than the harvest jobs' 30: a raw harvest is
         # reproducible by re-running the scraper, but hand research, the FDOR
         # enrichment and the status/gone_since history in these tables are not
@@ -648,6 +777,8 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: db-backup-${{ github.run_id }}
-          path: out/backup/
+          path: |
+            out/public/
+            out/private/
           retention-days: 90
           if-no-files-found: error

@@ -898,7 +898,9 @@ function stripSubText(p) {
   const f = facts(p);
   if (f) return f.kicker;
   if (p.source === "certificate") return "Certificate" + (p.expiration_date ? " · expires " + p.expiration_date : "");
-  if (p.source === "laft") return "Lands Available · fixed price";
+  // A Texas "laft" row is struck-off / future-sale inventory (LGBS), never
+  // Florida's statutory fixed-price list - same rule as app.js's kickerParts().
+  if (p.source === "laft") return p.state === "TX" ? "Struck-off inventory" : "Lands Available · fixed price";
   return "Auction" + (p.sale_date ? " · sale " + p.sale_date : " · not scheduled");
 }
 // app.js hands over previewFacts() with each render (see absorb()); this is

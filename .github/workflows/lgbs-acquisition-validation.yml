@@ -158,13 +158,24 @@ jobs:
       # engine never holds any (RetrievalMetadata has no field capable of
       # carrying one; asserted by test_c04 in
       # tests/python/test_phase39_acquisition_engine.py).
-      - name: Upload acquisition artifact
+      - name: Prepare artifact (public evidence + encrypted raw)
+        # The acquisition record and console log can carry sample vendor rows
+        # (addresses, account numbers). Public artifact = evidence only (run
+        # identity, hashes, counts, field names); the files themselves only as
+        # OpenPGP-encrypted copies when ARTIFACT_PUBLIC_KEY is set. See
+        # scripts/artifact_evidence.py.
+        if: always()
+        env:
+          ARTIFACT_PUBLIC_KEY: ${{ vars.ARTIFACT_PUBLIC_KEY }}
+        run: python3 scripts/artifact_evidence.py --job lgbs-acquisition-${{ inputs.mode }} "out/acquisition/**" acquisition-console.log
+
+      - name: Upload acquisition artifact (evidence + encrypted raw)
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: lgbs-acquisition-${{ inputs.mode }}-${{ github.run_id }}
           path: |
-            out/acquisition/
-            acquisition-console.log
+            out/public/
+            out/private/
           if-no-files-found: warn
           retention-days: 30

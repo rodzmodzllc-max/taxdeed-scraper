@@ -540,6 +540,40 @@ field writable). Production status at the time of writing: Phase B is
 implemented in a pull request that is not merged; the writer has not run
 against production and the seed has not been applied.
 
+## 28. Customer boundary, artifacts, account lifecycle and source health (SaaS hardening, 2026-09-29)
+
+Proposed in the hardening PR; migrations 015/016 are not applied until the
+owner runs them (docs/production-configuration.md section 1).
+
+- **Writes to shared property intelligence come only from `service_role`.**
+  After migration 015 an approved customer holds SELECT (column-level, from
+  005a) on `properties` and SELECT on `county_calendar`, and nothing else on
+  either. `notes`, `favorites`, `hidden`, `bid_list`, `profiles` keep
+  INSERT/UPDATE/DELETE/SELECT for `authenticated`, row-scoped by the
+  unchanged policies; `anon` holds nothing on any of them.
+- **Shared vs customer-owned data.** Shared: `properties`, `county_calendar`,
+  `auction_events`, `auction_event_observations`, `source_health`. Customer-
+  owned: `favorites`, `hidden`, `bid_list` (private to the row's user),
+  `notes` (owned by the author, READABLE BY EVERY APPROVED MEMBER by design
+  - labelled as shared, never as private, in the editor, in Terms and in
+  this contract), `profiles` (own row + admin). Account metadata (name,
+  company, address, phone) lives in `auth.users.raw_user_meta_data`.
+- **Deletion.** `delete_my_account()` removes the caller's rows in the five
+  customer tables and the `auth.users` row (cascading to `auth.identities`,
+  `auth.sessions`, ...). It never touches a shared table. Backups taken
+  before a deletion hold the user's notes until the artifact expires.
+- **Public artifacts carry no row values.** See production-configuration.md
+  section 5 for exactly what stays public.
+- **Source health** (`source_health`, one row per dataset) is written after
+  every sync step and classified at read time (HEALTHY / INCOMPLETE / FAILED
+  / STALE / NOT_RUN). INCOMPLETE is never presented as empty or healthy, a
+  green workflow run is not presented as dataset health, and a manual
+  (Texas) source is presented as manual with its last run date.
+- **Event history in the UI.** The property page lists observed scheduled
+  sale events and observations. Outcome is always rendered "Not tracked";
+  lifecycle `completed` is rendered "Sale date passed - outcome not tracked"
+  and is never rendered as sold.
+
 ## Testing strategy
 
 See Section 23. Every new test reads a real repository file (Python source, SQL, YAML, or `app.js`) rather than modeling the contract in a second, parallel Python representation that could silently drift from the code it's meant to describe - the same anti-drift discipline `test_florida_sources_registered_for_state_agnostic_design_but_untouched` already established in Phase 10A.

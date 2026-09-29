@@ -101,38 +101,62 @@ def _matched(path: str, patterns: list[str]) -> bool:
     return any(fnmatch.fnmatchcase(path, p) for p in patterns)
 
 
+def _evidence_steps() -> dict[str, dict]:
+    """The `Prepare artifact` step of each job - the only writer of the
+    out/public/ and out/private/ directories the upload step publishes
+    (SaaS hardening, 2026-09-29: raw harvests are no longer uploaded in the
+    clear; see scripts/artifact_evidence.py and
+    tests/python/test_artifact_privacy.py)."""
+    wf = yaml.safe_load(WORKFLOW.read_text())
+    out: dict[str, dict] = {}
+    for job, spec in wf["jobs"].items():
+        for step in spec["steps"]:
+            if "scripts/artifact_evidence.py" in str(step.get("run", "")):
+                assert job not in out, f"two evidence steps in job {job}"
+                out[job] = step
+    return out
+
+
+def _evidence_args(step: dict) -> str:
+    return str(step["run"]).split("scripts/artifact_evidence.py", 1)[1]
+
+
 def test_A1_deeds_artifact_captures_the_status_file_and_the_harvest():
-    patterns = _patterns(_upload_steps()["deeds"])
-    for f in ("out/harvest_all.json", "out/harvest_all.csv", "out/harvest_all_status.json"):
-        assert _matched(f, patterns), f"{f} not captured by {patterns}"
+    """The status file is reproduced verbatim inside the public evidence
+    file (--status) and the harvest files are hashed, counted and, with a
+    key, encrypted (the raw glob). Both directories are what gets uploaded."""
+    args = _evidence_args(_evidence_steps()["deeds"])
+    assert "--status out/harvest_all_status.json" in args
+    assert '"out/harvest_all.*"' in args
+    assert _patterns(_upload_steps()["deeds"]) == ["out/public/", "out/private/"]
 
 
 def test_A2_the_previous_glob_alone_never_matched_the_status_file():
     """The regression itself: `harvest_all.*` needs a dot right after
     `harvest_all`, and the status file has an underscore there. The glob
-    stays (it is what captures .json and .csv); the status file is listed
-    explicitly because the glob cannot cover it."""
+    still feeds the raw files to the evidence step; the status file is named
+    explicitly (--status) because the glob cannot cover it."""
     assert not fnmatch.fnmatchcase("out/harvest_all_status.json", "out/harvest_all.*")
-    patterns = _patterns(_upload_steps()["deeds"])
-    assert "out/harvest_all.*" in patterns
-    assert "out/harvest_all_status.json" in patterns
+    args = _evidence_args(_evidence_steps()["deeds"])
+    assert "out/harvest_all.*" in args
+    assert "out/harvest_all_status.json" in args
 
 
 def test_A3_status_filename_matches_what_the_harvester_writes_and_the_readers_read():
     assert 'Join-Path $outDir "harvest_all_status.json"' in FL_HARVESTER.read_text()
     assert '"../out/harvest_all_status.json"' in _sync_src()
     assert w.FL_STATUS_JSON.name == "harvest_all_status.json"
-    assert "out/harvest_all_status.json" in _patterns(_upload_steps()["deeds"])
+    assert "out/harvest_all_status.json" in _evidence_args(_evidence_steps()["deeds"])
 
 
 def test_A4_certificate_and_texas_status_files_are_captured_too():
-    steps = _upload_steps()
+    steps = _evidence_steps()
     assert 'Join-Path $outDir "harvest_certificates_status.json"' in CERT_HARVESTER.read_text()
-    assert _matched("out/harvest_certificates.json", _patterns(steps["certificates"]))
-    assert _matched("out/harvest_certificates_status.json", _patterns(steps["certificates"]))
+    assert "--status out/harvest_certificates_status.json" in _evidence_args(steps["certificates"])
+    assert '"out/harvest_certificates.*"' in _evidence_args(steps["certificates"])
     assert 'out_dir / "harvest_texas_status.json"' in TX_HARVESTER.read_text()
-    assert _matched("out/harvest_texas.json", _patterns(steps["texas"]))
-    assert _matched("out/harvest_texas_status.json", _patterns(steps["texas"]))
+    assert "--status out/harvest_texas_status.json" in _evidence_args(steps["texas"])
+    assert '"out/harvest_texas.*"' in _evidence_args(steps["texas"])
 
 
 def test_A5_upload_steps_are_otherwise_unchanged():
@@ -143,13 +167,17 @@ def test_A5_upload_steps_are_otherwise_unchanged():
     assert deeds["with"]["name"] == "harvest-deeds-${{ github.run_id }}"
     assert deeds["with"]["retention-days"] == 30
     assert deeds["with"]["if-no-files-found"] == "warn"
-    assert _patterns(steps["backup"]) == ["out/backup/"]
+    # The backup is uploaded only as evidence + encrypted copies; the export
+    # itself still lands in out/backup/ and is fed to the evidence step.
+    assert _patterns(steps["backup"]) == ["out/public/", "out/private/"]
+    assert "--status out/backup/manifest.json" in _evidence_args(_evidence_steps()["backup"])
+    assert '"out/backup/*"' in _evidence_args(_evidence_steps()["backup"])
     # The Phase B step still follows the property sync in both jobs.
     wf = yaml.safe_load(WORKFLOW.read_text())
     for job in ("deeds", "texas"):
         names = [s.get("name", "") for s in wf["jobs"][job]["steps"]]
         assert "Record auction events (Phase B)" in names
-        assert names.index("Record auction events (Phase B)") > names.index("Upload raw harvest as artifact")
+        assert names.index("Record auction events (Phase B)") > names.index("Upload artifact (evidence + encrypted raw)")
 
 
 # ===========================================================================

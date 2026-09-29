@@ -279,7 +279,14 @@ def test_s12_migration_is_additive_only():
 
 def test_s13_existing_migrations_untouched_and_numbering_is_next():
     numbered = sorted(p.name for p in (REPO / "scripts" / "migrations").glob("*.sql"))
-    assert numbered[-1] == "014_auction_event_history.sql"
+    # 014 was the newest file when this test was written; 015 (customer
+    # write privileges + account deletion, its own test file) now follows it.
+    # What this test guards is that 014 itself is still in sequence and
+    # untouched, not that nothing may ever come after it.
+    assert "014_auction_event_history.sql" in numbered
+    assert numbered.index("014_auction_event_history.sql") == numbered.index("013_auction_link_kind_and_tx_sale_status.sql") + 1
+    assert numbered[numbered.index("014_auction_event_history.sql") + 1] == "015_customer_write_privileges_and_account_deletion.sql"
+    assert numbered[-1] == "016_source_health.sql"
     assert MIG_013.exists()
     # 013's own contract is unchanged (its test file still guards it); here we
     # only assert 014 does not redefine 013's objects.
@@ -288,18 +295,27 @@ def test_s13_existing_migrations_untouched_and_numbering_is_next():
     assert "tx_sale_status" not in body
 
 
-def test_s14_no_writers_touched_in_this_phase_and_frontend_unaware():
+def test_s14_no_writers_touched_in_this_phase_and_frontend_reads_only():
     """Phase A ships no writers: no harvester or sync script references the
-    new tables, and neither does the frontend."""
+    new tables (the only writer is scripts/auction_events_writer.py, Phase
+    B). The frontend READS them since the SaaS hardening PR (2026-09-29,
+    "Sale event history" on the property page) and must never write them -
+    a SELECT is the only verb allowed on either table in the app."""
     for rel in (
         "scripts/sync-harvest-to-supabase.ps1", "scripts/sync-texas-to-supabase.py",
         "scripts/sync-laft-to-supabase.ps1", "scripts/sync-certificates-to-supabase.ps1",
         "harvesters/texas_harvester.py", "scripts/harvest_all_counties.ps1",
-        "public/app.js", "public/explore.js", "public/satellite-map.js",
+        "public/explore.js", "public/satellite-map.js",
     ):
         text = (REPO / rel).read_text(encoding="utf-8", errors="replace")
         assert "auction_events" not in text, rel
         assert "auction_event_observations" not in text, rel
+    app = (REPO / "public" / "app.js").read_text(encoding="utf-8")
+    for table in ("auction_events", "auction_event_observations"):
+        for m in re.finditer(r'from\("%s"\)\.(\w+)\(' % table, app):
+            assert m.group(1) == "select", f"{table}: app.js may only select, found .{m.group(1)}()"
+        assert re.search(r'from\("%s"\)\.select\(' % table, app), f"{table} not read by app.js"
+    assert "Outcome:</b> Not tracked" in app
 
 
 def test_s15_data_contract_documents_the_eight_required_statements():

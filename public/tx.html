@@ -59,6 +59,7 @@ field). -->
 <button type="submit" id="signInBtn">Sign in</button>
 </form>
 <button class="auth-mode-toggle" id="authModeToggle" type="button">Need an account? Create one</button>
+<button class="auth-mode-toggle" id="forgotPasswordBtn" type="button">Forgot password?</button>
 <div class="auth-msg" id="authMsg"></div>
 </div>
 </div>
@@ -134,8 +135,11 @@ same buttons keep the same ids, so nothing that referenced them had to move. -->
       <span id="themeIcon">☼</span> Theme: <span id="themeLabel">Auto</span>
     </button>
     <button class="account-item" id="installBtn" type="button" role="menuitem" hidden>Install app</button>
+    <button class="account-item" id="helpBtnMenu" type="button" role="menuitem">How to read this data</button>
+    <button class="account-item" id="supportBtnMenu" type="button" role="menuitem">Contact support</button>
     <button class="account-item" id="termsBtnMenu" type="button" role="menuitem">Terms &amp; disclaimer</button>
     <button class="account-item danger" id="signOutBtn" type="button" role="menuitem">Sign out</button>
+    <button class="account-item danger" id="deleteAccountBtn" type="button" role="menuitem">Delete my account</button>
   </div>
 </div>
 </span>
@@ -185,6 +189,21 @@ honestly. -->
 <div class="dash-panel">
 <div class="dash-panel-head">Upcoming Auctions</div>
 <div id="dashUpcomingRows"></div>
+</div>
+<!-- Dataset health, one row per source, from public.source_health
+(migration 016, written by scripts/source_health.py after each harvest
+job). Derived at read time - see healthOf() in app.js. -->
+<div class="dash-panel">
+<div class="dash-panel-head">Data sources</div>
+<div id="dashSourceRows"></div>
+</div>
+<!-- Changes to watchlist / favorite rows since this browser last loaded
+the app - computed from the rows the app already has against a snapshot
+in localStorage. Per browser, no notifications - see watchChanges() in
+app.js and docs/production-configuration.md section 7. -->
+<div class="dash-panel">
+<div class="dash-panel-head">Watchlist changes</div>
+<div id="dashWatchChanges"></div>
 </div>
 </div>
 </section>
@@ -417,7 +436,7 @@ it exactly as before. -->
 <div class="auctions-body">
 <div class="data-table-wrap" id="dataTableWrap">
 <table class="data-table" id="dataTable">
-<thead><tr><th>Property</th><th>County</th><th class="dt-num">Opening Bid</th><th class="dt-num">Value</th><th>Status</th><th></th></tr></thead>
+<thead><tr><th>Property</th><th>County</th><th class="dt-num">Opening Bid</th><th class="dt-num" title="County/CAD value on file for the stated roll year - not a market estimate">County value</th><th>Status</th><th></th></tr></thead>
 <tbody id="dataTableBody"></tbody>
 </table>
 </div>
@@ -430,7 +449,7 @@ it exactly as before. -->
 <footer>
 <!-- The title-search warning used to sit in the header on every screen. It is
 one button here, and the full text lives in the modal it opens. -->
-<p class="footer-terms"><button class="terms-btn" id="termsBtn" type="button">Terms &amp; disclaimer</button></p>
+<p class="footer-terms"><button class="terms-btn" id="termsBtn" type="button">Terms &amp; disclaimer</button> · <button class="terms-btn" id="helpBtn" type="button">How to read this data</button> · <button class="terms-btn" id="supportBtn" type="button">Contact support</button></p>
 Links open outside sites (a Google Maps search built by this app, Zillow, and the vendor or county sale page where one was harvested). They are not endorsements, and a listing can change there after our last sync.<br><br>
 <b>Fees, closing costs and lien notes are not tracked for Texas.</b> No Texas fee or closing-cost formula exists in this app, so none is shown. This app does not run a title search. Confirm title and costs with a title company or attorney before bidding.
 </footer>
@@ -593,6 +612,93 @@ nothing saying which is which. -->
 </div>
 </div>
 
+<!-- ============ set a new password (after a reset link) ============
+Opened by app.js when Supabase emits PASSWORD_RECOVERY - i.e. the user
+arrived from the reset e-mail (detectSessionInUrl consumed the recovery
+token). Uses sb.auth.updateUser({ password }) - the supported pattern, no
+custom token handling. -->
+<div class="detail-modal" id="recoveryModal" hidden>
+<div class="detail-modal-inner" id="recoveryModalInner">
+<button class="detail-close" id="recoveryCloseBtn" type="button" aria-label="Close">&times;</button>
+<h2 class="detail-address" style="font-size:1.15rem">Set a new password</h2>
+<p class="mega-sub" style="margin:0 0 .8rem">You opened a password-reset link. Choose a new password for your account.</p>
+<form id="recoveryForm">
+<label class="pf-field"><span>New password (min 6 characters)</span>
+  <input type="password" id="rcNew" autocomplete="new-password" required minlength="6"></label>
+<label class="pf-field"><span>Confirm new password</span>
+  <input type="password" id="rcConfirm" autocomplete="new-password" required minlength="6"></label>
+<button type="submit" id="rcSubmitBtn">Save new password</button>
+</form>
+<div class="auth-msg" id="rcMsg"></div>
+</div>
+</div>
+
+<!-- ============ delete my account ============
+Self-service, via public.delete_my_account() (migration 015). The list of
+what is and is not deleted is the function's own behaviour, stated here so
+nobody has to guess. -->
+<div class="detail-modal" id="deleteAccountModal" hidden>
+<div class="detail-modal-inner" id="deleteAccountModalInner">
+<button class="detail-close" id="deleteAccountCloseBtn" type="button" aria-label="Close">&times;</button>
+<h2 class="detail-address" style="font-size:1.15rem">Delete my account</h2>
+<div class="terms-body">
+<p><b>This removes your sign-in and everything stored against your account:</b> your profile, favorites, hidden listings, watchlist, and the team notes you wrote. It cannot be undone.</p>
+<p><b>Not affected:</b> the shared property data (listings, sale dates, values, sale-event history) - it is not yours and stays for the other members. Notes written by other members stay.</p>
+<p>An encrypted database backup taken before today may still hold your notes until it expires (90 days).</p>
+</div>
+<form id="deleteAccountForm">
+<label class="pf-field"><span>Type DELETE to confirm</span>
+  <input type="text" id="daConfirm" autocomplete="off" required></label>
+<button type="submit" id="daSubmitBtn" class="danger-btn">Delete my account permanently</button>
+</form>
+<div class="auth-msg" id="daMsg"></div>
+</div>
+</div>
+
+<!-- ============ contact support ============
+Rendered by app.js (renderSupportModal). The destination is
+TDW_CONFIG.supportEmail; when it is blank the modal says so instead of
+inventing an address - see docs/production-configuration.md section 4. -->
+<div class="detail-modal" id="supportModal" hidden>
+<div class="detail-modal-inner" id="supportModalInner">
+<button class="detail-close" id="supportCloseBtn" type="button" aria-label="Close">&times;</button>
+<h2 class="detail-address" style="font-size:1.15rem">Contact support</h2>
+<div id="supportBody" class="terms-body"></div>
+</div>
+</div>
+
+<!-- ============ help: how to read this data ============ -->
+<div class="detail-modal" id="helpModal" hidden>
+<div class="detail-modal-inner" id="helpModalInner">
+<button class="detail-close" id="helpCloseBtn" type="button" aria-label="Close">&times;</button>
+<h2 class="detail-address" style="font-size:1.15rem">How to read this data</h2>
+<div class="terms-body" id="helpBody">
+<p class="terms-lead">This app collects what county and vendor sale sites publish, on a schedule, and shows it as collected. It is a research tool. It is not a title search, not an appraisal, and not a record of what happened at a sale.</p>
+
+<h3>Where each row comes from</h3>
+<p>Every property page names its <b>Data source</b> (the county auction site, the county's Lands Available list, LienHub, a Texas vendor listing) and its <b>last synced</b> time. County value figures come from the tax roll for the stated year. Coordinates come from a geocoder, flood zones from FEMA's National Flood Hazard Layer, imagery from USDA aerial photography - each labelled with its source where it appears.</p>
+
+<h3>What the missing-data words mean</h3>
+<p><b>Not published</b> - the source did not post that figure (an opening bid, a parcel number). It does not mean zero or free.</p>
+<p><b>Not checked</b> - this app has not looked it up yet (a flood zone, an image). It does not mean there is nothing to find.</p>
+<p><b>Not tracked</b> - no source in this app carries that information at all (liens, judgments, code violations, sale outcomes). Absence here is never evidence of absence.</p>
+<p><b>Not mapped by FEMA</b> - FEMA publishes no flood map for that spot. It is not the same as low risk.</p>
+
+<h3>The source of sale is authoritative</h3>
+<p>The county's own auction site, the Clerk, the Property Appraiser and the Tax Collector are the record. When this app and the county disagree, the county is right and this app is behind. Sale dates move, listings are withdrawn, bids are re-posted; the <b>Data sources</b> panel on the Dashboard shows when each dataset last synced and whether the last run was complete.</p>
+
+<h3>Sale event history</h3>
+<p>A property page lists each scheduled sale date this app observed for it and what the source showed each time. <b>"Sale date passed - outcome not tracked"</b> means the listing left the source's feed after its date. It does <b>not</b> mean the property sold, was redeemed, or was cancelled - this app records no sale results, winning bids or purchasers, and never infers one from a listing disappearing. "Superseded" means the source later listed the same property under a new date.</p>
+
+<h3>Ratios and estimates</h3>
+<p><b>Value ÷ bid</b> is the county value on file divided by the opening bid - arithmetic for screening, not a return or a margin. Fee figures are estimates with a stated open question. Nothing here is a recommendation to bid.</p>
+
+<h3>Before you bid</h3>
+<p>Verify every figure on the county's own site, order a title search, and have a title company or attorney review the parcel. Liens, code enforcement actions and other encumbrances survive a tax deed sale and are not visible here.</p>
+</div>
+</div>
+</div>
+
 <!-- ============ terms & disclaimer ============ -->
 <div class="detail-modal" id="termsModal" hidden>
 <div class="detail-modal-inner" id="termsModalInner">
@@ -615,6 +721,7 @@ Texas statutory copy here without counsel review. -->
      above the tabs on every screen. app.js writes it here now; the amber
      .generated.stale styling still applies when the sync is behind. -->
 <p class="generated" id="generatedAt">Loading…</p>
+<div class="source-health-terms" id="sourceHealthTerms"></div>
 <p>A property whose own row has not been re-synced recently carries an amber edge in the list, so a stale record is visible where you are actually reading, not only in aggregate here.</p>
 <p><b>Opening bid / minimum bid</b> is the figure the vendor or county published. It is not the cost to acquire. "Not published" means no figure was posted, not that the property is free.</p>
 <p><b>Value</b>, where shown, is the figure the vendor listing carries. It is not an appraisal or a comparative market analysis. No Texas appraisal-district values are loaded.</p>
@@ -625,9 +732,9 @@ Texas statutory copy here without counsel review. -->
 <p>This tool is provided as is, with no warranty of accuracy, completeness or fitness for any particular purpose. You are responsible for your own due diligence and for every bid you place. Nothing here creates an attorney-client, broker, or fiduciary relationship.</p>
 
 <h3>Your account</h3>
-<p>Access is granted by the account owner and may be withdrawn. Don't share your login. Favorites, hidden listings and your watchlist are stored against your account and are private to you. Team notes are shared: every approved member of this account can read the notes you leave on a property, along with the part of your email address before the @.</p>
+<p>Access is granted by the account owner and may be withdrawn. Don't share your login. Favorites, hidden listings and your watchlist are stored against your account and are private to you. Team notes are shared: every approved member of this account can read the notes you leave on a property, along with the part of your email address before the @ - they are not private. You can reset your password from the sign-in screen and delete your account from the account menu; deleting removes your profile, favorites, hidden listings, watchlist and your notes, and nothing else.</p>
 
-<p class="terms-note">Questions about any of this should go to the account owner.</p>
+<p class="terms-note">Questions about any of this: use Contact support (account menu or footer).</p>
 </div>
 </div>
 </div>
