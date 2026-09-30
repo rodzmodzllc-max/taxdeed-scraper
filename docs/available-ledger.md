@@ -446,3 +446,61 @@ product tracks: % with a verified actionable acquisition path and % with
 a verified source listing. The laft job's publication-gate step prints
 them. `publication.measure()` counts an offline process as a purchase
 path.
+
+## 12. Acquisition coverage and failure-safe evidence (2026-09-30)
+
+### 12.1 Following the source to the process
+
+`capture_purchase_evidence.py --follow` (the manual evidence job passes
+it) fetches up to six links per county that are PRESENT on an approved
+source page, carry tax-deed context in their text or URL, and are not a
+search engine, social site or blocked vendor; documents first. Followed
+process pages keep their table text; the inventory list itself never
+does. Links carrying a 7+ digit run (per-parcel links) are never
+captured. Two runs (36717720575, 36718027256) covered the counties with
+active unverified inventory:
+
+| County | Result |
+|---|---|
+| Marion | Process found on the Clerk's "Tax Deeds & Lands Available for Taxes" page (linked from the source page): recorded as `amount_plus_costs`, four steps, payment method. No phone recorded - the page shows two numbers and the capture does not establish which one handles this process. |
+| Indian River | FAQ page linked; it covers the auction sale only, not Lands Available purchases. Not evidence. |
+| Bay, Duval, Palm Beach | Pioneer portal text names only the Official Records office for certified copies. Not a purchase process. |
+| Alachua, Highlands, Lee, Polk, Sarasota, Miami-Dade | realTDM pages publish only the category labels "List of Lands - BOCC / Public Purchase". No process, no link. |
+| Hillsborough, Osceola, Putnam, Gadsden | No process wording and no process link on the source page. |
+| Escambia, St. Lucie | HTTP 403 from the runner. |
+| Hendry | List document 404. |
+
+No application or instructions document is linked from any of these
+source pages, so no `application_url` is recorded.
+
+### 12.2 A failed read never erases evidence
+
+`laft_lifecycle.carry_plan()` runs on every lifecycle pass for active
+rows the run did NOT read (county INCOMPLETE, SOURCE_UNAVAILABLE, FAILED,
+STALE or not run). It only adds: the deterministic match from the
+identity the sync upserted the row under (`case_no`, else parcel) and
+the list / document it was last read from, dated by `last_seen_at`
+(the basis says it was carried); and the acquisition record the verified
+evidence table establishes for the row's source + county. It never
+removes a key, never touches `last_seen_at`, never matches by name,
+address or proximity, and skips rows never stamped by a read. An
+explicit change (an evidence row removed or rewritten) takes effect on
+the next read of the county.
+
+### 12.3 Metrics
+
+`measure()` also reports `with_complete_record` (steps AND a published
+channel: phone, e-mail, in-person address, mailing address, application
+document or an online URL), `with_in_person` and
+`with_application_document`. A typed mode without a complete record
+counts as a path, never as a complete record.
+
+### 12.4 Customer page
+
+"How do I acquire it?" adds the first step, the scope ("County process:
+... not an approval for this parcel, and being listed does not prove the
+county will still sell it today" / "Property-specific: ...") and
+"Acquisition process last verified <date>", with a retry note when the
+county's source was not fully read at the last attempt - the verified
+process stays. "Why is it in Available?" says whether the parcel was
+matched on the official list.

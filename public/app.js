@@ -3648,6 +3648,7 @@ function inventoryCardHtml(p) {
   return detailSectionHtml("Inventory & Purchase", body, "inventory-card", "inventory");
 }
 window.__tdwInventoryCardHtml = inventoryCardHtml;
+window.__tdwAcquisitionHtml = acquisitionHtml;
 
 // Coordinates only ever come from scripts/geocode_properties.py's real
 // Census Bureau geocode - never guessed here - so a present latitude/

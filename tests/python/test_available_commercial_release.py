@@ -74,7 +74,7 @@ def test_e02_evidence_table_holds_only_verified_captured_rows_and_outcome_rules_
         assert r.evidence_type in PE.EVIDENCE_TYPES and r.path_type in PE.PATH_TYPES, r.county
         assert r.state == "FL" and r.county != "*", (r.state, r.county)          # no wildcard, no unread state
         assert not r.third_party_permitted and r.url == "", r.county            # no invented property URL
-        assert "run 36698285461" in r.notes, r.county                             # traceable to the capture run
+        assert re.search(r"\brun[s]? 3669828546|\bruns 36717720575", r.notes), r.county  # traceable to the capture run(s)
     assert len({(r.state, r.source_id, r.county) for r in rows}) == len(rows)   # one row per source/county
     assert OI.load_rules() == []
     with open(PE.EVIDENCE_PATH, newline="", encoding="utf-8") as fh:
@@ -451,7 +451,7 @@ def test_f03_filters_read_stored_fields_and_the_admin_panel_is_admin_gated():
     for f in ("public/index.html", "public/tx.html"):
         html = (REPO / f).read_text(encoding="utf-8")
         assert 'id="adminPublication" hidden' in html and 'id="availLandUseFilter"' in html and 'id="availGeocoded"' in html and 'id="availValues"' in html
-    assert (REPO / "public/sw.js").read_text(encoding="utf-8").count('const CACHE = "tdw-shell-v51"') == 1
+    assert (REPO / "public/sw.js").read_text(encoding="utf-8").count('const CACHE = "tdw-shell-v52"') == 1
 
 
 # ==================== 8. regressions ====================

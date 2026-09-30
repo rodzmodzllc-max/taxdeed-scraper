@@ -122,6 +122,12 @@ def extract_html(html: str, url: str, *, keep_tables: bool = False) -> dict:
         if not href or href.startswith(("#", "javascript:", "mailto:", "tel:")):
             continue
         absolute = urljoin(url, href)
+        # A link carrying a parcel / account number (a 7+ digit run) is a
+        # per-property link from the inventory list: never captured, so the
+        # capture stays value-free (Putnam's list links every row to the Tax
+        # Collector by account number).
+        if LONG_DIGITS.search(absolute) or LONG_DIGITS.search(text):
+            continue
         is_doc = bool(DOC_EXT.search(absolute))
         if LINK_VOCAB.search(text) or LINK_VOCAB.search(absolute) or is_doc:
             links.append({"text": text[:120], "href": absolute, "host": (urlsplit(absolute).hostname or "").lower(),
