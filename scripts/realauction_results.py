@@ -136,6 +136,7 @@ class FetchResult:
     login_page: bool = False
     pages: int = 0
     items: list[ClosedItem] = field(default_factory=list)
+    raw_pages: list[str] = field(default_factory=list)
 
 
 def sale_day_url(host: str, sale_date: str) -> str:
@@ -171,6 +172,7 @@ def fetch_area(session: Any, host: str, sale_date: str, *, area: str = AREA_CLOS
                 res.error = f"HTTP {rr.status_code} on area {area} page {page}"
                 return res
             res.pages = page + 1
+            res.raw_pages.append(rr.text)
             if is_login_page(rr.text):
                 res.login_page = True
                 break
@@ -201,6 +203,50 @@ def shape(text: str) -> str:
     return _DIGITS.sub("#", text or "")
 
 
+_TEXT_NODE = re.compile(r">([^<@]+)")
+
+
+def mask_text(fragment: str, keep: re.Pattern | None = None) -> str:
+    """Mask every text node of an HTML fragment to its shape (letters -> 'a',
+    digits -> '#'), except nodes matching `keep` (label / status vocabulary)."""
+    def sub(m: re.Match) -> str:
+        t = m.group(1)
+        if keep is not None and keep.search(t) and not _DIGITS.search(t):
+            return ">" + t
+        return ">" + re.sub(r"[A-Za-z]", "a", _DIGITS.sub("#", t))
+    return _TEXT_NODE.sub(sub, fragment)
+
+
+_KEEP_WORDS = re.compile(r"(auction|status|sold|cancel|redeem|withdr|struck|county|bidder|amount|case|parcel|"
+                         r"certificate|opening|assessed|type|address|date|plaintiff|party|to\b|postpon|result)", re.I)
+
+
+def structure_sample(body: str) -> dict:
+    """Value-free structure of one AJAX response: its top-level JSON keys
+    and, for every non-HTML key, the value's shape; plus the first item
+    block with every text node masked except label / status vocabulary."""
+    import json as _json
+    out: dict = {}
+    try:
+        data = _json.loads(body)
+    except Exception:
+        data = None
+    if isinstance(data, dict):
+        out["json_keys"] = sorted(data.keys())
+        shapes = {}
+        for k, v in data.items():
+            if isinstance(v, str) and "AITEM_" in v:
+                continue
+            txt = v if isinstance(v, str) else _json.dumps(v)
+            shapes[k] = mask_text(">" + txt[:400], _KEEP_WORDS)[1:] if not _KEEP_WORDS.search(txt[:400]) else re.sub(r"\d", "#", txt[:400])
+        out["other_keys"] = shapes
+    text = unescape(body or "")
+    if "AITEM_" in text:
+        block = text.split("AITEM_")[1][:2200]
+        out["first_item_skeleton"] = mask_text(block, _KEEP_WORDS)
+    return out
+
+
 def value_free_summary(res: FetchResult) -> dict:
     """What the area publishes, without a single value: label names with
     counts, status-line pairs with digits masked (counts per distinct
@@ -220,7 +266,8 @@ def value_free_summary(res: FetchResult) -> dict:
                 classes[c] = classes.get(c, 0) + 1
         with_case += bool(it.case_no)
         with_parcel += bool(it.parcel)
-    return {"url": res.url, "date": res.sale_date, "ok": res.ok, "error": res.error, "login_page": res.login_page,
+    skel = structure_sample(res.raw_pages[0]) if res.raw_pages else {}
+    return {"structure": skel, "url": res.url, "date": res.sale_date, "ok": res.ok, "error": res.error, "login_page": res.login_page,
             "pages": res.pages, "items": len(res.items), "with_case": with_case, "with_parcel": with_parcel,
             "labels": dict(sorted(labels.items())), "status_pairs": dict(sorted(pairs.items(), key=lambda kv: -kv[1])),
             "classes": dict(sorted(classes.items()))}

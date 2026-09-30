@@ -355,6 +355,13 @@ def digest(path: Path, *, max_links: int = 25, max_snippets: int = 25, snippet_c
                     out.append(f"    status: {k} x{v}")
                 if r.get("classes"):
                     out.append("    classes: " + ", ".join(f"{k}({v})" for k, v in r["classes"].items()))
+                st = r.get("structure") or {}
+                if st.get("json_keys"):
+                    out.append("    json_keys: " + ", ".join(st["json_keys"]))
+                for k, v in (st.get("other_keys") or {}).items():
+                    out.append(f"    key {k}: {str(v)[:300]}")
+                if st.get("first_item_skeleton"):
+                    out.append("    skeleton: " + st["first_item_skeleton"].replace("\n", " ")[:2200])
     return "\n".join(out)
 
 
