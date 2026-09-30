@@ -1,0 +1,35 @@
+{
+ "_fixture": "SYNTHETIC FIXTURE - shaped like the RealAuction FNC=UPDATE response observed in capture run 36729310846; every value is invented",
+ "ADATA": {
+  "AITEM": [
+   {
+    "AID": "9000001",
+    "A": "Auction Sold",
+    "B": "09/29/2026 10:05 AM ET",
+    "C": "Amount",
+    "D": "$12,300.00",
+    "SL": "Sold To",
+    "ST": "3rd Party Bidder"
+   },
+   {
+    "AID": "9000002",
+    "A": "Canceled per County",
+    "B": "",
+    "C": "",
+    "D": "",
+    "SL": "",
+    "ST": ""
+   },
+   {
+    "AID": "9000003",
+    "A": "",
+    "B": "",
+    "C": "",
+    "D": "",
+    "SL": "",
+    "ST": ""
+   }
+  ],
+  "COUNT": "3"
+ }
+}

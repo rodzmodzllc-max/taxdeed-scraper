@@ -302,6 +302,8 @@ def capture_realauction_results(dates: list[str], counties: set[str] | None) -> 
         for d in dates:
             res = RR.fetch_area(requests.Session(), h["Host"], d)
             rec = RR.value_free_summary(res)
+            if res.items and not out.get("_page_script"):
+                out["_page_script"] = RR.page_script_snippets(requests.Session(), h["Host"], res.url)
             out.setdefault(h["County"], []).append(rec)
             print(f"  RealAuction results {h['County']:<14} {d}: ok={rec['ok']} login={rec['login_page']} "
                   f"items={rec['items']} err={rec['error']}", flush=True)
@@ -345,7 +347,14 @@ def digest(path: Path, *, max_links: int = 25, max_snippets: int = 25, snippet_c
     rr = data.get("realauction_results") or {}
     if rr:
         out.append("@@ REALAUCTION closed/canceled area (AREA=C), value-free")
+        ps = rr.get("_page_script") or {}
+        if ps:
+            out.append("  page scripts: " + ", ".join(ps.get("scripts") or []) + (f" err={ps.get('error')}" if ps.get("error") else ""))
+            for sn in ps.get("snippets") or []:
+                out.append("    js: " + sn[:420])
         for county, recs in sorted(rr.items()):
+            if county.startswith("_"):
+                continue
             for r in recs:
                 out.append(f"  {county} {r.get('date')}: ok={r.get('ok')} login_page={r.get('login_page')} pages={r.get('pages')} "
                            f"items={r.get('items')} with_case={r.get('with_case')} with_parcel={r.get('with_parcel')} err={r.get('error')}")

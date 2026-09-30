@@ -38,6 +38,7 @@ from __future__ import annotations
 
 import html as _html
 import re
+import urllib.parse
 import time
 from dataclasses import dataclass, field
 from typing import Any
@@ -140,7 +141,7 @@ class FetchResult:
     aids: list[str] = field(default_factory=list)
     update_raw: str | None = None
     update_error: str | None = None
-    paging_probe: dict = field(default_factory=dict)
+    truncated: bool = False           # the page limit was reached with items still arriving
 
 
 def sale_day_url(host: str, sale_date: str) -> str:
@@ -226,6 +227,8 @@ def fetch_area(session: Any, host: str, sale_date: str, *, area: str = AREA_CLOS
                 fresh += 1
             if not batch or fresh == 0:
                 break
+        else:
+            res.truncated = True
         res.ok = not res.login_page
         if res.ok and res.aids:
             time.sleep(pause)
@@ -322,6 +325,8 @@ def vocab_or_shape(value: Any) -> str:
     t = clean(str(value))
     if t.lower() in _EXACT_CATEGORIES:
         return t
+    if re.fullmatch(r"[A-Z]", t):
+        return t          # a one-letter status code identifies nothing
     if t and len(t) <= 48 and _STATUS_VOCAB.match(t) and not _DIGITS.search(t):
         return t
     return re.sub(r"[A-Za-z]", "a", _DIGITS.sub("#", t))[:48]
@@ -344,6 +349,42 @@ def json_shape(value: Any, depth: int = 0) -> Any:
     if "<" in s and ">" in s:
         return "HTML:" + mask_text(s[:600], _KEEP_WORDS)
     return vocab_or_shape(s)
+
+
+_JS_KEYS = re.compile(r"ASTAT|PageDir|doR|Auction Sold|Cancel|Redeem|Withdr|Struck|\.A\s*==|case\s*['\"][A-Z]['\"]", re.I)
+
+
+def page_script_snippets(session: Any, host: str, sale_url: str, *, timeout: int = 25, limit: int = 40) -> dict:
+    """The sale-day page's OWN scripts (same host only), and short windows
+    around the code that renders an item's status line and pages the list -
+    how the page itself turns a status record into words. Code, not data."""
+    out: dict = {"scripts": [], "snippets": []}
+    try:
+        r = session.get(sale_url, headers={"User-Agent": UA}, timeout=timeout)
+        srcs = re.findall(r'<script[^>]+src="([^"]+)"', r.text or "", re.I)
+        inline = re.findall(r"<script[^>]*>([\s\S]*?)</script>", r.text or "", re.I)
+    except Exception as exc:
+        out["error"] = type(exc).__name__
+        return out
+    bodies: list[tuple[str, str]] = [("inline", "\n".join(inline))]
+    for src in srcs[:12]:
+        url = urllib.parse.urljoin(sale_url, src)
+        if urllib.parse.urlsplit(url).hostname != host:
+            continue
+        out["scripts"].append(urllib.parse.urlsplit(url).path)
+        try:
+            bodies.append((urllib.parse.urlsplit(url).path, session.get(url, headers={"User-Agent": UA}, timeout=timeout).text))
+        except Exception:
+            continue
+    for name, body in bodies:
+        for m in _JS_KEYS.finditer(body or ""):
+            a, b = max(0, m.start() - 160), min(len(body), m.end() + 220)
+            snip = re.sub(r"\s+", " ", body[a:b])
+            if all(snip[:80] not in x for x in out["snippets"]):
+                out["snippets"].append(f"{name}: {snip}")
+            if len(out["snippets"]) >= limit:
+                return out
+    return out
 
 
 def value_free_summary(res: FetchResult) -> dict:

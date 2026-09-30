@@ -159,7 +159,7 @@ on:
         required: false
         type: choice
         default: all
-        options: [all, deeds, certificates, laft, texas, backup, evidence]
+        options: [all, deeds, certificates, laft, texas, backup, evidence, outcomes]
       evidence_counties:
         description: >-
           (job=evidence only) Comma-separated county names to limit the
@@ -299,6 +299,21 @@ jobs:
             echo "- Property harvest and sync: **succeeded** (earlier steps)"
             echo "- Phase B auction-event recording: **failed** - see the 'Record auction events (Phase B)' step log"
           } >> "$GITHUB_STEP_SUMMARY"
+
+      # Verified auction outcomes (scripts/auction_outcomes.py): for sale days
+      # in the last 21 days, reads the SAME RealAuction host's "Auctions
+      # Closed or Canceled" listing and the page's own status refresh through
+      # the harvester's anonymous session, matches items to events by exact
+      # case number, and records a result only for a reviewed wording in
+      # data/auction_outcome_wordings.csv. Never infers from absence; a
+      # failed read writes nothing. continue-on-error: it can never fail the
+      # property pipeline.
+      - name: Verified auction outcomes (source-published results only)
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/auction_outcomes.py
 
       - name: Inventory status - normalized lifecycle state (migration 021)
         # Inventory status (migration 021): each row's normalized lifecycle state and
@@ -987,3 +1002,39 @@ jobs:
           path: |
             out/public/
             out/private/
+
+  outcomes:
+    # Verified auction outcomes on their own - MANUAL ONLY (job=outcomes),
+    # never scheduled, never part of "all" (the deeds job already runs the
+    # same step after every harvest). No harvest, no property write: it reads
+    # auction_events and appends observations / patches events only for
+    # source-published results (scripts/auction_outcomes.py).
+    name: Verified auction outcomes (manual only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.job == 'outcomes'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python dependencies
+        run: pip install requests
+
+      - name: Verified auction outcomes (source-published results only)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/auction_outcomes.py
+
+      - name: Upload report (value-free)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: auction-outcomes-${{ github.run_id }}
+          path: out/public/auction-outcomes.json
+          if-no-files-found: warn
