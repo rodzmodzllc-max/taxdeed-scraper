@@ -837,6 +837,19 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 scripts/enrich_statewide_parcels.py --state ${{ matrix.state }}
 
+      - name: Inventory status + observation history
+        # upcoming / active / unknown from the list and its published sale
+        # date; sold only from the source's own sold flag or a published
+        # past-sale price; closed (never sold) from absence at a COMPLETE /
+        # EMPTY read (harvesters/governance/inventory_status.py
+        # adapter_record_status). One observation row per change.
+        if: always() && steps.sync.outcome == 'success'
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/inventory_status_writer.py --state ${{ matrix.state }} --report "out/public/inventory-status-${{ matrix.state }}.json"
+
       - name: Freshness and publication gate
         if: always() && steps.harvest.outcome == 'success'
         continue-on-error: true
