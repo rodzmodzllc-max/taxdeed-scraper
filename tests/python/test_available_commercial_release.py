@@ -31,6 +31,7 @@ import outcome_ingest as OI  # noqa: E402
 import publication_gate as PG  # noqa: E402
 import purchase_path_engine as PE  # noqa: E402
 
+EXPANSION_STATES = {"MI", "WY", "SC", "CO", "WI"}
 ROWS = csr.load_registry()
 MIG = REPO / "scripts/migrations/023_available_commercial_release.sql"
 APP = (REPO / "public/app.js").read_text(encoding="utf-8")
@@ -467,6 +468,9 @@ def test_r01_fl_tx_al_ar_la_az_regressions_hold():
         if r.source_id == "la_ebr_adjudicated":
             # The one reviewed (not grandfathered) approval: owner decision 2026-09-30, dated list.
             assert eff == "APPROVED" and r.is_production and "as of" in r.restrictions
+        elif r.state in EXPANSION_STATES:
+            # Six-state expansion (2026-09-30): a reviewed owner decision, not grandfathered.
+            assert eff == "APPROVED" and r.is_production and "owner on 2026-09-30" in r.restrictions, (r.state, r.source_id)
         elif r.is_production:
             assert eff == "APPROVED_GRANDFATHERED", (r.state, r.source_id)
         elif r.source_id in BLOCKED_SOURCE_IDS:
@@ -475,7 +479,7 @@ def test_r01_fl_tx_al_ar_la_az_regressions_hold():
             assert eff == "RESTRICTED"
         else:
             assert eff == "UNREVIEWED"
-    assert not any(r.runnable for r in ROWS if r.state not in ("FL", "TX", "LA"))
+    assert not any(r.runnable for r in ROWS if r.state not in {"FL", "TX", "LA"} | EXPANSION_STATES)
     assert [r.source_id for r in ROWS if r.state == "LA" and r.runnable] == ["la_ebr_adjudicated"]
     assert not any(r.runnable for r in ROWS if r.source_id in BLOCKED_SOURCE_IDS)
     # The AVAILABLE harvest units the registry expects (the laft job's own

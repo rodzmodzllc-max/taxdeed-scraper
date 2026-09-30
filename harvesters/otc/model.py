@@ -102,9 +102,25 @@ class OtcRecord:
     provenance: dict = field(default_factory=dict)  # per-field origin, filled by the adapter
     # Which ledger's record this is: "laft" (AVAILABLE inventory) or
     # "certificate" (LIENS & CERTIFICATES - the lien product, never the land).
+    # "auction" (six-state sprint): an AUCTIONS ledger record - a parcel
+    # offered at a published tax / foreclosure sale; `amount` is then the
+    # published minimum / opening bid and `sale_date` the published date.
     record_source: str = "laft"
     certificate_no: str | None = None               # the certificate / CP number, as published
     interest_rate: float | None = None              # the certificate's rate, as published (percent)
+    sale_date: date | None = None                   # AUCTIONS only: the sale date as the source publishes it
+    acreage: float | None = None                    # as the source publishes it on the row, never computed
+    land_use: str | None = None                     # the source's own property type / class wording
+    taxable_value: float | None = None              # as published on the row (e.g. Michigan's taxable value)
+    # A PUBLISHED result (six-state sprint): only when the source's own row
+    # carries it (e.g. a county's "Previous Sales" table with a sale price).
+    # Never inferred from absence. A row with a result is closed.
+    result_amount: float | None = None
+    result_date: date | None = None
+    # The source's own sold / not-sold flag, when it publishes one (Eaton
+    # County's 'Has Been Sold'): "sold" closes the auction row; the source's
+    # wording is kept in inventory_status_raw. Never inferred.
+    published_outcome: str | None = None
 
     def validate(self) -> list[str]:
         problems: list[str] = []
@@ -112,10 +128,26 @@ class OtcRecord:
         # registers it (FL and TX in production; tests register a temporary
         # one). No env override, no pass-through of an unknown code.
         problems.extend(states.state_problems(self.state))
-        if self.record_source not in ("laft", "certificate"):
-            problems.append("record_source must be 'laft' (AVAILABLE) or 'certificate' (LIENS & CERTIFICATES)")
-        if self.record_source == "certificate" and self.inventory_type is not None:
-            problems.append("a certificate record carries no inventory type (that vocabulary describes AVAILABLE land)")
+        if self.record_source not in ("laft", "certificate", "auction"):
+            problems.append("record_source must be 'laft' (AVAILABLE), 'certificate' (LIENS & CERTIFICATES) or 'auction' (AUCTIONS)")
+        if self.record_source in ("certificate", "auction") and self.inventory_type is not None:
+            problems.append(f"a {self.record_source} record carries no inventory type (that vocabulary describes AVAILABLE land)")
+        if self.published_outcome not in (None, "sold"):
+            problems.append("published_outcome is 'sold' or None")
+        if self.published_outcome and self.record_source != "auction":
+            problems.append("a published outcome belongs to an auction record")
+        if self.result_amount is not None and self.result_amount < 0:
+            problems.append("result_amount cannot be negative")
+        if (self.result_amount is not None or self.result_date is not None) and self.record_source != "auction":
+            problems.append("a published sale result belongs to an auction record")
+        if self.sale_date is not None and self.record_source != "auction":
+            problems.append("sale_date belongs to an auction record")
+        if self.record_source == "auction" and self.amount is not None and self.amount_kind not in (AmountKind.OPENING_BID, AmountKind.MINIMUM_PURCHASE_AMOUNT, AmountKind.PUBLISHED_AMOUNT_KIND_UNSPECIFIED):
+            problems.append("an auction amount is the published opening / minimum bid (or of unspecified kind)")
+        for name in ("acreage", "taxable_value"):
+            value = getattr(self, name)
+            if value is not None and value < 0:
+                problems.append(f"{name} cannot be negative")
         if self.interest_rate is not None and self.interest_rate < 0:
             problems.append("interest_rate cannot be negative")
         if not self.county or not self.case_no or not self.source_id:
@@ -204,10 +236,31 @@ class OtcRecord:
         }
         # Only when the source published one: an absent key never writes
         # NULL over a value another step carried.
-        for name in ("owner_name", "assessed", "market", "tax_year", "latitude", "longitude", "certificate_no", "interest_rate"):
+        for name in ("owner_name", "assessed", "market", "tax_year", "latitude", "longitude", "certificate_no", "interest_rate",
+                     "acreage", "land_use", "taxable_value"):
             value = getattr(self, name)
             if value is not None:
                 row[name] = value
+        if self.published_outcome == "sold":
+            row["status"] = "closed"
+        if self.result_amount is not None or self.result_date is not None:
+            row["status"] = "closed"
+            if self.result_amount is not None:
+                row["result_amount"] = self.result_amount
+            if self.result_date is not None:
+                row["result_date"] = self.result_date.isoformat()
+        if self.record_source == "auction":
+            # AUCTIONS: the published minimum / opening bid is the auction's
+            # bid (FL auction rows' own columns); no AVAILABLE purchase fields.
+            row["ledger_type"] = "auctions"
+            if self.amount is not None:
+                row["min_bid"] = self.amount
+            if self.sale_date is not None:
+                row["sale_date"] = self.sale_date.isoformat()
+            for k in ("purchase_amount", "purchase_amount_kind", "inventory_type"):
+                row.pop(k, None)
+            if self.source_status_text:
+                row["inventory_status_raw"] = self.source_status_text
         return row
 
     def to_harvest_row(self) -> dict:
@@ -228,6 +281,8 @@ class OtcRecord:
             "source_id": self.source_id, "source_authority": self.source_authority.value,
             "list_as_of": self.list_as_of.isoformat() if self.list_as_of else None,
             "source_status_text": self.source_status_text, "otc_provenance": dict(self.provenance),
+            "sale_date": self.sale_date.isoformat() if self.sale_date else None,
+            "acreage": self.acreage, "land_use": self.land_use, "taxable_value": self.taxable_value,
         }
         return {k: v for k, v in row.items() if v is not None}
 

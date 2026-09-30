@@ -1,0 +1,20 @@
+{
+ "objectIdFieldName": "OBJECTID",
+ "features": [
+  {
+   "attributes": {
+    "FID": 1,
+    "accountno": "R0001234",
+    "pidn": "12345678900000",
+    "name1": "SYNTHETIC OWNER A",
+    "st_address": "300 SYNTHETIC AVE",
+    "LEGALDESCR": "SYNTHETIC ADDN LOT 3",
+    "TOTAL": 812.44,
+    "grossacres": 0.16,
+    "totalval": 188000.0,
+    "taxyear": "2025"
+   }
+  }
+ ],
+ "exceededTransferLimit": false
+}

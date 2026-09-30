@@ -398,7 +398,7 @@ def test_a03_arizona_harvest_refuses_before_the_first_request_and_the_script_wri
 
 def test_x01_fl_and_tx_behaviour_is_unchanged():
     # FL / TX unchanged; LA joined the production states on 2026-09-30 (state-expansion sprint).
-    assert states.PRODUCTION_STATES == {"FL", "TX", "LA"} and states.is_activated("FL") and states.is_activated("TX")
+    assert states.PRODUCTION_STATES == {"FL", "TX", "LA", "MI", "WY", "SC", "CO", "WI"} and states.is_activated("FL") and states.is_activated("TX")
     # The AVAILABLE rows are byte-for-byte the 109 rows the LAFT / struck-off machinery has always read.
     avail = [r for r in ROWS if r.state in ("FL", "TX") and not (r.ledger_set and "AVAILABLE" not in r.ledger_set)]
     assert len(avail) == 109

@@ -208,7 +208,9 @@ def test_g01_module_never_fetches_and_nothing_is_configured():
     # The state adapters (alabama.py, arkansas.py, louisiana.py, arizona.py) name their agencies'
     # pages in their evidence ledgers; their own tests pin those hosts exactly and nothing else.
     for path in (REPO / "harvesters/otc/adapters").glob("*.py"):
-        if path.name in ("alabama.py", "arkansas.py", "louisiana.py", "arizona.py"):
+        # expansion.py (2026-09-30) is the owner-approved six-state configuration: its
+        # hosts are pinned by tests/python/test_six_state_expansion.py.
+        if path.name in ("alabama.py", "arkansas.py", "louisiana.py", "arizona.py", "expansion.py"):
             continue
         text = path.read_text(encoding="utf-8")
         assert not re.search(r"https?://[^\s\"']*(\.gov|arcgis\.com)", text) and "mississippi" not in text.lower(), path.name

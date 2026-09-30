@@ -1,0 +1,34 @@
+{
+ "objectIdFieldName": "OBJECTID",
+ "features": [
+  {
+   "attributes": {
+    "OBJECTID": 1,
+    "lparcel": "100-200-300-400-50",
+    "description": "SYNTHETIC LOT 1 EXAMPLE PLAT",
+    "minbid": 4200,
+    "type": "Residential",
+    "STATEDAREA": "0.23",
+    "SITEADDRESS": "100 SYNTHETIC ST",
+    "CNTTXBLVAL": 38100.0,
+    "SEV_1": 41200.0,
+    "Sold": "No"
+   }
+  },
+  {
+   "attributes": {
+    "OBJECTID": 2,
+    "lparcel": "10-20-30-40-500-600",
+    "description": "SYNTHETIC PART OF NE 1/4",
+    "minbid": 1800,
+    "type": "Vacant",
+    "STATEDAREA": "2.5",
+    "SITEADDRESS": null,
+    "CNTTXBLVAL": 0,
+    "SEV_1": 9000.0,
+    "Sold": "Yes"
+   }
+  }
+ ],
+ "exceededTransferLimit": false
+}

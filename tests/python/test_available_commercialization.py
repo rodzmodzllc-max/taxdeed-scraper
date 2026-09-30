@@ -29,6 +29,7 @@ import laft_purchase_paths as PP  # noqa: E402
 import publication_gate as PG  # noqa: E402
 import unit_freshness as U  # noqa: E402
 
+EXPANSION_STATES = {"MI", "WY", "SC", "CO", "WI"}
 ROWS = csr.load_registry()
 BY_SID = pub.decisions_by_source(ROWS)
 T = datetime(2026, 9, 30, 12, 0, tzinfo=timezone.utc)
@@ -54,6 +55,9 @@ def test_g01_committed_registry_publishes_only_the_grandfathered_production_sour
         eff = pub.effective_publication(r)
         if r.source_id == "la_ebr_adjudicated":
             assert eff == "APPROVED" and r.restrictions   # reviewed owner decision 2026-09-30 (dated list), not grandfathered
+        elif r.state in EXPANSION_STATES:
+            # Six-state expansion (2026-09-30): a reviewed owner decision, not grandfathered.
+            assert eff == "APPROVED" and r.is_production and "owner on 2026-09-30" in r.restrictions, (r.state, r.source_id)
         elif r.is_production:
             assert eff == "APPROVED_GRANDFATHERED", (r.state, r.county, r.source_id)     # already served today; carried forward
         elif r.source_id in BLOCKED_SOURCE_IDS:
@@ -363,7 +367,7 @@ def test_m02_workflow_runs_the_gate_after_the_laft_sync_non_blocking_and_touches
 # ==================== 7. regression ====================
 
 def test_x01_fl_tx_al_ar_la_az_regressions():
-    assert states.PRODUCTION_STATES == {"FL", "TX", "LA"} and not any(states.is_activated(c) for c in ("AL", "AR", "AZ"))
+    assert states.PRODUCTION_STATES == {"FL", "TX", "LA", "MI", "WY", "SC", "CO", "WI"} and not any(states.is_activated(c) for c in ("AL", "AR", "AZ"))
     # FL Available production sources: still the 52 units, all grandfathered-publishable, no purchase path invented.
     fl = [r for r in ROWS if r.state == "FL" and r.is_production and "AVAILABLE" in r.ledger_set]
     assert len(fl) == 52 and all(pub.effective_publication(r) == "APPROVED_GRANDFATHERED" and not r.purchase_url for r in fl)

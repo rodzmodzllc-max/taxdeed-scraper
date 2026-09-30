@@ -115,6 +115,13 @@ SOURCE_LEDGERS: dict[str, frozenset[Ledger]] = {
     "ar_cosl_post_auction": frozenset({Ledger.AVAILABLE}),
     "la_ebr_adjudicated": frozenset({Ledger.AVAILABLE}),
     "az_maricopa_state_cp": frozenset({Ledger.LIENS_CERTIFICATES}),
+    # Six-state expansion (2026-09-30): owner-approved county sources (harvesters/otc/adapters/expansion.py)
+    "mi_eaton_treasurer_sale": frozenset({Ledger.AUCTIONS}),
+    "mi_lenawee_tax_sale": frozenset({Ledger.AUCTIONS}),
+    "wy_albany_tax_sale": frozenset({Ledger.AUCTIONS}),
+    "sc_york_tax_sale": frozenset({Ledger.AUCTIONS}),
+    "co_morgan_county_held_certificates": frozenset({Ledger.LIENS_CERTIFICATES}),
+    "wi_green_tax_deed_sales": frozenset({Ledger.AUCTIONS}),
 }
 # The four blocked Texas vendors: discovery only, they feed no ledger.
 BLOCKED_SOURCE_IDS = frozenset({"tx_pbfcm", "tx_mvba", "tx_govease", "tx_ctsa"})

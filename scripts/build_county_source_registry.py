@@ -394,6 +394,46 @@ LA_EBR = dict(
 )
 
 
+# ---------------------------------------------------------------------------
+# Six-state expansion (2026-10-01): MI, WY, SC, CO, WI. Generated from the
+# live-verified configurations in harvesters/otc/adapters/expansion.py (the
+# one place their URLs and columns live). Every source was read LIVE by the
+# manual evidence job and approved for publication by the owner on
+# 2026-09-30 knowing no explicit reuse licence is published - the
+# restriction column says so on every row.
+
+def expansion_rows() -> list[dict]:
+    from harvesters.governance.states import EXPANSION_EVIDENCE
+    from harvesters.otc.adapters import expansion as EX
+    rows, seen = [], set()
+    for state, sources in EX.SOURCES.items():
+        for src in sources:
+            cfg = src.config
+            if cfg.source_id in seen:
+                continue                      # WI: one source, two tables on one page
+            seen.add(cfg.source_id)
+            ev = EXPANSION_EVIDENCE[state]
+            ledger = {"auction": AUCTIONS, "certificate": LIENS, "laft": AVAILABLE}[cfg.record_source]
+            arcgis = src.kind == "arcgis"
+            rows.append(_row(
+                state=state, county=cfg.county, source_id=cfg.source_id, harvester=f"harvest_expansion.py --state {state}",
+                inventory_type="", source_authority=cfg.source_authority.value,
+                canonical_url=cfg.list_url, document_url=cfg.layer_url if arcgis else "", purchase_url="", purchase_url_kind="",
+                access_method="JSON_ENDPOINT" if arcgis else "HTTP_GET_HTML", machine_format="JSON" if arcgis else "HTML_TABLE",
+                verification_status="PRODUCTION_VERIFIED", governance_status="APPROVED",
+                last_checked="2026-09-30", completeness_status="UNKNOWN",
+                evidence_ref=f"LIVE CAPTURE 2026-09-30 (GitHub Actions runs {', '.join(EX.EVIDENCE_RUNS)}): {ev['source_of_record_identified']}; "
+                             f"OWNER PUBLICATION DECISION 2026-09-30; docs/six-state-expansion.md",
+                notes=cfg.notes, publishing_unit="COUNTY", publishing_unit_name=f"{cfg.county} County",
+                amount_kind=cfg.amount_kind.value, update_frequency="not published by the source (read on each run)",
+                source_terminology=ev["inventory_semantics_established"], ledgers=ledger,
+                publication_status="APPROVED",
+                restrictions="No explicit reuse licence is published by the source; approved for publication by the owner on 2026-09-30. "
+                             "Show only what the source publishes; no inferred results.",
+            ))
+    return rows
+
+
 def ar_rows() -> list[dict]:
     return [_row(**AR_COSL)]
 
@@ -528,7 +568,7 @@ def az_rows() -> list[dict]:
 
 def build_rows() -> list[dict]:
     rows = (fl_production_rows() + fl_candidate_rows() + fl_auction_rows() + fl_certificate_rows()
-            + tx_rows() + tx_auction_rows() + al_rows() + ar_rows() + la_rows() + az_rows())
+            + tx_rows() + tx_auction_rows() + al_rows() + ar_rows() + la_rows() + az_rows() + expansion_rows())
     rows.sort(key=lambda r: (r["state"], r["county"], r["source_id"]))
     return rows
 

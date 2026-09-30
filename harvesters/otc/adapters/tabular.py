@@ -35,6 +35,14 @@ class ColumnMap:
     legal_desc: tuple[str, ...] = ()
     amount: tuple[str, ...] = ()
     status: tuple[str, ...] = ()
+    # Six-state sprint. A label ending in "*" matches any header that
+    # STARTS with it (e.g. "purchase amount to*" for "Purchase Amount to
+    # 10/31/2026" - the date in such a label is read as the list's as-of).
+    owner_name: tuple[str, ...] = ()
+    certificate_no: tuple[str, ...] = ()
+    sale_date: tuple[str, ...] = ()
+    result_amount: tuple[str, ...] = ()
+    eligible_date: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)
@@ -56,7 +64,18 @@ class TabularConfig:
     list_as_of_formats: tuple[str, ...] = ("%m.%d.%Y", "%m.%d.%y", "%Y%m%d", "%m/%d/%Y", "%Y-%m-%d")
     columns_verified: bool = False   # True only after a human read the live list
     notes: str = ""
+    record_source: str = "laft"      # "laft" | "certificate" | "auction" (six-state sprint)
+    # Table selection when a page carries several tables with the same
+    # columns: a header label every chosen table must / must not carry.
+    header_required: tuple[str, ...] = ()
+    header_forbidden: tuple[str, ...] = ()
+    # Phrases that, alone in the table's first data row, are the source's own
+    # statement that the table is empty (e.g. "no current sales").
+    empty_phrases: tuple[str, ...] = ()
 
+
+# Cell tokens a source uses for "no value here" (never a published value).
+NOT_A_VALUE = frozenset({"na", "none", ""})   # after _norm: "N/A" -> "na", "-" / "--" -> ""
 
 def _norm(label: str) -> str:
     key = re.sub(r"[^a-z0-9()#. ]", "", (label or "").strip().lower())
@@ -87,13 +106,49 @@ def list_as_of_from_name(name: str | None, cfg: TabularConfig) -> date | None:
     return None
 
 
+DATE_IN_LABEL = re.compile(r"(\d{1,2}/\d{1,2}/\d{4})")
+
+
+def _date(text: str | None) -> date | None:
+    for fmt in ("%m/%d/%Y", "%m/%d/%y", "%Y-%m-%d"):
+        try:
+            return datetime.strptime((text or "").strip(), fmt).date()
+        except ValueError:
+            continue
+    return None
+
+
 class TabularListAdapter:
     def __init__(self, cfg: TabularConfig) -> None:
         self.cfg = cfg
-        self._lookup: dict[str, str] = {}
+        # A label may fill several fields (e.g. CERT # is both the record id
+        # and the certificate number), so each maps to a tuple of fields.
+        self._lookup: dict[str, tuple[str, ...]] = {}
+        self._prefixes: list[tuple[str, str]] = []
         for field_name, labels in vars(cfg.columns).items():
             for label in labels:
-                self._lookup[_norm(label)] = field_name
+                if label.endswith("*"):
+                    self._prefixes.append((_norm(label[:-1]), field_name))
+                else:
+                    self._lookup[_norm(label)] = self._lookup.get(_norm(label), ()) + (field_name,)
+        self.empty_statement = False
+        self.label_as_of: date | None = None
+
+    def field_for(self, label: str) -> tuple[str, ...] | None:
+        """Every record field a column label fills (None = not a mapped column)."""
+        key = _norm(label)
+        if key in self._lookup:
+            return self._lookup[key]
+        for prefix, field_name in self._prefixes:
+            if key.startswith(prefix):
+                return (field_name,)
+        return None
+
+    def _table_ok(self, rows: list[list[str]]) -> bool:
+        labels = {_norm(c) for r in rows[:3] for c in r}
+        if any(_norm(x) not in labels for x in self.cfg.header_required):
+            return False
+        return not any(_norm(x) in labels for x in self.cfg.header_forbidden)
 
     # ---- inputs --------------------------------------------------------------
     def parse_csv(self, text: str, *, retrieved_at: datetime, document_name: str | None = None) -> list[OtcRecord]:
@@ -109,9 +164,9 @@ class TabularListAdapter:
         for table in soup.find_all("table"):
             rows = [[c.get_text(" ", strip=True) for c in tr.find_all(["th", "td"])] for tr in table.find_all("tr")]
             rows = [r for r in rows if r]
-            if not rows:
+            if not rows or not self._table_ok(rows):
                 continue
-            score = max((sum(1 for c in r if _norm(c) in self._lookup) for r in rows), default=0)
+            score = max((sum(1 for c in r if self.field_for(c)) for r in rows), default=0)
             if score > best_score:
                 best, best_score = rows, score
         return self._records(best, retrieved_at=retrieved_at, document_name=document_name)
@@ -122,12 +177,25 @@ class TabularListAdapter:
         if header_idx is None:
             return []
         as_of = list_as_of_from_name(document_name, self.cfg)
+        # A date written into a matched header ("Purchase Amount to 10/31/2026")
+        # is the list's own as-of date for that figure.
+        for cell, f in zip(rows[header_idx], fields):
+            m = DATE_IN_LABEL.search(cell or "") if f else None
+            if m and _date(m.group(1)):
+                self.label_as_of = _date(m.group(1))
+        body = rows[header_idx + 1:]
+        if len(body) == 1 and self.cfg.empty_phrases and any(
+                _norm(p) == _norm(" ".join(c for c in body[0] if c.strip())) for p in self.cfg.empty_phrases):
+            self.empty_statement = True
+            return []
         out: list[OtcRecord] = []
-        for raw in rows[header_idx + 1:]:
+        for raw in body:
             values: dict[str, str] = {}
-            for i, f in enumerate(fields):
-                if f and i < len(raw) and raw[i].strip():
-                    values[f] = raw[i].strip()
+            for i, fs in enumerate(fields):
+                # A cell the source fills with a "not applicable" token carries no value.
+                if fs and i < len(raw) and raw[i].strip() and _norm(raw[i]) not in NOT_A_VALUE:
+                    for f in fs:
+                        values[f] = raw[i].strip()
             if not values.get("case_no"):
                 continue
             amount = _amount(values.get("amount")) if "amount" in values else None
@@ -139,6 +207,15 @@ class TabularListAdapter:
             }
             if as_of:
                 prov["list_as_of"] = f"parsed from document name {document_name!r}"
+            elif self.label_as_of:
+                as_of = self.label_as_of
+                prov["list_as_of"] = "the date written in the amount column's own header"
+            if values.get("eligible_date"):
+                prov["date_eligible_for_auction"] = values["eligible_date"]
+            result_amount = _amount(values.get("result_amount")) if "result_amount" in values else None
+            sale_date = _date(values.get("sale_date")) if "sale_date" in values else None
+            if result_amount is not None:
+                prov["result"] = f"column {self.cfg.columns.result_amount[0]!r} as published (a completed sale)"
             out.append(OtcRecord(
                 state=self.cfg.state, county=self.cfg.county, case_no=values["case_no"],
                 source_id=self.cfg.source_id, source_authority=self.cfg.source_authority,
@@ -148,13 +225,18 @@ class TabularListAdapter:
                 list_url=self.cfg.list_url, document_url=self.cfg.document_url,
                 purchase_url=self.cfg.purchase_url, purchase_url_kind=self.cfg.purchase_url_kind,
                 list_as_of=as_of, source_status_text=values.get("status"), provenance=prov,
+                record_source=self.cfg.record_source, owner_name=values.get("owner_name"),
+                certificate_no=values.get("certificate_no"),
+                sale_date=sale_date if self.cfg.record_source == "auction" else None,
+                result_amount=result_amount if self.cfg.record_source == "auction" else None,
+                result_date=sale_date if (result_amount is not None and self.cfg.record_source == "auction") else None,
             ))
         return out
 
     def _find_header(self, rows: list[list[str]]) -> tuple[int | None, list[str | None]]:
         best_idx, best_fields, best_score = None, [], 1
         for idx, row in enumerate(rows):
-            fields = [self._lookup.get(_norm(c)) for c in row]
+            fields = [self.field_for(c) for c in row]
             score = sum(1 for f in fields if f)
             if score > best_score:
                 best_idx, best_fields, best_score = idx, fields, score

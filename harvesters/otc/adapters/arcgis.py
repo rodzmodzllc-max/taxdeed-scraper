@@ -66,6 +66,18 @@ class ArcGisFieldMap:
     legal_desc: str | None = None
     amount: str | None = None
     status: str | None = None
+    # Six-state sprint: property facts the layer itself publishes on the
+    # row (never computed, never joined from elsewhere).
+    owner_name: str | None = None
+    acreage: str | None = None
+    land_use: str | None = None
+    taxable_value: str | None = None
+    assessed: str | None = None
+    market: str | None = None
+    tax_year: str | None = None
+    latitude: str | None = None
+    longitude: str | None = None
+    sold_flag: str | None = None         # the layer's own "has been sold" flag attribute, when it publishes one
 
     def named(self) -> dict[str, str]:
         return {k: v for k, v in vars(self).items() if v}
@@ -92,6 +104,7 @@ class ArcGisLayerConfig:
     purchase_url_kind: PurchaseUrlKind | None = None
     columns_verified: bool = False       # True only after a human read the live layer's fields
     notes: str = ""
+    record_source: str = "laft"          # "laft" (AVAILABLE) | "certificate" | "auction" (six-state sprint)
 
     def __post_init__(self) -> None:
         if not LAYER_URL_RE.match(self.layer_url):
@@ -187,6 +200,42 @@ def _text(value: Any) -> str | None:
     return text or None
 
 
+def _positive(value: Any) -> float | None:
+    """A published figure > 0, else None (0 / blank = not published)."""
+    try:
+        n = _amount(value)
+    except (ValueError, TypeError):
+        return None
+    return n if n is not None and n > 0 else None
+
+
+SOLD_YES = {"Y", "YES", "TRUE", "T", "1", "SOLD"}
+
+
+def _sold(attrs: dict, fm: ArcGisFieldMap) -> dict:
+    """The layer's own sold flag: 'yes' -> a published 'sold' outcome with the
+    source's wording; anything else says nothing (never inferred)."""
+    if not fm.sold_flag:
+        return {}
+    raw = _text(attrs.get(fm.sold_flag))
+    if raw and raw.strip().upper() in SOLD_YES:
+        return {"published_outcome": "sold", "source_status_text": f"{fm.sold_flag}: {raw}"}
+    return {}
+
+
+def _coords(attrs: dict, fm: ArcGisFieldMap) -> dict:
+    """Latitude/longitude only when the layer publishes both, in range."""
+    if not (fm.latitude and fm.longitude):
+        return {}
+    try:
+        lat, lng = float(attrs.get(fm.latitude)), float(attrs.get(fm.longitude))
+    except (TypeError, ValueError):
+        return {}
+    if -90 <= lat <= 90 and -180 <= lng <= 180 and (lat, lng) != (0.0, 0.0):
+        return {"latitude": lat, "longitude": lng}
+    return {}
+
+
 def parse_page(cfg: ArcGisLayerConfig, payload: Any, *, retrieved_at: datetime, offset: int = 0) -> PageResult:
     """One `/query` response -> records. Raises ArcGisError for an error
     payload or a shape that is not a layer page - a caller must treat that
@@ -246,8 +295,18 @@ def parse_page(cfg: ArcGisLayerConfig, payload: Any, *, retrieved_at: datetime, 
             amount=amount, amount_kind=kind,
             list_url=cfg.list_url, document_url=None,
             purchase_url=cfg.purchase_url, purchase_url_kind=cfg.purchase_url_kind,
-            source_status_text=_text(attrs.get(fm.status)) if fm.status else None,
             provenance=prov,
+            record_source=cfg.record_source,
+            owner_name=_text(attrs.get(fm.owner_name)) if fm.owner_name else None,
+            acreage=_positive(attrs.get(fm.acreage)) if fm.acreage else None,
+            land_use=_text(attrs.get(fm.land_use)) if fm.land_use else None,
+            taxable_value=_positive(attrs.get(fm.taxable_value)) if fm.taxable_value else None,
+            assessed=_positive(attrs.get(fm.assessed)) if fm.assessed else None,
+            market=_positive(attrs.get(fm.market)) if fm.market else None,
+            tax_year=_text(attrs.get(fm.tax_year)) if fm.tax_year else None,
+            **_coords(attrs, fm),
+            **({"source_status_text": _text(attrs.get(fm.status))} if fm.status and not _sold(attrs, fm) else {}),
+            **_sold(attrs, fm),
         ))
     return PageResult(records=records, exceeded_transfer_limit=bool(payload.get("exceededTransferLimit")),
                       feature_count=len(features), object_id_field=object_id_field)
