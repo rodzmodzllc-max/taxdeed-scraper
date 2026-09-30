@@ -420,7 +420,8 @@ def test_f01_decision_page_answers_eleven_questions_from_fields_and_never_scores
     block = APP[APP.index("function availableDecisionHtml"):APP.index("function inventoryHistoryHtml")]
     for qid in ("what", "available", "how", "cost", "where", "known", "unknown", "source", "fresh", "history", "related"):
         assert f'q("{qid}",' in block, qid
-    assert "Not yet verified - no purchase path has been established from evidence" in block
+    assert "Not yet verified - no published acquisition process has been established from evidence" in APP[APP.index("function acquisitionHtml"):APP.index("function typedPurchasePath")]
+    assert "acquisitionHtml(p)" in block                                  # the answer is the acquisition record
     assert "Not yet geocoded - no point is shown for this parcel" in block
     assert not re.search(r"score|badge|recommend", block, re.I)
     assert "typedPurchasePath(p)" in block and "dataGaps(p)" in block and "crossLedgerSummary(p)" in block
@@ -450,7 +451,7 @@ def test_f03_filters_read_stored_fields_and_the_admin_panel_is_admin_gated():
     for f in ("public/index.html", "public/tx.html"):
         html = (REPO / f).read_text(encoding="utf-8")
         assert 'id="adminPublication" hidden' in html and 'id="availLandUseFilter"' in html and 'id="availGeocoded"' in html and 'id="availValues"' in html
-    assert (REPO / "public/sw.js").read_text(encoding="utf-8").count('const CACHE = "tdw-shell-v50"') == 1
+    assert (REPO / "public/sw.js").read_text(encoding="utf-8").count('const CACHE = "tdw-shell-v51"') == 1
 
 
 # ==================== 8. regressions ====================

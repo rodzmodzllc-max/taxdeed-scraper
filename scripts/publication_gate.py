@@ -57,7 +57,7 @@ import purchase_path_engine as PE  # noqa: E402
 REPORT_PATH = REPO / "out" / "public" / "publication-gate.json"
 FRESHNESS_PERSIST = REPO / "out" / "unit-freshness-persist.json"
 SELECT = "id,state,county,source,harvester_source,source_id,publication_status,purchase_url,last_seen_at,inventory_status"
-SELECT_023 = SELECT + ",purchase_path_type,purchase_path_scope"     # once migration 023 exists (probed)
+SELECT_023 = SELECT + ",purchase_path_type,purchase_path_scope,list_as_of,source_published_at,otc_provenance"     # once migration 023 exists (probed)
 USER_AGENT = "taxdeed-scraper publication-gate (+https://github.com/rodzmodzllc-max/taxdeed-scraper)"
 
 
@@ -315,6 +315,12 @@ def main(argv=None) -> int:
         print(f"  AVAILABLE rows: {c['total_observed']} observed, {c['publishable']} publishable, {c['restricted']} restricted, "
               f"{c['unreviewed']} unreviewed, {c['blocked']} blocked, {c['unclassified']} unclassified; "
               f"{c['with_purchase_path']} with a purchase path; {c['stale']} stale (> {c['stale_days']}d)")
+        pp = report.get("purchase_paths")
+        if pp:
+            print(f"  acquisition (rows {pp['rows']}): {pp['with_source_listing']} with a source listing / document ({pp['pct_with_source_listing']}%), "
+                  f"{pp['with_source_match']} property-to-source matched, {pp['with_acquisition_path']} with a verified acquisition path "
+                  f"({pp['pct_with_acquisition_path']}%), {pp['acquisition_unverified']} unverified; by mode {pp['by_mode']}; "
+                  f"{pp['with_direct_document']} direct document, {pp['with_source_date']} source date, {pp['with_last_verified']} last verified")
     return 0
 
 

@@ -2483,6 +2483,10 @@ function cardFactsHtml(p) {
   facts.push(`<span><b>Location</b><span class="${coords ? "" : "muted"}">${coords ? "Geocoded" : "Not yet geocoded"}</span></span>`);
   const fl = floodShort(p);
   facts.push(`<span><b>Flood</b><span class="${fl.cls}">${esc(fl.text)}</span></span>`);
+  if (p.source === "laft") {
+    const a = acquisitionOf(p);
+    facts.push(`<span><b>Acquire</b><span class="${a.verified ? "" : "muted"}">${esc(a.verified ? a.short : (a.mode === "none" ? "None (stated)" : "Not yet verified"))}</span></span>`);
+  }
   if (hasPublishedBid(p) && marketOf(p) > 0) {
     facts.push(`<span title="County value on file divided by the opening bid - a screening ratio, not a return"><b>Value ÷ bid</b><span>${valueRatio(p).toFixed(1)}×</span></span>`);
   }
@@ -2526,8 +2530,8 @@ function previewFacts(p) {
     // The Map preview says what an Available row IS before what it is worth:
     // availability (migration 021's status), purchase path, amount kind.
     if (p.inventory_status !== undefined) more.push(["Availability", INVENTORY_STATUS_LABELS[p.inventory_status] || String(p.inventory_status || "Not published")]);
-    const pp = purchasePathOf(p);
-    more.push(["Purchase path", pp.kind === "none" ? "No online purchase link on file" : pp.label + (pp.kind === "instructions" ? " (instructions)" : "")]);
+    const acq = acquisitionOf(p);
+    more.push(["How to acquire", acq.verified ? acq.label + (acq.office ? ` · ${acq.office}` : "") : (acq.mode === "none" ? "No purchase path (stated by the source)" : "Not yet verified")]);
     if (p.purchase_amount_kind) more.push(["Amount kind", p.purchase_amount_kind === "NOT_PUBLISHED" ? "Not published by the source" : (AMOUNT_KIND_LABELS[p.purchase_amount_kind] || String(p.purchase_amount_kind))]);
     // Freshness and cross-ledger identity, so the Map preview answers
     // "how current is this" and "is this parcel also at auction / under a
@@ -2945,7 +2949,10 @@ function dataGaps(p) {
   // Migration 017: a list page is never a purchase mechanism, so a LAFT /
   // struck-off row with no purchase_url is missing that link, whatever
   // else it carries.
-  if (p.source === "laft" && !p.purchase_url) gaps.push(p.purchase_path_type && p.purchase_path_type !== "none_published" ? "Purchase link not on file (the source's process is not an online link)" : "Purchase link not on file");
+  // Acquisition sprint (2026-09-30): the gap is an UNVERIFIED acquisition
+  // process, never a missing hyperlink - a published phone / e-mail / mail /
+  // in-person process is a complete path.
+  if (p.source === "laft" && !acquisitionOf(p).verified) gaps.push(p.purchase_path_type === "none_published" ? "No purchase path (stated by the source)" : "Acquisition path not yet verified");
   if (!hasPhoto(p)) gaps.push(p.photo_url === "" ? "No stored image for this address" : "Image not checked yet");
   if (!(hasNum(p.latitude) && hasNum(p.longitude))) gaps.push("Not yet geocoded");
   const fl = floodShort(p);
@@ -3002,6 +3009,7 @@ function opportunitySummaryHtml(p) {
     ["Where", where, ""],
     ["When", esc(when), whenCls],
     [isLaft ? "Price" : "Minimum bid", bid ? `${esc(bid)}${ratio}` : `<span class="muted">Not published</span>`, bid ? "bid" : ""],
+    ...(isLaft ? [(() => { const a = acquisitionOf(p); return ["How to acquire", a.verified ? `${esc(a.label)}<span class="opp-sub">${esc(a.office || (a.channels.length ? a.channels.map(c => ACQUISITION_MODE_SHORT[c] || c).join(" · ") : "See the decision below"))}</span>` : `<span class="muted">${esc(a.mode === "none" ? "No purchase path (stated by the source)" : "Not yet verified")}</span>`, a.verified ? "ok" : "muted"]; })()] : []),
     ["Value on file", value, valueCls],
     ["Missing", missing, gaps.length ? "" : "ok"]
   ];
@@ -3030,6 +3038,88 @@ const URL_PATH_TYPES = ["direct_property_url", "county_instructions", "applicati
 // The typed purchase path (migration 023's four columns) - null when the
 // engine has not established one from evidence. The URL comes from 017's
 // purchase_url only for the four URL-bearing types; never synthesized.
+// ==================== Acquisition path (Acquisition sprint, 2026-09-30) ====================
+// The customer's "how do I acquire this" - online, application, phone,
+// e-mail, mail, in person, contact-for-the-amount or a multi-step county
+// process - from otc_provenance.acquisition (written by the LAFT lifecycle
+// from the verified evidence record) or, for a typed path recorded before
+// that record existed, from the path type alone. Mirrors
+// scripts/purchase_path_engine.py ACQUISITION_MODE_LABELS (a test pins the
+// keys equal). No online link is never "no path": an offline process the
+// county publishes is a complete path. Nothing verified = "Not yet verified".
+const ACQUISITION_MODE_LABELS = {
+  online: "Purchase or apply online", application: "Download the county application",
+  instructions: "Follow the county's purchase-instructions page", email: "E-mail the county",
+  phone: "Phone the county", mail: "Mail a written request", in_person: "Apply in person",
+  contact: "Contact the county for the current amount", multi_step: "Multi-step county process",
+  none: "No purchase path (stated by the source)"
+};
+const ACQUISITION_MODE_SHORT = {
+  online: "Online", application: "Application", instructions: "County instructions", email: "E-mail", phone: "Phone",
+  mail: "Mail", in_person: "In person", contact: "Contact county", multi_step: "Multi-step", none: "None (stated)"
+};
+const ACQUISITION_MODE_FOR_TYPE = {
+  direct_property_url: "online", application_page: "online", application_download: "application", county_instructions: "instructions",
+  in_person: "in_person", phone_mail: "phone", quoted_amount: "contact", amount_plus_costs: "contact", amount_on_application: "contact",
+  none_published: "none"
+};
+function acquisitionOf(p) {
+  const tp = typedPurchasePath(p);
+  const op = p && p.otc_provenance && typeof p.otc_provenance === "object" ? p.otc_provenance : {};
+  const acq = op.acquisition && typeof op.acquisition === "object" ? op.acquisition : null;
+  if (!tp) return { verified: false, mode: null, label: "Not yet verified", short: "Not yet verified", steps: [], channels: [] };
+  const mode = (acq && ACQUISITION_MODE_LABELS[acq.mode]) ? acq.mode : (ACQUISITION_MODE_FOR_TYPE[tp.type] || "contact");
+  const str = k => acq && acq[k] ? String(acq[k]) : "";
+  return {
+    verified: tp.type !== "none_published",
+    mode, label: ACQUISITION_MODE_LABELS[mode], short: ACQUISITION_MODE_SHORT[mode],
+    channels: acq && Array.isArray(acq.channels) ? acq.channels.map(String) : [],
+    steps: acq && Array.isArray(acq.steps) ? acq.steps.map(String) : [],
+    office: str("office"), address: str("address"), phone: str("phone"), email: str("email"), mailing: str("mailing_address"),
+    payment: str("payment"), applicationUrl: str("application_url"),
+    evidenceUrl: op.purchase_evidence_url ? String(op.purchase_evidence_url) : "",
+    evidenceTitle: op.purchase_evidence_title ? String(op.purchase_evidence_title) : "",
+    instructions: op.purchase_instructions ? String(op.purchase_instructions) : "",
+    observedOn: tp.observedOn, url: tp.url, type: tp.type, typeLabel: tp.label, scope: tp.scope
+  };
+}
+// The contact block: only the fields the source published; phone and
+// e-mail are actionable links. Empty when nothing was published.
+function acquisitionContactHtml(a) {
+  if (!a || !a.verified) return "";
+  const rows = [];
+  if (a.office) rows.push(["Office", esc(a.office)]);
+  if (a.address) rows.push(["Address (in person)", esc(a.address)]);
+  if (a.phone) rows.push(["Phone", a.phone.split(/\s+or\s+/).map(ph => `<a href="tel:${esc(ph.replace(/[^\d+]/g, ""))}">${esc(ph)}</a>`).join(" or ")]);
+  if (a.email) rows.push(["E-mail", `<a href="mailto:${esc(a.email)}">${esc(a.email)}</a>`]);
+  if (a.mailing) rows.push(["Mailing address", esc(a.mailing)]);
+  if (a.payment) rows.push(["Payment", esc(a.payment)]);
+  if (!rows.length) return "";
+  return `<dl class="acq-contact">${rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${v}</dd>`).join("")}</dl>`;
+}
+// The acquisition answer: the mode, the published steps in order, the
+// documents (a direct application / instructions document, the source's
+// own process page), the source's wording, and the evidence page with
+// its observed date. Absence is explicit.
+function acquisitionHtml(p) {
+  const a = acquisitionOf(p);
+  const sub = t => `<span class="dec-sub">${t}</span>`;
+  if (!a.verified) {
+    const none = a.mode === "none";
+    return `<span class="muted">${none ? "No purchase path - the source states there is none" : "Not yet verified - no published acquisition process has been established from evidence"}</span>` +
+      sub(esc(none ? "The source's own wording rules a purchase out." : "The county list has been read, but no county page or document establishing how to acquire from it has been verified yet. Nothing is invented; a path appears once the county's own page or document is read and reviewed."));
+  }
+  const head = `<span class="acq-mode" data-mode="${esc(a.mode)}">${esc(a.label)}</span>`;
+  const steps = a.steps.length ? `<ol class="acq-steps">${a.steps.map(st => `<li>${esc(st)}</li>`).join("")}</ol>` : "";
+  const docs = [];
+  if (a.applicationUrl) docs.push(`<a href="${esc(a.applicationUrl)}" target="_blank" rel="noopener">Application / instructions document →</a>`);
+  if (a.url) docs.push(`<a href="${esc(a.url)}" target="_blank" rel="noopener">${esc(a.typeLabel)} →</a>`);
+  const docLine = docs.length ? sub(docs.join(" · ")) : "";
+  const instr = a.instructions && !a.steps.length ? sub(`<span class="dec-instructions">Instructions published by the source: ${esc(a.instructions)}</span>`) : "";
+  const scope = sub(esc(`${a.scope === "property" ? "For this property specifically" : "The county's process for every parcel on its list"}${a.observedOn ? ` · observed ${dateOnly(a.observedOn)}` : ""}`));
+  return head + steps + docLine + instr + scope;
+}
+
 function typedPurchasePath(p) {
   if (!p || !p.purchase_path_type) return null;
   return {
@@ -3085,7 +3175,20 @@ function availableDecisionHtml(p) {
   // the source wording it rests on (otc_provenance.inventory_type) - never
   // "because it left an auction list".
   const op = p.otc_provenance && typeof p.otc_provenance === "object" ? p.otc_provenance : {};
-  rows.push(q("why", "Why is it in Available?", `${what}${sub(esc(op.inventory_type ? `Basis: ${op.inventory_type}` : (p.source_authority ? `Published by ${SOURCE_AUTHORITY_LABELS[p.source_authority] || p.source_authority}` : "Basis not recorded")))}`));
+  // The listing / document that establishes it, its date, and the
+  // deterministic identifier that ties THIS row to it (otc_provenance.
+  // source_match, written by the lifecycle from the harvester's own read;
+  // before that record exists, the identity the sync upserts by).
+  const listUrl0 = p.list_url || (p.url_auction_kind === "county" ? p.url_auction : null);
+  const docUrl0 = p.document_url && p.document_url !== listUrl0 ? p.document_url : null;
+  const listing = [];
+  if (listUrl0) listing.push(`<a href="${esc(listUrl0)}" target="_blank" rel="noopener">${esc(tx ? "Vendor list page" : "County list page")} →</a>`);
+  if (docUrl0) listing.push(`<a href="${esc(docUrl0)}" target="_blank" rel="noopener">List document (PDF / file) →</a>`);
+  const srcDate = p.list_as_of ? `list dated ${dateOnly(p.list_as_of)}` : (p.source_published_at ? `document dated ${dateOnly(p.source_published_at)}` : "source date not published");
+  const sm = op.source_match && typeof op.source_match === "object" ? op.source_match : null;
+  const matchText = sm && sm.value ? `Matched to the list by ${String(sm.identifier).replace("_", " ")} ${sm.value}${sm.parcel ? ` (parcel ${sm.parcel})` : ""}${sm.read_at ? ` · read ${dateOnly(sm.read_at)}` : ""}`
+    : (p.case_no ? `Listed under case ${p.case_no}${hasParcel(p) ? ` (parcel ${p.parcel})` : ""}` : (hasParcel(p) ? `Listed under parcel ${p.parcel}` : "Identity on the list not recorded"));
+  rows.push(q("why", "Why is it in Available?", `${what}${sub(esc(op.inventory_type ? `Basis: ${op.inventory_type}` : (p.source_authority ? `Published by ${SOURCE_AUTHORITY_LABELS[p.source_authority] || p.source_authority}` : "Basis not recorded")))}${sub(`${listing.length ? listing.join(" · ") + " · " : `<span class="muted">No list URL published</span> · `}${esc(srcDate)}`)}${sub(`<span class="acq-match">${esc(matchText)}</span>`)}`));
   // 2. Is it available now?
   let avail, availCls = "";
   if (p.inventory_status === undefined) { avail = muted("Availability status is not projected by this deployment"); }
@@ -3105,23 +3208,29 @@ function availableDecisionHtml(p) {
   const unitNow = unitFreshnessFor(p);
   if (unitNow && (unitNow.last_attempt_status === "SOURCE_UNAVAILABLE" || /^(TRANSPORT_|PROXY_|ACCESS_)/.test(String(unitNow.last_error_category || "")))) verifiedBits.push("county source unavailable at the last attempt - inventory kept, nothing closed");
   rows.push(q("available", "Is it currently verified as available?", `${avail}${sub(esc(verifiedBits.join(" · ")))}`, availCls));
-  // 3. How do I buy it?
+  // 3. How do I acquire it? The acquisition record (mode, steps, documents,
+  // the source's wording) - an offline process is a complete answer.
   const tp = typedPurchasePath(p);
+  const acq = acquisitionOf(p);
   let how, howCls = "";
   if (tp) {
-    how = tp.url ? `<a href="${esc(tp.url)}" target="_blank" rel="noopener">${esc(tp.label)} →</a>` : esc(tp.label);
-    how += sub(esc(`${tp.scope === "property" ? "For this property specifically" : "The source's process for every parcel it lists"}${tp.evidence ? ` · evidence: ${tp.evidence}` : ""}${tp.observedOn ? ` · observed ${dateOnly(tp.observedOn)}` : ""}`));
-    howCls = tp.type === "none_published" ? "muted" : "ok";
+    how = acquisitionHtml(p);
+    howCls = acq.verified ? "ok" : "muted";
   } else {
     const pp = purchasePathOf(p);
     if (pp.kind !== "none") {
       how = `<a href="${esc(pp.url)}" target="_blank" rel="noopener">${esc(pp.label)} →</a>${sub(esc(pp.kind === "property" ? "A link the source published for this property (recorded before the purchase-path evidence columns existed)" : "The source's own process page (recorded before the purchase-path evidence columns existed)"))}`;
     } else {
-      how = `${muted("Not yet verified - no purchase path has been established from evidence.")}${sub(esc("The county list page is not a purchase mechanism; nothing is invented. A path appears here once a rule, the registry or the source's own wording establishes one."))}`;
+      how = acquisitionHtml(p);
       howCls = "muted";
     }
   }
-  rows.push(q("how", "How do I purchase or apply?", `${how}${op.purchase_instructions ? sub(`<span class="dec-instructions">Instructions published by the source: ${esc(String(op.purchase_instructions))}</span>`) : ""}`, howCls));
+  rows.push(q("how", "How do I acquire it?", how, howCls));
+  // Who do I contact, and where do I go? Only what the source published.
+  const contact = acquisitionContactHtml(acq);
+  rows.push(q("contact", "Who do I contact, and where do I go?", contact
+    ? contact + (acq.instructions && acq.steps.length ? sub(`<span class="dec-instructions">Instructions published by the source: ${esc(acq.instructions)}</span>`) : "")
+    : muted(acq.verified ? "No contact details published on the evidence page - use the process above" : "Not yet verified - no county contact has been established from evidence"), contact ? "" : "muted"));
   // What source proves that, and when was it observed?
   let proof, proofCls = "";
   if (tp) {
@@ -3165,7 +3274,12 @@ function availableDecisionHtml(p) {
   src.push(esc(harvesterSourceLabel(p) || p.source_id || "Source not recorded"));
   if (p.list_url) src.push(link(p.list_url, "Source list"));
   if (p.document_url && p.document_url !== p.list_url) src.push(link(p.document_url, "Source document"));
-  rows.push(q("source", "Where did the data come from?", `${src.join(" · ")}${sub(esc("Field-by-field origin is in the Data Quality & Provenance card below."))}`));
+  // Source documents a customer can open: the listing, the list document,
+  // the county's process / evidence page, the application document.
+  const docs = [];
+  if (acq.evidenceUrl) docs.push(link(acq.evidenceUrl, acq.evidenceTitle ? `${acq.evidenceTitle} (acquisition evidence)` : "Acquisition evidence page"));
+  if (acq.applicationUrl) docs.push(link(acq.applicationUrl, "Application / instructions document"));
+  rows.push(q("source", "Where did the data come from?", `${src.join(" · ")}${docs.length ? sub(docs.join(" · ")) : ""}${sub(esc("Field-by-field origin is in the Data Quality & Provenance card below."))}`));
   // 9. How fresh is it?
   const fresh = [];
   fresh.push(p.list_as_of ? `Source date: list dated ${dateOnly(p.list_as_of)}` : (p.source_published_at ? `Source date: document dated ${dateOnly(p.source_published_at)}` : "Source date: not published by the source"));
@@ -3511,7 +3625,13 @@ function inventoryCardHtml(p) {
   else if (path.kind === "instructions") purchase = `${link(path.url, "Application / purchase instructions")}<span class="kv-sub">${esc(path.label)} - the county's process page, not a link for this specific property</span>`;
   else purchase = muted(tx ? "No online purchase link on file - a vendor list page is not a purchase mechanism"
                            : "No online purchase link on file - the county list page is not a purchase mechanism; purchase goes through the county under F.S. 197.502(7)");
-  const buy = [row("Purchase", purchase)];
+  const acqI = acquisitionOf(p);
+  const buy = [
+    row("How to acquire", acqI.verified
+      ? `<span class="acq-mode" data-mode="${esc(acqI.mode)}">${esc(acqI.label)}</span><span class="kv-sub">${esc(acqI.office || "Published by the county")} - full process in "How do I acquire it?" above</span>`
+      : muted(acqI.mode === "none" ? "No purchase path (stated by the source)" : "Not yet verified - no published acquisition process established from evidence")),
+    row("Purchase link", purchase)
+  ];
   const body = `<div class="kv-list" data-group="inventory">${head("Inventory")}${inv.join("")}</div>
     <div class="kv-list" data-group="property">${head("Property")}${prop.join("")}</div>
     <div class="kv-list" data-group="purchase">${head("Purchase path")}${buy.join("")}</div>`;
@@ -5202,6 +5322,15 @@ if (exportCsvBtn) exportCsvBtn.addEventListener("click", () => {
     ["Purchase Path Observed", p => p.purchase_path_observed_on || ""],
     ["Purchase Link", p => { const pp = purchasePathOf(p); return pp.kind === "none" ? "" : pp.url; }],
     ["Purchase Link Type", p => { const pp = purchasePathOf(p); return pp.kind === "none" ? "" : (pp.kind === "property" ? "for this property" : "instructions / application page"); }],
+    ["Acquisition Path", p => { const a = acquisitionOf(p); return a.verified ? a.label : (a.mode === "none" ? "No purchase path (stated by the source)" : "Not yet verified"); }],
+    ["Acquisition Steps (published by the source)", p => acquisitionOf(p).steps.join(" | ")],
+    ["County Office", p => acquisitionOf(p).office || ""],
+    ["County Phone", p => acquisitionOf(p).phone || ""],
+    ["County E-mail", p => acquisitionOf(p).email || ""],
+    ["County Address (in person)", p => acquisitionOf(p).address || ""],
+    ["County Mailing Address", p => acquisitionOf(p).mailing || ""],
+    ["Payment (published by the source)", p => acquisitionOf(p).payment || ""],
+    ["Application / Instructions Document", p => acquisitionOf(p).applicationUrl || ""],
     ["Purchase Instructions (published by the source)", p => (p.otc_provenance && p.otc_provenance.purchase_instructions) || ""],
     ["Purchase Evidence Page", p => (p.otc_provenance && p.otc_provenance.purchase_evidence_url) || ""],
     ["Same Parcel In Other Ledgers", p => relatedRecordsFor(p).map(o => `${relatedWhen(o).cls === "prev" ? "previously" : "currently"} ${ledgerCopy(o.source).title || o.source}`).join("; ")],
@@ -5231,6 +5360,7 @@ if (exportCsvBtn) exportCsvBtn.addEventListener("click", () => {
     ["Source Document URL", p => p.document_url || ""],
     ["Source Date (list)", p => p.list_as_of || ""],
     ["Source Date (document)", p => p.source_published_at ? String(p.source_published_at).slice(0, 10) : ""],
+    ["Matched To Source By", p => { const sm = p.otc_provenance && p.otc_provenance.source_match; return sm && sm.value ? `${sm.identifier} ${sm.value}` : (p.case_no ? `case_no ${p.case_no}` : (p.parcel ? `parcel ${p.parcel}` : "")); }],
     ["Last Read From Source", p => p.last_seen_at ? String(p.last_seen_at).slice(0, 10) : ""],
     ["First Observed", p => p.first_seen_at ? String(p.first_seen_at).slice(0, 10) : ""]
   ];

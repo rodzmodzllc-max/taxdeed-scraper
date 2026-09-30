@@ -192,7 +192,9 @@ def test_f02_decision_blocks_answer_the_questions_from_fields_and_never_infer_a_
     av = APP[APP.index("function availableDecisionHtml"):APP.index("function auctionDecisionHtml")]
     for qid in ("what", "why", "available", "how", "proof", "cost", "where", "known", "unknown", "source", "fresh", "history", "related"):
         assert f'q("{qid}",' in av, qid
-    assert "purchase_evidence_url" in av and "purchase_instructions" in av and "dorUseLabel(p.dor_use_code)" in av
+    assert "acquisitionHtml(p)" in av and "acquisitionContactHtml(acq)" in av and "dorUseLabel(p.dor_use_code)" in av
+    acqb = APP[APP.index("function acquisitionOf"):APP.index("function typedPurchasePath")]
+    assert "purchase_evidence_url" in acqb and "purchase_instructions" in acqb
     au = APP[APP.index("function auctionDecisionHtml"):APP.index("function certificateDecisionHtml")]
     for qid in ("what", "when", "bid", "known", "source", "result", "related", "unknown"):
         assert f'q("{qid}",' in au, qid
@@ -227,7 +229,7 @@ def test_k01_get_properties_contract_and_ledger_isolation_intact():
     assert "result_amount, result_date, result_party\n  from public.properties" in sql
     assert sorted(p.name for p in (REPO / "scripts/migrations").glob("02*.sql"))[-1] == "023_available_commercial_release.sql"   # no new migration this sprint
     domains.assert_isolated()
-    assert (REPO / "public/sw.js").read_text(encoding="utf-8").count('const CACHE = "tdw-shell-v50"') == 1
+    assert (REPO / "public/sw.js").read_text(encoding="utf-8").count('const CACHE = "tdw-shell-v51"') == 1
 
 
 def test_c03_publication_measurement_counts_a_typed_non_url_path_as_a_purchase_path():

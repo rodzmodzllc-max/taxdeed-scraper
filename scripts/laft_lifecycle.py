@@ -481,6 +481,12 @@ def provenance_payload(row: dict, gate: dict, retrieved_at: str, *, state: str =
             "purchase_url": purchase_basis,
             "purchase_path_mode": purchase_mode,
             "status_terminology": "active = on the county list this run; closed = absent from a COMPLETE/EMPTY harvest",
+            # Acquisition sprint (2026-09-30): the deterministic property-to-
+            # source link. The harvester read THIS row off THIS list / document
+            # this run, keyed exactly as the sync upserts it (county + case_no,
+            # or parcel when the list carries no case number) - never an owner
+            # name or address match.
+            "source_match": source_match_of(row, list_url=list_url, document_url=document_url, read_at=retrieved_at),
         },
     }
     if purchase_url is not None:
@@ -494,6 +500,29 @@ def provenance_payload(row: dict, gate: dict, retrieved_at: str, *, state: str =
         del payload["inventory_type"]
         del payload["otc_provenance"]["inventory_type"]
     return payload
+
+
+def source_match_of(row: dict, *, list_url, document_url, read_at: str) -> dict | None:
+    """otc_provenance.source_match: which published identifier ties the row
+    to the list it was read from. None when the row carries neither a case
+    number nor a parcel (it was never an observation - see identity_key)."""
+    case_no = str(row.get("case_no") or "").strip()
+    parcel = str(row.get("parcel") or "").strip()
+    if case_no:
+        match = {"identifier": "case_no", "value": case_no}
+        if parcel:
+            match["parcel"] = parcel
+    elif parcel:
+        match = {"identifier": "parcel", "value": parcel}
+    else:
+        return None
+    cert = str(row.get("certificate_no") or "").strip()
+    if cert:
+        match["certificate_no"] = cert
+    match["source"] = document_url or list_url
+    match["basis"] = "row read from the source list / document by the harvester; identity as the sync upserts it"
+    match["read_at"] = read_at
+    return match
 
 
 def published_at_from_last_modified(value) -> str | None:

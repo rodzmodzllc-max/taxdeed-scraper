@@ -371,7 +371,8 @@ await page.locator('#exploreStrip .strip-card').first().click();
 await page.waitForTimeout(250);
 results.bayPreviewText = ((await page.locator('#explorePreview').textContent()) || '').replace(/\s+/g, ' ');
 results.bayPreviewHasAvailability = results.bayPreviewText.includes('Availability') && results.bayPreviewText.includes('Available over the counter');
-results.bayPreviewHasPurchasePath = results.bayPreviewText.includes('Purchase path') && results.bayPreviewText.includes('No online purchase link on file');
+// Acquisition sprint: the preview names the acquisition path, and an unverified one says so - never "no link".
+results.bayPreviewHasPurchasePath = results.bayPreviewText.includes('How to acquire') && results.bayPreviewText.includes('Not yet verified') && !results.bayPreviewText.includes('No online purchase link');
 results.bayPreviewHasAmountKind = results.bayPreviewText.includes('Amount kind') && results.bayPreviewText.includes('Opening bid');
 delete results.bayPreviewText;
 await page.locator('#exploreStrip .strip-card').first().click();
@@ -2254,11 +2255,14 @@ results.txInventoryStatus = await invVal(txClPage, 'Status');
 results.txProvenanceHasNoTable = await txClPage.locator('#detailModalInner .provenance-card .prov-table').count();
 results.txInventoryAmount = await invVal(txClPage, 'Amount');
 results.txInventorySourceList = await invVal(txClPage, 'Source list');
-results.txInventoryPurchase = await invVal(txClPage, 'Purchase');
+results.txInventoryPurchase = await invVal(txClPage, 'Purchase link');
+results.txInventoryAcquire = await invVal(txClPage, 'How to acquire');
 results.txInventoryOwner = await invVal(txClPage, 'Owner of record');
 results.txInventoryParcel = await invVal(txClPage, 'Parcel #');
 results.txInventoryAnchors = await txClPage.locator('#detailModalInner .inventory-card a').count();
-results.txInventoryGapNamesPurchaseLink = ((await txClPage.locator('#detailModalInner .opp-gaps').textContent()) || '').includes('Purchase link not on file');
+// Acquisition sprint: the gap is the UNVERIFIED process, never a missing hyperlink.
+results.txInventoryGapNamesAcquisition = ((await txClPage.locator('#detailModalInner .opp-gaps').textContent()) || '').includes('Acquisition path not yet verified');
+results.txInventoryGapNeverNamesLink = !((await txClPage.locator('#detailModalInner .opp-gaps').textContent()) || '').includes('Purchase link not on file');
 await txClPage.close();
 // --- Enrichment phase: the same card on a Florida Lands Available row
 // (p3: every 017/019 column the lifecycle + laft_source_fields write, no
@@ -2291,7 +2295,7 @@ results.flInventoryAvailable = await invVal(flInvPage, 'Available for purchase')
 results.flInventoryEscheat = await invVal(flInvPage, 'Escheats to county');
 results.flInventorySourceListHref = await invHref(flInvPage, 'Source list');
 results.flInventoryDocumentHref = await invHref(flInvPage, 'Source document');
-results.flInventoryPurchase = await invVal(flInvPage, 'Purchase');
+results.flInventoryPurchase = await invVal(flInvPage, 'Purchase link');
 results.flInventoryPublishedBy = await invVal(flInvPage, 'Published by');
 results.flInventoryLastRead = await invVal(flInvPage, 'Last read from source');
 results.flInventoryListAsOf = await invVal(flInvPage, 'List as of');
@@ -2325,7 +2329,8 @@ const purchaseUi = await flInvPage.evaluate(() => {
     return {
       action: buy.querySelectorAll('a.purchase-action').length,
       anchors: [...buy.querySelectorAll('a')].map(a => [a.textContent.trim(), a.getAttribute('href')]),
-      text: buy.querySelector('.kv-val').textContent.replace(/\s+/g, ' ').trim(),
+      text: [...buy.querySelectorAll('.kv-row')].find(r => r.querySelector('.kv-label').textContent === 'Purchase link').querySelector('.kv-val').textContent.replace(/\s+/g, ' ').trim(),
+      acquire: [...buy.querySelectorAll('.kv-row')].find(r => r.querySelector('.kv-label').textContent === 'How to acquire').querySelector('.kv-val').textContent.replace(/\s+/g, ' ').trim(),
       groups: [...d.querySelectorAll('.kv-group-head')].map(e => e.textContent),
       allAnchors: d.querySelectorAll('a').length
     };
@@ -2350,6 +2355,7 @@ results.purchasePathNoneText = purchaseUi.none.text;
 results.purchasePathNoneHasNoAnchorInPurchaseGroup = purchaseUi.none.anchors.length === 0;
 results.purchasePathListPageIsOnlySourceListLink = purchaseUi.none.allAnchors === 1;
 results.inventoryCardGroups = purchaseUi.none.groups;
+results.purchasePathNoneAcquire = purchaseUi.none.acquire;
 results.flInventoryNavHasInventory = (await flInvPage.locator('#detailModalInner .detail-nav button').allTextContents()).includes('Inventory');
 results.flInventoryNoAiBadge = !/score|confidence|AI /i.test((await flInvPage.locator('#detailModalInner .inventory-card').textContent()) || '');
 await flInvPage.close();
@@ -2389,6 +2395,10 @@ results.decP3Where = await decA(decPage, 'where');
 results.decP3Fresh = await decA(decPage, 'fresh');
 results.decP3History = await decA(decPage, 'history');
 results.decP3Related = await decA(decPage, 'related');
+results.decP3Contact = await decA(decPage, 'contact');
+results.decP3Why = await decA(decPage, 'why');
+results.decP3Glance = ((await decPage.locator('#detailModalInner .opp-summary .opp-cell').filter({ hasText: 'How to acquire' }).locator('.opp-val').innerText()) || '').replace(/\s+/g, ' ').trim();
+results.decP3GapNamesAcquisition = (await decPage.locator('#detailModalInner .opp-gaps').innerText()).includes('Acquisition path not yet verified');
 results.decP3PathEvidenceLine = await decPage.locator('#detailModalInner .prov-available .prov-line').filter({ hasText: 'Path evidence' }).locator('.prov-v').innerText();
 // No score / badge / recommendation vocabulary anywhere on the block.
 results.decNoScoreWords = !/\b(score|badge|recommend|opportunity rating|confidence|AI)\b/i.test(await decPage.locator('#detailModalInner .decision-card').innerText());
@@ -2399,7 +2409,19 @@ await dec2.waitForTimeout(700);
 results.decP15What = await decA(dec2, 'what');
 results.decP15Available = await decA(dec2, 'available');
 results.decP15How = await decA(dec2, 'how');
-results.decP15HowHref = await dec2.locator('#detailModalInner .decision-card .dec-row[data-q="how"] a').getAttribute('href');
+// Acquisition sprint: the "how" row is the acquisition record - mode, the
+// published steps in order, the documents; "contact" is the published office /
+// address / phone / e-mail; "why" names the listing, its date and the
+// deterministic identifier that ties the row to it.
+results.decP15HowHrefs = await dec2.locator('#detailModalInner .decision-card .dec-row[data-q="how"] a').evaluateAll(els => els.map(e => e.getAttribute('href')));
+results.decP15HowMode = ((await dec2.locator('#detailModalInner .decision-card .dec-row[data-q="how"] .acq-mode').textContent()) || '').trim();
+results.decP15HowSteps = await dec2.locator('#detailModalInner .decision-card .dec-row[data-q="how"] .acq-steps li').allTextContents();
+results.decP15Contact = await decA(dec2, 'contact');
+results.decP15ContactLinks = await dec2.locator('#detailModalInner .decision-card .dec-row[data-q="contact"] a').evaluateAll(els => els.map(e => e.getAttribute('href')));
+results.decP15Why = await decA(dec2, 'why');
+results.decP15SourceDocHrefs = await dec2.locator('#detailModalInner .decision-card .dec-row[data-q="source"] a').evaluateAll(els => els.map(e => e.getAttribute('href')));
+results.decP15Glance = ((await dec2.locator('#detailModalInner .opp-summary .opp-cell').filter({ hasText: 'How to acquire' }).locator('.opp-val').innerText()) || '').replace(/\s+/g, ' ').trim();
+results.decP15InvAcquire = await invVal(dec2, 'How to acquire');
 results.decP15Cost = await decA(dec2, 'cost');
 results.decP15Where = await decA(dec2, 'where');
 results.decP15Known = await decA(dec2, 'known');
@@ -2411,7 +2433,7 @@ results.decP15Fresh = await decA(dec2, 'fresh');
 results.decP15History = await dec2.locator('#detailModalInner .decision-card .dec-history li').evaluateAll(els => els.map(e => e.dataset.kind + '|' + e.querySelector('.dec-when').textContent.trim() + '|' + e.querySelector('.dec-what').firstChild.textContent.trim()));
 results.decP15HistoryNote = ((await dec2.locator('#detailModalInner .decision-card .dec-row[data-q="history"] .dec-history-note').innerText()) || '').trim();
 results.decP15PathEvidenceLine = await dec2.locator('#detailModalInner .prov-available .prov-line').filter({ hasText: 'Path evidence' }).locator('.prov-v').innerText();
-results.decP15GapsNamePathKind = (await dec2.locator('#detailModalInner .opp-gaps').innerText()).includes('Purchase link not on file') === false;
+results.decP15GapsNamePathKind = !/Purchase link not on file|Acquisition path not yet verified/.test(await dec2.locator('#detailModalInner .opp-gaps').innerText());
 await dec2.close();
 // The history table missing (migration 021 not applied on a deployment).
 const dec3 = await newPage({ viewport: { width: 1200, height: 900 } });
@@ -2501,12 +2523,13 @@ results.availCsvFilename = availCsv.suggestedFilename();
   const text = fs.readFileSync(await availCsv.path(), 'utf8');
   const lines = text.split(/\r?\n/).filter(Boolean);
   const header = lines[0].split(',');
-  results.availCsvHeaderHas = ['Purchase Path', 'Purchase Path Scope', 'Purchase Link', 'Availability Status', 'Latitude', 'Last Read From Source'].every(h => header.includes(h));
+  results.availCsvHeaderHas = ['Purchase Path', 'Purchase Path Scope', 'Purchase Link', 'Availability Status', 'Latitude', 'Last Read From Source', 'Acquisition Path', 'Acquisition Steps (published by the source)', 'County Office', 'County Phone', 'County E-mail', 'County Address (in person)', 'County Mailing Address', 'Application / Instructions Document', 'Matched To Source By'].every(h => header.includes(h));
   results.availCsvHeaderLacks = ['publication_status', 'Publication Status', 'Provenance', 'Basis', 'harvester_source', 'Data Source'].every(h => !header.some(c => c.toLowerCase().includes(h.toLowerCase())));
   results.availCsvRowCount = lines.length - 1;
   results.availCsvNoWithheld = !text.includes('Restricted Rd');
   const p15Line = lines.find(l => l.includes('15 Manatee Ln')) || '';
   results.availCsvP15Path = p15Line.includes('County purchase-instructions page (published by the source)') && p15Line.includes('https://www.citrusclerk.example.gov/lands-available/how-to-purchase');
+  results.availCsvP15Acquisition = p15Line.includes('Multi-step county process') && p15Line.includes('taxdeeds@example.gov') && p15Line.includes('case_no CI-7') && p15Line.includes('application.pdf');
 }
 await filtPage.close();
 
@@ -3195,7 +3218,7 @@ const EXPECTED = {
   bidLegacyPositiveStillPublished: true,
   bidTxVendorRowWithoutKindUsesLegacyRule: true,
   // Enrichment phase: Inventory & Purchase card.
-  txInventoryLabels: ['Status', 'Inventory', 'Amount', 'Source list', 'Published by', 'Last read from source', 'Parcel #', 'Legal description', 'Owner of record', 'Assessed value', 'Taxable value', 'Acreage', 'Land use', 'Purchase'],
+  txInventoryLabels: ['Status', 'Inventory', 'Amount', 'Source list', 'Published by', 'Last read from source', 'Parcel #', 'Legal description', 'Owner of record', 'Assessed value', 'Taxable value', 'Acreage', 'Land use', 'How to acquire', 'Purchase link'],
   txInventoryStatus: 'Struck off to the taxing unit (per the source) Source status "Struck off to Jurisdiction" · observed Sep 23, 2026',
   txProvenanceHasNoTable: 0,
   txInventoryGroups: ['Inventory', 'Property', 'Purchase path'],
@@ -3206,8 +3229,10 @@ const EXPECTED = {
   txInventoryOwner: 'Not on file',
   txInventoryParcel: '23-TX-0644',
   txInventoryAnchors: 0,
-  txInventoryGapNamesPurchaseLink: true,
-  flInventoryLabels: ['Status', 'Inventory', 'Price', 'Certificate #', 'Available for purchase', 'Escheats to county', 'Source list', 'Source document', 'List as of', 'Source document dated', 'Published by', 'Last read from source', 'Parcel #', 'Legal description', 'Name in which assessed', 'Assessed value', 'Taxable value', 'Acreage', 'Land use', 'Homestead', 'Purchase'],
+  txInventoryGapNamesAcquisition: true,
+  txInventoryGapNeverNamesLink: true,
+  txInventoryAcquire: 'Not yet verified - no published acquisition process established from evidence',
+  flInventoryLabels: ['Status', 'Inventory', 'Price', 'Certificate #', 'Available for purchase', 'Escheats to county', 'Source list', 'Source document', 'List as of', 'Source document dated', 'Published by', 'Last read from source', 'Parcel #', 'Legal description', 'Name in which assessed', 'Assessed value', 'Taxable value', 'Acreage', 'Land use', 'Homestead', 'How to acquire', 'Purchase link'],
   flInventoryGroups: ['Inventory', 'Property', 'Purchase path'],
   flInventoryStatus: 'Available over the counter Basis: list presence · observed Aug 11, 2026',
   flProvenanceRows: [
@@ -3253,9 +3278,14 @@ const EXPECTED = {
   flInventoryNavHasInventory: true,
   flInventoryNoAiBadge: true,
   // ---- Available commercial release (2026-09-30, migration 023) ----
-  decQuestions: ['What property is this?', 'Why is it in Available?', 'Is it currently verified as available?', 'How do I purchase or apply?', 'What source proves that, and when was it observed?', 'What does it cost?', 'Where is it?', 'What is known about it?', 'What is not known?', 'Where did the data come from?', 'How fresh is it?', 'What happened before?', 'Has this parcel appeared in another ledger?'],
+  decQuestions: ['What property is this?', 'Why is it in Available?', 'Is it currently verified as available?', 'How do I acquire it?', 'Who do I contact, and where do I go?', 'What source proves that, and when was it observed?', 'What does it cost?', 'Where is it?', 'What is known about it?', 'What is not known?', 'Where did the data come from?', 'How fresh is it?', 'What happened before?', 'Has this parcel appeared in another ledger?'],
   decNavHasDecision: 1,
-  decP3How: "Not yet verified - no purchase path has been established from evidence. The county list page is not a purchase mechanism; nothing is invented. A path appears here once a rule, the registry or the source's own wording establishes one.",
+  decP3How: "Not yet verified - no published acquisition process has been established from evidence The county list has been read, but no county page or document establishing how to acquire from it has been verified yet. Nothing is invented; a path appears once the county's own page or document is read and reviewed.",
+  decP3Contact: 'Not yet verified - no county contact has been established from evidence',
+  decP3Why: 'Lands Available - fixed price, over the counter (F.S. 197.502(7)) Basis: harvester constant (F.S. 197.502(7) Lands Available list) County list page → · List document (PDF / file) → · list dated Aug 10, 2026 Listed under case C-1 (parcel 333)',
+  decP3Glance: 'Not yet verified',
+  decP3GapNamesAcquisition: true,
+  purchasePathNoneAcquire: 'Not yet verified - no published acquisition process established from evidence',
   decP3HowLinkCount: 0,   // nothing verified = no link, ever
   decP3Available: 'Available over the counter basis: list presence · observed Aug 11, 2026 last verified: read from the source Aug 11, 2026 · county source unavailable at the last attempt - inventory kept, nothing closed',
   decP3Where: '3 Oak Ave Bay County, FL Not yet geocoded - no point is shown for this parcel',
@@ -3266,13 +3296,22 @@ const EXPECTED = {
   decNoScoreWords: true,
   decP15What: '15 Manatee Ln Citrus County, FL · Parcel 1515 · Case CI-7 · Vacant Lot',
   decP15Available: 'Available over the counter basis: list presence · observed Sep 20, 2026 last verified: read from the source Sep 20, 2026',
-  decP15How: "County purchase-instructions page (published by the source) → The source's process for every parcel it lists · evidence: Clerk's 'How to purchase Lands Available' page names the application and payment steps (data/purchase_path_evidence.csv, observed 2026-09-18) · observed Sep 18, 2026",
-  decP15HowHref: 'https://www.citrusclerk.example.gov/lands-available/how-to-purchase',
+  decP15How: "Multi-step county process Download and complete the application (fixture) E-mail taxdeeds@example.gov with the case number (fixture) Pay in certified funds at 1 Example Ave (fixture) Application / instructions document → · County purchase-instructions page (published by the source) → The county's process for every parcel on its list · observed Sep 18, 2026",
+  decP15HowHrefs: ['https://www.citrusclerk.example.gov/lands-available/application.pdf', 'https://www.citrusclerk.example.gov/lands-available/how-to-purchase'],
+  decP15HowMode: 'Multi-step county process',
+  decP15HowSteps: ['Download and complete the application (fixture)', 'E-mail taxdeeds@example.gov with the case number (fixture)', 'Pay in certified funds at 1 Example Ave (fixture)'],
+  decP15Contact: 'Office Fixture County Clerk - Tax Deed Division (fixture) Address (in person) 1 Example Ave, Inverness, FL 00000 (fixture) Phone (000) 000-0000 E-mail taxdeeds@example.gov Payment Certified funds (fixture) Instructions published by the source: Complete the application and pay at the Tax Deed office (fixture wording).',
+  decP15ContactLinks: ['tel:0000000000', 'mailto:taxdeeds@example.gov'],
+  decP15Why: 'Lands Available - fixed price, over the counter (F.S. 197.502(7)) Basis: harvester constant (F.S. 197.502(7) Lands Available list) County list page → · list dated Sep 19, 2026 Matched to the list by case no CI-7 (parcel 1515) · read Sep 20, 2026',
+  decP15SourceDocHrefs: ['https://x/citrus-list', 'https://www.citrusclerk.example.gov/lands-available/how-to-purchase', 'https://www.citrusclerk.example.gov/lands-available/application.pdf'],
+  decP15Glance: 'Multi-step county process Fixture County Clerk - Tax Deed Division (fixture)',
+  decP15InvAcquire: 'Multi-step county process Fixture County Clerk - Tax Deed Division (fixture) - full process in "How do I acquire it?" above',
+  availCsvP15Acquisition: true,
   decP15Cost: 'Not published by the source',
   decP15Where: '15 Manatee Ln Citrus County, FL 28.88860, -82.45200 · authoritative coordinates on file',
   decP15Known: '2025 County Just Value $26,000 · County Assessed Value $25,000 · 0.30 ac · Land use Vacant residential · Type Vacant Lot · Assessed to Lee Park',
   decP15Unknown: ['Purchase price not published', 'Image not checked yet', 'Flood zone not checked'],
-  decP15Source: 'fl_laft_html · Source list → Field-by-field origin is in the Data Quality & Provenance card below.',
+  decP15Source: 'fl_laft_html · Source list → How to purchase Lands Available (fixture) (acquisition evidence) → · Application / instructions document → Field-by-field origin is in the Data Quality & Provenance card below.',
   decP15Fresh: 'Source date: list dated Sep 19, 2026 · Observation date: Sep 20, 2026 · Last verified: read from the source Sep 20, 2026 County source: current - last complete read 3h ago · 6 rows at the last complete read',
   decP15History: ['newly_observed|Jul 1, 2026|First observed on the list', 'removed|Aug 15, 2026|Removed from the list (closed - not a sale result)', 'reactivated|Sep 1, 2026|Back on the list (reactivated)', 'continued|Sep 20, 2026|Last read from the source (continued on the list)'],
   decP15HistoryNote: 'Append-only record. Absence from a list is recorded as a removal, never as a sale; a result appears only when the source published one.',
