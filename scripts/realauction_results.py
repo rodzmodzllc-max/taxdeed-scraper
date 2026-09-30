@@ -387,6 +387,21 @@ def page_script_snippets(session: Any, host: str, sale_url: str, *, timeout: int
     return out
 
 
+def RR_clean(v: Any) -> str:
+    return clean(str(v or ""))
+
+
+def status_word(value: Any) -> str:
+    """A status cell printed verbatim only when it is a short run of words
+    (letters, spaces, hyphens; at most four words, no digit); anything else
+    only as its shape. Status wordings ('Redeemed', 'Canceled per County')
+    pass; a date, an amount or an identifier never does."""
+    t = clean(str(value or ""))
+    if t and len(t) <= 40 and re.fullmatch(r"[A-Za-z][A-Za-z\- ]*", t) and len(t.split()) <= 4:
+        return t
+    return re.sub(r"[A-Za-z]", "a", _DIGITS.sub("#", t))[:40]
+
+
 def value_free_summary(res: FetchResult) -> dict:
     """What the area publishes, without a single value: label names with
     counts, status-line pairs with digits masked (counts per distinct
@@ -417,7 +432,12 @@ def value_free_summary(res: FetchResult) -> dict:
     tally: dict[str, int] = {}
     if res.update_raw is not None:
         for it in update_items(res.update_raw):
-            key = " | ".join(f"{k}={vocab_or_shape(it.get(k, ''))}" for k in sorted(it) if k not in ("AID", "B", "D", "ST"))
+            a = RR_clean(it.get("A"))
+            if re.fullmatch(r"[A-Z]", a):
+                # A one-letter code in A; the status wording is B.
+                key = f"A={a} | B={status_word(it.get('B'))} | C={vocab_or_shape(it.get('C', ''))}"
+            else:
+                key = f"A={vocab_or_shape(a)} | C={vocab_or_shape(it.get('C', ''))} | D={vocab_or_shape(it.get('D', ''))} | SL={vocab_or_shape(it.get('SL', ''))}"
             tally[key] = tally.get(key, 0) + 1
     return {"status_tally": dict(sorted(tally.items(), key=lambda kv: -kv[1])), "structure": skel, "update": upd, "update_error": res.update_error, "aids": len(res.aids), "url": res.url, "date": res.sale_date, "ok": res.ok, "error": res.error, "login_page": res.login_page,
             "pages": res.pages, "items": len(res.items), "with_case": with_case, "with_parcel": with_parcel,

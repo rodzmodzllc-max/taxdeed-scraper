@@ -2513,6 +2513,67 @@ const certCsv = await certDl;
 }
 await certExp.close();
 
+// --- Auction-outcome evidence sprint: every outcome state from the same
+// rules the page uses (window.__tdwOutcome), on synthetic events; p13's
+// real decision row ("Outcome not published", from its closed-feed
+// observation); the auction export's outcome columns; the auction ->
+// Available relationship only with BOTH facts verified. ---
+const outPage = await newPage({ viewport: { width: 1200, height: 900 } });
+await outPage.goto(BASE_URL + '#/auctions/p13', { waitUntil: 'networkidle' });
+await outPage.waitForTimeout(600);
+results.outcomeP13Result = await decA(outPage, 'result');
+results.outcomeP13Kicker = await outPage.evaluate(() => window.__tdwAuctionOutcomeState({ id: 'p13', source: 'auction', sale_date: '2020-01-01' }).label);
+results.outcomeStates = await outPage.evaluate(() => {
+  const O = window.__tdwOutcome;
+  const url = 'https://jackson.realtaxdeed.com/index.cfm?zaction=AUCTION&zmethod=PREVIEW&AuctionDate=09/29/2026';
+  const closed = (raw, outcome, lifecycle) => ({ feed: 'closed', raw_status: raw, outcome, lifecycle, observed_at: '2026-09-30T15:00:00Z', evidence_url: url });
+  const ev = (o) => Object.assign({ id: 'x', case_no: '2024 TD 0001', scheduled_sale_date: '2026-09-29', lifecycle: 'completed', outcome: 'unknown', outcome_raw: null, outcome_observed_at: null, winning_bid: null, event_url: url }, o);
+  const st = (e, c) => O.eventOutcomeState(e, c, null);
+  const sold = st(ev({ outcome: 'sold', outcome_raw: 'Auction Sold', outcome_observed_at: '2026-09-30T15:00:00Z', winning_bid: 12300 }), closed('Auction Sold', 'sold', 'completed'));
+  const soldNoAmount = st(ev({ outcome: 'sold', outcome_raw: 'Auction Sold', outcome_observed_at: '2026-09-30T15:00:00Z' }), closed('Auction Sold', 'sold', 'completed'));
+  return {
+    sold: sold.label, soldProv: O.outcomeProvenanceText(sold, null).replace(/<[^>]+>/g, ''),
+    soldNoAmount: O.outcomeProvenanceText(soldNoAmount, null).replace(/<[^>]+>/g, '').includes('Sale amount: not published'),
+    struck: st(ev({ outcome: 'struck_off', outcome_raw: 'Struck Off' }), null).label,
+    withdrawn: st(ev({ lifecycle: 'withdrawn', outcome_raw: 'Withdrawn' }), null).label,
+    cancelled: st(ev({ lifecycle: 'cancelled', outcome_raw: 'Canceled per County' }), null).label,
+    redeemed: st(ev({ outcome: 'redeemed', lifecycle: 'cancelled', outcome_raw: 'Redeemed' }), null).label,
+    // a cancelled lifecycle WITHOUT the source's wording is not verified
+    cancelledNoWording: st(ev({ lifecycle: 'cancelled' }), null).label,
+    notPublished: st(ev({}), closed(null, 'unknown', 'completed')).label,
+    notVerified: st(ev({}), null).label,
+    unreviewedWording: st(ev({}), closed('Canceled per Bankruptcy', 'unknown', 'completed')),
+    passedDateOnly: st(ev({ lifecycle: 'completed' }), null).verified,
+    scheduled: st(ev({ scheduled_sale_date: '2999-01-01', lifecycle: 'scheduled' }), null).label
+  };
+});
+results.outcomeRelation = await outPage.evaluate(() => {
+  const O = window.__tdwOutcome;
+  const auc = { id: 'a1', source: 'auction', state: 'FL', county: 'Jackson', parcel: '21-4N', case_no: '2024 TD 0001', sale_date: '2026-09-29' };
+  const laft = { id: 'l1', source: 'laft', state: 'FL', county: 'Jackson', parcel: '21-4N', case_no: 'L-9', status: 'available' };
+  const unsold = () => ({ key: 'struck_off', verified: true, raw: 'Struck Off' });
+  const unknown = () => ({ key: 'outcome_not_verified', verified: false });
+  return {
+    both: O.relation(auc, [laft], unsold),
+    auctionOnly: O.relation(auc, [], unsold),
+    availableOnly: O.relation(auc, [laft], unknown),
+    fromAvailable: O.relation(laft, [auc], p => p.source === 'auction' ? unsold() : null),
+    availableNoAuctionResult: O.relation(laft, [auc], () => unknown())
+  };
+});
+const aucOutDl = outPage.waitForEvent('download');
+await outPage.goto(BASE_URL + '#/auctions', { waitUntil: 'networkidle' });
+await outPage.waitForTimeout(400);
+await outPage.click('#exportCsvBtn');
+{
+  const text = fs.readFileSync(await (await aucOutDl).path(), 'utf8');
+  const header = text.split(/\r?\n/)[0].split(',');
+  results.aucExportOutcomeCols = ['Auction Outcome', 'Outcome Source Wording', 'Outcome Observed', 'Outcome Evidence URL', 'Published Sale Amount'].every(c => header.includes(c));
+  results.aucExportNoGovernance = !header.some(h => /publication|provenance|harvester|governance|bidder|purchaser|winning_bidder/i.test(h));
+  results.aucExportNeverSoldWithoutEvidence = !/Sold - verified/.test(text);
+}
+await outPage.close();
+
 // The three new Available filters (land use, coordinates on file, county
 // value on file) - each on a stored field; reset clears them.
 const filtPage = await newPage({ viewport: { width: 1200, height: 900 } });
