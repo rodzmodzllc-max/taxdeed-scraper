@@ -313,6 +313,12 @@ class MockQuery {
         window.__stubReviewInserts = (window.__stubReviewInserts || []).concat([row]);
         result = { data: null, error: null };
       }
+    } else if (this.table === "bid_list" && BIDLIST_SEED) {
+      // ?bidlist=<id>,<id>: one account's watchlist, the same rows whichever
+      // state's page reads it (the table has no state column). Deletes are
+      // counted so a test can prove a state switch never removes anything.
+      if (this._op === "select") result = { data: BIDLIST_SEED.map(id => ({ property_id: id })), error: null };
+      else if (this._op === "delete") window.__stubBidListDeletes = (window.__stubBidListDeletes || 0) + 1;
     } else if (this._op === "select") {
       const matches = row => this._filters.every(([c, v, kind]) => kind === "in" ? (v || []).includes(row[c]) : kind === "lt" ? String(row[c]) < String(v) : row[c] === v);
       if (this.table === "properties") result.data = FIXTURE_PROPERTIES;
@@ -347,6 +353,12 @@ class MockQuery {
     return Promise.resolve(result);
   }
 }
+
+// ?bidlist=p1,ptx1 seeds the account's watchlist (see MockQuery.then).
+const BIDLIST_SEED = (() => {
+  const v = new URLSearchParams(location.search).get("bidlist");
+  return v ? v.split(",").filter(Boolean) : null;
+})();
 
 // ?authtest=1 forces the sign-in gate to show (no session) instead of
 // auto-signing-in, so the sign-up/sign-in toggle can be screenshot-tested.

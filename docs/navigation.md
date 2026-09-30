@@ -9,8 +9,8 @@ is the one definition the List and the Map both read.
 | Destination | Hash | What it is |
 |---|---|---|
 | Dashboard | `#/dashboard` | the operating view (`renderDashboard()` / `dashboardOps()`) |
-| List | `#/auctions`, `#/lands`, `#/certificates` (`#/list` = current ledger); `#/<slug>/<pid>` reopens a property | the property workspace; the ledger selector is `#ledgerTabs`, the state selector `#regionTabs` |
-| Map | `#/map[?ledger=..&county=..&q=..&watch=1]`; legacy `#map` is rewritten to `#/map` | the geographic workspace; state select, ledger pills (`All Ledgers` + the three ledgers), county select scoped to state + ledger |
+| List | `#/auctions`, `#/lands`, `#/certificates` (`#/list` = current ledger); `#/<slug>/<pid>` reopens a property | the property workspace; the ledger selector is `#ledgerTabs` (the state is the header's `#stateSelect`) |
+| Map | `#/map[?ledger=..&county=..&q=..&watch=1]`; legacy `#map` is rewritten to `#/map` | the geographic workspace; ledger pills (`All Ledgers` + the three ledgers), county select scoped to state + ledger |
 | Watchlist | `#/watchlist` | the watchlist layer over whichever page is open |
 
 The rail (`.nav-list`) and the phone bottom bar (`#navBottom`) carry exactly
@@ -22,19 +22,21 @@ a layer with its own ✕) restores the URL the layer was opened over; the
 hashchange that traversal fires is skipped (`suppressHashRoute`) and the
 page that is showing rewrites its own hash.
 
-## State
+## State (global context)
 
-The state is the page (`index.html` = FL, `tx.html` = TX), never a hash
-parameter: each page loads only its own state's rows through the
-state-scoped `get_properties()` RPC. `STATE_META` in `app.js` is the one
-table of states with a page, a basemap and production data; a Python test
-pins its keys to `harvesters/governance/states.PRODUCTION_STATES`, so a
-state appears in the Map's `#mapStateSelect` only once it is activated on
-the backend. Switching state navigates to the other page carrying the hash
-along (`syncStateLinks()` for the List's FL/TX links, the select's own
-handler for the Map), so ledger, county and search survive the switch when
-they remain valid (a county with no rows in the new state falls back to
-"All Counties").
+There is one state selector: `#stateSelect`, in the shared header beside the account badge. It is on every destination and on the phone as well as the desktop. It is not a bottom-bar item.
+
+- Its options are `STATE_META` in `app.js`, the one table of states that have a page, a basemap and production data. A Python test pins its keys to `harvesters/governance/states.PRODUCTION_STATES`, so a state appears only once it is activated on the backend.
+- **The selected state is the page:** `index.html` is FL and `tx.html` is TX.
+  - Its value is `PAGE_STATE`, the one state variable the whole app reads.
+  - Each page loads only its own state's rows through `get_properties(p_state: PAGE_STATE)`. Dashboard, List, Map and Watchlist therefore all show the selected state's data, not a relabelled copy.
+  - The state is in the URL, so a refresh or a shared link keeps it, and nothing else stores a second copy.
+- **Choosing a state** navigates to that state's page and carries the current route along (`stateSwitchHref()`):
+  - page, ledger, and the map's ledger / county / search all come along;
+  - a county the new state lacks falls back to "All Counties";
+  - a property id is dropped, because a property belongs to one state. A property deep link (`tx.html#/auctions/<id>`) opens in its own state's context.
+- The List's former FL/TX tabs, the Map's state select and the Map context line's "State:" badge were removed. State shown as property metadata (cards, sources) is unchanged.
+- The watchlist is one list per account. It shows the selected state's items and names how many saved items are elsewhere; switching state never removes anything.
 
 ## Ledger
 

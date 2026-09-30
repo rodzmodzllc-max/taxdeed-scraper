@@ -1727,7 +1727,7 @@ await txMapPage.goto(TX_BASE_URL + '#map', { waitUntil: 'networkidle' });
 await txMapPage.waitForTimeout(600);
 results.txMapPageVisibleOnColdLoad = await txMapPage.locator('#pageMap').isVisible();
 results.txMapContextTexas = ((await txMapPage.locator('#mapContext').textContent()) || '').replace(/\s+/g, ' ').trim();
-results.txMapStateValue = await txMapPage.locator('#mapStateSelect').inputValue();
+results.txMapStateValue = await txMapPage.locator('#stateSelect').inputValue();
 results.txMapPathCount = await txMapPage.locator('#exploreMapCanvas path[data-county]').count();
 await txMapPage.close();
 
@@ -2051,9 +2051,9 @@ results.navListCountIsSum = await dashPage.evaluate(() => {
   const tabs = Array.from(document.querySelectorAll('#ledgerTabs .ledger-tab b')).map(b => Number(b.textContent));
   return Number(document.getElementById('navCountList').textContent) === tabs.reduce((a, b) => a + b, 0) && tabs.reduce((a, b) => a + b, 0) > 0;
 });
-// The FL/TX links carry the current hash across, so a state switch keeps
-// the ledger (and on the Map page: ledger, county, search).
-results.stateLinkCarriesHash = await dashPage.locator('#regionTabs a[data-region="TX"]').getAttribute('href');
+// The List page no longer carries its own state tabs: the state is the
+// header's #stateSelect (see the global state context block below).
+results.listHasNoStateTabs = (await dashPage.locator('#regionTabs, a[data-state-link]').count()) === 0;
 // Watchlist: a destination with its own hash, lit while open; closing it
 // restores the page underneath and its hash.
 await dashPage.click('.nav-list .nav-item[data-page="watchlist"]');
@@ -2708,8 +2708,9 @@ results.navMapDeepLaftPill = await navMap.locator('#mapLedgerPills [data-ledger=
 results.navMapDeepCounty = await navMap.locator('#mapCountySelect').inputValue();
 results.navMapDeepContext = ((await navMap.locator('#mapContext').textContent()) || '').replace(/\s+/g, ' ').trim();
 results.navMapDeepHash = await navMap.evaluate(() => location.hash);
-results.navMapStateOptions = await navMap.locator('#mapStateSelect option').evaluateAll(els => els.map(e => e.value + ':' + e.textContent));
-results.navMapStateValue = await navMap.locator('#mapStateSelect').inputValue();
+results.navMapStateOptions = await navMap.locator('#stateSelect option').evaluateAll(els => els.map(e => e.value + ':' + e.textContent));
+results.navMapStateValue = await navMap.locator('#stateSelect').inputValue();
+results.navMapHasNoOwnStateSelect = (await navMap.locator('#pageMap select[aria-label="State"], #mapStateSelect').count()) === 0;
 results.navMapAllLedgersLabel = ((await navMap.locator('#mapLedgerPills [data-ledger="all"]').textContent()) || '').trim();
 results.navMapCertPillLabel = ((await navMap.locator('#mapLedgerPills [data-ledger="certificate"]').textContent()) || '').trim();
 // The county select lists only counties with inventory in the selected
@@ -2730,13 +2731,6 @@ results.navMapAllHash = await navMap.evaluate(() => location.hash);
 await navMap.fill('#mapSearchInput', 'Oak');
 await navMap.waitForTimeout(300);
 results.navMapSearchHash = await navMap.evaluate(() => location.hash);
-// Switching state from the Map page navigates to that state's page with the
-// same map context in the hash (the select's own change handler builds the
-// URL from mapHash()); checked without leaving the page.
-results.navMapTxHref = await navMap.evaluate(() => {
-  const sel = document.getElementById('mapStateSelect');
-  return (window.__tdwStateHref = null, sel && sel.options.length === 2) ? 'tx.html' + location.hash : null;
-});
 // The ledger picked on the Map page does not leak into the List page's
 // own ledger and back.
 await navMap.click('.nav-list .nav-item[data-page="list"]');
@@ -2747,6 +2741,150 @@ await navMap.click('.nav-list .nav-item[data-page="map"]');
 await navMap.waitForTimeout(300);
 results.navListToMapHashKeepsContext = await navMap.evaluate(() => location.hash);
 await navMap.close();
+
+// ============================================================
+// Global state context (2026-09-30): ONE state selector, in the shared
+// header beside the account badge, built from STATE_META. The state is the
+// page (index.html = FL, tx.html = TX) whose rows come from
+// get_properties(p_state); choosing a state navigates there carrying the
+// route. ?bidlist= seeds one account's watchlist with a Florida row (p1) and
+// a Texas row (ptx1).
+// ============================================================
+{
+  const gs = await newPage({ viewport: { width: 1200, height: 900 } });
+  const WL = '?bidlist=p1,ptx1';
+  const cardPids = pg => pg.locator('#main .prop-card').evaluateAll(els => els.map(e => e.dataset.pid));
+  const snap = async pg => ({
+    file: await pg.evaluate(() => location.pathname.split('/').pop()),
+    hash: await pg.evaluate(() => location.hash),
+    state: await pg.locator('#stateSelect').inputValue()
+  });
+  const go = async (pg, page) => { await pg.click(`.nav-list .nav-item[data-page="${page}"]`); await pg.waitForTimeout(350); };
+  const switchState = async (pg, st) => {
+    await Promise.all([pg.waitForNavigation({ waitUntil: 'networkidle' }), pg.selectOption('#stateSelect', st)]);
+    await pg.waitForTimeout(600);
+  };
+  await gs.goto(BASE_URL + WL + '#/dashboard', { waitUntil: 'networkidle' });
+  await gs.waitForTimeout(600);
+
+  // A. Header: one selector, next to the account control, options from STATE_META.
+  results.gsSelectInHeader = await gs.locator('.topbar .header-btns #stateSelect').count();
+  results.gsSelectBesideAccount = await gs.evaluate(() => document.getElementById('stateSelect').closest('.state-switch').nextElementSibling.id);
+  results.gsOptions = await gs.locator('#stateSelect option').evaluateAll(els => els.map(e => e.value + ':' + e.textContent));
+  results.gsStateSelectCount = await gs.locator('select[aria-label="State"]').count();
+  await gs.click('#accountBtn');
+  await gs.waitForTimeout(200);
+  results.gsAccountMenuOpens = await gs.locator('#accountMenu').isVisible();
+  await gs.keyboard.press('Escape');
+  await gs.click('#accountBtn').catch(() => {});
+  await gs.waitForTimeout(150);
+  if (await gs.locator('#accountMenu').isVisible()) await gs.click('#accountBtn');
+
+  // F. Florida -> Dashboard / List / Map / Watchlist.
+  const fl = {};
+  fl.dash = await snap(gs);
+  fl.dashAuctionTile = ((await gs.locator('[data-ledger-tile="auction"] .stat-tile-val').textContent()) || '').trim();
+  fl.dashCountiesSub = ((await gs.locator('#pageDashboard .stat-tile:not(.stat-tile-btn) .stat-tile-sub').first().textContent()) || '').trim();
+  await go(gs, 'list');
+  fl.list = await snap(gs);
+  const flPids = await cardPids(gs);
+  fl.listOnlyFlorida = flPids.length > 0 && flPids.every(id => !id.startsWith('ptx'));
+  await gs.click('.ledger-tab[data-ledger="laft"]');
+  await gs.waitForTimeout(300);
+  await go(gs, 'map');
+  fl.map = await snap(gs);
+  fl.mapPaths = await gs.locator('#exploreMapCanvas path[data-county]').count();
+  await go(gs, 'watchlist');
+  fl.watch = await snap(gs);
+  fl.watchPids = await gs.locator('#bidListRows .prop-card').evaluateAll(els => els.map(e => e.dataset.pid));
+  fl.watchElsewhere = ((await gs.locator('#bidListElsewhere').textContent()) || '').trim();
+  await gs.click('[data-action="closebidlist"]');
+  await gs.waitForTimeout(250);
+  results.gsFlorida = fl;
+
+  // Switch to Texas from the List page: the ledger (Available) comes along.
+  await go(gs, 'list');
+  await switchState(gs, 'TX');
+  const tx = {};
+  tx.list = await snap(gs);
+  tx.listLedgerOn = await gs.locator('.ledger-tab.on').getAttribute('data-ledger');
+  const txPids = await cardPids(gs);
+  tx.listOnlyTexas = txPids.every(id => id.startsWith('ptx'));
+  await gs.click('.ledger-tab[data-ledger="auction"]');
+  await gs.waitForTimeout(300);
+  const txAuctionPids = await cardPids(gs);
+  tx.listAuctionOnlyTexas = txAuctionPids.length > 0 && txAuctionPids.every(id => id.startsWith('ptx'));
+  await go(gs, 'dashboard');
+  tx.dash = await snap(gs);
+  tx.dashAuctionTile = ((await gs.locator('[data-ledger-tile="auction"] .stat-tile-val').textContent()) || '').trim();
+  tx.dashCountiesSub = ((await gs.locator('#pageDashboard .stat-tile:not(.stat-tile-btn) .stat-tile-sub').first().textContent()) || '').trim();
+  await go(gs, 'map');
+  tx.map = await snap(gs);
+  tx.mapPaths = await gs.locator('#exploreMapCanvas path[data-county]').count();
+  await go(gs, 'watchlist');
+  tx.watch = await snap(gs);
+  tx.watchPids = await gs.locator('#bidListRows .prop-card').evaluateAll(els => els.map(e => e.dataset.pid));
+  tx.watchElsewhere = ((await gs.locator('#bidListElsewhere').textContent()) || '').trim();
+  tx.watchCount = ((await gs.locator('#navWatchlistCount').textContent()) || '').trim();
+  tx.watchDeletes = await gs.evaluate(() => window.__stubBidListDeletes || 0);
+  await gs.click('[data-action="closebidlist"]');
+  await gs.waitForTimeout(250);
+  results.gsTexas = tx;
+
+  // G. Refresh keeps Texas (the state is the URL), on the page it was on.
+  await gs.goto(TX_BASE_URL + WL + '#/map?ledger=auction&county=Harris', { waitUntil: 'networkidle' });
+  await gs.waitForTimeout(600);
+  const beforeReload = await snap(gs);
+  results.gsTexasMapCounty = await gs.locator('#mapCountySelect').inputValue();
+  await gs.reload({ waitUntil: 'networkidle' });
+  await gs.waitForTimeout(600);
+  const afterReload = await snap(gs);
+  results.gsReloadKeepsTexas = afterReload.state === 'TX' && afterReload.file === 'tx.html' && afterReload.hash === beforeReload.hash;
+  results.gsReloadMapVisible = await gs.locator('#pageMap').evaluate(el => !el.hidden);
+
+  // D. Map follows the header: switching back to Florida on the Map page
+  // lands on Florida's map with the same map route (a Texas county the
+  // Florida map does not have falls back to All Counties).
+  await switchState(gs, 'FL');
+  results.gsMapBackToFlorida = await snap(gs);
+  results.gsMapBackPaths = await gs.locator('#exploreMapCanvas path[data-county]').count();
+  results.gsMapBackCounty = await gs.locator('#mapCountySelect').inputValue();
+  await gs.close();
+
+  // Property deep link: a Texas property URL opens in the Texas context; a
+  // state switch from an open property drops the id (it belongs to Texas)
+  // and keeps the ledger.
+  const dl = await newPage({ viewport: { width: 1200, height: 900 } });
+  await dl.goto(TX_BASE_URL + '#/auctions/ptx1', { waitUntil: 'networkidle' });
+  await dl.waitForTimeout(700);
+  results.gsDeepLinkTexas = { state: await dl.locator('#stateSelect').inputValue(), modal: await dl.locator('#detailModal').isVisible() };
+  await Promise.all([dl.waitForNavigation({ waitUntil: 'networkidle' }), dl.selectOption('#stateSelect', 'FL')]);
+  await dl.waitForTimeout(600);
+  results.gsDeepLinkSwitch = { ...(await snap(dl)), modal: await dl.locator('#detailModal').isVisible() };
+  await dl.close();
+
+  // H. Phone: one compact header row - state selector and account badge both
+  // on screen, selector first; the bottom bar keeps exactly four entries.
+  const ph = await newPage({ viewport: { width: 360, height: 780 } });
+  await ph.goto(TX_BASE_URL + '#/list', { waitUntil: 'networkidle' });
+  await ph.waitForTimeout(600);
+  results.gsPhone = await ph.evaluate(() => {
+    const sel = document.getElementById('stateSelect').getBoundingClientRect();
+    const acc = document.getElementById('accountBtn').getBoundingClientRect();
+    const bar = document.querySelector('.topbar').getBoundingClientRect();
+    return {
+      bothVisible: sel.width > 0 && acc.width > 0,
+      inViewport: sel.left >= 0 && acc.right <= window.innerWidth,
+      sameRow: Math.abs((sel.top + sel.bottom) / 2 - (acc.top + acc.bottom) / 2) < 4,
+      selectorFirst: sel.right <= acc.left,
+      headerCompact: bar.height <= 64,
+      noHorizontalScroll: document.documentElement.scrollWidth <= window.innerWidth,
+      value: document.getElementById('stateSelect').value
+    };
+  });
+  results.gsPhoneBottomNav = await ph.locator('.nav-bottom .nav-bottom-item').evaluateAll(els => els.map(e => e.dataset.page));
+  await ph.close();
+}
 
 // Legacy deep links keep working: #map (old Map link), #/lands (ledger
 // slug), #/dashboard, #/watchlist, #/list.
@@ -3133,7 +3271,7 @@ const EXPECTED = {
   tabLaftHash: '#/lands',
   tabLaftHeading: 'Available',
   navListCountIsSum: true,
-  stateLinkCarriesHash: 'tx.html#/lands',
+  listHasNoStateTabs: true,
   navWatchlistOpen: true,
   navWatchlistLit: ['watchlist'],
   navWatchlistHash: '#/watchlist',
@@ -3144,22 +3282,39 @@ const EXPECTED = {
   navMapDeepLit: ['map'],
   navMapDeepLaftPill: true,
   navMapDeepCounty: 'Bay',
-  navMapDeepContext: 'State: Florida · Ledger: Available · County: Bay County',
+  navMapDeepContext: 'Ledger: Available · County: Bay County',
   navMapDeepHash: '#/map?ledger=laft&county=Bay',
   navMapStateOptions: ['FL:Florida', 'TX:Texas'],
   navMapStateValue: 'FL',
+  gsSelectInHeader: 1,
+  gsSelectBesideAccount: "account",
+  gsOptions: ["FL:Florida", "TX:Texas"],
+  gsStateSelectCount: 1,
+  gsAccountMenuOpens: true,
+  gsFlorida: {"dash": {"file": "index.html", "hash": "#/dashboard", "state": "FL"}, "dashAuctionTile": "9", "dashCountiesSub": "Florida · 12 tracked incl. no-longer-listed", "list": {"file": "index.html", "hash": "#/auctions", "state": "FL"}, "listOnlyFlorida": true, "map": {"file": "index.html", "hash": "#/map", "state": "FL"}, "mapPaths": 67, "watch": {"file": "index.html", "hash": "#/watchlist", "state": "FL"}, "watchPids": ["p1"], "watchElsewhere": "1 saved item is not in Florida's current listings (saved under another state, or no longer listed). Switch state in the header to see another state's items."},
+  gsTexas: {"list": {"file": "tx.html", "hash": "#/lands", "state": "TX"}, "listLedgerOn": "laft", "listOnlyTexas": true, "listAuctionOnlyTexas": true, "dash": {"file": "tx.html", "hash": "#/dashboard", "state": "TX"}, "dashAuctionTile": "3", "dashCountiesSub": "Texas · 5 tracked incl. no-longer-listed", "map": {"file": "tx.html", "hash": "#/map", "state": "TX"}, "mapPaths": 254, "watch": {"file": "tx.html", "hash": "#/watchlist", "state": "TX"}, "watchPids": ["ptx1"], "watchElsewhere": "1 saved item is not in Texas's current listings (saved under another state, or no longer listed). Switch state in the header to see another state's items.", "watchCount": "2/10", "watchDeletes": 0},
+  gsTexasMapCounty: "Harris",
+  gsReloadKeepsTexas: true,
+  gsReloadMapVisible: true,
+  gsMapBackToFlorida: {"file": "index.html", "hash": "#/map?ledger=auction", "state": "FL"},
+  gsMapBackPaths: 67,
+  gsMapBackCounty: "ALL",
+  gsDeepLinkTexas: {"state": "TX", "modal": true},
+  gsDeepLinkSwitch: {"file": "index.html", "hash": "#/auctions", "state": "FL", "modal": false},
+  gsPhone: {"bothVisible": true, "inViewport": true, "sameRow": true, "selectorFirst": true, "headerCompact": true, "noHorizontalScroll": true, "value": "TX"},
+  gsPhoneBottomNav: ["dashboard", "list", "map", "watchlist"],
+  navMapHasNoOwnStateSelect: true,
   navMapAllLedgersLabel: 'All Ledgers',
   navMapCertPillLabel: 'Liens & Certificates',
   navMapLaftCountyOptions: ['All Counties (2)', 'Bay (1)', 'Citrus (1)'],
   navMapCertCountyOptions: ['All Counties (1)', 'Alachua (1)'],
   navMapCertCountyValue: 'ALL',
-  navMapCertContext: 'State: Florida · Ledger: Liens & Certificates · County: All counties',
+  navMapCertContext: 'Ledger: Liens & Certificates · County: All counties',
   navMapCertHash: '#/map?ledger=certificate',
   navMapCertBubbleCount: 1,
   navMapAllCountyOptions: ['All Counties (8)', 'Alachua (2)', 'Bay (1)', 'Brevard (1)', 'Charlotte (1)', 'Citrus (1)', 'Duval (2)', 'Escambia (2)', 'Marion (2)'],
   navMapAllHash: '#/map',
   navMapSearchHash: '#/map?q=Oak',
-  navMapTxHref: 'tx.html#/map?q=Oak',
   navMapToListHash: '#/auctions',
   navMapToListLit: ['list'],
   navListToMapHashKeepsContext: '#/map?q=Oak',
@@ -3192,7 +3347,7 @@ const EXPECTED = {
   navWlCards: ['p4'],
   navWlRelated: ['Currently listed in Auctions · also on your watchlist'],
   navWlCount: '2/10',
-  mapContextFlorida: 'State: Florida · Ledger: All Ledgers · County: All counties',
+  mapContextFlorida: 'Ledger: All Ledgers · County: All counties',
   mapHashOnMapNav: '#/map',
   mapPathCount: 67,
   // Portfolio-wide (every ledger) rather than scoped to whatever the
@@ -3445,7 +3600,7 @@ const EXPECTED = {
   txRaPastDetailLinkText: /^Sale listing no longer current · sale date [A-Z][a-z]{2} \d{1,2}, \d{4} has passed$/,
   // Phase 67: Map-page state cue on both entry points.
   txMapPageVisibleOnColdLoad: true,
-  txMapContextTexas: 'State: Texas · Ledger: All Ledgers · County: All counties',
+  txMapContextTexas: 'Ledger: All Ledgers · County: All counties',
   txMapStateValue: 'TX',
   txMapPathCount: 254,
   // Phase 58: property deep-linking regression coverage.
