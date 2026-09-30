@@ -1862,6 +1862,61 @@ Full description: `docs/state-expansion.md`. Stable facts:
   capture for candidate sources (manual `job=evidence`,
   `evidence_scope=state_sources`).
 
+## Six-state expansion: MI, WY, SC, CO, WI (2026-09-30, PR open)
+
+Full description: `docs/six-state-expansion.md`. Stable facts:
+- **Production states are FL, TX, LA, MI, WY, SC, CO, WI.** WV and UT are
+  registered and gated: WV's inventory is behind a client-script flow and the
+  Auditor's terms grant no reuse right; UT has no inventory until May 2027.
+  The new states' county sources publish no explicit reuse licence. The
+  owner approved each for publication on 2026-09-30, recorded in the
+  registry `restrictions` column and `states.EXPANSION_EVIDENCE`.
+- **Configuration only: `harvesters/otc/adapters/expansion.py`.** The shared
+  adapters run everything. `arcgis.py` gained the property fields a layer
+  publishes, `land_value` / `improvement_value`, a published sold flag, and
+  an opt-in `centroid` derived from the layer's own polygon. `tabular.py`
+  gained label → several fields, required / forbidden headers, the source's
+  empty statement, "N/A" cells treated as no value, and `past_listing`.
+- **Runner and sync:** `scripts/harvest_expansion.py` is one runner for every
+  state (gate → COMPLETE / EMPTY / FAILED per county → de-dup →
+  purchase-path engine on active rows only). It reads county pages with
+  browser headers. `sync_state_inventory.py --close-absent` sets `closed`
+  only after a COMPLETE or EMPTY read; absence never means sold.
+- **Amounts:** an auction amount of unstated kind (Albany WY `TOTAL`) is
+  never `min_bid`. It keeps `purchase_amount` + `PUBLISHED_AMOUNT_KIND_UNSPECIFIED`,
+  and app.js labels it via `amountWord()`. Eaton MI's own "Has Been Sold"
+  flag closes a row. Green WI's Previous Sales rows are closed, with a
+  result only where the county published a Sale Price.
+- **Field mappings follow MEASURED fill rates, not metadata.** Run
+  `scripts/probe_field_fill.py`, the manual `job=evidence` with
+  `evidence_scope=field_fill`: per field, the filled count out of a sample,
+  never a value. York SC's older attributes (OWNNAME, LOCDESC, lat/lng) are
+  empty; its CAMA block is full.
+- **Statewide enrichment factory:** `harvesters/enrichment/`, run by
+  `scripts/enrich_statewide_parcels.py`. Deterministic (county, identifier)
+  match only. Provenance source `statewide_parcel` (rank 2).
+  - `co_oit_public_parcels`, matched on account. Morgan County's features
+    carry only owner, situs, subdivision and zoning; its values are empty.
+    The State says resale is forbidden, and the owner approved display.
+  - `ut_ugrc_lir_saltlake`, CC BY 4.0, registered; the state is not
+    activated.
+- **Acquisition evidence** for these states lives in
+  `data/purchase_path_evidence_expansion.csv`, never mixed into Florida's
+  table. It has two rows: Morgan CO (`quoted_amount`) and Green WI (bid
+  form, `application_download`).
+- **Frontend:**
+  - `scripts/build_state_basemap.py` builds the county SVG and centroids
+    from us-atlas and prints the exact projection.
+  - `scripts/build_state_page.py` builds `<st>.html` from tx.html (use
+    `--check` to confirm the pages are current).
+  - Each state gets one row per state table, and per-state ledger copy lives
+    in `EXPANSION_LEDGER_COPY`. `STATE_META.marketLabel` / `.assessedLabel`
+    name values as the source does.
+  - The sw.js offline fallback serves any precached state page.
+    `sw.js` → `tdw-shell-v57`.
+- **Workflow:** the `expansion` job is a matrix over MI, WY, SC, CO and WI in
+  the existing 12:00 UTC slot, or dispatched with `job=expansion`.
+
 ## Where to look for more
 
 - `claude/improvement-roadmap.md` in the "tax florida app" claude.ai Project — the full dated log of every fix, audit finding, and open decision. This is where new findings should be appended, not here.
