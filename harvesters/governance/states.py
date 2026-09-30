@@ -15,7 +15,7 @@ lets anything run, and the production `properties` table still has to be
 able to hold the row's inventory type and amount kind (see
 `DB_SUPPORTED_*` in county_source_registry / otc.model).
 
-FL and TX are the only production states. AL (Alabama, 2026-09-29) is
+FL, TX and (2026-09-30) LA are the production states. AL (Alabama, 2026-09-29) is
 registered as a NON-production state so the model, the registry and the
 adapters can REPRESENT its inventory concept; it cannot run anywhere until
 every ACTIVATION_REQUIREMENTS item is satisfied in a reviewed commit (see
@@ -168,16 +168,20 @@ AR = _register(StateConfig(
                               "the State (search-index evidence 2026-09-30, harvesters/otc/adapters/arkansas.py COSL_EVIDENCE)",
     production=False, activation=frozenset()))
 # Louisiana (2026-09-30): adjudicated property - property adjudicated to a
-# parish or municipality after no one bought it at the tax sale. The first
-# concrete source is East Baton Rouge's open-data dataset (harvesters/otc/
-# adapters/louisiana.py EBR_EVIDENCE). Registered, NOT production.
+# parish or municipality after no one bought it at the tax sale. The source
+# is East Baton Rouge's open-data dataset (harvesters/otc/adapters/
+# louisiana.py EBR_EVIDENCE). ACTIVATED 2026-09-30 (state-expansion sprint):
+# every requirement below was established from the LIVE source (manual
+# evidence runs 36752875012 / 36753767965, docs/state-expansion.md) and the
+# owner approved publication of the dated list. Coverage is ONE parish.
 LA = _register(StateConfig(
     code="LA", name="Louisiana", publishing_units=(PublishingUnit.PARISH.value, PublishingUnit.MUNICIPALITY.value),
     production_inventory_types=frozenset({"ADJUDICATED_PROPERTY"}),
     lifecycle_inventory_type="ADJUDICATED_PROPERTY",
-    lifecycle_inventory_basis="parish open data: 'adjudicated to the Parish ... in compliance with the laws of the State of "
-                              "Louisiana' (search-index evidence 2026-09-30, harvesters/otc/adapters/louisiana.py EBR_EVIDENCE)",
-    production=False, activation=frozenset()))
+    lifecycle_inventory_basis="East Baton Rouge open data: 'If no one buys the property at the tax sale, the property will then be "
+                              "adjudicated to the Parish of East Baton Rouge in compliance with the laws of the State of Louisiana' "
+                              "(dataset a4h4-zi7e description, read live 2026-09-30)",
+    production=True, activation=ALL_REQUIREMENTS))
 
 # Arizona (2026-09-30): the first state whose only concrete source is a
 # LIENS & CERTIFICATES product - the Maricopa County Treasurer's "Current

@@ -364,25 +364,33 @@ AR_COSL = dict(
     ledgers=AVAILABLE, publication_status="UNREVIEWED",
 )
 LA_EBR = dict(
-    state="LA", county=EBR_SOURCE.county, source_id=EBR_SOURCE.source_id, harvester="",
+    state="LA", county=EBR_SOURCE.county, source_id=EBR_SOURCE.source_id, harvester="harvest_state_inventory.py --state LA",
     inventory_type=EBR_SOURCE.inventory_type.value, source_authority=EBR_SOURCE.source_authority.value,
     canonical_url=EBR_SOURCE.list_url, document_url=EBR_SOURCE.document_url, purchase_url="", purchase_url_kind="",
     access_method="JSON_ENDPOINT", machine_format="CSV",
-    verification_status="SEARCH_EVIDENCE_ONLY", governance_status="TERMS_NOT_VERIFIED",
+    # 2026-09-30 (state-expansion sprint): read LIVE by the manual evidence job
+    # (runs 36752875012, 36753767965 - scripts/capture_state_sources.py) and
+    # approved for customer publication by the owner, dated: the dataset's own
+    # metadata says licence PUBLIC_DOMAIN, provenance official, rows last
+    # updated 2024-02-27. docs/state-expansion.md.
+    verification_status="PRODUCTION_VERIFIED", governance_status="APPROVED",
     last_checked="2026-09-30", completeness_status="UNKNOWN",
-    evidence_ref="WEB SEARCH 2026-09-30 (data.brla.gov dataset titles, URLs, description and column list - harvesters/otc/adapters/louisiana.py EBR_EVIDENCE); " + AUDIT,
+    evidence_ref="LIVE CAPTURE 2026-09-30 (GitHub Actions runs 36752875012, 36753767965: dataset metadata licenseId=PUBLIC_DOMAIN, "
+                 "provenance=official, attribution 'East Baton Rouge Parish Assessor's Office', rowsUpdatedAt 2024-02-27, CSV header = the 16 "
+                 "indexed columns, PROPERTY NUMBER shape 999-9999-9); OWNER PUBLICATION DECISION 2026-09-30 (dated list only); docs/state-expansion.md",
     notes="East Baton Rouge Parish open-data dataset a4h4-zi7e 'Adjudicated Property' - properties 'adjudicated to the Parish of East "
-          "Baton Rouge' after no one bought them at the tax sale. canonical_url = the dataset page; document_url = its CSV download "
-          "(JSON / XML / RDF also offered). Indexed columns: tax year, property number, taxpayer name / address, physical address, "
-          "subdivision, block, lot, ward, legal description, fair market value, total assessed value, council district, zip, "
-          "geolocation. No price and no purchase link in the dataset (the audit reports a vendor purchase process - unverified, not "
-          "implemented). Whether the dataset is current inventory or a yearly snapshot is not established. Nothing fetched from this "
-          "repository; search-index evidence only; not activated.",
+          "Baton Rouge' after no one bought them at the tax sale ('The records in this dataset reflect the most current adjudicated "
+          "property listing'). Public Domain licence (the dataset's own metadata). The rows were last updated 2024-02-27: every row is "
+          "published as 'adjudicated inventory as of' that date (list_as_of, read from the dataset metadata on every run), never as "
+          "available now. The CSV carries one row per property number per tax year; the harvester keeps the latest tax year. No price "
+          "and no purchase link in the dataset (NOT_PUBLISHED; no purchase path).",
     publishing_unit="PARISH", publishing_unit_name=EBR_SOURCE.publishing_unit_name,
     amount_kind="NOT_PUBLISHED",
-    update_frequency="not established (the GIS 'Adjudicated Parcel' layer reads 'last updated September 07, 2026' in the index; the dataset's own cadence not read)",
-    source_terminology=EBR_SOURCE.source_terminology + " (search-index wording)",
-    ledgers=AVAILABLE, publication_status="UNREVIEWED",
+    update_frequency="Annually (the dataset's own 'Update Frequency'); rows last updated 2024-02-27 (dataset metadata rowsUpdatedAt)",
+    source_terminology=EBR_SOURCE.source_terminology,
+    ledgers=AVAILABLE, publication_status="APPROVED",
+    restrictions="Dated list: shown only as adjudicated inventory as of the dataset's rows-updated date (2024-02-27 when approved); "
+                 "never as available now. Owner decision 2026-09-30.",
 )
 
 

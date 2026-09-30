@@ -365,9 +365,10 @@ def amount_of(row: dict, *, storable_kinds=DB_AMOUNT_KINDS) -> tuple[float | Non
         return None, "NOT_PUBLISHED"
     value = float(cleaned)
     kind = str(row.get("bid_kind") or "PUBLISHED_AMOUNT_KIND_UNSPECIFIED")
-    # Only a kind migration 017 can store, and never an amount-less kind
-    # (NOT_PUBLISHED / QUOTED_ON_APPLICATION) next to a real figure.
-    if kind not in DB_AMOUNT_KINDS or kind == "NOT_PUBLISHED":
+    # Only a storable kind, and never an amount-less kind (NOT_PUBLISHED /
+    # QUOTED_ON_APPLICATION - both carry no figure, per the database's own
+    # semantics check) next to a real figure.
+    if kind not in DB_AMOUNT_KINDS or kind in ("NOT_PUBLISHED", "QUOTED_ON_APPLICATION"):
         kind = "PUBLISHED_AMOUNT_KIND_UNSPECIFIED"
     return value, kind
 

@@ -99,22 +99,25 @@ class InventoryType(str, Enum):
     POST_SALE_FIXED_PRICE = "POST_SALE_FIXED_PRICE"      # FL LAFT: purchasable now at a set price
     STRUCK_OFF_HELD_IN_TRUST = "STRUCK_OFF_HELD_IN_TRUST"  # TX: struck off to the taxing units, held in trust
     FUTURE_RESALE = "FUTURE_RESALE"                      # TX: awaiting a future resale process
-    # --- model vocabulary only: NOT in the 017 constraint, NOT storable until
-    #     a future migration widens it (see docs/otc-inventory-model.md).
-    #     They exist so the 50-state audit's inventory classes are named
-    #     honestly instead of being forced into an FL/TX label.
+    # --- added by migration 020 (APPLIED 2026-09-30): named so the 50-state
+    #     audit's inventory classes are stated honestly instead of being
+    #     forced into an FL/TX label (see docs/otc-inventory-model.md).
     POST_SALE = "POST_SALE"                              # post-sale inventory offered by a unit without a published fixed price / process
     STATE_HELD_TAX_LAND = "STATE_HELD_TAX_LAND"          # forfeited to and sold by a STATE agency (AR/MS/AL/WV pattern)
     ADJUDICATED_PROPERTY = "ADJUDICATED_PROPERTY"        # adjudicated to a parish / municipality (LA pattern)
 
 
-# Exactly what migration 017's properties_inventory_type_check allows. A row
-# whose inventory type is outside this set cannot be written to
+# Exactly what properties_inventory_type_check allows: migration 017's three
+# values plus migration 020's three (020 applied to production 2026-09-30).
+# A row whose inventory type is outside this set cannot be written to
 # public.properties; OtcRecord.to_properties_row() refuses it.
 DB_SUPPORTED_INVENTORY_TYPES = frozenset({
     InventoryType.POST_SALE_FIXED_PRICE.value,
     InventoryType.STRUCK_OFF_HELD_IN_TRUST.value,
     InventoryType.FUTURE_RESALE.value,
+    InventoryType.POST_SALE.value,
+    InventoryType.STATE_HELD_TAX_LAND.value,
+    InventoryType.ADJUDICATED_PROPERTY.value,
 })
 
 
@@ -154,9 +157,8 @@ class MachineFormat(str, Enum):
     PORTAL = "PORTAL"
     UNKNOWN = "UNKNOWN"
     NONE = "NONE"
-    # 2026-09-30 (Louisiana): an open-data CSV download. NOT in migration
-    # 018's live check constraint; migration 020 (unapplied) adds it, so a
-    # CSV row can only be a non-production candidate until then.
+    # 2026-09-30 (Louisiana): an open-data CSV download. Added to the live
+    # check constraint by migration 020 (applied 2026-09-30).
     CSV = "CSV"
 
 

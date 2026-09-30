@@ -36,12 +36,13 @@ class AmountKind(str, Enum):
     QUOTED_ON_APPLICATION = "QUOTED_ON_APPLICATION"
 
 
-# Exactly what migration 017's purchase_amount_kind constraint allows.
+# Exactly what the purchase_amount_kind constraint allows: migration 017's
+# values plus QUOTED_ON_APPLICATION (migration 020, applied 2026-09-30).
 DB_SUPPORTED_AMOUNT_KINDS = frozenset({
     AmountKind.MINIMUM_PURCHASE_AMOUNT.value, AmountKind.OPENING_BID.value,
     AmountKind.ORIGINAL_OPENING_BID.value, AmountKind.FIXED_PURCHASE_PRICE.value,
     AmountKind.ESTIMATED_PURCHASE_PRICE.value, AmountKind.PUBLISHED_AMOUNT_KIND_UNSPECIFIED.value,
-    AmountKind.NOT_PUBLISHED.value,
+    AmountKind.NOT_PUBLISHED.value, AmountKind.QUOTED_ON_APPLICATION.value,
 })
 
 # Amount kinds that mean "no figure was published" - the amount must be None.
