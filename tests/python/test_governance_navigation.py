@@ -11,7 +11,10 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[2]
 APP = (REPO / "public/app.js").read_text(encoding="utf-8")
-PAGES = [p for p in ("index.html", "tx.html", "la.html") if (REPO / "public" / p).exists()]
+# Every state page: the hand-written ones and the ones scripts/build_state_page.py
+# generates from tx.html (six-state expansion).
+PAGES = [p for p in ("index.html", "tx.html", "la.html", "mi.html", "wy.html", "sc.html", "co.html", "wi.html")
+         if (REPO / "public" / p).exists()]
 
 
 def _between(text: str, start: str, end: str) -> str:
@@ -70,10 +73,24 @@ def test_v04_governance_logic_and_data_access_are_unchanged():
 
 
 def test_v05_the_change_touches_no_schema_policy_registry_or_pipeline_file():
-    base = subprocess.run(["git", "merge-base", "HEAD", "origin/main"], capture_output=True, text=True, cwd=REPO).stdout.strip()
-    if not base:
+    # Scoped to the governance-navigation commit itself (a branch that also
+    # carries other work - e.g. the six-state expansion - legitimately touches
+    # harvesters / data; that is not this change).
+    sha = subprocess.run(["git", "log", "--format=%H", "-1", "--fixed-strings",
+                          "--grep=Move Source Publication Governance off the main workspace"],
+                         capture_output=True, text=True, cwd=REPO).stdout.strip()
+    if not sha:
         return
-    changed = subprocess.run(["git", "diff", "--name-only", base], capture_output=True, text=True, cwd=REPO).stdout.split()
-    forbidden = re.compile(r"(^supabase/|^scripts/migrations/|schema.*\.sql$|^harvesters/|^data/|^scripts/(?!.*test)|\.github/workflows/harvest)")
-    touched = [f for f in changed if "governance_navigation" not in f and forbidden.search(f)]
-    assert touched == [], touched
+    changed = subprocess.run(["git", "show", "--name-only", "--format=", sha], capture_output=True, text=True, cwd=REPO).stdout.split()
+    forbidden = re.compile(r"(^supabase/|^scripts/migrations/|schema.*\.sql$|^harvesters/|^data/|^scripts/|\.github/workflows/)")
+    assert changed and [f for f in changed if forbidden.search(f)] == [], changed
+
+
+def test_v06_generated_state_pages_are_in_sync_with_their_generator():
+    gen = REPO / "scripts/build_state_page.py"
+    if not gen.exists():
+        return
+    r = subprocess.run(["python3", str(gen), "--check"], capture_output=True, text=True, cwd=REPO)
+    assert r.returncode == 0, r.stdout + r.stderr
+    for page in PAGES:
+        assert (REPO / page).read_text(encoding="utf-8") == (REPO / "public" / page).read_text(encoding="utf-8"), page

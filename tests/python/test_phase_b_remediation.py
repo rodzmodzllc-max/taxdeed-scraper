@@ -165,7 +165,9 @@ def test_A5_upload_steps_are_otherwise_unchanged():
     # and uploads the same evidence-only layout; the five original jobs are unchanged.
     # "outcomes" (auction-outcome evidence sprint) is manual-only and uploads
     # the same evidence-only layout.
-    assert set(steps) == {"deeds", "certificates", "laft", "texas", "backup", "evidence", "outcomes"}
+    # "expansion" (six-state sprint) uploads the same evidence-only layout per matrix leg.
+    assert set(steps) == {"deeds", "certificates", "laft", "texas", "backup", "evidence", "outcomes", "expansion"}
+    assert _patterns(steps["expansion"]) == ["out/public/", "out/private/"]
     deeds = steps["deeds"]
     assert deeds["if"] == "always()"
     assert deeds["with"]["name"] == "harvest-deeds-${{ github.run_id }}"

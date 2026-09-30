@@ -94,7 +94,7 @@ def test_g01_the_registry_row_is_the_owner_decision_on_the_live_evidence():
     assert row.publishing_unit == "PARISH" and row.amount_kind == "NOT_PUBLISHED" and not row.purchase_url
     # Coverage is exactly one parish; nothing else in LA is runnable.
     assert [r.source_id for r in csr.load_registry() if r.state == "LA"] == ["la_ebr_adjudicated"]
-    assert states.PRODUCTION_STATES == frozenset({"FL", "TX", "LA"})
+    assert states.PRODUCTION_STATES == frozenset({"FL", "TX", "LA", "MI", "WY", "SC", "CO", "WI"})
     assert LA.APPROVED_LICENSE_ID == "PUBLIC_DOMAIN"
 
 
@@ -134,7 +134,8 @@ def test_f01_a_third_state_page_with_its_own_assets():
         # One header state selector per page (options built from STATE_META, which carries LA).
         assert text.count('<select id="stateSelect" aria-label="State"></select>') == 1 and "data-state-link" not in text, page
     sw = (REPO / "public/sw.js").read_text(encoding="utf-8")
-    assert '"/la.html",' in sw and '"/la-parishes.svg",' in sw and 'isLa ? "/la.html"' in sw
+    # The offline fallback serves any precached state page (six-state expansion made it generic).
+    assert '"/la.html",' in sw and '"/la-parishes.svg",' in sw and "STATE_PAGES.includes(statePage)" in sw
     for f in ("la.html", "la-parishes.svg"):
         assert (REPO / f).read_text(encoding="utf-8") == (REPO / "public" / f).read_text(encoding="utf-8"), f
 

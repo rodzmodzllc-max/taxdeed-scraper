@@ -119,10 +119,10 @@ def test_r06_validator_catches_the_dangerous_shapes():
 def test_r07_to_db_rows_uses_nulls_and_the_migration_018_column_set():
     # The live (018) shape is the FL/TX county rows; the Alabama, Arkansas
     # and Louisiana candidates (2026-09-29/30) are refused by the 018 bridge
-    # and need 020.
+    # and need 020; so do the six six-state-expansion rows (2026-09-30).
     fl_tx = [r for r in ROWS if r.state in ("FL", "TX")]
     rows = csr.to_db_rows(fl_tx)
-    assert len(rows) == len(fl_tx) == len(ROWS) - 4 and all(set(r) == set(csr.COLUMNS) for r in rows)
+    assert len(rows) == len(fl_tx) == len(ROWS) - 4 - 6 and all(set(r) == set(csr.COLUMNS) for r in rows)
     with pytest.raises(ValueError, match="migration 018"):
         csr.to_db_rows(ROWS)
     baker = next(r for r in rows if r["county"] == "Baker" and r["state"] == "FL")

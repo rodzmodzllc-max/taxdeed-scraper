@@ -64,6 +64,12 @@ DEPLOYED_BUNDLE_FILES = (
     "tx-counties.svg",
     "la.html",           # 2026-09-30 state-expansion sprint: Louisiana page
     "la-parishes.svg",   # and its parish basemap
+    # 2026-09-30 six-state expansion: each state's page and county basemap.
+    "mi.html", "mi-counties.svg",
+    "wy.html", "wy-counties.svg",
+    "sc.html", "sc-counties.svg",
+    "co.html", "co-counties.svg",
+    "wi.html", "wi-counties.svg",
 )
 
 

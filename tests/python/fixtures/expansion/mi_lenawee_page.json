@@ -1,0 +1,26 @@
+{
+ "objectIdFieldName": "OBJECTID",
+ "features": [
+  {
+   "attributes": {
+    "OBJECTID": 1,
+    "TAXID": "XX0-100-2000-00",
+    "PropAdd": "200 SYNTHETIC RD",
+    "TaxDesc": "SYNTHETIC COM AT NW COR",
+    "MinBid": 2350.5,
+    "ACREREC": 1.1
+   }
+  },
+  {
+   "attributes": {
+    "OBJECTID": 2,
+    "TAXID": "XX0-100-2001-00",
+    "PropAdd": null,
+    "TaxDesc": "SYNTHETIC LOT 7",
+    "MinBid": 980.0,
+    "ACREREC": 0
+   }
+  }
+ ],
+ "exceededTransferLimit": false
+}

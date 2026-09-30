@@ -2755,6 +2755,28 @@ results.adminPubNoTableFormDisabled = await noReviews.locator('#adminPublication
 await noReviews.close();
 
 
+// Every generated state page (scripts/build_state_page.py) carries the same
+// governance navigation: admin menu entry + #/governance view; refused for a
+// normal user; never inline on the workspace.
+results.govStatePages = {};
+for (const file of ['mi', 'wy', 'sc', 'co', 'wi']) {
+  const url = BASE_URL.replace(/index\.html$/, `${file}.html`);
+  const adm = await newPage({ viewport: { width: 1200, height: 900 } });
+  await adm.goto(url + '?profile=admin#/governance', { waitUntil: 'networkidle' });
+  await adm.waitForTimeout(800);
+  const admView = await adm.locator('#governanceModal').isVisible();
+  const admHash = await adm.evaluate(() => location.hash);
+  const onWorkspace = await adm.evaluate(() => !document.querySelector('#governanceModal #adminPublication'));
+  await adm.close();
+  const usr = await newPage({ viewport: { width: 1200, height: 900 } });
+  await usr.goto(url + '#/governance', { waitUntil: 'networkidle' });
+  await usr.waitForTimeout(800);
+  results.govStatePages[file] = { admView, admHash, onWorkspace,
+    userView: await usr.locator('#governanceModal').isVisible(), userItem: await usr.locator('#governanceMenuItem').isVisible(),
+    userHashRewritten: (await usr.evaluate(() => location.hash)) !== '#/governance' };
+  await usr.close();
+}
+
 // ==================== Unified navigation (2026-09-30) ====================
 // Routes, the Map page's state / ledger / county context, the scoped county
 // select, the operating Dashboard, and the compatibility of every existing
@@ -3047,6 +3069,57 @@ await navMap.close();
   results.laDetailCostNotPublished = /Not published by the source/.test(laDetail);
   results.laDetailNoFixedPrice = !/fixed price/i.test(laDetail);
   await laPage.close();
+}
+
+// ============================================================
+// Six-state expansion (2026-09-30): mi / wy / sc / co / wi pages. Each is its
+// own page (body data-state), lists every production state in the one header
+// selector, carries its own county basemap, and shows no Florida wording.
+// The CO certificate row carries its statewide-parcel value and the Treasurer's
+// verified acquisition steps; the MI auction row the county's published fields.
+// ============================================================
+{
+  const NEW_STATES = [['MI', 'mi', 'Michigan'], ['WY', 'wy', 'Wyoming'], ['SC', 'sc', 'South Carolina'], ['CO', 'co', 'Colorado'], ['WI', 'wi', 'Wisconsin']];
+  results.xsPages = {};
+  for (const [code, file, name] of NEW_STATES) {
+    const pg = await newPage({ viewport: { width: 1200, height: 900 } });
+    await pg.goto(BASE_URL.replace(/index\.html$/, `${file}.html`) + '#/auctions', { waitUntil: 'networkidle' });
+    await pg.waitForTimeout(400);
+    const body = ((await pg.locator('body').textContent()) || '').replace(/\s+/g, ' ');
+    results.xsPages[code] = {
+      state: await pg.evaluate(() => document.body.dataset.state),
+      title: await pg.title(),
+      select: await pg.locator('#stateSelect').inputValue(),
+      options: await pg.locator('#stateSelect option').evaluateAll(els => els.map(e => e.value)),
+      // The Dashboard's global Data sources panel names Florida's sources AS Florida's; only
+      // unqualified Florida wording on a new state's page is a defect.
+      floridaWording: /(?<!Florida )Lands Available for Taxes|Fla\. Stat|County Just Value/.test(body),
+      basemapOk: (await pg.evaluate(async f => (await fetch(f)).ok, `${file}-counties.svg`))
+    };
+    if (code === 'MI') {
+      const card = pg.locator('.prop-card[data-pid="pmi1"]');
+      const t = ((await card.textContent()) || '').replace(/\s+/g, ' ');
+      results.xsMiCard = { count: await card.count(), county: /Eaton( County)?, MI/.test(t), sev: /State Equalized Value/.test(t), noJustValue: !/Just Value/.test(t) };
+    }
+    if (code === 'CO') {
+      // Deep link straight to the certificate - a REAL cold start in a fresh page
+      // (a goto that only changes the hash is a same-document navigation).
+      const cold = await newPage({ viewport: { width: 1200, height: 900 } });
+      await cold.goto(BASE_URL.replace(/index\.html$/, 'co.html') + '#/certificates/pco1', { waitUntil: 'networkidle' });
+      await cold.waitForTimeout(600);
+      results.xsCoCardCount = (await cold.locator('[data-pid="pco1"]').count()) > 0;
+      const d = ((await cold.locator('#detailModalInner').textContent()) || '').replace(/\s+/g, ' ');
+      results.xsCoDetail = {
+        treasurer: /Morgan County Treasurer/.test(d),
+        steps: /Purchase the certificate from the Morgan County Treasurer for the amount shown/.test(d),
+        noStreetView: !/Street View/.test(d),
+        noUndefined: !/undefined/.test(d),
+        sourceNamed: /Morgan County Treasurer - County Held Tax Lien Sale Certificates/.test(d)
+      };
+      await cold.close();
+    }
+    await pg.close();
+  }
 }
 
 // ============================================================
@@ -3591,7 +3664,7 @@ const EXPECTED = {
   navMapDeepCounty: 'Bay',
   navMapDeepContext: 'Ledger: Available · County: Bay County',
   navMapDeepHash: '#/map?ledger=laft&county=Bay',
-  navMapStateOptions: ['FL:Florida', 'TX:Texas', 'LA:Louisiana'],
+  navMapStateOptions: ['FL:Florida', 'TX:Texas', 'LA:Louisiana', 'MI:Michigan', 'WY:Wyoming', 'SC:South Carolina', 'CO:Colorado', 'WI:Wisconsin'],
   navMapStateValue: 'FL',
   adminAnonRedirected: true,
   adminAnonShellShown: false,
@@ -3643,7 +3716,12 @@ const EXPECTED = {
   signupDisabledNoSession: true,
   laBodyState: 'LA',
   laTitle: 'Available — Adjudicated Property · Tax Acquisitions — Louisiana',
-  laStateSelect: { value: 'LA', options: ['FL', 'TX', 'LA'] },
+  laStateSelect: { value: 'LA', options: ['FL', 'TX', 'LA', 'MI', 'WY', 'SC', 'CO', 'WI'] },
+  xsPages: Object.fromEntries([['MI', 'Michigan'], ['WY', 'Wyoming'], ['SC', 'South Carolina'], ['CO', 'Colorado'], ['WI', 'Wisconsin']].map(([c, n]) => [c,
+    { state: c, title: `Auctions · Tax Acquisitions — ${n}`, select: c, options: ['FL', 'TX', 'LA', 'MI', 'WY', 'SC', 'CO', 'WI'], floridaWording: false, basemapOk: true }])),
+  xsMiCard: { count: 1, county: true, sev: true, noJustValue: true },
+  xsCoCardCount: true,
+  xsCoDetail: { treasurer: true, steps: true, noStreetView: true, noUndefined: true, sourceNamed: true },
   laNoStateTabs: true,
   laCardCount: 1,
   laCardSaysListAsOf: true,
@@ -3658,7 +3736,7 @@ const EXPECTED = {
   laDetailNoFixedPrice: true,
   gsSelectInHeader: 1,
   gsSelectBesideAccount: "account",
-  gsOptions: ["FL:Florida", "TX:Texas", "LA:Louisiana"],
+  gsOptions: ["FL:Florida", "TX:Texas", "LA:Louisiana", "MI:Michigan", "WY:Wyoming", "SC:South Carolina", "CO:Colorado", "WI:Wisconsin"],
   gsStateSelectCount: 1,
   gsAccountMenuOpens: true,
   gsFlorida: {"dash": {"file": "index.html", "hash": "#/dashboard", "state": "FL"}, "dashAuctionTile": "9", "dashCountiesSub": "Florida · 12 tracked incl. no-longer-listed", "list": {"file": "index.html", "hash": "#/auctions", "state": "FL"}, "listOnlyFlorida": true, "map": {"file": "index.html", "hash": "#/map", "state": "FL"}, "mapPaths": 67, "watch": {"file": "index.html", "hash": "#/watchlist", "state": "FL"}, "watchPids": ["p1"], "watchElsewhere": "1 saved item is not in Florida's current listings (saved under another state, or no longer listed). Switch state in the header to see another state's items."},
@@ -4183,6 +4261,7 @@ const EXPECTED = {
   availCsvRowCount: 2,
   availCsvNoWithheld: true,
   availCsvP15Path: true,
+  govStatePages: Object.fromEntries(['mi', 'wy', 'sc', 'co', 'wi'].map(f => [f, { admView: true, admHash: '#/governance', onWorkspace: false, userView: false, userItem: false, userHashRewritten: true }])),
   govWorkspace: { inlinePanelVisible: false, panelInsideView: true, panelOnWorkspace: false, approvalsVisible: true, approvalRows: true },
   govMenu: { itemVisible: true, itemText: 'Source Publication Governance', order: ['editProfileBtn', 'changePasswordBtn', 'themeBtn', 'helpBtnMenu', 'supportBtnMenu', 'adminAreaLink', 'governanceMenuItem', 'termsBtnMenu', 'signOutBtn', 'deleteAccountBtn'] },
   govOpened: { viewVisible: true, hash: '#/governance', menuClosed: true, title: 'Source Publication Governance' },

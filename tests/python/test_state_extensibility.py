@@ -75,7 +75,7 @@ def _row(**kw) -> csr.CountySourceRow:
 def test_st01_registered_and_production_states():
     # AL (2026-09-29) is REGISTERED (representable) but not PRODUCTION / activated.
     # LA became production on 2026-09-30 (state-expansion sprint).
-    assert states.supported_states() == {"FL", "TX", "AL", "AR", "LA", "AZ"} and states.PRODUCTION_STATES == {"FL", "TX", "LA"}
+    assert states.supported_states() == {"FL", "TX", "AL", "AR", "LA", "AZ", "MI", "WY", "SC", "CO", "WI", "WV", "UT"} and states.PRODUCTION_STATES == {"FL", "TX", "LA", "MI", "WY", "SC", "CO", "WI"}
     assert states.is_activated("FL") and states.is_activated("TX") and not states.is_activated("AL")
     assert states.activation_blockers("AL") == list(states.ACTIVATION_REQUIREMENTS)
     assert states.activation_blockers("FL") == [] and states.activation_blockers("QQ")[0] == "not_registered"
@@ -200,7 +200,9 @@ def test_r01_committed_registry_is_unchanged_county_level_and_still_valid():
     # 216 (2026-09-30, three ledgers) = the 109 FL/TX AVAILABLE rows unchanged + Alabama, Arkansas,
     # Louisiana candidates + the AUCTIONS (47 FL, 24 TX) and LIENS & CERTIFICATES (32 FL) production
     # sources the registry now carries + ONE Arizona LIENS & CERTIFICATES candidate.
-    assert len(rows) == 216 and {r.state for r in rows} == {"FL", "TX", "AL", "AR", "LA", "AZ"}
+    # 222 (2026-09-30, six-state expansion) = 216 + the six owner-approved county sources of
+    # MI (2), WY, SC, CO, WI (harvesters/otc/adapters/expansion.py).
+    assert len(rows) == 222 and {r.state for r in rows} == {"FL", "TX", "AL", "AR", "LA", "AZ", "MI", "WY", "SC", "CO", "WI"}
     available = [r for r in rows if r.state in ("FL", "TX") and "AVAILABLE" in r.ledger_set or r.state in ("FL", "TX") and not r.ledger_set]
     assert len(available) == 112 - 3
     assert all(r.publishing_unit == "COUNTY" for r in rows if r.state in ("FL", "TX"))

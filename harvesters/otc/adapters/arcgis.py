@@ -66,6 +66,20 @@ class ArcGisFieldMap:
     legal_desc: str | None = None
     amount: str | None = None
     status: str | None = None
+    # Six-state sprint: property facts the layer itself publishes on the
+    # row (never computed, never joined from elsewhere).
+    owner_name: str | None = None
+    acreage: str | None = None
+    land_use: str | None = None
+    taxable_value: str | None = None
+    assessed: str | None = None
+    market: str | None = None
+    tax_year: str | None = None
+    latitude: str | None = None
+    longitude: str | None = None
+    sold_flag: str | None = None         # the layer's own "has been sold" flag attribute, when it publishes one
+    land_value: str | None = None
+    improvement_value: str | None = None
 
     def named(self) -> dict[str, str]:
         return {k: v for k, v in vars(self).items() if v}
@@ -92,6 +106,11 @@ class ArcGisLayerConfig:
     purchase_url_kind: PurchaseUrlKind | None = None
     columns_verified: bool = False       # True only after a human read the live layer's fields
     notes: str = ""
+    record_source: str = "laft"          # "laft" (AVAILABLE) | "certificate" | "auction" (six-state sprint)
+    # Derive latitude / longitude from the layer's OWN parcel polygon (or point)
+    # when it publishes no coordinate attributes: the area-weighted centroid of
+    # the feature's geometry (WGS84), recorded as derived in the provenance.
+    centroid: bool = False
 
     def __post_init__(self) -> None:
         if not LAYER_URL_RE.match(self.layer_url):
@@ -151,7 +170,8 @@ def query_params(cfg: ArcGisLayerConfig, offset: int = 0) -> dict[str, str]:
         "f": "json",
         "where": cfg.where,
         "outFields": ",".join(_out_fields(cfg)),
-        "returnGeometry": "false",
+        "returnGeometry": "true" if cfg.centroid else "false",
+        **({"outSR": "4326"} if cfg.centroid else {}),
         "orderByFields": cfg.fields.case_no,
         "resultOffset": str(offset),
         "resultRecordCount": str(cfg.page_size),
@@ -185,6 +205,63 @@ def _text(value: Any) -> str | None:
         return None
     text = str(value).strip()
     return text or None
+
+
+def _positive(value: Any) -> float | None:
+    """A published figure > 0, else None (0 / blank = not published)."""
+    try:
+        n = _amount(value)
+    except (ValueError, TypeError):
+        return None
+    return n if n is not None and n > 0 else None
+
+
+SOLD_YES = {"Y", "YES", "TRUE", "T", "1", "SOLD"}
+
+
+def _sold(attrs: dict, fm: ArcGisFieldMap) -> dict:
+    """The layer's own sold flag: 'yes' -> a published 'sold' outcome with the
+    source's wording; anything else says nothing (never inferred)."""
+    if not fm.sold_flag:
+        return {}
+    raw = _text(attrs.get(fm.sold_flag))
+    if raw and raw.strip().upper() in SOLD_YES:
+        return {"published_outcome": "sold", "source_status_text": f"{fm.sold_flag}: {raw}"}
+    return {}
+
+
+def _coords(attrs: dict, fm: ArcGisFieldMap) -> dict:
+    """Latitude/longitude only when the layer publishes both, in range."""
+    if not (fm.latitude and fm.longitude):
+        return {}
+    try:
+        lat, lng = float(attrs.get(fm.latitude)), float(attrs.get(fm.longitude))
+    except (TypeError, ValueError):
+        return {}
+    if -90 <= lat <= 90 and -180 <= lng <= 180 and (lat, lng) != (0.0, 0.0):
+        return {"latitude": lat, "longitude": lng}
+    return {}
+
+
+def _geometry_centroid(geometry: Any) -> dict:
+    """lat/lng from a feature's own WGS84 geometry: a point's x/y, or the
+    area-weighted centroid of a polygon's rings. Nothing when absent."""
+    if not isinstance(geometry, dict):
+        return {}
+    if "x" in geometry and "y" in geometry:
+        try:
+            lng, lat = float(geometry["x"]), float(geometry["y"])
+        except (TypeError, ValueError):
+            return {}
+    else:
+        from ...enrichment.parcels import polygon_centroid  # noqa: PLC0415 - pure geometry, no I/O
+        c = polygon_centroid(geometry)
+        if not c:
+            return {}
+        lat, lng = c
+    if -90 <= lat <= 90 and -180 <= lng <= 180 and (lat, lng) != (0.0, 0.0):
+        return {"latitude": round(lat, 7), "longitude": round(lng, 7)}
+    return {}
 
 
 def parse_page(cfg: ArcGisLayerConfig, payload: Any, *, retrieved_at: datetime, offset: int = 0) -> PageResult:
@@ -236,6 +313,11 @@ def parse_page(cfg: ArcGisLayerConfig, payload: Any, *, retrieved_at: datetime, 
             "attributes": present,
             "amount": (f"attribute {fm.amount!r} = {kind.value}" if amount is not None else "no amount attribute value"),
         }
+        coords = _coords(attrs, fm)
+        if not coords and cfg.centroid:
+            coords = _geometry_centroid(feat.get("geometry"))
+            if coords:
+                prov["coordinates"] = "derived: centroid of the layer's own parcel geometry (WGS84)"
         records.append(OtcRecord(
             state=cfg.state, county=county, case_no=case_no,
             source_id=cfg.source_id, source_authority=cfg.source_authority,
@@ -246,8 +328,20 @@ def parse_page(cfg: ArcGisLayerConfig, payload: Any, *, retrieved_at: datetime, 
             amount=amount, amount_kind=kind,
             list_url=cfg.list_url, document_url=None,
             purchase_url=cfg.purchase_url, purchase_url_kind=cfg.purchase_url_kind,
-            source_status_text=_text(attrs.get(fm.status)) if fm.status else None,
             provenance=prov,
+            record_source=cfg.record_source,
+            owner_name=_text(attrs.get(fm.owner_name)) if fm.owner_name else None,
+            acreage=_positive(attrs.get(fm.acreage)) if fm.acreage else None,
+            land_use=_text(attrs.get(fm.land_use)) if fm.land_use else None,
+            taxable_value=_positive(attrs.get(fm.taxable_value)) if fm.taxable_value else None,
+            assessed=_positive(attrs.get(fm.assessed)) if fm.assessed else None,
+            market=_positive(attrs.get(fm.market)) if fm.market else None,
+            tax_year=_text(attrs.get(fm.tax_year)) if fm.tax_year else None,
+            land_value=_positive(attrs.get(fm.land_value)) if fm.land_value else None,
+            improvement_value=_positive(attrs.get(fm.improvement_value)) if fm.improvement_value else None,
+            **coords,
+            **({"source_status_text": _text(attrs.get(fm.status))} if fm.status and not _sold(attrs, fm) else {}),
+            **_sold(attrs, fm),
         ))
     return PageResult(records=records, exceeded_transfer_limit=bool(payload.get("exceededTransferLimit")),
                       feature_count=len(features), object_id_field=object_id_field)

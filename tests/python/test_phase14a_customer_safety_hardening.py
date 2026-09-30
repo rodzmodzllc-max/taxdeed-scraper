@@ -210,7 +210,11 @@ def test_D_non_texas_rows_still_get_the_original_generic_label():
     fn_body = app_js[fn_start:fn_end]
     # First branch (FL/any non-TX state) must return the pre-existing
     # label text, unchanged - this phase corrects the TX case, not FL's.
-    assert fn_body.splitlines()[1].strip() == 'if (regionOf(p) !== "TX") return "County Assessed Value";'
+    # (Six-state expansion: a state whose source names its assessed figure -
+    # STATE_META.assessedLabel, e.g. Michigan's SEV - is checked first; Florida
+    # carries no such label, so it still reaches this line unchanged.)
+    assert 'if (regionOf(p) !== "TX") return "County Assessed Value";' in [l.strip() for l in fn_body.splitlines()]
+    assert "assessedLabel" not in app_js[app_js.index("const STATE_META = {"):app_js.index("const STATE_META = {") + 400].split("FL:")[1].split("\n")[0]
 
 
 # ==================== E: Texas valuation regression ====================

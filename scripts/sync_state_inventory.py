@@ -28,6 +28,7 @@ import argparse
 import json
 import os
 import sys
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -85,6 +86,54 @@ def plan(state: str, rows: list[dict], registry: dict, status_units: dict[str, s
     return out, counts
 
 
+CLOSEABLE = frozenset({"COMPLETE", "EMPTY"})
+
+
+def plan_close(state: str, harvested: list[dict], stored: list[dict], units: dict[str, str], source_ids: set[str]) -> list[dict]:
+    """Stored ACTIVE rows of this state's own production sources that a
+    COMPLETE or EMPTY read of their county no longer lists -> closed. Pure.
+    Absence is only 'closed' (the list dropped it) - never sold, redeemed or
+    any other result; an INCOMPLETE / FAILED / unread county closes nothing."""
+    seen = {(r.get("source"), r.get("county"), r.get("case_no")) for r in harvested if r.get("state") == state}
+    out = []
+    for r in stored:
+        if r.get("state") != state or r.get("status") != "active" or r.get("harvester_source") not in source_ids:
+            continue
+        if units.get(r.get("county") or "") not in CLOSEABLE:
+            continue
+        if (r.get("source"), r.get("county"), r.get("case_no")) not in seen:
+            out.append({"id": r["id"], "status": "closed"})
+    return out
+
+
+def stored_active(base: str, key: str, state: str, source_ids: set[str]) -> list[dict]:
+    import urllib.parse  # noqa: PLC0415
+    rows, offset = [], 0
+    ids = ",".join(sorted(source_ids))
+    while True:
+        q = urllib.parse.urlencode({"select": "id,state,source,county,case_no,status,harvester_source", "state": f"eq.{state}",
+                                    "status": "eq.active", "harvester_source": f"in.({ids})", "order": "id",
+                                    "limit": 1000, "offset": offset})
+        req = urllib.request.Request(f"{base.rstrip('/')}/rest/v1/properties?{q}",
+                                     headers={"apikey": key, "Authorization": f"Bearer {key}", "User-Agent": USER_AGENT})
+        with urllib.request.urlopen(req, timeout=120) as resp:
+            page = json.loads(resp.read() or b"[]")
+        rows += page
+        if len(page) < 1000:
+            return rows
+        offset += 1000
+
+
+def close_rows(base: str, key: str, closes: list[dict]) -> None:
+    for c in closes:
+        req = urllib.request.Request(
+            f"{base.rstrip('/')}/rest/v1/properties?id=eq.{c['id']}", data=json.dumps({"status": c["status"]}).encode(),
+            method="PATCH", headers={"apikey": key, "Authorization": f"Bearer {key}", "User-Agent": USER_AGENT,
+                                     "Content-Type": "application/json", "Prefer": "return=minimal"})
+        with urllib.request.urlopen(req, timeout=60):
+            pass
+
+
 def status_units(path: Path) -> dict[str, str]:
     if not path.exists():
         return {}
@@ -104,8 +153,17 @@ def upsert(base: str, key: str, rows: list[dict]) -> int:
             data=json.dumps(chunk).encode(), method="POST",
             headers={"apikey": key, "Authorization": f"Bearer {key}", "User-Agent": USER_AGENT, "Content-Type": "application/json",
                      "Prefer": "resolution=merge-duplicates,return=minimal"})
-        with urllib.request.urlopen(req, timeout=120):
-            requests += 1
+        try:
+            with urllib.request.urlopen(req, timeout=120):
+                requests += 1
+        except urllib.error.HTTPError as exc:
+            # Public log: PostgREST's code + message name the constraint / column; its
+            # `details` can echo the failing row, so it is never printed.
+            try:
+                err = json.loads(exc.read().decode("utf-8", "replace"))
+            except ValueError:
+                err = {}
+            raise SystemExit(f"::error title=sync::upsert rejected: HTTP {exc.code} {err.get('code')} {str(err.get('message'))[:200]}") from None
     return requests
 
 
@@ -115,6 +173,8 @@ def main(argv=None) -> int:
     ap.add_argument("--rows", default=None)
     ap.add_argument("--status", required=True, help="the harvester's status file (per-unit COMPLETE / INCOMPLETE / ...)")
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--close-absent", action="store_true",
+                    help="close stored active rows a COMPLETE / EMPTY county read no longer lists (status 'closed' only)")
     args = ap.parse_args(argv)
     path = Path(args.rows) if args.rows else rows_path(args.state)
     if not path.exists():
@@ -127,14 +187,21 @@ def main(argv=None) -> int:
         print(f"::error title=sync_{args.state.lower()}::{exc} - 0 requests made")
         return 2
     print(f"{args.state} sync plan: " + ", ".join(f"{k}={v}" for k, v in counts.items()))
-    if args.dry_run or not to_send:
+    if args.dry_run or not (to_send or args.close_absent):
         return 0
     url, key = os.environ.get("SUPABASE_URL"), os.environ.get("SUPABASE_SERVICE_KEY")
     if not url or not key:
         print(f"::error title=sync_{args.state.lower()}::SUPABASE_URL / SUPABASE_SERVICE_KEY not set - 0 requests made")
         return 2
-    n = upsert(url, key, to_send)
+    n = upsert(url, key, to_send) if to_send else 0
     print(f"{args.state}: upserted {len(to_send)} row(s) in {n} request(s)")
+    if args.close_absent:
+        reg = registry_rows(args.state)
+        source_ids = {sid for sid, r in reg.items() if r.is_production}
+        units = status_units(Path(args.status))
+        closes = plan_close(args.state, rows, stored_active(url, key, args.state, source_ids), units, source_ids)
+        close_rows(url, key, closes)
+        print(f"{args.state}: closed {len(closes)} row(s) no longer listed by a COMPLETE / EMPTY county read")
     return 0
 
 

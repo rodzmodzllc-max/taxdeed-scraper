@@ -210,7 +210,7 @@
 // Phase 57 (both providers, three-way toggle), Phase 60 (Mapbox ->
 // MapTiler) and Phase 61 (split the shared satellite canvas into one per
 // provider - see CLAUDE.md's Phase 61 section for the bug this fixed).
-const CACHE = "tdw-shell-v58"; // bumped for Source Publication Governance moving off the main workspace into its own admin-only view (account menu / #/governance - index.html, tx.html, la.html, app.js, styles.css). v57 is reserved for the six-state expansion PR so the cache name never moves backwards. v56 was bumped for Louisiana (la.html, la-parishes.svg) joining the header state selector as its third state. v55 was bumped for the global state context (one header #stateSelect beside the account badge, the List region tabs and the Map state select removed, watchlist names items saved under another state - app.js, index.html, tx.html, styles.css, explore.css; v54 is reserved for the Louisiana PR so the cache name never moves backwards). v53 was bumped for the customer-value / evidence sprint (Available twelve questions incl. why / proof / instructions, Auction and Certificate decision blocks, current-vs-previous cross-ledger records, per-ledger customer exports - app.js, styles.css). v49 was the AVAILABLE commercial release (Available decision page, lifecycle history, typed purchase paths, land-use / coordinates / value filters, admin publication panel, published-fields Available export - app.js, styles.css, index.html, tx.html). v48 was the AVAILABLE commercialization pass (withheld inventory, Available filters, availability evidence + provenance legend, purchase-path modes, freshness states - app.js, styles.css, index.html, tx.html). v47 was the three-ledger pass (Auctions / Available / Liens & Certificates nav, ledger copy, certificate status lines, same-parcel records across ledgers, per-ledger freshness - app.js, styles.css, index.html, tx.html). v46 was the production-readiness pass: inventory status row, per-field / per-row provenance on the full property page, source-published auction outcomes, per-county freshness on the Dashboard (app.js, styles.css, index.html, tx.html). v45 was bumped for the grouped Inventory & Purchase card (Inventory / Property / Purchase path, kind-driven purchase links - app.js inventoryCardHtml, styles.css). v44 was the state-lookup refactor (app.js STATE_META / explore.js STATE_ASSETS / satellite-map.js PAGE_STATE: the FL/TX asset and label ternaries became one table per module, no behaviour change for FL or TX). v43 was the Inventory & Purchase card on the full property page (app.js: inventoryCardHtml, migrations 017/019 columns, purchase-link gap). v42 was hasPublishedBid() honouring migration 017's purchase_amount_kind (app.js). v41 was the Texas struck-off county-group header wording fix (app.js). v40 was the SaaS launch-readiness hardening (account lifecycle, support/help modals, event history, source health, watchlist change signals - app.js/index.html/tx.html/styles.css/explore.js). v39 was the launch-readiness honesty pass (app.js/index.html/tx.html/styles.css/manifest copy). v38 was Phase 72: kind-driven auction links (app.js/explore.js/styles.css/explore.css changed). v37 was Phase 67's map workspace (stage + side panel layout, shared preview across all three basemaps, imagery ladder, Map-page state cue - app.js/explore.js/satellite-map.js/styles.css/explore.css/index.html/tx.html changed). v36 is main's Phase 71 whole-dollar card bids; v35 was reserved for this PR but is skipped so the cache name never moves backwards.
+const CACHE = "tdw-shell-v59"; // bumped for combining the six-state expansion (v57) and the Source Publication Governance view (v58): the generated mi / wy / sc / co / wi pages were regenerated from tx.html so every state page carries the governance change. v58 was bumped for Source Publication Governance moving off the main workspace into its own admin-only view (account menu / #/governance - index.html, tx.html, la.html, app.js, styles.css). v57 was bumped for the six-state expansion (mi / wy / sc / co / wi pages and county basemaps joining the header state selector; per-state ledger copy and value labels in app.js). v56 was bumped for Louisiana (la.html, la-parishes.svg) joining the header state selector as its third state. v55 was bumped for the global state context (one header #stateSelect beside the account badge, the List region tabs and the Map state select removed, watchlist names items saved under another state - app.js, index.html, tx.html, styles.css, explore.css; v54 is reserved for the Louisiana PR so the cache name never moves backwards). v53 was bumped for the customer-value / evidence sprint (Available twelve questions incl. why / proof / instructions, Auction and Certificate decision blocks, current-vs-previous cross-ledger records, per-ledger customer exports - app.js, styles.css). v49 was the AVAILABLE commercial release (Available decision page, lifecycle history, typed purchase paths, land-use / coordinates / value filters, admin publication panel, published-fields Available export - app.js, styles.css, index.html, tx.html). v48 was the AVAILABLE commercialization pass (withheld inventory, Available filters, availability evidence + provenance legend, purchase-path modes, freshness states - app.js, styles.css, index.html, tx.html). v47 was the three-ledger pass (Auctions / Available / Liens & Certificates nav, ledger copy, certificate status lines, same-parcel records across ledgers, per-ledger freshness - app.js, styles.css, index.html, tx.html). v46 was the production-readiness pass: inventory status row, per-field / per-row provenance on the full property page, source-published auction outcomes, per-county freshness on the Dashboard (app.js, styles.css, index.html, tx.html). v45 was bumped for the grouped Inventory & Purchase card (Inventory / Property / Purchase path, kind-driven purchase links - app.js inventoryCardHtml, styles.css). v44 was the state-lookup refactor (app.js STATE_META / explore.js STATE_ASSETS / satellite-map.js PAGE_STATE: the FL/TX asset and label ternaries became one table per module, no behaviour change for FL or TX). v43 was the Inventory & Purchase card on the full property page (app.js: inventoryCardHtml, migrations 017/019 columns, purchase-link gap). v42 was hasPublishedBid() honouring migration 017's purchase_amount_kind (app.js). v41 was the Texas struck-off county-group header wording fix (app.js). v40 was the SaaS launch-readiness hardening (account lifecycle, support/help modals, event history, source health, watchlist change signals - app.js/index.html/tx.html/styles.css/explore.js). v39 was the launch-readiness honesty pass (app.js/index.html/tx.html/styles.css/manifest copy). v38 was Phase 72: kind-driven auction links (app.js/explore.js/styles.css/explore.css changed). v37 was Phase 67's map workspace (stage + side panel layout, shared preview across all three basemaps, imagery ladder, Map-page state cue - app.js/explore.js/satellite-map.js/styles.css/explore.css/index.html/tx.html changed). v36 is main's Phase 71 whole-dollar card bids; v35 was reserved for this PR but is skipped so the cache name never moves backwards.
 const SHELL = [
   "/",
   "/index.html",
@@ -226,6 +226,12 @@ const SHELL = [
   // 2026-09-30: Louisiana's page and parish basemap, for the same reason.
   "/la.html",
   "/la-parishes.svg",
+  // 2026-09-30 (six-state expansion): each new state's page and county basemap.
+  "/mi.html", "/mi-counties.svg",
+  "/wy.html", "/wy-counties.svg",
+  "/sc.html", "/sc-counties.svg",
+  "/co.html", "/co-counties.svg",
+  "/wi.html", "/wi-counties.svg",
   "/styles.css",
   "/explore.css",
   "/app.js",
@@ -247,6 +253,8 @@ const SHELL = [
   "/icons/icon-192.png?v=2",
   "/icons/icon-512.png?v=2"
 ];
+const STATE_PAGES = SHELL.filter(u => /^\/[a-z]{2}\.html$/.test(u));
+
 
 self.addEventListener("install", e => {
   e.waitUntil(
@@ -285,9 +293,11 @@ self.addEventListener("fetch", e => {
   // fallback from the requested path instead; tx.html is now precached
   // above so this fallback has the right shell to hand back.
   if (req.mode === "navigate") {
-    const isTx = /^\/tx(\.html)?\/?$/i.test(url.pathname);
-    const isLa = /^\/la(\.html)?\/?$/i.test(url.pathname);
-    const fallbackPath = isTx ? "/tx.html" : isLa ? "/la.html" : "/index.html";
+    // Every precached state page is its own offline shell (/tx, /la.html,
+    // /mi ...); anything else falls back to the Florida shell.
+    const m = /^\/([a-z]{2})(\.html)?\/?$/i.exec(url.pathname);
+    const statePage = m ? `/${m[1].toLowerCase()}.html` : null;
+    const fallbackPath = statePage && STATE_PAGES.includes(statePage) ? statePage : "/index.html";
     e.respondWith(
       fetch(req).catch(() => caches.match(fallbackPath).then(r => r || Response.error()))
     );

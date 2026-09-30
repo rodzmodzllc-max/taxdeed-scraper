@@ -194,6 +194,94 @@ AZ = _register(StateConfig(
     production_inventory_types=frozenset({""}),
     lifecycle_inventory_type=None, production=False, activation=frozenset()))
 
+# ---- Six-state expansion (2026-10-01) -------------------------------------
+# Each source below was read LIVE by the manual evidence job (runs
+# 36778382226, 36779189506, 36780071129 and pass 4, 2026-09-30) and approved
+# for publication by the owner on 2026-09-30 knowing no explicit reuse
+# licence is published (docs/six-state-expansion.md). The per-source
+# configurations are harvesters/otc/adapters/expansion.py; the per-state
+# requirement evidence is EXPANSION_EVIDENCE below. Their inventory is
+# AUCTIONS (MI, WY, SC, WI) or LIENS & CERTIFICATES (CO) - no AVAILABLE
+# inventory type is asserted for any of them.
+EXPANSION_EVIDENCE: dict[str, dict[str, str]] = {}
+
+
+def _expansion(code: str, name: str, source_of_record: str, coverage: str, identifier: str, semantics: str,
+               purchase: str, amount: str) -> StateConfig:
+    EXPANSION_EVIDENCE[code] = {
+        "source_of_record_identified": source_of_record,
+        "live_source_verified": "read by the manual evidence job (job=evidence, evidence_scope=expansion), runs 36778382226 / "
+                                "36779189506 / 36780071129 / pass 4, 2026-09-30",
+        "publishing_unit_coverage_established": coverage,
+        "identifier_format_established": identifier,
+        "inventory_semantics_established": semantics,
+        "purchase_path_established": purchase,
+        "amount_semantics_established": amount,
+        "parser_fixture_validated": "tests/python/fixtures/expansion/ carries the LIVE column names verbatim with synthetic "
+                                    "values in the live shapes; the shared adapter parses it deterministically",
+        "governance_approved": "owner publication decision 2026-09-30 (no explicit reuse licence published by the source)",
+        "production_registry_authorized": "owner decision 2026-09-30 (docs/six-state-expansion.md)",
+    }
+    return _register(StateConfig(code=code, name=name, publishing_units=(PublishingUnit.COUNTY.value,),
+                                 production_inventory_types=frozenset({""}), lifecycle_inventory_type=None,
+                                 production=True, activation=ALL_REQUIREMENTS))
+
+
+MI = _expansion("MI", "Michigan",
+                "Eaton County Treasurer 'For Sale 2026' layer and Lenawee County '2026 Tax Sale' layer (county ArcGIS items)",
+                "two counties (Eaton, Lenawee); the other 81 are not covered",
+                "the layers' own parcel attributes: Eaton lparcel (shapes 999-999-999-999-99 / 99-99-99-99-999-999), Lenawee TAXID",
+                "parcels offered at the county treasurer's foreclosure / tax sale auction; Eaton publishes its own 'Has Been Sold' flag",
+                "no purchase link on the layer; the auction itself is the path",
+                "MinBid / minbid = the published minimum bid (OPENING_BID)")
+WY = _expansion("WY", "Wyoming",
+                "Albany County Treasurer '2026 tax sale properties, 1st list' layer",
+                "one county (Albany); the other 22 are not covered",
+                "the layer's accountno (case) and pidn (parcel) attributes",
+                "parcels on the Treasurer's 2026 tax sale list - a lien sale; no certificate exists before the sale (AUCTIONS)",
+                "no purchase link on the layer",
+                "TOTAL has no alias saying what it totals -> PUBLISHED_AMOUNT_KIND_UNSPECIFIED, never called a bid")
+SC = _expansion("SC", "South Carolina",
+                "York County 'Tax Sale Properties 2026 View' layer",
+                "one county (York); the other 45 are not covered",
+                "the layer's TAXMAPID ('Tax Parcel ID') attribute",
+                "parcels on the county's tax sale property list (AUCTIONS)",
+                "no purchase link on the layer",
+                "no amount published -> NOT_PUBLISHED")
+CO = _expansion("CO", "Colorado",
+                "Morgan County Treasurer 'County Held Tax Lien Sale Certificates' page",
+                "one county (Morgan); the other 63 are not covered",
+                "CERT # (shape 9999-99999) is the record id; ACCT # (shape A999999) the county account",
+                "county-held tax lien sale certificates, which 'may be purchased ... for the amount shown' (LIENS & CERTIFICATES)",
+                "buy from the Morgan County Treasurer (the page's own words); no online purchase link",
+                "'Purchase Amount to <date>' = the fixed purchase amount good to the date in the header (FIXED_PURCHASE_PRICE)")
+WI = _expansion("WI", "Wisconsin",
+                "Green County 'Current Tax Deed Sales' page (Current/Upcoming Sales and Previous Sales tables)",
+                "one county (Green); the other 71 are not covered",
+                "Tax Parcel Number (shapes 99999 9999 9999 / 99-999 9999.9999)",
+                "county tax-deed sales by sealed bid; the Previous Sales table publishes completed sales with a Sale Price",
+                "sealed bid form to the County Clerk (page); no online purchase link",
+                "Minimum Bid Amount = the published minimum bid (OPENING_BID); Sale Price = a published result")
+
+# West Virginia (2026-10-01): the State Auditor's statewide land-sale /
+# certified-lands search (statuses CERTIFIED, SOLD, REDEEMED, NO BID,
+# DEEDED...). Owner-approved for publication, but NOT activated: its county
+# list loads through client script the evidence job could not reproduce
+# deterministically, so no parser exists (docs/six-state-expansion.md).
+WV = _register(StateConfig(
+    code="WV", name="West Virginia", publishing_units=(PublishingUnit.STATE.value, PublishingUnit.COUNTY.value),
+    production_inventory_types=frozenset({""}), lifecycle_inventory_type=None, production=False,
+    activation=frozenset({"source_of_record_identified", "live_source_verified", "publishing_unit_coverage_established",
+                          "inventory_semantics_established", "governance_approved"})))
+# Utah (2026-10-01): UGRC's statewide parcels + LIR (CC BY 4.0) are approved
+# for enrichment, but no current inventory source exists (Utah County: 'No
+# properties are available for auction at this time'; next sale May 2027).
+# NOT activated: a state without inventory would be an empty market.
+UT = _register(StateConfig(
+    code="UT", name="Utah", publishing_units=(PublishingUnit.COUNTY.value,),
+    production_inventory_types=frozenset({""}), lifecycle_inventory_type=None, production=False,
+    activation=frozenset({"governance_approved"})))
+
 # States whose rows may exist in public.properties: exactly the activated ones.
 PRODUCTION_STATES = frozenset(code for code, cfg in _STATES.items() if cfg.activated)
 

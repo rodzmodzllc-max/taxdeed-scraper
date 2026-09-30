@@ -31,6 +31,7 @@ import outcome_ingest as OI  # noqa: E402
 import publication_gate as PG  # noqa: E402
 import purchase_path_engine as PE  # noqa: E402
 
+EXPANSION_STATES = {"MI", "WY", "SC", "CO", "WI"}
 ROWS = csr.load_registry()
 MIG = REPO / "scripts/migrations/023_available_commercial_release.sql"
 APP = (REPO / "public/app.js").read_text(encoding="utf-8")
@@ -399,14 +400,15 @@ def test_wf01_job_selector_gates_every_job_and_never_schedules_texas():
     wf = yaml.safe_load((REPO / ".github/workflows/harvest-and-sync.yml").read_text(encoding="utf-8"))
     on = wf.get("on") or wf.get(True)
     job = on["workflow_dispatch"]["inputs"]["job"]
-    assert job["default"] == "all" and job["options"] == ["all", "deeds", "certificates", "laft", "texas", "backup", "evidence", "outcomes"]
+    assert job["default"] == "all" and job["options"] == ["all", "deeds", "certificates", "laft", "texas", "backup", "evidence", "outcomes", "expansion"]
     # The evidence capture is manual-only and is NOT part of "all" (it is a
     # read of county pages, not a harvest).
     assert wf["jobs"]["evidence"]["if"] == "github.event_name == 'workflow_dispatch' && github.event.inputs.job == 'evidence'"
     # Auction-outcome evidence: the stand-alone outcome read is manual-only too.
     assert wf["jobs"]["outcomes"]["if"] == "github.event_name == 'workflow_dispatch' && github.event.inputs.job == 'outcomes'"
     assert on["schedule"] == [{"cron": "0 10 * * *"}, {"cron": "0 22 * * *"}, {"cron": "0 12 * * *"}]
-    for name, crons in (("deeds", ("0 10 * * *", "0 22 * * *")), ("certificates", ("0 12 * * *",)), ("laft", ("0 12 * * *",)), ("backup", ("0 12 * * *",))):
+    for name, crons in (("deeds", ("0 10 * * *", "0 22 * * *")), ("certificates", ("0 12 * * *",)), ("laft", ("0 12 * * *",)), ("backup", ("0 12 * * *",)),
+                        ("expansion", ("0 12 * * *",))):   # six-state expansion (2026-09-30): the existing 12:00 slot
         cond = wf["jobs"][name]["if"]
         assert f"github.event.inputs.job == '{name}'" in cond and "github.event.inputs.job == 'all'" in cond and "github.event.inputs.job == ''" in cond
         for c in crons:
@@ -456,7 +458,7 @@ def test_f03_filters_read_stored_fields_and_the_admin_panel_is_admin_gated():
     for f in ("public/index.html", "public/tx.html"):
         html = (REPO / f).read_text(encoding="utf-8")
         assert 'id="adminPublication" hidden' in html and 'id="availLandUseFilter"' in html and 'id="availGeocoded"' in html and 'id="availValues"' in html
-    assert (REPO / "public/sw.js").read_text(encoding="utf-8").count('const CACHE = "tdw-shell-v58"') == 1
+    assert (REPO / "public/sw.js").read_text(encoding="utf-8").count('const CACHE = "tdw-shell-v59"') == 1
 
 
 # ==================== 8. regressions ====================
@@ -470,6 +472,9 @@ def test_r01_fl_tx_al_ar_la_az_regressions_hold():
         if r.source_id == "la_ebr_adjudicated":
             # The one reviewed (not grandfathered) approval: owner decision 2026-09-30, dated list.
             assert eff == "APPROVED" and r.is_production and "as of" in r.restrictions
+        elif r.state in EXPANSION_STATES:
+            # Six-state expansion (2026-09-30): a reviewed owner decision, not grandfathered.
+            assert eff == "APPROVED" and r.is_production and "owner on 2026-09-30" in r.restrictions, (r.state, r.source_id)
         elif r.is_production:
             assert eff == "APPROVED_GRANDFATHERED", (r.state, r.source_id)
         elif r.source_id in BLOCKED_SOURCE_IDS:
@@ -478,7 +483,7 @@ def test_r01_fl_tx_al_ar_la_az_regressions_hold():
             assert eff == "RESTRICTED"
         else:
             assert eff == "UNREVIEWED"
-    assert not any(r.runnable for r in ROWS if r.state not in ("FL", "TX", "LA"))
+    assert not any(r.runnable for r in ROWS if r.state not in {"FL", "TX", "LA"} | EXPANSION_STATES)
     assert [r.source_id for r in ROWS if r.state == "LA" and r.runnable] == ["la_ebr_adjudicated"]
     assert not any(r.runnable for r in ROWS if r.source_id in BLOCKED_SOURCE_IDS)
     # The AVAILABLE harvest units the registry expects (the laft job's own
