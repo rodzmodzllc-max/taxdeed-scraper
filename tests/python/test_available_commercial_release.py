@@ -400,14 +400,15 @@ def test_wf01_job_selector_gates_every_job_and_never_schedules_texas():
     wf = yaml.safe_load((REPO / ".github/workflows/harvest-and-sync.yml").read_text(encoding="utf-8"))
     on = wf.get("on") or wf.get(True)
     job = on["workflow_dispatch"]["inputs"]["job"]
-    assert job["default"] == "all" and job["options"] == ["all", "deeds", "certificates", "laft", "texas", "backup", "evidence", "outcomes"]
+    assert job["default"] == "all" and job["options"] == ["all", "deeds", "certificates", "laft", "texas", "backup", "evidence", "outcomes", "expansion"]
     # The evidence capture is manual-only and is NOT part of "all" (it is a
     # read of county pages, not a harvest).
     assert wf["jobs"]["evidence"]["if"] == "github.event_name == 'workflow_dispatch' && github.event.inputs.job == 'evidence'"
     # Auction-outcome evidence: the stand-alone outcome read is manual-only too.
     assert wf["jobs"]["outcomes"]["if"] == "github.event_name == 'workflow_dispatch' && github.event.inputs.job == 'outcomes'"
     assert on["schedule"] == [{"cron": "0 10 * * *"}, {"cron": "0 22 * * *"}, {"cron": "0 12 * * *"}]
-    for name, crons in (("deeds", ("0 10 * * *", "0 22 * * *")), ("certificates", ("0 12 * * *",)), ("laft", ("0 12 * * *",)), ("backup", ("0 12 * * *",))):
+    for name, crons in (("deeds", ("0 10 * * *", "0 22 * * *")), ("certificates", ("0 12 * * *",)), ("laft", ("0 12 * * *",)), ("backup", ("0 12 * * *",)),
+                        ("expansion", ("0 12 * * *",))):   # six-state expansion (2026-09-30): the existing 12:00 slot
         cond = wf["jobs"][name]["if"]
         assert f"github.event.inputs.job == '{name}'" in cond and "github.event.inputs.job == 'all'" in cond and "github.event.inputs.job == ''" in cond
         for c in crons:

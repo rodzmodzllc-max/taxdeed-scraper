@@ -100,9 +100,9 @@ def test_f07_query_urls_ask_for_exact_ids_scoped_to_the_county_in_batches():
     urls = P.query_urls(c, "Wake", ["1", "2", "3", "2", " "])
     assert len(urls) == 2
     q = parse_qs(urlsplit(urls[0]).query)
-    assert q["where"][0] == "CNTYNAME = 'Wake' AND (PARNO IN ('1','2'))"
+    assert q["where"][0] == "UPPER(CNTYNAME) = 'WAKE' AND (PARNO IN ('1','2'))"   # county name case-insensitive, ids exact
     assert q["outSR"] == ["4326"] and q["returnGeometry"] == ["true"] and q["f"] == ["json"]
-    assert "O''Brien" in parse_qs(urlsplit(P.query_urls(c, "O'Brien", ["1"])[0]).query)["where"][0]
+    assert "O''BRIEN" in parse_qs(urlsplit(P.query_urls(c, "O'Brien", ["1"])[0]).query)["where"][0]
 
 
 def test_f08_config_validation():

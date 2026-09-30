@@ -40,6 +40,7 @@ from harvesters.otc.adapters.tabular import TabularListAdapter  # noqa: E402
 
 OUT = REPO / "out"
 REGISTRY = REPO / "data" / "county_source_registry.csv"
+EXPANSION_EVIDENCE = REPO / "data" / "purchase_path_evidence_expansion.csv"
 USER_AGENT = "taxdeed-scraper/1.0 (+https://github.com/rodzmodzllc-max/taxdeed-scraper; GitHub Actions)"
 PARSER_VERSION = "1"
 CATEGORY_MAP = {"TRANSPORT": "TRANSPORT_CONNECTION", "SOURCE_ERROR": "PARSE_FORMAT_CHANGE"}
@@ -59,6 +60,32 @@ def dedupe(records):
         seen.add(key)
         out.append(r)
     return out, len(records) - len(out)
+
+
+def attach_purchase_paths(state: str, rows: list[dict], *, harvest_date: str, registry_path: Path = REGISTRY,
+                          evidence=None) -> tuple[list[dict], int]:
+    """The shared acquisition engine (scripts/purchase_path_engine.py) on
+    this state's rows: a path only from a verified evidence row or the
+    registry, and only on a row the source still lists as active - a
+    completed / closed sale has no acquisition path. -> (rows, rows given a path)."""
+    import purchase_path_engine as PPE  # noqa: PLC0415
+    reg = {r.source_id: r for r in load_registry(registry_path) if r.state == state}
+    # The six-state evidence lives in its own table (data/purchase_path_evidence_expansion.csv):
+    # same columns, same verification rules, never mixed into the Florida AVAILABLE table.
+    evidence = PPE.load_evidence(EXPANSION_EVIDENCE) if evidence is None else evidence
+    n = 0
+    for row in rows:
+        if row.get("status") != "active":
+            continue
+        path, _ = PPE.resolve(row, state=state, source_id=row["source_id"], county=row["county"],
+                              registry_row=reg.get(row["source_id"]), evidence=evidence,
+                              list_url=row.get("list_url"), document_url=row.get("document_url"), harvest_date=harvest_date)
+        if path is None:
+            continue
+        row.update(path.columns())
+        row["otc_provenance"] = {**(row.get("otc_provenance") or {}), **path.provenance()}
+        n += 1
+    return rows, n
 
 
 def gate(state: str, registry_path: Path = REGISTRY) -> list[str]:
@@ -173,8 +200,9 @@ def main(argv=None) -> int:
         print(f"::error title=harvest_{st.lower()}::{len(bad)} record(s) failed validation - none written")
         return 2
     (out / f"harvest_{st.lower()}.json").write_text(json.dumps([r.to_harvest_row() for r in records], indent=2, sort_keys=True, default=str), encoding="utf-8")
-    (out / f"{st.lower()}_properties_rows.json").write_text(
-        json.dumps([r.to_properties_row() for r in records], indent=2, sort_keys=True, default=str), encoding="utf-8")
+    prows, paths = attach_purchase_paths(st, [r.to_properties_row() for r in records], harvest_date=retrieved_at.date().isoformat())
+    (out / f"{st.lower()}_properties_rows.json").write_text(json.dumps(prows, indent=2, sort_keys=True, default=str), encoding="utf-8")
+    print(f"{st}: verified acquisition path on {paths} of {sum(1 for r in prows if r.get('status') == 'active')} active row(s)")
     print(f"{st}: {len(records)} record(s) across {len(per_county)} county unit(s)")
     return 0
 

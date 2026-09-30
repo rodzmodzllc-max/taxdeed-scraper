@@ -151,7 +151,9 @@ def query_urls(cfg: ParcelSourceConfig, county: str, raw_ids: Iterable[str]) -> 
         chunk = ids[i:i + cfg.batch_size]
         where = f"{cfg.id_field} IN ({','.join(_sql_str(x) for x in chunk)})"
         if cfg.county_field:
-            where = f"{cfg.county_field} = {_sql_str(cfg.county_value(county))} AND ({where})"
+            # Case-insensitive on the county NAME only (layers spell it "Morgan" or
+            # "MORGAN"); the identifier stays an exact IN list.
+            where = f"UPPER({cfg.county_field}) = {_sql_str(cfg.county_value(county).upper())} AND ({where})"
         params = {"where": where, "outFields": ",".join(cfg.out_fields()), "returnGeometry": "true" if cfg.centroid else "false",
                   "outSR": "4326", "f": "json"}
         urls.append(cfg.layer_url + "/query?" + urlencode(params))

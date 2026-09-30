@@ -159,7 +159,7 @@ on:
         required: false
         type: choice
         default: all
-        options: [all, deeds, certificates, laft, texas, backup, evidence, outcomes]
+        options: [all, deeds, certificates, laft, texas, backup, evidence, outcomes, expansion]
       evidence_counties:
         description: >-
           (job=evidence only) Comma-separated county names to limit the
@@ -781,6 +781,93 @@ jobs:
         run: |
           python3 scripts/unit_freshness.py --status out/harvest_louisiana_status.json --state LA --persist out/.harvest_cache/unit_freshness_la.json --report out/public/unit-freshness-la.json || true
           python3 scripts/publication_gate.py --state LA --report out/public/publication-gate-la.json
+
+  expansion:
+    # Six-state expansion (2026-09-30; docs/six-state-expansion.md). The
+    # owner-approved county sources of MI, WY, SC, CO and WI
+    # (harvesters/otc/adapters/expansion.py) through the shared ArcGIS /
+    # HTML-table adapters, one matrix leg per state. Runs in the existing
+    # 12:00 UTC slot (no new schedule) or on dispatch with job=expansion /
+    # all. Every leg: harvest -> sync (+ absence close-out for COMPLETE /
+    # EMPTY counties only) -> statewide parcel enrichment (only where a
+    # cleared ParcelSourceConfig exists: CO) -> freshness + publication
+    # gate. A leg is refused before any request if its state or source is
+    # not activated / approved. No leg touches FL / TX / LA rows.
+    name: Harvest six-state expansion (${{ matrix.state }}) + sync
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    if: (github.event_name == 'workflow_dispatch' && (github.event.inputs.job == 'all' || github.event.inputs.job == 'expansion' || github.event.inputs.job == '')) || github.event.schedule == '0 12 * * *'
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        state: [MI, WY, SC, CO, WI]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python dependencies
+        run: pip install requests beautifulsoup4
+
+      - name: Harvest
+        id: harvest
+        run: python3 scripts/harvest_expansion.py --state ${{ matrix.state }}
+
+      - name: Sync to Supabase (+ absence close-out)
+        id: sync
+        if: always() && steps.harvest.outcome == 'success'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          st=$(echo "${{ matrix.state }}" | tr '[:upper:]' '[:lower:]')
+          python3 scripts/sync_state_inventory.py --state ${{ matrix.state }} --status "out/harvest_${st}_status.json" --close-absent
+
+      - name: Statewide parcel enrichment (deterministic id match)
+        if: always() && steps.sync.outcome == 'success'
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/enrich_statewide_parcels.py --state ${{ matrix.state }}
+
+      - name: Freshness and publication gate
+        if: always() && steps.harvest.outcome == 'success'
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          st=$(echo "${{ matrix.state }}" | tr '[:upper:]' '[:lower:]')
+          python3 scripts/unit_freshness.py --status "out/harvest_${st}_status.json" --state ${{ matrix.state }} --persist "out/.harvest_cache/unit_freshness_${st}.json" --report "out/public/unit-freshness-${st}.json" || true
+          python3 scripts/publication_gate.py --state ${{ matrix.state }} --report "out/public/publication-gate-${st}.json"
+
+      - name: Evidence-only artifact summary
+        # Public repository -> public artifacts: counts, hashes and field names
+        # only; raw files only OpenPGP-encrypted (scripts/artifact_evidence.py).
+        if: always()
+        continue-on-error: true
+        env:
+          ARTIFACT_PUBLIC_KEY: ${{ vars.ARTIFACT_PUBLIC_KEY }}
+        run: |
+          st=$(echo "${{ matrix.state }}" | tr '[:upper:]' '[:lower:]')
+          python3 scripts/artifact_evidence.py --job "expansion-${st}" --status "out/harvest_${st}_status.json" "out/harvest_${st}.*"
+
+      - name: Upload evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: expansion-evidence-${{ matrix.state }}-${{ github.run_id }}
+          path: |
+            out/public/
+            out/private/
+          if-no-files-found: ignore
+          retention-days: 14
 
   texas:
     name: Harvest Texas tax sales (LGBS) + sync - manual only, not yet on cron

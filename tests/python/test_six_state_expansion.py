@@ -257,3 +257,98 @@ def test_u01_each_new_state_has_a_page_basemap_and_state_tables():
     cents = json.loads((REPO / "public/county-centroids.json").read_text())
     for code, county in (("MI", "Eaton"), ("MI", "Lenawee"), ("WY", "Albany"), ("SC", "York"), ("CO", "Morgan"), ("WI", "Green")):
         assert county in cents[code], (code, county)
+
+
+# ==================== 7. statewide enrichment (FDOR equivalent) ====================
+
+def test_e01_colorado_statewide_parcels_match_on_county_and_account_only():
+    from harvesters.enrichment import parcels as P
+    from harvesters.enrichment.sources import for_state
+    import enrich_statewide_parcels as EN
+    cfg = for_state("CO")
+    assert cfg.source_id == "co_oit_public_parcels" and cfg.id_field == "account" and cfg.county_field == "countyName"
+    assert P.enrichment_allowed(cfg)[0] and cfg.centroid
+    assert "resale" in cfg.licence.lower()                    # the source's own restriction stays on record
+    rows = [{"id": "a", "county": "Morgan", "parcel": "R012345", "field_provenance": None},
+            {"id": "b", "county": "Morgan", "parcel": "R999999", "field_provenance": None, "owner_name": "SYNTHETIC TWO"}]
+    ring = [[-103.80, 40.25], [-103.79, 40.25], [-103.79, 40.26], [-103.80, 40.26], [-103.80, 40.25]]
+    feature = {"attributes": {"account": "R012345", "countyName": "MORGAN", "owner": "SYNTHETIC ONE", "situsAdd": "1 SYNTHETIC RD",
+                              "legalDesc": "SYNTHETIC", "landAcres": 2.5, "landUseDsc": "RESIDENTIAL", "apprValTot": "150000",
+                              "asedValTot": "10500"}, "geometry": {"rings": [ring]}}
+    # A second feature with the unmatched row's OWNER NAME must never attach: matching is by id only.
+    decoy = {"attributes": {"account": "R000001", "countyName": "MORGAN", "owner": "SYNTHETIC TWO"}}
+    written, urls = {}, []
+
+    def fetch(url):
+        urls.append(url)
+        return {"features": [feature, decoy]}
+    report = EN.run("CO", rows, fetch, write=lambda i, f: written.setdefault(i, f), recorded_at="2026-09-30T12:00:00Z")
+    assert report["matched"] == 1 and report["unmatched"] == 1 and set(written) == {"a"}
+    f = written["a"]
+    assert f["market"] == 150000 and f["taxable_value"] == 10500 and f["acreage"] == 2.5
+    assert 40.25 < f["latitude"] < 40.26 and -103.80 < f["longitude"] < -103.79
+    prov = f["field_provenance"]["market"]
+    assert prov["source"] == "statewide_parcel" and prov["matched_parcel_id"] == "R012345" and prov["matched_id_field"] == "account"
+    assert "UPPER(countyName) = 'MORGAN'" in urllib_unquote(urls[0])
+
+
+def urllib_unquote(u):
+    from urllib.parse import unquote_plus
+    return unquote_plus(u)
+
+
+def test_e02_utah_is_registered_but_its_state_is_not_activated(capsys):
+    import enrich_statewide_parcels as EN
+    from harvesters.enrichment.sources import for_state
+    assert for_state("UT").licence.startswith("CC BY 4.0")
+    assert EN.main(["--state", "UT"]) == 0 and "not activated" in capsys.readouterr().out
+    # Nothing is fetched for a state without a cleared source.
+    assert EN.run("MI", [{"id": "x", "county": "Eaton", "parcel": "1"}], lambda u: pytest.fail("fetched"),
+                  recorded_at="2026-09-30T12:00:00Z")["skipped"]
+
+
+# ==================== 8. lifecycle and acquisition ====================
+
+def test_l01_absence_closes_only_after_a_complete_or_empty_read():
+    stored = [{"id": "1", "state": "MI", "source": "auction", "county": "Eaton", "case_no": "A", "status": "active", "harvester_source": "mi_eaton_treasurer_sale"},
+              {"id": "2", "state": "MI", "source": "auction", "county": "Eaton", "case_no": "B", "status": "active", "harvester_source": "mi_eaton_treasurer_sale"},
+              {"id": "3", "state": "MI", "source": "auction", "county": "Lenawee", "case_no": "C", "status": "active", "harvester_source": "mi_lenawee_tax_sale"},
+              {"id": "4", "state": "FL", "source": "auction", "county": "Eaton", "case_no": "Z", "status": "active", "harvester_source": "fl_realauction"}]
+    harvested = [{"state": "MI", "source": "auction", "county": "Eaton", "case_no": "A"}]
+    ids = {"mi_eaton_treasurer_sale", "mi_lenawee_tax_sale"}
+    closes = SY.plan_close("MI", harvested, stored, {"Eaton": "COMPLETE", "Lenawee": "FAILED"}, ids)
+    assert closes == [{"id": "2", "status": "closed"}]           # never 'sold'; Lenawee (FAILED) and FL untouched
+    assert SY.plan_close("MI", [], stored, {"Eaton": "EMPTY"}, ids) == [{"id": "1", "status": "closed"}, {"id": "2", "status": "closed"}]
+    assert SY.plan_close("MI", [], stored, {"Eaton": "INCOMPLETE"}, ids) == []
+
+
+def test_l02_verified_acquisition_paths_attach_only_to_active_rows(tmp_path):
+    co = run("CO", tmp_path / "co")["rows"]
+    assert all(r["purchase_path_type"] == "quoted_amount" and r["otc_provenance"]["acquisition"]["office"] == "Morgan County Treasurer"
+               for r in co)
+    assert all(r.get("purchase_url") is None for r in co)        # the list page is never a purchase link
+    wi = run("WI", tmp_path / "wi")["rows"]
+    assert all(r["status"] == "closed" and not r.get("purchase_path_type") for r in wi)   # completed sales: no path
+    active = [dict(wi[0], status="active")]
+    rows, n = HX.attach_purchase_paths("WI", active, harvest_date="2026-09-30")
+    assert n == 1 and rows[0]["purchase_path_type"] == "application_download"
+    assert rows[0]["purchase_url"] == "https://www.greencountywi.org/DocumentCenter/View/2103/Tax-Deed-Bid-Form"
+    # No evidence row -> no path (MI, WY, SC publish none that was verified).
+    mi = run("MI", tmp_path / "mi")["rows"]
+    assert not any(r.get("purchase_path_type") for r in mi)
+
+
+# ==================== 9. workflow ====================
+
+def test_w01_expansion_job_is_a_matrix_in_the_existing_slot_and_touches_no_schedule():
+    import yaml
+    wf = yaml.safe_load((REPO / ".github/workflows/harvest-and-sync.yml").read_text(encoding="utf-8"))
+    job = wf["jobs"]["expansion"]
+    assert job["strategy"]["matrix"]["state"] == ["MI", "WY", "SC", "CO", "WI"] and job["strategy"]["fail-fast"] is False
+    assert "github.event.schedule == '0 12 * * *'" in job["if"] and "'expansion'" in job["if"]
+    runs = " ".join(s.get("run", "") for s in job["steps"])
+    assert "harvest_expansion.py" in runs and "--close-absent" in runs and "enrich_statewide_parcels.py" in runs
+    assert "texas" not in runs.lower() and "lgbs" not in runs.lower()
+    on = wf.get("on") or wf.get(True)
+    assert on["schedule"] == [{"cron": "0 10 * * *"}, {"cron": "0 22 * * *"}, {"cron": "0 12 * * *"}]
+    assert "expansion" in on["workflow_dispatch"]["inputs"]["job"]["options"]
