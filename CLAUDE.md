@@ -1829,6 +1829,36 @@ Full description: `docs/auction-outcomes.md`. Stable facts:
 - Capture logs are public: every attribute value and digit is masked before
   printing (`mask_text`); never print a raw href from a county page.
 
+## State expansion: Louisiana activated (2026-09-30, PR open)
+
+Full description: `docs/state-expansion.md`. Stable facts:
+- **Production states are FL, TX, LA** (`states.PRODUCTION_STATES`). LA's one
+  source is East Baton Rouge Parish's open-data "Adjudicated Property" list
+  (Public Domain), approved by the owner **as a dated list only**: every
+  row's `list_as_of` is the dataset's own `rowsUpdatedAt` (2024-02-27 when
+  approved) and the frontend never calls an `ADJUDICATED_PROPERTY` row
+  "available now" (`isDatedList()` in app.js). The harvest refuses a run
+  whose metadata licence is no longer PUBLIC_DOMAIN.
+- **Migration 020 is APPLIED** (2026-09-30): POST_SALE / STATE_HELD_TAX_LAND /
+  ADJUDICATED_PROPERTY and QUOTED_ON_APPLICATION are storable; the storable
+  sets in model.py / county_source_registry.py / laft_status.py include them.
+- Adapter records reach `properties` through `scripts/sync_state_inventory.py`
+  (activated state + production, approved source + a COMPLETE/INCOMPLETE
+  read, or nothing). Louisiana runs as four `continue-on-error` steps at the
+  end of the `laft` job; no schedule changed.
+- A third state page is: `<state>.html` (data-state), a basemap SVG with
+  `data-county` names, rows in `STATE_META` / `MINIMAP_PROJ` (app.js),
+  `STATE_ASSETS` / `PROJ` (explore.js), `STATEWIDE_VIEW` (satellite-map.js),
+  `county-centroids.json`, `sw.js` SHELL + navigate fallback, the mirror
+  `FILES` list, the CI importmap injection (playwright-test.yml) and a tab in
+  every page's `#regionTabs`. `STATE_META[...].unit` ("Parish") drives
+  `UNIT_WORD`. `sw.js` -> `tdw-shell-v54`.
+- AL / AR / AZ stay gated (source moved / no table / CSV host unresolvable,
+  and no reviewed reuse permission); MN county ArcGIS layers were found but
+  not approved. `scripts/capture_state_sources.py` is the value-free live
+  capture for candidate sources (manual `job=evidence`,
+  `evidence_scope=state_sources`).
+
 ## Where to look for more
 
 - `claude/improvement-roadmap.md` in the "tax florida app" claude.ai Project — the full dated log of every fix, audit finding, and open decision. This is where new findings should be appended, not here.

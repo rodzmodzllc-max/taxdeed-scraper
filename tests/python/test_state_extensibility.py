@@ -72,9 +72,10 @@ def _row(**kw) -> csr.CountySourceRow:
 # ==================== 1. the state registry ====================
 
 
-def test_st01_only_fl_and_tx_are_registered_and_both_are_production():
+def test_st01_registered_and_production_states():
     # AL (2026-09-29) is REGISTERED (representable) but not PRODUCTION / activated.
-    assert states.supported_states() == {"FL", "TX", "AL", "AR", "LA", "AZ"} and states.PRODUCTION_STATES == {"FL", "TX"}
+    # LA became production on 2026-09-30 (state-expansion sprint).
+    assert states.supported_states() == {"FL", "TX", "AL", "AR", "LA", "AZ"} and states.PRODUCTION_STATES == {"FL", "TX", "LA"}
     assert states.is_activated("FL") and states.is_activated("TX") and not states.is_activated("AL")
     assert states.activation_blockers("AL") == list(states.ACTIVATION_REQUIREMENTS)
     assert states.activation_blockers("FL") == [] and states.activation_blockers("QQ")[0] == "not_registered"
@@ -141,38 +142,51 @@ def test_m03_a_registered_third_state_passes_validation_only_while_registered():
     assert _rec(state="ZZ").validate()
 
 
-def test_m04_future_inventory_types_are_model_only_until_a_migration_widens_the_constraint():
-    assert DB_SUPPORTED_INVENTORY_TYPES == {"POST_SALE_FIXED_PRICE", "STRUCK_OFF_HELD_IN_TRUST", "FUTURE_RESALE"}
-    future = {InventoryType.POST_SALE, InventoryType.STATE_HELD_TAX_LAND, InventoryType.ADJUDICATED_PROPERTY}
-    assert {i.value for i in InventoryType} - DB_SUPPORTED_INVENTORY_TYPES == {i.value for i in future}
+def test_m04_the_020_inventory_types_are_storable_and_the_guard_still_refuses_what_is_not(monkeypatch):
+    # Migration 017 named three types; migration 020 (applied 2026-09-30) added three more.
+    added = {InventoryType.POST_SALE, InventoryType.STATE_HELD_TAX_LAND, InventoryType.ADJUDICATED_PROPERTY}
+    assert DB_SUPPORTED_INVENTORY_TYPES == {"POST_SALE_FIXED_PRICE", "STRUCK_OFF_HELD_IN_TRUST", "FUTURE_RESALE"} | {i.value for i in added}
     sql = (REPO / "scripts/migrations/017_otc_inventory_provenance_lifecycle.sql").read_text(encoding="utf-8")
-    for i in future:
-        assert f"'{i.value}'" not in sql
-        rec = _rec(inventory_type=i)              # FL + a future type: structurally valid, not storable
+    sql020 = (REPO / "scripts/migrations/020_state_extensible_vocabulary.sql").read_text(encoding="utf-8")
+    for i in added:
+        assert f"'{i.value}'" not in sql and f"'{i.value}'" in sql020
+        rec = _rec(inventory_type=i)
         assert rec.validate() == []
-        with pytest.raises(ValueError, match="not storable"):
-            rec.to_properties_row()
+        assert rec.to_properties_row()["inventory_type"] == i.value
+    # The guard itself: a type outside the storable set is refused before any write.
+    import harvesters.otc.model as model
+    monkeypatch.setattr(model, "DB_SUPPORTED_INVENTORY_TYPES", model.DB_SUPPORTED_INVENTORY_TYPES - {"POST_SALE"})
+    with pytest.raises(ValueError, match="not storable"):
+        _rec(inventory_type=InventoryType.POST_SALE).to_properties_row()
+    monkeypatch.undo()
     for i in (InventoryType.POST_SALE_FIXED_PRICE, InventoryType.STRUCK_OFF_HELD_IN_TRUST, InventoryType.FUTURE_RESALE):
         assert _rec(inventory_type=i).to_properties_row()["inventory_type"] == i.value
     assert _rec(inventory_type=None).to_properties_row()["inventory_type"] is None
 
 
-def test_m05_quoted_on_application_carries_no_amount_and_is_not_storable_yet():
-    assert DB_SUPPORTED_AMOUNT_KINDS == set(ls.DB_AMOUNT_KINDS) and "QUOTED_ON_APPLICATION" not in DB_SUPPORTED_AMOUNT_KINDS
+def test_m05_quoted_on_application_carries_no_amount_and_is_storable_since_020(monkeypatch):
+    assert DB_SUPPORTED_AMOUNT_KINDS == set(ls.DB_AMOUNT_KINDS) and "QUOTED_ON_APPLICATION" in DB_SUPPORTED_AMOUNT_KINDS
     assert "QUOTED_ON_APPLICATION" in ls.AMOUNT_KINDS and ls.AMOUNT_KINDS.index("QUOTED_ON_APPLICATION") == len(ls.AMOUNT_KINDS) - 1
     sql = (REPO / "scripts/migrations/017_otc_inventory_provenance_lifecycle.sql").read_text(encoding="utf-8")
     assert "'QUOTED_ON_APPLICATION'" not in sql
+    assert "'QUOTED_ON_APPLICATION'" in (REPO / "scripts/migrations/020_state_extensible_vocabulary.sql").read_text(encoding="utf-8")
     rec = _rec(amount=None, amount_kind=AmountKind.QUOTED_ON_APPLICATION)
     assert rec.validate() == []
     assert "a present amount cannot be QUOTED_ON_APPLICATION" in _rec(amount=100, amount_kind=AmountKind.QUOTED_ON_APPLICATION).validate()
     assert "an absent amount must be NOT_PUBLISHED or QUOTED_ON_APPLICATION" in _rec(amount=None, amount_kind=AmountKind.FIXED_PURCHASE_PRICE).validate()
-    with pytest.raises(ValueError, match="QUOTED_ON_APPLICATION is not storable"):
-        rec.to_properties_row()
+    assert rec.to_properties_row()["purchase_amount_kind"] == "QUOTED_ON_APPLICATION"
+    import harvesters.otc.model as model
+    with monkeypatch.context() as m:
+        m.setattr(model, "DB_SUPPORTED_AMOUNT_KINDS", model.DB_SUPPORTED_AMOUNT_KINDS - {"QUOTED_ON_APPLICATION"})
+        with pytest.raises(ValueError, match="QUOTED_ON_APPLICATION is not storable"):
+            rec.to_properties_row()
     assert _rec(amount=None, amount_kind=AmountKind.NOT_PUBLISHED).to_properties_row()["purchase_amount_kind"] == "NOT_PUBLISHED"
-    # No harvester emits it, and the lifecycle never writes it: a row
-    # claiming it next to a figure is downgraded to the honest DB value.
+    # No FL harvester emits it. A row claiming it next to a figure is downgraded to the
+    # honest DB value (the quoted kind carries no figure); with no figure it is kept now
+    # that it is storable, and falls back to NOT_PUBLISHED where it is not.
     assert L.amount_of({"bid": "12", "bid_kind": "QUOTED_ON_APPLICATION"}) == (12.0, "PUBLISHED_AMOUNT_KIND_UNSPECIFIED")
-    assert L.amount_of({"bid": "", "bid_kind": "QUOTED_ON_APPLICATION"}) == (None, "NOT_PUBLISHED")
+    assert L.amount_of({"bid": "", "bid_kind": "QUOTED_ON_APPLICATION"}) == (None, "QUOTED_ON_APPLICATION")
+    assert L.amount_of({"bid": "", "bid_kind": "QUOTED_ON_APPLICATION"}, storable_kinds=ls.AMOUNT_KINDS[:7]) == (None, "NOT_PUBLISHED")
     assert ls.AMOUNT_KIND_BY_HEADER and "QUOTED_ON_APPLICATION" not in ls.AMOUNT_KIND_BY_HEADER.values()
 
 
@@ -239,12 +253,15 @@ def test_r03_unregistered_state_rows_are_rejected_registered_ones_accepted():
     assert csr.validate_row(_row(county=STATEWIDE_UNIT, publishing_unit="STATE")) == ["publishing_unit 'STATE' is not one FL publishes by"]
 
 
-def test_r04_a_production_row_may_only_carry_a_storable_inventory_type():
+def test_r04_a_production_row_may_only_carry_a_storable_inventory_type(monkeypatch):
     with states.registered(ZZ):
         prod = _row(state="ZZ", county=STATEWIDE_UNIT, source_id="zz_state_land", inventory_type="STATE_HELD_TAX_LAND",
                     publishing_unit="STATE", canonical_url="https://gis.example.invalid/FeatureServer/0", access_method="JSON_ENDPOINT",
                     machine_format="JSON", ledgers="AVAILABLE")   # a production row names its ledger (2026-09-30)
-        assert csr.validate_row(prod) == ["PRODUCTION_VERIFIED row carries inventory_type 'STATE_HELD_TAX_LAND', which public.properties cannot store yet"]
+        assert csr.validate_row(prod) == []          # storable since migration 020
+        with monkeypatch.context() as m:
+            m.setattr(csr, "DB_SUPPORTED_INVENTORY_TYPES", csr.DB_SUPPORTED_INVENTORY_TYPES - {"STATE_HELD_TAX_LAND"})
+            assert csr.validate_row(prod) == ["PRODUCTION_VERIFIED row carries inventory_type 'STATE_HELD_TAX_LAND', which public.properties cannot store yet"]
         assert csr.expected_harvest_units([prod], "ZZ") == [("zz_state_land", STATEWIDE_UNIT)]
         assert csr.expected_harvest_units([prod], "FL") == []
         with pytest.raises(ValueError, match="no column in migration 018"):
@@ -315,7 +332,7 @@ def test_l02_expected_units_are_scoped_to_the_requested_state(tmp_path):
     assert L.load_expected_units(reg, "QQ") == []
 
 
-def test_l03_a_third_state_with_no_lifecycle_type_leaves_inventory_type_alone_and_a_storable_one_stamps_it():
+def test_l03_a_third_state_with_no_lifecycle_type_leaves_inventory_type_alone_and_a_storable_one_stamps_it(monkeypatch):
     gate = _gate(county=STATEWIDE_UNIT, source_id="zz_state_land")
     with pytest.raises(ValueError, match="not registered"):
         L.provenance_payload({"county": STATEWIDE_UNIT, "case_no": "P-1"}, gate, NOW, state="ZZ")
@@ -334,7 +351,8 @@ def test_l03_a_third_state_with_no_lifecycle_type_leaves_inventory_type_alone_an
     unstorable = StateConfig(code="XX", name="X", publishing_units=("COUNTY",), production_inventory_types=frozenset({"STATE_HELD_TAX_LAND"}),
                              lifecycle_inventory_type="STATE_HELD_TAX_LAND", lifecycle_inventory_basis="fixture", production=True,
                              activation=states.ALL_REQUIREMENTS)
-    with states.registered(unstorable):
+    with states.registered(unstorable), monkeypatch.context() as m:
+        m.setattr(L, "DB_SUPPORTED_INVENTORY_TYPES", L.DB_SUPPORTED_INVENTORY_TYPES - {"STATE_HELD_TAX_LAND"})
         with pytest.raises(ValueError, match="not storable"):
             L.lifecycle_inventory("XX")
 

@@ -38,16 +38,17 @@ def _rec(**kw):
 
 
 def test_m01_vocabularies_are_distinct_and_shared():
-    # What public.properties can store today (migration 017's constraints)
-    # is pinned separately from the model's wider vocabulary: the DB sets
-    # are exactly the three / seven original values, and every value the
-    # model adds beyond them is NOT in the 017 SQL (a future migration adds
-    # it; until then OtcRecord.to_properties_row() refuses it - see m06).
-    assert DB_SUPPORTED_INVENTORY_TYPES == {"POST_SALE_FIXED_PRICE", "STRUCK_OFF_HELD_IN_TRUST", "FUTURE_RESALE"}
-    assert {i.value for i in InventoryType} == DB_SUPPORTED_INVENTORY_TYPES | {"POST_SALE", "STATE_HELD_TAX_LAND", "ADJUDICATED_PROPERTY"}
+    # What public.properties can store today is pinned separately from the
+    # model's vocabulary: migration 017's three / seven original values plus
+    # migration 020's (applied to production 2026-09-30). A value outside
+    # these sets is refused by OtcRecord.to_properties_row() - see m06.
+    assert DB_SUPPORTED_INVENTORY_TYPES == {"POST_SALE_FIXED_PRICE", "STRUCK_OFF_HELD_IN_TRUST", "FUTURE_RESALE",
+                                            "POST_SALE", "STATE_HELD_TAX_LAND", "ADJUDICATED_PROPERTY"}
+    assert {i.value for i in InventoryType} == DB_SUPPORTED_INVENTORY_TYPES
     assert {a.value for a in SourceAuthority} == {"GOVERNMENT_DIRECT", "GOVERNMENT_PLATFORM", "VENDOR_COUNSEL", "VENDOR_AUCTION"}
     assert DB_SUPPORTED_AMOUNT_KINDS == {"MINIMUM_PURCHASE_AMOUNT", "OPENING_BID", "ORIGINAL_OPENING_BID", "FIXED_PURCHASE_PRICE",
-                                         "ESTIMATED_PURCHASE_PRICE", "PUBLISHED_AMOUNT_KIND_UNSPECIFIED", "NOT_PUBLISHED"}
+                                         "ESTIMATED_PURCHASE_PRICE", "PUBLISHED_AMOUNT_KIND_UNSPECIFIED", "NOT_PUBLISHED",
+                                         "QUOTED_ON_APPLICATION"}
     assert {k.value for k in AmountKind} == DB_SUPPORTED_AMOUNT_KINDS | {"QUOTED_ON_APPLICATION"}
     assert {k.value for k in AmountKind} == set(ls.AMOUNT_KINDS) == set(csr_amount_kinds)
     assert set(ls.DB_AMOUNT_KINDS) == DB_SUPPORTED_AMOUNT_KINDS
@@ -56,10 +57,12 @@ def test_m01_vocabularies_are_distinct_and_shared():
     for enum in (SourceAuthority, PurchaseUrlKind):
         for v in enum:
             assert f"'{v.value}'" in sql, v
+    # Storable = named by migration 017's or migration 020's constraints (both applied).
+    sql020 = (REPO / "scripts/migrations/020_state_extensible_vocabulary.sql").read_text(encoding="utf-8")
     for v in InventoryType:
-        assert (f"'{v.value}'" in sql) == (v.value in DB_SUPPORTED_INVENTORY_TYPES), v
+        assert (f"'{v.value}'" in sql or f"'{v.value}'" in sql020) == (v.value in DB_SUPPORTED_INVENTORY_TYPES), v
     for v in AmountKind:
-        assert (f"'{v.value}'" in sql) == (v.value in DB_SUPPORTED_AMOUNT_KINDS), v
+        assert (f"'{v.value}'" in sql or f"'{v.value}'" in sql020) == (v.value in DB_SUPPORTED_AMOUNT_KINDS), v
 
 
 def test_m02_amount_rules_no_zero_sentinel_in_the_contract():

@@ -52,7 +52,9 @@ def test_g01_committed_registry_publishes_only_the_grandfathered_production_sour
     assert pub.PUBLICATION_STATUSES == ("APPROVED", "APPROVED_GRANDFATHERED", "UNREVIEWED", "RESTRICTED", "BLOCKED")
     for r in ROWS:
         eff = pub.effective_publication(r)
-        if r.is_production:
+        if r.source_id == "la_ebr_adjudicated":
+            assert eff == "APPROVED" and r.restrictions   # reviewed owner decision 2026-09-30 (dated list), not grandfathered
+        elif r.is_production:
             assert eff == "APPROVED_GRANDFATHERED", (r.state, r.county, r.source_id)     # already served today; carried forward
         elif r.source_id in BLOCKED_SOURCE_IDS:
             assert eff == "BLOCKED"
@@ -61,8 +63,11 @@ def test_g01_committed_registry_publishes_only_the_grandfathered_production_sour
         else:
             assert eff == "UNREVIEWED", (r.state, r.county)
     # No candidate, no registered-but-inactive state, is publishable.
-    for sid in ("al_ador_state_land", "ar_cosl_post_auction", "la_ebr_adjudicated", "az_maricopa_state_cp"):
+    for sid in ("al_ador_state_land", "ar_cosl_post_auction", "az_maricopa_state_cp"):
         assert not BY_SID[sid].customer_publishable and BY_SID[sid].publication == "UNREVIEWED"
+    # Louisiana East Baton Rouge: the reviewed APPROVED decision (dated list only).
+    assert BY_SID["la_ebr_adjudicated"].customer_publishable and BY_SID["la_ebr_adjudicated"].publication == "APPROVED"
+    assert BY_SID["la_ebr_adjudicated"].governance_ok
     assert BY_SID["tx_hctax"].publication == "RESTRICTED" and not BY_SID["tx_hctax"].customer_publishable
     assert BY_SID["tx_pbfcm"].publication == "BLOCKED" and BY_SID["tx_mvba"].publication == "BLOCKED"
     assert BY_SID["fl_laft_pioneer"].customer_publishable and BY_SID["fl_laft_pioneer"].purchase_info == "none"
@@ -358,7 +363,7 @@ def test_m02_workflow_runs_the_gate_after_the_laft_sync_non_blocking_and_touches
 # ==================== 7. regression ====================
 
 def test_x01_fl_tx_al_ar_la_az_regressions():
-    assert states.PRODUCTION_STATES == {"FL", "TX"} and not any(states.is_activated(c) for c in ("AL", "AR", "LA", "AZ"))
+    assert states.PRODUCTION_STATES == {"FL", "TX", "LA"} and not any(states.is_activated(c) for c in ("AL", "AR", "AZ"))
     # FL Available production sources: still the 52 units, all grandfathered-publishable, no purchase path invented.
     fl = [r for r in ROWS if r.state == "FL" and r.is_production and "AVAILABLE" in r.ledger_set]
     assert len(fl) == 52 and all(pub.effective_publication(r) == "APPROVED_GRANDFATHERED" and not r.purchase_url for r in fl)
@@ -368,12 +373,16 @@ def test_x01_fl_tx_al_ar_la_az_regressions():
     assert not any("govease" in (r.source_id or "") for r in ROWS if r.is_production)
     assert all(pub.effective_publication(r) == "BLOCKED" and not r.canonical_url for r in ROWS if r.source_id in BLOCKED_SOURCE_IDS)
     assert csr.lookup(ROWS, "TX", "Harris").publication_status == "RESTRICTED"
-    # AL / AR / LA / AZ: one row each, UNREVIEWED, never runnable; AZ is the certificate ledger.
+    # AL / AR / AZ: one row each, UNREVIEWED, never runnable; AZ is the certificate ledger.
     for code, sid, ledger in (("AL", "al_ador_state_land", "AVAILABLE"), ("AR", "ar_cosl_post_auction", "AVAILABLE"),
-                              ("LA", "la_ebr_adjudicated", "AVAILABLE"), ("AZ", "az_maricopa_state_cp", "LIENS_CERTIFICATES")):
+                              ("AZ", "az_maricopa_state_cp", "LIENS_CERTIFICATES")):
         rows = [r for r in ROWS if r.state == code]
         assert len(rows) == 1 and rows[0].source_id == sid and rows[0].ledger_set == {ledger} and not rows[0].runnable
         assert rows[0].publication_status == "UNREVIEWED" and rows[0].purchase_path_mode in ("", "online_instructions", "application")
+    # LA (activated 2026-09-30): one production row, reviewed APPROVED, runnable, no purchase path.
+    la = [r for r in ROWS if r.state == "LA"]
+    assert len(la) == 1 and la[0].source_id == "la_ebr_adjudicated" and la[0].ledger_set == {"AVAILABLE"} and la[0].runnable
+    assert la[0].publication_status == "APPROVED" and la[0].governance_status == "APPROVED" and not la[0].purchase_url
     # The frontend withholds by the propagated column and counts, never silently.
     app = (REPO / "public/app.js").read_text(encoding="utf-8")
     assert 'return !s || s === "APPROVED" || s === "APPROVED_GRANDFATHERED";' in app

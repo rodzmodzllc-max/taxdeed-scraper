@@ -397,7 +397,8 @@ def test_a03_arizona_harvest_refuses_before_the_first_request_and_the_script_wri
 # ==================== 6. FL / TX regression ====================
 
 def test_x01_fl_and_tx_behaviour_is_unchanged():
-    assert states.PRODUCTION_STATES == {"FL", "TX"} and states.is_activated("FL") and states.is_activated("TX")
+    # FL / TX unchanged; LA joined the production states on 2026-09-30 (state-expansion sprint).
+    assert states.PRODUCTION_STATES == {"FL", "TX", "LA"} and states.is_activated("FL") and states.is_activated("TX")
     # The AVAILABLE rows are byte-for-byte the 109 rows the LAFT / struck-off machinery has always read.
     avail = [r for r in ROWS if r.state in ("FL", "TX") and not (r.ledger_set and "AVAILABLE" not in r.ledger_set)]
     assert len(avail) == 109
@@ -413,11 +414,15 @@ def test_x01_fl_and_tx_behaviour_is_unchanged():
     assert re.search(r'auction: \{\s*slug: "auctions"', app) and re.search(r'laft: \{\s*slug: "lands"', app) and re.search(r'certificate: \{\s*slug: "certificates"', app)
     assert 'title: "Auctions",' in app and 'title: "Available",' in app and 'title: "Liens & Certificates",' in app
     assert 'title: "OTC Catalog — Struck-Off Inventory"' in app and 'title: "Redeemable Tax Deeds"' in app
-    # Alabama / Arkansas / Louisiana: one AVAILABLE-ledger candidate each, registered, never runnable, not activated.
-    for code, sid in (("AL", "al_ador_state_land"), ("AR", "ar_cosl_post_auction"), ("LA", "la_ebr_adjudicated")):
+    # Alabama / Arkansas: one AVAILABLE-ledger candidate each, registered, never runnable, not activated.
+    for code, sid in (("AL", "al_ador_state_land"), ("AR", "ar_cosl_post_auction")):
         rows = [r for r in ROWS if r.state == code]
         assert len(rows) == 1 and rows[0].source_id == sid and rows[0].ledger_set == {"AVAILABLE"}, code
         assert not rows[0].is_production and not rows[0].runnable and not states.is_activated(code) and states.is_supported(code)
+    # Louisiana (activated 2026-09-30): its one AVAILABLE source is production and runnable.
+    la = [r for r in ROWS if r.state == "LA"]
+    assert len(la) == 1 and la[0].source_id == "la_ebr_adjudicated" and la[0].ledger_set == {"AVAILABLE"}
+    assert la[0].is_production and la[0].runnable and states.is_activated("LA")
     # Migrations created here are files only (020 / 021 unapplied is asserted by their own live tests).
     for name in ("020_state_extensible_vocabulary.sql", "021_inventory_status_provenance_freshness.sql"):
         assert (REPO / "scripts/migrations" / name).is_file()

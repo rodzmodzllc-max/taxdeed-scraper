@@ -27,7 +27,15 @@ No row value is printed, and nothing is written to any database.
 | MN | Hubbard County "TFL Sales" layer | **G** + **F** | 16 features, last edit 2026-04-10, fields Parcel_Number / Sales_Status / Minimum_Bid. No licence on the item. |
 | MN | Hennepin, St. Louis, Carlton, Itasca county pages | **G** + **F** | Pages read. Hennepin: "Properties for sale are listed on our tax-forfeited land inventory site"; the minimum bid is the sum of taxes, assessments, penalties, interest and costs. St. Louis publishes over-the-counter "Available" lists as documents. Carlton points to `mnbid.mn.gov`. No reuse licence found on any of them. |
 
-## 2. Why nothing was activated
+## 2. Batch decision (owner, 2026-09-30)
+
+Asked which candidate sources may be published, the owner approved **one**:
+LA / East Baton Rouge, **as a dated list only** ("adjudicated inventory as of
+2024-02-27", never "available now"). MN (Wright / Hubbard) was offered and not
+approved; AL / AR / AZ stay gated for the reasons in the table. So the batch
+is Louisiana (section 4); every other state stays gated.
+
+## 3. Why the others were not activated
 
 Every candidate fails `governance_approved` (terms reviewed; registry
 `governance_status` APPROVED), and so its publication status stays
@@ -41,16 +49,8 @@ Setting `governance_approved` without a reviewed decision would bypass
 exactly that gate, so no state was activated, no registry row was
 promoted, and migration 020 was not applied.
 
-## 3. What each state needs, precisely
+## 3b. What each gated state needs, precisely
 
-- **LA / EBR**: the owner decides whether a Public Domain list *as of
-  2024-02-27* may be shown, labelled with its list date, as "adjudicated
-  inventory as of 2024-02-27". It must never be shown as "available now".
-  If yes, the implementation needs:
-  - migration 020 (ADJUDICATED_PROPERTY is not storable today);
-  - one row per property number (the latest tax year);
-  - the list date as `list_as_of`;
-  - an `la.html` page with its basemap.
 - **AR**: read `auction.cosl.org`'s listing structure and terms (next
   evidence run). The adapter's inventory type becomes an auction
   (Auctions ledger), not POST_SALE fixed price.
@@ -63,3 +63,21 @@ promoted, and migration 020 was not applied.
   adapter (`harvesters/otc/adapters/arcgis.py`). Minnesota tax-forfeited
   land sold over the counter at a listed price is the same concept as
   Florida's Lands Available list.
+
+## 4. Louisiana - the full path, as built
+
+| Step | Where |
+|---|---|
+| Source discovery / live verification | `scripts/capture_state_sources.py` (manual `job=evidence`, `evidence_scope=state_sources`), runs 36752875012 / 36753767965 |
+| Governance | `harvesters/governance/states.py` LA `production=True`, every activation requirement (evidence per requirement: `louisiana.requirement_evidence()`); registry row PRODUCTION_VERIFIED / APPROVED / publication APPROVED with the dated restriction (`scripts/build_county_source_registry.py` `LA_EBR`); the live `county_source_registry` table carries the same row |
+| Harvest | `harvesters/otc/adapters/louisiana.py` `harvest()`: the dataset metadata first (licence must still be PUBLIC_DOMAIN, `rowsUpdatedAt` must exist - else FAILED, nothing read), then one CSV download; `scripts/harvest_state_inventory.py --state LA` |
+| Normalize / identity | PROPERTY NUMBER as published = `case_no` = `parcel`; one row per property number (latest TAX YEAR kept, `superseded_tax_year_rows` counted); digit-less / blank identifiers rejected |
+| Ledger | AVAILABLE (`source='laft'`, `ledger_type='buy'`), `inventory_type='ADJUDICATED_PROPERTY'` (migration 020, applied) |
+| Amount / purchase | `purchase_amount` NULL + `NOT_PUBLISHED`; no purchase URL; no purchase path |
+| Dates | `list_as_of` = the metadata's `rowsUpdatedAt` date (2024-02-27), `source_published_at` = its timestamp - never the retrieval time |
+| Sync | `scripts/sync_state_inventory.py --state LA` - refuses an unactivated state or a non-production / non-approved source; syncs only when the unit's status is COMPLETE / INCOMPLETE; upserts on (state, source, county, case_no); stamps `publication_status` from the registry |
+| Lifecycle | `scripts/laft_lifecycle.py --state LA --status out/harvest_louisiana_status.json --harvest out/harvest_louisiana.json`: last_seen_at on read rows; a row absent from a COMPLETE read is closed (removed), never "sold"; a FAILED read closes nothing |
+| Freshness / publication gate | `unit_freshness.py` and `publication_gate.py --state LA`, with their own report files |
+| Workflow | four `Louisiana ...` steps at the end of the existing `laft` job (schedule unchanged), each `continue-on-error` so Florida's steps can never be affected |
+| Frontend | `la.html` (data-state LA), `la-parishes.svg` (64 parishes, us-atlas), LA rows in `STATE_META` / `MINIMAP_PROJ` / explore.js `STATE_ASSETS` + `PROJ` / satellite-map.js `STATEWIDE_VIEW` / `county-centroids.json`; parish wording (`UNIT_WORD`); every availability statement for an `ADJUDICATED_PROPERTY` row reads "list as of <date> · not verified available now"; value labelled "Fair Market Value (tax roll)"; the Louisiana tab on every state page |
+| Tests | `tests/python/test_state_expansion_la.py`, `test_states_ar_la.py` (LA parts), `tests/run_test.mjs` `la*` checks |

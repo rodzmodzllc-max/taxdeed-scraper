@@ -453,18 +453,21 @@ def test_f03_filters_read_stored_fields_and_the_admin_panel_is_admin_gated():
     for f in ("public/index.html", "public/tx.html"):
         html = (REPO / f).read_text(encoding="utf-8")
         assert 'id="adminPublication" hidden' in html and 'id="availLandUseFilter"' in html and 'id="availGeocoded"' in html and 'id="availValues"' in html
-    assert (REPO / "public/sw.js").read_text(encoding="utf-8").count('const CACHE = "tdw-shell-v53"') == 1
+    assert (REPO / "public/sw.js").read_text(encoding="utf-8").count('const CACHE = "tdw-shell-v54"') == 1
 
 
 # ==================== 8. regressions ====================
 
 def test_r01_fl_tx_al_ar_la_az_regressions_hold():
-    assert states.is_activated("FL") and states.is_activated("TX")
-    for code in ("AL", "AR", "LA"):
+    assert states.is_activated("FL") and states.is_activated("TX") and states.is_activated("LA")   # LA: 2026-09-30
+    for code in ("AL", "AR", "AZ"):
         assert not states.is_activated(code)
     for r in ROWS:
         eff = pub.effective_publication(r)
-        if r.is_production:
+        if r.source_id == "la_ebr_adjudicated":
+            # The one reviewed (not grandfathered) approval: owner decision 2026-09-30, dated list.
+            assert eff == "APPROVED" and r.is_production and "as of" in r.restrictions
+        elif r.is_production:
             assert eff == "APPROVED_GRANDFATHERED", (r.state, r.source_id)
         elif r.source_id in BLOCKED_SOURCE_IDS:
             assert eff == "BLOCKED"
@@ -472,7 +475,8 @@ def test_r01_fl_tx_al_ar_la_az_regressions_hold():
             assert eff == "RESTRICTED"
         else:
             assert eff == "UNREVIEWED"
-    assert not any(r.runnable for r in ROWS if r.state not in ("FL", "TX"))
+    assert not any(r.runnable for r in ROWS if r.state not in ("FL", "TX", "LA"))
+    assert [r.source_id for r in ROWS if r.state == "LA" and r.runnable] == ["la_ebr_adjudicated"]
     assert not any(r.runnable for r in ROWS if r.source_id in BLOCKED_SOURCE_IDS)
     # The AVAILABLE harvest units the registry expects (the laft job's own
     # "52 unit entries this run"): FL 52, TX 8 - unchanged by this release.

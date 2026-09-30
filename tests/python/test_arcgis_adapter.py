@@ -214,9 +214,13 @@ def test_g01_module_never_fetches_and_nothing_is_configured():
         assert not re.search(r"https?://[^\s\"']*(\.gov|arcgis\.com)", text) and "mississippi" not in text.lower(), path.name
 
 
-def test_g02_records_from_the_adapter_are_not_storable_until_a_migration_widens_the_constraint(zz):
+def test_g02_records_from_the_adapter_are_storable_only_while_the_constraint_allows_them(zz, monkeypatch):
     rec = parse_page(_cfg(), _page([_feat("P-1", amount=10)]), retrieved_at=T).records[0]
     assert rec.validate() == []
+    # Migration 020 (applied 2026-09-30) made STATE_HELD_TAX_LAND storable.
+    assert rec.to_properties_row()["inventory_type"] == "STATE_HELD_TAX_LAND"
+    import harvesters.otc.model as model
+    monkeypatch.setattr(model, "DB_SUPPORTED_INVENTORY_TYPES", model.DB_SUPPORTED_INVENTORY_TYPES - {"STATE_HELD_TAX_LAND"})
     with pytest.raises(ValueError, match="STATE_HELD_TAX_LAND is not storable"):
         rec.to_properties_row()
 

@@ -174,7 +174,17 @@ const FIXTURE_PROPERTIES = [
   { id: "ptx4", source: "auction", state: "TX", county: "Llano", case_no: "R000020419", parcel: "23101 (6)", address: "LOT 6 SUNRISE BEACH, Llano, TX", bid: 3942.08, min_bid: 3942.08, status: "active", sale_date: futureDate(-3), harvester_source: "tx_realauction", url_auction: txSaleUrl("llano.texas.sheriffsaleauctions.com", futureDate(-3)), url_auction_kind: "sale", updated_at: "2026-09-24T00:00:00Z" },
   { id: "ptx5", source: "auction", state: "TX", county: "Atascosa", case_no: "17854", parcel: "20-11-0957-CVA (1)", address: "200 Oak St, Pleasanton, TX", bid: 1200, min_bid: 1200, status: "active", sale_date: futureDate(12), harvester_source: "tx_realauction", updated_at: "2026-09-24T00:00:00Z" },
   { id: "ptx6", source: "laft", state: "TX", county: "Liberty", case_no: "000016000361003", parcel: "21DC-TX-00185", address: "TRACT 3, Liberty, TX", bid: 900, min_bid: 900, status: "active", sale_date: null, harvester_source: "tx_lgbs", tx_sale_status: "Available for Future Sale", updated_at: "2026-09-23T00:00:00Z",
-    inventory_type: "FUTURE_RESALE", source_authority: "VENDOR_COUNSEL", source_id: "tx_lgbs", list_url: null, document_url: null, purchase_url: null, purchase_amount: null, purchase_amount_kind: null }
+    inventory_type: "FUTURE_RESALE", source_authority: "VENDOR_COUNSEL", source_id: "tx_lgbs", list_url: null, document_url: null, purchase_url: null, purchase_amount: null, purchase_amount_kind: null },
+  // 2026-09-30 (state-expansion sprint): a Louisiana row in the shape
+  // scripts/sync_state_inventory.py writes - East Baton Rouge's DATED
+  // adjudicated-property list (list_as_of = the dataset's own rows-updated
+  // date), no price, no purchase path. Values are SYNTHETIC.
+  { id: "pla1", source: "laft", state: "LA", county: "East Baton Rouge", case_no: "012-3456-7", parcel: "012-3456-7", address: "10 FIXTURE AVE", bid: 0, status: "active", sale_date: null, lien_level: "unscreened", lien_note: "",
+    harvester_source: "la_ebr_adjudicated", source_id: "la_ebr_adjudicated", source_authority: "GOVERNMENT_DIRECT", inventory_type: "ADJUDICATED_PROPERTY",
+    list_url: "https://data.brla.gov/Housing-and-Development/Adjudicated-Property/a4h4-zi7e", document_url: "https://data.brla.gov/api/views/a4h4-zi7e/rows.csv?accessType=DOWNLOAD",
+    url_auction: "https://data.brla.gov/Housing-and-Development/Adjudicated-Property/a4h4-zi7e", url_auction_kind: "county",
+    purchase_url: null, purchase_amount: null, purchase_amount_kind: "NOT_PUBLISHED", list_as_of: "2024-02-27", source_published_at: "2024-02-27T18:54:28Z",
+    assessed: 2500, market: 25000, tax_year: "2023", latitude: 30.4515, longitude: -91.1871, publication_status: "APPROVED", ledger_type: "buy", updated_at: "2026-09-30T12:00:00Z" }
 ];
 // Brevard has a county_calendar row so the "Auction {date}" label test can
 // cover the CALENDAR-lookup path, not just the per-property sale_date
