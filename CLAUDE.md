@@ -1741,6 +1741,27 @@ Full description: `docs/available-ledger.md` section 10. The stable facts:
   land-use fallback, per-ledger exports (`certificateCols`). `sw.js` ->
   `tdw-shell-v50`. `tests/run_test.mjs`: 645 checks; Python: 1354.
 
+## Acquisition path (2026-09-30, PR open)
+
+Full description: `docs/available-ledger.md` section 11. The stable facts:
+- **Evidence record v3** (`purchase_path_engine.EVIDENCE_COLUMNS`, 25
+  columns): office, address, phone, email, mailing_address, steps
+  (" | "-separated), application_url, payment - all quoted from the
+  evidence page, blank when not published. `acquisition_mode()` /
+  `PurchasePath.channels` / `PurchasePath.acquisition()` →
+  `otc_provenance.acquisition`; `laft_lifecycle.source_match_of()` →
+  `otc_provenance.source_match` (case_no else parcel, the harvester's own
+  read). No schema change.
+- **The customer page answers "how do I acquire it" with the mode, the
+  numbered steps, the documents and the contact block**; an offline process
+  is a complete path. The gap wording is "Acquisition path not yet
+  verified", never "no online link". `ACQUISITION_MODE_LABELS` in app.js
+  mirrors the engine (a test pins them equal).
+- **Headline metric** is `% of AVAILABLE rows with a verified actionable
+  acquisition path` (`purchase_path_engine.measure()`), not URL coverage.
+- `sw.js` -> `tdw-shell-v51`. `tests/run_test.mjs`: 661 checks; Python:
+  `tests/python/test_acquisition_path.py`.
+
 ## Where to look for more
 
 - `claude/improvement-roadmap.md` in the "tax florida app" claude.ai Project — the full dated log of every fix, audit finding, and open decision. This is where new findings should be appended, not here.

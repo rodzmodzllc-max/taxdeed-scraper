@@ -128,7 +128,21 @@ const FIXTURE_PROPERTIES = [
       purchase_amount: "not published by the source", list_as_of: "stated by the list document/filename",
       purchase_url: "county_instructions (source-scope): Clerk's 'How to purchase Lands Available' page",
       inventory_type: "harvester constant (F.S. 197.502(7) Lands Available list)",
-      status_terminology: "active = on the county list this run; closed = absent from a COMPLETE/EMPTY harvest" } },
+      status_terminology: "active = on the county list this run; closed = absent from a COMPLETE/EMPTY harvest",
+      // Acquisition sprint: what the LAFT lifecycle writes from the verified
+      // evidence record (scripts/purchase_path_engine.PurchasePath.provenance()) -
+      // FIXTURE values on the fixture's own example.gov domain, not a real county's.
+      purchase_evidence_url: "https://www.citrusclerk.example.gov/lands-available/how-to-purchase", purchase_evidence_type: "county_page",
+      purchase_evidence_title: "How to purchase Lands Available (fixture)", purchase_path_observed_on: "2026-09-18",
+      purchase_instructions: "Complete the application and pay at the Tax Deed office (fixture wording).",
+      source_match: { identifier: "case_no", value: "CI-7", parcel: "1515", source: "https://x/citrus-list", read_at: "2026-09-20T06:00:00Z",
+                      basis: "row read from the source list / document by the harvester; identity as the sync upserts it" },
+      acquisition: { mode: "multi_step", channels: ["instructions", "email", "phone", "in_person"],
+                     office: "Fixture County Clerk - Tax Deed Division (fixture)", address: "1 Example Ave, Inverness, FL 00000 (fixture)",
+                     phone: "(000) 000-0000", email: "taxdeeds@example.gov", payment: "Certified funds (fixture)",
+                     application_url: "https://www.citrusclerk.example.gov/lands-available/application.pdf",
+                     steps: ["Download and complete the application (fixture)", "E-mail taxdeeds@example.gov with the case number (fixture)", "Pay in certified funds at 1 Example Ave (fixture)"],
+                     evidence_url: "https://www.citrusclerk.example.gov/lands-available/how-to-purchase", observed_on: "2026-09-18" } } },
   // Phase 34: a TX row with no url_zillow/url_streetview and no
   // latitude/longitude - the exact shape (harvester-synced, no
   // hand-researched link, no geocode yet) that forces app.js's
