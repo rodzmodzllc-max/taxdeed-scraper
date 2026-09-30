@@ -1649,7 +1649,14 @@ function lastSyncedText(p) {
 // the Florida list is still not confirmed end to end.
 const HARVESTER_SOURCE_NAMES = {
   tx_lgbs: "LGBS (taxsales.lgbs.com)",
-  tx_realauction: "RealAuction county sheriff-sale site"
+  tx_realauction: "RealAuction county sheriff-sale site",
+  // Six-state expansion (2026-09-30): each county source named as it names itself.
+  mi_eaton_treasurer_sale: "Eaton County Treasurer - For Sale 2026 (ArcGIS layer)",
+  mi_lenawee_tax_sale: "Lenawee County - 2026 Tax Sale (ArcGIS layer)",
+  wy_albany_tax_sale: "Albany County Treasurer - 2026 tax sale list (ArcGIS layer)",
+  sc_york_tax_sale: "York County - Tax Sale Properties (ArcGIS layer)",
+  co_morgan_county_held_certificates: "Morgan County Treasurer - County Held Tax Lien Sale Certificates",
+  wi_green_tax_deed_sales: "Green County - Current Tax Deed Sales page"
 };
 function harvesterSourceLabel(p) {
   if (!p || !p.harvester_source) return null;
@@ -6913,7 +6920,9 @@ const SOURCE_ID_LEDGERS = {
   fl_laft_pdfs: ["laft"], fl_laft_html: ["laft"], fl_laft_pioneer: ["laft"], fl_laft_realtdm: ["laft"], fl_laft_orange: ["laft"],
   fl_laft_stlucie: ["laft"], fl_laft_osceola: ["laft"], fl_laft_hillsborough: ["laft"], fl_laft_leon: ["laft"],
   tx_realauction: ["auction"], tx_lgbs: ["auction", "laft"], tx_hctax: ["laft"],
-  al_ador_state_land: ["laft"], ar_cosl_post_auction: ["laft"], la_ebr_adjudicated: ["laft"], az_maricopa_state_cp: ["certificate"]
+  al_ador_state_land: ["laft"], ar_cosl_post_auction: ["laft"], la_ebr_adjudicated: ["laft"], az_maricopa_state_cp: ["certificate"],
+  mi_eaton_treasurer_sale: ["auction"], mi_lenawee_tax_sale: ["auction"], wy_albany_tax_sale: ["auction"], sc_york_tax_sale: ["auction"],
+  co_morgan_county_held_certificates: ["certificate"], wi_green_tax_deed_sales: ["auction"]
 };
 function unitLedgerKeys(u) {
   if (u && u.ledgers) {

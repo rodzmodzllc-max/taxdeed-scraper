@@ -149,6 +149,49 @@ Candidates that failed the checks:
 - Florida, Texas, Louisiana, Alabama, Arkansas and Arizona rows, sources and
   schedules are untouched.
 
-## 5. Production activation
+## 5. Production activation (measured 2026-09-30, after run 36787016566)
 
-See the PR description for the run ID and the measured row counts.
+Production writes, all authorized by the sprint:
+- Six `county_source_registry` rows inserted; the York notes were then updated.
+- Four `job=expansion` dispatches: 36785461117, 36786318568, 36786636912 and
+  36787016566. The runs upsert only these five states' rows.
+- Florida (3,872 rows) and Texas (543 rows) were not touched by any run.
+
+Row counts:
+
+| State | Counties | Auction | Available | Certificate | Active | Closed |
+|---|---|---|---|---|---|---|
+| MI | 2 (Eaton, Lenawee) | 43 | 0 | 0 | 38 | 5 (Eaton's own "Has Been Sold" flag) |
+| WY | 1 (Albany) | 253 | 0 | 0 | 253 | 0 |
+| SC | 1 (York) | 853 | 0 | 0 | 853 | 0 |
+| CO | 1 (Morgan) | 0 | 0 | 3 | 3 | 0 |
+| WI | 1 (Green) | 9 | 0 | 0 | 0 | 9 (Previous Sales) |
+| **Total** | **6** | **1,158** | **0** | **3** | **1,147** | **14** |
+
+Every row is `publication_status=APPROVED` and carries a source URL and
+`otc_provenance`.
+
+Coverage is filled rows / rows in that state (MI 43, WY 253, SC 853,
+CO 3, WI 9):
+
+| Field | MI | WY | SC | CO | WI |
+|---|---|---|---|---|---|
+| parcel / account | 43/43 | 253/253 | 853/853 | 3/3 | 9/9 |
+| coordinates | 43/43 (own polygon) | 253/253 (own polygon) | 853/853 (own polygon) | 3/3 (statewide parcel polygon) | 0/9 |
+| market / total value | 0/43 | 253/253 | 852/853 | 0/3 (not shared by Morgan) | 0/9 |
+| assessed | 8/43 (SEV, Eaton) | 0/253 | 851/853 | 0/3 | 0/9 |
+| taxable | 8/43 | 0/253 | 852/853 | 0/3 | 0/9 |
+| land value | 0/43 | 245/253 | 841/853 | 0/3 | 0/9 |
+| improvement value | 0/43 | 0/253 | 511/853 | 0/3 | 0/9 |
+| acreage | 43/43 | 245/253 | 813/853 | 0/3 | 0/9 |
+| land use | 7/43 | 0/253 | 853/853 | 0/3 | 0/9 |
+| legal description | 43/43 | 253/253 | 852/853 | 3/3 | 0/9 |
+| owner / name | 0/43 (not published) | 253/253 | 853/853 | 3/3 | 0/9 |
+| situs address | 43/43 | 195/253 | 791/853 | 2/3 (statewide parcels) | 4/9 |
+| opening / minimum bid | 43/43 | amount of unstated kind, 253/253 | not published | fixed purchase amount, 3/3 | 9/9 |
+| published sale result | none published | none published | none published | none published | 8/9 (Sale Price) |
+| verified acquisition path | 0/43 | 0/253 | 0/853 | 3/3 (multi-step, Treasurer) | 0/9 (all closed) |
+
+**Imagery.** The new states get no new imagery source. The existing ladder
+applies (county-context mini-map from the app's own basemap). Nothing is
+labelled Street View.

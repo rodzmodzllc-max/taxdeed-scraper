@@ -3020,17 +3020,21 @@ await navMap.close();
       results.xsMiCard = { count: await card.count(), county: /Eaton( County)?, MI/.test(t), sev: /State Equalized Value/.test(t), noJustValue: !/Just Value/.test(t) };
     }
     if (code === 'CO') {
-      // Deep link straight to the certificate (a new state's deep link, cold start).
-      await pg.goto(BASE_URL.replace(/index\.html$/, 'co.html') + '#/certificates/pco1', { waitUntil: 'networkidle' });
-      await pg.waitForTimeout(500);
-      results.xsCoCardCount = (await pg.locator('[data-pid="pco1"]').count()) > 0;
-      const d = ((await pg.locator('#detailModalInner').textContent()) || '').replace(/\s+/g, ' ');
+      // Deep link straight to the certificate - a REAL cold start in a fresh page
+      // (a goto that only changes the hash is a same-document navigation).
+      const cold = await newPage({ viewport: { width: 1200, height: 900 } });
+      await cold.goto(BASE_URL.replace(/index\.html$/, 'co.html') + '#/certificates/pco1', { waitUntil: 'networkidle' });
+      await cold.waitForTimeout(600);
+      results.xsCoCardCount = (await cold.locator('[data-pid="pco1"]').count()) > 0;
+      const d = ((await cold.locator('#detailModalInner').textContent()) || '').replace(/\s+/g, ' ');
       results.xsCoDetail = {
         treasurer: /Morgan County Treasurer/.test(d),
         steps: /Purchase the certificate from the Morgan County Treasurer for the amount shown/.test(d),
         noStreetView: !/Street View/.test(d),
-        noUndefined: !/undefined/.test(d)
+        noUndefined: !/undefined/.test(d),
+        sourceNamed: /Morgan County Treasurer - County Held Tax Lien Sale Certificates/.test(d)
       };
+      await cold.close();
     }
     await pg.close();
   }
@@ -3635,7 +3639,7 @@ const EXPECTED = {
     { state: c, title: `Auctions · Tax Acquisitions — ${n}`, select: c, options: ['FL', 'TX', 'LA', 'MI', 'WY', 'SC', 'CO', 'WI'], floridaWording: false, basemapOk: true }])),
   xsMiCard: { count: 1, county: true, sev: true, noJustValue: true },
   xsCoCardCount: true,
-  xsCoDetail: { treasurer: true, steps: true, noStreetView: true, noUndefined: true },
+  xsCoDetail: { treasurer: true, steps: true, noStreetView: true, noUndefined: true, sourceNamed: true },
   laNoStateTabs: true,
   laCardCount: 1,
   laCardSaysListAsOf: true,
