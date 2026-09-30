@@ -296,17 +296,21 @@ results.countyDropdownOpenForMapTest = await page.locator('#countyChips').first(
 // mapFilter/computeMapRows() in app.js). TEST_OBSOLETE, not a regression,
 // same as the Phase 19/53 rewrites above: verify the actual current
 // behavior rather than asserting old selectors that no longer exist.
-results.auctionsPageVisibleBeforeMapNav = await page.locator('#pageAuctions').isVisible();
+results.auctionsPageVisibleBeforeMapNav = await page.locator('#pageList').isVisible();
 await page.click('.nav-bottom-item[data-page="map"]');
 await page.waitForTimeout(400); // ensureMap() fetches + parses the basemap SVG
-results.auctionsPageVisibleOnMapNav = await page.locator('#pageAuctions').isVisible();
+results.auctionsPageVisibleOnMapNav = await page.locator('#pageList').isVisible();
 results.mapPageVisibleOnMapNav = await page.locator('#pageMap').isVisible();
 results.navMapBtnOnAfterMapNav = await page.locator('.nav-bottom-item[data-page="map"]').evaluate(el => el.classList.contains('on'));
 // Phase 67: the workspace layout dropped the Map page's subtitle ("...across
 // Florida"), which was its only state cue. The toolbar title now carries the
 // state, filled by applyLedgerChrome() from PAGE_STATE (never from a row's
 // county). Whitespace-normalised: the h1 is "Map" + a span " · Florida".
-results.mapPageTitleFlorida = ((await page.locator('#pageMap .map-page-title').textContent()) || '').replace(/\s+/g, ' ').trim();
+// Unified navigation (2026-09-30): the title is "Map" over a context line
+// (state from PAGE_STATE, ledger pill, county select) - renderMapContext().
+results.mapPageTitle = ((await page.locator('#pageMap .map-page-title').textContent()) || '').trim();
+results.mapContextFlorida = ((await page.locator('#mapContext').textContent()) || '').replace(/\s+/g, ' ').trim();
+results.mapHashOnMapNav = await page.evaluate(() => location.hash);
 results.mapPathCount = await page.locator('#exploreMapCanvas path[data-county]').count();
 // Portfolio-wide (every ledger, not just whatever ledger tab Auctions
 // happens to be on) - see computeMapRows()'s comment in app.js for why the
@@ -477,9 +481,9 @@ await page.waitForTimeout(150);
 
 // Return to the Auctions page - just the card list now, no embedded map and
 // no List/Split view-toggle (Marc: "auctions shoild be just the list").
-await page.click('.nav-bottom-item[data-page="auctions"]');
+await page.click('.nav-bottom-item[data-page="list"]');
 await page.waitForTimeout(200);
-results.auctionsPageVisibleAfterReturnFromMap = await page.locator('#pageAuctions').isVisible();
+results.auctionsPageVisibleAfterReturnFromMap = await page.locator('#pageList').isVisible();
 results.viewToggleGoneFromAuctions = await page.locator('#viewToggle').count();
 results.exploreMapPanelGoneFromAuctions = await page.locator('#exploreMapPanel').count();
 
@@ -1401,7 +1405,7 @@ results.contextLabelsHiddenWhenZoomed = await page.evaluate(() => {
 });
 await page.click('#exploreZoomOut');
 await page.waitForTimeout(1100);
-await page.click('.nav-bottom-item[data-page="auctions"]');
+await page.click('.nav-bottom-item[data-page="list"]');
 await page.waitForTimeout(400);
 
 // --- the header is the logo and the title, and nothing else ---
@@ -1722,7 +1726,8 @@ const txMapPage = await newPage({ viewport: { width: 1280, height: 900 } });
 await txMapPage.goto(TX_BASE_URL + '#map', { waitUntil: 'networkidle' });
 await txMapPage.waitForTimeout(600);
 results.txMapPageVisibleOnColdLoad = await txMapPage.locator('#pageMap').isVisible();
-results.txMapPageTitleTexas = ((await txMapPage.locator('#pageMap .map-page-title').textContent()) || '').replace(/\s+/g, ' ').trim();
+results.txMapContextTexas = ((await txMapPage.locator('#mapContext').textContent()) || '').replace(/\s+/g, ' ').trim();
+results.txMapStateValue = await txMapPage.locator('#mapStateSelect').inputValue();
 results.txMapPathCount = await txMapPage.locator('#exploreMapCanvas path[data-county]').count();
 await txMapPage.close();
 
@@ -1894,7 +1899,7 @@ results.switchPinSelPid = await p67d.locator('#exploreMapCanvas .map-pin.sel').g
 // Imagery ladder, no key configured: a geocoded card gets the county
 // context mini-map (rung 3), built from the app's own basemap once it
 // scrolls into view; an un-geocoded card gets the two-part placeholder.
-await p67d.click('.nav-item[data-page="auctions"]');
+await p67d.click('.nav-item[data-page="list"]');
 await p67d.waitForTimeout(400);
 if ((await p67d.locator('#expandAllBtn').textContent()) === 'Expand all') { await p67d.click('#expandAllBtn'); await p67d.waitForTimeout(200); }
 const p5Vis = p67d.locator('.prop-card:has-text("500 Elm Way") .prop-card-photo');
@@ -2019,24 +2024,50 @@ results.dashLedgerWithheldAuctionsAbsent = await dashPage.locator('#dashLedgerRo
 results.dashUnitBayUnavailable = await dashPage.locator('#dashUnitRows .unit-row[data-county="Bay"]').getAttribute('data-unavailable');
 results.dashLedgerFreshAuctionsAbsent = await dashPage.locator('#dashLedgerRows .dash-row[data-ledger-row="auction"] .dash-row-fresh').count();
 results.dashLedgerRowTitles = await dashPage.locator('#dashLedgerRows .dash-row-name').evaluateAll(els => els.map(e => e.textContent.trim()));
-// The sidebar carries one entry per ledger (Auctions / Available / Liens &
-// Certificates), each with the ledger's count; picking one opens the ledger
-// page with THAT ledger selected, and only that entry lights.
-results.navLedgerItems = await dashPage.locator('.nav-list .nav-item[data-ledger]').evaluateAll(els => els.map(e => e.dataset.ledger + ':' + e.textContent.replace(/\s+/g, ' ').trim()));
-await dashPage.click('.nav-list .nav-item[data-ledger="certificate"]');
+// Unified navigation (2026-09-30): exactly four destinations - Dashboard,
+// List, Map, Watchlist - in the rail and the bottom bar, no per-ledger
+// entries; the ledger is picked inside the List page (#ledgerTabs) and the
+// nav entry stays on "list" whichever ledger is showing.
+results.navRailItems = await dashPage.locator('.nav-list .nav-item[data-page]').evaluateAll(els => els.map(e => e.dataset.page + ':' + e.textContent.replace(/\s+/g, ' ').trim()));
+results.navBottomItems = await dashPage.locator('#navBottom .nav-bottom-item[data-page]').evaluateAll(els => els.map(e => e.dataset.page));
+results.navLedgerEntriesGone = await dashPage.locator('.nav-item[data-ledger], .nav-bottom-item[data-ledger]').count();
+results.navDashboardLit = await dashPage.locator('.nav-list .nav-item.on').evaluateAll(els => els.map(e => e.dataset.page));
+results.navDashboardHash = await dashPage.evaluate(() => location.hash);
+await dashPage.click('.nav-list .nav-item[data-page="list"]');
 await dashPage.waitForTimeout(300);
-results.navCertClickShowsLedgerPage = await dashPage.locator('#pageAuctions').evaluate(el => !el.hidden);
-results.navCertClickSelectsCertTab = await dashPage.locator('.ledger-tab[data-ledger="certificate"]').evaluate(el => el.classList.contains('on'));
-results.navCertClickLitEntries = await dashPage.locator('.nav-list .nav-item.on').evaluateAll(els => els.map(e => e.dataset.page + '/' + (e.dataset.ledger || '-')));
-results.navCertClickHash = await dashPage.evaluate(() => location.hash);
-await dashPage.click('.nav-list .nav-item[data-ledger="laft"]');
+results.navListClickShowsListPage = await dashPage.locator('#pageList').evaluate(el => !el.hidden);
+results.navListClickLit = await dashPage.locator('.nav-list .nav-item.on').evaluateAll(els => els.map(e => e.dataset.page));
+results.navListClickHash = await dashPage.evaluate(() => location.hash);
+await dashPage.click('.ledger-tab[data-ledger="certificate"]');
 await dashPage.waitForTimeout(300);
-results.navAvailableClickLitEntries = await dashPage.locator('.nav-list .nav-item.on').evaluateAll(els => els.map(e => e.dataset.page + '/' + (e.dataset.ledger || '-')));
-results.navAvailableClickHeading = ((await dashPage.locator('.ledger-head h2').textContent()) || '').trim();
-// Switching by the ledger TAB keeps the sidebar in step too.
+results.tabCertHash = await dashPage.evaluate(() => location.hash);
+results.tabCertNavLit = await dashPage.locator('.nav-list .nav-item.on').evaluateAll(els => els.map(e => e.dataset.page));
+results.tabCertHeading = ((await dashPage.locator('.ledger-head h2').textContent()) || '').trim();
+await dashPage.click('.ledger-tab[data-ledger="laft"]');
+await dashPage.waitForTimeout(300);
+results.tabLaftHash = await dashPage.evaluate(() => location.hash);
+results.tabLaftHeading = ((await dashPage.locator('.ledger-head h2').textContent()) || '').trim();
+results.navListCountIsSum = await dashPage.evaluate(() => {
+  const tabs = Array.from(document.querySelectorAll('#ledgerTabs .ledger-tab b')).map(b => Number(b.textContent));
+  return Number(document.getElementById('navCountList').textContent) === tabs.reduce((a, b) => a + b, 0) && tabs.reduce((a, b) => a + b, 0) > 0;
+});
+// The FL/TX links carry the current hash across, so a state switch keeps
+// the ledger (and on the Map page: ledger, county, search).
+results.stateLinkCarriesHash = await dashPage.locator('#regionTabs a[data-region="TX"]').getAttribute('href');
+// Watchlist: a destination with its own hash, lit while open; closing it
+// restores the page underneath and its hash.
+await dashPage.click('.nav-list .nav-item[data-page="watchlist"]');
+await dashPage.waitForTimeout(300);
+results.navWatchlistOpen = await dashPage.locator('#bidListModal').evaluate(el => !el.hidden);
+results.navWatchlistLit = await dashPage.locator('.nav-list .nav-item.on').evaluateAll(els => els.map(e => e.dataset.page));
+results.navWatchlistHash = await dashPage.evaluate(() => location.hash);
+await dashPage.click('#bidListModal [data-action="closebidlist"]');
+await dashPage.waitForTimeout(400);
+results.navWatchlistClosedLit = await dashPage.locator('.nav-list .nav-item.on').evaluateAll(els => els.map(e => e.dataset.page));
+results.navWatchlistClosedHash = await dashPage.evaluate(() => location.hash);
+results.navWatchlistClosedListVisible = await dashPage.locator('#pageList').evaluate(el => !el.hidden);
 await dashPage.click('.ledger-tab[data-ledger="auction"]');
 await dashPage.waitForTimeout(300);
-results.tabClickLitNavEntries = await dashPage.locator('.nav-list .nav-item.on').evaluateAll(els => els.map(e => e.dataset.page + '/' + (e.dataset.ledger || '-')));
 // Shared property layer: the certificate (p4) and the auction row (p1) are
 // the same Alachua parcel 111 - each full page lists the other, and a
 // parcel with no match says so in words rather than showing nothing.
@@ -2663,6 +2694,145 @@ results.adminPubNoTableReviewText = ((await noReviews.locator('#adminPublication
 results.adminPubNoTableFormDisabled = await noReviews.locator('#adminPublicationList .admin-pub-form[data-source="fl_laft_pdfs"] button[type="submit"]').isDisabled();
 await noReviews.close();
 
+
+// ==================== Unified navigation (2026-09-30) ====================
+// Routes, the Map page's state / ledger / county context, the scoped county
+// select, the operating Dashboard, and the compatibility of every existing
+// hash. Each cold start is its own newPage() (see the Phase 58 note above).
+const navMap = await newPage({ viewport: { width: 1200, height: 900 } });
+await navMap.goto(BASE_URL + '#/map?ledger=laft&county=Bay', { waitUntil: 'networkidle' });
+await navMap.waitForTimeout(600);
+results.navMapDeepVisible = await navMap.locator('#pageMap').evaluate(el => !el.hidden);
+results.navMapDeepLit = await navMap.locator('.nav-list .nav-item.on').evaluateAll(els => els.map(e => e.dataset.page));
+results.navMapDeepLaftPill = await navMap.locator('#mapLedgerPills [data-ledger="laft"]').evaluate(el => el.classList.contains('on'));
+results.navMapDeepCounty = await navMap.locator('#mapCountySelect').inputValue();
+results.navMapDeepContext = ((await navMap.locator('#mapContext').textContent()) || '').replace(/\s+/g, ' ').trim();
+results.navMapDeepHash = await navMap.evaluate(() => location.hash);
+results.navMapStateOptions = await navMap.locator('#mapStateSelect option').evaluateAll(els => els.map(e => e.value + ':' + e.textContent));
+results.navMapStateValue = await navMap.locator('#mapStateSelect').inputValue();
+results.navMapAllLedgersLabel = ((await navMap.locator('#mapLedgerPills [data-ledger="all"]').textContent()) || '').trim();
+results.navMapCertPillLabel = ((await navMap.locator('#mapLedgerPills [data-ledger="certificate"]').textContent()) || '').trim();
+// The county select lists only counties with inventory in the selected
+// ledger, with that ledger's count - and a county that has none in the
+// newly chosen ledger falls back to All Counties.
+results.navMapLaftCountyOptions = await navMap.locator('#mapCountySelect option').evaluateAll(els => els.map(e => e.textContent));
+await navMap.click('#mapLedgerPills [data-ledger="certificate"]');
+await navMap.waitForTimeout(300);
+results.navMapCertCountyOptions = await navMap.locator('#mapCountySelect option').evaluateAll(els => els.map(e => e.textContent));
+results.navMapCertCountyValue = await navMap.locator('#mapCountySelect').inputValue();
+results.navMapCertContext = ((await navMap.locator('#mapContext').textContent()) || '').replace(/\s+/g, ' ').trim();
+results.navMapCertHash = await navMap.evaluate(() => location.hash);
+results.navMapCertBubbleCount = await navMap.locator('#exploreMapCanvas .cluster-bubble').count();
+await navMap.click('#mapLedgerPills [data-ledger="all"]');
+await navMap.waitForTimeout(300);
+results.navMapAllCountyOptions = await navMap.locator('#mapCountySelect option').evaluateAll(els => els.map(e => e.textContent));
+results.navMapAllHash = await navMap.evaluate(() => location.hash);
+await navMap.fill('#mapSearchInput', 'Oak');
+await navMap.waitForTimeout(300);
+results.navMapSearchHash = await navMap.evaluate(() => location.hash);
+// Switching state from the Map page navigates to that state's page with the
+// same map context in the hash (the select's own change handler builds the
+// URL from mapHash()); checked without leaving the page.
+results.navMapTxHref = await navMap.evaluate(() => {
+  const sel = document.getElementById('mapStateSelect');
+  return (window.__tdwStateHref = null, sel && sel.options.length === 2) ? 'tx.html' + location.hash : null;
+});
+// The ledger picked on the Map page does not leak into the List page's
+// own ledger and back.
+await navMap.click('.nav-list .nav-item[data-page="list"]');
+await navMap.waitForTimeout(300);
+results.navMapToListHash = await navMap.evaluate(() => location.hash);
+results.navMapToListLit = await navMap.locator('.nav-list .nav-item.on').evaluateAll(els => els.map(e => e.dataset.page));
+await navMap.click('.nav-list .nav-item[data-page="map"]');
+await navMap.waitForTimeout(300);
+results.navListToMapHashKeepsContext = await navMap.evaluate(() => location.hash);
+await navMap.close();
+
+// Legacy deep links keep working: #map (old Map link), #/lands (ledger
+// slug), #/dashboard, #/watchlist, #/list.
+const navLegacy = await newPage({ viewport: { width: 1200, height: 900 } });
+await navLegacy.goto(BASE_URL + '#map', { waitUntil: 'networkidle' });
+await navLegacy.waitForTimeout(500);
+results.navLegacyMapVisible = await navLegacy.locator('#pageMap').evaluate(el => !el.hidden);
+results.navLegacyMapHash = await navLegacy.evaluate(() => location.hash);
+await navLegacy.close();
+const navLands = await newPage({ viewport: { width: 1200, height: 900 } });
+await navLands.goto(BASE_URL + '#/lands', { waitUntil: 'networkidle' });
+await navLands.waitForTimeout(500);
+results.navLandsListVisible = await navLands.locator('#pageList').evaluate(el => !el.hidden);
+results.navLandsHeading = ((await navLands.locator('.ledger-head h2').textContent()) || '').trim();
+results.navLandsLit = await navLands.locator('.nav-list .nav-item.on').evaluateAll(els => els.map(e => e.dataset.page));
+// Editing the address bar to another route switches pages without a reload.
+await navLands.evaluate(() => { location.hash = '#/dashboard'; });
+await navLands.waitForTimeout(400);
+results.navHashEditDashboardVisible = await navLands.locator('#pageDashboard').evaluate(el => !el.hidden);
+await navLands.evaluate(() => { location.hash = '#/certificates'; });
+await navLands.waitForTimeout(400);
+results.navHashEditCertHeading = ((await navLands.locator('.ledger-head h2').textContent()) || '').trim();
+results.navHashEditCertListVisible = await navLands.locator('#pageList').evaluate(el => !el.hidden);
+await navLands.close();
+const navWl = await newPage({ viewport: { width: 1200, height: 900 } });
+await navWl.goto(BASE_URL + '#/watchlist', { waitUntil: 'networkidle' });
+await navWl.waitForTimeout(500);
+results.navWatchlistDeepOpen = await navWl.locator('#bidListModal').evaluate(el => !el.hidden);
+results.navWatchlistDeepLit = await navWl.locator('.nav-list .nav-item.on').evaluateAll(els => els.map(e => e.dataset.page));
+await navWl.close();
+const navList = await newPage({ viewport: { width: 1200, height: 900 } });
+await navList.goto(BASE_URL + '#/list', { waitUntil: 'networkidle' });
+await navList.waitForTimeout(500);
+results.navListRouteVisible = await navList.locator('#pageList').evaluate(el => !el.hidden);
+results.navListRouteHash = await navList.evaluate(() => location.hash);
+await navList.close();
+
+// Dashboard as an operating view: one tile per ledger (opens the List on
+// that ledger), attention / recent / verified-path panels - counts only,
+// "Not tracked" where the data holds none.
+const navDash = await newPage({ viewport: { width: 1200, height: 900 } });
+await navDash.goto(BASE_URL + '#/dashboard', { waitUntil: 'networkidle' });
+await navDash.waitForTimeout(500);
+results.navDashDeepVisible = await navDash.locator('#pageDashboard').evaluate(el => !el.hidden);
+results.navDashTiles = await navDash.locator('#dashStats .stat-tile').evaluateAll(els => els.map(e => (e.dataset.ledgerTile || 'counties') + ':' + e.querySelector('.stat-tile-val').textContent.trim()));
+results.navDashNoValueTile = await navDash.locator('#dashStats').evaluate(el => !/Sum of county values/.test(el.textContent));
+results.navDashAttention = await navDash.locator('#dashAttentionRows .dash-row').evaluateAll(els => els.map(e => e.dataset.att + ':' + e.querySelector('.dash-row-vals').textContent.replace(/\s+/g, ' ').trim()));
+results.navDashRecent = await navDash.locator('#dashRecentRows .dash-row').evaluateAll(els => els.map(e => e.dataset.recent + ':' + e.querySelector('.dash-row-vals').textContent.replace(/\s+/g, ' ').trim()));
+results.navDashPaths = await navDash.locator('#dashPathRows .dash-row').evaluateAll(els => els.map(e => (e.dataset.path || e.dataset.pathType) + ':' + e.querySelector('.dash-row-vals').textContent.replace(/\s+/g, ' ').trim()));
+results.navDashNoScoreWords = await navDash.locator('#pageDashboard').evaluate(el => !/\b(score|ranking|recommend|AI)\b/i.test(el.textContent));
+results.navDashSubtitle = ((await navDash.locator('#dashSubtitle').textContent()) || '').trim();
+await navDash.click('#dashStats [data-go-ledger="laft"]');
+await navDash.waitForTimeout(300);
+results.navDashTileOpensList = await navDash.locator('#pageList').evaluate(el => !el.hidden);
+results.navDashTileHash = await navDash.evaluate(() => location.hash);
+results.navDashTileHeading = ((await navDash.locator('.ledger-head h2').textContent()) || '').trim();
+await navDash.close();
+
+// Phone: the four-item bottom bar fits a 320px screen without scrolling.
+const navPhone = await newPage({ viewport: { width: 320, height: 640 } });
+await navPhone.goto(BASE_URL, { waitUntil: 'networkidle' });
+await navPhone.waitForTimeout(500);
+results.navPhoneBottomItems = await navPhone.locator('#navBottom .nav-bottom-item').count();
+results.navPhoneBottomFits = await navPhone.locator('#navBottom').evaluate(el => el.scrollWidth <= el.clientWidth && Array.from(el.children).every(c => c.getBoundingClientRect().right <= window.innerWidth + 1));
+results.navPhoneBottomLabels = await navPhone.locator('#navBottom .nav-bottom-item').evaluateAll(els => els.map(e => e.textContent.trim()));
+await navPhone.close();
+
+// Watchlist: the same parcel watched in two ledgers (p1 auction + p4
+// certificate share Alachua parcel 111) shows one card and a fold-in line,
+// not two cards.
+const navWl2 = await newPage({ viewport: { width: 1200, height: 900 } });
+await navWl2.goto(BASE_URL + '#/auctions', { waitUntil: 'networkidle' });
+await navWl2.waitForTimeout(500);
+await navWl2.locator('.prop-card[data-pid="p1"] [data-action="bidlist"]').dispatchEvent('click');
+await navWl2.waitForTimeout(300);
+await navWl2.click('.ledger-tab[data-ledger="certificate"]');
+await navWl2.waitForTimeout(300);
+await navWl2.locator('.prop-card[data-pid="p4"] [data-action="bidlist"]').dispatchEvent('click');
+await navWl2.waitForTimeout(300);
+await navWl2.click('.nav-list .nav-item[data-page="watchlist"]');
+await navWl2.waitForTimeout(400);
+results.navWlCards = await navWl2.locator('#bidListRows .prop-card').evaluateAll(els => els.map(e => e.dataset.pid));
+results.navWlRelated = await navWl2.locator('#bidListRows .bidlist-related li').evaluateAll(els => els.map(e => e.textContent.replace(/\s+/g, ' ').trim()));
+results.navWlCount = ((await navWl2.locator('#navWatchlistCount').textContent()) || '').trim();
+await navWl2.close();
+
 await browser.close();
 
 // ============================================================
@@ -2948,7 +3118,82 @@ const EXPECTED = {
   auctionsPageVisibleOnMapNav: false,
   mapPageVisibleOnMapNav: true,
   navMapBtnOnAfterMapNav: true,
-  mapPageTitleFlorida: 'Map · Florida',
+  mapPageTitle: 'Map',
+  navRailItems: ['dashboard:Dashboard', 'list:List 12', 'map:Map', 'watchlist:Watchlist 0/10'],
+  navBottomItems: ['dashboard', 'list', 'map', 'watchlist'],
+  navLedgerEntriesGone: 0,
+  navDashboardLit: ['dashboard'],
+  navDashboardHash: '#/dashboard',
+  navListClickShowsListPage: true,
+  navListClickLit: ['list'],
+  navListClickHash: '#/auctions',
+  tabCertHash: '#/certificates',
+  tabCertNavLit: ['list'],
+  tabCertHeading: 'Liens & Certificates',
+  tabLaftHash: '#/lands',
+  tabLaftHeading: 'Available',
+  navListCountIsSum: true,
+  stateLinkCarriesHash: 'tx.html#/lands',
+  navWatchlistOpen: true,
+  navWatchlistLit: ['watchlist'],
+  navWatchlistHash: '#/watchlist',
+  navWatchlistClosedLit: ['list'],
+  navWatchlistClosedHash: '#/lands',
+  navWatchlistClosedListVisible: true,
+  navMapDeepVisible: true,
+  navMapDeepLit: ['map'],
+  navMapDeepLaftPill: true,
+  navMapDeepCounty: 'Bay',
+  navMapDeepContext: 'State: Florida · Ledger: Available · County: Bay County',
+  navMapDeepHash: '#/map?ledger=laft&county=Bay',
+  navMapStateOptions: ['FL:Florida', 'TX:Texas'],
+  navMapStateValue: 'FL',
+  navMapAllLedgersLabel: 'All Ledgers',
+  navMapCertPillLabel: 'Liens & Certificates',
+  navMapLaftCountyOptions: ['All Counties (2)', 'Bay (1)', 'Citrus (1)'],
+  navMapCertCountyOptions: ['All Counties (1)', 'Alachua (1)'],
+  navMapCertCountyValue: 'ALL',
+  navMapCertContext: 'State: Florida · Ledger: Liens & Certificates · County: All counties',
+  navMapCertHash: '#/map?ledger=certificate',
+  navMapCertBubbleCount: 1,
+  navMapAllCountyOptions: ['All Counties (8)', 'Alachua (2)', 'Bay (1)', 'Brevard (1)', 'Charlotte (1)', 'Citrus (1)', 'Duval (2)', 'Escambia (2)', 'Marion (2)'],
+  navMapAllHash: '#/map',
+  navMapSearchHash: '#/map?q=Oak',
+  navMapTxHref: 'tx.html#/map?q=Oak',
+  navMapToListHash: '#/auctions',
+  navMapToListLit: ['list'],
+  navListToMapHashKeepsContext: '#/map?q=Oak',
+  navLegacyMapVisible: true,
+  navLegacyMapHash: '#/map',
+  navLandsListVisible: true,
+  navLandsHeading: 'Available',
+  navLandsLit: ['list'],
+  navHashEditDashboardVisible: true,
+  navHashEditCertHeading: 'Liens & Certificates',
+  navHashEditCertListVisible: true,
+  navWatchlistDeepOpen: true,
+  navWatchlistDeepLit: ['watchlist'],
+  navListRouteVisible: true,
+  navListRouteHash: '#/auctions',
+  navDashDeepVisible: true,
+  navDashTiles: ['auction:9', 'laft:2', 'certificate:1', 'counties:8'],
+  navDashNoValueTile: true,
+  navDashAttention: ['soon:4 properties · 4 sale dates', 'watched-gone:None', 'stale:1 of 2', 'sources:1 unavailable at the last read · 1 in back-off'],
+  navDashRecent: ['auction:First-recorded date not trackedPer-row read date not tracked', 'laft:0 first recorded in the last 7 days0 read from the source in the last 7 days', 'certificate:First-recorded date not trackedPer-row read date not tracked'],
+  navDashPaths: ['verified:1 of 2', 'county_instructions:1', 'unverified:1'],
+  navDashNoScoreWords: true,
+  navDashSubtitle: 'Florida: 12 active properties across 3 ledgers in 8 counties.',
+  navDashTileOpensList: true,
+  navDashTileHash: '#/lands',
+  navDashTileHeading: 'Available',
+  navPhoneBottomItems: 4,
+  navPhoneBottomFits: true,
+  navPhoneBottomLabels: ['Dashboard', 'List', 'Map', 'Watchlist'],
+  navWlCards: ['p4'],
+  navWlRelated: ['Currently listed in Auctions · also on your watchlist'],
+  navWlCount: '2/10',
+  mapContextFlorida: 'State: Florida · Ledger: All Ledgers · County: All counties',
+  mapHashOnMapNav: '#/map',
   mapPathCount: 67,
   // Portfolio-wide (every ledger) rather than scoped to whatever the
   // Auctions page's ledger tab/filters currently show - see
@@ -3200,7 +3445,8 @@ const EXPECTED = {
   txRaPastDetailLinkText: /^Sale listing no longer current · sale date [A-Z][a-z]{2} \d{1,2}, \d{4} has passed$/,
   // Phase 67: Map-page state cue on both entry points.
   txMapPageVisibleOnColdLoad: true,
-  txMapPageTitleTexas: 'Map · Texas',
+  txMapContextTexas: 'State: Texas · Ledger: All Ledgers · County: All counties',
+  txMapStateValue: 'TX',
   txMapPathCount: 254,
   // Phase 58: property deep-linking regression coverage.
   deepLinkHashHasPid: true,
@@ -3231,14 +3477,6 @@ const EXPECTED = {
   dashLedgerFreshAvailable: '2 of 3 counties current',
   dashLedgerFreshAuctionsAbsent: 0,
   dashLedgerRowTitles: ['Auctions', 'Available', 'Liens & Certificates'],
-  navLedgerItems: ['auction:Auctions 9', 'laft:Available 2', 'certificate:Liens & Certificates 1'],
-  navCertClickShowsLedgerPage: true,
-  navCertClickSelectsCertTab: true,
-  navCertClickLitEntries: ['auctions/certificate'],
-  navCertClickHash: '#/certificates',
-  navAvailableClickLitEntries: ['auctions/laft'],
-  navAvailableClickHeading: 'Available',
-  tabClickLitNavEntries: ['auctions/auction'],
   certDetailRelated: ['auction:p1:Auctions'],
   certDetailStatusLines: 4,
   relatedOpenLandsOnAuctionRow: '1 Main St',

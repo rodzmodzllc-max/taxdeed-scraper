@@ -47,9 +47,14 @@ const sb = createClient(cfg.supabaseUrl, cfg.supabasePublishableKey, {
 // data-state naming a state NOT in this table is an error, not Florida:
 // it is logged and the page falls back to FL only so the app still loads.
 const STATE_META = {
-  FL: { name: "Florida", basemap: "fl-counties.svg", cities: "fl-cities.json", zips: "fl-zips.json" },
-  TX: { name: "Texas", basemap: "tx-counties.svg", cities: "tx-cities.json", zips: "tx-zips.json" }
+  FL: { name: "Florida", page: "index.html", basemap: "fl-counties.svg", cities: "fl-cities.json", zips: "fl-zips.json" },
+  TX: { name: "Texas", page: "tx.html", basemap: "tx-counties.svg", cities: "tx-cities.json", zips: "tx-zips.json" }
 };
+// Unified navigation (2026-09-30): the states a person can switch between are
+// exactly STATE_META's keys - the states this app has a page, a basemap and
+// production data for (tests/python pins them to harvesters/governance/
+// states.PRODUCTION_STATES). Never a hard-coded "Florida".
+const STATE_CODES = Object.keys(STATE_META);
 const PAGE_STATE = (() => {
   const wanted = document.body.dataset.state;
   if (wanted && !STATE_META[wanted]) console.error(`Unsupported <body data-state="${wanted}"> - no page/basemap assets for it; rendering FL`);
@@ -367,9 +372,23 @@ function popBackLayer(name) {
   }
 }
 
+// Unified navigation (2026-09-30): the hashchange that a history traversal
+// fires right after its popstate is not a person editing the address bar.
+// A self-initiated back (closing a layer with its own ✕) restores the URL
+// the layer was opened over - which may be a stale page hash when the page
+// changed underneath the layer (showOnMap() closes the property page and
+// opens the Map page in one click) - so the route listener is told to skip
+// exactly that one hashchange, and the page that is actually showing writes
+// its own hash back afterwards (syncPageHash()).
+let suppressHashRoute = false;
 window.addEventListener("popstate", () => {
   // Our own history.back(), not the user's Back gesture.
-  if (selfBacks > 0) { selfBacks--; return; }
+  if (selfBacks > 0) {
+    selfBacks--;
+    suppressHashRoute = true;
+    setTimeout(() => { suppressHashRoute = false; try { syncPageHash(); } catch { /* before the router loaded */ } }, 0);
+    return;
+  }
   const layer = BACK_LAYERS.pop();
   // Nothing of ours open: let Back do what it normally does and leave.
   if (!layer) return;
@@ -1824,7 +1843,8 @@ async function showApp() {
   // A #/lands link, or a refresh while reading Certificates, should land back
   // on that ledger rather than always on Auctions. Read before the first
   // render so the right page paints once instead of flashing Auctions first.
-  const routed = ledgerFromHash();
+  const route = routeFromHash();
+  const routed = route && route.ledger ? route.ledger : null;
   if (routed) state.ledger = routed;
   // Phase 58: same idea, one level deeper - #/auctions/12345 should reopen
   // that property's card, not just land on the Auctions list. Captured here,
@@ -1858,6 +1878,12 @@ async function showApp() {
   // per-ledger filter visibility and the canonical #/slug URL all have to be
   // right on the first paint, not only after the first tab click.
   setLedger(state.ledger, { silent: true });
+  // Unified navigation (2026-09-30): land on the page the hash names -
+  // #/dashboard, #/map?... (context restored), #/watchlist (the watchlist
+  // over the List page), the legacy #map - or the List page by default.
+  if (route && route.page === "map") { applyMapParams(route.params); showPage("map"); }
+  else if (route && route.page === "dashboard") showPage("dashboard");
+  else { showPage("list"); if (route && route.page === "watchlist") openBidList(); }
   startIdleWatch();
   if (IS_ADMIN) { refreshAdminApprovals(); refreshAdminPublication(); }
   // Phase 58: reopen the deep-linked property, if the URL named one and it's
@@ -4373,8 +4399,30 @@ function renderBidListModal() {
     ${listHtml}
     <div class="prop-list flat" id="bidListRows"></div>
     ${pendingHtml}`;
+  // Unified navigation (2026-09-30): a parcel that sits on the watchlist in
+  // two ledgers (the same state / county / parcel number - the deterministic
+  // match relatedRecordsFor() uses) gets ONE card; the other watchlist rows
+  // for it, and its records in ledgers it is not watched in, are named
+  // underneath rather than repeated as full cards.
   const listEl = document.getElementById("bidListRows");
-  if (listEl) rows.forEach(p => listEl.appendChild(p.source === "certificate" ? certCard(p, true) : card(p, true)));
+  if (!listEl) return;
+  const folded = new Set();
+  rows.forEach(p => {
+    if (folded.has(p.id)) return;
+    listEl.appendChild(p.source === "certificate" ? certCard(p, true) : card(p, true));
+    const rel = relatedRecordsFor(p);
+    if (!rel.length) return;
+    const lines = rel.map(o => {
+      const watched = BIDLIST.has(o.id);
+      if (watched) folded.add(o.id);
+      const when = relatedWhen(o);
+      return `<li><span class="related-when ${when.cls}">${esc(when.text)}</span> in <b>${esc(ledgerCopy(o.source).title || o.source)}</b>${watched ? " · also on your watchlist" : ""}</li>`;
+    });
+    const note = document.createElement("div");
+    note.className = "bidlist-related";
+    note.innerHTML = `<div class="bidlist-related-head">Same parcel in other ledgers</div><ul>${lines.join("")}</ul>`;
+    listEl.appendChild(note);
+  });
 }
 function openBidList() {
   const modal = document.getElementById("bidListModal");
@@ -4383,6 +4431,11 @@ function openBidList() {
   renderBidListModal();
   modal.hidden = false;
   pushBackLayer("bidlist", closeBidList);
+  // Unified navigation (2026-09-30): the watchlist is a destination with its
+  // own hash, applied to the entry pushBackLayer just created (same
+  // replaceState idiom as openDetail()), and its nav entry is lit while open.
+  try { history.replaceState(history.state, "", "#/watchlist"); } catch { /* file:// etc */ }
+  if (typeof syncLedgerNav === "function") syncLedgerNav();
   if (wasHidden) focusIntoModal(modal);
   syncBodyScrollLock();
 }
@@ -4391,6 +4444,7 @@ function closeBidList() {
   if (!modal) return;
   modal.hidden = true;
   popBackLayer("bidlist");
+  if (typeof syncLedgerNav === "function") syncLedgerNav();
   syncBodyScrollLock();
   restoreModalFocus();
 }
@@ -4738,6 +4792,9 @@ document.addEventListener("input", e => {
 function render() {
   const bidListCountEl = document.getElementById("bidListCount");
   if (bidListCountEl) bidListCountEl.textContent = `${BIDLIST.size}/${BID_LIST_MAX}` + (BID_LIST_PENDING.length ? ` +${BID_LIST_PENDING.length}⏳` : "");
+  // Unified navigation (2026-09-30): the rail's Watchlist entry carries the same n/10.
+  const navWatchlistCountEl = document.getElementById("navWatchlistCount");
+  if (navWatchlistCountEl) navWatchlistCountEl.textContent = `${BIDLIST.size}/${BID_LIST_MAX}`;
 
   const main = document.getElementById("main"); if (!main) return; main.innerHTML = "";
   if (!LEDGERS[state.ledger]) state.ledger = "auction";
@@ -4790,10 +4847,11 @@ function render() {
     }
     const countEl = document.getElementById("tabCount" + src[0].toUpperCase() + src.slice(1));
     if (countEl) countEl.textContent = tabCounts[src] || 0;
-    // The sidebar's per-ledger entry carries the same count (three ledgers, 2026-09-30).
-    const navCountEl = document.getElementById("navCount" + src[0].toUpperCase() + src.slice(1));
-    if (navCountEl) navCountEl.textContent = tabCounts[src] || 0;
   });
+  // Unified navigation (2026-09-30): the List entry carries every ledger's
+  // count together - the same three numbers the ledger selector shows.
+  const navListCountEl = document.getElementById("navCountList");
+  if (navListCountEl) navListCountEl.textContent = (tabCounts.auction || 0) + (tabCounts.laft || 0) + (tabCounts.certificate || 0);
 
   // Expand/Collapse-all button label reflects whether every county currently
   // in view is already expanded.
@@ -5197,9 +5255,82 @@ let mapLoaded = false;
 //
 // The cost is that Back doesn't move between ledgers. That's the intended
 // behaviour, not a limitation being worked around.
+// Unified navigation (2026-09-30). One hash convention, four destinations:
+//   #/dashboard                      the Dashboard
+//   #/list  · #/auctions|lands|certificates[/<pid>]   the List page; the
+//           ledger slug IS the list route (kept as-is - every existing
+//           link, bookmark and the Phase 58 property deep link still work)
+//   #/map[?ledger=..&county=..&q=..&watch=1]   the Map page with its context
+//   #/watchlist                      the watchlist, over whatever page is open
+//   #map                             legacy Map deep link, rewritten to #/map
+// The state is not in the hash: it is the page (index.html / tx.html); a
+// state switch carries the hash across (syncStateLinks()).
+function routeFromHash() {
+  const h = location.hash || "";
+  if (h === "#map") return { page: "map", params: {} };
+  const m = /^#\/?([a-z]+)(?:\/([^/?#]+))?(?:\?(.*))?$/.exec(h);
+  if (!m) return null;
+  const seg = m[1], sub = m[2] || null, qs = m[3] || "";
+  const params = {};
+  try { new URLSearchParams(qs).forEach((v, k) => { params[k] = v; }); } catch { /* malformed query */ }
+  if (SLUG_TO_LEDGER[seg]) return { page: "list", ledger: SLUG_TO_LEDGER[seg], pid: sub, params };
+  if (seg === "list") return { page: "list", ledger: sub && SLUG_TO_LEDGER[sub] ? SLUG_TO_LEDGER[sub] : null, pid: null, params };
+  if (seg === "dashboard" || seg === "map" || seg === "watchlist") return { page: seg, ledger: null, pid: null, params };
+  return null;
+}
 function ledgerFromHash() {
-  const m = /^#\/?([a-z]+)/.exec(location.hash || "");
-  return m && SLUG_TO_LEDGER[m[1]] ? SLUG_TO_LEDGER[m[1]] : null;
+  const r = routeFromHash();
+  return r && r.ledger ? r.ledger : null;
+}
+// The Map page's own context, as a hash: only the parts that differ from the
+// defaults, so a plain "#/map" is the plain statewide map.
+function mapHash() {
+  const q = new URLSearchParams();
+  if (mapFilter.ledger !== "all") q.set("ledger", mapFilter.ledger);
+  if (mapFilter.county !== "ALL") q.set("county", mapFilter.county);
+  if (mapFilter.search) q.set("q", mapFilter.search);
+  if (mapFilter.watchlistOnly) q.set("watch", "1");
+  const qs = q.toString();
+  return "#/map" + (qs ? "?" + qs : "");
+}
+// Read a #/map?... query into mapFilter and its toolbar controls. Unknown
+// ledger / county values fall back to the defaults rather than sticking.
+function applyMapParams(params) {
+  const led = params.ledger;
+  mapFilter.ledger = led && (led === "all" || LEDGERS[led]) ? led : "all";
+  mapFilter.county = params.county || "ALL";
+  mapFilter.search = params.q || "";
+  mapFilter.watchlistOnly = params.watch === "1";
+  const searchEl = document.getElementById("mapSearchInput");
+  if (searchEl) searchEl.value = mapFilter.search;
+  const watchEl = document.getElementById("mapWatchlistOnly");
+  if (watchEl) { watchEl.classList.toggle("on", mapFilter.watchlistOnly); watchEl.setAttribute("aria-pressed", mapFilter.watchlistOnly ? "true" : "false"); }
+  document.querySelectorAll("#mapLedgerPills [data-ledger]").forEach(b => b.classList.toggle("on", b.dataset.ledger === mapFilter.ledger));
+}
+function pageHash(name) {
+  if (name === "map") return mapHash();
+  if (name === "dashboard") return "#/dashboard";
+  return "#/" + (LEDGERS[state.ledger] || LEDGERS.auction).slug;
+}
+// replaceState, never pushState: the Android-back stack (BACK_LAYERS) owns
+// every pushed entry, and page-to-page moves are deliberately not in it.
+function syncPageHash() {
+  let name; try { name = shellPage; } catch { return; }
+  const want = pageHash(name);
+  if (location.hash === want) { syncStateLinks(); return; }
+  try { history.replaceState(history.state, "", want); } catch { /* file:// etc */ }
+  syncStateLinks();
+}
+// The FL / TX links (#regionTabs on the List page, #mapStateSelect on the
+// Map page) carry the current hash across, so state, ledger, county and
+// search survive a state switch. Same-page links get "aria-current".
+function syncStateLinks() {
+  const hash = location.hash || "";
+  document.querySelectorAll("a[data-state-link]").forEach(a => {
+    const st = a.dataset.region;
+    if (!STATE_META[st]) return;
+    a.setAttribute("href", STATE_META[st].page + hash);
+  });
 }
 
 // Phase 58: a property's URL fragment - "#/auctions/12345" - so a bookmark,
@@ -5214,8 +5345,8 @@ function ledgerFromHash() {
 // single-purpose one-liners is easier to follow than one regex doing both
 // jobs.
 function pidFromHash() {
-  const m = /^#\/?[a-z]+\/([^/?#]+)/.exec(location.hash || "");
-  return m ? m[1] : null;
+  const r = routeFromHash();
+  return r && r.pid ? r.pid : null;
 }
 
 function prefersReducedMotion() {
@@ -5251,8 +5382,7 @@ function applyLedgerChrome() {
   // this a Texas map and a Florida map are told apart only by their outline.
   // Same authoritative source as the two lines above - PAGE_STATE, never a
   // row's county - and a label only, not a switch (that is #regionTabs).
-  const mapPageStateEl = document.getElementById("mapPageState");
-  if (mapPageStateEl) mapPageStateEl.textContent = " · " + STATE_INFO.name;
+  renderMapContext();
 
   // Certificates are liens, not land: no property type, no title screening,
   // no assessed value. passes() already ignores those filters there, so
@@ -5323,7 +5453,12 @@ function setLedger(key, opts) {
     updateBadge();
   }
 
-  try { history.replaceState(history.state, "", "#/" + LEDGERS[key].slug); } catch { /* file:// etc */ }
+  // Unified navigation (2026-09-30): the ledger slug is the List page's own
+  // hash; while another page is showing (the Map's #/map?..., the
+  // Dashboard's #/dashboard) the ledger change is kept out of the URL.
+  let onList = true; try { onList = shellPage === "list"; } catch { onList = true; }
+  if (onList) try { history.replaceState(history.state, "", "#/" + LEDGERS[key].slug); } catch { /* file:// etc */ }
+  syncStateLinks();
   applyLedgerChrome();
   if (typeof syncLedgerNav === "function") syncLedgerNav();
   render();
@@ -5354,8 +5489,20 @@ document.querySelectorAll("#ledgerTabs .ledger-tab[data-ledger]").forEach(btn =>
 // top of this file); this only fires for hash edits that didn't come from our
 // own replaceState, since replaceState never emits hashchange.
 window.addEventListener("hashchange", () => {
-  const key = ledgerFromHash();
-  if (key && key !== state.ledger) setLedger(key, { silent: true });
+  if (suppressHashRoute) { suppressHashRoute = false; return; }   // a self-back's own traversal (see popstate)
+  const r = routeFromHash();
+  if (!r) return;
+  if (r.page === "list") {
+    if (r.ledger && r.ledger !== state.ledger) setLedger(r.ledger, { silent: true });
+    if (shellPage !== "list") showPage("list"); else syncPageHash();
+  } else if (r.page === "map") {
+    applyMapParams(r.params);
+    if (shellPage !== "map") showPage("map"); else renderMapPage();
+  } else if (r.page === "dashboard") {
+    if (shellPage !== "dashboard") showPage("dashboard");
+  } else if (r.page === "watchlist") {
+    openBidList();
+  }
 });
 
 // Leaving archive mode from the notice in the page header. The notice only
@@ -6946,7 +7093,7 @@ window.addEventListener("appinstalled", () => {
 // not a cut-down subset - the "full rebuild everywhere, including phone"
 // direction meant the new IA had to actually work at phone width, not just
 // render there and silently do nothing.
-let shellPage = "auctions";
+let shellPage = "list";
 // Phase 54: Map is a real top-level page again, not a mode of the Auctions
 // page. Phase 53 made nav Map a virtual route into Auctions-in-map-view,
 // which fixed the "two different maps" problem but traded it for a new
@@ -6967,21 +7114,27 @@ let shellPage = "auctions";
 //   has a List/Split/Map switcher at all; it IS the Map page's renderer now.
 // - The Auctions page's #viewToggle (List/Split) and its embedded
 //   .explore-map-panel are removed - Auctions is just the list.
-const SHELL_PAGES = { dashboard: "pageDashboard", auctions: "pageAuctions", map: "pageMap" };
+// Unified navigation (2026-09-30): three pages plus the watchlist, which is
+// a layer over whichever page is open (openBidList()), reached from the same
+// four-entry nav. "auctions" is accepted as the List page's old name.
+const SHELL_PAGES = { dashboard: "pageDashboard", list: "pageList", map: "pageMap" };
 
 function showPage(name) {
-  if (!SHELL_PAGES[name]) name = "auctions";
+  if (name === "auctions") name = "list";
+  if (name === "watchlist") { openBidList(); return; }
+  if (!SHELL_PAGES[name]) name = "list";
 
   Object.entries(SHELL_PAGES).forEach(([key, id]) => {
     const el = document.getElementById(id);
     if (el) el.hidden = key !== name;
   });
+  shellPage = name;
   syncLedgerNav(name);
 
   if (name === "dashboard") renderDashboard();
   if (name === "map") renderMapPage();
+  syncPageHash();
 
-  shellPage = name;
   window.scrollTo({ top: 0, behavior: "auto" });
 }
 
@@ -6991,28 +7144,26 @@ function showPage(name) {
 // is lit only when its page AND its ledger are the current ones, so the
 // three never light together; entries without a data-ledger (Dashboard,
 // Map) light on page alone. Called from showPage() and setLedger().
+// Unified navigation (2026-09-30): an entry is lit on its page alone (the
+// ledger is chosen inside the List page). While the watchlist layer is open
+// its entry is lit instead, so the nav always names what is on screen.
 function syncLedgerNav(pageName) {
   // `shellPage` is a `let` further down this file; setLedger() can run
   // before the script reaches it (same TDZ hazard `mapFilter` documents), so
   // read it defensively.
   let name;
-  try { name = pageName || shellPage; } catch { name = pageName || "auctions"; }
+  try { name = pageName || shellPage; } catch { name = pageName || "list"; }
+  const bidModal = document.getElementById("bidListModal");
+  if (bidModal && !bidModal.hidden) name = "watchlist";
   document.querySelectorAll(".nav-item[data-page], .nav-bottom-item[data-page]").forEach(btn => {
-    const on = btn.dataset.page === name && (!btn.dataset.ledger || btn.dataset.ledger === state.ledger);
+    const on = btn.dataset.page === name;
     btn.classList.toggle("on", on);
     if (on) btn.setAttribute("aria-current", "page"); else btn.removeAttribute("aria-current");
   });
 }
 document.querySelectorAll(".nav-item[data-page], .nav-bottom-item[data-page]").forEach(btn => {
-  btn.addEventListener("click", () => {
-    showPage(btn.dataset.page);
-    if (btn.dataset.ledger && LEDGERS[btn.dataset.ledger]) setLedger(btn.dataset.ledger);
-  });
+  btn.addEventListener("click", () => showPage(btn.dataset.page));
 });
-const navWatchlistBtnEl = document.getElementById("navWatchlistBtn");
-if (navWatchlistBtnEl) navWatchlistBtnEl.addEventListener("click", () => openBidList());
-const navBottomWatchlistBtnEl = document.getElementById("navBottomWatchlistBtn");
-if (navBottomWatchlistBtnEl) navBottomWatchlistBtnEl.addEventListener("click", () => openBidList());
 
 // Sidebar Settings entry (Phase 51 visual rebuild) - same account menu as
 // the header badge and the Dashboard's own Settings button, just a third
@@ -7022,9 +7173,8 @@ if (navBottomWatchlistBtnEl) navBottomWatchlistBtnEl.addEventListener("click", (
 const navSettingsBtnEl = document.getElementById("navSettingsBtn");
 if (navSettingsBtnEl) navSettingsBtnEl.addEventListener("click", e => { e.stopPropagation(); openAccountMenu(); });
 
-// Deep-link: index.html#map / tx.html#map opens straight onto the Map page
-// instead of the default Auctions landing.
-if (location.hash === "#map") showPage("map");
+// Deep links (#map, #/map?..., #/dashboard, #/watchlist, #/lands/<id>) are
+// applied by showApp() once the rows are loaded - see routeFromHash().
 
 // ---- Map page (Phase 54) ----
 // Its own small filter state (mapFilter, declared up near selectedPid for
@@ -7063,14 +7213,51 @@ function computeMapRows() {
 // same as the Auctions page's own #countyQuick - see that dropdown's build
 // note above for why "counts don't shrink with the current ledger" is the
 // existing, intentional behavior here too, not a new inconsistency.
+// Unified navigation (2026-09-30): the county list is scoped to THIS state
+// (ALL holds only PAGE_STATE's rows) and the SELECTED LEDGER - only counties
+// that actually have inventory in that ledger, with that ledger's count, so
+// the select never offers a county the map would then show empty. A county
+// that drops out when the ledger changes falls back to "All Counties".
+function mapCountyCandidates() {
+  return ALL.filter(p => !isPastDue(p) && !HIDDEN.has(p.id) && !goneExpired(p) && regionOf(p) === PAGE_STATE
+    && (mapFilter.ledger === "all" || p.source === mapFilter.ledger));
+}
 function buildMapCountySelect() {
   const el = document.getElementById("mapCountySelect");
   if (!el) return;
-  const counts = countyCounts();
-  const names = countyNamesByCount();
-  el.innerHTML = `<option value="ALL">All Counties</option>` +
+  const counts = new Map();
+  mapCountyCandidates().forEach(p => { const c = p.county || "Unknown"; counts.set(c, (counts.get(c) || 0) + 1); });
+  const names = Array.from(counts.keys()).sort((a, b) => a.localeCompare(b));
+  if (mapFilter.county !== "ALL" && !counts.has(mapFilter.county)) mapFilter.county = "ALL";
+  el.innerHTML = `<option value="ALL">All Counties (${names.length})</option>` +
     names.map(v => `<option value="${esc(v)}">${esc(v)} (${counts.get(v) || 0})</option>`).join("");
   el.value = mapFilter.county;
+}
+// One option per state in STATE_META (every state with a page, a basemap and
+// production data); the current page's state is selected. Changing it is
+// real navigation to that state's page, carrying the map context along.
+function buildMapStateSelect() {
+  const el = document.getElementById("mapStateSelect");
+  if (!el) return;
+  if (!el.options.length) {
+    el.innerHTML = STATE_CODES.map(st => `<option value="${esc(st)}">${esc(STATE_META[st].name)}</option>`).join("");
+    el.addEventListener("change", () => {
+      const st = el.value;
+      if (!STATE_META[st] || st === PAGE_STATE) return;
+      location.href = STATE_META[st].page + mapHash();
+    });
+  }
+  el.value = PAGE_STATE;
+}
+// "Map · State: Florida · Ledger: Available · County: Bay" - what the map
+// is showing, from the same three inputs the rows are filtered by.
+function renderMapContext() {
+  const stEl = document.getElementById("mapContextState");
+  const ledEl = document.getElementById("mapContextLedger");
+  const ctyEl = document.getElementById("mapContextCounty");
+  if (stEl) stEl.textContent = STATE_INFO.name;
+  if (ledEl) ledEl.textContent = mapFilter.ledger === "all" ? "All Ledgers" : (ledgerCopy(mapFilter.ledger).title || mapFilter.ledger);
+  if (ctyEl) ctyEl.textContent = mapFilter.county === "ALL" ? "All counties" : `${mapFilter.county} County`;
 }
 
 // The one-way handoff to explore.js, same shape and same reasoning as
@@ -7078,7 +7265,11 @@ function buildMapCountySelect() {
 // function just computed, so the map can't disagree with the toolbar above
 // it about what's on screen.
 function renderMapPage() {
+  buildMapStateSelect();
   buildMapCountySelect();
+  renderMapContext();
+  let onMap = false; try { onMap = shellPage === "map"; } catch { onMap = false; }
+  if (onMap) syncPageHash();
   const rows = computeMapRows();
   // Phase 67: the preview panel renders with the cards' own label/visual
   // helpers - passed over the event so explore.js never duplicates a rule.
@@ -7188,6 +7379,41 @@ function upcomingAuctionRows(active) {
   return Array.from(byKey.values()).sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : 0).slice(0, 6);
 }
 
+// Unified navigation (2026-09-30): the Dashboard is an operating view -
+// what is active per ledger, what needs attention, what changed, where the
+// inventory is, how many Available rows carry a verified purchase path and
+// how fresh each source is. Every figure is a count over ALL[] (this
+// state's rows, the same exclusions as the ledger counts) or over data the
+// app already loaded (freshness, watchlist changes). No score, no trend, no
+// estimate: a figure the data cannot support says so in words.
+function dashboardOps(active) {
+  const soonDays = 7;
+  const soon = active.filter(p => p.source === "auction" && p.sale_date && daysUntil(p) !== null && daysUntil(p) >= 0 && daysUntil(p) <= soonDays);
+  const soonDates = new Set(soon.map(p => p.sale_date));
+  const watchedGone = Array.from(BIDLIST).map(id => ALL.find(p => p.id === id)).filter(p => p && isGone(p));
+  const laft = active.filter(p => p.source === "laft" && isPublishable(p));
+  const laftStale = laft.filter(p => { const d = daysSince(p.last_seen_at); return d === null || d > 14; });
+  const laftNeverRead = laft.filter(p => !p.last_seen_at);
+  const units = Array.isArray(UNIT_FRESHNESS) ? UNIT_FRESHNESS.filter(u => u.state === PAGE_STATE && u.last_attempt_at) : [];
+  const unavailable = units.filter(u => u.last_attempt_status === "SOURCE_UNAVAILABLE" || /^(TRANSPORT_|PROXY_|ACCESS_)/.test(String(u.last_error_category || "")));
+  const backoff = units.filter(u => Number(u.consecutive_failures) >= 3);
+  const newByLedger = {}, seenByLedger = {}, firstSeenTracked = {}, lastSeenTracked = {};
+  LEDGER_ORDER.forEach(k => { newByLedger[k] = 0; seenByLedger[k] = 0; firstSeenTracked[k] = false; lastSeenTracked[k] = false; });
+  active.forEach(p => {
+    if (!(p.source in newByLedger)) return;
+    if (p.first_seen_at) { firstSeenTracked[p.source] = true; const d = daysSince(p.first_seen_at); if (d !== null && d <= 7) newByLedger[p.source]++; }
+    if (p.last_seen_at) { lastSeenTracked[p.source] = true; const d = daysSince(p.last_seen_at); if (d !== null && d <= 7) seenByLedger[p.source]++; }
+  });
+  const typed = laft.filter(p => typedPurchasePath(p));
+  const byType = new Map();
+  typed.forEach(p => { const t = typedPurchasePath(p).type; byType.set(t, (byType.get(t) || 0) + 1); });
+  return { soon, soonDates, watchedGone, laft, laftStale, laftNeverRead, unavailable, backoff, newByLedger, seenByLedger, firstSeenTracked, lastSeenTracked, typed, byType };
+}
+
+function dashRow(icon, name, vals, attrs) {
+  return `<div class="dash-row"${attrs || ""}><div class="dash-row-name">${svgIcon(icon)}${name}</div><div class="dash-row-vals">${vals}</div></div>`;
+}
+
 function renderDashboard() {
   const statsEl = document.getElementById("dashStats");
   if (!statsEl) return; // dashboard markup not present (older fixture, etc.)
@@ -7197,28 +7423,88 @@ function renderDashboard() {
   const subEl = document.getElementById("dashSubtitle");
 
   const { rows, active, totalValue, byLedger, byCounty } = dashboardStats();
+  const ops = dashboardOps(active);
   const ledgersWithData = Object.values(byLedger).filter(Boolean).length;
 
   if (subEl) {
     subEl.textContent = rows.length
-      ? `${rows.length} propert${rows.length === 1 ? "y" : "ies"} across ${ledgersWithData || 1} ledger${ledgersWithData === 1 ? "" : "s"} in ${byCounty.size} count${byCounty.size === 1 ? "y" : "ies"}.`
+      ? `${STATE_INFO.name}: ${active.length} active propert${active.length === 1 ? "y" : "ies"} across ${ledgersWithData || 1} ledger${ledgersWithData === 1 ? "" : "s"} in ${byCounty.size} count${byCounty.size === 1 ? "y" : "ies"}.`
       : "Nothing tracked yet - properties will show up here as counties are harvested.";
   }
 
-  // Icon chip + figure, matching the reference design's Dashboard tiles -
-  // svgIcon() names are the existing shared icon set (see ICON_PATHS), not
-  // new art, so every other caller of these icons stays visually consistent.
-  statsEl.innerHTML = `
-    <div class="stat-tile"><span class="stat-tile-icon">${svgIcon("building")}</span><div><div class="stat-tile-label">Total Properties</div><div class="stat-tile-val">${rows.length}</div></div></div>
-    <div class="stat-tile"><span class="stat-tile-icon accent">${svgIcon("check")}</span><div><div class="stat-tile-label">Active</div><div class="stat-tile-val accent">${active.length}</div></div></div>
-    <div class="stat-tile"><span class="stat-tile-icon">${svgIcon("dollar")}</span><div><div class="stat-tile-label">Sum of county values on file</div><div class="stat-tile-val">${fmtShort(totalValue)}</div><div class="stat-tile-sub">Sum of just/assessed value, active listings only</div></div></div>
-    <div class="stat-tile"><span class="stat-tile-icon">${svgIcon("pin")}</span><div><div class="stat-tile-label">Counties</div><div class="stat-tile-val">${byCounty.size}</div></div></div>`;
+  // One tile per ledger (active count, counties with inventory) - each opens
+  // the List page on that ledger - plus the counties tile. The old "sum of
+  // county values" tile is gone: a total of other people's appraisals is not
+  // an operating number.
+  const countiesByLedger = {};
+  LEDGER_ORDER.forEach(k => { countiesByLedger[k] = new Set(); });
+  active.forEach(p => { if (countiesByLedger[p.source]) countiesByLedger[p.source].add(p.county || "Unknown"); });
+  statsEl.innerHTML = LEDGER_ORDER.map(key => {
+    const cfg = ledgerCopy(key);
+    const n = active.filter(p => p.source === key).length;
+    const c = countiesByLedger[key].size;
+    return `<button class="stat-tile stat-tile-btn" type="button" data-go-ledger="${esc(key)}" data-ledger-tile="${esc(key)}" title="Open the List page on ${esc(cfg.title)}"><span class="stat-tile-icon${key === "auction" ? " accent" : ""}">${LEDGERS[key].icon}</span><div><div class="stat-tile-label">${esc(cfg.title)}</div><div class="stat-tile-val${key === "auction" ? " accent" : ""}">${n}</div><div class="stat-tile-sub">active · ${c} count${c === 1 ? "y" : "ies"}${WITHHELD[key] ? ` · ${WITHHELD[key]} withheld` : ""}</div></div></button>`;
+  }).join("") +
+    `<div class="stat-tile"><span class="stat-tile-icon">${svgIcon("pin")}</span><div><div class="stat-tile-label">Counties with inventory</div><div class="stat-tile-val">${byCounty.size}</div><div class="stat-tile-sub">${esc(STATE_INFO.name)} · ${rows.length} tracked incl. no-longer-listed</div></div></div>`;
+  statsEl.querySelectorAll("[data-go-ledger]").forEach(btn => btn.addEventListener("click", () => { showPage("list"); setLedger(btn.dataset.goLedger); }));
+
+  // Needs attention: only what the data can actually say.
+  const attEl = document.getElementById("dashAttentionRows");
+  if (attEl) {
+    const items = [];
+    items.push(dashRow("gavel", `Auctions in the next 7 days`, ops.soon.length
+      ? `<span><b>${ops.soon.length}</b> propert${ops.soon.length === 1 ? "y" : "ies"} · ${ops.soonDates.size} sale date${ops.soonDates.size === 1 ? "" : "s"}</span>`
+      : `<span>None scheduled</span>`, ' data-att="soon"'));
+    items.push(dashRow("bell", `Watchlist properties no longer listed`, ops.watchedGone.length
+      ? `<span><b>${ops.watchedGone.length}</b> - left the source; why is not recorded</span>`
+      : `<span>None</span>`, ' data-att="watched-gone"'));
+    items.push(dashRow("layers", `Available rows not read from the source in 14+ days`, ops.laft.length
+      ? `<span><b>${ops.laftStale.length}</b> of ${ops.laft.length}${ops.laftNeverRead.length ? ` · ${ops.laftNeverRead.length} never read by a lifecycle run` : ""}</span>`
+      : `<span>No Available rows</span>`, ' data-att="stale"'));
+    items.push(dashRow("refresh", `Sources unavailable or in back-off`, UNIT_FRESHNESS === null
+      ? `<span>Not recorded on this deployment</span>`
+      : `<span><b>${ops.unavailable.length}</b> unavailable at the last read · <b>${ops.backoff.length}</b> in back-off</span>`, ' data-att="sources"'));
+    attEl.innerHTML = items.join("");
+  }
+
+  // Recent: new rows where a first-seen date exists, rows read from the
+  // source where a per-row read date exists - and "Not tracked" where the
+  // pipeline records neither for a ledger.
+  const recentEl = document.getElementById("dashRecentRows");
+  if (recentEl) {
+    recentEl.innerHTML = LEDGER_ORDER.map(key => {
+      const cfg = ledgerCopy(key);
+      const n = active.filter(p => p.source === key).length;
+      if (!n) return dashRow(key === "auction" ? "gavel" : key === "laft" ? "layers" : "doc", esc(cfg.title), `<span>No active rows</span>`, ` data-recent="${esc(key)}"`);
+      const first = ops.firstSeenTracked[key] ? `<span><b>${ops.newByLedger[key]}</b> first recorded in the last 7 days</span>` : `<span>First-recorded date not tracked</span>`;
+      const seen = ops.lastSeenTracked[key] ? `<span><b>${ops.seenByLedger[key]}</b> read from the source in the last 7 days</span>` : `<span>Per-row read date not tracked</span>`;
+      return dashRow(key === "auction" ? "gavel" : key === "laft" ? "layers" : "doc", esc(cfg.title), first + seen, ` data-recent="${esc(key)}"`);
+    }).join("");
+  }
+
+  // Verified purchase paths (Available): typed from evidence vs not yet verified.
+  const pathEl = document.getElementById("dashPathRows");
+  if (pathEl) {
+    if (!ops.laft.length) pathEl.innerHTML = `<div class="dash-empty">No Available rows to evaluate.</div>`;
+    else {
+      const notYet = ops.laft.length - ops.typed.length;
+      const typeRows = Array.from(ops.byType.entries()).sort((a, b) => b[1] - a[1])
+        .map(([t, n]) => dashRow("check", esc(PURCHASE_PATH_TYPE_LABELS[t] || t), `<span><b>${n}</b></span>`, ` data-path-type="${esc(t)}"`)).join("");
+      pathEl.innerHTML =
+        dashRow("check", `Verified purchase path from the source's own page`, `<span><b>${ops.typed.length}</b> of ${ops.laft.length}</span>`, ' data-path="verified"') +
+        typeRows +
+        dashRow("eye", `Not yet verified - no purchase path established from evidence`, `<span><b>${notYet}</b></span>`, ' data-path="unverified"') +
+        `<p class="dash-note">A path is recorded only from a county page or document that was read and reviewed; no online purchase link is ever inferred.</p>`;
+    }
+  }
 
   if (countyEl) {
     const countyRows = Array.from(byCounty.entries()).sort((a, b) => b[1].count - a[1].count).slice(0, 8);
     countyEl.innerHTML = countyRows.length
-      ? countyRows.map(([county, v]) => `
-        <div class="dash-row"><div class="dash-row-name">${svgIcon("pin")}${esc(county)} County</div><div class="dash-row-vals"><span><b>${v.count}</b> active</span><span>${fmtShort(v.value)}</span></div></div>`).join("")
+      ? countyRows.map(([county, v]) => {
+        const per = LEDGER_ORDER.map(k => { const n = active.filter(p => p.source === k && (p.county || "Unknown") === county).length; return n ? `${n} ${ledgerCopy(k).title}` : ""; }).filter(Boolean).join(" · ");
+        return dashRow("pin", `${esc(county)} County`, `<span><b>${v.count}</b> active</span><span class="dash-row-sub">${esc(per)}</span>`);
+      }).join("")
       : `<div class="dash-empty">No active properties yet.</div>`;
   }
 
