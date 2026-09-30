@@ -338,7 +338,10 @@ def test_wf01_job_selector_gates_every_job_and_never_schedules_texas():
     wf = yaml.safe_load((REPO / ".github/workflows/harvest-and-sync.yml").read_text(encoding="utf-8"))
     on = wf.get("on") or wf.get(True)
     job = on["workflow_dispatch"]["inputs"]["job"]
-    assert job["default"] == "all" and job["options"] == ["all", "deeds", "certificates", "laft", "texas", "backup"]
+    assert job["default"] == "all" and job["options"] == ["all", "deeds", "certificates", "laft", "texas", "backup", "evidence"]
+    # The evidence capture is manual-only and is NOT part of "all" (it is a
+    # read of county pages, not a harvest).
+    assert wf["jobs"]["evidence"]["if"] == "github.event_name == 'workflow_dispatch' && github.event.inputs.job == 'evidence'"
     assert on["schedule"] == [{"cron": "0 10 * * *"}, {"cron": "0 22 * * *"}, {"cron": "0 12 * * *"}]
     for name, crons in (("deeds", ("0 10 * * *", "0 22 * * *")), ("certificates", ("0 12 * * *",)), ("laft", ("0 12 * * *",)), ("backup", ("0 12 * * *",))):
         cond = wf["jobs"][name]["if"]
