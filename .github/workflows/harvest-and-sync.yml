@@ -667,6 +667,23 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 scripts/unit_freshness.py --status out/harvest_laft_status.json --state FL
 
+      - name: Publication gate (source-level customer publication, migration 022)
+        # scripts/publication_gate.py: one decision per SOURCE from
+        # data/county_source_registry.csv (harvesters/governance/publication.py),
+        # written to out/public/publication-gate.json with the AVAILABLE
+        # measurement (observed / publishable / restricted / unreviewed /
+        # blocked / with purchase path / stale - counts only) and, once
+        # migration 022's column exists, propagated to
+        # properties.publication_status so the frontend can withhold
+        # restricted inventory. Probes for 022 and plans only until then.
+        # Never fails the job; never activates a source.
+        if: always()
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/publication_gate.py --state FL
+
   texas:
     name: Harvest Texas tax sales (LGBS) + sync - manual only, not yet on cron
     runs-on: ubuntu-latest

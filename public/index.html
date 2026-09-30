@@ -408,6 +408,19 @@ switching this off brings every hidden-by-this-toggle parcel straight back. -->
 <label class="tog"><input type="checkbox" id="hideSliversOnly"> <span>Hide slivers &lt; 0.10 acre</span></label>
 <label class="tog"><input type="checkbox" id="hideBareLandOnly"> <span>Hide zero-improvement parcels</span></label>
 </div>
+<!-- Available ledger only (2026-09-30, AVAILABLE commercialization): filters on
+fields the Available rows actually carry - purchase path (purchase_url +
+purchase_url_kind), amount (purchase_amount_kind), availability status
+(inventory_status, migration 021), acreage (FDOR tax roll) and the last read
+from the source (last_seen_at). Hidden on the other ledgers by
+applyLedgerChrome(); filtering is automatic, no Search button. -->
+<div class="filters-row" id="availableFilters" hidden>
+<div class="field"><span class="field-label">Purchase path</span><select id="availPathFilter" aria-label="Purchase path"><option value="any">Any</option><option value="online">Online link for the property</option><option value="instructions">Instructions / application page</option><option value="none">No online path on file</option></select></div>
+<div class="field"><span class="field-label">Amount</span><select id="availAmountKindFilter" aria-label="Amount"><option value="any">Any</option><option value="published">Published by the source</option><option value="unpublished">Not published</option></select></div>
+<div class="field"><span class="field-label">Availability</span><select id="availStatusFilter" aria-label="Availability status"><option value="any">Any</option><option value="available_otc">Available over the counter</option><option value="state_held">State-held</option><option value="resale_inventory">Held for a future resale</option><option value="struck_off">Struck off</option><option value="closed">Left the list</option><option value="unknown">Not published</option></select></div>
+<div class="field"><span class="field-label">Acreage min</span><input type="number" id="acreageMin" placeholder="0" min="0" step="0.1" inputmode="decimal"></div>
+<label class="tog"><input type="checkbox" id="availSeenRecently"> <span>Read from the source in the last 14 days</span></label>
+</div>
 <button class="reset-btn" id="hiddenListBtn" type="button" hidden><span id="hiddenCount">0</span> hidden - view &amp; recover</button>
 </div>
 

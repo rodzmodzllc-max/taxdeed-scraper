@@ -731,25 +731,35 @@ def fetch_county_batch(county, limit, outstanding=None):
     # not lost - they are still unstamped, and a later run's window covers
     # them. This does not weaken the anti-starvation design; it completes it,
     # extending the same fairness from between-counties to within-a-county.
-    offset = 0
-    if outstanding and outstanding > limit:
-        offset = random.randrange(0, outstanding - limit + 1)
-    params = {
-        # `source` is read so main() can keep one miss streak per ledger
-        # (Phase 69) - it is never filtered on here; every ledger's rows
-        # still share the county's slice exactly as before.
-        "select": "id,source,parcel,address,county,prop_type,market,assessed,owner_name,latitude,longitude,field_provenance",
+    # AVAILABLE first (2026-09-30, AVAILABLE commercialization): the county's
+    # slice is filled from its Lands Available rows before any other ledger's
+    # - a purchasable-now parcel with no tax-roll facts is the costliest gap
+    # for a customer. The random window applies within each pass, so the
+    # anti-starvation design above is kept, per ledger. Every ledger still
+    # shares the county's one slice; nothing is enriched twice.
+    select = "id,source,parcel,address,county,prop_type,market,assessed,owner_name,latitude,longitude,field_provenance"
+    base = {
+        "select": select,
         "state": f"eq.{ENRICH_STATE}",
         "county": f"eq.{county}",
-        "and": "(parcel.not.is.null,parcel.neq.\"\")",
         "fdor_enriched_at": "is.null",
         "order": "id.asc",
-        "offset": str(offset),
-        "limit": str(limit),
     }
-    resp = requests.get(f"{SUPABASE_URL}/rest/v1/properties", headers=HEADERS, params=params, timeout=30)
-    resp.raise_for_status()
-    return resp.json()
+    rows = []
+    for source_filter in ("eq.laft", "neq.laft"):
+        remaining = limit - len(rows)
+        if remaining <= 0:
+            break
+        offset = 0
+        if source_filter == "neq.laft" and outstanding and outstanding > remaining:
+            offset = random.randrange(0, outstanding - remaining + 1)
+        params = dict(base, **{"and": f"(parcel.not.is.null,parcel.neq.\"\",source.{source_filter})",
+                               "offset": str(offset), "limit": str(remaining)})
+        resp = requests.get(f"{SUPABASE_URL}/rest/v1/properties", headers=HEADERS, params=params, timeout=30)
+        resp.raise_for_status()
+        seen = {r.get("id") for r in rows}
+        rows.extend(r for r in resp.json() if r.get("id") not in seen)   # a row never enters the slice twice
+    return rows[:limit]
 
 
 def lookup_fdor(county, parcel):

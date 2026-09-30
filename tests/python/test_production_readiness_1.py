@@ -347,7 +347,8 @@ def test_f01_merge_never_advances_success_on_failure_counts_streaks_and_ignores_
     assert patches[0][1] == {"last_attempt_at": "2026-09-30T10:00:00+00:00", "last_attempt_status": "FAILED", "consecutive_failures": 1}
     report = U.public_report(rec2, {}, at="t")
     assert set(report["units"][0]) == {"state", "source_id", "county", "last_attempt_at", "last_attempt_status", "last_success_at",
-                                       "last_success_row_count", "consecutive_failures", "last_error_category", "ledgers"}
+                                       "last_success_row_count", "consecutive_failures", "last_error_category", "ledgers",
+                                       "backoff", "backoff_reason", "stale", "source_unavailable"}   # 2026-09-30: customer freshness states
 
 
 def test_f02_freshness_script_end_to_end_without_credentials(tmp_path):
@@ -434,6 +435,6 @@ def test_x01_workflow_steps_are_non_blocking_and_after_the_sync():
 
 
 def test_x02_docs_and_service_worker():
-    assert 'const CACHE = "tdw-shell-v47"' in (REPO / "public/sw.js").read_text(encoding="utf-8")
+    assert 'const CACHE = "tdw-shell-v48"' in (REPO / "public/sw.js").read_text(encoding="utf-8")
     model = (REPO / "docs/otc-inventory-model.md").read_text(encoding="utf-8")
     assert "## 16." in model and "inventory_status" in model and "laft_purchase_link_rules.csv" in model

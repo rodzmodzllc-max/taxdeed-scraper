@@ -359,6 +359,23 @@ results.stripHoverLinksToPinWhenPresent = await page.evaluate(() => {
 await page.locator('#exploreStrip .strip-card.sel').click();
 await page.waitForTimeout(150);
 results.previewHiddenAfterSecondStripClick = await page.locator('#explorePreview').isHidden();
+// AVAILABLE commercialization: the Available row (p3, Bay) is not geocoded,
+// so it has a strip card and NO pin (mapping unavailable is stated, never a
+// guessed point); its preview leads with availability, purchase path and the
+// amount kind - every one a stored field or its stated absence.
+await page.selectOption('#mapCountySelect', 'Bay');
+await page.waitForTimeout(400);
+results.bayStripCardCount = await page.locator('#exploreStrip .strip-card').count();
+results.bayPinCount = await page.locator('#exploreMapCanvas .pin').count();
+await page.locator('#exploreStrip .strip-card').first().click();
+await page.waitForTimeout(250);
+results.bayPreviewText = ((await page.locator('#explorePreview').textContent()) || '').replace(/\s+/g, ' ');
+results.bayPreviewHasAvailability = results.bayPreviewText.includes('Availability') && results.bayPreviewText.includes('Available over the counter');
+results.bayPreviewHasPurchasePath = results.bayPreviewText.includes('Purchase path') && results.bayPreviewText.includes('No online purchase link on file');
+results.bayPreviewHasAmountKind = results.bayPreviewText.includes('Amount kind') && results.bayPreviewText.includes('Opening bid');
+delete results.bayPreviewText;
+await page.locator('#exploreStrip .strip-card').first().click();
+await page.waitForTimeout(150);
 results.stripCardSelCountAfterToggleOff = await page.locator('#exploreStrip .strip-card.sel').count();
 
 // "Clear county filter" undoes both halves of that one gesture at once -
@@ -488,8 +505,14 @@ results.cardsAfterHide = await page.locator('.prop-card').count();
 results.hiddenListBtnVisible = await page.locator('#hiddenListBtn').isVisible();
 
 // --- switch to Lands Available tab (fixture p3, Bay county) ---
+// AVAILABLE commercialization: the Available-only filter row is hidden on Auctions.
+results.availFiltersHiddenOnAuctions = await page.locator('#availableFilters').evaluate(el => el.hidden);
 await page.click('.ledger-tab[data-ledger="laft"]');
 await page.waitForTimeout(150);
+results.availFiltersShownOnAvailable = await page.locator('#availableFilters').evaluate(el => !el.hidden);
+// p14's source is RESTRICTED: withheld from the list and counted on the ledger page.
+results.ledgerWithheldText = ((await page.locator('#ledgerWithheld').textContent()) || '').replace(/\s+/g, ' ').trim();
+results.withheldRowNeverRendered = await page.locator('.prop-card[data-pid="p14"]').count();
 results.laftTabOnAfterClick = await page.locator('.ledger-tab[data-ledger="laft"]').evaluate(el => el.classList.contains('on'));
 results.auctionTabOffAfterLaftClick = await page.locator('.ledger-tab[data-ledger="auction"]').evaluate(el => el.classList.contains('on'));
 results.laftCardCount = await page.locator('.prop-card').count();
@@ -512,6 +535,35 @@ results.laftKicker = await page.locator('.prop-card').first().locator('.prop-kic
 // Three ledgers: an Available card leads with its PURCHASE PATH - p3 carries
 // no purchase_url, so the line says so rather than pointing at the list page.
 results.laftLedgerLine = await page.locator('.prop-card').first().locator('.prop-ledger-line > span').evaluateAll(els => els.map(el => Array.from(el.children).map(c => c.textContent.trim()).join(' ')));
+// Available filters (each reads a stored field): purchase path, amount kind,
+// availability status, acreage, recency. p3: no purchase_url, OPENING_BID,
+// available_otc, 1.0 acre, last read 2026-08-11 (older than 14 days).
+const availCounts = {};
+await page.selectOption('#availPathFilter', 'none'); await page.waitForTimeout(150);
+availCounts.pathNone = await page.locator('.prop-card').count();
+await page.selectOption('#availPathFilter', 'online'); await page.waitForTimeout(150);
+availCounts.pathOnline = await page.locator('.prop-card').count();
+await page.selectOption('#availPathFilter', 'any');
+await page.selectOption('#availAmountKindFilter', 'published'); await page.waitForTimeout(150);
+availCounts.amountPublished = await page.locator('.prop-card').count();
+await page.selectOption('#availAmountKindFilter', 'unpublished'); await page.waitForTimeout(150);
+availCounts.amountUnpublished = await page.locator('.prop-card').count();
+await page.selectOption('#availAmountKindFilter', 'any');
+await page.selectOption('#availStatusFilter', 'available_otc'); await page.waitForTimeout(150);
+availCounts.statusAvailable = await page.locator('.prop-card').count();
+await page.selectOption('#availStatusFilter', 'closed'); await page.waitForTimeout(150);
+availCounts.statusClosed = await page.locator('.prop-card').count();
+await page.selectOption('#availStatusFilter', 'any');
+await page.fill('#acreageMin', '0.5'); await page.waitForTimeout(150);
+availCounts.acreageHalf = await page.locator('.prop-card').count();
+await page.fill('#acreageMin', '2'); await page.waitForTimeout(150);
+availCounts.acreageTwo = await page.locator('.prop-card').count();
+await page.fill('#acreageMin', ''); await page.waitForTimeout(150);
+await page.check('#availSeenRecently'); await page.waitForTimeout(150);
+availCounts.seenRecently = await page.locator('.prop-card').count();
+await page.uncheck('#availSeenRecently'); await page.waitForTimeout(150);
+availCounts.afterReset = await page.locator('.prop-card').count();
+results.availFilterCounts = availCounts;
 // p3 is the one fixture row with homestead:true - the badge should show up
 // right on the card, not just buried in the detail page, since it's exactly
 // the kind of risk flag a bidder needs before clicking into anything.
@@ -1958,7 +2010,10 @@ results.dashWatchNoNotificationsClaim = ((await dashPage.locator('#dashWatchChan
 results.dashUnitLedgerHeads = await dashPage.locator('#dashUnitRows .unit-head').evaluateAll(els => els.map(e => e.dataset.ledgerHead));
 results.dashUnitRowsUnderAvailable = await dashPage.locator('#dashUnitRows .unit-head[data-ledger-head="laft"] ~ .unit-row').evaluateAll(els => els.map(e => e.dataset.county));
 results.dashUnitEmptyGroups = await dashPage.locator('#dashUnitRows .unit-empty').count();
-results.dashLedgerFreshAvailable = ((await dashPage.locator('#dashLedgerRows .dash-row[data-ledger-row="laft"] .dash-row-fresh').textContent()) || '').trim();
+results.dashLedgerFreshAvailable = ((await dashPage.locator('#dashLedgerRows .dash-row[data-ledger-row="laft"] .dash-row-fresh:not(.dash-row-withheld)').textContent()) || '').trim();
+results.dashLedgerWithheldAvailable = ((await dashPage.locator('#dashLedgerRows .dash-row[data-ledger-row="laft"] .dash-row-withheld').textContent()) || '').trim();
+results.dashLedgerWithheldAuctionsAbsent = await dashPage.locator('#dashLedgerRows .dash-row[data-ledger-row="auction"] .dash-row-withheld').count();
+results.dashUnitBayUnavailable = await dashPage.locator('#dashUnitRows .unit-row[data-county="Bay"]').getAttribute('data-unavailable');
 results.dashLedgerFreshAuctionsAbsent = await dashPage.locator('#dashLedgerRows .dash-row[data-ledger-row="auction"] .dash-row-fresh').count();
 results.dashLedgerRowTitles = await dashPage.locator('#dashLedgerRows .dash-row-name').evaluateAll(els => els.map(e => e.textContent.trim()));
 // The sidebar carries one entry per ledger (Auctions / Available / Liens &
@@ -2213,6 +2268,13 @@ const flInvPage = await newPage({ viewport: { width: 1200, height: 900 } });
 await flInvPage.goto(BASE_URL + '#/lands/p3', { waitUntil: 'networkidle' });
 await flInvPage.waitForTimeout(500);
 results.flInventoryLabels = await flInvPage.locator('#detailModalInner .inventory-card .kv-label').allTextContents();
+// AVAILABLE commercialization: the provenance card says what the availability
+// evidence is, when the row was last verified, the source date, where the
+// purchase path comes from - and carries the published / derived / not
+// published legend. p3's otc_provenance mode is "unknown" (nothing verified).
+results.flAvailabilityEvidence = await flInvPage.locator('#detailModalInner .prov-available .prov-line').evaluateAll(els => els.map(e => e.querySelector('.prov-k').textContent.trim() + ' | ' + e.querySelector('.prov-v').textContent.replace(/\s+/g, ' ').trim()));
+results.flProvLegendCount = await flInvPage.locator('#detailModalInner .prov-legend').count();
+results.flPurchaseModeLine = await flInvPage.locator('#detailModalInner .prov-lines:not(.prov-available) .prov-line').evaluateAll(els => (els.map(e => e.querySelector('.prov-k').textContent.trim() + ' | ' + e.querySelector('.prov-v').textContent.trim()).find(t => t.startsWith('How to purchase')) || ''));
 // Production-readiness: the normalized status row (migration 021) and the
 // per-field / per-row provenance table on the same page.
 results.flInventoryStatus = await invVal(flInvPage, 'Status');
@@ -2455,7 +2517,28 @@ const EXPECTED = {
   cardFactsFirst: ['Location Not yet geocoded', 'Flood Not checked', 'Value ÷ bid 18.0×'],
   cardFactsMutedCountFirst: 2,
   laftKicker: 'Bay, FL · Available · Lands Available list · fixed price',
-  laftLedgerLine: ['Purchase path No online purchase link on file', 'Amount Opening bid'],   // p3's purchase_amount_kind is OPENING_BID (the list's own label)
+  laftLedgerLine: ['Purchase path No online purchase link on file', 'Amount Opening bid'],
+  availFiltersHiddenOnAuctions: true,
+  availFiltersShownOnAvailable: true,
+  ledgerWithheldText: '1 record withheld - source not approved for customer publication (restricted or not yet reviewed). Counted, not shown.',
+  withheldRowNeverRendered: 0,
+  availFilterCounts: { pathNone: 1, pathOnline: 0, amountPublished: 1, amountUnpublished: 0, statusAvailable: 1, statusClosed: 0, acreageHalf: 1, acreageTwo: 0, seenRecently: 0, afterReset: 1 },
+  flAvailabilityEvidence: [
+    'Availability evidence | LIST_PRESENCE: on the county\'s Lands Available list at the last read (F.S. 197.502(7)) · observed Aug 11, 2026',
+    'Last verified | Read from the source Aug 11, 2026',
+    'Source date | List dated Aug 10, 2026',
+    'Purchase link source | No online purchase link on file'
+  ],
+  flProvLegendCount: 1,
+  flPurchaseModeLine: 'How to purchase | Not yet verified',
+  dashLedgerWithheldAvailable: '1 withheld (source not approved for publication)',
+  dashLedgerWithheldAuctionsAbsent: 0,
+  dashUnitBayUnavailable: '1',
+  bayStripCardCount: 1,
+  bayPinCount: 0,
+  bayPreviewHasAvailability: true,
+  bayPreviewHasPurchasePath: true,
+  bayPreviewHasAmountKind: true,   // p3's purchase_amount_kind is OPENING_BID (the list's own label)
   cardLedgerLineFirst: ['Auction result Sale not yet held'],
   // Phase 66: "At a glance" summary + section nav + photo states + show-on-map
   oppCellLabels: ['What', 'Where', 'When', 'Minimum bid', 'Value on file', 'Missing'],
@@ -2866,7 +2949,7 @@ const EXPECTED = {
   relatedOpenLandsOnAuctionRow: '1 Main St',
   auctionDetailRelated: ['certificate:p4'],
   certStatusLines: ['Status On the county-held list', 'Issued Jun 1, 2023 · tax year 2022', 'Redemption Not published by the source', 'Property Parcel # 111 · 1 record in other ledgers'],
-  dashUnitStaleText: 'last read 2h ago (failed) · last complete read 3d ago · 3 rows at that read · 3 consecutive failed attempts',
+  dashUnitStaleText: 'last read 2h ago (failed) · last complete read 3d ago · 3 rows at that read · 3 consecutive failed attempts · source unavailable at the last attempt - inventory kept, nothing closed · no complete read in the last 36 hours · back-off: attempted at most once per 48 hours until a read succeeds',
   dashUnitCurrentText: 'last read 2h ago (complete) · last complete read 2h ago · 14 rows at that read',
   dashUnitMissingColumns: true,
   dashUnitMissingColumnsNoRows: 0,
@@ -2940,11 +3023,11 @@ const EXPECTED = {
   flInventoryGroups: ['Inventory', 'Property', 'Purchase path'],
   flInventoryStatus: 'Available over the counter Basis: list presence · observed Aug 11, 2026',
   flProvenanceRows: [
-    'acreage|Florida Department of Revenue (NAL tax roll)|Parcel match: FDOR alternate key|Recorded Aug 12, 2026',
-    'assessed|Florida Department of Revenue (NAL tax roll)|Parcel match: FDOR parcel identifier|Recorded Aug 12, 2026',
+    'acreage|Florida Department of Revenue (NAL tax roll)|Derived by our system - parcel match: FDOR alternate key|Recorded Aug 12, 2026',
+    'assessed|Florida Department of Revenue (NAL tax roll)|Derived by our system - parcel match: FDOR parcel identifier|Recorded Aug 12, 2026',
     'legal_desc|County list (Lands Available) fl_laft_pioneer|Published by the source|List as of Aug 10, 2026'
   ],
-  flProvenanceLines: ['Read by', 'List read from', 'Retrieved', 'List date', 'Amount', 'Purchase path', 'Inventory type', 'Status wording'],
+  flProvenanceLines: ['Availability evidence', 'Last verified', 'Source date', 'Purchase link source', 'Read by', 'List read from', 'Retrieved', 'List date', 'Amount', 'Purchase path', 'How to purchase', 'Inventory type', 'Status wording'],   // the availability-evidence block leads; 'How to purchase' = the source-level mode,
   flProvenancePurchaseLine: 'no purchase path published by the source or verified in the registry - none invented',
   flProvenanceFresh: 'Last read from the source Aug 11, 2026 · list dated Aug 10, 2026',
   flProvenanceNoScoreWords: true,
@@ -2965,7 +3048,7 @@ const EXPECTED = {
   flInventoryOwner: 'Bob',
   flInventoryAssessed: '$60,000.00 Tax year 2024',
   flInventoryTaxable: 'Not on file',
-  flInventoryAcreage: 'Not on file',
+  flInventoryAcreage: '1.00 ac',   // p3 carries an FDOR acreage since the Available-filter fixture change
   flInventoryLandUse: 'Condo',
   flInventoryHomestead: 'Yes (per the list)',
   flInventoryPurchaseActionCount: 0,

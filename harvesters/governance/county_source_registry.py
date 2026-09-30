@@ -61,7 +61,21 @@ COLUMNS = [
 #                         inventory (LGBS) names both; a blocked vendor
 #                         feeds none. Blank = not classified (only allowed
 #                         on a non-production row).
-OPTIONAL_COLUMNS = ["publishing_unit", "publishing_unit_name", "amount_kind", "update_frequency", "source_terminology", "ledgers"]
+#   publication_status    (2026-09-30, AVAILABLE commercialization) whether
+#                         customers may see this source's rows: APPROVED /
+#                         APPROVED_GRANDFATHERED / UNREVIEWED / RESTRICTED /
+#                         BLOCKED - harvesters/governance/publication.py.
+#                         Blank = UNREVIEWED. Source-level, never per row.
+#   restrictions          why a RESTRICTED source is restricted (required).
+#   purchase_path_mode    (2026-09-30) what the source publishes as the way
+#                         to buy: online_property / online_instructions /
+#                         application (with purchase_url + kind) or
+#                         in_person_only / phone_mail / none (no URL; the
+#                         source wording in purchase_path_evidence) or
+#                         unknown (blank; nothing verified). scripts/laft_purchase_paths.py.
+#   purchase_path_evidence the source's own wording for a non-URL mode.
+OPTIONAL_COLUMNS = ["publishing_unit", "publishing_unit_name", "amount_kind", "update_frequency", "source_terminology", "ledgers",
+                    "publication_status", "restrictions", "purchase_path_mode", "purchase_path_evidence"]
 EXTENDED_COLUMNS = COLUMNS + OPTIONAL_COLUMNS
 LEDGER_VALUES = ("AUCTIONS", "AVAILABLE", "LIENS_CERTIFICATES")
 # Inventory types that describe AVAILABLE inventory; an AUCTIONS-only or
@@ -204,6 +218,10 @@ class CountySourceRow:
     update_frequency: str = ""
     source_terminology: str = ""
     ledgers: str = ""
+    publication_status: str = ""
+    restrictions: str = ""
+    purchase_path_mode: str = ""
+    purchase_path_evidence: str = ""
 
     @property
     def ledger_set(self) -> frozenset[str]:
@@ -291,6 +309,20 @@ def validate_row(row: CountySourceRow, *, known_counties: dict[str, frozenset[st
         problems.append(f"inventory_type {row.inventory_type!r} on a source that does not feed AVAILABLE")
     if row.source_id in BLOCKED_SOURCE_IDS and row.ledger_set:
         problems.append("blocked vendor row must feed no ledger")
+    # Customer publication (harvesters/governance/publication.py): explicit,
+    # validated against governance; never implied by the source being a
+    # government site.
+    from . import publication as _pub
+    problems.extend(_pub.publication_problems(row))
+    if row.purchase_path_mode or row.purchase_path_evidence:
+        import sys as _sys
+        from pathlib import Path as _Path
+        _scripts = str(_Path(__file__).resolve().parents[2] / "scripts")
+        if _scripts not in _sys.path:
+            _sys.path.insert(0, _scripts)
+        import laft_purchase_paths as _pp
+        problems.extend(_pp.mode_problems(row.purchase_path_mode, purchase_url=row.purchase_url, purchase_url_kind=row.purchase_url_kind,
+                                          evidence=row.purchase_path_evidence))
     for name in ("canonical_url", "document_url", "purchase_url"):
         value = getattr(row, name)
         if value and not value.startswith("https://"):
@@ -352,7 +384,8 @@ def load_registry(path: Path | str = REGISTRY_PATH) -> list[CountySourceRow]:
     COLUMNS; a fixture may carry `publishing_unit`)."""
     with open(path, newline="", encoding="utf-8") as fh:
         reader = csv.DictReader(fh)
-        accepted = (COLUMNS, COLUMNS + OPTIONAL_COLUMNS[:1], COLUMNS + OPTIONAL_COLUMNS[:5], EXTENDED_COLUMNS)
+        accepted = (COLUMNS, COLUMNS + OPTIONAL_COLUMNS[:1], COLUMNS + OPTIONAL_COLUMNS[:5], COLUMNS + OPTIONAL_COLUMNS[:6],
+                    COLUMNS + OPTIONAL_COLUMNS[:8], EXTENDED_COLUMNS)
         if reader.fieldnames not in accepted:
             raise ValueError(f"{path}: columns {reader.fieldnames} != {COLUMNS} (+ optional {OPTIONAL_COLUMNS})")
         present = list(reader.fieldnames)
@@ -403,7 +436,7 @@ def to_db_rows(rows: list[CountySourceRow], schema: str = "018") -> list[dict]:
     018 check constraint does not allow (anything but FL/TX) is refused too.
     schema="020" (migration 020, NOT applied): EXTENDED_COLUMNS, with
     publishing_unit defaulting to COUNTY."""
-    if schema not in ("018", "020"):
+    if schema not in ("018", "020", "022"):
         raise ValueError(f"unknown registry schema {schema!r}")
     out = []
     for r in rows:
@@ -415,7 +448,12 @@ def to_db_rows(rows: list[CountySourceRow], schema: str = "018") -> list[dict]:
                 raise ValueError(f"{r.state}/{r.county}: migration 018's state check allows FL and TX only (020 widens it)")
             out.append({c: (getattr(r, c) or None) for c in COLUMNS})
         else:
-            d = {c: (getattr(r, c) or None) for c in EXTENDED_COLUMNS}
+            # 020: EXTENDED_COLUMNS minus the two 022 columns; 022: all of them,
+            # with publication_status defaulting to UNREVIEWED (the table default).
+            cols = EXTENDED_COLUMNS if schema == "022" else [c for c in EXTENDED_COLUMNS if c not in ("publication_status", "restrictions", "purchase_path_mode", "purchase_path_evidence")]
+            d = {c: (getattr(r, c) or None) for c in cols}
             d["publishing_unit"] = unit
+            if schema == "022":
+                d["publication_status"] = r.publication_status or "UNREVIEWED"
             out.append(d)
     return out

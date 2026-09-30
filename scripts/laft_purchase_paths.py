@@ -51,6 +51,22 @@ RULES_PATH = REPO / "data" / "laft_purchase_link_rules.csv"
 EVIDENCE_PATH = REPO / "out" / "public" / "laft-link-evidence.json"
 
 PURCHASE_URL_KINDS = ("purchase_instructions", "offer_form", "bid_form", "application_form", "online_purchase")
+# Purchase-path MODES (2026-09-30, AVAILABLE commercialization): what the
+# SOURCE publishes as the way to buy, at source level
+# (county_source_registry.purchase_path_mode). The online modes carry a URL
+# (purchase_url + purchase_url_kind); in_person_only / phone_mail carry no
+# URL and MUST cite the source wording (purchase_path_evidence); none = the
+# source says there is no path; unknown = nothing verified (the default,
+# and what every Florida production source carries until its page is read).
+PURCHASE_PATH_MODES = ("online_property", "online_instructions", "application", "in_person_only", "phone_mail", "none", "unknown")
+MODE_FOR_KIND = {"online_purchase": "online_property", "offer_form": "online_property", "bid_form": "online_property",
+                 "purchase_instructions": "online_instructions", "application_form": "application"}
+NON_URL_MODES = frozenset({"in_person_only", "phone_mail", "none", "unknown"})
+# Hosts that can never be a purchase path: search engines and the blocked
+# Texas vendors (harvesters/governance/registry.py). A URL is also refused
+# when it is a bare homepage, the list page or the document itself.
+UNTRUSTED_HOST_SUFFIXES = ("google.com", "bing.com", "duckduckgo.com", "yahoo.com", "search.brave.com",
+                           "pbfcm.com", "mvbalaw.com", "govease.com", "ctsa.com")
 # The kinds the app presents as an action for THIS parcel (app.js
 # PROPERTY_PURCHASE_KINDS / laft_lifecycle.PROPERTY_PURCHASE_KINDS);
 # purchase_instructions and application_form are process pages.
@@ -221,17 +237,52 @@ def link_evidence(links_by_row: list[list[Link]], *, list_url: str | None, docum
 # ---------------------------------------------------------------------------
 # Apply: only a verified rule turns a link into a purchase path
 # ---------------------------------------------------------------------------
-def acceptable_purchase_url(href: str, *, list_url: str | None, document_url: str | None) -> bool:
-    if not href.startswith("https://"):
-        return False
+def untrusted_reason(href: str, *, list_url: str | None = None, document_url: str | None = None) -> str | None:
+    """Why a URL cannot be a purchase path, or None when it is acceptable.
+    Nothing here makes a URL a purchase path - only an evidence-backed rule
+    or a registry row does; this is the refusal side."""
+    if not isinstance(href, str) or not href.startswith("https://"):
+        return "not https"
     if href in (list_url, document_url):
-        return False
+        return "the list page or the document itself"
     parts = urlsplit(href)
-    if not parts.hostname:
-        return False
+    host = (parts.hostname or "").lower()
+    if not host:
+        return "no host"
     if parts.path in ("", "/") and not parts.query:
-        return False            # a bare homepage is never a purchase path
-    return True
+        return "a bare homepage"
+    if any(host == s or host.endswith("." + s) for s in UNTRUSTED_HOST_SUFFIXES):
+        return f"untrusted host {host} (search engine or blocked vendor)"
+    if parts.path.lower().startswith(("/search", "/results")) and parts.query and any(k in parts.query.lower() for k in ("q=", "query=", "search=")):
+        return "a search-results page"
+    return None
+
+
+def acceptable_purchase_url(href: str, *, list_url: str | None, document_url: str | None) -> bool:
+    return untrusted_reason(href, list_url=list_url, document_url=document_url) is None
+
+
+def mode_problems(mode: str, *, purchase_url: str, purchase_url_kind: str, evidence: str) -> list[str]:
+    """Validation of a source-level purchase-path mode against its URL, kind
+    and evidence (used by the registry validator)."""
+    problems: list[str] = []
+    mode = (mode or "").strip() or "unknown"
+    if mode not in PURCHASE_PATH_MODES:
+        return [f"purchase_path_mode {mode!r}"]
+    if mode in NON_URL_MODES:
+        if mode in ("in_person_only", "phone_mail", "none") and not (evidence or "").strip():
+            problems.append(f"purchase_path_mode {mode} must cite the source wording (purchase_path_evidence)")
+        if purchase_url and mode != "unknown":
+            problems.append(f"purchase_path_mode {mode} with a purchase_url")
+    else:
+        if not purchase_url or not purchase_url_kind:
+            problems.append(f"purchase_path_mode {mode} needs purchase_url + purchase_url_kind")
+        elif MODE_FOR_KIND.get(purchase_url_kind) != mode:
+            problems.append(f"purchase_path_mode {mode} does not match purchase_url_kind {purchase_url_kind!r}")
+        reason = untrusted_reason(purchase_url) if purchase_url else None
+        if reason:
+            problems.append(f"purchase_url is {reason}")
+    return problems
 
 
 def apply_rules(record: dict, links: list[Link], rules: list[Rule], *, state: str, source_id: str,

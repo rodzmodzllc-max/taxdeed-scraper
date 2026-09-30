@@ -26,6 +26,10 @@ const FIXTURE_PROPERTIES = [
   // purchase_amount + purchase_amount_kind, last_seen_at).
   { id: "p3", source: "laft", county: "Bay", case_no: "C-1", parcel: "333", address: "3 Oak Ave", owner_name: "Bob", bid: 2000, assessed: 60000, market: 61000, value_year: 2024, land_value: 61000, lot_sqft: 43560, last_sale_price: 100, last_sale_year: 2007, status: "available", lien_level: "unscreened", lien_note: "", prop_type: "Condo", sale_date: null, homestead: true, url_auction: "https://x", url_auction_kind: "county", updated_at: "2026-08-11T00:00:00Z",
     inventory_type: "POST_SALE_FIXED_PRICE", source_authority: "GOVERNMENT_PLATFORM", source_id: "fl_laft_pioneer", list_url: "https://x", purchase_amount: 2000, purchase_amount_kind: "OPENING_BID", last_seen_at: "2026-08-11T00:00:00Z",
+    // AVAILABLE commercialization (2026-09-30): the source's publication
+    // decision (migration 022) and an FDOR acreage, so the Available filters
+    // and the withholding path have real fields to read.
+    publication_status: "APPROVED_GRANDFATHERED", acreage: 1.0,
     // Enrichment phase: the list-published fields scripts/laft_source_fields.py
     // carries (certificate number, migration 019's two dates) plus the
     // document/currentness columns the lifecycle writes. purchase_url stays
@@ -43,7 +47,7 @@ const FIXTURE_PROPERTIES = [
       assessed: { source: "fdor_nal", recorded_at: "2026-08-12T10:00:00Z", matched_field: "PARCEL_ID" },
       acreage: { source: "fdor_nal", recorded_at: "2026-08-12T10:00:00Z", matched_field: "ALT_KEY" }
     },
-    otc_provenance: { harvester: "fl_laft_pioneer", list_url: "https://x", retrieved_at: "2026-08-11T06:00:00Z",
+    otc_provenance: { harvester: "fl_laft_pioneer", list_url: "https://x", retrieved_at: "2026-08-11T06:00:00Z", purchase_path_mode: "unknown",
       purchase_amount: "source column/field: OPENING_BID", list_as_of: "stated by the list document/filename",
       purchase_url: "no purchase path published by the source or verified in the registry - none invented",
       inventory_type: "harvester constant (F.S. 197.502(7) Lands Available list)",
@@ -90,6 +94,13 @@ const FIXTURE_PROPERTIES = [
   // exact "still shows as active for a week after the auction" bug report.
   // Must NOT appear in the default ledger view even though status is "active".
   { id: "p13", source: "auction", county: "Alachua", case_no: "L-1", parcel: "1212", address: "6 Past Due Ln", owner_name: "Lin Cho", bid: 5000, assessed: 60000, market: 70000, status: "active", lien_level: "clean", lien_note: "", prop_type: "House", sale_date: futureDate(-6), homestead: false, url_auction: "https://x", url_auction_kind: "sale", updated_at: "2026-08-10T00:00:00Z" },
+  // AVAILABLE commercialization (2026-09-30): an Available row whose SOURCE is
+  // RESTRICTED (migration 022's publication_status, propagated from the
+  // registry - here a source under legal review). The frontend must withhold
+  // it from the list, the counts, the map and the export, and say so on the
+  // Available ledger page ("1 record withheld"). Never rendered as inventory.
+  { id: "p14", source: "laft", county: "Broward", case_no: "R-1", parcel: "777", address: "7 Restricted Rd", owner_name: "Withheld Source", bid: 3000, assessed: 40000, market: 41000, status: "available", lien_level: "unscreened", lien_note: "", prop_type: "Vacant", sale_date: null, homestead: false, url_auction: "https://x", url_auction_kind: "county", updated_at: "2026-08-11T00:00:00Z",
+    inventory_type: "POST_SALE_FIXED_PRICE", source_authority: "GOVERNMENT_DIRECT", source_id: "fl_laft_broward_candidate", publication_status: "RESTRICTED" },
   // Phase 34: a TX row with no url_zillow/url_streetview and no
   // latitude/longitude - the exact shape (harvester-synced, no
   // hand-researched link, no geocode yet) that forces app.js's
@@ -183,7 +194,7 @@ const hoursAgo = h => new Date(Date.now() - h * 3600000).toISOString();
 const REGISTRY_MODE = new URLSearchParams(location.search).get("registry") || "default";
 const REGISTRY_ROWS = REGISTRY_MODE === "none" ? null : [
   { state: "FL", county: "Alachua", source_id: "fl_laft_realtdm", last_attempt_at: hoursAgo(2), last_attempt_status: "COMPLETE", last_success_at: hoursAgo(2), last_success_row_count: 14, consecutive_failures: 0 },
-  { state: "FL", county: "Bay", source_id: "fl_laft_pioneer", last_attempt_at: hoursAgo(2), last_attempt_status: "FAILED", last_success_at: hoursAgo(74), last_success_row_count: 3, consecutive_failures: 3 },
+  { state: "FL", county: "Bay", source_id: "fl_laft_pioneer", last_attempt_at: hoursAgo(2), last_attempt_status: "FAILED", last_success_at: hoursAgo(74), last_success_row_count: 3, consecutive_failures: 3, last_error_category: "TRANSPORT_HTTP_403_BLOCKED" },
   { state: "FL", county: "Bradford", source_id: "fl_laft_pdfs", last_attempt_at: null, last_attempt_status: null, last_success_at: null, last_success_row_count: null, consecutive_failures: 0 },
   { state: "TX", county: "Galveston", source_id: "tx_lgbs", last_attempt_at: hoursAgo(30), last_attempt_status: "INCOMPLETE", last_success_at: hoursAgo(54), last_success_row_count: 120, consecutive_failures: 0 }
 ];

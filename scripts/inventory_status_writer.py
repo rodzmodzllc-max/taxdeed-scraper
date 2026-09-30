@@ -108,9 +108,22 @@ def plan(rows: list[dict], *, today: date, sold: set[tuple[str, str]] | None = N
             counts["unchanged"] += 1
             continue
         counts["changed"] += 1
+        # The transition this observation records (migration 022's column on
+        # the history table): the first status for the row, a change, a
+        # removal (closed - never sold from absence), or a result the source
+        # itself published.
+        if not r.get("inventory_status"):
+            transition = "newly_observed"
+        elif obs.status == "closed":
+            transition = "removed"
+        elif obs.status in IS.RESULT_STATUSES:
+            transition = "result_published"
+        else:
+            transition = "status_changed"
+        counts.setdefault("by_transition", {})[transition] = counts.get("by_transition", {}).get(transition, 0) + 1
         changes.append({"id": r["id"], "county": r.get("county"), "case_no": r.get("case_no"), "status": obs.status,
                         "raw": obs.raw, "basis": obs.basis_text(), "source_id": r.get("harvester_source"),
-                        "evidence_url": r.get("list_url") or r.get("url_auction")})
+                        "evidence_url": r.get("list_url") or r.get("url_auction"), "transition": transition})
     return changes, counts
 
 
@@ -124,10 +137,18 @@ def group_changes(changes: list[dict]) -> list[tuple[dict, list[str]]]:
     return list(groups.values())
 
 
-def observations(changes: list[dict], *, observed_at: str, run_id: str | None) -> list[dict]:
-    return [{"property_id": c["id"], "observed_at": observed_at, "harvest_run_id": run_id, "source_id": c["source_id"],
-             "raw_status": c["raw"], "inventory_status": c["status"], "basis": c["basis"], "evidence_url": c["evidence_url"]}
-            for c in changes]
+def observations(changes: list[dict], *, observed_at: str, run_id: str | None, include_transition: bool = False) -> list[dict]:
+    """One history row per change. `transition` is included only once
+    migration 022's column exists (the caller probes) - an insert naming an
+    unknown column would fail the whole batch."""
+    out = []
+    for c in changes:
+        row = {"property_id": c["id"], "observed_at": observed_at, "harvest_run_id": run_id, "source_id": c["source_id"],
+               "raw_status": c["raw"], "inventory_status": c["status"], "basis": c["basis"], "evidence_url": c["evidence_url"]}
+        if include_transition and c.get("transition"):
+            row["transition"] = c["transition"]
+        out.append(row)
+    return out
 
 
 # ---------------------------------------------------------------------------
@@ -167,6 +188,16 @@ class Api:
         with urllib.request.urlopen(req, timeout=60):
             self.requests_made += 1
 
+    def has_migration_022(self) -> bool:
+        """Migration 022's `transition` column on the history table."""
+        try:
+            self.get("inventory_status_observations", "select=transition&limit=0")
+            return True
+        except urllib.error.HTTPError as exc:
+            if exc.code in (400, 404):
+                return False
+            raise
+
     def has_migration_021(self) -> bool:
         try:
             self.get("properties", f"select={','.join(STATUS_COLUMNS)}&limit=0")
@@ -189,9 +220,9 @@ def fetch_rows(api: Api, state: str) -> list[dict]:
         offset += page
 
 
-def execute(api: Api, changes: list[dict], *, observed_at: str, run_id: str | None) -> dict:
+def execute(api: Api, changes: list[dict], *, observed_at: str, run_id: str | None, include_transition: bool = False) -> dict:
     counts = {"patches": 0, "observations": 0}
-    obs = observations(changes, observed_at=observed_at, run_id=run_id)
+    obs = observations(changes, observed_at=observed_at, run_id=run_id, include_transition=include_transition)
     # Observations first (history is never behind the current state), then the state.
     for i in range(0, len(obs), BATCH):
         api.insert("inventory_status_observations", obs[i:i + BATCH])
@@ -237,7 +268,8 @@ def main(argv=None) -> int:
     changes, counts = plan(rows, today=date.today(), sold=sold)
     write_counts = None
     if have_021:
-        write_counts = execute(api, changes, observed_at=now_iso(), run_id=os.environ.get("GITHUB_RUN_ID"))
+        write_counts = execute(api, changes, observed_at=now_iso(), run_id=os.environ.get("GITHUB_RUN_ID"),
+                               include_transition=api.has_migration_022())
     text = summarize(state, counts, write_counts, have_021, args.dry_run)
     print(text)
     rp = Path(args.report)

@@ -380,6 +380,21 @@ window.addEventListener("popstate", () => {
 window.tdwBack = { push: pushBackLayer, pop: popBackLayer };
 
 let ALL = [], CALENDAR = {}, NOTES = {}, FAVS = new Set(), HIDDEN = new Set(), ME = null, IS_ADMIN = false;
+// AVAILABLE commercialization (2026-09-30): rows whose SOURCE is not approved
+// for customer publication (migration 022's publication_status, propagated
+// from county_source_registry by scripts/publication_gate.py) are withheld
+// from every customer surface - list, counts, map, export - and counted per
+// ledger here so the withholding is visible on the ledger page, never
+// silent. A row with no decision recorded (NULL) keeps today's behaviour.
+let WITHHELD = { auction: 0, laft: 0, certificate: 0 };
+function isPublishable(p) {
+  const s = p && p.publication_status;
+  return !s || s === "APPROVED" || s === "APPROVED_GRANDFATHERED";
+}
+function daysSince(iso) {
+  const t = Date.parse(iso || "");
+  return isNaN(t) ? null : Math.floor((Date.now() - t) / 86400000);
+}
 // BIDLIST is the membership set (fast "is this on the list" checks);
 // BIDLIST_ORDER is the same ids in the order they were added, oldest first -
 // the watchlist modal reverses it to show the most recently added one on top.
@@ -547,6 +562,8 @@ const state = {
   bidMin: null, bidMax: null, assessedMin: null,
   sortBy: "county", sortSecondary: "", favoritesOnly: false, topPicksOnly: false, soonOnly: false,
   hideOldListings: false, hideSlivers: false, hideBareLandOnly: false,
+  // Available-ledger filters (2026-09-30): each reads a field the rows carry.
+  availPath: "any", availAmountKind: "any", availStatus: "any", acreageMin: null, availSeenRecently: false,
   includeQT: false, maxBidPct: 40,
   statusView: "all",
   ledger: "auction",
@@ -1951,6 +1968,8 @@ async function loadAll() {
     return false;
   }
   ALL = props.data || [];
+  WITHHELD = { auction: 0, laft: 0, certificate: 0 };
+  ALL = ALL.filter(p => { if (isPublishable(p)) return true; if (p.source in WITHHELD) WITHHELD[p.source]++; return false; });
   NOTES = {}; (notes.data || []).forEach(n => { (NOTES[n.property_id] = NOTES[n.property_id] || []).push(n); });
   FAVS = new Set((favs.data || []).map(r => r.property_id));
   HIDDEN = new Set((hid.data || []).map(r => r.property_id));
@@ -2194,6 +2213,21 @@ function passes(p) {
   // so every TX row skips this the same way certificates do.
   if (PAGE_STATE === "FL" && p.source !== "certificate" && (!state.types.has(propType(p)) || !state.liens.has(p.lien_level))) return false;
   if ((state.bidMin !== null && Number(p.bid) < state.bidMin) || (state.bidMax !== null && Number(p.bid) > state.bidMax)) return false;
+  // Available ledger (2026-09-30): purchase path, amount kind, availability
+  // status, acreage, recency - every one a stored field or its stated
+  // absence; the defaults ("any") touch nothing, so a cold render never
+  // reaches purchasePathOf() before its constants are initialised.
+  if (p.source === "laft") {
+    if (state.availPath !== "any") {
+      const kind = purchasePathOf(p).kind;
+      if (state.availPath === "online" ? kind !== "property" : state.availPath === "instructions" ? kind !== "instructions" : kind !== "none") return false;
+    }
+    if (state.availAmountKind === "published" && !hasPublishedBid(p)) return false;
+    if (state.availAmountKind === "unpublished" && hasPublishedBid(p)) return false;
+    if (state.availStatus !== "any" && String(p.inventory_status || "unknown") !== state.availStatus) return false;
+    if (state.acreageMin !== null && !(hasNum(p.acreage) && Number(p.acreage) >= state.acreageMin)) return false;
+    if (state.availSeenRecently) { const d = daysSince(p.last_seen_at); if (d === null || d > 14) return false; }
+  }
   if (PAGE_STATE === "FL" && p.source !== "certificate" && state.assessedMin !== null && Number(p.assessed || 0) < state.assessedMin) return false;
   // "Junk land" quick filters - Lands Available only, and each checks a real
   // harvested/derived figure (lot_sqft, buildingValue) rather than a guess at
@@ -2406,6 +2440,14 @@ function previewFacts(p) {
   if (hasNum(p.living_area)) more.push(["Living area", fmtSqft(p.living_area)]);
   if (hasNum(p.lot_sqft)) more.push(["Lot size", lotSize(p)]);
   const sale = lastSaleText(p);
+  if (p.source === "laft") {
+    // The Map preview says what an Available row IS before what it is worth:
+    // availability (migration 021's status), purchase path, amount kind.
+    if (p.inventory_status !== undefined) more.push(["Availability", INVENTORY_STATUS_LABELS[p.inventory_status] || String(p.inventory_status || "Not published")]);
+    const pp = purchasePathOf(p);
+    more.push(["Purchase path", pp.kind === "none" ? "No online purchase link on file" : pp.label + (pp.kind === "instructions" ? " (instructions)" : "")]);
+    if (p.purchase_amount_kind) more.push(["Amount kind", p.purchase_amount_kind === "NOT_PUBLISHED" ? "Not published by the source" : (AMOUNT_KIND_LABELS[p.purchase_amount_kind] || String(p.purchase_amount_kind))]);
+  }
   if (sale) more.push(["Last sale", sale]);
   if (p.lien_level && regionOf(p) === "FL") more.push(["Manual lien notes", LIEN_LABEL[p.lien_level] || String(p.lien_level)]);
   if (isGone(p)) more.push(["Listing status", outcomeText(p)]);
@@ -3103,9 +3145,9 @@ function provenanceRowsHtml(fp) {
   const rows = entries.map(([field, v]) => {
     const source = PROVENANCE_SOURCE_LABELS[v.source] || String(v.source);
     let method;
-    if (v.matched_field) method = `Parcel match: ${v.matched_field === "ALT_KEY" ? "FDOR alternate key" : "FDOR parcel identifier"}`;
+    if (v.matched_field) method = `Derived by our system - parcel match: ${v.matched_field === "ALT_KEY" ? "FDOR alternate key" : "FDOR parcel identifier"}`;
     else if (v.method) method = String(v.method);
-    else method = "Published by the source";
+    else method = PROVENANCE_KIND[v.source] === "derived" ? "Entered by our team" : "Published by the source";
     const when = v.list_as_of ? `List as of ${dateOnly(v.list_as_of)}` : (v.recorded_at ? `Recorded ${dateOnly(v.recorded_at)}` : "Date not recorded");
     const sid = v.source_id ? `<span class="mono">${esc(String(v.source_id))}</span>` : "";
     return `<div class="prov-row" data-field="${esc(field)}"><span class="prov-field">${esc(PROVENANCE_FIELD_LABELS[field] || field)}</span><span class="prov-source">${esc(source)} ${sid}</span><span class="prov-method">${esc(method)}</span><span class="prov-when">${esc(when)}</span></div>`;
@@ -3126,9 +3168,45 @@ function otcProvenanceHtml(op) {
   line("List date", op.list_as_of);
   line("Amount", op.purchase_amount);
   line("Purchase path", op.purchase_url);
+  line("How to purchase", PURCHASE_PATH_MODE_LABELS[op.purchase_path_mode] || (op.purchase_path_mode ? String(op.purchase_path_mode) : ""));
   line("Inventory type", op.inventory_type);
   line("Status wording", op.status_terminology);
   return lines.length ? `<div class="prov-lines">${lines.join("")}</div>` : "";
+}
+// Source-level purchase-path modes (scripts/laft_purchase_paths.PURCHASE_PATH_MODES).
+const PURCHASE_PATH_MODE_LABELS = {
+  online_property: "Online link for the property (published by the source)",
+  online_instructions: "Instructions page (published by the source)",
+  application: "Application page (published by the source)",
+  in_person_only: "In-person process only (published by the source; no online path)",
+  phone_mail: "Phone or mail process (published by the source; no online path)",
+  none: "No purchase path (stated by the source)",
+  unknown: "Not yet verified"
+};
+// Which provenance sources are the source's own publication and which are
+// this app's derivation - the customer-facing distinction the provenance
+// card legend explains (published by the source / derived by our system /
+// not published).
+const PROVENANCE_KIND = {
+  county_list: "published", fdor_nal: "published", county_gis: "published", vendor_listing: "published", hand_research: "derived"
+};
+function availabilityEvidenceHtml(p) {
+  if (p.source !== "laft") return "";
+  const lines = [];
+  const line = (k, v) => lines.push(`<div class="prov-line"><span class="prov-k">${esc(k)}</span><span class="prov-v">${v}</span></div>`);
+  if (p.inventory_status_basis) {
+    line("Availability evidence", `${esc(String(p.inventory_status_basis))}${p.inventory_status_observed_at ? esc(` · observed ${dateOnly(p.inventory_status_observed_at)}`) : ""}`);
+  } else if (p.inventory_status !== undefined) {
+    line("Availability evidence", `<span class="muted">Not yet verified - no availability observation recorded for this row</span>`);
+  }
+  line("Last verified", p.last_seen_at ? esc(`Read from the source ${dateOnly(p.last_seen_at)}`) : `<span class="muted">Not yet verified by a lifecycle run</span>`);
+  line("Source date", p.list_as_of ? esc(`List dated ${dateOnly(p.list_as_of)}`) : (p.source_published_at ? esc(`Document dated ${dateOnly(p.source_published_at)}`) : `<span class="muted">Not published by the source</span>`));
+  const pp = purchasePathOf(p);
+  line("Purchase link source", pp.kind === "none"
+    ? `<span class="muted">No online purchase link on file</span>`
+    : esc(`${pp.label} - ${pp.kind === "property" ? "a link the source published for this property" : "the source's own process page"}`));
+  return `<div class="prov-lines prov-available">${lines.join("")}</div>
+    <p class="prov-legend"><b>Published by the source</b> = the value as the county or agency published it. <b>Derived by our system</b> = matched or computed by this app from a public dataset (tax-roll parcel match, geocoder, FEMA layer), named as such. <b>Not published</b> = the source did not state it; nothing is filled in.</p>`;
 }
 function provenanceCardHtml(p) {
   // The two-span .detail-provenance block is kept byte-for-byte (tests read
@@ -3141,6 +3219,7 @@ function provenanceCardHtml(p) {
     if (p.list_as_of) bits.push(`list dated ${dateOnly(p.list_as_of)}`);
     detail += `<div class="prov-fresh">${esc(bits.join(" · "))}</div>`;
   }
+  detail += availabilityEvidenceHtml(p);
   if (p.field_provenance !== undefined) {
     const table = provenanceRowsHtml(p.field_provenance);
     detail += table || `<div class="prov-empty">No per-field provenance recorded for this row yet - values shown on this page came with the harvested listing and have not been individually traced.</div>`;
@@ -4234,6 +4313,7 @@ function section(container, title, sub, rows, kind) {
         <span class="lgd lgd-stale">Not synced recently</span>
         <span class="lgd lgd-closed">No longer listed</span>
       </p>
+      ${WITHHELD[kind] ? `<p class="ledger-withheld" id="ledgerWithheld">${WITHHELD[kind]} record${WITHHELD[kind] === 1 ? "" : "s"} withheld - source not approved for customer publication (restricted or not yet reviewed). Counted, not shown.</p>` : ""}
       ${state.statusView === "archive" ? `<p class="ledger-mode-note" id="archiveModeNote">📁 Past auctions only — sale date already gone. <button class="ledger-mode-exit" id="exitArchiveBtn" type="button">Back to current listings</button></p>` : ""}
     </div>`;
   if (!shown.length) {
@@ -4504,6 +4584,8 @@ function applyLedgerChrome() {
   // an auction or certificate row doesn't have the concept.
   const junkRow = document.getElementById("junkLandRow");
   if (junkRow) junkRow.hidden = key !== "laft";
+  const availRow = document.getElementById("availableFilters");
+  if (availRow) availRow.hidden = key !== "laft";
 
   // The CSV export is the same file either way - only the label changes, so
   // it reads as "the thing this ledger's desk actually wants" rather than a
@@ -4953,6 +5035,21 @@ bindCheckbox("soonOnly", "soonOnly");
 bindCheckbox("hideOldOnly", "hideOldListings");
 bindCheckbox("qtToggle", "includeQT");
 bindCheckbox("hideSliversOnly", "hideSlivers");
+bindCheckbox("availSeenRecently", "availSeenRecently");
+function bindSelect(id, key) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.addEventListener("change", () => { state[key] = el.value; updateBadge(); render(); });
+}
+bindSelect("availPathFilter", "availPath");
+bindSelect("availAmountKindFilter", "availAmountKind");
+bindSelect("availStatusFilter", "availStatus");
+const acreageMinEl = document.getElementById("acreageMin");
+if (acreageMinEl) acreageMinEl.addEventListener("input", () => {
+  const v = parseFloat(acreageMinEl.value);
+  state.acreageMin = isNaN(v) ? null : v;
+  updateBadge(); render();
+});
 bindCheckbox("hideBareLandOnly", "hideBareLandOnly");
 
 // Archive is a MODE (statusView), not a boolean flag, so it can't go through
@@ -4987,8 +5084,12 @@ if (resetBtn) resetBtn.addEventListener("click", () => {
   const maxBidEl = document.getElementById("maxBidPct"); if (maxBidEl) maxBidEl.value = "40";
   const sortEl = document.getElementById("sortBy"); if (sortEl) sortEl.value = "county";
   const sortSecEl = document.getElementById("sortSecondary"); if (sortSecEl) sortSecEl.value = "";
-  ["favOnly", "topOnly", "soonOnly", "hideOldOnly", "qtToggle", "archiveToggle", "hideSliversOnly", "hideBareLandOnly"].forEach(id => { const el = document.getElementById(id); if (el) el.checked = false; });
+  ["favOnly", "topOnly", "soonOnly", "hideOldOnly", "qtToggle", "archiveToggle", "hideSliversOnly", "hideBareLandOnly", "availSeenRecently"].forEach(id => { const el = document.getElementById(id); if (el) el.checked = false; });
   const searchEl = document.getElementById("searchInput"); if (searchEl) searchEl.value = "";
+  // Available-ledger filters (2026-09-30) reset with everything else.
+  state.availPath = "any"; state.availAmountKind = "any"; state.availStatus = "any"; state.acreageMin = null; state.availSeenRecently = false;
+  ["availPathFilter", "availAmountKindFilter", "availStatusFilter"].forEach(id => { const el = document.getElementById(id); if (el) el.value = "any"; });
+  const acreageEl = document.getElementById("acreageMin"); if (acreageEl) acreageEl.value = "";
 
   buildAllChips();
   if (mapLoaded) { refreshMapPaths(); if (zoomedCounty) zoomToState(); }
@@ -5594,7 +5695,15 @@ function unitFreshnessRowHtml(u) {
     u.last_success_row_count !== null && u.last_success_row_count !== undefined ? `${u.last_success_row_count} rows at that read` : "row count unknown"
   ];
   if (Number(u.consecutive_failures) > 0) bits.push(`${u.consecutive_failures} consecutive failed attempt${Number(u.consecutive_failures) === 1 ? "" : "s"}`);
-  return `<div class="health-row unit-row" data-county="${esc(u.county)}" data-source="${esc(u.source_id || "")}" data-fresh="${ok ? "current" : "stale"}">
+  // 2026-09-30: the customer freshness states - source unavailable at the
+  // last attempt (transport / proxy / access), no complete read in 36h,
+  // back-off hold (three blocked failures; scripts/unit_freshness.py).
+  const unavailable = u.last_attempt_status === "SOURCE_UNAVAILABLE" || /^(TRANSPORT_|PROXY_|ACCESS_)/.test(String(u.last_error_category || ""));
+  if (unavailable) bits.push("source unavailable at the last attempt - inventory kept, nothing closed");
+  const sinceSuccess = u.last_success_at ? (Date.now() - Date.parse(u.last_success_at)) / 3600000 : null;
+  if (sinceSuccess === null || isNaN(sinceSuccess) || sinceSuccess > 36) bits.push("no complete read in the last 36 hours");
+  if (Number(u.consecutive_failures) >= 3) bits.push("back-off: attempted at most once per 48 hours until a read succeeds");
+  return `<div class="health-row unit-row" data-county="${esc(u.county)}" data-source="${esc(u.source_id || "")}" data-fresh="${ok ? "current" : "stale"}" data-unavailable="${unavailable ? "1" : "0"}">
     <span class="health-label">${esc(u.county)}<span class="unit-source mono"> ${esc(u.source_id || "")}</span></span>
     <span class="health-badge ${ok ? "healthy" : "stale"}">${ok ? "Current" : "Stale"}</span>
     <span class="health-sub">${esc(bits.join(" · "))}</span>
@@ -6294,7 +6403,8 @@ function renderDashboard() {
       // lifecycles - harvesters/ledgers/domains.py): a failed read in one
       // ledger is reported under that ledger only, never as an empty other.
       const fresh = ledgerFreshnessSummary(UNIT_FRESHNESS, PAGE_STATE, key);
-      return `<div class="dash-row" data-ledger-row="${esc(key)}"><div class="dash-row-name">${LEDGERS[key].icon}${esc(cfg.title)}</div><div class="dash-row-vals"><b>${count}</b>${fresh ? `<span class="dash-row-fresh">${esc(fresh)}</span>` : ""}</div></div>`;
+      const withheld = WITHHELD[key] ? `<span class="dash-row-fresh dash-row-withheld">${WITHHELD[key]} withheld (source not approved for publication)</span>` : "";
+      return `<div class="dash-row" data-ledger-row="${esc(key)}"><div class="dash-row-name">${LEDGERS[key].icon}${esc(cfg.title)}</div><div class="dash-row-vals"><b>${count}</b>${fresh ? `<span class="dash-row-fresh">${esc(fresh)}</span>` : ""}${withheld}</div></div>`;
     }).join("");
   }
 
