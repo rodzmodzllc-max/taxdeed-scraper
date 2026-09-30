@@ -2332,6 +2332,35 @@ function floodShort(p) {
 //              or source exists anywhere in the backend yet. When one does
 //              (a real column such as mmv + mmv_source + mmv_computed_at),
 //              it belongs here as a fourth entry - see the PR notes.
+// Three ledgers (2026-09-30): the one line each ledger's card leads with,
+// beyond the kicker. Every value is a stored field or a stated absence:
+//   Auctions   the sale RESULT - a source-published outcome when the row
+//              carries one (outcomeText), "Not published by the source" once
+//              the sale date has passed or the row left the feed, and
+//              "Sale not yet held" before then. Never derived from
+//              disappearance, never the opening bid.
+//   Available  the PURCHASE PATH - the row's own purchase link by its kind
+//              (property action vs instructions, purchasePathOf), or "No
+//              online purchase link on file" (the list page is not one).
+function ledgerLineHtml(p) {
+  if (p.source === "auction") {
+    const d = daysUntil(p);
+    const held = isGone(p) || (d !== null && d < 0);
+    const hasOutcome = String(p.outcome == null ? "" : p.outcome).trim() !== "";
+    const text = held ? (hasOutcome ? outcomeText(p) : "Not published by the source") : "Sale not yet held";
+    return `<div class="prop-ledger-line"><span><b>Auction result</b><span class="${held && !hasOutcome ? "muted" : ""}">${esc(text)}</span></span></div>`;
+  }
+  if (p.source === "laft") {
+    const path = purchasePathOf(p);
+    const text = path.kind === "property" ? path.label : path.kind === "instructions" ? `${path.label} (instructions)` : "No online purchase link on file";
+    const cls = path.kind === "none" ? "muted" : "";
+    const amountText = p.purchase_amount_kind === "NOT_PUBLISHED" ? "Not published by the source"
+      : p.purchase_amount_kind ? (AMOUNT_KIND_LABELS[p.purchase_amount_kind] || p.purchase_amount_kind) : "";
+    return `<div class="prop-ledger-line"><span><b>Purchase path</b><span class="${cls}">${esc(text)}</span></span>${amountText ? `<span><b>Amount</b><span class="${p.purchase_amount_kind === "NOT_PUBLISHED" ? "muted" : ""}">${esc(amountText)}</span></span>` : ""}</div>`;
+  }
+  return "";
+}
+
 function cardFactsHtml(p) {
   const facts = [];
   const coords = hasNum(p.latitude) && hasNum(p.longitude);
@@ -2463,6 +2492,7 @@ function card(p, showCounty) {
       ${marketVal ? `<div class="card-stat card-stat-headline"><div class="card-stat-label">${esc(valueLabel(p))}</div><div class="card-stat-val market">${fmtShort(marketVal)}</div></div>` : ""}
     </div>
     ${p.source === "auction" && bidPublished && marketVal > 0 ? equitySpreadBarHtml(p) : ""}
+    ${ledgerLineHtml(p)}
     ${cardFactsHtml(p)}
     ${spec.length ? `<div class="prop-spec">${spec.map(b => `<span>${esc(b)}</span>`).join("")}</div>` : ""}
     ${sale || p.legal_desc ? `<details class="card-more">
@@ -2553,6 +2583,7 @@ function certStatusLinesHtml(p) {
     : "Parcel # not published by the source";
   return `<div class="cert-status-lines">
     <span class="cert-status-line"><span class="cert-status-tag">Status</span> ${esc(certStatusText(p))}</span>
+    <span class="cert-status-line"><span class="cert-status-tag">Issued</span> ${p.issued_date ? esc(fmtDate(String(p.issued_date).slice(0, 10))) : "Not published"}${p.tax_year ? ` · tax year ${esc(String(p.tax_year))}` : ""}</span>
     <span class="cert-status-line"><span class="cert-status-tag">Redemption</span> Not published by the source</span>
     <span class="cert-status-line"><span class="cert-status-tag">Property</span> ${parcelBit}</span>
   </div>`;

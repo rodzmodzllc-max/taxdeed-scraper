@@ -509,6 +509,9 @@ results.laftValueLabel = (await page.locator('.prop-card').first().locator('.car
 // Phase 65: a Lands Available row's first line names the ledger and says it
 // is a fixed-price listing, not a bidding event.
 results.laftKicker = await page.locator('.prop-card').first().locator('.prop-kicker').evaluate(el => Array.from(el.children).map(c => c.textContent.trim()).join(' '));
+// Three ledgers: an Available card leads with its PURCHASE PATH - p3 carries
+// no purchase_url, so the line says so rather than pointing at the list page.
+results.laftLedgerLine = await page.locator('.prop-card').first().locator('.prop-ledger-line > span').evaluateAll(els => els.map(el => Array.from(el.children).map(c => c.textContent.trim()).join(' ')));
 // p3 is the one fixture row with homestead:true - the badge should show up
 // right on the card, not just buried in the detail page, since it's exactly
 // the kind of risk flag a bidder needs before clicking into anything.
@@ -663,6 +666,9 @@ results.spreadBadgeCount = await page.locator('.spread-badge').count();
   results.cardCaseLineFirst = (await first.locator('.prop-case-line').textContent() || '').trim();
   results.cardFactsFirst = await first.locator('.prop-facts > span').evaluateAll(els => els.map(el => Array.from(el.children).map(c => c.textContent.trim()).join(' ')));
   results.cardFactsMutedCountFirst = await first.locator('.prop-facts .muted').count();
+  // Three ledgers: an auction card leads with its RESULT - p1's sale is
+  // upcoming, so "Sale not yet held"; never an inferred outcome.
+  results.cardLedgerLineFirst = await first.locator('.prop-ledger-line > span').evaluateAll(els => els.map(el => Array.from(el.children).map(c => c.textContent.trim()).join(' ')));
 }
 
 // --- county tax-roll facts on the card ---
@@ -2449,6 +2455,8 @@ const EXPECTED = {
   cardFactsFirst: ['Location Not yet geocoded', 'Flood Not checked', 'Value ÷ bid 18.0×'],
   cardFactsMutedCountFirst: 2,
   laftKicker: 'Bay, FL · Available · Lands Available list · fixed price',
+  laftLedgerLine: ['Purchase path No online purchase link on file', 'Amount Opening bid'],   // p3's purchase_amount_kind is OPENING_BID (the list's own label)
+  cardLedgerLineFirst: ['Auction result Sale not yet held'],
   // Phase 66: "At a glance" summary + section nav + photo states + show-on-map
   oppCellLabels: ['What', 'Where', 'When', 'Minimum bid', 'Value on file', 'Missing'],
   oppWhatText: 'Florida tax deed auction Source: Fl Realauction Alachua',
@@ -2854,10 +2862,10 @@ const EXPECTED = {
   navAvailableClickHeading: 'Available',
   tabClickLitNavEntries: ['auctions/auction'],
   certDetailRelated: ['auction:p1:Auctions'],
-  certDetailStatusLines: 3,
+  certDetailStatusLines: 4,
   relatedOpenLandsOnAuctionRow: '1 Main St',
   auctionDetailRelated: ['certificate:p4'],
-  certStatusLines: ['Status On the county-held list', 'Redemption Not published by the source', 'Property Parcel # 111 · 1 record in other ledgers'],
+  certStatusLines: ['Status On the county-held list', 'Issued Jun 1, 2023 · tax year 2022', 'Redemption Not published by the source', 'Property Parcel # 111 · 1 record in other ledgers'],
   dashUnitStaleText: 'last read 2h ago (failed) · last complete read 3d ago · 3 rows at that read · 3 consecutive failed attempts',
   dashUnitCurrentText: 'last read 2h ago (complete) · last complete read 2h ago · 14 rows at that read',
   dashUnitMissingColumns: true,

@@ -124,8 +124,16 @@ assigned or expired is not published)".
   facts line, filters, county groups, cards and empty state. The Available
   ledger's card kicker reads `<County>, FL · Available · Lands Available
   list · fixed price`.
+- Each ledger's card leads with its own emphasis line (`ledgerLineHtml`):
+  Auctions - "Auction result": a source-published outcome when the row
+  carries one, "Not published by the source" once the sale date passed
+  or the row left the feed, "Sale not yet held" before then. Available -
+  "Purchase path": the row's own purchase link by kind (property action
+  vs instructions) or "No online purchase link on file", plus the amount
+  kind the source used. Nothing on either line is derived from absence.
 - Liens & Certificates cards and pages lead with the instrument's own
-  lines: Status (list presence, or the 021 status when written), Redemption
+  lines: Status (list presence, or the 021 status when written), Issued
+  (issue date and tax year, or "Not published"), Redemption
   ("Not published by the source"), Property (parcel number, or "not
   published by the source", with the count of records in other ledgers).
 - Shared property layer: every full page has "Same parcel in other

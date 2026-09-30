@@ -1263,6 +1263,11 @@ the field read as one control. */
    Interest / TDA Eligibility) and, on wide screens, sits beside the header
    instead of below it - a spreadsheet row, not a stacked card. */
 .cert-stat-grid{grid-template-columns:repeat(3,1fr)}
+/* Three ledgers: the per-ledger emphasis line under the headline figures. */
+.prop-ledger-line{display:flex;flex-wrap:wrap;gap:.25rem .9rem;margin:.3rem 0 .05rem;font-size:.76rem;color:var(--ink)}
+.prop-ledger-line>span{display:inline-flex;align-items:baseline;gap:.35rem}
+.prop-ledger-line b{font-size:.64rem;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-soft)}
+.prop-ledger-line .muted{color:var(--ink-soft)}
 /* Liens & Certificates: the instrument's own status lines (2026-09-30). */
 .cert-status-lines{display:flex;flex-wrap:wrap;gap:.25rem .9rem;margin:.35rem 0 .1rem;font-size:.76rem;color:var(--ink)}
 .cert-status-line{display:inline-flex;align-items:baseline;gap:.35rem}

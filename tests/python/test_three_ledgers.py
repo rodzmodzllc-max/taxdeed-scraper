@@ -284,6 +284,51 @@ def test_c01_a_certificate_is_its_own_record_never_a_property_sale():
     assert all(f"'{s}'" in sql for s in ("certificate_listed", "certificate_redeemed", "certificate_assigned", "certificate_expired"))
 
 
+# ==================== 4b. auction -> available: history preserved across ledgers ====================
+
+def _phase_b():
+    """The Phase B writer test's in-memory store and row builders (same
+    five-call contract as PostgrestStore, same uniqueness rules as migration 014)."""
+    import importlib.util
+    spec = importlib.util.spec_from_file_location("phase_b_writers", REPO / "tests/python/test_phase_b_auction_event_writers.py")
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
+def test_t01_an_unsold_auction_becoming_available_keeps_its_auction_event_and_gets_its_own_record():
+    import auction_events_writer as w
+    from datetime import date as _date
+    B = _phase_b()
+    store = B.MemoryStore([B.prop("p-1", "Lee", "2026000001", sale_date="2026-10-06", hs="fl_realauction_lee")])
+    w.record_sightings(store, w.sightings_from_fl_harvest([B.fl_row("Lee", "2026000001", "10/06/2026")]),
+                       scope=("FL", "auction"), observed_at=B.T1, run_id=B.RUN, complete_counties={"Lee"}, today=_date(2026, 9, 25))
+    assert len(store.events) == 1 and store.events[0]["lifecycle"] == "scheduled" and store.events[0]["outcome"] == "unknown"
+    # The sale date passes and the row leaves a COMPLETE county read: the event
+    # advances by absence but its OUTCOME stays unknown - "unsold" is never inferred.
+    w.record_sightings(store, [], scope=("FL", "auction"), observed_at=B.T3, run_id=B.RUN, complete_counties={"Lee"}, today=_date(2026, 10, 7))
+    ev = store.events[0]
+    # Last seen BEFORE its sale date -> lifecycle 'unknown' (lifecycle_after_absence:
+    # it left the feed before the sale could happen; nothing is claimed).
+    assert ev["outcome"] == "unknown" and ev["lifecycle"] == "unknown" and len(store.events) == 1
+    # The same parcel then appears on the county's Lands Available list: a
+    # separate record in a separate ledger with its own status, sharing the
+    # property identity (state, county, parcel) and nothing else.
+    laft = {"id": "p-2", "state": "FL", "source": "laft", "county": "Lee", "case_no": "2026000001", "parcel": "P", "status": "active"}
+    assert ledger_for_row(laft) is Ledger.AVAILABLE and ledger_for_row(store.properties[0]) is Ledger.AUCTIONS
+    assert IS.status_for_row(laft, today=_date(2026, 10, 20)).status == "available_otc"
+    assert IS.status_for_row(store.properties[0], today=_date(2026, 10, 20)).status != "sold"
+    # Recording the AVAILABLE scope touches nothing in the AUCTIONS scope: the
+    # auction event is history, never overwritten by the later ledger.
+    before = [dict(e) for e in store.events]
+    w.record_sightings(store, [], scope=("FL", "laft"), observed_at=B.T3, run_id=B.RUN, complete_counties={"Lee"}, today=_date(2026, 10, 20))
+    assert store.events == before and store.events[0]["property_id"] == "p-1"
+    # And a certificate on that parcel is a third record: its "sold" would be a
+    # certificate sale, never the property's.
+    cert = {"id": "p-3", "state": "FL", "source": "certificate", "county": "Lee", "parcel": "P", "case_no": "ACC-1", "status": "active"}
+    assert ledger_for_row(cert) is Ledger.LIENS_CERTIFICATES and IS.status_for_row(cert, today=_date(2026, 10, 20)).status == "certificate_listed"
+
+
 # ==================== 5. Arizona: first non-FL certificate source, gated ====================
 
 def test_a01_arizona_is_registered_not_production_and_the_registry_row_mirrors_the_adapter():
@@ -368,6 +413,11 @@ def test_x01_fl_and_tx_behaviour_is_unchanged():
     assert re.search(r'auction: \{\s*slug: "auctions"', app) and re.search(r'laft: \{\s*slug: "lands"', app) and re.search(r'certificate: \{\s*slug: "certificates"', app)
     assert 'title: "Auctions",' in app and 'title: "Available",' in app and 'title: "Liens & Certificates",' in app
     assert 'title: "OTC Catalog — Struck-Off Inventory"' in app and 'title: "Redeemable Tax Deeds"' in app
+    # Alabama / Arkansas / Louisiana: one AVAILABLE-ledger candidate each, registered, never runnable, not activated.
+    for code, sid in (("AL", "al_ador_state_land"), ("AR", "ar_cosl_post_auction"), ("LA", "la_ebr_adjudicated")):
+        rows = [r for r in ROWS if r.state == code]
+        assert len(rows) == 1 and rows[0].source_id == sid and rows[0].ledger_set == {"AVAILABLE"}, code
+        assert not rows[0].is_production and not rows[0].runnable and not states.is_activated(code) and states.is_supported(code)
     # Migrations created here are files only (020 / 021 unapplied is asserted by their own live tests).
     for name in ("020_state_extensible_vocabulary.sql", "021_inventory_status_provenance_freshness.sql"):
         assert (REPO / "scripts/migrations" / name).is_file()
