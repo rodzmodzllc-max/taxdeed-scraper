@@ -36,10 +36,15 @@ def test_a01_v3_columns_and_every_committed_row_names_an_office_and_at_least_one
     with open(PE.EVIDENCE_PATH, newline="", encoding="utf-8") as fh:
         assert next(csv.reader(fh)) == PE.EVIDENCE_COLUMNS
     assert PE.EVIDENCE_COLUMNS[-8:] == ["office", "address", "phone", "email", "mailing_address", "steps", "application_url", "payment"]
-    assert len(EVIDENCE) == 15
+    assert len(EVIDENCE) == 16
     for e in EVIDENCE:
         assert e.office, e.county
-        assert e.phone or e.email or e.mailing_address or e.address, e.county      # something a person can act on
+        # Something a person can act on - or, when the page published no
+        # contact the capture can attribute to this process, the row says so
+        # and never counts as a complete record (PE.complete_record).
+        if not (e.phone or e.email or e.mailing_address or e.address or e.application_url):
+            assert "No phone recorded" in e.notes, e.county
+            assert not PE.complete_record(PE.PurchasePath(e.path_type, "source", e.evidence, e.observed_on, steps=e.steps, office=e.office).acquisition()), e.county
         assert e.steps and all(len(st) > 20 for st in e.steps), e.county           # the process, as published
         assert PE.evidence_problems(e) == []
         # No invented e-mail: a protected address on a portal page stays blank.
@@ -173,6 +178,6 @@ def test_a09_frontend_labels_mirror_the_engine_and_absence_wording_is_never_no_l
     for h in ("Acquisition Path", "Acquisition Steps (published by the source)", "County Office", "County Phone", "County E-mail",
               "County Address (in person)", "County Mailing Address", "Application / Instructions Document", "Matched To Source By"):
         assert f'["{h}"' in cols, h
-    assert (REPO / "public/sw.js").read_text(encoding="utf-8").count('const CACHE = "tdw-shell-v51"') == 1
+    assert (REPO / "public/sw.js").read_text(encoding="utf-8").count('const CACHE = "tdw-shell-v52"') == 1
     for f in ("app.js", "styles.css", "sw.js"):
         assert (REPO / f).read_bytes() == (REPO / "public" / f).read_bytes(), f

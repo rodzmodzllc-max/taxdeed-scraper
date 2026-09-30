@@ -2422,6 +2422,27 @@ results.decP15Why = await decA(dec2, 'why');
 results.decP15SourceDocHrefs = await dec2.locator('#detailModalInner .decision-card .dec-row[data-q="source"] a').evaluateAll(els => els.map(e => e.getAttribute('href')));
 results.decP15Glance = ((await dec2.locator('#detailModalInner .opp-summary .opp-cell').filter({ hasText: 'How to acquire' }).locator('.opp-val').innerText()) || '').replace(/\s+/g, ' ').trim();
 results.decP15InvAcquire = await invVal(dec2, 'How to acquire');
+// Acquisition sprint 2: scope labels, the first step, and the last-verified
+// line - including a verified county process whose county source could not
+// be read at the last attempt (Bay's fixture unit is SOURCE_UNAVAILABLE):
+// the process stays, dated, with a retry note; it is never withdrawn.
+results.decP15Scope = await dec2.locator('#detailModalInner .decision-card .dec-row[data-q="how"] .acq-scope').getAttribute('data-scope');
+results.decP15First = ((await dec2.locator('#detailModalInner .decision-card .dec-row[data-q="how"] .acq-first').textContent()) || '').trim();
+results.decP15Verified = ((await dec2.locator('#detailModalInner .decision-card .dec-row[data-q="how"] .acq-verified').textContent()) || '').trim();
+results.acqUnavailableKeepsPath = await dec2.evaluate(() => {
+  const d = document.createElement('div');
+  d.innerHTML = window.__tdwAcquisitionHtml({ source: 'laft', state: 'FL', county: 'Bay', source_id: 'fl_laft_pioneer', case_no: 'X-1',
+    purchase_path_type: 'phone_mail', purchase_path_scope: 'source', purchase_path_evidence: 'e', purchase_path_observed_on: '2026-09-30',
+    otc_provenance: { acquisition: { mode: 'phone', channels: ['phone'], phone: '(000) 000-0001', steps: ['Call the Tax Deed Division'] } } });
+  return { mode: d.querySelector('.acq-mode').textContent, verified: d.querySelector('.acq-verified').textContent.replace(/\s+/g, ' ').trim(),
+           notVerified: /Not yet verified/.test(d.textContent) };
+});
+results.acqPropertyScopeLabel = await dec2.evaluate(() => {
+  const d = document.createElement('div');
+  d.innerHTML = window.__tdwAcquisitionHtml({ source: 'laft', state: 'FL', county: 'Citrus', case_no: 'X-2', purchase_path_type: 'direct_property_url',
+    purchase_path_scope: 'property', purchase_path_evidence: 'e', purchase_path_observed_on: '2026-09-30', purchase_url: 'https://clerk.example.gov/buy/X-2' });
+  return d.querySelector('.acq-scope').textContent;
+});
 results.decP15Cost = await decA(dec2, 'cost');
 results.decP15Where = await decA(dec2, 'where');
 results.decP15Known = await decA(dec2, 'known');
@@ -3282,7 +3303,7 @@ const EXPECTED = {
   decNavHasDecision: 1,
   decP3How: "Not yet verified - no published acquisition process has been established from evidence The county list has been read, but no county page or document establishing how to acquire from it has been verified yet. Nothing is invented; a path appears once the county's own page or document is read and reviewed.",
   decP3Contact: 'Not yet verified - no county contact has been established from evidence',
-  decP3Why: 'Lands Available - fixed price, over the counter (F.S. 197.502(7)) Basis: harvester constant (F.S. 197.502(7) Lands Available list) County list page → · List document (PDF / file) → · list dated Aug 10, 2026 Listed under case C-1 (parcel 333)',
+  decP3Why: "Lands Available - fixed price, over the counter (F.S. 197.502(7)) This parcel was on the official county list when it was last read. Basis: harvester constant (F.S. 197.502(7) Lands Available list) County list page → · List document (PDF / file) → · list dated Aug 10, 2026 Listed under case C-1 (parcel 333)",
   decP3Glance: 'Not yet verified',
   decP3GapNamesAcquisition: true,
   purchasePathNoneAcquire: 'Not yet verified - no published acquisition process established from evidence',
@@ -3296,17 +3317,22 @@ const EXPECTED = {
   decNoScoreWords: true,
   decP15What: '15 Manatee Ln Citrus County, FL · Parcel 1515 · Case CI-7 · Vacant Lot',
   decP15Available: 'Available over the counter basis: list presence · observed Sep 20, 2026 last verified: read from the source Sep 20, 2026',
-  decP15How: "Multi-step county process Download and complete the application (fixture) E-mail taxdeeds@example.gov with the case number (fixture) Pay in certified funds at 1 Example Ave (fixture) Application / instructions document → · County purchase-instructions page (published by the source) → The county's process for every parcel on its list · observed Sep 18, 2026",
+  decP15How: "Multi-step county process First step: Download and complete the application (fixture) Download and complete the application (fixture) E-mail taxdeeds@example.gov with the case number (fixture) Pay in certified funds at 1 Example Ave (fixture) Application / instructions document → · County purchase-instructions page (published by the source) → County process: the county publishes this acquisition process for the properties on its list. It is not an approval for this parcel, and being listed does not prove the county will still sell it today. Acquisition process last verified Sep 18, 2026",
   decP15HowHrefs: ['https://www.citrusclerk.example.gov/lands-available/application.pdf', 'https://www.citrusclerk.example.gov/lands-available/how-to-purchase'],
   decP15HowMode: 'Multi-step county process',
   decP15HowSteps: ['Download and complete the application (fixture)', 'E-mail taxdeeds@example.gov with the case number (fixture)', 'Pay in certified funds at 1 Example Ave (fixture)'],
   decP15Contact: 'Office Fixture County Clerk - Tax Deed Division (fixture) Address (in person) 1 Example Ave, Inverness, FL 00000 (fixture) Phone (000) 000-0000 E-mail taxdeeds@example.gov Payment Certified funds (fixture) Instructions published by the source: Complete the application and pay at the Tax Deed office (fixture wording).',
   decP15ContactLinks: ['tel:0000000000', 'mailto:taxdeeds@example.gov'],
-  decP15Why: 'Lands Available - fixed price, over the counter (F.S. 197.502(7)) Basis: harvester constant (F.S. 197.502(7) Lands Available list) County list page → · list dated Sep 19, 2026 Matched to the list by case no CI-7 (parcel 1515) · read Sep 20, 2026',
+  decP15Why: "Lands Available - fixed price, over the counter (F.S. 197.502(7)) Property-specific: this parcel appears on the official county list. Basis: harvester constant (F.S. 197.502(7) Lands Available list) County list page → · list dated Sep 19, 2026 Matched to the list by case no CI-7 (parcel 1515) · read Sep 20, 2026",
   decP15SourceDocHrefs: ['https://x/citrus-list', 'https://www.citrusclerk.example.gov/lands-available/how-to-purchase', 'https://www.citrusclerk.example.gov/lands-available/application.pdf'],
   decP15Glance: 'Multi-step county process Fixture County Clerk - Tax Deed Division (fixture)',
   decP15InvAcquire: 'Multi-step county process Fixture County Clerk - Tax Deed Division (fixture) - full process in "How do I acquire it?" above',
   availCsvP15Acquisition: true,
+  decP15Scope: 'source',
+  decP15First: 'First step: Download and complete the application (fixture)',
+  decP15Verified: 'Acquisition process last verified Sep 18, 2026',
+  acqUnavailableKeepsPath: { mode: 'Phone the county', verified: 'Acquisition process last verified Sep 30, 2026 · County source not fully read at the last attempt; retry pending - this is the last verified process.', notVerified: false },
+  acqPropertyScopeLabel: 'Property-specific: the source published this instruction for this parcel.',
   decP15Cost: 'Not published by the source',
   decP15Where: '15 Manatee Ln Citrus County, FL 28.88860, -82.45200 · authoritative coordinates on file',
   decP15Known: '2025 County Just Value $26,000 · County Assessed Value $25,000 · 0.30 ac · Land use Vacant residential · Type Vacant Lot · Assessed to Lee Park',

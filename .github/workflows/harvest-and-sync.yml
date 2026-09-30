@@ -947,7 +947,9 @@ jobs:
           for c in "${cs[@]}"; do c="$(echo "$c" | xargs)"; [ -n "$c" ] && args="$args --county \"$c\""; done
           IFS=',' read -ra ds <<< "$RA_DATES"
           for d in "${ds[@]}"; do d="$(echo "$d" | xargs)"; [ -n "$d" ] && args="$args --realauction-date $d"; done
-          eval python3 scripts/capture_purchase_evidence.py --state FL $args
+          # --follow: one hop to acquisition links PRESENT on each source page
+          # (capped, no search engines / vendors; scripts/capture_purchase_evidence.py).
+          eval python3 scripts/capture_purchase_evidence.py --state FL --follow $args
 
       - name: Print capture (value-free; readable from the job log without downloading the artifact)
         if: always()

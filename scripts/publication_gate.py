@@ -319,7 +319,8 @@ def main(argv=None) -> int:
         if pp:
             print(f"  acquisition (rows {pp['rows']}): {pp['with_source_listing']} with a source listing / document ({pp['pct_with_source_listing']}%), "
                   f"{pp['with_source_match']} property-to-source matched, {pp['with_acquisition_path']} with a verified acquisition path "
-                  f"({pp['pct_with_acquisition_path']}%), {pp['acquisition_unverified']} unverified; by mode {pp['by_mode']}; "
+                  f"({pp['pct_with_acquisition_path']}%) of which {pp['with_complete_record']} carry a complete record ({pp['pct_with_complete_record']}%), "
+                  f"{pp['acquisition_unverified']} unverified; by mode {pp['by_mode']}; "
                   f"{pp['with_direct_document']} direct document, {pp['with_source_date']} source date, {pp['with_last_verified']} last verified")
     return 0
 

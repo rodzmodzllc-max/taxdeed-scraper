@@ -70,6 +70,20 @@ LONG_DIGITS = re.compile(r"\d{7,}")
 PHONE = re.compile(r"\(?\b\d{3}\)?[-. ]\d{3}[-. ]\d{4}\b")
 EMAIL = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
 MAX_SNIPPETS, MAX_SNIPPET_CHARS, MAX_LINKS = 40, 320, 60
+# Acquisition sprint 2 (2026-09-30): one-hop follow. Only a link that is
+# PRESENT on an approved source page, whose own text or URL names the
+# acquisition process (strong vocabulary - not "contact", not "fee"), and
+# whose host is not a search engine, social site or blocked vendor, is
+# fetched. Capped per county. Never a crawl, never a search, never a guessed
+# URL; the operator still reads the capture and records evidence by hand.
+# Tax-deed context is REQUIRED (a first capture followed generic "Forms" /
+# "Application Process" navigation into passport and marriage-licence pages).
+FOLLOW_VOCAB = re.compile(r"tax[\s_-]?deed|lands?[\s_-]?available|list[\s_-]?of[\s_-]?lands|197\.502|\blaft\b|"
+                          r"purchas\w* (property|land)|lands? for taxes", re.I)
+DOC_EXT = re.compile(r"\.(pdf|docx?|rtf)(\?|#|$)", re.I)
+NEVER_FOLLOW = re.compile(r"(^|\.)(google|bing|yahoo|duckduckgo|facebook|twitter|x|instagram|linkedin|youtube|"
+                          r"govease|bid4assets|lgbs|zillow|realtor)\.", re.I)
+MAX_FOLLOW_PER_COUNTY = 6
 STATUS_LABEL = re.compile(r"status", re.I)
 
 
@@ -97,7 +111,7 @@ def sentences(text: str):
             yield s
 
 
-def extract_html(html: str, url: str) -> dict:
+def extract_html(html: str, url: str, *, keep_tables: bool = False) -> dict:
     soup = BeautifulSoup(html, "html.parser")
     title = clean(soup.title.get_text(" ")) if soup.title else ""
     headings = [clean(h.get_text(" ")) for h in soup.find_all(["h1", "h2", "h3"])][:15]
@@ -108,14 +122,24 @@ def extract_html(html: str, url: str) -> dict:
         if not href or href.startswith(("#", "javascript:", "mailto:", "tel:")):
             continue
         absolute = urljoin(url, href)
-        if LINK_VOCAB.search(text) or LINK_VOCAB.search(absolute):
+        # A link carrying a parcel / account number (a 7+ digit run) is a
+        # per-property link from the inventory list: never captured, so the
+        # capture stays value-free (Putnam's list links every row to the Tax
+        # Collector by account number).
+        if LONG_DIGITS.search(absolute) or LONG_DIGITS.search(text):
+            continue
+        is_doc = bool(DOC_EXT.search(absolute))
+        if LINK_VOCAB.search(text) or LINK_VOCAB.search(absolute) or is_doc:
             links.append({"text": text[:120], "href": absolute, "host": (urlsplit(absolute).hostname or "").lower(),
-                          "same_site": same_site(absolute, url)})
+                          "same_site": same_site(absolute, url), "document": is_doc,
+                          "follow": bool(FOLLOW_VOCAB.search(text) or FOLLOW_VOCAB.search(absolute))})
         if len(links) >= MAX_LINKS:
             break
     # Process text lives outside the inventory table: drop tables, scripts,
     # navigation before reading sentences, so no row value is captured.
-    for tag in soup.find_all(["table", "script", "style", "nav", "noscript"]):
+    # A followed PROCESS page (FAQ, instructions) may lay its text out in a
+    # table; the source's inventory list is never read with tables kept.
+    for tag in soup.find_all((["table"] if not keep_tables else []) + ["script", "style", "nav", "noscript"]):
         tag.decompose()
     body_text = soup.get_text("\n")
     snippets = []
@@ -154,6 +178,7 @@ def fetch(session: requests.Session, url: str) -> tuple[requests.Response | None
 
 
 def capture_url(session: requests.Session, url: str, *, kind: str) -> dict:
+    keep_tables = kind == "followed_link"
     out = {"url": url, "kind": kind, "fetched_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat()}
     resp, err = fetch(session, url)
     if err:
@@ -169,13 +194,30 @@ def capture_url(session: requests.Session, url: str, *, kind: str) -> dict:
     if "pdf" in ctype or url.lower().endswith(".pdf"):
         out.update(extract_pdf(resp.content))
     elif BeautifulSoup is not None:
-        out.update(extract_html(resp.text, resp.url))
+        out.update(extract_html(resp.text, resp.url, keep_tables=keep_tables))
     else:
         out["error"] = "beautifulsoup4 not installed"
     return out
 
 
-def capture_available(session: requests.Session, state: str, counties: set[str] | None) -> dict:
+def follow_candidates(pages: list[dict], seen: set) -> list[dict]:
+    """The links to fetch one hop from the source's own pages: present on
+    the page, acquisition vocabulary, not a search engine / social / vendor
+    host, not already captured; documents first, then same-site pages."""
+    out, keys = [], set(seen)
+    for pg in pages:
+        for l in pg.get("links") or []:
+            href = l.get("href") or ""
+            host = (urlsplit(href).hostname or "").lower()
+            if not l.get("follow") or href in keys or not href.startswith(("https://", "http://")) or NEVER_FOLLOW.search(host + "."):
+                continue
+            keys.add(href)
+            out.append({"href": href, "text": l.get("text", ""), "from": pg.get("url"), "rank": (0 if l.get("document") else 1, 0 if l.get("same_site") else 1)})
+    out.sort(key=lambda x: x["rank"])
+    return out[:MAX_FOLLOW_PER_COUNTY]
+
+
+def capture_available(session: requests.Session, state: str, counties: set[str] | None, *, follow: bool = False) -> dict:
     result: dict = {}
     for r in registry_rows(state):
         if counties and r["county"] not in counties:
@@ -189,6 +231,14 @@ def capture_available(session: requests.Session, state: str, counties: set[str] 
             seen.add(url)
             entry["pages"].append(capture_url(session, url, kind=kind))
             time.sleep(0.6)
+        if follow:
+            for link in follow_candidates(entry["pages"], seen):
+                page = capture_url(session, link["href"], kind="followed_link")
+                page["followed_from"] = link["from"]
+                page["link_text"] = link["text"]
+                entry["pages"].append(page)
+                seen.add(link["href"])
+                time.sleep(0.6)
         result[r["county"]] = entry
         print(f"  {r['county']:<14} {r['source_id']:<22} " + ", ".join(f"{p.get('kind')}={p.get('status', p.get('error', '?'))}" for p in entry["pages"]), flush=True)
     return result
@@ -245,13 +295,14 @@ def digest(path: Path, *, max_links: int = 25, max_snippets: int = 25, snippet_c
     for county, e in sorted((data.get("available_sources") or {}).items()):
         out.append(f"@@ {county} | {e.get('source_id')} | {e.get('access_method')} | {e.get('machine_format')}")
         for pg in e.get("pages") or []:
-            out.append(f"  ## {pg.get('kind')} {pg.get('url')} -> {pg.get('status', pg.get('error'))} ct={str(pg.get('content_type', ''))[:30]} lm={pg.get('last_modified')}")
+            via = f" (from {pg.get('followed_from')} link {pg.get('link_text', '')[:50]!r})" if pg.get("followed_from") else ""
+            out.append(f"  ## {pg.get('kind')} {pg.get('url')} -> {pg.get('status', pg.get('error'))} ct={str(pg.get('content_type', ''))[:30]} lm={pg.get('last_modified')}{via}")
             if pg.get("title"):
                 out.append(f"  title: {pg['title'][:140]}")
             if pg.get("headings"):
                 out.append("  headings: " + " || ".join(h[:80] for h in pg["headings"][:8]))
             for l in (pg.get("links") or [])[:max_links]:
-                out.append(f"  link: {l['text'][:70]!r} -> {l['href']} [{'same' if l.get('same_site') else 'OTHER'}]")
+                out.append(f"  link: {l['text'][:70]!r} -> {l['href']} [{'same' if l.get('same_site') else 'OTHER'}{' DOC' if l.get('document') else ''}{' follow' if l.get('follow') else ''}]")
             for sn in (pg.get("snippets") or [])[:max_snippets]:
                 out.append(f"  s: {sn[:snippet_chars]}")
             if pg.get("phones"):
@@ -279,6 +330,7 @@ def main(argv=None) -> int:
     ap.add_argument("--county", action="append", default=[], help="limit to these counties (repeatable)")
     ap.add_argument("--realauction-date", action="append", default=[], help="MM/DD/YYYY past sale date(s) for result-label discovery")
     ap.add_argument("--skip-available", action="store_true")
+    ap.add_argument("--follow", action="store_true", help="fetch up to %d acquisition links present on each source page (one hop)" % MAX_FOLLOW_PER_COUNTY)
     ap.add_argument("--out", default=str(OUT_PATH))
     args = ap.parse_args(argv)
     if args.digest:
@@ -291,7 +343,7 @@ def main(argv=None) -> int:
                       "tables removed before reading; no row value, no parcel, no case number, no amount, no name"}
     if not args.skip_available:
         print(f"capturing AVAILABLE source pages ({args.state})", flush=True)
-        report["available_sources"] = capture_available(session, args.state, counties)
+        report["available_sources"] = capture_available(session, args.state, counties, follow=args.follow)
     if args.realauction_date:
         print("RealAuction result-label discovery", flush=True)
         report["realauction_result_labels"] = capture_realauction(session, args.realauction_date, counties)

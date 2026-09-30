@@ -1762,6 +1762,20 @@ Full description: `docs/available-ledger.md` section 11. The stable facts:
 - `sw.js` -> `tdw-shell-v51`. `tests/run_test.mjs`: 661 checks; Python:
   `tests/python/test_acquisition_path.py`.
 
+## Acquisition coverage (2026-09-30, PR open)
+
+Full description: `docs/available-ledger.md` section 12. Stable facts:
+- `capture_purchase_evidence.py --follow`: one hop to tax-deed links
+  present on the source page (no search / social / vendor hosts, max 6);
+  per-parcel links (7+ digit runs) are never captured.
+- `laft_lifecycle.carry_plan()`: rows not read this run keep and receive
+  their verified evidence and deterministic match; a failed read never
+  erases anything. The lifecycle reads every county with active rows.
+- `data/purchase_path_evidence.csv`: 16 rows (Marion added,
+  `amount_plus_costs`, no phone - the page does not attribute one).
+- `measure()`: `with_complete_record` is the commercial headline; a typed
+  mode alone is not complete. `sw.js` -> `tdw-shell-v52`.
+
 ## Where to look for more
 
 - `claude/improvement-roadmap.md` in the "tax florida app" claude.ai Project — the full dated log of every fix, audit finding, and open decision. This is where new findings should be appended, not here.

@@ -525,6 +525,59 @@ def source_match_of(row: dict, *, list_url, document_url, read_at: str) -> dict 
     return match
 
 
+CARRY_COLUMNS = ("parcel", "certificate_no", "last_seen_at", "otc_provenance", "purchase_path_type", "purchase_path_scope",
+                 "purchase_path_evidence", "purchase_path_observed_on")
+
+
+def carry_plan(db_rows: list[dict], observed_keys: set, path_ctx: "PathContext | None", *, have_023: bool) -> list[tuple[int, dict]]:
+    """Acquisition sprint 2 (2026-09-30): keep verified customer evidence on
+    rows this run did NOT read (their county was INCOMPLETE, SOURCE_UNAVAILABLE,
+    FAILED, STALE or not run). A temporary read failure never erases
+    anything; this pass only ADDS what is already established:
+
+    - the deterministic property-to-source match, from the identity the sync
+      upserted the row under (case_no, else parcel) and the list / document it
+      was last read from, dated by that last read (last_seen_at) - never a
+      name, address or proximity match; a row never read has none;
+    - the acquisition path the verified evidence table establishes for the
+      row's source + county (its own observed date), exactly as an observed
+      row would get it.
+
+    Nothing is patched when nothing changes; no key is removed; last_seen_at
+    is never touched (the row was not read). Returns [(id, payload)]."""
+    out: list[tuple[int, dict]] = []
+    for r in db_rows:
+        if str(r.get("status") or "active").lower() in GONE_STATUSES:
+            continue
+        if (str(r.get("county")), str(r.get("case_no"))) in observed_keys or not r.get("id"):
+            continue
+        prov = r.get("otc_provenance") if isinstance(r.get("otc_provenance"), dict) else {}
+        if not prov:
+            continue                                    # never provenance-stamped: nothing established to keep
+        new_prov = dict(prov)
+        list_url, document_url = prov.get("list_url"), prov.get("document_url")
+        if not prov.get("source_match") and r.get("last_seen_at") and (list_url or document_url):
+            match = source_match_of(r, list_url=list_url, document_url=document_url, read_at=str(r["last_seen_at"]))
+            if match:
+                match["basis"] = ("row last read from the source list / document by the harvester (read_at); identity as the "
+                                  "sync upserted it; carried because the county was not read this run")
+                new_prov["source_match"] = match
+        cols: dict = {}
+        if path_ctx is not None:
+            path, _refusals = path_ctx.resolve(r, source_id=prov.get("source_id"), county=r.get("county"),
+                                               list_url=list_url, document_url=document_url)
+            if path is not None:
+                new_prov.update(path.provenance())
+                if have_023:
+                    cols = {k: v for k, v in path.columns().items() if r.get(k) != v}
+        payload = dict(cols)
+        if new_prov != prov:
+            payload["otc_provenance"] = new_prov
+        if payload:
+            out.append((r["id"], payload))
+    return out
+
+
 def published_at_from_last_modified(value) -> str | None:
     """RFC 1123 Last-Modified -> ISO 8601 UTC, or None. Deterministic; a
     value that does not parse is dropped, never approximated."""
@@ -644,7 +697,7 @@ def run_source_fields(observed: dict[str, dict[str, dict]], gates: dict[str, dic
 
 def execute(plan: Plan, gates: dict[str, dict], observed: dict[str, dict[str, dict]], api: Api,
             *, state: str, have_017: bool, retrieved_at: str, registry_paths: dict | None = None,
-            registry_modes: dict | None = None, path_ctx: "PathContext | None" = None) -> dict:
+            registry_modes: dict | None = None, path_ctx: "PathContext | None" = None, db_rows: list[dict] | None = None) -> dict:
     counts = {"observed": len(plan.observe), "reactivated": 0, "closed": 0, "provenance_patches": 0}
     # 1. Reactivation (status column exists today).
     by_county: dict[str, list[str]] = {}
@@ -667,7 +720,13 @@ def execute(plan: Plan, gates: dict[str, dict], observed: dict[str, dict[str, di
                     api.patch(f"state=eq.{state}&source=eq.{SOURCE}&county=eq.{q(county)}&case_no=in.{q(in_list(keys[i:i + BATCH]))}",
                               payload)
                     counts["provenance_patches"] += 1
-    # 3. Close-out.
+    # 3. Carry verified evidence onto rows this run did not read (never erases).
+    counts["carried"] = 0
+    if have_017 and db_rows is not None:
+        for row_id, payload in carry_plan(db_rows, set(plan.observe), path_ctx, have_023=bool(path_ctx and path_ctx.have_023)):
+            api.patch(f"id=eq.{row_id}", payload)
+            counts["carried"] += 1
+    # 4. Close-out.
     ids = [r["id"] for r in plan.close if r.get("id")]
     body = {"status": "closed"}
     if have_017:
@@ -693,7 +752,8 @@ def summarize(plan: Plan, gates: dict[str, dict], counts: dict | None, have_017:
         lines.append("  close-out skipped (fail closed): " + ", ".join(f"{c} [{s}]" for c, s in sorted(plan.skipped_counties.items())))
     lines.append("  migration 017 columns: " + ("present" if have_017 else "absent - last_seen_at/provenance not written" if have_017 is False else "not probed"))
     if counts:
-        lines.append(f"  applied: reactivated {counts['reactivated']}, provenance patches {counts['provenance_patches']}, closed {counts['closed']}")
+        lines.append(f"  applied: reactivated {counts['reactivated']}, provenance patches {counts['provenance_patches']}, closed {counts['closed']}, "
+                     f"evidence carried onto unread rows {counts.get('carried', 0)}")
     return "\n".join(lines)
 
 
@@ -753,7 +813,11 @@ def main(argv=None) -> int:
     have_019 = api.has_migration_019()
     have_023 = have_017 and api.has_migration_023()
     path_ctx = PathContext(Path(args.registry), state, have_023=have_023, evidence_path=Path(args.path_evidence))
-    db_rows = fetch_state_rows(api, state, counties, tuple(SF.OPTIONAL_COLUMNS) if have_019 else ()) if counties else []
+    extra = (tuple(SF.OPTIONAL_COLUMNS) if have_019 else ()) + (CARRY_COLUMNS if have_023 else CARRY_COLUMNS[:4] if have_017 else ())
+    # Every county on record, not only this run's: a county missing from the
+    # status file entirely (NOT_RUN) still keeps and receives its evidence.
+    counties_all = sorted(set(counties) | {str(r.get("county")) for r in api.get(f"state=eq.{state}&source=eq.{SOURCE}&status=eq.active&select=county&limit=10000")})
+    db_rows = fetch_state_rows(api, state, counties_all, extra) if counties_all else []
     plan = plan_lifecycle(gates, observed, db_rows)
     if not have_017:
         print("::notice title=laft_lifecycle::migration 017 not applied - reactivation and close-out only; last_seen_at and provenance columns are not written")
@@ -763,14 +827,14 @@ def main(argv=None) -> int:
         print("::notice title=laft_lifecycle::migration 023 not applied - purchase_path_type / _scope / _evidence / _observed_on are not written")
     retrieved_at = now_iso()
     counts = execute(plan, gates, observed, api, state=state, have_017=have_017, retrieved_at=retrieved_at,
-                     registry_paths=registry_paths, registry_modes=registry_modes, path_ctx=path_ctx)
+                     registry_paths=registry_paths, registry_modes=registry_modes, path_ctx=path_ctx, db_rows=db_rows)
     # Observed rows only: the same COMPLETE/INCOMPLETE gate as last_seen_at.
     observed_gated = {c: rows for c, rows in observed.items() if gates.get(c, {}).get("status") in OBSERVED_STATUSES}
     sf_counts, sf_columns = run_source_fields(observed_gated, gates, db_rows, api, have_019=have_019, retrieved_at=retrieved_at)
     text = summarize(plan, gates, counts, have_017, state=state) + "\n" + SF.summarize(sf_counts, sf_columns)
     print(text + ("\n  (dry run - nothing written)" if args.dry_run else ""))
     report = {"state": state, "observed": counts["observed"], "reactivated": counts["reactivated"], "closed": counts["closed"],
-              "provenance_patches": counts["provenance_patches"], "migration_017": have_017, "migration_019": have_019,
+              "provenance_patches": counts["provenance_patches"], "carried": counts.get("carried", 0), "migration_017": have_017, "migration_019": have_019,
               "migration_023": have_023,
               "dry_run": args.dry_run, "source_fields": sf_counts.to_json(),
               "counties": {c: g["status"] for c, g in gates.items()}, "note": "counts and county names only; never a row value"}
