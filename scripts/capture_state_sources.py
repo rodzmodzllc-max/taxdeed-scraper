@@ -69,6 +69,61 @@ DISCOVERY_PAGES = {
            "https://www.hubbardcounty.gov/tfl",
            "https://ottertailcounty.gov/property-home/property-sales/tax-forfeited-lands/"],
 }
+# Six-state expansion sprint (2026-10-01): candidate inventory pages and
+# statewide parcel / assessment services for states beyond FL/TX/AL/AR/LA,
+# named by web searches (search-index evidence only). Read once, value-free,
+# with --expansion. ArcGIS services get their layers' field names, counts,
+# copyright text and the SHAPES of identifier-like attributes (digits -> 9,
+# letters -> A) so a deterministic join can be judged without a value.
+EXPANSION_TARGETS = {
+    "MD": ["https://dat.maryland.gov/pages/tax-sale-schedule.aspx",
+           "https://baltimorecity.marylandtaxsale.com/",
+           "https://annearundel.marylandtaxsale.com/",
+           "https://frederick.marylandtaxsale.com/",
+           "https://geodata.md.gov/imap/rest/services/PlanningCadastre/MD_PropertyData/MapServer",
+           "https://opendata.maryland.gov/api/views/ed4q-f8tm.json",
+           "https://opendata.maryland.gov/api/views/8dzc-9xpq.json"],
+    "NJ": ["https://easthanover.newjerseytaxsale.com/",
+           "https://cranford.newjerseytaxsale.com/",
+           "https://www.nj.gov/nj/legal.html"],
+    "CO": ["https://gis.colorado.gov/public/rest/services/Address_and_Parcel/Colorado_Public_Parcels/FeatureServer",
+           "https://morgancounty.colorado.gov/county-held-tax-lien-sale-certificates",
+           "https://www.clearcreekcounty.us/329"],
+    "WV": ["https://www.wvsao.gov/CountyCollections/Default",
+           "https://services.wvgis.wvu.edu/arcgis/rest/services/Planning_Cadastre/WV_Parcels/MapServer",
+           "https://www.mapwv.gov/parcel/"],
+    "MS": ["https://www.sos.ms.gov/public-lands/tax-forfeited-lands",
+           "https://tflgis.sos.ms.gov/",
+           "https://gis.mississippi.edu/server/rest/services/Cadastral/MS_Parcels_2023/MapServer",
+           "https://maris.mississippi.edu/HTML/RESOURCES/Liability.html"],
+    "NC": ["https://services.nconemap.gov/secure/rest/services/NC1Map_Parcels/FeatureServer",
+           "https://www.nconemap.gov/pages/terms",
+           "https://tax.mecknc.gov/services/tax-foreclosure-properties",
+           "https://www.buncombenc.gov/622/Tax-Foreclosure-Sales"],
+    "MN": ["https://gisweb.co.wilkin.mn.us/arcgis/rest/services/Auditor/TaxForfeitSales/FeatureServer",
+           "https://maps.co.itasca.mn.us/arcgis/rest/services/Real_Estate/Direct_County_Lands/FeatureServer",
+           "https://gisdata.mn.gov/dataset/plan-parcels-open"],
+    "UT": ["https://auditor.utahcounty.gov/may-tax-sale/property-list",
+           "https://maps.carbon.utah.gov/arcgis/rest/services/Hosted/TaxParcelForeclosures_37979aa0515c4818ac1804457ab42ae1/FeatureServer",
+           "https://services1.arcgis.com/99lidPhWCzftIe9K/arcgis/rest/services/Parcels_SaltLake_LIR/FeatureServer",
+           "https://gis.utah.gov/products/sgid/cadastre/parcels/"],
+    "WI": ["https://services3.arcgis.com/n6uYoouQZW75n5WI/arcgis/rest/services/Wisconsin_Statewide_Parcels/FeatureServer",
+           "https://www.sco.wisc.edu/parcels/data/",
+           "https://www.co.sauk.wi.us/treasurer/tax-foreclosure-property-sale-sealed-bid",
+           "https://www.greencountywi.org/492/Current-Tax-Deed-Sales"],
+    "MA": ["https://services1.arcgis.com/hGdibHYSPO59RG1h/arcgis/rest/services/L3_TAXPAR_POLY_ASSESS_gdb/FeatureServer",
+           "https://www.mass.gov/info-details/massgis-data-property-tax-parcels"],
+    "CT": ["https://data.ct.gov/api/views/fyh6-7xga.json",
+           "https://services3.arcgis.com/3FL1kr7L4LvwA2Kb/arcgis/rest/services/Connecticut_CAMA_and_Parcel_Layer/FeatureServer"],
+    "TN": ["https://comptroller.tn.gov/office-functions/pa/gisredistricting/redistricting-and-land-use-maps/parcel-data.html"],
+    "OH": ["https://services2.arcgis.com/MlJ0G8iWUyC7jAmu/arcgis/rest/services/OhioStatewidePacels_full_view/FeatureServer"],
+    "VT": ["https://services.arcgis.com/XG15cJAlne2vxtgt/ArcGIS/rest/services/VT_Parcel/FeatureServer"],
+}
+EXPANSION_QUERIES = ('"tax sale" parcels type:"Feature Service"',
+                     '"delinquent" parcels type:"Feature Service"',
+                     '"tax deed" type:"Feature Service"',
+                     '"county held" OR "tax title" type:"Feature Service"')
+ARCGIS_SERVICE_RE = re.compile(r"/(FeatureServer|MapServer)(/\d+)?/?$")
 DISCOVERY_QUERIES = ('("tax forfeited" OR "tax forfeit" OR "tax-forfeited") type:"Feature Service"',
                      '"adjudicated" property type:"Feature Service"')
 TERMS_VOCAB = re.compile(r"terms|disclaimer|legal|licen[cs]e|conditions|copyright|policy|privacy|open data|use of (this|the) (site|data)", re.I)
@@ -287,6 +342,19 @@ def arcgis_layer_meta(session: requests.Session, url: str) -> list[dict]:
             rec["count"] = r3.json().get("count") if r3 is not None and r3.status_code == 200 else None
         except ValueError:
             rec["count"] = None
+        # The SHAPES of identifier-like attributes in a small sample (never a
+        # value): how a parcel / account key is written, so a deterministic
+        # join with another source can be judged.
+        id_fields = [f.get("name") for f in meta.get("fields") or [] if f.get("name") and ID_HEADER.search(f.get("name"))][:12]
+        if id_fields:
+            r4, _ = fetch(session, lurl + "/query?" + urlencode({"where": "1=1", "outFields": ",".join(id_fields),
+                                                                "returnGeometry": "false", "resultRecordCount": 25, "f": "json"}))
+            try:
+                feats = r4.json().get("features") or [] if r4 is not None and r4.status_code == 200 else []
+                rec["id_shapes"] = {n: dict(Counter(shape(str((ft.get("attributes") or {}).get(n) or "")) for ft in feats).most_common(3))
+                                    for n in id_fields}
+            except ValueError:
+                pass
         out.append(rec)
         time.sleep(0.4)
     return out
@@ -320,6 +388,7 @@ def main(argv=None) -> int:
     ap.add_argument("--arcgis-search", action="append", default=[], help="ArcGIS Online catalog query (repeatable); metadata only")
     ap.add_argument("--skip-registry", action="store_true")
     ap.add_argument("--discovery", action="store_true", help="also read DISCOVERY_PAGES and run DISCOVERY_QUERIES")
+    ap.add_argument("--expansion", action="store_true", help="read EXPANSION_TARGETS and run EXPANSION_QUERIES (six-state sprint)")
     ap.add_argument("--out", default=str(OUT_PATH))
     args = ap.parse_args(argv)
     if args.digest:
@@ -339,7 +408,39 @@ def main(argv=None) -> int:
             print(f"  {code} discovery      {entry['pages'][-1].get('status', entry['pages'][-1].get('error'))} {url}", flush=True)
             time.sleep(0.8)
         report["states"].setdefault(code, {"sources": []})["sources"].append(entry)
-    for q in (args.arcgis_search or (DISCOVERY_QUERIES if args.discovery else ())):
+    for code, urls in EXPANSION_TARGETS.items():
+        if not args.expansion or (args.state and code not in args.state):
+            continue
+        entry = {"source_id": f"expansion_{code.lower()}", "county": "(expansion)", "pages": []}
+        seen: set[str] = set()
+        for url in urls:
+            seen.add(url)
+            if ARCGIS_SERVICE_RE.search(url):
+                page = {"url": url, "kind": "arcgis", "layers": arcgis_layer_meta(session, url)}
+                print(f"  {code} arcgis         {len(page['layers'])} layer(s) {url}", flush=True)
+            else:
+                page = capture(session, url, "expansion")
+                print(f"  {code} expansion      {page.get('status', page.get('error'))} {url}", flush=True)
+            entry["pages"].append(page)
+            time.sleep(0.8)
+        follow = 0
+        for pg in list(entry["pages"]):
+            for link in pg.get("terms_links") or []:
+                href = link["href"]
+                if href in seen or follow >= MAX_TERMS_FOLLOW * 2:
+                    continue
+                if ".".join((urlsplit(href).hostname or "").split(".")[-2:]) != ".".join((urlsplit(pg.get("final_url") or pg["url"]).hostname or "").split(".")[-2:]):
+                    continue
+                seen.add(href)
+                follow += 1
+                page = capture(session, href, "terms")
+                page["link_text"] = link["text"]
+                entry["pages"].append(page)
+                print(f"  {code} terms          {page.get('status', page.get('error'))} {href}", flush=True)
+                time.sleep(0.8)
+        report["states"].setdefault(code, {"sources": []})["sources"].append(entry)
+    queries = list(args.arcgis_search) or (list(DISCOVERY_QUERIES if args.discovery else ()) + list(EXPANSION_QUERIES if args.expansion else ()))
+    for q in queries:
         report.setdefault("arcgis", {})[q] = arcgis_discover(session, q)
         print(f"  arcgis search {q!r}: {len(report['arcgis'][q])} item(s)", flush=True)
     for r in rows:
@@ -396,6 +497,16 @@ def digest(path: Path) -> str:
                 out.append(f"  ## {pg['kind']} {pg['url']} -> {pg.get('status', pg.get('error'))} final={pg.get('final_url')} "
                            f"ct={str(pg.get('content_type', ''))[:40]} lm={pg.get('last_modified')} len={pg.get('content_length')}"
                            + (f" linktext={pg.get('link_text')!r}" if pg.get("link_text") else ""))
+                for l in pg.get("layers") or []:
+                    if l.get("error"):
+                        out.append(f"    layer error: {l['error']}")
+                        continue
+                    out.append(f"    layer {l['layer']} name={l.get('name')} geom={l.get('geometry')} count={l.get('count')} last_edit={l.get('last_edit')} max={l.get('max_records')}")
+                    out.append(f"      fields: {', '.join(l.get('fields') or [])}")
+                    if l.get("copyright"):
+                        out.append(f"      copyright: {l['copyright']}")
+                    if l.get("id_shapes"):
+                        out.append(f"      id_shapes: {json.dumps(l['id_shapes'])[:1500]}")
                 if pg.get("probe_params"):
                     out.append(f"  probe params: {pg['probe_params']}")
                 if pg.get("parse_error"):
@@ -443,6 +554,8 @@ def digest(path: Path) -> str:
                 out.append(f"      fields: {', '.join(l.get('fields') or [])}")
                 if l.get("copyright"):
                     out.append(f"      copyright: {l['copyright']}")
+                if l.get("id_shapes"):
+                    out.append(f"      id_shapes: {json.dumps(l['id_shapes'])[:1500]}")
     return "\n".join(out)
 
 

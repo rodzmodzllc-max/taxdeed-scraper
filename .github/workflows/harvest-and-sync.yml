@@ -180,11 +180,13 @@ on:
           through the harvester's own anonymous AJAX endpoint, value-free.
           "state_sources" = read only the candidate (non-production) state
           sources' pages, documents and terms pages, structure only
-          (scripts/capture_state_sources.py).
+          (scripts/capture_state_sources.py). "expansion" = the six-state
+          sprint's candidate inventory pages and statewide parcel services
+          (EXPANSION_TARGETS), value-free.
         required: false
         type: choice
         default: available
-        options: [available, auction_results, state_sources]
+        options: [available, auction_results, state_sources, expansion]
 
 concurrency:
   group: harvest-and-sync
@@ -1021,6 +1023,13 @@ jobs:
             # and value shapes, dataset licence metadata, terms pages. Nothing
             # is written to any database and nothing is enabled.
             python3 scripts/capture_state_sources.py --discovery
+            exit 0
+          fi
+          if [ "$SCOPE" = "expansion" ]; then
+            # Six-state sprint candidates: structure, licence / terms text,
+            # ArcGIS layer fields, counts and identifier SHAPES. Nothing is
+            # written to any database and nothing is enabled.
+            python3 scripts/capture_state_sources.py --expansion --skip-registry
             exit 0
           fi
           args=""
