@@ -149,6 +149,17 @@ on:
         required: false
         type: boolean
         default: false
+      job:
+        description: >-
+          Which job to run on this manual dispatch. "all" is the historical
+          behaviour (every job, INCLUDING the manual-only Texas / LGBS job).
+          Pick one job to run only that ledger's normal path - e.g. "laft" for
+          the AVAILABLE sync without touching the Texas vendor feed. Scheduled
+          runs ignore this.
+        required: false
+        type: choice
+        default: all
+        options: [all, deeds, certificates, laft, texas, backup]
 
 concurrency:
   group: harvest-and-sync
@@ -161,7 +172,7 @@ jobs:
     timeout-minutes: 60
     # Skip this job on the certificates-only schedule (12:00 UTC), but always
     # run it on the other two schedules and on manual dispatch.
-    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 10 * * *' || github.event.schedule == '0 22 * * *'
+    if: (github.event_name == 'workflow_dispatch' && (github.event.inputs.job == 'all' || github.event.inputs.job == 'deeds' || github.event.inputs.job == '')) || github.event.schedule == '0 10 * * *' || github.event.schedule == '0 22 * * *'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -355,7 +366,7 @@ jobs:
     # is still hard-bounded (three attempts of a 25s request timeout plus
     # 20s+45s backoff), so this isn't masking a true infinite hang.
     timeout-minutes: 60
-    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 12 * * *'
+    if: (github.event_name == 'workflow_dispatch' && (github.event.inputs.job == 'all' || github.event.inputs.job == 'certificates' || github.event.inputs.job == '')) || github.event.schedule == '0 12 * * *'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -413,7 +424,7 @@ jobs:
     name: Harvest Lands Available PDFs + sync
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 12 * * *'
+    if: (github.event_name == 'workflow_dispatch' && (github.event.inputs.job == 'all' || github.event.inputs.job == 'laft' || github.event.inputs.job == '')) || github.event.schedule == '0 12 * * *'
     env:
       # Read by scripts/harvest_cache.py's load_cache() - "true" makes every
       # LAFT sub-harvester in this job (PDFs, HTML-table, RealTDM's
@@ -712,7 +723,10 @@ jobs:
     # one (not the old FL-only on_conflict target) since Texas rows only
     # ever exist post-004_widen_unique_constraint_for_state.sql - no
     # fallback needed here the way the three FL sync scripts have one.
+    # Runs only on a dispatch that asks for it ("all" or "texas") - a
+    # single-ledger dispatch (e.g. job=laft) never touches the LGBS feed.
     if: github.event_name == 'workflow_dispatch'
+      && (github.event.inputs.job == 'all' || github.event.inputs.job == 'texas' || github.event.inputs.job == '')
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -820,7 +834,7 @@ jobs:
     # the whole point is to capture what is in the database, so it must still
     # produce a backup on a day when a harvester is broken - that is exactly
     # the day a backup matters most.
-    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 12 * * *'
+    if: (github.event_name == 'workflow_dispatch' && (github.event.inputs.job == 'all' || github.event.inputs.job == 'backup' || github.event.inputs.job == '')) || github.event.schedule == '0 12 * * *'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
