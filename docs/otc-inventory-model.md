@@ -428,3 +428,24 @@ update frequency, source terminology) and one Alabama candidate row with
 no URL; `harvesters/otc/adapters/alabama.py` is the adapter contract with
 no transport; migration `020_state_extensible_vocabulary.sql` widens the
 017/018 constraints and adds the registry columns, and is NOT applied.
+
+## 15. Alabama source implementation (2026-09-30)
+
+Full description: `docs/alabama-onboarding.md`. The stable facts:
+`harvesters/otc/adapters/alabama.py` now holds the concrete ADOR source
+(`ADOR_SOURCE`, built from `ADOR_EVIDENCE` - the agency's own page titles,
+URLs, query-parameter names and snippets as a web search indexed them on
+2026-09-30; still SEARCH-INDEX evidence, nothing fetched), a county-selector
+reader, a header-mapped results-page reader whose CS Number link becomes
+the per-property `application_form` link, deterministic `parse_rows()`
+(CS number and parcel as published, owner name = the name assessed at
+sale, amount None + QUOTED_ON_APPLICATION, agency process page as
+`purchase_instructions` fallback), `classify_outcome()` (nothing COMPLETE
+or EMPTY until `parser_fixture_validated`), and a gated `harvest()` with an
+injected transport. `scripts/harvest_alabama_state_land.py` runs it in
+fixture mode (no network) or live mode (exit 2, zero requests, until
+`can_run()` allows). `OtcRecord` gained `owner_name`; the lifecycle's
+`amount_of()` keeps QUOTED_ON_APPLICATION only once storable and its gates
+are state-scoped. The registry's AL row carries the search page and the
+process page; it stays SEARCH_EVIDENCE_ONLY / TERMS_NOT_VERIFIED and is not
+runnable. Alabama is not activated; migration 020 is not applied.

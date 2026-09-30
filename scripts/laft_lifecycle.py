@@ -220,8 +220,16 @@ def load_expected_units(registry_path: Path, state: str = DEFAULT_STATE) -> list
 
 
 def county_gates(status_entries: list[dict], expected: list[tuple[str, str]], *, now: float | None = None,
-                 max_age_hours: float = 36.0) -> dict[str, dict]:
-    """{county: {"status", "observed_ok", "closeout_ok", "entry"}}."""
+                 max_age_hours: float = 36.0, state: str | None = None) -> dict[str, dict]:
+    """{county: {"status", "observed_ok", "closeout_ok", "entry"}}. With
+    `state`, an entry that names another state is dropped: county NAMES
+    repeat across states (Alabama and Florida both have an Escambia, a
+    Jackson, a Franklin ...), so another state's status entry must never
+    gate this state's rows. Every harvester's recorder writes its state
+    (CountyStatus.state, FL by default); an entry with no state at all is
+    kept, as before."""
+    if state is not None:
+        status_entries = [e for e in status_entries if not e.get("state") or str(e["state"]) == state]
     by_county = statuses_by_county(status_entries, expected=expected, now=now, max_age_hours=max_age_hours)
     gates: dict[str, dict] = {}
     for county, info in by_county.items():
@@ -285,12 +293,18 @@ def plan_lifecycle(gates: dict[str, dict], observed: dict[str, dict[str, dict]],
 _NUM_RE = re.compile(r"^\d+(\.\d+)?$")
 
 
-def amount_of(row: dict) -> tuple[float | None, str]:
+def amount_of(row: dict, *, storable_kinds=DB_AMOUNT_KINDS) -> tuple[float | None, str]:
     """(purchase_amount, purchase_amount_kind) from a harvested row. Same
     numeric cleanup as the sync's ToNum, but a missing/unparseable amount is
-    NULL + NOT_PUBLISHED - never 0."""
+    NULL + NOT_PUBLISHED - never 0. A harvester that says WHY there is no
+    figure (bid_kind QUOTED_ON_APPLICATION - the Alabama adapter) keeps that
+    kind only once the database can store it (migration 020); until then
+    it is NOT_PUBLISHED, the storable truth. No FL harvester emits it."""
     raw = row.get("bid")
     if raw is None or str(raw).strip() == "":
+        kind = str(row.get("bid_kind") or "")
+        if kind == "QUOTED_ON_APPLICATION" and kind in storable_kinds:
+            return None, kind
         return None, "NOT_PUBLISHED"
     cleaned = re.sub(r"[^0-9.]", "", str(raw))
     if not _NUM_RE.match(cleaned):
@@ -586,8 +600,12 @@ def main(argv=None) -> int:
         print(f"::warning title=laft_lifecycle::{status_path} unreadable or empty - nothing is observed or closed this run (fail closed)")
     expected = load_expected_units(Path(args.registry), state)
     registry_paths = load_registry_purchase_paths(Path(args.registry), state)
-    gates = county_gates(entries, expected, max_age_hours=args.max_age_hours) if entries else {}
-    observed = observed_by_county(load_harvest_rows([Path(p) for p in args.harvest]))
+    gates = county_gates(entries, expected, max_age_hours=args.max_age_hours, state=state) if entries else {}
+    # A harvest row that names another state is not this run's (the FL
+    # harvesters write no state key and are kept; the Alabama harvester
+    # writes "AL" and is kept only by an AL run).
+    observed = observed_by_county([r for r in load_harvest_rows([Path(p) for p in args.harvest])
+                                   if not r.get("state") or str(r["state"]) == state])
 
     url = os.environ.get("SUPABASE_URL", "")
     key = os.environ.get("SUPABASE_SERVICE_KEY", "")

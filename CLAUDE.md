@@ -1439,13 +1439,38 @@ state** (representable, never runnable) and defines the ten
 registered-but-inactive state is refused before any request.
 `data/county_source_registry.csv` carries five extra columns
 (`publishing_unit`, `publishing_unit_name`, `amount_kind`,
-`update_frequency`, `source_terminology`) and ONE Alabama candidate row
-(SEARCH_EVIDENCE_ONLY, TERMS_NOT_VERIFIED, URL deliberately blank).
-`harvesters/otc/adapters/alabama.py` is the adapter CONTRACT (config,
-field map, as-published identifiers, status vocabulary, amount and
-purchase-path semantics, fixture parsing) with no transport; migration
-`020_state_extensible_vocabulary.sql` is written and NOT applied. The
-activation checklist and what is still unverified: `docs/alabama-onboarding.md`.
+`update_frequency`, `source_terminology`) and ONE Alabama row
+(SEARCH_EVIDENCE_ONLY, TERMS_NOT_VERIFIED). Migration
+`020_state_extensible_vocabulary.sql` is written and NOT applied.
+
+## Alabama source implementation (2026-09-30, gated, not activated)
+
+`harvesters/otc/adapters/alabama.py` is a real adapter for the Alabama
+Department of Revenue source, configured from `ADOR_EVIDENCE`: the
+agency's own page titles, URLs, query-parameter names and snippets as a
+web search indexed them (the search page
+`/property-tax/delinquent-search/`, the detail page's
+`?ador-view-application=<CS number>`, the process page, two FAQs). That is
+**still search-index evidence** - `revenue.alabama.gov` is egress-blocked
+from the sandbox AND from the assistant's fetch tool, so no page was ever
+read; every fixture under `tests/python/fixtures/alabama/` is SYNTHETIC.
+Stable facts: identifier = the **CS Number** as published (leading zeros
+kept; `identifier_shape()` counts, never rewrites); parcel separate; owner
+name = the name assessed at sale to the State; amount always None +
+`QUOTED_ON_APPLICATION` (the FAQ's own "price quote ... by application");
+the CS Number cell's own link -> per-property `application_form`, else the
+process page -> `purchase_instructions`, never a constructed URL;
+`classify_outcome()` reports **nothing COMPLETE or EMPTY until
+`parser_fixture_validated`**; `harvest()` refuses before the first request
+unless `can_run()` (state activated AND source enabled/verified) allows.
+`scripts/harvest_alabama_state_land.py` has a `--fixture` mode (no
+network) and a live mode that exits 2 with zero requests today; it writes
+its OWN status file (`out/harvest_alabama_status.json` - county names
+repeat across states) and is wired into no workflow. `OtcRecord` gained
+`owner_name`; `laft_lifecycle.py`'s gates and harvest-row reader are
+state-scoped (`county_gates(state=...)`) and `amount_of()` keeps
+`QUOTED_ON_APPLICATION` only once storable. Full ledger, what is not
+verified, and the first live step: `docs/alabama-onboarding.md`.
 
 ## SaaS launch-readiness hardening (2026-09-29, PR open, not merged)
 
