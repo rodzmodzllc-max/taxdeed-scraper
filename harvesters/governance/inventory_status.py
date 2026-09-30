@@ -185,6 +185,55 @@ def fl_certificate_status(row: dict) -> StatusObservation:
                              note="on the county-held certificate list at the last read; purchasable by assignment from the Tax Collector")
 
 
+ADAPTER_KINDS = frozenset({"arcgis", "tabular"})
+
+
+def adapter_record_status(row: dict, *, today: date) -> StatusObservation | None:
+    """An AUCTIONS or LIENS & CERTIFICATES row written by the shared OTC
+    adapters (harvesters/otc/adapters/arcgis.py / tabular.py - the
+    five-state sources; otc_provenance.adapter says which). Data-driven: a
+    new state configured through those adapters gets these semantics with
+    no code here.
+
+      auction, on the list:  sale date ahead -> upcoming; passed -> unknown
+                             (no result published); none -> active.
+      auction, off the list: the source's own sold flag
+                             (inventory_status_raw, e.g. Eaton MI 'Sold: Yes')
+                             or a published Sale Price in a past-sales table
+                             (result_amount) -> sold, SOURCE_STATUS; anything
+                             else -> closed (never sold from absence).
+      certificate:           listed while on the list; closed once off it
+                             (redeemed / assigned are not published)."""
+    prov = row.get("otc_provenance") if isinstance(row.get("otc_provenance"), dict) else {}
+    if prov.get("adapter") not in ADAPTER_KINDS:
+        return None
+    source = str(row.get("source") or "")
+    gone = _pipeline_status(row.get("status")) in GONE_PIPELINE_STATUSES
+    if source == "certificate":
+        if gone:
+            return StatusObservation("closed", "LIST_PRESENCE",
+                                     note="absent from the county's certificate list at a COMPLETE read; redeemed or assigned is not published there")
+        return StatusObservation("certificate_listed", "LIST_PRESENCE",
+                                 note="on the county's list of certificates purchasable from the Treasurer at the last read")
+    if source != "auction":
+        return None
+    if gone:
+        raw = str(row.get("inventory_status_raw") or "").strip()
+        if raw:
+            return StatusObservation("sold", "SOURCE_STATUS", raw=raw, note="the source's own sold flag on its sale list")
+        if row.get("result_amount") not in (None, ""):
+            return StatusObservation("sold", "SOURCE_STATUS", raw="Previous Sales: Sale Price",
+                                     note="listed in the county's own past-sales table with a published sale price")
+        return StatusObservation("closed", "LIST_PRESENCE", note="no longer on the county's sale list; the result is not published there")
+    sale = _date_of(row.get("sale_date"))
+    if sale is None:
+        return StatusObservation("active", "LIST_PRESENCE", note="on the county's current sale list; no sale date published on the list")
+    if sale >= today:
+        return StatusObservation("upcoming", "SCHEDULED_DATE", note=f"scheduled for {sale.isoformat()} per the county's sale list")
+    return StatusObservation("unknown", "SCHEDULED_DATE",
+                             note=f"sale date {sale.isoformat()} has passed; the list publishes no result")
+
+
 def status_for_row(row: dict, *, today: date, sold_column_present: bool = False) -> StatusObservation | None:
     """Dispatch on the row's state / source / harvester. None = this row
     kind has no mapping (certificates; unknown vendors) - nothing is written."""
@@ -203,6 +252,8 @@ def status_for_row(row: dict, *, today: date, sold_column_present: bool = False)
         prov = row.get("otc_provenance") if isinstance(row.get("otc_provenance"), dict) else {}
         return alabama_status(str(prov.get("normalized_status") or "UNKNOWN"),
                               row.get("source_status_text") or prov.get("source_status_text"))
+    if state not in ("FL", "TX", "AL", "LA"):
+        return adapter_record_status(row, today=today)
     return None
 
 

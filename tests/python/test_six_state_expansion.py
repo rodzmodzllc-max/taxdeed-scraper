@@ -332,8 +332,9 @@ def test_l01_absence_closes_only_after_a_complete_or_empty_read():
     harvested = [{"state": "MI", "source": "auction", "county": "Eaton", "case_no": "A"}]
     ids = {"mi_eaton_treasurer_sale", "mi_lenawee_tax_sale"}
     closes = SY.plan_close("MI", harvested, stored, {"Eaton": "COMPLETE", "Lenawee": "FAILED"}, ids)
-    assert closes == [{"id": "2", "status": "closed"}]           # never 'sold'; Lenawee (FAILED) and FL untouched
-    assert SY.plan_close("MI", [], stored, {"Eaton": "EMPTY"}, ids) == [{"id": "1", "status": "closed"}, {"id": "2", "status": "closed"}]
+    assert [{k: c[k] for k in ("id", "status")} for c in closes] == [{"id": "2", "status": "closed"}]   # never 'sold'; Lenawee (FAILED) and FL untouched
+    assert all(c["delisted_at"] for c in closes) and set(closes[0]) == {"id", "status", "delisted_at"}
+    assert [(c["id"], c["status"]) for c in SY.plan_close("MI", [], stored, {"Eaton": "EMPTY"}, ids)] == [("1", "closed"), ("2", "closed")]
     assert SY.plan_close("MI", [], stored, {"Eaton": "INCOMPLETE"}, ids) == []
 
 

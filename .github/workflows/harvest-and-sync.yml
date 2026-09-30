@@ -187,7 +187,7 @@ on:
         required: false
         type: choice
         default: available
-        options: [available, auction_results, state_sources, expansion, field_fill]
+        options: [available, auction_results, state_sources, expansion, field_fill, five_state]
 
 concurrency:
   group: harvest-and-sync
@@ -1118,6 +1118,15 @@ jobs:
             # expansion inventory layers and the statewide parcel layers):
             # names, types and filled counts out of a sample, never a value.
             python3 scripts/probe_field_fill.py
+            exit 0
+          fi
+          if [ "$SCOPE" = "five_state" ]; then
+            # Five-state enrichment sprint candidates (MI / WY / SC / CO / WI):
+            # process pages (dates, times, office contacts kept; parcel-shaped
+            # tokens masked), ArcGIS fields / counts / copyright / id shapes,
+            # service directories and catalog items. Nothing is written to any
+            # database and nothing is enabled.
+            python3 scripts/capture_state_sources.py --five-state --skip-registry
             exit 0
           fi
           if [ "$SCOPE" = "expansion" ]; then
