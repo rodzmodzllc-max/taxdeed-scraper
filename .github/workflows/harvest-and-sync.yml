@@ -178,10 +178,13 @@ on:
           capture (default). "auction_results" = skip it and read only the
           RealAuction CLOSED / CANCELED area of evidence_realauction_dates
           through the harvester's own anonymous AJAX endpoint, value-free.
+          "state_sources" = read only the candidate (non-production) state
+          sources' pages, documents and terms pages, structure only
+          (scripts/capture_state_sources.py).
         required: false
         type: choice
         default: available
-        options: [available, auction_results]
+        options: [available, auction_results, state_sources]
 
 concurrency:
   group: harvest-and-sync
@@ -968,6 +971,13 @@ jobs:
           RA_DATES: ${{ github.event.inputs.evidence_realauction_dates }}
           SCOPE: ${{ github.event.inputs.evidence_scope }}
         run: |
+          if [ "$SCOPE" = "state_sources" ]; then
+            # Candidate states only (AL / AR / LA / AZ): structure, CSV headers
+            # and value shapes, dataset licence metadata, terms pages. Nothing
+            # is written to any database and nothing is enabled.
+            python3 scripts/capture_state_sources.py
+            exit 0
+          fi
           args=""
           if [ "$SCOPE" = "auction_results" ]; then args="--skip-available --realauction-results"; fi
           IFS=',' read -ra cs <<< "$COUNTIES"
@@ -982,7 +992,11 @@ jobs:
         if: always()
         run: |
           echo "::group::purchase-evidence digest"
-          python3 scripts/capture_purchase_evidence.py --digest out/public/purchase-evidence-capture.json
+          if [ -f out/public/state-source-capture.json ]; then
+            python3 scripts/capture_state_sources.py --digest out/public/state-source-capture.json
+          else
+            python3 scripts/capture_purchase_evidence.py --digest out/public/purchase-evidence-capture.json
+          fi
           echo "::endgroup::"
 
       - name: Prepare artifact (public evidence only)
@@ -992,7 +1006,10 @@ jobs:
         if: always()
         env:
           ARTIFACT_PUBLIC_KEY: ${{ vars.ARTIFACT_PUBLIC_KEY }}
-        run: python3 scripts/artifact_evidence.py --job purchase-evidence --status out/public/purchase-evidence-capture.json
+        run: |
+          status=out/public/purchase-evidence-capture.json
+          [ -f out/public/state-source-capture.json ] && status=out/public/state-source-capture.json
+          python3 scripts/artifact_evidence.py --job purchase-evidence --status "$status"
 
       - name: Upload artifact (evidence)
         if: always()
