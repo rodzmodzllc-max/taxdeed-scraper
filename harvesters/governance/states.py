@@ -15,9 +15,12 @@ lets anything run, and the production `properties` table still has to be
 able to hold the row's inventory type and amount kind (see
 `DB_SUPPORTED_*` in county_source_registry / otc.model).
 
-FL and TX are the only production states. Nothing else is registered in
-code; tests register a hypothetical state through `registered()` and
-unregister it again. There is no environment-variable or file-based
+FL and TX are the only production states. AL (Alabama, 2026-09-29) is
+registered as a NON-production state so the model, the registry and the
+adapters can REPRESENT its inventory concept; it cannot run anywhere until
+every ACTIVATION_REQUIREMENTS item is satisfied in a reviewed commit (see
+`is_activated`). Tests register hypothetical states through `registered()`
+and unregister them again. There is no environment-variable or file-based
 override on purpose: a state enters this list through a reviewed commit.
 """
 from __future__ import annotations
@@ -46,6 +49,23 @@ class PublishingUnit(str, Enum):
 # carries: the whole state is the unit, so there is no county to name.
 STATEWIDE_UNIT = "STATEWIDE"
 
+# What must be established, each in a reviewed commit, before a state's rows
+# may exist in production (the state activation gate). A production state
+# satisfies all of them by definition; a registered non-production state
+# lists what it has, and `activation_blockers()` names the rest.
+ACTIVATION_REQUIREMENTS = (
+    "source_of_record_identified",        # the authoritative publisher and its page/document
+    "live_source_verified",               # fetched and read directly, not a search snippet
+    "publishing_unit_coverage_established",  # which units (state / counties / ...) the source covers
+    "identifier_format_established",      # the identifier's real shape, from the source itself
+    "inventory_semantics_established",    # what "available" / "sold" / "redeemed" mean there
+    "purchase_path_established",          # property link vs application page vs none
+    "amount_semantics_established",       # what any published figure IS (or that none is)
+    "parser_fixture_validated",           # a fixture taken from the real source parses deterministically
+    "governance_approved",                # terms reviewed; registry governance_status APPROVED
+    "production_registry_authorized",     # an explicit decision to add the PRODUCTION_VERIFIED row
+)
+
 
 @dataclass(frozen=True)
 class StateConfig:
@@ -64,6 +84,9 @@ class StateConfig:
     # so a row says where its classification came from. Required whenever
     # lifecycle_inventory_type is set.
     lifecycle_inventory_basis: str | None = None
+    # ACTIVATION_REQUIREMENTS this state has satisfied. A production state
+    # must satisfy all of them; a non-production state may satisfy some.
+    activation: frozenset[str] = frozenset()
 
     def __post_init__(self) -> None:
         if not STATE_CODE_RE.match(self.code):
@@ -78,6 +101,15 @@ class StateConfig:
             raise ValueError("at least one publishing unit required")
         if (self.lifecycle_inventory_type is None) != (self.lifecycle_inventory_basis is None):
             raise ValueError("lifecycle_inventory_type and lifecycle_inventory_basis go together")
+        unknown = set(self.activation) - set(ACTIVATION_REQUIREMENTS)
+        if unknown:
+            raise ValueError(f"unknown activation requirement(s): {sorted(unknown)}")
+        if self.production and set(self.activation) != set(ACTIVATION_REQUIREMENTS):
+            raise ValueError(f"{self.code}: a production state must satisfy every activation requirement")
+
+    @property
+    def activated(self) -> bool:
+        return self.production and set(ACTIVATION_REQUIREMENTS) <= set(self.activation)
 
 
 _STATES: dict[str, StateConfig] = {}
@@ -88,17 +120,33 @@ def _register(cfg: StateConfig) -> StateConfig:
     return cfg
 
 
+ALL_REQUIREMENTS = frozenset(ACTIVATION_REQUIREMENTS)
+
 FL = _register(StateConfig(
     code="FL", name="Florida", publishing_units=(PublishingUnit.COUNTY.value,),
     production_inventory_types=frozenset({"POST_SALE_FIXED_PRICE"}),
     lifecycle_inventory_type="POST_SALE_FIXED_PRICE", production=True,
-    lifecycle_inventory_basis="harvester constant (F.S. 197.502(7) Lands Available list)"))
+    lifecycle_inventory_basis="harvester constant (F.S. 197.502(7) Lands Available list)",
+    activation=ALL_REQUIREMENTS))
 TX = _register(StateConfig(
     code="TX", name="Texas", publishing_units=(PublishingUnit.COUNTY.value,),
     production_inventory_types=frozenset({"", "STRUCK_OFF_HELD_IN_TRUST", "FUTURE_RESALE"}),
-    lifecycle_inventory_type=None, production=True))
+    lifecycle_inventory_type=None, production=True, activation=ALL_REQUIREMENTS))
+# Alabama (2026-09-29): the researched concept is state-held tax-delinquent
+# land sold by the Alabama Department of Revenue (Property Tax Division /
+# State Land Commissioner), published per county, with the price quoted on
+# application rather than an auction opening bid. Everything about it so far
+# is SEARCH-INDEX evidence (the 50-state audit, 2026-09-29): no page or
+# document has been fetched from this repository. Registered so the model
+# can represent it; NOT production; no activation requirement satisfied.
+# See docs/alabama-onboarding.md and harvesters/otc/adapters/alabama.py.
+AL = _register(StateConfig(
+    code="AL", name="Alabama", publishing_units=(PublishingUnit.STATE.value, PublishingUnit.COUNTY.value),
+    production_inventory_types=frozenset({"STATE_HELD_TAX_LAND"}),
+    lifecycle_inventory_type=None, production=False, activation=frozenset()))
 
-PRODUCTION_STATES = frozenset({"FL", "TX"})
+# States whose rows may exist in public.properties: exactly the activated ones.
+PRODUCTION_STATES = frozenset(code for code, cfg in _STATES.items() if cfg.activated)
 
 
 def get_state(code: str) -> StateConfig | None:
@@ -111,6 +159,25 @@ def is_supported(code: str) -> bool:
 
 def supported_states() -> frozenset[str]:
     return frozenset(_STATES)
+
+
+def is_activated(code: str) -> bool:
+    """May this state's sources run and its rows exist in production? Only
+    a production state that satisfies every ACTIVATION_REQUIREMENTS item."""
+    cfg = _STATES.get(code)
+    return bool(cfg) and cfg.activated
+
+
+def activation_blockers(code: str) -> list[str]:
+    """The activation requirements a state has NOT satisfied (all of them
+    for an unregistered code), in ACTIVATION_REQUIREMENTS order."""
+    cfg = _STATES.get(code)
+    if cfg is None:
+        return ["not_registered", *ACTIVATION_REQUIREMENTS]
+    missing = [r for r in ACTIVATION_REQUIREMENTS if r not in cfg.activation]
+    if not cfg.production and "production_registry_authorized" not in missing:
+        missing.append("production_registry_authorized")
+    return missing
 
 
 def state_problems(code: str) -> list[str]:

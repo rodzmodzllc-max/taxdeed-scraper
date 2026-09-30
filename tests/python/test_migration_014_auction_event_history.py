@@ -291,7 +291,7 @@ def test_s13_existing_migrations_untouched_and_numbering_is_next():
     assert numbered[numbered.index("015_customer_write_privileges_and_account_deletion.sql"):] == [
         "015_customer_write_privileges_and_account_deletion.sql", "016_source_health.sql",
         "017_otc_inventory_provenance_lifecycle.sql", "018_county_source_registry.sql",
-        "019_laft_list_dates.sql"]
+        "019_laft_list_dates.sql", "020_state_extensible_vocabulary.sql"]
     assert MIG_013.exists()
     # 013's own contract is unchanged (its test file still guards it); here we
     # only assert 014 does not redefine 013's objects.

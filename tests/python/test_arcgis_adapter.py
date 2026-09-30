@@ -226,4 +226,4 @@ def test_g03_gate_still_refuses_a_search_evidence_state_level_source(zz):
                           governance_status="TERMS_NOT_VERIFIED", last_checked="2026-09-29", completeness_status="UNKNOWN",
                           evidence_ref="fixture", notes="", publishing_unit="STATE")
     d = evaluate_source(row)
-    assert d.allowed is False and d.layer == "verification"
+    assert d.allowed is False and d.layer == "state_activation"    # refused before the row is even read

@@ -38,10 +38,15 @@ NOW = ls.now_iso()
 
 ZZ = StateConfig(code="ZZ", name="Zetaland", publishing_units=(PublishingUnit.STATE.value, PublishingUnit.COUNTY.value),
                  production_inventory_types=frozenset({"STATE_HELD_TAX_LAND"}), lifecycle_inventory_type=None, production=False)
+# The same hypothetical state fully ACTIVATED (every requirement satisfied in
+# this fixture) - the only shape the lifecycle and the gate let run.
+ZZ_ACTIVE = StateConfig(code="ZZ", name="Zetaland", publishing_units=(PublishingUnit.STATE.value, PublishingUnit.COUNTY.value),
+                        production_inventory_types=frozenset({"STATE_HELD_TAX_LAND"}), lifecycle_inventory_type=None, production=True,
+                        activation=states.ALL_REQUIREMENTS)
 # A third state whose lifecycle asserts a type the DB can store (the FL shape, different state).
 YY = StateConfig(code="YY", name="Yland", publishing_units=(PublishingUnit.PARISH.value,),
                  production_inventory_types=frozenset({"POST_SALE_FIXED_PRICE"}), lifecycle_inventory_type="POST_SALE_FIXED_PRICE",
-                 lifecycle_inventory_basis="fixture basis", production=False)
+                 lifecycle_inventory_basis="fixture basis", production=True, activation=states.ALL_REQUIREMENTS)
 
 
 def _rec(**kw):
@@ -59,6 +64,8 @@ def _row(**kw) -> csr.CountySourceRow:
                 governance_status="APPROVED", last_checked="2026-09-29", completeness_status="COMPLETE",
                 evidence_ref="fixture", notes="")
     base.update(kw)
+    if base.get("publishing_unit") == "STATE":
+        base.setdefault("publishing_unit_name", "Fixture agency")   # a STATE-level row names its publisher
     return csr.CountySourceRow(**base)
 
 
@@ -66,7 +73,11 @@ def _row(**kw) -> csr.CountySourceRow:
 
 
 def test_st01_only_fl_and_tx_are_registered_and_both_are_production():
-    assert states.supported_states() == {"FL", "TX"} == states.PRODUCTION_STATES
+    # AL (2026-09-29) is REGISTERED (representable) but not PRODUCTION / activated.
+    assert states.supported_states() == {"FL", "TX", "AL"} and states.PRODUCTION_STATES == {"FL", "TX"}
+    assert states.is_activated("FL") and states.is_activated("TX") and not states.is_activated("AL")
+    assert states.activation_blockers("AL") == list(states.ACTIVATION_REQUIREMENTS)
+    assert states.activation_blockers("FL") == [] and states.activation_blockers("QQ")[0] == "not_registered"
     assert states.FL.lifecycle_inventory_type == "POST_SALE_FIXED_PRICE" and states.FL.production_inventory_types == {"POST_SALE_FIXED_PRICE"}
     assert states.TX.lifecycle_inventory_type is None and states.TX.production_inventory_types == {"", "STRUCK_OFF_HELD_IN_TRUST", "FUTURE_RESALE"}
     assert states.FL.publishing_units == states.TX.publishing_units == ("COUNTY",)
@@ -170,13 +181,17 @@ def test_m05_quoted_on_application_carries_no_amount_and_is_not_storable_yet():
 
 def test_r01_committed_registry_is_unchanged_county_level_and_still_valid():
     rows = csr.load_registry()
-    assert len(rows) == 109 and {r.state for r in rows} == {"FL", "TX"}
-    assert all(r.publishing_unit == "COUNTY" for r in rows)
+    # 110 = the 109 FL/TX rows unchanged + ONE Alabama state-level candidate (2026-09-29).
+    assert len(rows) == 110 and {r.state for r in rows} == {"FL", "TX", "AL"}
+    assert all(r.publishing_unit == "COUNTY" for r in rows if r.state != "AL")
     with open(csr.REGISTRY_PATH, newline="", encoding="utf-8") as fh:
-        assert csv.DictReader(fh).fieldnames == csr.COLUMNS
-    assert "publishing_unit" not in csr.COLUMNS and csr.OPTIONAL_COLUMNS == ["publishing_unit"]
+        assert csv.DictReader(fh).fieldnames == csr.EXTENDED_COLUMNS
+    assert "publishing_unit" not in csr.COLUMNS and csr.OPTIONAL_COLUMNS[0] == "publishing_unit"
     assert csr.validate_registry(rows) == []
-    assert {tuple(d) for d in csr.to_db_rows(rows)} == {tuple(csr.COLUMNS)}
+    fl_tx = [r for r in rows if r.state != "AL"]
+    assert {tuple(d) for d in csr.to_db_rows(fl_tx)} == {tuple(csr.COLUMNS)}   # the live (018) shape
+    with pytest.raises(ValueError, match="migration 018"):
+        csr.to_db_rows(rows)                                                     # the AL row needs 020
 
 
 def test_r02_fl_and_tx_production_rules_are_preserved():
@@ -298,7 +313,11 @@ def test_l03_a_third_state_with_no_lifecycle_type_leaves_inventory_type_alone_an
     gate = _gate(county=STATEWIDE_UNIT, source_id="zz_state_land")
     with pytest.raises(ValueError, match="not registered"):
         L.provenance_payload({"county": STATEWIDE_UNIT, "case_no": "P-1"}, gate, NOW, state="ZZ")
+    # Registered but NOT activated (Alabama's situation): refused before any payload is built.
     with states.registered(ZZ):
+        with pytest.raises(ValueError, match="not activated"):
+            L.provenance_payload({"county": STATEWIDE_UNIT, "case_no": "P-1"}, gate, NOW, state="ZZ")
+    with states.registered(ZZ_ACTIVE):
         p = L.provenance_payload({"county": STATEWIDE_UNIT, "case_no": "P-1"}, gate, NOW, state="ZZ")
         assert "inventory_type" not in p and "inventory_type" not in p["otc_provenance"]
         assert p["last_seen_at"] == NOW and p["source_id"] == "zz_state_land" and p["purchase_amount_kind"] == "NOT_PUBLISHED"
@@ -307,7 +326,8 @@ def test_l03_a_third_state_with_no_lifecycle_type_leaves_inventory_type_alone_an
         assert p["inventory_type"] == "POST_SALE_FIXED_PRICE" and p["otc_provenance"]["inventory_type"] == "fixture basis"
     # A state whose lifecycle type the DB cannot store is refused before any write.
     unstorable = StateConfig(code="XX", name="X", publishing_units=("COUNTY",), production_inventory_types=frozenset({"STATE_HELD_TAX_LAND"}),
-                             lifecycle_inventory_type="STATE_HELD_TAX_LAND", lifecycle_inventory_basis="fixture", production=False)
+                             lifecycle_inventory_type="STATE_HELD_TAX_LAND", lifecycle_inventory_basis="fixture", production=True,
+                             activation=states.ALL_REQUIREMENTS)
     with states.registered(unstorable):
         with pytest.raises(ValueError, match="not storable"):
             L.lifecycle_inventory("XX")
@@ -397,9 +417,9 @@ ZZ_REGISTRY = ("state,county,source_id,verification_status\nZZ,Alpha,zz_state_la
                "FL,Marion,fl_laft_pdfs,PRODUCTION_VERIFIED\n")
 
 
-def test_l04_end_to_end_for_a_registered_third_state_applies_the_same_gates(tmp_path, monkeypatch):
+def test_l04_end_to_end_for_an_activated_third_state_applies_the_same_gates(tmp_path, monkeypatch):
     store = _Store([dict(r) for r in ZZ_DB], "ZZ")
-    with states.registered(ZZ):
+    with states.registered(ZZ_ACTIVE):
         rc, report = _run_main(tmp_path, monkeypatch, store, "ZZ", ZZ_STATUS, ZZ_HARVEST, ZZ_REGISTRY)
     assert rc == 0 and report["state"] == "ZZ"
     assert report["counties"] == {"Alpha": "COMPLETE", "Beta": "EMPTY", "Gamma": "INCOMPLETE", "Delta": "FAILED", "Epsilon": "NOT_RUN"}
@@ -424,9 +444,16 @@ def test_l04_end_to_end_for_a_registered_third_state_applies_the_same_gates(tmp_
     assert report == {**report, "observed": 3, "reactivated": 1, "closed": 2}
 
 
-def test_l05_an_unregistered_state_stops_before_any_request(tmp_path, monkeypatch):
+def test_l05_an_unregistered_or_inactive_state_stops_before_any_request(tmp_path, monkeypatch):
     store = _Store([dict(r) for r in ZZ_DB], "ZZ")
     rc, report = _run_main(tmp_path, monkeypatch, store, "ZZ", ZZ_STATUS, ZZ_HARVEST, ZZ_REGISTRY)
+    assert rc == 2 and report is None and store.gets == 0 and store.patches == []
+    # Registered but not activated: the same stop, zero requests.
+    with states.registered(ZZ):
+        rc, report = _run_main(tmp_path, monkeypatch, store, "ZZ", ZZ_STATUS, ZZ_HARVEST, ZZ_REGISTRY)
+    assert rc == 2 and report is None and store.gets == 0 and store.patches == []
+    # Alabama, registered in code and not activated: the same stop, zero requests.
+    rc, report = _run_main(tmp_path, monkeypatch, store, "AL", ZZ_STATUS, ZZ_HARVEST, ZZ_REGISTRY)
     assert rc == 2 and report is None and store.gets == 0 and store.patches == []
     for bad in ("zz", "Florida", "F"):
         rc, report = _run_main(tmp_path, monkeypatch, store, bad, ZZ_STATUS, ZZ_HARVEST, ZZ_REGISTRY)

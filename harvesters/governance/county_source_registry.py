@@ -43,14 +43,29 @@ COLUMNS = [
     "last_checked", "completeness_status", "evidence_ref", "notes",
 ]
 
-# Columns the loader ACCEPTS after COLUMNS but the committed CSV, the
-# generator and migration 018 do not carry yet. `publishing_unit` (a
-# states.PublishingUnit value; blank = COUNTY, which every current row is)
-# lets a future registry describe a parish, borough, municipal or
-# statewide publisher without the FL/TX county assumption. Adding it to the
-# CSV, the generator and the 018 table is a separate, reviewed change
-# (docs/otc-inventory-model.md, "State extensibility").
-OPTIONAL_COLUMNS = ["publishing_unit"]
+# Columns AFTER COLUMNS that the committed CSV and the generator carry since
+# 2026-09-29 (Alabama onboarding) but migration 018's table does not -
+# migration 020 (NOT applied) adds them. The loader accepts a file with
+# COLUMNS alone, COLUMNS + publishing_unit, or all of EXTENDED_COLUMNS.
+#   publishing_unit       states.PublishingUnit value; blank = COUNTY
+#   publishing_unit_name  the publisher a non-county unit names (an agency)
+#   amount_kind           what a published figure IS for this source
+#                         (AMOUNT_KINDS; blank = not established)
+#   update_frequency      the source's own stated cadence, when established
+#   source_terminology    the source's own words for the inventory, kept
+#                         beside the normalized vocabulary
+OPTIONAL_COLUMNS = ["publishing_unit", "publishing_unit_name", "amount_kind", "update_frequency", "source_terminology"]
+EXTENDED_COLUMNS = COLUMNS + OPTIONAL_COLUMNS
+
+# The purchase-amount vocabulary (mirrors harvesters/otc/model.py's
+# AmountKind; a test keeps the two in step - this module cannot import the
+# model, which imports this module). The last value is NOT in migration
+# 017's constraint: see DB_SUPPORTED_AMOUNT_KINDS in otc.model.
+AMOUNT_KINDS = (
+    "MINIMUM_PURCHASE_AMOUNT", "OPENING_BID", "ORIGINAL_OPENING_BID", "FIXED_PURCHASE_PRICE",
+    "ESTIMATED_PURCHASE_PRICE", "PUBLISHED_AMOUNT_KIND_UNSPECIFIED", "NOT_PUBLISHED",
+    "QUOTED_ON_APPLICATION",
+)
 
 
 class InventoryType(str, Enum):
@@ -168,6 +183,10 @@ class CountySourceRow:
     notes: str
     # Optional (see OPTIONAL_COLUMNS). Blank in the CSV reads as COUNTY.
     publishing_unit: str = PublishingUnit.COUNTY.value
+    publishing_unit_name: str = ""
+    amount_kind: str = ""
+    update_frequency: str = ""
+    source_terminology: str = ""
 
     @property
     def is_production(self) -> bool:
@@ -175,10 +194,12 @@ class CountySourceRow:
 
     @property
     def runnable(self) -> bool:
-        """May a harvester/adapter run against this row today? Requires a
-        production-verified source, an approved governance state, a named
-        harvester and a canonical URL - and never a blocked vendor."""
-        return (self.is_production and self.governance_status in RUNNABLE_GOVERNANCE
+        """May a harvester/adapter run against this row today? Requires an
+        ACTIVATED state (states.is_activated), a production-verified source,
+        an approved governance state, a named harvester and a canonical URL
+        - and never a blocked vendor."""
+        return (states.is_activated(self.state)
+                and self.is_production and self.governance_status in RUNNABLE_GOVERNANCE
                 and bool(self.harvester) and bool(self.canonical_url)
                 and self.source_id not in BLOCKED_SOURCE_IDS)
 
@@ -199,9 +220,11 @@ def validate_row(row: CountySourceRow, *, known_counties: dict[str, frozenset[st
         problems.append(f"publishing_unit {unit!r} is not one {row.state} publishes by")
     if unit == PublishingUnit.STATE.value:
         # A statewide publisher has no county; the row says so explicitly
-        # rather than borrowing a county name.
+        # rather than borrowing a county name, and it must name the agency.
         if row.county != STATEWIDE_UNIT:
             problems.append(f"STATE-level row must use county {STATEWIDE_UNIT!r}, not {row.county!r}")
+        if not row.publishing_unit_name.strip():
+            problems.append("STATE-level row must name its publishing unit (publishing_unit_name)")
     else:
         if row.county == STATEWIDE_UNIT:
             problems.append(f"county {STATEWIDE_UNIT!r} requires publishing_unit STATE")
@@ -224,6 +247,8 @@ def validate_row(row: CountySourceRow, *, known_counties: dict[str, frozenset[st
         value = getattr(row, name)
         if value not in _enum_values(enum_cls):
             problems.append(f"{name} {value!r}")
+    if row.amount_kind and row.amount_kind not in AMOUNT_KINDS:
+        problems.append(f"amount_kind {row.amount_kind!r}")
     for name in ("canonical_url", "document_url", "purchase_url"):
         value = getattr(row, name)
         if value and not value.startswith("https://"):
@@ -280,7 +305,7 @@ def load_registry(path: Path | str = REGISTRY_PATH) -> list[CountySourceRow]:
     COLUMNS; a fixture may carry `publishing_unit`)."""
     with open(path, newline="", encoding="utf-8") as fh:
         reader = csv.DictReader(fh)
-        accepted = (COLUMNS, COLUMNS + OPTIONAL_COLUMNS)
+        accepted = (COLUMNS, COLUMNS + OPTIONAL_COLUMNS[:1], EXTENDED_COLUMNS)
         if reader.fieldnames not in accepted:
             raise ValueError(f"{path}: columns {reader.fieldnames} != {COLUMNS} (+ optional {OPTIONAL_COLUMNS})")
         present = list(reader.fieldnames)
@@ -318,16 +343,29 @@ def lookup(rows: list[CountySourceRow], state: str, county: str, source_id: str 
     return None
 
 
-def to_db_rows(rows: list[CountySourceRow]) -> list[dict]:
-    """The migration-018 table shape (nulls for blanks). Not written
-    anywhere yet - the bridge for a future, separately authorised load.
-    Emits COLUMNS only: the 018 table has no publishing_unit column, so a
-    row that is not COUNTY-level cannot be represented there yet and is
-    refused rather than silently flattened to a county."""
+def to_db_rows(rows: list[CountySourceRow], schema: str = "018") -> list[dict]:
+    """The table shape (nulls for blanks). Not written anywhere yet - the
+    bridge for a future, separately authorised load.
+
+    schema="018" (the live table): COLUMNS only. It has no publishing_unit
+    column, so a row that is not COUNTY-level cannot be represented there
+    and is refused rather than silently flattened to a county; a state the
+    018 check constraint does not allow (anything but FL/TX) is refused too.
+    schema="020" (migration 020, NOT applied): EXTENDED_COLUMNS, with
+    publishing_unit defaulting to COUNTY."""
+    if schema not in ("018", "020"):
+        raise ValueError(f"unknown registry schema {schema!r}")
     out = []
     for r in rows:
-        if (r.publishing_unit or PublishingUnit.COUNTY.value) != PublishingUnit.COUNTY.value:
-            raise ValueError(f"{r.state}/{r.county}: publishing_unit {r.publishing_unit!r} has no column in migration 018")
-        d = {c: (getattr(r, c) or None) for c in COLUMNS}
-        out.append(d)
+        unit = r.publishing_unit or PublishingUnit.COUNTY.value
+        if schema == "018":
+            if unit != PublishingUnit.COUNTY.value:
+                raise ValueError(f"{r.state}/{r.county}: publishing_unit {r.publishing_unit!r} has no column in migration 018")
+            if r.state not in ("FL", "TX"):
+                raise ValueError(f"{r.state}/{r.county}: migration 018's state check allows FL and TX only (020 widens it)")
+            out.append({c: (getattr(r, c) or None) for c in COLUMNS})
+        else:
+            d = {c: (getattr(r, c) or None) for c in EXTENDED_COLUMNS}
+            d["publishing_unit"] = unit
+            out.append(d)
     return out
