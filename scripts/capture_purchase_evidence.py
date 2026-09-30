@@ -360,6 +360,8 @@ def digest(path: Path, *, max_links: int = 25, max_snippets: int = 25, snippet_c
                     out.append("    json_keys: " + ", ".join(st["json_keys"]))
                 for k, v in (st.get("other_keys") or {}).items():
                     out.append(f"    key {k}: {str(v)[:300]}")
+                for k, v in (r.get("status_tally") or {}).items():
+                    out.append(f"    result: {k} x{v}")
                 if r.get("update") is not None or r.get("update_error"):
                     out.append(f"    update (aids={r.get('aids')} err={r.get('update_error')}): " + json.dumps(r.get("update"))[:2500])
                 if st.get("first_item_skeleton"):

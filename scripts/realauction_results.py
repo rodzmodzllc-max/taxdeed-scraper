@@ -153,6 +153,20 @@ def update_url(host: str, aids: list[str]) -> str:
     return f"https://{host}/index.cfm?zaction=AUCTION&ZMETHOD=UPDATE&FNC=UPDATE&ref={','.join(aids)}"
 
 
+def update_items(body: str) -> list[dict]:
+    """The per-item status records of a status-refresh response
+    (ADATA.AITEM), each a dict of the site's own short keys."""
+    import json as _json
+    try:
+        data = _json.loads(body)
+    except Exception:
+        return []
+    items = ((data or {}).get("ADATA") or {}).get("AITEM") if isinstance(data, dict) else None
+    if isinstance(items, dict):
+        items = [items]
+    return [i for i in (items or []) if isinstance(i, dict)]
+
+
 def rlist_ids(body: str) -> list[str]:
     import json as _json
     try:
@@ -163,9 +177,12 @@ def rlist_ids(body: str) -> list[str]:
     return [x.strip() for x in str(raw or "").split(",") if x.strip().isdigit()]
 
 
-def ajax_url(host: str, area: str, page: int) -> str:
+def ajax_url(host: str, area: str, page: int, *, reset: bool = True) -> str:
+    """page 0 with reset=True is the first page. The site's own pager asks for
+    the NEXT page with PageDir=1 and doR=0 (doR=1 re-reads the first page -
+    measured: a second doR=1 call returned the same ten items)."""
     return (f"https://{host}/index.cfm?zaction=AUCTION&Zmethod=UPDATE&FNC=LOAD&AREA={area}"
-            f"&PageDir={page}&doR=1&bypassPage=1&test=1")
+            f"&PageDir={page}&doR={1 if reset else 0}&bypassPage=1&test=1")
 
 
 def fetch_area(session: Any, host: str, sale_date: str, *, area: str = AREA_CLOSED,
@@ -185,7 +202,8 @@ def fetch_area(session: Any, host: str, sale_date: str, *, area: str = AREA_CLOS
         seen: set[str] = set()
         for page in range(MAX_PAGES):
             time.sleep(pause)
-            rr = session.get(ajax_url(host, area, page), timeout=timeout,
+            url = ajax_url(host, area, 0, reset=True) if page == 0 else ajax_url(host, area, 1, reset=False)
+            rr = session.get(url, timeout=timeout,
                              headers={**base, "Accept": "application/json, text/javascript, */*; q=0.01",
                                       "X-Requested-With": "XMLHttpRequest", "Referer": res.url})
             if rr.status_code != 200:
@@ -355,7 +373,12 @@ def value_free_summary(res: FetchResult) -> dict:
             upd = json_shape(_json.loads(res.update_raw))
         except Exception:
             upd = "NOT_JSON:" + mask_text(res.update_raw[:600], _KEEP_WORDS)
-    return {"structure": skel, "update": upd, "update_error": res.update_error, "aids": len(res.aids), "url": res.url, "date": res.sale_date, "ok": res.ok, "error": res.error, "login_page": res.login_page,
+    tally: dict[str, int] = {}
+    if res.update_raw is not None:
+        for it in update_items(res.update_raw):
+            key = " | ".join(f"{k}={vocab_or_shape(it.get(k, ''))}" for k in ("A", "C", "D", "SL", "ST"))
+            tally[key] = tally.get(key, 0) + 1
+    return {"status_tally": dict(sorted(tally.items(), key=lambda kv: -kv[1])), "structure": skel, "update": upd, "update_error": res.update_error, "aids": len(res.aids), "url": res.url, "date": res.sale_date, "ok": res.ok, "error": res.error, "login_page": res.login_page,
             "pages": res.pages, "items": len(res.items), "with_case": with_case, "with_parcel": with_parcel,
             "labels": dict(sorted(labels.items())), "status_pairs": dict(sorted(pairs.items(), key=lambda kv: -kv[1])),
             "classes": dict(sorted(classes.items()))}
