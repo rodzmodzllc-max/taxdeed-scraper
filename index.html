@@ -170,6 +170,8 @@ state's page and carries the current route along. -->
     <button class="account-item" id="supportBtnMenu" type="button" role="menuitem">Contact support</button>
     <!-- Admin area link: shown only when the SERVER-read profile says admin (app.js IS_ADMIN). Visibility only - /admin re-checks with the server itself. -->
     <a class="account-item" id="adminAreaLink" href="admin.html" role="menuitem" hidden>Admin area</a>
+    <!-- Admin-only (visibility only - the view itself refuses non-admins, and RLS admits admins only). -->
+    <button class="account-item" id="governanceMenuItem" type="button" role="menuitem" hidden>Source Publication Governance</button>
     <button class="account-item" id="termsBtnMenu" type="button" role="menuitem">Terms &amp; disclaimer</button>
     <button class="account-item danger" id="signOutBtn" type="button" role="menuitem">Sign out</button>
     <button class="account-item danger" id="deleteAccountBtn" type="button" role="menuitem">Delete my account</button>
@@ -184,17 +186,6 @@ other people's profiles rows in the first place). -->
 <div class="admin-approvals" id="adminApprovals" hidden>
 <div class="admin-approvals-head"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg> Pending sign-ups awaiting your approval</div>
 <div class="admin-approvals-list" id="adminApprovalsList"></div>
-</div>
-<!-- Admin-only source publication governance (2026-09-30, migration 023):
-     one row per registry source for this state with its publication
-     status, restrictions and latest recorded decision, plus a form that
-     records a new decision (append-only source_publication_reviews; RLS
-     admits admins only). Applied by the publication-gate script after
-     validation. Never shown to customers. -->
-<div class="admin-approvals admin-publication" id="adminPublication" hidden>
-<div class="admin-approvals-head">Source publication governance - admin only</div>
-<p class="admin-pub-note">A decision recorded here is applied to that source's rows by the next publication-gate run, after validation against the registry: a blocked vendor, a source under legal review or a source that is not production-verified cannot be approved from this panel. Customers never see this section or the review history.</p>
-<div class="admin-pub-list" id="adminPublicationList"></div>
 </div>
 <!-- The header is the sticky .topbar above: logo, title, account badge.
      This block is now purely the dark ground the ledger tabs and status
@@ -806,6 +797,30 @@ inventing an address - see docs/production-configuration.md section 4. -->
 
 <h3>Before you bid</h3>
 <p>Verify every figure on the county's own site, order a title search, and have a title company or attorney review the parcel. Liens, code enforcement actions and other encumbrances survive a tax deed sale and are not visible here.</p>
+</div>
+</div>
+</div>
+
+<!-- ============ source publication governance (admin only) ============
+     Its own view, opened from the account menu or #/governance - never
+     inline on the main workspace. The panel inside is the existing one,
+     unchanged; app.js refuses to open this view for a non-admin. -->
+<div class="detail-modal" id="governanceModal" hidden>
+<div class="detail-modal-inner governance-modal-inner" id="governanceModalInner" role="dialog" aria-modal="true" aria-labelledby="governanceTitle">
+<button class="detail-close" id="governanceCloseBtn" type="button" aria-label="Close">&times;</button>
+<h2 class="detail-address" id="governanceTitle" style="font-size:1.15rem">Source Publication Governance</h2>
+<p class="admin-pub-note" id="governanceLoading">Loading this state's sources…</p>
+<p class="admin-pub-note" id="governanceEmpty" hidden>No registry sources are recorded for this state.</p>
+<!-- Admin-only source publication governance (2026-09-30, migration 023):
+     one row per registry source for this state with its publication
+     status, restrictions and latest recorded decision, plus a form that
+     records a new decision (append-only source_publication_reviews; RLS
+     admits admins only). Applied by the publication-gate script after
+     validation. Never shown to customers. -->
+<div class="admin-approvals admin-publication" id="adminPublication" hidden>
+<div class="admin-approvals-head">Source publication governance - admin only</div>
+<p class="admin-pub-note">A decision recorded here is applied to that source's rows by the next publication-gate run, after validation against the registry: a blocked vendor, a source under legal review or a source that is not production-verified cannot be approved from this panel. Customers never see this section or the review history.</p>
+<div class="admin-pub-list" id="adminPublicationList"></div>
 </div>
 </div>
 </div>
