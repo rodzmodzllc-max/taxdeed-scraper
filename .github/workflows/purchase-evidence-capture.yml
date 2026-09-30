@@ -1,0 +1,76 @@
+# Purchase-evidence capture - MANUAL ONLY, never scheduled.
+#
+# Fetches the same canonical pages / documents the production AVAILABLE
+# registry rows already name (data/county_source_registry.csv) and writes a
+# value-free capture of the purchase / application process text they
+# publish (scripts/capture_purchase_evidence.py). A person reads the
+# capture and records verified evidence rows in
+# data/purchase_path_evidence.csv; scripts/purchase_path_engine.py then
+# applies them deterministically on the next laft run. Nothing here writes
+# to the database and nothing here is a purchase path.
+#
+# Optional: --realauction-date discovers which result LABELS the FL deed
+# auction hosts publish on a past sale day (status vocabulary only).
+name: Capture purchase evidence (manual)
+
+on:
+  workflow_dispatch:
+    inputs:
+      counties:
+        description: Comma-separated county names to limit the capture (blank = every FL AVAILABLE production source)
+        required: false
+        default: ''
+      realauction_dates:
+        description: Comma-separated past sale dates (MM/DD/YYYY) for RealAuction result-label discovery (blank = skip)
+        required: false
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    name: Capture purchase / application evidence
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python dependencies
+        run: pip install requests beautifulsoup4 pdfplumber
+
+      - name: Capture
+        env:
+          COUNTIES: ${{ github.event.inputs.counties }}
+          RA_DATES: ${{ github.event.inputs.realauction_dates }}
+        run: |
+          args=""
+          IFS=',' read -ra cs <<< "$COUNTIES"
+          for c in "${cs[@]}"; do c="$(echo "$c" | xargs)"; [ -n "$c" ] && args="$args --county \"$c\""; done
+          IFS=',' read -ra ds <<< "$RA_DATES"
+          for d in "${ds[@]}"; do d="$(echo "$d" | xargs)"; [ -n "$d" ] && args="$args --realauction-date $d"; done
+          eval python3 scripts/capture_purchase_evidence.py --state FL $args
+
+      - name: Prepare artifact (public evidence only)
+        # The capture is county-level process text, already value-free; it
+        # is reproduced verbatim inside the public evidence file. No raw
+        # harvest file exists in this job, so nothing is encrypted.
+        if: always()
+        env:
+          ARTIFACT_PUBLIC_KEY: ${{ vars.ARTIFACT_PUBLIC_KEY }}
+        run: python3 scripts/artifact_evidence.py --job purchase-evidence --status out/public/purchase-evidence-capture.json
+
+      - name: Upload artifact (evidence)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: purchase-evidence-${{ github.run_id }}
+          path: |
+            out/public/
+            out/private/
