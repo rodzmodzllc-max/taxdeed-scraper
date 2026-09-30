@@ -154,6 +154,31 @@ AL = _register(StateConfig(
                               "search-index evidence 2026-09-30, harvesters/otc/adapters/alabama.py ADOR_EVIDENCE)",
     production=False, activation=frozenset()))
 
+# Arkansas (2026-09-30): the Commissioner of State Lands' Post Auction
+# Sales List - parcels certified to the State that did not sell at the
+# initial public auction, offered per county, bid through the State's own
+# online auction. Search-index evidence only (harvesters/otc/adapters/
+# arkansas.py COSL_EVIDENCE); registered, NOT production, no requirement
+# satisfied.
+AR = _register(StateConfig(
+    code="AR", name="Arkansas", publishing_units=(PublishingUnit.STATE.value, PublishingUnit.COUNTY.value),
+    production_inventory_types=frozenset({"POST_SALE"}),
+    lifecycle_inventory_type="POST_SALE",
+    lifecycle_inventory_basis="COSL: 'Post Auction Sales List' - parcels not sold at the initial public auction, offered by "
+                              "the State (search-index evidence 2026-09-30, harvesters/otc/adapters/arkansas.py COSL_EVIDENCE)",
+    production=False, activation=frozenset()))
+# Louisiana (2026-09-30): adjudicated property - property adjudicated to a
+# parish or municipality after no one bought it at the tax sale. The first
+# concrete source is East Baton Rouge's open-data dataset (harvesters/otc/
+# adapters/louisiana.py EBR_EVIDENCE). Registered, NOT production.
+LA = _register(StateConfig(
+    code="LA", name="Louisiana", publishing_units=(PublishingUnit.PARISH.value, PublishingUnit.MUNICIPALITY.value),
+    production_inventory_types=frozenset({"ADJUDICATED_PROPERTY"}),
+    lifecycle_inventory_type="ADJUDICATED_PROPERTY",
+    lifecycle_inventory_basis="parish open data: 'adjudicated to the Parish ... in compliance with the laws of the State of "
+                              "Louisiana' (search-index evidence 2026-09-30, harvesters/otc/adapters/louisiana.py EBR_EVIDENCE)",
+    production=False, activation=frozenset()))
+
 # States whose rows may exist in public.properties: exactly the activated ones.
 PRODUCTION_STATES = frozenset(code for code, cfg in _STATES.items() if cfg.activated)
 

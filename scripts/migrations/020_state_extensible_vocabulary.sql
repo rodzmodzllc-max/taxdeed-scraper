@@ -18,7 +18,8 @@
 -- 2. public.county_source_registry: the FL/TX-only state check becomes
 --    "two capital letters" (the registered-state rule lives in code,
 --    harvesters/governance/states.py); the inventory-type check is widened
---    the same way; five columns are added - publishing_unit (default
+--    the same way; the machine-format check gains CSV (an open-data
+--    download, 2026-09-30); five columns are added - publishing_unit (default
 --    COUNTY), publishing_unit_name, amount_kind, update_frequency,
 --    source_terminology - matching data/county_source_registry.csv's
 --    EXTENDED_COLUMNS.
@@ -75,6 +76,11 @@ alter table public.county_source_registry add constraint county_source_registry_
   check (inventory_type is null or inventory_type in (
     'POST_SALE_FIXED_PRICE', 'STRUCK_OFF_HELD_IN_TRUST', 'FUTURE_RESALE',
     'POST_SALE', 'STATE_HELD_TAX_LAND', 'ADJUDICATED_PROPERTY'));
+
+-- 2026-09-30 (Louisiana onboarding): an open-data CSV download is a machine format.
+alter table public.county_source_registry drop constraint if exists county_source_registry_machine_format_check;
+alter table public.county_source_registry add constraint county_source_registry_machine_format_check
+  check (machine_format in ('PDF', 'HTML_TABLE', 'HTML_CARDS', 'JSON', 'XLSX', 'DOCX', 'PORTAL', 'UNKNOWN', 'NONE', 'CSV'));
 
 alter table public.county_source_registry
   add column if not exists publishing_unit text not null default 'COUNTY',

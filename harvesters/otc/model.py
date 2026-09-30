@@ -80,6 +80,14 @@ class OtcRecord:
     # on the list; AL: the name in which the property was assessed when it
     # sold to the State). What it means is stated in provenance["owner_name"].
     owner_name: str | None = None
+    # Tax-roll figures and coordinates when the SOURCE publishes them on the
+    # row (EBR's adjudicated dataset carries assessed / market value and a
+    # geolocation). Never computed; provenance names the column.
+    assessed: float | None = None
+    market: float | None = None
+    tax_year: str | None = None
+    latitude: float | None = None
+    longitude: float | None = None
     amount: float | None = None
     amount_kind: AmountKind = AmountKind.NOT_PUBLISHED
     list_url: str | None = None
@@ -112,6 +120,14 @@ class OtcRecord:
             problems.append(f"a present amount cannot be {self.amount_kind.value}")
         if self.amount is not None and self.amount < 0:
             problems.append("amount cannot be negative")
+        for name in ("assessed", "market"):
+            value = getattr(self, name)
+            if value is not None and value < 0:
+                problems.append(f"{name} cannot be negative")
+        if (self.latitude is None) != (self.longitude is None):
+            problems.append("latitude and longitude go together")
+        if self.latitude is not None and not (-90 <= self.latitude <= 90 and -180 <= self.longitude <= 180):
+            problems.append("coordinates out of range")
         if (self.purchase_url is None) != (self.purchase_url_kind is None):
             problems.append("purchase_url and purchase_url_kind go together")
         if self.purchase_url and self.purchase_url == self.list_url:
@@ -174,11 +190,33 @@ class OtcRecord:
                 **self.provenance,
             },
         }
-        if self.owner_name is not None:
-            # Only when the source published one: an absent key never
-            # writes NULL over a value another step carried.
-            row["owner_name"] = self.owner_name
+        # Only when the source published one: an absent key never writes
+        # NULL over a value another step carried.
+        for name in ("owner_name", "assessed", "market", "tax_year", "latitude", "longitude"):
+            value = getattr(self, name)
+            if value is not None:
+                row[name] = value
         return row
+
+    def to_harvest_row(self) -> dict:
+        """The row shape the FL harvesters write to out/harvest_*.json and
+        scripts/laft_lifecycle.py reads (identity = county + case_no;
+        bid/bid_kind; url_auction = the list page; purchase_url/kind as
+        published; provenance carried). An absent value is absent."""
+        row = {
+            "state": self.state, "source": "laft", "county": self.county, "case_no": self.case_no,
+            "parcel": self.parcel, "owner_name": self.owner_name, "address": self.address, "legal_desc": self.legal_desc,
+            "assessed": self.assessed, "market": self.market, "tax_year": self.tax_year,
+            "latitude": self.latitude, "longitude": self.longitude,
+            "bid": "" if self.amount is None else self.amount, "bid_kind": self.amount_kind.value,
+            "url_auction": self.list_url, "purchase_url": self.purchase_url,
+            "purchase_url_kind": self.purchase_url_kind.value if self.purchase_url_kind else None,
+            "inventory_type": self.inventory_type.value if self.inventory_type else None,
+            "source_id": self.source_id, "source_authority": self.source_authority.value,
+            "list_as_of": self.list_as_of.isoformat() if self.list_as_of else None,
+            "source_status_text": self.source_status_text, "otc_provenance": dict(self.provenance),
+        }
+        return {k: v for k, v in row.items() if v is not None}
 
     def as_dict(self) -> dict:
         d = asdict(self)

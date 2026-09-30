@@ -1472,6 +1472,23 @@ state-scoped (`county_gates(state=...)`) and `amount_of()` keeps
 `QUOTED_ON_APPLICATION` only once storable. Full ledger, what is not
 verified, and the first live step: `docs/alabama-onboarding.md`.
 
+## Arkansas and Louisiana adapters (2026-09-30, PR open, not activated)
+
+Branch `feat/states-ar-la` (stacked on the production-readiness PR). Full
+description: `docs/arkansas-louisiana-onboarding.md`. `AR` (Commissioner
+of State Lands Post Auction Sales List - STATE publisher, county per
+`?county=<NAME>` in the one observed shape, `POST_SALE`, tax due as
+`OPENING_BID`, buyer page as `purchase_instructions`) and `LA` (East Baton
+Rouge adjudicated-property open-data CSV - PARISH publisher,
+`ADJUDICATED_PROPERTY`, no price, no purchase link, tax-roll values and
+coordinates from the row) are registered NON-production states; both
+adapters are search-index-evidence configurations with SYNTHETIC fixtures,
+gated by `harvesters/otc/adapters/common.can_run` (state activation
+first) and report nothing COMPLETE/EMPTY until fixture-validated.
+`scripts/harvest_state_inventory.py --state AR|LA` runs fixtures; live
+exits 2. `MachineFormat.CSV` (migration 020, unapplied). Registry: 112
+rows (109 FL/TX unchanged + AL, AR, LA candidates).
+
 ## Production-readiness pass 1 (2026-09-30, PR open, migration 021 unapplied)
 
 Branch `feat/production-readiness-1` (stacked on the Alabama adapter PR).

@@ -302,8 +302,65 @@ def al_rows() -> list[dict]:
     return [_row(**AL_STATE_LAND)]
 
 
+# 2026-09-30: Arkansas (COSL Post Auction Sales List) and Louisiana (East
+# Baton Rouge adjudicated property), configured in
+# harvesters/otc/adapters/arkansas.py / louisiana.py from search-index
+# evidence. Same standing as the Alabama row: SEARCH_EVIDENCE_ONLY /
+# TERMS_NOT_VERIFIED, no harvester, never runnable (states not activated).
+from harvesters.otc.adapters.arkansas import COSL_SOURCE  # noqa: E402
+from harvesters.otc.adapters.louisiana import EBR_SOURCE  # noqa: E402
+
+AR_COSL = dict(
+    state="AR", county="STATEWIDE", source_id=COSL_SOURCE.source_id, harvester="",
+    inventory_type=COSL_SOURCE.tabular.inventory_type.value, source_authority=COSL_SOURCE.tabular.source_authority.value,
+    canonical_url=COSL_SOURCE.list_url, document_url="",
+    purchase_url=COSL_SOURCE.application_url, purchase_url_kind=COSL_SOURCE.application_url_kind.value,
+    access_method="HTTP_GET_HTML", machine_format="UNKNOWN",
+    verification_status="SEARCH_EVIDENCE_ONLY", governance_status="TERMS_NOT_VERIFIED",
+    last_checked="2026-09-30", completeness_status="UNKNOWN",
+    evidence_ref="WEB SEARCH 2026-09-30 (cosl.org page titles, URLs, query string, snippets - harvesters/otc/adapters/arkansas.py COSL_EVIDENCE); " + AUDIT,
+    notes="Commissioner of State Lands 'Post Auction Sales List': parcels certified to the State that did not sell at the initial "
+          "public auction, offered per county (canonical_url + ?county=<NAME>; one value observed) 30 days after the offering; the "
+          "tax due is the minimum bid; bids are placed through the State's own online auction (auction.cosl.org - not a per-parcel "
+          "link, not recorded as purchase_url); purchase_url = the State's buyer-instructions page. 10-business-day redemption after "
+          "the post auction sale. Nothing fetched from this repository; search-index evidence only; not activated.",
+    publishing_unit="STATE", publishing_unit_name=COSL_SOURCE.publishing_unit_name,
+    amount_kind=COSL_SOURCE.tabular.amount_kind.value,
+    update_frequency="daily (reported by the 2026-09-29 audit; not corroborated by the 2026-09-30 search; not read directly)",
+    source_terminology=COSL_SOURCE.source_terminology + " (search-index wording)",
+)
+LA_EBR = dict(
+    state="LA", county=EBR_SOURCE.county, source_id=EBR_SOURCE.source_id, harvester="",
+    inventory_type=EBR_SOURCE.inventory_type.value, source_authority=EBR_SOURCE.source_authority.value,
+    canonical_url=EBR_SOURCE.list_url, document_url=EBR_SOURCE.document_url, purchase_url="", purchase_url_kind="",
+    access_method="JSON_ENDPOINT", machine_format="CSV",
+    verification_status="SEARCH_EVIDENCE_ONLY", governance_status="TERMS_NOT_VERIFIED",
+    last_checked="2026-09-30", completeness_status="UNKNOWN",
+    evidence_ref="WEB SEARCH 2026-09-30 (data.brla.gov dataset titles, URLs, description and column list - harvesters/otc/adapters/louisiana.py EBR_EVIDENCE); " + AUDIT,
+    notes="East Baton Rouge Parish open-data dataset a4h4-zi7e 'Adjudicated Property' - properties 'adjudicated to the Parish of East "
+          "Baton Rouge' after no one bought them at the tax sale. canonical_url = the dataset page; document_url = its CSV download "
+          "(JSON / XML / RDF also offered). Indexed columns: tax year, property number, taxpayer name / address, physical address, "
+          "subdivision, block, lot, ward, legal description, fair market value, total assessed value, council district, zip, "
+          "geolocation. No price and no purchase link in the dataset (the audit reports a vendor purchase process - unverified, not "
+          "implemented). Whether the dataset is current inventory or a yearly snapshot is not established. Nothing fetched from this "
+          "repository; search-index evidence only; not activated.",
+    publishing_unit="PARISH", publishing_unit_name=EBR_SOURCE.publishing_unit_name,
+    amount_kind="NOT_PUBLISHED",
+    update_frequency="not established (the GIS 'Adjudicated Parcel' layer reads 'last updated September 07, 2026' in the index; the dataset's own cadence not read)",
+    source_terminology=EBR_SOURCE.source_terminology + " (search-index wording)",
+)
+
+
+def ar_rows() -> list[dict]:
+    return [_row(**AR_COSL)]
+
+
+def la_rows() -> list[dict]:
+    return [_row(**LA_EBR)]
+
+
 def build_rows() -> list[dict]:
-    rows = fl_production_rows() + fl_candidate_rows() + tx_rows() + al_rows()
+    rows = fl_production_rows() + fl_candidate_rows() + tx_rows() + al_rows() + ar_rows() + la_rows()
     rows.sort(key=lambda r: (r["state"], r["county"], r["source_id"]))
     return rows
 

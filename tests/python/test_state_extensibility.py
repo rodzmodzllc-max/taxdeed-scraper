@@ -74,7 +74,7 @@ def _row(**kw) -> csr.CountySourceRow:
 
 def test_st01_only_fl_and_tx_are_registered_and_both_are_production():
     # AL (2026-09-29) is REGISTERED (representable) but not PRODUCTION / activated.
-    assert states.supported_states() == {"FL", "TX", "AL"} and states.PRODUCTION_STATES == {"FL", "TX"}
+    assert states.supported_states() == {"FL", "TX", "AL", "AR", "LA"} and states.PRODUCTION_STATES == {"FL", "TX"}
     assert states.is_activated("FL") and states.is_activated("TX") and not states.is_activated("AL")
     assert states.activation_blockers("AL") == list(states.ACTIVATION_REQUIREMENTS)
     assert states.activation_blockers("FL") == [] and states.activation_blockers("QQ")[0] == "not_registered"
@@ -182,13 +182,14 @@ def test_m05_quoted_on_application_carries_no_amount_and_is_not_storable_yet():
 def test_r01_committed_registry_is_unchanged_county_level_and_still_valid():
     rows = csr.load_registry()
     # 110 = the 109 FL/TX rows unchanged + ONE Alabama state-level candidate (2026-09-29).
-    assert len(rows) == 110 and {r.state for r in rows} == {"FL", "TX", "AL"}
-    assert all(r.publishing_unit == "COUNTY" for r in rows if r.state != "AL")
+    # 112 = the 109 FL/TX rows unchanged + Alabama, Arkansas (STATE-level) and Louisiana (PARISH-level) candidates.
+    assert len(rows) == 112 and {r.state for r in rows} == {"FL", "TX", "AL", "AR", "LA"}
+    assert all(r.publishing_unit == "COUNTY" for r in rows if r.state in ("FL", "TX"))
     with open(csr.REGISTRY_PATH, newline="", encoding="utf-8") as fh:
         assert csv.DictReader(fh).fieldnames == csr.EXTENDED_COLUMNS
     assert "publishing_unit" not in csr.COLUMNS and csr.OPTIONAL_COLUMNS[0] == "publishing_unit"
     assert csr.validate_registry(rows) == []
-    fl_tx = [r for r in rows if r.state != "AL"]
+    fl_tx = [r for r in rows if r.state in ("FL", "TX")]
     assert {tuple(d) for d in csr.to_db_rows(fl_tx)} == {tuple(csr.COLUMNS)}   # the live (018) shape
     with pytest.raises(ValueError, match="migration 018"):
         csr.to_db_rows(rows)                                                     # the AL row needs 020

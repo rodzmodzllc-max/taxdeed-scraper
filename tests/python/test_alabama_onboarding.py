@@ -138,7 +138,7 @@ def test_g01_committed_registry_has_exactly_one_alabama_candidate_that_is_not_pr
     assert not AL_ROW.is_production and not AL_ROW.runnable
     assert csr.validate_registry(ROWS) == []
     # The FL/TX rows are untouched: 109 rows, all COUNTY, the new columns blank.
-    others = [r for r in ROWS if r.state != "AL"]
+    others = [r for r in ROWS if r.state in ("FL", "TX")]
     assert len(others) == 109 and all(r.publishing_unit == "COUNTY" and r.publishing_unit_name == "" and r.amount_kind == ""
                                       and r.update_frequency == "" and r.source_terminology == "" for r in others)
     assert len(csr.production_rows(ROWS, "FL")) == 52 and len(csr.production_rows(ROWS, "TX")) == 8 and csr.production_rows(ROWS, "AL") == []
@@ -160,16 +160,16 @@ def test_g02_registry_validation_for_the_new_columns():
 
 
 def test_g03_to_db_rows_keeps_the_live_shape_for_fl_tx_and_needs_020_for_alabama():
-    fl_tx = [r for r in ROWS if r.state != "AL"]
+    fl_tx = [r for r in ROWS if r.state in ("FL", "TX")]
     live = csr.to_db_rows(fl_tx)
     assert len(live) == 109 and all(set(d) == set(csr.COLUMNS) for d in live)
     with pytest.raises(ValueError, match="migration 018"):
         csr.to_db_rows([AL_ROW])
     ext = csr.to_db_rows(ROWS, schema="020")
-    assert len(ext) == 110 and all(set(d) == set(csr.EXTENDED_COLUMNS) for d in ext)
+    assert len(ext) == len(ROWS) and all(set(d) == set(csr.EXTENDED_COLUMNS) for d in ext)
     al = next(d for d in ext if d["state"] == "AL")
     assert al["publishing_unit"] == "STATE" and al["canonical_url"] == ala.ADOR_SEARCH_URL and al["amount_kind"] == "QUOTED_ON_APPLICATION"
-    assert all(d["publishing_unit"] == "COUNTY" and d["amount_kind"] is None for d in ext if d["state"] != "AL")
+    assert all(d["publishing_unit"] == "COUNTY" and d["amount_kind"] is None for d in ext if d["state"] in ("FL", "TX"))
     with pytest.raises(ValueError, match="unknown registry schema"):
         csr.to_db_rows(ROWS, schema="019")
 
@@ -372,9 +372,10 @@ def test_m01_live_020_widens_constraints_adds_registry_columns_and_changes_no_ro
         return "null" if v is None else "'" + str(v).replace("'", "''") + "'"
     values = ",\n".join("(" + ",".join(lit(r[c]) for c in cols) + ")" for r in rows)
     out = scratch020(f"set role service_role;\ninsert into public.county_source_registry ({','.join(cols)}) values\n{values};\n"
-                     "select count(*), count(*) filter (where publishing_unit='STATE'), count(*) filter (where state='AL' and canonical_url is null) from public.county_source_registry;")
+                     "select count(*), count(*) filter (where publishing_unit='STATE'), count(*) filter (where state='AL' and canonical_url is null) from public.county_source_registry;")  # noqa: E501
     assert "ERROR" not in out, out[:600]
-    assert out.strip().splitlines()[-1] == f"{len(rows)}|1|1"
+    # Two STATE-level rows (Alabama, Arkansas); the Louisiana row is PARISH-level.
+    assert out.strip().splitlines()[-1] == f"{len(rows)}|2|0"
     # Registry constraints: a STATE row must say STATEWIDE and name its agency; a county row may not say STATEWIDE.
     out = scratch020("""set role service_role;
       insert into public.county_source_registry (state,county,publishing_unit,access_method,machine_format,verification_status,governance_status,last_checked,evidence_ref) values ('AL','Jefferson','STATE','UNKNOWN','UNKNOWN','SEARCH_EVIDENCE_ONLY','TERMS_NOT_VERIFIED','2026-09-29','e');
