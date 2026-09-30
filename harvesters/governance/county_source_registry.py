@@ -128,6 +128,10 @@ class MachineFormat(str, Enum):
     PORTAL = "PORTAL"
     UNKNOWN = "UNKNOWN"
     NONE = "NONE"
+    # 2026-09-30 (Louisiana): an open-data CSV download. NOT in migration
+    # 018's live check constraint; migration 020 (unapplied) adds it, so a
+    # CSV row can only be a non-production candidate until then.
+    CSV = "CSV"
 
 
 class VerificationStatus(str, Enum):

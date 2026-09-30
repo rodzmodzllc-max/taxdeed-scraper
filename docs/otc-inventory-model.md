@@ -513,3 +513,23 @@ runnable. Alabama is not activated; migration 020 is not applied.
   wording), plus "Last read from the source ... list dated ...". Rows the
   RPC does not project (pre-021) show none of it. No score, badge or meter.
 - **Migration 021** is written and NOT applied (`docs/production-configuration.md`).
+
+## 17. Arkansas and Louisiana adapters (2026-09-30)
+
+Full description: `docs/arkansas-louisiana-onboarding.md`. The stable
+facts: `AR` (COSL Post Auction Sales List, STATE publisher, `POST_SALE`,
+tax due = minimum bid as `OPENING_BID`, buyer-instructions page as
+`purchase_instructions`) and `LA` (East Baton Rouge adjudicated-property
+open-data CSV, PARISH publisher, `ADJUDICATED_PROPERTY`, no price, no
+purchase link, tax-roll assessed / market value and coordinates when the
+row carries them) are registered NON-production states with evidence
+ledgers, configurations that are not enabled, fixture-driven parsers,
+`classify_outcome()` that reports nothing COMPLETE or EMPTY until
+fixture-validated, and gated `harvest()` flows behind
+`harvesters/otc/adapters/common.can_run` (state activation first).
+`scripts/harvest_state_inventory.py` runs either in fixture mode; live mode
+exits 2 with zero requests. Registry rows for both exist
+(SEARCH_EVIDENCE_ONLY / TERMS_NOT_VERIFIED, not runnable);
+`MachineFormat.CSV` is new (migration 020, unapplied). `OtcRecord` gained
+optional `assessed` / `market` / `tax_year` / `latitude` / `longitude` and
+`to_harvest_row()`. Nothing fetched; nothing activated.

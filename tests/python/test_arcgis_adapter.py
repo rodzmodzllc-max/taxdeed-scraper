@@ -205,10 +205,10 @@ def test_g01_module_never_fetches_and_nothing_is_configured():
             for n in names:
                 assert not n.startswith(("requests", "urllib", "http", "playwright", "socket")), n
     # No live endpoint anywhere in the generic adapters: every https URL in them is a doc example.
-    # alabama.py is the one state adapter that names its agency's pages (its evidence ledger);
-    # test_alabama_onboarding.py pins that host to www.revenue.alabama.gov and nothing else.
+    # The state adapters (alabama.py, arkansas.py, louisiana.py) name their agencies' pages in
+    # their evidence ledgers; their own tests pin those hosts exactly and nothing else.
     for path in (REPO / "harvesters/otc/adapters").glob("*.py"):
-        if path.name == "alabama.py":
+        if path.name in ("alabama.py", "arkansas.py", "louisiana.py"):
             continue
         text = path.read_text(encoding="utf-8")
         assert not re.search(r"https?://[^\s\"']*(\.gov|arcgis\.com)", text) and "mississippi" not in text.lower(), path.name

@@ -809,32 +809,8 @@ def _category(exc: BaseException) -> str:
 # Record -> the harvest-row shape scripts/laft_lifecycle.py reads
 # ---------------------------------------------------------------------------
 def to_harvest_row(rec: OtcRecord) -> dict:
-    """The row shape the FL harvesters write to out/harvest_laft*.json and
-    the lifecycle reads (identity = county + case_no; bid/bid_kind;
-    url_auction = the list page; purchase_url/kind as published). Every
-    value is the record's; an absent value is absent, never defaulted."""
-    row = {
-        "state": rec.state,
-        "source": "laft",
-        "county": rec.county,
-        "case_no": rec.case_no,
-        "parcel": rec.parcel,
-        "owner_name": rec.owner_name,
-        "address": rec.address,
-        "legal_desc": rec.legal_desc,
-        "bid": "" if rec.amount is None else rec.amount,
-        "bid_kind": rec.amount_kind.value,
-        "url_auction": rec.list_url,
-        "purchase_url": rec.purchase_url,
-        "purchase_url_kind": rec.purchase_url_kind.value if rec.purchase_url_kind else None,
-        "inventory_type": rec.inventory_type.value if rec.inventory_type else None,
-        "source_id": rec.source_id,
-        "source_authority": rec.source_authority.value,
-        "list_as_of": rec.list_as_of.isoformat() if rec.list_as_of else None,
-        "source_status_text": rec.source_status_text,
-        "otc_provenance": dict(rec.provenance),
-    }
-    return {k: v for k, v in row.items() if v is not None}
+    """OtcRecord.to_harvest_row() - kept as a module function for the script."""
+    return rec.to_harvest_row()
 
 
 # ---------------------------------------------------------------------------
