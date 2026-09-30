@@ -187,7 +187,7 @@ on:
         required: false
         type: choice
         default: available
-        options: [available, auction_results, state_sources, expansion, field_fill, five_state]
+        options: [available, auction_results, state_sources, expansion, field_fill, five_state, five_state_pass2]
 
 concurrency:
   group: harvest-and-sync
@@ -1131,6 +1131,12 @@ jobs:
             # expansion inventory layers and the statewide parcel layers):
             # names, types and filled counts out of a sample, never a value.
             python3 scripts/probe_field_fill.py
+            exit 0
+          fi
+          if [ "$SCOPE" = "five_state_pass2" ]; then
+            # Pass 2: PDFs as process text, identifier SHAPES and category
+            # value counts under a WHERE clause, parcel services. Value-free.
+            python3 scripts/capture_state_sources.py --five-state-pass2 --skip-registry
             exit 0
           fi
           if [ "$SCOPE" = "five_state" ]; then

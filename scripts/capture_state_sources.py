@@ -258,6 +258,125 @@ FIVE_STATE_QUERIES = ('orgid:2AGLxyiJoNiVHKwq (forfeited OR "tax sale" OR delinq
                       '"tax deed" Wisconsin type:"Feature Service"',
                       '"tax foreclos" Michigan type:"Feature Service"',
                       '"tax sale" Wyoming type:"Feature Service"')
+# Pass 2 (2026-10-01): what pass 1 pointed at. PDFs are read as process text
+# (pdfplumber, first pages only); layer probes read the SHAPES of identifier
+# fields and the value counts of named CATEGORY fields (a sale flag, a tax
+# year, a sale type - never an owner, address or amount) under a WHERE
+# clause, so a join key or a list's sale cycle can be judged value-free.
+FIVE_STATE_PASS2_PAGES = {
+    "MI": ["https://www.eatoncounty.org/1530/2026-Foreclosure-Sale",
+           "https://www.thelandbank.org/terms_of_use.asp",
+           "https://www.thelandbank.org/find_properties.asp"],
+    "SC": ["https://www.yorkcountysc.gov/DocumentCenter/View/5241/Tax-Sale-Fact-Sheet"],
+    "CO": ["https://morgancounty.colorado.gov/county-held-tax-lien-sale-certificates",
+           "https://morgancounty.colorado.gov/bidding-rules-and-information"],
+    "WI": ["https://www.greencountywi.org/DocumentCenter/View/2103/Tax-Deed-Bid-Form",
+           "https://www.greencountywi.org/copyright",
+           "https://www.sccwi.gov/124/Privacy-Legal-Notices"],
+}
+FIVE_STATE_PASS2_SERVICES = {
+    "MI": ["https://services2.arcgis.com/c9l1e4fKpsCnqD7H/arcgis/rest/services/Parcels_AGO/FeatureServer",
+           "https://services6.arcgis.com/mjEvhc9AE3ceAXtG/arcgis/rest/services/Lenawee_Parcels_Public/FeatureServer"],
+    "WY": ["https://services1.arcgis.com/EmwrhKkmuQhTATzU/arcgis/rest/services/2026TAXSALEPROP_1STC/FeatureServer",
+           "https://gis.deq.wyo.gov/arcgis/rest/services/PARCEL_OWNER_MAP/MapServer"],
+}
+# (layer, where, id fields -> shapes, category fields -> value counts)
+FIVE_STATE_PROBES = {
+    "MI": [("https://services2.arcgis.com/c9l1e4fKpsCnqD7H/arcgis/rest/services/For_Sale_2026_view/FeatureServer/0", "1=1",
+            ["lparcel"], ["Sold", "type"])],
+    "WY": [("https://services1.arcgis.com/EmwrhKkmuQhTATzU/arcgis/rest/services/2026TAXSALEPROP_1ST/FeatureServer/0", "1=1",
+            ["accountno", "pidn"], ["taxyear"])],
+    "CO": [("https://services.arcgis.com/seTexOicoRXDvRsJ/arcgis/rest/services/Tax_Sale_List_Locations/FeatureServer/0", "1=1",
+            ["Account_No", "State_Parcel_No"], ["Tax_Year", "Prior_Year_Lien"]),
+           ("https://gis.colorado.gov/public/rest/services/Address_and_Parcel/Colorado_Public_Parcels/FeatureServer/0",
+            "countyName='Douglas'", ["account", "parcel_id"], [])],
+    "WI": [("https://services3.arcgis.com/n6uYoouQZW75n5WI/arcgis/rest/services/Wisconsin_Statewide_Parcels_DB/FeatureServer/0",
+            "CONAME='GREEN'", ["PARCELID", "TAXPARCELID", "STATEID"], ["TAXROLLYEAR", "PROPCLASS"]),
+           ("https://services3.arcgis.com/n6uYoouQZW75n5WI/arcgis/rest/services/Wisconsin_Statewide_Parcels_DB/FeatureServer/0",
+            "CONAME='DANE'", ["PARCELID", "TAXPARCELID", "STATEID"], ["TAXROLLYEAR", "PROPCLASS"])],
+}
+FIVE_STATE_PASS2_QUERIES = ('orgid:seTexOicoRXDvRsJ (lien OR "tax sale")',
+                            'owner:DouglasCountyCO_GISServices lien')
+# (page, [column headers whose value counts are category words - never names, addresses or amounts])
+FIVE_STATE_TABLE_VALUES = {
+    "https://www.thelandbank.org/find_properties.asp": ["Class", "Sale Type"],
+    "https://www.thelandbank.org/find_properties.asp?fq=5": ["Class", "Sale Type"],
+}
+
+
+def pdf_process(session: requests.Session, url: str, max_pages: int = 6) -> dict:
+    """A PDF's process text (first pages), through process_text()."""
+    out = {"url": url, "kind": "pdf_process"}
+    resp, err = fetch(session, url)
+    if err or resp is None:
+        out["error"] = err
+        return out
+    out.update({"status": resp.status_code, "content_type": resp.headers.get("Content-Type", ""), "final_url": resp.url})
+    if resp.status_code != 200 or "pdf" not in out["content_type"].lower():
+        return out
+    try:
+        import pdfplumber  # noqa: PLC0415
+        with pdfplumber.open(io.BytesIO(resp.content)) as pdf:
+            out["pages"] = len(pdf.pages)
+            text = "\n".join((p.extract_text() or "") for p in pdf.pages[:max_pages])
+    except Exception as exc:  # noqa: BLE001
+        out["parse_error"] = f"{type(exc).__name__}: {str(exc)[:160]}"
+        return out
+    snippets = []
+    for s in re.split(r"(?<=[.!?])\s+|\n{2,}|\n(?=[A-Z0-9•\-])", text):
+        s = clean(s)
+        if len(s) > 20 and (SNIPPET_VOCAB.search(s) or PROCESS_VOCAB.search(s)) and not LONG_DIGITS.search(s):
+            snippets.append(process_text(s)[:MAX_SNIPPET_CHARS])
+        if len(snippets) >= 60:
+            break
+    out["snippets"] = snippets
+    return out
+
+
+def layer_probe(session: requests.Session, layer: str, where: str, id_fields: list[str], cat_fields: list[str]) -> dict:
+    out = {"url": f"{layer} WHERE {where}", "kind": "layer_probe"}
+    r, e = fetch(session, layer + "/query?" + urlencode({"where": where, "returnCountOnly": "true", "f": "json"}))
+    try:
+        out["count"] = r.json().get("count") if r is not None and r.status_code == 200 else e
+    except ValueError:
+        out["count"] = "not json"
+    r, e = fetch(session, layer + "/query?" + urlencode({"where": where, "outFields": ",".join(id_fields + cat_fields),
+                                                        "returnGeometry": "false", "resultRecordCount": 200, "f": "json"}))
+    try:
+        feats = (r.json().get("features") or []) if r is not None and r.status_code == 200 else []
+    except ValueError:
+        feats = []
+    attrs = [ft.get("attributes") or {} for ft in feats]
+    out["sampled"] = len(attrs)
+    out["id_shapes"] = {n: dict(Counter(shape(str(a.get(n) if a.get(n) is not None else "")) for a in attrs).most_common(5)) for n in id_fields}
+    out["value_counts"] = {n: dict(Counter(mask_digits(str(a.get(n)))[:40] if n.lower() not in ("tax_year", "taxyear", "taxrollyear")
+                                           else str(a.get(n)) for a in attrs).most_common(10)) for n in cat_fields}
+    return out
+
+
+def table_values(session: requests.Session, url: str, headers: list[str]) -> dict:
+    out = {"url": url + " (column values)", "kind": "table_values"}
+    resp, err = fetch(session, url)
+    if err or resp is None or resp.status_code != 200 or BeautifulSoup is None:
+        out["error"] = err or f"status {getattr(resp, 'status_code', None)}"
+        return out
+    soup = BeautifulSoup(resp.text, "html.parser")
+    counts: dict[str, Counter] = {h: Counter() for h in headers}
+    for t in soup.find_all("table"):
+        rows = t.find_all("tr")
+        if not rows:
+            continue
+        head = [clean(c.get_text(" ")) for c in rows[0].find_all(["th", "td"])]
+        idx = {h: head.index(h) for h in headers if h in head}
+        for tr in rows[1:]:
+            cells = [clean(c.get_text(" ")) for c in tr.find_all("td")]
+            for h, i in idx.items():
+                if i < len(cells):
+                    counts[h][mask_digits(cells[i])[:40]] += 1
+    out["value_counts"] = {h: dict(c.most_common(12)) for h, c in counts.items()}
+    return out
+
+
 PROCESS_KEEP = re.compile(r"\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+\d|\d\s*(a\.?m\.?|p\.?m\.?)\b|\$\s*\d|"
                           r"\(?\d{3}\)?[-. ]\d{3}[-. ]\d{4}|\d{1,2}/\d{1,2}/\d{2,4}|%", re.I)
 PHONE = re.compile(r"\(?\d{3}\)?[-. ]\d{3}[-. ]\d{4}")
@@ -687,6 +806,7 @@ def main(argv=None) -> int:
     ap.add_argument("--discovery", action="store_true", help="also read DISCOVERY_PAGES and run DISCOVERY_QUERIES")
     ap.add_argument("--expansion", action="store_true", help="read EXPANSION_TARGETS and run EXPANSION_QUERIES (six-state sprint)")
     ap.add_argument("--five-state", action="store_true", help="read FIVE_STATE_* candidates (five-state enrichment sprint)")
+    ap.add_argument("--five-state-pass2", action="store_true", help="read the FIVE_STATE_PASS2 / PROBES targets")
     ap.add_argument("--out", default=str(OUT_PATH))
     args = ap.parse_args(argv)
     if args.digest:
@@ -798,8 +918,38 @@ def main(argv=None) -> int:
             print(f"  {code} item           {item_id}", flush=True)
             time.sleep(0.5)
         report["states"].setdefault(code, {"sources": []})["sources"].append(entry)
+    for code in sorted(set(FIVE_STATE_PASS2_PAGES) | set(FIVE_STATE_PASS2_SERVICES) | set(FIVE_STATE_PROBES)):
+        if not args.five_state_pass2 or (args.state and code not in args.state):
+            continue
+        entry = {"source_id": f"five_state_pass2_{code.lower()}", "county": "(five-state pass 2)", "pages": []}
+        for url in FIVE_STATE_PASS2_PAGES.get(code, []):
+            if re.search(r"DocumentCenter/View|\.pdf$", url, re.I):
+                page = pdf_process(session, url)
+                if page.get("status") == 200 and "pdf" not in str(page.get("content_type", "")).lower():
+                    page = capture(session, url, "process", process=True)
+            else:
+                page = capture(session, url, "process", process=True)
+            print(f"  {code} pass2          {page.get('status', page.get('error'))} {url}", flush=True)
+            entry["pages"].append(page)
+            if url in FIVE_STATE_TABLE_VALUES:
+                entry["pages"].append(table_values(session, url, FIVE_STATE_TABLE_VALUES[url]))
+            time.sleep(0.8)
+        for url in FIVE_STATE_PASS2_SERVICES.get(code, []):
+            page = {"url": url, "kind": "arcgis", "layers": arcgis_layer_meta(session, url)}
+            print(f"  {code} arcgis         {len(page['layers'])} layer(s) {url}", flush=True)
+            entry["pages"].append(page)
+            time.sleep(0.8)
+        for layer, where, ids, cats in FIVE_STATE_PROBES.get(code, []):
+            page = layer_probe(session, layer, where, ids, cats)
+            print(f"  {code} probe          count={page.get('count')} {layer}", flush=True)
+            entry["pages"].append(page)
+            time.sleep(0.8)
+        for url in (u for u in FIVE_STATE_TABLE_VALUES if u not in FIVE_STATE_PASS2_PAGES.get(code, []) and code == "MI"):
+            entry["pages"].append(table_values(session, url, FIVE_STATE_TABLE_VALUES[url]))
+        report["states"].setdefault(code, {"sources": []})["sources"].append(entry)
     queries = list(args.arcgis_search) or (list(DISCOVERY_QUERIES if args.discovery else ()) + list(EXPANSION_ITEM_QUERIES if args.expansion else ())
-                                           + list(FIVE_STATE_QUERIES if args.five_state else ()))
+                                           + list(FIVE_STATE_QUERIES if args.five_state else ())
+                                           + list(FIVE_STATE_PASS2_QUERIES if args.five_state_pass2 else ()))
     for q in queries:
         report.setdefault("arcgis", {})[q] = arcgis_discover(session, q)
         print(f"  arcgis search {q!r}: {len(report['arcgis'][q])} item(s)", flush=True)
@@ -867,6 +1017,11 @@ def digest(path: Path) -> str:
                         out.append(f"      copyright: {l['copyright']}")
                     if l.get("id_shapes"):
                         out.append(f"      id_shapes: {json.dumps(l['id_shapes'])[:1500]}")
+                if pg.get("kind") in ("layer_probe", "table_values"):
+                    out.append(f"  count={pg.get('count')} sampled={pg.get('sampled')} id_shapes={json.dumps(pg.get('id_shapes'))[:1200]}")
+                    out.append(f"  value_counts={json.dumps(pg.get('value_counts'))[:1500]}")
+                if pg.get("kind") == "pdf_process" and pg.get("pages") is not None:
+                    out.append(f"  pdf pages={pg.get('pages')}")
                 if pg.get("kind") == "arcgis_directory":
                     out.append(f"  services: {', '.join(pg.get('services') or [])}")
                     out.append(f"  folders: {', '.join(pg.get('folders') or [])}")
