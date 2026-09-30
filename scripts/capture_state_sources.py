@@ -119,6 +119,35 @@ EXPANSION_TARGETS = {
     "OH": ["https://services2.arcgis.com/MlJ0G8iWUyC7jAmu/arcgis/rest/services/OhioStatewidePacels_full_view/FeatureServer"],
     "VT": ["https://services.arcgis.com/XG15cJAlne2vxtgt/ArcGIS/rest/services/VT_Parcel/FeatureServer"],
 }
+# Pass 2 (2026-10-01): ArcGIS items whose licenceInfo / access text we need
+# (catalog ids from pass 1), inventory-page links to follow (same host,
+# listing / terms vocabulary), and extra pages.
+EXPANSION_ITEMS = {
+    "NC": ["8774cb904d5148d48c6c4d36f8101952"],        # Burke County NC Tax_Sales_FS
+    "SC": ["0bf91b9d18f14702873af5f3ad870429"],        # York County SC Tax Sale Properties 2026 View
+    "MI": ["47baabcecf1a4f4e9c47ef15c7c4b7ef", "5b973732a9e84fdd94fa225f8160650d"],  # Lenawee / Eaton
+    "IN": ["57dc076f5fb845978b9a7df9971fbd29"],        # Muncie (Delaware Co.) Fall 2026 tax sale
+    "GA": ["239e5314f25f4e9898f9201d36301af9"],        # Albany GA 2026 tax sale
+    "XX": ["cfde38996bd443f8bc0b4ef7aac8d4e1", "2213fa3775db4f75ac1c13dc121dd28f"],  # unidentified 2026 tax sale layers
+}
+EXPANSION_ITEM_QUERIES = ('title:"NC1Map Parcels"', 'title:"Colorado Public Parcels"', 'owner:UGRC title:"LIR"',
+                          'title:"Wisconsin Statewide Parcels"', 'title:"Maryland Parcel"',
+                          '"tax foreclosure" type:"Feature Service"', '"commissioner" certificate sale type:"Feature Service"',
+                          'IndianaMap parcels type:"Feature Service"')
+EXPANSION_EXTRA = {
+    "UT": ["https://gis.utah.gov/documentation/policy/license/", "https://www.saltlakecounty.gov/property-tax/property-tax-sale/"],
+    "WV": ["https://www.wvsao.gov/CountyCollections/LandSales", "https://www.wvsao.gov/CountyCollections/DeputyLandCommissioners",
+           "https://www.wvsao.gov/CountyCollections/CertifiedToState"],
+    "IN": ["https://www.in.gov/gis/", "https://www.sriservices.com/properties"],
+    "TN": ["https://comptroller.tn.gov/disclaimer.html"],
+    "WI": ["https://www.sco.wisc.edu/parcels/data/", "https://www.co.sauk.wi.us/treasurer/tax-deeded-properties"],
+    "NC": ["https://www.nconemap.gov/pages/parcels", "https://www.burkenc.org/2263/Tax-Foreclosures"],
+    "MD": ["https://baltimorecity.marylandtaxsale.com/index.cfm?zaction=AUCTION&Zmethod=CALENDAR"],
+    "NJ": ["https://easthanover.newjerseytaxsale.com/index.cfm?zaction=AUCTION&Zmethod=CALENDAR"],
+}
+FOLLOW_VOCAB = re.compile(r"land sale|listing|certified|no bid|delinquent|foreclos|tax sale|tax deed|forfeit|sealed bid|"
+                          r"terms of use|licen[cs]e|disclaimer|legal", re.I)
+MAX_FOLLOW = 6
 EXPANSION_QUERIES = ('"tax sale" parcels type:"Feature Service"',
                      '"delinquent" parcels type:"Feature Service"',
                      '"tax deed" type:"Feature Service"',
@@ -187,6 +216,11 @@ def html_structure(html: str, url: str) -> dict:
         if href.startswith(("http://", "https://")) and (TERMS_VOCAB.search(text) or TERMS_VOCAB.search(urlsplit(href).path)) \
                 and not LONG_DIGITS.search(href):
             terms_links.append({"text": text[:80], "href": href})
+    links = []
+    for a in soup.find_all("a", href=True):
+        href = urljoin(url, a["href"].strip())
+        if href.startswith(("http://", "https://")) and not LONG_DIGITS.search(href):
+            links.append({"text": clean(a.get_text(" "))[:80], "href": href.split("#")[0]})
     for tag in soup.find_all(["table", "script", "style", "noscript", "select", "form"]):
         tag.decompose()
     snippets = []
@@ -197,7 +231,7 @@ def html_structure(html: str, url: str) -> dict:
         if len(snippets) >= MAX_SNIPPETS:
             break
     return {"title": title, "headings": headings, "tables": tables, "forms": forms,
-            "terms_links": terms_links[:15], "snippets": snippets}
+            "terms_links": terms_links[:15], "snippets": snippets, "links": links[:300]}
 
 
 def csv_structure(resp) -> dict:
@@ -360,6 +394,25 @@ def arcgis_layer_meta(session: requests.Session, url: str) -> list[dict]:
     return out
 
 
+def arcgis_item(session: requests.Session, item_id: str) -> dict:
+    """One ArcGIS Online item's own metadata: title, owner, licence and
+    access text, and its service's layers (fields, counts, id shapes)."""
+    resp, err = fetch(session, f"https://www.arcgis.com/sharing/rest/content/items/{item_id}?f=json")
+    if err or resp is None or resp.status_code != 200:
+        return {"id": item_id, "error": err or f"status {getattr(resp, 'status_code', None)}"}
+    try:
+        it = resp.json()
+    except ValueError:
+        return {"id": item_id, "error": "not json"}
+    rec = {"id": item_id, "title": it.get("title"), "type": it.get("type"), "owner": it.get("owner"), "org": it.get("orgId"),
+           "url": it.get("url"), "modified": it.get("modified"), "tags": (it.get("tags") or [])[:12],
+           "snippet": strip_html(it.get("snippet") or "")[:240], "description": mask_digits(strip_html(it.get("description") or ""))[:900],
+           "license": strip_html(it.get("licenseInfo") or "")[:900], "access": strip_html(it.get("accessInformation") or "")[:300]}
+    if it.get("url") and ARCGIS_SERVICE_RE.search(it["url"]):
+        rec["layers"] = arcgis_layer_meta(session, it["url"])
+    return rec
+
+
 def arcgis_discover(session: requests.Session, query: str, *, limit: int = 25) -> list[dict]:
     """ArcGIS Online's own catalog search for public items matching `query`:
     who publishes them, their licence / access text, and (for services) the
@@ -408,7 +461,11 @@ def main(argv=None) -> int:
             print(f"  {code} discovery      {entry['pages'][-1].get('status', entry['pages'][-1].get('error'))} {url}", flush=True)
             time.sleep(0.8)
         report["states"].setdefault(code, {"sources": []})["sources"].append(entry)
-    for code, urls in EXPANSION_TARGETS.items():
+    targets = dict(EXPANSION_TARGETS)
+    for extra in (EXPANSION_ITEMS, EXPANSION_EXTRA):
+        for code in extra:
+            targets.setdefault(code, [])
+    for code, urls in targets.items():
         if not args.expansion or (args.state and code not in args.state):
             continue
         entry = {"source_id": f"expansion_{code.lower()}", "county": "(expansion)", "pages": []}
@@ -423,6 +480,34 @@ def main(argv=None) -> int:
                 print(f"  {code} expansion      {page.get('status', page.get('error'))} {url}", flush=True)
             entry["pages"].append(page)
             time.sleep(0.8)
+        for url in EXPANSION_EXTRA.get(code, []):
+            if url in seen:
+                continue
+            seen.add(url)
+            page = capture(session, url, "extra")
+            print(f"  {code} extra          {page.get('status', page.get('error'))} {url}", flush=True)
+            entry["pages"].append(page)
+            time.sleep(0.8)
+        # One hop to listing / terms links the pages themselves carry (same host).
+        followed = 0
+        for pg in list(entry["pages"]):
+            for link in pg.get("links") or []:
+                href = link["href"]
+                if href in seen or followed >= MAX_FOLLOW or not FOLLOW_VOCAB.search(link["text"] + " " + urlsplit(href).path):
+                    continue
+                if (urlsplit(href).hostname or "") != (urlsplit(pg.get("final_url") or pg["url"]).hostname or ""):
+                    continue
+                seen.add(href)
+                followed += 1
+                page = capture(session, href, "follow")
+                page["link_text"] = link["text"]
+                entry["pages"].append(page)
+                print(f"  {code} follow         {page.get('status', page.get('error'))} {href}", flush=True)
+                time.sleep(0.8)
+        for item_id in EXPANSION_ITEMS.get(code, []):
+            entry["pages"].append({"url": f"item:{item_id}", "kind": "arcgis_item", **arcgis_item(session, item_id)})
+            print(f"  {code} item           {item_id}", flush=True)
+            time.sleep(0.5)
         follow = 0
         for pg in list(entry["pages"]):
             for link in pg.get("terms_links") or []:
@@ -439,7 +524,7 @@ def main(argv=None) -> int:
                 print(f"  {code} terms          {page.get('status', page.get('error'))} {href}", flush=True)
                 time.sleep(0.8)
         report["states"].setdefault(code, {"sources": []})["sources"].append(entry)
-    queries = list(args.arcgis_search) or (list(DISCOVERY_QUERIES if args.discovery else ()) + list(EXPANSION_QUERIES if args.expansion else ()))
+    queries = list(args.arcgis_search) or (list(DISCOVERY_QUERIES if args.discovery else ()) + list(EXPANSION_ITEM_QUERIES if args.expansion else ()))
     for q in queries:
         report.setdefault("arcgis", {})[q] = arcgis_discover(session, q)
         print(f"  arcgis search {q!r}: {len(report['arcgis'][q])} item(s)", flush=True)
@@ -529,7 +614,15 @@ def digest(path: Path) -> str:
                     for c in pg.get("columns") or []:
                         out.append(f"    col {c['header']!r} non_empty={c['non_empty']}" + (f" distinct={c.get('distinct')} shapes={c.get('shapes')}" if "shapes" in c else ""))
                 if pg.get("socrata"):
-                    out.append("  socrata: " + json.dumps(pg["socrata"])[:3000])
+                    so = pg["socrata"]
+                    out.append(f"  socrata licence: id={so.get('licenseId')} license={so.get('license')} attribution={so.get('attribution')} "
+                               f"rowsUpdatedAt={so.get('rowsUpdatedAt')} custom_license={((so.get('custom_fields') or {}).get('Common Core') or {}).get('License')}")
+                    out.append("  socrata: " + json.dumps(so)[:3000])
+                if pg.get("kind") == "arcgis_item":
+                    out.append(f"  item {pg.get('id')} | {pg.get('type')} | {pg.get('title')} | owner={pg.get('owner')} org={pg.get('org')} url={pg.get('url')} err={pg.get('error')}")
+                    for k in ("snippet", "description", "license", "access"):
+                        if pg.get(k):
+                            out.append(f"    {k}: {pg[k]}")
                 for s in pg.get("snippets") or []:
                     out.append(f"  s: {s}")
     for q, items in (data.get("arcgis") or {}).items():
