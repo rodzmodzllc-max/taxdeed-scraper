@@ -70,6 +70,19 @@ LONG_DIGITS = re.compile(r"\d{7,}")
 PHONE = re.compile(r"\(?\b\d{3}\)?[-. ]\d{3}[-. ]\d{4}\b")
 EMAIL = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
 MAX_SNIPPETS, MAX_SNIPPET_CHARS, MAX_LINKS = 40, 320, 60
+# Acquisition sprint 2 (2026-09-30): one-hop follow. Only a link that is
+# PRESENT on an approved source page, whose own text or URL names the
+# acquisition process (strong vocabulary - not "contact", not "fee"), and
+# whose host is not a search engine, social site or blocked vendor, is
+# fetched. Capped per county. Never a crawl, never a search, never a guessed
+# URL; the operator still reads the capture and records evidence by hand.
+FOLLOW_VOCAB = re.compile(r"purchas|how to (buy|purchase|apply)|instruction|application|apply|procedure|"
+                          r"lands? available|list of lands|197\.502|tax deed (info|faq|process|general|sales? info)|"
+                          r"faq|frequently asked|general information|requirements|forms?\b", re.I)
+DOC_EXT = re.compile(r"\.(pdf|docx?|rtf)(\?|#|$)", re.I)
+NEVER_FOLLOW = re.compile(r"(^|\.)(google|bing|yahoo|duckduckgo|facebook|twitter|x|instagram|linkedin|youtube|"
+                          r"govease|bid4assets|lgbs|zillow|realtor)\.", re.I)
+MAX_FOLLOW_PER_COUNTY = 6
 STATUS_LABEL = re.compile(r"status", re.I)
 
 
@@ -108,9 +121,11 @@ def extract_html(html: str, url: str) -> dict:
         if not href or href.startswith(("#", "javascript:", "mailto:", "tel:")):
             continue
         absolute = urljoin(url, href)
-        if LINK_VOCAB.search(text) or LINK_VOCAB.search(absolute):
+        is_doc = bool(DOC_EXT.search(absolute))
+        if LINK_VOCAB.search(text) or LINK_VOCAB.search(absolute) or is_doc:
             links.append({"text": text[:120], "href": absolute, "host": (urlsplit(absolute).hostname or "").lower(),
-                          "same_site": same_site(absolute, url)})
+                          "same_site": same_site(absolute, url), "document": is_doc,
+                          "follow": bool(FOLLOW_VOCAB.search(text) or FOLLOW_VOCAB.search(absolute))})
         if len(links) >= MAX_LINKS:
             break
     # Process text lives outside the inventory table: drop tables, scripts,
@@ -175,7 +190,24 @@ def capture_url(session: requests.Session, url: str, *, kind: str) -> dict:
     return out
 
 
-def capture_available(session: requests.Session, state: str, counties: set[str] | None) -> dict:
+def follow_candidates(pages: list[dict], seen: set) -> list[dict]:
+    """The links to fetch one hop from the source's own pages: present on
+    the page, acquisition vocabulary, not a search engine / social / vendor
+    host, not already captured; documents first, then same-site pages."""
+    out, keys = [], set(seen)
+    for pg in pages:
+        for l in pg.get("links") or []:
+            href = l.get("href") or ""
+            host = (urlsplit(href).hostname or "").lower()
+            if not l.get("follow") or href in keys or not href.startswith(("https://", "http://")) or NEVER_FOLLOW.search(host + "."):
+                continue
+            keys.add(href)
+            out.append({"href": href, "text": l.get("text", ""), "from": pg.get("url"), "rank": (0 if l.get("document") else 1, 0 if l.get("same_site") else 1)})
+    out.sort(key=lambda x: x["rank"])
+    return out[:MAX_FOLLOW_PER_COUNTY]
+
+
+def capture_available(session: requests.Session, state: str, counties: set[str] | None, *, follow: bool = False) -> dict:
     result: dict = {}
     for r in registry_rows(state):
         if counties and r["county"] not in counties:
@@ -189,6 +221,14 @@ def capture_available(session: requests.Session, state: str, counties: set[str] 
             seen.add(url)
             entry["pages"].append(capture_url(session, url, kind=kind))
             time.sleep(0.6)
+        if follow:
+            for link in follow_candidates(entry["pages"], seen):
+                page = capture_url(session, link["href"], kind="followed_link")
+                page["followed_from"] = link["from"]
+                page["link_text"] = link["text"]
+                entry["pages"].append(page)
+                seen.add(link["href"])
+                time.sleep(0.6)
         result[r["county"]] = entry
         print(f"  {r['county']:<14} {r['source_id']:<22} " + ", ".join(f"{p.get('kind')}={p.get('status', p.get('error', '?'))}" for p in entry["pages"]), flush=True)
     return result
@@ -245,13 +285,14 @@ def digest(path: Path, *, max_links: int = 25, max_snippets: int = 25, snippet_c
     for county, e in sorted((data.get("available_sources") or {}).items()):
         out.append(f"@@ {county} | {e.get('source_id')} | {e.get('access_method')} | {e.get('machine_format')}")
         for pg in e.get("pages") or []:
-            out.append(f"  ## {pg.get('kind')} {pg.get('url')} -> {pg.get('status', pg.get('error'))} ct={str(pg.get('content_type', ''))[:30]} lm={pg.get('last_modified')}")
+            via = f" (from {pg.get('followed_from')} link {pg.get('link_text', '')[:50]!r})" if pg.get("followed_from") else ""
+            out.append(f"  ## {pg.get('kind')} {pg.get('url')} -> {pg.get('status', pg.get('error'))} ct={str(pg.get('content_type', ''))[:30]} lm={pg.get('last_modified')}{via}")
             if pg.get("title"):
                 out.append(f"  title: {pg['title'][:140]}")
             if pg.get("headings"):
                 out.append("  headings: " + " || ".join(h[:80] for h in pg["headings"][:8]))
             for l in (pg.get("links") or [])[:max_links]:
-                out.append(f"  link: {l['text'][:70]!r} -> {l['href']} [{'same' if l.get('same_site') else 'OTHER'}]")
+                out.append(f"  link: {l['text'][:70]!r} -> {l['href']} [{'same' if l.get('same_site') else 'OTHER'}{' DOC' if l.get('document') else ''}{' follow' if l.get('follow') else ''}]")
             for sn in (pg.get("snippets") or [])[:max_snippets]:
                 out.append(f"  s: {sn[:snippet_chars]}")
             if pg.get("phones"):
@@ -279,6 +320,7 @@ def main(argv=None) -> int:
     ap.add_argument("--county", action="append", default=[], help="limit to these counties (repeatable)")
     ap.add_argument("--realauction-date", action="append", default=[], help="MM/DD/YYYY past sale date(s) for result-label discovery")
     ap.add_argument("--skip-available", action="store_true")
+    ap.add_argument("--follow", action="store_true", help="fetch up to %d acquisition links present on each source page (one hop)" % MAX_FOLLOW_PER_COUNTY)
     ap.add_argument("--out", default=str(OUT_PATH))
     args = ap.parse_args(argv)
     if args.digest:
@@ -291,7 +333,7 @@ def main(argv=None) -> int:
                       "tables removed before reading; no row value, no parcel, no case number, no amount, no name"}
     if not args.skip_available:
         print(f"capturing AVAILABLE source pages ({args.state})", flush=True)
-        report["available_sources"] = capture_available(session, args.state, counties)
+        report["available_sources"] = capture_available(session, args.state, counties, follow=args.follow)
     if args.realauction_date:
         print("RealAuction result-label discovery", flush=True)
         report["realauction_result_labels"] = capture_realauction(session, args.realauction_date, counties)

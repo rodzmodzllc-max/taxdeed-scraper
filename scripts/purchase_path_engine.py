@@ -356,7 +356,7 @@ def evidence_problems(row: EvidenceRow) -> list[str]:
     if row.application_url:
         if not row.application_url.startswith("https://"):
             problems.append("application_url must be https")
-        elif is_search_engine(row.application_url) or is_blocked_vendor(row.application_url):
+        elif (PP.untrusted_reason(row.application_url) or "").startswith("untrusted host"):
             problems.append("application_url is a search engine or a blocked vendor - not a county document")
         elif _GUESSED.search(row.application_url):
             problems.append("application_url looks like a template, not a published document")
