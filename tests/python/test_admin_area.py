@@ -128,3 +128,52 @@ def test_c03_the_live_check_never_prints_a_credential():
         for name in ("admin_email", "admin_password", "normal_email", "normal_password", "access_token", "session"):
             assert name not in p, p
     assert 'os.environ.get("ADMIN_PASSWORD")' in src and "/auth/v1/token?grant_type=password" in src
+
+
+# --- Public sign-up with mandatory admin approval (2026-09-30) ---------------
+
+APP_JS = (REPO / "public/app.js").read_text(encoding="utf-8")
+APPROVE_UPDATE = '.update({ approved: true, approved_at: new Date().toISOString() })'
+PENDING_SELECT = 'sb.from("profiles").select("id,email,requested_at").eq("approved", false).order("requested_at")'
+
+
+def test_s01_the_admin_area_uses_the_existing_approval_mechanism():
+    """/admin lists and approves pending accounts with the very same query and
+    update as the application's own admin panel - the server's profiles row
+    under the admin RLS policy - and nothing else."""
+    code = _code(ADMIN_JS)
+    for text in (APP_JS, code):
+        assert PENDING_SELECT in text and APPROVE_UPDATE in text
+    # Approving is the only write; there is no reject / delete / role change.
+    assert code.count(".update(") == 1 and ".delete(" not in code and ".insert(" not in code and ".upsert(" not in code
+    assert "is_admin: true" not in code and "is_admin:true" not in code
+    # The pending list loads only after the server said admin.
+    gate_body = code.split("async function gate()", 1)[1].split("\n}\n", 1)[0]
+    assert gate_body.index("if (!user || !admin) { leave(); return; }") < gate_body.index("await refreshPending();")
+    assert 'id="adminPendingList"' in ADMIN_HTML and 'id="adminPendingStatus"' in ADMIN_HTML
+
+
+def test_s02_sign_up_never_asks_for_approval_or_a_role():
+    """The client sends profile details only; approved / is_admin are the
+    database's defaults (handle_new_user inserts id + email)."""
+    call = APP_JS.split("await sb.auth.signUp({", 1)[1].split("});", 1)[0]
+    assert "first_name: firstName" in call
+    for word in ("approved", "is_admin", "role"):
+        assert word not in call, word
+
+
+def test_s03_signups_disabled_error_gets_a_clear_message():
+    assert "function signUpErrorText(error)" in APP_JS
+    assert "/signups? not allowed/i.test(msg)" in APP_JS
+    assert 'authMsg.textContent = signUpErrorText(error);' in APP_JS
+    assert "New accounts stay pending until an administrator approves them." in APP_JS
+    # A new account without approval sees the pending screen, never the app.
+    assert "if (profile && profile.approved) showApp();\n  else showPending();" in APP_JS
+
+
+def test_s04_docs_name_the_manual_dashboard_setting():
+    admin = (REPO / "docs/admin.md").read_text(encoding="utf-8")
+    prod = (REPO / "docs/production-configuration.md").read_text(encoding="utf-8")
+    for text in (admin, prod):
+        assert "Allow new users to sign up" in text
+    assert "Signups not allowed for this instance" in admin
