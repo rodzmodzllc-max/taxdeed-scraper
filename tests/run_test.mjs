@@ -1972,8 +1972,10 @@ results.eventLifecycleP13First = ((await evPage2.locator('#detailModalInner .eve
 // The event entries themselves (not the explanatory note, which names the
 // words it forbids) must never contain an outcome claim.
 const evItemsText = (await evPage2.locator('#detailModalInner [data-section="events"] .event-item').allTextContents()).join(' ').toLowerCase();
-results.eventSectionNeverClaimsOutcome = !/\bsold\b|redeemed|winning bid|purchaser|struck off/.test(evItemsText);
-results.eventSectionSaysNotPublished = (evItemsText.match(/outcome: not published by the source/g) || []).length;
+// ("Purchaser identity and bidder count are not recorded" is the
+// disclaimer every provenance line carries - it states the opposite.)
+results.eventSectionNeverClaimsOutcome = !/\bsold\b|redeemed|winning bid|purchaser|struck off/.test(evItemsText.replace(/purchaser identity and bidder count are not recorded/g, ''));
+results.eventSectionSaysNotPublished = (evItemsText.match(/outcome not published|outcome not yet verified/g) || []).length;
 await evPage2.close();
 // --- Production-readiness: an event whose result the SOURCE published
 // (ev4 on p10: outcome struck_off with the vendor's own wording) is shown
@@ -3210,14 +3212,14 @@ const EXPECTED = {
   eventSectionPresent: 1,
   eventItemsP1: 1,
   eventLifecycleP1: 'Scheduled (as of the last observation)',
-  eventOutcomeP1: 'Outcome: Not published by the source',
+  eventOutcomeP1: "Outcome: Scheduled - the sale has not taken place",
   eventBidChangeP1: 'Opening bid observed: $4,500.00 → $5,000.00 (changed 1 time)',
   eventNavPill: 1,
   eventItemsP13: ['completed', 'superseded'],
   eventLifecycleP13First: 'Sale date passed - outcome not tracked',
   eventSectionNeverClaimsOutcome: true,
   eventSectionSaysNotPublished: 2,
-  eventOutcomeSourcePublished: 'Outcome: Struck off to the taxing unit (per the source) - source status "Struck off to Jurisdiction", observed Sep 20, 2026',
+  eventOutcomeSourcePublished: "Outcome: Unsold / struck off - verified Source: The auction source · Evidence: the source's own status for this sale (property-specific) · Source wording “Struck off to Jurisdiction” · Observed Sep 20, 2026 · Purchaser identity and bidder count are not recorded",
   eventNoteSaysSourceOnly: true,
   dashHealthRows: ['fl_deeds:HEALTHY', 'fl_certificates:INCOMPLETE', 'fl_laft:FAILED', 'db_backup:STALE', 'tx_sales:INCOMPLETE'],
   dashHealthBadgeTexas: true,
@@ -3435,12 +3437,19 @@ const EXPECTED = {
   aucDecP1When: /^[A-Z][a-z]{2} \d{1,2}, \d{4} · in 3d$/,
   aucDecP1Bid: '$5,000.00 Value ÷ bid 18.0× - a screening ratio, not a return',
   aucDecP1Related: 'Currently in Liens & Certificates (certificate #CERT-42). Same state, county and parcel number; why a record moved between ledgers is not recorded.',
-  aucDecP1Result: 'No result yet - the sale has not taken place',
+  aucDecP1Result: "Scheduled - the sale has not taken place",
   aucDecP1Source: /^Fl Realauction Alachua · View sale listing for [A-Z][a-z]{2} \d{1,2}, \d{4} → /,
   aucRelatedWhen: ['certificate:now:Currently listed'],
   aucDecNoScoreWords: true,
-  aucDecP13Result: 'Not published by the source. The sale date has passed and the feed still lists the property with no result. Whether it sold, was redeemed, cancelled or postponed is not recorded; winning bids and bidder counts are never inferred.',
+  aucDecP13Result: "Outcome not published Source: RealAuction county sale site (alachua.realtaxdeed.com) · sale-day page → · Evidence: the sale day's “Auctions Closed or Canceled” listing and its status line - one item per property (property-specific) · Matched by exact case number L-1 · Checked Sep 25, 2026 · The listing printed no result for this property · Purchaser identity and bidder count are not recorded",
   aucDecP13ResultNeverSold: true,
+  outcomeP13Result: "Outcome not published Source: RealAuction county sale site (alachua.realtaxdeed.com) · sale-day page → · Evidence: the sale day's “Auctions Closed or Canceled” listing and its status line - one item per property (property-specific) · Matched by exact case number L-1 · Checked Sep 25, 2026 · The listing printed no result for this property · Purchaser identity and bidder count are not recorded",
+  outcomeP13Kicker: "Outcome not published",
+  outcomeStates: {"sold": "Sold - verified", "soldProv": "Source: RealAuction county sale site (jackson.realtaxdeed.com) · sale-day page → · Evidence: the sale day's “Auctions Closed or Canceled” listing and its status line - one item per property (property-specific) · Matched by exact case number 2024 TD 0001 · Source wording “Auction Sold” · Observed Sep 30, 2026 · Amount published by the source $12,300.00 · Purchaser identity and bidder count are not recorded", "soldNoAmount": true, "struck": "Unsold / struck off - verified", "withdrawn": "Withdrawn - verified", "cancelled": "Cancelled - verified", "redeemed": "Redeemed - verified", "cancelledNoWording": "Outcome not yet verified", "notPublished": "Outcome not published", "notVerified": "Outcome not yet verified", "unreviewedWording": {"ev": {"id": "x", "case_no": "2024 TD 0001", "scheduled_sale_date": "2026-09-29", "lifecycle": "completed", "outcome": "unknown", "outcome_raw": null, "outcome_observed_at": null, "winning_bid": null, "event_url": "https://jackson.realtaxdeed.com/index.cfm?zaction=AUCTION&zmethod=PREVIEW&AuctionDate=09/29/2026"}, "closed": {"feed": "closed", "raw_status": "Canceled per Bankruptcy", "outcome": "unknown", "lifecycle": "completed", "observed_at": "2026-09-30T15:00:00Z", "evidence_url": "https://jackson.realtaxdeed.com/index.cfm?zaction=AUCTION&zmethod=PREVIEW&AuctionDate=09/29/2026"}, "evidenceUrl": "https://jackson.realtaxdeed.com/index.cfm?zaction=AUCTION&zmethod=PREVIEW&AuctionDate=09/29/2026", "feed": "closed", "key": "outcome_not_verified", "verified": false, "label": "Outcome not yet verified", "note": "The source's status line for this sale reads \"Canceled per Bankruptcy\", which is not a reviewed result wording yet - so no outcome is claimed."}, "passedDateOnly": false, "scheduled": "Scheduled"},
+  outcomeRelation: {"both": "Previously auctioned - verified unsold / struck off (source wording “Struck Off”) · Currently Available - independently verified on the county's Lands Available list (case L-9)", "auctionOnly": null, "availableOnly": null, "fromAvailable": "Previously auctioned - verified unsold / struck off (case 2024 TD 0001, source wording “Struck Off”) · Currently Available - independently verified on the county's Lands Available list", "availableNoAuctionResult": null},
+  aucExportOutcomeCols: true,
+  aucExportNoGovernance: true,
+  aucExportNeverSoldWithoutEvidence: true,
   certDecQuestions: ['What certificate / lien?', 'Amount?', 'Interest / return terms, if published?', 'Redemption information, if published?', 'Source and freshness?', 'Same parcel in Auctions or Available?', 'What is not known?'],
   certDecWhat: 'Certificate #CERT-42 Alachua County, FL · tax year 2022 · account ACC-999 · parcel 111',
   certDecAmount: '$1,234.56',

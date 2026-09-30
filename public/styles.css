@@ -1605,6 +1605,7 @@ live here are removed with the #pageMap section itself - see the note by
 .event-item .ev-life.scheduled{color:var(--ok)}
 .event-item .ev-meta{color:var(--ink-soft);font-size:.74rem;margin-top:.2rem}
 .event-item .ev-outcome{margin-top:.25rem;font-size:.76rem}
+.event-item .ev-prov{display:block;margin-top:.15rem;color:var(--ink-soft);font-size:.72rem;line-height:1.4}
 .event-note{font-size:.72rem;color:var(--ink-soft);margin:.4rem 0 0}
 /* Support modal */
 .support-topics{display:flex;flex-direction:column;gap:.35rem;margin:.4rem 0 .8rem}

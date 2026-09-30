@@ -414,6 +414,22 @@ def check_patch(patch: dict) -> None:
 REALAUCTION_FAMILY = "realauction"
 
 
+def realauction_wording(status: dict) -> str:
+    """The status wording the sale-day page prints for one closed item, as
+    the site's own status record carries it (observed in capture runs
+    36729310846 / 36731088178):
+      - a sale: A = "Auction Sold" (B = the time, C/D = "Amount" and value);
+      - otherwise: A = a one-letter layout code and B = the wording
+        (e.g. "Redeemed").
+    Returned verbatim; '' when the record carries no wording."""
+    import realauction_results as RR  # sibling module
+    a = RR.clean(str(status.get("A") or ""))
+    if re.fullmatch(r"[A-Z]", a):
+        b = RR.clean(str(status.get("B") or ""))
+        return b if re.fullmatch(r"[A-Za-z][A-Za-z\- ]{0,39}", b) else ""
+    return a
+
+
 def records_from_realauction(county: str, sale_date_iso: str, fetch: Any) -> DayRead:
     """Turn one realauction_results.fetch_area() result into a DayRead:
     items joined to their status lines by the site's own item id."""
@@ -436,7 +452,7 @@ def records_from_realauction(county: str, sale_date_iso: str, fetch: Any) -> Day
         s = status.get(aid) or {}
         read.records.append(ResultRecord(
             source_family=REALAUCTION_FAMILY, county=county, sale_date=sale_date_iso,
-            case_no=item.case_no, parcel=item.parcel, raw_wording=RR.clean(str(s.get("A") or "")),
+            case_no=item.case_no, parcel=item.parcel, raw_wording=realauction_wording(s),
             amount_label=RR.clean(str(s.get("C") or "")), amount_text=RR.clean(str(s.get("D") or "")),
             evidence_url=fetch.url))
     read.complete = not fetch.truncated

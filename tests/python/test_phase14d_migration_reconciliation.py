@@ -184,7 +184,10 @@ def test_outcome_and_sold_price_have_no_writer_anywhere_in_the_repo():
     # never-built `properties.outcome` this guard is about. They never write
     # `properties` at all - asserted by
     # tests/python/test_phase_b_auction_event_writers.py::test_writer_reads_but_never_writes_properties.
-    phase_b_event_writers = {"auction_events_writer.py", "seed_auction_events.py"}
+    # Auction-outcome evidence (2026-09-30): scripts/auction_outcomes.py writes
+    # the same migration-014 `auction_events.outcome`, never `properties` -
+    # asserted by tests/python/test_auction_outcomes.py::test_22_*.
+    phase_b_event_writers = {"auction_events_writer.py", "seed_auction_events.py", "auction_outcomes.py"}
     search_roots = [p for p in search_roots if p.name not in phase_b_event_writers]
     for path in search_roots:
         text = path.read_text(errors="ignore")

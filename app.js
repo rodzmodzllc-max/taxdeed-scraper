@@ -402,6 +402,12 @@ let BIDLIST = new Set(), BIDLIST_ORDER = [];
 // SaaS hardening (2026-09-29): dataset health rows (null = table not
 // present / not recorded yet) and the change signals for watched rows.
 let SOURCE_HEALTH = null, WATCH_CHANGES = null, UNIT_FRESHNESS = null;
+// Auction-outcome evidence (2026-09-30): property_id -> { ev, closed } for
+// the latest past sale event of each auction property (auction_events) and
+// that event's latest "closed"-feed observation (the sale day's Closed or
+// Canceled listing, read by scripts/auction_outcomes.py). null = not loaded
+// (table missing); every reader then falls back to "not yet verified".
+let AUCTION_OUTCOMES = null;
 // Ids someone tried to add while the list was already full, in the order
 // they tried - not persisted (in-memory/this session only), auto-promoted
 // into BIDLIST oldest-first the moment a slot frees up. See promoteNextPending().
@@ -2059,6 +2065,7 @@ async function loadAll() {
   BIDLIST = new Set(BIDLIST_ORDER);
   CALENDAR = {}; if (!cal.error) { (cal.data || []).forEach(r => { (CALENDAR[r.county] = CALENDAR[r.county] || []).push(r.sale_date); }); }
   SOURCE_HEALTH = health.error ? null : (health.data || []);
+  AUCTION_OUTCOMES = await fetchAuctionOutcomeIndex(today);
   UNIT_FRESHNESS = freshness.error ? null : (freshness.data || []);
   // Diff ONCE per page load: the bootstrap can run loadAll() twice (the
   // getSession() path and the SIGNED_IN event both reach showApp()), and a
@@ -2404,7 +2411,13 @@ function kickerParts(p) {
     const when = fmtDate(p.sale_date);
     const mode = /online auction/i.test(txStatus) ? " · online" : /^scheduled for auction$/i.test(txStatus) ? " · in person" : "";
     if (d === null) { phase = "Sale " + when + mode; cls = "phase-upcoming"; }
-    else if (d < 0) { phase = "Past sale date · " + when; cls = "phase-past"; }
+    else if (d < 0) {
+      // A past sale date is never a result: the phase names the verified
+      // outcome only when the source published one (auctionOutcomeState).
+      const st = auctionOutcomeState(p);
+      if (st && st.verified) { phase = st.label + " · " + when; cls = "phase-closed"; }
+      else { phase = "Past sale date · " + when + (st ? " · " + st.label : ""); cls = "phase-past"; }
+    }
     else if (d === 0) { phase = "Sale today · " + when + mode; cls = "phase-today"; }
     else if (d <= SOON_DAYS) { phase = "Sale " + when + mode; cls = "phase-soon"; }
     else { phase = "Sale " + when + mode; cls = "phase-upcoming"; }
@@ -3301,7 +3314,8 @@ function availableDecisionHtml(p) {
   rows.push(q("history", "What happened before?", `<div data-inventory-history-for="${esc(p.id)}"><span class="muted">Loading lifecycle history…</span></div>`));
   // 11. Is this parcel in another ledger?
   const xl = crossLedgerSummary(p);
-  rows.push(q("related", "Has this parcel appeared in another ledger?", xl.cls ? muted(xl.text) : esc(xl.text), xl.cls));
+  const relA = auctionAvailableRelation(p);
+  rows.push(q("related", "Has this parcel appeared in another ledger?", `${relA ? esc(relA) + sub(esc(xl.text)) : (xl.cls ? muted(xl.text) : esc(xl.text))}`, relA ? "" : xl.cls));
   return detailSectionHtml("Available decision", `<div class="dec-list">${rows.join("")}</div>`, "decision-card", "decision");
 }
 // The Auctions decision block: seven questions, each from a stored field or
@@ -3342,28 +3356,34 @@ function auctionDecisionHtml(p) {
   const link = auctionLinkInfo(p);
   rows.push(q("source", "What is the source?", `${esc(harvesterSourceLabel(p) || "Source not recorded")}${link && link.href ? ` · <a href="${esc(link.href)}" target="_blank" rel="noopener">${esc(link.label || "Source page")} →</a>` : ""}${sub(esc(`${lastSyncedText(p)}${p.last_seen_at ? ` · last read ${dateOnly(p.last_seen_at)}` : ""}`))}`));
   let result, resultCls = "";
+  const ost = auctionOutcomeState(p);
   const RESULTS = { sold: 1, redeemed: 1, withdrawn: 1, cancelled: 1, struck_off: 1 };
-  if (p.inventory_status && RESULTS[p.inventory_status] && p.inventory_status_raw) {
+  if (!(ost && ost.verified) && p.inventory_status && RESULTS[p.inventory_status] && p.inventory_status_raw) {
+    // A result the listing source itself published on the property row
+    // (migration 021's writer), with its own wording.
     const bits = [`source wording "${p.inventory_status_raw}"`];
     if (p.result_date) bits.push(`result date ${dateOnly(p.result_date)}`);
     if (hasNum(p.result_amount)) bits.push(`amount ${fmtMoney(p.result_amount)}`);
-    if (p.result_party) bits.push(`party ${p.result_party}`);
     if (p.inventory_status_observed_at) bits.push(`observed ${dateOnly(p.inventory_status_observed_at)}`);
     result = `${esc(INVENTORY_STATUS_LABELS[p.inventory_status] || p.inventory_status)}${sub(esc(bits.join(" · ")))}`;
     resultCls = "ok";
-  } else if (isGone(p)) {
-    result = `${muted("Not published by the source.")}${sub(esc("The listing left the source feed after its date; whether it sold, was redeemed, cancelled or postponed is not recorded. Winning bids and bidder counts are never inferred."))}`;
+  } else if (ost && ost.verified) {
+    result = `${esc(ost.label)}${sub(outcomeProvenanceText(ost, p))}`;
+    resultCls = "ok";
+  } else if (ost && ost.key === "outcome_not_published") {
+    result = `${muted("Outcome not published")}${sub(outcomeProvenanceText(ost, p))}`;
     resultCls = "muted";
-  } else if (p.sale_date && daysUntil(p) !== null && daysUntil(p) < 0) {
-    result = `${muted("Not published by the source.")}${sub(esc("The sale date has passed and the feed still lists the property with no result. Whether it sold, was redeemed, cancelled or postponed is not recorded; winning bids and bidder counts are never inferred."))}`;
+  } else if (ost && ost.key === "outcome_not_verified") {
+    result = `${muted("Outcome not yet verified")}${sub(esc(ost.note || "The sale date has passed; no source-published result has been read for this sale. Whether it sold, was redeemed, cancelled or postponed is not recorded. Winning bids and bidder counts are never inferred."))}`;
     resultCls = "muted";
   } else {
-    result = muted("No result yet - the sale has not taken place");
+    result = muted(ost && ost.key === "scheduled" ? "Scheduled - the sale has not taken place" : "No result yet - the sale is not scheduled");
     resultCls = "muted";
   }
   rows.push(q("result", "Is an explicit auction result available?", result, resultCls));
   const xl = crossLedgerSummary(p);
-  rows.push(q("related", "Has this parcel appeared in another ledger?", xl.cls ? muted(xl.text) : esc(xl.text), xl.cls));
+  const rel = auctionAvailableRelation(p);
+  rows.push(q("related", "Has this parcel appeared in another ledger?", `${rel ? esc(rel) + sub(esc(xl.text)) : (xl.cls ? muted(xl.text) : esc(xl.text))}`, rel ? "" : xl.cls));
   const gaps = dataGaps(p);
   rows.push(q("unknown", "What is not known?", gaps.length ? `<ul class="dec-gaps">${gaps.map(g => `<li>${esc(g)}</li>`).join("")}</ul>` : `<span class="ok">None of the gaps this app checks for</span>`, gaps.length ? "" : "ok"));
   return detailSectionHtml("Auction decision", `<div class="dec-list">${rows.join("")}</div>`, "decision-card", "decision");
@@ -3789,6 +3809,134 @@ function provenanceCardHtml(p) {
   return detailSectionHtml("Data Quality & Provenance", body, "provenance-card", "provenance");
 }
 
+// ==================== Auction outcomes (auction-outcome evidence sprint) ====================
+// One explicit state per auction sale, never inferred:
+//   Scheduled                      - the sale date has not passed
+//   Outcome not yet verified       - the date passed and no source result has
+//                                    been read (or the status line the source
+//                                    printed is not a reviewed result wording)
+//   Outcome not published          - the sale day's Closed or Canceled listing
+//                                    was read and it printed no result for
+//                                    this property
+//   Sold / Unsold - struck off / No sale / Withdrawn / Cancelled / Redeemed
+//                                  - verified: the source's own status wording
+//                                    (auction_events.outcome_raw), mapped by a
+//                                    reviewed row of
+//                                    data/auction_outcome_wordings.csv, on an
+//                                    item matched by exact case number
+// A listing leaving a feed, a passed date, a bid or a value is never a
+// result; a purchaser and a bidder count are never shown.
+const VERIFIED_OUTCOME_LABELS = {
+  sold: "Sold - verified", struck_off: "Unsold / struck off - verified", no_sale: "No sale - verified",
+  future_sale: "Held for a future sale - verified", redeemed: "Redeemed - verified",
+  withdrawn: "Withdrawn - verified", cancelled: "Cancelled - verified"
+};
+function verifiedOutcomeKey(ev) {
+  if (!ev) return null;
+  const outcome = String(ev.outcome || "unknown");
+  if (outcome !== "unknown" && VERIFIED_OUTCOME_LABELS[outcome] && ev.outcome_raw) return outcome;
+  if ((ev.lifecycle === "withdrawn" || ev.lifecycle === "cancelled") && ev.outcome_raw) return ev.lifecycle;
+  return null;
+}
+function eventOutcomeState(ev, closed, p) {
+  const today = new Date().toISOString().slice(0, 10);
+  const k = verifiedOutcomeKey(ev);
+  const base = { ev, closed, evidenceUrl: (closed && closed.evidence_url) || (ev && ev.event_url) || "", feed: closed ? closed.feed : null };
+  if (k) return { ...base, key: k, verified: true, label: VERIFIED_OUTCOME_LABELS[k], raw: ev.outcome_raw,
+    observedAt: ev.outcome_observed_at || (closed && closed.observed_at) || null, amount: k === "sold" && hasNum(ev.winning_bid) ? Number(ev.winning_bid) : null };
+  const day = ev ? String(ev.scheduled_sale_date || "") : String((p && p.sale_date) || "");
+  if (day && day >= today) return { ...base, key: "scheduled", verified: false, label: "Scheduled" };
+  if (closed && !closed.raw_status && String(closed.outcome || "unknown") === "unknown")
+    return { ...base, key: "outcome_not_published", verified: false, label: "Outcome not published", observedAt: closed.observed_at };
+  const note = closed && closed.raw_status
+    ? `The source's status line for this sale reads "${closed.raw_status}", which is not a reviewed result wording yet - so no outcome is claimed.`
+    : "";
+  return { ...base, key: "outcome_not_verified", verified: false, label: "Outcome not yet verified", note };
+}
+function auctionOutcomeState(p) {
+  if (!p || p.source !== "auction") return null;
+  const rec = AUCTION_OUTCOMES ? AUCTION_OUTCOMES[p.id] : null;
+  const d = p.sale_date ? daysUntil(p) : null;
+  if (d !== null && d >= 0) return { key: "scheduled", verified: false, label: "Scheduled" };
+  if (!p.sale_date && !rec) return null;
+  return eventOutcomeState(rec ? rec.ev : null, rec ? rec.closed : null, p);
+}
+// Provenance for a verified or checked outcome: which source, which page,
+// what kind of evidence, its scope, the identifier that matched it, when it
+// was observed, and the sale amount only when the source printed one.
+function outcomeProvenanceText(st, p) {
+  const ev = st.ev || {};
+  let host = "";
+  try { host = st.evidenceUrl ? new URL(st.evidenceUrl).hostname : ""; } catch (e) { host = ""; }
+  const bits = [];
+  const fromClosed = st.feed === "closed";
+  const src = (p && harvesterSourceLabel(p)) || (host ? "RealAuction county sale site" : "The auction source");
+  bits.push(`Source: ${esc(src)}${host ? ` (${esc(host)})` : ""}${st.evidenceUrl ? ` · <a href="${esc(st.evidenceUrl)}" target="_blank" rel="noopener">sale-day page →</a>` : ""}`);
+  bits.push(fromClosed ? "Evidence: the sale day's “Auctions Closed or Canceled” listing and its status line - one item per property (property-specific)"
+    : "Evidence: the source's own status for this sale (property-specific)");
+  if (fromClosed) bits.push(`Matched by exact case number${ev.case_no || (p && p.case_no) ? ` ${esc(ev.case_no || p.case_no)}` : ""}`);
+  if (st.verified) bits.push(`Source wording “${esc(st.raw || "")}”`);
+  if (st.observedAt) bits.push(`${st.verified ? "Observed" : "Checked"} ${esc(dateOnly(st.observedAt))}`);
+  if (st.verified) bits.push(st.key === "sold" ? (st.amount !== null ? `Amount published by the source ${esc(fmtMoney(st.amount))}` : "Sale amount: not published") : "");
+  if (!st.verified) bits.push("The listing printed no result for this property");
+  bits.push("Purchaser identity and bidder count are not recorded");
+  return bits.filter(Boolean).join(" · ");
+}
+// Auction -> Available, only with BOTH facts independently verified: the
+// auction's own published unsold / struck-off result, and a current,
+// publishable Available record for the same state, county and parcel. A
+// failed auction alone never makes a property "available", and an Available
+// record alone never manufactures a previous failed auction.
+const UNSOLD_KEYS = { struck_off: 1, no_sale: 1 };
+function auctionAvailableRelation(p, relIn, stateOf) {
+  if (!p || !hasParcel(p)) return null;
+  const rel = relIn || relatedRecordsFor(p);
+  const stOf = stateOf || auctionOutcomeState;
+  if (p.source === "auction") {
+    const st = stOf(p);
+    if (!st || !st.verified || !UNSOLD_KEYS[st.key]) return null;
+    const avail = rel.find(o => o.source === "laft" && !isGone(o) && isPublishable(o));
+    if (!avail) return null;
+    return `Previously auctioned - verified unsold / struck off (source wording “${st.raw}”) · Currently Available - independently verified on the county's Lands Available list (case ${avail.case_no || "?"})`;
+  }
+  if (p.source === "laft" && !isGone(p)) {
+    const auc = rel.filter(o => o.source === "auction").map(o => ({ o, st: stOf(o) })).find(x => x.st && x.st.verified && UNSOLD_KEYS[x.st.key]);
+    if (!auc) return null;
+    return `Previously auctioned - verified unsold / struck off (case ${auc.o.case_no || "?"}, source wording “${auc.st.raw}”) · Currently Available - independently verified on the county's Lands Available list`;
+  }
+  return null;
+}
+async function fetchAllPages(build) {
+  const out = [];
+  for (let from = 0; ; from += 1000) {
+    const r = await build().range(from, from + 999);
+    if (r.error) return { data: null, error: r.error };
+    out.push(...(r.data || []));
+    if ((r.data || []).length < 1000) return { data: out, error: null };
+  }
+}
+async function fetchAuctionOutcomeIndex(today) {
+  const evs = await fetchAllPages(() => sb.from("auction_events")
+    .select("id,property_id,case_no,scheduled_sale_date,lifecycle,outcome,outcome_raw,outcome_observed_at,winning_bid,event_url")
+    .lt("scheduled_sale_date", today).order("scheduled_sale_date"));
+  if (evs.error) return null;
+  const obs = await fetchAllPages(() => sb.from("auction_event_observations")
+    .select("event_id,observed_at,raw_status,outcome,lifecycle,evidence_url,feed").eq("feed", "closed").order("observed_at"));
+  const lastClosed = {};
+  if (!obs.error) (obs.data || []).forEach(o => { lastClosed[o.event_id] = o; });
+  const idx = {};
+  (evs.data || []).forEach(e => {
+    if (e.lifecycle === "superseded") return;
+    const cur = idx[e.property_id];
+    if (!cur || String(cur.ev.scheduled_sale_date) <= String(e.scheduled_sale_date)) idx[e.property_id] = { ev: e, closed: lastClosed[e.id] || null };
+  });
+  return idx;
+}
+window.__tdwAuctionOutcomeState = p => auctionOutcomeState(p);
+// Test hook: the pure outcome rules, so a browser test can exercise every
+// state (and the auction -> Available relationship) on synthetic rows.
+window.__tdwOutcome = { eventOutcomeState, outcomeProvenanceText, relation: auctionAvailableRelation };
+
 // ==================== Sale event history (Phase B, migration 014) ====================
 // One entry per scheduled sale date this app observed for the property
 // (auction_events), with what the source showed each time it was looked at
@@ -3820,11 +3968,12 @@ const EVENT_OUTCOME_TEXT = {
   sold: "Sold (per the source)", redeemed: "Redeemed (per the source)", struck_off: "Struck off to the taxing unit (per the source)",
   future_sale: "Held for a future sale (per the source)", no_sale: "No sale (per the source)"
 };
-function eventOutcomeHtml(ev) {
-  const outcome = String(ev.outcome || "unknown");
-  if (outcome === "unknown" || !EVENT_OUTCOME_TEXT[outcome] || !ev.outcome_raw) return `<b>Outcome:</b> Not published by the source`;
-  const when = ev.outcome_observed_at ? `, observed ${fmtDate(String(ev.outcome_observed_at).slice(0, 10))}` : "";
-  return `<b>Outcome:</b> ${esc(EVENT_OUTCOME_TEXT[outcome])} - source status "${esc(String(ev.outcome_raw))}"${esc(when)}`;
+function eventOutcomeHtml(ev, closed) {
+  const st = eventOutcomeState(ev, closed || null, null);
+  if (st.verified) return `<b>Outcome:</b> ${esc(st.label)} <span class="ev-prov">${outcomeProvenanceText(st, null)}</span>`;
+  if (st.key === "outcome_not_published") return `<b>Outcome not published</b> <span class="ev-prov">${outcomeProvenanceText(st, null)}</span>`;
+  if (st.key === "scheduled") return `<b>Outcome:</b> Scheduled - the sale has not taken place`;
+  return `<b>Outcome not yet verified</b>${st.note ? ` <span class="ev-prov">${esc(st.note)}</span>` : ""}`;
 }
 function eventHistoryHtml(events, observations) {
   if (!events.length) return `<p class="event-note">No sale events observed for this property yet. Event history starts with the first harvest after the auction-event writer went live; earlier sales are not reconstructed.</p>`;
@@ -3850,7 +3999,7 @@ function eventHistoryHtml(events, observations) {
       <div class="ev-head"><span>Scheduled sale ${esc(fmtDate(ev.scheduled_sale_date))}</span><span class="ev-life ${esc(life)}">${esc(EVENT_LIFECYCLE_TEXT[life] || life)}</span></div>
       <div class="ev-meta">${esc(seen)}${obs.length ? ` · ${obs.length} observation${obs.length === 1 ? "" : "s"}` : ""}${raw ? ` · source status "${esc(String(raw))}"` : ""}</div>
       <div class="ev-meta">${esc(bidLine)}</div>
-      <div class="ev-outcome">${eventOutcomeHtml(ev)}</div>
+      <div class="ev-outcome">${eventOutcomeHtml(ev, obs.filter(o => o.feed === "closed").pop() || null)}</div>
     </div>`;
   });
   return `<div class="event-list">${items.join("")}</div><p class="event-note">${esc(EVENT_NOTE)}</p>`;
@@ -5480,6 +5629,14 @@ if (exportCsvBtn) exportCsvBtn.addEventListener("click", () => {
     ["Result (per the source)", p => p.source === "auction" && p.inventory_status && ["sold", "redeemed", "withdrawn", "cancelled", "struck_off"].includes(p.inventory_status) && p.inventory_status_raw ? (INVENTORY_STATUS_LABELS[p.inventory_status] || p.inventory_status) : ""],
     ["Result Source Wording", p => p.source === "auction" && p.inventory_status_raw ? p.inventory_status_raw : ""],
     ["Result Date", p => p.result_date || ""],
+    // Auction-outcome evidence: the explicit outcome state (never inferred)
+    // and, for a verified one, the source's wording, observation date, the
+    // page it was read from and a sale amount only when published beside it.
+    ["Auction Outcome", p => { const st = auctionOutcomeState(p); return st ? st.label : ""; }],
+    ["Outcome Source Wording", p => { const st = auctionOutcomeState(p); return st && st.verified ? (st.raw || "") : ""; }],
+    ["Outcome Observed", p => { const st = auctionOutcomeState(p); return st && (st.verified || st.key === "outcome_not_published") && st.observedAt ? String(st.observedAt).slice(0, 10) : ""; }],
+    ["Outcome Evidence URL", p => { const st = auctionOutcomeState(p); return st && (st.verified || st.key === "outcome_not_published") ? (st.evidenceUrl || "") : ""; }],
+    ["Published Sale Amount", p => { const st = auctionOutcomeState(p); return st && st.key === "sold" && hasNum(st.amount) ? st.amount : ""; }],
     ["Same Parcel In Other Ledgers", p => relatedRecordsFor(p).map(o => `${relatedWhen(o).cls === "prev" ? "previously" : "currently"} ${ledgerCopy(o.source).title || o.source}`).join("; ")]
   ];
   // Liens & Certificates: the certificate's own published facts, source and

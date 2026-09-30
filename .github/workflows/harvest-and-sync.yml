@@ -306,8 +306,8 @@ jobs:
       # the harvester's anonymous session, matches items to events by exact
       # case number, and records a result only for a reviewed wording in
       # data/auction_outcome_wordings.csv. Never infers from absence; a
-      # failed read writes nothing. continue-on-error: it can never fail the
-      # property pipeline.
+      # failed read writes nothing. Allowed to error, so it can never fail
+      # the property pipeline.
       - name: Verified auction outcomes (source-published results only)
         continue-on-error: true
         env:
@@ -1031,10 +1031,19 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 scripts/auction_outcomes.py
 
-      - name: Upload report (value-free)
+      - name: Prepare artifact (public evidence only)
+        # The report is counts only (no case number, parcel, amount or
+        # name); it is reproduced verbatim inside the public evidence file.
+        if: always()
+        env:
+          ARTIFACT_PUBLIC_KEY: ${{ vars.ARTIFACT_PUBLIC_KEY }}
+        run: python3 scripts/artifact_evidence.py --job auction-outcomes --status out/public/auction-outcomes.json
+
+      - name: Upload artifact (evidence)
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: auction-outcomes-${{ github.run_id }}
-          path: out/public/auction-outcomes.json
-          if-no-files-found: warn
+          path: |
+            out/public/
+            out/private/

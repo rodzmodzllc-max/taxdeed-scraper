@@ -3357,14 +3357,24 @@ function auctionDecisionHtml(p) {
   rows.push(q("source", "What is the source?", `${esc(harvesterSourceLabel(p) || "Source not recorded")}${link && link.href ? ` · <a href="${esc(link.href)}" target="_blank" rel="noopener">${esc(link.label || "Source page")} →</a>` : ""}${sub(esc(`${lastSyncedText(p)}${p.last_seen_at ? ` · last read ${dateOnly(p.last_seen_at)}` : ""}`))}`));
   let result, resultCls = "";
   const ost = auctionOutcomeState(p);
-  if (ost && ost.verified) {
+  const RESULTS = { sold: 1, redeemed: 1, withdrawn: 1, cancelled: 1, struck_off: 1 };
+  if (!(ost && ost.verified) && p.inventory_status && RESULTS[p.inventory_status] && p.inventory_status_raw) {
+    // A result the listing source itself published on the property row
+    // (migration 021's writer), with its own wording.
+    const bits = [`source wording "${p.inventory_status_raw}"`];
+    if (p.result_date) bits.push(`result date ${dateOnly(p.result_date)}`);
+    if (hasNum(p.result_amount)) bits.push(`amount ${fmtMoney(p.result_amount)}`);
+    if (p.inventory_status_observed_at) bits.push(`observed ${dateOnly(p.inventory_status_observed_at)}`);
+    result = `${esc(INVENTORY_STATUS_LABELS[p.inventory_status] || p.inventory_status)}${sub(esc(bits.join(" · ")))}`;
+    resultCls = "ok";
+  } else if (ost && ost.verified) {
     result = `${esc(ost.label)}${sub(outcomeProvenanceText(ost, p))}`;
     resultCls = "ok";
   } else if (ost && ost.key === "outcome_not_published") {
     result = `${muted("Outcome not published")}${sub(outcomeProvenanceText(ost, p))}`;
     resultCls = "muted";
   } else if (ost && ost.key === "outcome_not_verified") {
-    result = `${muted("Outcome not yet verified")}${sub(esc(ost.note || "The sale date has passed; no source-published result has been read for this sale. Whether it sold, was redeemed, cancelled or postponed is not recorded; winning bids and bidder counts are never inferred."))}`;
+    result = `${muted("Outcome not yet verified")}${sub(esc(ost.note || "The sale date has passed; no source-published result has been read for this sale. Whether it sold, was redeemed, cancelled or postponed is not recorded. Winning bids and bidder counts are never inferred."))}`;
     resultCls = "muted";
   } else {
     result = muted(ost && ost.key === "scheduled" ? "Scheduled - the sale has not taken place" : "No result yet - the sale is not scheduled");
@@ -3960,10 +3970,10 @@ const EVENT_OUTCOME_TEXT = {
 };
 function eventOutcomeHtml(ev, closed) {
   const st = eventOutcomeState(ev, closed || null, null);
-  if (st.verified) return `<b>Outcome:</b> ${esc(st.label)}<span class="ev-prov">${outcomeProvenanceText(st, null)}</span>`;
-  if (st.key === "outcome_not_published") return `<b>Outcome:</b> Outcome not published<span class="ev-prov">${outcomeProvenanceText(st, null)}</span>`;
+  if (st.verified) return `<b>Outcome:</b> ${esc(st.label)} <span class="ev-prov">${outcomeProvenanceText(st, null)}</span>`;
+  if (st.key === "outcome_not_published") return `<b>Outcome not published</b> <span class="ev-prov">${outcomeProvenanceText(st, null)}</span>`;
   if (st.key === "scheduled") return `<b>Outcome:</b> Scheduled - the sale has not taken place`;
-  return `<b>Outcome:</b> Outcome not yet verified${st.note ? `<span class="ev-prov">${esc(st.note)}</span>` : ""}`;
+  return `<b>Outcome not yet verified</b>${st.note ? ` <span class="ev-prov">${esc(st.note)}</span>` : ""}`;
 }
 function eventHistoryHtml(events, observations) {
   if (!events.length) return `<p class="event-note">No sale events observed for this property yet. Event history starts with the first harvest after the auction-event writer went live; earlier sales are not reconstructed.</p>`;

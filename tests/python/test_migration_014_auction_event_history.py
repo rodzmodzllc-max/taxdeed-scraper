@@ -325,7 +325,10 @@ def test_s14_no_writers_touched_in_this_phase_and_frontend_reads_only():
     # 2026-09-30: an outcome is shown only when the SOURCE published one (its
     # wording quoted, app.js eventOutcomeHtml); otherwise "Not published by
     # the source". The frontend still never derives one.
-    assert "Outcome:</b> Not published by the source" in app and "function eventOutcomeHtml" in app
+    # 2026-09-30 (auction-outcome evidence): the explicit states - "Outcome
+    # not published" (the source's closed listing was read and printed no
+    # result) and "Outcome not yet verified" - replace the single wording.
+    assert "<b>Outcome not published</b>" in app and "<b>Outcome not yet verified</b>" in app and "function eventOutcomeHtml" in app
     assert "Not tracked" in app                      # the Risk & Legal card's honest wording is unchanged
 
 

@@ -163,7 +163,9 @@ def test_A5_upload_steps_are_otherwise_unchanged():
     steps = _upload_steps()
     # "evidence" (Customer Value / Evidence Acquisition sprint) is manual-only
     # and uploads the same evidence-only layout; the five original jobs are unchanged.
-    assert set(steps) == {"deeds", "certificates", "laft", "texas", "backup", "evidence"}
+    # "outcomes" (auction-outcome evidence sprint) is manual-only and uploads
+    # the same evidence-only layout.
+    assert set(steps) == {"deeds", "certificates", "laft", "texas", "backup", "evidence", "outcomes"}
     deeds = steps["deeds"]
     assert deeds["if"] == "always()"
     assert deeds["with"]["name"] == "harvest-deeds-${{ github.run_id }}"
