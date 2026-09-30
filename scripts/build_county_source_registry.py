@@ -47,6 +47,18 @@ COLUMNS = [
     # (LAFT / struck-off) ones; harvesters/ledgers/__init__.py SOURCE_LEDGERS
     # is the same mapping on the harvest side and a test pins the two equal.
     "ledgers",
+    # 2026-09-30 (AVAILABLE commercialization): customer publication, per
+    # source. APPROVED_GRANDFATHERED = the production sources customers
+    # already see today (carried forward; no separate review record);
+    # UNREVIEWED = every candidate; RESTRICTED = under legal review (with the
+    # reason); BLOCKED = the blocked vendors. harvesters/governance/publication.py.
+    "publication_status", "restrictions",
+    # 2026-09-30: what the source publishes as the way to buy (scripts/
+    # laft_purchase_paths.PURCHASE_PATH_MODES). Derived from purchase_url_kind
+    # where a source-level URL is recorded; blank (= unknown) everywhere else -
+    # no Florida county page has been read from this repository, so no mode
+    # is asserted for a production source.
+    "purchase_path_mode", "purchase_path_evidence",
 ]
 
 AUCTIONS, AVAILABLE, LIENS = "AUCTIONS", "AVAILABLE", "LIENS_CERTIFICATES"
@@ -74,10 +86,16 @@ def _completeness(county: str) -> str:
     return "UNKNOWN"
 
 
+MODE_FOR_KIND = {"online_purchase": "online_property", "offer_form": "online_property", "bid_form": "online_property",
+                 "purchase_instructions": "online_instructions", "application_form": "application"}
+
+
 def _row(**kw) -> dict:
     row = {c: "" for c in COLUMNS}
     row["publishing_unit"] = "COUNTY"
     row.update(kw)
+    if row.get("purchase_url") and row.get("purchase_url_kind") and not row.get("purchase_path_mode"):
+        row["purchase_path_mode"] = MODE_FOR_KIND.get(row["purchase_url_kind"], "")
     return row
 
 
@@ -89,7 +107,8 @@ def _read(name: str) -> list[dict]:
 def fl_production_rows() -> list[dict]:
     rows: list[dict] = []
     common = dict(state="FL", inventory_type=FL_INVENTORY, verification_status="PRODUCTION_VERIFIED",
-                  governance_status="APPROVED_GRANDFATHERED", last_checked="2026-09-29", ledgers=AVAILABLE)
+                  governance_status="APPROVED_GRANDFATHERED", last_checked="2026-09-29", ledgers=AVAILABLE,
+                  publication_status="APPROVED_GRANDFATHERED")
     for src in _read("laft_pdf_sources.csv"):
         municode = "mcclibraryfunctions.azurewebsites.us" in src["Url"]
         rows.append(_row(**common, county=src["County"], source_id="fl_laft_pdfs", harvester="harvest_laft_pdfs.py",
@@ -184,7 +203,7 @@ def fl_candidate_rows() -> list[dict]:
     for county, verification, authority, url, fmt, note in FL_CANDIDATES:
         found = verification != "NOT_FOUND_AFTER_SEARCH"
         rows.append(_row(state="FL", county=county, source_id="", harvester="", inventory_type=FL_INVENTORY if found else "",
-                         ledgers=AVAILABLE if found else "",
+                         ledgers=AVAILABLE if found else "", publication_status="UNREVIEWED",
                          source_authority=authority, canonical_url=url, access_method="UNKNOWN" if url else "NONE",
                          machine_format=fmt, verification_status=verification, governance_status="TERMS_NOT_VERIFIED" if url else "NOT_APPLICABLE",
                          last_checked="2026-09-29", completeness_status="UNKNOWN", evidence_ref=f"{AUDIT} s5", notes=note))
@@ -244,12 +263,14 @@ def tx_rows() -> list[dict]:
                          inventory_type="", source_authority="VENDOR_COUNSEL", canonical_url="https://taxsales.lgbs.com/",
                          access_method="VENDOR_API", machine_format="JSON", verification_status="PRODUCTION_VERIFIED",
                          governance_status="APPROVED", last_checked="2026-09-23", completeness_status="FAILED",
-                         ledgers=f"{AUCTIONS}|{AVAILABLE}",
+                         ledgers=f"{AUCTIONS}|{AVAILABLE}", publication_status="APPROVED_GRANDFATHERED",
                          evidence_ref="harvesters/governance/registry.py tx_lgbs; data/tx_lgbs_observed_county_roster.csv",
                          notes="Delinquent-tax counsel publication (not the county); rows carry no per-property URL; feed INCOMPLETE on 2026-09-29, last success 2026-09-23. Do not retry."))
     for county, url, fmt, governance, note in TX_CANDIDATES:
         rows.append(_row(state="TX", county=county, source_id=("tx_hctax" if county == "Harris" else ""), harvester="",
                          inventory_type="", source_authority="GOVERNMENT_DIRECT", canonical_url=url, ledgers=AVAILABLE,
+                         publication_status="RESTRICTED" if county == "Harris" else "UNREVIEWED",
+                         restrictions="LEGAL_REVIEW_REQUIRED (registry tx_hctax, Phase 9.5): hctax.net terms not cleared for redistribution; gate refuses until resolved" if county == "Harris" else "",
                          access_method="UNKNOWN", machine_format=fmt, verification_status="SEARCH_EVIDENCE_ONLY",
                          governance_status=governance, last_checked="2026-09-29", completeness_status="UNKNOWN",
                          evidence_ref=f"{AUDIT} s5", notes=note + " NOT VERIFIED (search index only)."))
@@ -257,7 +278,7 @@ def tx_rows() -> list[dict]:
         for county in counties:
             rows.append(_row(state="TX", county=county, source_id=sid, harvester="", inventory_type="",
                              source_authority="VENDOR_COUNSEL", canonical_url="", access_method="NONE", machine_format="PDF",
-                             verification_status="BLOCKED_VENDOR_ONLY", governance_status="BLOCKED",
+                             verification_status="BLOCKED_VENDOR_ONLY", governance_status="BLOCKED", publication_status="BLOCKED",
                              last_checked="2026-09-29", completeness_status="UNKNOWN", evidence_ref=f"{AUDIT} s5",
                              notes="Only a BLOCKED vendor publishes this county's struck-off list; discovery-only, no URL recorded."))
     return rows
@@ -306,7 +327,7 @@ AL_STATE_LAND = dict(
     amount_kind=ADOR_SOURCE.amount_kind.value,
     update_frequency="weekly (the Land Sales page says county transcripts are 'updated weekly', per the search index 2026-09-30; not read directly)",
     source_terminology=ADOR_SOURCE.source_terminology + " (search-index wording)",
-    ledgers=AVAILABLE,
+    ledgers=AVAILABLE, publication_status="UNREVIEWED",
 )
 
 
@@ -340,7 +361,7 @@ AR_COSL = dict(
     amount_kind=COSL_SOURCE.tabular.amount_kind.value,
     update_frequency="daily (reported by the 2026-09-29 audit; not corroborated by the 2026-09-30 search; not read directly)",
     source_terminology=COSL_SOURCE.source_terminology + " (search-index wording)",
-    ledgers=AVAILABLE,
+    ledgers=AVAILABLE, publication_status="UNREVIEWED",
 )
 LA_EBR = dict(
     state="LA", county=EBR_SOURCE.county, source_id=EBR_SOURCE.source_id, harvester="",
@@ -361,7 +382,7 @@ LA_EBR = dict(
     amount_kind="NOT_PUBLISHED",
     update_frequency="not established (the GIS 'Adjudicated Parcel' layer reads 'last updated September 07, 2026' in the index; the dataset's own cadence not read)",
     source_terminology=EBR_SOURCE.source_terminology + " (search-index wording)",
-    ledgers=AVAILABLE,
+    ledgers=AVAILABLE, publication_status="UNREVIEWED",
 )
 
 
@@ -407,7 +428,8 @@ def fl_auction_rows() -> list[dict]:
     rows = []
     common = dict(state="FL", inventory_type="", verification_status="PRODUCTION_VERIFIED",
                   governance_status="APPROVED_GRANDFATHERED", last_checked="2026-09-30",
-                  completeness_status="UNKNOWN", ledgers=AUCTIONS, source_authority="VENDOR_AUCTION")
+                  completeness_status="UNKNOWN", ledgers=AUCTIONS, source_authority="VENDOR_AUCTION",
+                  publication_status="APPROVED_GRANDFATHERED")
     for src in _read("realauction_counties.csv"):
         rows.append(_row(**common, county=src["County"], source_id="fl_realauction", harvester="harvest_all_counties.ps1",
                          canonical_url=REALAUCTION_CALENDAR.format(host=src["Host"]),
@@ -434,7 +456,7 @@ def fl_certificate_rows() -> list[dict]:
                          canonical_url=f"https://lienhub.com/county/{_lienhub_slug(src['County'])}/countyheld/certificates",
                          access_method="JSON_ENDPOINT", machine_format="JSON",
                          verification_status="PRODUCTION_VERIFIED", governance_status="APPROVED_GRANDFATHERED",
-                         last_checked="2026-09-30", completeness_status="UNKNOWN",
+                         last_checked="2026-09-30", completeness_status="UNKNOWN", publication_status="APPROVED_GRANDFATHERED",
                          evidence_ref="data/florida_certificate_sale_platforms.csv; harvesters/governance/registry.py fl_lienhub_certificates",
                          notes="LienHub county-held tax certificates (the certificate itself, never the parcel): DataTables JSON "
                                "endpoint behind the county-held certificates page; certificate number, account, purchase "
@@ -451,7 +473,7 @@ def tx_auction_rows() -> list[dict]:
                          canonical_url=REALAUCTION_CALENDAR.format(host=src["Host"]),
                          access_method="HTTP_GET_HTML", machine_format="HTML_TABLE",
                          verification_status="PRODUCTION_VERIFIED", governance_status="APPROVED",
-                         last_checked="2026-09-30", completeness_status="UNKNOWN",
+                         last_checked="2026-09-30", completeness_status="UNKNOWN", publication_status="APPROVED_GRANDFATHERED",
                          evidence_ref="data/tx_realauction_counties.csv; harvesters/governance/registry.py tx_realauction",
                          notes="RealAuction sheriff-sale / tax-sale calendar (sheriffsaleauctions.com or realforeclose.com) "
                                "for the county's tax foreclosure sales; AUCTIONS only - Texas has no certificate ledger.",
@@ -488,7 +510,7 @@ AZ_MARICOPA_CP = dict(
     amount_kind=MARICOPA_SOURCE.amount_kind.value,
     update_frequency="not established",
     source_terminology=MARICOPA_SOURCE.source_terminology + " (search-index wording)",
-    ledgers=LIENS,
+    ledgers=LIENS, publication_status="UNREVIEWED",
 )
 
 

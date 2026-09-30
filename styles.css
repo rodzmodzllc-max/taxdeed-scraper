@@ -1263,6 +1263,11 @@ the field read as one control. */
    Interest / TDA Eligibility) and, on wide screens, sits beside the header
    instead of below it - a spreadsheet row, not a stacked card. */
 .cert-stat-grid{grid-template-columns:repeat(3,1fr)}
+/* AVAILABLE commercialization (2026-09-30): withheld-inventory note, provenance legend. */
+.ledger-withheld{margin:.4rem 0 0;font-size:.76rem;color:var(--ink-soft);border-left:3px solid var(--card-line);padding-left:.55rem}
+.prov-legend{margin:.5rem 0 0;font-size:.72rem;color:var(--ink-soft);line-height:1.45}
+.prov-available .prov-v .muted{color:var(--ink-soft)}
+#availableFilters select{font:inherit;font-size:.8rem;padding:.35rem .4rem;border:1px solid var(--card-line);border-radius:3px;background:var(--card);color:var(--ink);min-height:32px}
 /* Three ledgers: the per-ledger emphasis line under the headline figures. */
 .prop-ledger-line{display:flex;flex-wrap:wrap;gap:.25rem .9rem;margin:.3rem 0 .05rem;font-size:.76rem;color:var(--ink)}
 .prop-ledger-line>span{display:inline-flex;align-items:baseline;gap:.35rem}

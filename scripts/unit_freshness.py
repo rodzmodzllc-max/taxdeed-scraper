@@ -225,6 +225,11 @@ def registry_patches(record: dict, units: dict[str, dict]) -> list[tuple[dict, d
         # never overwrite the registry's stored last_success_at.
         body = {c: u.get(c) for c in REGISTRY_COLUMNS if u.get(c) is not None}
         body["consecutive_failures"] = int(u.get("consecutive_failures") or 0)
+        # Migration 022 adds last_error_category to the registry; PostgREST
+        # ignores nothing - an unknown column fails the PATCH - so it is sent
+        # only when the caller says the column exists (see main()).
+        if u.get("_registry_has_error_category"):
+            body["last_error_category"] = u.get("last_error_category") or None
         out.append(({"state": u["state"], "source_id": u["source_id"], "county": u["county"]}, body))
     return out
 
@@ -262,15 +267,56 @@ class RegistryApi:
             self.requests_made += 1
 
 
-def public_report(record: dict, counts: dict, *, at: str) -> dict:
+STALE_HOURS = 36.0   # a unit whose last complete read is older than this is stale (laft_status's own max_age)
+
+
+UNAVAILABLE_PREFIXES = ("TRANSPORT_", "PROXY_", "ACCESS_")
+
+
+def source_unavailable(unit: dict) -> bool:
+    """The last attempt could not reach or was refused by the source (a
+    transport / proxy / access category on a FAILED attempt, or the reader-
+    side SOURCE_UNAVAILABLE status). A parse failure is not this: the source
+    answered."""
+    status = str(unit.get("last_attempt_status") or "")
+    category = str(unit.get("last_error_category") or "")
+    return status == "SOURCE_UNAVAILABLE" or (status == "FAILED" and category.startswith(UNAVAILABLE_PREFIXES))
+
+
+def unit_stale(unit: dict, *, now: datetime | None = None, stale_hours: float = STALE_HOURS) -> bool:
+    """No complete read within STALE_HOURS (or never). Independent of the
+    last attempt's outcome: a unit can be attempted and failing, and stale."""
+    last = unit.get("last_success_at")
+    if not last:
+        return True
+    try:
+        t = datetime.fromisoformat(str(last).replace("Z", "+00:00"))
+        if t.tzinfo is None:
+            t = t.replace(tzinfo=timezone.utc)
+    except (TypeError, ValueError):
+        return True
+    return ((now or datetime.now(timezone.utc)) - t).total_seconds() / 3600.0 > stale_hours
+
+
+def public_report(record: dict, counts: dict, *, at: str, now: datetime | None = None) -> dict:
     units = []
     by_ledger: dict[str, dict[str, int]] = {}
     for key in sorted(record):
         u = record[key]
-        units.append({k: u.get(k) for k in ("state", "source_id", "county", "ledgers", "last_attempt_at", "last_attempt_status",
-                                             "last_success_at", "last_success_row_count", "consecutive_failures", "last_error_category")})
+        entry = {k: u.get(k) for k in ("state", "source_id", "county", "ledgers", "last_attempt_at", "last_attempt_status",
+                                        "last_success_at", "last_success_row_count", "consecutive_failures", "last_error_category")}
+        # 2026-09-30: the customer-facing freshness states - back-off (the
+        # harvester is holding off after blocked failures), stale (no
+        # complete read within STALE_HOURS), source unavailable (the last
+        # attempt could not reach the source at all).
+        attempt, reason = backoff_decision(u, now=now)
+        entry["backoff"] = not attempt
+        entry["backoff_reason"] = None if attempt else reason
+        entry["stale"] = unit_stale(u, now=now)
+        entry["source_unavailable"] = source_unavailable(u)
+        units.append(entry)
         for ledger in (u.get("ledgers") or "UNCLASSIFIED").split("|"):
-            b = by_ledger.setdefault(ledger, {"units": 0, "current": 0, "stale": 0, "failing": 0})
+            b = by_ledger.setdefault(ledger, {"units": 0, "current": 0, "stale": 0, "failing": 0, "backoff": 0, "source_unavailable": 0})
             b["units"] += 1
             if u.get("last_attempt_status") in SUCCESS:
                 b["current"] += 1
@@ -278,6 +324,10 @@ def public_report(record: dict, counts: dict, *, at: str) -> dict:
                 b["stale"] += 1
             if int(u.get("consecutive_failures") or 0) > 0:
                 b["failing"] += 1
+            if entry["backoff"]:
+                b["backoff"] += 1
+            if entry["source_unavailable"]:
+                b["source_unavailable"] += 1
     return {"generated_at": at, "counts": counts, "by_ledger": by_ledger, "units": units,
             "note": "unit names, statuses, timestamps and counts only; never a row value; each ledger's health is independent"}
 

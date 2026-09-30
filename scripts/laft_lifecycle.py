@@ -180,6 +180,26 @@ def load_registry_purchase_paths(registry_path: Path, state: str = DEFAULT_STATE
     return out
 
 
+def load_registry_purchase_modes(registry_path: Path, state: str = DEFAULT_STATE) -> dict[tuple[str, str], tuple[str, str]]:
+    """(source_id, county) -> (purchase_path_mode, purchase_path_evidence)
+    for the state's production registry rows that state a NON-URL mode
+    (in_person_only / phone_mail / none). Carried into otc_provenance so
+    the customer sees "in-person process published by the source" rather
+    than a bare "no link"; never a URL, never a guess (unknown = absent)."""
+    import csv
+    if not registry_path.is_file():
+        return {}
+    out: dict[tuple[str, str], tuple[str, str]] = {}
+    with open(registry_path, newline="", encoding="utf-8") as fh:
+        for r in csv.DictReader(fh):
+            if r.get("state") != state or r.get("verification_status") != "PRODUCTION_VERIFIED":
+                continue
+            mode, evidence = (r.get("purchase_path_mode") or "").strip(), (r.get("purchase_path_evidence") or "").strip()
+            if mode in ("in_person_only", "phone_mail", "none") and evidence:
+                out[(r.get("source_id") or "", r.get("county") or "")] = (mode, evidence)
+    return out
+
+
 def purchase_path_of(row: dict, *, list_url: str | None, document_url: str | None, source_id: str | None,
                      county: str | None, registry_paths: dict | None) -> tuple[str | None, str | None, str]:
     """(purchase_url, purchase_url_kind, basis) for one observed row.
@@ -345,7 +365,7 @@ def lifecycle_inventory(state: str) -> tuple[str | None, str | None]:
 
 
 def provenance_payload(row: dict, gate: dict, retrieved_at: str, *, state: str = DEFAULT_STATE,
-                       registry_paths: dict | None = None) -> dict:
+                       registry_paths: dict | None = None, registry_modes: dict | None = None) -> dict:
     """The migration-017 columns for one observed row. Every value comes
     from the harvester's own status entry or the row it read; nothing is
     derived from the county name or guessed. The inventory type is the
@@ -366,6 +386,21 @@ def provenance_payload(row: dict, gate: dict, retrieved_at: str, *, state: str =
     purchase_url, purchase_kind, purchase_basis = purchase_path_of(
         row, list_url=list_url, document_url=document_url, source_id=source_id, county=row.get("county"),
         registry_paths=registry_paths)
+    # The source-level purchase-path MODE (scripts/laft_purchase_paths.PURCHASE_PATH_MODES):
+    # derived from the URL kind when there is a URL; a registry-stated
+    # non-URL mode (in-person / phone-mail / none, with the source's own
+    # wording) when there is not; "unknown" otherwise - never inferred.
+    if purchase_url is not None:
+        purchase_mode = {"online_purchase": "online_property", "offer_form": "online_property", "bid_form": "online_property",
+                         "purchase_instructions": "online_instructions", "application_form": "application"}.get(purchase_kind, "online_instructions")
+    else:
+        stated = (registry_modes or {}).get((source_id or "", row.get("county") or ""))
+        if stated:
+            purchase_mode, evidence = stated
+            purchase_basis = (f"{purchase_mode.replace('_', ' ')} process published by the source: {evidence} "
+                              f"(data/county_source_registry.csv); no online path")
+        else:
+            purchase_mode = "unknown"
     payload = {
         "last_seen_at": retrieved_at,
         # Currentness, from the source's own statements only: list_as_of is the
@@ -395,6 +430,7 @@ def provenance_payload(row: dict, gate: dict, retrieved_at: str, *, state: str =
             "list_as_of": ("stated by the list document/filename" if list_as_of else "not stated by the source"),
             "source_published_at": ("HTTP Last-Modified of the source document" if published_at else "no Last-Modified from the source"),
             "purchase_url": purchase_basis,
+            "purchase_path_mode": purchase_mode,
             "status_terminology": "active = on the county list this run; closed = absent from a COMPLETE/EMPTY harvest",
         },
     }
@@ -426,11 +462,11 @@ def published_at_from_last_modified(value) -> str | None:
 
 
 def group_provenance(rows: list[tuple[str, dict]], gate: dict, retrieved_at: str, *, state: str = DEFAULT_STATE,
-                     registry_paths: dict | None = None) -> list[tuple[dict, list[str]]]:
+                     registry_paths: dict | None = None, registry_modes: dict | None = None) -> list[tuple[dict, list[str]]]:
     """[(payload, [case_no...])] - identical payloads share one PATCH."""
     groups: dict[str, tuple[dict, list[str]]] = {}
     for case_no, row in rows:
-        payload = provenance_payload(row, gate, retrieved_at, state=state, registry_paths=registry_paths)
+        payload = provenance_payload(row, gate, retrieved_at, state=state, registry_paths=registry_paths, registry_modes=registry_modes)
         key = json.dumps(payload, sort_keys=True, default=str)
         groups.setdefault(key, (payload, []))[1].append(case_no)
     return list(groups.values())
@@ -521,7 +557,8 @@ def run_source_fields(observed: dict[str, dict[str, dict]], gates: dict[str, dic
 
 
 def execute(plan: Plan, gates: dict[str, dict], observed: dict[str, dict[str, dict]], api: Api,
-            *, state: str, have_017: bool, retrieved_at: str, registry_paths: dict | None = None) -> dict:
+            *, state: str, have_017: bool, retrieved_at: str, registry_paths: dict | None = None,
+            registry_modes: dict | None = None) -> dict:
     counts = {"observed": len(plan.observe), "reactivated": 0, "closed": 0, "provenance_patches": 0}
     # 1. Reactivation (status column exists today).
     by_county: dict[str, list[str]] = {}
@@ -538,7 +575,8 @@ def execute(plan: Plan, gates: dict[str, dict], observed: dict[str, dict[str, di
         for county, case_no in plan.observe:
             obs_by_county.setdefault(county, []).append((case_no, observed[county][case_no]))
         for county, rows in obs_by_county.items():
-            for payload, keys in group_provenance(rows, gates[county], retrieved_at, state=state, registry_paths=registry_paths):
+            for payload, keys in group_provenance(rows, gates[county], retrieved_at, state=state, registry_paths=registry_paths,
+                                                  registry_modes=registry_modes):
                 for i in range(0, len(keys), BATCH):
                     api.patch(f"state=eq.{state}&source=eq.{SOURCE}&county=eq.{q(county)}&case_no=in.{q(in_list(keys[i:i + BATCH]))}",
                               payload)
@@ -606,6 +644,7 @@ def main(argv=None) -> int:
         print(f"::warning title=laft_lifecycle::{status_path} unreadable or empty - nothing is observed or closed this run (fail closed)")
     expected = load_expected_units(Path(args.registry), state)
     registry_paths = load_registry_purchase_paths(Path(args.registry), state)
+    registry_modes = load_registry_purchase_modes(Path(args.registry), state)
     gates = county_gates(entries, expected, max_age_hours=args.max_age_hours, state=state) if entries else {}
     # A harvest row that names another state is not this run's (the FL
     # harvesters write no state key and are kept; the Alabama harvester
@@ -633,7 +672,7 @@ def main(argv=None) -> int:
         print("::notice title=laft_lifecycle::migration 019 not applied - escheatment_date / available_date are not written")
     retrieved_at = now_iso()
     counts = execute(plan, gates, observed, api, state=state, have_017=have_017, retrieved_at=retrieved_at,
-                     registry_paths=registry_paths)
+                     registry_paths=registry_paths, registry_modes=registry_modes)
     # Observed rows only: the same COMPLETE/INCOMPLETE gate as last_seen_at.
     observed_gated = {c: rows for c, rows in observed.items() if gates.get(c, {}).get("status") in OBSERVED_STATUSES}
     sf_counts, sf_columns = run_source_fields(observed_gated, gates, db_rows, api, have_019=have_019, retrieved_at=retrieved_at)

@@ -167,7 +167,11 @@ def test_g03_to_db_rows_keeps_the_live_shape_for_fl_tx_and_needs_020_for_alabama
     with pytest.raises(ValueError, match="migration 018"):
         csr.to_db_rows([AL_ROW])
     ext = csr.to_db_rows(ROWS, schema="020")
-    assert len(ext) == len(ROWS) and all(set(d) == set(csr.EXTENDED_COLUMNS) for d in ext)
+    cols_020 = [c for c in csr.EXTENDED_COLUMNS if c not in ("publication_status", "restrictions", "purchase_path_mode", "purchase_path_evidence")]
+    assert len(ext) == len(ROWS) and all(set(d) == set(cols_020) for d in ext)
+    # 022 (AVAILABLE commercialization) carries the publication and purchase-path columns too.
+    ext22 = csr.to_db_rows(ROWS, schema="022")
+    assert all(set(d) == set(csr.EXTENDED_COLUMNS) and d["publication_status"] for d in ext22)
     al = next(d for d in ext if d["state"] == "AL")
     assert al["publishing_unit"] == "STATE" and al["canonical_url"] == ala.ADOR_SEARCH_URL and al["amount_kind"] == "QUOTED_ON_APPLICATION"
     assert all(d["publishing_unit"] == "COUNTY" and d["amount_kind"] is None for d in ext if d["state"] in ("FL", "TX"))

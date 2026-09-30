@@ -1627,6 +1627,49 @@ Full description: `docs/three-ledgers.md`. The stable facts:
   LIENS & CERTIFICATES source outside FL. No TX certificate ledger exists or
   was invented; MS / WV have no adapter.
 
+## AVAILABLE commercialization (2026-09-30, PR open, migration 022 unapplied)
+
+Full description: `docs/available-ledger.md`. The stable facts:
+- **Source-level publication gate** (`harvesters/governance/publication.py`):
+  one decision per registry source - APPROVED / APPROVED_GRANDFATHERED /
+  UNREVIEWED / RESTRICTED / BLOCKED - validated against governance
+  (APPROVED* needs governance ok AND production-verified; legal review is
+  at most RESTRICTED; blocked vendors are BLOCKED; a government website is
+  never automatic permission). Registry columns `publication_status`,
+  `restrictions`, `purchase_path_mode`, `purchase_path_evidence`.
+  `scripts/publication_gate.py` (laft job, non-blocking) writes
+  `out/public/publication-gate.json` (decisions + the AVAILABLE measurement:
+  observed / publishable / restricted / unreviewed / blocked / unclassified /
+  unavailable-source / with-without purchase path / stale) and, once
+  migration 022 exists, propagates `properties.publication_status`. The
+  frontend withholds non-APPROVED rows from list, counts, map and export
+  and prints "N records withheld" (`WITHHELD`, `isPublishable`); NULL keeps
+  today's behaviour.
+- **Migration 022** (`022_available_publication_gate.sql`, NOT applied):
+  registry publication columns + `last_error_category`,
+  `properties.publication_status`, `inventory_status_observations.transition`,
+  `get_properties()` re-created from 021's list with `publication_status`
+  APPENDED. It is the only new functionality that needs a production step.
+- **Purchase-path modes** (`laft_purchase_paths.PURCHASE_PATH_MODES`) and
+  URL trust (`untrusted_reason`: http, homepage, list/document page, search
+  engines, blocked vendor domains, search-results pages). Every FL
+  production source carries mode `unknown` (blank) - nothing verified, no
+  page read; the lifecycle propagates a registry-stated non-URL mode into
+  `otc_provenance.purchase_path_mode`.
+- **Lifecycle transitions** (`inventory_status_writer.plan`): newly_observed /
+  status_changed / removed / result_published; sent to the history table
+  only once 022's column exists. Absence is `removed` → closed, never sold.
+- **Enrichment**: `fetch_county_batch` fills a county's slice from Available
+  rows first, then the rest, deduplicated, capped. **Freshness**:
+  `unit_freshness.public_report` adds `backoff`, `stale` (36 h),
+  `source_unavailable` per unit and per ledger.
+- **Frontend**: Available-only filter row (`#availableFilters`: purchase
+  path, amount kind, availability status, acreage min, read in the last 14
+  days), availability-evidence block + published / derived / not-published
+  legend on the provenance card, Available facts in the Map preview,
+  freshness bits (source unavailable / no complete read in 36 h / back-off).
+  `sw.js` -> `tdw-shell-v48`.
+
 ## Where to look for more
 
 - `claude/improvement-roadmap.md` in the "tax florida app" claude.ai Project — the full dated log of every fix, audit finding, and open decision. This is where new findings should be appended, not here.

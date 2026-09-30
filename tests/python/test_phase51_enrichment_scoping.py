@@ -241,8 +241,11 @@ def test_p51_16_empty_string_parcels_are_still_excluded(enrich, capture):
     """Pre-existing guard: '' parcels can never resolve and would burn slice."""
     calls, _ = capture
     enrich.fetch_county_batch("Citrus", 10, 8)
-    assert calls[0]["and"] == '(parcel.not.is.null,parcel.neq."")'
-    assert calls[0]["fdor_enriched_at"] == "is.null"
+    # AVAILABLE first (2026-09-30): the slice is filled from Lands Available
+    # rows, then every other ledger - both passes keep the '' exclusion.
+    assert calls[0]["and"] == '(parcel.not.is.null,parcel.neq."",source.eq.laft)'
+    assert calls[1]["and"] == '(parcel.not.is.null,parcel.neq."",source.neq.laft)'
+    assert all(c["fdor_enriched_at"] == "is.null" for c in calls[:2])
 
 
 def test_p51_17_polite_pacing_is_untouched(enrich):
