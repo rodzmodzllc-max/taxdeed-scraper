@@ -43,11 +43,19 @@ from dataclasses import dataclass
 from datetime import date
 
 INVENTORY_STATUSES = ("upcoming", "active", "sold", "redeemed", "withdrawn", "cancelled", "struck_off",
-                      "state_held", "resale_inventory", "available_otc", "closed", "unknown")
+                      "state_held", "resale_inventory", "available_otc", "closed", "unknown",
+                      # LIENS & CERTIFICATES - the certificate product, never the land:
+                      "certificate_listed",      # on the county-held / state-held list, purchasable (FL: LienHub county-held)
+                      "certificate_redeemed",    # the source says the owner redeemed the certificate
+                      "certificate_assigned",    # the source says the certificate was sold / assigned to a buyer
+                      "certificate_expired")     # the source says it expired (FL: seven years, F.S. 197.482)
 BASES = ("SOURCE_STATUS", "LIST_PRESENCE", "SCHEDULED_DATE", "NOT_PUBLISHED")
 
 # Statuses that assert a RESULT. Only a SOURCE_STATUS basis may produce one.
-RESULT_STATUSES = frozenset({"sold", "redeemed", "withdrawn", "cancelled", "struck_off"})
+# A certificate result (redeemed / assigned / expired) is a CERTIFICATE
+# event, never a property sale - the vocabulary keeps the two apart by name.
+RESULT_STATUSES = frozenset({"sold", "redeemed", "withdrawn", "cancelled", "struck_off",
+                             "certificate_redeemed", "certificate_assigned", "certificate_expired"})
 
 # properties.status words that mean "no longer on the feed/list" (app.js
 # GONE_STATUSES, migration 006's trigger list, laft_lifecycle.GONE_STATUSES).
@@ -161,6 +169,22 @@ def alabama_status(normalized: str, raw: str | None) -> StatusObservation:
     return StatusObservation("unknown", "NOT_PUBLISHED", note="the list publishes no status for this row")
 
 
+def fl_certificate_status(row: dict) -> StatusObservation:
+    """A Florida county-held certificate row (LienHub). The list publishes
+    presence only: a certificate that left it was redeemed OR bought by
+    assignment OR expired - LienHub's county-held page does not say which,
+    so absence is `closed`, never a certificate result. The certificate's
+    own expiration date is a published fact but a passed date is not an
+    observed expiry (a redeemed or assigned certificate leaves the list
+    before then), so it is not asserted either."""
+    ps = _pipeline_status(row.get("status"))
+    if ps in GONE_PIPELINE_STATUSES:
+        return StatusObservation("closed", "LIST_PRESENCE",
+                                 note="absent from the county-held certificate list at a COMPLETE read; redeemed, assigned or expired is not published there")
+    return StatusObservation("certificate_listed", "LIST_PRESENCE",
+                             note="on the county-held certificate list at the last read; purchasable by assignment from the Tax Collector")
+
+
 def status_for_row(row: dict, *, today: date, sold_column_present: bool = False) -> StatusObservation | None:
     """Dispatch on the row's state / source / harvester. None = this row
     kind has no mapping (certificates; unknown vendors) - nothing is written."""
@@ -171,6 +195,8 @@ def status_for_row(row: dict, *, today: date, sold_column_present: bool = False)
         return fl_laft_status(row, sold_column_present=sold_column_present)
     if state == "FL" and source == "auction":
         return fl_auction_status(row, today=today)
+    if state == "FL" and source == "certificate":
+        return fl_certificate_status(row)
     if state == "TX" and hs == "tx_lgbs":
         return tx_lgbs_status(row)
     if state == "AL" and source == "laft":
@@ -210,4 +236,8 @@ LABELS = {
     "available_otc": "Available over the counter",
     "closed": "Left the list / feed",
     "unknown": "Not published",
+    "certificate_listed": "Certificate listed (county-held)",
+    "certificate_redeemed": "Certificate redeemed (per the source)",
+    "certificate_assigned": "Certificate sold / assigned (per the source)",
+    "certificate_expired": "Certificate expired (per the source)",
 }

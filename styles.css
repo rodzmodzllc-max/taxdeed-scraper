@@ -1263,6 +1263,25 @@ the field read as one control. */
    Interest / TDA Eligibility) and, on wide screens, sits beside the header
    instead of below it - a spreadsheet row, not a stacked card. */
 .cert-stat-grid{grid-template-columns:repeat(3,1fr)}
+/* Three ledgers: the per-ledger emphasis line under the headline figures. */
+.prop-ledger-line{display:flex;flex-wrap:wrap;gap:.25rem .9rem;margin:.3rem 0 .05rem;font-size:.76rem;color:var(--ink)}
+.prop-ledger-line>span{display:inline-flex;align-items:baseline;gap:.35rem}
+.prop-ledger-line b{font-size:.64rem;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-soft)}
+.prop-ledger-line .muted{color:var(--ink-soft)}
+/* Liens & Certificates: the instrument's own status lines (2026-09-30). */
+.cert-status-lines{display:flex;flex-wrap:wrap;gap:.25rem .9rem;margin:.35rem 0 .1rem;font-size:.76rem;color:var(--ink)}
+.cert-status-line{display:inline-flex;align-items:baseline;gap:.35rem}
+.cert-status-tag{font-size:.64rem;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-soft)}
+/* Same parcel in other ledgers (shared property layer). */
+.related-record{display:grid;grid-template-columns:auto 1fr auto auto;gap:.5rem;align-items:center;padding:.4rem 0;border-top:1px solid var(--card-line);font-size:.8rem}
+.related-record:first-child{border-top:none}
+.related-ledger{font-size:.66rem;font-weight:800;letter-spacing:.05em;text-transform:uppercase}
+.related-ident{font-family:var(--font-mono);font-size:.78rem}
+.related-phase{color:var(--ink-soft);font-size:.74rem}
+.related-open{border:1px solid var(--card-line);background:var(--card);color:var(--ink);border-radius:3px;padding:.2rem .55rem;font-size:.72rem;font-weight:700;cursor:pointer;min-height:32px}
+.related-empty{margin:0;font-size:.78rem;color:var(--ink-soft)}
+.dash-row-fresh{font-size:.7rem;color:var(--ink-soft);margin-left:.5rem}
+.unit-empty{margin:.2rem 0 .5rem}
 @media (min-width:1024px){
   [data-ledger="certificate"] .prop-list{grid-template-columns:1fr}
   /* .prop-card's own base rule sets flex-direction:column - without
@@ -1345,6 +1364,10 @@ the field read as one control. */
   .nav-item svg{width:16px;height:16px;flex-shrink:0}
   .nav-item:hover{background:rgba(255,255,255,.07);color:var(--header-ink)}
   .nav-item.on{background:var(--led-accent-d);color:#0B1220;font-weight:700}
+  /* Per-ledger nav entries (2026-09-30) carry the ledger's count, same
+     mono treatment as the ledger tabs. */
+  .nav-item .nav-count{margin-left:auto;font-family:var(--font-mono);font-variant-numeric:tabular-nums;font-size:.78rem;font-weight:600;opacity:.85}
+  .nav-item.on .nav-count{background:rgba(11,18,32,.16);border-radius:999px;padding:.02rem .4rem;opacity:1}
   /* Settings sits in its own small footer block, not the primary nav-list -
      it's an entry point to the account menu, not a page like the four
      above it (see the HTML comment on #navSettingsBtn). margin-top:auto

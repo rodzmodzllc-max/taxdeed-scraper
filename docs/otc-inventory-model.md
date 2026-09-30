@@ -533,3 +533,26 @@ exits 2 with zero requests. Registry rows for both exist
 `MachineFormat.CSV` is new (migration 020, unapplied). `OtcRecord` gained
 optional `assessed` / `market` / `tax_year` / `latitude` / `longitude` and
 `to_harvest_row()`. Nothing fetched; nothing activated.
+
+## 18. Three customer ledgers (2026-09-30)
+
+The OTC / LAFT inventory this document describes is the AVAILABLE ledger -
+one of three first-class ledgers (AUCTIONS, AVAILABLE, LIENS & CERTIFICATES)
+over the shared property layer. `docs/three-ledgers.md` is the description;
+what changes for this document's subject:
+
+- `county_source_registry.ledgers` (020) says which ledger(s) a source
+  feeds. Every row in sections 3-5 of this document feeds AVAILABLE; the
+  registry now also holds the AUCTIONS and LIENS & CERTIFICATES production
+  sources, so "production rows" must be read per ledger
+  (`expected_harvest_units(rows, state, ledger="AVAILABLE")`, the default).
+- `laft_status` gains `SOURCE_UNAVAILABLE` (reader-side, from a
+  TRANSPORT_/PROXY_/ACCESS_ error category); the lifecycle treats it as
+  FAILED: nothing observed, nothing closed.
+- `OtcRecord.record_source` ("laft" or "certificate") decides
+  `properties.source`; a certificate record carries `certificate_no` /
+  `interest_rate` and no inventory type. The Arizona adapter (Maricopa
+  State CP) is the first certificate-ledger use of the OTC record model.
+- Inventory types remain AVAILABLE-only; the validator refuses an inventory
+  type on a source that does not feed AVAILABLE.
+

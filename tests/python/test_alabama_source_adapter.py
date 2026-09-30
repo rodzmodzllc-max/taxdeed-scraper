@@ -247,10 +247,11 @@ def test_l02_lifecycle_gates_are_scoped_to_the_state_county_names_repeat_across_
           "error_category": "TRANSPORT_HTTP_403_BLOCKED"}
     now = T.timestamp()
     # Unscoped: the weakest status wins (the old behaviour) - Alabama's failure would gate Florida's Escambia.
-    assert L.county_gates([fl, al], [], now=now)["Escambia"]["status"] == "FAILED"
+    # (A TRANSPORT_ failure reads as SOURCE_UNAVAILABLE since 2026-09-30 - the same fail-closed weight as FAILED.)
+    assert L.county_gates([fl, al], [], now=now)["Escambia"]["status"] == "SOURCE_UNAVAILABLE"
     # Scoped: each state sees only its own entries; an entry without a state is Florida's.
     assert L.county_gates([fl, al], [], now=now, state="FL")["Escambia"]["status"] == "COMPLETE"
-    assert L.county_gates([fl, al], [], now=now, state="AL")["Escambia"]["status"] == "FAILED"
+    assert L.county_gates([fl, al], [], now=now, state="AL")["Escambia"]["status"] == "SOURCE_UNAVAILABLE"
     assert "Escambia" not in L.county_gates([al], [], now=now, state="FL")
     # An entry that names no state at all (hand-written fixtures; every recorder writes one) is kept for any state.
     legacy = {"county": "Escambia", "harvester": "x", "status": "EMPTY", "checked_at": T.isoformat(), "empty_signal": "empty_table"}
@@ -415,7 +416,7 @@ def test_g01_registry_row_mirrors_the_adapter_and_every_gate_still_refuses_it():
     d = evaluate_source(al)
     assert not d.allowed and d.layer == "state_activation"
     assert csr.validate_registry(rows) == []
-    assert csr.production_rows(rows, "AL") == [] and len([r for r in rows if r.state in ("FL", "TX")]) == 109
+    assert csr.production_rows(rows, "AL") == [] and len([r for r in rows if r.state in ("FL", "TX") and not (r.ledger_set and "AVAILABLE" not in r.ledger_set)]) == 109
     # The generator and the committed CSV agree (the AL row included).
     import importlib.util
     spec = importlib.util.spec_from_file_location("bcsr", REPO / "scripts/build_county_source_registry.py")

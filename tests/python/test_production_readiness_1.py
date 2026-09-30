@@ -87,7 +87,12 @@ def test_i02_results_come_only_from_the_source_never_from_absence_dates_or_count
     assert IS.status_for_row({"state": "FL", "source": "laft", "status": "active"}, today=TODAY).status == "available_otc"
     assert IS.status_for_row({"state": "TX", "harvester_source": "tx_lgbs", "tx_sale_status": "Struck off to Jurisdiction"}, today=TODAY).status == "struck_off"
     assert IS.status_for_row({"state": "AL", "source": "laft", "otc_provenance": {"normalized_status": "REDEEMED", "source_status_text": "Redeemed"}}, today=TODAY).status == "redeemed"
-    assert IS.status_for_row({"state": "FL", "source": "certificate"}, today=TODAY) is None
+    # A certificate row (LIENS & CERTIFICATES ledger, 2026-09-30) is classified from list presence only -
+    # never a result: redeemed / assigned / expired need the source's own column.
+    cert = IS.status_for_row({"state": "FL", "source": "certificate"}, today=TODAY)
+    assert cert.status == "certificate_listed" and cert.basis == "LIST_PRESENCE"
+    assert IS.status_for_row({"state": "FL", "source": "certificate", "status": "closed"}, today=TODAY).status == "closed"
+    assert "certificate_redeemed" in IS.RESULT_STATUSES and "certificate_assigned" in IS.RESULT_STATUSES
     assert IS.status_for_row({"state": "TX", "harvester_source": "tx_realauction", "source": "auction"}, today=TODAY) is None
 
 
@@ -197,17 +202,18 @@ def test_w01_plan_writes_only_changes_and_sold_only_from_the_lists_own_column(tm
                                                    tx_sale_status="Struck off to Jurisdiction"),
             _row(id="f", source="auction", harvester_source="fl_realauction_marion", status="active", sale_date="2026-09-01", list_url=None, url_auction="https://m/sale")]
     changes, counts = W.plan(rows, today=TODAY, sold=sold)
-    assert (counts["rows"], counts["mapped"], counts["unmapped"], counts["unchanged"], counts["changed"], counts["results_from_source"]) == (6, 5, 1, 1, 4, 2)
+    # 2026-09-30: the certificate row (d) is mapped too (certificate_listed from list presence), so 6 of 6 map.
+    assert (counts["rows"], counts["mapped"], counts["unmapped"], counts["unchanged"], counts["changed"], counts["results_from_source"]) == (6, 6, 0, 1, 5, 2)
     by = {c["id"]: c for c in changes}
     assert by["a"]["status"] == "available_otc" and by["a"]["raw"] is None and by["a"]["basis"].startswith("LIST_PRESENCE:")
     assert (by["b"]["status"], by["b"]["raw"]) == ("sold", "Sold To")              # the list's own column, not the gone status
     assert (by["e"]["status"], by["e"]["raw"], by["e"]["source_id"]) == ("struck_off", "Struck off to Jurisdiction", "tx_lgbs")
     assert by["f"]["status"] == "unknown" and by["f"]["evidence_url"] == "https://m/sale"
-    assert "c" not in by and "d" not in by
+    assert "c" not in by and by["d"]["status"] == "certificate_listed" and by["d"]["basis"].startswith("LIST_PRESENCE")
     obs = W.observations(changes, observed_at="2026-09-30T12:00:00+00:00", run_id="r1")
-    assert {o["property_id"] for o in obs} == {"a", "b", "e", "f"} and all(o["basis"] and o["inventory_status"] for o in obs)
+    assert {o["property_id"] for o in obs} == {"a", "b", "d", "e", "f"} and all(o["basis"] and o["inventory_status"] for o in obs)
     groups = W.group_changes(changes)
-    assert sum(len(ids) for _, ids in groups) == 4 and all(set(p) == {"inventory_status", "inventory_status_raw", "inventory_status_basis"} for p, _ in groups)
+    assert sum(len(ids) for _, ids in groups) == 5 and all(set(p) == {"inventory_status", "inventory_status_raw", "inventory_status_basis"} for p, _ in groups)
     # No row value ever reaches the summary.
     text = W.summarize("FL", counts, None, False, False)
     assert "C-2" not in text and "migration 021 not applied" in text
@@ -341,7 +347,7 @@ def test_f01_merge_never_advances_success_on_failure_counts_streaks_and_ignores_
     assert patches[0][1] == {"last_attempt_at": "2026-09-30T10:00:00+00:00", "last_attempt_status": "FAILED", "consecutive_failures": 1}
     report = U.public_report(rec2, {}, at="t")
     assert set(report["units"][0]) == {"state", "source_id", "county", "last_attempt_at", "last_attempt_status", "last_success_at",
-                                       "last_success_row_count", "consecutive_failures", "last_error_category"}
+                                       "last_success_row_count", "consecutive_failures", "last_error_category", "ledgers"}
 
 
 def test_f02_freshness_script_end_to_end_without_credentials(tmp_path):
@@ -428,6 +434,6 @@ def test_x01_workflow_steps_are_non_blocking_and_after_the_sync():
 
 
 def test_x02_docs_and_service_worker():
-    assert 'const CACHE = "tdw-shell-v46"' in (REPO / "public/sw.js").read_text(encoding="utf-8")
+    assert 'const CACHE = "tdw-shell-v47"' in (REPO / "public/sw.js").read_text(encoding="utf-8")
     model = (REPO / "docs/otc-inventory-model.md").read_text(encoding="utf-8")
     assert "## 16." in model and "inventory_status" in model and "laft_purchase_link_rules.csv" in model

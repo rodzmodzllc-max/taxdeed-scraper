@@ -54,8 +54,20 @@ COLUMNS = [
 #   update_frequency      the source's own stated cadence, when established
 #   source_terminology    the source's own words for the inventory, kept
 #                         beside the normalized vocabulary
-OPTIONAL_COLUMNS = ["publishing_unit", "publishing_unit_name", "amount_kind", "update_frequency", "source_terminology"]
+#   ledgers               which of the three customer ledgers this source
+#                         feeds (harvesters/ledgers.Ledger values, "|"-joined:
+#                         AUCTIONS, AVAILABLE, LIENS_CERTIFICATES). A vendor
+#                         that publishes a sale calendar AND post-sale
+#                         inventory (LGBS) names both; a blocked vendor
+#                         feeds none. Blank = not classified (only allowed
+#                         on a non-production row).
+OPTIONAL_COLUMNS = ["publishing_unit", "publishing_unit_name", "amount_kind", "update_frequency", "source_terminology", "ledgers"]
 EXTENDED_COLUMNS = COLUMNS + OPTIONAL_COLUMNS
+LEDGER_VALUES = ("AUCTIONS", "AVAILABLE", "LIENS_CERTIFICATES")
+# Inventory types that describe AVAILABLE inventory; an AUCTIONS-only or
+# LIENS_CERTIFICATES-only source carries none.
+AVAILABLE_INVENTORY_TYPES = frozenset({"POST_SALE_FIXED_PRICE", "STRUCK_OFF_HELD_IN_TRUST", "FUTURE_RESALE", "POST_SALE",
+                                       "STATE_HELD_TAX_LAND", "ADJUDICATED_PROPERTY"})
 
 # The purchase-amount vocabulary (mirrors harvesters/otc/model.py's
 # AmountKind; a test keeps the two in step - this module cannot import the
@@ -191,6 +203,20 @@ class CountySourceRow:
     amount_kind: str = ""
     update_frequency: str = ""
     source_terminology: str = ""
+    ledgers: str = ""
+
+    @property
+    def ledger_set(self) -> frozenset[str]:
+        """The ledger(s) this source feeds. The column when it is filled;
+        otherwise the harvest-side map (harvesters/ledgers SOURCE_LEDGERS)
+        for the row's source_id, so a registry written before the column
+        existed (COLUMNS-only, or a test fixture) classifies the same way
+        the committed one does. Empty = not classifiable."""
+        explicit = frozenset(v for v in (x.strip() for x in self.ledgers.split("|")) if v)
+        if explicit or not self.source_id:
+            return explicit
+        from harvesters.ledgers import ledgers_for_source_id
+        return frozenset(l.value for l in ledgers_for_source_id(self.source_id))
 
     @property
     def is_production(self) -> bool:
@@ -253,6 +279,18 @@ def validate_row(row: CountySourceRow, *, known_counties: dict[str, frozenset[st
             problems.append(f"{name} {value!r}")
     if row.amount_kind and row.amount_kind not in AMOUNT_KINDS:
         problems.append(f"amount_kind {row.amount_kind!r}")
+    # Ledger participation: every value must be one of the three ledgers; a
+    # production row must say which ledger(s) it feeds; an inventory type
+    # belongs to AVAILABLE only; a blocked vendor feeds none.
+    bad_ledgers = sorted(row.ledger_set - set(LEDGER_VALUES))
+    if bad_ledgers:
+        problems.append(f"ledgers {bad_ledgers}")
+    if row.is_production and not row.ledger_set:
+        problems.append("PRODUCTION_VERIFIED row names no ledger")
+    if row.inventory_type and row.ledger_set and "AVAILABLE" not in row.ledger_set:
+        problems.append(f"inventory_type {row.inventory_type!r} on a source that does not feed AVAILABLE")
+    if row.source_id in BLOCKED_SOURCE_IDS and row.ledger_set:
+        problems.append("blocked vendor row must feed no ledger")
     for name in ("canonical_url", "document_url", "purchase_url"):
         value = getattr(row, name)
         if value and not value.startswith("https://"):
@@ -271,8 +309,13 @@ def validate_row(row: CountySourceRow, *, known_counties: dict[str, frozenset[st
         # Per-state production inventory rule (states.StateConfig): FL rows
         # are always the statutory fixed-price list; TX rows are struck-off /
         # future-resale / unclassified. Same rule as before, read from the
-        # state's configuration instead of an `if state == "FL"`.
-        if state_cfg is not None and row.inventory_type not in state_cfg.production_inventory_types:
+        # state's configuration instead of an `if state == "FL"`. It is an
+        # AVAILABLE-ledger rule: an AUCTIONS or LIENS_CERTIFICATES source
+        # carries no inventory type at all (2026-09-30), and a row that
+        # names no ledger (a registry written before the column existed)
+        # is held to the AVAILABLE rule as before.
+        feeds_available = "AVAILABLE" in row.ledger_set or not row.ledger_set
+        if feeds_available and state_cfg is not None and row.inventory_type not in state_cfg.production_inventory_types:
             allowed = ", ".join(sorted(v or "(blank)" for v in state_cfg.production_inventory_types))
             problems.append(f"{row.state} production row must carry one of: {allowed}")
         if row.inventory_type and row.inventory_type not in DB_SUPPORTED_INVENTORY_TYPES:
@@ -309,7 +352,7 @@ def load_registry(path: Path | str = REGISTRY_PATH) -> list[CountySourceRow]:
     COLUMNS; a fixture may carry `publishing_unit`)."""
     with open(path, newline="", encoding="utf-8") as fh:
         reader = csv.DictReader(fh)
-        accepted = (COLUMNS, COLUMNS + OPTIONAL_COLUMNS[:1], EXTENDED_COLUMNS)
+        accepted = (COLUMNS, COLUMNS + OPTIONAL_COLUMNS[:1], COLUMNS + OPTIONAL_COLUMNS[:5], EXTENDED_COLUMNS)
         if reader.fieldnames not in accepted:
             raise ValueError(f"{path}: columns {reader.fieldnames} != {COLUMNS} (+ optional {OPTIONAL_COLUMNS})")
         present = list(reader.fieldnames)
@@ -333,11 +376,14 @@ def production_rows(rows: list[CountySourceRow], state: str | None = None) -> li
     return [r for r in rows if r.is_production and (state is None or r.state == state)]
 
 
-def expected_harvest_units(rows: list[CountySourceRow], state: str = "FL") -> list[tuple[str, str]]:
-    """(source_id, county) pairs a state's harvesters are expected to cover -
-    what scripts/laft_lifecycle.py marks NOT_RUN when absent from the status
-    file."""
-    return sorted({(r.source_id, r.county) for r in production_rows(rows, state)})
+def expected_harvest_units(rows: list[CountySourceRow], state: str = "FL", ledger: str | None = "AVAILABLE") -> list[tuple[str, str]]:
+    """(source_id, county) pairs a state's harvesters are expected to cover
+    in ONE ledger - what that ledger's lifecycle marks NOT_RUN when absent
+    from ITS status file. Scoped per ledger on purpose: an AUCTIONS unit
+    that did not run must never gate an AVAILABLE county (a county name is
+    shared by every ledger). ledger=None returns every production unit."""
+    return sorted({(r.source_id, r.county) for r in production_rows(rows, state)
+                   if ledger is None or ledger in r.ledger_set})
 
 
 def lookup(rows: list[CountySourceRow], state: str, county: str, source_id: str | None = None) -> CountySourceRow | None:

@@ -49,6 +49,12 @@ STATUS VOCABULARY (one per entry, never inferred from the row count alone):
               of any kind was possible (HTTP 403/404/5xx, timeout,
               connection reset, proxy failure, placeholder tenant, dead
               document link).
+  SOURCE_UNAVAILABLE
+              assigned by the READER: a FAILED entry whose error category
+              is a transport / proxy / access failure - the source could
+              not be reached or refused the request. Closes nothing, like
+              FAILED; kept distinct so a source outage is never read as a
+              parser failure (or as an empty list).
   STALE       assigned by the READER, not the harvester: the entry's
               checked_at is older than the reader's freshness window, so
               a status file left behind by an earlier run is never treated
@@ -75,7 +81,12 @@ from pathlib import Path
 
 STATUS_PATH = Path(__file__).resolve().parent / "../out/harvest_laft_status.json"
 
-STATUSES = ("COMPLETE", "EMPTY", "INCOMPLETE", "FAILED", "STALE", "NOT_RUN")
+STATUSES = ("COMPLETE", "EMPTY", "INCOMPLETE", "FAILED", "SOURCE_UNAVAILABLE", "STALE", "NOT_RUN")
+# READER-side: a FAILED entry whose error category is a transport / proxy /
+# access failure (the source could not be reached or refused us) reads as
+# SOURCE_UNAVAILABLE - distinct from a FAILED parse of a page that WAS
+# served. Harvesters never write it; both close nothing.
+UNAVAILABLE_CATEGORY_PREFIXES = ("TRANSPORT_", "PROXY_", "ACCESS_")
 # The two statuses that constitute an authoritative, whole-list observation
 # - the ONLY ones under which a previously seen row that is now absent may
 # be closed out. Everything else fails closed.
@@ -446,7 +457,7 @@ def effective_status(entry: dict, *, now: float | None = None, max_age_hours: fl
     STALE when the entry is older than the freshness window. Unknown or
     unparsable timestamps are STALE, never trusted."""
     recorded = str(entry.get("status") or "").upper()
-    if recorded not in STATUSES:
+    if recorded not in STATUSES or recorded in ("STALE", "NOT_RUN", "SOURCE_UNAVAILABLE"):
         return "NOT_RUN"
     checked = entry.get("checked_at")
     if not checked:
@@ -460,6 +471,8 @@ def effective_status(entry: dict, *, now: float | None = None, max_age_hours: fl
     now_t = datetime.fromtimestamp(now if now is not None else time.time(), tz=timezone.utc)
     if (now_t - t).total_seconds() > max_age_hours * 3600:
         return "STALE"
+    if recorded == "FAILED" and str(entry.get("error_category") or "").startswith(UNAVAILABLE_CATEGORY_PREFIXES):
+        return "SOURCE_UNAVAILABLE"
     return recorded
 
 
@@ -472,7 +485,7 @@ def statuses_by_county(entries: list[dict], *, expected: list[tuple[str, str]] |
     FAILED attempt anywhere means the county is not confirmed complete.
     `expected` is a list of (harvester, county) pairs the registry says
     should have run; any missing pair becomes NOT_RUN."""
-    order = {"FAILED": 0, "NOT_RUN": 1, "STALE": 2, "INCOMPLETE": 3, "EMPTY": 4, "COMPLETE": 5}
+    order = {"SOURCE_UNAVAILABLE": 0, "FAILED": 0, "NOT_RUN": 1, "STALE": 2, "INCOMPLETE": 3, "EMPTY": 4, "COMPLETE": 5}
     out: dict[str, dict] = {}
     for e in entries:
         county = e.get("county")

@@ -137,11 +137,12 @@ def test_g01_committed_registry_has_exactly_one_alabama_candidate_that_is_not_pr
     assert "WEB SEARCH 2026-09-30" in AL_ROW.evidence_ref
     assert not AL_ROW.is_production and not AL_ROW.runnable
     assert csr.validate_registry(ROWS) == []
-    # The FL/TX rows are untouched: 109 rows, all COUNTY, the new columns blank.
-    others = [r for r in ROWS if r.state in ("FL", "TX")]
+    # The FL/TX AVAILABLE-ledger rows are untouched: 109 rows, all COUNTY, the new columns blank
+    # (2026-09-30: the registry also carries the AUCTIONS / LIENS & CERTIFICATES sources - not counted here).
+    others = [r for r in ROWS if r.state in ("FL", "TX") and not (r.ledger_set and "AVAILABLE" not in r.ledger_set)]
     assert len(others) == 109 and all(r.publishing_unit == "COUNTY" and r.publishing_unit_name == "" and r.amount_kind == ""
                                       and r.update_frequency == "" and r.source_terminology == "" for r in others)
-    assert len(csr.production_rows(ROWS, "FL")) == 52 and len(csr.production_rows(ROWS, "TX")) == 8 and csr.production_rows(ROWS, "AL") == []
+    assert len(csr.expected_harvest_units(ROWS, "FL")) == 52 and len(csr.expected_harvest_units(ROWS, "TX")) == 8 and csr.production_rows(ROWS, "AL") == []
     with open(csr.REGISTRY_PATH, newline="", encoding="utf-8") as fh:
         assert csv.DictReader(fh).fieldnames == csr.EXTENDED_COLUMNS
 
@@ -162,7 +163,7 @@ def test_g02_registry_validation_for_the_new_columns():
 def test_g03_to_db_rows_keeps_the_live_shape_for_fl_tx_and_needs_020_for_alabama():
     fl_tx = [r for r in ROWS if r.state in ("FL", "TX")]
     live = csr.to_db_rows(fl_tx)
-    assert len(live) == 109 and all(set(d) == set(csr.COLUMNS) for d in live)
+    assert len(live) == len(fl_tx) == 212 and all(set(d) == set(csr.COLUMNS) for d in live)
     with pytest.raises(ValueError, match="migration 018"):
         csr.to_db_rows([AL_ROW])
     ext = csr.to_db_rows(ROWS, schema="020")

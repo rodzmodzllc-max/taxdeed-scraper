@@ -21,7 +21,10 @@ import laft_status as ls  # noqa: E402
 
 
 def test_v01_status_vocabulary_is_exactly_the_six_required_values():
-    assert ls.STATUSES == ("COMPLETE", "EMPTY", "INCOMPLETE", "FAILED", "STALE", "NOT_RUN")
+    # 2026-09-30 (three ledgers): SOURCE_UNAVAILABLE joined the vocabulary - a
+    # reader-side refinement of FAILED for a transport / proxy / access failure
+    # (the source could not be reached at all, as opposed to read and broken).
+    assert ls.STATUSES == ("COMPLETE", "EMPTY", "INCOMPLETE", "FAILED", "SOURCE_UNAVAILABLE", "STALE", "NOT_RUN")
     assert ls.CLOSEOUT_ELIGIBLE == {"COMPLETE", "EMPTY"}
 
 

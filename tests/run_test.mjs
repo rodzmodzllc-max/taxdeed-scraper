@@ -509,6 +509,9 @@ results.laftValueLabel = (await page.locator('.prop-card').first().locator('.car
 // Phase 65: a Lands Available row's first line names the ledger and says it
 // is a fixed-price listing, not a bidding event.
 results.laftKicker = await page.locator('.prop-card').first().locator('.prop-kicker').evaluate(el => Array.from(el.children).map(c => c.textContent.trim()).join(' '));
+// Three ledgers: an Available card leads with its PURCHASE PATH - p3 carries
+// no purchase_url, so the line says so rather than pointing at the list page.
+results.laftLedgerLine = await page.locator('.prop-card').first().locator('.prop-ledger-line > span').evaluateAll(els => els.map(el => Array.from(el.children).map(c => c.textContent.trim()).join(' ')));
 // p3 is the one fixture row with homestead:true - the badge should show up
 // right on the card, not just buried in the detail page, since it's exactly
 // the kind of risk flag a bidder needs before clicking into anything.
@@ -534,6 +537,11 @@ results.certCardAccount = (await page.locator('.cert-card .card-stat-grid .card-
 results.certCardExpires = (await page.locator('.cert-card .card-stat-grid .card-stat').nth(2).locator('.card-stat-val').textContent() || '').trim();
 results.certCardCta = await page.locator('.cert-card .cta-btn').first().textContent();
 results.certCardExpiresCountdown = await page.locator('.cert-card .countdown').count();
+// Three ledgers (2026-09-30): the certificate card leads with the
+// instrument's own status lines - list presence, redemption (never
+// tracked, so "Not published"), and the underlying parcel with its
+// records in the other ledgers (p4 shares parcel 111 with auction p1).
+results.certStatusLines = await page.locator('.cert-card .cert-status-line').evaluateAll(els => els.map(e => e.textContent.replace(/\s+/g, ' ').trim()));
 
 // --- "yield desk" additions: the stat grid grows from 3 to 6 boxes
 // (Interest Rate / Est. Accrued Interest / TDA Eligibility appended after
@@ -658,6 +666,9 @@ results.spreadBadgeCount = await page.locator('.spread-badge').count();
   results.cardCaseLineFirst = (await first.locator('.prop-case-line').textContent() || '').trim();
   results.cardFactsFirst = await first.locator('.prop-facts > span').evaluateAll(els => els.map(el => Array.from(el.children).map(c => c.textContent.trim()).join(' ')));
   results.cardFactsMutedCountFirst = await first.locator('.prop-facts .muted').count();
+  // Three ledgers: an auction card leads with its RESULT - p1's sale is
+  // upcoming, so "Sale not yet held"; never an inferred outcome.
+  results.cardLedgerLineFirst = await first.locator('.prop-ledger-line > span').evaluateAll(els => els.map(el => Array.from(el.children).map(c => c.textContent.trim()).join(' ')));
 }
 
 // --- county tax-roll facts on the card ---
@@ -1940,6 +1951,54 @@ results.dashUnitStaleText = ((await dashPage.locator('#dashUnitRows .unit-row[da
 results.dashUnitCurrentText = ((await dashPage.locator('#dashUnitRows .unit-row[data-county="Alachua"] .health-sub').textContent()) || '').replace(/\s+/g, ' ').trim();
 results.dashWatchFirstVisit = ((await dashPage.locator('#dashWatchChanges').textContent()) || '').includes('No earlier visit recorded in this browser yet');
 results.dashWatchNoNotificationsClaim = ((await dashPage.locator('#dashWatchChanges').textContent()) || '').includes('No e-mail or push notifications exist yet');
+// Three ledgers (2026-09-30): per-county freshness is grouped under one
+// heading per ledger; the fixture's registry rows feed Available only, so
+// the Auctions and Liens & Certificates groups say so rather than borrowing
+// Available's rows - a failed read in one ledger never reads as another's.
+results.dashUnitLedgerHeads = await dashPage.locator('#dashUnitRows .unit-head').evaluateAll(els => els.map(e => e.dataset.ledgerHead));
+results.dashUnitRowsUnderAvailable = await dashPage.locator('#dashUnitRows .unit-head[data-ledger-head="laft"] ~ .unit-row').evaluateAll(els => els.map(e => e.dataset.county));
+results.dashUnitEmptyGroups = await dashPage.locator('#dashUnitRows .unit-empty').count();
+results.dashLedgerFreshAvailable = ((await dashPage.locator('#dashLedgerRows .dash-row[data-ledger-row="laft"] .dash-row-fresh').textContent()) || '').trim();
+results.dashLedgerFreshAuctionsAbsent = await dashPage.locator('#dashLedgerRows .dash-row[data-ledger-row="auction"] .dash-row-fresh').count();
+results.dashLedgerRowTitles = await dashPage.locator('#dashLedgerRows .dash-row-name').evaluateAll(els => els.map(e => e.textContent.trim()));
+// The sidebar carries one entry per ledger (Auctions / Available / Liens &
+// Certificates), each with the ledger's count; picking one opens the ledger
+// page with THAT ledger selected, and only that entry lights.
+results.navLedgerItems = await dashPage.locator('.nav-list .nav-item[data-ledger]').evaluateAll(els => els.map(e => e.dataset.ledger + ':' + e.textContent.replace(/\s+/g, ' ').trim()));
+await dashPage.click('.nav-list .nav-item[data-ledger="certificate"]');
+await dashPage.waitForTimeout(300);
+results.navCertClickShowsLedgerPage = await dashPage.locator('#pageAuctions').evaluate(el => !el.hidden);
+results.navCertClickSelectsCertTab = await dashPage.locator('.ledger-tab[data-ledger="certificate"]').evaluate(el => el.classList.contains('on'));
+results.navCertClickLitEntries = await dashPage.locator('.nav-list .nav-item.on').evaluateAll(els => els.map(e => e.dataset.page + '/' + (e.dataset.ledger || '-')));
+results.navCertClickHash = await dashPage.evaluate(() => location.hash);
+await dashPage.click('.nav-list .nav-item[data-ledger="laft"]');
+await dashPage.waitForTimeout(300);
+results.navAvailableClickLitEntries = await dashPage.locator('.nav-list .nav-item.on').evaluateAll(els => els.map(e => e.dataset.page + '/' + (e.dataset.ledger || '-')));
+results.navAvailableClickHeading = ((await dashPage.locator('.ledger-head h2').textContent()) || '').trim();
+// Switching by the ledger TAB keeps the sidebar in step too.
+await dashPage.click('.ledger-tab[data-ledger="auction"]');
+await dashPage.waitForTimeout(300);
+results.tabClickLitNavEntries = await dashPage.locator('.nav-list .nav-item.on').evaluateAll(els => els.map(e => e.dataset.page + '/' + (e.dataset.ledger || '-')));
+// Shared property layer: the certificate (p4) and the auction row (p1) are
+// the same Alachua parcel 111 - each full page lists the other, and a
+// parcel with no match says so in words rather than showing nothing.
+await dashPage.click('.ledger-tab[data-ledger="certificate"]');
+await dashPage.waitForTimeout(300);
+await dashPage.locator('.county-group summary.county-head').first().click();   // county groups start collapsed
+await dashPage.waitForTimeout(200);
+await dashPage.locator('.cert-card [data-action="viewdetails"]').first().click();
+await dashPage.waitForTimeout(400);
+// At this width the page renders the detail into the modal AND the desktop
+// side panel; read the modal only so nothing is counted twice.
+const detailScope = '#detailModalInner';
+results.certDetailRelated = await dashPage.locator(`${detailScope} .related-record`).evaluateAll(els => els.map(e => e.dataset.source + ':' + e.dataset.pid + ':' + e.querySelector('.related-ledger').textContent.trim()));
+results.certDetailStatusLines = await dashPage.locator(`${detailScope} .cert-status-line`).count();
+// The "Open" button sits deep in the modal's scroll box; a DOM click reaches
+// the same delegated data-action handler without depending on scroll position.
+await dashPage.locator(`${detailScope} .related-open`).first().evaluate(el => el.click());
+await dashPage.waitForTimeout(400);
+results.relatedOpenLandsOnAuctionRow = ((await dashPage.locator(`${detailScope} .detail-address`).first().textContent()) || '').trim();
+results.auctionDetailRelated = await dashPage.locator(`${detailScope} .related-record`).evaluateAll(els => els.map(e => e.dataset.source + ':' + e.dataset.pid));
 await dashPage.close();
 const noHealthPage = await newPage({ viewport: { width: 1200, height: 900 } });
 await noHealthPage.goto(BASE_URL + '?health=none', { waitUntil: 'networkidle' });
@@ -2272,7 +2331,7 @@ const EXPECTED = {
   // so the past-due row (archive-only) and the gone row whose grace period has
   // expired are both excluded. Neither is reachable from this tab, and
   // advertising them made the number disagree with the list underneath it.
-  ledgerTabCounts: ['Auctions 9', 'Lands Available 1', 'Certificates 1'],
+  ledgerTabCounts: ['Auctions 9', 'Available 1', 'Liens & Certificates 1'],
   auctionTabOnByDefault: true,
 
   // --- per-ledger pages ---
@@ -2308,11 +2367,11 @@ const EXPECTED = {
   watchlistChipLabel: 'Watchlist 0/10',
   ledgerHashes: ['#/auctions', '#/lands', '#/certificates'],
   ledgerDocAttr: ['auction', 'laft', 'certificate'],
-  ledgerHeadings: ['Auctions & Bidding', 'Lands Available for Taxes', 'Tax Certificates'],
+  ledgerHeadings: ['Auctions', 'Available', 'Liens & Certificates'],
   ledgerTitles: [
-    'Auctions & Bidding · Tax Acquisitions — Florida',
-    'Lands Available for Taxes · Tax Acquisitions — Florida',
-    'Tax Certificates · Tax Acquisitions — Florida'
+    'Auctions · Tax Acquisitions — Florida',
+    'Available · Tax Acquisitions — Florida',
+    'Liens & Certificates · Tax Acquisitions — Florida'
   ],
   everyLedgerHasHowLine: true,
   everyLedgerHasFactsLine: true,
@@ -2337,7 +2396,7 @@ const EXPECTED = {
   staleCardsPresent: true,
   legendSwatchCount: 3,
   deepLinkLandsOnCertificates: true,
-  deepLinkHeading: 'Tax Certificates',
+  deepLinkHeading: 'Liens & Certificates',
   cardCount: 9,
   // All 67 counties now show (busiest-first, then alphabetical among the
   // zero-count ones) instead of only the ~8 with live scraped data - see
@@ -2395,7 +2454,9 @@ const EXPECTED = {
   cardCaseLineFirst: 'Case A-1',
   cardFactsFirst: ['Location Not yet geocoded', 'Flood Not checked', 'Value ÷ bid 18.0×'],
   cardFactsMutedCountFirst: 2,
-  laftKicker: 'Bay, FL · Lands Available · Fixed price · available now',
+  laftKicker: 'Bay, FL · Available · Lands Available list · fixed price',
+  laftLedgerLine: ['Purchase path No online purchase link on file', 'Amount Opening bid'],   // p3's purchase_amount_kind is OPENING_BID (the list's own label)
+  cardLedgerLineFirst: ['Auction result Sale not yet held'],
   // Phase 66: "At a glance" summary + section nav + photo states + show-on-map
   oppCellLabels: ['What', 'Where', 'When', 'Minimum bid', 'Value on file', 'Missing'],
   oppWhatText: 'Florida tax deed auction Source: Fl Realauction Alachua',
@@ -2786,6 +2847,25 @@ const EXPECTED = {
   dashHealthBadgeTexas: true,
   dashHealthIncompleteNames: true,
   dashUnitRows: ['Alachua:current', 'Bay:stale'],
+  dashUnitLedgerHeads: ['auction', 'laft', 'certificate'],
+  dashUnitRowsUnderAvailable: ['Alachua', 'Bay'],
+  dashUnitEmptyGroups: 2,
+  dashLedgerFreshAvailable: '1 of 2 counties current',
+  dashLedgerFreshAuctionsAbsent: 0,
+  dashLedgerRowTitles: ['Auctions', 'Available', 'Liens & Certificates'],
+  navLedgerItems: ['auction:Auctions 9', 'laft:Available 1', 'certificate:Liens & Certificates 1'],
+  navCertClickShowsLedgerPage: true,
+  navCertClickSelectsCertTab: true,
+  navCertClickLitEntries: ['auctions/certificate'],
+  navCertClickHash: '#/certificates',
+  navAvailableClickLitEntries: ['auctions/laft'],
+  navAvailableClickHeading: 'Available',
+  tabClickLitNavEntries: ['auctions/auction'],
+  certDetailRelated: ['auction:p1:Auctions'],
+  certDetailStatusLines: 4,
+  relatedOpenLandsOnAuctionRow: '1 Main St',
+  auctionDetailRelated: ['certificate:p4'],
+  certStatusLines: ['Status On the county-held list', 'Issued Jun 1, 2023 · tax year 2022', 'Redemption Not published by the source', 'Property Parcel # 111 · 1 record in other ledgers'],
   dashUnitStaleText: 'last read 2h ago (failed) · last complete read 3d ago · 3 rows at that read · 3 consecutive failed attempts',
   dashUnitCurrentText: 'last read 2h ago (complete) · last complete read 2h ago · 14 rows at that read',
   dashUnitMissingColumns: true,

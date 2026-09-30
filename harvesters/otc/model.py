@@ -99,6 +99,11 @@ class OtcRecord:
     source_status_text: str | None = None           # the source's own status wording, verbatim
     document_sha256: str | None = None
     provenance: dict = field(default_factory=dict)  # per-field origin, filled by the adapter
+    # Which ledger's record this is: "laft" (AVAILABLE inventory) or
+    # "certificate" (LIENS & CERTIFICATES - the lien product, never the land).
+    record_source: str = "laft"
+    certificate_no: str | None = None               # the certificate / CP number, as published
+    interest_rate: float | None = None              # the certificate's rate, as published (percent)
 
     def validate(self) -> list[str]:
         problems: list[str] = []
@@ -106,6 +111,12 @@ class OtcRecord:
         # registers it (FL and TX in production; tests register a temporary
         # one). No env override, no pass-through of an unknown code.
         problems.extend(states.state_problems(self.state))
+        if self.record_source not in ("laft", "certificate"):
+            problems.append("record_source must be 'laft' (AVAILABLE) or 'certificate' (LIENS & CERTIFICATES)")
+        if self.record_source == "certificate" and self.inventory_type is not None:
+            problems.append("a certificate record carries no inventory type (that vocabulary describes AVAILABLE land)")
+        if self.interest_rate is not None and self.interest_rate < 0:
+            problems.append("interest_rate cannot be negative")
         if not self.county or not self.case_no or not self.source_id:
             problems.append("county, case_no and source_id are required")
         if not isinstance(self.source_authority, SourceAuthority):
@@ -159,7 +170,7 @@ class OtcRecord:
             raise ValueError("; ".join(problems))
         row = {
             "state": self.state,
-            "source": "laft",
+            "source": self.record_source,
             "county": self.county,
             "case_no": self.case_no,
             "parcel": self.parcel,
@@ -192,7 +203,7 @@ class OtcRecord:
         }
         # Only when the source published one: an absent key never writes
         # NULL over a value another step carried.
-        for name in ("owner_name", "assessed", "market", "tax_year", "latitude", "longitude"):
+        for name in ("owner_name", "assessed", "market", "tax_year", "latitude", "longitude", "certificate_no", "interest_rate"):
             value = getattr(self, name)
             if value is not None:
                 row[name] = value
@@ -204,7 +215,8 @@ class OtcRecord:
         bid/bid_kind; url_auction = the list page; purchase_url/kind as
         published; provenance carried). An absent value is absent."""
         row = {
-            "state": self.state, "source": "laft", "county": self.county, "case_no": self.case_no,
+            "state": self.state, "source": self.record_source, "county": self.county, "case_no": self.case_no,
+            "certificate_no": self.certificate_no, "interest_rate": self.interest_rate,
             "parcel": self.parcel, "owner_name": self.owner_name, "address": self.address, "legal_desc": self.legal_desc,
             "assessed": self.assessed, "market": self.market, "tax_year": self.tax_year,
             "latitude": self.latitude, "longitude": self.longitude,
