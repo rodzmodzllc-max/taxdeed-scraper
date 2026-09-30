@@ -25,6 +25,14 @@
   Content-Type: application/json
   Access-Control-Allow-Origin: *
 
+# Admin area (2026-09-30): kept out of search indexes. Access itself is
+# decided by the server (Supabase Auth + row-level security, admin.js), not
+# by this header or by the URL.
+/admin
+  X-Robots-Tag: noindex, nofollow
+/admin.html
+  X-Robots-Tag: noindex, nofollow
+
 /icons/*
   Cache-Control: public, max-age=604800
 

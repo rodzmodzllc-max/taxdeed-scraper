@@ -2748,6 +2748,215 @@ await navMap.waitForTimeout(300);
 results.navListToMapHashKeepsContext = await navMap.evaluate(() => location.hash);
 await navMap.close();
 
+// ============================================================
+// Admin area (/admin, 2026-09-30). ?stubauth=1 switches the stub to its
+// stand-in for Supabase Auth + row-level security (a server-held user table,
+// a password check, a session, own-row profile reads - see the stub). The
+// passwords typed here are the stub's FIXTURE passwords for fake accounts.
+// admin.html decides only from the server's answer; the shell is hidden
+// until then, and anyone else is sent to the normal application.
+// ============================================================
+{
+  const ADMIN_URL = BASE_URL.replace(/index\.html$/, 'admin.html') + '?stubauth=1';
+  const APP_URL = BASE_URL + '?stubauth=1';
+  const signIn = async (pg, email, password) => {
+    await pg.goto(APP_URL, { waitUntil: 'networkidle' });
+    await pg.fill('#email', email);
+    await pg.fill('#password', password);
+    await pg.click('#signInBtn');
+    await pg.waitForTimeout(600);
+  };
+  const onAdminShell = async pg => pg.evaluate(() => /admin\.html/.test(location.pathname) && !document.getElementById('adminShell').hidden);
+  const openAdmin = async pg => { await pg.goto(ADMIN_URL, { waitUntil: 'networkidle' }); await pg.waitForTimeout(600); };
+
+  // No session at all: /admin sends you to the normal sign-in flow.
+  const anon = await newPage({ viewport: { width: 1000, height: 800 } });
+  await openAdmin(anon);
+  results.adminAnonRedirected = await anon.evaluate(() => /index\.html$/.test(location.pathname));
+  results.adminAnonShellShown = (await anon.locator('#adminShell').count()) > 0 && await anon.locator('#adminShell').isVisible();
+  await anon.close();
+
+  // 1. A normal user signs in normally and sees the normal application.
+  const normal = await newPage({ viewport: { width: 1000, height: 800 } });
+  await signIn(normal, 'normal@example.com', 'fixture-normal-pass');
+  results.adminNormalAppVisible = await normal.locator('#app').isVisible();
+  results.adminNormalMenuLinkHidden = await normal.locator('#adminAreaLink').isHidden();
+  // 3. ... and cannot open /admin by typing it.
+  await openAdmin(normal);
+  results.adminNormalRedirected = await normal.evaluate(() => /index\.html$/.test(location.pathname));
+  // 7. Client state cannot grant admin: every flag a page could set is ignored.
+  await normal.goto(APP_URL, { waitUntil: 'networkidle' });
+  await normal.evaluate(() => {
+    for (const store of [localStorage, sessionStorage]) {
+      store.setItem('is_admin', 'true'); store.setItem('IS_ADMIN', 'true'); store.setItem('role', 'admin'); store.setItem('tdw-admin', '1');
+    }
+    window.IS_ADMIN = true;
+  });
+  await openAdmin(normal);
+  results.adminTamperRedirected = await normal.evaluate(() => /index\.html$/.test(location.pathname));
+  results.adminTamperShellShown = await onAdminShell(normal);
+  await normal.close();
+
+  // 9. Wrong admin credentials are rejected: an error, no session, no admin area.
+  const bad = await newPage({ viewport: { width: 1000, height: 800 } });
+  await signIn(bad, 'admin@example.com', 'not-the-password');
+  results.adminBadCredsError = ((await bad.locator('#authMsg').textContent()) || '').trim().length > 0;
+  results.adminBadCredsAppHidden = await bad.locator('#app').isHidden();
+  await openAdmin(bad);
+  results.adminBadCredsRedirected = await bad.evaluate(() => /index\.html$/.test(location.pathname));
+  await bad.close();
+
+  // 4-5. The admin signs in, sees the Admin link, and opens /admin.
+  const adm = await newPage({ viewport: { width: 1000, height: 800 } });
+  await signIn(adm, 'admin@example.com', 'fixture-admin-pass');
+  results.adminAppVisible = await adm.locator('#app').isVisible();
+  results.adminMenuLinkShown = await adm.locator('#adminAreaLink').isVisible() || !(await adm.locator('#adminAreaLink').evaluate(el => el.hidden));
+  await openAdmin(adm);
+  results.adminShellShown = await onAdminShell(adm);
+  results.adminIdentityText = ((await adm.locator('#adminIdentity').textContent()) || '').trim();
+  results.adminShellShowsNoEmail = !/@/.test((await adm.locator('#adminShell').textContent()) || '');
+  // 8. Signing out removes admin access: redirected now, and on a revisit.
+  await adm.click('#adminSignOut');
+  await adm.waitForTimeout(600);
+  results.adminSignOutRedirected = await adm.evaluate(() => /index\.html$/.test(location.pathname));
+  await openAdmin(adm);
+  results.adminAfterSignOutRedirected = await adm.evaluate(() => /index\.html$/.test(location.pathname));
+  await adm.close();
+}
+
+// ============================================================
+// Public sign-up with mandatory admin approval (2026-09-30). One browser
+// context = one "server": a sign-up in one tab is seen by the admin in
+// another (the stub keeps its user table as the server's database - see
+// the stub). Lifecycle A-E.
+// ============================================================
+{
+  const ctx = await browser.newContext({ viewport: { width: 1000, height: 800 } });
+  const APP_URL = BASE_URL + '?stubauth=1';
+  const ADMIN_URL = BASE_URL.replace(/index\.html$/, 'admin.html') + '?stubauth=1';
+  const openAdmin = async pg => { await pg.goto(ADMIN_URL, { waitUntil: 'networkidle' }); await pg.waitForTimeout(600); };
+  const onAdminShell = async pg => pg.evaluate(() => /admin\.html/.test(location.pathname) && !document.getElementById('adminShell').hidden);
+  const fillSignUp = async (pg, email, password) => {
+    await pg.click('#authModeToggle');
+    await pg.fill('#firstName', 'Pat'); await pg.fill('#lastName', 'Example'); await pg.fill('#company', 'Independent');
+    await pg.fill('#address', '1 Main St'); await pg.fill('#phone', '555-0100');
+    await pg.fill('#email', email); await pg.fill('#password', password); await pg.fill('#passwordConfirm', password);
+    await pg.click('#signInBtn');
+    await pg.waitForTimeout(700);
+  };
+  const signIn = async (pg, email, password) => {
+    await pg.goto(APP_URL, { waitUntil: 'networkidle' });
+    await pg.fill('#email', email); await pg.fill('#password', password);
+    await pg.click('#signInBtn'); await pg.waitForTimeout(700);
+  };
+
+  // A. Anonymous visitor: the sign-up form is offered; /admin is refused.
+  const visitor = await ctx.newPage();
+  await visitor.goto(APP_URL, { waitUntil: 'networkidle' });
+  await visitor.click('#authModeToggle');
+  results.signupFormOffered = await visitor.locator('#passwordConfirm').isVisible() && await visitor.locator('#firstName').isVisible();
+  results.signupButtonText = ((await visitor.locator('#signInBtn').textContent()) || '').trim();
+  await openAdmin(visitor);
+  results.signupAnonAdminRedirected = await visitor.evaluate(() => /index\.html$/.test(location.pathname));
+
+  // B. A new user signs up: account created, profile pending (not admin),
+  // the pending screen instead of the app, and /admin refused.
+  await visitor.goto(APP_URL, { waitUntil: 'networkidle' });
+  await fillSignUp(visitor, 'newcomer@example.com', 'fixture-newcomer-pass');
+  results.signupPendingShown = await visitor.locator('#pendingGate').isVisible();
+  results.signupPendingText = ((await visitor.locator('#pendingGate .auth-lead').textContent()) || '').trim();
+  results.signupAppHidden = await visitor.locator('#app').isHidden();
+  results.signupAuthMsgNotSignupsDisabled = !/signups? not allowed/i.test((await visitor.locator('#authMsg').textContent()) || '');
+  results.signupProfile = await visitor.evaluate(async () => {
+    const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
+    const { data } = await createClient().from('profiles').select('approved,is_admin').maybeSingle();
+    return data && { approved: data.approved, is_admin: data.is_admin };
+  });
+  results.signupNoLedgerRowsRendered = (await visitor.locator('#main .prop-card').count()) === 0;
+  await openAdmin(visitor);
+  results.signupPendingAdminRedirected = await visitor.evaluate(() => /index\.html$/.test(location.pathname));
+
+  // E. Security: tampering grants nothing. The pending user tries to make
+  // itself admin / approved through the API, and to approve itself with
+  // is_admin smuggled in sign-up metadata - the server (RLS) changes nothing.
+  await visitor.goto(APP_URL, { waitUntil: 'networkidle' });
+  results.signupSelfPromote = await visitor.evaluate(async () => {
+    const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
+    const c = createClient();
+    const { data: sess } = await c.auth.getSession();
+    const id = sess.session.user.id;
+    await c.from('profiles').update({ is_admin: true, approved: true }).eq('id', id);
+    const { data } = await c.from('profiles').select('approved,is_admin').eq('id', id).maybeSingle();
+    return { rowsChanged: (window.__stubProfileUpdates || []).slice(-1)[0].rows, after: data && { approved: data.approved, is_admin: data.is_admin } };
+  });
+  results.signupPendingSeesOnlyOwnRow = await visitor.evaluate(async () => {
+    const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
+    const { data } = await createClient().from('profiles').select('id,email').eq('approved', false);
+    return (data || []).map(r => r.email);
+  });
+  await visitor.evaluate(() => {
+    for (const store of [localStorage, sessionStorage]) { store.setItem('is_admin', 'true'); store.setItem('approved', 'true'); store.setItem('role', 'admin'); }
+    window.IS_ADMIN = true;
+  });
+  await visitor.goto(APP_URL + '&approved=1&admin=1', { waitUntil: 'networkidle' });
+  await visitor.waitForTimeout(600);
+  results.signupTamperStillPending = await visitor.locator('#pendingGate').isVisible() && await visitor.locator('#app').isHidden();
+  await openAdmin(visitor);
+  results.signupTamperAdminRedirected = await visitor.evaluate(() => /index\.html$/.test(location.pathname));
+  const sneaky = await ctx.newPage();
+  await sneaky.goto(APP_URL, { waitUntil: 'networkidle' });
+  results.signupMetadataIgnored = await sneaky.evaluate(async ([email, password]) => {
+    const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
+    const c = createClient();
+    await c.auth.signUp({ email, password, options: { data: { is_admin: true, approved: true } } });
+    const { data } = await c.from('profiles').select('approved,is_admin').maybeSingle();
+    return data && { approved: data.approved, is_admin: data.is_admin };
+  }, ['sneaky@example.com', 'fixture-sneaky-pass']);
+  await sneaky.close();
+
+  // C. The admin signs in, is recognised from the server-read profile,
+  // opens /admin, sees the pending accounts and approves one.
+  const admin = await ctx.newPage();
+  await signIn(admin, 'admin@example.com', 'fixture-admin-pass');
+  results.signupAdminAppVisible = await admin.locator('#app').isVisible();
+  await openAdmin(admin);
+  results.signupAdminShellShown = await onAdminShell(admin);
+  results.signupAdminIdentityNoEmail = !/@/.test((await admin.locator('#adminIdentity').textContent()) || '');
+  results.signupAdminPendingList = await admin.locator('#adminPendingList .admin-approval-row').evaluateAll(els => els.map(e => e.querySelector('.admin-approval-name').textContent.trim()));
+  results.signupAdminPendingStatus = ((await admin.locator('#adminPendingStatus').textContent()) || '').trim();
+  const row = admin.locator('#adminPendingList .admin-approval-row', { hasText: 'newcomer@example.com' });
+  await row.locator('.admin-approve-btn').click();
+  await admin.waitForTimeout(500);
+  results.signupAdminPendingAfterApprove = await admin.locator('#adminPendingList .admin-approval-row').evaluateAll(els => els.map(e => e.querySelector('.admin-approval-name').textContent.trim()));
+  results.signupAdminApproveRowsChanged = await admin.evaluate(() => (window.__stubProfileUpdates || []).slice(-1)[0].rows);
+
+  // D. The approved user signs in and uses the app; /admin is still refused.
+  const member = await ctx.newPage();
+  await signIn(member, 'newcomer@example.com', 'fixture-newcomer-pass');
+  results.signupApprovedAppVisible = await member.locator('#app').isVisible();
+  results.signupApprovedPendingHidden = await member.locator('#pendingGate').isHidden();
+  results.signupApprovedLedgerRows = (await member.locator('#main .prop-card').count()) > 0;
+  results.signupApprovedAdminLinkHidden = await member.locator('#adminAreaLink').evaluate(el => el.hidden);
+  results.signupApprovedProfile = await member.evaluate(async () => {
+    const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
+    const { data } = await createClient().from('profiles').select('approved,is_admin').maybeSingle();
+    return data && { approved: data.approved, is_admin: data.is_admin };
+  });
+  await openAdmin(member);
+  results.signupApprovedAdminRedirected = await member.evaluate(() => /index\.html$/.test(location.pathname));
+  results.signupApprovedAdminShellShown = await onAdminShell(member);
+  await ctx.close();
+
+  // "Signups not allowed for this instance": the visitor gets a clear
+  // message, not Supabase's raw wording, and no account or session.
+  const closed = await newPage({ viewport: { width: 1000, height: 800 } });
+  await closed.goto(APP_URL + '&signupdisabled=1', { waitUntil: 'networkidle' });
+  await fillSignUp(closed, 'late@example.com', 'fixture-late-pass');
+  results.signupDisabledMsg = ((await closed.locator('#authMsg').textContent()) || '').trim();
+  results.signupDisabledNoSession = await closed.locator('#app').isHidden() && await closed.locator('#pendingGate').isHidden();
+  await closed.close();
+}
+
 // Legacy deep links keep working: #map (old Map link), #/lands (ledger
 // slug), #/dashboard, #/watchlist, #/list.
 const navLegacy = await newPage({ viewport: { width: 1200, height: 900 } });
@@ -3160,6 +3369,54 @@ const EXPECTED = {
   navMapAllHash: '#/map',
   navMapSearchHash: '#/map?q=Oak',
   navMapTxHref: 'tx.html#/map?q=Oak',
+  adminAnonRedirected: true,
+  adminAnonShellShown: false,
+  adminNormalAppVisible: true,
+  adminNormalMenuLinkHidden: true,
+  adminNormalRedirected: true,
+  adminTamperRedirected: true,
+  adminTamperShellShown: false,
+  adminBadCredsError: true,
+  adminBadCredsAppHidden: true,
+  adminBadCredsRedirected: true,
+  adminAppVisible: true,
+  adminMenuLinkShown: true,
+  adminShellShown: true,
+  adminIdentityText: 'Admin',
+  adminShellShowsNoEmail: true,
+  adminSignOutRedirected: true,
+  adminAfterSignOutRedirected: true,
+  signupFormOffered: true,
+  signupButtonText: 'Create account',
+  signupAnonAdminRedirected: true,
+  signupPendingShown: true,
+  signupPendingText: 'Account created \u2014 awaiting approval.',
+  signupAppHidden: true,
+  signupAuthMsgNotSignupsDisabled: true,
+  signupProfile: { approved: false, is_admin: false },
+  signupNoLedgerRowsRendered: true,
+  signupPendingAdminRedirected: true,
+  signupSelfPromote: { rowsChanged: 0, after: { approved: false, is_admin: false } },
+  signupPendingSeesOnlyOwnRow: ['newcomer@example.com'],
+  signupTamperStillPending: true,
+  signupTamperAdminRedirected: true,
+  signupMetadataIgnored: { approved: false, is_admin: false },
+  signupAdminAppVisible: true,
+  signupAdminShellShown: true,
+  signupAdminIdentityNoEmail: true,
+  signupAdminPendingList: ['newcomer@example.com', 'sneaky@example.com'],
+  signupAdminPendingStatus: '2 accounts are waiting for approval.',
+  signupAdminPendingAfterApprove: ['sneaky@example.com'],
+  signupAdminApproveRowsChanged: 1,
+  signupApprovedAppVisible: true,
+  signupApprovedPendingHidden: true,
+  signupApprovedLedgerRows: true,
+  signupApprovedAdminLinkHidden: true,
+  signupApprovedProfile: { approved: true, is_admin: false },
+  signupApprovedAdminRedirected: true,
+  signupApprovedAdminShellShown: false,
+  signupDisabledMsg: 'New account registration is closed right now, so this account was not created. Please try again later or contact support.',
+  signupDisabledNoSession: true,
   navMapToListHash: '#/auctions',
   navMapToListLit: ['list'],
   navListToMapHashKeepsContext: '#/map?q=Oak',

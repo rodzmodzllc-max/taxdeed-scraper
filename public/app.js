@@ -1599,6 +1599,19 @@ if (authModeToggle) {
   authModeToggle.addEventListener("click", () => setAuthMode(authMode === "signin" ? "signup" : "signin"));
 }
 
+// Supabase Auth's raw sign-up errors are written for developers. The one a
+// visitor can meet in normal operation is "Signups not allowed for this
+// instance" - the project's "Allow new users to sign up" switch is off (see
+// docs/production-configuration.md). Say what it means for them instead;
+// every other error keeps Supabase's own wording.
+function signUpErrorText(error) {
+  const msg = String((error && error.message) || "");
+  if (/signups? not allowed/i.test(msg)) {
+    return "New account registration is closed right now, so this account was not created. Please try again later or contact support.";
+  }
+  return msg || "Could not create the account. Please try again.";
+}
+
 const authForm = document.getElementById("authForm");
 if (authForm) {
   authForm.addEventListener("submit", async e => {
@@ -1635,7 +1648,7 @@ if (authForm) {
       });
       if (btn) btn.disabled = false;
       if (error) {
-        if (authMsg) { authMsg.className = "auth-msg err"; authMsg.textContent = error.message; }
+        if (authMsg) { authMsg.className = "auth-msg err"; authMsg.textContent = signUpErrorText(error); }
         return;
       }
       // Two outcomes depending on the project's email-confirmation setting:
@@ -1650,7 +1663,7 @@ if (authForm) {
         setAuthMode("signin");
         if (authMsg) {
           authMsg.className = "auth-msg";
-          authMsg.textContent = "Account created — check your email to confirm it, then sign in.";
+          authMsg.textContent = "Account created — check your email to confirm it, then sign in. New accounts stay pending until an administrator approves them.";
         }
       }
       return;
@@ -1760,6 +1773,10 @@ async function checkApprovalAndEnter(session) {
     return;
   }
   IS_ADMIN = !!(profile && profile.is_admin);
+  // The account menu's "Admin area" link (visibility only - admin.html asks
+  // the server again and refuses anyone the server does not call an admin).
+  const adminLink = document.getElementById("adminAreaLink");
+  if (adminLink) adminLink.hidden = !IS_ADMIN;
   if (profile && profile.approved) showApp();
   else showPending();
 }
