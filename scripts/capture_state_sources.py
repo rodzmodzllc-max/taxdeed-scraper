@@ -130,10 +130,28 @@ EXPANSION_ITEMS = {
     "GA": ["239e5314f25f4e9898f9201d36301af9"],        # Albany GA 2026 tax sale
     "XX": ["cfde38996bd443f8bc0b4ef7aac8d4e1", "2213fa3775db4f75ac1c13dc121dd28f"],  # unidentified 2026 tax sale layers
 }
-EXPANSION_ITEM_QUERIES = ('title:"NC1Map Parcels"', 'title:"Colorado Public Parcels"', 'owner:UGRC title:"LIR"',
-                          'title:"Wisconsin Statewide Parcels"', 'title:"Maryland Parcel"',
-                          '"tax foreclosure" type:"Feature Service"', '"commissioner" certificate sale type:"Feature Service"',
-                          'IndianaMap parcels type:"Feature Service"')
+EXPANSION_ITEMS.update({
+    "WY": ["239e5314f25f4e9898f9201d36301af9"],
+    "MI": ["47baabcecf1a4f4e9c47ef15c7c4b7ef", "5b973732a9e84fdd94fa225f8160650d"],
+    "SC": ["0bf91b9d18f14702873af5f3ad870429"],
+})
+EXPANSION_ITEMS.pop("GA", None)
+EXPANSION_ITEMS.pop("XX", None)
+EXPANSION_EXTRA.update({
+    "WV": ["https://www.wvsao.gov/Legal/TermsOfUse"],
+    "NC": ["https://www.buncombenc.gov/622/Tax-Foreclosure-Sales", "https://tax.mecknc.gov/service/rem-foreclosures"],
+    "CO": ["https://morgancounty.colorado.gov/county-held-tax-lien-sale-certificates"],
+    "WI": ["https://www.greencountywi.org/492/Current-Tax-Deed-Sales"],
+})
+# ASP.NET postback probes: (page, [(dropdown to post back, pick = first real option)], search button)
+ASPNET_PROBES = {
+    "WV": ("https://www.wvsao.gov/CountyCollections/Default",
+           ["ctl00$FixedWidthContent$YearDD", "ctl00$FixedWidthContent$CountyDD"],
+           "ctl00$FixedWidthContent$SearchBTN"),
+}
+EXPANSION_ITEM_QUERIES = ('"NC1Map" parcels', 'owner:NCOneMap', '"Colorado Public Parcels"',
+                          '"tax foreclosure" type:"Feature Service"', '"tax sale" 2026 type:"Feature Service"',
+                          '"forfeited" type:"Feature Service"')
 EXPANSION_EXTRA = {
     "UT": ["https://gis.utah.gov/documentation/policy/license/", "https://www.saltlakecounty.gov/property-tax/property-tax-sale/"],
     "WV": ["https://www.wvsao.gov/CountyCollections/LandSales", "https://www.wvsao.gov/CountyCollections/DeputyLandCommissioners",
@@ -146,7 +164,7 @@ EXPANSION_EXTRA = {
     "NJ": ["https://easthanover.newjerseytaxsale.com/index.cfm?zaction=AUCTION&Zmethod=CALENDAR"],
 }
 FOLLOW_VOCAB = re.compile(r"land sale|listing|certified|no bid|delinquent|foreclos|tax sale|tax deed|forfeit|sealed bid|"
-                          r"terms of use|licen[cs]e|disclaimer|legal", re.I)
+                          r"terms of use|disclaimer|current sales|sale list|properties for sale", re.I)
 MAX_FOLLOW = 6
 EXPANSION_QUERIES = ('"tax sale" parcels type:"Feature Service"',
                      '"delinquent" parcels type:"Feature Service"',
@@ -221,7 +239,7 @@ def html_structure(html: str, url: str) -> dict:
         href = urljoin(url, a["href"].strip())
         if href.startswith(("http://", "https://")) and not LONG_DIGITS.search(href):
             links.append({"text": clean(a.get_text(" "))[:80], "href": href.split("#")[0]})
-    for tag in soup.find_all(["table", "script", "style", "noscript", "select", "form"]):
+    for tag in soup.find_all(["table", "script", "style", "noscript", "select"]):
         tag.decompose()
     snippets = []
     for s in re.split(r"(?<=[.!?])\s+|\n{2,}", soup.get_text("\n")):
@@ -394,6 +412,60 @@ def arcgis_layer_meta(session: requests.Session, url: str) -> list[dict]:
     return out
 
 
+def aspnet_probe(session: requests.Session, url: str, dropdowns: list[str], button: str) -> dict:
+    """Walk an ASP.NET WebForms search the way a browser does: GET the page,
+    post back each dropdown with its FIRST real option (the site's own
+    values, never a guess), then press the search button once. Only the
+    result page's structure is kept (table headers, row counts, option
+    counts) - never a value."""
+    if BeautifulSoup is None:
+        return {"error": "bs4 missing"}
+    steps = []
+    resp, err = fetch(session, url)
+    if err or resp is None or resp.status_code != 200:
+        return {"error": err or f"status {getattr(resp, 'status_code', None)}"}
+
+    def form_state(html):
+        soup = BeautifulSoup(html, "html.parser")
+        data = {}
+        for el in soup.find_all("input"):
+            if el.get("name") and (el.get("type") or "").lower() not in ("submit", "button", "image", "checkbox", "radio"):
+                data[el["name"]] = el.get("value") or ""
+        for sel in soup.find_all("select"):
+            if sel.get("name"):
+                opt = sel.find("option", selected=True) or sel.find("option")
+                data[sel["name"]] = (opt.get("value") if opt else "") or ""
+        return soup, data
+
+    soup, data = form_state(resp.text)
+    for dd in dropdowns:
+        sel = soup.find("select", attrs={"name": dd})
+        opts = [o.get("value") for o in (sel.find_all("option") if sel else []) if (o.get("value") or "").strip()]
+        steps.append({"dropdown": dd, "options": len(opts)})
+        if not opts:
+            break
+        data[dd] = opts[0]
+        data["__EVENTTARGET"], data["__EVENTARGUMENT"] = dd, ""
+        try:
+            r = session.post(url, data=data, headers=HEADERS, timeout=30)
+        except requests.RequestException as exc:
+            return {"steps": steps, "error": f"{type(exc).__name__}"}
+        soup, data = form_state(r.text)
+        data[dd] = opts[0]
+        time.sleep(1.0)
+    data.pop("__EVENTTARGET", None)
+    data[button] = "Search"
+    try:
+        r = session.post(url, data=data, headers=HEADERS, timeout=45)
+    except requests.RequestException as exc:
+        return {"steps": steps, "error": f"{type(exc).__name__}"}
+    out = html_structure(r.text, r.url)
+    out.pop("links", None)
+    out["steps"] = steps
+    out["status"] = r.status_code
+    return out
+
+
 def arcgis_item(session: requests.Session, item_id: str) -> dict:
     """One ArcGIS Online item's own metadata: title, owner, licence and
     access text, and its service's layers (fields, counts, id shapes)."""
@@ -504,6 +576,11 @@ def main(argv=None) -> int:
                 entry["pages"].append(page)
                 print(f"  {code} follow         {page.get('status', page.get('error'))} {href}", flush=True)
                 time.sleep(0.8)
+        if code in ASPNET_PROBES:
+            purl, dds, btn = ASPNET_PROBES[code]
+            probe = aspnet_probe(session, purl, dds, btn)
+            entry["pages"].append({"url": purl + " (postback probe)", "kind": "aspnet_probe", **probe})
+            print(f"  {code} aspnet probe   {probe.get('status', probe.get('error'))} steps={probe.get('steps')}", flush=True)
         for item_id in EXPANSION_ITEMS.get(code, []):
             entry["pages"].append({"url": f"item:{item_id}", "kind": "arcgis_item", **arcgis_item(session, item_id)})
             print(f"  {code} item           {item_id}", flush=True)
@@ -592,6 +669,8 @@ def digest(path: Path) -> str:
                         out.append(f"      copyright: {l['copyright']}")
                     if l.get("id_shapes"):
                         out.append(f"      id_shapes: {json.dumps(l['id_shapes'])[:1500]}")
+                if pg.get("steps"):
+                    out.append(f"  probe steps: {pg['steps']}")
                 if pg.get("probe_params"):
                     out.append(f"  probe params: {pg['probe_params']}")
                 if pg.get("parse_error"):
