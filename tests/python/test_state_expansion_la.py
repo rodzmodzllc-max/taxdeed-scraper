@@ -134,7 +134,8 @@ def test_f01_a_third_state_page_with_its_own_assets():
         # One header state selector per page (options built from STATE_META, which carries LA).
         assert text.count('<select id="stateSelect" aria-label="State"></select>') == 1 and "data-state-link" not in text, page
     sw = (REPO / "public/sw.js").read_text(encoding="utf-8")
-    assert '"/la.html",' in sw and '"/la-parishes.svg",' in sw and 'isLa ? "/la.html"' in sw
+    # The offline fallback serves any precached state page (six-state expansion made it generic).
+    assert '"/la.html",' in sw and '"/la-parishes.svg",' in sw and "STATE_PAGES.includes(statePage)" in sw
     for f in ("la.html", "la-parishes.svg"):
         assert (REPO / f).read_text(encoding="utf-8") == (REPO / "public" / f).read_text(encoding="utf-8"), f
 

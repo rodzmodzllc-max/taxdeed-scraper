@@ -2990,6 +2990,54 @@ await navMap.close();
 }
 
 // ============================================================
+// Six-state expansion (2026-09-30): mi / wy / sc / co / wi pages. Each is its
+// own page (body data-state), lists every production state in the one header
+// selector, carries its own county basemap, and shows no Florida wording.
+// The CO certificate row carries its statewide-parcel value and the Treasurer's
+// verified acquisition steps; the MI auction row the county's published fields.
+// ============================================================
+{
+  const NEW_STATES = [['MI', 'mi', 'Michigan'], ['WY', 'wy', 'Wyoming'], ['SC', 'sc', 'South Carolina'], ['CO', 'co', 'Colorado'], ['WI', 'wi', 'Wisconsin']];
+  results.xsPages = {};
+  for (const [code, file, name] of NEW_STATES) {
+    const pg = await newPage({ viewport: { width: 1200, height: 900 } });
+    await pg.goto(BASE_URL.replace(/index\.html$/, `${file}.html`) + '#/auctions', { waitUntil: 'networkidle' });
+    await pg.waitForTimeout(400);
+    const body = ((await pg.locator('body').textContent()) || '').replace(/\s+/g, ' ');
+    results.xsPages[code] = {
+      state: await pg.evaluate(() => document.body.dataset.state),
+      title: await pg.title(),
+      select: await pg.locator('#stateSelect').inputValue(),
+      options: await pg.locator('#stateSelect option').evaluateAll(els => els.map(e => e.value)),
+      floridaWording: /Lands Available for Taxes|Fla\. Stat|County Just Value/.test(body),
+      basemapOk: (await pg.evaluate(async f => (await fetch(f)).ok, `${file}-counties.svg`))
+    };
+    if (code === 'MI') {
+      const card = pg.locator('.prop-card[data-pid="pmi1"]');
+      const t = ((await card.textContent()) || '').replace(/\s+/g, ' ');
+      results.xsMiCard = { count: await card.count(), county: /Eaton County, MI/.test(t), sev: /State Equalized Value/.test(t), noJustValue: !/Just Value/.test(t) };
+    }
+    if (code === 'CO') {
+      await pg.goto(BASE_URL.replace(/index\.html$/, 'co.html') + '#/certificates', { waitUntil: 'networkidle' });
+      await pg.waitForTimeout(400);
+      const card = pg.locator('.prop-card[data-pid="pco1"], .cert-card[data-pid="pco1"], [data-pid="pco1"]').first();
+      results.xsCoCardCount = await pg.locator('[data-pid="pco1"]').count();
+      const detailBtn = card.locator('.detail-btn');
+      if (await detailBtn.count()) { await detailBtn.first().click(); } else { await card.click(); }
+      await pg.waitForTimeout(350);
+      const d = ((await pg.locator('#detailModalInner').textContent()) || '').replace(/\s+/g, ' ');
+      results.xsCoDetail = {
+        treasurer: /Morgan County Treasurer/.test(d),
+        steps: /Purchase the certificate from the Morgan County Treasurer for the amount shown/.test(d),
+        noStreetView: !/Street View/.test(d),
+        noUndefined: !/undefined/.test(d)
+      };
+    }
+    await pg.close();
+  }
+}
+
+// ============================================================
 // Global state context (2026-09-30): ONE state selector, in the shared
 // header beside the account badge, built from STATE_META. The state is the
 // page (index.html = FL, tx.html = TX) whose rows come from
@@ -3583,7 +3631,12 @@ const EXPECTED = {
   signupDisabledNoSession: true,
   laBodyState: 'LA',
   laTitle: 'Available — Adjudicated Property · Tax Acquisitions — Louisiana',
-  laStateSelect: { value: 'LA', options: ['FL', 'TX', 'LA'] },
+  laStateSelect: { value: 'LA', options: ['FL', 'TX', 'LA', 'MI', 'WY', 'SC', 'CO', 'WI'] },
+  xsPages: Object.fromEntries([['MI', 'Michigan'], ['WY', 'Wyoming'], ['SC', 'South Carolina'], ['CO', 'Colorado'], ['WI', 'Wisconsin']].map(([c, n]) => [c,
+    { state: c, title: `Tax Acquisitions — ${n}`, select: c, options: ['FL', 'TX', 'LA', 'MI', 'WY', 'SC', 'CO', 'WI'], floridaWording: false, basemapOk: true }])),
+  xsMiCard: { count: 1, county: true, sev: true, noJustValue: true },
+  xsCoCardCount: 1,
+  xsCoDetail: { treasurer: true, steps: true, noStreetView: true, noUndefined: true },
   laNoStateTabs: true,
   laCardCount: 1,
   laCardSaysListAsOf: true,

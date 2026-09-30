@@ -184,7 +184,24 @@ const FIXTURE_PROPERTIES = [
     list_url: "https://data.brla.gov/Housing-and-Development/Adjudicated-Property/a4h4-zi7e", document_url: "https://data.brla.gov/api/views/a4h4-zi7e/rows.csv?accessType=DOWNLOAD",
     url_auction: "https://data.brla.gov/Housing-and-Development/Adjudicated-Property/a4h4-zi7e", url_auction_kind: "county",
     purchase_url: null, purchase_amount: null, purchase_amount_kind: "NOT_PUBLISHED", list_as_of: "2024-02-27", source_published_at: "2024-02-27T18:54:28Z",
-    assessed: 2500, market: 25000, tax_year: "2023", latitude: 30.4515, longitude: -91.1871, publication_status: "APPROVED", ledger_type: "buy", updated_at: "2026-09-30T12:00:00Z" }
+    assessed: 2500, market: 25000, tax_year: "2023", latitude: 30.4515, longitude: -91.1871, publication_status: "APPROVED", ledger_type: "buy", updated_at: "2026-09-30T12:00:00Z" },
+  // 2026-09-30 (six-state expansion): rows in the shapes scripts/harvest_expansion.py
+  // + sync_state_inventory.py write. Values are SYNTHETIC.
+  { id: "pmi1", source: "auction", state: "MI", county: "Eaton", case_no: "100-200-300-400-50", parcel: "100-200-300-400-50", address: "100 FIXTURE ST", bid: 4200, min_bid: 4200, status: "active", sale_date: null, lien_level: "unscreened", lien_note: "",
+    harvester_source: "mi_eaton_treasurer_sale", source_id: "mi_eaton_treasurer_sale", source_authority: "GOVERNMENT_DIRECT",
+    list_url: "https://www.arcgis.com/home/item.html?id=5b973732a9e84fdd94fa225f8160650d", url_auction: "https://www.arcgis.com/home/item.html?id=5b973732a9e84fdd94fa225f8160650d", url_auction_kind: "county",
+    legal_desc: "FIXTURE LOT 1", acreage: 0.23, land_use: "Residential", assessed: 41200, taxable_value: 38100, publication_status: "APPROVED", ledger_type: "auctions", updated_at: "2026-09-30T12:00:00Z" },
+  { id: "pco1", source: "certificate", state: "CO", county: "Morgan", case_no: "2023-00123", certificate_no: "2023-00123", parcel: "R012345", address: "1 FIXTURE RD", bid: 1234.56, status: "active", sale_date: null, lien_level: "unscreened", lien_note: "",
+    harvester_source: "co_morgan_county_held_certificates", source_id: "co_morgan_county_held_certificates", source_authority: "GOVERNMENT_DIRECT",
+    list_url: "https://morgancounty.colorado.gov/county-held-tax-lien-sale-certificates", url_auction: "https://morgancounty.colorado.gov/county-held-tax-lien-sale-certificates", url_auction_kind: "county",
+    owner_name: "FIXTURE OWNER", legal_desc: "FIXTURE SUBD BLK 2", purchase_amount: 1234.56, purchase_amount_kind: "FIXED_PURCHASE_PRICE", list_as_of: "2026-10-31",
+    market: 150000, taxable_value: 10500, acreage: 2.5, latitude: 40.255, longitude: -103.795,
+    purchase_path_type: "quoted_amount", purchase_path_scope: "source", purchase_path_observed_on: "2026-09-30",
+    purchase_path_evidence: "The Treasurer's county-held certificate page says the listed certificates may be purchased from Morgan County for the amount shown (data/purchase_path_evidence_expansion.csv, observed 2026-09-30)",
+    otc_provenance: { acquisition: { mode: "multi_step", channels: [], office: "Morgan County Treasurer", evidence_url: "https://morgancounty.colorado.gov/county-held-tax-lien-sale-certificates", observed_on: "2026-09-30",
+      steps: ["Review the county-held tax lien sale certificate list", "Purchase the certificate from the Morgan County Treasurer for the amount shown", "The amount shown is good to the date in the amount column's header"] } },
+    field_provenance: { market: { source: "statewide_parcel", source_id: "co_oit_public_parcels", dataset: "Colorado Public Parcels (Colorado_Public_Parcel_Composite)", matched_id_field: "account", matched_parcel_id: "R012345", recorded_at: "2026-09-30T12:00:00Z" } },
+    publication_status: "APPROVED", ledger_type: "lien", updated_at: "2026-09-30T12:00:00Z" }
 ];
 // Brevard has a county_calendar row so the "Auction {date}" label test can
 // cover the CALENDAR-lookup path, not just the per-property sale_date

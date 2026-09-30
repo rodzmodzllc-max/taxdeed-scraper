@@ -125,7 +125,12 @@ const MAPTILER_CANVAS_ID = "satelliteMapCanvasMaptiler";
 const STATEWIDE_VIEW = {
   FL: { center: [-81.6, 28.1], zoom: 5.6 },
   TX: { center: [-99.3, 31.4], zoom: 5.1 },
-  LA: { center: [-91.9, 31.0], zoom: 6.2 }
+  LA: { center: [-91.9, 31.0], zoom: 6.2 },
+  MI: { center: [-86.42, 44.94], zoom: 6.0 },
+  WY: { center: [-107.56, 43.0], zoom: 6.1 },
+  SC: { center: [-80.95, 33.62], zoom: 6.7 },
+  CO: { center: [-105.55, 39.0], zoom: 6.1 },
+  WI: { center: [-89.85, 44.78], zoom: 6.1 }
 };
 
 // Same derivation as app.js/explore.js: the page's state, accepted only if
