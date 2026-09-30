@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<meta name="robots" content="noindex, nofollow">
+<title>Admin · Tax Acquisitions</title>
+<link rel="stylesheet" href="styles.css">
+<link rel="icon" href="icons/icon-192.png?v=2">
+<script src="config.js"></script>
+</head>
+<body data-page="admin">
+<!-- Admin area (2026-09-30). This markup holds no data and no secret: the
+shell stays hidden until admin.js has asked the SERVER (Supabase, under
+row-level security) whether the signed-in account is an admin. Anyone else
+- no session, or a normal user - is sent to the normal application
+(index.html). See admin.js and docs/admin.md. -->
+<main class="admin-shell" id="adminShell" hidden>
+  <header class="admin-head">
+    <img src="icons/icon-192.png?v=2" width="44" height="44" alt="">
+    <div>
+      <p class="admin-eyebrow">Tax Acquisitions</p>
+      <h1 class="admin-title">Administration</h1>
+    </div>
+  </header>
+  <section class="admin-card" aria-labelledby="adminIdentityLabel">
+    <p class="admin-label" id="adminIdentityLabel">Signed in as</p>
+    <p class="admin-identity" id="adminIdentity"></p>
+    <p class="admin-note">Administrator access is granted and checked by the server for every protected operation.</p>
+  </section>
+  <section class="admin-card" aria-labelledby="adminPendingLabel">
+    <p class="admin-label" id="adminPendingLabel">Pending sign-ups</p>
+    <p class="admin-note">New accounts start pending and cannot read any ledger until approved. Approving sets the account's approval on the server; accounts you do not approve simply stay pending.</p>
+    <p class="admin-note" id="adminPendingStatus" role="status">Loading pending accounts</p>
+    <div class="admin-approvals-list" id="adminPendingList"></div>
+  </section>
+  <section class="admin-card">
+    <p class="admin-label">Administrative tools</p>
+    <p class="admin-note">Source publication reviews are in the application's admin panel; every administrative operation is enforced on the server by the administrator role.</p>
+    <p class="admin-actions">
+      <a class="admin-btn" id="adminOpenApp" href="index.html">Open the application</a>
+      <button class="admin-btn admin-btn-quiet" id="adminSignOut" type="button">Sign out</button>
+    </p>
+  </section>
+</main>
+<script type="module" src="admin.js"></script>
+</body>
+</html>

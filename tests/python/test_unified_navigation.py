@@ -40,7 +40,7 @@ def test_n02_ledger_selector_lives_inside_the_list_page_and_names_all_three_ledg
     # ledgerCopy() tx override); no Texas certificate ledger is invented.
     for html, cert_label in ((INDEX, "Liens &amp; Certificates"), (TX, "Redeemable Deeds")):
         page = html[html.index('id="pageList"'):html.index('id="pageMap"')]
-        assert 'id="ledgerTabs"' in page and 'id="regionTabs"' in page
+        assert 'id="ledgerTabs"' in page and 'id="regionTabs"' not in page      # the state is the header's #stateSelect
         assert [m for m in re.findall(r'class="ledger-tab" data-ledger="([a-z]+)"', page)] == ["auction", "laft", "certificate"]
         assert cert_label + " <b" in page
 
@@ -48,8 +48,9 @@ def test_n02_ledger_selector_lives_inside_the_list_page_and_names_all_three_ledg
 def test_n03_map_page_carries_state_ledger_county_context_and_selectors():
     for html, cert_label in ((INDEX, "Liens &amp; Certificates"), (TX, "Redeemable Deeds")):
         page = html[html.index('id="pageMap"'):]
-        assert 'id="mapStateSelect"' in page and 'id="mapCountySelect"' in page and 'id="mapLedgerPills"' in page
-        assert 'id="mapContextState"' in page and 'id="mapContextLedger"' in page and 'id="mapContextCounty"' in page
+        assert 'id="mapCountySelect"' in page and 'id="mapLedgerPills"' in page
+        assert 'id="mapStateSelect"' not in page and 'id="mapContextState"' not in page   # no competing state control / badge
+        assert 'id="mapContextLedger"' in page and 'id="mapContextCounty"' in page
         assert "All Ledgers</button>" in page and cert_label + "</button>" in page
         assert 'id="mapPageState"' not in page                       # the "Map · Florida" label is gone
     # The pills are exactly: the aggregation plus the three backend ledgers.
@@ -63,9 +64,9 @@ def test_n04_states_are_data_driven_and_pinned_to_the_backend_production_states(
     for code in codes:
         assert re.search(r'%s: \{ name: "[A-Za-z ]+", page: "[a-z]+\.html"' % code, meta), code
     assert "const STATE_CODES = Object.keys(STATE_META);" in APP
-    assert "STATE_CODES.map(st =>" in APP and "location.href = STATE_META[st].page + mapHash();" in APP
-    # No hard-coded Florida anywhere in the map's state handling.
-    block = CODE[CODE.index("function buildMapStateSelect"):CODE.index("function renderMapContext")]
+    assert "STATE_CODES.map(st =>" in APP and "location.href = stateSwitchHref(st);" in APP
+    # No hard-coded Florida anywhere in the header's state handling.
+    block = CODE[CODE.index("function stateSwitchHash"):CODE.index("buildStateSelect();")]
     assert "Florida" not in block and '"FL"' not in block
 
 
@@ -82,12 +83,12 @@ def test_n05_router_routes_four_pages_and_keeps_every_existing_hash_working():
     # replaceState only: page moves never enter the Android-back stack.
     router = CODE[CODE.index("function pageHash"):CODE.index("function syncStateLinks")]
     assert "pushState" not in router and "replaceState" in router
-    # A state switch carries the hash across (List: the region links; Map: the select).
-    assert 'a.setAttribute("href", STATE_META[st].page + hash);' in APP
+    # A state switch (the header select) carries the route across, minus a property id.
+    assert 'return STATE_META[st] ? STATE_META[st].page + (location.search || "") + stateSwitchHash() : null;' in APP
 
 
 def test_n06_map_county_select_is_scoped_to_state_and_ledger_and_counts_the_selected_ledger():
-    block = APP[APP.index("function mapCountyCandidates"):APP.index("function buildMapStateSelect")]
+    block = APP[APP.index("function mapCountyCandidates"):APP.index("function renderMapContext")]
     assert "regionOf(p) === PAGE_STATE" in block
     assert '(mapFilter.ledger === "all" || p.source === mapFilter.ledger)' in block
     assert 'if (mapFilter.county !== "ALL" && !counts.has(mapFilter.county)) mapFilter.county = "ALL";' in block
@@ -126,6 +127,6 @@ def test_n09_watchlist_folds_the_same_parcel_across_ledgers_and_is_a_destination
 
 
 def test_n10_service_worker_bumped_and_root_mirror_matches_public():
-    assert (REPO / "public/sw.js").read_text(encoding="utf-8").count('const CACHE = "tdw-shell-v54"') == 1
+    assert (REPO / "public/sw.js").read_text(encoding="utf-8").count('const CACHE = "tdw-shell-v56"') == 1
     for f in ("app.js", "styles.css", "sw.js", "index.html", "tx.html", "explore.css"):
         assert (REPO / f).read_bytes() == (REPO / "public" / f).read_bytes(), f

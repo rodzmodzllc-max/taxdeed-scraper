@@ -866,6 +866,24 @@ stroke:var(--map-land);stroke-width:.28em;paint-order:stroke fill}
    back. Initials rather than a photo: nothing to upload or store, and it
    still says at a glance which account you are in.
    ========================================================================== */
+/* Global state context (header): the one state selector, beside the
+   account badge and the same height and chrome. A native <select> - the
+   platform picker on a phone, keyboard-operable everywhere. */
+.state-switch{position:relative;display:inline-flex;align-items:center}
+.state-switch select{appearance:none;-webkit-appearance:none;font:inherit;font-size:.78rem;font-weight:700;
+letter-spacing:.01em;color:var(--header-ink);background:rgba(255,255,255,.10);
+border:1px solid var(--header-line);border-radius:3px;height:calc(1.55rem + .4rem + 2px);
+padding:0 1.55rem 0 .6rem;cursor:pointer;max-width:9.5rem;text-overflow:ellipsis}
+.state-switch select:hover{background:rgba(255,255,255,.18)}
+.state-switch select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.state-switch select option{color:var(--ink);background:var(--card)}
+/* The select sizes to its longest state name ("Louisiana"), so on a narrow
+   phone brand mark + wordmark + selector + account badge would overrun the
+   row. Below 400px the logo alone carries the brand. */
+@media (max-width:399px){.topbar .brand-name{display:none}}
+.state-switch::after{content:"";position:absolute;right:.6rem;top:50%;width:6px;height:6px;
+border-right:2px solid var(--header-ink-soft);border-bottom:2px solid var(--header-ink-soft);
+transform:translateY(-70%) rotate(45deg);pointer-events:none}
 .account{position:relative}
 .account-badge{display:inline-flex;align-items:center;gap:.32rem;cursor:pointer;
 background:rgba(255,255,255,.10);border:1px solid var(--header-line);
@@ -953,12 +971,11 @@ color:#fff;cursor:pointer;margin-top:.3rem;letter-spacing:.01em}
 .map-page-title{font-family:var(--font-sans);font-weight:800;font-size:1rem;letter-spacing:-.01em;
   margin:0 .35rem 0 0;color:var(--ink);white-space:nowrap}
 /* Unified navigation (2026-09-30): the title sits over a context line
-   ("State: Florida · Ledger: Available · County: All counties") written by
-   renderMapContext() in app.js - a label, not a control (the controls are
-   the state select, the ledger pills and the county select beside it). */
+   ("Ledger: Available · County: All counties") written by renderMapContext()
+   in app.js - a label, not a control (the controls are the ledger pills and
+   the county select beside it; the state is the header's #stateSelect). */
 .map-page-titlebox{margin-right:.35rem}
 .map-page-title{margin:0}
-.map-toolbar .qc-field.map-toolbar-state{flex:0 1 150px}
 .map-toolbar .qc-field{flex:1 1 200px;max-width:300px}
 .map-toolbar .qc-field.qc-county{flex:0 1 180px}
 .map-toolbar .map-style-toggle{margin-left:auto}
@@ -968,7 +985,6 @@ color:#fff;cursor:pointer;margin-top:.3rem;letter-spacing:.01em}
   .map-page-title{font-size:.95rem;margin:0}
   .map-toolbar .qc-field{flex:1 1 100%;max-width:none}
   .map-toolbar .qc-field.qc-county{flex:1 1 44%}
-  .map-toolbar .qc-field.map-toolbar-state{flex:1 1 44%}
   .map-toolbar .map-style-toggle{margin-left:0;flex:1 1 50%;justify-content:center}
   .map-watch-pill{flex:0 1 auto}
 }

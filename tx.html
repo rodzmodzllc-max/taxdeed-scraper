@@ -124,6 +124,12 @@ sign out were competing for width with the ledger tabs on a phone; they are
 account concerns, so they live behind the badge with the rest of them. The
 same buttons keep the same ids, so nothing that referenced them had to move. -->
 <span class="header-btns">
+<!-- The one state selector (global working context): options come from
+STATE_META in app.js (buildStateSelect()); choosing one navigates to that
+state's page and carries the current route along. -->
+<label class="state-switch" title="State">
+  <select id="stateSelect" aria-label="State"></select>
+</label>
 <div class="account" id="account">
   <button class="account-badge" id="accountBtn" type="button" aria-haspopup="menu"
           aria-expanded="false" aria-controls="accountMenu" title="Account">
@@ -143,6 +149,8 @@ same buttons keep the same ids, so nothing that referenced them had to move. -->
     <button class="account-item" id="installBtn" type="button" role="menuitem" hidden>Install app</button>
     <button class="account-item" id="helpBtnMenu" type="button" role="menuitem">How to read this data</button>
     <button class="account-item" id="supportBtnMenu" type="button" role="menuitem">Contact support</button>
+    <!-- Admin area link: shown only when the SERVER-read profile says admin (app.js IS_ADMIN). Visibility only - /admin re-checks with the server itself. -->
+    <a class="account-item" id="adminAreaLink" href="admin.html" role="menuitem" hidden>Admin area</a>
     <button class="account-item" id="termsBtnMenu" type="button" role="menuitem">Terms &amp; disclaimer</button>
     <button class="account-item danger" id="signOutBtn" type="button" role="menuitem">Sign out</button>
     <button class="account-item danger" id="deleteAccountBtn" type="button" role="menuitem">Delete my account</button>
@@ -249,27 +257,6 @@ app.js and docs/production-configuration.md section 7. -->
 
 <section class="page" id="pageList">
 <div class="masthead">
-<!-- State switcher: which state's tax-sale universe this page is. Used to
-be a JS-driven filter (click a tab, toggle state.region, re-render the
-same page) - now it's plain cross-page navigation, since FL and TX are
-genuinely separate pages (public/index.html vs public/tx.html), each
-loading only its own state's rows via the get_properties(p_state, ...)
-RPC (see PAGE_STATE and loadAll() in app.js). No live counts here for
-the same reason: computing Texas's count from the Florida page would
-itself be the cross-state query this whole rework exists to avoid.
-First thing under the masthead, above the ledger tabs, since it changes
-what the three ledgers below even mean (see LEDGERS' .tx overrides and
-ledgerCopy() in app.js) - not a filter within a ledger, a different
-ledger set entirely. Texas starts genuinely empty (no harvester live
-yet - see harvesters/texas_harvester.py) by design, not a bug: the
-page, region-scoped RPC, and dor_use_code/tx_category badges are all
-real, shipped ahead of TX data so the pipeline has somewhere to land
-the moment a harvester goes live. -->
-<nav class="region-tabs" id="regionTabs" aria-label="State">
-<a class="region-tab" data-region="FL" data-state-link href="index.html"><span class="region-tab-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-8-4.6-8-11a8 8 0 1116 0c0 6.4-8 11-8 11z"/><circle cx="12" cy="10" r="3"/></svg></span>Florida</a>
-<a class="region-tab on" data-region="TX" data-state-link href="tx.html" aria-current="page"><span class="region-tab-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-8-4.6-8-11a8 8 0 1116 0c0 6.4-8 11-8 11z"/><circle cx="12" cy="10" r="3"/></svg></span>Texas</a>
-<a class="region-tab" data-region="LA" data-state-link href="la.html"><span class="region-tab-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-8-4.6-8-11a8 8 0 1116 0c0 6.4-8 11-8 11z"/><circle cx="12" cy="10" r="3"/></svg></span>Louisiana</a>
-</nav>
 <!-- Two (really three) separate ledgers, front and center right after sign-in -
 not one long scroll where Lands Available sits under 300+ auction cards. -->
 <nav class="ledger-tabs" id="ledgerTabs" aria-label="Ledger">
@@ -525,24 +512,12 @@ only where it lives changed, not how it draws. -->
 full note. Same structure, same ids. -->
 <section class="page map-page" id="pageMap" hidden>
 <div class="map-toolbar" id="mapToolbar">
-<!-- State name filled in from PAGE_STATE by applyLedgerChrome() in app.js -
-see index.html's copy of this comment. -->
 <div class="map-page-titlebox">
 <h1 class="map-page-title">Map</h1>
-<!-- The context line reads what the map is showing right now: the state
-(PAGE_STATE - the <body data-state> this page loaded with), the ledger pill
-and the county select. Written by renderMapContext() in app.js on every
-map render; never from the rows' own counties. -->
-<p class="map-context" id="mapContext"><span>State: <b id="mapContextState"></b></span> · <span>Ledger: <b id="mapContextLedger"></b></span> · <span>County: <b id="mapContextCounty"></b></span></p>
-</div>
-<!-- State selector: one option per state this app has a page and basemap
-for (STATE_META in app.js, the same table the Python side's production
-state list is pinned to). Picking a state is real page navigation
-(index.html / tx.html) that carries the map context hash along. -->
-<div class="qc-field qc-county map-toolbar-state">
-<span class="qc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 6l7-3 8 3 7-3v16l-7 3-8-3-1 3z"/><path d="M8 3v16M16 6v16"/></svg></span>
-<select id="mapStateSelect" aria-label="State"></select>
-<span class="qc-chevron"></span>
+<!-- The context line reads what the map is showing right now: the ledger
+pill and the county select (the state is the header's #stateSelect).
+Written by renderMapContext() in app.js on every map render. -->
+<p class="map-context" id="mapContext"><span>Ledger: <b id="mapContextLedger"></b></span> · <span>County: <b id="mapContextCounty"></b></span></p>
 </div>
 <div class="qc-field map-toolbar-search">
 <span class="qc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></span>

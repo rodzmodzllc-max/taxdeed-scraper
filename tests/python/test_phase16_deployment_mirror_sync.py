@@ -43,6 +43,8 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 # forget"). This test is that same guard, run locally instead of in CI.
 DEPLOYED_BUNDLE_FILES = (
     "_headers",
+    "admin.html",   # 2026-09-30 admin area (/admin) and its module
+    "admin.js",
     "app.js",
     # Added Phase 54/55 (map page rebuild + satellite basemap toggle). Both
     # went into sync-public-to-root.yml's FILES list at the time but not into

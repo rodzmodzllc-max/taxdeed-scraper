@@ -131,7 +131,8 @@ def test_f01_a_third_state_page_with_its_own_assets():
     assert '<body data-state="LA">' in html and "<title>Tax Acquisitions — Louisiana</title>" in html
     for page in ("index.html", "tx.html", "la.html"):
         text = (REPO / "public" / page).read_text(encoding="utf-8")
-        assert re.findall(r'data-region="(FL|TX|LA)" data-state-link', text) == ["FL", "TX", "LA"], page
+        # One header state selector per page (options built from STATE_META, which carries LA).
+        assert text.count('<select id="stateSelect" aria-label="State"></select>') == 1 and "data-state-link" not in text, page
     sw = (REPO / "public/sw.js").read_text(encoding="utf-8")
     assert '"/la.html",' in sw and '"/la-parishes.svg",' in sw and 'isLa ? "/la.html"' in sw
     for f in ("la.html", "la-parishes.svg"):

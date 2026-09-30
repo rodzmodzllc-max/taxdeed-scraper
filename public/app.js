@@ -1638,6 +1638,19 @@ if (authModeToggle) {
   authModeToggle.addEventListener("click", () => setAuthMode(authMode === "signin" ? "signup" : "signin"));
 }
 
+// Supabase Auth's raw sign-up errors are written for developers. The one a
+// visitor can meet in normal operation is "Signups not allowed for this
+// instance" - the project's "Allow new users to sign up" switch is off (see
+// docs/production-configuration.md). Say what it means for them instead;
+// every other error keeps Supabase's own wording.
+function signUpErrorText(error) {
+  const msg = String((error && error.message) || "");
+  if (/signups? not allowed/i.test(msg)) {
+    return "New account registration is closed right now, so this account was not created. Please try again later or contact support.";
+  }
+  return msg || "Could not create the account. Please try again.";
+}
+
 const authForm = document.getElementById("authForm");
 if (authForm) {
   authForm.addEventListener("submit", async e => {
@@ -1674,7 +1687,7 @@ if (authForm) {
       });
       if (btn) btn.disabled = false;
       if (error) {
-        if (authMsg) { authMsg.className = "auth-msg err"; authMsg.textContent = error.message; }
+        if (authMsg) { authMsg.className = "auth-msg err"; authMsg.textContent = signUpErrorText(error); }
         return;
       }
       // Two outcomes depending on the project's email-confirmation setting:
@@ -1689,7 +1702,7 @@ if (authForm) {
         setAuthMode("signin");
         if (authMsg) {
           authMsg.className = "auth-msg";
-          authMsg.textContent = "Account created — check your email to confirm it, then sign in.";
+          authMsg.textContent = "Account created — check your email to confirm it, then sign in. New accounts stay pending until an administrator approves them.";
         }
       }
       return;
@@ -1799,6 +1812,10 @@ async function checkApprovalAndEnter(session) {
     return;
   }
   IS_ADMIN = !!(profile && profile.is_admin);
+  // The account menu's "Admin area" link (visibility only - admin.html asks
+  // the server again and refuses anyone the server does not call an admin).
+  const adminLink = document.getElementById("adminAreaLink");
+  if (adminLink) adminLink.hidden = !IS_ADMIN;
   if (profile && profile.approved) showApp();
   else showPending();
 }
@@ -4426,9 +4443,19 @@ function renderBidListModal() {
   const rows = bidListRows();
   const pendingRows = BID_LIST_PENDING.map(id => ALL.find(p => p.id === id)).filter(Boolean);
   const countLabel = `${BIDLIST.size}/${BID_LIST_MAX}`;
+  // The watchlist is one list per account (the cap counts all of it), shown
+  // in the selected state's context: rows are looked up in ALL, which holds
+  // only PAGE_STATE's rows. Saved items that are not among them - saved
+  // under another state, or no longer listed - are counted, never removed.
+  const elsewhere = BIDLIST_ORDER.filter(id => !ALL.some(p => p.id === id)).length;
+  const elsewhereHtml = elsewhere
+    ? `<p class="bidlist-elsewhere" id="bidListElsewhere">${elsewhere} saved item${elsewhere === 1 ? " is" : "s are"} not in ${esc(STATE_INFO.name)}'s current listings (saved under another state, or no longer listed). Switch state in the header to see another state's items.</p>`
+    : "";
   const listHtml = rows.length
     ? ""
-    : `<div class="empty-state">Your watchlist is empty. Click ⚐ on any property to save it here — up to ${BID_LIST_MAX}.</div>`;
+    : elsewhere
+      ? `<div class="empty-state">No watchlist items in ${esc(STATE_INFO.name)}.</div>`
+      : `<div class="empty-state">Your watchlist is empty. Click ⚐ on any property to save it here — up to ${BID_LIST_MAX}.</div>`;
   const pendingHtml = pendingRows.length ? `
     <div class="bidlist-pending">
       <div class="bidlist-pending-head">⏳ Waiting for a slot (${pendingRows.length}) - added automatically, oldest first, as you remove items above</div>
@@ -4440,6 +4467,7 @@ function renderBidListModal() {
     <p class="mega-sub" style="margin:0 0 .8rem">The short list you're actively tracking — separate from ♡ Favorites, capped at ${BID_LIST_MAX} to keep it focused.</p>
     <div class="bidlist-changes" id="bidListChanges">${watchChangesHtml(WATCH_CHANGES)}</div>
     ${listHtml}
+    ${elsewhereHtml}
     <div class="prop-list flat" id="bidListRows"></div>
     ${pendingHtml}`;
   // Unified navigation (2026-09-30): a parcel that sits on the watchlist in
@@ -4865,15 +4893,9 @@ function render() {
     if (isPastDue(p) || HIDDEN.has(p.id) || goneExpired(p)) return;
     tabCounts[p.source]++;
   });
-  // #regionTabs used to be a JS-driven filter (click FL/TX, toggle
-  // state.region, re-render) with live cross-state counts computed here.
-  // Now that FL and TX are genuinely separate pages, #regionTabs is plain
-  // <a href> navigation between public/index.html and public/tx.html - see
-  // those files. There is nothing to compute or wire up here: no live count
-  // (that would require querying the OTHER state, which is exactly the
-  // combined/cross-state query this whole rework exists to avoid), and no
-  // active-tab toggling (each page's own markup already marks its own link
-  // current).
+  // No cross-state counts here: the state is the page (the header's
+  // #stateSelect), and counting another state would need exactly the
+  // combined/cross-state query the per-state pages exist to avoid.
   document.querySelectorAll("#ledgerTabs .ledger-tab").forEach(btn => {
     const src = btn.dataset.ledger;
     const active = src === activeLedger;
@@ -5308,8 +5330,9 @@ let mapLoaded = false;
 //   #/map[?ledger=..&county=..&q=..&watch=1]   the Map page with its context
 //   #/watchlist                      the watchlist, over whatever page is open
 //   #map                             legacy Map deep link, rewritten to #/map
-// The state is not in the hash: it is the page (index.html / tx.html); a
-// state switch carries the hash across (syncStateLinks()).
+// The state is not in the hash: it is the page (index.html / tx.html) -
+// PAGE_STATE, the one state context every page reads (see the header's
+// #stateSelect below). A state switch carries the hash across.
 function routeFromHash() {
   const h = location.hash || "";
   if (h === "#map") return { page: "map", params: {} };
@@ -5366,17 +5389,47 @@ function syncPageHash() {
   try { history.replaceState(history.state, "", want); } catch { /* file:// etc */ }
   syncStateLinks();
 }
-// The FL / TX links (#regionTabs on the List page, #mapStateSelect on the
-// Map page) carry the current hash across, so state, ledger, county and
-// search survive a state switch. Same-page links get "aria-current".
-function syncStateLinks() {
-  const hash = location.hash || "";
-  document.querySelectorAll("a[data-state-link]").forEach(a => {
-    const st = a.dataset.region;
-    if (!STATE_META[st]) return;
-    a.setAttribute("href", STATE_META[st].page + hash);
-  });
+// ==================== global state context (header #stateSelect) ====================
+// ONE state selector, in the shared header next to the account badge. The
+// selected state is PAGE_STATE - the page this app loaded as (index.html =
+// Florida, tx.html = Texas, one row each in STATE_META) - and every
+// destination reads that one value: the rows come from get_properties(
+// p_state: PAGE_STATE) in loadAll(), so Dashboard, List, Map and Watchlist
+// all show the selected state's data, never a relabelled copy of another.
+// Choosing a state is real navigation to that state's page, so the choice
+// is in the URL: a refresh or a shared link keeps it, and nothing
+// page-specific holds a second copy. The current route travels along (page,
+// ledger, map ledger / county / search, watchlist) - except a property id:
+// a property belongs to one state, and opening it on the other state's page
+// would look up an id that is not there.
+function stateSwitchHash() {
+  const r = routeFromHash();
+  if (r && r.page === "list" && r.pid) return "#/" + (LEDGERS[r.ledger] || LEDGERS.auction).slug;
+  return location.hash || "";
 }
+function stateSwitchHref(st) {
+  return STATE_META[st] ? STATE_META[st].page + (location.search || "") + stateSwitchHash() : null;
+}
+// Kept under its old name (every route change already calls it): the
+// header select shows the page's state, whatever navigation happened.
+function syncStateLinks() {
+  const el = document.getElementById("stateSelect");
+  if (el && el.value !== PAGE_STATE) el.value = PAGE_STATE;
+}
+function buildStateSelect() {
+  const el = document.getElementById("stateSelect");
+  if (!el) return;
+  if (!el.options.length) {
+    el.innerHTML = STATE_CODES.map(st => `<option value="${esc(st)}">${esc(STATE_META[st].name)}</option>`).join("");
+    el.addEventListener("change", () => {
+      const st = el.value;
+      if (!STATE_META[st] || st === PAGE_STATE) return;
+      location.href = stateSwitchHref(st);
+    });
+  }
+  el.value = PAGE_STATE;
+}
+buildStateSelect();
 
 // Phase 58: a property's URL fragment - "#/auctions/12345" - so a bookmark,
 // a share, or coming BACK to the app after tapping an outbound link (every
@@ -5410,8 +5463,7 @@ function applyLedgerChrome() {
   // rings, map pins, chips and strip cards all recolour off this one
   // attribute.
   document.documentElement.dataset.ledger = key;
-  // Separate from --led-*: region-tab colouring (styles.css) is fixed
-  // per-state rather than per-ledger, so it doesn't ride the same attribute.
+  // Separate from --led-*: per-state styling rides its own attribute.
   // PAGE_STATE never changes at runtime (it's set once from <body
   // data-state>), but documentElement.dataset.region is still set here
   // rather than hand-added to each HTML file's <html> tag, so styles.css's
@@ -5426,7 +5478,7 @@ function applyLedgerChrome() {
   // Map page's only state cue and the workspace layout dropped it; without
   // this a Texas map and a Florida map are told apart only by their outline.
   // Same authoritative source as the two lines above - PAGE_STATE, never a
-  // row's county - and a label only, not a switch (that is #regionTabs).
+  // row's county. The state itself is the header's #stateSelect.
   renderMapContext();
 
   // Certificates are liens, not land: no property type, no title screening,
@@ -5524,12 +5576,8 @@ document.querySelectorAll("#ledgerTabs .ledger-tab[data-ledger]").forEach(btn =>
   });
 });
 
-// setRegion() used to flip state.region client-side and re-render without a
-// page load - that's gone along with the region-tab click wiring it drove.
-// #regionTabs is now plain <a href> navigation between public/index.html
-// and public/tx.html (see applyLedgerChrome() above for the one thing that
-// still reads the state dimension - PAGE_STATE, a load-time constant, not a
-// click-driven one).
+// The state dimension is PAGE_STATE, a load-time constant switched only by
+// the header's #stateSelect (page navigation) - see buildStateSelect().
 
 // Someone editing the address bar, or following a #/lands link into an
 // already-open tab. popstate is handled separately (see BACK_LAYERS at the
@@ -7280,29 +7328,12 @@ function buildMapCountySelect() {
     names.map(v => `<option value="${esc(v)}">${esc(v)} (${counts.get(v) || 0})</option>`).join("");
   el.value = mapFilter.county;
 }
-// One option per state in STATE_META (every state with a page, a basemap and
-// production data); the current page's state is selected. Changing it is
-// real navigation to that state's page, carrying the map context along.
-function buildMapStateSelect() {
-  const el = document.getElementById("mapStateSelect");
-  if (!el) return;
-  if (!el.options.length) {
-    el.innerHTML = STATE_CODES.map(st => `<option value="${esc(st)}">${esc(STATE_META[st].name)}</option>`).join("");
-    el.addEventListener("change", () => {
-      const st = el.value;
-      if (!STATE_META[st] || st === PAGE_STATE) return;
-      location.href = STATE_META[st].page + mapHash();
-    });
-  }
-  el.value = PAGE_STATE;
-}
-// "Map · State: Florida · Ledger: Available · County: Bay" - what the map
-// is showing, from the same three inputs the rows are filtered by.
+// "Ledger: Available · County: Bay" - what the map is showing, from the
+// inputs the rows are filtered by. The state is the header's #stateSelect
+// (PAGE_STATE), not repeated here.
 function renderMapContext() {
-  const stEl = document.getElementById("mapContextState");
   const ledEl = document.getElementById("mapContextLedger");
   const ctyEl = document.getElementById("mapContextCounty");
-  if (stEl) stEl.textContent = STATE_INFO.name;
   if (ledEl) ledEl.textContent = mapFilter.ledger === "all" ? "All Ledgers" : (ledgerCopy(mapFilter.ledger).title || mapFilter.ledger);
   if (ctyEl) ctyEl.textContent = mapFilter.county === "ALL" ? `All ${UNITS_WORD}` : `${mapFilter.county} ${UNIT_WORD}`;
 }
@@ -7312,7 +7343,6 @@ function renderMapContext() {
 // function just computed, so the map can't disagree with the toolbar above
 // it about what's on screen.
 function renderMapPage() {
-  buildMapStateSelect();
   buildMapCountySelect();
   renderMapContext();
   let onMap = false; try { onMap = shellPage === "map"; } catch { onMap = false; }

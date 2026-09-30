@@ -63,10 +63,11 @@ jobs:
           # fixture stub instead of hitting the network. tx.html added
           # Phase 34, alongside run_test.mjs's tx.html navigation - same
           # sed, same anchor line, both files share that exact script tag.
-          sed -i 's#<script src="config.js"></script>#<script src="config.js"></script>\n<script type="importmap">{"imports":{"https://esm.sh/@supabase/supabase-js@2":"./vendor/supabase-stub.js"}}</script>#' /tmp/serve/index.html /tmp/serve/tx.html /tmp/serve/la.html
+          sed -i 's#<script src="config.js"></script>#<script src="config.js"></script>\n<script type="importmap">{"imports":{"https://esm.sh/@supabase/supabase-js@2":"./vendor/supabase-stub.js"}}</script>#' /tmp/serve/index.html /tmp/serve/tx.html /tmp/serve/la.html /tmp/serve/admin.html
           grep -q 'importmap' /tmp/serve/index.html
           grep -q 'importmap' /tmp/serve/tx.html
           grep -q 'importmap' /tmp/serve/la.html
+          grep -q 'importmap' /tmp/serve/admin.html
 
       - name: Serve app
         run: |

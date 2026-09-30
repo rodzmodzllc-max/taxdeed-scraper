@@ -1759,9 +1759,11 @@ Full description: `docs/navigation.md`. The stable facts:
   (`suppressHashRoute`) - see the popstate comment before touching this.
 - **State is the page**, never a hash parameter: `STATE_META` (FL, TX;
   keys pinned to `states.PRODUCTION_STATES` by
-  `tests/python/test_unified_navigation.py`) feeds `#mapStateSelect` and
-  the List's FL/TX links, which carry the current hash across
-  (`syncStateLinks()`). Do not hard-code Florida in the map's chrome.
+  `tests/python/test_unified_navigation.py`) feeds the ONE state control,
+  the header's `#stateSelect` beside the account badge (global state
+  context, 2026-09-30 - the List's FL/TX tabs and the Map's state select are
+  gone). A switch navigates to that state's page carrying the route, minus
+  a property id (`stateSwitchHref()`). Do not hard-code Florida anywhere.
 - **Map county select is scoped to state + ledger** with that ledger's
   counts (`mapCountyCandidates()`); the context line `#mapContext` reads
   "State: · Ledger: · County:" from `renderMapContext()`.
@@ -1850,9 +1852,10 @@ Full description: `docs/state-expansion.md`. Stable facts:
   `data-county` names, rows in `STATE_META` / `MINIMAP_PROJ` (app.js),
   `STATE_ASSETS` / `PROJ` (explore.js), `STATEWIDE_VIEW` (satellite-map.js),
   `county-centroids.json`, `sw.js` SHELL + navigate fallback, the mirror
-  `FILES` list, the CI importmap injection (playwright-test.yml) and a tab in
-  every page's `#regionTabs`. `STATE_META[...].unit` ("Parish") drives
-  `UNIT_WORD`. `sw.js` -> `tdw-shell-v54`.
+  `FILES` list and the CI importmap injection (playwright-test.yml); the
+  header `#stateSelect` lists it automatically from `STATE_META`.
+  `STATE_META[...].unit` ("Parish") drives `UNIT_WORD`. `sw.js` ->
+  `tdw-shell-v56` (combined with the global state header).
 - AL / AR / AZ stay gated (source moved / no table / CSV host unresolvable,
   and no reviewed reuse permission); MN county ArcGIS layers were found but
   not approved. `scripts/capture_state_sources.py` is the value-free live

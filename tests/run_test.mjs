@@ -1727,7 +1727,7 @@ await txMapPage.goto(TX_BASE_URL + '#map', { waitUntil: 'networkidle' });
 await txMapPage.waitForTimeout(600);
 results.txMapPageVisibleOnColdLoad = await txMapPage.locator('#pageMap').isVisible();
 results.txMapContextTexas = ((await txMapPage.locator('#mapContext').textContent()) || '').replace(/\s+/g, ' ').trim();
-results.txMapStateValue = await txMapPage.locator('#mapStateSelect').inputValue();
+results.txMapStateValue = await txMapPage.locator('#stateSelect').inputValue();
 results.txMapPathCount = await txMapPage.locator('#exploreMapCanvas path[data-county]').count();
 await txMapPage.close();
 
@@ -2051,9 +2051,9 @@ results.navListCountIsSum = await dashPage.evaluate(() => {
   const tabs = Array.from(document.querySelectorAll('#ledgerTabs .ledger-tab b')).map(b => Number(b.textContent));
   return Number(document.getElementById('navCountList').textContent) === tabs.reduce((a, b) => a + b, 0) && tabs.reduce((a, b) => a + b, 0) > 0;
 });
-// The FL/TX links carry the current hash across, so a state switch keeps
-// the ledger (and on the Map page: ledger, county, search).
-results.stateLinkCarriesHash = await dashPage.locator('#regionTabs a[data-region="TX"]').getAttribute('href');
+// The List page no longer carries its own state tabs: the state is the
+// header's #stateSelect (see the global state context block below).
+results.listHasNoStateTabs = (await dashPage.locator('#regionTabs, a[data-state-link]').count()) === 0;
 // Watchlist: a destination with its own hash, lit while open; closing it
 // restores the page underneath and its hash.
 await dashPage.click('.nav-list .nav-item[data-page="watchlist"]');
@@ -2708,8 +2708,9 @@ results.navMapDeepLaftPill = await navMap.locator('#mapLedgerPills [data-ledger=
 results.navMapDeepCounty = await navMap.locator('#mapCountySelect').inputValue();
 results.navMapDeepContext = ((await navMap.locator('#mapContext').textContent()) || '').replace(/\s+/g, ' ').trim();
 results.navMapDeepHash = await navMap.evaluate(() => location.hash);
-results.navMapStateOptions = await navMap.locator('#mapStateSelect option').evaluateAll(els => els.map(e => e.value + ':' + e.textContent));
-results.navMapStateValue = await navMap.locator('#mapStateSelect').inputValue();
+results.navMapStateOptions = await navMap.locator('#stateSelect option').evaluateAll(els => els.map(e => e.value + ':' + e.textContent));
+results.navMapStateValue = await navMap.locator('#stateSelect').inputValue();
+results.navMapHasNoOwnStateSelect = (await navMap.locator('#pageMap select[aria-label="State"], #mapStateSelect').count()) === 0;
 results.navMapAllLedgersLabel = ((await navMap.locator('#mapLedgerPills [data-ledger="all"]').textContent()) || '').trim();
 results.navMapCertPillLabel = ((await navMap.locator('#mapLedgerPills [data-ledger="certificate"]').textContent()) || '').trim();
 // The county select lists only counties with inventory in the selected
@@ -2730,13 +2731,6 @@ results.navMapAllHash = await navMap.evaluate(() => location.hash);
 await navMap.fill('#mapSearchInput', 'Oak');
 await navMap.waitForTimeout(300);
 results.navMapSearchHash = await navMap.evaluate(() => location.hash);
-// Switching state from the Map page navigates to that state's page with the
-// same map context in the hash (the select's own change handler builds the
-// URL from mapHash()); checked without leaving the page.
-results.navMapTxHref = await navMap.evaluate(() => {
-  const sel = document.getElementById('mapStateSelect');
-  return (window.__tdwStateHref = null, sel && [...sel.options].some(o => o.value === 'TX')) ? 'tx.html' + location.hash : null;
-});
 // The ledger picked on the Map page does not leak into the List page's
 // own ledger and back.
 await navMap.click('.nav-list .nav-item[data-page="list"]');
@@ -2747,6 +2741,215 @@ await navMap.click('.nav-list .nav-item[data-page="map"]');
 await navMap.waitForTimeout(300);
 results.navListToMapHashKeepsContext = await navMap.evaluate(() => location.hash);
 await navMap.close();
+
+// ============================================================
+// Admin area (/admin, 2026-09-30). ?stubauth=1 switches the stub to its
+// stand-in for Supabase Auth + row-level security (a server-held user table,
+// a password check, a session, own-row profile reads - see the stub). The
+// passwords typed here are the stub's FIXTURE passwords for fake accounts.
+// admin.html decides only from the server's answer; the shell is hidden
+// until then, and anyone else is sent to the normal application.
+// ============================================================
+{
+  const ADMIN_URL = BASE_URL.replace(/index\.html$/, 'admin.html') + '?stubauth=1';
+  const APP_URL = BASE_URL + '?stubauth=1';
+  const signIn = async (pg, email, password) => {
+    await pg.goto(APP_URL, { waitUntil: 'networkidle' });
+    await pg.fill('#email', email);
+    await pg.fill('#password', password);
+    await pg.click('#signInBtn');
+    await pg.waitForTimeout(600);
+  };
+  const onAdminShell = async pg => pg.evaluate(() => /admin\.html/.test(location.pathname) && !document.getElementById('adminShell').hidden);
+  const openAdmin = async pg => { await pg.goto(ADMIN_URL, { waitUntil: 'networkidle' }); await pg.waitForTimeout(600); };
+
+  // No session at all: /admin sends you to the normal sign-in flow.
+  const anon = await newPage({ viewport: { width: 1000, height: 800 } });
+  await openAdmin(anon);
+  results.adminAnonRedirected = await anon.evaluate(() => /index\.html$/.test(location.pathname));
+  results.adminAnonShellShown = (await anon.locator('#adminShell').count()) > 0 && await anon.locator('#adminShell').isVisible();
+  await anon.close();
+
+  // 1. A normal user signs in normally and sees the normal application.
+  const normal = await newPage({ viewport: { width: 1000, height: 800 } });
+  await signIn(normal, 'normal@example.com', 'fixture-normal-pass');
+  results.adminNormalAppVisible = await normal.locator('#app').isVisible();
+  results.adminNormalMenuLinkHidden = await normal.locator('#adminAreaLink').isHidden();
+  // 3. ... and cannot open /admin by typing it.
+  await openAdmin(normal);
+  results.adminNormalRedirected = await normal.evaluate(() => /index\.html$/.test(location.pathname));
+  // 7. Client state cannot grant admin: every flag a page could set is ignored.
+  await normal.goto(APP_URL, { waitUntil: 'networkidle' });
+  await normal.evaluate(() => {
+    for (const store of [localStorage, sessionStorage]) {
+      store.setItem('is_admin', 'true'); store.setItem('IS_ADMIN', 'true'); store.setItem('role', 'admin'); store.setItem('tdw-admin', '1');
+    }
+    window.IS_ADMIN = true;
+  });
+  await openAdmin(normal);
+  results.adminTamperRedirected = await normal.evaluate(() => /index\.html$/.test(location.pathname));
+  results.adminTamperShellShown = await onAdminShell(normal);
+  await normal.close();
+
+  // 9. Wrong admin credentials are rejected: an error, no session, no admin area.
+  const bad = await newPage({ viewport: { width: 1000, height: 800 } });
+  await signIn(bad, 'admin@example.com', 'not-the-password');
+  results.adminBadCredsError = ((await bad.locator('#authMsg').textContent()) || '').trim().length > 0;
+  results.adminBadCredsAppHidden = await bad.locator('#app').isHidden();
+  await openAdmin(bad);
+  results.adminBadCredsRedirected = await bad.evaluate(() => /index\.html$/.test(location.pathname));
+  await bad.close();
+
+  // 4-5. The admin signs in, sees the Admin link, and opens /admin.
+  const adm = await newPage({ viewport: { width: 1000, height: 800 } });
+  await signIn(adm, 'admin@example.com', 'fixture-admin-pass');
+  results.adminAppVisible = await adm.locator('#app').isVisible();
+  results.adminMenuLinkShown = await adm.locator('#adminAreaLink').isVisible() || !(await adm.locator('#adminAreaLink').evaluate(el => el.hidden));
+  await openAdmin(adm);
+  results.adminShellShown = await onAdminShell(adm);
+  results.adminIdentityText = ((await adm.locator('#adminIdentity').textContent()) || '').trim();
+  results.adminShellShowsNoEmail = !/@/.test((await adm.locator('#adminShell').textContent()) || '');
+  // 8. Signing out removes admin access: redirected now, and on a revisit.
+  await adm.click('#adminSignOut');
+  await adm.waitForTimeout(600);
+  results.adminSignOutRedirected = await adm.evaluate(() => /index\.html$/.test(location.pathname));
+  await openAdmin(adm);
+  results.adminAfterSignOutRedirected = await adm.evaluate(() => /index\.html$/.test(location.pathname));
+  await adm.close();
+}
+
+// ============================================================
+// Public sign-up with mandatory admin approval (2026-09-30). One browser
+// context = one "server": a sign-up in one tab is seen by the admin in
+// another (the stub keeps its user table as the server's database - see
+// the stub). Lifecycle A-E.
+// ============================================================
+{
+  const ctx = await browser.newContext({ viewport: { width: 1000, height: 800 } });
+  const APP_URL = BASE_URL + '?stubauth=1';
+  const ADMIN_URL = BASE_URL.replace(/index\.html$/, 'admin.html') + '?stubauth=1';
+  const openAdmin = async pg => { await pg.goto(ADMIN_URL, { waitUntil: 'networkidle' }); await pg.waitForTimeout(600); };
+  const onAdminShell = async pg => pg.evaluate(() => /admin\.html/.test(location.pathname) && !document.getElementById('adminShell').hidden);
+  const fillSignUp = async (pg, email, password) => {
+    await pg.click('#authModeToggle');
+    await pg.fill('#firstName', 'Pat'); await pg.fill('#lastName', 'Example'); await pg.fill('#company', 'Independent');
+    await pg.fill('#address', '1 Main St'); await pg.fill('#phone', '555-0100');
+    await pg.fill('#email', email); await pg.fill('#password', password); await pg.fill('#passwordConfirm', password);
+    await pg.click('#signInBtn');
+    await pg.waitForTimeout(700);
+  };
+  const signIn = async (pg, email, password) => {
+    await pg.goto(APP_URL, { waitUntil: 'networkidle' });
+    await pg.fill('#email', email); await pg.fill('#password', password);
+    await pg.click('#signInBtn'); await pg.waitForTimeout(700);
+  };
+
+  // A. Anonymous visitor: the sign-up form is offered; /admin is refused.
+  const visitor = await ctx.newPage();
+  await visitor.goto(APP_URL, { waitUntil: 'networkidle' });
+  await visitor.click('#authModeToggle');
+  results.signupFormOffered = await visitor.locator('#passwordConfirm').isVisible() && await visitor.locator('#firstName').isVisible();
+  results.signupButtonText = ((await visitor.locator('#signInBtn').textContent()) || '').trim();
+  await openAdmin(visitor);
+  results.signupAnonAdminRedirected = await visitor.evaluate(() => /index\.html$/.test(location.pathname));
+
+  // B. A new user signs up: account created, profile pending (not admin),
+  // the pending screen instead of the app, and /admin refused.
+  await visitor.goto(APP_URL, { waitUntil: 'networkidle' });
+  await fillSignUp(visitor, 'newcomer@example.com', 'fixture-newcomer-pass');
+  results.signupPendingShown = await visitor.locator('#pendingGate').isVisible();
+  results.signupPendingText = ((await visitor.locator('#pendingGate .auth-lead').textContent()) || '').trim();
+  results.signupAppHidden = await visitor.locator('#app').isHidden();
+  results.signupAuthMsgNotSignupsDisabled = !/signups? not allowed/i.test((await visitor.locator('#authMsg').textContent()) || '');
+  results.signupProfile = await visitor.evaluate(async () => {
+    const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
+    const { data } = await createClient().from('profiles').select('approved,is_admin').maybeSingle();
+    return data && { approved: data.approved, is_admin: data.is_admin };
+  });
+  results.signupNoLedgerRowsRendered = (await visitor.locator('#main .prop-card').count()) === 0;
+  await openAdmin(visitor);
+  results.signupPendingAdminRedirected = await visitor.evaluate(() => /index\.html$/.test(location.pathname));
+
+  // E. Security: tampering grants nothing. The pending user tries to make
+  // itself admin / approved through the API, and to approve itself with
+  // is_admin smuggled in sign-up metadata - the server (RLS) changes nothing.
+  await visitor.goto(APP_URL, { waitUntil: 'networkidle' });
+  results.signupSelfPromote = await visitor.evaluate(async () => {
+    const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
+    const c = createClient();
+    const { data: sess } = await c.auth.getSession();
+    const id = sess.session.user.id;
+    await c.from('profiles').update({ is_admin: true, approved: true }).eq('id', id);
+    const { data } = await c.from('profiles').select('approved,is_admin').eq('id', id).maybeSingle();
+    return { rowsChanged: (window.__stubProfileUpdates || []).slice(-1)[0].rows, after: data && { approved: data.approved, is_admin: data.is_admin } };
+  });
+  results.signupPendingSeesOnlyOwnRow = await visitor.evaluate(async () => {
+    const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
+    const { data } = await createClient().from('profiles').select('id,email').eq('approved', false);
+    return (data || []).map(r => r.email);
+  });
+  await visitor.evaluate(() => {
+    for (const store of [localStorage, sessionStorage]) { store.setItem('is_admin', 'true'); store.setItem('approved', 'true'); store.setItem('role', 'admin'); }
+    window.IS_ADMIN = true;
+  });
+  await visitor.goto(APP_URL + '&approved=1&admin=1', { waitUntil: 'networkidle' });
+  await visitor.waitForTimeout(600);
+  results.signupTamperStillPending = await visitor.locator('#pendingGate').isVisible() && await visitor.locator('#app').isHidden();
+  await openAdmin(visitor);
+  results.signupTamperAdminRedirected = await visitor.evaluate(() => /index\.html$/.test(location.pathname));
+  const sneaky = await ctx.newPage();
+  await sneaky.goto(APP_URL, { waitUntil: 'networkidle' });
+  results.signupMetadataIgnored = await sneaky.evaluate(async ([email, password]) => {
+    const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
+    const c = createClient();
+    await c.auth.signUp({ email, password, options: { data: { is_admin: true, approved: true } } });
+    const { data } = await c.from('profiles').select('approved,is_admin').maybeSingle();
+    return data && { approved: data.approved, is_admin: data.is_admin };
+  }, ['sneaky@example.com', 'fixture-sneaky-pass']);
+  await sneaky.close();
+
+  // C. The admin signs in, is recognised from the server-read profile,
+  // opens /admin, sees the pending accounts and approves one.
+  const admin = await ctx.newPage();
+  await signIn(admin, 'admin@example.com', 'fixture-admin-pass');
+  results.signupAdminAppVisible = await admin.locator('#app').isVisible();
+  await openAdmin(admin);
+  results.signupAdminShellShown = await onAdminShell(admin);
+  results.signupAdminIdentityNoEmail = !/@/.test((await admin.locator('#adminIdentity').textContent()) || '');
+  results.signupAdminPendingList = await admin.locator('#adminPendingList .admin-approval-row').evaluateAll(els => els.map(e => e.querySelector('.admin-approval-name').textContent.trim()));
+  results.signupAdminPendingStatus = ((await admin.locator('#adminPendingStatus').textContent()) || '').trim();
+  const row = admin.locator('#adminPendingList .admin-approval-row', { hasText: 'newcomer@example.com' });
+  await row.locator('.admin-approve-btn').click();
+  await admin.waitForTimeout(500);
+  results.signupAdminPendingAfterApprove = await admin.locator('#adminPendingList .admin-approval-row').evaluateAll(els => els.map(e => e.querySelector('.admin-approval-name').textContent.trim()));
+  results.signupAdminApproveRowsChanged = await admin.evaluate(() => (window.__stubProfileUpdates || []).slice(-1)[0].rows);
+
+  // D. The approved user signs in and uses the app; /admin is still refused.
+  const member = await ctx.newPage();
+  await signIn(member, 'newcomer@example.com', 'fixture-newcomer-pass');
+  results.signupApprovedAppVisible = await member.locator('#app').isVisible();
+  results.signupApprovedPendingHidden = await member.locator('#pendingGate').isHidden();
+  results.signupApprovedLedgerRows = (await member.locator('#main .prop-card').count()) > 0;
+  results.signupApprovedAdminLinkHidden = await member.locator('#adminAreaLink').evaluate(el => el.hidden);
+  results.signupApprovedProfile = await member.evaluate(async () => {
+    const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
+    const { data } = await createClient().from('profiles').select('approved,is_admin').maybeSingle();
+    return data && { approved: data.approved, is_admin: data.is_admin };
+  });
+  await openAdmin(member);
+  results.signupApprovedAdminRedirected = await member.evaluate(() => /index\.html$/.test(location.pathname));
+  results.signupApprovedAdminShellShown = await onAdminShell(member);
+  await ctx.close();
+
+  // "Signups not allowed for this instance": the visitor gets a clear
+  // message, not Supabase's raw wording, and no account or session.
+  const closed = await newPage({ viewport: { width: 1000, height: 800 } });
+  await closed.goto(APP_URL + '&signupdisabled=1', { waitUntil: 'networkidle' });
+  await fillSignUp(closed, 'late@example.com', 'fixture-late-pass');
+  results.signupDisabledMsg = ((await closed.locator('#authMsg').textContent()) || '').trim();
+  results.signupDisabledNoSession = await closed.locator('#app').isHidden() && await closed.locator('#pendingGate').isHidden();
+  await closed.close();
+}
 
 // ============================================================
 // Louisiana (2026-09-30, state-expansion sprint): la.html is a third state
@@ -2765,7 +2968,8 @@ await navMap.close();
   }
   results.laBodyState = await laPage.evaluate(() => document.body.dataset.state);
   results.laTitle = await laPage.title();
-  results.laRegionTabs = await laPage.locator('#regionTabs .region-tab').evaluateAll(els => els.map(e => e.dataset.region + (e.classList.contains('on') ? '*' : '')));
+  results.laStateSelect = { value: await laPage.locator('#stateSelect').inputValue(), options: await laPage.locator('#stateSelect option').evaluateAll(els => els.map(e => e.value)) };
+  results.laNoStateTabs = (await laPage.locator('#regionTabs, #mapStateSelect').count()) === 0;
   const laCard = laPage.locator('.prop-card[data-pid="pla1"]');
   results.laCardCount = await laCard.count();
   const laCardText = ((await laCard.textContent()) || '').replace(/\s+/g, ' ');
@@ -2783,6 +2987,150 @@ await navMap.close();
   results.laDetailCostNotPublished = /Not published by the source/.test(laDetail);
   results.laDetailNoFixedPrice = !/fixed price/i.test(laDetail);
   await laPage.close();
+}
+
+// ============================================================
+// Global state context (2026-09-30): ONE state selector, in the shared
+// header beside the account badge, built from STATE_META. The state is the
+// page (index.html = FL, tx.html = TX) whose rows come from
+// get_properties(p_state); choosing a state navigates there carrying the
+// route. ?bidlist= seeds one account's watchlist with a Florida row (p1) and
+// a Texas row (ptx1).
+// ============================================================
+{
+  const gs = await newPage({ viewport: { width: 1200, height: 900 } });
+  const WL = '?bidlist=p1,ptx1';
+  const cardPids = pg => pg.locator('#main .prop-card').evaluateAll(els => els.map(e => e.dataset.pid));
+  const snap = async pg => ({
+    file: await pg.evaluate(() => location.pathname.split('/').pop()),
+    hash: await pg.evaluate(() => location.hash),
+    state: await pg.locator('#stateSelect').inputValue()
+  });
+  const go = async (pg, page) => { await pg.click(`.nav-list .nav-item[data-page="${page}"]`); await pg.waitForTimeout(350); };
+  const switchState = async (pg, st) => {
+    await Promise.all([pg.waitForNavigation({ waitUntil: 'networkidle' }), pg.selectOption('#stateSelect', st)]);
+    await pg.waitForTimeout(600);
+  };
+  await gs.goto(BASE_URL + WL + '#/dashboard', { waitUntil: 'networkidle' });
+  await gs.waitForTimeout(600);
+
+  // A. Header: one selector, next to the account control, options from STATE_META.
+  results.gsSelectInHeader = await gs.locator('.topbar .header-btns #stateSelect').count();
+  results.gsSelectBesideAccount = await gs.evaluate(() => document.getElementById('stateSelect').closest('.state-switch').nextElementSibling.id);
+  results.gsOptions = await gs.locator('#stateSelect option').evaluateAll(els => els.map(e => e.value + ':' + e.textContent));
+  results.gsStateSelectCount = await gs.locator('select[aria-label="State"]').count();
+  await gs.click('#accountBtn');
+  await gs.waitForTimeout(200);
+  results.gsAccountMenuOpens = await gs.locator('#accountMenu').isVisible();
+  await gs.keyboard.press('Escape');
+  await gs.click('#accountBtn').catch(() => {});
+  await gs.waitForTimeout(150);
+  if (await gs.locator('#accountMenu').isVisible()) await gs.click('#accountBtn');
+
+  // F. Florida -> Dashboard / List / Map / Watchlist.
+  const fl = {};
+  fl.dash = await snap(gs);
+  fl.dashAuctionTile = ((await gs.locator('[data-ledger-tile="auction"] .stat-tile-val').textContent()) || '').trim();
+  fl.dashCountiesSub = ((await gs.locator('#pageDashboard .stat-tile:not(.stat-tile-btn) .stat-tile-sub').first().textContent()) || '').trim();
+  await go(gs, 'list');
+  fl.list = await snap(gs);
+  const flPids = await cardPids(gs);
+  fl.listOnlyFlorida = flPids.length > 0 && flPids.every(id => !id.startsWith('ptx'));
+  await gs.click('.ledger-tab[data-ledger="laft"]');
+  await gs.waitForTimeout(300);
+  await go(gs, 'map');
+  fl.map = await snap(gs);
+  fl.mapPaths = await gs.locator('#exploreMapCanvas path[data-county]').count();
+  await go(gs, 'watchlist');
+  fl.watch = await snap(gs);
+  fl.watchPids = await gs.locator('#bidListRows .prop-card').evaluateAll(els => els.map(e => e.dataset.pid));
+  fl.watchElsewhere = ((await gs.locator('#bidListElsewhere').textContent()) || '').trim();
+  await gs.click('[data-action="closebidlist"]');
+  await gs.waitForTimeout(250);
+  results.gsFlorida = fl;
+
+  // Switch to Texas from the List page: the ledger (Available) comes along.
+  await go(gs, 'list');
+  await switchState(gs, 'TX');
+  const tx = {};
+  tx.list = await snap(gs);
+  tx.listLedgerOn = await gs.locator('.ledger-tab.on').getAttribute('data-ledger');
+  const txPids = await cardPids(gs);
+  tx.listOnlyTexas = txPids.every(id => id.startsWith('ptx'));
+  await gs.click('.ledger-tab[data-ledger="auction"]');
+  await gs.waitForTimeout(300);
+  const txAuctionPids = await cardPids(gs);
+  tx.listAuctionOnlyTexas = txAuctionPids.length > 0 && txAuctionPids.every(id => id.startsWith('ptx'));
+  await go(gs, 'dashboard');
+  tx.dash = await snap(gs);
+  tx.dashAuctionTile = ((await gs.locator('[data-ledger-tile="auction"] .stat-tile-val').textContent()) || '').trim();
+  tx.dashCountiesSub = ((await gs.locator('#pageDashboard .stat-tile:not(.stat-tile-btn) .stat-tile-sub').first().textContent()) || '').trim();
+  await go(gs, 'map');
+  tx.map = await snap(gs);
+  tx.mapPaths = await gs.locator('#exploreMapCanvas path[data-county]').count();
+  await go(gs, 'watchlist');
+  tx.watch = await snap(gs);
+  tx.watchPids = await gs.locator('#bidListRows .prop-card').evaluateAll(els => els.map(e => e.dataset.pid));
+  tx.watchElsewhere = ((await gs.locator('#bidListElsewhere').textContent()) || '').trim();
+  tx.watchCount = ((await gs.locator('#navWatchlistCount').textContent()) || '').trim();
+  tx.watchDeletes = await gs.evaluate(() => window.__stubBidListDeletes || 0);
+  await gs.click('[data-action="closebidlist"]');
+  await gs.waitForTimeout(250);
+  results.gsTexas = tx;
+
+  // G. Refresh keeps Texas (the state is the URL), on the page it was on.
+  await gs.goto(TX_BASE_URL + WL + '#/map?ledger=auction&county=Harris', { waitUntil: 'networkidle' });
+  await gs.waitForTimeout(600);
+  const beforeReload = await snap(gs);
+  results.gsTexasMapCounty = await gs.locator('#mapCountySelect').inputValue();
+  await gs.reload({ waitUntil: 'networkidle' });
+  await gs.waitForTimeout(600);
+  const afterReload = await snap(gs);
+  results.gsReloadKeepsTexas = afterReload.state === 'TX' && afterReload.file === 'tx.html' && afterReload.hash === beforeReload.hash;
+  results.gsReloadMapVisible = await gs.locator('#pageMap').evaluate(el => !el.hidden);
+
+  // D. Map follows the header: switching back to Florida on the Map page
+  // lands on Florida's map with the same map route (a Texas county the
+  // Florida map does not have falls back to All Counties).
+  await switchState(gs, 'FL');
+  results.gsMapBackToFlorida = await snap(gs);
+  results.gsMapBackPaths = await gs.locator('#exploreMapCanvas path[data-county]').count();
+  results.gsMapBackCounty = await gs.locator('#mapCountySelect').inputValue();
+  await gs.close();
+
+  // Property deep link: a Texas property URL opens in the Texas context; a
+  // state switch from an open property drops the id (it belongs to Texas)
+  // and keeps the ledger.
+  const dl = await newPage({ viewport: { width: 1200, height: 900 } });
+  await dl.goto(TX_BASE_URL + '#/auctions/ptx1', { waitUntil: 'networkidle' });
+  await dl.waitForTimeout(700);
+  results.gsDeepLinkTexas = { state: await dl.locator('#stateSelect').inputValue(), modal: await dl.locator('#detailModal').isVisible() };
+  await Promise.all([dl.waitForNavigation({ waitUntil: 'networkidle' }), dl.selectOption('#stateSelect', 'FL')]);
+  await dl.waitForTimeout(600);
+  results.gsDeepLinkSwitch = { ...(await snap(dl)), modal: await dl.locator('#detailModal').isVisible() };
+  await dl.close();
+
+  // H. Phone: one compact header row - state selector and account badge both
+  // on screen, selector first; the bottom bar keeps exactly four entries.
+  const ph = await newPage({ viewport: { width: 360, height: 780 } });
+  await ph.goto(TX_BASE_URL + '#/list', { waitUntil: 'networkidle' });
+  await ph.waitForTimeout(600);
+  results.gsPhone = await ph.evaluate(() => {
+    const sel = document.getElementById('stateSelect').getBoundingClientRect();
+    const acc = document.getElementById('accountBtn').getBoundingClientRect();
+    const bar = document.querySelector('.topbar').getBoundingClientRect();
+    return {
+      bothVisible: sel.width > 0 && acc.width > 0,
+      inViewport: sel.left >= 0 && acc.right <= window.innerWidth,
+      sameRow: Math.abs((sel.top + sel.bottom) / 2 - (acc.top + acc.bottom) / 2) < 4,
+      selectorFirst: sel.right <= acc.left,
+      headerCompact: bar.height <= 64,
+      noHorizontalScroll: document.documentElement.scrollWidth <= window.innerWidth,
+      value: document.getElementById('stateSelect').value
+    };
+  });
+  results.gsPhoneBottomNav = await ph.locator('.nav-bottom .nav-bottom-item').evaluateAll(els => els.map(e => e.dataset.page));
+  await ph.close();
 }
 
 // Legacy deep links keep working: #map (old Map link), #/lands (ledger
@@ -3170,7 +3518,7 @@ const EXPECTED = {
   tabLaftHash: '#/lands',
   tabLaftHeading: 'Available',
   navListCountIsSum: true,
-  stateLinkCarriesHash: 'tx.html#/lands',
+  listHasNoStateTabs: true,
   navWatchlistOpen: true,
   navWatchlistLit: ['watchlist'],
   navWatchlistHash: '#/watchlist',
@@ -3181,12 +3529,62 @@ const EXPECTED = {
   navMapDeepLit: ['map'],
   navMapDeepLaftPill: true,
   navMapDeepCounty: 'Bay',
-  navMapDeepContext: 'State: Florida · Ledger: Available · County: Bay County',
+  navMapDeepContext: 'Ledger: Available · County: Bay County',
   navMapDeepHash: '#/map?ledger=laft&county=Bay',
   navMapStateOptions: ['FL:Florida', 'TX:Texas', 'LA:Louisiana'],
+  navMapStateValue: 'FL',
+  adminAnonRedirected: true,
+  adminAnonShellShown: false,
+  adminNormalAppVisible: true,
+  adminNormalMenuLinkHidden: true,
+  adminNormalRedirected: true,
+  adminTamperRedirected: true,
+  adminTamperShellShown: false,
+  adminBadCredsError: true,
+  adminBadCredsAppHidden: true,
+  adminBadCredsRedirected: true,
+  adminAppVisible: true,
+  adminMenuLinkShown: true,
+  adminShellShown: true,
+  adminIdentityText: 'Admin',
+  adminShellShowsNoEmail: true,
+  adminSignOutRedirected: true,
+  adminAfterSignOutRedirected: true,
+  signupFormOffered: true,
+  signupButtonText: 'Create account',
+  signupAnonAdminRedirected: true,
+  signupPendingShown: true,
+  signupPendingText: 'Account created \u2014 awaiting approval.',
+  signupAppHidden: true,
+  signupAuthMsgNotSignupsDisabled: true,
+  signupProfile: { approved: false, is_admin: false },
+  signupNoLedgerRowsRendered: true,
+  signupPendingAdminRedirected: true,
+  signupSelfPromote: { rowsChanged: 0, after: { approved: false, is_admin: false } },
+  signupPendingSeesOnlyOwnRow: ['newcomer@example.com'],
+  signupTamperStillPending: true,
+  signupTamperAdminRedirected: true,
+  signupMetadataIgnored: { approved: false, is_admin: false },
+  signupAdminAppVisible: true,
+  signupAdminShellShown: true,
+  signupAdminIdentityNoEmail: true,
+  signupAdminPendingList: ['newcomer@example.com', 'sneaky@example.com'],
+  signupAdminPendingStatus: '2 accounts are waiting for approval.',
+  signupAdminPendingAfterApprove: ['sneaky@example.com'],
+  signupAdminApproveRowsChanged: 1,
+  signupApprovedAppVisible: true,
+  signupApprovedPendingHidden: true,
+  signupApprovedLedgerRows: true,
+  signupApprovedAdminLinkHidden: true,
+  signupApprovedProfile: { approved: true, is_admin: false },
+  signupApprovedAdminRedirected: true,
+  signupApprovedAdminShellShown: false,
+  signupDisabledMsg: 'New account registration is closed right now, so this account was not created. Please try again later or contact support.',
+  signupDisabledNoSession: true,
   laBodyState: 'LA',
   laTitle: 'Available — Adjudicated Property · Tax Acquisitions — Louisiana',
-  laRegionTabs: ['FL', 'TX', 'LA*'],
+  laStateSelect: { value: 'LA', options: ['FL', 'TX', 'LA'] },
+  laNoStateTabs: true,
   laCardCount: 1,
   laCardSaysListAsOf: true,
   laCardSaysAvailableNow: false,
@@ -3198,19 +3596,35 @@ const EXPECTED = {
   laDetailInventoryLabel: true,
   laDetailCostNotPublished: true,
   laDetailNoFixedPrice: true,
-  navMapStateValue: 'FL',
+  gsSelectInHeader: 1,
+  gsSelectBesideAccount: "account",
+  gsOptions: ["FL:Florida", "TX:Texas", "LA:Louisiana"],
+  gsStateSelectCount: 1,
+  gsAccountMenuOpens: true,
+  gsFlorida: {"dash": {"file": "index.html", "hash": "#/dashboard", "state": "FL"}, "dashAuctionTile": "9", "dashCountiesSub": "Florida · 12 tracked incl. no-longer-listed", "list": {"file": "index.html", "hash": "#/auctions", "state": "FL"}, "listOnlyFlorida": true, "map": {"file": "index.html", "hash": "#/map", "state": "FL"}, "mapPaths": 67, "watch": {"file": "index.html", "hash": "#/watchlist", "state": "FL"}, "watchPids": ["p1"], "watchElsewhere": "1 saved item is not in Florida's current listings (saved under another state, or no longer listed). Switch state in the header to see another state's items."},
+  gsTexas: {"list": {"file": "tx.html", "hash": "#/lands", "state": "TX"}, "listLedgerOn": "laft", "listOnlyTexas": true, "listAuctionOnlyTexas": true, "dash": {"file": "tx.html", "hash": "#/dashboard", "state": "TX"}, "dashAuctionTile": "3", "dashCountiesSub": "Texas · 5 tracked incl. no-longer-listed", "map": {"file": "tx.html", "hash": "#/map", "state": "TX"}, "mapPaths": 254, "watch": {"file": "tx.html", "hash": "#/watchlist", "state": "TX"}, "watchPids": ["ptx1"], "watchElsewhere": "1 saved item is not in Texas's current listings (saved under another state, or no longer listed). Switch state in the header to see another state's items.", "watchCount": "2/10", "watchDeletes": 0},
+  gsTexasMapCounty: "Harris",
+  gsReloadKeepsTexas: true,
+  gsReloadMapVisible: true,
+  gsMapBackToFlorida: {"file": "index.html", "hash": "#/map?ledger=auction", "state": "FL"},
+  gsMapBackPaths: 67,
+  gsMapBackCounty: "ALL",
+  gsDeepLinkTexas: {"state": "TX", "modal": true},
+  gsDeepLinkSwitch: {"file": "index.html", "hash": "#/auctions", "state": "FL", "modal": false},
+  gsPhone: {"bothVisible": true, "inViewport": true, "sameRow": true, "selectorFirst": true, "headerCompact": true, "noHorizontalScroll": true, "value": "TX"},
+  gsPhoneBottomNav: ["dashboard", "list", "map", "watchlist"],
+  navMapHasNoOwnStateSelect: true,
   navMapAllLedgersLabel: 'All Ledgers',
   navMapCertPillLabel: 'Liens & Certificates',
   navMapLaftCountyOptions: ['All Counties (2)', 'Bay (1)', 'Citrus (1)'],
   navMapCertCountyOptions: ['All Counties (1)', 'Alachua (1)'],
   navMapCertCountyValue: 'ALL',
-  navMapCertContext: 'State: Florida · Ledger: Liens & Certificates · County: All counties',
+  navMapCertContext: 'Ledger: Liens & Certificates · County: All counties',
   navMapCertHash: '#/map?ledger=certificate',
   navMapCertBubbleCount: 1,
   navMapAllCountyOptions: ['All Counties (8)', 'Alachua (2)', 'Bay (1)', 'Brevard (1)', 'Charlotte (1)', 'Citrus (1)', 'Duval (2)', 'Escambia (2)', 'Marion (2)'],
   navMapAllHash: '#/map',
   navMapSearchHash: '#/map?q=Oak',
-  navMapTxHref: 'tx.html#/map?q=Oak',
   navMapToListHash: '#/auctions',
   navMapToListLit: ['list'],
   navListToMapHashKeepsContext: '#/map?q=Oak',
@@ -3243,7 +3657,7 @@ const EXPECTED = {
   navWlCards: ['p4'],
   navWlRelated: ['Currently listed in Auctions · also on your watchlist'],
   navWlCount: '2/10',
-  mapContextFlorida: 'State: Florida · Ledger: All Ledgers · County: All counties',
+  mapContextFlorida: 'Ledger: All Ledgers · County: All counties',
   mapHashOnMapNav: '#/map',
   mapPathCount: 67,
   // Portfolio-wide (every ledger) rather than scoped to whatever the
@@ -3496,7 +3910,7 @@ const EXPECTED = {
   txRaPastDetailLinkText: /^Sale listing no longer current · sale date [A-Z][a-z]{2} \d{1,2}, \d{4} has passed$/,
   // Phase 67: Map-page state cue on both entry points.
   txMapPageVisibleOnColdLoad: true,
-  txMapContextTexas: 'State: Texas · Ledger: All Ledgers · County: All counties',
+  txMapContextTexas: 'Ledger: All Ledgers · County: All counties',
   txMapStateValue: 'TX',
   txMapPathCount: 254,
   // Phase 58: property deep-linking regression coverage.
