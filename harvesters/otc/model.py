@@ -76,6 +76,10 @@ class OtcRecord:
     parcel: str | None = None
     address: str | None = None
     legal_desc: str | None = None
+    # The name the source publishes for the property (FL: owner of record
+    # on the list; AL: the name in which the property was assessed when it
+    # sold to the State). What it means is stated in provenance["owner_name"].
+    owner_name: str | None = None
     amount: float | None = None
     amount_kind: AmountKind = AmountKind.NOT_PUBLISHED
     list_url: str | None = None
@@ -170,6 +174,10 @@ class OtcRecord:
                 **self.provenance,
             },
         }
+        if self.owner_name is not None:
+            # Only when the source published one: an absent key never
+            # writes NULL over a value another step carried.
+            row["owner_name"] = self.owner_name
         return row
 
     def as_dict(self) -> dict:

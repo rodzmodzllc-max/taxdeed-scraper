@@ -3,6 +3,9 @@ activation, the widened vocabulary, the registry's publishing-unit and
 semantics columns, the adapter contract, and every gate that keeps an
 inactive state from running. All fixtures are synthetic: no Alabama
 document has been read, so nothing here claims the source's real format.
+2026-09-30: the registry row now carries the agency's own URLs (seen in a
+web search's index - still search evidence, still not activated) and the
+adapter is a real, gated implementation; see test_alabama_source_adapter.py.
 """
 from __future__ import annotations
 
@@ -41,7 +44,10 @@ def test_r01_alabama_is_registered_representable_and_not_production():
     cfg = states.get_state("AL")
     assert cfg is states.AL and cfg.name == "Alabama" and cfg.production is False and cfg.activated is False
     assert set(cfg.publishing_units) == {"STATE", "COUNTY"} and cfg.production_inventory_types == {"STATE_HELD_TAX_LAND"}
-    assert cfg.lifecycle_inventory_type is None and cfg.activation == frozenset()
+    # The lifecycle type is DECLARED (what would be stamped once activated
+    # and storable) but lifecycle_inventory("AL") still refuses (x02).
+    assert cfg.lifecycle_inventory_type == "STATE_HELD_TAX_LAND" and "State inventory" in cfg.lifecycle_inventory_basis
+    assert cfg.activation == frozenset()
     assert states.state_problems("AL") == []                       # the model may represent it
     assert not states.is_activated("AL") and "AL" not in states.PRODUCTION_STATES
     assert states.activation_blockers("AL") == list(states.ACTIVATION_REQUIREMENTS) and len(states.ACTIVATION_REQUIREMENTS) == 10
@@ -114,15 +120,21 @@ def _al_kwargs(**over):
     return base
 
 
-def test_g01_committed_registry_has_exactly_one_alabama_candidate_that_is_not_production_and_names_no_url():
+def test_g01_committed_registry_has_exactly_one_alabama_candidate_that_is_not_production():
     al = [r for r in ROWS if r.state == "AL"]
     assert len(al) == 1 and AL_ROW is al[0]
     assert AL_ROW.publishing_unit == "STATE" and AL_ROW.county == STATEWIDE_UNIT
     assert "Alabama Department of Revenue" in AL_ROW.publishing_unit_name
     assert AL_ROW.verification_status == "SEARCH_EVIDENCE_ONLY" and AL_ROW.governance_status == "TERMS_NOT_VERIFIED"
-    assert AL_ROW.canonical_url == "" and AL_ROW.document_url == "" and AL_ROW.purchase_url == "" and AL_ROW.harvester == ""
+    # 2026-09-30: the agency's own pages, as the search index showed them -
+    # the search page is the list, the process page is purchase INSTRUCTIONS
+    # (never a property link), the transcript document is unknown, and a
+    # non-production row still names no harvester.
+    assert AL_ROW.canonical_url == ala.ADOR_SEARCH_URL and AL_ROW.purchase_url == ala.ADOR_LAND_SALES_URL
+    assert AL_ROW.purchase_url_kind == "purchase_instructions" and AL_ROW.document_url == "" and AL_ROW.harvester == ""
     assert AL_ROW.inventory_type == "STATE_HELD_TAX_LAND" and AL_ROW.amount_kind == "QUOTED_ON_APPLICATION"
-    assert "not verified" in AL_ROW.update_frequency and "unverified" in AL_ROW.source_terminology
+    assert "not read directly" in AL_ROW.update_frequency and "search-index" in AL_ROW.source_terminology
+    assert "WEB SEARCH 2026-09-30" in AL_ROW.evidence_ref
     assert not AL_ROW.is_production and not AL_ROW.runnable
     assert csr.validate_registry(ROWS) == []
     # The FL/TX rows are untouched: 109 rows, all COUNTY, the new columns blank.
@@ -156,7 +168,7 @@ def test_g03_to_db_rows_keeps_the_live_shape_for_fl_tx_and_needs_020_for_alabama
     ext = csr.to_db_rows(ROWS, schema="020")
     assert len(ext) == 110 and all(set(d) == set(csr.EXTENDED_COLUMNS) for d in ext)
     al = next(d for d in ext if d["state"] == "AL")
-    assert al["publishing_unit"] == "STATE" and al["canonical_url"] is None and al["amount_kind"] == "QUOTED_ON_APPLICATION"
+    assert al["publishing_unit"] == "STATE" and al["canonical_url"] == ala.ADOR_SEARCH_URL and al["amount_kind"] == "QUOTED_ON_APPLICATION"
     assert all(d["publishing_unit"] == "COUNTY" and d["amount_kind"] is None for d in ext if d["state"] != "AL")
     with pytest.raises(ValueError, match="unknown registry schema"):
         csr.to_db_rows(ROWS, schema="019")
@@ -230,7 +242,9 @@ def test_a03_parse_rows_is_deterministic_and_never_invents_an_amount_or_a_purcha
     assert (rep.accepted, rep.rejected_identifier, rep.rejected_county, rep.unknown_status, rep.amount_ignored,
             rep.property_links, rep.rejected_property_url) == (4, 2, 2, 1, 1, 1, 1)
     a, b, c, d = recs
-    assert (a.state, a.county, a.case_no, a.parcel) == ("AL", "Jefferson", "12-34-56-0-000-001.000", "12-34-56-0-000-001.000")
+    # The identifier is the identity; a parcel exists only when the source publishes a parcel column (none here).
+    assert (a.state, a.county, a.case_no, a.parcel) == ("AL", "Jefferson", "12-34-56-0-000-001.000", None)
+    assert a.provenance["parcel"] == "no parcel column"
     assert a.inventory_type is InventoryType.STATE_HELD_TAX_LAND and a.amount is None and a.amount_kind is AmountKind.QUOTED_ON_APPLICATION
     assert a.source_status_text == "Available for Sale" and a.provenance["normalized_status"] == "AVAILABLE_FOR_SALE"
     assert a.list_as_of == date(2026, 9, 1) and b.list_as_of == date(2026, 8, 25)      # row date, else the list's; never T
@@ -277,9 +291,15 @@ def test_x01_adapter_can_never_run_today_and_has_no_transport():
         if isinstance(node, (ast.Import, ast.ImportFrom)):
             names = [a.name for a in node.names] + ([node.module] if isinstance(node, ast.ImportFrom) and node.module else [])
             for n in names:
-                assert not n.startswith(("requests", "urllib", "http", "playwright", "socket")), n
-    assert not re.search(r"https?://[^\s\"']*\.(gov|us|com|org)\b", src)       # no endpoint named
-    assert "alabama.gov" not in (REPO / "data/county_source_registry.csv").read_text(encoding="utf-8")
+                # urllib.parse (URL joining) is allowed; no transport is.
+                assert not n.startswith(("requests", "urllib.request", "urllib.error", "http", "playwright", "socket")), n
+                assert n != "urllib", n
+    # The only hosts the module names are the agency's own (the evidence ledger).
+    hosts = set(re.findall(r"https://([^/\s\"']+)", src))
+    assert hosts == {ala.ADOR_HOST}, hosts
+    # The one ADOR row of the registry carries exactly those URLs and nothing else names the host.
+    csv_text = (REPO / "data/county_source_registry.csv").read_text(encoding="utf-8")
+    assert csv_text.count("https://www.revenue.alabama.gov/") == 2 and csv_text.count("\nAL,") == 1
 
 
 def test_x02_the_gate_registry_and_lifecycle_all_refuse_alabama():

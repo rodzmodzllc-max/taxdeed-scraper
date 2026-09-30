@@ -262,19 +262,39 @@ def tx_rows() -> list[dict]:
 # this repository, and SEARCH_EVIDENCE_ONLY / TERMS_NOT_VERIFIED keep the
 # gate shut (harvesters/otc/gate.py refuses the state before it even looks
 # at the row). See docs/alabama-onboarding.md for the activation checklist.
+# 2026-09-30: the Alabama Department of Revenue source, configured in
+# harvesters/otc/adapters/alabama.py (ADOR_SOURCE / ADOR_EVIDENCE). The
+# URLs, the query parameter names and the process wording were seen in a
+# web search's index of revenue.alabama.gov (page titles, URLs, snippets)
+# - concrete, but STILL search-index evidence: nothing was fetched from
+# this repository. So the row stays SEARCH_EVIDENCE_ONLY / TERMS_NOT_VERIFIED
+# with no harvester named (a non-production row may not name one) and can
+# never be run (harvesters/otc/gate.py refuses the state before the row).
+sys.path.insert(0, str(REPO))
+from harvesters.otc.adapters.alabama import ADOR_SOURCE, EVIDENCE_DATE  # noqa: E402
+
 AL_STATE_LAND = dict(
-    state="AL", county="STATEWIDE", source_id="al_ador_state_land", harvester="",
-    inventory_type="STATE_HELD_TAX_LAND", source_authority="GOVERNMENT_DIRECT",
-    canonical_url="", document_url="", purchase_url="", purchase_url_kind="",
-    access_method="UNKNOWN", machine_format="UNKNOWN",
+    state="AL", county="STATEWIDE", source_id=ADOR_SOURCE.source_id, harvester="",
+    inventory_type=ADOR_SOURCE.inventory_type.value, source_authority=ADOR_SOURCE.source_authority.value,
+    canonical_url=ADOR_SOURCE.list_url, document_url="",
+    purchase_url=ADOR_SOURCE.application_url, purchase_url_kind=ADOR_SOURCE.application_url_kind.value,
+    access_method="HTTP_GET_HTML", machine_format="PORTAL",
     verification_status="SEARCH_EVIDENCE_ONLY", governance_status="TERMS_NOT_VERIFIED",
-    last_checked="2026-09-29", completeness_status="UNKNOWN", evidence_ref=AUDIT,
-    notes="Researched concept only: state-held tax-delinquent land sold by ADOR Property Tax Division; per-county transcripts reported; price quoted on application. No page fetched from this repository; URL deliberately blank.",
+    last_checked=EVIDENCE_DATE, completeness_status="UNKNOWN",
+    evidence_ref="WEB SEARCH 2026-09-30 (revenue.alabama.gov page titles, URLs, query strings, snippets - "
+                 "harvesters/otc/adapters/alabama.py ADOR_EVIDENCE); " + AUDIT,
+    notes="State-held tax-delinquent land ('tax delinquent properties currently in State inventory') sold by ADOR Property Tax "
+          "Division. canonical_url = the 'Tax Delinquent Properties for Sale Search' page (county / CS Number / Parcel Number / "
+          "assessed-name search); purchase_url = the 'Tax Delinquent Property and Land Sales' process page (application for "
+          "purchase; price quoted on application) - an instructions page, never a property link. Per-property application "
+          "links are the CS Number links on the results page (read from the page by the adapter, never constructed). "
+          "Transcript document URL/format unknown (document_url blank). Nothing fetched from this repository; search-index "
+          "evidence only; not activated.",
     publishing_unit="STATE",
-    publishing_unit_name="Alabama Department of Revenue, Property Tax Division (State Land Commissioner)",
-    amount_kind="QUOTED_ON_APPLICATION",
-    update_frequency="weekly (reported in search results; not verified)",
-    source_terminology="tax delinquent properties / land sold to the State of Alabama; transcript; price quote on application (research wording, unverified)",
+    publishing_unit_name=ADOR_SOURCE.publishing_unit_name,
+    amount_kind=ADOR_SOURCE.amount_kind.value,
+    update_frequency="weekly (the Land Sales page says county transcripts are 'updated weekly', per the search index 2026-09-30; not read directly)",
+    source_terminology=ADOR_SOURCE.source_terminology + " (search-index wording)",
 )
 
 

@@ -137,13 +137,22 @@ TX = _register(StateConfig(
 # State Land Commissioner), published per county, with the price quoted on
 # application rather than an auction opening bid. Everything about it so far
 # is SEARCH-INDEX evidence (the 50-state audit, 2026-09-29): no page or
-# document has been fetched from this repository. Registered so the model
-# can represent it; NOT production; no activation requirement satisfied.
-# See docs/alabama-onboarding.md and harvesters/otc/adapters/alabama.py.
+# document has been fetched from this repository (2026-09-30: the agency's
+# own page titles, URLs, query strings and snippets were seen in a web
+# search - still search-index evidence, see the adapter's ADOR_EVIDENCE).
+# Registered so the model can represent it; NOT production; no activation
+# requirement satisfied. See docs/alabama-onboarding.md and
+# harvesters/otc/adapters/alabama.py.
 AL = _register(StateConfig(
     code="AL", name="Alabama", publishing_units=(PublishingUnit.STATE.value, PublishingUnit.COUNTY.value),
     production_inventory_types=frozenset({"STATE_HELD_TAX_LAND"}),
-    lifecycle_inventory_type=None, production=False, activation=frozenset()))
+    # What the lifecycle WOULD stamp once the state is activated and
+    # migration 020 makes the value storable (lifecycle_inventory() refuses
+    # both conditions today). The basis is the source's own indexed wording.
+    lifecycle_inventory_type="STATE_HELD_TAX_LAND",
+    lifecycle_inventory_basis="ADOR: 'tax delinquent properties currently in State inventory' (land sold to the State; "
+                              "search-index evidence 2026-09-30, harvesters/otc/adapters/alabama.py ADOR_EVIDENCE)",
+    production=False, activation=frozenset()))
 
 # States whose rows may exist in public.properties: exactly the activated ones.
 PRODUCTION_STATES = frozenset(code for code, cfg in _STATES.items() if cfg.activated)

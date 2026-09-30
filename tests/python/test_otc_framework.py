@@ -141,7 +141,8 @@ def test_t03_adapter_package_never_fetches():
             if isinstance(node, (ast.Import, ast.ImportFrom)):
                 names = [a.name for a in node.names] + ([node.module] if isinstance(node, ast.ImportFrom) and node.module else [])
                 for n in names:
-                    assert not n.startswith(("requests", "urllib", "http", "playwright", "socket")), f"{path.name} imports {n}"
+                    # urllib.parse (URL joining/encoding) cannot fetch; every transport module is refused.
+                    assert n != "urllib" and not n.startswith(("requests", "urllib.request", "urllib.error", "http", "playwright", "socket")), f"{path.name} imports {n}"
 
 
 # ---------------------------------------------------------------- gate
