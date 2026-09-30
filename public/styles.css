@@ -1637,3 +1637,35 @@ live here are removed with the #pageMap section itself - see the note by
 .unit-row .unit-source{font-size:.66rem;color:var(--ink-soft)}
 .health-badge.stale{color:var(--warn)}
 @media (max-width:640px){.prov-row{grid-template-columns:1fr 1fr}.prov-row.prov-head{display:none}}
+
+/* ---- Available decision page (2026-09-30, migration 023) ---- */
+.dec-list{display:flex;flex-direction:column;gap:.1rem}
+.dec-row{display:grid;grid-template-columns:minmax(0,11rem) minmax(0,1fr);gap:.35rem .8rem;padding:.45rem 0;border-top:1px solid var(--card-line);font-size:.8rem;line-height:1.4}
+.dec-row:first-child{border-top:none}
+@media (max-width:560px){ .dec-row{grid-template-columns:1fr;gap:.15rem} }
+.dec-q{font-family:var(--font-sans);font-weight:700;color:var(--ink-soft);font-size:.74rem;letter-spacing:.01em}
+.dec-a{min-width:0;overflow-wrap:anywhere}
+.dec-a.ok{color:var(--ok)} .dec-a.bad{color:var(--bad)} .dec-a.warn{color:var(--warn)} .dec-a.muted{color:var(--ink-soft)}
+.dec-sub{display:block;font-size:.72rem;color:var(--ink-soft);margin-top:.15rem}
+.dec-sub .ok{color:var(--ok)} .dec-sub .warn{color:var(--warn)}
+.dec-gaps{margin:0;padding-left:1.1rem} .dec-gaps li{margin:.1rem 0}
+.dec-history{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:.25rem}
+.dec-history li{display:grid;grid-template-columns:6.2rem minmax(0,1fr);gap:.5rem;align-items:baseline}
+.dec-history .dec-when{font-family:var(--font-mono,monospace);font-size:.72rem;color:var(--ink-soft)}
+.dec-history li[data-kind="removed"] .dec-what{color:var(--bad)}
+.dec-history li[data-kind="reactivated"] .dec-what,.dec-history li[data-kind="result_published"] .dec-what{color:var(--ok)}
+/* ---- Admin source publication panel ---- */
+.admin-publication{border-top:1px solid var(--warn)}
+.admin-pub-note{margin:0 0 .5rem;font-size:.72rem;line-height:1.45;color:var(--ink-soft)}
+.admin-pub-list{display:flex;flex-direction:column;gap:.5rem}
+.admin-pub-row{background:var(--card);border:1px solid var(--card-line);border-radius:.5rem;padding:.5rem .65rem;font-size:.76rem}
+.admin-pub-head{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;font-weight:700}
+.admin-pub-counties{color:var(--ink-soft);font-weight:500}
+.admin-pub-status{margin-left:auto;font-size:.68rem;font-weight:800;letter-spacing:.03em;padding:.1rem .45rem;border-radius:.4rem;border:1px solid var(--card-line)}
+.admin-pub-status[data-status="APPROVED"],.admin-pub-status[data-status="APPROVED_GRANDFATHERED"]{color:var(--ok);border-color:var(--ok)}
+.admin-pub-status[data-status="RESTRICTED"],.admin-pub-status[data-status="BLOCKED"]{color:var(--bad);border-color:var(--bad)}
+.admin-pub-meta,.admin-pub-review{color:var(--ink-soft);margin-top:.2rem}
+.admin-pub-form{display:grid;grid-template-columns:repeat(auto-fit,minmax(11rem,1fr));gap:.4rem;margin-top:.45rem;align-items:end}
+.admin-pub-form label{display:flex;flex-direction:column;gap:.15rem;font-size:.68rem;color:var(--ink-soft)}
+.admin-pub-form input,.admin-pub-form select{font:inherit;font-size:.76rem;padding:.3rem .4rem;border:1px solid var(--card-line);border-radius:.35rem;background:var(--bg);color:var(--ink)}
+.admin-pub-msg{font-size:.7rem;color:var(--ink-soft);grid-column:1 / -1}

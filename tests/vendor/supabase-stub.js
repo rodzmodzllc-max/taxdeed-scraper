@@ -30,6 +30,10 @@ const FIXTURE_PROPERTIES = [
     // decision (migration 022) and an FDOR acreage, so the Available filters
     // and the withholding path have real fields to read.
     publication_status: "APPROVED_GRANDFATHERED", acreage: 1.0,
+    // Migration 023 projects the purchase-path columns as NULL on a row the
+    // engine has not evaluated - the "not yet verified" state the decision
+    // page and the provenance card must render honestly (p15 is the typed one).
+    purchase_path_type: null, purchase_path_scope: null, purchase_path_evidence: null, purchase_path_observed_on: null,
     // Enrichment phase: the list-published fields scripts/laft_source_fields.py
     // carries (certificate number, migration 019's two dates) plus the
     // document/currentness columns the lifecycle writes. purchase_url stays
@@ -101,6 +105,30 @@ const FIXTURE_PROPERTIES = [
   // Available ledger page ("1 record withheld"). Never rendered as inventory.
   { id: "p14", source: "laft", county: "Broward", case_no: "R-1", parcel: "777", address: "7 Restricted Rd", owner_name: "Withheld Source", bid: 3000, assessed: 40000, market: 41000, status: "available", lien_level: "unscreened", lien_note: "", prop_type: "Vacant", sale_date: null, homestead: false, url_auction: "https://x", url_auction_kind: "county", updated_at: "2026-08-11T00:00:00Z",
     inventory_type: "POST_SALE_FIXED_PRICE", source_authority: "GOVERNMENT_DIRECT", source_id: "fl_laft_broward_candidate", publication_status: "RESTRICTED" },
+  // Available commercial release (2026-09-30, migration 023): an Available
+  // row whose purchase path the engine established from evidence (a
+  // source-level county instructions page, with its evidence and observed
+  // date), with coordinates, a land use and a county value - so the typed
+  // path, the decision page's "how / where / known" answers and the new
+  // land-use / coordinates / value filters have one real row each way
+  // (p3 stays untyped: "not yet verified"). No published amount on purpose.
+  { id: "p15", source: "laft", county: "Citrus", case_no: "CI-7", parcel: "1515", address: "15 Manatee Ln", owner_name: "Lee Park", bid: 0, assessed: 25000, market: 26000, value_year: 2025, status: "available", lien_level: "unscreened", lien_note: "", prop_type: "Vacant Lot", sale_date: null, homestead: false, url_auction: "https://x", url_auction_kind: "county", updated_at: "2026-09-20T00:00:00Z",
+    latitude: 28.8886, longitude: -82.4520, land_use: "Vacant residential", acreage: 0.3,
+    inventory_type: "POST_SALE_FIXED_PRICE", source_authority: "GOVERNMENT_DIRECT", source_id: "fl_laft_html", list_url: "https://x/citrus-list",
+    purchase_amount: null, purchase_amount_kind: "NOT_PUBLISHED", first_seen_at: "2026-07-01T06:00:00Z", last_seen_at: "2026-09-20T06:00:00Z", list_as_of: "2026-09-19",
+    publication_status: "APPROVED_GRANDFATHERED",
+    purchase_url: "https://www.citrusclerk.example.gov/lands-available/how-to-purchase", purchase_url_kind: "purchase_instructions",
+    purchase_path_type: "county_instructions", purchase_path_scope: "source",
+    purchase_path_evidence: "Clerk's 'How to purchase Lands Available' page names the application and payment steps (data/purchase_path_evidence.csv, observed 2026-09-18)",
+    purchase_path_observed_on: "2026-09-18",
+    inventory_status: "available_otc", inventory_status_raw: null,
+    inventory_status_basis: "LIST_PRESENCE: on the county's Lands Available list at the last read (F.S. 197.502(7))",
+    inventory_status_observed_at: "2026-09-20T06:00:00Z",
+    otc_provenance: { harvester: "fl_laft_html", list_url: "https://x/citrus-list", retrieved_at: "2026-09-20T06:00:00Z", purchase_path_mode: "online_instructions",
+      purchase_amount: "not published by the source", list_as_of: "stated by the list document/filename",
+      purchase_url: "county_instructions (source-scope): Clerk's 'How to purchase Lands Available' page",
+      inventory_type: "harvester constant (F.S. 197.502(7) Lands Available list)",
+      status_terminology: "active = on the county list this run; closed = absent from a COMPLETE/EMPTY harvest" } },
   // Phase 34: a TX row with no url_zillow/url_streetview and no
   // latitude/longitude - the exact shape (harvester-synced, no
   // hand-researched link, no geocode yet) that forces app.js's
@@ -184,6 +212,23 @@ const OBSERVATION_ROWS = [
   { id: 5, event_id: "ev3", observed_at: "2026-07-01T10:00:00Z", feed: "county_auction_site", raw_status: "scheduled", lifecycle: "scheduled", outcome: "unknown", opening_bid: 4800 },
   { id: 6, event_id: "ev4", observed_at: "2026-09-20T10:00:00Z", feed: "api", raw_status: "Struck off to Jurisdiction", lifecycle: "completed", outcome: "struck_off", opening_bid: 7000 }
 ];
+// Lifecycle history rows (migration 021's inventory_status_observations +
+// 022/023's transition and result columns): p15 was observed, left the
+// list, and came back - the append-only record the decision page shows.
+// `?history=none` simulates the table not existing yet.
+const HISTORY_MODE = new URLSearchParams(location.search).get("history") || "default";
+const INVENTORY_HISTORY_ROWS = HISTORY_MODE === "none" ? null : [
+  { id: 1, property_id: "p15", observed_at: "2026-07-01T06:00:00Z", source_id: "fl_laft_html", raw_status: null, inventory_status: "available_otc", basis: "LIST_PRESENCE: on the county's Lands Available list at the last read (F.S. 197.502(7))", transition: "newly_observed" },
+  { id: 2, property_id: "p15", observed_at: "2026-08-15T06:00:00Z", source_id: "fl_laft_html", raw_status: null, inventory_status: "closed", basis: "LIST_PRESENCE: absent from the county's Lands Available list at a COMPLETE/EMPTY read; why is not published", transition: "removed" },
+  { id: 3, property_id: "p15", observed_at: "2026-09-01T06:00:00Z", source_id: "fl_laft_html", raw_status: null, inventory_status: "available_otc", basis: "LIST_PRESENCE: on the county's Lands Available list at the last read (F.S. 197.502(7))", transition: "reactivated" }
+];
+// Admin publication reviews (migration 023's source_publication_reviews):
+// one prior decision, appended to by the admin panel's form in the test.
+// `?reviews=none` simulates the table not existing yet.
+const REVIEWS_MODE = new URLSearchParams(location.search).get("reviews") || "default";
+const REVIEW_ROWS = REVIEWS_MODE === "none" ? null : [
+  { id: 1, state: "FL", source_id: "fl_laft_pioneer", publication_status: "APPROVED_GRANDFATHERED", restrictions: null, decision_note: "carried forward", evidence: "served to customers before the gate existed", decided_by: "u1", decided_at: "2026-09-29T10:00:00Z", next_review: "2027-03-01" }
+];
 // Dataset health rows (migration 016) - one healthy scheduled source, one
 // INCOMPLETE, one FAILED, one manual Texas source, one stale. `?health=none`
 // simulates the table not existing yet.
@@ -193,10 +238,14 @@ const hoursAgo = h => new Date(Date.now() - h * 3600000).toISOString();
 // columns). `?registry=none` simulates the columns not existing yet.
 const REGISTRY_MODE = new URLSearchParams(location.search).get("registry") || "default";
 const REGISTRY_ROWS = REGISTRY_MODE === "none" ? null : [
-  { state: "FL", county: "Alachua", source_id: "fl_laft_realtdm", last_attempt_at: hoursAgo(2), last_attempt_status: "COMPLETE", last_success_at: hoursAgo(2), last_success_row_count: 14, consecutive_failures: 0 },
-  { state: "FL", county: "Bay", source_id: "fl_laft_pioneer", last_attempt_at: hoursAgo(2), last_attempt_status: "FAILED", last_success_at: hoursAgo(74), last_success_row_count: 3, consecutive_failures: 3, last_error_category: "TRANSPORT_HTTP_403_BLOCKED" },
-  { state: "FL", county: "Bradford", source_id: "fl_laft_pdfs", last_attempt_at: null, last_attempt_status: null, last_success_at: null, last_success_row_count: null, consecutive_failures: 0 },
-  { state: "TX", county: "Galveston", source_id: "tx_lgbs", last_attempt_at: hoursAgo(30), last_attempt_status: "INCOMPLETE", last_success_at: hoursAgo(54), last_success_row_count: 120, consecutive_failures: 0 }
+  { state: "FL", county: "Alachua", source_id: "fl_laft_realtdm", last_attempt_at: hoursAgo(2), last_attempt_status: "COMPLETE", last_success_at: hoursAgo(2), last_success_row_count: 14, consecutive_failures: 0, publication_status: "APPROVED_GRANDFATHERED", restrictions: null, governance_status: "APPROVED_GRANDFATHERED", verification_status: "PRODUCTION_VERIFIED" },
+  { state: "FL", county: "Bay", source_id: "fl_laft_pioneer", last_attempt_at: hoursAgo(2), last_attempt_status: "FAILED", last_success_at: hoursAgo(74), last_success_row_count: 3, consecutive_failures: 3, last_error_category: "TRANSPORT_HTTP_403_BLOCKED", publication_status: "APPROVED_GRANDFATHERED", restrictions: null, governance_status: "APPROVED_GRANDFATHERED", verification_status: "PRODUCTION_VERIFIED" },
+  { state: "FL", county: "Bradford", source_id: "fl_laft_pdfs", last_attempt_at: null, last_attempt_status: null, last_success_at: null, last_success_row_count: null, consecutive_failures: 0, publication_status: "APPROVED_GRANDFATHERED", restrictions: null, governance_status: "APPROVED_GRANDFATHERED", verification_status: "PRODUCTION_VERIFIED" },
+  // Citrus (p15's county): a current, complete read of the HTML source.
+  { state: "FL", county: "Citrus", source_id: "fl_laft_html", last_attempt_at: hoursAgo(3), last_attempt_status: "COMPLETE", last_success_at: hoursAgo(3), last_success_row_count: 6, consecutive_failures: 0, publication_status: "APPROVED_GRANDFATHERED", restrictions: null, governance_status: "APPROVED_GRANDFATHERED", verification_status: "PRODUCTION_VERIFIED" },
+  // A RESTRICTED candidate (p14's source): the admin panel must show its reason.
+  { state: "FL", county: "Broward", source_id: "fl_laft_broward_candidate", last_attempt_at: null, last_attempt_status: null, last_success_at: null, last_success_row_count: null, consecutive_failures: 0, publication_status: "RESTRICTED", restrictions: "terms of use under legal review", governance_status: "LEGAL_REVIEW_REQUIRED", verification_status: "CANDIDATE" },
+  { state: "TX", county: "Galveston", source_id: "tx_lgbs", last_attempt_at: hoursAgo(30), last_attempt_status: "INCOMPLETE", last_success_at: hoursAgo(54), last_success_row_count: 120, consecutive_failures: 0, publication_status: "APPROVED_GRANDFATHERED", restrictions: null, governance_status: "APPROVED_GRANDFATHERED", verification_status: "PRODUCTION_VERIFIED" }
 ];
 const SOURCE_HEALTH_ROWS = HEALTH_MODE === "none" ? null : [
   { source: "fl_deeds", label: "Florida deed auctions (county auction sites)", state: "FL", mode: "scheduled", cadence_hours: 12, last_attempt_at: hoursAgo(2), last_attempt_status: "SUCCESS", last_success_at: hoursAgo(2), last_run_id: "1001", row_count: 812, units_total: 46, units_complete: 46, units_incomplete: 0, incomplete_units: [], completeness: "COMPLETE", error: null },
@@ -235,6 +284,15 @@ class MockQuery {
           result = { data: this._single ? (rows[0] || null) : rows, error: null };
         }
       }
+    } else if (this._op === "insert" && this.table === "source_publication_reviews") {
+      // Append-only, like the real table (RLS admits admins only).
+      if (REVIEW_ROWS === null) result = { data: null, error: { message: "Could not find the table 'public.source_publication_reviews' in the schema cache", code: "PGRST205" } };
+      else {
+        const row = { id: REVIEW_ROWS.length + 1, decided_by: "u1", decided_at: new Date().toISOString(), ...this._row };
+        REVIEW_ROWS.push(row);
+        window.__stubReviewInserts = (window.__stubReviewInserts || []).concat([row]);
+        result = { data: null, error: null };
+      }
     } else if (this._op === "select") {
       const matches = row => this._filters.every(([c, v, kind]) => kind === "in" ? (v || []).includes(row[c]) : row[c] === v);
       if (this.table === "properties") result.data = FIXTURE_PROPERTIES;
@@ -249,6 +307,16 @@ class MockQuery {
         result = REGISTRY_ROWS === null
           ? { data: null, error: { message: "column county_source_registry.last_attempt_at does not exist", code: "42703" } }
           : { data: REGISTRY_ROWS, error: null };
+      }
+      else if (this.table === "inventory_status_observations") {
+        result = INVENTORY_HISTORY_ROWS === null
+          ? { data: null, error: { message: "Could not find the table 'public.inventory_status_observations' in the schema cache", code: "PGRST205" } }
+          : { data: INVENTORY_HISTORY_ROWS.filter(matches), error: null };
+      }
+      else if (this.table === "source_publication_reviews") {
+        result = REVIEW_ROWS === null
+          ? { data: null, error: { message: "Could not find the table 'public.source_publication_reviews' in the schema cache", code: "PGRST205" } }
+          : { data: REVIEW_ROWS.filter(matches).slice().sort((a, b) => (a.decided_at < b.decided_at ? 1 : -1)), error: null };
       }
       else if (this.table === "notes") result.data = [];
       else if (this.table === "favorites") result.data = [];
