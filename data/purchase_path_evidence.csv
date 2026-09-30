@@ -1,1 +1,1 @@
-state,source_id,county,path_type,url,evidence,observed_on,enabled,third_party_permitted,notes
+state,source_id,county,path_type,url,evidence,observed_on,enabled,third_party_permitted,notes,evidence_url,evidence_type,source_title,instructions,review_state,proves,does_not_prove

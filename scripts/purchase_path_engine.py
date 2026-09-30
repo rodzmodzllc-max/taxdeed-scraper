@@ -85,8 +85,20 @@ MODE_FOR_TYPE = {"direct_property_url": "online_property", "county_instructions"
                  "application_page": "application", "application_download": "application",
                  "in_person": "in_person_only", "phone_mail": "phone_mail", "none_published": "none",
                  "quoted_amount": "unknown", "amount_plus_costs": "unknown", "amount_on_application": "unknown"}
-EVIDENCE_COLUMNS = ["state", "source_id", "county", "path_type", "url", "evidence", "observed_on", "enabled",
-                    "third_party_permitted", "notes"]
+# The evidence record (Customer Value / Evidence Acquisition sprint,
+# 2026-09-30). The first ten columns are the original table; the rest carry
+# the provenance a customer sees: WHERE the evidence was read (evidence_url,
+# the page or document a person actually opened), WHAT kind of source it is
+# (evidence_type), the source's own title, the instructions it publishes,
+# the review state, and what the evidence proves / does not prove. A row is
+# applied only when enabled AND review_state is "verified" AND it names an
+# https evidence_url - an unreviewed capture can never become a path.
+EVIDENCE_COLUMNS_V1 = ["state", "source_id", "county", "path_type", "url", "evidence", "observed_on", "enabled",
+                       "third_party_permitted", "notes"]
+EVIDENCE_COLUMNS = EVIDENCE_COLUMNS_V1 + ["evidence_url", "evidence_type", "source_title", "instructions", "review_state",
+                                          "proves", "does_not_prove"]
+EVIDENCE_TYPES = ("county_page", "county_document", "property_page", "registry", "other")
+REVIEW_STATES = ("verified", "needs_review", "restricted")
 _TRUE = frozenset({"1", "true", "yes", "y"})
 _DATE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 # A URL that is a template, not an address: placeholders and unresolved
@@ -102,10 +114,29 @@ class PurchasePath:
     observed_on: str                # YYYY-MM-DD
     url: str | None = None
     url_kind: str | None = None     # 017's purchase_url_kind (URL types only)
+    # Customer-facing provenance (carried in otc_provenance, no schema change):
+    evidence_url: str = ""          # the page / document the evidence was read from
+    evidence_type: str = ""         # EVIDENCE_TYPES
+    source_title: str = ""          # the source's own page / document title
+    instructions: str = ""          # the process wording the source publishes, verbatim or closely quoted
 
     @property
     def mode(self) -> str:
         return MODE_FOR_TYPE[self.path_type]
+
+    def provenance(self) -> dict:
+        """otc_provenance keys the frontend renders beside the path."""
+        out = {}
+        if self.evidence_url:
+            out["purchase_evidence_url"] = self.evidence_url
+        if self.evidence_type:
+            out["purchase_evidence_type"] = self.evidence_type
+        if self.source_title:
+            out["purchase_evidence_title"] = self.source_title
+        if self.instructions:
+            out["purchase_instructions"] = self.instructions
+        out["purchase_path_observed_on"] = self.observed_on
+        return out
 
     def columns(self) -> dict:
         """The migration 023 columns (plus 017's URL columns for URL types)."""
@@ -129,6 +160,18 @@ class EvidenceRow:
     enabled: bool
     third_party_permitted: bool
     notes: str = ""
+    evidence_url: str = ""
+    evidence_type: str = ""
+    source_title: str = ""
+    instructions: str = ""
+    review_state: str = ""
+    proves: str = ""
+    does_not_prove: str = ""
+
+    @property
+    def applicable(self) -> bool:
+        """Enabled, verified, and anchored to an https evidence page."""
+        return self.enabled and self.review_state == "verified" and self.evidence_url.startswith("https://")
 
 
 # ---------------------------------------------------------------------------
@@ -188,6 +231,19 @@ def evidence_problems(row: EvidenceRow) -> list[str]:
         problems.append(f"{row.path_type} carries no url")
     if row.enabled and not (_DATE.match(row.observed_on) and row.evidence):
         problems.append("an enabled row needs observed_on (YYYY-MM-DD) and evidence")
+    if row.evidence_type and row.evidence_type not in EVIDENCE_TYPES:
+        problems.append(f"evidence_type {row.evidence_type!r}")
+    if row.review_state and row.review_state not in REVIEW_STATES:
+        problems.append(f"review_state {row.review_state!r}")
+    if row.enabled:
+        if row.review_state != "verified":
+            problems.append("an enabled row must be review_state=verified")
+        if not row.evidence_url.startswith("https://"):
+            problems.append("an enabled row needs an https evidence_url (the page or document the evidence was read from)")
+        if not row.evidence_type:
+            problems.append("an enabled row needs an evidence_type")
+        if row.evidence_url and (PP.untrusted_reason(row.evidence_url) or "").startswith("untrusted host"):
+            problems.append("evidence_url is a search engine or a blocked vendor - not evidence")
     return problems
 
 
@@ -198,16 +254,16 @@ def load_evidence(path: Path | str = EVIDENCE_PATH) -> list[EvidenceRow]:
     out: list[EvidenceRow] = []
     with open(p, newline="", encoding="utf-8") as fh:
         reader = csv.DictReader(fh)
-        if reader.fieldnames != EVIDENCE_COLUMNS:
+        if reader.fieldnames not in (EVIDENCE_COLUMNS, EVIDENCE_COLUMNS_V1):
             raise ValueError(f"{p.name}: columns must be {EVIDENCE_COLUMNS}, got {reader.fieldnames}")
+        g = lambda r, k: (r.get(k) or "").strip()  # noqa: E731
         for i, r in enumerate(reader, 2):
-            row = EvidenceRow(state=(r["state"] or "").strip(), source_id=(r["source_id"] or "").strip(),
-                              county=(r["county"] or "").strip() or "*", path_type=(r["path_type"] or "").strip(),
-                              url=(r["url"] or "").strip(), evidence=(r["evidence"] or "").strip(),
-                              observed_on=(r["observed_on"] or "").strip(),
-                              enabled=(r["enabled"] or "").strip().lower() in _TRUE,
-                              third_party_permitted=(r["third_party_permitted"] or "").strip().lower() in _TRUE,
-                              notes=(r["notes"] or "").strip())
+            row = EvidenceRow(state=g(r, "state"), source_id=g(r, "source_id"), county=g(r, "county") or "*", path_type=g(r, "path_type"),
+                              url=g(r, "url"), evidence=g(r, "evidence"), observed_on=g(r, "observed_on"),
+                              enabled=g(r, "enabled").lower() in _TRUE, third_party_permitted=g(r, "third_party_permitted").lower() in _TRUE,
+                              notes=g(r, "notes"), evidence_url=g(r, "evidence_url"), evidence_type=g(r, "evidence_type"),
+                              source_title=g(r, "source_title"), instructions=g(r, "instructions"), review_state=g(r, "review_state"),
+                              proves=g(r, "proves"), does_not_prove=g(r, "does_not_prove"))
             problems = evidence_problems(row)
             if problems:
                 raise ValueError(f"{p.name} line {i}: " + "; ".join(problems))
@@ -248,18 +304,19 @@ def from_row_link(row: dict, *, canonical_url: str | None, list_url: str | None,
 
 def from_evidence_table(rows: list[EvidenceRow], *, state: str, source_id: str, county: str, canonical_url: str | None,
                         list_url: str | None, document_url: str | None) -> tuple[PurchasePath | None, str | None]:
-    for e in rows:
-        if not e.enabled or e.state != state or e.source_id != source_id or e.county not in ("*", county):
-            continue
+    # A county-specific row beats the source's wildcard row.
+    matching = [e for e in rows if e.applicable and e.state == state and e.source_id == source_id and e.county in ("*", county)]
+    matching.sort(key=lambda e: 0 if e.county == county else 1)
+    for e in matching:
+        extra = dict(evidence_url=e.evidence_url, evidence_type=e.evidence_type, source_title=e.source_title, instructions=e.instructions)
+        text = f"{e.evidence} (data/purchase_path_evidence.csv, observed {e.observed_on})"
         if e.path_type in URL_TYPES:
             reason = rejection_reason(e.url, canonical_url=canonical_url, list_url=list_url, document_url=document_url,
                                       third_party_permitted=e.third_party_permitted)
             if reason:
                 return None, f"evidence row refused: {reason}"
-            return PurchasePath(e.path_type, "source", f"{e.evidence} (data/purchase_path_evidence.csv, observed {e.observed_on})",
-                                e.observed_on, url=e.url, url_kind=KIND_FOR_TYPE[e.path_type]), None
-        return PurchasePath(e.path_type, "source", f"{e.evidence} (data/purchase_path_evidence.csv, observed {e.observed_on})",
-                            e.observed_on), None
+            return PurchasePath(e.path_type, "source", text, e.observed_on, url=e.url, url_kind=KIND_FOR_TYPE[e.path_type], **extra), None
+        return PurchasePath(e.path_type, "source", text, e.observed_on, **extra), None
     return None, None
 
 

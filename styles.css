@@ -1669,3 +1669,9 @@ live here are removed with the #pageMap section itself - see the note by
 .admin-pub-form label{display:flex;flex-direction:column;gap:.15rem;font-size:.68rem;color:var(--ink-soft)}
 .admin-pub-form input,.admin-pub-form select{font:inherit;font-size:.76rem;padding:.3rem .4rem;border:1px solid var(--card-line);border-radius:.35rem;background:var(--bg);color:var(--ink)}
 .admin-pub-msg{font-size:.7rem;color:var(--ink-soft);grid-column:1 / -1}
+
+/* ---- Customer-value sprint: cross-ledger timing, instructions, first-observed note ---- */
+.related-when{display:block;font-size:.68rem;color:var(--ink-soft)}
+.related-when.prev{color:var(--warn)} .related-when.now{color:var(--ok)}
+.dec-instructions{white-space:pre-line}
+.dec-first-note{display:block;margin-bottom:.35rem}

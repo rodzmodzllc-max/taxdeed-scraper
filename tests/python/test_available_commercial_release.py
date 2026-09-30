@@ -108,9 +108,12 @@ def test_e06_precedence_row_link_then_evidence_table_then_registry(tmp_path):
         w = csv.writer(fh)
         w.writerow(PE.EVIDENCE_COLUMNS)
         w.writerow(["FL", "fl_laft_html", "*", "county_instructions", "https://www.example-clerk.gov/lands-available/how-to-buy",
-                    "Clerk page 'How to purchase' names the steps", "2026-09-18", "yes", "no", ""])
+                    "Clerk page 'How to purchase' names the steps", "2026-09-18", "yes", "no", "",
+                    "https://www.example-clerk.gov/lands-available/how-to-buy", "county_page", "How to Purchase Lands Available",
+                    "Submit the application form to the Tax Deeds office; payment by cashier's check.", "verified",
+                    "the county publishes a purchase-instructions page", "that any specific parcel is still available"])
     evidence = PE.load_evidence(ev)
-    assert len(evidence) == 1
+    assert len(evidence) == 1 and evidence[0].applicable
     reg = dict(REG, purchase_url="https://www.example-clerk.gov/apply", purchase_url_kind="application_form")
     # 1. the row's own verified link (property scope) wins
     row = _harvest_row(purchase_url="https://www.example-clerk.gov/TaxDeed/Buy/1234", purchase_url_kind="online_purchase",
@@ -121,6 +124,9 @@ def test_e06_precedence_row_link_then_evidence_table_then_registry(tmp_path):
     # 2. else the evidence table (source scope)
     path, _ = PE.resolve(_harvest_row(), state="FL", source_id="fl_laft_html", county="Volusia", registry_row=reg, evidence=evidence, list_url=REG["canonical_url"])
     assert (path.path_type, path.scope, path.observed_on) == ("county_instructions", "source", "2026-09-18") and path.url.endswith("/how-to-buy")
+    prov = path.provenance()
+    assert prov["purchase_evidence_url"].endswith("/how-to-buy") and prov["purchase_evidence_type"] == "county_page"
+    assert prov["purchase_instructions"].startswith("Submit the application form") and prov["purchase_path_observed_on"] == "2026-09-18"
     # 3. else the registry row's source-level page
     path, _ = PE.resolve(_harvest_row(), state="FL", source_id="fl_laft_html", county="Volusia", registry_row=reg, evidence=[], list_url=REG["canonical_url"])
     assert (path.path_type, path.scope, path.observed_on) == ("application_page", "source", "2026-09-20") and path.url.endswith("/apply")
@@ -141,14 +147,30 @@ def test_e08_evidence_table_validation_refuses_the_dishonest_rows(tmp_path):
         with open(p, "w", newline="", encoding="utf-8") as fh:
             w = csv.writer(fh); w.writerow(PE.EVIDENCE_COLUMNS); w.writerow(cells)
         return p
+    V2 = ["https://x.gov/lands", "county_page", "Lands Available", "wording", "verified", "", ""]
     with pytest.raises(ValueError, match="enabled row needs observed_on"):
-        PE.load_evidence(write("FL", "fl_laft_html", "*", "in_person", "", "wording", "", "yes", "no", ""))
+        PE.load_evidence(write("FL", "fl_laft_html", "*", "in_person", "", "wording", "", "yes", "no", "", *V2))
     with pytest.raises(ValueError, match="carries no url"):
-        PE.load_evidence(write("FL", "fl_laft_html", "*", "in_person", "https://x.gov/a", "w", "2026-09-01", "no", "no", ""))
+        PE.load_evidence(write("FL", "fl_laft_html", "*", "in_person", "https://x.gov/a", "w", "2026-09-01", "no", "no", "", *V2))
     with pytest.raises(ValueError, match="property-scope"):
-        PE.load_evidence(write("FL", "fl_laft_html", "*", "direct_property_url", "https://x.gov/a", "w", "2026-09-01", "no", "no", ""))
+        PE.load_evidence(write("FL", "fl_laft_html", "*", "direct_property_url", "https://x.gov/a", "w", "2026-09-01", "no", "no", "", *V2))
     with pytest.raises(ValueError, match="path_type"):
-        PE.load_evidence(write("FL", "fl_laft_html", "*", "online_link", "https://x.gov/a", "w", "2026-09-01", "no", "no", ""))
+        PE.load_evidence(write("FL", "fl_laft_html", "*", "online_link", "https://x.gov/a", "w", "2026-09-01", "no", "no", "", *V2))
+    # Customer-value sprint: an enabled row that is not review_state=verified,
+    # has no https evidence page, or cites a search engine as its evidence
+    # page is refused - a capture is never a path until a person verified it.
+    with pytest.raises(ValueError, match="review_state=verified"):
+        PE.load_evidence(write("FL", "fl_laft_html", "*", "in_person", "", "w", "2026-09-01", "yes", "no", "", "https://x.gov/lands", "county_page", "t", "i", "needs_review", "", ""))
+    with pytest.raises(ValueError, match="https evidence_url"):
+        PE.load_evidence(write("FL", "fl_laft_html", "*", "in_person", "", "w", "2026-09-01", "yes", "no", "", "", "county_page", "t", "i", "verified", "", ""))
+    with pytest.raises(ValueError, match="search engine or a blocked vendor"):
+        PE.load_evidence(write("FL", "fl_laft_html", "*", "in_person", "", "w", "2026-09-01", "yes", "no", "", "https://www.google.com/search?q=lands", "county_page", "t", "i", "verified", "", ""))
+    # The original ten-column header still loads (rows are simply not applicable until verified).
+    p10 = tmp_path / "v1.csv"
+    with open(p10, "w", newline="", encoding="utf-8") as fh:
+        w = csv.writer(fh); w.writerow(PE.EVIDENCE_COLUMNS_V1); w.writerow(["FL", "fl_laft_html", "*", "in_person", "", "w", "2026-09-01", "no", "no", ""])
+    rows = PE.load_evidence(p10)
+    assert len(rows) == 1 and not rows[0].applicable
 
 
 def test_e09_lifecycle_writes_023_columns_only_when_probed_and_keeps_mode_semantics(tmp_path):
