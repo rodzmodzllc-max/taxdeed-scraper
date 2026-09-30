@@ -69,8 +69,7 @@ DISCOVERY_PAGES = {
            "https://www.hubbardcounty.gov/tfl",
            "https://ottertailcounty.gov/property-home/property-sales/tax-forfeited-lands/"],
 }
-DISCOVERY_QUERIES = ('"tax forfeited" type:"Feature Service"', '"tax forfeit" type:"Feature Service"',
-                     '"tax-forfeited" type:"Feature Service"', '"land sales" forfeited type:"Feature Service"',
+DISCOVERY_QUERIES = ('("tax forfeited" OR "tax forfeit" OR "tax-forfeited") type:"Feature Service"',
                      '"adjudicated" property type:"Feature Service"')
 TERMS_VOCAB = re.compile(r"terms|disclaimer|legal|licen[cs]e|conditions|copyright|policy|privacy|open data|use of (this|the) (site|data)", re.I)
 SNIPPET_VOCAB = re.compile(r"terms|disclaim|licen[cs]|copyright|permission|commercial|redistribut|reproduc|public record|open data|"
@@ -97,7 +96,7 @@ def shape(value: str) -> str:
 
 def fetch(session: requests.Session, url: str, *, stream: bool = False):
     try:
-        return session.get(url, headers=HEADERS, timeout=45, allow_redirects=True, stream=stream), None
+        return session.get(url, headers=HEADERS, timeout=25, allow_redirects=True, stream=stream), None
     except requests.RequestException as exc:
         return None, f"{type(exc).__name__}: {str(exc)[:160]}"
 
@@ -264,7 +263,7 @@ def arcgis_layer_meta(session: requests.Session, url: str) -> list[dict]:
     if not layers and re.search(r"/(FeatureServer|MapServer)/\d+$", url):
         layers = [{"id": int(url.rstrip("/").rsplit("/", 1)[1])}]
         url = url.rstrip("/").rsplit("/", 1)[0]
-    for lyr in layers[:6]:
+    for lyr in layers[:3]:
         lurl = f"{url.rstrip('/')}/{lyr.get('id')}"
         rec: dict = {"layer": lurl}
         r2, e2 = fetch(session, lurl + "?f=json")
@@ -293,7 +292,7 @@ def arcgis_layer_meta(session: requests.Session, url: str) -> list[dict]:
     return out
 
 
-def arcgis_discover(session: requests.Session, query: str, *, limit: int = 40) -> list[dict]:
+def arcgis_discover(session: requests.Session, query: str, *, limit: int = 25) -> list[dict]:
     """ArcGIS Online's own catalog search for public items matching `query`:
     who publishes them, their licence / access text, and (for services) the
     layers' field names and counts."""
