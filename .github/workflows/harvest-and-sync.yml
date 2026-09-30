@@ -952,8 +952,8 @@ jobs:
       - name: Print capture (value-free; readable from the job log without downloading the artifact)
         if: always()
         run: |
-          echo "::group::purchase-evidence-capture.json"
-          cat out/public/purchase-evidence-capture.json
+          echo "::group::purchase-evidence digest"
+          python3 scripts/capture_purchase_evidence.py --digest out/public/purchase-evidence-capture.json
           echo "::endgroup::"
 
       - name: Prepare artifact (public evidence only)

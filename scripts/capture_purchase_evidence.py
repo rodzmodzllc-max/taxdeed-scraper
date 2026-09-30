@@ -236,14 +236,54 @@ def capture_realauction(session: requests.Session, dates: list[str], counties: s
     return out
 
 
+def digest(path: Path, *, max_links: int = 25, max_snippets: int = 25, snippet_chars: int = 240) -> str:
+    """A compact, line-oriented digest of a capture file for the job log
+    (the full JSON is in the artifact). Same value-free content, fewer
+    bytes: one block per county, RealAuction label sets de-duplicated."""
+    data = json.loads(Path(path).read_text(encoding="utf-8"))
+    out = [f"# purchase-evidence digest {data.get('generated_at')} state={data.get('state')}"]
+    for county, e in sorted((data.get("available_sources") or {}).items()):
+        out.append(f"@@ {county} | {e.get('source_id')} | {e.get('access_method')} | {e.get('machine_format')}")
+        for pg in e.get("pages") or []:
+            out.append(f"  ## {pg.get('kind')} {pg.get('url')} -> {pg.get('status', pg.get('error'))} ct={str(pg.get('content_type', ''))[:30]} lm={pg.get('last_modified')}")
+            if pg.get("title"):
+                out.append(f"  title: {pg['title'][:140]}")
+            if pg.get("headings"):
+                out.append("  headings: " + " || ".join(h[:80] for h in pg["headings"][:8]))
+            for l in (pg.get("links") or [])[:max_links]:
+                out.append(f"  link: {l['text'][:70]!r} -> {l['href']} [{'same' if l.get('same_site') else 'OTHER'}]")
+            for sn in (pg.get("snippets") or [])[:max_snippets]:
+                out.append(f"  s: {sn[:snippet_chars]}")
+            if pg.get("phones"):
+                out.append("  phones: " + ", ".join(pg["phones"]))
+            if pg.get("emails"):
+                out.append("  emails: " + ", ".join(pg["emails"]))
+    ra = data.get("realauction_result_labels") or {}
+    if ra:
+        out.append("@@ REALAUCTION result-label discovery")
+        seen: dict[str, list[str]] = {}
+        for county, recs in sorted(ra.items()):
+            for r in recs:
+                key = json.dumps({"labels": r.get("labels"), "status_values": r.get("status_values"), "banner": r.get("banner_samples"),
+                                  "items": r.get("item_count_hint"), "status": r.get("status", r.get("error"))}, sort_keys=True)
+                seen.setdefault(key, []).append(f"{county} {r.get('date')}")
+        for key, where in seen.items():
+            out.append(f"  set ({len(where)} page(s): {', '.join(where[:6])}{' ...' if len(where) > 6 else ''}): {key}")
+    return "\n".join(out)
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    ap.add_argument("--digest", default=None, help="print a compact digest of an existing capture file and exit")
     ap.add_argument("--state", default="FL")
     ap.add_argument("--county", action="append", default=[], help="limit to these counties (repeatable)")
     ap.add_argument("--realauction-date", action="append", default=[], help="MM/DD/YYYY past sale date(s) for result-label discovery")
     ap.add_argument("--skip-available", action="store_true")
     ap.add_argument("--out", default=str(OUT_PATH))
     args = ap.parse_args(argv)
+    if args.digest:
+        print(digest(Path(args.digest)))
+        return 0
     counties = set(args.county) or None
     session = requests.Session()
     report = {"generated_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat(), "state": args.state,

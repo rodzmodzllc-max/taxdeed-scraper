@@ -2420,6 +2420,56 @@ await dec3.waitForTimeout(700);
 results.decHistoryMissing = await decA(dec3, 'history');
 await dec3.close();
 
+// Customer-value sprint: the Auction decision block (seven questions) on an
+// upcoming auction whose parcel is ALSO under a certificate (p1 / p4), and
+// on a past-due auction (p13) whose result the source never published;
+// the Certificate decision block (six questions) on p4; the cross-ledger
+// line says "currently" / "previously" from stored status only.
+const aucDec = await newPage({ viewport: { width: 1200, height: 900 } });
+await aucDec.goto(BASE_URL + '#/auctions/p1', { waitUntil: 'networkidle' });
+await aucDec.waitForTimeout(600);
+results.aucDecQuestions = await aucDec.locator('#detailModalInner .decision-card .dec-q').allTextContents();
+results.aucDecP1When = await decA(aucDec, 'when');
+results.aucDecP1Bid = await decA(aucDec, 'bid');
+results.aucDecP1Related = await decA(aucDec, 'related');
+results.aucDecP1Result = await decA(aucDec, 'result');
+results.aucDecP1Source = await decA(aucDec, 'source');
+results.aucRelatedWhen = await aucDec.locator('#detailModalInner .related-record').evaluateAll(els => els.map(e => e.dataset.source + ':' + e.dataset.when + ':' + e.querySelector('.related-when').textContent.trim()));
+results.aucDecNoScoreWords = !/\b(score|badge|recommend|deal quality|rating|confidence)\b/i.test(await aucDec.locator('#detailModalInner .decision-card').innerText());
+await aucDec.close();
+const aucPast = await newPage({ viewport: { width: 1200, height: 900 } });
+await aucPast.goto(BASE_URL + '#/auctions/p13', { waitUntil: 'networkidle' });
+await aucPast.waitForTimeout(600);
+results.aucDecP13Result = await decA(aucPast, 'result');
+results.aucDecP13ResultNeverSold = !/\bsold\b|\bredeemed\b/i.test(await decA(aucPast, 'result').then(t => t.replace(/whether it sold, was redeemed, cancelled or postponed is not recorded/i, '')));
+await aucPast.close();
+const certDec = await newPage({ viewport: { width: 1200, height: 900 } });
+await certDec.goto(BASE_URL + '#/certificates/p4', { waitUntil: 'networkidle' });
+await certDec.waitForTimeout(600);
+results.certDecQuestions = await certDec.locator('#detailModalInner .decision-card .dec-q').allTextContents();
+results.certDecWhat = await decA(certDec, 'what');
+results.certDecAmount = await decA(certDec, 'amount');
+results.certDecTerms = await decA(certDec, 'terms');
+results.certDecRedemption = await decA(certDec, 'redemption');
+results.certDecRelated = await decA(certDec, 'related');
+results.certDecNavHasDecision = await certDec.locator('#detailModalInner .detail-nav button[data-target="decision"]').count();
+await certDec.close();
+// The certificate export: the certificate's own published facts plus the
+// two app-computed figures the card shows, and nothing internal.
+const certExp = await newPage({ viewport: { width: 1200, height: 900 } });
+await certExp.goto(BASE_URL + '#/certificates', { waitUntil: 'networkidle' });
+await certExp.waitForTimeout(500);
+const certDl = certExp.waitForEvent('download');
+await certExp.click('#exportCsvBtn');
+const certCsv = await certDl;
+{
+  const text = fs.readFileSync(await certCsv.path(), 'utf8');
+  const header = text.split(/\r?\n/)[0].split(',');
+  results.certCsvHeader = header;
+  results.certCsvHeaderLacks = ['publication', 'provenance', 'basis', 'harvester_source', 'Lien Notes', 'Opening Bid', 'Fees', 'Year Built'].every(h => !header.some(c => c.toLowerCase().includes(h.toLowerCase())));
+}
+await certExp.close();
+
 // The three new Available filters (land use, coordinates on file, county
 // value on file) - each on a stored field; reset clears them.
 const filtPage = await newPage({ viewport: { width: 1200, height: 900 } });
@@ -2686,7 +2736,7 @@ const EXPECTED = {
   oppBidText: '$5,000.00 Value ÷ bid 18.0× (screening ratio, not a return)',
   oppValueText: '$90,000 2025 County Just Value · County Assessed Value $80,000',
   oppGaps: ['Image not checked yet', 'Not yet geocoded', 'Flood zone not checked'],
-  detailNavLabels: ['Summary', 'Financial', 'Property', 'History', 'Sale events', 'Risk & Legal', 'Map', 'Sources', 'Data'],
+  detailNavLabels: ['Summary', 'Decision', 'Financial', 'Property', 'History', 'Sale events', 'Risk & Legal', 'Map', 'Sources', 'Data'],   // customer-value sprint: the Auction decision block
   detailNavJumpScrolled: true,
   detailNavJumpMarksPill: true,
   showOnMapBtnText: 'Show county on the Map page',
@@ -3203,23 +3253,23 @@ const EXPECTED = {
   flInventoryNavHasInventory: true,
   flInventoryNoAiBadge: true,
   // ---- Available commercial release (2026-09-30, migration 023) ----
-  decQuestions: ['What is it?', 'Is it available now?', 'How do I buy it?', 'What does it cost?', 'Where is it?', 'What is known about it?', 'What is not known?', 'Where did the data come from?', 'How fresh is it?', 'What happened before?', 'Is this parcel in another ledger?'],
+  decQuestions: ['What property is this?', 'Why is it in Available?', 'Is it currently verified as available?', 'How do I purchase or apply?', 'What source proves that, and when was it observed?', 'What does it cost?', 'Where is it?', 'What is known about it?', 'What is not known?', 'Where did the data come from?', 'How fresh is it?', 'What happened before?', 'Has this parcel appeared in another ledger?'],
   decNavHasDecision: 1,
   decP3How: "Not yet verified - no purchase path has been established from evidence. The county list page is not a purchase mechanism; nothing is invented. A path appears here once a rule, the registry or the source's own wording establishes one.",
   decP3HowLinkCount: 0,   // nothing verified = no link, ever
-  decP3Available: 'Available over the counter basis: list presence · observed Aug 11, 2026',
-  decP3Where: '3 Oak Ave Bay County, FL · Parcel 333 · Case C-1 Not yet geocoded - no point is shown for this parcel',
+  decP3Available: 'Available over the counter basis: list presence · observed Aug 11, 2026 last verified: read from the source Aug 11, 2026 · county source unavailable at the last attempt - inventory kept, nothing closed',
+  decP3Where: '3 Oak Ave Bay County, FL Not yet geocoded - no point is shown for this parcel',
   decP3Fresh: 'Source date: list dated Aug 10, 2026 · Observation date: Aug 11, 2026 · Last verified: read from the source Aug 11, 2026 County source: source unavailable at the last attempt - inventory kept, nothing closed · no complete read in the last 36 hours (last complete read 3d ago) · back-off: attempted at most once per 48 hours until a read succeeds · 3 rows at the last complete read',
   decP3History: 'Aug 11, 2026 Last read from the source (continued on the list) Append-only record. Absence from a list is recorded as a removal, never as a sale; a result appears only when the source published one.',
   decP3Related: 'No record for parcel 333 in the other ledgers in the current dataset',
   decP3PathEvidenceLine: 'Not yet evaluated - no rule, registry row or source wording establishes a path',
   decNoScoreWords: true,
-  decP15What: "Lands Available - fixed price, over the counter (F.S. 197.502(7)) Published by the county / clerk's own site",
-  decP15Available: 'Available over the counter basis: list presence · observed Sep 20, 2026',
+  decP15What: '15 Manatee Ln Citrus County, FL · Parcel 1515 · Case CI-7 · Vacant Lot',
+  decP15Available: 'Available over the counter basis: list presence · observed Sep 20, 2026 last verified: read from the source Sep 20, 2026',
   decP15How: "County purchase-instructions page (published by the source) → The source's process for every parcel it lists · evidence: Clerk's 'How to purchase Lands Available' page names the application and payment steps (data/purchase_path_evidence.csv, observed 2026-09-18) · observed Sep 18, 2026",
   decP15HowHref: 'https://www.citrusclerk.example.gov/lands-available/how-to-purchase',
   decP15Cost: 'Not published by the source',
-  decP15Where: '15 Manatee Ln Citrus County, FL · Parcel 1515 · Case CI-7 28.88860, -82.45200 · authoritative coordinates on file',
+  decP15Where: '15 Manatee Ln Citrus County, FL 28.88860, -82.45200 · authoritative coordinates on file',
   decP15Known: '2025 County Just Value $26,000 · County Assessed Value $25,000 · 0.30 ac · Land use Vacant residential · Type Vacant Lot · Assessed to Lee Park',
   decP15Unknown: ['Purchase price not published', 'Image not checked yet', 'Flood zone not checked'],
   decP15Source: 'fl_laft_html · Source list → Field-by-field origin is in the Data Quality & Provenance card below.',

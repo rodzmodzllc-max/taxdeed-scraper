@@ -5352,6 +5352,11 @@ if (exportCsvBtn) exportCsvBtn.addEventListener("click", () => {
     ["Interest Rate (as published)", p => p.interest_rate ?? ""],
     ["Issued Date", p => p.issued_date || ""],
     ["Expiration Date", p => p.expiration_date || ""],
+    // The two app-computed figures the certificate card already shows,
+    // labelled as estimates / eligibility dates - kept so a spreadsheet
+    // matches the card (same accruedInterestEst / tdaEligibleMs helpers).
+    ["Est. Accrued Interest", p => { const a = accruedInterestEst(p); return a === null ? "" : Math.round(a); }],
+    ["TDA Eligibility Date", p => { const t = tdaEligibleMs(p); return t === null ? "" : new Date(t).toISOString().slice(0, 10); }],
     ["Status (per the source)", p => p.inventory_status ? (INVENTORY_STATUS_LABELS[p.inventory_status] || p.inventory_status) : ""],
     ["Status Observed", p => p.inventory_status_observed_at ? String(p.inventory_status_observed_at).slice(0, 10) : ""],
     ["Same Parcel In Other Ledgers", p => relatedRecordsFor(p).map(o => ledgerCopy(o.source).title || o.source).join("; ")],
