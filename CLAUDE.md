@@ -1732,9 +1732,10 @@ Full description: `docs/available-ledger.md` section 10. The stable facts:
   (`EvidenceRow.applicable`). Path provenance
   (`purchase_evidence_url/_type/_title`, `purchase_instructions`,
   `purchase_path_observed_on`) rides in `otc_provenance`.
-- **RealAuction past-sale pages are a login wall** for anonymous
-  requests: no auction outcome is ingested; `auction_events` has zero
-  outcomes and that is honest, not a bug.
+- ~~RealAuction past-sale pages are a login wall~~ - **corrected
+  2026-09-30**: that test read only the page shell (which always carries a
+  login form); the results are served anonymously by AJAX. See "Verified
+  auction outcomes" below.
 - Frontend: Available thirteen questions, Auction seven, Certificate six
   (`auctionDecisionHtml` / `certificateDecisionHtml`), cross-ledger
   current / previous (`relatedWhen`, `crossLedgerSummary`), DOR use-code
@@ -1775,6 +1776,28 @@ Full description: `docs/available-ledger.md` section 12. Stable facts:
   `amount_plus_costs`, no phone - the page does not attribute one).
 - `measure()`: `with_complete_record` is the commercial headline; a typed
   mode alone is not complete. `sw.js` -> `tdw-shell-v52`.
+
+## Verified auction outcomes (2026-09-30, PR open, no migration)
+
+Full description: `docs/auction-outcomes.md`. Stable facts:
+- **RealAuction is NOT a login wall for results.** The sale-day page shell
+  carries a login form; the items arrive by AJAX. `AREA=C` ("Auctions Closed
+  or Canceled") and the page's own status refresh (`FNC=UPDATE&ref=<ids>`)
+  are served to the same anonymous session the harvester uses
+  (`scripts/realauction_results.py`).
+- **`data/auction_outcome_wordings.csv`** is the only path from a published
+  wording to a result (Auction Sold / Redeemed / Redeemed After Sale /
+  Canceled per County / Canceled per Bankruptcy, each citing a capture run).
+  Unmapped wordings stay "Outcome not yet verified" with the wording quoted.
+- **`scripts/auction_outcomes.py`** (deeds job step + manual `job=outcomes`):
+  exact case-number match (published parcel must agree), migration-014
+  columns only, append-only `feed='closed'` observations, a failed read
+  writes nothing, never touches `properties`. Purchaser, bidder count and
+  bidder identity are never stored; `winning_bid` only beside "Amount".
+- Frontend: `auctionOutcomeState` / `eventOutcomeState` / `outcomeProvenanceText`
+  / `auctionAvailableRelation` in app.js; `sw.js` -> `tdw-shell-v53`.
+- Capture logs are public: every attribute value and digit is masked before
+  printing (`mask_text`); never print a raw href from a county page.
 
 ## Where to look for more
 

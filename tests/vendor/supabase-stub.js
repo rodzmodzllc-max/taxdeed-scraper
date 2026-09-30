@@ -212,7 +212,7 @@ const PROFILES_TABLE = PROFILE_MODE === "notable" ? null : [
 // completed event whose outcome is - as in production, always - 'unknown'.
 const EVENT_ROWS = [
   { id: "ev1", property_id: "p1", scheduled_sale_date: futureDate(3), lifecycle: "scheduled", outcome: "unknown", opening_bid: 5000, first_seen_at: "2026-09-01T10:00:00Z", last_seen_at: "2026-09-28T10:00:00Z", source: "auction", harvester_source: "fl_realauction_alachua", event_url_kind: "sale" },
-  { id: "ev2", property_id: "p13", scheduled_sale_date: futureDate(-6), lifecycle: "completed", outcome: "unknown", opening_bid: 5000, first_seen_at: "2026-08-20T10:00:00Z", last_seen_at: "2026-09-20T10:00:00Z", source: "auction", harvester_source: "fl_realauction_alachua", event_url_kind: "sale" },
+  { id: "ev2", property_id: "p13", case_no: "L-1", scheduled_sale_date: futureDate(-6), lifecycle: "completed", outcome: "unknown", opening_bid: 5000, first_seen_at: "2026-08-20T10:00:00Z", last_seen_at: "2026-09-20T10:00:00Z", source: "auction", harvester_source: "fl_realauction_alachua", event_url_kind: "sale" },
   { id: "ev3", property_id: "p13", scheduled_sale_date: futureDate(-40), lifecycle: "superseded", outcome: "unknown", opening_bid: 4800, first_seen_at: "2026-07-01T10:00:00Z", last_seen_at: "2026-08-10T10:00:00Z", source: "auction", harvester_source: "fl_realauction_alachua", event_url_kind: "sale" },
   // Production-readiness: an event whose result the SOURCE published (the
   // writer's outcome_for_source path) - shown with the source's own wording.
@@ -224,7 +224,11 @@ const OBSERVATION_ROWS = [
   { id: 3, event_id: "ev2", observed_at: "2026-08-20T10:00:00Z", feed: "county_auction_site", raw_status: "scheduled", lifecycle: "scheduled", outcome: "unknown", opening_bid: 5000 },
   { id: 4, event_id: "ev2", observed_at: "2026-09-20T10:00:00Z", feed: "county_auction_site", raw_status: null, lifecycle: "completed", outcome: "unknown", opening_bid: 5000 },
   { id: 5, event_id: "ev3", observed_at: "2026-07-01T10:00:00Z", feed: "county_auction_site", raw_status: "scheduled", lifecycle: "scheduled", outcome: "unknown", opening_bid: 4800 },
-  { id: 6, event_id: "ev4", observed_at: "2026-09-20T10:00:00Z", feed: "api", raw_status: "Struck off to Jurisdiction", lifecycle: "completed", outcome: "struck_off", opening_bid: 7000 }
+  { id: 6, event_id: "ev4", observed_at: "2026-09-20T10:00:00Z", feed: "api", raw_status: "Struck off to Jurisdiction", lifecycle: "completed", outcome: "struck_off", opening_bid: 7000 },
+  // Auction-outcome evidence: the sale day's Closed or Canceled listing was
+  // read (scripts/auction_outcomes.py) and printed no result line for p13's
+  // item - "Outcome not published", never a guess.
+  { id: 7, event_id: "ev2", observed_at: "2026-09-25T10:00:00Z", feed: "closed", raw_status: null, lifecycle: "completed", outcome: "unknown", opening_bid: null, evidence_url: "https://alachua.realtaxdeed.com/index.cfm?zaction=AUCTION&zmethod=PREVIEW&AuctionDate=09/24/2026" }
 ];
 // Lifecycle history rows (migration 021's inventory_status_observations +
 // 022/023's transition and result columns): p15 was observed, left the
@@ -275,6 +279,8 @@ class MockQuery {
   order() { return this; }
   eq(col, val) { this._filters.push([col, val]); return this; }
   in(col, vals) { this._filters.push([col, vals, "in"]); return this; }
+  lt(col, val) { this._filters.push([col, val, "lt"]); return this; }
+  range() { return this; }
   limit() { return this; }
   gte() { return this; }
   maybeSingle() { this._single = true; return this; }
@@ -308,7 +314,7 @@ class MockQuery {
         result = { data: null, error: null };
       }
     } else if (this._op === "select") {
-      const matches = row => this._filters.every(([c, v, kind]) => kind === "in" ? (v || []).includes(row[c]) : row[c] === v);
+      const matches = row => this._filters.every(([c, v, kind]) => kind === "in" ? (v || []).includes(row[c]) : kind === "lt" ? String(row[c]) < String(v) : row[c] === v);
       if (this.table === "properties") result.data = FIXTURE_PROPERTIES;
       else if (this.table === "auction_events") result.data = EVENT_ROWS.filter(matches);
       else if (this.table === "auction_event_observations") result.data = OBSERVATION_ROWS.filter(matches);

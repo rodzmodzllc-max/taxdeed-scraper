@@ -286,6 +286,30 @@ def capture_realauction(session: requests.Session, dates: list[str], counties: s
     return out
 
 
+def capture_realauction_results(dates: list[str], counties: set[str] | None) -> dict:
+    """The CLOSED / CANCELED area (AREA=C) of each RealAuction host for past
+    sale dates, through the harvester's own anonymous AJAX sequence
+    (scripts/realauction_results.py). Value-free: label names, status-line
+    shapes with every digit masked, class tokens and counts - never a case
+    number, parcel, amount or name."""
+    import realauction_results as RR  # noqa: E402 - sibling module
+    out: dict = {}
+    with open(REALAUCTION_HOSTS, newline="", encoding="utf-8") as fh:
+        hosts = [r for r in csv.DictReader(fh)]
+    for h in hosts:
+        if counties and h["County"] not in counties:
+            continue
+        for d in dates:
+            res = RR.fetch_area(requests.Session(), h["Host"], d)
+            rec = RR.value_free_summary(res)
+            if res.items and not out.get("_page_script"):
+                out["_page_script"] = RR.page_script_snippets(requests.Session(), h["Host"], res.url)
+            out.setdefault(h["County"], []).append(rec)
+            print(f"  RealAuction results {h['County']:<14} {d}: ok={rec['ok']} login={rec['login_page']} "
+                  f"items={rec['items']} err={rec['error']}", flush=True)
+    return out
+
+
 def digest(path: Path, *, max_links: int = 25, max_snippets: int = 25, snippet_chars: int = 240) -> str:
     """A compact, line-oriented digest of a capture file for the job log
     (the full JSON is in the artifact). Same value-free content, fewer
@@ -320,6 +344,37 @@ def digest(path: Path, *, max_links: int = 25, max_snippets: int = 25, snippet_c
                 seen.setdefault(key, []).append(f"{county} {r.get('date')}")
         for key, where in seen.items():
             out.append(f"  set ({len(where)} page(s): {', '.join(where[:6])}{' ...' if len(where) > 6 else ''}): {key}")
+    rr = data.get("realauction_results") or {}
+    if rr:
+        out.append("@@ REALAUCTION closed/canceled area (AREA=C), value-free")
+        ps = rr.get("_page_script") or {}
+        if ps:
+            out.append("  page scripts: " + ", ".join(ps.get("scripts") or []) + (f" err={ps.get('error')}" if ps.get("error") else ""))
+            for sn in ps.get("snippets") or []:
+                out.append("    js: " + sn[:420])
+        for county, recs in sorted(rr.items()):
+            if county.startswith("_"):
+                continue
+            for r in recs:
+                out.append(f"  {county} {r.get('date')}: ok={r.get('ok')} login_page={r.get('login_page')} pages={r.get('pages')} "
+                           f"items={r.get('items')} with_case={r.get('with_case')} with_parcel={r.get('with_parcel')} err={r.get('error')}")
+                if r.get("labels"):
+                    out.append("    labels: " + ", ".join(f"{k}({v})" for k, v in r["labels"].items()))
+                for k, v in list((r.get("status_pairs") or {}).items())[:12]:
+                    out.append(f"    status: {k} x{v}")
+                if r.get("classes"):
+                    out.append("    classes: " + ", ".join(f"{k}({v})" for k, v in r["classes"].items()))
+                st = r.get("structure") or {}
+                if st.get("json_keys"):
+                    out.append("    json_keys: " + ", ".join(st["json_keys"]))
+                for k, v in (st.get("other_keys") or {}).items():
+                    out.append(f"    key {k}: {str(v)[:300]}")
+                for k, v in (r.get("status_tally") or {}).items():
+                    out.append(f"    result: {k} x{v}")
+                if r.get("update") is not None or r.get("update_error"):
+                    out.append(f"    update (aids={r.get('aids')} err={r.get('update_error')}): " + json.dumps(r.get("update"))[:2500])
+                if st.get("first_item_skeleton"):
+                    out.append("    skeleton: " + st["first_item_skeleton"].replace("\n", " ")[:2200])
     return "\n".join(out)
 
 
@@ -330,6 +385,8 @@ def main(argv=None) -> int:
     ap.add_argument("--county", action="append", default=[], help="limit to these counties (repeatable)")
     ap.add_argument("--realauction-date", action="append", default=[], help="MM/DD/YYYY past sale date(s) for result-label discovery")
     ap.add_argument("--skip-available", action="store_true")
+    ap.add_argument("--realauction-results", action="store_true",
+                    help="also read the CLOSED / CANCELED area (AREA=C) of each --realauction-date, value-free")
     ap.add_argument("--follow", action="store_true", help="fetch up to %d acquisition links present on each source page (one hop)" % MAX_FOLLOW_PER_COUNTY)
     ap.add_argument("--out", default=str(OUT_PATH))
     args = ap.parse_args(argv)
@@ -347,6 +404,9 @@ def main(argv=None) -> int:
     if args.realauction_date:
         print("RealAuction result-label discovery", flush=True)
         report["realauction_result_labels"] = capture_realauction(session, args.realauction_date, counties)
+        if args.realauction_results:
+            print("RealAuction closed/canceled area (AREA=C)", flush=True)
+            report["realauction_results"] = capture_realauction_results(args.realauction_date, counties)
     out = Path(args.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(report, indent=2, sort_keys=True) + "\n", encoding="utf-8")
