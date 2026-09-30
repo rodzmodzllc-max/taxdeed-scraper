@@ -1472,6 +1472,31 @@ state-scoped (`county_gates(state=...)`) and `amount_of()` keeps
 `QUOTED_ON_APPLICATION` only once storable. Full ledger, what is not
 verified, and the first live step: `docs/alabama-onboarding.md`.
 
+## Production-readiness pass 1 (2026-09-30, PR open, migration 021 unapplied)
+
+Branch `feat/production-readiness-1` (stacked on the Alabama adapter PR).
+Full description: `docs/otc-inventory-model.md` section 16. Stable facts:
+- `harvesters/governance/inventory_status.py` is the ONE lifecycle
+  vocabulary (12 statuses, 4 bases); a result status is refused unless
+  its basis is the source's own published wording. `scripts/
+  inventory_status_writer.py` writes `properties.inventory_status*` and
+  the append-only `inventory_status_observations` (migration 021, NOT
+  applied; probed). The FL HTML/PDF harvesters write the lists' own
+  'Sold To' rows as identities to `out/harvest_laft_sold*.json`.
+- `scripts/laft_purchase_paths.py` + `data/laft_purchase_link_rules.csv`:
+  the HTML harvester keeps each row's published links; a link becomes a
+  purchase path only through an enabled, verified rule (none enabled).
+  Evidence: `out/public/laft-link-evidence.json` (value-free).
+- `scripts/auction_events_writer.py`: source-published outcomes via
+  `SOURCE_OUTCOME_MAP` (empty; add a wording only after observing it on the
+  source); winning bid / bidder / count stay forbidden.
+- `scripts/unit_freshness.py`: per-county last attempt / last complete
+  read / failure streak, back-off after 3 blocked failures (HTML harvester
+  consults it), registry PATCH once 021 exists, Dashboard rows.
+- `get_properties()` (021) appends the four status columns plus
+  `field_provenance` and `otc_provenance`; the frontend renders them only
+  when projected. `harvest_cache.PARSER_VERSION` -> 3. `sw.js` -> v46.
+
 ## SaaS launch-readiness hardening (2026-09-29, PR open, not merged)
 
 Branch `feat/saas-readiness-hardening`. What it adds, and where to look:

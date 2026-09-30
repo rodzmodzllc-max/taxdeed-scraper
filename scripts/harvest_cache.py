@@ -45,7 +45,10 @@ from pathlib import Path
 # Bump this when extraction logic changes so cached rows are not reused.
 # 2 (2026-09-29): identifier plausibility gate + list_as_of in the LAFT PDF/
 # HTML parsers - cached pre-gate rows must be re-parsed once.
-PARSER_VERSION = 2
+# 3 (2026-09-30): the HTML parser keeps each row's published links
+# (row_links) and both parsers record the lists' own sold rows - cached rows
+# without links must be re-parsed once.
+PARSER_VERSION = 3
 
 CACHE_DIR = Path(__file__).resolve().parent / "../out/.harvest_cache"
 

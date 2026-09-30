@@ -196,6 +196,10 @@ job). Derived at read time - see healthOf() in app.js. -->
 <div class="dash-panel">
 <div class="dash-panel-head">Data sources</div>
 <div id="dashSourceRows"></div>
+<!-- Per-county freshness (county_source_registry + migration 021's columns,
+written by scripts/unit_freshness.py): last read / last complete read per
+county. Not recorded yet = said so; never shown as current. -->
+<div id="dashUnitRows"></div>
 </div>
 <!-- Changes to watchlist / favorite rows since this browser last loaded
 the app - computed from the rows the app already has against a snapshot

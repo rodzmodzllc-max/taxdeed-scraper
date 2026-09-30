@@ -386,7 +386,7 @@ let ALL = [], CALENDAR = {}, NOTES = {}, FAVS = new Set(), HIDDEN = new Set(), M
 let BIDLIST = new Set(), BIDLIST_ORDER = [];
 // SaaS hardening (2026-09-29): dataset health rows (null = table not
 // present / not recorded yet) and the change signals for watched rows.
-let SOURCE_HEALTH = null, WATCH_CHANGES = null;
+let SOURCE_HEALTH = null, WATCH_CHANGES = null, UNIT_FRESHNESS = null;
 // Ids someone tried to add while the list was already full, in the order
 // they tried - not persisted (in-memory/this session only), auto-promoted
 // into BIDLIST oldest-first the moment a slot frees up. See promoteNextPending().
@@ -1922,7 +1922,7 @@ async function fetchProperties() {
 
 async function loadAll() {
   const today = new Date().toISOString().slice(0, 10);
-  const [props, notes, favs, hid, cal, bidlist, health] = await Promise.all([
+  const [props, notes, favs, hid, cal, bidlist, health, freshness] = await Promise.all([
     fetchProperties(),
     sb.from("notes").select("*"),
     sb.from("favorites").select("property_id"),
@@ -1931,7 +1931,11 @@ async function loadAll() {
     sb.from("bid_list").select("property_id").order("added_at"),
     // Dataset health (migration 016). Missing table = not recorded yet,
     // shown as such - never as healthy.
-    sb.from("source_health").select("*").order("source")
+    sb.from("source_health").select("*").order("source"),
+    // Per-county freshness (migration 018's registry + 021's columns,
+    // written by scripts/unit_freshness.py). Missing table or columns =
+    // not recorded yet, shown as such.
+    sb.from("county_source_registry").select("state,county,source_id,last_attempt_at,last_attempt_status,last_success_at,last_success_row_count,consecutive_failures").order("county")
   ]);
   if (props.error) {
     const genEl = document.getElementById("generatedAt");
@@ -1949,6 +1953,7 @@ async function loadAll() {
   BIDLIST = new Set(BIDLIST_ORDER);
   CALENDAR = {}; if (!cal.error) { (cal.data || []).forEach(r => { (CALENDAR[r.county] = CALENDAR[r.county] || []).push(r.sale_date); }); }
   SOURCE_HEALTH = health.error ? null : (health.data || []);
+  UNIT_FRESHNESS = freshness.error ? null : (freshness.data || []);
   // Diff ONCE per page load: the bootstrap can run loadAll() twice (the
   // getSession() path and the SIGNED_IN event both reach showApp()), and a
   // second diff would compare against the snapshot the first pass just
@@ -2825,6 +2830,36 @@ const PURCHASE_URL_KIND_LABELS = {
   purchase_instructions: "Purchase instructions", offer_form: "Offer form", bid_form: "Bid form",
   application_form: "Application form", online_purchase: "Buy online"
 };
+// Normalized lifecycle status (migration 021 / harvesters/governance/
+// inventory_status.py LABELS - a Python test keeps the keys in step).
+// sold / redeemed / withdrawn / cancelled / struck_off are only ever
+// written from a status the SOURCE published; "closed" is "left the list";
+// "unknown" is "not published". Factual wording, no score, no badge.
+const INVENTORY_STATUS_LABELS = {
+  upcoming: "Upcoming sale", active: "Listed", sold: "Sold (per the source)", redeemed: "Redeemed (per the source)",
+  withdrawn: "Withdrawn (per the source)", cancelled: "Cancelled (per the source)",
+  struck_off: "Struck off to the taxing unit (per the source)", state_held: "State-held; available by application",
+  resale_inventory: "Held for a future resale", available_otc: "Available over the counter",
+  closed: "Left the list / feed", unknown: "Not published"
+};
+const INVENTORY_STATUS_BASIS_TEXT = {
+  SOURCE_STATUS: "Source status", LIST_PRESENCE: "List presence", SCHEDULED_DATE: "Scheduled date", NOT_PUBLISHED: "Not published"
+};
+// field_provenance sources (scripts/field_provenance.py RANK) -> the
+// customer-facing name of the source. A source not listed here is shown as
+// its raw key, never as a friendlier guess.
+const PROVENANCE_SOURCE_LABELS = {
+  county_list: "County list (Lands Available)", fdor_nal: "Florida Department of Revenue (NAL tax roll)",
+  county_gis: "County GIS parcel layer", vendor_listing: "Vendor listing", hand_research: "Hand research"
+};
+const PROVENANCE_FIELD_LABELS = {
+  legal_desc: "Legal description", owner_name: "Name in which assessed", assessed: "Assessed value", certificate_no: "Certificate #",
+  homestead: "Homestead", escheatment_date: "Escheats to county", available_date: "Available for purchase",
+  taxable_value: "Taxable value", acreage: "Acreage", land_use: "Land use", dor_use_code: "DOR use code", market: "Just value",
+  parcel: "Parcel #", address: "Address", latitude: "Latitude", longitude: "Longitude", year_built: "Year built",
+  living_area: "Living area", lot_sqft: "Lot size", land_value: "Land value", improvement_value: "Improvement value",
+  last_sale_price: "Last sale price", last_sale_year: "Last sale year", num_buildings: "Buildings", value_year: "Tax year"
+};
 const dateOnly = v => (v ? fmtDate(String(v).slice(0, 10)) : "");
 // Purchase-path kinds (migration 017's purchase_url_kind vocabulary):
 // a PROPERTY-level action link the buyer uses for THIS parcel, versus a
@@ -2852,6 +2887,10 @@ function inventoryCardHtml(p) {
   const link = (href, label) => `<a href="${esc(href)}" target="_blank" rel="noopener">${esc(label)} →</a>`;
   // ---- Inventory: what the list says about this parcel's availability.
   const inv = [];
+  // Migration 021's normalized status: rendered only when the API projects
+  // the column (an older RPC never shows a false "Not published"); NULL =
+  // not yet observed by the writer.
+  if (p.inventory_status !== undefined) inv.push(row("Status", inventoryStatusHtml(p)));
   inv.push(row("Inventory", INVENTORY_TYPE_LABELS[p.inventory_type] ? esc(INVENTORY_TYPE_LABELS[p.inventory_type])
     : muted("Not classified - the source has not said whether this is purchasable now")));
   let amount;
@@ -2923,11 +2962,78 @@ function gisLocationCardHtml(p) {
 // new labeled card - tests/run_test.mjs's detailProvenanceText regex reads
 // this element's raw text, so the wording and span structure are
 // untouched; only the surrounding heading/card chrome is new.
+function inventoryStatusHtml(p) {
+  const muted = t => `<span class="muted">${esc(t)}</span>`;
+  if (!p.inventory_status) return muted("Not yet observed");
+  const label = INVENTORY_STATUS_LABELS[p.inventory_status] || String(p.inventory_status);
+  const basisKey = String(p.inventory_status_basis || "").split(":")[0];
+  const bits = [];
+  if (p.inventory_status_raw) bits.push(`Source status "${p.inventory_status_raw}"`);
+  else if (INVENTORY_STATUS_BASIS_TEXT[basisKey]) bits.push(`Basis: ${INVENTORY_STATUS_BASIS_TEXT[basisKey].toLowerCase()}`);
+  if (p.inventory_status_observed_at) bits.push(`observed ${dateOnly(p.inventory_status_observed_at)}`);
+  return `<span class="inv-status" data-status="${esc(p.inventory_status)}">${esc(label)}</span>${bits.length ? `<span class="kv-sub">${esc(bits.join(" · "))}</span>` : ""}`;
+}
+// Per-field provenance (migration 009's field_provenance, projected by the
+// RPC since migration 021): one line per stored field naming the source,
+// how the value was obtained (published directly by the source, or matched
+// deterministically - e.g. by FDOR parcel identifier), and when it was
+// recorded. Nothing here is a score: a field either has a recorded origin
+// or is shown as "not recorded".
+function provenanceRowsHtml(fp) {
+  const entries = Object.entries(fp || {}).filter(([, v]) => v && typeof v === "object" && v.source);
+  if (!entries.length) return "";
+  entries.sort((a, b) => a[0].localeCompare(b[0]));
+  const rows = entries.map(([field, v]) => {
+    const source = PROVENANCE_SOURCE_LABELS[v.source] || String(v.source);
+    let method;
+    if (v.matched_field) method = `Parcel match: ${v.matched_field === "ALT_KEY" ? "FDOR alternate key" : "FDOR parcel identifier"}`;
+    else if (v.method) method = String(v.method);
+    else method = "Published by the source";
+    const when = v.list_as_of ? `List as of ${dateOnly(v.list_as_of)}` : (v.recorded_at ? `Recorded ${dateOnly(v.recorded_at)}` : "Date not recorded");
+    const sid = v.source_id ? `<span class="mono">${esc(String(v.source_id))}</span>` : "";
+    return `<div class="prov-row" data-field="${esc(field)}"><span class="prov-field">${esc(PROVENANCE_FIELD_LABELS[field] || field)}</span><span class="prov-source">${esc(source)} ${sid}</span><span class="prov-method">${esc(method)}</span><span class="prov-when">${esc(when)}</span></div>`;
+  });
+  return `<div class="prov-table"><div class="prov-row prov-head"><span>Field</span><span>Source</span><span>How obtained</span><span>When</span></div>${rows.join("")}</div>`;
+}
+// The OTC row-level provenance the lifecycle writes (migration 017's
+// otc_provenance): who read the list, from where, when, and what the
+// amount / purchase-path / list-date facts are based on. Rendered as plain
+// "Label: statement" lines, verbatim from the pipeline's own wording.
+function otcProvenanceHtml(op) {
+  if (!op || typeof op !== "object") return "";
+  const lines = [];
+  const line = (k, v) => { if (v) lines.push(`<div class="prov-line"><span class="prov-k">${esc(k)}</span><span class="prov-v">${esc(String(v))}</span></div>`); };
+  line("Read by", op.harvester || op.source_id);
+  line("List read from", op.list_url);
+  line("Retrieved", op.retrieved_at ? dateOnly(op.retrieved_at) : "");
+  line("List date", op.list_as_of);
+  line("Amount", op.purchase_amount);
+  line("Purchase path", op.purchase_url);
+  line("Inventory type", op.inventory_type);
+  line("Status wording", op.status_terminology);
+  return lines.length ? `<div class="prov-lines">${lines.join("")}</div>` : "";
+}
 function provenanceCardHtml(p) {
+  // The two-span .detail-provenance block is kept byte-for-byte (tests read
+  // its raw text); everything below it is the per-field / per-row origin
+  // that migration 021 projects, rendered only when the API sent the column.
+  let detail = "";
+  if (p.last_seen_at || p.list_as_of) {
+    const bits = [];
+    if (p.last_seen_at) bits.push(`Last read from the source ${dateOnly(p.last_seen_at)}`);
+    if (p.list_as_of) bits.push(`list dated ${dateOnly(p.list_as_of)}`);
+    detail += `<div class="prov-fresh">${esc(bits.join(" · "))}</div>`;
+  }
+  if (p.field_provenance !== undefined) {
+    const table = provenanceRowsHtml(p.field_provenance);
+    detail += table || `<div class="prov-empty">No per-field provenance recorded for this row yet - values shown on this page came with the harvested listing and have not been individually traced.</div>`;
+  }
+  if (p.otc_provenance !== undefined && p.otc_provenance) detail += otcProvenanceHtml(p.otc_provenance);
   const body = `<div class="detail-provenance">
       ${harvesterSourceLabel(p) ? `<span>Data source: ${esc(harvesterSourceLabel(p))}</span>` : ""}
       <span class="${isRowStale(p) ? "stale" : ""}">${esc(lastSyncedText(p))}</span>
     </div>
+    ${detail}
     <button class="detail-btn detail-report-btn" data-action="support" data-topic="data" data-pid="${p.id}" type="button">Report a data problem</button>`;
   return detailSectionHtml("Data Quality & Provenance", body, "provenance-card", "provenance");
 }
@@ -2938,9 +3044,11 @@ function provenanceCardHtml(p) {
 // (auction_event_observations). Rendered into a placeholder after the modal
 // opens (hydrateEventHistory) because it is a second query. Rules, from
 // docs/production-data-contract.md section 26/27 and the Phase B writer:
-//   - outcome is ALWAYS shown as "Not tracked". The pipeline records no sale
-//     results, winning bids or purchasers, and a listing leaving the feed is
-//     lifecycle 'completed' with outcome 'unknown' - never "sold".
+//   - outcome is "Not published by the source" unless the SOURCE published a
+//     result (auction_events.outcome != 'unknown', written only with the
+//     source's own wording in outcome_raw). A listing leaving the feed is
+//     lifecycle 'completed' with outcome 'unknown' - never "sold". Winning
+//     bids and purchasers are never recorded.
 //   - 'completed' is worded as "sale date passed - outcome not tracked".
 //   - 'superseded' means the source later listed the property under a new
 //     date; the older event is kept as history.
@@ -2954,7 +3062,19 @@ const EVENT_LIFECYCLE_TEXT = {
   pending_result: "Sale date passed - result pending at the source",
   unknown: "Unknown"
 };
-const EVENT_NOTE = "Observed from the source on the harvest schedule. \"Sale date passed\" means the listing left the source's feed after its date - it does not mean the property sold, was redeemed or was cancelled. This app records no sale results, winning bids or purchasers; check the county record.";
+const EVENT_NOTE = "Observed from the source on the harvest schedule. \"Sale date passed\" means the listing left the source's feed after its date - it does not mean the property sold, was redeemed or was cancelled. A result is shown only when the source itself published one (its own wording is quoted); otherwise the outcome is not published. Winning bids and purchasers are never recorded; check the county record.";
+// Source-published results (migration 014's outcome vocabulary). Shown only
+// with the source's own wording beside it (outcome_raw) - never derived.
+const EVENT_OUTCOME_TEXT = {
+  sold: "Sold (per the source)", redeemed: "Redeemed (per the source)", struck_off: "Struck off to the taxing unit (per the source)",
+  future_sale: "Held for a future sale (per the source)", no_sale: "No sale (per the source)"
+};
+function eventOutcomeHtml(ev) {
+  const outcome = String(ev.outcome || "unknown");
+  if (outcome === "unknown" || !EVENT_OUTCOME_TEXT[outcome] || !ev.outcome_raw) return `<b>Outcome:</b> Not published by the source`;
+  const when = ev.outcome_observed_at ? `, observed ${fmtDate(String(ev.outcome_observed_at).slice(0, 10))}` : "";
+  return `<b>Outcome:</b> ${esc(EVENT_OUTCOME_TEXT[outcome])} - source status "${esc(String(ev.outcome_raw))}"${esc(when)}`;
+}
 function eventHistoryHtml(events, observations) {
   if (!events.length) return `<p class="event-note">No sale events observed for this property yet. Event history starts with the first harvest after the auction-event writer went live; earlier sales are not reconstructed.</p>`;
   const byEvent = {};
@@ -2979,7 +3099,7 @@ function eventHistoryHtml(events, observations) {
       <div class="ev-head"><span>Scheduled sale ${esc(fmtDate(ev.scheduled_sale_date))}</span><span class="ev-life ${esc(life)}">${esc(EVENT_LIFECYCLE_TEXT[life] || life)}</span></div>
       <div class="ev-meta">${esc(seen)}${obs.length ? ` · ${obs.length} observation${obs.length === 1 ? "" : "s"}` : ""}${raw ? ` · source status "${esc(String(raw))}"` : ""}</div>
       <div class="ev-meta">${esc(bidLine)}</div>
-      <div class="ev-outcome"><b>Outcome:</b> Not tracked</div>
+      <div class="ev-outcome">${eventOutcomeHtml(ev)}</div>
     </div>`;
   });
   return `<div class="event-list">${items.join("")}</div><p class="event-note">${esc(EVENT_NOTE)}</p>`;
@@ -5335,6 +5455,34 @@ function sourceHealthRowsHtml(rows, pageState) {
   if (!ordered.length) return `<div class="dash-empty">No dataset has recorded a run yet.</div>`;
   return ordered.map(sourceHealthRowHtml).join("");
 }
+// Per-county freshness rows (county_source_registry + migration 021's
+// columns). Facts only: when the unit was last read at all, when it was
+// last read COMPLETELY (the last-known-good observation), how many rows
+// that read carried, and how many attempts in a row have failed. A county
+// whose last attempt was not a success is marked stale in wording, not
+// hidden; a county never attempted since the columns existed is omitted.
+function unitFreshnessRowHtml(u) {
+  const last = u.last_attempt_status ? String(u.last_attempt_status).toLowerCase() : "?";
+  const ok = u.last_attempt_status === "COMPLETE" || u.last_attempt_status === "EMPTY";
+  const bits = [
+    `last read ${relativeTime(u.last_attempt_at)} (${last})`,
+    u.last_success_at ? `last complete read ${relativeTime(u.last_success_at)}` : "no complete read recorded",
+    u.last_success_row_count !== null && u.last_success_row_count !== undefined ? `${u.last_success_row_count} rows at that read` : "row count unknown"
+  ];
+  if (Number(u.consecutive_failures) > 0) bits.push(`${u.consecutive_failures} consecutive failed attempt${Number(u.consecutive_failures) === 1 ? "" : "s"}`);
+  return `<div class="health-row unit-row" data-county="${esc(u.county)}" data-source="${esc(u.source_id || "")}" data-fresh="${ok ? "current" : "stale"}">
+    <span class="health-label">${esc(u.county)}<span class="unit-source mono"> ${esc(u.source_id || "")}</span></span>
+    <span class="health-badge ${ok ? "healthy" : "stale"}">${ok ? "Current" : "Stale"}</span>
+    <span class="health-sub">${esc(bits.join(" · "))}</span>
+  </div>`;
+}
+function unitFreshnessRowsHtml(rows, pageState) {
+  if (rows === null) return `<div class="dash-empty">Per-county freshness is not recorded yet on this deployment (migration 021 / scripts/unit_freshness.py not live).</div>`;
+  const mine = rows.filter(r => r.state === pageState && r.last_attempt_at);
+  if (!mine.length) return `<div class="dash-empty">No county has a recorded read yet.</div>`;
+  mine.sort((a, b) => String(a.county).localeCompare(String(b.county)) || String(a.source_id || "").localeCompare(String(b.source_id || "")));
+  return `<div class="unit-head">By county - last read, last complete read</div>` + mine.map(unitFreshnessRowHtml).join("");
+}
 function renderSourceHealthTerms() {
   const el = document.getElementById("sourceHealthTerms");
   if (!el) return;
@@ -5974,6 +6122,8 @@ function renderDashboard() {
 
   const sourceEl = document.getElementById("dashSourceRows");
   if (sourceEl) sourceEl.innerHTML = sourceHealthRowsHtml(SOURCE_HEALTH, PAGE_STATE);
+  const unitEl = document.getElementById("dashUnitRows");
+  if (unitEl) unitEl.innerHTML = unitFreshnessRowsHtml(UNIT_FRESHNESS, PAGE_STATE);
   const watchEl = document.getElementById("dashWatchChanges");
   if (watchEl) watchEl.innerHTML = watchChangesHtml(WATCH_CHANGES);
 

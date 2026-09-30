@@ -588,7 +588,11 @@ def parse_rows(cfg: AlabamaSourceConfig, rows: list[dict], *, retrieved_at: date
             amount=amount, amount_kind=kind,
             list_url=page_url, document_url=cfg.document_url,
             purchase_url=purchase_url, purchase_url_kind=purchase_kind,
-            list_as_of=as_of, source_status_text=status_text, provenance={**prov, "normalized_status": status},
+            list_as_of=as_of, source_status_text=status_text,
+            # normalized_status + the verbatim wording travel in the provenance
+            # so scripts/inventory_status_writer.py can read them off the
+            # stored row (properties has no source_status_text column).
+            provenance={**prov, "normalized_status": status, "source_status_text": status_text},
         ))
         report.accepted += 1
     return out, report

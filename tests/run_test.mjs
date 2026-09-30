@@ -1909,8 +1909,18 @@ results.eventLifecycleP13First = ((await evPage2.locator('#detailModalInner .eve
 // words it forbids) must never contain an outcome claim.
 const evItemsText = (await evPage2.locator('#detailModalInner [data-section="events"] .event-item').allTextContents()).join(' ').toLowerCase();
 results.eventSectionNeverClaimsOutcome = !/\bsold\b|redeemed|winning bid|purchaser|struck off/.test(evItemsText);
-results.eventSectionSaysNotTracked = (evItemsText.match(/outcome: not tracked/g) || []).length;
+results.eventSectionSaysNotPublished = (evItemsText.match(/outcome: not published by the source/g) || []).length;
 await evPage2.close();
+// --- Production-readiness: an event whose result the SOURCE published
+// (ev4 on p10: outcome struck_off with the vendor's own wording) is shown
+// with that wording and the observation date - never for an event whose
+// outcome is 'unknown' (p1 / p13 above stay "Not published by the source").
+const evPage3 = await newPage({ viewport: { width: 1200, height: 900 } });
+await evPage3.goto(BASE_URL + '#/auctions/p10', { waitUntil: 'networkidle' });
+await evPage3.waitForTimeout(600);
+results.eventOutcomeSourcePublished = ((await evPage3.locator('#detailModalInner .event-item .ev-outcome').first().textContent()) || '').replace(/\s+/g, ' ').trim();
+results.eventNoteSaysSourceOnly = ((await evPage3.locator('#detailModalInner [data-section="events"] .event-note').textContent()) || '').includes('only when the source itself published one');
+await evPage3.close();
 
 // --- Dashboard: dataset health (five stub rows, one per derived state)
 // and the watchlist change signals (first visit in a fresh browser). ---
@@ -1922,6 +1932,12 @@ await dashPage.waitForTimeout(200);
 results.dashHealthRows = await dashPage.locator('#dashSourceRows .health-row').evaluateAll(els => els.map(e => e.dataset.source + ':' + e.dataset.health));
 results.dashHealthBadgeTexas = ((await dashPage.locator('#dashSourceRows .health-row[data-source="tx_sales"] .health-sub').textContent()) || '').includes('manual runs, no schedule');
 results.dashHealthIncompleteNames = ((await dashPage.locator('#dashSourceRows .health-row[data-source="fl_certificates"] .health-sub').textContent()) || '').includes('incomplete: Baker, Gulf');
+// Per-county freshness (county_source_registry + migration 021): FL rows
+// with a recorded read only (Bradford, never attempted, is omitted; the
+// Texas row belongs to tx.html), Current vs Stale by the last attempt.
+results.dashUnitRows = await dashPage.locator('#dashUnitRows .unit-row').evaluateAll(els => els.map(e => e.dataset.county + ':' + e.dataset.fresh));
+results.dashUnitStaleText = ((await dashPage.locator('#dashUnitRows .unit-row[data-county="Bay"] .health-sub').textContent()) || '').replace(/\s+/g, ' ').trim();
+results.dashUnitCurrentText = ((await dashPage.locator('#dashUnitRows .unit-row[data-county="Alachua"] .health-sub').textContent()) || '').replace(/\s+/g, ' ').trim();
 results.dashWatchFirstVisit = ((await dashPage.locator('#dashWatchChanges').textContent()) || '').includes('No earlier visit recorded in this browser yet');
 results.dashWatchNoNotificationsClaim = ((await dashPage.locator('#dashWatchChanges').textContent()) || '').includes('No e-mail or push notifications exist yet');
 await dashPage.close();
@@ -1933,6 +1949,14 @@ await noHealthPage.waitForTimeout(200);
 results.dashHealthMissingTable = ((await noHealthPage.locator('#dashSourceRows').textContent()) || '').includes('not recorded yet');
 results.dashHealthMissingTableNoBadges = await noHealthPage.locator('#dashSourceRows .health-badge').count();
 await noHealthPage.close();
+const noRegPage = await newPage({ viewport: { width: 1200, height: 900 } });
+await noRegPage.goto(BASE_URL + '?registry=none', { waitUntil: 'networkidle' });
+await noRegPage.waitForTimeout(500);
+await noRegPage.click('.nav-item[data-page="dashboard"]');
+await noRegPage.waitForTimeout(200);
+results.dashUnitMissingColumns = ((await noRegPage.locator('#dashUnitRows').textContent()) || '').includes('not recorded yet');
+results.dashUnitMissingColumnsNoRows = await noRegPage.locator('#dashUnitRows .unit-row').count();
+await noRegPage.close();
 
 // --- Watchlist change signals: seed the snapshot a previous visit would
 // have written (p1 with a lower bid, and a row that no longer exists) and
@@ -2112,6 +2136,8 @@ const invHref = (page, label) => page.locator('#detailModalInner .inventory-card
 results.txInventoryLabels = await txClPage.locator('#detailModalInner .inventory-card .kv-label').allTextContents();
 results.txInventoryGroups = await txClPage.locator('#detailModalInner .inventory-card .kv-group-head').allTextContents();
 results.txInventoryType = await invVal(txClPage, 'Inventory');
+results.txInventoryStatus = await invVal(txClPage, 'Status');
+results.txProvenanceHasNoTable = await txClPage.locator('#detailModalInner .provenance-card .prov-table').count();
 results.txInventoryAmount = await invVal(txClPage, 'Amount');
 results.txInventorySourceList = await invVal(txClPage, 'Source list');
 results.txInventoryPurchase = await invVal(txClPage, 'Purchase');
@@ -2128,6 +2154,14 @@ const flInvPage = await newPage({ viewport: { width: 1200, height: 900 } });
 await flInvPage.goto(BASE_URL + '#/lands/p3', { waitUntil: 'networkidle' });
 await flInvPage.waitForTimeout(500);
 results.flInventoryLabels = await flInvPage.locator('#detailModalInner .inventory-card .kv-label').allTextContents();
+// Production-readiness: the normalized status row (migration 021) and the
+// per-field / per-row provenance table on the same page.
+results.flInventoryStatus = await invVal(flInvPage, 'Status');
+results.flProvenanceRows = await flInvPage.locator('#detailModalInner .provenance-card .prov-row:not(.prov-head)').evaluateAll(els => els.map(e => e.dataset.field + '|' + e.querySelector('.prov-source').innerText.replace(/\s+/g, ' ').trim() + '|' + e.querySelector('.prov-method').innerText.trim() + '|' + e.querySelector('.prov-when').innerText.trim()));
+results.flProvenanceLines = await flInvPage.locator('#detailModalInner .provenance-card .prov-line .prov-k').allTextContents();
+results.flProvenancePurchaseLine = ((await flInvPage.locator('#detailModalInner .provenance-card .prov-line').filter({ hasText: 'Purchase path' }).locator('.prov-v').textContent()) || '').trim();
+results.flProvenanceFresh = ((await flInvPage.locator('#detailModalInner .provenance-card .prov-fresh').textContent()) || '').trim();
+results.flProvenanceNoScoreWords = !/confidence score|ai score|investment score|quality badge|probability|verified label/i.test(((await flInvPage.locator('#detailModalInner .provenance-card').textContent()) || '').replace(/Data Quality & Provenance|Report a data problem/g, ''));
 results.flInventoryGroups = await flInvPage.locator('#detailModalInner .inventory-card .kv-group-head').allTextContents();
 results.flInventoryType = await invVal(flInvPage, 'Inventory');
 results.flInventoryPrice = await invVal(flInvPage, 'Price');
@@ -2739,16 +2773,23 @@ const EXPECTED = {
   eventSectionPresent: 1,
   eventItemsP1: 1,
   eventLifecycleP1: 'Scheduled (as of the last observation)',
-  eventOutcomeP1: 'Outcome: Not tracked',
+  eventOutcomeP1: 'Outcome: Not published by the source',
   eventBidChangeP1: 'Opening bid observed: $4,500.00 → $5,000.00 (changed 1 time)',
   eventNavPill: 1,
   eventItemsP13: ['completed', 'superseded'],
   eventLifecycleP13First: 'Sale date passed - outcome not tracked',
   eventSectionNeverClaimsOutcome: true,
-  eventSectionSaysNotTracked: 2,
+  eventSectionSaysNotPublished: 2,
+  eventOutcomeSourcePublished: 'Outcome: Struck off to the taxing unit (per the source) - source status "Struck off to Jurisdiction", observed Sep 20, 2026',
+  eventNoteSaysSourceOnly: true,
   dashHealthRows: ['fl_deeds:HEALTHY', 'fl_certificates:INCOMPLETE', 'fl_laft:FAILED', 'db_backup:STALE', 'tx_sales:INCOMPLETE'],
   dashHealthBadgeTexas: true,
   dashHealthIncompleteNames: true,
+  dashUnitRows: ['Alachua:current', 'Bay:stale'],
+  dashUnitStaleText: 'last read 2h ago (failed) · last complete read 3d ago · 3 rows at that read · 3 consecutive failed attempts',
+  dashUnitCurrentText: 'last read 2h ago (complete) · last complete read 2h ago · 14 rows at that read',
+  dashUnitMissingColumns: true,
+  dashUnitMissingColumnsNoRows: 0,
   dashWatchFirstVisit: true,
   dashWatchNoNotificationsClaim: true,
   dashHealthMissingTable: true,
@@ -2803,7 +2844,9 @@ const EXPECTED = {
   bidLegacyPositiveStillPublished: true,
   bidTxVendorRowWithoutKindUsesLegacyRule: true,
   // Enrichment phase: Inventory & Purchase card.
-  txInventoryLabels: ['Inventory', 'Amount', 'Source list', 'Published by', 'Last read from source', 'Parcel #', 'Legal description', 'Owner of record', 'Assessed value', 'Taxable value', 'Acreage', 'Land use', 'Purchase'],
+  txInventoryLabels: ['Status', 'Inventory', 'Amount', 'Source list', 'Published by', 'Last read from source', 'Parcel #', 'Legal description', 'Owner of record', 'Assessed value', 'Taxable value', 'Acreage', 'Land use', 'Purchase'],
+  txInventoryStatus: 'Struck off to the taxing unit (per the source) Source status "Struck off to Jurisdiction" · observed Sep 23, 2026',
+  txProvenanceHasNoTable: 0,
   txInventoryGroups: ['Inventory', 'Property', 'Purchase path'],
   txInventoryType: 'Struck off to the taxing units, held in trust (Texas)',
   txInventoryAmount: '$4,451.95 Vendor minimum bid (legacy column)',
@@ -2813,8 +2856,18 @@ const EXPECTED = {
   txInventoryParcel: '23-TX-0644',
   txInventoryAnchors: 0,
   txInventoryGapNamesPurchaseLink: true,
-  flInventoryLabels: ['Inventory', 'Price', 'Certificate #', 'Available for purchase', 'Escheats to county', 'Source list', 'Source document', 'List as of', 'Source document dated', 'Published by', 'Last read from source', 'Parcel #', 'Legal description', 'Name in which assessed', 'Assessed value', 'Taxable value', 'Acreage', 'Land use', 'Homestead', 'Purchase'],
+  flInventoryLabels: ['Status', 'Inventory', 'Price', 'Certificate #', 'Available for purchase', 'Escheats to county', 'Source list', 'Source document', 'List as of', 'Source document dated', 'Published by', 'Last read from source', 'Parcel #', 'Legal description', 'Name in which assessed', 'Assessed value', 'Taxable value', 'Acreage', 'Land use', 'Homestead', 'Purchase'],
   flInventoryGroups: ['Inventory', 'Property', 'Purchase path'],
+  flInventoryStatus: 'Available over the counter Basis: list presence · observed Aug 11, 2026',
+  flProvenanceRows: [
+    'acreage|Florida Department of Revenue (NAL tax roll)|Parcel match: FDOR alternate key|Recorded Aug 12, 2026',
+    'assessed|Florida Department of Revenue (NAL tax roll)|Parcel match: FDOR parcel identifier|Recorded Aug 12, 2026',
+    'legal_desc|County list (Lands Available) fl_laft_pioneer|Published by the source|List as of Aug 10, 2026'
+  ],
+  flProvenanceLines: ['Read by', 'List read from', 'Retrieved', 'List date', 'Amount', 'Purchase path', 'Inventory type', 'Status wording'],
+  flProvenancePurchaseLine: 'no purchase path published by the source or verified in the registry - none invented',
+  flProvenanceFresh: 'Last read from the source Aug 11, 2026 · list dated Aug 10, 2026',
+  flProvenanceNoScoreWords: true,
   flInventoryType: 'Lands Available - fixed price, over the counter (F.S. 197.502(7))',
   flInventoryPrice: '$2,000.00 Opening bid',
   flInventoryCertificate: '2019-0042',

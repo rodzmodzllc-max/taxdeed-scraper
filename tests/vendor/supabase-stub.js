@@ -32,6 +32,22 @@ const FIXTURE_PROPERTIES = [
     // absent on purpose - no Florida county has a verified purchase link.
     document_url: "https://x/list.pdf", certificate_no: "2019-0042", escheatment_date: "2029-07-01", available_date: "2026-06-15",
     list_as_of: "2026-08-10", source_published_at: "2026-08-10T14:03:00Z",
+    // Production-readiness (migration 021): the normalized status the
+    // inventory-status writer sets from list presence, plus the per-field
+    // (009) and per-row (017) provenance the RPC now projects.
+    inventory_status: "available_otc", inventory_status_raw: null,
+    inventory_status_basis: "LIST_PRESENCE: on the county's Lands Available list at the last read (F.S. 197.502(7))",
+    inventory_status_observed_at: "2026-08-11T06:00:00Z",
+    field_provenance: {
+      legal_desc: { source: "county_list", source_id: "fl_laft_pioneer", recorded_at: "2026-08-11T06:00:00Z", list_as_of: "2026-08-10" },
+      assessed: { source: "fdor_nal", recorded_at: "2026-08-12T10:00:00Z", matched_field: "PARCEL_ID" },
+      acreage: { source: "fdor_nal", recorded_at: "2026-08-12T10:00:00Z", matched_field: "ALT_KEY" }
+    },
+    otc_provenance: { harvester: "fl_laft_pioneer", list_url: "https://x", retrieved_at: "2026-08-11T06:00:00Z",
+      purchase_amount: "source column/field: OPENING_BID", list_as_of: "stated by the list document/filename",
+      purchase_url: "no purchase path published by the source or verified in the registry - none invented",
+      inventory_type: "harvester constant (F.S. 197.502(7) Lands Available list)",
+      status_terminology: "active = on the county list this run; closed = absent from a COMPLETE/EMPTY harvest" },
     // Phase 66: photo_url '' is the pipeline's "checked, no Street View
     // coverage" sentinel (see CLAUDE.md "Property photos") - distinct from
     // NULL/absent (not checked yet), which every other row here has.
@@ -97,6 +113,7 @@ const FIXTURE_PROPERTIES = [
   // VENDOR_COUNSEL / tx_lgbs, no list/document/purchase URL (LGBS publishes
   // none), purchase_amount untouched (null - min_bid keeps its own meaning).
   { id: "ptx3", source: "laft", state: "TX", county: "Galveston", case_no: "129500040015000", parcel: "23-TX-0644", address: "VACANT LOT IN 6500 BLOCK OF OBRIEN ST, Hitchcock, TX 77563", bid: 4451.95, min_bid: 4451.95, status: "active", sale_date: null, harvester_source: "tx_lgbs", tx_sale_status: "Struck off to Jurisdiction", updated_at: "2026-09-23T00:00:00Z",
+    inventory_status: "struck_off", inventory_status_raw: "Struck off to Jurisdiction", inventory_status_basis: "SOURCE_STATUS: the vendor's own sale status (LGBS)", inventory_status_observed_at: "2026-09-23T06:00:00Z",
     inventory_type: "STRUCK_OFF_HELD_IN_TRUST", source_authority: "VENDOR_COUNSEL", source_id: "tx_lgbs", list_url: null, document_url: null, purchase_url: null, purchase_amount: null, purchase_amount_kind: null },
   { id: "ptx4", source: "auction", state: "TX", county: "Llano", case_no: "R000020419", parcel: "23101 (6)", address: "LOT 6 SUNRISE BEACH, Llano, TX", bid: 3942.08, min_bid: 3942.08, status: "active", sale_date: futureDate(-3), harvester_source: "tx_realauction", url_auction: txSaleUrl("llano.texas.sheriffsaleauctions.com", futureDate(-3)), url_auction_kind: "sale", updated_at: "2026-09-24T00:00:00Z" },
   { id: "ptx5", source: "auction", state: "TX", county: "Atascosa", case_no: "17854", parcel: "20-11-0957-CVA (1)", address: "200 Oak St, Pleasanton, TX", bid: 1200, min_bid: 1200, status: "active", sale_date: futureDate(12), harvester_source: "tx_realauction", updated_at: "2026-09-24T00:00:00Z" },
@@ -140,20 +157,33 @@ const PROFILES_TABLE = PROFILE_MODE === "notable" ? null : [
 const EVENT_ROWS = [
   { id: "ev1", property_id: "p1", scheduled_sale_date: futureDate(3), lifecycle: "scheduled", outcome: "unknown", opening_bid: 5000, first_seen_at: "2026-09-01T10:00:00Z", last_seen_at: "2026-09-28T10:00:00Z", source: "auction", harvester_source: "fl_realauction_alachua", event_url_kind: "sale" },
   { id: "ev2", property_id: "p13", scheduled_sale_date: futureDate(-6), lifecycle: "completed", outcome: "unknown", opening_bid: 5000, first_seen_at: "2026-08-20T10:00:00Z", last_seen_at: "2026-09-20T10:00:00Z", source: "auction", harvester_source: "fl_realauction_alachua", event_url_kind: "sale" },
-  { id: "ev3", property_id: "p13", scheduled_sale_date: futureDate(-40), lifecycle: "superseded", outcome: "unknown", opening_bid: 4800, first_seen_at: "2026-07-01T10:00:00Z", last_seen_at: "2026-08-10T10:00:00Z", source: "auction", harvester_source: "fl_realauction_alachua", event_url_kind: "sale" }
+  { id: "ev3", property_id: "p13", scheduled_sale_date: futureDate(-40), lifecycle: "superseded", outcome: "unknown", opening_bid: 4800, first_seen_at: "2026-07-01T10:00:00Z", last_seen_at: "2026-08-10T10:00:00Z", source: "auction", harvester_source: "fl_realauction_alachua", event_url_kind: "sale" },
+  // Production-readiness: an event whose result the SOURCE published (the
+  // writer's outcome_for_source path) - shown with the source's own wording.
+  { id: "ev4", property_id: "p10", scheduled_sale_date: futureDate(-20), lifecycle: "completed", outcome: "struck_off", outcome_raw: "Struck off to Jurisdiction", outcome_observed_at: "2026-09-20T10:00:00Z", opening_bid: 7000, first_seen_at: "2026-08-25T10:00:00Z", last_seen_at: "2026-09-20T10:00:00Z", source: "auction", harvester_source: "fl_realauction_alachua", event_url_kind: "sale" }
 ];
 const OBSERVATION_ROWS = [
   { id: 1, event_id: "ev1", observed_at: "2026-09-01T10:00:00Z", feed: "county_auction_site", raw_status: "scheduled", lifecycle: "scheduled", outcome: "unknown", opening_bid: 4500 },
   { id: 2, event_id: "ev1", observed_at: "2026-09-28T10:00:00Z", feed: "county_auction_site", raw_status: "scheduled", lifecycle: "scheduled", outcome: "unknown", opening_bid: 5000 },
   { id: 3, event_id: "ev2", observed_at: "2026-08-20T10:00:00Z", feed: "county_auction_site", raw_status: "scheduled", lifecycle: "scheduled", outcome: "unknown", opening_bid: 5000 },
   { id: 4, event_id: "ev2", observed_at: "2026-09-20T10:00:00Z", feed: "county_auction_site", raw_status: null, lifecycle: "completed", outcome: "unknown", opening_bid: 5000 },
-  { id: 5, event_id: "ev3", observed_at: "2026-07-01T10:00:00Z", feed: "county_auction_site", raw_status: "scheduled", lifecycle: "scheduled", outcome: "unknown", opening_bid: 4800 }
+  { id: 5, event_id: "ev3", observed_at: "2026-07-01T10:00:00Z", feed: "county_auction_site", raw_status: "scheduled", lifecycle: "scheduled", outcome: "unknown", opening_bid: 4800 },
+  { id: 6, event_id: "ev4", observed_at: "2026-09-20T10:00:00Z", feed: "api", raw_status: "Struck off to Jurisdiction", lifecycle: "completed", outcome: "struck_off", opening_bid: 7000 }
 ];
 // Dataset health rows (migration 016) - one healthy scheduled source, one
 // INCOMPLETE, one FAILED, one manual Texas source, one stale. `?health=none`
 // simulates the table not existing yet.
 const HEALTH_MODE = new URLSearchParams(location.search).get("health") || "default";
 const hoursAgo = h => new Date(Date.now() - h * 3600000).toISOString();
+// Per-county freshness rows (county_source_registry + migration 021's
+// columns). `?registry=none` simulates the columns not existing yet.
+const REGISTRY_MODE = new URLSearchParams(location.search).get("registry") || "default";
+const REGISTRY_ROWS = REGISTRY_MODE === "none" ? null : [
+  { state: "FL", county: "Alachua", source_id: "fl_laft_realtdm", last_attempt_at: hoursAgo(2), last_attempt_status: "COMPLETE", last_success_at: hoursAgo(2), last_success_row_count: 14, consecutive_failures: 0 },
+  { state: "FL", county: "Bay", source_id: "fl_laft_pioneer", last_attempt_at: hoursAgo(2), last_attempt_status: "FAILED", last_success_at: hoursAgo(74), last_success_row_count: 3, consecutive_failures: 3 },
+  { state: "FL", county: "Bradford", source_id: "fl_laft_pdfs", last_attempt_at: null, last_attempt_status: null, last_success_at: null, last_success_row_count: null, consecutive_failures: 0 },
+  { state: "TX", county: "Galveston", source_id: "tx_lgbs", last_attempt_at: hoursAgo(30), last_attempt_status: "INCOMPLETE", last_success_at: hoursAgo(54), last_success_row_count: 120, consecutive_failures: 0 }
+];
 const SOURCE_HEALTH_ROWS = HEALTH_MODE === "none" ? null : [
   { source: "fl_deeds", label: "Florida deed auctions (county auction sites)", state: "FL", mode: "scheduled", cadence_hours: 12, last_attempt_at: hoursAgo(2), last_attempt_status: "SUCCESS", last_success_at: hoursAgo(2), last_run_id: "1001", row_count: 812, units_total: 46, units_complete: 46, units_incomplete: 0, incomplete_units: [], completeness: "COMPLETE", error: null },
   { source: "fl_certificates", label: "Florida county-held certificates (LienHub)", state: "FL", mode: "scheduled", cadence_hours: 24, last_attempt_at: hoursAgo(3), last_attempt_status: "INCOMPLETE", last_success_at: hoursAgo(3), last_run_id: "1002", row_count: 391, units_total: 32, units_complete: 30, units_incomplete: 2, incomplete_units: ["Baker", "Gulf"], completeness: "INCOMPLETE", error: "2 unit(s) INCOMPLETE: Baker, Gulf" },
@@ -200,6 +230,11 @@ class MockQuery {
         result = SOURCE_HEALTH_ROWS === null
           ? { data: null, error: { message: "Could not find the table 'public.source_health' in the schema cache", code: "PGRST205" } }
           : { data: SOURCE_HEALTH_ROWS, error: null };
+      }
+      else if (this.table === "county_source_registry") {
+        result = REGISTRY_ROWS === null
+          ? { data: null, error: { message: "column county_source_registry.last_attempt_at does not exist", code: "42703" } }
+          : { data: REGISTRY_ROWS, error: null };
       }
       else if (this.table === "notes") result.data = [];
       else if (this.table === "favorites") result.data = [];

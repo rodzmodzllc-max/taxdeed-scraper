@@ -1586,3 +1586,26 @@ live here are removed with the #pageMap section itself - see the note by
 .support-unconfigured{border:1px dashed var(--warn);border-radius:8px;padding:.6rem .8rem;font-size:.8rem;background:var(--warn-bg)}
 .danger-btn{background:var(--bad)!important;border-color:var(--bad)!important;color:#fff!important}
 .detail-report-btn{margin-top:.5rem}
+
+/* Production-readiness (2026-09-30): per-field provenance table on the full
+   property page (app.js provenanceRowsHtml), the OTC row-level provenance
+   lines, the inventory status value, and the Dashboard's per-county
+   freshness rows. Plain, terminal-like: no badges, no meters. */
+.prov-fresh{margin:.35rem 0 .2rem;font-size:.74rem;color:var(--ink-soft)}
+.prov-table{display:flex;flex-direction:column;margin:.35rem 0;border-top:1px solid var(--card-line);font-size:.72rem}
+.prov-row{display:grid;grid-template-columns:minmax(7rem,1.1fr) minmax(8rem,1.4fr) minmax(8rem,1.3fr) minmax(6rem,.9fr);gap:.4rem;padding:.3rem 0;border-bottom:1px solid var(--card-line);align-items:baseline}
+.prov-row.prov-head{font-weight:800;letter-spacing:.04em;text-transform:uppercase;font-size:.66rem;color:var(--ink-soft)}
+.prov-row .prov-field{font-weight:600}
+.prov-row .prov-source .mono{color:var(--ink-soft);font-size:.66rem}
+.prov-row .prov-when{color:var(--ink-soft)}
+.prov-empty{margin:.35rem 0;font-size:.72rem;color:var(--ink-soft)}
+.prov-lines{display:flex;flex-direction:column;gap:.15rem;margin:.4rem 0;font-size:.72rem}
+.prov-line{display:flex;gap:.5rem;align-items:baseline}
+.prov-line .prov-k{flex:0 0 7.5rem;font-weight:600;color:var(--ink-soft)}
+.prov-line .prov-v{flex:1 1 auto;overflow-wrap:anywhere}
+.inv-status{font-weight:700}
+.inv-status[data-status="closed"],.inv-status[data-status="unknown"]{color:var(--ink-soft)}
+.unit-head{margin:.6rem 0 .1rem;font-size:.7rem;font-weight:800;letter-spacing:.05em;text-transform:uppercase;color:var(--ink-soft)}
+.unit-row .unit-source{font-size:.66rem;color:var(--ink-soft)}
+.health-badge.stale{color:var(--warn)}
+@media (max-width:640px){.prov-row{grid-template-columns:1fr 1fr}.prov-row.prov-head{display:none}}

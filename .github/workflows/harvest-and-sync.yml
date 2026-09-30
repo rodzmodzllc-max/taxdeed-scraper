@@ -267,6 +267,32 @@ jobs:
             echo "- Phase B auction-event recording: **failed** - see the 'Record auction events (Phase B)' step log"
           } >> "$GITHUB_STEP_SUMMARY"
 
+      - name: Inventory status - normalized lifecycle state (migration 021)
+        # Inventory status (migration 021): each row's normalized lifecycle state and
+        # its observation history - scripts/inventory_status_writer.py. sold / redeemed /
+        # withdrawn / cancelled / struck_off only from a status the source published;
+        # a row that left a list is 'closed'. Probes for migration 021 and plans only
+        # until it is applied. Never fails the job.
+        if: always() && steps.sync.outcome == 'success'
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/inventory_status_writer.py --state FL
+
+      - name: Per-unit freshness (deed auction counties)
+        # Per-unit freshness (scripts/unit_freshness.py): last attempted / last
+        # successful / consecutive failures per county, persisted with the harvest
+        # cache, counts to out/public, and - once migration 021's columns exist -
+        # written to county_source_registry for the Dashboard. A FAILED attempt
+        # never advances last_success_at. Never fails the job.
+        if: always()
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/unit_freshness.py --status out/harvest_all_status.json:fl_deeds --state FL
+
       - name: Backfill geocoding (US Census Bureau Geocoder)
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -615,6 +641,32 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 scripts/laft_lifecycle.py
 
+      - name: Inventory status - normalized lifecycle state (migration 021)
+        # Inventory status (migration 021): each row's normalized lifecycle state and
+        # its observation history - scripts/inventory_status_writer.py. sold / redeemed /
+        # withdrawn / cancelled / struck_off only from a status the source published;
+        # a row that left a list is 'closed'. Probes for migration 021 and plans only
+        # until it is applied. Never fails the job.
+        if: always() && steps.sync.outcome == 'success'
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/inventory_status_writer.py --state FL
+
+      - name: Per-unit freshness (county lists)
+        # Per-unit freshness (scripts/unit_freshness.py): last attempted / last
+        # successful / consecutive failures per county, persisted with the harvest
+        # cache, counts to out/public, and - once migration 021's columns exist -
+        # written to county_source_registry for the Dashboard. A FAILED attempt
+        # never advances last_success_at. Never fails the job.
+        if: always()
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/unit_freshness.py --status out/harvest_laft_status.json --state FL
+
   texas:
     name: Harvest Texas tax sales (LGBS) + sync - manual only, not yet on cron
     runs-on: ubuntu-latest
@@ -718,6 +770,19 @@ jobs:
       # the step above is continue-on-error, so on its own a failure would
       # leave the job green. This raises a warning annotation on the run and
       # a job-summary section saying exactly which part failed.
+
+      - name: Inventory status - normalized lifecycle state (migration 021)
+        # Inventory status (migration 021): each row's normalized lifecycle state and
+        # its observation history - scripts/inventory_status_writer.py. sold / redeemed /
+        # withdrawn / cancelled / struck_off only from a status the source published;
+        # a row that left a list is 'closed'. Probes for migration 021 and plans only
+        # until it is applied. Never fails the job.
+        if: always() && steps.sync.outcome == 'success'
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/inventory_status_writer.py --state TX
       - name: Report Phase B event recording failure
         if: ${{ !cancelled() && steps.phase_b_events_tx.outcome == 'failure' }}
         run: |

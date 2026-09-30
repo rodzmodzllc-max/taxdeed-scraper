@@ -88,6 +88,8 @@ import requests
 from bs4 import BeautifulSoup
 
 from harvest_cache import PARSER_VERSION, conditional_get, load_cache, record_cache_stats, save_cache
+from laft_purchase_paths import apply_rules, capture_links, link_evidence, links_as_dicts, links_from_dicts, load_rules, write_evidence
+from unit_freshness import backoff_decision, load_persisted as load_freshness, lookup as freshness_lookup
 from laft_status import (CategorizedError, StatusRecorder, amount_kind_for_header, describe_exception,
                          extract_list_as_of, record_identifiers_plausible)
 
@@ -446,7 +448,11 @@ def extract_rows_with_outcome(html: bytes, county: str, source_url: str) -> tupl
     that changed shape) is INCOMPLETE: the list may be empty, this parser
     did not confirm it."""
     outcome = {"empty_marker": False, "header_table_found": False, "card_rows": False, "rows": 0, "rejected": 0,
-               "list_as_of": None}
+               "list_as_of": None,
+               # Rows the list itself marks sold ('Sold To' with a value):
+               # identities only (county + case / parcel), for
+               # scripts/inventory_status_writer.py - never inventory.
+               "sold_rows": []}
     soup = BeautifulSoup(html, "html.parser")
     page_text = soup.get_text(" ", strip=True)
     # The page's own "as of / updated / list date" statement, if it makes
@@ -458,7 +464,7 @@ def extract_rows_with_outcome(html: bytes, county: str, source_url: str) -> tupl
         outcome["empty_marker"] = True
         return [], outcome
 
-    best: tuple[int, list, list[list[str]], list[str]] | None = None
+    best: tuple[int, list, list[list[str]], list[str], list] | None = None
     best_score = 1
     for table in soup.find_all("table"):
         rows = _table_to_rows(table)
@@ -471,7 +477,11 @@ def extract_rows_with_outcome(html: bytes, county: str, source_url: str) -> tupl
         score = sum(1 for f in field_names if f)
         if score > best_score:
             best_score = score
-            best = (header_idx, field_names, rows, [normalize_header_key(c) for c in rows[header_idx]])
+            # The anchors of every cell, per <tr> (same order as `rows`):
+            # what the list publishes as links, kept beside each row for the
+            # purchase-path rules (scripts/laft_purchase_paths.py).
+            best = (header_idx, field_names, rows, [normalize_header_key(c) for c in rows[header_idx]],
+                    capture_links(table, source_url))
 
     if not best:
         # No table had a real header row - try the card-style fallback
@@ -482,16 +492,18 @@ def extract_rows_with_outcome(html: bytes, county: str, source_url: str) -> tupl
             if card_rows:
                 outcome["card_rows"] = True
                 kept = [r for r in card_rows if not r.get("sold_to")]
+                outcome["sold_rows"] = [x for x in (_sold_identity(r) for r in card_rows if r.get("sold_to")) if x]
                 outcome["rows"] = len(kept)
                 return kept, outcome
         return [], outcome
     outcome["header_table_found"] = True
-    header_idx, field_names, rows, header_keys = best
+    header_idx, field_names, rows, header_keys, links_by_row = best
     body = rows[header_idx + 1:]
+    links_body = links_by_row[header_idx + 1:]
 
     note = NOTES_BY_COUNTY.get(county)
     out: list[dict] = []
-    for raw in body:
+    for k, raw in enumerate(body):
         cell_texts = [c.strip() for c in raw if c and c.strip()]
         if not cell_texts:
             continue
@@ -511,6 +523,9 @@ def extract_rows_with_outcome(html: bytes, county: str, source_url: str) -> tupl
                 if field == "bid":
                     record["bid_kind"] = amount_kind_for_header(header_keys[i] if i < len(header_keys) else None)
         if record.get("sold_to"):
+            ident = _sold_identity(record)
+            if ident:
+                outcome["sold_rows"].append(ident)
             continue
         if record.get("case_no") or record.get("parcel"):
             # Identifier plausibility gate (laft_status.plausible_identifier):
@@ -519,9 +534,21 @@ def extract_rows_with_outcome(html: bytes, county: str, source_url: str) -> tupl
             if not record_identifiers_plausible(record):
                 outcome["rejected"] += 1
                 continue
+            links = links_body[k] if k < len(links_body) else []
+            if links:
+                record["row_links"] = links_as_dicts(links)
             out.append(finalize_record(record))
     outcome["rows"] = len(out)
     return out, outcome
+
+
+def _sold_identity(record: dict) -> dict | None:
+    """The identity of a row the list marks sold - county + case / parcel
+    as the sync would key it - and nothing else (never the purchaser)."""
+    ident = finalize_record({k: record.get(k) for k in ("county", "case_no", "parcel") if record.get(k)})
+    if not ident.get("county") or not (ident.get("case_no") or ident.get("parcel")) or not record_identifiers_plausible(ident):
+        return None
+    return {"county": ident["county"], "case_no": ident.get("case_no"), "parcel": ident.get("parcel"), "source": "laft"}
 
 def main() -> int:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -540,6 +567,13 @@ def main() -> int:
     reused = 0
 
     recorder = StatusRecorder("fl_laft_html", source_class="GOVERNMENT_DIRECT", parser_version=str(PARSER_VERSION))
+    # Purchase-path rules (data/laft_purchase_link_rules.csv - none enabled
+    # until verified) and the per-unit freshness record that drives the
+    # blocked-source back-off (scripts/unit_freshness.py).
+    rules = load_rules()
+    freshness = load_freshness()
+    link_evidence_by_county: dict[str, dict] = {}
+    sold_rows: list[dict] = []
 
     all_rows: list[dict] = []
     session = requests.Session()
@@ -549,6 +583,15 @@ def main() -> int:
         print(f"[{i}/{len(sources)}] {county}", flush=True)
         entry = cache.get(url)
         status_kw = dict(source_url=(src.get("SourcePage") or "").strip() or url, document_url=url)
+        attempt, why = backoff_decision(freshness_lookup(freshness, "FL", "fl_laft_html", county))
+        if not attempt:
+            # Held: no request is made, the county is recorded FAILED with the
+            # hold as its reason (fail closed downstream), the cache is kept.
+            print(f"    skipped - {why}", flush=True)
+            recorder.failed(county, "TRANSPORT_HTTP_403_BLOCKED", why, **status_kw)
+            if entry:
+                new_cache[url] = entry
+            continue
         try:
             status, content, validators = conditional_get(fetcher, url, entry, timeout=30)
             doc_kw = dict(document_sha256=validators.get("sha256"), document_etag=validators.get("etag"),
@@ -570,6 +613,9 @@ def main() -> int:
                     content = resp.content
                 rows, outcome = extract_rows_with_outcome(content, county, url)
                 doc_kw["list_as_of"] = outcome.get("list_as_of")
+                sold_rows.extend(outcome.get("sold_rows") or [])
+                if outcome.get("sold_rows"):
+                    print(f"    {len(outcome['sold_rows'])} row(s) the list marks sold - identities recorded, not inventory", flush=True)
                 if outcome.get("rejected"):
                     print(f"    {outcome['rejected']} row(s) rejected by the identifier gate (not a parcel/case number)", flush=True)
                 if rows:
@@ -595,6 +641,13 @@ def main() -> int:
                                         "no table with a recognised header, no card rows and no empty-list marker",
                                         **status_kw, **doc_kw)
 
+            # Purchase path: only an enabled, verified rule turns a captured
+            # link into purchase_url; the value-free evidence summary is what
+            # a human verifies a rule against.
+            links_by_row = [links_from_dicts(r.get("row_links")) for r in rows]
+            for r, links in zip(rows, links_by_row):
+                apply_rules(r, links, rules, state="FL", source_id="fl_laft_html", list_url=status_kw["source_url"], document_url=url)
+            link_evidence_by_county[county] = link_evidence(links_by_row, list_url=status_kw["source_url"], document_url=url)
             all_rows.extend(rows)
             # Only cache rows we actually believe in - caching a zero-row
             # parse would let one bad parse suppress a county until the page
@@ -621,6 +674,12 @@ def main() -> int:
 
     with open(OUT_JSON, "w", encoding="utf-8") as f:
         json.dump(all_rows, f, indent=2)
+    with open(OUT_DIR / "harvest_laft_sold_html.json", "w", encoding="utf-8") as f:
+        json.dump(sold_rows, f, indent=2)
+    write_evidence(link_evidence_by_county)
+    linked = sum(1 for r in all_rows if r.get("purchase_url"))
+    print(f"purchase paths: {linked} row(s) carry a rule-verified link ({len([r for r in rules if r.enabled])} enabled rule(s)); "
+          f"link evidence for {len(link_evidence_by_county)} county(ies) written to out/public/laft-link-evidence.json", flush=True)
 
     if all_rows:
         fieldnames = sorted({k for row in all_rows for k in row.keys()})
