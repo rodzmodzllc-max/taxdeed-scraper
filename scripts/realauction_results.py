@@ -351,7 +351,7 @@ def json_shape(value: Any, depth: int = 0) -> Any:
     return vocab_or_shape(s)
 
 
-_JS_KEYS = re.compile(r"ASTAT|PageDir|doR|Auction Sold|Cancel|Redeem|Withdr|Struck|\.A\s*==|case\s*['\"][A-Z]['\"]", re.I)
+_JS_KEYS = re.compile(r"ASTAT|PageDir|Auction Sold|Canceled|Redeem|Withdr|Struck|\.A\s*==|\bA\s*==|case\s*['\"][A-Z]['\"]|AREA=")
 
 
 def page_script_snippets(session: Any, host: str, sale_url: str, *, timeout: int = 25, limit: int = 40) -> dict:
@@ -369,7 +369,7 @@ def page_script_snippets(session: Any, host: str, sale_url: str, *, timeout: int
     bodies: list[tuple[str, str]] = [("inline", "\n".join(inline))]
     for src in srcs[:12]:
         url = urllib.parse.urljoin(sale_url, src)
-        if urllib.parse.urlsplit(url).hostname != host:
+        if urllib.parse.urlsplit(url).hostname != host or re.search(r"/(JQUERY|3rdParty)/|jquery", url, re.I):
             continue
         out["scripts"].append(urllib.parse.urlsplit(url).path)
         try:
@@ -417,7 +417,7 @@ def value_free_summary(res: FetchResult) -> dict:
     tally: dict[str, int] = {}
     if res.update_raw is not None:
         for it in update_items(res.update_raw):
-            key = " | ".join(f"{k}={vocab_or_shape(it.get(k, ''))}" for k in ("A", "C", "D", "SL", "ST"))
+            key = " | ".join(f"{k}={vocab_or_shape(it.get(k, ''))}" for k in sorted(it) if k not in ("AID", "B", "D", "ST"))
             tally[key] = tally.get(key, 0) + 1
     return {"status_tally": dict(sorted(tally.items(), key=lambda kv: -kv[1])), "structure": skel, "update": upd, "update_error": res.update_error, "aids": len(res.aids), "url": res.url, "date": res.sale_date, "ok": res.ok, "error": res.error, "login_page": res.login_page,
             "pages": res.pages, "items": len(res.items), "with_case": with_case, "with_parcel": with_parcel,

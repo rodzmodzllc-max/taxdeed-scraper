@@ -3878,18 +3878,19 @@ function outcomeProvenanceText(st, p) {
 // failed auction alone never makes a property "available", and an Available
 // record alone never manufactures a previous failed auction.
 const UNSOLD_KEYS = { struck_off: 1, no_sale: 1 };
-function auctionAvailableRelation(p) {
+function auctionAvailableRelation(p, relIn, stateOf) {
   if (!p || !hasParcel(p)) return null;
-  const rel = relatedRecordsFor(p);
+  const rel = relIn || relatedRecordsFor(p);
+  const stOf = stateOf || auctionOutcomeState;
   if (p.source === "auction") {
-    const st = auctionOutcomeState(p);
+    const st = stOf(p);
     if (!st || !st.verified || !UNSOLD_KEYS[st.key]) return null;
     const avail = rel.find(o => o.source === "laft" && !isGone(o) && isPublishable(o));
     if (!avail) return null;
     return `Previously auctioned - verified unsold / struck off (source wording “${st.raw}”) · Currently Available - independently verified on the county's Lands Available list (case ${avail.case_no || "?"})`;
   }
   if (p.source === "laft" && !isGone(p)) {
-    const auc = rel.filter(o => o.source === "auction").map(o => ({ o, st: auctionOutcomeState(o) })).find(x => x.st && x.st.verified && UNSOLD_KEYS[x.st.key]);
+    const auc = rel.filter(o => o.source === "auction").map(o => ({ o, st: stOf(o) })).find(x => x.st && x.st.verified && UNSOLD_KEYS[x.st.key]);
     if (!auc) return null;
     return `Previously auctioned - verified unsold / struck off (case ${auc.o.case_no || "?"}, source wording “${auc.st.raw}”) · Currently Available - independently verified on the county's Lands Available list`;
   }
@@ -3922,6 +3923,9 @@ async function fetchAuctionOutcomeIndex(today) {
   return idx;
 }
 window.__tdwAuctionOutcomeState = p => auctionOutcomeState(p);
+// Test hook: the pure outcome rules, so a browser test can exercise every
+// state (and the auction -> Available relationship) on synthetic rows.
+window.__tdwOutcome = { eventOutcomeState, outcomeProvenanceText, relation: auctionAvailableRelation };
 
 // ==================== Sale event history (Phase B, migration 014) ====================
 // One entry per scheduled sale date this app observed for the property
