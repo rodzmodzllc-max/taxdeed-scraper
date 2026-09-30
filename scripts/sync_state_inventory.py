@@ -28,6 +28,7 @@ import argparse
 import json
 import os
 import sys
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -152,8 +153,17 @@ def upsert(base: str, key: str, rows: list[dict]) -> int:
             data=json.dumps(chunk).encode(), method="POST",
             headers={"apikey": key, "Authorization": f"Bearer {key}", "User-Agent": USER_AGENT, "Content-Type": "application/json",
                      "Prefer": "resolution=merge-duplicates,return=minimal"})
-        with urllib.request.urlopen(req, timeout=120):
-            requests += 1
+        try:
+            with urllib.request.urlopen(req, timeout=120):
+                requests += 1
+        except urllib.error.HTTPError as exc:
+            # Public log: PostgREST's code + message name the constraint / column; its
+            # `details` can echo the failing row, so it is never printed.
+            try:
+                err = json.loads(exc.read().decode("utf-8", "replace"))
+            except ValueError:
+                err = {}
+            raise SystemExit(f"::error title=sync::upsert rejected: HTTP {exc.code} {err.get('code')} {str(err.get('message'))[:200]}") from None
     return requests
 
 

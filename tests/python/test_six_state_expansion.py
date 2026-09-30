@@ -378,3 +378,14 @@ def test_a05_an_amount_of_unstated_kind_is_never_a_minimum_bid(tmp_path):
     assert all(r["min_bid"] > 0 and "purchase_amount" not in r for r in mi)
     app = (REPO / "public/app.js").read_text(encoding="utf-8")
     assert 'amountWord(p, "Opening Bid")' in app and "Published amount (kind not stated)" in app
+
+
+def test_l03_every_row_states_its_path_so_a_closed_listing_sheds_one(tmp_path):
+    rows = run("WI", tmp_path)["rows"]
+    for r in rows:
+        for k in ("purchase_path_type", "purchase_path_scope", "purchase_path_evidence", "purchase_path_observed_on"):
+            assert k in r and r[k] is None, k            # sent as NULL on a closed listing
+        assert r["purchase_url"] is None and r["purchase_url_kind"] is None
+    # The sync never prints PostgREST's `details` (it can echo a row) to the public log.
+    src = (REPO / "scripts/sync_state_inventory.py").read_text(encoding="utf-8")
+    assert "details" in src and "err.get('message')" in src and "err.get('details')" not in src

@@ -79,7 +79,13 @@ def attach_purchase_paths(state: str, rows: list[dict], *, harvest_date: str, re
     # same columns, same verification rules, never mixed into the Florida AVAILABLE table.
     evidence = PPE.load_evidence(EXPANSION_EVIDENCE) if evidence is None else evidence
     n = 0
+    # Every row states its path explicitly - a verified one or NULL - so a listing
+    # that has closed (or whose evidence was withdrawn) sheds a path it once had,
+    # and the URL / path-type pairing constraints always see a consistent row.
+    blank = {"purchase_path_type": None, "purchase_path_scope": None, "purchase_path_evidence": None,
+             "purchase_path_observed_on": None}
     for row in rows:
+        row.update(blank)
         if row.get("status") != "active":
             continue
         path, _ = PPE.resolve(row, state=state, source_id=row["source_id"], county=row["county"],
