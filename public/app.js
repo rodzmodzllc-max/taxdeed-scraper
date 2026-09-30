@@ -3109,15 +3109,24 @@ function acquisitionHtml(p) {
     return `<span class="muted">${none ? "No purchase path - the source states there is none" : "Not yet verified - no published acquisition process has been established from evidence"}</span>` +
       sub(esc(none ? "The source's own wording rules a purchase out." : "The county list has been read, but no county page or document establishing how to acquire from it has been verified yet. Nothing is invented; a path appears once the county's own page or document is read and reviewed."));
   }
-  const head = `<span class="acq-mode" data-mode="${esc(a.mode)}">${esc(a.label)}</span>`;
+  const head = `<span class="acq-mode" data-mode="${esc(a.mode)}">${esc(a.label)}</span>` +
+    (a.steps.length ? `<span class="acq-first"><b>First step:</b> ${esc(a.steps[0])}</span>` : "");
   const steps = a.steps.length ? `<ol class="acq-steps">${a.steps.map(st => `<li>${esc(st)}</li>`).join("")}</ol>` : "";
   const docs = [];
   if (a.applicationUrl) docs.push(`<a href="${esc(a.applicationUrl)}" target="_blank" rel="noopener">Application / instructions document →</a>`);
   if (a.url) docs.push(`<a href="${esc(a.url)}" target="_blank" rel="noopener">${esc(a.typeLabel)} →</a>`);
   const docLine = docs.length ? sub(docs.join(" · ")) : "";
   const instr = a.instructions && !a.steps.length ? sub(`<span class="dec-instructions">Instructions published by the source: ${esc(a.instructions)}</span>`) : "";
-  const scope = sub(esc(`${a.scope === "property" ? "For this property specifically" : "The county's process for every parcel on its list"}${a.observedOn ? ` · observed ${dateOnly(a.observedOn)}` : ""}`));
-  return head + steps + docLine + instr + scope;
+  // Acquisition sprint 2: say what LEVEL the evidence applies to, and when
+  // it was last verified - and, when the county's list could not be read at
+  // the last attempt, say so without withdrawing the verified process.
+  const scope = sub(`<span class="acq-scope" data-scope="${esc(a.scope)}">${esc(a.scope === "property"
+    ? "Property-specific: the source published this instruction for this parcel."
+    : "County process: the county publishes this acquisition process for the properties on its list. It is not an approval for this parcel, and being listed does not prove the county will still sell it today.")}</span>`);
+  const unit = unitFreshnessFor(p);
+  const unavailable = unit && (unit.last_attempt_status === "SOURCE_UNAVAILABLE" || /^(TRANSPORT_|PROXY_|ACCESS_)/.test(String(unit.last_error_category || "")) || unit.last_attempt_status === "INCOMPLETE" || unit.last_attempt_status === "FAILED");
+  const verified = sub(`<span class="acq-verified">${esc(`Acquisition process last verified ${a.observedOn ? dateOnly(a.observedOn) : "(date not recorded)"}`)}${unavailable ? ` · <span class="warn">County source not fully read at the last attempt; retry pending - this is the last verified process.</span>` : ""}</span>`);
+  return head + steps + docLine + instr + scope + verified;
 }
 
 function typedPurchasePath(p) {
@@ -3188,7 +3197,8 @@ function availableDecisionHtml(p) {
   const sm = op.source_match && typeof op.source_match === "object" ? op.source_match : null;
   const matchText = sm && sm.value ? `Matched to the list by ${String(sm.identifier).replace("_", " ")} ${sm.value}${sm.parcel ? ` (parcel ${sm.parcel})` : ""}${sm.read_at ? ` · read ${dateOnly(sm.read_at)}` : ""}`
     : (p.case_no ? `Listed under case ${p.case_no}${hasParcel(p) ? ` (parcel ${p.parcel})` : ""}` : (hasParcel(p) ? `Listed under parcel ${p.parcel}` : "Identity on the list not recorded"));
-  rows.push(q("why", "Why is it in Available?", `${what}${sub(esc(op.inventory_type ? `Basis: ${op.inventory_type}` : (p.source_authority ? `Published by ${SOURCE_AUTHORITY_LABELS[p.source_authority] || p.source_authority}` : "Basis not recorded")))}${sub(`${listing.length ? listing.join(" · ") + " · " : `<span class="muted">No list URL published</span> · `}${esc(srcDate)}`)}${sub(`<span class="acq-match">${esc(matchText)}</span>`)}`));
+  const listedLine = sub(`<span class="acq-scope" data-scope="listing">${esc(sm && sm.value ? "Property-specific: this parcel appears on the official county list." : (p.last_seen_at ? "This parcel was on the official county list when it was last read." : "Not yet matched to a read of the county list."))}</span>`);
+  rows.push(q("why", "Why is it in Available?", `${what}${listedLine}${sub(esc(op.inventory_type ? `Basis: ${op.inventory_type}` : (p.source_authority ? `Published by ${SOURCE_AUTHORITY_LABELS[p.source_authority] || p.source_authority}` : "Basis not recorded")))}${sub(`${listing.length ? listing.join(" · ") + " · " : `<span class="muted">No list URL published</span> · `}${esc(srcDate)}`)}${sub(`<span class="acq-match">${esc(matchText)}</span>`)}`));
   // 2. Is it available now?
   let avail, availCls = "";
   if (p.inventory_status === undefined) { avail = muted("Availability status is not projected by this deployment"); }

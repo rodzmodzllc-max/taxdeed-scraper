@@ -76,9 +76,10 @@ MAX_SNIPPETS, MAX_SNIPPET_CHARS, MAX_LINKS = 40, 320, 60
 # whose host is not a search engine, social site or blocked vendor, is
 # fetched. Capped per county. Never a crawl, never a search, never a guessed
 # URL; the operator still reads the capture and records evidence by hand.
-FOLLOW_VOCAB = re.compile(r"purchas|how to (buy|purchase|apply)|instruction|application|apply|procedure|"
-                          r"lands? available|list of lands|197\.502|tax deed (info|faq|process|general|sales? info)|"
-                          r"faq|frequently asked|general information|requirements|forms?\b", re.I)
+# Tax-deed context is REQUIRED (a first capture followed generic "Forms" /
+# "Application Process" navigation into passport and marriage-licence pages).
+FOLLOW_VOCAB = re.compile(r"tax[\s_-]?deed|lands?[\s_-]?available|list[\s_-]?of[\s_-]?lands|197\.502|\blaft\b|"
+                          r"purchas\w* (property|land)|lands? for taxes", re.I)
 DOC_EXT = re.compile(r"\.(pdf|docx?|rtf)(\?|#|$)", re.I)
 NEVER_FOLLOW = re.compile(r"(^|\.)(google|bing|yahoo|duckduckgo|facebook|twitter|x|instagram|linkedin|youtube|"
                           r"govease|bid4assets|lgbs|zillow|realtor)\.", re.I)
@@ -110,7 +111,7 @@ def sentences(text: str):
             yield s
 
 
-def extract_html(html: str, url: str) -> dict:
+def extract_html(html: str, url: str, *, keep_tables: bool = False) -> dict:
     soup = BeautifulSoup(html, "html.parser")
     title = clean(soup.title.get_text(" ")) if soup.title else ""
     headings = [clean(h.get_text(" ")) for h in soup.find_all(["h1", "h2", "h3"])][:15]
@@ -130,7 +131,9 @@ def extract_html(html: str, url: str) -> dict:
             break
     # Process text lives outside the inventory table: drop tables, scripts,
     # navigation before reading sentences, so no row value is captured.
-    for tag in soup.find_all(["table", "script", "style", "nav", "noscript"]):
+    # A followed PROCESS page (FAQ, instructions) may lay its text out in a
+    # table; the source's inventory list is never read with tables kept.
+    for tag in soup.find_all((["table"] if not keep_tables else []) + ["script", "style", "nav", "noscript"]):
         tag.decompose()
     body_text = soup.get_text("\n")
     snippets = []
@@ -169,6 +172,7 @@ def fetch(session: requests.Session, url: str) -> tuple[requests.Response | None
 
 
 def capture_url(session: requests.Session, url: str, *, kind: str) -> dict:
+    keep_tables = kind == "followed_link"
     out = {"url": url, "kind": kind, "fetched_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat()}
     resp, err = fetch(session, url)
     if err:
@@ -184,7 +188,7 @@ def capture_url(session: requests.Session, url: str, *, kind: str) -> dict:
     if "pdf" in ctype or url.lower().endswith(".pdf"):
         out.update(extract_pdf(resp.content))
     elif BeautifulSoup is not None:
-        out.update(extract_html(resp.text, resp.url))
+        out.update(extract_html(resp.text, resp.url, keep_tables=keep_tables))
     else:
         out["error"] = "beautifulsoup4 not installed"
     return out

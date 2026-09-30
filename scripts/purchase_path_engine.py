@@ -491,6 +491,15 @@ def resolve(row: dict, *, state: str, source_id: str, county: str, registry_row=
     return None, reasons
 
 
+def complete_record(acq: dict, row: dict | None = None) -> bool:
+    """A usable verified acquisition record: steps AND a published channel
+    (phone, e-mail, in-person address, mailing address, application
+    document or an online URL)."""
+    if not isinstance(acq, dict) or not acq.get("steps"):
+        return False
+    return any(acq.get(k) for k in ("phone", "email", "address", "mailing_address", "application_url")) or bool((row or {}).get("purchase_url"))
+
+
 def measure(rows: list[dict]) -> dict:
     """Coverage counts for the ACQUISITION workflow (the product metric,
     Acquisition sprint 2026-09-30). Per row: a verified source listing /
@@ -503,7 +512,7 @@ def measure(rows: list[dict]) -> dict:
     c = {"rows": 0, "evaluated": 0, "not_evaluated": 0, "with_url": 0, "by_type": {}, "by_scope": {},
          "with_source_listing": 0, "with_source_match": 0, "with_acquisition_path": 0, "acquisition_unverified": 0,
          "by_mode": {}, "with_direct_document": 0, "with_source_date": 0, "with_last_verified": 0,
-         "with_contact": 0, "with_steps": 0}
+         "with_contact": 0, "with_steps": 0, "with_complete_record": 0, "with_in_person": 0, "with_application_document": 0}
     for r in rows:
         c["rows"] += 1
         prov = r.get("otc_provenance") if isinstance(r.get("otc_provenance"), dict) else {}
@@ -539,6 +548,16 @@ def measure(rows: list[dict]) -> dict:
             c["with_contact"] += 1
         if acq.get("steps"):
             c["with_steps"] += 1
+        if acq.get("address"):
+            c["with_in_person"] += 1
+        if acq.get("application_url"):
+            c["with_application_document"] += 1
+        # A COMPLETE actionable record (the commercial metric; a typed mode
+        # alone does not count): the acquisition record exists, carries the
+        # published steps, and names at least one way to act on them.
+        if complete_record(acq, r):
+            c["with_complete_record"] += 1
+    c["pct_with_complete_record"] = round(100.0 * c["with_complete_record"] / c["rows"], 1) if c["rows"] else 0.0
     c["pct_with_acquisition_path"] = round(100.0 * c["with_acquisition_path"] / c["rows"], 1) if c["rows"] else 0.0
     c["pct_with_source_listing"] = round(100.0 * c["with_source_listing"] / c["rows"], 1) if c["rows"] else 0.0
     return c
