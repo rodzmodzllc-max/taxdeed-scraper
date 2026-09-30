@@ -178,10 +178,13 @@ on:
           capture (default). "auction_results" = skip it and read only the
           RealAuction CLOSED / CANCELED area of evidence_realauction_dates
           through the harvester's own anonymous AJAX endpoint, value-free.
+          "state_sources" = read only the candidate (non-production) state
+          sources' pages, documents and terms pages, structure only
+          (scripts/capture_state_sources.py).
         required: false
         type: choice
         default: available
-        options: [available, auction_results]
+        options: [available, auction_results, state_sources]
 
 concurrency:
   group: harvest-and-sync
@@ -732,6 +735,51 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 scripts/publication_gate.py --state FL
 
+      # ---- Louisiana (2026-09-30, state-expansion sprint) --------------------
+      # East Baton Rouge Parish's open-data "Adjudicated Property" dataset
+      # (harvesters/otc/adapters/louisiana.py; docs/state-expansion.md). A
+      # DATED list: every row carries list_as_of = the dataset's own
+      # rows-updated date and is never shown as available now. Its own status
+      # and harvest files (out/harvest_louisiana*.json - parish names never mix
+      # with Florida's). Every step is allowed to fail without touching the
+      # Florida steps above; a FAILED read syncs nothing and closes nothing.
+      - name: Louisiana adjudicated inventory - harvest (East Baton Rouge)
+        id: la_harvest
+        if: always()
+        continue-on-error: true
+        run: python3 scripts/harvest_state_inventory.py --state LA
+
+      - name: Louisiana - sync to Supabase
+        id: la_sync
+        if: always() && steps.la_harvest.outcome == 'success'
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/sync_state_inventory.py --state LA --status out/harvest_louisiana_status.json
+
+      - name: Louisiana - lifecycle (last_seen_at, gated close-out)
+        if: always() && steps.la_sync.outcome == 'success'
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/laft_lifecycle.py --state LA --status out/harvest_louisiana_status.json --harvest out/harvest_louisiana.json --report out/public/laft-lifecycle-la.json
+
+      - name: Louisiana - freshness and publication gate
+        # No inventory-status mapping exists for an adjudicated list
+        # (harvesters/governance/inventory_status.status_for_row returns None
+        # for LA), so no normalized status is written - none is invented.
+        # Own persist / report files: Florida's are never overwritten.
+        if: always() && steps.la_harvest.outcome == 'success'
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          python3 scripts/unit_freshness.py --status out/harvest_louisiana_status.json --state LA --persist out/.harvest_cache/unit_freshness_la.json --report out/public/unit-freshness-la.json || true
+          python3 scripts/publication_gate.py --state LA --report out/public/publication-gate-la.json
+
   texas:
     name: Harvest Texas tax sales (LGBS) + sync - manual only, not yet on cron
     runs-on: ubuntu-latest
@@ -968,6 +1016,13 @@ jobs:
           RA_DATES: ${{ github.event.inputs.evidence_realauction_dates }}
           SCOPE: ${{ github.event.inputs.evidence_scope }}
         run: |
+          if [ "$SCOPE" = "state_sources" ]; then
+            # Candidate states only (AL / AR / LA / AZ): structure, CSV headers
+            # and value shapes, dataset licence metadata, terms pages. Nothing
+            # is written to any database and nothing is enabled.
+            python3 scripts/capture_state_sources.py --discovery
+            exit 0
+          fi
           args=""
           if [ "$SCOPE" = "auction_results" ]; then args="--skip-available --realauction-results"; fi
           IFS=',' read -ra cs <<< "$COUNTIES"
@@ -982,7 +1037,11 @@ jobs:
         if: always()
         run: |
           echo "::group::purchase-evidence digest"
-          python3 scripts/capture_purchase_evidence.py --digest out/public/purchase-evidence-capture.json
+          if [ -f out/public/state-source-capture.json ]; then
+            python3 scripts/capture_state_sources.py --digest out/public/state-source-capture.json
+          else
+            python3 scripts/capture_purchase_evidence.py --digest out/public/purchase-evidence-capture.json
+          fi
           echo "::endgroup::"
 
       - name: Prepare artifact (public evidence only)
@@ -992,7 +1051,10 @@ jobs:
         if: always()
         env:
           ARTIFACT_PUBLIC_KEY: ${{ vars.ARTIFACT_PUBLIC_KEY }}
-        run: python3 scripts/artifact_evidence.py --job purchase-evidence --status out/public/purchase-evidence-capture.json
+        run: |
+          status=out/public/purchase-evidence-capture.json
+          [ -f out/public/state-source-capture.json ] && status=out/public/state-source-capture.json
+          python3 scripts/artifact_evidence.py --job purchase-evidence --status "$status"
 
       - name: Upload artifact (evidence)
         if: always()

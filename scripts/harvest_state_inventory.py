@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""State inventory harvester for the search-evidence-configured adapters
-(Arkansas COSL and Louisiana EBR - AVAILABLE ledger; Arizona Maricopa State CP -
-LIENS & CERTIFICATES ledger) - GATED.
+"""State inventory harvester for the state adapters (Arkansas COSL and
+Louisiana EBR - AVAILABLE ledger; Arizona Maricopa State CP - LIENS &
+CERTIFICATES ledger) - GATED. Louisiana is ACTIVATED (2026-09-30) and runs
+live in the laft job; AR / AZ still refuse.
 
     python3 scripts/harvest_state_inventory.py --state AR --fixture Dallas=<saved.html>
-    python3 scripts/harvest_state_inventory.py --state LA --fixture <saved.csv>
+    python3 scripts/harvest_state_inventory.py --state LA --fixture meta=<metadata.json> --fixture <saved.csv>
     python3 scripts/harvest_state_inventory.py --state AZ --fixture <saved.csv>
     python3 scripts/harvest_state_inventory.py --state AR          # live: exit 2, zero requests, until can_run() allows
 
@@ -30,6 +31,7 @@ REPO = HERE.parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(1, str(REPO))
 from laft_status import StatusRecorder  # noqa: E402
+from harvesters.governance import states  # noqa: E402
 from harvesters.otc.adapters import arizona as AZ, arkansas as AR, louisiana as LA  # noqa: E402
 
 OUT_DIR = REPO / "out"
@@ -48,6 +50,7 @@ def run_fixtures(state: str, specs: list[str], *, retrieved_at: datetime):
     result = mod.HarvestResult() if hasattr(mod, "HarvestResult") else None
     from harvesters.otc.adapters.common import HarvestResult
     result = HarvestResult()
+    meta_holder: dict = {}
     for spec in specs:
         unit, sep, path = spec.partition("=")
         if not sep:
@@ -60,6 +63,14 @@ def run_fixtures(state: str, specs: list[str], *, retrieved_at: datetime):
                 raise SystemExit(f"--fixture: {county!r} is not one of the 75 Arkansas counties (use County=PATH)")
             recs, outcome = AR.parse_list_html(cfg, p.read_bytes(), county=county, retrieved_at=retrieved_at, url=url)
             result.outcomes.append(AR.classify_outcome(cfg, county, recs, outcome, url=url))
+        elif state == "LA" and unit == "meta":
+            meta_holder["meta"] = LA.parse_metadata(p.read_text(encoding="utf-8"))
+            continue
+        elif state == "LA":
+            meta = meta_holder.get("meta") or {}
+            recs, outcome = LA.parse_csv(cfg, p.read_text(encoding="utf-8"), retrieved_at=retrieved_at,
+                                         list_as_of=meta.get("list_as_of"), rows_updated_at=meta.get("rows_updated_at"))
+            result.outcomes.append(LA.classify_outcome(cfg, recs, outcome, url=url))
         else:
             recs, outcome = mod.parse_csv(cfg, p.read_text(encoding="utf-8"), retrieved_at=retrieved_at)
             result.outcomes.append(mod.classify_outcome(cfg, recs, outcome, url=url))
@@ -100,6 +111,7 @@ def main(argv=None) -> int:
     ap.add_argument("--out", default=None)
     ap.add_argument("--status", default=None)
     ap.add_argument("--report", default=None)
+    ap.add_argument("--properties-out", default=None, help="activated states: where to write the public.properties rows")
     args = ap.parse_args(argv)
     state, mod, cfg = args.state, ADAPTERS[args.state], source_of(args.state)
     out = Path(args.out or OUT_DIR / mod.HARVEST_FILE_NAME)
@@ -125,6 +137,13 @@ def main(argv=None) -> int:
     rows = [r.to_harvest_row() for r in result.records]
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(rows, indent=2, sort_keys=True), encoding="utf-8")
+    # An ACTIVATED state's records in public.properties' own row shape, for
+    # scripts/sync_state_inventory.py (private: owner names are on the rows).
+    props_path = None
+    if states.is_activated(state):
+        props_path = Path(args.properties_out or OUT_DIR / f"{state.lower()}_properties_rows.json")
+        props_path.write_text(json.dumps([r.to_properties_row() for r in result.records], indent=2, sort_keys=True, default=str),
+                              encoding="utf-8")
     counts: dict[str, int] = {}
     for oc in result.outcomes:
         counts[oc.status] = counts.get(oc.status, 0) + 1
@@ -140,7 +159,7 @@ def main(argv=None) -> int:
     print(recorder.summary_line())
     print(f"{state} ({mode}): {len(rows)} row(s) from {len(result.outcomes)} unit(s), {result.requests} request(s); "
           f"parser fixture-validated: {cfg.parser_fixture_validated}")
-    print(f"Saved: {out}; status: {status}; report: {report}")
+    print(f"Saved: {out}; status: {status}; report: {report}" + (f"; properties rows: {props_path}" if props_path else ""))
     return 0
 
 

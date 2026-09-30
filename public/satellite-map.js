@@ -124,7 +124,8 @@ const MAPTILER_CANVAS_ID = "satelliteMapCanvasMaptiler";
 // each convert the [lng, lat] tuple into their own center-object shape.
 const STATEWIDE_VIEW = {
   FL: { center: [-81.6, 28.1], zoom: 5.6 },
-  TX: { center: [-99.3, 31.4], zoom: 5.1 }
+  TX: { center: [-99.3, 31.4], zoom: 5.1 },
+  LA: { center: [-91.9, 31.0], zoom: 6.2 }
 };
 
 // Same derivation as app.js/explore.js: the page's state, accepted only if

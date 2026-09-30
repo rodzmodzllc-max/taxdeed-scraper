@@ -76,9 +76,11 @@ def test_r02_a_production_state_must_satisfy_every_requirement_and_requirements_
 # ==================== 2. vocabulary ====================
 
 
-def test_v01_state_held_tax_land_and_quoted_on_application_are_model_only_until_020():
-    assert InventoryType.STATE_HELD_TAX_LAND.value not in DB_SUPPORTED_INVENTORY_TYPES
-    assert AmountKind.QUOTED_ON_APPLICATION.value not in DB_SUPPORTED_AMOUNT_KINDS
+def test_v01_state_held_tax_land_and_quoted_on_application_are_storable_since_020():
+    # Migration 020 was applied to production on 2026-09-30 (state-expansion
+    # sprint): the storable sets are exactly 017's values plus 020's.
+    assert InventoryType.STATE_HELD_TAX_LAND.value in DB_SUPPORTED_INVENTORY_TYPES
+    assert AmountKind.QUOTED_ON_APPLICATION.value in DB_SUPPORTED_AMOUNT_KINDS
     assert set(csr.AMOUNT_KINDS) == {k.value for k in AmountKind}
     sql = M020.read_text(encoding="utf-8").lower()
     for v in ("state_held_tax_land", "post_sale", "adjudicated_property", "quoted_on_application"):
@@ -147,15 +149,20 @@ def test_g01_committed_registry_has_exactly_one_alabama_candidate_that_is_not_pr
         assert csv.DictReader(fh).fieldnames == csr.EXTENDED_COLUMNS
 
 
-def test_g02_registry_validation_for_the_new_columns():
+def test_g02_registry_validation_for_the_new_columns(monkeypatch):
     assert csr.validate_row(csr.CountySourceRow(**_al_kwargs())) == []
     assert csr.validate_row(csr.CountySourceRow(**_al_kwargs(publishing_unit_name=""))) == ["STATE-level row must name its publishing unit (publishing_unit_name)"]
     assert csr.validate_row(csr.CountySourceRow(**_al_kwargs(amount_kind="QUOTE"))) == ["amount_kind 'QUOTE'"]
     assert csr.validate_row(csr.CountySourceRow(**_al_kwargs(publishing_unit="PARISH", county="Mobile", publishing_unit_name=""))) == ["publishing_unit 'PARISH' is not one AL publishes by"]
-    # A production Alabama row is refused twice over: not storable yet, and (through the gate) not activated.
+    # A production Alabama row is refused through the gate (state not activated). Since
+    # migration 020 its inventory type is storable, so the storability rule no longer
+    # fires for it - but the rule itself still refuses anything outside the storable set.
     prod = csr.CountySourceRow(**_al_kwargs(verification_status="PRODUCTION_VERIFIED", governance_status="APPROVED", harvester="x",
                                             canonical_url="https://example.invalid/list", completeness_status="COMPLETE"))
-    assert "PRODUCTION_VERIFIED row carries inventory_type 'STATE_HELD_TAX_LAND', which public.properties cannot store yet" in csr.validate_row(prod)
+    msg = "PRODUCTION_VERIFIED row carries inventory_type 'STATE_HELD_TAX_LAND', which public.properties cannot store yet"
+    assert msg not in csr.validate_row(prod)
+    monkeypatch.setattr(csr, "DB_SUPPORTED_INVENTORY_TYPES", csr.DB_SUPPORTED_INVENTORY_TYPES - {"STATE_HELD_TAX_LAND"})
+    assert msg in csr.validate_row(prod)
     assert not prod.runnable
     assert evaluate_source(prod).layer == "state_activation" and not evaluate_source(prod).allowed
 
@@ -232,7 +239,7 @@ def test_a02_identifiers_are_taken_as_published_and_malformed_ones_rejected():
     assert ala.normalize_identifier("1" * 40) == "1" * 40
 
 
-def test_a03_parse_rows_is_deterministic_and_never_invents_an_amount_or_a_purchase_link():
+def test_a03_parse_rows_is_deterministic_and_never_invents_an_amount_or_a_purchase_link(monkeypatch):
     rows = [
         {"Parcel": "12-34-56-0-000-001.000", "County": "Jefferson", "Status": "Available for Sale", "Legal": "LOT 1", "Taxes Due": "$412.10", "As Of": "09/01/2026"},
         {"Parcel": "77-00-01", "County": "Mobile", "Status": "SOLD", "Link": "https://fixture.invalid/parcel/77-00-01"},
@@ -263,7 +270,12 @@ def test_a03_parse_rows_is_deterministic_and_never_invents_an_amount_or_a_purcha
     # Same input, same output: no randomness, no cross-row state.
     recs2, _ = ala.parse_rows(_cfg(), rows, retrieved_at=T, list_as_of=date(2026, 8, 25))
     assert [r.as_dict() for r in recs2] == [r.as_dict() for r in recs]
-    # Storable only after migration 020.
+    # Storable since migration 020 (applied 2026-09-30): QUOTED_ON_APPLICATION with no amount.
+    row = a.to_properties_row()
+    assert row["purchase_amount"] is None and row["purchase_amount_kind"] == "QUOTED_ON_APPLICATION"
+    # The storability guard still refuses a kind the database cannot hold.
+    import harvesters.otc.model as model
+    monkeypatch.setattr(model, "DB_SUPPORTED_AMOUNT_KINDS", model.DB_SUPPORTED_AMOUNT_KINDS - {"QUOTED_ON_APPLICATION"})
     with pytest.raises(ValueError, match="not storable"):
         a.to_properties_row()
 

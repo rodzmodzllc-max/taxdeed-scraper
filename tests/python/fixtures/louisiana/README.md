@@ -1,10 +1,16 @@
-# Louisiana fixtures - ALL SYNTHETIC
+# Louisiana fixtures
 
-No file has been fetched from data.brla.gov by this repository. The CSV
-here carries exactly the column names a web search's index listed for the
-East Baton Rouge "Adjudicated Property" dataset (a4h4-zi7e) on 2026-09-30
-(see `harvesters/otc/adapters/louisiana.py` `EBR_EVIDENCE`); the header
-spelling as the live CSV actually prints it, the value formats (the
-GEOLOCATION shape in particular) and every value here are INVENTED. A
-file saved from the live endpoint replaces this when the source is
-verified.
+`ebr_adjudicated_LIVE_SHAPE.csv` / `ebr_metadata_LIVE_SHAPE.json` (2026-09-30):
+the CSV header is the LIVE East Baton Rouge "Adjudicated Property" dataset
+(a4h4-zi7e) header verbatim, and the metadata keys and values (licenseId
+PUBLIC_DOMAIN, rowsUpdatedAt 1709060068 = 2024-02-27, provenance,
+attribution, Update Frequency) are the live metadata's own - both read by
+the manual evidence job (`scripts/capture_state_sources.py`, GitHub Actions
+runs 36752875012 / 36753767965). Every ROW VALUE is SYNTHETIC ("SAMPLE",
+"FIXTURE"), written in the live value shapes (PROPERTY NUMBER 999-9999-9 and
+999-99999-9, one row per property number per tax year). No real property,
+owner or address is in this repository.
+
+`ebr_adjudicated_SYNTHETIC.csv` / `ebr_adjudicated_badheader_SYNTHETIC.csv`:
+the original search-index-era fixtures (header as indexed - it matched the
+live header exactly), kept for the parser's structural tests.

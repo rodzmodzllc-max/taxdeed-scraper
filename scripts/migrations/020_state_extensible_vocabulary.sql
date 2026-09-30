@@ -1,7 +1,8 @@
 -- Migration 020: the vocabulary and registry columns a third state needs
 -- (Alabama onboarding foundation, 2026-09-29).
 --
--- STATUS: PROPOSED, NOT APPLIED. Applied by hand by the project owner after
+-- STATUS: APPLIED to production 2026-09-30 (state-expansion sprint, owner-authorized
+-- with the Louisiana East Baton Rouge activation). Originally: applied by hand by the project owner after
 -- review, like every file in this directory. Must be applied AFTER 017 and
 -- 018 (it replaces their check constraints and adds columns to 018's
 -- table). Independent of 015/016/019.

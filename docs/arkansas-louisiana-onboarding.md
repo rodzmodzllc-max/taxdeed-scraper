@@ -1,3 +1,9 @@
+> **Update 2026-09-30 (state-expansion sprint):** Louisiana / East Baton Rouge is
+> ACTIVATED on live evidence and the owner's dated-publication decision -
+> see `docs/state-expansion.md`. Arkansas stays gated (the COSL list page now
+> carries no table; purchases moved to the online auction). Migration 020 is
+> applied. The rest of this document describes the search-index-era state.
+
 # Arkansas and Louisiana onboarding (2026-09-30)
 
 Status: **implemented and gated; registered, not activated.** Both
@@ -68,7 +74,7 @@ nothing is read.
 | `harvesters/otc/adapters/arkansas.py` | `COSL_EVIDENCE`, `requirement_evidence()`, `COSL_SOURCE` (not enabled), `county_url()`, `parse_list_html()` (header-mapped table via the generic `TabularListAdapter` with candidate labels, identifier gate), `classify_outcome()`, gated `harvest()`. |
 | `harvesters/otc/adapters/louisiana.py` | `EBR_EVIDENCE`, `requirement_evidence()`, `EBR_SOURCE` (not enabled), `parse_csv()`, `parse_geolocation()`, `classify_outcome()`, gated `harvest()` (one download). |
 | `harvesters/otc/model.py` | `OtcRecord.assessed` / `market` / `tax_year` / `latitude` / `longitude` (optional, validated) and `to_harvest_row()`. |
-| `harvesters/governance/county_source_registry.py`, migration 020 | `MachineFormat.CSV` (020, unapplied, widens 018's check). |
+| `harvesters/governance/county_source_registry.py`, migration 020 | `MachineFormat.CSV` (020, applied 2026-09-30, widens 018's check). |
 | `data/county_source_registry.csv` | `AR / STATEWIDE / ar_cosl_post_auction` and `LA / East Baton Rouge / la_ebr_adjudicated`, both SEARCH_EVIDENCE_ONLY / TERMS_NOT_VERIFIED, no harvester, not runnable; generated from the adapters' constants. |
 | `scripts/harvest_state_inventory.py` | `--state AR|LA`, `--fixture` mode (no network) and a live mode that exits 2 with zero requests; own status file per state; counts-only report; wired into no workflow. |
 | `tests/python/test_states_ar_la.py` | Registration, evidence, configurations, parsing, semantics, provenance, outcomes, gated flows, script, registry, common rules. |

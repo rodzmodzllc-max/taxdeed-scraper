@@ -65,8 +65,9 @@ def test_e01_evidence_ledger_names_only_the_agency_and_every_requirement_stays_u
     assert list(notes) == list(states.ACTIVATION_REQUIREMENTS)
     for req, note in notes.items():
         assert note and ("not" in note or "no " in note or "SYNTHETIC" in note), req   # each says why it is unmet
-    # The state: registered, not activated, not production; FL/TX untouched.
-    assert not states.is_activated("AL") and states.PRODUCTION_STATES == frozenset({"FL", "TX"})
+    # The state: registered, not activated, not production; the production states are FL/TX
+    # and (2026-09-30, state-expansion sprint) LA - never AL.
+    assert not states.is_activated("AL") and states.PRODUCTION_STATES == frozenset({"FL", "TX", "LA"})
     assert states.activation_blockers("AL") == list(states.ACTIVATION_REQUIREMENTS)
     assert states.AL.lifecycle_inventory_type == "STATE_HELD_TAX_LAND" and states.AL.production is False
 
@@ -148,8 +149,9 @@ def test_h02_per_county_results_page_rows_as_published_links_from_the_row_nothin
         assert r.provenance["county"] == "the county the list was queried for" and r.provenance["identifier"].startswith("as published")
         assert r.provenance["amount"].startswith("QUOTED_ON_APPLICATION: no price is published")
         assert r.validate() == []
-        with pytest.raises(ValueError, match="not storable"):
-            r.to_properties_row()                                                  # until migration 020
+        # Storable since migration 020 (applied 2026-09-30): no amount, the quoted kind.
+        stored = r.to_properties_row()
+        assert stored["purchase_amount"] is None and stored["purchase_amount_kind"] == "QUOTED_ON_APPLICATION"
     # No row value in any counter, and the same input gives the same output.
     recs2, rep2, _ = ala.parse_search_results_html(CFG, AUTAUGA, retrieved_at=T, base_url=url, default_county="Autauga")
     assert [r.as_dict() for r in recs2] == [r.as_dict() for r in recs] and rep2 == rep
@@ -223,8 +225,9 @@ def test_l01_harvest_row_shape_and_the_lifecycle_s_reading_of_it():
     assert row["otc_provenance"]["adapter"] == "alabama" and row["otc_provenance"]["identifier_shape"] == "d8"
     assert L.identity_key(row) == ("Autauga", "00123456")
     # Amount: NOT_PUBLISHED is the storable truth until 020; the harvester's reason survives once storable.
-    assert L.amount_of(row) == (None, "NOT_PUBLISHED")
-    assert L.amount_of(row, storable_kinds=tuple(L.DB_AMOUNT_KINDS) + ("QUOTED_ON_APPLICATION",)) == (None, "QUOTED_ON_APPLICATION")
+    # Storable since migration 020: the quoted kind is kept; where it is not storable it is NOT_PUBLISHED.
+    assert L.amount_of(row) == (None, "QUOTED_ON_APPLICATION")
+    assert L.amount_of(row, storable_kinds=tuple(k for k in L.DB_AMOUNT_KINDS if k != "QUOTED_ON_APPLICATION")) == (None, "NOT_PUBLISHED")
     assert L.amount_of({"bid": "", "bid_kind": "OPENING_BID"}) == (None, "NOT_PUBLISHED")           # FL rows unchanged
     assert L.amount_of({"bid": "1500", "bid_kind": "FIXED_PURCHASE_PRICE"}) == (1500.0, "FIXED_PURCHASE_PRICE")
     # Purchase path: the row's own application link is taken; the list page never is.
@@ -265,15 +268,21 @@ def test_l02_lifecycle_gates_are_scoped_to_the_state_county_names_repeat_across_
     assert r.returncode == 2 and "not activated" in r.stdout
 
 
-def test_l03_even_an_activated_alabama_cannot_stamp_the_inventory_type_before_migration_020():
+def test_l03_an_activated_alabama_stamps_its_inventory_type_only_while_it_is_storable(monkeypatch):
     active = StateConfig(code="AL", name="Alabama", publishing_units=("STATE", "COUNTY"), production_inventory_types=frozenset({"STATE_HELD_TAX_LAND"}),
                          lifecycle_inventory_type="STATE_HELD_TAX_LAND", lifecycle_inventory_basis="fixture", production=True,
                          activation=states.ALL_REQUIREMENTS)
     with states.registered(active):
         assert states.is_activated("AL")
+        # Storable since migration 020: the registered type is stamped.
+        assert L.lifecycle_inventory("AL")[0] == "STATE_HELD_TAX_LAND"
+        # A type the database cannot hold is still refused.
+        monkeypatch.setattr(L, "DB_SUPPORTED_INVENTORY_TYPES", L.DB_SUPPORTED_INVENTORY_TYPES - {"STATE_HELD_TAX_LAND"}, raising=False)
+        import harvesters.governance.county_source_registry as csr_mod
+        monkeypatch.setattr(csr_mod, "DB_SUPPORTED_INVENTORY_TYPES", csr_mod.DB_SUPPORTED_INVENTORY_TYPES - {"STATE_HELD_TAX_LAND"})
         with pytest.raises(ValueError, match="not storable"):
             L.lifecycle_inventory("AL")
-    assert not states.is_activated("AL") and states.PRODUCTION_STATES == frozenset({"FL", "TX"})
+    assert not states.is_activated("AL") and states.PRODUCTION_STATES == frozenset({"FL", "TX", "LA"})
 
 
 # ==================== 4. the gated live flow ====================

@@ -2952,6 +2952,44 @@ await navMap.close();
 }
 
 // ============================================================
+// Louisiana (2026-09-30, state-expansion sprint): la.html is a third state
+// page. Its one source is East Baton Rouge's DATED adjudicated-property list:
+// the Available card and page say "list as of" the Parish's own date and
+// never "available now"; the unit is a parish; no price, no purchase path.
+// ============================================================
+{
+  const laPage = await newPage({ viewport: { width: 1200, height: 900 } });
+  const LA_BASE_URL = BASE_URL.replace(/index\.html$/, 'la.html');
+  await laPage.goto(LA_BASE_URL + '#/lands', { waitUntil: 'networkidle' });
+  await laPage.waitForTimeout(500);
+  if (await laPage.locator('#expandAllBtn').isVisible() && (await laPage.locator('#expandAllBtn').textContent()) === 'Expand all') {
+    await laPage.click('#expandAllBtn');
+    await laPage.waitForTimeout(200);
+  }
+  results.laBodyState = await laPage.evaluate(() => document.body.dataset.state);
+  results.laTitle = await laPage.title();
+  results.laStateSelect = { value: await laPage.locator('#stateSelect').inputValue(), options: await laPage.locator('#stateSelect option').evaluateAll(els => els.map(e => e.value)) };
+  results.laNoStateTabs = (await laPage.locator('#regionTabs, #mapStateSelect').count()) === 0;
+  const laCard = laPage.locator('.prop-card[data-pid="pla1"]');
+  results.laCardCount = await laCard.count();
+  const laCardText = ((await laCard.textContent()) || '').replace(/\s+/g, ' ');
+  results.laCardSaysListAsOf = /list as of Feb 27, 2024/.test(laCardText);
+  results.laCardSaysAvailableNow = /available now/i.test(laCardText.replace(/not verified available now/ig, ''));
+  results.laCardSaysParish = /Location in East Baton Rouge Parish/.test(laCardText) && /East Baton Rouge, LA/.test(laCardText);
+  results.laCardValueLabel = /2023 Fair Market Value \(tax roll\)/.test(laCardText) && !/Just Value/.test(laCardText);
+  results.laCardNoUndefined = !/undefined/.test(laCardText);
+  results.laCardSaysCounty = /East Baton Rouge County/.test(laCardText);
+  await laCard.locator('.detail-btn').click();
+  await laPage.waitForTimeout(300);
+  const laDetail = ((await laPage.locator('#detailModalInner').textContent()) || '').replace(/\s+/g, ' ');
+  results.laDetailNotVerifiedAvailable = /Not verified as available now - on the Parish's adjudicated-property list as of Feb 27, 2024/.test(laDetail);
+  results.laDetailInventoryLabel = /Adjudicated to the parish after no one bought it at the tax sale \(Louisiana\)/.test(laDetail);
+  results.laDetailCostNotPublished = /Not published by the source/.test(laDetail);
+  results.laDetailNoFixedPrice = !/fixed price/i.test(laDetail);
+  await laPage.close();
+}
+
+// ============================================================
 // Global state context (2026-09-30): ONE state selector, in the shared
 // header beside the account badge, built from STATE_META. The state is the
 // page (index.html = FL, tx.html = TX) whose rows come from
@@ -3493,7 +3531,7 @@ const EXPECTED = {
   navMapDeepCounty: 'Bay',
   navMapDeepContext: 'Ledger: Available · County: Bay County',
   navMapDeepHash: '#/map?ledger=laft&county=Bay',
-  navMapStateOptions: ['FL:Florida', 'TX:Texas'],
+  navMapStateOptions: ['FL:Florida', 'TX:Texas', 'LA:Louisiana'],
   navMapStateValue: 'FL',
   adminAnonRedirected: true,
   adminAnonShellShown: false,
@@ -3543,9 +3581,24 @@ const EXPECTED = {
   signupApprovedAdminShellShown: false,
   signupDisabledMsg: 'New account registration is closed right now, so this account was not created. Please try again later or contact support.',
   signupDisabledNoSession: true,
+  laBodyState: 'LA',
+  laTitle: 'Available — Adjudicated Property · Tax Acquisitions — Louisiana',
+  laStateSelect: { value: 'LA', options: ['FL', 'TX', 'LA'] },
+  laNoStateTabs: true,
+  laCardCount: 1,
+  laCardSaysListAsOf: true,
+  laCardSaysAvailableNow: false,
+  laCardSaysParish: true,
+  laCardSaysCounty: false,
+  laCardValueLabel: true,
+  laCardNoUndefined: true,
+  laDetailNotVerifiedAvailable: true,
+  laDetailInventoryLabel: true,
+  laDetailCostNotPublished: true,
+  laDetailNoFixedPrice: true,
   gsSelectInHeader: 1,
   gsSelectBesideAccount: "account",
-  gsOptions: ["FL:Florida", "TX:Texas"],
+  gsOptions: ["FL:Florida", "TX:Texas", "LA:Louisiana"],
   gsStateSelectCount: 1,
   gsAccountMenuOpens: true,
   gsFlorida: {"dash": {"file": "index.html", "hash": "#/dashboard", "state": "FL"}, "dashAuctionTile": "9", "dashCountiesSub": "Florida · 12 tracked incl. no-longer-listed", "list": {"file": "index.html", "hash": "#/auctions", "state": "FL"}, "listOnlyFlorida": true, "map": {"file": "index.html", "hash": "#/map", "state": "FL"}, "mapPaths": 67, "watch": {"file": "index.html", "hash": "#/watchlist", "state": "FL"}, "watchPids": ["p1"], "watchElsewhere": "1 saved item is not in Florida's current listings (saved under another state, or no longer listed). Switch state in the header to see another state's items."},

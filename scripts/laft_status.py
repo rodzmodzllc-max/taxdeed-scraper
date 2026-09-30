@@ -130,16 +130,15 @@ AMOUNT_KINDS = (
     "ESTIMATED_PURCHASE_PRICE",
     "PUBLISHED_AMOUNT_KIND_UNSPECIFIED",
     "NOT_PUBLISHED",
-    # Model vocabulary only (not in migration 017's constraint): the source
-    # publishes no figure, the price is quoted to an applicant. No FL
-    # harvester emits it; scripts/laft_lifecycle.py keeps it out of the DB.
+    # Migration 020 (applied 2026-09-30): the source publishes no figure,
+    # the price is quoted to an applicant. No FL harvester emits it.
     "QUOTED_ON_APPLICATION",
 )
 
-# The kinds public.properties can store today (migration 017). Mirrors
-# harvesters/otc/model.py's DB_SUPPORTED_AMOUNT_KINDS (same test keeps them
-# in step).
-DB_AMOUNT_KINDS = AMOUNT_KINDS[:7]
+# The kinds public.properties can store today (migration 017 + 020, applied
+# 2026-09-30 - every kind in AMOUNT_KINDS). Mirrors harvesters/otc/model.py's
+# DB_SUPPORTED_AMOUNT_KINDS (same test keeps them in step).
+DB_AMOUNT_KINDS = AMOUNT_KINDS
 
 # Column-label -> amount kind, keyed by the same normalised header text the
 # PDF/HTML harvesters' HEADER_MAP uses. A label not listed here still maps

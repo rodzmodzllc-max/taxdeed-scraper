@@ -229,7 +229,7 @@ def test_k01_get_properties_contract_and_ledger_isolation_intact():
     assert "result_amount, result_date, result_party\n  from public.properties" in sql
     assert sorted(p.name for p in (REPO / "scripts/migrations").glob("02*.sql"))[-1] == "023_available_commercial_release.sql"   # no new migration this sprint
     domains.assert_isolated()
-    assert (REPO / "public/sw.js").read_text(encoding="utf-8").count('const CACHE = "tdw-shell-v55"') == 1
+    assert (REPO / "public/sw.js").read_text(encoding="utf-8").count('const CACHE = "tdw-shell-v56"') == 1
 
 
 def test_c03_publication_measurement_counts_a_typed_non_url_path_as_a_purchase_path():
