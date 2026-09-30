@@ -3303,7 +3303,27 @@ const EXPECTED = {
   adminPubRefusesApprovalWithoutEvidence: 'An approval needs evidence.',
   adminPubHiddenForCustomer: true,
   adminPubNoTableReviewText: 'Latest decision: Review history unavailable (migration 023 not applied)',
-  adminPubNoTableFormDisabled: true
+  adminPubNoTableFormDisabled: true,
+  // ---- Customer-value / evidence sprint ----
+  aucDecQuestions: ['What property?', 'When is the sale?', 'Opening / minimum bid, if published?', 'What property intelligence is available?', 'What is the source?', 'Is an explicit auction result available?', 'Has this parcel appeared in another ledger?', 'What is not known?'],
+  aucDecP1When: /^[A-Z][a-z]{2} \d{1,2}, \d{4} · in 3d$/,
+  aucDecP1Bid: '$5,000.00 Value ÷ bid 18.0× - a screening ratio, not a return',
+  aucDecP1Related: 'Currently in Liens & Certificates (certificate #CERT-42). Same state, county and parcel number; why a record moved between ledgers is not recorded.',
+  aucDecP1Result: 'No result yet - the sale has not taken place',
+  aucDecP1Source: /^Fl Realauction Alachua · View sale listing for [A-Z][a-z]{2} \d{1,2}, \d{4} → /,
+  aucRelatedWhen: ['certificate:now:Currently listed'],
+  aucDecNoScoreWords: true,
+  aucDecP13Result: 'Not published by the source. The sale date has passed and the feed still lists the property with no result. Whether it sold, was redeemed, cancelled or postponed is not recorded; winning bids and bidder counts are never inferred.',
+  aucDecP13ResultNeverSold: true,
+  certDecQuestions: ['What certificate / lien?', 'Amount?', 'Interest / return terms, if published?', 'Redemption information, if published?', 'Source and freshness?', 'Same parcel in Auctions or Available?', 'What is not known?'],
+  certDecWhat: 'Certificate #CERT-42 Alachua County, FL · tax year 2022 · account ACC-999 · parcel 111',
+  certDecAmount: '$1,234.56',
+  certDecTerms: /^Interest rate 18% \(as published\) · Issued Jun 1, 2023 · Certificate expires [A-Z][a-z]{2} \d{1,2}, \d{4} Published figures only; no return is estimated here\.$/,
+  certDecRedemption: 'Not published by the source',
+  certDecRelated: 'Currently in Auctions (case A-1). Same state, county and parcel number; why a record moved between ledgers is not recorded.',
+  certDecNavHasDecision: 1,
+  certCsvHeader: ['State', 'County', 'Certificate #', 'Account #', 'Parcel', 'Tax Year', 'Amount', 'Interest Rate (as published)', 'Issued Date', 'Expiration Date', 'Est. Accrued Interest', 'TDA Eligibility Date', 'Status (per the source)', 'Status Observed', 'Same Parcel In Other Ledgers', 'County-Held List URL', 'Source', 'Last Synced'],
+  certCsvHeaderLacks: true
 };
 
 const mismatches = [];

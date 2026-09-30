@@ -3230,8 +3230,11 @@ function auctionDecisionHtml(p) {
   } else if (isGone(p)) {
     result = `${muted("Not published by the source.")}${sub(esc("The listing left the source feed after its date; whether it sold, was redeemed, cancelled or postponed is not recorded. Winning bids and bidder counts are never inferred."))}`;
     resultCls = "muted";
+  } else if (p.sale_date && daysUntil(p) !== null && daysUntil(p) < 0) {
+    result = `${muted("Not published by the source.")}${sub(esc("The sale date has passed and the feed still lists the property with no result. Whether it sold, was redeemed, cancelled or postponed is not recorded; winning bids and bidder counts are never inferred."))}`;
+    resultCls = "muted";
   } else {
-    result = muted("No result yet - the sale has not been observed as completed");
+    result = muted("No result yet - the sale has not taken place");
     resultCls = "muted";
   }
   rows.push(q("result", "Is an explicit auction result available?", result, resultCls));
