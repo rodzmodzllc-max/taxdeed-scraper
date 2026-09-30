@@ -137,10 +137,30 @@ class FetchResult:
     pages: int = 0
     items: list[ClosedItem] = field(default_factory=list)
     raw_pages: list[str] = field(default_factory=list)
+    aids: list[str] = field(default_factory=list)
+    update_raw: str | None = None
+    update_error: str | None = None
+    paging_probe: dict = field(default_factory=dict)
 
 
 def sale_day_url(host: str, sale_date: str) -> str:
     return f"https://{host}/index.cfm?zaction=AUCTION&zmethod=PREVIEW&AuctionDate={sale_date}"
+
+
+def update_url(host: str, aids: list[str]) -> str:
+    """The page's own status-refresh call: the item ids the area response
+    lists in `rlist`, and nothing else."""
+    return f"https://{host}/index.cfm?zaction=AUCTION&ZMETHOD=UPDATE&FNC=UPDATE&ref={','.join(aids)}"
+
+
+def rlist_ids(body: str) -> list[str]:
+    import json as _json
+    try:
+        data = _json.loads(body)
+    except Exception:
+        return []
+    raw = data.get("rlist") if isinstance(data, dict) else None
+    return [x.strip() for x in str(raw or "").split(",") if x.strip().isdigit()]
 
 
 def ajax_url(host: str, area: str, page: int) -> str:
@@ -173,6 +193,7 @@ def fetch_area(session: Any, host: str, sale_date: str, *, area: str = AREA_CLOS
                 return res
             res.pages = page + 1
             res.raw_pages.append(rr.text)
+            res.aids.extend(a for a in rlist_ids(rr.text) if a not in res.aids)
             if is_login_page(rr.text):
                 res.login_page = True
                 break
@@ -188,6 +209,17 @@ def fetch_area(session: Any, host: str, sale_date: str, *, area: str = AREA_CLOS
             if not batch or fresh == 0:
                 break
         res.ok = not res.login_page
+        if res.ok and res.aids:
+            time.sleep(pause)
+            try:
+                ur = session.get(update_url(host, res.aids), timeout=timeout,
+                                 headers={**base, "Accept": "application/json, text/javascript, */*; q=0.01",
+                                          "X-Requested-With": "XMLHttpRequest", "Referer": res.url})
+                res.update_raw = ur.text if ur.status_code == 200 else None
+                if ur.status_code != 200:
+                    res.update_error = f"HTTP {ur.status_code}"
+            except Exception as exc:
+                res.update_error = f"{type(exc).__name__}"
         return res
     except Exception as exc:  # transport
         res.error = f"{type(exc).__name__}: {str(exc)[:160]}"
@@ -214,7 +246,16 @@ def mask_text(fragment: str, keep: re.Pattern | None = None) -> str:
         if keep is not None and keep.search(t) and not _DIGITS.search(t):
             return ">" + t
         return ">" + re.sub(r"[A-Za-z]", "a", _DIGITS.sub("#", t))
-    return _TEXT_NODE.sub(sub, fragment)
+    masked = _ATTR_VALUE.sub(lambda m: f'{m.group(1)}="…"', fragment)
+    masked = _TEXT_NODE.sub(sub, masked)
+    # Belt and braces: no digit survives anywhere (attribute, script, text).
+    return _DIGITS.sub("#", masked)
+
+
+# Every attribute that can carry an identifier (a link's parcel key, an item
+# id) is blanked before anything is printed - a capture once printed the
+# appraiser links' parcel keys into a public job log.
+_ATTR_VALUE = re.compile(r'\b(href|src|onclick|onClick|aid|id|value|data-[a-z-]+)\s*=\s*"[^"]*"', re.I)
 
 
 _KEEP_WORDS = re.compile(r"(auction|status|sold|cancel|redeem|withdr|struck|county|bidder|amount|case|parcel|"
@@ -247,6 +288,46 @@ def structure_sample(body: str) -> dict:
     return out
 
 
+_STATUS_VOCAB = re.compile(r"^(auction |)(sold|cancel\w*|redeem\w*|withdr\w*|struck\w*|closed|postpon\w*|status|amount|sold to|"
+                           r"canceled per county|canceled per \w+|auction status|auction sold|3rd party bidder|"
+                           r"certificate holder|county|plaintiff|bankruptcy|no bid\w*|not sold|lands available)[\w ]{0,30}$", re.I)
+
+
+# Exact purchaser CATEGORIES a sale-result page may print (never a name).
+_EXACT_CATEGORIES = frozenset({"3rd party bidder", "certificate holder", "county", "plaintiff", "the county"})
+
+
+def vocab_or_shape(value: Any) -> str:
+    """A string is printed verbatim only when it is status vocabulary with no
+    digit; otherwise only its shape (letters 'a', digits '#'). Names,
+    amounts, dates and identifiers therefore never reach a log."""
+    t = clean(str(value))
+    if t.lower() in _EXACT_CATEGORIES:
+        return t
+    if t and len(t) <= 48 and _STATUS_VOCAB.match(t) and not _DIGITS.search(t):
+        return t
+    return re.sub(r"[A-Za-z]", "a", _DIGITS.sub("#", t))[:48]
+
+
+def json_shape(value: Any, depth: int = 0) -> Any:
+    """Value-free structure of a JSON value: dict keys kept, strings reduced
+    by vocab_or_shape, lists summarized by their first two elements."""
+    if depth > 5:
+        return "…"
+    if isinstance(value, dict):
+        return {k: json_shape(v, depth + 1) for k, v in list(value.items())[:40]}
+    if isinstance(value, list):
+        return {"len": len(value), "first": [json_shape(v, depth + 1) for v in value[:2]]}
+    if isinstance(value, (int, float)):
+        return "#"
+    if value is None or isinstance(value, bool):
+        return value
+    s = str(value)
+    if "<" in s and ">" in s:
+        return "HTML:" + mask_text(s[:600], _KEEP_WORDS)
+    return vocab_or_shape(s)
+
+
 def value_free_summary(res: FetchResult) -> dict:
     """What the area publishes, without a single value: label names with
     counts, status-line pairs with digits masked (counts per distinct
@@ -267,7 +348,14 @@ def value_free_summary(res: FetchResult) -> dict:
         with_case += bool(it.case_no)
         with_parcel += bool(it.parcel)
     skel = structure_sample(res.raw_pages[0]) if res.raw_pages else {}
-    return {"structure": skel, "url": res.url, "date": res.sale_date, "ok": res.ok, "error": res.error, "login_page": res.login_page,
+    upd: Any = None
+    if res.update_raw is not None:
+        import json as _json
+        try:
+            upd = json_shape(_json.loads(res.update_raw))
+        except Exception:
+            upd = "NOT_JSON:" + mask_text(res.update_raw[:600], _KEEP_WORDS)
+    return {"structure": skel, "update": upd, "update_error": res.update_error, "aids": len(res.aids), "url": res.url, "date": res.sale_date, "ok": res.ok, "error": res.error, "login_page": res.login_page,
             "pages": res.pages, "items": len(res.items), "with_case": with_case, "with_parcel": with_parcel,
             "labels": dict(sorted(labels.items())), "status_pairs": dict(sorted(pairs.items(), key=lambda kv: -kv[1])),
             "classes": dict(sorted(classes.items()))}
