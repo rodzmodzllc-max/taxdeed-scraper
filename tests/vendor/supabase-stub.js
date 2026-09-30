@@ -290,7 +290,30 @@ class MockQuery {
   upsert(row) { this._op = "upsert"; this._row = row; return this; }
   then(resolve) {
     let result = { data: [], error: null };
-    if (this.table === "profiles") {
+    if (this.table === "profiles" && STUB_AUTH) {
+      // Row-level security, as the real policies: "profiles: read own row"
+      // (SELECT, auth.uid() = id) and "profiles: admin full access" (ALL,
+      // is_admin()). No INSERT/UPDATE policy exists for anyone else, so a
+      // non-admin's update matches zero rows and changes nothing - the
+      // same silent 200 PostgREST returns.
+      const me = stubSessionUser();
+      const users = stubUsers();
+      const caller = me ? users.find(u => u.id === me.id) : null;
+      const callerIsAdmin = !!(caller && caller.is_admin === true);
+      const visible = users.filter(u => caller && (callerIsAdmin || u.id === caller.id));
+      const matches = u => this._filters.every(([c, v]) => u[c] === v);
+      if (this._op === "update") {
+        const changed = callerIsAdmin ? visible.filter(matches) : [];
+        changed.forEach(u => Object.assign(u, this._row));
+        if (changed.length) stubSaveUsers(users);
+        window.__stubProfileUpdates = (window.__stubProfileUpdates || []).concat([{ rows: changed.length }]);
+        result = { data: null, error: null };
+      } else {
+        const rows = visible.filter(matches)
+          .map(u => ({ id: u.id, email: u.email, approved: u.approved, is_admin: u.is_admin, requested_at: u.requested_at || null }));
+        result = { data: this._single ? (rows[0] || null) : rows, error: null };
+      }
+    } else if (this.table === "profiles") {
       if (PROFILES_TABLE === null) {
         // Simulates schema-v6-approvals.sql not having been run yet.
         result = { data: null, error: { message: 'relation "public.profiles" does not exist', code: "42P01" } };
@@ -364,14 +387,58 @@ const BIDLIST_SEED = (() => {
 // auto-signing-in, so the sign-up/sign-in toggle can be screenshot-tested.
 const FORCE_GATE = new URLSearchParams(location.search).get("authtest") === "1";
 
+// ?stubauth=1 (2026-09-30, admin area): a stand-in for the SERVER side of
+// Supabase Auth + row-level security, for the sign-in / role tests. The
+// user table below lives only in this module's closure (a page cannot read
+// or edit it - the way the real auth.users / public.profiles cannot be
+// edited from the browser); signInWithPassword checks the password here,
+// the session is an opaque id in sessionStorage (supabase-js keeps its
+// signed token there too), and a profiles read returns only the signed-in
+// user's own row with the server's is_admin. The passwords are FIXTURE
+// values for these fake accounts - not any real credential.
+//
+// Sign-up (2026-09-30): signUp creates a new server user the way Supabase
+// Auth + the handle_new_user trigger do - a profile with approved = false and
+// is_admin = false, whatever metadata the caller sends. An admin (and only an
+// admin) can read other users' rows and approve them. So that a sign-up in
+// one tab is visible to the admin in another tab of the same browser context
+// (the way one database serves every client), the user table is persisted
+// under STUB_DB_KEY. That key stands for the server's database: the
+// application never reads it, and the tamper checks never touch it.
+// ?signupdisabled=1 makes signUp answer the way a project with "Allow new
+// users to sign up" turned off does.
+const STUB_AUTH = new URLSearchParams(location.search).get("stubauth") === "1";
+const STUB_SIGNUP_DISABLED = new URLSearchParams(location.search).get("signupdisabled") === "1";
+const STUB_SESSION_KEY = "stub-auth-session";
+const STUB_DB_KEY = "stub-server-db";
+const STUB_SERVER_USERS = [
+  { id: "n1", email: "normal@example.com", password: "fixture-normal-pass", approved: true, is_admin: false },
+  { id: "a1", email: "admin@example.com", password: "fixture-admin-pass", approved: true, is_admin: true }
+];
+function stubUsers() {
+  try { const saved = JSON.parse(localStorage.getItem(STUB_DB_KEY)); if (Array.isArray(saved)) return saved; } catch { /* seed below */ }
+  return STUB_SERVER_USERS.map(u => ({ ...u }));
+}
+function stubSaveUsers(list) { try { localStorage.setItem(STUB_DB_KEY, JSON.stringify(list)); } catch { /* ignore */ } }
+const stubListeners = [];
+function stubSessionUser() {
+  let id = null;
+  try { id = sessionStorage.getItem(STUB_SESSION_KEY); } catch { id = null; }
+  const u = stubUsers().find(x => x.id === id);
+  return u ? { id: u.id, email: u.email } : null;
+}
+function stubEmit(event, user) { stubListeners.forEach(cb => setTimeout(() => cb(event, user ? { user } : null), 0)); }
+
 export function createClient() {
   return {
     auth: {
       async getSession() {
+        if (STUB_AUTH) { const u = stubSessionUser(); return { data: { session: u ? { user: u } : null } }; }
         if (FORCE_GATE) return { data: { session: null } };
         return { data: { session: { user: { id: "u1", email: "test@example.com" } } } };
       },
       onAuthStateChange(cb) {
+        if (STUB_AUTH) { stubListeners.push(cb); return { data: { subscription: { unsubscribe() {} } } }; }
         if (!FORCE_GATE) setTimeout(() => cb("SIGNED_IN", { user: { id: "u1", email: "test@example.com" } }), 0);
         // ?recovery=1: what supabase-js emits after a password-reset link
         // lands (detectSessionInUrl consumed the recovery token).
@@ -380,8 +447,35 @@ export function createClient() {
         }
         return { data: { subscription: { unsubscribe() {} } } };
       },
-      async signInWithPassword() { return { error: null }; },
-      async signUp({ email }) {
+      async signInWithPassword(creds) {
+        if (STUB_AUTH) {
+          const u = stubUsers().find(x => creds && x.email === creds.email && x.password === creds.password);
+          if (!u) return { data: { user: null, session: null }, error: { message: "Invalid login credentials", status: 400 } };
+          sessionStorage.setItem(STUB_SESSION_KEY, u.id);
+          const user = { id: u.id, email: u.email };
+          stubEmit("SIGNED_IN", user);
+          return { data: { user, session: { user } }, error: null };
+        }
+        return { error: null };
+      },
+      async signUp(creds) {
+        const email = creds && creds.email;
+        if (STUB_AUTH) {
+          if (STUB_SIGNUP_DISABLED) return { data: { user: null, session: null }, error: { message: "Signups not allowed for this instance", status: 422 } };
+          const users = stubUsers();
+          if (!email || !creds.password || users.some(x => x.email === email)) {
+            return { data: { user: null, session: null }, error: { message: "User already registered", status: 422 } };
+          }
+          // handle_new_user(): (id, email) only - approved and is_admin take
+          // the column defaults (false), never anything from the metadata.
+          const created = { id: "s" + (users.length + 1), email, password: creds.password, approved: false, is_admin: false, requested_at: new Date().toISOString() };
+          users.push(created);
+          stubSaveUsers(users);
+          sessionStorage.setItem(STUB_SESSION_KEY, created.id);
+          const user = { id: created.id, email };
+          stubEmit("SIGNED_IN", user);
+          return { data: { user, session: { user } }, error: null };
+        }
         // Simulate the "check your email" (no immediate session) outcome -
         // the more interesting UI path to verify, since the auto-confirmed
         // path just reuses the existing onAuthStateChange->showApp flow.
@@ -390,7 +484,10 @@ export function createClient() {
         }
         return { data: { user: { id: "u2", email }, session: null }, error: null };
       },
-      async signOut() { return {}; },
+      async signOut() {
+        if (STUB_AUTH) { try { sessionStorage.removeItem(STUB_SESSION_KEY); } catch { /* ignore */ } stubEmit("SIGNED_OUT", null); }
+        return {};
+      },
       // SaaS hardening: the two supported-pattern calls the account
       // lifecycle uses. ?resetfail=1 makes the reset request fail so the
       // error path is exercised too.

@@ -57,6 +57,15 @@ removes it. As `service_role`: the next scheduled sync upserts normally.
   2026-09-29). Turn it on. No code change.
 - **Email confirmation** is on (all three existing users are confirmed).
   Keep it on for a paid product.
+- **Public sign-up** (Authentication -> Sign In / Providers ->
+  "Allow new users to sign up"): must be **ON** for visitors to create accounts. When it
+  is off, Supabase refuses every sign-up with "Signups not allowed for this
+  instance" (the app now says "New account registration is closed right
+  now" instead). Turning it on does NOT let anyone in: every new account's
+  `profiles` row is created by the `handle_new_user` trigger with
+  `approved = false` and `is_admin = false`, row-level security returns no
+  ledger data until an admin approves it, and there is no setting for
+  automatic approval - leave it that way. See `docs/admin.md`.
 
 ## 3. Account deletion (`delete_my_account()`)
 
