@@ -2656,9 +2656,34 @@ await filtPage.close();
 // registry sources with status / restrictions / latest decision; the form
 // refuses RESTRICTED without a reason and an approval without evidence,
 // then records an append-only review row.
+// (2026-09-30: the panel lives in its own admin-only view - account menu
+// "Source Publication Governance" or #/governance - never inline on the main
+// workspace. The checks below open it the way an admin does, then exercise
+// the unchanged panel.)
 const adminPub = await newPage({ viewport: { width: 1200, height: 900 } });
 await adminPub.goto(BASE_URL + '?profile=admin', { waitUntil: 'networkidle' });
 await adminPub.waitForTimeout(900);
+results.govWorkspace = {
+  inlinePanelVisible: await adminPub.locator('#adminPublication').isVisible(),
+  panelInsideView: await adminPub.evaluate(() => !!document.querySelector('#governanceModal #adminPublication')),
+  panelOnWorkspace: await adminPub.evaluate(() => !!document.querySelector('#app > #adminPublication, main #adminPublication, .page #adminPublication')),
+  approvalsVisible: await adminPub.locator('#adminApprovals').isVisible(),
+  approvalRows: (await adminPub.locator('#adminApprovalsList > *').count()) > 0
+};
+await adminPub.click('#accountBtn'); await adminPub.waitForTimeout(200);
+results.govMenu = {
+  itemVisible: await adminPub.locator('#governanceMenuItem').isVisible(),
+  itemText: ((await adminPub.locator('#governanceMenuItem').textContent()) || '').trim(),
+  // the item sits in the existing account menu, after "Admin area", before Terms / Sign out
+  order: await adminPub.locator('#accountMenu .account-item:not([hidden])').evaluateAll(els => els.map(e => e.id).filter(Boolean))
+};
+await adminPub.click('#governanceMenuItem'); await adminPub.waitForTimeout(700);
+results.govOpened = {
+  viewVisible: await adminPub.locator('#governanceModal').isVisible(),
+  hash: await adminPub.evaluate(() => location.hash),
+  menuClosed: await adminPub.locator('#accountMenu').isHidden(),
+  title: ((await adminPub.locator('#governanceTitle').textContent()) || '').trim()
+};
 results.adminPubVisible = await adminPub.locator('#adminPublication').isVisible();
 results.adminPubSources = await adminPub.locator('#adminPublicationList .admin-pub-row').evaluateAll(els => els.map(e => e.dataset.source + ':' + e.querySelector('.admin-pub-status').textContent.trim()));
 results.adminPubBrowardMeta = ((await adminPub.locator('#adminPublicationList .admin-pub-row[data-source="fl_laft_broward_candidate"] .admin-pub-meta').textContent()) || '').replace(/\s+/g, ' ').trim();
@@ -2679,21 +2704,78 @@ const htmlForm = adminPub.locator('#adminPublicationList .admin-pub-form[data-so
 await htmlForm.locator('select[name="publication_status"]').selectOption('APPROVED');
 await htmlForm.locator('button[type="submit"]').click(); await adminPub.waitForTimeout(150);
 results.adminPubRefusesApprovalWithoutEvidence = ((await htmlForm.locator('.admin-pub-msg').textContent()) || '').trim();
+// Back closes the view (its own history layer) and returns to the workspace.
+await adminPub.goBack(); await adminPub.waitForTimeout(400);
+results.govClosedByBack = { hidden: await adminPub.locator('#governanceModal').isHidden(), hash: await adminPub.evaluate(() => location.hash) };
 await adminPub.close();
+// An admin can open the view straight from its route (cold start).
+const govRoute = await newPage({ viewport: { width: 1200, height: 900 } });
+await govRoute.goto(BASE_URL + '?profile=admin#/governance', { waitUntil: 'networkidle' });
+await govRoute.waitForTimeout(900);
+results.govAdminRoute = { visible: await govRoute.locator('#governanceModal').isVisible(), rows: await govRoute.locator('#adminPublicationList .admin-pub-row').count(), hash: await govRoute.evaluate(() => location.hash) };
+await govRoute.close();
+// Phone width: the account menu entry and the view both fit at 360px.
+const govPhone = await newPage({ viewport: { width: 360, height: 780 } });
+await govPhone.goto(BASE_URL + '?profile=admin', { waitUntil: 'networkidle' });
+await govPhone.waitForTimeout(900);
+await govPhone.click('#accountBtn'); await govPhone.waitForTimeout(200);
+const phoneItem = await govPhone.locator('#governanceMenuItem').isVisible();
+await govPhone.click('#governanceMenuItem'); await govPhone.waitForTimeout(700);
+results.govPhone = {
+  itemVisible: phoneItem,
+  viewVisible: await govPhone.locator('#governanceModal').isVisible(),
+  noHorizontalScroll: await govPhone.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth),
+  formFits: await govPhone.evaluate(() => { const f = document.querySelector('#adminPublicationList .admin-pub-form'); return !!f && f.getBoundingClientRect().right <= window.innerWidth + 1; })
+};
+await govPhone.close();
 // A non-admin never sees the panel; a deployment without the reviews table
 // disables the form but still shows the registry state.
 const nonAdmin = await newPage({ viewport: { width: 1200, height: 900 } });
 await nonAdmin.goto(BASE_URL, { waitUntil: 'networkidle' });
 await nonAdmin.waitForTimeout(700);
 results.adminPubHiddenForCustomer = await nonAdmin.locator('#adminPublication').isHidden();
+await nonAdmin.click('#accountBtn'); await nonAdmin.waitForTimeout(200);
+results.govCustomerMenu = { itemVisible: await nonAdmin.locator('#governanceMenuItem').isVisible(), accountMenuOpen: await nonAdmin.locator('#accountMenu').isVisible() };
+await nonAdmin.keyboard.press('Escape'); await nonAdmin.waitForTimeout(200);
+// Typing the route into an open app: refused - view stays closed, hash rewritten, nothing fetched.
+await nonAdmin.evaluate(() => { location.hash = '#/governance'; }); await nonAdmin.waitForTimeout(500);
+results.govCustomerTypedRoute = { viewHidden: await nonAdmin.locator('#governanceModal').isHidden(), hash: await nonAdmin.evaluate(() => location.hash), rows: await nonAdmin.locator('#adminPublicationList .admin-pub-row').count() };
 await nonAdmin.close();
+// Cold start at the route as a normal user: refused the same way.
+const custRoute = await newPage({ viewport: { width: 1200, height: 900 } });
+await custRoute.goto(BASE_URL + '#/governance', { waitUntil: 'networkidle' });
+await custRoute.waitForTimeout(900);
+results.govCustomerColdRoute = { viewHidden: await custRoute.locator('#governanceModal').isHidden(), hash: await custRoute.evaluate(() => location.hash), rows: await custRoute.locator('#adminPublicationList .admin-pub-row').count(), menuItemHidden: await custRoute.locator('#governanceMenuItem').isHidden() };
+await custRoute.close();
 const noReviews = await newPage({ viewport: { width: 1200, height: 900 } });
-await noReviews.goto(BASE_URL + '?profile=admin&reviews=none', { waitUntil: 'networkidle' });
+await noReviews.goto(BASE_URL + '?profile=admin&reviews=none#/governance', { waitUntil: 'networkidle' });
 await noReviews.waitForTimeout(900);
 results.adminPubNoTableReviewText = ((await noReviews.locator('#adminPublicationList .admin-pub-row[data-source="fl_laft_pdfs"] .admin-pub-review').innerText()) || '').replace(/\s+/g, ' ').trim();
 results.adminPubNoTableFormDisabled = await noReviews.locator('#adminPublicationList .admin-pub-form[data-source="fl_laft_pdfs"] button[type="submit"]').isDisabled();
 await noReviews.close();
 
+
+// Every generated state page (scripts/build_state_page.py) carries the same
+// governance navigation: admin menu entry + #/governance view; refused for a
+// normal user; never inline on the workspace.
+results.govStatePages = {};
+for (const file of ['mi', 'wy', 'sc', 'co', 'wi']) {
+  const url = BASE_URL.replace(/index\.html$/, `${file}.html`);
+  const adm = await newPage({ viewport: { width: 1200, height: 900 } });
+  await adm.goto(url + '?profile=admin#/governance', { waitUntil: 'networkidle' });
+  await adm.waitForTimeout(800);
+  const admView = await adm.locator('#governanceModal').isVisible();
+  const admHash = await adm.evaluate(() => location.hash);
+  const onWorkspace = await adm.evaluate(() => !document.querySelector('#governanceModal #adminPublication'));
+  await adm.close();
+  const usr = await newPage({ viewport: { width: 1200, height: 900 } });
+  await usr.goto(url + '#/governance', { waitUntil: 'networkidle' });
+  await usr.waitForTimeout(800);
+  results.govStatePages[file] = { admView, admHash, onWorkspace,
+    userView: await usr.locator('#governanceModal').isVisible(), userItem: await usr.locator('#governanceMenuItem').isVisible(),
+    userHashRewritten: (await usr.evaluate(() => location.hash)) !== '#/governance' };
+  await usr.close();
+}
 
 // ==================== Unified navigation (2026-09-30) ====================
 // Routes, the Map page's state / ledger / county context, the scoped county
@@ -4179,6 +4261,16 @@ const EXPECTED = {
   availCsvRowCount: 2,
   availCsvNoWithheld: true,
   availCsvP15Path: true,
+  govStatePages: Object.fromEntries(['mi', 'wy', 'sc', 'co', 'wi'].map(f => [f, { admView: true, admHash: '#/governance', onWorkspace: false, userView: false, userItem: false, userHashRewritten: true }])),
+  govWorkspace: { inlinePanelVisible: false, panelInsideView: true, panelOnWorkspace: false, approvalsVisible: true, approvalRows: true },
+  govMenu: { itemVisible: true, itemText: 'Source Publication Governance', order: ['editProfileBtn', 'changePasswordBtn', 'themeBtn', 'helpBtnMenu', 'supportBtnMenu', 'adminAreaLink', 'governanceMenuItem', 'termsBtnMenu', 'signOutBtn', 'deleteAccountBtn'] },
+  govOpened: { viewVisible: true, hash: '#/governance', menuClosed: true, title: 'Source Publication Governance' },
+  govClosedByBack: { hidden: true, hash: '#/auctions' },
+  govAdminRoute: { visible: true, rows: 5, hash: '#/governance' },
+  govPhone: { itemVisible: true, viewVisible: true, noHorizontalScroll: true, formFits: true },
+  govCustomerMenu: { itemVisible: false, accountMenuOpen: true },
+  govCustomerTypedRoute: { viewHidden: true, hash: '#/auctions', rows: 0 },
+  govCustomerColdRoute: { viewHidden: true, hash: '#/auctions', rows: 0, menuItemHidden: true },
   adminPubVisible: true,
   adminPubSources: ['fl_laft_broward_candidate:RESTRICTED', 'fl_laft_html:APPROVED_GRANDFATHERED', 'fl_laft_pdfs:APPROVED_GRANDFATHERED', 'fl_laft_pioneer:APPROVED_GRANDFATHERED', 'fl_laft_realtdm:APPROVED_GRANDFATHERED'],
   adminPubBrowardMeta: 'Governance LEGAL_REVIEW_REQUIRED · Verification CANDIDATE · Restrictions: terms of use under legal review',

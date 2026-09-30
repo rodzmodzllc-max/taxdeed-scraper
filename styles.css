@@ -1689,3 +1689,11 @@ body[data-page="admin"]{background:var(--paper);color:var(--ink);min-height:100v
 .admin-actions{display:flex;flex-wrap:wrap;gap:.6rem;margin:.8rem 0 0}
 .admin-btn{display:inline-flex;align-items:center;min-height:40px;padding:.45rem .95rem;border-radius:10px;border:1px solid var(--accent);background:var(--accent);color:#fff;font:inherit;text-decoration:none;cursor:pointer}
 .admin-btn-quiet{background:transparent;color:var(--ink);border-color:var(--card-line)}
+
+/* Source Publication Governance as its own admin-only view (account menu /
+   #/governance). The panel inside is the existing .admin-publication UI;
+   inside the view it drops the workspace banner chrome (warning strip,
+   duplicate heading) since the view's own title says what it is. */
+.governance-modal-inner{max-width:52rem}
+.governance-modal-inner .admin-publication{background:none;border:0;padding:0;margin:0}
+.governance-modal-inner .admin-approvals-head{display:none}

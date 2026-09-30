@@ -1938,6 +1938,10 @@ async function checkApprovalAndEnter(session) {
   // the server again and refuses anyone the server does not call an admin).
   const adminLink = document.getElementById("adminAreaLink");
   if (adminLink) adminLink.hidden = !IS_ADMIN;
+  // Same rule for the Source Publication Governance entry (visibility only -
+  // openGovernance() refuses a non-admin and RLS admits admins only).
+  const govItem = document.getElementById("governanceMenuItem");
+  if (govItem) govItem.hidden = !IS_ADMIN;
   if (profile && profile.approved) showApp();
   else showPending();
 }
@@ -2029,6 +2033,8 @@ async function showApp() {
   // before setLedger() below replaces the hash with the bare "#/slug" (losing
   // the id), and used once ALL is loaded further down.
   const deepLinkedPid = pidFromHash();
+  // #/governance (admin-only view): captured before setLedger() rewrites the hash.
+  const wantsGovernance = isGovernanceHash();
   const genEl = document.getElementById("generatedAt");
   if (genEl) genEl.textContent = "Loading";
   renderSkeleton();
@@ -2063,7 +2069,10 @@ async function showApp() {
   else if (route && route.page === "dashboard") showPage("dashboard");
   else { showPage("list"); if (route && route.page === "watchlist") openBidList(); }
   startIdleWatch();
-  if (IS_ADMIN) { refreshAdminApprovals(); refreshAdminPublication(); }
+  // Source publication governance is no longer loaded onto the main workspace:
+  // it lives in its own admin-only view (openGovernance), loaded when opened.
+  if (IS_ADMIN) refreshAdminApprovals();
+  if (wantsGovernance) openGovernance();
   // Phase 58: reopen the deep-linked property, if the URL named one and it's
   // still in ALL (unfiltered by ledger/status - a certificate's card should
   // reopen even if the Auctions tab happens to be active). A dead/stale id
@@ -2145,6 +2154,7 @@ async function refreshAdminPublication() {
   const wrap = document.getElementById("adminPublication");
   const list = document.getElementById("adminPublicationList");
   if (!wrap || !list) return;
+  if (!IS_ADMIN) { wrap.hidden = true; list.innerHTML = ""; return; }   // never rendered for a non-admin (RLS refuses the reads anyway)
   const [reg, rev] = await Promise.all([
     sb.from("county_source_registry").select("state,county,source_id,publication_status,restrictions,governance_status,verification_status").eq("state", PAGE_STATE).order("source_id"),
     sb.from("source_publication_reviews").select("*").eq("state", PAGE_STATE).order("decided_at", { ascending: false })
@@ -5714,6 +5724,7 @@ document.querySelectorAll("#ledgerTabs .ledger-tab[data-ledger]").forEach(btn =>
 // own replaceState, since replaceState never emits hashchange.
 window.addEventListener("hashchange", () => {
   if (suppressHashRoute) { suppressHashRoute = false; return; }   // a self-back's own traversal (see popstate)
+  if (isGovernanceHash()) { openGovernance(); return; }          // admin-only view; refused (and the hash rewritten) otherwise
   const r = routeFromHash();
   if (!r) return;
   if (r.page === "list") {
@@ -7159,6 +7170,55 @@ function openSupportModal(ctx) {
   const b = document.getElementById(id);
   if (b) b.addEventListener("click", () => openSupportModal({}));
 });
+
+// ---- source publication governance (admin only) ----
+// Its own view, reached from the account menu ("Source Publication
+// Governance") or the #/governance route. The panel inside is the existing
+// #adminPublication UI and refreshAdminPublication(), unchanged; this only
+// decides WHERE it is shown. A non-admin is refused before anything is
+// fetched: the view stays closed and #/governance is rewritten to the page
+// they are on. (Server side, RLS on county_source_registry writes and
+// source_publication_reviews already admits admins only.)
+const governanceUi = simpleModal("governance", { modal: "governanceModal", close: "governanceCloseBtn" });
+function isGovernanceHash() { return /^#\/?governance\/?$/.test(location.hash || ""); }
+async function openGovernance(returnEl) {
+  if (!IS_ADMIN) {
+    if (isGovernanceHash()) {
+      let page = "list"; try { page = shellPage || "list"; } catch { /* declared later in the file */ }
+      try { history.replaceState(history.state, "", pageHash(page)); } catch { /* file:// etc */ }
+    }
+    return;
+  }
+  const modal = governanceUi.modal;
+  if (!modal) return;
+  // Opened from the account menu: let the menu's own history step finish
+  // first, so this view's entry (and its #/governance URL) is the one left
+  // on top - Back then closes the view, like every other layer.
+  const menu = document.getElementById("accountMenu");
+  if (menu && !menu.hidden && typeof closeAccountMenu === "function") {
+    closeAccountMenu();
+    await new Promise(done => {
+      const t = setTimeout(done, 400);
+      window.addEventListener("popstate", () => { clearTimeout(t); setTimeout(done, 0); }, { once: true });
+    });
+  }
+  governanceUi.open(returnEl);
+  // The view's own history entry carries its URL (a second bootstrap pass can
+  // rewrite the page hash under an already-open view, so this is re-asserted).
+  if (!isGovernanceHash()) try { history.replaceState(history.state, "", "#/governance"); } catch { /* file:// etc */ }
+  const loading = document.getElementById("governanceLoading");
+  const empty = document.getElementById("governanceEmpty");
+  if (loading) loading.hidden = false;
+  if (empty) empty.hidden = true;
+  await refreshAdminPublication();
+  if (loading) loading.hidden = true;
+  const wrap = document.getElementById("adminPublication");
+  if (empty) empty.hidden = !(wrap && wrap.hidden);
+}
+(function () {
+  const b = document.getElementById("governanceMenuItem");
+  if (b) b.addEventListener("click", () => openGovernance(b));
+})();
 
 // ---- help: how to read this data ----
 const helpUi = simpleModal("help", { modal: "helpModal", close: "helpCloseBtn" });

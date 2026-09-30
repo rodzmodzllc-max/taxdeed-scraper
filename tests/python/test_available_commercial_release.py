@@ -449,13 +449,16 @@ def test_f03_filters_read_stored_fields_and_the_admin_panel_is_admin_gated():
     assert 'if (state.availLandUse !== "any" && String(p.land_use || "") !== state.availLandUse) return false;' in APP
     assert "if (state.availGeocoded && !(hasNum(p.latitude) && hasNum(p.longitude))) return false;" in APP
     assert "if (state.availValues && !(hasNum(p.market) || hasNum(p.assessed))) return false;" in APP
-    assert "if (IS_ADMIN) { refreshAdminApprovals(); refreshAdminPublication(); }" in APP
+    # Admin-gated twice over: the panel loads only inside the admin-only governance
+    # view (account menu / #/governance, 2026-09-30), and the loader refuses a non-admin.
+    assert "if (IS_ADMIN) refreshAdminApprovals();" in APP and "await refreshAdminPublication();" in APP
+    assert "if (!IS_ADMIN) { wrap.hidden = true; list.innerHTML = \"\"; return; }" in APP
     panel = APP[APP.index("async function refreshAdminPublication"):APP.index("// The properties fetch itself")]
     assert 'sb.from("source_publication_reviews").insert(row)' in panel and "RESTRICTED needs a reason." in panel and "An approval needs evidence." in panel
     for f in ("public/index.html", "public/tx.html"):
         html = (REPO / f).read_text(encoding="utf-8")
         assert 'id="adminPublication" hidden' in html and 'id="availLandUseFilter"' in html and 'id="availGeocoded"' in html and 'id="availValues"' in html
-    assert (REPO / "public/sw.js").read_text(encoding="utf-8").count('const CACHE = "tdw-shell-v57"') == 1
+    assert (REPO / "public/sw.js").read_text(encoding="utf-8").count('const CACHE = "tdw-shell-v59"') == 1
 
 
 # ==================== 8. regressions ====================
