@@ -214,9 +214,15 @@ def load_expected_units(registry_path: Path, state: str = DEFAULT_STATE) -> list
     import csv
     if not registry_path.is_file():
         return []
+    # Only the AVAILABLE ledger's units (data/county_source_registry.csv
+    # `ledgers`): this lifecycle reads harvest_laft_status.json, and an
+    # AUCTIONS or LIENS_CERTIFICATES unit for the same county name must never
+    # appear here as NOT_RUN and block the county. A registry without the
+    # column (an older fixture) is taken whole.
     with open(registry_path, newline="", encoding="utf-8") as fh:
         return sorted({(r["source_id"], r["county"]) for r in csv.DictReader(fh)
-                       if r.get("state") == state and r.get("verification_status") == "PRODUCTION_VERIFIED"})
+                       if r.get("state") == state and r.get("verification_status") == "PRODUCTION_VERIFIED"
+                       and (not (r.get("ledgers") or "").strip() or "AVAILABLE" in (r.get("ledgers") or "").split("|"))})
 
 
 def county_gates(status_entries: list[dict], expected: list[tuple[str, str]], *, now: float | None = None,
@@ -553,7 +559,7 @@ def summarize(plan: Plan, gates: dict[str, dict], counts: dict | None, have_017:
     for county, g in sorted(gates.items()):
         by_status.setdefault(g["status"], []).append(county)
     lines = [f"LAFT lifecycle ({state}):"]
-    for status in ("COMPLETE", "EMPTY", "INCOMPLETE", "FAILED", "STALE", "NOT_RUN"):
+    for status in ("COMPLETE", "EMPTY", "INCOMPLETE", "FAILED", "SOURCE_UNAVAILABLE", "STALE", "NOT_RUN"):
         if status in by_status:
             lines.append(f"  {status}: {len(by_status[status])} - {', '.join(by_status[status])}")
     lines.append(f"  observed rows: {len(plan.observe)} (reactivated {len(plan.reactivate)}); "

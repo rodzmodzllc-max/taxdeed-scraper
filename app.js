@@ -458,8 +458,13 @@ const LEDGERS = {
   auction: {
     slug: "auctions",
     icon: svgIcon("scale"),
-    title: "Auctions & Bidding",
-    sub: "Scheduled county tax deed sales, as last harvested from the county's auction site.",
+    // 2026-09-30: three first-class customer ledgers - AUCTIONS / AVAILABLE /
+    // LIENS & CERTIFICATES (harvesters/ledgers/__init__.py CUSTOMER_NAMES is
+    // the same three names on the harvest side). `title` is the ledger's
+    // customer name; `nav` is the sidebar / bottom-bar label.
+    title: "Auctions",
+    nav: "Auctions",
+    sub: "Property in a county tax deed sale: scheduled sales as last harvested from the county's auction site.",
     how: "You bid against other buyers on the county's own auction site. The figure shown is the opening bid, not the final price.",
     empty: "No auctions match. Auctions appear here once a county schedules a sale date - try clearing filters, or check Lands Available for property that failed to sell at auction.",
     tx: {
@@ -486,8 +491,9 @@ const LEDGERS = {
   laft: {
     slug: "lands",
     icon: svgIcon("layers"),
-    title: "Lands Available for Taxes",
-    sub: "Failed to sell at auction. Buy from the Clerk at a fixed price - no bidding, no sale date.",
+    title: "Available",
+    nav: "Available",
+    sub: "Property purchasable after a sale: Florida's Lands Available for Taxes list. Failed to sell at auction; buy from the Clerk at a fixed price - no bidding, no sale date.",
     how: "No auction and no competition - first come, first served at the price shown. Statute adds taxes and fees accrued since the failed sale, so treat the figure as a floor.",
     empty: "No Lands Available listings match. This list is small by nature - a county only adds a parcel here after it fails to sell at auction, and it leaves again as soon as someone buys it.",
     tx: {
@@ -504,12 +510,14 @@ const LEDGERS = {
   certificate: {
     slug: "certificates",
     icon: svgIcon("doc"),
-    title: "Tax Certificates",
-    sub: "County-held liens available for direct purchase - a debt secured by the property, not the property itself.",
+    title: "Liens & Certificates",
+    nav: "Liens & Certificates",
+    sub: "The lien instrument itself, never the land: county-held tax certificates available for purchase by assignment - a debt secured by the property, not the property.",
     how: "You are buying the lien, not the land. It earns interest until the owner redeems it; only if nobody redeems can you apply for a deed.",
     empty: "No certificates match. Certificates are county-held liens - the list moves as owners redeem them.",
     tx: {
       title: "Redeemable Tax Deeds",
+      nav: "Redeemable Deeds",
       sub: "A deed you already own, still subject to the former owner's statutory right to redeem it for a premium (Tex. Tax Code §34.21).",
       how: "Not a lien purchase - you own the deed. The former owner can redeem within 180 days (25% flat premium) or 2 years for homestead/agricultural/mineral property (25% year 1, 50% year 2), on the aggregate cost, not the bid alone. General summary for orientation only - this app does not track redemption status or deadlines; confirm terms with a Texas attorney.",
       // Phase 14A correction - see the parallel note on the auction ledger's
@@ -2256,7 +2264,9 @@ function kickerParts(p) {
   if (p.source === "certificate") {
     return { type: "Certificate", phase: p.expiration_date ? "Expires " + fmtDate(p.expiration_date) : "Expiry not published", cls: "phase-upcoming" };
   }
-  const type = p.source === "laft" ? "Lands Available" : "Auction";
+  // The ledger's customer name leads (Auction / Available); the phase says
+  // which list or sale stage the row is actually in.
+  const type = p.source === "laft" ? "Available" : "Auction";
   // Phase 72: tx_sale_status is the Texas vendor's own raw status (migration
   // 013). A Texas "laft" row is struck-off inventory or a not-yet-scheduled
   // future sale, never Florida's statutory fixed-price list, so the Florida
@@ -2267,7 +2277,7 @@ function kickerParts(p) {
   let phase, cls;
   if (isGone(p)) { phase = "No longer listed"; cls = "phase-closed"; }
   else if (p.source === "laft") {
-    if (!isTx) { phase = "Fixed price · available now"; cls = "phase-fixed"; }
+    if (!isTx) { phase = "Lands Available list · fixed price"; cls = "phase-fixed"; }
     else if (/future sale/i.test(txStatus)) { phase = "Future sale · not yet scheduled"; cls = "phase-none"; }
     else if (/struck off/i.test(txStatus)) { phase = "Struck off · resale inventory"; cls = "phase-fixed"; }
     else { phase = "Struck-off inventory · sale status not recorded"; cls = "phase-none"; }
@@ -2518,6 +2528,76 @@ function certDaysUntil(dateStr) {
   const t = new Date(); return Math.round((d - Date.UTC(t.getFullYear(), t.getMonth(), t.getDate())) / 86400000);
 }
 
+// ==================== Liens & Certificates: the certificate's own status lines ====================
+// (2026-09-30, three ledgers.) A certificate row is the lien instrument, not
+// the parcel, so its card leads with the instrument's own facts. Every line
+// is a stored field or a stated absence:
+//   Status      inventory_status when migration 021's writer has classified
+//               the row (certificate_listed / certificate_redeemed /
+//               certificate_assigned / certificate_expired - the last three
+//               only ever from the source's own column), otherwise the list
+//               presence the sync records (on the list / left the list).
+//   Redemption  never tracked by the feed - printed as "Not published",
+//               never inferred from the expiration date or from absence.
+//   Parcel      the underlying property's parcel when the source published
+//               one, with a link to the same parcel's records in the other
+//               two ledgers (relatedRecordsFor) - the shared property layer.
+function certStatusText(p) {
+  if (p.inventory_status && INVENTORY_STATUS_LABELS[p.inventory_status]) return INVENTORY_STATUS_LABELS[p.inventory_status];
+  return isGone(p) ? "Left the county-held list (redeemed, assigned or expired is not published)" : "On the county-held list";
+}
+function certStatusLinesHtml(p) {
+  const related = relatedRecordsFor(p);
+  const parcelBit = hasParcel(p)
+    ? `Parcel # ${esc(p.parcel)}${related.length ? ` · ${related.length} record${related.length === 1 ? "" : "s"} in other ledgers` : ""}`
+    : "Parcel # not published by the source";
+  return `<div class="cert-status-lines">
+    <span class="cert-status-line"><span class="cert-status-tag">Status</span> ${esc(certStatusText(p))}</span>
+    <span class="cert-status-line"><span class="cert-status-tag">Redemption</span> Not published by the source</span>
+    <span class="cert-status-line"><span class="cert-status-tag">Property</span> ${parcelBit}</span>
+  </div>`;
+}
+
+// ==================== Shared property layer: the same parcel across ledgers ====================
+// The three ledgers are three products over one property intelligence
+// layer. A parcel can hold a record in more than one ledger at once (a
+// certificate on a parcel that is also scheduled for a deed sale) or over
+// time (an auction that failed becomes an Available record). Matching is
+// exact and conservative: same state, same county, same parcel number
+// after stripping punctuation and whitespace - never by address, never by
+// owner name, never across counties. No parcel on either side = no link.
+function parcelKey(p) {
+  const raw = p && p.parcel ? String(p.parcel) : "";
+  const norm = raw.replace(/[^0-9a-z]/gi, "").toUpperCase();
+  return norm ? `${regionOf(p)}|${String(p.county || "").toLowerCase()}|${norm}` : "";
+}
+function relatedRecordsFor(p) {
+  const key = parcelKey(p);
+  if (!key) return [];
+  return ALL.filter(o => o.id !== p.id && parcelKey(o) === key)
+    .sort((a, b) => LEDGER_ORDER.indexOf(a.source) - LEDGER_ORDER.indexOf(b.source) || String(a.case_no || "").localeCompare(String(b.case_no || "")));
+}
+function relatedRecordLine(o) {
+  const cfg = ledgerCopy(o.source);
+  const ident = o.source === "certificate" ? `Certificate #${esc(o.certificate_no || "Unknown")}` : `Case ${esc(o.case_no || "Unknown")}`;
+  const { phase } = kickerParts(o);
+  return `<div class="related-record" data-pid="${o.id}" data-source="${esc(o.source)}">
+    <span class="related-ledger kicker-${esc(o.source)}">${esc(cfg.title || o.source)}</span>
+    <span class="related-ident">${ident}</span>
+    <span class="related-phase">${esc(phase)}</span>
+    <button class="related-open" data-action="viewdetails" data-pid="${o.id}" type="button">Open</button>
+  </div>`;
+}
+function relatedRecordsHtml(p) {
+  const related = relatedRecordsFor(p);
+  const body = !hasParcel(p)
+    ? `<p class="related-empty">No parcel number on this record, so it cannot be matched to the other ledgers.</p>`
+    : related.length
+      ? related.map(relatedRecordLine).join("")
+      : `<p class="related-empty">No record for parcel ${esc(p.parcel)} in the other ledgers in the current dataset.</p>`;
+  return detailSectionHtml("Same parcel in other ledgers", body, "", "related");
+}
+
 // Certificates are liens, not property - no address/owner/assessed/lien
 // screening the way deed and LAFT rows have, but they do have a redemption
 // clock (expiration_date) that matters more than anything else on the card.
@@ -2552,6 +2632,7 @@ function certCard(p, showCounty) {
         <span class="pill ${esc(p.status)}" title="Whether the certificate is on the county-held list - redemption status is not tracked">${isGone(p) ? esc(outcomeText(p)) : "Listed"}</span>
       </div>
     </div>
+    ${certStatusLinesHtml(p)}
     <div class="card-stat-grid cert-stat-grid">
       <div class="card-stat"><div class="card-stat-label">Amount</div><div class="card-stat-val bid${hasPublishedBid(p) ? "" : " unpublished"}">${bidDisplay(p)}</div></div>
       <div class="card-stat"><div class="card-stat-label">Account #</div><div class="card-stat-val">${esc(p.case_no || "Unknown")}</div></div>
@@ -2840,6 +2921,11 @@ const INVENTORY_STATUS_LABELS = {
   withdrawn: "Withdrawn (per the source)", cancelled: "Cancelled (per the source)",
   struck_off: "Struck off to the taxing unit (per the source)", state_held: "State-held; available by application",
   resale_inventory: "Held for a future resale", available_otc: "Available over the counter",
+  // Liens & Certificates ledger (the certificate itself, never the parcel).
+  // Presence on the county-held list is the only status the FL feed publishes;
+  // redeemed / assigned / expired come only from a source column, never inferred.
+  certificate_listed: "Listed for assignment", certificate_redeemed: "Redeemed (per the source)",
+  certificate_assigned: "Assigned (per the source)", certificate_expired: "Expired (per the source)",
   closed: "Left the list / feed", unknown: "Not published"
 };
 const INVENTORY_STATUS_BASIS_TEXT = {
@@ -3280,12 +3366,15 @@ function detailHtml(p) {
     </div>` : ""}
     ${regionOf(p) === "TX" && classificationBadgeHtml(p) ? `<div class="prop-classification-line" style="margin:.2rem 0 .5rem">${classificationBadgeHtml(p)}</div>` : ""}
     ${isCert ? `
+    ${certStatusLinesHtml(p)}
     <div class="detail-grid">
       ${stats.map(detailStatTileHtml).join("")}
-    </div>` : `
+    </div>
+    ${relatedRecordsHtml(p)}` : `
     ${propertyVisual(p, "detail-hero-photo")}
     ${opportunitySummaryHtml(p)}
     ${inventoryCardHtml(p)}
+    ${relatedRecordsHtml(p)}
     ${statGroupHtml("Financial", stats.filter(s => s[2] === "financial"), "financial")}
     ${statGroupHtml("Property Details", stats.filter(s => s[2] === "property"), "property")}
     ${statGroupHtml("History", stats.filter(s => s[2] === "history"), "history")}
@@ -3883,6 +3972,9 @@ function render() {
     }
     const countEl = document.getElementById("tabCount" + src[0].toUpperCase() + src.slice(1));
     if (countEl) countEl.textContent = tabCounts[src] || 0;
+    // The sidebar's per-ledger entry carries the same count (three ledgers, 2026-09-30).
+    const navCountEl = document.getElementById("navCount" + src[0].toUpperCase() + src.slice(1));
+    if (navCountEl) navCountEl.textContent = tabCounts[src] || 0;
   });
 
   // Expand/Collapse-all button label reflects whether every county currently
@@ -4411,6 +4503,7 @@ function setLedger(key, opts) {
 
   try { history.replaceState(history.state, "", "#/" + LEDGERS[key].slug); } catch { /* file:// etc */ }
   applyLedgerChrome();
+  if (typeof syncLedgerNav === "function") syncLedgerNav();
   render();
 
   // A new page starts at the top. Without this, switching from deep inside a
@@ -5476,12 +5569,51 @@ function unitFreshnessRowHtml(u) {
     <span class="health-sub">${esc(bits.join(" · "))}</span>
   </div>`;
 }
+// Which ledger(s) a harvest-side source id feeds - the frontend copy of
+// harvesters/ledgers/__init__.py SOURCE_LEDGERS, keyed by the ledger keys
+// this file uses (auction / laft / certificate). A row that carries a
+// `ledgers` column (migration 021's registry, "|"-joined AUCTIONS /
+// AVAILABLE / LIENS_CERTIFICATES) is read from that column first; the map
+// is the fallback for rows written before it. Unknown = unclassified,
+// shown under its own heading rather than guessed into a ledger.
+const LEDGER_KEY_BY_NAME = { AUCTIONS: "auction", AVAILABLE: "laft", LIENS_CERTIFICATES: "certificate" };
+const SOURCE_ID_LEDGERS = {
+  fl_realauction: ["auction"], fl_bid4assets_okaloosa: ["auction"], fl_lienhub_certificates: ["certificate"],
+  fl_laft_pdfs: ["laft"], fl_laft_html: ["laft"], fl_laft_pioneer: ["laft"], fl_laft_realtdm: ["laft"], fl_laft_orange: ["laft"],
+  fl_laft_stlucie: ["laft"], fl_laft_osceola: ["laft"], fl_laft_hillsborough: ["laft"], fl_laft_leon: ["laft"],
+  tx_realauction: ["auction"], tx_lgbs: ["auction", "laft"], tx_hctax: ["laft"],
+  al_ador_state_land: ["laft"], ar_cosl_post_auction: ["laft"], la_ebr_adjudicated: ["laft"], az_maricopa_state_cp: ["certificate"]
+};
+function unitLedgerKeys(u) {
+  if (u && u.ledgers) {
+    const keys = String(u.ledgers).split("|").map(s => LEDGER_KEY_BY_NAME[s.trim()]).filter(Boolean);
+    if (keys.length) return keys;
+  }
+  return SOURCE_ID_LEDGERS[u && u.source_id] || [];
+}
+// "3 of 4 counties current" for one ledger, from the per-county rows that
+// feed it; "" when the table is not live or the ledger has no recorded read.
+function ledgerFreshnessSummary(rows, pageState, ledgerKey) {
+  if (!Array.isArray(rows)) return "";
+  const mine = rows.filter(r => r.state === pageState && r.last_attempt_at && unitLedgerKeys(r).includes(ledgerKey));
+  if (!mine.length) return "";
+  const current = mine.filter(r => r.last_attempt_status === "COMPLETE" || r.last_attempt_status === "EMPTY").length;
+  const unavailable = mine.filter(r => r.last_attempt_status === "SOURCE_UNAVAILABLE").length;
+  return `${current} of ${mine.length} count${mine.length === 1 ? "y" : "ies"} current` + (unavailable ? ` · ${unavailable} source unavailable` : "");
+}
 function unitFreshnessRowsHtml(rows, pageState) {
   if (rows === null) return `<div class="dash-empty">Per-county freshness is not recorded yet on this deployment (migration 021 / scripts/unit_freshness.py not live).</div>`;
   const mine = rows.filter(r => r.state === pageState && r.last_attempt_at);
   if (!mine.length) return `<div class="dash-empty">No county has a recorded read yet.</div>`;
   mine.sort((a, b) => String(a.county).localeCompare(String(b.county)) || String(a.source_id || "").localeCompare(String(b.source_id || "")));
-  return `<div class="unit-head">By county - last read, last complete read</div>` + mine.map(unitFreshnessRowHtml).join("");
+  // Grouped per ledger (2026-09-30): a county appears under every ledger its
+  // source feeds, and a read that failed in one ledger says nothing about
+  // the same county's other ledgers.
+  const groups = LEDGER_ORDER.map(key => ({ key, title: ledgerCopy(key).title, rows: mine.filter(u => unitLedgerKeys(u).includes(key)) }));
+  const unclassified = mine.filter(u => !unitLedgerKeys(u).length);
+  if (unclassified.length) groups.push({ key: "unclassified", title: "Source not assigned to a ledger", rows: unclassified });
+  return groups.map(g => `<div class="unit-head" data-ledger-head="${esc(g.key)}">${esc(g.title)} - by county, last read and last complete read</div>` +
+    (g.rows.length ? g.rows.map(unitFreshnessRowHtml).join("") : `<div class="dash-empty unit-empty">No county has a recorded read yet in this ledger.</div>`)).join("");
 }
 function renderSourceHealthTerms() {
   const el = document.getElementById("sourceHealthTerms");
@@ -5877,9 +6009,7 @@ function showPage(name) {
     const el = document.getElementById(id);
     if (el) el.hidden = key !== name;
   });
-  document.querySelectorAll(".nav-item[data-page], .nav-bottom-item[data-page]").forEach(btn => {
-    btn.classList.toggle("on", btn.dataset.page === name);
-  });
+  syncLedgerNav(name);
 
   if (name === "dashboard") renderDashboard();
   if (name === "map") renderMapPage();
@@ -5888,8 +6018,29 @@ function showPage(name) {
   window.scrollTo({ top: 0, behavior: "auto" });
 }
 
+// Three first-class ledgers (2026-09-30): the sidebar and the phone bottom
+// bar carry one entry per ledger (Auctions / Available / Liens &
+// Certificates), each `data-page="auctions"` plus a `data-ledger`. An entry
+// is lit only when its page AND its ledger are the current ones, so the
+// three never light together; entries without a data-ledger (Dashboard,
+// Map) light on page alone. Called from showPage() and setLedger().
+function syncLedgerNav(pageName) {
+  // `shellPage` is a `let` further down this file; setLedger() can run
+  // before the script reaches it (same TDZ hazard `mapFilter` documents), so
+  // read it defensively.
+  let name;
+  try { name = pageName || shellPage; } catch { name = pageName || "auctions"; }
+  document.querySelectorAll(".nav-item[data-page], .nav-bottom-item[data-page]").forEach(btn => {
+    const on = btn.dataset.page === name && (!btn.dataset.ledger || btn.dataset.ledger === state.ledger);
+    btn.classList.toggle("on", on);
+    if (on) btn.setAttribute("aria-current", "page"); else btn.removeAttribute("aria-current");
+  });
+}
 document.querySelectorAll(".nav-item[data-page], .nav-bottom-item[data-page]").forEach(btn => {
-  btn.addEventListener("click", () => showPage(btn.dataset.page));
+  btn.addEventListener("click", () => {
+    showPage(btn.dataset.page);
+    if (btn.dataset.ledger && LEDGERS[btn.dataset.ledger]) setLedger(btn.dataset.ledger);
+  });
 });
 const navWatchlistBtnEl = document.getElementById("navWatchlistBtn");
 if (navWatchlistBtnEl) navWatchlistBtnEl.addEventListener("click", () => openBidList());
@@ -6108,7 +6259,11 @@ function renderDashboard() {
     ledgerEl.innerHTML = Object.keys(LEDGERS).map(key => {
       const cfg = ledgerCopy(key);
       const count = byLedger[key] || 0;
-      return `<div class="dash-row"><div class="dash-row-name">${LEDGERS[key].icon}${esc(cfg.title)}</div><div class="dash-row-vals"><b>${count}</b></div></div>`;
+      // Each ledger's freshness is its own (three status files, three
+      // lifecycles - harvesters/ledgers/domains.py): a failed read in one
+      // ledger is reported under that ledger only, never as an empty other.
+      const fresh = ledgerFreshnessSummary(UNIT_FRESHNESS, PAGE_STATE, key);
+      return `<div class="dash-row" data-ledger-row="${esc(key)}"><div class="dash-row-name">${LEDGERS[key].icon}${esc(cfg.title)}</div><div class="dash-row-vals"><b>${count}</b>${fresh ? `<span class="dash-row-fresh">${esc(fresh)}</span>` : ""}</div></div>`;
     }).join("");
   }
 

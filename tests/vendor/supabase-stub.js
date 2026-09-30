@@ -59,7 +59,10 @@ const FIXTURE_PROPERTIES = [
   // because the TDA-eligibility assertion depends on it landing more than
   // CERT_TDA_WAIT_YEARS (2) in the past - true today and for the life of
   // this fixture, unlike a rolling offset.
-  { id: "p4", source: "certificate", county: "Alachua", case_no: "ACC-999", certificate_no: "CERT-42", tax_year: "2022", bid: 1234.56, interest_rate: 18, issued_date: "2023-06-01", expiration_date: futureDate(20), url_auction: "https://lienhub.com/county/alachua/countyheld/certificates", url_auction_kind: "county", updated_at: "2026-08-12T00:00:00Z" },
+  // Three ledgers (2026-09-30): p4 carries parcel "111" - the same parcel as
+  // auction row p1 - so the shared-property linkage ("same parcel in other
+  // ledgers") has one real pair to render in both directions.
+  { id: "p4", source: "certificate", county: "Alachua", case_no: "ACC-999", certificate_no: "CERT-42", tax_year: "2022", parcel: "111", bid: 1234.56, interest_rate: 18, issued_date: "2023-06-01", expiration_date: futureDate(20), url_auction: "https://lienhub.com/county/alachua/countyheld/certificates", url_auction_kind: "county", updated_at: "2026-08-12T00:00:00Z" },
   // Phase 67: p5 and p12 carry real-shaped coordinates (inside Charlotte and
   // Brevard respectively) so the map's pin/selection/imagery paths can be
   // exercised - every other row stays un-geocoded, which is the honest

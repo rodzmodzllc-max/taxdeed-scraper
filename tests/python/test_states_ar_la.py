@@ -301,7 +301,7 @@ def test_g01_registry_rows_mirror_the_adapters_and_every_gate_refuses_them():
     spec.loader.exec_module(mod)
     assert mod.render(mod.build_rows()) == csr.REGISTRY_PATH.read_text(encoding="utf-8")
     # FL / TX untouched.
-    assert len(csr.production_rows(ROWS, "FL")) == 52 and len(csr.production_rows(ROWS, "TX")) == 8
+    assert len(csr.expected_harvest_units(ROWS, "FL")) == 52 and len(csr.expected_harvest_units(ROWS, "TX")) == 8   # AVAILABLE ledger
     for code in ("FL", "TX"):
         assert states.is_activated(code)
 

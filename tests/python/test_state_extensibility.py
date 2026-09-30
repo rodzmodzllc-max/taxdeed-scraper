@@ -74,7 +74,7 @@ def _row(**kw) -> csr.CountySourceRow:
 
 def test_st01_only_fl_and_tx_are_registered_and_both_are_production():
     # AL (2026-09-29) is REGISTERED (representable) but not PRODUCTION / activated.
-    assert states.supported_states() == {"FL", "TX", "AL", "AR", "LA"} and states.PRODUCTION_STATES == {"FL", "TX"}
+    assert states.supported_states() == {"FL", "TX", "AL", "AR", "LA", "AZ"} and states.PRODUCTION_STATES == {"FL", "TX"}
     assert states.is_activated("FL") and states.is_activated("TX") and not states.is_activated("AL")
     assert states.activation_blockers("AL") == list(states.ACTIVATION_REQUIREMENTS)
     assert states.activation_blockers("FL") == [] and states.activation_blockers("QQ")[0] == "not_registered"
@@ -183,7 +183,12 @@ def test_r01_committed_registry_is_unchanged_county_level_and_still_valid():
     rows = csr.load_registry()
     # 110 = the 109 FL/TX rows unchanged + ONE Alabama state-level candidate (2026-09-29).
     # 112 = the 109 FL/TX rows unchanged + Alabama, Arkansas (STATE-level) and Louisiana (PARISH-level) candidates.
-    assert len(rows) == 112 and {r.state for r in rows} == {"FL", "TX", "AL", "AR", "LA"}
+    # 216 (2026-09-30, three ledgers) = the 109 FL/TX AVAILABLE rows unchanged + Alabama, Arkansas,
+    # Louisiana candidates + the AUCTIONS (47 FL, 24 TX) and LIENS & CERTIFICATES (32 FL) production
+    # sources the registry now carries + ONE Arizona LIENS & CERTIFICATES candidate.
+    assert len(rows) == 216 and {r.state for r in rows} == {"FL", "TX", "AL", "AR", "LA", "AZ"}
+    available = [r for r in rows if r.state in ("FL", "TX") and "AVAILABLE" in r.ledger_set or r.state in ("FL", "TX") and not r.ledger_set]
+    assert len(available) == 112 - 3
     assert all(r.publishing_unit == "COUNTY" for r in rows if r.state in ("FL", "TX"))
     with open(csr.REGISTRY_PATH, newline="", encoding="utf-8") as fh:
         assert csv.DictReader(fh).fieldnames == csr.EXTENDED_COLUMNS
@@ -238,7 +243,7 @@ def test_r04_a_production_row_may_only_carry_a_storable_inventory_type():
     with states.registered(ZZ):
         prod = _row(state="ZZ", county=STATEWIDE_UNIT, source_id="zz_state_land", inventory_type="STATE_HELD_TAX_LAND",
                     publishing_unit="STATE", canonical_url="https://gis.example.invalid/FeatureServer/0", access_method="JSON_ENDPOINT",
-                    machine_format="JSON")
+                    machine_format="JSON", ledgers="AVAILABLE")   # a production row names its ledger (2026-09-30)
         assert csr.validate_row(prod) == ["PRODUCTION_VERIFIED row carries inventory_type 'STATE_HELD_TAX_LAND', which public.properties cannot store yet"]
         assert csr.expected_harvest_units([prod], "ZZ") == [("zz_state_land", STATEWIDE_UNIT)]
         assert csr.expected_harvest_units([prod], "FL") == []

@@ -85,6 +85,17 @@ def unit_key(state: str, source_id: str, county: str) -> str:
     return f"{state}|{source_id}|{county}"
 
 
+def ledgers_of(source_id: str) -> str:
+    """'AUCTIONS' / 'AVAILABLE' / 'LIENS_CERTIFICATES' ('|'-joined for a
+    vendor that feeds two), '' when unknown - from harvesters/ledgers."""
+    try:
+        sys.path.insert(1, str(REPO))
+        from harvesters.ledgers import ledgers_for_source_id
+    except Exception:  # pragma: no cover
+        return ""
+    return "|".join(sorted(l.value for l in ledgers_for_source_id(source_id)))
+
+
 def normalize_entry(e: dict, *, default_state: str, default_source: str | None) -> dict | None:
     """One status-file entry -> {state, source_id, county, status, checked_at,
     row_count, error_category, reason, skipped}. None = not a unit entry."""
@@ -117,6 +128,7 @@ def merge(previous: dict, entries: list[dict], *, at: str) -> tuple[dict, dict]:
         cur = record.setdefault(key, {"state": e["state"], "source_id": e["source_id"], "county": e["county"],
                                       "last_attempt_at": None, "last_attempt_status": None, "last_success_at": None,
                                       "last_success_row_count": None, "consecutive_failures": 0, "last_error_category": None})
+        cur["ledgers"] = ledgers_of(e["source_id"])
         counts["units"] += 1
         if e["skipped"]:
             counts["skipped"] += 1
@@ -252,12 +264,22 @@ class RegistryApi:
 
 def public_report(record: dict, counts: dict, *, at: str) -> dict:
     units = []
+    by_ledger: dict[str, dict[str, int]] = {}
     for key in sorted(record):
         u = record[key]
-        units.append({k: u.get(k) for k in ("state", "source_id", "county", "last_attempt_at", "last_attempt_status",
+        units.append({k: u.get(k) for k in ("state", "source_id", "county", "ledgers", "last_attempt_at", "last_attempt_status",
                                              "last_success_at", "last_success_row_count", "consecutive_failures", "last_error_category")})
-    return {"generated_at": at, "counts": counts, "units": units,
-            "note": "unit names, statuses, timestamps and counts only; never a row value"}
+        for ledger in (u.get("ledgers") or "UNCLASSIFIED").split("|"):
+            b = by_ledger.setdefault(ledger, {"units": 0, "current": 0, "stale": 0, "failing": 0})
+            b["units"] += 1
+            if u.get("last_attempt_status") in SUCCESS:
+                b["current"] += 1
+            else:
+                b["stale"] += 1
+            if int(u.get("consecutive_failures") or 0) > 0:
+                b["failing"] += 1
+    return {"generated_at": at, "counts": counts, "by_ledger": by_ledger, "units": units,
+            "note": "unit names, statuses, timestamps and counts only; never a row value; each ledger's health is independent"}
 
 
 def main(argv=None) -> int:

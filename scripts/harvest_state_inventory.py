@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """State inventory harvester for the search-evidence-configured adapters
-(Arkansas COSL, Louisiana EBR) - GATED.
+(Arkansas COSL and Louisiana EBR - AVAILABLE ledger; Arizona Maricopa State CP -
+LIENS & CERTIFICATES ledger) - GATED.
 
     python3 scripts/harvest_state_inventory.py --state AR --fixture Dallas=<saved.html>
     python3 scripts/harvest_state_inventory.py --state LA --fixture <saved.csv>
+    python3 scripts/harvest_state_inventory.py --state AZ --fixture <saved.csv>
     python3 scripts/harvest_state_inventory.py --state AR          # live: exit 2, zero requests, until can_run() allows
 
 Same contract as scripts/harvest_alabama_state_land.py: fixture mode never
@@ -28,17 +30,17 @@ REPO = HERE.parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(1, str(REPO))
 from laft_status import StatusRecorder  # noqa: E402
-from harvesters.otc.adapters import arkansas as AR, louisiana as LA  # noqa: E402
+from harvesters.otc.adapters import arizona as AZ, arkansas as AR, louisiana as LA  # noqa: E402
 
 OUT_DIR = REPO / "out"
 USER_AGENT = "taxdeed-scraper/1.0 (+https://github.com/rodzmodzllc-max/taxdeed-scraper; GitHub Actions)"
 PARSER_VERSION = "1"
 
-ADAPTERS = {"AR": AR, "LA": LA}
+ADAPTERS = {"AR": AR, "AZ": AZ, "LA": LA}
 
 
 def source_of(state: str):
-    return {"AR": AR.COSL_SOURCE, "LA": LA.EBR_SOURCE}[state]
+    return {"AR": AR.COSL_SOURCE, "AZ": AZ.MARICOPA_SOURCE, "LA": LA.EBR_SOURCE}[state]
 
 
 def run_fixtures(state: str, specs: list[str], *, retrieved_at: datetime):
@@ -59,8 +61,8 @@ def run_fixtures(state: str, specs: list[str], *, retrieved_at: datetime):
             recs, outcome = AR.parse_list_html(cfg, p.read_bytes(), county=county, retrieved_at=retrieved_at, url=url)
             result.outcomes.append(AR.classify_outcome(cfg, county, recs, outcome, url=url))
         else:
-            recs, outcome = LA.parse_csv(cfg, p.read_text(encoding="utf-8"), retrieved_at=retrieved_at)
-            result.outcomes.append(LA.classify_outcome(cfg, recs, outcome, url=url))
+            recs, outcome = mod.parse_csv(cfg, p.read_text(encoding="utf-8"), retrieved_at=retrieved_at)
+            result.outcomes.append(mod.classify_outcome(cfg, recs, outcome, url=url))
         result.records.extend(recs)
     return result
 

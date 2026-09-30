@@ -1593,6 +1593,40 @@ step; nothing ran against production in the PR. Full design in
   rows, the first carry run) needs explicit authorization; the next
   scheduled laft/deeds runs perform the carry and the gate on their own.
 
+## Three customer ledgers: Auctions / Available / Liens & Certificates (2026-09-30, PR open, migrations 020/021 unapplied)
+
+Full description: `docs/three-ledgers.md`. The stable facts:
+- **`harvesters/ledgers/__init__.py`** is the one mapping between
+  `properties.source` (auction / laft / certificate), `ledger_type`
+  (auctions / buy / lien), the harvest-side source ids (`SOURCE_LEDGERS`)
+  and the customer names (Auctions / Available / Liens & Certificates).
+  `harvesters/ledgers/domains.py` names each ledger's harvesters, status
+  files, harvest files, syncs, lifecycle and close-out gate;
+  `assert_isolated()` proves no file is shared between ledgers.
+- **The registry carries every ledger's production sources** now (216 rows:
+  the 109 FL/TX AVAILABLE rows unchanged + 47 FL auction, 32 FL LienHub
+  certificate and 24 TX RealAuction sources, generated from the harvesters'
+  own CSVs) with a `ledgers` column. `expected_harvest_units()` is scoped
+  per ledger (default AVAILABLE); tests that count "FL production rows"
+  must scope to a ledger.
+- **`SOURCE_UNAVAILABLE`** is a reader-side laft_status state (FAILED with a
+  TRANSPORT_/PROXY_/ACCESS_ error category); it closes nothing.
+- **Certificate statuses** (`certificate_listed` from list presence;
+  `certificate_redeemed` / `_assigned` / `_expired` only from a source
+  column) live in `inventory_status.py`; a certificate that left the list
+  is `closed`, never a result. `INVENTORY_STATUS_LABELS` in app.js carries
+  the same keys (a test pins them equal).
+- **Frontend**: nav entries per ledger (`data-page="auctions"` +
+  `data-ledger`, lit by `syncLedgerNav()`), certificate status lines
+  (`certStatusLinesHtml`), same-parcel records across ledgers
+  (`relatedRecordsFor` - exact state/county/parcel match only), per-ledger
+  freshness on the Dashboard (`ledgerFreshnessSummary`, grouped
+  `unitFreshnessRowsHtml`). `sw.js` -> `tdw-shell-v47`.
+- **Arizona** (`harvesters/otc/adapters/arizona.py`, Maricopa State CP
+  liens) is registered, fixture-driven, gated, not activated - the first
+  LIENS & CERTIFICATES source outside FL. No TX certificate ledger exists or
+  was invented; MS / WV have no adapter.
+
 ## Where to look for more
 
 - `claude/improvement-roadmap.md` in the "tax florida app" claude.ai Project — the full dated log of every fix, audit finding, and open decision. This is where new findings should be appended, not here.

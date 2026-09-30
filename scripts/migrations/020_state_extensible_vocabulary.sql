@@ -87,7 +87,15 @@ alter table public.county_source_registry
   add column if not exists publishing_unit_name text,
   add column if not exists amount_kind text,
   add column if not exists update_frequency text,
-  add column if not exists source_terminology text;
+  add column if not exists source_terminology text,
+  -- 2026-09-30 (three ledgers): which customer ledger(s) the source feeds.
+  add column if not exists ledgers text;
+
+alter table public.county_source_registry drop constraint if exists county_source_registry_ledgers_check;
+alter table public.county_source_registry add constraint county_source_registry_ledgers_check
+  check (ledgers is null or ledgers ~ '^(AUCTIONS|AVAILABLE|LIENS_CERTIFICATES)(\|(AUCTIONS|AVAILABLE|LIENS_CERTIFICATES))*$');
+comment on column public.county_source_registry.ledgers is
+  'The customer ledger(s) this source feeds - AUCTIONS, AVAILABLE, LIENS_CERTIFICATES - "|"-joined (harvesters/ledgers). NULL = not classified.';
 
 alter table public.county_source_registry drop constraint if exists county_source_registry_publishing_unit_check;
 alter table public.county_source_registry add constraint county_source_registry_publishing_unit_check

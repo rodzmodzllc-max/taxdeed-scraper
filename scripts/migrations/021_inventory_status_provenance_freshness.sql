@@ -9,7 +9,9 @@
 --
 -- WHAT IT ADDS (nothing existing is renamed, dropped, re-typed or backfilled)
 --
--- 1. public.properties - the normalized inventory / lifecycle status:
+-- 1. public.properties - the normalized inventory / lifecycle status (one
+--    vocabulary for the three ledgers; the certificate_* values belong to
+--    LIENS & CERTIFICATES and describe the certificate, never the land):
 --      inventory_status              one of harvesters/governance/inventory_status.py's
 --                                    vocabulary (check constraint below)
 --      inventory_status_raw          the source's own status wording, verbatim
@@ -63,7 +65,8 @@ alter table public.properties drop constraint if exists properties_inventory_sta
 alter table public.properties add constraint properties_inventory_status_check
   check (inventory_status is null or inventory_status in (
     'upcoming', 'active', 'sold', 'redeemed', 'withdrawn', 'cancelled', 'struck_off',
-    'state_held', 'resale_inventory', 'available_otc', 'closed', 'unknown'));
+    'state_held', 'resale_inventory', 'available_otc', 'closed', 'unknown',
+    'certificate_listed', 'certificate_redeemed', 'certificate_assigned', 'certificate_expired'));
 
 comment on column public.properties.inventory_status is
   'Normalized lifecycle state (harvesters/governance/inventory_status.py). sold / redeemed / withdrawn / cancelled / struck_off only from the source''s own published status; closed = left the list or feed; unknown = not published. NULL = not yet observed.';
@@ -95,7 +98,8 @@ create table if not exists public.inventory_status_observations (
   constraint inventory_status_observations_status_check
     check (inventory_status in (
       'upcoming', 'active', 'sold', 'redeemed', 'withdrawn', 'cancelled', 'struck_off',
-      'state_held', 'resale_inventory', 'available_otc', 'closed', 'unknown')),
+      'state_held', 'resale_inventory', 'available_otc', 'closed', 'unknown',
+      'certificate_listed', 'certificate_redeemed', 'certificate_assigned', 'certificate_expired')),
   constraint inventory_status_observations_one_per_run unique (property_id, observed_at)
 );
 create index if not exists inventory_status_observations_property_idx

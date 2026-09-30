@@ -256,7 +256,9 @@ def test_e01_with_migration_017_observed_rows_get_last_seen_and_provenance_absen
     assert "Private Person" not in text and "Hidden Ln" not in text and "1,200" not in text and "1200" not in text
     rep = json.loads(report.read_text())
     assert rep == {**rep, "observed": 2, "reactivated": 1, "closed": 2, "provenance_patches": 2, "migration_017": True, "dry_run": False}
-    assert rep["counties"] == {"Marion": "COMPLETE", "Glades": "EMPTY", "Union": "FAILED", "Walton": "NOT_RUN"}
+    # Union's FAILED entry carries error_category PROXY_FAILURE, which the reader
+    # reports as SOURCE_UNAVAILABLE (2026-09-30) - still fail-closed, never observed.
+    assert rep["counties"] == {"Marion": "COMPLETE", "Glades": "EMPTY", "Union": "SOURCE_UNAVAILABLE", "Walton": "NOT_RUN"}
     assert "Galveston" not in rep["counties"]  # a Texas registry row never enters the Florida run
 
 

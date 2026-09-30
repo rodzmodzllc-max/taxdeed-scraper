@@ -26,9 +26,12 @@ def test_r01_registry_is_valid_and_matches_its_generator():
 
 
 def test_r02_every_florida_county_has_exactly_one_row_and_52_are_production():
+    # Per ledger (2026-09-30): every FL county has exactly ONE AVAILABLE-ledger
+    # row; the AUCTIONS and LIENS & CERTIFICATES rows sit beside them.
     fl = [r for r in ROWS if r.state == "FL"]
-    assert len(fl) == 67 and len({r.county for r in fl}) == 67
-    prod = csr.production_rows(ROWS, "FL")
+    avail = [r for r in fl if "AVAILABLE" in r.ledger_set or not r.ledger_set]
+    assert len(fl) == 146 and len(avail) == 67 and len({r.county for r in avail}) == 67 and len({r.county for r in fl}) == 67
+    prod = [r for r in csr.production_rows(ROWS, "FL") if "AVAILABLE" in r.ledger_set]
     assert len(prod) == 52
     assert csr.expected_harvest_units(ROWS) == sorted((r.source_id, r.county) for r in prod)
     assert {r.source_id for r in prod} == {"fl_laft_pdfs", "fl_laft_html", "fl_laft_pioneer", "fl_laft_realtdm",
@@ -75,9 +78,12 @@ def test_r04_candidates_are_never_runnable_and_blocked_vendors_carry_no_url():
 
 def test_r05_texas_rows_are_lgbs_production_search_candidates_or_blocked_only():
     tx = [r for r in ROWS if r.state == "TX"]
-    prod = [r for r in tx if r.is_production]
+    prod = [r for r in tx if r.is_production and "AVAILABLE" in r.ledger_set]
     assert {r.county for r in prod} == {"Galveston", "Liberty", "Leon", "Maverick", "Jim Wells", "Hardin", "Van Zandt", "Goliad"}
     assert all(r.source_id == "tx_lgbs" and r.source_authority == "VENDOR_COUNSEL" and r.inventory_type == "" for r in prod)
+    # The AUCTIONS-only production rows (2026-09-30) are the 24 RealAuction counties, nothing else.
+    auctions_only = [r for r in tx if r.is_production and "AVAILABLE" not in r.ledger_set]
+    assert len(auctions_only) == 24 and all(r.source_id == "tx_realauction" and r.ledger_set == {"AUCTIONS"} for r in auctions_only)
     cands = [r for r in tx if r.verification_status == "SEARCH_EVIDENCE_ONLY"]
     assert len(cands) == 20 and all(r.inventory_type == "" and r.source_authority == "GOVERNMENT_DIRECT" for r in cands)
     harris = csr.lookup(ROWS, "TX", "Harris")
@@ -116,7 +122,7 @@ def test_r07_to_db_rows_uses_nulls_and_the_migration_018_column_set():
     # and need 020.
     fl_tx = [r for r in ROWS if r.state in ("FL", "TX")]
     rows = csr.to_db_rows(fl_tx)
-    assert len(rows) == len(fl_tx) == len(ROWS) - 3 and all(set(r) == set(csr.COLUMNS) for r in rows)
+    assert len(rows) == len(fl_tx) == len(ROWS) - 4 and all(set(r) == set(csr.COLUMNS) for r in rows)
     with pytest.raises(ValueError, match="migration 018"):
         csr.to_db_rows(ROWS)
     baker = next(r for r in rows if r["county"] == "Baker" and r["state"] == "FL")
@@ -130,7 +136,8 @@ def test_r08_migration_017_backfill_values_equal_the_registry():
     sql = (REPO / "scripts/migrations/017_otc_inventory_provenance_lifecycle.sql").read_text(encoding="utf-8")
     block = sql[sql.index("with fl_sources("):sql.index(")\nupdate public.properties p")]
     tuples = re.findall(r"\('([^']*)', '([^']*)', '([^']*)', '([^']*)', '([^']*)'\)", block)
-    expected = sorted((r.county, r.source_id, r.source_authority, r.canonical_url, r.document_url) for r in csr.production_rows(ROWS, "FL"))
+    expected = sorted((r.county, r.source_id, r.source_authority, r.canonical_url, r.document_url)
+                      for r in csr.production_rows(ROWS, "FL") if "AVAILABLE" in r.ledger_set)
     assert sorted(tuples) == expected and len(tuples) == 52
 
 

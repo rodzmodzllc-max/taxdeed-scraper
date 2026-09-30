@@ -179,6 +179,17 @@ LA = _register(StateConfig(
                               "Louisiana' (search-index evidence 2026-09-30, harvesters/otc/adapters/louisiana.py EBR_EVIDENCE)",
     production=False, activation=frozenset()))
 
+# Arizona (2026-09-30): the first state whose only concrete source is a
+# LIENS & CERTIFICATES product - the Maricopa County Treasurer's "Current
+# State CP Listing" (certificates of purchase held by the State, bought by
+# assignment). No AVAILABLE inventory type; no auction source configured.
+# Search-index evidence (harvesters/otc/adapters/arizona.py MARICOPA_EVIDENCE);
+# registered, NOT production.
+AZ = _register(StateConfig(
+    code="AZ", name="Arizona", publishing_units=(PublishingUnit.COUNTY.value,),
+    production_inventory_types=frozenset({""}),
+    lifecycle_inventory_type=None, production=False, activation=frozenset()))
+
 # States whose rows may exist in public.properties: exactly the activated ones.
 PRODUCTION_STATES = frozenset(code for code, cfg in _STATES.items() if cfg.activated)
 

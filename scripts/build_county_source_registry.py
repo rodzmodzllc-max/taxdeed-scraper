@@ -41,7 +41,15 @@ COLUMNS = [
     # COUNTY-level with the other four blank; migration 020 (NOT applied)
     # adds them to the table.
     "publishing_unit", "publishing_unit_name", "amount_kind", "update_frequency", "source_terminology",
+    # 2026-09-30 (three ledgers): which customer ledger(s) the source feeds -
+    # AUCTIONS, AVAILABLE, LIENS_CERTIFICATES, "|"-joined. The registry now
+    # holds every production source of every ledger, not only the AVAILABLE
+    # (LAFT / struck-off) ones; harvesters/ledgers/__init__.py SOURCE_LEDGERS
+    # is the same mapping on the harvest side and a test pins the two equal.
+    "ledgers",
 ]
+
+AUCTIONS, AVAILABLE, LIENS = "AUCTIONS", "AVAILABLE", "LIENS_CERTIFICATES"
 
 FL_INVENTORY = "POST_SALE_FIXED_PRICE"
 
@@ -81,7 +89,7 @@ def _read(name: str) -> list[dict]:
 def fl_production_rows() -> list[dict]:
     rows: list[dict] = []
     common = dict(state="FL", inventory_type=FL_INVENTORY, verification_status="PRODUCTION_VERIFIED",
-                  governance_status="APPROVED_GRANDFATHERED", last_checked="2026-09-29")
+                  governance_status="APPROVED_GRANDFATHERED", last_checked="2026-09-29", ledgers=AVAILABLE)
     for src in _read("laft_pdf_sources.csv"):
         municode = "mcclibraryfunctions.azurewebsites.us" in src["Url"]
         rows.append(_row(**common, county=src["County"], source_id="fl_laft_pdfs", harvester="harvest_laft_pdfs.py",
@@ -174,7 +182,9 @@ FL_CANDIDATES = [
 def fl_candidate_rows() -> list[dict]:
     rows = []
     for county, verification, authority, url, fmt, note in FL_CANDIDATES:
-        rows.append(_row(state="FL", county=county, source_id="", harvester="", inventory_type=FL_INVENTORY if verification != "NOT_FOUND_AFTER_SEARCH" else "",
+        found = verification != "NOT_FOUND_AFTER_SEARCH"
+        rows.append(_row(state="FL", county=county, source_id="", harvester="", inventory_type=FL_INVENTORY if found else "",
+                         ledgers=AVAILABLE if found else "",
                          source_authority=authority, canonical_url=url, access_method="UNKNOWN" if url else "NONE",
                          machine_format=fmt, verification_status=verification, governance_status="TERMS_NOT_VERIFIED" if url else "NOT_APPLICABLE",
                          last_checked="2026-09-29", completeness_status="UNKNOWN", evidence_ref=f"{AUDIT} s5", notes=note))
@@ -234,11 +244,12 @@ def tx_rows() -> list[dict]:
                          inventory_type="", source_authority="VENDOR_COUNSEL", canonical_url="https://taxsales.lgbs.com/",
                          access_method="VENDOR_API", machine_format="JSON", verification_status="PRODUCTION_VERIFIED",
                          governance_status="APPROVED", last_checked="2026-09-23", completeness_status="FAILED",
+                         ledgers=f"{AUCTIONS}|{AVAILABLE}",
                          evidence_ref="harvesters/governance/registry.py tx_lgbs; data/tx_lgbs_observed_county_roster.csv",
                          notes="Delinquent-tax counsel publication (not the county); rows carry no per-property URL; feed INCOMPLETE on 2026-09-29, last success 2026-09-23. Do not retry."))
     for county, url, fmt, governance, note in TX_CANDIDATES:
         rows.append(_row(state="TX", county=county, source_id=("tx_hctax" if county == "Harris" else ""), harvester="",
-                         inventory_type="", source_authority="GOVERNMENT_DIRECT", canonical_url=url,
+                         inventory_type="", source_authority="GOVERNMENT_DIRECT", canonical_url=url, ledgers=AVAILABLE,
                          access_method="UNKNOWN", machine_format=fmt, verification_status="SEARCH_EVIDENCE_ONLY",
                          governance_status=governance, last_checked="2026-09-29", completeness_status="UNKNOWN",
                          evidence_ref=f"{AUDIT} s5", notes=note + " NOT VERIFIED (search index only)."))
@@ -295,6 +306,7 @@ AL_STATE_LAND = dict(
     amount_kind=ADOR_SOURCE.amount_kind.value,
     update_frequency="weekly (the Land Sales page says county transcripts are 'updated weekly', per the search index 2026-09-30; not read directly)",
     source_terminology=ADOR_SOURCE.source_terminology + " (search-index wording)",
+    ledgers=AVAILABLE,
 )
 
 
@@ -328,6 +340,7 @@ AR_COSL = dict(
     amount_kind=COSL_SOURCE.tabular.amount_kind.value,
     update_frequency="daily (reported by the 2026-09-29 audit; not corroborated by the 2026-09-30 search; not read directly)",
     source_terminology=COSL_SOURCE.source_terminology + " (search-index wording)",
+    ledgers=AVAILABLE,
 )
 LA_EBR = dict(
     state="LA", county=EBR_SOURCE.county, source_id=EBR_SOURCE.source_id, harvester="",
@@ -348,6 +361,7 @@ LA_EBR = dict(
     amount_kind="NOT_PUBLISHED",
     update_frequency="not established (the GIS 'Adjudicated Parcel' layer reads 'last updated September 07, 2026' in the index; the dataset's own cadence not read)",
     source_terminology=EBR_SOURCE.source_terminology + " (search-index wording)",
+    ledgers=AVAILABLE,
 )
 
 
@@ -359,8 +373,132 @@ def la_rows() -> list[dict]:
     return [_row(**LA_EBR)]
 
 
+# ---------------------------------------------------------------------------
+# AUCTIONS and LIENS & CERTIFICATES production sources (2026-09-30, three
+# ledgers). Until now the registry only knew the AVAILABLE ledger's sources;
+# the deed-auction and certificate harvesters kept their county lists in
+# their own CSVs (data/realauction_counties.csv,
+# data/florida_certificate_sale_platforms.csv, data/tx_realauction_counties.csv)
+# and the governance registry (harvesters/governance/registry.py) knew the
+# platforms. Same derivation rule as the LAFT rows: the harvesters' own
+# CSVs stay the operational truth, the registry rows are generated from
+# them, and a test pins the two equal. Every URL below is the exact form
+# the shipped harvester requests (read from the script, not invented):
+#   harvest_all_counties.ps1     https://<Host>/index.cfm?zaction=USER&zmethod=CALENDAR
+#   harvest_okaloosa_bid4assets.ps1  https://www.bid4assets.com/OkaloosaFLTax/listings
+#   harvest_lienhub_certificates.ps1 https://lienhub.com/county/<slug>/countyheld/certificates
+#   harvesters/texas_harvester.py (tx_realauction)  https://<Host>/index.cfm?zaction=USER&zmethod=CALENDAR
+# completeness_status is UNKNOWN for all of them here: these ledgers'
+# per-county freshness lives in their own status files
+# (harvest_all_status.json / harvest_certificates_status.json /
+# harvest_texas_status.json - harvesters/ledgers/domains.py) and the
+# registry patch (scripts/unit_freshness.py) is what rewrites it after a
+# run. No inventory_type: an auction row and a certificate row carry none.
+
+REALAUCTION_CALENDAR = "https://{host}/index.cfm?zaction=USER&zmethod=CALENDAR"
+
+
+def _lienhub_slug(county: str) -> str:
+    """harvest_lienhub_certificates.ps1 Get-Slug: lowercase, letters only."""
+    return "".join(ch for ch in county.lower() if "a" <= ch <= "z")
+
+
+def fl_auction_rows() -> list[dict]:
+    rows = []
+    common = dict(state="FL", inventory_type="", verification_status="PRODUCTION_VERIFIED",
+                  governance_status="APPROVED_GRANDFATHERED", last_checked="2026-09-30",
+                  completeness_status="UNKNOWN", ledgers=AUCTIONS, source_authority="VENDOR_AUCTION")
+    for src in _read("realauction_counties.csv"):
+        rows.append(_row(**common, county=src["County"], source_id="fl_realauction", harvester="harvest_all_counties.ps1",
+                         canonical_url=REALAUCTION_CALENDAR.format(host=src["Host"]),
+                         access_method="HTTP_GET_HTML", machine_format="HTML_TABLE",
+                         evidence_ref="data/realauction_counties.csv; harvesters/governance/registry.py fl_realauction",
+                         notes="RealAuction / RealForeclose / RealTaxDeed tax-deed sale calendar contracted by the Clerk; per-sale "
+                               "auction pages carry the case, bid, parcel and the county appraiser deep-link."))
+    rows.append(_row(**common, county="Okaloosa", source_id="fl_bid4assets_okaloosa", harvester="harvest_okaloosa_bid4assets.ps1",
+                     canonical_url="https://www.bid4assets.com/OkaloosaFLTax/listings",
+                     access_method="HTTP_GET_HTML", machine_format="HTML_CARDS",
+                     evidence_ref="scripts/harvest_okaloosa_bid4assets.ps1",
+                     notes="Bid4Assets tax-deed listings for Okaloosa County (the only FL county on this platform, per the "
+                           "script's own header); per-auction detail pages read one at a time."))
+    return rows
+
+
+def fl_certificate_rows() -> list[dict]:
+    rows = []
+    for src in _read("florida_certificate_sale_platforms.csv"):
+        if src["Platform"] != "LienHub":
+            continue
+        rows.append(_row(state="FL", county=src["County"], source_id="fl_lienhub_certificates",
+                         harvester="harvest_lienhub_certificates.ps1", inventory_type="", source_authority="VENDOR_AUCTION",
+                         canonical_url=f"https://lienhub.com/county/{_lienhub_slug(src['County'])}/countyheld/certificates",
+                         access_method="JSON_ENDPOINT", machine_format="JSON",
+                         verification_status="PRODUCTION_VERIFIED", governance_status="APPROVED_GRANDFATHERED",
+                         last_checked="2026-09-30", completeness_status="UNKNOWN",
+                         evidence_ref="data/florida_certificate_sale_platforms.csv; harvesters/governance/registry.py fl_lienhub_certificates",
+                         notes="LienHub county-held tax certificates (the certificate itself, never the parcel): DataTables JSON "
+                               "endpoint behind the county-held certificates page; certificate number, account, purchase "
+                               "amount, expiration, interest rate.",
+                         ledgers=LIENS))
+    return rows
+
+
+def tx_auction_rows() -> list[dict]:
+    rows = []
+    for src in _read("tx_realauction_counties.csv"):
+        rows.append(_row(state="TX", county=src["County"], source_id="tx_realauction", harvester="harvesters/texas_harvester.py",
+                         inventory_type="", source_authority="VENDOR_AUCTION",
+                         canonical_url=REALAUCTION_CALENDAR.format(host=src["Host"]),
+                         access_method="HTTP_GET_HTML", machine_format="HTML_TABLE",
+                         verification_status="PRODUCTION_VERIFIED", governance_status="APPROVED",
+                         last_checked="2026-09-30", completeness_status="UNKNOWN",
+                         evidence_ref="data/tx_realauction_counties.csv; harvesters/governance/registry.py tx_realauction",
+                         notes="RealAuction sheriff-sale / tax-sale calendar (sheriffsaleauctions.com or realforeclose.com) "
+                               "for the county's tax foreclosure sales; AUCTIONS only - Texas has no certificate ledger.",
+                         ledgers=AUCTIONS))
+    return rows
+
+
+# Arizona (2026-09-30): ONE county-level LIENS & CERTIFICATES candidate - the
+# Maricopa County Treasurer's "State CP" list (certificates of purchase held
+# by the State, sold by assignment), configured in
+# harvesters/otc/adapters/arizona.py from search-index evidence. Same
+# standing as AL/AR/LA: SEARCH_EVIDENCE_ONLY / TERMS_NOT_VERIFIED, no
+# harvester, never runnable (state not activated). It is the first
+# non-AVAILABLE candidate; its inventory_type is blank because a lien is not
+# purchasable land.
+from harvesters.otc.adapters.arizona import MARICOPA_SOURCE  # noqa: E402
+
+AZ_MARICOPA_CP = dict(
+    state="AZ", county=MARICOPA_SOURCE.county, source_id=MARICOPA_SOURCE.source_id, harvester="",
+    inventory_type="", source_authority="GOVERNMENT_DIRECT",
+    canonical_url=MARICOPA_SOURCE.list_url, document_url=MARICOPA_SOURCE.document_url,
+    purchase_url=MARICOPA_SOURCE.application_url, purchase_url_kind=MARICOPA_SOURCE.application_url_kind.value,
+    access_method="HTTP_GET_HTML", machine_format="CSV",
+    verification_status="SEARCH_EVIDENCE_ONLY", governance_status="TERMS_NOT_VERIFIED",
+    last_checked="2026-09-30", completeness_status="UNKNOWN",
+    evidence_ref="WEB SEARCH 2026-09-30 (treasurer.maricopa.gov page titles, URLs, snippets - harvesters/otc/adapters/arizona.py MARICOPA_EVIDENCE); " + AUDIT,
+    notes="Maricopa County Treasurer 'Current State CP Listing': tax-lien certificates of purchase struck to the State, sold by "
+          "assignment (Assignments Purchase Form; by mail from 2026-03-02 per the index). canonical_url = the download page; "
+          "document_url = its CSV; purchase_url = the Treasurer's Tax Assignment page (instructions, never a per-lien link). "
+          "The CSV's columns, the CP number and parcel formats and what the amount column is have NOT been read. Nothing "
+          "fetched from this repository; search-index evidence only; not activated. Arizona's tax-deeded land (an AVAILABLE "
+          "source) is not represented - nothing located.",
+    publishing_unit="COUNTY", publishing_unit_name="Maricopa County Treasurer",
+    amount_kind=MARICOPA_SOURCE.amount_kind.value,
+    update_frequency="not established",
+    source_terminology=MARICOPA_SOURCE.source_terminology + " (search-index wording)",
+    ledgers=LIENS,
+)
+
+
+def az_rows() -> list[dict]:
+    return [_row(**AZ_MARICOPA_CP)]
+
+
 def build_rows() -> list[dict]:
-    rows = fl_production_rows() + fl_candidate_rows() + tx_rows() + al_rows() + ar_rows() + la_rows()
+    rows = (fl_production_rows() + fl_candidate_rows() + fl_auction_rows() + fl_certificate_rows()
+            + tx_rows() + tx_auction_rows() + al_rows() + ar_rows() + la_rows() + az_rows())
     rows.sort(key=lambda r: (r["state"], r["county"], r["source_id"]))
     return rows
 
