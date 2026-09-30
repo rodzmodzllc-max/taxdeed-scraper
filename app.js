@@ -48,7 +48,11 @@ const sb = createClient(cfg.supabaseUrl, cfg.supabasePublishableKey, {
 // it is logged and the page falls back to FL only so the app still loads.
 const STATE_META = {
   FL: { name: "Florida", page: "index.html", basemap: "fl-counties.svg", cities: "fl-cities.json", zips: "fl-zips.json" },
-  TX: { name: "Texas", page: "tx.html", basemap: "tx-counties.svg", cities: "tx-cities.json", zips: "tx-zips.json" }
+  TX: { name: "Texas", page: "tx.html", basemap: "tx-counties.svg", cities: "tx-cities.json", zips: "tx-zips.json" },
+  // 2026-09-30 (state-expansion sprint): Louisiana publishes by PARISH. Its
+  // city / ZIP label files do not exist yet - they 404 into the same
+  // designed no-labels fallback tx-cities.json has always used.
+  LA: { name: "Louisiana", page: "la.html", basemap: "la-parishes.svg", cities: "la-cities.json", zips: "la-zips.json", unit: "Parish", units: "parishes" }
 };
 // Unified navigation (2026-09-30): the states a person can switch between are
 // exactly STATE_META's keys - the states this app has a page, a basemap and
@@ -61,6 +65,10 @@ const PAGE_STATE = (() => {
   return STATE_META[wanted] ? wanted : "FL";
 })();
 const STATE_INFO = STATE_META[PAGE_STATE];
+// The publishing unit every row on this page names: county (FL, TX) or
+// parish (LA). A state page only ever holds its own state's rows.
+const UNIT_WORD = STATE_INFO.unit || "County";
+const UNITS_WORD = STATE_INFO.units || "counties";
 
 // Internal build reference only (deploy verification, support requests) -
 // deliberately not surfaced anywhere in the UI. Showing a raw "v7 -
@@ -526,6 +534,11 @@ const LEDGERS = {
       // so an empty ledger here means no manual run has populated it
       // recently, not that harvesting is unavailable.
       empty: "No Texas sales match yet. Texas harvesting runs on-demand (not yet on an automatic schedule) - this list reflects the most recent manual harvest run, so an empty result can mean no recent run, not unavailable harvesting. The Dashboard's Data sources panel shows when Texas was last harvested and whether that run was complete."
+    },
+    la: {
+      sub: "No Louisiana auction source is tracked.",
+      how: "Louisiana tax sales are not harvested by this app.",
+      empty: "No Louisiana auctions are tracked. Louisiana coverage is one parish's adjudicated-property list (see Available)."
     }
   },
   laft: {
@@ -545,6 +558,15 @@ const LEDGERS = {
       // Phase 14A correction - see the parallel note on the auction ledger's
       // `tx.empty` string above for why this changed.
       empty: "No Texas struck-off inventory matches yet. Texas harvesting runs on-demand (not yet on an automatic schedule) - this list reflects the most recent manual harvest run, so an empty result can mean no recent run, not unavailable harvesting. The Dashboard's Data sources panel shows when Texas was last harvested and whether that run was complete."
+    },
+    // 2026-09-30: East Baton Rouge Parish's open-data adjudicated-property
+    // list (Public Domain). A DATED list - published only "as of" the
+    // Parish's own rows-updated date, never as available now.
+    la: {
+      title: "Available — Adjudicated Property",
+      sub: "Property adjudicated to East Baton Rouge Parish after no one bought it at the tax sale, from the Parish's open-data list. Each row shows the date the Parish last updated the list - it is not a statement that the property is available now.",
+      how: "The list publishes no price and no purchase process. Confirm the property's current status and how to acquire it with the Parish before acting.",
+      empty: "No adjudicated properties match. Louisiana coverage is one parish (East Baton Rouge)."
     }
   },
   certificate: {
@@ -563,6 +585,11 @@ const LEDGERS = {
       // Phase 14A correction - see the parallel note on the auction ledger's
       // `tx.empty` string above for why this changed.
       empty: "No Texas redeemable deeds match yet. Texas harvesting runs on-demand (not yet on an automatic schedule) - this list reflects the most recent manual harvest run, so an empty result can mean no recent run, not unavailable harvesting. The Dashboard's Data sources panel shows when Texas was last harvested and whether that run was complete."
+    },
+    la: {
+      sub: "No Louisiana lien or certificate source is tracked.",
+      how: "Louisiana tax-sale certificates are not harvested by this app.",
+      empty: "No Louisiana liens or certificates are tracked."
     }
   }
 };
@@ -579,9 +606,15 @@ const SLUG_TO_LEDGER = Object.fromEntries(LEDGER_ORDER.map(k => [LEDGERS[k].slug
 // different rows.
 function ledgerCopy(key) {
   const base = LEDGERS[key] || {};
-  if (PAGE_STATE === "TX" && base.tx) return { ...base, ...base.tx };
+  const over = PAGE_STATE === "FL" ? null : base[PAGE_STATE.toLowerCase()];   // tx / la blocks
+  if (over) return { ...base, ...over };
   return base;
 }
+
+// A DATED list (Louisiana's adjudicated-property rows): the source's own
+// last-update date is the only availability statement the row can make.
+const isDatedList = p => p && p.source === "laft" && p.inventory_type === "ADJUDICATED_PROPERTY";
+const datedListText = p => `Adjudicated · list as of ${p.list_as_of ? fmtDate(p.list_as_of) : "date not published"}`;
 
 const state = {
   bidMin: null, bidMax: null, assessedMin: null,
@@ -968,7 +1001,7 @@ function propertyVisual(p, cls) {
   }
   if (cls === "pv-visual") return "";
   if (coords) {
-    return `<div class="${cls} minimap" data-lat="${Number(p.latitude)}" data-lng="${Number(p.longitude)}" data-county="${esc(p.county)}"><span class="photo-caption">Location in ${esc(p.county)} County</span></div>`;
+    return `<div class="${cls} minimap" data-lat="${Number(p.latitude)}" data-lng="${Number(p.longitude)}" data-county="${esc(p.county)}"><span class="photo-caption">Location in ${esc(p.county)} ${UNIT_WORD}</span></div>`;
   }
   return `<div class="${cls} no-photo">${svgIcon(isBareLand(p) ? "layers" : "building")}<span class="vis-main">${esc(photoStateText(p))}</span><span class="vis-sub">Not yet geocoded</span></div>`;
 }
@@ -983,7 +1016,9 @@ function propertyVisual(p, cls) {
 // copy so app.js does not import from explore.js).
 const MINIMAP_PROJ = {
   FL: { x: { lon: 0.131515586, lat: -0.000001417, c: 11.525408765 }, y: { lon: 0.000002902, lat: -0.154887536, c: 4.801899887 }, baseW: 1000, baseH: 960 },
-  TX: { x: { lon: 0.058139535, lat: 0, c: 6.313953488 }, y: { lon: 0, lat: -0.066666276, c: 2.493318735 }, baseW: 1000, baseH: 1006 }
+  TX: { x: { lon: 0.058139535, lat: 0, c: 6.313953488 }, y: { lon: 0, lat: -0.066666276, c: 2.493318735 }, baseW: 1000, baseH: 1006 },
+  // la-parishes.svg: built from scratch (us-atlas, linear lon/lat at cos 31deg), so the fit is exact by construction.
+  LA: { x: { lon: 0.175438596, lat: 0, c: 16.543859649 }, y: { lon: 0, lat: -0.227161516, c: 7.541762328 }, baseW: 1000, baseH: 901 }
 };
 function minimapProject(lat, lon) {
   const p = MINIMAP_PROJ[PAGE_STATE];   // PAGE_STATE is always a STATE_META key; each has its own fit
@@ -1044,7 +1079,7 @@ function renderMinimapInto(host) {
   svg.setAttribute("viewBox", `${vb.x} ${vb.y} ${vb.w} ${vb.h}`);
   svg.setAttribute("preserveAspectRatio", "xMidYMid slice");
   svg.setAttribute("role", "img");
-  svg.setAttribute("aria-label", `Approximate location within ${county} County`);
+  svg.setAttribute("aria-label", `Approximate location within ${county} ${UNIT_WORD}`);
   geom.counties.forEach((c, name) => {
     if (name === county || !inFrame(c.box)) return;
     const path = document.createElementNS(NS, "path");
@@ -1103,7 +1138,7 @@ document.addEventListener("error", e => {
   host.classList.remove("has-photo", "static-sat");
   if (host.classList.contains("pv-visual")) { host.remove(); return; }
   host.classList.add("minimap");
-  if (cap) cap.textContent = `Location in ${host.dataset.county || ""} County`;
+  if (cap) cap.textContent = `Location in ${host.dataset.county || ""} ${UNIT_WORD}`;
   hydrateVisuals(host.parentElement);
 }, true);
 // Exposed for the regression suite (tests/run_test.mjs) to check the URL
@@ -1203,6 +1238,9 @@ function assessedSourceLabel(p) {
 // to a live estimate. Saying so here is the point of the relabel.
 function valueLabel(p) {
   if (hasNum(p.market)) {
+    // Louisiana's list carries the tax roll's FAIR MARKET VALUE, not a
+    // Florida county "just value" - named as the source names it.
+    if (regionOf(p) === "LA") return p.tax_year ? `${p.tax_year} Fair Market Value (tax roll)` : "Fair Market Value (tax roll)";
     return hasNum(p.value_year) ? `${p.value_year} County Just Value` : "County Just Value";
   }
   return assessedSourceLabel(p);
@@ -1307,8 +1345,8 @@ function realAddress(p) {
 const hasParcel = p => !!(p.parcel && String(p.parcel).trim() &&
   !/^(unknown|n\/?a|none|null)$/i.test(String(p.parcel).trim()));
 const lotTitle = p => (hasParcel(p)
-  ? `Parcel #${esc(p.parcel)} (${esc(p.county)} County Lot)`
-  : `${esc(p.county)} County Lot (parcel # not published)`);
+  ? `Parcel #${esc(p.parcel)} (${esc(p.county)} ${UNIT_WORD} Lot)`
+  : `${esc(p.county)} ${UNIT_WORD} Lot (parcel # not published)`);
 
 const valueRatio = p => (Number(p.bid) > 0 ? marketOf(p) / Number(p.bid) : 0);
 // Florida only: the filter match leans on manual lien notes, which Texas rows
@@ -1534,6 +1572,7 @@ function auctionLinkInfo(p) {
   if (kind === "property") return { href, kind, label: "View property listing", note: null };
   if (kind === "county") {
     const label = p.source === "certificate" ? "View county-held liens list"
+      : isDatedList(p) ? "View the Parish's adjudicated-property dataset"
       : p.source === "laft" ? "View county Lands Available list"
       : "View county auction site";
     return { href, kind, label, note: "A county page where this property can be found - not a page for this property alone." };
@@ -2426,7 +2465,8 @@ function kickerParts(p) {
   let phase, cls;
   if (isGone(p)) { phase = "No longer listed"; cls = "phase-closed"; }
   else if (p.source === "laft") {
-    if (!isTx) { phase = "Lands Available list · fixed price"; cls = "phase-fixed"; }
+    if (isDatedList(p)) { phase = datedListText(p) + " · not verified available now"; cls = "phase-none"; }
+    else if (!isTx) { phase = "Lands Available list · fixed price"; cls = "phase-fixed"; }
     else if (/future sale/i.test(txStatus)) { phase = "Future sale · not yet scheduled"; cls = "phase-none"; }
     else if (/struck off/i.test(txStatus)) { phase = "Struck off · resale inventory"; cls = "phase-fixed"; }
     else { phase = "Struck-off inventory · sale status not recorded"; cls = "phase-none"; }
@@ -2457,7 +2497,7 @@ function cardKickerHtml(p, showCounty) {
   // results and in a screenshot, where the county group header isn't there
   // to say where the parcel is. (`showCounty` still selects the fuller
   // wording the flat lists used.)
-  const where = showCounty ? `${esc(p.county)} County, ${esc(regionOf(p))}` : `${esc(p.county)}, ${esc(regionOf(p))}`;
+  const where = showCounty ? `${esc(p.county)} ${UNIT_WORD}, ${esc(regionOf(p))}` : `${esc(p.county)}, ${esc(regionOf(p))}`;
   return `<div class="prop-kicker"><span class="kicker-county">${where}</span><span class="kicker-sep">·</span><span class="kicker-type kicker-${esc(p.source)}">${type}</span><span class="kicker-sep">·</span><span class="kicker-phase ${cls}">${esc(phase)}</span></div>`;
 }
 
@@ -2541,7 +2581,7 @@ function previewFacts(p) {
   const isCert = p.source === "certificate";
   const k = kickerParts(p);
   const region = regionOf(p);
-  const where = `${p.county} County, ${region}`;
+  const where = `${p.county} ${UNIT_WORD}, ${region}`;
   const more = [];
   if (isCert) {
     if (hasNum(p.interest_rate)) more.push(["Interest rate", p.interest_rate + "%"]);
@@ -2835,7 +2875,7 @@ function certCard(p, showCounty) {
   const fav = FAVS.has(p.id);
   el.className = "prop-card cert-card " + cardStatus(p) + (fav ? " favorited" : "");
   el.dataset.pid = p.id;
-  const tag = showCounty ? `<div class="prop-county-tag">${esc(p.county)} County - Certificate</div>` : "";
+  const tag = showCounty ? `<div class="prop-county-tag">${esc(p.county)} ${UNIT_WORD} - Certificate</div>` : "";
   const expDays = certDaysUntil(p.expiration_date);
   let cd = "";
   if (expDays !== null && expDays >= 0) {
@@ -3010,11 +3050,11 @@ function opportunitySummaryHtml(p) {
   // A Texas "laft" row is LGBS struck-off / future-sale inventory, never
   // Florida's statutory over-the-counter list - see kickerParts().
   const what = isLaft
-    ? (region === "TX" ? "Texas struck-off / future-sale inventory (vendor listing)" : "Lands Available for Taxes (fixed price, over the counter)")
+    ? (isDatedList(p) ? "Adjudicated property (Parish open-data list)" : region === "TX" ? "Texas struck-off / future-sale inventory (vendor listing)" : "Lands Available for Taxes (fixed price, over the counter)")
     : `${region === "TX" ? "Texas" : "Florida"} tax deed auction`;
   const src = harvesterSourceLabel(p);
   const street = realAddress(p);
-  const where = `${street ? esc(street) : `<span class="muted">No street address in listing</span>`}<span class="opp-sub">${esc(p.county)} County, ${esc(region)}${hasParcel(p) ? ` · Parcel ${esc(p.parcel)}` : ""}${p.case_no ? ` · Case ${esc(p.case_no)}` : ""}</span>`;
+  const where = `${street ? esc(street) : `<span class="muted">No street address in listing</span>`}<span class="opp-sub">${esc(p.county)} ${UNIT_WORD}, ${esc(region)}${hasParcel(p) ? ` · Parcel ${esc(p.parcel)}` : ""}${p.case_no ? ` · Case ${esc(p.case_no)}` : ""}</span>`;
   // Phase 72: a Texas row carries the vendor's own raw sale status
   // (tx_sale_status, verbatim). It is shown as-is next to the date, and a
   // struck-off / future-sale row is described by that status - never as an
@@ -3023,6 +3063,7 @@ function opportunitySummaryHtml(p) {
   let when, whenCls = "";
   if (isGone(p)) { when = outcomeText(p); whenCls = "bad"; }
   else if (isLaft && txStatus) { when = `${txStatus} · no auction date`; whenCls = /future sale/i.test(txStatus) ? "muted" : "ok"; }
+  else if (isDatedList(p)) { when = datedListText(p) + " - not a statement that it is available now"; whenCls = "muted"; }
   else if (isLaft) { when = "Available now - no auction date"; whenCls = "ok"; }
   else if (!p.sale_date) { when = txStatus ? `Sale not scheduled · ${txStatus}` : "Sale not scheduled"; whenCls = "muted"; }
   else {
@@ -3218,7 +3259,7 @@ function availableDecisionHtml(p) {
   const coords = hasNum(p.latitude) && hasNum(p.longitude);
   // 1. What is it?
   const what = INVENTORY_TYPE_LABELS[p.inventory_type] ? esc(INVENTORY_TYPE_LABELS[p.inventory_type]) : muted("Not classified - the source has not said what kind of inventory this is");
-  rows.push(q("what", "What property is this?", `${street ? esc(street) : muted("No street address in the listing")}${sub(esc(`${p.county} County, ${region}${hasParcel(p) ? ` · Parcel ${p.parcel}` : " · Parcel # not published"}${p.case_no ? ` · Case ${p.case_no}` : ""}${p.prop_type ? ` · ${p.prop_type}` : ""}`))}`));
+  rows.push(q("what", "What property is this?", `${street ? esc(street) : muted("No street address in the listing")}${sub(esc(`${p.county} ${UNIT_WORD}, ${region}${hasParcel(p) ? ` · Parcel ${p.parcel}` : " · Parcel # not published"}${p.case_no ? ` · Case ${p.case_no}` : ""}${p.prop_type ? ` · ${p.prop_type}` : ""}`))}`));
   // Why it is in AVAILABLE: the inventory type the lifecycle classified and
   // the source wording it rests on (otc_provenance.inventory_type) - never
   // "because it left an auction list".
@@ -3230,7 +3271,7 @@ function availableDecisionHtml(p) {
   const listUrl0 = p.list_url || (p.url_auction_kind === "county" ? p.url_auction : null);
   const docUrl0 = p.document_url && p.document_url !== listUrl0 ? p.document_url : null;
   const listing = [];
-  if (listUrl0) listing.push(`<a href="${esc(listUrl0)}" target="_blank" rel="noopener">${esc(tx ? "Vendor list page" : "County list page")} →</a>`);
+  if (listUrl0) listing.push(`<a href="${esc(listUrl0)}" target="_blank" rel="noopener">${esc(tx ? "Vendor list page" : `${UNIT_WORD} list page`)} →</a>`);
   if (docUrl0) listing.push(`<a href="${esc(docUrl0)}" target="_blank" rel="noopener">List document (PDF / file) →</a>`);
   const srcDate = p.list_as_of ? `list dated ${dateOnly(p.list_as_of)}` : (p.source_published_at ? `document dated ${dateOnly(p.source_published_at)}` : "source date not published");
   const sm = op.source_match && typeof op.source_match === "object" ? op.source_match : null;
@@ -3240,7 +3281,8 @@ function availableDecisionHtml(p) {
   rows.push(q("why", "Why is it in Available?", `${what}${listedLine}${sub(esc(op.inventory_type ? `Basis: ${op.inventory_type}` : (p.source_authority ? `Published by ${SOURCE_AUTHORITY_LABELS[p.source_authority] || p.source_authority}` : "Basis not recorded")))}${sub(`${listing.length ? listing.join(" · ") + " · " : `<span class="muted">No list URL published</span> · `}${esc(srcDate)}`)}${sub(`<span class="acq-match">${esc(matchText)}</span>`)}`));
   // 2. Is it available now?
   let avail, availCls = "";
-  if (p.inventory_status === undefined) { avail = muted("Availability status is not projected by this deployment"); }
+  if (isDatedList(p)) { avail = muted(`Not verified as available now - on the Parish's adjudicated-property list as of ${p.list_as_of ? dateOnly(p.list_as_of) : "an unpublished date"}; confirm current status with the Parish`); availCls = "muted"; }
+  else if (p.inventory_status === undefined) { avail = muted("Availability status is not projected by this deployment"); }
   else if (!p.inventory_status) { avail = muted("Not yet observed by a lifecycle run"); }
   else {
     const label = INVENTORY_STATUS_LABELS[p.inventory_status] || String(p.inventory_status);
@@ -3299,7 +3341,7 @@ function availableDecisionHtml(p) {
   if (tp && ["quoted_amount", "amount_plus_costs", "amount_on_application"].includes(tp.type)) cost += sub(esc(tp.label));
   rows.push(q("cost", "What does it cost?", cost, costCls));
   // 5. Where is it?
-  rows.push(q("where", "Where is it?", `${street ? esc(street) : muted("No street address in the listing")}${sub(esc(`${p.county} County, ${region}`))}${sub(coords ? `<span class="mono">${Number(p.latitude).toFixed(5)}, ${Number(p.longitude).toFixed(5)}</span> · authoritative coordinates on file` : `<span class="muted">Not yet geocoded - no point is shown for this parcel</span>`)}`));
+  rows.push(q("where", "Where is it?", `${street ? esc(street) : muted("No street address in the listing")}${sub(esc(`${p.county} ${UNIT_WORD}, ${region}`))}${sub(coords ? `<span class="mono">${Number(p.latitude).toFixed(5)}, ${Number(p.longitude).toFixed(5)}</span> · authoritative coordinates on file` : `<span class="muted">Not yet geocoded - no point is shown for this parcel</span>`)}`));
   // 6. What is known about it?
   const known = [];
   if (hasNum(p.market)) known.push(`${valueLabel(p)} ${fmtShort(p.market)}`);
@@ -3356,7 +3398,7 @@ function auctionDecisionHtml(p) {
   const q = (id, question, answer, cls) => `<div class="dec-row" data-q="${id}"><span class="dec-q">${esc(question)}</span><span class="dec-a${cls ? " " + cls : ""}">${answer}</span></div>`;
   const rows = [];
   const street = realAddress(p);
-  rows.push(q("what", "What property?", `${street ? esc(street) : muted("No street address in the listing")}${sub(esc(`${p.county} County, ${region}${hasParcel(p) ? ` · Parcel ${p.parcel}` : " · Parcel # not published"}${p.case_no ? ` · Case ${p.case_no}` : ""}${p.prop_type ? ` · ${p.prop_type}` : ""}`))}`));
+  rows.push(q("what", "What property?", `${street ? esc(street) : muted("No street address in the listing")}${sub(esc(`${p.county} ${UNIT_WORD}, ${region}${hasParcel(p) ? ` · Parcel ${p.parcel}` : " · Parcel # not published"}${p.case_no ? ` · Case ${p.case_no}` : ""}${p.prop_type ? ` · ${p.prop_type}` : ""}`))}`));
   let when, whenCls = "";
   if (isGone(p)) { when = outcomeText(p); whenCls = "bad"; }
   else if (!p.sale_date) { when = "Sale not scheduled"; whenCls = "muted"; }
@@ -3424,7 +3466,7 @@ function certificateDecisionHtml(p) {
   const sub = t => `<span class="dec-sub">${t}</span>`;
   const q = (id, question, answer, cls) => `<div class="dec-row" data-q="${id}"><span class="dec-q">${esc(question)}</span><span class="dec-a${cls ? " " + cls : ""}">${answer}</span></div>`;
   const rows = [];
-  rows.push(q("what", "What certificate / lien?", `Certificate #${esc(p.certificate_no || "Unknown")}${sub(esc(`${p.county} County, ${regionOf(p)}${p.tax_year ? ` · tax year ${p.tax_year}` : ""}${p.case_no ? ` · account ${p.case_no}` : ""}${hasParcel(p) ? ` · parcel ${p.parcel}` : " · parcel # not published"}`))}`));
+  rows.push(q("what", "What certificate / lien?", `Certificate #${esc(p.certificate_no || "Unknown")}${sub(esc(`${p.county} ${UNIT_WORD}, ${regionOf(p)}${p.tax_year ? ` · tax year ${p.tax_year}` : ""}${p.case_no ? ` · account ${p.case_no}` : ""}${hasParcel(p) ? ` · parcel ${p.parcel}` : " · parcel # not published"}`))}`));
   rows.push(q("amount", "Amount?", hasPublishedBid(p) ? esc(fmtMoney(p.bid)) : muted("Not published"), hasPublishedBid(p) ? "" : "muted"));
   const terms = [];
   if (hasNum(p.interest_rate)) terms.push(`Interest rate ${p.interest_rate}% (as published)`);
@@ -3557,7 +3599,8 @@ function riskLegalCardHtml(p) {
 const INVENTORY_TYPE_LABELS = {
   POST_SALE_FIXED_PRICE: "Lands Available - fixed price, over the counter (F.S. 197.502(7))",
   STRUCK_OFF_HELD_IN_TRUST: "Struck off to the taxing units, held in trust (Texas)",
-  FUTURE_RESALE: "Awaiting a future resale (Texas)"
+  FUTURE_RESALE: "Awaiting a future resale (Texas)",
+  ADJUDICATED_PROPERTY: "Adjudicated to the parish after no one bought it at the tax sale (Louisiana)"
 };
 const AMOUNT_KIND_LABELS = {
   MINIMUM_PURCHASE_AMOUNT: "Minimum purchase amount", OPENING_BID: "Opening bid", ORIGINAL_OPENING_BID: "Original opening bid",
@@ -4190,7 +4233,7 @@ function detailHtml(p) {
 
   const html = `
     <button class="detail-close" data-action="closedetail" type="button" aria-label="Close">✕</button>
-    <div class="prop-county-tag">${esc(p.county)} County, ${esc(regionOf(p))}${isCert ? " · Certificate" : (p.source === "laft" ? (regionOf(p) === "TX" ? " · Struck-off inventory" : " · Lands Available") : " · Auction")}</div>
+    <div class="prop-county-tag">${esc(p.county)} ${UNIT_WORD}, ${esc(regionOf(p))}${isCert ? " · Certificate" : (p.source === "laft" ? (isDatedList(p) ? " · Adjudicated (dated list)" : regionOf(p) === "TX" ? " · Struck-off inventory" : " · Lands Available") : " · Auction")}</div>
     <h2 class="detail-address">${title}</h2>
     <div class="prop-top-actions" style="margin:.2rem 0 .5rem">
       <button class="icon-btn heart-btn${fav ? " on" : ""}" data-action="fav" data-pid="${p.id}" type="button">${fav ? "♥ Favorited" : "♡ Favorite"}</button>
@@ -4375,7 +4418,7 @@ function bidListRows() {
 function shortPropLabel(p) {
   if (p.source === "certificate") return `Certificate #${esc(p.certificate_no || "Unknown")}`;
   if (p.address && p.address.trim()) return esc(p.address);
-  return `Parcel #${esc(p.parcel || "Unknown")} (${esc(p.county)} County)`;
+  return `Parcel #${esc(p.parcel || "Unknown")} (${esc(p.county)} ${UNIT_WORD})`;
 }
 function renderBidListModal() {
   const inner = document.getElementById("bidListModalInner");
@@ -4509,7 +4552,7 @@ function hiddenRow(p) {
   const el = document.createElement("div");
   const active = isRecoverable(p);
   el.className = "hidden-row" + (active ? "" : " inactive");
-  const countyLine = `${esc(p.county)} County` + (p.sale_date ? " · " + fmtDate(p.sale_date) : "");
+  const countyLine = `${esc(p.county)} ${UNIT_WORD}` + (p.sale_date ? " · " + fmtDate(p.sale_date) : "");
   const inactiveReason = isPastDue(p) ? "Sale date already passed" : "No longer listed by the county";
   el.innerHTML = `
     <div class="hidden-row-info">
@@ -4993,7 +5036,9 @@ function groupSecondaryLine(ledgerKey, date) {
   // card's kicker carries the vendor's own status), never Florida's
   // statutory fixed-price list - same rule as kickerParts() and
   // opportunitySummaryHtml(). Nothing here says it is purchasable today.
-  if (ledgerKey === "laft") return PAGE_STATE === "TX" ? "Struck-off / future-sale inventory - no auction date; see each card's status" : "Lands Available - fixed price, available now";
+  if (ledgerKey === "laft") return PAGE_STATE === "TX" ? "Struck-off / future-sale inventory - no auction date; see each card's status"
+    : PAGE_STATE === "LA" ? "Adjudicated property - the Parish's list as of its own last-update date, not verified available now"
+    : "Lands Available - fixed price, available now";
   return "County-held certificates";
 }
 
@@ -5034,7 +5079,7 @@ function groupSortKey(ledgerKey, county, date) {
 function ledgerFacts(kind, shown) {
   const bits = [];
   const counties = new Set(shown.map(p => p.county).filter(Boolean));
-  if (counties.size) bits.push(counties.size + " " + (counties.size === 1 ? "county" : "counties"));
+  if (counties.size) bits.push(counties.size + " " + (counties.size === 1 ? UNIT_WORD.toLowerCase() : UNITS_WORD));
 
   if (kind === "auction") {
     const upcoming = shown.map(p => daysUntil(p)).filter(d => d !== null && d >= 0);
@@ -5392,7 +5437,9 @@ function applyLedgerChrome() {
   // the county/type/lien/assessed controls hide for every TX ledger too,
   // not just certificate/Yield Desk.
   const isCert = key === "certificate";
-  const isTx = PAGE_STATE === "TX";
+  // The county / type / lien / assessed controls are built on Florida's
+  // taxonomy; every other state page hides them (TX, LA).
+  const isTx = PAGE_STATE !== "FL";
   ["typeDropdown", "lienDropdown", "assessedField"].forEach(id => {
     const el = document.getElementById(id);
     if (el) el.hidden = isCert || isTx;
@@ -6902,7 +6949,7 @@ function supportContext(ctx) {
   const lines = [`Page: ${PAGE_STATE} · ${location.href.split("#")[0]}`, `Build: ${BUILD}`];
   if (ctx && ctx.pid) {
     const p = ALL.find(x => x.id === ctx.pid);
-    if (p) lines.push(`Property: ${p.county} County, ${regionOf(p)} · ${p.source} · case ${p.case_no || "?"} · parcel ${p.parcel || "?"} · id ${p.id}`, `Data source: ${harvesterSourceLabel(p) || "?"} · ${lastSyncedText(p)}`);
+    if (p) lines.push(`Property: ${p.county} ${UNIT_WORD}, ${regionOf(p)} · ${p.source} · case ${p.case_no || "?"} · parcel ${p.parcel || "?"} · id ${p.id}`, `Data source: ${harvesterSourceLabel(p) || "?"} · ${lastSyncedText(p)}`);
   }
   return lines;
 }
@@ -7257,7 +7304,7 @@ function renderMapContext() {
   const ctyEl = document.getElementById("mapContextCounty");
   if (stEl) stEl.textContent = STATE_INFO.name;
   if (ledEl) ledEl.textContent = mapFilter.ledger === "all" ? "All Ledgers" : (ledgerCopy(mapFilter.ledger).title || mapFilter.ledger);
-  if (ctyEl) ctyEl.textContent = mapFilter.county === "ALL" ? "All counties" : `${mapFilter.county} County`;
+  if (ctyEl) ctyEl.textContent = mapFilter.county === "ALL" ? `All ${UNITS_WORD}` : `${mapFilter.county} ${UNIT_WORD}`;
 }
 
 // The one-way handoff to explore.js, same shape and same reasoning as
@@ -7503,7 +7550,7 @@ function renderDashboard() {
     countyEl.innerHTML = countyRows.length
       ? countyRows.map(([county, v]) => {
         const per = LEDGER_ORDER.map(k => { const n = active.filter(p => p.source === k && (p.county || "Unknown") === county).length; return n ? `${n} ${ledgerCopy(k).title}` : ""; }).filter(Boolean).join(" · ");
-        return dashRow("pin", `${esc(county)} County`, `<span><b>${v.count}</b> active</span><span class="dash-row-sub">${esc(per)}</span>`);
+        return dashRow("pin", `${esc(county)} ${UNIT_WORD}`, `<span><b>${v.count}</b> active</span><span class="dash-row-sub">${esc(per)}</span>`);
       }).join("")
       : `<div class="dash-empty">No active properties yet.</div>`;
   }
@@ -7525,7 +7572,7 @@ function renderDashboard() {
     const upcoming = upcomingAuctionRows(active);
     upcomingEl.innerHTML = upcoming.length
       ? upcoming.map(u => `
-        <div class="dash-row"><div class="dash-row-name">${svgIcon("gavel")}${esc(fmtDate(u.date))}, ${esc(u.county)} County</div><div class="dash-row-vals"><span><b>${u.count}</b> propert${u.count === 1 ? "y" : "ies"}</span></div></div>`).join("")
+        <div class="dash-row"><div class="dash-row-name">${svgIcon("gavel")}${esc(fmtDate(u.date))}, ${esc(u.county)} ${UNIT_WORD}</div><div class="dash-row-vals"><span><b>${u.count}</b> propert${u.count === 1 ? "y" : "ies"}</span></div></div>`).join("")
       : `<div class="dash-empty">No upcoming sale dates on file yet.</div>`;
   }
 

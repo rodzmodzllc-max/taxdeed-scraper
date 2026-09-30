@@ -2,24 +2,11 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<!-- user-scalable=no + maximum-scale=1: pinch-zoom is disabled on purpose.
-     This is a fixed-position-bottom-nav app (see .nav-bottom in styles.css);
-     mobile browsers detach `position:fixed` elements from the visual
-     viewport while pinch-zoomed, so the nav bar visibly disappears/slides
-     off-screen once a user zooms in. Rather than leave that broken, the
-     text itself is sized to be legible at 1x (see the mobile html{font-size}
-     bump in styles.css) and zoom is turned off so the nav bar can't be
-     knocked out from under it.
-     NOTE: viewport-fit=cover was tried here to activate env(safe-area-inset-*)
-     for .nav-bottom, but was pulled back out - reported as the fixed nav bar
-     visibly moving/shifting once the app was packaged as an Android TWA,
-     which handles edge-to-edge/system-bar insets differently than a plain
-     Chrome tab. Not worth the instability for a cosmetic safe-area gain;
-     env(safe-area-inset-bottom) just resolves to 0 without it, same as
-     before this was ever added. -->
+<!-- See public/index.html for why zoom is disabled and why viewport-fit=cover
+     was tried and then pulled back out. -->
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <meta name="color-scheme" content="light dark">
-<title>Tax Acquisitions — Florida</title>
+<title>Tax Acquisitions — Louisiana</title>
 <link rel="stylesheet" href="styles.css">
 <!-- Loads AFTER styles.css on purpose: explore.css adds the split list+map
 view and applies a handful of plain-specificity overrides to the card and
@@ -37,7 +24,7 @@ filter-bar classes above, which only win if it comes second. -->
 <meta name="apple-mobile-web-app-title" content="Tax Acquisitions">
 <script src="config.js"></script>
 </head>
-<body data-state="FL">
+<body data-state="LA">
 
 <!-- ============ sign in ============ -->
 <div id="authGate" hidden>
@@ -46,19 +33,13 @@ filter-bar classes above, which only win if it comes second. -->
 <img class="brand-mark brand-mark-auth" src="icons/icon-192.png?v=2" width="72" height="72" alt="" aria-hidden="true">
 <h1>Tax Acquisitions</h1>
 </div>
-<p class="auth-tagline">Florida Tax Deed Intelligence &amp; Auction Tracking</p>
+<p class="auth-tagline">Louisiana Adjudicated Property Tracking</p>
 <p class="auth-lead" id="authLead">Sign in to continue.</p>
 <form id="authForm">
-<!-- Phase 63: real labels, not placeholder-only fields - the same fix
-#profileForm's own comment already explains (a placeholder disappears the
-moment you type), applied here for the first time. This is the very first
-screen a new user sees, and it never got the fix #profileForm did.
-`hidden`/`required` stay on the <input> itself, unchanged - app.js's
-setAuthMode() toggles el.hidden/el.required on these exact input ids by id
-lookup, so that JS needed no changes. The wrapping <label> hides itself via
-the .auth-field:has(input[hidden]) rule in styles.css instead of carrying
-its own separate hidden state, so the label text never floats above a
-hidden field. -->
+<!-- Phase 63: real labels, not placeholder-only fields - see index.html's
+copy of this same comment for the full reasoning (this markup is
+deliberately identical across both pages, same as every other authForm
+field). -->
 <label class="auth-field"><span>First name</span>
   <input type="text" id="firstName" autocomplete="given-name" hidden></label>
 <label class="auth-field"><span>Last name</span>
@@ -285,16 +266,16 @@ page, region-scoped RPC, and dor_use_code/tx_category badges are all
 real, shipped ahead of TX data so the pipeline has somewhere to land
 the moment a harvester goes live. -->
 <nav class="region-tabs" id="regionTabs" aria-label="State">
-<a class="region-tab on" data-region="FL" data-state-link href="index.html" aria-current="page"><span class="region-tab-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-8-4.6-8-11a8 8 0 1116 0c0 6.4-8 11-8 11z"/><circle cx="12" cy="10" r="3"/></svg></span>Florida</a>
+<a class="region-tab" data-region="FL" data-state-link href="index.html"><span class="region-tab-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-8-4.6-8-11a8 8 0 1116 0c0 6.4-8 11-8 11z"/><circle cx="12" cy="10" r="3"/></svg></span>Florida</a>
 <a class="region-tab" data-region="TX" data-state-link href="tx.html"><span class="region-tab-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-8-4.6-8-11a8 8 0 1116 0c0 6.4-8 11-8 11z"/><circle cx="12" cy="10" r="3"/></svg></span>Texas</a>
-<a class="region-tab" data-region="LA" data-state-link href="la.html"><span class="region-tab-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-8-4.6-8-11a8 8 0 1116 0c0 6.4-8 11-8 11z"/><circle cx="12" cy="10" r="3"/></svg></span>Louisiana</a>
+<a class="region-tab on" data-region="LA" data-state-link href="la.html" aria-current="page"><span class="region-tab-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-8-4.6-8-11a8 8 0 1116 0c0 6.4-8 11-8 11z"/><circle cx="12" cy="10" r="3"/></svg></span>Louisiana</a>
 </nav>
 <!-- Two (really three) separate ledgers, front and center right after sign-in -
 not one long scroll where Lands Available sits under 300+ auction cards. -->
 <nav class="ledger-tabs" id="ledgerTabs" aria-label="Ledger">
 <button class="ledger-tab" data-ledger="auction" type="button"><span class="ledger-tab-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v18M5 7l3.5-3.5L12 7M5 7c0 2.8 1.6 5 3.5 5S12 9.8 12 7M19 7l-3.5-3.5L12 7M19 7c0 2.8-1.6 5-3.5 5S12 9.8 12 7M4 21h16"/></svg></span>Auctions <b id="tabCountAuction">0</b></button>
 <button class="ledger-tab" data-ledger="laft" type="button"><span class="ledger-tab-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg></span>Available <b id="tabCountLaft">0</b></button>
-<button class="ledger-tab" data-ledger="certificate" type="button"><span class="ledger-tab-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 2h7l5 5v13a2 2 0 01-2 2H7a2 2 0 01-2-2V4a2 2 0 012-2z"/><path d="M9 12h6M9 16h6M9 8h2"/></svg></span>Liens &amp; Certificates <b id="tabCountCertificate">0</b></button>
+<button class="ledger-tab" data-ledger="certificate" type="button"><span class="ledger-tab-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 2h7l5 5v13a2 2 0 01-2 2H7a2 2 0 01-2-2V4a2 2 0 012-2z"/><path d="M9 12h6M9 16h6M9 8h2"/></svg></span>Redeemable Deeds <b id="tabCountCertificate">0</b></button>
 </nav>
 <div class="summary-strip">
 <button class="chip total" data-status="all" type="button">Shown&nbsp;<b id="chipTotal">0</b></button>
@@ -358,10 +339,8 @@ can stay closed until asked for at every width - see explore.css. -->
 <input type="range" id="bidMin" class="slider" min="0" max="1000000" step="10000" value="0">
 <input type="range" id="bidMax" class="slider slider-right" min="0" max="1000000" step="10000" value="1000000">
 </div>
-<!-- Phase 65: the min/max are editable, not read-only labels. Typing filters
-as you go (debounced) and Enter/blur commits at once; the sliders above
-follow typed values and typed values follow the sliders. No Search button -
-auto-filtering already covers it. Blank max = no cap. -->
+<!-- Phase 65: editable min/max, kept in sync with the sliders above - see
+index.html's copy of this block for the full note. -->
 <div class="price-range-display">
 <label class="price-input"><span class="price-prefix">$</span><input type="number" id="bidMinInput" inputmode="numeric" min="0" step="1000" placeholder="0" aria-label="Minimum opening bid"></label>
 <span class="to-sep">to</span>
@@ -422,10 +401,11 @@ comparator to apply as a tiebreaker either. -->
 <div class="filters-section-head"><span class="filters-section-title">Quick Toggles</span></div>
 <div class="filters-row">
 <label class="tog"><input type="checkbox" id="favOnly"> <span>♡ Favorites only</span></label>
-<label class="tog"><input type="checkbox" id="topOnly"> <span>Only value ÷ bid 12×+ with no lien flags noted</span></label>
+<!-- No "filter match" (topOnly) or quiet-title toggle on Texas: both depend on
+Florida-only inputs (manual lien notes, the Florida fee estimate), which Texas
+rows do not carry. app.js null-guards both ids. -->
 <label class="tog"><input type="checkbox" id="soonOnly"> <span>⏱ Closing in 14 days</span></label>
 <label class="tog"><input type="checkbox" id="hideOldOnly"> <span>🕐 Hide listings 7+ days old</span></label>
-<label class="tog"><input type="checkbox" id="qtToggle"> <span>Include quiet title est.</span></label>
 <!-- Was the Archive chip in the summary strip. Archive is a MODE, not a
 sub-filter - it shows only past-due auctions and hides everything
 else - so it reads as a checkbox here far better than as a fourth
@@ -512,7 +492,7 @@ it exactly as before. -->
 <div class="auctions-body">
 <div class="data-table-wrap" id="dataTableWrap">
 <table class="data-table" id="dataTable">
-<thead><tr><th>Property</th><th>County</th><th class="dt-num">Opening Bid</th><th class="dt-num" title="County just/assessed value on file for the stated roll year - not a market estimate">County value</th><th>Status</th><th></th></tr></thead>
+<thead><tr><th>Property</th><th>County</th><th class="dt-num">Opening Bid</th><th class="dt-num" title="County/CAD value on file for the stated roll year - not a market estimate">County value</th><th>Status</th><th></th></tr></thead>
 <tbody id="dataTableBody"></tbody>
 </table>
 </div>
@@ -526,10 +506,8 @@ it exactly as before. -->
 <!-- The title-search warning used to sit in the header on every screen. It is
 one button here, and the full text lives in the modal it opens. -->
 <p class="footer-terms"><button class="terms-btn" id="termsBtn" type="button">Terms &amp; disclaimer</button> · <button class="terms-btn" id="helpBtn" type="button">How to read this data</button> · <button class="terms-btn" id="supportBtn" type="button">Contact support</button></p>
-Links open outside sites where one is on file: a Google Maps search built by this app (or a researched Street View link), the county property appraiser, Zillow, the Tax Collector, the county's auction page as last harvested, and the Clerk's official-records search. They are not endorsements.<br><br>
-<b>Filter match</b> = the county value on file is at least 12× the opening bid AND a manual note found no lien flags. Arithmetic plus a manual note, not a recommendation to bid.<br><br>
-<b>Fees</b> (shown on each property's full page) are Florida doc stamps (0.70/$100), recording, and — on homesteaded parcels — the half-assessed-value minimum under FS 197.502(6)(c), added on top of whatever the actual winning bid turns out to be. It is an estimate. <i>Open question:</i> the county's opening bid on a homestead parcel may already include that half-assessed amount, so the homestead part may be counted twice; this is pending professional review.<br><br>
-Lien notes are manual, partial research notes, <b>not a title search</b>. Confirm title with a title company or attorney before bidding.
+Links open outside sites (a Google Maps search built by this app, Zillow, and the vendor or county sale page where one was harvested). They are not endorsements, and a listing can change there after our last sync.<br><br>
+<b>Louisiana coverage is one parish's dated list.</b> East Baton Rouge Parish's open-data adjudicated-property list, shown as of the date the Parish last updated it - not as available now. No price, purchase process, fee or lien information is published there, and none is shown. Confirm current status, title and costs with the Parish and a title company or attorney.
 </footer>
 </section>
 
@@ -543,21 +521,12 @@ the Auctions page's own filters - see mapFilter/computeMapRows()/
 renderMapPage() in app.js. The map itself (bubbles, county rail, legend,
 zoomed-in pins, floating preview card) is explore.js's existing renderer;
 only where it lives changed, not how it draws. -->
-<!-- Phase 67: the Map page is a WORKSPACE - one compact toolbar, then a
-grid of [large map stage | property-intelligence side panel] on desktop,
-and [large map stage / side panel below, preview as a bottom sheet] on a
-phone. The page head (h1 + subtitle) folded into the toolbar's first cell
-and the "Where these are" card head into the side panel's head, so the
-map itself gets the height they used to take. All three basemaps (outline
-/ Google / MapTiler - satellite-map.js) share the same stage; the basemap
-toggle moved from the old card head into the toolbar. -->
+<!-- Phase 67: map workspace - see index.html's copy of this block for the
+full note. Same structure, same ids. -->
 <section class="page map-page" id="pageMap" hidden>
 <div class="map-toolbar" id="mapToolbar">
-<!-- The state name is filled in by applyLedgerChrome() in app.js from
-PAGE_STATE (the <body data-state> this page loaded with), never from the
-rows or their counties - the same source the tab title and the
-html[data-region] attribute already use. A label only: the Florida/Texas
-switch itself is #regionTabs on the Auctions page. -->
+<!-- State name filled in from PAGE_STATE by applyLedgerChrome() in app.js -
+see index.html's copy of this comment. -->
 <div class="map-page-titlebox">
 <h1 class="map-page-title">Map</h1>
 <!-- The context line reads what the map is showing right now: the state
@@ -588,11 +557,9 @@ state list is pinned to). Picking a state is real page navigation
 <button type="button" class="on" data-ledger="all"><span class="pill-dot pill-dot-all" aria-hidden="true"></span>All Ledgers</button>
 <button type="button" data-ledger="auction"><span class="pill-dot pill-dot-auction" aria-hidden="true"></span>Auctions</button>
 <button type="button" data-ledger="laft"><span class="pill-dot pill-dot-laft" aria-hidden="true"></span>Available</button>
-<button type="button" data-ledger="certificate"><span class="pill-dot pill-dot-certificate" aria-hidden="true"></span>Liens &amp; Certificates</button>
+<button type="button" data-ledger="certificate"><span class="pill-dot pill-dot-certificate" aria-hidden="true"></span>Redeemable Deeds</button>
 </div>
 <button type="button" class="map-watch-pill" id="mapWatchlistOnly" aria-pressed="false"><span class="pill-dot pill-dot-watch" aria-hidden="true"></span>Watchlist only</button>
-<!-- Basemap: the app's own outline map (default, no third party), Google
-Maps, or MapTiler - see satellite-map.js. Same ids as before Phase 67. -->
 <div class="map-style-toggle" id="mapStyleToggle" role="group" aria-label="Basemap">
 <button type="button" class="on" data-style="outline" id="mapStyleOutline">Outline</button>
 <button type="button" data-style="google" id="mapStyleGoogle">Google</button>
@@ -605,29 +572,12 @@ Maps, or MapTiler - see satellite-map.js. Same ids as before Phase 67. -->
 <div class="explore-map-canvas" id="exploreMapCanvas">
 <div class="explore-map-empty">Loading map…</div>
 </div>
-<!-- Phase 55/56/57/60/61: two optional third-party basemaps for this same
-stage - real satellite/terrain via Google Maps or MapTiler, either one
-toggled against the outline map above via #mapStyleToggle (three-way: Map /
-Google / MapTiler). See satellite-map.js for why this is a separate
-module (same one-way tdw:maprendered contract explore.js uses) and
-CLAUDE.md's Phase 55/56/57/60/61 sections for the trade-off this represents
-(a third party now sees the tiles a signed-in user requests, opt-in
-per click, off by default) - Marc chose this explicitly after it was
-raised to him. Each provider is hidden behind its own setup message
-until config.js carries its key (googleMapsApiKey / maptilerKey); see
-satellite-map.js's setup messages.
-Phase 61: each provider gets its OWN canvas rather than sharing one - a
-shared node let whichever provider initialized second silently wipe out
-the first one's live map, so switching back to it showed nothing. See
-satellite-map.js's header for the full bug writeup. -->
+<!-- Phase 55/61: two optional basemaps for this same stage, each with its
+own canvas as of Phase 61 - see the matching comment in index.html and
+satellite-map.js's header for why. -->
 <div class="satellite-map-canvas" id="satelliteMapCanvasGoogle" hidden></div>
 <div class="satellite-map-canvas" id="satelliteMapCanvasMaptiler" hidden></div>
 <div class="cluster-tip" id="clusterTip"></div>
-<!-- Phase 67: imagery toggle for the two third-party basemaps only
-(Satellite / Streets) - hidden on the outline map, which has no imagery.
-Parcel/GIS layers: none of the three providers publishes US parcel
-boundaries, so there is deliberately no such button - see the Phase 67
-audit in CLAUDE.md. -->
 <div class="map-imagery-toggle" id="mapImageryToggle" role="group" aria-label="Imagery" hidden>
 <button type="button" class="on" data-imagery="satellite" id="mapImagerySatellite">Satellite</button>
 <button type="button" data-imagery="streets" id="mapImageryStreets">Streets</button>
@@ -638,12 +588,6 @@ audit in CLAUDE.md. -->
 </div>
 </div>
 </div>
-<!-- Phase 67: the property-intelligence side panel. Statewide it lists the
-counties in view (the rail) and the bubble legend; zoomed into a county
-it lists that county's properties (the strip, injected by explore.js);
-with a property selected the preview (also injected) sits at the top. On
-a phone this panel flows under the map and the preview becomes a bottom
-sheet - see explore.css. -->
 <aside class="map-side" id="mapSidePanel" aria-label="Property intelligence">
 <div class="map-side-head">
 <h2 class="explore-map-title">Where these are</h2>
@@ -651,15 +595,7 @@ sheet - see explore.css. -->
 </div>
 <div class="map-side-body" id="mapSideBody">
 <aside class="explore-map-rail" id="exploreMapRail" hidden aria-label="Counties in view"></aside>
-<!-- Real counts from the current bubbles, not a fixed key - see
-updateSummary() in explore.js. Hidden once zoomed into a county, where
-bubbles are replaced by real geocoded pins and a size scale no longer
-applies. -->
 <div class="explore-map-legend" id="exploreMapLegend" hidden></div>
-<!-- Said plainly rather than left to be inferred: a bubble is a county-level
-count, not a parcel pin. Only ~2% of rows currently carry latitude/
-longitude (see the header comment in explore.js), so drawing these as
-street-level pins would be a precision the data doesn't have. -->
 <p class="explore-map-note">Bubbles are county-level counts, sized by how many properties match — not exact parcel locations. Zoom into a county to see the properties we hold real coordinates for.</p>
 </div>
 </aside>
@@ -842,6 +778,9 @@ inventing an address - see docs/production-configuration.md section 4. -->
 <div class="detail-modal" id="termsModal" hidden>
 <div class="detail-modal-inner" id="termsModalInner">
 <button class="detail-close" id="termsCloseBtn" type="button" aria-label="Close">&times;</button>
+<!-- Louisiana terms (2026-09-30). No Louisiana statutory copy (adjudication,
+redemption, the post-adjudication sale process) is stated here: none has been
+researched with counsel. Do not add it without counsel review. -->
 <h2 class="detail-address" style="font-size:1.15rem">Terms &amp; disclaimer</h2>
 <div class="terms-body">
 <p class="terms-lead"><b>This is a research tool, not a title search.</b> Everything here is a best-effort reading of public records. It is not a certified title search, a title opinion, an appraisal, or legal or financial advice.</p>
@@ -850,18 +789,18 @@ inventing an address - see docs/production-configuration.md section 4. -->
 <p>Confirm every figure against the county's own auction site, the Clerk of Court, the Property Appraiser and the Tax Collector, and have a title company or attorney review the parcel. A tax deed can carry liens, code enforcement actions, and other encumbrances this tool does not and cannot see.</p>
 
 <h3>Where the numbers come from</h3>
-<p>Property data is collected from county and vendor websites (most Florida sources on a daily schedule) and can be wrong, incomplete, or out of date — a county can change or withdraw a listing at any time, including after our last sync.</p>
+<p>Louisiana data is East Baton Rouge Parish's open-data "Adjudicated Property" list (Public Domain, attribution: East Baton Rouge Parish Assessor's Office), read daily. The Parish itself last updated that list on the date each property shows; this app never presents it as more current than that. Data can be wrong, incomplete, or out of date - the Parish can change or withdraw a record at any time.</p>
 <!-- Was a permanent line in the masthead. It is provenance, not a control -
      it belongs with the rest of "where the numbers come from" rather than
      above the tabs on every screen. app.js writes it here now; the amber
      .generated.stale styling still applies when the sync is behind. -->
-<p class="generated" id="generatedAt" aria-live="polite">Loading…</p>
+<p class="generated" id="generatedAt">Loading…</p>
 <div class="source-health-terms" id="sourceHealthTerms"></div>
 <p>A property whose own row has not been re-synced recently carries an amber edge in the list, so a stale record is visible where you are actually reading, not only in aggregate here.</p>
-<p><b>Opening bid</b> is the county's published opening figure. It is a floor, not the cost to acquire — on a Lands Available parcel, taxes and fees accrued since the failed sale are added under Fla. Stat. §197.502(7) and §197.542. "Not published" means the county has not posted a figure, not that the parcel is free.</p>
-<p><b>County just / assessed value</b> comes from the county or state tax roll, not from an appraisal, a market-value estimate or a comparative market analysis.</p>
-<p><b>Fees</b> shown on a property page are an estimate — Florida documentary stamps (0.70 per $100), recording, and on homesteaded parcels the half-assessed-value minimum under Fla. Stat. §197.502(6)(c) — calculated on top of whatever the winning bid turns out to be. <b>Open question:</b> under §197.502(6)(c) the county's published opening bid on a homestead parcel may already include the half-assessed amount; if so, the homestead part of this estimate is counted twice. This is pending accountant/attorney review. Treat homestead fee figures as unconfirmed.</p>
-<p><b>Lien notes</b> are manual research notes entered on some listings. Most listings have none ("Not reviewed"), no review date is recorded, and they are not a title search or title opinion. "No flags noted" does not mean the title is clear. The <b>filter match</b> tag is arithmetic on county figures plus that manual note, not a recommendation to bid.</p>
+<p><b>Opening bid / minimum bid</b> is the figure the vendor or county published. It is not the cost to acquire. "Not published" means no figure was posted, not that the property is free.</p>
+<p><b>Value</b>, where shown, is the fair market / assessed value the Parish's list carries from the tax roll. It is not a price, an appraisal or a comparative market analysis.</p>
+<p><b>No price and no purchase process are published</b> in the Parish's list, and none is shown. Louisiana redemption rights, the post-adjudication sale process and costs are not tracked here.</p>
+<p><b>Lien notes</b> are not tracked for Louisiana listings. This app does not run a title search or give a title opinion.</p>
 
 <h3>No warranty</h3>
 <p>This tool is provided as is, with no warranty of accuracy, completeness or fitness for any particular purpose. You are responsible for your own due diligence and for every bid you place. Nothing here creates an attorney-client, broker, or fiduciary relationship.</p>

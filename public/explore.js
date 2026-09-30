@@ -75,10 +75,13 @@ const CANVAS_ID = "exploreMapCanvas";
 // FL only so it still loads, and app.js logs the mismatch.
 const STATE_ASSETS = {
   FL: { basemap: "fl-counties.svg", cities: "fl-cities.json", zips: "fl-zips.json" },
-  TX: { basemap: "tx-counties.svg", cities: "tx-cities.json", zips: "tx-zips.json" }
+  TX: { basemap: "tx-counties.svg", cities: "tx-cities.json", zips: "tx-zips.json" },
+  LA: { basemap: "la-parishes.svg", cities: "la-cities.json", zips: "la-zips.json", unit: "Parish" }
 };
 const PAGE_STATE = STATE_ASSETS[document.body.dataset.state] ? document.body.dataset.state : "FL";
 const STATE_INFO = STATE_ASSETS[PAGE_STATE];
+// County (FL, TX) or parish (LA) - the unit this page's rows name.
+const UNIT_WORD = STATE_INFO.unit || "County";
 
 // Live state, all of it derived from the last tdw:maprendered event.
 let rows = [];
@@ -255,6 +258,14 @@ const PROJ = {
     y: { lon: 0, lat: -0.066666276, c: 2.493318735 },
     baseW: 1000,
     baseH: 1006
+  },
+  // la-parishes.svg (2026-09-30) was generated from us-atlas with exactly
+  // this linear projection (cos 31deg), so the fit is exact by construction.
+  LA: {
+    x: { lon: 0.175438596, lat: 0, c: 16.543859649 },
+    y: { lon: 0, lat: -0.227161516, c: 7.541762328 },
+    baseW: 1000,
+    baseH: 901
   }
 };
 
@@ -694,7 +705,7 @@ function draw() {
       g.setAttribute("tabindex", "0");
       g.setAttribute("role", "button");
       g.setAttribute("aria-label",
-        `${county} County, ${list.length} ${list.length === 1 ? "property" : "properties"}` +
+        `${county} ${UNIT_WORD}, ${list.length} ${list.length === 1 ? "property" : "properties"}` +
         (selectedCounty === county ? " - selected, activate to clear" : " - activate to filter the list"));
       g.setAttribute("aria-pressed", selectedCounty === county ? "true" : "false");
 
@@ -1233,14 +1244,14 @@ function watchCanvasResize() {
 function updateSummary(byCounty) {
   renderCountyRail(byCounty);
   const titleEl = document.querySelector(".explore-map-title");
-  if (titleEl) titleEl.textContent = zoomCounty ? `${zoomCounty} County` : "Where these are";
+  if (titleEl) titleEl.textContent = zoomCounty ? `${zoomCounty} ${UNIT_WORD}` : "Where these are";
   const countEl = $("exploreMapCount");
   if (countEl) {
     const inCounty = zoomCounty ? (byCounty.get(zoomCounty) || []).length : 0;
     countEl.innerHTML = zoomCounty
       ? `<b>${inCounty}</b> ${inCounty === 1 ? "property" : "properties"}`
       : byCounty.size
-        ? `<b>${rows.length}</b> shown across <b>${byCounty.size}</b> ${byCounty.size === 1 ? "county" : "counties"}`
+        ? `<b>${rows.length}</b> shown across <b>${byCounty.size}</b> ${byCounty.size === 1 ? UNIT_WORD.toLowerCase() : (UNIT_WORD === "Parish" ? "parishes" : "counties")}`
         : "Nothing matches the current filters";
   }
   const resetBtn = $("exploreMapReset");
@@ -1376,7 +1387,7 @@ function bindMapInteraction() {
     const range = bids.length
       ? (bids.length === 1 ? fmtShort(bids[0]) : `${fmtShort(Math.min(...bids))} - ${fmtShort(Math.max(...bids))}`)
       : "no published price";
-    tip.innerHTML = `<b>${county} County</b><span>${list.length} ${list.length === 1 ? "property" : "properties"} - ${range}</span>`;
+    tip.innerHTML = `<b>${county} ${UNIT_WORD}</b><span>${list.length} ${list.length === 1 ? "property" : "properties"} - ${range}</span>`;
     const box = canvas.getBoundingClientRect();
     // Flip the tooltip to the left of the cursor near the right edge so it
     // can't run off the panel.
