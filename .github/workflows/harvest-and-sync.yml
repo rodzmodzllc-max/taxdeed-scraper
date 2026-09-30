@@ -182,11 +182,12 @@ on:
           sources' pages, documents and terms pages, structure only
           (scripts/capture_state_sources.py). "expansion" = the six-state
           sprint's candidate inventory pages and statewide parcel services
-          (EXPANSION_TARGETS), value-free.
+          (EXPANSION_TARGETS), value-free. "field_fill" = per-field fill
+          rates of every configured ArcGIS layer (scripts/probe_field_fill.py).
         required: false
         type: choice
         default: available
-        options: [available, auction_results, state_sources, expansion]
+        options: [available, auction_results, state_sources, expansion, field_fill]
 
 concurrency:
   group: harvest-and-sync
@@ -1110,6 +1111,13 @@ jobs:
             # and value shapes, dataset licence metadata, terms pages. Nothing
             # is written to any database and nothing is enabled.
             python3 scripts/capture_state_sources.py --discovery
+            exit 0
+          fi
+          if [ "$SCOPE" = "field_fill" ]; then
+            # Per-field FILL RATES of every configured ArcGIS layer (the
+            # expansion inventory layers and the statewide parcel layers):
+            # names, types and filled counts out of a sample, never a value.
+            python3 scripts/probe_field_fill.py
             exit 0
           fi
           if [ "$SCOPE" = "expansion" ]; then
