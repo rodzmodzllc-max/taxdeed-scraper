@@ -1398,6 +1398,10 @@ const hasPublishedBid = p => {
 // Test hook (tests/run_test.mjs): the rule above is module-scoped, and the
 // fixture has no row that exercises every branch without adding cards.
 window.__tdwHasPublishedBid = hasPublishedBid;
+// Six-state expansion: an auction amount the source publishes WITHOUT saying
+// what it is (Albany WY's bare "Total") is never called an opening / minimum
+// bid - it is labelled as a published amount of unstated kind.
+const amountWord = (p, dflt) => (p && p.source === "auction" && p.purchase_amount_kind === "PUBLISHED_AMOUNT_KIND_UNSPECIFIED") ? "Published amount (kind not stated)" : dflt;
 const bidDisplay = p => (hasPublishedBid(p) ? fmtMoney(p.bid) : "Not published");
 // Phase 65 / 71: the deed/LAFT CARD always shows the bid as a whole dollar,
 // rounded to the nearest dollar ("$324,265", never "$324,264.72") - on a
@@ -2754,7 +2758,7 @@ function previewFacts(p) {
   if (p.legal_desc) more.push(["Legal", String(p.legal_desc).length > 140 ? String(p.legal_desc).slice(0, 137) + "…" : String(p.legal_desc)]);
   return {
     kicker: `${where} · ${k.type} · ${k.phase}`, where, phaseCls: k.cls,
-    bidLabel: p.source === "laft" && regionOf(p) !== "TX" ? "Price" : "Minimum bid",
+    bidLabel: p.source === "laft" && regionOf(p) !== "TX" ? "Price" : amountWord(p, "Minimum bid"),
     bid: hasPublishedBid(p) ? fmtMoney(p.bid) : null,
     value: hasMarket ? fmtShort(p.market) : hasAssessed ? fmtShort(p.assessed) : null,
     valueLabel: hasMarket ? valueLabel(p) : hasAssessed ? assessedSourceLabel(p) + " - no just value on file" : null,
@@ -2830,7 +2834,7 @@ function card(p, showCounty) {
     </div>
     ${classificationBadgeHtml(p) ? `<div class="prop-classification-line">${classificationBadgeHtml(p)}</div>` : ""}
     <div class="card-stat-grid ${marketVal ? "card-stat-grid-2" : "card-stat-grid-1"}">
-      <div class="card-stat card-stat-headline"><div class="card-stat-label">${p.source === "laft" ? "Purchase Price" : "Opening Bid"}</div><div class="card-stat-val bid${bidPublished ? "" : " unpublished"}">${bidDisplayCard(p)}</div></div>
+      <div class="card-stat card-stat-headline"><div class="card-stat-label">${p.source === "laft" ? "Purchase Price" : amountWord(p, "Opening Bid")}</div><div class="card-stat-val bid${bidPublished ? "" : " unpublished"}">${bidDisplayCard(p)}</div></div>
       ${marketVal ? `<div class="card-stat card-stat-headline"><div class="card-stat-label">${esc(valueLabel(p))}</div><div class="card-stat-val market">${fmtShort(marketVal)}</div></div>` : ""}
     </div>
     ${p.source === "auction" && bidPublished && marketVal > 0 ? equitySpreadBarHtml(p) : ""}
@@ -3216,7 +3220,7 @@ function opportunitySummaryHtml(p) {
     ["What", `${esc(what)}${src ? `<span class="opp-sub">Source: ${esc(src)}</span>` : ""}`, ""],
     ["Where", where, ""],
     ["When", esc(when), whenCls],
-    [isLaft ? "Price" : "Minimum bid", bid ? `${esc(bid)}${ratio}` : `<span class="muted">Not published</span>`, bid ? "bid" : ""],
+    [isLaft ? "Price" : amountWord(p, "Minimum bid"), bid ? `${esc(bid)}${ratio}` : `<span class="muted">Not published</span>`, bid ? "bid" : ""],
     ...(isLaft ? [(() => { const a = acquisitionOf(p); return ["How to acquire", a.verified ? `${esc(a.label)}<span class="opp-sub">${esc(a.office || (a.channels.length ? a.channels.map(c => ACQUISITION_MODE_SHORT[c] || c).join(" · ") : "See the decision below"))}</span>` : `<span class="muted">${esc(a.mode === "none" ? "No purchase path (stated by the source)" : "Not yet verified")}</span>`, a.verified ? "ok" : "muted"]; })()] : []),
     ["Value on file", value, valueCls],
     ["Missing", missing, gaps.length ? "" : "ok"]
@@ -4265,7 +4269,7 @@ function detailHtml(p) {
   // rendered as the single flat .detail-grid it always has been.
   const stats = [];
   if (!isCert) {
-    stats.push(["Opening Bid", bidDisplay(p), "financial"]);
+    stats.push([amountWord(p, "Opening Bid"), bidDisplay(p), "financial"]);
     // Named for what it is - the appraiser's own just value for a stated roll
     // year - rather than the old "Market Value", which implied a live
     // estimate this app has never had and cannot legitimately obtain.

@@ -42,6 +42,11 @@ OUT = REPO / "out"
 REGISTRY = REPO / "data" / "county_source_registry.csv"
 EXPANSION_EVIDENCE = REPO / "data" / "purchase_path_evidence_expansion.csv"
 USER_AGENT = "taxdeed-scraper/1.0 (+https://github.com/rodzmodzllc-max/taxdeed-scraper; GitHub Actions)"
+# County web pages: the same browser headers the Florida HTML harvester and the
+# evidence capture use (a county WAF can refuse a bot User-Agent outright - the
+# Morgan CO page did on 2026-09-30 while the capture's browser headers read it).
+PAGE_HEADERS = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8", "Accept-Language": "en-US,en;q=0.9"}
 PARSER_VERSION = "1"
 CATEGORY_MAP = {"TRANSPORT": "TRANSPORT_CONNECTION", "SOURCE_ERROR": "PARSE_FORMAT_CHANGE"}
 
@@ -123,7 +128,8 @@ def run_source(src, fetch_json, fetch_text, *, retrieved_at, fixture: str | None
     try:
         html = Path(fixture).read_text(encoding="utf-8") if fixture else fetch_text(src.url)
     except Exception as exc:  # noqa: BLE001 - transport failure is FAILED, never zero
-        return "FAILED", [], "TRANSPORT_CONNECTION", f"{type(exc).__name__}", None
+        status = getattr(getattr(exc, "response", None), "status_code", None)
+        return "FAILED", [], "TRANSPORT_CONNECTION", f"{type(exc).__name__}" + (f" HTTP {status}" if status else ""), None
     adapter = TabularListAdapter(cfg)
     recs = adapter.parse_html_table(html, retrieved_at=retrieved_at)
     if recs:
@@ -161,7 +167,7 @@ def main(argv=None) -> int:
             return r.json()
 
         def fetch_text(url):
-            r = session.get(url, timeout=60)
+            r = session.get(url, timeout=60, headers=PAGE_HEADERS)
             r.raise_for_status()
             return r.text
     per_county = defaultdict(list)
@@ -174,7 +180,7 @@ def main(argv=None) -> int:
         records += recs
         shapes = dict(Counter(shape(r.case_no) for r in recs).most_common(4))
         print(f"{st} {cfg.source_id} [{cfg.county}] {status} rows={len(recs)} id_shapes={shapes}"
-              + (f" category={cat}" if cat else "") + (f" empty={empty}" if empty else ""))
+              + (f" category={cat}" if cat else "") + (f" detail={detail}" if detail else "") + (f" empty={empty}" if empty else ""))
     # One identity per (county, source, case_no) - the upsert's conflict target; a batch
     # carrying it twice is rejected whole by Postgres. The FIRST source listing it wins
     # (SOURCES orders a county's current list before its previous-sales list).

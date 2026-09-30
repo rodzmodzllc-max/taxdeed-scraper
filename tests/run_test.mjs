@@ -3018,13 +3018,10 @@ await navMap.close();
       results.xsMiCard = { count: await card.count(), county: /Eaton County, MI/.test(t), sev: /State Equalized Value/.test(t), noJustValue: !/Just Value/.test(t) };
     }
     if (code === 'CO') {
-      await pg.goto(BASE_URL.replace(/index\.html$/, 'co.html') + '#/certificates', { waitUntil: 'networkidle' });
-      await pg.waitForTimeout(400);
-      const card = pg.locator('.prop-card[data-pid="pco1"], .cert-card[data-pid="pco1"], [data-pid="pco1"]').first();
+      // Deep link straight to the certificate (a new state's deep link, cold start).
+      await pg.goto(BASE_URL.replace(/index\.html$/, 'co.html') + '#/certificates/pco1', { waitUntil: 'networkidle' });
+      await pg.waitForTimeout(500);
       results.xsCoCardCount = await pg.locator('[data-pid="pco1"]').count();
-      const detailBtn = card.locator('.detail-btn');
-      if (await detailBtn.count()) { await detailBtn.first().click(); } else { await card.click(); }
-      await pg.waitForTimeout(350);
       const d = ((await pg.locator('#detailModalInner').textContent()) || '').replace(/\s+/g, ' ');
       results.xsCoDetail = {
         treasurer: /Morgan County Treasurer/.test(d),

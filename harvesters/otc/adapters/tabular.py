@@ -58,6 +58,9 @@ class TabularConfig:
     document_url: str | None = None
     purchase_url: str | None = None
     purchase_url_kind: PurchaseUrlKind | None = None
+    # Every row of this table is a PAST sale listing (e.g. a "Previous Sales" table):
+    # the record is closed; a result is stored only where a price column publishes one.
+    past_listing: bool = False
     # Regex with one group capturing a date in the DOCUMENT NAME/TITLE,
     # e.g. r"(\d{1,2}\.\d{1,2}\.\d{2,4})" for "6.2.2026_Resale_List.pdf".
     list_as_of_pattern: str | None = None
@@ -227,6 +230,7 @@ class TabularListAdapter:
                 list_as_of=as_of, source_status_text=values.get("status"), provenance=prov,
                 record_source=self.cfg.record_source, owner_name=values.get("owner_name"),
                 certificate_no=values.get("certificate_no"),
+                listing_closed=self.cfg.past_listing,
                 sale_date=sale_date if self.cfg.record_source == "auction" else None,
                 result_amount=result_amount if self.cfg.record_source == "auction" else None,
                 result_date=sale_date if (result_amount is not None and self.cfg.record_source == "auction") else None,

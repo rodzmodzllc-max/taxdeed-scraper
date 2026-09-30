@@ -134,8 +134,18 @@ def test_a02_wyoming_and_south_carolina_carry_only_published_fields(tmp_path):
     assert wy[0]["market"] == 188000.0 and wy[0]["owner_name"] and wy[0]["tax_year"] == "2025"
     sc = run("SC", tmp_path / "sc")["rows"]
     assert len(sc) == 2
+    # Coordinates are the centroid of York's own parcel polygon (the layer's Latitude /
+    # Longitude attributes are empty); a feature without geometry gets none.
     geo = [r for r in sc if r.get("latitude") is not None]
-    assert len(geo) == 1 and (geo[0]["latitude"], geo[0]["longitude"]) == (34.99, -81.24)
+    assert len(geo) == 1 and abs(geo[0]["latitude"] - 34.985) < 1e-6 and abs(geo[0]["longitude"] + 81.245) < 1e-6
+    assert "derived" in geo[0]["otc_provenance"]["coordinates"]
+    # York's CAMA columns, as published; zero is "not published", never a value.
+    by = {r["case_no"]: r for r in sc}
+    assert by["1234567890"]["market"] == 152000 and by["1234567890"]["land_value"] == 30000
+    assert by["1234567890"]["improvement_value"] == 122000 and by["1234567890"]["assessed"] == 6080
+    assert "improvement_value" not in by["1234567891"]
+    # York's SOLD column is a web-display switch ("Hide On Public Site"), never an outcome.
+    assert all(r["status"] == "active" for r in sc)
     # York publishes no amount: nothing is invented.
     assert all(not r.get("min_bid") and r.get("purchase_amount") is None for r in sc)
 
@@ -153,8 +163,13 @@ def test_a04_wisconsin_current_empty_statement_and_previous_published_sales(tmp_
     out = run("WI", tmp_path)
     assert units(out["status"]) == {"Green": "COMPLETE"}
     rows = out["rows"]
-    assert len(rows) == 2 and all(r["status"] == "closed" for r in rows)
-    assert all(r["result_amount"] and r["result_date"] == r["sale_date"] for r in rows)
+    # Every Previous Sales row is a past listing: closed. A result only where the county
+    # published a Sale Price; the row with a blank price stays closed with NO result.
+    assert len(rows) == 3 and all(r["status"] == "closed" for r in rows)
+    priced = [r for r in rows if r.get("result_amount")]
+    assert len(priced) == 2 and all(r["result_date"] == r["sale_date"] for r in priced)
+    blank = [r for r in rows if not r.get("result_amount")]
+    assert len(blank) == 1 and "result_date" not in blank[0] and not blank[0].get("purchase_path_type")
     assert all(r["address"] != "N/A" for r in rows)                 # a "N/A" cell is no value
     # The current table alone: the county's own "no current sales" statement -> EMPTY.
     html = (FIX / "wi_green.html").read_text()
@@ -352,3 +367,14 @@ def test_w01_expansion_job_is_a_matrix_in_the_existing_slot_and_touches_no_sched
     on = wf.get("on") or wf.get(True)
     assert on["schedule"] == [{"cron": "0 10 * * *"}, {"cron": "0 22 * * *"}, {"cron": "0 12 * * *"}]
     assert "expansion" in on["workflow_dispatch"]["inputs"]["job"]["options"]
+
+
+def test_a05_an_amount_of_unstated_kind_is_never_a_minimum_bid(tmp_path):
+    # Albany WY publishes a bare "Total": it keeps its kind and is never written to min_bid.
+    wy = run("WY", tmp_path)["rows"]
+    assert all(r["min_bid"] is None and r["purchase_amount_kind"] == "PUBLISHED_AMOUNT_KIND_UNSPECIFIED" and r["purchase_amount"] > 0 for r in wy)
+    # Opening bids (MI) are the auction's own column and carry no purchase-amount fields.
+    mi = run("MI", tmp_path / "mi")["rows"]
+    assert all(r["min_bid"] > 0 and "purchase_amount" not in r for r in mi)
+    app = (REPO / "public/app.js").read_text(encoding="utf-8")
+    assert 'amountWord(p, "Opening Bid")' in app and "Published amount (kind not stated)" in app

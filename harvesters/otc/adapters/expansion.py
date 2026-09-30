@@ -39,7 +39,7 @@ MI_EATON = ArcGisLayerConfig(
     fields=ArcGisFieldMap(case_no="lparcel", parcel="lparcel", address="SITEADDRESS", legal_desc="description",
                           amount="minbid", sold_flag="Sold", land_use="type", acreage="STATEDAREA",
                           taxable_value="CNTTXBLVAL", assessed="SEV_1"),
-    amount_kind=AmountKind.OPENING_BID, list_url=_item("5b973732a9e84fdd94fa225f8160650d"), columns_verified=True,
+    amount_kind=AmountKind.OPENING_BID, list_url=_item("5b973732a9e84fdd94fa225f8160650d"), columns_verified=True, centroid=True,
     notes="'Tax parcels for sale in auction by the Eaton County Treasurer following forfeiture and foreclosure' "
           "(item snippet). minbid alias 'Minimum Bid'; Sold alias 'Has Been Sold' (the layer's own flag, kept verbatim); "
           "SEV_1 = State Equalized Value, CNTTXBLVAL = Current Taxable Value.")
@@ -50,7 +50,7 @@ MI_LENAWEE = ArcGisLayerConfig(
     layer_url="https://services6.arcgis.com/mjEvhc9AE3ceAXtG/arcgis/rest/services/Tax_Sale_2026_view/FeatureServer/0",
     fields=ArcGisFieldMap(case_no="TAXID", parcel="TAXID", address="PropAdd", legal_desc="TaxDesc", amount="MinBid",
                           acreage="ACREREC"),
-    amount_kind=AmountKind.OPENING_BID, list_url=_item("47baabcecf1a4f4e9c47ef15c7c4b7ef"), columns_verified=True,
+    amount_kind=AmountKind.OPENING_BID, list_url=_item("47baabcecf1a4f4e9c47ef15c7c4b7ef"), columns_verified=True, centroid=True,
     notes="'The 2026 Tax Sale Parcels for Lenawee County Michigan'; licence field: 'Public layer for denoting 2026 "
           "Lenawee County Tax Sale parcels.' MinBid = the published minimum bid.")
 
@@ -59,10 +59,10 @@ WY_ALBANY = ArcGisLayerConfig(
     source_authority=SourceAuthority.GOVERNMENT_DIRECT, inventory_type=None, record_source="auction",
     layer_url="https://services1.arcgis.com/EmwrhKkmuQhTATzU/arcgis/rest/services/2026TAXSALEPROP_1ST/FeatureServer/0",
     fields=ArcGisFieldMap(case_no="accountno", parcel="pidn", owner_name="name1", address="st_address",
-                          legal_desc="LEGALDESCR", amount="TOTAL", acreage="grossacres", market="totalval",
+                          legal_desc="LEGALDESCR", amount="TOTAL", acreage="grossacres", market="totalval", land_value="landval",
                           tax_year="taxyear"),
     amount_kind=AmountKind.PUBLISHED_AMOUNT_KIND_UNSPECIFIED, list_url=_item("239e5314f25f4e9898f9201d36301af9"),
-    columns_verified=True,
+    columns_verified=True, centroid=True,
     notes="'2026 TAX SALE PROPERTIES 1ST LIST FROM ALBANY COUNTY, WY TREASURER'S OFFICE.' The layer's TOTAL figure "
           "carries no alias saying what it totals, so it is kept as a published amount of UNSPECIFIED kind, never "
           "called a bid. totalval (Total value) is kept as the value on file.")
@@ -71,12 +71,18 @@ SC_YORK = ArcGisLayerConfig(
     source_id="sc_york_tax_sale", state="SC", county="York",
     source_authority=SourceAuthority.GOVERNMENT_DIRECT, inventory_type=None, record_source="auction",
     layer_url="https://services1.arcgis.com/2AGLxyiJoNiVHKwq/arcgis/rest/services/Tax_Sale_Properties_2025_View/FeatureServer/0",
-    fields=ArcGisFieldMap(case_no="TAXMAPID", parcel="TAXMAPID", owner_name="OWNNAME", legal_desc="LOCDESC",
-                          land_use="PROPTYPE", acreage="TOTALACRES", tax_year="TAXYEAR",
-                          latitude="Latitude", longitude="Longitude"),
-    list_url=_item("0bf91b9d18f14702873af5f3ad870429"), columns_verified=True,
+    # Field FILL rates read live (evidence_scope=field_fill, 2026-09-30): the view's older
+    # attributes (OWNNAME, LOCDESC, TOTALACRES, Latitude/Longitude) are EMPTY; the filled
+    # set is the CAMA block below. SOLD ("Hide On Public Site") is a web-display switch,
+    # not a sale outcome, and is never read.
+    fields=ArcGisFieldMap(case_no="TAXMAPID", parcel="TAXMAPID", owner_name="Owner1", address="PropertyAddress",
+                          legal_desc="LegalDescription", land_use="LandUseDesc", acreage="deededacres",
+                          market="AprTotVal", land_value="AprLandVal", improvement_value="AprBldgVal",
+                          taxable_value="TaxTotVal", assessed="AsdTotVal", tax_year="TAX_YEAR"),
+    list_url=_item("0bf91b9d18f14702873af5f3ad870429"), columns_verified=True, centroid=True,
     notes="Item 'Tax Sale Properties 2026 View' (layer named TaxSaleProperties2025_update, edited 2026-09-29). The "
-          "layer publishes no bid amount. Latitude/Longitude are the layer's own attributes.")
+          "layer publishes no bid amount. Values are the layer's own appraisal / taxable / assessed columns; the "
+          "coordinates are the centroid of the layer's own parcel polygon.")
 
 CO_MORGAN = TabularConfig(
     source_id="co_morgan_county_held_certificates", state="CO", county="Morgan",
@@ -103,7 +109,7 @@ WI_GREEN_PREVIOUS = TabularConfig(
     source_authority=SourceAuthority.GOVERNMENT_DIRECT, inventory_type=None, record_source="auction",
     columns=ColumnMap(case_no=("tax parcel number",), parcel=("tax parcel number",), address=("site address",),
                       amount=("minimum bid amount",), sale_date=("sale date",), result_amount=("sale price",)),
-    amount_kind=AmountKind.OPENING_BID, header_required=("sale price",),
+    amount_kind=AmountKind.OPENING_BID, header_required=("sale price",), past_listing=True,
     list_url="https://www.greencountywi.org/492/Current-Tax-Deed-Sales", columns_verified=True,
     notes="'Previous Sales' table: each row is a completed sale with its published Sale Price (a result, as published).")
 

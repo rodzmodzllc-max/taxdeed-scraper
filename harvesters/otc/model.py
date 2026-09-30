@@ -112,6 +112,11 @@ class OtcRecord:
     acreage: float | None = None                    # as the source publishes it on the row, never computed
     land_use: str | None = None                     # the source's own property type / class wording
     taxable_value: float | None = None              # as published on the row (e.g. Michigan's taxable value)
+    # The source lists the row in a table of PAST sales (e.g. Green WI's "Previous Sales"):
+    # the listing is over (status closed). Says nothing about who bought it or for how much.
+    listing_closed: bool = False
+    land_value: float | None = None                 # as published on the row (e.g. York SC's land market value)
+    improvement_value: float | None = None          # as published on the row (building / improvement value)
     # A PUBLISHED result (six-state sprint): only when the source's own row
     # carries it (e.g. a county's "Previous Sales" table with a sale price).
     # Never inferred from absence. A row with a result is closed.
@@ -140,11 +145,13 @@ class OtcRecord:
             problems.append("result_amount cannot be negative")
         if (self.result_amount is not None or self.result_date is not None) and self.record_source != "auction":
             problems.append("a published sale result belongs to an auction record")
+        if self.listing_closed and self.record_source != "auction":
+            problems.append("a past-sale listing belongs to an auction record")
         if self.sale_date is not None and self.record_source != "auction":
             problems.append("sale_date belongs to an auction record")
         if self.record_source == "auction" and self.amount is not None and self.amount_kind not in (AmountKind.OPENING_BID, AmountKind.MINIMUM_PURCHASE_AMOUNT, AmountKind.PUBLISHED_AMOUNT_KIND_UNSPECIFIED):
             problems.append("an auction amount is the published opening / minimum bid (or of unspecified kind)")
-        for name in ("acreage", "taxable_value"):
+        for name in ("acreage", "taxable_value", "land_value", "improvement_value"):
             value = getattr(self, name)
             if value is not None and value < 0:
                 problems.append(f"{name} cannot be negative")
@@ -237,11 +244,11 @@ class OtcRecord:
         # Only when the source published one: an absent key never writes
         # NULL over a value another step carried.
         for name in ("owner_name", "assessed", "market", "tax_year", "latitude", "longitude", "certificate_no", "interest_rate",
-                     "acreage", "land_use", "taxable_value"):
+                     "acreage", "land_use", "taxable_value", "land_value", "improvement_value"):
             value = getattr(self, name)
             if value is not None:
                 row[name] = value
-        if self.published_outcome == "sold":
+        if self.published_outcome == "sold" or self.listing_closed:
             row["status"] = "closed"
         if self.result_amount is not None or self.result_date is not None:
             row["status"] = "closed"
@@ -253,12 +260,23 @@ class OtcRecord:
             # AUCTIONS: the published minimum / opening bid is the auction's
             # bid (FL auction rows' own columns); no AVAILABLE purchase fields.
             row["ledger_type"] = "auctions"
-            if self.amount is not None:
+            row.pop("inventory_type", None)
+            if self.amount is not None and self.amount_kind in (AmountKind.OPENING_BID, AmountKind.MINIMUM_PURCHASE_AMOUNT):
+                # The source calls it an opening / minimum bid: the auction's own column.
                 row["min_bid"] = self.amount
+                row.pop("purchase_amount", None)
+                row.pop("purchase_amount_kind", None)
+            elif self.amount is None:
+                row.pop("purchase_amount", None)
+                row.pop("purchase_amount_kind", None)
+            else:
+                # An amount of UNSPECIFIED kind (e.g. a list's bare "Total") is never
+                # called a minimum bid - it keeps purchase_amount + purchase_amount_kind
+                # so the frontend labels it as the source published it. min_bid is sent
+                # as NULL explicitly so an upsert clears any earlier value.
+                row["min_bid"] = None
             if self.sale_date is not None:
                 row["sale_date"] = self.sale_date.isoformat()
-            for k in ("purchase_amount", "purchase_amount_kind", "inventory_type"):
-                row.pop(k, None)
             if self.source_status_text:
                 row["inventory_status_raw"] = self.source_status_text
         return row
@@ -283,6 +301,7 @@ class OtcRecord:
             "source_status_text": self.source_status_text, "otc_provenance": dict(self.provenance),
             "sale_date": self.sale_date.isoformat() if self.sale_date else None,
             "acreage": self.acreage, "land_use": self.land_use, "taxable_value": self.taxable_value,
+            "land_value": self.land_value, "improvement_value": self.improvement_value,
         }
         return {k: v for k, v in row.items() if v is not None}
 

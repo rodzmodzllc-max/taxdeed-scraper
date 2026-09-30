@@ -1141,7 +1141,9 @@ jobs:
         if: always()
         run: |
           echo "::group::purchase-evidence digest"
-          if [ -f out/public/state-source-capture.json ]; then
+          if [ -f out/public/field-fill.json ]; then
+            echo "field fill rates printed by the capture step above"
+          elif [ -f out/public/state-source-capture.json ]; then
             python3 scripts/capture_state_sources.py --digest out/public/state-source-capture.json
           else
             python3 scripts/capture_purchase_evidence.py --digest out/public/purchase-evidence-capture.json
@@ -1158,6 +1160,7 @@ jobs:
         run: |
           status=out/public/purchase-evidence-capture.json
           [ -f out/public/state-source-capture.json ] && status=out/public/state-source-capture.json
+          [ -f out/public/field-fill.json ] && status=out/public/field-fill.json
           python3 scripts/artifact_evidence.py --job purchase-evidence --status "$status"
 
       - name: Upload artifact (evidence)
