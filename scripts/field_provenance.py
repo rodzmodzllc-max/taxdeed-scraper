@@ -47,6 +47,7 @@ RANK = {
     "county_list": 2,      # the county's own Lands Available list (harvest row)
     "fdor_nal": 2,         # FDOR statewide cadastral / NAL tax-roll layer
     "county_gis": 2,       # a county-run parcel layer (Santa Rosa, Flagler)
+    "statewide_parcel": 2, # a state's statewide parcel / assessment layer (harvesters/enrichment/parcels.py) - FDOR's peer
     "vendor_listing": 1,   # a vendor/counsel listing (LGBS, RealAuction)
 }
 UNKNOWN_RANK = 2  # a value with no entry: treated like a government source

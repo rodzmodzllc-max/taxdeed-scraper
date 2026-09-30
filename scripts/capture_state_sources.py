@@ -130,6 +130,23 @@ EXPANSION_ITEMS = {
     "GA": ["239e5314f25f4e9898f9201d36301af9"],        # Albany GA 2026 tax sale
     "XX": ["cfde38996bd443f8bc0b4ef7aac8d4e1", "2213fa3775db4f75ac1c13dc121dd28f"],  # unidentified 2026 tax sale layers
 }
+EXPANSION_ITEM_QUERIES = ('"NC1Map" parcels', 'owner:NCOneMap', '"Colorado Public Parcels"',
+                          '"tax foreclosure" type:"Feature Service"', '"tax sale" 2026 type:"Feature Service"',
+                          '"forfeited" type:"Feature Service"')
+EXPANSION_EXTRA = {
+    "UT": ["https://gis.utah.gov/documentation/policy/license/", "https://www.saltlakecounty.gov/property-tax/property-tax-sale/"],
+    "WV": ["https://www.wvsao.gov/CountyCollections/LandSales", "https://www.wvsao.gov/CountyCollections/DeputyLandCommissioners",
+           "https://www.wvsao.gov/CountyCollections/CertifiedToState"],
+    "IN": ["https://www.in.gov/gis/", "https://www.sriservices.com/properties"],
+    "TN": ["https://comptroller.tn.gov/disclaimer.html"],
+    "WI": ["https://www.sco.wisc.edu/parcels/data/", "https://www.co.sauk.wi.us/treasurer/tax-deeded-properties"],
+    "NC": ["https://www.nconemap.gov/pages/parcels", "https://www.burkenc.org/2263/Tax-Foreclosures"],
+    "MD": ["https://baltimorecity.marylandtaxsale.com/index.cfm?zaction=AUCTION&Zmethod=CALENDAR"],
+    "NJ": ["https://easthanover.newjerseytaxsale.com/index.cfm?zaction=AUCTION&Zmethod=CALENDAR"],
+}
+FOLLOW_VOCAB = re.compile(r"land sale|listing|certified|no bid|delinquent|foreclos|tax sale|tax deed|forfeit|sealed bid|"
+                          r"terms of use|disclaimer|current sales|sale list|properties for sale", re.I)
+MAX_FOLLOW = 6
 EXPANSION_ITEMS.update({
     "WY": ["239e5314f25f4e9898f9201d36301af9"],
     "MI": ["47baabcecf1a4f4e9c47ef15c7c4b7ef", "5b973732a9e84fdd94fa225f8160650d"],
@@ -149,23 +166,6 @@ ASPNET_PROBES = {
            ["ctl00$FixedWidthContent$YearDD", "ctl00$FixedWidthContent$CountyDD"],
            "ctl00$FixedWidthContent$SearchBTN"),
 }
-EXPANSION_ITEM_QUERIES = ('"NC1Map" parcels', 'owner:NCOneMap', '"Colorado Public Parcels"',
-                          '"tax foreclosure" type:"Feature Service"', '"tax sale" 2026 type:"Feature Service"',
-                          '"forfeited" type:"Feature Service"')
-EXPANSION_EXTRA = {
-    "UT": ["https://gis.utah.gov/documentation/policy/license/", "https://www.saltlakecounty.gov/property-tax/property-tax-sale/"],
-    "WV": ["https://www.wvsao.gov/CountyCollections/LandSales", "https://www.wvsao.gov/CountyCollections/DeputyLandCommissioners",
-           "https://www.wvsao.gov/CountyCollections/CertifiedToState"],
-    "IN": ["https://www.in.gov/gis/", "https://www.sriservices.com/properties"],
-    "TN": ["https://comptroller.tn.gov/disclaimer.html"],
-    "WI": ["https://www.sco.wisc.edu/parcels/data/", "https://www.co.sauk.wi.us/treasurer/tax-deeded-properties"],
-    "NC": ["https://www.nconemap.gov/pages/parcels", "https://www.burkenc.org/2263/Tax-Foreclosures"],
-    "MD": ["https://baltimorecity.marylandtaxsale.com/index.cfm?zaction=AUCTION&Zmethod=CALENDAR"],
-    "NJ": ["https://easthanover.newjerseytaxsale.com/index.cfm?zaction=AUCTION&Zmethod=CALENDAR"],
-}
-FOLLOW_VOCAB = re.compile(r"land sale|listing|certified|no bid|delinquent|foreclos|tax sale|tax deed|forfeit|sealed bid|"
-                          r"terms of use|disclaimer|current sales|sale list|properties for sale", re.I)
-MAX_FOLLOW = 6
 EXPANSION_QUERIES = ('"tax sale" parcels type:"Feature Service"',
                      '"delinquent" parcels type:"Feature Service"',
                      '"tax deed" type:"Feature Service"',
