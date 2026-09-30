@@ -56,8 +56,22 @@ EXTRA_URLS = {
            "https://www.revenue.alabama.gov/faq-categories/land-sales/"],
     "AR": ["https://cosl.org/Home/Faq", "https://cosl.org/Home/Laws", "https://auction.cosl.org/"],
     "LA": ["https://data.brla.gov/api/views/a4h4-zi7e.json"],
-    "AZ": ["https://treasurer.maricopa.gov/TaxLien"],
+    "AZ": ["https://treasurer.maricopa.gov/TaxLien", "https://ftp.treasurer.maricopa.gov/TaxAssignment/State_CP/state-cp-data.csv"],
 }
+# Candidate NEW sources (not in the registry): official pages named by a web
+# search, read once for structure and terms. Discovery only.
+DISCOVERY_PAGES = {
+    "MN": ["https://www.stlouiscountymn.gov/departments-a-z/land-minerals/sales-and-contracts/tax-forfeited-land-sales",
+           "https://www.hennepincounty.gov/services/property/tax-forfeited-land",
+           "https://gishub-beltramicounty.hub.arcgis.com/datasets/county-land-sales/about",
+           "https://www.itascacountymn.gov/616/Tax-Forfeit-Land",
+           "https://www.carltoncountymn.gov/935/Tax-Forfeited-Land-Sale",
+           "https://www.hubbardcounty.gov/tfl",
+           "https://ottertailcounty.gov/property-home/property-sales/tax-forfeited-lands/"],
+}
+DISCOVERY_QUERIES = ('"tax forfeited" type:"Feature Service"', '"tax forfeit" type:"Feature Service"',
+                     '"tax-forfeited" type:"Feature Service"', '"land sales" forfeited type:"Feature Service"',
+                     '"adjudicated" property type:"Feature Service"')
 TERMS_VOCAB = re.compile(r"terms|disclaimer|legal|licen[cs]e|conditions|copyright|policy|privacy|open data|use of (this|the) (site|data)", re.I)
 SNIPPET_VOCAB = re.compile(r"terms|disclaim|licen[cs]|copyright|permission|commercial|redistribut|reproduc|public record|open data|"
                            r"warrant|liabil|accuracy|purchas|apply|application|bid|auction|redeem|redemption|inventory|"
@@ -228,10 +242,85 @@ def form_probe(session: requests.Session, url: str) -> dict:
     return {"error": "no GET form with a select on the page"}
 
 
+ARCGIS_SEARCH = "https://www.arcgis.com/sharing/rest/search"
+
+
+def strip_html(text: str) -> str:
+    return clean(re.sub(r"<[^>]+>", " ", text or ""))
+
+
+def arcgis_layer_meta(session: requests.Session, url: str) -> list[dict]:
+    """A feature / map service's layers: name, fields, edit date and feature
+    count. Metadata only - never a feature."""
+    out = []
+    resp, err = fetch(session, url.rstrip("/") + "?f=json")
+    if err or resp is None or resp.status_code != 200:
+        return [{"error": err or f"status {getattr(resp, 'status_code', None)}"}]
+    try:
+        svc = resp.json()
+    except ValueError:
+        return [{"error": "not json"}]
+    layers = svc.get("layers") or []
+    if not layers and re.search(r"/(FeatureServer|MapServer)/\d+$", url):
+        layers = [{"id": int(url.rstrip("/").rsplit("/", 1)[1])}]
+        url = url.rstrip("/").rsplit("/", 1)[0]
+    for lyr in layers[:6]:
+        lurl = f"{url.rstrip('/')}/{lyr.get('id')}"
+        rec: dict = {"layer": lurl}
+        r2, e2 = fetch(session, lurl + "?f=json")
+        if e2 or r2 is None or r2.status_code != 200:
+            rec["error"] = e2 or f"status {getattr(r2, 'status_code', None)}"
+            out.append(rec)
+            continue
+        try:
+            meta = r2.json()
+        except ValueError:
+            rec["error"] = "not json"
+            out.append(rec)
+            continue
+        rec.update({"name": meta.get("name"), "geometry": meta.get("geometryType"), "max_records": meta.get("maxRecordCount"),
+                    "last_edit": (meta.get("editingInfo") or {}).get("lastEditDate"),
+                    "copyright": strip_html(meta.get("copyrightText") or "")[:300],
+                    "fields": [f"{f.get('name')}:{(f.get('type') or '').replace('esriFieldType', '')}" + (f"({f.get('alias')})" if f.get("alias") and f.get("alias") != f.get("name") else "")
+                               for f in meta.get("fields") or []][:60]})
+        r3, _ = fetch(session, lurl + "/query?where=1%3D1&returnCountOnly=true&f=json")
+        try:
+            rec["count"] = r3.json().get("count") if r3 is not None and r3.status_code == 200 else None
+        except ValueError:
+            rec["count"] = None
+        out.append(rec)
+        time.sleep(0.4)
+    return out
+
+
+def arcgis_discover(session: requests.Session, query: str, *, limit: int = 40) -> list[dict]:
+    """ArcGIS Online's own catalog search for public items matching `query`:
+    who publishes them, their licence / access text, and (for services) the
+    layers' field names and counts."""
+    params = {"q": query, "f": "json", "num": limit, "sortField": "modified", "sortOrder": "desc"}
+    resp, err = fetch(session, ARCGIS_SEARCH + "?" + urlencode(params))
+    if err or resp is None or resp.status_code != 200:
+        return [{"error": err or f"status {getattr(resp, 'status_code', None)}"}]
+    items = []
+    for it in (resp.json().get("results") or [])[:limit]:
+        rec = {"id": it.get("id"), "title": it.get("title"), "type": it.get("type"), "owner": it.get("owner"),
+               "org": it.get("orgId"), "url": it.get("url"), "modified": it.get("modified"),
+               "tags": (it.get("tags") or [])[:12], "snippet": strip_html(it.get("snippet") or "")[:240],
+               "license": strip_html(it.get("licenseInfo") or "")[:600], "access": strip_html(it.get("accessInformation") or "")[:240]}
+        if it.get("type") in ("Feature Service", "Map Service") and it.get("url"):
+            rec["layers"] = arcgis_layer_meta(session, it["url"])
+        items.append(rec)
+        time.sleep(0.3)
+    return items
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--digest", default=None)
     ap.add_argument("--state", action="append", default=[])
+    ap.add_argument("--arcgis-search", action="append", default=[], help="ArcGIS Online catalog query (repeatable); metadata only")
+    ap.add_argument("--skip-registry", action="store_true")
+    ap.add_argument("--discovery", action="store_true", help="also read DISCOVERY_PAGES and run DISCOVERY_QUERIES")
     ap.add_argument("--out", default=str(OUT_PATH))
     args = ap.parse_args(argv)
     if args.digest:
@@ -241,7 +330,19 @@ def main(argv=None) -> int:
     session = requests.Session()
     report: dict = {"generated_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat(), "states": {}}
     with open(REGISTRY, newline="", encoding="utf-8") as fh:
-        rows = [r for r in csv.DictReader(fh) if r["state"] in wanted]
+        rows = [] if args.skip_registry else [r for r in csv.DictReader(fh) if r["state"] in wanted]
+    for code, urls in DISCOVERY_PAGES.items():
+        if not args.discovery:
+            break
+        entry = {"source_id": f"discovery_{code.lower()}", "county": "(discovery)", "pages": []}
+        for url in urls:
+            entry["pages"].append(capture(session, url, "discovery"))
+            print(f"  {code} discovery      {entry['pages'][-1].get('status', entry['pages'][-1].get('error'))} {url}", flush=True)
+            time.sleep(0.8)
+        report["states"].setdefault(code, {"sources": []})["sources"].append(entry)
+    for q in (args.arcgis_search or (DISCOVERY_QUERIES if args.discovery else ())):
+        report.setdefault("arcgis", {})[q] = arcgis_discover(session, q)
+        print(f"  arcgis search {q!r}: {len(report['arcgis'][q])} item(s)", flush=True)
     for r in rows:
         st = report["states"].setdefault(r["state"], {"sources": []})
         entry = {"source_id": r["source_id"], "county": r["county"], "pages": []}
@@ -321,6 +422,28 @@ def digest(path: Path) -> str:
                     out.append("  socrata: " + json.dumps(pg["socrata"])[:3000])
                 for s in pg.get("snippets") or []:
                     out.append(f"  s: {s}")
+    for q, items in (data.get("arcgis") or {}).items():
+        out.append(f"@@ ARCGIS {q}")
+        for it in items:
+            if it.get("error"):
+                out.append(f"  error: {it['error']}")
+                continue
+            out.append(f"  * {it['type']} | {it['title']} | owner={it['owner']} org={it['org']} id={it['id']} modified={it['modified']}")
+            out.append(f"    url={it.get('url')} tags={it.get('tags')}")
+            if it.get("snippet"):
+                out.append(f"    snippet: {it['snippet']}")
+            if it.get("license"):
+                out.append(f"    license: {it['license']}")
+            if it.get("access"):
+                out.append(f"    access: {it['access']}")
+            for l in it.get("layers") or []:
+                if l.get("error"):
+                    out.append(f"    layer error: {l['error']}")
+                    continue
+                out.append(f"    layer {l['layer']} name={l.get('name')} geom={l.get('geometry')} count={l.get('count')} last_edit={l.get('last_edit')} max={l.get('max_records')}")
+                out.append(f"      fields: {', '.join(l.get('fields') or [])}")
+                if l.get("copyright"):
+                    out.append(f"      copyright: {l['copyright']}")
     return "\n".join(out)
 
 
