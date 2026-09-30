@@ -135,7 +135,123 @@ hours", "back-off: attempted at most once per 48 hours".
   point. The preview leads with Availability, Purchase path, Amount kind.
 - **Withheld inventory** is counted on the ledger page and the Dashboard.
 
-## 8. Not done, on purpose
+## 8. Commercial release (2026-09-30, migration 023)
+
+Everything below is on top of sections 1-7 and is what the customer
+AVAILABLE ledger ships with. Migrations 021, 022 and 023 are APPLIED to
+production (owner-authorized sprint activation, 2026-09-30); every laft run
+now writes the lifecycle, the status history, the freshness rows, the
+publication decision and - once evidence exists - the typed purchase path.
+
+### 8.1 The purchase-path engine (`scripts/purchase_path_engine.py`)
+
+One place establishes "how does a buyer act on this row", from evidence
+only. Ten path types: `direct_property_url`, `county_instructions`,
+`application_page`, `application_download`, `in_person`, `phone_mail`,
+`quoted_amount`, `amount_plus_costs`, `amount_on_application`,
+`none_published`. A stored path carries its type, the URL (the four URL
+types only - 017's `purchase_url` + kind), the evidence, the date the
+evidence was observed and its scope: `property` (a link the source
+published for this parcel) or `source` (the source's own process, page or
+wording, the same for every parcel it lists).
+
+Evidence comes from three tables and nothing else, in this precedence:
+the row's own link established by an enabled rule
+(`data/laft_purchase_link_rules.csv`, property scope); a source-scope row
+in `data/purchase_path_evidence.csv` (a human verified the source's own
+page - ships empty); a PRODUCTION_VERIFIED registry row's source-level
+`purchase_url` + kind, its stated non-URL mode with the source's wording,
+or its `QUOTED_ON_APPLICATION` amount kind. The engine refuses, whatever
+proposed it: not https, the list page or the document itself, a bare
+homepage, a search engine, a blocked vendor's host, a search-results page,
+a guessed URL pattern (placeholders / templates), and a third-party host
+the evidence row did not explicitly permit. A refusal is a reason in
+`otc_provenance.purchase_url`, never a path. Nothing verified = the four
+columns stay NULL; `none_published` is written only from the source's own
+wording (registry mode `none`), because "the source publishes no path" is
+itself a claim.
+
+`scripts/laft_lifecycle.py` runs the engine per observed row
+(`PathContext`), carries the derived mode into `otc_provenance` as before,
+and writes the four columns only once migration 023 is probed. The gate
+report carries `purchase_paths` (rows / evaluated / by type / by scope /
+with URL) - the purchase-path coverage metric.
+
+### 8.2 Source-published outcomes (`scripts/outcome_ingest.py`)
+
+A result (status, date, amount, party) is stored only when the source
+published it and an enabled, verified rule in
+`data/outcome_column_rules.csv` names which column carries what; a party
+is carried only under a rule that says publishing it is permitted. The
+table ships empty. The FL lists' own "Sold To" column keeps producing the
+`sold` status through the identity files; the date / amount / party of
+such a result reach `properties.result_*` and the history row only through
+a rule. Absence is never a result.
+
+### 8.3 Lifecycle history
+
+`inventory_status_writer.plan()` now names `reactivated` (a row stored
+`closed` that is on the list again) beside `newly_observed` /
+`status_changed` / `removed` / `result_published`; on a 022-only
+deployment it is sent as `status_changed` (022's check constraint), on 023
+as itself. "Continued" is `properties.last_seen_at`, not a row per run.
+The full property page's "What happened before?" reads the append-only
+`inventory_status_observations` for the row (approved read), plus
+`first_seen_at` / `delisted_at` / `last_seen_at`, in date order, with the
+wording "a removal is never a sale".
+
+### 8.4 Admin publication governance
+
+`public.source_publication_reviews` (023) is the append-only decision
+record: publication status, restrictions, decision note, evidence, notes,
+decided_by, decided_at, next_review. The admin panel (`#adminPublication`,
+rendered only for `IS_ADMIN`; the table is unreadable to customers) lists
+every registry source of the page's state with its current status,
+restrictions, governance / verification state and latest decision, and
+records a new decision. `scripts/publication_gate.py` applies the latest
+decision per source ONLY after `publication_problems` validates it exactly
+like a CSV value: a blocked vendor, a source under legal review or a
+non-production candidate cannot be approved from the panel; RESTRICTED
+needs a reason; an approval needs evidence. Rejected reviews are reported
+by name; an applied one is written back to the `county_source_registry`
+table's publication columns so the Dashboard and the gate agree.
+
+### 8.5 Customer surface
+
+- **Available decision page** (`availableDecisionHtml`, section
+  "Decision" after "At a glance" on every Available row): What is it? Is
+  it available now? How do I buy it? What does it cost? Where is it? What
+  is known about it? What is not known? Where did the data come from? How
+  fresh is it? What happened before? Is this parcel in another ledger? -
+  each from a stored field or its stated absence; no score, badge,
+  estimate or recommendation.
+- **Filters** (Available only, automatic): land use (only values the rows
+  carry), coordinates on file, county value on file - beside purchase
+  path, amount, availability, acreage, read in the last 14 days.
+- **Map preview**: last verified, source date, same parcel in other
+  ledgers.
+- **Freshness per property**: source date (`list_as_of` /
+  `source_published_at`), observation date
+  (`inventory_status_observed_at`), last verified (`last_seen_at`), and
+  the county source's own state (last complete read, source unavailable,
+  back-off, row count) from `county_source_registry`.
+- **Available export**: published fields only (identity, availability,
+  typed purchase path + link, amount, tax-roll facts, coordinates, source
+  list / document, source dates, first observed, last read). No
+  governance field, no provenance JSON, no basis wording, no harvester
+  tag, no diagnostics; withheld inventory never reaches the export.
+- **Provenance card**: a "Path evidence" line (the typed path with its
+  evidence and observed date, or "not yet evaluated").
+
+### 8.6 Workflow
+
+`harvest-and-sync.yml` takes a `job` input on manual dispatch (all /
+deeds / certificates / laft / texas / backup, default all = the
+historical behaviour) so the AVAILABLE path can be run by hand without
+re-hitting LGBS; schedules are unchanged and the texas job is still never
+scheduled.
+
+## 9. Not done, on purpose
 
 No Florida county's purchase page has been read from this repository, so
 no source-level path or mode is asserted for a production source; no

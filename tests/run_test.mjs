@@ -2369,6 +2369,143 @@ results.bidLegacyPositiveStillPublished = await flLandsPage.evaluate(() => windo
 results.bidTxVendorRowWithoutKindUsesLegacyRule = await flLandsPage.evaluate(() => window.__tdwHasPublishedBid({ bid: 4451.95, purchase_amount: null, purchase_amount_kind: null }));
 await flLandsPage.close();
 
+// ============================================================
+// Available commercial release (2026-09-30, migration 023)
+// ============================================================
+// The decision page: eleven questions, each answered from a stored field or
+// its honest absence. p3 has NO typed purchase path (the engine established
+// nothing) - "How do I buy it?" must say so; p15 has a source-level
+// county-instructions page with evidence and an observed date.
+const decA = async (pg, id) => ((await pg.locator(`#detailModalInner .decision-card .dec-row[data-q="${id}"] .dec-a`).innerText()) || '').replace(/\s+/g, ' ').trim();
+const decPage = await newPage({ viewport: { width: 1200, height: 900 } });
+await decPage.goto(BASE_URL + '#/lands/p3', { waitUntil: 'networkidle' });
+await decPage.waitForTimeout(700);
+results.decQuestions = await decPage.locator('#detailModalInner .decision-card .dec-q').allTextContents();
+results.decNavHasDecision = await decPage.locator('#detailModalInner .detail-nav button[data-target="decision"]').count();
+results.decP3How = await decA(decPage, 'how');
+results.decP3HowLinkCount = await decPage.locator('#detailModalInner .decision-card .dec-row[data-q="how"] a').count();
+results.decP3Available = await decA(decPage, 'available');
+results.decP3Where = await decA(decPage, 'where');
+results.decP3Fresh = await decA(decPage, 'fresh');
+results.decP3History = await decA(decPage, 'history');
+results.decP3Related = await decA(decPage, 'related');
+results.decP3PathEvidenceLine = await decPage.locator('#detailModalInner .prov-available .prov-line').filter({ hasText: 'Path evidence' }).locator('.prov-v').innerText();
+// No score / badge / recommendation vocabulary anywhere on the block.
+results.decNoScoreWords = !/\b(score|badge|recommend|opportunity rating|confidence|AI)\b/i.test(await decPage.locator('#detailModalInner .decision-card').innerText());
+await decPage.close();
+const dec2 = await newPage({ viewport: { width: 1200, height: 900 } });
+await dec2.goto(BASE_URL + '#/lands/p15', { waitUntil: 'networkidle' });
+await dec2.waitForTimeout(700);
+results.decP15What = await decA(dec2, 'what');
+results.decP15Available = await decA(dec2, 'available');
+results.decP15How = await decA(dec2, 'how');
+results.decP15HowHref = await dec2.locator('#detailModalInner .decision-card .dec-row[data-q="how"] a').getAttribute('href');
+results.decP15Cost = await decA(dec2, 'cost');
+results.decP15Where = await decA(dec2, 'where');
+results.decP15Known = await decA(dec2, 'known');
+results.decP15Unknown = await dec2.locator('#detailModalInner .decision-card .dec-row[data-q="unknown"] li').allTextContents();
+results.decP15Source = await decA(dec2, 'source');
+results.decP15Fresh = await decA(dec2, 'fresh');
+// The append-only lifecycle history: first observed, removed, reactivated,
+// last read - in date order, with the removal never worded as a sale.
+results.decP15History = await dec2.locator('#detailModalInner .decision-card .dec-history li').evaluateAll(els => els.map(e => e.dataset.kind + '|' + e.querySelector('.dec-when').textContent.trim() + '|' + e.querySelector('.dec-what').firstChild.textContent.trim()));
+results.decP15HistoryNote = ((await dec2.locator('#detailModalInner .decision-card .dec-row[data-q="history"] .dec-history-note').innerText()) || '').trim();
+results.decP15PathEvidenceLine = await dec2.locator('#detailModalInner .prov-available .prov-line').filter({ hasText: 'Path evidence' }).locator('.prov-v').innerText();
+results.decP15GapsNamePathKind = (await dec2.locator('#detailModalInner .opp-gaps').innerText()).includes('Purchase link not on file') === false;
+await dec2.close();
+// The history table missing (migration 021 not applied on a deployment).
+const dec3 = await newPage({ viewport: { width: 1200, height: 900 } });
+await dec3.goto(BASE_URL + '?history=none#/lands/p15', { waitUntil: 'networkidle' });
+await dec3.waitForTimeout(700);
+results.decHistoryMissing = await decA(dec3, 'history');
+await dec3.close();
+
+// The three new Available filters (land use, coordinates on file, county
+// value on file) - each on a stored field; reset clears them.
+const filtPage = await newPage({ viewport: { width: 1200, height: 900 } });
+await filtPage.goto(BASE_URL + '#/lands', { waitUntil: 'networkidle' });
+await filtPage.waitForTimeout(500);
+if ((await filtPage.locator('#expandAllBtn').textContent()) === 'Expand all') { await filtPage.click('#expandAllBtn'); await filtPage.waitForTimeout(150); }
+if (!(await filtPage.locator('#filtersPanel').evaluate(el => el.classList.contains('open')))) { await filtPage.click('#filtersToggle'); await filtPage.waitForTimeout(250); }
+const filtCards = () => filtPage.locator('#main .prop-card');
+results.availLandUseOptions = await filtPage.locator('#availLandUseFilter option').allTextContents();
+await filtPage.selectOption('#availLandUseFilter', 'Vacant residential'); await filtPage.waitForTimeout(200);
+results.availAfterLandUse = await filtCards().count();
+await filtPage.selectOption('#availLandUseFilter', 'any'); await filtPage.waitForTimeout(200);
+await filtPage.check('#availGeocoded'); await filtPage.waitForTimeout(200);
+results.availAfterGeocoded = await filtCards().count();
+results.availGeocodedCardAddress = ((await filtCards().first().locator('.prop-address, .detail-address, h3').first().textContent()) || '').trim();
+await filtPage.uncheck('#availGeocoded'); await filtPage.waitForTimeout(200);
+await filtPage.check('#availValues'); await filtPage.waitForTimeout(200);
+results.availAfterValues = await filtCards().count();
+await filtPage.click('#resetBtn'); await filtPage.waitForTimeout(250);
+results.availAfterResetAll = await filtCards().count();
+results.availResetClearsNew = (await filtPage.locator('#availGeocoded').isChecked()) === false && (await filtPage.locator('#availValues').isChecked()) === false && (await filtPage.inputValue('#availLandUseFilter')) === 'any';
+// The Available export: published fields only, no governance / provenance
+// internals, the withheld row (p14) absent, the typed path present.
+const availDl = filtPage.waitForEvent('download');
+await filtPage.click('#exportCsvBtn');
+const availCsv = await availDl;
+results.availCsvFilename = availCsv.suggestedFilename();
+{
+  const text = fs.readFileSync(await availCsv.path(), 'utf8');
+  const lines = text.split(/\r?\n/).filter(Boolean);
+  const header = lines[0].split(',');
+  results.availCsvHeaderHas = ['Purchase Path', 'Purchase Path Scope', 'Purchase Link', 'Availability Status', 'Latitude', 'Last Read From Source'].every(h => header.includes(h));
+  results.availCsvHeaderLacks = ['publication_status', 'Publication Status', 'Provenance', 'Basis', 'harvester_source', 'Data Source'].every(h => !header.some(c => c.toLowerCase().includes(h.toLowerCase())));
+  results.availCsvRowCount = lines.length - 1;
+  results.availCsvNoWithheld = !text.includes('Restricted Rd');
+  const p15Line = lines.find(l => l.includes('15 Manatee Ln')) || '';
+  results.availCsvP15Path = p15Line.includes('County purchase-instructions page (published by the source)') && p15Line.includes('https://www.citrusclerk.example.gov/lands-available/how-to-purchase');
+}
+await filtPage.close();
+
+// The Map preview for an Available row leads with availability, then the
+// purchase path, then freshness (last verified / source date).
+// (bayPreviewText above already covers the Bay row; this checks the labels.)
+
+// Admin publication governance panel: admins only; lists the state's
+// registry sources with status / restrictions / latest decision; the form
+// refuses RESTRICTED without a reason and an approval without evidence,
+// then records an append-only review row.
+const adminPub = await newPage({ viewport: { width: 1200, height: 900 } });
+await adminPub.goto(BASE_URL + '?profile=admin', { waitUntil: 'networkidle' });
+await adminPub.waitForTimeout(900);
+results.adminPubVisible = await adminPub.locator('#adminPublication').isVisible();
+results.adminPubSources = await adminPub.locator('#adminPublicationList .admin-pub-row').evaluateAll(els => els.map(e => e.dataset.source + ':' + e.querySelector('.admin-pub-status').textContent.trim()));
+results.adminPubBrowardMeta = ((await adminPub.locator('#adminPublicationList .admin-pub-row[data-source="fl_laft_broward_candidate"] .admin-pub-meta').textContent()) || '').replace(/\s+/g, ' ').trim();
+results.adminPubPioneerReview = ((await adminPub.locator('#adminPublicationList .admin-pub-row[data-source="fl_laft_pioneer"] .admin-pub-review').innerText()) || '').replace(/\s+/g, ' ').trim();
+const pdfForm = adminPub.locator('#adminPublicationList .admin-pub-form[data-source="fl_laft_pdfs"]');
+await pdfForm.locator('select[name="publication_status"]').selectOption('RESTRICTED');
+await pdfForm.locator('input[name="restrictions"]').fill('');
+await pdfForm.locator('button[type="submit"]').click(); await adminPub.waitForTimeout(150);
+results.adminPubRefusesRestrictedWithoutReason = ((await pdfForm.locator('.admin-pub-msg').textContent()) || '').trim();
+results.adminPubInsertsAfterRefusal = await adminPub.evaluate(() => (window.__stubReviewInserts || []).length);
+await pdfForm.locator('input[name="restrictions"]').fill('vendor terms forbid redistribution - under review');
+await pdfForm.locator('input[name="decision_note"]').fill('pending counsel');
+await pdfForm.locator('input[name="next_review"]').fill('2026-12-01');
+await pdfForm.locator('button[type="submit"]').click(); await adminPub.waitForTimeout(400);
+results.adminPubInserted = await adminPub.evaluate(() => (window.__stubReviewInserts || []).map(r => [r.state, r.source_id, r.publication_status, r.restrictions, r.decision_note, r.next_review, r.evidence]));
+results.adminPubPdfsReviewAfter = ((await adminPub.locator('#adminPublicationList .admin-pub-row[data-source="fl_laft_pdfs"] .admin-pub-review').innerText()) || '').replace(/\s+/g, ' ').trim();
+const htmlForm = adminPub.locator('#adminPublicationList .admin-pub-form[data-source="fl_laft_html"]');
+await htmlForm.locator('select[name="publication_status"]').selectOption('APPROVED');
+await htmlForm.locator('button[type="submit"]').click(); await adminPub.waitForTimeout(150);
+results.adminPubRefusesApprovalWithoutEvidence = ((await htmlForm.locator('.admin-pub-msg').textContent()) || '').trim();
+await adminPub.close();
+// A non-admin never sees the panel; a deployment without the reviews table
+// disables the form but still shows the registry state.
+const nonAdmin = await newPage({ viewport: { width: 1200, height: 900 } });
+await nonAdmin.goto(BASE_URL, { waitUntil: 'networkidle' });
+await nonAdmin.waitForTimeout(700);
+results.adminPubHiddenForCustomer = await nonAdmin.locator('#adminPublication').isHidden();
+await nonAdmin.close();
+const noReviews = await newPage({ viewport: { width: 1200, height: 900 } });
+await noReviews.goto(BASE_URL + '?profile=admin&reviews=none', { waitUntil: 'networkidle' });
+await noReviews.waitForTimeout(900);
+results.adminPubNoTableReviewText = ((await noReviews.locator('#adminPublicationList .admin-pub-row[data-source="fl_laft_pdfs"] .admin-pub-review').innerText()) || '').replace(/\s+/g, ' ').trim();
+results.adminPubNoTableFormDisabled = await noReviews.locator('#adminPublicationList .admin-pub-form[data-source="fl_laft_pdfs"] button[type="submit"]').isDisabled();
+await noReviews.close();
+
 await browser.close();
 
 // ============================================================
@@ -2393,7 +2530,7 @@ const EXPECTED = {
   // so the past-due row (archive-only) and the gone row whose grace period has
   // expired are both excluded. Neither is reachable from this tab, and
   // advertising them made the number disagree with the list underneath it.
-  ledgerTabCounts: ['Auctions 9', 'Available 1', 'Liens & Certificates 1'],
+  ledgerTabCounts: ['Auctions 9', 'Available 2', 'Liens & Certificates 1'],
   auctionTabOnByDefault: true,
 
   // --- per-ledger pages ---
@@ -2463,7 +2600,7 @@ const EXPECTED = {
   // All 67 counties now show (busiest-first, then alphabetical among the
   // zero-count ones) instead of only the ~8 with live scraped data - see
   // ALL_COUNTIES in app.js.
-  countyChipLabels: ['Alachua (3)', 'Duval (2)', 'Escambia (2)', 'Marion (2)', 'Baker (1)', 'Bay (1)', 'Brevard (1)', 'Charlotte (1)', 'Bradford (0)', 'Broward (0)', 'Calhoun (0)', 'Citrus (0)', 'Clay (0)', 'Collier (0)', 'Columbia (0)', 'DeSoto (0)', 'Dixie (0)', 'Flagler (0)', 'Franklin (0)', 'Gadsden (0)', 'Gilchrist (0)', 'Glades (0)', 'Gulf (0)', 'Hamilton (0)', 'Hardee (0)', 'Hendry (0)', 'Hernando (0)', 'Highlands (0)', 'Hillsborough (0)', 'Holmes (0)', 'Indian River (0)', 'Jackson (0)', 'Jefferson (0)', 'Lafayette (0)', 'Lake (0)', 'Lee (0)', 'Leon (0)', 'Levy (0)', 'Liberty (0)', 'Madison (0)', 'Manatee (0)', 'Martin (0)', 'Miami-Dade (0)', 'Monroe (0)', 'Nassau (0)', 'Okaloosa (0)', 'Okeechobee (0)', 'Orange (0)', 'Osceola (0)', 'Palm Beach (0)', 'Pasco (0)', 'Pinellas (0)', 'Polk (0)', 'Putnam (0)', 'Santa Rosa (0)', 'Sarasota (0)', 'Seminole (0)', 'St. Johns (0)', 'St. Lucie (0)', 'Sumter (0)', 'Suwannee (0)', 'Taylor (0)', 'Union (0)', 'Volusia (0)', 'Wakulla (0)', 'Walton (0)', 'Washington (0)'],
+  countyChipLabels: ['Alachua (3)', 'Duval (2)', 'Escambia (2)', 'Marion (2)', 'Baker (1)', 'Bay (1)', 'Brevard (1)', 'Charlotte (1)', 'Citrus (1)', 'Bradford (0)', 'Broward (0)', 'Calhoun (0)', 'Clay (0)', 'Collier (0)', 'Columbia (0)', 'DeSoto (0)', 'Dixie (0)', 'Flagler (0)', 'Franklin (0)', 'Gadsden (0)', 'Gilchrist (0)', 'Glades (0)', 'Gulf (0)', 'Hamilton (0)', 'Hardee (0)', 'Hendry (0)', 'Hernando (0)', 'Highlands (0)', 'Hillsborough (0)', 'Holmes (0)', 'Indian River (0)', 'Jackson (0)', 'Jefferson (0)', 'Lafayette (0)', 'Lake (0)', 'Lee (0)', 'Leon (0)', 'Levy (0)', 'Liberty (0)', 'Madison (0)', 'Manatee (0)', 'Martin (0)', 'Miami-Dade (0)', 'Monroe (0)', 'Nassau (0)', 'Okaloosa (0)', 'Okeechobee (0)', 'Orange (0)', 'Osceola (0)', 'Palm Beach (0)', 'Pasco (0)', 'Pinellas (0)', 'Polk (0)', 'Putnam (0)', 'Santa Rosa (0)', 'Sarasota (0)', 'Seminole (0)', 'St. Johns (0)', 'St. Lucie (0)', 'Sumter (0)', 'Suwannee (0)', 'Taylor (0)', 'Union (0)', 'Volusia (0)', 'Wakulla (0)', 'Walton (0)', 'Washington (0)'],
   filtersOpenAfterClick: true,
   brevardGroupMeta: /^Auction [A-Z][a-z]{2} \d{1,2}, \d{4}$/,
   brevardGroupCount: '1/1 active',
@@ -2522,12 +2659,13 @@ const EXPECTED = {
   availFiltersShownOnAvailable: true,
   ledgerWithheldText: '1 record withheld - source not approved for customer publication (restricted or not yet reviewed). Counted, not shown.',
   withheldRowNeverRendered: 0,
-  availFilterCounts: { pathNone: 1, pathOnline: 0, amountPublished: 1, amountUnpublished: 0, statusAvailable: 1, statusClosed: 0, acreageHalf: 1, acreageTwo: 0, seenRecently: 0, afterReset: 1 },
+  availFilterCounts: { pathNone: 1, pathOnline: 0, amountPublished: 1, amountUnpublished: 1, statusAvailable: 2, statusClosed: 0, acreageHalf: 1, acreageTwo: 0, seenRecently: 1, afterReset: 2 },   // p3 (Bay) + p15 (Citrus): p15 has an instructions link, no published amount, 0.3 ac, read 10 days ago
   flAvailabilityEvidence: [
     'Availability evidence | LIST_PRESENCE: on the county\'s Lands Available list at the last read (F.S. 197.502(7)) · observed Aug 11, 2026',
     'Last verified | Read from the source Aug 11, 2026',
     'Source date | List dated Aug 10, 2026',
-    'Purchase link source | No online purchase link on file'
+    'Purchase link source | No online purchase link on file',
+    'Path evidence | Not yet evaluated - no rule, registry row or source wording establishes a path'   // migration 023: p3 carries NULL purchase_path_type
   ],
   flProvLegendCount: 1,
   flPurchaseModeLine: 'How to purchase | Not yet verified',
@@ -2660,7 +2798,7 @@ const EXPECTED = {
   // computeMapRows()'s comment in app.js. 7 counties across all three
   // ledgers' fixture rows (not the 6 the old shared-with-Auctions map used
   // to show when this ran right after an auction-ledger-only filter pass).
-  mapClusterBubbleCount: 7,
+  mapClusterBubbleCount: 8,
   mapCountySelectValueAfterBubbleTap: 'Alachua',
   mapCanvasZoomedAfterTap: true,
   exploreMapResetVisibleAfterTap: true,
@@ -2670,7 +2808,7 @@ const EXPECTED = {
   mapLaftPillOnAfterClick: true,
   mapAllPillOffAfterLedgerClick: false,
   // Bay is the fixture's one Lands Available county.
-  mapClusterBubbleCountLaftOnly: 1,
+  mapClusterBubbleCountLaftOnly: 2,
   // Phase 55/56/57/60: the three-way Map/Google/MapTiler toggle, exercised
   // against tests/config.js's deliberately blank googleMapsApiKey and
   // maptilerKey - the "not set up yet" path every real deploy hits until a
@@ -2683,14 +2821,14 @@ const EXPECTED = {
   satelliteSetupMessageShownWithNoGoogleKey: true,
   googleMapsNotLoadedWithNoKey: true,
   outlineCanvasVisibleAfterGoogleSwitchBack: true,
-  mapClusterBubbleCountAfterGoogleSwitchBack: 7,
+  mapClusterBubbleCountAfterGoogleSwitchBack: 8,
   mapStyleMaptilerOnAfterClick: true,
   outlineCanvasHiddenAfterMaptilerClick: true,
   satelliteCanvasVisibleAfterMaptilerClick: true,
   satelliteSetupMessageShownWithNoMaptilerKey: true,
   maplibreGlNotLoadedWithNoKey: true,
   outlineCanvasVisibleAfterMaptilerSwitchBack: true,
-  mapClusterBubbleCountAfterMaptilerSwitchBack: 7,
+  mapClusterBubbleCountAfterMaptilerSwitchBack: 8,
   googleCanvasVisibleAfterGoogleMaptilerGoogleSequence: true,
   maptilerCanvasHiddenAfterGoogleMaptilerGoogleSequence: true,
   mapStyleGoogleOnAfterReturningFromMaptiler: true,
@@ -2705,7 +2843,7 @@ const EXPECTED = {
   hiddenListBtnVisible: true,
   laftTabOnAfterClick: true,
   auctionTabOffAfterLaftClick: false,
-  laftCardCount: 1,
+  laftCardCount: 2,
   laftCountyGroupName: 'Bay',
   laftSpecBits: ['1.00 acres lot'],
   // A different roll year from p1's, so the label is genuinely per-row rather
@@ -2714,10 +2852,10 @@ const EXPECTED = {
   laftHomesteadBadge: 'Homestead',
   laftBareLandStat: 'None (bare land)',
   junkLandRowVisibleOnLaft: true,
-  laftCountBeforeJunkFilters: 1,
-  laftCountAfterHideSlivers: 1,
-  laftCountAfterHideBareLand: 0,
-  laftCountAfterUncheckingFilters: 1,
+  laftCountBeforeJunkFilters: 2,
+  laftCountAfterHideSlivers: 2,
+  laftCountAfterHideBareLand: 1,
+  laftCountAfterUncheckingFilters: 2,
   laftGroupMeta: 'Lands Available - fixed price, available now',
   certCardCount: 1,
   certCardTitle: 'Certificate #CERT-42',
@@ -2747,7 +2885,7 @@ const EXPECTED = {
   // this stays "6d ago" regardless of what day the suite actually runs on.
   archiveCardAgoBadge: '6d ago',
   staleWarningClassPresent: 1,
-  staleWarningText: '⚠ Data updated 8/12/2026, 12:00:00 AM - sync may be behind',
+  staleWarningText: '⚠ Data updated 9/20/2026, 12:00:00 AM - sync may be behind',
   // The value box is named for what the number actually is. It used to read
   // "Est. Market", which implied a live estimate this app has never had and
   // cannot legitimately obtain - the Zestimate API was retired in 2021. It is
@@ -2929,14 +3067,14 @@ const EXPECTED = {
   dashHealthRows: ['fl_deeds:HEALTHY', 'fl_certificates:INCOMPLETE', 'fl_laft:FAILED', 'db_backup:STALE', 'tx_sales:INCOMPLETE'],
   dashHealthBadgeTexas: true,
   dashHealthIncompleteNames: true,
-  dashUnitRows: ['Alachua:current', 'Bay:stale'],
+  dashUnitRows: ['Alachua:current', 'Bay:stale', 'Citrus:current'],
   dashUnitLedgerHeads: ['auction', 'laft', 'certificate'],
-  dashUnitRowsUnderAvailable: ['Alachua', 'Bay'],
+  dashUnitRowsUnderAvailable: ['Alachua', 'Bay', 'Citrus'],
   dashUnitEmptyGroups: 2,
-  dashLedgerFreshAvailable: '1 of 2 counties current',
+  dashLedgerFreshAvailable: '2 of 3 counties current',
   dashLedgerFreshAuctionsAbsent: 0,
   dashLedgerRowTitles: ['Auctions', 'Available', 'Liens & Certificates'],
-  navLedgerItems: ['auction:Auctions 9', 'laft:Available 1', 'certificate:Liens & Certificates 1'],
+  navLedgerItems: ['auction:Auctions 9', 'laft:Available 2', 'certificate:Liens & Certificates 1'],
   navCertClickShowsLedgerPage: true,
   navCertClickSelectsCertTab: true,
   navCertClickLitEntries: ['auctions/certificate'],
@@ -3027,7 +3165,7 @@ const EXPECTED = {
     'assessed|Florida Department of Revenue (NAL tax roll)|Derived by our system - parcel match: FDOR parcel identifier|Recorded Aug 12, 2026',
     'legal_desc|County list (Lands Available) fl_laft_pioneer|Published by the source|List as of Aug 10, 2026'
   ],
-  flProvenanceLines: ['Availability evidence', 'Last verified', 'Source date', 'Purchase link source', 'Read by', 'List read from', 'Retrieved', 'List date', 'Amount', 'Purchase path', 'How to purchase', 'Inventory type', 'Status wording'],   // the availability-evidence block leads; 'How to purchase' = the source-level mode,
+  flProvenanceLines: ['Availability evidence', 'Last verified', 'Source date', 'Purchase link source', 'Path evidence', 'Read by', 'List read from', 'Retrieved', 'List date', 'Amount', 'Purchase path', 'How to purchase', 'Inventory type', 'Status wording'],   // the availability-evidence block leads; 'How to purchase' = the source-level mode,
   flProvenancePurchaseLine: 'no purchase path published by the source or verified in the registry - none invented',
   flProvenanceFresh: 'Last read from the source Aug 11, 2026 · list dated Aug 10, 2026',
   flProvenanceNoScoreWords: true,
@@ -3064,6 +3202,58 @@ const EXPECTED = {
   inventoryCardGroups: ['Inventory', 'Property', 'Purchase path'],
   flInventoryNavHasInventory: true,
   flInventoryNoAiBadge: true,
+  // ---- Available commercial release (2026-09-30, migration 023) ----
+  decQuestions: ['What is it?', 'Is it available now?', 'How do I buy it?', 'What does it cost?', 'Where is it?', 'What is known about it?', 'What is not known?', 'Where did the data come from?', 'How fresh is it?', 'What happened before?', 'Is this parcel in another ledger?'],
+  decNavHasDecision: 1,
+  decP3How: "Not yet verified - no purchase path has been established from evidence. The county list page is not a purchase mechanism; nothing is invented. A path appears here once a rule, the registry or the source's own wording establishes one.",
+  decP3HowLinkCount: 0,   // nothing verified = no link, ever
+  decP3Available: 'Available over the counter basis: list presence · observed Aug 11, 2026',
+  decP3Where: '3 Oak Ave Bay County, FL · Parcel 333 · Case C-1 Not yet geocoded - no point is shown for this parcel',
+  decP3Fresh: 'Source date: list dated Aug 10, 2026 · Observation date: Aug 11, 2026 · Last verified: read from the source Aug 11, 2026 County source: source unavailable at the last attempt - inventory kept, nothing closed · no complete read in the last 36 hours (last complete read 3d ago) · back-off: attempted at most once per 48 hours until a read succeeds · 3 rows at the last complete read',
+  decP3History: 'Aug 11, 2026 Last read from the source (continued on the list) Append-only record. Absence from a list is recorded as a removal, never as a sale; a result appears only when the source published one.',
+  decP3Related: 'No record for parcel 333 in the other ledgers in the current dataset',
+  decP3PathEvidenceLine: 'Not yet evaluated - no rule, registry row or source wording establishes a path',
+  decNoScoreWords: true,
+  decP15What: "Lands Available - fixed price, over the counter (F.S. 197.502(7)) Published by the county / clerk's own site",
+  decP15Available: 'Available over the counter basis: list presence · observed Sep 20, 2026',
+  decP15How: "County purchase-instructions page (published by the source) → The source's process for every parcel it lists · evidence: Clerk's 'How to purchase Lands Available' page names the application and payment steps (data/purchase_path_evidence.csv, observed 2026-09-18) · observed Sep 18, 2026",
+  decP15HowHref: 'https://www.citrusclerk.example.gov/lands-available/how-to-purchase',
+  decP15Cost: 'Not published by the source',
+  decP15Where: '15 Manatee Ln Citrus County, FL · Parcel 1515 · Case CI-7 28.88860, -82.45200 · authoritative coordinates on file',
+  decP15Known: '2025 County Just Value $26,000 · County Assessed Value $25,000 · 0.30 ac · Land use Vacant residential · Type Vacant Lot · Assessed to Lee Park',
+  decP15Unknown: ['Purchase price not published', 'Image not checked yet', 'Flood zone not checked'],
+  decP15Source: 'fl_laft_html · Source list → Field-by-field origin is in the Data Quality & Provenance card below.',
+  decP15Fresh: 'Source date: list dated Sep 19, 2026 · Observation date: Sep 20, 2026 · Last verified: read from the source Sep 20, 2026 County source: current - last complete read 3h ago · 6 rows at the last complete read',
+  decP15History: ['newly_observed|Jul 1, 2026|First observed on the list', 'removed|Aug 15, 2026|Removed from the list (closed - not a sale result)', 'reactivated|Sep 1, 2026|Back on the list (reactivated)', 'continued|Sep 20, 2026|Last read from the source (continued on the list)'],
+  decP15HistoryNote: 'Append-only record. Absence from a list is recorded as a removal, never as a sale; a result appears only when the source published one.',
+  decP15PathEvidenceLine: "County purchase-instructions page (published by the source) · source-level · Clerk's 'How to purchase Lands Available' page names the application and payment steps (data/purchase_path_evidence.csv, observed 2026-09-18) · observed Sep 18, 2026",
+  decP15GapsNamePathKind: true,
+  decHistoryMissing: 'Lifecycle history is not available on this deployment yet (migration 021 has not been applied).',
+  availLandUseOptions: ['Any', 'Vacant residential'],   // only values Available rows carry
+  availAfterLandUse: 1,
+  availAfterGeocoded: 1,
+  availGeocodedCardAddress: '15 Manatee Ln',
+  availAfterValues: 2,
+  availAfterResetAll: 2,
+  availResetClearsNew: true,
+  availCsvFilename: /^taxdeed-fl-laft-\d{4}-\d{2}-\d{2}\.csv$/,
+  availCsvHeaderHas: true,
+  availCsvHeaderLacks: true,
+  availCsvRowCount: 2,
+  availCsvNoWithheld: true,
+  availCsvP15Path: true,
+  adminPubVisible: true,
+  adminPubSources: ['fl_laft_broward_candidate:RESTRICTED', 'fl_laft_html:APPROVED_GRANDFATHERED', 'fl_laft_pdfs:APPROVED_GRANDFATHERED', 'fl_laft_pioneer:APPROVED_GRANDFATHERED', 'fl_laft_realtdm:APPROVED_GRANDFATHERED'],
+  adminPubBrowardMeta: 'Governance LEGAL_REVIEW_REQUIRED · Verification CANDIDATE · Restrictions: terms of use under legal review',
+  adminPubPioneerReview: 'Latest decision: APPROVED_GRANDFATHERED · decided Sep 29, 2026 · next review Mar 1, 2027 · carried forward Evidence: served to customers before the gate existed',
+  adminPubRefusesRestrictedWithoutReason: 'RESTRICTED needs a reason.',
+  adminPubInsertsAfterRefusal: 0,
+  adminPubInserted: [['FL', 'fl_laft_pdfs', 'RESTRICTED', 'vendor terms forbid redistribution - under review', 'pending counsel', '2026-12-01', null]],
+  adminPubPdfsReviewAfter: /^Latest decision: RESTRICTED · decided [A-Z][a-z]{2} \d{1,2}, \d{4} · next review Dec 1, 2026 · pending counsel$/,
+  adminPubRefusesApprovalWithoutEvidence: 'An approval needs evidence.',
+  adminPubHiddenForCustomer: true,
+  adminPubNoTableReviewText: 'Latest decision: Review history unavailable (migration 023 not applied)',
+  adminPubNoTableFormDisabled: true
 };
 
 const mismatches = [];
@@ -3077,6 +3267,9 @@ for (const [key, expected] of Object.entries(EXPECTED)) {
   }
 }
 
+// DUMP_RESULTS=<path>: write every collected value, so a new check's real
+// value can be read and pinned rather than guessed.
+if (process.env.DUMP_RESULTS) fs.writeFileSync(process.env.DUMP_RESULTS, JSON.stringify(results, null, 1));
 const missingKeys = Object.keys(EXPECTED).filter(k => !(k in results));
 const unexpectedErrors = errors.filter(e => !ALLOWED_ERROR_SUBSTRINGS.some(a => e.includes(a)));
 

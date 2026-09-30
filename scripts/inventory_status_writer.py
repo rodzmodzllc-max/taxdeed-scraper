@@ -48,6 +48,7 @@ sys.path.insert(0, str(HERE))
 sys.path.insert(1, str(REPO))
 from harvesters.governance import inventory_status as IS  # noqa: E402
 from harvesters.governance import states  # noqa: E402
+import outcome_ingest as OI  # noqa: E402
 
 DEFAULT_SOLD_FILES = [REPO / "out" / n for n in ("harvest_laft_sold.json", "harvest_laft_sold_html.json", "harvest_laft_sold_pdfs.json")]
 REPORT_PATH = REPO / "out" / "public" / "inventory-status.json"
@@ -56,6 +57,7 @@ SELECT = ("id,state,county,case_no,source,harvester_source,status,sale_date,tx_s
           "inventory_status,inventory_status_raw,otc_provenance")
 BATCH = 40
 STATUS_COLUMNS = ("inventory_status", "inventory_status_raw", "inventory_status_basis", "inventory_status_observed_at")
+RESULT_COLUMNS = ("result_amount", "result_date", "result_party")   # migration 023, probed
 
 
 def now_iso() -> str:
@@ -88,10 +90,14 @@ def load_sold_identities(paths) -> set[tuple[str, str]]:
     return out
 
 
-def plan(rows: list[dict], *, today: date, sold: set[tuple[str, str]] | None = None) -> tuple[list[dict], dict]:
-    """[{id, county, case_no, status, raw, basis, evidence_url}] for every
-    row whose observation differs from what is stored, plus counts."""
+def plan(rows: list[dict], *, today: date, sold: set[tuple[str, str]] | None = None,
+         results: dict[tuple[str, str], dict] | None = None) -> tuple[list[dict], dict]:
+    """[{id, county, case_no, status, raw, basis, evidence_url, transition,
+    result?}] for every row whose observation differs from what is stored,
+    plus counts. `results` = source-published result fields by identity
+    (scripts/outcome_ingest.py); attached only to a result_published change."""
     sold = sold or set()
+    results = results or {}
     changes: list[dict] = []
     counts = {"rows": len(rows), "mapped": 0, "unmapped": 0, "unchanged": 0, "changed": 0, "by_status": {}, "results_from_source": 0}
     for r in rows:
@@ -112,41 +118,62 @@ def plan(rows: list[dict], *, today: date, sold: set[tuple[str, str]] | None = N
         # the history table): the first status for the row, a change, a
         # removal (closed - never sold from absence), or a result the source
         # itself published.
+        # (migration 023 adds `reactivated`: a row that had left the list -
+        # stored closed - and is on it again.)
         if not r.get("inventory_status"):
             transition = "newly_observed"
         elif obs.status == "closed":
             transition = "removed"
         elif obs.status in IS.RESULT_STATUSES:
             transition = "result_published"
+        elif r.get("inventory_status") == "closed":
+            transition = "reactivated"
         else:
             transition = "status_changed"
         counts.setdefault("by_transition", {})[transition] = counts.get("by_transition", {}).get(transition, 0) + 1
-        changes.append({"id": r["id"], "county": r.get("county"), "case_no": r.get("case_no"), "status": obs.status,
-                        "raw": obs.raw, "basis": obs.basis_text(), "source_id": r.get("harvester_source"),
-                        "evidence_url": r.get("list_url") or r.get("url_auction"), "transition": transition})
+        change = {"id": r["id"], "county": r.get("county"), "case_no": r.get("case_no"), "status": obs.status,
+                  "raw": obs.raw, "basis": obs.basis_text(), "source_id": r.get("harvester_source"),
+                  "evidence_url": r.get("list_url") or r.get("url_auction"), "transition": transition}
+        if transition == "result_published":
+            fields = results.get((str(r.get("county") or ""), str(r.get("case_no") or ""))) or {}
+            result = {k: fields[k] for k in RESULT_COLUMNS if fields.get(k) not in (None, "")}
+            if result:
+                change["result"] = result
+                counts["results_with_fields"] = counts.get("results_with_fields", 0) + 1
+        changes.append(change)
     return changes, counts
 
 
-def group_changes(changes: list[dict]) -> list[tuple[dict, list[str]]]:
-    """Identical payloads share one PATCH: [(payload, [id...])]."""
+def group_changes(changes: list[dict], *, include_results: bool = False) -> list[tuple[dict, list[str]]]:
+    """Identical payloads share one PATCH: [(payload, [id...])]. The
+    result columns ride along only once migration 023 exists (probed)."""
     groups: dict[str, tuple[dict, list[str]]] = {}
     for c in changes:
         payload = {"inventory_status": c["status"], "inventory_status_raw": c["raw"], "inventory_status_basis": c["basis"]}
+        if include_results and c.get("result"):
+            payload.update(c["result"])
         key = json.dumps(payload, sort_keys=True)
         groups.setdefault(key, (payload, []))[1].append(c["id"])
     return list(groups.values())
 
 
-def observations(changes: list[dict], *, observed_at: str, run_id: str | None, include_transition: bool = False) -> list[dict]:
+def observations(changes: list[dict], *, observed_at: str, run_id: str | None, include_transition: bool = False,
+                 include_results: bool = False) -> list[dict]:
     """One history row per change. `transition` is included only once
     migration 022's column exists (the caller probes) - an insert naming an
-    unknown column would fail the whole batch."""
+    unknown column would fail the whole batch; `reactivated` and the result
+    columns only once 023's are there."""
     out = []
     for c in changes:
         row = {"property_id": c["id"], "observed_at": observed_at, "harvest_run_id": run_id, "source_id": c["source_id"],
                "raw_status": c["raw"], "inventory_status": c["status"], "basis": c["basis"], "evidence_url": c["evidence_url"]}
-        if include_transition and c.get("transition"):
-            row["transition"] = c["transition"]
+        transition = c.get("transition")
+        if transition == "reactivated" and not include_results:
+            transition = "status_changed"          # 022's check constraint does not know `reactivated`
+        if include_transition and transition:
+            row["transition"] = transition
+        if include_results and c.get("result"):
+            row.update(c["result"])
         out.append(row)
     return out
 
@@ -198,6 +225,17 @@ class Api:
                 return False
             raise
 
+    def has_migration_023(self) -> bool:
+        """Migration 023's result columns on both tables."""
+        try:
+            self.get("properties", f"select={','.join(RESULT_COLUMNS)}&limit=0")
+            self.get("inventory_status_observations", f"select={','.join(RESULT_COLUMNS)}&limit=0")
+            return True
+        except urllib.error.HTTPError as exc:
+            if exc.code in (400, 404):
+                return False
+            raise
+
     def has_migration_021(self) -> bool:
         try:
             self.get("properties", f"select={','.join(STATUS_COLUMNS)}&limit=0")
@@ -220,14 +258,16 @@ def fetch_rows(api: Api, state: str) -> list[dict]:
         offset += page
 
 
-def execute(api: Api, changes: list[dict], *, observed_at: str, run_id: str | None, include_transition: bool = False) -> dict:
+def execute(api: Api, changes: list[dict], *, observed_at: str, run_id: str | None, include_transition: bool = False,
+            include_results: bool = False) -> dict:
     counts = {"patches": 0, "observations": 0}
-    obs = observations(changes, observed_at=observed_at, run_id=run_id, include_transition=include_transition)
+    obs = observations(changes, observed_at=observed_at, run_id=run_id, include_transition=include_transition,
+                       include_results=include_results)
     # Observations first (history is never behind the current state), then the state.
     for i in range(0, len(obs), BATCH):
         api.insert("inventory_status_observations", obs[i:i + BATCH])
         counts["observations"] += len(obs[i:i + BATCH])
-    for payload, ids in group_changes(changes):
+    for payload, ids in group_changes(changes, include_results=include_results):
         for i in range(0, len(ids), BATCH):
             api.patch("properties", "id=in.(" + ",".join(ids[i:i + BATCH]) + ")", {**payload, "inventory_status_observed_at": observed_at})
             counts["patches"] += 1
@@ -265,11 +305,17 @@ def main(argv=None) -> int:
     have_021 = api.has_migration_021()
     rows = fetch_rows(api, state)
     sold = load_sold_identities(args.sold) if state == "FL" else set()
-    changes, counts = plan(rows, today=date.today(), sold=sold)
+    # Source-published result fields (date / amount / party) ride only on
+    # a result the harvester resolved through an enabled outcome rule
+    # (scripts/outcome_ingest.py); identity-only sold files yield none.
+    results = OI.load_result_files(args.sold) if state == "FL" else {}
+    changes, counts = plan(rows, today=date.today(), sold=sold, results=results)
     write_counts = None
     if have_021:
+        have_023 = api.has_migration_023()
         write_counts = execute(api, changes, observed_at=now_iso(), run_id=os.environ.get("GITHUB_RUN_ID"),
-                               include_transition=api.has_migration_022())
+                               include_transition=api.has_migration_022(), include_results=have_023)
+        write_counts["migration_023"] = have_023
     text = summarize(state, counts, write_counts, have_021, args.dry_run)
     print(text)
     rp = Path(args.report)

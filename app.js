@@ -564,6 +564,9 @@ const state = {
   hideOldListings: false, hideSlivers: false, hideBareLandOnly: false,
   // Available-ledger filters (2026-09-30): each reads a field the rows carry.
   availPath: "any", availAmountKind: "any", availStatus: "any", acreageMin: null, availSeenRecently: false,
+  // Available commercial release (2026-09-30): land use (FDOR tax-roll
+  // value as stored), coordinates present, a county value on file.
+  availLandUse: "any", availGeocoded: false, availValues: false,
   includeQT: false, maxBidPct: 40,
   statusView: "all",
   ledger: "auction",
@@ -1850,7 +1853,7 @@ async function showApp() {
   // right on the first paint, not only after the first tab click.
   setLedger(state.ledger, { silent: true });
   startIdleWatch();
-  if (IS_ADMIN) refreshAdminApprovals();
+  if (IS_ADMIN) { refreshAdminApprovals(); refreshAdminPublication(); }
   // Phase 58: reopen the deep-linked property, if the URL named one and it's
   // still in ALL (unfiltered by ledger/status - a certificate's card should
   // reopen even if the Auctions tab happens to be active). A dead/stale id
@@ -1912,6 +1915,82 @@ async function refreshAdminApprovals() {
         .eq("id", btn.dataset.id);
       if (updErr) { btn.disabled = false; btn.textContent = "✓ Approve"; alert("Couldn't approve: " + updErr.message); return; }
       refreshAdminApprovals();
+    });
+  });
+}
+
+// Admin-only source publication governance (2026-09-30, migration 023):
+// every registry source for this page's state with its current publication
+// status, restrictions, governance / verification state and the latest
+// recorded review; a form records a NEW decision as an append-only row in
+// source_publication_reviews (RLS: admins only). The publication gate
+// script applies the latest VALID decision per source on its next run -
+// after validating it against the registry's governance state, so an
+// approval of a blocked vendor, a source under legal review or a
+// non-production candidate is rejected there and reported by name. Never
+// rendered for a non-admin (IS_ADMIN gate at the call site; the table is
+// unreadable to customers anyway).
+const REVIEW_STATUSES = ["APPROVED", "APPROVED_GRANDFATHERED", "UNREVIEWED", "RESTRICTED", "BLOCKED"];
+async function refreshAdminPublication() {
+  const wrap = document.getElementById("adminPublication");
+  const list = document.getElementById("adminPublicationList");
+  if (!wrap || !list) return;
+  const [reg, rev] = await Promise.all([
+    sb.from("county_source_registry").select("state,county,source_id,publication_status,restrictions,governance_status,verification_status").eq("state", PAGE_STATE).order("source_id"),
+    sb.from("source_publication_reviews").select("*").eq("state", PAGE_STATE).order("decided_at", { ascending: false })
+  ]);
+  const regRows = (reg.error ? [] : (reg.data || [])).filter(r => (r.state || PAGE_STATE) === PAGE_STATE);
+  if (!regRows.length) { wrap.hidden = true; list.innerHTML = ""; return; }
+  const reviewsMissing = !!rev.error;
+  const latest = {};
+  (rev.data || []).forEach(r => { if (r.source_id && !latest[r.source_id]) latest[r.source_id] = r; });
+  const bySource = {};
+  regRows.forEach(r => { (bySource[r.source_id || "(no source id)"] = bySource[r.source_id || "(no source id)"] || []).push(r); });
+  const opt = (v, cur) => `<option value="${v}"${v === cur ? " selected" : ""}>${v}</option>`;
+  list.innerHTML = Object.keys(bySource).sort().map(sid => {
+    const rows = bySource[sid];
+    const first = rows[0];
+    const status = first.publication_status || "UNREVIEWED";
+    const r = latest[sid];
+    const review = reviewsMissing
+      ? `<span class="muted">Review history unavailable (migration 023 not applied)</span>`
+      : r ? `${esc(r.publication_status)} · decided ${esc(dateOnly(r.decided_at))}${r.next_review ? ` · next review ${esc(dateOnly(r.next_review))}` : ""}${r.decision_note ? ` · ${esc(r.decision_note)}` : ""}${r.evidence ? `<span class="kv-sub">Evidence: ${esc(r.evidence)}</span>` : ""}`
+        : `<span class="muted">No review recorded</span>`;
+    return `<div class="admin-pub-row" data-source="${esc(sid)}">
+      <div class="admin-pub-head"><span class="mono">${esc(sid)}</span> <span class="admin-pub-counties">${rows.length} count${rows.length === 1 ? "y" : "ies"}</span>
+        <span class="admin-pub-status" data-status="${esc(status)}">${esc(status)}</span></div>
+      <div class="admin-pub-meta">Governance ${esc(first.governance_status || "?")} · Verification ${esc(first.verification_status || "?")}${first.restrictions ? ` · Restrictions: ${esc(first.restrictions)}` : ""}</div>
+      <div class="admin-pub-review">Latest decision: ${review}</div>
+      <form class="admin-pub-form" data-source="${esc(sid)}">
+        <label>Decision <select name="publication_status">${REVIEW_STATUSES.map(v => opt(v, status)).join("")}</select></label>
+        <label>Restrictions (required for RESTRICTED) <input name="restrictions" type="text" value="${esc(first.restrictions || "")}"></label>
+        <label>Evidence (required to approve) <input name="evidence" type="text" placeholder="what was reviewed, where"></label>
+        <label>Decision note <input name="decision_note" type="text"></label>
+        <label>Next review <input name="next_review" type="date"></label>
+        <button class="mini-btn" type="submit"${reviewsMissing ? " disabled" : ""}>Record decision</button>
+        <span class="admin-pub-msg" aria-live="polite"></span>
+      </form>
+    </div>`;
+  }).join("");
+  wrap.hidden = false;
+  list.querySelectorAll(".admin-pub-form").forEach(form => {
+    form.addEventListener("submit", async e => {
+      e.preventDefault();
+      const msg = form.querySelector(".admin-pub-msg");
+      const fd = new FormData(form);
+      const status = String(fd.get("publication_status") || "");
+      const restrictions = String(fd.get("restrictions") || "").trim();
+      const evidence = String(fd.get("evidence") || "").trim();
+      if (status === "RESTRICTED" && !restrictions) { msg.textContent = "RESTRICTED needs a reason."; return; }
+      if ((status === "APPROVED" || status === "APPROVED_GRANDFATHERED") && !evidence) { msg.textContent = "An approval needs evidence."; return; }
+      const row = { state: PAGE_STATE, source_id: form.dataset.source, publication_status: status, restrictions: restrictions || null,
+        evidence: evidence || null, decision_note: String(fd.get("decision_note") || "").trim() || null,
+        next_review: String(fd.get("next_review") || "") || null };
+      msg.textContent = "Recording…";
+      const { error } = await sb.from("source_publication_reviews").insert(row);
+      if (error) { msg.textContent = "Couldn't record: " + error.message; return; }
+      msg.textContent = "Recorded. Applied by the next publication-gate run after validation.";
+      refreshAdminPublication();
     });
   });
 }
@@ -2227,6 +2306,9 @@ function passes(p) {
     if (state.availStatus !== "any" && String(p.inventory_status || "unknown") !== state.availStatus) return false;
     if (state.acreageMin !== null && !(hasNum(p.acreage) && Number(p.acreage) >= state.acreageMin)) return false;
     if (state.availSeenRecently) { const d = daysSince(p.last_seen_at); if (d === null || d > 14) return false; }
+    if (state.availLandUse !== "any" && String(p.land_use || "") !== state.availLandUse) return false;
+    if (state.availGeocoded && !(hasNum(p.latitude) && hasNum(p.longitude))) return false;
+    if (state.availValues && !(hasNum(p.market) || hasNum(p.assessed))) return false;
   }
   if (PAGE_STATE === "FL" && p.source !== "certificate" && state.assessedMin !== null && Number(p.assessed || 0) < state.assessedMin) return false;
   // "Junk land" quick filters - Lands Available only, and each checks a real
@@ -2447,6 +2529,13 @@ function previewFacts(p) {
     const pp = purchasePathOf(p);
     more.push(["Purchase path", pp.kind === "none" ? "No online purchase link on file" : pp.label + (pp.kind === "instructions" ? " (instructions)" : "")]);
     if (p.purchase_amount_kind) more.push(["Amount kind", p.purchase_amount_kind === "NOT_PUBLISHED" ? "Not published by the source" : (AMOUNT_KIND_LABELS[p.purchase_amount_kind] || String(p.purchase_amount_kind))]);
+    // Freshness and cross-ledger identity, so the Map preview answers
+    // "how current is this" and "is this parcel also at auction / under a
+    // certificate" without opening the full page.
+    more.push(["Last verified", p.last_seen_at ? `Read from the source ${dateOnly(p.last_seen_at)}` : "Not yet verified by a lifecycle run"]);
+    more.push(["Source date", p.list_as_of ? `List dated ${dateOnly(p.list_as_of)}` : (p.source_published_at ? `Document dated ${dateOnly(p.source_published_at)}` : "Not published by the source")]);
+    const rel = relatedRecordsFor(p);
+    if (rel.length) more.push(["Same parcel in", rel.map(o => ledgerCopy(o.source).title || o.source).join(", ")]);
   }
   if (sale) more.push(["Last sale", sale]);
   if (p.lien_level && regionOf(p) === "FL") more.push(["Manual lien notes", LIEN_LABEL[p.lien_level] || String(p.lien_level)]);
@@ -2832,7 +2921,7 @@ function dataGaps(p) {
   // Migration 017: a list page is never a purchase mechanism, so a LAFT /
   // struck-off row with no purchase_url is missing that link, whatever
   // else it carries.
-  if (p.source === "laft" && !p.purchase_url) gaps.push("Purchase link not on file");
+  if (p.source === "laft" && !p.purchase_url) gaps.push(p.purchase_path_type && p.purchase_path_type !== "none_published" ? "Purchase link not on file (the source's process is not an online link)" : "Purchase link not on file");
   if (!hasPhoto(p)) gaps.push(p.photo_url === "" ? "No stored image for this address" : "Image not checked yet");
   if (!(hasNum(p.latitude) && hasNum(p.longitude))) gaps.push("Not yet geocoded");
   const fl = floodShort(p);
@@ -2897,11 +2986,196 @@ function opportunitySummaryHtml(p) {
     "opp-summary", "summary");
 }
 
+// ==================== Available decision page (2026-09-30, migration 023) ====================
+// The eleven questions a buyer asks of an Available record, each answered
+// from a stored field or its honest absence. Terminal style: question,
+// answer, evidence. No score, no badge, no estimate, no recommendation.
+const PURCHASE_PATH_TYPE_LABELS = {
+  direct_property_url: "Online link for this property (published by the source)",
+  county_instructions: "County purchase-instructions page (published by the source)",
+  application_page: "Application page (published by the source)",
+  application_download: "Application form to download (published by the source)",
+  in_person: "In-person process only (published by the source; no online path)",
+  phone_mail: "Phone or mail process (published by the source; no online path)",
+  quoted_amount: "Amount quoted on request (published by the source)",
+  amount_plus_costs: "Stated amount plus the costs the source names",
+  amount_on_application: "Amount stated only on application (published by the source)",
+  none_published: "No purchase path (stated by the source)"
+};
+const URL_PATH_TYPES = ["direct_property_url", "county_instructions", "application_page", "application_download"];
+// The typed purchase path (migration 023's four columns) - null when the
+// engine has not established one from evidence. The URL comes from 017's
+// purchase_url only for the four URL-bearing types; never synthesized.
+function typedPurchasePath(p) {
+  if (!p || !p.purchase_path_type) return null;
+  return {
+    type: p.purchase_path_type,
+    label: PURCHASE_PATH_TYPE_LABELS[p.purchase_path_type] || String(p.purchase_path_type),
+    scope: p.purchase_path_scope === "property" ? "property" : "source",
+    evidence: p.purchase_path_evidence ? String(p.purchase_path_evidence) : "",
+    observedOn: p.purchase_path_observed_on || null,
+    url: URL_PATH_TYPES.includes(p.purchase_path_type) && p.purchase_url ? p.purchase_url : null
+  };
+}
+// The per-county freshness row (county_source_registry + migration 021's
+// columns, loaded by loadAll) for this row's county + source, or null.
+function unitFreshnessFor(p) {
+  if (!Array.isArray(UNIT_FRESHNESS) || !p) return null;
+  const st = regionOf(p);
+  const same = UNIT_FRESHNESS.filter(u => u.county === p.county && (u.state || st) === st);
+  return same.find(u => p.source_id && u.source_id === p.source_id) || same.find(u => unitLedgerKeys(u).includes("laft")) || null;
+}
+function unitFreshnessText(u) {
+  if (!u) return { text: "Not recorded for this county's source yet", cls: "muted" };
+  const unavailable = u.last_attempt_status === "SOURCE_UNAVAILABLE" || /^(TRANSPORT_|PROXY_|ACCESS_)/.test(String(u.last_error_category || ""));
+  const since = u.last_success_at ? (Date.now() - Date.parse(u.last_success_at)) / 3600000 : null;
+  const bits = [];
+  if (unavailable) bits.push("source unavailable at the last attempt - inventory kept, nothing closed");
+  if (since === null || isNaN(since)) bits.push("no complete read recorded");
+  else if (since > 36) bits.push(`no complete read in the last 36 hours (last complete read ${relativeTime(u.last_success_at)})`);
+  else bits.push(`current - last complete read ${relativeTime(u.last_success_at)}`);
+  if (Number(u.consecutive_failures) >= 3) bits.push("back-off: attempted at most once per 48 hours until a read succeeds");
+  else if (Number(u.consecutive_failures) > 0) bits.push(`${u.consecutive_failures} consecutive failed attempt${Number(u.consecutive_failures) === 1 ? "" : "s"}`);
+  if (u.last_success_row_count !== null && u.last_success_row_count !== undefined) bits.push(`${u.last_success_row_count} rows at the last complete read`);
+  const bad = unavailable || since === null || isNaN(since) || since > 36;
+  return { text: bits.join(" · "), cls: bad ? "warn" : "ok" };
+}
+const TRANSITION_LABELS = {
+  newly_observed: "First observed on the list", status_changed: "Status changed", removed: "Removed from the list (closed - not a sale result)",
+  result_published: "Result published by the source", reactivated: "Back on the list (reactivated)"
+};
+function availableDecisionHtml(p) {
+  if (p.source !== "laft") return "";
+  const region = regionOf(p);
+  const tx = region === "TX";
+  const muted = t => `<span class="muted">${esc(t)}</span>`;
+  const sub = t => `<span class="dec-sub">${t}</span>`;
+  const q = (id, question, answer, cls) => `<div class="dec-row" data-q="${id}"><span class="dec-q">${esc(question)}</span><span class="dec-a${cls ? " " + cls : ""}">${answer}</span></div>`;
+  const rows = [];
+  // 1. What is it?
+  const what = INVENTORY_TYPE_LABELS[p.inventory_type] ? esc(INVENTORY_TYPE_LABELS[p.inventory_type]) : muted("Not classified - the source has not said what kind of inventory this is");
+  rows.push(q("what", "What is it?", `${what}${p.source_authority ? sub(esc(`Published by ${SOURCE_AUTHORITY_LABELS[p.source_authority] || p.source_authority}`)) : ""}`));
+  // 2. Is it available now?
+  let avail, availCls = "";
+  if (p.inventory_status === undefined) { avail = muted("Availability status is not projected by this deployment"); }
+  else if (!p.inventory_status) { avail = muted("Not yet observed by a lifecycle run"); }
+  else {
+    const label = INVENTORY_STATUS_LABELS[p.inventory_status] || String(p.inventory_status);
+    const basisKey = String(p.inventory_status_basis || "").split(":")[0];
+    const ev = [];
+    if (p.inventory_status_raw) ev.push(`source wording "${p.inventory_status_raw}"`);
+    else if (INVENTORY_STATUS_BASIS_TEXT[basisKey]) ev.push(`basis: ${INVENTORY_STATUS_BASIS_TEXT[basisKey].toLowerCase()}`);
+    if (p.inventory_status_observed_at) ev.push(`observed ${dateOnly(p.inventory_status_observed_at)}`);
+    avail = `${esc(label)}${ev.length ? sub(esc(ev.join(" · "))) : ""}`;
+    availCls = p.inventory_status === "available_otc" || p.inventory_status === "state_held" ? "ok" : (p.inventory_status === "closed" || p.inventory_status === "sold" ? "bad" : "");
+  }
+  rows.push(q("available", "Is it available now?", avail, availCls));
+  // 3. How do I buy it?
+  const tp = typedPurchasePath(p);
+  let how, howCls = "";
+  if (tp) {
+    how = tp.url ? `<a href="${esc(tp.url)}" target="_blank" rel="noopener">${esc(tp.label)} →</a>` : esc(tp.label);
+    how += sub(esc(`${tp.scope === "property" ? "For this property specifically" : "The source's process for every parcel it lists"}${tp.evidence ? ` · evidence: ${tp.evidence}` : ""}${tp.observedOn ? ` · observed ${dateOnly(tp.observedOn)}` : ""}`));
+    howCls = tp.type === "none_published" ? "muted" : "ok";
+  } else {
+    const pp = purchasePathOf(p);
+    if (pp.kind !== "none") {
+      how = `<a href="${esc(pp.url)}" target="_blank" rel="noopener">${esc(pp.label)} →</a>${sub(esc(pp.kind === "property" ? "A link the source published for this property (recorded before the purchase-path evidence columns existed)" : "The source's own process page (recorded before the purchase-path evidence columns existed)"))}`;
+    } else {
+      how = `${muted("Not yet verified - no purchase path has been established from evidence.")}${sub(esc("The county list page is not a purchase mechanism; nothing is invented. A path appears here once a rule, the registry or the source's own wording establishes one."))}`;
+      howCls = "muted";
+    }
+  }
+  rows.push(q("how", "How do I buy it?", how, howCls));
+  // 4. What does it cost?
+  let cost, costCls = "";
+  if (p.purchase_amount_kind === "NOT_PUBLISHED") { cost = muted("Not published by the source"); costCls = "muted"; }
+  else if (hasNum(p.purchase_amount) && Number(p.purchase_amount) > 0) cost = `${esc(fmtMoney(p.purchase_amount))}${sub(esc(AMOUNT_KIND_LABELS[p.purchase_amount_kind] || AMOUNT_KIND_LABELS.PUBLISHED_AMOUNT_KIND_UNSPECIFIED))}`;
+  else if (hasPublishedBid(p)) cost = `${esc(fmtMoney(p.bid))}${sub(esc(tx ? "Vendor minimum bid (legacy column)" : AMOUNT_KIND_LABELS.PUBLISHED_AMOUNT_KIND_UNSPECIFIED))}`;
+  else { cost = muted("Not published"); costCls = "muted"; }
+  if (tp && ["quoted_amount", "amount_plus_costs", "amount_on_application"].includes(tp.type)) cost += sub(esc(tp.label));
+  rows.push(q("cost", "What does it cost?", cost, costCls));
+  // 5. Where is it?
+  const street = realAddress(p);
+  const coords = hasNum(p.latitude) && hasNum(p.longitude);
+  rows.push(q("where", "Where is it?", `${street ? esc(street) : muted("No street address in the listing")}${sub(esc(`${p.county} County, ${region}${hasParcel(p) ? ` · Parcel ${p.parcel}` : " · Parcel # not published"}${p.case_no ? ` · Case ${p.case_no}` : ""}`))}${sub(coords ? `<span class="mono">${Number(p.latitude).toFixed(5)}, ${Number(p.longitude).toFixed(5)}</span> · authoritative coordinates on file` : `<span class="muted">Not yet geocoded - no point is shown for this parcel</span>`)}`));
+  // 6. What is known about it?
+  const known = [];
+  if (hasNum(p.market)) known.push(`${valueLabel(p)} ${fmtShort(p.market)}`);
+  if (hasNum(p.assessed)) known.push(`${assessedSourceLabel(p)} ${fmtShort(p.assessed)}`);
+  if (hasNum(p.taxable_value)) known.push(`Taxable value ${fmtShort(p.taxable_value)}`);
+  if (hasNum(p.acreage)) known.push(`${Number(p.acreage).toFixed(2)} ac`);
+  if (p.land_use) known.push(`Land use ${p.land_use}`);
+  if (p.prop_type) known.push(`Type ${p.prop_type}`);
+  if (p.owner_name) known.push(`Assessed to ${p.owner_name}`);
+  if (p.legal_desc) known.push("Legal description on file");
+  if (hasNum(p.year_built)) known.push(`Built ${p.year_built}`);
+  rows.push(q("known", "What is known about it?", known.length ? esc(known.join(" · ")) : muted("Nothing beyond the identity the list published"), known.length ? "" : "muted"));
+  // 7. What is not known?
+  const gaps = dataGaps(p);
+  rows.push(q("unknown", "What is not known?", gaps.length ? `<ul class="dec-gaps">${gaps.map(g => `<li>${esc(g)}</li>`).join("")}</ul>` : `<span class="ok">None of the gaps this app checks for</span>`, gaps.length ? "" : "ok"));
+  // 8. Where did the data come from?
+  const src = [];
+  const link = (href, label) => `<a href="${esc(href)}" target="_blank" rel="noopener">${esc(label)} →</a>`;
+  src.push(esc(harvesterSourceLabel(p) || p.source_id || "Source not recorded"));
+  if (p.list_url) src.push(link(p.list_url, "Source list"));
+  if (p.document_url && p.document_url !== p.list_url) src.push(link(p.document_url, "Source document"));
+  rows.push(q("source", "Where did the data come from?", `${src.join(" · ")}${sub(esc("Field-by-field origin is in the Data Quality & Provenance card below."))}`));
+  // 9. How fresh is it?
+  const fresh = [];
+  fresh.push(p.list_as_of ? `Source date: list dated ${dateOnly(p.list_as_of)}` : (p.source_published_at ? `Source date: document dated ${dateOnly(p.source_published_at)}` : "Source date: not published by the source"));
+  fresh.push(p.inventory_status_observed_at ? `Observation date: ${dateOnly(p.inventory_status_observed_at)}` : "Observation date: no status observation yet");
+  fresh.push(p.last_seen_at ? `Last verified: read from the source ${dateOnly(p.last_seen_at)}` : "Last verified: not yet verified by a lifecycle run");
+  const unit = unitFreshnessText(unitFreshnessFor(p));
+  rows.push(q("fresh", "How fresh is it?", `${esc(fresh.join(" · "))}${sub(`<span class="${unit.cls}">County source: ${esc(unit.text)}</span>`)}`));
+  // 10. What happened before? (append-only lifecycle history, loaded async)
+  rows.push(q("history", "What happened before?", `<div data-inventory-history-for="${esc(p.id)}"><span class="muted">Loading lifecycle history…</span></div>`));
+  // 11. Is this parcel in another ledger?
+  const rel = relatedRecordsFor(p);
+  rows.push(q("related", "Is this parcel in another ledger?", !hasParcel(p) ? muted("No parcel number on this record, so it cannot be matched")
+    : rel.length ? esc(rel.map(o => `${ledgerCopy(o.source).title || o.source} - ${o.source === "certificate" ? `certificate #${o.certificate_no || "?"}` : `case ${o.case_no || "?"}`}`).join(" · "))
+    : muted(`No record for parcel ${p.parcel} in the other ledgers in the current dataset`)));
+  return detailSectionHtml("Available decision", `<div class="dec-list">${rows.join("")}</div>`, "decision-card", "decision");
+}
+function inventoryHistoryHtml(p, rows) {
+  const items = [];
+  // first_seen_at stands in for the first observation only when the history
+  // table has no newly_observed row (rows written before migration 021).
+  if (p.first_seen_at && !(rows || []).some(r => r.transition === "newly_observed")) items.push({ at: p.first_seen_at, label: "First observed on the source list", kind: "first" });
+  (rows || []).forEach(r => {
+    const detail = [INVENTORY_STATUS_LABELS[r.inventory_status] || String(r.inventory_status || "")];
+    if (r.raw_status) detail.push(`source wording "${r.raw_status}"`);
+    if (r.result_date) detail.push(`result date ${dateOnly(r.result_date)}`);
+    if (hasNum(r.result_amount)) detail.push(`result amount ${fmtMoney(r.result_amount)}`);
+    if (r.result_party) detail.push(`party ${r.result_party}`);
+    items.push({ at: r.observed_at, label: TRANSITION_LABELS[r.transition] || (r.transition ? String(r.transition) : "Status observed"), detail: detail.join(" · "), kind: r.transition || "observed" });
+  });
+  if (p.delisted_at) items.push({ at: p.delisted_at, label: "Removed from the list (closed - not a sale result)", kind: "removed" });
+  if (p.last_seen_at) items.push({ at: p.last_seen_at, label: "Last read from the source (continued on the list)", kind: "continued" });
+  items.sort((a, b) => String(a.at).localeCompare(String(b.at)));
+  if (!items.length) return `<span class="muted">No lifecycle observations recorded for this row yet.</span>`;
+  return `<ol class="dec-history">${items.map(i => `<li data-kind="${esc(i.kind)}"><span class="dec-when">${esc(dateOnly(i.at))}</span><span class="dec-what">${esc(i.label)}${i.detail ? `<span class="dec-sub">${esc(i.detail)}</span>` : ""}</span></li>`).join("")}</ol>
+    <span class="dec-sub dec-history-note">Append-only record. Absence from a list is recorded as a removal, never as a sale; a result appears only when the source published one.</span>`;
+}
+async function hydrateInventoryHistory(container, p) {
+  const slot = container.querySelector(`[data-inventory-history-for="${cssEscape(String(p.id))}"]`);
+  if (!slot) return;
+  const res = await sb.from("inventory_status_observations").select("*").eq("property_id", p.id).order("observed_at");
+  if (!document.contains(slot)) return;
+  if (res.error) {
+    const msg = String(res.error.message || "");
+    const missing = res.error.code === "PGRST205" || res.error.code === "42P01" || /could not find the table|does not exist/i.test(msg);
+    slot.innerHTML = `<span class="muted">${missing ? "Lifecycle history is not available on this deployment yet (migration 021 has not been applied)." : "Couldn't load lifecycle history: " + esc(msg)}</span>`;
+    return;
+  }
+  slot.innerHTML = inventoryHistoryHtml(p, res.data || []);
+}
+
 // Jump pills across the top of the full property page, one per section
 // that actually rendered (built AFTER the body, by scanning it for
 // data-section anchors, so a row with no History section gets no dead
 // "History" pill). Scrolling is done by the "jump" click action below.
-const DETAIL_NAV_LABELS = { summary: "Summary", inventory: "Inventory", financial: "Financial", property: "Property", history: "History", events: "Sale events", risk: "Risk & Legal", map: "Map", sources: "Sources", provenance: "Data" };
+const DETAIL_NAV_LABELS = { summary: "Summary", decision: "Decision", inventory: "Inventory", financial: "Financial", property: "Property", history: "History", events: "Sale events", risk: "Risk & Legal", map: "Map", sources: "Sources", provenance: "Data" };
 function detailNavHtml(bodyHtml) {
   const ids = [];
   bodyHtml.replace(/data-section="([a-z]+)"/g, (m, id) => { if (DETAIL_NAV_LABELS[id] && !ids.includes(id)) ids.push(id); return m; });
@@ -3205,6 +3479,12 @@ function availabilityEvidenceHtml(p) {
   line("Purchase link source", pp.kind === "none"
     ? `<span class="muted">No online purchase link on file</span>`
     : esc(`${pp.label} - ${pp.kind === "property" ? "a link the source published for this property" : "the source's own process page"}`));
+  const tp = typedPurchasePath(p);
+  if (p.purchase_path_type !== undefined) {
+    line("Path evidence", tp
+      ? esc(`${tp.label} · ${tp.scope === "property" ? "property-level" : "source-level"}${tp.evidence ? ` · ${tp.evidence}` : ""}${tp.observedOn ? ` · observed ${dateOnly(tp.observedOn)}` : ""}`)
+      : `<span class="muted">Not yet evaluated - no rule, registry row or source wording establishes a path</span>`);
+  }
   return `<div class="prov-lines prov-available">${lines.join("")}</div>
     <p class="prov-legend"><b>Published by the source</b> = the value as the county or agency published it. <b>Derived by our system</b> = matched or computed by this app from a public dataset (tax-roll parcel match, geocoder, FEMA layer), named as such. <b>Not published</b> = the source did not state it; nothing is filled in.</p>`;
 }
@@ -3483,6 +3763,7 @@ function detailHtml(p) {
     ${relatedRecordsHtml(p)}` : `
     ${propertyVisual(p, "detail-hero-photo")}
     ${opportunitySummaryHtml(p)}
+    ${availableDecisionHtml(p)}
     ${inventoryCardHtml(p)}
     ${relatedRecordsHtml(p)}
     ${statGroupHtml("Financial", stats.filter(s => s[2] === "financial"), "financial")}
@@ -3583,6 +3864,7 @@ function openDetail(p) {
   inner.innerHTML = detailHtml(p);
   hydrateVisuals(inner);
   if (p.source !== "certificate") hydrateEventHistory(inner, p);
+  if (p.source === "laft") hydrateInventoryHistory(inner, p);
   modal.hidden = false;
   pushBackLayer("detail", closeDetail);
   // Phase 58: fold this property's id into the URL - "#/auctions/12345" -
@@ -4586,6 +4868,7 @@ function applyLedgerChrome() {
   if (junkRow) junkRow.hidden = key !== "laft";
   const availRow = document.getElementById("availableFilters");
   if (availRow) availRow.hidden = key !== "laft";
+  if (key === "laft") buildAvailLandUseSelect();
 
   // The CSV export is the same file either way - only the label changes, so
   // it reads as "the thing this ledger's desk actually wants" rather than a
@@ -4754,6 +5037,54 @@ if (exportCsvBtn) exportCsvBtn.addEventListener("click", () => {
   const inLedger = p => p.source === state.ledger;
   const rows = sortRows(ALL.filter(inLedger).filter(passes));
   if (!rows.length) return;
+  // Available ledger (2026-09-30): the customer export carries published
+  // fields only - identity, availability, purchase path, amount, the tax-
+  // roll facts, coordinates, source and dates. No internal governance field
+  // (publication_status, provenance JSON, basis wording, harvester tag), no
+  // diagnostics; withheld inventory never reaches ALL in the first place.
+  const availableCols = [
+    ["State", p => regionOf(p)],
+    ["County", p => p.county],
+    ["Address", p => p.address || ""],
+    ["Parcel", p => p.parcel || ""],
+    ["Case #", p => p.case_no || ""],
+    ["Inventory Type", p => INVENTORY_TYPE_LABELS[p.inventory_type] || ""],
+    ["Availability Status", p => p.inventory_status ? (INVENTORY_STATUS_LABELS[p.inventory_status] || p.inventory_status) : ""],
+    ["Availability Observed", p => p.inventory_status_observed_at ? String(p.inventory_status_observed_at).slice(0, 10) : ""],
+    ["Purchase Path", p => { const t = typedPurchasePath(p); return t ? (PURCHASE_PATH_TYPE_LABELS[t.type] || t.type) : ""; }],
+    ["Purchase Path Scope", p => { const t = typedPurchasePath(p); return t ? t.scope : ""; }],
+    ["Purchase Path Observed", p => p.purchase_path_observed_on || ""],
+    ["Purchase Link", p => { const pp = purchasePathOf(p); return pp.kind === "none" ? "" : pp.url; }],
+    ["Purchase Link Type", p => { const pp = purchasePathOf(p); return pp.kind === "none" ? "" : (pp.kind === "property" ? "for this property" : "instructions / application page"); }],
+    ["Amount", p => hasNum(p.purchase_amount) && Number(p.purchase_amount) > 0 ? p.purchase_amount : (hasPublishedBid(p) ? p.bid : "")],
+    ["Amount Kind", p => p.purchase_amount_kind === "NOT_PUBLISHED" ? "Not published" : (AMOUNT_KIND_LABELS[p.purchase_amount_kind] || "")],
+    ["Result (per the source)", p => p.inventory_status && ["sold", "redeemed", "withdrawn", "cancelled", "struck_off"].includes(p.inventory_status) ? (INVENTORY_STATUS_LABELS[p.inventory_status] || p.inventory_status) : ""],
+    ["Result Date", p => p.result_date || ""],
+    ["Result Amount", p => p.result_amount ?? ""],
+    ["County Assessed Value", p => p.assessed ?? ""],
+    ["County Just Value", p => p.market ?? ""],
+    ["Just Value Year", p => p.value_year ?? ""],
+    ["Taxable Value", p => p.taxable_value ?? ""],
+    ["Acreage", p => p.acreage ?? ""],
+    ["Land Use", p => p.land_use || ""],
+    ["Property Type", p => p.prop_type || ""],
+    ["Lot Size (sq ft)", p => p.lot_sqft ?? ""],
+    ["Year Built", p => p.year_built ?? ""],
+    ["Legal Description", p => p.legal_desc || ""],
+    ["Name Assessed", p => p.owner_name || ""],
+    ["Certificate #", p => p.certificate_no || ""],
+    ["Escheats to County", p => p.escheatment_date || ""],
+    ["Available for Purchase", p => p.available_date || ""],
+    ["Latitude", p => hasNum(p.latitude) ? p.latitude : ""],
+    ["Longitude", p => hasNum(p.longitude) ? p.longitude : ""],
+    ["Flood Zone", p => p.flood_zone || ""],
+    ["Source List URL", p => p.list_url || p.url_auction || ""],
+    ["Source Document URL", p => p.document_url || ""],
+    ["Source Date (list)", p => p.list_as_of || ""],
+    ["Source Date (document)", p => p.source_published_at ? String(p.source_published_at).slice(0, 10) : ""],
+    ["Last Read From Source", p => p.last_seen_at ? String(p.last_seen_at).slice(0, 10) : ""],
+    ["First Observed", p => p.first_seen_at ? String(p.first_seen_at).slice(0, 10) : ""]
+  ];
   const cols = [
     ["State", p => regionOf(p)],
     ["County", p => p.county],
@@ -4855,13 +5186,14 @@ if (exportCsvBtn) exportCsvBtn.addEventListener("click", () => {
     ["Auction URL Type", p => p.url_auction ? (p.url_auction_kind || "") : ""],
     ["Clerk Official Records URL", p => p.url_title || ""]
   ];
+  const exportCols = state.ledger === "laft" ? availableCols : cols;
   // Phase 63: the row-terminator below is "\r\n", and this regex used to
   // only test for a comma/quote/"\n" - a harvested text field (e.g.
   // legal_desc) containing a lone "\r" with no "\n" would be emitted
   // unquoted, able to be misread as a row boundary by a stricter CSV parser.
   const csvEscape = v => { const s = String(v ?? ""); return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
-  const lines = [cols.map(c => csvEscape(c[0])).join(",")];
-  rows.forEach(p => lines.push(cols.map(c => csvEscape(c[1](p))).join(",")));
+  const lines = [exportCols.map(c => csvEscape(c[0])).join(",")];
+  rows.forEach(p => lines.push(exportCols.map(c => csvEscape(c[1](p))).join(",")));
   const blob = new Blob([lines.join("\r\n")], { type: "text/csv;charset=utf-8;" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -5044,6 +5376,20 @@ function bindSelect(id, key) {
 bindSelect("availPathFilter", "availPath");
 bindSelect("availAmountKindFilter", "availAmountKind");
 bindSelect("availStatusFilter", "availStatus");
+bindSelect("availLandUseFilter", "availLandUse");
+bindCheckbox("availGeocoded", "availGeocoded");
+bindCheckbox("availValues", "availValues");
+// The land-use filter lists only values Available rows actually carry
+// (FDOR tax-roll land_use as stored) - never a fixed taxonomy.
+function buildAvailLandUseSelect() {
+  const el = document.getElementById("availLandUseFilter");
+  if (!el) return;
+  const values = Array.from(new Set(ALL.filter(p => p.source === "laft" && p.land_use).map(p => String(p.land_use)))).sort();
+  const current = state.availLandUse;
+  el.innerHTML = `<option value="any">Any</option>` + values.map(v => `<option value="${esc(v)}">${esc(v)}</option>`).join("");
+  el.value = values.includes(current) ? current : "any";
+  if (el.value !== current) state.availLandUse = "any";
+}
 const acreageMinEl = document.getElementById("acreageMin");
 if (acreageMinEl) acreageMinEl.addEventListener("input", () => {
   const v = parseFloat(acreageMinEl.value);
@@ -5088,7 +5434,9 @@ if (resetBtn) resetBtn.addEventListener("click", () => {
   const searchEl = document.getElementById("searchInput"); if (searchEl) searchEl.value = "";
   // Available-ledger filters (2026-09-30) reset with everything else.
   state.availPath = "any"; state.availAmountKind = "any"; state.availStatus = "any"; state.acreageMin = null; state.availSeenRecently = false;
-  ["availPathFilter", "availAmountKindFilter", "availStatusFilter"].forEach(id => { const el = document.getElementById(id); if (el) el.value = "any"; });
+  state.availLandUse = "any"; state.availGeocoded = false; state.availValues = false;
+  ["availGeocoded", "availValues"].forEach(id => { const el = document.getElementById(id); if (el) el.checked = false; });
+  ["availPathFilter", "availAmountKindFilter", "availStatusFilter", "availLandUseFilter"].forEach(id => { const el = document.getElementById(id); if (el) el.value = "any"; });
   const acreageEl = document.getElementById("acreageMin"); if (acreageEl) acreageEl.value = "";
 
   buildAllChips();

@@ -1670,6 +1670,49 @@ Full description: `docs/available-ledger.md`. The stable facts:
   freshness bits (source unavailable / no complete read in 36 h / back-off).
   `sw.js` -> `tdw-shell-v48`.
 
+## AVAILABLE commercial release (2026-09-30, migrations 021/022/023 APPLIED)
+
+Full description: `docs/available-ledger.md` section 8. The stable facts:
+- **Production state changed this sprint, with the owner's explicit
+  authorization**: migrations 021, 022 and 023 are applied
+  (`021_inventory_status_provenance_freshness`,
+  `022_available_publication_gate`, `023_available_commercial_release` in
+  Supabase's migration list); 020 is still NOT applied. `get_properties()`
+  now ends `... publication_status, purchase_path_type, purchase_path_scope,
+  purchase_path_evidence, purchase_path_observed_on, result_amount,
+  result_date, result_party`. `properties.publication_status` is
+  APPROVED_GRANDFATHERED on every FL / TX laft row of a production source
+  (propagated from the registry; unknown sources stay NULL, never
+  approved by omission). `public.source_publication_reviews` exists
+  (admin read / insert, service_role read).
+- **`harvest-and-sync.yml` has a `job` selector** on manual dispatch (all /
+  deeds / certificates / laft / texas / backup). Dispatch `job=laft` for the
+  normal AVAILABLE path; never dispatch `all` or `texas` unless LGBS is
+  meant to run. Schedules unchanged; texas is never scheduled.
+- **`scripts/purchase_path_engine.py`** is the only writer of
+  `purchase_path_type` / `_scope` / `_evidence` / `_observed_on` (ten
+  types; refusals for search engines, homepages, guessed patterns,
+  blocked vendors, unverified third parties, list / document pages).
+  Evidence tables `data/purchase_path_evidence.csv` and
+  `data/outcome_column_rules.csv` ship EMPTY - no county page has been
+  read from this repository, so every FL production row stays "not yet
+  evaluated". Do not add a row without a verified observation.
+- **`scripts/outcome_ingest.py`**: result date / amount / party only
+  through an enabled rule; party only when `party_permitted`. Absence is
+  never a result. `inventory_status_writer` names `reactivated` (023 only)
+  and carries result fields once 023 is probed.
+- **Admin publication panel** (`refreshAdminPublication`, `#adminPublication`)
+  writes append-only reviews; `publication_gate.py` applies the latest
+  VALID one per source (`apply_reviews`, validated by
+  `publication_problems`) and writes it back to the registry table.
+- **Frontend**: `availableDecisionHtml` (eleven questions, section id
+  `decision`), `inventoryHistoryHtml` / `hydrateInventoryHistory`, typed
+  path labels `PURCHASE_PATH_TYPE_LABELS`, filters `availLandUse` /
+  `availGeocoded` / `availValues`, published-fields Available export
+  (`availableCols`). Fixture p15 (Citrus) is the typed-path row; p3 stays
+  untyped. `sw.js` -> `tdw-shell-v49`. `tests/run_test.mjs` supports
+  `DUMP_RESULTS=<path>` to read a new check's real value before pinning.
+
 ## Where to look for more
 
 - `claude/improvement-roadmap.md` in the "tax florida app" claude.ai Project — the full dated log of every fix, audit finding, and open decision. This is where new findings should be appended, not here.
