@@ -2739,16 +2739,40 @@ function relatedRecordsFor(p) {
   return ALL.filter(o => o.id !== p.id && parcelKey(o) === key)
     .sort((a, b) => LEDGER_ORDER.indexOf(a.source) - LEDGER_ORDER.indexOf(b.source) || String(a.case_no || "").localeCompare(String(b.case_no || "")));
 }
+// Whether a related record is CURRENTLY on its ledger's feed or was
+// PREVIOUSLY on it, from stored status and dates only (gone_since /
+// delisted_at / last_seen_at). "Previously" says the record left the source
+// feed or list - never why, never that it sold or was redeemed.
+function relatedWhen(o) {
+  const left = o.gone_since || o.delisted_at || null;
+  if (isGone(o)) return { text: `Previously listed${left ? ` · left the source ${dateOnly(left)}` : (o.last_seen_at ? ` · last read ${dateOnly(o.last_seen_at)}` : "")}`, cls: "prev" };
+  return { text: `Currently listed${o.last_seen_at ? ` · last read ${dateOnly(o.last_seen_at)}` : ""}`, cls: "now" };
+}
 function relatedRecordLine(o) {
   const cfg = ledgerCopy(o.source);
   const ident = o.source === "certificate" ? `Certificate #${esc(o.certificate_no || "Unknown")}` : `Case ${esc(o.case_no || "Unknown")}`;
   const { phase } = kickerParts(o);
-  return `<div class="related-record" data-pid="${o.id}" data-source="${esc(o.source)}">
+  const when = relatedWhen(o);
+  return `<div class="related-record" data-pid="${o.id}" data-source="${esc(o.source)}" data-when="${when.cls}">
     <span class="related-ledger kicker-${esc(o.source)}">${esc(cfg.title || o.source)}</span>
     <span class="related-ident">${ident}</span>
-    <span class="related-phase">${esc(phase)}</span>
+    <span class="related-phase">${esc(phase)}<span class="related-when ${when.cls}">${esc(when.text)}</span></span>
     <button class="related-open" data-action="viewdetails" data-pid="${o.id}" type="button">Open</button>
   </div>`;
+}
+// One sentence per ledger the parcel also appears in - "currently" or
+// "previously" - for the decision blocks. Exact state + county + parcel
+// identity only (parcelKey); no fuzzy matching, no inferred movement.
+function crossLedgerSummary(p) {
+  if (!hasParcel(p)) return { text: "No parcel number on this record, so it cannot be matched to the other ledgers", cls: "muted", rows: [] };
+  const rel = relatedRecordsFor(p);
+  if (!rel.length) return { text: `No record for parcel ${p.parcel} in the other ledgers in the current dataset`, cls: "muted", rows: [] };
+  const parts = rel.map(o => {
+    const w = relatedWhen(o);
+    const ident = o.source === "certificate" ? `certificate #${o.certificate_no || "?"}` : `case ${o.case_no || "?"}`;
+    return `${w.cls === "prev" ? "Previously" : "Currently"} in ${ledgerCopy(o.source).title || o.source} (${ident})`;
+  });
+  return { text: parts.join(" · ") + ". Same state, county and parcel number; why a record moved between ledgers is not recorded.", cls: "", rows: rel };
 }
 function relatedRecordsHtml(p) {
   const related = relatedRecordsFor(p);
@@ -3052,9 +3076,16 @@ function availableDecisionHtml(p) {
   const sub = t => `<span class="dec-sub">${t}</span>`;
   const q = (id, question, answer, cls) => `<div class="dec-row" data-q="${id}"><span class="dec-q">${esc(question)}</span><span class="dec-a${cls ? " " + cls : ""}">${answer}</span></div>`;
   const rows = [];
+  const street = realAddress(p);
+  const coords = hasNum(p.latitude) && hasNum(p.longitude);
   // 1. What is it?
   const what = INVENTORY_TYPE_LABELS[p.inventory_type] ? esc(INVENTORY_TYPE_LABELS[p.inventory_type]) : muted("Not classified - the source has not said what kind of inventory this is");
-  rows.push(q("what", "What is it?", `${what}${p.source_authority ? sub(esc(`Published by ${SOURCE_AUTHORITY_LABELS[p.source_authority] || p.source_authority}`)) : ""}`));
+  rows.push(q("what", "What property is this?", `${street ? esc(street) : muted("No street address in the listing")}${sub(esc(`${p.county} County, ${region}${hasParcel(p) ? ` · Parcel ${p.parcel}` : " · Parcel # not published"}${p.case_no ? ` · Case ${p.case_no}` : ""}${p.prop_type ? ` · ${p.prop_type}` : ""}`))}`));
+  // Why it is in AVAILABLE: the inventory type the lifecycle classified and
+  // the source wording it rests on (otc_provenance.inventory_type) - never
+  // "because it left an auction list".
+  const op = p.otc_provenance && typeof p.otc_provenance === "object" ? p.otc_provenance : {};
+  rows.push(q("why", "Why is it in Available?", `${what}${sub(esc(op.inventory_type ? `Basis: ${op.inventory_type}` : (p.source_authority ? `Published by ${SOURCE_AUTHORITY_LABELS[p.source_authority] || p.source_authority}` : "Basis not recorded")))}`));
   // 2. Is it available now?
   let avail, availCls = "";
   if (p.inventory_status === undefined) { avail = muted("Availability status is not projected by this deployment"); }
@@ -3069,7 +3100,11 @@ function availableDecisionHtml(p) {
     avail = `${esc(label)}${ev.length ? sub(esc(ev.join(" · "))) : ""}`;
     availCls = p.inventory_status === "available_otc" || p.inventory_status === "state_held" ? "ok" : (p.inventory_status === "closed" || p.inventory_status === "sold" ? "bad" : "");
   }
-  rows.push(q("available", "Is it available now?", avail, availCls));
+  const verifiedBits = [];
+  verifiedBits.push(p.last_seen_at ? `last verified: read from the source ${dateOnly(p.last_seen_at)}` : "not yet verified by a lifecycle run");
+  const unitNow = unitFreshnessFor(p);
+  if (unitNow && (unitNow.last_attempt_status === "SOURCE_UNAVAILABLE" || /^(TRANSPORT_|PROXY_|ACCESS_)/.test(String(unitNow.last_error_category || "")))) verifiedBits.push("county source unavailable at the last attempt - inventory kept, nothing closed");
+  rows.push(q("available", "Is it currently verified as available?", `${avail}${sub(esc(verifiedBits.join(" · ")))}`, availCls));
   // 3. How do I buy it?
   const tp = typedPurchasePath(p);
   let how, howCls = "";
@@ -3086,7 +3121,17 @@ function availableDecisionHtml(p) {
       howCls = "muted";
     }
   }
-  rows.push(q("how", "How do I buy it?", how, howCls));
+  rows.push(q("how", "How do I purchase or apply?", `${how}${op.purchase_instructions ? sub(`<span class="dec-instructions">Instructions published by the source: ${esc(String(op.purchase_instructions))}</span>`) : ""}`, howCls));
+  // What source proves that, and when was it observed?
+  let proof, proofCls = "";
+  if (tp) {
+    const bits = [];
+    if (op.purchase_evidence_title) bits.push(String(op.purchase_evidence_title));
+    if (op.purchase_evidence_type) bits.push({ county_page: "county page", county_document: "county document", property_page: "property page", registry: "source registry", other: "other verified source" }[op.purchase_evidence_type] || String(op.purchase_evidence_type));
+    proof = op.purchase_evidence_url ? `<a href="${esc(String(op.purchase_evidence_url))}" target="_blank" rel="noopener">${esc(bits.join(" · ") || "Evidence page")} →</a>` : esc(bits.join(" · ") || tp.evidence);
+    proof += sub(esc(`Observed ${tp.observedOn ? dateOnly(tp.observedOn) : "date not recorded"}${tp.scope === "property" ? " · for this property specifically" : " · the source's process for every parcel it lists"}`));
+  } else { proof = muted("No verified evidence on file - nothing proves a purchase path for this record yet"); proofCls = "muted"; }
+  rows.push(q("proof", "What source proves that, and when was it observed?", proof, proofCls));
   // 4. What does it cost?
   let cost, costCls = "";
   if (p.purchase_amount_kind === "NOT_PUBLISHED") { cost = muted("Not published by the source"); costCls = "muted"; }
@@ -3096,9 +3141,7 @@ function availableDecisionHtml(p) {
   if (tp && ["quoted_amount", "amount_plus_costs", "amount_on_application"].includes(tp.type)) cost += sub(esc(tp.label));
   rows.push(q("cost", "What does it cost?", cost, costCls));
   // 5. Where is it?
-  const street = realAddress(p);
-  const coords = hasNum(p.latitude) && hasNum(p.longitude);
-  rows.push(q("where", "Where is it?", `${street ? esc(street) : muted("No street address in the listing")}${sub(esc(`${p.county} County, ${region}${hasParcel(p) ? ` · Parcel ${p.parcel}` : " · Parcel # not published"}${p.case_no ? ` · Case ${p.case_no}` : ""}`))}${sub(coords ? `<span class="mono">${Number(p.latitude).toFixed(5)}, ${Number(p.longitude).toFixed(5)}</span> · authoritative coordinates on file` : `<span class="muted">Not yet geocoded - no point is shown for this parcel</span>`)}`));
+  rows.push(q("where", "Where is it?", `${street ? esc(street) : muted("No street address in the listing")}${sub(esc(`${p.county} County, ${region}`))}${sub(coords ? `<span class="mono">${Number(p.latitude).toFixed(5)}, ${Number(p.longitude).toFixed(5)}</span> · authoritative coordinates on file` : `<span class="muted">Not yet geocoded - no point is shown for this parcel</span>`)}`));
   // 6. What is known about it?
   const known = [];
   if (hasNum(p.market)) known.push(`${valueLabel(p)} ${fmtShort(p.market)}`);
@@ -3106,6 +3149,8 @@ function availableDecisionHtml(p) {
   if (hasNum(p.taxable_value)) known.push(`Taxable value ${fmtShort(p.taxable_value)}`);
   if (hasNum(p.acreage)) known.push(`${Number(p.acreage).toFixed(2)} ac`);
   if (p.land_use) known.push(`Land use ${p.land_use}`);
+  else if (p.dor_use_code && dorUseLabel(p.dor_use_code)) known.push(`State DOR use code ${p.dor_use_code} (${dorUseLabel(p.dor_use_code)})`);
+  if (p.homestead === true) known.push("Homestead exemption on the roll");
   if (p.prop_type) known.push(`Type ${p.prop_type}`);
   if (p.owner_name) known.push(`Assessed to ${p.owner_name}`);
   if (p.legal_desc) known.push("Legal description on file");
@@ -3131,11 +3176,105 @@ function availableDecisionHtml(p) {
   // 10. What happened before? (append-only lifecycle history, loaded async)
   rows.push(q("history", "What happened before?", `<div data-inventory-history-for="${esc(p.id)}"><span class="muted">Loading lifecycle history…</span></div>`));
   // 11. Is this parcel in another ledger?
-  const rel = relatedRecordsFor(p);
-  rows.push(q("related", "Is this parcel in another ledger?", !hasParcel(p) ? muted("No parcel number on this record, so it cannot be matched")
-    : rel.length ? esc(rel.map(o => `${ledgerCopy(o.source).title || o.source} - ${o.source === "certificate" ? `certificate #${o.certificate_no || "?"}` : `case ${o.case_no || "?"}`}`).join(" · "))
-    : muted(`No record for parcel ${p.parcel} in the other ledgers in the current dataset`)));
+  const xl = crossLedgerSummary(p);
+  rows.push(q("related", "Has this parcel appeared in another ledger?", xl.cls ? muted(xl.text) : esc(xl.text), xl.cls));
   return detailSectionHtml("Available decision", `<div class="dec-list">${rows.join("")}</div>`, "decision-card", "decision");
+}
+// The Auctions decision block: seven questions, each from a stored field or
+// its stated absence. An explicit result is shown only when the source
+// published one (inventory_status from a source status, or the row's
+// result_* columns); a listing that left the feed is never a result.
+function auctionDecisionHtml(p) {
+  if (p.source !== "auction") return "";
+  const region = regionOf(p);
+  const muted = t => `<span class="muted">${esc(t)}</span>`;
+  const sub = t => `<span class="dec-sub">${t}</span>`;
+  const q = (id, question, answer, cls) => `<div class="dec-row" data-q="${id}"><span class="dec-q">${esc(question)}</span><span class="dec-a${cls ? " " + cls : ""}">${answer}</span></div>`;
+  const rows = [];
+  const street = realAddress(p);
+  rows.push(q("what", "What property?", `${street ? esc(street) : muted("No street address in the listing")}${sub(esc(`${p.county} County, ${region}${hasParcel(p) ? ` · Parcel ${p.parcel}` : " · Parcel # not published"}${p.case_no ? ` · Case ${p.case_no}` : ""}${p.prop_type ? ` · ${p.prop_type}` : ""}`))}`));
+  let when, whenCls = "";
+  if (isGone(p)) { when = outcomeText(p); whenCls = "bad"; }
+  else if (!p.sale_date) { when = "Sale not scheduled"; whenCls = "muted"; }
+  else { const d = daysUntil(p); when = fmtDate(p.sale_date) + (d === 0 ? " · today" : d !== null && d < 0 ? ` · ${-d}d ago (past sale date)` : d !== null ? ` · in ${d}d` : ""); whenCls = d !== null && d <= 0 ? "bad" : (d !== null && d <= SOON_DAYS ? "warn" : ""); }
+  if (p.tx_sale_status) when += ` · source status "${p.tx_sale_status}"`;
+  rows.push(q("when", "When is the sale?", esc(when), whenCls));
+  rows.push(q("bid", "Opening / minimum bid, if published?", hasPublishedBid(p) ? `${esc(fmtMoney(p.bid))}${hasNum(p.market) && marketOf(p) > 0 ? sub(esc(`Value ÷ bid ${valueRatio(p).toFixed(1)}× - a screening ratio, not a return`)) : ""}` : muted("Not published"), hasPublishedBid(p) ? "" : "muted"));
+  const known = [];
+  if (hasNum(p.market)) known.push(`${valueLabel(p)} ${fmtShort(p.market)}`);
+  if (hasNum(p.assessed)) known.push(`${assessedSourceLabel(p)} ${fmtShort(p.assessed)}`);
+  if (hasNum(p.taxable_value)) known.push(`Taxable value ${fmtShort(p.taxable_value)}`);
+  if (hasNum(p.acreage)) known.push(`${Number(p.acreage).toFixed(2)} ac`);
+  if (p.land_use) known.push(`Land use ${p.land_use}`);
+  else if (p.dor_use_code && dorUseLabel(p.dor_use_code)) known.push(`State DOR use code ${p.dor_use_code} (${dorUseLabel(p.dor_use_code)})`);
+  if (hasNum(p.year_built)) known.push(`Built ${p.year_built}`);
+  if (hasNum(p.living_area)) known.push(`${fmtSqft(p.living_area)} living area`);
+  if (p.homestead === true) known.push("Homestead exemption on the roll");
+  if (hasNum(p.latitude) && hasNum(p.longitude)) known.push("Coordinates on file");
+  if (p.legal_desc) known.push("Legal description on file");
+  const fl = floodShort(p);
+  if (fl.cls !== "muted") known.push(`Flood ${fl.text}`);
+  rows.push(q("known", "What property intelligence is available?", known.length ? esc(known.join(" · ")) : muted("Nothing beyond the identity the source published"), known.length ? "" : "muted"));
+  const link = auctionLinkInfo(p);
+  rows.push(q("source", "What is the source?", `${esc(harvesterSourceLabel(p) || "Source not recorded")}${link && link.href ? ` · <a href="${esc(link.href)}" target="_blank" rel="noopener">${esc(link.label || "Source page")} →</a>` : ""}${sub(esc(`${lastSyncedText(p)}${p.last_seen_at ? ` · last read ${dateOnly(p.last_seen_at)}` : ""}`))}`));
+  let result, resultCls = "";
+  const RESULTS = { sold: 1, redeemed: 1, withdrawn: 1, cancelled: 1, struck_off: 1 };
+  if (p.inventory_status && RESULTS[p.inventory_status] && p.inventory_status_raw) {
+    const bits = [`source wording "${p.inventory_status_raw}"`];
+    if (p.result_date) bits.push(`result date ${dateOnly(p.result_date)}`);
+    if (hasNum(p.result_amount)) bits.push(`amount ${fmtMoney(p.result_amount)}`);
+    if (p.result_party) bits.push(`party ${p.result_party}`);
+    if (p.inventory_status_observed_at) bits.push(`observed ${dateOnly(p.inventory_status_observed_at)}`);
+    result = `${esc(INVENTORY_STATUS_LABELS[p.inventory_status] || p.inventory_status)}${sub(esc(bits.join(" · ")))}`;
+    resultCls = "ok";
+  } else if (isGone(p)) {
+    result = `${muted("Not published by the source.")}${sub(esc("The listing left the source feed after its date; whether it sold, was redeemed, cancelled or postponed is not recorded. Winning bids and bidder counts are never inferred."))}`;
+    resultCls = "muted";
+  } else if (p.sale_date && daysUntil(p) !== null && daysUntil(p) < 0) {
+    result = `${muted("Not published by the source.")}${sub(esc("The sale date has passed and the feed still lists the property with no result. Whether it sold, was redeemed, cancelled or postponed is not recorded; winning bids and bidder counts are never inferred."))}`;
+    resultCls = "muted";
+  } else {
+    result = muted("No result yet - the sale has not taken place");
+    resultCls = "muted";
+  }
+  rows.push(q("result", "Is an explicit auction result available?", result, resultCls));
+  const xl = crossLedgerSummary(p);
+  rows.push(q("related", "Has this parcel appeared in another ledger?", xl.cls ? muted(xl.text) : esc(xl.text), xl.cls));
+  const gaps = dataGaps(p);
+  rows.push(q("unknown", "What is not known?", gaps.length ? `<ul class="dec-gaps">${gaps.map(g => `<li>${esc(g)}</li>`).join("")}</ul>` : `<span class="ok">None of the gaps this app checks for</span>`, gaps.length ? "" : "ok"));
+  return detailSectionHtml("Auction decision", `<div class="dec-list">${rows.join("")}</div>`, "decision-card", "decision");
+}
+// The Liens & Certificates decision block: six questions about the
+// certificate itself (never the parcel), from the county-held list's own
+// columns; redemption and outcome are "not published" unless a source
+// column says otherwise.
+function certificateDecisionHtml(p) {
+  if (p.source !== "certificate") return "";
+  const muted = t => `<span class="muted">${esc(t)}</span>`;
+  const sub = t => `<span class="dec-sub">${t}</span>`;
+  const q = (id, question, answer, cls) => `<div class="dec-row" data-q="${id}"><span class="dec-q">${esc(question)}</span><span class="dec-a${cls ? " " + cls : ""}">${answer}</span></div>`;
+  const rows = [];
+  rows.push(q("what", "What certificate / lien?", `Certificate #${esc(p.certificate_no || "Unknown")}${sub(esc(`${p.county} County, ${regionOf(p)}${p.tax_year ? ` · tax year ${p.tax_year}` : ""}${p.case_no ? ` · account ${p.case_no}` : ""}${hasParcel(p) ? ` · parcel ${p.parcel}` : " · parcel # not published"}`))}`));
+  rows.push(q("amount", "Amount?", hasPublishedBid(p) ? esc(fmtMoney(p.bid)) : muted("Not published"), hasPublishedBid(p) ? "" : "muted"));
+  const terms = [];
+  if (hasNum(p.interest_rate)) terms.push(`Interest rate ${p.interest_rate}% (as published)`);
+  if (p.issued_date) terms.push(`Issued ${fmtDate(String(p.issued_date).slice(0, 10))}`);
+  if (p.expiration_date) terms.push(`Certificate expires ${fmtDate(String(p.expiration_date).slice(0, 10))}`);
+  rows.push(q("terms", "Interest / return terms, if published?", terms.length ? esc(terms.join(" · ")) + sub(esc("Published figures only; no return is estimated here.")) : muted("Not published by the source"), terms.length ? "" : "muted"));
+  rows.push(q("redemption", "Redemption information, if published?", p.inventory_status === "certificate_redeemed" && p.inventory_status_raw
+    ? `${esc(INVENTORY_STATUS_LABELS[p.inventory_status])}${sub(esc(`source wording "${p.inventory_status_raw}"`))}`
+    : muted("Not published by the source"), p.inventory_status === "certificate_redeemed" ? "ok" : "muted"));
+  rows.push(q("source", "Source and freshness?", `${esc(harvesterSourceLabel(p) || "Source not recorded")}${p.url_auction ? ` · <a href="${esc(p.url_auction)}" target="_blank" rel="noopener">County-held list →</a>` : ""}${sub(esc(`${lastSyncedText(p)}${p.inventory_status_observed_at ? ` · status observed ${dateOnly(p.inventory_status_observed_at)}` : ""}`))}`));
+  const xl = crossLedgerSummary(p);
+  rows.push(q("related", "Same parcel in Auctions or Available?", xl.cls ? muted(xl.text) : esc(xl.text), xl.cls));
+  const gaps = [];
+  if (!hasParcel(p)) gaps.push("Parcel # not published");
+  if (!hasPublishedBid(p)) gaps.push("Amount not published");
+  if (!hasNum(p.interest_rate)) gaps.push("Interest rate not published");
+  gaps.push("Redemption status: not published by the source");
+  gaps.push("Property intelligence: a certificate is a lien, not a parcel record - see the parcel's own records where linked");
+  rows.push(q("unknown", "What is not known?", `<ul class="dec-gaps">${gaps.map(g => `<li>${esc(g)}</li>`).join("")}</ul>`));
+  return detailSectionHtml("Certificate decision", `<div class="dec-list">${rows.join("")}</div>`, "decision-card", "decision");
 }
 function inventoryHistoryHtml(p, rows) {
   const items = [];
@@ -3154,7 +3293,12 @@ function inventoryHistoryHtml(p, rows) {
   if (p.last_seen_at) items.push({ at: p.last_seen_at, label: "Last read from the source (continued on the list)", kind: "continued" });
   items.sort((a, b) => String(a.at).localeCompare(String(b.at)));
   if (!items.length) return `<span class="muted">No lifecycle observations recorded for this row yet.</span>`;
-  return `<ol class="dec-history">${items.map(i => `<li data-kind="${esc(i.kind)}"><span class="dec-when">${esc(dateOnly(i.at))}</span><span class="dec-what">${esc(i.label)}${i.detail ? `<span class="dec-sub">${esc(i.detail)}</span>` : ""}</span></li>`).join("")}</ol>
+  // Tracking began with the first observation this app recorded; the
+  // property may have been on the county list before that - never claimed.
+  const firstRow = (rows || []).find(r => r.transition === "newly_observed");
+  const firstNote = !p.first_seen_at && firstRow
+    ? `<span class="dec-sub dec-first-note">First recorded by this app ${esc(dateOnly(firstRow.observed_at))}. The property may have been on the county list before tracking began; earlier history is not reconstructed.</span>` : "";
+  return `${firstNote}<ol class="dec-history">${items.map(i => `<li data-kind="${esc(i.kind)}"><span class="dec-when">${esc(dateOnly(i.at))}</span><span class="dec-what">${esc(i.label)}${i.detail ? `<span class="dec-sub">${esc(i.detail)}</span>` : ""}</span></li>`).join("")}</ol>
     <span class="dec-sub dec-history-note">Append-only record. Absence from a list is recorded as a removal, never as a sale; a result appears only when the source published one.</span>`;
 }
 async function hydrateInventoryHistory(container, p) {
@@ -3757,6 +3901,7 @@ function detailHtml(p) {
     ${regionOf(p) === "TX" && classificationBadgeHtml(p) ? `<div class="prop-classification-line" style="margin:.2rem 0 .5rem">${classificationBadgeHtml(p)}</div>` : ""}
     ${isCert ? `
     ${certStatusLinesHtml(p)}
+    ${certificateDecisionHtml(p)}
     <div class="detail-grid">
       ${stats.map(detailStatTileHtml).join("")}
     </div>
@@ -3764,6 +3909,7 @@ function detailHtml(p) {
     ${propertyVisual(p, "detail-hero-photo")}
     ${opportunitySummaryHtml(p)}
     ${availableDecisionHtml(p)}
+    ${auctionDecisionHtml(p)}
     ${inventoryCardHtml(p)}
     ${relatedRecordsHtml(p)}
     ${statGroupHtml("Financial", stats.filter(s => s[2] === "financial"), "financial")}
@@ -3798,7 +3944,7 @@ function detailHtml(p) {
     ${noteHtml(p)}`;
   // Phase 66: the section nav is built from the sections that actually
   // rendered above (see detailNavHtml), so it is spliced in afterwards.
-  return isCert ? html.replace("<!--NAV-->", "") : html.replace("<!--NAV-->", detailNavHtml(html));
+  return html.replace("<!--NAV-->", detailNavHtml(html));
 }
 
 // Both the detail modal and the watchlist modal are fixed-position overlays
@@ -5056,6 +5202,9 @@ if (exportCsvBtn) exportCsvBtn.addEventListener("click", () => {
     ["Purchase Path Observed", p => p.purchase_path_observed_on || ""],
     ["Purchase Link", p => { const pp = purchasePathOf(p); return pp.kind === "none" ? "" : pp.url; }],
     ["Purchase Link Type", p => { const pp = purchasePathOf(p); return pp.kind === "none" ? "" : (pp.kind === "property" ? "for this property" : "instructions / application page"); }],
+    ["Purchase Instructions (published by the source)", p => (p.otc_provenance && p.otc_provenance.purchase_instructions) || ""],
+    ["Purchase Evidence Page", p => (p.otc_provenance && p.otc_provenance.purchase_evidence_url) || ""],
+    ["Same Parcel In Other Ledgers", p => relatedRecordsFor(p).map(o => `${relatedWhen(o).cls === "prev" ? "previously" : "currently"} ${ledgerCopy(o.source).title || o.source}`).join("; ")],
     ["Amount", p => hasNum(p.purchase_amount) && Number(p.purchase_amount) > 0 ? p.purchase_amount : (hasPublishedBid(p) ? p.bid : "")],
     ["Amount Kind", p => p.purchase_amount_kind === "NOT_PUBLISHED" ? "Not published" : (AMOUNT_KIND_LABELS[p.purchase_amount_kind] || "")],
     ["Result (per the source)", p => p.inventory_status && ["sold", "redeemed", "withdrawn", "cancelled", "struck_off"].includes(p.inventory_status) ? (INVENTORY_STATUS_LABELS[p.inventory_status] || p.inventory_status) : ""],
@@ -5184,9 +5333,41 @@ if (exportCsvBtn) exportCsvBtn.addEventListener("click", () => {
     // "Auction/LAFT Listing" heading, whose value was the same column.
     ["Auction Listing URL", p => p.url_auction || ""],
     ["Auction URL Type", p => p.url_auction ? (p.url_auction_kind || "") : ""],
-    ["Clerk Official Records URL", p => p.url_title || ""]
+    ["Clerk Official Records URL", p => p.url_title || ""],
+    // Customer-value sprint: an explicit, source-published result (never
+    // inferred from a listing leaving the feed) and the parcel's other ledgers.
+    ["Result (per the source)", p => p.source === "auction" && p.inventory_status && ["sold", "redeemed", "withdrawn", "cancelled", "struck_off"].includes(p.inventory_status) && p.inventory_status_raw ? (INVENTORY_STATUS_LABELS[p.inventory_status] || p.inventory_status) : ""],
+    ["Result Source Wording", p => p.source === "auction" && p.inventory_status_raw ? p.inventory_status_raw : ""],
+    ["Result Date", p => p.result_date || ""],
+    ["Same Parcel In Other Ledgers", p => relatedRecordsFor(p).map(o => `${relatedWhen(o).cls === "prev" ? "previously" : "currently"} ${ledgerCopy(o.source).title || o.source}`).join("; ")]
   ];
-  const exportCols = state.ledger === "laft" ? availableCols : cols;
+  // Liens & Certificates: the certificate's own published facts, source and
+  // freshness - never the parcel-level tax-roll columns a certificate row
+  // does not carry, never internal fields.
+  const certificateCols = [
+    ["State", p => regionOf(p)],
+    ["County", p => p.county],
+    ["Certificate #", p => p.certificate_no || ""],
+    ["Account #", p => p.case_no || ""],
+    ["Parcel", p => p.parcel || ""],
+    ["Tax Year", p => p.tax_year || ""],
+    ["Amount", p => hasPublishedBid(p) ? p.bid : ""],
+    ["Interest Rate (as published)", p => p.interest_rate ?? ""],
+    ["Issued Date", p => p.issued_date || ""],
+    ["Expiration Date", p => p.expiration_date || ""],
+    // The two app-computed figures the certificate card already shows,
+    // labelled as estimates / eligibility dates - kept so a spreadsheet
+    // matches the card (same accruedInterestEst / tdaEligibleMs helpers).
+    ["Est. Accrued Interest", p => { const a = accruedInterestEst(p); return a === null ? "" : Math.round(a); }],
+    ["TDA Eligibility Date", p => { const t = tdaEligibleMs(p); return t === null ? "" : new Date(t).toISOString().slice(0, 10); }],
+    ["Status (per the source)", p => p.inventory_status ? (INVENTORY_STATUS_LABELS[p.inventory_status] || p.inventory_status) : ""],
+    ["Status Observed", p => p.inventory_status_observed_at ? String(p.inventory_status_observed_at).slice(0, 10) : ""],
+    ["Same Parcel In Other Ledgers", p => relatedRecordsFor(p).map(o => ledgerCopy(o.source).title || o.source).join("; ")],
+    ["County-Held List URL", p => p.url_auction || ""],
+    ["Source", p => harvesterSourceLabel(p) || ""],
+    ["Last Synced", p => p.updated_at ? String(p.updated_at).slice(0, 10) : ""]
+  ];
+  const exportCols = state.ledger === "laft" ? availableCols : state.ledger === "certificate" ? certificateCols : cols;
   // Phase 63: the row-terminator below is "\r\n", and this regex used to
   // only test for a comma/quote/"\n" - a harvested text field (e.g.
   // legal_desc) containing a lone "\r" with no "\n" would be emitted

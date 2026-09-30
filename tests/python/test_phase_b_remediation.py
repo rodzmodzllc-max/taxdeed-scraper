@@ -161,7 +161,9 @@ def test_A4_certificate_and_texas_status_files_are_captured_too():
 
 def test_A5_upload_steps_are_otherwise_unchanged():
     steps = _upload_steps()
-    assert set(steps) == {"deeds", "certificates", "laft", "texas", "backup"}
+    # "evidence" (Customer Value / Evidence Acquisition sprint) is manual-only
+    # and uploads the same evidence-only layout; the five original jobs are unchanged.
+    assert set(steps) == {"deeds", "certificates", "laft", "texas", "backup", "evidence"}
     deeds = steps["deeds"]
     assert deeds["if"] == "always()"
     assert deeds["with"]["name"] == "harvest-deeds-${{ github.run_id }}"

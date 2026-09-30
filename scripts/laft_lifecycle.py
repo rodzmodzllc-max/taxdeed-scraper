@@ -436,6 +436,7 @@ def provenance_payload(row: dict, gate: dict, retrieved_at: str, *, state: str =
     # refusal is a reason, never a path; nothing verified = the columns stay
     # NULL and the wording above stands.
     path_columns: dict = {}
+    path_provenance: dict = {}
     if path_ctx is not None:
         path, refusals = path_ctx.resolve(row, source_id=source_id, county=row.get("county"), list_url=list_url, document_url=document_url)
         if path is not None:
@@ -446,6 +447,7 @@ def provenance_payload(row: dict, gate: dict, retrieved_at: str, *, state: str =
                 purchase_url, purchase_kind = cols["purchase_url"], cols["purchase_url_kind"]
             if path_ctx.have_023:
                 path_columns = cols
+            path_provenance = path.provenance()
         elif refusals:
             purchase_basis = purchase_basis + "; refused: " + "; ".join(refusals)
     payload = {
@@ -485,6 +487,7 @@ def provenance_payload(row: dict, gate: dict, retrieved_at: str, *, state: str =
         payload["purchase_url"] = purchase_url
         payload["purchase_url_kind"] = purchase_kind
     payload.update(path_columns)
+    payload["otc_provenance"].update(path_provenance)
     if inventory_type is None:
         # This state's lifecycle does not classify inventory: leave the
         # column untouched rather than writing NULL over a harvester's value.

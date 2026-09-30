@@ -159,7 +159,19 @@ on:
         required: false
         type: choice
         default: all
-        options: [all, deeds, certificates, laft, texas, backup]
+        options: [all, deeds, certificates, laft, texas, backup, evidence]
+      evidence_counties:
+        description: >-
+          (job=evidence only) Comma-separated county names to limit the
+          purchase-evidence capture. Blank = every FL AVAILABLE production source.
+        required: false
+        default: ''
+      evidence_realauction_dates:
+        description: >-
+          (job=evidence only) Comma-separated PAST sale dates (MM/DD/YYYY) for
+          RealAuction result-label discovery. Blank = skip.
+        required: false
+        default: ''
 
 concurrency:
   group: harvest-and-sync
@@ -898,3 +910,66 @@ jobs:
             out/private/
           retention-days: 90
           if-no-files-found: error
+
+  evidence:
+    # Purchase-evidence capture - MANUAL ONLY (job=evidence), never on a
+    # schedule and never part of "all". Fetches the same canonical pages /
+    # documents the production AVAILABLE registry rows already name and
+    # writes a value-free capture of the purchase / application process
+    # text they publish (scripts/capture_purchase_evidence.py). A person
+    # reads the capture and records verified evidence rows in
+    # data/purchase_path_evidence.csv; scripts/purchase_path_engine.py then
+    # applies them deterministically on the next laft run. Nothing here
+    # writes to the database and nothing here is a purchase path.
+    name: Capture purchase / application evidence (manual only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.job == 'evidence'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python dependencies
+        run: pip install requests beautifulsoup4 pdfplumber
+
+      - name: Capture
+        env:
+          COUNTIES: ${{ github.event.inputs.evidence_counties }}
+          RA_DATES: ${{ github.event.inputs.evidence_realauction_dates }}
+        run: |
+          args=""
+          IFS=',' read -ra cs <<< "$COUNTIES"
+          for c in "${cs[@]}"; do c="$(echo "$c" | xargs)"; [ -n "$c" ] && args="$args --county \"$c\""; done
+          IFS=',' read -ra ds <<< "$RA_DATES"
+          for d in "${ds[@]}"; do d="$(echo "$d" | xargs)"; [ -n "$d" ] && args="$args --realauction-date $d"; done
+          eval python3 scripts/capture_purchase_evidence.py --state FL $args
+
+      - name: Print capture (value-free; readable from the job log without downloading the artifact)
+        if: always()
+        run: |
+          echo "::group::purchase-evidence digest"
+          python3 scripts/capture_purchase_evidence.py --digest out/public/purchase-evidence-capture.json
+          echo "::endgroup::"
+
+      - name: Prepare artifact (public evidence only)
+        # The capture is county-level process text, already value-free; it
+        # is reproduced verbatim inside the public evidence file. No raw
+        # harvest file exists in this job, so nothing is encrypted.
+        if: always()
+        env:
+          ARTIFACT_PUBLIC_KEY: ${{ vars.ARTIFACT_PUBLIC_KEY }}
+        run: python3 scripts/artifact_evidence.py --job purchase-evidence --status out/public/purchase-evidence-capture.json
+
+      - name: Upload artifact (evidence)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: purchase-evidence-${{ github.run_id }}
+          path: |
+            out/public/
+            out/private/

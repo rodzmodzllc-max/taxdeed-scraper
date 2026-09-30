@@ -251,11 +251,119 @@ historical behaviour) so the AVAILABLE path can be run by hand without
 re-hitting LGBS; schedules are unchanged and the texas job is still never
 scheduled.
 
-## 9. Not done, on purpose
+## 9. Not done, on purpose (as of the commercial release; see section 10)
 
-No Florida county's purchase page has been read from this repository, so
-no source-level path or mode is asserted for a production source; no
-rule is enabled. No sale-result mapping was added (no approved source
+At the commercial release no Florida county's purchase page had been read
+from this repository, so no source-level path or mode was asserted for a
+production source and no rule was enabled - section 10 records the first
+fifteen counties whose page was actually read. No sale-result mapping was added (no approved source
 publishes one beyond the LAFT lists' own "Sold To" column, already
 handled). LGBS not retried, GovEase not implemented, blocked vendors
 untouched, no state activated, migrations 020 / 021 / 022 unapplied.
+
+## 10. Customer value / evidence acquisition (2026-09-30)
+
+### 10.1 The capture job
+
+`scripts/capture_purchase_evidence.py` reads, on GitHub's runners (the
+sandbox cannot reach county sites), the canonical / document / purchase
+URLs of every FL AVAILABLE production source in the registry and writes a
+**value-free** capture to `out/public/purchase-evidence-capture.json`: the
+page title, headings, the anchors whose text uses purchase vocabulary,
+the sentences outside tables that carry no 7+ digit run (so no parcel,
+case or amount is ever captured), phone numbers and e-mail addresses,
+plus the HTTP status / error per URL. PDFs go through `pdfplumber` with
+the same sentence filter. It runs as the manual-only `evidence` job of
+`harvest-and-sync.yml` (`job=evidence`; inputs `evidence_counties`,
+`evidence_realauction_dates`), prints a compact digest into the job log
+(`--digest`, read from the log since artifact downloads are blocked from
+the sandbox) and uploads the same evidence-only artifact layout as every
+other job. It writes nothing to the database. Schedules are unchanged.
+
+`capture_realauction` fetches a RealAuction past-sale page
+(`zaction=AUCTION&zmethod=PREVIEW&AuctionDate=`) and records only the
+labels and status vocabulary it finds. Finding: anonymous requests get
+the **login form** ("User Name" / "User Password", zero items) - the
+published results sit behind an account, so no auction outcome is
+ingested from RealAuction (section 10.5).
+
+### 10.2 The evidence record (v2)
+
+`purchase_path_engine.EVIDENCE_COLUMNS` = the ten original columns +
+`evidence_url, evidence_type, source_title, instructions, review_state,
+proves, does_not_prove`. `EVIDENCE_TYPES` = county_page /
+county_document / property_page / registry / other; `REVIEW_STATES` =
+verified / needs_review / restricted. A row is **applicable** only when
+enabled AND `review_state == "verified"` AND `evidence_url` is https and
+not a search engine or blocked vendor; `load_evidence` refuses an enabled
+row lacking any of that and still reads a v1 header. A county-specific
+row beats a `*` row. `PurchasePath.provenance()` carries
+`purchase_evidence_url / _type / _title`, `purchase_instructions` and
+`purchase_path_observed_on` into `otc_provenance` (merged by
+`laft_lifecycle.provenance_payload`), so a customer sees where the
+process was read and what the source says, next to the typed path.
+
+### 10.3 The committed rows (run 36698285461, observed 2026-09-30)
+
+Fifteen FL counties, all SOURCE scope, all quoting the source's own
+wording, each with the page or document it was read from:
+
+| County | Type | What the source publishes |
+|---|---|---|
+| Brevard | phone_mail | written request (e-mail / fax / mail) for the minimum bid; pay in Titusville in certified funds |
+| Calhoun, Madison, Sumter, Taylor | quoted_amount | "amounts listed are no longer the opening bid; contact the Clerk's Office to calculate" |
+| Citrus | phone_mail | e-mail TaxDeeds@CitrusClerk.org with Case # and Certificate #, or phone |
+| Clay | phone_mail | e-mail the Clerk with certificate numbers; ~72 h for the price |
+| Dixie | in_person | in person only, certified / cashier's check, no electronic payment |
+| Franklin | quoted_amount | amounts are estimates; Tax Collector quotes the exact amount |
+| Hernando | quoted_amount | contact the Tax Deed Department for the purchase amount |
+| Leon | phone_mail | e-mail Clerk_TaxDeedAdmin@leoncountyfl.gov with parcel and address |
+| Levy | phone_mail | phone or e-mail for the current purchase price |
+| Orange | amount_plus_costs | opening bid plus omitted years' taxes, s. 197.542(1) |
+| Pasco | phone_mail | written request to the Dade City office; then in person, certified funds |
+| Volusia | quoted_amount | list document: call the Tax Deed Department for the current price |
+
+Not recorded, because the capture found no process wording: the realTDM
+counties, the Pioneer portals without a text block (Bay, Duval, Palm
+Beach, Okeechobee, St. Johns, Martin), Hillsborough, Holmes, Hamilton,
+Hardee, Indian River, Lafayette, Gulf, Gadsden, Glades, Marion, Manatee
+(amount composition only). Unreachable from the runner: Bradford,
+Columbia, Escambia, St. Lucie, Union (403), Walton (reset), Hendry (404).
+No property-level URL was recorded for any county (none is published).
+Every row is `enabled=yes`, `third_party_permitted=no`, `url` empty.
+
+### 10.4 Property intelligence, lifecycle, cross-ledger, decision pages
+
+- Land use falls back to the DOR use code label (`dorUseLabel`) when
+  `land_use` is empty; never a guess. First-observed shows "First
+  recorded by this app" with the tracking-began note; `properties` has no
+  `created_at` and `first_seen_at` is NULL on every laft row - not
+  backfilled, not invented.
+- `relatedWhen(o)` / `crossLedgerSummary(p)`: same parcel (exact state /
+  county / parcel) in another ledger, "Currently listed" or "Previously
+  listed" from `isGone` and its date; no probabilistic matching.
+- Available decision: thirteen questions (`what, why, available, how,
+  proof, cost, where, known, unknown, source, fresh, history, related`).
+  Auction decision (`auctionDecisionHtml`): what / when / bid / known /
+  source / result / related / unknown; the result row reads a result
+  status only from `inventory_status` with the source's raw wording,
+  otherwise "Not published by the source ..." (past date) or "No result
+  yet". Certificate decision (`certificateDecisionHtml`): what / amount /
+  terms / redemption / source / related / unknown. Certificates get the
+  section nav.
+- Exports: `availableCols` + Purchase Instructions / Purchase Evidence
+  Page / Same Parcel In Other Ledgers; auction `cols` + Result (per the
+  source) / Result Source Wording / Result Date / Same Parcel;
+  `certificateCols` (new) - no governance, evidence id or diagnostic
+  column anywhere. `sw.js` -> `tdw-shell-v50`.
+
+### 10.5 Gaps that stay explicit
+
+No approved auction source publishes an accessible result: RealAuction
+is a login wall, the FL deed harvester captures no status wording, TX
+rows carry a NULL `tx_sale_status`. `auction_events` holds 914 events
+and zero outcomes; nothing was inferred. Winning bid, bidder count and
+bidder identity stay forbidden. Seventeen active FL rows have no
+coordinates (Citrus 5, Hillsborough 3, Volusia 3, Indian River 2,
+Escambia / Hendry / Miami-Dade / Pasco 1 each) and are shown as "Not yet
+geocoded".

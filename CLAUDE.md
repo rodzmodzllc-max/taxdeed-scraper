@@ -1713,6 +1713,34 @@ Full description: `docs/available-ledger.md` section 8. The stable facts:
   untyped. `sw.js` -> `tdw-shell-v49`. `tests/run_test.mjs` supports
   `DUMP_RESULTS=<path>` to read a new check's real value before pinning.
 
+## Customer value / evidence acquisition (2026-09-30, PR open)
+
+Full description: `docs/available-ledger.md` section 10. The stable facts:
+- **`scripts/capture_purchase_evidence.py`** runs as the manual-only
+  `evidence` job of `harvest-and-sync.yml` (`job=evidence`): a value-free
+  capture (titles, headings, vocab links, digit-free sentences, phones,
+  e-mails, HTTP status) of every FL AVAILABLE production source, printed
+  as a digest into the job log. It never writes to the database. Artifact
+  downloads are blocked from the sandbox - read the digest from the log.
+- **`data/purchase_path_evidence.csv` carries fifteen verified FL rows**
+  (Brevard, Calhoun, Citrus, Clay, Dixie, Franklin, Hernando, Leon, Levy,
+  Madison, Orange, Pasco, Sumter, Taylor, Volusia), every one quoting the
+  source's own page / document with `evidence_url`, `source_title`,
+  `instructions`, `review_state=verified`, observed 2026-09-30. Add a row
+  only from a capture you have read; a row without a verified review
+  state and an https evidence page is never applied
+  (`EvidenceRow.applicable`). Path provenance
+  (`purchase_evidence_url/_type/_title`, `purchase_instructions`,
+  `purchase_path_observed_on`) rides in `otc_provenance`.
+- **RealAuction past-sale pages are a login wall** for anonymous
+  requests: no auction outcome is ingested; `auction_events` has zero
+  outcomes and that is honest, not a bug.
+- Frontend: Available thirteen questions, Auction seven, Certificate six
+  (`auctionDecisionHtml` / `certificateDecisionHtml`), cross-ledger
+  current / previous (`relatedWhen`, `crossLedgerSummary`), DOR use-code
+  land-use fallback, per-ledger exports (`certificateCols`). `sw.js` ->
+  `tdw-shell-v50`. `tests/run_test.mjs`: 645 checks; Python: 1354.
+
 ## Where to look for more
 
 - `claude/improvement-roadmap.md` in the "tax florida app" claude.ai Project — the full dated log of every fix, audit finding, and open decision. This is where new findings should be appended, not here.

@@ -243,7 +243,11 @@ def measure(rows: Iterable[dict], decisions: dict[str, PublicationDecision], *, 
             c["unreviewed"] += 1
         if (str(r.get("state") or ""), sid, str(r.get("county") or "")) in unavailable_units:
             c["unavailable_source"] += 1
-        if r.get("purchase_url"):
+        # A purchase path is a verified URL OR a typed non-URL process
+        # (migration 023's purchase_path_type: phone_mail, quoted_amount,
+        # in_person, ... from a reviewed evidence page) - the customer's
+        # "how do I buy this" is answered either way.
+        if r.get("purchase_url") or r.get("purchase_path_type"):
             c["with_purchase_path"] += 1
             s["with_purchase_path"] += 1
         else:
