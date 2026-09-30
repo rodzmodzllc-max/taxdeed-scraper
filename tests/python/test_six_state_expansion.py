@@ -389,3 +389,11 @@ def test_l03_every_row_states_its_path_so_a_closed_listing_sheds_one(tmp_path):
     # The sync never prints PostgREST's `details` (it can echo a row) to the public log.
     src = (REPO / "scripts/sync_state_inventory.py").read_text(encoding="utf-8")
     assert "details" in src and "err.get('message')" in src and "err.get('details')" not in src
+
+
+def test_e03_a_harvest_placeholder_address_is_blank_for_enrichment_a_real_one_is_not():
+    import enrich_statewide_parcels as EN
+    assert EN.blank_for({"address": "Parcel R012345", "parcel": "R012345"}, "address")
+    assert EN.blank_for({"address": "Case 2023-00123", "case_no": "2023-00123"}, "address")
+    assert not EN.blank_for({"address": "1 REAL ST", "parcel": "R012345"}, "address")
+    assert not EN.blank_for({"owner_name": "Parcel R012345", "parcel": "R012345"}, "owner_name")

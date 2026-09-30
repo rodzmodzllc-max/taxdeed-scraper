@@ -3608,6 +3608,13 @@ function certificateDecisionHtml(p) {
   rows.push(q("redemption", "Redemption information, if published?", p.inventory_status === "certificate_redeemed" && p.inventory_status_raw
     ? `${esc(INVENTORY_STATUS_LABELS[p.inventory_status])}${sub(esc(`source wording "${p.inventory_status_raw}"`))}`
     : muted("Not published by the source"), p.inventory_status === "certificate_redeemed" ? "ok" : "muted"));
+  // Six-state expansion: a certificate the county itself offers for purchase
+  // (Morgan CO) carries a verified acquisition record through the same
+  // purchase-path engine as the Available ledger; answered only when it does.
+  if (p.purchase_path_type) {
+    const a = acquisitionOf(p);
+    rows.push(q("acquire", "How do I buy it?", acquisitionHtml(p) + acquisitionContactHtml(a), a.verified ? "ok" : "muted"));
+  }
   rows.push(q("source", "Source and freshness?", `${esc(harvesterSourceLabel(p) || "Source not recorded")}${p.url_auction ? ` · <a href="${esc(p.url_auction)}" target="_blank" rel="noopener">County-held list →</a>` : ""}${sub(esc(`${lastSyncedText(p)}${p.inventory_status_observed_at ? ` · status observed ${dateOnly(p.inventory_status_observed_at)}` : ""}`))}`));
   const xl = crossLedgerSummary(p);
   rows.push(q("related", "Same parcel in Auctions or Available?", xl.cls ? muted(xl.text) : esc(xl.text), xl.cls));

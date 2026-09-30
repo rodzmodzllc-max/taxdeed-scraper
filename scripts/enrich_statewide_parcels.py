@@ -35,7 +35,7 @@ from harvesters.governance import states  # noqa: E402
 from scripts import field_provenance as FP  # noqa: E402
 
 USER_AGENT = "taxdeed-scraper statewide-parcel-enrichment (+https://github.com/rodzmodzllc-max/taxdeed-scraper)"
-READ_COLUMNS = ["id", "county", "parcel", "field_provenance", "latitude", "longitude", *sorted(P.COLUMN_TYPES)]
+READ_COLUMNS = ["id", "county", "parcel", "case_no", "field_provenance", "latitude", "longitude", *sorted(P.COLUMN_TYPES)]
 
 
 def http_json(url: str, *, headers: dict | None = None, method: str = "GET", body: bytes | None = None, timeout: int = 60):
@@ -61,6 +61,18 @@ def fetch_rows(base: str, key: str, state: str) -> list[dict]:
 def patch(base: str, key: str, row_id: str, fields: dict) -> None:
     hdr = {"apikey": key, "Authorization": f"Bearer {key}", "Content-Type": "application/json", "Prefer": "return=minimal"}
     http_json(f"{base}/rest/v1/properties?id=eq.{row_id}", headers=hdr, method="PATCH", body=json.dumps(fields).encode())
+
+
+def blank_for(row: dict, column: str) -> bool:
+    """Blank for enrichment: empty, or - for address - the placeholder the
+    harvest writes when a list publishes no street address ("Parcel <id>" /
+    "Case <no>", OtcRecord.to_properties_row). A placeholder is not a value."""
+    v = row.get(column)
+    if FP.is_blank(v):
+        return True
+    if column == "address":
+        return str(v).strip() in (f"Parcel {row.get('parcel')}", f"Case {row.get('case_no')}")
+    return False
 
 
 def run(state: str, rows: list[dict], fetch_json, *, write=None, recorded_at: str) -> dict:
@@ -97,7 +109,7 @@ def run(state: str, rows: list[dict], fetch_json, *, write=None, recorded_at: st
         for m, row in zip(P.match_rows(cfg, crow, idx), crow):
             cov.add(m)
             fields, prov = P.plan_update(cfg, row, m, recorded_at=recorded_at)
-            fields = FP.filter_by_provenance(row, {k: v for k, v in fields.items() if FP.is_blank(row.get(k)) or k in (row.get("field_provenance") or {})}, "statewide_parcel")
+            fields = FP.filter_by_provenance(row, {k: v for k, v in fields.items() if blank_for(row, k) or k in (row.get("field_provenance") or {})}, "statewide_parcel")
             if not fields:
                 continue
             fields["field_provenance"] = FP.merge_field_provenance(row.get("field_provenance"), {k: prov[k] for k in fields})

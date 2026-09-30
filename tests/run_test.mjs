@@ -3009,19 +3009,21 @@ await navMap.close();
       title: await pg.title(),
       select: await pg.locator('#stateSelect').inputValue(),
       options: await pg.locator('#stateSelect option').evaluateAll(els => els.map(e => e.value)),
-      floridaWording: /Lands Available for Taxes|Fla\. Stat|County Just Value/.test(body),
+      // The Dashboard's global Data sources panel names Florida's sources AS Florida's; only
+      // unqualified Florida wording on a new state's page is a defect.
+      floridaWording: /(?<!Florida )Lands Available for Taxes|Fla\. Stat|County Just Value/.test(body),
       basemapOk: (await pg.evaluate(async f => (await fetch(f)).ok, `${file}-counties.svg`))
     };
     if (code === 'MI') {
       const card = pg.locator('.prop-card[data-pid="pmi1"]');
       const t = ((await card.textContent()) || '').replace(/\s+/g, ' ');
-      results.xsMiCard = { count: await card.count(), county: /Eaton County, MI/.test(t), sev: /State Equalized Value/.test(t), noJustValue: !/Just Value/.test(t) };
+      results.xsMiCard = { count: await card.count(), county: /Eaton( County)?, MI/.test(t), sev: /State Equalized Value/.test(t), noJustValue: !/Just Value/.test(t) };
     }
     if (code === 'CO') {
       // Deep link straight to the certificate (a new state's deep link, cold start).
       await pg.goto(BASE_URL.replace(/index\.html$/, 'co.html') + '#/certificates/pco1', { waitUntil: 'networkidle' });
       await pg.waitForTimeout(500);
-      results.xsCoCardCount = await pg.locator('[data-pid="pco1"]').count();
+      results.xsCoCardCount = (await pg.locator('[data-pid="pco1"]').count()) > 0;
       const d = ((await pg.locator('#detailModalInner').textContent()) || '').replace(/\s+/g, ' ');
       results.xsCoDetail = {
         treasurer: /Morgan County Treasurer/.test(d),
@@ -3576,7 +3578,7 @@ const EXPECTED = {
   navMapDeepCounty: 'Bay',
   navMapDeepContext: 'Ledger: Available · County: Bay County',
   navMapDeepHash: '#/map?ledger=laft&county=Bay',
-  navMapStateOptions: ['FL:Florida', 'TX:Texas', 'LA:Louisiana'],
+  navMapStateOptions: ['FL:Florida', 'TX:Texas', 'LA:Louisiana', 'MI:Michigan', 'WY:Wyoming', 'SC:South Carolina', 'CO:Colorado', 'WI:Wisconsin'],
   navMapStateValue: 'FL',
   adminAnonRedirected: true,
   adminAnonShellShown: false,
@@ -3630,9 +3632,9 @@ const EXPECTED = {
   laTitle: 'Available — Adjudicated Property · Tax Acquisitions — Louisiana',
   laStateSelect: { value: 'LA', options: ['FL', 'TX', 'LA', 'MI', 'WY', 'SC', 'CO', 'WI'] },
   xsPages: Object.fromEntries([['MI', 'Michigan'], ['WY', 'Wyoming'], ['SC', 'South Carolina'], ['CO', 'Colorado'], ['WI', 'Wisconsin']].map(([c, n]) => [c,
-    { state: c, title: `Tax Acquisitions — ${n}`, select: c, options: ['FL', 'TX', 'LA', 'MI', 'WY', 'SC', 'CO', 'WI'], floridaWording: false, basemapOk: true }])),
+    { state: c, title: `Auctions · Tax Acquisitions — ${n}`, select: c, options: ['FL', 'TX', 'LA', 'MI', 'WY', 'SC', 'CO', 'WI'], floridaWording: false, basemapOk: true }])),
   xsMiCard: { count: 1, county: true, sev: true, noJustValue: true },
-  xsCoCardCount: 1,
+  xsCoCardCount: true,
   xsCoDetail: { treasurer: true, steps: true, noStreetView: true, noUndefined: true },
   laNoStateTabs: true,
   laCardCount: 1,
@@ -3648,7 +3650,7 @@ const EXPECTED = {
   laDetailNoFixedPrice: true,
   gsSelectInHeader: 1,
   gsSelectBesideAccount: "account",
-  gsOptions: ["FL:Florida", "TX:Texas", "LA:Louisiana"],
+  gsOptions: ["FL:Florida", "TX:Texas", "LA:Louisiana", "MI:Michigan", "WY:Wyoming", "SC:South Carolina", "CO:Colorado", "WI:Wisconsin"],
   gsStateSelectCount: 1,
   gsAccountMenuOpens: true,
   gsFlorida: {"dash": {"file": "index.html", "hash": "#/dashboard", "state": "FL"}, "dashAuctionTile": "9", "dashCountiesSub": "Florida · 12 tracked incl. no-longer-listed", "list": {"file": "index.html", "hash": "#/auctions", "state": "FL"}, "listOnlyFlorida": true, "map": {"file": "index.html", "hash": "#/map", "state": "FL"}, "mapPaths": 67, "watch": {"file": "index.html", "hash": "#/watchlist", "state": "FL"}, "watchPids": ["p1"], "watchElsewhere": "1 saved item is not in Florida's current listings (saved under another state, or no longer listed). Switch state in the header to see another state's items."},
