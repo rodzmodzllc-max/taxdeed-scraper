@@ -949,6 +949,13 @@ jobs:
           for d in "${ds[@]}"; do d="$(echo "$d" | xargs)"; [ -n "$d" ] && args="$args --realauction-date $d"; done
           eval python3 scripts/capture_purchase_evidence.py --state FL $args
 
+      - name: Print capture (value-free; readable from the job log without downloading the artifact)
+        if: always()
+        run: |
+          echo "::group::purchase-evidence-capture.json"
+          cat out/public/purchase-evidence-capture.json
+          echo "::endgroup::"
+
       - name: Prepare artifact (public evidence only)
         # The capture is county-level process text, already value-free; it
         # is reproduced verbatim inside the public evidence file. No raw
