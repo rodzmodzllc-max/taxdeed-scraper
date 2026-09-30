@@ -435,6 +435,6 @@ def test_x01_workflow_steps_are_non_blocking_and_after_the_sync():
 
 
 def test_x02_docs_and_service_worker():
-    assert 'const CACHE = "tdw-shell-v49"' in (REPO / "public/sw.js").read_text(encoding="utf-8")
+    assert 'const CACHE = "tdw-shell-v50"' in (REPO / "public/sw.js").read_text(encoding="utf-8")
     model = (REPO / "docs/otc-inventory-model.md").read_text(encoding="utf-8")
     assert "## 16." in model and "inventory_status" in model and "laft_purchase_link_rules.csv" in model

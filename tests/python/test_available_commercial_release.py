@@ -59,8 +59,23 @@ def test_e01_ten_path_types_and_the_db_constraint_agree():
         assert f"{t}:" in APP, t
 
 
-def test_e02_evidence_and_outcome_tables_ship_empty_and_validated():
-    assert PE.load_evidence() == []
+def test_e02_evidence_table_holds_only_verified_captured_rows_and_outcome_rules_ship_empty():
+    # Customer Value / Evidence Acquisition sprint (2026-09-30): the evidence
+    # table carries rows ONLY for counties whose own page/document was read by
+    # the repository's capture job. Every row must be reviewable by a person:
+    # a verified review state, an https evidence page, the source's own title,
+    # its published instructions, and an observed date - never a guess.
+    rows = PE.load_evidence()
+    assert rows, "the committed evidence table is expected to carry captured rows"
+    assert all(PE.evidence_problems(r) == [] for r in rows)
+    for r in rows:
+        assert r.applicable and r.enabled and r.review_state == "verified", (r.county, r.path_type)
+        assert r.evidence_url.startswith("https://") and r.source_title and r.instructions and r.observed_on, r.county
+        assert r.evidence_type in PE.EVIDENCE_TYPES and r.path_type in PE.PATH_TYPES, r.county
+        assert r.state == "FL" and r.county != "*", (r.state, r.county)          # no wildcard, no unread state
+        assert not r.third_party_permitted and r.url == "", r.county            # no invented property URL
+        assert "run 36698285461" in r.notes, r.county                             # traceable to the capture run
+    assert len({(r.state, r.source_id, r.county) for r in rows}) == len(rows)   # one row per source/county
     assert OI.load_rules() == []
     with open(PE.EVIDENCE_PATH, newline="", encoding="utf-8") as fh:
         assert next(csv.reader(fh)) == PE.EVIDENCE_COLUMNS
@@ -177,7 +192,11 @@ def test_e09_lifecycle_writes_023_columns_only_when_probed_and_keeps_mode_semant
     reg = tmp_path / "reg.csv"
     with open(csr.REGISTRY_PATH, newline="", encoding="utf-8") as fh:
         rows = list(csv.DictReader(fh)); cols = list(rows[0].keys())
-    county = next(r["county"] for r in rows if r["state"] == "FL" and r["source_id"] == "fl_laft_html" and r["verification_status"] == "PRODUCTION_VERIFIED")
+    # A county WITHOUT a committed evidence row, so the registry mode is what
+    # the lifecycle sees (a verified evidence page outranks the registry).
+    with_evidence = {(e.source_id, e.county) for e in PE.load_evidence()}
+    county = next(r["county"] for r in rows if r["state"] == "FL" and r["source_id"] == "fl_laft_html"
+                  and r["verification_status"] == "PRODUCTION_VERIFIED" and ("fl_laft_html", r["county"]) not in with_evidence)
     for r in rows:
         if r["state"] == "FL" and r["county"] == county and r["source_id"] == "fl_laft_html":
             r["purchase_path_mode"], r["purchase_path_evidence"] = "in_person_only", "Bids are accepted in person at the Clerk's office (list header)"
@@ -198,13 +217,33 @@ def test_e09_lifecycle_writes_023_columns_only_when_probed_and_keeps_mode_semant
     assert "purchase_path_type" not in plain and plain["otc_provenance"]["purchase_path_mode"] == "unknown"
 
 
-def test_e10_committed_registry_establishes_no_path_for_any_fl_production_source():
+def test_e10_committed_registry_alone_establishes_no_path_and_only_captured_evidence_types_one():
+    # The registry never establishes a path on its own (every FL production
+    # row still carries purchase_path_mode "unknown"). A typed path exists
+    # exactly for the counties whose page was captured and reviewed, at
+    # SOURCE scope, carrying the evidence page and the published instructions.
     ctx = L.PathContext(csr.REGISTRY_PATH, "FL", have_023=True, harvest_date="2026-09-30")
+    evidence = {(e.source_id, e.county): e for e in PE.load_evidence()}
+    typed = 0
     for r in csr.production_rows(ROWS, "FL"):
         if "AVAILABLE" not in r.ledger_set:
             continue
         path, reasons = ctx.resolve(_harvest_row(county=r.county), source_id=r.source_id, county=r.county, list_url=r.canonical_url, document_url=None)
-        assert path is None and reasons == [], (r.county, r.source_id)     # no county page read; nothing invented
+        assert reasons == [], (r.county, r.source_id)
+        ev = evidence.get((r.source_id, r.county))
+        if ev is None:
+            assert path is None, (r.county, r.source_id)                       # no county page read; nothing invented
+            continue
+        typed += 1
+        assert path is not None and path.path_type == ev.path_type and path.scope == "source", (r.county, r.source_id)
+        assert path.url in ("", None) or ev.path_type in PE.URL_TYPES
+        prov = path.provenance()
+        assert prov["purchase_evidence_url"] == ev.evidence_url and prov["purchase_instructions"] == ev.instructions
+        assert prov["purchase_path_observed_on"] == "2026-09-30"
+    assert typed == len(evidence), (typed, len(evidence))                        # every committed row is reachable
+    # Every path type the table uses is a real, labelled type - the frontend names it.
+    for e in evidence.values():
+        assert f'{e.path_type}:' in APP
 
 
 # ==================== 2. outcome ingestion ====================
@@ -384,7 +423,10 @@ def test_f01_decision_page_answers_eleven_questions_from_fields_and_never_scores
     assert "Not yet verified - no purchase path has been established from evidence" in block
     assert "Not yet geocoded - no point is shown for this parcel" in block
     assert not re.search(r"score|badge|recommend", block, re.I)
-    assert "typedPurchasePath(p)" in block and "dataGaps(p)" in block and "relatedRecordsFor(p)" in block
+    assert "typedPurchasePath(p)" in block and "dataGaps(p)" in block and "crossLedgerSummary(p)" in block
+    # The cross-ledger summary is built from the deterministic parcel match only.
+    xl = APP[APP.index("function crossLedgerSummary"):APP.index("function availableDecisionHtml")]
+    assert "relatedRecordsFor(p)" in xl and "relatedWhen(" in xl
 
 
 def test_f02_history_is_append_only_wording_and_export_is_published_fields_only():
@@ -395,7 +437,7 @@ def test_f02_history_is_append_only_wording_and_export_is_published_fields_only(
     assert "Purchase Path" in headers and "Purchase Path Scope" in headers and "Latitude" in headers and "Last Read From Source" in headers
     for forbidden in ("publication", "provenance", "basis", "harvester", "Data Source", "governance"):
         assert not any(forbidden.lower() in h.lower() for h in headers), forbidden
-    assert 'state.ledger === "laft" ? availableCols : cols' in APP
+    assert 'state.ledger === "laft" ? availableCols : state.ledger === "certificate" ? certificateCols : cols' in APP
 
 
 def test_f03_filters_read_stored_fields_and_the_admin_panel_is_admin_gated():
@@ -408,7 +450,7 @@ def test_f03_filters_read_stored_fields_and_the_admin_panel_is_admin_gated():
     for f in ("public/index.html", "public/tx.html"):
         html = (REPO / f).read_text(encoding="utf-8")
         assert 'id="adminPublication" hidden' in html and 'id="availLandUseFilter"' in html and 'id="availGeocoded"' in html and 'id="availValues"' in html
-    assert (REPO / "public/sw.js").read_text(encoding="utf-8").count('const CACHE = "tdw-shell-v49"') == 1
+    assert (REPO / "public/sw.js").read_text(encoding="utf-8").count('const CACHE = "tdw-shell-v50"') == 1
 
 
 # ==================== 8. regressions ====================
