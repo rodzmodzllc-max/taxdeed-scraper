@@ -228,3 +228,12 @@ def test_k01_get_properties_contract_and_ledger_isolation_intact():
     assert sorted(p.name for p in (REPO / "scripts/migrations").glob("02*.sql"))[-1] == "023_available_commercial_release.sql"   # no new migration this sprint
     domains.assert_isolated()
     assert (REPO / "public/sw.js").read_text(encoding="utf-8").count('const CACHE = "tdw-shell-v50"') == 1
+
+
+def test_c03_publication_measurement_counts_a_typed_non_url_path_as_a_purchase_path():
+    from harvesters.governance import publication as pub
+    rows = [{"source": "laft", "state": "FL", "county": "Citrus", "otc_provenance": {"source_id": "fl_laft_pioneer"}, "purchase_path_type": "phone_mail", "last_seen_at": "2026-09-30T00:00:00+00:00"},
+            {"source": "laft", "state": "FL", "county": "Bay", "otc_provenance": {"source_id": "fl_laft_pioneer"}, "purchase_path_type": None, "last_seen_at": "2026-09-30T00:00:00+00:00"}]
+    m = pub.measure(rows, {}, now=__import__("datetime").datetime(2026, 9, 30, tzinfo=__import__("datetime").timezone.utc))
+    c = m["counts"] if "counts" in m else m
+    assert (c["with_purchase_path"], c["without_purchase_path"]) == (1, 1)
