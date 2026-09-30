@@ -143,6 +143,8 @@ same buttons keep the same ids, so nothing that referenced them had to move. -->
     <button class="account-item" id="installBtn" type="button" role="menuitem" hidden>Install app</button>
     <button class="account-item" id="helpBtnMenu" type="button" role="menuitem">How to read this data</button>
     <button class="account-item" id="supportBtnMenu" type="button" role="menuitem">Contact support</button>
+    <!-- Admin area link: shown only when the SERVER-read profile says admin (app.js IS_ADMIN). Visibility only - /admin re-checks with the server itself. -->
+    <a class="account-item" id="adminAreaLink" href="admin.html" role="menuitem" hidden>Admin area</a>
     <button class="account-item" id="termsBtnMenu" type="button" role="menuitem">Terms &amp; disclaimer</button>
     <button class="account-item danger" id="signOutBtn" type="button" role="menuitem">Sign out</button>
     <button class="account-item danger" id="deleteAccountBtn" type="button" role="menuitem">Delete my account</button>

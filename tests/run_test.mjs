@@ -2748,6 +2748,82 @@ await navMap.waitForTimeout(300);
 results.navListToMapHashKeepsContext = await navMap.evaluate(() => location.hash);
 await navMap.close();
 
+// ============================================================
+// Admin area (/admin, 2026-09-30). ?stubauth=1 switches the stub to its
+// stand-in for Supabase Auth + row-level security (a server-held user table,
+// a password check, a session, own-row profile reads - see the stub). The
+// passwords typed here are the stub's FIXTURE passwords for fake accounts.
+// admin.html decides only from the server's answer; the shell is hidden
+// until then, and anyone else is sent to the normal application.
+// ============================================================
+{
+  const ADMIN_URL = BASE_URL.replace(/index\.html$/, 'admin.html') + '?stubauth=1';
+  const APP_URL = BASE_URL + '?stubauth=1';
+  const signIn = async (pg, email, password) => {
+    await pg.goto(APP_URL, { waitUntil: 'networkidle' });
+    await pg.fill('#email', email);
+    await pg.fill('#password', password);
+    await pg.click('#signInBtn');
+    await pg.waitForTimeout(600);
+  };
+  const onAdminShell = async pg => pg.evaluate(() => /admin\.html/.test(location.pathname) && !document.getElementById('adminShell').hidden);
+  const openAdmin = async pg => { await pg.goto(ADMIN_URL, { waitUntil: 'networkidle' }); await pg.waitForTimeout(600); };
+
+  // No session at all: /admin sends you to the normal sign-in flow.
+  const anon = await newPage({ viewport: { width: 1000, height: 800 } });
+  await openAdmin(anon);
+  results.adminAnonRedirected = await anon.evaluate(() => /index\.html$/.test(location.pathname));
+  results.adminAnonShellShown = (await anon.locator('#adminShell').count()) > 0 && await anon.locator('#adminShell').isVisible();
+  await anon.close();
+
+  // 1. A normal user signs in normally and sees the normal application.
+  const normal = await newPage({ viewport: { width: 1000, height: 800 } });
+  await signIn(normal, 'normal@example.com', 'fixture-normal-pass');
+  results.adminNormalAppVisible = await normal.locator('#app').isVisible();
+  results.adminNormalMenuLinkHidden = await normal.locator('#adminAreaLink').isHidden();
+  // 3. ... and cannot open /admin by typing it.
+  await openAdmin(normal);
+  results.adminNormalRedirected = await normal.evaluate(() => /index\.html$/.test(location.pathname));
+  // 7. Client state cannot grant admin: every flag a page could set is ignored.
+  await normal.goto(APP_URL, { waitUntil: 'networkidle' });
+  await normal.evaluate(() => {
+    for (const store of [localStorage, sessionStorage]) {
+      store.setItem('is_admin', 'true'); store.setItem('IS_ADMIN', 'true'); store.setItem('role', 'admin'); store.setItem('tdw-admin', '1');
+    }
+    window.IS_ADMIN = true;
+  });
+  await openAdmin(normal);
+  results.adminTamperRedirected = await normal.evaluate(() => /index\.html$/.test(location.pathname));
+  results.adminTamperShellShown = await onAdminShell(normal);
+  await normal.close();
+
+  // 9. Wrong admin credentials are rejected: an error, no session, no admin area.
+  const bad = await newPage({ viewport: { width: 1000, height: 800 } });
+  await signIn(bad, 'admin@example.com', 'not-the-password');
+  results.adminBadCredsError = ((await bad.locator('#authMsg').textContent()) || '').trim().length > 0;
+  results.adminBadCredsAppHidden = await bad.locator('#app').isHidden();
+  await openAdmin(bad);
+  results.adminBadCredsRedirected = await bad.evaluate(() => /index\.html$/.test(location.pathname));
+  await bad.close();
+
+  // 4-5. The admin signs in, sees the Admin link, and opens /admin.
+  const adm = await newPage({ viewport: { width: 1000, height: 800 } });
+  await signIn(adm, 'admin@example.com', 'fixture-admin-pass');
+  results.adminAppVisible = await adm.locator('#app').isVisible();
+  results.adminMenuLinkShown = await adm.locator('#adminAreaLink').isVisible() || !(await adm.locator('#adminAreaLink').evaluate(el => el.hidden));
+  await openAdmin(adm);
+  results.adminShellShown = await onAdminShell(adm);
+  results.adminIdentityText = ((await adm.locator('#adminIdentity').textContent()) || '').trim();
+  results.adminShellShowsNoEmail = !/@/.test((await adm.locator('#adminShell').textContent()) || '');
+  // 8. Signing out removes admin access: redirected now, and on a revisit.
+  await adm.click('#adminSignOut');
+  await adm.waitForTimeout(600);
+  results.adminSignOutRedirected = await adm.evaluate(() => /index\.html$/.test(location.pathname));
+  await openAdmin(adm);
+  results.adminAfterSignOutRedirected = await adm.evaluate(() => /index\.html$/.test(location.pathname));
+  await adm.close();
+}
+
 // Legacy deep links keep working: #map (old Map link), #/lands (ledger
 // slug), #/dashboard, #/watchlist, #/list.
 const navLegacy = await newPage({ viewport: { width: 1200, height: 900 } });
@@ -3160,6 +3236,23 @@ const EXPECTED = {
   navMapAllHash: '#/map',
   navMapSearchHash: '#/map?q=Oak',
   navMapTxHref: 'tx.html#/map?q=Oak',
+  adminAnonRedirected: true,
+  adminAnonShellShown: false,
+  adminNormalAppVisible: true,
+  adminNormalMenuLinkHidden: true,
+  adminNormalRedirected: true,
+  adminTamperRedirected: true,
+  adminTamperShellShown: false,
+  adminBadCredsError: true,
+  adminBadCredsAppHidden: true,
+  adminBadCredsRedirected: true,
+  adminAppVisible: true,
+  adminMenuLinkShown: true,
+  adminShellShown: true,
+  adminIdentityText: 'Admin',
+  adminShellShowsNoEmail: true,
+  adminSignOutRedirected: true,
+  adminAfterSignOutRedirected: true,
   navMapToListHash: '#/auctions',
   navMapToListLit: ['list'],
   navListToMapHashKeepsContext: '#/map?q=Oak',

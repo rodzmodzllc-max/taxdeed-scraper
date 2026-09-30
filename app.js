@@ -1760,6 +1760,10 @@ async function checkApprovalAndEnter(session) {
     return;
   }
   IS_ADMIN = !!(profile && profile.is_admin);
+  // The account menu's "Admin area" link (visibility only - admin.html asks
+  // the server again and refuses anyone the server does not call an admin).
+  const adminLink = document.getElementById("adminAreaLink");
+  if (adminLink) adminLink.hidden = !IS_ADMIN;
   if (profile && profile.approved) showApp();
   else showPending();
 }

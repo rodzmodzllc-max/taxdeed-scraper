@@ -1706,3 +1706,18 @@ live here are removed with the #pageMap section itself - see the note by
 .bidlist-related{margin:-.35rem 0 .7rem;padding:.45rem .7rem;border:1px dashed var(--card-line);border-radius:4px;background:var(--card);font-size:.76rem}
 .bidlist-related-head{font-weight:700;color:var(--ink-soft);font-size:.68rem;letter-spacing:.04em;text-transform:uppercase;margin-bottom:.2rem}
 .bidlist-related ul{margin:0;padding-left:1.1rem}
+
+/* ---- Admin area (/admin, 2026-09-30) - admin.html / admin.js ---- */
+body[data-page="admin"]{background:var(--paper);color:var(--ink);min-height:100vh}
+.admin-shell{max-width:720px;margin:0 auto;padding:2rem 1rem 3rem}
+.admin-shell[hidden]{display:none}
+.admin-head{display:flex;align-items:center;gap:.8rem;margin-bottom:1.25rem}
+.admin-eyebrow{margin:0;font-size:.75rem;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-soft)}
+.admin-title{margin:0;font-size:1.4rem}
+.admin-card{background:var(--card);border:1px solid var(--card-line);border-radius:12px;padding:1rem 1.1rem;margin-bottom:1rem;box-shadow:var(--shadow)}
+.admin-label{margin:0 0 .25rem;font-size:.78rem;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-soft)}
+.admin-identity{margin:0 0 .4rem;font-size:1.35rem;font-weight:700}
+.admin-note{margin:.2rem 0;color:var(--ink-soft);font-size:.92rem}
+.admin-actions{display:flex;flex-wrap:wrap;gap:.6rem;margin:.8rem 0 0}
+.admin-btn{display:inline-flex;align-items:center;min-height:40px;padding:.45rem .95rem;border-radius:10px;border:1px solid var(--accent);background:var(--accent);color:#fff;font:inherit;text-decoration:none;cursor:pointer}
+.admin-btn-quiet{background:transparent;color:var(--ink);border-color:var(--card-line)}

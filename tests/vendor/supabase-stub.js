@@ -290,7 +290,13 @@ class MockQuery {
   upsert(row) { this._op = "upsert"; this._row = row; return this; }
   then(resolve) {
     let result = { data: [], error: null };
-    if (this.table === "profiles") {
+    if (this.table === "profiles" && STUB_AUTH) {
+      // Row-level security: the signed-in user's own row only, values from the server table.
+      const me = stubSessionUser();
+      const own = me ? STUB_SERVER_USERS.filter(u => u.id === me.id && this._filters.every(([c, v]) => u[c] === v))
+        .map(u => ({ id: u.id, email: u.email, approved: u.approved, is_admin: u.is_admin })) : [];
+      result = { data: this._single ? (own[0] || null) : own, error: null };
+    } else if (this.table === "profiles") {
       if (PROFILES_TABLE === null) {
         // Simulates schema-v6-approvals.sql not having been run yet.
         result = { data: null, error: { message: 'relation "public.profiles" does not exist', code: "42P01" } };
@@ -352,14 +358,40 @@ class MockQuery {
 // auto-signing-in, so the sign-up/sign-in toggle can be screenshot-tested.
 const FORCE_GATE = new URLSearchParams(location.search).get("authtest") === "1";
 
+// ?stubauth=1 (2026-09-30, admin area): a stand-in for the SERVER side of
+// Supabase Auth + row-level security, for the sign-in / role tests. The
+// user table below lives only in this module's closure (a page cannot read
+// or edit it - the way the real auth.users / public.profiles cannot be
+// edited from the browser); signInWithPassword checks the password here,
+// the session is an opaque id in sessionStorage (supabase-js keeps its
+// signed token there too), and a profiles read returns only the signed-in
+// user's own row with the server's is_admin. The passwords are FIXTURE
+// values for these fake accounts - not any real credential.
+const STUB_AUTH = new URLSearchParams(location.search).get("stubauth") === "1";
+const STUB_SESSION_KEY = "stub-auth-session";
+const STUB_SERVER_USERS = [
+  { id: "n1", email: "normal@example.com", password: "fixture-normal-pass", approved: true, is_admin: false },
+  { id: "a1", email: "admin@example.com", password: "fixture-admin-pass", approved: true, is_admin: true }
+];
+const stubListeners = [];
+function stubSessionUser() {
+  let id = null;
+  try { id = sessionStorage.getItem(STUB_SESSION_KEY); } catch { id = null; }
+  const u = STUB_SERVER_USERS.find(x => x.id === id);
+  return u ? { id: u.id, email: u.email } : null;
+}
+function stubEmit(event, user) { stubListeners.forEach(cb => setTimeout(() => cb(event, user ? { user } : null), 0)); }
+
 export function createClient() {
   return {
     auth: {
       async getSession() {
+        if (STUB_AUTH) { const u = stubSessionUser(); return { data: { session: u ? { user: u } : null } }; }
         if (FORCE_GATE) return { data: { session: null } };
         return { data: { session: { user: { id: "u1", email: "test@example.com" } } } };
       },
       onAuthStateChange(cb) {
+        if (STUB_AUTH) { stubListeners.push(cb); return { data: { subscription: { unsubscribe() {} } } }; }
         if (!FORCE_GATE) setTimeout(() => cb("SIGNED_IN", { user: { id: "u1", email: "test@example.com" } }), 0);
         // ?recovery=1: what supabase-js emits after a password-reset link
         // lands (detectSessionInUrl consumed the recovery token).
@@ -368,7 +400,17 @@ export function createClient() {
         }
         return { data: { subscription: { unsubscribe() {} } } };
       },
-      async signInWithPassword() { return { error: null }; },
+      async signInWithPassword(creds) {
+        if (STUB_AUTH) {
+          const u = STUB_SERVER_USERS.find(x => creds && x.email === creds.email && x.password === creds.password);
+          if (!u) return { data: { user: null, session: null }, error: { message: "Invalid login credentials", status: 400 } };
+          sessionStorage.setItem(STUB_SESSION_KEY, u.id);
+          const user = { id: u.id, email: u.email };
+          stubEmit("SIGNED_IN", user);
+          return { data: { user, session: { user } }, error: null };
+        }
+        return { error: null };
+      },
       async signUp({ email }) {
         // Simulate the "check your email" (no immediate session) outcome -
         // the more interesting UI path to verify, since the auto-confirmed
@@ -378,7 +420,10 @@ export function createClient() {
         }
         return { data: { user: { id: "u2", email }, session: null }, error: null };
       },
-      async signOut() { return {}; },
+      async signOut() {
+        if (STUB_AUTH) { try { sessionStorage.removeItem(STUB_SESSION_KEY); } catch { /* ignore */ } stubEmit("SIGNED_OUT", null); }
+        return {};
+      },
       // SaaS hardening: the two supported-pattern calls the account
       // lifecycle uses. ?resetfail=1 makes the reset request fail so the
       // error path is exercised too.
