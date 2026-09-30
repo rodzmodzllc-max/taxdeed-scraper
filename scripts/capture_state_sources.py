@@ -160,10 +160,16 @@ EXPANSION_EXTRA.update({
     "CO": ["https://morgancounty.colorado.gov/county-held-tax-lien-sale-certificates"],
     "WI": ["https://www.greencountywi.org/492/Current-Tax-Deed-Sales"],
 })
+EXPANSION_TARGETS.update({
+    "MI": ["https://services6.arcgis.com/mjEvhc9AE3ceAXtG/arcgis/rest/services/Tax_Sale_2026_view/FeatureServer",
+           "https://services2.arcgis.com/c9l1e4fKpsCnqD7H/arcgis/rest/services/For_Sale_2026_view/FeatureServer"],
+    "WY": ["https://services1.arcgis.com/EmwrhKkmuQhTATzU/arcgis/rest/services/2026TAXSALEPROP_1ST/FeatureServer"],
+    "SC": ["https://services1.arcgis.com/2AGLxyiJoNiVHKwq/arcgis/rest/services/Tax_Sale_Properties_2025_View/FeatureServer"],
+})
 # ASP.NET postback probes: (page, [(dropdown to post back, pick = first real option)], search button)
 ASPNET_PROBES = {
     "WV": ("https://www.wvsao.gov/CountyCollections/Default",
-           ["ctl00$FixedWidthContent$YearDD", "ctl00$FixedWidthContent$CountyDD"],
+           ["ctl00$FixedWidthContent$YearDD", "ctl00$FixedWidthContent$CountyDD", "ctl00$FixedWidthContent$ddlCounties"],
            "ctl00$FixedWidthContent$SearchBTN"),
 }
 EXPANSION_QUERIES = ('"tax sale" parcels type:"Feature Service"',
@@ -212,8 +218,14 @@ def html_structure(html: str, url: str) -> dict:
         hdr = [clean(th.get_text(" "))[:60] for th in t.find_all("th")][:30]
         body_rows = [tr for tr in t.find_all("tr") if tr.find("td")]
         cells = Counter(len(tr.find_all("td")) for tr in body_rows)
+        first = [mask_digits(clean(td.get_text(" ")))[:60] for td in body_rows[0].find_all("td")] if body_rows else []
+        col_shapes = []
+        for i in range(max(cells) if cells else 0):
+            vals = [clean(tr.find_all("td")[i].get_text(" ")) for tr in body_rows[1:] if len(tr.find_all("td")) > i]
+            col_shapes.append(dict(Counter(shape(v)[:40] for v in vals).most_common(3)))
         tables.append({"headers": [mask_digits(h) for h in hdr], "body_rows": len(body_rows),
-                       "cells_per_row": dict(cells.most_common(3)), "id": t.get("id") or "", "class": " ".join(t.get("class") or [])})
+                       "cells_per_row": dict(cells.most_common(3)), "id": t.get("id") or "", "class": " ".join(t.get("class") or []),
+                       "first_row": first, "col_shapes": col_shapes})
     forms = []
     for f in soup.find_all("form")[:6]:
         fields = []
@@ -437,6 +449,11 @@ def aspnet_probe(session: requests.Session, url: str, dropdowns: list[str], butt
                 data[sel["name"]] = (opt.get("value") if opt else "") or ""
         return soup, data
 
+    prm = re.search(r"PageRequestManager\._initialize\('([^']+)'\s*,\s*'([^']+)'", resp.text)
+    panels = re.findall(r"updatePanelIDs['\"]?\s*[:=]\s*\[([^\]]*)\]|_updateControls\(\[([^\]]*)\]", resp.text)
+    postbacks = sorted(set(re.findall(r"__doPostBack\(\\?'([^'\\]+)", resp.text)))[:40]
+    steps.append({"script_manager": prm.group(1) if prm else None, "panels": [mask_digits(";".join(p))[:400] for p in panels][:3],
+                  "postback_targets": postbacks})
     soup, data = form_state(resp.text)
     for dd in dropdowns:
         sel = soup.find("select", attrs={"name": dd})
@@ -446,11 +463,34 @@ def aspnet_probe(session: requests.Session, url: str, dropdowns: list[str], butt
             break
         data[dd] = opts[0]
         data["__EVENTTARGET"], data["__EVENTARGUMENT"] = dd, ""
+        hdrs = dict(HEADERS)
+        if prm:
+            # An async (UpdatePanel) postback, the way the page's own script sends it.
+            data[prm.group(1)] = f"{prm.group(1)}|{dd}"
+            data["__ASYNCPOST"] = "true"
+            hdrs.update({"X-MicrosoftAjax": "Delta=true", "X-Requested-With": "XMLHttpRequest"})
         try:
-            r = session.post(url, data=data, headers=HEADERS, timeout=30)
+            r = session.post(url, data=data, headers=hdrs, timeout=30)
         except requests.RequestException as exc:
             return {"steps": steps, "error": f"{type(exc).__name__}"}
-        soup, data = form_state(r.text)
+        body = r.text
+        if prm and "|updatePanel|" in body:
+            # Delta response: re-read hidden fields and the refreshed panel HTML.
+            frags = re.findall(r"\|updatePanel\|[^|]*\|(.*?)\|", body, re.S)
+            hidden = dict(re.findall(r"\|hiddenField\|([^|]+)\|([^|]*)\|", body))
+            steps[-1].update({"delta": True, "delta_len": len(body), "panels_returned": len(frags)})
+            soup_panel = BeautifulSoup("".join(frags), "html.parser")
+            for sel in soup_panel.find_all("select"):
+                if sel.get("name"):
+                    steps.append({"refreshed_select": sel["name"], "options": len(sel.find_all("option"))})
+            soup = BeautifulSoup(resp.text + "".join(frags), "html.parser")
+            data.update(hidden)
+            for k in ("__ASYNCPOST",):
+                data.pop(k, None)
+            if prm:
+                data.pop(prm.group(1), None)
+        else:
+            soup, data = form_state(body)
         data[dd] = opts[0]
         time.sleep(1.0)
     data.pop("__EVENTTARGET", None)
@@ -681,6 +721,8 @@ def digest(path: Path) -> str:
                     out.append("  headings: " + " || ".join(pg["headings"][:12]))
                 for t in pg.get("tables") or []:
                     out.append(f"  table id={t['id']!r} class={t['class']!r} rows={t['body_rows']} cells={t['cells_per_row']} headers={t['headers']}")
+                    if t.get("first_row") is not None:
+                        out.append(f"    first_row(masked)={t.get('first_row')} col_shapes={t.get('col_shapes')}")
                 for f in pg.get("forms") or []:
                     out.append(f"  form {f['method']} {f['action']}")
                     for x in f["fields"]:
