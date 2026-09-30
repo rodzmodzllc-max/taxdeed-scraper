@@ -1741,6 +1741,36 @@ Full description: `docs/available-ledger.md` section 10. The stable facts:
   land-use fallback, per-ledger exports (`certificateCols`). `sw.js` ->
   `tdw-shell-v50`. `tests/run_test.mjs`: 645 checks; Python: 1354.
 
+## Unified navigation: Dashboard | List | Map | Watchlist (2026-09-30, PR open)
+
+Full description: `docs/navigation.md`. The stable facts:
+- **Exactly four primary destinations** in the rail and the phone bottom
+  bar (`data-page` dashboard / list / map / watchlist, identical on both
+  pages); the three ledgers are picked INSIDE the List (`#ledgerTabs`) and
+  the Map (`#mapLedgerPills`, "All Ledgers" + the three), never in the
+  primary nav. `SHELL_PAGES` = dashboard / list / map; `#pageAuctions` is
+  now `#pageList`; `showPage("auctions")` still works.
+- **Hash routes** (`routeFromHash()` / `syncPageHash()`, replaceState only):
+  `#/dashboard`, the ledger slugs (`#/auctions|lands|certificates[/pid]`,
+  the List's own routes, unchanged), `#/list`, `#/map?ledger=&county=&q=&watch=1`
+  (context, not routes per combination), `#/watchlist`; legacy `#map` is
+  rewritten to `#/map`. A self-back's hashchange is skipped
+  (`suppressHashRoute`) - see the popstate comment before touching this.
+- **State is the page**, never a hash parameter: `STATE_META` (FL, TX;
+  keys pinned to `states.PRODUCTION_STATES` by
+  `tests/python/test_unified_navigation.py`) feeds `#mapStateSelect` and
+  the List's FL/TX links, which carry the current hash across
+  (`syncStateLinks()`). Do not hard-code Florida in the map's chrome.
+- **Map county select is scoped to state + ledger** with that ledger's
+  counts (`mapCountyCandidates()`); the context line `#mapContext` reads
+  "State: · Ledger: · County:" from `renderMapContext()`.
+- **Dashboard is an operating view** (`dashboardOps()`): per-ledger tiles,
+  Needs attention, Recent ("not tracked" where no date exists), Verified
+  purchase paths, counties, ledgers, upcoming, freshness, watchlist
+  changes. No value-sum tile, no score.
+- Watchlist folds the same parcel across ledgers into one card. `sw.js` ->
+  `tdw-shell-v51`. `tests/run_test.mjs`: 713 checks; Python: 1364.
+
 ## Where to look for more
 
 - `claude/improvement-roadmap.md` in the "tax florida app" claude.ai Project — the full dated log of every fix, audit finding, and open decision. This is where new findings should be appended, not here.

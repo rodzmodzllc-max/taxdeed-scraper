@@ -1,0 +1,131 @@
+"""Unified navigation (2026-09-30): four primary destinations, ledgers inside
+List and Map, data-driven states, compatibility routes. Static contracts on
+the shipped frontend; the behaviour itself is exercised by tests/run_test.mjs."""
+from __future__ import annotations
+
+import re
+import sys
+from pathlib import Path
+
+REPO = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(REPO))
+from harvesters.governance import states  # noqa: E402
+
+APP = (REPO / "public/app.js").read_text(encoding="utf-8")
+CODE = re.sub(r"^\s*//.*$", "", APP, flags=re.M)      # app.js without its line comments
+INDEX = (REPO / "public/index.html").read_text(encoding="utf-8")
+TX = (REPO / "public/tx.html").read_text(encoding="utf-8")
+
+
+def _nav_pages(html: str, cls: str) -> list[str]:
+    return re.findall(r'class="%s[^"]*" data-page="([a-z]+)"' % cls, html)
+
+
+def test_n01_exactly_four_primary_destinations_in_rail_and_bottom_bar_on_both_pages():
+    for html in (INDEX, TX):
+        assert _nav_pages(html, "nav-item") == ["dashboard", "list", "map", "watchlist"]
+        assert _nav_pages(html, "nav-bottom-item") == ["dashboard", "list", "map", "watchlist"]
+        # No ledger is a primary destination any more.
+        assert 'nav-item" data-page="auctions"' not in html and "nav-bottom-item" not in re.sub(r"<nav class=\"nav-bottom\".*?</nav>", "", html, flags=re.S)
+        assert not re.search(r'class="nav-(bottom-)?item[^"]*" data-page="[a-z]+" data-ledger=', html)
+        assert "Liens &amp; Certs<" not in html                      # the full ledger name only
+    # Both pages ship the same navigation markup.
+    rail = lambda h: re.search(r'<div class="nav-list">.*?</div>\n', h, re.S).group(0)  # noqa: E731
+    bottom = lambda h: re.search(r'<nav class="nav-bottom".*?</nav>', h, re.S).group(0)  # noqa: E731
+    assert rail(INDEX) == rail(TX) and bottom(INDEX) == bottom(TX)
+
+
+def test_n02_ledger_selector_lives_inside_the_list_page_and_names_all_three_ledgers():
+    # Texas's third slot keeps its own existing name (Redeemable Deeds - the
+    # ledgerCopy() tx override); no Texas certificate ledger is invented.
+    for html, cert_label in ((INDEX, "Liens &amp; Certificates"), (TX, "Redeemable Deeds")):
+        page = html[html.index('id="pageList"'):html.index('id="pageMap"')]
+        assert 'id="ledgerTabs"' in page and 'id="regionTabs"' in page
+        assert [m for m in re.findall(r'class="ledger-tab" data-ledger="([a-z]+)"', page)] == ["auction", "laft", "certificate"]
+        assert cert_label + " <b" in page
+
+
+def test_n03_map_page_carries_state_ledger_county_context_and_selectors():
+    for html, cert_label in ((INDEX, "Liens &amp; Certificates"), (TX, "Redeemable Deeds")):
+        page = html[html.index('id="pageMap"'):]
+        assert 'id="mapStateSelect"' in page and 'id="mapCountySelect"' in page and 'id="mapLedgerPills"' in page
+        assert 'id="mapContextState"' in page and 'id="mapContextLedger"' in page and 'id="mapContextCounty"' in page
+        assert "All Ledgers</button>" in page and cert_label + "</button>" in page
+        assert 'id="mapPageState"' not in page                       # the "Map · Florida" label is gone
+    # The pills are exactly: the aggregation plus the three backend ledgers.
+    assert re.findall(r'#mapLedgerPills|data-ledger="(all|auction|laft|certificate)"', INDEX[INDEX.index('id="mapLedgerPills"'):INDEX.index('id="mapWatchlistOnly"')]) == ["all", "auction", "laft", "certificate"]
+
+
+def test_n04_states_are_data_driven_and_pinned_to_the_backend_production_states():
+    meta = re.search(r"const STATE_META = \{(.*?)\n\};", APP, re.S).group(1)
+    codes = re.findall(r"^\s+([A-Z]{2}): \{", meta, re.M)
+    assert set(codes) == set(states.PRODUCTION_STATES), (codes, sorted(states.PRODUCTION_STATES))
+    for code in codes:
+        assert re.search(r'%s: \{ name: "[A-Za-z ]+", page: "[a-z]+\.html"' % code, meta), code
+    assert "const STATE_CODES = Object.keys(STATE_META);" in APP
+    assert "STATE_CODES.map(st =>" in APP and "location.href = STATE_META[st].page + mapHash();" in APP
+    # No hard-coded Florida anywhere in the map's state handling.
+    block = CODE[CODE.index("function buildMapStateSelect"):CODE.index("function renderMapContext")]
+    assert "Florida" not in block and '"FL"' not in block
+
+
+def test_n05_router_routes_four_pages_and_keeps_every_existing_hash_working():
+    block = APP[APP.index("function routeFromHash"):APP.index("function pidFromHash")]
+    assert 'if (h === "#map") return { page: "map", params: {} };' in block                       # legacy Map link
+    assert 'if (SLUG_TO_LEDGER[seg]) return { page: "list", ledger: SLUG_TO_LEDGER[seg], pid: sub, params };' in block  # #/auctions|lands|certificates[/pid]
+    assert 'if (seg === "list")' in block and 'seg === "dashboard" || seg === "map" || seg === "watchlist"' in block
+    assert 'const SHELL_PAGES = { dashboard: "pageDashboard", list: "pageList", map: "pageMap" };' in APP
+    assert 'if (name === "auctions") name = "list";' in APP and 'if (name === "watchlist") { openBidList(); return; }' in APP
+    # Map context is hash state, not routes per combination.
+    assert 'q.set("ledger", mapFilter.ledger)' in APP and 'q.set("county", mapFilter.county)' in APP and 'q.set("q", mapFilter.search)' in APP
+    assert 'return "#/map" + (qs ? "?" + qs : "");' in APP
+    # replaceState only: page moves never enter the Android-back stack.
+    router = CODE[CODE.index("function pageHash"):CODE.index("function syncStateLinks")]
+    assert "pushState" not in router and "replaceState" in router
+    # A state switch carries the hash across (List: the region links; Map: the select).
+    assert 'a.setAttribute("href", STATE_META[st].page + hash);' in APP
+
+
+def test_n06_map_county_select_is_scoped_to_state_and_ledger_and_counts_the_selected_ledger():
+    block = APP[APP.index("function mapCountyCandidates"):APP.index("function buildMapStateSelect")]
+    assert "regionOf(p) === PAGE_STATE" in block
+    assert '(mapFilter.ledger === "all" || p.source === mapFilter.ledger)' in block
+    assert 'if (mapFilter.county !== "ALL" && !counts.has(mapFilter.county)) mapFilter.county = "ALL";' in block
+    assert "countyCounts()" not in block                                # never the portfolio-wide count
+    # The rows the map draws use the same ledger test.
+    rows = APP[APP.index("function computeMapRows"):APP.index("function mapCountyCandidates")]
+    assert 'if (mapFilter.ledger !== "all" && p.source !== mapFilter.ledger) return false;' in rows
+
+
+def test_n07_list_and_map_share_one_ledger_definition_from_the_backend_source_column():
+    # One table of ledgers (LEDGERS / LEDGER_ORDER) keyed by properties.source.
+    assert 'const LEDGER_ORDER = ["auction", "laft", "certificate"];' in APP
+    assert APP.count("const LEDGERS = {") == 1
+    from harvesters.ledgers import LEDGER_BY_SOURCE  # noqa: E402  (properties.source -> ledger)
+    assert set(LEDGER_BY_SOURCE) == {"auction", "laft", "certificate"}
+
+
+def test_n08_dashboard_is_an_operating_view_with_no_score_and_honest_not_tracked_wording():
+    block = APP[APP.index("function dashboardOps"):APP.index("// ---- desktop data table ----")]
+    for panel in ("dashAttentionRows", "dashRecentRows", "dashPathRows", "dashCountyRows", "dashLedgerRows", "dashUpcomingRows", "dashSourceRows", "dashUnitRows", "dashWatchChanges"):
+        assert panel in block, panel
+        assert f'id="{panel}"' in INDEX and f'id="{panel}"' in TX, panel
+    assert "First-recorded date not tracked" in block and "Per-row read date not tracked" in block
+    assert "Not recorded on this deployment" in block
+    assert "Not yet verified - no purchase path established from evidence" in block
+    assert "Sum of county values" not in block
+    assert not re.search(r"\b(score|rank|recommend|estimate)\w*", block, re.I)
+    assert 'data-go-ledger="${esc(key)}"' in block and 'showPage("list"); setLedger(btn.dataset.goLedger);' in block
+
+
+def test_n09_watchlist_folds_the_same_parcel_across_ledgers_and_is_a_destination():
+    block = APP[APP.index("function renderBidListModal"):APP.index("function openBidList")]
+    assert "relatedRecordsFor(p)" in block and "folded.add(o.id)" in block and "bidlist-related" in block
+    opener = APP[APP.index("function openBidList"):APP.index("function closeBidList")]
+    assert 'history.replaceState(history.state, "", "#/watchlist");' in opener
+
+
+def test_n10_service_worker_bumped_and_root_mirror_matches_public():
+    assert (REPO / "public/sw.js").read_text(encoding="utf-8").count('const CACHE = "tdw-shell-v51"') == 1
+    for f in ("app.js", "styles.css", "sw.js", "index.html", "tx.html", "explore.css"):
+        assert (REPO / f).read_bytes() == (REPO / "public" / f).read_bytes(), f

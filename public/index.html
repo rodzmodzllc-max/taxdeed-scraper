@@ -105,14 +105,16 @@ owner approves it, so there'd be nothing to show here anyway. -->
 <nav class="nav-rail" id="navRail" aria-label="Main">
 <div class="nav-rail-brand"><img src="icons/icon-192.png?v=2" width="44" height="44" alt="" aria-hidden="true"><span>Tax<span class="brand-accent">•</span>Acquisitions</span></div>
 <div class="nav-list">
+<!-- Unified navigation (2026-09-30): exactly four destinations - Dashboard,
+     List (every ledger, selected inside the page by #ledgerTabs), Map and
+     Watchlist. The three per-ledger entries this list used to carry are gone;
+     app.js showPage()/syncLedgerNav() light an entry on its page alone. The
+     List count is the sum of the three ledger counts; the Watchlist entry
+     opens the watchlist and is lit while it is open. -->
 <button class="nav-item" data-page="dashboard" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>Dashboard</button>
-<!-- Three first-class ledgers (2026-09-30): each nav entry opens the ledger page with THAT ledger selected
-     (data-page + data-ledger; app.js showPage()/setLedger()). The count mirrors the ledger tab's. -->
-<button class="nav-item on" data-page="auctions" data-ledger="auction" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v18M5 7l3.5-3.5L12 7M5 7c0 2.8 1.6 5 3.5 5S12 9.8 12 7M19 7l-3.5-3.5L12 7M19 7c0 2.8-1.6 5-3.5 5S12 9.8 12 7M4 21h16"/></svg>Auctions <b class="nav-count" id="navCountAuction">0</b></button>
-<button class="nav-item" data-page="auctions" data-ledger="laft" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>Available <b class="nav-count" id="navCountLaft">0</b></button>
-<button class="nav-item" data-page="auctions" data-ledger="certificate" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 2h7l5 5v13a2 2 0 01-2 2H7a2 2 0 01-2-2V4a2 2 0 012-2z"/><path d="M9 12h6M9 16h6M9 8h2"/></svg>Liens &amp; Certificates <b class="nav-count" id="navCountCertificate">0</b></button>
+<button class="nav-item on" data-page="list" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>List <b class="nav-count" id="navCountList">0</b></button>
 <button class="nav-item" data-page="map" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 6l7-3 8 3 7-3v16l-7 3-8-3-1 3z"/><path d="M8 3v16M16 6v16"/></svg>Map</button>
-<button class="nav-item" id="navWatchlistBtn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 21V4a1 1 0 011-1c1.2 0 1.2 1 3 1s1.8-1 3.5-1 1.3 1 3.5 1a1 1 0 011 1v9a1 1 0 01-1 1c-2.2 0-2.3-1-3.5-1s-1.3 1-3.5 1-1.8-1-3-1"/></svg>Watchlist <b id="navWatchlistCount">0/10</b></button>
+<button class="nav-item" data-page="watchlist" id="navWatchlistBtn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 21V4a1 1 0 011-1c1.2 0 1.2 1 3 1s1.8-1 3.5-1 1.3 1 3.5 1a1 1 0 011 1v9a1 1 0 01-1 1c-2.2 0-2.3-1-3.5-1s-1.3 1-3.5 1-1.8-1-3-1"/></svg>Watchlist <b class="nav-count" id="navWatchlistCount">0/10</b></button>
 </div>
 <!-- Same account menu as the header badge and the Dashboard's own Settings
 button - a third entry point, matching the reference design's sidebar gear
@@ -199,15 +201,33 @@ other people's profiles rows in the first place). -->
 <div class="dash-head dash-head-row">
 <div>
 <h1>Dashboard</h1>
-<p id="dashSubtitle">Portfolio overview across every ledger.</p>
+<p id="dashSubtitle">Operating view across every ledger.</p>
 </div>
 <!-- Same account menu as the header badge (theme, password, install, sign
 out) - just a second, more visible entry point, since the badge alone is
 easy to miss on a phone. See openAccountMenu() in app.js. -->
 <button class="dash-settings-btn" id="dashSettingsBtn" type="button" aria-haspopup="true" aria-controls="accountMenu" title="Settings"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 004.6 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.6a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg><span>Settings</span></button>
 </div>
+<!-- Unified navigation (2026-09-30): an operating view. One tile per ledger
+(active count, counties; opens the List page on that ledger), then what
+needs attention, what changed, verified purchase paths, counties, ledgers,
+upcoming sales, source freshness and watchlist changes - every figure a
+count over data the app already holds; "Not tracked" where it holds none.
+See renderDashboard() / dashboardOps() in app.js. -->
 <div class="dash-stats" id="dashStats"></div>
 <div class="dash-grid">
+<div class="dash-panel">
+<div class="dash-panel-head">Needs attention</div>
+<div id="dashAttentionRows"></div>
+</div>
+<div class="dash-panel">
+<div class="dash-panel-head">Recent</div>
+<div id="dashRecentRows"></div>
+</div>
+<div class="dash-panel">
+<div class="dash-panel-head">Verified purchase paths (Available)</div>
+<div id="dashPathRows"></div>
+</div>
 <div class="dash-panel">
 <div class="dash-panel-head">By County</div>
 <div id="dashCountyRows"></div>
@@ -246,7 +266,7 @@ app.js and docs/production-configuration.md section 7. -->
 </div>
 </section>
 
-<section class="page" id="pageAuctions">
+<section class="page" id="pageList">
 <div class="masthead">
 <!-- State switcher: which state's tax-sale universe this page is. Used to
 be a JS-driven filter (click a tab, toggle state.region, re-render the
@@ -265,8 +285,8 @@ page, region-scoped RPC, and dor_use_code/tx_category badges are all
 real, shipped ahead of TX data so the pipeline has somewhere to land
 the moment a harvester goes live. -->
 <nav class="region-tabs" id="regionTabs" aria-label="State">
-<a class="region-tab on" data-region="FL" href="index.html" aria-current="page"><span class="region-tab-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-8-4.6-8-11a8 8 0 1116 0c0 6.4-8 11-8 11z"/><circle cx="12" cy="10" r="3"/></svg></span>Florida</a>
-<a class="region-tab" data-region="TX" href="tx.html"><span class="region-tab-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-8-4.6-8-11a8 8 0 1116 0c0 6.4-8 11-8 11z"/><circle cx="12" cy="10" r="3"/></svg></span>Texas</a>
+<a class="region-tab on" data-region="FL" data-state-link href="index.html" aria-current="page"><span class="region-tab-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-8-4.6-8-11a8 8 0 1116 0c0 6.4-8 11-8 11z"/><circle cx="12" cy="10" r="3"/></svg></span>Florida</a>
+<a class="region-tab" data-region="TX" data-state-link href="tx.html"><span class="region-tab-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-8-4.6-8-11a8 8 0 1116 0c0 6.4-8 11-8 11z"/><circle cx="12" cy="10" r="3"/></svg></span>Texas</a>
 </nav>
 <!-- Two (really three) separate ledgers, front and center right after sign-in -
 not one long scroll where Lands Available sits under 300+ auction cards. -->
@@ -537,7 +557,23 @@ PAGE_STATE (the <body data-state> this page loaded with), never from the
 rows or their counties - the same source the tab title and the
 html[data-region] attribute already use. A label only: the Florida/Texas
 switch itself is #regionTabs on the Auctions page. -->
-<h1 class="map-page-title">Map<span class="map-page-state" id="mapPageState"></span></h1>
+<div class="map-page-titlebox">
+<h1 class="map-page-title">Map</h1>
+<!-- The context line reads what the map is showing right now: the state
+(PAGE_STATE - the <body data-state> this page loaded with), the ledger pill
+and the county select. Written by renderMapContext() in app.js on every
+map render; never from the rows' own counties. -->
+<p class="map-context" id="mapContext"><span>State: <b id="mapContextState"></b></span> · <span>Ledger: <b id="mapContextLedger"></b></span> · <span>County: <b id="mapContextCounty"></b></span></p>
+</div>
+<!-- State selector: one option per state this app has a page and basemap
+for (STATE_META in app.js, the same table the Python side's production
+state list is pinned to). Picking a state is real page navigation
+(index.html / tx.html) that carries the map context hash along. -->
+<div class="qc-field qc-county map-toolbar-state">
+<span class="qc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 6l7-3 8 3 7-3v16l-7 3-8-3-1 3z"/><path d="M8 3v16M16 6v16"/></svg></span>
+<select id="mapStateSelect" aria-label="State"></select>
+<span class="qc-chevron"></span>
+</div>
 <div class="qc-field map-toolbar-search">
 <span class="qc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></span>
 <input type="text" id="mapSearchInput" placeholder="Search case #, parcel #, owner, county…" title="Matches case number, parcel number, certificate number, owner name, county and address." autocomplete="off">
@@ -548,7 +584,7 @@ switch itself is #regionTabs on the Auctions page. -->
 <span class="qc-chevron"></span>
 </div>
 <div class="map-ledger-pills" id="mapLedgerPills" role="group" aria-label="Ledger">
-<button type="button" class="on" data-ledger="all"><span class="pill-dot pill-dot-all" aria-hidden="true"></span>All</button>
+<button type="button" class="on" data-ledger="all"><span class="pill-dot pill-dot-all" aria-hidden="true"></span>All Ledgers</button>
 <button type="button" data-ledger="auction"><span class="pill-dot pill-dot-auction" aria-hidden="true"></span>Auctions</button>
 <button type="button" data-ledger="laft"><span class="pill-dot pill-dot-laft" aria-hidden="true"></span>Available</button>
 <button type="button" data-ledger="certificate"><span class="pill-dot pill-dot-certificate" aria-hidden="true"></span>Liens &amp; Certificates</button>
@@ -631,12 +667,13 @@ street-level pins would be a precision the data doesn't have. -->
 </div>
 </div>
 <nav class="nav-bottom" id="navBottom" aria-label="Main">
+<!-- Same four destinations as the rail (see the note on .nav-list). Four
+     items fit a 320px phone without scrolling; the per-ledger entries live
+     inside the List page now (#ledgerTabs), not here. -->
 <button class="nav-bottom-item" data-page="dashboard" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>Dashboard</button>
-<button class="nav-bottom-item on" data-page="auctions" data-ledger="auction" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v18M5 7l3.5-3.5L12 7M5 7c0 2.8 1.6 5 3.5 5S12 9.8 12 7M19 7l-3.5-3.5L12 7M19 7c0 2.8-1.6 5-3.5 5S12 9.8 12 7M4 21h16"/></svg>Auctions</button>
-<button class="nav-bottom-item" data-page="auctions" data-ledger="laft" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg>Available</button>
-<button class="nav-bottom-item" data-page="auctions" data-ledger="certificate" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 2h7l5 5v13a2 2 0 01-2 2H7a2 2 0 01-2-2V4a2 2 0 012-2z"/><path d="M9 12h6M9 16h6M9 8h2"/></svg>Liens &amp; Certs</button>
+<button class="nav-bottom-item on" data-page="list" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>List</button>
 <button class="nav-bottom-item" data-page="map" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 6l7-3 8 3 7-3v16l-7 3-8-3-1 3z"/><path d="M8 3v16M16 6v16"/></svg>Map</button>
-<button class="nav-bottom-item" id="navBottomWatchlistBtn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 21V4a1 1 0 011-1c1.2 0 1.2 1 3 1s1.8-1 3.5-1 1.3 1 3.5 1a1 1 0 011 1v9a1 1 0 01-1 1c-2.2 0-2.3-1-3.5-1s-1.3 1-3.5 1-1.8-1-3-1"/></svg>Watchlist</button>
+<button class="nav-bottom-item" data-page="watchlist" id="navBottomWatchlistBtn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 21V4a1 1 0 011-1c1.2 0 1.2 1 3 1s1.8-1 3.5-1 1.3 1 3.5 1a1 1 0 011 1v9a1 1 0 01-1 1c-2.2 0-2.3-1-3.5-1s-1.3 1-3.5 1-1.8-1-3-1"/></svg>Watchlist</button>
 </nav>
 
 <!-- ============ "My Watchlist" modal ============ -->
