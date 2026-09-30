@@ -172,6 +172,16 @@ on:
           RealAuction result-label discovery. Blank = skip.
         required: false
         default: ''
+      evidence_scope:
+        description: >-
+          (job=evidence only) "available" = the AVAILABLE purchase-process
+          capture (default). "auction_results" = skip it and read only the
+          RealAuction CLOSED / CANCELED area of evidence_realauction_dates
+          through the harvester's own anonymous AJAX endpoint, value-free.
+        required: false
+        type: choice
+        default: available
+        options: [available, auction_results]
 
 concurrency:
   group: harvest-and-sync
@@ -941,8 +951,10 @@ jobs:
         env:
           COUNTIES: ${{ github.event.inputs.evidence_counties }}
           RA_DATES: ${{ github.event.inputs.evidence_realauction_dates }}
+          SCOPE: ${{ github.event.inputs.evidence_scope }}
         run: |
           args=""
+          if [ "$SCOPE" = "auction_results" ]; then args="--skip-available --realauction-results"; fi
           IFS=',' read -ra cs <<< "$COUNTIES"
           for c in "${cs[@]}"; do c="$(echo "$c" | xargs)"; [ -n "$c" ] && args="$args --county \"$c\""; done
           IFS=',' read -ra ds <<< "$RA_DATES"
