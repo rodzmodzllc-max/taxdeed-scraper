@@ -95,8 +95,29 @@ MODE_FOR_TYPE = {"direct_property_url": "online_property", "county_instructions"
 # https evidence_url - an unreviewed capture can never become a path.
 EVIDENCE_COLUMNS_V1 = ["state", "source_id", "county", "path_type", "url", "evidence", "observed_on", "enabled",
                        "third_party_permitted", "notes"]
-EVIDENCE_COLUMNS = EVIDENCE_COLUMNS_V1 + ["evidence_url", "evidence_type", "source_title", "instructions", "review_state",
-                                          "proves", "does_not_prove"]
+EVIDENCE_COLUMNS_V2 = EVIDENCE_COLUMNS_V1 + ["evidence_url", "evidence_type", "source_title", "instructions", "review_state",
+                                             "proves", "does_not_prove"]
+# v3 (Acquisition sprint, 2026-09-30): the ACTIONABLE part of the process -
+# the published office, street address (in person), phone, e-mail, mailing
+# address, the sequential steps the source describes (" | "-separated), a
+# direct application / instructions document and the published payment
+# method. Every field is quoted from the evidence page; a blank means the
+# source did not publish it - never a guess, never a county homepage.
+EVIDENCE_COLUMNS = EVIDENCE_COLUMNS_V2 + ["office", "address", "phone", "email", "mailing_address", "steps",
+                                          "application_url", "payment"]
+STEP_SEPARATOR = " | "
+# The customer-facing acquisition mode: what a person actually DOES. Derived
+# from the path type and the published channels (acquisition_mode()); the
+# frontend's ACQUISITION_MODE_LABELS carries the same keys (a test pins them).
+ACQUISITION_MODES = ("online", "application", "instructions", "email", "phone", "mail", "in_person", "contact",
+                     "multi_step", "none")
+ACQUISITION_MODE_LABELS = {
+    "online": "Purchase or apply online", "application": "Download the county application",
+    "instructions": "Follow the county's purchase-instructions page", "email": "E-mail the county",
+    "phone": "Phone the county", "mail": "Mail a written request", "in_person": "Apply in person",
+    "contact": "Contact the county for the current amount", "multi_step": "Multi-step county process",
+    "none": "No purchase path (stated by the source)",
+}
 EVIDENCE_TYPES = ("county_page", "county_document", "property_page", "registry", "other")
 REVIEW_STATES = ("verified", "needs_review", "restricted")
 _TRUE = frozenset({"1", "true", "yes", "y"})
@@ -119,10 +140,57 @@ class PurchasePath:
     evidence_type: str = ""         # EVIDENCE_TYPES
     source_title: str = ""          # the source's own page / document title
     instructions: str = ""          # the process wording the source publishes, verbatim or closely quoted
+    # v3: the actionable acquisition record (all published by the source, or blank).
+    office: str = ""
+    address: str = ""
+    phone: str = ""
+    email: str = ""
+    mailing_address: str = ""
+    steps: tuple = ()
+    application_url: str = ""
+    payment: str = ""
 
     @property
     def mode(self) -> str:
         return MODE_FOR_TYPE[self.path_type]
+
+    @property
+    def channels(self) -> tuple:
+        """The published ways to act, in the order a customer would use them."""
+        out = []
+        if self.path_type in ("direct_property_url", "application_page") and self.url:
+            out.append("online")
+        if self.path_type == "application_download" and self.url or self.application_url:
+            out.append("application")
+        if self.path_type == "county_instructions" and self.url:
+            out.append("instructions")
+        if self.email:
+            out.append("email")
+        if self.phone:
+            out.append("phone")
+        if self.mailing_address:
+            out.append("mail")
+        if self.address or self.path_type == "in_person":
+            out.append("in_person")
+        return tuple(dict.fromkeys(out))
+
+    @property
+    def acquisition_mode(self) -> str:
+        return acquisition_mode(self.path_type, self.channels, self.steps)
+
+    def acquisition(self) -> dict:
+        """The customer-facing acquisition record for otc_provenance.acquisition."""
+        out = {"mode": self.acquisition_mode, "channels": list(self.channels)}
+        for k in ("office", "address", "phone", "email", "mailing_address", "application_url", "payment"):
+            v = getattr(self, k)
+            if v:
+                out[k] = v
+        if self.steps:
+            out["steps"] = list(self.steps)
+        if self.evidence_url:
+            out["evidence_url"] = self.evidence_url
+        out["observed_on"] = self.observed_on
+        return out
 
     def provenance(self) -> dict:
         """otc_provenance keys the frontend renders beside the path."""
@@ -136,7 +204,9 @@ class PurchasePath:
         if self.instructions:
             out["purchase_instructions"] = self.instructions
         out["purchase_path_observed_on"] = self.observed_on
+        out["acquisition"] = self.acquisition()
         return out
+
 
     def columns(self) -> dict:
         """The migration 023 columns (plus 017's URL columns for URL types)."""
@@ -146,6 +216,37 @@ class PurchasePath:
             out["purchase_url"] = self.url
             out["purchase_url_kind"] = self.url_kind
         return out
+
+def acquisition_mode(path_type: str, channels, steps) -> str:
+    """What the customer does first. Three or more published steps is a
+    multi-step process; otherwise the path type decides, refined by the
+    published channels (an e-mail address before a phone number before a
+    mailing address). Never "contact" unless the source's own wording is a
+    contact-for-the-amount process (the quoted_amount family)."""
+    if path_type == "none_published":
+        return "none"
+    if path_type == "in_person":
+        return "in_person"          # the source says in person; its steps are how, not a different mode
+    if len(tuple(steps or ())) >= 3:
+        return "multi_step"
+    chans = tuple(channels or ())
+    if path_type in ("direct_property_url", "application_page"):
+        return "online"
+    if path_type == "application_download":
+        return "application"
+    if path_type == "county_instructions":
+        return "instructions"
+    if path_type == "in_person":
+        return "in_person"
+    if path_type == "phone_mail":
+        for c in ("email", "phone", "mail", "in_person"):
+            if c in chans:
+                return c
+        return "phone"
+    # quoted_amount / amount_plus_costs / amount_on_application: the source's
+    # process IS "ask the county for the amount".
+    return "contact"
+
 
 
 @dataclass(frozen=True)
@@ -167,6 +268,14 @@ class EvidenceRow:
     review_state: str = ""
     proves: str = ""
     does_not_prove: str = ""
+    office: str = ""
+    address: str = ""
+    phone: str = ""
+    email: str = ""
+    mailing_address: str = ""
+    steps: tuple = ()
+    application_url: str = ""
+    payment: str = ""
 
     @property
     def applicable(self) -> bool:
@@ -244,6 +353,15 @@ def evidence_problems(row: EvidenceRow) -> list[str]:
             problems.append("an enabled row needs an evidence_type")
         if row.evidence_url and (PP.untrusted_reason(row.evidence_url) or "").startswith("untrusted host"):
             problems.append("evidence_url is a search engine or a blocked vendor - not evidence")
+    if row.application_url:
+        if not row.application_url.startswith("https://"):
+            problems.append("application_url must be https")
+        elif (PP.untrusted_reason(row.application_url) or "").startswith("untrusted host"):
+            problems.append("application_url is a search engine or a blocked vendor - not a county document")
+        elif _GUESSED.search(row.application_url):
+            problems.append("application_url looks like a template, not a published document")
+    if row.email and "@" not in row.email:
+        problems.append("email is not an address")
     return problems
 
 
@@ -254,7 +372,7 @@ def load_evidence(path: Path | str = EVIDENCE_PATH) -> list[EvidenceRow]:
     out: list[EvidenceRow] = []
     with open(p, newline="", encoding="utf-8") as fh:
         reader = csv.DictReader(fh)
-        if reader.fieldnames not in (EVIDENCE_COLUMNS, EVIDENCE_COLUMNS_V1):
+        if reader.fieldnames not in (EVIDENCE_COLUMNS, EVIDENCE_COLUMNS_V2, EVIDENCE_COLUMNS_V1):
             raise ValueError(f"{p.name}: columns must be {EVIDENCE_COLUMNS}, got {reader.fieldnames}")
         g = lambda r, k: (r.get(k) or "").strip()  # noqa: E731
         for i, r in enumerate(reader, 2):
@@ -263,7 +381,11 @@ def load_evidence(path: Path | str = EVIDENCE_PATH) -> list[EvidenceRow]:
                               enabled=g(r, "enabled").lower() in _TRUE, third_party_permitted=g(r, "third_party_permitted").lower() in _TRUE,
                               notes=g(r, "notes"), evidence_url=g(r, "evidence_url"), evidence_type=g(r, "evidence_type"),
                               source_title=g(r, "source_title"), instructions=g(r, "instructions"), review_state=g(r, "review_state"),
-                              proves=g(r, "proves"), does_not_prove=g(r, "does_not_prove"))
+                              proves=g(r, "proves"), does_not_prove=g(r, "does_not_prove"),
+                              office=g(r, "office"), address=g(r, "address"), phone=g(r, "phone"), email=g(r, "email"),
+                              mailing_address=g(r, "mailing_address"),
+                              steps=tuple(x.strip() for x in g(r, "steps").split("|") if x.strip()),
+                              application_url=g(r, "application_url"), payment=g(r, "payment"))
             problems = evidence_problems(row)
             if problems:
                 raise ValueError(f"{p.name} line {i}: " + "; ".join(problems))
@@ -308,7 +430,9 @@ def from_evidence_table(rows: list[EvidenceRow], *, state: str, source_id: str, 
     matching = [e for e in rows if e.applicable and e.state == state and e.source_id == source_id and e.county in ("*", county)]
     matching.sort(key=lambda e: 0 if e.county == county else 1)
     for e in matching:
-        extra = dict(evidence_url=e.evidence_url, evidence_type=e.evidence_type, source_title=e.source_title, instructions=e.instructions)
+        extra = dict(evidence_url=e.evidence_url, evidence_type=e.evidence_type, source_title=e.source_title, instructions=e.instructions,
+                     office=e.office, address=e.address, phone=e.phone, email=e.email, mailing_address=e.mailing_address,
+                     steps=e.steps, application_url=e.application_url, payment=e.payment)
         text = f"{e.evidence} (data/purchase_path_evidence.csv, observed {e.observed_on})"
         if e.path_type in URL_TYPES:
             reason = rejection_reason(e.url, canonical_url=canonical_url, list_url=list_url, document_url=document_url,
@@ -367,15 +491,45 @@ def resolve(row: dict, *, state: str, source_id: str, county: str, registry_row=
     return None, reasons
 
 
+def complete_record(acq: dict, row: dict | None = None) -> bool:
+    """A usable verified acquisition record: steps AND a published channel
+    (phone, e-mail, in-person address, mailing address, application
+    document or an online URL)."""
+    if not isinstance(acq, dict) or not acq.get("steps"):
+        return False
+    return any(acq.get(k) for k in ("phone", "email", "address", "mailing_address", "application_url")) or bool((row or {}).get("purchase_url"))
+
+
 def measure(rows: list[dict]) -> dict:
-    """Coverage counts for the purchase path (the product metric): rows,
-    evaluated (a type stored), by type, by scope, with a URL."""
-    c = {"rows": 0, "evaluated": 0, "not_evaluated": 0, "with_url": 0, "by_type": {}, "by_scope": {}}
+    """Coverage counts for the ACQUISITION workflow (the product metric,
+    Acquisition sprint 2026-09-30). Per row: a verified source listing /
+    document (otc_provenance.list_url / document_url), a property-to-source
+    match (otc_provenance.source_match), a verified acquisition path (a
+    stored path type that is not none_published), the acquisition mode, a
+    direct source document, a source publication date, a last-verified
+    date - and the rows where the process remains unverified. The old
+    purchase-URL counts stay for continuity but are no longer the headline."""
+    c = {"rows": 0, "evaluated": 0, "not_evaluated": 0, "with_url": 0, "by_type": {}, "by_scope": {},
+         "with_source_listing": 0, "with_source_match": 0, "with_acquisition_path": 0, "acquisition_unverified": 0,
+         "by_mode": {}, "with_direct_document": 0, "with_source_date": 0, "with_last_verified": 0,
+         "with_contact": 0, "with_steps": 0, "with_complete_record": 0, "with_in_person": 0, "with_application_document": 0}
     for r in rows:
         c["rows"] += 1
+        prov = r.get("otc_provenance") if isinstance(r.get("otc_provenance"), dict) else {}
+        if prov.get("list_url") or prov.get("document_url") or r.get("list_url") or r.get("document_url"):
+            c["with_source_listing"] += 1
+        if isinstance(prov.get("source_match"), dict) and prov["source_match"].get("value"):
+            c["with_source_match"] += 1
+        if prov.get("document_url") or r.get("document_url"):
+            c["with_direct_document"] += 1
+        if r.get("list_as_of") or r.get("source_published_at"):
+            c["with_source_date"] += 1
+        if r.get("last_seen_at"):
+            c["with_last_verified"] += 1
         t = r.get("purchase_path_type")
         if not t:
             c["not_evaluated"] += 1
+            c["acquisition_unverified"] += 1
             continue
         c["evaluated"] += 1
         c["by_type"][t] = c["by_type"].get(t, 0) + 1
@@ -383,4 +537,27 @@ def measure(rows: list[dict]) -> dict:
         c["by_scope"][s] = c["by_scope"].get(s, 0) + 1
         if r.get("purchase_url"):
             c["with_url"] += 1
+        if t == "none_published":
+            c["acquisition_unverified"] += 1
+            continue
+        c["with_acquisition_path"] += 1
+        acq = prov.get("acquisition") if isinstance(prov.get("acquisition"), dict) else {}
+        mode = acq.get("mode") or acquisition_mode(t, (), ())
+        c["by_mode"][mode] = c["by_mode"].get(mode, 0) + 1
+        if any(acq.get(k) for k in ("phone", "email", "address", "mailing_address", "office")):
+            c["with_contact"] += 1
+        if acq.get("steps"):
+            c["with_steps"] += 1
+        if acq.get("address"):
+            c["with_in_person"] += 1
+        if acq.get("application_url"):
+            c["with_application_document"] += 1
+        # A COMPLETE actionable record (the commercial metric; a typed mode
+        # alone does not count): the acquisition record exists, carries the
+        # published steps, and names at least one way to act on them.
+        if complete_record(acq, r):
+            c["with_complete_record"] += 1
+    c["pct_with_complete_record"] = round(100.0 * c["with_complete_record"] / c["rows"], 1) if c["rows"] else 0.0
+    c["pct_with_acquisition_path"] = round(100.0 * c["with_acquisition_path"] / c["rows"], 1) if c["rows"] else 0.0
+    c["pct_with_source_listing"] = round(100.0 * c["with_source_listing"] / c["rows"], 1) if c["rows"] else 0.0
     return c

@@ -74,7 +74,7 @@ def test_e02_evidence_table_holds_only_verified_captured_rows_and_outcome_rules_
         assert r.evidence_type in PE.EVIDENCE_TYPES and r.path_type in PE.PATH_TYPES, r.county
         assert r.state == "FL" and r.county != "*", (r.state, r.county)          # no wildcard, no unread state
         assert not r.third_party_permitted and r.url == "", r.county            # no invented property URL
-        assert "run 36698285461" in r.notes, r.county                             # traceable to the capture run
+        assert re.search(r"\brun[s]? 3669828546|\bruns 36717720575", r.notes), r.county  # traceable to the capture run(s)
     assert len({(r.state, r.source_id, r.county) for r in rows}) == len(rows)   # one row per source/county
     assert OI.load_rules() == []
     with open(PE.EVIDENCE_PATH, newline="", encoding="utf-8") as fh:
@@ -399,10 +399,12 @@ def test_wf01_job_selector_gates_every_job_and_never_schedules_texas():
     wf = yaml.safe_load((REPO / ".github/workflows/harvest-and-sync.yml").read_text(encoding="utf-8"))
     on = wf.get("on") or wf.get(True)
     job = on["workflow_dispatch"]["inputs"]["job"]
-    assert job["default"] == "all" and job["options"] == ["all", "deeds", "certificates", "laft", "texas", "backup", "evidence"]
+    assert job["default"] == "all" and job["options"] == ["all", "deeds", "certificates", "laft", "texas", "backup", "evidence", "outcomes"]
     # The evidence capture is manual-only and is NOT part of "all" (it is a
     # read of county pages, not a harvest).
     assert wf["jobs"]["evidence"]["if"] == "github.event_name == 'workflow_dispatch' && github.event.inputs.job == 'evidence'"
+    # Auction-outcome evidence: the stand-alone outcome read is manual-only too.
+    assert wf["jobs"]["outcomes"]["if"] == "github.event_name == 'workflow_dispatch' && github.event.inputs.job == 'outcomes'"
     assert on["schedule"] == [{"cron": "0 10 * * *"}, {"cron": "0 22 * * *"}, {"cron": "0 12 * * *"}]
     for name, crons in (("deeds", ("0 10 * * *", "0 22 * * *")), ("certificates", ("0 12 * * *",)), ("laft", ("0 12 * * *",)), ("backup", ("0 12 * * *",))):
         cond = wf["jobs"][name]["if"]
@@ -420,7 +422,8 @@ def test_f01_decision_page_answers_eleven_questions_from_fields_and_never_scores
     block = APP[APP.index("function availableDecisionHtml"):APP.index("function inventoryHistoryHtml")]
     for qid in ("what", "available", "how", "cost", "where", "known", "unknown", "source", "fresh", "history", "related"):
         assert f'q("{qid}",' in block, qid
-    assert "Not yet verified - no purchase path has been established from evidence" in block
+    assert "Not yet verified - no published acquisition process has been established from evidence" in APP[APP.index("function acquisitionHtml"):APP.index("function typedPurchasePath")]
+    assert "acquisitionHtml(p)" in block                                  # the answer is the acquisition record
     assert "Not yet geocoded - no point is shown for this parcel" in block
     assert not re.search(r"score|badge|recommend", block, re.I)
     assert "typedPurchasePath(p)" in block and "dataGaps(p)" in block and "crossLedgerSummary(p)" in block
@@ -450,7 +453,7 @@ def test_f03_filters_read_stored_fields_and_the_admin_panel_is_admin_gated():
     for f in ("public/index.html", "public/tx.html"):
         html = (REPO / f).read_text(encoding="utf-8")
         assert 'id="adminPublication" hidden' in html and 'id="availLandUseFilter"' in html and 'id="availGeocoded"' in html and 'id="availValues"' in html
-    assert (REPO / "public/sw.js").read_text(encoding="utf-8").count('const CACHE = "tdw-shell-v51"') == 1
+    assert (REPO / "public/sw.js").read_text(encoding="utf-8").count('const CACHE = "tdw-shell-v53"') == 1
 
 
 # ==================== 8. regressions ====================

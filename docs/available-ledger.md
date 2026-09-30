@@ -283,9 +283,11 @@ other job. It writes nothing to the database. Schedules are unchanged.
 `capture_realauction` fetches a RealAuction past-sale page
 (`zaction=AUCTION&zmethod=PREVIEW&AuctionDate=`) and records only the
 labels and status vocabulary it finds. Finding: anonymous requests get
-the **login form** ("User Name" / "User Password", zero items) - the
-published results sit behind an account, so no auction outcome is
-ingested from RealAuction (section 10.5).
+the **login form** ("User Name" / "User Password", zero items).
+**Corrected 2026-09-30** (`docs/auction-outcomes.md`): that page is only
+the shell - its header always carries the login form and its items arrive
+by AJAX. The Closed / Canceled items and their status lines are served to
+an anonymous session; verified outcomes are now ingested from them.
 
 ### 10.2 The evidence record (v2)
 
@@ -359,7 +361,8 @@ Every row is `enabled=yes`, `third_party_permitted=no`, `url` empty.
 
 ### 10.5 Gaps that stay explicit
 
-No approved auction source publishes an accessible result: RealAuction
+No approved auction source publishes an accessible result (superseded
+2026-09-30 for RealAuction - see `docs/auction-outcomes.md`): RealAuction
 is a login wall, the FL deed harvester captures no status wording, TX
 rows carry a NULL `tx_sale_status`. `auction_events` holds 914 events
 and zero outcomes; nothing was inferred. Winning bid, bidder count and
@@ -367,3 +370,140 @@ bidder identity stay forbidden. Seventeen active FL rows have no
 coordinates (Citrus 5, Hillsborough 3, Volusia 3, Indian River 2,
 Escambia / Hendry / Miami-Dade / Pasco 1 each) and are shown as "Not yet
 geocoded".
+
+## 11. Acquisition path (2026-09-30)
+
+An AVAILABLE property is commercially useful only when the customer can
+see exactly how to acquire it. The objective is a verified, actionable
+acquisition path backed by the county's own evidence - online, PDF,
+e-mail, phone, mail or in person - not a purchase URL.
+
+### 11.1 The evidence record (v3)
+
+`purchase_path_engine.EVIDENCE_COLUMNS` = v2 + `office, address, phone,
+email, mailing_address, steps, application_url, payment`. Every value is
+quoted from the evidence page; a blank means the source did not publish
+it. `steps` is `" | "`-separated and sequential. An `application_url`
+must be an https county document (search engines, blocked vendors and
+template URLs are refused). `PurchasePath.channels` lists the published
+ways to act; `acquisition_mode()` names what the customer does first:
+online / application / instructions / email / phone / mail / in_person /
+contact (the quoted-amount family: the source's own process is "ask the
+county for the amount") / multi_step (three or more published steps,
+unless the source says in person) / none. `PurchasePath.provenance()`
+now carries `otc_provenance.acquisition` (mode, channels, office,
+address, phone, email, mailing_address, steps, application_url, payment,
+evidence_url, observed_on). No schema change: the 023 columns are
+untouched.
+
+### 11.2 Property-to-source match
+
+`laft_lifecycle.source_match_of()` writes `otc_provenance.source_match`
+on every observed row: the identifier the row was read under (`case_no`,
+else `parcel`; `parcel` and `certificate_no` alongside when published),
+the list / document it was read from, the read time and the basis - the
+harvester's own read, keyed exactly as the sync upserts. Never an owner
+name or address match. A row with neither identifier is not an
+observation (`identity_key`).
+
+### 11.3 The committed rows
+
+The fifteen FL rows (section 10.3) now carry the office, the published
+phone / e-mail / mailing address, the in-person address where published
+(Citrus, Pasco), the sequential steps and the payment method (Brevard,
+Dixie, Pasco). Modes: Brevard and Pasco multi_step; Dixie in_person;
+Citrus and Leon email; Clay and Levy phone; Calhoun, Franklin, Hernando,
+Madison, Orange, Sumter, Taylor, Volusia contact. Protected e-mail
+addresses on the Clay and Levy portal pages stay blank - the steps say
+where the address is shown. No application document is recorded for any
+county (none was captured).
+
+### 11.4 Customer page
+
+The Available decision reads, in order: what property; **why it is in
+Available** (inventory type, basis, the county list page and list
+document with the source date, and "Matched to the list by case no … ·
+read …"); is it verified as available; **how do I acquire it** (the mode,
+the numbered steps, the application / instructions document and the
+county's process page, the source's wording, observed date); **who do I
+contact, and where do I go** (office, in-person address, phone as a
+`tel:` link, e-mail as a `mailto:` link, mailing address, payment); what
+proves it; cost; where; known; unknown (the gap is "Acquisition path not
+yet verified", never a missing hyperlink); source documents (list, list
+document, evidence page, application document); freshness; history;
+other ledgers. "At a glance" carries a "How to acquire" cell, every card
+an "Acquire" fact, the Map preview a "How to acquire" line, the Inventory
+& Purchase card a "How to acquire" row above the legacy "Purchase link"
+row. The Available export adds Acquisition Path, Acquisition Steps,
+County Office / Phone / E-mail / Address / Mailing Address, Payment,
+Application / Instructions Document and Matched To Source By.
+
+### 11.5 Metrics
+
+`purchase_path_engine.measure()` reports, per AVAILABLE row: with a
+source listing / document, property-to-source matched, with a verified
+acquisition path (a stored type other than none_published), by mode,
+with contact, with steps, with a direct document, with a source date,
+with a last-verified date, unverified - and the two percentages the
+product tracks: % with a verified actionable acquisition path and % with
+a verified source listing. The laft job's publication-gate step prints
+them. `publication.measure()` counts an offline process as a purchase
+path.
+
+## 12. Acquisition coverage and failure-safe evidence (2026-09-30)
+
+### 12.1 Following the source to the process
+
+`capture_purchase_evidence.py --follow` (the manual evidence job passes
+it) fetches up to six links per county that are PRESENT on an approved
+source page, carry tax-deed context in their text or URL, and are not a
+search engine, social site or blocked vendor; documents first. Followed
+process pages keep their table text; the inventory list itself never
+does. Links carrying a 7+ digit run (per-parcel links) are never
+captured. Two runs (36717720575, 36718027256) covered the counties with
+active unverified inventory:
+
+| County | Result |
+|---|---|
+| Marion | Process found on the Clerk's "Tax Deeds & Lands Available for Taxes" page (linked from the source page): recorded as `amount_plus_costs`, four steps, payment method. No phone recorded - the page shows two numbers and the capture does not establish which one handles this process. |
+| Indian River | FAQ page linked; it covers the auction sale only, not Lands Available purchases. Not evidence. |
+| Bay, Duval, Palm Beach | Pioneer portal text names only the Official Records office for certified copies. Not a purchase process. |
+| Alachua, Highlands, Lee, Polk, Sarasota, Miami-Dade | realTDM pages publish only the category labels "List of Lands - BOCC / Public Purchase". No process, no link. |
+| Hillsborough, Osceola, Putnam, Gadsden | No process wording and no process link on the source page. |
+| Escambia, St. Lucie | HTTP 403 from the runner. |
+| Hendry | List document 404. |
+
+No application or instructions document is linked from any of these
+source pages, so no `application_url` is recorded.
+
+### 12.2 A failed read never erases evidence
+
+`laft_lifecycle.carry_plan()` runs on every lifecycle pass for active
+rows the run did NOT read (county INCOMPLETE, SOURCE_UNAVAILABLE, FAILED,
+STALE or not run). It only adds: the deterministic match from the
+identity the sync upserted the row under (`case_no`, else parcel) and
+the list / document it was last read from, dated by `last_seen_at`
+(the basis says it was carried); and the acquisition record the verified
+evidence table establishes for the row's source + county. It never
+removes a key, never touches `last_seen_at`, never matches by name,
+address or proximity, and skips rows never stamped by a read. An
+explicit change (an evidence row removed or rewritten) takes effect on
+the next read of the county.
+
+### 12.3 Metrics
+
+`measure()` also reports `with_complete_record` (steps AND a published
+channel: phone, e-mail, in-person address, mailing address, application
+document or an online URL), `with_in_person` and
+`with_application_document`. A typed mode without a complete record
+counts as a path, never as a complete record.
+
+### 12.4 Customer page
+
+"How do I acquire it?" adds the first step, the scope ("County process:
+... not an approval for this parcel, and being listed does not prove the
+county will still sell it today" / "Property-specific: ...") and
+"Acquisition process last verified <date>", with a retry note when the
+county's source was not fully read at the last attempt - the verified
+process stays. "Why is it in Available?" says whether the parcel was
+matched on the official list.

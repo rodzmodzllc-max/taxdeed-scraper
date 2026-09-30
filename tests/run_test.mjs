@@ -375,7 +375,8 @@ await page.locator('#exploreStrip .strip-card').first().click();
 await page.waitForTimeout(250);
 results.bayPreviewText = ((await page.locator('#explorePreview').textContent()) || '').replace(/\s+/g, ' ');
 results.bayPreviewHasAvailability = results.bayPreviewText.includes('Availability') && results.bayPreviewText.includes('Available over the counter');
-results.bayPreviewHasPurchasePath = results.bayPreviewText.includes('Purchase path') && results.bayPreviewText.includes('No online purchase link on file');
+// Acquisition sprint: the preview names the acquisition path, and an unverified one says so - never "no link".
+results.bayPreviewHasPurchasePath = results.bayPreviewText.includes('How to acquire') && results.bayPreviewText.includes('Not yet verified') && !results.bayPreviewText.includes('No online purchase link');
 results.bayPreviewHasAmountKind = results.bayPreviewText.includes('Amount kind') && results.bayPreviewText.includes('Opening bid');
 delete results.bayPreviewText;
 await page.locator('#exploreStrip .strip-card').first().click();
@@ -1976,8 +1977,10 @@ results.eventLifecycleP13First = ((await evPage2.locator('#detailModalInner .eve
 // The event entries themselves (not the explanatory note, which names the
 // words it forbids) must never contain an outcome claim.
 const evItemsText = (await evPage2.locator('#detailModalInner [data-section="events"] .event-item').allTextContents()).join(' ').toLowerCase();
-results.eventSectionNeverClaimsOutcome = !/\bsold\b|redeemed|winning bid|purchaser|struck off/.test(evItemsText);
-results.eventSectionSaysNotPublished = (evItemsText.match(/outcome: not published by the source/g) || []).length;
+// ("Purchaser identity and bidder count are not recorded" is the
+// disclaimer every provenance line carries - it states the opposite.)
+results.eventSectionNeverClaimsOutcome = !/\bsold\b|redeemed|winning bid|purchaser|struck off/.test(evItemsText.replace(/purchaser identity and bidder count are not recorded/g, ''));
+results.eventSectionSaysNotPublished = (evItemsText.match(/outcome not published|outcome not yet verified/g) || []).length;
 await evPage2.close();
 // --- Production-readiness: an event whose result the SOURCE published
 // (ev4 on p10: outcome struck_off with the vendor's own wording) is shown
@@ -2285,11 +2288,14 @@ results.txInventoryStatus = await invVal(txClPage, 'Status');
 results.txProvenanceHasNoTable = await txClPage.locator('#detailModalInner .provenance-card .prov-table').count();
 results.txInventoryAmount = await invVal(txClPage, 'Amount');
 results.txInventorySourceList = await invVal(txClPage, 'Source list');
-results.txInventoryPurchase = await invVal(txClPage, 'Purchase');
+results.txInventoryPurchase = await invVal(txClPage, 'Purchase link');
+results.txInventoryAcquire = await invVal(txClPage, 'How to acquire');
 results.txInventoryOwner = await invVal(txClPage, 'Owner of record');
 results.txInventoryParcel = await invVal(txClPage, 'Parcel #');
 results.txInventoryAnchors = await txClPage.locator('#detailModalInner .inventory-card a').count();
-results.txInventoryGapNamesPurchaseLink = ((await txClPage.locator('#detailModalInner .opp-gaps').textContent()) || '').includes('Purchase link not on file');
+// Acquisition sprint: the gap is the UNVERIFIED process, never a missing hyperlink.
+results.txInventoryGapNamesAcquisition = ((await txClPage.locator('#detailModalInner .opp-gaps').textContent()) || '').includes('Acquisition path not yet verified');
+results.txInventoryGapNeverNamesLink = !((await txClPage.locator('#detailModalInner .opp-gaps').textContent()) || '').includes('Purchase link not on file');
 await txClPage.close();
 // --- Enrichment phase: the same card on a Florida Lands Available row
 // (p3: every 017/019 column the lifecycle + laft_source_fields write, no
@@ -2322,7 +2328,7 @@ results.flInventoryAvailable = await invVal(flInvPage, 'Available for purchase')
 results.flInventoryEscheat = await invVal(flInvPage, 'Escheats to county');
 results.flInventorySourceListHref = await invHref(flInvPage, 'Source list');
 results.flInventoryDocumentHref = await invHref(flInvPage, 'Source document');
-results.flInventoryPurchase = await invVal(flInvPage, 'Purchase');
+results.flInventoryPurchase = await invVal(flInvPage, 'Purchase link');
 results.flInventoryPublishedBy = await invVal(flInvPage, 'Published by');
 results.flInventoryLastRead = await invVal(flInvPage, 'Last read from source');
 results.flInventoryListAsOf = await invVal(flInvPage, 'List as of');
@@ -2356,7 +2362,8 @@ const purchaseUi = await flInvPage.evaluate(() => {
     return {
       action: buy.querySelectorAll('a.purchase-action').length,
       anchors: [...buy.querySelectorAll('a')].map(a => [a.textContent.trim(), a.getAttribute('href')]),
-      text: buy.querySelector('.kv-val').textContent.replace(/\s+/g, ' ').trim(),
+      text: [...buy.querySelectorAll('.kv-row')].find(r => r.querySelector('.kv-label').textContent === 'Purchase link').querySelector('.kv-val').textContent.replace(/\s+/g, ' ').trim(),
+      acquire: [...buy.querySelectorAll('.kv-row')].find(r => r.querySelector('.kv-label').textContent === 'How to acquire').querySelector('.kv-val').textContent.replace(/\s+/g, ' ').trim(),
       groups: [...d.querySelectorAll('.kv-group-head')].map(e => e.textContent),
       allAnchors: d.querySelectorAll('a').length
     };
@@ -2381,6 +2388,7 @@ results.purchasePathNoneText = purchaseUi.none.text;
 results.purchasePathNoneHasNoAnchorInPurchaseGroup = purchaseUi.none.anchors.length === 0;
 results.purchasePathListPageIsOnlySourceListLink = purchaseUi.none.allAnchors === 1;
 results.inventoryCardGroups = purchaseUi.none.groups;
+results.purchasePathNoneAcquire = purchaseUi.none.acquire;
 results.flInventoryNavHasInventory = (await flInvPage.locator('#detailModalInner .detail-nav button').allTextContents()).includes('Inventory');
 results.flInventoryNoAiBadge = !/score|confidence|AI /i.test((await flInvPage.locator('#detailModalInner .inventory-card').textContent()) || '');
 await flInvPage.close();
@@ -2420,6 +2428,10 @@ results.decP3Where = await decA(decPage, 'where');
 results.decP3Fresh = await decA(decPage, 'fresh');
 results.decP3History = await decA(decPage, 'history');
 results.decP3Related = await decA(decPage, 'related');
+results.decP3Contact = await decA(decPage, 'contact');
+results.decP3Why = await decA(decPage, 'why');
+results.decP3Glance = ((await decPage.locator('#detailModalInner .opp-summary .opp-cell').filter({ hasText: 'How to acquire' }).locator('.opp-val').innerText()) || '').replace(/\s+/g, ' ').trim();
+results.decP3GapNamesAcquisition = (await decPage.locator('#detailModalInner .opp-gaps').innerText()).includes('Acquisition path not yet verified');
 results.decP3PathEvidenceLine = await decPage.locator('#detailModalInner .prov-available .prov-line').filter({ hasText: 'Path evidence' }).locator('.prov-v').innerText();
 // No score / badge / recommendation vocabulary anywhere on the block.
 results.decNoScoreWords = !/\b(score|badge|recommend|opportunity rating|confidence|AI)\b/i.test(await decPage.locator('#detailModalInner .decision-card').innerText());
@@ -2430,7 +2442,40 @@ await dec2.waitForTimeout(700);
 results.decP15What = await decA(dec2, 'what');
 results.decP15Available = await decA(dec2, 'available');
 results.decP15How = await decA(dec2, 'how');
-results.decP15HowHref = await dec2.locator('#detailModalInner .decision-card .dec-row[data-q="how"] a').getAttribute('href');
+// Acquisition sprint: the "how" row is the acquisition record - mode, the
+// published steps in order, the documents; "contact" is the published office /
+// address / phone / e-mail; "why" names the listing, its date and the
+// deterministic identifier that ties the row to it.
+results.decP15HowHrefs = await dec2.locator('#detailModalInner .decision-card .dec-row[data-q="how"] a').evaluateAll(els => els.map(e => e.getAttribute('href')));
+results.decP15HowMode = ((await dec2.locator('#detailModalInner .decision-card .dec-row[data-q="how"] .acq-mode').textContent()) || '').trim();
+results.decP15HowSteps = await dec2.locator('#detailModalInner .decision-card .dec-row[data-q="how"] .acq-steps li').allTextContents();
+results.decP15Contact = await decA(dec2, 'contact');
+results.decP15ContactLinks = await dec2.locator('#detailModalInner .decision-card .dec-row[data-q="contact"] a').evaluateAll(els => els.map(e => e.getAttribute('href')));
+results.decP15Why = await decA(dec2, 'why');
+results.decP15SourceDocHrefs = await dec2.locator('#detailModalInner .decision-card .dec-row[data-q="source"] a').evaluateAll(els => els.map(e => e.getAttribute('href')));
+results.decP15Glance = ((await dec2.locator('#detailModalInner .opp-summary .opp-cell').filter({ hasText: 'How to acquire' }).locator('.opp-val').innerText()) || '').replace(/\s+/g, ' ').trim();
+results.decP15InvAcquire = await invVal(dec2, 'How to acquire');
+// Acquisition sprint 2: scope labels, the first step, and the last-verified
+// line - including a verified county process whose county source could not
+// be read at the last attempt (Bay's fixture unit is SOURCE_UNAVAILABLE):
+// the process stays, dated, with a retry note; it is never withdrawn.
+results.decP15Scope = await dec2.locator('#detailModalInner .decision-card .dec-row[data-q="how"] .acq-scope').getAttribute('data-scope');
+results.decP15First = ((await dec2.locator('#detailModalInner .decision-card .dec-row[data-q="how"] .acq-first').textContent()) || '').trim();
+results.decP15Verified = ((await dec2.locator('#detailModalInner .decision-card .dec-row[data-q="how"] .acq-verified').textContent()) || '').trim();
+results.acqUnavailableKeepsPath = await dec2.evaluate(() => {
+  const d = document.createElement('div');
+  d.innerHTML = window.__tdwAcquisitionHtml({ source: 'laft', state: 'FL', county: 'Bay', source_id: 'fl_laft_pioneer', case_no: 'X-1',
+    purchase_path_type: 'phone_mail', purchase_path_scope: 'source', purchase_path_evidence: 'e', purchase_path_observed_on: '2026-09-30',
+    otc_provenance: { acquisition: { mode: 'phone', channels: ['phone'], phone: '(000) 000-0001', steps: ['Call the Tax Deed Division'] } } });
+  return { mode: d.querySelector('.acq-mode').textContent, verified: d.querySelector('.acq-verified').textContent.replace(/\s+/g, ' ').trim(),
+           notVerified: /Not yet verified/.test(d.textContent) };
+});
+results.acqPropertyScopeLabel = await dec2.evaluate(() => {
+  const d = document.createElement('div');
+  d.innerHTML = window.__tdwAcquisitionHtml({ source: 'laft', state: 'FL', county: 'Citrus', case_no: 'X-2', purchase_path_type: 'direct_property_url',
+    purchase_path_scope: 'property', purchase_path_evidence: 'e', purchase_path_observed_on: '2026-09-30', purchase_url: 'https://clerk.example.gov/buy/X-2' });
+  return d.querySelector('.acq-scope').textContent;
+});
 results.decP15Cost = await decA(dec2, 'cost');
 results.decP15Where = await decA(dec2, 'where');
 results.decP15Known = await decA(dec2, 'known');
@@ -2442,7 +2487,7 @@ results.decP15Fresh = await decA(dec2, 'fresh');
 results.decP15History = await dec2.locator('#detailModalInner .decision-card .dec-history li').evaluateAll(els => els.map(e => e.dataset.kind + '|' + e.querySelector('.dec-when').textContent.trim() + '|' + e.querySelector('.dec-what').firstChild.textContent.trim()));
 results.decP15HistoryNote = ((await dec2.locator('#detailModalInner .decision-card .dec-row[data-q="history"] .dec-history-note').innerText()) || '').trim();
 results.decP15PathEvidenceLine = await dec2.locator('#detailModalInner .prov-available .prov-line').filter({ hasText: 'Path evidence' }).locator('.prov-v').innerText();
-results.decP15GapsNamePathKind = (await dec2.locator('#detailModalInner .opp-gaps').innerText()).includes('Purchase link not on file') === false;
+results.decP15GapsNamePathKind = !/Purchase link not on file|Acquisition path not yet verified/.test(await dec2.locator('#detailModalInner .opp-gaps').innerText());
 await dec2.close();
 // The history table missing (migration 021 not applied on a deployment).
 const dec3 = await newPage({ viewport: { width: 1200, height: 900 } });
@@ -2501,6 +2546,67 @@ const certCsv = await certDl;
 }
 await certExp.close();
 
+// --- Auction-outcome evidence sprint: every outcome state from the same
+// rules the page uses (window.__tdwOutcome), on synthetic events; p13's
+// real decision row ("Outcome not published", from its closed-feed
+// observation); the auction export's outcome columns; the auction ->
+// Available relationship only with BOTH facts verified. ---
+const outPage = await newPage({ viewport: { width: 1200, height: 900 } });
+await outPage.goto(BASE_URL + '#/auctions/p13', { waitUntil: 'networkidle' });
+await outPage.waitForTimeout(600);
+results.outcomeP13Result = await decA(outPage, 'result');
+results.outcomeP13Kicker = await outPage.evaluate(() => window.__tdwAuctionOutcomeState({ id: 'p13', source: 'auction', sale_date: '2020-01-01' }).label);
+results.outcomeStates = await outPage.evaluate(() => {
+  const O = window.__tdwOutcome;
+  const url = 'https://jackson.realtaxdeed.com/index.cfm?zaction=AUCTION&zmethod=PREVIEW&AuctionDate=09/29/2026';
+  const closed = (raw, outcome, lifecycle) => ({ feed: 'closed', raw_status: raw, outcome, lifecycle, observed_at: '2026-09-30T15:00:00Z', evidence_url: url });
+  const ev = (o) => Object.assign({ id: 'x', case_no: '2024 TD 0001', scheduled_sale_date: '2026-09-29', lifecycle: 'completed', outcome: 'unknown', outcome_raw: null, outcome_observed_at: null, winning_bid: null, event_url: url }, o);
+  const st = (e, c) => O.eventOutcomeState(e, c, null);
+  const sold = st(ev({ outcome: 'sold', outcome_raw: 'Auction Sold', outcome_observed_at: '2026-09-30T15:00:00Z', winning_bid: 12300 }), closed('Auction Sold', 'sold', 'completed'));
+  const soldNoAmount = st(ev({ outcome: 'sold', outcome_raw: 'Auction Sold', outcome_observed_at: '2026-09-30T15:00:00Z' }), closed('Auction Sold', 'sold', 'completed'));
+  return {
+    sold: sold.label, soldProv: O.outcomeProvenanceText(sold, null).replace(/<[^>]+>/g, ''),
+    soldNoAmount: O.outcomeProvenanceText(soldNoAmount, null).replace(/<[^>]+>/g, '').includes('Sale amount: not published'),
+    struck: st(ev({ outcome: 'struck_off', outcome_raw: 'Struck Off' }), null).label,
+    withdrawn: st(ev({ lifecycle: 'withdrawn', outcome_raw: 'Withdrawn' }), null).label,
+    cancelled: st(ev({ lifecycle: 'cancelled', outcome_raw: 'Canceled per County' }), null).label,
+    redeemed: st(ev({ outcome: 'redeemed', lifecycle: 'cancelled', outcome_raw: 'Redeemed' }), null).label,
+    // a cancelled lifecycle WITHOUT the source's wording is not verified
+    cancelledNoWording: st(ev({ lifecycle: 'cancelled' }), null).label,
+    notPublished: st(ev({}), closed(null, 'unknown', 'completed')).label,
+    notVerified: st(ev({}), null).label,
+    unreviewedWording: st(ev({}), closed('Canceled per Bankruptcy', 'unknown', 'completed')),
+    passedDateOnly: st(ev({ lifecycle: 'completed' }), null).verified,
+    scheduled: st(ev({ scheduled_sale_date: '2999-01-01', lifecycle: 'scheduled' }), null).label
+  };
+});
+results.outcomeRelation = await outPage.evaluate(() => {
+  const O = window.__tdwOutcome;
+  const auc = { id: 'a1', source: 'auction', state: 'FL', county: 'Jackson', parcel: '21-4N', case_no: '2024 TD 0001', sale_date: '2026-09-29' };
+  const laft = { id: 'l1', source: 'laft', state: 'FL', county: 'Jackson', parcel: '21-4N', case_no: 'L-9', status: 'available' };
+  const unsold = () => ({ key: 'struck_off', verified: true, raw: 'Struck Off' });
+  const unknown = () => ({ key: 'outcome_not_verified', verified: false });
+  return {
+    both: O.relation(auc, [laft], unsold),
+    auctionOnly: O.relation(auc, [], unsold),
+    availableOnly: O.relation(auc, [laft], unknown),
+    fromAvailable: O.relation(laft, [auc], p => p.source === 'auction' ? unsold() : null),
+    availableNoAuctionResult: O.relation(laft, [auc], () => unknown())
+  };
+});
+const aucOutDl = outPage.waitForEvent('download');
+await outPage.goto(BASE_URL + '#/auctions', { waitUntil: 'networkidle' });
+await outPage.waitForTimeout(400);
+await outPage.click('#exportCsvBtn');
+{
+  const text = fs.readFileSync(await (await aucOutDl).path(), 'utf8');
+  const header = text.split(/\r?\n/)[0].split(',');
+  results.aucExportOutcomeCols = ['Auction Outcome', 'Outcome Source Wording', 'Outcome Observed', 'Outcome Evidence URL', 'Published Sale Amount'].every(c => header.includes(c));
+  results.aucExportNoGovernance = !header.some(h => /publication|provenance|harvester|governance|bidder|purchaser|winning_bidder/i.test(h));
+  results.aucExportNeverSoldWithoutEvidence = !/Sold - verified/.test(text);
+}
+await outPage.close();
+
 // The three new Available filters (land use, coordinates on file, county
 // value on file) - each on a stored field; reset clears them.
 const filtPage = await newPage({ viewport: { width: 1200, height: 900 } });
@@ -2532,12 +2638,13 @@ results.availCsvFilename = availCsv.suggestedFilename();
   const text = fs.readFileSync(await availCsv.path(), 'utf8');
   const lines = text.split(/\r?\n/).filter(Boolean);
   const header = lines[0].split(',');
-  results.availCsvHeaderHas = ['Purchase Path', 'Purchase Path Scope', 'Purchase Link', 'Availability Status', 'Latitude', 'Last Read From Source'].every(h => header.includes(h));
+  results.availCsvHeaderHas = ['Purchase Path', 'Purchase Path Scope', 'Purchase Link', 'Availability Status', 'Latitude', 'Last Read From Source', 'Acquisition Path', 'Acquisition Steps (published by the source)', 'County Office', 'County Phone', 'County E-mail', 'County Address (in person)', 'County Mailing Address', 'Application / Instructions Document', 'Matched To Source By'].every(h => header.includes(h));
   results.availCsvHeaderLacks = ['publication_status', 'Publication Status', 'Provenance', 'Basis', 'harvester_source', 'Data Source'].every(h => !header.some(c => c.toLowerCase().includes(h.toLowerCase())));
   results.availCsvRowCount = lines.length - 1;
   results.availCsvNoWithheld = !text.includes('Restricted Rd');
   const p15Line = lines.find(l => l.includes('15 Manatee Ln')) || '';
   results.availCsvP15Path = p15Line.includes('County purchase-instructions page (published by the source)') && p15Line.includes('https://www.citrusclerk.example.gov/lands-available/how-to-purchase');
+  results.availCsvP15Acquisition = p15Line.includes('Multi-step county process') && p15Line.includes('taxdeeds@example.gov') && p15Line.includes('case_no CI-7') && p15Line.includes('application.pdf');
 }
 await filtPage.close();
 
@@ -3351,14 +3458,14 @@ const EXPECTED = {
   eventSectionPresent: 1,
   eventItemsP1: 1,
   eventLifecycleP1: 'Scheduled (as of the last observation)',
-  eventOutcomeP1: 'Outcome: Not published by the source',
+  eventOutcomeP1: "Outcome: Scheduled - the sale has not taken place",
   eventBidChangeP1: 'Opening bid observed: $4,500.00 → $5,000.00 (changed 1 time)',
   eventNavPill: 1,
   eventItemsP13: ['completed', 'superseded'],
   eventLifecycleP13First: 'Sale date passed - outcome not tracked',
   eventSectionNeverClaimsOutcome: true,
   eventSectionSaysNotPublished: 2,
-  eventOutcomeSourcePublished: 'Outcome: Struck off to the taxing unit (per the source) - source status "Struck off to Jurisdiction", observed Sep 20, 2026',
+  eventOutcomeSourcePublished: "Outcome: Unsold / struck off - verified Source: The auction source · Evidence: the source's own status for this sale (property-specific) · Source wording “Struck off to Jurisdiction” · Observed Sep 20, 2026 · Purchaser identity and bidder count are not recorded",
   eventNoteSaysSourceOnly: true,
   dashHealthRows: ['fl_deeds:HEALTHY', 'fl_certificates:INCOMPLETE', 'fl_laft:FAILED', 'db_backup:STALE', 'tx_sales:INCOMPLETE'],
   dashHealthBadgeTexas: true,
@@ -3433,7 +3540,7 @@ const EXPECTED = {
   bidLegacyPositiveStillPublished: true,
   bidTxVendorRowWithoutKindUsesLegacyRule: true,
   // Enrichment phase: Inventory & Purchase card.
-  txInventoryLabels: ['Status', 'Inventory', 'Amount', 'Source list', 'Published by', 'Last read from source', 'Parcel #', 'Legal description', 'Owner of record', 'Assessed value', 'Taxable value', 'Acreage', 'Land use', 'Purchase'],
+  txInventoryLabels: ['Status', 'Inventory', 'Amount', 'Source list', 'Published by', 'Last read from source', 'Parcel #', 'Legal description', 'Owner of record', 'Assessed value', 'Taxable value', 'Acreage', 'Land use', 'How to acquire', 'Purchase link'],
   txInventoryStatus: 'Struck off to the taxing unit (per the source) Source status "Struck off to Jurisdiction" · observed Sep 23, 2026',
   txProvenanceHasNoTable: 0,
   txInventoryGroups: ['Inventory', 'Property', 'Purchase path'],
@@ -3444,8 +3551,10 @@ const EXPECTED = {
   txInventoryOwner: 'Not on file',
   txInventoryParcel: '23-TX-0644',
   txInventoryAnchors: 0,
-  txInventoryGapNamesPurchaseLink: true,
-  flInventoryLabels: ['Status', 'Inventory', 'Price', 'Certificate #', 'Available for purchase', 'Escheats to county', 'Source list', 'Source document', 'List as of', 'Source document dated', 'Published by', 'Last read from source', 'Parcel #', 'Legal description', 'Name in which assessed', 'Assessed value', 'Taxable value', 'Acreage', 'Land use', 'Homestead', 'Purchase'],
+  txInventoryGapNamesAcquisition: true,
+  txInventoryGapNeverNamesLink: true,
+  txInventoryAcquire: 'Not yet verified - no published acquisition process established from evidence',
+  flInventoryLabels: ['Status', 'Inventory', 'Price', 'Certificate #', 'Available for purchase', 'Escheats to county', 'Source list', 'Source document', 'List as of', 'Source document dated', 'Published by', 'Last read from source', 'Parcel #', 'Legal description', 'Name in which assessed', 'Assessed value', 'Taxable value', 'Acreage', 'Land use', 'Homestead', 'How to acquire', 'Purchase link'],
   flInventoryGroups: ['Inventory', 'Property', 'Purchase path'],
   flInventoryStatus: 'Available over the counter Basis: list presence · observed Aug 11, 2026',
   flProvenanceRows: [
@@ -3491,9 +3600,14 @@ const EXPECTED = {
   flInventoryNavHasInventory: true,
   flInventoryNoAiBadge: true,
   // ---- Available commercial release (2026-09-30, migration 023) ----
-  decQuestions: ['What property is this?', 'Why is it in Available?', 'Is it currently verified as available?', 'How do I purchase or apply?', 'What source proves that, and when was it observed?', 'What does it cost?', 'Where is it?', 'What is known about it?', 'What is not known?', 'Where did the data come from?', 'How fresh is it?', 'What happened before?', 'Has this parcel appeared in another ledger?'],
+  decQuestions: ['What property is this?', 'Why is it in Available?', 'Is it currently verified as available?', 'How do I acquire it?', 'Who do I contact, and where do I go?', 'What source proves that, and when was it observed?', 'What does it cost?', 'Where is it?', 'What is known about it?', 'What is not known?', 'Where did the data come from?', 'How fresh is it?', 'What happened before?', 'Has this parcel appeared in another ledger?'],
   decNavHasDecision: 1,
-  decP3How: "Not yet verified - no purchase path has been established from evidence. The county list page is not a purchase mechanism; nothing is invented. A path appears here once a rule, the registry or the source's own wording establishes one.",
+  decP3How: "Not yet verified - no published acquisition process has been established from evidence The county list has been read, but no county page or document establishing how to acquire from it has been verified yet. Nothing is invented; a path appears once the county's own page or document is read and reviewed.",
+  decP3Contact: 'Not yet verified - no county contact has been established from evidence',
+  decP3Why: "Lands Available - fixed price, over the counter (F.S. 197.502(7)) This parcel was on the official county list when it was last read. Basis: harvester constant (F.S. 197.502(7) Lands Available list) County list page → · List document (PDF / file) → · list dated Aug 10, 2026 Listed under case C-1 (parcel 333)",
+  decP3Glance: 'Not yet verified',
+  decP3GapNamesAcquisition: true,
+  purchasePathNoneAcquire: 'Not yet verified - no published acquisition process established from evidence',
   decP3HowLinkCount: 0,   // nothing verified = no link, ever
   decP3Available: 'Available over the counter basis: list presence · observed Aug 11, 2026 last verified: read from the source Aug 11, 2026 · county source unavailable at the last attempt - inventory kept, nothing closed',
   decP3Where: '3 Oak Ave Bay County, FL Not yet geocoded - no point is shown for this parcel',
@@ -3504,13 +3618,27 @@ const EXPECTED = {
   decNoScoreWords: true,
   decP15What: '15 Manatee Ln Citrus County, FL · Parcel 1515 · Case CI-7 · Vacant Lot',
   decP15Available: 'Available over the counter basis: list presence · observed Sep 20, 2026 last verified: read from the source Sep 20, 2026',
-  decP15How: "County purchase-instructions page (published by the source) → The source's process for every parcel it lists · evidence: Clerk's 'How to purchase Lands Available' page names the application and payment steps (data/purchase_path_evidence.csv, observed 2026-09-18) · observed Sep 18, 2026",
-  decP15HowHref: 'https://www.citrusclerk.example.gov/lands-available/how-to-purchase',
+  decP15How: "Multi-step county process First step: Download and complete the application (fixture) Download and complete the application (fixture) E-mail taxdeeds@example.gov with the case number (fixture) Pay in certified funds at 1 Example Ave (fixture) Application / instructions document → · County purchase-instructions page (published by the source) → County process: the county publishes this acquisition process for the properties on its list. It is not an approval for this parcel, and being listed does not prove the county will still sell it today. Acquisition process last verified Sep 18, 2026",
+  decP15HowHrefs: ['https://www.citrusclerk.example.gov/lands-available/application.pdf', 'https://www.citrusclerk.example.gov/lands-available/how-to-purchase'],
+  decP15HowMode: 'Multi-step county process',
+  decP15HowSteps: ['Download and complete the application (fixture)', 'E-mail taxdeeds@example.gov with the case number (fixture)', 'Pay in certified funds at 1 Example Ave (fixture)'],
+  decP15Contact: 'Office Fixture County Clerk - Tax Deed Division (fixture) Address (in person) 1 Example Ave, Inverness, FL 00000 (fixture) Phone (000) 000-0000 E-mail taxdeeds@example.gov Payment Certified funds (fixture) Instructions published by the source: Complete the application and pay at the Tax Deed office (fixture wording).',
+  decP15ContactLinks: ['tel:0000000000', 'mailto:taxdeeds@example.gov'],
+  decP15Why: "Lands Available - fixed price, over the counter (F.S. 197.502(7)) Property-specific: this parcel appears on the official county list. Basis: harvester constant (F.S. 197.502(7) Lands Available list) County list page → · list dated Sep 19, 2026 Matched to the list by case no CI-7 (parcel 1515) · read Sep 20, 2026",
+  decP15SourceDocHrefs: ['https://x/citrus-list', 'https://www.citrusclerk.example.gov/lands-available/how-to-purchase', 'https://www.citrusclerk.example.gov/lands-available/application.pdf'],
+  decP15Glance: 'Multi-step county process Fixture County Clerk - Tax Deed Division (fixture)',
+  decP15InvAcquire: 'Multi-step county process Fixture County Clerk - Tax Deed Division (fixture) - full process in "How do I acquire it?" above',
+  availCsvP15Acquisition: true,
+  decP15Scope: 'source',
+  decP15First: 'First step: Download and complete the application (fixture)',
+  decP15Verified: 'Acquisition process last verified Sep 18, 2026',
+  acqUnavailableKeepsPath: { mode: 'Phone the county', verified: 'Acquisition process last verified Sep 30, 2026 · County source not fully read at the last attempt; retry pending - this is the last verified process.', notVerified: false },
+  acqPropertyScopeLabel: 'Property-specific: the source published this instruction for this parcel.',
   decP15Cost: 'Not published by the source',
   decP15Where: '15 Manatee Ln Citrus County, FL 28.88860, -82.45200 · authoritative coordinates on file',
   decP15Known: '2025 County Just Value $26,000 · County Assessed Value $25,000 · 0.30 ac · Land use Vacant residential · Type Vacant Lot · Assessed to Lee Park',
   decP15Unknown: ['Purchase price not published', 'Image not checked yet', 'Flood zone not checked'],
-  decP15Source: 'fl_laft_html · Source list → Field-by-field origin is in the Data Quality & Provenance card below.',
+  decP15Source: 'fl_laft_html · Source list → How to purchase Lands Available (fixture) (acquisition evidence) → · Application / instructions document → Field-by-field origin is in the Data Quality & Provenance card below.',
   decP15Fresh: 'Source date: list dated Sep 19, 2026 · Observation date: Sep 20, 2026 · Last verified: read from the source Sep 20, 2026 County source: current - last complete read 3h ago · 6 rows at the last complete read',
   decP15History: ['newly_observed|Jul 1, 2026|First observed on the list', 'removed|Aug 15, 2026|Removed from the list (closed - not a sale result)', 'reactivated|Sep 1, 2026|Back on the list (reactivated)', 'continued|Sep 20, 2026|Last read from the source (continued on the list)'],
   decP15HistoryNote: 'Append-only record. Absence from a list is recorded as a removal, never as a sale; a result appears only when the source published one.',
@@ -3547,12 +3675,19 @@ const EXPECTED = {
   aucDecP1When: /^[A-Z][a-z]{2} \d{1,2}, \d{4} · in 3d$/,
   aucDecP1Bid: '$5,000.00 Value ÷ bid 18.0× - a screening ratio, not a return',
   aucDecP1Related: 'Currently in Liens & Certificates (certificate #CERT-42). Same state, county and parcel number; why a record moved between ledgers is not recorded.',
-  aucDecP1Result: 'No result yet - the sale has not taken place',
+  aucDecP1Result: "Scheduled - the sale has not taken place",
   aucDecP1Source: /^Fl Realauction Alachua · View sale listing for [A-Z][a-z]{2} \d{1,2}, \d{4} → /,
   aucRelatedWhen: ['certificate:now:Currently listed'],
   aucDecNoScoreWords: true,
-  aucDecP13Result: 'Not published by the source. The sale date has passed and the feed still lists the property with no result. Whether it sold, was redeemed, cancelled or postponed is not recorded; winning bids and bidder counts are never inferred.',
+  aucDecP13Result: "Outcome not published Source: RealAuction county sale site (alachua.realtaxdeed.com) · sale-day page → · Evidence: the sale day's “Auctions Closed or Canceled” listing and its status line - one item per property (property-specific) · Matched by exact case number L-1 · Checked Sep 25, 2026 · The listing printed no result for this property · Purchaser identity and bidder count are not recorded",
   aucDecP13ResultNeverSold: true,
+  outcomeP13Result: "Outcome not published Source: RealAuction county sale site (alachua.realtaxdeed.com) · sale-day page → · Evidence: the sale day's “Auctions Closed or Canceled” listing and its status line - one item per property (property-specific) · Matched by exact case number L-1 · Checked Sep 25, 2026 · The listing printed no result for this property · Purchaser identity and bidder count are not recorded",
+  outcomeP13Kicker: "Outcome not published",
+  outcomeStates: {"sold": "Sold - verified", "soldProv": "Source: RealAuction county sale site (jackson.realtaxdeed.com) · sale-day page → · Evidence: the sale day's “Auctions Closed or Canceled” listing and its status line - one item per property (property-specific) · Matched by exact case number 2024 TD 0001 · Source wording “Auction Sold” · Observed Sep 30, 2026 · Amount published by the source $12,300.00 · Purchaser identity and bidder count are not recorded", "soldNoAmount": true, "struck": "Unsold / struck off - verified", "withdrawn": "Withdrawn - verified", "cancelled": "Cancelled - verified", "redeemed": "Redeemed - verified", "cancelledNoWording": "Outcome not yet verified", "notPublished": "Outcome not published", "notVerified": "Outcome not yet verified", "unreviewedWording": {"ev": {"id": "x", "case_no": "2024 TD 0001", "scheduled_sale_date": "2026-09-29", "lifecycle": "completed", "outcome": "unknown", "outcome_raw": null, "outcome_observed_at": null, "winning_bid": null, "event_url": "https://jackson.realtaxdeed.com/index.cfm?zaction=AUCTION&zmethod=PREVIEW&AuctionDate=09/29/2026"}, "closed": {"feed": "closed", "raw_status": "Canceled per Bankruptcy", "outcome": "unknown", "lifecycle": "completed", "observed_at": "2026-09-30T15:00:00Z", "evidence_url": "https://jackson.realtaxdeed.com/index.cfm?zaction=AUCTION&zmethod=PREVIEW&AuctionDate=09/29/2026"}, "evidenceUrl": "https://jackson.realtaxdeed.com/index.cfm?zaction=AUCTION&zmethod=PREVIEW&AuctionDate=09/29/2026", "feed": "closed", "key": "outcome_not_verified", "verified": false, "label": "Outcome not yet verified", "note": "The source's status line for this sale reads \"Canceled per Bankruptcy\", which is not a reviewed result wording yet - so no outcome is claimed."}, "passedDateOnly": false, "scheduled": "Scheduled"},
+  outcomeRelation: {"both": "Previously auctioned - verified unsold / struck off (source wording “Struck Off”) · Currently Available - independently verified on the county's Lands Available list (case L-9)", "auctionOnly": null, "availableOnly": null, "fromAvailable": "Previously auctioned - verified unsold / struck off (case 2024 TD 0001, source wording “Struck Off”) · Currently Available - independently verified on the county's Lands Available list", "availableNoAuctionResult": null},
+  aucExportOutcomeCols: true,
+  aucExportNoGovernance: true,
+  aucExportNeverSoldWithoutEvidence: true,
   certDecQuestions: ['What certificate / lien?', 'Amount?', 'Interest / return terms, if published?', 'Redemption information, if published?', 'Source and freshness?', 'Same parcel in Auctions or Available?', 'What is not known?'],
   certDecWhat: 'Certificate #CERT-42 Alachua County, FL · tax year 2022 · account ACC-999 · parcel 111',
   certDecAmount: '$1,234.56',

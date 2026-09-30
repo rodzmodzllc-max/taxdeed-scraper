@@ -159,6 +159,9 @@ def _server(store):
             qs = parse_qs(u.query)
             assert self.headers.get("User-Agent", "").startswith("taxdeed-scraper/")
             sel = qs.get("select", [""])[0]
+            if sel == "county" and qs.get("status") == ["eq.active"]:
+                # Every county with active rows (the carry pass reads all of them).
+                return self._send(200, json.dumps([{"county": r["county"]} for r in store.rows if str(r.get("status") or "active") == "active"]).encode())
             if "limit" in qs and "county" not in qs:
                 # Column probes: 017 (lifecycle columns) and 019 (list dates).
                 present = store.have_017 if "last_seen_at" in sel else store.have_019

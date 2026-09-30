@@ -159,7 +159,7 @@ on:
         required: false
         type: choice
         default: all
-        options: [all, deeds, certificates, laft, texas, backup, evidence]
+        options: [all, deeds, certificates, laft, texas, backup, evidence, outcomes]
       evidence_counties:
         description: >-
           (job=evidence only) Comma-separated county names to limit the
@@ -172,6 +172,16 @@ on:
           RealAuction result-label discovery. Blank = skip.
         required: false
         default: ''
+      evidence_scope:
+        description: >-
+          (job=evidence only) "available" = the AVAILABLE purchase-process
+          capture (default). "auction_results" = skip it and read only the
+          RealAuction CLOSED / CANCELED area of evidence_realauction_dates
+          through the harvester's own anonymous AJAX endpoint, value-free.
+        required: false
+        type: choice
+        default: available
+        options: [available, auction_results]
 
 concurrency:
   group: harvest-and-sync
@@ -289,6 +299,21 @@ jobs:
             echo "- Property harvest and sync: **succeeded** (earlier steps)"
             echo "- Phase B auction-event recording: **failed** - see the 'Record auction events (Phase B)' step log"
           } >> "$GITHUB_STEP_SUMMARY"
+
+      # Verified auction outcomes (scripts/auction_outcomes.py): for sale days
+      # in the last 21 days, reads the SAME RealAuction host's "Auctions
+      # Closed or Canceled" listing and the page's own status refresh through
+      # the harvester's anonymous session, matches items to events by exact
+      # case number, and records a result only for a reviewed wording in
+      # data/auction_outcome_wordings.csv. Never infers from absence; a
+      # failed read writes nothing. Allowed to error, so it can never fail
+      # the property pipeline.
+      - name: Verified auction outcomes (source-published results only)
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/auction_outcomes.py
 
       - name: Inventory status - normalized lifecycle state (migration 021)
         # Inventory status (migration 021): each row's normalized lifecycle state and
@@ -941,13 +966,17 @@ jobs:
         env:
           COUNTIES: ${{ github.event.inputs.evidence_counties }}
           RA_DATES: ${{ github.event.inputs.evidence_realauction_dates }}
+          SCOPE: ${{ github.event.inputs.evidence_scope }}
         run: |
           args=""
+          if [ "$SCOPE" = "auction_results" ]; then args="--skip-available --realauction-results"; fi
           IFS=',' read -ra cs <<< "$COUNTIES"
           for c in "${cs[@]}"; do c="$(echo "$c" | xargs)"; [ -n "$c" ] && args="$args --county \"$c\""; done
           IFS=',' read -ra ds <<< "$RA_DATES"
           for d in "${ds[@]}"; do d="$(echo "$d" | xargs)"; [ -n "$d" ] && args="$args --realauction-date $d"; done
-          eval python3 scripts/capture_purchase_evidence.py --state FL $args
+          # --follow: one hop to acquisition links PRESENT on each source page
+          # (capped, no search engines / vendors; scripts/capture_purchase_evidence.py).
+          eval python3 scripts/capture_purchase_evidence.py --state FL --follow $args
 
       - name: Print capture (value-free; readable from the job log without downloading the artifact)
         if: always()
@@ -970,6 +999,51 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: purchase-evidence-${{ github.run_id }}
+          path: |
+            out/public/
+            out/private/
+
+  outcomes:
+    # Verified auction outcomes on their own - MANUAL ONLY (job=outcomes),
+    # never scheduled, never part of "all" (the deeds job already runs the
+    # same step after every harvest). No harvest, no property write: it reads
+    # auction_events and appends observations / patches events only for
+    # source-published results (scripts/auction_outcomes.py).
+    name: Verified auction outcomes (manual only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.job == 'outcomes'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python dependencies
+        run: pip install requests
+
+      - name: Verified auction outcomes (source-published results only)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/auction_outcomes.py
+
+      - name: Prepare artifact (public evidence only)
+        # The report is counts only (no case number, parcel, amount or
+        # name); it is reproduced verbatim inside the public evidence file.
+        if: always()
+        env:
+          ARTIFACT_PUBLIC_KEY: ${{ vars.ARTIFACT_PUBLIC_KEY }}
+        run: python3 scripts/artifact_evidence.py --job auction-outcomes --status out/public/auction-outcomes.json
+
+      - name: Upload artifact (evidence)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: auction-outcomes-${{ github.run_id }}
           path: |
             out/public/
             out/private/

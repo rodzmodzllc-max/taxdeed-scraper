@@ -1605,6 +1605,7 @@ live here are removed with the #pageMap section itself - see the note by
 .event-item .ev-life.scheduled{color:var(--ok)}
 .event-item .ev-meta{color:var(--ink-soft);font-size:.74rem;margin-top:.2rem}
 .event-item .ev-outcome{margin-top:.25rem;font-size:.76rem}
+.event-item .ev-prov{display:block;margin-top:.15rem;color:var(--ink-soft);font-size:.72rem;line-height:1.4}
 .event-note{font-size:.72rem;color:var(--ink-soft);margin:.4rem 0 0}
 /* Support modal */
 .support-topics{display:flex;flex-direction:column;gap:.35rem;margin:.4rem 0 .8rem}
@@ -1674,6 +1675,16 @@ live here are removed with the #pageMap section itself - see the note by
 .related-when{display:block;font-size:.68rem;color:var(--ink-soft)}
 .related-when.prev{color:var(--warn)} .related-when.now{color:var(--ok)}
 .dec-instructions{white-space:pre-line}
+/* Acquisition sprint (2026-09-30): the acquisition answer - mode, ordered
+   steps, the published contact block. Terminal style, no card. */
+.acq-mode{font-weight:700}
+.acq-first{display:block;margin-top:.2rem;font-size:.78rem}
+.acq-verified .warn{color:var(--warn)}
+.acq-steps{margin:.3rem 0 0;padding-left:1.25rem} .acq-steps li{margin:.12rem 0}
+.acq-contact{display:grid;grid-template-columns:minmax(0,9rem) minmax(0,1fr);gap:.12rem .6rem;margin:0;font-size:.78rem}
+.acq-contact dt{color:var(--ink-soft);font-weight:600} .acq-contact dd{margin:0;overflow-wrap:anywhere}
+.acq-match{font-family:var(--font-mono);font-size:.7rem}
+@media (max-width:480px){ .acq-contact{grid-template-columns:1fr} .acq-contact dd{margin-bottom:.2rem} }
 .dec-first-note{display:block;margin-bottom:.35rem}
 
 /* ---- Unified navigation (2026-09-30) ---- */
