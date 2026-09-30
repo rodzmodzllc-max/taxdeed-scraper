@@ -100,8 +100,37 @@ LIFECYCLES = frozenset({"scheduled", "completed", "cancelled", "withdrawn", "sta
 OUTCOMES = frozenset({"sold", "redeemed", "struck_off", "future_sale", "no_sale", "unknown"})
 URL_KINDS = frozenset({"property", "sale", "county", "info"})
 
-# Never written by Phase B, under any circumstances.
-FORBIDDEN_EVENT_KEYS = frozenset({"winning_bidder_ref", "winning_bid", "bid_count", "outcome_effective_date", "outcome_observed_at", "outcome_raw"})
+# Never written by this writer, under any circumstances: no source in this
+# pipeline publishes a winning bid, a bid count, a bidder or an effective
+# date, so none is ever composed or inferred.
+FORBIDDEN_EVENT_KEYS = frozenset({"winning_bidder_ref", "winning_bid", "bid_count", "outcome_effective_date"})
+
+# Source-published RESULTS (production-readiness program, 2026-09-30). A
+# harvester_source's raw sale-status wording -> (outcome, lifecycle), for
+# statuses the source itself uses to state a result. An outcome is written
+# ONLY through this table, always with the raw wording and the observation
+# time beside it; absence from a feed never becomes a result (see
+# lifecycle_after_absence). The table is EMPTY today: neither RealAuction's
+# calendar feed nor LGBS's four mapped statuses (harvesters/texas_harvester.py
+# LGBS_STATUS_TO_LEDGER) states a result, and no other wording has been read
+# from a live source. A wording is added here only after it was observed on
+# the source and its meaning verified (a reviewed commit).
+SOURCE_OUTCOME_MAP: dict[str, dict[str, tuple[str, str]]] = {}
+
+
+def outcome_for_source(harvester_source: str | None, raw_status: str | None) -> tuple[str, str] | None:
+    """(outcome, lifecycle) when `raw_status` is a result wording the source
+    is known to publish; None otherwise. Case-insensitive on the wording."""
+    if not harvester_source or not raw_status:
+        return None
+    table = SOURCE_OUTCOME_MAP.get(harvester_source) or {}
+    hit = table.get(raw_status.strip().lower())
+    if hit is None:
+        return None
+    outcome, lifecycle = hit
+    if outcome not in OUTCOMES or outcome == "unknown" or lifecycle not in LIFECYCLES:
+        raise WriterError(f"SOURCE_OUTCOME_MAP[{harvester_source}][{raw_status!r}] is not a valid (outcome, lifecycle)")
+    return outcome, lifecycle
 
 # The only LGBS statuses that mean "scheduled" - the same two the harvester
 # maps to the auction ledger (harvesters/texas_harvester.py LGBS_STATUS_TO_LEDGER).
@@ -133,10 +162,17 @@ class Sighting:
     opening_bid: float | None
     event_url: str | None
     event_url_kind: str | None
+    # A source-PUBLISHED result (outcome_for_source), never derived. "unknown"
+    # for every scheduled-feed sighting.
+    outcome: str = "unknown"
 
     def __post_init__(self) -> None:
         if self.lifecycle not in LIFECYCLES:
             raise WriterError(f"invalid lifecycle {self.lifecycle!r} for {self.state}/{self.county}/{self.case_no}")
+        if self.outcome not in OUTCOMES:
+            raise WriterError(f"invalid outcome {self.outcome!r}")
+        if self.outcome != "unknown" and not self.raw_status:
+            raise WriterError("a sighting with an outcome must carry the source's own raw_status wording")
         if self.event_url_kind is not None and self.event_url_kind not in URL_KINDS:
             raise WriterError(f"invalid event_url_kind {self.event_url_kind!r}")
         if not ISO_DATE_RE.match(self.scheduled_sale_date):
@@ -227,13 +263,23 @@ def sightings_from_tx_harvest(rows: Iterable[dict]) -> list[Sighting]:
             ))
         elif hs == "tx_lgbs":
             status = (r.get("sale_status") or "").strip()
-            if status not in LGBS_SCHEDULED_STATUSES:
+            if status in LGBS_SCHEDULED_STATUSES:
+                out.append(Sighting(
+                    state="TX", source="auction", county=county, case_no=case_no,
+                    scheduled_sale_date=sale, feed="api", lifecycle="scheduled",
+                    raw_status=status, opening_bid=_num(r.get("min_bid")),
+                    event_url=None, event_url_kind=None,
+                ))
                 continue
+            result = outcome_for_source(hs, status)
+            if result is None:
+                continue          # any other wording: not a scheduled sighting, not a known result - skipped, never labelled
+            outcome, lifecycle = result
             out.append(Sighting(
                 state="TX", source="auction", county=county, case_no=case_no,
-                scheduled_sale_date=sale, feed="api", lifecycle="scheduled",
+                scheduled_sale_date=sale, feed="api", lifecycle=lifecycle,
                 raw_status=status, opening_bid=_num(r.get("min_bid")),
-                event_url=None, event_url_kind=None,
+                event_url=None, event_url_kind=None, outcome=outcome,
             ))
         # Any other vendor: no writer here. Blocked vendors never reach
         # properties either (governance gate), so they get no events.
@@ -431,6 +477,7 @@ class Summary:
     events_completed: int = 0
     events_unknown: int = 0     # left the feed before the sale date
     observations: int = 0
+    outcomes_from_source: int = 0   # events whose result the SOURCE published (outcome_for_source); 0 unless a wording is mapped
     notes: list[str] = field(default_factory=list)
 
     def as_dict(self) -> dict:
@@ -440,17 +487,30 @@ class Summary:
 def _check_event_payload(payload: dict) -> None:
     bad = FORBIDDEN_EVENT_KEYS & set(payload)
     if bad:
-        raise WriterError(f"Phase B must not write {sorted(bad)}")
+        raise WriterError(f"the writer must not write {sorted(bad)}")
     if "lifecycle" in payload and payload["lifecycle"] not in LIFECYCLES:
         raise WriterError(f"invalid lifecycle {payload['lifecycle']!r}")
-    if "outcome" in payload and payload["outcome"] != "unknown":
-        raise WriterError("Phase B never sets an outcome other than 'unknown'")
+    outcome = payload.get("outcome", "unknown")
+    if outcome not in OUTCOMES:
+        raise WriterError(f"invalid outcome {outcome!r}")
+    if outcome != "unknown":
+        # A result is written only as the source stated it: the raw wording
+        # and the observation time must travel with it, and the feed must be
+        # a real sighting (a derived transition can never carry a result).
+        if not payload.get("outcome_raw") or not payload.get("outcome_observed_at"):
+            raise WriterError("an outcome other than 'unknown' must carry outcome_raw (the source's wording) and outcome_observed_at")
+    elif "outcome_raw" in payload or "outcome_observed_at" in payload:
+        raise WriterError("outcome_raw / outcome_observed_at belong only to a source-published outcome")
 
 
 def _observation(event_id: str, *, observed_at: str, run_id: str | None, feed: str, raw_status: str | None,
-                 lifecycle: str, opening_bid: float | None, evidence_url: str | None) -> dict:
+                 lifecycle: str, opening_bid: float | None, evidence_url: str | None, outcome: str = "unknown") -> dict:
     if lifecycle not in LIFECYCLES:
         raise WriterError(f"invalid lifecycle {lifecycle!r}")
+    if outcome not in OUTCOMES:
+        raise WriterError(f"invalid outcome {outcome!r}")
+    if outcome != "unknown" and (feed == DERIVED_FEED or not raw_status):
+        raise WriterError("an observation carries an outcome only as a sighting of the source's own wording")
     return {
         "event_id": event_id,
         "observed_at": observed_at,
@@ -458,7 +518,7 @@ def _observation(event_id: str, *, observed_at: str, run_id: str | None, feed: s
         "feed": feed,
         "raw_status": raw_status,
         "lifecycle": lifecycle,
-        "outcome": "unknown",
+        "outcome": outcome,
         "opening_bid": opening_bid,
         "evidence_url": evidence_url,
     }
@@ -529,10 +589,13 @@ def record_sightings(store: Store, sightings: list[Sighting], *, scope: tuple[st
                 patch["event_url_kind"] = s.event_url_kind
             if ev.get("opening_bid") is None and s.opening_bid is not None:
                 patch["opening_bid"] = s.opening_bid
+            if s.outcome != "unknown" and (ev.get("outcome") != s.outcome or ev.get("outcome_raw") != s.raw_status):
+                patch.update({"outcome": s.outcome, "outcome_raw": s.raw_status, "outcome_observed_at": observed_at})
+                summary.outcomes_from_source += 1
             _check_event_payload(patch)
             obs = _observation(ev["id"], observed_at=observed_at, run_id=run_id, feed=s.feed,
                                raw_status=s.raw_status, lifecycle=patch["lifecycle"],
-                               opening_bid=s.opening_bid, evidence_url=s.event_url)
+                               opening_bid=s.opening_bid, evidence_url=s.event_url, outcome=s.outcome)
             existing_ops.append((obs, ev["id"], patch))
             summary.events_seen_again += 1
             if ev.get("lifecycle") != patch["lifecycle"]:
@@ -548,9 +611,12 @@ def record_sightings(store: Store, sightings: list[Sighting], *, scope: tuple[st
                 "event_url": s.event_url, "event_url_kind": s.event_url_kind,
                 "opening_bid": s.opening_bid,
                 "lifecycle": s.lifecycle,   # explicit, never the DB default
-                "outcome": "unknown",
+                "outcome": s.outcome,       # "unknown" unless the source published a result (outcome_for_source)
                 "first_seen_at": observed_at, "last_seen_at": observed_at,
             }
+            if s.outcome != "unknown":
+                row.update({"outcome_raw": s.raw_status, "outcome_observed_at": observed_at})
+                summary.outcomes_from_source += 1
             _check_event_payload(row)
             new_rows.append((row, s))
 
@@ -601,7 +667,7 @@ def record_sightings(store: Store, sightings: list[Sighting], *, scope: tuple[st
         observations = [
             _observation(ins["id"], observed_at=observed_at, run_id=run_id, feed=s.feed,
                          raw_status=s.raw_status, lifecycle=s.lifecycle,
-                         opening_bid=s.opening_bid, evidence_url=s.event_url)
+                         opening_bid=s.opening_bid, evidence_url=s.event_url, outcome=s.outcome)
             for ins, (_row, s) in zip(inserted, batch)
         ]
         try:

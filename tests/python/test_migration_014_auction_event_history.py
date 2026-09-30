@@ -291,7 +291,8 @@ def test_s13_existing_migrations_untouched_and_numbering_is_next():
     assert numbered[numbered.index("015_customer_write_privileges_and_account_deletion.sql"):] == [
         "015_customer_write_privileges_and_account_deletion.sql", "016_source_health.sql",
         "017_otc_inventory_provenance_lifecycle.sql", "018_county_source_registry.sql",
-        "019_laft_list_dates.sql", "020_state_extensible_vocabulary.sql"]
+        "019_laft_list_dates.sql", "020_state_extensible_vocabulary.sql",
+            "021_inventory_status_provenance_freshness.sql"]
     assert MIG_013.exists()
     # 013's own contract is unchanged (its test file still guards it); here we
     # only assert 014 does not redefine 013's objects.
@@ -320,7 +321,11 @@ def test_s14_no_writers_touched_in_this_phase_and_frontend_reads_only():
         for m in re.finditer(r'from\("%s"\)\.(\w+)\(' % table, app):
             assert m.group(1) == "select", f"{table}: app.js may only select, found .{m.group(1)}()"
         assert re.search(r'from\("%s"\)\.select\(' % table, app), f"{table} not read by app.js"
-    assert "Outcome:</b> Not tracked" in app
+    # 2026-09-30: an outcome is shown only when the SOURCE published one (its
+    # wording quoted, app.js eventOutcomeHtml); otherwise "Not published by
+    # the source". The frontend still never derives one.
+    assert "Outcome:</b> Not published by the source" in app and "function eventOutcomeHtml" in app
+    assert "Not tracked" in app                      # the Risk & Legal card's honest wording is unchanged
 
 
 def test_s15_data_contract_documents_the_eight_required_statements():

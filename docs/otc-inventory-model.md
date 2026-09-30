@@ -449,3 +449,67 @@ fixture mode (no network) or live mode (exit 2, zero requests, until
 are state-scoped. The registry's AL row carries the search page and the
 process page; it stays SEARCH_EVIDENCE_ONLY / TERMS_NOT_VERIFIED and is not
 runnable. Alabama is not activated; migration 020 is not applied.
+
+## 16. Production-readiness pass: purchase links, lifecycle status, source-published outcomes, freshness, provenance UI (2026-09-30)
+
+- **Purchase-path links from the lists** (`scripts/laft_purchase_paths.py`,
+  `data/laft_purchase_link_rules.csv`). The HTML harvester now keeps every
+  row's published anchors (`row_links`: header, text, resolved href) and
+  writes a value-free evidence summary per county to
+  `out/public/laft-link-evidence.json` (header labels, link text with digits
+  masked, host + digit-masked path shapes, counts). A link becomes
+  `purchase_url` + `purchase_url_kind` ONLY through an enabled rule in the
+  CSV (column / text / host_path match, kind, `verified_on`, `evidence`);
+  the loader refuses an enabled rule without both. The table ships with no
+  enabled rule: no county page has been read from this repository, so no
+  link's meaning has been verified. Until a human verifies one, every FL
+  row keeps "No online purchase link on file". The lifecycle's
+  `purchase_path_of` is unchanged (it already prefers a harvester-row link).
+- **Normalized inventory status** (`harvesters/governance/inventory_status.py`,
+  migration 021, `scripts/inventory_status_writer.py`). Vocabulary:
+  upcoming, active, sold, redeemed, withdrawn, cancelled, struck_off,
+  state_held, resale_inventory, available_otc, closed, unknown. Bases:
+  SOURCE_STATUS (the source's own wording, kept verbatim), LIST_PRESENCE,
+  SCHEDULED_DATE, NOT_PUBLISHED. A result (sold / redeemed / withdrawn /
+  cancelled / struck_off) is refused by the model unless its basis is
+  SOURCE_STATUS. Mappings: FL Lands Available -> available_otc / closed,
+  and `sold` only from the list's own 'Sold To' column (the HTML and PDF
+  harvesters now write those rows' IDENTITIES to `out/harvest_laft_sold*.json`
+  - never the purchaser); FL auctions -> upcoming / unknown (date passed,
+  no result published) / closed; TX LGBS -> the vendor's four statuses
+  (upcoming / resale_inventory / struck_off), anything else verbatim +
+  unknown; Alabama through the adapter vocabulary. The writer PATCHes
+  `properties` only on change and inserts one `inventory_status_observations`
+  row per change (history is never overwritten); it probes for 021 and
+  plans only until applied. Wired as a non-blocking step after the sync in
+  the laft, deeds and texas jobs.
+- **Source-published auction outcomes** (`scripts/auction_events_writer.py`).
+  `Sighting.outcome` + `SOURCE_OUTCOME_MAP` (harvester_source -> raw wording
+  -> (outcome, lifecycle)); an outcome is written only with `outcome_raw`
+  and `outcome_observed_at`, never from a derived transition, and
+  `winning_bid` / `bid_count` / `winning_bidder_ref` / `outcome_effective_date`
+  stay forbidden. The map is EMPTY: neither RealAuction's calendar feed nor
+  LGBS's four mapped statuses states a result; a wording is added only after
+  it was observed on the source. The frontend shows a result only with the
+  source's wording quoted; otherwise "Outcome: Not published by the source".
+- **Per-unit freshness** (`scripts/unit_freshness.py`, migration 021's
+  registry columns). Per (state, source_id, county): last attempt, last
+  attempt status, last COMPLETE/EMPTY read (last-known-good), its row count,
+  consecutive FAILED attempts. Persisted with the harvest cache, summarized
+  to `out/public/unit-freshness.json`, PATCHed to `county_source_registry`
+  once 021 exists (never NULL over a stored value). Back-off: after three
+  consecutive block-signature failures (403 / proxy / access denied) the
+  HTML harvester attempts a county at most once per 48h and records the
+  hold as FAILED with a "backoff hold" reason (fail closed; not an attempt).
+  The Dashboard's Data sources panel lists each county's last read / last
+  complete read / row count / failure streak, "Current" or "Stale".
+- **Customer-facing provenance** (`public/app.js`). The Inventory card gets
+  a Status row (label, the source's wording or the basis, observed date);
+  the Data Quality & Provenance card renders `field_provenance` as a table
+  (field, source, how obtained - "Published by the source" or "Parcel
+  match: FDOR parcel identifier / alternate key" - and the recorded or
+  list date) and `otc_provenance` as labelled lines (read by, list read
+  from, retrieved, list date, amount, purchase path, inventory type, status
+  wording), plus "Last read from the source ... list dated ...". Rows the
+  RPC does not project (pre-021) show none of it. No score, badge or meter.
+- **Migration 021** is written and NOT applied (`docs/production-configuration.md`).

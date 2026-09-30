@@ -231,6 +231,21 @@ def _find_header_row(table: list) -> tuple[int, list] | None:
     return best_idx, best_fields
 
 
+# Rows the county's own list marks sold ('Sold To' / 'Purchaser' column
+# with a value - Hendry keeps them on the list). They are never inventory,
+# but they ARE a source-published result: their IDENTITY (county + case /
+# parcel, never the purchaser) is written to out/harvest_laft_sold_pdfs.json
+# for scripts/inventory_status_writer.py. Reset per run in main().
+SOLD_ROWS: list[dict] = []
+OUT_SOLD_JSON = OUT_DIR / "harvest_laft_sold_pdfs.json"
+
+
+def record_sold_identity(record: dict) -> None:
+    ident = finalize_record({k: record.get(k) for k in ("county", "case_no", "parcel") if record.get(k)})
+    if ident.get("county") and (ident.get("case_no") or ident.get("parcel")) and record_identifiers_plausible(ident):
+        SOLD_ROWS.append({"county": ident["county"], "case_no": ident.get("case_no"), "parcel": ident.get("parcel"), "source": "laft"})
+
+
 def _rows_from_table(table: list, county: str, source_url: str, rejected: list | None = None) -> list[dict]:
     """`rejected` (optional list) collects the count of rows dropped by the
     identifier plausibility gate (laft_status.record_identifiers_plausible)
@@ -273,6 +288,7 @@ def _rows_from_table(table: list, county: str, source_url: str, rejected: list |
         # than removing them. Never surface those as a currently-available
         # property.
         if record.get("sold_to"):
+            record_sold_identity(record)
             continue
         # A row needs at least a case/parcel identifier to be worth keeping -
         # matches the same "skip if no case/address" discipline
@@ -330,7 +346,10 @@ def extract_label_value_rows(full_text: str, county: str, source_url: str, rejec
 
 
 def _keep_label_record(current: dict | None, records: list[dict], rejected: list | None) -> None:
-    if not current or not (current.get("case_no") or current.get("parcel")) or current.get("sold_to"):
+    if not current or not (current.get("case_no") or current.get("parcel")):
+        return
+    if current.get("sold_to"):
+        record_sold_identity(current)
         return
     # Same identifier gate as _rows_from_table: a "Parcel ID" label whose
     # value ran on to the end of the page (Pasco, 2026-09) is not a parcel.
@@ -478,6 +497,7 @@ def main() -> int:
     reused = 0
 
     all_rows: list[dict] = []
+    SOLD_ROWS.clear()
     for i, src in enumerate(sources, 1):
         county, url = src["County"], src["Url"]
         source_page = (src.get("SourcePage") or "").strip() or None
@@ -558,6 +578,10 @@ def main() -> int:
 
     with open(OUT_JSON, "w", encoding="utf-8") as f:
         json.dump(all_rows, f, indent=2)
+    with open(OUT_SOLD_JSON, "w", encoding="utf-8") as f:
+        json.dump(SOLD_ROWS, f, indent=2)
+    if SOLD_ROWS:
+        print(f"{len(SOLD_ROWS)} row(s) the lists themselves mark sold - identities written to {OUT_SOLD_JSON.name} (not inventory)")
 
     if all_rows:
         fieldnames = sorted({k for row in all_rows for k in row.keys()})
