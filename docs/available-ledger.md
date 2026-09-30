@@ -283,9 +283,11 @@ other job. It writes nothing to the database. Schedules are unchanged.
 `capture_realauction` fetches a RealAuction past-sale page
 (`zaction=AUCTION&zmethod=PREVIEW&AuctionDate=`) and records only the
 labels and status vocabulary it finds. Finding: anonymous requests get
-the **login form** ("User Name" / "User Password", zero items) - the
-published results sit behind an account, so no auction outcome is
-ingested from RealAuction (section 10.5).
+the **login form** ("User Name" / "User Password", zero items).
+**Corrected 2026-09-30** (`docs/auction-outcomes.md`): that page is only
+the shell - its header always carries the login form and its items arrive
+by AJAX. The Closed / Canceled items and their status lines are served to
+an anonymous session; verified outcomes are now ingested from them.
 
 ### 10.2 The evidence record (v2)
 
@@ -359,7 +361,8 @@ Every row is `enabled=yes`, `third_party_permitted=no`, `url` empty.
 
 ### 10.5 Gaps that stay explicit
 
-No approved auction source publishes an accessible result: RealAuction
+No approved auction source publishes an accessible result (superseded
+2026-09-30 for RealAuction - see `docs/auction-outcomes.md`): RealAuction
 is a login wall, the FL deed harvester captures no status wording, TX
 rows carry a NULL `tx_sale_status`. `auction_events` holds 914 events
 and zero outcomes; nothing was inferred. Winning bid, bidder count and
