@@ -113,6 +113,11 @@ def read_document(data: bytes, *, url: str, content_type: str = "", last_modifie
     if is_pdf:
         return _read_pdf(data, doc, ocr=ocr)
     text = data.decode("utf-8-sig", errors="replace")
+    if "html" in ctype or text.lstrip()[:15].lower().startswith(("<!doctype html", "<html")):
+        doc.method = "html"
+        doc.title, body = _html_text(text)
+        doc.pages = [Page(1, body)]
+        return doc
     if "csv" in ctype or url.lower().split("?")[0].endswith(".csv"):
         rows = list(csv.reader(io.StringIO(text)))
         doc.method = "csv"
@@ -121,6 +126,23 @@ def read_document(data: bytes, *, url: str, content_type: str = "", last_modifie
     doc.method = "text"
     doc.pages = [Page(1, text)]
     return doc
+
+
+def _html_text(html: str) -> tuple[str, str]:
+    """(title, visible text) of an HTML page: scripts, styles and navigation
+    dropped, block elements on their own lines."""
+    try:
+        from bs4 import BeautifulSoup
+        soup = BeautifulSoup(html, "html.parser")
+        title = re.sub(r"\s+", " ", soup.title.get_text(" ")).strip() if soup.title else ""
+        for tag in soup.find_all(["script", "style", "nav", "noscript", "header", "footer"]):
+            tag.decompose()
+        return title, soup.get_text("\n")
+    except ImportError:
+        m = re.search(r"<title[^>]*>(.*?)</title>", html, re.I | re.S)
+        body = re.sub(r"<(script|style)[^>]*>.*?</\1>", " ", html, flags=re.I | re.S)
+        body = re.sub(r"<br\s*/?>|</(p|div|li|tr|h\d)>", "\n", body, flags=re.I)
+        return (re.sub(r"\s+", " ", m.group(1)).strip() if m else ""), re.sub(r"<[^>]+>", " ", body)
 
 
 def _http_date(value: str | None) -> str | None:

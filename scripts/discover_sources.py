@@ -227,6 +227,136 @@ def discover_gis(http: Http, units: dict) -> list[dict]:
     return report
 
 
+# ---------------------------------------------------------------- deep probe
+
+# Candidate datasets to probe in depth (every identifier of the unit, not a
+# sample). Each named here because the catalog discovery found it with a
+# matching identifier field; the probe decides nothing - it measures.
+DEEP_TARGETS = [
+    {"state": "LA", "county": "East Baton Rouge", "kind": "socrata", "url": "https://data.brla.gov/resource/ei2c-krsr.json",
+     "meta": "https://data.brla.gov/api/views/ei2c-krsr.json"},
+    {"state": "LA", "county": "East Baton Rouge", "kind": "socrata", "url": "https://data.brla.gov/resource/myfc-nh6n.json",
+     "meta": "https://data.brla.gov/api/views/myfc-nh6n.json"},
+    {"state": "LA", "county": "East Baton Rouge", "kind": "socrata", "url": "https://data.brla.gov/resource/shrr-fsqq.json",
+     "meta": "https://data.brla.gov/api/views/shrr-fsqq.json"},
+    {"state": "TX", "county": "Jim Wells", "kind": "arcgis",
+     "url": "https://services8.arcgis.com/36tOt5wOeEMz3tyS/arcgis/rest/services/JimWellsCADWebService/FeatureServer/0"},
+    {"state": "TX", "county": "Hardin", "kind": "arcgis",
+     "url": "https://services9.arcgis.com/8oveauLo4lI1NjDp/arcgis/rest/services/HardinCADWebService/FeatureServer/0"},
+    {"state": "TX", "county": "Liberty", "kind": "arcgis",
+     "url": "https://services3.arcgis.com/LbQai106UcFy2LlR/arcgis/rest/services/LibertyCADWebService/FeatureServer/0"},
+    {"state": "TX", "county": "Goliad", "kind": "arcgis",
+     "url": "https://services8.arcgis.com/WbC8UcChzGlcbEPR/arcgis/rest/services/GoliadCADWebService/FeatureServer/0"},
+]
+
+
+def shape(v) -> str:
+    """Value-free identifier shape: digits -> 9, letters -> A, separators kept."""
+    return re.sub(r"[A-Za-z]", "A", re.sub(r"\d", "9", str(v)))
+
+
+def _top(counter: dict, n: int = 5) -> list:
+    return sorted(counter.items(), key=lambda kv: -kv[1])[:n]
+
+
+def all_unit_rows(base: str, key: str, state: str, county: str) -> list[dict]:
+    hdr = {"apikey": key, "Authorization": f"Bearer {key}"}
+    rows, offset = [], 0
+    while True:
+        q = {"select": "id,parcel,case_no,legal_desc,acreage,land_use,latitude", "source": "eq.laft", "status": "eq.active",
+             "state": f"eq.{state}", "county": f"eq.{county}", "order": "id.asc", "limit": 1000, "offset": offset}
+        r = requests.get(f"{base}/rest/v1/properties", params=q, headers=hdr, timeout=60)
+        r.raise_for_status()
+        page = r.json()
+        rows += page
+        if len(page) < 1000:
+            return rows
+        offset += 1000
+
+
+def deep_probe(http: Http, target: dict, rows: list[dict]) -> dict:
+    """Exact-identifier match counts (normalized alnum on both sides) per
+    identifier field, ambiguity, and per-column fill among matched records."""
+    from harvesters.enrichment.parcels import normalize_id  # noqa: PLC0415
+    out = {"state": target["state"], "county": target["county"], "url": target["url"], "rows": len(rows)}
+    cols, types = [], {}
+    if target["kind"] == "socrata":
+        meta, err = http.json(target["meta"])
+        if err:
+            return {**out, "error": err}
+        cols = [c.get("fieldName") for c in (meta or {}).get("columns", []) if c.get("fieldName") and not c["fieldName"].startswith(":")]
+        out["licence"] = ((meta or {}).get("license") or {}).get("name")
+        out["rows_updated"] = (meta or {}).get("rowsUpdatedAt")
+        id_fields = [c for c in cols if ID_FIELD.match(c) or c in ("prono", "assessment_number")]
+    else:
+        meta, err = http.json(target["url"], {"f": "json"})
+        if err or "error" in (meta or {}):
+            return {**out, "error": err or "layer error"}
+        cols = [f["name"] for f in meta.get("fields", [])]
+        types = {f["name"]: f.get("type") for f in meta.get("fields", [])}
+        out["copyright"] = (meta.get("copyrightText") or "")[:160]
+        id_fields = [c for c in cols if ID_FIELD.match(c)]
+    out["columns"] = cols[:80]
+    out["row_id_shapes"] = {c: _top(_count(shape(r.get(c)) for r in rows if r.get(c))) for c in ("parcel", "case_no")}
+    out["id_fields"] = {}
+    for idf in id_fields[:4]:
+        res = {"matched_rows": 0, "ambiguous_rows": 0, "source_shapes": {}, "fill_among_matched": {}}
+        for col in ("parcel", "case_no"):
+            keyed = {}
+            for r in rows:
+                k = normalize_id(r.get(col), "alnum")
+                if k:
+                    keyed.setdefault(k, []).append(r)
+            if not keyed:
+                continue
+            raw = sorted({str(r.get(col)).strip() for r in rows if r.get(col)})
+            found: dict = {}
+            for i in range(0, len(raw), 100):
+                chunk = raw[i:i + 100]
+                variants = sorted(set(chunk) | {re.sub(r"[^0-9A-Za-z]", "", v) for v in chunk})
+                if target["kind"] == "socrata":
+                    lst = ",".join("'" + v.replace("'", "''") + "'" for v in variants)
+                    data, qerr = http.json(target["url"], {"$where": f"{idf} in({lst})", "$limit": 5000})
+                    recs = data if isinstance(data, list) else []
+                else:
+                    lst = _quote(types.get(idf, "esriFieldTypeString"), variants)
+                    if not lst:
+                        continue
+                    data, qerr = http.json(f"{target['url']}/query", {"where": f"{idf} IN ({lst})", "outFields": "*",
+                                                                     "returnGeometry": "false", "f": "json"})
+                    recs = [ft.get("attributes") or {} for ft in (data or {}).get("features", [])] if isinstance(data, dict) else []
+                for rec in recs:
+                    k = normalize_id(rec.get(idf), "alnum")
+                    if k:
+                        found.setdefault(k, []).append(rec)
+                        res["source_shapes"][shape(rec.get(idf))] = res["source_shapes"].get(shape(rec.get(idf)), 0) + 1
+            fill: dict = {}
+            for k, recs in found.items():
+                if k not in keyed:
+                    continue
+                if len(recs) > 1:
+                    res["ambiguous_rows"] += len(keyed[k])
+                    continue
+                res["matched_rows"] += len(keyed[k])
+                for c, v in recs[0].items():
+                    if v not in (None, "", " ") and str(v).strip() not in ("0", "0.0"):
+                        fill[c] = fill.get(c, 0) + len(keyed[k])
+            res[f"via_{col}"] = len([k for k in found if k in keyed])
+            for c, n in fill.items():
+                res["fill_among_matched"][c] = res["fill_among_matched"].get(c, 0) + n
+        res["source_shapes"] = _top(res["source_shapes"])
+        res["fill_among_matched"] = dict(sorted(res["fill_among_matched"].items()))
+        out["id_fields"][idf] = res
+    return out
+
+
+def _count(it) -> dict:
+    c: dict = {}
+    for x in it:
+        c[x] = c.get(x, 0) + 1
+    return c
+
+
 # ---------------------------------------------------------------- documents
 
 def document_urls(state: str, county: str) -> list[tuple[str, str]]:
@@ -303,6 +433,7 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--gis", action="store_true")
     ap.add_argument("--documents", action="store_true")
+    ap.add_argument("--deep", action="store_true", help="exact-identifier match + fill probe of DEEP_TARGETS (every unit row)")
     ap.add_argument("--state")
     ap.add_argument("--county")
     ap.add_argument("--out", default=str(REPO / "out" / "public" / "source-discovery.json"))
@@ -311,8 +442,28 @@ def main(argv=None) -> int:
     if not base or not key:
         print("skip: SUPABASE_URL / SUPABASE_SERVICE_KEY not set")
         return 0
-    units = available_units(base, key, a.state, a.county)
     http = Http()
+    if a.deep:
+        deep = []
+        for t in DEEP_TARGETS:
+            if (a.state and t["state"] != a.state) or (a.county and t["county"] != a.county):
+                continue
+            deep.append(deep_probe(http, t, all_unit_rows(base, key, t["state"], t["county"])))
+        out = Path(a.out.replace(".json", "-deep.json"))
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(json.dumps(deep, indent=2, sort_keys=True, default=str) + "\n", encoding="utf-8")
+        for d in deep:
+            print(f"== DEEP {d['state']} / {d['county']} {d['url']}: {d['rows']} AVAILABLE rows "
+                  f"licence={d.get('licence')} copyright={mask(d.get('copyright') or '-')} updated={d.get('rows_updated')} error={d.get('error')}")
+            print(f"   columns: {d.get('columns')}")
+            print(f"   our id shapes: {d.get('row_id_shapes')}")
+            for f, r in (d.get("id_fields") or {}).items():
+                print(f"   [{f}] matched rows {r['matched_rows']}, ambiguous rows {r['ambiguous_rows']}, "
+                      f"via parcel {r.get('via_parcel')}, via case_no {r.get('via_case_no')}; source shapes {r['source_shapes']}")
+                print(f"      fill among matched: {r['fill_among_matched']}")
+        if not (a.gis or a.documents):
+            return 0
+    units = available_units(base, key, a.state, a.county)
     gis = discover_gis(http, units) if a.gis else []
     docs = discover_documents(http, units) if a.documents else []
     out = Path(a.out)

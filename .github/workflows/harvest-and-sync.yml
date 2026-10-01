@@ -1627,7 +1627,7 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-        run: python3 scripts/discover_sources.py --gis --documents
+        run: python3 scripts/discover_sources.py --deep --gis --documents
 
       - name: Plan (before) - coverage matrix and expected writes, read-only
         if: github.event.inputs.available_mode != 'discover'
