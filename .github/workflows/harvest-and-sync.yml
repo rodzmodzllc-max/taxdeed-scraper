@@ -255,6 +255,7 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: ./scripts/sync-harvest-to-supabase.ps1
 
+
       - name: Record source health
         # Monitoring only (migration 016 + scripts/source_health.py): one row
         # per dataset - last attempt, last success, row count, how many units
@@ -268,6 +269,16 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 scripts/source_health.py --source fl_deeds --label "Florida deed auctions (county auction sites)" --state FL --mode scheduled --cadence-hours 12 --status out/harvest_all_status.json --rows out/harvest_all.json --outcome ${{ steps.sync.outcome }}
+
+      - name: Freshness - stamp last_seen_at on rows read this run
+        # Only (county, case number) pairs present in this run's harvest file;
+        # the timestamp is taken after the upsert. Never closes or un-stamps.
+        if: steps.sync.outcome == 'success'
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/stamp_seen.py --state FL --source auction --harvest out/harvest_all.json --case-key case
 
       - name: Sanity check - fresh county coverage
         shell: pwsh
@@ -456,6 +467,7 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: ./scripts/sync-certificates-to-supabase.ps1
 
+
       - name: Record source health
         # Monitoring only (migration 016 + scripts/source_health.py): one row
         # per dataset - last attempt, last success, row count, how many units
@@ -469,6 +481,16 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 scripts/source_health.py --source fl_certificates --label "Florida county-held certificates (LienHub)" --state FL --mode scheduled --cadence-hours 24 --status out/harvest_certificates_status.json --rows out/harvest_certificates.json --outcome ${{ steps.sync.outcome }}
+
+      - name: Freshness - stamp last_seen_at on rows read this run
+        # Only (county, case number) pairs present in this run's harvest file;
+        # the timestamp is taken after the upsert. Never closes or un-stamps.
+        if: steps.sync.outcome == 'success'
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/stamp_seen.py --state FL --source certificate --harvest out/harvest_certificates.json --case-key case_no
 
   laft:
     name: Harvest Lands Available PDFs + sync
