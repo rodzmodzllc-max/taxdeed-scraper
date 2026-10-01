@@ -1647,13 +1647,15 @@ jobs:
       - name: Apply - NAIP aerial imagery (AVAILABLE first; 950 MB budget fails closed)
         if: github.event.inputs.available_mode == 'apply'
         continue-on-error: true
-        timeout-minutes: 100
+        # ~2 s a row (NAIP export + WebP encode + upload + PATCH): 3,000 rows
+        # fit the step budget; a later apply run continues where this stopped.
+        timeout-minutes: 115
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           ENRICH_STATE: LA,TX,FL
-          NAIP_BATCH_LIMIT: '4000'
-          NAIP_PER_COUNTY_LIMIT: '4000'
+          NAIP_BATCH_LIMIT: '3000'
+          NAIP_PER_COUNTY_LIMIT: '3000'
         run: python3 scripts/enrich_property_photos_naip.py
 
       - name: Apply - FEMA flood hazard
