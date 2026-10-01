@@ -189,3 +189,51 @@ layers may overlap.
 - It does not change publication status, auction outcomes, schedules or
   storage policy.
 - It applies no migration.
+
+## 7. What discovery found (runs 36921157970, 36922621158, 2026-10-01)
+
+The discovery covered 34 AVAILABLE units (FL 25 counties, LA 1 parish, TX 8
+counties) in 1,057 + 1,910 read-only requests. No row was written.
+
+### GIS / parcel
+
+| Unit | Source | Deterministic match | Fields | Decision |
+|---|---|---|---|---|
+| LA East Baton Rouge | Tax Parcel, data.brla.gov `ei2c-krsr` (Public Domain; already APPROVED as `la_ebr_tax_parcels`) | 10,157 of 10,334 rows on `assessment_num` | `legal_description` on about 60% of matches | Mapped (fill-blank); written by `job=available` apply |
+| LA East Baton Rouge | Adjudicated Parcel `shrr-fsqq` (Public Domain) | 3,691 rows | same attributes as `ei2c-krsr` | Not needed (subset of `ei2c-krsr`) |
+| LA East Baton Rouge | EBRP Tax Roll `myfc-nh6n` (Public Domain) | not yet measured: identifier `assessment_no` | `structure_use`, `vacant_lot_yn`, `legal_description` | REVIEW_REQUIRED until the probe confirms an exact match and land-use semantics |
+| LA East Baton Rouge | EBRGIS ArcGIS Tax_Parcel (49/50 sample match) | | legal, values | Not used: "Access Constraints: copyright"; the Socrata publication carries the same attributes |
+| TX Jim Wells | Jim Wells CAD web service (BIS) | 11 of 11 rows on `geoID` = `case_no` | legal 11, acreage 9 | Implemented, gated UNREVIEWED (no licence stated) |
+| TX Hardin | Hardin CAD web service | 1 of 9 | | REVIEW_REQUIRED; no crosswalk |
+| TX Liberty | Liberty CAD web service | 0 of 113 | | REVIEW_REQUIRED; no crosswalk |
+| TX Goliad | Goliad CAD web service | layer error | | SOURCE_UNAVAILABLE |
+| TX Leon / Galveston / Maverick / Van Zandt | no county parcel layer with a deterministic key found | | | NO_SOURCE_FOUND (StratMap REVIEW_REQUIRED) |
+
+No Louisiana dataset found publishes acreage. Louisiana acreage stays
+`SOURCE_REVIEW_REQUIRED`: only the copyright-constrained ArcGIS service could
+derive an area, and an area derived from a polygon is not a published acreage.
+
+### Documents
+
+Every official document the inventory names was read.
+
+- The Duval FAQ / request form, the Marion, Pasco and Volusia process pages,
+  the Galveston Sheriff procedures and rules, and the Hardin 2024 resale
+  resolution all extracted with page-numbered contacts and steps.
+- The Leon 2020 notice and the Van Zandt tax-office document were also read;
+  both are dated and carry no current resale process.
+- Duval, Marion, Pasco, Volusia and Galveston already had verified acquisition
+  rows. No new county reached a verified acquisition process:
+  - Hardin's resolution lists the 2024 sheriff resale parcels; 0 of 17
+    identifiers match today's rows.
+  - The Jim Wells county home page carries no process.
+- HTML pages were read as markup in the first run; they are now reduced to
+  visible text.
+
+### Public notices and court records
+
+The statutory notice repositories are catalogued (FloridaPublicNotices.com,
+TexasPublicNotices.com, LouisianaPublicNotice.com), as are the court-record
+classes. All are REVIEW_REQUIRED, with their terms not yet reviewed, and none
+was requested. The coverage matrix reports them as discovered-not-accessed,
+never as "no data".
