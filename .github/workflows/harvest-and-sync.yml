@@ -819,6 +819,23 @@ jobs:
           python3 scripts/unit_freshness.py --status out/harvest_louisiana_status.json --state LA --persist out/.harvest_cache/unit_freshness_la.json --report out/public/unit-freshness-la.json || true
           python3 scripts/publication_gate.py --state LA --report out/public/publication-gate-la.json
 
+      # ---- Texas AVAILABLE acquisition paths (2026-10-01) -------------------
+      # Texas AVAILABLE rows come from the manual-only LGBS harvest, which is
+      # NOT run or retried here. This step makes no request to any source:
+      # it gives each active row its registry listing, its deterministic
+      # match and the VERIFIED county-level acquisition record from
+      # data/purchase_path_evidence.csv (scripts/apply_acquisition_paths.py);
+      # a county without one gets nothing and stays withheld from customers.
+      - name: Texas - acquisition paths from verified county evidence (no source request)
+        if: always()
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          python3 scripts/apply_acquisition_paths.py --state TX --source-id tx_lgbs --report out/public/acquisition-apply-tx.json
+          python3 scripts/publication_gate.py --state TX --report out/public/publication-gate-tx.json
+
   expansion:
     # Six-state expansion (2026-09-30; docs/six-state-expansion.md). The
     # owner-approved county sources of MI, WY, SC, CO and WI

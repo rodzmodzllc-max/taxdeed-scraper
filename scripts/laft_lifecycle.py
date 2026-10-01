@@ -477,7 +477,8 @@ def provenance_payload(row: dict, gate: dict, retrieved_at: str, *, state: str =
             "document_url": document_url,
             "inventory_type": inventory_basis,
             "purchase_amount": ("not published by the source" if amount is None else f"source column/field: {kind}"),
-            "list_as_of": ("stated by the list document/filename" if list_as_of else "not stated by the source"),
+            "list_as_of": ("stated by the list document/filename" if list_as_of
+                           else "not stated in this run's read; a date stored from an earlier read or the sync is kept"),
             "source_published_at": ("HTTP Last-Modified of the source document" if published_at else "no Last-Modified from the source"),
             "purchase_url": purchase_basis,
             "purchase_path_mode": purchase_mode,

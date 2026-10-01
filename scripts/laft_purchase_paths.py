@@ -66,7 +66,10 @@ NON_URL_MODES = frozenset({"in_person_only", "phone_mail", "none", "unknown"})
 # Texas vendors (harvesters/governance/registry.py). A URL is also refused
 # when it is a bare homepage, the list page or the document itself.
 UNTRUSTED_HOST_SUFFIXES = ("google.com", "bing.com", "duckduckgo.com", "yahoo.com", "search.brave.com",
-                           "pbfcm.com", "mvbalaw.com", "govease.com", "ctsa.com")
+                           "pbfcm.com", "mvbalaw.com", "govease.com", "ctsa.com",
+                           # Delinquent-tax counsel publishes the Texas LISTING; it is never the
+                           # official acquisition page (Acquisition-path sprint, 2026-10-01).
+                           "lgbs.com")
 # The kinds the app presents as an action for THIS parcel (app.js
 # PROPERTY_PURCHASE_KINDS / laft_lifecycle.PROPERTY_PURCHASE_KINDS);
 # purchase_instructions and application_form are process pages.

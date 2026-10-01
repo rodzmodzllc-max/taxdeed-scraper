@@ -219,7 +219,9 @@ def test_f03_exports_are_customer_fields_only_per_ledger():
     assert '["Result (per the source)"' in auction and "inventory_status_raw" in auction
     assert 'state.ledger === "laft" ? availableCols : state.ledger === "certificate" ? certificateCols : cols' in APP
     # Withheld inventory never reaches ALL, so it never reaches any export.
-    assert "ALL = ALL.filter(p => { if (isPublishable(p)) return true;" in APP
+    # (The acquisition-path sprint added the row-level acquisition gate to the same filter.)
+    assert "if (!isPublishable(p)) { if (p.source in WITHHELD) WITHHELD[p.source]++; return false; }" in APP
+    assert "const gate = isGone(p) ? [] : acquisitionGate(p);" in APP
 
 
 # ==================== 5. contracts that must not move ====================
@@ -229,7 +231,7 @@ def test_k01_get_properties_contract_and_ledger_isolation_intact():
     assert "result_amount, result_date, result_party\n  from public.properties" in sql
     assert sorted(p.name for p in (REPO / "scripts/migrations").glob("02*.sql"))[-1] == "023_available_commercial_release.sql"   # no new migration this sprint
     domains.assert_isolated()
-    assert (REPO / "public/sw.js").read_text(encoding="utf-8").count('const CACHE = "tdw-shell-v61"') == 1
+    assert (REPO / "public/sw.js").read_text(encoding="utf-8").count('const CACHE = "tdw-shell-v62"') == 1
 
 
 def test_c03_publication_measurement_counts_a_typed_non_url_path_as_a_purchase_path():

@@ -573,3 +573,41 @@ def measure(rows: list[dict]) -> dict:
     c["pct_with_acquisition_path"] = round(100.0 * c["with_acquisition_path"] / c["rows"], 1) if c["rows"] else 0.0
     c["pct_with_source_listing"] = round(100.0 * c["with_source_listing"] / c["rows"], 1) if c["rows"] else 0.0
     return c
+
+
+# ---------------------------------------------------------------------------
+# Row-level publication gate (Acquisition-path sprint, 2026-10-01)
+# ---------------------------------------------------------------------------
+# An AVAILABLE row reaches a customer only when it answers "where does this
+# come from and how do I acquire it" from verified evidence. The frontend's
+# acquisitionGate() in public/app.js applies the same five checks (a test
+# pins the reason keys equal); scripts/publication_gate.py reports them.
+ACQUISITION_GATE_REASONS = {
+    "no_source_listing": "no verified source listing or document",
+    "no_source_match": "no deterministic match to the source listing",
+    "no_acquisition_path": "no verified acquisition path for this county",
+    "no_evidence_page": "no official evidence page for the acquisition process",
+    "no_verified_date": "no last-verified date for the acquisition process",
+}
+
+
+def acquisition_gate(row: dict) -> list[str]:
+    """The ACQUISITION_GATE_REASONS keys an AVAILABLE (source = laft) row
+    fails; [] = publishable. Rows of other ledgers are never gated here."""
+    if row.get("source") != "laft":
+        return []
+    prov = row.get("otc_provenance") if isinstance(row.get("otc_provenance"), dict) else {}
+    out = []
+    if not (row.get("list_url") or row.get("document_url") or prov.get("list_url") or prov.get("document_url")):
+        out.append("no_source_listing")
+    m = prov.get("source_match")
+    if not (isinstance(m, dict) and m.get("value")):
+        out.append("no_source_match")
+    t = row.get("purchase_path_type")
+    if not t or t == "none_published":
+        out.append("no_acquisition_path")
+    if not (prov.get("purchase_evidence_url") or (t in URL_TYPES and row.get("purchase_url"))):
+        out.append("no_evidence_page")
+    if not (row.get("purchase_path_observed_on") or prov.get("purchase_path_observed_on")):
+        out.append("no_verified_date")
+    return out
