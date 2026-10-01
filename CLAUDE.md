@@ -2003,6 +2003,36 @@ Full description: `docs/available-ledger.md` section 13. Stable facts:
   complete / partial / not-yet-verified), truthful CTA labels from
   `acquisitionCta()`. `sw.js` -> `tdw-shell-v62`.
 
+## Customer monitoring (2026-10-01, PR open, migration 024 NOT applied)
+
+Full description: `docs/customer-monitoring.md`. Stable facts:
+- **Paged loading:** `fetchProperties()` pages `get_properties()` per ledger
+  (`p_ledger_type` / `p_limit` / `p_offset`, 1,000 per call). PostgREST's
+  max-rows applies to RPCs; before this, FL and LA were truncated at 1,000
+  rows in the browser. The stub enforces the cap (`?maxrows=N`).
+- **Migration 024** (`024_customer_monitoring_foundation.sql`) is written and
+  live-tested. Applying it to production was declined this sprint.
+  - It adds: change snapshots / events, `source_observation_runs`,
+    `saved_searches`, `alert_preferences`, `user_alerts`, `product_events`,
+    `count_properties()`, and an `id` tie-break in `get_properties()`.
+  - New tables must `revoke all ... from anon, authenticated` before their
+    explicit grants. Supabase's default privileges grant ALL otherwise; the
+    live test caught customers able to write alerts.
+  - Every frontend feature feature-detects these tables (`MONITOR.tables`).
+- **`scripts/detect_property_changes.py`** runs after every sync step. Its
+  first run is a baseline. Leaving a list is `removed`, never a sale. Without
+  024 it keeps snapshots in the job cache and writes no database rows.
+- **`scripts/saved_search_match.py`** and app.js `savedSearchMatches()` are one
+  vocabulary in two implementations. `tests/python/fixtures/saved_search_cases.json`
+  pins both; change them together.
+- **Imagery priority:** Available, then active auctions, then closed auctions.
+  Certificates get none. Deferred rows stay unchecked; the storage budget
+  fails closed.
+- **`scripts/state_launch_check.py`** (`--state XX` / `--all`) is the
+  repository-only READY/BLOCKED launch check; `docs/state-launch-playbook.md`
+  is the procedure.
+- `sw.js` -> `tdw-shell-v63`.
+
 ## Where to look for more
 
 - `claude/improvement-roadmap.md` in the "tax florida app" claude.ai Project — the full dated log of every fix, audit finding, and open decision. This is where new findings should be appended, not here.
