@@ -194,7 +194,7 @@ on:
         required: false
         type: choice
         default: available
-        options: [available, auction_results, state_sources, expansion, field_fill, five_state, five_state_pass2, five_state_pass3, enrich_sources]
+        options: [available, auction_results, state_sources, expansion, field_fill, five_state, five_state_pass2, five_state_pass3, enrich_sources, enrich_sources_2]
 
 concurrency:
   group: harvest-and-sync
@@ -1138,6 +1138,10 @@ jobs:
             # expansion inventory layers and the statewide parcel layers):
             # names, types and filled counts out of a sample, never a value.
             python3 scripts/probe_field_fill.py
+            exit 0
+          fi
+          if [ "$SCOPE" = "enrich_sources_2" ]; then
+            python3 scripts/capture_state_sources.py --enrich-sources-2 --skip-registry
             exit 0
           fi
           if [ "$SCOPE" = "enrich_sources" ]; then

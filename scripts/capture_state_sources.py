@@ -360,6 +360,47 @@ ENRICH_PROBES = {
 ENRICH_ITEMS = {
     "WY": ["fd2106a2896446008f88b42dfbd14f9d", "9b60a7596f5d464c9cd4667efa8abbb5"],
 }
+# Round 2 (2026-10-01): StratMap with its real (lowercase) attribute names,
+# the StratMap program's own data-use statement, and the EBR Socrata
+# datasets' identifier SHAPES through the SODA API (never a value).
+ENRICH2_PAGES = {
+    "TX": ["https://geographic.texas.gov/stratmap/index.html", "https://geographic.texas.gov/stratmap/",
+           "https://txwaterdatahub.org/dataset/stratmap-land-parcels", "https://cdn.tnris.org/documents/tnris-land-parcel-schema.pdf"],
+}
+ENRICH2_PROBES = {
+    "TX": [(STRATMAP + "/0", f"UPPER(county) = '{c.upper()}'", ["prop_id", "geo_id"], ["tax_year", "stat_land_use", "source", "date_acq"])
+           for c in _TX_COUNTIES],
+}
+# (SODA resource, id fields, category fields)
+ENRICH2_SODA = {
+    "LA": [("https://data.brla.gov/resource/myfc-nh6n.json", ["property_number", "legacy_property_number"], ["tax_year", "assessment_type", "assessment_status"]),
+           ("https://data.brla.gov/resource/ei2c-krsr.json", ["property_no", "assessment_no"], ["status", "sale_year"]),
+           ("https://data.brla.gov/resource/a4h4-zi7e.json", ["property_number"], ["tax_year"])],
+}
+
+
+def soda_probe(session: requests.Session, resource: str, id_fields: list[str], cat_fields: list[str]) -> dict:
+    """A Socrata dataset's identifier SHAPES and category counts from a 200-row
+    sample (field names as the SODA API spells them). Never a value."""
+    out = {"url": resource + " (SODA sample)", "kind": "layer_probe"}
+    r, e = fetch(session, resource + "?" + urlencode({"$select": "count(*)"}))
+    try:
+        out["count"] = (r.json() or [{}])[0] if r is not None and r.status_code == 200 else (e or getattr(r, "status_code", None))
+    except ValueError:
+        out["count"] = "not json"
+    r, e = fetch(session, resource + "?" + urlencode({"$limit": 200}))
+    try:
+        rows = r.json() if r is not None and r.status_code == 200 else []
+    except ValueError:
+        rows = []
+    rows = rows if isinstance(rows, list) else []
+    out["sampled"] = len(rows)
+    out["fields_present"] = sorted({k for row in rows[:50] for k in row})[:60]
+    out["id_shapes"] = {n: dict(Counter(shape(str(row.get(n) if row.get(n) is not None else "")) for row in rows).most_common(5)) for n in id_fields}
+    out["value_counts"] = {n: dict(Counter(mask_digits(str(row.get(n)))[:40] if "year" not in n else str(row.get(n)) for row in rows).most_common(10)) for n in cat_fields}
+    return out
+
+
 ENRICH_QUERIES = ('StratMap Land Parcels', 'Wyoming statewide parcels', 'Albany County Wyoming parcels',
                   'Eaton County Michigan parcels', 'Lenawee County parcels', 'York County SC parcels')
 
@@ -611,7 +652,7 @@ def socrata_structure(data: dict) -> dict:
             "provenance": data.get("provenance"), "publicationDate": data.get("publicationDate"),
             "rowsUpdatedAt": data.get("rowsUpdatedAt"), "viewLastModified": data.get("viewLastModified"),
             "custom_fields": meta.get("custom_fields"),
-            "columns": [{"name": c.get("name"), "type": c.get("dataTypeName")} for c in data.get("columns") or []]}
+            "columns": [{"name": c.get("name"), "field": c.get("fieldName"), "type": c.get("dataTypeName")} for c in data.get("columns") or []]}
 
 
 def capture(session: requests.Session, url: str, kind: str, *, process: bool = False) -> dict:
@@ -869,6 +910,7 @@ def main(argv=None) -> int:
     ap.add_argument("--five-state", action="store_true", help="read FIVE_STATE_* candidates (five-state enrichment sprint)")
     ap.add_argument("--five-state-pass2", action="store_true", help="read the FIVE_STATE_PASS2 / PROBES targets")
     ap.add_argument("--five-state-pass3", action="store_true", help="read the FIVE_STATE_PASS3 targets")
+    ap.add_argument("--enrich-sources-2", action="store_true", help="round 2 of the enrichment-source capture")
     ap.add_argument("--enrich-sources", action="store_true", help="read the ENRICH_* parcel / tax-roll candidates (property-enrichment sprint)")
     ap.add_argument("--out", default=str(OUT_PATH))
     args = ap.parse_args(argv)
@@ -988,6 +1030,16 @@ def main(argv=None) -> int:
         passes.append(("pass3", FIVE_STATE_PASS3_PAGES, FIVE_STATE_PASS3_SERVICES, FIVE_STATE_PASS3_PROBES, FIVE_STATE_PASS3_ITEMS))
     if args.enrich_sources:
         passes.append(("enrich", ENRICH_PAGES, ENRICH_SERVICES, ENRICH_PROBES, ENRICH_ITEMS))
+    if args.enrich_sources_2:
+        passes.append(("enrich2", ENRICH2_PAGES, {}, ENRICH2_PROBES, {}))
+        for code, probes in ENRICH2_SODA.items():
+            entry = {"source_id": f"enrich2_soda_{code.lower()}", "county": "(enrich round 2)", "pages": []}
+            for res, ids, cats in probes:
+                page = soda_probe(session, res, ids, cats)
+                print(f"  {code} soda           count={page.get('count')} {res}", flush=True)
+                entry["pages"].append(page)
+                time.sleep(0.8)
+            report["states"].setdefault(code, {"sources": []})["sources"].append(entry)
     for tag, P_PAGES, P_SERVICES, P_PROBES, P_ITEMS in passes:
      for code in sorted(set(P_PAGES) | set(P_SERVICES) | set(P_PROBES) | set(P_ITEMS)):
         if args.state and code not in args.state:
@@ -1095,6 +1147,8 @@ def digest(path: Path) -> str:
                         out.append(f"      id_shapes: {json.dumps(l['id_shapes'])[:1500]}")
                 if pg.get("kind") in ("layer_probe", "table_values"):
                     out.append(f"  count={pg.get('count')} sampled={pg.get('sampled')} id_shapes={json.dumps(pg.get('id_shapes'))[:1200]}")
+                    if pg.get("fields_present"):
+                        out.append(f"  fields_present={pg.get('fields_present')}")
                     out.append(f"  value_counts={json.dumps(pg.get('value_counts'))[:1500]}")
                 if pg.get("kind") == "pdf_process" and pg.get("pages") is not None:
                     out.append(f"  pdf pages={pg.get('pages')}")
