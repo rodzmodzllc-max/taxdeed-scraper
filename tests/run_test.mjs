@@ -3117,6 +3117,25 @@ await navMap.close();
         sourceNamed: /Morgan County Treasurer - County Held Tax Lien Sale Certificates/.test(d)
       };
       await cold.close();
+      // Five-state sprint: a Douglas County lien (CC BY-SA 4.0) names its source WITH the
+      // attribution the licence requires, and shows the county's assignment steps.
+      const dg = await newPage({ viewport: { width: 1200, height: 900 } });
+      await dg.goto(BASE_URL.replace(/index\.html$/, 'co.html') + '#/certificates/pco2', { waitUntil: 'networkidle' });
+      await dg.waitForTimeout(600);
+      const dd = ((await dg.locator('#detailModalInner').textContent()) || '').replace(/\s+/g, ' ');
+      results.xsCoDouglas = {
+        attribution: /Douglas County, Colorado/.test(dd) && /CC BY-SA 4\.0/.test(dd),
+        assignment: /Request for Assignment of County-Held Tax Lien/.test(dd),
+        noStreetView: !/Street View/.test(dd), noUndefined: !/undefined/.test(dd)
+      };
+      await dg.close();
+      // The Colorado Auctions ledger copy says why it is empty instead of showing last year's list.
+      const ca = await newPage({ viewport: { width: 1200, height: 900 } });
+      await ca.goto(BASE_URL.replace(/index\.html$/, 'co.html') + '#/auctions', { waitUntil: 'networkidle' });
+      await ca.waitForTimeout(500);
+      const cb = ((await ca.locator('body').textContent()) || '').replace(/\s+/g, ' ');
+      results.xsCoAuctionCopy = /November 5, 2026/.test(cb) && /CC BY-SA 4\.0/.test(cb);
+      await ca.close();
     }
     await pg.close();
   }
@@ -3722,6 +3741,8 @@ const EXPECTED = {
   xsMiCard: { count: 1, county: true, sev: true, noJustValue: true },
   xsCoCardCount: true,
   xsCoDetail: { treasurer: true, steps: true, noStreetView: true, noUndefined: true, sourceNamed: true },
+  xsCoDouglas: { attribution: true, assignment: true, noStreetView: true, noUndefined: true },
+  xsCoAuctionCopy: true,
   laNoStateTabs: true,
   laCardCount: 1,
   laCardSaysListAsOf: true,
