@@ -576,24 +576,27 @@ def measure(rows: list[dict]) -> dict:
 
 
 # ---------------------------------------------------------------------------
-# Row-level publication gate (Acquisition-path sprint, 2026-10-01)
+# Acquisition-path coverage (Acquisition-path sprint, 2026-10-01)
 # ---------------------------------------------------------------------------
-# An AVAILABLE row reaches a customer only when it answers "where does this
-# come from and how do I acquire it" from verified evidence. The frontend's
-# acquisitionGate() in public/app.js applies the same five checks (a test
-# pins the reason keys equal); scripts/publication_gate.py reports them.
-ACQUISITION_GATE_REASONS = {
-    "no_source_listing": "no verified source listing or document",
-    "no_source_match": "no deterministic match to the source listing",
-    "no_acquisition_path": "no verified acquisition path for this county",
-    "no_evidence_page": "no official evidence page for the acquisition process",
-    "no_verified_date": "no last-verified date for the acquisition process",
+# The acquisition path is ENRICHMENT, never a publication decision: an
+# AVAILABLE row the source establishes as available is published under the
+# existing source rules (publication_status) whether or not its acquisition
+# process has been captured. These are the independently measured parts of
+# the acquisition record - what is still missing for a row, never a reason
+# to withhold it. app.js acquisitionGaps() carries the same keys (a test pins
+# them equal) and renders each missing part as "Not yet verified".
+ACQUISITION_GAP_REASONS = {
+    "no_source_listing": "no source listing or document link on file",
+    "no_source_match": "no deterministic match to the source listing on file",
+    "no_acquisition_path": "acquisition path not yet verified",
+    "no_evidence_page": "no official acquisition evidence page on file",
+    "no_verified_date": "acquisition process last-verified date not on file",
 }
 
 
-def acquisition_gate(row: dict) -> list[str]:
-    """The ACQUISITION_GATE_REASONS keys an AVAILABLE (source = laft) row
-    fails; [] = publishable. Rows of other ledgers are never gated here."""
+def acquisition_gaps(row: dict) -> list[str]:
+    """The ACQUISITION_GAP_REASONS keys an AVAILABLE (source = laft) row is
+    missing; [] = a complete acquisition record. Never used to withhold a row."""
     if row.get("source") != "laft":
         return []
     prov = row.get("otc_provenance") if isinstance(row.get("otc_provenance"), dict) else {}
@@ -611,3 +614,15 @@ def acquisition_gate(row: dict) -> list[str]:
     if not (row.get("purchase_path_observed_on") or prov.get("purchase_path_observed_on")):
         out.append("no_verified_date")
     return out
+
+
+def acquisition_state(row: dict) -> str:
+    """complete | partial | source_only | not_verified - the customer page's
+    three cases plus the row with neither a path nor a source link."""
+    prov = row.get("otc_provenance") if isinstance(row.get("otc_provenance"), dict) else {}
+    t = row.get("purchase_path_type")
+    if t and t != "none_published":
+        return "complete" if complete_record(prov.get("acquisition") or {}, row) else "partial"
+    if row.get("list_url") or row.get("document_url") or prov.get("list_url") or prov.get("document_url"):
+        return "source_only"
+    return "not_verified"

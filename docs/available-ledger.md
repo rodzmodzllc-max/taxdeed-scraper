@@ -508,22 +508,29 @@ county's source was not fully read at the last attempt - the verified
 process stays. "Why is it in Available?" says whether the parcel was
 matched on the official list.
 
-## 13. Acquisition-path gate (2026-10-01)
+## 13. Acquisition paths as enrichment (2026-10-01)
 
-Every AVAILABLE (OTC / LAFT / adjudicated / struck-off) property a customer
-sees answers, from verified evidence: why it is available, which official
-page confirms it, where to purchase or apply, the first action, which office
-handles it, which page proves the process, and when that was last verified.
-A row that cannot answer is withheld - counted with its reason - never shown
-without a way to act on it.
+**Publication and acquisition are separate concerns.** An AVAILABLE (OTC /
+LAFT / adjudicated / struck-off) property that an authoritative source
+establishes as available is published under the existing source rules
+(`publication_status`, section 8) whether or not its acquisition process
+has been captured. The acquisition path is enrichment: shown when verified,
+otherwise "Not yet verified" with the official availability source - never
+a reason to withhold inventory, never an invented process.
 
-### 13.1 The row-level gate
+(An earlier cut of this sprint gated publication on the acquisition record;
+the owner corrected the requirement before it was merged or deployed. No
+production row was ever withheld by it: the withholding lived only in the
+unmerged frontend, and `publication_status` was never changed.)
 
-`purchase_path_engine.acquisition_gate(row)` (mirrored by `acquisitionGate()`
-in `public/app.js`; a test pins the reason keys equal) passes an AVAILABLE
-row only with all five:
+### 13.1 Measured independently
 
-| Reason key | Check |
+`purchase_path_engine.acquisition_gaps(row)` (mirrored by
+`acquisitionGaps()` in `public/app.js`; a test pins the keys equal) lists the
+parts of a row's acquisition record still missing - never consulted by
+`isPublishable()`:
+
+| Key | Part |
 |---|---|
 | `no_source_listing` | `list_url` / `document_url` (row or `otc_provenance`) |
 | `no_source_match` | `otc_provenance.source_match.value` (case number else parcel, the identity the sync upserts) |
@@ -531,11 +538,15 @@ row only with all five:
 | `no_evidence_page` | `otc_provenance.purchase_evidence_url`, or a URL-type path's `purchase_url` |
 | `no_verified_date` | `purchase_path_observed_on` |
 
-The source-level publication gate (section 8) still applies first. The
-frontend counts withheld rows per reason (`WITHHELD_ACQ`) and prints them on
-the Available ledger (`#ledgerWithheldAcq`); `scripts/publication_gate.py`
-reports `acquisition_gate` (rows, publishable, withheld, reasons, withheld by
-county + source) in every laft / LA / TX run's log and evidence file.
+`acquisition_state(row)` is `complete` (a verified path with steps AND a
+published channel), `partial` (a verified path missing some of that),
+`source_only` (no path; the official source link) or `not_verified`.
+`scripts/publication_gate.py` reports `acquisition_coverage` in every laft,
+LA and TX run: verified inventory, published, with / without an acquisition
+path, with a direct acquisition URL, official source only, partial process,
+not yet verified, and the rows still awaiting a path per county. A row
+without a path is published inventory awaiting enrichment, never a
+publication failure.
 
 ### 13.2 Sources without a lifecycle read: `scripts/apply_acquisition_paths.py`
 
@@ -561,7 +572,8 @@ no request to any source:
   never touches `last_seen_at`, status, amounts, owners or outcomes.
 
 A county without a verified evidence row gets the listing and match only;
-the gate withholds it.
+the row stays published and its page says the acquisition path is not yet
+verified.
 
 ### 13.3 Finding the official process: `capture_purchase_evidence.py --candidates`
 
@@ -580,23 +592,30 @@ counsel's site is the Texas LISTING, never the official acquisition page.
 ### 13.4 Customer page: HOW TO ACQUIRE
 
 The first section of every AVAILABLE property page (`acquireBlockHtml()`,
-`data-section="acquire"`):
+`data-section="acquire"`, `data-acq-state`):
 
 - **Why this property is available** - the classified inventory type with
   its basis; for Texas, the listing's own status when stored
   (`tx_sale_status`), otherwise both statuses the harvester files as
-  Available, and a statement that which one applies was not stored; the
+  Available and a statement that which one applies was not stored; the
   identifier match; the listing link named for who publishes it ("View
   official availability" / "View official adjudicated-property list" /
   "View the tax-sale listing (delinquent-tax counsel)").
-- **How to acquire** - one primary action (`acquisitionCta()`), labelled
-  for what it is: "Open county acquisition page", "Start application",
-  "Download application", "View purchase instructions", "Contact county to
-  purchase" (mailto / tel when the evidence publishes an address or number);
-  then Method, Instructions (the published steps), Handled by, Official
-  source (the evidence page), Last verified, Application, and Applies to
-  (a county process is not an approval for the parcel). No score, badge or
-  recommendation.
+- **How to acquire**, in one of three states:
+  1. *complete* - one primary action labelled for what it is ("Open county
+     acquisition page", "Start application", "Download application", "View
+     purchase instructions", "Contact county to purchase" via mailto / tel),
+     then Method, Instructions, Handled by, Official source, Last verified,
+     Application, Applies to;
+  2. *not yet verified* - "Acquisition path: Not yet verified", "Official
+     availability source: Open official source", "See the official source
+     for current instructions.";
+  3. *partial* - the verified portion, "Additional acquisition details: Not
+     yet verified", and the official source.
+
+"Not yet verified" is neutral text (`.acq-pending`), never an error colour:
+the property is still legitimate Available inventory. No score, badge or
+recommendation.
 
 The lifecycle (`laft_lifecycle.provenance_payload`) no longer writes NULL
 `list_as_of` / `source_published_at` when a run's status entry carries no
@@ -615,7 +634,9 @@ Verified and recorded in `data/purchase_path_evidence.csv` (observed
 | FL Highlands | fl_laft_realtdm | quoted_amount | Clerk "Lands Available" | Request the payoff amount ((863) 402-6565, clkbustd@hcclerk.org) |
 | TX Galveston | tx_lgbs | county_instructions | Sheriff's Office "Sheriff Sales Information & Procedures" (PDF) | Tax foreclosure sales and resales are held by the Sheriff online through Real Auction: register, 5% deposit, pay on sale day, Certificate of Eligibility |
 
-Not recorded - the gate withholds these counties' rows:
+Not recorded - these counties' rows stay published with "Acquisition path:
+Not yet verified" and their official availability source, and are retried
+by later captures:
 
 | State / county | Why |
 |---|---|

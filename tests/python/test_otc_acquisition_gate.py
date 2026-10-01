@@ -1,11 +1,13 @@
-"""Acquisition-path sprint (2026-10-01): every customer-published AVAILABLE
-row carries a verified source listing, a deterministic match, a verified
-acquisition path, the official evidence page and its last-verified date -
-or it is withheld with the reason. Texas rows (LGBS, no lifecycle read) get
-their county-level record from scripts/apply_acquisition_paths.py."""
+"""Acquisition-path sprint (2026-10-01): the acquisition path is ENRICHMENT,
+never a publication decision. Publication stays the source decision
+(publication_status); each part of the acquisition record - listing, match,
+path, evidence page, last-verified date - is measured independently and a
+missing part reads "Not yet verified". Texas rows (LGBS, no lifecycle read)
+get their county-level record from scripts/apply_acquisition_paths.py."""
 from __future__ import annotations
 
 import csv
+import json
 import re
 import sys
 from pathlib import Path
@@ -66,17 +68,19 @@ def test_g01_texas_row_inherits_the_county_level_record_with_listing_and_match()
     assert "last successful source read 2026-09-23" in prov["source_match"]["basis"]
     assert prov["purchase_evidence_url"].startswith("https://www.galvestoncountytx.gov/") and prov["acquisition"]["steps"]
     full = dict(_tx(), **payload)
-    assert PE.acquisition_gate(full) == []
+    assert PE.acquisition_gaps(full) == []
 
 
-# 2. A county with no verified evidence gets nothing it could act on - and the gate withholds the row.
-def test_g02_no_verified_evidence_means_no_path_and_the_row_is_withheld():
+# 2. A county with no verified evidence gets its listing and match, no path - and stays published.
+def test_g02_no_verified_evidence_means_no_path_but_the_row_stays_published():
     payload, outcome = A.plan_row(_tx(county="Goliad"), registry={("tx_lgbs", "Goliad"): dict(REG[("tx_lgbs", "Galveston")], county="Goliad")},
                                   evidence=[_ev()], state="TX", today="2026-10-01")
     assert outcome == "no_verified_evidence"
     assert "purchase_path_type" not in payload and "purchase_url" not in payload
     full = dict(_tx(county="Goliad"), **payload)
-    assert PE.acquisition_gate(full) == ["no_acquisition_path", "no_evidence_page", "no_verified_date"]
+    assert PE.acquisition_gaps(full) == ["no_acquisition_path", "no_evidence_page", "no_verified_date"]
+    assert PE.acquisition_state(full) == "source_only"                       # official source link, path not yet verified
+    assert "publication_status" not in payload                                # publication is never touched
 
 
 # 3. An evidence row that is not verified never becomes a path.
@@ -131,21 +135,25 @@ def test_g07_existing_provenance_is_kept_and_no_lifecycle_columns_are_written():
     assert again is None and outcome == "path_unchanged"
 
 
-# 8. The gate's five checks, and the frontend mirrors them exactly.
-def test_g08_gate_checks_and_frontend_parity():
-    assert PE.acquisition_gate(_published()) == []
-    assert PE.acquisition_gate({"source": "auction"}) == []
-    assert PE.acquisition_gate(_published(list_url=None)) == ["no_source_listing"]
-    assert PE.acquisition_gate(_published(otc_provenance={"purchase_evidence_url": "https://e"})) == ["no_source_match"]
-    assert PE.acquisition_gate(_published(purchase_path_type="none_published")) == ["no_acquisition_path"]
-    assert PE.acquisition_gate(_published(purchase_path_observed_on=None)) == ["no_verified_date"]
+# 8. The five independently measured parts, and the frontend mirrors them exactly.
+def test_g08_acquisition_gaps_and_frontend_parity_and_no_withholding():
+    assert PE.acquisition_gaps(_published()) == []
+    assert PE.acquisition_gaps({"source": "auction"}) == []
+    assert PE.acquisition_gaps(_published(list_url=None)) == ["no_source_listing"]
+    assert PE.acquisition_gaps(_published(otc_provenance={"purchase_evidence_url": "https://e"})) == ["no_source_match"]
+    assert PE.acquisition_gaps(_published(purchase_path_type="none_published")) == ["no_acquisition_path"]
+    assert PE.acquisition_gaps(_published(purchase_path_observed_on=None)) == ["no_verified_date"]
     url_row = _published(purchase_path_type="county_instructions", purchase_url="https://clerk.example.gov/how",
                          otc_provenance={"source_match": {"value": "A-1"}})
-    assert PE.acquisition_gate(url_row) == []
-    m = re.search(r"const ACQUISITION_GATE_REASONS = \{(.*?)\n\};", APP, re.S).group(1)
+    assert PE.acquisition_gaps(url_row) == []
+    m = re.search(r"const ACQUISITION_GAP_REASONS = \{(.*?)\n\};", APP, re.S).group(1)
     js = dict(re.findall(r'(\w+): "([^"]+)"', m))
-    assert js == PE.ACQUISITION_GATE_REASONS
-    assert "acquisitionGate(p)" in APP and "WITHHELD_ACQ" in APP and 'id="ledgerWithheldAcq"' in APP
+    assert js == PE.ACQUISITION_GAP_REASONS
+    # Publication is the source decision only: the customer filter never consults the acquisition record.
+    assert "ALL = ALL.filter(p => { if (isPublishable(p)) return true; if (p.source in WITHHELD) WITHHELD[p.source]++; return false; });" in APP
+    assert "acquisitionGap" not in re.search(r"function isPublishable\(p\) \{(.*?)\n\}", APP, re.S).group(1)
+    assert "WITHHELD_ACQ" not in APP and "ledgerWithheldAcq" not in APP and "acquisitionGate" not in APP
+    assert PE.acquisition_state(_published()) == "partial"                   # a path without steps: partial, still a path
 
 
 # 9. Truthful CTA labels only - every label names what the link is.
@@ -157,8 +165,10 @@ def test_g09_cta_labels_are_the_truthful_set():
     avail = re.search(r"function availabilityLink\(p\) \{(.*?)\n\}", APP, re.S).group(1)
     assert "View official availability" in avail and "delinquent-tax counsel" in avail
     block = re.search(r"function acquireBlockHtml\(p\) \{(.*?)\n\}\n", APP, re.S).group(1)
-    for heading in ("Why this property is available", "How to acquire", '"Method"', '"Official source"', '"Last verified"'):
-        assert heading in block
+    for heading in ("Why this property is available", "How to acquire", '"Method"', '"Official source"', '"Last verified"',
+                    '"Acquisition path"', '"Official availability source"', "Open official source", "See the official source for current instructions.",
+                    '"Additional acquisition details"', "Not yet verified"):
+        assert heading in block, heading
     assert not re.search(r"\b(score|badge|recommend|AI)\b", block)
 
 
@@ -171,12 +181,18 @@ def test_g10_lifecycle_never_writes_null_dates():
 
 # --- wiring: report, workflow, candidate capture ---------------------------------------------
 
-def test_g11_publication_gate_reports_withheld_rows_by_county_with_reasons():
-    rows = [_published(county="Bay", source_id="x"), dict(_tx(), purchase_path_type=None), dict(_tx(status="closed"))]
-    rep = G.acquisition_gate_report(rows)
-    assert rep["rows"] == 2 and rep["publishable"] == 1 and rep["withheld"] == 1
-    assert rep["withheld_by_county"] == {"Galveston (tx_lgbs)": {"rows": 1, "reasons": ["no_acquisition_path", "no_evidence_page", "no_source_listing",
-                                                                                       "no_source_match", "no_verified_date"]}}
+def test_g11_coverage_report_separates_inventory_from_acquisition_enrichment():
+    complete = _published(county="Bay", source_id="x", purchase_path_type="county_instructions", purchase_url="https://clerk.example.gov/how",
+                          otc_provenance={"source_match": {"value": "A-1"}, "acquisition": {"steps": ["Apply"], "phone": "1"}})
+    rows = [complete, _published(county="Bay", source_id="x"), dict(_tx(), list_url="https://taxsales.lgbs.com/", publication_status="APPROVED_GRANDFATHERED"),
+            dict(_tx(), publication_status=None), dict(_tx(status="closed"))]
+    rep = G.acquisition_coverage_report(rows)
+    assert {k: rep[k] for k in ("verified_inventory", "published", "with_acquisition_path", "without_acquisition_path",
+                                "with_direct_acquisition_url", "official_source_only", "partial_process", "not_yet_verified")} == \
+        {"verified_inventory": 4, "published": 4, "with_acquisition_path": 2, "without_acquisition_path": 2,
+         "with_direct_acquisition_url": 1, "official_source_only": 1, "partial_process": 1, "not_yet_verified": 2}
+    assert rep["without_path_by_county"] == {"Galveston (tx_lgbs)": 2}
+    assert "withheld" not in json.dumps(rep)
 
 
 def test_g12_texas_step_makes_no_source_request_and_is_never_the_lgbs_harvest():

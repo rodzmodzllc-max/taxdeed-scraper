@@ -425,21 +425,21 @@ function isPublishable(p) {
   const s = p && p.publication_status;
   return !s || s === "APPROVED" || s === "APPROVED_GRANDFATHERED";
 }
-// Acquisition-path sprint (2026-10-01): an AVAILABLE row reaches a customer
-// only when it carries a verified source listing, a deterministic match to
-// it, a verified acquisition path, the official evidence page for that
-// process and its last-verified date. Mirrors scripts/purchase_path_engine.py
-// ACQUISITION_GATE_REASONS / acquisition_gate() (a test pins the keys
-// equal). A row that fails is withheld - counted with its reason on the
-// Available ledger, never shown without a way to act on it.
-const ACQUISITION_GATE_REASONS = {
-  no_source_listing: "no verified source listing or document",
-  no_source_match: "no deterministic match to the source listing",
-  no_acquisition_path: "no verified acquisition path for this county",
-  no_evidence_page: "no official evidence page for the acquisition process",
-  no_verified_date: "no last-verified date for the acquisition process"
+// Acquisition-path sprint (2026-10-01): the acquisition path is ENRICHMENT,
+// never a publication decision. A row the source establishes as Available is
+// published under the source rules above (isPublishable) whether or not its
+// acquisition process has been captured; these are the parts of the
+// acquisition record still missing for it, each shown as "Not yet verified".
+// Mirrors scripts/purchase_path_engine.py ACQUISITION_GAP_REASONS /
+// acquisition_gaps() (a test pins the keys equal).
+const ACQUISITION_GAP_REASONS = {
+  no_source_listing: "no source listing or document link on file",
+  no_source_match: "no deterministic match to the source listing on file",
+  no_acquisition_path: "acquisition path not yet verified",
+  no_evidence_page: "no official acquisition evidence page on file",
+  no_verified_date: "acquisition process last-verified date not on file"
 };
-function acquisitionGate(p) {
+function acquisitionGaps(p) {
   if (!p || p.source !== "laft") return [];
   const op = p.otc_provenance && typeof p.otc_provenance === "object" ? p.otc_provenance : {};
   const out = [];
@@ -452,8 +452,6 @@ function acquisitionGate(p) {
   if (!(p.purchase_path_observed_on || op.purchase_path_observed_on)) out.push("no_verified_date");
   return out;
 }
-// Rows withheld by the acquisition gate: total and per reason.
-let WITHHELD_ACQ = { rows: 0, reasons: {} };
 function daysSince(iso) {
   const t = Date.parse(iso || "");
   return isNaN(t) ? null : Math.floor((Date.now() - t) / 86400000);
@@ -2303,17 +2301,9 @@ async function loadAll() {
   }
   ALL = props.data || [];
   WITHHELD = { auction: 0, laft: 0, certificate: 0 };
-  WITHHELD_ACQ = { rows: 0, reasons: {} };
-  ALL = ALL.filter(p => {
-    if (!isPublishable(p)) { if (p.source in WITHHELD) WITHHELD[p.source]++; return false; }
-    // Closed / gone rows are history, not an offer: the gate applies to
-    // what a customer could act on.
-    const gate = isGone(p) ? [] : acquisitionGate(p);
-    if (!gate.length) return true;
-    WITHHELD_ACQ.rows++;
-    gate.forEach(k => { WITHHELD_ACQ.reasons[k] = (WITHHELD_ACQ.reasons[k] || 0) + 1; });
-    return false;
-  });
+  // Publication is the source decision only - an Available row without a
+  // captured acquisition path is still published (acquisitionGaps()).
+  ALL = ALL.filter(p => { if (isPublishable(p)) return true; if (p.source in WITHHELD) WITHHELD[p.source]++; return false; });
   NOTES = {}; (notes.data || []).forEach(n => { (NOTES[n.property_id] = NOTES[n.property_id] || []).push(n); });
   FAVS = new Set((favs.data || []).map(r => r.property_id));
   HIDDEN = new Set((hid.data || []).map(r => r.property_id));
@@ -3445,8 +3435,11 @@ const TRANSITION_LABELS = {
 // The first thing an Available property page shows: why it is available,
 // and the one action that starts the acquisition, with its method, the
 // county's instructions, the official page that proves the process and when
-// it was last verified. Every label names what the link actually is; a row
-// without a verified path never reaches this block (acquisitionGate()).
+// it was last verified. Every label names what the link actually is. The
+// acquisition path is enrichment: a row whose process is not yet verified is
+// still legitimate Available inventory - the block says "Not yet verified"
+// in neutral text and links the official availability source; nothing is
+// implied about a purchase process the evidence does not establish.
 // Sources whose rows carry no classified inventory type: the stated reason,
 // from the harvester's own status mapping (texas_harvester.LGBS_STATUS_TO_LEDGER).
 const AVAILABLE_WHY_BY_SOURCE = {
@@ -3486,6 +3479,14 @@ function availabilityLink(p) {
   const vendor = p.source_authority === "VENDOR_COUNSEL" || p.source_authority === "VENDOR_AUCTION";
   return { href, label: vendor ? "View the tax-sale listing (delinquent-tax counsel)" : (isDatedList(p) ? "View official adjudicated-property list" : "View official availability") };
 }
+// The three states of the acquisition record (purchase_path_engine.acquisition_state):
+// complete = a verified path with its steps AND a published channel;
+// partial = a verified path missing some of that; none = not yet verified.
+function acquisitionCompleteness(a) {
+  if (!a || !a.verified) return "none";
+  const channel = a.phone || a.email || a.address || a.mailing || a.applicationUrl || a.url;
+  return a.steps.length && channel ? "complete" : "partial";
+}
 function acquireBlockHtml(p) {
   if (p.source !== "laft") return "";
   const a = acquisitionOf(p);
@@ -3498,21 +3499,29 @@ function acquireBlockHtml(p) {
     (why.basis ? `<p class="acq-why-basis">${esc(why.basis)}</p>` : "") +
     (sm && sm.value ? `<p class="acq-why-basis">Matched to the listing by ${esc(String(sm.identifier).replace("_", " "))} ${esc(sm.value)}${sm.read_at ? ` · listing read ${esc(dateOnly(sm.read_at))}` : ""}</p>` : "") +
     (avail ? `<p class="acq-why-link">${ext(avail.href, avail.label + " →", "acq-link")}</p>` : "");
-  if (!a.verified) {
-    return detailSectionHtml("Available / OTC", `<div class="acq-block"><div class="acq-h">Why this property is available</div>${whyHtml}<div class="acq-h">How to acquire</div><p class="muted">Not yet verified - no county page establishing how to acquire this property has been verified.</p></div>`, "acquire-card", "acquire");
-  }
-  const cta = acquisitionCta(a);
+  const state = acquisitionCompleteness(a);
+  const notYet = `<span class="acq-pending">Not yet verified</span>`;
   const rows = [];
-  rows.push(["Method", esc(a.label)]);
-  if (a.steps.length) rows.push(["Instructions", `<ol class="acq-steps">${a.steps.map(st => `<li>${esc(st)}</li>`).join("")}</ol>`]);
-  else if (a.instructions) rows.push(["Instructions", esc(a.instructions)]);
-  if (a.office) rows.push(["Handled by", esc(a.office)]);
-  const officialHref = a.evidenceUrl || a.url;
-  if (officialHref) rows.push(["Official source", ext(officialHref, (a.evidenceTitle || "County process page") + " →", "acq-link")]);
-  rows.push(["Last verified", esc(a.observedOn ? dateOnly(a.observedOn) : "date not recorded")]);
-  if (a.applicationUrl && (!cta || cta.href !== a.applicationUrl)) rows.push(["Application", ext(a.applicationUrl, "Download application →", "acq-link")]);
-  if (a.scope !== "property") rows.push(["Applies to", esc("The county's process for every property on its list - not an approval for this parcel; confirm it is still available before paying.")]);
-  return detailSectionHtml("Available / OTC", `<div class="acq-block">
+  let cta = null;
+  if (state === "none") {
+    // CASE 2: the source establishes availability; the process is not yet verified.
+    rows.push(["Acquisition path", notYet]);
+    if (avail) rows.push(["Official availability source", ext(avail.href, "Open official source →", "acq-link")]);
+    rows.push(["How to acquire", esc(avail ? "See the official source for current instructions." : "Contact the county office named on the listing for current instructions.")]);
+  } else {
+    cta = acquisitionCta(a);
+    rows.push(["Method", esc(a.label)]);
+    if (a.steps.length) rows.push(["Instructions", `<ol class="acq-steps">${a.steps.map(st => `<li>${esc(st)}</li>`).join("")}</ol>`]);
+    else if (a.instructions) rows.push(["Instructions", esc(a.instructions)]);
+    if (a.office) rows.push(["Handled by", esc(a.office)]);
+    if (state === "partial") rows.push(["Additional acquisition details", notYet]);
+    const officialHref = a.evidenceUrl || a.url || (avail && avail.href);
+    if (officialHref) rows.push(["Official source", ext(officialHref, (a.evidenceUrl || a.url ? (a.evidenceTitle || "County process page") : avail.label) + " →", "acq-link")]);
+    rows.push(["Last verified", esc(a.observedOn ? dateOnly(a.observedOn) : "date not recorded")]);
+    if (a.applicationUrl && (!cta || cta.href !== a.applicationUrl)) rows.push(["Application", ext(a.applicationUrl, "Download application →", "acq-link")]);
+    if (a.scope !== "property") rows.push(["Applies to", esc("The county's process for every property on its list - not an approval for this parcel; confirm it is still available before paying.")]);
+  }
+  return detailSectionHtml("Available / OTC", `<div class="acq-block" data-acq-state="${state}">
     <div class="acq-h">Why this property is available</div>${whyHtml}
     <div class="acq-h">How to acquire</div>
     ${cta ? `<p class="acq-cta-row">${ext(cta.href, cta.label, "acq-cta")}${cta.sub ? `<span class="acq-cta-sub">${esc(cta.sub)}</span>` : ""}</p>` : ""}
@@ -5437,7 +5446,6 @@ function section(container, title, sub, rows, kind) {
         <span class="lgd lgd-closed">No longer listed</span>
       </p>
       ${WITHHELD[kind] ? `<p class="ledger-withheld" id="ledgerWithheld">${WITHHELD[kind]} record${WITHHELD[kind] === 1 ? "" : "s"} withheld - source not approved for customer publication (restricted or not yet reviewed). Counted, not shown.</p>` : ""}
-      ${kind === "laft" && WITHHELD_ACQ.rows ? `<p class="ledger-withheld" id="ledgerWithheldAcq">${WITHHELD_ACQ.rows} Available record${WITHHELD_ACQ.rows === 1 ? "" : "s"} withheld - no verified acquisition path yet (${esc(Object.entries(WITHHELD_ACQ.reasons).sort((a, b) => b[1] - a[1]).map(([k, n]) => `${n} ${ACQUISITION_GATE_REASONS[k] || k}`).join("; "))}). A record is shown once the county's own page establishing how to acquire it is verified. Counted, not shown.</p>` : ""}
       ${state.statusView === "archive" ? `<p class="ledger-mode-note" id="archiveModeNote">📁 Past auctions only — sale date already gone. <button class="ledger-mode-exit" id="exitArchiveBtn" type="button">Back to current listings</button></p>` : ""}
     </div>`;
   if (!shown.length) {

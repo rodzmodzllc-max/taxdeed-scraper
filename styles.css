@@ -1666,6 +1666,8 @@ live here are removed with the #pageMap section itself - see the note by
 .acq-dl{display:grid;grid-template-columns:minmax(0,8.5rem) minmax(0,1fr);gap:.25rem .7rem;margin:0;font-size:.8rem}
 .acq-dl dt{color:var(--ink-soft);font-weight:600} .acq-dl dd{margin:0;overflow-wrap:anywhere}
 .acq-dl .acq-steps{margin:0}
+/* "Not yet verified" is an enrichment state, not an error: neutral ink, no warning colour. */
+.acq-pending{color:var(--ink-soft);font-weight:600}
 @media (max-width:480px){ .acq-dl{grid-template-columns:1fr} .acq-dl dd{margin-bottom:.3rem} }
 .dec-first-note{display:block;margin-bottom:.35rem}
 

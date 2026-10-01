@@ -23,8 +23,9 @@ closes that gap WITHOUT a source read:
   * nothing stronger is overwritten: a stored property-scope path is never
     replaced by a source-scope one; existing otc_provenance keys are kept and
     only the path / match keys are added or refreshed; a county without a
-    verified evidence row gets nothing (the customer surface withholds it -
-    purchase_path_engine.acquisition_gate);
+    verified evidence row gets its listing and match only - the row stays
+    published under the source rules and its page says the acquisition path
+    is not yet verified (enrichment, never a publication decision);
   * never last_seen_at, status, amounts, owners or outcomes.
 
     python3 scripts/apply_acquisition_paths.py --state TX --source-id tx_lgbs [--dry-run]

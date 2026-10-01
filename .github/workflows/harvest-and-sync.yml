@@ -825,7 +825,8 @@ jobs:
       # it gives each active row its registry listing, its deterministic
       # match and the VERIFIED county-level acquisition record from
       # data/purchase_path_evidence.csv (scripts/apply_acquisition_paths.py);
-      # a county without one gets nothing and stays withheld from customers.
+      # a county without one keeps its listing + match and stays published (the
+      # acquisition path is enrichment; its page says "Not yet verified").
       - name: Texas - acquisition paths from verified county evidence (no source request)
         if: always()
         continue-on-error: true

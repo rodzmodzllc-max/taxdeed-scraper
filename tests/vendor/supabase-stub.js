@@ -33,10 +33,10 @@ const FIXTURE_PROPERTIES = [
     // Migration 023 projects the purchase-path columns as NULL on a row the
     // engine has not evaluated - the "not yet verified" state the decision
     // page and the provenance card must render honestly (p15 is the typed one).
-    // Acquisition-path sprint (2026-10-01): an AVAILABLE row reaches a
-    // customer only with a verified process (acquisition gate), so p3 carries
-    // a county-level phone/e-mail process from a FIXTURE evidence page. The
-    // untyped "not yet verified" row is p16, which the gate withholds.
+    // Acquisition-path sprint (2026-10-01): p3 carries a verified county-level
+    // phone/e-mail process from a FIXTURE evidence page (the "complete" HOW TO
+    // ACQUIRE state). The acquisition path is enrichment: the not-yet-verified
+    // state is ptx6 (Liberty TX), which stays published.
     purchase_path_type: "phone_mail", purchase_path_scope: "source", purchase_path_observed_on: "2026-09-30",
     purchase_path_evidence: "Clerk's Lands Available page: call or e-mail the Tax Deed department for the current amount (fixture)",
     otc_provenance: { harvester: "fl_laft_pioneer", source_id: "fl_laft_pioneer", list_url: "https://x", retrieved_at: "2026-08-11T06:00:00Z", purchase_path_mode: "phone_mail",
@@ -125,13 +125,6 @@ const FIXTURE_PROPERTIES = [
   // path, the decision page's "how / where / known" answers and the new
   // land-use / coordinates / value filters have one real row each way
   // (p3 stays untyped: "not yet verified"). No published amount on purpose.
-  // Acquisition-path sprint (2026-10-01): an Available row the source lists but
-  // for which no county process has been verified - the acquisition gate
-  // withholds it (counted on the Available ledger with its reasons).
-  { id: "p16", source: "laft", county: "Polk", case_no: "PK-9", parcel: "1616", address: "16 Unverified Way", owner_name: "No Path", bid: 1500, status: "available", lien_level: "unscreened", lien_note: "", prop_type: "Vacant", sale_date: null, homestead: false,
-    inventory_type: "POST_SALE_FIXED_PRICE", source_authority: "GOVERNMENT_PLATFORM", source_id: "fl_laft_realtdm", list_url: "https://polk.example.gov/laft", publication_status: "APPROVED_GRANDFATHERED",
-    purchase_path_type: null, purchase_path_scope: null, purchase_path_evidence: null, purchase_path_observed_on: null, updated_at: "2026-09-20T00:00:00Z",
-    otc_provenance: { source_match: { identifier: "case_no", value: "PK-9", source: "https://polk.example.gov/laft", read_at: "2026-09-20T06:00:00Z" } } },
   { id: "p15", source: "laft", county: "Citrus", case_no: "CI-7", parcel: "1515", address: "15 Manatee Ln", owner_name: "Lee Park", bid: 0, assessed: 25000, market: 26000, value_year: 2025, status: "available", lien_level: "unscreened", lien_note: "", prop_type: "Vacant Lot", sale_date: null, homestead: false, url_auction: "https://x", url_auction_kind: "county", updated_at: "2026-09-20T00:00:00Z",
     latitude: 28.8886, longitude: -82.4520, land_use: "Vacant residential", acreage: 0.3,
     inventory_type: "POST_SALE_FIXED_PRICE", source_authority: "GOVERNMENT_DIRECT", source_id: "fl_laft_html", list_url: "https://x/citrus-list",
@@ -209,13 +202,13 @@ const FIXTURE_PROPERTIES = [
   { id: "ptx5", source: "auction", state: "TX", county: "Atascosa", case_no: "17854", parcel: "20-11-0957-CVA (1)", address: "200 Oak St, Pleasanton, TX", bid: 1200, min_bid: 1200, status: "active", sale_date: futureDate(12), harvester_source: "tx_realauction", updated_at: "2026-09-24T00:00:00Z" },
   { id: "ptx6", source: "laft", state: "TX", county: "Liberty", case_no: "000016000361003", parcel: "21DC-TX-00185", address: "TRACT 3, Liberty, TX", bid: 900, min_bid: 900, status: "active", sale_date: null, harvester_source: "tx_lgbs", tx_sale_status: "Available for Future Sale", updated_at: "2026-09-23T00:00:00Z",
     inventory_type: "FUTURE_RESALE", source_authority: "VENDOR_COUNSEL", source_id: "tx_lgbs", document_url: null, purchase_url: null, purchase_amount: null, purchase_amount_kind: null,
-    // A non-URL county process (phone), so the acquisition gate passes without a purchase_url.
-    list_url: "https://taxsales.lgbs.com/", purchase_path_type: "phone_mail", purchase_path_scope: "source", purchase_path_observed_on: "2026-10-01",
-    purchase_path_evidence: "County Tax Assessor-Collector page: contact the office about resale property (fixture)",
-    otc_provenance: { source_id: "tx_lgbs", list_url: "https://taxsales.lgbs.com/", purchase_evidence_url: "https://www.liberty.example.gov/tax-office", purchase_evidence_title: "Tax Office (fixture)",
-      purchase_path_observed_on: "2026-10-01",
-      source_match: { identifier: "case_no", value: "000016000361003", source: "https://taxsales.lgbs.com/", read_at: "2026-09-23" },
-      acquisition: { mode: "phone", channels: ["phone"], phone: "(936) 555-0102", office: "Tax Assessor-Collector (fixture)", observed_on: "2026-10-01", evidence_url: "https://www.liberty.example.gov/tax-office" } } },
+    // Acquisition-path sprint (2026-10-01): a Texas county with NO verified
+    // acquisition record (Liberty) - exactly what scripts/apply_acquisition_paths.py
+    // writes then: the registry listing and the identity match, no path. Still
+    // published; its page reads "Acquisition path: Not yet verified".
+    list_url: "https://taxsales.lgbs.com/",
+    otc_provenance: { source_id: "tx_lgbs", list_url: "https://taxsales.lgbs.com/",
+      source_match: { identifier: "case_no", value: "000016000361003", source: "https://taxsales.lgbs.com/", read_at: "2026-09-23" } } },
   // 2026-09-30 (state-expansion sprint): a Louisiana row in the shape
   // scripts/sync_state_inventory.py writes - East Baton Rouge's DATED
   // adjudicated-property list (list_as_of = the dataset's own rows-updated

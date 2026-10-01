@@ -219,9 +219,7 @@ def test_f03_exports_are_customer_fields_only_per_ledger():
     assert '["Result (per the source)"' in auction and "inventory_status_raw" in auction
     assert 'state.ledger === "laft" ? availableCols : state.ledger === "certificate" ? certificateCols : cols' in APP
     # Withheld inventory never reaches ALL, so it never reaches any export.
-    # (The acquisition-path sprint added the row-level acquisition gate to the same filter.)
-    assert "if (!isPublishable(p)) { if (p.source in WITHHELD) WITHHELD[p.source]++; return false; }" in APP
-    assert "const gate = isGone(p) ? [] : acquisitionGate(p);" in APP
+    assert "ALL = ALL.filter(p => { if (isPublishable(p)) return true;" in APP
 
 
 # ==================== 5. contracts that must not move ====================

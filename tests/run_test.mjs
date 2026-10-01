@@ -2497,17 +2497,26 @@ await dec3.waitForTimeout(700);
 results.decHistoryMissing = await decA(dec3, 'history');
 await dec3.close();
 
-// Acquisition-path sprint (2026-10-01): the acquisition gate withholds an
-// Available row with no verified process (p16) - counted with its reasons,
-// never rendered - and every shown Available row opens on HOW TO ACQUIRE:
-// why it is available, one truthful primary action, method, instructions,
-// official source and last-verified date.
+// Acquisition-path sprint (2026-10-01): the acquisition path is ENRICHMENT.
+// An Available row with no verified process (ptx6, Liberty TX) is still published and
+// opens on HOW TO ACQUIRE with "Not yet verified" and its official source;
+// a verified row (p3, ptx3) shows one truthful primary action, method,
+// instructions, official source and last-verified date.
 const acqPage = await newPage({ viewport: { width: 1200, height: 900 } });
 await acqPage.goto(BASE_URL + '#/lands', { waitUntil: 'networkidle' });
 await acqPage.waitForTimeout(600);
-results.acqP16Rendered = await acqPage.locator('.prop-card[data-pid="p16"]').count();
-results.acqWithheldLine = ((await acqPage.locator('#ledgerWithheldAcq').textContent()) || '').replace(/\s+/g, ' ').trim();
+results.acqWithheldLineCount = await acqPage.locator('#ledgerWithheldAcq').count();
 await acqPage.close();
+const acqP16 = await newPage({ viewport: { width: 1200, height: 900 } });
+await acqP16.goto(TX_BASE_URL + '#/lands/ptx6', { waitUntil: 'networkidle' });
+await acqP16.waitForTimeout(600);
+const acq16 = acqP16.locator('#detailModalInner .acquire-card');
+results.acqP16State = await acq16.locator('.acq-block').getAttribute('data-acq-state');
+results.acqP16Rows = await acq16.locator('.acq-dl dt').evaluateAll(els => els.map(dt => dt.textContent.trim() + ' | ' + dt.nextElementSibling.textContent.trim()));
+results.acqP16SourceHref = await acq16.locator('.acq-dl dd a').first().getAttribute('href');
+results.acqP16NoCta = await acq16.locator('.acq-cta').count();
+results.acqP16PendingNotError = await acq16.locator('.acq-pending').evaluate(e => !e.closest('.bad, .warn, .err'));
+await acqP16.close();
 // A separate page: a hash-only goto is a same-document navigation and would
 // never run the cold-start deep link (see CLAUDE.md, Phase 58).
 const acqP3 = await newPage({ viewport: { width: 1200, height: 900 } });
@@ -3440,8 +3449,12 @@ await browser.close();
 
 
 const EXPECTED = {
-  acqP16Rendered: 0,
-  acqWithheldLine: "1 Available record withheld - no verified acquisition path yet (1 no verified acquisition path for this county; 1 no official evidence page for the acquisition process; 1 no last-verified date for the acquisition process). A record is shown once the county's own page establishing how to acquire it is verified. Counted, not shown.",
+  acqWithheldLineCount: 0,
+  acqP16State: 'none',
+  acqP16Rows: ['Acquisition path | Not yet verified', 'Official availability source | Open official source →', 'How to acquire | See the official source for current instructions.'],
+  acqP16SourceHref: 'https://taxsales.lgbs.com/',
+  acqP16NoCta: 0,
+  acqP16PendingNotError: true,
   acqP3Heads: ['Why this property is available', 'How to acquire'],
   acqP3Cta: 'Contact county to purchase | mailto:taxdeeds@bayclerk.example.gov',
   acqP3Labels: ['Method', 'Instructions', 'Handled by', 'Official source', 'Last verified', 'Applies to'],
@@ -3878,7 +3891,7 @@ const EXPECTED = {
   navDashNoValueTile: true,
   navDashAttention: ['soon:4 properties · 4 sale dates', 'watched-gone:None', 'stale:1 of 2', 'sources:1 unavailable at the last read · 1 in back-off'],
   navDashRecent: ['auction:First-recorded date not trackedPer-row read date not tracked', 'laft:0 first recorded in the last 7 days0 read from the source in the last 7 days', 'certificate:First-recorded date not trackedPer-row read date not tracked'],
-  navDashPaths: ["verified:2 of 2", "phone_mail:1", "county_instructions:1", "unverified:0"],   // every SHOWN Available row has a verified path (p16 is withheld)
+  navDashPaths: ["verified:2 of 2", "phone_mail:1", "county_instructions:1", "unverified:0"],   // the Florida fixture rows both carry a verified path
   navDashNoScoreWords: true,
   navDashSubtitle: 'Florida: 12 active properties across 3 ledgers in 8 counties.',
   navDashTileOpensList: true,
