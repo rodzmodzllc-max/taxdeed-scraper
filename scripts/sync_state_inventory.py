@@ -37,7 +37,7 @@ REPO = HERE.parent
 sys.path.insert(0, str(REPO))
 from harvesters.governance import states  # noqa: E402
 from harvesters.governance.county_source_registry import RUNNABLE_GOVERNANCE, load_registry  # noqa: E402
-from harvesters.governance.publication import effective_publication  # noqa: E402
+from harvesters.governance.publication import PUBLISHABLE_STATUSES, effective_publication  # noqa: E402
 sys.path.insert(0, str(HERE))
 import field_provenance as FP  # noqa: E402
 
@@ -108,7 +108,7 @@ def plan(state: str, rows: list[dict], registry: dict, status_units: dict[str, s
     stored_provenance = stored_provenance or {}
     if not states.is_activated(state):
         raise ValueError(f"state {state} is not activated: {', '.join(states.activation_blockers(state))}")
-    counts = {"input": len(rows), "upsert": 0, "skipped_unit_not_read": 0, "wrong_state": 0}
+    counts = {"input": len(rows), "upsert": 0, "skipped_unit_not_read": 0, "wrong_state": 0, "withheld_not_publishable": 0}
     out: list[dict] = []
     keys: dict[str, set[str]] = {}
     for r in rows:
@@ -120,6 +120,11 @@ def plan(state: str, rows: list[dict], registry: dict, status_units: dict[str, s
             raise ValueError(f"source {r.get('source_id')!r} is not a production, governance-approved {state} registry row")
         if status_units.get(r.get("county") or "") not in OBSERVED:
             counts["skipped_unit_not_read"] += 1
+            continue
+        if effective_publication(reg) not in PUBLISHABLE_STATUSES:
+            # Implemented and read, but no APPROVED publication decision: not
+            # written at all (not merely hidden in the UI).
+            counts["withheld_not_publishable"] += 1
             continue
         row = dict(r)
         row["publication_status"] = effective_publication(reg)
@@ -259,7 +264,8 @@ def main(argv=None) -> int:
         return 0
     rows = json.loads(path.read_text(encoding="utf-8"))
     url, key = os.environ.get("SUPABASE_URL"), os.environ.get("SUPABASE_SERVICE_KEY")
-    reg = registry_rows(args.state)
+    import source_publication as SP  # noqa: PLC0415 - registry + latest valid admin review
+    reg, _ = SP.registry_with_reviews(args.state) if (url and key and not args.dry_run) else SP.registry_with_reviews(args.state, reviews={})
     stored = {}
     if url and key and not args.dry_run and states.is_activated(args.state):
         stored = stored_provenance(url, key, args.state, {sid for sid, r in reg.items() if r.is_production} or {"-"})
@@ -277,7 +283,9 @@ def main(argv=None) -> int:
     n = upsert(url, key, to_send) if to_send else 0
     print(f"{args.state}: upserted {len(to_send)} row(s) in {n} request(s)")
     if args.close_absent:
-        source_ids = {sid for sid, r in reg.items() if r.is_production}
+        # Only sources this run may publish: a gated source's stored rows are never
+        # 'closed' by another source's read of the same county.
+        source_ids = {sid for sid, r in reg.items() if r.is_production and effective_publication(r) in PUBLISHABLE_STATUSES}
         units = status_units(Path(args.status))
         closes = plan_close(args.state, rows, stored_active(url, key, args.state, source_ids), units, source_ids)
         close_rows(url, key, closes)

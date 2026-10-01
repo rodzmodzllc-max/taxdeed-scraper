@@ -146,3 +146,141 @@ def test_c01_capture_keeps_process_dates_and_masks_identifiers():
     masked = C.process_text("Parcel 261-1176-90-000 opens at $95,000 on October 6, 2026")
     assert "261-1176-90-000" not in masked and "October 6, 2026" in masked
     assert C.process_text("Account R0012345 is listed") == "Account R9999999 is listed"
+
+
+# ==================== 3. the sprint's new sources (synthetic fixtures, live columns) ====================
+
+from harvesters.governance import county_source_registry as csr  # noqa: E402
+from harvesters.governance import publication as pub  # noqa: E402
+from harvesters.otc.adapters import arcgis as AG, expansion as EX  # noqa: E402
+from harvesters.otc.adapters.tabular import TabularListAdapter  # noqa: E402
+import source_publication as SP  # noqa: E402
+
+T = datetime(2026, 10, 1, 12, tzinfo=timezone.utc)
+
+
+def _page(name):
+    return json.loads((FIX / name).read_text())
+
+
+def test_n01_douglas_county_held_liens_are_certificates_with_their_sale_date():
+    res = AG.fetch_all(EX.CO_DOUGLAS_COUNTY_HELD_LIENS, lambda url: _page("co_douglas_liens_page.json"), retrieved_at=T)
+    assert res.outcome == "COMPLETE" and len(res.records) == 2
+    r = res.records[0]
+    assert r.record_source == "certificate" and r.county == "Douglas" and r.certificate_no == r.case_no == "2023-10001"
+    assert r.parcel == "R0000001" and r.tax_year == "2022" and r.issued_date == date(2023, 11, 2)
+    assert r.amount_kind.value == "PUBLISHED_AMOUNT_KIND_UNSPECIFIED"          # a principal balance, never a price
+    row = r.to_properties_row()
+    assert row["source"] == "certificate" and row["issued_date"] == "2023-11-02" and "sale_date" not in row
+    # The county-held filter is server-side AND re-checked: an investor-held lien makes the read untrusted.
+    bad = _page("co_douglas_liens_page.json")
+    bad["features"][1]["attributes"]["type"] = "L"
+    res = AG.fetch_all(EX.CO_DOUGLAS_COUNTY_HELD_LIENS, lambda url: bad, retrieved_at=T)
+    assert res.outcome == "FAILED" and res.records == []
+    assert "type" in AG.query_params(EX.CO_DOUGLAS_COUNTY_HELD_LIENS)["outFields"].split(",")
+    assert AG.query_params(EX.CO_DOUGLAS_COUNTY_HELD_LIENS)["where"] == "type = 'CHL'"
+
+
+def test_n02_douglas_sale_list_cycle_guard_reads_only_the_published_sale_cycle(tmp_path):
+    old = AG.fetch_all(EX.CO_DOUGLAS_TAX_SALE_LIST, lambda url: _page("co_douglas_sale_list_2024.json"), retrieved_at=T)
+    assert old.outcome == "EMPTY" and old.skipped_cycle == 2 and old.records == []     # last year's list is not current inventory
+    new = AG.fetch_all(EX.CO_DOUGLAS_TAX_SALE_LIST, lambda url: _page("co_douglas_sale_list_2025.json"), retrieved_at=T)
+    assert new.outcome == "COMPLETE" and {r.sale_date for r in new.records} == {date(2026, 11, 5)}
+    r = new.records[0]
+    assert r.address is None                         # the layer's Address1 / City are the OWNER's mailing address
+    assert r.owner_name and r.legal_desc and r.amount_kind.value == "PUBLISHED_AMOUNT_KIND_UNSPECIFIED"
+    assert IS.status_for_row({**r.to_properties_row(), "id": "x"}, today=TODAY).status == "upcoming"
+    # Through the runner: an all-past-cycle layer is EMPTY with its own signal.
+    import harvest_expansion as HX2
+    st, recs, _, _, empty = HX2.run_source(EX.ExpansionSource("arcgis", EX.CO_DOUGLAS_TAX_SALE_LIST, EX.CO_DOUGLAS_TAX_SALE_LIST.layer_url),
+                                           None, None, retrieved_at=T, fixture=str(FIX / "co_douglas_sale_list_2024.json"))
+    assert (st, recs, empty) == ("EMPTY", [], "past_cycle")
+
+
+def test_n03_dane_available_and_sold_tables_and_the_rows_own_bid_form():
+    html = (FIX / "wi_dane.html").read_text()
+    avail = TabularListAdapter(EX.WI_DANE_AVAILABLE).parse_html_table(html, retrieved_at=T)
+    assert [r.case_no for r in avail] == ["0000-000-0001-0", "0000-000-0002-0"]
+    assert avail[0].sale_date == date(2026, 10, 6) and avail[0].amount == 12500.0 and avail[0].amount_kind.value == "OPENING_BID"
+    assert avail[0].purchase_url == "https://treasurer.danecounty.gov/TaxDeedAuction/BidForm/1"
+    assert avail[1].purchase_url is None                       # a link to another host is never taken
+    sold = TabularListAdapter(EX.WI_DANE_SOLD).parse_html_table(html, retrieved_at=T)
+    assert len(sold) == 1 and sold[0].amount == 900.0 and sold[0].result_amount == 1500.0
+    row = sold[0].to_properties_row()
+    assert row["status"] == "closed" and row["result_amount"] == 1500.0 and row["inventory_status_raw"] == "SOLD"
+    assert row.get("purchase_url") is None
+    st = IS.status_for_row({**row, "id": "y", "otc_provenance": {"adapter": "tabular"}}, today=TODAY)
+    assert (st.status, st.basis, st.raw) == ("sold", "SOURCE_STATUS", "SOLD")
+
+
+def test_n04_morgan_deed_auctions_and_oconee_placeholder():
+    recs = TabularListAdapter(EX.CO_MORGAN_DEED_AUCTIONS).parse_html_table((FIX / "co_morgan_deed_auctions.html").read_text(), retrieved_at=T)
+    assert [(r.case_no, r.parcel, r.sale_date) for r in recs] == [("2026001", "R000101", date(2026, 11, 4)), ("2025004", "R000102", date(2026, 6, 17))]
+    assert recs[0].record_source == "auction" and recs[0].certificate_no == "2021-00001"
+    a = TabularListAdapter(EX.SC_OCONEE)
+    assert a.parse_html_table((FIX / "sc_oconee.html").read_text(), retrieved_at=T) == [] and a.empty_statement
+    listed = TabularListAdapter(EX.SC_OCONEE).parse_html_table((FIX / "sc_oconee_listed.html").read_text(), retrieved_at=T)
+    assert [(r.case_no, r.amount) for r in listed] == [("000-00-00-001", 1234.56)]
+
+
+def test_n05_albany_superseded_list_reads_not_published_never_listed():
+    page = _page("wy_albany_page.json")
+    res = AG.fetch_all(EX.WY_ALBANY, lambda url: page, retrieved_at=T)
+    row = res.records[0].to_properties_row()
+    assert "2027" in row["otc_provenance"]["list_superseded"]
+    st = IS.status_for_row({**row, "id": "z"}, today=TODAY)
+    assert st.status == "unknown" and "2027" in st.note
+
+
+# ==================== 4. governance: what may be requested and written ====================
+
+def test_g01_publication_decisions_per_source():
+    reg = {r.source_id: r for r in csr.load_registry()}
+    approved = {"co_douglas_county_held_liens", "co_douglas_tax_sale_list"} | set(EX.SIX_STATE_SOURCE_IDS)
+    gated = {"co_morgan_treasurer_deed_auctions", "wi_dane_tax_deed_auction", "sc_oconee_tax_sale_list"}
+    for sid in approved:
+        assert SP.publishable(reg[sid]) and pub.publication_problems(reg[sid]) == [], sid
+    for sid in ("co_douglas_county_held_liens", "co_douglas_tax_sale_list"):
+        assert "Creative Commons Attribution-ShareAlike 4.0" in reg[sid].restrictions
+    for sid in gated:
+        assert pub.effective_publication(reg[sid]) == "UNREVIEWED" and not SP.publishable(reg[sid]), sid
+    assert set(EX.PUBLICATION) == approved | gated
+
+
+def test_g02_unreviewed_sources_make_no_request_and_write_no_row():
+    import harvest_expansion as HX2
+    reg, _ = SP.registry_with_reviews("WI", reviews={})
+    run, gated = HX2.runnable_sources("WI", reg)
+    assert {s.config.source_id for s in run} == {"wi_green_tax_deed_sales"} and gated == [("wi_dane_tax_deed_auction", "UNREVIEWED")]
+    rows = [r.to_properties_row() for r in TabularListAdapter(EX.WI_DANE_AVAILABLE).parse_html_table((FIX / "wi_dane.html").read_text(), retrieved_at=T)]
+    sent, counts = SY.plan("WI", rows, reg, {"Dane": "COMPLETE"})
+    assert sent == [] and counts["withheld_not_publishable"] == 2
+
+
+def test_g03_an_admin_review_turns_a_source_on_and_an_invalid_one_does_not():
+    review = {("WI", "wi_dane_tax_deed_auction"): {"id": 1, "state": "WI", "source_id": "wi_dane_tax_deed_auction",
+                                                    "publication_status": "APPROVED", "restrictions": "owner decision (test)",
+                                                    "decided_at": "2026-10-01T00:00:00Z"}}
+    reg, report = SP.registry_with_reviews("WI", reviews=review)
+    assert SP.publishable(reg["wi_dane_tax_deed_auction"]) and "WI/wi_dane_tax_deed_auction" in report["reviews"]["applied"]
+    # A review that tries to publish a blocked vendor is refused by the same validator publication_gate uses.
+    bad = {("TX", "tx_govease"): {"id": 2, "state": "TX", "source_id": "tx_govease", "publication_status": "APPROVED",
+                                  "restrictions": "", "decided_at": "2026-10-01T00:00:00Z"}}
+    reg_tx, rep_tx = SP.registry_with_reviews("TX", reviews=bad)
+    assert not SP.publishable(reg_tx.get("tx_govease")) and ("TX/tx_govease" in rep_tx["reviews"]["rejected"] or "TX/tx_govease" in rep_tx["reviews"]["unknown_source"])
+
+
+def test_g04_acquisition_evidence_rows_are_verified_and_anchored():
+    import purchase_path_engine as PPE
+    ev = PPE.load_evidence(REPO / "data/purchase_path_evidence_expansion.csv")
+    by = {e.source_id: e for e in ev}
+    for sid in ("mi_eaton_treasurer_sale", "mi_lenawee_tax_sale", "sc_york_tax_sale", "co_douglas_county_held_liens"):
+        e = by[sid]
+        assert e.applicable and PPE.evidence_problems(e) == [] and e.steps and e.evidence_url.startswith("https://"), sid
+    assert by["mi_eaton_treasurer_sale"].address.startswith("Eaton County Governmental Complex")
+    assert "Zeus" not in (by["mi_lenawee_tax_sale"].url or "") and "lenawee.mi.us" in by["mi_lenawee_tax_sale"].url
+    # A per-parcel bid form keeps its property scope and inherits the source's verified steps.
+    row = {"purchase_url": "https://treasurer.danecounty.gov/TaxDeedAuction/BidForm/1", "purchase_url_kind": "bid_form", "status": "active"}
+    path, _ = PPE.resolve(row, state="WI", source_id="wi_dane_tax_deed_auction", county="Dane", registry_row=None, evidence=ev,
+                          list_url="https://treasurer.danecounty.gov/taxdeedauction", harvest_date="2026-10-01")
+    assert path and path.scope == "property" and path.url.endswith("/BidForm/1") and path.steps and path.email == "treasurer@danecounty.gov"

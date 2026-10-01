@@ -415,21 +415,29 @@ def expansion_rows() -> list[dict]:
             ev = EXPANSION_EVIDENCE[state]
             ledger = {"auction": AUCTIONS, "certificate": LIENS, "laft": AVAILABLE}[cfg.record_source]
             arcgis = src.kind == "arcgis"
+            publication, restrictions = EX.PUBLICATION[cfg.source_id]
+            # The six PR #57 sources were read in the expansion passes; the
+            # five-state sprint's sources in its own three passes.
+            new = cfg.source_id not in EX.SIX_STATE_SOURCE_IDS
+            runs = EX.FIVE_STATE_EVIDENCE_RUNS if new else EX.EVIDENCE_RUNS
+            decision = (("LICENCE STATED BY THE SOURCE (quoted in restrictions)" if publication == "APPROVED"
+                         else "NO PUBLICATION DECISION YET (UNREVIEWED)") if new else "OWNER PUBLICATION DECISION 2026-09-30")
             rows.append(_row(
                 state=state, county=cfg.county, source_id=cfg.source_id, harvester=f"harvest_expansion.py --state {state}",
                 inventory_type="", source_authority=cfg.source_authority.value,
                 canonical_url=cfg.list_url, document_url=cfg.layer_url if arcgis else "", purchase_url="", purchase_url_kind="",
                 access_method="JSON_ENDPOINT" if arcgis else "HTTP_GET_HTML", machine_format="JSON" if arcgis else "HTML_TABLE",
                 verification_status="PRODUCTION_VERIFIED", governance_status="APPROVED",
-                last_checked="2026-09-30", completeness_status="UNKNOWN",
-                evidence_ref=f"LIVE CAPTURE 2026-09-30 (GitHub Actions runs {', '.join(EX.EVIDENCE_RUNS)}): {ev['source_of_record_identified']}; "
-                             f"OWNER PUBLICATION DECISION 2026-09-30; docs/six-state-expansion.md",
+                last_checked="2026-10-01" if new else "2026-09-30", completeness_status="UNKNOWN",
+                evidence_ref=(f"LIVE CAPTURE {'2026-10-01' if new else '2026-09-30'} (GitHub Actions runs {', '.join(runs)}): "
+                              + (f"{cfg.county} County - {cfg.source_id}; " if new else f"{ev['source_of_record_identified']}; ")
+                              + f"{decision}; docs/{'five-state-enrichment' if new else 'six-state-expansion'}.md"),
                 notes=cfg.notes, publishing_unit="COUNTY", publishing_unit_name=f"{cfg.county} County",
                 amount_kind=cfg.amount_kind.value, update_frequency="not published by the source (read on each run)",
-                source_terminology=ev["inventory_semantics_established"], ledgers=ledger,
-                publication_status="APPROVED",
-                restrictions="No explicit reuse licence is published by the source; approved for publication by the owner on 2026-09-30. "
-                             "Show only what the source publishes; no inferred results.",
+                source_terminology=ev["inventory_semantics_established"] if not new else {
+                    "auction": "parcels on the county's published tax / tax-deed sale list (AUCTIONS)",
+                    "certificate": "county-held tax lien certificates (LIENS & CERTIFICATES)"}[cfg.record_source],
+                ledgers=ledger, publication_status=publication, restrictions=restrictions,
             ))
     return rows
 

@@ -80,6 +80,10 @@ class ArcGisFieldMap:
     sold_flag: str | None = None         # the layer's own "has been sold" flag attribute, when it publishes one
     land_value: str | None = None
     improvement_value: str | None = None
+    # Five-state sprint: a certificate's own number and its sale / purchase
+    # date (LIENS & CERTIFICATES layers).
+    certificate_no: str | None = None
+    issued_date: str | None = None
 
     def named(self) -> dict[str, str]:
         return {k: v for k, v in vars(self).items() if v}
@@ -111,6 +115,24 @@ class ArcGisLayerConfig:
     # when it publishes no coordinate attributes: the area-weighted centroid of
     # the feature's geometry (WGS84), recorded as derived in the provenance.
     centroid: bool = False
+    # Five-state sprint. A pre-sale list that carries the sale CYCLE on each
+    # row (e.g. Douglas County CO's Tax_Year): `cycles` maps a cycle value
+    # to the sale date the county itself publishes for it (its own page,
+    # cited in `notes`). A row of any other cycle is from a sale that is
+    # over or not yet announced and is NOT read as current inventory; a
+    # layer whose every row is outside the published cycles is EMPTY
+    # ("past_cycle"), never stale rows presented as upcoming.
+    cycle_field: str | None = None
+    cycles: tuple[tuple[str, str], ...] = ()
+    # The county has since published a LATER sale for this list (Albany WY:
+    # the 2026 list after the page moved on to the 2027 sale). Kept on every
+    # row's provenance; the inventory status is then 'unknown' (the sale is
+    # over and no result is published), never 'listed'.
+    superseded: str | None = None
+    # Attribute values every returned feature MUST carry (re-checked locally
+    # after the server-side `where`): a feature without them means the
+    # server ignored the filter, so the read is untrusted (FAILED).
+    require: tuple[tuple[str, str], ...] = ()
 
     def __post_init__(self) -> None:
         if not LAYER_URL_RE.match(self.layer_url):
@@ -136,6 +158,7 @@ class PageResult:
     exceeded_transfer_limit: bool
     feature_count: int
     object_id_field: str | None
+    skipped_cycle: int = 0
 
 
 @dataclass
@@ -145,16 +168,25 @@ class ArcGisResult:
     pages: int = 0
     error_category: str | None = None
     error_detail: str | None = None
+    skipped_cycle: int = 0                     # rows of a sale cycle the county has published no date for
 
     @property
     def ok(self) -> bool:
         return self.outcome in ("COMPLETE", "EMPTY")
 
 
+def _cycle_dates(cfg) -> dict:
+    from datetime import date as _d  # noqa: PLC0415
+    return {str(k): _d.fromisoformat(v) for k, v in cfg.cycles}
+
+
 def _out_fields(cfg: ArcGisLayerConfig) -> list[str]:
     names = list(cfg.fields.named().values())
     if cfg.county_field:
         names.append(cfg.county_field)
+    if cfg.cycle_field:
+        names.append(cfg.cycle_field)
+    names.extend(f for f, _ in cfg.require)
     seen: list[str] = []
     for n in names:
         if n not in seen:
@@ -243,6 +275,26 @@ def _coords(attrs: dict, fm: ArcGisFieldMap) -> dict:
     return {}
 
 
+def _date_value(value: Any):
+    """A layer date: epoch milliseconds (esriFieldTypeDate) or an ISO /
+    m/d/Y string; anything else is not a date."""
+    from datetime import date as _d, datetime as _dt, timezone as _tz  # noqa: PLC0415
+    if value is None or isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        try:
+            return _dt.fromtimestamp(value / 1000, tz=_tz.utc).date()
+        except (OverflowError, OSError, ValueError):
+            return None
+    text = str(value).strip()[:10]
+    for fmt in ("%Y-%m-%d", "%m/%d/%Y"):
+        try:
+            return _dt.strptime(text, fmt).date()
+        except ValueError:
+            continue
+    return None
+
+
 def _geometry_centroid(geometry: Any) -> dict:
     """lat/lng from a feature's own WGS84 geometry: a point's x/y, or the
     area-weighted centroid of a polygon's rings. Nothing when absent."""
@@ -281,10 +333,14 @@ def parse_page(cfg: ArcGisLayerConfig, payload: Any, *, retrieved_at: datetime, 
     object_id_field = _text(payload.get("objectIdFieldName"))
     fm = cfg.fields
     records: list[OtcRecord] = []
+    skipped_cycle = 0
     for i, feat in enumerate(features):
         attrs = feat.get("attributes") if isinstance(feat, dict) else None
         if not isinstance(attrs, dict):
             raise ArcGisError("PARSE_FORMAT_CHANGE", f"feature {offset + i} has no attributes object")
+        for f, v in cfg.require:
+            if _text(attrs.get(f)) != v:
+                raise ArcGisError("PARSE_FORMAT_CHANGE", f"feature {offset + i} lacks {f}={v!r}: the server did not apply the filter")
         case_no = _text(attrs.get(fm.case_no))
         if case_no is None:
             # The identifier IS the identity. A feature without one cannot
@@ -298,6 +354,13 @@ def parse_page(cfg: ArcGisLayerConfig, payload: Any, *, retrieved_at: datetime, 
                 raise ArcGisError("PARSE_FORMAT_CHANGE", f"feature {offset + i} has no {cfg.county_field!r} value")
         amount = _amount(attrs.get(fm.amount)) if fm.amount else None
         kind = cfg.amount_kind if amount is not None else AmountKind.NOT_PUBLISHED
+        sale_date = None
+        if cfg.cycle_field:
+            cycle = _text(attrs.get(cfg.cycle_field))
+            sale_date = _cycle_dates(cfg).get(cycle or "")
+            if sale_date is None:
+                skipped_cycle += 1
+                continue
         if amount is not None and kind is AmountKind.NOT_PUBLISHED:
             # A configured layer that names an amount attribute must say
             # what it is; an unlabelled figure is not silently kept.
@@ -313,6 +376,11 @@ def parse_page(cfg: ArcGisLayerConfig, payload: Any, *, retrieved_at: datetime, 
             "attributes": present,
             "amount": (f"attribute {fm.amount!r} = {kind.value}" if amount is not None else "no amount attribute value"),
         }
+        if sale_date is not None:
+            prov["sale_date"] = f"the county's published sale date for {cfg.cycle_field} {attrs.get(cfg.cycle_field)}"
+        if cfg.superseded:
+            prov["list_superseded"] = cfg.superseded
+        issued = _date_value(attrs.get(fm.issued_date)) if fm.issued_date else None
         coords = _coords(attrs, fm)
         if not coords and cfg.centroid:
             coords = _geometry_centroid(feat.get("geometry"))
@@ -339,12 +407,15 @@ def parse_page(cfg: ArcGisLayerConfig, payload: Any, *, retrieved_at: datetime, 
             tax_year=_text(attrs.get(fm.tax_year)) if fm.tax_year else None,
             land_value=_positive(attrs.get(fm.land_value)) if fm.land_value else None,
             improvement_value=_positive(attrs.get(fm.improvement_value)) if fm.improvement_value else None,
+            certificate_no=_text(attrs.get(fm.certificate_no)) if fm.certificate_no else None,
+            issued_date=issued if cfg.record_source == "certificate" else None,
+            sale_date=sale_date if cfg.record_source == "auction" else None,
             **coords,
             **({"source_status_text": _text(attrs.get(fm.status))} if fm.status and not _sold(attrs, fm) else {}),
             **_sold(attrs, fm),
         ))
     return PageResult(records=records, exceeded_transfer_limit=bool(payload.get("exceededTransferLimit")),
-                      feature_count=len(features), object_id_field=object_id_field)
+                      feature_count=len(features), object_id_field=object_id_field, skipped_cycle=skipped_cycle)
 
 
 def fetch_all(cfg: ArcGisLayerConfig, fetch_json: Callable[[str], Any], *, retrieved_at: datetime) -> ArcGisResult:
@@ -354,6 +425,7 @@ def fetch_all(cfg: ArcGisLayerConfig, fetch_json: Callable[[str], Any], *, retri
     records: list[OtcRecord] = []
     offset = 0
     pages = 0
+    skipped_cycle = 0
     while True:
         if pages >= cfg.max_pages:
             return ArcGisResult("FAILED", pages=pages, error_category="PARSE_TRUNCATED",
@@ -369,6 +441,7 @@ def fetch_all(cfg: ArcGisLayerConfig, fetch_json: Callable[[str], Any], *, retri
             return ArcGisResult("FAILED", pages=pages, error_category=exc.category, error_detail=exc.detail)
         pages += 1
         records.extend(page.records)
+        skipped_cycle += page.skipped_cycle
         if not page.exceeded_transfer_limit or page.feature_count == 0:
             break
         offset += page.feature_count
@@ -379,4 +452,6 @@ def fetch_all(cfg: ArcGisLayerConfig, fetch_json: Callable[[str], Any], *, retri
             return ArcGisResult("FAILED", pages=pages, error_category="PARSE_FORMAT_CHANGE",
                                 error_detail=f"identifier {r.case_no!r} in {r.county} appeared twice across pages - paging is not stable")
         seen.add(key)
-    return ArcGisResult("COMPLETE" if records else "EMPTY", records=records, pages=pages)
+    result = ArcGisResult("COMPLETE" if records else "EMPTY", records=records, pages=pages)
+    result.skipped_cycle = skipped_cycle
+    return result

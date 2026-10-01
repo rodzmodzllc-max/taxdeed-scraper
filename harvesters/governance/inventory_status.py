@@ -225,6 +225,8 @@ def adapter_record_status(row: dict, *, today: date) -> StatusObservation | None
             return StatusObservation("sold", "SOURCE_STATUS", raw="Previous Sales: Sale Price",
                                      note="listed in the county's own past-sales table with a published sale price")
         return StatusObservation("closed", "LIST_PRESENCE", note="no longer on the county's sale list; the result is not published there")
+    if prov.get("list_superseded"):
+        return StatusObservation("unknown", "SCHEDULED_DATE", note=str(prov["list_superseded"])[:300])
     sale = _date_of(row.get("sale_date"))
     if sale is None:
         return StatusObservation("active", "LIST_PRESENCE", note="on the county's current sale list; no sale date published on the list")

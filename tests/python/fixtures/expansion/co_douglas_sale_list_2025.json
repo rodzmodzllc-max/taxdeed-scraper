@@ -1,0 +1,30 @@
+{
+ "objectIdFieldName": "OBJECTID",
+ "features": [
+  {
+   "attributes": {
+    "OBJECTID": 1,
+    "Account_No": "R0000101",
+    "Owner_Name": "SYNTHETIC OWNER A",
+    "Property_Description": "SYNTHETIC LOT 1 BLK 2",
+    "Total_Due": 555.25,
+    "Tax_Year": 2025,
+    "Address1": "PO BOX 1 (OWNER MAILING)",
+    "City": "SYNTHETIC"
+   }
+  },
+  {
+   "attributes": {
+    "OBJECTID": 2,
+    "Account_No": "R0000102",
+    "Owner_Name": "SYNTHETIC OWNER B",
+    "Property_Description": "SYNTHETIC TRACT 9",
+    "Total_Due": 1200.0,
+    "Tax_Year": 2025,
+    "Address1": "9 MAILING ST",
+    "City": "SYNTHETIC"
+   }
+  }
+ ],
+ "exceededTransferLimit": false
+}

@@ -479,12 +479,24 @@ def resolve(row: dict, *, state: str, source_id: str, county: str, registry_row=
     reg = _registry_fields(registry_row)
     canonical = reg.get("canonical_url") or None
     reasons: list[str] = []
-    for fn in (lambda: from_row_link(row, canonical_url=canonical, list_url=list_url, document_url=document_url, harvest_date=harvest_date),
-               lambda: from_evidence_table(evidence or [], state=state, source_id=source_id, county=county, canonical_url=canonical,
-                                           list_url=list_url, document_url=document_url),
-               lambda: from_registry(reg, list_url=list_url, document_url=document_url, harvest_date=harvest_date)):
+    for i, fn in enumerate((lambda: from_row_link(row, canonical_url=canonical, list_url=list_url, document_url=document_url, harvest_date=harvest_date),
+                            lambda: from_evidence_table(evidence or [], state=state, source_id=source_id, county=county, canonical_url=canonical,
+                                                        list_url=list_url, document_url=document_url),
+                            lambda: from_registry(reg, list_url=list_url, document_url=document_url, harvest_date=harvest_date))):
         path, reason = fn()
         if path:
+            if i == 0:
+                # A row's own verified link (e.g. a per-parcel bid form) keeps its
+                # property scope and URL, and takes the source's VERIFIED process
+                # record (steps, office, contacts) from the evidence table - so the
+                # customer sees how to use the link, not just the link.
+                src, _ = from_evidence_table(evidence or [], state=state, source_id=source_id, county=county, canonical_url=canonical,
+                                             list_url=list_url, document_url=document_url)
+                if src is not None:
+                    from dataclasses import replace  # noqa: PLC0415
+                    path = replace(path, **{k: getattr(src, k) for k in ("evidence_url", "evidence_type", "source_title", "instructions",
+                                                                         "office", "address", "phone", "email", "mailing_address",
+                                                                         "steps", "payment")})
             return path, reasons
         if reason:
             reasons.append(reason)

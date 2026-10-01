@@ -1,0 +1,28 @@
+{
+ "objectIdFieldName": "OBJECTID",
+ "features": [
+  {
+   "attributes": {
+    "OBJECTID": 1,
+    "lien_id": "2023-10001",
+    "account_id": "R0000001",
+    "lien_balance": 1234.56,
+    "lien_year": "2022",
+    "sale_or_purchase_date": "2023-11-02",
+    "type": "CHL"
+   }
+  },
+  {
+   "attributes": {
+    "OBJECTID": 2,
+    "lien_id": "2024-20002",
+    "account_id": "R0000002",
+    "lien_balance": 87.0,
+    "lien_year": "2023",
+    "sale_or_purchase_date": "2024-11-07",
+    "type": "CHL"
+   }
+  }
+ ],
+ "exceededTransferLimit": false
+}

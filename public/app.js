@@ -608,23 +608,23 @@ const EXPANSION_LEDGER_COPY = {
   "auction": {
     "MI": {
       "sub": "Parcels offered at the county treasurer's foreclosure / tax sale, from each county's own published list (Eaton, Lenawee).",
-      "how": "You bid at the county's sale. The figure shown is the minimum bid the county publishes, not the final price. Eaton marks parcels with its own 'Has Been Sold' flag; a flagged parcel is shown as closed - no price or buyer is published or shown.",
+      "how": "You bid at the county's sale. The figure shown is the minimum bid the county publishes, not the final price. Eaton marks parcels with its own 'Has Been Sold' flag; a flagged parcel is shown as sold per the county - no price or buyer is published or shown. Eaton holds its last 2026 auction in person (see a parcel's acquisition steps); Lenawee runs its sale online through a vendor site the county names (not linked here).",
       "empty": "No Michigan sale parcels match. Michigan coverage is Eaton and Lenawee counties' published tax-sale lists."
     },
     "WY": {
-      "sub": "Parcels on Albany County's published tax sale list. Wyoming's tax sale sells a tax lien certificate on each parcel, not the land.",
-      "how": "You bid at the county treasurer's tax sale. The amount shown is the list's own 'Total' column as published - the county does not label what it includes.",
+      "sub": "Parcels on Albany County's published 2026 tax sale list. Wyoming's tax sale sells a tax lien certificate on each parcel, not the land.",
+      "how": "The 2026 sale on this list is over: the county's own pages now name the next sale (August 13, 2027) and publish no result for 2026, so each parcel's status reads 'Not published'. The amount shown is the list's own 'Total' column as published - the county does not label what it includes.",
       "empty": "No Wyoming sale parcels match. Wyoming coverage is Albany County's published tax sale list."
     },
     "SC": {
       "sub": "Parcels on York County's published tax sale list.",
-      "how": "You bid at the county's tax sale. York publishes no opening bid on this list, so none is shown.",
+      "how": "You bid in person at the county's tax sale. York's fact sheet says the opening bid is all delinquent taxes, penalties and cost plus the current year's taxes, paid in full on the day; the list itself publishes no amount, so none is shown.",
       "empty": "No South Carolina sale parcels match. South Carolina coverage is York County's published tax sale list."
     },
     "CO": {
-      "sub": "No Colorado auction source is tracked.",
-      "how": "Colorado auction inventory is not harvested by this app.",
-      "empty": "No Colorado auction records are tracked. Colorado coverage is Morgan County's county-held tax lien sale certificates (see Liens & Certificates)."
+      "sub": "Accounts on Douglas County's advertised tax lien sale list, read only for the sale cycle the county has dated (the 2026 sale: November 5, 2026). Data: Douglas County, Colorado (CC BY-SA 4.0).",
+      "how": "Colorado's tax lien sale sells a lien on each account, not the land. The county runs the sale online through a vendor site it names (not linked here). The amount shown is the list's own 'Total Due' as published.",
+      "empty": "No Colorado sale accounts match. Douglas County's advertised list for the 2026 sale is posted in October; until then this ledger is empty rather than showing last year's list."
     },
     "WI": {
       "sub": "Tax deeded property Green County offers by sealed bid, from the county's own sale page: current sales, and previous sales with the sale price the county published.",
@@ -681,9 +681,9 @@ const EXPANSION_LEDGER_COPY = {
       "empty": "No Wisconsin certificate records are tracked. Wisconsin coverage is Green County's tax deed sale page (see Auctions)."
     },
     "CO": {
-      "sub": "Tax lien sale certificates Morgan County holds and offers for purchase, from the Treasurer's own list. A certificate is a lien on the property, not the property.",
-      "how": "Buy the certificate from the Morgan County Treasurer for the amount shown; the amount is good to the date in the list's own header. You are buying the lien, not the land.",
-      "empty": "No Morgan County certificates match. Colorado coverage is Morgan County's county-held certificate list."
+      "sub": "Tax liens the county itself holds and offers by assignment - Morgan County's certificate list and Douglas County's county-held liens (Douglas data: Douglas County, Colorado, CC BY-SA 4.0). A certificate is a lien on the property, not the property.",
+      "how": "Morgan: buy from the Treasurer for the amount shown (good to the date in the list's header). Douglas: request an assignment on the county's form; the figure shown is the lien's unpaid principal balance as published - call the Treasurer for the payoff. You are buying the lien, not the land.",
+      "empty": "No Colorado county-held certificates match. Colorado coverage is Morgan County's certificate list and Douglas County's county-held liens."
     }
   }
 };
@@ -1656,7 +1656,13 @@ const HARVESTER_SOURCE_NAMES = {
   wy_albany_tax_sale: "Albany County Treasurer - 2026 tax sale list (ArcGIS layer)",
   sc_york_tax_sale: "York County - Tax Sale Properties (ArcGIS layer)",
   co_morgan_county_held_certificates: "Morgan County Treasurer - County Held Tax Lien Sale Certificates",
-  wi_green_tax_deed_sales: "Green County - Current Tax Deed Sales page"
+  wi_green_tax_deed_sales: "Green County - Current Tax Deed Sales page",
+  // Five-state sprint (2026-10-01). Douglas data is CC BY-SA 4.0: the label carries the attribution the licence requires.
+  co_douglas_county_held_liens: "Douglas County, Colorado - Tax Liens open data (county-held liens; CC BY-SA 4.0)",
+  co_douglas_tax_sale_list: "Douglas County, Colorado - Tax Sale List open data (CC BY-SA 4.0)",
+  co_morgan_treasurer_deed_auctions: "Morgan County Treasurer - Treasurer's Deed Option Auctions",
+  wi_dane_tax_deed_auction: "Dane County Treasurer - Tax Deed Auction",
+  sc_oconee_tax_sale_list: "Oconee County - Delinquent Tax Sale List"
 };
 function harvesterSourceLabel(p) {
   if (!p || !p.harvester_source) return null;
@@ -6933,7 +6939,9 @@ const SOURCE_ID_LEDGERS = {
   tx_realauction: ["auction"], tx_lgbs: ["auction", "laft"], tx_hctax: ["laft"],
   al_ador_state_land: ["laft"], ar_cosl_post_auction: ["laft"], la_ebr_adjudicated: ["laft"], az_maricopa_state_cp: ["certificate"],
   mi_eaton_treasurer_sale: ["auction"], mi_lenawee_tax_sale: ["auction"], wy_albany_tax_sale: ["auction"], sc_york_tax_sale: ["auction"],
-  co_morgan_county_held_certificates: ["certificate"], wi_green_tax_deed_sales: ["auction"]
+  co_morgan_county_held_certificates: ["certificate"], wi_green_tax_deed_sales: ["auction"],
+  co_douglas_county_held_liens: ["certificate"], co_douglas_tax_sale_list: ["auction"], co_morgan_treasurer_deed_auctions: ["auction"],
+  wi_dane_tax_deed_auction: ["auction"], sc_oconee_tax_sale_list: ["auction"]
 };
 function unitLedgerKeys(u) {
   if (u && u.ledgers) {
