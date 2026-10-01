@@ -1289,8 +1289,9 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
           ENRICH_STATE: ${{ github.event.inputs.enrich_states }}
-          FLOOD_BATCH_LIMIT: '4000'
-          FLOOD_PER_COUNTY_LIMIT: '1000'
+          # ~0.75 s a point (FEMA query + 0.25 s pause): 9,000 fits the 150-minute budget.
+          FLOOD_BATCH_LIMIT: '9000'
+          FLOOD_PER_COUNTY_LIMIT: '9000'
         run: python3 scripts/enrich_flood_zone.py
 
       - name: NAIP aerial imagery backfill
