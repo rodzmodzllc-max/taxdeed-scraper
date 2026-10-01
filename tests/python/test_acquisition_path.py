@@ -21,7 +21,7 @@ import purchase_path_engine as PE  # noqa: E402
 
 APP = (REPO / "public/app.js").read_text(encoding="utf-8")
 EVIDENCE = PE.load_evidence()
-BY_COUNTY = {e.county: e for e in EVIDENCE}
+BY_COUNTY = {e.county: e for e in EVIDENCE if e.state == "FL"}
 
 
 def _row(**kw) -> dict:
@@ -36,7 +36,8 @@ def test_a01_v3_columns_and_every_committed_row_names_an_office_and_at_least_one
     with open(PE.EVIDENCE_PATH, newline="", encoding="utf-8") as fh:
         assert next(csv.reader(fh)) == PE.EVIDENCE_COLUMNS
     assert PE.EVIDENCE_COLUMNS[-8:] == ["office", "address", "phone", "email", "mailing_address", "steps", "application_url", "payment"]
-    assert len(EVIDENCE) == 16
+    # 16 Florida rows + East Baton Rouge LA (property-enrichment sprint, run 36835470121).
+    assert len(EVIDENCE) == 17 and [(e.state, e.county) for e in EVIDENCE if e.state != "FL"] == [("LA", "East Baton Rouge")]
     for e in EVIDENCE:
         assert e.office, e.county
         # Something a person can act on - or, when the page published no

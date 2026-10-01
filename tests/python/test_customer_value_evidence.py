@@ -133,7 +133,7 @@ def test_e05_lifecycle_carries_evidence_provenance_and_observed_date_onto_the_ro
 def test_e06_committed_evidence_table_rows_are_valid_and_every_enabled_row_is_verified():
     rows = PE.load_evidence()
     for r in rows:
-        assert r.state in ("FL", "TX") and r.source_id and r.observed_on
+        assert r.state in ("FL", "TX", "LA") and r.source_id and r.observed_on
         if r.enabled:
             assert r.applicable and r.evidence_type and r.instructions
             assert not r.url or r.url.startswith("https://")
