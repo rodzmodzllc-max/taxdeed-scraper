@@ -4666,6 +4666,28 @@
    "url": "https://data.brla.gov/Housing-and-Development/Adjudicated-Property/a4h4-zi7e"
   },
   {
+   "access": "ACCESSIBLE",
+   "access_note": "verified capture, observed 2026-10-01",
+   "county": "East Baton Rouge",
+   "evidence": "Captured by scripts/capture_purchase_evidence.py --candidates (harvest-and-sync job=evidence, evidence_scope=acquisition_candidates, run 36940992329, 2026-10-01) from the City-Parish's own pages: the Parish Attorney's Office page (phone 225",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "2026-10-01",
+   "legacy_status": "",
+   "name": "MEMORANDUM - Office of the Parish Attorney, Property Division (purchase of adjudicated property)",
+   "next_action": "",
+   "origin": "evidence",
+   "publisher": "Office of the Parish Attorney, Property Division, City of Baton Rouge / Parish of East Baton Rouge",
+   "roles": [
+    "acquisition",
+    "source_date"
+   ],
+   "source_id": "evidence:LA:East Baton Rouge:17",
+   "source_type": "DOCUMENT",
+   "state": "LA",
+   "url": "https://www.brla.gov/DocumentCenter/View/795/Adjudicated-Memo-PDF"
+  },
+  {
    "access": "NOT_CHECKED",
    "access_note": "not queried for property values because of the stated constraint",
    "county": "East Baton Rouge",
@@ -4801,28 +4823,6 @@
    "source_type": "GOVERNMENT",
    "state": "LA",
    "url": "https://www.brla.gov/DocumentCenter/View/9351/REQUEST-TO-PURCHASE-ADJUDICATED-PROPERTY"
-  },
-  {
-   "access": "ACCESSIBLE",
-   "access_note": "verified capture, observed 2026-10-01",
-   "county": "East Baton Rouge",
-   "evidence": "Captured by scripts/capture_state_sources.py (harvest-and-sync job=evidence, evidence_scope=enrich_sources_3, run 36835470121, 2026-10-01) from the City-Parish's own pages; wording quoted from the capture. The page also names CivicSource, a",
-   "governance": "APPROVED",
-   "governance_reason": "",
-   "last_checked": "2026-10-01",
-   "legacy_status": "",
-   "name": "Adjudicated Property | Baton Rouge, LA (Parish Attorney's Office) - FAQs",
-   "next_action": "",
-   "origin": "evidence",
-   "publisher": "Office of the Parish Attorney, City of Baton Rouge / Parish of East Baton Rouge",
-   "roles": [
-    "acquisition",
-    "source_date"
-   ],
-   "source_id": "evidence:LA:East Baton Rouge:17",
-   "source_type": "GOVERNMENT",
-   "state": "LA",
-   "url": "https://www.brla.gov/Faq.aspx?QID=286"
   },
   {
    "access": "NOT_CHECKED",
@@ -7496,9 +7496,9 @@
    "HARD_BLOCKED": 0,
    "REVIEW_REQUIRED": 3,
    "by_type": {
-    "DOCUMENT": 1,
+    "DOCUMENT": 2,
     "GIS": 3,
-    "GOVERNMENT": 6,
+    "GOVERNMENT": 5,
     "PUBLIC_NOTICE": 1
    },
    "sources": 11

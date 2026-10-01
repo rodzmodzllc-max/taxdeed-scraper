@@ -1665,6 +1665,21 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 scripts/enrich_available.py --apply --label parcels
 
+      - name: Apply - acquisition records from verified evidence rows (no source request)
+        # scripts/apply_acquisition_paths.py: the verified county-level evidence
+        # row (data/purchase_path_evidence.csv) for each row's (state, source,
+        # county) through purchase_path_engine.resolve; a stronger property-scope
+        # path is never replaced; never status, amounts, owners or outcomes.
+        if: github.event.inputs.available_mode == 'apply'
+        continue-on-error: true
+        timeout-minutes: 45
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          python3 scripts/apply_acquisition_paths.py --state LA --source-id la_ebr_adjudicated --report out/public/acquisition-apply-la.json
+          python3 scripts/apply_acquisition_paths.py --state TX --source-id tx_lgbs --report out/public/acquisition-apply-tx.json
+
       - name: Apply - Texas AVAILABLE rows observed on the LGBS feed (stamp + provenance; no close, no new field)
         # scripts/lgbs_available_refresh.py: reads ONLY the LGBS feed through the
         # harvester's ingestion gate and touches ONLY active TX laft rows. A row

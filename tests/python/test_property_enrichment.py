@@ -55,11 +55,16 @@ def test_la_acquisition_evidence_is_the_parish_attorney_process_at_source_scope(
     [la] = [e for e in PE.load_evidence() if e.state == "LA"]
     assert la.applicable and PE.evidence_problems(la) == []
     assert la.source_id == "la_ebr_adjudicated" and la.path_type == "county_instructions" and not la.third_party_permitted
-    assert "Office of the Parish Attorney handles these sales" in la.instructions
-    assert "remains adjudicated" in la.instructions and "civicsource" not in la.url.lower()
-    assert not la.phone and "No phone recorded" in la.notes                                  # nothing attributed, nothing invented
+    assert "still adjudicated, to the City-Parish" in la.instructions and "civicsource" not in la.url.lower()
+    # AVAILABLE sprint (2026-10-01): the Parish Attorney's own memorandum and
+    # office page attribute the office phone to the process (run 36940992329);
+    # office-level contact only - the named staff e-mails are not recorded.
+    assert la.phone == "(225) 389-3114" and not la.email and "run 36940992329" in la.notes
+    assert la.mailing_address.endswith("P.O. Box 1471, Baton Rouge, LA 70821")
+    assert la.application_url == "https://www.brla.gov/DocumentCenter/View/9351/REQUEST-TO-PURCHASE-ADJUDICATED-PROPERTY"
+    assert la.evidence_url.startswith("https://www.brla.gov/DocumentCenter/View/795/")
     path, reasons = PE.resolve({"case_no": "123-4567-8", "county": "East Baton Rouge"}, state="LA", source_id="la_ebr_adjudicated",
                                county="East Baton Rouge", evidence=PE.load_evidence(),
                                registry_row={"canonical_url": "https://data.brla.gov/Housing-and-Development/Adjudicated-Property/a4h4-zi7e"})
     assert reasons == [] and path.scope == "source" and path.url == "https://www.brla.gov/455/Adjudicated-Property"
-    assert not PE.complete_record(path.acquisition())                                         # no contact channel -> not "complete"
+    assert PE.complete_record(path.acquisition())                                             # office phone + steps + form
