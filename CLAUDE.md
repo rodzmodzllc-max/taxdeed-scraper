@@ -1938,6 +1938,44 @@ Full description: `docs/five-state-enrichment.md`. Stable facts:
 - **ArcGIS cycle guard:** with `cycle_field` + `cycles`, a list for a past tax year reads EMPTY with signal `past_cycle` (Douglas tax sale list, tax year 2024).
 - **Evidence capture:** `capture_state_sources.py --five-state*` is a value-free capture. Run it with `job=evidence` and `evidence_scope=five_state*`.
 
+## Property-enrichment sprint (2026-10-01, PR open, no migration)
+
+Full description: `docs/property-enrichment.md`. Stable facts:
+
+- **Units are (state, county)** for the flood and NAIP backfills
+  (`scripts/enrichment_units.py`, `ENRICH_STATE`).
+- **Manual `job=enrich`** (input `enrich_states`) runs the flood / imagery /
+  parcels backfill with larger budgets.
+- **Storage is the binding constraint.** The free plan allows 1 GB, and
+  `property-photos` held 967 MB. `enrich_property_photos_naip.py` refuses to
+  upload past `NAIP_STORAGE_BUDGET_MB` (950), or when the total is unknown.
+  Raising the quota or changing how imagery is stored is the owner's
+  decision.
+- **Factory additions** (`harvesters/enrichment/parcels.py`):
+  - `row_id_column` (`parcel` / `case_no` / `certificate_no`);
+  - `alt_id_fields`;
+  - `transport="socrata"`;
+  - `id_rule="numeric"`;
+  - `latest_field`.
+
+  One key that hits two different features is AMBIGUOUS, and nothing is
+  written.
+- **LA:**
+  - `la_ebr_tax_parcels` (Socrata ei2c-krsr, Public Domain, exact
+    `assessment_num` match).
+  - The Parish Attorney's process is a verified evidence row; no vendor link
+    is used.
+  - The Louisiana lifecycle step needs a long budget: the laft job has 75
+    minutes, and the step itself 45.
+- **FL freshness:** `scripts/stamp_seen.py` stamps `last_seen_at` on
+  auction and certificate rows read this run, after each PowerShell sync.
+- **Not configured, and why:**
+  - TxGIO StratMap: unreachable from the runners, and the land-parcel
+    licence is unsettled.
+  - Wyoming statewide parcels: disclaimer only.
+  - Michigan county parcels: disclaimer / click-through licence.
+  - York SC sale date: the source document returned 404.
+
 ## Where to look for more
 
 - `claude/improvement-roadmap.md` in the "tax florida app" claude.ai Project — the full dated log of every fix, audit finding, and open decision. This is where new findings should be appended, not here.
