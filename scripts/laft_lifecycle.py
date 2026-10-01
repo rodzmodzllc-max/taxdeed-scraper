@@ -490,6 +490,13 @@ def provenance_payload(row: dict, gate: dict, retrieved_at: str, *, state: str =
             "source_match": source_match_of(row, list_url=list_url, document_url=document_url, read_at=retrieved_at),
         },
     }
+    for key in ("list_as_of", "source_published_at"):
+        # A source statement this run did not carry is not a statement that
+        # there is none: an absent value never writes NULL over a stored one
+        # (the Louisiana sync stores list_as_of from the dataset's own
+        # rowsUpdatedAt; the lifecycle's status entry has no such field).
+        if payload[key] is None:
+            del payload[key]
     if purchase_url is not None:
         payload["purchase_url"] = purchase_url
         payload["purchase_url_kind"] = purchase_kind

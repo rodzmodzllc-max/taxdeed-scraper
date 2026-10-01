@@ -191,10 +191,13 @@ on:
           sprint's candidate inventory pages and statewide parcel services
           (EXPANSION_TARGETS), value-free. "field_fill" = per-field fill
           rates of every configured ArcGIS layer (scripts/probe_field_fill.py).
+          "acquisition_candidates" = the official process pages listed in
+          data/acquisition_candidate_pages.csv, plus one hop of tax-deed /
+          struck-off links on them, value-free.
         required: false
         type: choice
         default: available
-        options: [available, auction_results, state_sources, expansion, field_fill, five_state, five_state_pass2, five_state_pass3, enrich_sources, enrich_sources_2, enrich_sources_3, enrich_sources_4]
+        options: [available, auction_results, state_sources, expansion, field_fill, five_state, five_state_pass2, five_state_pass3, enrich_sources, enrich_sources_2, enrich_sources_3, enrich_sources_4, acquisition_candidates]
 
 concurrency:
   group: harvest-and-sync
@@ -1208,6 +1211,14 @@ jobs:
             # ArcGIS layer fields, counts and identifier SHAPES. Nothing is
             # written to any database and nothing is enabled.
             python3 scripts/capture_state_sources.py --expansion --skip-registry
+            exit 0
+          fi
+          if [ "$SCOPE" = "acquisition_candidates" ]; then
+            # Acquisition-path sprint: official process pages found for the
+            # counties whose source page publishes no process. Read-only,
+            # value-free; nothing is written and nothing becomes a path until
+            # a person records a verified evidence row.
+            python3 scripts/capture_purchase_evidence.py --candidates --follow
             exit 0
           fi
           args=""

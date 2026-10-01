@@ -339,7 +339,7 @@ def test_e05_migration_019_dates_are_written_only_when_the_columns_exist(tmp_pat
     assert rep["migration_019"] is True and rep["source_fields"]["unparseable"] == {"escheatment_date": 1}
     # Currentness columns ride on the provenance PATCH, from the source's own statements only.
     prov = [b for _, b in store.patches if "last_seen_at" in b]
-    assert prov and all(b["list_as_of"] is None and b["source_published_at"] is None for b in prov)
+    assert prov and all("list_as_of" not in b and "source_published_at" not in b for b in prov)
 
 
 # ==================== 3. structural: PowerShell + workflow ====================
