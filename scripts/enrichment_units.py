@@ -48,3 +48,24 @@ def unit_params(unit: tuple[str, str]) -> dict:
 def label(unit: tuple[str, str]) -> str:
     state, county = unit
     return f"{county}, {state}" if state else county
+
+
+# PostgREST answers at most API_MAX_ROWS rows per request (the project's
+# max-rows setting), whatever `limit` asks for: a larger read is paged.
+API_MAX_ROWS = 1000
+
+
+def get_paged(get, url: str, params: dict, limit: int, *, page: int = API_MAX_ROWS) -> list:
+    """Up to `limit` rows from a PostgREST read, in pages of `page` rows
+    starting at params['offset'] (default 0). `get(url, params)` returns the
+    parsed JSON list. A short page ends the read."""
+    out: list = []
+    start = int(params.get("offset", 0) or 0)
+    while len(out) < limit:
+        want = min(page, limit - len(out))
+        rows = get(url, {**params, "offset": str(start + len(out)), "limit": str(want)})
+        rows = rows if isinstance(rows, list) else []
+        out += rows
+        if len(rows) < want:
+            break
+    return out

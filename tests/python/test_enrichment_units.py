@@ -64,3 +64,17 @@ def test_naip_storage_total_is_recursive(monkeypatch):
         def json(self): return self.d
     monkeypatch.setattr(naip.requests, "post", lambda url, headers, timeout, json: R(pages[json["prefix"]]))
     assert naip.storage_used_bytes() == 22
+
+
+def test_paged_reads_past_the_api_row_cap():
+    data = list(range(2500))
+    calls = []
+
+    def get(url, params):
+        calls.append((params["offset"], params["limit"]))
+        o, n = int(params["offset"]), int(params["limit"])
+        return data[o:o + min(n, EU.API_MAX_ROWS)]
+    rows = EU.get_paged(get, "u", {"offset": "100"}, 2300)
+    assert rows == data[100:2400] and calls == [("100", "1000"), ("1100", "1000"), ("2100", "300")]
+    calls.clear()
+    assert EU.get_paged(get, "u", {}, 9000) == data and calls[-1] == ("2000", "1000")   # a short page ends the read

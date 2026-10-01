@@ -266,11 +266,7 @@ def fetch_counties_needing_photos():
         "limit": "10000",
     }
     params.update(EU.state_param(EU.state_filter()))
-    resp = requests.get(
-        f"{SUPABASE_URL}/rest/v1/properties", headers=HEADERS, params=params, timeout=30
-    )
-    resp.raise_for_status()
-    return EU.outstanding_units(resp.json())
+    return EU.outstanding_units(EU.get_paged(_get_json, f"{SUPABASE_URL}/rest/v1/properties", params, 100000))
 
 
 def fetch_county_batch(unit, limit, outstanding=None):
@@ -287,9 +283,11 @@ def fetch_county_batch(unit, limit, outstanding=None):
         "limit": str(limit),
     }
     params.update(EU.unit_params(unit))
-    resp = requests.get(
-        f"{SUPABASE_URL}/rest/v1/properties", headers=HEADERS, params=params, timeout=30
-    )
+    return EU.get_paged(_get_json, f"{SUPABASE_URL}/rest/v1/properties", params, limit)
+
+
+def _get_json(url, params):
+    resp = requests.get(url, headers=HEADERS, params=params, timeout=60)
     resp.raise_for_status()
     return resp.json()
 
