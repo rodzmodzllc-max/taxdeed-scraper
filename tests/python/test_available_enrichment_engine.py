@@ -484,3 +484,27 @@ def test_html_pages_are_read_as_visible_text():
     f = D.acquisition_facts(doc)
     assert [p["value"] for p in f["phones"]] == ["(850) 555-0102"]
     assert any("contact the Tax Deed Clerk" in s["text"] for s in f["steps"])
+
+
+def test_jim_wells_cad_is_implemented_but_gated_until_reviewed():
+    cfg = PS.TX_JIM_WELLS_CAD
+    assert cfg.counties == ("Jim Wells",) and cfg.row_id_column == "case_no" and cfg.id_field == "geoID"
+    ok, why = P.enrichment_allowed(cfg)
+    assert not ok and "UNREVIEWED" in why
+    src = next(s for s in INV.build_inventory() if s.source_id == "tx_jim_wells_cad_parcels")
+    assert src.governance == "REVIEW_REQUIRED" and not src.may_write and src.may_access
+    # the engine reports the review requirement; it never queries or writes it
+    row = _row(1, state="TX", county="Jim Wells", case_no="1234567890123", latitude=1, longitude=1)
+    assert EA.gap_outcome(row, "acreage", INV.sources_for("TX", "Jim Wells")) == "SOURCE_REVIEW_REQUIRED"
+
+
+def test_la_tax_parcels_now_fill_legal_description_blank_only():
+    cfg = PS.LA_EBR_TAX_PARCELS
+    rows = [_row(1, parcel="111-0000-1"), _row(2, parcel="222-0000-1", legal_desc="FROM THE LIST",
+                                                field_provenance={"legal_desc": {"source": "county_list"}})]
+    feats = [{"attributes": {"assessment_num": "111-0000-1", "legal_description": "LOT 4 SUB A"}},
+             {"attributes": {"assessment_num": "222-0000-1", "legal_description": "OTHER TEXT"}}]
+    writes = {}
+    ESP.run("LA", rows, lambda url: [f["attributes"] for f in feats], write=writes.__setitem__, recorded_at="t", cfg=cfg)
+    assert writes["r00001"]["legal_desc"] == "LOT 4 SUB A"
+    assert "r00002" not in writes or "legal_desc" not in writes["r00002"]

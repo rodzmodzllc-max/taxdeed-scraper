@@ -4692,6 +4692,30 @@
   },
   {
    "access": "ACCESSIBLE",
+   "access_note": "catalog + metadata read in runs 36921157970 / 36922621158",
+   "county": "East Baton Rouge",
+   "evidence": "scripts/discover_sources.py (Socrata catalog) and --deep",
+   "governance": "REVIEW_REQUIRED",
+   "governance_reason": "Licence read live: Public Domain (same publisher and basis as the approved Tax Parcel dataset), but its identifier (assessment_no) match and the meaning of structure_use / vacant_lot_yn are not yet measured",
+   "last_checked": "2026-10-01",
+   "legacy_status": "REVIEW_REQUIRED",
+   "name": "EBRP Tax Roll (data.brla.gov myfc-nh6n)",
+   "next_action": "Deep probe on assessment_no with category counts; configure land use only if the match is exact and the values are land-use categories",
+   "origin": "catalog",
+   "publisher": "East Baton Rouge Parish Assessor (Open Data BR)",
+   "roles": [
+    "assessment",
+    "identity",
+    "land_use",
+    "legal"
+   ],
+   "source_id": "la_ebr_tax_roll",
+   "source_type": "GIS",
+   "state": "LA",
+   "url": "https://data.brla.gov/d/myfc-nh6n"
+  },
+  {
+   "access": "ACCESSIBLE",
    "access_note": "verified capture, observed 2026-10-01",
    "county": "East Baton Rouge",
    "evidence": "Captured by scripts/capture_state_sources.py (harvest-and-sync job=evidence, evidence_scope=enrich_sources_3, run 36835470121, 2026-10-01) from the City-Parish's own pages; wording quoted from the capture. The page also names CivicSource, a",
@@ -4736,9 +4760,9 @@
   },
   {
    "access": "ACCESSIBLE",
-   "access_note": "columns verified live; enrichment sprint evidence (2026-10-01): licence run 36832227666; field names and assessment_num shape run 36835470121.",
+   "access_note": "columns verified live; enrichment sprint evidence (2026-10-01): licence run 36832227666; field names and assessment_num shape run 36835470121. All-sources engine deep probe (run 36922621158, 2026-10-01): 10,157 of 10,334 AVAILABLE rows match exactly on assessment_num; legal_description is populated on about 60% of the matched records, so it is now mapped (fill-blank only - the adjudicated list's own legal description keeps precedence).",
    "county": "STATEWIDE",
-   "evidence": "enrichment sprint evidence (2026-10-01): licence run 36832227666; field names and assessment_num shape run 36835470121.",
+   "evidence": "enrichment sprint evidence (2026-10-01): licence run 36832227666; field names and assessment_num shape run 36835470121. All-sources engine deep probe (run 36922621158, 2026-10-01): 10,157 of 10,334 AVAILABLE rows match exactly on assessment_num; legal_description is populated on about 60% of the matched records, so it is now mapped (fill-blank only - the adjudicated list's own legal description keeps precedence).",
    "governance": "APPROVED",
    "governance_reason": "",
    "last_checked": "",
@@ -4749,7 +4773,8 @@
    "publisher": "East Baton Rouge Parish Assessor (Open Data BR)",
    "roles": [
     "assessment",
-    "identity"
+    "identity",
+    "legal"
    ],
    "source_id": "la_ebr_tax_parcels",
    "source_type": "GIS",
@@ -5628,6 +5653,30 @@
    "url": "https://taxsales.lgbs.com/"
   },
   {
+   "access": "SOURCE_UNAVAILABLE",
+   "access_note": "deep probe run 36922621158: layer error",
+   "county": "Goliad",
+   "evidence": "scripts/discover_sources.py --deep (run 36922621158)",
+   "governance": "REVIEW_REQUIRED",
+   "governance_reason": "No licence or terms stated; layer 0 returned an error to the runner",
+   "last_checked": "2026-10-01",
+   "legacy_status": "REVIEW_REQUIRED",
+   "name": "GoliadCADWebService",
+   "next_action": "Read the service directory for the parcel layer id; then match probe and terms review",
+   "origin": "catalog",
+   "publisher": "Goliad County Appraisal District (GIS hosted by BIS Consultants)",
+   "roles": [
+    "acreage",
+    "coordinates",
+    "identity",
+    "legal"
+   ],
+   "source_id": "tx_goliad_cad_parcels",
+   "source_type": "GIS",
+   "state": "TX",
+   "url": "https://services8.arcgis.com/WbC8UcChzGlcbEPR/arcgis/rest/services/GoliadCADWebService/FeatureServer"
+  },
+  {
    "access": "ACCESSIBLE",
    "access_note": "SOURCE_EMPTY: Tax office page only",
    "county": "Goliad",
@@ -5764,6 +5813,31 @@
    "source_type": "DOCUMENT",
    "state": "TX",
    "url": "https://newtools.cira.state.tx.us/upload/page/10643/Agenda%20Documents/11-12-2024/Resolution%2031-24%20Public%20Sale%20of%20Properties.pdf"
+  },
+  {
+   "access": "ACCESSIBLE",
+   "access_note": "deep probe run 36922621158: prop_id matched 1 row, geo_id 0",
+   "county": "Hardin",
+   "evidence": "scripts/discover_sources.py --deep (run 36922621158)",
+   "governance": "REVIEW_REQUIRED",
+   "governance_reason": "No licence or terms stated on the layer; and only 1 of 9 AVAILABLE rows matches a deterministic identifier (row parcel shape 99999A, case_no 999999-999999-9-999999; layer prop_id 99999) - no crosswalk exists",
+   "last_checked": "2026-10-01",
+   "legacy_status": "REVIEW_REQUIRED",
+   "name": "HardinCADWebService - Parcels",
+   "next_action": "Find a published crosswalk between the LGBS account number and the CAD prop_id / geo_id; then terms review",
+   "origin": "catalog",
+   "publisher": "Hardin County Appraisal District (GIS hosted by BIS Consultants)",
+   "roles": [
+    "acreage",
+    "assessment",
+    "coordinates",
+    "identity",
+    "legal"
+   ],
+   "source_id": "tx_hardin_cad_parcels",
+   "source_type": "GIS",
+   "state": "TX",
+   "url": "https://services9.arcgis.com/8oveauLo4lI1NjDp/arcgis/rest/services/HardinCADWebService/FeatureServer/0"
   },
   {
    "access": "ACCESSIBLE",
@@ -5974,6 +6048,30 @@
   },
   {
    "access": "ACCESSIBLE",
+   "access_note": "columns verified live; all-sources engine deep probe run 36922621158: 11 of 11 rows match on geoID = case_no; legalDescr 11, legalAcrea 9.",
+   "county": "Jim Wells",
+   "evidence": "all-sources engine deep probe run 36922621158: 11 of 11 rows match on geoID = case_no; legalDescr 11, legalAcrea 9.",
+   "governance": "REVIEW_REQUIRED",
+   "governance_reason": "no publication / reuse review recorded yet; licence: None stated on the layer (no licenseInfo / copyrightText) and no terms of use found - reuse not reviewed.",
+   "last_checked": "",
+   "legacy_status": "UNREVIEWED",
+   "name": "JimWellsCADWebService - Parcels",
+   "next_action": "enrichment refused: publication status UNREVIEWED - reuse not cleared",
+   "origin": "parcel_config",
+   "publisher": "Jim Wells Central Appraisal District (GIS hosted by BIS Consultants)",
+   "roles": [
+    "acreage",
+    "coordinates",
+    "identity",
+    "legal"
+   ],
+   "source_id": "tx_jim_wells_cad_parcels",
+   "source_type": "GIS",
+   "state": "TX",
+   "url": "https://services8.arcgis.com/36tOt5wOeEMz3tyS/arcgis/rest/services/JimWellsCADWebService/FeatureServer"
+  },
+  {
+   "access": "ACCESSIBLE",
    "access_note": "SOURCE_EMPTY: County pages carry foreclosure notices only; the City of Alice page points to the counsel's site",
    "county": "Jim Wells",
    "evidence": "runs 36858070184 / 36865836152 (docs/available-ledger.md 13.5)",
@@ -6129,6 +6227,31 @@
    "source_type": "THIRD_PARTY",
    "state": "TX",
    "url": "https://taxsales.lgbs.com/"
+  },
+  {
+   "access": "ACCESSIBLE",
+   "access_note": "deep probe run 36922621158: prop_id 0, geo_id 0",
+   "county": "Liberty",
+   "evidence": "scripts/discover_sources.py --deep (run 36922621158)",
+   "governance": "REVIEW_REQUIRED",
+   "governance_reason": "No licence or terms stated; 0 of 113 AVAILABLE rows match (row case_no is 15 digits, layer prop_id 5 digits; geo_id empty) - no deterministic key",
+   "last_checked": "2026-10-01",
+   "legacy_status": "REVIEW_REQUIRED",
+   "name": "LibertyCADWebService - Parcels",
+   "next_action": "Find a published crosswalk between the account number and prop_id; then terms review",
+   "origin": "catalog",
+   "publisher": "Liberty County Appraisal District (GIS hosted by BIS Consultants)",
+   "roles": [
+    "acreage",
+    "assessment",
+    "coordinates",
+    "identity",
+    "legal"
+   ],
+   "source_id": "tx_liberty_cad_parcels",
+   "source_type": "GIS",
+   "state": "TX",
+   "url": "https://services3.arcgis.com/LbQai106UcFy2LlR/arcgis/rest/services/LibertyCADWebService/FeatureServer/0"
   },
   {
    "access": "ACCESSIBLE",
@@ -7283,14 +7406,14 @@
   "LA": {
    "APPROVED": 3,
    "HARD_BLOCKED": 0,
-   "REVIEW_REQUIRED": 3,
+   "REVIEW_REQUIRED": 4,
    "by_type": {
     "DOCUMENT": 1,
-    "GIS": 2,
+    "GIS": 3,
     "GOVERNMENT": 2,
     "PUBLIC_NOTICE": 1
    },
-   "sources": 6
+   "sources": 7
   },
   "MI": {
    "APPROVED": 4,
@@ -7325,17 +7448,17 @@
   "TX": {
    "APPROVED": 16,
    "HARD_BLOCKED": 14,
-   "REVIEW_REQUIRED": 56,
+   "REVIEW_REQUIRED": 60,
    "by_type": {
     "AUCTION_VENDOR": 24,
     "COURT_PUBLIC_RECORD": 1,
     "DOCUMENT": 12,
-    "GIS": 1,
+    "GIS": 5,
     "GOVERNMENT": 24,
     "PUBLIC_NOTICE": 1,
     "THIRD_PARTY": 23
    },
-   "sources": 86
+   "sources": 90
   },
   "UT": {
    "APPROVED": 1,

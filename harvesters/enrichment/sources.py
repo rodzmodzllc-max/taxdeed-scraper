@@ -160,8 +160,37 @@ LA_EBR_TAX_PARCELS = register(ParcelSourceConfig(
     landing_url="https://data.brla.gov/d/ei2c-krsr",
     layer_url="https://data.brla.gov/resource/ei2c-krsr.json",
     transport="socrata", id_field="assessment_num", id_rule="exact",
-    field_map={"land_value": "sum_land_value", "market": "sum_fair_market_value", "assessed": "sum_assessed_value"},
+    field_map={"land_value": "sum_land_value", "market": "sum_fair_market_value", "assessed": "sum_assessed_value",
+               "legal_desc": "legal_description"},
     licence="Public Domain (Open Data BR dataset metadata, licenseId PUBLIC_DOMAIN); attribution: EBR Parish Assessor.",
     publication_status="APPROVED", county_field=None, centroid=False, columns_verified=True, batch_size=100,
-    notes="enrichment sprint evidence (2026-10-01): licence run 36832227666; field names and assessment_num shape run 36835470121.",
+    notes="enrichment sprint evidence (2026-10-01): licence run 36832227666; field names and assessment_num shape run 36835470121. "
+          "All-sources engine deep probe (run 36922621158, 2026-10-01): 10,157 of 10,334 AVAILABLE rows match exactly on "
+          "assessment_num; legal_description is populated on about 60% of the matched records, so it is now mapped "
+          "(fill-blank only - the adjudicated list's own legal description keeps precedence).",
+))
+
+
+# ---------------------------------------------------------------------------
+# Texas - Jim Wells Central Appraisal District parcel web service (hosted by
+# the district's GIS vendor, BIS Consultants). DEEP PROBE (all-sources engine,
+# run 36922621158): all 11 Jim Wells AVAILABLE rows match exactly - the row's
+# case_no (the LGBS account number) equals the layer's geoID (13 digits both
+# sides); legalDescr is populated on 11 and legalAcrea on 9.
+# LICENCE: the layer carries no licenseInfo / copyrightText and no terms of
+# use were found. Appraisal records are public under the Texas Public
+# Information Act, but public is not permission to republish: UNREVIEWED,
+# so enrichment_allowed() refuses it until a publication review approves.
+# ---------------------------------------------------------------------------
+TX_JIM_WELLS_CAD = register(ParcelSourceConfig(
+    source_id="tx_jim_wells_cad_parcels", state="TX",
+    agency="Jim Wells Central Appraisal District (GIS hosted by BIS Consultants)",
+    dataset="JimWellsCADWebService - Parcels",
+    landing_url="https://services8.arcgis.com/36tOt5wOeEMz3tyS/arcgis/rest/services/JimWellsCADWebService/FeatureServer",
+    layer_url="https://services8.arcgis.com/36tOt5wOeEMz3tyS/arcgis/rest/services/JimWellsCADWebService/FeatureServer/0",
+    id_field="geoID", id_rule="alnum", row_id_column="case_no",
+    field_map={"legal_desc": "legalDescr", "acreage": "legalAcrea"},
+    licence="None stated on the layer (no licenseInfo / copyrightText) and no terms of use found - reuse not reviewed.",
+    publication_status="UNREVIEWED", counties=("Jim Wells",), centroid=True, columns_verified=True, batch_size=50,
+    notes="all-sources engine deep probe run 36922621158: 11 of 11 rows match on geoID = case_no; legalDescr 11, legalAcrea 9.",
 ))

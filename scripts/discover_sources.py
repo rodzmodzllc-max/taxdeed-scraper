@@ -236,7 +236,8 @@ DEEP_TARGETS = [
     {"state": "LA", "county": "East Baton Rouge", "kind": "socrata", "url": "https://data.brla.gov/resource/ei2c-krsr.json",
      "meta": "https://data.brla.gov/api/views/ei2c-krsr.json"},
     {"state": "LA", "county": "East Baton Rouge", "kind": "socrata", "url": "https://data.brla.gov/resource/myfc-nh6n.json",
-     "meta": "https://data.brla.gov/api/views/myfc-nh6n.json"},
+     "meta": "https://data.brla.gov/api/views/myfc-nh6n.json", "id_fields": ["assessment_no", "assessment_no_new"],
+     "categories": ["structure_use", "vacant_lot_yn", "unit_type", "tax_year", "assessment_type", "assessment_status"]},
     {"state": "LA", "county": "East Baton Rouge", "kind": "socrata", "url": "https://data.brla.gov/resource/shrr-fsqq.json",
      "meta": "https://data.brla.gov/api/views/shrr-fsqq.json"},
     {"state": "TX", "county": "Jim Wells", "kind": "arcgis",
@@ -287,7 +288,7 @@ def deep_probe(http: Http, target: dict, rows: list[dict]) -> dict:
         cols = [c.get("fieldName") for c in (meta or {}).get("columns", []) if c.get("fieldName") and not c["fieldName"].startswith(":")]
         out["licence"] = ((meta or {}).get("license") or {}).get("name")
         out["rows_updated"] = (meta or {}).get("rowsUpdatedAt")
-        id_fields = [c for c in cols if ID_FIELD.match(c) or c in ("prono", "assessment_number")]
+        id_fields = target.get("id_fields") or [c for c in cols if ID_FIELD.match(c) or c in ("prono", "assessment_number")]
     else:
         meta, err = http.json(target["url"], {"f": "json"})
         if err or "error" in (meta or {}):
@@ -331,7 +332,15 @@ def deep_probe(http: Http, target: dict, rows: list[dict]) -> dict:
                         found.setdefault(k, []).append(rec)
                         res["source_shapes"][shape(rec.get(idf))] = res["source_shapes"].get(shape(rec.get(idf)), 0) + 1
             fill: dict = {}
+            cats = res.setdefault("categories", {})
             for k, recs in found.items():
+                if k in keyed:
+                    for rec in recs:
+                        for c in target.get("categories", []):
+                            v = str(rec.get(c) or "").strip()[:40]
+                            if v and not LONG_DIGITS.search(v):
+                                cats.setdefault(c, {})
+                                cats[c][v] = cats[c].get(v, 0) + 1
                 if k not in keyed:
                     continue
                 if len(recs) > 1:
@@ -345,6 +354,8 @@ def deep_probe(http: Http, target: dict, rows: list[dict]) -> dict:
             for c, n in fill.items():
                 res["fill_among_matched"][c] = res["fill_among_matched"].get(c, 0) + n
         res["source_shapes"] = _top(res["source_shapes"])
+        res["categories"] = {c: _top(v, 15) for c, v in res.get("categories", {}).items()}
+        res["records_per_key"] = None
         res["fill_among_matched"] = dict(sorted(res["fill_among_matched"].items()))
         out["id_fields"][idf] = res
     return out
@@ -461,6 +472,8 @@ def main(argv=None) -> int:
                 print(f"   [{f}] matched rows {r['matched_rows']}, ambiguous rows {r['ambiguous_rows']}, "
                       f"via parcel {r.get('via_parcel')}, via case_no {r.get('via_case_no')}; source shapes {r['source_shapes']}")
                 print(f"      fill among matched: {r['fill_among_matched']}")
+                if r.get("categories"):
+                    print(f"      category values among matched records: {r['categories']}")
         if not (a.gis or a.documents):
             return 0
     units = available_units(base, key, a.state, a.county)
