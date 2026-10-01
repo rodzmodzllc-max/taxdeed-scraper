@@ -194,7 +194,7 @@ on:
         required: false
         type: choice
         default: available
-        options: [available, auction_results, state_sources, expansion, field_fill, five_state, five_state_pass2, five_state_pass3, enrich_sources, enrich_sources_2]
+        options: [available, auction_results, state_sources, expansion, field_fill, five_state, five_state_pass2, five_state_pass3, enrich_sources, enrich_sources_2, enrich_sources_3]
 
 concurrency:
   group: harvest-and-sync
@@ -495,7 +495,7 @@ jobs:
   laft:
     name: Harvest Lands Available PDFs + sync
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 75
     if: (github.event_name == 'workflow_dispatch' && (github.event.inputs.job == 'all' || github.event.inputs.job == 'laft' || github.event.inputs.job == '')) || github.event.schedule == '0 12 * * *'
     env:
       # Read by scripts/harvest_cache.py's load_cache() - "true" makes every
@@ -791,6 +791,10 @@ jobs:
         run: python3 scripts/sync_state_inventory.py --state LA --status out/harvest_louisiana_status.json
 
       - name: Louisiana - lifecycle (last_seen_at, gated close-out)
+        # 10,334 adjudicated rows: one provenance PATCH per row takes longer than
+        # the job's old 20-minute budget. Its own cap keeps it from ever starving
+        # the Florida steps that run before it.
+        timeout-minutes: 45
         if: always() && steps.la_sync.outcome == 'success'
         continue-on-error: true
         env:
@@ -1160,6 +1164,10 @@ jobs:
             # expansion inventory layers and the statewide parcel layers):
             # names, types and filled counts out of a sample, never a value.
             python3 scripts/probe_field_fill.py
+            exit 0
+          fi
+          if [ "$SCOPE" = "enrich_sources_3" ]; then
+            python3 scripts/capture_state_sources.py --enrich-sources-3 --skip-registry
             exit 0
           fi
           if [ "$SCOPE" = "enrich_sources_2" ]; then

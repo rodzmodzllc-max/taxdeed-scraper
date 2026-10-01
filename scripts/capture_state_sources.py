@@ -379,6 +379,21 @@ ENRICH2_SODA = {
 }
 
 
+# Round 3 (2026-10-01): East Baton Rouge's own acquisition process for
+# adjudicated property (the Parish's page, its "Acquiring Adjudicated Property"
+# document, the FAQ) and the assessment-number SHAPES the three EBR datasets
+# use, so a join is judged before any configuration exists.
+ENRICH3_PAGES = {
+    "LA": ["https://www.brla.gov/455/Adjudicated-Property", "https://www.brla.gov/DocumentCenter/View/6524/Acquiring-Adjudicated-Property-PDF",
+           "https://www.brla.gov/Faq.aspx?QID=286", "https://www.brla.gov/Faq.aspx?TID=63"],
+}
+ENRICH3_SODA = {
+    "LA": [("https://data.brla.gov/resource/a4h4-zi7e.json", ["assessment_num"], ["tax_roll_year"]),
+           ("https://data.brla.gov/resource/ei2c-krsr.json", ["assessment_num"], ["status", "sale_year"]),
+           ("https://data.brla.gov/resource/myfc-nh6n.json", ["assessment_no", "assessment_no_new"], ["tax_year", "unit_type", "vacant_lot_yn"])],
+}
+
+
 def soda_probe(session: requests.Session, resource: str, id_fields: list[str], cat_fields: list[str]) -> dict:
     """A Socrata dataset's identifier SHAPES and category counts from a 200-row
     sample (field names as the SODA API spells them). Never a value."""
@@ -910,6 +925,7 @@ def main(argv=None) -> int:
     ap.add_argument("--five-state", action="store_true", help="read FIVE_STATE_* candidates (five-state enrichment sprint)")
     ap.add_argument("--five-state-pass2", action="store_true", help="read the FIVE_STATE_PASS2 / PROBES targets")
     ap.add_argument("--five-state-pass3", action="store_true", help="read the FIVE_STATE_PASS3 targets")
+    ap.add_argument("--enrich-sources-3", action="store_true", help="round 3 of the enrichment-source capture")
     ap.add_argument("--enrich-sources-2", action="store_true", help="round 2 of the enrichment-source capture")
     ap.add_argument("--enrich-sources", action="store_true", help="read the ENRICH_* parcel / tax-roll candidates (property-enrichment sprint)")
     ap.add_argument("--out", default=str(OUT_PATH))
@@ -1030,10 +1046,16 @@ def main(argv=None) -> int:
         passes.append(("pass3", FIVE_STATE_PASS3_PAGES, FIVE_STATE_PASS3_SERVICES, FIVE_STATE_PASS3_PROBES, FIVE_STATE_PASS3_ITEMS))
     if args.enrich_sources:
         passes.append(("enrich", ENRICH_PAGES, ENRICH_SERVICES, ENRICH_PROBES, ENRICH_ITEMS))
+    soda_sets = []
+    if args.enrich_sources_3:
+        passes.append(("enrich3", ENRICH3_PAGES, {}, {}, {}))
+        soda_sets.append(ENRICH3_SODA)
     if args.enrich_sources_2:
         passes.append(("enrich2", ENRICH2_PAGES, {}, ENRICH2_PROBES, {}))
-        for code, probes in ENRICH2_SODA.items():
-            entry = {"source_id": f"enrich2_soda_{code.lower()}", "county": "(enrich round 2)", "pages": []}
+        soda_sets.append(ENRICH2_SODA)
+    for soda in soda_sets:
+        for code, probes in soda.items():
+            entry = {"source_id": f"enrich_soda_{code.lower()}", "county": "(enrich SODA)", "pages": []}
             for res, ids, cats in probes:
                 page = soda_probe(session, res, ids, cats)
                 print(f"  {code} soda           count={page.get('count')} {res}", flush=True)
