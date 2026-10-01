@@ -88,6 +88,15 @@ class ParcelSourceConfig:
     columns_verified: bool = False      # True only once the live layer's fields were read (evidence run)
     batch_size: int = 50
     notes: str = ""
+    # The properties column holding the identifier this layer is keyed on.
+    # "parcel" for most states; Texas rows carry the appraisal-district
+    # ACCOUNT in case_no (texas_harvester.TexasSaleRow.account_number).
+    row_id_column: str = "parcel"
+    # Other layer attributes that hold the SAME kind of identifier (a CAD's
+    # property id vs its geographic id). A row matches only when its key
+    # resolves to exactly one feature across all of them; one key hitting two
+    # different features (through two attributes) is AMBIGUOUS.
+    alt_id_fields: tuple = ()
 
     def __post_init__(self) -> None:
         if not LAYER_URL_RE.match(self.layer_url):
@@ -102,12 +111,20 @@ class ParcelSourceConfig:
             raise ValueError(f"{self.source_id}: the identifier attribute cannot also fill {sorted(forbidden)}")
         if not self.id_field:
             raise ValueError(f"{self.source_id}: id_field required")
+        if self.row_id_column not in ("parcel", "case_no", "certificate_no"):
+            raise ValueError(f"{self.source_id}: row_id_column must be parcel, case_no or certificate_no")
+        overlap = {"owner_name", "address"} & {c for c, a in self.field_map.items() if a in self.alt_id_fields}
+        if overlap:
+            raise ValueError(f"{self.source_id}: an identifier attribute cannot also fill {sorted(overlap)}")
 
     def county_value(self, county: str) -> str:
         return self.county_values.get(county, county)
 
+    def id_fields(self) -> tuple:
+        return (self.id_field, *self.alt_id_fields)
+
     def out_fields(self) -> list[str]:
-        names = {self.id_field, *self.field_map.values()}
+        names = {*self.id_fields(), *self.field_map.values()}
         if self.county_field:
             names.add(self.county_field)
         if self.value_year_field:
@@ -149,7 +166,9 @@ def query_urls(cfg: ParcelSourceConfig, county: str, raw_ids: Iterable[str]) -> 
     urls = []
     for i in range(0, len(ids), cfg.batch_size):
         chunk = ids[i:i + cfg.batch_size]
-        where = f"{cfg.id_field} IN ({','.join(_sql_str(x) for x in chunk)})"
+        in_list = ",".join(_sql_str(x) for x in chunk)
+        where = " OR ".join(f"{f} IN ({in_list})" for f in cfg.id_fields())
+        where = f"({where})" if len(cfg.id_fields()) > 1 else where
         if cfg.county_field:
             # Case-insensitive on the county NAME only (layers spell it "Morgan" or
             # "MORGAN"); the identifier stays an exact IN list.
@@ -164,13 +183,19 @@ def index_features(cfg: ParcelSourceConfig, features: Iterable[dict]) -> dict[tu
     """(layer county value or '', normalized id) -> features. More than one
     feature per key is kept so the match can call it ambiguous."""
     idx: dict[tuple[str, str], list[dict]] = {}
-    for ft in features:
+    seen: dict[tuple[str, str], set] = {}
+    for ident, ft in enumerate(features):
         attrs = ft.get("attributes") or {}
-        key = normalize_id(attrs.get(cfg.id_field), cfg.id_rule)
-        if key is None:
-            continue
         county = str(attrs.get(cfg.county_field) or "").strip().upper() if cfg.county_field else ""
-        idx.setdefault((county, key), []).append(ft)
+        # One feature (its position in the response) reached through two of
+        # its own identifier attributes is still ONE candidate; two different
+        # features always stay two, even with identical attribute values.
+        for f in cfg.id_fields():
+            key = normalize_id(attrs.get(f), cfg.id_rule)
+            if key is None or ident in seen.setdefault((county, key), set()):
+                continue
+            seen[(county, key)].add(ident)
+            idx.setdefault((county, key), []).append({**ft, "_matched_field": f})
     return idx
 
 
@@ -186,7 +211,7 @@ class MatchResult:
 def match_rows(cfg: ParcelSourceConfig, rows: Iterable[dict], index: dict[tuple[str, str], list[dict]]) -> list[MatchResult]:
     out = []
     for r in rows:
-        key = normalize_id(r.get("parcel"), cfg.id_rule)
+        key = normalize_id(r.get(cfg.row_id_column), cfg.id_rule)
         if key is None:
             out.append(MatchResult(r["id"], "NO_IDENTIFIER", reason="row carries no parcel/account identifier with a digit"))
             continue
@@ -268,7 +293,8 @@ def plan_update(cfg: ParcelSourceConfig, row: dict, match: MatchResult, *, recor
         if c:
             fields["latitude"], fields["longitude"] = c
     meta = {"source_id": cfg.source_id, "dataset": cfg.dataset, "agency": cfg.agency, "layer_url": cfg.layer_url,
-            "matched_id_field": cfg.id_field, "matched_parcel_id": match.key, "id_rule": cfg.id_rule,
+            "matched_id_field": match.feature.get("_matched_field") or cfg.id_field, "matched_row_column": cfg.row_id_column,
+            "matched_parcel_id": match.key, "id_rule": cfg.id_rule,
             "licence": cfg.licence, "value_year": year, "recorded_at": recorded_at}
     prov = {}
     for column in fields:

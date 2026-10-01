@@ -158,3 +158,39 @@ def test_f11_runner_end_to_end_with_an_injected_layer_and_gates(monkeypatch):
     assert "reuse not cleared" in rep["skipped"]
     # the CLI refuses an unactivated state before anything
     assert not states.is_activated("ZZ") and R.main(["--state", "ZZ"]) == 0
+
+
+def test_f20_alternate_identifier_fields_match_one_feature_or_fail_closed():
+    c = cfg(id_field="PROP_ID", alt_id_fields=("GEO_ID",), row_id_column="case_no", id_rule="digits",
+            field_map={"market": "PARVAL", "acreage": "GISACRES"})
+    a = feat("x", PROP_ID="123456", GEO_ID="0001-0002-0003")
+    b = feat("y", PROP_ID="000100020003", GEO_ID="999")       # its PROP_ID equals a's GEO_ID digits
+    same = feat("z", PROP_ID="555", GEO_ID="555")              # one feature reached through both fields
+    idx = P.index_features(c, [a, b, same])
+    rows = [{"id": "1", "county": "Wake", "case_no": "123456", "parcel": "24-TX-0001"},
+            {"id": "2", "county": "Wake", "case_no": "0001 0002 0003"},
+            {"id": "3", "county": "Wake", "case_no": "555"},
+            {"id": "4", "county": "Wake", "case_no": None, "parcel": "123456"}]
+    got = {m.row_id: m for m in P.match_rows(c, rows, idx)}
+    assert got["1"].status == "MATCHED" and got["1"].feature["_matched_field"] == "PROP_ID"
+    assert got["2"].status == "AMBIGUOUS"            # two different features through two attributes
+    assert got["3"].status == "MATCHED"              # the same feature twice is one candidate
+    assert got["4"].status == "NO_IDENTIFIER"        # the configured row column only - never the parcel instead
+    fields, prov = P.plan_update(c, rows[0], got["1"], recorded_at="t")
+    assert prov["market"]["matched_id_field"] == "PROP_ID" and prov["market"]["matched_row_column"] == "case_no"
+
+
+def test_f21_identical_twins_without_objectid_stay_ambiguous():
+    c = cfg()
+    idx = P.index_features(c, [feat("0784123456"), feat("0784123456")])
+    [m] = P.match_rows(c, [{"id": "a", "county": "Wake", "parcel": "0784123456"}], idx)
+    assert m.status == "AMBIGUOUS"
+
+
+def test_f22_query_asks_every_identifier_field_and_row_column_is_restricted():
+    c = cfg(alt_id_fields=("GEO_ID",))
+    [url] = P.query_urls(c, "Wake", ["1"])
+    where = parse_qs(urlsplit(url).query)["where"][0]
+    assert "PARNO IN ('1')" in where and "GEO_ID IN ('1')" in where and " OR " in where
+    with pytest.raises(ValueError):
+        cfg(row_id_column="owner_name")

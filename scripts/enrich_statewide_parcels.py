@@ -45,12 +45,12 @@ def http_json(url: str, *, headers: dict | None = None, method: str = "GET", bod
     return json.loads(raw) if raw else None
 
 
-def fetch_rows(base: str, key: str, state: str) -> list[dict]:
+def fetch_rows(base: str, key: str, state: str, id_column: str = "parcel") -> list[dict]:
     rows, offset = [], 0
     hdr = {"apikey": key, "Authorization": f"Bearer {key}"}
     while True:
         q = urllib.parse.urlencode({"select": ",".join(READ_COLUMNS), "state": f"eq.{state}", "status": "eq.active",
-                                    "parcel": "not.is.null", "order": "id", "limit": 1000, "offset": offset})
+                                    id_column: "not.is.null", "order": "id", "limit": 1000, "offset": offset})
         page = http_json(f"{base}/rest/v1/properties?{q}", headers=hdr) or []
         rows += page
         if len(page) < 1000:
@@ -91,7 +91,7 @@ def run(state: str, rows: list[dict], fetch_json, *, write=None, recorded_at: st
         by_county[r.get("county") or ""].append(r)
     for county, crow in sorted(by_county.items()):
         features, failed = [], False
-        for url in P.query_urls(cfg, county, [r.get("parcel") for r in crow]):
+        for url in P.query_urls(cfg, county, [r.get(cfg.row_id_column) for r in crow]):
             try:
                 data = fetch_json(url)
             except Exception:  # noqa: BLE001 - a failed query attaches nothing
@@ -140,7 +140,7 @@ def main(argv=None) -> int:
     if not base or not key:
         print("skip: SUPABASE_URL / SUPABASE_SERVICE_KEY not set")
         return 0
-    rows = fetch_rows(base, key, st)
+    rows = fetch_rows(base, key, st, cfg.row_id_column)
 
     def fetch_json(url):
         time.sleep(0.3)
