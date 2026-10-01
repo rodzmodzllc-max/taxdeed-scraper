@@ -151,7 +151,9 @@ def test_10_app_js_rpc_call_remains_compatible_005s_argument_signature_unchanged
     assert live_params.strip() == corrected_params.strip()
 
     app_js = _read("public", "app.js")
-    assert 'sb.rpc("get_properties", { p_state: PAGE_STATE })' in app_js
+    assert 'sb.rpc("get_properties", { p_state: PAGE_STATE, p_ledger_type: ledgerType, p_limit: PROPERTY_PAGE_SIZE, p_offset: offset })' in app_js
+    for name in ("p_state", "p_ledger_type", "p_limit", "p_offset"):   # every argument app.js names is in the live signature
+        assert name in live_params
 
 
 def test_11_005_grant_execute_preserves_the_full_live_role_set_not_narrowed():
