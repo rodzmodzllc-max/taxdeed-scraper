@@ -389,9 +389,14 @@ const MONITOR_DB = MONITOR_MODE === "none" ? null : {
     { id: 103, property_id: "p15", state: "FL", county: "Citrus", source: "laft", kind: "removed", field: "status", old_value: "active", new_value: "closed", observed_at: "2026-08-15T06:00:00Z" },
     { id: 102, property_id: "p3", state: "FL", county: "Bay", source: "laft", kind: "opening_bid_changed", field: "opening_bid", old_value: "1800", new_value: "2000", observed_at: "2026-09-29T12:00:00Z" }
   ],
-  product_events: []
+  product_events: [],
+  source_observation_runs: [
+    { id: 1, state: "FL", source_id: "fl_laft_html", ledger: "laft", run_at: "2026-10-01T06:00:00Z", rows_observed: 120, rows_added: 3, rows_changed: 5, rows_closed: 2, rows_reactivated: 1 },
+    { id: 2, state: "FL", source_id: "fl_laft_html", ledger: "laft", run_at: "2026-09-30T06:00:00Z", rows_observed: 119, rows_added: 0, rows_changed: 1, rows_closed: 0, rows_reactivated: 0 },
+    { id: 3, state: "FL", source_id: "fl_realauction", ledger: "auction", run_at: "2026-10-01T10:00:00Z", rows_observed: 812, rows_added: 14, rows_changed: 40, rows_closed: 9, rows_reactivated: 0 }
+  ]
 };
-const MONITOR_TABLES = new Set(["saved_searches", "alert_preferences", "user_alerts", "property_change_events", "product_events"]);
+const MONITOR_TABLES = new Set(["saved_searches", "alert_preferences", "user_alerts", "property_change_events", "product_events", "source_observation_runs"]);
 function monitorQuery(q) {
   if (MONITOR_DB === null) return { data: null, error: { message: `Could not find the table 'public.${q.table}' in the schema cache`, code: "PGRST205" } };
   const rows = MONITOR_DB[q.table];
@@ -411,6 +416,7 @@ function monitorQuery(q) {
   if (q._op === "delete") { const keep = rows.filter(r => !matches(r)); rows.length = 0; rows.push(...keep); return { data: null, error: null }; }
   if (q.table === "product_events") return { data: [], error: null };
   const out = rows.filter(matches).map(r => Object.assign({}, r));
+  if (q.table === "source_observation_runs") out.sort((a, b) => String(b.run_at).localeCompare(String(a.run_at)));
   if (q.table === "property_change_events" || q.table === "user_alerts") out.sort((a, b) => String(b.observed_at || b.created_at).localeCompare(String(a.observed_at || a.created_at)));
   return { data: q._single ? (out[0] || null) : out, error: null };
 }

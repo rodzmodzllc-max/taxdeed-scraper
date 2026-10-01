@@ -3579,7 +3579,17 @@ await monNone.click('#savedSearchesCloseBtn');
 await monNone.locator('#alertsMenuItem').evaluate(el => el.click());
 await monNone.waitForTimeout(200);
 results.monNoneAlerts = await monNone.locator('#alertsUnavailable').count();
+await monNone.locator('#alertsCloseBtn').click();
+await monNone.click('.nav-list .nav-item[data-page="dashboard"]');
+await monNone.waitForTimeout(300);
+results.monNoneRuns = await monNone.locator('#dashRunsUnavailable').count();
 await monNone.close();
+// 11. Dashboard: latest change-detection run per source.
+const monDash = await newPage({ viewport: { width: 1200, height: 900 } });
+await monDash.goto(BASE_URL + '#/dashboard', { waitUntil: 'networkidle' });
+await monDash.waitForTimeout(700);
+results.monDashRuns = await monDash.locator('#dashRunRows .run-row').evaluateAll(els => els.map(e => e.dataset.source + ':' + Array.from(e.querySelectorAll('.dash-row-vals span')).map(x => x.textContent.trim()).join(' / ')));
+await monDash.close();
 
 await browser.close();
 
@@ -3625,6 +3635,8 @@ const EXPECTED = {
   monNoneAlertsToggle: 0,
   monNoneCountsAfterSeen: ['2 matching', '0 new', '0 changed', '0 no longer matching'],
   monNoneAlerts: 1,
+  monNoneRuns: 1,
+  monDashRuns: ['fl_realauction:812 observed / 14 new / 40 changed / 9 no longer listed', 'fl_laft_html:120 observed / 3 new / 5 changed / 2 no longer listed / 1 listed again'],
   acqWithheldLineCount: 0,
   acqP16State: 'none',
   acqP16Rows: ['Acquisition path | Not yet verified', 'Official availability source | Open official source →', 'How to acquire | See the official source for current instructions.'],

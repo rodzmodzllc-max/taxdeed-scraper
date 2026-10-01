@@ -787,7 +787,7 @@ let selectedPid = null;
 // fallback, never to a silent error).
 const MONITOR = {
   tables: { saved_searches: null, user_alerts: null, alert_preferences: null, property_change_events: null, product_events: null },
-  savedSearches: [], alerts: [], prefs: null, events: [], loaded: false, searchTimer: null, queue: [], sessionTracked: false
+  savedSearches: [], alerts: [], prefs: null, events: [], runs: null, loaded: false, searchTimer: null, queue: [], sessionTracked: false
 };
 
 // The Map page's own toolbar state (search/county/ledger/watchlist-only -
@@ -8064,6 +8064,7 @@ function renderDashboard() {
   if (sourceEl) sourceEl.innerHTML = sourceHealthRowsHtml(SOURCE_HEALTH, PAGE_STATE);
   const unitEl = document.getElementById("dashUnitRows");
   if (unitEl) unitEl.innerHTML = unitFreshnessRowsHtml(UNIT_FRESHNESS, PAGE_STATE);
+  renderRunRows();
   const watchEl = document.getElementById("dashWatchChanges");
   if (watchEl) watchEl.innerHTML = watchChangesHtml(WATCH_CHANGES);
 
@@ -8636,6 +8637,29 @@ function renderMonitorChrome() {
   if (ssCount) { ssCount.textContent = newTotal ? `${newTotal} new` : ""; ssCount.hidden = !newTotal; }
 }
 
+// Per-source observation counts from the change-detection runs
+// (source_observation_runs, migration 024): the latest run per source and
+// ledger - rows observed, newly listed, changed, no longer listed, listed
+// again. Not recorded yet = said so, never zeros.
+function observationRunsHtml(runs) {
+  if (runs === null) return `<div class="dash-empty" id="dashRunsUnavailable">Per-source change counts are not recorded on this deployment yet (migration 024 has not been applied).</div>`;
+  const latest = new Map();
+  runs.forEach(r => { const k = `${r.source_id}|${r.ledger || ""}`; if (!latest.has(k)) latest.set(k, r); });
+  if (!latest.size) return `<div class="dash-empty">No change-detection run has been recorded for ${esc(STATE_INFO.name || PAGE_STATE)} yet.</div>`;
+  return Array.from(latest.values()).map(r => `<div class="dash-row run-row" data-source="${esc(r.source_id)}">
+    <div class="dash-row-name">${esc(ledgerCopy(r.ledger || "").title || r.ledger || "")} · ${esc(r.source_id)}<span class="dash-row-sub">last run ${esc(relativeTime(r.run_at))}</span></div>
+    <div class="dash-row-vals"><span><b>${r.rows_observed}</b> observed</span><span><b>${r.rows_added}</b> new</span><span><b>${r.rows_changed}</b> changed</span><span><b>${r.rows_closed}</b> no longer listed</span>${r.rows_reactivated ? `<span><b>${r.rows_reactivated}</b> listed again</span>` : ""}</div>
+  </div>`).join("") + `<p class="watch-changes-note">"No longer listed" means the row left the source list. It is never a sale or a result.</p>`;
+}
+function renderRunRows() {
+  const unitEl = document.getElementById("dashUnitRows");
+  if (!unitEl) return;
+  let el = document.getElementById("dashRunRows");
+  if (!el) { unitEl.insertAdjacentHTML("afterend", `<div id="dashRunRows" class="dash-run-rows"></div>`); el = document.getElementById("dashRunRows"); }
+  // Nothing until the probe has answered (null before it means "not asked yet").
+  el.innerHTML = MONITOR.runsProbed ? observationRunsHtml(MONITOR.runs) : "";
+}
+
 function installMonitoringUi() {
   const qc = document.getElementById("quickControls");
   const exportBtn = document.getElementById("exportCsvBtn");
@@ -8763,6 +8787,10 @@ async function loadMonitoring() {
     MONITOR.tables.property_change_events = !(ev && ev.error);
     MONITOR.events = MONITOR.tables.property_change_events ? (ev.data || []) : [];
   }
+  const runs = await sb.from("source_observation_runs").select("*").eq("state", PAGE_STATE).order("run_at", { ascending: false }).limit(200);
+  MONITOR.runs = runs && !runs.error ? (runs.data || []) : null;
+  MONITOR.runsProbed = true;
+  renderRunRows();
   MONITOR.loaded = true;
   const queued = MONITOR.queue.splice(0);
   renderMonitorChrome();
