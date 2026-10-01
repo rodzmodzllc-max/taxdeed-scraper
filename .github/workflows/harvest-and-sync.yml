@@ -159,7 +159,7 @@ on:
         required: false
         type: choice
         default: all
-        options: [all, deeds, certificates, laft, texas, backup, evidence, outcomes, expansion, enrich, storage]
+        options: [all, deeds, certificates, laft, texas, backup, evidence, outcomes, expansion, enrich, storage, available]
       enrich_states:
         description: >-
           (job=enrich only) Comma-separated postal codes for the enrichment
@@ -189,6 +189,18 @@ on:
         type: choice
         default: analyze
         options: [analyze, apply, apply_consolidate]
+      available_mode:
+        description: >-
+          (job=available only) plan = read-only coverage matrix + expected
+          writes of every enricher over every active AVAILABLE row;
+          discover = value-free GIS catalog / document discovery with an
+          identifier match probe (scripts/discover_sources.py); apply = the
+          cleared parcel / tax-roll layers, then NAIP imagery and FEMA flood
+          for the AVAILABLE states, then the plan again (after).
+        required: false
+        type: choice
+        default: plan
+        options: [plan, discover, apply]
       storage_max:
         description: (job=storage, apply modes) optimize at most N objects this run; blank = all.
         required: false
@@ -1577,3 +1589,105 @@ jobs:
           path: |
             out/public/
             out/private/
+
+  available:
+    # All-sources AVAILABLE enrichment engine (2026-10-01) - MANUAL ONLY
+    # (job=available), never scheduled, never part of "all". Every active
+    # AVAILABLE row of every production state is a target; the unified source
+    # inventory (harvesters/sources) decides which source can fill which gap.
+    # Writes only from APPROVED sources, through the field-provenance
+    # precedence; a REVIEW_REQUIRED source is reported, never written from;
+    # a HARD_BLOCKED source is never requested. Nothing is harvested, no row
+    # is created, closed or hidden. Reports are counts only.
+    name: AVAILABLE enrichment engine (manual only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 170
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.job == 'available'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python dependencies
+        run: pip install requests pillow pdfplumber beautifulsoup4
+
+      - name: OCR for scanned documents (discover only)
+        if: github.event.inputs.available_mode == 'discover'
+        continue-on-error: true
+        run: |
+          sudo apt-get install -y -qq tesseract-ocr > /dev/null
+          pip install pytesseract
+
+      - name: Discover sources (GIS catalogs + official documents, value-free)
+        if: github.event.inputs.available_mode == 'discover'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/discover_sources.py --gis --documents
+
+      - name: Plan (before) - coverage matrix and expected writes, read-only
+        if: github.event.inputs.available_mode != 'discover'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/enrich_available.py --plan --label before
+
+      - name: Apply - cleared parcel / tax-roll layers (deterministic identifier match)
+        if: github.event.inputs.available_mode == 'apply'
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/enrich_available.py --apply --label parcels
+
+      - name: Apply - NAIP aerial imagery (AVAILABLE first; 950 MB budget fails closed)
+        if: github.event.inputs.available_mode == 'apply'
+        continue-on-error: true
+        timeout-minutes: 100
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          ENRICH_STATE: LA,TX,FL
+          NAIP_BATCH_LIMIT: '4000'
+          NAIP_PER_COUNTY_LIMIT: '4000'
+        run: python3 scripts/enrich_property_photos_naip.py
+
+      - name: Apply - FEMA flood hazard
+        if: github.event.inputs.available_mode == 'apply'
+        continue-on-error: true
+        timeout-minutes: 40
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          ENRICH_STATE: LA,TX,FL
+          FLOOD_BATCH_LIMIT: '3000'
+          FLOOD_PER_COUNTY_LIMIT: '3000'
+        run: python3 scripts/enrich_flood_zone.py
+
+      - name: Plan (after) - the same measurement after the writes
+        if: always() && github.event.inputs.available_mode == 'apply'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/enrich_available.py --plan --label after
+
+      - name: Prepare artifact (public evidence only)
+        if: always()
+        env:
+          ARTIFACT_PUBLIC_KEY: ${{ vars.ARTIFACT_PUBLIC_KEY }}
+        run: python3 scripts/artifact_evidence.py --job available
+
+      - name: Upload evidence (counts only)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: available-enrichment-${{ github.run_id }}
+          path: |
+            out/public/
+            out/private/
+          if-no-files-found: ignore
+          retention-days: 14

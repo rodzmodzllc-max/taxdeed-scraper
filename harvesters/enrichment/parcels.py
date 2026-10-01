@@ -113,6 +113,10 @@ class ParcelSourceConfig:
     # How identifiers are written in the query: "string" (quoted) or
     # "number" (a numeric column - the normalized key, unquoted).
     id_query: str = "string"
+    # County scope (all-sources engine, 2026-10-01): empty = the layer covers
+    # every county of its state; otherwise only these counties (a county
+    # appraisal / assessor layer). Several scoped layers may serve one state.
+    counties: tuple = ()
 
     def __post_init__(self) -> None:
         if self.transport not in TRANSPORTS:
@@ -140,6 +144,9 @@ class ParcelSourceConfig:
         overlap = {"owner_name", "address"} & {c for c, a in self.field_map.items() if a in self.alt_id_fields}
         if overlap:
             raise ValueError(f"{self.source_id}: an identifier attribute cannot also fill {sorted(overlap)}")
+
+    def covers(self, county: str) -> bool:
+        return not self.counties or county in self.counties
 
     def county_value(self, county: str) -> str:
         return self.county_values.get(county, county)

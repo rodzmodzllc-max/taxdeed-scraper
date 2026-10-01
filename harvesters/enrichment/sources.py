@@ -11,18 +11,41 @@ from __future__ import annotations
 
 from .parcels import ParcelSourceConfig
 
+# The state's STATEWIDE layer (at most one per state).
 PARCEL_SOURCES: dict[str, ParcelSourceConfig] = {}
+# Every registered layer, statewide and county-scoped, in registration order.
+_ALL: list[ParcelSourceConfig] = []
 
 
 def register(cfg: ParcelSourceConfig) -> ParcelSourceConfig:
-    if cfg.state in PARCEL_SOURCES:
-        raise ValueError(f"{cfg.state} already has a statewide parcel source")
-    PARCEL_SOURCES[cfg.state] = cfg
+    if any(c.source_id == cfg.source_id for c in _ALL):
+        raise ValueError(f"{cfg.source_id} is already registered")
+    if not cfg.counties:
+        if cfg.state in PARCEL_SOURCES:
+            raise ValueError(f"{cfg.state} already has a statewide parcel source")
+        PARCEL_SOURCES[cfg.state] = cfg
+    else:
+        for other in _ALL:
+            if other.state == cfg.state and set(other.counties) & set(cfg.counties):
+                raise ValueError(f"{cfg.source_id}: county scope overlaps {other.source_id}")
+    _ALL.append(cfg)
     return cfg
 
 
 def for_state(state: str) -> ParcelSourceConfig | None:
     return PARCEL_SOURCES.get(state)
+
+
+def all_sources() -> list[ParcelSourceConfig]:
+    return list(_ALL)
+
+
+def for_county(state: str, county: str) -> list[ParcelSourceConfig]:
+    """Every layer covering (state, county): county-scoped layers first (the
+    county's own assessor is the closer source), then the statewide one."""
+    scoped = [c for c in _ALL if c.state == state and c.counties and county in c.counties]
+    statewide = [c for c in _ALL if c.state == state and not c.counties]
+    return scoped + statewide
 
 
 # ---------------------------------------------------------------------------
