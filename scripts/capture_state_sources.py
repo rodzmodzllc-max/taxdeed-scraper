@@ -304,6 +304,32 @@ FIVE_STATE_TABLE_VALUES = {
 }
 
 
+# Pass 3 (2026-10-01): Douglas County CO's lien layers (licence tail, lien
+# type values), the Wisconsin statewide parcel licence, York SC's sale page.
+FIVE_STATE_PASS3_PAGES = {
+    "CO": ["https://www.douglasco.gov/documents/open-data-guidelines.pdf/",
+           "https://www.douglasco.gov/documents/request-for-assignment-of-county-held.pdf/",
+           "https://www.douglasco.gov/treasurer/"],
+    "WI": ["https://www.sco.wisc.edu/parcels/data/", "https://www.sco.wisc.edu/parcels/"],
+    "SC": ["https://www.yorkcountysc.gov/789/Tax-Information"],
+}
+FIVE_STATE_PASS3_SERVICES = {
+    "CO": ["https://services.arcgis.com/seTexOicoRXDvRsJ/arcgis/rest/services/OpenData/FeatureServer/2",
+           "https://services.arcgis.com/seTexOicoRXDvRsJ/arcgis/rest/services/County_Held_Tax_Liens1/FeatureServer"],
+}
+FIVE_STATE_PASS3_PROBES = {
+    "CO": [("https://services.arcgis.com/seTexOicoRXDvRsJ/arcgis/rest/services/OpenData/FeatureServer/2", "1=1",
+            ["account_id", "lien_id"], ["type", "lien_type", "lien_year", "sale_or_purchase_date"]),
+           ("https://services.arcgis.com/seTexOicoRXDvRsJ/arcgis/rest/services/County_Held_Tax_Liens1/FeatureServer/0", "1=1",
+            ["USER_account_id", "USER_lien_id"], ["USER_type", "USER_lien_type", "USER_lien_year"])],
+}
+FIVE_STATE_PASS3_ITEMS = {
+    "CO": ["950fd2c3a9bf4e0e92fa4a64f1859fec", "0a54a67e8b944ddeae533a2f6a3fe047", "7ca5a1199ee94728bb3324bf4d646c9e"],
+    "SC": ["ef9243d9330c4891ba724689f2eb1502"],
+}
+FIVE_STATE_PASS3_QUERIES = ('"Wisconsin Statewide Parcels" V12', 'owner:SCO_Admin parcels')
+
+
 def pdf_process(session: requests.Session, url: str, max_pages: int = 6) -> dict:
     """A PDF's process text (first pages), through process_text()."""
     out = {"url": url, "kind": "pdf_process"}
@@ -378,8 +404,8 @@ def table_values(session: requests.Session, url: str, headers: list[str]) -> dic
 
 
 PROCESS_KEEP = re.compile(r"\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+\d|\d\s*(a\.?m\.?|p\.?m\.?)\b|\$\s*\d|"
-                          r"\(?\d{3}\)?[-. ]\d{3}[-. ]\d{4}|\d{1,2}/\d{1,2}/\d{2,4}|%", re.I)
-PHONE = re.compile(r"\(?\d{3}\)?[-. ]\d{3}[-. ]\d{4}")
+                          r"\(?\d{3}\)?[-. ]?\d{3}[-. ]\d{4}|\d{1,2}/\d{1,2}/\d{2,4}|%", re.I)
+PHONE = re.compile(r"\(?\d{3}\)?[-. ]?\d{3}[-. ]\d{4}")
 PARCELISH = re.compile(r"[A-Za-z0-9-]*\d[A-Za-z0-9-]*")
 
 
@@ -436,7 +462,8 @@ LONG_DIGITS = re.compile(r"\d{7,}")
 MAX_SNIPPETS, MAX_SNIPPET_CHARS = 40, 320
 PROCESS_VOCAB = re.compile(r"sale|held|register|registration|deposit|payment|cash|cashier|certified|phone|contact|email|e-mail|"
                            r"treasurer|clerk|offer|sealed|minimum|opening|deadline|location|address|office|hours|online|in person|"
-                           r"assignment|assign|redemption|interest|premium|overbid|list|available|commission|forfeit", re.I)
+                           r"assignment|assign|redemption|interest|premium|overbid|list|available|commission|forfeit|"
+                           r"public domain|licen[cs]|restrict|permission|free of charge|attribut|creative commons|reuse|redistribut", re.I)
 MAX_TERMS_FOLLOW = 4
 CSV_BYTES = 3_000_000
 
@@ -770,7 +797,7 @@ def arcgis_item(session: requests.Session, item_id: str) -> dict:
     rec = {"id": item_id, "title": it.get("title"), "type": it.get("type"), "owner": it.get("owner"), "org": it.get("orgId"),
            "url": it.get("url"), "modified": it.get("modified"), "tags": (it.get("tags") or [])[:12],
            "snippet": strip_html(it.get("snippet") or "")[:240], "description": mask_digits(strip_html(it.get("description") or ""))[:900],
-           "license": strip_html(it.get("licenseInfo") or "")[:900], "access": strip_html(it.get("accessInformation") or "")[:300]}
+           "license": strip_html(it.get("licenseInfo") or "")[:2400], "access": strip_html(it.get("accessInformation") or "")[:300]}
     if it.get("url") and ARCGIS_SERVICE_RE.search(it["url"]):
         rec["layers"] = arcgis_layer_meta(session, it["url"])
     return rec
@@ -807,6 +834,7 @@ def main(argv=None) -> int:
     ap.add_argument("--expansion", action="store_true", help="read EXPANSION_TARGETS and run EXPANSION_QUERIES (six-state sprint)")
     ap.add_argument("--five-state", action="store_true", help="read FIVE_STATE_* candidates (five-state enrichment sprint)")
     ap.add_argument("--five-state-pass2", action="store_true", help="read the FIVE_STATE_PASS2 / PROBES targets")
+    ap.add_argument("--five-state-pass3", action="store_true", help="read the FIVE_STATE_PASS3 targets")
     ap.add_argument("--out", default=str(OUT_PATH))
     args = ap.parse_args(argv)
     if args.digest:
@@ -918,12 +946,21 @@ def main(argv=None) -> int:
             print(f"  {code} item           {item_id}", flush=True)
             time.sleep(0.5)
         report["states"].setdefault(code, {"sources": []})["sources"].append(entry)
-    for code in sorted(set(FIVE_STATE_PASS2_PAGES) | set(FIVE_STATE_PASS2_SERVICES) | set(FIVE_STATE_PROBES)):
-        if not args.five_state_pass2 or (args.state and code not in args.state):
+    passes = []
+    if args.five_state_pass2:
+        passes.append(("pass2", FIVE_STATE_PASS2_PAGES, FIVE_STATE_PASS2_SERVICES, FIVE_STATE_PROBES, {}))
+    if args.five_state_pass3:
+        passes.append(("pass3", FIVE_STATE_PASS3_PAGES, FIVE_STATE_PASS3_SERVICES, FIVE_STATE_PASS3_PROBES, FIVE_STATE_PASS3_ITEMS))
+    for tag, P_PAGES, P_SERVICES, P_PROBES, P_ITEMS in passes:
+     for code in sorted(set(P_PAGES) | set(P_SERVICES) | set(P_PROBES) | set(P_ITEMS)):
+        if args.state and code not in args.state:
             continue
-        entry = {"source_id": f"five_state_pass2_{code.lower()}", "county": "(five-state pass 2)", "pages": []}
-        for url in FIVE_STATE_PASS2_PAGES.get(code, []):
-            if re.search(r"DocumentCenter/View|\.pdf$", url, re.I):
+        entry = {"source_id": f"five_state_{tag}_{code.lower()}", "county": f"(five-state {tag})", "pages": []}
+        for item_id in P_ITEMS.get(code, []):
+            entry["pages"].append({"url": f"item:{item_id}", "kind": "arcgis_item", **arcgis_item(session, item_id)})
+            time.sleep(0.5)
+        for url in P_PAGES.get(code, []):
+            if re.search(r"DocumentCenter/View|\.pdf/?$", url, re.I):
                 page = pdf_process(session, url)
                 if page.get("status") == 200 and "pdf" not in str(page.get("content_type", "")).lower():
                     page = capture(session, url, "process", process=True)
@@ -934,22 +971,23 @@ def main(argv=None) -> int:
             if url in FIVE_STATE_TABLE_VALUES:
                 entry["pages"].append(table_values(session, url, FIVE_STATE_TABLE_VALUES[url]))
             time.sleep(0.8)
-        for url in FIVE_STATE_PASS2_SERVICES.get(code, []):
+        for url in P_SERVICES.get(code, []):
             page = {"url": url, "kind": "arcgis", "layers": arcgis_layer_meta(session, url)}
             print(f"  {code} arcgis         {len(page['layers'])} layer(s) {url}", flush=True)
             entry["pages"].append(page)
             time.sleep(0.8)
-        for layer, where, ids, cats in FIVE_STATE_PROBES.get(code, []):
+        for layer, where, ids, cats in P_PROBES.get(code, []):
             page = layer_probe(session, layer, where, ids, cats)
             print(f"  {code} probe          count={page.get('count')} {layer}", flush=True)
             entry["pages"].append(page)
             time.sleep(0.8)
-        for url in (u for u in FIVE_STATE_TABLE_VALUES if u not in FIVE_STATE_PASS2_PAGES.get(code, []) and code == "MI"):
+        for url in (u for u in FIVE_STATE_TABLE_VALUES if tag == "pass2" and u not in P_PAGES.get(code, []) and code == "MI"):
             entry["pages"].append(table_values(session, url, FIVE_STATE_TABLE_VALUES[url]))
         report["states"].setdefault(code, {"sources": []})["sources"].append(entry)
     queries = list(args.arcgis_search) or (list(DISCOVERY_QUERIES if args.discovery else ()) + list(EXPANSION_ITEM_QUERIES if args.expansion else ())
                                            + list(FIVE_STATE_QUERIES if args.five_state else ())
-                                           + list(FIVE_STATE_PASS2_QUERIES if args.five_state_pass2 else ()))
+                                           + list(FIVE_STATE_PASS2_QUERIES if args.five_state_pass2 else ())
+                                           + list(FIVE_STATE_PASS3_QUERIES if args.five_state_pass3 else ()))
     for q in queries:
         report.setdefault("arcgis", {})[q] = arcgis_discover(session, q)
         print(f"  arcgis search {q!r}: {len(report['arcgis'][q])} item(s)", flush=True)

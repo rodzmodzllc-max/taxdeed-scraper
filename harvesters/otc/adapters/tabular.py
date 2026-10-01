@@ -75,6 +75,23 @@ class TabularConfig:
     # Phrases that, alone in the table's first data row, are the source's own
     # statement that the table is empty (e.g. "no current sales").
     empty_phrases: tuple[str, ...] = ()
+    # Five-state sprint. `empty_patterns`: regexes that, matching the only data
+    # row, are the source's own statement that no list is posted (e.g. "The
+    # 2026 Tax Sale is scheduled for <date>." in place of the list).
+    empty_patterns: tuple[str, ...] = ()
+    # The HTML id of the one table to read, when a page carries several
+    # tables with the same columns (Dane County WI: available vs sold).
+    table_id: str | None = None
+    # A regex on the AMOUNT cell with named groups `bid` and `price` for a
+    # source that writes a completed sale into it (Dane County WI:
+    # "$1234.00 SOLD - $5678.00"): bid = the published minimum bid, price =
+    # the published sale price, and the row's status is the source's own
+    # word ("SOLD"). A cell that does not match is read as a plain amount.
+    amount_sold_pattern: str | None = None
+    # Per-row links the source publishes, by link text (lower-case, exact):
+    # link text -> PurchaseUrlKind value (e.g. {"bid form": "bid_form"}).
+    # Only a link on the row itself, on the source's own host, is taken.
+    row_links: tuple[tuple[str, str], ...] = ()
 
 
 # Cell tokens a source uses for "no value here" (never a published value).
@@ -113,9 +130,11 @@ DATE_IN_LABEL = re.compile(r"(\d{1,2}/\d{1,2}/\d{4})")
 
 
 def _date(text: str | None) -> date | None:
+    # A date may carry a time after it ("10/6/2026 1:00 PM" - a bid deadline).
+    token = (text or "").strip().split(" ")[0]
     for fmt in ("%m/%d/%Y", "%m/%d/%y", "%Y-%m-%d"):
         try:
-            return datetime.strptime((text or "").strip(), fmt).date()
+            return datetime.strptime(token, fmt).date()
         except ValueError:
             continue
     return None
@@ -136,6 +155,7 @@ class TabularListAdapter:
                     self._lookup[_norm(label)] = self._lookup.get(_norm(label), ()) + (field_name,)
         self.empty_statement = False
         self.label_as_of: date | None = None
+        self._row_links: list[dict[str, str]] = []
 
     def field_for(self, label: str) -> tuple[str, ...] | None:
         """Every record field a column label fills (None = not a mapped column)."""
@@ -161,17 +181,32 @@ class TabularListAdapter:
 
     def parse_html_table(self, html: str | bytes, *, retrieved_at: datetime, document_name: str | None = None) -> list[OtcRecord]:
         from bs4 import BeautifulSoup
+        from urllib.parse import urljoin, urlsplit
         soup = BeautifulSoup(html, "html.parser")
         best: list[list[str]] = []
+        best_links: list[dict[str, str]] = []
         best_score = 0
-        for table in soup.find_all("table"):
-            rows = [[c.get_text(" ", strip=True) for c in tr.find_all(["th", "td"])] for tr in table.find_all("tr")]
-            rows = [r for r in rows if r]
+        wanted = {t: k for t, k in self.cfg.row_links}
+        host = urlsplit(self.cfg.list_url or "").hostname
+        tables = soup.find_all("table", id=self.cfg.table_id) if self.cfg.table_id else soup.find_all("table")
+        for table in tables:
+            trs = [tr for tr in table.find_all("tr") if tr.find_all(["th", "td"])]
+            rows = [[c.get_text(" ", strip=True) for c in tr.find_all(["th", "td"])] for tr in trs]
+            links = []
+            for tr in trs:
+                found = {}
+                for a in tr.find_all("a", href=True):
+                    kind = wanted.get(a.get_text(" ", strip=True).lower())
+                    href = urljoin(self.cfg.list_url or "", a["href"].strip())
+                    if kind and href.startswith("https://") and urlsplit(href).hostname == host:
+                        found[kind] = href
+                links.append(found)
             if not rows or not self._table_ok(rows):
                 continue
             score = max((sum(1 for c in r if self.field_for(c)) for r in rows), default=0)
             if score > best_score:
-                best, best_score = rows, score
+                best, best_links, best_score = rows, links, score
+        self._row_links = best_links
         return self._records(best, retrieved_at=retrieved_at, document_name=document_name)
 
     # ---- core ------------------------------------------------------------------
@@ -187,12 +222,14 @@ class TabularListAdapter:
             if m and _date(m.group(1)):
                 self.label_as_of = _date(m.group(1))
         body = rows[header_idx + 1:]
-        if len(body) == 1 and self.cfg.empty_phrases and any(
-                _norm(p) == _norm(" ".join(c for c in body[0] if c.strip())) for p in self.cfg.empty_phrases):
+        links = self._row_links[header_idx + 1:] if self._row_links else [{} for _ in body]
+        only = " ".join(c for c in body[0] if c.strip()) if len(body) == 1 else ""
+        if len(body) == 1 and (any(_norm(p) == _norm(only) for p in self.cfg.empty_phrases)
+                               or any(re.search(p, only, re.I) for p in self.cfg.empty_patterns)):
             self.empty_statement = True
             return []
         out: list[OtcRecord] = []
-        for raw in body:
+        for raw, row_links in zip(body, links + [{}] * (len(body) - len(links))):
             values: dict[str, str] = {}
             for i, fs in enumerate(fields):
                 # A cell the source fills with a "not applicable" token carries no value.
@@ -201,6 +238,14 @@ class TabularListAdapter:
                         values[f] = raw[i].strip()
             if not values.get("case_no"):
                 continue
+            sold_price = None
+            status_text = values.get("status")
+            if self.cfg.amount_sold_pattern and values.get("amount"):
+                m = re.search(self.cfg.amount_sold_pattern, values["amount"])
+                if m:
+                    values["amount"] = m.group("bid")
+                    sold_price = _amount(m.group("price"))
+                    status_text = "SOLD"
             amount = _amount(values.get("amount")) if "amount" in values else None
             kind = self.cfg.amount_kind if amount is not None else AmountKind.NOT_PUBLISHED
             prov = {
@@ -216,9 +261,17 @@ class TabularListAdapter:
             if values.get("eligible_date"):
                 prov["date_eligible_for_auction"] = values["eligible_date"]
             result_amount = _amount(values.get("result_amount")) if "result_amount" in values else None
+            if sold_price is not None:
+                result_amount = sold_price
+                prov["result"] = f"the amount cell's own 'SOLD - <price>' wording (a completed sale, as published)"
             sale_date = _date(values.get("sale_date")) if "sale_date" in values else None
-            if result_amount is not None:
+            if result_amount is not None and "result" not in prov:
                 prov["result"] = f"column {self.cfg.columns.result_amount[0]!r} as published (a completed sale)"
+            purchase_url, purchase_kind = self.cfg.purchase_url, self.cfg.purchase_url_kind
+            if row_links and self.cfg.record_source == "auction" and status_text is None:
+                kind_name, href = next(iter(row_links.items()))
+                purchase_url, purchase_kind = href, PurchaseUrlKind(kind_name)
+                prov["purchase_url"] = f"the row's own '{next(t for t, k in self.cfg.row_links if k == kind_name)}' link"
             out.append(OtcRecord(
                 state=self.cfg.state, county=self.cfg.county, case_no=values["case_no"],
                 source_id=self.cfg.source_id, source_authority=self.cfg.source_authority,
@@ -226,11 +279,12 @@ class TabularListAdapter:
                 parcel=values.get("parcel"), address=values.get("address"), legal_desc=values.get("legal_desc"),
                 amount=amount, amount_kind=kind,
                 list_url=self.cfg.list_url, document_url=self.cfg.document_url,
-                purchase_url=self.cfg.purchase_url, purchase_url_kind=self.cfg.purchase_url_kind,
-                list_as_of=as_of, source_status_text=values.get("status"), provenance=prov,
+                purchase_url=purchase_url, purchase_url_kind=purchase_kind,
+                list_as_of=as_of, source_status_text=status_text, provenance=prov,
                 record_source=self.cfg.record_source, owner_name=values.get("owner_name"),
                 certificate_no=values.get("certificate_no"),
                 listing_closed=self.cfg.past_listing,
+                published_outcome="sold" if sold_price is not None else None,
                 sale_date=sale_date if self.cfg.record_source == "auction" else None,
                 result_amount=result_amount if self.cfg.record_source == "auction" else None,
                 result_date=sale_date if (result_amount is not None and self.cfg.record_source == "auction") else None,
