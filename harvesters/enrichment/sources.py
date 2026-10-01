@@ -172,6 +172,45 @@ LA_EBR_TAX_PARCELS = register(ParcelSourceConfig(
 
 
 # ---------------------------------------------------------------------------
+# Louisiana - East Baton Rouge Parish Assessor "EBRP Tax Roll" (Open Data BR,
+# myfc-nh6n). One record per parcel per TAX YEAR (2015-2025). Licence read
+# live: Public Domain - the same publisher and basis as the approved Tax
+# Parcel dataset above. Column meanings are the dataset's OWN definitions
+# (discover_sources.py --metadata, run 36940907360):
+#   structure_use  "Type of use of the structure including commercial,
+#                  residential or not determined"  -> land_use (raw value;
+#                  NOT DETERMINED is no classification and is never stored)
+#   taxpayer_val   "TAXABLE PARISH - the taxable amount for determining Parish
+#                  taxes derived from the sum of land/acreage value and any
+#                  improvement value minus any applicable homestead
+#                  exemption"                       -> taxable_value
+#   legal_description "Full description of the tax parcel which serves as the
+#                  legal record"                    -> legal_desc (fill-blank)
+#   units          "Total number of structures attached to the tax parcel" -
+#                  NOT acreage, so NOT mapped: no EBR dataset publishes acreage.
+# Match (deep probe, run 36937077351): assessment_no equals the adjudicated
+# list's parcel for 10,318 of 10,334 rows; the roll repeats each parcel once
+# per year, so only the LATEST published year (and no year before 2024) is a
+# candidate - two different records in that year stay AMBIGUOUS.
+# ---------------------------------------------------------------------------
+LA_EBR_TAX_ROLL = register(ParcelSourceConfig(
+    source_id="la_ebr_tax_roll", state="LA",
+    agency="East Baton Rouge Parish Assessor (Open Data BR)",
+    dataset="EBRP Tax Roll (data.brla.gov myfc-nh6n)",
+    landing_url="https://data.brla.gov/d/myfc-nh6n",
+    layer_url="https://data.brla.gov/resource/myfc-nh6n.json",
+    transport="socrata", id_field="assessment_no", id_rule="exact",
+    field_map={"land_use": "structure_use", "taxable_value": "taxpayer_val", "legal_desc": "legal_description"},
+    no_value={"land_use": ("NOT DETERMINED",)},
+    provenance_attrs=("tax_year", "vacant_lot_yn", "assessment_status"),
+    latest_field="tax_year", latest_min=2024, value_year_field="tax_year",
+    licence="Public Domain (Open Data BR dataset metadata, licence read live in runs 36921157970 / 36940907360); attribution: EBR Parish Assessor.",
+    publication_status="APPROVED", counties=("East Baton Rouge",), centroid=False, columns_verified=True, batch_size=100,
+    notes="AVAILABLE sprint 2026-10-01: column definitions run 36940907360; identifier match run 36937077351 (10,318 of 10,334).",
+))
+
+
+# ---------------------------------------------------------------------------
 # Texas - Jim Wells Central Appraisal District parcel web service (hosted by
 # the district's GIS vendor, BIS Consultants). DEEP PROBE (all-sources engine,
 # run 36922621158): all 11 Jim Wells AVAILABLE rows match exactly - the row's

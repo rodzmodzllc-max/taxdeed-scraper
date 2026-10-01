@@ -72,15 +72,16 @@ SELECT = ("id,state,county,source,status,parcel,case_no,address,legal_desc,asses
           "living_area,value_year,homestead")
 
 # Customer dimension -> the inventory role that can fill it.
-DIMENSIONS = ("identity", "legal", "assessment", "acreage", "land_use", "coordinates", "imagery", "flood",
+DIMENSIONS = ("identity", "legal", "assessment", "taxable", "acreage", "land_use", "coordinates", "imagery", "flood",
               "acquisition", "acquisition_contact", "instructions", "source_document", "source_date", "provenance")
-DIMENSION_ROLE = {"identity": "identity", "legal": "legal", "assessment": "assessment", "acreage": "acreage",
+DIMENSION_ROLE = {"identity": "identity", "legal": "legal", "assessment": "assessment", "taxable": "assessment", "acreage": "acreage",
                   "land_use": "land_use", "coordinates": "coordinates", "imagery": "imagery", "flood": "flood",
                   "acquisition": "acquisition", "acquisition_contact": "acquisition", "instructions": "acquisition",
                   "source_document": "availability", "source_date": "source_date", "provenance": None}
 # Dimensions that need another one first (the enricher reads it).
 PREREQUISITE = {"imagery": "coordinates", "flood": "coordinates"}
 PARCEL_COLUMNS = {"legal": ("legal_desc",), "assessment": ("assessed", "market", "taxable_value", "land_value"),
+                  "taxable": ("taxable_value",),
                   "acreage": ("acreage",), "land_use": ("land_use",), "coordinates": ("latitude",)}
 
 
@@ -100,6 +101,8 @@ def has_dimension(row: dict, dim: str) -> bool:
         return not _blank(row.get("legal_desc"))
     if dim == "assessment":
         return any(not _blank(row.get(c)) for c in ("assessed", "market", "taxable_value", "land_value"))
+    if dim == "taxable":
+        return not _blank(row.get("taxable_value"))
     if dim == "acreage":
         return not _blank(row.get("acreage"))
     if dim == "land_use":
@@ -114,7 +117,9 @@ def has_dimension(row: dict, dim: str) -> bool:
         return not _blank(row.get("purchase_path_type"))
     if dim == "acquisition_contact":
         a = _acq(row)
-        return any(not _blank(a.get(k)) for k in ("phone", "email", "office", "mailing_address", "address"))
+        # A way to reach the office: phone, e-mail or an address. An office
+        # NAME alone is not a contact (sprint 2026-10-01 measurement).
+        return any(not _blank(a.get(k)) for k in ("phone", "email", "mailing_address", "address"))
     if dim == "instructions":
         a = _acq(row)
         prov = row.get("otc_provenance") or {}
@@ -183,7 +188,8 @@ def _dt(v):
         return None
 
 
-def availability(row: dict, *, now: datetime, manual_only: frozenset = frozenset()) -> tuple[str, str]:
+def availability(row: dict, *, now: datetime, manual_only: frozenset = frozenset(),
+                 review_required: frozenset = frozenset()) -> tuple[str, str]:
     """(VERIFIED_AVAILABLE | NOT_VERIFIED_AVAILABLE, reason). Never closes or hides a row."""
     if (row.get("publication_status") or "") not in PUBLISHABLE and row.get("publication_status") is not None:
         return "NOT_VERIFIED_AVAILABLE", f"source publication {row.get('publication_status')}"
@@ -195,6 +201,10 @@ def availability(row: dict, *, now: datetime, manual_only: frozenset = frozenset
         return "NOT_VERIFIED_AVAILABLE", "no source read recorded for this row"
     if now - seen > timedelta(days=STALE_DAYS):
         return "NOT_VERIFIED_AVAILABLE", f"last source read older than {STALE_DAYS} days"
+    if src in review_required:
+        # Read on its source within the window, but the source's reuse terms
+        # are under review (tx_lgbs): observed, never "verified".
+        return "OBSERVED_REVIEW_REQUIRED", "read within the freshness window on a source whose reuse terms are under review"
     return "VERIFIED_AVAILABLE", "read from its approved source within the freshness window"
 
 
@@ -210,6 +220,8 @@ def coverage(rows: list[dict], *, now: datetime | None = None, match_outcomes: d
     inv = INV.build_inventory() if inventory is None else inventory
     from unit_freshness import MANUAL_ONLY_SOURCES  # noqa: PLC0415
     manual = frozenset(MANUAL_ONLY_SOURCES)
+    from harvesters.sources.model import REVIEW_OVERRIDES  # noqa: PLC0415
+    review = frozenset(REVIEW_OVERRIDES)
     caps = capture_outcomes()
     match_outcomes = match_outcomes or {}
     units: dict = {}
@@ -230,7 +242,7 @@ def coverage(rows: list[dict], *, now: datetime | None = None, match_outcomes: d
         for d in gaps:
             mo = match_outcomes.get(row["id"]) if d in PARCEL_COLUMNS else None
             u["outcomes"][d][gap_outcome(row, d, u["_sources"], capture_outcome=caps.get(key), match_outcome=mo)] += 1
-        status, _ = availability(row, now=now, manual_only=manual)
+        status, _ = availability(row, now=now, manual_only=manual, review_required=review)
         u["availability"][status] += 1
         seen = row.get("last_seen_at")
         if seen and (u["last_successful_read"] is None or str(seen) > u["last_successful_read"]):

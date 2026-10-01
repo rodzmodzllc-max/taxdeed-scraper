@@ -402,7 +402,7 @@ def test_plan_mode_writes_nothing(monkeypatch):
 
 def test_county_scoped_layers_coexist_with_a_statewide_one():
     assert PS.for_state("LA").source_id == "la_ebr_tax_parcels"
-    assert [c.source_id for c in PS.for_county("LA", "East Baton Rouge")] == ["la_ebr_tax_parcels"]
+    assert [c.source_id for c in PS.for_county("LA", "East Baton Rouge")] == ["la_ebr_tax_roll", "la_ebr_tax_parcels"]  # county roll first
     assert _cfg().covers("East Baton Rouge") and not _cfg().covers("Orleans")
     with pytest.raises(ValueError):
         PS.register(PS.LA_EBR_TAX_PARCELS)                          # same id twice

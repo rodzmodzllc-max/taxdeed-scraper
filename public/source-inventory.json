@@ -4692,16 +4692,16 @@
   },
   {
    "access": "ACCESSIBLE",
-   "access_note": "catalog + metadata read in runs 36921157970 / 36922621158",
+   "access_note": "columns verified live; AVAILABLE sprint 2026-10-01: column definitions run 36940907360; identifier match run 36937077351 (10,318 of 10,334).",
    "county": "East Baton Rouge",
-   "evidence": "scripts/discover_sources.py (Socrata catalog) and --deep",
-   "governance": "REVIEW_REQUIRED",
-   "governance_reason": "Licence read live: Public Domain (same publisher and basis as the approved Tax Parcel dataset), but its identifier (assessment_no) match and the meaning of structure_use / vacant_lot_yn are not yet measured",
-   "last_checked": "2026-10-01",
-   "legacy_status": "REVIEW_REQUIRED",
+   "evidence": "AVAILABLE sprint 2026-10-01: column definitions run 36940907360; identifier match run 36937077351 (10,318 of 10,334).",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "",
+   "legacy_status": "APPROVED",
    "name": "EBRP Tax Roll (data.brla.gov myfc-nh6n)",
-   "next_action": "Deep probe on assessment_no with category counts; configure land use only if the match is exact and the values are land-use categories",
-   "origin": "catalog",
+   "next_action": "",
+   "origin": "parcel_config",
    "publisher": "East Baton Rouge Parish Assessor (Open Data BR)",
    "roles": [
     "assessment",
@@ -4713,6 +4713,94 @@
    "source_type": "GIS",
    "state": "LA",
    "url": "https://data.brla.gov/d/myfc-nh6n"
+  },
+  {
+   "access": "NOT_CHECKED",
+   "access_note": "not captured yet",
+   "county": "East Baton Rouge",
+   "evidence": "web search 2026-10-01",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "",
+   "legacy_status": "",
+   "name": "Parish Attorney's Office department page (office address / phone for the adjudicated-property process)",
+   "next_action": "Capture with job=evidence, evidence_scope=acquisition_candidates",
+   "origin": "candidate",
+   "publisher": "county office",
+   "roles": [
+    "acquisition",
+    "discovery"
+   ],
+   "source_id": "candidate:LA:East Baton Rouge:40",
+   "source_type": "GOVERNMENT",
+   "state": "LA",
+   "url": "https://www.brla.gov/450/Parish-Attorneys-Office"
+  },
+  {
+   "access": "NOT_CHECKED",
+   "access_note": "not captured yet",
+   "county": "East Baton Rouge",
+   "evidence": "web search 2026-10-01",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "",
+   "legacy_status": "",
+   "name": "Parish Attorney Adjudicated Property page (process and forms)",
+   "next_action": "Capture with job=evidence, evidence_scope=acquisition_candidates",
+   "origin": "candidate",
+   "publisher": "county office",
+   "roles": [
+    "acquisition",
+    "discovery"
+   ],
+   "source_id": "candidate:LA:East Baton Rouge:41",
+   "source_type": "GOVERNMENT",
+   "state": "LA",
+   "url": "https://www.brla.gov/455/Adjudicated-Property"
+  },
+  {
+   "access": "NOT_CHECKED",
+   "access_note": "not captured yet",
+   "county": "East Baton Rouge",
+   "evidence": "web search 2026-10-01",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "",
+   "legacy_status": "",
+   "name": "Parish Attorney Property Division memorandum on purchasing adjudicated property (PDF)",
+   "next_action": "Capture with job=evidence, evidence_scope=acquisition_candidates",
+   "origin": "candidate",
+   "publisher": "county office",
+   "roles": [
+    "acquisition",
+    "discovery"
+   ],
+   "source_id": "candidate:LA:East Baton Rouge:42",
+   "source_type": "GOVERNMENT",
+   "state": "LA",
+   "url": "https://www.brla.gov/DocumentCenter/View/795/Adjudicated-Memo-PDF"
+  },
+  {
+   "access": "NOT_CHECKED",
+   "access_note": "not captured yet",
+   "county": "East Baton Rouge",
+   "evidence": "web search 2026-10-01",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "",
+   "legacy_status": "",
+   "name": "Request to Purchase Adjudicated Property form (PDF)",
+   "next_action": "Capture with job=evidence, evidence_scope=acquisition_candidates",
+   "origin": "candidate",
+   "publisher": "county office",
+   "roles": [
+    "acquisition",
+    "discovery"
+   ],
+   "source_id": "candidate:LA:East Baton Rouge:43",
+   "source_type": "GOVERNMENT",
+   "state": "LA",
+   "url": "https://www.brla.gov/DocumentCenter/View/9351/REQUEST-TO-PURCHASE-ADJUDICATED-PROPERTY"
   },
   {
    "access": "ACCESSIBLE",
@@ -7404,16 +7492,16 @@
    "sources": 193
   },
   "LA": {
-   "APPROVED": 3,
+   "APPROVED": 8,
    "HARD_BLOCKED": 0,
-   "REVIEW_REQUIRED": 4,
+   "REVIEW_REQUIRED": 3,
    "by_type": {
     "DOCUMENT": 1,
     "GIS": 3,
-    "GOVERNMENT": 2,
+    "GOVERNMENT": 6,
     "PUBLIC_NOTICE": 1
    },
-   "sources": 7
+   "sources": 11
   },
   "MI": {
    "APPROVED": 4,

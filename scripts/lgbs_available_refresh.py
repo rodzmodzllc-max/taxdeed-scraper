@@ -14,8 +14,10 @@ AVAILABLE rows (state=TX, source=laft):
             and the fill count of every raw key among them. No write.
   --apply   for a row the feed still lists with a struck-off / available
             status (the harvester's own LGBS_STATUS_TO_LEDGER mapping):
-              * last_seen_at = now (only when the walk was COMPLETE - a
-                truncated walk never refreshes a row's last read);
+              * last_seen_at = now - the row WAS read on the feed. Same rule
+                as the AVAILABLE lifecycle (laft_lifecycle.OBSERVED_STATUSES:
+                a row read in a COMPLETE or INCOMPLETE pass is observed); a
+                truncated walk only means an UNSEEN row proves nothing;
               * field_provenance entries (source vendor_listing, rank 1) for
                 the columns the sync writes from LGBS, ONLY where the stored
                 value equals what the feed publishes today and the column has
@@ -163,8 +165,7 @@ def plan_row(row: dict, idx: dict, *, now: str, walk_complete: bool) -> tuple[st
             prov_updates[column] = FP.provenance_entry("vendor_listing", field=RAW_KEY[column], attested="stored value equals the feed's value", **meta)
     if prov_updates:
         body["field_provenance"] = FP.merge_field_provenance(row.get("field_provenance"), prov_updates)
-    if walk_complete:
-        body["last_seen_at"] = now
+    body["last_seen_at"] = now           # observed on the feed (walk_complete only qualifies NOT_IN_FEED)
     return "OBSERVED", body
 
 
@@ -190,6 +191,10 @@ def fetch_rows(base: str, key: str) -> list[dict]:
         offset += PAGE
 
 
+PAGE_ATTEMPTS = 6
+PAGE_TIMEOUT = 60
+
+
 def walk_feed() -> tuple[list[dict], dict]:
     """Every raw record of the LGBS feed, the harvester's own way (same URL,
     page size, retries, http->https upgrade on `next`)."""
@@ -204,12 +209,12 @@ def walk_feed() -> tuple[list[dict], dict]:
     while url:
         stats["pages"] += 1
         payload = None
-        for attempt in range(1, TH.LGBS_PAGE_ATTEMPTS + 1):
+        for attempt in range(1, PAGE_ATTEMPTS + 1):
             try:
-                payload = http_json(url, timeout=30)
+                payload = http_json(url, timeout=PAGE_TIMEOUT)
                 break
             except Exception:  # noqa: BLE001 - counted, retried, then reported as an incomplete walk
-                time.sleep(TH.LGBS_RETRY_BACKOFF_SECONDS * (2 ** (attempt - 1)))
+                time.sleep(min(30.0, TH.LGBS_RETRY_BACKOFF_SECONDS * (2 ** (attempt - 1))))
         if payload is None:
             stats["truncated_at_page"] = stats["pages"]
             return records, stats
