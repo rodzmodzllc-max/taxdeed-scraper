@@ -387,6 +387,11 @@ ENRICH3_PAGES = {
     "LA": ["https://www.brla.gov/455/Adjudicated-Property", "https://www.brla.gov/DocumentCenter/View/6524/Acquiring-Adjudicated-Property-PDF",
            "https://www.brla.gov/Faq.aspx?QID=286", "https://www.brla.gov/Faq.aspx?TID=63"],
 }
+# Round 4: York County SC's 2026 Tax Sale Information document (the sale's
+# date, time and place as the county states them).
+ENRICH4_PAGES = {
+    "SC": ["https://www.yorkcountysc.gov/DocumentCenter/View/3590/2026-Tax-Sale-Information", "https://www.yorkcountysc.gov/216/Tax-Collection"],
+}
 ENRICH3_SODA = {
     "LA": [("https://data.brla.gov/resource/a4h4-zi7e.json", ["assessment_num"], ["tax_roll_year"]),
            ("https://data.brla.gov/resource/ei2c-krsr.json", ["assessment_num"], ["status", "sale_year"]),
@@ -925,6 +930,7 @@ def main(argv=None) -> int:
     ap.add_argument("--five-state", action="store_true", help="read FIVE_STATE_* candidates (five-state enrichment sprint)")
     ap.add_argument("--five-state-pass2", action="store_true", help="read the FIVE_STATE_PASS2 / PROBES targets")
     ap.add_argument("--five-state-pass3", action="store_true", help="read the FIVE_STATE_PASS3 targets")
+    ap.add_argument("--enrich-sources-4", action="store_true", help="round 4 of the enrichment-source capture")
     ap.add_argument("--enrich-sources-3", action="store_true", help="round 3 of the enrichment-source capture")
     ap.add_argument("--enrich-sources-2", action="store_true", help="round 2 of the enrichment-source capture")
     ap.add_argument("--enrich-sources", action="store_true", help="read the ENRICH_* parcel / tax-roll candidates (property-enrichment sprint)")
@@ -1047,6 +1053,8 @@ def main(argv=None) -> int:
     if args.enrich_sources:
         passes.append(("enrich", ENRICH_PAGES, ENRICH_SERVICES, ENRICH_PROBES, ENRICH_ITEMS))
     soda_sets = []
+    if args.enrich_sources_4:
+        passes.append(("enrich4", ENRICH4_PAGES, {}, {}, {}))
     if args.enrich_sources_3:
         passes.append(("enrich3", ENRICH3_PAGES, {}, {}, {}))
         soda_sets.append(ENRICH3_SODA)
