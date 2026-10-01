@@ -165,3 +165,51 @@ The expansion job now runs `inventory_status_writer.py` per state, and every cha
   - None is turned into AVAILABLE inventory by inference.
 - **No new imagery.** No legally usable per-parcel imagery source was verified, and Google Street View is excluded. The existing county-context mini-map remains.
 - **Three sources and one parcel layer await a publication decision:** Dane WI, Morgan CO deed auctions, Oconee SC, and the WI V12 parcels. They are listed in the admin publication panel.
+
+## 6. Production after this sprint
+
+This section describes production run
+[36795385054](https://github.com/rodzmodzllc-max/taxdeed-scraper/actions/runs/36795385054)
+(`job=expansion` on `88edd37`). Every count below was read from `properties`
+after the run.
+
+The previous attempt, run 36794968470, wrote nothing. Every upsert was
+rejected by `properties_seen_order_check` (`last_seen_at >= first_seen_at`):
+new rows took `first_seen_at = now()` at insert time, which is later than the
+run's `last_seen_at`. The sync now sends `first_seen_at` with every row:
+- a stored row keeps its stored value;
+- a new row is first seen at the run's observed time.
+
+Test: `test_y01b_first_seen_never_follows_last_seen`.
+
+| | MI | WY | SC | CO | WI |
+|---|---|---|---|---|---|
+| Rows active / closed | 38 / 5 | 253 / 0 | 853 / 0 | 146 / 0 | 0 / 9 |
+| Ledger | Auctions | Auctions | Auctions | Liens & Certificates | Auctions |
+| Counties | 2 | 1 | 1 | 2 (Morgan 3, Douglas 143) | 1 |
+| `last_seen_at` within 36 h | 43 / 43 | 253 / 253 | 853 / 853 | 146 / 146 | 9 / 9 |
+| `inventory_status` | active 38, sold 5 (Eaton's own flag) | unknown 253 (superseded list) | active 853 | certificate_listed 146 | sold 8 (published price), closed 1 |
+| `field_provenance` | 43 / 43 | 253 / 253 | 853 / 853 | 146 / 146 | 9 / 9 |
+| Statewide parcel enrichment | n/a (no source) | n/a | n/a | 119 / 146 matched, 116 written, 27 unmatched, 0 ambiguous | 0 (V12 UNREVIEWED) |
+| Coordinates | 43 / 43 | 253 / 253 | 853 / 853 | 119 / 146 | 0 / 9 |
+| Imagery | 0 | 0 | 0 | 0 | 0 |
+| Verified acquisition path | 38 / 38 active | 0 / 253 (sale over; next Aug 13, 2027) | 853 / 853 | 146 / 146 | 0 (no active rows) |
+| Published results | 0 | 0 | 0 | 0 | 8 (county Sale Price) |
+
+**Douglas County tax sale list:** read COMPLETE. It is tax year 2024, so it is
+EMPTY with signal `past_cycle`, and 0 rows are written.
+
+**Sources gated before any request:** Dane WI, Morgan CO deed auctions and
+Oconee SC (`GATED publication=UNREVIEWED - 0 requests`).
+
+**Florida and Texas after the run:**
+
+| State / ledger | Active | Total |
+|---|---|---|
+| FL auction | 1,077 | 2,038 |
+| FL certificate | 1,611 | 1,667 |
+| FL laft | 157 | 167 |
+| TX auction | 122 | 122 |
+| TX laft | 421 | 421 |
+
+The expansion job reads and writes only its own matrix state.
