@@ -471,3 +471,16 @@ def test_source_inventory_json_is_current_and_value_free():
     doc = json.loads(B.render())
     assert set(doc["states"]) == set(ST.supported_states()) and doc["sources"]
     assert "@" not in B.render()
+
+
+def test_html_pages_are_read_as_visible_text():
+    html = (b"<!DOCTYPE html><html><head><title>Lands Available</title><script>var tracking=1</script></head>"
+            b"<body><nav>Home | Courts</nav><p>To purchase a property, contact the Tax Deed Clerk at (850) 555-0102.</p>"
+            b"<footer>(999) 999-9999 footer</footer></body></html>")
+    doc = D.read_document(html, url="https://clerk.example.gov/lands", content_type="text/html; charset=utf-8")
+    assert doc.method == "html" and doc.title == "Lands Available"
+    text = doc.pages[0].text
+    assert "tracking" not in text and "Home | Courts" not in text and "footer" not in text
+    f = D.acquisition_facts(doc)
+    assert [p["value"] for p in f["phones"]] == ["(850) 555-0102"]
+    assert any("contact the Tax Deed Clerk" in s["text"] for s in f["steps"])
