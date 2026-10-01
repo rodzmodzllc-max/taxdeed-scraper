@@ -4076,7 +4076,12 @@ function inventoryCardHtml(p) {
   prop.push(row("Assessed value", hasNum(p.assessed) ? `${esc(fmtMoney(p.assessed))}${p.value_year ? `<span class="kv-sub">Tax year ${esc(String(p.value_year))}</span>` : ""}` : muted("Not on file")));
   prop.push(row("Taxable value", hasNum(p.taxable_value) ? esc(fmtMoney(p.taxable_value)) : muted("Not on file")));
   prop.push(row("Acreage", hasNum(p.acreage) ? esc(Number(p.acreage).toFixed(2) + " ac") : muted("Not on file")));
-  const use = [p.land_use ? `County use code ${p.land_use}` : null, p.dor_use_code ? `DOR use code ${p.dor_use_code}` : null, p.prop_type ? p.prop_type : null].filter(Boolean);
+  // An assessor / tax-roll classification (statewide_parcel provenance, e.g.
+  // the EBR Parish tax roll's STRUCTURE USE) is a classification, not a use
+  // code: label it as the source publishes it.
+  const luProv = (p.field_provenance && typeof p.field_provenance === "object") ? p.field_provenance.land_use : null;
+  const luLabel = luProv && luProv.source === "statewide_parcel" ? `${UNIT_WORD} assessor classification` : "County use code";
+  const use = [p.land_use ? `${luLabel} ${p.land_use}` : null, p.dor_use_code ? `DOR use code ${p.dor_use_code}` : null, p.prop_type ? p.prop_type : null].filter(Boolean);
   prop.push(row("Land use", use.length ? esc(use.join(" · ")) : muted("Not on file")));
   if (!tx) prop.push(row("Homestead", p.homestead === true ? "Yes (per the list)" : muted("Not indicated by the list")));
   // ---- Purchase path: kind-driven, never inferred from a list page.
