@@ -205,7 +205,10 @@ def test_g12_texas_step_makes_no_source_request_and_is_never_the_lgbs_harvest():
 
 def test_g13_candidate_pages_are_https_official_and_never_blocked_vendors():
     rows = C.candidate_rows()
-    assert rows and {r["state"] for r in rows} == {"FL", "TX"}
+    from harvesters.governance import states as ST
+    # Candidates only for production states (LA joined 2026-10-01: the Parish
+    # Attorney's office page, memorandum and Request to Purchase form).
+    assert rows and {"FL", "TX"} <= {r["state"] for r in rows} <= set(ST.PRODUCTION_STATES)
     for r in rows:
         host = re.sub(r"^https://([^/]+)/.*$", r"\1", r["url"] + "/")
         assert r["url"].startswith("https://") and not C.NEVER_FOLLOW.search(host + "."), r
