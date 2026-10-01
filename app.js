@@ -3802,8 +3802,25 @@ const INVENTORY_STATUS_BASIS_TEXT = {
 // its raw key, never as a friendlier guess.
 const PROVENANCE_SOURCE_LABELS = {
   county_list: "County list (Lands Available)", fdor_nal: "Florida Department of Revenue (NAL tax roll)",
-  county_gis: "County GIS parcel layer", vendor_listing: "Vendor listing", hand_research: "Hand research"
+  county_gis: "County GIS parcel layer", vendor_listing: "Vendor listing", hand_research: "Hand research",
+  statewide_parcel: "Government parcel / tax-roll record"
 };
+// The county_list source is the list the row was harvested from - "Lands
+// Available" only for an AVAILABLE row; an auction or certificate list is
+// named for what it is.
+function provenanceSourceLabel(source, p) {
+  if (source === "county_list" && p && p.source && p.source !== "laft") {
+    return p.source === "certificate" ? "County certificate / lien list" : "County tax-sale list";
+  }
+  return PROVENANCE_SOURCE_LABELS[source] || String(source);
+}
+// A value figure is named as its source names it (valueLabel /
+// assessedSourceLabel) - never Florida's "just value" for another state.
+function provenanceFieldLabel(field, p) {
+  if (p && field === "market" && hasNum(p.market)) return valueLabel(p);
+  if (p && field === "assessed" && regionOf(p) !== "FL") return assessedSourceLabel(p);
+  return PROVENANCE_FIELD_LABELS[field] || field;
+}
 const PROVENANCE_FIELD_LABELS = {
   legal_desc: "Legal description", owner_name: "Name in which assessed", assessed: "Assessed value", certificate_no: "Certificate #",
   homestead: "Homestead", escheatment_date: "Escheats to county", available_date: "Available for purchase",
@@ -3938,19 +3955,22 @@ function inventoryStatusHtml(p) {
 // deterministically - e.g. by FDOR parcel identifier), and when it was
 // recorded. Nothing here is a score: a field either has a recorded origin
 // or is shown as "not recorded".
-function provenanceRowsHtml(fp) {
+function provenanceRowsHtml(fp, p) {
   const entries = Object.entries(fp || {}).filter(([, v]) => v && typeof v === "object" && v.source);
   if (!entries.length) return "";
   entries.sort((a, b) => a[0].localeCompare(b[0]));
   const rows = entries.map(([field, v]) => {
-    const source = PROVENANCE_SOURCE_LABELS[v.source] || String(v.source);
+    let source = provenanceSourceLabel(v.source, p);
+    if (v.source === "statewide_parcel" && v.dataset) source += ` - ${v.dataset}${v.agency ? ` (${v.agency})` : ""}`;
     let method;
     if (v.matched_field) method = `Derived by our system - parcel match: ${v.matched_field === "ALT_KEY" ? "FDOR alternate key" : "FDOR parcel identifier"}`;
+    else if (v.derived) method = `Derived by our system - ${v.derived}`;
+    else if (v.matched_id_field) method = `Published by the source; attached by an exact identifier match (${v.matched_row_column === "case_no" ? "account #" : "parcel #"} = ${v.matched_id_field})`;
     else if (v.method) method = String(v.method);
     else method = PROVENANCE_KIND[v.source] === "derived" ? "Entered by our team" : "Published by the source";
     const when = v.list_as_of ? `List as of ${dateOnly(v.list_as_of)}` : (v.recorded_at ? `Recorded ${dateOnly(v.recorded_at)}` : "Date not recorded");
     const sid = v.source_id ? `<span class="mono">${esc(String(v.source_id))}</span>` : "";
-    return `<div class="prov-row" data-field="${esc(field)}"><span class="prov-field">${esc(PROVENANCE_FIELD_LABELS[field] || field)}</span><span class="prov-source">${esc(source)} ${sid}</span><span class="prov-method">${esc(method)}</span><span class="prov-when">${esc(when)}</span></div>`;
+    return `<div class="prov-row" data-field="${esc(field)}"><span class="prov-field">${esc(provenanceFieldLabel(field, p))}</span><span class="prov-source">${esc(source)} ${sid}</span><span class="prov-method">${esc(method)}</span><span class="prov-when">${esc(when)}</span></div>`;
   });
   return `<div class="prov-table"><div class="prov-row prov-head"><span>Field</span><span>Source</span><span>How obtained</span><span>When</span></div>${rows.join("")}</div>`;
 }
@@ -3988,7 +4008,8 @@ const PURCHASE_PATH_MODE_LABELS = {
 // card legend explains (published by the source / derived by our system /
 // not published).
 const PROVENANCE_KIND = {
-  county_list: "published", fdor_nal: "published", county_gis: "published", vendor_listing: "published", hand_research: "derived"
+  county_list: "published", fdor_nal: "published", county_gis: "published", vendor_listing: "published", hand_research: "derived",
+  statewide_parcel: "published"
 };
 function availabilityEvidenceHtml(p) {
   if (p.source !== "laft") return "";
@@ -4027,7 +4048,7 @@ function provenanceCardHtml(p) {
   }
   detail += availabilityEvidenceHtml(p);
   if (p.field_provenance !== undefined) {
-    const table = provenanceRowsHtml(p.field_provenance);
+    const table = provenanceRowsHtml(p.field_provenance, p);
     detail += table || `<div class="prov-empty">No per-field provenance recorded for this row yet - values shown on this page came with the harvested listing and have not been individually traced.</div>`;
   }
   if (p.otc_provenance !== undefined && p.otc_provenance) detail += otcProvenanceHtml(p.otc_provenance);

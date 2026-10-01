@@ -87,6 +87,13 @@ BOX_DEGREES = float(os.environ.get("NAIP_BOX_DEGREES", "0.0012"))
 IMAGE_SIZE = os.environ.get("NAIP_IMAGE_SIZE", "600,450")
 
 STORAGE_BUCKET = os.environ.get("NAIP_STORAGE_BUCKET", "property-photos")
+# Storage budget (MB) for the bucket as a whole. The project is on a plan
+# with a fixed storage quota; an upload past it fails for every pipeline
+# that stores into this bucket. The run totals the bucket first and stops
+# uploading once the total reaches the budget - rows stay unchecked (NULL)
+# and are retried when space exists. A failed total is treated as "over
+# budget": nothing is uploaded on a guess.
+STORAGE_BUDGET_MB = float(os.environ.get("NAIP_STORAGE_BUDGET_MB", "950"))
 
 OPTIONAL_COLUMNS = ("photo_source", "photo_captured_year", "photo_checked_at")
 
@@ -203,6 +210,37 @@ def upload_image(property_id: str, png: bytes) -> str | None:
     return f"{SUPABASE_URL}/storage/v1/object/public/{STORAGE_BUCKET}/{path}"
 
 
+def storage_used_bytes(prefix: str = "", depth: int = 0) -> int | None:
+    """Total size of every object in the bucket (Storage list API, recursive
+    over folders). None when the total cannot be established."""
+    url = f"{SUPABASE_URL}/storage/v1/object/list/{STORAGE_BUCKET}"
+    headers = {"apikey": SERVICE_KEY, "Authorization": f"Bearer {SERVICE_KEY}", "Content-Type": "application/json"}
+    total, offset = 0, 0
+    while True:
+        try:
+            resp = requests.post(url, headers=headers, timeout=REQUEST_TIMEOUT,
+                                 json={"prefix": prefix, "limit": 1000, "offset": offset, "sortBy": {"column": "name", "order": "asc"}})
+            resp.raise_for_status()
+            items = resp.json()
+        except (requests.RequestException, ValueError):
+            return None
+        if not isinstance(items, list):
+            return None
+        for it in items:
+            if it.get("id") is None:          # a folder
+                if depth >= 3:
+                    return None
+                sub = storage_used_bytes(f"{prefix}{it.get('name')}/", depth + 1)
+                if sub is None:
+                    return None
+                total += sub
+            else:
+                total += int((it.get("metadata") or {}).get("size") or 0)
+        if len(items) < 1000:
+            return total
+        offset += 1000
+
+
 def build_update_fields(photo_url, *, checked_at):
     """photo_url='' is the established no-coverage sentinel on this column -
     NULL means never checked. Preserved exactly rather than inventing a
@@ -268,6 +306,15 @@ def patch_property(property_id, fields):
 
 
 def main():
+    used = storage_used_bytes()
+    budget = int(STORAGE_BUDGET_MB * 1024 * 1024)
+    if used is None:
+        print("Storage usage could not be established - no image uploaded this run (budget guard fails closed).")
+        return 0
+    print(f"Bucket {STORAGE_BUCKET}: {used / 1048576:.0f} MB used of a {STORAGE_BUDGET_MB:.0f} MB budget.")
+    if used >= budget:
+        print("Storage budget reached - no image uploaded; rows stay unchecked and are retried when space exists.")
+        return 0
     counties = fetch_counties_needing_photos()
     print(f"{len(counties)} counties have rows with coordinates and no photo yet.")
     if not counties:
@@ -310,6 +357,9 @@ def main():
                 no_coverage += 1
                 continue
 
+            if used + len(png) > budget:
+                print("Storage budget reached mid-run - stopping uploads; remaining rows stay unchecked.")
+                break
             public_url = upload_image(row["id"], png)
             if public_url is None:
                 # The image exists but we could not store it. Nothing is
@@ -319,6 +369,7 @@ def main():
                 continue
             patch_property(row["id"], build_update_fields(public_url, checked_at=checked_at))
             stored += 1
+            used += len(png)
 
     print(
         f"\nAttempted {attempted}. Stored {stored}, no-coverage {no_coverage}, "
