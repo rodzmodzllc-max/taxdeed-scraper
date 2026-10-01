@@ -749,6 +749,10 @@ const state = {
   // Available commercial release (2026-09-30): land use (FDOR tax-roll
   // value as stored), coordinates present, a county value on file.
   availLandUse: "any", availGeocoded: false, availValues: false,
+  // Customer monitoring (2026-10-01): cross-ledger filters, every one a
+  // stored field or its stated absence (saved_search_match.py mirrors the
+  // saveable ones). watchStatus is per-user, so it is a list filter only.
+  taxableMin: null, imagery: "any", acqState: "any", watchStatus: "any", freshDays: null, saleFrom: "", saleTo: "",
   includeQT: false, maxBidPct: 40,
   statusView: "all",
   ledger: "auction",
@@ -773,6 +777,18 @@ const state = {
 // APP SHELL section - and render() calls renderShellExtras() on every pass,
 // which reads this value.
 let selectedPid = null;
+
+// Customer monitoring (2026-10-01) - saved searches, alerts, server change
+// events, analytics. Declared up here for the same TDZ reason as selectedPid:
+// updateBadge()/render() can run during page init and reach track().
+// `tables[name]` is null until probed, then true (present) or false (the
+// migration that creates it - 024 - has not been applied: every feature
+// degrades to an honest "not enabled on this deployment" or a browser-only
+// fallback, never to a silent error).
+const MONITOR = {
+  tables: { saved_searches: null, user_alerts: null, alert_preferences: null, property_change_events: null, product_events: null },
+  savedSearches: [], alerts: [], prefs: null, events: [], loaded: false, searchTimer: null, queue: [], sessionTracked: false
+};
 
 // The Map page's own toolbar state (search/county/ledger/watchlist-only -
 // see computeMapRows()/renderMapPage() in the "Map page (Phase 54)" section
@@ -2102,6 +2118,9 @@ async function showApp() {
   else if (route && route.page === "dashboard") showPage("dashboard");
   else { showPage("list"); if (route && route.page === "watchlist") openBidList(); }
   startIdleWatch();
+  // Customer monitoring (saved searches, alerts, change events, analytics) -
+  // after the first paint, never blocking it; each piece degrades on its own.
+  loadMonitoring().catch(() => { MONITOR.loaded = true; });
   // Source publication governance is no longer loaded onto the main workspace:
   // it lives in its own admin-only view (openGovernance), loaded when opened.
   if (IS_ADMIN) refreshAdminApprovals();
@@ -2592,6 +2611,19 @@ function passes(p) {
     if (state.availValues && !(hasNum(p.market) || hasNum(p.assessed))) return false;
   }
   if (PAGE_STATE === "FL" && p.source !== "certificate" && state.assessedMin !== null && Number(p.assessed || 0) < state.assessedMin) return false;
+  // Customer monitoring filters (2026-10-01). An unknown value never passes
+  // a range ("no taxable value on file" is not "at least $X").
+  if (state.taxableMin !== null && !(hasNum(p.taxable_value) && Number(p.taxable_value) >= state.taxableMin)) return false;
+  if (state.imagery === "has" && !p.photo_url) return false;
+  if (state.imagery === "none" && p.photo_url) return false;
+  if (state.acqState !== "any" && (state.acqState === "verified") !== ssAcquisitionVerified(p)) return false;
+  if (state.watchStatus === "watched" && !BIDLIST.has(p.id) && !FAVS.has(p.id)) return false;
+  if (state.watchStatus === "not_watched" && (BIDLIST.has(p.id) || FAVS.has(p.id))) return false;
+  if (state.freshDays !== null) { const d = daysSince(p.last_seen_at); if (d === null || d > state.freshDays) return false; }
+  if (state.saleFrom || state.saleTo) {
+    const sd = String(p.sale_date || "").slice(0, 10);
+    if (!sd || (state.saleFrom && sd < state.saleFrom) || (state.saleTo && sd > state.saleTo)) return false;
+  }
   // "Junk land" quick filters - Lands Available only, and each checks a real
   // harvested/derived figure (lot_sqft, buildingValue) rather than a guess at
   // buildability. A raw FDOR use-code filter ("00 Vacant, non-buildable") is
@@ -3844,7 +3876,7 @@ async function hydrateInventoryHistory(container, p) {
 // that actually rendered (built AFTER the body, by scanning it for
 // data-section anchors, so a row with no History section gets no dead
 // "History" pill). Scrolling is done by the "jump" click action below.
-const DETAIL_NAV_LABELS = { acquire: "Acquire", summary: "Summary", decision: "Decision", inventory: "Inventory", financial: "Financial", property: "Property", history: "History", events: "Sale events", risk: "Risk & Legal", map: "Map", sources: "Sources", provenance: "Data" };
+const DETAIL_NAV_LABELS = { acquire: "Acquire", summary: "Summary", decision: "Decision", inventory: "Inventory", financial: "Financial", property: "Property", history: "History", events: "Sale events", monitor: "Watch", risk: "Risk & Legal", map: "Map", sources: "Sources", provenance: "Data" };
 function detailNavHtml(bodyHtml) {
   const ids = [];
   bodyHtml.replace(/data-section="([a-z]+)"/g, (m, id) => { if (DETAIL_NAV_LABELS[id] && !ids.includes(id)) ids.push(id); return m; });
@@ -4594,7 +4626,8 @@ function detailHtml(p) {
     <div class="detail-grid">
       ${stats.map(detailStatTileHtml).join("")}
     </div>
-    ${relatedRecordsHtml(p)}` : `
+    ${relatedRecordsHtml(p)}
+    ${monitorSectionHtml(p)}` : `
     ${propertyVisual(p, "detail-hero-photo")}
     ${acquireBlockHtml(p)}
     ${opportunitySummaryHtml(p)}
@@ -4606,6 +4639,7 @@ function detailHtml(p) {
     ${statGroupHtml("Property Details", stats.filter(s => s[2] === "property"), "property")}
     ${statGroupHtml("History", stats.filter(s => s[2] === "history"), "history")}
     ${eventHistorySlotHtml(p)}
+    ${monitorSectionHtml(p)}
     ${riskLegalCardHtml(p)}
     ${gisLocationCardHtml(p)}
     `}
@@ -4701,6 +4735,8 @@ function openDetail(p) {
   hydrateVisuals(inner);
   if (p.source !== "certificate") hydrateEventHistory(inner, p);
   if (p.source === "laft") hydrateInventoryHistory(inner, p);
+  hydrateChangeHistory(inner, p);
+  if (wasHidden) track("property_viewed", { property_id: p.id, ledger: p.source });
   modal.hidden = false;
   pushBackLayer("detail", closeDetail);
   // Phase 58: fold this property's id into the URL - "#/auctions/12345" -
@@ -4789,7 +4825,7 @@ function renderBidListModal() {
     <button class="detail-close" data-action="closebidlist" type="button" aria-label="Close">✕</button>
     <h2 class="detail-address" style="margin-top:.1rem">⚑ My Watchlist <span style="color:var(--ink-soft);font-weight:600">(${countLabel})</span></h2>
     <p class="mega-sub" style="margin:0 0 .8rem">The short list you're actively tracking — separate from ♡ Favorites, capped at ${BID_LIST_MAX} to keep it focused.</p>
-    <div class="bidlist-changes" id="bidListChanges">${watchChangesHtml(WATCH_CHANGES)}</div>
+    <div class="bidlist-changes" id="bidListChanges">${watchChangesHtml(WATCH_CHANGES)}${watchedServerChangesHtml()}</div>
     ${listHtml}
     ${elsewhereHtml}
     <div class="prop-list flat" id="bidListRows"></div>
@@ -5022,7 +5058,7 @@ document.addEventListener("click", async e => {
       if (!error) FAVS.delete(pid); else showErrorToast("Couldn't update favorite: " + error.message);
     } else {
       const { error } = await sb.from("favorites").insert({ user_id: ME.id, property_id: pid });
-      if (!error) FAVS.add(pid); else showErrorToast("Couldn't update favorite: " + error.message);
+      if (!error) { FAVS.add(pid); track("property_saved", { property_id: pid }); } else showErrorToast("Couldn't update favorite: " + error.message);
     }
     render();
     refreshOpenDetail(pid);
@@ -5077,7 +5113,7 @@ document.addEventListener("click", async e => {
         // idea whether it worked - surface those.
         if (/full|limit/i.test(error.message || "")) BID_LIST_PENDING.push(pid);
         else showErrorToast("Couldn't add to watchlist: " + error.message);
-      } else { BIDLIST.add(pid); BIDLIST_ORDER.push(pid); }
+      } else { BIDLIST.add(pid); BIDLIST_ORDER.push(pid); track("property_watched", { property_id: pid }); }
     }
     render();
     refreshOpenDetail(pid);
@@ -5614,8 +5650,16 @@ function updateBadge() {
   if (state.counties.size !== ALL_COUNTIES.length) n++;
   if (state.types.size !== TYPE_ORDER.length) n++;
   if (state.liens.size !== LIEN_ORDER.length) n++;
+  if (state.taxableMin !== null || state.imagery !== "any" || state.acqState !== "any" || state.watchStatus !== "any" || state.freshDays !== null || state.saleFrom || state.saleTo) n++;
   const b = document.getElementById("filtersBadge");
   if (b) { b.textContent = n; b.hidden = n === 0; }
+  // Analytics: one search_performed per settled filter change (debounced),
+  // carrying only how many filter groups are active - never the search
+  // text, which can be an owner's name.
+  if (MONITOR.loaded) {
+    clearTimeout(MONITOR.searchTimer);
+    MONITOR.searchTimer = setTimeout(() => track("search_performed", { active_filters: n, has_text: !!state.search }), 1500);
+  }
 }
 
 // ==================== filters panel wiring ====================
@@ -6089,7 +6133,11 @@ if (exportCsvBtn) exportCsvBtn.addEventListener("click", () => {
     ["Source Date (document)", p => p.source_published_at ? String(p.source_published_at).slice(0, 10) : ""],
     ["Matched To Source By", p => { const sm = p.otc_provenance && p.otc_provenance.source_match; return sm && sm.value ? `${sm.identifier} ${sm.value}` : (p.case_no ? `case_no ${p.case_no}` : (p.parcel ? `parcel ${p.parcel}` : "")); }],
     ["Last Read From Source", p => p.last_seen_at ? String(p.last_seen_at).slice(0, 10) : ""],
-    ["First Observed", p => p.first_seen_at ? String(p.first_seen_at).slice(0, 10) : ""]
+    ["First Observed", p => p.first_seen_at ? String(p.first_seen_at).slice(0, 10) : ""],
+    ["Acquisition Status", p => ssAcquisitionVerified(p) ? "Verified" : "Not yet verified"],
+    ["Acquisition Last Verified", p => p.purchase_path_observed_on || ""],
+    ["Imagery On File", p => p.photo_url ? "Yes" : "No"],
+    ["Days Since Last Read", p => { const d = daysSince(p.last_seen_at); return d === null ? "" : d; }]
   ];
   const cols = [
     ["State", p => regionOf(p)],
@@ -6204,7 +6252,12 @@ if (exportCsvBtn) exportCsvBtn.addEventListener("click", () => {
     ["Outcome Observed", p => { const st = auctionOutcomeState(p); return st && (st.verified || st.key === "outcome_not_published") && st.observedAt ? String(st.observedAt).slice(0, 10) : ""; }],
     ["Outcome Evidence URL", p => { const st = auctionOutcomeState(p); return st && (st.verified || st.key === "outcome_not_published") ? (st.evidenceUrl || "") : ""; }],
     ["Published Sale Amount", p => { const st = auctionOutcomeState(p); return st && st.key === "sold" && hasNum(st.amount) ? st.amount : ""; }],
-    ["Same Parcel In Other Ledgers", p => relatedRecordsFor(p).map(o => `${relatedWhen(o).cls === "prev" ? "previously" : "currently"} ${ledgerCopy(o.source).title || o.source}`).join("; ")]
+    ["Same Parcel In Other Ledgers", p => relatedRecordsFor(p).map(o => `${relatedWhen(o).cls === "prev" ? "previously" : "currently"} ${ledgerCopy(o.source).title || o.source}`).join("; ")],
+    ["Taxable Value", p => p.taxable_value ?? ""],
+    ["Latitude", p => hasNum(p.latitude) ? p.latitude : ""],
+    ["Longitude", p => hasNum(p.longitude) ? p.longitude : ""],
+    ["Imagery On File", p => p.photo_url ? "Yes" : "No"],
+    ["Last Read From Source", p => p.last_seen_at ? String(p.last_seen_at).slice(0, 10) : ""]
   ];
   // Liens & Certificates: the certificate's own published facts, source and
   // freshness - never the parcel-level tax-roll columns a certificate row
@@ -6247,6 +6300,7 @@ if (exportCsvBtn) exportCsvBtn.addEventListener("click", () => {
   a.href = url; a.download = `taxdeed-${PAGE_STATE.toLowerCase()}-${state.ledger}-${stamp}.csv`;
   document.body.appendChild(a); a.click(); document.body.removeChild(a);
   URL.revokeObjectURL(url);
+  track("export_performed", { rows: rows.length, columns: exportCols.length });
 });
 
 // ---- open/close ----
@@ -6375,6 +6429,7 @@ function bindBidRangeSliders() {
   // Expose the reset path so the Reset button below can go through the
   // same single writer instead of poking four elements by hand.
   bindBidRangeSliders.reset = () => applyBidRange(null, null, "reset");
+  bindBidRangeSliders.apply = (min, max) => applyBidRange(min, max, "reset");
 
   // Initialize display
   applyBidRange(null, null, "init");
@@ -6484,6 +6539,7 @@ if (resetBtn) resetBtn.addEventListener("click", () => {
   ["availGeocoded", "availValues"].forEach(id => { const el = document.getElementById(id); if (el) el.checked = false; });
   ["availPathFilter", "availAmountKindFilter", "availStatusFilter", "availLandUseFilter"].forEach(id => { const el = document.getElementById(id); if (el) el.value = "any"; });
   const acreageEl = document.getElementById("acreageMin"); if (acreageEl) acreageEl.value = "";
+  resetMonitorFilters();
 
   buildAllChips();
   if (mapLoaded) { refreshMapPaths(); if (zoomedCounty) zoomToState(); }
@@ -7172,7 +7228,22 @@ function renderSourceHealthTerms() {
 const WATCH_SNAPSHOT_KEY = "tdw_watch_snapshot_v1";
 function watchedIds() { return new Set([...BIDLIST, ...FAVS]); }
 function watchSnapshotOf(p) {
-  return { sale_date: p.sale_date || null, bid: hasPublishedBid(p) ? Number(p.bid) : null, status: String(p.status || ""), label: shortPropLabel(p), county: p.county || "" };
+  return { sale_date: p.sale_date || null, bid: hasPublishedBid(p) ? Number(p.bid) : null, status: String(p.status || ""), label: shortPropLabel(p), county: p.county || "",
+    // Customer monitoring (2026-10-01): acquisition path + evidence, source
+    // and the recorded fields. A snapshot taken before these keys existed
+    // simply has no value for them, and they are not compared (no change
+    // is invented from a missing baseline).
+    acq: p.purchase_path_type || "", acq_on: p.purchase_path_observed_on || "", src: p.list_url || p.url_auction || "",
+    assessed: hasNum(p.assessed) ? Number(p.assessed) : null, taxable: hasNum(p.taxable_value) ? Number(p.taxable_value) : null,
+    acreage: hasNum(p.acreage) ? Number(p.acreage) : null, land_use: p.land_use || "", flood: p.flood_zone || "" };
+}
+const WATCH_FIELD_LABELS = { acq: "Acquisition path", acq_on: "Acquisition last verified", src: "Source listing", assessed: "Assessed value",
+  taxable: "Taxable value", acreage: "Acreage", land_use: "Land use", flood: "Flood zone" };
+function watchFieldText(k, v) {
+  if (v === null || v === undefined || v === "") return k === "acq" ? "not yet verified" : "not on file";
+  if (k === "acq") return PURCHASE_PATH_TYPE_LABELS[v] || String(v);
+  if (k === "assessed" || k === "taxable") return fmtMoney(v);
+  return String(v);
 }
 function readWatchSnapshot() {
   try { const raw = localStorage.getItem(WATCH_SNAPSHOT_KEY); return raw ? JSON.parse(raw) : null; } catch { return null; }
@@ -7203,6 +7274,11 @@ function computeWatchChanges() {
       const to = STATUS_PILL_LABEL[now.status] || now.status || "unknown";
       changes.push(`Status: ${STATUS_PILL_LABEL[was.status] || was.status || "unknown"} → ${to}${isGone(p) ? " (outcome not tracked)" : ""}`);
     }
+    Object.keys(WATCH_FIELD_LABELS).forEach(k => {
+      if (!(k in was)) return;
+      const a = was[k] ?? "", b = now[k] ?? "";
+      if (String(a) !== String(b)) changes.push(`${WATCH_FIELD_LABELS[k]}: ${watchFieldText(k, was[k])} → ${watchFieldText(k, now[k])}`);
+    });
     if (changes.length) items.push({ pid: id, label: now.label, county: now.county, changes, gone: false });
   });
   return { since: snap.savedAt || null, items };
@@ -8084,6 +8160,7 @@ function selectProperty(p) {
   panel.className = "detail-panel prop-card " + cardStatus(p);
   panel.innerHTML = detailHtml(p);
   hydrateVisuals(panel);
+  hydrateChangeHistory(panel, p);
   document.querySelectorAll(".data-table tbody tr[data-pid]").forEach(tr => {
     tr.classList.toggle("selected", String(tr.dataset.pid) === String(p.id));
   });
@@ -8119,3 +8196,586 @@ function renderShellExtras(shown, activeLedger) {
     clearDetailPanel();
   }
 }
+
+// ==================== Customer monitoring (2026-10-01) ====================
+// DISCOVER -> EVALUATE -> VERIFY -> ACQUIRE -> WATCH -> RECEIVE CHANGES.
+// Everything here is deterministic and reads fields the rows carry:
+//   * saved searches   - criteria over stored fields (savedSearchMatches
+//     mirrors scripts/saved_search_match.py; tests/python/fixtures/
+//     saved_search_cases.json pins both), compared NEW / CHANGED / NO LONGER
+//     MATCHING against what was recorded when the customer last marked the
+//     search seen;
+//   * alerts           - rows scripts/detect_property_changes.py wrote to
+//     user_alerts (migration 024). E-mail delivery is not configured: the
+//     preference is stored, nothing is sent, and the page says so;
+//   * change history   - property_change_events, server-detected;
+//   * analytics        - product_events (insert-own, admin read). No search
+//     text, no addresses, no free text.
+// Without migration 024 every one of these degrades honestly: saved searches
+// fall back to this browser, alerts and server change history say they are
+// not enabled on this deployment, analytics send nothing.
+const SS_GONE = new Set(["closed", "expired", "gone", "sold", "redeemed", "cancelled", "canceled"]);
+const SS_LOCAL_KEY = "tdw_saved_searches_v1";
+const ALERT_KIND_LABELS = {
+  watched_status: "Watched property - listing status", watched_acquisition: "Watched property - acquisition path",
+  watched_source: "Watched property - source", watched_auction: "Watched property - sale date or opening bid",
+  watched_field: "Watched property - recorded field", saved_search_new_match: "Saved search - new match"
+};
+const CHANGE_KIND_LABELS = {
+  new_listing: "Newly listed", removed: "No longer listed (not a sale or a result)", reactivated: "Listed again",
+  status_changed: "Status changed", sale_date_changed: "Sale date changed", opening_bid_changed: "Opening bid changed",
+  acquisition_path_changed: "Acquisition path changed", acquisition_evidence_changed: "Acquisition evidence updated",
+  source_changed: "Source changed", field_changed: "Recorded field changed", result_published: "Result published by the source"
+};
+const CHANGE_FIELD_LABELS = {
+  status: "Listing status", inventory_status: "Availability status", sale_date: "Sale date", opening_bid: "Opening bid",
+  purchase_path_type: "Acquisition path", purchase_url: "Acquisition link", evidence_url: "Acquisition evidence page",
+  purchase_path_observed_on: "Acquisition last verified", source_id: "Source", list_url: "Source list", publication_status: "Source publication",
+  assessed: "Assessed value", taxable_value: "Taxable value", acreage: "Acreage", land_use: "Land use", flood_zone: "Flood zone",
+  has_coordinates: "Coordinates on file", has_imagery: "Imagery on file", legal_desc_hash: "Legal description",
+  result_date: "Result date", result_amount: "Result amount", result_party: "Result party"
+};
+
+function ssNum(v) { if (v === null || v === undefined || v === "") return null; const n = Number(v); return Number.isFinite(n) ? n : null; }
+function ssOpeningBid(p) {
+  for (const k of ["purchase_amount", "min_bid", "bid"]) { const n = ssNum(p[k]); if (n !== null && n > 0) return n; }
+  return null;
+}
+function ssAcquisitionVerified(p) { const t = p && p.purchase_path_type; return !!t && t !== "none_published"; }
+function ssBetween(v, lo, hi) {
+  if (lo === null && hi === null) return true;
+  if (v === null) return false;
+  return (lo === null || v >= lo) && (hi === null || v <= hi);
+}
+// One saved-search vocabulary, two implementations: this and
+// scripts/saved_search_match.py:matches(). Change both together.
+function savedSearchMatches(criteria, p, now) {
+  const c = criteria || {};
+  if (c.ledger && p.source !== c.ledger) return false;
+  if (c.counties && c.counties.length && !c.counties.includes(p.county)) return false;
+  if (!ssBetween(ssNum(p.acreage), ssNum(c.acreage_min), ssNum(c.acreage_max))) return false;
+  if (!ssBetween(ssNum(p.assessed), ssNum(c.assessed_min), ssNum(c.assessed_max))) return false;
+  if (!ssBetween(ssNum(p.taxable_value), ssNum(c.taxable_min), ssNum(c.taxable_max))) return false;
+  if (!ssBetween(ssOpeningBid(p), ssNum(c.bid_min), ssNum(c.bid_max))) return false;
+  if (c.sale_from || c.sale_to) {
+    const sd = String(p.sale_date || "").slice(0, 10);
+    if (!sd || (c.sale_from && sd < c.sale_from) || (c.sale_to && sd > c.sale_to)) return false;
+  }
+  if (c.available_only && SS_GONE.has(String(p.status || "active").toLowerCase())) return false;
+  if (c.land_use) {
+    const lu = [p.land_use, p.prop_type].map(v => String(v || "")).join(" ").toLowerCase();
+    if (!lu.includes(String(c.land_use).toLowerCase())) return false;
+  }
+  if (c.acquisition === "verified" && !ssAcquisitionVerified(p)) return false;
+  if (c.acquisition === "not_verified" && ssAcquisitionVerified(p)) return false;
+  if (c.imagery === "has" && !p.photo_url) return false;
+  if (c.imagery === "none" && p.photo_url) return false;
+  if (c.fresh_days !== undefined && c.fresh_days !== null && c.fresh_days !== "") {
+    if (!p.last_seen_at) return false;
+    const t = Date.parse(String(p.last_seen_at).replace(" ", "T"));
+    if (!Number.isFinite(t)) return false;
+    const nowMs = now ? new Date(now).getTime() : Date.now();
+    if (nowMs - t > Number(c.fresh_days) * 86400000) return false;
+  }
+  return true;
+}
+// Exposed for the parity test (tests/run_test.mjs runs the shared cases).
+window.__tdwSavedSearchMatches = savedSearchMatches;
+
+function isMissingTable(err) {
+  const msg = String((err && err.message) || "");
+  return !!err && (err.code === "PGRST205" || err.code === "42P01" || /could not find the table|does not exist/i.test(msg));
+}
+
+// ---- analytics ----
+function track(event, props) {
+  // Before the monitoring probe finishes (a deep-linked property opens
+  // during bootstrap) events wait in a small queue instead of being lost.
+  if (!MONITOR.loaded) { if (MONITOR.queue.length < 20) MONITOR.queue.push([event, props]); return; }
+  if (MONITOR.tables.product_events === false || !ME) return;
+  const payload = Object.assign({}, props || {});
+  const row = { event, state: PAGE_STATE, ledger: state.ledger || null, props: payload };
+  if (payload.property_id) { row.property_id = payload.property_id; delete payload.property_id; }
+  try {
+    const q = sb.from("product_events").insert(row);
+    if (q && typeof q.then === "function") q.then(r => { if (r && r.error) MONITOR.tables.product_events = false; }, () => { MONITOR.tables.product_events = false; });
+  } catch { MONITOR.tables.product_events = false; }
+}
+
+// ---- saved searches: storage ----
+function ssLocalRead() { try { const v = JSON.parse(localStorage.getItem(SS_LOCAL_KEY) || "[]"); return Array.isArray(v) ? v : []; } catch { return []; } }
+function ssLocalWrite(list) { try { localStorage.setItem(SS_LOCAL_KEY, JSON.stringify(list)); } catch { /* private mode */ } }
+function ssFpKey(id) { return "tdw_ss_fp_" + id; }
+function ssReadFp(id) { try { return JSON.parse(localStorage.getItem(ssFpKey(id)) || "null"); } catch { return null; } }
+function ssWriteFp(id, rows) {
+  const fp = {};
+  rows.forEach(p => { fp[p.id] = { f: ssFingerprint(p), l: shortPropLabel(p), c: p.county || "" }; });
+  try { localStorage.setItem(ssFpKey(id), JSON.stringify(fp)); } catch { /* private mode */ }
+}
+function ssFingerprint(p) {
+  return JSON.stringify([String(p.status || ""), String(p.sale_date || "").slice(0, 10), ssOpeningBid(p), p.purchase_path_type || "",
+    ssNum(p.assessed), ssNum(p.taxable_value), ssNum(p.acreage), p.list_url || "", p.inventory_status || "", p.purchase_path_observed_on || ""]);
+}
+function ssServer() { return MONITOR.tables.saved_searches === true; }
+function ssNewId() {
+  try { if (crypto && crypto.randomUUID) return crypto.randomUUID(); } catch { /* fall through */ }
+  return "00000000-0000-4000-8000-" + String(Date.now()).padStart(12, "0").slice(-12);
+}
+async function ssPersist(s, patch) {
+  Object.assign(s, patch);
+  if (ssServer()) {
+    const r = await sb.from("saved_searches").update(patch).eq("id", s.id);
+    if (r && r.error) showErrorToast("Couldn't update the saved search: " + r.error.message);
+  } else {
+    ssLocalWrite(ssLocalRead().map(x => (x.id === s.id ? s : x)));
+  }
+}
+async function ssCreate(name, criteria) {
+  const rows = savedSearchRows(criteria);
+  const s = { id: ssNewId(), name: name.slice(0, 80), state: PAGE_STATE, criteria, alerts_enabled: ssServer(),
+    last_viewed_at: new Date().toISOString(), last_match_ids: rows.map(p => p.id), created_at: new Date().toISOString() };
+  if (ssServer()) {
+    const r = await sb.from("saved_searches").insert({ id: s.id, name: s.name, state: s.state, criteria: s.criteria, alerts_enabled: s.alerts_enabled, last_viewed_at: s.last_viewed_at, last_match_ids: s.last_match_ids });
+    if (r && r.error) { showErrorToast("Couldn't save the search: " + r.error.message); return null; }
+  } else {
+    ssLocalWrite(ssLocalRead().concat([s]));
+  }
+  ssWriteFp(s.id, rows);
+  MONITOR.savedSearches.push(s);
+  track("saved_search_created", { criteria_keys: Object.keys(criteria).length, server: ssServer() });
+  if (s.alerts_enabled) track("alert_created", { kind: "saved_search_new_match" });
+  return s;
+}
+async function ssDelete(s) {
+  if (ssServer()) {
+    const r = await sb.from("saved_searches").delete().eq("id", s.id);
+    if (r && r.error) { showErrorToast("Couldn't delete the saved search: " + r.error.message); return; }
+  } else {
+    ssLocalWrite(ssLocalRead().filter(x => x.id !== s.id));
+  }
+  try { localStorage.removeItem(ssFpKey(s.id)); } catch { /* ignore */ }
+  MONITOR.savedSearches = MONITOR.savedSearches.filter(x => x.id !== s.id);
+}
+
+// ---- saved searches: criteria <-> the list's filters ----
+function currentCriteria() {
+  const c = { ledger: state.ledger };
+  if (PAGE_STATE === "FL" && state.counties.size !== ALL_COUNTIES.length) c.counties = Array.from(state.counties).sort();
+  if (state.bidMin !== null) c.bid_min = state.bidMin;
+  if (state.bidMax !== null) c.bid_max = state.bidMax;
+  if (state.assessedMin) c.assessed_min = state.assessedMin;
+  if (state.ledger === "laft" && state.acreageMin !== null) c.acreage_min = state.acreageMin;
+  if (state.taxableMin !== null) c.taxable_min = state.taxableMin;
+  if (state.saleFrom) c.sale_from = state.saleFrom;
+  if (state.saleTo) c.sale_to = state.saleTo;
+  if (state.statusView !== "gone" && state.statusView !== "archive") c.available_only = true;
+  if (state.ledger === "laft" && state.availLandUse !== "any") c.land_use = state.availLandUse;
+  if (state.acqState !== "any") c.acquisition = state.acqState;
+  if (state.imagery !== "any") c.imagery = state.imagery;
+  if (state.freshDays !== null) c.fresh_days = state.freshDays;
+  else if (state.ledger === "laft" && state.availSeenRecently) c.fresh_days = 14;
+  return c;
+}
+function criteriaSummary(c) {
+  const bits = [ledgerCopy(c.ledger || "auction").title || c.ledger];
+  if (c.counties && c.counties.length) bits.push(c.counties.length <= 3 ? c.counties.join(", ") : `${c.counties.length} counties`);
+  const money = v => fmtShort(Number(v));
+  if (c.bid_min !== undefined || c.bid_max !== undefined) bits.push(`opening bid ${c.bid_min !== undefined ? money(c.bid_min) : "$0"}-${c.bid_max !== undefined ? money(c.bid_max) : "any"}`);
+  if (c.assessed_min !== undefined) bits.push(`assessed ≥ ${money(c.assessed_min)}`);
+  if (c.taxable_min !== undefined) bits.push(`taxable ≥ ${money(c.taxable_min)}`);
+  if (c.acreage_min !== undefined) bits.push(`≥ ${c.acreage_min} ac`);
+  if (c.sale_from || c.sale_to) bits.push(`sale ${c.sale_from || "…"} to ${c.sale_to || "…"}`);
+  if (c.land_use) bits.push(`land use "${c.land_use}"`);
+  if (c.acquisition) bits.push(c.acquisition === "verified" ? "acquisition path verified" : "acquisition path not yet verified");
+  if (c.imagery) bits.push(c.imagery === "has" ? "imagery on file" : "no imagery on file");
+  if (c.fresh_days !== undefined) bits.push(`read from source in the last ${c.fresh_days} day${Number(c.fresh_days) === 1 ? "" : "s"}`);
+  if (c.available_only) bits.push("active listings only");
+  return bits.join(" · ");
+}
+function savedSearchRows(criteria) {
+  const now = new Date();
+  return ALL.filter(p => regionOf(p) === PAGE_STATE && !HIDDEN.has(p.id) && savedSearchMatches(criteria, p, now));
+}
+function savedSearchDiff(s) {
+  const rows = savedSearchRows(s.criteria || {});
+  const prev = new Set((s.last_match_ids || []).map(String));
+  const fp = ssReadFp(s.id);
+  const nowIds = new Set(rows.map(p => String(p.id)));
+  const added = rows.filter(p => !prev.has(String(p.id)));
+  const changed = fp ? rows.filter(p => prev.has(String(p.id)) && fp[p.id] && fp[p.id].f !== ssFingerprint(p)) : [];
+  const removed = Array.from(prev).filter(id => !nowIds.has(id)).map(id => {
+    const p = ALL.find(x => String(x.id) === id);
+    const was = fp && fp[id];
+    return { id, label: p ? shortPropLabel(p) : (was ? was.l : "A property"), county: p ? p.county : (was ? was.c : ""), stillListed: !!p };
+  });
+  return { rows, added, changed, removed, fpKnown: !!fp };
+}
+function applySavedSearch(s) {
+  const c = s.criteria || {};
+  if (c.ledger && c.ledger !== state.ledger) setLedger(c.ledger);
+  if (PAGE_STATE === "FL") state.counties = new Set(c.counties && c.counties.length ? c.counties : ALL_COUNTIES);
+  state.assessedMin = c.assessed_min !== undefined ? Number(c.assessed_min) : null;
+  state.acreageMin = c.acreage_min !== undefined ? Number(c.acreage_min) : null;
+  state.taxableMin = c.taxable_min !== undefined ? Number(c.taxable_min) : null;
+  state.saleFrom = c.sale_from || ""; state.saleTo = c.sale_to || "";
+  state.availLandUse = c.land_use || "any";
+  state.acqState = c.acquisition || "any";
+  state.imagery = c.imagery || "any";
+  state.freshDays = c.fresh_days !== undefined ? Number(c.fresh_days) : null;
+  state.statusView = c.available_only ? "live" : "all";
+  syncMonitorFilterInputs();
+  const am = document.getElementById("assessedMin"); if (am) am.value = state.assessedMin ?? "";
+  const ac = document.getElementById("acreageMin"); if (ac) ac.value = state.acreageMin ?? "";
+  const lu = document.getElementById("availLandUseFilter"); if (lu) lu.value = state.availLandUse;
+  buildAllChips();
+  if (bindBidRangeSliders.apply) bindBidRangeSliders.apply(c.bid_min !== undefined ? Number(c.bid_min) : null, c.bid_max !== undefined ? Number(c.bid_max) : null);
+  updateBadge();
+  render();
+  track("saved_search_opened", { matches: savedSearchRows(c).length });
+}
+
+// ---- monitoring filters (all ledgers) ----
+const MONITOR_FILTERS_HTML = `<div class="filters-row" id="monitorFilters">
+<div class="field"><span class="field-label">Taxable value min</span><input type="number" id="taxableMin" placeholder="0" min="0" step="1000" inputmode="numeric"></div>
+<div class="field"><span class="field-label">Imagery</span><select id="imageryFilter" aria-label="Imagery"><option value="any">Any</option><option value="has">Image on file</option><option value="none">No image on file</option></select></div>
+<div class="field"><span class="field-label">Acquisition path</span><select id="acqStateFilter" aria-label="Acquisition path"><option value="any">Any</option><option value="verified">Verified</option><option value="not_verified">Not yet verified</option></select></div>
+<div class="field"><span class="field-label">Watch status</span><select id="watchStatusFilter" aria-label="Watch status"><option value="any">Any</option><option value="watched">On my watchlist or favorites</option><option value="not_watched">Not watched</option></select></div>
+<div class="field"><span class="field-label">Read from the source</span><select id="freshDaysFilter" aria-label="Read from the source"><option value="">Any time</option><option value="1">Last 24 hours</option><option value="7">Last 7 days</option><option value="30">Last 30 days</option></select></div>
+<div class="field"><span class="field-label">Sale date from</span><input type="date" id="saleFromFilter" aria-label="Sale date from"></div>
+<div class="field"><span class="field-label">Sale date to</span><input type="date" id="saleToFilter" aria-label="Sale date to"></div>
+</div>`;
+function syncMonitorFilterInputs() {
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+  set("taxableMin", state.taxableMin ?? ""); set("imageryFilter", state.imagery); set("acqStateFilter", state.acqState);
+  set("watchStatusFilter", state.watchStatus); set("freshDaysFilter", state.freshDays === null ? "" : String(state.freshDays));
+  set("saleFromFilter", state.saleFrom); set("saleToFilter", state.saleTo);
+}
+function resetMonitorFilters() {
+  state.taxableMin = null; state.imagery = "any"; state.acqState = "any"; state.watchStatus = "any"; state.freshDays = null; state.saleFrom = ""; state.saleTo = "";
+  syncMonitorFilterInputs();
+}
+function bindMonitorFilters() {
+  const on = (id, ev, fn) => { const el = document.getElementById(id); if (el) el.addEventListener(ev, () => { fn(el); updateBadge(); render(); }); };
+  on("taxableMin", "input", el => { state.taxableMin = el.value.trim() === "" ? null : Number(el.value); });
+  on("imageryFilter", "change", el => { state.imagery = el.value; });
+  on("acqStateFilter", "change", el => { state.acqState = el.value; });
+  on("watchStatusFilter", "change", el => { state.watchStatus = el.value; });
+  on("freshDaysFilter", "change", el => { state.freshDays = el.value === "" ? null : Number(el.value); });
+  on("saleFromFilter", "change", el => { state.saleFrom = el.value; });
+  on("saleToFilter", "change", el => { state.saleTo = el.value; });
+}
+
+// ---- property page: Watch & changes ----
+function changeEventLine(e) {
+  const field = CHANGE_FIELD_LABELS[e.field] || e.field || "";
+  const fmt = v => {
+    if (v === null || v === undefined || v === "") return e.field === "purchase_path_type" ? "not yet verified" : "not on file";
+    if (e.field === "purchase_path_type") return PURCHASE_PATH_TYPE_LABELS[v] || String(v);
+    if (["opening_bid", "assessed", "taxable_value", "result_amount"].includes(e.field) && Number.isFinite(Number(v))) return fmtMoney(Number(v));
+    if (["has_coordinates", "has_imagery"].includes(e.field)) return v === "true" || v === true ? "yes" : "no";
+    if (/_date$|_on$/.test(e.field || "")) return dateOnly(v);
+    return String(v);
+  };
+  const what = e.kind === "new_listing" ? "First seen by change monitoring"
+    : e.kind === "removed" ? "Left the source list - not a sale or a result; why is not published"
+    : e.kind === "reactivated" ? "Back on the source list"
+    : `${field}: ${fmt(e.old_value)} → ${fmt(e.new_value)}`;
+  return { when: e.observed_at, label: CHANGE_KIND_LABELS[e.kind] || e.kind, what };
+}
+function changeHistoryListHtml(events) {
+  if (!events.length) return `<span class="muted">No changes detected for this property since monitoring began.</span>`;
+  return `<ol class="dec-history change-history">${events.map(e => { const l = changeEventLine(e); return `<li data-kind="${esc(e.kind)}"><span class="dec-when">${esc(dateOnly(l.when))}</span><span class="dec-what">${esc(l.label)}<span class="dec-sub">${esc(l.what)}</span></span></li>`; }).join("")}</ol>`;
+}
+function monitorSectionHtml(p) {
+  const watched = BIDLIST.has(p.id), fav = FAVS.has(p.id);
+  const status = watched && fav ? "On your watchlist and in your favorites." : watched ? "On your watchlist." : fav ? "In your favorites." : "Not watched. Add it to your watchlist to be told when it changes.";
+  const alertsLine = MONITOR.tables.user_alerts === true
+    ? `Alerts for watched properties are ${MONITOR.prefs && MONITOR.prefs.watch_changes === false ? "<b>off</b>" : "<b>on</b>"} (account menu → Alerts). They appear in the Alerts inbox; e-mail delivery is not configured on this deployment.`
+    : "Server alerts are not enabled on this deployment yet. Changes to watched properties are compared in this browser each time you load the app (Watchlist → changes).";
+  const body = `<div class="monitor-block">
+    <p class="monitor-status"><b>${esc(status)}</b></p>
+    <p class="dec-sub">Monitored: listing status, sale date, opening bid, acquisition path and its evidence, source, and recorded fields (assessed, taxable, acreage, land use, flood zone). Leaving a list is reported as a removal - never as a sale.</p>
+    <p class="dec-sub">${alertsLine}</p>
+    <div class="change-history-slot" data-changes-for="${esc(p.id)}"><span class="muted">Loading change history…</span></div>
+  </div>`;
+  return detailSectionHtml("Watch & changes", body, "", "monitor");
+}
+async function hydrateChangeHistory(container, p) {
+  const slot = container.querySelector(`[data-changes-for="${cssEscape(String(p.id))}"]`);
+  if (!slot) return;
+  if (MONITOR.tables.property_change_events === false) {
+    slot.innerHTML = `<span class="muted">Server change history is not enabled on this deployment yet (migration 024 has not been applied).</span>`;
+    return;
+  }
+  const res = await sb.from("property_change_events").select("*").eq("property_id", p.id).order("observed_at", { ascending: false }).limit(50);
+  if (!document.contains(slot)) return;
+  if (res.error) {
+    if (isMissingTable(res.error)) MONITOR.tables.property_change_events = false;
+    slot.innerHTML = `<span class="muted">${isMissingTable(res.error) ? "Server change history is not enabled on this deployment yet (migration 024 has not been applied)." : "Couldn't load change history: " + esc(res.error.message || "")}</span>`;
+    return;
+  }
+  MONITOR.tables.property_change_events = true;
+  slot.innerHTML = changeHistoryListHtml(res.data || []);
+}
+// Server-detected changes on watched properties, for the Watchlist modal.
+function watchedServerChangesHtml() {
+  if (MONITOR.tables.property_change_events !== true) return "";
+  const ids = watchedIds();
+  const evs = MONITOR.events.filter(e => ids.has(e.property_id)).slice(0, 30);
+  if (!evs.length) return `<p class="watch-changes-note" id="watchServerChanges">No server-detected changes on your watched properties yet.</p>`;
+  return `<div class="watch-server-changes" id="watchServerChanges"><div class="wc-title">Detected by the server</div><ul>${evs.map(e => {
+    const p = ALL.find(x => x.id === e.property_id); const l = changeEventLine(e);
+    return `<li data-pid="${esc(e.property_id)}">${esc(dateOnly(l.when))} · ${p ? shortPropLabel(p) : "A watched property"} · ${esc(l.label)} - ${esc(l.what)}</li>`;
+  }).join("")}</ul></div>`;
+}
+
+// ---- saved searches + alerts modals ----
+const MONITOR_MODALS_HTML = `
+<div class="detail-modal" id="savedSearchesModal" hidden>
+<div class="detail-modal-inner" id="savedSearchesModalInner">
+<button class="detail-close" id="savedSearchesCloseBtn" type="button" aria-label="Close">&times;</button>
+<h2 class="detail-address" style="font-size:1.15rem">Saved searches</h2>
+<div id="savedSearchesBody" class="terms-body"></div>
+</div>
+</div>
+<div class="detail-modal" id="alertsModal" hidden>
+<div class="detail-modal-inner" id="alertsModalInner">
+<button class="detail-close" id="alertsCloseBtn" type="button" aria-label="Close">&times;</button>
+<h2 class="detail-address" style="font-size:1.15rem">Alerts</h2>
+<div id="alertsBody" class="terms-body"></div>
+</div>
+</div>`;
+let savedSearchesUi = null, alertsUi = null;
+function savedSearchItemHtml(s) {
+  const d = savedSearchDiff(s);
+  const list = (rows, cls) => rows.slice(0, 20).map(p => `<li class="${cls}"><button type="button" class="link-btn" data-ss-open="${esc(p.id)}">${shortPropLabel(p)}</button> <span class="muted">· ${esc(p.county || "")}</span></li>`).join("");
+  const removed = d.removed.slice(0, 20).map(r => `<li class="ss-removed">${r.stillListed ? `<button type="button" class="link-btn" data-ss-open="${esc(r.id)}">${r.label}</button>` : esc(r.label.replace(/<[^>]*>/g, ""))} <span class="muted">· ${esc(r.county || "")} · ${r.stillListed ? "no longer matches (closed or a field changed)" : "no longer in the current data"} - not a sale</span></li>`).join("");
+  const since = s.last_viewed_at ? new Date(s.last_viewed_at).toLocaleString() : null;
+  const alertsCtl = ssServer()
+    ? `<label class="tog"><input type="checkbox" data-ss-alerts="${esc(s.id)}"${s.alerts_enabled ? " checked" : ""}> <span>Alert me to new matches</span></label>`
+    : `<span class="dec-sub">Alerts need saved searches stored on the server, which this deployment does not have yet.</span>`;
+  return `<div class="saved-search" data-ss="${esc(s.id)}">
+    <div class="ss-head"><b class="ss-name">${esc(s.name)}</b> <span class="muted ss-criteria">${esc(criteriaSummary(s.criteria || {}))}</span></div>
+    <div class="ss-counts"><span class="ss-count" data-k="matches">${d.rows.length} matching</span> · <span class="ss-count ss-new" data-k="new">${d.added.length} new</span> · <span class="ss-count ss-changed" data-k="changed">${d.fpKnown ? d.changed.length + " changed" : "changes not compared on this device"}</span> · <span class="ss-count ss-removed-count" data-k="removed">${d.removed.length} no longer matching</span></div>
+    ${since ? `<div class="dec-sub">Compared with ${esc(since)}, when this search was last marked seen.</div>` : ""}
+    ${d.added.length || d.changed.length || d.removed.length ? `<details class="ss-detail"><summary>Show what changed</summary>
+      ${d.added.length ? `<div class="ss-group"><span class="ss-label">New</span><ul>${list(d.added, "ss-new-item")}</ul></div>` : ""}
+      ${d.changed.length ? `<div class="ss-group"><span class="ss-label">Changed</span><ul>${list(d.changed, "ss-changed-item")}</ul></div>` : ""}
+      ${d.removed.length ? `<div class="ss-group"><span class="ss-label">No longer matching</span><ul>${removed}</ul></div>` : ""}
+    </details>` : ""}
+    <div class="ss-actions">
+      <button type="button" class="detail-btn" data-ss-apply="${esc(s.id)}">Show in list</button>
+      <button type="button" class="detail-btn" data-ss-seen="${esc(s.id)}">Mark seen</button>
+      ${alertsCtl}
+      <button type="button" class="detail-btn danger" data-ss-delete="${esc(s.id)}">Delete</button>
+    </div>
+  </div>`;
+}
+function renderSavedSearchesModal() {
+  const body = document.getElementById("savedSearchesBody");
+  if (!body) return;
+  const mine = MONITOR.savedSearches.filter(s => s.state === PAGE_STATE);
+  const where = ssServer() ? "Saved to your account." : "Saved in this browser only - this deployment does not have server-side saved searches yet, so they will not follow you to another device.";
+  body.innerHTML = `
+    <form class="ss-form" id="saveSearchForm">
+      <label class="ss-form-label">Save the current list filters<input type="text" id="saveSearchName" maxlength="80" placeholder="Name, e.g. Bay County lots under $5k" required></label>
+      <div class="dec-sub" id="saveSearchCriteria">${esc(criteriaSummary(currentCriteria()))}</div>
+      <button type="submit" class="detail-btn" id="saveSearchSubmit">Save search</button>
+    </form>
+    <p class="dec-sub ss-storage" id="savedSearchStorage">${esc(where)} The search box text is not saved; criteria are the filters above.</p>
+    <div class="saved-search-list" id="savedSearchList">${mine.length ? mine.map(savedSearchItemHtml).join("") : `<div class="dash-empty">No saved searches for ${esc(STATE_INFO.name || PAGE_STATE)} yet.</div>`}</div>`;
+}
+function openSavedSearches(returnEl) {
+  renderSavedSearchesModal();
+  if (savedSearchesUi) savedSearchesUi.open(returnEl);
+}
+function alertItemHtml(a) {
+  const p = a.property_id ? ALL.find(x => x.id === a.property_id) : null;
+  return `<li class="alert-item${a.read_at ? "" : " unread"}" data-alert="${esc(String(a.id))}">
+    <span class="dec-when">${esc(dateOnly(a.created_at))}</span>
+    <span class="dec-what"><b>${esc(a.title || "")}</b>${a.detail ? `<span class="dec-sub">${esc(a.detail)}</span>` : ""}
+      <span class="dec-sub">${esc(ALERT_KIND_LABELS[a.kind] || a.kind)}${p ? ` · <button type="button" class="link-btn" data-alert-open="${esc(String(a.id))}">${shortPropLabel(p)}</button>` : ""}</span></span>
+  </li>`;
+}
+function renderAlertsModal() {
+  const body = document.getElementById("alertsBody");
+  if (!body) return;
+  if (MONITOR.tables.user_alerts !== true) {
+    body.innerHTML = `<div class="support-unconfigured" id="alertsUnavailable"><b>Alerts are not enabled on this deployment yet.</b> The server tables for alerts (migration 024) have not been installed. Until they are, changes to your watched properties are compared in this browser each time you load the app - see Watchlist.</div>`;
+    return;
+  }
+  const prefs = MONITOR.prefs || { watch_changes: true, saved_search_matches: true, email_enabled: false };
+  const unread = MONITOR.alerts.filter(a => !a.read_at).length;
+  body.innerHTML = `
+    <div class="alert-prefs" id="alertPrefs">
+      <label class="tog"><input type="checkbox" id="prefWatchChanges"${prefs.watch_changes !== false ? " checked" : ""}> <span>Changes to my watched properties</span></label>
+      <label class="tog"><input type="checkbox" id="prefSavedSearch"${prefs.saved_search_matches !== false ? " checked" : ""}> <span>New matches for my saved searches</span></label>
+      <label class="tog"><input type="checkbox" id="prefEmail" disabled> <span>E-mail - not configured on this deployment; alerts appear here only</span></label>
+    </div>
+    <div class="alert-actions"><span id="alertsUnreadText">${unread} unread</span>${unread ? ` <button type="button" class="detail-btn" id="alertsMarkRead">Mark all read</button>` : ""}</div>
+    ${MONITOR.alerts.length ? `<ol class="dec-history alert-list" id="alertList">${MONITOR.alerts.map(alertItemHtml).join("")}</ol>`
+      : `<div class="dash-empty" id="alertList">No alerts yet. They are generated after each data sync when a watched property or a saved search changes.</div>`}
+    <p class="dec-sub">Alerts are generated from server-detected changes to fields this app stores. Leaving a list is reported as a removal, never as a sale.</p>`;
+}
+function openAlerts(returnEl) {
+  renderAlertsModal();
+  if (alertsUi) alertsUi.open(returnEl);
+}
+async function savePrefs(patch) {
+  MONITOR.prefs = Object.assign({ watch_changes: true, saved_search_matches: true, email_enabled: false }, MONITOR.prefs || {}, patch);
+  const r = await sb.from("alert_preferences").upsert({ watch_changes: MONITOR.prefs.watch_changes, saved_search_matches: MONITOR.prefs.saved_search_matches, email_enabled: false });
+  if (r && r.error) showErrorToast("Couldn't save alert preferences: " + r.error.message);
+  else track("alert_created", { kind: "preferences", watch_changes: MONITOR.prefs.watch_changes, saved_search_matches: MONITOR.prefs.saved_search_matches });
+}
+function renderMonitorChrome() {
+  const unread = MONITOR.alerts.filter(a => !a.read_at).length;
+  const badge = document.getElementById("alertsUnread");
+  if (badge) { badge.textContent = unread ? String(unread) : ""; badge.hidden = !unread; }
+  const newTotal = MONITOR.savedSearches.filter(s => s.state === PAGE_STATE).reduce((n, s) => n + savedSearchDiff(s).added.length, 0);
+  const ssCount = document.getElementById("savedSearchesCount");
+  if (ssCount) { ssCount.textContent = newTotal ? `${newTotal} new` : ""; ssCount.hidden = !newTotal; }
+}
+
+function installMonitoringUi() {
+  const qc = document.getElementById("quickControls");
+  const exportBtn = document.getElementById("exportCsvBtn");
+  if (qc && !document.getElementById("savedSearchesBtn")) {
+    const btn = `<button class="export-btn saved-searches-btn" id="savedSearchesBtn" type="button" title="Save these filters and see what is new or changed since you last looked"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-6-4-6 4z"/></svg> Saved searches <b class="ss-badge" id="savedSearchesCount" hidden></b></button>`;
+    if (exportBtn) exportBtn.insertAdjacentHTML("beforebegin", btn); else qc.insertAdjacentHTML("beforeend", btn);
+  }
+  const menu = document.getElementById("accountMenu");
+  const helpItem = document.getElementById("helpBtnMenu");
+  if (menu && !document.getElementById("alertsMenuItem")) {
+    const item = `<button class="account-item" id="alertsMenuItem" type="button" role="menuitem">Alerts <b class="ss-badge" id="alertsUnread" hidden></b></button>`;
+    if (helpItem) helpItem.insertAdjacentHTML("beforebegin", item); else menu.insertAdjacentHTML("beforeend", item);
+  }
+  const avail = document.getElementById("availableFilters");
+  if (avail && !document.getElementById("monitorFilters")) avail.insertAdjacentHTML("afterend", MONITOR_FILTERS_HTML);
+  if (!document.getElementById("savedSearchesModal")) document.body.insertAdjacentHTML("beforeend", MONITOR_MODALS_HTML);
+  savedSearchesUi = simpleModal("savedsearches", { modal: "savedSearchesModal", close: "savedSearchesCloseBtn" });
+  alertsUi = simpleModal("alerts", { modal: "alertsModal", close: "alertsCloseBtn" });
+  bindMonitorFilters();
+
+  const ssBtn = document.getElementById("savedSearchesBtn");
+  if (ssBtn) ssBtn.addEventListener("click", () => openSavedSearches(ssBtn));
+  const alertsItem = document.getElementById("alertsMenuItem");
+  if (alertsItem) alertsItem.addEventListener("click", () => { closeAccountMenu(); openAlerts(alertsItem); });
+
+  const ssBody = document.getElementById("savedSearchesBody");
+  if (ssBody) {
+    ssBody.addEventListener("submit", async e => {
+      if (e.target.id !== "saveSearchForm") return;
+      e.preventDefault();
+      const nameEl = document.getElementById("saveSearchName");
+      const name = nameEl ? nameEl.value.trim() : "";
+      if (!name) return;
+      const s = await ssCreate(name, currentCriteria());
+      if (s) { renderSavedSearchesModal(); renderMonitorChrome(); }
+    });
+    ssBody.addEventListener("click", async e => {
+      const t = e.target.closest("button, input");
+      if (!t) return;
+      const byId = id => MONITOR.savedSearches.find(s => s.id === id);
+      if (t.dataset.ssApply) { const s = byId(t.dataset.ssApply); if (s) { savedSearchesUi.close(); showPage("list"); applySavedSearch(s); } }
+      else if (t.dataset.ssSeen) {
+        const s = byId(t.dataset.ssSeen); if (!s) return;
+        const rows = savedSearchRows(s.criteria || {});
+        ssWriteFp(s.id, rows);
+        await ssPersist(s, { last_viewed_at: new Date().toISOString(), last_match_ids: rows.map(p => p.id) });
+        renderSavedSearchesModal(); renderMonitorChrome();
+      } else if (t.dataset.ssDelete) {
+        const s = byId(t.dataset.ssDelete); if (!s) return;
+        await ssDelete(s); renderSavedSearchesModal(); renderMonitorChrome();
+      } else if (t.dataset.ssOpen) {
+        const p = ALL.find(x => String(x.id) === t.dataset.ssOpen); if (p) openDetail(p);
+      } else if (t.dataset.ssAlerts) {
+        const s = byId(t.dataset.ssAlerts); if (!s) return;
+        await ssPersist(s, { alerts_enabled: t.checked });
+        if (t.checked) track("alert_created", { kind: "saved_search_new_match" });
+      }
+    });
+  }
+  const alertsBody = document.getElementById("alertsBody");
+  if (alertsBody) {
+    alertsBody.addEventListener("change", e => {
+      if (e.target.id === "prefWatchChanges") savePrefs({ watch_changes: e.target.checked });
+      if (e.target.id === "prefSavedSearch") savePrefs({ saved_search_matches: e.target.checked });
+    });
+    alertsBody.addEventListener("click", async e => {
+      const t = e.target.closest("button");
+      if (!t) return;
+      if (t.id === "alertsMarkRead") {
+        const now = new Date().toISOString();
+        const ids = MONITOR.alerts.filter(a => !a.read_at).map(a => a.id);
+        const r = await sb.from("user_alerts").update({ read_at: now }).in("id", ids);
+        if (r && r.error) { showErrorToast("Couldn't mark alerts read: " + r.error.message); return; }
+        MONITOR.alerts.forEach(a => { if (!a.read_at) a.read_at = now; });
+        renderAlertsModal(); renderMonitorChrome();
+      } else if (t.dataset.alertOpen) {
+        const a = MONITOR.alerts.find(x => String(x.id) === t.dataset.alertOpen);
+        const p = a && ALL.find(x => x.id === a.property_id);
+        if (!a || !p) return;
+        track("alert_opened", { kind: a.kind, property_id: p.id });
+        if (!a.read_at) {
+          a.read_at = new Date().toISOString();
+          sb.from("user_alerts").update({ read_at: a.read_at }).eq("id", a.id);
+          renderMonitorChrome();
+        }
+        alertsUi.close();
+        openDetail(p);
+      }
+    });
+  }
+  // Acquisition / official-source link opens (analytics only: the link's
+  // own navigation is never delayed or altered).
+  document.addEventListener("click", e => {
+    const a = e.target.closest && e.target.closest("a[href]");
+    if (!a) return;
+    const host = a.closest("#detailModalInner, #detailPanel");
+    if (!host) return;
+    const pidEl = a.closest("[data-pid]") || host.querySelector("[data-pid]");
+    const pid = pidEl ? pidEl.dataset.pid : null;
+    const section = a.closest("[data-section]");
+    const sec = section ? section.dataset.section : "";
+    const text = (a.textContent || "").toLowerCase();
+    let event = null;
+    if (sec === "acquire" || a.closest(".acquire-block")) event = /application/.test(text) ? "application_opened" : /instruction|how to|process/.test(text) ? "acquisition_instructions_opened" : "acquisition_source_opened";
+    else if (sec === "sources" || sec === "provenance" || sec === "inventory") event = "official_source_opened";
+    if (event) track(event, { property_id: pid, section: sec || "acquire" });
+  }, true);
+}
+
+async function loadMonitoring() {
+  const [ss, al, pr] = await Promise.all([
+    sb.from("saved_searches").select("*").order("created_at"),
+    sb.from("user_alerts").select("*").order("created_at", { ascending: false }).limit(100),
+    sb.from("alert_preferences").select("*").maybeSingle()
+  ]);
+  MONITOR.tables.saved_searches = !(ss && ss.error);
+  MONITOR.tables.user_alerts = !(al && al.error);
+  MONITOR.tables.alert_preferences = !(pr && pr.error);
+  MONITOR.savedSearches = MONITOR.tables.saved_searches ? (ss.data || []) : ssLocalRead();
+  MONITOR.alerts = MONITOR.tables.user_alerts ? (al.data || []) : [];
+  MONITOR.prefs = MONITOR.tables.alert_preferences ? (pr.data || null) : null;
+  const ids = Array.from(watchedIds());
+  if (ids.length) {
+    const ev = await sb.from("property_change_events").select("*").in("property_id", ids).order("observed_at", { ascending: false }).limit(200);
+    MONITOR.tables.property_change_events = !(ev && ev.error);
+    MONITOR.events = MONITOR.tables.property_change_events ? (ev.data || []) : [];
+  }
+  MONITOR.loaded = true;
+  const queued = MONITOR.queue.splice(0);
+  renderMonitorChrome();
+  refreshBidListModal();
+  let returning = false;
+  try { returning = !!localStorage.getItem("tdw_last_visit"); localStorage.setItem("tdw_last_visit", new Date().toISOString()); } catch { /* ignore */ }
+  // The bootstrap can reach showApp() twice (getSession + SIGNED_IN): one
+  // session_start per page load.
+  if (!MONITOR.sessionTracked) {
+    MONITOR.sessionTracked = true;
+    track("session_start", { returning, watched: ids.length, saved_searches: MONITOR.savedSearches.length });
+    queued.forEach(([e, pr]) => track(e, pr));
+  }
+}
+
+installMonitoringUi();

@@ -96,3 +96,18 @@ def test_c09_no_credentials_means_no_writes(tmp_path, capsys, monkeypatch):
     monkeypatch.delenv("SUPABASE_SERVICE_KEY", raising=False)
     assert D.main(["--state", "FL"]) == 0
     assert "nothing detected" in capsys.readouterr().out
+
+
+def test_c10_frontend_mirrors_every_criterion_and_degrades_without_024():
+    app = (REPO / "public/app.js").read_text(encoding="utf-8")
+    body = app[app.index("function savedSearchMatches("):app.index("window.__tdwSavedSearchMatches")]
+    for key in SSM.CRITERIA_KEYS:
+        assert f"c.{key}" in body, key
+    assert (REPO / "app.js").read_text(encoding="utf-8") == app                     # mirrored
+    # Every 024 table is feature-detected; nothing assumes the migration ran.
+    for wording in ("Alerts are not enabled on this deployment yet", "Server change history is not enabled on this deployment yet",
+                    "Saved in this browser only", "E-mail - not configured on this deployment"):
+        assert wording in app, wording
+    # Analytics never send the search text.
+    track_calls = [l for l in app.splitlines() if 'track("search_performed"' in l]
+    assert track_calls and all("state.search)" not in l.replace("!!state.search", "") for l in track_calls)
