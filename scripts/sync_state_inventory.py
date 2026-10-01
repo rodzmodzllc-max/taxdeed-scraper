@@ -93,7 +93,7 @@ def registry_rows(state: str, path: Path = REGISTRY) -> dict[str, object]:
 
 
 def plan(state: str, rows: list[dict], registry: dict, status_units: dict[str, str], *, observed_at: str | None = None,
-         stored_provenance: dict | None = None) -> tuple[list[dict], dict]:
+         stored_provenance: dict | None = None, stored_first_seen: dict | None = None) -> tuple[list[dict], dict]:
     """(rows to upsert, counts). Pure - no I/O. Raises ValueError when the
     state or a row's source may not be synced at all.
 
@@ -103,9 +103,15 @@ def plan(state: str, rows: list[dict], registry: dict, status_units: dict[str, s
     jsonb). Rows are key-aligned PER SOURCE, not per batch: a column one
     source publishes is sent (NULL when that source's row leaves it blank),
     a column the source never publishes is not sent at all - so a value the
-    enrichment factory filled is never nulled by another source's columns."""
+    enrichment factory filled is never nulled by another source's columns.
+
+    `first_seen_at` is sent too (properties_seen_order_check requires
+    last_seen_at >= first_seen_at): a row already stored keeps its stored
+    value (`stored_first_seen`, identity -> timestamp), a new row is first
+    seen at this run's observed_at - never the insert's later now() default."""
     observed_at = observed_at or FP.now_iso()
     stored_provenance = stored_provenance or {}
+    stored_first_seen = stored_first_seen or {}
     if not states.is_activated(state):
         raise ValueError(f"state {state} is not activated: {', '.join(states.activation_blockers(state))}")
     counts = {"input": len(rows), "upsert": 0, "skipped_unit_not_read": 0, "wrong_state": 0, "withheld_not_publishable": 0}
@@ -131,6 +137,8 @@ def plan(state: str, rows: list[dict], registry: dict, status_units: dict[str, s
         row["ledger_type"] = LEDGER_TYPE_FOR_SOURCE[row["source"]]
         row["harvester_source"] = reg.source_id
         row["last_seen_at"] = observed_at
+        first = stored_first_seen.get(identity(row)) if identity(row) in stored_first_seen else observed_at
+        row["first_seen_at"] = first if first is None or FP_ts(first) <= FP_ts(observed_at) else observed_at
         row["field_provenance"] = list_provenance(row, stored_provenance.get(identity(row)), observed_at)
         keys.setdefault(reg.source_id, set()).update(row)
         out.append(row)
@@ -139,6 +147,13 @@ def plan(state: str, rows: list[dict], registry: dict, status_units: dict[str, s
     out = [{k: r.get(k) for k in sorted(keys[r["harvester_source"]])} for r in out]
     counts["upsert"] = len(out)
     return out, counts
+
+
+def FP_ts(value: str):
+    """A comparable instant for an ISO timestamp (PostgREST or FP.now_iso)."""
+    from datetime import datetime, timezone  # noqa: PLC0415
+    t = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    return t if t.tzinfo else t.replace(tzinfo=timezone.utc)
 
 
 CLOSEABLE = frozenset({"COMPLETE", "EMPTY"})
@@ -199,14 +214,15 @@ def status_units(path: Path) -> dict[str, str]:
     return {str(e.get("county")): str(e.get("status")) for e in entries or [] if isinstance(e, dict)}
 
 
-def stored_provenance(base: str, key: str, state: str, source_ids: set[str]) -> dict:
+def stored_provenance(base: str, key: str, state: str, source_ids: set[str], first_seen: dict | None = None) -> dict:
     """identity -> the stored field_provenance of this state's rows from
-    these sources (every status), so a sync merges into it."""
+    these sources (every status), so a sync merges into it. When
+    `first_seen` is given it is filled with identity -> stored first_seen_at."""
     import urllib.parse  # noqa: PLC0415
     out, offset = {}, 0
     ids = ",".join(sorted(source_ids))
     while True:
-        q = urllib.parse.urlencode({"select": "source,county,case_no,field_provenance", "state": f"eq.{state}",
+        q = urllib.parse.urlencode({"select": "source,county,case_no,field_provenance,first_seen_at", "state": f"eq.{state}",
                                     "harvester_source": f"in.({ids})", "order": "id", "limit": 1000, "offset": offset})
         req = urllib.request.Request(f"{base.rstrip('/')}/rest/v1/properties?{q}",
                                      headers={"apikey": key, "Authorization": f"Bearer {key}", "User-Agent": USER_AGENT})
@@ -214,6 +230,8 @@ def stored_provenance(base: str, key: str, state: str, source_ids: set[str]) -> 
             page = json.loads(resp.read() or b"[]")
         for r in page:
             out[identity(r)] = r.get("field_provenance")
+            if first_seen is not None:
+                first_seen[identity(r)] = r.get("first_seen_at")
         if len(page) < 1000:
             return out
         offset += 1000
@@ -266,11 +284,13 @@ def main(argv=None) -> int:
     url, key = os.environ.get("SUPABASE_URL"), os.environ.get("SUPABASE_SERVICE_KEY")
     import source_publication as SP  # noqa: PLC0415 - registry + latest valid admin review
     reg, _ = SP.registry_with_reviews(args.state) if (url and key and not args.dry_run) else SP.registry_with_reviews(args.state, reviews={})
-    stored = {}
+    stored, first_seen = {}, {}
     if url and key and not args.dry_run and states.is_activated(args.state):
-        stored = stored_provenance(url, key, args.state, {sid for sid, r in reg.items() if r.is_production} or {"-"})
+        stored = stored_provenance(url, key, args.state, {sid for sid, r in reg.items() if r.is_production} or {"-"},
+                                   first_seen=first_seen)
     try:
-        to_send, counts = plan(args.state, rows, reg, status_units(Path(args.status)), stored_provenance=stored)
+        to_send, counts = plan(args.state, rows, reg, status_units(Path(args.status)), stored_provenance=stored,
+                               stored_first_seen=first_seen)
     except ValueError as exc:
         print(f"::error title=sync_{args.state.lower()}::{exc} - 0 requests made")
         return 2

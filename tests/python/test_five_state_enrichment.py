@@ -100,6 +100,25 @@ def test_y01_sync_stamps_last_seen_and_list_provenance(tmp_path):
     assert "address" not in fp or not sent[0]["address"].startswith(("Parcel ", "Case "))
 
 
+def test_y01b_first_seen_never_follows_last_seen(tmp_path):
+    # properties_seen_order_check: last_seen_at >= first_seen_at. A new row is first seen at this run
+    # (never the insert's later now() default); a stored row keeps its stored first_seen_at.
+    rows = run("SC", {"sc_york_tax_sale": "sc_york_page.json"}, tmp_path)
+    obs = "2026-10-01T12:00:00+00:00"
+    old = SY.identity(dict(rows[0], source=rows[0]["source"]))
+    stored = {old: "2026-09-30T08:00:00+00:00"}
+    sent, _ = SY.plan("SC", rows, SY.registry_rows("SC"), {"York": "COMPLETE"}, observed_at=obs, stored_first_seen=stored)
+    assert all("first_seen_at" in r for r in sent)
+    by = {SY.identity(r): r for r in sent}
+    assert by[old]["first_seen_at"] == "2026-09-30T08:00:00+00:00"
+    assert all(r["first_seen_at"] == obs for i, r in by.items() if i != old)
+    assert all(SY.FP_ts(r["first_seen_at"]) <= SY.FP_ts(r["last_seen_at"]) for r in sent)
+    # A stored first_seen_at after this read (clock skew) is clamped to the read, never sent as later.
+    sent2, _ = SY.plan("SC", rows, SY.registry_rows("SC"), {"York": "COMPLETE"}, observed_at=obs,
+                       stored_first_seen={old: "2026-10-02T00:00:00+00:00"})
+    assert {SY.identity(r): r for r in sent2}[old]["first_seen_at"] == obs
+
+
 def test_y02_enrichment_provenance_survives_and_list_entries_follow_the_list(tmp_path):
     rows = run("CO", {"co_morgan_county_held_certificates": "co_morgan.html"}, tmp_path)
     ident = SY.identity(dict(rows[0], source="certificate"))
