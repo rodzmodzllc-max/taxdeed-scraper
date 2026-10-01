@@ -56,6 +56,9 @@ LIST_FIELDS = ("parcel", "owner_name", "address", "legal_desc", "assessed", "mar
 PLACEHOLDER_PREFIXES = ("Parcel ", "Case ")
 
 
+NEVER_NULL_PATH_KEYS = ("purchase_url", "purchase_url_kind")
+
+
 def identity(row: dict) -> tuple:
     return (row.get("source"), row.get("county"), row.get("case_no"))
 
@@ -142,6 +145,15 @@ def plan(state: str, rows: list[dict], registry: dict, status_units: dict[str, s
         row["field_provenance"] = list_provenance(row, stored_provenance.get(identity(row)), observed_at)
         keys.setdefault(reg.source_id, set()).update(row)
         out.append(row)
+    # A source whose rows do not state their own acquisition path (Louisiana:
+    # the laft lifecycle writes it - purchase_path_type + purchase_url, tied by
+    # migration 023's properties_purchase_path_url_check) never sends a NULL
+    # purchase URL over that verified path. Sources that state the path on the
+    # row (scripts/harvest_expansion.py) keep sending the pair with it, so the
+    # pairing constraint always sees a consistent row.
+    for sid in keys:
+        if "purchase_path_type" not in keys[sid] and any(r.get("purchase_url") is None for r in out if r["harvester_source"] == sid):
+            keys[sid].difference_update(NEVER_NULL_PATH_KEYS)
     # PostgREST bulk upserts need one key set per request: rows are aligned
     # on their own SOURCE's key set (upsert() sends one source per request).
     out = [{k: r.get(k) for k in sorted(keys[r["harvester_source"]])} for r in out]
