@@ -122,6 +122,13 @@ SOURCE_LEDGERS: dict[str, frozenset[Ledger]] = {
     "sc_york_tax_sale": frozenset({Ledger.AUCTIONS}),
     "co_morgan_county_held_certificates": frozenset({Ledger.LIENS_CERTIFICATES}),
     "wi_green_tax_deed_sales": frozenset({Ledger.AUCTIONS}),
+    # Five-state enrichment sprint (2026-10-01): Douglas CO (CC BY-SA 4.0) and the
+    # implemented-but-UNREVIEWED county sources (harvesters/otc/adapters/expansion.py PUBLICATION)
+    "co_douglas_county_held_liens": frozenset({Ledger.LIENS_CERTIFICATES}),
+    "co_douglas_tax_sale_list": frozenset({Ledger.AUCTIONS}),
+    "co_morgan_treasurer_deed_auctions": frozenset({Ledger.AUCTIONS}),
+    "wi_dane_tax_deed_auction": frozenset({Ledger.AUCTIONS}),
+    "sc_oconee_tax_sale_list": frozenset({Ledger.AUCTIONS}),
 }
 # The four blocked Texas vendors: discovery only, they feed no ledger.
 BLOCKED_SOURCE_IDS = frozenset({"tx_pbfcm", "tx_mvba", "tx_govease", "tx_ctsa"})

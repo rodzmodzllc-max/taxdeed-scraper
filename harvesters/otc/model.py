@@ -126,6 +126,9 @@ class OtcRecord:
     # County's 'Has Been Sold'): "sold" closes the auction row; the source's
     # wording is kept in inventory_status_raw. Never inferred.
     published_outcome: str | None = None
+    # Five-state sprint: a CERTIFICATE's own sale / purchase date, as the
+    # source publishes it (properties.issued_date).
+    issued_date: date | None = None
 
     def validate(self) -> list[str]:
         problems: list[str] = []
@@ -149,6 +152,8 @@ class OtcRecord:
             problems.append("a past-sale listing belongs to an auction record")
         if self.sale_date is not None and self.record_source != "auction":
             problems.append("sale_date belongs to an auction record")
+        if self.issued_date is not None and self.record_source != "certificate":
+            problems.append("issued_date belongs to a certificate record")
         if self.record_source == "auction" and self.amount is not None and self.amount_kind not in (AmountKind.OPENING_BID, AmountKind.MINIMUM_PURCHASE_AMOUNT, AmountKind.PUBLISHED_AMOUNT_KIND_UNSPECIFIED):
             problems.append("an auction amount is the published opening / minimum bid (or of unspecified kind)")
         for name in ("acreage", "taxable_value", "land_value", "improvement_value"):
@@ -248,6 +253,8 @@ class OtcRecord:
             value = getattr(self, name)
             if value is not None:
                 row[name] = value
+        if self.issued_date is not None:
+            row["issued_date"] = self.issued_date.isoformat()
         if self.published_outcome == "sold" or self.listing_closed:
             row["status"] = "closed"
         if self.result_amount is not None or self.result_date is not None:

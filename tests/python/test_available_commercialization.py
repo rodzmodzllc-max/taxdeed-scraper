@@ -17,6 +17,7 @@ import pytest
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "scripts"))
+from harvesters.otc.adapters import expansion as EX  # noqa: E402
 
 from harvesters.governance import county_source_registry as csr  # noqa: E402
 from harvesters.governance import inventory_status as IS  # noqa: E402
@@ -55,9 +56,15 @@ def test_g01_committed_registry_publishes_only_the_grandfathered_production_sour
         eff = pub.effective_publication(r)
         if r.source_id == "la_ebr_adjudicated":
             assert eff == "APPROVED" and r.restrictions   # reviewed owner decision 2026-09-30 (dated list), not grandfathered
-        elif r.state in EXPANSION_STATES:
+        elif r.state in EXPANSION_STATES and r.source_id in EX.SIX_STATE_SOURCE_IDS:
             # Six-state expansion (2026-09-30): a reviewed owner decision, not grandfathered.
             assert eff == "APPROVED" and r.is_production and "owner on 2026-09-30" in r.restrictions, (r.state, r.source_id)
+        elif r.state in EXPANSION_STATES:
+            # Five-state sprint (2026-10-01): APPROVED only on a licence the source states (quoted), else UNREVIEWED.
+            if eff == "APPROVED":
+                assert r.is_production and "Creative Commons" in r.restrictions, (r.state, r.source_id)
+            else:
+                assert eff == "UNREVIEWED" and "no row is written" in r.restrictions, (r.state, r.source_id)
         elif r.is_production:
             assert eff == "APPROVED_GRANDFATHERED", (r.state, r.county, r.source_id)     # already served today; carried forward
         elif r.source_id in BLOCKED_SOURCE_IDS:

@@ -202,7 +202,9 @@ def test_r01_committed_registry_is_unchanged_county_level_and_still_valid():
     # sources the registry now carries + ONE Arizona LIENS & CERTIFICATES candidate.
     # 222 (2026-09-30, six-state expansion) = 216 + the six owner-approved county sources of
     # MI (2), WY, SC, CO, WI (harvesters/otc/adapters/expansion.py).
-    assert len(rows) == 222 and {r.state for r in rows} == {"FL", "TX", "AL", "AR", "LA", "AZ", "MI", "WY", "SC", "CO", "WI"}
+    # 227 (2026-10-01, five-state sprint) = 222 + Douglas CO (2, CC BY-SA 4.0) and the three
+    # implemented-but-UNREVIEWED county sources (Morgan CO deed auctions, Dane WI, Oconee SC).
+    assert len(rows) == 227 and {r.state for r in rows} == {"FL", "TX", "AL", "AR", "LA", "AZ", "MI", "WY", "SC", "CO", "WI"}
     available = [r for r in rows if r.state in ("FL", "TX") and "AVAILABLE" in r.ledger_set or r.state in ("FL", "TX") and not r.ledger_set]
     assert len(available) == 112 - 3
     assert all(r.publishing_unit == "COUNTY" for r in rows if r.state in ("FL", "TX"))

@@ -99,12 +99,16 @@ def attach_purchase_paths(state: str, rows: list[dict], *, harvest_date: str, re
     return rows, n
 
 
-def gate(state: str, registry_path: Path = REGISTRY) -> list[str]:
-    """Why this state's sources may not run (empty = allowed)."""
+def gate(state: str, registry_path: Path = REGISTRY, reg: dict | None = None) -> list[str]:
+    """Why this state's sources may not run (empty = allowed). A source
+    that is registered, live-verified and governance-runnable but whose
+    PUBLICATION decision is not APPROVED* is not a problem here - it is
+    simply not run (runnable_sources()); a source with no registry row, no
+    production verification or unverified columns is a configuration error."""
     problems = []
     if not states.is_activated(state):
         problems.append(f"state {state} is not activated: {', '.join(states.activation_blockers(state))}")
-    reg = {r.source_id: r for r in load_registry(registry_path) if r.state == state}
+    reg = reg if reg is not None else {r.source_id: r for r in load_registry(registry_path) if r.state == state}
     for src in EX.SOURCES.get(state, ()):
         cfg = src.config
         row = reg.get(cfg.source_id)
@@ -115,6 +119,22 @@ def gate(state: str, registry_path: Path = REGISTRY) -> list[str]:
     if not EX.SOURCES.get(state):
         problems.append(f"no expansion sources configured for {state}")
     return problems
+
+
+def runnable_sources(state: str, reg: dict) -> tuple[list, list[tuple[str, str]]]:
+    """(sources to request, [(source_id, publication decision)] gated). Only a
+    source whose effective publication (registry + latest valid admin
+    review, scripts/source_publication.py) is APPROVED* is requested: an
+    UNREVIEWED / RESTRICTED / BLOCKED source makes zero requests."""
+    import source_publication as SP  # noqa: PLC0415
+    run, gated = [], []
+    for src in EX.SOURCES.get(state, ()):
+        row = reg.get(src.config.source_id)
+        if SP.publishable(row):
+            run.append(src)
+        elif (src.config.source_id, SP.decision(row)) not in gated:
+            gated.append((src.config.source_id, SP.decision(row)))
+    return run, gated
 
 
 def run_source(src, fetch_json, fetch_text, *, retrieved_at, fixture: str | None = None):
@@ -129,6 +149,10 @@ def run_source(src, fetch_json, fetch_text, *, retrieved_at, fixture: str | None
         res = AG.fetch_all(cfg, fj, retrieved_at=retrieved_at)
         if res.outcome == "FAILED":
             return "FAILED", [], CATEGORY_MAP.get(res.error_category, res.error_category), res.error_detail, None
+        if res.outcome == "EMPTY" and res.skipped_cycle:
+            # Every row belongs to a sale cycle the county has published no date
+            # for (e.g. last year's list): no current inventory - its own signal.
+            return "EMPTY", [], None, None, "past_cycle"
         return res.outcome, res.records, None, None, ("empty_layer" if res.outcome == "EMPTY" else None)
     # html_table
     try:
@@ -153,7 +177,9 @@ def main(argv=None) -> int:
     a = ap.parse_args(argv)
     st = a.state.upper()
     fixtures = dict(f.split("=", 1) for f in a.fixture)
-    problems = gate(st)
+    import source_publication as SP  # noqa: PLC0415
+    reg, review_report = SP.registry_with_reviews(st) if not fixtures else SP.registry_with_reviews(st, reviews={})
+    problems = gate(st, reg=reg)
     if problems and not fixtures:
         for p in problems:
             print(f"::error title=harvest_{st.lower()}::{p} - 0 requests made")
@@ -176,9 +202,17 @@ def main(argv=None) -> int:
             r = session.get(url, timeout=60, headers=PAGE_HEADERS)
             r.raise_for_status()
             return r.text
+    sources, gated = runnable_sources(st, reg)
+    if fixtures:
+        # Offline (tests): every configured source with a fixture is parsed;
+        # nothing is synced from a fixture run.
+        sources = [s for s in EX.SOURCES.get(st, ()) if s.config.source_id in fixtures]
+        gated = [g for g in gated if g[0] not in fixtures]
+    for sid, why in gated:
+        print(f"{st} {sid} GATED publication={why} - 0 requests (an APPROVED review in the admin panel enables it)")
     per_county = defaultdict(list)
     records = []
-    for src in EX.SOURCES.get(st, ()):
+    for src in sources:
         cfg = src.config
         status, recs, cat, detail, empty = run_source(src, fetch_json, fetch_text, retrieved_at=retrieved_at,
                                                      fixture=fixtures.get(cfg.source_id))

@@ -63,6 +63,14 @@ WY_ALBANY = ArcGisLayerConfig(
                           tax_year="taxyear"),
     amount_kind=AmountKind.PUBLISHED_AMOUNT_KIND_UNSPECIFIED, list_url=_item("239e5314f25f4e9898f9201d36301af9"),
     columns_verified=True, centroid=True,
+    # Five-state sprint (evidence 2026-10-01, run 36793062673): the Treasurer's
+    # 'Tax Lien Sale' and 'Tax Sale Listings' pages now publish the NEXT sale -
+    # "The 2027 Tax Sale will be held on Friday, August 13th, 2027" - and no
+    # longer mention 2026; every row of this layer is tax year 2026 (probe,
+    # run 36793611223). The 2026 sale is therefore over and no result is
+    # published: rows read 'Not published', never 'Listed'.
+    superseded="the county's own pages now name the next sale (August 13, 2027); this layer is the 2026 sale's 1st list and "
+               "the county publishes no result for it",
     notes="'2026 TAX SALE PROPERTIES 1ST LIST FROM ALBANY COUNTY, WY TREASURER'S OFFICE.' The layer's TOTAL figure "
           "carries no alias saying what it totals, so it is kept as a published amount of UNSPECIFIED kind, never "
           "called a bid. totalval (Total value) is kept as the value on file.")
@@ -114,6 +122,139 @@ WI_GREEN_PREVIOUS = TabularConfig(
     notes="'Previous Sales' table: each row is a completed sale with its published Sale Price (a result, as published).")
 
 
+# ---------------------------------------------------------------------------
+# Five-state enrichment sprint (2026-10-01). Read LIVE by the manual
+# evidence job, value-free: five_state run 36793062673, pass 2 run
+# 36793611223, pass 3 run 36793980491 (docs/five-state-enrichment.md).
+# ---------------------------------------------------------------------------
+FIVE_STATE_EVIDENCE_RUNS = ("36793062673", "36793611223", "36793980491")
+SIX_STATE_SOURCE_IDS = frozenset({"mi_eaton_treasurer_sale", "mi_lenawee_tax_sale", "wy_albany_tax_sale", "sc_york_tax_sale",
+                                  "co_morgan_county_held_certificates", "wi_green_tax_deed_sales"})
+
+# Douglas County (CO) Treasurer - "Tax Liens" open-data table: "Listing of all
+# current Investor Held and County Held liens" (updated daily). Licence on
+# the item itself: "This data is licensed by Creative Commons 4.0:
+# https://creativecommons.org/licenses/by-sa/4.0/ You are free to: Share ...
+# Adapt ... even commercially"; the county's Open Data Guidelines: "without
+# any registration requirement, license requirement or restrictions on
+# their use provided that the County may require ... to explicitly identify
+# the source". ONLY county-held liens (type 'CHL', lien_type 'County Lien' -
+# value counts, pass 3) are a LIENS & CERTIFICATES record: an investor-held
+# lien ('L') belongs to its buyer and is not for sale. account_id (A9999999)
+# is the assessor account the Colorado statewide parcel layer is matched on.
+CO_DOUGLAS_COUNTY_HELD_LIENS = ArcGisLayerConfig(
+    source_id="co_douglas_county_held_liens", state="CO", county="Douglas",
+    source_authority=SourceAuthority.GOVERNMENT_DIRECT, inventory_type=None, record_source="certificate",
+    layer_url="https://services.arcgis.com/seTexOicoRXDvRsJ/arcgis/rest/services/OpenData/FeatureServer/2",
+    fields=ArcGisFieldMap(case_no="lien_id", certificate_no="lien_id", parcel="account_id", amount="lien_balance",
+                          tax_year="lien_year", issued_date="sale_or_purchase_date"),
+    where="type = 'CHL'", require=(("type", "CHL"),), amount_kind=AmountKind.PUBLISHED_AMOUNT_KIND_UNSPECIFIED,
+    list_url=_item("950fd2c3a9bf4e0e92fa4a64f1859fec"), columns_verified=True,
+    notes="Item 'Tax Liens' (Douglas County CO open data): 'Principal balances unpaid on tax liens held by tax buyer and for "
+          "liens held by the county ... For current payoff amount please call the Douglas County Treasurer's office.' "
+          "lien_balance is that principal balance - shown as published, never as a price. Filtered to county-held (type CHL).")
+
+# Douglas County (CO) - "Tax Sale List Locations": "Owner, account and tax
+# information for the accounts in the required newspaper advertisement in
+# preparation for the annual tax lien sale" (same CC BY-SA 4.0 licence). The
+# rows carry Tax_Year; the Treasurer's page: "The 2026 Internet Tax Lien Sale
+# will be held Nov 5th, 2026" - the sale of tax year 2025's unpaid taxes. On
+# 2026-10-01 every row is Tax_Year 2024 (last year's list, probe): the cycle
+# guard reads none of them; the 2026 list flows in once the county posts it
+# ("Information regarding an upcoming tax certificate sale auction will be
+# available in October"). Address1 / City are the OWNER'S mailing address -
+# never mapped to the property address.
+CO_DOUGLAS_TAX_SALE_LIST = ArcGisLayerConfig(
+    source_id="co_douglas_tax_sale_list", state="CO", county="Douglas",
+    source_authority=SourceAuthority.GOVERNMENT_DIRECT, inventory_type=None, record_source="auction",
+    layer_url="https://services.arcgis.com/seTexOicoRXDvRsJ/arcgis/rest/services/Tax_Sale_List_Locations/FeatureServer/0",
+    fields=ArcGisFieldMap(case_no="Account_No", parcel="Account_No", owner_name="Owner_Name", legal_desc="Property_Description",
+                          amount="Total_Due", tax_year="Tax_Year"),
+    amount_kind=AmountKind.PUBLISHED_AMOUNT_KIND_UNSPECIFIED, list_url=_item("87f9905d9faf4ae3a7a385c0707717b5"),
+    columns_verified=True, cycle_field="Tax_Year", cycles=(("2025", "2026-11-05"),),
+    notes="Total_Due ('Total Due') is the advertised amount; the sale's opening bid is not stated on the layer - kept as a "
+          "published amount of unspecified kind. The internet sale is run by a vendor (the county names it); no purchase "
+          "link is taken from it.")
+
+# Morgan County (CO) Treasurer - "Treasurer's Deed Option Auctions": pending
+# public auctions of Certificates of Option for a Treasurer's Deed (Tax Deed #,
+# Auction Date, Property Tax Acct #, Tax Lien Sale Cert #, Property
+# Description and Address; 105 rows read). No explicit reuse licence: the
+# owner's 2026-09-30 approval covered the county-held certificate page only,
+# so this source is UNREVIEWED until an admin review approves it.
+CO_MORGAN_DEED_AUCTIONS = TabularConfig(
+    source_id="co_morgan_treasurer_deed_auctions", state="CO", county="Morgan",
+    source_authority=SourceAuthority.GOVERNMENT_DIRECT, inventory_type=None, record_source="auction",
+    columns=ColumnMap(case_no=("tax deed #",), parcel=("property tax acct #",), certificate_no=("tax lien sale cert #",),
+                      sale_date=("auction date",), legal_desc=("property description and address",)),
+    list_url="https://morgancounty.colorado.gov/treasurers-deed-option-auctions", columns_verified=True,
+    notes="'If the Tax Lien Sale Certificate is not redeemed, an auction for an Option for a Treasurer's Deed will be held at "
+          "9:30 a.m. on the Tax Deed Auction date' (the page). No minimum bid on the table.")
+
+# Dane County (WI) Treasurer - "Dane County Tax Deed Auction": sealed-bid sale
+# of tax-deeded parcels. Two tables with the same columns: tblAuction
+# (available: Address, Parcel Number, Bid Due, Minimum Bid, and the row's own
+# "Bid Form" link) and tblAuctionSold (the Minimum Bid cell reads
+# "$<bid> SOLD - $<price>"). No explicit reuse licence ("Copyright (c) County
+# of Dane") - UNREVIEWED until an admin review approves it.
+_DANE = dict(source_id="wi_dane_tax_deed_auction", state="WI", county="Dane",
+             source_authority=SourceAuthority.GOVERNMENT_DIRECT, inventory_type=None, record_source="auction",
+             columns=ColumnMap(case_no=("parcel number",), parcel=("parcel number",), address=("address",),
+                               sale_date=("bid due",), amount=("minimum bid",)),
+             amount_kind=AmountKind.OPENING_BID, list_url="https://treasurer.danecounty.gov/taxdeedauction", columns_verified=True)
+WI_DANE_AVAILABLE = TabularConfig(**_DANE, table_id="tblAuction", row_links=(("bid form", "bid_form"),),
+                                  notes="'Available parcels are listed online ... in chronological order by Bid Due date'; "
+                                        "'Bids are awarded ... Only bids at or exceeding the appraised value' (Minimum Bid). "
+                                        "sale_date = the Bid Due date; the bid opening is the following day.")
+WI_DANE_SOLD = TabularConfig(**_DANE, table_id="tblAuctionSold", amount_sold_pattern=r"^\$?(?P<bid>[\d,]+(?:\.\d+)?)\s+SOLD\s*-\s*\$?(?P<price>[\d,]+(?:\.\d+)?)$",
+                             notes="'Once sold, the purchased parcels are shifted to the \"Sold Parcels\" tab': the county's own "
+                                   "SOLD wording and price - a published result; no buyer is published or stored.")
+
+# Oconee County (SC) Delinquent Tax - "Delinquent Tax Sale List" (HTML table:
+# Item Number, Owner Name, Map Number, Description, Total Tax Due). On
+# 2026-10-01 its only row is the county's statement "The 2026 Tax Sale is
+# scheduled for Monday, November 9, 2026." (read as the list not yet being
+# posted). Map Number is the identity (item numbers restart each year). No
+# explicit reuse licence - UNREVIEWED until an admin review approves it.
+SC_OCONEE = TabularConfig(
+    source_id="sc_oconee_tax_sale_list", state="SC", county="Oconee",
+    source_authority=SourceAuthority.GOVERNMENT_DIRECT, inventory_type=None, record_source="auction",
+    columns=ColumnMap(case_no=("map number",), parcel=("map number",), owner_name=("owner name",), legal_desc=("description",),
+                      amount=("total tax due",)),
+    amount_kind=AmountKind.PUBLISHED_AMOUNT_KIND_UNSPECIFIED, header_required=("map number",),
+    empty_patterns=(r"tax sale is scheduled for",),
+    list_url="https://oconeesc.com/delinquent-tax/sale-list", columns_verified=True,
+    notes="'If there are no bids, the property will be considered purchased by the county's Forfeited Land Commission for the "
+          "amount of taxes, penalties, and costs owed' (Tax Sale Information page). Total Tax Due is kept as published.")
+
+# Publication decision per source (the registry's publication_status +
+# restrictions, generated into data/county_source_registry.csv). The six
+# sources of PR #57 carry the owner's 2026-09-30 decision; a source added in
+# this sprint is APPROVED only on an explicit licence the evidence quotes,
+# otherwise UNREVIEWED (implemented and verified, never requested or written
+# until an admin review approves it - scripts/source_publication.py).
+OWNER_APPROVED_2026_09_30 = ("No explicit reuse licence is published by the source; approved for publication by the owner on "
+                             "2026-09-30. Show only what the source publishes; no inferred results.")
+DOUGLAS_CC_BY_SA = ("Creative Commons Attribution-ShareAlike 4.0 (stated on the dataset item) and the Douglas County Open Data "
+                    "Guidelines (no restrictions on use; the source must be identified). Attribute 'Douglas County, Colorado' "
+                    "and the licence wherever these rows are shown; adaptations of this data carry the same licence.")
+UNREVIEWED_NO_LICENCE = ("Implemented and read live, but the source publishes no reuse licence and no owner decision exists: "
+                         "not requested on a schedule and no row is written until an admin review approves it.")
+PUBLICATION = {
+    "mi_eaton_treasurer_sale": ("APPROVED", OWNER_APPROVED_2026_09_30),
+    "mi_lenawee_tax_sale": ("APPROVED", OWNER_APPROVED_2026_09_30),
+    "wy_albany_tax_sale": ("APPROVED", OWNER_APPROVED_2026_09_30),
+    "sc_york_tax_sale": ("APPROVED", OWNER_APPROVED_2026_09_30),
+    "co_morgan_county_held_certificates": ("APPROVED", OWNER_APPROVED_2026_09_30),
+    "wi_green_tax_deed_sales": ("APPROVED", OWNER_APPROVED_2026_09_30),
+    "co_douglas_county_held_liens": ("APPROVED", DOUGLAS_CC_BY_SA),
+    "co_douglas_tax_sale_list": ("APPROVED", DOUGLAS_CC_BY_SA),
+    "co_morgan_treasurer_deed_auctions": ("UNREVIEWED", UNREVIEWED_NO_LICENCE),
+    "wi_dane_tax_deed_auction": ("UNREVIEWED", UNREVIEWED_NO_LICENCE),
+    "sc_oconee_tax_sale_list": ("UNREVIEWED", UNREVIEWED_NO_LICENCE),
+}
+
+
 @dataclass(frozen=True)
 class ExpansionSource:
     kind: str                     # "arcgis" | "html_table"
@@ -124,8 +265,14 @@ class ExpansionSource:
 SOURCES: dict[str, tuple[ExpansionSource, ...]] = {
     "MI": (ExpansionSource("arcgis", MI_EATON, MI_EATON.layer_url), ExpansionSource("arcgis", MI_LENAWEE, MI_LENAWEE.layer_url)),
     "WY": (ExpansionSource("arcgis", WY_ALBANY, WY_ALBANY.layer_url),),
-    "SC": (ExpansionSource("arcgis", SC_YORK, SC_YORK.layer_url),),
-    "CO": (ExpansionSource("html_table", CO_MORGAN, CO_MORGAN.list_url),),
+    "SC": (ExpansionSource("arcgis", SC_YORK, SC_YORK.layer_url),
+           ExpansionSource("html_table", SC_OCONEE, SC_OCONEE.list_url)),
+    "CO": (ExpansionSource("html_table", CO_MORGAN, CO_MORGAN.list_url),
+           ExpansionSource("arcgis", CO_DOUGLAS_COUNTY_HELD_LIENS, CO_DOUGLAS_COUNTY_HELD_LIENS.layer_url),
+           ExpansionSource("arcgis", CO_DOUGLAS_TAX_SALE_LIST, CO_DOUGLAS_TAX_SALE_LIST.layer_url),
+           ExpansionSource("html_table", CO_MORGAN_DEED_AUCTIONS, CO_MORGAN_DEED_AUCTIONS.list_url)),
     "WI": (ExpansionSource("html_table", WI_GREEN_CURRENT, WI_GREEN_CURRENT.list_url),
-           ExpansionSource("html_table", WI_GREEN_PREVIOUS, WI_GREEN_PREVIOUS.list_url)),
+           ExpansionSource("html_table", WI_GREEN_PREVIOUS, WI_GREEN_PREVIOUS.list_url),
+           ExpansionSource("html_table", WI_DANE_AVAILABLE, WI_DANE_AVAILABLE.list_url),
+           ExpansionSource("html_table", WI_DANE_SOLD, WI_DANE_SOLD.list_url)),
 }

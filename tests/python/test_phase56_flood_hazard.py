@@ -238,7 +238,11 @@ def test_p56_22_county_batch_is_randomly_windowed(flood):
 def test_p56_23_counties_are_shuffled(flood):
     src = SCRIPT.read_text(encoding="utf-8")
     body = src[src.index("def fetch_counties_needing_flood"):src.index("def fetch_county_batch")]
-    assert "random.shuffle" in body
+    # Shuffling lives in the shared (state, county) unit helper the flood and
+    # NAIP backfills both use; the helper itself is pinned to shuffle.
+    assert "EU.outstanding_units(" in body
+    units_src = (SCRIPT.parent / "enrichment_units.py").read_text(encoding="utf-8")
+    assert "random.shuffle(units)" in units_src and "shuffle: bool = True" in units_src
 
 
 def test_p56_24_only_rows_with_coordinates_are_selected(flood):

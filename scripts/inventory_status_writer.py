@@ -247,11 +247,16 @@ class Api:
             raise
 
 
-def fetch_rows(api: Api, state: str) -> list[dict]:
+def fetch_rows(api: Api, state: str, *, with_results: bool = False) -> list[dict]:
+    """Every row of one state. `with_results` adds migration 023's
+    result_amount (probed by the caller): a published sale price in a
+    county's past-sales table is what marks such a row sold
+    (inventory_status.adapter_record_status)."""
     out: list[dict] = []
     offset, page = 0, 1000
+    select = SELECT + (",result_amount" if with_results else "")
     while True:
-        chunk = api.get("properties", f"select={SELECT}&state=eq.{state}&order=id&limit={page}&offset={offset}")
+        chunk = api.get("properties", f"select={select}&state=eq.{state}&order=id&limit={page}&offset={offset}")
         out.extend(chunk)
         if len(chunk) < page:
             return out
@@ -303,7 +308,7 @@ def main(argv=None) -> int:
         return 0
     api = Api(url, key, dry_run=args.dry_run)
     have_021 = api.has_migration_021()
-    rows = fetch_rows(api, state)
+    rows = fetch_rows(api, state, with_results=bool(have_021) and api.has_migration_023())
     sold = load_sold_identities(args.sold) if state == "FL" else set()
     # Source-published result fields (date / amount / party) ride only on
     # a result the harvester resolved through an enabled outcome rule

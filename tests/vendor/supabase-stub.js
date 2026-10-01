@@ -185,6 +185,24 @@ const FIXTURE_PROPERTIES = [
     url_auction: "https://data.brla.gov/Housing-and-Development/Adjudicated-Property/a4h4-zi7e", url_auction_kind: "county",
     purchase_url: null, purchase_amount: null, purchase_amount_kind: "NOT_PUBLISHED", list_as_of: "2024-02-27", source_published_at: "2024-02-27T18:54:28Z",
     assessed: 2500, market: 25000, tax_year: "2023", latitude: 30.4515, longitude: -91.1871, publication_status: "APPROVED", ledger_type: "buy", updated_at: "2026-09-30T12:00:00Z" },
+  // 2026-10-01 (property-enrichment sprint): a second East Baton Rouge row in the
+  // shape the LA lifecycle + enrichment write once the Parish Attorney's process
+  // (data/purchase_path_evidence.csv) and the EBR Tax Parcel land value
+  // (la_ebr_tax_parcels, Public Domain) apply. SYNTHETIC values.
+  { id: "pla2", source: "laft", state: "LA", county: "East Baton Rouge", case_no: "012-3456-8", parcel: "012-3456-8", address: "12 FIXTURE AVE", bid: 0, status: "active", sale_date: null, lien_level: "unscreened", lien_note: "",
+    harvester_source: "la_ebr_adjudicated", source_id: "la_ebr_adjudicated", source_authority: "GOVERNMENT_DIRECT", inventory_type: "ADJUDICATED_PROPERTY",
+    list_url: "https://data.brla.gov/Housing-and-Development/Adjudicated-Property/a4h4-zi7e", url_auction: "https://data.brla.gov/Housing-and-Development/Adjudicated-Property/a4h4-zi7e", url_auction_kind: "county",
+    purchase_url: "https://www.brla.gov/455/Adjudicated-Property", purchase_url_kind: "purchase_instructions", purchase_amount: null, purchase_amount_kind: "NOT_PUBLISHED", list_as_of: "2024-02-27",
+    assessed: 2600, market: 26000, land_value: 9000, tax_year: "2023", latitude: 30.4521, longitude: -91.1875,
+    purchase_path_type: "county_instructions", purchase_path_scope: "source", purchase_path_observed_on: "2026-10-01",
+    purchase_path_evidence: "The Parish Attorney's Adjudicated Property page and FAQ say the Office of the Parish Attorney handles sales of adjudicated property",
+    otc_provenance: { acquisition: { mode: "multi_step", channels: [], office: "Office of the Parish Attorney, City of Baton Rouge / Parish of East Baton Rouge",
+      evidence_url: "https://www.brla.gov/Faq.aspx?QID=286", observed_on: "2026-10-01",
+      steps: ["Confirm with the East Baton Rouge Parish Sheriff that the property remains adjudicated (properties are redeemed during the year)",
+              "Request to purchase directly through the Office of the Parish Attorney, using its Request to Purchase form (see the Parish Attorney's Memorandum)"] } },
+    field_provenance: { land_value: { source: "statewide_parcel", source_id: "la_ebr_tax_parcels", dataset: "Tax Parcel (data.brla.gov ei2c-krsr)", agency: "East Baton Rouge Parish Assessor (Open Data BR)",
+      matched_id_field: "assessment_num", matched_row_column: "parcel", matched_parcel_id: "012-3456-8", recorded_at: "2026-10-01T12:00:00Z" } },
+    publication_status: "APPROVED", ledger_type: "buy", updated_at: "2026-10-01T12:00:00Z" },
   // 2026-09-30 (six-state expansion): rows in the shapes scripts/harvest_expansion.py
   // + sync_state_inventory.py write. Values are SYNTHETIC.
   { id: "pmi1", source: "auction", state: "MI", county: "Eaton", case_no: "100-200-300-400-50", parcel: "100-200-300-400-50", address: "100 FIXTURE ST", bid: 4200, min_bid: 4200, status: "active", sale_date: null, lien_level: "unscreened", lien_note: "",
@@ -201,7 +219,20 @@ const FIXTURE_PROPERTIES = [
     otc_provenance: { acquisition: { mode: "multi_step", channels: [], office: "Morgan County Treasurer", evidence_url: "https://morgancounty.colorado.gov/county-held-tax-lien-sale-certificates", observed_on: "2026-09-30",
       steps: ["Review the county-held tax lien sale certificate list", "Purchase the certificate from the Morgan County Treasurer for the amount shown", "The amount shown is good to the date in the amount column's header"] } },
     field_provenance: { market: { source: "statewide_parcel", source_id: "co_oit_public_parcels", dataset: "Colorado Public Parcels (Colorado_Public_Parcel_Composite)", matched_id_field: "account", matched_parcel_id: "R012345", recorded_at: "2026-09-30T12:00:00Z" } },
-    publication_status: "APPROVED", ledger_type: "lien", updated_at: "2026-09-30T12:00:00Z" }
+    publication_status: "APPROVED", ledger_type: "lien", updated_at: "2026-09-30T12:00:00Z" },
+  // 2026-10-01 (five-state sprint): a Douglas County CO county-held lien (CC BY-SA 4.0
+  // open data) in the shape harvest_expansion.py + sync_state_inventory.py write. SYNTHETIC.
+  { id: "pco2", source: "certificate", state: "CO", county: "Douglas", case_no: "2023-10001", certificate_no: "2023-10001", parcel: "R0000001", address: "Parcel R0000001", bid: 1234.56, status: "active", sale_date: null, issued_date: "2023-11-02", tax_year: "2022", lien_level: "unscreened", lien_note: "",
+    harvester_source: "co_douglas_county_held_liens", source_id: "co_douglas_county_held_liens", source_authority: "GOVERNMENT_DIRECT",
+    list_url: "https://www.arcgis.com/home/item.html?id=950fd2c3a9bf4e0e92fa4a64f1859fec", url_auction: "https://www.arcgis.com/home/item.html?id=950fd2c3a9bf4e0e92fa4a64f1859fec", url_auction_kind: "county",
+    purchase_amount: 1234.56, purchase_amount_kind: "PUBLISHED_AMOUNT_KIND_UNSPECIFIED", last_seen_at: "2026-10-01T12:00:00Z",
+    inventory_status: "certificate_listed", inventory_status_basis: "LIST_PRESENCE: on the county's list of certificates purchasable from the Treasurer at the last read",
+    purchase_path_type: "application_download", purchase_path_scope: "source", purchase_path_observed_on: "2026-10-01",
+    purchase_path_evidence: "Douglas County's 'Request for Assignment of County-Held Tax Lien' (data/purchase_path_evidence_expansion.csv, observed 2026-10-01)",
+    otc_provenance: { adapter: "arcgis", acquisition: { mode: "multi_step", channels: ["application"], office: "Douglas County Treasurer", observed_on: "2026-10-01",
+      evidence_url: "https://www.douglasco.gov/documents/request-for-assignment-of-county-held.pdf/", application_url: "https://www.douglasco.gov/documents/request-for-assignment-of-county-held.pdf/",
+      steps: ["Complete the county's Request for Assignment of County-Held Tax Lien", "All county-held liens on the parcel must be redeemed if the assignment is granted", "Call the Douglas County Treasurer's office for the current payoff amount"] } },
+    publication_status: "APPROVED", ledger_type: "lien", updated_at: "2026-10-01T12:00:00Z" }
 ];
 // Brevard has a county_calendar row so the "Auction {date}" label test can
 // cover the CALENDAR-lookup path, not just the per-property sale_date

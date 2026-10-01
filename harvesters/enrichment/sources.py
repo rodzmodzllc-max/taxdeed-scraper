@@ -80,3 +80,65 @@ UT_UGRC_LIR = register(ParcelSourceConfig(
     publication_status="APPROVED", county_field="COUNTY_NAME", centroid=True, columns_verified=True,
     notes="evidence pass 3 (2026-09-30): Salt Lake LIR fields read live; statewide LIR is published per county.",
 ))
+
+
+# ---------------------------------------------------------------------------
+# Wisconsin - Statewide Parcel Map Initiative, V12 (State Cartographer's
+# Office / Wisconsin Land Information Program, DOA): 3,574,646 parcels with
+# county assessed values (CNTASSDVALUE, LNDVALUE, IMPVALUE), estimated fair
+# market value, assessed acres, owner and site address. Fields, counts and
+# identifier shapes read LIVE (five-state sprint, runs 36793062673 /
+# 36793611223 / 36793980491): Green County PARCELID is 13 digits and Dane
+# County's 12 - exactly the digits of the counties' own published Tax
+# Parcel Numbers (99-999 9999.9999 / 9999-999-9999-9), so the match is the
+# 'digits' rule on (CONAME, PARCELID). TAXROLLYEAR is mostly 2025.
+# LICENCE: the item says only "This data free for public consumption as of:
+# 06/30/2026" and the SCO page "This data is provided free of charge" - no
+# explicit grant covering commercial reuse or redistribution was read. So
+# the source is UNREVIEWED: implemented and verified, refused by
+# enrichment_allowed() until a publication decision approves it.
+# ---------------------------------------------------------------------------
+WI_SCO_V12 = register(ParcelSourceConfig(
+    source_id="wi_sco_v12_parcels", state="WI",
+    agency="Wisconsin State Cartographer's Office / Wisconsin Land Information Program (DOA)",
+    dataset="V12 Statewide Parcel Map Database (V1200_WisconsinParcels_2026)",
+    landing_url="https://www.sco.wisc.edu/parcels/data/",
+    layer_url="https://services3.arcgis.com/n6uYoouQZW75n5WI/arcgis/rest/services/Wisconsin_Statewide_Parcels_DB/FeatureServer/0",
+    id_field="PARCELID", id_rule="digits",
+    field_map={"owner_name": "OWNERNME1", "address": "SITEADRESS", "assessed": "CNTASSDVALUE", "land_value": "LNDVALUE",
+               "improvement_value": "IMPVALUE", "market": "ESTFMKVALUE", "acreage": "ASSDACRES"},
+    licence="'This data free for public consumption as of: 06/30/2026' (item); 'This data is provided free of charge' (SCO "
+            "data page). No explicit commercial reuse / redistribution grant read - UNREVIEWED.",
+    publication_status="UNREVIEWED", county_field="CONAME", county_values={"Green": "GREEN", "Dane": "DANE"},
+    value_year_field="TAXROLLYEAR", centroid=True, columns_verified=True, batch_size=50,
+    notes="five-state sprint evidence (2026-10-01): layer fields, count 3,574,646, Green / Dane PARCELID shapes.",
+))
+
+
+# ---------------------------------------------------------------------------
+# Louisiana - East Baton Rouge Parish Assessor "Tax Parcel" dataset on Open
+# Data BR (data.brla.gov, view ei2c-krsr): one record per tax parcel with the
+# assessor's land, fair-market and assessed sums. LICENCE: the dataset's own
+# metadata reads licenseId PUBLIC_DOMAIN ("Public Domain"), attribution "EBR
+# Parish Assessor" - read live (enrichment-sprint evidence run 36832227666,
+# 2026-10-01), the same basis the approved adjudicated list rests on. The
+# ArcGIS service carrying the same parcels states "Access Constraints:
+# copyright", so the Socrata publication is the one used.
+# MATCH: the parish rows' parcel is the adjudicated list's PROPERTY NUMBER,
+# shape 999-9999-9; this dataset's assessment_num has the same shape (194 of
+# 200 sampled, run 36835470121) - 'exact' rule, no county attribute (the
+# dataset is parish-wide). Two records for one number -> AMBIGUOUS. Only the
+# attributes seen populated in the live sample are mapped.
+# ---------------------------------------------------------------------------
+LA_EBR_TAX_PARCELS = register(ParcelSourceConfig(
+    source_id="la_ebr_tax_parcels", state="LA",
+    agency="East Baton Rouge Parish Assessor (Open Data BR)",
+    dataset="Tax Parcel (data.brla.gov ei2c-krsr)",
+    landing_url="https://data.brla.gov/d/ei2c-krsr",
+    layer_url="https://data.brla.gov/resource/ei2c-krsr.json",
+    transport="socrata", id_field="assessment_num", id_rule="exact",
+    field_map={"land_value": "sum_land_value", "market": "sum_fair_market_value", "assessed": "sum_assessed_value"},
+    licence="Public Domain (Open Data BR dataset metadata, licenseId PUBLIC_DOMAIN); attribution: EBR Parish Assessor.",
+    publication_status="APPROVED", county_field=None, centroid=False, columns_verified=True, batch_size=100,
+    notes="enrichment sprint evidence (2026-10-01): licence run 36832227666; field names and assessment_num shape run 36835470121.",
+))

@@ -46,6 +46,15 @@ HOSTS = {
     "wi_green_tax_deed_sales": "https://www.greencountywi.org/",
 }
 
+# Five-state sprint (2026-10-01): the sources added on that sprint's evidence.
+FIVE_STATE_HOSTS = {
+    "co_douglas_county_held_liens": "https://services.arcgis.com/seTexOicoRXDvRsJ/",
+    "co_douglas_tax_sale_list": "https://services.arcgis.com/seTexOicoRXDvRsJ/",
+    "co_morgan_treasurer_deed_auctions": "https://morgancounty.colorado.gov/",
+    "wi_dane_tax_deed_auction": "https://treasurer.danecounty.gov/",
+    "sc_oconee_tax_sale_list": "https://oconeesc.com/",
+}
+
 
 def run(state: str, tmp_path: Path) -> dict:
     args = ["--state", state, "--out-dir", str(tmp_path)]
@@ -86,8 +95,8 @@ def test_s01_five_states_are_production_and_activated_two_stay_gated():
 # ==================== 2. registry / governance ====================
 
 def test_r01_one_production_row_per_source_with_the_owner_decision():
-    rows = [r for r in csr.load_registry() if r.state in NEW]
-    assert sorted(r.source_id for r in rows) == sorted(HOSTS)
+    rows = [r for r in csr.load_registry() if r.state in NEW and r.source_id in EX.SIX_STATE_SOURCE_IDS]
+    assert sorted(r.source_id for r in rows) == sorted(HOSTS) == sorted(EX.SIX_STATE_SOURCE_IDS)
     for r in rows:
         assert r.is_production and r.runnable and r.governance_status == "APPROVED", r.source_id
         assert pub.effective_publication(r) == "APPROVED" and pub.publication_problems(r) == []
@@ -105,11 +114,12 @@ def test_r02_every_config_is_column_verified_and_pinned_to_its_host():
             cfg = src.config
             assert cfg.columns_verified and cfg.state == st
             url = getattr(cfg, "layer_url", None) or src.url
-            assert url.startswith(HOSTS[cfg.source_id]), (cfg.source_id, url)
+            assert url.startswith({**HOSTS, **FIVE_STATE_HOSTS}[cfg.source_id]), (cfg.source_id, url)
     # Certificates only where the county itself publishes certificates.
     kinds = {src.config.source_id: src.config.record_source for srcs in EX.SOURCES.values() for src in srcs}
-    assert kinds["co_morgan_county_held_certificates"] == "certificate"
-    assert {v for k, v in kinds.items() if k != "co_morgan_county_held_certificates"} == {"auction"}
+    certs = {"co_morgan_county_held_certificates", "co_douglas_county_held_liens"}
+    assert {kinds[k] for k in certs} == {"certificate"}
+    assert {v for k, v in kinds.items() if k not in certs} == {"auction"}
 
 
 # ==================== 3. adapters through the runner ====================
@@ -332,8 +342,9 @@ def test_l01_absence_closes_only_after_a_complete_or_empty_read():
     harvested = [{"state": "MI", "source": "auction", "county": "Eaton", "case_no": "A"}]
     ids = {"mi_eaton_treasurer_sale", "mi_lenawee_tax_sale"}
     closes = SY.plan_close("MI", harvested, stored, {"Eaton": "COMPLETE", "Lenawee": "FAILED"}, ids)
-    assert closes == [{"id": "2", "status": "closed"}]           # never 'sold'; Lenawee (FAILED) and FL untouched
-    assert SY.plan_close("MI", [], stored, {"Eaton": "EMPTY"}, ids) == [{"id": "1", "status": "closed"}, {"id": "2", "status": "closed"}]
+    assert [{k: c[k] for k in ("id", "status")} for c in closes] == [{"id": "2", "status": "closed"}]   # never 'sold'; Lenawee (FAILED) and FL untouched
+    assert all(c["delisted_at"] for c in closes) and set(closes[0]) == {"id", "status", "delisted_at"}
+    assert [(c["id"], c["status"]) for c in SY.plan_close("MI", [], stored, {"Eaton": "EMPTY"}, ids)] == [("1", "closed"), ("2", "closed")]
     assert SY.plan_close("MI", [], stored, {"Eaton": "INCOMPLETE"}, ids) == []
 
 
@@ -348,9 +359,15 @@ def test_l02_verified_acquisition_paths_attach_only_to_active_rows(tmp_path):
     rows, n = HX.attach_purchase_paths("WI", active, harvest_date="2026-09-30")
     assert n == 1 and rows[0]["purchase_path_type"] == "application_download"
     assert rows[0]["purchase_url"] == "https://www.greencountywi.org/DocumentCenter/View/2103/Tax-Deed-Bid-Form"
-    # No evidence row -> no path (MI, WY, SC publish none that was verified).
+    # MI (five-state sprint, 2026-10-01): verified county process text -> a path on ACTIVE rows only.
     mi = run("MI", tmp_path / "mi")["rows"]
-    assert not any(r.get("purchase_path_type") for r in mi)
+    assert not any(r.get("purchase_path_type") for r in mi if r["status"] != "active")
+    eaton = [r for r in mi if r["source_id"] == "mi_eaton_treasurer_sale" and r["status"] == "active"]
+    assert eaton and all(r["purchase_path_type"] == "in_person" and r["otc_provenance"]["acquisition"]["address"].startswith("Eaton County Governmental Complex")
+                         for r in eaton)
+    # WY: no verified acquisition text (its list is for a sale that is over) -> no path.
+    wy = run("WY", tmp_path / "wy")["rows"]
+    assert not any(r.get("purchase_path_type") for r in wy)
 
 
 # ==================== 9. workflow ====================

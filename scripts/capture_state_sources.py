@@ -166,6 +166,375 @@ EXPANSION_TARGETS.update({
     "WY": ["https://services1.arcgis.com/EmwrhKkmuQhTATzU/arcgis/rest/services/2026TAXSALEPROP_1ST/FeatureServer"],
     "SC": ["https://services1.arcgis.com/2AGLxyiJoNiVHKwq/arcgis/rest/services/Tax_Sale_Properties_2025_View/FeatureServer"],
 })
+# Five-state enrichment sprint (2026-10-01): candidate sources for MI / WY /
+# SC / CO / WI named by web searches (search-index evidence only; nothing was
+# fetched from the sandbox). Read once with --five-state: pages for their
+# structure and process text (dates, times, office phone numbers kept - they
+# are the office's own published contact / schedule, never a row value;
+# anything parcel-shaped stays masked), ArcGIS services for fields, counts,
+# copyright text and identifier SHAPES, ArcGIS service DIRECTORIES for the
+# names of a county org's other published services, and catalog items for
+# their licence text.
+FIVE_STATE_PAGES = {
+    "MI": ["https://www.eatoncounty.org/1076/Foreclosure-Auction-Claimants",
+           "https://www.eatoncounty.org/301/Treasurer",
+           "https://www.lenawee.mi.us/712/Tax-Sale",
+           "https://www.lenawee.mi.us/850/Lenawee-County-Landbank-Authority",
+           "https://data-ecgis.opendata.arcgis.com/datasets/eaton-county-gis-open-data-policy",
+           "https://co.muskegon.mi.us/1435/Residential-Properties",
+           "https://www.thelandbank.org/find_properties.asp?fq=5",
+           "https://www.crawfordco.org/offices-departments/treasurer/foreclosed-properties-sale/",
+           "https://waynecountytreasurermi.com/"],
+    "WY": ["https://www.albanycountywy.gov/299/Tax-Lien-Sale",
+           "https://www.albanycountywy.gov/300/Tax-Sale-Listings",
+           "https://www.albanycountywy.gov/178/Web-Map-Acknowledgment",
+           "https://www.lincolncountywy.gov/government/treasurer/tax_sale.php",
+           "https://www.niobraracounty.org/_departments/_treasurer/tax_sale.asp",
+           "https://www.sweetwatercountywy.gov/departments/treasurer/tax_sales_and_redemptions.php"],
+    "SC": ["https://www.yorkcountysc.gov/216/Tax-Collection",
+           "https://oconeesc.com/delinquent-tax/sale-list",
+           "https://oconeesc.com/delinquent-tax/tax-sale-information",
+           "https://www.dorchestercountysc.gov/government/property-tax-services/delinquent-tax/delinquent-property-locator-map",
+           "https://lex-co.sc.gov/departments/treasurer/forfeited-land-commission/flc-property-list",
+           "https://www.lancastercountysc.gov/480/Forfeited-Properties-Available",
+           "https://www.horrycountysc.gov/boards-and-commissions/forfeited-land-commission/guidelines-purchasing-property/",
+           "https://www.richlandcountysc.gov/Property-Business/Taxes/Delinquent-Taxes/Forfeited-Land-Available",
+           "https://www.gtcountysc.gov/415/Forfeited-Land-Commission",
+           "https://berkeleycountysc.gov/dept/forfeited-land-commission/",
+           "https://www.spartanburgcounty.org/388/Forfeited-Land-Commission",
+           "https://www.newberrycounty.gov/forfeited-land-commission",
+           "https://chestercountysc.gov/boards/tax-and-assessment/forfeited-land-commission/",
+           "https://www.greenvillecounty.org/taxcollector/TaxSaleProcedures.aspx"],
+    "CO": ["https://morgancounty.colorado.gov/tax-lien-sale",
+           "https://morgancounty.colorado.gov/treasurer-and-public-trustee",
+           "https://morgancounty.colorado.gov/treasurers-deed-option-auctions",
+           "https://morgancounty.colorado.gov/morgan-county-treasurer-tax-deed-option-auction-results",
+           "https://www.douglasco.gov/treasurer/tax-lien-sale-information/",
+           "https://treasurer.mesacounty.us/reports/county-held-liens/",
+           "https://kiowacounty.colorado.gov/tax-lien-sale-information",
+           "https://adamscountyco.gov/our-county/elected-officials/treasurer-public-trustee/treasurer-division/tax-lien-sale/",
+           "https://conejoscounty.colorado.gov/treasurers-tax-deed",
+           "https://riograndecounty.colorado.gov/treasurers-tax-deed",
+           "https://sanjuancounty.colorado.gov/treasurers-deeds",
+           "https://kitcarsoncounty.colorado.gov/departments/treasurer/public-trustee/treasures-deed-auctions"],
+    "WI": ["https://www.greencountywi.org/492/Current-Tax-Deed-Sales",
+           "https://www.sco.wisc.edu/parcels/data/",
+           "https://www.woodcountywi.gov/Departments/Treasurer/TaxDeed.aspx",
+           "https://www.sccwi.gov/586/Tax-Deed-Information",
+           "https://treasurer.danecounty.gov/taxdeedauction",
+           "https://treasurer.danecounty.gov/Property-Owner-Info/foreclosure/Tax-Deed-Details",
+           "https://www.co.pierce.wi.us/departments/county_clerk/tax_deeds/tax_deed_lands.php",
+           "https://www.co.juneau.wi.gov/i_want_to/find_learn_about/land_sales.php",
+           "https://www.co.sauk.wi.us/treasurer/sauk-county-properties-sale-offer-purchase",
+           "https://www.co.lincoln.wi.us/forestry-land-and-parks/page/tax-delinquent-properties-sale"],
+}
+FIVE_STATE_SERVICES = {
+    "MI": ["https://maps.muskegoncountygis.com/arcgis/rest/services/PropertyViewer/MapServer"],
+    "WY": ["https://gis.deq.wyo.gov/arcgis/rest/services/WY_PRIVATE_PARCELS/MapServer",
+           "https://gis.deq.wyo.gov/arcgis/rest/services/WY_PARCELS/MapServer",
+           "https://services5.arcgis.com/V4b98G4pSkzvUam9/arcgis/rest/services/Parcels/FeatureServer"],
+    "WI": ["https://services3.arcgis.com/n6uYoouQZW75n5WI/arcgis/rest/services/Wisconsin_Statewide_Parcels_DB/FeatureServer",
+           "https://services3.arcgis.com/n6uYoouQZW75n5WI/arcgis/rest/services/Wisconsin_Statewide_Parcels/FeatureServer"],
+}
+FIVE_STATE_DIRECTORIES = {
+    "MI": ["https://services2.arcgis.com/c9l1e4fKpsCnqD7H/arcgis/rest/services",
+           "https://services6.arcgis.com/mjEvhc9AE3ceAXtG/arcgis/rest/services",
+           "https://ecgis.eatoncounty.org/ecgis_ssl/rest/services"],
+    "WY": ["https://services1.arcgis.com/EmwrhKkmuQhTATzU/arcgis/rest/services",
+           "https://gis.deq.wyo.gov/arcgis/rest/services"],
+    "SC": ["https://services1.arcgis.com/2AGLxyiJoNiVHKwq/arcgis/rest/services"],
+}
+FIVE_STATE_ITEMS = {
+    "MI": ["31f8414f00144961827881053d69b1d0"],                                  # Eaton "Tax Parcel Sale Web Map"
+    "WY": ["fd2106a2896446008f88b42dfbd14f9d", "163f1611abc3415383d7f89393d4e2d5"],  # WY statewide parcel viewer; Albany map
+    "SC": ["3491ddd798ea4097a0c8037f2a00c6fb"],                                  # "Delinquent Tax Sale Web Map (Ongoing)", owner unknown
+    "CO": ["87f9905d9faf4ae3a7a385c0707717b5", "c525f98f102f4ee5b9eb56fc5ecf4d1c"],  # Douglas County tax sale list; lien map
+}
+FIVE_STATE_QUERIES = ('orgid:2AGLxyiJoNiVHKwq (forfeited OR "tax sale" OR delinquent)',
+                      'orgid:c9l1e4fKpsCnqD7H ("for sale" OR "tax" OR "parcel")',
+                      '"tax lien" Douglas County Colorado',
+                      '"forfeited land" type:"Feature Service"',
+                      '"county held" lien type:"Feature Service"',
+                      '"tax deed" Wisconsin type:"Feature Service"',
+                      '"tax foreclos" Michigan type:"Feature Service"',
+                      '"tax sale" Wyoming type:"Feature Service"')
+# Pass 2 (2026-10-01): what pass 1 pointed at. PDFs are read as process text
+# (pdfplumber, first pages only); layer probes read the SHAPES of identifier
+# fields and the value counts of named CATEGORY fields (a sale flag, a tax
+# year, a sale type - never an owner, address or amount) under a WHERE
+# clause, so a join key or a list's sale cycle can be judged value-free.
+FIVE_STATE_PASS2_PAGES = {
+    "MI": ["https://www.eatoncounty.org/1530/2026-Foreclosure-Sale",
+           "https://www.thelandbank.org/terms_of_use.asp",
+           "https://www.thelandbank.org/find_properties.asp"],
+    "SC": ["https://www.yorkcountysc.gov/DocumentCenter/View/5241/Tax-Sale-Fact-Sheet"],
+    "CO": ["https://morgancounty.colorado.gov/county-held-tax-lien-sale-certificates",
+           "https://morgancounty.colorado.gov/bidding-rules-and-information"],
+    "WI": ["https://www.greencountywi.org/DocumentCenter/View/2103/Tax-Deed-Bid-Form",
+           "https://www.greencountywi.org/copyright",
+           "https://www.sccwi.gov/124/Privacy-Legal-Notices"],
+}
+FIVE_STATE_PASS2_SERVICES = {
+    "MI": ["https://services2.arcgis.com/c9l1e4fKpsCnqD7H/arcgis/rest/services/Parcels_AGO/FeatureServer",
+           "https://services6.arcgis.com/mjEvhc9AE3ceAXtG/arcgis/rest/services/Lenawee_Parcels_Public/FeatureServer"],
+    "WY": ["https://services1.arcgis.com/EmwrhKkmuQhTATzU/arcgis/rest/services/2026TAXSALEPROP_1STC/FeatureServer",
+           "https://gis.deq.wyo.gov/arcgis/rest/services/PARCEL_OWNER_MAP/MapServer"],
+}
+# (layer, where, id fields -> shapes, category fields -> value counts)
+FIVE_STATE_PROBES = {
+    "MI": [("https://services2.arcgis.com/c9l1e4fKpsCnqD7H/arcgis/rest/services/For_Sale_2026_view/FeatureServer/0", "1=1",
+            ["lparcel"], ["Sold", "type"])],
+    "WY": [("https://services1.arcgis.com/EmwrhKkmuQhTATzU/arcgis/rest/services/2026TAXSALEPROP_1ST/FeatureServer/0", "1=1",
+            ["accountno", "pidn"], ["taxyear"])],
+    "CO": [("https://services.arcgis.com/seTexOicoRXDvRsJ/arcgis/rest/services/Tax_Sale_List_Locations/FeatureServer/0", "1=1",
+            ["Account_No", "State_Parcel_No"], ["Tax_Year", "Prior_Year_Lien"]),
+           ("https://gis.colorado.gov/public/rest/services/Address_and_Parcel/Colorado_Public_Parcels/FeatureServer/0",
+            "countyName='Douglas'", ["account", "parcel_id"], [])],
+    "WI": [("https://services3.arcgis.com/n6uYoouQZW75n5WI/arcgis/rest/services/Wisconsin_Statewide_Parcels_DB/FeatureServer/0",
+            "CONAME='GREEN'", ["PARCELID", "TAXPARCELID", "STATEID"], ["TAXROLLYEAR", "PROPCLASS"]),
+           ("https://services3.arcgis.com/n6uYoouQZW75n5WI/arcgis/rest/services/Wisconsin_Statewide_Parcels_DB/FeatureServer/0",
+            "CONAME='DANE'", ["PARCELID", "TAXPARCELID", "STATEID"], ["TAXROLLYEAR", "PROPCLASS"])],
+}
+FIVE_STATE_PASS2_QUERIES = ('orgid:seTexOicoRXDvRsJ (lien OR "tax sale")',
+                            'owner:DouglasCountyCO_GISServices lien')
+# (page, [column headers whose value counts are category words - never names, addresses or amounts])
+FIVE_STATE_TABLE_VALUES = {
+    "https://www.thelandbank.org/find_properties.asp": ["Class", "Sale Type"],
+    "https://www.thelandbank.org/find_properties.asp?fq=5": ["Class", "Sale Type"],
+}
+
+
+# Pass 3 (2026-10-01): Douglas County CO's lien layers (licence tail, lien
+# type values), the Wisconsin statewide parcel licence, York SC's sale page.
+FIVE_STATE_PASS3_PAGES = {
+    "CO": ["https://www.douglasco.gov/documents/open-data-guidelines.pdf/",
+           "https://www.douglasco.gov/documents/request-for-assignment-of-county-held.pdf/",
+           "https://www.douglasco.gov/treasurer/"],
+    "WI": ["https://www.sco.wisc.edu/parcels/data/", "https://www.sco.wisc.edu/parcels/"],
+    "SC": ["https://www.yorkcountysc.gov/789/Tax-Information"],
+}
+FIVE_STATE_PASS3_SERVICES = {
+    "CO": ["https://services.arcgis.com/seTexOicoRXDvRsJ/arcgis/rest/services/OpenData/FeatureServer/2",
+           "https://services.arcgis.com/seTexOicoRXDvRsJ/arcgis/rest/services/County_Held_Tax_Liens1/FeatureServer"],
+}
+FIVE_STATE_PASS3_PROBES = {
+    "CO": [("https://services.arcgis.com/seTexOicoRXDvRsJ/arcgis/rest/services/OpenData/FeatureServer/2", "1=1",
+            ["account_id", "lien_id"], ["type", "lien_type", "lien_year", "sale_or_purchase_date"]),
+           ("https://services.arcgis.com/seTexOicoRXDvRsJ/arcgis/rest/services/County_Held_Tax_Liens1/FeatureServer/0", "1=1",
+            ["USER_account_id", "USER_lien_id"], ["USER_type", "USER_lien_type", "USER_lien_year"])],
+}
+FIVE_STATE_PASS3_ITEMS = {
+    "CO": ["950fd2c3a9bf4e0e92fa4a64f1859fec", "0a54a67e8b944ddeae533a2f6a3fe047", "7ca5a1199ee94728bb3324bf4d646c9e"],
+    "SC": ["ef9243d9330c4891ba724689f2eb1502"],
+}
+FIVE_STATE_PASS3_QUERIES = ('"Wisconsin Statewide Parcels" V12', 'owner:SCO_Admin parcels')
+
+
+# Property-enrichment sprint (2026-10-01): candidate PARCEL / TAX-ROLL sources
+# for rows already in production - Texas (TxGIO StratMap statewide parcels,
+# matched on the CAD account the Texas rows carry as case_no), Louisiana (East
+# Baton Rouge Parish Assessor tax roll / tax parcels), Wyoming (Department of
+# Revenue statewide parcels). Licence pages, layer fields, identifier SHAPES
+# per county - never a value.
+STRATMAP = "https://feature.geographic.texas.gov/arcgis/rest/services/Parcels/stratmap_land_parcels_48_most_recent/MapServer"
+ENRICH_PAGES = {
+    "TX": ["https://geographic.texas.gov/stratmap/land-parcels", "https://www.geographic.texas.gov/stratmap/land-parcels.html",
+           "https://tnris.org/stratmap/land-parcels.html"],
+    "LA": ["https://data.brla.gov/api/views/myfc-nh6n.json", "https://data.brla.gov/api/views/ei2c-krsr.json",
+           "https://city.brla.gov/gis/metadata/TAX_PARCEL.html"],
+    "WY": ["https://wyo-prop-div.wyo.gov/tax-districts/maps-gis-data", "https://ets.wyo.gov/gis-office/georesources"],
+}
+ENRICH_SERVICES = {
+    "TX": [STRATMAP],
+    "LA": ["https://maps.brla.gov/gis/rest/services/Cadastral/Tax_Parcel/MapServer"],
+    "WY": ["https://gis.deq.wyo.gov/arcgis/rest/services/WY_PRIVATE_PARCELS/MapServer"],
+}
+_TX_COUNTIES = ("Galveston", "Liberty", "Leon", "Dallas", "Travis", "Nueces", "Hardin", "Maverick", "Van Zandt", "Smith",
+                "Cameron", "Jim Wells", "Matagorda", "Concho", "Atascosa", "Llano", "Victoria", "Caldwell")
+ENRICH_PROBES = {
+    "TX": [(STRATMAP + "/0", f"UPPER(COUNTY) = '{c.upper()}'", ["Prop_ID", "GEO_ID", "PROP_ID"], ["TAX_YEAR", "STAT_LAND_USE", "LOC_LAND_USE"])
+           for c in _TX_COUNTIES],
+    "WY": [("https://gis.deq.wyo.gov/arcgis/rest/services/WY_PRIVATE_PARCELS/MapServer/0", "1=1",
+            ["PIDN", "ACCOUNTNO", "PARCELNB", "LOCAL_ID"], ["COUNTY", "JURISDICTION"])],
+}
+ENRICH_ITEMS = {
+    "WY": ["fd2106a2896446008f88b42dfbd14f9d", "9b60a7596f5d464c9cd4667efa8abbb5"],
+}
+# Round 2 (2026-10-01): StratMap with its real (lowercase) attribute names,
+# the StratMap program's own data-use statement, and the EBR Socrata
+# datasets' identifier SHAPES through the SODA API (never a value).
+ENRICH2_PAGES = {
+    "TX": ["https://geographic.texas.gov/stratmap/index.html", "https://geographic.texas.gov/stratmap/",
+           "https://txwaterdatahub.org/dataset/stratmap-land-parcels", "https://cdn.tnris.org/documents/tnris-land-parcel-schema.pdf"],
+}
+ENRICH2_PROBES = {
+    "TX": [(STRATMAP + "/0", f"UPPER(county) = '{c.upper()}'", ["prop_id", "geo_id"], ["tax_year", "stat_land_use", "source", "date_acq"])
+           for c in _TX_COUNTIES],
+}
+# (SODA resource, id fields, category fields)
+ENRICH2_SODA = {
+    "LA": [("https://data.brla.gov/resource/myfc-nh6n.json", ["property_number", "legacy_property_number"], ["tax_year", "assessment_type", "assessment_status"]),
+           ("https://data.brla.gov/resource/ei2c-krsr.json", ["property_no", "assessment_no"], ["status", "sale_year"]),
+           ("https://data.brla.gov/resource/a4h4-zi7e.json", ["property_number"], ["tax_year"])],
+}
+
+
+# Round 3 (2026-10-01): East Baton Rouge's own acquisition process for
+# adjudicated property (the Parish's page, its "Acquiring Adjudicated Property"
+# document, the FAQ) and the assessment-number SHAPES the three EBR datasets
+# use, so a join is judged before any configuration exists.
+ENRICH3_PAGES = {
+    "LA": ["https://www.brla.gov/455/Adjudicated-Property", "https://www.brla.gov/DocumentCenter/View/6524/Acquiring-Adjudicated-Property-PDF",
+           "https://www.brla.gov/Faq.aspx?QID=286", "https://www.brla.gov/Faq.aspx?TID=63"],
+}
+# Round 4: York County SC's 2026 Tax Sale Information document (the sale's
+# date, time and place as the county states them).
+ENRICH4_PAGES = {
+    "SC": ["https://www.yorkcountysc.gov/DocumentCenter/View/3590/2026-Tax-Sale-Information", "https://www.yorkcountysc.gov/216/Tax-Collection"],
+}
+ENRICH3_SODA = {
+    "LA": [("https://data.brla.gov/resource/a4h4-zi7e.json", ["assessment_num"], ["tax_roll_year"]),
+           ("https://data.brla.gov/resource/ei2c-krsr.json", ["assessment_num"], ["status", "sale_year"]),
+           ("https://data.brla.gov/resource/myfc-nh6n.json", ["assessment_no", "assessment_no_new"], ["tax_year", "unit_type", "vacant_lot_yn"])],
+}
+
+
+def soda_probe(session: requests.Session, resource: str, id_fields: list[str], cat_fields: list[str]) -> dict:
+    """A Socrata dataset's identifier SHAPES and category counts from a 200-row
+    sample (field names as the SODA API spells them). Never a value."""
+    out = {"url": resource + " (SODA sample)", "kind": "layer_probe"}
+    r, e = fetch(session, resource + "?" + urlencode({"$select": "count(*)"}))
+    try:
+        out["count"] = (r.json() or [{}])[0] if r is not None and r.status_code == 200 else (e or getattr(r, "status_code", None))
+    except ValueError:
+        out["count"] = "not json"
+    r, e = fetch(session, resource + "?" + urlencode({"$limit": 200}))
+    try:
+        rows = r.json() if r is not None and r.status_code == 200 else []
+    except ValueError:
+        rows = []
+    rows = rows if isinstance(rows, list) else []
+    out["sampled"] = len(rows)
+    out["fields_present"] = sorted({k for row in rows[:50] for k in row})[:60]
+    out["id_shapes"] = {n: dict(Counter(shape(str(row.get(n) if row.get(n) is not None else "")) for row in rows).most_common(5)) for n in id_fields}
+    out["value_counts"] = {n: dict(Counter(mask_digits(str(row.get(n)))[:40] if "year" not in n else str(row.get(n)) for row in rows).most_common(10)) for n in cat_fields}
+    return out
+
+
+ENRICH_QUERIES = ('StratMap Land Parcels', 'Wyoming statewide parcels', 'Albany County Wyoming parcels',
+                  'Eaton County Michigan parcels', 'Lenawee County parcels', 'York County SC parcels')
+
+
+def pdf_process(session: requests.Session, url: str, max_pages: int = 6) -> dict:
+    """A PDF's process text (first pages), through process_text()."""
+    out = {"url": url, "kind": "pdf_process"}
+    resp, err = fetch(session, url)
+    if err or resp is None:
+        out["error"] = err
+        return out
+    out.update({"status": resp.status_code, "content_type": resp.headers.get("Content-Type", ""), "final_url": resp.url})
+    if resp.status_code != 200 or "pdf" not in out["content_type"].lower():
+        return out
+    try:
+        import pdfplumber  # noqa: PLC0415
+        with pdfplumber.open(io.BytesIO(resp.content)) as pdf:
+            out["pages"] = len(pdf.pages)
+            text = "\n".join((p.extract_text() or "") for p in pdf.pages[:max_pages])
+    except Exception as exc:  # noqa: BLE001
+        out["parse_error"] = f"{type(exc).__name__}: {str(exc)[:160]}"
+        return out
+    snippets = []
+    for s in re.split(r"(?<=[.!?])\s+|\n{2,}|\n(?=[A-Z0-9•\-])", text):
+        s = clean(s)
+        if len(s) > 20 and (SNIPPET_VOCAB.search(s) or PROCESS_VOCAB.search(s)) and not LONG_DIGITS.search(s):
+            snippets.append(process_text(s)[:MAX_SNIPPET_CHARS])
+        if len(snippets) >= 60:
+            break
+    out["snippets"] = snippets
+    return out
+
+
+def layer_probe(session: requests.Session, layer: str, where: str, id_fields: list[str], cat_fields: list[str]) -> dict:
+    out = {"url": f"{layer} WHERE {where}", "kind": "layer_probe"}
+    r, e = fetch(session, layer + "/query?" + urlencode({"where": where, "returnCountOnly": "true", "f": "json"}))
+    try:
+        out["count"] = r.json().get("count") if r is not None and r.status_code == 200 else e
+    except ValueError:
+        out["count"] = "not json"
+    r, e = fetch(session, layer + "/query?" + urlencode({"where": where, "outFields": ",".join(id_fields + cat_fields),
+                                                        "returnGeometry": "false", "resultRecordCount": 200, "f": "json"}))
+    try:
+        feats = (r.json().get("features") or []) if r is not None and r.status_code == 200 else []
+    except ValueError:
+        feats = []
+    attrs = [ft.get("attributes") or {} for ft in feats]
+    out["sampled"] = len(attrs)
+    out["id_shapes"] = {n: dict(Counter(shape(str(a.get(n) if a.get(n) is not None else "")) for a in attrs).most_common(5)) for n in id_fields}
+    out["value_counts"] = {n: dict(Counter(mask_digits(str(a.get(n)))[:40] if n.lower() not in ("tax_year", "taxyear", "taxrollyear")
+                                           else str(a.get(n)) for a in attrs).most_common(10)) for n in cat_fields}
+    return out
+
+
+def table_values(session: requests.Session, url: str, headers: list[str]) -> dict:
+    out = {"url": url + " (column values)", "kind": "table_values"}
+    resp, err = fetch(session, url)
+    if err or resp is None or resp.status_code != 200 or BeautifulSoup is None:
+        out["error"] = err or f"status {getattr(resp, 'status_code', None)}"
+        return out
+    soup = BeautifulSoup(resp.text, "html.parser")
+    counts: dict[str, Counter] = {h: Counter() for h in headers}
+    for t in soup.find_all("table"):
+        rows = t.find_all("tr")
+        if not rows:
+            continue
+        head = [clean(c.get_text(" ")) for c in rows[0].find_all(["th", "td"])]
+        idx = {h: head.index(h) for h in headers if h in head}
+        for tr in rows[1:]:
+            cells = [clean(c.get_text(" ")) for c in tr.find_all("td")]
+            for h, i in idx.items():
+                if i < len(cells):
+                    counts[h][mask_digits(cells[i])[:40]] += 1
+    out["value_counts"] = {h: dict(c.most_common(12)) for h, c in counts.items()}
+    return out
+
+
+PROCESS_KEEP = re.compile(r"\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s+\d|\d\s*(a\.?m\.?|p\.?m\.?)\b|\$\s*\d|"
+                          r"\(?\d{3}\)?[-. ]?\d{3}[-. ]\d{4}|\d{1,2}/\d{1,2}/\d{2,4}|%", re.I)
+PHONE = re.compile(r"\(?\d{3}\)?[-. ]?\d{3}[-. ]\d{4}")
+PARCELISH = re.compile(r"[A-Za-z0-9-]*\d[A-Za-z0-9-]*")
+
+
+def process_text(sentence: str) -> str:
+    """A process / schedule sentence with its dates, times, amounts and the
+    office's phone numbers kept; any token that could be a parcel, account,
+    case or certificate number (six or more digits in one token, a phone
+    number aside) is masked."""
+    if not PROCESS_KEEP.search(sentence):
+        return mask_digits(sentence)
+    base = PHONE.sub(lambda m: "\x00" * len(m.group(0)), sentence)
+    out = list(sentence)
+    for m in PARCELISH.finditer(base):
+        if sum(ch.isdigit() for ch in m.group(0)) >= 6:
+            for i in range(m.start(), m.end()):
+                if out[i].isdigit():
+                    out[i] = "9"
+    return "".join(out)
+
+
+def arcgis_directory(session: requests.Session, url: str) -> dict:
+    """An ArcGIS REST services directory: the names and types of the
+    services (and folders) an organisation publishes - metadata only."""
+    resp, err = fetch(session, url.rstrip("/") + "?f=json")
+    if err or resp is None or resp.status_code != 200:
+        return {"error": err or f"status {getattr(resp, 'status_code', None)}"}
+    try:
+        data = resp.json()
+    except ValueError:
+        return {"error": "not json"}
+    return {"services": [f"{s.get('name')}:{s.get('type')}" for s in data.get("services") or []][:200],
+            "folders": (data.get("folders") or [])[:60]}
+
+
 # ASP.NET postback probes: (page, [(dropdown to post back, pick = first real option)], search button)
 ASPNET_PROBES = {
     "WV": ("https://www.wvsao.gov/CountyCollections/Default",
@@ -186,6 +555,10 @@ SNIPPET_VOCAB = re.compile(r"terms|disclaim|licen[cs]|copyright|permission|comme
 ID_HEADER = re.compile(r"parcel|number|\bno\b|\bnum|\bid\b|\bcp\b|cert|case|year|date|amount|value|rate|zip|ward", re.I)
 LONG_DIGITS = re.compile(r"\d{7,}")
 MAX_SNIPPETS, MAX_SNIPPET_CHARS = 40, 320
+PROCESS_VOCAB = re.compile(r"sale|held|register|registration|deposit|payment|cash|cashier|certified|phone|contact|email|e-mail|"
+                           r"treasurer|clerk|offer|sealed|minimum|opening|deadline|location|address|office|hours|online|in person|"
+                           r"assignment|assign|redemption|interest|premium|overbid|list|available|commission|forfeit|"
+                           r"public domain|licen[cs]|restrict|permission|free of charge|attribut|creative commons|reuse|redistribut", re.I)
 MAX_TERMS_FOLLOW = 4
 CSV_BYTES = 3_000_000
 
@@ -209,7 +582,7 @@ def fetch(session: requests.Session, url: str, *, stream: bool = False):
         return None, f"{type(exc).__name__}: {str(exc)[:160]}"
 
 
-def html_structure(html: str, url: str) -> dict:
+def html_structure(html: str, url: str, *, process: bool = False) -> dict:
     soup = BeautifulSoup(html, "html.parser")
     title = clean(soup.title.get_text(" ")) if soup.title else ""
     headings = [clean(h.get_text(" "))[:120] for h in soup.find_all(["h1", "h2", "h3"])][:20]
@@ -256,8 +629,8 @@ def html_structure(html: str, url: str) -> dict:
     snippets = []
     for s in re.split(r"(?<=[.!?])\s+|\n{2,}", soup.get_text("\n")):
         s = clean(s)
-        if len(s) > 25 and SNIPPET_VOCAB.search(s) and not LONG_DIGITS.search(s):
-            snippets.append(mask_digits(s)[:MAX_SNIPPET_CHARS])
+        if len(s) > 25 and (SNIPPET_VOCAB.search(s) or (process and PROCESS_VOCAB.search(s))) and not LONG_DIGITS.search(s):
+            snippets.append((process_text(s) if process else mask_digits(s))[:MAX_SNIPPET_CHARS])
         if len(snippets) >= MAX_SNIPPETS:
             break
     return {"title": title, "headings": headings, "tables": tables, "forms": forms,
@@ -299,10 +672,10 @@ def socrata_structure(data: dict) -> dict:
             "provenance": data.get("provenance"), "publicationDate": data.get("publicationDate"),
             "rowsUpdatedAt": data.get("rowsUpdatedAt"), "viewLastModified": data.get("viewLastModified"),
             "custom_fields": meta.get("custom_fields"),
-            "columns": [{"name": c.get("name"), "type": c.get("dataTypeName")} for c in data.get("columns") or []]}
+            "columns": [{"name": c.get("name"), "field": c.get("fieldName"), "type": c.get("dataTypeName")} for c in data.get("columns") or []]}
 
 
-def capture(session: requests.Session, url: str, kind: str) -> dict:
+def capture(session: requests.Session, url: str, kind: str, *, process: bool = False) -> dict:
     out = {"url": url, "kind": kind, "fetched_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat()}
     is_csv = ".csv" in urlsplit(url).path.lower()
     resp, err = fetch(session, url, stream=is_csv)
@@ -321,7 +694,7 @@ def capture(session: requests.Session, url: str, kind: str) -> dict:
             data = resp.json()
             out["socrata"] = socrata_structure(data) if isinstance(data, dict) and "columns" in data else {"keys": sorted(data)[:40] if isinstance(data, dict) else type(data).__name__}
         elif BeautifulSoup is not None:
-            out.update(html_structure(resp.text, resp.url))
+            out.update(html_structure(resp.text, resp.url, process=process))
     except Exception as exc:  # noqa: BLE001 - evidence capture reports, never crashes
         out["parse_error"] = f"{type(exc).__name__}: {str(exc)[:160]}"
     return out
@@ -519,7 +892,7 @@ def arcgis_item(session: requests.Session, item_id: str) -> dict:
     rec = {"id": item_id, "title": it.get("title"), "type": it.get("type"), "owner": it.get("owner"), "org": it.get("orgId"),
            "url": it.get("url"), "modified": it.get("modified"), "tags": (it.get("tags") or [])[:12],
            "snippet": strip_html(it.get("snippet") or "")[:240], "description": mask_digits(strip_html(it.get("description") or ""))[:900],
-           "license": strip_html(it.get("licenseInfo") or "")[:900], "access": strip_html(it.get("accessInformation") or "")[:300]}
+           "license": strip_html(it.get("licenseInfo") or "")[:2400], "access": strip_html(it.get("accessInformation") or "")[:300]}
     if it.get("url") and ARCGIS_SERVICE_RE.search(it["url"]):
         rec["layers"] = arcgis_layer_meta(session, it["url"])
     return rec
@@ -554,6 +927,13 @@ def main(argv=None) -> int:
     ap.add_argument("--skip-registry", action="store_true")
     ap.add_argument("--discovery", action="store_true", help="also read DISCOVERY_PAGES and run DISCOVERY_QUERIES")
     ap.add_argument("--expansion", action="store_true", help="read EXPANSION_TARGETS and run EXPANSION_QUERIES (six-state sprint)")
+    ap.add_argument("--five-state", action="store_true", help="read FIVE_STATE_* candidates (five-state enrichment sprint)")
+    ap.add_argument("--five-state-pass2", action="store_true", help="read the FIVE_STATE_PASS2 / PROBES targets")
+    ap.add_argument("--five-state-pass3", action="store_true", help="read the FIVE_STATE_PASS3 targets")
+    ap.add_argument("--enrich-sources-4", action="store_true", help="round 4 of the enrichment-source capture")
+    ap.add_argument("--enrich-sources-3", action="store_true", help="round 3 of the enrichment-source capture")
+    ap.add_argument("--enrich-sources-2", action="store_true", help="round 2 of the enrichment-source capture")
+    ap.add_argument("--enrich-sources", action="store_true", help="read the ENRICH_* parcel / tax-roll candidates (property-enrichment sprint)")
     ap.add_argument("--out", default=str(OUT_PATH))
     args = ap.parse_args(argv)
     if args.digest:
@@ -641,7 +1021,93 @@ def main(argv=None) -> int:
                 print(f"  {code} terms          {page.get('status', page.get('error'))} {href}", flush=True)
                 time.sleep(0.8)
         report["states"].setdefault(code, {"sources": []})["sources"].append(entry)
-    queries = list(args.arcgis_search) or (list(DISCOVERY_QUERIES if args.discovery else ()) + list(EXPANSION_ITEM_QUERIES if args.expansion else ()))
+    for code in sorted(set(FIVE_STATE_PAGES) | set(FIVE_STATE_SERVICES) | set(FIVE_STATE_DIRECTORIES) | set(FIVE_STATE_ITEMS)):
+        if not args.five_state or (args.state and code not in args.state):
+            continue
+        entry = {"source_id": f"five_state_{code.lower()}", "county": "(five-state)", "pages": []}
+        for url in FIVE_STATE_PAGES.get(code, []):
+            page = capture(session, url, "process", process=True)
+            print(f"  {code} process        {page.get('status', page.get('error'))} {url}", flush=True)
+            entry["pages"].append(page)
+            time.sleep(0.8)
+        for url in FIVE_STATE_SERVICES.get(code, []):
+            page = {"url": url, "kind": "arcgis", "layers": arcgis_layer_meta(session, url)}
+            print(f"  {code} arcgis         {len(page['layers'])} layer(s) {url}", flush=True)
+            entry["pages"].append(page)
+            time.sleep(0.8)
+        for url in FIVE_STATE_DIRECTORIES.get(code, []):
+            page = {"url": url, "kind": "arcgis_directory", **arcgis_directory(session, url)}
+            print(f"  {code} directory      {len(page.get('services') or [])} service(s) {url}", flush=True)
+            entry["pages"].append(page)
+            time.sleep(0.8)
+        for item_id in FIVE_STATE_ITEMS.get(code, []):
+            entry["pages"].append({"url": f"item:{item_id}", "kind": "arcgis_item", **arcgis_item(session, item_id)})
+            print(f"  {code} item           {item_id}", flush=True)
+            time.sleep(0.5)
+        report["states"].setdefault(code, {"sources": []})["sources"].append(entry)
+    passes = []
+    if args.five_state_pass2:
+        passes.append(("pass2", FIVE_STATE_PASS2_PAGES, FIVE_STATE_PASS2_SERVICES, FIVE_STATE_PROBES, {}))
+    if args.five_state_pass3:
+        passes.append(("pass3", FIVE_STATE_PASS3_PAGES, FIVE_STATE_PASS3_SERVICES, FIVE_STATE_PASS3_PROBES, FIVE_STATE_PASS3_ITEMS))
+    if args.enrich_sources:
+        passes.append(("enrich", ENRICH_PAGES, ENRICH_SERVICES, ENRICH_PROBES, ENRICH_ITEMS))
+    soda_sets = []
+    if args.enrich_sources_4:
+        passes.append(("enrich4", ENRICH4_PAGES, {}, {}, {}))
+    if args.enrich_sources_3:
+        passes.append(("enrich3", ENRICH3_PAGES, {}, {}, {}))
+        soda_sets.append(ENRICH3_SODA)
+    if args.enrich_sources_2:
+        passes.append(("enrich2", ENRICH2_PAGES, {}, ENRICH2_PROBES, {}))
+        soda_sets.append(ENRICH2_SODA)
+    for soda in soda_sets:
+        for code, probes in soda.items():
+            entry = {"source_id": f"enrich_soda_{code.lower()}", "county": "(enrich SODA)", "pages": []}
+            for res, ids, cats in probes:
+                page = soda_probe(session, res, ids, cats)
+                print(f"  {code} soda           count={page.get('count')} {res}", flush=True)
+                entry["pages"].append(page)
+                time.sleep(0.8)
+            report["states"].setdefault(code, {"sources": []})["sources"].append(entry)
+    for tag, P_PAGES, P_SERVICES, P_PROBES, P_ITEMS in passes:
+     for code in sorted(set(P_PAGES) | set(P_SERVICES) | set(P_PROBES) | set(P_ITEMS)):
+        if args.state and code not in args.state:
+            continue
+        entry = {"source_id": f"five_state_{tag}_{code.lower()}", "county": f"(five-state {tag})", "pages": []}
+        for item_id in P_ITEMS.get(code, []):
+            entry["pages"].append({"url": f"item:{item_id}", "kind": "arcgis_item", **arcgis_item(session, item_id)})
+            time.sleep(0.5)
+        for url in P_PAGES.get(code, []):
+            if re.search(r"DocumentCenter/View|\.pdf/?$", url, re.I):
+                page = pdf_process(session, url)
+                if page.get("status") == 200 and "pdf" not in str(page.get("content_type", "")).lower():
+                    page = capture(session, url, "process", process=True)
+            else:
+                page = capture(session, url, "process", process=True)
+            print(f"  {code} pass2          {page.get('status', page.get('error'))} {url}", flush=True)
+            entry["pages"].append(page)
+            if url in FIVE_STATE_TABLE_VALUES:
+                entry["pages"].append(table_values(session, url, FIVE_STATE_TABLE_VALUES[url]))
+            time.sleep(0.8)
+        for url in P_SERVICES.get(code, []):
+            page = {"url": url, "kind": "arcgis", "layers": arcgis_layer_meta(session, url)}
+            print(f"  {code} arcgis         {len(page['layers'])} layer(s) {url}", flush=True)
+            entry["pages"].append(page)
+            time.sleep(0.8)
+        for layer, where, ids, cats in P_PROBES.get(code, []):
+            page = layer_probe(session, layer, where, ids, cats)
+            print(f"  {code} probe          count={page.get('count')} {layer}", flush=True)
+            entry["pages"].append(page)
+            time.sleep(0.8)
+        for url in (u for u in FIVE_STATE_TABLE_VALUES if tag == "pass2" and u not in P_PAGES.get(code, []) and code == "MI"):
+            entry["pages"].append(table_values(session, url, FIVE_STATE_TABLE_VALUES[url]))
+        report["states"].setdefault(code, {"sources": []})["sources"].append(entry)
+    queries = list(args.arcgis_search) or (list(DISCOVERY_QUERIES if args.discovery else ()) + list(EXPANSION_ITEM_QUERIES if args.expansion else ())
+                                           + list(FIVE_STATE_QUERIES if args.five_state else ())
+                                           + list(FIVE_STATE_PASS2_QUERIES if args.five_state_pass2 else ())
+                                           + list(FIVE_STATE_PASS3_QUERIES if args.five_state_pass3 else ())
+                                           + list(ENRICH_QUERIES if args.enrich_sources else ()))
     for q in queries:
         report.setdefault("arcgis", {})[q] = arcgis_discover(session, q)
         print(f"  arcgis search {q!r}: {len(report['arcgis'][q])} item(s)", flush=True)
@@ -709,6 +1175,19 @@ def digest(path: Path) -> str:
                         out.append(f"      copyright: {l['copyright']}")
                     if l.get("id_shapes"):
                         out.append(f"      id_shapes: {json.dumps(l['id_shapes'])[:1500]}")
+                if pg.get("kind") in ("layer_probe", "table_values"):
+                    out.append(f"  count={pg.get('count')} sampled={pg.get('sampled')} id_shapes={json.dumps(pg.get('id_shapes'))[:1200]}")
+                    if pg.get("fields_present"):
+                        out.append(f"  fields_present={pg.get('fields_present')}")
+                    out.append(f"  value_counts={json.dumps(pg.get('value_counts'))[:1500]}")
+                if pg.get("kind") == "pdf_process" and pg.get("pages") is not None:
+                    out.append(f"  pdf pages={pg.get('pages')}")
+                if pg.get("kind") == "arcgis_directory":
+                    out.append(f"  services: {', '.join(pg.get('services') or [])}")
+                    out.append(f"  folders: {', '.join(pg.get('folders') or [])}")
+                for l in pg.get("links") or [] if pg.get("kind") == "process" else []:
+                    if FOLLOW_VOCAB.search(l["text"] + " " + urlsplit(l["href"]).path) or re.search(r"\.(pdf|xlsx?|csv)$|form|apply|bid", l["href"], re.I):
+                        out.append(f"  link: {mask_digits(l['text'])!r} -> {l['href']}")
                 if pg.get("steps"):
                     out.append(f"  probe steps: {pg['steps']}")
                 if pg.get("probe_params"):

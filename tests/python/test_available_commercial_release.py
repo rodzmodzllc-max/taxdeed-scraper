@@ -19,6 +19,7 @@ import yaml
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO))
 sys.path.insert(0, str(REPO / "scripts"))
+from harvesters.otc.adapters import expansion as EX  # noqa: E402
 
 from harvesters.governance import county_source_registry as csr  # noqa: E402
 from harvesters.governance import publication as pub  # noqa: E402
@@ -73,9 +74,13 @@ def test_e02_evidence_table_holds_only_verified_captured_rows_and_outcome_rules_
         assert r.applicable and r.enabled and r.review_state == "verified", (r.county, r.path_type)
         assert r.evidence_url.startswith("https://") and r.source_title and r.instructions and r.observed_on, r.county
         assert r.evidence_type in PE.EVIDENCE_TYPES and r.path_type in PE.PATH_TYPES, r.county
-        assert r.state == "FL" and r.county != "*", (r.state, r.county)          # no wildcard, no unread state
-        assert not r.third_party_permitted and r.url == "", r.county            # no invented property URL
-        assert re.search(r"\brun[s]? 3669828546|\bruns 36717720575", r.notes), r.county  # traceable to the capture run(s)
+        assert r.state in ("FL", "LA") and r.county != "*", (r.state, r.county)  # no wildcard, no unread state
+        assert not r.third_party_permitted, r.county
+        # No invented property URL: a URL appears only on an instructions-page row, and only as
+        # the same government site's own page the evidence was read from.
+        assert r.url == "" or (r.path_type == "county_instructions" and r.url.startswith("https://www.brla.gov/")
+                               and r.evidence_url.startswith("https://www.brla.gov/")), r.county
+        assert re.search(r"\brun[s]? 3669828546|\bruns 36717720575|\brun 36835470121", r.notes), r.county  # traceable to the capture run(s)
     assert len({(r.state, r.source_id, r.county) for r in rows}) == len(rows)   # one row per source/county
     assert OI.load_rules() == []
     with open(PE.EVIDENCE_PATH, newline="", encoding="utf-8") as fh:
@@ -241,7 +246,8 @@ def test_e10_committed_registry_alone_establishes_no_path_and_only_captured_evid
         prov = path.provenance()
         assert prov["purchase_evidence_url"] == ev.evidence_url and prov["purchase_instructions"] == ev.instructions
         assert prov["purchase_path_observed_on"] == "2026-09-30"
-    assert typed == len(evidence), (typed, len(evidence))                        # every committed row is reachable
+    fl_evidence = [k for k, e in evidence.items() if e.state == "FL"]
+    assert typed == len(fl_evidence), (typed, len(fl_evidence))                  # every committed FL row is reachable
     # Every path type the table uses is a real, labelled type - the frontend names it.
     for e in evidence.values():
         assert f'{e.path_type}:' in APP
@@ -400,7 +406,9 @@ def test_wf01_job_selector_gates_every_job_and_never_schedules_texas():
     wf = yaml.safe_load((REPO / ".github/workflows/harvest-and-sync.yml").read_text(encoding="utf-8"))
     on = wf.get("on") or wf.get(True)
     job = on["workflow_dispatch"]["inputs"]["job"]
-    assert job["default"] == "all" and job["options"] == ["all", "deeds", "certificates", "laft", "texas", "backup", "evidence", "outcomes", "expansion"]
+    assert job["default"] == "all" and job["options"] == ["all", "deeds", "certificates", "laft", "texas", "backup", "evidence", "outcomes", "expansion", "enrich"]
+    # The enrichment backfill (property-enrichment sprint) is manual-only, never part of "all".
+    assert wf["jobs"]["enrich"]["if"] == "github.event_name == 'workflow_dispatch' && github.event.inputs.job == 'enrich'"
     # The evidence capture is manual-only and is NOT part of "all" (it is a
     # read of county pages, not a harvest).
     assert wf["jobs"]["evidence"]["if"] == "github.event_name == 'workflow_dispatch' && github.event.inputs.job == 'evidence'"
@@ -458,7 +466,7 @@ def test_f03_filters_read_stored_fields_and_the_admin_panel_is_admin_gated():
     for f in ("public/index.html", "public/tx.html"):
         html = (REPO / f).read_text(encoding="utf-8")
         assert 'id="adminPublication" hidden' in html and 'id="availLandUseFilter"' in html and 'id="availGeocoded"' in html and 'id="availValues"' in html
-    assert (REPO / "public/sw.js").read_text(encoding="utf-8").count('const CACHE = "tdw-shell-v59"') == 1
+    assert (REPO / "public/sw.js").read_text(encoding="utf-8").count('const CACHE = "tdw-shell-v61"') == 1
 
 
 # ==================== 8. regressions ====================
@@ -472,9 +480,15 @@ def test_r01_fl_tx_al_ar_la_az_regressions_hold():
         if r.source_id == "la_ebr_adjudicated":
             # The one reviewed (not grandfathered) approval: owner decision 2026-09-30, dated list.
             assert eff == "APPROVED" and r.is_production and "as of" in r.restrictions
-        elif r.state in EXPANSION_STATES:
+        elif r.state in EXPANSION_STATES and r.source_id in EX.SIX_STATE_SOURCE_IDS:
             # Six-state expansion (2026-09-30): a reviewed owner decision, not grandfathered.
             assert eff == "APPROVED" and r.is_production and "owner on 2026-09-30" in r.restrictions, (r.state, r.source_id)
+        elif r.state in EXPANSION_STATES:
+            # Five-state sprint (2026-10-01): APPROVED only on a licence the source states (quoted), else UNREVIEWED.
+            if eff == "APPROVED":
+                assert r.is_production and "Creative Commons" in r.restrictions, (r.state, r.source_id)
+            else:
+                assert eff == "UNREVIEWED" and "no row is written" in r.restrictions, (r.state, r.source_id)
         elif r.is_production:
             assert eff == "APPROVED_GRANDFATHERED", (r.state, r.source_id)
         elif r.source_id in BLOCKED_SOURCE_IDS:
