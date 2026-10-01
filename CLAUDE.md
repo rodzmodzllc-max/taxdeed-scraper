@@ -2097,6 +2097,13 @@ Full description: `docs/available-enrichment-engine.md`. Stable facts:
 - `ParcelSourceConfig.counties` scopes a layer to counties, and
   `sources.for_county()` returns the layers for one county.
   `enrich_statewide_parcels.run(..., cfg=, outcomes=)`.
+- **Execution priority:** AVAILABLE customer value first, imagery last.
+  - `available_mode=apply` runs the parcel / tax-roll layers and flood only,
+    never NAIP.
+  - Imagery is its own bounded `available_mode=imagery` slice (600 rows,
+    about 40 minutes).
+  - Never queue a long imagery run ahead of priority 1-2 work: the workflow
+    has one concurrency slot and keeps only one pending run.
 - `sw.js` -> `tdw-shell-v64`.
 
 ## Where to look for more

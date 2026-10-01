@@ -446,7 +446,7 @@ def test_available_job_is_manual_only_and_scoped():
     job = wf["jobs"]["available"]
     assert job["if"] == "github.event_name == 'workflow_dispatch' && github.event.inputs.job == 'available'"
     inputs = (wf.get("on") or wf.get(True))["workflow_dispatch"]["inputs"]
-    assert inputs["available_mode"]["options"] == ["plan", "discover", "apply"] and inputs["available_mode"]["default"] == "plan"
+    assert inputs["available_mode"]["options"] == ["plan", "probe", "discover", "apply", "imagery"] and inputs["available_mode"]["default"] == "plan"
     runs = "\n".join(s.get("run", "") for s in job["steps"])
     assert "texas_harvester" not in runs and "lgbs" not in runs.lower()
     assert "enrich_available.py --plan --label before" in runs and "enrich_available.py --apply" in runs
@@ -508,3 +508,19 @@ def test_la_tax_parcels_now_fill_legal_description_blank_only():
     ESP.run("LA", rows, lambda url: [f["attributes"] for f in feats], write=writes.__setitem__, recorded_at="t", cfg=cfg)
     assert writes["r00001"]["legal_desc"] == "LOT 4 SUB A"
     assert "r00002" not in writes or "legal_desc" not in writes["r00002"]
+
+
+def test_execution_priority_imagery_never_shares_a_run_with_priority_enrichment():
+    """AVAILABLE customer value first, imagery last (docs section 8): apply runs
+    the priority 1-2 enrichers only; imagery is its own short, bounded mode."""
+    job = _wf()["jobs"]["available"]
+    naip = [s for s in job["steps"] if "enrich_property_photos_naip.py" in s.get("run", "")]
+    assert len(naip) == 1
+    step = naip[0]
+    assert step["if"] == "github.event.inputs.available_mode == 'imagery'"
+    assert int(step["env"]["NAIP_BATCH_LIMIT"]) <= 600 and step["timeout-minutes"] <= 60 and step.get("continue-on-error")
+    apply_runs = "\n".join(s.get("run", "") for s in job["steps"] if "'apply'" in str(s.get("if", "")))
+    assert "naip" not in apply_runs.lower()
+    assert "enrich_available.py --apply" in apply_runs and "enrich_flood_zone.py" in apply_runs
+    order = [s["name"] for s in job["steps"]]
+    assert order.index(next(n for n in order if n.startswith("Apply - cleared parcel"))) < order.index(step["name"])

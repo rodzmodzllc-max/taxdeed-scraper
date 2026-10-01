@@ -191,16 +191,19 @@ on:
         options: [analyze, apply, apply_consolidate]
       available_mode:
         description: >-
-          (job=available only) plan = read-only coverage matrix + expected
-          writes of every enricher over every active AVAILABLE row;
-          discover = value-free GIS catalog / document discovery with an
-          identifier match probe (scripts/discover_sources.py); apply = the
-          cleared parcel / tax-roll layers, then NAIP imagery and FEMA flood
-          for the AVAILABLE states, then the plan again (after).
+          (job=available only) Execution priority (2026-10-01): AVAILABLE
+          customer value first, imagery last and never in the same run.
+          plan = read-only coverage matrix + expected writes; probe = the
+          value-free deep identifier / fill probe only (minutes); discover =
+          catalog + documents + deep probe; apply = PRIORITY 1-2 only (cleared
+          parcel / tax-roll layers: identifiers, legal descriptions,
+          assessment; then FEMA flood), then the plan again - no imagery;
+          imagery = PRIORITY 3, a short bounded NAIP slice (600 rows, about
+          40 minutes) so it never holds the only enrichment slot for long.
         required: false
         type: choice
         default: plan
-        options: [plan, discover, apply]
+        options: [plan, probe, discover, apply, imagery]
       storage_max:
         description: (job=storage, apply modes) optimize at most N objects this run; blank = all.
         required: false
@@ -1629,8 +1632,15 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 scripts/discover_sources.py --deep --gis --documents
 
+      - name: Probe (deep identifier / fill probe only, value-free)
+        if: github.event.inputs.available_mode == 'probe'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/discover_sources.py --deep
+
       - name: Plan (before) - coverage matrix and expected writes, read-only
-        if: github.event.inputs.available_mode != 'discover'
+        if: github.event.inputs.available_mode != 'discover' && github.event.inputs.available_mode != 'probe'
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
@@ -1644,20 +1654,6 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 scripts/enrich_available.py --apply --label parcels
 
-      - name: Apply - NAIP aerial imagery (AVAILABLE first; 950 MB budget fails closed)
-        if: github.event.inputs.available_mode == 'apply'
-        continue-on-error: true
-        # ~2 s a row (NAIP export + WebP encode + upload + PATCH): 3,000 rows
-        # fit the step budget; a later apply run continues where this stopped.
-        timeout-minutes: 115
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-          ENRICH_STATE: LA,TX,FL
-          NAIP_BATCH_LIMIT: '3000'
-          NAIP_PER_COUNTY_LIMIT: '3000'
-        run: python3 scripts/enrich_property_photos_naip.py
-
       - name: Apply - FEMA flood hazard
         if: github.event.inputs.available_mode == 'apply'
         continue-on-error: true
@@ -1670,8 +1666,25 @@ jobs:
           FLOOD_PER_COUNTY_LIMIT: '3000'
         run: python3 scripts/enrich_flood_zone.py
 
+      - name: Imagery (PRIORITY 3) - one bounded NAIP slice, AVAILABLE first; 950 MB budget fails closed
+        # Execution priority (docs/available-enrichment-engine.md section 8):
+        # imagery never shares a run with priority 1-2 enrichment and never
+        # holds the one enrichment slot for long - ~3.6 s a row measured on
+        # 2026-10-01, so 600 rows is about 40 minutes. Deferred rows stay
+        # unchecked (photo_url NULL) and are picked up by a later slice.
+        if: github.event.inputs.available_mode == 'imagery'
+        continue-on-error: true
+        timeout-minutes: 50
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          ENRICH_STATE: LA,TX,FL
+          NAIP_BATCH_LIMIT: '600'
+          NAIP_PER_COUNTY_LIMIT: '600'
+        run: python3 scripts/enrich_property_photos_naip.py
+
       - name: Plan (after) - the same measurement after the writes
-        if: always() && github.event.inputs.available_mode == 'apply'
+        if: always() && (github.event.inputs.available_mode == 'apply' || github.event.inputs.available_mode == 'imagery')
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}

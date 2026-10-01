@@ -169,7 +169,9 @@ summary. Counts only.
 |---|---|
 | `plan` | Read-only. The coverage matrix, plus the parcel enricher's real queries and matches, so its expected writes are measured. Imagery / flood / geocode expected work is computed from the rows and the storage headroom. |
 | `discover` | `scripts/discover_sources.py --gis --documents`. ArcGIS Online + Socrata catalog search per AVAILABLE county; field names, licence / access-information and copyright text; an identifier match probe (`returnCountOnly`); every official document the inventory names, read through the document pipeline. Value-free: digit runs of 5 or more are masked; identifiers never leave memory. |
-| `apply` | The cleared parcel layers write through `field_provenance` precedence: a blank is filled; a stronger value is never replaced. Then NAIP imagery (AVAILABLE first; the 950 MB budget fails closed; deferred rows stay unchecked) and FEMA flood run for LA / TX / FL, then the plan again. Every apply step is `continue-on-error`: one enricher failing never stops the next. |
+| `probe` | The deep identifier / fill probe only (`discover_sources.py --deep`), in minutes. |
+| `apply` | PRIORITY 1-2 only. The cleared parcel / tax-roll layers write through `field_provenance` precedence: a blank is filled; a stronger value is never replaced. Then FEMA flood runs for LA / TX / FL, then the plan again. No imagery. Every apply step is `continue-on-error`: one enricher failing never stops the next. |
+| `imagery` | PRIORITY 3. One bounded NAIP slice: 600 rows, about 40 minutes, AVAILABLE first. The 950 MB budget fails closed, and deferred rows stay unchecked for the next slice. See section 8. |
 
 ## 5. Parcel layers can be county-scoped
 
@@ -237,3 +239,51 @@ TexasPublicNotices.com, LouisianaPublicNotice.com), as are the court-record
 classes. All are REVIEW_REQUIRED, with their terms not yet reviewed, and none
 was requested. The coverage matrix reports them as discovered-not-accessed,
 never as "no data".
+
+## 8. Execution priority: AVAILABLE customer value first, imagery last
+
+There is one enrichment slot: the workflow's concurrency group runs one job at
+a time and keeps one pending. Work is ordered so imagery never holds that slot
+ahead of higher-value enrichment.
+
+| Priority | Work | Where it runs |
+|---|---|---|
+| 1 | AVAILABLE status verification, deterministic matching, parcel / account identifiers, legal descriptions, acquisition paths / contacts / instructions, official documents, assessment / tax data, county-held / struck-off / resale evidence, source dates, provenance | `apply` (parcel / tax-roll layers), `probe`, `discover`, the laft job's lifecycle and acquisition steps |
+| 2 | Coordinates, parcel geometry, flood / property risk, other structured property intelligence | `apply` (FEMA flood; centroids from cleared layers) |
+| 3 | Imagery | `imagery` only: short bounded slices, dispatched when no priority 1-2 work is queued |
+
+### Rules
+
+- **Imagery never shares a run with priority 1-2 enrichment.** The `apply`
+  mode contains no NAIP step, and a test pins this.
+- **An imagery slice is bounded:** 600 rows, about 40 minutes at the measured
+  ~3.6 s a row. A row is written only after its image is stored, and objects
+  are content-addressed, so stopping a slice leaves no partial row. Unchecked
+  rows stay `photo_url IS NULL` for the next slice.
+- **Before a long imagery run is started, report:** the rows, the runtime, the
+  storage impact, and what it would block.
+- **Budget and policy are unchanged:**
+  - the 950 MB budget and its fail-closed check are unchanged;
+  - AVAILABLE goes first, then active auctions;
+  - closed auctions and certificates get no new imagery;
+  - existing imagery is never deleted.
+
+### 2026-10-01 re-prioritization
+
+Two LA imagery runs were stopped after about 98 minutes:
+
+- the running apply, 36923351563, during its NAIP step;
+- the queued apply, 36926478300, which would have started a second NAIP step.
+
+Imagery written before the stop is kept. Run 36923351563 wrote images for
+1,890 East Baton Rouge rows. LA imagery went from 27 to 1,917 of 10,334 rows,
+and the bucket from 165,845,912 to 278,959,386 bytes (266.0 MB, 5,560
+objects). No row was left half-written.
+
+The remaining Louisiana backlog is 8,417 rows with coordinates and no image:
+
+| Estimate | Value |
+|---|---|
+| Runtime | about 8.4 hours at 3.6 s a row, i.e. about 14 slices of 600 |
+| Storage | about 505 MB at the measured ~60 KB per image; the bucket would reach about 771 MB, under the 950 MB ceiling |
+| Approach | continue as background slices after the priority 1-2 work |
