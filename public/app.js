@@ -2267,8 +2267,33 @@ async function refreshAdminPublication() {
 // everything, filter client-side via regionOf()/PAGE_STATE in passes()) -
 // once it has, both pages upgrade to real server-side isolation with no
 // further deploy needed.
+// Customer-value sprint (2026-10-01): PostgREST caps every response at its
+// max-rows setting (1,000 on this project) - set-returning RPCs included. One
+// get_properties() call therefore returned at most 1,000 rows, and every state
+// larger than that (Florida ~4,000, Louisiana ~10,300) was silently truncated
+// in the List, the Map, the counts and the exports. Each ledger is now paged
+// in parallel: within one ledger (source, county, case_no) is unique, so the
+// RPC's `order by county, case_no` is deterministic; the offset advances by the
+// rows actually returned and paging stops only on an empty page, so it is
+// correct under any server cap. Rows are de-duplicated by id.
+const PROPERTY_LEDGER_TYPES = ["auctions", "buy", "lien"];
+const PROPERTY_PAGE_SIZE = 1000;
+async function fetchLedgerPages(ledgerType) {
+  const rows = [];
+  for (let offset = 0, guard = 0; guard < 200; guard++) {
+    const r = await sb.rpc("get_properties", { p_state: PAGE_STATE, p_ledger_type: ledgerType, p_limit: PROPERTY_PAGE_SIZE, p_offset: offset });
+    if (r.error) return r;
+    const page = r.data || [];
+    if (!page.length) break;
+    rows.push(...page);
+    offset += page.length;
+  }
+  return { data: rows, error: null };
+}
 async function fetchProperties() {
-  const rpc = await sb.rpc("get_properties", { p_state: PAGE_STATE });
+  const pages = await Promise.all(PROPERTY_LEDGER_TYPES.map(fetchLedgerPages));
+  const failed = pages.find(r => r.error);
+  const rpc = failed || { data: (() => { const seen = new Set(); return pages.flatMap(r => r.data).filter(p => !seen.has(p.id) && seen.add(p.id)); })(), error: null };
   if (!rpc.error) return rpc;
   const msg = String(rpc.error.message || "");
   const missingFn = rpc.error.code === "PGRST202" || /could not find the function|does not exist/i.test(msg);

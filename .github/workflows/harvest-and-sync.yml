@@ -215,6 +215,17 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Restore change-detection snapshot cache
+        # scripts/detect_property_changes.py keeps its per-row snapshot here
+        # while migration 024's tables are not applied (rolling cache, same
+        # pattern as the laft job's harvest cache). A miss = a baseline run.
+        uses: actions/cache@v4
+        with:
+          path: out/.harvest_cache
+          key: change-snapshots-deeds-${{ github.run_id }}
+          restore-keys: |
+            change-snapshots-deeds-
+
       - name: Harvest Realauction counties (44 counties)
         shell: pwsh
         run: ./scripts/harvest_all_counties.ps1
@@ -282,6 +293,19 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 scripts/stamp_seen.py --state FL --source auction --harvest out/harvest_all.json --case-key case
+
+      - name: Change detection - deterministic property changes and customer alerts
+        # scripts/detect_property_changes.py: status / sale date / opening bid /
+        # acquisition / source / enrichment changes against the previous run's
+        # snapshot; per-source observed / added / changed / closed counts;
+        # alerts for watchers and saved searches once migration 024 exists.
+        # Never closes, never infers an outcome, never fails the job.
+        if: steps.sync.outcome == 'success'
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/detect_property_changes.py --state FL --source auction
 
       - name: Sanity check - fresh county coverage
         shell: pwsh
@@ -435,6 +459,17 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Restore change-detection snapshot cache
+        # scripts/detect_property_changes.py keeps its per-row snapshot here
+        # while migration 024's tables are not applied (rolling cache, same
+        # pattern as the laft job's harvest cache). A miss = a baseline run.
+        uses: actions/cache@v4
+        with:
+          path: out/.harvest_cache
+          key: change-snapshots-certificates-${{ github.run_id }}
+          restore-keys: |
+            change-snapshots-certificates-
+
       - name: Harvest LienHub county-held certificates (32 counties)
         shell: pwsh
         run: ./scripts/harvest_lienhub_certificates.ps1
@@ -494,6 +529,19 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 scripts/stamp_seen.py --state FL --source certificate --harvest out/harvest_certificates.json --case-key case_no
+
+      - name: Change detection - deterministic property changes and customer alerts
+        # scripts/detect_property_changes.py: status / sale date / opening bid /
+        # acquisition / source / enrichment changes against the previous run's
+        # snapshot; per-source observed / added / changed / closed counts;
+        # alerts for watchers and saved searches once migration 024 exists.
+        # Never closes, never infers an outcome, never fails the job.
+        if: steps.sync.outcome == 'success'
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/detect_property_changes.py --state FL --source certificate
 
   laft:
     name: Harvest Lands Available PDFs + sync
@@ -837,6 +885,22 @@ jobs:
           python3 scripts/apply_acquisition_paths.py --state TX --source-id tx_lgbs --report out/public/acquisition-apply-tx.json
           python3 scripts/publication_gate.py --state TX --report out/public/publication-gate-tx.json
 
+      - name: Change detection - deterministic property changes and customer alerts
+        # scripts/detect_property_changes.py: status / sale date / opening bid /
+        # acquisition / source / enrichment changes against the previous run's
+        # snapshot; per-source observed / added / changed / closed counts;
+        # alerts for watchers and saved searches once migration 024 exists.
+        # Never closes, never infers an outcome, never fails the job.
+        if: always()
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          python3 scripts/detect_property_changes.py --state FL --source laft || true
+          python3 scripts/detect_property_changes.py --state LA --source laft || true
+          python3 scripts/detect_property_changes.py --state TX --source laft || true
+
   expansion:
     # Six-state expansion (2026-09-30; docs/six-state-expansion.md). The
     # owner-approved county sources of MI, WY, SC, CO and WI
@@ -860,6 +924,17 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Restore change-detection snapshot cache
+        # scripts/detect_property_changes.py keeps its per-row snapshot here
+        # while migration 024's tables are not applied (rolling cache, same
+        # pattern as the laft job's harvest cache). A miss = a baseline run.
+        uses: actions/cache@v4
+        with:
+          path: out/.harvest_cache
+          key: change-snapshots-expansion-${{ matrix.state }}-${{ github.run_id }}
+          restore-keys: |
+            change-snapshots-expansion-${{ matrix.state }}-
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -914,6 +989,19 @@ jobs:
           st=$(echo "${{ matrix.state }}" | tr '[:upper:]' '[:lower:]')
           python3 scripts/unit_freshness.py --status "out/harvest_${st}_status.json" --state ${{ matrix.state }} --persist "out/.harvest_cache/unit_freshness_${st}.json" --report "out/public/unit-freshness-${st}.json" || true
           python3 scripts/publication_gate.py --state ${{ matrix.state }} --report "out/public/publication-gate-${st}.json"
+
+      - name: Change detection - deterministic property changes and customer alerts
+        # scripts/detect_property_changes.py: status / sale date / opening bid /
+        # acquisition / source / enrichment changes against the previous run's
+        # snapshot; per-source observed / added / changed / closed counts;
+        # alerts for watchers and saved searches once migration 024 exists.
+        # Never closes, never infers an outcome, never fails the job.
+        if: always() && steps.harvest.outcome == 'success'
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/detect_property_changes.py --state ${{ matrix.state }}
 
       - name: Evidence-only artifact summary
         # Public repository -> public artifacts: counts, hashes and field names

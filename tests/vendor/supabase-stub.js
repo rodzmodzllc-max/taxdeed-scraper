@@ -639,7 +639,18 @@ export function createClient() {
         // also correctly serving the one `state: "TX"` row (Phase 34,
         // fixture id "ptx1") to a real p_state:"TX" request, the way the
         // real get_properties() RPC's `where state = p_state` does.
-        return { data: FIXTURE_PROPERTIES.filter(p => (p.state || "FL") === pState), error: null };
+        // Customer-value sprint: mimic the real RPC's ledger filter, ORDER BY,
+        // limit/offset AND PostgREST's max-rows cap (?maxrows=N, default
+        // 1000) so the frontend's paging is exercised - a single call can
+        // never return more than the cap, exactly as in production.
+        const LEDGER_FOR_SOURCE = { auction: "auctions", laft: "buy", certificate: "lien" };
+        const cap = Number(new URLSearchParams(location.search).get("maxrows")) || 1000;
+        window.__stubGetPropertiesCalls = (window.__stubGetPropertiesCalls || 0) + 1;
+        const rows = FIXTURE_PROPERTIES.filter(p => (p.state || "FL") === pState)
+          .filter(p => !args.p_ledger_type || (p.ledger_type || LEDGER_FOR_SOURCE[p.source]) === args.p_ledger_type)
+          .slice().sort((a, b) => String(a.county).localeCompare(String(b.county)) || String(a.case_no).localeCompare(String(b.case_no)));
+        const offset = Number(args.p_offset) || 0, limit = Math.min(Number(args.p_limit) || 20000, cap);
+        return { data: rows.slice(offset, offset + limit), error: null };
       }
       return { data: null, error: { message: `stub: unhandled rpc "${fnName}"`, code: "PGRST202" } };
     }
