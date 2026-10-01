@@ -61,6 +61,9 @@ from collections import Counter
 
 import requests
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import enrichment_units as EU  # noqa: E402 - (state, county) units
+
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY")
 
@@ -218,29 +221,26 @@ def build_update_fields(photo_url, *, checked_at):
 
 def fetch_counties_needing_photos():
     params = {
-        "select": "county",
+        "select": "state,county",
         "photo_url": "is.null",
         "latitude": "not.is.null",
         "longitude": "not.is.null",
         "limit": "10000",
     }
+    params.update(EU.state_param(EU.state_filter()))
     resp = requests.get(
         f"{SUPABASE_URL}/rest/v1/properties", headers=HEADERS, params=params, timeout=30
     )
     resp.raise_for_status()
-    outstanding = Counter(r["county"] for r in resp.json() if r.get("county"))
-    counties = sorted(outstanding)
-    random.shuffle(counties)
-    return [(c, outstanding[c]) for c in counties]
+    return EU.outstanding_units(resp.json())
 
 
-def fetch_county_batch(county, limit, outstanding=None):
+def fetch_county_batch(unit, limit, outstanding=None):
     offset = 0
     if outstanding and outstanding > limit:
         offset = random.randrange(0, outstanding - limit + 1)
     params = {
         "select": "id,county,state,latitude,longitude",
-        "county": f"eq.{county}",
         "photo_url": "is.null",
         "latitude": "not.is.null",
         "longitude": "not.is.null",
@@ -248,6 +248,7 @@ def fetch_county_batch(county, limit, outstanding=None):
         "offset": str(offset),
         "limit": str(limit),
     }
+    params.update(EU.unit_params(unit))
     resp = requests.get(
         f"{SUPABASE_URL}/rest/v1/properties", headers=HEADERS, params=params, timeout=30
     )
@@ -275,11 +276,12 @@ def main():
 
     attempted = stored = no_coverage = failed = 0
 
-    for county, outstanding in counties:
+    for unit, outstanding in counties:
+        county = EU.label(unit)
         if attempted >= BATCH_LIMIT:
             break
         rows = fetch_county_batch(
-            county, min(PER_COUNTY_LIMIT, BATCH_LIMIT - attempted), outstanding
+            unit, min(PER_COUNTY_LIMIT, BATCH_LIMIT - attempted), outstanding
         )
         if not rows:
             continue

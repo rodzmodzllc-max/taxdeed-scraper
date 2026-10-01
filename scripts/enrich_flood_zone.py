@@ -49,6 +49,9 @@ from collections import Counter
 
 import requests
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import enrichment_units as EU  # noqa: E402 - (state, county) units
+
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY")
 
@@ -260,23 +263,21 @@ def fetch_counties_needing_flood():
     anti-starvation shape the FDOR enricher and the geocoder both use.
     """
     params = {
-        "select": "county",
+        "select": "state,county",
         "flood_checked_at": "is.null",
         "latitude": "not.is.null",
         "longitude": "not.is.null",
         "limit": "10000",
     }
+    params.update(EU.state_param(EU.state_filter()))
     resp = requests.get(
         f"{SUPABASE_URL}/rest/v1/properties", headers=HEADERS, params=params, timeout=30
     )
     resp.raise_for_status()
-    outstanding = Counter(r["county"] for r in resp.json() if r.get("county"))
-    counties = sorted(outstanding)
-    random.shuffle(counties)
-    return [(c, outstanding[c]) for c in counties]
+    return EU.outstanding_units(resp.json())
 
 
-def fetch_county_batch(county, limit, outstanding=None):
+def fetch_county_batch(unit, limit, outstanding=None):
     """A random window into the county's backlog, for the reason Phase 51
     established: without `order` PostgREST returns the same rows every run,
     and because a miss is never stamped, the same rows would lead the slice
@@ -286,7 +287,6 @@ def fetch_county_batch(county, limit, outstanding=None):
         offset = random.randrange(0, outstanding - limit + 1)
     params = {
         "select": "id,county,state,latitude,longitude",
-        "county": f"eq.{county}",
         "flood_checked_at": "is.null",
         "latitude": "not.is.null",
         "longitude": "not.is.null",
@@ -294,6 +294,7 @@ def fetch_county_batch(county, limit, outstanding=None):
         "offset": str(offset),
         "limit": str(limit),
     }
+    params.update(EU.unit_params(unit))
     resp = requests.get(
         f"{SUPABASE_URL}/rest/v1/properties", headers=HEADERS, params=params, timeout=30
     )
@@ -333,11 +334,12 @@ def main():
     failed = 0
     zones = Counter()
 
-    for county, outstanding in counties:
+    for unit, outstanding in counties:
+        county = EU.label(unit)
         if attempted >= BATCH_LIMIT:
             break
         rows = fetch_county_batch(
-            county, min(PER_COUNTY_LIMIT, BATCH_LIMIT - attempted), outstanding
+            unit, min(PER_COUNTY_LIMIT, BATCH_LIMIT - attempted), outstanding
         )
         if not rows:
             continue

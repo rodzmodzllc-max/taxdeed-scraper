@@ -159,7 +159,14 @@ on:
         required: false
         type: choice
         default: all
-        options: [all, deeds, certificates, laft, texas, backup, evidence, outcomes, expansion]
+        options: [all, deeds, certificates, laft, texas, backup, evidence, outcomes, expansion, enrich]
+      enrich_states:
+        description: >-
+          (job=enrich only) Comma-separated postal codes for the enrichment
+          backfill (FEMA flood, NAIP aerial imagery, statewide parcel layers).
+          Blank = every production state.
+        required: false
+        default: ''
       evidence_counties:
         description: >-
           (job=evidence only) Comma-separated county names to limit the
@@ -187,7 +194,7 @@ on:
         required: false
         type: choice
         default: available
-        options: [available, auction_results, state_sources, expansion, field_fill, five_state, five_state_pass2, five_state_pass3]
+        options: [available, auction_results, state_sources, expansion, field_fill, five_state, five_state_pass2, five_state_pass3, enrich_sources]
 
 concurrency:
   group: harvest-and-sync
@@ -1133,6 +1140,12 @@ jobs:
             python3 scripts/probe_field_fill.py
             exit 0
           fi
+          if [ "$SCOPE" = "enrich_sources" ]; then
+            # Property-enrichment sprint: candidate parcel / tax-roll sources
+            # (licence pages, layer fields, identifier shapes per county).
+            python3 scripts/capture_state_sources.py --enrich-sources --skip-registry
+            exit 0
+          fi
           if [ "$SCOPE" = "five_state_pass3" ]; then
             python3 scripts/capture_state_sources.py --five-state-pass3 --skip-registry
             exit 0
@@ -1203,6 +1216,84 @@ jobs:
           path: |
             out/public/
             out/private/
+
+  enrich:
+    # Property-enrichment backfill - MANUAL ONLY (job=enrich), never
+    # scheduled and never part of "all". The same three public, keyless
+    # enrichers the scheduled jobs already run (FEMA National Flood Hazard
+    # Layer, USDA NAIP aerial imagery, the cleared statewide parcel layers),
+    # with larger per-unit budgets so a newly onboarded state's backlog
+    # fills in one pass instead of 40 rows a run. Units are (state, county).
+    # Nothing is harvested and no row is created or closed.
+    name: Enrichment backfill (${{ matrix.kind }}) - manual only
+    runs-on: ubuntu-latest
+    timeout-minutes: 150
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.job == 'enrich'
+    strategy:
+      fail-fast: false
+      matrix:
+        kind: [flood, imagery, parcels]
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python dependencies
+        run: pip install requests
+
+      - name: FEMA flood hazard backfill
+        if: matrix.kind == 'flood'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          ENRICH_STATE: ${{ github.event.inputs.enrich_states }}
+          FLOOD_BATCH_LIMIT: '4000'
+          FLOOD_PER_COUNTY_LIMIT: '1000'
+        run: python3 scripts/enrich_flood_zone.py
+
+      - name: NAIP aerial imagery backfill
+        if: matrix.kind == 'imagery'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          ENRICH_STATE: ${{ github.event.inputs.enrich_states }}
+          NAIP_BATCH_LIMIT: '2500'
+          NAIP_PER_COUNTY_LIMIT: '1000'
+        run: python3 scripts/enrich_property_photos_naip.py
+
+      - name: Statewide parcel layers (deterministic identifier match)
+        if: matrix.kind == 'parcels'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          ENRICH_STATES: ${{ github.event.inputs.enrich_states }}
+        run: |
+          STATES="${ENRICH_STATES:-$(python3 -c 'import sys; sys.path.insert(0, "."); from harvesters.governance import states; print(",".join(sorted(states.PRODUCTION_STATES)))')}"
+          for st in $(echo "$STATES" | tr ',' ' '); do
+            python3 scripts/enrich_statewide_parcels.py --state "$st" || echo "::warning::$st parcel enrichment failed"
+          done
+
+      - name: Prepare artifact (public evidence only)
+        # Coverage reports are counts only (no parcel, value or name).
+        if: always()
+        env:
+          ARTIFACT_PUBLIC_KEY: ${{ vars.ARTIFACT_PUBLIC_KEY }}
+        run: python3 scripts/artifact_evidence.py --job "enrich-${{ matrix.kind }}" "out/public/enrichment-*.json"
+
+      - name: Upload evidence (counts only)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: enrich-${{ matrix.kind }}-${{ github.run_id }}
+          path: |
+            out/public/
+            out/private/
+          if-no-files-found: ignore
+          retention-days: 14
 
   outcomes:
     # Verified auction outcomes on their own - MANUAL ONLY (job=outcomes),

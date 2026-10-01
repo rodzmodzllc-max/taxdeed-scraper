@@ -330,6 +330,40 @@ FIVE_STATE_PASS3_ITEMS = {
 FIVE_STATE_PASS3_QUERIES = ('"Wisconsin Statewide Parcels" V12', 'owner:SCO_Admin parcels')
 
 
+# Property-enrichment sprint (2026-10-01): candidate PARCEL / TAX-ROLL sources
+# for rows already in production - Texas (TxGIO StratMap statewide parcels,
+# matched on the CAD account the Texas rows carry as case_no), Louisiana (East
+# Baton Rouge Parish Assessor tax roll / tax parcels), Wyoming (Department of
+# Revenue statewide parcels). Licence pages, layer fields, identifier SHAPES
+# per county - never a value.
+STRATMAP = "https://feature.geographic.texas.gov/arcgis/rest/services/Parcels/stratmap_land_parcels_48_most_recent/MapServer"
+ENRICH_PAGES = {
+    "TX": ["https://geographic.texas.gov/stratmap/land-parcels", "https://www.geographic.texas.gov/stratmap/land-parcels.html",
+           "https://tnris.org/stratmap/land-parcels.html"],
+    "LA": ["https://data.brla.gov/api/views/myfc-nh6n.json", "https://data.brla.gov/api/views/ei2c-krsr.json",
+           "https://city.brla.gov/gis/metadata/TAX_PARCEL.html"],
+    "WY": ["https://wyo-prop-div.wyo.gov/tax-districts/maps-gis-data", "https://ets.wyo.gov/gis-office/georesources"],
+}
+ENRICH_SERVICES = {
+    "TX": [STRATMAP],
+    "LA": ["https://maps.brla.gov/gis/rest/services/Cadastral/Tax_Parcel/MapServer"],
+    "WY": ["https://gis.deq.wyo.gov/arcgis/rest/services/WY_PRIVATE_PARCELS/MapServer"],
+}
+_TX_COUNTIES = ("Galveston", "Liberty", "Leon", "Dallas", "Travis", "Nueces", "Hardin", "Maverick", "Van Zandt", "Smith",
+                "Cameron", "Jim Wells", "Matagorda", "Concho", "Atascosa", "Llano", "Victoria", "Caldwell")
+ENRICH_PROBES = {
+    "TX": [(STRATMAP + "/0", f"UPPER(COUNTY) = '{c.upper()}'", ["Prop_ID", "GEO_ID", "PROP_ID"], ["TAX_YEAR", "STAT_LAND_USE", "LOC_LAND_USE"])
+           for c in _TX_COUNTIES],
+    "WY": [("https://gis.deq.wyo.gov/arcgis/rest/services/WY_PRIVATE_PARCELS/MapServer/0", "1=1",
+            ["PIDN", "ACCOUNTNO", "PARCELNB", "LOCAL_ID"], ["COUNTY", "JURISDICTION"])],
+}
+ENRICH_ITEMS = {
+    "WY": ["fd2106a2896446008f88b42dfbd14f9d", "9b60a7596f5d464c9cd4667efa8abbb5"],
+}
+ENRICH_QUERIES = ('StratMap Land Parcels', 'Wyoming statewide parcels', 'Albany County Wyoming parcels',
+                  'Eaton County Michigan parcels', 'Lenawee County parcels', 'York County SC parcels')
+
+
 def pdf_process(session: requests.Session, url: str, max_pages: int = 6) -> dict:
     """A PDF's process text (first pages), through process_text()."""
     out = {"url": url, "kind": "pdf_process"}
@@ -835,6 +869,7 @@ def main(argv=None) -> int:
     ap.add_argument("--five-state", action="store_true", help="read FIVE_STATE_* candidates (five-state enrichment sprint)")
     ap.add_argument("--five-state-pass2", action="store_true", help="read the FIVE_STATE_PASS2 / PROBES targets")
     ap.add_argument("--five-state-pass3", action="store_true", help="read the FIVE_STATE_PASS3 targets")
+    ap.add_argument("--enrich-sources", action="store_true", help="read the ENRICH_* parcel / tax-roll candidates (property-enrichment sprint)")
     ap.add_argument("--out", default=str(OUT_PATH))
     args = ap.parse_args(argv)
     if args.digest:
@@ -951,6 +986,8 @@ def main(argv=None) -> int:
         passes.append(("pass2", FIVE_STATE_PASS2_PAGES, FIVE_STATE_PASS2_SERVICES, FIVE_STATE_PROBES, {}))
     if args.five_state_pass3:
         passes.append(("pass3", FIVE_STATE_PASS3_PAGES, FIVE_STATE_PASS3_SERVICES, FIVE_STATE_PASS3_PROBES, FIVE_STATE_PASS3_ITEMS))
+    if args.enrich_sources:
+        passes.append(("enrich", ENRICH_PAGES, ENRICH_SERVICES, ENRICH_PROBES, ENRICH_ITEMS))
     for tag, P_PAGES, P_SERVICES, P_PROBES, P_ITEMS in passes:
      for code in sorted(set(P_PAGES) | set(P_SERVICES) | set(P_PROBES) | set(P_ITEMS)):
         if args.state and code not in args.state:
@@ -987,7 +1024,8 @@ def main(argv=None) -> int:
     queries = list(args.arcgis_search) or (list(DISCOVERY_QUERIES if args.discovery else ()) + list(EXPANSION_ITEM_QUERIES if args.expansion else ())
                                            + list(FIVE_STATE_QUERIES if args.five_state else ())
                                            + list(FIVE_STATE_PASS2_QUERIES if args.five_state_pass2 else ())
-                                           + list(FIVE_STATE_PASS3_QUERIES if args.five_state_pass3 else ()))
+                                           + list(FIVE_STATE_PASS3_QUERIES if args.five_state_pass3 else ())
+                                           + list(ENRICH_QUERIES if args.enrich_sources else ()))
     for q in queries:
         report.setdefault("arcgis", {})[q] = arcgis_discover(session, q)
         print(f"  arcgis search {q!r}: {len(report['arcgis'][q])} item(s)", flush=True)
