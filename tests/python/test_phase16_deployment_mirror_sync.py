@@ -52,6 +52,7 @@ DEPLOYED_BUNDLE_FILES = (
     # which is the exact drift the companion test below exists to catch.
     "county-centroids.json",
     "satellite-map.js",
+    "source-inventory.json",
     "explore.css",
     "explore.js",
     "fl-cities.json",

@@ -2068,6 +2068,37 @@ Full description: `docs/image-storage.md`. Stable facts:
   marks those units `manual_only` and never ages them by the clock. Their
   last read is never advanced. A test pins that set to the job's trigger.
 
+## All-sources AVAILABLE enrichment engine (2026-10-01, PR open, no migration)
+
+Full description: `docs/available-enrichment-engine.md`. Stable facts:
+- **One source model:** `harvesters/sources` (`UnifiedSource`, `build_inventory()`)
+  holds every source of all 13 registered states. Governance is APPROVED /
+  REVIEW_REQUIRED / HARD_BLOCKED:
+  - APPROVED writes customer fields;
+  - REVIEW_REQUIRED is read for discovery only, never written from;
+  - HARD_BLOCKED is never requested.
+
+  `tx_lgbs` and `tx_realauction` are REVIEW_REQUIRED by their own rights
+  audits; the registry's publication decision is unchanged. Known unused
+  sources live in `data/enrichment_source_catalog.csv`.
+  `public/source-inventory.json` is generated
+  (`scripts/build_source_inventory.py`, test-pinned) and feeds the admin.html
+  Sources panel.
+- **Documents:** `harvesters/documents/extract.py`. It reads PDF text and
+  tables, uses OCR only when tesseract exists, and reports `OCR_UNAVAILABLE`
+  otherwise. Identifier matching is whole-token. Acquisition facts and
+  notices come with page numbers.
+- **Engine:** `scripts/enrich_available.py`, run as the manual `job=available`
+  with `available_mode` plan / discover / apply. It covers every active
+  AVAILABLE row and fourteen dimensions, and gives each gap one outcome:
+  SOURCE_FOUND, SOURCE_REVIEW_REQUIRED, NO_SOURCE_FOUND, and so on. It builds
+  the state × county coverage matrix. It never closes, hides or republishes a
+  row.
+- `ParcelSourceConfig.counties` scopes a layer to counties, and
+  `sources.for_county()` returns the layers for one county.
+  `enrich_statewide_parcels.run(..., cfg=, outcomes=)`.
+- `sw.js` -> `tdw-shell-v64`.
+
 ## Where to look for more
 
 - `claude/improvement-roadmap.md` in the "tax florida app" claude.ai Project — the full dated log of every fix, audit finding, and open decision. This is where new findings should be appended, not here.

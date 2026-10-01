@@ -2936,6 +2936,22 @@ await navMap.close();
   results.adminShellShown = await onAdminShell(adm);
   results.adminIdentityText = ((await adm.locator('#adminIdentity').textContent()) || '').trim();
   results.adminShellShowsNoEmail = !/@/.test((await adm.locator('#adminShell').textContent()) || '');
+  // Admin source panel (all-sources enrichment engine): the unified inventory
+  // with the three governance states kept apart, filterable by state / type.
+  await adm.waitForSelector('#adminSourcesList tr[data-source]', { timeout: 5000 }).catch(() => {});
+  results.adminSourcesRows = await adm.locator('#adminSourcesList tr[data-source]').count();
+  results.adminSourcesGovernanceKinds = await adm.evaluate(() => [...new Set([...document.querySelectorAll('#adminSourcesList tr[data-governance]')].map(r => r.dataset.governance))].sort().join(','));
+  results.adminSourcesStatusText = ((await adm.locator('#adminSourcesStatus').textContent()) || '').trim();
+  await adm.selectOption('#adminSourcesGov', 'REVIEW_REQUIRED');
+  results.adminSourcesReviewOnly = await adm.evaluate(() => [...document.querySelectorAll('#adminSourcesList tr[data-governance]')].every(r => r.dataset.governance === 'REVIEW_REQUIRED'));
+  results.adminSourcesLgbsReason = await adm.evaluate(() => { const r = document.querySelector('#adminSourcesList tr[data-source="tx_lgbs_statewide_api"]'); return !!r && /lgbs-rights-audit/.test(r.textContent); });
+  await adm.selectOption('#adminSourcesGov', '');
+  await adm.selectOption('#adminSourcesState', 'LA');
+  results.adminSourcesLaOnly = await adm.evaluate(() => { const rows = [...document.querySelectorAll('#adminSourcesList tr[data-source]')]; return rows.length > 0 && rows.every(r => r.firstElementChild.textContent === 'LA'); });
+  await adm.selectOption('#adminSourcesState', '');
+  await adm.selectOption('#adminSourcesType', 'PUBLIC_NOTICE');
+  results.adminSourcesNoticeRows = await adm.locator('#adminSourcesList tr[data-source]').count();
+  await adm.selectOption('#adminSourcesType', '');
   // 8. Signing out removes admin access: redirected now, and on a revisit.
   await adm.click('#adminSignOut');
   await adm.waitForTimeout(600);
@@ -3989,6 +4005,13 @@ const EXPECTED = {
   adminShellShown: true,
   adminIdentityText: 'Admin',
   adminShellShowsNoEmail: true,
+  adminSourcesRows: 318,
+  adminSourcesGovernanceKinds: 'APPROVED,HARD_BLOCKED,REVIEW_REQUIRED',
+  adminSourcesStatusText: '318 source(s): 216 approved, 87 review required, 15 hard blocked.',
+  adminSourcesReviewOnly: true,
+  adminSourcesLgbsReason: true,
+  adminSourcesLaOnly: true,
+  adminSourcesNoticeRows: 3,
   adminSignOutRedirected: true,
   adminAfterSignOutRedirected: true,
   signupFormOffered: true,
