@@ -452,7 +452,8 @@ def test_available_job_is_manual_only_and_scoped():
     # AVAILABLE-scoped refresh: never the harvester's main(), never the Texas
     # sync (which upserts the auction ledger too).
     assert "texas_harvester" not in runs and "sync-texas" not in runs
-    lgbs_lines = [ln for ln in runs.splitlines() if "lgbs" in ln.lower()]
+    # (apply_acquisition_paths.py only NAMES the tx_lgbs source; it makes no request to any source.)
+    lgbs_lines = [ln for ln in runs.splitlines() if "lgbs" in ln.lower() and "apply_acquisition_paths.py" not in ln]
     assert lgbs_lines and all("scripts/lgbs_available_refresh.py" in ln for ln in lgbs_lines)
     assert "enrich_available.py --plan --label before" in runs and "enrich_available.py --apply" in runs
     apply_steps = [s for s in job["steps"] if "apply" in str(s.get("if", "")) and "Plan" not in s["name"]]
