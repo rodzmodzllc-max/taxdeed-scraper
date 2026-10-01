@@ -167,7 +167,7 @@ def test_A5_upload_steps_are_otherwise_unchanged():
     # the same evidence-only layout.
     # "expansion" (six-state sprint) uploads the same evidence-only layout per matrix leg.
     # "enrich" (property-enrichment sprint) is manual-only and uploads the same layout per matrix leg.
-    assert set(steps) == {"deeds", "certificates", "laft", "texas", "backup", "evidence", "outcomes", "expansion", "enrich"}
+    assert set(steps) == {"deeds", "certificates", "laft", "texas", "backup", "evidence", "outcomes", "expansion", "enrich", "storage"}
     assert _patterns(steps["expansion"]) == ["out/public/", "out/private/"]
     assert _patterns(steps["enrich"]) == ["out/public/", "out/private/"]
     deeds = steps["deeds"]

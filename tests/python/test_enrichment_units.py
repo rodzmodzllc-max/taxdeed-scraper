@@ -52,7 +52,8 @@ def test_naip_storage_budget_fails_closed(monkeypatch, capsys):
     monkeypatch.setattr(naip, "fetch_counties_needing_photos", lambda *a, **k: [(("FL", "Bay"), 3)])
     monkeypatch.setattr(naip, "fetch_county_batch", lambda *a, **k: calls.append("batch") or [])
     monkeypatch.setattr(naip, "fetch_naip_image", lambda *a, **k: calls.append("image") or (None, True))
-    monkeypatch.setattr(naip, "upload_image", lambda *a, **k: calls.append("upload"))
+    monkeypatch.setattr(naip, "put_object", lambda *a, **k: calls.append("upload"))
+    monkeypatch.setattr(naip, "object_exists", lambda *a, **k: calls.append("exists"))
     monkeypatch.setattr(naip, "patch_property", lambda *a, **k: calls.append("patch"))
     monkeypatch.setattr(naip, "write_priority_report", lambda r: calls.append(("report", r)))
     monkeypatch.setattr(naip, "storage_used_bytes", lambda *a, **k: None)
@@ -93,7 +94,8 @@ def test_naip_spends_budget_on_available_first(monkeypatch):
     reports = []
     monkeypatch.setattr(naip, "fetch_county_batch", batch)
     monkeypatch.setattr(naip, "fetch_naip_image", lambda *a, **k: (b"x" * 10, True))
-    monkeypatch.setattr(naip, "upload_image", lambda pid, png: f"https://s/{pid}")
+    monkeypatch.setattr(naip, "object_exists", lambda path: False)
+    monkeypatch.setattr(naip, "put_object", lambda path, data, ct: True)
     monkeypatch.setattr(naip, "patch_property", lambda *a, **k: None)
     monkeypatch.setattr(naip, "write_priority_report", reports.append)
     assert naip.main() == 0

@@ -64,6 +64,7 @@ import requests
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import enrichment_units as EU  # noqa: E402 - (state, county) units
+import image_storage as IS  # noqa: E402 - optimize + content-addressed paths
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY")
@@ -190,25 +191,53 @@ def fetch_naip_image(latitude, longitude):
     return body, True
 
 
-def upload_image(property_id: str, png: bytes) -> str | None:
-    """Store in the same public bucket the Street View pipeline uses. Unlike
-    that pipeline, this is unambiguously allowed: NAIP is public domain, so
-    re-serving the bytes carries no licence question at all."""
-    path = f"naip/{property_id}.png"
+def public_url(path: str) -> str:
+    return f"{SUPABASE_URL}/storage/v1/object/public/{STORAGE_BUCKET}/{path}"
+
+
+def object_exists(path: str) -> bool:
+    """True only when the object is confirmed present (a failed check is
+    'not known to exist', so the caller uploads rather than pointing a row at
+    a missing object)."""
+    try:
+        resp = requests.head(public_url(path), timeout=REQUEST_TIMEOUT)
+    except requests.RequestException:
+        return False
+    return resp.status_code == 200
+
+
+def put_object(path: str, data: bytes, content_type: str) -> bool:
     url = f"{SUPABASE_URL}/storage/v1/object/{STORAGE_BUCKET}/{path}"
     headers = {
         "apikey": SERVICE_KEY,
         "Authorization": f"Bearer {SERVICE_KEY}",
-        "Content-Type": "image/png",
-        "x-upsert": "true",
+        "Content-Type": content_type,
+        "cache-control": "31536000",
+        # Content-addressed: the same path always holds the same bytes, so an
+        # existing object is never overwritten.
+        "x-upsert": "false",
     }
     try:
-        resp = requests.post(url, headers=headers, data=png, timeout=REQUEST_TIMEOUT)
-        resp.raise_for_status()
+        resp = requests.post(url, headers=headers, data=data, timeout=REQUEST_TIMEOUT)
     except requests.RequestException as exc:
-        print(f"  upload failed for {property_id}: {exc}", file=sys.stderr)
-        return None
-    return f"{SUPABASE_URL}/storage/v1/object/public/{STORAGE_BUCKET}/{path}"
+        print(f"  upload failed for {path}: {exc}", file=sys.stderr)
+        return False
+    if resp.status_code in (200, 201):
+        return True
+    # 409 / "Duplicate": the object appeared between the existence check and
+    # the upload - same path means same content, so it is usable.
+    if resp.status_code in (400, 409) and "uplicate" in (resp.text or ""):
+        return True
+    print(f"  upload failed for {path}: HTTP {resp.status_code}", file=sys.stderr)
+    return False
+
+
+def prepare_image(png: bytes):
+    """(optimized, path): same-size WebP when strictly smaller and decodable,
+    else the source bytes - at a content-addressed path either way."""
+    opt = IS.optimize_image(png)
+    path = IS.optimized_path(opt.source_sha256) if opt.optimized else f"{IS.OPTIMIZED_PREFIX}{opt.source_sha256}.{opt.extension}"
+    return opt, path
 
 
 def storage_used_bytes(prefix: str = "", depth: int = 0) -> int | None:
@@ -277,6 +306,12 @@ IMAGERY_TIERS = (
     ("auction_closed", {"source": "eq.auction", "status": f"in.{_GONE}"}),
 )
 EXCLUDED_SOURCES = ("certificate",)
+# Storage-optimization sprint (2026-10-01): closed / dropped auctions get no
+# NEW imagery either - no product requirement needs a fresh aerial of a sale
+# that is over. Their outstanding rows are counted and reported as deferred
+# by policy; their existing images are kept. Certificates are not even
+# counted against storage: no request is made for them.
+COLLECTED_TIERS = ("available", "auction_active")
 
 
 def tier_params(tier_filter: dict) -> dict:
@@ -332,11 +367,13 @@ def main():
     budget = int(STORAGE_BUDGET_MB * 1024 * 1024)
     report = {"budget_mb": STORAGE_BUDGET_MB, "used_mb": None if used is None else round(used / 1048576, 1),
               "excluded_ledgers": list(EXCLUDED_SOURCES), "tiers": {}, "uploads_allowed": False}
+    report.update({"collected_tiers": list(COLLECTED_TIERS), "compressed": 0, "deduplicated": 0, "bytes_saved": 0, "bytes_stored": 0})
     tiers = []
     for name, flt in IMAGERY_TIERS:
         units = fetch_counties_needing_photos(flt)
         tiers.append((name, flt, units))
-        report["tiers"][name] = {"outstanding": sum(n for _, n in units), "attempted": 0, "stored": 0, "no_coverage": 0, "failed": 0}
+        report["tiers"][name] = {"outstanding": sum(n for _, n in units), "attempted": 0, "stored": 0, "no_coverage": 0, "failed": 0,
+                                 "collected": name in COLLECTED_TIERS}
     if used is None:
         print("Storage usage could not be established - no image uploaded this run (budget guard fails closed).")
         _finish(report)
@@ -351,6 +388,9 @@ def main():
     stop = False
     for name, flt, counties in tiers:
         t = report["tiers"][name]
+        if name not in COLLECTED_TIERS:
+            print(f"Tier {name}: {t['outstanding']} row(s) outstanding - deferred by policy (no new imagery collected).")
+            continue
         if stop or attempted >= BATCH_LIMIT:
             break
         print(f"Tier {name}: {len(counties)} unit(s), {t['outstanding']} row(s) with coordinates and no image.")
@@ -378,19 +418,36 @@ def main():
                     patch_property(row["id"], build_update_fields("", checked_at=checked_at))
                     t["no_coverage"] += 1
                     continue
-                if used + len(png) > budget:
+                # Optimized + content-addressed (image_storage): the budget is
+                # checked against the bytes that would actually be added, and
+                # an identical image already stored costs nothing.
+                opt, path = prepare_image(png)
+                exists = object_exists(path)
+                need = 0 if exists else len(opt.data)
+                if used + need > budget:
                     print("Storage budget reached mid-run - stopping uploads; remaining rows stay unchecked.")
                     stop = True
                     break
-                public_url = upload_image(row["id"], png)
-                if public_url is None:
+                if exists:
+                    report["deduplicated"] += 1
+                    report["bytes_saved"] += opt.source_bytes
+                    stored_url = public_url(path)
+                elif put_object(path, opt.data, opt.content_type):
+                    stored_url = public_url(path)
+                    report["bytes_stored"] += len(opt.data)
+                    if opt.optimized:
+                        report["compressed"] += 1
+                        report["bytes_saved"] += opt.saved_bytes
+                else:
+                    stored_url = None
+                if stored_url is None:
                     # The image exists but could not be stored: nothing is
                     # stamped, so the row is retried - never marked complete.
                     t["failed"] += 1
                     continue
-                patch_property(row["id"], build_update_fields(public_url, checked_at=checked_at))
+                patch_property(row["id"], build_update_fields(stored_url, checked_at=checked_at))
                 t["stored"] += 1
-                used += len(png)
+                used += need
     report["used_mb"] = round(used / 1048576, 1)
     _finish(report)
     return 0
@@ -400,7 +457,9 @@ def _finish(report: dict) -> None:
     for t in report["tiers"].values():
         t["deferred"] = max(0, t["outstanding"] - t["stored"] - t["no_coverage"])
     write_priority_report(report)
-    print("Imagery priority (available > active auctions > closed auctions; certificates excluded):")
+    print("Imagery priority (available > active auctions; closed auctions deferred by policy; certificates excluded):")
+    print(f"  storage: compressed {report.get('compressed', 0)}, deduplicated {report.get('deduplicated', 0)}, "
+          f"bytes stored {report.get('bytes_stored', 0)}, estimated bytes saved {report.get('bytes_saved', 0)}")
     for name, t in report["tiers"].items():
         print(f"  {name}: outstanding {t['outstanding']}, attempted {t['attempted']}, stored {t['stored']}, "
               f"no coverage {t['no_coverage']}, failed {t['failed']}, deferred {t['deferred']}")

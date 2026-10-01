@@ -2033,6 +2033,24 @@ Full description: `docs/customer-monitoring.md`. Stable facts:
   is the procedure.
 - `sw.js` -> `tdw-shell-v63`.
 
+## Image storage optimization (2026-10-01, PR open, no migration)
+
+Full description: `docs/image-storage.md`. Stable facts:
+- **Encoding:** stored NAIP imagery is same-size (600 × 450) WebP, quality 82
+  (`scripts/image_storage.py`). An image is never replaced by a larger,
+  undecodable or different-size file.
+- **New images:** stored at `naip/v2/<sha256 of source>.webp`. Exact duplicates
+  reuse one object.
+- **Existing images:** re-encoded IN PLACE by `scripts/optimize_stored_images.py`
+  (manual `job=storage`, `storage_mode` analyze / apply / apply_consolidate).
+  - No `properties` row is written, because every UPDATE bumps `updated_at`
+    (the app's "Last synced") through `touch_updated_at`.
+  - Consolidating duplicates repoints rows, so it is opt-in.
+- **Priority:** imagery goes to Available first, then active auctions. Closed
+  auctions are deferred by policy. Certificates are never requested.
+- **Budget and failures:** the 950 MB budget fails closed. Both NAIP steps are
+  `continue-on-error`.
+
 ## Where to look for more
 
 - `claude/improvement-roadmap.md` in the "tax florida app" claude.ai Project — the full dated log of every fix, audit finding, and open decision. This is where new findings should be appended, not here.
