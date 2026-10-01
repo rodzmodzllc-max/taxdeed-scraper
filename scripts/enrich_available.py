@@ -342,6 +342,22 @@ def other_enricher_plan(rows: list[dict], *, storage_headroom_bytes: int | None,
 
 # ------------------------------------------------------------ I/O
 
+def _read_page(esp, url: str, hdr: dict, attempts: int = 4, pause: float = 5.0) -> list:
+    """One page of a paged read, retried on a transient server error (an HTTP
+    500 from PostgREST under load ended the 2026-10-01 apply before its first
+    write). The last failure is raised: a read that cannot complete never
+    yields a partial population to plan against."""
+    import time  # noqa: PLC0415
+    for i in range(attempts):
+        try:
+            return esp.http_json(url, headers=hdr, timeout=120) or []
+        except Exception:  # noqa: BLE001
+            if i == attempts - 1:
+                raise
+            time.sleep(pause * (2 ** i))
+    return []
+
+
 def fetch_rows(base: str, key: str, states: list[str]) -> list[dict]:
     import urllib.parse  # noqa: PLC0415
     import enrich_statewide_parcels as ESP  # noqa: PLC0415
@@ -352,7 +368,7 @@ def fetch_rows(base: str, key: str, states: list[str]) -> list[dict]:
         while True:
             q = urllib.parse.urlencode({"select": SELECT, "state": f"eq.{st}", "source": "eq.laft", "status": "eq.active",
                                         "order": "id.asc", "limit": PAGE, "offset": offset})
-            page = ESP.http_json(f"{base}/rest/v1/properties?{q}", headers=hdr, timeout=120) or []
+            page = _read_page(ESP, f"{base}/rest/v1/properties?{q}", hdr)
             rows += page
             if len(page) < PAGE:
                 break

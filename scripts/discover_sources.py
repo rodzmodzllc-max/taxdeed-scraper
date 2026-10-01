@@ -275,6 +275,34 @@ def all_unit_rows(base: str, key: str, state: str, county: str) -> list[dict]:
         offset += 1000
 
 
+def metadata(http: Http, target: dict) -> dict:
+    """The source's OWN column definitions (metadata only, no record value):
+    Socrata view columns (fieldName / name / description / dataTypeName) or an
+    ArcGIS layer's fields (name / alias / type). A mapping is configured from
+    these definitions, never from a guess at what a column name means."""
+    out = {"state": target["state"], "county": target["county"], "url": target["url"]}
+    if target["kind"] == "socrata":
+        meta, err = http.json(target["meta"])
+        if err:
+            return {**out, "error": err}
+        out["name"] = (meta or {}).get("name")
+        out["licence"] = ((meta or {}).get("license") or {}).get("name")
+        out["description"] = ((meta or {}).get("description") or "")[:1500]
+        out["columns"] = [{"field": c.get("fieldName"), "name": c.get("name"), "type": c.get("dataTypeName"),
+                           "description": (c.get("description") or "")[:600]}
+                          for c in (meta or {}).get("columns", []) if not str(c.get("fieldName") or ":").startswith(":")]
+        return out
+    meta, err = http.json(target["url"], {"f": "json"})
+    if err or "error" in (meta or {}):
+        return {**out, "error": err or "layer error"}
+    out["name"] = (meta or {}).get("name")
+    out["licence"] = (meta or {}).get("licenseInfo") or None
+    out["description"] = ((meta or {}).get("description") or "")[:1500]
+    out["columns"] = [{"field": f.get("name"), "name": f.get("alias"), "type": f.get("type"), "description": ""}
+                      for f in (meta or {}).get("fields") or []]
+    return out
+
+
 def deep_probe(http: Http, target: dict, rows: list[dict]) -> dict:
     """Exact-identifier match counts (normalized alnum on both sides) per
     identifier field, ambiguity, and per-column fill among matched records."""
@@ -445,6 +473,7 @@ def main(argv=None) -> int:
     ap.add_argument("--gis", action="store_true")
     ap.add_argument("--documents", action="store_true")
     ap.add_argument("--deep", action="store_true", help="exact-identifier match + fill probe of DEEP_TARGETS (every unit row)")
+    ap.add_argument("--metadata", action="store_true", help="print each DEEP_TARGET's own column definitions (no values)")
     ap.add_argument("--state")
     ap.add_argument("--county")
     ap.add_argument("--out", default=str(REPO / "out" / "public" / "source-discovery.json"))
@@ -454,6 +483,20 @@ def main(argv=None) -> int:
         print("skip: SUPABASE_URL / SUPABASE_SERVICE_KEY not set")
         return 0
     http = Http()
+    if a.metadata:
+        metas = [metadata(http, t) for t in DEEP_TARGETS
+                 if not ((a.state and t["state"] != a.state) or (a.county and t["county"] != a.county))]
+        out = Path(a.out.replace(".json", "-metadata.json"))
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(json.dumps(metas, indent=2, sort_keys=True, default=str) + "\n", encoding="utf-8")
+        for m in metas:
+            print(f"== METADATA {m['state']} / {m['county']} {m['url']}: {mask(str(m.get('name')))} licence={m.get('licence')} error={m.get('error')}")
+            if m.get("description"):
+                print(f"   description: {mask(m['description'])}")
+            for c in m.get("columns") or []:
+                print(f"   - {c['field']} | {mask(str(c.get('name')))} | {c.get('type')} | {mask(c.get('description') or '')}")
+        if not (a.deep or a.gis or a.documents):
+            return 0
     if a.deep:
         deep = []
         for t in DEEP_TARGETS:

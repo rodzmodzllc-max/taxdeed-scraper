@@ -446,9 +446,14 @@ def test_available_job_is_manual_only_and_scoped():
     job = wf["jobs"]["available"]
     assert job["if"] == "github.event_name == 'workflow_dispatch' && github.event.inputs.job == 'available'"
     inputs = (wf.get("on") or wf.get(True))["workflow_dispatch"]["inputs"]
-    assert inputs["available_mode"]["options"] == ["plan", "probe", "discover", "apply", "imagery"] and inputs["available_mode"]["default"] == "plan"
+    assert inputs["available_mode"]["options"] == ["plan", "metadata", "probe", "discover", "apply", "imagery"] and inputs["available_mode"]["default"] == "plan"
     runs = "\n".join(s.get("run", "") for s in job["steps"])
-    assert "texas_harvester" not in runs and "lgbs" not in runs.lower()
+    # LGBS is authorized for the AVAILABLE sprint (2026-10-01) ONLY through the
+    # AVAILABLE-scoped refresh: never the harvester's main(), never the Texas
+    # sync (which upserts the auction ledger too).
+    assert "texas_harvester" not in runs and "sync-texas" not in runs
+    lgbs_lines = [ln for ln in runs.splitlines() if "lgbs" in ln.lower()]
+    assert lgbs_lines and all("scripts/lgbs_available_refresh.py" in ln for ln in lgbs_lines)
     assert "enrich_available.py --plan --label before" in runs and "enrich_available.py --apply" in runs
     apply_steps = [s for s in job["steps"] if "apply" in str(s.get("if", "")) and "Plan" not in s["name"]]
     assert all(s.get("continue-on-error") for s in apply_steps)      # one enricher failing never stops the rest

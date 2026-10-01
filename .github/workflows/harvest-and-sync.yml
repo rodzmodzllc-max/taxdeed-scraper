@@ -193,7 +193,9 @@ on:
         description: >-
           (job=available only) Execution priority (2026-10-01): AVAILABLE
           customer value first, imagery last and never in the same run.
-          plan = read-only coverage matrix + expected writes; probe = the
+          plan = read-only coverage matrix + expected writes; metadata = each
+          probed source's own column definitions + the LGBS field inventory
+          (value-free, minutes); probe = the
           value-free deep identifier / fill probe only (minutes); discover =
           catalog + documents + deep probe; apply = PRIORITY 1-2 only (cleared
           parcel / tax-roll layers: identifiers, legal descriptions,
@@ -203,7 +205,7 @@ on:
         required: false
         type: choice
         default: plan
-        options: [plan, probe, discover, apply, imagery]
+        options: [plan, metadata, probe, discover, apply, imagery]
       storage_max:
         description: (job=storage, apply modes) optimize at most N objects this run; blank = all.
         required: false
@@ -1639,8 +1641,17 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 scripts/discover_sources.py --deep
 
+      - name: Metadata - each source's own column definitions + LGBS field inventory (value-free, minutes)
+        if: github.event.inputs.available_mode == 'metadata'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          python3 scripts/discover_sources.py --metadata
+          python3 scripts/lgbs_available_refresh.py --probe
+
       - name: Plan (before) - coverage matrix and expected writes, read-only
-        if: github.event.inputs.available_mode != 'discover' && github.event.inputs.available_mode != 'probe'
+        if: github.event.inputs.available_mode != 'discover' && github.event.inputs.available_mode != 'probe' && github.event.inputs.available_mode != 'metadata'
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
@@ -1653,6 +1664,18 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 scripts/enrich_available.py --apply --label parcels
+
+      - name: Apply - Texas AVAILABLE rows observed on the LGBS feed (stamp + provenance; no close, no new field)
+        # scripts/lgbs_available_refresh.py: reads ONLY the LGBS feed through the
+        # harvester's ingestion gate and touches ONLY active TX laft rows. A row
+        # the feed no longer lists is counted, never closed.
+        if: github.event.inputs.available_mode == 'apply'
+        continue-on-error: true
+        timeout-minutes: 20
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/lgbs_available_refresh.py --apply
 
       - name: Apply - FEMA flood hazard
         if: github.event.inputs.available_mode == 'apply'
