@@ -3955,6 +3955,12 @@ function inventoryStatusHtml(p) {
 // deterministically - e.g. by FDOR parcel identifier), and when it was
 // recorded. Nothing here is a score: a field either has a recorded origin
 // or is shown as "not recorded".
+// A certificate whose values were enriched (e.g. a statewide parcel record)
+// shows the same field-by-field provenance card a property does.
+function hasFieldProvenance(p) {
+  const fp = p && p.field_provenance;
+  return !!fp && typeof fp === "object" && Object.values(fp).some(v => v && typeof v === "object" && v.source);
+}
 function provenanceRowsHtml(fp, p) {
   const entries = Object.entries(fp || {}).filter(([, v]) => v && typeof v === "object" && v.source);
   if (!entries.length) return "";
@@ -4469,7 +4475,7 @@ function detailHtml(p) {
     </div>
     <button class="detail-btn detail-report-btn" data-action="support" data-topic="source" data-pid="${p.id}" type="button">Report a source problem</button>`, "", "sources")}
     ${auctionLinkHtml(p, "detail-cta")}
-    ${isCert ? `<div class="detail-provenance">
+    ${isCert && !hasFieldProvenance(p) ? `<div class="detail-provenance">
       ${harvesterSourceLabel(p) ? `<span>Data source: ${esc(harvesterSourceLabel(p))}</span>` : ""}
       <span class="${isRowStale(p) ? "stale" : ""}">${esc(lastSyncedText(p))}</span>
     </div>` : provenanceCardHtml(p)}

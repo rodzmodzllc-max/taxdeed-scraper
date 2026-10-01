@@ -3069,6 +3069,23 @@ await navMap.close();
   results.laDetailCostNotPublished = /Not published by the source/.test(laDetail);
   results.laDetailNoFixedPrice = !/fixed price/i.test(laDetail);
   await laPage.close();
+  // Property-enrichment sprint: the Parish Attorney's process and the assessor's land value,
+  // each named with its source; the list stays dated.
+  const la2 = await newPage({ viewport: { width: 1200, height: 900 } });
+  await la2.goto(BASE_URL.replace(/index\.html$/, 'la.html') + '#/lands/pla2', { waitUntil: 'networkidle' });
+  await la2.waitForTimeout(600);
+  const la2d = ((await la2.locator('#detailModalInner').textContent()) || '').replace(/\s+/g, ' ');
+  const landProv = ((await la2.locator('#detailModalInner .provenance-card .prov-row[data-field="land_value"]').textContent().catch(() => '')) || '').replace(/\s+/g, ' ');
+  results.laEnriched = {
+    office: /Office of the Parish Attorney/.test(la2d),
+    confirmFirst: /remains adjudicated/.test(la2d),
+    noVendor: !/CivicSource/i.test(la2d),
+    stillDated: /Not verified as available now/.test(la2d),
+    landSource: /Government parcel \/ tax-roll record - Tax Parcel \(data\.brla\.gov ei2c-krsr\)/.test(landProv),
+    landMethod: /attached by an exact identifier match \(parcel # = assessment_num\)/.test(landProv),
+    noUndefined: !/undefined/.test(la2d)
+  };
+  await la2.close();
 }
 
 // ============================================================
@@ -3109,6 +3126,12 @@ await navMap.close();
       await cold.waitForTimeout(600);
       results.xsCoCardCount = (await cold.locator('[data-pid="pco1"]').count()) > 0;
       const d = ((await cold.locator('#detailModalInner').textContent()) || '').replace(/\s+/g, ' ');
+      const coMarket = ((await cold.locator('#detailModalInner .provenance-card .prov-row[data-field="market"]').textContent().catch(() => '')) || '').replace(/\s+/g, ' ');
+      results.xsCoMarketProvenance = {
+        label: /Parcel Total Value \(Colorado Public Parcels\)/.test(coMarket) && !/Just value/i.test(coMarket),
+        source: /Government parcel \/ tax-roll record - Colorado Public Parcels/.test(coMarket),
+        method: /attached by an exact identifier match \(parcel # = account\)/.test(coMarket)
+      };
       results.xsCoDetail = {
         treasurer: /Morgan County Treasurer/.test(d),
         steps: /Purchase the certificate from the Morgan County Treasurer for the amount shown/.test(d),
@@ -3743,6 +3766,8 @@ const EXPECTED = {
   xsCoDetail: { treasurer: true, steps: true, noStreetView: true, noUndefined: true, sourceNamed: true },
   xsCoDouglas: { attribution: true, assignment: true, noStreetView: true, noUndefined: true },
   xsCoAuctionCopy: true,
+  xsCoMarketProvenance: { label: true, source: true, method: true },
+  laEnriched: { office: true, confirmFirst: true, noVendor: true, stillDated: true, landSource: true, landMethod: true, noUndefined: true },
   laNoStateTabs: true,
   laCardCount: 1,
   laCardSaysListAsOf: true,

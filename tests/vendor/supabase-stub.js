@@ -185,6 +185,24 @@ const FIXTURE_PROPERTIES = [
     url_auction: "https://data.brla.gov/Housing-and-Development/Adjudicated-Property/a4h4-zi7e", url_auction_kind: "county",
     purchase_url: null, purchase_amount: null, purchase_amount_kind: "NOT_PUBLISHED", list_as_of: "2024-02-27", source_published_at: "2024-02-27T18:54:28Z",
     assessed: 2500, market: 25000, tax_year: "2023", latitude: 30.4515, longitude: -91.1871, publication_status: "APPROVED", ledger_type: "buy", updated_at: "2026-09-30T12:00:00Z" },
+  // 2026-10-01 (property-enrichment sprint): a second East Baton Rouge row in the
+  // shape the LA lifecycle + enrichment write once the Parish Attorney's process
+  // (data/purchase_path_evidence.csv) and the EBR Tax Parcel land value
+  // (la_ebr_tax_parcels, Public Domain) apply. SYNTHETIC values.
+  { id: "pla2", source: "laft", state: "LA", county: "East Baton Rouge", case_no: "012-3456-8", parcel: "012-3456-8", address: "12 FIXTURE AVE", bid: 0, status: "active", sale_date: null, lien_level: "unscreened", lien_note: "",
+    harvester_source: "la_ebr_adjudicated", source_id: "la_ebr_adjudicated", source_authority: "GOVERNMENT_DIRECT", inventory_type: "ADJUDICATED_PROPERTY",
+    list_url: "https://data.brla.gov/Housing-and-Development/Adjudicated-Property/a4h4-zi7e", url_auction: "https://data.brla.gov/Housing-and-Development/Adjudicated-Property/a4h4-zi7e", url_auction_kind: "county",
+    purchase_url: "https://www.brla.gov/455/Adjudicated-Property", purchase_url_kind: "purchase_instructions", purchase_amount: null, purchase_amount_kind: "NOT_PUBLISHED", list_as_of: "2024-02-27",
+    assessed: 2600, market: 26000, land_value: 9000, tax_year: "2023", latitude: 30.4521, longitude: -91.1875,
+    purchase_path_type: "county_instructions", purchase_path_scope: "source", purchase_path_observed_on: "2026-10-01",
+    purchase_path_evidence: "The Parish Attorney's Adjudicated Property page and FAQ say the Office of the Parish Attorney handles sales of adjudicated property",
+    otc_provenance: { acquisition: { mode: "multi_step", channels: [], office: "Office of the Parish Attorney, City of Baton Rouge / Parish of East Baton Rouge",
+      evidence_url: "https://www.brla.gov/Faq.aspx?QID=286", observed_on: "2026-10-01",
+      steps: ["Confirm with the East Baton Rouge Parish Sheriff that the property remains adjudicated (properties are redeemed during the year)",
+              "Request to purchase directly through the Office of the Parish Attorney, using its Request to Purchase form (see the Parish Attorney's Memorandum)"] } },
+    field_provenance: { land_value: { source: "statewide_parcel", source_id: "la_ebr_tax_parcels", dataset: "Tax Parcel (data.brla.gov ei2c-krsr)", agency: "East Baton Rouge Parish Assessor (Open Data BR)",
+      matched_id_field: "assessment_num", matched_row_column: "parcel", matched_parcel_id: "012-3456-8", recorded_at: "2026-10-01T12:00:00Z" } },
+    publication_status: "APPROVED", ledger_type: "buy", updated_at: "2026-10-01T12:00:00Z" },
   // 2026-09-30 (six-state expansion): rows in the shapes scripts/harvest_expansion.py
   // + sync_state_inventory.py write. Values are SYNTHETIC.
   { id: "pmi1", source: "auction", state: "MI", county: "Eaton", case_no: "100-200-300-400-50", parcel: "100-200-300-400-50", address: "100 FIXTURE ST", bid: 4200, min_bid: 4200, status: "active", sale_date: null, lien_level: "unscreened", lien_note: "",
