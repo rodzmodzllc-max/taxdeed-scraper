@@ -539,14 +539,16 @@ jobs:
         run: python3 scripts/source_health.py --source fl_certificates --label "Florida county-held certificates (LienHub)" --state FL --mode scheduled --cadence-hours 24 --status out/harvest_certificates_status.json --rows out/harvest_certificates.json --outcome ${{ steps.sync.outcome }}
 
       - name: Freshness - stamp last_seen_at on rows read this run
-        # Only (county, case number) pairs present in this run's harvest file;
-        # the timestamp is taken after the upsert. Never closes or un-stamps.
+        # Only (county, case number) pairs present in this run's harvest file,
+        # and only in counties the status file marks COMPLETE / EMPTY (a
+        # LienHub 403 or a partial read stamps nothing); the timestamp is
+        # taken after the upsert. Never closes or un-stamps.
         if: steps.sync.outcome == 'success'
         continue-on-error: true
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-        run: python3 scripts/stamp_seen.py --state FL --source certificate --harvest out/harvest_certificates.json --case-key case_no
+        run: python3 scripts/stamp_seen.py --state FL --source certificate --harvest out/harvest_certificates.json --case-key case_no --status out/harvest_certificates_status.json
 
       - name: Change detection - deterministic property changes and customer alerts
         # scripts/detect_property_changes.py: status / sale date / opening bid /

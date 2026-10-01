@@ -2051,6 +2051,23 @@ Full description: `docs/image-storage.md`. Stable facts:
 - **Budget and failures:** the 950 MB budget fails closed. Both NAIP steps are
   `continue-on-error`.
 
+## Data-quality fixes before merge (2026-10-01, PR open, no migration)
+
+- **Every whole-population REST read pages by id.** PostgREST's max-rows
+  (1,000) caps any `limit`, so `scripts/laft_lifecycle.py` reads through
+  `Api.get_all()` (`order=id.asc&limit=1000&offset`). Its old `limit=10000`
+  read had matched only 1,000 of Louisiana's 10,334 rows. Never write a
+  single read with a limit above 1,000.
+- **FL certificate `last_seen_at`:** `stamp_seen.py --status` stamps only
+  counties the harvester's status file marks COMPLETE / EMPTY. A missing
+  status file stamps nothing. A one-object JSON (PowerShell's single-element
+  array) is read as one row. The NULLs on 2026-10-01 were correct: LienHub
+  returned 403 for all 32 counties on the only run since stamping shipped.
+- **Texas is manual-only by design** (the `texas` job is dispatch-only; LGBS
+  and TX RealAuction run nowhere else). `unit_freshness.MANUAL_ONLY_SOURCES`
+  marks those units `manual_only` and never ages them by the clock. Their
+  last read is never advanced. A test pins that set to the job's trigger.
+
 ## Where to look for more
 
 - `claude/improvement-roadmap.md` in the "tax florida app" claude.ai Project — the full dated log of every fix, audit finding, and open decision. This is where new findings should be appended, not here.

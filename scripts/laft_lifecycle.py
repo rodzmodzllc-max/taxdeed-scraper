@@ -620,6 +620,9 @@ def group_provenance(rows: list[tuple[str, dict]], gate: dict, retrieved_at: str
 # Supabase I/O (stdlib)
 # ---------------------------------------------------------------------------
 
+API_PAGE = 1000          # PostgREST max-rows on this project
+
+
 class Api:
     def __init__(self, url: str, key: str, *, dry_run: bool = False) -> None:
         self.base = url.rstrip("/") + "/rest/v1/properties"
@@ -638,6 +641,24 @@ class Api:
         with urllib.request.urlopen(req, timeout=60) as resp:
             self.requests_made += 1
             return json.loads(resp.read().decode())
+
+    def get_all(self, query: str, *, page: int = API_PAGE) -> list[dict]:
+        """Every row matching `query`, read in `page`-sized pages.
+
+        PostgREST caps every response at its max-rows (1,000 on this
+        project), whatever `limit` asks for - a single 10,000-row limit
+        silently returned the first 1,000 rows (East Baton Rouge's 10,334
+        Louisiana rows were cut to 1,000). Pages are ordered by the primary
+        key so no row is read twice or skipped; a short page ends the read.
+        """
+        rows: list[dict] = []
+        offset = 0
+        while True:
+            chunk = self.get(f"{query}&order=id.asc&limit={page}&offset={offset}")
+            rows.extend(chunk)
+            if len(chunk) < page:
+                return rows
+            offset += len(chunk)
 
     def patch(self, query: str, body: dict) -> None:
         if self.dry_run:
@@ -688,8 +709,8 @@ def fetch_state_rows(api: Api, state: str, counties: list[str], extra_columns=()
     rows: list[dict] = []
     for i in range(0, len(counties), 25):
         chunk = counties[i:i + 25]
-        rows.extend(api.get(f"state=eq.{state}&source=eq.{SOURCE}&county=in.{q(in_list(chunk))}"
-                            f"&select={','.join(select)}&limit=10000"))
+        rows.extend(api.get_all(f"state=eq.{state}&source=eq.{SOURCE}&county=in.{q(in_list(chunk))}"
+                                f"&select={','.join(select)}"))
     return rows
 
 
@@ -825,7 +846,7 @@ def main(argv=None) -> int:
     extra = (tuple(SF.OPTIONAL_COLUMNS) if have_019 else ()) + (CARRY_COLUMNS if have_023 else CARRY_COLUMNS[:4] if have_017 else ())
     # Every county on record, not only this run's: a county missing from the
     # status file entirely (NOT_RUN) still keeps and receives its evidence.
-    counties_all = sorted(set(counties) | {str(r.get("county")) for r in api.get(f"state=eq.{state}&source=eq.{SOURCE}&status=eq.active&select=county&limit=10000")})
+    counties_all = sorted(set(counties) | {str(r.get("county")) for r in api.get_all(f"state=eq.{state}&source=eq.{SOURCE}&status=eq.active&select=county")})
     db_rows = fetch_state_rows(api, state, counties_all, extra) if counties_all else []
     plan = plan_lifecycle(gates, observed, db_rows)
     if not have_017:

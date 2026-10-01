@@ -27,4 +27,4 @@ def test_chunks_and_workflow_wiring():
     assert len(urls) == 2
     wf = (ROOT / ".github/workflows/harvest-and-sync.yml").read_text(encoding="utf-8")
     assert "stamp_seen.py --state FL --source auction --harvest out/harvest_all.json --case-key case" in wf
-    assert "stamp_seen.py --state FL --source certificate --harvest out/harvest_certificates.json --case-key case_no" in wf
+    assert "stamp_seen.py --state FL --source certificate --harvest out/harvest_certificates.json --case-key case_no --status out/harvest_certificates_status.json" in wf
