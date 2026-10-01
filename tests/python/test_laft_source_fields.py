@@ -211,7 +211,8 @@ def test_c02_provenance_payload_carries_list_as_of_and_published_at_never_retrie
     p = L.provenance_payload({"county": "Marion", "case_no": "A"}, gate, "2026-09-29T00:00:00+00:00")
     assert p["list_as_of"] == "2026-09-15" and p["source_published_at"] == "2026-09-15T14:03:00+00:00"
     p2 = L.provenance_payload({"county": "Marion", "case_no": "A"}, {"harvester": "h", "entry": {}}, "2026-09-29T00:00:00+00:00")
-    assert p2["list_as_of"] is None and p2["source_published_at"] is None
+    # Not stated this run = not written: a NULL never overwrites a stored statement.
+    assert "list_as_of" not in p2 and "source_published_at" not in p2
     assert "not stated" in p2["otc_provenance"]["list_as_of"]
 
 

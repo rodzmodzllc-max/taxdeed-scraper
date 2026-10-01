@@ -477,7 +477,8 @@ def provenance_payload(row: dict, gate: dict, retrieved_at: str, *, state: str =
             "document_url": document_url,
             "inventory_type": inventory_basis,
             "purchase_amount": ("not published by the source" if amount is None else f"source column/field: {kind}"),
-            "list_as_of": ("stated by the list document/filename" if list_as_of else "not stated by the source"),
+            "list_as_of": ("stated by the list document/filename" if list_as_of
+                           else "not stated in this run's read; a date stored from an earlier read or the sync is kept"),
             "source_published_at": ("HTTP Last-Modified of the source document" if published_at else "no Last-Modified from the source"),
             "purchase_url": purchase_basis,
             "purchase_path_mode": purchase_mode,
@@ -490,6 +491,13 @@ def provenance_payload(row: dict, gate: dict, retrieved_at: str, *, state: str =
             "source_match": source_match_of(row, list_url=list_url, document_url=document_url, read_at=retrieved_at),
         },
     }
+    for key in ("list_as_of", "source_published_at"):
+        # A source statement this run did not carry is not a statement that
+        # there is none: an absent value never writes NULL over a stored one
+        # (the Louisiana sync stores list_as_of from the dataset's own
+        # rowsUpdatedAt; the lifecycle's status entry has no such field).
+        if payload[key] is None:
+            del payload[key]
     if purchase_url is not None:
         payload["purchase_url"] = purchase_url
         payload["purchase_url_kind"] = purchase_kind

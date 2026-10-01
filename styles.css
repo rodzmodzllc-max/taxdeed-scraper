@@ -1651,6 +1651,24 @@ live here are removed with the #pageMap section itself - see the note by
 .acq-contact dt{color:var(--ink-soft);font-weight:600} .acq-contact dd{margin:0;overflow-wrap:anywhere}
 .acq-match{font-family:var(--font-mono);font-size:.7rem}
 @media (max-width:480px){ .acq-contact{grid-template-columns:1fr} .acq-contact dd{margin-bottom:.2rem} }
+/* HOW TO ACQUIRE (Acquisition-path sprint, 2026-10-01): why it is available,
+   one primary action, then method / instructions / official source / last
+   verified. No badge, no score. */
+.acquire-card .acq-block{display:flex;flex-direction:column;gap:.3rem}
+.acq-h{font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-soft);margin-top:.35rem}
+.acq-why-text{margin:0;font-size:.86rem;font-weight:600}
+.acq-why-basis{margin:0;font-size:.74rem;color:var(--ink-soft)}
+.acq-why-link{margin:.1rem 0 0;font-size:.78rem}
+.acq-cta-row{margin:.15rem 0 .25rem;display:flex;flex-wrap:wrap;align-items:center;gap:.5rem}
+.acq-cta{display:inline-flex;align-items:center;min-height:40px;padding:.45rem .95rem;border-radius:8px;background:var(--accent);color:var(--card);font-weight:700;font-size:.85rem;text-decoration:none}
+.acq-cta:hover,.acq-cta:focus-visible{filter:brightness(1.08);text-decoration:none}
+.acq-cta-sub{font-family:var(--font-mono);font-size:.74rem;color:var(--ink-soft)}
+.acq-dl{display:grid;grid-template-columns:minmax(0,8.5rem) minmax(0,1fr);gap:.25rem .7rem;margin:0;font-size:.8rem}
+.acq-dl dt{color:var(--ink-soft);font-weight:600} .acq-dl dd{margin:0;overflow-wrap:anywhere}
+.acq-dl .acq-steps{margin:0}
+/* "Not yet verified" is an enrichment state, not an error: neutral ink, no warning colour. */
+.acq-pending{color:var(--ink-soft);font-weight:600}
+@media (max-width:480px){ .acq-dl{grid-template-columns:1fr} .acq-dl dd{margin-bottom:.3rem} }
 .dec-first-note{display:block;margin-bottom:.35rem}
 
 /* ---- Unified navigation (2026-09-30) ---- */

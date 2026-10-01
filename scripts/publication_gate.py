@@ -57,7 +57,7 @@ import purchase_path_engine as PE  # noqa: E402
 REPORT_PATH = REPO / "out" / "public" / "publication-gate.json"
 FRESHNESS_PERSIST = REPO / "out" / "unit-freshness-persist.json"
 SELECT = "id,state,county,source,harvester_source,source_id,publication_status,purchase_url,last_seen_at,inventory_status"
-SELECT_023 = SELECT + ",purchase_path_type,purchase_path_scope,list_as_of,source_published_at,otc_provenance"     # once migration 023 exists (probed)
+SELECT_023 = SELECT + ",purchase_path_type,purchase_path_scope,list_as_of,source_published_at,otc_provenance,list_url,document_url,purchase_path_observed_on,status"     # once migration 023 exists (probed)
 USER_AGENT = "taxdeed-scraper publication-gate (+https://github.com/rodzmodzllc-max/taxdeed-scraper)"
 
 
@@ -248,6 +248,40 @@ def load_rows_file(path: Path) -> list[dict]:
     return [r for r in rows if isinstance(r, dict)]
 
 
+def acquisition_coverage_report(rows: list[dict]) -> dict:
+    """AVAILABLE inventory and its acquisition-path ENRICHMENT, measured
+    separately (purchase_path_engine.acquisition_gaps / acquisition_state).
+    Publication is the source decision (publication_status) only; a row
+    without an acquisition path is published inventory awaiting enrichment,
+    never a publication failure. Counts only."""
+    out = {"verified_inventory": 0, "published": 0, "with_acquisition_path": 0, "without_acquisition_path": 0,
+           "with_direct_acquisition_url": 0, "official_source_only": 0, "partial_process": 0, "not_yet_verified": 0,
+           "missing": {}, "without_path_by_county": {}}
+    for r in rows:
+        if r.get("source") != "laft" or str(r.get("status") or "active").lower() not in ("active", "available", ""):
+            continue
+        out["verified_inventory"] += 1
+        if r.get("publication_status") in (None, "", "APPROVED", "APPROVED_GRANDFATHERED"):
+            out["published"] += 1
+        state = PE.acquisition_state(r)
+        if state in ("complete", "partial"):
+            out["with_acquisition_path"] += 1
+            if state == "partial":
+                out["partial_process"] += 1
+            if r.get("purchase_url") and r.get("purchase_path_type") in PE.URL_TYPES:
+                out["with_direct_acquisition_url"] += 1
+        else:
+            out["without_acquisition_path"] += 1
+            out["not_yet_verified"] += 1
+            if state == "source_only":
+                out["official_source_only"] += 1
+            key = f"{r.get('county')} ({r.get('source_id') or r.get('harvester_source')})"
+            out["without_path_by_county"][key] = out["without_path_by_county"].get(key, 0) + 1
+        for k in PE.acquisition_gaps(r):
+            out["missing"][k] = out["missing"].get(k, 0) + 1
+    return out
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--state", default="FL")
@@ -295,6 +329,7 @@ def main(argv=None) -> int:
                 rows = fetch_rows(api, args.state, select=SELECT_023 if have_023 else SELECT)
                 if have_023:
                     report["purchase_paths"] = PE.measure(rows)
+                    report["acquisition_coverage"] = acquisition_coverage_report(rows)
                 groups, counts = plan(rows, decisions)
                 report["plan"] = {"counts": counts, "by_status": {k: len(v) for k, v in groups.items()}}
                 if args.dry_run:
@@ -315,6 +350,14 @@ def main(argv=None) -> int:
         print(f"  AVAILABLE rows: {c['total_observed']} observed, {c['publishable']} publishable, {c['restricted']} restricted, "
               f"{c['unreviewed']} unreviewed, {c['blocked']} blocked, {c['unclassified']} unclassified; "
               f"{c['with_purchase_path']} with a purchase path; {c['stale']} stale (> {c['stale_days']}d)")
+        ac = report.get("acquisition_coverage")
+        if ac:
+            print(f"  AVAILABLE inventory (published under the source rules - acquisition path is enrichment): "
+                  f"{ac['verified_inventory']} verified, {ac['published']} published; acquisition path: {ac['with_acquisition_path']} with "
+                  f"({ac['with_direct_acquisition_url']} direct URL, {ac['partial_process']} partial process), {ac['without_acquisition_path']} not yet verified "
+                  f"({ac['official_source_only']} with the official source link only)")
+            for k, v in sorted(ac["without_path_by_county"].items()):
+                print(f"    acquisition path not yet verified - {k}: {v}")
         pp = report.get("purchase_paths")
         if pp:
             print(f"  acquisition (rows {pp['rows']}): {pp['with_source_listing']} with a source listing / document ({pp['pct_with_source_listing']}%), "

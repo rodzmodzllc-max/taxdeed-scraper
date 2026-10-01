@@ -58,6 +58,12 @@ except ImportError:  # pragma: no cover - the workflow installs it
 REPO = Path(__file__).resolve().parents[1]
 REGISTRY = REPO / "data" / "county_source_registry.csv"
 REALAUCTION_HOSTS = REPO / "data" / "realauction_counties.csv"
+# Acquisition-path sprint (2026-10-01): official pages a person found by
+# reading search results for the counties whose source page publishes no
+# process. Each row names the page exactly as it was published; the capture
+# reads it (and one hop of tax-deed links on it) so the process can be
+# verified from the page itself before any evidence row is written.
+CANDIDATES = REPO / "data" / "acquisition_candidate_pages.csv"
 OUT_PATH = REPO / "out" / "public" / "purchase-evidence-capture.json"
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
 HEADERS = {"User-Agent": UA, "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -65,7 +71,8 @@ HEADERS = {"User-Agent": UA, "Accept": "text/html,application/xhtml+xml,applicat
 LINK_VOCAB = re.compile(r"purchas|buy|apply|application|instruction|how to|procedure|process|form|lands available|"
                         r"land available|list of lands|tax deed|197\.502|fee|contact", re.I)
 SNIPPET_VOCAB = re.compile(r"purchas|apply|application|contact|phone|e-?mail|mail|in person|office|submit|form|fee|"
-                           r"197\.502|lands available|cashier|certified|payment|bid", re.I)
+                           r"197\.502|lands available|cashier|certified|payment|bid|struck|resale|re-sale|"
+                           r"trust propert|held in trust|sheriff|tax sale|foreclos", re.I)
 LONG_DIGITS = re.compile(r"\d{7,}")
 PHONE = re.compile(r"\(?\b\d{3}\)?[-. ]\d{3}[-. ]\d{4}\b")
 EMAIL = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
@@ -79,10 +86,11 @@ MAX_SNIPPETS, MAX_SNIPPET_CHARS, MAX_LINKS = 40, 320, 60
 # Tax-deed context is REQUIRED (a first capture followed generic "Forms" /
 # "Application Process" navigation into passport and marriage-licence pages).
 FOLLOW_VOCAB = re.compile(r"tax[\s_-]?deed|lands?[\s_-]?available|list[\s_-]?of[\s_-]?lands|197\.502|\blaft\b|"
-                          r"purchas\w* (property|land)|lands? for taxes", re.I)
+                          r"purchas\w* (property|land)|lands? for taxes|struck[\s_-]?off|re-?sale|sheriff[\s_-]?sale|"
+                          r"tax[\s_-]?sale|trust[\s_-]?propert", re.I)
 DOC_EXT = re.compile(r"\.(pdf|docx?|rtf)(\?|#|$)", re.I)
 NEVER_FOLLOW = re.compile(r"(^|\.)(google|bing|yahoo|duckduckgo|facebook|twitter|x|instagram|linkedin|youtube|"
-                          r"govease|bid4assets|lgbs|zillow|realtor)\.", re.I)
+                          r"govease|bid4assets|lgbs|pbfcm|mvbalaw|mvba|ctsa|zillow|realtor)\.", re.I)
 MAX_FOLLOW_PER_COUNTY = 6
 STATUS_LABEL = re.compile(r"status", re.I)
 
@@ -177,8 +185,8 @@ def fetch(session: requests.Session, url: str) -> tuple[requests.Response | None
         return None, f"{type(exc).__name__}: {str(exc)[:160]}"
 
 
-def capture_url(session: requests.Session, url: str, *, kind: str) -> dict:
-    keep_tables = kind == "followed_link"
+def capture_url(session: requests.Session, url: str, *, kind: str, keep_tables: bool | None = None) -> dict:
+    keep_tables = (kind == "followed_link") if keep_tables is None else keep_tables
     out = {"url": url, "kind": kind, "fetched_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat()}
     resp, err = fetch(session, url)
     if err:
@@ -241,6 +249,49 @@ def capture_available(session: requests.Session, state: str, counties: set[str] 
                 time.sleep(0.6)
         result[r["county"]] = entry
         print(f"  {r['county']:<14} {r['source_id']:<22} " + ", ".join(f"{p.get('kind')}={p.get('status', p.get('error', '?'))}" for p in entry["pages"]), flush=True)
+    return result
+
+
+def candidate_rows(path: Path = CANDIDATES) -> list[dict]:
+    with open(path, newline="", encoding="utf-8") as fh:
+        return [r for r in csv.DictReader(fh) if (r.get("url") or "").startswith("https://")]
+
+
+def capture_candidates(session: requests.Session, states: set[str] | None, counties: set[str] | None, *,
+                       follow: bool = False, path: Path = CANDIDATES) -> dict:
+    """Read each candidate official page named in data/acquisition_candidate_pages.csv
+    (https only), plus up to MAX_FOLLOW_PER_COUNTY tax-deed / struck-off links
+    PRESENT on those pages. Keyed "<STATE>/<County>". Followed process pages
+    keep their table text (a process FAQ may be laid out in a table); the
+    candidate page itself never does. Value-free like every other capture."""
+    result: dict = {}
+    list_urls = set()
+    with open(REGISTRY, newline="", encoding="utf-8") as fh:
+        for reg in csv.DictReader(fh):
+            list_urls.update(u.strip() for u in (reg.get("canonical_url"), reg.get("document_url")) if u and u.strip())
+    for r in candidate_rows(path):
+        if (states and r["state"] not in states) or (counties and r["county"] not in counties):
+            continue
+        key = f"{r['state']}/{r['county']}"
+        entry = result.setdefault(key, {"source_id": "candidate", "access_method": r.get("found_via", ""),
+                                        "machine_format": "", "pages": [], "_seen": []})
+        if r["url"] in entry["_seen"]:
+            continue
+        entry["_seen"].append(r["url"])
+        # A candidate process page (an FAQ) may lay its answers out in a table;
+        # a page that is any registry source's inventory list never keeps one.
+        entry["pages"].append(capture_url(session, r["url"], kind="candidate_page", keep_tables=r["url"] not in list_urls))
+        time.sleep(0.6)
+    for key, entry in result.items():
+        seen = set(entry.pop("_seen"))
+        if follow:
+            for link in follow_candidates(entry["pages"], seen):
+                page = capture_url(session, link["href"], kind="followed_link")
+                page["followed_from"] = link["from"]
+                page["link_text"] = link["text"]
+                entry["pages"].append(page)
+                time.sleep(0.6)
+        print(f"  {key:<22} " + ", ".join(f"{p.get('kind')}={p.get('status', p.get('error', '?'))}" for p in entry["pages"]), flush=True)
     return result
 
 
@@ -388,6 +439,9 @@ def main(argv=None) -> int:
     ap.add_argument("--realauction-results", action="store_true",
                     help="also read the CLOSED / CANCELED area (AREA=C) of each --realauction-date, value-free")
     ap.add_argument("--follow", action="store_true", help="fetch up to %d acquisition links present on each source page (one hop)" % MAX_FOLLOW_PER_COUNTY)
+    ap.add_argument("--candidates", action="store_true",
+                    help="read only the official candidate pages in data/acquisition_candidate_pages.csv (all states unless --state-filter)")
+    ap.add_argument("--state-filter", action="append", default=[], help="with --candidates: limit to these states (repeatable)")
     ap.add_argument("--out", default=str(OUT_PATH))
     args = ap.parse_args(argv)
     if args.digest:
@@ -398,7 +452,11 @@ def main(argv=None) -> int:
     report = {"generated_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat(), "state": args.state,
               "note": "county-level process text, links, phones and e-mails from the approved sources' own pages; "
                       "tables removed before reading; no row value, no parcel, no case number, no amount, no name"}
-    if not args.skip_available:
+    if args.candidates:
+        print("capturing official acquisition candidate pages", flush=True)
+        report["state"] = ",".join(args.state_filter) or "all"
+        report["available_sources"] = capture_candidates(session, set(args.state_filter) or None, counties, follow=args.follow)
+    elif not args.skip_available:
         print(f"capturing AVAILABLE source pages ({args.state})", flush=True)
         report["available_sources"] = capture_available(session, args.state, counties, follow=args.follow)
     if args.realauction_date:

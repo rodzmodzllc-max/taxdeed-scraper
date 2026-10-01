@@ -507,3 +507,147 @@ county will still sell it today" / "Property-specific: ...") and
 county's source was not fully read at the last attempt - the verified
 process stays. "Why is it in Available?" says whether the parcel was
 matched on the official list.
+
+## 13. Acquisition paths as enrichment (2026-10-01)
+
+**Publication and acquisition are separate concerns.** An AVAILABLE (OTC /
+LAFT / adjudicated / struck-off) property that an authoritative source
+establishes as available is published under the existing source rules
+(`publication_status`, section 8) whether or not its acquisition process
+has been captured. The acquisition path is enrichment: shown when verified,
+otherwise "Not yet verified" with the official availability source - never
+a reason to withhold inventory, never an invented process.
+
+(An earlier cut of this sprint gated publication on the acquisition record;
+the owner corrected the requirement before it was merged or deployed. No
+production row was ever withheld by it: the withholding lived only in the
+unmerged frontend, and `publication_status` was never changed.)
+
+### 13.1 Measured independently
+
+`purchase_path_engine.acquisition_gaps(row)` (mirrored by
+`acquisitionGaps()` in `public/app.js`; a test pins the keys equal) lists the
+parts of a row's acquisition record still missing - never consulted by
+`isPublishable()`:
+
+| Key | Part |
+|---|---|
+| `no_source_listing` | `list_url` / `document_url` (row or `otc_provenance`) |
+| `no_source_match` | `otc_provenance.source_match.value` (case number else parcel, the identity the sync upserts) |
+| `no_acquisition_path` | `purchase_path_type` set and not `none_published` |
+| `no_evidence_page` | `otc_provenance.purchase_evidence_url`, or a URL-type path's `purchase_url` |
+| `no_verified_date` | `purchase_path_observed_on` |
+
+`acquisition_state(row)` is `complete` (a verified path with steps AND a
+published channel), `partial` (a verified path missing some of that),
+`source_only` (no path; the official source link) or `not_verified`.
+`scripts/publication_gate.py` reports `acquisition_coverage` in every laft,
+LA and TX run: verified inventory, published, with / without an acquisition
+path, with a direct acquisition URL, official source only, partial process,
+not yet verified, and the rows still awaiting a path per county. A row
+without a path is published inventory awaiting enrichment, never a
+publication failure.
+
+### 13.2 Sources without a lifecycle read: `scripts/apply_acquisition_paths.py`
+
+Texas AVAILABLE rows come from the manual-only LGBS harvest, which nothing
+here runs or retries, so the laft lifecycle never resolved a path for them:
+before this sprint all 421 active Texas rows (Galveston 183, Liberty 113,
+Leon 84, Maverick 14, Jim Wells 11, Hardin 9, Van Zandt 6, Goliad 1) had no
+listing link, no match and no process, and no stored `tx_sale_status`
+(the last successful LGBS read, 2026-09-23, predates that column). The
+applier, run as a `continue-on-error` step at the end of the laft job with
+no request to any source:
+
+- sets the listing to the registry's canonical page for the row's
+  `(source_id, county)` - the page the harvester read - never a composed
+  property URL;
+- adds the deterministic match from the row's own case number / parcel,
+  dated by the registry's last successful read of that source;
+- applies the VERIFIED county-level evidence row for `(state, source_id,
+  county)` through `purchase_path_engine.resolve()` - one record per
+  county, inherited by every row of that county;
+- never replaces a stored property-scope path with a source-scope one,
+  keeps every other `otc_provenance` key, writes only what changes, and
+  never touches `last_seen_at`, status, amounts, owners or outcomes.
+
+A county without a verified evidence row gets the listing and match only;
+the row stays published and its page says the acquisition path is not yet
+verified.
+
+### 13.3 Finding the official process: `capture_purchase_evidence.py --candidates`
+
+`data/acquisition_candidate_pages.csv` names official pages (clerk, tax
+assessor-collector, sheriff, comptroller directory, county commission) a
+person found in search results for counties whose source page publishes no
+process. The manual evidence job (`job=evidence`,
+`evidence_scope=acquisition_candidates`) reads each one value-free, plus up
+to six tax-deed / struck-off links present on it (search engines, social
+sites and blocked vendors - GovEase, LGBS, PBFCM, MVBA, CTSA - are never
+followed). A page becomes evidence only when a person reads the capture and
+records a `verified` row with its `evidence_url`; a candidate is never a
+path. `lgbs.com` joined `laft_purchase_paths.UNTRUSTED_HOST_SUFFIXES`: the
+counsel's site is the Texas LISTING, never the official acquisition page.
+
+### 13.4 Customer page: HOW TO ACQUIRE
+
+The first section of every AVAILABLE property page (`acquireBlockHtml()`,
+`data-section="acquire"`, `data-acq-state`):
+
+- **Why this property is available** - the classified inventory type with
+  its basis; for Texas, the listing's own status when stored
+  (`tx_sale_status`), otherwise both statuses the harvester files as
+  Available and a statement that which one applies was not stored; the
+  identifier match; the listing link named for who publishes it ("View
+  official availability" / "View official adjudicated-property list" /
+  "View the tax-sale listing (delinquent-tax counsel)").
+- **How to acquire**, in one of three states:
+  1. *complete* - one primary action labelled for what it is ("Open county
+     acquisition page", "Start application", "Download application", "View
+     purchase instructions", "Contact county to purchase" via mailto / tel),
+     then Method, Instructions, Handled by, Official source, Last verified,
+     Application, Applies to;
+  2. *not yet verified* - "Acquisition path: Not yet verified", "Official
+     availability source: Open official source", "See the official source
+     for current instructions.";
+  3. *partial* - the verified portion, "Additional acquisition details: Not
+     yet verified", and the official source.
+
+"Not yet verified" is neutral text (`.acq-pending`), never an error colour:
+the property is still legitimate Available inventory. No score, badge or
+recommendation.
+
+The lifecycle (`laft_lifecycle.provenance_payload`) no longer writes NULL
+`list_as_of` / `source_published_at` when a run's status entry carries no
+date: production Louisiana rows had lost the dataset's own list date that
+way.
+
+### 13.5 What the capture established (runs 36858070184, 36865836152, 2026-10-01)
+
+Verified and recorded in `data/purchase_path_evidence.csv` (observed
+2026-10-01, `review_state=verified`):
+
+| State / county | Source | Path | Evidence page | Action |
+|---|---|---|---|---|
+| FL Alachua | fl_laft_realtdm | quoted_amount | Clerk "List of Lands Available - Purchase Property" | Contact the Tax Deed department ((352) 374-3615, taxdeeds@alachuaclerk.org) for the current cost |
+| FL Duval | fl_laft_pioneer | phone_mail + application document | Clerk "Lands Available for Taxes - FAQ" (PDF) | Statement Request for Lands Available form, by e-mail (Ask.TaxDeeds@DuvalClerk.com) or in person (Room 1054) |
+| FL Highlands | fl_laft_realtdm | quoted_amount | Clerk "Lands Available" | Request the payoff amount ((863) 402-6565, clkbustd@hcclerk.org) |
+| TX Galveston | tx_lgbs | county_instructions | Sheriff's Office "Sheriff Sales Information & Procedures" (PDF) | Tax foreclosure sales and resales are held by the Sheriff online through Real Auction: register, 5% deposit, pay on sale day, Certificate of Eligibility |
+
+Not recorded - these counties' rows stay published with "Acquisition path:
+Not yet verified" and their official availability source, and are retried
+by later captures:
+
+| State / county | Why |
+|---|---|
+| FL Bay, Miami-Dade, Polk, Putnam | Official pages read; they describe the auction only, no Lands Available purchase step |
+| FL Hillsborough | States the purchase terms after 90 days, but no first action, office or contact for it |
+| FL Indian River, St. Lucie | The process wording is not in the captured text (rendered by script / in a widget), twice |
+| FL Escambia, Hendry, Lee, Osceola, Palm Beach, Sarasota | HTTP 403 to the runner on every candidate page |
+| FL Gadsden | No official page found |
+| TX Liberty, Jim Wells | County pages carry foreclosure notices only; Jim Wells (City of Alice) points to the counsel's site |
+| TX Leon | Only a 2020 sale notice and the Comptroller's office directory - no resale process |
+| TX Hardin | A 2024 commissioners-court resale resolution only - no buyer instructions |
+| TX Van Zandt | The county page read carries no struck-off / resale text |
+| TX Maverick | CAD portal only; the trust-property list is a blocked vendor's |
+| TX Goliad | Tax office page only |

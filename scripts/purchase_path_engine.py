@@ -573,3 +573,56 @@ def measure(rows: list[dict]) -> dict:
     c["pct_with_acquisition_path"] = round(100.0 * c["with_acquisition_path"] / c["rows"], 1) if c["rows"] else 0.0
     c["pct_with_source_listing"] = round(100.0 * c["with_source_listing"] / c["rows"], 1) if c["rows"] else 0.0
     return c
+
+
+# ---------------------------------------------------------------------------
+# Acquisition-path coverage (Acquisition-path sprint, 2026-10-01)
+# ---------------------------------------------------------------------------
+# The acquisition path is ENRICHMENT, never a publication decision: an
+# AVAILABLE row the source establishes as available is published under the
+# existing source rules (publication_status) whether or not its acquisition
+# process has been captured. These are the independently measured parts of
+# the acquisition record - what is still missing for a row, never a reason
+# to withhold it. app.js acquisitionGaps() carries the same keys (a test pins
+# them equal) and renders each missing part as "Not yet verified".
+ACQUISITION_GAP_REASONS = {
+    "no_source_listing": "no source listing or document link on file",
+    "no_source_match": "no deterministic match to the source listing on file",
+    "no_acquisition_path": "acquisition path not yet verified",
+    "no_evidence_page": "no official acquisition evidence page on file",
+    "no_verified_date": "acquisition process last-verified date not on file",
+}
+
+
+def acquisition_gaps(row: dict) -> list[str]:
+    """The ACQUISITION_GAP_REASONS keys an AVAILABLE (source = laft) row is
+    missing; [] = a complete acquisition record. Never used to withhold a row."""
+    if row.get("source") != "laft":
+        return []
+    prov = row.get("otc_provenance") if isinstance(row.get("otc_provenance"), dict) else {}
+    out = []
+    if not (row.get("list_url") or row.get("document_url") or prov.get("list_url") or prov.get("document_url")):
+        out.append("no_source_listing")
+    m = prov.get("source_match")
+    if not (isinstance(m, dict) and m.get("value")):
+        out.append("no_source_match")
+    t = row.get("purchase_path_type")
+    if not t or t == "none_published":
+        out.append("no_acquisition_path")
+    if not (prov.get("purchase_evidence_url") or (t in URL_TYPES and row.get("purchase_url"))):
+        out.append("no_evidence_page")
+    if not (row.get("purchase_path_observed_on") or prov.get("purchase_path_observed_on")):
+        out.append("no_verified_date")
+    return out
+
+
+def acquisition_state(row: dict) -> str:
+    """complete | partial | source_only | not_verified - the customer page's
+    three cases plus the row with neither a path nor a source link."""
+    prov = row.get("otc_provenance") if isinstance(row.get("otc_provenance"), dict) else {}
+    t = row.get("purchase_path_type")
+    if t and t != "none_published":
+        return "complete" if complete_record(prov.get("acquisition") or {}, row) else "partial"
+    if row.get("list_url") or row.get("document_url") or prov.get("list_url") or prov.get("document_url"):
+        return "source_only"
+    return "not_verified"

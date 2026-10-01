@@ -33,7 +33,25 @@ const FIXTURE_PROPERTIES = [
     // Migration 023 projects the purchase-path columns as NULL on a row the
     // engine has not evaluated - the "not yet verified" state the decision
     // page and the provenance card must render honestly (p15 is the typed one).
-    purchase_path_type: null, purchase_path_scope: null, purchase_path_evidence: null, purchase_path_observed_on: null,
+    // Acquisition-path sprint (2026-10-01): p3 carries a verified county-level
+    // phone/e-mail process from a FIXTURE evidence page (the "complete" HOW TO
+    // ACQUIRE state). The acquisition path is enrichment: the not-yet-verified
+    // state is ptx6 (Liberty TX), which stays published.
+    purchase_path_type: "phone_mail", purchase_path_scope: "source", purchase_path_observed_on: "2026-09-30",
+    purchase_path_evidence: "Clerk's Lands Available page: call or e-mail the Tax Deed department for the current amount (fixture)",
+    otc_provenance: { harvester: "fl_laft_pioneer", source_id: "fl_laft_pioneer", list_url: "https://x", retrieved_at: "2026-08-11T06:00:00Z", purchase_path_mode: "phone_mail",
+      purchase_amount: "source column/field: OPENING_BID", list_as_of: "stated by the list document/filename",
+      purchase_url: "phone_mail (source-scope): Clerk's Lands Available page (fixture)",
+      status_terminology: "active = on the county list this run; closed = absent from a COMPLETE/EMPTY harvest",
+      inventory_type: "harvester constant (F.S. 197.502(7) Lands Available list)",
+      purchase_evidence_url: "https://www.bayclerk.example.gov/tax-deeds/lands-available", purchase_evidence_type: "county_page",
+      purchase_evidence_title: "Lands Available for Taxes (fixture)", purchase_path_observed_on: "2026-09-30",
+      source_match: { identifier: "case_no", value: "C-1", parcel: "333", source: "https://x/list.pdf", read_at: "2026-08-11T06:00:00Z",
+                      basis: "row read from the source list / document by the harvester; identity as the sync upserts it" },
+      acquisition: { mode: "phone", channels: ["email", "phone"], phone: "(850) 555-0100", email: "taxdeeds@bayclerk.example.gov",
+                     office: "Clerk of Court - Tax Deed Department (fixture)", observed_on: "2026-09-30",
+                     evidence_url: "https://www.bayclerk.example.gov/tax-deeds/lands-available",
+                     steps: ["Call or e-mail the Tax Deed Department for the current purchase amount", "Pay the quoted amount at the Clerk's office"] } },
     // Enrichment phase: the list-published fields scripts/laft_source_fields.py
     // carries (certificate number, migration 019's two dates) plus the
     // document/currentness columns the lifecycle writes. purchase_url stays
@@ -51,11 +69,6 @@ const FIXTURE_PROPERTIES = [
       assessed: { source: "fdor_nal", recorded_at: "2026-08-12T10:00:00Z", matched_field: "PARCEL_ID" },
       acreage: { source: "fdor_nal", recorded_at: "2026-08-12T10:00:00Z", matched_field: "ALT_KEY" }
     },
-    otc_provenance: { harvester: "fl_laft_pioneer", list_url: "https://x", retrieved_at: "2026-08-11T06:00:00Z", purchase_path_mode: "unknown",
-      purchase_amount: "source column/field: OPENING_BID", list_as_of: "stated by the list document/filename",
-      purchase_url: "no purchase path published by the source or verified in the registry - none invented",
-      inventory_type: "harvester constant (F.S. 197.502(7) Lands Available list)",
-      status_terminology: "active = on the county list this run; closed = absent from a COMPLETE/EMPTY harvest" },
     // Phase 66: photo_url '' is the pipeline's "checked, no Street View
     // coverage" sentinel (see CLAUDE.md "Property photos") - distinct from
     // NULL/absent (not checked yet), which every other row here has.
@@ -170,11 +183,32 @@ const FIXTURE_PROPERTIES = [
   // none), purchase_amount untouched (null - min_bid keeps its own meaning).
   { id: "ptx3", source: "laft", state: "TX", county: "Galveston", case_no: "129500040015000", parcel: "23-TX-0644", address: "VACANT LOT IN 6500 BLOCK OF OBRIEN ST, Hitchcock, TX 77563", bid: 4451.95, min_bid: 4451.95, status: "active", sale_date: null, harvester_source: "tx_lgbs", tx_sale_status: "Struck off to Jurisdiction", updated_at: "2026-09-23T00:00:00Z",
     inventory_status: "struck_off", inventory_status_raw: "Struck off to Jurisdiction", inventory_status_basis: "SOURCE_STATUS: the vendor's own sale status (LGBS)", inventory_status_observed_at: "2026-09-23T06:00:00Z",
-    inventory_type: "STRUCK_OFF_HELD_IN_TRUST", source_authority: "VENDOR_COUNSEL", source_id: "tx_lgbs", list_url: null, document_url: null, purchase_url: null, purchase_amount: null, purchase_amount_kind: null },
+    inventory_type: "STRUCK_OFF_HELD_IN_TRUST", source_authority: "VENDOR_COUNSEL", source_id: "tx_lgbs", document_url: null, purchase_amount: null, purchase_amount_kind: null,
+    // Acquisition-path sprint (2026-10-01): what scripts/apply_acquisition_paths.py
+    // writes for a Texas row - the registry listing, the identity match and the
+    // verified COUNTY-level process (FIXTURE page on an example.gov domain).
+    list_url: "https://taxsales.lgbs.com/", purchase_url: "https://www.galveston.example.gov/sheriff-sale-information", purchase_url_kind: "purchase_instructions",
+    purchase_path_type: "county_instructions", purchase_path_scope: "source", purchase_path_observed_on: "2026-10-01",
+    purchase_path_evidence: "County Tax Assessor-Collector's Sheriff Sale Information page: struck-off property is re-offered at future Sheriff Sales (fixture)",
+    otc_provenance: { source_id: "tx_lgbs", harvester: "tx_lgbs", list_url: "https://taxsales.lgbs.com/", purchase_path_mode: "online_instructions",
+      purchase_evidence_url: "https://www.galveston.example.gov/sheriff-sale-information", purchase_evidence_type: "county_page",
+      purchase_evidence_title: "Sheriff Sale Information (fixture)", purchase_path_observed_on: "2026-10-01",
+      source_match: { identifier: "case_no", value: "129500040015000", parcel: "23-TX-0644", source: "https://taxsales.lgbs.com/", read_at: "2026-09-23",
+                      basis: "row read from the source listing by the harvester (tx_lgbs); identity as the sync upserts it; last successful source read 2026-09-23" },
+      acquisition: { mode: "multi_step", channels: ["instructions", "phone"], phone: "(409) 555-0101", office: "Tax Assessor-Collector (fixture)", observed_on: "2026-10-01",
+                     evidence_url: "https://www.galveston.example.gov/sheriff-sale-information",
+                     steps: ["Watch for the property on a future Sheriff's resale", "Submit the county's bid form with the deposit it names", "Bid at the Sheriff's sale"] } } },
   { id: "ptx4", source: "auction", state: "TX", county: "Llano", case_no: "R000020419", parcel: "23101 (6)", address: "LOT 6 SUNRISE BEACH, Llano, TX", bid: 3942.08, min_bid: 3942.08, status: "active", sale_date: futureDate(-3), harvester_source: "tx_realauction", url_auction: txSaleUrl("llano.texas.sheriffsaleauctions.com", futureDate(-3)), url_auction_kind: "sale", updated_at: "2026-09-24T00:00:00Z" },
   { id: "ptx5", source: "auction", state: "TX", county: "Atascosa", case_no: "17854", parcel: "20-11-0957-CVA (1)", address: "200 Oak St, Pleasanton, TX", bid: 1200, min_bid: 1200, status: "active", sale_date: futureDate(12), harvester_source: "tx_realauction", updated_at: "2026-09-24T00:00:00Z" },
   { id: "ptx6", source: "laft", state: "TX", county: "Liberty", case_no: "000016000361003", parcel: "21DC-TX-00185", address: "TRACT 3, Liberty, TX", bid: 900, min_bid: 900, status: "active", sale_date: null, harvester_source: "tx_lgbs", tx_sale_status: "Available for Future Sale", updated_at: "2026-09-23T00:00:00Z",
-    inventory_type: "FUTURE_RESALE", source_authority: "VENDOR_COUNSEL", source_id: "tx_lgbs", list_url: null, document_url: null, purchase_url: null, purchase_amount: null, purchase_amount_kind: null },
+    inventory_type: "FUTURE_RESALE", source_authority: "VENDOR_COUNSEL", source_id: "tx_lgbs", document_url: null, purchase_url: null, purchase_amount: null, purchase_amount_kind: null,
+    // Acquisition-path sprint (2026-10-01): a Texas county with NO verified
+    // acquisition record (Liberty) - exactly what scripts/apply_acquisition_paths.py
+    // writes then: the registry listing and the identity match, no path. Still
+    // published; its page reads "Acquisition path: Not yet verified".
+    list_url: "https://taxsales.lgbs.com/",
+    otc_provenance: { source_id: "tx_lgbs", list_url: "https://taxsales.lgbs.com/",
+      source_match: { identifier: "case_no", value: "000016000361003", source: "https://taxsales.lgbs.com/", read_at: "2026-09-23" } } },
   // 2026-09-30 (state-expansion sprint): a Louisiana row in the shape
   // scripts/sync_state_inventory.py writes - East Baton Rouge's DATED
   // adjudicated-property list (list_as_of = the dataset's own rows-updated
@@ -184,7 +218,13 @@ const FIXTURE_PROPERTIES = [
     list_url: "https://data.brla.gov/Housing-and-Development/Adjudicated-Property/a4h4-zi7e", document_url: "https://data.brla.gov/api/views/a4h4-zi7e/rows.csv?accessType=DOWNLOAD",
     url_auction: "https://data.brla.gov/Housing-and-Development/Adjudicated-Property/a4h4-zi7e", url_auction_kind: "county",
     purchase_url: null, purchase_amount: null, purchase_amount_kind: "NOT_PUBLISHED", list_as_of: "2024-02-27", source_published_at: "2024-02-27T18:54:28Z",
-    assessed: 2500, market: 25000, tax_year: "2023", latitude: 30.4515, longitude: -91.1871, publication_status: "APPROVED", ledger_type: "buy", updated_at: "2026-09-30T12:00:00Z" },
+    assessed: 2500, market: 25000, tax_year: "2023", latitude: 30.4515, longitude: -91.1871, publication_status: "APPROVED", ledger_type: "buy", updated_at: "2026-09-30T12:00:00Z",
+    purchase_path_type: "in_person", purchase_path_scope: "source", purchase_path_observed_on: "2026-10-01",
+    purchase_path_evidence: "The Parish Attorney's office handles sales of adjudicated property (fixture)",
+    otc_provenance: { source_id: "la_ebr_adjudicated", purchase_evidence_url: "https://www.brla.gov/Faq.aspx?QID=286", purchase_path_observed_on: "2026-10-01",
+      source_match: { identifier: "case_no", value: "012-3456-7", source: "https://data.brla.gov/api/views/a4h4-zi7e/rows.csv?accessType=DOWNLOAD", read_at: "2026-10-01T08:50:04Z",
+                      basis: "row read from the source list / document by the harvester; identity as the sync upserts it" },
+      acquisition: { mode: "in_person", channels: ["in_person"], office: "Office of the Parish Attorney (fixture)", observed_on: "2026-10-01", evidence_url: "https://www.brla.gov/Faq.aspx?QID=286" } } },
   // 2026-10-01 (property-enrichment sprint): a second East Baton Rouge row in the
   // shape the LA lifecycle + enrichment write once the Parish Attorney's process
   // (data/purchase_path_evidence.csv) and the EBR Tax Parcel land value
@@ -196,7 +236,9 @@ const FIXTURE_PROPERTIES = [
     assessed: 2600, market: 26000, land_value: 9000, tax_year: "2023", latitude: 30.4521, longitude: -91.1875,
     purchase_path_type: "county_instructions", purchase_path_scope: "source", purchase_path_observed_on: "2026-10-01",
     purchase_path_evidence: "The Parish Attorney's Adjudicated Property page and FAQ say the Office of the Parish Attorney handles sales of adjudicated property",
-    otc_provenance: { acquisition: { mode: "multi_step", channels: [], office: "Office of the Parish Attorney, City of Baton Rouge / Parish of East Baton Rouge",
+    otc_provenance: { source_match: { identifier: "case_no", value: "012-3456-8", source: "https://data.brla.gov/api/views/a4h4-zi7e/rows.csv?accessType=DOWNLOAD", read_at: "2026-10-01T08:50:04Z",
+                                      basis: "row read from the source list / document by the harvester; identity as the sync upserts it" },
+      acquisition: { mode: "multi_step", channels: [], office: "Office of the Parish Attorney, City of Baton Rouge / Parish of East Baton Rouge",
       evidence_url: "https://www.brla.gov/Faq.aspx?QID=286", observed_on: "2026-10-01",
       steps: ["Confirm with the East Baton Rouge Parish Sheriff that the property remains adjudicated (properties are redeemed during the year)",
               "Request to purchase directly through the Office of the Parish Attorney, using its Request to Purchase form (see the Parish Attorney's Memorandum)"] } },

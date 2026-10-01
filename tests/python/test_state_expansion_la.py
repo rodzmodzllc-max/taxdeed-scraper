@@ -51,6 +51,28 @@ def test_s01_sync_plan_stamps_the_registry_decision_the_ledger_and_the_source():
     assert len({tuple(sorted(r)) for r in rows}) == 1 and rows[0]["latitude"] is None and rows[1]["latitude"] == 30.4
 
 
+def test_s01b_sync_never_sends_a_null_purchase_url_over_a_verified_path():
+    # Production run 36865938855: the adapter row carries purchase_url=None, the
+    # lifecycle had stored county_instructions + the Parish Attorney's URL, and the
+    # upsert's NULL broke properties_purchase_path_url_check - the whole LA sync
+    # failed. The list re-sync now leaves the stored verified path alone.
+    reg = SYNC.registry_rows("LA")
+    rows, _ = SYNC.plan("LA", [_row(purchase_url=None, purchase_url_kind=None), _row(case_no="098-7654-3", purchase_url=None, purchase_url_kind=None)],
+                        reg, {"East Baton Rouge": "COMPLETE"})
+    assert all("purchase_url" not in r and "purchase_url_kind" not in r for r in rows)
+    assert all(r["list_as_of"] == "2024-02-27" for r in rows)              # the list date IS sent - it restores a nulled one
+    # A source whose rows all carry a URL still sends it (the pair together).
+    both, _ = SYNC.plan("LA", [_row(purchase_url="https://www.brla.gov/x", purchase_url_kind="purchase_instructions")], reg, {"East Baton Rouge": "COMPLETE"})
+    assert both[0]["purchase_url"] == "https://www.brla.gov/x" and both[0]["purchase_url_kind"] == "purchase_instructions"
+    # A source that states its own path on the row (the expansion runner) keeps the
+    # pair beside it, NULL included, so a row's path type and URL never disagree.
+    stated, _ = SYNC.plan("LA", [_row(purchase_path_type="county_instructions", purchase_url="https://www.brla.gov/x", purchase_url_kind="purchase_instructions"),
+                                 _row(case_no="098-7654-3", status="closed", purchase_path_type=None, purchase_url=None, purchase_url_kind=None)],
+                          reg, {"East Baton Rouge": "COMPLETE"})
+    assert all("purchase_url" in r and "purchase_path_type" in r for r in stated)
+    assert stated[1]["purchase_url"] is None and stated[1]["purchase_path_type"] is None
+
+
 def test_s02_sync_syncs_nothing_for_a_unit_that_was_not_read_and_refuses_unactivated_states():
     reg = SYNC.registry_rows("LA")
     for status in ({}, {"East Baton Rouge": "FAILED"}, {"East Baton Rouge": "EMPTY"}):

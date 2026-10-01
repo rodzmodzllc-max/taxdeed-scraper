@@ -425,6 +425,33 @@ function isPublishable(p) {
   const s = p && p.publication_status;
   return !s || s === "APPROVED" || s === "APPROVED_GRANDFATHERED";
 }
+// Acquisition-path sprint (2026-10-01): the acquisition path is ENRICHMENT,
+// never a publication decision. A row the source establishes as Available is
+// published under the source rules above (isPublishable) whether or not its
+// acquisition process has been captured; these are the parts of the
+// acquisition record still missing for it, each shown as "Not yet verified".
+// Mirrors scripts/purchase_path_engine.py ACQUISITION_GAP_REASONS /
+// acquisition_gaps() (a test pins the keys equal).
+const ACQUISITION_GAP_REASONS = {
+  no_source_listing: "no source listing or document link on file",
+  no_source_match: "no deterministic match to the source listing on file",
+  no_acquisition_path: "acquisition path not yet verified",
+  no_evidence_page: "no official acquisition evidence page on file",
+  no_verified_date: "acquisition process last-verified date not on file"
+};
+function acquisitionGaps(p) {
+  if (!p || p.source !== "laft") return [];
+  const op = p.otc_provenance && typeof p.otc_provenance === "object" ? p.otc_provenance : {};
+  const out = [];
+  if (!(p.list_url || p.document_url || op.list_url || op.document_url)) out.push("no_source_listing");
+  const m = op.source_match;
+  if (!(m && typeof m === "object" && m.value)) out.push("no_source_match");
+  const t = p.purchase_path_type;
+  if (!t || t === "none_published") out.push("no_acquisition_path");
+  if (!(op.purchase_evidence_url || (URL_PATH_TYPES.includes(t) && p.purchase_url))) out.push("no_evidence_page");
+  if (!(p.purchase_path_observed_on || op.purchase_path_observed_on)) out.push("no_verified_date");
+  return out;
+}
 function daysSince(iso) {
   const t = Date.parse(iso || "");
   return isNaN(t) ? null : Math.floor((Date.now() - t) / 86400000);
@@ -2274,6 +2301,8 @@ async function loadAll() {
   }
   ALL = props.data || [];
   WITHHELD = { auction: 0, laft: 0, certificate: 0 };
+  // Publication is the source decision only - an Available row without a
+  // captured acquisition path is still published (acquisitionGaps()).
   ALL = ALL.filter(p => { if (isPublishable(p)) return true; if (p.source in WITHHELD) WITHHELD[p.source]++; return false; });
   NOTES = {}; (notes.data || []).forEach(n => { (NOTES[n.property_id] = NOTES[n.property_id] || []).push(n); });
   FAVS = new Set((favs.data || []).map(r => r.property_id));
@@ -3402,6 +3431,103 @@ const TRANSITION_LABELS = {
   newly_observed: "First observed on the list", status_changed: "Status changed", removed: "Removed from the list (closed - not a sale result)",
   result_published: "Result published by the source", reactivated: "Back on the list (reactivated)"
 };
+// ==================== HOW TO ACQUIRE (Acquisition-path sprint, 2026-10-01) ====================
+// The first thing an Available property page shows: why it is available,
+// and the one action that starts the acquisition, with its method, the
+// county's instructions, the official page that proves the process and when
+// it was last verified. Every label names what the link actually is. The
+// acquisition path is enrichment: a row whose process is not yet verified is
+// still legitimate Available inventory - the block says "Not yet verified"
+// in neutral text and links the official availability source; nothing is
+// implied about a purchase process the evidence does not establish.
+// Sources whose rows carry no classified inventory type: the stated reason,
+// from the harvester's own status mapping (texas_harvester.LGBS_STATUS_TO_LEDGER).
+const AVAILABLE_WHY_BY_SOURCE = {
+  tx_lgbs: "Listed on the county's delinquent-tax counsel's tax-sale site under a status this app files as Available: struck off to the taxing units after a tax sale drew no sufficient bid, or set aside for a future sale."
+};
+const TX_SALE_STATUS_WHY = {
+  "Struck off to Jurisdiction": "Struck off to the taxing units after a tax sale drew no sufficient bid (status published by the listing: \"Struck off to Jurisdiction\").",
+  "Available for Future Sale": "Set aside for a future sale (status published by the listing: \"Available for Future Sale\")."
+};
+function availableWhy(p) {
+  const op = p.otc_provenance && typeof p.otc_provenance === "object" ? p.otc_provenance : {};
+  if (p.tx_sale_status && TX_SALE_STATUS_WHY[p.tx_sale_status]) return { text: TX_SALE_STATUS_WHY[p.tx_sale_status], basis: "" };
+  if (INVENTORY_TYPE_LABELS[p.inventory_type]) return { text: INVENTORY_TYPE_LABELS[p.inventory_type], basis: op.inventory_type ? String(op.inventory_type) : "" };
+  const sid = p.source_id || p.harvester_source;
+  if (AVAILABLE_WHY_BY_SOURCE[sid]) return { text: AVAILABLE_WHY_BY_SOURCE[sid], basis: p.tx_sale_status === null || p.tx_sale_status === undefined || p.tx_sale_status === "" ? "Which of the two applies to this property was not stored at the last read of the listing." : "" };
+  return { text: "On the source's Available list", basis: "" };
+}
+// The primary action: the most direct thing the evidence lets a customer do.
+function acquisitionCta(a) {
+  if (!a || !a.verified) return null;
+  if (a.type === "direct_property_url" && a.url) return { label: "Open county acquisition page", href: a.url };
+  if (a.type === "application_page" && a.url) return { label: "Start application", href: a.url };
+  if (a.type === "application_download" && a.url) return { label: "Download application", href: a.url };
+  if (a.applicationUrl) return { label: "Download application", href: a.applicationUrl };
+  if (a.type === "county_instructions" && a.url) return { label: "View purchase instructions", href: a.url };
+  if (a.email) return { label: "Contact county to purchase", href: `mailto:${a.email}`, sub: a.email };
+  if (a.phone) { const ph = a.phone.split(/\s+or\s+/)[0]; return { label: "Contact county to purchase", href: `tel:${ph.replace(/[^\d+]/g, "")}`, sub: ph }; }
+  if (a.evidenceUrl) return { label: "View purchase instructions", href: a.evidenceUrl };
+  return null;
+}
+// The listing that shows the property is available, named for who
+// publishes it - an official county list, or a vendor / counsel listing.
+function availabilityLink(p) {
+  const op = p.otc_provenance && typeof p.otc_provenance === "object" ? p.otc_provenance : {};
+  const href = p.document_url || p.list_url || op.document_url || op.list_url;
+  if (!href) return null;
+  const vendor = p.source_authority === "VENDOR_COUNSEL" || p.source_authority === "VENDOR_AUCTION";
+  return { href, label: vendor ? "View the tax-sale listing (delinquent-tax counsel)" : (isDatedList(p) ? "View official adjudicated-property list" : "View official availability") };
+}
+// The three states of the acquisition record (purchase_path_engine.acquisition_state):
+// complete = a verified path with its steps AND a published channel;
+// partial = a verified path missing some of that; none = not yet verified.
+function acquisitionCompleteness(a) {
+  if (!a || !a.verified) return "none";
+  const channel = a.phone || a.email || a.address || a.mailing || a.applicationUrl || a.url;
+  return a.steps.length && channel ? "complete" : "partial";
+}
+function acquireBlockHtml(p) {
+  if (p.source !== "laft") return "";
+  const a = acquisitionOf(p);
+  const why = availableWhy(p);
+  const op = p.otc_provenance && typeof p.otc_provenance === "object" ? p.otc_provenance : {};
+  const sm = op.source_match && typeof op.source_match === "object" ? op.source_match : null;
+  const avail = availabilityLink(p);
+  const ext = (href, label, cls) => `<a class="${cls}" href="${esc(href)}" ${/^(mailto|tel):/.test(href) ? "" : 'target="_blank" rel="noopener"'}>${esc(label)}</a>`;
+  const whyHtml = `<p class="acq-why-text">${esc(why.text)}</p>` +
+    (why.basis ? `<p class="acq-why-basis">${esc(why.basis)}</p>` : "") +
+    (sm && sm.value ? `<p class="acq-why-basis">Matched to the listing by ${esc(String(sm.identifier).replace("_", " "))} ${esc(sm.value)}${sm.read_at ? ` · listing read ${esc(dateOnly(sm.read_at))}` : ""}</p>` : "") +
+    (avail ? `<p class="acq-why-link">${ext(avail.href, avail.label + " →", "acq-link")}</p>` : "");
+  const state = acquisitionCompleteness(a);
+  const notYet = `<span class="acq-pending">Not yet verified</span>`;
+  const rows = [];
+  let cta = null;
+  if (state === "none") {
+    // CASE 2: the source establishes availability; the process is not yet verified.
+    rows.push(["Acquisition path", notYet]);
+    if (avail) rows.push(["Official availability source", ext(avail.href, "Open official source →", "acq-link")]);
+    rows.push(["How to acquire", esc(avail ? "See the official source for current instructions." : "Contact the county office named on the listing for current instructions.")]);
+  } else {
+    cta = acquisitionCta(a);
+    rows.push(["Method", esc(a.label)]);
+    if (a.steps.length) rows.push(["Instructions", `<ol class="acq-steps">${a.steps.map(st => `<li>${esc(st)}</li>`).join("")}</ol>`]);
+    else if (a.instructions) rows.push(["Instructions", esc(a.instructions)]);
+    if (a.office) rows.push(["Handled by", esc(a.office)]);
+    if (state === "partial") rows.push(["Additional acquisition details", notYet]);
+    const officialHref = a.evidenceUrl || a.url || (avail && avail.href);
+    if (officialHref) rows.push(["Official source", ext(officialHref, (a.evidenceUrl || a.url ? (a.evidenceTitle || "County process page") : avail.label) + " →", "acq-link")]);
+    rows.push(["Last verified", esc(a.observedOn ? dateOnly(a.observedOn) : "date not recorded")]);
+    if (a.applicationUrl && (!cta || cta.href !== a.applicationUrl)) rows.push(["Application", ext(a.applicationUrl, "Download application →", "acq-link")]);
+    if (a.scope !== "property") rows.push(["Applies to", esc("The county's process for every property on its list - not an approval for this parcel; confirm it is still available before paying.")]);
+  }
+  return detailSectionHtml("Available / OTC", `<div class="acq-block" data-acq-state="${state}">
+    <div class="acq-h">Why this property is available</div>${whyHtml}
+    <div class="acq-h">How to acquire</div>
+    ${cta ? `<p class="acq-cta-row">${ext(cta.href, cta.label, "acq-cta")}${cta.sub ? `<span class="acq-cta-sub">${esc(cta.sub)}</span>` : ""}</p>` : ""}
+    <dl class="acq-dl">${rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${v}</dd>`).join("")}</dl>
+  </div>`, "acquire-card", "acquire");
+}
 function availableDecisionHtml(p) {
   if (p.source !== "laft") return "";
   const region = regionOf(p);
@@ -3693,7 +3819,7 @@ async function hydrateInventoryHistory(container, p) {
 // that actually rendered (built AFTER the body, by scanning it for
 // data-section anchors, so a row with no History section gets no dead
 // "History" pill). Scrolling is done by the "jump" click action below.
-const DETAIL_NAV_LABELS = { summary: "Summary", decision: "Decision", inventory: "Inventory", financial: "Financial", property: "Property", history: "History", events: "Sale events", risk: "Risk & Legal", map: "Map", sources: "Sources", provenance: "Data" };
+const DETAIL_NAV_LABELS = { acquire: "Acquire", summary: "Summary", decision: "Decision", inventory: "Inventory", financial: "Financial", property: "Property", history: "History", events: "Sale events", risk: "Risk & Legal", map: "Map", sources: "Sources", provenance: "Data" };
 function detailNavHtml(bodyHtml) {
   const ids = [];
   bodyHtml.replace(/data-section="([a-z]+)"/g, (m, id) => { if (DETAIL_NAV_LABELS[id] && !ids.includes(id)) ids.push(id); return m; });
@@ -4445,6 +4571,7 @@ function detailHtml(p) {
     </div>
     ${relatedRecordsHtml(p)}` : `
     ${propertyVisual(p, "detail-hero-photo")}
+    ${acquireBlockHtml(p)}
     ${opportunitySummaryHtml(p)}
     ${availableDecisionHtml(p)}
     ${auctionDecisionHtml(p)}

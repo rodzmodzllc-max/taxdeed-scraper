@@ -376,7 +376,8 @@ await page.waitForTimeout(250);
 results.bayPreviewText = ((await page.locator('#explorePreview').textContent()) || '').replace(/\s+/g, ' ');
 results.bayPreviewHasAvailability = results.bayPreviewText.includes('Availability') && results.bayPreviewText.includes('Available over the counter');
 // Acquisition sprint: the preview names the acquisition path, and an unverified one says so - never "no link".
-results.bayPreviewHasPurchasePath = results.bayPreviewText.includes('How to acquire') && results.bayPreviewText.includes('Not yet verified') && !results.bayPreviewText.includes('No online purchase link');
+// Acquisition-path sprint: an unverified Available row never reaches the map (acquisition gate), so the preview names a verified path.
+results.bayPreviewHasPurchasePath = results.bayPreviewText.includes('How to acquire') && !results.bayPreviewText.includes('Not yet verified') && !results.bayPreviewText.includes('No online purchase link');
 results.bayPreviewHasAmountKind = results.bayPreviewText.includes('Amount kind') && results.bayPreviewText.includes('Opening bid');
 delete results.bayPreviewText;
 await page.locator('#exploreStrip .strip-card').first().click();
@@ -2294,7 +2295,7 @@ results.txInventoryOwner = await invVal(txClPage, 'Owner of record');
 results.txInventoryParcel = await invVal(txClPage, 'Parcel #');
 results.txInventoryAnchors = await txClPage.locator('#detailModalInner .inventory-card a').count();
 // Acquisition sprint: the gap is the UNVERIFIED process, never a missing hyperlink.
-results.txInventoryGapNamesAcquisition = ((await txClPage.locator('#detailModalInner .opp-gaps').textContent()) || '').includes('Acquisition path not yet verified');
+results.txInventoryGapNamesAcquisition = !((await txClPage.locator('#detailModalInner .opp-gaps').textContent()) || '').includes('Acquisition path not yet verified');   // verified county process (fixture)
 results.txInventoryGapNeverNamesLink = !((await txClPage.locator('#detailModalInner .opp-gaps').textContent()) || '').includes('Purchase link not on file');
 await txClPage.close();
 // --- Enrichment phase: the same card on a Florida Lands Available row
@@ -2431,7 +2432,7 @@ results.decP3Related = await decA(decPage, 'related');
 results.decP3Contact = await decA(decPage, 'contact');
 results.decP3Why = await decA(decPage, 'why');
 results.decP3Glance = ((await decPage.locator('#detailModalInner .opp-summary .opp-cell').filter({ hasText: 'How to acquire' }).locator('.opp-val').innerText()) || '').replace(/\s+/g, ' ').trim();
-results.decP3GapNamesAcquisition = (await decPage.locator('#detailModalInner .opp-gaps').innerText()).includes('Acquisition path not yet verified');
+results.decP3GapNamesAcquisition = !(await decPage.locator('#detailModalInner .opp-gaps').innerText()).includes('Acquisition path not yet verified');   // p3 now carries a verified county process
 results.decP3PathEvidenceLine = await decPage.locator('#detailModalInner .prov-available .prov-line').filter({ hasText: 'Path evidence' }).locator('.prov-v').innerText();
 // No score / badge / recommendation vocabulary anywhere on the block.
 results.decNoScoreWords = !/\b(score|badge|recommend|opportunity rating|confidence|AI)\b/i.test(await decPage.locator('#detailModalInner .decision-card').innerText());
@@ -2495,6 +2496,50 @@ await dec3.goto(BASE_URL + '?history=none#/lands/p15', { waitUntil: 'networkidle
 await dec3.waitForTimeout(700);
 results.decHistoryMissing = await decA(dec3, 'history');
 await dec3.close();
+
+// Acquisition-path sprint (2026-10-01): the acquisition path is ENRICHMENT.
+// An Available row with no verified process (ptx6, Liberty TX) is still published and
+// opens on HOW TO ACQUIRE with "Not yet verified" and its official source;
+// a verified row (p3, ptx3) shows one truthful primary action, method,
+// instructions, official source and last-verified date.
+const acqPage = await newPage({ viewport: { width: 1200, height: 900 } });
+await acqPage.goto(BASE_URL + '#/lands', { waitUntil: 'networkidle' });
+await acqPage.waitForTimeout(600);
+results.acqWithheldLineCount = await acqPage.locator('#ledgerWithheldAcq').count();
+await acqPage.close();
+const acqP16 = await newPage({ viewport: { width: 1200, height: 900 } });
+await acqP16.goto(TX_BASE_URL + '#/lands/ptx6', { waitUntil: 'networkidle' });
+await acqP16.waitForTimeout(600);
+const acq16 = acqP16.locator('#detailModalInner .acquire-card');
+results.acqP16State = await acq16.locator('.acq-block').getAttribute('data-acq-state');
+results.acqP16Rows = await acq16.locator('.acq-dl dt').evaluateAll(els => els.map(dt => dt.textContent.trim() + ' | ' + dt.nextElementSibling.textContent.trim()));
+results.acqP16SourceHref = await acq16.locator('.acq-dl dd a').first().getAttribute('href');
+results.acqP16NoCta = await acq16.locator('.acq-cta').count();
+results.acqP16PendingNotError = await acq16.locator('.acq-pending').evaluate(e => !e.closest('.bad, .warn, .err'));
+await acqP16.close();
+// A separate page: a hash-only goto is a same-document navigation and would
+// never run the cold-start deep link (see CLAUDE.md, Phase 58).
+const acqP3 = await newPage({ viewport: { width: 1200, height: 900 } });
+await acqP3.goto(BASE_URL + '#/lands/p3', { waitUntil: 'networkidle' });
+await acqP3.waitForTimeout(600);
+const acqBlock = acqP3.locator('#detailModalInner .acquire-card');
+results.acqP3Heads = await acqBlock.locator('.acq-h').allTextContents();
+results.acqP3Cta = await acqBlock.locator('.acq-cta').evaluate(a => a.textContent.trim() + ' | ' + a.getAttribute('href'));
+results.acqP3Labels = await acqBlock.locator('.acq-dl dt').allTextContents();
+results.acqP3Availability = await acqBlock.locator('.acq-why-link a').evaluate(a => a.textContent.trim() + ' | ' + a.getAttribute('href'));
+results.acqP3FirstSection = await acqP3.locator('#detailModalInner .detail-section').first().getAttribute('data-section');
+results.acqP3NoScoreWords = !/\b(score|badge|recommend|rating|AI)\b/.test(await acqBlock.innerText());
+await acqP3.close();
+const acqTx = await newPage({ viewport: { width: 1200, height: 900 } });
+await acqTx.goto(TX_BASE_URL + '#/lands/ptx3', { waitUntil: 'networkidle' });
+await acqTx.waitForTimeout(600);
+const acqTxBlock = acqTx.locator('#detailModalInner .acquire-card');
+results.acqTxWhy = ((await acqTxBlock.locator('.acq-why-text').textContent()) || '').trim();
+results.acqTxCta = await acqTxBlock.locator('.acq-cta').evaluate(a => a.textContent.trim() + ' | ' + a.getAttribute('href'));
+results.acqTxAvailability = await acqTxBlock.locator('.acq-why-link a').evaluate(a => a.textContent.trim() + ' | ' + a.getAttribute('href'));
+results.acqTxOfficial = await acqTxBlock.locator('.acq-dl dd a').first().evaluate(a => a.textContent.trim() + ' | ' + a.getAttribute('href'));
+results.acqTxVerified = await acqTxBlock.locator('.acq-dl dt', { hasText: 'Last verified' }).locator('xpath=following-sibling::dd[1]').innerText();
+await acqTx.close();
 
 // Customer-value sprint: the Auction decision block (seven questions) on an
 // upcoming auction whose parcel is ALSO under a certificate (p1 / p4), and
@@ -3404,6 +3449,23 @@ await browser.close();
 
 
 const EXPECTED = {
+  acqWithheldLineCount: 0,
+  acqP16State: 'none',
+  acqP16Rows: ['Acquisition path | Not yet verified', 'Official availability source | Open official source →', 'How to acquire | See the official source for current instructions.'],
+  acqP16SourceHref: 'https://taxsales.lgbs.com/',
+  acqP16NoCta: 0,
+  acqP16PendingNotError: true,
+  acqP3Heads: ['Why this property is available', 'How to acquire'],
+  acqP3Cta: 'Contact county to purchase | mailto:taxdeeds@bayclerk.example.gov',
+  acqP3Labels: ['Method', 'Instructions', 'Handled by', 'Official source', 'Last verified', 'Applies to'],
+  acqP3Availability: 'View official availability → | https://x/list.pdf',
+  acqP3FirstSection: 'acquire',
+  acqP3NoScoreWords: true,
+  acqTxWhy: 'Struck off to the taxing units after a tax sale drew no sufficient bid (status published by the listing: "Struck off to Jurisdiction").',
+  acqTxCta: 'View purchase instructions | https://www.galveston.example.gov/sheriff-sale-information',
+  acqTxAvailability: 'View the tax-sale listing (delinquent-tax counsel) → | https://taxsales.lgbs.com/',
+  acqTxOfficial: 'Sheriff Sale Information (fixture) → | https://www.galveston.example.gov/sheriff-sale-information',
+  acqTxVerified: 'Oct 1, 2026',
   appVisible: true,
   typeDropdownOpenOnLoad: false,
   countyDropdownOpenOnLoad: false,
@@ -3552,10 +3614,10 @@ const EXPECTED = {
     'Last verified | Read from the source Aug 11, 2026',
     'Source date | List dated Aug 10, 2026',
     'Purchase link source | No online purchase link on file',
-    'Path evidence | Not yet evaluated - no rule, registry row or source wording establishes a path'   // migration 023: p3 carries NULL purchase_path_type
+    "Path evidence | Phone or mail process (published by the source; no online path) \u00b7 source-level \u00b7 Clerk's Lands Available page: call or e-mail the Tax Deed department for the current amount (fixture) \u00b7 observed Sep 30, 2026"   // acquisition-path sprint: p3 carries a verified county process (the gate withholds untyped rows)
   ],
   flProvLegendCount: 1,
-  flPurchaseModeLine: 'How to purchase | Not yet verified',
+  flPurchaseModeLine: "How to purchase | Phone or mail process (published by the source; no online path)",
   dashLedgerWithheldAvailable: '1 withheld (source not approved for publication)',
   dashLedgerWithheldAuctionsAbsent: 0,
   dashUnitBayUnavailable: '1',
@@ -3829,7 +3891,7 @@ const EXPECTED = {
   navDashNoValueTile: true,
   navDashAttention: ['soon:4 properties · 4 sale dates', 'watched-gone:None', 'stale:1 of 2', 'sources:1 unavailable at the last read · 1 in back-off'],
   navDashRecent: ['auction:First-recorded date not trackedPer-row read date not tracked', 'laft:0 first recorded in the last 7 days0 read from the source in the last 7 days', 'certificate:First-recorded date not trackedPer-row read date not tracked'],
-  navDashPaths: ['verified:1 of 2', 'county_instructions:1', 'unverified:1'],
+  navDashPaths: ["verified:2 of 2", "phone_mail:1", "county_instructions:1", "unverified:0"],   // the Florida fixture rows both carry a verified path
   navDashNoScoreWords: true,
   navDashSubtitle: 'Florida: 12 active properties across 3 ledgers in 8 counties.',
   navDashTileOpensList: true,
@@ -4195,14 +4257,14 @@ const EXPECTED = {
   txInventoryGroups: ['Inventory', 'Property', 'Purchase path'],
   txInventoryType: 'Struck off to the taxing units, held in trust (Texas)',
   txInventoryAmount: '$4,451.95 Vendor minimum bid (legacy column)',
-  txInventorySourceList: 'No list URL published per property',
-  txInventoryPurchase: 'No online purchase link on file - a vendor list page is not a purchase mechanism',
+  txInventorySourceList: "Vendor list page \u2192",   // the registry listing the applier writes
+  txInventoryPurchase: "Application / purchase instructions \u2192 Purchase instructions - the county's process page, not a link for this specific property",
   txInventoryOwner: 'Not on file',
   txInventoryParcel: '23-TX-0644',
-  txInventoryAnchors: 0,
+  txInventoryAnchors: 2,
   txInventoryGapNamesAcquisition: true,
   txInventoryGapNeverNamesLink: true,
-  txInventoryAcquire: 'Not yet verified - no published acquisition process established from evidence',
+  txInventoryAcquire: "Multi-step county process Tax Assessor-Collector (fixture) - full process in \"How do I acquire it?\" above",
   flInventoryLabels: ['Status', 'Inventory', 'Price', 'Certificate #', 'Available for purchase', 'Escheats to county', 'Source list', 'Source document', 'List as of', 'Source document dated', 'Published by', 'Last read from source', 'Parcel #', 'Legal description', 'Name in which assessed', 'Assessed value', 'Taxable value', 'Acreage', 'Land use', 'Homestead', 'How to acquire', 'Purchase link'],
   flInventoryGroups: ['Inventory', 'Property', 'Purchase path'],
   flInventoryStatus: 'Available over the counter Basis: list presence · observed Aug 11, 2026',
@@ -4212,7 +4274,7 @@ const EXPECTED = {
     'legal_desc|County list (Lands Available) fl_laft_pioneer|Published by the source|List as of Aug 10, 2026'
   ],
   flProvenanceLines: ['Availability evidence', 'Last verified', 'Source date', 'Purchase link source', 'Path evidence', 'Read by', 'List read from', 'Retrieved', 'List date', 'Amount', 'Purchase path', 'How to purchase', 'Inventory type', 'Status wording'],   // the availability-evidence block leads; 'How to purchase' = the source-level mode,
-  flProvenancePurchaseLine: 'no purchase path published by the source or verified in the registry - none invented',
+  flProvenancePurchaseLine: "phone_mail (source-scope): Clerk's Lands Available page (fixture)",   // acquisition-path sprint: p3 carries a verified county process
   flProvenanceFresh: 'Last read from the source Aug 11, 2026 · list dated Aug 10, 2026',
   flProvenanceNoScoreWords: true,
   flInventoryType: 'Lands Available - fixed price, over the counter (F.S. 197.502(7))',
@@ -4251,10 +4313,10 @@ const EXPECTED = {
   // ---- Available commercial release (2026-09-30, migration 023) ----
   decQuestions: ['What property is this?', 'Why is it in Available?', 'Is it currently verified as available?', 'How do I acquire it?', 'Who do I contact, and where do I go?', 'What source proves that, and when was it observed?', 'What does it cost?', 'Where is it?', 'What is known about it?', 'What is not known?', 'Where did the data come from?', 'How fresh is it?', 'What happened before?', 'Has this parcel appeared in another ledger?'],
   decNavHasDecision: 1,
-  decP3How: "Not yet verified - no published acquisition process has been established from evidence The county list has been read, but no county page or document establishing how to acquire from it has been verified yet. Nothing is invented; a path appears once the county's own page or document is read and reviewed.",
-  decP3Contact: 'Not yet verified - no county contact has been established from evidence',
-  decP3Why: "Lands Available - fixed price, over the counter (F.S. 197.502(7)) This parcel was on the official county list when it was last read. Basis: harvester constant (F.S. 197.502(7) Lands Available list) County list page → · List document (PDF / file) → · list dated Aug 10, 2026 Listed under case C-1 (parcel 333)",
-  decP3Glance: 'Not yet verified',
+  decP3How: "Phone the county First step: Call or e-mail the Tax Deed Department for the current purchase amount Call or e-mail the Tax Deed Department for the current purchase amount Pay the quoted amount at the Clerk's office County process: the county publishes this acquisition process for the properties on its list. It is not an approval for this parcel, and being listed does not prove the county will still sell it today. Acquisition process last verified Sep 30, 2026 \u00b7 County source not fully read at the last attempt; retry pending - this is the last verified process.",
+  decP3Contact: "Office Clerk of Court - Tax Deed Department (fixture) Phone (850) 555-0100 E-mail taxdeeds@bayclerk.example.gov",
+  decP3Why: "Lands Available - fixed price, over the counter (F.S. 197.502(7)) Property-specific: this parcel appears on the official county list. Basis: harvester constant (F.S. 197.502(7) Lands Available list) County list page \u2192 \u00b7 List document (PDF / file) \u2192 \u00b7 list dated Aug 10, 2026 Matched to the list by case no C-1 (parcel 333) \u00b7 read Aug 11, 2026",
+  decP3Glance: "Phone the county Clerk of Court - Tax Deed Department (fixture)",
   decP3GapNamesAcquisition: true,
   purchasePathNoneAcquire: 'Not yet verified - no published acquisition process established from evidence',
   decP3HowLinkCount: 0,   // nothing verified = no link, ever
@@ -4263,7 +4325,7 @@ const EXPECTED = {
   decP3Fresh: 'Source date: list dated Aug 10, 2026 · Observation date: Aug 11, 2026 · Last verified: read from the source Aug 11, 2026 County source: source unavailable at the last attempt - inventory kept, nothing closed · no complete read in the last 36 hours (last complete read 3d ago) · back-off: attempted at most once per 48 hours until a read succeeds · 3 rows at the last complete read',
   decP3History: 'Aug 11, 2026 Last read from the source (continued on the list) Append-only record. Absence from a list is recorded as a removal, never as a sale; a result appears only when the source published one.',
   decP3Related: 'No record for parcel 333 in the other ledgers in the current dataset',
-  decP3PathEvidenceLine: 'Not yet evaluated - no rule, registry row or source wording establishes a path',
+  decP3PathEvidenceLine: "Phone or mail process (published by the source; no online path) \u00b7 source-level \u00b7 Clerk's Lands Available page: call or e-mail the Tax Deed department for the current amount (fixture) \u00b7 observed Sep 30, 2026",
   decNoScoreWords: true,
   decP15What: '15 Manatee Ln Citrus County, FL · Parcel 1515 · Case CI-7 · Vacant Lot',
   decP15Available: 'Available over the counter basis: list presence · observed Sep 20, 2026 last verified: read from the source Sep 20, 2026',
