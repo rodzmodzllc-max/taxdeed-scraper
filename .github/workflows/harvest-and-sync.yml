@@ -1235,7 +1235,10 @@ jobs:
             # counties whose source page publishes no process. Read-only,
             # value-free; nothing is written and nothing becomes a path until
             # a person records a verified evidence row.
-            python3 scripts/capture_purchase_evidence.py --candidates --follow
+            cargs=""
+            IFS=',' read -ra cs <<< "$COUNTIES"
+            for c in "${cs[@]}"; do c="$(echo "$c" | xargs)"; [ -n "$c" ] && cargs="$cargs --county \"$c\""; done
+            eval python3 scripts/capture_purchase_evidence.py --candidates --follow $cargs
             exit 0
           fi
           args=""

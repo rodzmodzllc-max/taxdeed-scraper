@@ -185,8 +185,8 @@ def fetch(session: requests.Session, url: str) -> tuple[requests.Response | None
         return None, f"{type(exc).__name__}: {str(exc)[:160]}"
 
 
-def capture_url(session: requests.Session, url: str, *, kind: str) -> dict:
-    keep_tables = kind == "followed_link"
+def capture_url(session: requests.Session, url: str, *, kind: str, keep_tables: bool | None = None) -> dict:
+    keep_tables = (kind == "followed_link") if keep_tables is None else keep_tables
     out = {"url": url, "kind": kind, "fetched_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat()}
     resp, err = fetch(session, url)
     if err:
@@ -265,6 +265,10 @@ def capture_candidates(session: requests.Session, states: set[str] | None, count
     keep their table text (a process FAQ may be laid out in a table); the
     candidate page itself never does. Value-free like every other capture."""
     result: dict = {}
+    list_urls = set()
+    with open(REGISTRY, newline="", encoding="utf-8") as fh:
+        for reg in csv.DictReader(fh):
+            list_urls.update(u.strip() for u in (reg.get("canonical_url"), reg.get("document_url")) if u and u.strip())
     for r in candidate_rows(path):
         if (states and r["state"] not in states) or (counties and r["county"] not in counties):
             continue
@@ -274,7 +278,9 @@ def capture_candidates(session: requests.Session, states: set[str] | None, count
         if r["url"] in entry["_seen"]:
             continue
         entry["_seen"].append(r["url"])
-        entry["pages"].append(capture_url(session, r["url"], kind="candidate_page"))
+        # A candidate process page (an FAQ) may lay its answers out in a table;
+        # a page that is any registry source's inventory list never keeps one.
+        entry["pages"].append(capture_url(session, r["url"], kind="candidate_page", keep_tables=r["url"] not in list_urls))
         time.sleep(0.6)
     for key, entry in result.items():
         seen = set(entry.pop("_seen"))

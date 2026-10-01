@@ -195,3 +195,21 @@ def test_g13_candidate_pages_are_https_official_and_never_blocked_vendors():
         assert r["url"].startswith("https://") and not C.NEVER_FOLLOW.search(host + "."), r
         assert not re.search(r"google|bing|lgbs|pbfcm|mvba|ctsa|govease", r["url"], re.I)
     assert "acquisition_candidates" in WORKFLOW and "--candidates --follow" in WORKFLOW
+
+
+def test_g14_committed_evidence_from_the_candidate_capture():
+    by = {(e.state, e.county): e for e in PE.load_evidence()}
+    exp = {("FL", "Alachua"): ("fl_laft_realtdm", "quoted_amount", "(352) 374-3615", "taxdeeds@alachuaclerk.org"),
+           ("FL", "Duval"): ("fl_laft_pioneer", "phone_mail", "", "Ask.TaxDeeds@DuvalClerk.com"),
+           ("FL", "Highlands"): ("fl_laft_realtdm", "quoted_amount", "(863) 402-6565", "clkbustd@hcclerk.org"),
+           ("TX", "Galveston"): ("tx_lgbs", "county_instructions", "(409) 766-2312", "")}
+    for key, (sid, ptype, phone, email) in exp.items():
+        e = by[key]
+        assert (e.source_id, e.path_type, e.phone, e.email, e.observed_on) == (sid, ptype, phone, email, "2026-10-01"), key
+        assert "run 36858070184" in e.notes and e.review_state == "verified" and e.steps, key
+    assert by[("FL", "Duval")].application_url.endswith("392460_2_Land-s-Available-Request-Form.pdf")
+    # Counties whose official pages published no acquisition process stay without a row (fail closed).
+    for key in [("FL", c) for c in ("Bay", "Hillsborough", "Indian River", "Miami-Dade", "Polk", "Putnam", "St. Lucie", "Escambia",
+                                    "Hendry", "Lee", "Osceola", "Palm Beach", "Sarasota", "Gadsden")] + \
+               [("TX", c) for c in ("Liberty", "Leon", "Maverick", "Jim Wells", "Hardin", "Van Zandt", "Goliad")]:
+        assert key not in by, key

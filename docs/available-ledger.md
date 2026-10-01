@@ -507,3 +507,98 @@ county will still sell it today" / "Property-specific: ...") and
 county's source was not fully read at the last attempt - the verified
 process stays. "Why is it in Available?" says whether the parcel was
 matched on the official list.
+
+## 13. Acquisition-path gate (2026-10-01)
+
+Every AVAILABLE (OTC / LAFT / adjudicated / struck-off) property a customer
+sees answers, from verified evidence: why it is available, which official
+page confirms it, where to purchase or apply, the first action, which office
+handles it, which page proves the process, and when that was last verified.
+A row that cannot answer is withheld - counted with its reason - never shown
+without a way to act on it.
+
+### 13.1 The row-level gate
+
+`purchase_path_engine.acquisition_gate(row)` (mirrored by `acquisitionGate()`
+in `public/app.js`; a test pins the reason keys equal) passes an AVAILABLE
+row only with all five:
+
+| Reason key | Check |
+|---|---|
+| `no_source_listing` | `list_url` / `document_url` (row or `otc_provenance`) |
+| `no_source_match` | `otc_provenance.source_match.value` (case number else parcel, the identity the sync upserts) |
+| `no_acquisition_path` | `purchase_path_type` set and not `none_published` |
+| `no_evidence_page` | `otc_provenance.purchase_evidence_url`, or a URL-type path's `purchase_url` |
+| `no_verified_date` | `purchase_path_observed_on` |
+
+The source-level publication gate (section 8) still applies first. The
+frontend counts withheld rows per reason (`WITHHELD_ACQ`) and prints them on
+the Available ledger (`#ledgerWithheldAcq`); `scripts/publication_gate.py`
+reports `acquisition_gate` (rows, publishable, withheld, reasons, withheld by
+county + source) in every laft / LA / TX run's log and evidence file.
+
+### 13.2 Sources without a lifecycle read: `scripts/apply_acquisition_paths.py`
+
+Texas AVAILABLE rows come from the manual-only LGBS harvest, which nothing
+here runs or retries, so the laft lifecycle never resolved a path for them:
+before this sprint all 421 active Texas rows (Galveston 183, Liberty 113,
+Leon 84, Maverick 14, Jim Wells 11, Hardin 9, Van Zandt 6, Goliad 1) had no
+listing link, no match and no process, and no stored `tx_sale_status`
+(the last successful LGBS read, 2026-09-23, predates that column). The
+applier, run as a `continue-on-error` step at the end of the laft job with
+no request to any source:
+
+- sets the listing to the registry's canonical page for the row's
+  `(source_id, county)` - the page the harvester read - never a composed
+  property URL;
+- adds the deterministic match from the row's own case number / parcel,
+  dated by the registry's last successful read of that source;
+- applies the VERIFIED county-level evidence row for `(state, source_id,
+  county)` through `purchase_path_engine.resolve()` - one record per
+  county, inherited by every row of that county;
+- never replaces a stored property-scope path with a source-scope one,
+  keeps every other `otc_provenance` key, writes only what changes, and
+  never touches `last_seen_at`, status, amounts, owners or outcomes.
+
+A county without a verified evidence row gets the listing and match only;
+the gate withholds it.
+
+### 13.3 Finding the official process: `capture_purchase_evidence.py --candidates`
+
+`data/acquisition_candidate_pages.csv` names official pages (clerk, tax
+assessor-collector, sheriff, comptroller directory, county commission) a
+person found in search results for counties whose source page publishes no
+process. The manual evidence job (`job=evidence`,
+`evidence_scope=acquisition_candidates`) reads each one value-free, plus up
+to six tax-deed / struck-off links present on it (search engines, social
+sites and blocked vendors - GovEase, LGBS, PBFCM, MVBA, CTSA - are never
+followed). A page becomes evidence only when a person reads the capture and
+records a `verified` row with its `evidence_url`; a candidate is never a
+path. `lgbs.com` joined `laft_purchase_paths.UNTRUSTED_HOST_SUFFIXES`: the
+counsel's site is the Texas LISTING, never the official acquisition page.
+
+### 13.4 Customer page: HOW TO ACQUIRE
+
+The first section of every AVAILABLE property page (`acquireBlockHtml()`,
+`data-section="acquire"`):
+
+- **Why this property is available** - the classified inventory type with
+  its basis; for Texas, the listing's own status when stored
+  (`tx_sale_status`), otherwise both statuses the harvester files as
+  Available, and a statement that which one applies was not stored; the
+  identifier match; the listing link named for who publishes it ("View
+  official availability" / "View official adjudicated-property list" /
+  "View the tax-sale listing (delinquent-tax counsel)").
+- **How to acquire** - one primary action (`acquisitionCta()`), labelled
+  for what it is: "Open county acquisition page", "Start application",
+  "Download application", "View purchase instructions", "Contact county to
+  purchase" (mailto / tel when the evidence publishes an address or number);
+  then Method, Instructions (the published steps), Handled by, Official
+  source (the evidence page), Last verified, Application, and Applies to
+  (a county process is not an approval for the parcel). No score, badge or
+  recommendation.
+
+The lifecycle (`laft_lifecycle.provenance_payload`) no longer writes NULL
+`list_as_of` / `source_published_at` when a run's status entry carries no
+date: production Louisiana rows had lost the dataset's own list date that
+way.
