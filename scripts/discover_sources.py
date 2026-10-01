@@ -237,7 +237,8 @@ DEEP_TARGETS = [
      "meta": "https://data.brla.gov/api/views/ei2c-krsr.json"},
     {"state": "LA", "county": "East Baton Rouge", "kind": "socrata", "url": "https://data.brla.gov/resource/myfc-nh6n.json",
      "meta": "https://data.brla.gov/api/views/myfc-nh6n.json", "id_fields": ["assessment_no", "assessment_no_new"],
-     "categories": ["structure_use", "vacant_lot_yn", "unit_type", "tax_year", "assessment_type", "assessment_status"]},
+     "categories": ["structure_use", "vacant_lot_yn", "unit_type", "tax_year", "assessment_type", "assessment_status"],
+     "year_field": "tax_year", "year_fill": ["structure_use", "vacant_lot_yn", "taxpayer_val", "legal_description", "unit_type"]},
     {"state": "LA", "county": "East Baton Rouge", "kind": "socrata", "url": "https://data.brla.gov/resource/shrr-fsqq.json",
      "meta": "https://data.brla.gov/api/views/shrr-fsqq.json"},
     {"state": "TX", "county": "Jim Wells", "kind": "arcgis",
@@ -361,7 +362,19 @@ def deep_probe(http: Http, target: dict, rows: list[dict]) -> dict:
                         res["source_shapes"][shape(rec.get(idf))] = res["source_shapes"].get(shape(rec.get(idf)), 0) + 1
             fill: dict = {}
             cats = res.setdefault("categories", {})
+            yf = target.get("year_field")
             for k, recs in found.items():
+                if k in keyed and yf and col == "parcel":
+                    # Per-year fill among the matched parcels' records (value-free):
+                    # which tax years actually carry each column.
+                    by_year = res.setdefault("fill_by_year", {})
+                    for rec in recs:
+                        y = str(rec.get(yf) or "?")
+                        b = by_year.setdefault(y, {"records": 0})
+                        b["records"] += 1
+                        for c in target.get("year_fill", []):
+                            if rec.get(c) not in (None, "", " "):
+                                b[c] = b.get(c, 0) + 1
                 if k in keyed:
                     for rec in recs:
                         for c in target.get("categories", []):
@@ -517,6 +530,8 @@ def main(argv=None) -> int:
                 print(f"      fill among matched: {r['fill_among_matched']}")
                 if r.get("categories"):
                     print(f"      category values among matched records: {r['categories']}")
+                if r.get("fill_by_year"):
+                    print(f"      fill by year among matched parcels' records: {dict(sorted(r['fill_by_year'].items()))}")
         if not (a.gis or a.documents):
             return 0
     units = available_units(base, key, a.state, a.county)
