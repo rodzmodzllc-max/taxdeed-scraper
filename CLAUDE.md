@@ -1976,6 +1976,30 @@ Full description: `docs/property-enrichment.md`. Stable facts:
   - Michigan county parcels: disclaimer / click-through licence.
   - York SC sale date: the source document returned 404.
 
+## AVAILABLE acquisition-path gate (2026-10-01, PR open, no migration)
+
+Full description: `docs/available-ledger.md` section 13. Stable facts:
+- **Every customer-visible AVAILABLE row passes `acquisition_gate`**
+  (`scripts/purchase_path_engine.py`, mirrored by `acquisitionGate()` in
+  app.js - a test pins the reason keys): listing, deterministic match,
+  verified path, evidence page, last-verified date. Failing rows are
+  withheld and counted per reason (`#ledgerWithheldAcq`), never shown
+  without a way to act; `publication_gate.py` reports them per county.
+- **Texas has no lifecycle read** (LGBS is manual-only and never retried):
+  `scripts/apply_acquisition_paths.py --state TX --source-id tx_lgbs`
+  (laft job, no source request) writes the registry listing, the identity
+  match and the verified county-level evidence row; a county without one
+  gets no path. `lgbs.com` is an untrusted purchase host - it is the
+  listing, never the acquisition page.
+- **Finding a county's process:** add official pages to
+  `data/acquisition_candidate_pages.csv`, dispatch `job=evidence`,
+  `evidence_scope=acquisition_candidates` (optionally `evidence_counties`),
+  read the digest in the job log, then record a `verified` evidence row.
+  A candidate is never a path.
+- The lifecycle never writes NULL `list_as_of` / `source_published_at`.
+- Frontend: `acquireBlockHtml()` (first section of an Available page),
+  truthful CTA labels from `acquisitionCta()`. `sw.js` -> `tdw-shell-v62`.
+
 ## Where to look for more
 
 - `claude/improvement-roadmap.md` in the "tax florida app" claude.ai Project — the full dated log of every fix, audit finding, and open decision. This is where new findings should be appended, not here.

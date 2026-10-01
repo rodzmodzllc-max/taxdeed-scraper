@@ -602,3 +602,31 @@ The lifecycle (`laft_lifecycle.provenance_payload`) no longer writes NULL
 `list_as_of` / `source_published_at` when a run's status entry carries no
 date: production Louisiana rows had lost the dataset's own list date that
 way.
+
+### 13.5 What the capture established (runs 36858070184, 36865836152, 2026-10-01)
+
+Verified and recorded in `data/purchase_path_evidence.csv` (observed
+2026-10-01, `review_state=verified`):
+
+| State / county | Source | Path | Evidence page | Action |
+|---|---|---|---|---|
+| FL Alachua | fl_laft_realtdm | quoted_amount | Clerk "List of Lands Available - Purchase Property" | Contact the Tax Deed department ((352) 374-3615, taxdeeds@alachuaclerk.org) for the current cost |
+| FL Duval | fl_laft_pioneer | phone_mail + application document | Clerk "Lands Available for Taxes - FAQ" (PDF) | Statement Request for Lands Available form, by e-mail (Ask.TaxDeeds@DuvalClerk.com) or in person (Room 1054) |
+| FL Highlands | fl_laft_realtdm | quoted_amount | Clerk "Lands Available" | Request the payoff amount ((863) 402-6565, clkbustd@hcclerk.org) |
+| TX Galveston | tx_lgbs | county_instructions | Sheriff's Office "Sheriff Sales Information & Procedures" (PDF) | Tax foreclosure sales and resales are held by the Sheriff online through Real Auction: register, 5% deposit, pay on sale day, Certificate of Eligibility |
+
+Not recorded - the gate withholds these counties' rows:
+
+| State / county | Why |
+|---|---|
+| FL Bay, Miami-Dade, Polk, Putnam | Official pages read; they describe the auction only, no Lands Available purchase step |
+| FL Hillsborough | States the purchase terms after 90 days, but no first action, office or contact for it |
+| FL Indian River, St. Lucie | The process wording is not in the captured text (rendered by script / in a widget), twice |
+| FL Escambia, Hendry, Lee, Osceola, Palm Beach, Sarasota | HTTP 403 to the runner on every candidate page |
+| FL Gadsden | No official page found |
+| TX Liberty, Jim Wells | County pages carry foreclosure notices only; Jim Wells (City of Alice) points to the counsel's site |
+| TX Leon | Only a 2020 sale notice and the Comptroller's office directory - no resale process |
+| TX Hardin | A 2024 commissioners-court resale resolution only - no buyer instructions |
+| TX Van Zandt | The county page read carries no struck-off / resale text |
+| TX Maverick | CAD portal only; the trust-property list is a blocked vendor's |
+| TX Goliad | Tax office page only |
