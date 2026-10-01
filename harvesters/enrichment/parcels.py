@@ -44,6 +44,9 @@ __all__ = ["ID_RULES", "ParcelSourceConfig", "MatchResult", "Coverage", "normali
            "query_urls", "index_features", "match_rows", "plan_update", "polygon_centroid", "LAYER_URL_RE"]
 
 LAYER_URL_RE = re.compile(r"^https://[^?#\s]+/(FeatureServer|MapServer)/\d+$")
+# A Socrata (SODA) dataset resource: https://<host>/resource/<4x4>.json
+SODA_URL_RE = re.compile(r"^https://[^/?#\s]+/resource/[a-z0-9]{4}-[a-z0-9]{4}\.json$")
+TRANSPORTS = ("arcgis", "socrata")
 
 # Deterministic identifier normalizations. Each is a pure function of the
 # string; none guesses, pads or re-derives an identifier.
@@ -55,6 +58,10 @@ ID_RULES: dict[str, Callable[[str], str]] = {
     "alnum": lambda v: re.sub(r"[^0-9A-Za-z]", "", v).upper(),
     # digits only (for purely numeric account numbers written with separators)
     "digits": lambda v: re.sub(r"\D", "", v),
+    # a NUMERIC identifier: digits only, leading zeros dropped. For a source
+    # that stores the id as a number (a Socrata "number" column loses the
+    # leading zeros the published form carries); applied to both sides.
+    "numeric": lambda v: re.sub(r"\D", "", v).lstrip("0"),
 }
 
 # Columns this pipeline may write, and their type. Anything else in a field
@@ -97,10 +104,27 @@ class ParcelSourceConfig:
     # resolves to exactly one feature across all of them; one key hitting two
     # different features (through two attributes) is AMBIGUOUS.
     alt_id_fields: tuple = ()
+    # "arcgis" (FeatureServer/MapServer query) or "socrata" (SODA resource).
+    transport: str = "arcgis"
+    # A multi-year source (a tax roll with one record per tax year): among the
+    # records for one identifier keep only those with the greatest value of
+    # this field; two DIFFERENT records still tied there are AMBIGUOUS.
+    latest_field: str | None = None
+    # How identifiers are written in the query: "string" (quoted) or
+    # "number" (a numeric column - the normalized key, unquoted).
+    id_query: str = "string"
 
     def __post_init__(self) -> None:
-        if not LAYER_URL_RE.match(self.layer_url):
+        if self.transport not in TRANSPORTS:
+            raise ValueError(f"{self.source_id}: unknown transport {self.transport!r}")
+        if self.transport == "arcgis" and not LAYER_URL_RE.match(self.layer_url):
             raise ValueError(f"{self.source_id}: layer_url must be https://.../FeatureServer|MapServer/<n>")
+        if self.transport == "socrata" and not SODA_URL_RE.match(self.layer_url):
+            raise ValueError(f"{self.source_id}: a socrata source's layer_url must be https://<host>/resource/<id>.json")
+        if self.transport == "socrata" and self.centroid:
+            raise ValueError(f"{self.source_id}: a centroid needs polygon geometry (arcgis transport)")
+        if self.id_query not in ("string", "number"):
+            raise ValueError(f"{self.source_id}: id_query must be string or number")
         if self.id_rule not in ID_RULES:
             raise ValueError(f"{self.source_id}: unknown id_rule {self.id_rule!r}")
         unknown = set(self.field_map) - set(COLUMN_TYPES)
@@ -129,6 +153,8 @@ class ParcelSourceConfig:
             names.add(self.county_field)
         if self.value_year_field:
             names.add(self.value_year_field)
+        if self.latest_field:
+            names.add(self.latest_field)
         return sorted(names)
 
 
@@ -163,10 +189,16 @@ def query_urls(cfg: ParcelSourceConfig, county: str, raw_ids: Iterable[str]) -> 
     normalization on both sides). Batched; county-scoped when the layer is
     statewide."""
     ids = sorted({str(i).strip() for i in raw_ids if str(i or "").strip()})
+    if cfg.id_query == "number":
+        ids = sorted({k for k in (normalize_id(i, cfg.id_rule) for i in ids) if k and k.isdigit()}, key=int)
     urls = []
     for i in range(0, len(ids), cfg.batch_size):
         chunk = ids[i:i + cfg.batch_size]
-        in_list = ",".join(_sql_str(x) for x in chunk)
+        in_list = ",".join(x if cfg.id_query == "number" else _sql_str(x) for x in chunk)
+        if cfg.transport == "socrata":
+            where = " OR ".join(f"{f} in({in_list})" for f in cfg.id_fields())
+            urls.append(cfg.layer_url + "?" + urlencode({"$where": where, "$select": ",".join(cfg.out_fields()), "$limit": 5000}))
+            continue
         where = " OR ".join(f"{f} IN ({in_list})" for f in cfg.id_fields())
         where = f"({where})" if len(cfg.id_fields()) > 1 else where
         if cfg.county_field:
@@ -196,7 +228,25 @@ def index_features(cfg: ParcelSourceConfig, features: Iterable[dict]) -> dict[tu
                 continue
             seen[(county, key)].add(ident)
             idx.setdefault((county, key), []).append({**ft, "_matched_field": f})
+    if cfg.latest_field:
+        for k, fts in idx.items():
+            years = [_latest_value(ft, cfg.latest_field) for ft in fts]
+            known = [y for y in years if y is not None]
+            if len(fts) > 1 and known:
+                top = max(known)
+                idx[k] = [ft for ft, y in zip(fts, years) if y == top]
     return idx
+
+
+def _latest_value(ft: dict, field_name: str):
+    """The record's numeric value of the latest-selection field (a tax year),
+    or None when it is blank or not a number - a record without a year never
+    wins over one that has it."""
+    v = (ft.get("attributes") or {}).get(field_name)
+    try:
+        return float(str(v).strip())
+    except (TypeError, ValueError):
+        return None
 
 
 @dataclass

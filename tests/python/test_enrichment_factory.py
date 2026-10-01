@@ -194,3 +194,32 @@ def test_f22_query_asks_every_identifier_field_and_row_column_is_restricted():
     assert "PARNO IN ('1')" in where and "GEO_ID IN ('1')" in where and " OR " in where
     with pytest.raises(ValueError):
         cfg(row_id_column="owner_name")
+
+
+def test_f23_socrata_transport_number_ids_and_latest_tax_year():
+    c = cfg(transport="socrata", layer_url="https://data.example.gov/resource/ab12-cd34.json", id_field="property_number",
+            id_rule="numeric", id_query="number", county_field=None, centroid=False, latest_field="tax_year",
+            field_map={"market": "fair_market_value", "legal_desc": "legal_description"})
+    [url] = P.query_urls(c, "East Baton Rouge", ["012-3456-7", "999-0000-1", "no digits"])
+    q = parse_qs(urlsplit(url).query)
+    assert q["$where"] == ["property_number in(1234567,99900001)"]          # normalized, unquoted, label without digits dropped
+    recs = [{"attributes": {"property_number": "1234567", "tax_year": "2024", "fair_market_value": "10"}},
+            {"attributes": {"property_number": "1234567", "tax_year": "2025", "fair_market_value": "20"}},
+            {"attributes": {"property_number": "555", "tax_year": "2025", "fair_market_value": "1"}},
+            {"attributes": {"property_number": "555", "tax_year": "2025", "fair_market_value": "2"}}]
+    idx = P.index_features(c, recs)
+    got = {m.row_id: m for m in P.match_rows(c, [{"id": "a", "county": "East Baton Rouge", "parcel": "012-3456-7"},
+                                                 {"id": "b", "county": "East Baton Rouge", "parcel": "000-0555-"}], idx)}
+    assert got["a"].status == "MATCHED" and got["a"].feature["attributes"]["tax_year"] == "2025"   # the latest tax year
+    assert got["b"].status == "AMBIGUOUS"                                                           # two records tied at the latest year
+    fields, _ = P.plan_update(c, {"id": "a"}, got["a"], recorded_at="t")
+    assert fields == {"market": 20}
+
+
+def test_f24_socrata_config_validation():
+    with pytest.raises(ValueError):
+        cfg(transport="socrata", layer_url="https://example.gov/arcgis/rest/services/P/FeatureServer/1", centroid=False)
+    with pytest.raises(ValueError):
+        cfg(transport="socrata", layer_url="https://data.example.gov/resource/ab12-cd34.json", centroid=True)
+    with pytest.raises(ValueError):
+        cfg(transport="ftp")

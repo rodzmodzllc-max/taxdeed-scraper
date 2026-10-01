@@ -97,6 +97,13 @@ def run(state: str, rows: list[dict], fetch_json, *, write=None, recorded_at: st
             except Exception:  # noqa: BLE001 - a failed query attaches nothing
                 failed = True
                 break
+            if cfg.transport == "socrata":
+                # A SODA resource answers with a list of records (or an error object).
+                if not isinstance(data, list):
+                    failed = True
+                    break
+                features += [{"attributes": rec} for rec in data if isinstance(rec, dict)]
+                continue
             if not isinstance(data, dict) or "error" in data:
                 failed = True
                 break
