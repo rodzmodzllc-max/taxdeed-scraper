@@ -243,12 +243,12 @@ UNREVIEWED_NO_LICENCE = ("Implemented and read live, but the source publishes no
                          "not requested on a schedule and no row is written until an admin review approves it.")
 # ---- AVAILABLE implementation sprint (2026-10-02) ---------------------------
 # Government-held property the source itself offers for acquisition. Read
-# value-free by the evidence job (`evidence_scope=available_sources`, runs
-# 37037960068 / 37038385659; Georgetown: `sc_available`, runs 37033274319 /
+# value-free by the evidence job (`evidence_scope=available_sources`, run
+# 37038385659; Georgetown: `sc_available`, runs 37033274319 /
 # 37035908843 / 37036374756). Every one is UNREVIEWED for publication: it is
 # collected and held (scripts/harvest_expansion.py), never written to
 # properties, until an admin review approves it.
-AVAILABLE_SPRINT_EVIDENCE_RUNS = ("37037960068", "37038385659")
+AVAILABLE_SPRINT_EVIDENCE_RUNS = ("37038385659",)
 
 # Detroit Land Bank Authority (Wayne County, MI) - "Properties owned by the
 # Detroit Land Bank Authority" (56,896 features, edited 2026-10-01). Its own

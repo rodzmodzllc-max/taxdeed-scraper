@@ -54,7 +54,7 @@ The published sources in the same run were unchanged: Eaton 8, Lenawee 35, York 
 ## Evidence
 
 All evidence comes from value-free structural captures:
-- `job=evidence`, `evidence_scope=available_sources` (`scripts/capture_available_sources.py`, candidates in `data/available_source_candidates.csv`), runs 37037960068 and 37038385659;
+- `job=evidence`, `evidence_scope=available_sources` (`scripts/capture_available_sources.py`, candidates in `data/available_source_candidates.csv`), run 37038385659;
 - `evidence_scope=available_validate`, which runs the real harvest path for MI and SC with no database credentials and prints counts and shapes only.
 
 Candidates that were read and not implemented:
