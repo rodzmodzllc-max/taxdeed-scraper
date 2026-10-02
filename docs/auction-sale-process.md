@@ -82,3 +82,29 @@ No verified process was found on the captured pages for:
 
 Each of these reads "Not yet verified". The next step for each is a better
 official page in `data/auction_candidate_pages.csv`.
+
+## Florida FDOR identifier probe (run 36992696043, read-only)
+
+`scripts/probe_fdor_identifier_rules.py` (`job=auction`, `auction_mode=fdor_probe`) tried three
+exact transforms on 8 unmatched rows in each of six counties: ALT_KEY = the digits, ALT_KEY = the
+identifier as stored, and PARCEL_ID = the digits. Each lookup was county-scoped and limited to two
+records. The results below are counts only.
+
+| County | Shapes probed | PARCEL_ID = digits | ALT_KEY lookups |
+|---|---|---|---|
+| Brevard | d7 | 0 / 8 | 1 unique, 7 layer timeouts |
+| Hillsborough | d10, A1d10 | 0 / 8 | all timed out |
+| Suwannee | d9 - d11 | 0 / 8 | 3 miss, 5 timeouts |
+| Leon | d6A1d4 | 0 / 8 | 12 miss, 3 timeouts |
+| Pinellas | d2-d2-d2-d5-d3-d4 | 0 / 8 | 8 miss, 8 timeouts |
+| Lake | d2-d2-d2-d12 | 0 / 8 | 7 miss, 9 timeouts |
+
+**Decision: no new format rule was added.**
+
+- One Brevard hit is not evidence of a county-wide rule.
+- The layer's ALT_KEY queries time out more often than they answer.
+- These rows stay unmatched, and their gap is recorded. A rule needs a run in which a transform
+  resolves uniquely for most of a county's rows, with zero ambiguous results.
+- Lee, Volusia and Miami-Dade rows were not probed. Their stored form already equals the layer's
+  PARCEL_ID once separators are stripped (production matched pairs), so a miss there means the
+  parcel is absent from the layer.
