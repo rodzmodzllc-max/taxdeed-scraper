@@ -2193,6 +2193,26 @@ Full description: `docs/available-discovery.md`. Stable facts:
   (Aiken, Fairfield) lose the `availability` role. No adapter yet: no
   publication review. `--discovery` never prints a row-like line.
 
+## SC AVAILABLE: Georgetown / Spartanburg FLC lists (2026-10-02, PR open, no migration)
+
+Full description: `docs/sc-available-inventory.md`. Stable facts:
+- **`harvesters/otc/adapters/sc_flc.py`** parses the live FLC PDFs, configured
+  from read-only evidence runs 37033274319 (structure) and 37035908843
+  (parser validation).
+  - Georgetown: only a LAND row past SC's twelve-month redemption period is
+    AVAILABLE (1 on the live list). MOBILE HOMES rows are personal property.
+  - Spartanburg's list is a redemption-period bid ASSIGNMENT, so it is never
+    AVAILABLE.
+  - Identifier = TMS # / MAP NUMBER with whitespace removed, nothing else.
+  - `harvest()` refuses before any request unless publication is APPROVED.
+- **Publication reviews:** `data/available_publication_reviews.csv` (both
+  sources REVIEW_REQUIRED) must agree with the catalog's governance.
+  `available_coverage.problems()` enforces this, and APPROVED needs a
+  published grant or recorded permission.
+- **Evidence capture:** `job=evidence`, `evidence_scope=sc_available`
+  (`scripts/capture_sc_available.py`). Structure and counts only; a privacy
+  test feeds it PII and proves none reaches its output.
+
 ## Where to look for more
 
 - `claude/improvement-roadmap.md` in the "tax florida app" claude.ai Project — the full dated log of every fix, audit finding, and open decision. This is where new findings should be appended, not here.

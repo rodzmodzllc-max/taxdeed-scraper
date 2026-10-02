@@ -10,6 +10,7 @@
      "governance": "REVIEW_REQUIRED",
      "identifier_confirmed": false,
      "name": "tax delinquent properties currently in State inventory; county transcript; CS Number; Application for Purchase of Land Sold to State of Alabama for Delinquent Taxes; price quote (search-index wording)",
+     "publication_review": "",
      "read_at": "",
      "source_id": "AL:STATEWIDE:al_ador_state_land",
      "url": "https://www.revenue.alabama.gov/property-tax/delinquent-search/"
@@ -32,6 +33,7 @@
      "governance": "REVIEW_REQUIRED",
      "identifier_confirmed": false,
      "name": "Post Auction Sales List; parcels certified to the Commissioner of State Lands; tax due = minimum bid; online auction (auction.cosl.org); 10-business-day redemption after the post auction sale date (search-index wording)",
+     "publication_review": "",
      "read_at": "",
      "source_id": "AR:STATEWIDE:ar_cosl_post_auction",
      "url": "https://cosl.org/Home/PostAuctionView"
@@ -81,6 +83,7 @@
      "governance": "REVIEW_REQUIRED",
      "identifier_confirmed": false,
      "name": "county list",
+     "publication_review": "",
      "read_at": "",
      "source_id": "FL:Broward:unharvested_list",
      "url": "https://www.broward.org/RecordsTaxesTreasury/TaxesFees/Pages/LandsAvailableforTaxes.aspx"
@@ -92,6 +95,7 @@
      "governance": "REVIEW_REQUIRED",
      "identifier_confirmed": false,
      "name": "county list",
+     "publication_review": "",
      "read_at": "",
      "source_id": "FL:Charlotte:unharvested_list",
      "url": "https://www.charlotteclerk.com/departments/taxdeed/"
@@ -103,6 +107,7 @@
      "governance": "REVIEW_REQUIRED",
      "identifier_confirmed": false,
      "name": "county list",
+     "publication_review": "",
      "read_at": "",
      "source_id": "FL:Collier:unharvested_list",
      "url": "https://www.collierclerk.com/accessing-tax-deed-sales-in-collier-county/"
@@ -114,6 +119,7 @@
      "governance": "REVIEW_REQUIRED",
      "identifier_confirmed": false,
      "name": "county list",
+     "publication_review": "",
      "read_at": "",
      "source_id": "FL:DeSoto:unharvested_list",
      "url": "https://www.desotoclerk.com/public-sales/tax-deeds/"
@@ -125,6 +131,7 @@
      "governance": "REVIEW_REQUIRED",
      "identifier_confirmed": false,
      "name": "county list",
+     "publication_review": "",
      "read_at": "",
      "source_id": "FL:Gilchrist:unharvested_list",
      "url": "https://www.gilchristclerk.com/tax-deeds/"
@@ -136,6 +143,7 @@
      "governance": "REVIEW_REQUIRED",
      "identifier_confirmed": false,
      "name": "county list",
+     "publication_review": "",
      "read_at": "",
      "source_id": "FL:Jefferson:unharvested_list",
      "url": "https://www.jeffersonclerk.com"
@@ -147,6 +155,7 @@
      "governance": "REVIEW_REQUIRED",
      "identifier_confirmed": false,
      "name": "county list",
+     "publication_review": "",
      "read_at": "",
      "source_id": "FL:Lake:unharvested_list",
      "url": "https://taxdeeds.lakecountyclerk.org"
@@ -158,6 +167,7 @@
      "governance": "REVIEW_REQUIRED",
      "identifier_confirmed": false,
      "name": "county list",
+     "publication_review": "",
      "read_at": "",
      "source_id": "FL:Monroe:unharvested_list",
      "url": "https://www.monroe-clerk.com"
@@ -169,6 +179,7 @@
      "governance": "REVIEW_REQUIRED",
      "identifier_confirmed": false,
      "name": "county list",
+     "publication_review": "",
      "read_at": "",
      "source_id": "FL:Nassau:unharvested_list",
      "url": "https://www.nassauclerk.com/view-tax-deeds-1"
@@ -180,6 +191,7 @@
      "governance": "REVIEW_REQUIRED",
      "identifier_confirmed": false,
      "name": "county list",
+     "publication_review": "",
      "read_at": "",
      "source_id": "FL:Okaloosa:unharvested_list",
      "url": "https://www.okaloosaclerk.com/board-services/tax-deed-sales/lands-available-for-taxes/"
@@ -191,6 +203,7 @@
      "governance": "REVIEW_REQUIRED",
      "identifier_confirmed": false,
      "name": "county list",
+     "publication_review": "",
      "read_at": "",
      "source_id": "FL:Suwannee:unharvested_list",
      "url": "https://www.suwgov.org/tax-deed-sales/"
@@ -202,6 +215,7 @@
      "governance": "REVIEW_REQUIRED",
      "identifier_confirmed": false,
      "name": "county list",
+     "publication_review": "",
      "read_at": "",
      "source_id": "FL:Wakulla:unharvested_list",
      "url": "https://www.wakullaclerk.org/official_records/tax_deed_sales.php"
@@ -295,6 +309,7 @@
      "governance": "REVIEW_REQUIRED",
      "identifier_confirmed": false,
      "name": "Lenawee County County land bank holding tax-foreclosed property",
+     "publication_review": "",
      "read_at": "2026-10-02T13:00:41Z",
      "source_id": "mi_lenawee_landbank",
      "url": "https://www.lenawee.mi.us/850/Lenawee-County-Landbank-Authority"
@@ -324,7 +339,8 @@
      "governance": "REVIEW_REQUIRED",
      "identifier_confirmed": true,
      "name": "Georgetown County Forfeited Land Commission list (post-sale, county-held)",
-     "read_at": "2026-10-02T13:00:50Z",
+     "publication_review": "REVIEW_REQUIRED",
+     "read_at": "2026-10-02T16:27:27Z",
      "source_id": "sc_georgetown_forfeited_land",
      "url": "https://www.gtcountysc.gov/415/Forfeited-Land-Commission"
     },
@@ -335,6 +351,7 @@
      "governance": "REVIEW_REQUIRED",
      "identifier_confirmed": false,
      "name": "Jasper County Forfeited Land Commission list (post-sale, county-held)",
+     "publication_review": "",
      "read_at": "2026-10-02T13:00:55Z",
      "source_id": "sc_jasper_forfeited_land",
      "url": "https://www.jaspercountysc.gov/services/forfeited-land/"
@@ -346,6 +363,7 @@
      "governance": "REVIEW_REQUIRED",
      "identifier_confirmed": false,
      "name": "Lexington County Forfeited Land Commission list (post-sale, county-held)",
+     "publication_review": "",
      "read_at": "2026-10-02T13:01:05Z",
      "source_id": "sc_lexington_forfeited_land",
      "url": "https://www.lex-co.sc.gov/departments/treasurer/forfeited-land-commission"
@@ -357,6 +375,7 @@
      "governance": "REVIEW_REQUIRED",
      "identifier_confirmed": false,
      "name": "Oconee County Forfeited Land Commission list (post-sale, county-held)",
+     "publication_review": "",
      "read_at": "2026-10-02T13:00:42Z",
      "source_id": "sc_oconee_forfeited_land",
      "url": "https://oconeesc.com/auditor-home/forfeited-land"
@@ -368,20 +387,10 @@
      "governance": "REVIEW_REQUIRED",
      "identifier_confirmed": false,
      "name": "Richland County Forfeited Land Commission list (post-sale, county-held)",
+     "publication_review": "",
      "read_at": "2026-10-02T13:00:40Z",
      "source_id": "sc_richland_forfeited_land",
      "url": "https://www.richlandcountysc.gov/Property-Business/Taxes/Delinquent-Taxes/Forfeited-Land-Available"
-    },
-    {
-     "access": "ACCESSIBLE",
-     "availability": "CURRENT_INVENTORY",
-     "county": "Spartanburg",
-     "governance": "REVIEW_REQUIRED",
-     "identifier_confirmed": true,
-     "name": "Spartanburg County Forfeited Land Commission list (post-sale, county-held)",
-     "read_at": "2026-10-02T13:01:13Z",
-     "source_id": "sc_spartanburg_forfeited_land",
-     "url": "https://www.spartanburgcounty.org/388/Forfeited-Land-Commission"
     },
     {
      "access": "ACCESSIBLE",
@@ -390,6 +399,7 @@
      "governance": "REVIEW_REQUIRED",
      "identifier_confirmed": false,
      "name": "York County Forfeited Land Commission list (post-sale, county-held)",
+     "publication_review": "",
      "read_at": "2026-10-02T13:00:44Z",
      "source_id": "sc_york_forfeited_land_commission",
      "url": "https://www.yorkcountysc.gov/216/Tax-Collection"
@@ -410,6 +420,12 @@
      "county": "Fairfield",
      "source_id": "sc_fairfield_forfeited_land",
      "url": "https://www.fairfieldsc.com/departments/forfeited-land-commission"
+    },
+    {
+     "availability": "REDEMPTION_ASSIGNMENT",
+     "county": "Spartanburg",
+     "source_id": "sc_spartanburg_forfeited_land",
+     "url": "https://www.spartanburgcounty.gov/DocumentCenter/View/104130/Real-Estate-Tax-Sale-List"
     }
    ],
    "research": {
@@ -432,6 +448,7 @@
      "governance": "REVIEW_REQUIRED",
      "identifier_confirmed": false,
      "name": "county list",
+     "publication_review": "",
      "read_at": "",
      "source_id": "TX:Bandera:unharvested_list",
      "url": "https://www.banderacounty.gov/page/open/1095/0/Purchasing%20Land%20Held%20in%20Trust"
@@ -443,6 +460,7 @@
      "governance": "REVIEW_REQUIRED",
      "identifier_confirmed": false,
      "name": "county list",
+     "publication_review": "",
      "read_at": "",
      "source_id": "TX:Bee:unharvested_list",
      "url": "https://www.beecounty.texas.gov"
@@ -454,6 +472,7 @@
      "governance": "REVIEW_REQUIRED",
      "identifier_confirmed": false,
      "name": "county list",
+     "publication_review": "",
      "read_at": "",
      "source_id": "TX:Bexar:unharvested_list",
      "url": "https://www.bexar.org/DocumentCenter/View/41851/Bexar-County-Tax-Foreclosure-Struck-Off-Properties-General-Information"
@@ -465,6 +484,7 @@
      "governance": "REVIEW_REQUIRED",
      "identifier_confirmed": false,
      "name": "county list",
+     "publication_review": "",
      "read_at": "",
      "source_id": "TX:Brazoria:unharvested_list",
      "url": "https://www.brazoriacountytx.gov/departments/tax-office/property-taxes/sheriff-sale-tax-resales"
@@ -476,6 +496,7 @@
      "governance": "REVIEW_REQUIRED",
      "identifier_confirmed": false,
      "name": "county list",
+     "publication_review": "",
      "read_at": "",
      "source_id": "TX:Camp:unharvested_list",
      "url": "https://www.campcad.org/struck-off-list/"
@@ -487,6 +508,7 @@
      "governance": "REVIEW_REQUIRED",
      "identifier_confirmed": false,
      "name": "county list",
+     "publication_review": "",
      "read_at": "",
      "source_id": "TX:Collin:unharvested_list",
      "url": "https://www.collincountytx.gov/Tax-Assessor/properties-for-sale"
@@ -498,6 +520,7 @@
      "governance": "REVIEW_REQUIRED",
      "identifier_confirmed": false,
      "name": "county list",
+     "publication_review": "",
      "read_at": "",
      "source_id": "TX:Dallas:unharvested_list",
      "url": "https://www.dallascounty.org/departments/pubworks/property-division.php"
@@ -509,6 +532,7 @@
      "governance": "REVIEW_REQUIRED",
      "identifier_confirmed": false,
      "name": "county list",
+     "publication_review": "",
      "read_at": "",
      "source_id": "TX:Fayette:unharvested_list",
      "url": "https://www.fayettecad.org/trust-properties-offered-for-sale"
@@ -520,6 +544,7 @@
      "governance": "REVIEW_REQUIRED",
      "identifier_confirmed": false,
      "name": "county list",
+     "publication_review": "",
      "read_at": "",
      "source_id": "TX:Grayson:unharvested_list",
      "url": "https://taxsearch.co.grayson.tx.us:8443/Sales/Struck-Off-Properties"
@@ -531,6 +556,7 @@
      "governance": "REVIEW_REQUIRED",
      "identifier_confirmed": false,
      "name": "county list",
+     "publication_review": "",
      "read_at": "",
      "source_id": "TX:Gregg:unharvested_list",
      "url": "https://www.greggcounty.texas.gov/assets/main/tax-assessor-collector/tax-resale-property.pdf"
@@ -542,6 +568,7 @@
      "governance": "REVIEW_REQUIRED",
      "identifier_confirmed": false,
      "name": "tx_hctax",
+     "publication_review": "",
      "read_at": "",
      "source_id": "TX:Harris:tx_hctax",
      "url": "https://www.hctax.net/Property/listings/taxsalelisting"
@@ -553,6 +580,7 @@
      "governance": "REVIEW_REQUIRED",
      "identifier_confirmed": false,
      "name": "county list",
+     "publication_review": "",
      "read_at": "",
      "source_id": "TX:Hood:unharvested_list",
      "url": "https://www.hoodcad.net/struck-off-property-list/"
@@ -564,6 +592,7 @@
      "governance": "REVIEW_REQUIRED",
      "identifier_confirmed": false,
      "name": "county list",
+     "publication_review": "",
      "read_at": "",
      "source_id": "TX:Jefferson:unharvested_list",
      "url": "https://www.jeffersoncountytx.gov"
@@ -575,6 +604,7 @@
      "governance": "REVIEW_REQUIRED",
      "identifier_confirmed": false,
      "name": "county list",
+     "publication_review": "",
      "read_at": "",
      "source_id": "TX:Jim Wells:unharvested_list",
      "url": "https://www.co.jim-wells.tx.us"
@@ -586,6 +616,7 @@
      "governance": "REVIEW_REQUIRED",
      "identifier_confirmed": false,
      "name": "county list",
+     "publication_review": "",
      "read_at": "",
      "source_id": "TX:Montgomery:unharvested_list",
      "url": "https://www.mctx.org/departments/departments_q_-_z/tax_office/tax_trust_property.php"
@@ -597,6 +628,7 @@
      "governance": "REVIEW_REQUIRED",
      "identifier_confirmed": false,
      "name": "county list",
+     "publication_review": "",
      "read_at": "",
      "source_id": "TX:Orange:unharvested_list",
      "url": "https://www.co.orange.tx.us/departments/TaxAssessor-Collector/PropertyTaxSales"
@@ -608,6 +640,7 @@
      "governance": "REVIEW_REQUIRED",
      "identifier_confirmed": false,
      "name": "county list",
+     "publication_review": "",
      "read_at": "",
      "source_id": "TX:Randall:unharvested_list",
      "url": "https://www.randallcounty.gov/293/Sheriff-Sale"
@@ -619,6 +652,7 @@
      "governance": "REVIEW_REQUIRED",
      "identifier_confirmed": false,
      "name": "LGBS tax-sale property API (every Texas county it lists)",
+     "publication_review": "",
      "read_at": "",
      "source_id": "tx_lgbs_statewide_api",
      "url": "https://taxsales.lgbs.com/api/property_sales/"
@@ -630,6 +664,7 @@
      "governance": "REVIEW_REQUIRED",
      "identifier_confirmed": false,
      "name": "county list",
+     "publication_review": "",
      "read_at": "",
      "source_id": "TX:Tom Green:unharvested_list",
      "url": "https://www.tomgreencountytx.gov/page/cck.TrusteeTaxSales"
@@ -641,6 +676,7 @@
      "governance": "REVIEW_REQUIRED",
      "identifier_confirmed": false,
      "name": "county list",
+     "publication_review": "",
      "read_at": "",
      "source_id": "TX:Travis:unharvested_list",
      "url": "https://tax-office.traviscountytx.gov/properties/foreclosed"
@@ -652,6 +688,7 @@
      "governance": "REVIEW_REQUIRED",
      "identifier_confirmed": false,
      "name": "county list",
+     "publication_review": "",
      "read_at": "",
      "source_id": "TX:Trinity:unharvested_list",
      "url": "https://www.trinitycad.net/resale-property-information/"
@@ -695,6 +732,7 @@
      "governance": "REVIEW_REQUIRED",
      "identifier_confirmed": false,
      "name": "Burnett County County tax-deeded land offered after a failed sale",
+     "publication_review": "",
      "read_at": "2026-10-02T13:01:17Z",
      "source_id": "wi_burnett_tax_deed_land",
      "url": "https://www.burnettcountywi.gov/804/Tax-Deed-Land-For-Sale"
@@ -706,6 +744,7 @@
      "governance": "REVIEW_REQUIRED",
      "identifier_confirmed": false,
      "name": "Dane County Tax Deed Auction pages",
+     "publication_review": "",
      "read_at": "",
      "source_id": "wi_dane_tax_deed_auction",
      "url": ""
@@ -717,6 +756,7 @@
      "governance": "REVIEW_REQUIRED",
      "identifier_confirmed": false,
      "name": "Marathon County County tax-deeded land offered after a failed sale",
+     "publication_review": "",
      "read_at": "2026-10-02T13:01:21Z",
      "source_id": "wi_marathon_tax_deed_property",
      "url": "https://www.marathoncounty.gov/services/tax-deed-property"
@@ -728,6 +768,7 @@
      "governance": "REVIEW_REQUIRED",
      "identifier_confirmed": false,
      "name": "Wood County County tax-deeded land offered after a failed sale",
+     "publication_review": "",
      "read_at": "2026-10-02T13:01:20Z",
      "source_id": "wi_wood_tax_deed_otc",
      "url": "https://www.woodcountywi.gov/Departments/Treasurer/TaxDeed.aspx"
@@ -757,6 +798,7 @@
      "governance": "REVIEW_REQUIRED",
      "identifier_confirmed": false,
      "name": "State Auditor statewide certified / sold / redeemed land-sale list",
+     "publication_review": "",
      "read_at": "",
      "source_id": "wv_auditor_land_sales",
      "url": ""

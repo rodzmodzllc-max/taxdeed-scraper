@@ -138,6 +138,10 @@ REJECTION_CATEGORIES = ("missing_identifier", "malformed_identifier", "duplicate
                         "unknown_section", "in_redemption_period", "sale_date_unreadable", "redemption_assignment")
 
 
+def _shape(token: str) -> str:
+    return re.sub(r"[A-Za-z]", "A", re.sub(r"\d", "9", token))[:40]
+
+
 def norm_label(text: str | None) -> str:
     return re.sub(r"\s+", " ", re.sub(r"[^a-z0-9# ]", " ", (text or "").lower())).strip()
 
@@ -195,6 +199,8 @@ class ParseResult:
     sections: Counter = field(default_factory=Counter)
     sale_years_qualifying_section: Counter = field(default_factory=Counter)
     amounts_published: int = 0
+    identifiers: Counter = field(default_factory=Counter)      # "<section>:valid|malformed|missing"
+    malformed_shapes: Counter = field(default_factory=Counter)  # digit -> 9, letter -> A (never a value)
     records: list = field(default_factory=list)
     error: str | None = None
 
@@ -280,25 +286,36 @@ def parse_pages(cfg: FlcConfig, pages, *, retrieved_at: datetime) -> ParseResult
                     res.rejected["missing_identifier"] += 1
                     continue
                 res.header_mapped_rows += 1
-                res.sections[section or "unknown"] += 1
+                sec = section or "unknown"
+                res.sections[sec] += 1
                 ident = normalize_identifier(_cell(row, id_cols))
+                # Identifier validity is measured in every section; it decides the
+                # read's outcome only where a row could be AVAILABLE.
+                qualifying_section = not cfg.not_available_reason and sec in cfg.qualifying_sections
                 if not ident:
-                    res.rejected["missing_identifier"] += 1
-                    continue
-                if not valid_identifier(cfg, ident):
-                    res.rejected["malformed_identifier"] += 1
-                    continue
-                res.valid_identifiers += 1
+                    res.identifiers[f"{sec}:missing"] += 1
+                    if qualifying_section or cfg.not_available_reason:
+                        res.rejected["missing_identifier"] += 1
+                        continue
+                elif not valid_identifier(cfg, ident):
+                    res.identifiers[f"{sec}:malformed"] += 1
+                    res.malformed_shapes[_shape(ident)] += 1
+                    if qualifying_section or cfg.not_available_reason:
+                        res.rejected["malformed_identifier"] += 1
+                        continue
+                else:
+                    res.identifiers[f"{sec}:valid"] += 1
+                    res.valid_identifiers += 1
                 amount = _amount(_cell(row, _find(spans, cfg.amount_label))) if cfg.amount_label else None
                 if amount is not None:
                     res.amounts_published += 1
                 if cfg.not_available_reason:
                     res.rejected[cfg.not_available_reason] += 1
                     continue
-                if section is None or section == "unknown":
+                if sec == "unknown":
                     res.rejected["unknown_section"] += 1
                     continue
-                if section not in cfg.qualifying_sections:
+                if not qualifying_section:
                     res.rejected["personal_property_section"] += 1
                     continue
                 sale = parse_sale_date(_cell(row, _find(spans, cfg.sale_date_label))) if cfg.sale_date_label else None
@@ -359,9 +376,12 @@ def parse_document(source_id: str, data: bytes, *, retrieved_at: datetime, opene
 
 
 def outcome(res: ParseResult) -> str:
-    """COMPLETE / EMPTY / FAILED for one read. A read that mapped no row or
-    rejected a row as malformed is FAILED (format change), never EMPTY."""
-    if res.error or res.header_mapped_rows == 0 or res.rejected.get("malformed_identifier"):
+    """COMPLETE / EMPTY / FAILED for one read. A read that mapped no row, or
+    found a missing / malformed identifier where a row could be AVAILABLE, is
+    FAILED (format change), never EMPTY. A malformed identifier in a section
+    that can never be AVAILABLE (mobile homes) is counted, not fatal."""
+    if res.error or res.header_mapped_rows == 0 or res.rejected.get("malformed_identifier") \
+            or res.rejected.get("missing_identifier"):
         return "FAILED"
     return "COMPLETE" if res.records else "EMPTY"
 
@@ -371,6 +391,8 @@ def summary(res: ParseResult) -> dict:
     return {"source_id": res.source_id, "read_outcome": outcome(res), "error": res.error, "pages": res.pages, "tables": res.tables,
             "data_rows": res.data_rows, "header_mapped_rows": res.header_mapped_rows,
             "valid_identifiers": res.valid_identifiers, "rejected": dict(sorted(res.rejected.items())),
+            "identifiers_by_section": dict(sorted(res.identifiers.items())),
+            "malformed_identifier_shapes": dict(res.malformed_shapes.most_common(6)),
             "sections": dict(sorted(res.sections.items())), "amounts_published": res.amounts_published,
             "sale_years_qualifying_section": dict(sorted(res.sale_years_qualifying_section.items())),
             "available_records": len(res.records)}

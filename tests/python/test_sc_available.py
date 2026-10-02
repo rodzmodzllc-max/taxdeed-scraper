@@ -294,3 +294,65 @@ def test_sc_flc_names_only_the_two_county_hosts():
     src = (ROOT / "harvesters/otc/adapters/sc_flc.py").read_text(encoding="utf-8")
     hosts = set(re.findall(r"https://([^/\s\"']+)", src))
     assert hosts == {"www.gtcountysc.gov", "www.spartanburgcounty.org", "www.spartanburgcounty.gov"}
+
+
+def test_publication_reviews_keep_both_sources_review_required_and_agree_with_the_catalog():
+    import csv
+    from harvesters.sources import available_coverage as AC
+    from harvesters.sources import inventory as INV
+    rv = AC.reviews()
+    assert set(rv) == {"sc_georgetown_forfeited_land", "sc_spartanburg_forfeited_land"}
+    for r in rv.values():
+        assert r["classification"] == "REVIEW_REQUIRED"            # never silently promoted
+        assert r["commercial_use_permitted"] == "not_stated" and r["evidence_run"] == "37033274319"
+        assert r["terms_urls"] and r["reviewed_at"].endswith("Z")
+    with open(INV.CATALOG_PATH, newline="", encoding="utf-8") as fh:
+        cat = {r["source_id"]: r for r in csv.DictReader(fh)}
+    assert all(cat[s]["governance"] == "REVIEW_REQUIRED" for s in rv)
+    assert AC.problems() == []
+    ev = AC.evidence()
+    assert ev["sc_georgetown_forfeited_land"]["availability"] == "CURRENT_INVENTORY"
+    assert ev["sc_georgetown_forfeited_land"]["adapter_warranted"] == "yes"
+    assert ev["sc_spartanburg_forfeited_land"]["availability"] == "REDEMPTION_ASSIGNMENT"
+    assert "availability" not in cat["sc_spartanburg_forfeited_land"]["roles"].split("|")
+
+
+def test_a_review_cannot_promote_a_source_the_catalog_does_not_and_approved_needs_a_grant(tmp_path, monkeypatch):
+    import csv
+    from harvesters.sources import available_coverage as AC
+    rows = list(csv.DictReader(open(AC.REVIEWS_PATH, newline="", encoding="utf-8")))
+    rows[0]["classification"] = "APPROVED"
+    f = tmp_path / "r.csv"
+    with f.open("w", newline="", encoding="utf-8") as fh:
+        w = csv.DictWriter(fh, fieldnames=list(rows[0]))
+        w.writeheader()
+        w.writerows(rows)
+    monkeypatch.setattr(AC, "REVIEWS_PATH", f)
+    probs = AC.problems()
+    assert any("disagrees with its publication review" in p for p in probs)
+    assert any("APPROVED needs a published reuse grant" in p for p in probs)
+
+
+def test_customer_visible_nothing_from_sc_flc():
+    from harvesters.sources import available_coverage as AC
+    sc = {c["state"]: c for c in AC.coverage()}["SC"]
+    assert sc["production_sources"] == 0 and sc["status"] == "REVIEW_REQUIRED"
+    geo = next(x for x in sc["candidates"] if x["county"] == "Georgetown")
+    assert geo["publication_review"] == "REVIEW_REQUIRED" and geo["availability"] == "CURRENT_INVENTORY"
+    # No registry row reads either source, so no harvester or sync can.
+    from harvesters.governance.county_source_registry import load_registry
+    assert not any(r.source_id in ("sc_georgetown_forfeited_land", "sc_spartanburg_forfeited_land") for r in load_registry())
+
+
+def test_malformed_identifier_outside_the_land_section_is_counted_not_fatal():
+    # The live list (run 37035908843): 2 of 54 mobile-home TMS cells do not match
+    # the published format; the one LAND row does. Mobile homes are never
+    # AVAILABLE, so their identifiers are measured but do not fail the read.
+    pages = georgetown_pages([_gt_row("11-1111-111-11-11", sale="10/07/2017")])
+    pages[0].tables[0].rows.append(_gt_row("02-0112-019-00-00.001 / 002"))
+    res = FLC.parse_pages(FLC.GEORGETOWN, pages, retrieved_at=NOW)
+    s = FLC.summary(res)
+    assert s["read_outcome"] == "COMPLETE" and s["available_records"] == 1
+    assert s["identifiers_by_section"] == {"land:valid": 1, "mobile_home:malformed": 1, "mobile_home:valid": 4}
+    assert s["malformed_identifier_shapes"] == {"99-9999-999-99-99.999/999": 1}   # a shape, never a value
+    assert "02-0112" not in json.dumps(s)

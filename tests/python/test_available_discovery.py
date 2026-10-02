@@ -56,24 +56,25 @@ def test_every_discovery_page_was_read_and_recorded():
         assert e["evidence_url"].startswith("https://")
         if e["availability"] == "UNAVAILABLE":
             assert e["http_status"] != "200"
-        # No read met current inventory + confirmed identifier + a publication
-        # review, so no adapter is warranted and none was written.
-        assert e["adapter_warranted"] == "no" and e["reason"]
+        # Only Georgetown (SC AVAILABLE sprint, run 37033274319) has current inventory
+        # with a confirmed identifier; its adapter is built and gated by publication.
+        assert e["adapter_warranted"] == ("yes" if e["source_id"] == "sc_georgetown_forfeited_land" else "no") and e["reason"]
 
 
 def test_only_current_inventory_counts_and_rejected_pages_are_never_candidates():
     cov = {c["state"]: c for c in AC.coverage()}
     ev = AC.evidence()
     rejected = {sid for sid, e in ev.items() if e["availability"] in AC.REJECTED_AVAILABILITY}
-    assert rejected == {"sc_aiken_forfeited_land", "sc_fairfield_forfeited_land"}
+    assert rejected == {"sc_aiken_forfeited_land", "sc_fairfield_forfeited_land", "sc_spartanburg_forfeited_land"}
     for c in cov.values():
         ids = {x["source_id"] for x in c["candidates"]}
         assert not ids & rejected
         assert {x["source_id"] for x in c["rejected"]} <= rejected
-    assert {x["county"] for x in cov["SC"]["rejected"]} == {"Aiken", "Fairfield"}
+    assert {x["county"] for x in cov["SC"]["rejected"]} == {"Aiken", "Fairfield", "Spartanburg"}
     current = {(c["state"], x["county"]) for c in cov.values() for x in c["candidates"]
                if x["availability"] == "CURRENT_INVENTORY"}
-    assert current == {("SC", "Georgetown"), ("SC", "Spartanburg"), ("MI", "Lenawee")}
+    # Spartanburg's list (run 37033274319) is a redemption-period bid assignment, not inventory.
+    assert current == {("SC", "Georgetown"), ("MI", "Lenawee")}
     # Empty / unavailable / seasonal pages are not inventory.
     for sid in ("sc_jasper_forfeited_land", "sc_lexington_forfeited_land", "wi_burnett_tax_deed_land"):
         assert ev[sid]["availability"] == "EMPTY"
@@ -104,7 +105,7 @@ def test_evidence_problems_catch_bad_rows(tmp_path, monkeypatch):
     def identifier_on_empty(b):
         j = next(i for i, r in enumerate(b) if r["availability"] == "EMPTY")
         b[j]["identifier_confirmed"], b[j]["identifier_field"] = "yes", "X"
-    assert any("only a current list" in p for p in check(identifier_on_empty))
+    assert any("only a list that was read" in p for p in check(identifier_on_empty))
     def stray(b):
         b[0]["source_id"] = "zz_not_a_page"
     assert any("not in the discovery list" in p for p in check(stray))
