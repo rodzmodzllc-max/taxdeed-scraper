@@ -228,11 +228,15 @@ on:
           struck-off links on them, value-free. "available_discovery" =
           the official post-sale program pages (Forfeited Land Commission,
           county tax-deed over-the-counter, land bank) listed in
-          data/available_discovery_pages.csv, value-free.
+          data/available_discovery_pages.csv, value-free. "sc_available" =
+          the Georgetown and Spartanburg (SC) Forfeited Land Commission pages,
+          their terms pages and list PDFs, STRUCTURE only - counts, identifier
+          shapes, whitelisted headings, county-written wording; never a row
+          (scripts/capture_sc_available.py).
         required: false
         type: choice
         default: available
-        options: [available, auction_results, state_sources, expansion, field_fill, five_state, five_state_pass2, five_state_pass3, enrich_sources, enrich_sources_2, enrich_sources_3, enrich_sources_4, acquisition_candidates, available_discovery]
+        options: [available, auction_results, state_sources, expansion, field_fill, five_state, five_state_pass2, five_state_pass3, enrich_sources, enrich_sources_2, enrich_sources_3, enrich_sources_4, acquisition_candidates, available_discovery, sc_available]
 
 concurrency:
   group: harvest-and-sync
@@ -1392,6 +1396,16 @@ jobs:
             eval python3 scripts/capture_purchase_evidence.py --candidates --candidates-file data/available_discovery_pages.csv --follow --discovery $cargs
             exit 0
           fi
+          if [ "$SCOPE" = "sc_available" ]; then
+            # SC AVAILABLE sprint (2026-10-02): Georgetown / Spartanburg FLC
+            # program pages, terms pages and list PDFs. Structure only: counts,
+            # identifier SHAPES, headings whose every word is whitelisted,
+            # county-written wording with digits/amounts/e-mails dropped. The
+            # PDFs stay in memory; no row, name, address or identifier is
+            # printed or written. No database credential exists in this job.
+            python3 scripts/capture_sc_available.py
+            exit 0
+          fi
           if [ "$SCOPE" = "acquisition_candidates" ]; then
             # Acquisition-path sprint: official process pages found for the
             # counties whose source page publishes no process. Read-only,
@@ -1417,7 +1431,9 @@ jobs:
         if: always()
         run: |
           echo "::group::purchase-evidence digest"
-          if [ -f out/public/field-fill.json ]; then
+          if [ -f out/public/sc-available-structure.json ]; then
+            python3 scripts/capture_sc_available.py --digest out/public/sc-available-structure.json
+          elif [ -f out/public/field-fill.json ]; then
             echo "field fill rates printed by the capture step above"
           elif [ -f out/public/state-source-capture.json ]; then
             python3 scripts/capture_state_sources.py --digest out/public/state-source-capture.json
@@ -1437,6 +1453,7 @@ jobs:
           status=out/public/purchase-evidence-capture.json
           [ -f out/public/state-source-capture.json ] && status=out/public/state-source-capture.json
           [ -f out/public/field-fill.json ] && status=out/public/field-fill.json
+          [ -f out/public/sc-available-structure.json ] && status=out/public/sc-available-structure.json
           python3 scripts/artifact_evidence.py --job purchase-evidence --status "$status"
 
       - name: Upload artifact (evidence)
