@@ -1233,6 +1233,19 @@ the field read as one control. */
 .cert-stat-grid{grid-template-columns:repeat(3,1fr)}
 /* AVAILABLE commercialization (2026-09-30): withheld-inventory note, provenance legend. */
 .ledger-withheld{margin:.4rem 0 0;font-size:.76rem;color:var(--ink-soft);border-left:3px solid var(--card-line);padding-left:.55rem}
+/* Collection vs customer publication (2026-10-02): a source's review status
+   is its own fact, labelled apart from the property's availability. */
+/* Scale (2026-10-02): "Show next" inside a county group / the data table. */
+.group-more{display:block;width:100%;margin:.5rem 0 .2rem;padding:.55rem .8rem;font-size:.82rem;font-weight:600;color:var(--accent);background:transparent;border:1px dashed var(--accent);border-radius:8px;cursor:pointer}
+.group-more:hover{background:var(--card)}
+.ledger-review-pending{margin:.4rem 0 0;font-size:.76rem;color:var(--ink);border-left:3px solid var(--warn);padding-left:.55rem}
+.prop-source-line{display:flex;flex-wrap:wrap;gap:.3rem;margin:.15rem 0 .1rem}
+.source-program{font-size:.72rem;font-weight:600;color:var(--ink);background:var(--card-line);border-radius:999px;padding:.05rem .5rem}
+.source-review-chip{font-size:.72rem;font-weight:600;color:var(--warn);background:var(--warn-bg);border:1px solid var(--warn);border-radius:999px;padding:.05rem .5rem}
+.source-review-banner{margin:0 0 .7rem;padding:.55rem .7rem;font-size:.82rem;line-height:1.4;color:var(--ink);background:var(--warn-bg);border:1px solid var(--warn);border-radius:8px}
+.source-review-row{display:flex;flex-wrap:wrap;gap:.25rem 1rem;margin:.45rem 0;font-size:.8rem;color:var(--ink-soft)}
+.source-review-row.pending b{color:var(--warn)}
+.dash-source-review-mode{margin:.1rem 0 .5rem;font-size:.78rem;color:var(--ink-soft)}
 .prov-legend{margin:.5rem 0 0;font-size:.72rem;color:var(--ink-soft);line-height:1.45}
 .prov-available .prov-v .muted{color:var(--ink-soft)}
 #availableFilters select{font:inherit;font-size:.8rem;padding:.35rem .4rem;border:1px solid var(--card-line);border-radius:3px;background:var(--card);color:var(--ink);min-height:32px}

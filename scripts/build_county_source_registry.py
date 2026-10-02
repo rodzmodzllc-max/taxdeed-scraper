@@ -416,27 +416,39 @@ def expansion_rows() -> list[dict]:
             ledger = {"auction": AUCTIONS, "certificate": LIENS, "laft": AVAILABLE}[cfg.record_source]
             arcgis = src.kind == "arcgis"
             publication, restrictions = EX.PUBLICATION[cfg.source_id]
+            available = cfg.source_id in EX.AVAILABLE_SPRINT_SOURCE_IDS
             # The six PR #57 sources were read in the expansion passes; the
-            # five-state sprint's sources in its own three passes.
+            # five-state sprint's sources in its own three passes; the AVAILABLE
+            # sprint's in the available_sources / sc_available captures.
             new = cfg.source_id not in EX.SIX_STATE_SOURCE_IDS
-            runs = EX.FIVE_STATE_EVIDENCE_RUNS if new else EX.EVIDENCE_RUNS
+            runs = (EX.AVAILABLE_SPRINT_EVIDENCE_RUNS if available else EX.FIVE_STATE_EVIDENCE_RUNS if new
+                    else EX.EVIDENCE_RUNS)
             decision = (("LICENCE STATED BY THE SOURCE (quoted in restrictions)" if publication == "APPROVED"
                          else "NO PUBLICATION DECISION YET (UNREVIEWED)") if new else "OWNER PUBLICATION DECISION 2026-09-30")
+            day = "2026-10-02" if available else "2026-10-01" if new else "2026-09-30"
+            doc = {"arcgis": getattr(cfg, "layer_url", ""), "sc_flc_pdf": getattr(cfg, "document_url", "")}.get(src.kind, "")
+            access, fmt = {"arcgis": ("JSON_ENDPOINT", "JSON"), "sc_flc_pdf": ("HTTP_GET_PDF", "PDF"),
+                           "xlsx_flc_lists": ("HTTP_GET_HTML", "XLSX")}.get(src.kind, ("HTTP_GET_HTML", "HTML_TABLE"))
+            purchase = getattr(cfg, "purchase_url", None) or getattr(cfg, "application_url", None) or ""
+            pkind = getattr(cfg, "purchase_url_kind", None) or getattr(cfg, "application_kind", None)
             rows.append(_row(
                 state=state, county=cfg.county, source_id=cfg.source_id, harvester=f"harvest_expansion.py --state {state}",
-                inventory_type="", source_authority=cfg.source_authority.value,
-                canonical_url=cfg.list_url, document_url=cfg.layer_url if arcgis else "", purchase_url="", purchase_url_kind="",
-                access_method="JSON_ENDPOINT" if arcgis else "HTTP_GET_HTML", machine_format="JSON" if arcgis else "HTML_TABLE",
+                inventory_type=cfg.inventory_type.value if (available and cfg.inventory_type) else "",
+                source_authority=cfg.source_authority.value,
+                canonical_url=cfg.list_url, document_url=doc, purchase_url=purchase if available else "",
+                purchase_url_kind=pkind.value if (available and pkind) else "",
+                access_method=access, machine_format=fmt,
                 verification_status="PRODUCTION_VERIFIED", governance_status="APPROVED",
-                last_checked="2026-10-01" if new else "2026-09-30", completeness_status="UNKNOWN",
-                evidence_ref=(f"LIVE CAPTURE {'2026-10-01' if new else '2026-09-30'} (GitHub Actions runs {', '.join(runs)}): "
+                last_checked=day, completeness_status="UNKNOWN",
+                evidence_ref=(f"LIVE CAPTURE {day} (GitHub Actions runs {', '.join(runs)}): "
                               + (f"{cfg.county} County - {cfg.source_id}; " if new else f"{ev['source_of_record_identified']}; ")
-                              + f"{decision}; docs/{'five-state-enrichment' if new else 'six-state-expansion'}.md"),
+                              + f"{decision}; docs/{'available-inventory' if available else 'five-state-enrichment' if new else 'six-state-expansion'}.md"),
                 notes=cfg.notes, publishing_unit="COUNTY", publishing_unit_name=f"{cfg.county} County",
                 amount_kind=cfg.amount_kind.value, update_frequency="not published by the source (read on each run)",
                 source_terminology=ev["inventory_semantics_established"] if not new else {
                     "auction": "parcels on the county's published tax / tax-deed sale list (AUCTIONS)",
-                    "certificate": "county-held tax lien certificates (LIENS & CERTIFICATES)"}[cfg.record_source],
+                    "certificate": "county-held tax lien certificates (LIENS & CERTIFICATES)",
+                    "laft": "government-held property the source itself offers for acquisition (AVAILABLE)"}[cfg.record_source],
                 ledgers=ledger, publication_status=publication, restrictions=restrictions,
             ))
     return rows

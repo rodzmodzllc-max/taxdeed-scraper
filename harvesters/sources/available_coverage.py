@@ -33,6 +33,7 @@ REPO = Path(__file__).resolve().parent.parent.parent
 RESEARCH_PATH = REPO / "data" / "available_state_research.csv"
 DISCOVERY_PATH = REPO / "data" / "available_discovery_pages.csv"
 EVIDENCE_PATH = REPO / "data" / "available_discovery_evidence.csv"
+REVIEWS_PATH = REPO / "data" / "available_publication_reviews.csv"
 
 STATUSES = ("SOURCE_TRACKED", "SOURCE_EMPTY", "SOURCE_UNAVAILABLE", "MATCHING_FAILED", "REVIEW_REQUIRED",
             "HARD_BLOCKED", "NO_QUALIFYING_PROGRAM", "NO_SOURCE_DISCOVERED")
@@ -42,11 +43,17 @@ _PUBLISHED = {"APPROVED", "APPROVED_GRANDFATHERED"}
 # What a value-free read of a candidate page established (2026-10-02). Only
 # CURRENT_INVENTORY is government-held property the source itself offers now;
 # every other value is a reason the page is NOT an AVAILABLE list today. An
-# AUCTION_ONLY page (forfeited land sold only at the tax sale) or a HISTORICAL
-# list is rejected as non-AVAILABLE, never relabelled.
+# AUCTION_ONLY page (forfeited land sold only at the tax sale), a HISTORICAL
+# list, or a REDEMPTION_ASSIGNMENT list (the commission's tax-sale bid assigned
+# while the owner may still redeem - not property held for purchase) is
+# rejected as non-AVAILABLE, never relabelled.
 AVAILABILITY = ("CURRENT_INVENTORY", "EMPTY", "UNAVAILABLE", "SEASONAL_NOT_POSTED", "NOT_ESTABLISHED",
-                "AUCTION_ONLY", "HISTORICAL")
-REJECTED_AVAILABILITY = {"AUCTION_ONLY", "HISTORICAL"}
+                "AUCTION_ONLY", "HISTORICAL", "REDEMPTION_ASSIGNMENT")
+REJECTED_AVAILABILITY = {"AUCTION_ONLY", "HISTORICAL", "REDEMPTION_ASSIGNMENT"}
+# A list that was actually read (so its identifier column can be confirmed).
+LIST_READ = {"CURRENT_INVENTORY", "HISTORICAL", "REDEMPTION_ASSIGNMENT"}
+REVIEW_CLASSIFICATIONS = ("APPROVED", "REVIEW_REQUIRED", "HARD_BLOCKED")
+REVIEW_FLAGS = ("yes", "no", "not_stated", "undetermined")
 
 
 def _csv(path: Path) -> list[dict]:
@@ -75,6 +82,16 @@ def evidence() -> dict[str, dict]:
     return out
 
 
+def _base(source_id: str) -> str:
+    """A registry source's unified id is '<ST>:<County>:<source_id>'."""
+    return source_id.split(":")[-1]
+
+
+def reviews() -> dict[str, dict]:
+    """source_id -> the recorded publication review of that candidate."""
+    return {r["source_id"]: r for r in _csv(REVIEWS_PATH)}
+
+
 def production_available_sources(state: str) -> list:
     """Registry rows whose ledger is AVAILABLE, verified in production and
     approved for publication - the only sources that can put rows there."""
@@ -97,6 +114,7 @@ def state_coverage(state: str, inventory=None) -> dict:
     cands = discovery_candidates(state, inventory)
     found = research().get(state, {})
     ev = evidence()
+    rv = reviews()
     if prod:
         done = [r.completeness_status for r in prod]
         if all(c == "FAILED" for c in done):
@@ -123,9 +141,10 @@ def state_coverage(state: str, inventory=None) -> dict:
         "last_reads": {c: sum(1 for r in prod if r.completeness_status == c) for c in sorted({r.completeness_status for r in prod})},
         "candidates": [{"source_id": s.source_id, "county": s.county, "name": s.name, "governance": s.governance,
                         "access": s.access, "url": s.url,
-                        "availability": ev.get(s.source_id, {}).get("availability", "NOT_READ"),
-                        "identifier_confirmed": ev.get(s.source_id, {}).get("identifier_confirmed", "") == "yes",
-                        "read_at": ev.get(s.source_id, {}).get("read_at", "")}
+                        "availability": ev.get(_base(s.source_id), {}).get("availability", "NOT_READ"),
+                        "identifier_confirmed": ev.get(_base(s.source_id), {}).get("identifier_confirmed", "") == "yes",
+                        "read_at": ev.get(_base(s.source_id), {}).get("read_at", ""),
+                        "publication_review": rv.get(_base(s.source_id), {}).get("classification", "")}
                        for s in sorted(cands, key=lambda s: (s.county, s.source_id))],
         # Pages read and found NOT to offer AVAILABLE property (forfeited land
         # sold only at the auction, a past list): recorded, never a candidate.
@@ -174,8 +193,8 @@ def problems() -> list[str]:
             out.append(f"{sid}: evidence needs the capture run and its UTC read time")
         if r["identifier_confirmed"] not in ("yes", "no") or (r["identifier_confirmed"] == "yes" and not r["identifier_field"]):
             out.append(f"{sid}: a confirmed identifier names its column")
-        if r["identifier_confirmed"] == "yes" and r["availability"] != "CURRENT_INVENTORY":
-            out.append(f"{sid}: only a current list can confirm an identifier")
+        if r["identifier_confirmed"] == "yes" and r["availability"] not in LIST_READ:
+            out.append(f"{sid}: only a list that was read can confirm an identifier")
         # An adapter needs current inventory, a deterministic identifier and a
         # publication review; no read has met all three.
         if r["adapter_warranted"] not in ("yes", "no"):
@@ -188,4 +207,23 @@ def problems() -> list[str]:
             out.append(f"{sid}: a page rejected as {r['availability']} keeps the availability role")
         if c and c["governance"] != "REVIEW_REQUIRED":
             out.append(f"{sid}: a read page stays REVIEW_REQUIRED until a publication review")
+    for sid, r in reviews().items():
+        c = catalog.get(sid)
+        if not c:
+            out.append(f"{sid}: publication review for a source with no catalog row")
+            continue
+        if r["classification"] not in REVIEW_CLASSIFICATIONS:
+            out.append(f"{sid}: unknown review classification {r['classification']!r}")
+        # The review IS the source's governance: the catalog may never say more.
+        if c["governance"] != r["classification"]:
+            out.append(f"{sid}: catalog governance {c['governance']} disagrees with its publication review")
+        if r["classification"] == "APPROVED" and r["commercial_use_permitted"] != "yes" and r["written_permission_needed"] != "no":
+            out.append(f"{sid}: APPROVED needs a published reuse grant or recorded written permission")
+        for k in ("commercial_use_permitted", "attribution_required", "republication_prohibited", "written_permission_needed"):
+            if r[k] not in REVIEW_FLAGS:
+                out.append(f"{sid}: {k} must be one of {REVIEW_FLAGS}")
+        if not r["evidence_run"].isdigit() or not re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", r["reviewed_at"]):
+            out.append(f"{sid}: a review cites its evidence run and UTC time")
+        if not all(u.startswith("https://") for u in [r["source_url"], r["document_url"]] + r["terms_urls"].split(" | ")):
+            out.append(f"{sid}: review URLs must be https")
     return out

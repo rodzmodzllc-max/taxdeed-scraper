@@ -414,6 +414,14 @@ window.addEventListener("popstate", () => {
 window.tdwBack = { push: pushBackLayer, pop: popBackLayer };
 
 let ALL = [], CALENDAR = {}, NOTES = {}, FAVS = new Set(), HIDDEN = new Set(), ME = null, IS_ADMIN = false;
+// Scale (2026-10-02): List paging state - declared here, not next to the code
+// that uses it, because render() runs during page init before the script
+// reaches that code (the same temporal-dead-zone trap as mapFilter / selectedPid).
+const LIST_PAGE = 50;            // cards built per county group, then "Show next"
+const GROUP_SHOWN = new Map();   // group key -> cards listed (survives re-render)
+const GROUP_PAGES = new Map();   // group key -> { rows, renderCard } of the current render
+const TABLE_PAGE = 200;          // desktop data-table rows, then "Show next"
+const TABLE_STATE = { rows: [], listed: 0 };
 // True once fetchProperties() has returned for this page's state. A registered
 // state with no rows at all is told so plainly ("No properties currently
 // available for this state") - never "unsupported", never hidden.
@@ -430,9 +438,62 @@ let AVAILABLE_COVERAGE = null;
 // ledger here so the withholding is visible on the ledger page, never
 // silent. A row with no decision recorded (NULL) keeps today's behaviour.
 let WITHHELD = { auction: 0, laft: 0, certificate: 0 };
-function isPublishable(p) {
+// Collection vs customer publication (2026-10-02). The publication decision is
+// a CUSTOMER release control; it no longer decides whether development can see
+// collected data. Every row carries its source's review status
+// (publication_status) and is shown to:
+//   - admins, always (labelled), so collected inventory can be inspected;
+//   - everyone, when config.js sets publicationMode: "preview" (labelled);
+//   - customers in the default "enforced" mode only when the source is
+//     APPROVED* (or carries no decision) - isCustomerPublishable().
+// A BLOCKED source is never shown to anyone. Source review status is NOT the
+// property's availability status - the two are always labelled separately.
+const PUBLICATION_MODE = String((window.TDW_CONFIG || {}).publicationMode || "enforced") === "preview" ? "preview" : "enforced";
+const SOURCE_REVIEW_LABELS = {
+  APPROVED: "Approved",
+  APPROVED_GRANDFATHERED: "Approved (grandfathered)",
+  UNREVIEWED: "Unreviewed",
+  RESTRICTED: "Review required",
+  BLOCKED: "Blocked"
+};
+let REVIEW_PENDING_SHOWN = { auction: 0, laft: 0, certificate: 0 };
+function isCustomerPublishable(p) {
   const s = p && p.publication_status;
   return !s || s === "APPROVED" || s === "APPROVED_GRANDFATHERED";
+}
+// Shown in THIS session (admin / preview / customer rule above).
+function isPublishable(p) {
+  if (p && p.publication_status === "BLOCKED") return false;
+  return isCustomerPublishable(p) || IS_ADMIN || PUBLICATION_MODE === "preview";
+}
+function sourceReviewLabel(p) {
+  const s = p && p.publication_status;
+  return s ? (SOURCE_REVIEW_LABELS[s] || s) : "Not classified";
+}
+// Why a row the customer rule would not publish is on screen right now.
+function reviewViewerReason() {
+  return IS_ADMIN ? "shown to you as an admin" : "shown in customer preview mode";
+}
+// Card line: the source's own program / status wording (AVAILABLE) and, for a
+// source awaiting review, its review status - never mixed with availability.
+function sourceLineHtml(p) {
+  const bits = [];
+  if (p.source === "laft" && p.inventory_status_raw) bits.push(`<span class="source-program" title="The source's own status / program wording, verbatim">${esc(p.inventory_status_raw)}</span>`);
+  if (!isCustomerPublishable(p)) bits.push(`<span class="source-review-chip" title="The source's customer-publication review status - not the property's availability">Source review: ${esc(sourceReviewLabel(p))} · not customer-published</span>`);
+  return bits.length ? `<div class="prop-source-line">${bits.join("")}</div>` : "";
+}
+// Full property page: the source review status as its own fact, every row.
+function sourceReviewHtml(p) {
+  const customer = isCustomerPublishable(p);
+  return `<div class="source-review-row${customer ? "" : " pending"}" data-source-review="${esc(p.publication_status || "")}">
+      <span>Source publication review: <b>${esc(sourceReviewLabel(p))}</b></span>
+      <span>Customer-visible: <b>${customer ? "Yes" : "No"}</b>${customer ? "" : ` (${esc(reviewViewerReason())})`}</span>
+      ${p.source === "laft" && p.inventory_status_raw ? `<span>Source program / status: <b>${esc(p.inventory_status_raw)}</b></span>` : ""}
+    </div>`;
+}
+function sourceReviewBannerHtml(p) {
+  if (isCustomerPublishable(p)) return "";
+  return `<div class="source-review-banner" id="sourceReviewBanner"><b>Source review: ${esc(sourceReviewLabel(p))}.</b> This record comes from a source awaiting customer-publication review - ${esc(reviewViewerReason())}. It is not customer-published. Its availability below is the source's own statement and is a separate fact.</div>`;
 }
 // Acquisition-path sprint (2026-10-01): the acquisition path is ENRICHMENT,
 // never a publication decision. A row the source establishes as Available is
@@ -2306,15 +2367,31 @@ async function refreshAdminPublication() {
 // correct under any server cap. Rows are de-duplicated by id.
 const PROPERTY_LEDGER_TYPES = ["auctions", "buy", "lien"];
 const PROPERTY_PAGE_SIZE = 1000;
+// Scale (2026-10-02): after the first page (which also tells us the server's
+// effective page size, whatever its cap), pages are fetched PROPERTY_PAGE_WAVE
+// at a time - a 30,000-row state is ~30 requests, and fetching them one after
+// another was most of the load time. Pages are kept in offset order and paging
+// stops at the first short page, so no row is skipped or duplicated.
+const PROPERTY_PAGE_WAVE = 4;
 async function fetchLedgerPages(ledgerType) {
-  const rows = [];
-  for (let offset = 0, guard = 0; guard < 200; guard++) {
-    const r = await sb.rpc("get_properties", { p_state: PAGE_STATE, p_ledger_type: ledgerType, p_limit: PROPERTY_PAGE_SIZE, p_offset: offset });
-    if (r.error) return r;
-    const page = r.data || [];
-    if (!page.length) break;
-    rows.push(...page);
-    offset += page.length;
+  const call = offset => sb.rpc("get_properties", { p_state: PAGE_STATE, p_ledger_type: ledgerType, p_limit: PROPERTY_PAGE_SIZE, p_offset: offset });
+  const first = await call(0);
+  if (first.error) return first;
+  const rows = [...(first.data || [])];
+  const step = rows.length;
+  if (!step) return { data: rows, error: null };
+  let offset = step;
+  for (let guard = 0; guard < 100; guard++) {
+    const wave = await Promise.all(Array.from({ length: PROPERTY_PAGE_WAVE }, (_, i) => call(offset + i * step)));
+    let done = false;
+    for (const r of wave) {
+      if (r.error) return r;
+      const page = r.data || [];
+      rows.push(...page);
+      if (page.length < step) { done = true; break; }
+    }
+    if (done) break;
+    offset += step * PROPERTY_PAGE_WAVE;
   }
   return { data: rows, error: null };
 }
@@ -2357,7 +2434,15 @@ async function loadAll() {
   WITHHELD = { auction: 0, laft: 0, certificate: 0 };
   // Publication is the source decision only - an Available row without a
   // captured acquisition path is still published (acquisitionGaps()).
-  ALL = ALL.filter(p => { if (isPublishable(p)) return true; if (p.source in WITHHELD) WITHHELD[p.source]++; return false; });
+  REVIEW_PENDING_SHOWN = { auction: 0, laft: 0, certificate: 0 };
+  ALL = ALL.filter(p => {
+    if (isPublishable(p)) {
+      if (!isCustomerPublishable(p) && p.source in REVIEW_PENDING_SHOWN) REVIEW_PENDING_SHOWN[p.source]++;
+      return true;
+    }
+    if (p.source in WITHHELD) WITHHELD[p.source]++;
+    return false;
+  });
   PROPERTIES_LOADED = true;
   AVAILABLE_COVERAGE = (availCoverage && Array.isArray(availCoverage.states) && availCoverage.states.find(c => c.state === PAGE_STATE)) || null;
   NOTES = {}; (notes.data || []).forEach(n => { (NOTES[n.property_id] = NOTES[n.property_id] || []).push(n); });
@@ -2942,6 +3027,7 @@ function card(p, showCounty) {
     ${top ? `<div class="toppick-banner" title="Arithmetic on county figures plus a manual note - not a recommendation to bid">Filter match <span class="ratio-pill">${valueRatio(p).toFixed(1)}× county value ÷ bid · no lien flags noted</span></div>` : ""}
     ${propertyVisual(p, "prop-card-photo")}
     ${tag}
+    ${sourceLineHtml(p)}
     <div class="prop-top">
       <div class="prop-address">${titleLine}</div>
       <div class="prop-top-actions">
@@ -4084,11 +4170,17 @@ const REVIEW_REQUIRED_SOURCES = {
 const REVIEW_REQUIRED_TEXT = "Under review - this source's reuse terms are not yet approved; its facts are shown as observed on the source";
 function sourceUnderReview(p) {
   if (!p) return false;
+  // A row whose own source review status is not customer-publishable is under
+  // review, whoever is looking at it (2026-10-02 - never labelled approved).
+  if (!isCustomerPublishable(p)) return true;
   if (REVIEW_REQUIRED_SOURCES[p.source_id] || REVIEW_REQUIRED_SOURCES[p.harvester_source]) return true;
   const fp = p.field_provenance && typeof p.field_provenance === "object" ? p.field_provenance : {};
   return Object.values(fp).some(v => v && typeof v === "object" && (v.governance === "REVIEW_REQUIRED" || REVIEW_REQUIRED_SOURCES[v.source_id]));
 }
-function sourceReviewText(p) { return sourceUnderReview(p) ? "Under review" : "Approved"; }
+function sourceReviewText(p) {
+  if (!isCustomerPublishable(p)) return sourceReviewLabel(p);
+  return sourceUnderReview(p) ? "Under review" : "Approved";
+}
 // A value figure is named as its source names it (valueLabel /
 // assessedSourceLabel) - never Florida's "just value" for another state.
 function provenanceFieldLabel(field, p) {
@@ -4343,6 +4435,7 @@ function provenanceCardHtml(p) {
       ${harvesterSourceLabel(p) ? `<span>Data source: ${esc(harvesterSourceLabel(p))}</span>` : ""}
       <span class="${isRowStale(p) ? "stale" : ""}">${esc(lastSyncedText(p))}</span>
     </div>
+    ${sourceReviewHtml(p)}
     ${detail}
     <button class="detail-btn detail-report-btn" data-action="support" data-topic="data" data-pid="${p.id}" type="button">Report a data problem</button>`;
   return detailSectionHtml("Data Quality & Provenance", body, "provenance-card", "provenance");
@@ -4727,6 +4820,7 @@ function detailHtml(p) {
     ${relatedRecordsHtml(p)}
     ${monitorSectionHtml(p)}` : `
     ${propertyVisual(p, "detail-hero-photo")}
+    ${sourceReviewBannerHtml(p)}
     ${acquireBlockHtml(p)}
     ${opportunitySummaryHtml(p)}
     ${availableDecisionHtml(p)}
@@ -5604,6 +5698,7 @@ function section(container, title, sub, rows, kind) {
         <span class="lgd lgd-stale">Not synced recently</span>
         <span class="lgd lgd-closed">No longer listed</span>
       </p>
+      ${REVIEW_PENDING_SHOWN[kind] ? `<p class="ledger-review-pending" id="ledgerReviewPending">${REVIEW_PENDING_SHOWN[kind]} record${REVIEW_PENDING_SHOWN[kind] === 1 ? "" : "s"} from sources awaiting customer-publication review ${REVIEW_PENDING_SHOWN[kind] === 1 ? "is" : "are"} ${esc(reviewViewerReason())}, each labelled "Source review". Customers in published mode do not see ${REVIEW_PENDING_SHOWN[kind] === 1 ? "it" : "them"}.</p>` : ""}
       ${WITHHELD[kind] ? `<p class="ledger-withheld" id="ledgerWithheld">${WITHHELD[kind]} record${WITHHELD[kind] === 1 ? "" : "s"} withheld - source not approved for customer publication (restricted or not yet reviewed). Counted, not shown.</p>` : ""}
       ${state.statusView === "archive" ? `<p class="ledger-mode-note" id="archiveModeNote">📁 Past auctions only — sale date already gone. <button class="ledger-mode-exit" id="exitArchiveBtn" type="button">Back to current listings</button></p>` : ""}
     </div>`;
@@ -5733,9 +5828,20 @@ function section(container, title, sub, rows, kind) {
     // isOpen on every matching group, so the case that actually felt slow
     // builds every card regardless. The 200ms debounce on the search input
     // (see below) is what fixes that, and it costs nothing here.
+    //
+    // Scale (2026-10-02): "up front" now means the first page. A county can
+    // hold tens of thousands of rows (Detroit Land Bank, Wayne MI: 30,000+), so
+    // a group builds LIST_PAGE cards and a "Show next" control carrying the
+    // true total; every row stays reachable, in order, nothing is dropped.
+    // Small groups (every fixture group) still build every card.
     const list = document.createElement("div"); list.className = "prop-list";
-    countyRows.forEach(p => list.appendChild(renderCard(p, false)));
+    list.dataset.groupKey = key;
+    GROUP_PAGES.set(key, { rows: countyRows, renderCard });
+    const n = Math.min(countyRows.length, Math.max(LIST_PAGE, GROUP_SHOWN.get(key) || 0));
+    for (let i = 0; i < n; i++) list.appendChild(renderCard(countyRows[i], false));
+    list.dataset.listed = String(n);
     det.appendChild(list);
+    if (n < countyRows.length) det.appendChild(groupMoreButton(key, n, countyRows.length));
 
     sec.appendChild(det);
   });
@@ -5743,6 +5849,34 @@ function section(container, title, sub, rows, kind) {
   container.appendChild(sec);
   return { shown };
 }
+
+function groupMoreButton(key, n, total) {
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "group-more";
+  btn.dataset.groupMore = key;
+  btn.textContent = `Show next ${Math.min(LIST_PAGE, total - n).toLocaleString("en-US")} · showing ${n.toLocaleString("en-US")} of ${total.toLocaleString("en-US")}`;
+  return btn;
+}
+document.addEventListener("click", e => {
+  const btn = e.target.closest && e.target.closest(".group-more");
+  if (!btn) return;
+  const key = btn.dataset.groupMore;
+  const page = GROUP_PAGES.get(key);
+  const det = btn.closest(".county-group");
+  const list = det && det.querySelector(".prop-list");
+  if (!page || !list) return;
+  const from = Number(list.dataset.listed) || 0;
+  const to = Math.min(page.rows.length, from + LIST_PAGE);
+  const frag = document.createDocumentFragment();
+  for (let i = from; i < to; i++) frag.appendChild(page.renderCard(page.rows[i], false));
+  list.appendChild(frag);
+  list.dataset.listed = String(to);
+  GROUP_SHOWN.set(key, to);
+  if (to < page.rows.length) btn.replaceWith(groupMoreButton(key, to, page.rows.length));
+  else btn.remove();
+  hydrateVisuals(list);
+});
 
 function updateBadge() {
   let n = 0;
@@ -8061,6 +8195,49 @@ function dashRow(icon, name, vals, attrs) {
   return `<div class="dash-row"${attrs || ""}><div class="dash-row-name">${svgIcon(icon)}${name}</div><div class="dash-row-vals">${vals}</div></div>`;
 }
 
+// Admin / development (2026-10-02): every collected source in this state, its
+// review status, what is collected, what a customer would see, and when it was
+// last read - so collected inventory can be inspected before any customer
+// publication decision. Admin-only; built into the Dashboard at render time.
+function sourceReviewSummary(rows) {
+  const by = new Map();
+  rows.forEach(p => {
+    const key = p.source_id || p.harvester_source || "(no source id)";
+    const e = by.get(key) || { source: key, ledger: p.source, status: p.publication_status || null, rows: 0, active: 0, customer: 0, counties: new Set(), lastSeen: null };
+    e.rows++;
+    if (!isGone(p)) e.active++;
+    if (isCustomerPublishable(p)) e.customer++;
+    e.counties.add(p.county || "Unknown");
+    if (p.last_seen_at && (!e.lastSeen || p.last_seen_at > e.lastSeen)) e.lastSeen = p.last_seen_at;
+    by.set(key, e);
+  });
+  return [...by.values()].sort((x, y) => (isCustomerPublishable({ publication_status: x.status }) - isCustomerPublishable({ publication_status: y.status })) || y.rows - x.rows);
+}
+function renderSourceReviewPanel(rows) {
+  const anchor = document.getElementById("dashAttentionRows");
+  const host = anchor && anchor.closest(".dash-panel") && anchor.closest(".dash-panel").parentElement;
+  let panel = document.getElementById("dashSourceReview");
+  if (!IS_ADMIN || !host) { if (panel) panel.remove(); return; }
+  if (!panel) {
+    panel = document.createElement("div");
+    panel.className = "dash-panel dash-source-review";
+    panel.id = "dashSourceReview";
+    host.insertBefore(panel, host.firstChild);
+  }
+  const list = sourceReviewSummary(rows);
+  const pending = list.filter(e => !isCustomerPublishable({ publication_status: e.status }));
+  const mode = PUBLICATION_MODE === "preview"
+    ? "Customer preview mode: every collected source is shown to every user, labelled."
+    : "Customer mode: customers see approved sources only; you see every collected source, labelled.";
+  panel.innerHTML = `<div class="dash-panel-head">Collected inventory by source (admin)</div>
+    <p class="dash-source-review-mode" id="dashPublicationMode">${esc(mode)} ${pending.length} source${pending.length === 1 ? "" : "s"} awaiting customer-publication review in ${esc(STATE_INFO.name)}.</p>
+    <div class="dash-source-review-rows" id="dashSourceReviewRows">${list.length ? list.map(e => `
+      <div class="dash-row" data-source-id="${esc(e.source)}">
+        <div class="dash-row-name">${esc(e.source)} <span class="dash-row-fresh">${esc(ledgerCopy(e.ledger).title || e.ledger)}</span></div>
+        <div class="dash-row-meta"><span>Source review: <b>${esc(sourceReviewLabel({ publication_status: e.status }))}</b></span><span><b>${e.rows}</b> collected · ${e.active} active · ${e.counties.size} count${e.counties.size === 1 ? "y" : "ies"}</span><span>Customer-visible: <b>${e.customer}</b></span><span>${e.lastSeen ? `Last read ${esc(dateOnly(e.lastSeen))}` : "Last read not recorded"}</span></div>
+      </div>`).join("") : `<div class="dash-empty">No collected rows in ${esc(STATE_INFO.name)}.</div>`}</div>`;
+}
+
 function renderDashboard() {
   const statsEl = document.getElementById("dashStats");
   if (!statsEl) return; // dashboard markup not present (older fixture, etc.)
@@ -8094,6 +8271,7 @@ function renderDashboard() {
   }).join("") +
     `<div class="stat-tile"><span class="stat-tile-icon">${svgIcon("pin")}</span><div><div class="stat-tile-label">Counties with inventory</div><div class="stat-tile-val">${byCounty.size}</div><div class="stat-tile-sub">${esc(STATE_INFO.name)} · ${rows.length} tracked incl. no-longer-listed</div></div></div>`;
   statsEl.querySelectorAll("[data-go-ledger]").forEach(btn => btn.addEventListener("click", () => { showPage("list"); setLedger(btn.dataset.goLedger); }));
+  renderSourceReviewPanel(ALL);
 
   // Needs attention: only what the data can actually say.
   const attEl = document.getElementById("dashAttentionRows");
@@ -8224,6 +8402,26 @@ function tableRow(p) {
   return tr;
 }
 
+function appendTableRows(tbody, from, to) {
+  const old = tbody.querySelector("tr.table-more-row");
+  if (old) old.remove();
+  const frag = document.createDocumentFragment();
+  for (let i = from; i < to; i++) frag.appendChild(tableRow(TABLE_STATE.rows[i]));
+  tbody.appendChild(frag);
+  const total = TABLE_STATE.rows.length;
+  if (to < total) {
+    const tr = document.createElement("tr");
+    tr.className = "table-more-row";
+    tr.innerHTML = `<td colspan="6"><button type="button" class="group-more" id="tableMoreBtn">Show next ${Math.min(TABLE_PAGE, total - to).toLocaleString("en-US")} · showing ${to.toLocaleString("en-US")} of ${total.toLocaleString("en-US")}</button></td>`;
+    tr.querySelector("button").addEventListener("click", () => {
+      const next = Math.min(total, TABLE_STATE.listed + TABLE_PAGE);
+      appendTableRows(tbody, TABLE_STATE.listed, next);
+      TABLE_STATE.listed = next;
+    });
+    tbody.appendChild(tr);
+  }
+}
+
 const tableToggleBtnEl = document.getElementById("tableToggleBtn");
 if (tableToggleBtnEl) {
   tableToggleBtnEl.addEventListener("click", () => {
@@ -8307,7 +8505,11 @@ function renderShellExtras(shown, activeLedger) {
   const tbody = document.getElementById("dataTableBody");
   if (tbody) {
     tbody.innerHTML = "";
-    shown.forEach(p => tbody.appendChild(tableRow(p)));
+    // Scale (2026-10-02): TABLE_PAGE rows, then a "Show next" row with the
+    // true total - the table never builds tens of thousands of rows at once.
+    TABLE_STATE.rows = shown;
+    TABLE_STATE.listed = Math.min(shown.length, Math.max(TABLE_PAGE, TABLE_STATE.listed || 0));
+    appendTableRows(tbody, 0, TABLE_STATE.listed);
   }
   if (selectedPid != null && !shown.some(p => String(p.id) === String(selectedPid))) {
     clearDetailPanel();

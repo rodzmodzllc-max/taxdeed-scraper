@@ -407,12 +407,24 @@ function drawZipAreas(svg, county, pins) {
     return hit;
   };
 
+  // Counts are computed once per county / row set (pinCache.zipCounts) with a
+  // bounding-box pre-filter - point-in-polygon for every pin against every
+  // ZIP was quadratic, and a 30,000-pin county made it hang.
+  const counts = pinCache.county === county && pinCache.pts === pins && pinCache.zipCounts ? pinCache.zipCounts : new Map();
+  const fresh = !counts.size;
   list.forEach(([zip, ring]) => {
     const pts = ring.map(([lon, lat]) => {
       const q = projectLatLng(lat, lon);
       return [q.x, q.y];
     });
-    const n = (pins || []).filter(q => pointIn(q.x, q.y, pts)).length;
+    let n = counts.get(zip);
+    if (n === undefined) {
+      let x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
+      pts.forEach(([x, y]) => { if (x < x1) x1 = x; if (x > x2) x2 = x; if (y < y1) y1 = y; if (y > y2) y2 = y; });
+      n = 0;
+      (pins || []).forEach(q => { if (q.x >= x1 && q.x <= x2 && q.y >= y1 && q.y <= y2 && pointIn(q.x, q.y, pts)) n++; });
+      counts.set(zip, n);
+    }
 
     const poly = document.createElementNS(NS, "polygon");
     poly.setAttribute("points", pts.map(q => q[0].toFixed(1) + "," + q[1].toFixed(1)).join(" "));
@@ -436,6 +448,7 @@ function drawZipAreas(svg, county, pins) {
     t.textContent = n ? `${zip} · ${n}` : zip;
     layer.appendChild(t);
   });
+  if (fresh && pinCache.county === county && pinCache.pts === pins) pinCache.zipCounts = counts;
 }
 
 // Labels are placed largest-first and any that would collide with one already
@@ -636,7 +649,39 @@ const back = {
   pop: n => { if (window.tdwBack) window.tdwBack.pop(n); }
 };
 
+// Activating a cluster frames its members (home aspect, padded); pins that
+// still share a cell there cluster again until they separate.
+function zoomIntoCluster(boxStr) {
+  const canvas = $(CANVAS_ID);
+  const svg = canvas && canvas.querySelector("svg");
+  if (!svg || !zoomCounty) return;
+  const [x1, y1, x2, y2] = String(boxStr).split(",").map(Number);
+  if (![x1, y1, x2, y2].every(isFinite)) return;
+  const home = readHomeViewBox(svg);
+  const aspect = home.w / home.h;
+  const minW = home.w / 1500;
+  let w = Math.max(x2 - x1, minW), h = Math.max(y2 - y1, minW / aspect);
+  const pad = Math.max(w, h) * 0.25;
+  w += pad * 2; h += pad * 2;
+  if (w / h > aspect) h = w / aspect; else w = h * aspect;
+  const box = { x: (x1 + x2) / 2 - w / 2, y: (y1 + y2) / 2 - h / 2, w, h };
+  if (!subZoomBox) back.push("map-subzoom", () => zoomBackToCounty());
+  subZoomBox = box;
+  setBackVisible(true);
+  animateViewBox(svg, box, () => draw());
+}
+function zoomBackToCounty() {
+  const canvas = $(CANVAS_ID);
+  const svg = canvas && canvas.querySelector("svg");
+  subZoomBox = null;
+  back.pop("map-subzoom");
+  setBackVisible(!!zoomCounty);
+  if (svg && zoomCounty) animateViewBox(svg, countyViewBox(svg, zoomCounty) || readHomeViewBox(svg), () => draw());
+}
+
 function zoomTo(county) {
+  subZoomBox = null;
+  back.pop("map-subzoom");
   const canvas = $(CANVAS_ID);
   const svg = canvas && canvas.querySelector("svg");
   if (!svg) return;
@@ -781,6 +826,57 @@ function draw() {
 // Pin geometry is divided by viewScale throughout. The viewBox shrinks as we
 // zoom, so anything sized in user units would balloon on screen - a pin has
 // to stay pin-sized however far in we are.
+// Scale (2026-10-02): a county can hold tens of thousands of geocoded rows
+// (Detroit Land Bank, Wayne MI: 30,000+). Drawing one SVG pin per row is not
+// viable, so pins in view are CLUSTERED on a screen-space grid once there are
+// more than PIN_CLUSTER_MIN of them: a cluster is one circle with its exact
+// count; activating it zooms into its extent, where it splits again, until
+// individual pins appear. Nothing is sampled or dropped - every row is in a
+// cluster or a pin, and the selected property is always drawn as its own pin.
+const PIN_CLUSTER_MIN = 250;
+const CLUSTER_CELL_PX = 56;
+let pinCache = { rows: null, county: null, len: -1, placed: [], pts: [], zipCounts: null };
+let subZoomBox = null;   // a viewBox inside the zoomed county (after a cluster tap)
+function projectedPins(list) {
+  if (pinCache.rows === rows && pinCache.county === zoomCounty && pinCache.len === list.length) return pinCache;
+  const placed = list.filter(hasPin);
+  const pts = placed.map(p => projectLatLng(p.latitude, p.longitude));
+  pinCache = { rows, county: zoomCounty, len: list.length, placed, pts, zipCounts: null };
+  return pinCache;
+}
+function currentViewBox(svg) {
+  const vb = (svg.getAttribute("viewBox") || "").trim().split(/[\s,]+/).map(Number);
+  return vb.length === 4 && vb.every(isFinite) ? { x: vb[0], y: vb[1], w: vb[2], h: vb[3] } : readHomeViewBox(svg);
+}
+function makePin(p, x, y, r) {
+  const g = document.createElementNS(NS, "g");
+  g.setAttribute("class", "map-pin" + (activeProp && activeProp.id === p.id ? " sel" : ""));
+  g.dataset.pid = String(p.id);
+  g.setAttribute("tabindex", "0");
+  g.setAttribute("role", "button");
+  g.setAttribute("aria-label", `${pinLabel(p)} - activate for details`);
+  // A teardrop, drawn so its POINT is the coordinate - a circle centred on
+  // the spot reads as "somewhere around here", which is the opposite of
+  // what a geocoded parcel deserves.
+  const path = document.createElementNS(NS, "path");
+  path.setAttribute("d",
+    `M ${x} ${y} l ${-r * 0.72} ${-r * 1.25} a ${r} ${r} 0 1 1 ${r * 1.44} 0 Z`);
+  g.appendChild(path);
+  const dot = document.createElementNS(NS, "circle");
+  dot.setAttribute("cx", x); dot.setAttribute("cy", y - r * 1.25);
+  dot.setAttribute("r", r * 0.32);
+  dot.setAttribute("class", "pin-dot");
+  g.appendChild(dot);
+  // Phase 66: a halo ring under the SELECTED pin only.
+  if (activeProp && activeProp.id === p.id) {
+    const halo = document.createElementNS(NS, "circle");
+    halo.setAttribute("cx", x); halo.setAttribute("cy", y - r * 1.25);
+    halo.setAttribute("r", r * 2.1);
+    halo.setAttribute("class", "pin-halo");
+    g.insertBefore(halo, g.firstChild);
+  }
+  return g;
+}
 function drawPins(svg, layer, list) {
   svg.querySelectorAll("path[data-county]").forEach(path => {
     path.classList.toggle("zoom-focus", path.dataset.county === zoomCounty);
@@ -790,53 +886,91 @@ function drawPins(svg, layer, list) {
   const home = readHomeViewBox(svg);
   const upp = unitsPerPixel(svg);
   layer.innerHTML = "";
-  const placed = list.filter(hasPin);
-
-  const pinR = 7 * upp;
-  const pinPts = placed.map(p => projectLatLng(p.latitude, p.longitude));
+  const pc = projectedPins(list);
+  const placed = pc.placed, pinPts = pc.pts;
+  const r = 7 * upp;
+  const vb = currentViewBox(svg);
+  const m = 24 * upp;
+  const inView = [];
+  for (let i = 0; i < pinPts.length; i++) {
+    const q = pinPts[i];
+    if (q.x >= vb.x - m && q.x <= vb.x + vb.w + m && q.y >= vb.y - m && q.y <= vb.y + vb.h + m) inView.push(i);
+  }
+  // At the deepest zoom, pins that still share a cell are shown individually.
+  const maxZoom = vb.w <= home.w / 1500;
+  const clustered = inView.length > PIN_CLUSTER_MIN && !maxZoom;
   drawZipAreas(svg, zoomCounty, pinPts);
-  drawCities(svg, cities && cities[zoomCounty], placed.map(p => {
-    const q = projectLatLng(p.latitude, p.longitude);
-    return { x1: q.x - pinR, y1: q.y - pinR * 2.4, x2: q.x + pinR, y2: q.y };
-  }));
 
-  placed.forEach(p => {
-    const { x, y } = projectLatLng(p.latitude, p.longitude);
-    const g = document.createElementNS(NS, "g");
-    g.setAttribute("class", "map-pin" + (activeProp && activeProp.id === p.id ? " sel" : ""));
-    g.dataset.pid = String(p.id);
-    g.setAttribute("tabindex", "0");
-    g.setAttribute("role", "button");
-    g.setAttribute("aria-label", `${pinLabel(p)} - activate for details`);
-
-    const r = 7 * upp;
-    // A teardrop, drawn so its POINT is the coordinate - a circle centred on
-    // the spot reads as "somewhere around here", which is the opposite of
-    // what a geocoded parcel deserves.
-    const path = document.createElementNS(NS, "path");
-    path.setAttribute("d",
-      `M ${x} ${y} l ${-r * 0.72} ${-r * 1.25} a ${r} ${r} 0 1 1 ${r * 1.44} 0 Z`);
-    g.appendChild(path);
-    const dot = document.createElementNS(NS, "circle");
-    dot.setAttribute("cx", x); dot.setAttribute("cy", y - r * 1.25);
-    dot.setAttribute("r", r * 0.32);
-    dot.setAttribute("class", "pin-dot");
-    g.appendChild(dot);
-    // Phase 66: a halo ring under the SELECTED pin only, so the one you
-    // picked is unmistakable even among a cluster of same-coloured pins.
-    // Drawn first (behind the teardrop) and only for the active property.
-    if (activeProp && activeProp.id === p.id) {
-      const halo = document.createElementNS(NS, "circle");
-      halo.setAttribute("cx", x); halo.setAttribute("cy", y - r * 1.25);
-      halo.setAttribute("r", r * 2.1);
-      halo.setAttribute("class", "pin-halo");
-      g.insertBefore(halo, g.firstChild);
-    }
-    layer.appendChild(g);
-  });
+  const boxes = [];
+  const activeIdx = activeProp ? placed.findIndex(p => p.id === activeProp.id) : -1;
+  let clusterCount = 0, pinCount = 0;
+  if (!clustered) {
+    inView.forEach(i => {
+      if (i === activeIdx) return;
+      const q = pinPts[i];
+      layer.appendChild(makePin(placed[i], q.x, q.y, r));
+      boxes.push({ x1: q.x - r, y1: q.y - r * 2.4, x2: q.x + r, y2: q.y });
+      pinCount++;
+    });
+  } else {
+    const cell = CLUSTER_CELL_PX * upp;
+    const cells = new Map();
+    inView.forEach(i => {
+      if (i === activeIdx) return;
+      const q = pinPts[i];
+      const key = Math.floor((q.x - vb.x) / cell) + "," + Math.floor((q.y - vb.y) / cell);
+      let c = cells.get(key);
+      if (!c) { c = { n: 0, sx: 0, sy: 0, x1: q.x, y1: q.y, x2: q.x, y2: q.y, first: i }; cells.set(key, c); }
+      c.n++; c.sx += q.x; c.sy += q.y;
+      if (q.x < c.x1) c.x1 = q.x; if (q.x > c.x2) c.x2 = q.x;
+      if (q.y < c.y1) c.y1 = q.y; if (q.y > c.y2) c.y2 = q.y;
+    });
+    cells.forEach(c => {
+      if (c.n === 1) {
+        const q = pinPts[c.first];
+        layer.appendChild(makePin(placed[c.first], q.x, q.y, r));
+        boxes.push({ x1: q.x - r, y1: q.y - r * 2.4, x2: q.x + r, y2: q.y });
+        pinCount++;
+        return;
+      }
+      const cx = c.sx / c.n, cy = c.sy / c.n;
+      const cr = (11 + 5 * Math.log10(c.n)) * upp;
+      const g = document.createElementNS(NS, "g");
+      g.setAttribute("class", "pin-cluster");
+      g.dataset.box = [c.x1, c.y1, c.x2, c.y2].join(",");
+      g.dataset.count = String(c.n);
+      g.setAttribute("tabindex", "0");
+      g.setAttribute("role", "button");
+      g.setAttribute("aria-label", `${c.n} properties here - activate to zoom in`);
+      const circle = document.createElementNS(NS, "circle");
+      circle.setAttribute("cx", cx); circle.setAttribute("cy", cy); circle.setAttribute("r", cr);
+      g.appendChild(circle);
+      const text = document.createElementNS(NS, "text");
+      text.setAttribute("x", cx); text.setAttribute("y", cy);
+      text.setAttribute("font-size", Math.max(10, Math.min(15, cr / upp * 0.8)) * upp);
+      text.textContent = c.n.toLocaleString("en-US");
+      g.appendChild(text);
+      layer.appendChild(g);
+      boxes.push({ x1: cx - cr, y1: cy - cr, x2: cx + cr, y2: cy + cr });
+      clusterCount++;
+    });
+  }
+  // The selected property is always its own pin, on top.
+  if (activeIdx >= 0) {
+    const q = pinPts[activeIdx];
+    layer.appendChild(makePin(placed[activeIdx], q.x, q.y, r));
+    pinCount++;
+  }
+  drawCities(svg, cities && cities[zoomCounty], boxes);
 
   const canvas = $(CANVAS_ID);
-  if (canvas) canvas.classList.add("zoomed");
+  if (canvas) {
+    canvas.classList.add("zoomed");
+    canvas.dataset.pinMode = clustered ? "clusters" : "pins";
+    canvas.dataset.pinNodes = String(pinCount);
+    canvas.dataset.clusterNodes = String(clusterCount);
+    canvas.dataset.pinsInView = String(inView.length);
+  }
   // Zooming destroys the bubble that was just activated. For a mouse that is
   // invisible; for the keyboard it drops focus to the top of the document, so
   // the county you just opened becomes unreachable without tabbing back
@@ -923,10 +1057,25 @@ function stripEl() {
   return strip;
 }
 
+// Scale (2026-10-02): the strip lists STRIP_PAGE cards at a time with the
+// true total and a "Show next" control - a 30,000-row county never builds
+// 30,000 buttons. The selected property is always within the listed page.
+const STRIP_PAGE = 100;
+let stripLimit = { key: null, n: STRIP_PAGE };
+let lastStrip = { list: null, placed: 0 };
 function renderStrip(list, placedCount) {
   const strip = stripEl();
   if (!strip) return;
+  lastStrip = { list, placed: placedCount || 0 };
   if (!list) { strip.hidden = true; strip.innerHTML = ""; return; }
+  const key = zoomCounty + "|" + list.length;
+  if (stripLimit.key !== key) stripLimit = { key, n: STRIP_PAGE };
+  if (activeProp) {
+    const idx = list.findIndex(p => p.id === activeProp.id);
+    if (idx >= stripLimit.n) stripLimit.n = Math.ceil((idx + 1) / STRIP_PAGE) * STRIP_PAGE;
+  }
+  const shownN = Math.min(stripLimit.n, list.length);
+  const page = shownN < list.length ? list.slice(0, shownN) : list;
 
   const missing = list.length - (placedCount || 0);
   // Say plainly how many could not be placed. Showing 8 pins for a county of
@@ -937,14 +1086,19 @@ function renderStrip(list, placedCount) {
       ? `<p class="strip-note"><b>${placedCount}</b> of ${list.length} are mapped. The rest are listed here.</p>`
       : `<p class="strip-note">All ${list.length} mapped.</p>`;
 
-  strip.innerHTML = note + '<div class="strip-rail">' + list.map(p => `
+  const more = shownN < list.length
+    ? `<button class="strip-more" type="button" data-act="strip-more">Show next ${Math.min(STRIP_PAGE, list.length - shownN).toLocaleString("en-US")} · ${shownN.toLocaleString("en-US")} of ${list.length.toLocaleString("en-US")} listed</button>`
+    : "";
+  strip.dataset.listed = String(shownN);
+  strip.dataset.total = String(list.length);
+  strip.innerHTML = note + '<div class="strip-rail">' + page.map(p => `
     <button class="strip-card${hasPin(p) ? " mapped" : ""}${activeProp && activeProp.id === p.id ? " sel" : ""}"
             type="button" data-pid="${escAttr(p.id)}">
       <span class="strip-title">${escHtml(pinLabel(p))}</span>
       <span class="strip-sub">${escHtml(stripSubText(p))}</span>
       <span class="strip-bid">${bidText(p)}</span>
       ${hasPin(p) ? '<span class="strip-flag" aria-label="on the map">◉</span>' : ""}
-    </button>`).join("") + "</div>";
+    </button>`).join("") + more + "</div>";
   strip.hidden = false;
 }
 
@@ -1166,10 +1320,10 @@ function setBackVisible(on) {
     btn.id = "exploreZoomOut";
     btn.className = "explore-zoom-out";
     btn.type = "button";
-    btn.textContent = "← All counties";
-    btn.addEventListener("click", () => zoomOut());
+    btn.addEventListener("click", () => (subZoomBox ? zoomBackToCounty() : zoomOut()));
     map.appendChild(btn);
   }
+  btn.textContent = subZoomBox && zoomCounty ? `← All of ${zoomCounty}` : "← All counties";
   btn.hidden = !on;
 }
 
@@ -1183,12 +1337,15 @@ function setBackVisible(on) {
 function handleEscapeToExitTopLayer(e) {
   if (e.key !== "Escape") return false;
   if (activeProp) { e.preventDefault(); showPreview(null); return true; }
+  if (subZoomBox) { e.preventDefault(); zoomBackToCounty(); return true; }
   if (zoomCounty) { e.preventDefault(); zoomOut(); return true; }
   return false;
 }
 
 function zoomOut() {
   const wasFiltered = selectedCounty;
+  subZoomBox = null;
+  back.pop("map-subzoom");
   zoomCounty = null;
   activeProp = null;
   back.pop("map-preview");
@@ -1383,6 +1540,8 @@ function bindMapInteraction() {
     if (e.key !== "Enter" && e.key !== " " && e.key !== "Spacebar") return;
     const pin = e.target.closest && e.target.closest(".map-pin");
     if (pin) { e.preventDefault(); showPreview(propById(pin.dataset.pid)); return; }
+    const cluster = e.target.closest && e.target.closest(".pin-cluster");
+    if (cluster) { e.preventDefault(); zoomIntoCluster(cluster.dataset.box); return; }
     const bubble = e.target.closest && e.target.closest(".cluster-bubble");
     if (!bubble) return;
     e.preventDefault();
@@ -1397,6 +1556,8 @@ function bindMapInteraction() {
     if (e.target.closest("#explorePreview") || e.target.closest("#exploreZoomOut")) return;
     const pin = e.target.closest(".map-pin");
     if (pin) { showPreview(propById(pin.dataset.pid)); return; }
+    const cluster = e.target.closest(".pin-cluster");
+    if (cluster) { zoomIntoCluster(cluster.dataset.box); return; }
     const bubble = e.target.closest(".cluster-bubble");
     if (bubble) { applyCounty(bubble.dataset.county); return; }
     // Zoomed in, a tap on empty space dismisses the preview rather than
@@ -1452,6 +1613,11 @@ function bindStrip() {
   // button - is the way out of a county without reaching for the mouse.
   map.addEventListener("keydown", e => { handleEscapeToExitTopLayer(e); });
   map.addEventListener("click", e => {
+    if (e.target.closest(".strip-more")) {
+      stripLimit.n += STRIP_PAGE;
+      renderStrip(lastStrip.list, lastStrip.placed);
+      return;
+    }
     const card = e.target.closest(".strip-card");
     if (!card) return;
     const p = propById(card.dataset.pid);

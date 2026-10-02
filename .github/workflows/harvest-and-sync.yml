@@ -228,11 +228,22 @@ on:
           struck-off links on them, value-free. "available_discovery" =
           the official post-sale program pages (Forfeited Land Commission,
           county tax-deed over-the-counter, land bank) listed in
-          data/available_discovery_pages.csv, value-free.
+          data/available_discovery_pages.csv, value-free. "sc_available" =
+          the Georgetown and Spartanburg (SC) Forfeited Land Commission pages,
+          their terms pages and list PDFs, STRUCTURE only - counts, identifier
+          shapes, whitelisted headings, county-written wording; never a row
+          (scripts/capture_sc_available.py). "available_sources" = the candidate
+          AVAILABLE sources in data/available_source_candidates.csv (land banks,
+          forfeited-land lists, county-held tax-deeded land), STRUCTURE only
+          (scripts/capture_available_sources.py). "available_validate" = run the
+          six-state harvest (scripts/harvest_expansion.py) for MI and SC with NO
+          database credential: the held AVAILABLE sources are read through the
+          real adapters and only counts / identifier shapes are printed;
+          nothing is synced.
         required: false
         type: choice
         default: available
-        options: [available, auction_results, state_sources, expansion, field_fill, five_state, five_state_pass2, five_state_pass3, enrich_sources, enrich_sources_2, enrich_sources_3, enrich_sources_4, acquisition_candidates, available_discovery]
+        options: [available, auction_results, state_sources, expansion, field_fill, five_state, five_state_pass2, five_state_pass3, enrich_sources, enrich_sources_2, enrich_sources_3, enrich_sources_4, acquisition_candidates, available_discovery, sc_available, available_sources, available_validate]
 
 concurrency:
   group: harvest-and-sync
@@ -975,7 +986,10 @@ jobs:
     # not activated / approved. No leg touches FL / TX / LA rows.
     name: Harvest six-state expansion (${{ matrix.state }}) + sync
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # 45 (was 20): Michigan carries the Detroit Land Bank's 30,000+ Available
+    # rows - the sync (500 / request), the inventory-status writer (40 / request)
+    # and change detection all page through them. Schedule unchanged.
+    timeout-minutes: 45
     if: (github.event_name == 'workflow_dispatch' && (github.event.inputs.job == 'all' || github.event.inputs.job == 'expansion' || github.event.inputs.job == '')) || github.event.schedule == '0 12 * * *'
     strategy:
       fail-fast: false
@@ -1003,7 +1017,7 @@ jobs:
           python-version: '3.12'
 
       - name: Install Python dependencies
-        run: pip install requests beautifulsoup4
+        run: pip install requests beautifulsoup4 pdfplumber openpyxl
 
       - name: Harvest
         id: harvest
@@ -1314,7 +1328,7 @@ jobs:
           python-version: '3.12'
 
       - name: Install Python dependencies
-        run: pip install requests beautifulsoup4 pdfplumber
+        run: pip install requests beautifulsoup4 pdfplumber openpyxl
 
       - name: Capture
         env:
@@ -1392,6 +1406,31 @@ jobs:
             eval python3 scripts/capture_purchase_evidence.py --candidates --candidates-file data/available_discovery_pages.csv --follow --discovery $cargs
             exit 0
           fi
+          if [ "$SCOPE" = "sc_available" ]; then
+            # SC AVAILABLE sprint (2026-10-02): Georgetown / Spartanburg FLC
+            # program pages, terms pages and list PDFs. Structure only: counts,
+            # identifier SHAPES, headings whose every word is whitelisted,
+            # county-written wording with digits/amounts/e-mails dropped. The
+            # PDFs stay in memory; no row, name, address or identifier is
+            # printed or written. No database credential exists in this job.
+            python3 scripts/capture_sc_available.py
+            exit 0
+          fi
+          if [ "$SCOPE" = "available_sources" ]; then
+            # AVAILABLE implementation sprint: candidate land-bank / forfeited-land /
+            # county-held-land sources. Structure only (counts, identifier SHAPES,
+            # whitelisted headers, licence text); no row, name, address or
+            # identifier. No database credential exists in this job.
+            python3 scripts/capture_available_sources.py
+            exit 0
+          fi
+          if [ "$SCOPE" = "available_validate" ]; then
+            # The real harvest path for the held AVAILABLE sources, read-only: no
+            # database credential exists in this job, nothing is synced, and the
+            # harvester prints counts / statuses / identifier SHAPES only.
+            for st in MI SC; do python3 scripts/harvest_expansion.py --state "$st" || true; done
+            exit 0
+          fi
           if [ "$SCOPE" = "acquisition_candidates" ]; then
             # Acquisition-path sprint: official process pages found for the
             # counties whose source page publishes no process. Read-only,
@@ -1417,12 +1456,18 @@ jobs:
         if: always()
         run: |
           echo "::group::purchase-evidence digest"
-          if [ -f out/public/field-fill.json ]; then
+          if [ -f out/public/available-source-structure.json ]; then
+            python3 scripts/capture_available_sources.py --digest out/public/available-source-structure.json
+          elif [ -f out/public/sc-available-structure.json ]; then
+            python3 scripts/capture_sc_available.py --digest out/public/sc-available-structure.json
+          elif [ -f out/public/field-fill.json ]; then
             echo "field fill rates printed by the capture step above"
           elif [ -f out/public/state-source-capture.json ]; then
             python3 scripts/capture_state_sources.py --digest out/public/state-source-capture.json
-          else
+          elif [ -f out/public/purchase-evidence-capture.json ]; then
             python3 scripts/capture_purchase_evidence.py --digest out/public/purchase-evidence-capture.json
+          else
+            echo "no capture file (available_validate prints its counts in the capture step above)"
           fi
           echo "::endgroup::"
 
@@ -1437,6 +1482,8 @@ jobs:
           status=out/public/purchase-evidence-capture.json
           [ -f out/public/state-source-capture.json ] && status=out/public/state-source-capture.json
           [ -f out/public/field-fill.json ] && status=out/public/field-fill.json
+          [ -f out/public/sc-available-structure.json ] && status=out/public/sc-available-structure.json
+          [ -f out/public/available-source-structure.json ] && status=out/public/available-source-structure.json
           python3 scripts/artifact_evidence.py --job purchase-evidence --status "$status"
 
       - name: Upload artifact (evidence)

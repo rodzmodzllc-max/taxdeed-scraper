@@ -204,7 +204,8 @@ def test_r01_committed_registry_is_unchanged_county_level_and_still_valid():
     # MI (2), WY, SC, CO, WI (harvesters/otc/adapters/expansion.py).
     # 227 (2026-10-01, five-state sprint) = 222 + Douglas CO (2, CC BY-SA 4.0) and the three
     # implemented-but-UNREVIEWED county sources (Morgan CO deed auctions, Dane WI, Oconee SC).
-    assert len(rows) == 227 and {r.state for r in rows} == {"FL", "TX", "AL", "AR", "LA", "AZ", "MI", "WY", "SC", "CO", "WI"}
+    # 232 = 227 + the AVAILABLE sprint's five held MI / SC AVAILABLE sources (expansion.py).
+    assert len(rows) == 232 and {r.state for r in rows} == {"FL", "TX", "AL", "AR", "LA", "AZ", "MI", "WY", "SC", "CO", "WI"}
     available = [r for r in rows if r.state in ("FL", "TX") and "AVAILABLE" in r.ledger_set or r.state in ("FL", "TX") and not r.ledger_set]
     assert len(available) == 112 - 3
     assert all(r.publishing_unit == "COUNTY" for r in rows if r.state in ("FL", "TX"))

@@ -47,6 +47,14 @@ HOSTS = {
 }
 
 # Five-state sprint (2026-10-01): the sources added on that sprint's evidence.
+# AVAILABLE implementation sprint (2026-10-02): the held AVAILABLE sources.
+AVAILABLE_HOSTS = {
+    "mi_detroit_landbank_lots": "https://services2.arcgis.com/qvkbeam7Wirps6zC/",
+    "mi_detroit_landbank_programs": "https://services2.arcgis.com/qvkbeam7Wirps6zC/",
+    "mi_oceana_landbank": "https://oceana.mi.us/",
+    "sc_horry_forfeited_land": "https://horrycountysc.gov/",
+    "sc_georgetown_forfeited_land": "https://www.gtcountysc.gov/",
+}
 FIVE_STATE_HOSTS = {
     "co_douglas_county_held_liens": "https://services.arcgis.com/seTexOicoRXDvRsJ/",
     "co_douglas_tax_sale_list": "https://services.arcgis.com/seTexOicoRXDvRsJ/",
@@ -114,12 +122,14 @@ def test_r02_every_config_is_column_verified_and_pinned_to_its_host():
             cfg = src.config
             assert cfg.columns_verified and cfg.state == st
             url = getattr(cfg, "layer_url", None) or src.url
-            assert url.startswith({**HOSTS, **FIVE_STATE_HOSTS}[cfg.source_id]), (cfg.source_id, url)
+            assert url.startswith({**HOSTS, **FIVE_STATE_HOSTS, **AVAILABLE_HOSTS}[cfg.source_id]), (cfg.source_id, url)
     # Certificates only where the county itself publishes certificates.
     kinds = {src.config.source_id: src.config.record_source for srcs in EX.SOURCES.values() for src in srcs}
     certs = {"co_morgan_county_held_certificates", "co_douglas_county_held_liens"}
     assert {kinds[k] for k in certs} == {"certificate"}
-    assert {v for k, v in kinds.items() if k not in certs} == {"auction"}
+    # AVAILABLE only where the source itself offers government-held property (the AVAILABLE sprint's sources).
+    assert {kinds[k] for k in EX.AVAILABLE_SPRINT_SOURCE_IDS} == {"laft"}
+    assert {v for k, v in kinds.items() if k not in certs | EX.AVAILABLE_SPRINT_SOURCE_IDS} == {"auction"}
 
 
 # ==================== 3. adapters through the runner ====================

@@ -1,0 +1,13 @@
+source_id,state,county,kind,url,program,found_via
+mi_detroit_landbank_for_sale,MI,Wayne,arcgis_item,e0c4f46a09b9405cb18837e66e85c622,"Detroit Land Bank Authority - properties for sale (public land bank, tax-foreclosed inventory)",web search 2026-10-02
+mi_detroit_landbank_owned,MI,Wayne,arcgis_item,848bc665295f4ca9b1e25068ffa88ab0,"Detroit Land Bank Authority - owned properties (structure only; ownership is not an offer)",web search 2026-10-02
+mi_state_landbank,MI,STATEWIDE,html,https://www.michigan.gov/leo/bureaus-agencies/landbank,"Michigan State Land Bank Authority - property search",web search 2026-10-02
+mi_oceana_landbank,MI,Oceana,html,https://oceana.mi.us/departments/treasurer/land-bank-authority/,"Oceana County Land Bank Authority - available parcels",web search 2026-10-02
+mi_manistee_landbank,MI,Manistee,html,https://www.manisteecountymi.gov/427/Available-Properties,"Manistee County Land Bank - available properties",web search 2026-10-02
+mi_saginaw_landbank,MI,Saginaw,html,https://www.saginawcountymi.gov/departments/treasurer/land-bank/,"Saginaw County Land Bank",web search 2026-10-02
+sc_lancaster_flc,SC,Lancaster,html,https://www.lancastercountysc.gov/480/Forfeited-Properties-Available,"Lancaster County Forfeited Land Commission - forfeited properties available",web search 2026-10-02
+sc_horry_flc,SC,Horry,html,https://horrycountysc.gov/boards-and-commissions/forfeited-land-commission/,"Horry County Forfeited Land Commission",web search 2026-10-02
+sc_abbeville_flc,SC,Abbeville,html,https://abbevillecountysc.com/treasurer/forfeited-land-commission/,"Abbeville County Forfeited Land Commission",web search 2026-10-02
+wi_kenosha_tax_deeded,WI,Kenosha,html,https://www.kenoshacountywi.gov/1650/Tax-Deeded-Parcels-For-Sale,"Kenosha County tax deeded parcels for sale",web search 2026-10-02
+wi_douglas_county_land,WI,Douglas,html,https://www.douglascountywi.gov/153/Purchase-of-County-Land,"Douglas County (WI) purchase of county land",web search 2026-10-02
+tx_gonzales_tax_sale,TX,Gonzales,html,https://www.gonzalescountytax.org/home/Custom?custurl=home%2FTaxSaleInformation,"Gonzales County Tax Office - tax sale information (struck-off resale)",web search 2026-10-02

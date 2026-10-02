@@ -43,7 +43,8 @@ def _row(**kw):
 def test_s01_sync_plan_stamps_the_registry_decision_the_ledger_and_the_source():
     reg = SYNC.registry_rows("LA")
     rows, counts = SYNC.plan("LA", [_row(), _row(case_no="098-7654-3", latitude=30.4)], reg, {"East Baton Rouge": "COMPLETE"})
-    assert counts == {"input": 2, "upsert": 2, "skipped_unit_not_read": 0, "wrong_state": 0, "withheld_not_publishable": 0}
+    assert counts == {"input": 2, "upsert": 2, "skipped_unit_not_read": 0, "wrong_state": 0, "withheld_not_publishable": 0,
+                      "written_review_pending": 0}
     for r in rows:
         assert r["publication_status"] == "APPROVED" and r["ledger_type"] == "buy" and r["harvester_source"] == "la_ebr_adjudicated"
         assert r["list_as_of"] == "2024-02-27" and r["purchase_amount"] is None

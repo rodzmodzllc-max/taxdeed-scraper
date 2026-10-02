@@ -2193,6 +2193,55 @@ Full description: `docs/available-discovery.md`. Stable facts:
   (Aiken, Fairfield) lose the `availability` role. No adapter yet: no
   publication review. `--discovery` never prints a row-like line.
 
+## SC AVAILABLE: Georgetown / Spartanburg FLC lists (2026-10-02, PR open, no migration)
+
+Full description: `docs/sc-available-inventory.md`. Stable facts:
+- **`harvesters/otc/adapters/sc_flc.py`** parses the live FLC PDFs, configured
+  from read-only evidence runs 37033274319 (structure) and 37035908843
+  (parser validation).
+  - Georgetown: only a LAND row past SC's twelve-month redemption period is
+    AVAILABLE (1 on the live list). MOBILE HOMES rows are personal property.
+  - Spartanburg's list is a redemption-period bid ASSIGNMENT, so it is never
+    AVAILABLE.
+  - Identifier = TMS # / MAP NUMBER with whitespace removed, nothing else.
+  - `harvest()` refuses before any request unless publication is APPROVED.
+- **Publication reviews:** `data/available_publication_reviews.csv` (both
+  sources REVIEW_REQUIRED) must agree with the catalog's governance.
+  `available_coverage.problems()` enforces this, and APPROVED needs a
+  published grant or recorded permission.
+- **Evidence capture:** `job=evidence`, `evidence_scope=sc_available`
+  (`scripts/capture_sc_available.py`). Structure and counts only; a privacy
+  test feeds it PII and proves none reaches its output.
+
+## AVAILABLE inventory sprint + collection vs customer publication (2026-10-02, PR #70, no migration)
+
+Full description: `docs/available-inventory.md`. Stable facts:
+- **Publication review is a customer release control, not a collection gate.**
+  `source_publication.collectable(row, record_source)`: APPROVED* sources and
+  AVAILABLE (laft) sources awaiting review are collected and synced, with their
+  `publication_status` on every row; BLOCKED is never requested. Auction /
+  lien sources keep the publishable-only rule.
+- **Frontend:**
+  - `isCustomerPublishable()` is the customer rule.
+  - `isPublishable()` decides what this session shows: admins see everything (labelled), as does everyone when `config.js` `publicationMode: "preview"`; BLOCKED is never shown.
+  - Source review status is labelled apart from availability (`sourceLineHtml`, `sourceReviewBannerHtml`, `sourceReviewHtml`).
+  - Admin Dashboard panel: `#dashSourceReview`.
+- **Five AVAILABLE sources, all UNREVIEWED:**
+  - Detroit Land Bank lots;
+  - Detroit Land Bank programs (Auction excluded);
+  - Oceana MI Land Bank;
+  - Horry SC FLC yearly workbooks;
+  - Georgetown SC FLC PDF.
+
+  The source's own program wording rides in `inventory_status_raw` for laft rows.
+- **Horry redemption rule:** `sc_flc.list_year_past_redemption`. A year's list counts only from Jan 1 of year + 2. A PIN must match `id_pattern`.
+- **Large counties:**
+  - List groups page 50 cards (`LIST_PAGE`) and the table pages 200 (`TABLE_PAGE`). Both are declared at the top of app.js because of the TDZ.
+  - Zoomed-county pins cluster above 250 in view (explore.js `PIN_CLUSTER_MIN`; satellite-map.js `clusterPins`), and the strip pages 100.
+  - The stub's `?bigcounty=N` is the regression fixture.
+  - The expansion job's timeout is 45 minutes.
+- **Candidate pages:** `data/available_source_candidates.csv`, captured with `evidence_scope=available_sources`. `available_validate` runs the real MI/SC harvest with no credentials.
+
 ## Where to look for more
 
 - `claude/improvement-roadmap.md` in the "tax florida app" claude.ai Project — the full dated log of every fix, audit finding, and open decision. This is where new findings should be appended, not here.

@@ -222,8 +222,13 @@ def _expansion(code: str, name: str, source_of_record: str, coverage: str, ident
         "governance_approved": "owner publication decision 2026-09-30 (no explicit reuse licence published by the source)",
         "production_registry_authorized": "owner decision 2026-09-30 (docs/six-state-expansion.md)",
     }
+    # AVAILABLE implementation sprint (2026-10-02): MI (Detroit / Oceana land
+    # banks) and SC (Horry / Georgetown Forfeited Land Commissions) also carry
+    # AVAILABLE sources - government-held property offered without a fixed
+    # price (POST_SALE, storable since migration 020).
+    types = frozenset({"", "POST_SALE"}) if code in ("MI", "SC") else frozenset({""})
     return _register(StateConfig(code=code, name=name, publishing_units=(PublishingUnit.COUNTY.value,),
-                                 production_inventory_types=frozenset({""}), lifecycle_inventory_type=None,
+                                 production_inventory_types=types, lifecycle_inventory_type=None,
                                  production=True, activation=ALL_REQUIREMENTS))
 
 

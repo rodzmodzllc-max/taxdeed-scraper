@@ -38,6 +38,8 @@ sys.path.insert(0, str(REPO))
 from harvesters.governance import states  # noqa: E402
 from harvesters.governance.county_source_registry import RUNNABLE_GOVERNANCE, load_registry  # noqa: E402
 from harvesters.governance.publication import PUBLISHABLE_STATUSES, effective_publication  # noqa: E402
+sys.path.insert(1, str(Path(__file__).resolve().parent))
+from source_publication import collectable  # noqa: E402
 sys.path.insert(0, str(HERE))
 import field_provenance as FP  # noqa: E402
 
@@ -57,6 +59,17 @@ PLACEHOLDER_PREFIXES = ("Parcel ", "Case ")
 
 
 NEVER_NULL_PATH_KEYS = ("purchase_url", "purchase_url_kind")
+
+
+def _record_source(source_id: str) -> str:
+    """The properties.source a configured adapter source writes ('laft' /
+    'auction' / 'certificate'); '' for a source no adapter configures."""
+    from harvesters.otc.adapters import expansion as EX  # noqa: PLC0415
+    for srcs in EX.SOURCES.values():
+        for src in srcs:
+            if src.config.source_id == source_id:
+                return src.config.record_source
+    return ""
 
 
 def identity(row: dict) -> tuple:
@@ -117,7 +130,8 @@ def plan(state: str, rows: list[dict], registry: dict, status_units: dict[str, s
     stored_first_seen = stored_first_seen or {}
     if not states.is_activated(state):
         raise ValueError(f"state {state} is not activated: {', '.join(states.activation_blockers(state))}")
-    counts = {"input": len(rows), "upsert": 0, "skipped_unit_not_read": 0, "wrong_state": 0, "withheld_not_publishable": 0}
+    counts = {"input": len(rows), "upsert": 0, "skipped_unit_not_read": 0, "wrong_state": 0, "withheld_not_publishable": 0,
+              "written_review_pending": 0}
     out: list[dict] = []
     keys: dict[str, set[str]] = {}
     for r in rows:
@@ -130,13 +144,18 @@ def plan(state: str, rows: list[dict], registry: dict, status_units: dict[str, s
         if status_units.get(r.get("county") or "") not in OBSERVED:
             counts["skipped_unit_not_read"] += 1
             continue
-        if effective_publication(reg) not in PUBLISHABLE_STATUSES:
-            # Implemented and read, but no APPROVED publication decision: not
-            # written at all (not merely hidden in the UI).
+        if not collectable(reg, r.get("source") or ""):
+            # A BLOCKED source, or an auction / lien source without an APPROVED
+            # publication decision: not written at all.
             counts["withheld_not_publishable"] += 1
             continue
         row = dict(r)
+        # The source's review status rides on every row: an AVAILABLE source
+        # awaiting review is written (admins and customer preview see it,
+        # labelled) and the frontend keeps customers on the publication rule.
         row["publication_status"] = effective_publication(reg)
+        if row["publication_status"] not in PUBLISHABLE_STATUSES:
+            counts["written_review_pending"] += 1
         row["ledger_type"] = LEDGER_TYPE_FOR_SOURCE[row["source"]]
         row["harvester_source"] = reg.source_id
         row["last_seen_at"] = observed_at
@@ -317,7 +336,7 @@ def main(argv=None) -> int:
     if args.close_absent:
         # Only sources this run may publish: a gated source's stored rows are never
         # 'closed' by another source's read of the same county.
-        source_ids = {sid for sid, r in reg.items() if r.is_production and effective_publication(r) in PUBLISHABLE_STATUSES}
+        source_ids = {sid for sid, r in reg.items() if r.is_production and collectable(r, _record_source(sid))}
         units = status_units(Path(args.status))
         closes = plan_close(args.state, rows, stored_active(url, key, args.state, source_ids), units, source_ids)
         close_rows(url, key, closes)

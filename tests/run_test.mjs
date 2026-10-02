@@ -3794,6 +3794,139 @@ await monDash.close();
   await imgPage.close();
 }
 
+// --- Collection vs customer publication (2026-10-02) ---
+// A source awaiting customer-publication review is collected and synced; its
+// rows carry publication_status. Admins always see them, labelled; every user
+// sees them in publicationMode "preview"; customers in the default enforced
+// mode do not (counted as withheld). Source review is never availability.
+{
+  const STATE_URL = st => BASE_URL.replace(/index\.html$/, st + '.html');
+  async function ledgerFacts(pg) {
+    const btn = pg.locator('#expandAllBtn');
+    if (await btn.count() && (await btn.getAttribute('data-mode')) === 'expand') { await btn.click(); await pg.waitForTimeout(300); }
+    return pg.evaluate(() => {
+      const t = sel => { const e = document.querySelector(sel); return e ? e.textContent.replace(/\s+/g, ' ').trim() : null; };
+      const cards = [...document.querySelectorAll('.prop-card')];
+      return {
+        cards: cards.length,
+        reviewChips: [...document.querySelectorAll('.prop-card .source-review-chip')].map(e => e.textContent.trim()),
+        programs: [...document.querySelectorAll('.prop-card .source-program')].map(e => e.textContent.trim()).sort(),
+        pending: t('#ledgerReviewPending'),
+        withheld: t('#ledgerWithheld')
+      };
+    });
+  }
+  const adminMi = await newPage({ viewport: { width: 1200, height: 900 } });
+  await adminMi.goto(STATE_URL('mi') + '?profile=admin#/lands', { waitUntil: 'networkidle' });
+  await adminMi.waitForTimeout(600);
+  results.devVisAdminMiLands = await ledgerFacts(adminMi);
+  await adminMi.close();
+
+  const adminDetail = await newPage({ viewport: { width: 1200, height: 900 } });
+  await adminDetail.goto(STATE_URL('mi') + '?profile=admin#/lands/pmi_dlba1', { waitUntil: 'networkidle' });
+  await adminDetail.waitForTimeout(700);
+  results.devVisAdminDetail = await adminDetail.evaluate(() => {
+    const m = document.querySelector('#detailModalInner');
+    const txt = m ? m.innerText.replace(/\s+/g, ' ') : '';
+    const row = m && m.querySelector('.source-review-row');
+    const banner = m && m.querySelector('#sourceReviewBanner');
+    return {
+      banner: banner ? banner.textContent.replace(/\s+/g, ' ').trim() : null,
+      reviewRow: row ? row.textContent.replace(/\s+/g, ' ').trim() : null,
+      identifier: txt.includes('99000001.'),
+      program: txt.includes('Side Lot For Sale'),
+      lastRead: /Last read from the source/.test(txt),
+      neverApproved: !/Source publication review: Approved/.test(txt)
+    };
+  });
+  await adminDetail.close();
+
+  const adminDash = await newPage({ viewport: { width: 1200, height: 900 } });
+  await adminDash.goto(STATE_URL('mi') + '?profile=admin#/dashboard', { waitUntil: 'networkidle' });
+  await adminDash.waitForTimeout(600);
+  results.devVisAdminDash = await adminDash.evaluate(() => {
+    const panel = document.querySelector('#dashSourceReview');
+    if (!panel) return null;
+    const row = id => { const e = panel.querySelector(`[data-source-id="${id}"]`); return e ? e.textContent.replace(/\s+/g, ' ').trim() : null; };
+    return { mode: (document.querySelector('#dashPublicationMode') || {}).textContent, lots: row('mi_detroit_landbank_lots'), programs: row('mi_detroit_landbank_programs') };
+  });
+  await adminDash.close();
+
+  const custMi = await newPage({ viewport: { width: 1200, height: 900 } });
+  await custMi.goto(STATE_URL('mi') + '#/lands', { waitUntil: 'networkidle' });
+  await custMi.waitForTimeout(600);
+  results.devVisCustomerMiLands = await ledgerFacts(custMi);
+  results.devVisCustomerDashPanel = await custMi.evaluate(() => { location.hash = '#/dashboard'; return !!document.querySelector('#dashSourceReview'); });
+  await custMi.close();
+
+  // Customer preview: config.js with publicationMode "preview", default profile.
+  const previewCfg = fs.readFileSync(new URL('./config.js', import.meta.url), 'utf8') + '\nwindow.TDW_CONFIG.publicationMode = "preview";\n';
+  const prev = await newPage({ viewport: { width: 1200, height: 900 } });
+  await prev.route(/\/config\.js(\?|$)/, route => route.fulfill({ status: 200, contentType: 'application/javascript', body: previewCfg }));
+  await prev.goto(STATE_URL('sc') + '#/lands', { waitUntil: 'networkidle' });
+  await prev.waitForTimeout(600);
+  results.devVisPreviewScLands = await ledgerFacts(prev);
+  await prev.close();
+
+  const custSc = await newPage({ viewport: { width: 1200, height: 900 } });
+  await custSc.goto(STATE_URL('sc') + '#/lands', { waitUntil: 'networkidle' });
+  await custSc.waitForTimeout(600);
+  results.devVisCustomerScLands = await ledgerFacts(custSc);
+  await custSc.close();
+}
+
+// --- Scale regression (2026-10-02): a 30,000+ row county ---
+// ?bigcounty=30000 adds 30,000 SYNTHETIC geocoded Available rows in Wayne MI
+// (stub). The List must page them (never 30,000 cards), the table too, search
+// must still find one, and the Map must cluster them (never 30,000 pins) with
+// every in-view row counted in a cluster or a pin.
+{
+  const big = await newPage({ viewport: { width: 1300, height: 900 } });
+  big.on('pageerror', e => errors.push('pageerror(bigcounty): ' + e.message));
+  await big.goto(BASE_URL.replace(/index\.html$/, 'mi.html') + '?profile=admin&bigcounty=30000#/lands', { waitUntil: 'networkidle' });
+  await big.waitForFunction(() => document.querySelectorAll('.county-group').length > 0, null, { timeout: 60000 });
+  results.scaleListInitial = await big.evaluate(() => ({
+    cardsInDocument: document.querySelectorAll('.prop-card').length,
+    wayneCount: (document.querySelector('.county-group[data-county="Wayne"] .county-count') || {}).textContent,
+    groupMore: (document.querySelector('.county-group[data-county="Wayne"] .group-more') || {}).textContent,
+    tableRows: document.querySelectorAll('#dataTableBody tr:not(.table-more-row)').length,
+    tableMore: (document.getElementById('tableMoreBtn') || {}).textContent,
+    domUnder15k: document.getElementsByTagName('*').length < 15000
+  }));
+  await big.evaluate(() => { document.querySelector('.county-group[data-county="Wayne"]').open = true; });
+  await big.click('.county-group[data-county="Wayne"] .group-more');
+  results.scaleListAfterMore = await big.evaluate(() => ({
+    cards: document.querySelectorAll('.county-group[data-county="Wayne"] .prop-card').length,
+    groupMore: (document.querySelector('.county-group[data-county="Wayne"] .group-more') || {}).textContent
+  }));
+  await big.fill('#searchInput', '90012345');
+  await big.waitForTimeout(700);
+  results.scaleSearch = await big.evaluate(() => [...document.querySelectorAll('.prop-card .prop-parcel-line, .prop-card')].length > 0 && document.querySelectorAll('.prop-card').length);
+  await big.fill('#searchInput', '');
+  await big.waitForTimeout(500);
+  await big.evaluate(() => { location.hash = '#/map'; });
+  await big.waitForTimeout(1200);
+  await big.selectOption('#mapCountySelect', 'Wayne');
+  await big.waitForTimeout(1500);
+  results.scaleMapCounty = await big.evaluate(() => {
+    const c = document.getElementById('exploreMapCanvas');
+    const clusters = [...c.querySelectorAll('.pin-cluster')];
+    const sum = clusters.reduce((a, g) => a + Number(g.dataset.count), 0);
+    const pins = c.querySelectorAll('.map-pin').length;
+    const strip = document.getElementById('exploreStrip');
+    return { mode: c.dataset.pinMode, inView: Number(c.dataset.pinsInView), everyRowCounted: sum + pins === Number(c.dataset.pinsInView),
+      nodesUnder500: clusters.length + pins < 500, strip: strip ? strip.dataset.listed + '/' + strip.dataset.total : null,
+      stripCards: document.querySelectorAll('.strip-card').length };
+  });
+  await big.click('#exploreMapCanvas .pin-cluster');
+  await big.waitForTimeout(1200);
+  results.scaleMapClusterZoom = await big.evaluate(() => {
+    const c = document.getElementById('exploreMapCanvas');
+    return { fewerInView: Number(c.dataset.pinsInView) < 30001, back: (document.getElementById('exploreZoomOut') || {}).textContent };
+  });
+  await big.close();
+}
+
 await browser.close();
 
 // ============================================================
@@ -3805,16 +3938,30 @@ await browser.close();
 
 
 const EXPECTED = {
+  // Scale regression (2026-10-02): 30,002-row Wayne County.
+  scaleListInitial: { cardsInDocument: 50, wayneCount: '30002/30002 active', groupMore: 'Show next 50 · showing 50 of 30,002', tableRows: 200, tableMore: 'Show next 200 · showing 200 of 30,002', domUnder15k: true },
+  scaleListAfterMore: { cards: 100, groupMore: 'Show next 50 · showing 100 of 30,002' },
+  scaleSearch: 1,
+  scaleMapCounty: { mode: 'clusters', inView: 30001, everyRowCounted: true, nodesUnder500: true, strip: '100/30002', stripCards: 100 },
+  scaleMapClusterZoom: { fewerInView: true, back: '← All of Wayne' },
+  // Collection vs customer publication (2026-10-02).
+  devVisAdminMiLands: { cards: 2, reviewChips: ['Source review: Unreviewed · not customer-published', 'Source review: Unreviewed · not customer-published'], programs: ['Own It Now', 'Side Lot For Sale'], pending: '2 records from sources awaiting customer-publication review are shown to you as an admin, each labelled "Source review". Customers in published mode do not see them.', withheld: null },
+  devVisAdminDetail: { banner: "Source review: Unreviewed. This record comes from a source awaiting customer-publication review - shown to you as an admin. It is not customer-published. Its availability below is the source's own statement and is a separate fact.", reviewRow: 'Source publication review: Unreviewed Customer-visible: No (shown to you as an admin) Source program / status: Side Lot For Sale', identifier: true, program: true, lastRead: true, neverApproved: true },
+  devVisAdminDash: { mode: 'Customer mode: customers see approved sources only; you see every collected source, labelled. 2 sources awaiting customer-publication review in Michigan.', lots: 'mi_detroit_landbank_lots Available Source review: Unreviewed1 collected · 1 active · 1 countyCustomer-visible: 0Last read Oct 2, 2026', programs: 'mi_detroit_landbank_programs Available Source review: Unreviewed1 collected · 1 active · 1 countyCustomer-visible: 0Last read Oct 2, 2026' },
+  devVisCustomerDashPanel: false,
+  devVisCustomerMiLands: { cards: 0, reviewChips: [], programs: [], pending: null, withheld: '2 records withheld - source not approved for customer publication (restricted or not yet reviewed). Counted, not shown.' },
+  devVisCustomerScLands: { cards: 0, reviewChips: [], programs: [], pending: null, withheld: '1 record withheld - source not approved for customer publication (restricted or not yet reviewed). Counted, not shown.' },
+  devVisPreviewScLands: { cards: 1, reviewChips: ['Source review: Unreviewed · not customer-published'], programs: [], pending: '1 record from sources awaiting customer-publication review is shown in customer preview mode, each labelled "Source review". Customers in published mode do not see it.', withheld: null },
   // AVAILABLE coverage: the zero names its reason; Florida (rows present) shows none.
   availCoverage: {
-    MI: { status: 'REVIEW_REQUIRED', text: 'Why this list is empty: Official program pages were found but are awaiting capture and publication review. Nothing is published from them yet. 1 candidate source: Lenawee. Current list found, awaiting publication review: Lenawee.', cards: 0 },
+    MI: { status: 'REVIEW_REQUIRED', text: 'Why this list is empty: Official program pages were found but are awaiting capture and publication review. Nothing is published from them yet. 4 candidate sources: Lenawee, Oceana, Wayne. Current list found, awaiting publication review: Lenawee.', cards: 0 },
     CO: { status: 'NO_QUALIFYING_PROGRAM', text: 'Why this list is empty: No qualifying government-held inventory - this state\'s post-sale instrument is a lien or an auction, not property held for purchase. Unsold parcels stay with the county as tax liens / certificates (see Liens & Certificates or Auctions).', cards: 0 },
     WY: { status: 'NO_QUALIFYING_PROGRAM', text: 'Why this list is empty: No qualifying government-held inventory - this state\'s post-sale instrument is a lien or an auction, not property held for purchase. Unsold parcels stay with the county as tax liens / certificates (see Liens & Certificates or Auctions).', cards: 0 },
     FL: { status: null, text: '', cards: 2 }
   },
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: { ready: true, controlled: true, tagline: "Tax Sale Property Intelligence", noState: true, cache: ["tdw-shell-v69"] },
+  brandSwReload: { ready: true, controlled: true, tagline: "Tax Sale Property Intelligence", noState: true, cache: ["tdw-shell-v71"] },
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · Tax Acquisitions — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · Tax Acquisitions — Florida", floridaCopy: true },
@@ -4194,9 +4341,9 @@ const EXPECTED = {
   adminShellShown: true,
   adminIdentityText: 'Admin',
   adminShellShowsNoEmail: true,
-  adminSourcesRows: 340,
+  adminSourcesRows: 343,
   adminSourcesGovernanceKinds: 'APPROVED,HARD_BLOCKED,REVIEW_REQUIRED',
-  adminSourcesStatusText: '340 source(s): 221 approved, 104 review required, 15 hard blocked.',
+  adminSourcesStatusText: '343 source(s): 221 approved, 107 review required, 15 hard blocked.',
   adminSourcesReviewOnly: true,
   adminSourcesLgbsReason: true,
   adminSourcesLaOnly: true,

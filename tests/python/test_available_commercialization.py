@@ -64,7 +64,11 @@ def test_g01_committed_registry_publishes_only_the_grandfathered_production_sour
             if eff == "APPROVED":
                 assert r.is_production and "Creative Commons" in r.restrictions, (r.state, r.source_id)
             else:
-                assert eff == "UNREVIEWED" and "no row is written" in r.restrictions, (r.state, r.source_id)
+                # An auction / lien source awaiting review writes nothing; an AVAILABLE
+                # one is collected for development and labelled, never customer-published
+                # (collection vs customer publication, 2026-10-02).
+                expected = "not customer-published" if r.source_id in EX.AVAILABLE_SPRINT_SOURCE_IDS else "no row is written"
+                assert eff == "UNREVIEWED" and expected in r.restrictions, (r.state, r.source_id)
         elif r.is_production:
             assert eff == "APPROVED_GRANDFATHERED", (r.state, r.county, r.source_id)     # already served today; carried forward
         elif r.source_id in BLOCKED_SOURCE_IDS:

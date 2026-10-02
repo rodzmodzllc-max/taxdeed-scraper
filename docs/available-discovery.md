@@ -135,3 +135,13 @@ Spartanburg lists appear in that public job log (and an earlier run printed
 Burnett auction numbers). `--discovery` now drops every row-like line (any
 digit run or dollar amount) before printing; a test pins it. Deleting those
 two run logs is the owner's decision.
+
+## Follow-up: Georgetown and Spartanburg (2026-10-02)
+
+The SC AVAILABLE sprint read both lists in full, structure only (runs
+37033274319 and 37035908843; see `docs/sc-available-inventory.md`).
+
+- **Georgetown:** one LAND row qualifies. A gated adapter is built; the source
+  stays REVIEW_REQUIRED.
+- **Spartanburg:** reclassified `REDEMPTION_ASSIGNMENT`, rejected as
+  non-AVAILABLE.

@@ -90,6 +90,16 @@ Not covered by the function, by design:
   Supabase's, not this schema's.
 - **The last admin** can delete themselves. Add a guard if that matters.
 
+## 3b. Customer publication mode (`config.js`)
+
+`window.TDW_CONFIG.publicationMode` controls what non-admin users see:
+
+- Absent or `"enforced"` (the default): customers see rows from APPROVED* sources only. Admins always see every collected row, labelled with its source review status.
+- `"preview"`: every approved user sees every collected row (BLOCKED excepted), labelled "Source review: …". Use it to test the customer experience on sources still awaiting review.
+
+It changes nothing in collection or in the database. Set it back to
+`"enforced"` (or remove it) before any commercial release.
+
 ## 4. Support contact (`config.js`)
 
 `window.TDW_CONFIG.supportEmail` - blank in the repository on purpose. When
