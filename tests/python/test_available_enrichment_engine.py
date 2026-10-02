@@ -446,7 +446,7 @@ def test_available_job_is_manual_only_and_scoped():
     job = wf["jobs"]["available"]
     assert job["if"] == "github.event_name == 'workflow_dispatch' && github.event.inputs.job == 'available'"
     inputs = (wf.get("on") or wf.get(True))["workflow_dispatch"]["inputs"]
-    assert inputs["available_mode"]["options"] == ["plan", "metadata", "probe", "discover", "apply", "imagery"] and inputs["available_mode"]["default"] == "plan"
+    assert inputs["available_mode"]["options"] == ["plan", "metadata", "probe", "discover", "apply", "acquisition", "imagery"] and inputs["available_mode"]["default"] == "plan"
     runs = "\n".join(s.get("run", "") for s in job["steps"])
     # LGBS is authorized for the AVAILABLE sprint (2026-10-01) ONLY through the
     # AVAILABLE-scoped refresh: never the harvester's main(), never the Texas

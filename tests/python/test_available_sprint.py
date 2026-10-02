@@ -211,3 +211,15 @@ def test_the_year_floor_and_disagreement_fail_closed():
         [m] = P.match_rows(cfg, [{"id": 1, "parcel": "001-0001-1"}], idx)
         fields, _ = P.plan_update(cfg, {"id": 1}, m, recorded_at=NOW)
         assert "land_use" not in fields
+
+
+def test_a_row_with_its_own_instructions_link_still_gets_the_verified_application_form():
+    import purchase_path_engine as PE
+    row = {"case_no": "002-9125-0", "county": "East Baton Rouge", "purchase_url": "https://www.brla.gov/455/Adjudicated-Property",
+           "purchase_url_kind": "purchase_instructions"}
+    path, _ = PE.resolve(row, state="LA", source_id="la_ebr_adjudicated", county="East Baton Rouge", evidence=PE.load_evidence(),
+                         registry_row={"canonical_url": "https://data.brla.gov/Housing-and-Development/Adjudicated-Property/a4h4-zi7e"},
+                         harvest_date="2026-10-02")
+    acq = path.acquisition()
+    assert acq["application_url"].endswith("/9351/REQUEST-TO-PURCHASE-ADJUDICATED-PROPERTY")
+    assert acq["phone"] == "(225) 389-3114" and len(acq["steps"]) == 5

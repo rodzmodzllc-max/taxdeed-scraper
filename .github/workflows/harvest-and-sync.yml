@@ -195,7 +195,8 @@ on:
           customer value first, imagery last and never in the same run.
           plan = read-only coverage matrix + expected writes; metadata = each
           probed source's own column definitions + the LGBS field inventory
-          (value-free, minutes); probe = the
+          (value-free, minutes); acquisition = only the acquisition-record
+          refresh from verified evidence rows (no source request); probe = the
           value-free deep identifier / fill probe only (minutes); discover =
           catalog + documents + deep probe; apply = PRIORITY 1-2 only (cleared
           parcel / tax-roll layers: identifiers, legal descriptions,
@@ -205,7 +206,7 @@ on:
         required: false
         type: choice
         default: plan
-        options: [plan, metadata, probe, discover, apply, imagery]
+        options: [plan, metadata, probe, discover, apply, acquisition, imagery]
       storage_max:
         description: (job=storage, apply modes) optimize at most N objects this run; blank = all.
         required: false
@@ -1670,7 +1671,7 @@ jobs:
         # row (data/purchase_path_evidence.csv) for each row's (state, source,
         # county) through purchase_path_engine.resolve; a stronger property-scope
         # path is never replaced; never status, amounts, owners or outcomes.
-        if: github.event.inputs.available_mode == 'apply'
+        if: github.event.inputs.available_mode == 'apply' || github.event.inputs.available_mode == 'acquisition'
         continue-on-error: true
         timeout-minutes: 45
         env:
