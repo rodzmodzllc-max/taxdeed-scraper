@@ -246,11 +246,14 @@ def test_p57_22_naip_needs_no_api_key():
 
 def test_p57_23_only_rows_with_coordinates_are_selected(naip):
     src = NAIP_SCRIPT.read_text(encoding="utf-8")
+    # Both selectors share tier_params() (imagery priority, 2026-10-01).
     for fn in ("fetch_counties_needing_photos", "fetch_county_batch"):
         body = src[src.index(f"def {fn}"):]
         body = body[:body.index("\ndef ", 5)]
-        assert '"latitude": "not.is.null"' in body
-        assert '"longitude": "not.is.null"' in body
+        assert "tier_params(" in body
+    for _, flt in naip.IMAGERY_TIERS:
+        p = naip.tier_params(flt)
+        assert p["latitude"] == "not.is.null" and p["longitude"] == "not.is.null"
 
 
 def test_p57_24_schema_probe_drops_unavailable_columns(naip, monkeypatch):

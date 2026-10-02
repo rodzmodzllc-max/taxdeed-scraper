@@ -1,0 +1,43 @@
+{
+  "note": "Shared by tests/python/test_customer_monitoring.py (scripts/saved_search_match.py) and tests/run_test.mjs (savedSearchMatches in public/app.js): both must give these answers. now = 2026-10-01T12:00:00Z.",
+  "now": "2026-10-01T12:00:00Z",
+  "rows": {
+    "avail": {"source": "laft", "county": "Bay", "state": "FL", "status": "active", "acreage": 1.2, "assessed": 60000, "taxable_value": 41000,
+              "purchase_amount": 2000, "land_use": "Vacant residential", "purchase_path_type": "phone_mail", "photo_url": "https://x/p.jpg",
+              "last_seen_at": "2026-09-30T06:00:00Z"},
+    "avail_unknowns": {"source": "laft", "county": "Polk", "state": "FL", "status": "active", "bid": 0},
+    "closed": {"source": "laft", "county": "Bay", "state": "FL", "status": "closed", "acreage": 2},
+    "auction": {"source": "auction", "county": "Duval", "state": "FL", "status": "active", "sale_date": "2026-10-15", "min_bid": 5400,
+                "prop_type": "Single Family", "last_seen_at": "2026-08-01T00:00:00Z"}
+  },
+  "cases": [
+    {"criteria": {}, "row": "avail", "match": true},
+    {"criteria": {"ledger": "laft"}, "row": "auction", "match": false},
+    {"criteria": {"counties": ["Bay", "Polk"]}, "row": "avail", "match": true},
+    {"criteria": {"counties": ["Polk"]}, "row": "avail", "match": false},
+    {"criteria": {"acreage_min": 1}, "row": "avail", "match": true},
+    {"criteria": {"acreage_min": 1}, "row": "avail_unknowns", "match": false},
+    {"criteria": {"acreage_max": 1}, "row": "avail", "match": false},
+    {"criteria": {"assessed_min": 50000, "assessed_max": 70000}, "row": "avail", "match": true},
+    {"criteria": {"taxable_max": 40000}, "row": "avail", "match": false},
+    {"criteria": {"bid_max": 2500}, "row": "avail", "match": true},
+    {"criteria": {"bid_max": 2500}, "row": "avail_unknowns", "match": false},
+    {"criteria": {"bid_min": 5000}, "row": "auction", "match": true},
+    {"criteria": {"sale_from": "2026-10-01", "sale_to": "2026-10-31"}, "row": "auction", "match": true},
+    {"criteria": {"sale_from": "2026-11-01"}, "row": "auction", "match": false},
+    {"criteria": {"sale_from": "2026-10-01"}, "row": "avail", "match": false},
+    {"criteria": {"available_only": true}, "row": "closed", "match": false},
+    {"criteria": {"available_only": true}, "row": "avail", "match": true},
+    {"criteria": {"land_use": "vacant"}, "row": "avail", "match": true},
+    {"criteria": {"land_use": "single family"}, "row": "auction", "match": true},
+    {"criteria": {"land_use": "vacant"}, "row": "avail_unknowns", "match": false},
+    {"criteria": {"acquisition": "verified"}, "row": "avail", "match": true},
+    {"criteria": {"acquisition": "not_verified"}, "row": "avail", "match": false},
+    {"criteria": {"acquisition": "not_verified"}, "row": "avail_unknowns", "match": true},
+    {"criteria": {"imagery": "has"}, "row": "avail", "match": true},
+    {"criteria": {"imagery": "none"}, "row": "avail_unknowns", "match": true},
+    {"criteria": {"fresh_days": 2}, "row": "avail", "match": true},
+    {"criteria": {"fresh_days": 2}, "row": "auction", "match": false},
+    {"criteria": {"fresh_days": 2}, "row": "avail_unknowns", "match": false}
+  ]
+}

@@ -3438,6 +3438,159 @@ results.navWlRelated = await navWl2.locator('#bidListRows .bidlist-related li').
 results.navWlCount = ((await navWl2.locator('#navWatchlistCount').textContent()) || '').trim();
 await navWl2.close();
 
+
+// ============================================================
+// Customer monitoring sprint (2026-10-01)
+// ============================================================
+// 1. Paged loading: PostgREST caps every call (RPCs included) at max-rows.
+// With the cap forced to 2 the app must page each ledger and end up with the
+// same rows it gets in one call.
+async function ledgerCardCounts(url) {
+  const pg = await newPage({ viewport: { width: 1200, height: 900 } });
+  await pg.goto(url, { waitUntil: 'networkidle' });
+  await pg.waitForTimeout(500);
+  const out = {};
+  for (const l of ['auction', 'laft', 'certificate']) {
+    await pg.click(`.ledger-tab[data-ledger="${l}"]`);
+    await pg.waitForTimeout(200);
+    out[l] = (await pg.locator('#main .prop-card').evaluateAll(els => els.map(e => e.dataset.pid).sort())).join(',');
+  }
+  out.calls = await pg.evaluate(() => window.__stubGetPropertiesCalls || 0);
+  await pg.close();
+  return out;
+}
+{
+  const full = await ledgerCardCounts(BASE_URL);
+  const paged = await ledgerCardCounts(BASE_URL.replace('index.html', 'index.html?maxrows=2'));
+  // Auctions holds 9 fixture rows, so with a cap of 2 it takes 5 pages.
+  results.monPagedSameCards = full.auction === paged.auction && full.laft === paged.laft && full.certificate === paged.certificate && full.auction.split(',').length > 2;
+  results.monPagedMoreCalls = paged.calls > full.calls;
+}
+
+// 2. Saved-search parity: the same shared cases scripts/saved_search_match.py
+// is tested against, run through the browser's implementation.
+const monPage = await newPage({ viewport: { width: 1200, height: 900 } });
+monPage.on('pageerror', e => errors.push('pageerror: ' + e.message));
+await monPage.goto(BASE_URL.replace('index.html', 'index.html?bidlist=p15,p3') + '#/lands', { waitUntil: 'networkidle' });
+await monPage.waitForTimeout(600);
+{
+  const cases = JSON.parse(fs.readFileSync(new URL('./python/fixtures/saved_search_cases.json', import.meta.url), 'utf8'));
+  results.monParityMismatches = await monPage.evaluate(c => c.cases.map((k, i) => (window.__tdwSavedSearchMatches(k.criteria, c.rows[k.row], c.now) === k.match ? null : i)).filter(x => x !== null), cases);
+}
+// 3. Server saved search: save, storage wording, apply.
+results.monAlertsBadge = ((await monPage.locator('#alertsUnread').textContent()) || '').trim();
+await monPage.click('#savedSearchesBtn');
+await monPage.waitForTimeout(200);
+results.monSsStorage = ((await monPage.locator('#savedSearchStorage').textContent()) || '').trim().slice(0, 28);
+await monPage.fill('#saveSearchName', 'Available Florida');
+await monPage.click('#saveSearchSubmit');
+await monPage.waitForTimeout(300);
+results.monSsItems = await monPage.locator('#savedSearchList .saved-search').count();
+results.monSsCounts = ((await monPage.locator('#savedSearchList .saved-search .ss-counts').first().textContent()) || '').replace(/\s+/g, ' ').trim();
+results.monSsAlertsToggle = await monPage.locator('#savedSearchList [data-ss-alerts]').count();
+await monPage.click('#savedSearchesCloseBtn');
+await monPage.click('.ledger-tab[data-ledger="auction"]');
+await monPage.waitForTimeout(200);
+await monPage.click('#savedSearchesBtn');
+await monPage.waitForTimeout(200);
+await monPage.locator('#savedSearchList [data-ss-apply]').first().click();
+await monPage.waitForTimeout(300);
+results.monSsAppliedLedger = await monPage.locator('#ledgerTabs .ledger-tab.on').first().getAttribute('data-ledger');
+// 4. Monitoring filters on the Available ledger.
+await monPage.click('#filtersToggle');
+await monPage.waitForTimeout(150);
+results.monFiltersRow = await monPage.locator('#monitorFilters select, #monitorFilters input').count();
+await monPage.selectOption('#watchStatusFilter', 'watched');
+await monPage.waitForTimeout(200);
+results.monWatchedCards = await monPage.locator('#main .prop-card').evaluateAll(els => els.map(e => e.dataset.pid).sort());
+await monPage.selectOption('#watchStatusFilter', 'any');
+await monPage.selectOption('#acqStateFilter', 'verified');
+await monPage.waitForTimeout(200);
+results.monAcqVerifiedCards = await monPage.locator('#main .prop-card').evaluateAll(els => els.map(e => e.dataset.pid).sort());
+await monPage.click('#resetBtn');
+await monPage.waitForTimeout(200);
+results.monResetClearsAcq = await monPage.locator('#acqStateFilter').inputValue();
+// 5. Available export carries acquisition status / imagery / freshness.
+{
+  const dl = monPage.waitForEvent('download');
+  await monPage.click('#exportCsvBtn');
+  const header = fs.readFileSync(await (await dl).path(), 'utf8').split(/\r?\n/)[0].split(',');
+  results.monCsvHas = ['Acquisition Status', 'Acquisition Last Verified', 'Imagery On File', 'Days Since Last Read', 'Taxable Value'].every(h => header.includes(h));
+}
+// 6. Property page: Watch & changes with server change history.
+const monDetail = await newPage({ viewport: { width: 390, height: 844 } });
+await monDetail.goto(BASE_URL.replace('index.html', 'index.html?bidlist=p15') + '#/lands/p15', { waitUntil: 'networkidle' });
+await monDetail.waitForTimeout(700);
+results.monDetailSection = await monDetail.locator('#detailModalInner [data-section="monitor"]').count();
+results.monDetailStatus = ((await monDetail.locator('#detailModalInner .monitor-status').textContent()) || '').trim();
+results.monDetailHistory = await monDetail.locator('#detailModalInner .change-history li').evaluateAll(els => els.map(e => e.dataset.kind));
+results.monDetailNeverSold = await monDetail.locator('#detailModalInner [data-section="monitor"]').evaluate(el => /never as a sale/.test(el.textContent) && !/\bsold\b/i.test(el.textContent.replace(/never as a sale|not a sale/g, '')));
+results.monDetailNavPill = await monDetail.locator('#detailModalInner .detail-nav [data-target="monitor"]').count();
+// 7. Alerts inbox: two alerts, one unread; mark read clears the badge.
+await monDetail.evaluate(() => { document.getElementById('detailModal').hidden = true; });
+await monDetail.locator('#alertsMenuItem').evaluate(el => el.click());
+await monDetail.waitForTimeout(200);
+results.monAlertItems = await monDetail.locator('#alertList .alert-item').count();
+results.monAlertEmailDisabled = await monDetail.locator('#prefEmail').isDisabled();
+await monDetail.click('#alertsMarkRead');
+await monDetail.waitForTimeout(200);
+results.monAlertsBadgeAfterRead = await monDetail.locator('#alertsUnread').isHidden();
+await monDetail.click('#alertsCloseBtn');
+// 8. Watchlist modal lists server-detected changes for watched rows.
+await monDetail.click('.nav-bottom-item[data-page="watchlist"]');
+await monDetail.waitForTimeout(300);
+results.monWatchServerChanges = await monDetail.locator('#watchServerChanges li').count();
+// 9. Analytics: session_start + property_viewed; a search never sends its text.
+await monDetail.goto(BASE_URL.replace('index.html', 'index.html?an=1') + '#/lands', { waitUntil: 'networkidle' });
+await monDetail.waitForTimeout(600);
+await monDetail.fill('#searchInput', 'Manatee');
+await monDetail.waitForTimeout(1900);
+{
+  const evs = await monDetail.evaluate(() => window.__stubProductEvents || []);
+  results.monAnalyticsEvents = Array.from(new Set(evs.map(e => e.event))).sort();
+  results.monAnalyticsNoText = !JSON.stringify(evs).includes('Manatee');
+}
+await monDetail.close();
+await monPage.close();
+// 10. Without migration 024: browser-only saved searches, honest alerts and
+// change-history wording, the NEW / CHANGED / NO LONGER MATCHING diff.
+const monNone = await newPage({ viewport: { width: 1200, height: 900 } });
+monNone.on('pageerror', e => errors.push('pageerror: ' + e.message));
+await monNone.addInitScript(() => {
+  if (sessionStorage.getItem('mon-seeded')) return;
+  sessionStorage.setItem('mon-seeded', '1');
+  localStorage.setItem('tdw_saved_searches_v1', JSON.stringify([{ id: 'ss-local-1', name: 'Local Available', state: 'FL', criteria: { ledger: 'laft', available_only: true }, alerts_enabled: false, last_viewed_at: '2026-09-01T00:00:00Z', last_match_ids: ['p15', 'gone-row'] }]));
+  localStorage.setItem('tdw_ss_fp_ss-local-1', JSON.stringify({ p15: { f: 'stale-fingerprint', l: '15 Manatee Ln', c: 'Citrus' }, 'gone-row': { f: 'x', l: '9 Gone Rd', c: 'Bay' } }));
+});
+await monNone.goto(BASE_URL.replace('index.html', 'index.html?monitor=none') + '#/lands/p15', { waitUntil: 'networkidle' });
+await monNone.waitForTimeout(700);
+results.monNoneHistory = ((await monNone.locator('#detailModalInner [data-changes-for="p15"]').textContent()) || '').trim();
+await monNone.evaluate(() => { document.getElementById('detailModal').hidden = true; });
+await monNone.click('#savedSearchesBtn');
+await monNone.waitForTimeout(200);
+results.monNoneStorage = ((await monNone.locator('#savedSearchStorage').textContent()) || '').trim().slice(0, 30);
+results.monNoneCounts = await monNone.locator('.saved-search[data-ss="ss-local-1"] .ss-count').evaluateAll(els => els.map(e => e.textContent.trim()));
+results.monNoneRemovedWording = ((await monNone.locator('.saved-search[data-ss="ss-local-1"] .ss-removed').first().textContent()) || '').replace(/\s+/g, ' ').trim();
+results.monNoneAlertsToggle = await monNone.locator('[data-ss-alerts]').count();
+await monNone.click('[data-ss-seen="ss-local-1"]');
+await monNone.waitForTimeout(200);
+results.monNoneCountsAfterSeen = await monNone.locator('.saved-search[data-ss="ss-local-1"] .ss-count').evaluateAll(els => els.map(e => e.textContent.trim()));
+await monNone.click('#savedSearchesCloseBtn');
+await monNone.locator('#alertsMenuItem').evaluate(el => el.click());
+await monNone.waitForTimeout(200);
+results.monNoneAlerts = await monNone.locator('#alertsUnavailable').count();
+await monNone.locator('#alertsCloseBtn').click();
+await monNone.click('.nav-list .nav-item[data-page="dashboard"]');
+await monNone.waitForTimeout(300);
+results.monNoneRuns = await monNone.locator('#dashRunsUnavailable').count();
+await monNone.close();
+// 11. Dashboard: latest change-detection run per source.
+const monDash = await newPage({ viewport: { width: 1200, height: 900 } });
+await monDash.goto(BASE_URL + '#/dashboard', { waitUntil: 'networkidle' });
+await monDash.waitForTimeout(700);
+results.monDashRuns = await monDash.locator('#dashRunRows .run-row').evaluateAll(els => els.map(e => e.dataset.source + ':' + Array.from(e.querySelectorAll('.dash-row-vals span')).map(x => x.textContent.trim()).join(' / ')));
+await monDash.close();
+
 await browser.close();
 
 // ============================================================
@@ -3449,6 +3602,41 @@ await browser.close();
 
 
 const EXPECTED = {
+  // Customer monitoring sprint (2026-10-01)
+  monPagedSameCards: true,
+  monPagedMoreCalls: true,
+  monParityMismatches: [],
+  monAlertsBadge: '1',
+  monSsStorage: 'Saved to your account. The s',
+  monSsItems: 1,
+  monSsCounts: '2 matching · 0 new · 0 changed · 0 no longer matching',
+  monSsAlertsToggle: 1,
+  monSsAppliedLedger: 'laft',
+  monFiltersRow: 7,
+  monWatchedCards: ['p15', 'p3'],
+  monAcqVerifiedCards: ['p15', 'p3'],
+  monResetClearsAcq: 'any',
+  monCsvHas: true,
+  monDetailSection: 1,
+  monDetailStatus: 'On your watchlist.',
+  monDetailHistory: ['acquisition_path_changed', 'removed'],
+  monDetailNeverSold: true,
+  monDetailNavPill: 1,
+  monAlertItems: 2,
+  monAlertEmailDisabled: true,
+  monAlertsBadgeAfterRead: true,
+  monWatchServerChanges: 2,
+  monAnalyticsEvents: ['search_performed', 'session_start'],
+  monAnalyticsNoText: true,
+  monNoneHistory: 'Server change history is not enabled on this deployment yet (migration 024 has not been applied).',
+  monNoneStorage: 'Saved in this browser only - t',
+  monNoneCounts: ['2 matching', '1 new', '1 changed', '1 no longer matching'],
+  monNoneRemovedWording: '9 Gone Rd · Bay · no longer in the current data - not a sale',
+  monNoneAlertsToggle: 0,
+  monNoneCountsAfterSeen: ['2 matching', '0 new', '0 changed', '0 no longer matching'],
+  monNoneAlerts: 1,
+  monNoneRuns: 1,
+  monDashRuns: ['fl_realauction:812 observed / 14 new / 40 changed / 9 no longer listed', 'fl_laft_html:120 observed / 3 new / 5 changed / 2 no longer listed / 1 listed again'],
   acqWithheldLineCount: 0,
   acqP16State: 'none',
   acqP16Rows: ['Acquisition path | Not yet verified', 'Official availability source | Open official source →', 'How to acquire | See the official source for current instructions.'],
@@ -3635,7 +3823,7 @@ const EXPECTED = {
   oppBidText: '$5,000.00 Value ÷ bid 18.0× (screening ratio, not a return)',
   oppValueText: '$90,000 2025 County Just Value · County Assessed Value $80,000',
   oppGaps: ['Image not checked yet', 'Not yet geocoded', 'Flood zone not checked'],
-  detailNavLabels: ['Summary', 'Decision', 'Financial', 'Property', 'History', 'Sale events', 'Risk & Legal', 'Map', 'Sources', 'Data'],   // customer-value sprint: the Auction decision block
+  detailNavLabels: ['Summary', 'Decision', 'Financial', 'Property', 'History', 'Sale events', 'Watch', 'Risk & Legal', 'Map', 'Sources', 'Data'],   // customer-value sprint: the Auction decision block
   detailNavJumpScrolled: true,
   detailNavJumpMarksPill: true,
   showOnMapBtnText: 'Show county on the Map page',
@@ -4371,7 +4559,7 @@ const EXPECTED = {
   availCsvP15Path: true,
   govStatePages: Object.fromEntries(['mi', 'wy', 'sc', 'co', 'wi'].map(f => [f, { admView: true, admHash: '#/governance', onWorkspace: false, userView: false, userItem: false, userHashRewritten: true }])),
   govWorkspace: { inlinePanelVisible: false, panelInsideView: true, panelOnWorkspace: false, approvalsVisible: true, approvalRows: true },
-  govMenu: { itemVisible: true, itemText: 'Source Publication Governance', order: ['editProfileBtn', 'changePasswordBtn', 'themeBtn', 'helpBtnMenu', 'supportBtnMenu', 'adminAreaLink', 'governanceMenuItem', 'termsBtnMenu', 'signOutBtn', 'deleteAccountBtn'] },
+  govMenu: { itemVisible: true, itemText: 'Source Publication Governance', order: ['editProfileBtn', 'changePasswordBtn', 'themeBtn', 'alertsMenuItem', 'helpBtnMenu', 'supportBtnMenu', 'adminAreaLink', 'governanceMenuItem', 'termsBtnMenu', 'signOutBtn', 'deleteAccountBtn'] },
   govOpened: { viewVisible: true, hash: '#/governance', menuClosed: true, title: 'Source Publication Governance' },
   govClosedByBack: { hidden: true, hash: '#/auctions' },
   govAdminRoute: { visible: true, rows: 5, hash: '#/governance' },

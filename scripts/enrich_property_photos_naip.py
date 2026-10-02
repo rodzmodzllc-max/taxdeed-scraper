@@ -53,6 +53,7 @@ so it is not re-fetched every run.
 """
 from __future__ import annotations
 
+import json
 import os
 import random
 import sys
@@ -257,33 +258,56 @@ def build_update_fields(photo_url, *, checked_at):
     return fields
 
 
-def fetch_counties_needing_photos():
-    params = {
-        "select": "state,county",
-        "photo_url": "is.null",
-        "latitude": "not.is.null",
-        "longitude": "not.is.null",
-        "limit": "10000",
-    }
+# Imagery priority (Customer-value sprint, 2026-10-01). Storage is the binding
+# constraint, so imagery is spent where it serves customers most, in this
+# order, and NEVER on liens & certificates (a lien instrument is not a parcel
+# a customer acquires; certificate rows get no new property imagery - their
+# existing images are left in place, not deleted):
+#   1. available        - AVAILABLE / OTC / LAFT (source = laft), active
+#   2. auction_active   - active / upcoming auctions
+#   3. auction_closed   - closed / dropped-off auctions
+# A tier is only reached once every higher tier has no outstanding row this run
+# (or the per-run budget is spent). Deferred rows stay NULL ("not checked") -
+# never marked complete.
+GONE_STATUSES = ("closed", "expired", "gone", "sold", "redeemed", "cancelled", "canceled")
+_GONE = "(" + ",".join(GONE_STATUSES) + ")"
+IMAGERY_TIERS = (
+    ("available", {"source": "eq.laft", "status": f"not.in.{_GONE}"}),
+    ("auction_active", {"source": "eq.auction", "status": f"not.in.{_GONE}"}),
+    ("auction_closed", {"source": "eq.auction", "status": f"in.{_GONE}"}),
+)
+EXCLUDED_SOURCES = ("certificate",)
+
+
+def tier_params(tier_filter: dict) -> dict:
+    params = {"photo_url": "is.null", "latitude": "not.is.null", "longitude": "not.is.null"}
+    params.update(tier_filter)
+    assert params.get("source") not in tuple(f"eq.{x}" for x in EXCLUDED_SOURCES)
+    return params
+
+
+def fetch_counties_needing_photos(tier_filter: dict | None = None):
+    params = {"select": "state,county", "limit": "10000"}
+    params.update(tier_params(tier_filter if tier_filter is not None else IMAGERY_TIERS[0][1]))
     params.update(EU.state_param(EU.state_filter()))
     return EU.outstanding_units(EU.get_paged(_get_json, f"{SUPABASE_URL}/rest/v1/properties", params, 100000))
 
 
-def fetch_county_batch(unit, limit, outstanding=None):
+def fetch_county_batch(unit, limit, outstanding=None, tier_filter: dict | None = None):
     offset = 0
     if outstanding and outstanding > limit:
         offset = random.randrange(0, outstanding - limit + 1)
-    params = {
-        "select": "id,county,state,latitude,longitude",
-        "photo_url": "is.null",
-        "latitude": "not.is.null",
-        "longitude": "not.is.null",
-        "order": "id.asc",
-        "offset": str(offset),
-        "limit": str(limit),
-    }
+    params = {"select": "id,county,state,latitude,longitude", "order": "id.asc", "offset": str(offset), "limit": str(limit)}
+    params.update(tier_params(tier_filter if tier_filter is not None else IMAGERY_TIERS[0][1]))
     params.update(EU.unit_params(unit))
     return EU.get_paged(_get_json, f"{SUPABASE_URL}/rest/v1/properties", params, limit)
+
+
+def write_priority_report(report: dict) -> None:
+    out = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "out", "public", "imagery-priority.json")
+    os.makedirs(os.path.dirname(out), exist_ok=True)
+    with open(out, "w", encoding="utf-8") as fh:
+        json.dump(report, fh, indent=2, sort_keys=True)
 
 
 def _get_json(url, params):
@@ -306,74 +330,80 @@ def patch_property(property_id, fields):
 def main():
     used = storage_used_bytes()
     budget = int(STORAGE_BUDGET_MB * 1024 * 1024)
+    report = {"budget_mb": STORAGE_BUDGET_MB, "used_mb": None if used is None else round(used / 1048576, 1),
+              "excluded_ledgers": list(EXCLUDED_SOURCES), "tiers": {}, "uploads_allowed": False}
+    tiers = []
+    for name, flt in IMAGERY_TIERS:
+        units = fetch_counties_needing_photos(flt)
+        tiers.append((name, flt, units))
+        report["tiers"][name] = {"outstanding": sum(n for _, n in units), "attempted": 0, "stored": 0, "no_coverage": 0, "failed": 0}
     if used is None:
         print("Storage usage could not be established - no image uploaded this run (budget guard fails closed).")
+        _finish(report)
         return 0
     print(f"Bucket {STORAGE_BUCKET}: {used / 1048576:.0f} MB used of a {STORAGE_BUDGET_MB:.0f} MB budget.")
     if used >= budget:
         print("Storage budget reached - no image uploaded; rows stay unchecked and are retried when space exists.")
+        _finish(report)
         return 0
-    counties = fetch_counties_needing_photos()
-    print(f"{len(counties)} counties have rows with coordinates and no photo yet.")
-    if not counties:
-        print("Nothing to fetch.")
-        return 0
-
-    attempted = stored = no_coverage = failed = 0
-
-    for unit, outstanding in counties:
-        county = EU.label(unit)
-        if attempted >= BATCH_LIMIT:
+    report["uploads_allowed"] = True
+    attempted = 0
+    stop = False
+    for name, flt, counties in tiers:
+        t = report["tiers"][name]
+        if stop or attempted >= BATCH_LIMIT:
             break
-        rows = fetch_county_batch(
-            unit, min(PER_COUNTY_LIMIT, BATCH_LIMIT - attempted), outstanding
-        )
-        if not rows:
-            continue
-
-        miss_streak = 0
-        for row in rows:
-            if miss_streak >= COUNTY_MISS_STREAK:
-                print(
-                    f"  [{county}] {miss_streak} consecutive failures - skipping the "
-                    "rest of this county's slice this run."
-                )
+        print(f"Tier {name}: {len(counties)} unit(s), {t['outstanding']} row(s) with coordinates and no image.")
+        for unit, outstanding in counties:
+            county = EU.label(unit)
+            if attempted >= BATCH_LIMIT or stop:
                 break
-            attempted += 1
-            png, ok = fetch_naip_image(row["latitude"], row["longitude"])
-            time.sleep(REQUEST_DELAY_SECONDS)
-
-            if not ok:
-                failed += 1
-                miss_streak += 1
-                continue
+            rows = fetch_county_batch(unit, min(PER_COUNTY_LIMIT, BATCH_LIMIT - attempted), outstanding, flt)
             miss_streak = 0
-
-            checked_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
-            if png is None:
-                patch_property(row["id"], build_update_fields("", checked_at=checked_at))
-                no_coverage += 1
-                continue
-
-            if used + len(png) > budget:
-                print("Storage budget reached mid-run - stopping uploads; remaining rows stay unchecked.")
-                break
-            public_url = upload_image(row["id"], png)
-            if public_url is None:
-                # The image exists but we could not store it. Nothing is
-                # stamped, so this row is retried rather than being recorded
-                # as having no coverage.
-                failed += 1
-                continue
-            patch_property(row["id"], build_update_fields(public_url, checked_at=checked_at))
-            stored += 1
-            used += len(png)
-
-    print(
-        f"\nAttempted {attempted}. Stored {stored}, no-coverage {no_coverage}, "
-        f"failed {failed} (left unstamped for retry)."
-    )
+            for row in rows:
+                if miss_streak >= COUNTY_MISS_STREAK:
+                    print(f"  [{county}] {miss_streak} consecutive failures - skipping the rest of this county's slice this run.")
+                    break
+                attempted += 1
+                t["attempted"] += 1
+                png, ok = fetch_naip_image(row["latitude"], row["longitude"])
+                time.sleep(REQUEST_DELAY_SECONDS)
+                if not ok:
+                    t["failed"] += 1
+                    miss_streak += 1
+                    continue
+                miss_streak = 0
+                checked_at = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
+                if png is None:
+                    patch_property(row["id"], build_update_fields("", checked_at=checked_at))
+                    t["no_coverage"] += 1
+                    continue
+                if used + len(png) > budget:
+                    print("Storage budget reached mid-run - stopping uploads; remaining rows stay unchecked.")
+                    stop = True
+                    break
+                public_url = upload_image(row["id"], png)
+                if public_url is None:
+                    # The image exists but could not be stored: nothing is
+                    # stamped, so the row is retried - never marked complete.
+                    t["failed"] += 1
+                    continue
+                patch_property(row["id"], build_update_fields(public_url, checked_at=checked_at))
+                t["stored"] += 1
+                used += len(png)
+    report["used_mb"] = round(used / 1048576, 1)
+    _finish(report)
     return 0
+
+
+def _finish(report: dict) -> None:
+    for t in report["tiers"].values():
+        t["deferred"] = max(0, t["outstanding"] - t["stored"] - t["no_coverage"])
+    write_priority_report(report)
+    print("Imagery priority (available > active auctions > closed auctions; certificates excluded):")
+    for name, t in report["tiers"].items():
+        print(f"  {name}: outstanding {t['outstanding']}, attempted {t['attempted']}, stored {t['stored']}, "
+              f"no coverage {t['no_coverage']}, failed {t['failed']}, deferred {t['deferred']}")
 
 
 if __name__ == "__main__":

@@ -51,7 +51,7 @@ def test_g02_options_come_from_the_one_state_registry():
 
 
 def test_g03_the_data_follows_the_selected_state_not_just_a_label():
-    assert 'const rpc = await sb.rpc("get_properties", { p_state: PAGE_STATE });' in APP
+    assert 'sb.rpc("get_properties", { p_state: PAGE_STATE, p_ledger_type: ledgerType, p_limit: PROPERTY_PAGE_SIZE, p_offset: offset })' in APP          # paged per ledger, always the page's state
     assert "if (regionOf(p) !== PAGE_STATE) return false;" in APP                 # List / Map guard
     # The Map context line no longer repeats the state.
     ctx = APP[APP.index("function renderMapContext"):APP.index("function renderMapContext") + 600]

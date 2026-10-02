@@ -58,6 +58,34 @@ async function gate() {
   document.getElementById("adminShell").hidden = false;
   document.body.dataset.admin = "verified";
   await refreshPending();
+  await refreshUsage();
+}
+
+// Product usage (migration 024's product_usage_summary(), admin-only on the
+// server: is_admin() inside a SECURITY DEFINER function). Without 024 the
+// card says so instead of showing zeros.
+const USAGE_LABELS = {
+  session_start: "Sessions", search_performed: "Searches / filter changes", property_viewed: "Property pages viewed",
+  property_saved: "Favorites added", property_watched: "Watchlist adds", acquisition_source_opened: "Acquisition source links opened",
+  acquisition_instructions_opened: "Acquisition instructions opened", application_opened: "Application documents opened",
+  official_source_opened: "Official source links opened", export_performed: "Exports", alert_created: "Alerts set up",
+  alert_opened: "Alerts opened", saved_search_created: "Saved searches created", saved_search_opened: "Saved searches opened"
+};
+async function refreshUsage() {
+  const status = document.getElementById("adminUsageStatus");
+  const list = document.getElementById("adminUsageList");
+  if (!status || !list) return;
+  const { data, error } = await sb.rpc("product_usage_summary", { p_days: 30 });
+  if (error) {
+    const missing = error.code === "PGRST202" || /could not find the function/i.test(error.message || "");
+    status.textContent = missing ? "Usage analytics are not enabled on this deployment yet (migration 024 has not been applied)." : "Could not load usage: " + error.message;
+    list.innerHTML = "";
+    return;
+  }
+  const rows = data || [];
+  status.textContent = rows.length ? "" : "No usage recorded in the last 30 days.";
+  list.innerHTML = rows.length ? `<table class="admin-usage-table"><thead><tr><th>Action</th><th>Count</th><th>Accounts</th></tr></thead><tbody>${rows.map(r =>
+    `<tr data-event="${esc(r.event)}"><td>${esc(USAGE_LABELS[r.event] || r.event)}</td><td>${esc(r.events)}</td><td>${esc(r.users)}</td></tr>`).join("")}</tbody></table>` : "";
 }
 
 function esc(v) {

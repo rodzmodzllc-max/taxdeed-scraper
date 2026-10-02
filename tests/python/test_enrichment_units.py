@@ -1,5 +1,7 @@
 """(state, county) work units for the coordinate-keyed backfills."""
 import sys
+
+import pytest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -43,14 +45,61 @@ def _naip(monkeypatch):
 
 
 def test_naip_storage_budget_fails_closed(monkeypatch, capsys):
+    # Over / unknown budget: the outstanding counts are still read (the deferral
+    # report needs them) but no image is fetched or uploaded and no row stamped.
     naip = _naip(monkeypatch)
     calls = []
-    monkeypatch.setattr(naip, "fetch_counties_needing_photos", lambda: calls.append("fetched") or [])
+    monkeypatch.setattr(naip, "fetch_counties_needing_photos", lambda *a, **k: [(("FL", "Bay"), 3)])
+    monkeypatch.setattr(naip, "fetch_county_batch", lambda *a, **k: calls.append("batch") or [])
+    monkeypatch.setattr(naip, "fetch_naip_image", lambda *a, **k: calls.append("image") or (None, True))
+    monkeypatch.setattr(naip, "upload_image", lambda *a, **k: calls.append("upload"))
+    monkeypatch.setattr(naip, "patch_property", lambda *a, **k: calls.append("patch"))
+    monkeypatch.setattr(naip, "write_priority_report", lambda r: calls.append(("report", r)))
     monkeypatch.setattr(naip, "storage_used_bytes", lambda *a, **k: None)
-    assert naip.main() == 0 and calls == []                          # unknown usage: nothing fetched or uploaded
+    assert naip.main() == 0                                          # unknown usage: nothing fetched or uploaded
     monkeypatch.setattr(naip, "storage_used_bytes", lambda *a, **k: int(naip.STORAGE_BUDGET_MB * 1048576))
-    assert naip.main() == 0 and calls == []                          # at the budget: nothing fetched or uploaded
+    assert naip.main() == 0                                          # at the budget: nothing fetched or uploaded
+    assert [c for c in calls if not isinstance(c, tuple)] == []
+    reports = [c[1] for c in calls if isinstance(c, tuple)]
+    assert len(reports) == 2 and all(r["uploads_allowed"] is False for r in reports)
+    assert all(t["deferred"] == 3 and t["stored"] == 0 for r in reports for t in r["tiers"].values())
     assert "budget" in capsys.readouterr().out
+
+
+def test_naip_imagery_priority_tiers_and_certificate_exclusion(monkeypatch):
+    naip = _naip(monkeypatch)
+    assert [n for n, _ in naip.IMAGERY_TIERS] == ["available", "auction_active", "auction_closed"]
+    assert naip.EXCLUDED_SOURCES == ("certificate",)
+    for _, flt in naip.IMAGERY_TIERS:
+        p = naip.tier_params(flt)
+        assert p["photo_url"] == "is.null" and p["source"] in ("eq.laft", "eq.auction")
+    with pytest.raises(AssertionError):
+        naip.tier_params({"source": "eq.certificate"})
+    assert "not.in." in naip.IMAGERY_TIERS[0][1]["status"] and naip.IMAGERY_TIERS[2][1]["status"].startswith("in.")
+
+
+def test_naip_spends_budget_on_available_first(monkeypatch):
+    naip = _naip(monkeypatch)
+    monkeypatch.setattr(naip, "BATCH_LIMIT", 2)
+    monkeypatch.setattr(naip, "PER_COUNTY_LIMIT", 5)
+    monkeypatch.setattr(naip, "REQUEST_DELAY_SECONDS", 0)
+    monkeypatch.setattr(naip, "storage_used_bytes", lambda *a, **k: 0)
+    monkeypatch.setattr(naip, "fetch_counties_needing_photos", lambda flt=None: [(("FL", "Bay"), 2)])
+    seen = []
+
+    def batch(unit, limit, outstanding=None, flt=None):
+        seen.append(flt["source"])
+        return [{"id": f"{flt['source']}-{i}", "latitude": 30, "longitude": -85} for i in range(limit)]
+    reports = []
+    monkeypatch.setattr(naip, "fetch_county_batch", batch)
+    monkeypatch.setattr(naip, "fetch_naip_image", lambda *a, **k: (b"x" * 10, True))
+    monkeypatch.setattr(naip, "upload_image", lambda pid, png: f"https://s/{pid}")
+    monkeypatch.setattr(naip, "patch_property", lambda *a, **k: None)
+    monkeypatch.setattr(naip, "write_priority_report", reports.append)
+    assert naip.main() == 0
+    r = reports[0]["tiers"]
+    assert seen == ["eq.laft"] and r["available"]["stored"] == 2 and r["available"]["deferred"] == 0
+    assert r["auction_active"]["attempted"] == 0 and r["auction_active"]["deferred"] == 2   # deferred, never marked complete
 
 
 def test_naip_storage_total_is_recursive(monkeypatch):

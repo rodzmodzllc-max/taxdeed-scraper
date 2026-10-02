@@ -373,6 +373,54 @@ const SOURCE_HEALTH_ROWS = HEALTH_MODE === "none" ? null : [
   { source: "db_backup", label: "Database backup export", state: "ALL", mode: "scheduled", cadence_hours: 24, last_attempt_at: hoursAgo(80), last_attempt_status: "SUCCESS", last_success_at: hoursAgo(80), last_run_id: "1005", row_count: 3000, units_total: 3, units_complete: 3, units_incomplete: 0, incomplete_units: [], completeness: "COMPLETE", error: null }
 ];
 
+// Customer monitoring (migration 024): saved searches, alerts, preferences,
+// server change events and analytics. `?monitor=none` simulates 024 not being
+// applied (every table answers PGRST205), the production state until it is.
+const MONITOR_MODE = new URLSearchParams(location.search).get("monitor") || "default";
+const MONITOR_DB = MONITOR_MODE === "none" ? null : {
+  saved_searches: [],
+  alert_preferences: [],
+  user_alerts: [
+    { id: 11, user_id: "u1", kind: "watched_acquisition", property_id: "p15", saved_search_id: null, change_event_id: 101, title: "Acquisition path changed", detail: "Acquisition path: not on file → phone_mail", created_at: "2026-09-30T12:00:00Z", read_at: null },
+    { id: 12, user_id: "u1", kind: "saved_search_new_match", property_id: "p3", saved_search_id: null, change_event_id: 102, title: "New match: Bay lots", detail: "Newly listed in Bay County", created_at: "2026-09-29T12:00:00Z", read_at: "2026-09-29T13:00:00Z" }
+  ],
+  property_change_events: [
+    { id: 101, property_id: "p15", state: "FL", county: "Citrus", source: "laft", kind: "acquisition_path_changed", field: "purchase_path_type", old_value: null, new_value: "phone_mail", observed_at: "2026-09-30T12:00:00Z" },
+    { id: 103, property_id: "p15", state: "FL", county: "Citrus", source: "laft", kind: "removed", field: "status", old_value: "active", new_value: "closed", observed_at: "2026-08-15T06:00:00Z" },
+    { id: 102, property_id: "p3", state: "FL", county: "Bay", source: "laft", kind: "opening_bid_changed", field: "opening_bid", old_value: "1800", new_value: "2000", observed_at: "2026-09-29T12:00:00Z" }
+  ],
+  product_events: [],
+  source_observation_runs: [
+    { id: 1, state: "FL", source_id: "fl_laft_html", ledger: "laft", run_at: "2026-10-01T06:00:00Z", rows_observed: 120, rows_added: 3, rows_changed: 5, rows_closed: 2, rows_reactivated: 1 },
+    { id: 2, state: "FL", source_id: "fl_laft_html", ledger: "laft", run_at: "2026-09-30T06:00:00Z", rows_observed: 119, rows_added: 0, rows_changed: 1, rows_closed: 0, rows_reactivated: 0 },
+    { id: 3, state: "FL", source_id: "fl_realauction", ledger: "auction", run_at: "2026-10-01T10:00:00Z", rows_observed: 812, rows_added: 14, rows_changed: 40, rows_closed: 9, rows_reactivated: 0 }
+  ]
+};
+const MONITOR_TABLES = new Set(["saved_searches", "alert_preferences", "user_alerts", "property_change_events", "product_events", "source_observation_runs"]);
+function monitorQuery(q) {
+  if (MONITOR_DB === null) return { data: null, error: { message: `Could not find the table 'public.${q.table}' in the schema cache`, code: "PGRST205" } };
+  const rows = MONITOR_DB[q.table];
+  const matches = row => q._filters.every(([c, v, kind]) => kind === "in" ? (v || []).includes(row[c]) : row[c] === v);
+  if (q._op === "insert") {
+    const row = Object.assign({ user_id: "u1", created_at: new Date().toISOString() }, q._row);
+    rows.push(row);
+    if (q.table === "product_events") window.__stubProductEvents = (window.__stubProductEvents || []).concat([row]);
+    return { data: null, error: null };
+  }
+  if (q._op === "upsert") { rows.length = 0; rows.push(Object.assign({ user_id: "u1" }, q._row)); window.__stubPrefUpserts = (window.__stubPrefUpserts || 0) + 1; return { data: null, error: null }; }
+  if (q._op === "update") {
+    rows.filter(matches).forEach(r => Object.assign(r, q._row));
+    if (q.table === "user_alerts") window.__stubAlertUpdates = (window.__stubAlertUpdates || 0) + 1;
+    return { data: null, error: null };
+  }
+  if (q._op === "delete") { const keep = rows.filter(r => !matches(r)); rows.length = 0; rows.push(...keep); return { data: null, error: null }; }
+  if (q.table === "product_events") return { data: [], error: null };
+  const out = rows.filter(matches).map(r => Object.assign({}, r));
+  if (q.table === "source_observation_runs") out.sort((a, b) => String(b.run_at).localeCompare(String(a.run_at)));
+  if (q.table === "property_change_events" || q.table === "user_alerts") out.sort((a, b) => String(b.observed_at || b.created_at).localeCompare(String(a.observed_at || a.created_at)));
+  return { data: q._single ? (out[0] || null) : out, error: null };
+}
+
 class MockQuery {
   constructor(table) { this.table = table; this._op = "select"; this._filters = []; this._single = false; }
   select() { return this; }
@@ -390,7 +438,9 @@ class MockQuery {
   upsert(row) { this._op = "upsert"; this._row = row; return this; }
   then(resolve) {
     let result = { data: [], error: null };
-    if (this.table === "profiles" && STUB_AUTH) {
+    if (MONITOR_TABLES.has(this.table)) {
+      result = monitorQuery(this);
+    } else if (this.table === "profiles" && STUB_AUTH) {
       // Row-level security, as the real policies: "profiles: read own row"
       // (SELECT, auth.uid() = id) and "profiles: admin full access" (ALL,
       // is_admin()). No INSERT/UPDATE policy exists for anyone else, so a
@@ -626,6 +676,12 @@ export function createClient() {
         }
         return { data: null, error: null };
       }
+      if (fnName === "product_usage_summary") {
+        if (MONITOR_DB === null) return { data: null, error: { message: "Could not find the function public.product_usage_summary(p_days) in the schema cache", code: "PGRST202" } };
+        const counts = {};
+        MONITOR_DB.product_events.forEach(e => { counts[e.event] = (counts[e.event] || 0) + 1; });
+        return { data: Object.entries(counts).map(([event, events]) => ({ event, events, users: 1, first_at: null, last_at: null })), error: null };
+      }
       if (fnName === "get_properties") {
         const pState = args && args.p_state;
         // This suite mostly loads index.html (data-state="FL", see
@@ -639,7 +695,18 @@ export function createClient() {
         // also correctly serving the one `state: "TX"` row (Phase 34,
         // fixture id "ptx1") to a real p_state:"TX" request, the way the
         // real get_properties() RPC's `where state = p_state` does.
-        return { data: FIXTURE_PROPERTIES.filter(p => (p.state || "FL") === pState), error: null };
+        // Customer-value sprint: mimic the real RPC's ledger filter, ORDER BY,
+        // limit/offset AND PostgREST's max-rows cap (?maxrows=N, default
+        // 1000) so the frontend's paging is exercised - a single call can
+        // never return more than the cap, exactly as in production.
+        const LEDGER_FOR_SOURCE = { auction: "auctions", laft: "buy", certificate: "lien" };
+        const cap = Number(new URLSearchParams(location.search).get("maxrows")) || 1000;
+        window.__stubGetPropertiesCalls = (window.__stubGetPropertiesCalls || 0) + 1;
+        const rows = FIXTURE_PROPERTIES.filter(p => (p.state || "FL") === pState)
+          .filter(p => !args.p_ledger_type || (p.ledger_type || LEDGER_FOR_SOURCE[p.source]) === args.p_ledger_type)
+          .slice().sort((a, b) => String(a.county).localeCompare(String(b.county)) || String(a.case_no).localeCompare(String(b.case_no)));
+        const offset = Number(args.p_offset) || 0, limit = Math.min(Number(args.p_limit) || 20000, cap);
+        return { data: rows.slice(offset, offset + limit), error: null };
       }
       return { data: null, error: { message: `stub: unhandled rpc "${fnName}"`, code: "PGRST202" } };
     }

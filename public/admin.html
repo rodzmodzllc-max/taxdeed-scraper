@@ -35,6 +35,12 @@ row-level security) whether the signed-in account is an admin. Anyone else
     <p class="admin-note" id="adminPendingStatus" role="status">Loading pending accounts</p>
     <div class="admin-approvals-list" id="adminPendingList"></div>
   </section>
+  <section class="admin-card" aria-labelledby="adminUsageLabel">
+    <p class="admin-label" id="adminUsageLabel">Product usage, last 30 days</p>
+    <p class="admin-note">Counts of in-app actions per event and distinct accounts. No search text, addresses or other free text is recorded.</p>
+    <p class="admin-note" id="adminUsageStatus" role="status">Loading usage</p>
+    <div class="admin-usage" id="adminUsageList"></div>
+  </section>
   <section class="admin-card">
     <p class="admin-label">Administrative tools</p>
     <p class="admin-note">Source publication reviews are in the application's admin panel; every administrative operation is enforced on the server by the administrator role.</p>
