@@ -109,6 +109,8 @@ a{color:var(--accent)} button{font-family:inherit}
 #authGate h1, #pendingGate h1{font-family:var(--font-sans);font-weight:800;font-size:1.35rem;margin:0;
   letter-spacing:-.01em;color:var(--ink)}
 .auth-tagline{font-size:.78rem;color:var(--ink-soft);line-height:1.4;margin:0 0 1.5rem}
+.auth-tagline:has(+ .auth-subtagline){margin-bottom:.2rem;font-weight:600}
+.auth-subtagline{font-size:.74rem;color:var(--ink-soft);line-height:1.4;margin:0 0 1.5rem}
 #authGate p.auth-lead, #pendingGate p.auth-lead{font-size:.85rem;color:var(--ink-soft);margin:0 0 1.2rem}
 /* Phase 63: real labels for #authForm's fields (see index.html's comment
    on the form for why) - .auth-field wraps each <input>, same idiom as

@@ -414,6 +414,10 @@ window.addEventListener("popstate", () => {
 window.tdwBack = { push: pushBackLayer, pop: popBackLayer };
 
 let ALL = [], CALENDAR = {}, NOTES = {}, FAVS = new Set(), HIDDEN = new Set(), ME = null, IS_ADMIN = false;
+// True once fetchProperties() has returned for this page's state. A registered
+// state with no rows at all is told so plainly ("No properties currently
+// available for this state") - never "unsupported", never hidden.
+let PROPERTIES_LOADED = false;
 // AVAILABLE commercialization (2026-09-30): rows whose SOURCE is not approved
 // for customer publication (migration 022's publication_status, propagated
 // from county_source_registry by scripts/publication_gate.py) are withheld
@@ -2348,6 +2352,7 @@ async function loadAll() {
   // Publication is the source decision only - an Available row without a
   // captured acquisition path is still published (acquisitionGaps()).
   ALL = ALL.filter(p => { if (isPublishable(p)) return true; if (p.source in WITHHELD) WITHHELD[p.source]++; return false; });
+  PROPERTIES_LOADED = true;
   NOTES = {}; (notes.data || []).forEach(n => { (NOTES[n.property_id] = NOTES[n.property_id] || []).push(n); });
   FAVS = new Set((favs.data || []).map(r => r.property_id));
   HIDDEN = new Set((hid.data || []).map(r => r.property_id));
@@ -3297,7 +3302,7 @@ function opportunitySummaryHtml(p) {
   // Florida's statutory over-the-counter list - see kickerParts().
   const what = isLaft
     ? (isDatedList(p) ? "Adjudicated property (Parish open-data list)" : region === "TX" ? "Texas struck-off / future-sale inventory (vendor listing)" : "Lands Available for Taxes (fixed price, over the counter)")
-    : `${region === "TX" ? "Texas" : "Florida"} tax deed auction`;
+    : (region === "FL" ? "Florida tax deed auction" : `${(STATE_META[region] && STATE_META[region].name) || region} tax sale auction`);
   const src = harvesterSourceLabel(p);
   const street = realAddress(p);
   const where = `${street ? esc(street) : `<span class="muted">No street address in listing</span>`}<span class="opp-sub">${esc(p.county)} ${UNIT_WORD}, ${esc(region)}${hasParcel(p) ? ` · Parcel ${esc(p.parcel)}` : ""}${p.case_no ? ` · Case ${esc(p.case_no)}` : ""}</span>`;
@@ -5576,7 +5581,9 @@ function section(container, title, sub, rows, kind) {
       // "Nothing here" means something different on each ledger, and the old
       // shared "Nothing found." made an empty Lands Available look broken
       // rather than simply small - which it is, by design.
-      e.textContent = cfg.empty || "Nothing found.";
+      const stateEmpty = PROPERTIES_LOADED && !ALL.length;
+      e.textContent = (stateEmpty ? "No properties currently available for this state. " : "") + (cfg.empty || "Nothing found.");
+      if (stateEmpty) e.dataset.stateEmpty = "1";
     }
     sec.appendChild(e); container.appendChild(sec);
     return { shown };
