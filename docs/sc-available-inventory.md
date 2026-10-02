@@ -33,6 +33,7 @@ The job runs only `scripts/capture_sc_available.py`.
 |---|---|
 | 37033274319 | Structure: pages, headings, columns, identifier shapes, terms pages |
 | 37035908843 | Parser validation: `harvesters/otc/adapters/sc_flc.py` counts against the live PDFs |
+| 37036374756 | Confirmation after the per-section identifier rule: Georgetown COMPLETE (55 rows, 53 valid TMS, 1 AVAILABLE); Spartanburg 5 valid MAP NUMBERs, 0 AVAILABLE |
 
 ## Georgetown County: qualifies (one LAND row), REVIEW_REQUIRED
 
@@ -54,7 +55,8 @@ The job runs only `scripts/capture_sc_available.py`.
 **What the parser found (run 37035908843)**
 
 - 55 data rows, all header-mapped.
-- MOBILE HOMES: 54 rows, with 52 valid TMS and 2 malformed identifier cells.
+- MOBILE HOMES: 54 rows, with 52 valid TMS and 2 malformed identifier cells (shapes
+  `99-9999-999-99-99A/A` and `99-9999-999-99-99.999A/A`: trailing letters after the number).
   These rows are personal property and are never AVAILABLE land.
 - LAND: 1 row, with a valid TMS and a 2017 tax sale. That sale is past South
   Carolina's twelve-month redemption period (S.C. Code § 12-51-90), so the row
