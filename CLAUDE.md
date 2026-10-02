@@ -2140,3 +2140,13 @@ The EBR Tax Roll's `units` counts structures; it is not acreage.
 
 - `claude/improvement-roadmap.md` in the "tax florida app" claude.ai Project — the full dated log of every fix, audit finding, and open decision. This is where new findings should be appended, not here.
 - This file (`CLAUDE.md`) should stay a **stable architecture map** — update it when the architecture, data model, or a hard-won lesson changes, not for routine status updates. Verify claims here still hold before trusting them blindly — this file itself was wrong about the repo count until 2026-08-25, and wrong about local-PC involvement until 2026-08-25.
+
+## Auction sale process (2026-10-02, PR open, no migration)
+
+Full description: `docs/auction-sale-process.md`. Stable facts:
+- **Not a purchase path.** An auction row's county sale process (registration, deposit, payment, bidder / ID requirements, platform, location, published time, contact) lives in `otc_provenance.auction_process`, always county-level. `scripts/auction_process_engine.py` is its only definition (`RECORD_KEYS` pinned to app.js `AUCTION_PROCESS_KEYS`); `scripts/apply_auction_process.py` writes it to ACTIVE auction rows (FL after each scheduled deeds sync; manual `job=auction`, `auction_mode` plan / apply / fdor_probe).
+- **Evidence:** `data/auction_process_evidence.csv` (38 verified rows on 2026-10-02) from `scripts/capture_auction_process.py` (`job=evidence`, `evidence_scope=auction_process`, candidates in `data/auction_candidate_pages.csv`). Add a row only from a capture you have read; vendor phones go in notes, never as the county's.
+- **Dates:** `sale_date` + `sale_date_applies=yes` fills a BLANK row sale date (field provenance names the page); `next_sale_date` is a future county sale and is never written onto a row.
+- **Source ids:** `scripts/backfill_source_ids.py` (after each FL sync) fills a blank `source_id` only from the row's own RealAuction host / the LienHub sync - never by county.
+- **Review-required sources** (`REVIEW_REQUIRED_SOURCES` in app.js, pinned to `harvesters/sources` `REVIEW_OVERRIDES`) are labelled "Source under review" on the page, in provenance rows, the Map preview and every export.
+- `sw.js` -> `tdw-shell-v67`.
