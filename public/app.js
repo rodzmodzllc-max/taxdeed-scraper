@@ -480,6 +480,7 @@ function sourceReviewHtml(p) {
   return `<div class="source-review-row${customer ? "" : " pending"}" data-source-review="${esc(p.publication_status || "")}">
       <span>Source publication review: <b>${esc(sourceReviewLabel(p))}</b></span>
       <span>Customer-visible: <b>${customer ? "Yes" : "No"}</b>${customer ? "" : ` (${esc(reviewViewerReason())})`}</span>
+      ${p.source === "laft" && p.inventory_status_raw ? `<span>Source program / status: <b>${esc(p.inventory_status_raw)}</b></span>` : ""}
     </div>`;
 }
 function sourceReviewBannerHtml(p) {

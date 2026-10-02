@@ -3886,6 +3886,14 @@ await browser.close();
 
 
 const EXPECTED = {
+  // Collection vs customer publication (2026-10-02).
+  devVisAdminMiLands: { cards: 2, reviewChips: ['Source review: Unreviewed · not customer-published', 'Source review: Unreviewed · not customer-published'], programs: ['Own It Now', 'Side Lot For Sale'], pending: '2 records from sources awaiting customer-publication review are shown to you as an admin, each labelled "Source review". Customers in published mode do not see them.', withheld: null },
+  devVisAdminDetail: { banner: "Source review: Unreviewed. This record comes from a source awaiting customer-publication review - shown to you as an admin. It is not customer-published. Its availability below is the source's own statement and is a separate fact.", reviewRow: 'Source publication review: Unreviewed Customer-visible: No (shown to you as an admin) Source program / status: Side Lot For Sale', identifier: true, program: true, lastRead: true, neverApproved: true },
+  devVisAdminDash: { mode: 'Customer mode: customers see approved sources only; you see every collected source, labelled. 2 sources awaiting customer-publication review in Michigan.', lots: 'mi_detroit_landbank_lots Available Source review: Unreviewed1 collected · 1 active · 1 countyCustomer-visible: 0Last read Oct 2, 2026', programs: 'mi_detroit_landbank_programs Available Source review: Unreviewed1 collected · 1 active · 1 countyCustomer-visible: 0Last read Oct 2, 2026' },
+  devVisCustomerDashPanel: false,
+  devVisCustomerMiLands: { cards: 0, reviewChips: [], programs: [], pending: null, withheld: '2 records withheld - source not approved for customer publication (restricted or not yet reviewed). Counted, not shown.' },
+  devVisCustomerScLands: { cards: 0, reviewChips: [], programs: [], pending: null, withheld: '1 record withheld - source not approved for customer publication (restricted or not yet reviewed). Counted, not shown.' },
+  devVisPreviewScLands: { cards: 1, reviewChips: ['Source review: Unreviewed · not customer-published'], programs: [], pending: '1 record from sources awaiting customer-publication review is shown in customer preview mode, each labelled "Source review". Customers in published mode do not see it.', withheld: null },
   // AVAILABLE coverage: the zero names its reason; Florida (rows present) shows none.
   availCoverage: {
     MI: { status: 'REVIEW_REQUIRED', text: 'Why this list is empty: Official program pages were found but are awaiting capture and publication review. Nothing is published from them yet. 4 candidate sources: Lenawee, Oceana, Wayne. Current list found, awaiting publication review: Lenawee.', cards: 0 },
