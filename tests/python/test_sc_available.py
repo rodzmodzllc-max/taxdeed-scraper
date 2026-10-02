@@ -125,3 +125,166 @@ def test_sc_available_scope_is_read_only_and_runs_only_the_structural_capture():
     # The capture keeps the PDFs in memory and writes only its structural JSON.
     src = (ROOT / "scripts/capture_sc_available.py").read_text(encoding="utf-8")
     assert "write_bytes" not in src and src.count(".write_text(") == 1
+
+
+# ---- the SC FLC parser (harvesters/otc/adapters/sc_flc.py) -------------------
+# Sanitized fixtures built from the STRUCTURE the live read measured (run
+# 37033274319): Georgetown = 8-column tables headed Group | Name | TMS # |
+# Description | Tax Sale Date | (blank) | Opening Bid | (blank) under MOBILE
+# HOMES (page 1 + continuation on page 2) and LAND (page 2); Spartanburg = one
+# 5-column table under "2025 TAX SALE PROPERTIES (REAL ESTATE) AVAILABLE FOR
+# ASSIGNMENT". Every value below is invented; no real row is committed.
+from datetime import datetime, timezone  # noqa: E402
+
+from harvesters.ledgers import SOURCE_LEDGERS  # noqa: E402,F401
+from harvesters.otc.adapters import sc_flc as FLC  # noqa: E402
+
+NOW = datetime(2026, 10, 2, 16, 27, tzinfo=timezone.utc)
+GT_HEADER = ["Group", "Name", "TMS #", "Description", "Tax Sale Date", "", "Opening Bid", ""]
+
+
+class FakeTable:
+    def __init__(self, top, rows):
+        self.bbox, self.rows = (30, top, 760, top + 200), rows
+
+    def extract(self):
+        return self.rows
+
+
+class FlcPage:
+    def __init__(self, headings, tables):
+        self.headings, self.tables = headings, tables
+
+    def extract_text_lines(self):
+        return [{"text": t, "top": y} for t, y in self.headings]
+
+    def find_tables(self):
+        return self.tables
+
+
+def _gt_row(tms, sale="10/07/2024", bid="$500.00", name="SAMPLE OWNER"):
+    return ["1", name, tms, "SAMPLE DESCRIPTION", sale, "", bid, ""]
+
+
+def georgetown_pages(land_rows):
+    mobile = [_gt_row(f"0{i}-0000-00{i}-00-00.00{i}") for i in range(1, 4)]
+    return [
+        FlcPage([("Georgetown County, South Carolina", 38), ("Forfeited Land Commission", 56), ("MOBILE HOMES", 95)],
+                [FakeTable(120, [GT_HEADER] + mobile)]),
+        FlcPage([("Georgetown County, South Carolina", 38), ("Forfeited Land Commission", 56), ("LAND", 455)],
+                [FakeTable(70, [_gt_row("09-0000-009-00-00.009")]), FakeTable(480, [GT_HEADER] + land_rows)]),
+        FlcPage([("Forfeited Land Commission", 56)], []),
+    ]
+
+
+def test_georgetown_land_rows_past_redemption_are_available_and_mobile_homes_are_not():
+    land = [_gt_row("11-1111-111-11-11", sale="10/07/2024"),        # past the 12-month redemption: AVAILABLE
+            _gt_row("12-1111-111-11-11", sale="10/06/2025"),        # still in redemption: not qualified
+            _gt_row("13-1111-111-11-11", sale="sometime"),          # unreadable date: fail closed
+            _gt_row("1-11-11-111.11"),                              # malformed TMS
+            _gt_row(""),                                            # no identifier
+            _gt_row("11-1111-111-11-11", sale="10/07/2024")]        # duplicate of the first
+    res = FLC.parse_pages(FLC.GEORGETOWN, georgetown_pages(land), retrieved_at=NOW)
+    s = FLC.summary(res)
+    assert s["sections"] == {"land": 6, "mobile_home": 4}
+    assert s["rejected"] == {"duplicate_identifier": 1, "in_redemption_period": 1, "malformed_identifier": 1,
+                             "missing_identifier": 1, "personal_property_section": 4, "sale_date_unreadable": 1}
+    assert s["valid_identifiers"] == 8 and s["available_records"] == 1
+    assert s["outcome"] == "FAILED"          # a malformed identifier means the format may have changed: never COMPLETE
+    rec = res.records[0]
+    assert (rec.state, rec.county, rec.case_no, rec.parcel) == ("SC", "Georgetown", "11-1111-111-11-11", "11-1111-111-11-11")
+    assert rec.record_source == "laft" and rec.inventory_type.value == "POST_SALE"
+    assert rec.amount == 500.0 and rec.amount_kind.value == "OPENING_BID"
+    assert rec.owner_name is None                       # the Name column is never read into a record
+    assert rec.list_url == FLC.GEORGETOWN.program_url and rec.document_url == FLC.GEORGETOWN.document_url
+    assert rec.purchase_url.endswith("FLC-Procedures-and-Bid-Apps-PDF") and rec.purchase_url_kind.value == "application_form"
+    assert rec.retrieved_at == NOW and rec.list_as_of is None   # "updated May 2026" is a month, never invented as a date
+    assert rec.provenance["list_as_of_text"] == "updated May 2026" and rec.provenance["evidence_run"] == "37033274319"
+    acq = rec.provenance["acquisition"]
+    assert acq["payment"] == "Not published" and acq["online_purchase"] == "No online purchase link on file"
+    assert rec.validate() == []
+
+
+def test_georgetown_clean_list_is_complete_and_a_list_with_no_qualifying_land_is_empty():
+    ok = FLC.parse_pages(FLC.GEORGETOWN, georgetown_pages([_gt_row("11-1111-111-11-11")]), retrieved_at=NOW)
+    assert FLC.outcome(ok) == "COMPLETE" and len(ok.records) == 1
+    none = FLC.parse_pages(FLC.GEORGETOWN, georgetown_pages([_gt_row("11-1111-111-11-11", sale="10/06/2025")]),
+                           retrieved_at=NOW)
+    assert FLC.outcome(none) == "EMPTY" and none.records == []
+    # No header found anywhere (format change) -> FAILED, never EMPTY.
+    broken = FLC.parse_pages(FLC.GEORGETOWN, [FlcPage([("LAND", 10)], [FakeTable(20, [["a", "b"], ["c", "d"]])])],
+                             retrieved_at=NOW)
+    assert FLC.outcome(broken) == "FAILED"
+    assert FLC.parse_document(FLC.GEORGETOWN.source_id, b"<html>", retrieved_at=NOW).error == "NOT_A_PDF"
+
+
+def test_spartanburg_rows_are_counted_but_never_available():
+    header = ["ITEM #", "DESCRIPTION\nbest known property address", "DEFAULTING TAXPAYER\nOwner Name", "MAP NUMBER",
+              "TOTAL TAX DUE\nBid Amount Needed"]
+    rows = [[str(i), "SAMPLE ADDRESS", "SAMPLE OWNER", f"{i}-11-11-111.11", "$1,000.00"] for i in range(1, 5)]
+    rows.append(["5", "SAMPLE ADDRESS", "SAMPLE OWNER", "1-1-11-111", "$1,000.00"])    # malformed MAP NUMBER
+    page = FlcPage([("2025 TAX SALE PROPERTIES (REAL ESTATE) AVAILABLE FOR ASSIGNMENT", 58)], [FakeTable(260, [header] + rows)])
+    res = FLC.parse_pages(FLC.SPARTANBURG, [page], retrieved_at=NOW)
+    s = FLC.summary(res)
+    assert s["valid_identifiers"] == 4 and s["rejected"] == {"malformed_identifier": 1, "redemption_assignment": 4}
+    assert s["available_records"] == 0 and s["amounts_published"] == 4
+    assert FLC.normalize_identifier(" 1-11-11-111.11 ") == "1-11-11-111.11"
+
+
+def test_identifier_normalization_is_whitespace_only():
+    assert FLC.normalize_identifier("02-0112- 019-00-00") == "02-0112-019-00-00"
+    assert FLC.valid_identifier(FLC.GEORGETOWN, "02-0112-019-00-00")
+    assert FLC.valid_identifier(FLC.GEORGETOWN, "02-0112-019-00-00.001")
+    assert not FLC.valid_identifier(FLC.GEORGETOWN, "0201120190000")      # no re-punctuation is attempted
+    assert not FLC.valid_identifier(FLC.SPARTANBURG, "02-0112-019-00-00")
+
+
+def test_redemption_rule():
+    from datetime import date
+    assert FLC.redemption_over(date(2024, 10, 7), date(2026, 10, 2))
+    assert not FLC.redemption_over(date(2025, 10, 6), date(2026, 10, 2))
+    assert not FLC.redemption_over(date(2025, 10, 6), date(2026, 10, 6))   # the last day of the period is still inside
+    assert FLC.parse_sale_date("2016") == date(2016, 12, 31)                 # a year alone: its latest day
+
+
+def test_zero_existing_sc_matches_keeps_observations_unmatched_and_never_uses_owner_or_address():
+    res = FLC.parse_pages(FLC.GEORGETOWN, georgetown_pages([_gt_row("11-1111-111-11-11")]), retrieved_at=NOW)
+    york = [{"state": "SC", "county": "York", "parcel": "11-1111-111-11-11", "address": "SAMPLE ADDRESS"}]
+    matched, unmatched = FLC.match_existing(res.records, york)          # same identifier, other county: no match
+    assert matched == [] and len(unmatched) == 1
+    same_owner_and_address = [{"state": "SC", "county": "Georgetown", "parcel": "99-9999-999-99-99",
+                               "owner_name": "SAMPLE OWNER", "address": "SAMPLE DESCRIPTION"}]
+    assert FLC.match_existing(res.records, same_owner_and_address)[0] == []
+    exact = [{"state": "SC", "county": "Georgetown", "parcel": " 11-1111-111-11-11 "}]
+    assert len(FLC.match_existing(res.records, exact)[0]) == 1
+    assert FLC.match_existing(res.records, [])[1] == res.records        # unmatched records are kept, not fabricated
+
+
+def test_harvest_refuses_before_any_request_unless_approved():
+    calls = []
+    for pub in ("REVIEW_REQUIRED", "UNREVIEWED", "HARD_BLOCKED"):
+        try:
+            FLC.harvest(FLC.GEORGETOWN.source_id, lambda u: calls.append(u), retrieved_at=NOW, publication=pub)
+        except PermissionError:
+            pass
+    assert calls == []
+    try:
+        FLC.harvest(FLC.SPARTANBURG.source_id, lambda u: calls.append(u), retrieved_at=NOW, publication="APPROVED")
+    except PermissionError:
+        pass
+    assert calls == []    # Spartanburg is not AVAILABLE inventory at all
+
+
+def test_ledger_isolation():
+    # The FLC adapter only ever emits AVAILABLE (laft) records ...
+    src = (ROOT / "harvesters/otc/adapters/sc_flc.py").read_text(encoding="utf-8")
+    assert 'record_source="laft"' in src
+    assert not re.search(r'record_source\s*=\s*"(auction|certificate)"', src)
+    res = FLC.parse_pages(FLC.GEORGETOWN, georgetown_pages([_gt_row("11-1111-111-11-11")]), retrieved_at=NOW)
+    assert {r.record_source for r in res.records} == {"laft"}
+    # ... and the existing SC auction source never emits AVAILABLE ones.
+    from harvesters.otc.adapters import expansion as EX
+    assert EX.SC_YORK.record_source == "auction"
+    from harvesters.sources import available_coverage as AC
+    assert all("AVAILABLE" in r.ledger_set for r in AC.production_available_sources("SC"))
+    assert AC.production_available_sources("SC") == []    # no SC AVAILABLE source is in production
