@@ -111,6 +111,16 @@ def mask_digits(text: str) -> str:
     return re.sub(r"\d", "#", text)
 
 
+# A row of an inventory list (an identifier-shaped digit run, or an amount)
+# also carries names and addresses, which masking digits does not remove.
+# In discovery mode such a line is NEVER printed - only counted.
+ROW_LIKE = re.compile(r"\d[\d\-./]{2,}|\$\s*\d")
+
+
+def row_like(text: str) -> bool:
+    return bool(ROW_LIKE.search(text or ""))
+
+
 def table_shapes(soup) -> list[dict]:
     """Value-free shape of each table: header words (digits masked), row
     count, rows carrying an identifier-shaped digit run."""
@@ -188,6 +198,8 @@ def extract_html(html: str, url: str, *, keep_tables: bool = False) -> dict:
     body_text = soup.get_text("\n")
     snippets = []
     for s in sentences(body_text):
+        if DISCOVERY and row_like(s):
+            continue
         if (SNIPPET_VOCAB.search(s) or (DISCOVERY and DISCOVERY_VOCAB.search(s))) and not LONG_DIGITS.search(s) and len(s) > 25:
             snippets.append((mask_digits(s) if DISCOVERY else s)[:MAX_SNIPPET_CHARS])
         if len(snippets) >= MAX_SNIPPETS:
@@ -212,11 +224,14 @@ def extract_pdf(data: bytes) -> dict:
     text = "\n".join(text_parts)
     if DISCOVERY:
         lines = [clean(l) for l in text.splitlines() if clean(l)]
-        snippets = [mask_digits(s)[:MAX_SNIPPET_CHARS] for s in sentences(text)
-                    if (SNIPPET_VOCAB.search(s) or DISCOVERY_VOCAB.search(s)) and len(s) > 25][:MAX_SNIPPETS]
+        # Sentences are re-split per LINE first: a PDF row has no full stop,
+        # so a sentence can swallow a header and several rows together.
+        units = [u for l in lines for u in sentences(l)]
+        snippets = [mask_digits(s)[:MAX_SNIPPET_CHARS] for s in units
+                    if not row_like(s) and (SNIPPET_VOCAB.search(s) or DISCOVERY_VOCAB.search(s)) and len(s) > 25][:MAX_SNIPPETS]
         return {"pages_read": min(4, len(text_parts)), "snippets": snippets,
                 "pdf_shape": {"lines": len(lines), "lines_with_identifier_shape": sum(1 for l in lines if IDENT_RUN.search(l)),
-                              "first_lines": [mask_digits(l)[:100] for l in lines[:6]]},
+                              "first_lines": [mask_digits(l)[:100] for l in lines if not row_like(l)][:6]},
                 "phones": sorted(set(m.group(0) for m in PHONE.finditer(text)))[:10]}
     snippets = [s[:MAX_SNIPPET_CHARS] for s in sentences(text) if SNIPPET_VOCAB.search(s) and not LONG_DIGITS.search(s) and len(s) > 25][:MAX_SNIPPETS]
     return {"pages_read": min(4, len(text_parts)), "snippets": snippets,

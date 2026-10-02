@@ -2185,6 +2185,13 @@ Full description: `docs/available-discovery.md`. Stable facts:
 - **Frontend:** an empty Available ledger adds "Why this list is empty"
   (`availableCoverageHtml`, `AVAILABLE_COVERAGE_LABELS` pinned to `STATUSES`).
 - **Service worker:** `sw.js` → `tdw-shell-v69` (v68 is held by PR #66).
+- **First read (run 37010171899):** `data/available_discovery_evidence.csv`
+  records each page's finding (CURRENT_INVENTORY / EMPTY / UNAVAILABLE /
+  SEASONAL_NOT_POSTED / NOT_ESTABLISHED / AUCTION_ONLY / HISTORICAL), validated
+  by `available_coverage.problems()`. Current lists: Georgetown and Spartanburg
+  SC (identifier published), Lenawee MI (no identifier). AUCTION_ONLY pages
+  (Aiken, Fairfield) lose the `availability` role. No adapter yet: no
+  publication review. `--discovery` never prints a row-like line.
 
 ## Where to look for more
 

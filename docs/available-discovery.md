@@ -78,7 +78,7 @@ counties. A state with rows never shows the line.
 
 1. **Capture.** Dispatch `job=evidence` with
    `evidence_scope=available_discovery`. It runs
-   `capture_purchase_evidence.py --candidates --candidates-file data/available_discovery_pages.csv --follow`.
+   `capture_purchase_evidence.py --candidates --candidates-file data/available_discovery_pages.csv --follow --discovery`.
    The capture is value-free and writes to no database.
 2. **Read the digest in the job log.** Confirm that:
    - the page states current availability;
@@ -92,3 +92,46 @@ counties. A state with rows never shows the line.
    AVAILABLE.
 
 Only then can rows reach `properties` through `sync_state_inventory.py`.
+
+## What the first read established (run 37010171899, 2026-10-02)
+
+Every candidate page was read by the value-free capture (`--discovery`: page
+headings, availability vocabulary, table / PDF header shapes, digits masked).
+The finding for each page is recorded in `data/available_discovery_evidence.csv`
+and carried into `public/available-coverage.json` (`availability`,
+`identifier_confirmed`, `read_at` per candidate; `rejected` per state).
+
+| State | County | Read | Identifier | Finding |
+|---|---|---|---|---|
+| SC | Georgetown | CURRENT_INVENTORY | TMS # | 2026 FLC list (updated May 2026); first pages read were mobile homes (personal property, not land) |
+| SC | Spartanburg | CURRENT_INVENTORY | MAP NUMBER | real-estate list PDF; assignment during the redemption period, mobile homes excluded |
+| MI | Lenawee | CURRENT_INVENTORY | none published | land bank table of 2 properties (name / address / municipality / type / price); no parcel column |
+| SC | Jasper | EMPTY | - | "THERE ARE CURRENTLY NO PROPERTIES AVAILABLE AT THIS TIME." |
+| SC | Lexington | EMPTY | - | "Please check back for new FLC listings." |
+| WI | Burnett | EMPTY | - | no over-the-counter properties for sale |
+| SC | Richland | UNAVAILABLE | - | HTTP 403 to the runner |
+| WI | Marathon | UNAVAILABLE | - | HTTP 403 to the runner |
+| SC | York | SEASONAL_NOT_POSTED | - | no FLC list posted on the Tax Collection page |
+| SC | Oconee | NOT_ESTABLISHED | - | ArcGIS viewer, seasonal (Oct-Jan); no list read |
+| WI | Wood | NOT_ESTABLISHED | - | no listing found on the page |
+| SC | Aiken | AUCTION_ONLY (rejected) | - | forfeited land is sold only at the tax sale |
+| SC | Fairfield | AUCTION_ONLY (rejected) | - | the FLC sells through an auctioneer |
+
+Aiken and Fairfield lost the `availability` role in the catalog: an auction
+is never AVAILABLE. Every page stays REVIEW_REQUIRED - a read is not a
+publication review, and a government page is not by itself permission.
+
+**No adapter was written.** An adapter needs current inventory, a
+deterministic identifier the list itself publishes, a reliable read and a
+publication decision. Georgetown and Spartanburg meet the first three on the
+evidence; neither has a publication review, and neither list's rows have been
+validated against a fixture. Lenawee publishes no identifier, so no row could
+be matched deterministically. No AVAILABLE row was created; Wyoming and
+Colorado stay at zero (no qualifying program).
+
+**Log privacy.** The first discovery read printed some PDF row lines with only
+their digits masked, so owner and street names from the Georgetown and
+Spartanburg lists appear in that public job log (and an earlier run printed
+Burnett auction numbers). `--discovery` now drops every row-like line (any
+digit run or dollar amount) before printing; a test pins it. Deleting those
+two run logs is the owner's decision.

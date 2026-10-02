@@ -22,6 +22,7 @@ an auction row into an AVAILABLE row.
 from __future__ import annotations
 
 import csv
+import re
 from pathlib import Path
 
 from harvesters.governance.county_source_registry import load_registry
@@ -31,11 +32,21 @@ from . import inventory as INV
 REPO = Path(__file__).resolve().parent.parent.parent
 RESEARCH_PATH = REPO / "data" / "available_state_research.csv"
 DISCOVERY_PATH = REPO / "data" / "available_discovery_pages.csv"
+EVIDENCE_PATH = REPO / "data" / "available_discovery_evidence.csv"
 
 STATUSES = ("SOURCE_TRACKED", "SOURCE_EMPTY", "SOURCE_UNAVAILABLE", "MATCHING_FAILED", "REVIEW_REQUIRED",
             "HARD_BLOCKED", "NO_QUALIFYING_PROGRAM", "NO_SOURCE_DISCOVERED")
 RESEARCH_FINDINGS = ("NO_QUALIFYING_PROGRAM", "CANDIDATES_FOUND")
 _PUBLISHED = {"APPROVED", "APPROVED_GRANDFATHERED"}
+
+# What a value-free read of a candidate page established (2026-10-02). Only
+# CURRENT_INVENTORY is government-held property the source itself offers now;
+# every other value is a reason the page is NOT an AVAILABLE list today. An
+# AUCTION_ONLY page (forfeited land sold only at the tax sale) or a HISTORICAL
+# list is rejected as non-AVAILABLE, never relabelled.
+AVAILABILITY = ("CURRENT_INVENTORY", "EMPTY", "UNAVAILABLE", "SEASONAL_NOT_POSTED", "NOT_ESTABLISHED",
+                "AUCTION_ONLY", "HISTORICAL")
+REJECTED_AVAILABILITY = {"AUCTION_ONLY", "HISTORICAL"}
 
 
 def _csv(path: Path) -> list[dict]:
@@ -51,6 +62,16 @@ def research() -> dict[str, dict]:
         if r["finding"] not in RESEARCH_FINDINGS:
             raise ValueError(f"{r['state']}: unknown research finding {r['finding']!r}")
         out[r["state"]] = r
+    return out
+
+
+def evidence() -> dict[str, dict]:
+    """source_id -> the recorded read of that candidate page."""
+    out = {}
+    for r in _csv(EVIDENCE_PATH):
+        if r["availability"] not in AVAILABILITY:
+            raise ValueError(f"{r['source_id']}: unknown availability {r['availability']!r}")
+        out[r["source_id"]] = r
     return out
 
 
@@ -75,6 +96,7 @@ def state_coverage(state: str, inventory=None) -> dict:
     prod = production_available_sources(state)
     cands = discovery_candidates(state, inventory)
     found = research().get(state, {})
+    ev = evidence()
     if prod:
         done = [r.completeness_status for r in prod]
         if all(c == "FAILED" for c in done):
@@ -100,7 +122,17 @@ def state_coverage(state: str, inventory=None) -> dict:
         "production_counties": sorted({r.county for r in prod}),
         "last_reads": {c: sum(1 for r in prod if r.completeness_status == c) for c in sorted({r.completeness_status for r in prod})},
         "candidates": [{"source_id": s.source_id, "county": s.county, "name": s.name, "governance": s.governance,
-                        "access": s.access, "url": s.url} for s in sorted(cands, key=lambda s: (s.county, s.source_id))],
+                        "access": s.access, "url": s.url,
+                        "availability": ev.get(s.source_id, {}).get("availability", "NOT_READ"),
+                        "identifier_confirmed": ev.get(s.source_id, {}).get("identifier_confirmed", "") == "yes",
+                        "read_at": ev.get(s.source_id, {}).get("read_at", "")}
+                       for s in sorted(cands, key=lambda s: (s.county, s.source_id))],
+        # Pages read and found NOT to offer AVAILABLE property (forfeited land
+        # sold only at the auction, a past list): recorded, never a candidate.
+        "rejected": [{"source_id": r["source_id"], "county": r["county"], "availability": r["availability"],
+                      "url": r["evidence_url"]}
+                     for r in sorted(ev.values(), key=lambda r: (r["county"], r["source_id"]))
+                     if r["state"] == state and r["availability"] in REJECTED_AVAILABILITY],
         "research": {k: found.get(k, "") for k in ("finding", "mechanism", "detail", "evidence", "checked_on", "next_action")} if found else {},
     }
 
@@ -127,4 +159,33 @@ def problems() -> list[str]:
     for st in research():
         if st not in states:
             out.append(f"{st}: research row for an unsupported state")
+    pages = {r["source_id"]: r for r in _csv(DISCOVERY_PATH)}
+    for r in _csv(EVIDENCE_PATH):
+        sid = r["source_id"]
+        if sid not in pages:
+            out.append(f"{sid}: evidence row for a page not in the discovery list")
+        elif (r["state"], r["county"]) != (pages[sid]["state"], pages[sid]["county"]):
+            out.append(f"{sid}: evidence row and discovery page disagree on state / county")
+        if r["availability"] not in AVAILABILITY:
+            out.append(f"{sid}: unknown availability {r['availability']!r}")
+        if not r["evidence_url"].startswith("https://"):
+            out.append(f"{sid}: evidence url must be https")
+        if not re.fullmatch(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z", r["read_at"]) or not r["read_run"].isdigit():
+            out.append(f"{sid}: evidence needs the capture run and its UTC read time")
+        if r["identifier_confirmed"] not in ("yes", "no") or (r["identifier_confirmed"] == "yes" and not r["identifier_field"]):
+            out.append(f"{sid}: a confirmed identifier names its column")
+        if r["identifier_confirmed"] == "yes" and r["availability"] != "CURRENT_INVENTORY":
+            out.append(f"{sid}: only a current list can confirm an identifier")
+        # An adapter needs current inventory, a deterministic identifier and a
+        # publication review; no read has met all three.
+        if r["adapter_warranted"] not in ("yes", "no"):
+            out.append(f"{sid}: adapter_warranted must be yes / no")
+        elif r["adapter_warranted"] == "yes" and not (r["availability"] == "CURRENT_INVENTORY"
+                                                       and r["identifier_confirmed"] == "yes"):
+            out.append(f"{sid}: an adapter needs current inventory with a confirmed identifier")
+        c = catalog.get(sid)
+        if c and r["availability"] in REJECTED_AVAILABILITY and "availability" in c["roles"].split("|"):
+            out.append(f"{sid}: a page rejected as {r['availability']} keeps the availability role")
+        if c and c["governance"] != "REVIEW_REQUIRED":
+            out.append(f"{sid}: a read page stays REVIEW_REQUIRED until a publication review")
     return out

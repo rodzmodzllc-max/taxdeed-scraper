@@ -3322,6 +3322,10 @@ function availableCoverageHtml(c) {
   if (c.status === "REVIEW_REQUIRED" && cands.length) {
     const counties = [...new Set(cands.map(x => x.county))];
     sub = `${cands.length} candidate source${cands.length === 1 ? "" : "s"}: ${counties.join(", ")}.`;
+    // A read found a current county list; it is still not a source of rows
+    // until its publication review is done and an adapter reads it.
+    const current = [...new Set(cands.filter(x => x.availability === "CURRENT_INVENTORY").map(x => x.county))];
+    if (current.length) sub += ` Current list found, awaiting publication review: ${current.join(", ")}.`;
   } else if (c.status === "NO_QUALIFYING_PROGRAM" && c.research && c.research.mechanism) {
     sub = c.research.mechanism === "COUNTY_HELD_LIEN" ? "Unsold parcels stay with the county as tax liens / certificates (see Liens & Certificates or Auctions)." : "";
   }
