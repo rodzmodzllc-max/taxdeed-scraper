@@ -232,11 +232,14 @@ on:
           the Georgetown and Spartanburg (SC) Forfeited Land Commission pages,
           their terms pages and list PDFs, STRUCTURE only - counts, identifier
           shapes, whitelisted headings, county-written wording; never a row
-          (scripts/capture_sc_available.py).
+          (scripts/capture_sc_available.py). "available_sources" = the candidate
+          AVAILABLE sources in data/available_source_candidates.csv (land banks,
+          forfeited-land lists, county-held tax-deeded land), STRUCTURE only
+          (scripts/capture_available_sources.py).
         required: false
         type: choice
         default: available
-        options: [available, auction_results, state_sources, expansion, field_fill, five_state, five_state_pass2, five_state_pass3, enrich_sources, enrich_sources_2, enrich_sources_3, enrich_sources_4, acquisition_candidates, available_discovery, sc_available]
+        options: [available, auction_results, state_sources, expansion, field_fill, five_state, five_state_pass2, five_state_pass3, enrich_sources, enrich_sources_2, enrich_sources_3, enrich_sources_4, acquisition_candidates, available_discovery, sc_available, available_sources]
 
 concurrency:
   group: harvest-and-sync
@@ -1406,6 +1409,14 @@ jobs:
             python3 scripts/capture_sc_available.py
             exit 0
           fi
+          if [ "$SCOPE" = "available_sources" ]; then
+            # AVAILABLE implementation sprint: candidate land-bank / forfeited-land /
+            # county-held-land sources. Structure only (counts, identifier SHAPES,
+            # whitelisted headers, licence text); no row, name, address or
+            # identifier. No database credential exists in this job.
+            python3 scripts/capture_available_sources.py
+            exit 0
+          fi
           if [ "$SCOPE" = "acquisition_candidates" ]; then
             # Acquisition-path sprint: official process pages found for the
             # counties whose source page publishes no process. Read-only,
@@ -1431,7 +1442,9 @@ jobs:
         if: always()
         run: |
           echo "::group::purchase-evidence digest"
-          if [ -f out/public/sc-available-structure.json ]; then
+          if [ -f out/public/available-source-structure.json ]; then
+            python3 scripts/capture_available_sources.py --digest out/public/available-source-structure.json
+          elif [ -f out/public/sc-available-structure.json ]; then
             python3 scripts/capture_sc_available.py --digest out/public/sc-available-structure.json
           elif [ -f out/public/field-fill.json ]; then
             echo "field fill rates printed by the capture step above"
@@ -1454,6 +1467,7 @@ jobs:
           [ -f out/public/state-source-capture.json ] && status=out/public/state-source-capture.json
           [ -f out/public/field-fill.json ] && status=out/public/field-fill.json
           [ -f out/public/sc-available-structure.json ] && status=out/public/sc-available-structure.json
+          [ -f out/public/available-source-structure.json ] && status=out/public/available-source-structure.json
           python3 scripts/artifact_evidence.py --job purchase-evidence --status "$status"
 
       - name: Upload artifact (evidence)
