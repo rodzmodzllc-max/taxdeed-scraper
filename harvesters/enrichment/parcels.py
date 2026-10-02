@@ -133,6 +133,13 @@ class ParcelSourceConfig:
     # Raw attributes copied verbatim into each provenance entry, so the
     # source's own classification travels with a normalized/derived column.
     provenance_attrs: tuple = ()
+    # Multi-year roll, column by column (sprint 2026-10-01): column -> earliest
+    # acceptable year. When the latest record leaves that column blank (the
+    # EBR roll stopped publishing STRUCTURE USE after tax year 2023), the value
+    # comes from the most recent year that DOES publish it, no older than this
+    # floor - one distinct value in that year or nothing - and its provenance
+    # names that year. Only for an identifier that already matched exactly.
+    column_year_floor: dict = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if self.transport not in TRANSPORTS:
@@ -256,6 +263,11 @@ def index_features(cfg: ParcelSourceConfig, features: Iterable[dict]) -> dict[tu
                 continue
             seen[(county, key)].add(ident)
             idx.setdefault((county, key), []).append({**ft, "_matched_field": f})
+    if cfg.latest_field and cfg.column_year_floor:
+        for k, fts in idx.items():
+            hist = list(fts)
+            for ft in fts:
+                ft["_history"] = hist
     if cfg.latest_field and cfg.latest_min is not None:
         for k in list(idx):
             idx[k] = [ft for ft in idx[k] if (_latest_value(ft, cfg.latest_field) or 0) >= cfg.latest_min]
@@ -379,6 +391,23 @@ def plan_update(cfg: ParcelSourceConfig, row: dict, match: MatchResult, *, recor
         v = _coerce(column, attrs.get(attr))
         if v is not None and not _is_no_value(cfg, column, v):
             fields[column] = v
+    column_years: dict = {}
+    for column, floor in cfg.column_year_floor.items():
+        if column in fields:
+            continue
+        attr = cfg.field_map.get(column)
+        hist = match.feature.get("_history") or []
+        by_year: dict = {}
+        for ft in hist:
+            y = _latest_value(ft, cfg.latest_field)
+            v = _coerce(column, (ft.get("attributes") or {}).get(attr)) if attr else None
+            if y is not None and y >= floor and v is not None and not _is_no_value(cfg, column, v):
+                by_year.setdefault(y, set()).add(v)
+        if by_year:
+            y = max(by_year)
+            if len(by_year[y]) == 1:
+                fields[column] = next(iter(by_year[y]))
+                column_years[column] = int(y)
     if year is not None and "value_year" not in fields and any(c in fields for c in ("assessed", "market", "land_value", "improvement_value", "taxable_value")):
         fields["value_year"] = year
     if cfg.centroid:
@@ -397,6 +426,9 @@ def plan_update(cfg: ParcelSourceConfig, row: dict, match: MatchResult, *, recor
     prov = {}
     for column in fields:
         entry = {"source": "statewide_parcel", **{k: v for k, v in meta.items() if v is not None}}
+        if column in column_years:
+            entry["record_of"] = (f"{cfg.latest_field}={column_years[column]} (the most recent year publishing this column; "
+                                  f"later years leave it blank)")
         if column in ("latitude", "longitude"):
             entry["derived"] = "area-weighted centroid of the matched parcel polygon"
         prov[column] = entry

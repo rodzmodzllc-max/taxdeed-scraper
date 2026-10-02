@@ -187,3 +187,27 @@ def test_a_second_layer_in_the_same_run_sees_the_first_layers_write():
     ESP.run("LA", rows, fetch("FIRST"), write=lambda rid, f: writes.append(f["legal_desc"]), recorded_at=NOW, cfg=first)
     ESP.run("LA", rows, fetch("SECOND"), write=lambda rid, f: writes.append(f["legal_desc"]), recorded_at=NOW, cfg=second)
     assert writes == ["FIRST"] and rows[0]["legal_desc"] == "FIRST"
+
+
+def test_a_column_the_latest_year_leaves_blank_comes_from_the_latest_year_that_publishes_it():
+    cfg = roll_cfg(column_year_floor={"land_use": 2023}, latest_min=2024)
+    feats = [feat("2022", structure_use="COMMERCIAL"), feat("2023", structure_use="RESIDENTIAL"),
+             feat("2024", taxpayer_val="900"), feat("2025", legal_description="LOT 1")]
+    cfg = P.ParcelSourceConfig(**{**cfg.__dict__, "field_map": {**cfg.field_map, "taxable_value": "taxpayer_val"}})
+    idx = P.index_features(cfg, feats)
+    [m] = P.match_rows(cfg, [{"id": 1, "parcel": "001-0001-1"}], idx)
+    fields, prov = P.plan_update(cfg, {"id": 1}, m, recorded_at=NOW)
+    assert fields["land_use"] == "RESIDENTIAL" and fields["legal_desc"] == "LOT 1"
+    assert "taxable_value" not in fields                                  # 2025 record carries none; no fallback configured
+    assert prov["land_use"]["record_of"].startswith("tax_year=2023")
+    assert prov["legal_desc"]["record_of"] == "tax_year=2025 (latest published)"
+
+
+def test_the_year_floor_and_disagreement_fail_closed():
+    cfg = roll_cfg(column_year_floor={"land_use": 2023}, latest_min=2024)
+    for feats in ([feat("2022", structure_use="RESIDENTIAL"), feat("2025")],                       # older than the floor
+                  [feat("2023", structure_use="RESIDENTIAL"), feat("2023", structure_use="COMMERCIAL"), feat("2025")]):
+        idx = P.index_features(cfg, feats)
+        [m] = P.match_rows(cfg, [{"id": 1, "parcel": "001-0001-1"}], idx)
+        fields, _ = P.plan_update(cfg, {"id": 1}, m, recorded_at=NOW)
+        assert "land_use" not in fields

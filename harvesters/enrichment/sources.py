@@ -179,7 +179,9 @@ LA_EBR_TAX_PARCELS = register(ParcelSourceConfig(
 # (discover_sources.py --metadata, run 36940907360):
 #   structure_use  "Type of use of the structure including commercial,
 #                  residential or not determined"  -> land_use (raw value;
-#                  NOT DETERMINED is no classification and is never stored)
+#                  NOT DETERMINED is no classification and is never stored;
+#                  blank from tax year 2024 on, so taken from 2023 - see
+#                  column_year_floor)
 #   taxpayer_val   "TAXABLE PARISH - the taxable amount for determining Parish
 #                  taxes derived from the sum of land/acreage value and any
 #                  improvement value minus any applicable homestead
@@ -204,6 +206,10 @@ LA_EBR_TAX_ROLL = register(ParcelSourceConfig(
     no_value={"land_use": ("NOT DETERMINED",)},
     provenance_attrs=("tax_year", "vacant_lot_yn", "assessment_status"),
     latest_field="tax_year", latest_min=2024, value_year_field="tax_year",
+    # STRUCTURE USE is filled on every matched record 2015-2023 and blank on
+    # every 2024 / 2025 record (per-year fill, run 36942777361): land use comes
+    # from tax year 2023, dated as such in its provenance.
+    column_year_floor={"land_use": 2023},
     licence="Public Domain (Open Data BR dataset metadata, licence read live in runs 36921157970 / 36940907360); attribution: EBR Parish Assessor.",
     publication_status="APPROVED", counties=("East Baton Rouge",), centroid=False, columns_verified=True, batch_size=100,
     notes="AVAILABLE sprint 2026-10-01: column definitions run 36940907360; identifier match run 36937077351 (10,318 of 10,334).",
