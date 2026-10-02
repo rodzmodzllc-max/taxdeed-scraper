@@ -1461,8 +1461,10 @@ jobs:
             echo "field fill rates printed by the capture step above"
           elif [ -f out/public/state-source-capture.json ]; then
             python3 scripts/capture_state_sources.py --digest out/public/state-source-capture.json
-          else
+          elif [ -f out/public/purchase-evidence-capture.json ]; then
             python3 scripts/capture_purchase_evidence.py --digest out/public/purchase-evidence-capture.json
+          else
+            echo "no capture file (available_validate prints its counts in the capture step above)"
           fi
           echo "::endgroup::"
 

@@ -314,8 +314,10 @@ SC_HORRY_FLC = TabularConfig(
     list_url="https://horrycountysc.gov/boards-and-commissions/forfeited-land-commission/",
     purchase_url="https://horrycountysc.gov/media/sinbmsz5/horrycountyflcguidelines.pdf",
     purchase_url_kind=PurchaseUrlKind.BID_FORM, columns_verified=True, header_required=("PIN",),
+    id_pattern=r"\d{9,11}",
     notes="Yearly FLC List workbooks linked from the program page; PIN = the county's 11-digit parcel number. 'MINIMUM "
-          "BID' is the commission's minimum bid. Lists still inside the redemption period are not read.")
+          "BID' is the commission's minimum bid. Lists still inside the redemption period are not read. A PIN cell that "
+          "is not a 9-11 digit number (a note line, a section word - run 37039824035) is not a property.")
 
 
 HELD_AVAILABLE = ("AVAILABLE source read live; no reuse licence or owner decision yet: collected and held on each run, "

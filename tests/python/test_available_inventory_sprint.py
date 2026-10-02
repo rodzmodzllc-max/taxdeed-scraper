@@ -107,7 +107,9 @@ def _xlsx(rows):
 def _horry_book():
     return _xlsx([["2024 FLC LIST"], ["PIN", "ITEM #", "TAXPAYER", "DESCRIPTION", "MINIMUM BID"],
                   [12345678901, 1, "SYNTHETIC TAXPAYER ONE", "LOT 1 SYNTHETIC", 1500.0],
-                  [12345678902, 2, "SYNTHETIC TAXPAYER TWO", "LOT 2 SYNTHETIC", 275.5]])
+                  [12345678902, 2, "SYNTHETIC TAXPAYER TWO", "LOT 2 SYNTHETIC", 275.5],
+                  ["2024 TAX SALE ITEMS NOT SOLD (SEE GUIDELINES FOR BID PROCESS)", None, None, None, None],
+                  ["TBD", None, None, None, None]])
 
 
 def test_year_list_links_keep_same_host_xlsx_year_lists_only():
@@ -144,6 +146,13 @@ def test_horry_source_reads_only_lists_past_redemption_and_never_the_taxpayer(ca
     dump = json.dumps([r.to_properties_row() for r in recs], default=str)
     assert "TAXPAYER ONE" not in dump and all(r.owner_name is None for r in recs)
     assert "2024 FLC List" in recs[0].provenance["tax_sale_year"]
+
+
+def test_horry_list_with_no_identifier_row_is_a_format_change_not_empty():
+    book = _xlsx([["PIN", "TAXPAYER", "DESCRIPTION", "MINIMUM BID"], ["SEE NOTE", "X", "Y", 1]])
+    status, recs, cat, *_ = HE.run_source(_src("sc_horry_forfeited_land"), None, lambda u: HORRY_PAGE,
+                                          retrieved_at=AT, fetch_bytes=lambda u: book)
+    assert (status, recs, cat) == ("FAILED", [], "PARSE_FORMAT_CHANGE")
 
 
 def test_horry_with_only_lists_in_redemption_is_empty_not_failed():

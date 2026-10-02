@@ -92,6 +92,10 @@ class TabularConfig:
     # link text -> PurchaseUrlKind value (e.g. {"bid form": "bid_form"}).
     # Only a link on the row itself, on the source's own host, is taken.
     row_links: tuple[tuple[str, str], ...] = ()
+    # AVAILABLE sprint (2026-10-02). A regex the identifier cell must match in
+    # full: a row whose "identifier" is a note line or a word (a workbook's
+    # footer, a section label) is not a property and is counted, never kept.
+    id_pattern: str | None = None
 
 
 # Cell tokens a source uses for "no value here" (never a published value).
@@ -156,6 +160,7 @@ class TabularListAdapter:
         self.empty_statement = False
         self.label_as_of: date | None = None
         self._row_links: list[dict[str, str]] = []
+        self.rejected_ids = 0
 
     def field_for(self, label: str) -> tuple[str, ...] | None:
         """Every record field a column label fills (None = not a mapped column)."""
@@ -237,6 +242,9 @@ class TabularListAdapter:
                     for f in fs:
                         values[f] = raw[i].strip()
             if not values.get("case_no"):
+                continue
+            if self.cfg.id_pattern and not re.fullmatch(self.cfg.id_pattern, values["case_no"]):
+                self.rejected_ids += 1
                 continue
             sold_price = None
             status_text = values.get("status")

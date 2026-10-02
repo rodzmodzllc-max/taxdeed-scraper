@@ -39,6 +39,18 @@ exists yet. `scripts/harvest_expansion.py` therefore does three things:
 An admin review that sets APPROVED moves a source into the published path,
 with no code change. Governance was not changed to raise counts.
 
+## Validated counts (run 37039824035, read-only, no credentials)
+
+| Source | Status | Held rows |
+|---|---|---|
+| `mi_detroit_landbank_lots` | COMPLETE | 30,661 |
+| `mi_detroit_landbank_programs` | COMPLETE | 12 |
+| `mi_oceana_landbank` | COMPLETE | 5 |
+| `sc_horry_forfeited_land` | COMPLETE | 55 read; 2 were non-identifier rows (a note line, a word), now rejected by `id_pattern` |
+| `sc_georgetown_forfeited_land` | COMPLETE | 1 |
+
+The published sources in the same run were unchanged: Eaton 8, Lenawee 35, York 853.
+
 ## Evidence
 
 All evidence comes from value-free structural captures:

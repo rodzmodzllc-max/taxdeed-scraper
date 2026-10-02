@@ -192,18 +192,24 @@ def run_source(src, fetch_json, fetch_text, *, retrieved_at, fixture: str | None
             html = fetch_text(src.url)
             links = sc_flc.year_list_links(html, src.url)
             current = [(y, u) for y, u in links if sc_flc.list_year_past_redemption(y, retrieved_at.date())]
-            recs = []
+            recs, rejected = [], 0
             for year, url in current:
                 adapter = TabularListAdapter(cfg)
                 for r in adapter._records(sc_flc.xlsx_rows(fetch_bytes(url)), retrieved_at=retrieved_at, document_name=None):
                     r.provenance["tax_sale_year"] = f"the '{year} FLC List' workbook (past the redemption period)"
                     r.provenance["document"] = url
                     recs.append(r)
+                rejected += adapter.rejected_ids
         except Exception as exc:  # noqa: BLE001
             status = getattr(getattr(exc, "response", None), "status_code", None)
             return "FAILED", [], "TRANSPORT_CONNECTION", f"{type(exc).__name__}" + (f" HTTP {status}" if status else ""), None
         if not links:
             return "FAILED", [], "PARSE_NO_TABLE", "no '<YEAR> FLC List' workbook linked", None
+        if rejected:
+            print(f"{cfg.source_id}: {rejected} non-identifier row(s) skipped (note lines / section words)")
+        if current and not recs:
+            # Lists past redemption exist but no row carried an identifier: a format change, never "empty".
+            return "FAILED", [], "PARSE_FORMAT_CHANGE", f"no identifier row in {len(current)} list(s)", None
         return ("COMPLETE", recs, None, None, None) if recs else ("EMPTY", [], None, None, "no_list_past_redemption")
     # html_table
     try:
