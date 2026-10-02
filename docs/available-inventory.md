@@ -16,28 +16,48 @@ publication gate.
 | `sc_georgetown_forfeited_land` | SC / Georgetown | Georgetown FLC PDF list (PR #69 parser) | only sections past the redemption period | TMS | as published | PR #69 evidence row |
 
 None of these sources reads a TAXPAYER or owner column, and no amount is ever
-computed.
+computed. All five are UNREVIEWED for customer publication; they are collected, synced and shown to admins, labelled.
 
-## Publication: collected and held
+## Collection vs customer publication (2026-10-02)
 
-Every source above is **UNREVIEWED** (`expansion.PUBLICATION`, restriction
-`HELD_AVAILABLE`). None publishes a reuse licence, and no owner decision
-exists yet. `scripts/harvest_expansion.py` therefore does three things:
+Publication review is a **customer release** control. It no longer decides
+whether development can see collected data.
 
-- Requests an APPROVED source and writes it to `out/<st>_properties_rows.json`, the only file `sync_state_inventory.py` reads.
-- **Holds an UNREVIEWED AVAILABLE source.** `held_sources()` and `run_held()`:
-  - read it on every run;
-  - normalize and validate it, and drop invalid rows;
-  - attach provenance and the acquisition path;
-  - write it to `out/<st>_held_rows.json` with `publication_status=UNREVIEWED`;
-  - record freshness in `out/harvest_<st>_held_status.json` (unit `<county>:<source_id>`).
+```
+SOURCE -> COLLECT -> NORMALIZE -> VALIDATE -> MATCH -> ENRICH -> CLASSIFY
+       -> properties (every row carries publication_status)
+       -> admin / development view (everything collected, labelled)
+       -> customer publication gate (frontend, PUBLICATION_MODE)
+```
 
-  Nothing in this held file is synced. A failure in one held source never
-  affects another held source or the published harvest.
-- Requests nothing for any other non-approved source (an UNREVIEWED auction source such as Oconee, a RESTRICTED source or a BLOCKED source).
+- **Collection** (`source_publication.collectable()`):
+  - an APPROVED* source is collected;
+  - an AVAILABLE (laft) source awaiting review (UNREVIEWED / RESTRICTED) is collected too, because a review status is not a prohibition;
+  - a BLOCKED source is never requested.
+  - Auction and lien sources keep the stricter rule (collected only once publishable), so auction and certificate logic is unchanged.
+- **Runner** (`scripts/harvest_expansion.py`):
+  - every collectable source runs in the normal loop and goes into `out/<st>_properties_rows.json`. There is no held side-path any more.
+  - One failing source never stops the others.
+  - A record that fails validation is dropped and its county read becomes INCOMPLETE, so nothing is closed on an untrusted read.
+- **Sync** (`scripts/sync_state_inventory.py`):
+  - writes every collectable row with `publication_status` = the source's effective decision, never relabelled;
+  - counts those not customer-publishable as `written_review_pending`;
+  - close-out covers collectable sources only after a COMPLETE / EMPTY read.
+- **Frontend** (`public/app.js`):
+  - `isCustomerPublishable()` is the customer rule (APPROVED* or no decision).
+  - `isPublishable()` decides what this session shows:
+    - admins always;
+    - everyone when `config.js` sets `publicationMode: "preview"`;
+    - otherwise the customer rule;
+    - BLOCKED never.
+  - Every non-customer-published row is labelled:
+    - "Source review: Unreviewed · not customer-published" on the card;
+    - a banner plus a "Source publication review / Customer-visible" line on the property page;
+    - the ledger notes how many such rows are shown and why.
+  - The source's own program wording (e.g. "Side Lot For Sale", "Own It Now") sits next to it. Availability stays a separate fact.
+  - Admins get a Dashboard panel, "Collected inventory by source": collected / active / customer-visible counts, review status and last read.
 
-An admin review that sets APPROVED moves a source into the published path,
-with no code change. Governance was not changed to raise counts.
+No migration: `get_properties()` never filtered on `publication_status`.
 
 ## Validated counts (runs 37039824035 / 37040250643, read-only, no credentials)
 

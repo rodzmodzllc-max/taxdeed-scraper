@@ -150,7 +150,9 @@ def test_g08_acquisition_gaps_and_frontend_parity_and_no_withholding():
     js = dict(re.findall(r'(\w+): "([^"]+)"', m))
     assert js == PE.ACQUISITION_GAP_REASONS
     # Publication is the source decision only: the customer filter never consults the acquisition record.
-    assert "ALL = ALL.filter(p => { if (isPublishable(p)) return true; if (p.source in WITHHELD) WITHHELD[p.source]++; return false; });" in APP
+    flt = APP[APP.index("  ALL = ALL.filter(p => {"):APP.index("  PROPERTIES_LOADED = true;")]
+    assert "if (isPublishable(p)) {" in flt and "if (p.source in WITHHELD) WITHHELD[p.source]++;" in flt
+    assert "acquisition" not in flt.lower()
     assert "acquisitionGap" not in re.search(r"function isPublishable\(p\) \{(.*?)\n\}", APP, re.S).group(1)
     assert "WITHHELD_ACQ" not in APP and "ledgerWithheldAcq" not in APP and "acquisitionGate" not in APP
     assert PE.acquisition_state(_published()) == "partial"                   # a path without steps: partial, still a path

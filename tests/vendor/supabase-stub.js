@@ -248,6 +248,28 @@ const FIXTURE_PROPERTIES = [
     field_provenance: { land_value: { source: "statewide_parcel", source_id: "la_ebr_tax_parcels", dataset: "Tax Parcel (data.brla.gov ei2c-krsr)", agency: "East Baton Rouge Parish Assessor (Open Data BR)",
       matched_id_field: "assessment_num", matched_row_column: "parcel", matched_parcel_id: "012-3456-8", recorded_at: "2026-10-01T12:00:00Z" } },
     publication_status: "APPROVED", ledger_type: "buy", updated_at: "2026-10-01T12:00:00Z" },
+  // 2026-10-02 (collection vs customer publication): AVAILABLE rows from
+  // sources still awaiting customer-publication review, in the shape the sync
+  // now writes them (publication_status UNREVIEWED, the source's own program
+  // wording in inventory_status_raw). Admins - and every user in
+  // publicationMode "preview" - see them labelled; customers in the default
+  // enforced mode do not. Values are SYNTHETIC.
+  { id: "pmi_dlba1", source: "laft", state: "MI", county: "Wayne", case_no: "99000001.", parcel: "99000001.", address: "1 FIXTURE LOT ST", bid: 0, status: "active", sale_date: null, lien_level: "unscreened", lien_note: "",
+    harvester_source: "mi_detroit_landbank_lots", source_id: "mi_detroit_landbank_lots", source_authority: "GOVERNMENT_DIRECT", inventory_type: "POST_SALE",
+    list_url: "https://www.arcgis.com/home/item.html?id=848bc665295f4ca9b1e25068ffa88ab0", url_auction: "https://www.arcgis.com/home/item.html?id=848bc665295f4ca9b1e25068ffa88ab0", url_auction_kind: "county",
+    purchase_amount: null, purchase_amount_kind: "NOT_PUBLISHED", inventory_status_raw: "Side Lot For Sale", latitude: 42.36, longitude: -83.08,
+    last_seen_at: "2026-10-02T12:00:00Z", first_seen_at: "2026-10-02T12:00:00Z", publication_status: "UNREVIEWED", ledger_type: "buy", updated_at: "2026-10-02T12:00:00Z",
+    otc_provenance: { source_id: "mi_detroit_landbank_lots", source_match: { identifier: "case_no", value: "99000001.", source: "https://services2.arcgis.com/qvkbeam7Wirps6zC/arcgis/rest/services/DLBA_Owned_Properties/FeatureServer/0", read_at: "2026-10-02T12:00:00Z", basis: "row read from the source list / document by the harvester; identity as the sync upserts it" } } },
+  { id: "pmi_dlba2", source: "laft", state: "MI", county: "Wayne", case_no: "99000002.", parcel: "99000002.", address: "2 FIXTURE PROGRAM AVE", bid: 0, status: "active", sale_date: null, lien_level: "unscreened", lien_note: "",
+    harvester_source: "mi_detroit_landbank_programs", source_id: "mi_detroit_landbank_programs", source_authority: "GOVERNMENT_DIRECT", inventory_type: "POST_SALE",
+    list_url: "https://www.arcgis.com/home/item.html?id=e0c4f46a09b9405cb18837e66e85c622", url_auction: "https://www.arcgis.com/home/item.html?id=e0c4f46a09b9405cb18837e66e85c622", url_auction_kind: "county",
+    purchase_amount: null, purchase_amount_kind: "NOT_PUBLISHED", inventory_status_raw: "Own It Now",
+    last_seen_at: "2026-10-02T12:00:00Z", publication_status: "UNREVIEWED", ledger_type: "buy", updated_at: "2026-10-02T12:00:00Z" },
+  { id: "psc_horry1", source: "laft", state: "SC", county: "Horry", case_no: "99999999901", parcel: "99999999901", address: null, legal_desc: "FIXTURE LOT 9", bid: 1500, status: "active", sale_date: null, lien_level: "unscreened", lien_note: "",
+    harvester_source: "sc_horry_forfeited_land", source_id: "sc_horry_forfeited_land", source_authority: "GOVERNMENT_DIRECT", inventory_type: "POST_SALE",
+    list_url: "https://horrycountysc.gov/boards-and-commissions/forfeited-land-commission/", url_auction: "https://horrycountysc.gov/boards-and-commissions/forfeited-land-commission/", url_auction_kind: "county",
+    purchase_url: "https://horrycountysc.gov/media/sinbmsz5/horrycountyflcguidelines.pdf", purchase_url_kind: "bid_form", purchase_amount: 1500, purchase_amount_kind: "OPENING_BID",
+    last_seen_at: "2026-10-02T12:00:00Z", publication_status: "UNREVIEWED", ledger_type: "buy", updated_at: "2026-10-02T12:00:00Z" },
   // 2026-09-30 (six-state expansion): rows in the shapes scripts/harvest_expansion.py
   // + sync_state_inventory.py write. Values are SYNTHETIC.
   { id: "pmi1", source: "auction", state: "MI", county: "Eaton", case_no: "100-200-300-400-50", parcel: "100-200-300-400-50", address: "100 FIXTURE ST", bid: 4200, min_bid: 4200, status: "active", sale_date: null, lien_level: "unscreened", lien_note: "",

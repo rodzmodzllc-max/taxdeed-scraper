@@ -168,22 +168,60 @@ def test_horry_page_without_year_lists_fails():
     assert status == "FAILED"
 
 
-# --- held collection ---------------------------------------------------------
+# --- collection vs customer publication (2026-10-02) -------------------------
+# Review status no longer decides whether development sees a source: an
+# AVAILABLE source awaiting review is collected, synced and labelled; customer
+# publication stays a separate rule (app.js isCustomerPublishable).
+
+import dataclasses  # noqa: E402
+
+import sync_state_inventory as SY  # noqa: E402
+
 
 def _reg(st):
     return SP.registry_with_reviews(st, reviews={})[0]
 
 
-def test_held_sources_are_exactly_the_unreviewed_available_sources():
-    mi = {s.config.source_id for s in HE.held_sources("MI", _reg("MI"))}
-    sc = {s.config.source_id for s in HE.held_sources("SC", _reg("SC"))}
-    assert mi == {"mi_detroit_landbank_lots", "mi_detroit_landbank_programs", "mi_oceana_landbank"}
-    assert sc == {"sc_horry_forfeited_land", "sc_georgetown_forfeited_land"}
-    assert "sc_oconee_tax_sale_list" not in sc          # UNREVIEWED auction source: gated, never held
-    for st in ("WY", "CO", "WI"):
-        assert HE.held_sources(st, _reg(st)) == []
+DLBA_PAGE = {"objectIdFieldName": "OBJECTID", "features": [
+    {"attributes": {"OBJECTID": i, "parcel_id": f"9900000{i}.", "name": f"{i} SYNTHETIC ST",
+                    "inventory_status_socrata": s, "latitude": 42.3, "longitude": -83.1}}
+    for i, s in enumerate(["Side Lot For Sale", "Neighborhood Lot For Sale", "Marketed Lot For Sale"], start=1)]}
+
+
+def _harvest_mi(tmp_path, capsys=None):
+    dl = tmp_path / "dlba.json"
+    dl.write_text(json.dumps(DLBA_PAGE))
+    oc = tmp_path / "oceana.html"
+    oc.write_text(OCEANA)
+    out = tmp_path / "out"
+    rc = HE.main(["--state", "MI", "--fixture", f"mi_detroit_landbank_lots={dl}",
+                  "--fixture", f"mi_oceana_landbank={oc}", "--out-dir", str(out)])
+    assert rc == 0
+    rows = json.loads((out / "mi_properties_rows.json").read_text())
+    units = SY.status_units(out / "harvest_mi_status.json")
+    return rows, units
+
+
+def test_review_pending_available_sources_are_collected_and_auction_gating_is_unchanged():
+    mi_run, _ = HE.runnable_sources("MI", _reg("MI"))
+    sc_run, sc_gated = HE.runnable_sources("SC", _reg("SC"))
+    assert {"mi_detroit_landbank_lots", "mi_detroit_landbank_programs", "mi_oceana_landbank"} <= {s.config.source_id for s in mi_run}
+    assert {"sc_horry_forfeited_land", "sc_georgetown_forfeited_land"} <= {s.config.source_id for s in sc_run}
+    assert ("sc_oconee_tax_sale_list", "UNREVIEWED") in sc_gated     # UNREVIEWED auction source: still never requested
     for sid in SPRINT:
-        assert not SP.publishable(_reg(_src(sid).config.state).get(sid))
+        row = _reg(_src(sid).config.state).get(sid)
+        assert not SP.publishable(row) and SP.collectable(row, "laft")   # review pending is not a prohibition
+
+
+def test_hard_blocked_source_is_never_collected_or_written():
+    reg = _reg("MI")
+    blocked = dataclasses.replace(reg["mi_oceana_landbank"], publication_status="BLOCKED")
+    assert not SP.collectable(blocked, "laft")
+    reg2 = dict(reg, mi_oceana_landbank=blocked)
+    assert "mi_oceana_landbank" not in {s.config.source_id for s in HE.runnable_sources("MI", reg2)[0]}
+    rec = TabularListAdapter(EX.MI_OCEANA_LANDBANK).parse_html_table(OCEANA, retrieved_at=AT)
+    sent, counts = SY.plan("MI", [r.to_properties_row() for r in rec], reg2, {"Oceana": "COMPLETE"})
+    assert sent == [] and counts["withheld_not_publishable"] == 2
 
 
 def test_sprint_sources_are_available_ledger_only():
@@ -193,33 +231,59 @@ def test_sprint_sources_are_available_ledger_only():
         assert EX.PUBLICATION[sid][0] == "UNREVIEWED"
 
 
-def test_run_held_writes_held_file_and_status_never_the_sync_file(tmp_path, capsys):
-    def fetch_text(url):
-        if "oceana" in url:
-            return OCEANA
-        raise ConnectionError("synthetic transport failure")
-
-    held = [_src("mi_oceana_landbank"), _src("mi_detroit_landbank_lots")]
-    n = HE.run_held("MI", held, lambda u: (_ for _ in ()).throw(ConnectionError("down")), fetch_text, None,
-                    retrieved_at=AT, out=tmp_path)
-    assert n == 2
-    rows = json.loads((tmp_path / "mi_held_rows.json").read_text())
-    assert {r["publication_status"] for r in rows} == {"UNREVIEWED"}
-    assert {r["county"] for r in rows} == {"Oceana"} and all(r["source"] == "laft" for r in rows)
-    status = json.loads((tmp_path / "harvest_mi_held_status.json").read_text())
-    blob = json.dumps(status)
-    assert "Oceana:mi_oceana_landbank" in blob and "Wayne:mi_detroit_landbank_lots" in blob
-    assert "FAILED" in blob and "COMPLETE" in blob                    # one failure isolated from the other
-    assert not (tmp_path / "mi_properties_rows.json").exists()
+def test_detroit_and_oceana_enter_the_sync_path_labelled_with_their_review_status(tmp_path, capsys):
+    rows, units = _harvest_mi(tmp_path)
+    by_src = {}
+    for r in rows:
+        by_src.setdefault(r["source_id"], []).append(r)
+    assert len(by_src["mi_detroit_landbank_lots"]) == 3 and len(by_src["mi_oceana_landbank"]) == 2   # nothing discarded
+    assert units == {"Wayne": "COMPLETE", "Oceana": "COMPLETE"}
+    dl = by_src["mi_detroit_landbank_lots"][0]
+    assert dl["source"] == "laft" and dl["parcel"] == dl["case_no"] and dl["inventory_status_raw"] == "Side Lot For Sale"
+    sent, counts = SY.plan("MI", rows, _reg("MI"), units)
+    assert counts["upsert"] == 5 and counts["written_review_pending"] == 5 and counts["withheld_not_publishable"] == 0
+    assert {r["publication_status"] for r in sent} == {"UNREVIEWED"}       # never relabelled APPROVED
+    assert {r["ledger_type"] for r in sent} == {"buy"}
     out = capsys.readouterr().out
-    assert "64-099" not in out and "SYNTHETIC" not in out             # shapes only in the public log
+    assert "99000001" not in out and "SYNTHETIC" not in out and "64-099" not in out   # shapes only in the public log
+    assert "publication=UNREVIEWED" in out
 
 
-def test_run_held_with_nothing_held_writes_nothing(tmp_path):
-    assert HE.run_held("WY", [], None, None, None, retrieved_at=AT, out=tmp_path) == 0
-    assert list(tmp_path.iterdir()) == []
+def test_customer_publication_rule_is_independent_of_collection():
+    reg = _reg("MI")
+    assert not SP.publishable(reg["mi_oceana_landbank"])            # customers: not published
+    assert SP.collectable(reg["mi_oceana_landbank"], "laft")         # development: collected
+    approved = dataclasses.replace(reg["mi_oceana_landbank"], publication_status="APPROVED")
+    assert SP.publishable(approved) and SP.collectable(approved, "laft")
 
 
-def test_sync_reads_only_the_publishable_rows_file():
-    src = (ROOT / "scripts/sync_state_inventory.py").read_text(encoding="utf-8")
-    assert "held_rows" not in src
+def test_one_failing_source_never_stops_the_others(tmp_path, monkeypatch):
+    real = HE.run_source
+
+    def flaky(src, *a, **kw):
+        if src.config.source_id == "mi_detroit_landbank_lots":
+            raise RuntimeError("synthetic")
+        return real(src, *a, **kw)
+
+    monkeypatch.setattr(HE, "run_source", flaky)
+    rows, units = _harvest_mi(tmp_path)
+    assert units["Wayne"] == "FAILED" and units["Oceana"] == "COMPLETE"
+    assert {r["source_id"] for r in rows} == {"mi_oceana_landbank"}
+
+
+def test_sync_identity_is_the_deterministic_source_identifier_only():
+    row = {"state": "MI", "source": "laft", "county": "Wayne", "case_no": "99000001.", "owner_name": "X", "address": "Y"}
+    assert SY.identity(row) == ("laft", "Wayne", "99000001.")   # the upsert conflict target (state-scoped plan)
+    rec = AG.parse_page(EX.MI_DETROIT_LANDBANK_LOTS, DLBA_PAGE, retrieved_at=AT).records[0]
+    assert rec.owner_name is None and not rec.validate()
+
+
+def test_spartanburg_bid_assignment_inventory_stays_excluded():
+    ids = {s.config.source_id for srcs in EX.SOURCES.values() for s in srcs}
+    assert not any("spartanburg" in i for i in ids)
+    assert not any("spartanburg" in sid for sid in _reg("SC"))
+
+
+def test_no_held_side_path_remains():
+    src = (ROOT / "scripts/harvest_expansion.py").read_text(encoding="utf-8")
+    assert "held_rows" not in src and "def run_held" not in src

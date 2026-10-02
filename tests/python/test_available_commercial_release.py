@@ -470,7 +470,7 @@ def test_f03_filters_read_stored_fields_and_the_admin_panel_is_admin_gated():
     for f in ("public/index.html", "public/tx.html"):
         html = (REPO / f).read_text(encoding="utf-8")
         assert 'id="adminPublication" hidden' in html and 'id="availLandUseFilter"' in html and 'id="availGeocoded"' in html and 'id="availValues"' in html
-    assert (REPO / "public/sw.js").read_text(encoding="utf-8").count('const CACHE = "tdw-shell-v69"') == 1
+    assert (REPO / "public/sw.js").read_text(encoding="utf-8").count('const CACHE = "tdw-shell-v70"') == 1
 
 
 # ==================== 8. regressions ====================
@@ -492,7 +492,8 @@ def test_r01_fl_tx_al_ar_la_az_regressions_hold():
             if eff == "APPROVED":
                 assert r.is_production and "Creative Commons" in r.restrictions, (r.state, r.source_id)
             else:
-                assert eff == "UNREVIEWED" and "no row is written" in r.restrictions, (r.state, r.source_id)
+                expected = "not customer-published" if r.source_id in EX.AVAILABLE_SPRINT_SOURCE_IDS else "no row is written"
+                assert eff == "UNREVIEWED" and expected in r.restrictions, (r.state, r.source_id)
         elif r.is_production:
             assert eff == "APPROVED_GRANDFATHERED", (r.state, r.source_id)
         elif r.source_id in BLOCKED_SOURCE_IDS:

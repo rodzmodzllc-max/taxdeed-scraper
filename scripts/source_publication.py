@@ -19,6 +19,16 @@ change. A review the validator refuses (e.g. APPROVED on a source that is
 not PRODUCTION_VERIFIED) changes nothing.
 
 Without credentials (tests, fixture runs) the CSV alone decides.
+
+Collection vs customer publication (2026-10-02). Publication is a CUSTOMER
+release decision; it no longer decides whether development can see the data.
+`collectable()` is the collection rule: an AVAILABLE (laft) source is
+collected, synced and shown to admins / customer preview whatever its review
+state, unless the source is BLOCKED (a hard block - never requested). Its rows
+carry their publication_status, so the frontend can keep customers on the
+publication rule (app.js isCustomerPublishable / PUBLICATION_MODE). Auction and
+lien sources keep the stricter rule (collected only once publishable) - this
+change does not alter auction or certificate logic.
 """
 from __future__ import annotations
 
@@ -58,6 +68,21 @@ def registry_with_reviews(state: str, *, path: Path = REGISTRY, reviews: dict | 
 
 def publishable(row) -> bool:
     return row is not None and effective_publication(row) in PUBLISHABLE_STATUSES
+
+
+# A hard block: never requested, never written, never shown - not even to admins.
+COLLECTION_BLOCKED = frozenset({"BLOCKED"})
+
+
+def collectable(row, record_source: str) -> bool:
+    """May this source be requested and its rows written? Publishable sources
+    always; an AVAILABLE (laft) source awaiting review too (UNREVIEWED /
+    RESTRICTED - a review status, not a prohibition); a BLOCKED source never."""
+    if row is None:
+        return False
+    if publishable(row):
+        return True
+    return record_source == "laft" and effective_publication(row) not in COLLECTION_BLOCKED
 
 
 def decision(row) -> str:

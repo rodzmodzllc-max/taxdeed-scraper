@@ -3794,6 +3794,87 @@ await monDash.close();
   await imgPage.close();
 }
 
+// --- Collection vs customer publication (2026-10-02) ---
+// A source awaiting customer-publication review is collected and synced; its
+// rows carry publication_status. Admins always see them, labelled; every user
+// sees them in publicationMode "preview"; customers in the default enforced
+// mode do not (counted as withheld). Source review is never availability.
+{
+  const STATE_URL = st => BASE_URL.replace(/index\.html$/, st + '.html');
+  async function ledgerFacts(pg) {
+    const btn = pg.locator('#expandAllBtn');
+    if (await btn.count() && (await btn.getAttribute('data-mode')) === 'expand') { await btn.click(); await pg.waitForTimeout(300); }
+    return pg.evaluate(() => {
+      const t = sel => { const e = document.querySelector(sel); return e ? e.textContent.replace(/\s+/g, ' ').trim() : null; };
+      const cards = [...document.querySelectorAll('.prop-card')];
+      return {
+        cards: cards.length,
+        reviewChips: [...document.querySelectorAll('.prop-card .source-review-chip')].map(e => e.textContent.trim()),
+        programs: [...document.querySelectorAll('.prop-card .source-program')].map(e => e.textContent.trim()).sort(),
+        pending: t('#ledgerReviewPending'),
+        withheld: t('#ledgerWithheld')
+      };
+    });
+  }
+  const adminMi = await newPage({ viewport: { width: 1200, height: 900 } });
+  await adminMi.goto(STATE_URL('mi') + '?profile=admin#/lands', { waitUntil: 'networkidle' });
+  await adminMi.waitForTimeout(600);
+  results.devVisAdminMiLands = await ledgerFacts(adminMi);
+  await adminMi.close();
+
+  const adminDetail = await newPage({ viewport: { width: 1200, height: 900 } });
+  await adminDetail.goto(STATE_URL('mi') + '?profile=admin#/lands/pmi_dlba1', { waitUntil: 'networkidle' });
+  await adminDetail.waitForTimeout(700);
+  results.devVisAdminDetail = await adminDetail.evaluate(() => {
+    const m = document.querySelector('#detailModalInner');
+    const txt = m ? m.innerText.replace(/\s+/g, ' ') : '';
+    const row = m && m.querySelector('.source-review-row');
+    const banner = m && m.querySelector('#sourceReviewBanner');
+    return {
+      banner: banner ? banner.textContent.replace(/\s+/g, ' ').trim() : null,
+      reviewRow: row ? row.textContent.replace(/\s+/g, ' ').trim() : null,
+      identifier: txt.includes('99000001.'),
+      program: txt.includes('Side Lot For Sale'),
+      lastRead: /Last read from the source/.test(txt),
+      neverApproved: !/Source publication review: Approved/.test(txt)
+    };
+  });
+  await adminDetail.close();
+
+  const adminDash = await newPage({ viewport: { width: 1200, height: 900 } });
+  await adminDash.goto(STATE_URL('mi') + '?profile=admin#/dashboard', { waitUntil: 'networkidle' });
+  await adminDash.waitForTimeout(600);
+  results.devVisAdminDash = await adminDash.evaluate(() => {
+    const panel = document.querySelector('#dashSourceReview');
+    if (!panel) return null;
+    const row = id => { const e = panel.querySelector(`[data-source-id="${id}"]`); return e ? e.textContent.replace(/\s+/g, ' ').trim() : null; };
+    return { mode: (document.querySelector('#dashPublicationMode') || {}).textContent, lots: row('mi_detroit_landbank_lots'), programs: row('mi_detroit_landbank_programs') };
+  });
+  await adminDash.close();
+
+  const custMi = await newPage({ viewport: { width: 1200, height: 900 } });
+  await custMi.goto(STATE_URL('mi') + '#/lands', { waitUntil: 'networkidle' });
+  await custMi.waitForTimeout(600);
+  results.devVisCustomerMiLands = await ledgerFacts(custMi);
+  results.devVisCustomerDashPanel = await custMi.evaluate(() => { location.hash = '#/dashboard'; return !!document.querySelector('#dashSourceReview'); });
+  await custMi.close();
+
+  // Customer preview: config.js with publicationMode "preview", default profile.
+  const previewCfg = fs.readFileSync(new URL('./config.js', import.meta.url), 'utf8') + '\nwindow.TDW_CONFIG.publicationMode = "preview";\n';
+  const prev = await newPage({ viewport: { width: 1200, height: 900 } });
+  await prev.route(/\/config\.js(\?|$)/, route => route.fulfill({ status: 200, contentType: 'application/javascript', body: previewCfg }));
+  await prev.goto(STATE_URL('sc') + '#/lands', { waitUntil: 'networkidle' });
+  await prev.waitForTimeout(600);
+  results.devVisPreviewScLands = await ledgerFacts(prev);
+  await prev.close();
+
+  const custSc = await newPage({ viewport: { width: 1200, height: 900 } });
+  await custSc.goto(STATE_URL('sc') + '#/lands', { waitUntil: 'networkidle' });
+  await custSc.waitForTimeout(600);
+  results.devVisCustomerScLands = await ledgerFacts(custSc);
+  await custSc.close();
+}
+
 await browser.close();
 
 // ============================================================

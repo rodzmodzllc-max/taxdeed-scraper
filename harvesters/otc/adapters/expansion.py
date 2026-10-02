@@ -245,9 +245,10 @@ UNREVIEWED_NO_LICENCE = ("Implemented and read live, but the source publishes no
 # Government-held property the source itself offers for acquisition. Read
 # value-free by the evidence job (`evidence_scope=available_sources`, run
 # 37038385659; Georgetown: `sc_available`, runs 37033274319 /
-# 37035908843 / 37036374756). Every one is UNREVIEWED for publication: it is
-# collected and held (scripts/harvest_expansion.py), never written to
-# properties, until an admin review approves it.
+# 37035908843 / 37036374756). Every one is UNREVIEWED for customer
+# publication: it is collected and synced like any AVAILABLE source, its rows
+# carry publication_status UNREVIEWED, admins (and customer preview) see them
+# labelled, and customers do not until an admin review approves the source.
 AVAILABLE_SPRINT_EVIDENCE_RUNS = ("37038385659",)
 
 # Detroit Land Bank Authority (Wayne County, MI) - "Properties owned by the
@@ -320,8 +321,8 @@ SC_HORRY_FLC = TabularConfig(
           "is not a 9-11 digit number (a note line, a section word - run 37039824035) is not a property.")
 
 
-HELD_AVAILABLE = ("AVAILABLE source read live; no reuse licence or owner decision yet: collected and held on each run, "
-                  "but no row is written to properties until an admin review approves it.")
+HELD_AVAILABLE = ("AVAILABLE source read live; no reuse licence or owner decision yet: collected and synced for "
+                  "development, labelled UNREVIEWED; not customer-published until an admin review approves it.")
 PUBLICATION = {
     "mi_eaton_treasurer_sale": ("APPROVED", OWNER_APPROVED_2026_09_30),
     "mi_lenawee_tax_sale": ("APPROVED", OWNER_APPROVED_2026_09_30),

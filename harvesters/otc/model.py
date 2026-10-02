@@ -286,6 +286,11 @@ class OtcRecord:
                 row["sale_date"] = self.sale_date.isoformat()
             if self.source_status_text:
                 row["inventory_status_raw"] = self.source_status_text
+        elif self.record_source == "laft" and self.source_status_text:
+            # AVAILABLE: the source's own program / status wording (a land
+            # bank's "Side Lot For Sale", "Own It Now"), verbatim - never mapped
+            # to a lifecycle status here.
+            row["inventory_status_raw"] = self.source_status_text
         return row
 
     def to_harvest_row(self) -> dict:

@@ -5013,7 +5013,7 @@
    "last_checked": "2026-10-02",
    "legacy_status": "UNREVIEWED",
    "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
-   "next_action": "Publication / rights review (registry restrictions: AVAILABLE source read live; no reuse licence or owner decision yet: collected and held on each run, but no row is written to properties until an admin review approves it.)",
+   "next_action": "Publication / rights review (registry restrictions: AVAILABLE source read live; no reuse licence or owner decision yet: collected and synced for development, labelled UNREVIEWED; not customer-published until an admin review approves it.)",
    "origin": "registry",
    "publisher": "Oceana County",
    "roles": [
@@ -5062,7 +5062,7 @@
    "last_checked": "2026-10-02",
    "legacy_status": "UNREVIEWED",
    "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
-   "next_action": "Publication / rights review (registry restrictions: AVAILABLE source read live; no reuse licence or owner decision yet: collected and held on each run, but no row is written to properties until an admin review approves it.)",
+   "next_action": "Publication / rights review (registry restrictions: AVAILABLE source read live; no reuse licence or owner decision yet: collected and synced for development, labelled UNREVIEWED; not customer-published until an admin review approves it.)",
    "origin": "registry",
    "publisher": "Wayne County",
    "roles": [
@@ -5086,7 +5086,7 @@
    "last_checked": "2026-10-02",
    "legacy_status": "UNREVIEWED",
    "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
-   "next_action": "Publication / rights review (registry restrictions: AVAILABLE source read live; no reuse licence or owner decision yet: collected and held on each run, but no row is written to properties until an admin review approves it.)",
+   "next_action": "Publication / rights review (registry restrictions: AVAILABLE source read live; no reuse licence or owner decision yet: collected and synced for development, labelled UNREVIEWED; not customer-published until an admin review approves it.)",
    "origin": "registry",
    "publisher": "Wayne County",
    "roles": [
@@ -5236,7 +5236,7 @@
    "last_checked": "2026-10-02",
    "legacy_status": "UNREVIEWED",
    "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
-   "next_action": "Publication / rights review (registry restrictions: AVAILABLE source read live; no reuse licence or owner decision yet: collected and held on each run, but no row is written to properties until an admin review approves it.)",
+   "next_action": "Publication / rights review (registry restrictions: AVAILABLE source read live; no reuse licence or owner decision yet: collected and synced for development, labelled UNREVIEWED; not customer-published until an admin review approves it.)",
    "origin": "registry",
    "publisher": "Georgetown County",
    "roles": [
@@ -5261,7 +5261,7 @@
    "last_checked": "2026-10-02",
    "legacy_status": "UNREVIEWED",
    "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
-   "next_action": "Publication / rights review (registry restrictions: AVAILABLE source read live; no reuse licence or owner decision yet: collected and held on each run, but no row is written to properties until an admin review approves it.)",
+   "next_action": "Publication / rights review (registry restrictions: AVAILABLE source read live; no reuse licence or owner decision yet: collected and synced for development, labelled UNREVIEWED; not customer-published until an admin review approves it.)",
    "origin": "registry",
    "publisher": "Horry County",
    "roles": [

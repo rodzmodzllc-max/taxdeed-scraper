@@ -2213,18 +2213,29 @@ Full description: `docs/sc-available-inventory.md`. Stable facts:
   (`scripts/capture_sc_available.py`). Structure and counts only; a privacy
   test feeds it PII and proves none reaches its output.
 
-## AVAILABLE inventory sprint (2026-10-02, PR open, no migration)
+## AVAILABLE inventory sprint + collection vs customer publication (2026-10-02, PR #70, no migration)
 
 Full description: `docs/available-inventory.md`. Stable facts:
-- **Five new AVAILABLE sources, all UNREVIEWED.** Each is collected and HELD, never synced:
+- **Publication review is a customer release control, not a collection gate.**
+  `source_publication.collectable(row, record_source)`: APPROVED* sources and
+  AVAILABLE (laft) sources awaiting review are collected and synced, with their
+  `publication_status` on every row; BLOCKED is never requested. Auction /
+  lien sources keep the publishable-only rule.
+- **Frontend:**
+  - `isCustomerPublishable()` is the customer rule.
+  - `isPublishable()` decides what this session shows: admins see everything (labelled), as does everyone when `config.js` `publicationMode: "preview"`; BLOCKED is never shown.
+  - Source review status is labelled apart from availability (`sourceLineHtml`, `sourceReviewBannerHtml`, `sourceReviewHtml`).
+  - Admin Dashboard panel: `#dashSourceReview`.
+- **Five AVAILABLE sources, all UNREVIEWED:**
   - Detroit Land Bank lots;
-  - Detroit Land Bank programs (Auction program excluded);
+  - Detroit Land Bank programs (Auction excluded);
   - Oceana MI Land Bank;
   - Horry SC FLC yearly workbooks;
   - Georgetown SC FLC PDF.
-- **Held collection:** `harvest_expansion.held_sources()` and `run_held()` write `out/<st>_held_rows.json` and `out/harvest_<st>_held_status.json`. `sync_state_inventory.py` never reads either file. An APPROVED admin review moves a source into the sync path.
-- **Horry redemption rule:** `sc_flc.list_year_past_redemption`. A year's list is AVAILABLE only from Jan 1 of year + 2. The current year is an assignment list.
-- **Candidate pages:** `data/available_source_candidates.csv`. Capture them with `job=evidence`, `evidence_scope=available_sources`. `available_validate` runs the real MI/SC harvest path with no credentials.
+
+  The source's own program wording rides in `inventory_status_raw` for laft rows.
+- **Horry redemption rule:** `sc_flc.list_year_past_redemption`. A year's list counts only from Jan 1 of year + 2. A PIN must match `id_pattern`.
+- **Candidate pages:** `data/available_source_candidates.csv`, captured with `evidence_scope=available_sources`. `available_validate` runs the real MI/SC harvest with no credentials.
 
 ## Where to look for more
 
