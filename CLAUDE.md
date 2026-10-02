@@ -2158,6 +2158,41 @@ The EBR Tax Roll's `units` counts structures; it is not acreage.
     main.
   - The sandbox cannot reach `*.pages.dev`; the job can.
 
+## AVAILABLE multistate discovery (2026-10-02, PR open, no migration)
+
+Full description: `docs/available-discovery.md`. Stable facts:
+- **AVAILABLE comes only from a source that itself states availability**:
+  - a lands-available list;
+  - a Forfeited Land Commission list;
+  - an over-the-counter list;
+  - a land bank's inventory.
+
+  Never from an auction row's absence, a passed date, or an unsold or
+  unknown outcome. Auction and lien registry sources never count as
+  AVAILABLE sources (`available_coverage.production_available_sources`
+  requires ledger AVAILABLE).
+- **Discovered candidates** live in `data/available_discovery_pages.csv` and
+  `data/enrichment_source_catalog.csv` (REVIEW_REQUIRED / NOT_CHECKED, shown
+  in the Admin Sources panel). They are NOT registry rows, and no harvester
+  reads them.
+- **Capturing them:** `job=evidence`, `evidence_scope=available_discovery`
+  (value-free, no database).
+- **Coverage file:** `harvesters/sources/available_coverage.py` →
+  `public/available-coverage.json` (`scripts/build_available_coverage.py`,
+  `--check` pinned by a test, mirrored to root). Rebuild it, and
+  `build_source_inventory.py`, after editing the catalog, the discovery list,
+  `data/available_state_research.csv` or the registry.
+- **Frontend:** an empty Available ledger adds "Why this list is empty"
+  (`availableCoverageHtml`, `AVAILABLE_COVERAGE_LABELS` pinned to `STATUSES`).
+- **Service worker:** `sw.js` → `tdw-shell-v69` (v68 is held by PR #66).
+- **First read (run 37010171899):** `data/available_discovery_evidence.csv`
+  records each page's finding (CURRENT_INVENTORY / EMPTY / UNAVAILABLE /
+  SEASONAL_NOT_POSTED / NOT_ESTABLISHED / AUCTION_ONLY / HISTORICAL), validated
+  by `available_coverage.problems()`. Current lists: Georgetown and Spartanburg
+  SC (identifier published), Lenawee MI (no identifier). AUCTION_ONLY pages
+  (Aiken, Fairfield) lose the `availability` role. No adapter yet: no
+  publication review. `--discovery` never prints a row-like line.
+
 ## Where to look for more
 
 - `claude/improvement-roadmap.md` in the "tax florida app" claude.ai Project — the full dated log of every fix, audit finding, and open decision. This is where new findings should be appended, not here.

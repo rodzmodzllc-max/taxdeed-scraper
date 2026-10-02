@@ -2289,6 +2289,25 @@ await fpFailPage.close();
   await em.close();
 }
 
+// --- AVAILABLE coverage (2026-10-02): an empty Available ledger names WHICH
+// zero it is, from public/available-coverage.json; a state with Available
+// rows never shows the line. Nothing here creates or hides a row. ---
+{
+  results.availCoverage = {};
+  for (const [file, code] of [['mi.html', 'MI'], ['co.html', 'CO'], ['wy.html', 'WY'], ['index.html', 'FL']]) {
+    const ac = await newPage({ viewport: { width: 1200, height: 900 } });
+    await ac.goto(BASE_URL.replace(/index\.html$/, file) + '#/lands', { waitUntil: 'networkidle' });
+    await ac.waitForTimeout(500);
+    const line = ac.locator('#main .available-coverage');
+    results.availCoverage[code] = {
+      status: (await line.count()) ? await line.first().getAttribute('data-coverage') : null,
+      text: (await line.count()) ? ((await line.first().textContent()) || '').replace(/\s+/g, ' ').trim() : '',
+      cards: await ac.locator('#main .prop-card').count()
+    };
+    await ac.close();
+  }
+}
+
 // --- Arriving from the reset link: PASSWORD_RECOVERY opens the new-password
 // form, which calls updateUser({ password }). ---
 const rcPage = await newPage({ viewport: { width: 390, height: 844 } });
@@ -3786,9 +3805,16 @@ await browser.close();
 
 
 const EXPECTED = {
+  // AVAILABLE coverage: the zero names its reason; Florida (rows present) shows none.
+  availCoverage: {
+    MI: { status: 'REVIEW_REQUIRED', text: 'Why this list is empty: Official program pages were found but are awaiting capture and publication review. Nothing is published from them yet. 1 candidate source: Lenawee. Current list found, awaiting publication review: Lenawee.', cards: 0 },
+    CO: { status: 'NO_QUALIFYING_PROGRAM', text: 'Why this list is empty: No qualifying government-held inventory - this state\'s post-sale instrument is a lien or an auction, not property held for purchase. Unsold parcels stay with the county as tax liens / certificates (see Liens & Certificates or Auctions).', cards: 0 },
+    WY: { status: 'NO_QUALIFYING_PROGRAM', text: 'Why this list is empty: No qualifying government-held inventory - this state\'s post-sale instrument is a lien or an auction, not property held for purchase. Unsold parcels stay with the county as tax liens / certificates (see Liens & Certificates or Auctions).', cards: 0 },
+    FL: { status: null, text: '', cards: 2 }
+  },
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: { ready: true, controlled: true, tagline: "Tax Sale Property Intelligence", noState: true, cache: ["tdw-shell-v67"] },
+  brandSwReload: { ready: true, controlled: true, tagline: "Tax Sale Property Intelligence", noState: true, cache: ["tdw-shell-v69"] },
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · Tax Acquisitions — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · Tax Acquisitions — Florida", floridaCopy: true },
@@ -4168,9 +4194,9 @@ const EXPECTED = {
   adminShellShown: true,
   adminIdentityText: 'Admin',
   adminShellShowsNoEmail: true,
-  adminSourcesRows: 327,
+  adminSourcesRows: 340,
   adminSourcesGovernanceKinds: 'APPROVED,HARD_BLOCKED,REVIEW_REQUIRED',
-  adminSourcesStatusText: '327 source(s): 221 approved, 91 review required, 15 hard blocked.',
+  adminSourcesStatusText: '340 source(s): 221 approved, 104 review required, 15 hard blocked.',
   adminSourcesReviewOnly: true,
   adminSourcesLgbsReason: true,
   adminSourcesLaOnly: true,

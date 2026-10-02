@@ -4981,6 +4981,29 @@
    "url": "https://www.lenawee.mi.us/712/Tax-Sale"
   },
   {
+   "access": "ACCESSIBLE",
+   "access_note": "read by the value-free capture, run 37010171899; finding in data/available_discovery_evidence.csv",
+   "county": "Lenawee",
+   "evidence": "data/available_discovery_pages.csv (web search 2026-10-02): Landbank Authority holds tax-foreclosed property transferred after foreclosure for renovation, marketing and transfer",
+   "governance": "REVIEW_REQUIRED",
+   "governance_reason": "Official county page found by web search only; the page, its list format and any reuse terms have not been read, so availability is not established and no publication review has been recorded",
+   "last_checked": "2026-10-02",
+   "legacy_status": "REVIEW_REQUIRED",
+   "name": "Lenawee County County land bank holding tax-foreclosed property",
+   "next_action": "See data/available_discovery_evidence.csv. Then: confirm the list states current availability and an identifier column; then publication review and a gated adapter",
+   "origin": "catalog",
+   "publisher": "Lenawee County Landbank Authority",
+   "roles": [
+    "acquisition",
+    "availability",
+    "discovery"
+   ],
+   "source_id": "mi_lenawee_landbank",
+   "source_type": "GOVERNMENT",
+   "state": "MI",
+   "url": "https://www.lenawee.mi.us/850/Lenawee-County-Landbank-Authority"
+  },
+  {
    "access": "NOT_CHECKED",
    "access_note": "click-through not accepted (no account / terms accepted on the project's behalf)",
    "county": "STATEWIDE",
@@ -5090,6 +5113,117 @@
   },
   {
    "access": "ACCESSIBLE",
+   "access_note": "read by the value-free capture, run 37010171899; finding in data/available_discovery_evidence.csv",
+   "county": "Aiken",
+   "evidence": "data/available_discovery_pages.csv (web search 2026-10-02): Forfeited Land Commission service page",
+   "governance": "REVIEW_REQUIRED",
+   "governance_reason": "Official county page found by web search only; the page, its list format and any reuse terms have not been read, so availability is not established and no publication review has been recorded",
+   "last_checked": "2026-10-02",
+   "legacy_status": "REVIEW_REQUIRED",
+   "name": "Aiken County Forfeited Land Commission list (post-sale, county-held)",
+   "next_action": "See data/available_discovery_evidence.csv. Then: confirm the list states current availability and an identifier column; then publication review and a gated adapter",
+   "origin": "catalog",
+   "publisher": "Aiken County Forfeited Land Commission",
+   "roles": [
+    "discovery"
+   ],
+   "source_id": "sc_aiken_forfeited_land",
+   "source_type": "GOVERNMENT",
+   "state": "SC",
+   "url": "https://www.aikencountysc.gov/386/Forfeited-Land-Commission"
+  },
+  {
+   "access": "ACCESSIBLE",
+   "access_note": "read by the value-free capture, run 37010171899; finding in data/available_discovery_evidence.csv",
+   "county": "Fairfield",
+   "evidence": "data/available_discovery_pages.csv (web search 2026-10-02): Forfeited Land Commission page",
+   "governance": "REVIEW_REQUIRED",
+   "governance_reason": "Official county page found by web search only; the page, its list format and any reuse terms have not been read, so availability is not established and no publication review has been recorded",
+   "last_checked": "2026-10-02",
+   "legacy_status": "REVIEW_REQUIRED",
+   "name": "Fairfield County Forfeited Land Commission list (post-sale, county-held)",
+   "next_action": "See data/available_discovery_evidence.csv. Then: confirm the list states current availability and an identifier column; then publication review and a gated adapter",
+   "origin": "catalog",
+   "publisher": "Fairfield County Forfeited Land Commission",
+   "roles": [
+    "discovery"
+   ],
+   "source_id": "sc_fairfield_forfeited_land",
+   "source_type": "GOVERNMENT",
+   "state": "SC",
+   "url": "https://www.fairfieldsc.com/departments/forfeited-land-commission"
+  },
+  {
+   "access": "ACCESSIBLE",
+   "access_note": "read by the value-free capture, run 37010171899; finding in data/available_discovery_evidence.csv",
+   "county": "Georgetown",
+   "evidence": "data/available_discovery_pages.csv (web search 2026-10-02): 2026 FLC list (indexed as updated May 2026)",
+   "governance": "REVIEW_REQUIRED",
+   "governance_reason": "Official county page found by web search only; the page, its list format and any reuse terms have not been read, so availability is not established and no publication review has been recorded",
+   "last_checked": "2026-10-02",
+   "legacy_status": "REVIEW_REQUIRED",
+   "name": "Georgetown County Forfeited Land Commission list (post-sale, county-held)",
+   "next_action": "See data/available_discovery_evidence.csv. Then: confirm the list states current availability and an identifier column; then publication review and a gated adapter",
+   "origin": "catalog",
+   "publisher": "Georgetown County Forfeited Land Commission",
+   "roles": [
+    "acquisition",
+    "availability",
+    "discovery"
+   ],
+   "source_id": "sc_georgetown_forfeited_land",
+   "source_type": "GOVERNMENT",
+   "state": "SC",
+   "url": "https://www.gtcountysc.gov/415/Forfeited-Land-Commission"
+  },
+  {
+   "access": "ACCESSIBLE",
+   "access_note": "read by the value-free capture, run 37010171899; finding in data/available_discovery_evidence.csv",
+   "county": "Jasper",
+   "evidence": "data/available_discovery_pages.csv (web search 2026-10-02): Forfeited Land page",
+   "governance": "REVIEW_REQUIRED",
+   "governance_reason": "Official county page found by web search only; the page, its list format and any reuse terms have not been read, so availability is not established and no publication review has been recorded",
+   "last_checked": "2026-10-02",
+   "legacy_status": "REVIEW_REQUIRED",
+   "name": "Jasper County Forfeited Land Commission list (post-sale, county-held)",
+   "next_action": "See data/available_discovery_evidence.csv. Then: confirm the list states current availability and an identifier column; then publication review and a gated adapter",
+   "origin": "catalog",
+   "publisher": "Jasper County Forfeited Land Commission",
+   "roles": [
+    "acquisition",
+    "availability",
+    "discovery"
+   ],
+   "source_id": "sc_jasper_forfeited_land",
+   "source_type": "GOVERNMENT",
+   "state": "SC",
+   "url": "https://www.jaspercountysc.gov/services/forfeited-land/"
+  },
+  {
+   "access": "ACCESSIBLE",
+   "access_note": "read by the value-free capture, run 37010171899; finding in data/available_discovery_evidence.csv",
+   "county": "Lexington",
+   "evidence": "data/available_discovery_pages.csv (web search 2026-10-02): Treasurer's Forfeited Land Commission page",
+   "governance": "REVIEW_REQUIRED",
+   "governance_reason": "Official county page found by web search only; the page, its list format and any reuse terms have not been read, so availability is not established and no publication review has been recorded",
+   "last_checked": "2026-10-02",
+   "legacy_status": "REVIEW_REQUIRED",
+   "name": "Lexington County Forfeited Land Commission list (post-sale, county-held)",
+   "next_action": "See data/available_discovery_evidence.csv. Then: confirm the list states current availability and an identifier column; then publication review and a gated adapter",
+   "origin": "catalog",
+   "publisher": "Lexington County Forfeited Land Commission",
+   "roles": [
+    "acquisition",
+    "availability",
+    "discovery"
+   ],
+   "source_id": "sc_lexington_forfeited_land",
+   "source_type": "GOVERNMENT",
+   "state": "SC",
+   "url": "https://www.lex-co.sc.gov/departments/treasurer/forfeited-land-commission"
+  },
+  {
+   "access": "ACCESSIBLE",
    "access_note": "production harvester harvest_expansion.py --state SC; last completeness UNKNOWN",
    "county": "Oconee",
    "evidence": "LIVE CAPTURE 2026-10-01 (GitHub Actions runs 36793062673, 36793611223, 36793980491): Oconee County - sc_oconee_tax_sale_list; NO PUBLICATION DECISION YET (UNREVIEWED); docs/five-state-enrichment.md",
@@ -5109,6 +5243,75 @@
    "source_type": "GOVERNMENT",
    "state": "SC",
    "url": "https://oconeesc.com/delinquent-tax/sale-list"
+  },
+  {
+   "access": "ACCESSIBLE",
+   "access_note": "read by the value-free capture, run 37010171899; finding in data/available_discovery_evidence.csv",
+   "county": "Oconee",
+   "evidence": "data/available_discovery_pages.csv (web search 2026-10-02): List of available forfeited land and forfeited land available for assignment",
+   "governance": "REVIEW_REQUIRED",
+   "governance_reason": "Official county page found by web search only; the page, its list format and any reuse terms have not been read, so availability is not established and no publication review has been recorded",
+   "last_checked": "2026-10-02",
+   "legacy_status": "REVIEW_REQUIRED",
+   "name": "Oconee County Forfeited Land Commission list (post-sale, county-held)",
+   "next_action": "See data/available_discovery_evidence.csv. Then: confirm the list states current availability and an identifier column; then publication review and a gated adapter",
+   "origin": "catalog",
+   "publisher": "Oconee County Forfeited Land Commission",
+   "roles": [
+    "acquisition",
+    "availability",
+    "discovery"
+   ],
+   "source_id": "sc_oconee_forfeited_land",
+   "source_type": "GOVERNMENT",
+   "state": "SC",
+   "url": "https://oconeesc.com/auditor-home/forfeited-land"
+  },
+  {
+   "access": "SOURCE_UNAVAILABLE",
+   "access_note": "refused the runner (HTTP 403) on both reads, runs 37009635896 and 37010171899",
+   "county": "Richland",
+   "evidence": "data/available_discovery_pages.csv (web search 2026-10-02): Page titled 'Forfeited Land Available' with an FLC properties listing",
+   "governance": "REVIEW_REQUIRED",
+   "governance_reason": "Official county page found by web search only; the page, its list format and any reuse terms have not been read, so availability is not established and no publication review has been recorded",
+   "last_checked": "2026-10-02",
+   "legacy_status": "REVIEW_REQUIRED",
+   "name": "Richland County Forfeited Land Commission list (post-sale, county-held)",
+   "next_action": "See data/available_discovery_evidence.csv. Then: confirm the list states current availability and an identifier column; then publication review and a gated adapter",
+   "origin": "catalog",
+   "publisher": "Richland County Forfeited Land Commission",
+   "roles": [
+    "acquisition",
+    "availability",
+    "discovery"
+   ],
+   "source_id": "sc_richland_forfeited_land",
+   "source_type": "GOVERNMENT",
+   "state": "SC",
+   "url": "https://www.richlandcountysc.gov/Property-Business/Taxes/Delinquent-Taxes/Forfeited-Land-Available"
+  },
+  {
+   "access": "ACCESSIBLE",
+   "access_note": "read by the value-free capture, run 37010171899; finding in data/available_discovery_evidence.csv",
+   "county": "Spartanburg",
+   "evidence": "data/available_discovery_pages.csv (web search 2026-10-02): FLC properties available for assignment (real estate and mobile homes)",
+   "governance": "REVIEW_REQUIRED",
+   "governance_reason": "Official county page found by web search only; the page, its list format and any reuse terms have not been read, so availability is not established and no publication review has been recorded",
+   "last_checked": "2026-10-02",
+   "legacy_status": "REVIEW_REQUIRED",
+   "name": "Spartanburg County Forfeited Land Commission list (post-sale, county-held)",
+   "next_action": "See data/available_discovery_evidence.csv. Then: confirm the list states current availability and an identifier column; then publication review and a gated adapter",
+   "origin": "catalog",
+   "publisher": "Spartanburg County Forfeited Land Commission",
+   "roles": [
+    "acquisition",
+    "availability",
+    "discovery"
+   ],
+   "source_id": "sc_spartanburg_forfeited_land",
+   "source_type": "GOVERNMENT",
+   "state": "SC",
+   "url": "https://www.spartanburgcounty.org/388/Forfeited-Land-Commission"
   },
   {
    "access": "ACCESSIBLE",
@@ -5153,6 +5356,29 @@
    "source_type": "GOVERNMENT",
    "state": "SC",
    "url": "https://www.arcgis.com/home/item.html?id=0bf91b9d18f14702873af5f3ad870429"
+  },
+  {
+   "access": "ACCESSIBLE",
+   "access_note": "read by the value-free capture, run 37010171899; finding in data/available_discovery_evidence.csv",
+   "county": "York",
+   "evidence": "data/available_discovery_pages.csv (web search 2026-10-02): County fact sheet: parcels receiving no bid at the tax sale go to the Forfeited Land Commission; FLC properties may be posted on the tax collection website in January with assignment dates",
+   "governance": "REVIEW_REQUIRED",
+   "governance_reason": "Official county page found by web search only; the page, its list format and any reuse terms have not been read, so availability is not established and no publication review has been recorded",
+   "last_checked": "2026-10-02",
+   "legacy_status": "REVIEW_REQUIRED",
+   "name": "York County Forfeited Land Commission list (post-sale, county-held)",
+   "next_action": "See data/available_discovery_evidence.csv. Then: confirm the list states current availability and an identifier column; then publication review and a gated adapter",
+   "origin": "catalog",
+   "publisher": "York County Forfeited Land Commission",
+   "roles": [
+    "acquisition",
+    "availability",
+    "discovery"
+   ],
+   "source_id": "sc_york_forfeited_land_commission",
+   "source_type": "GOVERNMENT",
+   "state": "SC",
+   "url": "https://www.yorkcountysc.gov/216/Tax-Collection"
   },
   {
    "access": "ACCESSIBLE",
@@ -7220,6 +7446,29 @@
   },
   {
    "access": "ACCESSIBLE",
+   "access_note": "read by the value-free capture, run 37010171899; finding in data/available_discovery_evidence.csv",
+   "county": "Burnett",
+   "evidence": "data/available_discovery_pages.csv (web search 2026-10-02): Tax Deed Land For Sale page; indexed text states no over-the-counter properties at this time",
+   "governance": "REVIEW_REQUIRED",
+   "governance_reason": "Official county page found by web search only; the page, its list format and any reuse terms have not been read, so availability is not established and no publication review has been recorded",
+   "last_checked": "2026-10-02",
+   "legacy_status": "REVIEW_REQUIRED",
+   "name": "Burnett County County tax-deeded land offered after a failed sale",
+   "next_action": "See data/available_discovery_evidence.csv. Then: confirm the list states current availability and an identifier column; then publication review and a gated adapter",
+   "origin": "catalog",
+   "publisher": "Burnett County Treasurer / Clerk",
+   "roles": [
+    "acquisition",
+    "availability",
+    "discovery"
+   ],
+   "source_id": "wi_burnett_tax_deed_land",
+   "source_type": "GOVERNMENT",
+   "state": "WI",
+   "url": "https://www.burnettcountywi.gov/804/Tax-Deed-Land-For-Sale"
+  },
+  {
+   "access": "ACCESSIBLE",
    "access_note": "production harvester harvest_expansion.py --state WI; last completeness UNKNOWN",
    "county": "Dane",
    "evidence": "LIVE CAPTURE 2026-10-01 (GitHub Actions runs 36793062673, 36793611223, 36793980491): Dane County - wi_dane_tax_deed_auction; NO PUBLICATION DECISION YET (UNREVIEWED); docs/five-state-enrichment.md",
@@ -7330,6 +7579,29 @@
    "url": "https://www.greencountywi.org/492/Current-Tax-Deed-Sales"
   },
   {
+   "access": "SOURCE_UNAVAILABLE",
+   "access_note": "refused the runner (HTTP 403) on both reads, runs 37009635896 and 37010171899",
+   "county": "Marathon",
+   "evidence": "data/available_discovery_pages.csv (web search 2026-10-02): Tax Deed Property page; sale method not established from the index",
+   "governance": "REVIEW_REQUIRED",
+   "governance_reason": "Official county page found by web search only; the page, its list format and any reuse terms have not been read, so availability is not established and no publication review has been recorded",
+   "last_checked": "2026-10-02",
+   "legacy_status": "REVIEW_REQUIRED",
+   "name": "Marathon County County tax-deeded land offered after a failed sale",
+   "next_action": "See data/available_discovery_evidence.csv. Then: confirm the list states current availability and an identifier column; then publication review and a gated adapter",
+   "origin": "catalog",
+   "publisher": "Marathon County Treasurer / Clerk",
+   "roles": [
+    "acquisition",
+    "availability",
+    "discovery"
+   ],
+   "source_id": "wi_marathon_tax_deed_property",
+   "source_type": "GOVERNMENT",
+   "state": "WI",
+   "url": "https://www.marathoncounty.gov/services/tax-deed-property"
+  },
+  {
    "access": "ACCESSIBLE",
    "access_note": "columns verified live; five-state sprint evidence (2026-10-01): layer fields, count 3,574,646, Green / Dane PARCELID shapes.",
    "county": "STATEWIDE",
@@ -7352,6 +7624,29 @@
    "source_type": "GIS",
    "state": "WI",
    "url": "https://www.sco.wisc.edu/parcels/data/"
+  },
+  {
+   "access": "ACCESSIBLE",
+   "access_note": "read by the value-free capture, run 37010171899; finding in data/available_discovery_evidence.csv",
+   "county": "Wood",
+   "evidence": "data/available_discovery_pages.csv (web search 2026-10-02): Tax-deeded parcels offered by closed bid that did not sell are offered over the counter at the Treasurer's office",
+   "governance": "REVIEW_REQUIRED",
+   "governance_reason": "Official county page found by web search only; the page, its list format and any reuse terms have not been read, so availability is not established and no publication review has been recorded",
+   "last_checked": "2026-10-02",
+   "legacy_status": "REVIEW_REQUIRED",
+   "name": "Wood County County tax-deeded land offered after a failed sale",
+   "next_action": "See data/available_discovery_evidence.csv. Then: confirm the list states current availability and an identifier column; then publication review and a gated adapter",
+   "origin": "catalog",
+   "publisher": "Wood County Treasurer / Clerk",
+   "roles": [
+    "acquisition",
+    "availability",
+    "discovery"
+   ],
+   "source_id": "wi_wood_tax_deed_otc",
+   "source_type": "GOVERNMENT",
+   "state": "WI",
+   "url": "https://www.woodcountywi.gov/Departments/Treasurer/TaxDeed.aspx"
   },
   {
    "access": "SOURCE_UNAVAILABLE",
@@ -7506,12 +7801,12 @@
   "MI": {
    "APPROVED": 4,
    "HARD_BLOCKED": 0,
-   "REVIEW_REQUIRED": 1,
+   "REVIEW_REQUIRED": 2,
    "by_type": {
     "GIS": 1,
-    "GOVERNMENT": 4
+    "GOVERNMENT": 5
    },
-   "sources": 5
+   "sources": 6
   },
   "NATIONAL": {
    "APPROVED": 3,
@@ -7526,12 +7821,12 @@
   "SC": {
    "APPROVED": 2,
    "HARD_BLOCKED": 0,
-   "REVIEW_REQUIRED": 1,
+   "REVIEW_REQUIRED": 10,
    "by_type": {
     "DOCUMENT": 1,
-    "GOVERNMENT": 2
+    "GOVERNMENT": 11
    },
-   "sources": 3
+   "sources": 12
   },
   "TX": {
    "APPROVED": 16,
@@ -7560,12 +7855,12 @@
   "WI": {
    "APPROVED": 3,
    "HARD_BLOCKED": 0,
-   "REVIEW_REQUIRED": 3,
+   "REVIEW_REQUIRED": 6,
    "by_type": {
     "GIS": 1,
-    "GOVERNMENT": 5
+    "GOVERNMENT": 8
    },
-   "sources": 6
+   "sources": 9
   },
   "WV": {
    "APPROVED": 0,

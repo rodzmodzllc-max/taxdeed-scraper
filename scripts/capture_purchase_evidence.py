@@ -92,6 +92,49 @@ DOC_EXT = re.compile(r"\.(pdf|docx?|rtf)(\?|#|$)", re.I)
 NEVER_FOLLOW = re.compile(r"(^|\.)(google|bing|yahoo|duckduckgo|facebook|twitter|x|instagram|linkedin|youtube|"
                           r"govease|bid4assets|lgbs|pbfcm|mvbalaw|mvba|ctsa|zillow|realtor)\.", re.I)
 MAX_FOLLOW_PER_COUNTY = 6
+# AVAILABLE discovery mode (--discovery, evidence_scope=available_discovery):
+# post-sale program pages name their lists differently from Florida's Lands
+# Available ("FLC Properties Available for Assignment", "Over the Counter",
+# "Land - For Sale", land-bank inventories). In this mode those words also
+# select and follow links, every snippet has its digits masked (an
+# identifier, amount or acreage never reaches the log), and each table /
+# PDF reports only its SHAPE: header words with digits masked, the row count
+# and the share of rows carrying a digit run (identifier-shaped). Never a value.
+DISCOVERY = False
+DISCOVERY_VOCAB = re.compile(r"forfeit|\bflc\b|assignment|over[\s-]the[\s-]counter|\botc\b|for sale|land sale|land ?bank|"
+                             r"available|surplus|struck|resale|propert(y|ies) list|inventory|no propert|none available", re.I)
+IDENT_RUN = re.compile(r"\d[\d\-./]{2,}")
+MAX_TABLES = 8
+
+
+def mask_digits(text: str) -> str:
+    return re.sub(r"\d", "#", text)
+
+
+# A row of an inventory list (an identifier-shaped digit run, or an amount)
+# also carries names and addresses, which masking digits does not remove.
+# In discovery mode such a line is NEVER printed - only counted.
+ROW_LIKE = re.compile(r"\d[\d\-./]{2,}|\$\s*\d")
+
+
+def row_like(text: str) -> bool:
+    return bool(ROW_LIKE.search(text or ""))
+
+
+def table_shapes(soup) -> list[dict]:
+    """Value-free shape of each table: header words (digits masked), row
+    count, rows carrying an identifier-shaped digit run."""
+    out = []
+    for t in soup.find_all("table")[:MAX_TABLES]:
+        rows = t.find_all("tr")
+        if not rows:
+            continue
+        head_cells = rows[0].find_all(["th", "td"])
+        header = [mask_digits(clean(c.get_text(" ")))[:40] for c in head_cells][:12]
+        body = rows[1:]
+        with_ident = sum(1 for r in body if IDENT_RUN.search(r.get_text(" ")))
+        out.append({"header": header, "rows": len(body), "rows_with_identifier_shape": with_ident})
+    return out
 STATUS_LABEL = re.compile(r"status", re.I)
 
 
@@ -137,28 +180,36 @@ def extract_html(html: str, url: str, *, keep_tables: bool = False) -> dict:
         if LONG_DIGITS.search(absolute) or LONG_DIGITS.search(text):
             continue
         is_doc = bool(DOC_EXT.search(absolute))
-        if LINK_VOCAB.search(text) or LINK_VOCAB.search(absolute) or is_doc:
-            links.append({"text": text[:120], "href": absolute, "host": (urlsplit(absolute).hostname or "").lower(),
-                          "same_site": same_site(absolute, url), "document": is_doc,
-                          "follow": bool(FOLLOW_VOCAB.search(text) or FOLLOW_VOCAB.search(absolute))})
+        disc = DISCOVERY and bool(DISCOVERY_VOCAB.search(text) or DISCOVERY_VOCAB.search(absolute))
+        if LINK_VOCAB.search(text) or LINK_VOCAB.search(absolute) or is_doc or disc:
+            follow = bool(FOLLOW_VOCAB.search(text) or FOLLOW_VOCAB.search(absolute)) or (disc and same_site(absolute, url))
+            links.append({"text": (mask_digits(text) if DISCOVERY else text)[:120], "href": absolute,
+                          "host": (urlsplit(absolute).hostname or "").lower(),
+                          "same_site": same_site(absolute, url), "document": is_doc, "follow": follow})
         if len(links) >= MAX_LINKS:
             break
     # Process text lives outside the inventory table: drop tables, scripts,
     # navigation before reading sentences, so no row value is captured.
     # A followed PROCESS page (FAQ, instructions) may lay its text out in a
     # table; the source's inventory list is never read with tables kept.
-    for tag in soup.find_all((["table"] if not keep_tables else []) + ["script", "style", "nav", "noscript"]):
+    shapes = table_shapes(soup) if DISCOVERY else None
+    for tag in soup.find_all((["table"] if (not keep_tables or DISCOVERY) else []) + ["script", "style", "nav", "noscript"]):
         tag.decompose()
     body_text = soup.get_text("\n")
     snippets = []
     for s in sentences(body_text):
-        if SNIPPET_VOCAB.search(s) and not LONG_DIGITS.search(s) and len(s) > 25:
-            snippets.append(s[:MAX_SNIPPET_CHARS])
+        if DISCOVERY and row_like(s):
+            continue
+        if (SNIPPET_VOCAB.search(s) or (DISCOVERY and DISCOVERY_VOCAB.search(s))) and not LONG_DIGITS.search(s) and len(s) > 25:
+            snippets.append((mask_digits(s) if DISCOVERY else s)[:MAX_SNIPPET_CHARS])
         if len(snippets) >= MAX_SNIPPETS:
             break
     phones = sorted(set(m.group(0) for m in PHONE.finditer(body_text)))[:10]
     emails = sorted(set(m.group(0) for m in EMAIL.finditer(body_text)))[:10]
-    return {"title": title, "headings": headings, "links": links, "snippets": snippets, "phones": phones, "emails": emails}
+    out = {"title": title, "headings": headings, "links": links, "snippets": snippets, "phones": phones, "emails": emails}
+    if shapes is not None:
+        out["table_shapes"] = shapes
+    return out
 
 
 def extract_pdf(data: bytes) -> dict:
@@ -171,6 +222,17 @@ def extract_pdf(data: bytes) -> dict:
         for page in pdf.pages[:4]:
             text_parts.append(page.extract_text() or "")
     text = "\n".join(text_parts)
+    if DISCOVERY:
+        lines = [clean(l) for l in text.splitlines() if clean(l)]
+        # Sentences are re-split per LINE first: a PDF row has no full stop,
+        # so a sentence can swallow a header and several rows together.
+        units = [u for l in lines for u in sentences(l)]
+        snippets = [mask_digits(s)[:MAX_SNIPPET_CHARS] for s in units
+                    if not row_like(s) and (SNIPPET_VOCAB.search(s) or DISCOVERY_VOCAB.search(s)) and len(s) > 25][:MAX_SNIPPETS]
+        return {"pages_read": min(4, len(text_parts)), "snippets": snippets,
+                "pdf_shape": {"lines": len(lines), "lines_with_identifier_shape": sum(1 for l in lines if IDENT_RUN.search(l)),
+                              "first_lines": [mask_digits(l)[:100] for l in lines if not row_like(l)][:6]},
+                "phones": sorted(set(m.group(0) for m in PHONE.finditer(text)))[:10]}
     snippets = [s[:MAX_SNIPPET_CHARS] for s in sentences(text) if SNIPPET_VOCAB.search(s) and not LONG_DIGITS.search(s) and len(s) > 25][:MAX_SNIPPETS]
     return {"pages_read": min(4, len(text_parts)), "snippets": snippets,
             "phones": sorted(set(m.group(0) for m in PHONE.finditer(text)))[:10],
@@ -380,6 +442,11 @@ def digest(path: Path, *, max_links: int = 25, max_snippets: int = 25, snippet_c
                 out.append(f"  link: {l['text'][:70]!r} -> {l['href']} [{'same' if l.get('same_site') else 'OTHER'}{' DOC' if l.get('document') else ''}{' follow' if l.get('follow') else ''}]")
             for sn in (pg.get("snippets") or [])[:max_snippets]:
                 out.append(f"  s: {sn[:snippet_chars]}")
+            for t in pg.get("table_shapes") or []:
+                out.append(f"  table: rows={t['rows']} id-shaped={t['rows_with_identifier_shape']} header={' | '.join(t['header'])}")
+            if pg.get("pdf_shape"):
+                ps = pg["pdf_shape"]
+                out.append(f"  pdf: lines={ps['lines']} id-shaped={ps['lines_with_identifier_shape']} first: {' / '.join(ps['first_lines'])}")
             if pg.get("phones"):
                 out.append("  phones: " + ", ".join(pg["phones"]))
             if pg.get("emails"):
@@ -442,8 +509,16 @@ def main(argv=None) -> int:
     ap.add_argument("--candidates", action="store_true",
                     help="read only the official candidate pages in data/acquisition_candidate_pages.csv (all states unless --state-filter)")
     ap.add_argument("--state-filter", action="append", default=[], help="with --candidates: limit to these states (repeatable)")
+    ap.add_argument("--discovery", action="store_true",
+                    help="AVAILABLE discovery mode: also select / follow FLC, assignment, over-the-counter, for-sale and "
+                         "land-bank links; mask every digit; report table / PDF shapes only")
+    ap.add_argument("--candidates-file", default=str(CANDIDATES),
+                    help="with --candidates: the candidate list to read (default data/acquisition_candidate_pages.csv; "
+                         "data/available_discovery_pages.csv holds the AVAILABLE discovery candidates)")
     ap.add_argument("--out", default=str(OUT_PATH))
     args = ap.parse_args(argv)
+    global DISCOVERY
+    DISCOVERY = bool(getattr(args, "discovery", False))
     if args.digest:
         print(digest(Path(args.digest)))
         return 0
@@ -455,7 +530,9 @@ def main(argv=None) -> int:
     if args.candidates:
         print("capturing official acquisition candidate pages", flush=True)
         report["state"] = ",".join(args.state_filter) or "all"
-        report["available_sources"] = capture_candidates(session, set(args.state_filter) or None, counties, follow=args.follow)
+        report["candidates_file"] = Path(args.candidates_file).name
+        report["available_sources"] = capture_candidates(session, set(args.state_filter) or None, counties, follow=args.follow,
+                                                         path=Path(args.candidates_file))
     elif not args.skip_available:
         print(f"capturing AVAILABLE source pages ({args.state})", flush=True)
         report["available_sources"] = capture_available(session, args.state, counties, follow=args.follow)

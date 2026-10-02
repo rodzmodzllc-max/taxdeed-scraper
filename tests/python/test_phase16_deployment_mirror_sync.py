@@ -53,6 +53,7 @@ DEPLOYED_BUNDLE_FILES = (
     "county-centroids.json",
     "satellite-map.js",
     "source-inventory.json",
+    "available-coverage.json",
     "explore.css",
     "explore.js",
     "fl-cities.json",
