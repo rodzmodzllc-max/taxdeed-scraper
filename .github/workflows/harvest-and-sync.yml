@@ -159,7 +159,18 @@ on:
         required: false
         type: choice
         default: all
-        options: [all, deeds, certificates, laft, texas, backup, evidence, outcomes, expansion, enrich, storage, available]
+        options: [all, deeds, certificates, laft, texas, backup, evidence, outcomes, expansion, enrich, storage, available, auction]
+      auction_mode:
+        description: >-
+          (job=auction only) "apply" attaches each county's verified sale process
+          to its active auction rows in every production state; "plan" reports
+          the same without writing; "fdor_probe" is the read-only, value-free
+          probe of exact identifier transforms against the statewide FDOR layer
+          (scripts/probe_fdor_identifier_rules.py).
+        required: false
+        type: choice
+        default: plan
+        options: [plan, apply, fdor_probe]
       enrich_states:
         description: >-
           (job=enrich only) Comma-separated postal codes for the enrichment
@@ -229,7 +240,7 @@ on:
         required: false
         type: choice
         default: available
-        options: [available, auction_results, state_sources, expansion, field_fill, five_state, five_state_pass2, five_state_pass3, enrich_sources, enrich_sources_2, enrich_sources_3, enrich_sources_4, acquisition_candidates]
+        options: [available, auction_results, state_sources, expansion, field_fill, five_state, five_state_pass2, five_state_pass3, enrich_sources, enrich_sources_2, enrich_sources_3, enrich_sources_4, acquisition_candidates, auction_candidates, auction_process]
 
 concurrency:
   group: harvest-and-sync
@@ -335,6 +346,17 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 scripts/backfill_source_ids.py --source auction
+
+      - name: Auction sale process - attach each county's verified process (FL)
+        # scripts/apply_auction_process.py: data/auction_process_evidence.csv ->
+        # otc_provenance.auction_process (county-level); fill-blank sale_date only
+        # where the page states it for the current list. Never a lifecycle field.
+        if: steps.sync.outcome == 'success'
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/apply_auction_process.py --state FL
 
       - name: Change detection - deterministic property changes and customer alerts
         # scripts/detect_property_changes.py: status / sale date / opening bid /
@@ -1377,6 +1399,25 @@ jobs:
             python3 scripts/capture_state_sources.py --expansion --skip-registry
             exit 0
           fi
+          if [ "$SCOPE" = "auction_candidates" ]; then
+            # Auction sprint (2026-10-02): official auction-process pages (clerk
+            # tax-deed sale pages, sheriff / tax-office sale pages, sale PDFs) for
+            # the AUCTION ledger. Read-only and value-free; nothing is written.
+            cargs=""
+            IFS=',' read -ra cs <<< "$COUNTIES"
+            for c in "${cs[@]}"; do c="$(echo "$c" | xargs)"; [ -n "$c" ] && cargs="$cargs --county \"$c\""; done
+            eval python3 scripts/capture_purchase_evidence.py --candidates --candidates-file data/auction_candidate_pages.csv --follow $cargs
+            exit 0
+          fi
+          if [ "$SCOPE" = "auction_process" ]; then
+            # Value-free county sale-process capture (scripts/capture_auction_process.py):
+            # official pages from data/auction_candidate_pages.csv + one hop to their
+            # tax-sale documents; prints only sale-process sentences. Writes nothing.
+            cargs=""; IFS=',' read -ra cs <<< "$COUNTIES"
+            for c in "${cs[@]}"; do c="$(echo "$c" | xargs)"; [ -n "$c" ] && cargs="$cargs --county \"$c\""; done
+            eval python3 scripts/capture_auction_process.py $cargs
+            exit 0
+          fi
           if [ "$SCOPE" = "acquisition_candidates" ]; then
             # Acquisition-path sprint: official process pages found for the
             # counties whose source page publishes no process. Read-only,
@@ -1402,12 +1443,14 @@ jobs:
         if: always()
         run: |
           echo "::group::purchase-evidence digest"
-          if [ -f out/public/field-fill.json ]; then
+          if [ -f out/public/auction-process-capture.json ]; then
+            echo "auction sale-process digest printed by the capture step above"
+          elif [ -f out/public/field-fill.json ]; then
             echo "field fill rates printed by the capture step above"
           elif [ -f out/public/state-source-capture.json ]; then
             python3 scripts/capture_state_sources.py --digest out/public/state-source-capture.json
           else
-            python3 scripts/capture_purchase_evidence.py --digest out/public/purchase-evidence-capture.json
+            python3 scripts/capture_purchase_evidence.py --digest out/public/purchase-evidence-capture.json --digest-snippets 40
           fi
           echo "::endgroup::"
 
@@ -1422,6 +1465,7 @@ jobs:
           status=out/public/purchase-evidence-capture.json
           [ -f out/public/state-source-capture.json ] && status=out/public/state-source-capture.json
           [ -f out/public/field-fill.json ] && status=out/public/field-fill.json
+          [ -f out/public/auction-process-capture.json ] && status=out/public/auction-process-capture.json
           python3 scripts/artifact_evidence.py --job purchase-evidence --status "$status"
 
       - name: Upload artifact (evidence)
@@ -1615,6 +1659,49 @@ jobs:
           path: |
             out/public/
             out/private/
+
+  auction:
+    # Auction sale-process engine (2026-10-02) - MANUAL ONLY (job=auction),
+    # never scheduled, never part of "all". Attaches each county's VERIFIED
+    # sale process (data/auction_process_evidence.csv) to its active auction
+    # rows in every production state as otc_provenance.auction_process -
+    # county-level guidance, never a purchase path; fills a BLANK sale_date
+    # only where the county's page states it for the current list. Requests
+    # no source; never status, amounts, owners or outcomes. Counts only.
+    name: Auction sale process (manual only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.job == 'auction'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python dependencies
+        run: pip install requests
+
+      - name: Attach verified county sale processes (every production state)
+        if: github.event.inputs.auction_mode == 'apply' || github.event.inputs.auction_mode == 'plan'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          MODE: ${{ github.event.inputs.auction_mode }}
+        run: |
+          flag=""; [ "$MODE" = "plan" ] && flag="--dry-run"
+          for st in FL TX MI WY SC WI CO; do
+            python3 scripts/apply_auction_process.py --state "$st" $flag --report "out/public/auction-process-apply-$st.json" || echo "apply failed for $st"
+          done
+
+      - name: FDOR identifier probe (read-only, value-free)
+        if: github.event.inputs.auction_mode == 'fdor_probe'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/probe_fdor_identifier_rules.py --per-county 8
 
   available:
     # All-sources AVAILABLE enrichment engine (2026-10-01) - MANUAL ONLY

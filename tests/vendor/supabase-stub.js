@@ -19,7 +19,14 @@ const FIXTURE_PROPERTIES = [
   // ('county'), certificates LienHub's county-held list ('county'). p7/p8
   // exercise the two remaining kinds; p9 keeps a URL with NO kind (a row
   // written before migration 013) so the neutral fallback label is covered.
-  { id: "p1", source: "auction", county: "Alachua", case_no: "A-1", parcel: "111", address: "1 Main St", owner_name: "Jane Doe", bid: 5000, assessed: 80000, market: 90000, value_year: 2025, year_built: 1958, living_area: 1840, lot_sqft: 16456, num_buildings: 1, land_value: 22000, last_sale_price: 41500, last_sale_year: 2011, legal_desc: "BEG 418 FT S AND 110 FT W OF INTER OF E AND W HALF SEC LI AND L AND N RR W 100 FT N 50 FT E 100 FT S 50 FT TO POB", status: "active", lien_level: "clean", lien_note: "", prop_type: "House", sale_date: futureDate(3), homestead: false, harvester_source: "fl_realauction_alachua", url_streetview: "https://x", url_appraiser: "https://x", url_zillow: "https://x", url_taxcoll: "https://x", url_auction: txSaleUrl("alachua.realtaxdeed.com", futureDate(3)), url_auction_kind: "sale", url_title: "https://x", updated_at: "2026-08-10T00:00:00Z" },
+  { id: "p1", source: "auction", county: "Alachua", case_no: "A-1", parcel: "111", address: "1 Main St", owner_name: "Jane Doe", bid: 5000, assessed: 80000, market: 90000, value_year: 2025, year_built: 1958, living_area: 1840, lot_sqft: 16456, num_buildings: 1, land_value: 22000, last_sale_price: 41500, last_sale_year: 2011, legal_desc: "BEG 418 FT S AND 110 FT W OF INTER OF E AND W HALF SEC LI AND L AND N RR W 100 FT N 50 FT E 100 FT S 50 FT TO POB", status: "active", lien_level: "clean", lien_note: "", prop_type: "House", sale_date: futureDate(3), homestead: false, harvester_source: "fl_realauction_alachua", url_streetview: "https://x", url_appraiser: "https://x", url_zillow: "https://x", url_taxcoll: "https://x", url_auction: txSaleUrl("alachua.realtaxdeed.com", futureDate(3)), url_auction_kind: "sale", url_title: "https://x",
+    // Cross-state enrichment sprint: the county sale process as scripts/apply_auction_process.py writes it (SYNTHETIC values).
+    otc_provenance: { auction_process: { scope: "county", method: "online", method_label: "Online auction", platform_url: "https://alachua.realtaxdeed.com/",
+      registration_required: true, deposit: "FIXTURE: 5% of the bid, by the time stated on the sale site", payment_methods: "FIXTURE: wire transfer or cashier's check",
+      payment_deadline: "FIXTURE: balance due by the next business day", sale_time: "FIXTURE: 10:00 a.m.", office: "Alachua County Clerk - Tax Deeds", phone: "352-000-0000",
+      steps: ["FIXTURE: register on the sale site", "FIXTURE: fund the deposit before bidding"], evidence_url: "https://alachuaclerk.example/tax-deeds", source_title: "FIXTURE Tax Deed Sales",
+      observed_on: "2026-10-02", source_id: "fl_realauction" } },
+    updated_at: "2026-08-10T00:00:00Z" },
   { id: "p2", source: "auction", county: "Baker", case_no: "B-1", parcel: "222", address: "", owner_name: null, bid: 15000, assessed: 40000, market: 42000, status: "dropped", lien_level: "serious", lien_note: "lien", prop_type: "Vacant Lot", sale_date: futureDate(30), homestead: false, url_auction: "https://x", url_auction_kind: "sale", updated_at: "2026-08-10T00:00:00Z", gone_since: "2026-08-01T00:00:00Z" },
   // p3 also carries migration 017's OTC columns as the FL LAFT lifecycle
   // writes them (inventory_type, source_authority/source_id, list_url,
@@ -717,7 +724,9 @@ export function createClient() {
         const LEDGER_FOR_SOURCE = { auction: "auctions", laft: "buy", certificate: "lien" };
         const cap = Number(new URLSearchParams(location.search).get("maxrows")) || 1000;
         window.__stubGetPropertiesCalls = (window.__stubGetPropertiesCalls || 0) + 1;
-        const rows = FIXTURE_PROPERTIES.filter(p => (p.state || "FL") === pState)
+        // ?emptystate=1: a registered state that currently has no rows at all.
+        const EMPTY_STATE = new URLSearchParams(location.search).get("emptystate") === "1";
+        const rows = FIXTURE_PROPERTIES.filter(p => !EMPTY_STATE && (p.state || "FL") === pState)
           .filter(p => !args.p_ledger_type || (p.ledger_type || LEDGER_FOR_SOURCE[p.source]) === args.p_ledger_type)
           .slice().sort((a, b) => String(a.county).localeCompare(String(b.county)) || String(a.case_no).localeCompare(String(b.case_no)));
         const offset = Number(args.p_offset) || 0, limit = Math.min(Number(args.p_limit) || 20000, cap);
