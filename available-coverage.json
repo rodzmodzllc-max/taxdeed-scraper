@@ -313,6 +313,42 @@
      "read_at": "2026-10-02T13:00:41Z",
      "source_id": "mi_lenawee_landbank",
      "url": "https://www.lenawee.mi.us/850/Lenawee-County-Landbank-Authority"
+    },
+    {
+     "access": "ACCESSIBLE",
+     "availability": "NOT_READ",
+     "county": "Oceana",
+     "governance": "REVIEW_REQUIRED",
+     "identifier_confirmed": false,
+     "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
+     "publication_review": "",
+     "read_at": "",
+     "source_id": "MI:Oceana:mi_oceana_landbank",
+     "url": "https://oceana.mi.us/departments/treasurer/land-bank-authority/"
+    },
+    {
+     "access": "ACCESSIBLE",
+     "availability": "NOT_READ",
+     "county": "Wayne",
+     "governance": "REVIEW_REQUIRED",
+     "identifier_confirmed": false,
+     "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
+     "publication_review": "",
+     "read_at": "",
+     "source_id": "MI:Wayne:mi_detroit_landbank_lots",
+     "url": "https://www.arcgis.com/home/item.html?id=848bc665295f4ca9b1e25068ffa88ab0"
+    },
+    {
+     "access": "ACCESSIBLE",
+     "availability": "NOT_READ",
+     "county": "Wayne",
+     "governance": "REVIEW_REQUIRED",
+     "identifier_confirmed": false,
+     "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
+     "publication_review": "",
+     "read_at": "",
+     "source_id": "MI:Wayne:mi_detroit_landbank_programs",
+     "url": "https://www.arcgis.com/home/item.html?id=e0c4f46a09b9405cb18837e66e85c622"
     }
    ],
    "last_reads": {},
@@ -338,11 +374,23 @@
      "county": "Georgetown",
      "governance": "REVIEW_REQUIRED",
      "identifier_confirmed": true,
-     "name": "Georgetown County Forfeited Land Commission list (post-sale, county-held)",
+     "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
      "publication_review": "REVIEW_REQUIRED",
      "read_at": "2026-10-02T16:27:27Z",
-     "source_id": "sc_georgetown_forfeited_land",
+     "source_id": "SC:Georgetown:sc_georgetown_forfeited_land",
      "url": "https://www.gtcountysc.gov/415/Forfeited-Land-Commission"
+    },
+    {
+     "access": "ACCESSIBLE",
+     "availability": "NOT_READ",
+     "county": "Horry",
+     "governance": "REVIEW_REQUIRED",
+     "identifier_confirmed": false,
+     "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
+     "publication_review": "",
+     "read_at": "",
+     "source_id": "SC:Horry:sc_horry_forfeited_land",
+     "url": "https://horrycountysc.gov/boards-and-commissions/forfeited-land-commission/"
     },
     {
      "access": "ACCESSIBLE",
@@ -736,18 +784,6 @@
      "read_at": "2026-10-02T13:01:17Z",
      "source_id": "wi_burnett_tax_deed_land",
      "url": "https://www.burnettcountywi.gov/804/Tax-Deed-Land-For-Sale"
-    },
-    {
-     "access": "NOT_CHECKED",
-     "availability": "NOT_READ",
-     "county": "Dane",
-     "governance": "REVIEW_REQUIRED",
-     "identifier_confirmed": false,
-     "name": "Dane County Tax Deed Auction pages",
-     "publication_review": "",
-     "read_at": "",
-     "source_id": "wi_dane_tax_deed_auction",
-     "url": ""
     },
     {
      "access": "SOURCE_UNAVAILABLE",

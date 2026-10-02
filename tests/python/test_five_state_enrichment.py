@@ -263,7 +263,11 @@ def test_g01_publication_decisions_per_source():
         assert "Creative Commons Attribution-ShareAlike 4.0" in reg[sid].restrictions
     for sid in gated:
         assert pub.effective_publication(reg[sid]) == "UNREVIEWED" and not SP.publishable(reg[sid]), sid
-    assert set(EX.PUBLICATION) == approved | gated
+    # AVAILABLE sprint: the held AVAILABLE sources are UNREVIEWED too (collected and held, never written).
+    held = set(EX.AVAILABLE_SPRINT_SOURCE_IDS)
+    for sid in held:
+        assert pub.effective_publication(reg[sid]) == "UNREVIEWED" and not SP.publishable(reg[sid]), sid
+    assert set(EX.PUBLICATION) == approved | gated | held
 
 
 def test_g02_unreviewed_sources_make_no_request_and_write_no_row():

@@ -129,6 +129,13 @@ SOURCE_LEDGERS: dict[str, frozenset[Ledger]] = {
     "co_morgan_treasurer_deed_auctions": frozenset({Ledger.AUCTIONS}),
     "wi_dane_tax_deed_auction": frozenset({Ledger.AUCTIONS}),
     "sc_oconee_tax_sale_list": frozenset({Ledger.AUCTIONS}),
+    # AVAILABLE implementation sprint (2026-10-02): government-held property the
+    # source offers for acquisition; collected and held until publication review.
+    "mi_detroit_landbank_lots": frozenset({Ledger.AVAILABLE}),
+    "mi_detroit_landbank_programs": frozenset({Ledger.AVAILABLE}),
+    "mi_oceana_landbank": frozenset({Ledger.AVAILABLE}),
+    "sc_horry_forfeited_land": frozenset({Ledger.AVAILABLE}),
+    "sc_georgetown_forfeited_land": frozenset({Ledger.AVAILABLE}),
 }
 # The four blocked Texas vendors: discovery only, they feed no ledger.
 BLOCKED_SOURCE_IDS = frozenset({"tx_pbfcm", "tx_mvba", "tx_govease", "tx_ctsa"})

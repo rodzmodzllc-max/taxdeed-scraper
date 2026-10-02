@@ -2213,6 +2213,19 @@ Full description: `docs/sc-available-inventory.md`. Stable facts:
   (`scripts/capture_sc_available.py`). Structure and counts only; a privacy
   test feeds it PII and proves none reaches its output.
 
+## AVAILABLE inventory sprint (2026-10-02, PR open, no migration)
+
+Full description: `docs/available-inventory.md`. Stable facts:
+- **Five new AVAILABLE sources, all UNREVIEWED.** Each is collected and HELD, never synced:
+  - Detroit Land Bank lots;
+  - Detroit Land Bank programs (Auction program excluded);
+  - Oceana MI Land Bank;
+  - Horry SC FLC yearly workbooks;
+  - Georgetown SC FLC PDF.
+- **Held collection:** `harvest_expansion.held_sources()` and `run_held()` write `out/<st>_held_rows.json` and `out/harvest_<st>_held_status.json`. `sync_state_inventory.py` never reads either file. An APPROVED admin review moves a source into the sync path.
+- **Horry redemption rule:** `sc_flc.list_year_past_redemption`. A year's list is AVAILABLE only from Jan 1 of year + 2. The current year is an assignment list.
+- **Candidate pages:** `data/available_source_candidates.csv`. Capture them with `job=evidence`, `evidence_scope=available_sources`. `available_validate` runs the real MI/SC harvest path with no credentials.
+
 ## Where to look for more
 
 - `claude/improvement-roadmap.md` in the "tax florida app" claude.ai Project — the full dated log of every fix, audit finding, and open decision. This is where new findings should be appended, not here.

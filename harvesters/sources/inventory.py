@@ -196,8 +196,13 @@ def _catalog_sources() -> list[UnifiedSource]:
 
 @lru_cache(maxsize=1)
 def build_inventory() -> tuple[UnifiedSource, ...]:
-    return tuple(_registry_sources() + _parcel_sources() + _builtin_sources() + _evidence_sources()
-                 + _candidate_sources() + _catalog_sources())
+    registry = _registry_sources()
+    # A catalog candidate that has graduated to a registry source (its
+    # source_id is now a registry row) is that registry source - listed once.
+    graduated = {s.source_id.split(":")[-1] for s in registry}
+    catalog = [s for s in _catalog_sources() if s.source_id not in graduated]
+    return tuple(registry + _parcel_sources() + _builtin_sources() + _evidence_sources()
+                 + _candidate_sources() + catalog)
 
 
 def sources_for(state: str, county: str, inventory=None) -> list[UnifiedSource]:

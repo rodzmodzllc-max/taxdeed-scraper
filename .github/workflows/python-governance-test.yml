@@ -68,7 +68,7 @@ jobs:
       # requests above: install the real dependency, never stub it, so CI
       # exercises what production runs. Still no network call anywhere.
       - name: Install pytest
-        run: pip install pytest pyyaml requests beautifulsoup4 pdfplumber
+        run: pip install pytest pyyaml requests beautifulsoup4 pdfplumber openpyxl
 
       # Deliberately NOT continue-on-error, NOT `|| true`, NOT a soft-fail
       # wrapper of any kind (Phase 10B Step 3's explicit requirement) - a

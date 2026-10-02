@@ -122,8 +122,15 @@ def test_evidence_problems_catch_bad_rows(tmp_path, monkeypatch):
 def test_no_discovered_candidate_becomes_a_registry_source_of_rows():
     """A candidate is recorded in the catalog only - no registry row (which is
     what harvesters and syncs read) was added for it."""
-    reg_urls = {(r.canonical_url or r.document_url) for r in load_registry()}
+    reg = load_registry()
+    reg_urls = {(r.canonical_url or r.document_url) for r in reg}
     for p in _rows(AC.DISCOVERY_PATH):
+        graduated = [r for r in reg if r.source_id == p["source_id"]]
+        if graduated:
+            # A candidate that became an adapter (AVAILABLE sprint: Georgetown) is a
+            # held AVAILABLE registry source - UNREVIEWED, so no row is ever written.
+            assert all(r.publication_status == "UNREVIEWED" and r.ledger_set == {"AVAILABLE"} for r in graduated)
+            continue
         assert p["url"] not in reg_urls
 
 

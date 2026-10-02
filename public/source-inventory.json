@@ -5004,6 +5004,31 @@
    "url": "https://www.lenawee.mi.us/850/Lenawee-County-Landbank-Authority"
   },
   {
+   "access": "ACCESSIBLE",
+   "access_note": "production harvester harvest_expansion.py --state MI; last completeness UNKNOWN",
+   "county": "Oceana",
+   "evidence": "LIVE CAPTURE 2026-10-02 (GitHub Actions runs 37037960068, 37038385659): Oceana County - mi_oceana_landbank; NO PUBLICATION DECISION YET (UNREVIEWED); docs/available-inventory.md",
+   "governance": "REVIEW_REQUIRED",
+   "governance_reason": "no publication / reuse review recorded yet",
+   "last_checked": "2026-10-02",
+   "legacy_status": "UNREVIEWED",
+   "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
+   "next_action": "Publication / rights review (registry restrictions: AVAILABLE source read live; no reuse licence or owner decision yet: collected and held on each run, but no row is written to properties until an admin review approves it.)",
+   "origin": "registry",
+   "publisher": "Oceana County",
+   "roles": [
+    "acquisition",
+    "availability",
+    "identity",
+    "lifecycle",
+    "source_date"
+   ],
+   "source_id": "MI:Oceana:mi_oceana_landbank",
+   "source_type": "GOVERNMENT",
+   "state": "MI",
+   "url": "https://oceana.mi.us/departments/treasurer/land-bank-authority/"
+  },
+  {
    "access": "NOT_CHECKED",
    "access_note": "click-through not accepted (no account / terms accepted on the project's behalf)",
    "county": "STATEWIDE",
@@ -5026,6 +5051,54 @@
    "source_type": "GIS",
    "state": "MI",
    "url": ""
+  },
+  {
+   "access": "ACCESSIBLE",
+   "access_note": "production harvester harvest_expansion.py --state MI; last completeness UNKNOWN",
+   "county": "Wayne",
+   "evidence": "LIVE CAPTURE 2026-10-02 (GitHub Actions runs 37037960068, 37038385659): Wayne County - mi_detroit_landbank_lots; NO PUBLICATION DECISION YET (UNREVIEWED); docs/available-inventory.md",
+   "governance": "REVIEW_REQUIRED",
+   "governance_reason": "no publication / reuse review recorded yet",
+   "last_checked": "2026-10-02",
+   "legacy_status": "UNREVIEWED",
+   "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
+   "next_action": "Publication / rights review (registry restrictions: AVAILABLE source read live; no reuse licence or owner decision yet: collected and held on each run, but no row is written to properties until an admin review approves it.)",
+   "origin": "registry",
+   "publisher": "Wayne County",
+   "roles": [
+    "availability",
+    "identity",
+    "lifecycle",
+    "source_date"
+   ],
+   "source_id": "MI:Wayne:mi_detroit_landbank_lots",
+   "source_type": "GOVERNMENT",
+   "state": "MI",
+   "url": "https://www.arcgis.com/home/item.html?id=848bc665295f4ca9b1e25068ffa88ab0"
+  },
+  {
+   "access": "ACCESSIBLE",
+   "access_note": "production harvester harvest_expansion.py --state MI; last completeness UNKNOWN",
+   "county": "Wayne",
+   "evidence": "LIVE CAPTURE 2026-10-02 (GitHub Actions runs 37037960068, 37038385659): Wayne County - mi_detroit_landbank_programs; NO PUBLICATION DECISION YET (UNREVIEWED); docs/available-inventory.md",
+   "governance": "REVIEW_REQUIRED",
+   "governance_reason": "no publication / reuse review recorded yet",
+   "last_checked": "2026-10-02",
+   "legacy_status": "UNREVIEWED",
+   "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
+   "next_action": "Publication / rights review (registry restrictions: AVAILABLE source read live; no reuse licence or owner decision yet: collected and held on each run, but no row is written to properties until an admin review approves it.)",
+   "origin": "registry",
+   "publisher": "Wayne County",
+   "roles": [
+    "availability",
+    "identity",
+    "lifecycle",
+    "source_date"
+   ],
+   "source_id": "MI:Wayne:mi_detroit_landbank_programs",
+   "source_type": "GOVERNMENT",
+   "state": "MI",
+   "url": "https://www.arcgis.com/home/item.html?id=e0c4f46a09b9405cb18837e66e85c622"
   },
   {
    "access": "ACCESSIBLE",
@@ -5155,26 +5228,53 @@
   },
   {
    "access": "ACCESSIBLE",
-   "access_note": "read by the structural capture, runs 37033274319 (structure) and the parser validation run; program page, terms pages and the 2026 FLC list PDF all HTTP 200",
+   "access_note": "production harvester harvest_expansion.py --state SC; last completeness UNKNOWN",
    "county": "Georgetown",
-   "evidence": "data/available_discovery_pages.csv (web search 2026-10-02): 2026 FLC list (indexed as updated May 2026)",
+   "evidence": "LIVE CAPTURE 2026-10-02 (GitHub Actions runs 37037960068, 37038385659): Georgetown County - sc_georgetown_forfeited_land; NO PUBLICATION DECISION YET (UNREVIEWED); docs/available-inventory.md",
    "governance": "REVIEW_REQUIRED",
-   "governance_reason": "Publication review recorded 2026-10-02 (data/available_publication_reviews.csv): the county publishes no reuse / commercial-use grant and no prohibition; its pages read 'AS IS, WHERE IS' and 'No warranty'. A government page is not by itself permission, so the source stays REVIEW_REQUIRED until an owner decision or written permission",
+   "governance_reason": "no publication / reuse review recorded yet",
    "last_checked": "2026-10-02",
-   "legacy_status": "REVIEW_REQUIRED",
-   "name": "Georgetown County Forfeited Land Commission list (post-sale, county-held)",
-   "next_action": "Owner publication decision. The gated adapter (harvesters/otc/adapters/sc_flc.py) is built: LAND rows past the twelve-month redemption period only; mobile homes excluded. It makes no request until the source is APPROVED",
-   "origin": "catalog",
-   "publisher": "Georgetown County Forfeited Land Commission",
+   "legacy_status": "UNREVIEWED",
+   "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
+   "next_action": "Publication / rights review (registry restrictions: AVAILABLE source read live; no reuse licence or owner decision yet: collected and held on each run, but no row is written to properties until an admin review approves it.)",
+   "origin": "registry",
+   "publisher": "Georgetown County",
    "roles": [
     "acquisition",
     "availability",
-    "discovery"
+    "identity",
+    "lifecycle",
+    "source_date"
    ],
-   "source_id": "sc_georgetown_forfeited_land",
-   "source_type": "GOVERNMENT",
+   "source_id": "SC:Georgetown:sc_georgetown_forfeited_land",
+   "source_type": "DOCUMENT",
    "state": "SC",
    "url": "https://www.gtcountysc.gov/415/Forfeited-Land-Commission"
+  },
+  {
+   "access": "ACCESSIBLE",
+   "access_note": "production harvester harvest_expansion.py --state SC; last completeness UNKNOWN",
+   "county": "Horry",
+   "evidence": "LIVE CAPTURE 2026-10-02 (GitHub Actions runs 37037960068, 37038385659): Horry County - sc_horry_forfeited_land; NO PUBLICATION DECISION YET (UNREVIEWED); docs/available-inventory.md",
+   "governance": "REVIEW_REQUIRED",
+   "governance_reason": "no publication / reuse review recorded yet",
+   "last_checked": "2026-10-02",
+   "legacy_status": "UNREVIEWED",
+   "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
+   "next_action": "Publication / rights review (registry restrictions: AVAILABLE source read live; no reuse licence or owner decision yet: collected and held on each run, but no row is written to properties until an admin review approves it.)",
+   "origin": "registry",
+   "publisher": "Horry County",
+   "roles": [
+    "acquisition",
+    "availability",
+    "identity",
+    "lifecycle",
+    "source_date"
+   ],
+   "source_id": "SC:Horry:sc_horry_forfeited_land",
+   "source_type": "DOCUMENT",
+   "state": "SC",
+   "url": "https://horrycountysc.gov/boards-and-commissions/forfeited-land-commission/"
   },
   {
    "access": "ACCESSIBLE",
@@ -7511,29 +7611,6 @@
    "url": "https://treasurer.danecounty.gov/Tax-Deed-Details"
   },
   {
-   "access": "NOT_CHECKED",
-   "access_note": "implemented and refused before any request (source_publication.py)",
-   "county": "Dane",
-   "evidence": "docs/five-state-enrichment.md",
-   "governance": "REVIEW_REQUIRED",
-   "governance_reason": "No licence; pages read 'Copyright County of Dane'",
-   "last_checked": "2026-10-01",
-   "legacy_status": "REVIEW_REQUIRED",
-   "name": "Dane County Tax Deed Auction pages",
-   "next_action": "Owner publication review",
-   "origin": "catalog",
-   "publisher": "Dane County",
-   "roles": [
-    "acquisition",
-    "availability",
-    "lifecycle"
-   ],
-   "source_id": "wi_dane_tax_deed_auction",
-   "source_type": "GOVERNMENT",
-   "state": "WI",
-   "url": ""
-  },
-  {
    "access": "ACCESSIBLE",
    "access_note": "production harvester harvest_expansion.py --state WI; last completeness UNKNOWN",
    "county": "Green",
@@ -7800,12 +7877,12 @@
   "MI": {
    "APPROVED": 4,
    "HARD_BLOCKED": 0,
-   "REVIEW_REQUIRED": 2,
+   "REVIEW_REQUIRED": 5,
    "by_type": {
     "GIS": 1,
-    "GOVERNMENT": 5
+    "GOVERNMENT": 8
    },
-   "sources": 6
+   "sources": 9
   },
   "NATIONAL": {
    "APPROVED": 3,
@@ -7820,12 +7897,12 @@
   "SC": {
    "APPROVED": 2,
    "HARD_BLOCKED": 0,
-   "REVIEW_REQUIRED": 10,
+   "REVIEW_REQUIRED": 11,
    "by_type": {
-    "DOCUMENT": 1,
-    "GOVERNMENT": 11
+    "DOCUMENT": 3,
+    "GOVERNMENT": 10
    },
-   "sources": 12
+   "sources": 13
   },
   "TX": {
    "APPROVED": 16,
@@ -7854,12 +7931,12 @@
   "WI": {
    "APPROVED": 3,
    "HARD_BLOCKED": 0,
-   "REVIEW_REQUIRED": 6,
+   "REVIEW_REQUIRED": 5,
    "by_type": {
     "GIS": 1,
-    "GOVERNMENT": 8
+    "GOVERNMENT": 7
    },
-   "sources": 9
+   "sources": 8
   },
   "WV": {
    "APPROVED": 0,

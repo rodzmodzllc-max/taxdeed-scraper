@@ -339,9 +339,14 @@ def test_customer_visible_nothing_from_sc_flc():
     assert sc["production_sources"] == 0 and sc["status"] == "REVIEW_REQUIRED"
     geo = next(x for x in sc["candidates"] if x["county"] == "Georgetown")
     assert geo["publication_review"] == "REVIEW_REQUIRED" and geo["availability"] == "CURRENT_INVENTORY"
-    # No registry row reads either source, so no harvester or sync can.
+    # Spartanburg has no registry row; Georgetown's (AVAILABLE sprint) is UNREVIEWED: collected
+    # and held by the harvest, never written to properties, never publishable.
+    import source_publication as SP
     from harvesters.governance.county_source_registry import load_registry
-    assert not any(r.source_id in ("sc_georgetown_forfeited_land", "sc_spartanburg_forfeited_land") for r in load_registry())
+    reg = {r.source_id: r for r in load_registry()}
+    assert "sc_spartanburg_forfeited_land" not in reg
+    geo_row = reg["sc_georgetown_forfeited_land"]
+    assert geo_row.publication_status == "UNREVIEWED" and not SP.publishable(geo_row) and geo_row.ledger_set == {"AVAILABLE"}
 
 
 def test_malformed_identifier_outside_the_land_section_is_counted_not_fatal():

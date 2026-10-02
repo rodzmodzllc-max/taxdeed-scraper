@@ -125,7 +125,8 @@ def runnable_sources(state: str, reg: dict) -> tuple[list, list[tuple[str, str]]
     """(sources to request, [(source_id, publication decision)] gated). Only a
     source whose effective publication (registry + latest valid admin
     review, scripts/source_publication.py) is APPROVED* is requested: an
-    UNREVIEWED / RESTRICTED / BLOCKED source makes zero requests."""
+    UNREVIEWED / RESTRICTED / BLOCKED source makes zero requests - except an
+    AVAILABLE source still awaiting review, which held_sources() collects."""
     import source_publication as SP  # noqa: PLC0415
     run, gated = [], []
     for src in EX.SOURCES.get(state, ()):
@@ -137,7 +138,26 @@ def runnable_sources(state: str, reg: dict) -> tuple[list, list[tuple[str, str]]
     return run, gated
 
 
-def run_source(src, fetch_json, fetch_text, *, retrieved_at, fixture: str | None = None):
+# A held source: an AVAILABLE (laft) source whose publication is UNREVIEWED.
+# It is read, normalized and kept with its provenance in out/<st>_held_rows.json
+# (private; never synced) with its own status file - REVIEW_REQUIRED collects
+# and holds. A RESTRICTED / BLOCKED / unregistered source is never requested,
+# and an AUCTION or LIENS source awaiting review is never requested either.
+HOLDABLE = frozenset({"UNREVIEWED"})
+
+
+def held_sources(state: str, reg: dict) -> list:
+    import source_publication as SP  # noqa: PLC0415
+    out = []
+    for src in EX.SOURCES.get(state, ()):
+        row = reg.get(src.config.source_id)
+        if row is not None and not SP.publishable(row) and SP.decision(row) in HOLDABLE \
+                and src.config.record_source == "laft" and src not in out:
+            out.append(src)
+    return out
+
+
+def run_source(src, fetch_json, fetch_text, *, retrieved_at, fixture: str | None = None, fetch_bytes=None):
     """-> (status, records, category, detail, empty_signal)."""
     cfg = src.config
     if src.kind == "arcgis":
@@ -154,6 +174,37 @@ def run_source(src, fetch_json, fetch_text, *, retrieved_at, fixture: str | None
             # for (e.g. last year's list): no current inventory - its own signal.
             return "EMPTY", [], None, None, "past_cycle"
         return res.outcome, res.records, None, None, ("empty_layer" if res.outcome == "EMPTY" else None)
+    if src.kind == "sc_flc_pdf":
+        from harvesters.otc.adapters import sc_flc  # noqa: PLC0415
+        try:
+            data = Path(fixture).read_bytes() if fixture else fetch_bytes(src.url)
+        except Exception as exc:  # noqa: BLE001
+            status = getattr(getattr(exc, "response", None), "status_code", None)
+            return "FAILED", [], "TRANSPORT_CONNECTION", f"{type(exc).__name__}" + (f" HTTP {status}" if status else ""), None
+        res = sc_flc.parse_document(cfg.source_id, data, retrieved_at=retrieved_at)
+        outcome = sc_flc.outcome(res)
+        if outcome == "FAILED":
+            return "FAILED", [], "PARSE_FORMAT_CHANGE", res.error or f"rejected={dict(res.rejected)}", None
+        return outcome, res.records, None, None, ("no_qualifying_row" if outcome == "EMPTY" else None)
+    if src.kind == "xlsx_flc_lists":
+        from harvesters.otc.adapters import sc_flc  # noqa: PLC0415
+        try:
+            html = fetch_text(src.url)
+            links = sc_flc.year_list_links(html, src.url)
+            current = [(y, u) for y, u in links if sc_flc.list_year_past_redemption(y, retrieved_at.date())]
+            recs = []
+            for year, url in current:
+                adapter = TabularListAdapter(cfg)
+                for r in adapter._records(sc_flc.xlsx_rows(fetch_bytes(url)), retrieved_at=retrieved_at, document_name=None):
+                    r.provenance["tax_sale_year"] = f"the '{year} FLC List' workbook (past the redemption period)"
+                    r.provenance["document"] = url
+                    recs.append(r)
+        except Exception as exc:  # noqa: BLE001
+            status = getattr(getattr(exc, "response", None), "status_code", None)
+            return "FAILED", [], "TRANSPORT_CONNECTION", f"{type(exc).__name__}" + (f" HTTP {status}" if status else ""), None
+        if not links:
+            return "FAILED", [], "PARSE_NO_TABLE", "no '<YEAR> FLC List' workbook linked", None
+        return ("COMPLETE", recs, None, None, None) if recs else ("EMPTY", [], None, None, "no_list_past_redemption")
     # html_table
     try:
         html = Path(fixture).read_text(encoding="utf-8") if fixture else fetch_text(src.url)
@@ -187,7 +238,7 @@ def main(argv=None) -> int:
     out = Path(a.out_dir)
     out.mkdir(parents=True, exist_ok=True)
     retrieved_at = datetime.now(timezone.utc).replace(microsecond=0)
-    fetch_json = fetch_text = None
+    fetch_json = fetch_text = fetch_bytes = None
     if not fixtures:
         import requests  # noqa: PLC0415 - only after the gate passed
         session = requests.Session()
@@ -202,7 +253,15 @@ def main(argv=None) -> int:
             r = session.get(url, timeout=60, headers=PAGE_HEADERS)
             r.raise_for_status()
             return r.text
+
+        def fetch_bytes(url):
+            r = session.get(url, timeout=60, headers=PAGE_HEADERS)
+            r.raise_for_status()
+            return r.content
     sources, gated = runnable_sources(st, reg)
+    held = [] if fixtures else held_sources(st, reg)
+    held_ids = {h.config.source_id for h in held}
+    gated = [g for g in gated if g[0] not in held_ids]
     if fixtures:
         # Offline (tests): every configured source with a fixture is parsed;
         # nothing is synced from a fixture run.
@@ -210,12 +269,13 @@ def main(argv=None) -> int:
         gated = [g for g in gated if g[0] not in fixtures]
     for sid, why in gated:
         print(f"{st} {sid} GATED publication={why} - 0 requests (an APPROVED review in the admin panel enables it)")
+    held_records = run_held(st, held, fetch_json, fetch_text, fetch_bytes, retrieved_at=retrieved_at, out=out)
     per_county = defaultdict(list)
     records = []
     for src in sources:
         cfg = src.config
         status, recs, cat, detail, empty = run_source(src, fetch_json, fetch_text, retrieved_at=retrieved_at,
-                                                     fixture=fixtures.get(cfg.source_id))
+                                                     fixture=fixtures.get(cfg.source_id), fetch_bytes=fetch_bytes)
         per_county[cfg.county].append((cfg, status, len(recs), cat, detail, empty, src.url))
         records += recs
         shapes = dict(Counter(shape(r.case_no) for r in recs).most_common(4))
@@ -249,8 +309,47 @@ def main(argv=None) -> int:
     prows, paths = attach_purchase_paths(st, [r.to_properties_row() for r in records], harvest_date=retrieved_at.date().isoformat())
     (out / f"{st.lower()}_properties_rows.json").write_text(json.dumps(prows, indent=2, sort_keys=True, default=str), encoding="utf-8")
     print(f"{st}: verified acquisition path on {paths} of {sum(1 for r in prows if r.get('status') == 'active')} active row(s)")
-    print(f"{st}: {len(records)} record(s) across {len(per_county)} county unit(s)")
+    print(f"{st}: {len(records)} record(s) across {len(per_county)} county unit(s); {held_records} held AVAILABLE record(s)")
     return 0
+
+
+def run_held(st: str, held: list, fetch_json, fetch_text, fetch_bytes, *, retrieved_at, out: Path) -> int:
+    """Collect and hold the AVAILABLE sources awaiting a publication review:
+    read, normalize, keep provenance and the acquisition path in
+    out/<st>_held_rows.json (private, never synced), with their own status
+    file out/harvest_<st>_held_status.json for freshness. A failure here never
+    affects the publishable sources' harvest or sync. -> held record count."""
+    if not held:
+        return 0
+    recorder = StatusRecorder(f"expansion_{st.lower()}_held", source_class="GOVERNMENT_DIRECT", source_id=f"expansion_{st.lower()}_held",
+                              parser_version=PARSER_VERSION, path=out / f"harvest_{st.lower()}_held_status.json", state=st)
+    kept = []
+    for src in held:
+        cfg = src.config
+        try:
+            status, recs, cat, detail, empty = run_source(src, fetch_json, fetch_text, retrieved_at=retrieved_at, fetch_bytes=fetch_bytes)
+        except Exception as exc:  # noqa: BLE001 - one held source never stops the others
+            status, recs, cat, detail, empty = "FAILED", [], "UNKNOWN", type(exc).__name__, None
+        recs, _ = dedupe(recs)
+        valid = [r for r in recs if not r.validate()]
+        unit = f"{cfg.county}:{cfg.source_id}"
+        if status == "FAILED":
+            recorder.failed(unit, cat if cat in ERROR_CATEGORIES else "UNKNOWN", f"{cfg.source_id}: {detail or cat}", source_url=src.url)
+        elif valid:
+            recorder.complete(unit, len(valid), source_url=src.url)
+        else:
+            recorder.empty(unit, empty or "empty_layer", source_url=src.url)
+        shapes = dict(Counter(shape(r.case_no) for r in valid).most_common(3))
+        print(f"{st} {cfg.source_id} [{cfg.county}] HELD publication=UNREVIEWED {status} rows={len(valid)} "
+              f"invalid={len(recs) - len(valid)} id_shapes={shapes}" + (f" category={cat}" if cat else ""))
+        kept += valid
+    recorder.write()
+    rows = [r.to_properties_row() for r in kept]
+    for row in rows:
+        row["publication_status"] = "UNREVIEWED"   # held: the sync never reads this file
+    rows, paths = attach_purchase_paths(st, rows, harvest_date=retrieved_at.date().isoformat())
+    (out / f"{st.lower()}_held_rows.json").write_text(json.dumps(rows, indent=2, sort_keys=True, default=str), encoding="utf-8")
+    return len(rows)
 
 
 if __name__ == "__main__":

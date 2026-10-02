@@ -82,6 +82,11 @@ def evidence() -> dict[str, dict]:
     return out
 
 
+def _base(source_id: str) -> str:
+    """A registry source's unified id is '<ST>:<County>:<source_id>'."""
+    return source_id.split(":")[-1]
+
+
 def reviews() -> dict[str, dict]:
     """source_id -> the recorded publication review of that candidate."""
     return {r["source_id"]: r for r in _csv(REVIEWS_PATH)}
@@ -136,10 +141,10 @@ def state_coverage(state: str, inventory=None) -> dict:
         "last_reads": {c: sum(1 for r in prod if r.completeness_status == c) for c in sorted({r.completeness_status for r in prod})},
         "candidates": [{"source_id": s.source_id, "county": s.county, "name": s.name, "governance": s.governance,
                         "access": s.access, "url": s.url,
-                        "availability": ev.get(s.source_id, {}).get("availability", "NOT_READ"),
-                        "identifier_confirmed": ev.get(s.source_id, {}).get("identifier_confirmed", "") == "yes",
-                        "read_at": ev.get(s.source_id, {}).get("read_at", ""),
-                        "publication_review": rv.get(s.source_id, {}).get("classification", "")}
+                        "availability": ev.get(_base(s.source_id), {}).get("availability", "NOT_READ"),
+                        "identifier_confirmed": ev.get(_base(s.source_id), {}).get("identifier_confirmed", "") == "yes",
+                        "read_at": ev.get(_base(s.source_id), {}).get("read_at", ""),
+                        "publication_review": rv.get(_base(s.source_id), {}).get("classification", "")}
                        for s in sorted(cands, key=lambda s: (s.county, s.source_id))],
         # Pages read and found NOT to offer AVAILABLE property (forfeited land
         # sold only at the auction, a past list): recorded, never a candidate.

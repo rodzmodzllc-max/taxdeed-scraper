@@ -20,8 +20,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from ..model import AmountKind, SourceAuthority
+from ..model import AmountKind, InventoryType, PurchaseUrlKind, SourceAuthority
 from .arcgis import ArcGisFieldMap, ArcGisLayerConfig
+from .sc_flc import GEORGETOWN as SC_GEORGETOWN_FLC   # Georgetown SC FLC list (PR #69)
 from .tabular import ColumnMap, TabularConfig
 
 EVIDENCE_RUNS = ("36778382226", "36779189506", "36780071129", "pass-4 2026-09-30")
@@ -240,6 +241,85 @@ DOUGLAS_CC_BY_SA = ("Creative Commons Attribution-ShareAlike 4.0 (stated on the 
                     "and the licence wherever these rows are shown; adaptations of this data carry the same licence.")
 UNREVIEWED_NO_LICENCE = ("Implemented and read live, but the source publishes no reuse licence and no owner decision exists: "
                          "not requested on a schedule and no row is written until an admin review approves it.")
+# ---- AVAILABLE implementation sprint (2026-10-02) ---------------------------
+# Government-held property the source itself offers for acquisition. Read
+# value-free by the evidence job (`evidence_scope=available_sources`, runs
+# 37037960068 / 37038385659; Georgetown: `sc_available`, runs 37033274319 /
+# 37035908843 / 37036374756). Every one is UNREVIEWED for publication: it is
+# collected and held (scripts/harvest_expansion.py), never written to
+# properties, until an admin review approves it.
+AVAILABLE_SPRINT_EVIDENCE_RUNS = ("37037960068", "37038385659")
+
+# Detroit Land Bank Authority (Wayne County, MI) - "Properties owned by the
+# Detroit Land Bank Authority" (56,896 features, edited 2026-10-01). Its own
+# inventory status names the lots it offers: "Neighborhood Lot For Sale",
+# "Side Lot For Sale", "Oversized Lot For Sale", "Marketed Lot For Sale".
+# "DLBA Owned Lot / Structure" (not offered) and marketed STRUCTURES (sold
+# through the DLBA's programs, some by auction) are not read from this layer.
+DLBA_LOT_STATUSES = ("Neighborhood Lot For Sale", "Side Lot For Sale", "Oversized Lot For Sale", "Marketed Lot For Sale")
+MI_DETROIT_LANDBANK_LOTS = ArcGisLayerConfig(
+    source_id="mi_detroit_landbank_lots", state="MI", county="Wayne",
+    source_authority=SourceAuthority.GOVERNMENT_DIRECT, inventory_type=InventoryType.POST_SALE, record_source="laft",
+    layer_url="https://services2.arcgis.com/qvkbeam7Wirps6zC/arcgis/rest/services/DLBA_Owned_Properties/FeatureServer/0",
+    fields=ArcGisFieldMap(case_no="parcel_id", parcel="parcel_id", address="name", status="inventory_status_socrata",
+                          latitude="latitude", longitude="longitude"),
+    where="inventory_status_socrata IN (" + ",".join(f"'{s}'" for s in DLBA_LOT_STATUSES) + ")",
+    list_url=_item("848bc665295f4ca9b1e25068ffa88ab0"), columns_verified=True,
+    notes="'Properties owned by the Detroit Land Bank Authority' (item snippet). inventory_status_socrata alias 'DLBA "
+          "Inventory Status' - only the four lot statuses ending 'For Sale' are read; the status is kept verbatim (a side "
+          "lot is offered to an adjacent owner). parcel_id alias 'Parcel Number', name alias 'Address'. No price published.")
+
+# The DLBA's own "Properties for sale ... through the Auction, Own It Now, and
+# Renovation programs" layer: the Auction program is an AUCTION, never
+# AVAILABLE, so only the other programs are read.
+MI_DETROIT_LANDBANK_PROGRAMS = ArcGisLayerConfig(
+    source_id="mi_detroit_landbank_programs", state="MI", county="Wayne",
+    source_authority=SourceAuthority.GOVERNMENT_DIRECT, inventory_type=InventoryType.POST_SALE, record_source="laft",
+    layer_url="https://services2.arcgis.com/qvkbeam7Wirps6zC/arcgis/rest/services/DLBA_For_Sale/FeatureServer/0",
+    fields=ArcGisFieldMap(case_no="parcel_id", parcel="parcel_id", address="address", status="program",
+                          latitude="latitude", longitude="longitude"),
+    where="program <> 'Auction'",
+    list_url=_item("e0c4f46a09b9405cb18837e66e85c622"), columns_verified=True,
+    notes="'Properties for sale by the Detroit Land Bank Authority through the Auction, Own It Now, and Renovation "
+          "programs' (item snippet). program alias 'DLBA Program' (Own It Now / Renovation Programs / Economic "
+          "Development read; Auction excluded). No price published on the layer.")
+
+# Oceana County (MI) Land Bank Authority - "Current Available Properties"
+# table (Parcel ID Number | Property Address), purchase by the Land Bank's
+# Application for Proposals form.
+MI_OCEANA_LANDBANK = TabularConfig(
+    source_id="mi_oceana_landbank", state="MI", county="Oceana",
+    source_authority=SourceAuthority.GOVERNMENT_DIRECT, inventory_type=InventoryType.POST_SALE, record_source="laft",
+    columns=ColumnMap(case_no=("Parcel ID Number",), parcel=("Parcel ID Number",), address=("Property Address",)),
+    list_url="https://oceana.mi.us/departments/treasurer/land-bank-authority/",
+    purchase_url="https://oceana.mi.us/wp-content/uploads/2022/12/Purchase-Application-Land-Bank.pdf",
+    purchase_url_kind=PurchaseUrlKind.APPLICATION_FORM, columns_verified=True,
+    header_required=("Parcel ID Number",),
+    notes="'Current Available Properties ... owned by the Oceana County Land Bank Authority'; 'If you are interested in "
+          "purchasing a property ... please download and complete the Application for Proposals form'. No price per row.")
+
+# Horry County (SC) Forfeited Land Commission - yearly 'FLC List' workbooks
+# (PIN | ITEM # | TAXPAYER | DESCRIPTION | ... | MINIMUM BID). The county:
+# "Properties owned by the FLC can be sold and deeded after the end of their
+# redemption period, and assignments of the bids for those properties can be
+# sold during the redemption period ... one year and one day from the date of
+# the tax sale". Only a list whose year's redemption period is over is
+# AVAILABLE (sc_flc.list_year_past_redemption); the current year's list is an
+# assignment list and is not read. TAXPAYER is never read.
+SC_HORRY_FLC = TabularConfig(
+    source_id="sc_horry_forfeited_land", state="SC", county="Horry",
+    source_authority=SourceAuthority.GOVERNMENT_DIRECT, inventory_type=InventoryType.POST_SALE, record_source="laft",
+    columns=ColumnMap(case_no=("PIN",), parcel=("PIN",), legal_desc=("DESCRIPTION",), amount=("MINIMUM BID",)),
+    amount_kind=AmountKind.OPENING_BID,
+    list_url="https://horrycountysc.gov/boards-and-commissions/forfeited-land-commission/",
+    purchase_url="https://horrycountysc.gov/media/sinbmsz5/horrycountyflcguidelines.pdf",
+    purchase_url_kind=PurchaseUrlKind.BID_FORM, columns_verified=True, header_required=("PIN",),
+    notes="Yearly FLC List workbooks linked from the program page; PIN = the county's 11-digit parcel number. 'MINIMUM "
+          "BID' is the commission's minimum bid. Lists still inside the redemption period are not read.")
+
+
+HELD_AVAILABLE = ("AVAILABLE source read live; no reuse licence or owner decision yet: collected and held on each run, "
+                  "but no row is written to properties until an admin review approves it.")
 PUBLICATION = {
     "mi_eaton_treasurer_sale": ("APPROVED", OWNER_APPROVED_2026_09_30),
     "mi_lenawee_tax_sale": ("APPROVED", OWNER_APPROVED_2026_09_30),
@@ -252,21 +332,31 @@ PUBLICATION = {
     "co_morgan_treasurer_deed_auctions": ("UNREVIEWED", UNREVIEWED_NO_LICENCE),
     "wi_dane_tax_deed_auction": ("UNREVIEWED", UNREVIEWED_NO_LICENCE),
     "sc_oconee_tax_sale_list": ("UNREVIEWED", UNREVIEWED_NO_LICENCE),
+    "mi_detroit_landbank_lots": ("UNREVIEWED", HELD_AVAILABLE),
+    "mi_detroit_landbank_programs": ("UNREVIEWED", HELD_AVAILABLE),
+    "mi_oceana_landbank": ("UNREVIEWED", HELD_AVAILABLE),
+    "sc_horry_forfeited_land": ("UNREVIEWED", HELD_AVAILABLE),
+    "sc_georgetown_forfeited_land": ("UNREVIEWED", HELD_AVAILABLE),
 }
 
 
 @dataclass(frozen=True)
 class ExpansionSource:
-    kind: str                     # "arcgis" | "html_table"
+    kind: str                     # "arcgis" | "html_table" | "xlsx_flc_lists" | "sc_flc_pdf"
     config: object
     url: str                      # what is fetched
 
 
 SOURCES: dict[str, tuple[ExpansionSource, ...]] = {
-    "MI": (ExpansionSource("arcgis", MI_EATON, MI_EATON.layer_url), ExpansionSource("arcgis", MI_LENAWEE, MI_LENAWEE.layer_url)),
+    "MI": (ExpansionSource("arcgis", MI_EATON, MI_EATON.layer_url), ExpansionSource("arcgis", MI_LENAWEE, MI_LENAWEE.layer_url),
+           ExpansionSource("arcgis", MI_DETROIT_LANDBANK_LOTS, MI_DETROIT_LANDBANK_LOTS.layer_url),
+           ExpansionSource("arcgis", MI_DETROIT_LANDBANK_PROGRAMS, MI_DETROIT_LANDBANK_PROGRAMS.layer_url),
+           ExpansionSource("html_table", MI_OCEANA_LANDBANK, MI_OCEANA_LANDBANK.list_url)),
     "WY": (ExpansionSource("arcgis", WY_ALBANY, WY_ALBANY.layer_url),),
     "SC": (ExpansionSource("arcgis", SC_YORK, SC_YORK.layer_url),
-           ExpansionSource("html_table", SC_OCONEE, SC_OCONEE.list_url)),
+           ExpansionSource("html_table", SC_OCONEE, SC_OCONEE.list_url),
+           ExpansionSource("xlsx_flc_lists", SC_HORRY_FLC, SC_HORRY_FLC.list_url),
+           ExpansionSource("sc_flc_pdf", SC_GEORGETOWN_FLC, SC_GEORGETOWN_FLC.document_url)),
     "CO": (ExpansionSource("html_table", CO_MORGAN, CO_MORGAN.list_url),
            ExpansionSource("arcgis", CO_DOUGLAS_COUNTY_HELD_LIENS, CO_DOUGLAS_COUNTY_HELD_LIENS.layer_url),
            ExpansionSource("arcgis", CO_DOUGLAS_TAX_SALE_LIST, CO_DOUGLAS_TAX_SALE_LIST.layer_url),
@@ -276,3 +366,7 @@ SOURCES: dict[str, tuple[ExpansionSource, ...]] = {
            ExpansionSource("html_table", WI_DANE_AVAILABLE, WI_DANE_AVAILABLE.list_url),
            ExpansionSource("html_table", WI_DANE_SOLD, WI_DANE_SOLD.list_url)),
 }
+
+
+AVAILABLE_SPRINT_SOURCE_IDS = frozenset({"mi_detroit_landbank_lots", "mi_detroit_landbank_programs", "mi_oceana_landbank",
+                                         "sc_horry_forfeited_land", "sc_georgetown_forfeited_land"})

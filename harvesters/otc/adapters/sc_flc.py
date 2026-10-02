@@ -86,6 +86,17 @@ class FlcConfig:
     application_kind: PurchaseUrlKind | None = None
     acquisition: tuple[tuple[str, str], ...] = ()   # quoted / summarised from the program page, run EVIDENCE_RUN
     list_as_of_text: str | None = None     # e.g. "updated May 2026" - a month, so never turned into a date
+    # Registry / harvest view (scripts/build_county_source_registry.py, harvest_expansion.py).
+    state: str = "SC"
+    source_authority: SourceAuthority = SourceAuthority.GOVERNMENT_DIRECT
+    inventory_type: InventoryType = InventoryType.POST_SALE
+    record_source: str = "laft"
+    columns_verified: bool = True          # read from the live PDF, runs 37033274319 / 37035908843
+    notes: str = ""
+
+    @property
+    def list_url(self) -> str:
+        return self.program_url
 
 
 GEORGETOWN = FlcConfig(
@@ -114,6 +125,8 @@ GEORGETOWN = FlcConfig(
         ("online_purchase", "No online purchase link on file"),
     ),
     list_as_of_text="updated May 2026",
+    notes="2026 FLC LIST (PDF): MOBILE HOMES and LAND sections; only LAND rows past the twelve-month redemption period "
+          "are AVAILABLE. TMS # as published; Opening Bid = the commission's opening bid.",
 )
 
 SPARTANBURG = FlcConfig(
@@ -414,6 +427,45 @@ def match_existing(records: list[OtcRecord], properties: list[dict]) -> tuple[li
         p = index.get((r.state.upper(), r.county.lower(), normalize_identifier(r.parcel or r.case_no)))
         (matched.append((r, p)) if p else unmatched.append(r))
     return matched, unmatched
+
+
+# Horry County style: one workbook per tax-sale year, linked as "<YEAR> FLC List".
+YEAR_LIST_LINK = re.compile(r"^\s*((?:19|20)\d\d)\s+FLC\s+List\s*$", re.I)
+
+
+def year_list_links(html: str, base_url: str) -> list[tuple[int, str]]:
+    """[(tax-sale year, workbook URL)] for every "<YEAR> FLC List" link on the
+    program page that points at an .xlsx on the program page's own host."""
+    from bs4 import BeautifulSoup  # noqa: PLC0415
+    from urllib.parse import urljoin, urlsplit  # noqa: PLC0415
+    host, out = urlsplit(base_url).hostname, {}
+    for a in BeautifulSoup(html, "html.parser").find_all("a", href=True):
+        m = YEAR_LIST_LINK.match(a.get_text(" ", strip=True))
+        href = urljoin(base_url, a["href"].strip())
+        if m and href.startswith("https://") and urlsplit(href).hostname == host and href.lower().endswith(".xlsx"):
+            out.setdefault(int(m.group(1)), href)
+    return sorted(out.items())
+
+
+def list_year_past_redemption(year: int, today: date) -> bool:
+    """A tax-sale year's list holds FLC-OWNED property once the redemption
+    period ("one year and one day from the date of the tax sale") has run for
+    every sale that year: conservatively, from January 1 of year + 2."""
+    return today >= date(year + 2, 1, 1)
+
+
+def xlsx_rows(data: bytes) -> list[list[str]]:
+    """Every non-empty row of every sheet, as text cells."""
+    import openpyxl  # noqa: PLC0415
+    wb = openpyxl.load_workbook(io.BytesIO(data), read_only=True, data_only=True)
+    rows = []
+    for ws in wb.worksheets:
+        for r in ws.iter_rows(values_only=True):
+            cells = ["" if c is None else (str(int(c)) if isinstance(c, float) and c.is_integer() and c > 1e6 else str(c)).strip()
+                     for c in r]
+            if any(cells):
+                rows.append(cells)
+    return rows
 
 
 def harvest(source_id: str, fetch_bytes, *, retrieved_at: datetime, publication: str) -> ParseResult:

@@ -235,11 +235,15 @@ on:
           (scripts/capture_sc_available.py). "available_sources" = the candidate
           AVAILABLE sources in data/available_source_candidates.csv (land banks,
           forfeited-land lists, county-held tax-deeded land), STRUCTURE only
-          (scripts/capture_available_sources.py).
+          (scripts/capture_available_sources.py). "available_validate" = run the
+          six-state harvest (scripts/harvest_expansion.py) for MI and SC with NO
+          database credential: the held AVAILABLE sources are read through the
+          real adapters and only counts / identifier shapes are printed;
+          nothing is synced.
         required: false
         type: choice
         default: available
-        options: [available, auction_results, state_sources, expansion, field_fill, five_state, five_state_pass2, five_state_pass3, enrich_sources, enrich_sources_2, enrich_sources_3, enrich_sources_4, acquisition_candidates, available_discovery, sc_available, available_sources]
+        options: [available, auction_results, state_sources, expansion, field_fill, five_state, five_state_pass2, five_state_pass3, enrich_sources, enrich_sources_2, enrich_sources_3, enrich_sources_4, acquisition_candidates, available_discovery, sc_available, available_sources, available_validate]
 
 concurrency:
   group: harvest-and-sync
@@ -1010,7 +1014,7 @@ jobs:
           python-version: '3.12'
 
       - name: Install Python dependencies
-        run: pip install requests beautifulsoup4
+        run: pip install requests beautifulsoup4 pdfplumber openpyxl
 
       - name: Harvest
         id: harvest
@@ -1415,6 +1419,13 @@ jobs:
             # whitelisted headers, licence text); no row, name, address or
             # identifier. No database credential exists in this job.
             python3 scripts/capture_available_sources.py
+            exit 0
+          fi
+          if [ "$SCOPE" = "available_validate" ]; then
+            # The real harvest path for the held AVAILABLE sources, read-only: no
+            # database credential exists in this job, nothing is synced, and the
+            # harvester prints counts / statuses / identifier SHAPES only.
+            for st in MI SC; do python3 scripts/harvest_expansion.py --state "$st" || true; done
             exit 0
           fi
           if [ "$SCOPE" = "acquisition_candidates" ]; then
