@@ -190,7 +190,7 @@ def test_georgetown_land_rows_past_redemption_are_available_and_mobile_homes_are
     assert s["rejected"] == {"duplicate_identifier": 1, "in_redemption_period": 1, "malformed_identifier": 1,
                              "missing_identifier": 1, "personal_property_section": 4, "sale_date_unreadable": 1}
     assert s["valid_identifiers"] == 8 and s["available_records"] == 1
-    assert s["outcome"] == "FAILED"          # a malformed identifier means the format may have changed: never COMPLETE
+    assert s["read_outcome"] == "FAILED"          # a malformed identifier means the format may have changed: never COMPLETE
     rec = res.records[0]
     assert (rec.state, rec.county, rec.case_no, rec.parcel) == ("SC", "Georgetown", "11-1111-111-11-11", "11-1111-111-11-11")
     assert rec.record_source == "laft" and rec.inventory_type.value == "POST_SALE"
@@ -288,3 +288,9 @@ def test_ledger_isolation():
     from harvesters.sources import available_coverage as AC
     assert all("AVAILABLE" in r.ledger_set for r in AC.production_available_sources("SC"))
     assert AC.production_available_sources("SC") == []    # no SC AVAILABLE source is in production
+
+
+def test_sc_flc_names_only_the_two_county_hosts():
+    src = (ROOT / "harvesters/otc/adapters/sc_flc.py").read_text(encoding="utf-8")
+    hosts = set(re.findall(r"https://([^/\s\"']+)", src))
+    assert hosts == {"www.gtcountysc.gov", "www.spartanburgcounty.org", "www.spartanburgcounty.gov"}

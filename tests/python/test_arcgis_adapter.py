@@ -210,7 +210,9 @@ def test_g01_module_never_fetches_and_nothing_is_configured():
     for path in (REPO / "harvesters/otc/adapters").glob("*.py"):
         # expansion.py (2026-09-30) is the owner-approved six-state configuration: its
         # hosts are pinned by tests/python/test_six_state_expansion.py.
-        if path.name in ("alabama.py", "arkansas.py", "louisiana.py", "arizona.py", "expansion.py"):
+        # sc_flc.py (2026-10-02) names the Georgetown / Spartanburg FLC pages it was
+        # configured from; tests/python/test_sc_available.py pins those hosts.
+        if path.name in ("alabama.py", "arkansas.py", "louisiana.py", "arizona.py", "expansion.py", "sc_flc.py"):
             continue
         text = path.read_text(encoding="utf-8")
         assert not re.search(r"https?://[^\s\"']*(\.gov|arcgis\.com)", text) and "mississippi" not in text.lower(), path.name

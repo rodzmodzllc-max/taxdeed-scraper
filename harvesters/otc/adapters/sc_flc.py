@@ -368,7 +368,7 @@ def outcome(res: ParseResult) -> str:
 
 def summary(res: ParseResult) -> dict:
     """Counts only - safe to print in a public log."""
-    return {"source_id": res.source_id, "outcome": outcome(res), "error": res.error, "pages": res.pages, "tables": res.tables,
+    return {"source_id": res.source_id, "read_outcome": outcome(res), "error": res.error, "pages": res.pages, "tables": res.tables,
             "data_rows": res.data_rows, "header_mapped_rows": res.header_mapped_rows,
             "valid_identifiers": res.valid_identifiers, "rejected": dict(sorted(res.rejected.items())),
             "sections": dict(sorted(res.sections.items())), "amounts_published": res.amounts_published,
