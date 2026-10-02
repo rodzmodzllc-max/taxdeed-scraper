@@ -159,7 +159,7 @@ on:
         required: false
         type: choice
         default: all
-        options: [all, deeds, certificates, laft, texas, backup, evidence, outcomes, expansion, enrich, storage, available]
+        options: [all, deeds, certificates, laft, texas, backup, evidence, outcomes, expansion, enrich, storage, available, auction]
       enrich_states:
         description: >-
           (job=enrich only) Comma-separated postal codes for the enrichment
@@ -229,7 +229,7 @@ on:
         required: false
         type: choice
         default: available
-        options: [available, auction_results, state_sources, expansion, field_fill, five_state, five_state_pass2, five_state_pass3, enrich_sources, enrich_sources_2, enrich_sources_3, enrich_sources_4, acquisition_candidates, auction_candidates]
+        options: [available, auction_results, state_sources, expansion, field_fill, five_state, five_state_pass2, five_state_pass3, enrich_sources, enrich_sources_2, enrich_sources_3, enrich_sources_4, acquisition_candidates, auction_candidates, auction_process]
 
 concurrency:
   group: harvest-and-sync
@@ -335,6 +335,17 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 scripts/backfill_source_ids.py --source auction
+
+      - name: Auction sale process - attach each county's verified process (FL)
+        # scripts/apply_auction_process.py: data/auction_process_evidence.csv ->
+        # otc_provenance.auction_process (county-level); fill-blank sale_date only
+        # where the page states it for the current list. Never a lifecycle field.
+        if: steps.sync.outcome == 'success'
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/apply_auction_process.py --state FL
 
       - name: Change detection - deterministic property changes and customer alerts
         # scripts/detect_property_changes.py: status / sale date / opening bid /
@@ -1387,6 +1398,15 @@ jobs:
             eval python3 scripts/capture_purchase_evidence.py --candidates --candidates-file data/auction_candidate_pages.csv --follow $cargs
             exit 0
           fi
+          if [ "$SCOPE" = "auction_process" ]; then
+            # Value-free county sale-process capture (scripts/capture_auction_process.py):
+            # official pages from data/auction_candidate_pages.csv + one hop to their
+            # tax-sale documents; prints only sale-process sentences. Writes nothing.
+            cargs=""; IFS=',' read -ra cs <<< "$COUNTIES"
+            for c in "${cs[@]}"; do c="$(echo "$c" | xargs)"; [ -n "$c" ] && cargs="$cargs --county \"$c\""; done
+            eval python3 scripts/capture_auction_process.py $cargs
+            exit 0
+          fi
           if [ "$SCOPE" = "acquisition_candidates" ]; then
             # Acquisition-path sprint: official process pages found for the
             # counties whose source page publishes no process. Read-only,
@@ -1625,6 +1645,36 @@ jobs:
           path: |
             out/public/
             out/private/
+
+  auction:
+    # Auction sale-process engine (2026-10-02) - MANUAL ONLY (job=auction),
+    # never scheduled, never part of "all". Attaches each county's VERIFIED
+    # sale process (data/auction_process_evidence.csv) to its active auction
+    # rows in every production state as otc_provenance.auction_process -
+    # county-level guidance, never a purchase path; fills a BLANK sale_date
+    # only where the county's page states it for the current list. Requests
+    # no source; never status, amounts, owners or outcomes. Counts only.
+    name: Auction sale process (manual only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.job == 'auction'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Attach verified county sale processes (every production state)
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          for st in FL TX MI WY SC WI CO; do
+            python3 scripts/apply_auction_process.py --state "$st" --report "out/public/auction-process-apply-$st.json" || echo "apply failed for $st"
+          done
 
   available:
     # All-sources AVAILABLE enrichment engine (2026-10-01) - MANUAL ONLY
