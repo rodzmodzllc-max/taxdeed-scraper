@@ -107,3 +107,22 @@ def test_frontend_reads_the_same_record_keys():
     assert m and set(re.findall(r'"(\w+)"', m.group(1))) == set(E.RECORD_KEYS)
     body = APP[APP.index("function auctionProcessHtml"):APP.index("function typedPurchasePath")]
     assert "purchase path" not in body.lower() and "County-level guidance" in body
+
+
+def test_capture_survives_an_unreadable_document(monkeypatch):
+    import capture_auction_process as CAP
+
+    class R:
+        status_code, url, headers, content, text = 200, "https://x.gov/rules.pdf", {"Content-Type": "application/pdf"}, b"not a pdf", ""
+    monkeypatch.setattr(CAP.C, "fetch", lambda session, url: (R(), None))
+    out = CAP.capture(None, "https://x.gov/rules.pdf", "followed_link")
+    assert out["status"] == 200 and out["error"].startswith("unreadable")
+
+
+def test_capture_keeps_sale_process_sentences_and_drops_unrelated_court_text():
+    import capture_auction_process as CAP
+    html = ("<html><head><title>Tax Deed Sales</title></head><body><p>A deposit of 5% of the bid is required.</p>"
+            "<p>Dissolution of marriage forms are available at the counter today.</p><p>Parcel 12345678901 is listed for the sale.</p></body></html>")
+    r = CAP.read_html(html, "https://clerk.example.gov/tax-deeds")
+    assert any("deposit of 5%" in s for s in r["sentences"])
+    assert not any("marriage" in s.lower() or "12345678901" in s for s in r["sentences"])

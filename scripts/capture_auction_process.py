@@ -139,10 +139,13 @@ def capture(session, url: str, kind: str) -> dict:
                content_type=resp.headers.get("Content-Type", ""))
     if resp.status_code != 200:
         return out
-    if "pdf" in out["content_type"].lower() or url.lower().endswith(".pdf"):
-        out.update(read_pdf(resp.content, url))
-    else:
-        out.update(read_html(resp.text, resp.url))
+    try:
+        if "pdf" in out["content_type"].lower() or url.lower().endswith(".pdf"):
+            out.update(read_pdf(resp.content, url))
+        else:
+            out.update(read_html(resp.text, resp.url))
+    except Exception as exc:   # noqa: BLE001 - one unreadable document never stops the capture
+        out["error"] = f"unreadable: {type(exc).__name__}: {str(exc)[:120]}"
     return out
 
 
