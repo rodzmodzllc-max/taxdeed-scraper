@@ -2106,6 +2106,36 @@ Full description: `docs/available-enrichment-engine.md`. Stable facts:
     has one concurrency slot and keeps only one pending run.
 - `sw.js` -> `tdw-shell-v64`.
 
+## AVAILABLE execution sprint (2026-10-01 / 02, PR #65, no migration)
+
+Full description: `docs/available-enrichment-engine.md` section 9.
+
+**Rule: map a column from the source's own definition.** Read it with
+`available_mode=metadata` (`discover_sources.py --metadata`) before mapping.
+The EBR Tax Roll's `units` counts structures; it is not acreage.
+
+**`la_ebr_tax_roll`** (Public Domain, county-scoped):
+- land use, taxable value and legal description;
+- multi-year, so it uses the latest year only, with `latest_min` 2024;
+- land use comes from 2023 through `column_year_floor`, because `structure_use` is blank from 2024 on;
+- two different records in the year are AMBIGUOUS, and nothing is written for them.
+
+**Parcel factory additions:**
+- `conditional_map`, `no_value`, `provenance_attrs`, `latest_min`, `column_year_floor`;
+- `enrich_statewide_parcels.run` updates the in-memory row after each write, so there is no stale-snapshot rewrite.
+
+**`scripts/lgbs_available_refresh.py`** (apply mode):
+- reads LGBS only, through the ingestion gate, and touches only TX laft rows;
+- writes `last_seen_at` and `vendor_listing` attestations;
+- never closes a row;
+- `enrich_available.availability()` reports such rows as `OBSERVED_REVIEW_REQUIRED`, never as verified.
+
+**Engine dimensions:** a `taxable` dimension was added. `acquisition_contact` now means phone, e-mail or an address; an office name alone does not count.
+
+**Louisiana evidence row:** Parish Attorney office phone, P.O. Box, the Request to Purchase form and the memorandum's steps (capture run 36940992329). Staff e-mails are deliberately not recorded.
+
+`sw.js` → `tdw-shell-v65`.
+
 ## Where to look for more
 
 - `claude/improvement-roadmap.md` in the "tax florida app" claude.ai Project — the full dated log of every fix, audit finding, and open decision. This is where new findings should be appended, not here.

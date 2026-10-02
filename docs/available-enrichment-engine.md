@@ -287,3 +287,87 @@ The remaining Louisiana backlog is 8,417 rows with coordinates and no image:
 | Runtime | about 8.4 hours at 3.6 s a row, i.e. about 14 slices of 600 |
 | Storage | about 505 MB at the measured ~60 KB per image; the bucket would reach about 771 MB, under the 950 MB ceiling |
 | Approach | continue as background slices after the priority 1-2 work |
+
+## 9. Execution sprint (2026-10-01 / 02): writes, not probes
+
+The sprint converts the discovery results above into customer-facing values on
+the existing AVAILABLE population (10,912 active rows: FL 157, LA 10,334,
+TX 421). Michigan, South Carolina, Wyoming, Colorado and Wisconsin are active
+production states, but their sources feed the Auction and Liens & Certificates
+ledgers only. They have no AVAILABLE rows, so this sprint has nothing to
+enrich there.
+
+### 9.1 Source definitions before mappings
+
+`available_mode=metadata` runs `discover_sources.py --metadata`, which prints
+each probed source's OWN column definitions (Socrata view columns / ArcGIS
+field aliases), and `lgbs_available_refresh.py --probe`. A mapping is
+configured from those definitions, never from a column name. The run that
+mattered (36940907360) showed:
+
+| EBR Tax Roll column | The source's definition | Mapped to |
+|---|---|---|
+| `structure_use` | "Type of use of the structure including commercial, residential or not determined" | `land_use` (raw; NOT DETERMINED = no value) |
+| `taxpayer_val` | "TAXABLE PARISH - the taxable amount ... minus any applicable homestead exemption" | `taxable_value` |
+| `legal_description` | "Full description of the tax parcel which serves as the legal record" | `legal_desc` (fill-blank) |
+| `units` | "Total number of structures attached to the tax parcel" | **nothing**. This is not acreage, and no EBR dataset publishes acreage. |
+
+### 9.2 Multi-year tax roll (`la_ebr_tax_roll`)
+
+The roll repeats each parcel once per tax year (2015-2025).
+
+- **Candidate year:** only the latest year is a candidate (`latest_field=tax_year`), and nothing older than 2024 (`latest_min`). Two different records in that year stay AMBIGUOUS, and nothing is written for them.
+- **Land use:** the per-year probe (run 36942777361) found `structure_use` blank on every 2024 and 2025 record, and filled 2015-2023. So land use comes from the most recent year that publishes it (`column_year_floor={"land_use": 2023}`). It needs one distinct value in that year, and its provenance names the year.
+- **No stale snapshot:** every write also updates the in-memory row, so a later layer in the same run never treats a just-filled column as blank.
+
+### 9.3 Texas: LGBS observation (`scripts/lgbs_available_refresh.py`)
+
+LGBS is authorized for this sprint. Its reuse terms are still under review, so
+it is REVIEW_REQUIRED, which is not the same as approved. The script works as follows:
+
+- **What it reads:** only the LGBS feed, through the harvester's own ingestion gate.
+- **What it touches:** only active TX AVAILABLE rows.
+- **Match:** exact county + account number; two feed records for one key is AMBIGUOUS.
+- **For a row still listed with an available status, it writes:**
+  - `last_seen_at`, the same observed-row rule as the AVAILABLE lifecycle;
+  - `vendor_listing` provenance attestations, only where the stored value equals the feed's;
+  - fill-blank fields the existing sync already writes.
+- **For any other row:** a row not in the feed, or listed with another status, is counted. Nothing is closed and nothing is inferred.
+- **Availability measurement:** a row read on LGBS within 14 days reports `OBSERVED_REVIEW_REQUIRED`, never `VERIFIED_AVAILABLE`.
+
+The first walk (run 36940907360) read 10 of 11 pages, 2,895 Texas records:
+
+| Of our 421 TX rows | Rows |
+|---|---|
+| Still available ("Available for Future Sale": STRUCK OFF / FUTURE SALE) | 382 |
+| Now "Scheduled for Online Auction" (Galveston) | 35 |
+| Not on the pages read | 4 |
+
+The feed publishes no acreage, land use or source date.
+
+### 9.4 Louisiana acquisition contact
+
+Capture run 36940992329 read the Parish Attorney's Office page, the Adjudicated
+Property page, the Property Division memorandum (PDF) and the Request to Purchase
+form (PDF). The evidence row now carries:
+
+- the office phone (225) 389-3114;
+- the P.O. Box mailing address;
+- the official Request to Purchase form;
+- the payment terms (certified check or money order for advanced costs, no personal checks or cash);
+- the memorandum's five steps.
+
+Office-level contact only: the two named staff e-mails are not recorded.
+`apply_acquisition_paths.py --state LA` (apply mode) refreshes every LA row's
+acquisition record from it.
+
+### 9.5 Documents
+
+The 14 documents the discovery run read were classified one by one:
+
+- **One inventory list:** Volusia's Lands Available PDF matched 11 of 11 rows. It is the harvester's own source, so it adds no new field.
+- **Process documents with no parcel identifiers by nature:** the Duval FAQ and request form, the Pasco and Marion process pages, the Galveston sheriff procedures and rules, the LA open-data page and the Jim Wells home page. Their value is acquisition facts, already in the verified evidence rows.
+- **Two dated notices:** Hardin's 2024 resale resolution and Leon's 2020 sale notice. Their account format differs from our rows, and they predate the current inventory.
+
+So "0 matches" was mostly a correct result, not a parser failure. Only the
+Volusia list carries row identifiers, and it matched 11 of 11.
