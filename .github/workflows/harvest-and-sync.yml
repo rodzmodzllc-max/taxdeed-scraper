@@ -159,7 +159,7 @@ on:
         required: false
         type: choice
         default: all
-        options: [all, deeds, certificates, laft, texas, backup, evidence, outcomes, expansion, enrich]
+        options: [all, deeds, certificates, laft, texas, backup, evidence, outcomes, expansion, enrich, storage]
       enrich_states:
         description: >-
           (job=enrich only) Comma-separated postal codes for the enrichment
@@ -177,6 +177,20 @@ on:
         description: >-
           (job=evidence only) Comma-separated PAST sale dates (MM/DD/YYYY) for
           RealAuction result-label discovery. Blank = skip.
+        required: false
+        default: ''
+      storage_mode:
+        description: >-
+          (job=storage only) analyze = read-only storage report; apply =
+          re-encode stored images in place as same-size WebP (no row writes);
+          apply_consolidate = apply + fold byte-identical objects (repoints
+          rows, which bumps their updated_at).
+        required: false
+        type: choice
+        default: analyze
+        options: [analyze, apply, apply_consolidate]
+      storage_max:
+        description: (job=storage, apply modes) optimize at most N objects this run; blank = all.
         required: false
         default: ''
       evidence_scope:
@@ -320,7 +334,7 @@ jobs:
           python-version: '3.12'
 
       - name: Install Python dependencies (geocoding)
-        run: pip install requests
+        run: pip install requests pillow
 
       # Phase B (auction-event history): record what this run's harvest saw
       # as auction_events + auction_event_observations (migration 014). Runs
@@ -423,6 +437,10 @@ jobs:
       # the vacant and unimproved parcels Street View has no imagery for at
       # all. No-ops cleanly until migration 011 is applied.
       - name: Backfill property imagery (USDA NAIP aerial)
+        # Imagery is enrichment: a storage failure (budget reached, upload
+        # error, Pillow missing) must never fail the structured harvest/sync
+        # this job already completed, nor skip the steps after it.
+        continue-on-error: true
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
@@ -1401,7 +1419,7 @@ jobs:
           python-version: '3.12'
 
       - name: Install Python dependencies
-        run: pip install requests
+        run: pip install requests pillow
 
       - name: FEMA flood hazard backfill
         if: matrix.kind == 'flood'
@@ -1416,6 +1434,7 @@ jobs:
 
       - name: NAIP aerial imagery backfill
         if: matrix.kind == 'imagery'
+        continue-on-error: true
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
@@ -1495,6 +1514,64 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: auction-outcomes-${{ github.run_id }}
+          path: |
+            out/public/
+            out/private/
+
+  storage:
+    # Storage-optimization sprint (2026-10-01): measure the property-photos
+    # bucket and, on request, re-encode stored images in place as same-size
+    # WebP (scripts/optimize_stored_images.py). Manual only. No harvesting,
+    # no source request, no schema change; only image objects are rewritten,
+    # each verified before and after, the original restored on any failed
+    # check. The report is counts and sizes only.
+    name: Image storage - analyze / optimize (manual only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.job == 'storage'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python dependencies
+        run: pip install requests pillow
+
+      - name: Image storage report / optimization
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          STORAGE_MODE: ${{ github.event.inputs.storage_mode }}
+          STORAGE_MAX: ${{ github.event.inputs.storage_max }}
+        run: |
+          ARGS=""
+          case "$STORAGE_MODE" in
+            apply) ARGS="--apply" ;;
+            apply_consolidate) ARGS="--apply --consolidate" ;;
+          esac
+          if [ -n "$STORAGE_MAX" ]; then ARGS="$ARGS --max $STORAGE_MAX"; fi
+          python3 scripts/optimize_stored_images.py $ARGS
+
+      - name: Prepare artifact (public evidence only)
+        # The storage report is counts and sizes only (no object path,
+        # property id or URL); it is reproduced verbatim in the evidence file.
+        if: always()
+        env:
+          ARTIFACT_PUBLIC_KEY: ${{ vars.ARTIFACT_PUBLIC_KEY }}
+        run: |
+          STATUS=out/public/storage-analysis.json
+          [ -f out/public/storage-optimization.json ] && STATUS=out/public/storage-optimization.json
+          python3 scripts/artifact_evidence.py --job image-storage --status "$STATUS"
+
+      - name: Upload artifact (evidence)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-storage-${{ github.run_id }}
           path: |
             out/public/
             out/private/

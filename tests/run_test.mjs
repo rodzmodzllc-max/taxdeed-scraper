@@ -3591,6 +3591,21 @@ await monDash.waitForTimeout(700);
 results.monDashRuns = await monDash.locator('#dashRunRows .run-row').evaluateAll(els => els.map(e => e.dataset.source + ':' + Array.from(e.querySelectorAll('.dash-row-vals span')).map(x => x.textContent.trim()).join(' / ')));
 await monDash.close();
 
+// Storage-optimization sprint: stored imagery is now WebP. A WebP produced by
+// scripts/image_storage.py must render in the app page under its own CSP.
+{
+  const webp = fs.readFileSync(new URL('./python/fixtures/aerial_sample.webp', import.meta.url)).toString('base64');
+  const imgPage = await newPage({ viewport: { width: 800, height: 600 } });
+  await imgPage.goto(BASE_URL, { waitUntil: 'networkidle' });
+  results.webpImageRenders = await imgPage.evaluate(src => new Promise(res => {
+    const img = new Image();
+    img.onload = () => res(img.naturalWidth + 'x' + img.naturalHeight);
+    img.onerror = () => res('error');
+    img.src = 'data:image/webp;base64,' + src;
+  }), webp);
+  await imgPage.close();
+}
+
 await browser.close();
 
 // ============================================================
@@ -3602,6 +3617,7 @@ await browser.close();
 
 
 const EXPECTED = {
+  webpImageRenders: '160x120',
   // Customer monitoring sprint (2026-10-01)
   monPagedSameCards: true,
   monPagedMoreCalls: true,
