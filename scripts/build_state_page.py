@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 """Build a state's page (public/<code>.html) from public/tx.html - the
 non-Florida page template - plus the state's own copy (six-state expansion,
-2026-09-30). A state page differs from tx.html in exactly five places: the
-<title>, <body data-state>, the sign-in tagline, the footer's coverage
-notice and the terms-modal comment. Everything else (markup, ids, scripts)
+2026-09-30). A state page differs from tx.html in exactly three places:
+<body data-state>, the footer's coverage notice and the terms-modal comment.
+The <title> and the sign-in tagline are the product's, the same on every page
+(2026-10-02: the sign-in screen never claims a single state; app.js names the
+selected state in the tab title once signed in). Everything else (markup, ids, scripts)
 is shared, so a fix to tx.html reaches every state page by re-running this.
 
     python3 scripts/build_state_page.py            # every state in PAGES
@@ -22,9 +24,7 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 TEMPLATE = REPO / "public" / "tx.html"
 
-TX_TITLE = "<title>Tax Acquisitions — Texas</title>"
 TX_BODY = '<body data-state="TX">'
-TX_TAGLINE = '<p class="auth-tagline">Texas Tax Sale Intelligence &amp; Auction Tracking</p>'
 TX_NOTICE = ("<b>Fees, closing costs and lien notes are not tracked for Texas.</b> No Texas fee or closing-cost formula "
              "exists in this app, so none is shown. This app does not run a title search. Confirm title and costs with a "
              "title company or attorney before bidding.")
@@ -34,27 +34,27 @@ it is not Texas law and no Texas equivalent has been researched. Do not add
 Texas statutory copy here without counsel review. -->"""
 
 PAGES = {
-    "MI": dict(name="Michigan", tagline="Michigan County Tax Sale Tracking",
+    "MI": dict(name="Michigan",
                notice="<b>Michigan coverage is two county treasurers' published tax-sale lists (Eaton, Lenawee).</b> Minimum bids "
                       "and Eaton's own 'Has Been Sold' flag are shown as each county publishes them. No Michigan fee, closing-cost "
                       "or redemption rule is tracked, and none is shown. Confirm terms with the county treasurer and a title "
                       "company or attorney before bidding."),
-    "WY": dict(name="Wyoming", tagline="Wyoming County Tax Sale Tracking",
+    "WY": dict(name="Wyoming",
                notice="<b>Wyoming coverage is Albany County's published tax sale list.</b> Wyoming's sale sells a tax lien "
                       "certificate, not the land; the amount shown is the list's own 'Total' column as published. No fee, "
                       "interest or redemption rule is tracked, and none is shown. Confirm terms with the County Treasurer and "
                       "a title company or attorney before bidding."),
-    "SC": dict(name="South Carolina", tagline="South Carolina County Tax Sale Tracking",
+    "SC": dict(name="South Carolina",
                notice="<b>South Carolina coverage is York County's published tax sale list.</b> The list publishes no opening "
                       "bid, and none is shown. No fee or redemption rule is tracked. Confirm terms with the county and a title "
                       "company or attorney before bidding."),
-    "CO": dict(name="Colorado", tagline="Colorado County-Held Tax Lien Certificates",
+    "CO": dict(name="Colorado",
                notice="<b>Colorado coverage is Morgan County's county-held tax lien sale certificates.</b> The purchase amount "
                       "is the Treasurer's own figure, good to the date in the list's header. Parcel details come from the "
                       "State of Colorado's Colorado Public Parcels layer, matched by assessor account number only; the State "
                       "states resale of that data is forbidden. No interest or redemption rule is tracked. Confirm with the "
                       "County Treasurer and a title company or attorney before buying."),
-    "WI": dict(name="Wisconsin", tagline="Wisconsin County Tax Deed Sale Tracking",
+    "WI": dict(name="Wisconsin",
                notice="<b>Wisconsin coverage is Green County's tax deed sale page.</b> Minimum bids and the sale prices of "
                       "previous sales are shown as the county publishes them; the county states when it has no current "
                       "sales. No fee or closing-cost rule is tracked. Confirm terms with the County Clerk and a title company "
@@ -66,9 +66,7 @@ def render(code: str, template: str) -> str:
     cfg = PAGES[code]
     out = template
     for old, new in (
-        (TX_TITLE, f"<title>Tax Acquisitions — {cfg['name']}</title>"),
         (TX_BODY, f'<body data-state="{code}">'),
-        (TX_TAGLINE, f'<p class="auth-tagline">{cfg["tagline"]}</p>'),
         (TX_NOTICE, cfg["notice"]),
         (TX_TERMS_COMMENT, f"<!-- {cfg['name']} terms (2026-09-30, six-state expansion). No {cfg['name']} statutory copy\n"
                            "is stated here: none has been reviewed with counsel. Do not add it without counsel review. -->"),

@@ -2136,6 +2136,27 @@ The EBR Tax Roll's `units` counts structures; it is not acreage.
 
 `sw.js` → `tdw-shell-v65`.
 
+## Multi-state product branding (2026-10-02, sprint PR)
+
+- **The product is never one state.** Every page's sign-in / sign-up / reset
+  screen reads "Tax Sale Property Intelligence" plus "Tax-sale,
+  available-property, and lien/certificate research across supported states".
+  The static `<title>` is "Tax Acquisitions — Tax Sale Property Intelligence".
+  app.js names the selected state in the tab title only after sign-in
+  (Product → State → Ledger → County).
+- **State wording is allowed only in the selected state's context**:
+  ledger copy, fees / statute copy on that state's own page, and source
+  names. The Dashboard panel is "Data sources (all states)", because it lists
+  every state's datasets with the current state first.
+- **Generated pages:** `scripts/build_state_page.py` no longer rewrites the
+  title or tagline. The generated pages inherit both from tx.html.
+- **Empty states:** a registered state with no rows reads "No properties
+  currently available for this state." (`PROPERTIES_LOADED`). It is never
+  called unsupported and never hidden.
+- **Tests:** `tests/python/test_multistate_branding.py` and the `brand*`
+  checks in `tests/run_test.mjs`. The stub flag `?emptystate=1` makes the
+  stub return zero rows. `sw.js` → `tdw-shell-v68`.
+
 ## Where to look for more
 
 - `claude/improvement-roadmap.md` in the "tax florida app" claude.ai Project — the full dated log of every fix, audit finding, and open decision. This is where new findings should be appended, not here.
