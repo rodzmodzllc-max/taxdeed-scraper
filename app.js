@@ -2862,8 +2862,9 @@ function previewFacts(p) {
     if (rel.length) more.push(["Same parcel in", rel.map(o => ledgerCopy(o.source).title || o.source).join(", ")]);
   }
   if (p.source === "auction") {
-    const acq = acquisitionOf(p);
-    more.push(["Sale process", acq.verified ? (AUCTION_PROCESS_MODE_LABELS[acq.mode] || "County sale process") + (acq.office ? ` · ${acq.office}` : "") + " (county-level)" : "Not yet verified"]);
+    const ap = auctionProcessOf(p);
+    more.push(["Sale process", ap.verified ? ap.label + (ap.office ? ` · ${ap.office}` : "") + " (county-level)" : "Not yet verified"]);
+    if (ap.verified && ap.deposit) more.push(["Deposit", ap.deposit]);
   }
   if (sourceUnderReview(p)) more.push(["Source", "Under review - not an approved source"]);
   if (sale) more.push(["Last sale", sale]);
@@ -3463,22 +3464,76 @@ const AUCTION_PROCESS_MODE_LABELS = {
   online: "Online sale", in_person: "In-person sale", multi_step: "Multi-step county sale process",
   application: "County registration / bidder application", instructions: "County sale instructions"
 };
-function auctionProcessHtml(p) {
+// The auction row's county sale process, normalised from either record:
+// otc_provenance.auction_process (scripts/auction_process_engine.py - keys
+// pinned by a test) or, for rows that carry only the purchase-path engine's
+// verified record (MI / SC), that record read as a sale process.
+const AUCTION_PROCESS_KEYS = ["scope", "method", "method_label", "platform_url", "registration_required", "registration_url",
+  "registration_deadline", "deposit", "payment_methods", "payment_deadline", "bidder_requirements", "id_requirement",
+  "sale_location", "sale_time", "sale_date", "next_sale_date", "office", "phone", "email", "address", "steps",
+  "instructions_url", "evidence_url", "evidence_type", "source_title", "observed_on", "source_id"];
+function auctionProcessOf(p) {
+  const op = p && p.otc_provenance && typeof p.otc_provenance === "object" ? p.otc_provenance : {};
+  const r = op.auction_process && typeof op.auction_process === "object" ? op.auction_process : null;
+  const str = (o, k) => o && o[k] !== undefined && o[k] !== null && o[k] !== "" ? String(o[k]) : "";
+  if (r) {
+    return {
+      verified: true, fromRecord: true, method: str(r, "method"),
+      label: str(r, "method_label") || AUCTION_PROCESS_MODE_LABELS[str(r, "method")] || "County sale process",
+      steps: Array.isArray(r.steps) ? r.steps.map(String) : [],
+      platformUrl: str(r, "platform_url"), registrationRequired: r.registration_required === true ? true : (r.registration_required === false ? false : null),
+      registrationUrl: str(r, "registration_url"), registrationDeadline: str(r, "registration_deadline"),
+      deposit: str(r, "deposit"), paymentMethods: str(r, "payment_methods"), paymentDeadline: str(r, "payment_deadline"),
+      bidderRequirements: str(r, "bidder_requirements"), idRequirement: str(r, "id_requirement"),
+      location: str(r, "sale_location"), time: str(r, "sale_time"), nextSale: str(r, "next_sale_date"),
+      office: str(r, "office"), phone: str(r, "phone"), email: str(r, "email"), address: str(r, "address"), mailing: "",
+      payment: "", instructionsUrl: str(r, "instructions_url"),
+      evidenceUrl: str(r, "evidence_url"), evidenceTitle: str(r, "source_title"), observedOn: str(r, "observed_on") || null
+    };
+  }
   const a = acquisitionOf(p);
+  if (!a.verified) return { verified: false };
+  return {
+    verified: true, fromRecord: false, method: a.mode, label: AUCTION_PROCESS_MODE_LABELS[a.mode] || "County sale process",
+    steps: a.steps, platformUrl: "", registrationRequired: null, registrationUrl: "", registrationDeadline: "", deposit: "",
+    paymentMethods: "", paymentDeadline: "", bidderRequirements: "", idRequirement: "", location: "", time: "", nextSale: "",
+    office: a.office, phone: a.phone, email: a.email, address: a.address, mailing: a.mailing, payment: a.payment,
+    instructionsUrl: a.applicationUrl, evidenceUrl: a.evidenceUrl, evidenceTitle: a.evidenceTitle, observedOn: a.observedOn,
+    instructions: a.instructions
+  };
+}
+function auctionProcessHtml(p) {
+  const a = auctionProcessOf(p);
   const sub = t => `<span class="dec-sub">${t}</span>`;
   if (!a.verified) {
     return `<span class="muted">Not yet verified - the county's registration, deposit and payment rules for this sale have not been captured from its own page</span>` +
       sub(esc("Check the county's sale page before bidding; nothing here is assumed."));
   }
-  const head = `<span class="auction-process-mode" data-mode="${esc(a.mode)}">${esc(AUCTION_PROCESS_MODE_LABELS[a.mode] || "County sale process")}</span>`;
+  const ext = (href, label) => `<a href="${esc(href)}" target="_blank" rel="noopener">${esc(label)} →</a>`;
+  const head = `<span class="auction-process-mode" data-mode="${esc(a.method)}">${esc(a.label)}</span>`;
   const steps = a.steps.length ? `<ol class="acq-steps">${a.steps.map(st => `<li>${esc(st)}</li>`).join("")}</ol>`
     : (a.instructions ? sub(`<span class="dec-instructions">Instructions published by the county: ${esc(a.instructions)}</span>`) : "");
-  const docs = [];
-  if (a.evidenceUrl) docs.push(`<a href="${esc(a.evidenceUrl)}" target="_blank" rel="noopener">${esc(a.evidenceTitle || "County sale page")} →</a>`);
-  if (a.applicationUrl) docs.push(`<a href="${esc(a.applicationUrl)}" target="_blank" rel="noopener">Registration / bid document →</a>`);
+  const facts = [];
+  if (a.platformUrl) facts.push(["Sale platform", ext(a.platformUrl, "County sale site")]);
+  if (a.registrationRequired === true) facts.push(["Registration", esc("Required" + (a.registrationDeadline ? ` - ${a.registrationDeadline}` : ""))]);
+  else if (a.registrationRequired === false) facts.push(["Registration", esc("Not required (per the county)")]);
+  else if (a.registrationDeadline) facts.push(["Registration deadline", esc(a.registrationDeadline)]);
+  if (a.registrationUrl) facts.push(["Register", ext(a.registrationUrl, "Bidder registration")]);
+  if (a.deposit) facts.push(["Deposit", esc(a.deposit)]);
+  if (a.paymentMethods) facts.push(["Payment", esc(a.paymentMethods)]);
+  if (a.paymentDeadline) facts.push(["Payment deadline", esc(a.paymentDeadline)]);
+  if (a.bidderRequirements) facts.push(["Bidder requirements", esc(a.bidderRequirements)]);
+  if (a.idRequirement) facts.push(["Identification", esc(a.idRequirement)]);
+  if (a.location) facts.push(["Location", esc(a.location)]);
+  if (a.time) facts.push(["Sale time (as published)", esc(a.time)]);
+  if (a.nextSale) facts.push(["Next scheduled sale (county announcement)", esc(dateOnly(a.nextSale))]);
+  if (a.instructionsUrl) facts.push(["Rules / instructions", ext(a.instructionsUrl, "County document")]);
+  const factHtml = facts.length ? `<dl class="acq-contact auction-process-facts">${facts.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${v}</dd>`).join("")}</dl>` : "";
+  const contact = acquisitionContactHtml({ verified: true, office: a.office, address: a.address, phone: a.phone, email: a.email, mailing: a.mailing, payment: a.payment });
+  const page = a.evidenceUrl ? sub(ext(a.evidenceUrl, a.evidenceTitle || "County sale page")) : "";
   const scope = sub(`<span class="acq-scope" data-scope="county">${esc("County-level guidance: the county publishes these rules for every property on its sale list - not specific to this parcel. Confirm with the county before the sale.")}</span>`);
   const verified = sub(`<span class="acq-verified">${esc(`Sale process last verified ${a.observedOn ? dateOnly(a.observedOn) : "(date not recorded)"}`)}</span>`);
-  return head + steps + (docs.length ? sub(docs.join(" · ")) : "") + acquisitionContactHtml(a) + scope + verified;
+  return head + steps + factHtml + contact + page + scope + verified;
 }
 
 function typedPurchasePath(p) {
@@ -3792,7 +3847,7 @@ function auctionDecisionHtml(p) {
   if (fl.cls !== "muted") known.push(`Flood ${fl.text}`);
   rows.push(q("known", "What property intelligence is available?", known.length ? esc(known.join(" · ")) : muted("Nothing beyond the identity the source published"), known.length ? "" : "muted"));
   const link = auctionLinkInfo(p);
-  rows.push(q("process", "How do I register and bid?", auctionProcessHtml(p), acquisitionOf(p).verified ? "ok" : "muted"));
+  rows.push(q("process", "How do I register and bid?", auctionProcessHtml(p), auctionProcessOf(p).verified ? "ok" : "muted"));
   if (sourceUnderReview(p)) rows.push(q("review", "Is the source approved?", `<span class="prov-review">Source under review</span>${sub(esc(REVIEW_REQUIRED_TEXT))}`, "muted"));
   rows.push(q("source", "What is the source?", `${esc(harvesterSourceLabel(p) || "Source not recorded")}${link && link.href ? ` · <a href="${esc(link.href)}" target="_blank" rel="noopener">${esc(link.label || "Source page")} →</a>` : ""}${sub(esc(`${lastSyncedText(p)}${p.last_seen_at ? ` · last read ${dateOnly(p.last_seen_at)}` : ""}`))}`));
   let result, resultCls = "";
@@ -6316,13 +6371,17 @@ if (exportCsvBtn) exportCsvBtn.addEventListener("click", () => {
     ["Longitude", p => hasNum(p.longitude) ? p.longitude : ""],
     ["Imagery On File", p => p.photo_url ? "Yes" : "No"],
     ["Last Read From Source", p => p.last_seen_at ? String(p.last_seen_at).slice(0, 10) : ""],
-    ["Sale Process (county-level)", p => { const a = acquisitionOf(p); return a.verified ? (AUCTION_PROCESS_MODE_LABELS[a.mode] || "County sale process") : "Not yet verified"; }],
-    ["Sale Process Steps (published by the county)", p => acquisitionOf(p).steps.join(" | ")],
-    ["County Office", p => acquisitionOf(p).office || ""],
-    ["County Phone", p => acquisitionOf(p).phone || ""],
-    ["County E-mail", p => acquisitionOf(p).email || ""],
-    ["Sale Process Page", p => acquisitionOf(p).evidenceUrl || ""],
-    ["Sale Process Last Verified", p => p.purchase_path_observed_on || ""],
+    ["Sale Process (county-level)", p => { const a = auctionProcessOf(p); return a.verified ? a.label : "Not yet verified"; }],
+    ["Sale Process Steps (published by the county)", p => (auctionProcessOf(p).steps || []).join(" | ")],
+    ["Deposit (published by the county)", p => auctionProcessOf(p).deposit || ""],
+    ["Payment (published by the county)", p => { const a = auctionProcessOf(p); return [a.paymentMethods, a.paymentDeadline].filter(Boolean).join("; "); }],
+    ["Registration", p => { const a = auctionProcessOf(p); return a.registrationRequired === true ? "Required" : a.registrationRequired === false ? "Not required" : ""; }],
+    ["Sale Time (as published)", p => auctionProcessOf(p).time || ""],
+    ["County Office", p => auctionProcessOf(p).office || ""],
+    ["County Phone", p => auctionProcessOf(p).phone || ""],
+    ["County E-mail", p => auctionProcessOf(p).email || ""],
+    ["Sale Process Page", p => auctionProcessOf(p).evidenceUrl || ""],
+    ["Sale Process Last Verified", p => auctionProcessOf(p).observedOn || ""],
     ["Source Review Status", p => sourceReviewText(p)]
   ];
   // Liens & Certificates: the certificate's own published facts, source and
