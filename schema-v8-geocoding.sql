@@ -1,5 +1,5 @@
 -- Adds latitude/longitude to properties for precise Street View / Zillow
--- links (see PHASE_4_SUMMARY.md's geocoding design + scripts/geocode_properties.py).
+-- links (see docs/phase-04-reliability-and-ux.md's geocoding design + scripts/geocode_properties.py).
 --
 -- Purely additive - two nullable columns, nothing existing is touched, no
 -- backfill happens here. Run once in the Supabase SQL editor:
