@@ -1670,7 +1670,7 @@ jobs:
     # no source; never status, amounts, owners or outcomes. Counts only.
     name: Auction sale process (manual only)
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 60
     if: github.event_name == 'workflow_dispatch' && github.event.inputs.job == 'auction'
     steps:
       - name: Checkout repository
@@ -1701,7 +1701,7 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-        run: python3 scripts/probe_fdor_identifier_rules.py --per-county 15
+        run: python3 scripts/probe_fdor_identifier_rules.py --per-county 8
 
   available:
     # All-sources AVAILABLE enrichment engine (2026-10-01) - MANUAL ONLY

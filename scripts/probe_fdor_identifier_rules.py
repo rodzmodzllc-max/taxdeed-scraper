@@ -45,8 +45,13 @@ spec = importlib.util.spec_from_file_location("enrich", HERE / "enrich_property_
 enrich = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(enrich)
 
-DEFAULT_COUNTIES = ["Brevard", "Hillsborough", "Suwannee", "Leon", "Pinellas", "Lake", "Lee", "Pasco", "Miami-Dade",
-                    "Volusia", "Monroe", "Citrus", "Osceola", "Walton", "Martin", "Hernando", "Alachua", "Santa Rosa"]
+# The account-style shapes the deeds job reports unmatched (d7, d10, d9-d11,
+# d6A1d4, d2-d2-d2-d5-d3-d4, d2-d2-d2-d12) - the only ones an ALT_KEY or a
+# digits-only PARCEL_ID could plausibly resolve. Lee / Volusia / Miami-Dade are
+# NOT here: their stored form already equals the layer's PARCEL_ID once
+# separators are stripped (matched pairs in production), so a miss there is
+# a parcel absent from the layer, not a format.
+DEFAULT_COUNTIES = ["Brevard", "Hillsborough", "Suwannee", "Leon", "Pinellas", "Lake"]
 DELAY = 0.35
 
 
@@ -116,14 +121,15 @@ def probe(counties: list[str], per_county: int) -> dict:
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--county", action="append")
-    ap.add_argument("--per-county", type=int, default=12)
+    ap.add_argument("--per-county", type=int, default=8)
     a = ap.parse_args(argv)
     if not os.environ.get("SUPABASE_URL") or not os.environ.get("SUPABASE_SERVICE_KEY"):
         print("SUPABASE_URL / SUPABASE_SERVICE_KEY not set - nothing probed")
         return 0
-    report = probe(a.county or DEFAULT_COUNTIES, a.per_county)
-    for county, r in report.items():
-        print(f"{county}: {json.dumps(r, sort_keys=True)}")
+    report = {}
+    for county in a.county or DEFAULT_COUNTIES:      # one county at a time, printed as it finishes
+        report.update(probe([county], a.per_county))
+        print(f"{county}: {json.dumps(report[county], sort_keys=True)}", flush=True)
     Path("out/public").mkdir(parents=True, exist_ok=True)
     Path("out/public/fdor-identifier-probe.json").write_text(json.dumps(report, indent=1, sort_keys=True) + "\n", encoding="utf-8")
     return 0
