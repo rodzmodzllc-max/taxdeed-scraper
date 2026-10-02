@@ -1644,6 +1644,9 @@ live here are removed with the #pageMap section itself - see the note by
 /* Acquisition sprint (2026-09-30): the acquisition answer - mode, ordered
    steps, the published contact block. Terminal style, no card. */
 .acq-mode{font-weight:700}
+.auction-process-mode{font-weight:700}
+/* A source whose reuse terms are under review: named, never styled as an error. */
+.prov-review{display:inline-block;margin-left:.3rem;padding:0 .35rem;border-radius:.3rem;font-size:.68rem;font-weight:600;color:var(--warn);background:var(--warn-bg);white-space:nowrap}
 .acq-first{display:block;margin-top:.2rem;font-size:.78rem}
 .acq-verified .warn{color:var(--warn)}
 .acq-steps{margin:.3rem 0 0;padding-left:1.25rem} .acq-steps li{margin:.12rem 0}

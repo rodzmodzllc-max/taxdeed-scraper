@@ -2861,6 +2861,11 @@ function previewFacts(p) {
     const rel = relatedRecordsFor(p);
     if (rel.length) more.push(["Same parcel in", rel.map(o => ledgerCopy(o.source).title || o.source).join(", ")]);
   }
+  if (p.source === "auction") {
+    const acq = acquisitionOf(p);
+    more.push(["Sale process", acq.verified ? (AUCTION_PROCESS_MODE_LABELS[acq.mode] || "County sale process") + (acq.office ? ` · ${acq.office}` : "") + " (county-level)" : "Not yet verified"]);
+  }
+  if (sourceUnderReview(p)) more.push(["Source", "Under review - not an approved source"]);
   if (sale) more.push(["Last sale", sale]);
   if (p.lien_level && regionOf(p) === "FL") more.push(["Manual lien notes", LIEN_LABEL[p.lien_level] || String(p.lien_level)]);
   if (isGone(p)) more.push(["Listing status", outcomeText(p)]);
@@ -3450,6 +3455,32 @@ function acquisitionHtml(p) {
   return head + steps + docLine + instr + scope + verified;
 }
 
+// Auctions: the county's published sale process (registration, deposit,
+// payment, contact) from the same verified evidence record the purchase-path
+// engine writes - presented as a SALE process, never as a purchase path, and
+// always as county-level guidance. Absence is explicit.
+const AUCTION_PROCESS_MODE_LABELS = {
+  online: "Online sale", in_person: "In-person sale", multi_step: "Multi-step county sale process",
+  application: "County registration / bidder application", instructions: "County sale instructions"
+};
+function auctionProcessHtml(p) {
+  const a = acquisitionOf(p);
+  const sub = t => `<span class="dec-sub">${t}</span>`;
+  if (!a.verified) {
+    return `<span class="muted">Not yet verified - the county's registration, deposit and payment rules for this sale have not been captured from its own page</span>` +
+      sub(esc("Check the county's sale page before bidding; nothing here is assumed."));
+  }
+  const head = `<span class="auction-process-mode" data-mode="${esc(a.mode)}">${esc(AUCTION_PROCESS_MODE_LABELS[a.mode] || "County sale process")}</span>`;
+  const steps = a.steps.length ? `<ol class="acq-steps">${a.steps.map(st => `<li>${esc(st)}</li>`).join("")}</ol>`
+    : (a.instructions ? sub(`<span class="dec-instructions">Instructions published by the county: ${esc(a.instructions)}</span>`) : "");
+  const docs = [];
+  if (a.evidenceUrl) docs.push(`<a href="${esc(a.evidenceUrl)}" target="_blank" rel="noopener">${esc(a.evidenceTitle || "County sale page")} →</a>`);
+  if (a.applicationUrl) docs.push(`<a href="${esc(a.applicationUrl)}" target="_blank" rel="noopener">Registration / bid document →</a>`);
+  const scope = sub(`<span class="acq-scope" data-scope="county">${esc("County-level guidance: the county publishes these rules for every property on its sale list - not specific to this parcel. Confirm with the county before the sale.")}</span>`);
+  const verified = sub(`<span class="acq-verified">${esc(`Sale process last verified ${a.observedOn ? dateOnly(a.observedOn) : "(date not recorded)"}`)}</span>`);
+  return head + steps + (docs.length ? sub(docs.join(" · ")) : "") + acquisitionContactHtml(a) + scope + verified;
+}
+
 function typedPurchasePath(p) {
   if (!p || !p.purchase_path_type) return null;
   return {
@@ -3616,6 +3647,7 @@ function availableDecisionHtml(p) {
   const matchText = sm && sm.value ? `Matched to the list by ${String(sm.identifier).replace("_", " ")} ${sm.value}${sm.parcel ? ` (parcel ${sm.parcel})` : ""}${sm.read_at ? ` · read ${dateOnly(sm.read_at)}` : ""}`
     : (p.case_no ? `Listed under case ${p.case_no}${hasParcel(p) ? ` (parcel ${p.parcel})` : ""}` : (hasParcel(p) ? `Listed under parcel ${p.parcel}` : "Identity on the list not recorded"));
   const listedLine = sub(`<span class="acq-scope" data-scope="listing">${esc(sm && sm.value ? "Property-specific: this parcel appears on the official county list." : (p.last_seen_at ? "This parcel was on the official county list when it was last read." : "Not yet matched to a read of the county list."))}</span>`);
+  if (sourceUnderReview(p)) rows.push(q("review", "Is the source approved?", `<span class="prov-review">Source under review</span>${sub(esc(REVIEW_REQUIRED_TEXT))}`, "muted"));
   rows.push(q("why", "Why is it in Available?", `${what}${listedLine}${sub(esc(op.inventory_type ? `Basis: ${op.inventory_type}` : (p.source_authority ? `Published by ${SOURCE_AUTHORITY_LABELS[p.source_authority] || p.source_authority}` : "Basis not recorded")))}${sub(`${listing.length ? listing.join(" · ") + " · " : `<span class="muted">No list URL published</span> · `}${esc(srcDate)}`)}${sub(`<span class="acq-match">${esc(matchText)}</span>`)}`));
   // 2. Is it available now?
   let avail, availCls = "";
@@ -3760,6 +3792,8 @@ function auctionDecisionHtml(p) {
   if (fl.cls !== "muted") known.push(`Flood ${fl.text}`);
   rows.push(q("known", "What property intelligence is available?", known.length ? esc(known.join(" · ")) : muted("Nothing beyond the identity the source published"), known.length ? "" : "muted"));
   const link = auctionLinkInfo(p);
+  rows.push(q("process", "How do I register and bid?", auctionProcessHtml(p), acquisitionOf(p).verified ? "ok" : "muted"));
+  if (sourceUnderReview(p)) rows.push(q("review", "Is the source approved?", `<span class="prov-review">Source under review</span>${sub(esc(REVIEW_REQUIRED_TEXT))}`, "muted"));
   rows.push(q("source", "What is the source?", `${esc(harvesterSourceLabel(p) || "Source not recorded")}${link && link.href ? ` · <a href="${esc(link.href)}" target="_blank" rel="noopener">${esc(link.label || "Source page")} →</a>` : ""}${sub(esc(`${lastSyncedText(p)}${p.last_seen_at ? ` · last read ${dateOnly(p.last_seen_at)}` : ""}`))}`));
   let result, resultCls = "";
   const ost = auctionOutcomeState(p);
@@ -3821,6 +3855,7 @@ function certificateDecisionHtml(p) {
     const a = acquisitionOf(p);
     rows.push(q("acquire", "How do I buy it?", acquisitionHtml(p) + acquisitionContactHtml(a), a.verified ? "ok" : "muted"));
   }
+  if (sourceUnderReview(p)) rows.push(q("review", "Is the source approved?", `<span class="prov-review">Source under review</span>${sub(esc(REVIEW_REQUIRED_TEXT))}`, "muted"));
   rows.push(q("source", "Source and freshness?", `${esc(harvesterSourceLabel(p) || "Source not recorded")}${p.url_auction ? ` · <a href="${esc(p.url_auction)}" target="_blank" rel="noopener">County-held list →</a>` : ""}${sub(esc(`${lastSyncedText(p)}${p.inventory_status_observed_at ? ` · status observed ${dateOnly(p.inventory_status_observed_at)}` : ""}`))}`));
   const xl = crossLedgerSummary(p);
   rows.push(q("related", "Same parcel in Auctions or Available?", xl.cls ? muted(xl.text) : esc(xl.text), xl.cls));
@@ -3997,6 +4032,22 @@ function provenanceSourceLabel(source, p) {
   }
   return PROVENANCE_SOURCE_LABELS[source] || String(source);
 }
+// Sources whose reuse terms are under review (harvesters/sources/model.py
+// REVIEW_OVERRIDES - a test pins the keys equal). Their rows stay published
+// under the registry's decision, but the customer is told the source is not
+// an approved one and that its facts are shown as observed on it.
+const REVIEW_REQUIRED_SOURCES = {
+  tx_lgbs: "Linebarger (LGBS) tax-sale listings",
+  tx_realauction: "RealAuction Texas tax-sale listings"
+};
+const REVIEW_REQUIRED_TEXT = "Under review - this source's reuse terms are not yet approved; its facts are shown as observed on the source";
+function sourceUnderReview(p) {
+  if (!p) return false;
+  if (REVIEW_REQUIRED_SOURCES[p.source_id] || REVIEW_REQUIRED_SOURCES[p.harvester_source]) return true;
+  const fp = p.field_provenance && typeof p.field_provenance === "object" ? p.field_provenance : {};
+  return Object.values(fp).some(v => v && typeof v === "object" && (v.governance === "REVIEW_REQUIRED" || REVIEW_REQUIRED_SOURCES[v.source_id]));
+}
+function sourceReviewText(p) { return sourceUnderReview(p) ? "Under review" : "Approved"; }
 // A value figure is named as its source names it (valueLabel /
 // assessedSourceLabel) - never Florida's "just value" for another state.
 function provenanceFieldLabel(field, p) {
@@ -4164,7 +4215,8 @@ function provenanceRowsHtml(fp, p) {
     else method = PROVENANCE_KIND[v.source] === "derived" ? "Entered by our team" : "Published by the source";
     const when = v.list_as_of ? `List as of ${dateOnly(v.list_as_of)}` : (v.recorded_at ? `Recorded ${dateOnly(v.recorded_at)}` : "Date not recorded");
     const sid = v.source_id ? `<span class="mono">${esc(String(v.source_id))}</span>` : "";
-    return `<div class="prov-row" data-field="${esc(field)}"><span class="prov-field">${esc(provenanceFieldLabel(field, p))}</span><span class="prov-source">${esc(source)} ${sid}</span><span class="prov-method">${esc(method)}</span><span class="prov-when">${esc(when)}</span></div>`;
+    const review = v.governance === "REVIEW_REQUIRED" || REVIEW_REQUIRED_SOURCES[v.source_id] ? ` <span class="prov-review">Source under review</span>` : "";
+    return `<div class="prov-row" data-field="${esc(field)}"><span class="prov-field">${esc(provenanceFieldLabel(field, p))}</span><span class="prov-source">${esc(source)} ${sid}${review}</span><span class="prov-method">${esc(method)}</span><span class="prov-when">${esc(when)}</span></div>`;
   });
   return `<div class="prov-table"><div class="prov-row prov-head"><span>Field</span><span>Source</span><span>How obtained</span><span>When</span></div>${rows.join("")}</div>`;
 }
@@ -6142,7 +6194,8 @@ if (exportCsvBtn) exportCsvBtn.addEventListener("click", () => {
     ["Acquisition Status", p => ssAcquisitionVerified(p) ? "Verified" : "Not yet verified"],
     ["Acquisition Last Verified", p => p.purchase_path_observed_on || ""],
     ["Imagery On File", p => p.photo_url ? "Yes" : "No"],
-    ["Days Since Last Read", p => { const d = daysSince(p.last_seen_at); return d === null ? "" : d; }]
+    ["Days Since Last Read", p => { const d = daysSince(p.last_seen_at); return d === null ? "" : d; }],
+    ["Source Review Status", p => sourceReviewText(p)]
   ];
   const cols = [
     ["State", p => regionOf(p)],
@@ -6262,7 +6315,15 @@ if (exportCsvBtn) exportCsvBtn.addEventListener("click", () => {
     ["Latitude", p => hasNum(p.latitude) ? p.latitude : ""],
     ["Longitude", p => hasNum(p.longitude) ? p.longitude : ""],
     ["Imagery On File", p => p.photo_url ? "Yes" : "No"],
-    ["Last Read From Source", p => p.last_seen_at ? String(p.last_seen_at).slice(0, 10) : ""]
+    ["Last Read From Source", p => p.last_seen_at ? String(p.last_seen_at).slice(0, 10) : ""],
+    ["Sale Process (county-level)", p => { const a = acquisitionOf(p); return a.verified ? (AUCTION_PROCESS_MODE_LABELS[a.mode] || "County sale process") : "Not yet verified"; }],
+    ["Sale Process Steps (published by the county)", p => acquisitionOf(p).steps.join(" | ")],
+    ["County Office", p => acquisitionOf(p).office || ""],
+    ["County Phone", p => acquisitionOf(p).phone || ""],
+    ["County E-mail", p => acquisitionOf(p).email || ""],
+    ["Sale Process Page", p => acquisitionOf(p).evidenceUrl || ""],
+    ["Sale Process Last Verified", p => p.purchase_path_observed_on || ""],
+    ["Source Review Status", p => sourceReviewText(p)]
   ];
   // Liens & Certificates: the certificate's own published facts, source and
   // freshness - never the parcel-level tax-roll columns a certificate row
@@ -6288,7 +6349,8 @@ if (exportCsvBtn) exportCsvBtn.addEventListener("click", () => {
     ["Same Parcel In Other Ledgers", p => relatedRecordsFor(p).map(o => ledgerCopy(o.source).title || o.source).join("; ")],
     ["County-Held List URL", p => p.url_auction || ""],
     ["Source", p => harvesterSourceLabel(p) || ""],
-    ["Last Synced", p => p.updated_at ? String(p.updated_at).slice(0, 10) : ""]
+    ["Last Synced", p => p.updated_at ? String(p.updated_at).slice(0, 10) : ""],
+    ["Source Review Status", p => sourceReviewText(p)]
   ];
   const exportCols = state.ledger === "laft" ? availableCols : state.ledger === "certificate" ? certificateCols : cols;
   // Phase 63: the row-terminator below is "\r\n", and this regex used to
