@@ -442,6 +442,9 @@ def main(argv=None) -> int:
     ap.add_argument("--candidates", action="store_true",
                     help="read only the official candidate pages in data/acquisition_candidate_pages.csv (all states unless --state-filter)")
     ap.add_argument("--state-filter", action="append", default=[], help="with --candidates: limit to these states (repeatable)")
+    ap.add_argument("--candidates-file", default=str(CANDIDATES),
+                    help="with --candidates: the candidate list to read (default data/acquisition_candidate_pages.csv; "
+                         "data/available_discovery_pages.csv holds the AVAILABLE discovery candidates)")
     ap.add_argument("--out", default=str(OUT_PATH))
     args = ap.parse_args(argv)
     if args.digest:
@@ -455,7 +458,9 @@ def main(argv=None) -> int:
     if args.candidates:
         print("capturing official acquisition candidate pages", flush=True)
         report["state"] = ",".join(args.state_filter) or "all"
-        report["available_sources"] = capture_candidates(session, set(args.state_filter) or None, counties, follow=args.follow)
+        report["candidates_file"] = Path(args.candidates_file).name
+        report["available_sources"] = capture_candidates(session, set(args.state_filter) or None, counties, follow=args.follow,
+                                                         path=Path(args.candidates_file))
     elif not args.skip_available:
         print(f"capturing AVAILABLE source pages ({args.state})", flush=True)
         report["available_sources"] = capture_available(session, args.state, counties, follow=args.follow)

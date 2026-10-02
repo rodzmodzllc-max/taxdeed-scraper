@@ -418,6 +418,11 @@ let ALL = [], CALENDAR = {}, NOTES = {}, FAVS = new Set(), HIDDEN = new Set(), M
 // state with no rows at all is told so plainly ("No properties currently
 // available for this state") - never "unsupported", never hidden.
 let PROPERTIES_LOADED = false;
+// Why this state's AVAILABLE ledger shows what it does (public/available-
+// coverage.json, generated from the repository by scripts/
+// build_available_coverage.py). Read only to name a zero - never to create,
+// hide or soften a row. null = file not loaded (the generic copy stands).
+let AVAILABLE_COVERAGE = null;
 // AVAILABLE commercialization (2026-09-30): rows whose SOURCE is not approved
 // for customer publication (migration 022's publication_status, propagated
 // from county_source_registry by scripts/publication_gate.py) are withheld
@@ -2327,7 +2332,7 @@ async function fetchProperties() {
 
 async function loadAll() {
   const today = new Date().toISOString().slice(0, 10);
-  const [props, notes, favs, hid, cal, bidlist, health, freshness] = await Promise.all([
+  const [props, notes, favs, hid, cal, bidlist, health, freshness, availCoverage] = await Promise.all([
     fetchProperties(),
     sb.from("notes").select("*"),
     sb.from("favorites").select("property_id"),
@@ -2340,7 +2345,8 @@ async function loadAll() {
     // Per-county freshness (migration 018's registry + 021's columns,
     // written by scripts/unit_freshness.py). Missing table or columns =
     // not recorded yet, shown as such.
-    sb.from("county_source_registry").select("state,county,source_id,last_attempt_at,last_attempt_status,last_success_at,last_success_row_count,consecutive_failures").order("county")
+    sb.from("county_source_registry").select("state,county,source_id,last_attempt_at,last_attempt_status,last_success_at,last_success_row_count,consecutive_failures").order("county"),
+    fetch("available-coverage.json", { cache: "no-store" }).then(r => (r.ok ? r.json() : null)).catch(() => null)
   ]);
   if (props.error) {
     const genEl = document.getElementById("generatedAt");
@@ -2353,6 +2359,7 @@ async function loadAll() {
   // captured acquisition path is still published (acquisitionGaps()).
   ALL = ALL.filter(p => { if (isPublishable(p)) return true; if (p.source in WITHHELD) WITHHELD[p.source]++; return false; });
   PROPERTIES_LOADED = true;
+  AVAILABLE_COVERAGE = (availCoverage && Array.isArray(availCoverage.states) && availCoverage.states.find(c => c.state === PAGE_STATE)) || null;
   NOTES = {}; (notes.data || []).forEach(n => { (NOTES[n.property_id] = NOTES[n.property_id] || []).push(n); });
   FAVS = new Set((favs.data || []).map(r => r.property_id));
   HIDDEN = new Set((hid.data || []).map(r => r.property_id));
@@ -3295,6 +3302,31 @@ function dataGaps(p) {
 // honest absence spelled out where it doesn't. No score, no estimate, no
 // recommendation - the one derived figure (value ÷ bid) is the same ratio
 // isTopPick() has always screened on, labelled as exactly that.
+// The AVAILABLE ledger's zero, named (public/available-coverage.json; the
+// vocabulary is harvesters/sources/available_coverage.STATUSES, pinned by a
+// test). Every line says what is known; none implies inventory exists.
+const AVAILABLE_COVERAGE_LABELS = {
+  SOURCE_TRACKED: "Source tracked - the county list is read on schedule and its last read found nothing currently available.",
+  SOURCE_EMPTY: "Source checked - the county list was empty at its last read.",
+  SOURCE_UNAVAILABLE: "Source unavailable - the last read of the county list failed. Nothing is assumed from a failed read.",
+  MATCHING_FAILED: "The last read could not be matched to parcel identifiers, so nothing was published from it.",
+  REVIEW_REQUIRED: "Official program pages were found but are awaiting capture and publication review. Nothing is published from them yet.",
+  HARD_BLOCKED: "Only blocked sources were found; none is used.",
+  NO_QUALIFYING_PROGRAM: "No qualifying government-held inventory - this state's post-sale instrument is a lien or an auction, not property held for purchase.",
+  NO_SOURCE_DISCOVERED: "No AVAILABLE source has been discovered for this state yet."
+};
+function availableCoverageHtml(c) {
+  if (!c || !AVAILABLE_COVERAGE_LABELS[c.status]) return "";
+  const cands = Array.isArray(c.candidates) ? c.candidates : [];
+  let sub = "";
+  if (c.status === "REVIEW_REQUIRED" && cands.length) {
+    const counties = [...new Set(cands.map(x => x.county))];
+    sub = `${cands.length} candidate source${cands.length === 1 ? "" : "s"}: ${counties.join(", ")}.`;
+  } else if (c.status === "NO_QUALIFYING_PROGRAM" && c.research && c.research.mechanism) {
+    sub = c.research.mechanism === "COUNTY_HELD_LIEN" ? "Unsold parcels stay with the county as tax liens / certificates (see Liens & Certificates or Auctions)." : "";
+  }
+  return `<span class="empty-hint available-coverage" data-coverage="${esc(c.status)}"><b>Why this list is empty:</b> ${esc(AVAILABLE_COVERAGE_LABELS[c.status])}${sub ? ` ${esc(sub)}` : ""}</span>`;
+}
 function opportunitySummaryHtml(p) {
   const region = regionOf(p);
   const isLaft = p.source === "laft";
@@ -5584,6 +5616,12 @@ function section(container, title, sub, rows, kind) {
       const stateEmpty = PROPERTIES_LOADED && !ALL.length;
       e.textContent = (stateEmpty ? "No properties currently available for this state. " : "") + (cfg.empty || "Nothing found.");
       if (stateEmpty) e.dataset.stateEmpty = "1";
+      // AVAILABLE only, and only when the ledger itself holds no row for this
+      // state (filters cleared): name WHICH zero this is.
+      if (kind === "laft" && PROPERTIES_LOADED && !ALL.some(p => p.source === "laft")) {
+        const why = availableCoverageHtml(AVAILABLE_COVERAGE);
+        if (why) e.insertAdjacentHTML("beforeend", why);
+      }
     }
     sec.appendChild(e); container.appendChild(sec);
     return { shown };
