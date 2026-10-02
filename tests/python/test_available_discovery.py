@@ -108,3 +108,43 @@ def test_available_discovery_capture_scope_is_value_free_and_database_free():
     block = wf[wf.index('if [ "$SCOPE" = "available_discovery" ]'):]
     block = block[:block.index("fi\n")]
     assert "--candidates-file data/available_discovery_pages.csv" in block and "SUPABASE" not in block
+
+
+def test_discovery_capture_reports_list_shapes_and_never_a_value(monkeypatch):
+    """--discovery: FLC / over-the-counter links are selected and followed
+    (same site only), every digit is masked, a table reports only its shape."""
+    sys.path.insert(0, str(ROOT / "scripts"))
+    import capture_purchase_evidence as CPE
+    monkeypatch.setattr(CPE, "DISCOVERY", True)
+    html = """<html><head><title>Forfeited Land Commission</title></head><body>
+      <h1>FLC</h1>
+      <a href="/DocumentCenter/View/1/FLC-Properties-Available-for-Assignment">FLC Properties Available for Assignment Real Estate</a>
+      <a href="https://othercounty.example.org/list">Properties available</a>
+      <p>FLC properties are available for assignment until 10/31/2026 for a bid of $1,250.00 on parcel 123-45-6789.</p>
+      <table><tr><th>Map #</th><th>Owner</th><th>Bid</th></tr>
+             <tr><td>123-04-01-005</td><td>SMITH JOHN</td><td>$1,200</td></tr>
+             <tr><td>123-04-01-006</td><td>DOE JANE</td><td>$900</td></tr></table>
+    </body></html>"""
+    out = CPE.extract_html(html, "https://county.example.gov/388/FLC")
+    # Every captured TEXT is digit-free (hrefs are the page's own links; the
+    # shape counts are counts, not values).
+    texts = [out["title"], *out["headings"], *out["snippets"], *[l["text"] for l in out["links"]],
+             *[h for t in out["table_shapes"] for h in t["header"]]]
+    assert not any(re.search(r"\d", t) for t in texts), texts
+    blob = json.dumps(out)
+    assert "SMITH" not in blob and "DOE" not in blob
+    assert out["table_shapes"] == [{"header": ["Map #", "Owner", "Bid"], "rows": 2, "rows_with_identifier_shape": 2}]
+    links = {l["text"]: l for l in out["links"]}
+    assert links["FLC Properties Available for Assignment Real Estate"]["follow"] is True
+    assert links["Properties available"]["follow"] is False        # other site: listed, never followed
+    assert any("available for assignment" in s for s in out["snippets"])
+
+
+def test_discovery_mode_is_off_outside_the_scope():
+    sys.path.insert(0, str(ROOT / "scripts"))
+    import capture_purchase_evidence as CPE
+    assert CPE.DISCOVERY is False
+    wf = (ROOT / ".github/workflows/harvest-and-sync.yml").read_text(encoding="utf-8")
+    assert "available_discovery_pages.csv --follow --discovery" in wf
+    assert [l for l in wf.splitlines() if "capture_purchase_evidence.py" in l and "--discovery" in l] == \
+        [l for l in wf.splitlines() if "available_discovery_pages.csv" in l and "capture_purchase_evidence.py" in l]

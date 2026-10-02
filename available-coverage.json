@@ -271,7 +271,7 @@
      "governance": "REVIEW_REQUIRED",
      "name": "Aiken County Forfeited Land Commission list (post-sale, county-held)",
      "source_id": "sc_aiken_forfeited_land",
-     "url": "https://www.aikencountysc.gov/DspSvc?qSvcID=148"
+     "url": "https://www.aikencountysc.gov/386/Forfeited-Land-Commission"
     },
     {
      "access": "NOT_CHECKED",
@@ -335,7 +335,7 @@
      "governance": "REVIEW_REQUIRED",
      "name": "York County Forfeited Land Commission list (post-sale, county-held)",
      "source_id": "sc_york_forfeited_land_commission",
-     "url": "https://www.yorkcountysc.gov/DocumentCenter/View/3590/2026-Tax-Sale-Information"
+     "url": "https://www.yorkcountysc.gov/216/Tax-Collection"
     }
    ],
    "last_reads": {},
