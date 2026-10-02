@@ -112,3 +112,33 @@ def test_available_sources_scope_is_read_only():
     src = (ROOT / "scripts/capture_available_sources.py").read_text(encoding="utf-8")
     assert "write_bytes" not in src and src.count(".write_text(") == 1
     assert all(re.fullmatch(r"https://\S+|[0-9a-f]{32}", c["url"]) for c in CAP.candidates())
+
+
+def test_xlsx_lists_emit_headers_counts_and_shapes_only():
+    import io
+    import openpyxl
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.append(["2025 FLC LIST"])
+    ws.append(["Map Number", "Owner Name", "Address", "Opening Bid", "Tax Sale Date"])
+    ws.append(["123-45-67-890", "QUIMBY, MARGARETHE", "4417 SEAGRASS", 1234.56, "10/07/2024"])
+    ws.append(["123-45-67-891", "JOHNATHAN QUIMBY", "", 99, "2024"])
+    buf = io.BytesIO()
+    wb.save(buf)
+    out = CAP.xlsx_structure(buf.getvalue())
+    _clean(json.dumps(out))
+    sh = out["sheets"][0]
+    assert sh["rows"] == 2 and sh["header"][0] == "Map Number" and sh["header"][1] == "Owner Name"
+    assert sh["id_cells_by_column"] == {0: 2} and sh["id_shapes"] == {"999-99-99-999": 2}
+    assert sh["years"] == {"2024": 2}
+
+
+def test_wording_with_a_person_name_is_never_printed():
+    import capture_sc_available as SCC
+    page = ("<p>If you are interested in one of the properties, you must send your request in writing to: Forfeited Land "
+            "Commission C/O Quimby Osterwald P.</p><p>Members: Chairman Johnathan Quimby and Secretary Margarethe "
+            "Osterwald approve each sale of forfeited land.</p><p>The Forfeited Land Commission sells forfeited land "
+            "after the redemption period.</p>")
+    out = SCC.html_wording(page, "https://x.gov/flc")
+    _clean(json.dumps(out))
+    assert out["availability_wording"] == ["The Forfeited Land Commission sells forfeited land after the redemption period."]

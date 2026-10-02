@@ -117,6 +117,38 @@ def heading_line(line: str) -> bool:
     return all(w.lower() in HEADING_WORDS for w in words)
 
 
+# Words that may appear capitalised in county wording without naming a person.
+COMMON_WORDS = frozenset("""
+the of and for to in on at by with a an you your we our us this that these please if all no not be is are will may can
+must click here more information department office treasurer auditor clerk register deeds government state city commission
+board authority bank program programs application applications form forms online website site copyright privacy policy
+policies terms disclaimer north south east west county counties public notice notices services service tax taxes delinquent
+collector assessor sale sales home homes land property properties available purchase purchasing guidelines procedures
+procedure bid bids bidder sealed deed deeds quit claim warranty as is where any kind street road avenue drive suite box po
+p.o. monday tuesday wednesday thursday friday saturday sunday frequently asked questions faq contact us agenda agendas
+minutes meeting meetings committee council commissioners lands lot lots parcel parcels id number list lists forfeited
+assignment redemption period the a code laws act freedom information federal law shall control statement michigan carolina
+wisconsin texas florida louisiana colorado wyoming
+""".split())
+NAME_RUN = re.compile(r"(?:\b[A-Z][A-Za-z'.-]+\b[ ,]*){2,}")
+
+
+def name_like(sentence: str) -> bool:
+    """True when the sentence carries two or more consecutive capitalised words
+    that are not ordinary county vocabulary - the shape of a person's name
+    (e.g. a staff member or board member). Such a sentence is never printed."""
+    for run in NAME_RUN.finditer(sentence or ""):
+        streak = 0
+        for w in re.findall(r"[A-Za-z'.-]+", run.group(0)):
+            if w.lower().strip(".'") in COMMON_WORDS or w.lower() in HEADING_WORDS:
+                streak = 0
+            else:
+                streak += 1
+                if streak >= 2:
+                    return True
+    return False
+
+
 def clean(text: str) -> str:
     return re.sub(r"\s+", " ", text or "").strip()
 
@@ -153,8 +185,8 @@ def html_wording(html: str, url: str) -> dict:
     for t in soup(["table", "script", "style", "noscript", "form", "select"]):
         t.decompose()
     body = soup.get_text(" ")
-    avail = [s for s in sentences(body) if AVAIL_VOCAB.search(s) and not row_like(s)]
-    terms = [s for s in sentences(body) if TERMS_VOCAB.search(s) and not row_like(s)]
+    avail = [s for s in sentences(body) if AVAIL_VOCAB.search(s) and not row_like(s) and not name_like(s)]
+    terms = [s for s in sentences(body) if TERMS_VOCAB.search(s) and not row_like(s) and not name_like(s)]
     # A phone number is never printed (it may be a person's direct line); only
     # whether the page publishes one.
     phones = len({m.group(0) for m in PHONE.finditer(body)})

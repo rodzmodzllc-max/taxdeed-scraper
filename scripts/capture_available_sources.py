@@ -51,7 +51,7 @@ ARCGIS_ITEM = "https://www.arcgis.com/sharing/rest/content/items/{id}"
 LIST_LINK = re.compile(r"\b(available|inventory|for sale|list|properties|parcels|lots|forfeited|tax deed|surplus|resale|struck)\b", re.I)
 ID_FIELD = re.compile(r"parcel|pin\b|^pin|apn|tax_?id|taxid|tms|map_?num|account|acct|prop_?id|property_?id|^id$|objectid", re.I)
 CAT_FIELD = re.compile(r"status|type|class|program|category|zoning|use|listing|sale|avail|offer|neighborhood_type", re.I)
-MAX_FOLLOW = 4
+MAX_FOLLOW = 8
 EXTRA_HEADER_WORDS = frozenset("""
 price asking list sq ft square feet lot size zoning type class neighborhood ward city township village municipality parcel
 id pin acres acre details view apply application link status available sold pending under contract offer
@@ -87,6 +87,17 @@ def table_structure(html: str) -> list[dict]:
     return out
 
 
+def page_id_shapes(html: str) -> dict:
+    """Identifier-shaped tokens anywhere in the page's visible text (lists
+    published as paragraphs or bullets): their count and SHAPES only."""
+    from bs4 import BeautifulSoup  # noqa: PLC0415
+    soup = BeautifulSoup(html, "html.parser")
+    for t in soup(["script", "style", "noscript"]):
+        t.decompose()
+    toks = SC.ID_TOKEN.findall(soup.get_text(" "))
+    return {"count": len(toks), "shapes": dict(Counter(SC.shape(t) for t in toks).most_common(6))}
+
+
 def list_links(html: str, url: str) -> list[dict]:
     """Same-site links whose text names a list / inventory (never one with a
     digit run in its text or a 7+ digit run in its address)."""
@@ -117,10 +128,14 @@ def capture_html(session, url: str, src: dict, *, follow: bool = True) -> dict:
     if r.content[:4] == b"%PDF":
         page.update(SC.analyse_pdf(r.content, {"source_id": src["source_id"]}))
         return page
+    if r.content[:2] == b"PK" and ("spreadsheet" in ctype or url.lower().endswith(".xlsx")):
+        page["xlsx"] = xlsx_structure(r.content)
+        return page
     if "html" not in ctype:
         return page
     page.update(SC.html_wording(r.text, url))
     page["tables"] = table_structure(r.text)
+    page["page_id_shapes"] = page_id_shapes(r.text)
     lists = list_links(r.text, url)
     page["list_links"] = lists
     if follow:
@@ -170,7 +185,57 @@ def layer_structure(session, layer_url: str) -> dict:
         if vals:
             cats[n] = dict(vals.most_common(10))
     out["category_values"] = cats
+    edit = (meta.get("editingInfo") or {}).get("lastEditDate") or (meta.get("editingInfo") or {}).get("dataLastEditDate")
+    out["last_edit"] = _epoch_date(edit)
+    dates = {}
+    for f in fields:
+        if f.get("type") == "esriFieldTypeDate":
+            vals = sorted(_epoch_date(a.get(f["name"])) for a in feats if a.get(f["name"]))
+            if vals:
+                dates[f["name"]] = {"min": vals[0], "max": vals[-1]}
+    out["date_ranges"] = dates
     return out
+
+
+def _epoch_date(v):
+    try:
+        return datetime.fromtimestamp(int(v) / 1000, tz=timezone.utc).date().isoformat() if v else None
+    except (TypeError, ValueError, OverflowError):
+        return None
+
+
+def xlsx_structure(data: bytes) -> dict:
+    """Sheets, whitelisted header rows, row counts and identifier SHAPES of an
+    XLSX list - never a cell value."""
+    import io  # noqa: PLC0415
+    try:
+        import openpyxl  # noqa: PLC0415
+    except ImportError:
+        return {"error": "openpyxl not installed"}
+    try:
+        wb = openpyxl.load_workbook(io.BytesIO(data), read_only=True, data_only=True)
+    except Exception as exc:  # noqa: BLE001
+        return {"error": type(exc).__name__}
+    sheets = []
+    for ws in wb.worksheets[:6]:
+        rows = [[("" if c is None else str(c)).strip() for c in r] for r in ws.iter_rows(values_only=True)]
+        rows = [r for r in rows if any(r)]
+        header_idx = next((i for i, r in enumerate(rows[:10]) if sum(1 for c in r if c and header_ok(c)) >= 2), None)
+        header = rows[header_idx] if header_idx is not None else []
+        body = rows[header_idx + 1:] if header_idx is not None else rows
+        cols, shapes, years = Counter(), Counter(), Counter()
+        for r in body:
+            for i, c in enumerate(r):
+                if SC.ID_TOKEN.fullmatch(c):
+                    cols[i] += 1
+                    shapes[SC.shape(c)] += 1
+                for y in SC.YEAR.findall(c) if len(c) <= 20 else []:
+                    years[y] += 1
+        sheets.append({"name": SC.mask(ws.title)[:40], "rows": len(body), "header_row": header_idx,
+                       "header": [SC.mask(c)[:40] if header_ok(c) else ("(not printed)" if c else "") for c in header],
+                       "id_cells_by_column": dict(cols), "id_shapes": dict(shapes.most_common(6)),
+                       "years": dict(sorted(years.items()))})
+    return {"sheets": sheets}
 
 
 def capture_arcgis_item(session, item_id: str) -> dict:
@@ -222,6 +287,13 @@ def digest(path: Path) -> str:
             out.append(f"{ind}  link: {l['text']!r} -> {l['href']}")
         for l in p.get("list_links", [])[:25]:
             out.append(f"{ind}  list link: {l['text']!r} -> {l['href']}")
+        if p.get("page_id_shapes", {}).get("count"):
+            out.append(f"{ind}  page id tokens={p['page_id_shapes']['count']} shapes={p['page_id_shapes']['shapes']}")
+        for sh in (p.get("xlsx") or {}).get("sheets", []):
+            out.append(f"{ind}  xlsx sheet {sh['name']!r} rows={sh['rows']} header_row={sh['header_row']} header={sh['header']} "
+                       f"id_cells={sh['id_cells_by_column']} shapes={sh['id_shapes']} years={sh['years']}")
+        if (p.get("xlsx") or {}).get("error"):
+            out.append(f"{ind}  xlsx error={p['xlsx']['error']}")
         for t in p.get("tables", []):
             out.append(f"{ind}  table rows={t['rows']} cols={t['columns']} header={t['header']} id_cells={t['id_cells_by_column']} shapes={t['id_shapes']}")
         st = p.get("structure")
@@ -250,6 +322,7 @@ def digest(path: Path) -> str:
                 out.append(f"    id_shapes={l.get('id_shapes')}")
                 out.append(f"    filled={l.get('filled')}")
                 out.append(f"    category_values={l.get('category_values')}")
+                out.append(f"    last_edit={l.get('last_edit')} date_ranges={l.get('date_ranges')}")
         else:
             page_lines(r)
     return "\n".join(out)
