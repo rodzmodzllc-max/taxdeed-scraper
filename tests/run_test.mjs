@@ -2936,6 +2936,22 @@ await navMap.close();
   results.adminShellShown = await onAdminShell(adm);
   results.adminIdentityText = ((await adm.locator('#adminIdentity').textContent()) || '').trim();
   results.adminShellShowsNoEmail = !/@/.test((await adm.locator('#adminShell').textContent()) || '');
+  // Admin source panel (all-sources enrichment engine): the unified inventory
+  // with the three governance states kept apart, filterable by state / type.
+  await adm.waitForSelector('#adminSourcesList tr[data-source]', { timeout: 5000 }).catch(() => {});
+  results.adminSourcesRows = await adm.locator('#adminSourcesList tr[data-source]').count();
+  results.adminSourcesGovernanceKinds = await adm.evaluate(() => [...new Set([...document.querySelectorAll('#adminSourcesList tr[data-governance]')].map(r => r.dataset.governance))].sort().join(','));
+  results.adminSourcesStatusText = ((await adm.locator('#adminSourcesStatus').textContent()) || '').trim();
+  await adm.selectOption('#adminSourcesGov', 'REVIEW_REQUIRED');
+  results.adminSourcesReviewOnly = await adm.evaluate(() => [...document.querySelectorAll('#adminSourcesList tr[data-governance]')].every(r => r.dataset.governance === 'REVIEW_REQUIRED'));
+  results.adminSourcesLgbsReason = await adm.evaluate(() => { const r = document.querySelector('#adminSourcesList tr[data-source="tx_lgbs_statewide_api"]'); return !!r && /lgbs-rights-audit/.test(r.textContent); });
+  await adm.selectOption('#adminSourcesGov', '');
+  await adm.selectOption('#adminSourcesState', 'LA');
+  results.adminSourcesLaOnly = await adm.evaluate(() => { const rows = [...document.querySelectorAll('#adminSourcesList tr[data-source]')]; return rows.length > 0 && rows.every(r => r.firstElementChild.textContent === 'LA'); });
+  await adm.selectOption('#adminSourcesState', '');
+  await adm.selectOption('#adminSourcesType', 'PUBLIC_NOTICE');
+  results.adminSourcesNoticeRows = await adm.locator('#adminSourcesList tr[data-source]').count();
+  await adm.selectOption('#adminSourcesType', '');
   // 8. Signing out removes admin access: redirected now, and on a revisit.
   await adm.click('#adminSignOut');
   await adm.waitForTimeout(600);
@@ -3141,6 +3157,26 @@ await navMap.close();
 // verified acquisition steps; the MI auction row the county's published fields.
 // ============================================================
 {
+  // Release visibility gate: rows from a REVIEW_REQUIRED source (LGBS) say so on
+  // the property page and in their provenance - observed, never presented as an
+  // approved source.
+  {
+    const txUrl = BASE_URL.replace(/index\.html$/, 'tx.html');
+    const a = await newPage({ viewport: { width: 1200, height: 900 } });
+    await a.goto(txUrl + '#/auctions/ptx1', { waitUntil: 'networkidle' });
+    await a.waitForTimeout(600);
+    const ar = ((await a.locator('#detailModalInner .dec-row[data-q="review"]').textContent().catch(() => '')) || '').replace(/\s+/g, ' ');
+    results.txReviewAuction = { reviewRow: /Source under review/.test(ar), text: /not yet approved/.test(ar) };
+    await a.close();
+    const l = await newPage({ viewport: { width: 1200, height: 900 } });
+    await l.goto(txUrl + '#/lands/ptx6', { waitUntil: 'networkidle' });
+    await l.waitForTimeout(600);
+    results.txReviewLaft = {
+      reviewRow: (await l.locator('#detailModalInner .dec-row[data-q="review"] .prov-review').count()) === 1,
+      provenanceLabel: /Source under review/.test(((await l.locator('#detailModalInner .prov-row[data-field="legal_desc"]').textContent().catch(() => '')) || ''))
+    };
+    await l.close();
+  }
   const NEW_STATES = [['MI', 'mi', 'Michigan'], ['WY', 'wy', 'Wyoming'], ['SC', 'sc', 'South Carolina'], ['CO', 'co', 'Colorado'], ['WI', 'wi', 'Wisconsin']];
   results.xsPages = {};
   for (const [code, file, name] of NEW_STATES) {
@@ -3162,6 +3198,39 @@ await navMap.close();
       const card = pg.locator('.prop-card[data-pid="pmi1"]');
       const t = ((await card.textContent()) || '').replace(/\s+/g, ' ');
       results.xsMiCard = { count: await card.count(), county: /Eaton( County)?, MI/.test(t), sev: /State Equalized Value/.test(t), noJustValue: !/Just Value/.test(t) };
+    }
+    if (code === 'SC') {
+      // Release visibility gate: an auction row's verified county sale process is
+      // shown as a SALE process ("How do I register and bid?"), county-level, with
+      // the published contact - never as a purchase path.
+      const cold = await newPage({ viewport: { width: 1200, height: 900 } });
+      await cold.goto(BASE_URL.replace(/index\.html$/, 'sc.html') + '#/auctions/psc1', { waitUntil: 'networkidle' });
+      await cold.waitForTimeout(600);
+      const row = ((await cold.locator('#detailModalInner .dec-row[data-q="process"]').textContent().catch(() => '')) || '').replace(/\s+/g, ' ');
+      results.xsScProcess = {
+        question: /How do I register and bid\?/.test(row),
+        mode: /In-person sale/.test(row),
+        steps: /register as a bidder before the sale/.test(row),
+        phone: (await cold.locator('#detailModalInner .dec-row[data-q="process"] a[href^="tel:"]').count()) === 1,
+        countyLevel: /County-level guidance/.test(row),
+        notPurchasePath: !/purchase path/i.test(row),
+        page: /Tax Sale Fact Sheet and Disclaimer/.test(row),
+        noReviewRow: (await cold.locator('#detailModalInner .dec-row[data-q="review"]').count()) === 0
+      };
+      await cold.close();
+      const ex = await newPage({ viewport: { width: 1200, height: 900 }, acceptDownloads: true });
+      await ex.goto(BASE_URL.replace(/index\.html$/, 'sc.html') + '#/auctions', { waitUntil: 'networkidle' });
+      await ex.waitForTimeout(400);
+      const dl = ex.waitForEvent('download');
+      await ex.click('#exportCsvBtn');
+      const csv = fs.readFileSync(await (await dl).path(), 'utf8');
+      const [head, ...lines] = csv.split(/\r?\n/).filter(Boolean);
+      const line = lines.find(l => l.includes('FIXTURE-SC-1')) || '';
+      results.xsScExport = {
+        processCol: head.includes('Sale Process (county-level)'), reviewCol: head.includes('Source Review Status'),
+        processCell: line.includes('In-person sale'), phoneCell: line.includes('803-000-0000'), approvedCell: line.includes('Approved')
+      };
+      await ex.close();
     }
     if (code === 'CO') {
       // Deep link straight to the certificate - a REAL cold start in a fresh page
@@ -3989,6 +4058,13 @@ const EXPECTED = {
   adminShellShown: true,
   adminIdentityText: 'Admin',
   adminShellShowsNoEmail: true,
+  adminSourcesRows: 327,
+  adminSourcesGovernanceKinds: 'APPROVED,HARD_BLOCKED,REVIEW_REQUIRED',
+  adminSourcesStatusText: '327 source(s): 221 approved, 91 review required, 15 hard blocked.',
+  adminSourcesReviewOnly: true,
+  adminSourcesLgbsReason: true,
+  adminSourcesLaOnly: true,
+  adminSourcesNoticeRows: 3,
   adminSignOutRedirected: true,
   adminAfterSignOutRedirected: true,
   signupFormOffered: true,
@@ -4031,6 +4107,10 @@ const EXPECTED = {
   xsCoCardCount: true,
   xsCoDetail: { treasurer: true, steps: true, noStreetView: true, noUndefined: true, sourceNamed: true },
   xsCoDouglas: { attribution: true, assignment: true, noStreetView: true, noUndefined: true },
+  xsScProcess: { question: true, mode: true, steps: true, phone: true, countyLevel: true, notPurchasePath: true, page: true, noReviewRow: true },
+  xsScExport: { processCol: true, reviewCol: true, processCell: true, phoneCell: true, approvedCell: true },
+  txReviewAuction: { reviewRow: true, text: true },
+  txReviewLaft: { reviewRow: true, provenanceLabel: true },
   xsCoAuctionCopy: true,
   xsCoMarketProvenance: { label: true, source: true, method: true },
   laEnriched: { office: true, confirmFirst: true, noVendor: true, stillDated: true, landSource: true, landMethod: true, noUndefined: true },
@@ -4596,7 +4676,7 @@ const EXPECTED = {
   adminPubNoTableReviewText: 'Latest decision: Review history unavailable (migration 023 not applied)',
   adminPubNoTableFormDisabled: true,
   // ---- Customer-value / evidence sprint ----
-  aucDecQuestions: ['What property?', 'When is the sale?', 'Opening / minimum bid, if published?', 'What property intelligence is available?', 'What is the source?', 'Is an explicit auction result available?', 'Has this parcel appeared in another ledger?', 'What is not known?'],
+  aucDecQuestions: ['What property?', 'When is the sale?', 'Opening / minimum bid, if published?', 'What property intelligence is available?', 'How do I register and bid?', 'What is the source?', 'Is an explicit auction result available?', 'Has this parcel appeared in another ledger?', 'What is not known?'],
   aucDecP1When: /^[A-Z][a-z]{2} \d{1,2}, \d{4} · in 3d$/,
   aucDecP1Bid: '$5,000.00 Value ÷ bid 18.0× - a screening ratio, not a return',
   aucDecP1Related: 'Currently in Liens & Certificates (certificate #CERT-42). Same state, county and parcel number; why a record moved between ledgers is not recorded.',
@@ -4620,7 +4700,7 @@ const EXPECTED = {
   certDecRedemption: 'Not published by the source',
   certDecRelated: 'Currently in Auctions (case A-1). Same state, county and parcel number; why a record moved between ledgers is not recorded.',
   certDecNavHasDecision: 1,
-  certCsvHeader: ['State', 'County', 'Certificate #', 'Account #', 'Parcel', 'Tax Year', 'Amount', 'Interest Rate (as published)', 'Issued Date', 'Expiration Date', 'Est. Accrued Interest', 'TDA Eligibility Date', 'Status (per the source)', 'Status Observed', 'Same Parcel In Other Ledgers', 'County-Held List URL', 'Source', 'Last Synced'],
+  certCsvHeader: ['State', 'County', 'Certificate #', 'Account #', 'Parcel', 'Tax Year', 'Amount', 'Interest Rate (as published)', 'Issued Date', 'Expiration Date', 'Est. Accrued Interest', 'TDA Eligibility Date', 'Status (per the source)', 'Status Observed', 'Same Parcel In Other Ledgers', 'County-Held List URL', 'Source', 'Last Synced', 'Source Review Status'],
   certCsvHeaderLacks: true
 };
 

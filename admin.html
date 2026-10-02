@@ -41,6 +41,17 @@ row-level security) whether the signed-in account is an admin. Anyone else
     <p class="admin-note" id="adminUsageStatus" role="status">Loading usage</p>
     <div class="admin-usage" id="adminUsageList"></div>
   </section>
+  <section class="admin-card" aria-labelledby="adminSourcesLabel">
+    <p class="admin-label" id="adminSourcesLabel">Sources - every state, every source type</p>
+    <p class="admin-note">The unified source inventory: county lists, official documents, GIS / parcel layers, court and public-notice sources, auction vendors, third parties and federal datasets. <strong>APPROVED</strong> sources may fill customer fields; <strong>REVIEW_REQUIRED</strong> sources stay visible with the reason and next action and are never written from; <strong>HARD_BLOCKED</strong> sources are never requested. Coverage counts per county are in the AVAILABLE enrichment job's report (job=available).</p>
+    <p class="admin-filters">
+      <label>State <select id="adminSourcesState"><option value="">All states</option></select></label>
+      <label>Governance <select id="adminSourcesGov"><option value="">All</option><option>APPROVED</option><option>REVIEW_REQUIRED</option><option>HARD_BLOCKED</option></select></label>
+      <label>Type <select id="adminSourcesType"><option value="">All types</option></select></label>
+    </p>
+    <p class="admin-note" id="adminSourcesStatus" role="status">Loading sources</p>
+    <div class="admin-sources" id="adminSourcesList"></div>
+  </section>
   <section class="admin-card">
     <p class="admin-label">Administrative tools</p>
     <p class="admin-note">Source publication reviews are in the application's admin panel; every administrative operation is enforced on the server by the administrator role.</p>

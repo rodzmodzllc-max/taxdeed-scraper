@@ -18,8 +18,11 @@ def test_la_tax_parcels_config_is_public_domain_socrata_exact_match():
     assert cfg.source_id == "la_ebr_tax_parcels" and cfg.transport == "socrata" and cfg.publication_status == "APPROVED"
     assert cfg.layer_url == "https://data.brla.gov/resource/ei2c-krsr.json" and "Public Domain" in cfg.licence
     assert cfg.id_field == "assessment_num" and cfg.id_rule == "exact" and cfg.county_field is None and not cfg.centroid
-    # only attributes seen populated in the live sample are mapped
-    assert set(cfg.field_map.values()) == {"sum_land_value", "sum_fair_market_value", "sum_assessed_value"}
+    # only attributes measured populated live are mapped: the three sums (sample,
+    # run 36835470121) and legal_description (~60% of the 10,157 matched AVAILABLE
+    # rows, all-sources engine deep probe run 36922621158)
+    assert set(cfg.field_map.values()) == {"sum_land_value", "sum_fair_market_value", "sum_assessed_value", "legal_description"}
+    assert cfg.field_map["legal_desc"] == "legal_description"
     assert P.enrichment_allowed(cfg)[0]
     [url] = P.query_urls(cfg, "East Baton Rouge", ["123-4567-8", "123-4567-8"])
     q = parse_qs(urlsplit(url).query)
@@ -52,11 +55,16 @@ def test_la_acquisition_evidence_is_the_parish_attorney_process_at_source_scope(
     [la] = [e for e in PE.load_evidence() if e.state == "LA"]
     assert la.applicable and PE.evidence_problems(la) == []
     assert la.source_id == "la_ebr_adjudicated" and la.path_type == "county_instructions" and not la.third_party_permitted
-    assert "Office of the Parish Attorney handles these sales" in la.instructions
-    assert "remains adjudicated" in la.instructions and "civicsource" not in la.url.lower()
-    assert not la.phone and "No phone recorded" in la.notes                                  # nothing attributed, nothing invented
+    assert "still adjudicated, to the City-Parish" in la.instructions and "civicsource" not in la.url.lower()
+    # AVAILABLE sprint (2026-10-01): the Parish Attorney's own memorandum and
+    # office page attribute the office phone to the process (run 36940992329);
+    # office-level contact only - the named staff e-mails are not recorded.
+    assert la.phone == "(225) 389-3114" and not la.email and "run 36940992329" in la.notes
+    assert la.mailing_address.endswith("P.O. Box 1471, Baton Rouge, LA 70821")
+    assert la.application_url == "https://www.brla.gov/DocumentCenter/View/9351/REQUEST-TO-PURCHASE-ADJUDICATED-PROPERTY"
+    assert la.evidence_url.startswith("https://www.brla.gov/DocumentCenter/View/795/")
     path, reasons = PE.resolve({"case_no": "123-4567-8", "county": "East Baton Rouge"}, state="LA", source_id="la_ebr_adjudicated",
                                county="East Baton Rouge", evidence=PE.load_evidence(),
                                registry_row={"canonical_url": "https://data.brla.gov/Housing-and-Development/Adjudicated-Property/a4h4-zi7e"})
     assert reasons == [] and path.scope == "source" and path.url == "https://www.brla.gov/455/Adjudicated-Property"
-    assert not PE.complete_record(path.acquisition())                                         # no contact channel -> not "complete"
+    assert PE.complete_record(path.acquisition())                                             # office phone + steps + form

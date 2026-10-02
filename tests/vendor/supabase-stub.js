@@ -201,6 +201,9 @@ const FIXTURE_PROPERTIES = [
   { id: "ptx4", source: "auction", state: "TX", county: "Llano", case_no: "R000020419", parcel: "23101 (6)", address: "LOT 6 SUNRISE BEACH, Llano, TX", bid: 3942.08, min_bid: 3942.08, status: "active", sale_date: futureDate(-3), harvester_source: "tx_realauction", url_auction: txSaleUrl("llano.texas.sheriffsaleauctions.com", futureDate(-3)), url_auction_kind: "sale", updated_at: "2026-09-24T00:00:00Z" },
   { id: "ptx5", source: "auction", state: "TX", county: "Atascosa", case_no: "17854", parcel: "20-11-0957-CVA (1)", address: "200 Oak St, Pleasanton, TX", bid: 1200, min_bid: 1200, status: "active", sale_date: futureDate(12), harvester_source: "tx_realauction", updated_at: "2026-09-24T00:00:00Z" },
   { id: "ptx6", source: "laft", state: "TX", county: "Liberty", case_no: "000016000361003", parcel: "21DC-TX-00185", address: "TRACT 3, Liberty, TX", bid: 900, min_bid: 900, status: "active", sale_date: null, harvester_source: "tx_lgbs", tx_sale_status: "Available for Future Sale", updated_at: "2026-09-23T00:00:00Z",
+    // As scripts/lgbs_available_refresh.py writes it: a fill from a REVIEW_REQUIRED source.
+    field_provenance: { legal_desc: { source: "vendor_listing", source_id: "tx_lgbs", field: "legal_description", governance: "REVIEW_REQUIRED",
+      dataset: "taxsales.lgbs.com property_sales API", matched_on: "county + account number (case_no), exact", recorded_at: "2026-10-01T12:00:00Z" } },
     inventory_type: "FUTURE_RESALE", source_authority: "VENDOR_COUNSEL", source_id: "tx_lgbs", document_url: null, purchase_url: null, purchase_amount: null, purchase_amount_kind: null,
     // Acquisition-path sprint (2026-10-01): a Texas county with NO verified
     // acquisition record (Liberty) - exactly what scripts/apply_acquisition_paths.py
@@ -251,6 +254,18 @@ const FIXTURE_PROPERTIES = [
     harvester_source: "mi_eaton_treasurer_sale", source_id: "mi_eaton_treasurer_sale", source_authority: "GOVERNMENT_DIRECT",
     list_url: "https://www.arcgis.com/home/item.html?id=5b973732a9e84fdd94fa225f8160650d", url_auction: "https://www.arcgis.com/home/item.html?id=5b973732a9e84fdd94fa225f8160650d", url_auction_kind: "county",
     legal_desc: "FIXTURE LOT 1", acreage: 0.23, land_use: "Residential", assessed: 41200, taxable_value: 38100, publication_status: "APPROVED", ledger_type: "auctions", updated_at: "2026-09-30T12:00:00Z" },
+  // Release visibility gate (2026-10-02): a York SC auction row in the shape the
+  // expansion runner + purchase-path engine write - the county's published sale
+  // process (in person, steps, office phone) at source scope. Values are SYNTHETIC.
+  { id: "psc1", source: "auction", state: "SC", county: "York", case_no: "FIXTURE-SC-1", parcel: "0000000001", address: "1 FIXTURE LN", bid: 0, status: "active", sale_date: null, lien_level: "unscreened", lien_note: "",
+    harvester_source: "sc_york_tax_sale", source_id: "sc_york_tax_sale", source_authority: "GOVERNMENT_DIRECT",
+    list_url: "https://www.yorkcountysc.gov/216/Tax-Collection", url_auction: "https://www.yorkcountysc.gov/216/Tax-Collection", url_auction_kind: "county",
+    purchase_path_type: "in_person", purchase_path_scope: "source", purchase_path_observed_on: "2026-10-01",
+    purchase_path_evidence: "FIXTURE: the county fact sheet says the sale is held in person",
+    otc_provenance: { purchase_evidence_url: "https://www.yorkcountysc.gov/DocumentCenter/View/5241/Tax-Sale-Fact-Sheet", purchase_evidence_title: "Tax Sale Fact Sheet and Disclaimer (York County, SC)",
+      acquisition: { mode: "in_person", channels: ["in_person", "phone"], office: "York County Tax Collector", phone: "803-000-0000", observed_on: "2026-10-01",
+        steps: ["FIXTURE: register as a bidder before the sale", "FIXTURE: bid in person at the published location"] } },
+    publication_status: "APPROVED", ledger_type: "auctions", updated_at: "2026-10-01T12:00:00Z" },
   { id: "pco1", source: "certificate", state: "CO", county: "Morgan", case_no: "2023-00123", certificate_no: "2023-00123", parcel: "R012345", address: "1 FIXTURE RD", bid: 1234.56, status: "active", sale_date: null, lien_level: "unscreened", lien_note: "",
     harvester_source: "co_morgan_county_held_certificates", source_id: "co_morgan_county_held_certificates", source_authority: "GOVERNMENT_DIRECT",
     list_url: "https://morgancounty.colorado.gov/county-held-tax-lien-sale-certificates", url_auction: "https://morgancounty.colorado.gov/county-held-tax-lien-sale-certificates", url_auction_kind: "county",

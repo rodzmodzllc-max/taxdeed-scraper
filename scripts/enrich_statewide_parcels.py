@@ -75,10 +75,13 @@ def blank_for(row: dict, column: str) -> bool:
     return False
 
 
-def run(state: str, rows: list[dict], fetch_json, *, write=None, recorded_at: str) -> dict:
+def run(state: str, rows: list[dict], fetch_json, *, write=None, recorded_at: str, cfg=None, outcomes=None) -> dict:
     """The whole pipeline for one state, I/O injected. Returns the coverage
-    report (counts only)."""
-    cfg = for_state(state)
+    report (counts only). `cfg` names a specific layer (a county-scoped one);
+    the default is the state's statewide layer. `outcomes`, when given, is a
+    dict filled with row id -> MATCHED / UNMATCHED / AMBIGUOUS / NO_IDENTIFIER
+    / SOURCE_UNAVAILABLE (the all-sources engine's per-row outcome)."""
+    cfg = cfg or for_state(state)
     report = {"state": state, "source_id": cfg.source_id if cfg else None}
     if cfg is None:
         return {**report, "skipped": "no statewide parcel source configured"}
@@ -111,10 +114,14 @@ def run(state: str, rows: list[dict], fetch_json, *, write=None, recorded_at: st
         if failed:
             cov.failed_queries += 1
             cov.rows_considered += len(crow)
+            if outcomes is not None:
+                outcomes.update({r["id"]: "SOURCE_UNAVAILABLE" for r in crow})
             continue
         idx = P.index_features(cfg, features)
         for m, row in zip(P.match_rows(cfg, crow, idx), crow):
             cov.add(m)
+            if outcomes is not None:
+                outcomes[row["id"]] = m.status
             fields, prov = P.plan_update(cfg, row, m, recorded_at=recorded_at)
             fields = FP.filter_by_provenance(row, {k: v for k, v in fields.items() if blank_for(row, k) or k in (row.get("field_provenance") or {})}, "statewide_parcel")
             if not fields:
@@ -122,6 +129,9 @@ def run(state: str, rows: list[dict], fetch_json, *, write=None, recorded_at: st
             fields["field_provenance"] = FP.merge_field_provenance(row.get("field_provenance"), {k: prov[k] for k in fields})
             if write:
                 write(row["id"], fields)
+            # Later layers in the same run see this write: a stale snapshot
+            # must never let a second layer treat a just-filled column as blank.
+            row.update(fields)
             cov.rows_written += 1
             for k in fields:
                 if k != "field_provenance":

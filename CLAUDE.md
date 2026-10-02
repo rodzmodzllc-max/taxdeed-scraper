@@ -2068,6 +2068,74 @@ Full description: `docs/image-storage.md`. Stable facts:
   marks those units `manual_only` and never ages them by the clock. Their
   last read is never advanced. A test pins that set to the job's trigger.
 
+## All-sources AVAILABLE enrichment engine (2026-10-01, PR open, no migration)
+
+Full description: `docs/available-enrichment-engine.md`. Stable facts:
+- **One source model:** `harvesters/sources` (`UnifiedSource`, `build_inventory()`)
+  holds every source of all 13 registered states. Governance is APPROVED /
+  REVIEW_REQUIRED / HARD_BLOCKED:
+  - APPROVED writes customer fields;
+  - REVIEW_REQUIRED is read for discovery only, never written from;
+  - HARD_BLOCKED is never requested.
+
+  `tx_lgbs` and `tx_realauction` are REVIEW_REQUIRED by their own rights
+  audits; the registry's publication decision is unchanged. Known unused
+  sources live in `data/enrichment_source_catalog.csv`.
+  `public/source-inventory.json` is generated
+  (`scripts/build_source_inventory.py`, test-pinned) and feeds the admin.html
+  Sources panel.
+- **Documents:** `harvesters/documents/extract.py`. It reads PDF text and
+  tables, uses OCR only when tesseract exists, and reports `OCR_UNAVAILABLE`
+  otherwise. Identifier matching is whole-token. Acquisition facts and
+  notices come with page numbers.
+- **Engine:** `scripts/enrich_available.py`, run as the manual `job=available`
+  with `available_mode` plan / discover / apply. It covers every active
+  AVAILABLE row and fourteen dimensions, and gives each gap one outcome:
+  SOURCE_FOUND, SOURCE_REVIEW_REQUIRED, NO_SOURCE_FOUND, and so on. It builds
+  the state × county coverage matrix. It never closes, hides or republishes a
+  row.
+- `ParcelSourceConfig.counties` scopes a layer to counties, and
+  `sources.for_county()` returns the layers for one county.
+  `enrich_statewide_parcels.run(..., cfg=, outcomes=)`.
+- **Execution priority:** AVAILABLE customer value first, imagery last.
+  - `available_mode=apply` runs the parcel / tax-roll layers and flood only,
+    never NAIP.
+  - Imagery is its own bounded `available_mode=imagery` slice (600 rows,
+    about 40 minutes).
+  - Never queue a long imagery run ahead of priority 1-2 work: the workflow
+    has one concurrency slot and keeps only one pending run.
+- `sw.js` -> `tdw-shell-v64`.
+
+## AVAILABLE execution sprint (2026-10-01 / 02, PR #65, no migration)
+
+Full description: `docs/available-enrichment-engine.md` section 9.
+
+**Rule: map a column from the source's own definition.** Read it with
+`available_mode=metadata` (`discover_sources.py --metadata`) before mapping.
+The EBR Tax Roll's `units` counts structures; it is not acreage.
+
+**`la_ebr_tax_roll`** (Public Domain, county-scoped):
+- land use, taxable value and legal description;
+- multi-year, so it uses the latest year only, with `latest_min` 2024;
+- land use comes from 2023 through `column_year_floor`, because `structure_use` is blank from 2024 on;
+- two different records in the year are AMBIGUOUS, and nothing is written for them.
+
+**Parcel factory additions:**
+- `conditional_map`, `no_value`, `provenance_attrs`, `latest_min`, `column_year_floor`;
+- `enrich_statewide_parcels.run` updates the in-memory row after each write, so there is no stale-snapshot rewrite.
+
+**`scripts/lgbs_available_refresh.py`** (apply mode):
+- reads LGBS only, through the ingestion gate, and touches only TX laft rows;
+- writes `last_seen_at` and `vendor_listing` attestations;
+- never closes a row;
+- `enrich_available.availability()` reports such rows as `OBSERVED_REVIEW_REQUIRED`, never as verified.
+
+**Engine dimensions:** a `taxable` dimension was added. `acquisition_contact` now means phone, e-mail or an address; an office name alone does not count.
+
+**Louisiana evidence row:** Parish Attorney office phone, P.O. Box, the Request to Purchase form and the memorandum's steps (capture run 36940992329). Staff e-mails are deliberately not recorded.
+
+`sw.js` → `tdw-shell-v65`.
+
 ## Where to look for more
 
 - `claude/improvement-roadmap.md` in the "tax florida app" claude.ai Project — the full dated log of every fix, audit finding, and open decision. This is where new findings should be appended, not here.

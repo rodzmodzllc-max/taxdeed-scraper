@@ -159,7 +159,7 @@ on:
         required: false
         type: choice
         default: all
-        options: [all, deeds, certificates, laft, texas, backup, evidence, outcomes, expansion, enrich, storage]
+        options: [all, deeds, certificates, laft, texas, backup, evidence, outcomes, expansion, enrich, storage, available]
       enrich_states:
         description: >-
           (job=enrich only) Comma-separated postal codes for the enrichment
@@ -189,6 +189,24 @@ on:
         type: choice
         default: analyze
         options: [analyze, apply, apply_consolidate]
+      available_mode:
+        description: >-
+          (job=available only) Execution priority (2026-10-01): AVAILABLE
+          customer value first, imagery last and never in the same run.
+          plan = read-only coverage matrix + expected writes; metadata = each
+          probed source's own column definitions + the LGBS field inventory
+          (value-free, minutes); acquisition = only the acquisition-record
+          refresh from verified evidence rows (no source request); probe = the
+          value-free deep identifier / fill probe only (minutes); discover =
+          catalog + documents + deep probe; apply = PRIORITY 1-2 only (cleared
+          parcel / tax-roll layers: identifiers, legal descriptions,
+          assessment; then FEMA flood), then the plan again - no imagery;
+          imagery = PRIORITY 3, a short bounded NAIP slice (600 rows, about
+          40 minutes) so it never holds the only enrichment slot for long.
+        required: false
+        type: choice
+        default: plan
+        options: [plan, metadata, probe, discover, apply, acquisition, imagery]
       storage_max:
         description: (job=storage, apply modes) optimize at most N objects this run; blank = all.
         required: false
@@ -307,6 +325,16 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 scripts/stamp_seen.py --state FL --source auction --harvest out/harvest_all.json --case-key case
+
+      - name: Source id - fill a blank source_id the row itself proves (auction)
+        # scripts/backfill_source_ids.py: the PowerShell sync never sends
+        # source_id; fill-blank only (source_id=is.null in every filter).
+        if: steps.sync.outcome == 'success'
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/backfill_source_ids.py --source auction
 
       - name: Change detection - deterministic property changes and customer alerts
         # scripts/detect_property_changes.py: status / sale date / opening bid /
@@ -549,6 +577,16 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 scripts/stamp_seen.py --state FL --source certificate --harvest out/harvest_certificates.json --case-key case_no --status out/harvest_certificates_status.json
+
+      - name: Source id - fill a blank source_id the row itself proves (certificate)
+        # scripts/backfill_source_ids.py: the PowerShell sync never sends
+        # source_id; fill-blank only (source_id=is.null in every filter).
+        if: steps.sync.outcome == 'success'
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/backfill_source_ids.py --source certificate
 
       - name: Change detection - deterministic property changes and customer alerts
         # scripts/detect_property_changes.py: status / sale date / opening bid /
@@ -1577,3 +1615,153 @@ jobs:
           path: |
             out/public/
             out/private/
+
+  available:
+    # All-sources AVAILABLE enrichment engine (2026-10-01) - MANUAL ONLY
+    # (job=available), never scheduled, never part of "all". Every active
+    # AVAILABLE row of every production state is a target; the unified source
+    # inventory (harvesters/sources) decides which source can fill which gap.
+    # Writes only from APPROVED sources, through the field-provenance
+    # precedence; a REVIEW_REQUIRED source is reported, never written from;
+    # a HARD_BLOCKED source is never requested. Nothing is harvested, no row
+    # is created, closed or hidden. Reports are counts only.
+    name: AVAILABLE enrichment engine (manual only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 170
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.job == 'available'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python dependencies
+        run: pip install requests pillow pdfplumber beautifulsoup4
+
+      - name: OCR for scanned documents (discover only)
+        if: github.event.inputs.available_mode == 'discover'
+        continue-on-error: true
+        run: |
+          sudo apt-get install -y -qq tesseract-ocr > /dev/null
+          pip install pytesseract
+
+      - name: Discover sources (GIS catalogs + official documents, value-free)
+        if: github.event.inputs.available_mode == 'discover'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/discover_sources.py --deep --gis --documents
+
+      - name: Probe (deep identifier / fill probe only, value-free)
+        if: github.event.inputs.available_mode == 'probe'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/discover_sources.py --deep
+
+      - name: Metadata - each source's own column definitions + LGBS field inventory (value-free, minutes)
+        if: github.event.inputs.available_mode == 'metadata'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          python3 scripts/discover_sources.py --metadata
+          python3 scripts/lgbs_available_refresh.py --probe
+
+      - name: Plan (before) - coverage matrix and expected writes, read-only
+        if: github.event.inputs.available_mode != 'discover' && github.event.inputs.available_mode != 'probe' && github.event.inputs.available_mode != 'metadata'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/enrich_available.py --plan --label before
+
+      - name: Apply - cleared parcel / tax-roll layers (deterministic identifier match)
+        if: github.event.inputs.available_mode == 'apply'
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/enrich_available.py --apply --label parcels
+
+      - name: Apply - acquisition records from verified evidence rows (no source request)
+        # scripts/apply_acquisition_paths.py: the verified county-level evidence
+        # row (data/purchase_path_evidence.csv) for each row's (state, source,
+        # county) through purchase_path_engine.resolve; a stronger property-scope
+        # path is never replaced; never status, amounts, owners or outcomes.
+        if: github.event.inputs.available_mode == 'apply' || github.event.inputs.available_mode == 'acquisition'
+        continue-on-error: true
+        timeout-minutes: 45
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          python3 scripts/apply_acquisition_paths.py --state LA --source-id la_ebr_adjudicated --report out/public/acquisition-apply-la.json
+          python3 scripts/apply_acquisition_paths.py --state TX --source-id tx_lgbs --report out/public/acquisition-apply-tx.json
+
+      - name: Apply - Texas AVAILABLE rows observed on the LGBS feed (stamp + provenance; no close, no new field)
+        # scripts/lgbs_available_refresh.py: reads ONLY the LGBS feed through the
+        # harvester's ingestion gate and touches ONLY active TX laft rows. A row
+        # the feed no longer lists is counted, never closed.
+        if: github.event.inputs.available_mode == 'apply'
+        continue-on-error: true
+        timeout-minutes: 20
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/lgbs_available_refresh.py --apply
+
+      - name: Apply - FEMA flood hazard
+        if: github.event.inputs.available_mode == 'apply'
+        continue-on-error: true
+        timeout-minutes: 40
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          ENRICH_STATE: LA,TX,FL
+          FLOOD_BATCH_LIMIT: '3000'
+          FLOOD_PER_COUNTY_LIMIT: '3000'
+        run: python3 scripts/enrich_flood_zone.py
+
+      - name: Imagery (PRIORITY 3) - one bounded NAIP slice, AVAILABLE first; 950 MB budget fails closed
+        # Execution priority (docs/available-enrichment-engine.md section 8):
+        # imagery never shares a run with priority 1-2 enrichment and never
+        # holds the one enrichment slot for long - ~3.6 s a row measured on
+        # 2026-10-01, so 600 rows is about 40 minutes. Deferred rows stay
+        # unchecked (photo_url NULL) and are picked up by a later slice.
+        if: github.event.inputs.available_mode == 'imagery'
+        continue-on-error: true
+        timeout-minutes: 50
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          ENRICH_STATE: LA,TX,FL
+          NAIP_BATCH_LIMIT: '600'
+          NAIP_PER_COUNTY_LIMIT: '600'
+        run: python3 scripts/enrich_property_photos_naip.py
+
+      - name: Plan (after) - the same measurement after the writes
+        if: always() && (github.event.inputs.available_mode == 'apply' || github.event.inputs.available_mode == 'imagery')
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/enrich_available.py --plan --label after
+
+      - name: Prepare artifact (public evidence only)
+        if: always()
+        env:
+          ARTIFACT_PUBLIC_KEY: ${{ vars.ARTIFACT_PUBLIC_KEY }}
+        run: python3 scripts/artifact_evidence.py --job available
+
+      - name: Upload evidence (counts only)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: available-enrichment-${{ github.run_id }}
+          path: |
+            out/public/
+            out/private/
+          if-no-files-found: ignore
+          retention-days: 14

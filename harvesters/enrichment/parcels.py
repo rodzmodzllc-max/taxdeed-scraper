@@ -110,9 +110,36 @@ class ParcelSourceConfig:
     # records for one identifier keep only those with the greatest value of
     # this field; two DIFFERENT records still tied there are AMBIGUOUS.
     latest_field: str | None = None
+    # With latest_field: records older than this value are never candidates
+    # (a parcel that left the roll years ago must not be enriched from its
+    # last historic record).
+    latest_min: float | None = None
     # How identifiers are written in the query: "string" (quoted) or
     # "number" (a numeric column - the normalized key, unquoted).
     id_query: str = "string"
+    # County scope (all-sources engine, 2026-10-01): empty = the layer covers
+    # every county of its state; otherwise only these counties (a county
+    # appraisal / assessor layer). Several scoped layers may serve one state.
+    counties: tuple = ()
+    # Conditional columns (enrichment sprint, 2026-10-01): column ->
+    # (attribute, condition attribute, accepted condition values). The value
+    # is written ONLY when the source's own condition attribute says it means
+    # that column - e.g. a tax roll's `units` is acreage only on records whose
+    # `unit_type` is ACREAGE (it counts lots or improvements otherwise).
+    conditional_map: dict = field(default_factory=dict)
+    # column -> source values that mean "not classified" for that column
+    # (e.g. a land-use code NOT DETERMINED): treated as no value, never stored.
+    no_value: dict = field(default_factory=dict)
+    # Raw attributes copied verbatim into each provenance entry, so the
+    # source's own classification travels with a normalized/derived column.
+    provenance_attrs: tuple = ()
+    # Multi-year roll, column by column (sprint 2026-10-01): column -> earliest
+    # acceptable year. When the latest record leaves that column blank (the
+    # EBR roll stopped publishing STRUCTURE USE after tax year 2023), the value
+    # comes from the most recent year that DOES publish it, no older than this
+    # floor - one distinct value in that year or nothing - and its provenance
+    # names that year. Only for an identifier that already matched exactly.
+    column_year_floor: dict = field(default_factory=dict)
 
     def __post_init__(self) -> None:
         if self.transport not in TRANSPORTS:
@@ -127,7 +154,10 @@ class ParcelSourceConfig:
             raise ValueError(f"{self.source_id}: id_query must be string or number")
         if self.id_rule not in ID_RULES:
             raise ValueError(f"{self.source_id}: unknown id_rule {self.id_rule!r}")
-        unknown = set(self.field_map) - set(COLUMN_TYPES)
+        bad_cond = set(self.conditional_map) & set(self.field_map)
+        if bad_cond:
+            raise ValueError(f"{self.source_id}: column(s) {sorted(bad_cond)} are both mapped and conditional")
+        unknown = (set(self.field_map) | set(self.conditional_map)) - set(COLUMN_TYPES)
         if unknown:
             raise ValueError(f"{self.source_id}: field_map names unknown column(s) {sorted(unknown)}")
         forbidden = {"owner_name", "address"} & {c for c, a in self.field_map.items() if a == self.id_field}
@@ -141,6 +171,9 @@ class ParcelSourceConfig:
         if overlap:
             raise ValueError(f"{self.source_id}: an identifier attribute cannot also fill {sorted(overlap)}")
 
+    def covers(self, county: str) -> bool:
+        return not self.counties or county in self.counties
+
     def county_value(self, county: str) -> str:
         return self.county_values.get(county, county)
 
@@ -148,7 +181,9 @@ class ParcelSourceConfig:
         return (self.id_field, *self.alt_id_fields)
 
     def out_fields(self) -> list[str]:
-        names = {*self.id_fields(), *self.field_map.values()}
+        names = {*self.id_fields(), *self.field_map.values(), *self.provenance_attrs}
+        for attr, cond, _vals in self.conditional_map.values():
+            names.update((attr, cond))
         if self.county_field:
             names.add(self.county_field)
         if self.value_year_field:
@@ -228,6 +263,16 @@ def index_features(cfg: ParcelSourceConfig, features: Iterable[dict]) -> dict[tu
                 continue
             seen[(county, key)].add(ident)
             idx.setdefault((county, key), []).append({**ft, "_matched_field": f})
+    if cfg.latest_field and cfg.column_year_floor:
+        for k, fts in idx.items():
+            hist = list(fts)
+            for ft in fts:
+                ft["_history"] = hist
+    if cfg.latest_field and cfg.latest_min is not None:
+        for k in list(idx):
+            idx[k] = [ft for ft in idx[k] if (_latest_value(ft, cfg.latest_field) or 0) >= cfg.latest_min]
+            if not idx[k]:
+                del idx[k]
     if cfg.latest_field:
         for k, fts in idx.items():
             years = [_latest_value(ft, cfg.latest_field) for ft in fts]
@@ -322,6 +367,10 @@ def polygon_centroid(geometry: dict | None) -> tuple[float, float] | None:
     return round(lat, 7), round(lng, 7)
 
 
+def _is_no_value(cfg: ParcelSourceConfig, column: str, value) -> bool:
+    return str(value).strip().upper() in {str(v).upper() for v in cfg.no_value.get(column, ())}
+
+
 def plan_update(cfg: ParcelSourceConfig, row: dict, match: MatchResult, *, recorded_at: str) -> tuple[dict, dict]:
     """(fields to write, provenance entries) for one MATCHED row. Only
     blank columns (or columns whose stored value has no stronger
@@ -334,8 +383,31 @@ def plan_update(cfg: ParcelSourceConfig, row: dict, match: MatchResult, *, recor
     fields: dict = {}
     for column, attr in cfg.field_map.items():
         v = _coerce(column, attrs.get(attr))
-        if v is not None:
+        if v is not None and not _is_no_value(cfg, column, v):
             fields[column] = v
+    for column, (attr, cond, accepted) in cfg.conditional_map.items():
+        if str(attrs.get(cond) or "").strip().upper() not in {str(a).upper() for a in accepted}:
+            continue
+        v = _coerce(column, attrs.get(attr))
+        if v is not None and not _is_no_value(cfg, column, v):
+            fields[column] = v
+    column_years: dict = {}
+    for column, floor in cfg.column_year_floor.items():
+        if column in fields:
+            continue
+        attr = cfg.field_map.get(column)
+        hist = match.feature.get("_history") or []
+        by_year: dict = {}
+        for ft in hist:
+            y = _latest_value(ft, cfg.latest_field)
+            v = _coerce(column, (ft.get("attributes") or {}).get(attr)) if attr else None
+            if y is not None and y >= floor and v is not None and not _is_no_value(cfg, column, v):
+                by_year.setdefault(y, set()).add(v)
+        if by_year:
+            y = max(by_year)
+            if len(by_year[y]) == 1:
+                fields[column] = next(iter(by_year[y]))
+                column_years[column] = int(y)
     if year is not None and "value_year" not in fields and any(c in fields for c in ("assessed", "market", "land_value", "improvement_value", "taxable_value")):
         fields["value_year"] = year
     if cfg.centroid:
@@ -346,9 +418,17 @@ def plan_update(cfg: ParcelSourceConfig, row: dict, match: MatchResult, *, recor
             "matched_id_field": match.feature.get("_matched_field") or cfg.id_field, "matched_row_column": cfg.row_id_column,
             "matched_parcel_id": match.key, "id_rule": cfg.id_rule,
             "licence": cfg.licence, "value_year": year, "recorded_at": recorded_at}
+    if cfg.latest_field and attrs.get(cfg.latest_field) not in (None, ""):
+        meta["record_of"] = f"{cfg.latest_field}={attrs.get(cfg.latest_field)} (latest published)"
+    raw = {a: attrs.get(a) for a in cfg.provenance_attrs if attrs.get(a) not in (None, "")}
+    if raw:
+        meta["source_attributes"] = raw
     prov = {}
     for column in fields:
         entry = {"source": "statewide_parcel", **{k: v for k, v in meta.items() if v is not None}}
+        if column in column_years:
+            entry["record_of"] = (f"{cfg.latest_field}={column_years[column]} (the most recent year publishing this column; "
+                                  f"later years leave it blank)")
         if column in ("latitude", "longitude"):
             entry["derived"] = "area-weighted centroid of the matched parcel polygon"
         prov[column] = entry

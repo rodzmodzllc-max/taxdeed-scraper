@@ -496,7 +496,7 @@ def resolve(row: dict, *, state: str, source_id: str, county: str, registry_row=
                     from dataclasses import replace  # noqa: PLC0415
                     path = replace(path, **{k: getattr(src, k) for k in ("evidence_url", "evidence_type", "source_title", "instructions",
                                                                          "office", "address", "phone", "email", "mailing_address",
-                                                                         "steps", "payment")})
+                                                                         "steps", "application_url", "payment")})
             return path, reasons
         if reason:
             reasons.append(reason)
