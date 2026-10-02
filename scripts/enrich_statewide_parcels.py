@@ -129,6 +129,9 @@ def run(state: str, rows: list[dict], fetch_json, *, write=None, recorded_at: st
             fields["field_provenance"] = FP.merge_field_provenance(row.get("field_provenance"), {k: prov[k] for k in fields})
             if write:
                 write(row["id"], fields)
+            # Later layers in the same run see this write: a stale snapshot
+            # must never let a second layer treat a just-filled column as blank.
+            row.update(fields)
             cov.rows_written += 1
             for k in fields:
                 if k != "field_provenance":

@@ -173,3 +173,17 @@ def test_a_review_required_source_read_is_observed_never_verified():
     assert EA.availability({**row, "source_id": "fl_laft_pdfs"}, now=now, review_required=frozenset({"tx_lgbs"}))[0] == "VERIFIED_AVAILABLE"
     cov = EA.coverage([{**row, "id": 1, "state": "TX", "county": "Liberty", "source": "laft", "parcel": "1"}], now=now)
     assert cov["totals"]["availability"] == {"OBSERVED_REVIEW_REQUIRED": 1}
+
+
+def test_a_second_layer_in_the_same_run_sees_the_first_layers_write():
+    import enrich_statewide_parcels as ESP
+    first = roll_cfg(source_id="t_first", field_map={"legal_desc": "legal_description"}, conditional_map={}, no_value={},
+                     provenance_attrs=(), latest_field=None, counties=("East Baton Rouge",))
+    second = roll_cfg(source_id="t_second", field_map={"legal_desc": "legal_description"}, conditional_map={}, no_value={},
+                      provenance_attrs=(), latest_field=None, counties=("East Baton Rouge",))
+    rows = [{"id": 1, "state": "LA", "county": "East Baton Rouge", "parcel": "001-0001-1", "legal_desc": None, "field_provenance": None}]
+    writes = []
+    fetch = lambda text: lambda url: [{"assessment_no": "001-0001-1", "legal_description": text}]  # noqa: E731
+    ESP.run("LA", rows, fetch("FIRST"), write=lambda rid, f: writes.append(f["legal_desc"]), recorded_at=NOW, cfg=first)
+    ESP.run("LA", rows, fetch("SECOND"), write=lambda rid, f: writes.append(f["legal_desc"]), recorded_at=NOW, cfg=second)
+    assert writes == ["FIRST"] and rows[0]["legal_desc"] == "FIRST"
