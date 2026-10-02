@@ -59,6 +59,30 @@ SOURCE -> COLLECT -> NORMALIZE -> VALIDATE -> MATCH -> ENRICH -> CLASSIFY
 
 No migration: `get_properties()` never filtered on `publication_status`.
 
+## Large-county scale (2026-10-02)
+
+The Detroit Land Bank alone puts 30,000+ rows in one county (Wayne MI).
+Every row stays in the data; the UI pages and clusters it:
+
+- **List** (`app.js`):
+  - Each county group builds `LIST_PAGE` (50) cards, then "Show next 50 · showing N of TOTAL", appended in place and kept across re-renders.
+  - The desktop table pages 200 rows.
+  - Search and filters still run over every row.
+- **Loading**: `fetchLedgerPages()` reads the first `get_properties` page, which fixes the server's page size, then fetches four pages at a time. Rows stay in order, and paging stops at the first short page.
+- **Outline map** (`explore.js`):
+  - Inside a zoomed county, pins cluster on a 56 px screen grid once more than 250 are in view. Each cluster carries its exact count.
+  - Tapping a cluster zooms into its extent; "← All of <county>" goes back.
+  - The selected property is always its own pin.
+  - ZIP counts are computed once, with a bounding-box pre-filter.
+  - The side strip lists 100 at a time.
+- **Google / MapTiler** (`satellite-map.js`): the zoomed county clusters in the current viewport (Web Mercator, 60 px cells) and re-clusters on every pan and zoom.
+- **Regression**: `tests/run_test.mjs` loads `?bigcounty=30000`, 30,000 synthetic geocoded Wayne rows from the stub. It asserts:
+  - 50 cards and 200 table rows, with true totals;
+  - search still finds one parcel;
+  - under 500 map nodes;
+  - every in-view row is counted in a cluster or a pin;
+  - a cluster tap narrows the view.
+
 ## Validated counts (runs 37039824035 / 37040250643, read-only, no credentials)
 
 | Source | Status | Held rows |

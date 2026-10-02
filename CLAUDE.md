@@ -2235,6 +2235,11 @@ Full description: `docs/available-inventory.md`. Stable facts:
 
   The source's own program wording rides in `inventory_status_raw` for laft rows.
 - **Horry redemption rule:** `sc_flc.list_year_past_redemption`. A year's list counts only from Jan 1 of year + 2. A PIN must match `id_pattern`.
+- **Large counties:**
+  - List groups page 50 cards (`LIST_PAGE`) and the table pages 200 (`TABLE_PAGE`). Both are declared at the top of app.js because of the TDZ.
+  - Zoomed-county pins cluster above 250 in view (explore.js `PIN_CLUSTER_MIN`; satellite-map.js `clusterPins`), and the strip pages 100.
+  - The stub's `?bigcounty=N` is the regression fixture.
+  - The expansion job's timeout is 45 minutes.
 - **Candidate pages:** `data/available_source_candidates.csv`, captured with `evidence_scope=available_sources`. `available_validate` runs the real MI/SC harvest with no credentials.
 
 ## Where to look for more
