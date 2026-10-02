@@ -2551,6 +2551,17 @@ await aucDec.goto(BASE_URL + '#/auctions/p1', { waitUntil: 'networkidle' });
 await aucDec.waitForTimeout(600);
 results.aucDecQuestions = await aucDec.locator('#detailModalInner .decision-card .dec-q').allTextContents();
 results.aucDecP1When = await decA(aucDec, 'when');
+{
+  // innerText keeps the dt / dd boundaries as whitespace, so "Deposit" and its value read apart.
+  const proc = ((await aucDec.locator('#detailModalInner .dec-row[data-q="process"]').innerText().catch(() => '')) || '').replace(/\s+/g, ' ');
+  results.aucDecP1Process = {
+    method: /Online auction/.test(proc), deposit: /Deposit FIXTURE: 5% of the bid/.test(proc), payment: /Payment FIXTURE: wire transfer/.test(proc),
+    deadline: /Payment deadline FIXTURE: balance due/.test(proc), registration: /Registration Required/.test(proc),
+    time: /Sale time \(as published\) FIXTURE: 10:00 a\.m\./.test(proc), platform: (await aucDec.locator('#detailModalInner .dec-row[data-q="process"] a[href="https://alachua.realtaxdeed.com/"]').count()) === 1,
+    phone: (await aucDec.locator('#detailModalInner .dec-row[data-q="process"] a[href^="tel:"]').count()) === 1,
+    countyLevel: /County-level guidance/.test(proc), verified: /Sale process last verified Oct 2, 2026/.test(proc), noPurchasePath: !/purchase path/i.test(proc)
+  };
+}
 results.aucDecP1Bid = await decA(aucDec, 'bid');
 results.aucDecP1Related = await decA(aucDec, 'related');
 results.aucDecP1Result = await decA(aucDec, 'result');
@@ -4107,6 +4118,7 @@ const EXPECTED = {
   xsCoCardCount: true,
   xsCoDetail: { treasurer: true, steps: true, noStreetView: true, noUndefined: true, sourceNamed: true },
   xsCoDouglas: { attribution: true, assignment: true, noStreetView: true, noUndefined: true },
+  aucDecP1Process: { method: true, deposit: true, payment: true, deadline: true, registration: true, time: true, platform: true, phone: true, countyLevel: true, verified: true, noPurchasePath: true },
   xsScProcess: { question: true, mode: true, steps: true, phone: true, countyLevel: true, notPurchasePath: true, page: true, noReviewRow: true },
   xsScExport: { processCol: true, reviewCol: true, processCell: true, phoneCell: true, approvedCell: true },
   txReviewAuction: { reviewRow: true, text: true },
