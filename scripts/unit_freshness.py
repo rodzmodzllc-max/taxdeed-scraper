@@ -272,6 +272,19 @@ STALE_HOURS = 36.0   # a unit whose last complete read is older than this is sta
 
 UNAVAILABLE_PREFIXES = ("TRANSPORT_", "PROXY_", "ACCESS_")
 
+# Sources that run only on a manual dispatch (data-quality fix, 2026-10-01).
+# The workflow's `texas` job is workflow_dispatch-only by design: its header
+# says to verify it end to end against production BEFORE adding a cron, and
+# it is the only job that reads LGBS / Texas RealAuction (LGBS is never
+# retried on a schedule). A manual source has no cadence, so the clock never
+# makes it "stale"; its last read stays whatever the last manual run
+# recorded - nothing here advances or invents a timestamp.
+# tests/python/test_data_quality_fixes.py pins this set to the job's trigger.
+MANUAL_ONLY_SOURCES = {
+    "tx_lgbs": "Texas LGBS - manual workflow dispatch (job=texas) only; no schedule",
+    "tx_realauction": "Texas RealAuction - manual workflow dispatch (job=texas) only; no schedule",
+}
+
 
 def source_unavailable(unit: dict) -> bool:
     """The last attempt could not reach or was refused by the source (a
@@ -312,13 +325,18 @@ def public_report(record: dict, counts: dict, *, at: str, now: datetime | None =
         attempt, reason = backoff_decision(u, now=now)
         entry["backoff"] = not attempt
         entry["backoff_reason"] = None if attempt else reason
-        entry["stale"] = unit_stale(u, now=now)
+        manual = u.get("source_id") in MANUAL_ONLY_SOURCES
+        if manual:
+            entry["manual_only"] = True
+        entry["stale"] = False if manual else unit_stale(u, now=now)
         entry["source_unavailable"] = source_unavailable(u)
         units.append(entry)
         for ledger in (u.get("ledgers") or "UNCLASSIFIED").split("|"):
             b = by_ledger.setdefault(ledger, {"units": 0, "current": 0, "stale": 0, "failing": 0, "backoff": 0, "source_unavailable": 0})
             b["units"] += 1
-            if u.get("last_attempt_status") in SUCCESS:
+            if manual:
+                b["manual_only"] = b.get("manual_only", 0) + 1
+            elif u.get("last_attempt_status") in SUCCESS:
                 b["current"] += 1
             else:
                 b["stale"] += 1
@@ -329,6 +347,7 @@ def public_report(record: dict, counts: dict, *, at: str, now: datetime | None =
             if entry["source_unavailable"]:
                 b["source_unavailable"] += 1
     return {"generated_at": at, "counts": counts, "by_ledger": by_ledger, "units": units,
+            "manual_only_sources": dict(sorted(MANUAL_ONLY_SOURCES.items())),
             "note": "unit names, statuses, timestamps and counts only; never a row value; each ledger's health is independent"}
 
 
