@@ -741,7 +741,24 @@ export function createClient() {
         window.__stubGetPropertiesCalls = (window.__stubGetPropertiesCalls || 0) + 1;
         // ?emptystate=1: a registered state that currently has no rows at all.
         const EMPTY_STATE = new URLSearchParams(location.search).get("emptystate") === "1";
-        const rows = FIXTURE_PROPERTIES.filter(p => !EMPTY_STATE && (p.state || "FL") === pState)
+        // ?bigcounty=N (2026-10-02 scale regression): N SYNTHETIC Available rows in
+        // Wayne MI, shaped like the Detroit Land Bank sync rows, every one
+        // geocoded inside the county - the List and Map must page / cluster
+        // them, never build N cards or N pins at once.
+        const BIG = Number(new URLSearchParams(location.search).get("bigcounty")) || 0;
+        if (BIG && !window.__stubBigRows) {
+          let seed = 7;
+          const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
+          window.__stubBigRows = Array.from({ length: BIG }, (_, i) => ({
+            id: "pbig" + i, source: "laft", state: "MI", county: "Wayne", case_no: String(90000000 + i) + ".", parcel: String(90000000 + i) + ".",
+            address: (100 + i) + " SYNTHETIC ST", bid: 0, status: "active", sale_date: null, lien_level: "unscreened", lien_note: "",
+            harvester_source: "mi_detroit_landbank_lots", source_id: "mi_detroit_landbank_lots", source_authority: "GOVERNMENT_DIRECT", inventory_type: "POST_SALE",
+            purchase_amount: null, purchase_amount_kind: "NOT_PUBLISHED", inventory_status_raw: "Side Lot For Sale",
+            latitude: 42.30 + rnd() * 0.12, longitude: -83.20 + rnd() * 0.22, publication_status: "UNREVIEWED", ledger_type: "buy",
+            last_seen_at: "2026-10-02T12:00:00Z", updated_at: "2026-10-02T12:00:00Z" }));
+        }
+        const rows = FIXTURE_PROPERTIES.concat(pState === "MI" && window.__stubBigRows ? window.__stubBigRows : [])
+          .filter(p => !EMPTY_STATE && (p.state || "FL") === pState)
           .filter(p => !args.p_ledger_type || (p.ledger_type || LEDGER_FOR_SOURCE[p.source]) === args.p_ledger_type)
           .slice().sort((a, b) => String(a.county).localeCompare(String(b.county)) || String(a.case_no).localeCompare(String(b.case_no)));
         const offset = Number(args.p_offset) || 0, limit = Math.min(Number(args.p_limit) || 20000, cap);

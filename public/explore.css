@@ -370,6 +370,15 @@ paint-order:stroke;letter-spacing:-.02em}
    and matches each ledger's own accent elsewhere in the app. */
 .explore-map-canvas[data-ledger="laft"] .cluster-bubble circle{fill:var(--brass)}
 .explore-map-canvas[data-ledger="certificate"] .cluster-bubble circle{fill:#7C3AED}
+/* Scale (2026-10-02): pin clusters inside a zoomed county (explore.js
+   drawPins) - one circle per screen cell with its exact count. */
+.pin-cluster{cursor:pointer}
+.pin-cluster circle{fill:var(--accent);fill-opacity:.88;stroke:var(--card);stroke-width:2;vector-effect:non-scaling-stroke}
+.pin-cluster text{font-family:var(--font-sans);font-weight:800;fill:#fff;text-anchor:middle;dominant-baseline:central;pointer-events:none}
+.pin-cluster:hover circle,.pin-cluster:focus-visible circle{fill-opacity:1;stroke:var(--ink)}
+.explore-map-canvas[data-ledger="laft"] .pin-cluster circle{fill:var(--brass)}
+.explore-map-canvas[data-ledger="certificate"] .pin-cluster circle{fill:#7C3AED}
+.strip-more{flex:0 0 auto;align-self:stretch;padding:.4rem .7rem;font-size:.78rem;font-weight:600;color:var(--accent);background:transparent;border:1px dashed var(--accent);border-radius:8px;cursor:pointer}
 .explore-map-canvas[data-ledger="laft"] .cluster-bubble.sel circle,
 .explore-map-canvas[data-ledger="certificate"] .cluster-bubble.sel circle{fill:var(--ok)}
 

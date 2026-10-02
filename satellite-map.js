@@ -301,6 +301,97 @@ function groupByCounty() {
 // Maps Management -> Map IDs) if/when this moves off the demo key. A Map ID
 // is required for AdvancedMarkerElement - it isn't optional the way a
 // MapTiler style URL was.
+// ---------------------------------------------------------------------------
+// Scale (2026-10-02): zoomed-in pins are clustered in the viewport, so a
+// county with tens of thousands of geocoded rows (Detroit Land Bank, Wayne
+// MI) never becomes tens of thousands of HTML markers. Only rows inside the
+// current view (plus a margin) are considered; when more than
+// SAT_CLUSTER_MIN of them are in view they are grouped on a CLUSTER_CELL_PX
+// screen grid in Web Mercator pixel space at the current zoom - one marker per
+// cell with its exact count, a click fits the map to that cell's rows. The
+// view re-clusters on every pan / zoom (Google "idle", MapLibre "moveend"),
+// so individual pins appear progressively. The selected property is always
+// its own pin. Nothing is sampled: every in-view row is a pin or counted in a
+// cluster.
+// ---------------------------------------------------------------------------
+const SAT_CLUSTER_MIN = 250;
+const SAT_CELL_PX = 60;
+const SAT_MAX_CLUSTER_ZOOM = 17;
+function mercX(lng, z) { return (lng + 180) / 360 * 256 * Math.pow(2, z); }
+function mercY(lat, z) {
+  const s = Math.sin(lat * Math.PI / 180);
+  return (0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI)) * 256 * Math.pow(2, z);
+}
+// bounds: { s, w, n, e } or null (= no culling). -> [{ kind: "pin", p } | { kind: "cluster", n, lat, lng, s, w, n2, e }]
+function clusterPins(list, bounds, zoom, selectedPid) {
+  const pins = list.filter(hasPin);
+  let inView = pins;
+  if (bounds) {
+    const dLat = (bounds.n - bounds.s) * 0.1, dLng = (bounds.e - bounds.w) * 0.1;
+    inView = pins.filter(p => p.latitude >= bounds.s - dLat && p.latitude <= bounds.n + dLat &&
+      p.longitude >= bounds.w - dLng && p.longitude <= bounds.e + dLng);
+  }
+  const out = [];
+  const sel = selectedPid != null ? inView.find(p => String(p.id) === String(selectedPid)) : null;
+  const rest = sel ? inView.filter(p => p !== sel) : inView;
+  if (rest.length <= SAT_CLUSTER_MIN || zoom >= SAT_MAX_CLUSTER_ZOOM) {
+    rest.forEach(p => out.push({ kind: "pin", p }));
+  } else {
+    const cells = new Map();
+    rest.forEach(p => {
+      const key = Math.floor(mercX(p.longitude, zoom) / SAT_CELL_PX) + "," + Math.floor(mercY(p.latitude, zoom) / SAT_CELL_PX);
+      let c = cells.get(key);
+      if (!c) { c = { members: [], sLat: 0, sLng: 0, s: 90, n: -90, w: 180, e: -180 }; cells.set(key, c); }
+      c.members.push(p); c.sLat += p.latitude; c.sLng += p.longitude;
+      c.s = Math.min(c.s, p.latitude); c.n = Math.max(c.n, p.latitude);
+      c.w = Math.min(c.w, p.longitude); c.e = Math.max(c.e, p.longitude);
+    });
+    cells.forEach(c => {
+      if (c.members.length === 1) { out.push({ kind: "pin", p: c.members[0] }); return; }
+      out.push({ kind: "cluster", n: c.members.length, lat: c.sLat / c.members.length, lng: c.sLng / c.members.length, s: c.s, w: c.w, n2: c.n, e: c.e });
+    });
+  }
+  if (sel) out.push({ kind: "pin", p: sel });
+  return out;
+}
+function satPinEl(p) {
+  const el = document.createElement("div");
+  el.className = "sat-pin";
+  el.setAttribute("role", "button");
+  el.setAttribute("tabindex", "0");
+  el.setAttribute("aria-label", pinLabel(p) + " - view details");
+  el.dataset.pid = String(p.id);
+  // Phase 67: a pin selects the property in the SHARED preview panel
+  // (explore.js's showPreview, via tdw:pinselect) - one selection, one panel,
+  // whichever basemap is showing. Phase 63: Enter / Space as well as click.
+  el.addEventListener("click", () => selectPin(p));
+  el.addEventListener("keydown", e => {
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); selectPin(p); }
+  });
+  return el;
+}
+function satClusterEl(c, onZoom) {
+  const el = document.createElement("div");
+  el.className = "sat-county-bubble sat-cluster";
+  const r = Math.round(14 + 6 * Math.log10(c.n));
+  el.style.width = el.style.height = (r * 2) + "px";
+  el.style.fontSize = Math.max(11, Math.min(16, r * 0.6)) + "px";
+  el.textContent = c.n.toLocaleString("en-US");
+  el.dataset.count = String(c.n);
+  el.setAttribute("role", "button");
+  el.setAttribute("tabindex", "0");
+  el.setAttribute("aria-label", `${c.n} properties here - activate to zoom in`);
+  el.addEventListener("click", onZoom);
+  el.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onZoom(); } });
+  return el;
+}
+function markClusterStats(canvasId, items) {
+  const canvas = $(canvasId);
+  if (!canvas) return;
+  canvas.dataset.pinNodes = String(items.filter(i => i.kind === "pin").length);
+  canvas.dataset.clusterNodes = String(items.filter(i => i.kind === "cluster").length);
+}
+
 const GOOGLE_MAP_ID = "DEMO_MAP_ID";
 
 const googleState = {
@@ -376,6 +467,7 @@ async function ensureGoogleMap() {
       mapTypeControl: false
     });
     googleState.infoWindow = new InfoWindow();
+    googleState.map.addListener("idle", () => { if (googleState.zoomList) drawGoogleZoomed(); });
     googleState.loadState = "ready";
     if (imagery !== "satellite") googleState.map.setMapTypeId("roadmap");
     syncImageryToggle();
@@ -442,36 +534,14 @@ async function renderGoogle() {
       map.setZoom(10);
       googleState.lastZoomedCounty = selectedCounty;
     }
-    list.filter(hasPin).forEach(p => {
-      const el = document.createElement("div");
-      el.className = "sat-pin";
-      el.setAttribute("role", "button");
-      el.setAttribute("tabindex", "0");
-      el.setAttribute("aria-label", pinLabel(p) + " - view details");
-      const position = { lat: p.latitude, lng: p.longitude };
-      el.dataset.pid = String(p.id);
-      // Phase 67: a pin selects the property in the SHARED preview panel
-      // (explore.js's showPreview, via tdw:pinselect) instead of opening this
-      // provider's own popup - one selection, one panel, whichever basemap
-      // is showing. showGooglePopup() below is retained but no longer wired.
-      el.addEventListener("click", () => selectPin(p));
-      // Phase 63: role="button"/tabindex="0" alone don't make a plain <div>
-      // fire "click" on Enter/Space the way a real <button> would - the
-      // county bubble markers below already add this same handler, pins
-      // never did, in either provider. Without it, a keyboard-only user can
-      // tab to a pin but Enter does nothing - no way to open its popup,
-      // even though the identical gesture works on the default outline map.
-      el.addEventListener("keydown", e => {
-        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); selectPin(p); }
-      });
-      const m = new AdvancedMarkerElement({ map, position, content: el });
-      googleState.markers.push(m);
-    });
+    googleState.zoomList = list;
+    drawGoogleZoomed();
     applySelection("google");
     return;
   }
 
   googleState.lastZoomedCounty = null;
+  googleState.zoomList = null;
   if (STATEWIDE_VIEW[PAGE_STATE]) {
     const v = STATEWIDE_VIEW[PAGE_STATE];
     const c = map.getCenter();
@@ -508,6 +578,26 @@ async function renderGoogle() {
       const m = new AdvancedMarkerElement({ map, position: { lat: center.lat, lng: center.lng }, content: el });
       googleState.markers.push(m);
     });
+}
+
+// The zoomed-in county's pins / clusters for the CURRENT Google viewport.
+function drawGoogleZoomed() {
+  const map = googleState.map;
+  const list = googleState.zoomList;
+  if (!map || !list || activeStyle !== "google") return;
+  clearGoogleMarkers();
+  const b = map.getBounds && map.getBounds();
+  const bounds = b ? { s: b.getSouthWest().lat(), w: b.getSouthWest().lng(), n: b.getNorthEast().lat(), e: b.getNorthEast().lng() } : null;
+  const items = clusterPins(list, bounds, map.getZoom() || 10, selection.pid);
+  const AdvancedMarkerElement = googleState.AdvancedMarkerElement;
+  items.forEach(it => {
+    const el = it.kind === "pin" ? satPinEl(it.p)
+      : satClusterEl(it, () => map.fitBounds({ south: it.s, west: it.w, north: it.n2, east: it.e }, 60));
+    const position = it.kind === "pin" ? { lat: it.p.latitude, lng: it.p.longitude } : { lat: it.lat, lng: it.lng };
+    googleState.markers.push(new AdvancedMarkerElement({ map, position, content: el }));
+  });
+  markClusterStats(GOOGLE_CANVAS_ID, items);
+  applySelection("google");
 }
 
 function showGooglePopup(p, position) {
@@ -598,6 +688,7 @@ async function ensureMaptilerMap() {
     // toggle (top-right overlay, see #mapImageryToggle).
     maptilerState.map.addControl(new maptilerState.gl.NavigationControl({ showCompass: false }), "bottom-right");
     maptilerState.popup = new maptilerState.gl.Popup({ closeButton: true, closeOnClick: false, offset: 14 });
+    maptilerState.map.on("moveend", () => { if (maptilerState.zoomList) drawMaptilerZoomed(); });
     maptilerState.map.on("load", () => {
       maptilerState.loadState = "ready";
       syncImageryToggle();
@@ -648,31 +739,14 @@ async function renderMaptiler() {
       map.flyTo({ center: [center.lng, center.lat], zoom: 10, essential: true });
       maptilerState.lastZoomedCounty = selectedCounty;
     }
-    list.filter(hasPin).forEach(p => {
-      const el = document.createElement("div");
-      el.className = "sat-pin";
-      el.setAttribute("role", "button");
-      el.setAttribute("tabindex", "0");
-      el.setAttribute("aria-label", pinLabel(p) + " - view details");
-      el.dataset.pid = String(p.id);
-      // Phase 67: shared preview panel, not this provider's popup - see the
-      // Google pin above. showMaptilerPopup() is retained but no longer wired.
-      el.addEventListener("click", () => selectPin(p));
-      // Phase 63: same fix as the Google provider above - a plain <div>
-      // never fires "click" on Enter/Space no matter what role/tabindex say.
-      el.addEventListener("keydown", e => {
-        if (e.key === "Enter" || e.key === " ") { e.preventDefault(); selectPin(p); }
-      });
-      const m = new gl.Marker({ element: el, anchor: "bottom" })
-        .setLngLat([p.longitude, p.latitude])
-        .addTo(map);
-      maptilerState.markers.push(m);
-    });
+    maptilerState.zoomList = list;
+    drawMaptilerZoomed();
     applySelection("maptiler");
     return;
   }
 
   maptilerState.lastZoomedCounty = null;
+  maptilerState.zoomList = null;
   if (STATEWIDE_VIEW[PAGE_STATE]) {
     const v = STATEWIDE_VIEW[PAGE_STATE];
     const c = map.getCenter();
@@ -710,6 +784,29 @@ async function renderMaptiler() {
         .addTo(map);
       maptilerState.markers.push(m);
     });
+}
+
+// The zoomed-in county's pins / clusters for the CURRENT MapLibre viewport.
+function drawMaptilerZoomed() {
+  const map = maptilerState.map;
+  const gl = maptilerState.gl;
+  const list = maptilerState.zoomList;
+  if (!map || !gl || !list || activeStyle !== "maptiler") return;
+  clearMaptilerMarkers();
+  const b = map.getBounds && map.getBounds();
+  const bounds = b ? { s: b.getSouth(), w: b.getWest(), n: b.getNorth(), e: b.getEast() } : null;
+  // MapLibre zoom is in 512px tiles; the Mercator helpers use 256px tiles.
+  const items = clusterPins(list, bounds, (map.getZoom() || 10) + 1, selection.pid);
+  items.forEach(it => {
+    const el = it.kind === "pin" ? satPinEl(it.p)
+      : satClusterEl(it, () => map.fitBounds([[it.w, it.s], [it.e, it.n2]], { padding: 60, maxZoom: 18 }));
+    const m = new gl.Marker({ element: el, anchor: it.kind === "pin" ? "bottom" : "center" })
+      .setLngLat(it.kind === "pin" ? [it.p.longitude, it.p.latitude] : [it.lng, it.lat])
+      .addTo(map);
+    maptilerState.markers.push(m);
+  });
+  markClusterStats(MAPTILER_CANVAS_ID, items);
+  applySelection("maptiler");
 }
 
 function showMaptilerPopup(p, lngLat) {
@@ -772,6 +869,9 @@ function applySelection(provider, focus) {
 window.addEventListener("tdw:mapselection", e => {
   const d = e.detail || {};
   selection = { pid: d.pid == null ? null : String(d.pid), lat: d.lat, lng: d.lng };
+  // A property inside a cluster must become its own pin: redraw the zoomed view.
+  if (googleState.zoomList && activeStyle === "google") drawGoogleZoomed();
+  if (maptilerState.zoomList && activeStyle === "maptiler") drawMaptilerZoomed();
   applySelection("google", d.focus);
   applySelection("maptiler", d.focus);
 });

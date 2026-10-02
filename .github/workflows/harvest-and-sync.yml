@@ -986,7 +986,10 @@ jobs:
     # not activated / approved. No leg touches FL / TX / LA rows.
     name: Harvest six-state expansion (${{ matrix.state }}) + sync
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # 45 (was 20): Michigan carries the Detroit Land Bank's 30,000+ Available
+    # rows - the sync (500 / request), the inventory-status writer (40 / request)
+    # and change detection all page through them. Schedule unchanged.
+    timeout-minutes: 45
     if: (github.event_name == 'workflow_dispatch' && (github.event.inputs.job == 'all' || github.event.inputs.job == 'expansion' || github.event.inputs.job == '')) || github.event.schedule == '0 12 * * *'
     strategy:
       fail-fast: false

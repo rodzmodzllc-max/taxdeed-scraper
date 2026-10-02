@@ -414,6 +414,14 @@ window.addEventListener("popstate", () => {
 window.tdwBack = { push: pushBackLayer, pop: popBackLayer };
 
 let ALL = [], CALENDAR = {}, NOTES = {}, FAVS = new Set(), HIDDEN = new Set(), ME = null, IS_ADMIN = false;
+// Scale (2026-10-02): List paging state - declared here, not next to the code
+// that uses it, because render() runs during page init before the script
+// reaches that code (the same temporal-dead-zone trap as mapFilter / selectedPid).
+const LIST_PAGE = 50;            // cards built per county group, then "Show next"
+const GROUP_SHOWN = new Map();   // group key -> cards listed (survives re-render)
+const GROUP_PAGES = new Map();   // group key -> { rows, renderCard } of the current render
+const TABLE_PAGE = 200;          // desktop data-table rows, then "Show next"
+const TABLE_STATE = { rows: [], listed: 0 };
 // True once fetchProperties() has returned for this page's state. A registered
 // state with no rows at all is told so plainly ("No properties currently
 // available for this state") - never "unsupported", never hidden.
@@ -2359,15 +2367,31 @@ async function refreshAdminPublication() {
 // correct under any server cap. Rows are de-duplicated by id.
 const PROPERTY_LEDGER_TYPES = ["auctions", "buy", "lien"];
 const PROPERTY_PAGE_SIZE = 1000;
+// Scale (2026-10-02): after the first page (which also tells us the server's
+// effective page size, whatever its cap), pages are fetched PROPERTY_PAGE_WAVE
+// at a time - a 30,000-row state is ~30 requests, and fetching them one after
+// another was most of the load time. Pages are kept in offset order and paging
+// stops at the first short page, so no row is skipped or duplicated.
+const PROPERTY_PAGE_WAVE = 4;
 async function fetchLedgerPages(ledgerType) {
-  const rows = [];
-  for (let offset = 0, guard = 0; guard < 200; guard++) {
-    const r = await sb.rpc("get_properties", { p_state: PAGE_STATE, p_ledger_type: ledgerType, p_limit: PROPERTY_PAGE_SIZE, p_offset: offset });
-    if (r.error) return r;
-    const page = r.data || [];
-    if (!page.length) break;
-    rows.push(...page);
-    offset += page.length;
+  const call = offset => sb.rpc("get_properties", { p_state: PAGE_STATE, p_ledger_type: ledgerType, p_limit: PROPERTY_PAGE_SIZE, p_offset: offset });
+  const first = await call(0);
+  if (first.error) return first;
+  const rows = [...(first.data || [])];
+  const step = rows.length;
+  if (!step) return { data: rows, error: null };
+  let offset = step;
+  for (let guard = 0; guard < 100; guard++) {
+    const wave = await Promise.all(Array.from({ length: PROPERTY_PAGE_WAVE }, (_, i) => call(offset + i * step)));
+    let done = false;
+    for (const r of wave) {
+      if (r.error) return r;
+      const page = r.data || [];
+      rows.push(...page);
+      if (page.length < step) { done = true; break; }
+    }
+    if (done) break;
+    offset += step * PROPERTY_PAGE_WAVE;
   }
   return { data: rows, error: null };
 }
@@ -5804,9 +5828,20 @@ function section(container, title, sub, rows, kind) {
     // isOpen on every matching group, so the case that actually felt slow
     // builds every card regardless. The 200ms debounce on the search input
     // (see below) is what fixes that, and it costs nothing here.
+    //
+    // Scale (2026-10-02): "up front" now means the first page. A county can
+    // hold tens of thousands of rows (Detroit Land Bank, Wayne MI: 30,000+), so
+    // a group builds LIST_PAGE cards and a "Show next" control carrying the
+    // true total; every row stays reachable, in order, nothing is dropped.
+    // Small groups (every fixture group) still build every card.
     const list = document.createElement("div"); list.className = "prop-list";
-    countyRows.forEach(p => list.appendChild(renderCard(p, false)));
+    list.dataset.groupKey = key;
+    GROUP_PAGES.set(key, { rows: countyRows, renderCard });
+    const n = Math.min(countyRows.length, Math.max(LIST_PAGE, GROUP_SHOWN.get(key) || 0));
+    for (let i = 0; i < n; i++) list.appendChild(renderCard(countyRows[i], false));
+    list.dataset.listed = String(n);
     det.appendChild(list);
+    if (n < countyRows.length) det.appendChild(groupMoreButton(key, n, countyRows.length));
 
     sec.appendChild(det);
   });
@@ -5814,6 +5849,34 @@ function section(container, title, sub, rows, kind) {
   container.appendChild(sec);
   return { shown };
 }
+
+function groupMoreButton(key, n, total) {
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "group-more";
+  btn.dataset.groupMore = key;
+  btn.textContent = `Show next ${Math.min(LIST_PAGE, total - n).toLocaleString("en-US")} · showing ${n.toLocaleString("en-US")} of ${total.toLocaleString("en-US")}`;
+  return btn;
+}
+document.addEventListener("click", e => {
+  const btn = e.target.closest && e.target.closest(".group-more");
+  if (!btn) return;
+  const key = btn.dataset.groupMore;
+  const page = GROUP_PAGES.get(key);
+  const det = btn.closest(".county-group");
+  const list = det && det.querySelector(".prop-list");
+  if (!page || !list) return;
+  const from = Number(list.dataset.listed) || 0;
+  const to = Math.min(page.rows.length, from + LIST_PAGE);
+  const frag = document.createDocumentFragment();
+  for (let i = from; i < to; i++) frag.appendChild(page.renderCard(page.rows[i], false));
+  list.appendChild(frag);
+  list.dataset.listed = String(to);
+  GROUP_SHOWN.set(key, to);
+  if (to < page.rows.length) btn.replaceWith(groupMoreButton(key, to, page.rows.length));
+  else btn.remove();
+  hydrateVisuals(list);
+});
 
 function updateBadge() {
   let n = 0;
@@ -8339,6 +8402,26 @@ function tableRow(p) {
   return tr;
 }
 
+function appendTableRows(tbody, from, to) {
+  const old = tbody.querySelector("tr.table-more-row");
+  if (old) old.remove();
+  const frag = document.createDocumentFragment();
+  for (let i = from; i < to; i++) frag.appendChild(tableRow(TABLE_STATE.rows[i]));
+  tbody.appendChild(frag);
+  const total = TABLE_STATE.rows.length;
+  if (to < total) {
+    const tr = document.createElement("tr");
+    tr.className = "table-more-row";
+    tr.innerHTML = `<td colspan="6"><button type="button" class="group-more" id="tableMoreBtn">Show next ${Math.min(TABLE_PAGE, total - to).toLocaleString("en-US")} · showing ${to.toLocaleString("en-US")} of ${total.toLocaleString("en-US")}</button></td>`;
+    tr.querySelector("button").addEventListener("click", () => {
+      const next = Math.min(total, TABLE_STATE.listed + TABLE_PAGE);
+      appendTableRows(tbody, TABLE_STATE.listed, next);
+      TABLE_STATE.listed = next;
+    });
+    tbody.appendChild(tr);
+  }
+}
+
 const tableToggleBtnEl = document.getElementById("tableToggleBtn");
 if (tableToggleBtnEl) {
   tableToggleBtnEl.addEventListener("click", () => {
@@ -8422,7 +8505,11 @@ function renderShellExtras(shown, activeLedger) {
   const tbody = document.getElementById("dataTableBody");
   if (tbody) {
     tbody.innerHTML = "";
-    shown.forEach(p => tbody.appendChild(tableRow(p)));
+    // Scale (2026-10-02): TABLE_PAGE rows, then a "Show next" row with the
+    // true total - the table never builds tens of thousands of rows at once.
+    TABLE_STATE.rows = shown;
+    TABLE_STATE.listed = Math.min(shown.length, Math.max(TABLE_PAGE, TABLE_STATE.listed || 0));
+    appendTableRows(tbody, 0, TABLE_STATE.listed);
   }
   if (selectedPid != null && !shown.some(p => String(p.id) === String(selectedPid))) {
     clearDetailPanel();
