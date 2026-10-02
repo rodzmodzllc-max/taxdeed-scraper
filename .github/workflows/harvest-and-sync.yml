@@ -160,6 +160,17 @@ on:
         type: choice
         default: all
         options: [all, deeds, certificates, laft, texas, backup, evidence, outcomes, expansion, enrich, storage, available, auction]
+      auction_mode:
+        description: >-
+          (job=auction only) "apply" attaches each county's verified sale process
+          to its active auction rows in every production state; "plan" reports
+          the same without writing; "fdor_probe" is the read-only, value-free
+          probe of exact identifier transforms against the statewide FDOR layer
+          (scripts/probe_fdor_identifier_rules.py).
+        required: false
+        type: choice
+        default: plan
+        options: [plan, apply, fdor_probe]
       enrich_states:
         description: >-
           (job=enrich only) Comma-separated postal codes for the enrichment
@@ -1667,14 +1678,27 @@ jobs:
         with:
           python-version: '3.12'
 
+      - name: Install Python dependencies
+        run: pip install requests
+
       - name: Attach verified county sale processes (every production state)
+        if: github.event.inputs.auction_mode == 'apply' || github.event.inputs.auction_mode == 'plan'
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          MODE: ${{ github.event.inputs.auction_mode }}
         run: |
+          flag=""; [ "$MODE" = "plan" ] && flag="--dry-run"
           for st in FL TX MI WY SC WI CO; do
-            python3 scripts/apply_auction_process.py --state "$st" --report "out/public/auction-process-apply-$st.json" || echo "apply failed for $st"
+            python3 scripts/apply_auction_process.py --state "$st" $flag --report "out/public/auction-process-apply-$st.json" || echo "apply failed for $st"
           done
+
+      - name: FDOR identifier probe (read-only, value-free)
+        if: github.event.inputs.auction_mode == 'fdor_probe'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/probe_fdor_identifier_rules.py --per-county 15
 
   available:
     # All-sources AVAILABLE enrichment engine (2026-10-01) - MANUAL ONLY
