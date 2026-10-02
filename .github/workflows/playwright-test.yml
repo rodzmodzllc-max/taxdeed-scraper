@@ -78,3 +78,26 @@ jobs:
 
       - name: Run regression test
         run: node tests/run_test.mjs
+
+  # Read-only check of what a signed-out visitor is actually SERVED by a
+  # deployment (scripts/check_deployed_branding.py): the sign-in block and
+  # title of every state page must name the product, never one state. On a
+  # pull request it reads the Cloudflare branch preview (when one exists) and
+  # reports production as it stands; on a push to main it waits for the
+  # production build and fails if the deployed shell is still state-branded.
+  deployed-login:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repo
+        uses: actions/checkout@v4
+
+      - name: Branch preview deployment
+        if: github.event_name == 'pull_request'
+        env:
+          BRANCH: ${{ github.head_ref }}
+        run: python3 scripts/check_deployed_branding.py --preview-branch "$BRANCH" --require --wait 600
+
+      - name: Production deployment
+        env:
+          REQUIRE: ${{ github.event_name == 'push' && '--require --wait 900' || '' }}
+        run: python3 scripts/check_deployed_branding.py --base https://rodz-taxdeeds.pages.dev $REQUIRE

@@ -2136,6 +2136,28 @@ The EBR Tax Roll's `units` counts structures; it is not acreage.
 
 `sw.js` → `tdw-shell-v65`.
 
+## Multi-state product branding (2026-10-02)
+
+- **The product is never one state.** On every page, the sign-in / sign-up /
+  reset screen reads "Tax Sale Property Intelligence" plus "Tax-sale,
+  available-property, and lien/certificate research across supported states".
+  The static `<title>` is "Tax Acquisitions — Tax Sale Property Intelligence".
+  app.js names the selected state in the tab title only after sign-in.
+- **State wording belongs to that state's own context**: ledger copy, the
+  fees / statute copy on the FL page, and source names.
+  - "Data sources (all states)" lists every state's datasets.
+  - A registered state with no rows reads "No properties currently available
+    for this state." It is never called unsupported.
+- **Generated pages:** `scripts/build_state_page.py` no longer writes a
+  per-state title or tagline.
+- **A repository fix is not a deployed fix.** Cloudflare serves `main`.
+  - `scripts/check_deployed_branding.py` reads what a signed-out visitor is
+    actually served.
+  - It runs as the `deployed-login` job of `playwright-test.yml`: the branch
+    preview on a PR, and production (waiting for the build) on a push to
+    main.
+  - The sandbox cannot reach `*.pages.dev`; the job can.
+
 ## Where to look for more
 
 - `claude/improvement-roadmap.md` in the "tax florida app" claude.ai Project — the full dated log of every fix, audit finding, and open decision. This is where new findings should be appended, not here.

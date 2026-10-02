@@ -2189,6 +2189,106 @@ await fpFailPage.waitForTimeout(200);
 results.forgotErrorShown = ((await fpFailPage.locator('#authMsg').textContent()) || '').trim();
 await fpFailPage.close();
 
+// --- Multi-state product branding (2026-10-02): the sign-in, sign-up and
+// reset screens and the generic shell never claim a single state; the
+// selected state's own wording appears only in that state's context; a
+// registered state with no rows says so and is never called unsupported. ---
+{
+  const STATE_WORDS = /Florida|Texas|Louisiana|Michigan|Wyoming|South Carolina|Colorado|Wisconsin/;
+  const gateText = pg => pg.evaluate(() => document.getElementById('authGate').innerText.replace(/\s+/g, ' '));
+  results.brandGate = {};
+  for (const file of ['index.html', 'tx.html', 'la.html', 'mi.html', 'wy.html']) {
+    const bp = await newPage({ viewport: { width: 390, height: 844 } });
+    await bp.goto(BASE_URL.replace(/index\.html$/, file) + '?authtest=1', { waitUntil: 'networkidle' });
+    await bp.waitForTimeout(300);
+    const login = await gateText(bp);
+    const title = await bp.title();
+    await bp.click('#authModeToggle');
+    await bp.waitForTimeout(150);
+    const signup = await gateText(bp);
+    await bp.click('#authModeToggle');
+    await bp.click('#forgotPasswordBtn');
+    await bp.waitForTimeout(150);
+    const reset = await gateText(bp);
+    results.brandGate[file] = {
+      tagline: ((await bp.locator('#authGate .auth-tagline').first().textContent()) || '').trim(),
+      sub: /across supported states/.test(login),
+      loginNoState: !STATE_WORDS.test(login),
+      signupNoState: !STATE_WORDS.test(signup),
+      resetNoState: !STATE_WORDS.test(reset),
+      titleNoState: !STATE_WORDS.test(title)
+    };
+    await bp.close();
+  }
+  // Service-worker-controlled reload: once sw.js controls the page, a fresh
+  // load of the sign-in screen is still the neutral product shell.
+  const swp = await newPage({ viewport: { width: 390, height: 844 } });
+  await swp.goto(BASE_URL + '?authtest=1', { waitUntil: 'networkidle' });
+  const swReady = await swp.evaluate(() => Promise.race([navigator.serviceWorker.ready.then(() => true), new Promise(r => setTimeout(() => r(false), 4000))]));
+  await swp.reload({ waitUntil: 'networkidle' });
+  await swp.waitForTimeout(300);
+  const swLogin = await gateText(swp);
+  results.brandSwReload = {
+    ready: swReady,
+    controlled: await swp.evaluate(() => !!navigator.serviceWorker.controller),
+    tagline: ((await swp.locator('#authGate .auth-tagline').first().textContent()) || '').trim(),
+    noState: !STATE_WORDS.test(swLogin) && !STATE_WORDS.test(await swp.title()),
+    cache: await swp.evaluate(async () => (await caches.keys()).filter(k => k.startsWith('tdw-shell-')))
+  };
+  await swp.close();
+  // Generic shell (signed in): brand, nav and footer name no state; the
+  // header's state selector is the state context and is excluded.
+  const sh = await newPage({ viewport: { width: 1200, height: 900 } });
+  await sh.goto(BASE_URL.replace(/index\.html$/, 'mi.html') + '#/auctions', { waitUntil: 'networkidle' });
+  await sh.waitForTimeout(500);
+  results.brandShell = await sh.evaluate(() => {
+    const words = /Florida|Texas|Louisiana|Wyoming|South Carolina|Colorado|Wisconsin/;
+    const parts = ['.nav-rail', '.bottom-nav', '.topbar .brand'].flatMap(sel => [...document.querySelectorAll(sel)]).map(e => e.innerText).join(' ');
+    return { shellNoOtherState: !words.test(parts), dataSourcesHead: [...document.querySelectorAll('.dash-panel-head')].some(e => e.textContent.trim() === 'Data sources (all states)') };
+  });
+  results.brandShell.title = await sh.title();
+  await sh.close();
+  // A Michigan auction is a Michigan tax sale auction - never a Florida one.
+  // (A fresh page: a goto that only changes the hash is a same-document navigation.)
+  const mw = await newPage({ viewport: { width: 1200, height: 900 } });
+  await mw.goto(BASE_URL.replace(/index\.html$/, 'mi.html') + '#/auctions/pmi1', { waitUntil: 'networkidle' });
+  await mw.waitForTimeout(600);
+  const what = ((await mw.locator('#detailModalInner').innerText().catch(() => '')) || '');
+  results.brandMiWhat = { michigan: /Michigan tax sale auction/.test(what), noFlorida: !/Florida tax deed auction/.test(what) };
+  await mw.close();
+  // Selected-state context keeps its own wording.
+  const fl = await newPage({ viewport: { width: 1200, height: 900 } });
+  await fl.goto(BASE_URL + '#/lands', { waitUntil: 'networkidle' });
+  await fl.waitForTimeout(500);
+  results.brandFlContext = { title: await fl.title(), floridaCopy: /Florida/.test(await fl.locator('#main').innerText()) };
+  await fl.close();
+  const tx = await newPage({ viewport: { width: 1200, height: 900 } });
+  await tx.goto(BASE_URL.replace(/index\.html$/, 'tx.html') + '#/lands', { waitUntil: 'networkidle' });
+  await tx.waitForTimeout(500);
+  results.brandTxContext = {
+    title: await tx.title(),
+    ledgerTab: await tx.evaluate(() => (document.querySelector('#ledgerTabs .on, #ledgerTabs [aria-selected="true"]') || {}).dataset?.ledger || null),
+    hash: await tx.evaluate(() => location.hash)
+  };
+  // The global state selector navigates to the chosen state's page, keeping the ledger route.
+  await Promise.all([tx.waitForNavigation({ waitUntil: 'networkidle' }), tx.selectOption('#stateSelect', 'WY')]);
+  await tx.waitForTimeout(500);
+  results.brandStateSwitch = { file: await tx.evaluate(() => location.pathname.split('/').pop()), hash: await tx.evaluate(() => location.hash), state: await tx.locator('#stateSelect').inputValue() };
+  await tx.close();
+  // A registered state with no rows at all: plain wording, still selectable.
+  const em = await newPage({ viewport: { width: 1200, height: 900 } });
+  await em.goto(BASE_URL.replace(/index\.html$/, 'wi.html') + '?emptystate=1#/auctions', { waitUntil: 'networkidle' });
+  await em.waitForTimeout(500);
+  const emptyText = ((await em.locator('#main .empty-state').first().textContent().catch(() => '')) || '').trim();
+  results.brandEmptyState = {
+    says: emptyText.startsWith('No properties currently available for this state.'),
+    neverUnsupported: !/unsupported|not supported/i.test(await em.locator('body').innerText()),
+    stillListed: (await em.locator('#stateSelect option[value="WI"]').count()) === 1,
+    selected: await em.locator('#stateSelect').inputValue()
+  };
+  await em.close();
+}
+
 // --- Arriving from the reset link: PASSWORD_RECOVERY opens the new-password
 // form, which calls updateUser({ password }). ---
 const rcPage = await newPage({ viewport: { width: 390, height: 844 } });
@@ -3686,6 +3786,16 @@ await browser.close();
 
 
 const EXPECTED = {
+  // Multi-state product branding (2026-10-02).
+  brandGate: {"index.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
+  brandSwReload: { ready: true, controlled: true, tagline: "Tax Sale Property Intelligence", noState: true, cache: ["tdw-shell-v67"] },
+  brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · Tax Acquisitions — Michigan" },
+  brandMiWhat: { michigan: true, noFlorida: true },
+  brandFlContext: { title: "Available · Tax Acquisitions — Florida", floridaCopy: true },
+  brandTxContext: { title: "OTC Catalog — Struck-Off Inventory · Tax Acquisitions — Texas", ledgerTab: "laft", hash: "#/lands" },
+  brandStateSwitch: { file: "wy.html", hash: "#/lands", state: "WY" },
+  brandEmptyState: { says: true, neverUnsupported: true, stillListed: true, selected: "WI" },
+
   webpImageRenders: '160x120',
   // Customer monitoring sprint (2026-10-01)
   monPagedSameCards: true,
