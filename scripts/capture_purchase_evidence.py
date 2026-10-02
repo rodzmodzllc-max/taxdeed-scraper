@@ -64,9 +64,6 @@ REALAUCTION_HOSTS = REPO / "data" / "realauction_counties.csv"
 # reads it (and one hop of tax-deed links on it) so the process can be
 # verified from the page itself before any evidence row is written.
 CANDIDATES = REPO / "data" / "acquisition_candidate_pages.csv"
-# Auction sprint (2026-10-02): official auction-process pages (clerk tax-deed
-# sale pages, sheriff / tax-office sale pages) for the AUCTION ledger.
-AUCTION_CANDIDATES = REPO / "data" / "auction_candidate_pages.csv"
 OUT_PATH = REPO / "out" / "public" / "purchase-evidence-capture.json"
 UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
 HEADERS = {"User-Agent": UA, "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
@@ -75,11 +72,7 @@ LINK_VOCAB = re.compile(r"purchas|buy|apply|application|instruction|how to|proce
                         r"land available|list of lands|tax deed|197\.502|fee|contact", re.I)
 SNIPPET_VOCAB = re.compile(r"purchas|apply|application|contact|phone|e-?mail|mail|in person|office|submit|form|fee|"
                            r"197\.502|lands available|cashier|certified|payment|bid|struck|resale|re-sale|"
-                           r"trust propert|held in trust|sheriff|tax sale|foreclos|"
-                           # auction process (auction sprint 2026-10-02): registration, deposits,
-                           # deadlines, sale times and places - county-level guidance only
-                           r"deposit|regist|deadline|wire|\bACH\b|auction|bidder|a\.m\.|p\.m\.|\b[AP]M\b|\bET\b|\bCT\b|"
-                           r"forfeit|documentary|recording fee|identification|realtaxdeed|realforeclose|sheriffsaleauction", re.I)
+                           r"trust propert|held in trust|sheriff|tax sale|foreclos", re.I)
 LONG_DIGITS = re.compile(r"\d{7,}")
 PHONE = re.compile(r"\(?\b\d{3}\)?[-. ]\d{3}[-. ]\d{4}\b")
 EMAIL = re.compile(r"[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}")
@@ -449,12 +442,10 @@ def main(argv=None) -> int:
     ap.add_argument("--candidates", action="store_true",
                     help="read only the official candidate pages in data/acquisition_candidate_pages.csv (all states unless --state-filter)")
     ap.add_argument("--state-filter", action="append", default=[], help="with --candidates: limit to these states (repeatable)")
-    ap.add_argument("--candidates-file", default=None, help="with --candidates: another candidate CSV (e.g. data/auction_candidate_pages.csv)")
-    ap.add_argument("--digest-snippets", type=int, default=25, help="with --digest: snippets printed per page")
     ap.add_argument("--out", default=str(OUT_PATH))
     args = ap.parse_args(argv)
     if args.digest:
-        print(digest(Path(args.digest), max_snippets=args.digest_snippets))
+        print(digest(Path(args.digest)))
         return 0
     counties = set(args.county) or None
     session = requests.Session()
@@ -464,8 +455,7 @@ def main(argv=None) -> int:
     if args.candidates:
         print("capturing official acquisition candidate pages", flush=True)
         report["state"] = ",".join(args.state_filter) or "all"
-        cpath = Path(args.candidates_file) if args.candidates_file else CANDIDATES
-        report["available_sources"] = capture_candidates(session, set(args.state_filter) or None, counties, follow=args.follow, path=cpath)
+        report["available_sources"] = capture_candidates(session, set(args.state_filter) or None, counties, follow=args.follow)
     elif not args.skip_available:
         print(f"capturing AVAILABLE source pages ({args.state})", flush=True)
         report["available_sources"] = capture_available(session, args.state, counties, follow=args.follow)

@@ -197,7 +197,7 @@ on:
         required: false
         type: choice
         default: available
-        options: [available, auction_results, state_sources, expansion, field_fill, five_state, five_state_pass2, five_state_pass3, enrich_sources, enrich_sources_2, enrich_sources_3, enrich_sources_4, acquisition_candidates, auction_candidates]
+        options: [available, auction_results, state_sources, expansion, field_fill, five_state, five_state_pass2, five_state_pass3, enrich_sources, enrich_sources_2, enrich_sources_3, enrich_sources_4, acquisition_candidates]
 
 concurrency:
   group: harvest-and-sync
@@ -1319,16 +1319,6 @@ jobs:
             python3 scripts/capture_state_sources.py --expansion --skip-registry
             exit 0
           fi
-          if [ "$SCOPE" = "auction_candidates" ]; then
-            # Auction sprint (2026-10-02): official auction-process pages (clerk
-            # tax-deed sale pages, sheriff / tax-office sale pages, sale PDFs) for
-            # the AUCTION ledger. Read-only and value-free; nothing is written.
-            cargs=""
-            IFS=',' read -ra cs <<< "$COUNTIES"
-            for c in "${cs[@]}"; do c="$(echo "$c" | xargs)"; [ -n "$c" ] && cargs="$cargs --county \"$c\""; done
-            eval python3 scripts/capture_purchase_evidence.py --candidates --candidates-file data/auction_candidate_pages.csv --follow $cargs
-            exit 0
-          fi
           if [ "$SCOPE" = "acquisition_candidates" ]; then
             # Acquisition-path sprint: official process pages found for the
             # counties whose source page publishes no process. Read-only,
@@ -1359,7 +1349,7 @@ jobs:
           elif [ -f out/public/state-source-capture.json ]; then
             python3 scripts/capture_state_sources.py --digest out/public/state-source-capture.json
           else
-            python3 scripts/capture_purchase_evidence.py --digest out/public/purchase-evidence-capture.json --digest-snippets 40
+            python3 scripts/capture_purchase_evidence.py --digest out/public/purchase-evidence-capture.json
           fi
           echo "::endgroup::"
 
