@@ -265,6 +265,31 @@ const FIXTURE_PROPERTIES = [
     list_url: "https://www.arcgis.com/home/item.html?id=e0c4f46a09b9405cb18837e66e85c622", url_auction: "https://www.arcgis.com/home/item.html?id=e0c4f46a09b9405cb18837e66e85c622", url_auction_kind: "county",
     purchase_amount: null, purchase_amount_kind: "NOT_PUBLISHED", inventory_status_raw: "Own It Now",
     last_seen_at: "2026-10-02T12:00:00Z", publication_status: "UNREVIEWED", ledger_type: "buy", updated_at: "2026-10-02T12:00:00Z" },
+  // Detroit customer subset (2026-10-03): four SYNTHETIC rows with the DLBA's own
+  // offered-structure status. By the subset rule (harvesters/otc/detroit_subset.py)
+  // pmi_dlbs1/2 (99000102. / 99000105.) are IN the ~50% subset and pmi_dlbs3/4
+  // (99000101. / 99000103.) are not; pmi_dlba1 (a Side Lot) and pmi_dlba2 (a program
+  // record) carry no structure indicator.
+  { id: "pmi_dlbs1", source: "laft", state: "MI", county: "Wayne", case_no: "99000102.", parcel: "99000102.", address: "102 FIXTURE HOUSE AVE", bid: 0, status: "active", sale_date: null, lien_level: "unscreened", lien_note: "",
+    harvester_source: "mi_detroit_landbank_lots", source_id: "mi_detroit_landbank_lots", source_authority: "GOVERNMENT_DIRECT", inventory_type: "POST_SALE",
+    list_url: "https://www.arcgis.com/home/item.html?id=848bc665295f4ca9b1e25068ffa88ab0", url_auction: "https://www.arcgis.com/home/item.html?id=848bc665295f4ca9b1e25068ffa88ab0", url_auction_kind: "county",
+    purchase_amount: null, purchase_amount_kind: "NOT_PUBLISHED", inventory_status_raw: "Marketed Structure For Sale", latitude: 42.37, longitude: -83.1,
+    last_seen_at: "2026-10-03T12:00:00Z", publication_status: "UNREVIEWED", ledger_type: "buy", updated_at: "2026-10-03T12:00:00Z" },
+  { id: "pmi_dlbs2", source: "laft", state: "MI", county: "Wayne", case_no: "99000105.", parcel: "99000105.", address: "105 FIXTURE HOUSE AVE", bid: 0, status: "active", sale_date: null, lien_level: "unscreened", lien_note: "",
+    harvester_source: "mi_detroit_landbank_lots", source_id: "mi_detroit_landbank_lots", source_authority: "GOVERNMENT_DIRECT", inventory_type: "POST_SALE",
+    list_url: "https://www.arcgis.com/home/item.html?id=848bc665295f4ca9b1e25068ffa88ab0", url_auction: "https://www.arcgis.com/home/item.html?id=848bc665295f4ca9b1e25068ffa88ab0", url_auction_kind: "county",
+    purchase_amount: null, purchase_amount_kind: "NOT_PUBLISHED", inventory_status_raw: "Marketed Structure For Sale", latitude: 42.38, longitude: -83.12,
+    last_seen_at: "2026-10-03T12:00:00Z", publication_status: "UNREVIEWED", ledger_type: "buy", updated_at: "2026-10-03T12:00:00Z" },
+  { id: "pmi_dlbs3", source: "laft", state: "MI", county: "Wayne", case_no: "99000101.", parcel: "99000101.", address: "101 FIXTURE HOUSE AVE", bid: 0, status: "active", sale_date: null, lien_level: "unscreened", lien_note: "",
+    harvester_source: "mi_detroit_landbank_lots", source_id: "mi_detroit_landbank_lots", source_authority: "GOVERNMENT_DIRECT", inventory_type: "POST_SALE",
+    list_url: "https://www.arcgis.com/home/item.html?id=848bc665295f4ca9b1e25068ffa88ab0", url_auction: "https://www.arcgis.com/home/item.html?id=848bc665295f4ca9b1e25068ffa88ab0", url_auction_kind: "county",
+    purchase_amount: null, purchase_amount_kind: "NOT_PUBLISHED", inventory_status_raw: "Marketed Structure For Sale", latitude: 42.39, longitude: -83.05,
+    last_seen_at: "2026-10-03T12:00:00Z", publication_status: "UNREVIEWED", ledger_type: "buy", updated_at: "2026-10-03T12:00:00Z" },
+  { id: "pmi_dlbs4", source: "laft", state: "MI", county: "Wayne", case_no: "99000103.", parcel: "99000103.", address: "103 FIXTURE HOUSE AVE", bid: 0, status: "active", sale_date: null, lien_level: "unscreened", lien_note: "",
+    harvester_source: "mi_detroit_landbank_lots", source_id: "mi_detroit_landbank_lots", source_authority: "GOVERNMENT_DIRECT", inventory_type: "POST_SALE",
+    list_url: "https://www.arcgis.com/home/item.html?id=848bc665295f4ca9b1e25068ffa88ab0", url_auction: "https://www.arcgis.com/home/item.html?id=848bc665295f4ca9b1e25068ffa88ab0", url_auction_kind: "county",
+    purchase_amount: null, purchase_amount_kind: "NOT_PUBLISHED", inventory_status_raw: "Marketed Structure For Sale", latitude: 42.35, longitude: -83.14,
+    last_seen_at: "2026-10-03T12:00:00Z", publication_status: "UNREVIEWED", ledger_type: "buy", updated_at: "2026-10-03T12:00:00Z" },
   { id: "psc_horry1", source: "laft", state: "SC", county: "Horry", case_no: "99999999901", parcel: "99999999901", address: null, legal_desc: "FIXTURE LOT 9", bid: 1500, status: "active", sale_date: null, lien_level: "unscreened", lien_note: "",
     harvester_source: "sc_horry_forfeited_land", source_id: "sc_horry_forfeited_land", source_authority: "GOVERNMENT_DIRECT", inventory_type: "POST_SALE",
     list_url: "https://horrycountysc.gov/boards-and-commissions/forfeited-land-commission/", url_auction: "https://horrycountysc.gov/boards-and-commissions/forfeited-land-commission/", url_auction_kind: "county",

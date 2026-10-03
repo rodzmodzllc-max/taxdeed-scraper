@@ -1242,6 +1242,9 @@ the field read as one control. */
 .prop-source-line{display:flex;flex-wrap:wrap;gap:.3rem;margin:.15rem 0 .1rem}
 .source-program{font-size:.72rem;font-weight:600;color:var(--ink);background:var(--card-line);border-radius:999px;padding:.05rem .5rem}
 .source-review-chip{font-size:.72rem;font-weight:600;color:var(--warn);background:var(--warn-bg);border:1px solid var(--warn);border-radius:999px;padding:.05rem .5rem}
+/* Detroit customer subset (2026-10-03): an admin label, never an availability fact. */
+.source-subset-chip{font-size:.72rem;font-weight:600;color:var(--ink-soft);background:transparent;border:1px dashed var(--card-line);border-radius:999px;padding:.05rem .5rem}
+.ledger-detroit-subset{margin:.4rem 0 0;font-size:.76rem;color:var(--ink-soft);border-left:3px solid var(--card-line);padding-left:.55rem}
 .source-review-banner{margin:0 0 .7rem;padding:.55rem .7rem;font-size:.82rem;line-height:1.4;color:var(--ink);background:var(--warn-bg);border:1px solid var(--warn);border-radius:8px}
 .source-review-row{display:flex;flex-wrap:wrap;gap:.25rem 1rem;margin:.45rem 0;font-size:.8rem;color:var(--ink-soft)}
 .source-review-row.pending b{color:var(--warn)}

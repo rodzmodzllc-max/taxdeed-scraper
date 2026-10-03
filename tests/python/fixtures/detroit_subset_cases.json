@@ -1,0 +1,352 @@
+[
+ {
+  "source_id": "mi_detroit_landbank_lots",
+  "parcel": "22000000.",
+  "inventory_status_raw": "Marketed Structure For Sale",
+  "hash": 652766102,
+  "expected": "in_subset"
+ },
+ {
+  "source_id": "mi_detroit_landbank_lots",
+  "parcel": "22007919.",
+  "inventory_status_raw": "Marketed Structure For Sale",
+  "hash": 1271897256,
+  "expected": "not_selected"
+ },
+ {
+  "source_id": "mi_detroit_landbank_lots",
+  "parcel": "22015838.",
+  "inventory_status_raw": "Marketed Structure For Sale",
+  "hash": 2853410877,
+  "expected": "not_selected"
+ },
+ {
+  "source_id": "mi_detroit_landbank_lots",
+  "parcel": "22023757.",
+  "inventory_status_raw": "Marketed Structure For Sale",
+  "hash": 3165386286,
+  "expected": "not_selected"
+ },
+ {
+  "source_id": "mi_detroit_landbank_lots",
+  "parcel": "22031676.",
+  "inventory_status_raw": "Marketed Structure For Sale",
+  "hash": 867289115,
+  "expected": "in_subset"
+ },
+ {
+  "source_id": "mi_detroit_landbank_lots",
+  "parcel": "22039595.",
+  "inventory_status_raw": "Marketed Structure For Sale",
+  "hash": 2405564573,
+  "expected": "not_selected"
+ },
+ {
+  "source_id": "mi_detroit_landbank_lots",
+  "parcel": "22047514.",
+  "inventory_status_raw": "Marketed Structure For Sale",
+  "hash": 3198462833,
+  "expected": "in_subset"
+ },
+ {
+  "source_id": "mi_detroit_landbank_lots",
+  "parcel": "22055433.",
+  "inventory_status_raw": "Marketed Structure For Sale",
+  "hash": 3454878714,
+  "expected": "in_subset"
+ },
+ {
+  "source_id": "mi_detroit_landbank_lots",
+  "parcel": "22063352.",
+  "inventory_status_raw": "Marketed Structure For Sale",
+  "hash": 68590007,
+  "expected": "in_subset"
+ },
+ {
+  "source_id": "mi_detroit_landbank_lots",
+  "parcel": "22071271.",
+  "inventory_status_raw": "Marketed Structure For Sale",
+  "hash": 3589035120,
+  "expected": "in_subset"
+ },
+ {
+  "source_id": "mi_detroit_landbank_lots",
+  "parcel": "22079190.",
+  "inventory_status_raw": "Marketed Structure For Sale",
+  "hash": 76107852,
+  "expected": "not_selected"
+ },
+ {
+  "source_id": "mi_detroit_landbank_lots",
+  "parcel": "22087109.",
+  "inventory_status_raw": "Marketed Structure For Sale",
+  "hash": 3965487911,
+  "expected": "in_subset"
+ },
+ {
+  "source_id": "mi_detroit_landbank_lots",
+  "parcel": "22095028.",
+  "inventory_status_raw": "Marketed Structure For Sale",
+  "hash": 856573906,
+  "expected": "in_subset"
+ },
+ {
+  "source_id": "mi_detroit_landbank_lots",
+  "parcel": "22102947.",
+  "inventory_status_raw": "Marketed Structure For Sale",
+  "hash": 2291076049,
+  "expected": "in_subset"
+ },
+ {
+  "source_id": "mi_detroit_landbank_lots",
+  "parcel": "22110866.",
+  "inventory_status_raw": "Marketed Structure For Sale",
+  "hash": 3545477992,
+  "expected": "not_selected"
+ },
+ {
+  "source_id": "mi_detroit_landbank_lots",
+  "parcel": "22118785.",
+  "inventory_status_raw": "Marketed Structure For Sale",
+  "hash": 447131214,
+  "expected": "in_subset"
+ },
+ {
+  "source_id": "mi_detroit_landbank_lots",
+  "parcel": "22126704.",
+  "inventory_status_raw": "Marketed Structure For Sale",
+  "hash": 629791794,
+  "expected": "not_selected"
+ },
+ {
+  "source_id": "mi_detroit_landbank_lots",
+  "parcel": "22134623.",
+  "inventory_status_raw": "Marketed Structure For Sale",
+  "hash": 3979190669,
+  "expected": "not_selected"
+ },
+ {
+  "source_id": "mi_detroit_landbank_lots",
+  "parcel": "22142542.",
+  "inventory_status_raw": "Marketed Structure For Sale",
+  "hash": 1281466912,
+  "expected": "in_subset"
+ },
+ {
+  "source_id": "mi_detroit_landbank_lots",
+  "parcel": "22150461.",
+  "inventory_status_raw": "Marketed Structure For Sale",
+  "hash": 3301045851,
+  "expected": "not_selected"
+ },
+ {
+  "source_id": "mi_detroit_landbank_lots",
+  "parcel": "22158380.",
+  "inventory_status_raw": "Marketed Structure For Sale",
+  "hash": 3235987695,
+  "expected": "not_selected"
+ },
+ {
+  "source_id": "mi_detroit_landbank_lots",
+  "parcel": "22166299.",
+  "inventory_status_raw": "Marketed Structure For Sale",
+  "hash": 4002919269,
+  "expected": "not_selected"
+ },
+ {
+  "source_id": "mi_detroit_landbank_lots",
+  "parcel": "22174218.",
+  "inventory_status_raw": "Marketed Structure For Sale",
+  "hash": 4190960271,
+  "expected": "not_selected"
+ },
+ {
+  "source_id": "mi_detroit_landbank_lots",
+  "parcel": "22182137.",
+  "inventory_status_raw": "Marketed Structure For Sale",
+  "hash": 130990616,
+  "expected": "in_subset"
+ },
+ {
+  "source_id": "mi_detroit_landbank_lots",
+  "parcel": "22190056.",
+  "inventory_status_raw": "Marketed Structure For Sale",
+  "hash": 2155731565,
+  "expected": "not_selected"
+ },
+ {
+  "source_id": "mi_detroit_landbank_lots",
+  "parcel": "22197975.",
+  "inventory_status_raw": "Marketed Structure For Sale",
+  "hash": 175316152,
+  "expected": "not_selected"
+ },
+ {
+  "source_id": "mi_detroit_landbank_lots",
+  "parcel": "22205894.",
+  "inventory_status_raw": "Marketed Structure For Sale",
+  "hash": 1230862024,
+  "expected": "in_subset"
+ },
+ {
+  "source_id": "mi_detroit_landbank_lots",
+  "parcel": "22213813.",
+  "inventory_status_raw": "Marketed Structure For Sale",
+  "hash": 306150088,
+  "expected": "not_selected"
+ },
+ {
+  "source_id": "mi_detroit_landbank_lots",
+  "parcel": "22221732.",
+  "inventory_status_raw": "Marketed Structure For Sale",
+  "hash": 2369078865,
+  "expected": "not_selected"
+ },
+ {
+  "source_id": "mi_detroit_landbank_lots",
+  "parcel": "22229651.",
+  "inventory_status_raw": "Marketed Structure For Sale",
+  "hash": 1182482521,
+  "expected": "in_subset"
+ },
+ {
+  "source_id": "mi_detroit_landbank_lots",
+  "parcel": "22237570.",
+  "inventory_status_raw": "Marketed Structure For Sale",
+  "hash": 3835130078,
+  "expected": "not_selected"
+ },
+ {
+  "source_id": "mi_detroit_landbank_lots",
+  "parcel": "22245489.",
+  "inventory_status_raw": "Marketed Structure For Sale",
+  "hash": 47260666,
+  "expected": "not_selected"
+ },
+ {
+  "source_id": "mi_detroit_landbank_lots",
+  "parcel": "22253408.",
+  "inventory_status_raw": "Marketed Structure For Sale",
+  "hash": 612818244,
+  "expected": "in_subset"
+ },
+ {
+  "source_id": "mi_detroit_landbank_lots",
+  "parcel": "22261327.",
+  "inventory_status_raw": "Marketed Structure For Sale",
+  "hash": 4234028627,
+  "expected": "in_subset"
+ },
+ {
+  "source_id": "mi_detroit_landbank_lots",
+  "parcel": "22269246.",
+  "inventory_status_raw": "Marketed Structure For Sale",
+  "hash": 2777697841,
+  "expected": "in_subset"
+ },
+ {
+  "source_id": "mi_detroit_landbank_lots",
+  "parcel": "22277165.",
+  "inventory_status_raw": "Marketed Structure For Sale",
+  "hash": 1006620112,
+  "expected": "in_subset"
+ },
+ {
+  "source_id": "mi_detroit_landbank_lots",
+  "parcel": "22285084.",
+  "inventory_status_raw": "Marketed Structure For Sale",
+  "hash": 1921938987,
+  "expected": "not_selected"
+ },
+ {
+  "source_id": "mi_detroit_landbank_lots",
+  "parcel": "22293003.",
+  "inventory_status_raw": "Marketed Structure For Sale",
+  "hash": 790851131,
+  "expected": "in_subset"
+ },
+ {
+  "source_id": "mi_detroit_landbank_lots",
+  "parcel": "22300922.",
+  "inventory_status_raw": "Marketed Structure For Sale",
+  "hash": 3983795018,
+  "expected": "in_subset"
+ },
+ {
+  "source_id": "mi_detroit_landbank_lots",
+  "parcel": "22308841.",
+  "inventory_status_raw": "Marketed Structure For Sale",
+  "hash": 3599408746,
+  "expected": "in_subset"
+ },
+ {
+  "source_id": "mi_detroit_landbank_lots",
+  "parcel": "22000001.",
+  "inventory_status_raw": "Side Lot For Sale",
+  "hash": 2297119859,
+  "expected": "not_structure"
+ },
+ {
+  "source_id": "mi_detroit_landbank_lots",
+  "parcel": "22000002.",
+  "inventory_status_raw": "Neighborhood Lot For Sale",
+  "hash": 2263711716,
+  "expected": "not_structure"
+ },
+ {
+  "source_id": "mi_detroit_landbank_lots",
+  "parcel": "22000003.",
+  "inventory_status_raw": "Marketed Lot For Sale",
+  "hash": 2834297857,
+  "expected": "not_structure"
+ },
+ {
+  "source_id": "mi_detroit_landbank_lots",
+  "parcel": "22000004.",
+  "inventory_status_raw": "Oversized Lot For Sale",
+  "hash": 2799609786,
+  "expected": "not_structure"
+ },
+ {
+  "source_id": "mi_detroit_landbank_programs",
+  "parcel": "22000005.",
+  "inventory_status_raw": "Own It Now",
+  "hash": 3587701494,
+  "expected": "not_structure"
+ },
+ {
+  "source_id": "mi_detroit_landbank_programs",
+  "parcel": "22000006.",
+  "inventory_status_raw": "Renovation Programs",
+  "hash": 1474265953,
+  "expected": "not_structure"
+ },
+ {
+  "source_id": "mi_oceana_landbank",
+  "parcel": "64-001-001-001-00",
+  "inventory_status_raw": null,
+  "hash": 2346164606,
+  "expected": null
+ },
+ {
+  "source_id": "sc_horry_forfeited_land",
+  "parcel": "12345678901",
+  "inventory_status_raw": null,
+  "hash": 1863335575,
+  "expected": null
+ },
+ {
+  "source_id": "sc_georgetown_forfeited_land",
+  "parcel": "01-0001-001-01-01",
+  "inventory_status_raw": null,
+  "hash": 4027924451,
+  "expected": null
+ },
+ {
+  "source_id": "fl_laft_html",
+  "parcel": "R12345",
+  "inventory_status_raw": null,
+  "hash": 1399917432,
+  "expected": null
+ }
+]

@@ -56,7 +56,7 @@ page.on('console', msg => { if (msg.type() === 'error') errors.push('console.err
 // downstream. Auto-accept so hide behaves the way a real click would.
 page.on('dialog', dialog => dialog.accept());
 
-await page.goto(BASE_URL, { waitUntil: 'networkidle' });
+await page.goto(BASE_URL + '#/auctions', { waitUntil: 'networkidle' });
 await page.waitForTimeout(500);
 
 const results = {};
@@ -1478,7 +1478,7 @@ await certColdPage.close();
 // The badge is now gone for EVERYONE, admin included - it was a number
 // nobody acted on, repeated once per county down the page. Checking the
 // admin view too, because that is the one place it survived last time.
-await page.goto(BASE_URL + '?profile=admin', { waitUntil: 'networkidle' });
+await page.goto(BASE_URL + '?profile=admin' + '#/auctions', { waitUntil: 'networkidle' });
 await page.waitForTimeout(1400);
 results.freshnessBadgesForAdmin = await page.locator('.freshness-badge').count();
 
@@ -1749,7 +1749,7 @@ await txMapPage.close();
 // ============================================================
 const dlPage1 = await newPage({ viewport: { width: 390, height: 844 } });
 dlPage1.on('dialog', d => d.accept());
-await dlPage1.goto(BASE_URL, { waitUntil: 'networkidle' });
+await dlPage1.goto(BASE_URL + '#/auctions', { waitUntil: 'networkidle' });
 await dlPage1.waitForTimeout(500);
 await dlPage1.click('#expandAllBtn');
 await dlPage1.waitForTimeout(150);
@@ -1792,7 +1792,7 @@ await dlPage2.close();
 const p66 = await newPage({ viewport: { width: 390, height: 844 } });
 p66.on('pageerror', e => errors.push('pageerror: ' + e.message));
 p66.on('console', msg => { if (msg.type() === 'error') errors.push('console.error: ' + msg.text()); });
-await p66.goto(BASE_URL, { waitUntil: 'networkidle' });
+await p66.goto(BASE_URL + '#/auctions', { waitUntil: 'networkidle' });
 await p66.waitForTimeout(500);
 if ((await p66.locator('#expandAllBtn').textContent()) === 'Expand all') { await p66.click('#expandAllBtn'); await p66.waitForTimeout(200); }
 const p6Card = p66.locator('.prop-card:has-text("77 Pine Ct")').first();
@@ -1843,7 +1843,7 @@ await p66.close();
 const p67d = await newPage({ viewport: { width: 1400, height: 900 } });
 p67d.on('pageerror', e => errors.push('pageerror: ' + e.message));
 p67d.on('console', msg => { if (msg.type() === 'error') errors.push('console.error: ' + msg.text()); });
-await p67d.goto(BASE_URL, { waitUntil: 'networkidle' });
+await p67d.goto(BASE_URL + '#/auctions', { waitUntil: 'networkidle' });
 await p67d.waitForTimeout(500);
 await p67d.evaluate(() => { window.__selEvents = []; window.addEventListener('tdw:mapselection', e => window.__selEvents.push(e.detail)); });
 await p67d.click('.nav-item[data-page="map"]');
@@ -1928,7 +1928,7 @@ await p67d.close();
 const p67m = await newPage({ viewport: { width: 360, height: 780 } });
 p67m.on('pageerror', e => errors.push('pageerror: ' + e.message));
 p67m.on('console', msg => { if (msg.type() === 'error') errors.push('console.error: ' + msg.text()); });
-await p67m.goto(BASE_URL, { waitUntil: 'networkidle' });
+await p67m.goto(BASE_URL + '#/auctions', { waitUntil: 'networkidle' });
 await p67m.waitForTimeout(500);
 await p67m.click('.nav-bottom-item[data-page="map"]');
 await p67m.waitForTimeout(600);
@@ -1997,7 +1997,7 @@ await evPage3.close();
 // --- Dashboard: dataset health (five stub rows, one per derived state)
 // and the watchlist change signals (first visit in a fresh browser). ---
 const dashPage = await newPage({ viewport: { width: 1200, height: 900 } });
-await dashPage.goto(BASE_URL, { waitUntil: 'networkidle' });
+await dashPage.goto(BASE_URL + '#/auctions', { waitUntil: 'networkidle' });
 await dashPage.waitForTimeout(500);
 await dashPage.click('.nav-item[data-page="dashboard"]');
 await dashPage.waitForTimeout(200);
@@ -2091,7 +2091,7 @@ results.relatedOpenLandsOnAuctionRow = ((await dashPage.locator(`${detailScope} 
 results.auctionDetailRelated = await dashPage.locator(`${detailScope} .related-record`).evaluateAll(els => els.map(e => e.dataset.source + ':' + e.dataset.pid));
 await dashPage.close();
 const noHealthPage = await newPage({ viewport: { width: 1200, height: 900 } });
-await noHealthPage.goto(BASE_URL + '?health=none', { waitUntil: 'networkidle' });
+await noHealthPage.goto(BASE_URL + '?health=none' + '#/auctions', { waitUntil: 'networkidle' });
 await noHealthPage.waitForTimeout(500);
 await noHealthPage.click('.nav-item[data-page="dashboard"]');
 await noHealthPage.waitForTimeout(200);
@@ -2099,7 +2099,7 @@ results.dashHealthMissingTable = ((await noHealthPage.locator('#dashSourceRows')
 results.dashHealthMissingTableNoBadges = await noHealthPage.locator('#dashSourceRows .health-badge').count();
 await noHealthPage.close();
 const noRegPage = await newPage({ viewport: { width: 1200, height: 900 } });
-await noRegPage.goto(BASE_URL + '?registry=none', { waitUntil: 'networkidle' });
+await noRegPage.goto(BASE_URL + '?registry=none' + '#/auctions', { waitUntil: 'networkidle' });
 await noRegPage.waitForTimeout(500);
 await noRegPage.click('.nav-item[data-page="dashboard"]');
 await noRegPage.waitForTimeout(200);
@@ -2117,7 +2117,7 @@ await wcPage.addInitScript(snap => { localStorage.setItem('tdw_watch_snapshot_v1
   rows: { p1: { sale_date: wcSaleDate, bid: 4000, status: 'active', label: '1 Main St', county: 'Alachua' },
           gone1: { sale_date: null, bid: 100, status: 'active', label: 'Vanished Parcel', county: 'Baker' } }
 });
-await wcPage.goto(BASE_URL, { waitUntil: 'networkidle' });
+await wcPage.goto(BASE_URL + '#/auctions', { waitUntil: 'networkidle' });
 await wcPage.waitForTimeout(500);
 await wcPage.click('.nav-item[data-page="dashboard"]');
 await wcPage.waitForTimeout(200);
@@ -2131,7 +2131,7 @@ await wcPage.close();
 // the unconfigured path renders first; then a configured address is set on
 // the live config object and the mailto links appear. ---
 const spPage = await newPage({ viewport: { width: 1200, height: 900 } });
-await spPage.goto(BASE_URL, { waitUntil: 'networkidle' });
+await spPage.goto(BASE_URL + '#/auctions', { waitUntil: 'networkidle' });
 await spPage.waitForTimeout(500);
 await spPage.click('#supportBtn');
 await spPage.waitForTimeout(150);
@@ -2169,7 +2169,7 @@ await spPage2.close();
 // = this page; the confirmation never reveals whether the address exists;
 // a provider error is shown as-is. ---
 const fpPage = await newPage({ viewport: { width: 390, height: 844 } });
-await fpPage.goto(BASE_URL + '?authtest=1', { waitUntil: 'networkidle' });
+await fpPage.goto(BASE_URL + '?authtest=1' + '#/auctions', { waitUntil: 'networkidle' });
 await fpPage.waitForTimeout(300);
 await fpPage.click('#forgotPasswordBtn');
 await fpPage.waitForTimeout(100);
@@ -2181,7 +2181,7 @@ results.forgotResetCall = await fpPage.evaluate(() => (window.__stubResetCalls |
 results.forgotMessage = ((await fpPage.locator('#authMsg').textContent()) || '').trim();
 await fpPage.close();
 const fpFailPage = await newPage({ viewport: { width: 390, height: 844 } });
-await fpFailPage.goto(BASE_URL + '?authtest=1&resetfail=1', { waitUntil: 'networkidle' });
+await fpFailPage.goto(BASE_URL + '?authtest=1&resetfail=1' + '#/auctions', { waitUntil: 'networkidle' });
 await fpFailPage.waitForTimeout(300);
 await fpFailPage.fill('#email', 'someone@example.com');
 await fpFailPage.click('#forgotPasswordBtn');
@@ -2223,7 +2223,7 @@ await fpFailPage.close();
   // Service-worker-controlled reload: once sw.js controls the page, a fresh
   // load of the sign-in screen is still the neutral product shell.
   const swp = await newPage({ viewport: { width: 390, height: 844 } });
-  await swp.goto(BASE_URL + '?authtest=1', { waitUntil: 'networkidle' });
+  await swp.goto(BASE_URL + '?authtest=1' + '#/auctions', { waitUntil: 'networkidle' });
   const swReady = await swp.evaluate(() => Promise.race([navigator.serviceWorker.ready.then(() => true), new Promise(r => setTimeout(() => r(false), 4000))]));
   await swp.reload({ waitUntil: 'networkidle' });
   await swp.waitForTimeout(300);
@@ -2311,7 +2311,7 @@ await fpFailPage.close();
 // --- Arriving from the reset link: PASSWORD_RECOVERY opens the new-password
 // form, which calls updateUser({ password }). ---
 const rcPage = await newPage({ viewport: { width: 390, height: 844 } });
-await rcPage.goto(BASE_URL + '?recovery=1', { waitUntil: 'networkidle' });
+await rcPage.goto(BASE_URL + '?recovery=1' + '#/auctions', { waitUntil: 'networkidle' });
 await rcPage.waitForTimeout(600);
 results.recoveryModalOpens = await rcPage.locator('#recoveryModal').isVisible();
 await rcPage.fill('#rcNew', 'newpass123');
@@ -2329,7 +2329,7 @@ await rcPage.close();
 // --- Delete my account: typed confirmation, the RPC, and the honest
 // "not available yet" message when migration 015 is not applied. ---
 const daPage = await newPage({ viewport: { width: 1200, height: 900 } });
-await daPage.goto(BASE_URL, { waitUntil: 'networkidle' });
+await daPage.goto(BASE_URL + '#/auctions', { waitUntil: 'networkidle' });
 await daPage.waitForTimeout(500);
 await daPage.click('#accountBtn');
 await daPage.waitForTimeout(100);
@@ -2350,7 +2350,7 @@ await daPage.waitForTimeout(1200);
 results.deleteSignedOutReason = await daPage.evaluate(() => sessionStorage.getItem('tdw_signout_reason'));
 await daPage.close();
 const daMissingPage = await newPage({ viewport: { width: 1200, height: 900 } });
-await daMissingPage.goto(BASE_URL + '?rpcmissing=1', { waitUntil: 'networkidle' });
+await daMissingPage.goto(BASE_URL + '?rpcmissing=1' + '#/auctions', { waitUntil: 'networkidle' });
 await daMissingPage.waitForTimeout(500);
 await daMissingPage.click('#accountBtn');
 await daMissingPage.waitForTimeout(100);
@@ -2825,7 +2825,7 @@ await filtPage.close();
 // workspace. The checks below open it the way an admin does, then exercise
 // the unchanged panel.)
 const adminPub = await newPage({ viewport: { width: 1200, height: 900 } });
-await adminPub.goto(BASE_URL + '?profile=admin', { waitUntil: 'networkidle' });
+await adminPub.goto(BASE_URL + '?profile=admin' + '#/auctions', { waitUntil: 'networkidle' });
 await adminPub.waitForTimeout(900);
 results.govWorkspace = {
   inlinePanelVisible: await adminPub.locator('#adminPublication').isVisible(),
@@ -2880,7 +2880,7 @@ results.govAdminRoute = { visible: await govRoute.locator('#governanceModal').is
 await govRoute.close();
 // Phone width: the account menu entry and the view both fit at 360px.
 const govPhone = await newPage({ viewport: { width: 360, height: 780 } });
-await govPhone.goto(BASE_URL + '?profile=admin', { waitUntil: 'networkidle' });
+await govPhone.goto(BASE_URL + '?profile=admin' + '#/auctions', { waitUntil: 'networkidle' });
 await govPhone.waitForTimeout(900);
 await govPhone.click('#accountBtn'); await govPhone.waitForTimeout(200);
 const phoneItem = await govPhone.locator('#governanceMenuItem').isVisible();
@@ -2895,7 +2895,7 @@ await govPhone.close();
 // A non-admin never sees the panel; a deployment without the reviews table
 // disables the form but still shows the registry state.
 const nonAdmin = await newPage({ viewport: { width: 1200, height: 900 } });
-await nonAdmin.goto(BASE_URL, { waitUntil: 'networkidle' });
+await nonAdmin.goto(BASE_URL + '#/auctions', { waitUntil: 'networkidle' });
 await nonAdmin.waitForTimeout(700);
 results.adminPubHiddenForCustomer = await nonAdmin.locator('#adminPublication').isHidden();
 await nonAdmin.click('#accountBtn'); await nonAdmin.waitForTimeout(200);
@@ -3000,7 +3000,7 @@ await navMap.close();
   const ADMIN_URL = BASE_URL.replace(/index\.html$/, 'admin.html') + '?stubauth=1';
   const APP_URL = BASE_URL + '?stubauth=1';
   const signIn = async (pg, email, password) => {
-    await pg.goto(APP_URL, { waitUntil: 'networkidle' });
+    await pg.goto(APP_URL + '#/auctions', { waitUntil: 'networkidle' });
     await pg.fill('#email', email);
     await pg.fill('#password', password);
     await pg.click('#signInBtn');
@@ -3025,7 +3025,7 @@ await navMap.close();
   await openAdmin(normal);
   results.adminNormalRedirected = await normal.evaluate(() => /index\.html$/.test(location.pathname));
   // 7. Client state cannot grant admin: every flag a page could set is ignored.
-  await normal.goto(APP_URL, { waitUntil: 'networkidle' });
+  await normal.goto(APP_URL + '#/auctions', { waitUntil: 'networkidle' });
   await normal.evaluate(() => {
     for (const store of [localStorage, sessionStorage]) {
       store.setItem('is_admin', 'true'); store.setItem('IS_ADMIN', 'true'); store.setItem('role', 'admin'); store.setItem('tdw-admin', '1');
@@ -3101,14 +3101,14 @@ await navMap.close();
     await pg.waitForTimeout(700);
   };
   const signIn = async (pg, email, password) => {
-    await pg.goto(APP_URL, { waitUntil: 'networkidle' });
+    await pg.goto(APP_URL + '#/auctions', { waitUntil: 'networkidle' });
     await pg.fill('#email', email); await pg.fill('#password', password);
     await pg.click('#signInBtn'); await pg.waitForTimeout(700);
   };
 
   // A. Anonymous visitor: the sign-up form is offered; /admin is refused.
   const visitor = await ctx.newPage();
-  await visitor.goto(APP_URL, { waitUntil: 'networkidle' });
+  await visitor.goto(APP_URL + '#/auctions', { waitUntil: 'networkidle' });
   await visitor.click('#authModeToggle');
   results.signupFormOffered = await visitor.locator('#passwordConfirm').isVisible() && await visitor.locator('#firstName').isVisible();
   results.signupButtonText = ((await visitor.locator('#signInBtn').textContent()) || '').trim();
@@ -3117,7 +3117,7 @@ await navMap.close();
 
   // B. A new user signs up: account created, profile pending (not admin),
   // the pending screen instead of the app, and /admin refused.
-  await visitor.goto(APP_URL, { waitUntil: 'networkidle' });
+  await visitor.goto(APP_URL + '#/auctions', { waitUntil: 'networkidle' });
   await fillSignUp(visitor, 'newcomer@example.com', 'fixture-newcomer-pass');
   results.signupPendingShown = await visitor.locator('#pendingGate').isVisible();
   results.signupPendingText = ((await visitor.locator('#pendingGate .auth-lead').textContent()) || '').trim();
@@ -3135,7 +3135,7 @@ await navMap.close();
   // E. Security: tampering grants nothing. The pending user tries to make
   // itself admin / approved through the API, and to approve itself with
   // is_admin smuggled in sign-up metadata - the server (RLS) changes nothing.
-  await visitor.goto(APP_URL, { waitUntil: 'networkidle' });
+  await visitor.goto(APP_URL + '#/auctions', { waitUntil: 'networkidle' });
   results.signupSelfPromote = await visitor.evaluate(async () => {
     const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
     const c = createClient();
@@ -3154,13 +3154,13 @@ await navMap.close();
     for (const store of [localStorage, sessionStorage]) { store.setItem('is_admin', 'true'); store.setItem('approved', 'true'); store.setItem('role', 'admin'); }
     window.IS_ADMIN = true;
   });
-  await visitor.goto(APP_URL + '&approved=1&admin=1', { waitUntil: 'networkidle' });
+  await visitor.goto(APP_URL + '&approved=1&admin=1' + '#/auctions', { waitUntil: 'networkidle' });
   await visitor.waitForTimeout(600);
   results.signupTamperStillPending = await visitor.locator('#pendingGate').isVisible() && await visitor.locator('#app').isHidden();
   await openAdmin(visitor);
   results.signupTamperAdminRedirected = await visitor.evaluate(() => /index\.html$/.test(location.pathname));
   const sneaky = await ctx.newPage();
-  await sneaky.goto(APP_URL, { waitUntil: 'networkidle' });
+  await sneaky.goto(APP_URL + '#/auctions', { waitUntil: 'networkidle' });
   results.signupMetadataIgnored = await sneaky.evaluate(async ([email, password]) => {
     const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
     const c = createClient();
@@ -3206,7 +3206,7 @@ await navMap.close();
   // "Signups not allowed for this instance": the visitor gets a clear
   // message, not Supabase's raw wording, and no account or session.
   const closed = await newPage({ viewport: { width: 1000, height: 800 } });
-  await closed.goto(APP_URL + '&signupdisabled=1', { waitUntil: 'networkidle' });
+  await closed.goto(APP_URL + '&signupdisabled=1' + '#/auctions', { waitUntil: 'networkidle' });
   await fillSignUp(closed, 'late@example.com', 'fixture-late-pass');
   results.signupDisabledMsg = ((await closed.locator('#authMsg').textContent()) || '').trim();
   results.signupDisabledNoSession = await closed.locator('#app').isHidden() && await closed.locator('#pendingGate').isHidden();
@@ -3600,7 +3600,7 @@ await navDash.close();
 
 // Phone: the four-item bottom bar fits a 320px screen without scrolling.
 const navPhone = await newPage({ viewport: { width: 320, height: 640 } });
-await navPhone.goto(BASE_URL, { waitUntil: 'networkidle' });
+await navPhone.goto(BASE_URL + '#/auctions', { waitUntil: 'networkidle' });
 await navPhone.waitForTimeout(500);
 results.navPhoneBottomItems = await navPhone.locator('#navBottom .nav-bottom-item').count();
 results.navPhoneBottomFits = await navPhone.locator('#navBottom').evaluate(el => el.scrollWidth <= el.clientWidth && Array.from(el.children).every(c => c.getBoundingClientRect().right <= window.innerWidth + 1));
@@ -3784,7 +3784,7 @@ await monDash.close();
 {
   const webp = fs.readFileSync(new URL('./python/fixtures/aerial_sample.webp', import.meta.url)).toString('base64');
   const imgPage = await newPage({ viewport: { width: 800, height: 600 } });
-  await imgPage.goto(BASE_URL, { waitUntil: 'networkidle' });
+  await imgPage.goto(BASE_URL + '#/auctions', { waitUntil: 'networkidle' });
   results.webpImageRenders = await imgPage.evaluate(src => new Promise(res => {
     const img = new Image();
     img.onload = () => res(img.naturalWidth + 'x' + img.naturalHeight);
@@ -3868,6 +3868,73 @@ await monDash.close();
   results.devVisPreviewScLands = await ledgerFacts(prev);
   await prev.close();
 
+  // Detroit customer subset (2026-10-03). Fixture: pmi_dlbs1/2 = offered
+  // structure + IN the ~50% selection; pmi_dlbs3/4 = offered structure, NOT
+  // selected; pmi_dlba1 (Side Lot) / pmi_dlba2 (program) = no structure field.
+  const listIds = pg => pg.evaluate(() => (window.__tdwLastRender ? window.__tdwLastRender.rows.map(r => String(r.id)) : []).filter(id => /^pmi_dlb|^pmi_oce|^psc_/.test(id)).sort());
+  const detAdmin = await newPage({ viewport: { width: 1200, height: 900 } });
+  await detAdmin.goto(STATE_URL('mi') + '?profile=admin#/lands', { waitUntil: 'networkidle' });
+  await detAdmin.waitForTimeout(600);
+  results.detroitSubsetAdmin = {
+    ids: await listIds(detAdmin),
+    reasons: await detAdmin.evaluate(() => Object.fromEntries((window.__tdwLastRender ? window.__tdwLastRender.rows : [])
+      .filter(r => /^pmi_dlb/.test(String(r.id))).map(r => [r.id, window.__tdwDetroitSubset.status(r)]).sort())),
+    chips: await detAdmin.evaluate(() => [...document.querySelectorAll('.prop-card .source-subset-chip')].map(e => e.dataset.subset).sort()),
+    chipText: await detAdmin.evaluate(() => { const e = document.querySelector('.prop-card .source-subset-chip'); return e ? e.textContent.trim() : null; }),
+    note: await detAdmin.evaluate(() => { const e = document.querySelector('#ledgerDetroitSubset'); return e ? e.textContent.replace(/\s+/g, ' ').trim() : null; }),
+    statusesUntouched: await detAdmin.evaluate(() => (window.__tdwLastRender ? window.__tdwLastRender.rows : []).filter(r => /^pmi_dlb/.test(String(r.id))).every(r => r.status === 'active'))
+  };
+  await detAdmin.close();
+  const detPrevCfg = fs.readFileSync(new URL('./config.js', import.meta.url), 'utf8') + '\nwindow.TDW_CONFIG.publicationMode = "preview";\n';
+  const detPrev = await newPage({ viewport: { width: 1200, height: 900 } });
+  await detPrev.route(/\/config\.js(\?|$)/, route => route.fulfill({ status: 200, contentType: 'application/javascript', body: detPrevCfg }));
+  await detPrev.goto(STATE_URL('mi') + '#/lands', { waitUntil: 'networkidle' });
+  await detPrev.waitForTimeout(600);
+  results.detroitSubsetPreview = {
+    ids: await listIds(detPrev),
+    note: await detPrev.evaluate(() => { const e = document.querySelector('#ledgerDetroitSubset'); return e ? e.textContent.replace(/\s+/g, ' ').trim() : null; }),
+    reviewChips: await detPrev.evaluate(() => [...document.querySelectorAll('.prop-card .source-review-chip')].length),
+    subsetChips: await detPrev.evaluate(() => document.querySelectorAll('.source-subset-chip').length)
+  };
+  // Map -> Available, same session: only the customer subset reaches the map.
+  await detPrev.evaluate(() => { location.hash = '#/map?ledger=laft&county=Wayne'; });
+  await detPrev.waitForTimeout(900);
+  results.detroitSubsetPreviewMap = await detPrev.evaluate(() => (window.__tdwMapLastRender ? window.__tdwMapLastRender.rows : [])
+    .map(r => String(r.id)).filter(id => /^pmi_dlb/.test(id)).sort());
+  await detPrev.close();
+  // The JS rule and the Python rule (harvesters/otc/detroit_subset.py) give the
+  // same answer for every shared vector.
+  const detCases = JSON.parse(fs.readFileSync(new URL('./python/fixtures/detroit_subset_cases.json', import.meta.url), 'utf8'));
+  const detVec = await newPage({ viewport: { width: 900, height: 700 } });
+  await detVec.goto(STATE_URL('mi') + '?profile=admin#/lands', { waitUntil: 'networkidle' });
+  results.detroitSubsetVectors = await detVec.evaluate(cases => {
+    const bad = [];
+    for (const c of cases) {
+      const row = { source_id: c.source_id, parcel: c.parcel, inventory_status_raw: c.inventory_status_raw };
+      const got = window.__tdwDetroitSubset.status(row);
+      const h = window.__tdwDetroitSubset.fnv1a32(`${c.source_id}|${c.parcel}`);
+      if (got !== c.expected || h !== c.hash) bad.push(c.parcel);
+    }
+    return { cases: cases.length, mismatches: bad };
+  }, detCases);
+  await detVec.close();
+  // AVAILABLE is the default inventory: with no ledger in the URL the List lands
+  // on Available where the state has Available rows (FL, LA), Auctions where it
+  // has none (WY).
+  const landing = async (file) => {
+    const pg = await newPage({ viewport: { width: 1200, height: 900 } });
+    await pg.goto(BASE_URL.replace(/index\.html$/, file), { waitUntil: 'networkidle' });
+    await pg.waitForTimeout(500);
+    const out = await pg.evaluate(() => ({
+      hash: location.hash,
+      activeTab: (() => { const t = document.querySelector('#ledgerTabs .ledger-tab.on'); return t ? t.dataset.ledger : null; })(),
+      cards: document.querySelectorAll('.prop-card').length > 0,
+      ledgers: [...new Set((window.__tdwLastRender ? window.__tdwLastRender.rows : []).map(r => r.source))]
+    }));
+    await pg.close();
+    return out;
+  };
+  results.availDefaultLanding = { FL: await landing('index.html'), LA: await landing('la.html'), WY: await landing('wy.html') };
   // Acquisition-path semantics (2026-10-03): Horry SC's county-wide FLC bid-form
   // PDF is the county's process - never "Purchase or apply online", never a
   // property-level purchase link, and still offered as the process document.
@@ -3962,19 +4029,25 @@ await browser.close();
 
 const EXPECTED = {
   // Scale regression (2026-10-02): 30,002-row Wayne County.
-  scaleListInitial: { cardsInDocument: 50, wayneCount: '30002/30002 active', groupMore: 'Show next 50 · showing 50 of 30,002', tableRows: 200, tableMore: 'Show next 200 · showing 200 of 30,002', domUnder15k: true },
-  scaleListAfterMore: { cards: 100, groupMore: 'Show next 50 · showing 100 of 30,002' },
+  scaleListInitial: {"cardsInDocument": 50, "wayneCount": "30006/30006 active", "groupMore": "Show next 50 · showing 50 of 30,006", "tableRows": 200, "tableMore": "Show next 200 · showing 200 of 30,006", "domUnder15k": true},
+  scaleListAfterMore: {"cards": 100, "groupMore": "Show next 50 · showing 100 of 30,006"},
   scaleSearch: 1,
-  scaleMapCounty: { mode: 'clusters', inView: 30001, everyRowCounted: true, nodesUnder500: true, strip: '100/30002', stripCards: 100 },
+  scaleMapCounty: {"mode": "clusters", "inView": 30005, "everyRowCounted": true, "nodesUnder500": true, "strip": "100/30006", "stripCards": 100},
   scaleMapClusterZoom: { fewerInView: true, back: '← All of Wayne' },
+  // Detroit customer subset + Available as the default inventory (2026-10-03).
+  detroitSubsetAdmin: {"ids": ["pmi_dlba1", "pmi_dlba2", "pmi_dlbs1", "pmi_dlbs2", "pmi_dlbs3", "pmi_dlbs4"], "reasons": {"pmi_dlba1": "not_structure", "pmi_dlba2": "not_structure", "pmi_dlbs1": "in_subset", "pmi_dlbs2": "in_subset", "pmi_dlbs3": "not_selected", "pmi_dlbs4": "not_selected"}, "chips": ["not_selected", "not_selected", "not_structure", "not_structure"], "chipText": "Not included in current Detroit customer subset", "note": "Detroit Land Bank: 6 collected · 4 with a verified structure in the source's own status · 2 in the customer subset (deterministic ~50%). You see every collected record; those outside the subset are labelled and stay collected. The subset still passes the publication gate: source review is separate.", "statusesUntouched": true},
+  detroitSubsetPreview: {"ids": ["pmi_dlbs1", "pmi_dlbs2"], "note": "Detroit Land Bank: 6 collected · 4 with a verified structure in the source's own status · 2 in the customer subset (deterministic ~50%). Only the customer subset is shown here. The subset still passes the publication gate: source review is separate.", "reviewChips": 2, "subsetChips": 0},
+  detroitSubsetPreviewMap: ["pmi_dlbs1", "pmi_dlbs2"],
+  detroitSubsetVectors: {"cases": 50, "mismatches": []},
+  availDefaultLanding: {"FL": {"hash": "#/lands", "activeTab": "laft", "cards": true, "ledgers": ["laft"]}, "LA": {"hash": "#/lands", "activeTab": "laft", "cards": true, "ledgers": ["laft"]}, "WY": {"hash": "#/auctions", "activeTab": "auction", "cards": false, "ledgers": []}},
   // Acquisition-path semantics (2026-10-03): Horry's county-wide bid-form PDF.
   acqPathHorryDetail: { modes: ['bid'], saysOnline: false, saysPropertyLink: false, saysBid: true,
     pdfLinks: ['Download bid form', 'County process page →', 'Application form to download (published by the source) →', 'Application / purchase instructions →'],
     pathEvidence: true },
   // Collection vs customer publication (2026-10-02).
-  devVisAdminMiLands: { cards: 2, reviewChips: ['Source review: Unreviewed · not customer-published', 'Source review: Unreviewed · not customer-published'], programs: ['Own It Now', 'Side Lot For Sale'], pending: '2 records from sources awaiting customer-publication review are shown to you as an admin, each labelled "Source review". Customers in published mode do not see them.', withheld: null },
-  devVisAdminDetail: { banner: "Source review: Unreviewed. This record comes from a source awaiting customer-publication review - shown to you as an admin. It is not customer-published. Its availability below is the source's own statement and is a separate fact.", reviewRow: 'Source publication review: Unreviewed Customer-visible: No (shown to you as an admin) Source program / status: Side Lot For Sale', identifier: true, program: true, lastRead: true, neverApproved: true },
-  devVisAdminDash: { mode: 'Customer mode: customers see approved sources only; you see every collected source, labelled. 2 sources awaiting customer-publication review in Michigan.', lots: 'mi_detroit_landbank_lots Available Source review: Unreviewed1 collected · 1 active · 1 countyCustomer-visible: 0Last read Oct 2, 2026', programs: 'mi_detroit_landbank_programs Available Source review: Unreviewed1 collected · 1 active · 1 countyCustomer-visible: 0Last read Oct 2, 2026' },
+  devVisAdminMiLands: {"cards": 6, "reviewChips": ["Source review: Unreviewed · not customer-published", "Source review: Unreviewed · not customer-published", "Source review: Unreviewed · not customer-published", "Source review: Unreviewed · not customer-published", "Source review: Unreviewed · not customer-published", "Source review: Unreviewed · not customer-published"], "programs": ["Marketed Structure For Sale", "Marketed Structure For Sale", "Marketed Structure For Sale", "Marketed Structure For Sale", "Own It Now", "Side Lot For Sale"], "pending": "6 records from sources awaiting customer-publication review are shown to you as an admin, each labelled \"Source review\". Customers in published mode do not see them.", "withheld": null},
+  devVisAdminDetail: {"banner": "Source review: Unreviewed. This record comes from a source awaiting customer-publication review - shown to you as an admin. It is not customer-published. Its availability below is the source's own statement and is a separate fact.", "reviewRow": "Source publication review: Unreviewed Customer-visible: No (shown to you as an admin) Source program / status: Side Lot For Sale Detroit customer subset: Not included in current Detroit customer subset - no structure in the source's own status (vacant lot or program record) · structure evidence: none in the source's status", "identifier": true, "program": true, "lastRead": true, "neverApproved": true},
+  devVisAdminDash: {"mode": "Customer mode: customers see approved sources only; you see every collected source, labelled. 2 sources awaiting customer-publication review in Michigan.", "lots": "mi_detroit_landbank_lots Available Source review: Unreviewed5 collected · 5 active · 1 countyCustomer-visible: 0Customer subset: 2 of 4 with a verified structureLast read Oct 3, 2026", "programs": "mi_detroit_landbank_programs Available Source review: Unreviewed1 collected · 1 active · 1 countyCustomer-visible: 0Customer subset: 0 of 0 with a verified structureLast read Oct 2, 2026"},
   devVisCustomerDashPanel: false,
   devVisCustomerMiLands: { cards: 0, reviewChips: [], programs: [], pending: null, withheld: '2 records withheld - source not approved for customer publication (restricted or not yet reviewed). Counted, not shown.' },
   devVisCustomerScLands: { cards: 0, reviewChips: [], programs: [], pending: null, withheld: '1 record withheld - source not approved for customer publication (restricted or not yet reviewed). Counted, not shown.' },
@@ -3988,7 +4061,7 @@ const EXPECTED = {
   },
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: { ready: true, controlled: true, tagline: "Tax Sale Property Intelligence", noState: true, cache: ["tdw-shell-v72"] },
+  brandSwReload: { ready: true, controlled: true, tagline: "Tax Sale Property Intelligence", noState: true, cache: ["tdw-shell-v73"] },
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · Tax Acquisitions — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · Tax Acquisitions — Florida", floridaCopy: true },
@@ -4441,7 +4514,7 @@ const EXPECTED = {
   gsOptions: ["FL:Florida", "TX:Texas", "LA:Louisiana", "MI:Michigan", "WY:Wyoming", "SC:South Carolina", "CO:Colorado", "WI:Wisconsin"],
   gsStateSelectCount: 1,
   gsAccountMenuOpens: true,
-  gsFlorida: {"dash": {"file": "index.html", "hash": "#/dashboard", "state": "FL"}, "dashAuctionTile": "9", "dashCountiesSub": "Florida · 12 tracked incl. no-longer-listed", "list": {"file": "index.html", "hash": "#/auctions", "state": "FL"}, "listOnlyFlorida": true, "map": {"file": "index.html", "hash": "#/map", "state": "FL"}, "mapPaths": 67, "watch": {"file": "index.html", "hash": "#/watchlist", "state": "FL"}, "watchPids": ["p1"], "watchElsewhere": "1 saved item is not in Florida's current listings (saved under another state, or no longer listed). Switch state in the header to see another state's items."},
+  gsFlorida: {"dash": {"file": "index.html", "hash": "#/dashboard", "state": "FL"}, "dashAuctionTile": "9", "dashCountiesSub": "Florida · 12 tracked incl. no-longer-listed", "list": {"file": "index.html", "hash": "#/lands", "state": "FL"}, "listOnlyFlorida": true, "map": {"file": "index.html", "hash": "#/map", "state": "FL"}, "mapPaths": 67, "watch": {"file": "index.html", "hash": "#/watchlist", "state": "FL"}, "watchPids": ["p1"], "watchElsewhere": "1 saved item is not in Florida's current listings (saved under another state, or no longer listed). Switch state in the header to see another state's items."},
   gsTexas: {"list": {"file": "tx.html", "hash": "#/lands", "state": "TX"}, "listLedgerOn": "laft", "listOnlyTexas": true, "listAuctionOnlyTexas": true, "dash": {"file": "tx.html", "hash": "#/dashboard", "state": "TX"}, "dashAuctionTile": "3", "dashCountiesSub": "Texas · 5 tracked incl. no-longer-listed", "map": {"file": "tx.html", "hash": "#/map", "state": "TX"}, "mapPaths": 254, "watch": {"file": "tx.html", "hash": "#/watchlist", "state": "TX"}, "watchPids": ["ptx1"], "watchElsewhere": "1 saved item is not in Texas's current listings (saved under another state, or no longer listed). Switch state in the header to see another state's items.", "watchCount": "2/10", "watchDeletes": 0},
   gsTexasMapCounty: "Harris",
   gsReloadKeepsTexas: true,
@@ -4465,7 +4538,7 @@ const EXPECTED = {
   navMapAllCountyOptions: ['All Counties (8)', 'Alachua (2)', 'Bay (1)', 'Brevard (1)', 'Charlotte (1)', 'Citrus (1)', 'Duval (2)', 'Escambia (2)', 'Marion (2)'],
   navMapAllHash: '#/map',
   navMapSearchHash: '#/map?q=Oak',
-  navMapToListHash: '#/auctions',
+  navMapToListHash: "#/lands",
   navMapToListLit: ['list'],
   navListToMapHashKeepsContext: '#/map?q=Oak',
   navLegacyMapVisible: true,
@@ -4479,7 +4552,7 @@ const EXPECTED = {
   navWatchlistDeepOpen: true,
   navWatchlistDeepLit: ['watchlist'],
   navListRouteVisible: true,
-  navListRouteHash: '#/auctions',
+  navListRouteHash: "#/lands",
   navDashDeepVisible: true,
   navDashTiles: ['auction:9', 'laft:2', 'certificate:1', 'counties:8'],
   navDashNoValueTile: true,
@@ -4972,7 +5045,7 @@ const EXPECTED = {
   govPhone: { itemVisible: true, viewVisible: true, noHorizontalScroll: true, formFits: true },
   govCustomerMenu: { itemVisible: false, accountMenuOpen: true },
   govCustomerTypedRoute: { viewHidden: true, hash: '#/auctions', rows: 0 },
-  govCustomerColdRoute: { viewHidden: true, hash: '#/auctions', rows: 0, menuItemHidden: true },
+  govCustomerColdRoute: {"viewHidden": true, "hash": "#/lands", "rows": 0, "menuItemHidden": true},
   adminPubVisible: true,
   adminPubSources: ['fl_laft_broward_candidate:RESTRICTED', 'fl_laft_html:APPROVED_GRANDFATHERED', 'fl_laft_pdfs:APPROVED_GRANDFATHERED', 'fl_laft_pioneer:APPROVED_GRANDFATHERED', 'fl_laft_realtdm:APPROVED_GRANDFATHERED'],
   adminPubBrowardMeta: 'Governance LEGAL_REVIEW_REQUIRED · Verification CANDIDATE · Restrictions: terms of use under legal review',

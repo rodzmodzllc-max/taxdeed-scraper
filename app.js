@@ -461,10 +461,55 @@ function isCustomerPublishable(p) {
   const s = p && p.publication_status;
   return !s || s === "APPROVED" || s === "APPROVED_GRANDFATHERED";
 }
-// Shown in THIS session (admin / preview / customer rule above).
+// ==================== Detroit customer subset (2026-10-03) ====================
+// A VISIBILITY stage between the full collected inventory and the publication
+// gate - mirrors harvesters/otc/detroit_subset.py (a fixture pins both):
+//   collection -> admin (everything) -> verified structure -> deterministic
+//   ~50% -> publication gate -> customer.
+// Only the two Detroit Land Bank sources are in scope; every other source
+// (Oceana, Horry, Georgetown, FL, LA, TX, ...) is never capped. A Detroit row
+// outside the subset is NOT invalid, closed or unavailable - it is collected,
+// unchanged, and shown to admins with the reason.
+//  - Verified structure: the source's own "DLBA Inventory Status" value
+//    "Marketed Structure For Sale" (inventory_status_raw). The "... Lot For
+//    Sale" values are vacant lots; the programs layer has no structure field.
+//  - ~50%: 32-bit FNV-1a of "<source_id>|<parcel as published>" (UTF-8);
+//    in the subset when hash % 100 < 50. Stable per parcel.
+const DETROIT_SOURCE_IDS = ["mi_detroit_landbank_lots", "mi_detroit_landbank_programs"];
+const DETROIT_STRUCTURE_SOURCE_ID = "mi_detroit_landbank_lots";
+const DETROIT_STRUCTURE_STATUSES = ["Marketed Structure For Sale"];
+const DETROIT_SUBSET_PERCENT = 50;
+const DETROIT_SUBSET_REASONS = {
+  in_subset: "In the current Detroit customer subset",
+  not_structure: "Not included in current Detroit customer subset - no structure in the source's own status (vacant lot or program record)",
+  not_selected: "Not included in current Detroit customer subset - outside the deterministic ~50% selection"
+};
+let DETROIT_SUMMARY = { collected: 0, structure: 0, subset: 0 };
+function fnv1a32(text) {
+  let h = 0x811c9dc5;
+  for (const b of new TextEncoder().encode(String(text))) { h ^= b; h = Math.imul(h, 0x01000193) >>> 0; }
+  return h >>> 0;
+}
+// null = not a Detroit row (never capped); otherwise in_subset / not_structure / not_selected.
+function detroitSubsetStatus(p) {
+  if (!p || !DETROIT_SOURCE_IDS.includes(p.source_id)) return null;
+  if (p.source_id !== DETROIT_STRUCTURE_SOURCE_ID || !DETROIT_STRUCTURE_STATUSES.includes(String(p.inventory_status_raw || "").trim())) return "not_structure";
+  const parcel = String(p.parcel || p.case_no || "").trim();
+  return fnv1a32(`${p.source_id}|${parcel}`) % 100 < DETROIT_SUBSET_PERCENT ? "in_subset" : "not_selected";
+}
+function inCustomerInventory(p) {
+  const d = detroitSubsetStatus(p);
+  return d === null || d === "in_subset";
+}
+window.__tdwDetroitSubset = { status: detroitSubsetStatus, fnv1a32 };
+// Shown in THIS session. Admins see every collected row (labelled); preview
+// and customers see the customer inventory (the Detroit subset stage above),
+// and customers only what the publication gate also allows.
 function isPublishable(p) {
   if (p && p.publication_status === "BLOCKED") return false;
-  return isCustomerPublishable(p) || IS_ADMIN || PUBLICATION_MODE === "preview";
+  if (IS_ADMIN) return true;
+  if (!inCustomerInventory(p)) return false;
+  return isCustomerPublishable(p) || PUBLICATION_MODE === "preview";
 }
 function sourceReviewLabel(p) {
   const s = p && p.publication_status;
@@ -480,6 +525,8 @@ function sourceLineHtml(p) {
   const bits = [];
   if (p.source === "laft" && p.inventory_status_raw) bits.push(`<span class="source-program" title="The source's own status / program wording, verbatim">${esc(p.inventory_status_raw)}</span>`);
   if (!isCustomerPublishable(p)) bits.push(`<span class="source-review-chip" title="The source's customer-publication review status - not the property's availability">Source review: ${esc(sourceReviewLabel(p))} · not customer-published</span>`);
+  const det = detroitSubsetStatus(p);
+  if (det && det !== "in_subset") bits.push(`<span class="source-subset-chip" data-subset="${det}" title="${esc(DETROIT_SUBSET_REASONS[det])}">Not included in current Detroit customer subset</span>`);
   return bits.length ? `<div class="prop-source-line">${bits.join("")}</div>` : "";
 }
 // Full property page: the source review status as its own fact, every row.
@@ -489,6 +536,7 @@ function sourceReviewHtml(p) {
       <span>Source publication review: <b>${esc(sourceReviewLabel(p))}</b></span>
       <span>Customer-visible: <b>${customer ? "Yes" : "No"}</b>${customer ? "" : ` (${esc(reviewViewerReason())})`}</span>
       ${p.source === "laft" && p.inventory_status_raw ? `<span>Source program / status: <b>${esc(p.inventory_status_raw)}</b></span>` : ""}
+      ${detroitSubsetStatus(p) ? `<span class="source-subset-row" data-subset="${detroitSubsetStatus(p)}">Detroit customer subset: <b>${esc(DETROIT_SUBSET_REASONS[detroitSubsetStatus(p)])}</b> · structure evidence: <b>${esc(detroitSubsetStatus(p) === "not_structure" ? "none in the source's status" : `source status "${String(p.inventory_status_raw || "")}"`)}</b></span>` : ""}
     </div>`;
 }
 function sourceReviewBannerHtml(p) {
@@ -2177,6 +2225,11 @@ async function showApp() {
     startIdleWatch();
     return;
   }
+  // AVAILABLE is the default inventory (2026-10-03): with no ledger in the URL,
+  // land on Available whenever this state has Available rows this session can
+  // see; a state with none (e.g. an auction-only state) keeps Auctions. A
+  // routed #/auctions or #/certificates always wins.
+  if (!routed && ALL.some(p => p.source === "laft" && !isGone(p))) state.ledger = "laft";
   // setLedger, not a bare render(): the palette, the document title, the
   // per-ledger filter visibility and the canonical #/slug URL all have to be
   // right on the first paint, not only after the first tab click.
@@ -2435,7 +2488,18 @@ async function loadAll() {
   // Publication is the source decision only - an Available row without a
   // captured acquisition path is still published (acquisitionGaps()).
   REVIEW_PENDING_SHOWN = { auction: 0, laft: 0, certificate: 0 };
+  DETROIT_SUMMARY = { collected: 0, structure: 0, subset: 0 };
+  ALL.forEach(p => {
+    const d = detroitSubsetStatus(p);
+    if (!d || p.publication_status === "BLOCKED") return;
+    DETROIT_SUMMARY.collected++;
+    if (d !== "not_structure") DETROIT_SUMMARY.structure++;
+    if (d === "in_subset") DETROIT_SUMMARY.subset++;
+  });
   ALL = ALL.filter(p => {
+    // Outside the Detroit customer subset: not customer inventory at all, so
+    // not "withheld" either (DETROIT_SUMMARY names it on the ledger instead).
+    if (!IS_ADMIN && !inCustomerInventory(p)) return false;
     if (isPublishable(p)) {
       if (!isCustomerPublishable(p) && p.source in REVIEW_PENDING_SHOWN) REVIEW_PENDING_SHOWN[p.source]++;
       return true;
@@ -5717,6 +5781,7 @@ function section(container, title, sub, rows, kind) {
       </p>
       ${REVIEW_PENDING_SHOWN[kind] ? `<p class="ledger-review-pending" id="ledgerReviewPending">${REVIEW_PENDING_SHOWN[kind]} record${REVIEW_PENDING_SHOWN[kind] === 1 ? "" : "s"} from sources awaiting customer-publication review ${REVIEW_PENDING_SHOWN[kind] === 1 ? "is" : "are"} ${esc(reviewViewerReason())}, each labelled "Source review". Customers in published mode do not see ${REVIEW_PENDING_SHOWN[kind] === 1 ? "it" : "them"}.</p>` : ""}
       ${WITHHELD[kind] ? `<p class="ledger-withheld" id="ledgerWithheld">${WITHHELD[kind]} record${WITHHELD[kind] === 1 ? "" : "s"} withheld - source not approved for customer publication (restricted or not yet reviewed). Counted, not shown.</p>` : ""}
+      ${kind === "laft" && DETROIT_SUMMARY.collected && (IS_ADMIN || PUBLICATION_MODE === "preview") ? `<p class="ledger-detroit-subset" id="ledgerDetroitSubset">Detroit Land Bank: ${DETROIT_SUMMARY.collected.toLocaleString("en-US")} collected · ${DETROIT_SUMMARY.structure.toLocaleString("en-US")} with a verified structure in the source's own status · ${DETROIT_SUMMARY.subset.toLocaleString("en-US")} in the customer subset (deterministic ~50%). ${IS_ADMIN ? "You see every collected record; those outside the subset are labelled and stay collected." : "Only the customer subset is shown here."} The subset still passes the publication gate: source review is separate.</p>` : ""}
       ${state.statusView === "archive" ? `<p class="ledger-mode-note" id="archiveModeNote">📁 Past auctions only — sale date already gone. <button class="ledger-mode-exit" id="exitArchiveBtn" type="button">Back to current listings</button></p>` : ""}
     </div>`;
   if (!shown.length) {
@@ -8220,10 +8285,15 @@ function sourceReviewSummary(rows) {
   const by = new Map();
   rows.forEach(p => {
     const key = p.source_id || p.harvester_source || "(no source id)";
-    const e = by.get(key) || { source: key, ledger: p.source, status: p.publication_status || null, rows: 0, active: 0, customer: 0, counties: new Set(), lastSeen: null };
+    const e = by.get(key) || { source: key, ledger: p.source, status: p.publication_status || null, rows: 0, active: 0, customer: 0, counties: new Set(), lastSeen: null,
+      detroit: DETROIT_SOURCE_IDS.includes(key), structure: 0, subset: 0 };
     e.rows++;
     if (!isGone(p)) e.active++;
-    if (isCustomerPublishable(p)) e.customer++;
+    // Customer-visible = in the customer inventory (the Detroit subset stage) AND published.
+    if (isCustomerPublishable(p) && inCustomerInventory(p)) e.customer++;
+    const det = detroitSubsetStatus(p);
+    if (det && det !== "not_structure") e.structure++;
+    if (det === "in_subset") e.subset++;
     e.counties.add(p.county || "Unknown");
     if (p.last_seen_at && (!e.lastSeen || p.last_seen_at > e.lastSeen)) e.lastSeen = p.last_seen_at;
     by.set(key, e);
@@ -8251,7 +8321,7 @@ function renderSourceReviewPanel(rows) {
     <div class="dash-source-review-rows" id="dashSourceReviewRows">${list.length ? list.map(e => `
       <div class="dash-row" data-source-id="${esc(e.source)}">
         <div class="dash-row-name">${esc(e.source)} <span class="dash-row-fresh">${esc(ledgerCopy(e.ledger).title || e.ledger)}</span></div>
-        <div class="dash-row-meta"><span>Source review: <b>${esc(sourceReviewLabel({ publication_status: e.status }))}</b></span><span><b>${e.rows}</b> collected · ${e.active} active · ${e.counties.size} count${e.counties.size === 1 ? "y" : "ies"}</span><span>Customer-visible: <b>${e.customer}</b></span><span>${e.lastSeen ? `Last read ${esc(dateOnly(e.lastSeen))}` : "Last read not recorded"}</span></div>
+        <div class="dash-row-meta"><span>Source review: <b>${esc(sourceReviewLabel({ publication_status: e.status }))}</b></span><span><b>${e.rows}</b> collected · ${e.active} active · ${e.counties.size} count${e.counties.size === 1 ? "y" : "ies"}</span><span>Customer-visible: <b>${e.customer}</b></span>${e.detroit ? `<span class="dash-detroit-subset">Customer subset: <b>${e.subset}</b> of ${e.structure} with a verified structure</span>` : ""}<span>${e.lastSeen ? `Last read ${esc(dateOnly(e.lastSeen))}` : "Last read not recorded"}</span></div>
       </div>`).join("") : `<div class="dash-empty">No collected rows in ${esc(STATE_INFO.name)}.</div>`}</div>`;
 }
 
