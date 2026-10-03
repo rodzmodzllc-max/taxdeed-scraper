@@ -2259,6 +2259,29 @@ Full description: `docs/detroit-customer-subset.md`. Stable facts:
   - Preview and customers see only the subset, which still passes the publication gate.
 - **Default ledger:** with no ledger in the URL, the List lands on Available when the state has Available rows; otherwise Auctions.
 - **Registry:** the row is byte-identical. Its notes text still says "four lot statuses", unchanged on purpose.
+## Acquisition-path semantics: offline forms are never "online" (2026-10-03, PR open, no migration)
+
+Full description: `docs/available-publication-evidence.md`. Stable facts:
+- A downloadable form is `application_download` at **source** scope, whatever
+  its `purchase_url_kind`. That covers a PDF / Word / Excel file or a CivicPlus
+  `DocumentCenter` item (`laft_purchase_paths.is_document_url`). It is never a
+  `direct_property_url` and never a per-parcel link
+  (`purchase_path_engine.type_and_scope`).
+- Acquisition mode `bid` ("Bid application required - purchase process not
+  online") applies to `bid_form` / `offer_form`. A document is `application`.
+  `online` applies only to a real web page or checkout. The registry builder
+  and validator use `mode_for_kind(kind, url)`.
+- The frontend mirrors this:
+  - `purchasePathOf()` shows a property-action kind at source scope, or a
+    document, as the county's process;
+  - `acquisitionOf()`'s type-only fallback follows the same rule;
+  - `isDocumentUrl` is a hoisted function declaration (TDZ-safe).
+- Path types stay the 023 CHECK set. Horry SC's county-wide FLC bid form is the
+  regression case (`tests/python/test_acquisition_path_semantics.py`,
+  `acqPathHorryDetail`).
+- The five 2026-10-02 AVAILABLE sources stay UNREVIEWED. The doc records
+  what is verified (the DLBA Vacant Land Policy) and what is search-index
+  only.
 
 ## Where to look for more
 

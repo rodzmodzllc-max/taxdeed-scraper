@@ -28,6 +28,9 @@ import sys
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
+sys.path.insert(1, str(Path(__file__).resolve().parent))
+import laft_purchase_paths as PP  # noqa: E402
+
 DATA = REPO / "data"
 OUT = DATA / "county_source_registry.csv"
 
@@ -95,7 +98,10 @@ def _row(**kw) -> dict:
     row["publishing_unit"] = "COUNTY"
     row.update(kw)
     if row.get("purchase_url") and row.get("purchase_url_kind") and not row.get("purchase_path_mode"):
-        row["purchase_path_mode"] = MODE_FOR_KIND.get(row["purchase_url_kind"], "")
+        # A downloadable form (application / bid-form PDF) is an application,
+        # never online_property (scripts/laft_purchase_paths.mode_for_kind).
+        row["purchase_path_mode"] = ("application" if PP.is_document_url(row["purchase_url"])
+                                     else MODE_FOR_KIND.get(row["purchase_url_kind"], ""))
     return row
 
 

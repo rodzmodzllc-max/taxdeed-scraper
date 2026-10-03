@@ -3935,6 +3935,28 @@ await monDash.close();
     return out;
   };
   results.availDefaultLanding = { FL: await landing('index.html'), LA: await landing('la.html'), WY: await landing('wy.html') };
+  // Acquisition-path semantics (2026-10-03): Horry SC's county-wide FLC bid-form
+  // PDF is the county's process - never "Purchase or apply online", never a
+  // property-level purchase link, and still offered as the process document.
+  const horry = await newPage({ viewport: { width: 1200, height: 900 } });
+  await horry.goto(STATE_URL('sc') + '?profile=admin#/lands/psc_horry1', { waitUntil: 'networkidle' });
+  await horry.waitForTimeout(700);
+  results.acqPathHorryDetail = await horry.evaluate(() => {
+    const m = document.querySelector('#detailModalInner');
+    const txt = m ? m.innerText.replace(/\s+/g, ' ') : '';
+    const pdf = 'https://horrycountysc.gov/media/sinbmsz5/horrycountyflcguidelines.pdf';
+    const links = m ? [...m.querySelectorAll('a')].filter(a => a.href === pdf).map(a => a.textContent.replace(/\s+/g, ' ').trim()) : [];
+    const modes = m ? [...new Set([...m.querySelectorAll('.acq-mode')].map(e => e.dataset.mode))] : [];
+    return {
+      modes,
+      saysOnline: /Purchase or apply online/.test(txt),
+      saysPropertyLink: /Property-level link published by the source|a link the source published for this property/.test(txt),
+      saysBid: txt.includes('Bid application required - purchase process not online'),
+      pdfLinks: links,
+      pathEvidence: /Application form to download \(published by the source\) · source-level/.test(txt)
+    };
+  });
+  await horry.close();
 
   const custSc = await newPage({ viewport: { width: 1200, height: 900 } });
   await custSc.goto(STATE_URL('sc') + '#/lands', { waitUntil: 'networkidle' });
@@ -4018,6 +4040,10 @@ const EXPECTED = {
   detroitSubsetPreviewMap: ["pmi_dlbs1", "pmi_dlbs2"],
   detroitSubsetVectors: {"cases": 50, "mismatches": []},
   availDefaultLanding: {"FL": {"hash": "#/lands", "activeTab": "laft", "cards": true, "ledgers": ["laft"]}, "LA": {"hash": "#/lands", "activeTab": "laft", "cards": true, "ledgers": ["laft"]}, "WY": {"hash": "#/auctions", "activeTab": "auction", "cards": false, "ledgers": []}},
+  // Acquisition-path semantics (2026-10-03): Horry's county-wide bid-form PDF.
+  acqPathHorryDetail: { modes: ['bid'], saysOnline: false, saysPropertyLink: false, saysBid: true,
+    pdfLinks: ['Download bid form', 'County process page →', 'Application form to download (published by the source) →', 'Application / purchase instructions →'],
+    pathEvidence: true },
   // Collection vs customer publication (2026-10-02).
   devVisAdminMiLands: {"cards": 6, "reviewChips": ["Source review: Unreviewed · not customer-published", "Source review: Unreviewed · not customer-published", "Source review: Unreviewed · not customer-published", "Source review: Unreviewed · not customer-published", "Source review: Unreviewed · not customer-published", "Source review: Unreviewed · not customer-published"], "programs": ["Marketed Structure For Sale", "Marketed Structure For Sale", "Marketed Structure For Sale", "Marketed Structure For Sale", "Own It Now", "Side Lot For Sale"], "pending": "6 records from sources awaiting customer-publication review are shown to you as an admin, each labelled \"Source review\". Customers in published mode do not see them.", "withheld": null},
   devVisAdminDetail: {"banner": "Source review: Unreviewed. This record comes from a source awaiting customer-publication review - shown to you as an admin. It is not customer-published. Its availability below is the source's own statement and is a separate fact.", "reviewRow": "Source publication review: Unreviewed Customer-visible: No (shown to you as an admin) Source program / status: Side Lot For Sale Detroit customer subset: Not included in current Detroit customer subset - no structure in the source's own status (vacant lot or program record) · structure evidence: none in the source's status", "identifier": true, "program": true, "lastRead": true, "neverApproved": true},

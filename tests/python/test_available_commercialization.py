@@ -209,7 +209,8 @@ def test_p02_registry_carries_modes_only_where_a_url_kind_is_recorded_and_the_li
     assert "purchase_path_mode" in csr.OPTIONAL_COLUMNS and "purchase_path_evidence" in csr.OPTIONAL_COLUMNS
     for r in ROWS:
         if r.purchase_url and r.purchase_url_kind:
-            assert r.purchase_path_mode == PP.MODE_FOR_KIND[r.purchase_url_kind], (r.state, r.county)
+            # a downloadable form (application / bid-form PDF) is "application" whatever its kind (2026-10-03)
+            assert r.purchase_path_mode == PP.mode_for_kind(r.purchase_url_kind, r.purchase_url), (r.state, r.county)
         else:
             assert r.purchase_path_mode == "" and r.purchase_path_evidence == "", (r.state, r.county)    # unknown: nothing asserted for FL
     assert csr.validate_registry(ROWS) == []

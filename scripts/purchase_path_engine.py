@@ -109,10 +109,11 @@ STEP_SEPARATOR = " | "
 # The customer-facing acquisition mode: what a person actually DOES. Derived
 # from the path type and the published channels (acquisition_mode()); the
 # frontend's ACQUISITION_MODE_LABELS carries the same keys (a test pins them).
-ACQUISITION_MODES = ("online", "application", "instructions", "email", "phone", "mail", "in_person", "contact",
+ACQUISITION_MODES = ("online", "application", "bid", "instructions", "email", "phone", "mail", "in_person", "contact",
                      "multi_step", "none")
 ACQUISITION_MODE_LABELS = {
     "online": "Purchase or apply online", "application": "Download the county application",
+    "bid": "Bid application required - purchase process not online",
     "instructions": "Follow the county's purchase-instructions page", "email": "E-mail the county",
     "phone": "Phone the county", "mail": "Mail a written request", "in_person": "Apply in person",
     "contact": "Contact the county for the current amount", "multi_step": "Multi-step county process",
@@ -158,9 +159,11 @@ class PurchasePath:
     def channels(self) -> tuple:
         """The published ways to act, in the order a customer would use them."""
         out = []
-        if self.path_type in ("direct_property_url", "application_page") and self.url:
+        offline_form = PP.is_document_url(self.url) or self.url_kind in PP.BID_KINDS
+        if self.path_type in ("direct_property_url", "application_page") and self.url and not offline_form:
             out.append("online")
-        if self.path_type == "application_download" and self.url or self.application_url:
+        if (self.path_type in URL_TYPES and self.url and offline_form and self.path_type != "county_instructions"
+                or self.path_type == "application_download" and self.url or self.application_url):
             out.append("application")
         if self.path_type == "county_instructions" and self.url:
             out.append("instructions")
@@ -176,7 +179,7 @@ class PurchasePath:
 
     @property
     def acquisition_mode(self) -> str:
-        return acquisition_mode(self.path_type, self.channels, self.steps)
+        return acquisition_mode(self.path_type, self.channels, self.steps, url_kind=self.url_kind, url=self.url)
 
     def acquisition(self) -> dict:
         """The customer-facing acquisition record for otc_provenance.acquisition."""
@@ -217,12 +220,17 @@ class PurchasePath:
             out["purchase_url_kind"] = self.url_kind
         return out
 
-def acquisition_mode(path_type: str, channels, steps) -> str:
+def acquisition_mode(path_type: str, channels, steps, *, url_kind: str | None = None, url: str | None = None) -> str:
     """What the customer does first. Three or more published steps is a
     multi-step process; otherwise the path type decides, refined by the
     published channels (an e-mail address before a phone number before a
     mailing address). Never "contact" unless the source's own wording is a
-    contact-for-the-amount process (the quoted_amount family)."""
+    contact-for-the-amount process (the quoted_amount family).
+
+    "online" only for a web page or checkout: a bid / offer form is "bid"
+    and a downloadable form (an application PDF) is "application", whatever
+    the path type - an offline form is never "Purchase or apply online"
+    (evidence review 2026-10-03)."""
     if path_type == "none_published":
         return "none"
     if path_type == "in_person":
@@ -230,6 +238,10 @@ def acquisition_mode(path_type: str, channels, steps) -> str:
     if len(tuple(steps or ())) >= 3:
         return "multi_step"
     chans = tuple(channels or ())
+    if path_type in URL_TYPES and path_type != "county_instructions" and url_kind in PP.BID_KINDS:
+        return "bid"
+    if path_type in ("direct_property_url", "application_page") and PP.is_document_url(url):
+        return "application"
     if path_type in ("direct_property_url", "application_page"):
         return "online"
     if path_type == "application_download":
@@ -406,6 +418,19 @@ def _registry_fields(registry_row) -> dict:
                                              "verification_status", "evidence_ref", "amount_kind")}
 
 
+def type_and_scope(kind: str, url: str | None) -> tuple[str, str]:
+    """The typed path for a published URL of this purchase_url_kind. A
+    downloadable form (an application or bid-form PDF the buyer returns to
+    the county) is an application_download at SOURCE scope - never a
+    direct_property_url, never a per-parcel link, even when the adapter puts
+    the county's one form on every row (Horry SC's FLC bid form, evidence
+    review 2026-10-03). Otherwise TYPE_FOR_KIND decides, and only a
+    property-action kind is property scope."""
+    if PP.is_document_url(url):
+        return "application_download", "source"
+    return TYPE_FOR_KIND[kind], ("property" if kind in PP.PROPERTY_KINDS else "source")
+
+
 def from_row_link(row: dict, *, canonical_url: str | None, list_url: str | None, document_url: str | None,
                   harvest_date: str) -> tuple[PurchasePath | None, str | None]:
     """A property-scope path from the harvester row's own purchase_url +
@@ -418,8 +443,7 @@ def from_row_link(row: dict, *, canonical_url: str | None, list_url: str | None,
         return None, f"row link refused: {reason}"
     m = re.search(r"verified (\d{4}-\d{2}-\d{2})", basis)
     observed = m.group(1) if m else harvest_date
-    ptype = TYPE_FOR_KIND[kind]
-    scope = "property" if kind in PP.PROPERTY_KINDS else "source"
+    ptype, scope = type_and_scope(kind, str(url))
     evidence = basis or f"{kind} link published by the source on the list row"
     return PurchasePath(ptype, scope, evidence, observed, url=str(url), url_kind=kind), None
 
@@ -453,7 +477,7 @@ def from_registry(reg: dict, *, list_url: str | None, document_url: str | None, 
         reason = rejection_reason(url, canonical_url=reg.get("canonical_url"), list_url=list_url, document_url=document_url)
         if reason:
             return None, f"registry purchase_url refused: {reason}"
-        ptype = TYPE_FOR_KIND[kind]
+        ptype, _ = type_and_scope(kind, url)
         if ptype == "direct_property_url":
             return None, "registry purchase_url refused: a source-level row cannot establish a per-property link"
         ev = f"source-level {kind} page verified for this source (data/county_source_registry.csv, last_checked {observed}"
@@ -554,7 +578,7 @@ def measure(rows: list[dict]) -> dict:
             continue
         c["with_acquisition_path"] += 1
         acq = prov.get("acquisition") if isinstance(prov.get("acquisition"), dict) else {}
-        mode = acq.get("mode") or acquisition_mode(t, (), ())
+        mode = acq.get("mode") or acquisition_mode(t, (), (), url_kind=r.get("purchase_url_kind"), url=r.get("purchase_url"))
         c["by_mode"][mode] = c["by_mode"].get(mode, 0) + 1
         if any(acq.get(k) for k in ("phone", "email", "address", "mailing_address", "office")):
             c["with_contact"] += 1
