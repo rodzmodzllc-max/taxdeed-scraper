@@ -3868,6 +3868,29 @@ await monDash.close();
   results.devVisPreviewScLands = await ledgerFacts(prev);
   await prev.close();
 
+  // Acquisition-path semantics (2026-10-03): Horry SC's county-wide FLC bid-form
+  // PDF is the county's process - never "Purchase or apply online", never a
+  // property-level purchase link, and still offered as the process document.
+  const horry = await newPage({ viewport: { width: 1200, height: 900 } });
+  await horry.goto(STATE_URL('sc') + '?profile=admin#/lands/psc_horry1', { waitUntil: 'networkidle' });
+  await horry.waitForTimeout(700);
+  results.acqPathHorryDetail = await horry.evaluate(() => {
+    const m = document.querySelector('#detailModalInner');
+    const txt = m ? m.innerText.replace(/\s+/g, ' ') : '';
+    const pdf = 'https://horrycountysc.gov/media/sinbmsz5/horrycountyflcguidelines.pdf';
+    const links = m ? [...m.querySelectorAll('a')].filter(a => a.href === pdf).map(a => a.textContent.replace(/\s+/g, ' ').trim()) : [];
+    const modes = m ? [...new Set([...m.querySelectorAll('.acq-mode')].map(e => e.dataset.mode))] : [];
+    return {
+      modes,
+      saysOnline: /Purchase or apply online/.test(txt),
+      saysPropertyLink: /Property-level link published by the source|a link the source published for this property/.test(txt),
+      saysBid: txt.includes('Bid application required - purchase process not online'),
+      pdfLinks: links,
+      pathEvidence: /Application form to download \(published by the source\) · source-level/.test(txt)
+    };
+  });
+  await horry.close();
+
   const custSc = await newPage({ viewport: { width: 1200, height: 900 } });
   await custSc.goto(STATE_URL('sc') + '#/lands', { waitUntil: 'networkidle' });
   await custSc.waitForTimeout(600);
@@ -3944,6 +3967,10 @@ const EXPECTED = {
   scaleSearch: 1,
   scaleMapCounty: { mode: 'clusters', inView: 30001, everyRowCounted: true, nodesUnder500: true, strip: '100/30002', stripCards: 100 },
   scaleMapClusterZoom: { fewerInView: true, back: '← All of Wayne' },
+  // Acquisition-path semantics (2026-10-03): Horry's county-wide bid-form PDF.
+  acqPathHorryDetail: { modes: ['bid'], saysOnline: false, saysPropertyLink: false, saysBid: true,
+    pdfLinks: ['Download bid form', 'County process page →', 'Application form to download (published by the source) →', 'Application / purchase instructions →'],
+    pathEvidence: true },
   // Collection vs customer publication (2026-10-02).
   devVisAdminMiLands: { cards: 2, reviewChips: ['Source review: Unreviewed · not customer-published', 'Source review: Unreviewed · not customer-published'], programs: ['Own It Now', 'Side Lot For Sale'], pending: '2 records from sources awaiting customer-publication review are shown to you as an admin, each labelled "Source review". Customers in published mode do not see them.', withheld: null },
   devVisAdminDetail: { banner: "Source review: Unreviewed. This record comes from a source awaiting customer-publication review - shown to you as an admin. It is not customer-published. Its availability below is the source's own statement and is a separate fact.", reviewRow: 'Source publication review: Unreviewed Customer-visible: No (shown to you as an admin) Source program / status: Side Lot For Sale', identifier: true, program: true, lastRead: true, neverApproved: true },
@@ -3961,7 +3988,7 @@ const EXPECTED = {
   },
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: { ready: true, controlled: true, tagline: "Tax Sale Property Intelligence", noState: true, cache: ["tdw-shell-v71"] },
+  brandSwReload: { ready: true, controlled: true, tagline: "Tax Sale Property Intelligence", noState: true, cache: ["tdw-shell-v72"] },
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · Tax Acquisitions — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · Tax Acquisitions — Florida", floridaCopy: true },

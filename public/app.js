@@ -3502,13 +3502,14 @@ const URL_PATH_TYPES = ["direct_property_url", "county_instructions", "applicati
 // county publishes is a complete path. Nothing verified = "Not yet verified".
 const ACQUISITION_MODE_LABELS = {
   online: "Purchase or apply online", application: "Download the county application",
+  bid: "Bid application required - purchase process not online",
   instructions: "Follow the county's purchase-instructions page", email: "E-mail the county",
   phone: "Phone the county", mail: "Mail a written request", in_person: "Apply in person",
   contact: "Contact the county for the current amount", multi_step: "Multi-step county process",
   none: "No purchase path (stated by the source)"
 };
 const ACQUISITION_MODE_SHORT = {
-  online: "Online", application: "Application", instructions: "County instructions", email: "E-mail", phone: "Phone",
+  online: "Online", application: "Application", bid: "Bid application", instructions: "County instructions", email: "E-mail", phone: "Phone",
   mail: "Mail", in_person: "In person", contact: "Contact county", multi_step: "Multi-step", none: "None (stated)"
 };
 const ACQUISITION_MODE_FOR_TYPE = {
@@ -3521,7 +3522,13 @@ function acquisitionOf(p) {
   const op = p && p.otc_provenance && typeof p.otc_provenance === "object" ? p.otc_provenance : {};
   const acq = op.acquisition && typeof op.acquisition === "object" ? op.acquisition : null;
   if (!tp) return { verified: false, mode: null, label: "Not yet verified", short: "Not yet verified", steps: [], channels: [] };
-  const mode = (acq && ACQUISITION_MODE_LABELS[acq.mode]) ? acq.mode : (ACQUISITION_MODE_FOR_TYPE[tp.type] || "contact");
+  // No stored record: the type alone - but a bid form is a bid and a
+  // downloadable form an application, never "online" (purchase_path_engine.acquisition_mode).
+  const offlineForm = tp.type !== "county_instructions" && URL_PATH_TYPES.includes(tp.type) && tp.url &&
+    (["bid_form", "offer_form"].includes(p.purchase_url_kind) || isDocumentUrl(tp.url));
+  const typeMode = offlineForm ? (["bid_form", "offer_form"].includes(p.purchase_url_kind) ? "bid" : "application")
+    : (ACQUISITION_MODE_FOR_TYPE[tp.type] || "contact");
+  const mode = (acq && ACQUISITION_MODE_LABELS[acq.mode]) ? acq.mode : typeMode;
   const str = k => acq && acq[k] ? String(acq[k]) : "";
   return {
     verified: tp.type !== "none_published",
@@ -3677,7 +3684,7 @@ function acquisitionCta(a) {
   if (!a || !a.verified) return null;
   if (a.type === "direct_property_url" && a.url) return { label: "Open county acquisition page", href: a.url };
   if (a.type === "application_page" && a.url) return { label: "Start application", href: a.url };
-  if (a.type === "application_download" && a.url) return { label: "Download application", href: a.url };
+  if (a.type === "application_download" && a.url) return { label: a.mode === "bid" ? "Download bid form" : "Download application", href: a.url };
   if (a.applicationUrl) return { label: "Download application", href: a.applicationUrl };
   if (a.type === "county_instructions" && a.url) return { label: "View purchase instructions", href: a.url };
   if (a.email) return { label: "Contact county to purchase", href: `mailto:${a.email}`, sub: a.email };
@@ -4206,9 +4213,19 @@ const dateOnly = v => (v ? fmtDate(String(v).slice(0, 10)) : "");
 // file").
 const PROPERTY_PURCHASE_KINDS = ["online_purchase", "offer_form", "bid_form"];
 const INSTRUCTION_PURCHASE_KINDS = ["purchase_instructions", "application_form"];
+// A downloadable form (PDF / Word / Excel, or a CivicPlus DocumentCenter
+// item) - mirrors scripts/laft_purchase_paths.is_document_url. A county's one
+// bid / application form is its process, never a link for this property and
+// never an online purchase (evidence review 2026-10-03: Horry SC's FLC bid
+// form sat on every row as if it were a per-parcel link).
+// A function declaration (hoisted), not a const: acquisitionOf() above can
+// run during the first render, before this line is evaluated.
+function isDocumentUrl(u) { return !!u && /\.(?:pdf|docx?|xlsx?|rtf)(?:$|[?#/])|\/DocumentCenter\/View\//i.test(String(u)); }
 function purchasePathOf(p) {
   if (!p || !p.purchase_url) return { kind: "none" };
-  if (PROPERTY_PURCHASE_KINDS.includes(p.purchase_url_kind)) return { kind: "property", url: p.purchase_url, label: PURCHASE_URL_KIND_LABELS[p.purchase_url_kind] };
+  const sourceLevel = p.purchase_path_scope === "source" || isDocumentUrl(p.purchase_url);
+  if (PROPERTY_PURCHASE_KINDS.includes(p.purchase_url_kind) && !sourceLevel) return { kind: "property", url: p.purchase_url, label: PURCHASE_URL_KIND_LABELS[p.purchase_url_kind] };
+  if (PROPERTY_PURCHASE_KINDS.includes(p.purchase_url_kind)) return { kind: "instructions", url: p.purchase_url, label: PURCHASE_URL_KIND_LABELS[p.purchase_url_kind] };
   if (INSTRUCTION_PURCHASE_KINDS.includes(p.purchase_url_kind)) return { kind: "instructions", url: p.purchase_url, label: PURCHASE_URL_KIND_LABELS[p.purchase_url_kind] };
   // A URL with no recognised kind (a row written before the vocabulary
   // existed) is shown only as instructions, never as a property action.

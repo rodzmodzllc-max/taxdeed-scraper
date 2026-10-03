@@ -61,6 +61,31 @@ PURCHASE_URL_KINDS = ("purchase_instructions", "offer_form", "bid_form", "applic
 PURCHASE_PATH_MODES = ("online_property", "online_instructions", "application", "in_person_only", "phone_mail", "none", "unknown")
 MODE_FOR_KIND = {"online_purchase": "online_property", "offer_form": "online_property", "bid_form": "online_property",
                  "purchase_instructions": "online_instructions", "application_form": "application"}
+# A form the buyer downloads, fills in and returns (a PDF / Word / Excel
+# file, or a CivicPlus "DocumentCenter" item, which serves one without an
+# extension) is never an online purchase and never a per-parcel link,
+# whatever its kind - an application PDF or a commission's bid-form PDF is
+# an offline application / bid (evidence review 2026-10-03: Oceana MI,
+# Georgetown SC, Horry SC).
+_DOCUMENT_URL = re.compile(r"\.(?:pdf|docx?|xlsx?|rtf)(?:$|[?#/])|/DocumentCenter/View/", re.I)
+# The kinds whose form is a BID or offer: the buyer names an amount the
+# county / commission decides on - never "buy online".
+BID_KINDS = frozenset({"bid_form", "offer_form"})
+
+
+def is_document_url(url) -> bool:
+    """A downloadable form, not a web page or a checkout."""
+    return bool(url) and bool(_DOCUMENT_URL.search(str(url)))
+
+
+def mode_for_kind(kind, url=None) -> str:
+    """The source-level purchase-path mode for a URL of this kind; a
+    downloadable form is an application, never online_property."""
+    if is_document_url(url) and kind in MODE_FOR_KIND:
+        return "application"
+    return MODE_FOR_KIND.get(kind, "")
+
+
 NON_URL_MODES = frozenset({"in_person_only", "phone_mail", "none", "unknown"})
 # Hosts that can never be a purchase path: search engines and the blocked
 # Texas vendors (harvesters/governance/registry.py). A URL is also refused
@@ -280,7 +305,7 @@ def mode_problems(mode: str, *, purchase_url: str, purchase_url_kind: str, evide
     else:
         if not purchase_url or not purchase_url_kind:
             problems.append(f"purchase_path_mode {mode} needs purchase_url + purchase_url_kind")
-        elif MODE_FOR_KIND.get(purchase_url_kind) != mode:
+        elif mode_for_kind(purchase_url_kind, purchase_url) != mode:
             problems.append(f"purchase_path_mode {mode} does not match purchase_url_kind {purchase_url_kind!r}")
         reason = untrusted_reason(purchase_url) if purchase_url else None
         if reason:
