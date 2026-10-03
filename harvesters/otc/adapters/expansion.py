@@ -258,13 +258,20 @@ AVAILABLE_SPRINT_EVIDENCE_RUNS = ("37038385659",)
 # "DLBA Owned Lot / Structure" (not offered) and marketed STRUCTURES (sold
 # through the DLBA's programs, some by auction) are not read from this layer.
 DLBA_LOT_STATUSES = ("Neighborhood Lot For Sale", "Side Lot For Sale", "Oversized Lot For Sale", "Marketed Lot For Sale")
+# 2026-10-03 (owner decision): the layer's own OFFERED-structure status is also
+# read, kept verbatim in inventory_status_raw. It is the only verified structure
+# indicator the DLBA publishes, and it feeds the customer-facing Detroit subset
+# (harvesters/otc/detroit_subset.py). "DLBA Owned Structure" is ownership, not
+# an offer, and is still not read. The registry's notes text for this source is
+# left unchanged on purpose (no registry change); docs/detroit-customer-subset.md.
+DLBA_STRUCTURE_STATUSES = ("Marketed Structure For Sale",)
 MI_DETROIT_LANDBANK_LOTS = ArcGisLayerConfig(
     source_id="mi_detroit_landbank_lots", state="MI", county="Wayne",
     source_authority=SourceAuthority.GOVERNMENT_DIRECT, inventory_type=InventoryType.POST_SALE, record_source="laft",
     layer_url="https://services2.arcgis.com/qvkbeam7Wirps6zC/arcgis/rest/services/DLBA_Owned_Properties/FeatureServer/0",
     fields=ArcGisFieldMap(case_no="parcel_id", parcel="parcel_id", address="name", status="inventory_status_socrata",
                           latitude="latitude", longitude="longitude"),
-    where="inventory_status_socrata IN (" + ",".join(f"'{s}'" for s in DLBA_LOT_STATUSES) + ")",
+    where="inventory_status_socrata IN (" + ",".join(f"'{s}'" for s in DLBA_LOT_STATUSES + DLBA_STRUCTURE_STATUSES) + ")",
     list_url=_item("848bc665295f4ca9b1e25068ffa88ab0"), columns_verified=True,
     notes="'Properties owned by the Detroit Land Bank Authority' (item snippet). inventory_status_socrata alias 'DLBA "
           "Inventory Status' - only the four lot statuses ending 'For Sale' are read; the status is kept verbatim (a side "

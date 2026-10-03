@@ -37,7 +37,12 @@ def test_dlba_lots_reads_only_the_for_sale_lot_statuses():
     where = AG.query_params(cfg)["where"]
     for s in EX.DLBA_LOT_STATUSES:
         assert f"'{s}'" in where and s.endswith("For Sale")
-    assert "Owned" not in where and "Structure" not in where
+    # 2026-10-03 (owner decision): the one OFFERED-structure status is read too
+    # (the Detroit customer subset's structure evidence); ownership-only
+    # statuses ("DLBA Owned Lot / Structure") never are.
+    assert "Owned" not in where
+    assert [s for s in ("Structure",) if s in where] == ["Structure"]
+    assert "'Marketed Structure For Sale'" in where and where.count("Structure") == 1
     payload = {"objectIdFieldName": "OBJECTID", "features": [
         {"attributes": {"OBJECTID": 1, "parcel_id": "99000001.", "name": "1 SYNTHETIC ST",
                         "inventory_status_socrata": "Side Lot For Sale", "latitude": 42.3, "longitude": -83.1}},

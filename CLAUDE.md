@@ -2242,6 +2242,24 @@ Full description: `docs/available-inventory.md`. Stable facts:
   - The expansion job's timeout is 45 minutes.
 - **Candidate pages:** `data/available_source_candidates.csv`, captured with `evidence_scope=available_sources`. `available_validate` runs the real MI/SC harvest with no credentials.
 
+## Detroit customer subset + Available as the default ledger (2026-10-03, PR open, no migration)
+
+Full description: `docs/detroit-customer-subset.md`. Stable facts:
+- **A view stage, never a data change:**
+  - collection -> admin (everything) -> verified structure -> deterministic ~50% -> publication gate -> customer.
+  - Only the two Detroit Land Bank sources are in scope; every other source is never capped.
+- **Verified structure:** only the source's own status "Marketed Structure For Sale"
+  (`expansion.DLBA_STRUCTURE_STATUSES`, now read alongside the four lot statuses). The lot statuses are vacant land; the
+  programs layer has no structure field.
+- **Selection:** 32-bit FNV-1a of `"<source_id>|<parcel>"`, in the subset when `% 100 < 50`.
+  - Python: `harvesters/otc/detroit_subset.py`. JS: `detroitSubsetStatus` in `app.js`.
+  - Shared vectors in `tests/python/fixtures/detroit_subset_cases.json`.
+- **Who sees what:**
+  - Admins see every row, labelled "Not included in current Detroit customer subset" when outside it.
+  - Preview and customers see only the subset, which still passes the publication gate.
+- **Default ledger:** with no ledger in the URL, the List lands on Available when the state has Available rows; otherwise Auctions.
+- **Registry:** the row is byte-identical. Its notes text still says "four lot statuses", unchanged on purpose.
+
 ## Where to look for more
 
 - `claude/improvement-roadmap.md` in the "tax florida app" claude.ai Project — the full dated log of every fix, audit finding, and open decision. This is where new findings should be appended, not here.
