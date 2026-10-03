@@ -2283,6 +2283,36 @@ Full description: `docs/available-publication-evidence.md`. Stable facts:
   what is verified (the DLBA Vacant Land Policy) and what is search-index
   only.
 
+## Boot resilience (2026-10-03, PR open, no migration)
+
+After PR #72 deployed, production showed a black page, and no browser request
+reached Supabase after 02:29 UTC. The deployed files run cleanly against the
+stub, so the app module itself never started. The static
+`import ... from "https://esm.sh/@supabase/supabase-js@2"` was a single point
+of failure. If it fails or hangs, `#authGate` / `#pendingGate` / `#app` all
+stay `hidden`, and the visitor sees an empty dark page.
+
+- **`public/supabase-loader.js`** (app.js and admin.js use it, with top-level
+  await):
+  - esm.sh first, bounded by 8 s;
+  - on failure, `supabase-js.umd.js`: the npm package's own 2.117.2 UMD
+    build, unmodified, served same-origin (CSP `'self'`);
+  - failures are pushed to `window.__tdwBootErrors`;
+  - the test importmap still maps the esm.sh specifier to the stub.
+- **`public/boot.js`:**
+  - a classic script after `config.js` on every page (generated pages via
+    `build_state_page.py`);
+  - collects load and runtime errors;
+  - after 15 s (`window.__tdwBootTimeoutMs` in tests), if no screen is
+    visible, shows `#bootFailure` with Reload / "Reset app cache and reload"
+    (unregisters the SW, clears caches).
+- **Load order:** app.js is now an async module, so explore.js /
+  satellite-map.js can run first. They already handle either order through
+  the `__tdw*` stashes.
+- **Workflow:** new top-level files must go in the mirror `FILES` list and in
+  `DEPLOYED_BUNDLE_FILES`.
+- `sw.js` -> `tdw-shell-v74`.
+
 ## Where to look for more
 
 - `claude/improvement-roadmap.md` in the "tax florida app" claude.ai Project — the full dated log of every fix, audit finding, and open decision. This is where new findings should be appended, not here.
