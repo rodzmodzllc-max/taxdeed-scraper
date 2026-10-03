@@ -269,6 +269,12 @@ const FIXTURE_PROPERTIES = [
     harvester_source: "sc_horry_forfeited_land", source_id: "sc_horry_forfeited_land", source_authority: "GOVERNMENT_DIRECT", inventory_type: "POST_SALE",
     list_url: "https://horrycountysc.gov/boards-and-commissions/forfeited-land-commission/", url_auction: "https://horrycountysc.gov/boards-and-commissions/forfeited-land-commission/", url_auction_kind: "county",
     purchase_url: "https://horrycountysc.gov/media/sinbmsz5/horrycountyflcguidelines.pdf", purchase_url_kind: "bid_form", purchase_amount: 1500, purchase_amount_kind: "OPENING_BID",
+    // The typed path the engine writes after the 2026-10-03 fix: the county's one
+    // FLC bid-form PDF is a SOURCE-level application download, never a
+    // direct_property_url. No otc_provenance.acquisition on purpose: the
+    // frontend's type-only fallback must also say "bid", never "online".
+    purchase_path_type: "application_download", purchase_path_scope: "source", purchase_path_observed_on: "2026-10-02",
+    purchase_path_evidence: "source-level bid_form page verified for this source (data/county_source_registry.csv, last_checked 2026-10-02)",
     last_seen_at: "2026-10-02T12:00:00Z", publication_status: "UNREVIEWED", ledger_type: "buy", updated_at: "2026-10-02T12:00:00Z" },
   // 2026-09-30 (six-state expansion): rows in the shapes scripts/harvest_expansion.py
   // + sync_state_inventory.py write. Values are SYNTHETIC.
