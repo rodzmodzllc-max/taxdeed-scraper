@@ -196,6 +196,36 @@ def run_source(src, fetch_json, fetch_text, *, retrieved_at, fixture: str | None
             # Lists past redemption exist but no row carried an identifier: a format change, never "empty".
             return "FAILED", [], "PARSE_FORMAT_CHANGE", f"no identifier row in {len(current)} list(s)", None
         return ("COMPLETE", recs, None, None, None) if recs else ("EMPTY", [], None, None, "no_list_past_redemption")
+    if src.kind in ("csv", "pdf_table"):
+        # AVAILABLE expansion (2026-10-04): a published CSV file (St. Louis LRA)
+        # or a text PDF's tables (Fayette PA repository list).
+        try:
+            if src.kind == "csv":
+                text = Path(fixture).read_text(encoding="utf-8-sig") if fixture else fetch_text(src.url)
+            else:
+                data = Path(fixture).read_bytes() if fixture else fetch_bytes(src.url)
+        except Exception as exc:  # noqa: BLE001 - transport failure is FAILED, never zero
+            status = getattr(getattr(exc, "response", None), "status_code", None)
+            return "FAILED", [], "TRANSPORT_CONNECTION", f"{type(exc).__name__}" + (f" HTTP {status}" if status else ""), None
+        adapter = TabularListAdapter(cfg)
+        name = src.url.rsplit("/", 1)[-1]
+        try:
+            if src.kind == "csv":
+                recs = adapter.parse_csv(text.lstrip("\ufeff"), retrieved_at=retrieved_at, document_name=name)
+            else:
+                from harvesters.otc.adapters.tabular import pdf_table_rows  # noqa: PLC0415
+                recs = adapter.parse_rows(pdf_table_rows(data), retrieved_at=retrieved_at, document_name=name)
+        except Exception as exc:  # noqa: BLE001 - an unreadable file is a format change, never "empty"
+            return "FAILED", [], "PARSE_FORMAT_CHANGE", type(exc).__name__, None
+        if adapter.rejected_ids or adapter.excluded_status:
+            print(f"{cfg.source_id}: {adapter.rejected_ids} non-identifier row(s), "
+                  f"{adapter.excluded_status} row(s) whose own status is not an offer - skipped")
+        if recs:
+            return "COMPLETE", recs, None, None, None
+        if adapter.excluded_status and not adapter.rejected_ids:
+            # Every row read, none carrying the source's own offered status: the source's statement.
+            return "EMPTY", [], None, None, "no_offered_status"
+        return "FAILED", [], "PARSE_NO_TABLE", "no row carrying the configured columns", None
     # html_table
     try:
         html = Path(fixture).read_text(encoding="utf-8") if fixture else fetch_text(src.url)
@@ -204,6 +234,9 @@ def run_source(src, fetch_json, fetch_text, *, retrieved_at, fixture: str | None
         return "FAILED", [], "TRANSPORT_CONNECTION", f"{type(exc).__name__}" + (f" HTTP {status}" if status else ""), None
     adapter = TabularListAdapter(cfg)
     recs = adapter.parse_html_table(html, retrieved_at=retrieved_at)
+    if adapter.rejected_ids or adapter.excluded_status:
+        print(f"{cfg.source_id}: {adapter.rejected_ids} non-identifier row(s), "
+              f"{adapter.excluded_status} row(s) whose own status is not an offer - skipped")
     if recs:
         return "COMPLETE", recs, None, None, None
     if adapter.empty_statement:

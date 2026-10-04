@@ -3336,7 +3336,8 @@ await navMap.close();
     };
     await l.close();
   }
-  const NEW_STATES = [['MI', 'mi', 'Michigan'], ['WY', 'wy', 'Wyoming'], ['SC', 'sc', 'South Carolina'], ['CO', 'co', 'Colorado'], ['WI', 'wi', 'Wisconsin']];
+  const NEW_STATES = [['MI', 'mi', 'Michigan'], ['WY', 'wy', 'Wyoming'], ['SC', 'sc', 'South Carolina'], ['CO', 'co', 'Colorado'], ['WI', 'wi', 'Wisconsin'],
+    ['MO', 'mo', 'Missouri'], ['OK', 'ok', 'Oklahoma'], ['PA', 'pa', 'Pennsylvania'], ['MN', 'mn', 'Minnesota']];
   results.xsPages = {};
   for (const [code, file, name] of NEW_STATES) {
     const pg = await newPage({ viewport: { width: 1200, height: 900 } });
@@ -4105,7 +4106,7 @@ const EXPECTED = {
   },
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: { ready: true, controlled: true, tagline: "Tax Sale Property Intelligence", noState: true, cache: ["tdw-shell-v74"] },
+  brandSwReload: { ready: true, controlled: true, tagline: "Tax Sale Property Intelligence", noState: true, cache: ["tdw-shell-v75"] },
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · Tax Acquisitions — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · Tax Acquisitions — Florida", floridaCopy: true },
@@ -4468,7 +4469,7 @@ const EXPECTED = {
   navMapDeepCounty: 'Bay',
   navMapDeepContext: 'Ledger: Available · County: Bay County',
   navMapDeepHash: '#/map?ledger=laft&county=Bay',
-  navMapStateOptions: ['FL:Florida', 'TX:Texas', 'LA:Louisiana', 'MI:Michigan', 'WY:Wyoming', 'SC:South Carolina', 'CO:Colorado', 'WI:Wisconsin'],
+  navMapStateOptions: ['FL:Florida', 'TX:Texas', 'LA:Louisiana', 'MI:Michigan', 'WY:Wyoming', 'SC:South Carolina', 'CO:Colorado', 'WI:Wisconsin', 'MO:Missouri', 'OK:Oklahoma', 'PA:Pennsylvania', 'MN:Minnesota'],
   navMapStateValue: 'FL',
   adminAnonRedirected: true,
   adminAnonShellShown: false,
@@ -4485,9 +4486,9 @@ const EXPECTED = {
   adminShellShown: true,
   adminIdentityText: 'Admin',
   adminShellShowsNoEmail: true,
-  adminSourcesRows: 343,
+  adminSourcesRows: 347,
   adminSourcesGovernanceKinds: 'APPROVED,HARD_BLOCKED,REVIEW_REQUIRED',
-  adminSourcesStatusText: '343 source(s): 221 approved, 107 review required, 15 hard blocked.',
+  adminSourcesStatusText: '347 source(s): 221 approved, 111 review required, 15 hard blocked.',
   adminSourcesReviewOnly: true,
   adminSourcesLgbsReason: true,
   adminSourcesLaOnly: true,
@@ -4527,9 +4528,10 @@ const EXPECTED = {
   signupDisabledNoSession: true,
   laBodyState: 'LA',
   laTitle: 'Available — Adjudicated Property · Tax Acquisitions — Louisiana',
-  laStateSelect: { value: 'LA', options: ['FL', 'TX', 'LA', 'MI', 'WY', 'SC', 'CO', 'WI'] },
-  xsPages: Object.fromEntries([['MI', 'Michigan'], ['WY', 'Wyoming'], ['SC', 'South Carolina'], ['CO', 'Colorado'], ['WI', 'Wisconsin']].map(([c, n]) => [c,
-    { state: c, title: `Auctions · Tax Acquisitions — ${n}`, select: c, options: ['FL', 'TX', 'LA', 'MI', 'WY', 'SC', 'CO', 'WI'], floridaWording: false, basemapOk: true }])),
+  laStateSelect: { value: 'LA', options: ['FL', 'TX', 'LA', 'MI', 'WY', 'SC', 'CO', 'WI', 'MO', 'OK', 'PA', 'MN'] },
+  xsPages: Object.fromEntries([['MI', 'Michigan'], ['WY', 'Wyoming'], ['SC', 'South Carolina'], ['CO', 'Colorado'], ['WI', 'Wisconsin'],
+    ['MO', 'Missouri'], ['OK', 'Oklahoma'], ['PA', 'Pennsylvania'], ['MN', 'Minnesota']].map(([c, n]) => [c,
+    { state: c, title: `Auctions · Tax Acquisitions — ${n}`, select: c, options: ['FL', 'TX', 'LA', 'MI', 'WY', 'SC', 'CO', 'WI', 'MO', 'OK', 'PA', 'MN'], floridaWording: false, basemapOk: true }])),
   xsMiCard: { count: 1, county: true, sev: true, noJustValue: true },
   xsCoCardCount: true,
   xsCoDetail: { treasurer: true, steps: true, noStreetView: true, noUndefined: true, sourceNamed: true },
@@ -4555,7 +4557,7 @@ const EXPECTED = {
   laDetailNoFixedPrice: true,
   gsSelectInHeader: 1,
   gsSelectBesideAccount: "account",
-  gsOptions: ["FL:Florida", "TX:Texas", "LA:Louisiana", "MI:Michigan", "WY:Wyoming", "SC:South Carolina", "CO:Colorado", "WI:Wisconsin"],
+  gsOptions: ["FL:Florida", "TX:Texas", "LA:Louisiana", "MI:Michigan", "WY:Wyoming", "SC:South Carolina", "CO:Colorado", "WI:Wisconsin", "MO:Missouri", "OK:Oklahoma", "PA:Pennsylvania", "MN:Minnesota"],
   gsStateSelectCount: 1,
   gsAccountMenuOpens: true,
   gsFlorida: {"dash": {"file": "index.html", "hash": "#/dashboard", "state": "FL"}, "dashAuctionTile": "9", "dashCountiesSub": "Florida · 12 tracked incl. no-longer-listed", "list": {"file": "index.html", "hash": "#/lands", "state": "FL"}, "listOnlyFlorida": true, "map": {"file": "index.html", "hash": "#/map", "state": "FL"}, "mapPaths": 67, "watch": {"file": "index.html", "hash": "#/watchlist", "state": "FL"}, "watchPids": ["p1"], "watchElsewhere": "1 saved item is not in Florida's current listings (saved under another state, or no longer listed). Switch state in the header to see another state's items."},

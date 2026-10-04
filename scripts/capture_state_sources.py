@@ -919,6 +919,369 @@ def arcgis_discover(session: requests.Session, query: str, *, limit: int = 25) -
     return items
 
 
+# Diversified AVAILABLE sprint (2026-10-04): the five states ranked first by
+# the national AVAILABLE opportunity review (MS, PA, MO, MN, OK). Every fact
+# about them is search-index evidence until this pass reads them from a
+# runner. Read once, value-free (--available-five): page structure and
+# process / terms sentences, CSV / Socrata / ArcGIS metadata and identifier
+# SHAPES, PDF / XLSX table headers and row counts, and the data-service URLs a
+# map application embeds. Never a row value, never an owner name.
+AVAILABLE_FIVE_PAGES = {
+    "MS": ["https://www.sos.ms.gov/public-lands/tax-forfeited-lands",
+           "https://www.sos.ms.gov/public-lands/tax-forfeited-lands-faqs",
+           "https://tfportal.sos.ms.gov/"],
+    "PA": ["https://www.westmorelandcountypa.gov/2722/Repository-List",
+           "https://www.westmorelandcountypa.gov/3480/Repository-Procedures",
+           "https://public.eriecountypa.gov/property-tax-records/sales/tax-sales/repository-list.aspx",
+           "https://schuylkillcountytaxclaim.com/repository/",
+           "https://www.cambriacountypa.gov/tax-claim-bureau/",
+           "https://www.fayettecountypa.org/DocumentCenter/View/9761",
+           "https://www.berkspa.gov/departments/tax-claim/repository",
+           "https://philadelphialandbank.org/"],
+    "MO": ["https://www.stlouis-mo.gov/data/datasets/dataset.cfm?id=30",
+           "https://www.stlouis-mo.gov/data/datasets/distribution.cfm?id=146",
+           "https://www.stlouis-mo.gov/data/datasets/distribution.cfm?id=145",
+           "https://www.stlouis-mo.gov/government/departments/sldc/real-estate/lra-owned-property-search.cfm",
+           "https://www.stlouis-mo.gov/data/terms-of-use.cfm",
+           "https://data.kcmo.org/api/views/4257-6mtc.json",
+           "https://www.kcmo.gov/city-hall/housing/landbank",
+           "https://stlouiscountymo.gov/st-louis-county-departments/revenue/collector-of-revenue/post-third-sale-offerings/"],
+    "MN": ["https://www.co.wright.mn.us/1540/Tax-Forfeited-Land",
+           "https://www.hubbardcounty.gov/tfl",
+           "https://www.stlouiscountymn.gov/departments-a-z/land-minerals/sales-and-contracts/tax-forfeited-land-sales",
+           "https://www.hennepincounty.gov/services/property/tax-forfeited-land",
+           "https://www.ramseycounty.us/residents/property-home/tax-forfeited-land"],
+    "OK": ["https://docs.oklahomacounty.org/treasurer/CountyOwnedList.asp",
+           "https://www.oklahomacounty.org/elected-offices/treasurer",
+           "https://www2.tulsacounty.org/treasurer/properties-for-sale/county-properties/",
+           "https://www.clevelandcountytreasurer.org/portals/0/Cleveland%20Documents/County%20Owned%20Propery%20List%2006-14-2023.pdf"],
+}
+# Map applications whose embedded data services we need (script / config scan).
+AVAILABLE_FIVE_APPS = {
+    "MS": ["https://tflgis.sos.ms.gov/"],
+    "MN": ["https://www.hubbardcounty.gov/tfl"],
+}
+AVAILABLE_FIVE_SERVICES = {
+    "MN": ["https://maps.co.ramsey.mn.us/arcgis/rest/services/PRR/TaxForfeitLand_PublicData/MapServer",
+           "https://gisweb.co.wilkin.mn.us/arcgis/rest/services/Auditor/TaxForfeitSales/FeatureServer"],
+}
+AVAILABLE_FIVE_DIRECTORIES = {
+    "MS": ["https://tflgis.sos.ms.gov/arcgis/rest/services", "https://gis.sos.ms.gov/arcgis/rest/services",
+           "https://maps.sos.ms.gov/arcgis/rest/services"],
+}
+AVAILABLE_FIVE_QUERIES = ('"tax forfeited" Mississippi', '"Tax Forfeited Lands" sos.ms.gov',
+                          '"tax forfeited" Minnesota type:"Feature Service"', '"tax forfeit" county Minnesota parcels sale',
+                          '"repository" "tax claim" Pennsylvania', 'LRA "Land Reutilization Authority" St. Louis',
+                          '"county owned" Oklahoma County treasurer', '"land bank" Kansas City properties')
+SERVICE_URL_RE = re.compile(r"https?://[A-Za-z0-9._/-]+?/(?:FeatureServer|MapServer)(?:/\d+)?", re.I)
+ITEM_ID_RE = re.compile(r"(?:webmap|itemId|appid|id)[\"'=:\s]+([0-9a-f]{32})", re.I)
+
+
+def app_services(session: requests.Session, url: str, *, max_assets: int = 12) -> dict:
+    """The ArcGIS data services and item ids a map application embeds in its
+    page and same-host scripts / config files. URLs and ids only."""
+    out = {"url": url, "kind": "app_services"}
+    resp, err = fetch(session, url)
+    if err or resp is None:
+        out["error"] = err
+        return out
+    out.update({"status": resp.status_code, "final_url": resp.url, "content_type": resp.headers.get("Content-Type", "")})
+    texts = [resp.text]
+    host = urlsplit(resp.url).hostname or ""
+    assets = re.findall(r"""(?:src|href)=["']([^"']+\.(?:js|json))["']""", resp.text, re.I)
+    assets += [a for a in ("config.json", "app/config.json", "config/config.json") ]
+    seen = set()
+    for a in assets:
+        full = urljoin(resp.url, a)
+        if full in seen or (urlsplit(full).hostname or "") != host or len(seen) >= max_assets:
+            continue
+        seen.add(full)
+        r, e = fetch(session, full)
+        if r is not None and r.status_code == 200:
+            texts.append(r.text[:3_000_000])
+        time.sleep(0.4)
+    blob = "\n".join(texts)
+    out["assets_read"] = len(seen)
+    out["services"] = sorted(set(SERVICE_URL_RE.findall(blob)))[:40]
+    out["item_ids"] = sorted(set(ITEM_ID_RE.findall(blob)))[:20]
+    return out
+
+
+def doc_tables(session: requests.Session, url: str, *, max_pages: int = 400) -> dict:
+    """A PDF / XLSX list's table STRUCTURE: header cells (digits masked), the
+    number of body rows over the whole document and each column's value
+    SHAPES (digits -> 9, letters -> A) from its first 200 rows."""
+    out = {"url": url, "kind": "doc_tables"}
+    resp, err = fetch(session, url)
+    if err or resp is None:
+        out["error"] = err
+        return out
+    ctype = resp.headers.get("Content-Type", "").lower()
+    out.update({"status": resp.status_code, "final_url": resp.url, "content_type": ctype,
+                "last_modified": resp.headers.get("Last-Modified"), "bytes": len(resp.content)})
+    if resp.status_code != 200:
+        return out
+    rows: list[list[str]] = []
+    try:
+        if "pdf" in ctype or resp.content[:4] == b"%PDF":
+            import pdfplumber  # noqa: PLC0415
+            with pdfplumber.open(io.BytesIO(resp.content)) as pdf:
+                out["pages"] = len(pdf.pages)
+                for pg in pdf.pages[:max_pages]:
+                    for t in pg.extract_tables() or []:
+                        rows.extend([[clean(c or "") for c in r] for r in t if r])
+        elif "sheet" in ctype or "excel" in ctype or url.lower().endswith((".xlsx", ".xls")) or resp.content[:2] == b"PK":
+            import openpyxl  # noqa: PLC0415
+            wb = openpyxl.load_workbook(io.BytesIO(resp.content), read_only=True, data_only=True)
+            out["sheets"] = wb.sheetnames[:10]
+            ws = wb[wb.sheetnames[0]]
+            for r in ws.iter_rows(values_only=True):
+                rows.append([clean("" if c is None else str(c)) for c in r])
+        else:
+            out["note"] = "not a PDF / spreadsheet"
+            return out
+    except Exception as exc:  # noqa: BLE001
+        out["parse_error"] = f"{type(exc).__name__}: {str(exc)[:160]}"
+        return out
+    out.update(table_structure(rows))
+    return out
+
+
+# A header cell is printed only when it reads like a column NAME. A data row
+# mistaken for the header (an owner name, a street) is never printed: its
+# cells become "?" and its column keys "colN".
+HEADER_VOCAB = re.compile(r"^(?:[A-Za-z#./&()' _-]{0,40})$")
+HEADER_WORDS = re.compile(r"parcel|pin|map|account|acct|property|address|location|street|legal|desc|owner|name|municipal|"
+                          r"township|city|county|district|ward|neighbo|bid|price|amount|value|minimum|min\.?|sale|date|year|"
+                          r"status|type|class|usage|use|zoning|acre|sq|size|record|id|number|no\.?|#|comment|remark|tax|"
+                          r"deed|cert|lot|block|section", re.I)
+
+
+def header_cell(text: str) -> str | None:
+    t = clean(text or "")
+    if not t:
+        return ""
+    if re.search(r"\d", t) or not HEADER_VOCAB.match(t) or not HEADER_WORDS.search(t):
+        return None
+    return t[:40]
+
+
+def table_structure(rows: list[list[str]]) -> dict:
+    """Header names (only cells that read like column names), the body-row
+    count and each column's value SHAPES (digits -> 9, letters -> A). No free
+    text: no first lines, no snippets, no cell value."""
+    rows = [r for r in rows if any(c for c in r)]
+    if not rows:
+        return {"table_rows": 0}
+    def is_header(r):
+        named = [header_cell(c) for c in r]
+        return sum(1 for c in named if c) >= max(2, len(r) // 2)
+    head_i = next((i for i, r in enumerate(rows[:15]) if is_header(r)), None)
+    if head_i is None:
+        header, body = [None] * max(len(r) for r in rows), rows
+    else:
+        header = [header_cell(c) for c in rows[head_i]]
+        body = [r for r in rows[head_i + 1:] if r != rows[head_i]]
+    keys = [h if h else f"col{i}" for i, h in enumerate(header)]
+    return {"header": [h if h is not None else "?" for h in header], "table_rows": len(body),
+            "col_shapes": {keys[i]: dict(Counter(shape(r[i])[:30] for r in body[:200] if i < len(r) and r[i]).most_common(4))
+                           for i in range(len(keys))}}
+    head_i = next((i for i, r in enumerate(rows[:15]) if sum(1 for c in r if c and not re.search(r"\d", c)) >= max(2, len(r) // 2)), 0)
+    header = rows[head_i]
+    body = [r for r in rows[head_i + 1:] if r != header]
+    out["header"] = [mask_digits(h)[:60] for h in header]
+    out["table_rows"] = len(body)
+    out["col_shapes"] = {mask_digits(h)[:40] or f"col{i}": dict(Counter(shape(r[i])[:30] for r in body[:200] if i < len(r) and r[i]).most_common(4))
+                         for i, h in enumerate(header)}
+    return out
+
+
+# Pass 2 (2026-10-04): the gaps the first available-five pass left.
+FIVE2_CSV_VALUES = {  # categorical columns only - vocabulary, never a row
+    "https://static.stlouis-mo.gov/open-data/SLDC/REAL-ESTATE/LRA_INVENTORY.csv":
+        ["Parcel_Status", "Usage", "PropertyType", "Class", "Property_Source", "Side lot Eligible?", "Stories", "Irregular_Lot"],
+    "https://static.stlouis-mo.gov/open-data/SLDC/REAL-ESTATE/LRA_INVENTORY_AVAILABLE.csv":
+        ["Usage", "PropertyType", "Class"],
+}
+FIVE2_PAGES = {  # (url, follow-link vocabulary)
+    "MO": [("https://www.stlouis-mo.gov/government/property/city-owned-property-search.cfm", r"buy|purchas|offer|apply|application|price|how to|lra"),
+           ("https://www.stlouis-mo.gov/data/", r"terms|polic|licen|disclaim|about")],
+    "OK": [("https://docs.oklahomacounty.org/treasurer/CountyOwnedList.asp", r"$^")],
+    "PA": [("https://www.fayettecountypa.org/Search?searchPhrase=repository", r"repository|tax claim"),
+           ("https://www.stlouiscountymn.gov/departments-a-z/land-minerals/sales-and-contracts/tax-forfeited-land-sales", r"available list|over the counter")],
+}
+FIVE2_NOTICE = re.compile(r"notice|provide|warrant|responsib|accura|purchase|bid|sale|deed|commission|statut|minimum|suggest", re.I)
+FIVE2_PDF_LINES = ["https://www.westmorelandcountypa.gov/DocumentCenter/View/13562/Repository-List?bidId="]
+FIVE2_LAYER_PROBES = {
+    "MN": [("https://maps.co.ramsey.mn.us/arcgis/rest/services/PRR/TaxForfeitLand_PublicData/MapServer/0", "1=1",
+            ["PIN"], ["Status", "Archive", "AuctionID", "Zoning", "Municipality", "FourRProperty"])],
+}
+FIVE2_ITEMS = {"MN": ["d04f4637a2794aa19f1767f8b7fba8d6"]}
+FIVE2_APPS = ["https://tflgis.sos.ms.gov/"]
+
+
+def csv_value_counts(session: requests.Session, url: str, columns: list[str]) -> dict:
+    """The VOCABULARY of a CSV's categorical columns: distinct value counts
+    (digits masked, 40 chars). Only the named columns are read."""
+    out = {"url": url + " (column values)", "kind": "table_values"}
+    resp, err = fetch(session, url, stream=True)
+    if err or resp is None or resp.status_code != 200:
+        out["error"] = err or f"status {getattr(resp, 'status_code', None)}"
+        return out
+    raw = b""
+    for chunk in resp.iter_content(65536):
+        raw += chunk
+        if len(raw) >= 8_000_000:
+            break
+    rows = list(csv.DictReader(io.StringIO(raw.decode("utf-8-sig", errors="replace"))))
+    out["count"] = len(rows)
+    out["value_counts"] = {c: dict(Counter(mask_digits(clean(r.get(c) or ""))[:40] for r in rows).most_common(15)) for c in columns}
+    return out
+
+
+def page_notice(session: requests.Session, url: str) -> dict:
+    """Sentences of a list page's own notice / process text (digits masked),
+    excluding every table cell - the rows themselves are never read out."""
+    out = {"url": url + " (notice)", "kind": "process"}
+    resp, err = fetch(session, url)
+    if err or resp is None or resp.status_code != 200 or BeautifulSoup is None:
+        out["error"] = err or f"status {getattr(resp, 'status_code', None)}"
+        return out
+    soup = BeautifulSoup(resp.text, "html.parser")
+    notes = []
+    for t in soup.find_all("table"):
+        for td in t.find_all(["td", "th"]):
+            txt = clean(td.get_text(" "))
+            if len(txt) > 60 and FIVE2_NOTICE.search(txt) and len(td.find_all("td")) == 0:
+                notes.append(mask_digits(txt)[:600])
+        t.decompose()
+    text = clean(soup.get_text(" "))
+    out["snippets"] = (notes[:4] + [mask_digits(x)[:320] for x in re.split(r"(?<=[.!?])\s+", text) if len(x) > 40 and FIVE2_NOTICE.search(x)][:20])
+    return out
+
+
+def pdf_line_shapes(session: requests.Session, url: str, max_pages: int = 40) -> dict:
+    """A text-layout PDF list's line STRUCTURE: how many lines, and the most
+    common line shapes (digits -> 9, letters -> A, runs collapsed) - enough to
+    write a parser, never a value."""
+    out = {"url": url, "kind": "doc_tables"}
+    resp, err = fetch(session, url)
+    if err or resp is None or resp.status_code != 200:
+        out["error"] = err or f"status {getattr(resp, 'status_code', None)}"
+        return out
+    try:
+        import pdfplumber  # noqa: PLC0415
+        with pdfplumber.open(io.BytesIO(resp.content)) as pdf:
+            out["pages"] = len(pdf.pages)
+            lines = []
+            for pg in pdf.pages[:max_pages]:
+                lines.extend(l for l in (pg.extract_text() or "").splitlines() if l.strip())
+    except Exception as exc:  # noqa: BLE001
+        out["parse_error"] = f"{type(exc).__name__}: {str(exc)[:160]}"
+        return out
+    def squash(line):
+        return re.sub(r"A{2,}", "A+", re.sub(r"9{2,}", "9+", shape(line)))[:90]
+    out["table_rows"] = len(lines)
+    out["col_shapes"] = {"line_shape": dict(Counter(squash(l) for l in lines).most_common(25))}
+    # Header vocabulary only: from the first 40 lines, the WORDS that are
+    # column names (parcel, owner, bid, ...). A line is never printed.
+    words = []
+    for l in lines[:40]:
+        toks = [t for t in re.split(r"[\s/|]+", l) if t and HEADER_WORDS.fullmatch(t.strip(".:#()").lower() or "x")]
+        if len(toks) >= 3:
+            words.append(" ".join(t.strip(".:()") for t in toks)[:120])
+    out["header"] = words[:6]
+    return out
+
+
+def item_services(session: requests.Session, item_id: str) -> dict:
+    """An ArcGIS Online app / web map item's data: the web map it opens and
+    the service URLs of its operational layers. URLs only."""
+    out = {"url": f"item:{item_id} (data)", "kind": "app_services", "services": [], "item_ids": []}
+    base = "https://www.arcgis.com/sharing/rest/content/items/"
+    r, e = fetch(session, f"{base}{item_id}/data?f=json")
+    try:
+        data = r.json() if r is not None and r.status_code == 200 else {}
+    except ValueError:
+        data = {}
+    blob = json.dumps(data)
+    maps = sorted(set(re.findall(r'"(?:webmap|itemId|id)"\s*:\s*"([0-9a-f]{32})"', blob)))
+    out["item_ids"] = maps[:10]
+    urls = set(SERVICE_URL_RE.findall(blob))
+    for m in maps[:3]:
+        r2, _ = fetch(session, f"{base}{m}/data?f=json")
+        if r2 is not None and r2.status_code == 200:
+            urls |= set(SERVICE_URL_RE.findall(r2.text))
+    out["services"] = sorted(urls)[:20]
+    return out
+
+
+def app_hosts(session: requests.Session, url: str) -> dict:
+    """Every absolute URL host + path a map app's page and scripts reference
+    (any host), filtered to map / data endpoints. URLs only."""
+    out = {"url": url + " (endpoints)", "kind": "app_services", "services": [], "item_ids": []}
+    resp, err = fetch(session, url)
+    if err or resp is None:
+        out["error"] = err
+        return out
+    texts, seen = [resp.text], set()
+    for a in re.findall(r"""(?:src|href)=["']([^"']+)["']""", resp.text, re.I):
+        full = urljoin(resp.url, a)
+        if full in seen or len(seen) >= 15 or not re.search(r"\.(js|json)(\?|$)", full):
+            continue
+        seen.add(full)
+        r, _ = fetch(session, full)
+        if r is not None and r.status_code == 200:
+            texts.append(r.text[:4_000_000])
+    blob = "\n".join(texts)
+    out["assets"] = sorted(seen)[:15]
+    found = set(re.findall(r"https?://[A-Za-z0-9.-]+(?:/[A-Za-z0-9._~%/-]*)?", blob))
+    out["services"] = sorted(u for u in found if re.search(r"rest/services|FeatureServer|MapServer|/api/|arcgis|query|parcel|forfeit", u, re.I))[:40]
+    out["item_ids"] = sorted(set(re.findall(r"\b[0-9a-f]{32}\b", blob)))[:10]
+    return out
+
+
+# Pass 3 (2026-10-04): Mississippi only - the map app's script references the
+# State ITS ArcGIS server; find the tax-forfeited-lands layer there.
+FIVE3_DIRECTORY = "https://gisserver.its.ms.gov/arcgis/rest/services"
+FIVE3_FOLDER_RE = re.compile(r"sos|tfl|forfeit|public.?land|land|hosted", re.I)
+FIVE3_SERVICE_RE = re.compile(r"sos|tfl|forfeit|public.?land|tax", re.I)
+FIVE3_ITEMS = ["bae26a0f2eaa455280a85537d4f3ea0a", "d74c6b741a83487e8ca56bc8ceafbd27"]
+FIVE3_LAYER_PROBES = [
+    ("https://gisserver.its.ms.gov/arcgis/rest/services/Hosted/Hinds_Tax_Forfeit_Properties_May_2026/FeatureServer/0", "1=1",
+     ["ppin", "parcel_no_", "certificate__"],
+     ["status", "bid_property", "web", "blighted", "tidelands", "strike_reason", "county", "judicial_district", "municipality"]),
+    ("https://gisserver.its.ms.gov/arcgis/rest/services/Hosted/City_of_Jackson_Active_SOS_Parcels_Test/FeatureServer/0", "1=1",
+     ["ppin", "sosparno"], ["county", "municipality", "schooldistrict"]),
+]
+
+
+def directory_crawl(session: requests.Session, root: str, folder_re, *, max_services: int = 12) -> list[dict]:
+    """An ArcGIS server's directory (root + folders matching folder_re): every
+    service whose name matches folder_re gets its layers' metadata."""
+    pages = []
+    top = arcgis_directory(session, root)
+    pages.append({"url": root, "kind": "arcgis_directory", **top})
+    # (service names under a matching folder are listed in that folder's page)
+    names = list(top.get("services") or [])
+    for folder in top.get("folders") or []:
+        if folder_re.search(folder):
+            sub = arcgis_directory(session, f"{root}/{folder}")
+            pages.append({"url": f"{root}/{folder}", "kind": "arcgis_directory", **sub})
+            names += list(sub.get("services") or [])
+    done = 0
+    for name in names:
+        svc_name = name.split(" ")[0]
+        if not FIVE3_SERVICE_RE.search(svc_name) or done >= max_services:
+            continue
+        kind = "MapServer" if "MapServer" in name else "FeatureServer"
+        url = f"{root}/{svc_name.split(':')[0]}/{kind}"
+        pages.append({"url": url, "kind": "arcgis", "layers": arcgis_layer_meta(session, url)})
+        done += 1
+        time.sleep(0.5)
+    return pages
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--digest", default=None)
@@ -934,6 +1297,9 @@ def main(argv=None) -> int:
     ap.add_argument("--enrich-sources-3", action="store_true", help="round 3 of the enrichment-source capture")
     ap.add_argument("--enrich-sources-2", action="store_true", help="round 2 of the enrichment-source capture")
     ap.add_argument("--enrich-sources", action="store_true", help="read the ENRICH_* parcel / tax-roll candidates (property-enrichment sprint)")
+    ap.add_argument("--available-five", action="store_true", help="read the AVAILABLE_FIVE_* candidates (MS, PA, MO, MN, OK)")
+    ap.add_argument("--available-five-2", action="store_true", help="pass 2 of the available-five capture")
+    ap.add_argument("--available-five-3", action="store_true", help="pass 3 (Mississippi state GIS server)")
     ap.add_argument("--out", default=str(OUT_PATH))
     args = ap.parse_args(argv)
     if args.digest:
@@ -1045,6 +1411,133 @@ def main(argv=None) -> int:
             print(f"  {code} item           {item_id}", flush=True)
             time.sleep(0.5)
         report["states"].setdefault(code, {"sources": []})["sources"].append(entry)
+    if args.available_five:
+        for code in sorted(set(AVAILABLE_FIVE_PAGES) | set(AVAILABLE_FIVE_APPS) | set(AVAILABLE_FIVE_SERVICES) | set(AVAILABLE_FIVE_DIRECTORIES)):
+            if args.state and code not in args.state:
+                continue
+            entry = {"source_id": f"available_five_{code.lower()}", "county": "(available five)", "pages": []}
+            seen5: set[str] = set()
+            for url in AVAILABLE_FIVE_PAGES.get(code, []):
+                seen5.add(url)
+                if re.search(r"DocumentCenter/View|\.pdf$|\.xlsx?$", url, re.I):
+                    page = doc_tables(session, url)
+                    entry["pages"].append(page)
+                else:
+                    page = capture(session, url, "process", process=True)
+                    entry["pages"].append(page)
+                print(f"  {code} five           {page.get('status', page.get('error'))} {url}", flush=True)
+                time.sleep(0.8)
+            # One hop to the lists / documents / terms the pages link (same site).
+            followed = 0
+            for pg in list(entry["pages"]):
+                base_host = ".".join((urlsplit(pg.get("final_url") or pg["url"]).hostname or "").split(".")[-2:])
+                for link in (pg.get("links") or []) + (pg.get("terms_links") or []):
+                    href = link["href"]
+                    if href in seen5 or followed >= 14:
+                        continue
+                    if ".".join((urlsplit(href).hostname or "").split(".")[-2:]) != base_host:
+                        continue
+                    is_doc = re.search(r"\.(pdf|xlsx?|csv)(\?|$)|DocumentCenter/View|distribution\.cfm", href, re.I)
+                    if not (is_doc or FOLLOW_VOCAB.search(link["text"] + " " + urlsplit(href).path) or TERMS_VOCAB.search(link["text"])
+                            or re.search(r"repository|land bank|forfeit|county.owned|available", link["text"] + " " + href, re.I)):
+                        continue
+                    seen5.add(href)
+                    followed += 1
+                    page = doc_tables(session, href) if is_doc and not href.lower().endswith(".csv") and "distribution.cfm" not in href else capture(session, href, "follow", process=True)
+                    page["link_text"] = mask_digits(link["text"])[:80]
+                    entry["pages"].append(page)
+                    print(f"  {code} follow         {page.get('status', page.get('error'))} {href}", flush=True)
+                    time.sleep(0.8)
+            for url in AVAILABLE_FIVE_APPS.get(code, []):
+                page = app_services(session, url)
+                entry["pages"].append(page)
+                print(f"  {code} app            services={len(page.get('services') or [])} items={len(page.get('item_ids') or [])} {url}", flush=True)
+                for svc in (page.get("services") or [])[:6]:
+                    root = re.sub(r"/\d+$", "", svc)
+                    entry["pages"].append({"url": root, "kind": "arcgis", "layers": arcgis_layer_meta(session, root)})
+                    time.sleep(0.6)
+                for item_id in (page.get("item_ids") or [])[:6]:
+                    entry["pages"].append({"url": f"item:{item_id}", "kind": "arcgis_item", **arcgis_item(session, item_id)})
+                    time.sleep(0.5)
+            for url in AVAILABLE_FIVE_SERVICES.get(code, []):
+                page = {"url": url, "kind": "arcgis", "layers": arcgis_layer_meta(session, url)}
+                print(f"  {code} arcgis         {len(page['layers'])} layer(s) {url}", flush=True)
+                entry["pages"].append(page)
+                time.sleep(0.8)
+            for url in AVAILABLE_FIVE_DIRECTORIES.get(code, []):
+                page = {"url": url, "kind": "arcgis_directory", **arcgis_directory(session, url)}
+                print(f"  {code} directory      {len(page.get('services') or [])} service(s) {url}", flush=True)
+                entry["pages"].append(page)
+                time.sleep(0.8)
+            report["states"].setdefault(code, {"sources": []})["sources"].append(entry)
+        for q in AVAILABLE_FIVE_QUERIES:
+            report.setdefault("arcgis", {})[q] = arcgis_discover(session, q)
+            print(f"  arcgis search {q!r}: {len(report['arcgis'][q])} item(s)", flush=True)
+    if args.available_five_2:
+        e2 = {"source_id": "available_five_pass2", "county": "(available five pass 2)", "pages": []}
+        for url, cols in FIVE2_CSV_VALUES.items():
+            e2["pages"].append(csv_value_counts(session, url, cols))
+            print(f"  five2 csv values  {e2['pages'][-1].get('count', e2['pages'][-1].get('error'))} {url}", flush=True)
+        for code, items in FIVE2_PAGES.items():
+            for url, vocab in items:
+                if "CountyOwnedList" in url:
+                    e2["pages"].append(page_notice(session, url))
+                    print(f"  five2 notice      {url}", flush=True)
+                    continue
+                page = capture(session, url, "process", process=True)
+                e2["pages"].append(page)
+                print(f"  five2 page        {page.get('status', page.get('error'))} {url}", flush=True)
+                n = 0
+                for link in page.get("links") or []:
+                    href = link["href"]
+                    if n >= 6 or not re.search(vocab, link["text"] + " " + href, re.I):
+                        continue
+                    n += 1
+                    is_doc = re.search(r"\.(pdf|xlsx?)(\?|$)|DocumentCenter/View", href, re.I)
+                    sub = doc_tables(session, href) if is_doc else capture(session, href, "follow", process=True)
+                    sub["link_text"] = mask_digits(link["text"])[:80]
+                    e2["pages"].append(sub)
+                    print(f"  five2 follow      {sub.get('status', sub.get('error'))} {href}", flush=True)
+                    time.sleep(0.6)
+                time.sleep(0.6)
+        for url in FIVE2_PDF_LINES:
+            e2["pages"].append(pdf_line_shapes(session, url))
+            print(f"  five2 pdf lines   {e2['pages'][-1].get('table_rows')} {url}", flush=True)
+        for code, probes in FIVE2_LAYER_PROBES.items():
+            for layer, where, ids, cats in probes:
+                e2["pages"].append(layer_probe(session, layer, where, ids, cats))
+                print(f"  five2 probe       count={e2['pages'][-1].get('count')} {layer}", flush=True)
+        for code, items in FIVE2_ITEMS.items():
+            for item_id in items:
+                page = item_services(session, item_id)
+                e2["pages"].append(page)
+                print(f"  five2 item        services={len(page['services'])} {item_id}", flush=True)
+                for svc in page["services"][:4]:
+                    root = re.sub(r"/\d+$", "", svc)
+                    e2["pages"].append({"url": root, "kind": "arcgis", "layers": arcgis_layer_meta(session, root)})
+        for url in FIVE2_APPS:
+            page = app_hosts(session, url)
+            e2["pages"].append(page)
+            print(f"  five2 app hosts   services={len(page.get('services') or [])} {url}", flush=True)
+        report["states"].setdefault("ZZ", {"sources": []})["sources"].append(e2)
+    if args.available_five_3:
+        e3 = {"source_id": "available_five_pass3_ms", "county": "(available five pass 3)", "pages": []}
+        e3["pages"] += directory_crawl(session, FIVE3_DIRECTORY, FIVE3_FOLDER_RE)
+        print(f"  five3 directory   {len(e3['pages'])} page(s)", flush=True)
+        for item_id in FIVE3_ITEMS:
+            e3["pages"].append({"url": f"item:{item_id}", "kind": "arcgis_item", **arcgis_item(session, item_id)})
+            page = item_services(session, item_id)
+            e3["pages"].append(page)
+            print(f"  five3 item        services={len(page['services'])} {item_id}", flush=True)
+            for svc in page["services"][:4]:
+                root = re.sub(r"/\d+$", "", svc)
+                if "World_Imagery" in root:
+                    continue
+                e3["pages"].append({"url": root, "kind": "arcgis", "layers": arcgis_layer_meta(session, root)})
+        for layer, where, ids, cats in FIVE3_LAYER_PROBES:
+            e3["pages"].append(layer_probe(session, layer, where, ids, cats))
+            print(f"  five3 probe       count={e3['pages'][-1].get('count')} {layer}", flush=True)
+        report["states"].setdefault("MS", {"sources": []})["sources"].append(e3)
     passes = []
     if args.five_state_pass2:
         passes.append(("pass2", FIVE_STATE_PASS2_PAGES, FIVE_STATE_PASS2_SERVICES, FIVE_STATE_PROBES, {}))
@@ -1180,6 +1673,12 @@ def digest(path: Path) -> str:
                     if pg.get("fields_present"):
                         out.append(f"  fields_present={pg.get('fields_present')}")
                     out.append(f"  value_counts={json.dumps(pg.get('value_counts'))[:1500]}")
+                if pg.get("kind") == "doc_tables":
+                    out.append(f"  doc pages={pg.get('pages')} sheets={pg.get('sheets')} bytes={pg.get('bytes')} rows={pg.get('table_rows')} note={pg.get('note')}")
+                    out.append(f"  header={pg.get('header')}")
+                    out.append(f"  col_shapes={json.dumps(pg.get('col_shapes'))[:1800]}")
+                if pg.get("kind") == "app_services":
+                    out.append(f"  assets_read={pg.get('assets_read')} assets={pg.get('assets')} services={pg.get('services')} item_ids={pg.get('item_ids')}")
                 if pg.get("kind") == "pdf_process" and pg.get("pages") is not None:
                     out.append(f"  pdf pages={pg.get('pages')}")
                 if pg.get("kind") == "arcgis_directory":

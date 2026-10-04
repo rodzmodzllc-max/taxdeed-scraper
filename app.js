@@ -61,7 +61,13 @@ const STATE_META = {
   WY: { name: "Wyoming", page: "wy.html", basemap: "wy-counties.svg", cities: "wy-cities.json", zips: "wy-zips.json", marketLabel: "Total Value (county tax sale list)" },
   SC: { name: "South Carolina", page: "sc.html", basemap: "sc-counties.svg", cities: "sc-cities.json", zips: "sc-zips.json" },
   CO: { name: "Colorado", page: "co.html", basemap: "co-counties.svg", cities: "co-cities.json", zips: "co-zips.json", marketLabel: "Parcel Total Value (Colorado Public Parcels)" },
-  WI: { name: "Wisconsin", page: "wi.html", basemap: "wi-counties.svg", cities: "wi-cities.json", zips: "wi-zips.json" }
+  WI: { name: "Wisconsin", page: "wi.html", basemap: "wi-counties.svg", cities: "wi-cities.json", zips: "wi-zips.json" },
+  // 2026-10-04 (AVAILABLE expansion): one county AVAILABLE source each, collected for
+  // admin use (UNREVIEWED); basemaps from scripts/build_state_basemap.py.
+  MO: { name: "Missouri", page: "mo.html", basemap: "mo-counties.svg", cities: "mo-cities.json", zips: "mo-zips.json" },
+  OK: { name: "Oklahoma", page: "ok.html", basemap: "ok-counties.svg", cities: "ok-cities.json", zips: "ok-zips.json" },
+  PA: { name: "Pennsylvania", page: "pa.html", basemap: "pa-counties.svg", cities: "pa-cities.json", zips: "pa-zips.json" },
+  MN: { name: "Minnesota", page: "mn.html", basemap: "mn-counties.svg", cities: "mn-cities.json", zips: "mn-zips.json" }
 };
 // Unified navigation (2026-09-30): the states a person can switch between are
 // exactly STATE_META's keys - the states this app has a page, a basemap and
@@ -777,6 +783,26 @@ const EXPANSION_LEDGER_COPY = {
       "sub": "Tax deeded property Green County offers by sealed bid, from the county's own sale page: current sales, and previous sales with the sale price the county published.",
       "how": "Submit a sealed bid on the county's bid form to the County Clerk. The figure shown is the county's minimum bid; a previous sale shows the county's published sale price.",
       "empty": "No Wisconsin tax deed sales match. Wisconsin coverage is Green County's tax deed sale page, which states when it has no current sales."
+    },
+    "MO": {
+      "sub": "No Missouri auction source is tracked.",
+      "how": "Missouri auction inventory is not harvested by this app.",
+      "empty": "No Missouri auction records are tracked. Missouri coverage is the St. Louis Land Reutilization Authority's own inventory (City of St. Louis open data) (see Available)."
+    },
+    "OK": {
+      "sub": "No Oklahoma auction source is tracked.",
+      "how": "Oklahoma auction inventory is not harvested by this app.",
+      "empty": "No Oklahoma auction records are tracked. Oklahoma coverage is Oklahoma County Treasurer's county-owned property list (see Available)."
+    },
+    "PA": {
+      "sub": "No Pennsylvania auction source is tracked.",
+      "how": "Pennsylvania auction inventory is not harvested by this app.",
+      "empty": "No Pennsylvania auction records are tracked. Pennsylvania coverage is Fayette County Tax Claim Bureau's repository list (see Available)."
+    },
+    "MN": {
+      "sub": "No Minnesota auction source is tracked.",
+      "how": "Minnesota auction inventory is not harvested by this app.",
+      "empty": "No Minnesota auction records are tracked. Minnesota coverage is Ramsey County's tax-forfeited land layer (see Available)."
     }
   },
   "laft": {
@@ -804,6 +830,26 @@ const EXPANSION_LEDGER_COPY = {
       "sub": "No Wisconsin post-sale available source is tracked.",
       "how": "Wisconsin post-sale available inventory is not harvested by this app.",
       "empty": "No Wisconsin post-sale available records are tracked. Wisconsin coverage is Green County's tax deed sale page (see Auctions)."
+    },
+    "MO": {
+      "sub": "Parcels the St. Louis Land Reutilization Authority lists as Available in its own inventory (City of St. Louis open data). Only rows whose own status reads 'Available' are read.",
+      "how": "The inventory publishes no price and no per-parcel purchase link. Ask the Land Reutilization Authority (St. Louis Development Corporation) how to apply for a parcel; no application process has been verified here yet.",
+      "empty": "No Missouri available parcels match. Missouri coverage is the City of St. Louis Land Reutilization Authority inventory."
+    },
+    "OK": {
+      "sub": "County-owned property the Oklahoma County Treasurer lists for sale: 'Once the County owns these properties, they can be purchased by the public through a bidding process.'",
+      "how": "Bid on the Treasurer's bid form (a PDF, submitted offline). The figure shown is the list's 'Suggested Initial Bid Amount' as published - a suggestion, not a stated minimum or price. The county's own list says 'BUYER BEWARE'.",
+      "empty": "No Oklahoma county-owned property matches. Oklahoma coverage is Oklahoma County's county-owned property list."
+    },
+    "PA": {
+      "sub": "Properties on the Fayette County Tax Claim Bureau's repository list, shown with the list's own date. Rows the list marks 'Bid Received' are not shown as available.",
+      "how": "Repository properties are sold by sealed bid; the county opens bids on the first Tuesday of each month, and a sale needs the taxing bodies' consent. The figure shown is the list's 'Min. Bid'. Confirm with the Tax Claim Bureau that a property is still on the repository before bidding.",
+      "empty": "No Pennsylvania repository properties match. Pennsylvania coverage is Fayette County's repository list."
+    },
+    "MN": {
+      "sub": "Tax-forfeited parcels Ramsey County's own layer marks 'Available for purchase' (over the counter). Parcels sold at auction or already purchased are not shown.",
+      "how": "Buy over the counter from Ramsey County's tax-forfeited land office. The figure shown is the layer's own Minimum Bid. The layer publishes no purchase link.",
+      "empty": "No Minnesota available parcels match. Minnesota coverage is Ramsey County's tax-forfeited land layer."
     }
   },
   "certificate": {
@@ -831,6 +877,26 @@ const EXPANSION_LEDGER_COPY = {
       "sub": "Tax liens the county itself holds and offers by assignment - Morgan County's certificate list and Douglas County's county-held liens (Douglas data: Douglas County, Colorado, CC BY-SA 4.0). A certificate is a lien on the property, not the property.",
       "how": "Morgan: buy from the Treasurer for the amount shown (good to the date in the list's header). Douglas: request an assignment on the county's form; the figure shown is the lien's unpaid principal balance as published - call the Treasurer for the payoff. You are buying the lien, not the land.",
       "empty": "No Colorado county-held certificates match. Colorado coverage is Morgan County's certificate list and Douglas County's county-held liens."
+    },
+    "MO": {
+      "sub": "No Missouri certificate source is tracked.",
+      "how": "Missouri certificate inventory is not harvested by this app.",
+      "empty": "No Missouri certificate records are tracked. Missouri coverage is the St. Louis Land Reutilization Authority's own inventory (City of St. Louis open data) (see Available)."
+    },
+    "OK": {
+      "sub": "No Oklahoma certificate source is tracked.",
+      "how": "Oklahoma certificate inventory is not harvested by this app.",
+      "empty": "No Oklahoma certificate records are tracked. Oklahoma coverage is Oklahoma County Treasurer's county-owned property list (see Available)."
+    },
+    "PA": {
+      "sub": "No Pennsylvania certificate source is tracked.",
+      "how": "Pennsylvania certificate inventory is not harvested by this app.",
+      "empty": "No Pennsylvania certificate records are tracked. Pennsylvania coverage is Fayette County Tax Claim Bureau's repository list (see Available)."
+    },
+    "MN": {
+      "sub": "No Minnesota certificate source is tracked.",
+      "how": "Minnesota certificate inventory is not harvested by this app.",
+      "empty": "No Minnesota certificate records are tracked. Minnesota coverage is Ramsey County's tax-forfeited land layer (see Available)."
     }
   }
 };
@@ -1284,7 +1350,11 @@ const MINIMAP_PROJ = {
   WY: { x: { lon: 0.137019503, lat: 0, c: 15.237171277 }, y: { lon: 0, lat: -0.236855008, c: 10.685194997 }, baseW: 1000, baseH: 791 },
   SC: { x: { lon: 0.199449716, lat: 0, c: 16.644666914 }, y: { lon: 0, lat: -0.298662094, c: 10.542429635 }, baseW: 1000, baseH: 802 },
   CO: { x: { lon: 0.136809243, lat: 0, c: 14.940306052 }, y: { lon: 0, lat: -0.235972008, c: 9.702332433 }, baseW: 1000, baseH: 746 },
-  WI: { x: { lon: 0.158355281, lat: 0, c: 14.728962896 }, y: { lon: 0, lat: -0.209887398, c: 9.899736672 }, baseW: 1000, baseH: 1063 }
+  WI: { x: { lon: 0.158355281, lat: 0, c: 14.728962896 }, y: { lon: 0, lat: -0.209887398, c: 9.899736672 }, baseW: 1000, baseH: 1063 },
+  MO: { x: { lon: 0.143951598, lat: 0, c: 13.805962504 }, y: { lon: 0, lat: -0.206811222, c: 8.421914195 }, baseW: 1000, baseH: 887 },
+  OK: { x: { lon: 0.112002542, lat: 0, c: 11.556716219 }, y: { lon: 0, lat: -0.271783884, c: 10.096205637 }, baseW: 1000, baseH: 505 },
+  PA: { x: { lon: 0.164794867, lat: 0, c: 13.289401314 }, y: { lon: 0, lat: -0.365727205, c: 15.492773054 }, baseW: 1000, baseH: 597 },
+  MN: { x: { lon: 0.123882385, lat: 0, c: 12.066279913 }, y: { lon: 0, lat: -0.163731421, c: 8.104039826 }, baseW: 1000, baseH: 1098 }
 };
 function minimapProject(lat, lon) {
   const p = MINIMAP_PROJ[PAGE_STATE];   // PAGE_STATE is always a STATE_META key; each has its own fit

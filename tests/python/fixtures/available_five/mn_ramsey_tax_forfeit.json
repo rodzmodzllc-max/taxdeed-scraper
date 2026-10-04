@@ -1,0 +1,7 @@
+{"objectIdFieldName": "OBJECTID", "geometryType": "esriGeometryPoint", "spatialReference": {"wkid": 4326},
+ "features": [
+  {"attributes": {"PIN": "012345678901", "Address": "100 SYNTHETIC AVE", "PropertyDescription": "LOT 1 BLOCK 2 TEST ADDITION",
+                  "MinimumBid": 12500, "Status": "Available for purchase"}, "geometry": {"x": -93.10, "y": 44.95}},
+  {"attributes": {"PIN": "012345678902", "Address": "102 SYNTHETIC AVE", "PropertyDescription": "LOT 2 BLOCK 2 TEST ADDITION",
+                  "MinimumBid": 8000, "Status": "Available for purchase"}, "geometry": {"x": -93.11, "y": 44.96}}
+ ]}

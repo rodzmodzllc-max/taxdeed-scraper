@@ -5,6 +5,10 @@
   "FL",
   "LA",
   "MI",
+  "MN",
+  "MO",
+  "OK",
+  "PA",
   "SC",
   "TX",
   "WI",
@@ -5102,6 +5106,54 @@
   },
   {
    "access": "ACCESSIBLE",
+   "access_note": "production harvester harvest_expansion.py --state MN; last completeness UNKNOWN",
+   "county": "Ramsey",
+   "evidence": "LIVE CAPTURE 2026-10-04 (GitHub Actions runs 37203515518, 37203652975, 37203694092, 37203843581, 37204541253): Ramsey County - mn_ramsey_tax_forfeit; NO PUBLICATION DECISION YET (UNREVIEWED); docs/available-expansion-2026-10.md",
+   "governance": "REVIEW_REQUIRED",
+   "governance_reason": "no publication / reuse review recorded yet",
+   "last_checked": "2026-10-04",
+   "legacy_status": "UNREVIEWED",
+   "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
+   "next_action": "Publication / rights review (registry restrictions: AVAILABLE source read live; no reuse licence or owner decision yet: collected and synced for development, labelled UNREVIEWED; not customer-published until an admin review approves it.)",
+   "origin": "registry",
+   "publisher": "Ramsey County",
+   "roles": [
+    "availability",
+    "identity",
+    "lifecycle",
+    "source_date"
+   ],
+   "source_id": "MN:Ramsey:mn_ramsey_tax_forfeit",
+   "source_type": "GOVERNMENT",
+   "state": "MN",
+   "url": "https://maps.co.ramsey.mn.us/arcgis/rest/services/PRR/TaxForfeitLand_PublicData/MapServer/0"
+  },
+  {
+   "access": "ACCESSIBLE",
+   "access_note": "production harvester harvest_expansion.py --state MO; last completeness UNKNOWN",
+   "county": "St. Louis City",
+   "evidence": "LIVE CAPTURE 2026-10-04 (GitHub Actions runs 37203515518, 37203652975, 37203694092, 37203843581, 37204541253): St. Louis City - mo_stl_lra_inventory; NO PUBLICATION DECISION YET (UNREVIEWED); docs/available-expansion-2026-10.md",
+   "governance": "REVIEW_REQUIRED",
+   "governance_reason": "no publication / reuse review recorded yet",
+   "last_checked": "2026-10-04",
+   "legacy_status": "UNREVIEWED",
+   "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
+   "next_action": "Publication / rights review (registry restrictions: AVAILABLE source read live; no reuse licence or owner decision yet: collected and synced for development, labelled UNREVIEWED; not customer-published until an admin review approves it.)",
+   "origin": "registry",
+   "publisher": "St. Louis City",
+   "roles": [
+    "availability",
+    "identity",
+    "lifecycle",
+    "source_date"
+   ],
+   "source_id": "MO:St. Louis City:mo_stl_lra_inventory",
+   "source_type": "DOCUMENT",
+   "state": "MO",
+   "url": "https://www.stlouis-mo.gov/data/datasets/dataset.cfm?id=30"
+  },
+  {
+   "access": "ACCESSIBLE",
    "access_note": "scripts/geocode_properties.py; needs a street address",
    "county": "NATIONAL",
    "evidence": "federal service",
@@ -5183,6 +5235,55 @@
    "source_type": "THIRD_PARTY",
    "state": "NATIONAL",
    "url": ""
+  },
+  {
+   "access": "ACCESSIBLE",
+   "access_note": "production harvester harvest_expansion.py --state OK; last completeness UNKNOWN",
+   "county": "Oklahoma",
+   "evidence": "LIVE CAPTURE 2026-10-04 (GitHub Actions runs 37203515518, 37203652975, 37203694092, 37203843581, 37204541253): Oklahoma County - ok_oklahoma_county_owned; NO PUBLICATION DECISION YET (UNREVIEWED); docs/available-expansion-2026-10.md",
+   "governance": "REVIEW_REQUIRED",
+   "governance_reason": "no publication / reuse review recorded yet",
+   "last_checked": "2026-10-04",
+   "legacy_status": "UNREVIEWED",
+   "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
+   "next_action": "Publication / rights review (registry restrictions: AVAILABLE source read live; no reuse licence or owner decision yet: collected and synced for development, labelled UNREVIEWED; not customer-published until an admin review approves it.)",
+   "origin": "registry",
+   "publisher": "Oklahoma County",
+   "roles": [
+    "acquisition",
+    "availability",
+    "identity",
+    "lifecycle",
+    "source_date"
+   ],
+   "source_id": "OK:Oklahoma:ok_oklahoma_county_owned",
+   "source_type": "GOVERNMENT",
+   "state": "OK",
+   "url": "https://docs.oklahomacounty.org/treasurer/CountyOwnedList.asp"
+  },
+  {
+   "access": "ACCESSIBLE",
+   "access_note": "production harvester harvest_expansion.py --state PA; last completeness UNKNOWN",
+   "county": "Fayette",
+   "evidence": "LIVE CAPTURE 2026-10-04 (GitHub Actions runs 37203515518, 37203652975, 37203694092, 37203843581, 37204541253): Fayette County - pa_fayette_repository; NO PUBLICATION DECISION YET (UNREVIEWED); docs/available-expansion-2026-10.md",
+   "governance": "REVIEW_REQUIRED",
+   "governance_reason": "no publication / reuse review recorded yet",
+   "last_checked": "2026-10-04",
+   "legacy_status": "UNREVIEWED",
+   "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
+   "next_action": "Publication / rights review (registry restrictions: AVAILABLE source read live; no reuse licence or owner decision yet: collected and synced for development, labelled UNREVIEWED; not customer-published until an admin review approves it.)",
+   "origin": "registry",
+   "publisher": "Fayette County",
+   "roles": [
+    "availability",
+    "identity",
+    "lifecycle",
+    "source_date"
+   ],
+   "source_id": "PA:Fayette:pa_fayette_repository",
+   "source_type": "DOCUMENT",
+   "state": "PA",
+   "url": "https://www.fayettecountypa.org/DocumentCenter/View/9761/Repository-Update-10-7-2025"
   },
   {
    "access": "ACCESSIBLE",
@@ -7802,6 +7903,10 @@
   "FL",
   "LA",
   "MI",
+  "MN",
+  "MO",
+  "OK",
+  "PA",
   "SC",
   "TX",
   "UT",
@@ -7884,6 +7989,24 @@
    },
    "sources": 9
   },
+  "MN": {
+   "APPROVED": 0,
+   "HARD_BLOCKED": 0,
+   "REVIEW_REQUIRED": 1,
+   "by_type": {
+    "GOVERNMENT": 1
+   },
+   "sources": 1
+  },
+  "MO": {
+   "APPROVED": 0,
+   "HARD_BLOCKED": 0,
+   "REVIEW_REQUIRED": 1,
+   "by_type": {
+    "DOCUMENT": 1
+   },
+   "sources": 1
+  },
   "NATIONAL": {
    "APPROVED": 3,
    "HARD_BLOCKED": 1,
@@ -7893,6 +8016,24 @@
     "THIRD_PARTY": 1
    },
    "sources": 4
+  },
+  "OK": {
+   "APPROVED": 0,
+   "HARD_BLOCKED": 0,
+   "REVIEW_REQUIRED": 1,
+   "by_type": {
+    "GOVERNMENT": 1
+   },
+   "sources": 1
+  },
+  "PA": {
+   "APPROVED": 0,
+   "HARD_BLOCKED": 0,
+   "REVIEW_REQUIRED": 1,
+   "by_type": {
+    "DOCUMENT": 1
+   },
+   "sources": 1
   },
   "SC": {
    "APPROVED": 2,

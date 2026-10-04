@@ -328,6 +328,91 @@ SC_HORRY_FLC = TabularConfig(
           "is not a 9-11 digit number (a note line, a section word - run 37039824035) is not a property.")
 
 
+# ---- AVAILABLE expansion: MO / OK / PA / MN (2026-10-04) --------------------
+# Read value-free by the AVAILABLE-five evidence passes (capture_state_sources
+# --available-five / -2 / -3; runs 37203515518, 37203652975, 37203694092,
+# 37203843581). Each source states availability itself; nothing is inferred
+# from an auction, a passed date or an unsold outcome. Every one is
+# UNREVIEWED: collected for admin use, never customer-published until an
+# admin review approves it. Owner / taxpayer columns are never mapped.
+AVAILABLE_FIVE_EVIDENCE_RUNS = ("37203515518", "37203652975", "37203694092", "37203843581", "37204541253")
+
+# St. Louis (independent city), MO - Land Reutilization Authority inventory,
+# the City's own open-data CSV (nightly; 10,348 rows on 2026-10-04). Its own
+# Parcel_Status column: "Available" (9,761) / "Unavailable" (587). Only
+# "Available" is read. ParcelId is the City's 11-digit parcel number. No price
+# column. "St. Louis City" names the city apart from St. Louis County.
+MO_STL_LRA = TabularConfig(
+    source_id="mo_stl_lra_inventory", state="MO", county="St. Louis City",
+    source_authority=SourceAuthority.GOVERNMENT_DIRECT, inventory_type=InventoryType.POST_SALE, record_source="laft",
+    columns=ColumnMap(case_no=("ParcelId",), parcel=("ParcelId",), address=("Address",), legal_desc=("LegalDescription",),
+                      status=("Parcel_Status",), land_use=("PropertyType",)),
+    status_include=("Available",), id_pattern=r"\d{11}", header_required=("ParcelId", "Parcel_Status"),
+    list_url="https://www.stlouis-mo.gov/data/datasets/dataset.cfm?id=30",
+    document_url="https://static.stlouis-mo.gov/open-data/SLDC/REAL-ESTATE/LRA_INVENTORY.csv", columns_verified=True,
+    notes="LRA_INVENTORY.csv (St. Louis Development Corporation open data): Parcel_Status 'Available' rows only; "
+          "PropertyType (Lot / Building / Other) kept verbatim as the land use. No price or purchase link per row.")
+
+# Oklahoma County, OK Treasurer - "County Owned Property" list (table#mytable,
+# 196 rows): "Once the County owns these properties, they can be purchased by
+# the public through a bidding process". Every row is offered. The combined
+# address / legal-description column is kept as the legal description (it is
+# not reliably a street address). "Suggested Initial Bid Amount" is the
+# county's suggestion, not a stated minimum: PUBLISHED_AMOUNT_KIND_UNSPECIFIED.
+OK_OKLAHOMA_COUNTY_OWNED = TabularConfig(
+    source_id="ok_oklahoma_county_owned", state="OK", county="Oklahoma",
+    source_authority=SourceAuthority.GOVERNMENT_DIRECT, inventory_type=InventoryType.POST_SALE, record_source="laft",
+    columns=ColumnMap(case_no=("Parcel_No",), parcel=("Parcel_No",),
+                      legal_desc=("Physical Address Per Assessor/Legal Description",),
+                      amount=("Suggested Initial Bid Amount",)),
+    amount_kind=AmountKind.PUBLISHED_AMOUNT_KIND_UNSPECIFIED, table_id="mytable", id_pattern=r"\d{4}-\d{2}-\d{3}-\d{4}",
+    list_url="https://docs.oklahomacounty.org/treasurer/CountyOwnedList.asp",
+    purchase_url="https://www.oklahomacounty.org/Portals/0/DNNGalleryPro/uploads/2021/4/28/BidForm.pdf",
+    purchase_url_kind=PurchaseUrlKind.BID_FORM, columns_verified=True,
+    notes="'Once the County owns these properties, they can be purchased by the public through a bidding process' and "
+          "'BUYER BEWARE' (the list page). Bids on the Treasurer's bid form (PDF, offline). The suggested initial bid is "
+          "kept as published, never called a minimum or a price.")
+
+# Fayette County, PA Tax Claim Bureau - repository list (PDF, 13 pages, 404
+# rows): "Bids to be opened the first Tuesday of every month at 10:00 a.m.".
+# Columns PARCEL | Municipality | OWNER | DESCRIPTION | SALE | Min. Bid |
+# Comments. OWNER is never mapped. A row whose Comments read "Bid Received" has
+# a pending bid (repository sales need the taxing bodies' consent) and is not
+# read as offered. The document is the county's own dated file
+# ("Repository Update 10-7-2025"): list_as_of comes from its name, and a newer
+# file published under another DocumentCenter id is NOT followed - the list is
+# shown with its own date.
+PA_FAYETTE_REPOSITORY = TabularConfig(
+    source_id="pa_fayette_repository", state="PA", county="Fayette",
+    source_authority=SourceAuthority.GOVERNMENT_DIRECT, inventory_type=InventoryType.POST_SALE, record_source="laft",
+    columns=ColumnMap(case_no=("PARCEL",), parcel=("PARCEL",), legal_desc=("DESCRIPTION",), amount=("Min. Bid",),
+                      status=("Comments",)),
+    amount_kind=AmountKind.OPENING_BID, status_exclude=("Bid Received",),
+    id_pattern=r"\d{2}-\d{2}-\d{4}(?:-\d{1,4})*",
+    list_as_of_pattern=r"Repository-Update-(\d{1,2}-\d{1,2}-\d{4})", list_as_of_formats=("%m-%d-%Y",),
+    list_url="https://www.fayettecountypa.org/DocumentCenter/View/9761/Repository-Update-10-7-2025",
+    document_url="https://www.fayettecountypa.org/DocumentCenter/View/9761/Repository-Update-10-7-2025", columns_verified=True,
+    notes="Repository of unsold properties (PA Real Estate Tax Sale Law): sealed bids opened monthly; 'Min. Bid' kept as "
+          "the published minimum bid. No purchase form URL verified - the path is the Tax Claim Bureau's bid process.")
+
+# Ramsey County, MN - Tax Forfeited Land public layer (109 points). Its own
+# Status: "Available for purchase" (over the counter), "Purchased from
+# counter", "Sold at auction", "Approved for auction". Only "Available for
+# purchase" is read (server where + local re-check). MinimumBid is kept as the
+# published minimum bid. Coordinates are the layer's own point geometry.
+MN_RAMSEY_TAX_FORFEIT = ArcGisLayerConfig(
+    source_id="mn_ramsey_tax_forfeit", state="MN", county="Ramsey",
+    source_authority=SourceAuthority.GOVERNMENT_DIRECT, inventory_type=InventoryType.POST_SALE, record_source="laft",
+    layer_url="https://maps.co.ramsey.mn.us/arcgis/rest/services/PRR/TaxForfeitLand_PublicData/MapServer/0",
+    fields=ArcGisFieldMap(case_no="PIN", parcel="PIN", address="Address", legal_desc="PropertyDescription",
+                          amount="MinimumBid", status="Status"),
+    where="Status = 'Available for purchase'", require=(("Status", "Available for purchase"),),
+    amount_kind=AmountKind.OPENING_BID, centroid=True,
+    list_url="https://maps.co.ramsey.mn.us/arcgis/rest/services/PRR/TaxForfeitLand_PublicData/MapServer/0", columns_verified=True,
+    notes="Ramsey County tax-forfeited land: 'Available for purchase' = offered over the counter; parcels sold at auction "
+          "or purchased from the counter are not read. PIN = the 12-digit county parcel id.")
+
+
 HELD_AVAILABLE = ("AVAILABLE source read live; no reuse licence or owner decision yet: collected and synced for "
                   "development, labelled UNREVIEWED; not customer-published until an admin review approves it.")
 PUBLICATION = {
@@ -347,12 +432,16 @@ PUBLICATION = {
     "mi_oceana_landbank": ("UNREVIEWED", HELD_AVAILABLE),
     "sc_horry_forfeited_land": ("UNREVIEWED", HELD_AVAILABLE),
     "sc_georgetown_forfeited_land": ("UNREVIEWED", HELD_AVAILABLE),
+    "mo_stl_lra_inventory": ("UNREVIEWED", HELD_AVAILABLE),
+    "ok_oklahoma_county_owned": ("UNREVIEWED", HELD_AVAILABLE),
+    "pa_fayette_repository": ("UNREVIEWED", HELD_AVAILABLE),
+    "mn_ramsey_tax_forfeit": ("UNREVIEWED", HELD_AVAILABLE),
 }
 
 
 @dataclass(frozen=True)
 class ExpansionSource:
-    kind: str                     # "arcgis" | "html_table" | "xlsx_flc_lists" | "sc_flc_pdf"
+    kind: str                     # "arcgis" | "html_table" | "csv" | "pdf_table" | "xlsx_flc_lists" | "sc_flc_pdf"
     config: object
     url: str                      # what is fetched
 
@@ -375,8 +464,14 @@ SOURCES: dict[str, tuple[ExpansionSource, ...]] = {
            ExpansionSource("html_table", WI_GREEN_PREVIOUS, WI_GREEN_PREVIOUS.list_url),
            ExpansionSource("html_table", WI_DANE_AVAILABLE, WI_DANE_AVAILABLE.list_url),
            ExpansionSource("html_table", WI_DANE_SOLD, WI_DANE_SOLD.list_url)),
+    "MO": (ExpansionSource("csv", MO_STL_LRA, MO_STL_LRA.document_url),),
+    "OK": (ExpansionSource("html_table", OK_OKLAHOMA_COUNTY_OWNED, OK_OKLAHOMA_COUNTY_OWNED.list_url),),
+    "PA": (ExpansionSource("pdf_table", PA_FAYETTE_REPOSITORY, PA_FAYETTE_REPOSITORY.document_url),),
+    "MN": (ExpansionSource("arcgis", MN_RAMSEY_TAX_FORFEIT, MN_RAMSEY_TAX_FORFEIT.layer_url),),
 }
 
 
 AVAILABLE_SPRINT_SOURCE_IDS = frozenset({"mi_detroit_landbank_lots", "mi_detroit_landbank_programs", "mi_oceana_landbank",
                                          "sc_horry_forfeited_land", "sc_georgetown_forfeited_land"})
+AVAILABLE_FIVE_SOURCE_IDS = frozenset({"mo_stl_lra_inventory", "ok_oklahoma_county_owned", "pa_fayette_repository",
+                                       "mn_ramsey_tax_forfeit"})

@@ -130,7 +130,11 @@ const STATEWIDE_VIEW = {
   WY: { center: [-107.56, 43.0], zoom: 6.1 },
   SC: { center: [-80.95, 33.62], zoom: 6.7 },
   CO: { center: [-105.55, 39.0], zoom: 6.1 },
-  WI: { center: [-89.85, 44.78], zoom: 6.1 }
+  WI: { center: [-89.85, 44.78], zoom: 6.1 },
+  MO: { center: [-92.43, 38.3], zoom: 6.0 },
+  OK: { center: [-98.72, 35.31], zoom: 6.0 },
+  PA: { center: [-77.61, 41.0], zoom: 6.3 },
+  MN: { center: [-93.37, 46.44], zoom: 5.7 }
 };
 
 // Same derivation as app.js/explore.js: the page's state, accepted only if

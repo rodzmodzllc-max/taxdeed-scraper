@@ -136,6 +136,12 @@ SOURCE_LEDGERS: dict[str, frozenset[Ledger]] = {
     "mi_oceana_landbank": frozenset({Ledger.AVAILABLE}),
     "sc_horry_forfeited_land": frozenset({Ledger.AVAILABLE}),
     "sc_georgetown_forfeited_land": frozenset({Ledger.AVAILABLE}),
+    # AVAILABLE expansion (2026-10-04): MO / OK / PA / MN, collected for admin use
+    # (UNREVIEWED) - docs/available-expansion-2026-10.md.
+    "mo_stl_lra_inventory": frozenset({Ledger.AVAILABLE}),
+    "ok_oklahoma_county_owned": frozenset({Ledger.AVAILABLE}),
+    "pa_fayette_repository": frozenset({Ledger.AVAILABLE}),
+    "mn_ramsey_tax_forfeit": frozenset({Ledger.AVAILABLE}),
 }
 # The four blocked Texas vendors: discovery only, they feed no ledger.
 BLOCKED_SOURCE_IDS = frozenset({"tx_pbfcm", "tx_mvba", "tx_govease", "tx_ctsa"})
