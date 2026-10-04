@@ -3489,7 +3489,9 @@ await navMap.close();
     // Property page chrome: breadcrumb, tabs, "Why am I seeing this?", acquisition section.
     results.rdDetail = {
       tabs: await pg.locator('#detailModalInner .detail-nav button').allTextContents(),
-      why: await pg.locator('#detailModalInner #whySeeing li').allTextContents(),
+      // The fixture's last-read date is fixed while the clock moves, so the
+      // relative age ("14d ago", "15d ago", ...) is normalised to "Nd ago".
+      why: (await pg.locator('#detailModalInner #whySeeing li').allTextContents()).map(t => t.replace(/\b\d+([dhm]) ago\b/, 'N$1 ago')),
       acquire: await pg.locator('#detailModalInner [data-section="acquire"]').count()
     };
     await pg.click('#detailModalInner .crumb[data-action="crumbhome"]');
@@ -4704,7 +4706,7 @@ const EXPECTED = {
   rdNavAuction: {"hash": "#/auctions", "title": "Auction Properties"},
   rdGlobal: {"rows": ["p15:Available"], "all": "See all 1 result in the list →", "expanded": "true"},
   rdGlobalOpen: {"modal": true, "crumbs": ["Home/Available/15 Manatee Ln"]},
-  rdDetail: {"tabs": ["Acquisition", "Overview", "Decision", "Inventory", "Tax & Value", "Property", "Sale events", "Watch", "Risk & Legal", "Map", "Source", "Provenance"], "why": ["It is in the Available ledger for Florida because its source lists it.", "Last read from the source 14d ago.", "Its source is approved for customer publication."], "acquire": 1},
+  rdDetail: {"tabs": ["Acquisition", "Overview", "Decision", "Inventory", "Tax & Value", "Property", "Sale events", "Watch", "Risk & Legal", "Map", "Source", "Provenance"], "why": ["It is in the Available ledger for Florida because its source lists it.", "Last read from the source Nd ago.", "Its source is approved for customer publication."], "acquire": 1},
   rdCrumbHome: {"modalHidden": true, "dashVisible": true},
   rdGlobalEmpty: "No Florida property matches “zzzz-no-such”. Search covers address, parcel, case and certificate numbers and the county; to look in another state, switch state first.",
   rdGlobalEscape: true,
