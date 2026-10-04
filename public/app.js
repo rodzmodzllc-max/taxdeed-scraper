@@ -2299,9 +2299,10 @@ async function showApp() {
   }
   // AVAILABLE is the default inventory (2026-10-03): with no ledger in the URL,
   // land on Available whenever this state has Available rows this session can
-  // see; a state with none (e.g. an auction-only state) keeps Auctions. A
-  // routed #/auctions or #/certificates always wins.
-  if (!routed && ALL.some(p => p.source === "laft" && !isGone(p))) state.ledger = "laft";
+  // see; otherwise the first ledger that has visible rows (landingLedger -
+  // 2026-10-04: an auction-only state opens on Auctions, a liens-only state on
+  // Liens & Certificates). A routed #/auctions or #/certificates always wins.
+  if (!routed) state.ledger = landingLedger(ALL, state.ledger);
   // setLedger, not a bare render(): the palette, the document title, the
   // per-ledger filter visibility and the canonical #/slug URL all have to be
   // right on the first paint, not only after the first tab click.
@@ -2497,39 +2498,122 @@ const PROPERTY_PAGE_SIZE = 1000;
 // at a time - a 30,000-row state is ~30 requests, and fetching them one after
 // another was most of the load time. Pages are kept in offset order and paging
 // stops at the first short page, so no row is skipped or duplicated.
-const PROPERTY_PAGE_WAVE = 4;
+const PROPERTY_PAGE_WAVE = 2;
+// Load resilience (2026-10-04). A single 1,000-row page that hit the
+// database's statement timeout used to fail the whole fetch, and the state
+// rendered as if it had no properties. Now:
+//   - at most PROPERTY_PAGE_WAVE (2) pages per ledger are in flight - 4 was
+//     enough, with three ledgers loading at once, to push deep Michigan pages
+//     past the 8 s timeout;
+//   - a failed page is retried with bounded backoff (PAGE_RETRY_DELAYS_MS);
+//   - a page that still fails stops that ledger's paging, KEEPS every row
+//     already loaded and is recorded in LOAD_ISSUES, so the List shows the
+//     loaded rows plus "Some results could not be loaded" and a Retry button -
+//     never "no properties" (loadIssueHtml / retryPropertyLoad);
+//   - only a fetch where every ledger failed outright is the full error state.
+const PAGE_RETRY_DELAYS_MS = [700, 2000];
+let LOAD_ISSUES = [];
+function retryDelayMs(i) {
+  const scale = typeof window.__tdwRetryScale === "number" ? window.__tdwRetryScale : 1;   // tests shorten the wait
+  return PAGE_RETRY_DELAYS_MS[i] * scale;
+}
+function isMissingFnError(error) {
+  const msg = String((error && error.message) || "");
+  return !!error && (error.code === "PGRST202" || /could not find the function|does not exist/i.test(msg));
+}
+async function callPageWithRetry(call, offset) {
+  for (let attempt = 0; ; attempt++) {
+    let r;
+    try { r = await call(offset); } catch (e) { r = { data: null, error: { message: String((e && e.message) || e) } }; }
+    if (!r.error || isMissingFnError(r.error) || attempt >= PAGE_RETRY_DELAYS_MS.length) return r;
+    await new Promise(res => setTimeout(res, retryDelayMs(attempt)));
+  }
+}
 async function fetchLedgerPages(ledgerType) {
   const call = offset => sb.rpc("get_properties", { p_state: PAGE_STATE, p_ledger_type: ledgerType, p_limit: PROPERTY_PAGE_SIZE, p_offset: offset });
-  const first = await call(0);
-  if (first.error) return first;
+  const first = await callPageWithRetry(call, 0);
+  if (first.error) return { data: [], error: first.error, ledgerType, complete: false, failedOffset: 0 };
   const rows = [...(first.data || [])];
   const step = rows.length;
-  if (!step) return { data: rows, error: null };
+  if (!step) return { data: rows, error: null, ledgerType, complete: true };
   let offset = step;
-  for (let guard = 0; guard < 100; guard++) {
-    const wave = await Promise.all(Array.from({ length: PROPERTY_PAGE_WAVE }, (_, i) => call(offset + i * step)));
-    let done = false;
-    for (const r of wave) {
-      if (r.error) return r;
+  for (let guard = 0; guard < 200; guard++) {
+    const offsets = Array.from({ length: PROPERTY_PAGE_WAVE }, (_, i) => offset + i * step);
+    const wave = await Promise.all(offsets.map(o => callPageWithRetry(call, o)));
+    for (let i = 0; i < wave.length; i++) {
+      const r = wave[i];
+      if (r.error) {
+        // Keep everything loaded so far; this ledger is marked incomplete.
+        return { data: rows, error: r.error, ledgerType, complete: false, failedOffset: offsets[i] };
+      }
       const page = r.data || [];
       rows.push(...page);
-      if (page.length < step) { done = true; break; }
+      if (page.length < step) return { data: rows, error: null, ledgerType, complete: true };
     }
-    if (done) break;
     offset += step * PROPERTY_PAGE_WAVE;
   }
-  return { data: rows, error: null };
+  return { data: rows, error: null, ledgerType, complete: true };
 }
-async function fetchProperties() {
+// The bootstrap can reach loadAll() twice at once (the getSession() path and
+// the SIGNED_IN event); one in-flight properties fetch is shared, so the
+// database never sees the state's pages requested twice in parallel.
+let PROPERTIES_INFLIGHT = null;
+function fetchProperties() {
+  if (!PROPERTIES_INFLIGHT) PROPERTIES_INFLIGHT = fetchPropertiesOnce().finally(() => { PROPERTIES_INFLIGHT = null; });
+  return PROPERTIES_INFLIGHT;
+}
+async function fetchPropertiesOnce() {
   const pages = await Promise.all(PROPERTY_LEDGER_TYPES.map(fetchLedgerPages));
-  const failed = pages.find(r => r.error);
-  const rpc = failed || { data: (() => { const seen = new Set(); return pages.flatMap(r => r.data).filter(p => !seen.has(p.id) && seen.add(p.id)); })(), error: null };
-  if (!rpc.error) return rpc;
-  const msg = String(rpc.error.message || "");
-  const missingFn = rpc.error.code === "PGRST202" || /could not find the function|does not exist/i.test(msg);
-  if (!missingFn) return rpc;
-  console.warn("get_properties() RPC not found (003_ledger_type_and_state_isolation.sql not run yet?) - falling back to unscoped select(). Row-level isolation is client-side only until that migration runs.", rpc.error);
-  return sb.from("properties").select("*").order("county").order("case_no");
+  const missing = pages.find(r => r.error && isMissingFnError(r.error));
+  if (missing) {
+    console.warn("get_properties() RPC not found (003_ledger_type_and_state_isolation.sql not run yet?) - falling back to unscoped select(). Row-level isolation is client-side only until that migration runs.", missing.error);
+    LOAD_ISSUES = [];
+    return sb.from("properties").select("*").order("county").order("case_no");
+  }
+  const failed = pages.filter(r => r.error);
+  // Every ledger failed and nothing loaded: the full "couldn't load" state.
+  if (failed.length === pages.length && pages.every(r => !r.data.length)) return { data: null, error: failed[0].error };
+  LOAD_ISSUES = failed.map(r => ({ ledgerType: r.ledgerType, loaded: r.data.length, failedOffset: r.failedOffset,
+                                   message: String((r.error && r.error.message) || "") }));
+  const seen = new Set();
+  return { data: pages.flatMap(r => r.data).filter(p => !seen.has(p.id) && seen.add(p.id)), error: null };
+}
+
+// The ledger a load issue belongs to, in the List's own vocabulary.
+const LEDGER_FOR_TYPE = { auctions: "auction", buy: "laft", lien: "certificate" };
+function loadIssueHtml() {
+  if (!LOAD_ISSUES.length) return "";
+  const names = LOAD_ISSUES.map(i => (LEDGERS[LEDGER_FOR_TYPE[i.ledgerType]] || {}).title || i.ledgerType);
+  const here = LOAD_ISSUES.find(i => LEDGER_FOR_TYPE[i.ledgerType] === state.ledger);
+  const detail = here
+    ? `${here.loaded.toLocaleString("en-US")} ${here.loaded === 1 ? "record" : "records"} loaded in this list; the rest could not be loaded.`
+    : `Affected: ${names.join(", ")}. Counts there may be incomplete.`;
+  return `<div class="load-issue" role="status" id="loadIssue"><span class="load-issue-text"><b>Some results could not be loaded.</b> ${esc(detail)}</span>` +
+    ` <button type="button" class="load-issue-retry" data-action="retryload">Retry</button></div>`;
+}
+let RETRYING_LOAD = false;
+async function retryPropertyLoad() {
+  if (RETRYING_LOAD) return;
+  RETRYING_LOAD = true;
+  const box = document.getElementById("loadIssue");
+  if (box) box.classList.add("retrying");
+  try {
+    const ok = await loadAll();
+    if (ok) { buildAllChips(); updateBadge(); render(); }
+  } finally { RETRYING_LOAD = false; }
+}
+
+// The ledger a state opens on when the URL names none (2026-10-04): the
+// first of Available, Auctions, Liens & Certificates that has a record this
+// session can see in the default (live) view - data-driven, never a state
+// special case. Colorado (liens only) opens on Liens & Certificates,
+// Wyoming (auctions only) on Auctions. A state with nothing visible keeps the
+// default ledger and its own empty-state copy (nothing is invented).
+function landingLedger(rows, fallback) {
+  for (const key of ["laft", "auction", "certificate"]) {
+    if (rows.some(p => p.source === key && !isGone(p) && !isPastDue(p))) return key;
+  }
+  return fallback;
 }
 
 async function loadAll() {
@@ -5395,6 +5479,7 @@ document.addEventListener("click", async e => {
   const action = btn.dataset.action;
   const pid = btn.dataset.pid;
 
+  if (action === "retryload") { retryPropertyLoad(); return; }
   if (action === "fav") {
     if (!ME || !pid) return;
     btn.disabled = true;
@@ -5572,7 +5657,7 @@ function render() {
   const navWatchlistCountEl = document.getElementById("navWatchlistCount");
   if (navWatchlistCountEl) navWatchlistCountEl.textContent = `${BIDLIST.size}/${BID_LIST_MAX}`;
 
-  const main = document.getElementById("main"); if (!main) return; main.innerHTML = "";
+  const main = document.getElementById("main"); if (!main) return; main.innerHTML = loadIssueHtml();
   if (!LEDGERS[state.ledger]) state.ledger = "auction";
   const activeLedger = state.ledger;
   const cfg = ledgerCopy(activeLedger);
