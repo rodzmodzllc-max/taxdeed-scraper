@@ -40,7 +40,7 @@ jobs:
         run: pip install requests beautifulsoup4 pdfplumber openpyxl
 
       - name: Capture (value-free)
-        run: python3 scripts/capture_state_sources.py --available-five --skip-registry --out out/public/available-five-capture.json
+        run: python3 scripts/capture_state_sources.py --available-five-2 --skip-registry --out out/public/available-five-capture.json
 
       - name: Print the digest
         if: always()
