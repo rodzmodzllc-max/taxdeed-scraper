@@ -651,6 +651,12 @@ const FORCE_GATE = new URLSearchParams(location.search).get("authtest") === "1";
 // users to sign up" turned off does.
 const STUB_AUTH = new URLSearchParams(location.search).get("stubauth") === "1";
 const STUB_SIGNUP_DISABLED = new URLSearchParams(location.search).get("signupdisabled") === "1";
+// ?emaillimit=1: Supabase's built-in e-mail sender is over its hourly limit -
+// signUp / resend / resetPasswordForEmail answer 429 and nothing is created.
+// ?unconfirmed=1: signInWithPassword answers "Email not confirmed".
+const STUB_EMAIL_LIMIT = new URLSearchParams(location.search).get("emaillimit") === "1";
+const STUB_UNCONFIRMED = new URLSearchParams(location.search).get("unconfirmed") === "1";
+const STUB_RATE_ERR = { message: "email rate limit exceeded", status: 429, code: "over_email_send_rate_limit" };
 const STUB_SESSION_KEY = "stub-auth-session";
 const STUB_DB_KEY = "stub-server-db";
 const STUB_SERVER_USERS = [
@@ -690,6 +696,7 @@ export function createClient() {
         return { data: { subscription: { unsubscribe() {} } } };
       },
       async signInWithPassword(creds) {
+        if (STUB_AUTH && STUB_UNCONFIRMED) return { data: { user: null, session: null }, error: { message: "Email not confirmed", status: 400, code: "email_not_confirmed" } };
         if (STUB_AUTH) {
           const u = stubUsers().find(x => creds && x.email === creds.email && x.password === creds.password);
           if (!u) return { data: { user: null, session: null }, error: { message: "Invalid login credentials", status: 400 } };
@@ -704,6 +711,7 @@ export function createClient() {
         const email = creds && creds.email;
         if (STUB_AUTH) {
           if (STUB_SIGNUP_DISABLED) return { data: { user: null, session: null }, error: { message: "Signups not allowed for this instance", status: 422 } };
+          if (STUB_EMAIL_LIMIT) return { data: { user: null, session: null }, error: STUB_RATE_ERR };
           const users = stubUsers();
           if (!email || !creds.password || users.some(x => x.email === email)) {
             return { data: { user: null, session: null }, error: { message: "User already registered", status: 422 } };
@@ -733,6 +741,11 @@ export function createClient() {
       // SaaS hardening: the two supported-pattern calls the account
       // lifecycle uses. ?resetfail=1 makes the reset request fail so the
       // error path is exercised too.
+      async resend(args) {
+        window.__stubResendCalls = (window.__stubResendCalls || []).concat([args]);
+        if (STUB_EMAIL_LIMIT) return { data: null, error: STUB_RATE_ERR };
+        return { data: {}, error: null };
+      },
       async resetPasswordForEmail(email, opts) {
         window.__stubResetCalls = (window.__stubResetCalls || []).concat([{ email, redirectTo: opts && opts.redirectTo }]);
         if (new URLSearchParams(location.search).get("resetfail") === "1") return { data: null, error: { message: "stub: reset refused" } };

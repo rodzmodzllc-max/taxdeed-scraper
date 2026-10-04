@@ -3254,6 +3254,41 @@ await navMap.close();
   results.signupDisabledMsg = ((await closed.locator('#authMsg').textContent()) || '').trim();
   results.signupDisabledNoSession = await closed.locator('#app').isHidden() && await closed.locator('#pendingGate').isHidden();
   await closed.close();
+
+  // 2026-10-04 investor testing: the project's e-mail sender over its hourly
+  // limit. The visitor is told plainly that NO account was created and what
+  // to do; the form keeps what they typed.
+  const limited = await newPage({ viewport: { width: 1000, height: 800 } });
+  await limited.goto(APP_URL + '&emaillimit=1' + '#/auctions', { waitUntil: 'networkidle' });
+  await fillSignUp(limited, 'investor@example.com', 'fixture-investor-pass');
+  results.signupRateLimitMsg = ((await limited.locator('#authMsg').textContent()) || '').trim();
+  results.signupRateLimitKeepsForm = { email: await limited.inputValue('#email'), first: await limited.inputValue('#firstName'), mode: ((await limited.locator('#signInBtn').textContent()) || '').trim() };
+  results.signupRateLimitNoSession = await limited.locator('#app').isHidden() && await limited.locator('#pendingGate').isHidden();
+  await limited.close();
+
+  // Signing in before confirming: a plain message and a Resend button that
+  // calls auth.resend for the typed address.
+  const unconf = await newPage({ viewport: { width: 1000, height: 800 } });
+  await unconf.goto(APP_URL + '&unconfirmed=1' + '#/auctions', { waitUntil: 'networkidle' });
+  results.resendHiddenInitially = await unconf.locator('#resendConfirmBtn').isHidden();
+  await unconf.fill('#email', 'new@example.com');
+  await unconf.fill('#password', 'fixture-new-pass');
+  await unconf.click('#signInBtn');
+  await unconf.waitForTimeout(300);
+  results.signinUnconfirmedMsg = ((await unconf.locator('#authMsg').textContent()) || '').trim();
+  results.resendVisibleAfterUnconfirmed = await unconf.locator('#resendConfirmBtn').isVisible();
+  await unconf.click('#resendConfirmBtn');
+  await unconf.waitForTimeout(300);
+  results.resendCall = await unconf.evaluate(() => (window.__stubResendCalls || []).map(c => ({ type: c.type, email: c.email, redirect: !!(c.options && c.options.emailRedirectTo) })));
+  results.resendMsg = ((await unconf.locator('#authMsg').textContent()) || '').trim();
+  await unconf.close();
+
+  // An expired / already-used confirmation link lands with an error hash.
+  const expired = await newPage({ viewport: { width: 1000, height: 800 } });
+  await expired.goto(APP_URL + '#error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired', { waitUntil: 'networkidle' });
+  results.expiredLinkMsg = ((await expired.locator('#authMsg').textContent()) || '').trim();
+  results.expiredLinkHashCleared = await expired.evaluate(() => !/error/.test(location.hash));
+  await expired.close();
 }
 
 // ============================================================
@@ -4331,7 +4366,7 @@ const EXPECTED = {
   },
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: { ready: true, controlled: true, tagline: "Tax Sale Property Intelligence", noState: true, cache: ["tdw-shell-v77"] },
+  brandSwReload: { ready: true, controlled: true, tagline: "Tax Sale Property Intelligence", noState: true, cache: ["tdw-shell-v78"] },
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · Tax Acquisitions — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · Tax Acquisitions — Florida", floridaCopy: true },
@@ -5390,7 +5425,18 @@ const EXPECTED = {
   certDecRelated: 'Currently in Auctions (case A-1). Same state, county and parcel number; why a record moved between ledgers is not recorded.',
   certDecNavHasDecision: 1,
   certCsvHeader: ['State', 'County', 'Certificate #', 'Account #', 'Parcel', 'Tax Year', 'Amount', 'Interest Rate (as published)', 'Issued Date', 'Expiration Date', 'Est. Accrued Interest', 'TDA Eligibility Date', 'Status (per the source)', 'Status Observed', 'Same Parcel In Other Ledgers', 'County-Held List URL', 'Source', 'Last Synced', 'Source Review Status'],
-  certCsvHeaderLacks: true
+  certCsvHeaderLacks: true,
+  // Sign-up resilience (2026-10-04): e-mail limit, unconfirmed sign-in, expired link.
+  signupRateLimitMsg: "We couldn't send the confirmation email right now - our sign-up email limit for this hour has been reached. Your account was NOT created yet. Please try again in about an hour, or contact support and we will set it up for you.",
+  signupRateLimitKeepsForm: {"email": "investor@example.com", "first": "Pat", "mode": "Create account"},
+  signupRateLimitNoSession: true,
+  resendHiddenInitially: true,
+  signinUnconfirmedMsg: "Your email address isn't confirmed yet. Open the confirmation link we emailed you (check spam / promotions), then sign in. Didn't get it? Use “Resend confirmation email” below.",
+  resendVisibleAfterUnconfirmed: true,
+  resendCall: [{"type": "signup", "email": "new@example.com", "redirect": true}],
+  resendMsg: "If that account is waiting for confirmation, a new confirmation link has been sent. Open the newest email - earlier links stop working.",
+  expiredLinkMsg: "That email link has expired or was already used. If you already confirmed your email, just sign in. Otherwise sign in once to get the “Resend confirmation email” option, and open the newest email.",
+  expiredLinkHashCleared: true
 };
 
 const mismatches = [];
