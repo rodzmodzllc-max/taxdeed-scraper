@@ -80,6 +80,25 @@ removes it. As `service_role`: the next scheduled sync upserts normally.
     still waits for admin approval (`profiles.approved`) before it sees any
     data. The trade-off is that nobody verifies the address belongs to the
     person.
+  - **Resolution chosen by the owner (2026-10-04): server-side sign-up.**
+    The `self-signup` Edge Function (`supabase/functions/self-signup`,
+    deployed with `verify_jwt` off) creates the account through the admin
+    API, already confirmed, and sends no e-mail, so the hourly limit no
+    longer applies to sign-up. The app signs the new user in, and they land
+    on the pending-approval screen. Access is unchanged: `handle_new_user`
+    creates the profile with `approved = false`, and nothing the caller sends
+    can change that.
+    - The function protects itself with an origin allowlist
+      (`*.rodz-taxdeeds.pages.dev`), input validation, a 4 KB body cap, a
+      honeypot field and a best-effort per-IP limit.
+    - Trade-off: the address is not verified. Admin approval is the gate.
+    - If the function cannot be reached, the app falls back to
+      `auth.signUp`, which sends an e-mail.
+    - CI (`playwright-test.yml` `deployed-login`, run by
+      `scripts/check_self_signup.py`) checks the deployed function with
+      refused payloads only.
+    - Password reset and "Resend confirmation" still send e-mail, so custom
+      SMTP is still worth configuring.
   - **Redirect URLs.** The confirmation link now returns to the page the
     visitor signed up on (`emailRedirectTo`). Every state page
     (`/<state>.html`) belongs on the Redirect URLs list; a URL not on the

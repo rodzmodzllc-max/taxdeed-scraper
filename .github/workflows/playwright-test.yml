@@ -101,3 +101,8 @@ jobs:
         env:
           REQUIRE: ${{ github.event_name == 'push' && '--require --wait 900' || '' }}
         run: python3 scripts/check_deployed_branding.py --base https://rodz-taxdeeds.pages.dev $REQUIRE
+
+      # Sign-up runs through the self-signup Edge Function (2026-10-04). Only
+      # refused payloads are sent: no account is ever created by this check.
+      - name: Self-signup Edge Function reachable (CORS + validation)
+        run: python3 scripts/check_self_signup.py --origin https://rodz-taxdeeds.pages.dev

@@ -3283,6 +3283,28 @@ await navMap.close();
   results.resendMsg = ((await unconf.locator('#authMsg').textContent()) || '').trim();
   await unconf.close();
 
+  // Server-side sign-up (self-signup Edge Function): the account is created
+  // with no e-mail, the app signs in and lands on the pending-approval screen.
+  const fnUp = await newPage({ viewport: { width: 1000, height: 800 } });
+  await fnUp.goto(APP_URL + '&selfsignup=1' + '#/auctions', { waitUntil: 'networkidle' });
+  await fillSignUp(fnUp, 'client@example.com', 'fixture-client-pass');
+  await fnUp.waitForTimeout(500);
+  results.selfSignupCall = await fnUp.evaluate(() => (window.__stubFnCalls || []).map(c => ({ name: c.name, email: c.email, fields: c.fields })));
+  results.selfSignupPending = { pending: await fnUp.locator('#pendingGate').isVisible(), app: await fnUp.locator('#app').isVisible(), gate: await fnUp.locator('#authGate').isVisible() };
+  await fnUp.close();
+  // The same address again: the function's own refusal, shown as is.
+  const fnDup = await newPage({ viewport: { width: 1000, height: 800 } });
+  await fnDup.goto(APP_URL + '&selfsignup=1' + '#/auctions', { waitUntil: 'networkidle' });
+  await fillSignUp(fnDup, 'normal@example.com', 'fixture-dup-pass');
+  results.selfSignupDuplicateMsg = ((await fnDup.locator('#authMsg').textContent()) || '').trim();
+  await fnDup.close();
+  const fnBad = await newPage({ viewport: { width: 1000, height: 800 } });
+  await fnBad.goto(APP_URL + '&selfsignup=bad' + '#/auctions', { waitUntil: 'networkidle' });
+  await fillSignUp(fnBad, 'short@example.com', 'short');
+  results.selfSignupRefusalMsg = ((await fnBad.locator('#authMsg').textContent()) || '').trim();
+  results.selfSignupRefusalNoFallback = await fnBad.evaluate(() => (window.__stubFnCalls || []).length);
+  await fnBad.close();
+
   // An expired / already-used confirmation link lands with an error hash.
   const expired = await newPage({ viewport: { width: 1000, height: 800 } });
   await expired.goto(APP_URL + '#error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired', { waitUntil: 'networkidle' });
@@ -5436,7 +5458,13 @@ const EXPECTED = {
   resendCall: [{"type": "signup", "email": "new@example.com", "redirect": true}],
   resendMsg: "If that account is waiting for confirmation, a new confirmation link has been sent. Open the newest email - earlier links stop working.",
   expiredLinkMsg: "That email link has expired or was already used. If you already confirmed your email, just sign in. Otherwise sign in once to get the “Resend confirmation email” option, and open the newest email.",
-  expiredLinkHashCleared: true
+  expiredLinkHashCleared: true,
+  // Server-side sign-up (self-signup Edge Function).
+  selfSignupCall: [{"name": "self-signup", "email": "client@example.com", "fields": ["address", "company", "email", "first_name", "last_name", "password", "phone"]}],
+  selfSignupPending: {"pending": true, "app": false, "gate": false},
+  selfSignupDuplicateMsg: "An account with this email already exists. Choose “Already have an account? Sign in”, or “Forgot password?” to set a new password.",
+  selfSignupRefusalMsg: "Please choose a password of at least 8 characters.",
+  selfSignupRefusalNoFallback: 1
 };
 
 const mismatches = [];

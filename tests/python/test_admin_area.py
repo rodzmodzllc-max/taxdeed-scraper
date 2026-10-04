@@ -156,10 +156,23 @@ def test_s01_the_admin_area_uses_the_existing_approval_mechanism():
 def test_s02_sign_up_never_asks_for_approval_or_a_role():
     """The client sends profile details only; approved / is_admin are the
     database's defaults (handle_new_user inserts id + email)."""
+    profile = APP_JS.split("const profile = {", 1)[1].split("};", 1)[0]
+    assert "first_name: firstName" in profile
     call = APP_JS.split("await sb.auth.signUp({", 1)[1].split("});", 1)[0]
-    assert "first_name: firstName" in call
-    for word in ("approved", "is_admin", "role"):
-        assert word not in call, word
+    assert "data: profile" in call
+    fn_call = APP_JS.split('sb.functions.invoke("self-signup"', 1)[1].split(");", 1)[0]
+    assert "...profile" in fn_call
+    for text in (profile, call, fn_call):
+        for word in ("approved", "is_admin", "role"):
+            assert word not in text, word
+    # The server-side path stores only the five profile fields, already
+    # confirmed, and never sets approval or a role.
+    fn = (REPO / "supabase/functions/self-signup/index.ts").read_text(encoding="utf-8")
+    assert 'const FIELDS = ["first_name", "last_name", "company", "address", "phone"] as const;' in fn
+    assert "email_confirm: true, user_metadata: meta" in fn
+    code = "\n".join(l for l in fn.splitlines() if not l.strip().startswith("//"))
+    for word in ("approved", "is_admin", "app_metadata"):
+        assert word not in code, word
 
 
 def test_s03_signups_disabled_error_gets_a_clear_message():

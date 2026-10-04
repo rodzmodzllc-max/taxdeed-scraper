@@ -2032,6 +2032,28 @@ function signUpErrorText(error) {
   }
   return msg || "Could not create the account. Please try again.";
 }
+// Server-side sign-up (supabase/functions/self-signup). Returns
+// { ok: true } | { ok: false, message } (the function's own plain-language
+// refusal) | { ok: false, unreachable: true } (function missing or the
+// network failed - the caller falls back to auth.signUp).
+async function serverSignUp(email, password, profile) {
+  try {
+    const { data, error } = await sb.functions.invoke("self-signup", { body: { email, password, ...profile } });
+    if (!error && data && data.ok) return { ok: true };
+    if (error) {
+      const res = error.context;
+      if (res && typeof res.status === "number" && res.status !== 404 && res.status < 500 && typeof res.json === "function") {
+        let body = null;
+        try { body = await res.json(); } catch { body = null; }
+        return { ok: false, message: (body && body.message) || "Could not create the account. Please try again." };
+      }
+      return { ok: false, unreachable: true };
+    }
+    return { ok: false, unreachable: true };
+  } catch {
+    return { ok: false, unreachable: true };
+  }
+}
 function isEmailRateLimit(error) {
   const msg = String((error && error.message) || "");
   return (error && (error.status === 429 || error.code === "over_email_send_rate_limit")) || /rate limit/i.test(msg);
@@ -2085,25 +2107,42 @@ if (authForm) {
       }
       if (btn) btn.disabled = true;
       if (authMsg) { authMsg.className = "auth-msg"; authMsg.textContent = "Creating account"; }
+      const profile = { first_name: firstName, last_name: lastName, company, address, phone };
+      // 2026-10-04: sign-up goes through the self-signup Edge Function
+      // (supabase/functions/self-signup), which creates the account already
+      // confirmed and sends NO e-mail - Supabase's built-in sender allows only
+      // a few auth e-mails per hour and was refusing new clients. The account
+      // still waits for admin approval (profiles.approved = false). Only when
+      // the function itself cannot be reached does the browser fall back to
+      // auth.signUp (confirmation e-mail).
+      const viaFn = await serverSignUp(email, password, profile);
+      if (viaFn.ok) {
+        const { error: signInError } = await sb.auth.signInWithPassword({ email, password });
+        if (btn) btn.disabled = false;
+        if (signInError) {
+          setAuthMode("signin");
+          const em = document.getElementById("email"); if (em) em.value = email;
+          if (authMsg) { authMsg.className = "auth-msg"; authMsg.textContent = "Account created. Sign in with your email and password. New accounts stay pending until an administrator approves them."; }
+        }
+        // On success onAuthStateChange takes over and shows the pending-approval screen.
+        return;
+      }
+      if (!viaFn.unreachable) {
+        if (btn) btn.disabled = false;
+        if (authMsg) { authMsg.className = "auth-msg err"; authMsg.textContent = viaFn.message || "Could not create the account. Please try again."; }
+        return;
+      }
       const { data, error } = await sb.auth.signUp({
         email,
         password,
-        options: { data: { first_name: firstName, last_name: lastName, company, address, phone }, emailRedirectTo: location.origin + location.pathname }
+        options: { data: profile, emailRedirectTo: location.origin + location.pathname }
       });
       if (btn) btn.disabled = false;
       if (error) {
         if (authMsg) { authMsg.className = "auth-msg err"; authMsg.textContent = signUpErrorText(error); }
         return;
       }
-      // Two outcomes depending on the project's email-confirmation setting:
-      // a session comes back immediately (auto-confirmed - the
-      // onAuthStateChange listener below takes it from here and shows the
-      // app), or Supabase requires a confirmation click first and there's
-      // no session yet - in that case, drop back to the sign-in view with
-      // an explanatory message instead of silently doing nothing.
       if (!data.session) {
-        // setAuthMode() clears authMsg as part of resetting the form, so the
-        // confirmation message has to be set AFTER switching modes, not before.
         setAuthMode("signin");
         if (authMsg) {
           authMsg.className = "auth-msg";

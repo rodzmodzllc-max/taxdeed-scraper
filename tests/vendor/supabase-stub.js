@@ -756,6 +756,27 @@ export function createClient() {
         return { data: { user: { id: "u1", email: "test@example.com", user_metadata: (attrs && attrs.data) || {} } }, error: null };
       }
     },
+    // Edge Functions (2026-10-04): self-signup creates the account server-side,
+    // already confirmed, with no e-mail. ?selfsignup=1 deploys it in the stub
+    // (STUB_AUTH: a real stub server user, approved = false, no session -
+    // the app then signs in); ?selfsignup=bad answers a validation refusal.
+    // Without the flag the function is "not deployed" (404) and the app falls
+    // back to auth.signUp, which is what every older sign-up check exercises.
+    functions: {
+      async invoke(name, opts) {
+        const mode = new URLSearchParams(location.search).get("selfsignup");
+        const body = (opts && opts.body) || {};
+        window.__stubFnCalls = (window.__stubFnCalls || []).concat([{ name, email: body.email, fields: Object.keys(body).sort() }]);
+        const res = (status, json) => ({ data: null, error: { name: "FunctionsHttpError", message: "Edge Function returned a non-2xx status code", context: { status, json: async () => json } } });
+        if (name !== "self-signup" || !mode) return res(404, {});
+        if (mode === "bad") return res(400, { error: "weak_password", message: "Please choose a password of at least 8 characters." });
+        const users = stubUsers();
+        if (users.some(x => x.email === body.email)) return res(409, { error: "already_registered", message: "An account with this email already exists. Choose “Already have an account? Sign in”, or “Forgot password?” to set a new password." });
+        users.push({ id: "s" + (users.length + 1), email: body.email, password: body.password, approved: false, is_admin: false, requested_at: new Date().toISOString() });
+        stubSaveUsers(users);
+        return { data: { ok: true }, error: null };
+      }
+    },
     from(table) { return new MockQuery(table); },
     // Added Phase 15 (Customer Surface Security Audit): app.js's
     // fetchProperties() has called sb.rpc("get_properties", {p_state})
