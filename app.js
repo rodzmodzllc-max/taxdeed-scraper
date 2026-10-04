@@ -1998,6 +1998,7 @@ function setAuthMode(mode) {
   const pw = document.getElementById("password");
   if (pw) pw.autocomplete = signUp ? "new-password" : "current-password";
   if (authMsg) { authMsg.className = "auth-msg"; authMsg.textContent = ""; }
+  showResendConfirmation(false);
 }
 if (authModeToggle) {
   authModeToggle.addEventListener("click", () => setAuthMode(authMode === "signin" ? "signup" : "signin"));
@@ -2013,7 +2014,68 @@ function signUpErrorText(error) {
   if (/signups? not allowed/i.test(msg)) {
     return "New account registration is closed right now, so this account was not created. Please try again later or contact support.";
   }
+  // 2026-10-04 (investor testing): Supabase's built-in e-mail sender allows
+  // only a few auth e-mails per hour for the whole project, and a sign-up
+  // needs one (the confirmation link). Over the limit the request fails with
+  // 429 and NO account is created - say exactly that, not the raw wording.
+  if (isEmailRateLimit(error)) {
+    return "We couldn't send the confirmation email right now - our sign-up email limit for this hour has been reached. Your account was NOT created yet. Please try again in about an hour, or contact support and we will set it up for you.";
+  }
+  if (/already registered|already been registered|user already exists/i.test(msg)) {
+    return "An account with this email already exists. Choose “Already have an account? Sign in”, or “Forgot password?” to set a new password.";
+  }
+  if (/password should be|weak password|at least \d+ characters/i.test(msg)) {
+    return msg + " Please choose a longer password.";
+  }
+  if (/invalid.*email|email.*invalid|unable to validate email/i.test(msg)) {
+    return "That email address doesn't look valid. Please check it and try again.";
+  }
   return msg || "Could not create the account. Please try again.";
+}
+// Server-side sign-up (supabase/functions/self-signup). Returns
+// { ok: true } | { ok: false, message } (the function's own plain-language
+// refusal) | { ok: false, unreachable: true } (function missing or the
+// network failed - the caller falls back to auth.signUp).
+async function serverSignUp(email, password, profile) {
+  try {
+    const { data, error } = await sb.functions.invoke("self-signup", { body: { email, password, ...profile } });
+    if (!error && data && data.ok) return { ok: true };
+    if (error) {
+      const res = error.context;
+      if (res && typeof res.status === "number" && res.status !== 404 && res.status < 500 && typeof res.json === "function") {
+        let body = null;
+        try { body = await res.json(); } catch { body = null; }
+        return { ok: false, message: (body && body.message) || "Could not create the account. Please try again." };
+      }
+      return { ok: false, unreachable: true };
+    }
+    return { ok: false, unreachable: true };
+  } catch {
+    return { ok: false, unreachable: true };
+  }
+}
+function isEmailRateLimit(error) {
+  const msg = String((error && error.message) || "");
+  return (error && (error.status === 429 || error.code === "over_email_send_rate_limit")) || /rate limit/i.test(msg);
+}
+// Sign-in errors a visitor meets in practice, in plain words. "Email not
+// confirmed" also offers to resend the confirmation e-mail.
+function signInErrorText(error) {
+  const msg = String((error && error.message) || "");
+  if (/email not confirmed/i.test(msg)) {
+    return "Your email address isn't confirmed yet. Open the confirmation link we emailed you (check spam / promotions), then sign in. Didn't get it? Use “Resend confirmation email” below.";
+  }
+  if (/invalid login credentials/i.test(msg)) {
+    return "Email or password is incorrect. If you just created your account, confirm your email first; otherwise use “Forgot password?”.";
+  }
+  if (isEmailRateLimit(error)) {
+    return "Too many attempts in a short time. Please wait a few minutes and try again.";
+  }
+  return msg || "Could not sign in. Please try again.";
+}
+function showResendConfirmation(show) {
+  const b = document.getElementById("resendConfirmBtn");
+  if (b) b.hidden = !show;
 }
 
 const authForm = document.getElementById("authForm");
@@ -2045,25 +2107,42 @@ if (authForm) {
       }
       if (btn) btn.disabled = true;
       if (authMsg) { authMsg.className = "auth-msg"; authMsg.textContent = "Creating account"; }
+      const profile = { first_name: firstName, last_name: lastName, company, address, phone };
+      // 2026-10-04: sign-up goes through the self-signup Edge Function
+      // (supabase/functions/self-signup), which creates the account already
+      // confirmed and sends NO e-mail - Supabase's built-in sender allows only
+      // a few auth e-mails per hour and was refusing new clients. The account
+      // still waits for admin approval (profiles.approved = false). Only when
+      // the function itself cannot be reached does the browser fall back to
+      // auth.signUp (confirmation e-mail).
+      const viaFn = await serverSignUp(email, password, profile);
+      if (viaFn.ok) {
+        const { error: signInError } = await sb.auth.signInWithPassword({ email, password });
+        if (btn) btn.disabled = false;
+        if (signInError) {
+          setAuthMode("signin");
+          const em = document.getElementById("email"); if (em) em.value = email;
+          if (authMsg) { authMsg.className = "auth-msg"; authMsg.textContent = "Account created. Sign in with your email and password. New accounts stay pending until an administrator approves them."; }
+        }
+        // On success onAuthStateChange takes over and shows the pending-approval screen.
+        return;
+      }
+      if (!viaFn.unreachable) {
+        if (btn) btn.disabled = false;
+        if (authMsg) { authMsg.className = "auth-msg err"; authMsg.textContent = viaFn.message || "Could not create the account. Please try again."; }
+        return;
+      }
       const { data, error } = await sb.auth.signUp({
         email,
         password,
-        options: { data: { first_name: firstName, last_name: lastName, company, address, phone } }
+        options: { data: profile, emailRedirectTo: location.origin + location.pathname }
       });
       if (btn) btn.disabled = false;
       if (error) {
         if (authMsg) { authMsg.className = "auth-msg err"; authMsg.textContent = signUpErrorText(error); }
         return;
       }
-      // Two outcomes depending on the project's email-confirmation setting:
-      // a session comes back immediately (auto-confirmed - the
-      // onAuthStateChange listener below takes it from here and shows the
-      // app), or Supabase requires a confirmation click first and there's
-      // no session yet - in that case, drop back to the sign-in view with
-      // an explanatory message instead of silently doing nothing.
       if (!data.session) {
-        // setAuthMode() clears authMsg as part of resetting the form, so the
-        // confirmation message has to be set AFTER switching modes, not before.
         setAuthMode("signin");
         if (authMsg) {
           authMsg.className = "auth-msg";
@@ -2080,9 +2159,10 @@ if (authForm) {
     }
     const { error } = await sb.auth.signInWithPassword({ email, password });
     if (btn) btn.disabled = false;
+    showResendConfirmation(!!error && /email not confirmed/i.test(String(error.message || "")));
     if (error && authMsg) {
       authMsg.className = "auth-msg err";
-      authMsg.textContent = error.message;
+      authMsg.textContent = signInErrorText(error);
     }
   });
 }
@@ -2093,6 +2173,46 @@ if (authForm) {
 // docs/production-configuration.md section 2). Opening it signs the user in
 // with a recovery session and emits PASSWORD_RECOVERY, which opens the
 // "Set a new password" form below. Nothing here handles tokens by hand.
+// Resend the sign-up confirmation e-mail (supabase-js auth.resend). Shown
+// only after a sign-in fails with "Email not confirmed". It sends an e-mail,
+// so it is subject to the same hourly limit as sign-up and says so.
+const resendConfirmBtn = document.getElementById("resendConfirmBtn");
+if (resendConfirmBtn) resendConfirmBtn.addEventListener("click", async () => {
+  const email = (document.getElementById("email")?.value || "").trim();
+  if (!email) {
+    if (authMsg) { authMsg.className = "auth-msg err"; authMsg.textContent = "Enter your email above first."; }
+    return;
+  }
+  resendConfirmBtn.disabled = true;
+  if (authMsg) { authMsg.className = "auth-msg"; authMsg.textContent = "Sending confirmation email"; }
+  const { error } = await sb.auth.resend({ type: "signup", email, options: { emailRedirectTo: location.origin + location.pathname } });
+  resendConfirmBtn.disabled = false;
+  if (authMsg) {
+    authMsg.className = error ? "auth-msg err" : "auth-msg";
+    authMsg.textContent = error
+      ? (isEmailRateLimit(error) ? "We couldn't send another email right now - the hourly email limit has been reached. Please try again in about an hour, or contact support." : (error.message || "Could not resend the email."))
+      : "If that account is waiting for confirmation, a new confirmation link has been sent. Open the newest email - earlier links stop working.";
+  }
+});
+
+// A confirmation / reset link that was already used or has expired comes
+// back as #error=...&error_code=otp_expired&error_description=... - turn it
+// into a message on the sign-in screen and take it off the URL so the hash
+// router never sees it.
+(function handleAuthLinkError() {
+  const h = String(location.hash || "");
+  if (!/error_description=|error_code=/.test(h)) return;
+  const q = new URLSearchParams(h.replace(/^#\/?/, ""));
+  const code = q.get("error_code") || "";
+  const desc = (q.get("error_description") || "").replace(/\+/g, " ");
+  try { history.replaceState(history.state, "", location.pathname + location.search); } catch { /* ignore */ }
+  if (!authMsg) return;
+  authMsg.className = "auth-msg err";
+  authMsg.textContent = /expired|invalid/i.test(code + " " + desc)
+    ? "That email link has expired or was already used. If you already confirmed your email, just sign in. Otherwise sign in once to get the “Resend confirmation email” option, and open the newest email."
+    : (desc || "That email link could not be used. Please sign in or request a new link.");
+})();
+
 const forgotPasswordBtn = document.getElementById("forgotPasswordBtn");
 if (forgotPasswordBtn) forgotPasswordBtn.addEventListener("click", async () => {
   const email = (document.getElementById("email")?.value || "").trim();
@@ -2105,7 +2225,7 @@ if (forgotPasswordBtn) forgotPasswordBtn.addEventListener("click", async () => {
   const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname });
   forgotPasswordBtn.disabled = false;
   if (error) {
-    if (authMsg) { authMsg.className = "auth-msg err"; authMsg.textContent = error.message; }
+    if (authMsg) { authMsg.className = "auth-msg err"; authMsg.textContent = isEmailRateLimit(error) ? "We couldn't send a reset email right now - the hourly email limit has been reached. Please try again in about an hour, or contact support." : error.message; }
     return;
   }
   if (authMsg) {

@@ -57,6 +57,52 @@ removes it. As `service_role`: the next scheduled sync upserts normally.
   2026-09-29). Turn it on. No code change.
 - **Email confirmation** is on (all three existing users are confirmed).
   Keep it on for a paid product.
+- **Auth e-mail sender (blocks sign-up until fixed, 2026-10-04).** The
+  project uses Supabase's built-in e-mail service. Supabase limits it to a
+  couple of auth e-mails per hour for the whole project, and it is meant for
+  testing only.
+  - **What happened.** During investor testing on 2026-10-04, an existing
+    unconfirmed user signed up twice (21:29 and 21:31 UTC). Both attempts
+    sent confirmation e-mails, which used up the hour's quota. A new
+    investor's sign-ups at 22:11 and 22:14 then failed with `429 email rate
+    limit exceeded`, and no account was created.
+  - **What the app does now.** It says this plainly and keeps the form (see
+    `signUpErrorText()`), but only configuration removes the limit:
+    1. Authentication -> Emails -> **SMTP Settings** -> enable custom SMTP
+       with a transactional provider. Resend, SendGrid, Postmark and Amazon
+       SES all have free or low tiers. Use a sender on a domain you control,
+       with SPF/DKIM set.
+    2. Then Authentication -> **Rate Limits** -> raise "Rate limit for
+       sending emails". Supabase only allows changing it once custom SMTP is
+       on.
+  - **Interim option** (owner's decision). Turning "Confirm email" off sends
+    no e-mail at sign-up, so sign-up never hits the limit. Every account
+    still waits for admin approval (`profiles.approved`) before it sees any
+    data. The trade-off is that nobody verifies the address belongs to the
+    person.
+  - **Resolution chosen by the owner (2026-10-04): server-side sign-up.**
+    The `self-signup` Edge Function (`supabase/functions/self-signup`,
+    deployed with `verify_jwt` off) creates the account through the admin
+    API, already confirmed, and sends no e-mail, so the hourly limit no
+    longer applies to sign-up. The app signs the new user in, and they land
+    on the pending-approval screen. Access is unchanged: `handle_new_user`
+    creates the profile with `approved = false`, and nothing the caller sends
+    can change that.
+    - The function protects itself with an origin allowlist
+      (`*.rodz-taxdeeds.pages.dev`), input validation, a 4 KB body cap, a
+      honeypot field and a best-effort per-IP limit.
+    - Trade-off: the address is not verified. Admin approval is the gate.
+    - If the function cannot be reached, the app falls back to
+      `auth.signUp`, which sends an e-mail.
+    - CI (`playwright-test.yml` `deployed-login`, run by
+      `scripts/check_self_signup.py`) checks the deployed function with
+      refused payloads only.
+    - Password reset and "Resend confirmation" still send e-mail, so custom
+      SMTP is still worth configuring.
+  - **Redirect URLs.** The confirmation link now returns to the page the
+    visitor signed up on (`emailRedirectTo`). Every state page
+    (`/<state>.html`) belongs on the Redirect URLs list; a URL not on the
+    list falls back to the Site URL.
 - **Public sign-up** (Authentication -> Sign In / Providers ->
   "Allow new users to sign up"): must be **ON** for visitors to create accounts. When it
   is off, Supabase refuses every sign-up with "Signups not allowed for this
