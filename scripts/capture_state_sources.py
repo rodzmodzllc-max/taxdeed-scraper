@@ -1247,6 +1247,13 @@ FIVE3_DIRECTORY = "https://gisserver.its.ms.gov/arcgis/rest/services"
 FIVE3_FOLDER_RE = re.compile(r"sos|tfl|forfeit|public.?land|land|hosted", re.I)
 FIVE3_SERVICE_RE = re.compile(r"sos|tfl|forfeit|public.?land|tax", re.I)
 FIVE3_ITEMS = ["bae26a0f2eaa455280a85537d4f3ea0a", "d74c6b741a83487e8ca56bc8ceafbd27"]
+FIVE3_LAYER_PROBES = [
+    ("https://gisserver.its.ms.gov/arcgis/rest/services/Hosted/Hinds_Tax_Forfeit_Properties_May_2026/FeatureServer/0", "1=1",
+     ["PPIN", "Parcel_No_", "Certificate__"],
+     ["Status", "Bid_Property", "Web", "Blighted", "Tidelands", "Strike_Reason", "County", "Judicial_District", "Municipality"]),
+    ("https://gisserver.its.ms.gov/arcgis/rest/services/Hosted/City_of_Jackson_Active_SOS_Parcels_Test/FeatureServer/0", "1=1",
+     ["PPIN", "SoSParNo"], ["County", "Municipality", "SchoolDistrict"]),
+]
 
 
 def directory_crawl(session: requests.Session, root: str, folder_re, *, max_services: int = 12) -> list[dict]:
@@ -1527,6 +1534,9 @@ def main(argv=None) -> int:
                 if "World_Imagery" in root:
                     continue
                 e3["pages"].append({"url": root, "kind": "arcgis", "layers": arcgis_layer_meta(session, root)})
+        for layer, where, ids, cats in FIVE3_LAYER_PROBES:
+            e3["pages"].append(layer_probe(session, layer, where, ids, cats))
+            print(f"  five3 probe       count={e3['pages'][-1].get('count')} {layer}", flush=True)
         report["states"].setdefault("MS", {"sources": []})["sources"].append(e3)
     passes = []
     if args.five_state_pass2:
