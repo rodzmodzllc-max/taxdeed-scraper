@@ -951,7 +951,10 @@ const state = {
   // single classification shows just that group. A search always looks
   // through the whole inventory. buyBox is the investor's own criteria,
   // applied on top; sourceFilter narrows to one harvester source.
-  screenView: "discovery",
+  // Test hook (tests/run_test.mjs): the pre-existing checks run against the
+  // full inventory so their counts are unchanged; the screen's own checks use
+  // the real default.
+  screenView: (typeof window !== "undefined" && window.__tdwScreenView) || "discovery",
   buyBox: { minAcres: null, maxAcres: null, minValue: null, maxAmount: null, maxBidToValue: null, requireParcel: false, requireAcreage: false, requireValue: false, requireClass: false },
   sourceFilter: "any", screenIgnore: false,
   ledger: "auction",
@@ -7190,8 +7193,9 @@ bindBuyBoxCheck("screenReqAcreage", "requireAcreage");
 bindBuyBoxCheck("screenReqValue", "requireValue");
 bindBuyBoxCheck("screenReqClass", "requireClass");
 bindSelect("screenSourceFilter", "sourceFilter");
+function defaultScreenView() { return (typeof window !== "undefined" && window.__tdwScreenView) || "discovery"; }
 function resetScreenFilters() {
-  state.screenView = "discovery";
+  state.screenView = defaultScreenView();
   state.sourceFilter = "any";
   Object.keys(state.buyBox).forEach(k => { state.buyBox[k] = typeof state.buyBox[k] === "boolean" ? false : null; });
   ["screenMinAcres", "screenMaxAcres", "screenMinValue", "screenMaxRatio"].forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
@@ -9882,7 +9886,7 @@ function filterChipList() {
   }
   if (state.types.size !== TYPE_ORDER.length) chips.push({ key: "types", label: `Property type: ${state.types.size} of ${TYPE_ORDER.length}` });
   if (state.liens.size !== LIEN_ORDER.length) chips.push({ key: "liens", label: `Lien notes: ${state.liens.size} of ${LIEN_ORDER.length}` });
-  if (SCREENED_SOURCES.includes(state.ledger) && state.screenView !== "discovery") chips.push({ key: "screen", label: `Research screen: ${state.screenView === "all" ? "All inventory" : (CLASSIFICATION_LABELS[state.screenView] || state.screenView)}` });
+  if (SCREENED_SOURCES.includes(state.ledger) && state.screenView !== defaultScreenView()) chips.push({ key: "screen", label: `Research screen: ${state.screenView === "all" ? "All inventory" : (CLASSIFICATION_LABELS[state.screenView] || state.screenView)}` });
   if (state.statusView === "live" || state.statusView === "gone") chips.push({ key: "status", label: state.statusView === "live" ? "Active only" : "No longer listed only" });
   chipControlIds().forEach(id => {
     const el = document.getElementById(id);
@@ -9915,7 +9919,7 @@ function removeFilterChip(key) {
   }
   if (key === "bid") { if (bindBidRangeSliders.reset) bindBidRangeSliders.reset(); updateBadge(); render(); return; }
   if (key === "types" || key === "liens") { const b = document.querySelector(`.mini-btn[data-group="${key}"][data-mode="all"]`); if (b) b.click(); return; }
-  if (key === "screen") { setScreenView("discovery"); return; }
+  if (key === "screen") { setScreenView(defaultScreenView()); return; }
   if (key === "status") { const c = document.querySelector('.summary-strip .chip[data-status="all"]'); if (c) c.click(); return; }
   if (key.startsWith("ctl:")) {
     const el = document.getElementById(key.slice(4));

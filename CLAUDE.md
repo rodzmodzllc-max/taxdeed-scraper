@@ -2419,4 +2419,4 @@ Full description: `docs/investor-screening.md`. Stable facts:
 - List: `#screenBar` (counts + Discovery / each class / All inventory); a search always looks through the whole inventory; buy box `#screenFilters`; card `.screen-line`; property page section `screen`; CSV columns. The Map page is not screened.
 - Tests: `tests/run_test.mjs` opens pre-screen pages with `window.__tdwScreenView = "all"` (so old counts hold); the screen's own block opens pages with `{ screen: "default" }`.
 - Production measurement (read-only SQL port): `scripts/sql/screening_v1_measure.sql`. Screening metrics are never called ROI / profit / return.
-- `sw.js` -> `tdw-shell-v78`.
+- `sw.js` -> `tdw-shell-v79`.
