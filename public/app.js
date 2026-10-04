@@ -10009,5 +10009,5 @@ function cardAcqBadgeHtml(p) {
   const a = acquisitionOf(p);
   if (!a.verified) return `<div class="card-acq"><span class="acq-badge" data-acq="${a.mode === "none" ? "none" : "unverified"}">${a.mode === "none" ? "No purchase path published" : "Acquisition path not yet verified"}</span></div>`;
   const label = a.mode === "online" ? ACQUISITION_MODE_LABELS.online : a.mode === "bid" ? "Bid form" : a.mode === "application" ? "Application required" : (ACQUISITION_MODE_LABELS[a.mode] || a.short);
-  return `<div class="card-acq"><span class="acq-badge" data-acq="${esc(a.mode)}">${esc(label)}</span>${a.mode !== "online" ? `<span class="acq-note">No online purchase link on file</span>` : ""}</div>`;
+  return `<div class="card-acq"><span class="acq-badge" data-acq="${esc(a.mode)}">${esc(label)}</span>${a.mode !== "online" && purchasePathOf(p).kind !== "none" ? `<span class="acq-note">No online purchase link on file</span>` : ""}</div>`;   // the Purchase path line below already says it when no path is on file
 }

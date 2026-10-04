@@ -3506,7 +3506,12 @@ await navMap.close();
     pg = await open('', '#/lands');
     await pg.click('#expandAllBtn');
     await pg.waitForTimeout(300);
-    results.rdCardAcq = await pg.locator('#main .prop-card[data-pid] .card-acq').evaluateAll(els => els.map(e => e.closest('.prop-card').dataset.pid + ':' + e.textContent.replace(/\s+/g, ' ').trim()));
+    // Badge text, and whether the card as a whole states the missing online
+    // link exactly once (on the badge or the Purchase path line, never both).
+    results.rdCardAcq = await pg.locator('#main .prop-card[data-pid] .card-acq').evaluateAll(els => els.map(e => {
+      const card = e.closest('.prop-card');
+      return card.dataset.pid + ':' + e.querySelector('.acq-badge').textContent.trim() + ':' + (card.textContent.split('No online purchase link on file').length - 1);
+    }));
     await pg.close();
 
     // State picker: every production state; the current state with counts,
@@ -4703,7 +4708,7 @@ const EXPECTED = {
   rdCrumbHome: {"modalHidden": true, "dashVisible": true},
   rdGlobalEmpty: "No Florida property matches “zzzz-no-such”. Search covers address, parcel, case and certificate numbers and the county; to look in another state, switch state first.",
   rdGlobalEscape: true,
-  rdCardAcq: ["p3:Phone the countyNo online purchase link on file", "p15:Multi-step county processNo online purchase link on file"],
+  rdCardAcq: ["p3:Phone the county:1", "p15:Multi-step county process:1"],
   rdPicker: {"rows": ["CO=certificate", "FL=auction|laft|certificate", "LA=laft", "MI=auction", "MN=!none", "MO=!none", "OK=!none", "PA=!none", "SC=auction", "TX=auction|laft", "WI=!none", "WY=auction"], "groups": ["States with Available properties", "Other states"], "visible": true, "coHref": "co.html#/certificates", "flCounts": ["Auctions 9", "Available 2", "Liens & Certificates 1"]},
   rdPickerSearch: ["WY"],
   rdPickerEscape: true,
