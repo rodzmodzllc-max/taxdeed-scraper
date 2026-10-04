@@ -1,0 +1,37 @@
+# TEMPORARY (2026-10-04): one live end-to-end test of the deployed
+# self-signup Edge Function - creates ONE throwaway account on example.com,
+# signs in with it, prints status codes only. The account is deleted right
+# after; this branch and file are deleted too. Never merged.
+name: tmp-self-signup-live-test
+on:
+  push:
+    branches: [tmp/self-signup-live-test]
+jobs:
+  live:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create one account through the function, then sign in with it
+        run: |
+          python3 - <<'PY'
+          import json, urllib.request, urllib.error
+          FN = "https://cqnnnvpbocafuvpzfbzu.supabase.co/functions/v1/self-signup"
+          TOKEN = "https://cqnnnvpbocafuvpzfbzu.supabase.co/auth/v1/token?grant_type=password"
+          KEY = "sb_publishable_rk5440vza8jwE04v0Rn08w_vltFMEyQ"
+          email = "claude-live-test-20261004@example.com"
+          pw = "Live-test-pass-2026"
+          def post(url, body, headers):
+              req = urllib.request.Request(url, data=json.dumps(body).encode(), method="POST", headers={"Content-Type": "application/json", **headers})
+              try:
+                  with urllib.request.urlopen(req, timeout=30) as r: return r.status, json.loads(r.read() or b"{}")
+              except urllib.error.HTTPError as e:
+                  try: return e.code, json.loads(e.read() or b"{}")
+                  except Exception: return e.code, {}
+          st, b = post(FN, {"email": email, "password": pw, "first_name": "Live", "last_name": "Test", "company": "Independent", "address": "1 Test St", "phone": "555-0100"}, {"Origin": "https://rodz-taxdeeds.pages.dev", "apikey": KEY, "Authorization": "Bearer " + KEY})
+          print("create", st, b.get("ok"), b.get("error"))
+          st2, b2 = post(FN, {"email": email, "password": pw, "first_name": "Live", "last_name": "Test", "company": "Independent", "address": "1 Test St", "phone": "555-0100"}, {"Origin": "https://rodz-taxdeeds.pages.dev", "apikey": KEY, "Authorization": "Bearer " + KEY})
+          print("duplicate", st2, b2.get("error"))
+          st3, b3 = post(TOKEN, {"email": email, "password": pw}, {"apikey": KEY})
+          print("signin", st3, "session" if b3.get("access_token") else b3.get("error_code") or b3.get("msg"))
+          assert st == 200 and b.get("ok") and st2 == 409 and st3 == 200 and b3.get("access_token")
+          print("LIVE SELF-SIGNUP OK")
+          PY
