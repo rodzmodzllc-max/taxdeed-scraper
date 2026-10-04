@@ -3793,7 +3793,11 @@ await navMap.close();
       inViewport: sel.left >= 0 && acc.right <= window.innerWidth,
       sameRow: Math.abs((sel.top + sel.bottom) / 2 - (acc.top + acc.bottom) / 2) < 4,
       selectorFirst: sel.right <= acc.left,
-      headerCompact: bar.height <= 64,
+      // Shell redesign (2026-10-04): the phone header is two rows by design -
+      // brand / state / account, then the global search across the full
+      // width. Each row stays compact.
+      headerCompact: (() => { const gsr = document.getElementById('globalSearch').getBoundingClientRect();
+        return Math.max(sel.bottom, acc.bottom) - bar.top <= 64 && gsr.top >= Math.max(sel.bottom, acc.bottom) && gsr.height <= 48 && bar.height <= 120; })(),
       noHorizontalScroll: document.documentElement.scrollWidth <= window.innerWidth,
       value: document.getElementById('stateSelect').value
     };
@@ -4556,7 +4560,7 @@ const EXPECTED = {
   oppBidText: '$5,000.00 Value ÷ bid 18.0× (screening ratio, not a return)',
   oppValueText: '$90,000 2025 County Just Value · County Assessed Value $80,000',
   oppGaps: ['Image not checked yet', 'Not yet geocoded', 'Flood zone not checked'],
-  detailNavLabels: ['Summary', 'Decision', 'Financial', 'Property', 'History', 'Sale events', 'Watch', 'Risk & Legal', 'Map', 'Sources', 'Data'],   // customer-value sprint: the Auction decision block
+  detailNavLabels: ['Overview', 'Decision', 'Tax & Value', 'Property', 'History', 'Sale events', 'Watch', 'Risk & Legal', 'Map', 'Source', 'Provenance'],   // shell redesign: section nav reads as tabs   // customer-value sprint: the Auction decision block
   detailNavJumpScrolled: true,
   detailNavJumpMarksPill: true,
   showOnMapBtnText: 'Show county on the Map page',
@@ -4662,16 +4666,16 @@ const EXPECTED = {
   mapPageVisibleOnMapNav: true,
   navMapBtnOnAfterMapNav: true,
   mapPageTitle: 'Map',
-  navRailItems: ['dashboard:Dashboard', 'list:List 12', 'map:Map', 'watchlist:Watchlist 0/10'],
+  navRailItems: ['dashboard:Home', 'list:Search', 'watchlist:Watchlist 0/10', 'map:Map'],   // shell redesign: per-ledger entries carry the counts
   navBottomItems: ['dashboard', 'list', 'map', 'watchlist'],
   navLedgerEntriesGone: 0,
   navDashboardLit: ['dashboard'],
   navDashboardHash: '#/dashboard',
   navListClickShowsListPage: true,
-  navListClickLit: ['list'],
+  navListClickLit: ['ledger:auction'],   // shell redesign: the rail lights the ledger entry on the List
   navListClickHash: '#/auctions',
   tabCertHash: '#/certificates',
-  tabCertNavLit: ['list'],
+  tabCertNavLit: ['ledger:certificate'],
   tabCertHeading: 'Liens & Certificates',
   tabLaftHash: '#/lands',
   tabLaftHeading: 'Available',
@@ -4680,7 +4684,7 @@ const EXPECTED = {
   navWatchlistOpen: true,
   navWatchlistLit: ['watchlist'],
   navWatchlistHash: '#/watchlist',
-  navWatchlistClosedLit: ['list'],
+  navWatchlistClosedLit: ['ledger:laft'],
   navWatchlistClosedHash: '#/lands',
   navWatchlistClosedListVisible: true,
   navMapDeepVisible: true,
@@ -4801,7 +4805,7 @@ const EXPECTED = {
   gsDeepLinkTexas: {"state": "TX", "modal": true},
   gsDeepLinkSwitch: {"file": "index.html", "hash": "#/auctions", "state": "FL", "modal": false},
   gsPhone: {"bothVisible": true, "inViewport": true, "sameRow": true, "selectorFirst": true, "headerCompact": true, "noHorizontalScroll": true, "value": "TX"},
-  gsPhoneBottomNav: ["dashboard", "list", "map", "watchlist"],
+  gsPhoneBottomNav: ["dashboard", "list", "map", "watchlist", null],
   navMapHasNoOwnStateSelect: true,
   navMapAllLedgersLabel: 'All Ledgers',
   navMapCertPillLabel: 'Liens & Certificates',
@@ -4815,13 +4819,13 @@ const EXPECTED = {
   navMapAllHash: '#/map',
   navMapSearchHash: '#/map?q=Oak',
   navMapToListHash: "#/lands",
-  navMapToListLit: ['list'],
+  navMapToListLit: ['ledger:laft'],
   navListToMapHashKeepsContext: '#/map?q=Oak',
   navLegacyMapVisible: true,
   navLegacyMapHash: '#/map',
   navLandsListVisible: true,
   navLandsHeading: 'Available',
-  navLandsLit: ['list'],
+  navLandsLit: ['ledger:laft'],
   navHashEditDashboardVisible: true,
   navHashEditCertHeading: 'Liens & Certificates',
   navHashEditCertListVisible: true,
@@ -4840,9 +4844,9 @@ const EXPECTED = {
   navDashTileOpensList: true,
   navDashTileHash: '#/lands',
   navDashTileHeading: 'Available',
-  navPhoneBottomItems: 4,
+  navPhoneBottomItems: 5,
   navPhoneBottomFits: true,
-  navPhoneBottomLabels: ['Dashboard', 'List', 'Map', 'Watchlist'],
+  navPhoneBottomLabels: ['Home', 'Search', 'Map', 'Saved', 'Account'],
   navWlCards: ['p4'],
   navWlRelated: ['Currently listed in Auctions · also on your watchlist'],
   navWlCount: '2/10',
