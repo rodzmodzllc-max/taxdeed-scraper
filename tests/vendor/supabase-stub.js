@@ -504,7 +504,10 @@ class MockQuery {
   in(col, vals) { this._filters.push([col, vals, "in"]); return this; }
   lt(col, val) { this._filters.push([col, val, "lt"]); return this; }
   range() { return this; }
-  limit() { return this; }
+  limit(n) { this._limit = n; return this; }
+  // PostgREST or=(...) - only the customer publication filter the state
+  // picker sends is understood (see the properties branch below).
+  or(expr) { this._or = String(expr || ""); return this; }
   gte() { return this; }
   maybeSingle() { this._single = true; return this; }
   insert(row) { this._op = "insert"; this._row = row; return this; }
@@ -569,7 +572,21 @@ class MockQuery {
       else if (this._op === "delete") window.__stubBidListDeletes = (window.__stubBidListDeletes || 0) + 1;
     } else if (this._op === "select") {
       const matches = row => this._filters.every(([c, v, kind]) => kind === "in" ? (v || []).includes(row[c]) : kind === "lt" ? String(row[c]) < String(v) : row[c] === v);
-      if (this.table === "properties") result.data = FIXTURE_PROPERTIES;
+      if (this.table === "properties") {
+        // The legacy unscoped fallback (no filters) still gets every row. A
+        // filtered read - the state picker's "does this ledger have a row you
+        // may see" probe - applies eq() on state (implicitly FL, as the RPC
+        // does), source, the customer publication filter and the limit.
+        // ?probefail=1 makes every probe fail, like a network error.
+        if (!this._filters.length && !this._or) result.data = FIXTURE_PROPERTIES;
+        else if (new URLSearchParams(location.search).get("probefail") === "1") result = { data: null, error: { message: "probe failed (stub)" } };
+        else {
+          window.__stubPropertyProbes = (window.__stubPropertyProbes || 0) + 1;
+          let rows = FIXTURE_PROPERTIES.filter(r => this._filters.every(([c, v]) => (c === "state" ? (r.state || "FL") : r[c]) === v));
+          if (/publication_status\.is\.null/.test(this._or || "")) rows = rows.filter(r => !r.publication_status || ["APPROVED", "APPROVED_GRANDFATHERED"].includes(r.publication_status));
+          result.data = this._limit ? rows.slice(0, this._limit) : rows;
+        }
+      }
       else if (this.table === "auction_events") result.data = EVENT_ROWS.filter(matches);
       else if (this.table === "auction_event_observations") result.data = OBSERVATION_ROWS.filter(matches);
       else if (this.table === "source_health") {

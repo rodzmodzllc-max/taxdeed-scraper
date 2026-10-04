@@ -21,18 +21,29 @@ def _nav_pages(html: str, cls: str) -> list[str]:
     return re.findall(r'class="%s[^"]*" data-page="([a-z]+)"' % cls, html)
 
 
-def test_n01_exactly_four_primary_destinations_in_rail_and_bottom_bar_on_both_pages():
+def test_n01_shell_navigation_pages_ledger_entries_and_actions_on_both_pages():
+    # Shell redesign (2026-10-04). The rail routes four pages (Home =
+    # dashboard, Search = list, Watchlist, Map), carries one entry per ledger
+    # (data-nav-ledger, never data-page + data-ledger - a ledger is still not a
+    # page of its own: it opens the List on that ledger), and three actions
+    # (Saved Searches, States & Counties, About). The phone bar routes the
+    # same four pages plus the account menu.
     for html in (INDEX, TX):
-        assert _nav_pages(html, "nav-item") == ["dashboard", "list", "map", "watchlist"]
+        assert _nav_pages(html, "nav-item") == ["dashboard", "list", "watchlist", "map"]
         assert _nav_pages(html, "nav-bottom-item") == ["dashboard", "list", "map", "watchlist"]
-        # No ledger is a primary destination any more.
-        assert 'nav-item" data-page="auctions"' not in html and "nav-bottom-item" not in re.sub(r"<nav class=\"nav-bottom\".*?</nav>", "", html, flags=re.S)
+        assert re.findall(r'class="nav-item nav-ledger" data-nav-ledger="([a-z]+)"', html) == ["laft", "auction", "certificate"]
+        assert re.findall(r'class="nav-item" data-nav="([a-z]+)"', html) == ["saved", "states", "about"]
+        assert 'id="navBottomAccount"' in html and 'aria-controls="accountMenu"' in html
         assert not re.search(r'class="nav-(bottom-)?item[^"]*" data-page="[a-z]+" data-ledger=', html)
         assert "Liens &amp; Certs<" not in html                      # the full ledger name only
-    # Both pages ship the same navigation markup.
+        # The admin entry is hidden until the server profile says admin.
+        assert '<a class="nav-item" id="navAdminLink" href="admin.html" hidden>' in html
+    # Both pages ship the same navigation markup (a state's own ledger name is
+    # written by app.js from ledgerCopy(key).nav).
     rail = lambda h: re.search(r'<div class="nav-list">.*?</div>\n', h, re.S).group(0)  # noqa: E731
     bottom = lambda h: re.search(r'<nav class="nav-bottom".*?</nav>', h, re.S).group(0)  # noqa: E731
     assert rail(INDEX) == rail(TX) and bottom(INDEX) == bottom(TX)
+    assert "function syncLedgerNavNames()" in APP and "ledgerCopy(k).nav" in APP
 
 
 def test_n02_ledger_selector_lives_inside_the_list_page_and_names_all_three_ledgers():
@@ -127,6 +138,6 @@ def test_n09_watchlist_folds_the_same_parcel_across_ledgers_and_is_a_destination
 
 
 def test_n10_service_worker_bumped_and_root_mirror_matches_public():
-    assert (REPO / "public/sw.js").read_text(encoding="utf-8").count('const CACHE = "tdw-shell-v76"') == 1
+    assert (REPO / "public/sw.js").read_text(encoding="utf-8").count('const CACHE = "tdw-shell-v77"') == 1
     for f in ("app.js", "styles.css", "sw.js", "index.html", "tx.html", "explore.css"):
         assert (REPO / f).read_bytes() == (REPO / "public" / f).read_bytes(), f
