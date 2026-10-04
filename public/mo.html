@@ -1,0 +1,819 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!-- See public/index.html for why zoom is disabled and why viewport-fit=cover
+     was tried and then pulled back out. -->
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="color-scheme" content="light dark">
+<title>Tax Acquisitions — Tax Sale Property Intelligence</title>
+<link rel="stylesheet" href="styles.css">
+<!-- Loads AFTER styles.css on purpose: explore.css adds the split list+map
+view and applies a handful of plain-specificity overrides to the card and
+filter-bar classes above, which only win if it comes second. -->
+<link rel="stylesheet" href="explore.css">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0F172A">
+<!-- ?v=2 cache-busts the re-logo'd icon files - see sw.js's comment on
+     SHELL for why a filename-only swap wasn't enough for returning users. -->
+<link rel="icon" href="icons/icon-192.png?v=2">
+<!-- iOS has no manifest support for these; it needs its own tags. -->
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=2">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Tax Acquisitions">
+<script src="config.js"></script>
+<script src="boot.js"></script>
+</head>
+<body data-state="MO">
+
+<!-- ============ sign in ============ -->
+<div id="authGate" hidden>
+<div class="auth-card">
+<div class="auth-brand">
+<img class="brand-mark brand-mark-auth" src="icons/icon-192.png?v=2" width="72" height="72" alt="" aria-hidden="true">
+<h1>Tax Acquisitions</h1>
+</div>
+<p class="auth-tagline">Tax Sale Property Intelligence</p>
+<p class="auth-subtagline">Tax-sale, available-property, and lien/certificate research across supported states</p>
+<p class="auth-lead" id="authLead">Sign in to continue.</p>
+<form id="authForm">
+<!-- Phase 63: real labels, not placeholder-only fields - see index.html's
+copy of this same comment for the full reasoning (this markup is
+deliberately identical across both pages, same as every other authForm
+field). -->
+<label class="auth-field"><span>First name</span>
+  <input type="text" id="firstName" autocomplete="given-name" hidden></label>
+<label class="auth-field"><span>Last name</span>
+  <input type="text" id="lastName" autocomplete="family-name" hidden></label>
+<label class="auth-field"><span>Company</span>
+  <input type="text" id="company" placeholder="No company? Enter Independent" autocomplete="organization" hidden></label>
+<label class="auth-field"><span>Address</span>
+  <input type="text" id="address" autocomplete="street-address" hidden></label>
+<label class="auth-field"><span>Phone number</span>
+  <input type="tel" id="phone" autocomplete="tel" hidden></label>
+<label class="auth-field"><span>Email</span>
+  <input type="email" id="email" autocomplete="username" required></label>
+<label class="auth-field"><span>Password</span>
+  <input type="password" id="password" autocomplete="current-password" required></label>
+<label class="auth-field"><span>Confirm password</span>
+  <input type="password" id="passwordConfirm" autocomplete="new-password" hidden></label>
+<button type="submit" id="signInBtn">Sign in</button>
+</form>
+<button class="auth-mode-toggle" id="authModeToggle" type="button">Need an account? Create one</button>
+<button class="auth-mode-toggle" id="forgotPasswordBtn" type="button">Forgot password?</button>
+<div class="auth-msg" id="authMsg"></div>
+</div>
+</div>
+
+<!-- ============ pending approval ============
+Shown instead of the app for a signed-in account whose profiles.approved
+is still false (see schema-v6-approvals.sql) - the account exists and
+can authenticate, but every ledger table is walled off by RLS until the
+owner approves it, so there'd be nothing to show here anyway. -->
+<div id="pendingGate" hidden>
+<div class="auth-card">
+<div class="auth-brand">
+<img class="brand-mark brand-mark-auth" src="icons/icon-192.png?v=2" width="72" height="72" alt="" aria-hidden="true">
+<h1>Tax Acquisitions</h1>
+</div>
+<p class="auth-lead">Account created — awaiting approval.</p>
+<p class="auth-tagline" style="margin-bottom:1.4rem">The owner has been notified. You'll get access to the ledgers once your account is approved - no need to sign up again.</p>
+<button class="auth-mode-toggle" id="pendingSignOutBtn" type="button" style="padding-top:0">Sign out</button>
+</div>
+</div>
+
+<!-- ============ app ============ -->
+<div id="app" class="app-shell" hidden>
+<nav class="nav-rail" id="navRail" aria-label="Main">
+<div class="nav-rail-brand"><img src="icons/icon-192.png?v=2" width="44" height="44" alt="" aria-hidden="true"><span>Tax<span class="brand-accent">•</span>Acquisitions</span></div>
+<div class="nav-list">
+<!-- Unified navigation (2026-09-30): exactly four destinations - Dashboard,
+     List (every ledger, selected inside the page by #ledgerTabs), Map and
+     Watchlist. The three per-ledger entries this list used to carry are gone;
+     app.js showPage()/syncLedgerNav() light an entry on its page alone. The
+     List count is the sum of the three ledger counts; the Watchlist entry
+     opens the watchlist and is lit while it is open. -->
+<button class="nav-item" data-page="dashboard" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>Dashboard</button>
+<button class="nav-item on" data-page="list" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>List <b class="nav-count" id="navCountList">0</b></button>
+<button class="nav-item" data-page="map" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 6l7-3 8 3 7-3v16l-7 3-8-3-1 3z"/><path d="M8 3v16M16 6v16"/></svg>Map</button>
+<button class="nav-item" data-page="watchlist" id="navWatchlistBtn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 21V4a1 1 0 011-1c1.2 0 1.2 1 3 1s1.8-1 3.5-1 1.3 1 3.5 1a1 1 0 011 1v9a1 1 0 01-1 1c-2.2 0-2.3-1-3.5-1s-1.3 1-3.5 1-1.8-1-3-1"/></svg>Watchlist <b class="nav-count" id="navWatchlistCount">0/10</b></button>
+</div>
+<!-- Same account menu as the header badge and the Dashboard's own Settings
+button - a third entry point, matching the reference design's sidebar gear
+icon. Deliberately not a fourth nav-list item wired to a new page: unlike
+Dashboard/Auctions/Map/Watchlist, there's no separate "Settings page" -
+just the existing theme/password/install/sign-out menu. -->
+<div class="nav-rail-foot">
+<button class="nav-item" id="navSettingsBtn" type="button" aria-haspopup="true" aria-controls="accountMenu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 004.6 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.6a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>Settings</button>
+</div>
+<div class="nav-rail-portfolio" id="navPortfolio">
+<h3>Portfolio Overview</h3>
+<div class="nav-rail-stat"><span>Total Properties</span><b id="navStatTotal">0</b></div>
+<div class="nav-rail-stat"><span>Active</span><b id="navStatActive">0</b></div>
+<div class="nav-rail-stat"><span>County values</span><b id="navStatValue">$0</b></div>
+</div>
+</nav>
+<div class="shell-main">
+<!-- Slim brand strip, pinned above the (deliberately non-sticky) masthead
+below - see the note on .masthead for why the taller block isn't the
+one that pins itself. -->
+<div class="topbar">
+<img class="brand-mark" src="icons/icon-192.png?v=2" width="44" height="44" alt="" aria-hidden="true">
+<span class="brand-name">Tax<span class="brand-accent">•</span>Acquisitions</span>
+<!-- One account badge instead of three loose buttons. Theme, password and
+sign out were competing for width with the ledger tabs on a phone; they are
+account concerns, so they live behind the badge with the rest of them. The
+same buttons keep the same ids, so nothing that referenced them had to move. -->
+<span class="header-btns">
+<!-- The one state selector (global working context): options come from
+STATE_META in app.js (buildStateSelect()); choosing one navigates to that
+state's page and carries the current route along. -->
+<label class="state-switch" title="State">
+  <select id="stateSelect" aria-label="State"></select>
+</label>
+<div class="account" id="account">
+  <button class="account-badge" id="accountBtn" type="button" aria-haspopup="menu"
+          aria-expanded="false" aria-controls="accountMenu" title="Account">
+    <span class="account-initials" id="accountInitials">·</span>
+    <span class="account-chev"></span>
+  </button>
+  <div class="account-menu" id="accountMenu" role="menu" hidden>
+    <div class="account-head">
+      <p class="account-name" id="accountName">Signed in</p>
+      <p class="account-email" id="accountEmail"></p>
+    </div>
+    <button class="account-item" id="editProfileBtn" type="button" role="menuitem">Edit profile</button>
+    <button class="account-item" id="changePasswordBtn" type="button" role="menuitem">Change password</button>
+    <button class="account-item" id="themeBtn" type="button" role="menuitem">
+      <span id="themeIcon">☼</span> Theme: <span id="themeLabel">Auto</span>
+    </button>
+    <button class="account-item" id="installBtn" type="button" role="menuitem" hidden>Install app</button>
+    <button class="account-item" id="helpBtnMenu" type="button" role="menuitem">How to read this data</button>
+    <button class="account-item" id="supportBtnMenu" type="button" role="menuitem">Contact support</button>
+    <!-- Admin area link: shown only when the SERVER-read profile says admin (app.js IS_ADMIN). Visibility only - /admin re-checks with the server itself. -->
+    <a class="account-item" id="adminAreaLink" href="admin.html" role="menuitem" hidden>Admin area</a>
+    <!-- Admin-only (visibility only - the view itself refuses non-admins, and RLS admits admins only). -->
+    <button class="account-item" id="governanceMenuItem" type="button" role="menuitem" hidden>Source Publication Governance</button>
+    <button class="account-item" id="termsBtnMenu" type="button" role="menuitem">Terms &amp; disclaimer</button>
+    <button class="account-item danger" id="signOutBtn" type="button" role="menuitem">Sign out</button>
+    <button class="account-item danger" id="deleteAccountBtn" type="button" role="menuitem">Delete my account</button>
+  </div>
+</div>
+</span>
+</div>
+<!-- Admin-only: visible when the signed-in account's profiles.is_admin is
+true AND at least one other account is awaiting approval. Everyone
+else never sees this section (and can't - RLS only lets admins read
+other people's profiles rows in the first place). -->
+<div class="admin-approvals" id="adminApprovals" hidden>
+<div class="admin-approvals-head"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg> Pending sign-ups awaiting your approval</div>
+<div class="admin-approvals-list" id="adminApprovalsList"></div>
+</div>
+<!-- The header is the sticky .topbar above: logo, title, account badge.
+     This block is now purely the dark ground the ledger tabs and status
+     chips sit on.
+
+     It used to carry a second, larger copy of the brand plus a "FIELD
+     LEDGER - 8 COUNTIES TRACKED" eyebrow, a tagline and a "Data updated ..."
+     line. The big lockup was already hidden at every width (the topbar
+     says the same thing), so once the other three went there was nothing
+     left here but an empty band with the account badge stranded in it. -->
+<section class="page" id="pageDashboard" hidden>
+<div class="dash-head dash-head-row">
+<div>
+<h1>Dashboard</h1>
+<p id="dashSubtitle">Operating view across every ledger.</p>
+</div>
+<!-- Same account menu as the header badge (theme, password, install, sign
+out) - just a second, more visible entry point, since the badge alone is
+easy to miss on a phone. See openAccountMenu() in app.js. -->
+<button class="dash-settings-btn" id="dashSettingsBtn" type="button" aria-haspopup="true" aria-controls="accountMenu" title="Settings"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 004.6 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.6a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg><span>Settings</span></button>
+</div>
+<!-- Unified navigation (2026-09-30): an operating view. One tile per ledger
+(active count, counties; opens the List page on that ledger), then what
+needs attention, what changed, verified purchase paths, counties, ledgers,
+upcoming sales, source freshness and watchlist changes - every figure a
+count over data the app already holds; "Not tracked" where it holds none.
+See renderDashboard() / dashboardOps() in app.js. -->
+<div class="dash-stats" id="dashStats"></div>
+<div class="dash-grid">
+<div class="dash-panel">
+<div class="dash-panel-head">Needs attention</div>
+<div id="dashAttentionRows"></div>
+</div>
+<div class="dash-panel">
+<div class="dash-panel-head">Recent</div>
+<div id="dashRecentRows"></div>
+</div>
+<div class="dash-panel">
+<div class="dash-panel-head">Verified purchase paths (Available)</div>
+<div id="dashPathRows"></div>
+</div>
+<div class="dash-panel">
+<div class="dash-panel-head">By County</div>
+<div id="dashCountyRows"></div>
+</div>
+<div class="dash-panel">
+<div class="dash-panel-head">By Ledger</div>
+<div id="dashLedgerRows"></div>
+</div>
+<!-- Real, not fabricated: built straight from each row's own sale_date in
+renderDashboard()'s upcomingAuctionRows() - no synthetic "recent activity"
+feed, since this project has no events/audit-log table to source one from
+honestly. -->
+<div class="dash-panel">
+<div class="dash-panel-head">Upcoming Auctions</div>
+<div id="dashUpcomingRows"></div>
+</div>
+<!-- Dataset health, one row per source, from public.source_health
+(migration 016, written by scripts/source_health.py after each harvest
+job). Derived at read time - see healthOf() in app.js. -->
+<div class="dash-panel">
+<div class="dash-panel-head">Data sources (all states)</div>
+<div id="dashSourceRows"></div>
+<!-- Per-county freshness (county_source_registry + migration 021's columns,
+written by scripts/unit_freshness.py): last read / last complete read per
+county. Not recorded yet = said so; never shown as current. -->
+<div id="dashUnitRows"></div>
+</div>
+<!-- Changes to watchlist / favorite rows since this browser last loaded
+the app - computed from the rows the app already has against a snapshot
+in localStorage. Per browser, no notifications - see watchChanges() in
+app.js and docs/production-configuration.md section 7. -->
+<div class="dash-panel">
+<div class="dash-panel-head">Watchlist changes</div>
+<div id="dashWatchChanges"></div>
+</div>
+</div>
+</section>
+
+<section class="page" id="pageList">
+<div class="masthead">
+<!-- Two (really three) separate ledgers, front and center right after sign-in -
+not one long scroll where Lands Available sits under 300+ auction cards. -->
+<nav class="ledger-tabs" id="ledgerTabs" aria-label="Ledger">
+<button class="ledger-tab" data-ledger="auction" type="button"><span class="ledger-tab-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v18M5 7l3.5-3.5L12 7M5 7c0 2.8 1.6 5 3.5 5S12 9.8 12 7M19 7l-3.5-3.5L12 7M19 7c0 2.8-1.6 5-3.5 5S12 9.8 12 7M4 21h16"/></svg></span>Auctions <b id="tabCountAuction">0</b></button>
+<button class="ledger-tab" data-ledger="laft" type="button"><span class="ledger-tab-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg></span>Available <b id="tabCountLaft">0</b></button>
+<button class="ledger-tab" data-ledger="certificate" type="button"><span class="ledger-tab-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 2h7l5 5v13a2 2 0 01-2 2H7a2 2 0 01-2-2V4a2 2 0 012-2z"/><path d="M9 12h6M9 16h6M9 8h2"/></svg></span>Redeemable Deeds <b id="tabCountCertificate">0</b></button>
+</nav>
+<div class="summary-strip">
+<button class="chip total" data-status="all" type="button">Shown&nbsp;<b id="chipTotal">0</b></button>
+<button class="chip ok" data-status="live" type="button">Active&nbsp;<b id="chipActive">0</b></button>
+<button class="chip bad" data-status="gone" type="button" title="No longer on the source feed or list - why is not recorded">No longer listed&nbsp;<b id="chipGone">0</b></button>
+<!-- The Archive chip used to sit here. It is now a toggle in Filters &
+Sort ("Quick Toggles" -> Show past auctions). It could not simply be
+deleted: past-due auctions are excluded from Shown/Active/Gone
+outright by isPastDue() in app.js, so with no way back into archive
+mode, every note, favorite and watchlist entry on a property whose
+sale date has passed becomes unreachable. Hidden, not removed. -->
+<!-- Not a status-view filter chip like the four above (no data-status,
+so it's excluded from that click-toggle group in app.js) - this
+opens the separate My Watchlist modal instead.
+
+The id and class still say "bidList" on purpose: the Supabase table is
+`bid_list` and its 10-row cap is a trigger on that table, both owned by
+the backend. Only the label changed. -->
+<button class="chip bidlist" id="bidListToggle" type="button" title="The short list you're actively tracking - capped at 10"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 21V4a1 1 0 011-1c1.2 0 1.2 1 3 1s1.8-1 3.5-1 1.3 1 3.5 1a1 1 0 011 1v9a1 1 0 01-1 1c-2.2 0-2.3-1-3.5-1s-1.3 1-3.5 1-1.8-1-3-1"/></svg> Watchlist&nbsp;<b id="bidListCount">0/10</b></button>
+</div>
+<!-- Quick controls: instant search + a single-pick county dropdown (the
+detailed multi-select county/type/lien chips still live in Filters &
+Sort below), the List/Split/Map view switcher, a per-page limit so
+hundreds of cards don't render at once, and a one-click CSV export of
+whatever's currently filtered. -->
+<div class="quick-controls" id="quickControls">
+<div class="qc-field">
+<span class="qc-icon"><svg class="" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></span>
+<input type="text" id="searchInput" placeholder="Search case #, parcel #, owner, county…" title="Matches case number, parcel number, certificate number, owner name, county and address. Punctuation is ignored, so a parcel pasted from a county site matches either way." autocomplete="off">
+</div>
+<div class="qc-field qc-county">
+<span class="qc-icon"><svg class="" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-8-4.6-8-11a8 8 0 1116 0c0 6.4-8 11-8 11z"/><circle cx="12" cy="10" r="3"/></svg></span>
+<select id="countyQuick"><option value="ALL">All Counties</option></select>
+<span class="qc-chevron"></span>
+</div>
+<button class="table-toggle-btn" id="tableToggleBtn" type="button" title="Dense table view"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5h18M3 12h18M3 19h18"/></svg> Table</button>
+<button class="expand-all-btn" id="expandAllBtn" type="button">Expand all</button>
+<button class="export-btn" id="exportCsvBtn" type="button"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v13M7 11l5 5 5-5M4 21h16"/></svg> Export CSV</button>
+<!-- Moved inside the control bar (it used to sit on its own full-width row
+below it) so every filtering control lives in one strip, and so the panel
+can stay closed until asked for at every width - see explore.css. -->
+<button class="filters-toggle" id="filtersToggle" type="button" aria-expanded="false" aria-controls="filtersPanel">
+<span>Filters &amp; Sort</span>
+<span style="display:flex;align-items:center;gap:.55rem">
+<span class="filters-badge" id="filtersBadge" hidden>0</span><span class="chevron"></span>
+</span>
+</button>
+</div>
+<div class="filters-panel" id="filtersPanel">
+
+<div class="filters-section">
+<div class="filters-section-head">
+<span class="filters-section-title">Price</span>
+<button class="reset-btn" id="resetBtn" type="button">Reset all filters</button>
+</div>
+<div class="filters-row">
+<div class="price-range-section">
+<span class="field-label">Bid Range</span>
+<div class="price-range-controls">
+<div class="price-range-sliders">
+<input type="range" id="bidMin" class="slider" min="0" max="1000000" step="10000" value="0">
+<input type="range" id="bidMax" class="slider slider-right" min="0" max="1000000" step="10000" value="1000000">
+</div>
+<!-- Phase 65: editable min/max, kept in sync with the sliders above - see
+index.html's copy of this block for the full note. -->
+<div class="price-range-display">
+<label class="price-input"><span class="price-prefix">$</span><input type="number" id="bidMinInput" inputmode="numeric" min="0" step="1000" placeholder="0" aria-label="Minimum opening bid"></label>
+<span class="to-sep">to</span>
+<label class="price-input"><span class="price-prefix">$</span><input type="number" id="bidMaxInput" inputmode="numeric" min="0" step="1000" placeholder="Any" aria-label="Maximum opening bid"></label>
+</div>
+</div>
+</div>
+<!-- id is here so applyLedgerChrome() in app.js can hide this on the
+Certificates page - a certificate is a lien, it has no assessed
+value, and passes() already ignores the filter there. -->
+<div class="field" id="assessedField"><span class="field-label">Assessed min</span><input type="number" id="assessedMin" placeholder="0" min="0" step="1000"></div>
+</div>
+<div class="filters-row">
+<div class="field"><span class="field-label">Your ceiling (% of county value)</span><input type="number" id="maxBidPct" value="40" min="1" max="100" step="5"></div>
+</div>
+</div>
+
+<div class="filters-section">
+<div class="filters-section-head"><span class="filters-section-title">Sort &amp; Display</span></div>
+<div class="filters-row">
+<div class="field" style="flex:1 1 48%">
+<select id="sortBy">
+<option value="county">Sort: County (default order)</option>
+<option value="dateAsc">Sort: Sale date, soonest first</option>
+<option value="dateDesc">Sort: Sale date, latest first</option>
+<option value="bidAsc">Sort: Opening bid, low to high</option>
+<option value="bidDesc">Sort: Opening bid, high to low</option>
+<option value="assessedAsc">Sort: Assessed, low to high</option>
+<option value="assessedDesc">Sort: Assessed, high to low</option>
+<option value="spreadDesc">Sort: County value ÷ bid, high to low</option>
+<option value="address">Sort: Address, A to Z</option>
+<option value="interestDesc">Sort: Interest rate, high to low (Certificates)</option>
+<option value="expSoonAsc">Sort: Expiring soonest (Certificates)</option>
+</select>
+</div>
+<!-- Tiebreaker sort - applies within ties left by the primary sort above
+(e.g. several properties with the same sale date), or as the whole sort
+when the primary is left on "County (default order)", which has no
+comparator of its own. Excludes "county" since that option has no
+comparator to apply as a tiebreaker either. -->
+<div class="field" style="flex:1 1 48%">
+<select id="sortSecondary">
+<option value="">Then by: (none)</option>
+<option value="dateAsc">Then by: Sale date, soonest first</option>
+<option value="dateDesc">Then by: Sale date, latest first</option>
+<option value="bidAsc">Then by: Opening bid, low to high</option>
+<option value="bidDesc">Then by: Opening bid, high to low</option>
+<option value="assessedAsc">Then by: Assessed, low to high</option>
+<option value="assessedDesc">Then by: Assessed, high to low</option>
+<option value="spreadDesc">Then by: County value ÷ bid, high to low</option>
+<option value="address">Then by: Address, A to Z</option>
+</select>
+</div>
+</div>
+</div>
+
+<div class="filters-section">
+<div class="filters-section-head"><span class="filters-section-title">Quick Toggles</span></div>
+<div class="filters-row">
+<label class="tog"><input type="checkbox" id="favOnly"> <span>♡ Favorites only</span></label>
+<!-- No "filter match" (topOnly) or quiet-title toggle on Texas: both depend on
+Florida-only inputs (manual lien notes, the Florida fee estimate), which Texas
+rows do not carry. app.js null-guards both ids. -->
+<label class="tog"><input type="checkbox" id="soonOnly"> <span>⏱ Closing in 14 days</span></label>
+<label class="tog"><input type="checkbox" id="hideOldOnly"> <span>🕐 Hide listings 7+ days old</span></label>
+<!-- Was the Archive chip in the summary strip. Archive is a MODE, not a
+sub-filter - it shows only past-due auctions and hides everything
+else - so it reads as a checkbox here far better than as a fourth
+count chip sitting next to Shown/Active/Gone, which it never
+belonged with. -->
+<label class="tog" id="archiveToggleRow"><input type="checkbox" id="archiveToggle"> <span>📁 Show past auctions&nbsp;<b id="chipArchive">0</b></span></label>
+</div>
+<!-- Lands Available only. Hiding a "junk" parcel just filters it out of this
+list, same as any other filter here - it does not touch the row itself, so
+switching this off brings every hidden-by-this-toggle parcel straight back. -->
+<div class="filters-row" id="junkLandRow" hidden>
+<label class="tog"><input type="checkbox" id="hideSliversOnly"> <span>Hide slivers &lt; 0.10 acre</span></label>
+<label class="tog"><input type="checkbox" id="hideBareLandOnly"> <span>Hide zero-improvement parcels</span></label>
+</div>
+<!-- Available ledger only (2026-09-30, AVAILABLE commercialization): filters on
+fields the Available rows actually carry - purchase path (purchase_url +
+purchase_url_kind), amount (purchase_amount_kind), availability status
+(inventory_status, migration 021), acreage (FDOR tax roll) and the last read
+from the source (last_seen_at). Hidden on the other ledgers by
+applyLedgerChrome(); filtering is automatic, no Search button. -->
+<div class="filters-row" id="availableFilters" hidden>
+<div class="field"><span class="field-label">Purchase path</span><select id="availPathFilter" aria-label="Purchase path"><option value="any">Any</option><option value="online">Online link for the property</option><option value="instructions">Instructions / application page</option><option value="none">No online path on file</option></select></div>
+<div class="field"><span class="field-label">Amount</span><select id="availAmountKindFilter" aria-label="Amount"><option value="any">Any</option><option value="published">Published by the source</option><option value="unpublished">Not published</option></select></div>
+<div class="field"><span class="field-label">Availability</span><select id="availStatusFilter" aria-label="Availability status"><option value="any">Any</option><option value="available_otc">Available over the counter</option><option value="state_held">State-held</option><option value="resale_inventory">Held for a future resale</option><option value="struck_off">Struck off</option><option value="closed">Left the list</option><option value="unknown">Not published</option></select></div>
+<div class="field"><span class="field-label">Acreage min</span><input type="number" id="acreageMin" placeholder="0" min="0" step="0.1" inputmode="decimal"></div>
+<label class="tog"><input type="checkbox" id="availSeenRecently"> <span>Read from the source in the last 14 days</span></label>
+<div class="field"><span class="field-label">Land use</span><select id="availLandUseFilter" aria-label="Land use"><option value="any">Any</option></select></div>
+<label class="tog"><input type="checkbox" id="availGeocoded"> <span>Coordinates on file</span></label>
+<label class="tog"><input type="checkbox" id="availValues"> <span>County value on file</span></label>
+</div>
+<button class="reset-btn" id="hiddenListBtn" type="button" hidden><span id="hiddenCount">0</span> hidden - view &amp; recover</button>
+</div>
+
+<!-- Advanced multi-select filters, collapsed behind dropdown-style
+<details> disclosures so the panel doesn't read as a wall of
+chips - each summary shows how many are currently selected. -->
+<div class="filters-section">
+<div class="filters-section-head"><span class="filters-section-title">Advanced Filters</span></div>
+
+<details class="filter-dropdown" id="typeDropdown">
+<summary>Property Type <span class="filter-dropdown-count" id="typeCount"></span></summary>
+<div class="filter-dropdown-body">
+<div class="group-actions"><button class="mini-btn" data-group="types" data-mode="all" type="button">All</button><button class="mini-btn" data-group="types" data-mode="none" type="button">None</button></div>
+<div class="chips" id="typeChips"></div>
+</div>
+</details>
+
+<details class="filter-dropdown" id="lienDropdown">
+<summary>Manual lien notes <span class="filter-dropdown-count" id="lienCount"></span></summary>
+<div class="filter-dropdown-body">
+<div class="group-actions"><button class="mini-btn" data-group="liens" data-mode="all" type="button">All</button><button class="mini-btn" data-group="liens" data-mode="none" type="button">None</button></div>
+<div class="chips" id="lienChips"></div>
+</div>
+</details>
+
+<details class="filter-dropdown" id="countyDropdown">
+<summary>County (multi-select) <span class="filter-dropdown-count" id="countyCount"></span></summary>
+<div class="filter-dropdown-body">
+<div class="group-actions">
+<button class="mini-btn" data-group="counties" data-mode="all" type="button">All</button>
+<button class="mini-btn" data-group="counties" data-mode="none" type="button">None</button>
+</div>
+<div class="chips" id="countyChips"></div>
+<div class="county-ref-links" id="countyRefLinks" hidden>
+<div class="county-ref-links-head">No live data yet for these counties — verify directly on the county's own sites:</div>
+<div class="county-ref-list" id="countyRefList"></div>
+</div>
+</div>
+</details>
+</div>
+
+</div>
+</div>
+
+<!-- ============ Auctions body: card list, full width ============
+Phase 54: this used to be a two-pane "explore shell" - #main plus a county
+map panel beside it, switched between List/Split/Map by #viewToggle. Marc's
+ask was explicit: Auctions should just be the list, and Map should be its
+own page you actually feel yourself navigating to (see #pageMap below, and
+the Phase 54 comment on SHELL_PAGES in app.js). So #main is unwrapped - no
+shell, no mode, no embedded map - and the desktop table view (#tableToggleBtn,
+a wholly separate feature from the old view-toggle) still sits right beside
+it exactly as before. -->
+<div class="auctions-body">
+<div class="data-table-wrap" id="dataTableWrap">
+<table class="data-table" id="dataTable">
+<thead><tr><th>Property</th><th>County</th><th class="dt-num">Opening Bid</th><th class="dt-num" title="County/CAD value on file for the stated roll year - not a market estimate">County value</th><th>Status</th><th></th></tr></thead>
+<tbody id="dataTableBody"></tbody>
+</table>
+</div>
+<main id="main"></main>
+<aside class="detail-panel" id="detailPanel">
+<div class="detail-panel-empty">Select a property from the list to see its full page here.</div>
+</aside>
+</div>
+
+<footer>
+<!-- The title-search warning used to sit in the header on every screen. It is
+one button here, and the full text lives in the modal it opens. -->
+<p class="footer-terms"><button class="terms-btn" id="termsBtn" type="button">Terms &amp; disclaimer</button> · <button class="terms-btn" id="helpBtn" type="button">How to read this data</button> · <button class="terms-btn" id="supportBtn" type="button">Contact support</button></p>
+Links open outside sites (a Google Maps search built by this app, Zillow, and the vendor or county sale page where one was harvested). They are not endorsements, and a listing can change there after our last sync.<br><br>
+<b>Missouri coverage is the City of St. Louis Land Reutilization Authority inventory.</b> Only parcels the inventory itself marks Available are read. It publishes no price, and none is shown. No fee or closing-cost rule is tracked. Confirm terms with the Land Reutilization Authority and a title company or attorney before applying.
+</footer>
+</section>
+
+<!-- ============ Map (Phase 54) ============
+Its own top-level page, not a mode of Auctions and not a virtual route into
+one - see the Phase 54 comment on SHELL_PAGES/showPage() in app.js for why
+that distinction was the whole point of this rebuild. Its own header, its
+own toolbar (search, county select, an All/Auctions/Lands Available/
+Certificates ledger-pill row, a Watchlist-only pill), all independent of
+the Auctions page's own filters - see mapFilter/computeMapRows()/
+renderMapPage() in app.js. The map itself (bubbles, county rail, legend,
+zoomed-in pins, floating preview card) is explore.js's existing renderer;
+only where it lives changed, not how it draws. -->
+<!-- Phase 67: map workspace - see index.html's copy of this block for the
+full note. Same structure, same ids. -->
+<section class="page map-page" id="pageMap" hidden>
+<div class="map-toolbar" id="mapToolbar">
+<div class="map-page-titlebox">
+<h1 class="map-page-title">Map</h1>
+<!-- The context line reads what the map is showing right now: the ledger
+pill and the county select (the state is the header's #stateSelect).
+Written by renderMapContext() in app.js on every map render. -->
+<p class="map-context" id="mapContext"><span>Ledger: <b id="mapContextLedger"></b></span> · <span>County: <b id="mapContextCounty"></b></span></p>
+</div>
+<div class="qc-field map-toolbar-search">
+<span class="qc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></span>
+<input type="text" id="mapSearchInput" placeholder="Search case #, parcel #, owner, county…" title="Matches case number, parcel number, certificate number, owner name, county and address." autocomplete="off">
+</div>
+<div class="qc-field qc-county map-toolbar-county">
+<span class="qc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-8-4.6-8-11a8 8 0 1116 0c0 6.4-8 11-8 11z"/><circle cx="12" cy="10" r="3"/></svg></span>
+<select id="mapCountySelect"><option value="ALL">All Counties</option></select>
+<span class="qc-chevron"></span>
+</div>
+<div class="map-ledger-pills" id="mapLedgerPills" role="group" aria-label="Ledger">
+<button type="button" class="on" data-ledger="all"><span class="pill-dot pill-dot-all" aria-hidden="true"></span>All Ledgers</button>
+<button type="button" data-ledger="auction"><span class="pill-dot pill-dot-auction" aria-hidden="true"></span>Auctions</button>
+<button type="button" data-ledger="laft"><span class="pill-dot pill-dot-laft" aria-hidden="true"></span>Available</button>
+<button type="button" data-ledger="certificate"><span class="pill-dot pill-dot-certificate" aria-hidden="true"></span>Redeemable Deeds</button>
+</div>
+<button type="button" class="map-watch-pill" id="mapWatchlistOnly" aria-pressed="false"><span class="pill-dot pill-dot-watch" aria-hidden="true"></span>Watchlist only</button>
+<div class="map-style-toggle" id="mapStyleToggle" role="group" aria-label="Basemap">
+<button type="button" class="on" data-style="outline" id="mapStyleOutline">Outline</button>
+<button type="button" data-style="google" id="mapStyleGoogle">Google</button>
+<button type="button" data-style="maptiler" id="mapStyleMaptiler">MapTiler</button>
+</div>
+</div>
+<div class="map-workspace" id="mapWorkspace">
+<div class="explore-map map-page-map" id="mapStage">
+<div class="explore-map-stage">
+<div class="explore-map-canvas" id="exploreMapCanvas">
+<div class="explore-map-empty">Loading map…</div>
+</div>
+<!-- Phase 55/61: two optional basemaps for this same stage, each with its
+own canvas as of Phase 61 - see the matching comment in index.html and
+satellite-map.js's header for why. -->
+<div class="satellite-map-canvas" id="satelliteMapCanvasGoogle" hidden></div>
+<div class="satellite-map-canvas" id="satelliteMapCanvasMaptiler" hidden></div>
+<div class="cluster-tip" id="clusterTip"></div>
+<div class="map-imagery-toggle" id="mapImageryToggle" role="group" aria-label="Imagery" hidden>
+<button type="button" class="on" data-imagery="satellite" id="mapImagerySatellite">Satellite</button>
+<button type="button" data-imagery="streets" id="mapImageryStreets">Streets</button>
+</div>
+<div class="explore-map-foot">
+<span class="explore-map-hint" id="exploreMapHint">Tap a county to filter to it</span>
+<button class="explore-map-reset" id="exploreMapReset" type="button" hidden>Clear county filter</button>
+</div>
+</div>
+</div>
+<aside class="map-side" id="mapSidePanel" aria-label="Property intelligence">
+<div class="map-side-head">
+<h2 class="explore-map-title">Where these are</h2>
+<span class="explore-map-count" id="exploreMapCount"></span>
+</div>
+<div class="map-side-body" id="mapSideBody">
+<aside class="explore-map-rail" id="exploreMapRail" hidden aria-label="Counties in view"></aside>
+<div class="explore-map-legend" id="exploreMapLegend" hidden></div>
+<p class="explore-map-note">Bubbles are county-level counts, sized by how many properties match — not exact parcel locations. Zoom into a county to see the properties we hold real coordinates for.</p>
+</div>
+</aside>
+</div>
+</section>
+</div>
+</div>
+<nav class="nav-bottom" id="navBottom" aria-label="Main">
+<!-- Same four destinations as the rail (see the note on .nav-list). Four
+     items fit a 320px phone without scrolling; the per-ledger entries live
+     inside the List page now (#ledgerTabs), not here. -->
+<button class="nav-bottom-item" data-page="dashboard" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>Dashboard</button>
+<button class="nav-bottom-item on" data-page="list" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>List</button>
+<button class="nav-bottom-item" data-page="map" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 6l7-3 8 3 7-3v16l-7 3-8-3-1 3z"/><path d="M8 3v16M16 6v16"/></svg>Map</button>
+<button class="nav-bottom-item" data-page="watchlist" id="navBottomWatchlistBtn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 21V4a1 1 0 011-1c1.2 0 1.2 1 3 1s1.8-1 3.5-1 1.3 1 3.5 1a1 1 0 011 1v9a1 1 0 01-1 1c-2.2 0-2.3-1-3.5-1s-1.3 1-3.5 1-1.8-1-3-1"/></svg>Watchlist</button>
+</nav>
+
+<!-- ============ "My Watchlist" modal ============ -->
+<!-- Placed before detailModal in the DOM so, when both are open at once
+(viewing a property's full page from inside the watchlist), detailModal
+paints on top at the same z-index - later sibling wins. -->
+<div class="detail-modal" id="bidListModal" hidden>
+<div class="detail-modal-inner bidlist-modal-inner" id="bidListModalInner"></div>
+</div>
+
+<!-- ============ "Hidden Properties" modal ============ -->
+<!-- Same placement rationale as the watchlist modal above - stays before
+detailModal in the DOM so the detail modal always paints on top of it. -->
+<div class="detail-modal" id="hiddenModal" hidden>
+<div class="detail-modal-inner bidlist-modal-inner" id="hiddenModalInner"></div>
+</div>
+
+<!-- ============ property detail modal ("full property page") ============ -->
+<div class="detail-modal" id="detailModal" hidden>
+<div class="detail-modal-inner" id="detailModalInner"></div>
+</div>
+
+<!-- ============ change password modal ============
+Reuses the .detail-modal shell (same overlay/close-button/scroll pattern
+as bidListModal and detailModal above). See app.js for the flow: current
+password is re-verified via signInWithPassword before calling
+sb.auth.updateUser() - a plain updateUser() alone would let anyone using
+an already-open signed-in session change the password without proving
+they know the existing one. -->
+<div class="detail-modal" id="changePasswordModal" hidden>
+<div class="detail-modal-inner" id="changePasswordModalInner">
+<button class="detail-close" id="changePasswordCloseBtn" type="button" aria-label="Close">&times;</button>
+<h2 class="detail-address" style="font-size:1.15rem">Change password</h2>
+<form id="changePasswordForm">
+<input type="password" id="cpCurrent" placeholder="Current password" autocomplete="current-password" required>
+<input type="password" id="cpNew" placeholder="New password (min 6 characters)" autocomplete="new-password" required minlength="6">
+<input type="password" id="cpConfirm" placeholder="Confirm new password" autocomplete="new-password" required minlength="6">
+<button type="submit" id="cpSubmitBtn">Update password</button>
+</form>
+<div class="auth-msg" id="cpMsg"></div>
+</div>
+</div>
+
+<!-- ============ edit profile ============
+Name, company, address and phone are collected at sign-up and stored in the
+Supabase auth user's metadata, NOT in public.profiles (which only holds id,
+email, approved, is_admin and the two timestamps). So this edits them with
+sb.auth.updateUser({ data: ... }) - no table, no RLS policy, and a user can
+only ever reach their own record. -->
+<div class="detail-modal" id="profileModal" hidden>
+<div class="detail-modal-inner" id="profileModalInner">
+<button class="detail-close" id="profileCloseBtn" type="button" aria-label="Close">&times;</button>
+<h2 class="detail-address" style="font-size:1.15rem">Edit profile</h2>
+<p class="mega-sub" style="margin:0 0 .8rem">Your details. Email and approval status are managed by the account owner and can't be changed here.</p>
+<form id="profileForm">
+<!-- Real labels, not placeholder-only fields: a placeholder disappears the
+moment you type, which on a pre-filled form leaves five boxes of text with
+nothing saying which is which. -->
+<div class="pf-row">
+  <label class="pf-field"><span>First name</span>
+    <input type="text" id="pfFirst" autocomplete="given-name" required></label>
+  <label class="pf-field"><span>Last name</span>
+    <input type="text" id="pfLast" autocomplete="family-name" required></label>
+</div>
+<label class="pf-field"><span>Company</span>
+  <input type="text" id="pfCompany" placeholder="No company? Enter Independent" autocomplete="organization" required></label>
+<label class="pf-field"><span>Address</span>
+  <input type="text" id="pfAddress" autocomplete="street-address" required></label>
+<label class="pf-field"><span>Phone</span>
+  <input type="tel" id="pfPhone" autocomplete="tel" required></label>
+<button type="submit" id="pfSubmitBtn">Save changes</button>
+</form>
+<div class="auth-msg" id="pfMsg"></div>
+</div>
+</div>
+
+<!-- ============ set a new password (after a reset link) ============
+Opened by app.js when Supabase emits PASSWORD_RECOVERY - i.e. the user
+arrived from the reset e-mail (detectSessionInUrl consumed the recovery
+token). Uses sb.auth.updateUser({ password }) - the supported pattern, no
+custom token handling. -->
+<div class="detail-modal" id="recoveryModal" hidden>
+<div class="detail-modal-inner" id="recoveryModalInner">
+<button class="detail-close" id="recoveryCloseBtn" type="button" aria-label="Close">&times;</button>
+<h2 class="detail-address" style="font-size:1.15rem">Set a new password</h2>
+<p class="mega-sub" style="margin:0 0 .8rem">You opened a password-reset link. Choose a new password for your account.</p>
+<form id="recoveryForm">
+<label class="pf-field"><span>New password (min 6 characters)</span>
+  <input type="password" id="rcNew" autocomplete="new-password" required minlength="6"></label>
+<label class="pf-field"><span>Confirm new password</span>
+  <input type="password" id="rcConfirm" autocomplete="new-password" required minlength="6"></label>
+<button type="submit" id="rcSubmitBtn">Save new password</button>
+</form>
+<div class="auth-msg" id="rcMsg"></div>
+</div>
+</div>
+
+<!-- ============ delete my account ============
+Self-service, via public.delete_my_account() (migration 015). The list of
+what is and is not deleted is the function's own behaviour, stated here so
+nobody has to guess. -->
+<div class="detail-modal" id="deleteAccountModal" hidden>
+<div class="detail-modal-inner" id="deleteAccountModalInner">
+<button class="detail-close" id="deleteAccountCloseBtn" type="button" aria-label="Close">&times;</button>
+<h2 class="detail-address" style="font-size:1.15rem">Delete my account</h2>
+<div class="terms-body">
+<p><b>This removes your sign-in and everything stored against your account:</b> your profile, favorites, hidden listings, watchlist, and the team notes you wrote. It cannot be undone.</p>
+<p><b>Not affected:</b> the shared property data (listings, sale dates, values, sale-event history) - it is not yours and stays for the other members. Notes written by other members stay.</p>
+<p>An encrypted database backup taken before today may still hold your notes until it expires (90 days).</p>
+</div>
+<form id="deleteAccountForm">
+<label class="pf-field"><span>Type DELETE to confirm</span>
+  <input type="text" id="daConfirm" autocomplete="off" required></label>
+<button type="submit" id="daSubmitBtn" class="danger-btn">Delete my account permanently</button>
+</form>
+<div class="auth-msg" id="daMsg"></div>
+</div>
+</div>
+
+<!-- ============ contact support ============
+Rendered by app.js (renderSupportModal). The destination is
+TDW_CONFIG.supportEmail; when it is blank the modal says so instead of
+inventing an address - see docs/production-configuration.md section 4. -->
+<div class="detail-modal" id="supportModal" hidden>
+<div class="detail-modal-inner" id="supportModalInner">
+<button class="detail-close" id="supportCloseBtn" type="button" aria-label="Close">&times;</button>
+<h2 class="detail-address" style="font-size:1.15rem">Contact support</h2>
+<div id="supportBody" class="terms-body"></div>
+</div>
+</div>
+
+<!-- ============ help: how to read this data ============ -->
+<div class="detail-modal" id="helpModal" hidden>
+<div class="detail-modal-inner" id="helpModalInner">
+<button class="detail-close" id="helpCloseBtn" type="button" aria-label="Close">&times;</button>
+<h2 class="detail-address" style="font-size:1.15rem">How to read this data</h2>
+<div class="terms-body" id="helpBody">
+<p class="terms-lead">This app collects what county and vendor sale sites publish, on a schedule, and shows it as collected. It is a research tool. It is not a title search, not an appraisal, and not a record of what happened at a sale.</p>
+
+<h3>Where each row comes from</h3>
+<p>Every property page names its <b>Data source</b> (the county auction site, the county's Lands Available list, LienHub, a Texas vendor listing) and its <b>last synced</b> time. County value figures come from the tax roll for the stated year. Coordinates come from a geocoder, flood zones from FEMA's National Flood Hazard Layer, imagery from USDA aerial photography - each labelled with its source where it appears.</p>
+
+<h3>What the missing-data words mean</h3>
+<p><b>Not published</b> - the source did not post that figure (an opening bid, a parcel number). It does not mean zero or free.</p>
+<p><b>Not checked</b> - this app has not looked it up yet (a flood zone, an image). It does not mean there is nothing to find.</p>
+<p><b>Not tracked</b> - no source in this app carries that information at all (liens, judgments, code violations, sale outcomes). Absence here is never evidence of absence.</p>
+<p><b>Not mapped by FEMA</b> - FEMA publishes no flood map for that spot. It is not the same as low risk.</p>
+
+<h3>The source of sale is authoritative</h3>
+<p>The county's own auction site, the Clerk, the Property Appraiser and the Tax Collector are the record. When this app and the county disagree, the county is right and this app is behind. Sale dates move, listings are withdrawn, bids are re-posted; the <b>Data sources</b> panel on the Dashboard shows when each dataset last synced and whether the last run was complete.</p>
+
+<h3>Sale event history</h3>
+<p>A property page lists each scheduled sale date this app observed for it and what the source showed each time. <b>"Sale date passed - outcome not tracked"</b> means the listing left the source's feed after its date. It does <b>not</b> mean the property sold, was redeemed, or was cancelled - this app records no sale results, winning bids or purchasers, and never infers one from a listing disappearing. "Superseded" means the source later listed the same property under a new date.</p>
+
+<h3>Ratios and estimates</h3>
+<p><b>Value ÷ bid</b> is the county value on file divided by the opening bid - arithmetic for screening, not a return or a margin. Fee figures are estimates with a stated open question. Nothing here is a recommendation to bid.</p>
+
+<h3>Before you bid</h3>
+<p>Verify every figure on the county's own site, order a title search, and have a title company or attorney review the parcel. Liens, code enforcement actions and other encumbrances survive a tax deed sale and are not visible here.</p>
+</div>
+</div>
+</div>
+
+<!-- ============ source publication governance (admin only) ============
+     Its own view, opened from the account menu or #/governance - never
+     inline on the main workspace. The panel inside is the existing one,
+     unchanged; app.js refuses to open this view for a non-admin. -->
+<div class="detail-modal" id="governanceModal" hidden>
+<div class="detail-modal-inner governance-modal-inner" id="governanceModalInner" role="dialog" aria-modal="true" aria-labelledby="governanceTitle">
+<button class="detail-close" id="governanceCloseBtn" type="button" aria-label="Close">&times;</button>
+<h2 class="detail-address" id="governanceTitle" style="font-size:1.15rem">Source Publication Governance</h2>
+<p class="admin-pub-note" id="governanceLoading">Loading this state's sources…</p>
+<p class="admin-pub-note" id="governanceEmpty" hidden>No registry sources are recorded for this state.</p>
+<!-- Admin-only source publication governance (2026-09-30, migration 023):
+     one row per registry source for this state with its publication
+     status, restrictions and latest recorded decision, plus a form that
+     records a new decision (append-only source_publication_reviews; RLS
+     admits admins only). Applied by the publication-gate script after
+     validation. Never shown to customers. -->
+<div class="admin-approvals admin-publication" id="adminPublication" hidden>
+<div class="admin-approvals-head">Source publication governance - admin only</div>
+<p class="admin-pub-note">A decision recorded here is applied to that source's rows by the next publication-gate run, after validation against the registry: a blocked vendor, a source under legal review or a source that is not production-verified cannot be approved from this panel. Customers never see this section or the review history.</p>
+<div class="admin-pub-list" id="adminPublicationList"></div>
+</div>
+</div>
+</div>
+
+<!-- ============ terms & disclaimer ============ -->
+<div class="detail-modal" id="termsModal" hidden>
+<div class="detail-modal-inner" id="termsModalInner">
+<button class="detail-close" id="termsCloseBtn" type="button" aria-label="Close">&times;</button>
+<!-- Missouri terms (2026-09-30, six-state expansion). No Missouri statutory copy
+is stated here: none has been reviewed with counsel. Do not add it without counsel review. -->
+<h2 class="detail-address" style="font-size:1.15rem">Terms &amp; disclaimer</h2>
+<div class="terms-body">
+<p class="terms-lead"><b>This is a research tool, not a title search.</b> Everything here is a best-effort reading of public records. It is not a certified title search, a title opinion, an appraisal, or legal or financial advice.</p>
+
+<h3>Before you bid</h3>
+<p>Confirm every figure against the county's own auction site, the Clerk of Court, the Property Appraiser and the Tax Collector, and have a title company or attorney review the parcel. A tax deed can carry liens, code enforcement actions, and other encumbrances this tool does not and cannot see.</p>
+
+<h3>Where the numbers come from</h3>
+<p>Property data is collected from county and vendor websites. Texas collection is currently run by hand, not on a fixed schedule, so a Texas listing can be days or weeks behind the source. Data can be wrong, incomplete, or out of date — a county or vendor can change or withdraw a listing at any time, including after our last sync.</p>
+<!-- Was a permanent line in the masthead. It is provenance, not a control -
+     it belongs with the rest of "where the numbers come from" rather than
+     above the tabs on every screen. app.js writes it here now; the amber
+     .generated.stale styling still applies when the sync is behind. -->
+<p class="generated" id="generatedAt">Loading…</p>
+<div class="source-health-terms" id="sourceHealthTerms"></div>
+<p>A property whose own row has not been re-synced recently carries an amber edge in the list, so a stale record is visible where you are actually reading, not only in aggregate here.</p>
+<p><b>Opening bid / minimum bid</b> is the figure the vendor or county published. It is not the cost to acquire. "Not published" means no figure was posted, not that the property is free.</p>
+<p><b>Value</b>, where shown, is the figure the vendor listing carries. It is not an appraisal or a comparative market analysis. No Texas appraisal-district values are loaded.</p>
+<p><b>Fees and closing costs are not estimated for Texas.</b> This app has no Texas fee formula and shows none. Texas redemption rights, deed type and post-sale costs are not tracked here.</p>
+<p><b>Lien notes</b> are not tracked for Texas listings. This app does not run a title search or give a title opinion.</p>
+
+<h3>No warranty</h3>
+<p>This tool is provided as is, with no warranty of accuracy, completeness or fitness for any particular purpose. You are responsible for your own due diligence and for every bid you place. Nothing here creates an attorney-client, broker, or fiduciary relationship.</p>
+
+<h3>Your account</h3>
+<p>Access is granted by the account owner and may be withdrawn. Don't share your login. Favorites, hidden listings and your watchlist are stored against your account and are private to you. Team notes are shared: every approved member of this account can read the notes you leave on a property, along with the part of your email address before the @ - they are not private. You can reset your password from the sign-in screen and delete your account from the account menu; deleting removes your profile, favorites, hidden listings, watchlist and your notes, and nothing else.</p>
+
+<p class="terms-note">Questions about any of this: use Contact support (account menu or footer).</p>
+</div>
+</div>
+</div>
+
+<script type="module" src="app.js"></script>
+<!-- Loaded after app.js: explore.js only ever reacts to the tdw:rendered
+event app.js dispatches, so load order isn't strictly required - but
+keeping it second matches the dependency direction and makes that
+one-way relationship obvious from the markup. -->
+<script type="module" src="explore.js"></script>
+<!-- Phase 55/56/57/60: independent of explore.js (same tdw:maprendered contract,
+own module) - owns the optional Google/MapTiler satellite basemap toggle.
+Each provider no-ops until config.js carries its own key; see
+satellite-map.js's header. -->
+<script type="module" src="satellite-map.js"></script>
+</body>
+</html>

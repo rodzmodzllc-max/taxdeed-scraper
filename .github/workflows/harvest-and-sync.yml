@@ -995,7 +995,9 @@ jobs:
       fail-fast: false
       max-parallel: 1
       matrix:
-        state: [MI, WY, SC, CO, WI]
+        # MO / OK / PA / MN (2026-10-04): AVAILABLE sources collected for admin use
+        # (UNREVIEWED - never customer-published until an admin review approves them).
+        state: [MI, WY, SC, CO, WI, MO, OK, PA, MN]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4

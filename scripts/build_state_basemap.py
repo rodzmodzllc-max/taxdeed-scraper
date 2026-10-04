@@ -93,11 +93,18 @@ def main(argv=None) -> int:
     ap.add_argument("--name", required=True)
     ap.add_argument("--unit", default="County")
     ap.add_argument("--svg", default=None)
+    ap.add_argument("--rename", action="append", default=[], metavar="FIPS=NAME",
+                    help="name one unit explicitly (e.g. 29510='St. Louis City' - an independent city that shares its "
+                         "county's name in us-atlas)")
     ap.add_argument("--centroids", default=str(REPO / "public" / "county-centroids.json"))
     a = ap.parse_args(argv)
     topo = json.loads(Path(a.topology).read_text(encoding="utf-8"))
     arcs = decode_arcs(topo)
     counties = [g for g in topo["objects"]["counties"]["geometries"] if str(g["id"]).startswith(a.fips)]
+    renames = dict(r.split("=", 1) for r in a.rename)
+    for g in counties:
+        if str(g["id"]) in renames:
+            g["properties"] = {**g["properties"], "name": renames[str(g["id"])]}
     if not counties:
         raise SystemExit(f"no counties for FIPS {a.fips}")
     names = [g["properties"]["name"] for g in counties]

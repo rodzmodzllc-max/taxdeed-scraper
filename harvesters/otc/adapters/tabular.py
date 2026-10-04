@@ -43,6 +43,7 @@ class ColumnMap:
     sale_date: tuple[str, ...] = ()
     result_amount: tuple[str, ...] = ()
     eligible_date: tuple[str, ...] = ()
+    land_use: tuple[str, ...] = ()          # the source's own property type wording (AVAILABLE expansion)
 
 
 @dataclass(frozen=True)
@@ -102,6 +103,10 @@ class TabularConfig:
     # (`excluded_status`) and never kept: availability is the source's
     # statement, never inferred from presence on a mixed inventory list.
     status_include: tuple[str, ...] = ()
+    # The source's own status words that mean the row is NOT offered right now
+    # (e.g. Fayette PA's "Bid Received": a bid is pending the taxing bodies'
+    # consent). Counted in `excluded_status`, never kept.
+    status_exclude: tuple[str, ...] = ()
 
 
 # Cell tokens a source uses for "no value here" (never a published value).
@@ -255,10 +260,15 @@ class TabularListAdapter:
                         values[f] = raw[i].strip()
             if not values.get("case_no"):
                 continue
+            if [_norm(c) for c in raw] == [_norm(c) for c in rows[header_idx]]:
+                continue                      # the header repeated on a later page / sheet
             if self.cfg.id_pattern and not re.fullmatch(self.cfg.id_pattern, values["case_no"]):
                 self.rejected_ids += 1
                 continue
             if self.cfg.status_include and _norm(values.get("status", "")) not in {_norm(s) for s in self.cfg.status_include}:
+                self.excluded_status += 1
+                continue
+            if self.cfg.status_exclude and _norm(values.get("status", "")) in {_norm(s) for s in self.cfg.status_exclude}:
                 self.excluded_status += 1
                 continue
             sold_price = None
@@ -305,7 +315,7 @@ class TabularListAdapter:
                 purchase_url=purchase_url, purchase_url_kind=purchase_kind,
                 list_as_of=as_of, source_status_text=status_text, provenance=prov,
                 record_source=self.cfg.record_source, owner_name=values.get("owner_name"),
-                certificate_no=values.get("certificate_no"),
+                certificate_no=values.get("certificate_no"), land_use=values.get("land_use"),
                 listing_closed=self.cfg.past_listing,
                 published_outcome="sold" if sold_price is not None else None,
                 sale_date=sale_date if self.cfg.record_source == "auction" else None,

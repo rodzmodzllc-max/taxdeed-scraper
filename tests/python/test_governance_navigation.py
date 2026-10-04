@@ -13,7 +13,7 @@ REPO = Path(__file__).resolve().parents[2]
 APP = (REPO / "public/app.js").read_text(encoding="utf-8")
 # Every state page: the hand-written ones and the ones scripts/build_state_page.py
 # generates from tx.html (six-state expansion).
-PAGES = [p for p in ("index.html", "tx.html", "la.html", "mi.html", "wy.html", "sc.html", "co.html", "wi.html")
+PAGES = [p for p in ("index.html", "tx.html", "la.html", "mi.html", "wy.html", "sc.html", "co.html", "wi.html", "mo.html", "ok.html", "pa.html", "mn.html")
          if (REPO / "public" / p).exists()]
 
 

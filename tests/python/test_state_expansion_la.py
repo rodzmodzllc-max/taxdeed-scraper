@@ -117,7 +117,7 @@ def test_g01_the_registry_row_is_the_owner_decision_on_the_live_evidence():
     assert row.publishing_unit == "PARISH" and row.amount_kind == "NOT_PUBLISHED" and not row.purchase_url
     # Coverage is exactly one parish; nothing else in LA is runnable.
     assert [r.source_id for r in csr.load_registry() if r.state == "LA"] == ["la_ebr_adjudicated"]
-    assert states.PRODUCTION_STATES == frozenset({"FL", "TX", "LA", "MI", "WY", "SC", "CO", "WI"})
+    assert states.PRODUCTION_STATES == frozenset({"FL", "TX", "LA", "MI", "WY", "SC", "CO", "WI", "MO", "OK", "PA", "MN"})
     assert LA.APPROVED_LICENSE_ID == "PUBLIC_DOMAIN"
 
 

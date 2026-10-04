@@ -42,6 +42,11 @@ jobs:
       - name: Capture (value-free)
         run: python3 scripts/capture_state_sources.py --available-five-3 --skip-registry --out out/public/available-five-capture.json
 
+      - name: Live parser validation - harvest only, no database (counts and identifier shapes only)
+        if: always()
+        run: |
+          for st in MO OK PA MN; do python3 scripts/harvest_expansion.py --state "$st" --out-dir out/validate || true; done
+
       - name: Print the digest
         if: always()
         run: python3 scripts/capture_state_sources.py --digest out/public/available-five-capture.json
