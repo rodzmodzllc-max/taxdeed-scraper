@@ -2375,6 +2375,35 @@ Full description: `docs/ui-redesign.md`. Stable facts:
   a top-level `const` - a `const` there aborted the whole module.
 - The filters panel lives in `.auctions-body` (left column at >=1280px).
 - `sw.js` -> `tdw-shell-v77`.
+## Migration 026: properties access rule once per statement + page index (2026-10-04, APPLIED as version 20261004180726)
+
+`scripts/migrations/026_properties_rls_initplan_and_page_index.sql`. Production's
+only policy on `properties` ("properties: approved only", PERMISSIVE, ALL,
+PUBLIC) called `is_approved()` per row; that function is VOLATILE +
+SECURITY DEFINER, so it re-ran a profiles lookup and re-parsed the JWT claims
+for every row a scan touched (production plan: `Filter: is_approved()` plus a
+full sort). One deep Michigan page took 4.6 s; parallel pages crossed the 8 s
+timeout.
+
+026 does two things:
+- `ALTER POLICY ... using ((select public.is_approved())) with check (...)`.
+  This is an InitPlan, evaluated once per statement. The policy is never
+  dropped, and its name, type, command and role are unchanged.
+- An index on `(state, ledger_type, county, case_no, id)`, which is
+  `get_properties()`'s page order.
+
+Measured on a production-shaped local bench (PG16, production `auth.uid()` /
+`is_approved()`): deep MI page 465 ms -> 44 ms; 8 concurrent deep pages
+1,148 ms -> 213 ms. The authorization fingerprint for every role is
+identical before and after.
+
+Rule: wrap per-user helper calls in RLS policies as `(select fn())`.
+
+Applied to production 2026-10-04 (version `20261004180726`, executable SQL
+identical to this file). Measured in production as an approved customer:
+deep MI page 4,494 ms -> 106 ms; every MI / LA page read back in the same
+order with no row missing or repeated.
+
 
 ## Where to look for more
 
