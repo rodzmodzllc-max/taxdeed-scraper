@@ -2330,6 +2330,32 @@ recognises the definition and leaves it alone.
 Rule: never ORDER BY full rows in a paged RPC over a large state; sort the
 keys, then fetch.
 
+## AVAILABLE expansion: MO, OK, PA, MN (2026-10-04, PR open, no migration)
+
+Full description: `docs/available-expansion-2026-10.md`.
+
+**Sources** (all UNREVIEWED: collected for admins, never customer-published until an admin review approves them):
+
+| State | Source | Rows read live |
+|---|---|---|
+| MO | St. Louis LRA CSV (`Parcel_Status = Available` only) | 9,758 |
+| OK | Oklahoma County county-owned list (suggested bid = `PUBLISHED_AMOUNT_KIND_UNSPECIFIED`; offline bid form) | 195 |
+| PA | Fayette repository PDF (`Bid Received` excluded; dated 2025-10-07) | 376 |
+| MN | Ramsey tax-forfeited layer (`Available for purchase` only) | 2 |
+
+**Shared adapter additions** (`tabular.py`):
+- `status_include` / `status_exclude`;
+- `ColumnMap.land_use`;
+- `parse_rows` / `pdf_table_rows`;
+- `header_required` and the status column are enforced on every input path;
+- runner kinds `csv` / `pdf_table` in `harvest_expansion.py`.
+
+**Names and rules:**
+- "St. Louis City" names the independent city apart from St. Louis County (`build_state_basemap.py --rename`).
+- Owner columns are never mapped.
+- Mississippi is deferred: no public source of record; the only GIS layer is a City of Jackson blight-project snapshot.
+- `sw.js` → `tdw-shell-v75`.
+
 ## Where to look for more
 
 - `claude/improvement-roadmap.md` in the "tax florida app" claude.ai Project — the full dated log of every fix, audit finding, and open decision. This is where new findings should be appended, not here.
