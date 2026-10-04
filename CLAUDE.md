@@ -2330,6 +2330,30 @@ recognises the definition and leaves it alone.
 Rule: never ORDER BY full rows in a paged RPC over a large state; sort the
 keys, then fetch.
 
+## Migration 026: properties access rule once per statement + page index (2026-10-04, written, NOT applied)
+
+`scripts/migrations/026_properties_rls_initplan_and_page_index.sql`. Production's
+only policy on `properties` ("properties: approved only", PERMISSIVE, ALL,
+PUBLIC) called `is_approved()` per row; that function is VOLATILE +
+SECURITY DEFINER, so it re-ran a profiles lookup and re-parsed the JWT claims
+for every row a scan touched (production plan: `Filter: is_approved()` plus a
+full sort). One deep Michigan page took 4.6 s; parallel pages crossed the 8 s
+timeout.
+
+026 does two things:
+- `ALTER POLICY ... using ((select public.is_approved())) with check (...)`.
+  This is an InitPlan, evaluated once per statement. The policy is never
+  dropped, and its name, type, command and role are unchanged.
+- An index on `(state, ledger_type, county, case_no, id)`, which is
+  `get_properties()`'s page order.
+
+Measured on a production-shaped local bench (PG16, production `auth.uid()` /
+`is_approved()`): deep MI page 465 ms -> 44 ms; 8 concurrent deep pages
+1,148 ms -> 213 ms. The authorization fingerprint for every role is
+identical before and after.
+
+Rule: wrap per-user helper calls in RLS policies as `(select fn())`.
+
 ## Where to look for more
 
 - `claude/improvement-roadmap.md` in the "tax florida app" claude.ai Project — the full dated log of every fix, audit finding, and open decision. This is where new findings should be appended, not here.

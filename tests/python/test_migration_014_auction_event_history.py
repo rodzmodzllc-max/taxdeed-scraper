@@ -294,7 +294,7 @@ def test_s13_existing_migrations_untouched_and_numbering_is_next():
         "019_laft_list_dates.sql", "020_state_extensible_vocabulary.sql",
             "021_inventory_status_provenance_freshness.sql", "022_available_publication_gate.sql",
             "023_available_commercial_release.sql", "024_customer_monitoring_foundation.sql",
-            "025_get_properties_narrow_sort.sql"]
+            "025_get_properties_narrow_sort.sql", "026_properties_rls_initplan_and_page_index.sql"]
     assert MIG_013.exists()
     # 013's own contract is unchanged (its test file still guards it); here we
     # only assert 014 does not redefine 013's objects.
