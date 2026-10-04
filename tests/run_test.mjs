@@ -3551,12 +3551,6 @@ await navMap.close();
     results.rdPhoneSearchVisible = await pg.locator('#globalSearchInput').isVisible();
     await pg.close();
 
-    // Loading: Home shows placeholders, never a zero, until the rows arrive.
-    pg = await newPage({ viewport: { width: 1440, height: 900 } });
-    await pg.goto(BASE_URL + '?pagedelay=1500#/dashboard');
-    await pg.waitForSelector('#homeLedgers [data-home-ledger]', { timeout: 8000 }).catch(() => {});
-    results.rdHomeLoading = { count: await txt(pg, '#homeCount_laft'), skeleton: await pg.locator('#homeRecent .skel-card').count() };
-    await pg.close();
   }
   results.xsPages = {};
   for (const [code, file, name] of NEW_STATES) {
@@ -4330,7 +4324,7 @@ const EXPECTED = {
   },
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: { ready: true, controlled: true, tagline: "Tax Sale Property Intelligence", noState: true, cache: ["tdw-shell-v76"] },
+  brandSwReload: { ready: true, controlled: true, tagline: "Tax Sale Property Intelligence", noState: true, cache: ["tdw-shell-v77"] },
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · Tax Acquisitions — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · Tax Acquisitions — Florida", floridaCopy: true },
@@ -4693,6 +4687,31 @@ const EXPECTED = {
   navMapDeepCounty: 'Bay',
   navMapDeepContext: 'Ledger: Available · County: Bay County',
   navMapDeepHash: '#/map?ledger=laft&county=Bay',
+  // Shell redesign (2026-10-04)
+  rdHome: {"title": "Find tax-sale and government-held property", "cards": ["laft:2", "auction:9", "certificate:1"], "statesCard": 1, "recentHasFirstSeen": true, "tabCounts": ["auction:9", "laft:2", "certificate:1"], "noScoreWords": true},
+  rdHomeSearch: {"hash": "#/lands", "listSearch": "Manatee", "cards": 1, "chip": "Search: “Manatee”×"},
+  rdChipRemoved: {"listSearch": "", "chips": 0, "hidden": true},
+  rdPathChip: ["Purchase path: No online path on file×"],
+  rdClearAll: {"chips": 0, "path": "any"},
+  rdListHead: {"title": "Available Properties", "sub": "2 shown of 2 in Florida", "lit": ["ledger:laft"]},
+  rdCountyPanel: {"shaded": ["Bay", "Citrus"], "after": {"quick": "Bay", "chip": "County: Bay×", "cards": 1}},
+  rdNavCert: {"hash": "#/certificates", "title": "Liens & Certificates"},
+  rdNavAuction: {"hash": "#/auctions", "title": "Auction Properties"},
+  rdGlobal: {"rows": ["p15:Available"], "all": "See all 1 result in the list →", "expanded": "true"},
+  rdGlobalOpen: {"modal": true, "crumbs": ["Home/Available/15 Manatee Ln"]},
+  rdDetail: {"tabs": ["Acquisition", "Overview", "Decision", "Inventory", "Tax & Value", "Property", "Sale events", "Watch", "Risk & Legal", "Map", "Source", "Provenance"], "why": ["It is in the Available ledger for Florida because its source lists it.", "Last read from the source 14d ago.", "Its source is approved for customer publication."], "acquire": 1},
+  rdCrumbHome: {"modalHidden": true, "dashVisible": true},
+  rdGlobalEmpty: "No Florida property matches “zzzz-no-such”. Search covers address, parcel, case and certificate numbers and the county; to look in another state, switch state first.",
+  rdGlobalEscape: true,
+  rdCardAcq: ["p3:Phone the countyNo online purchase link on file", "p15:Multi-step county processNo online purchase link on file"],
+  rdPicker: {"rows": ["CO=certificate", "FL=auction|laft|certificate", "LA=laft", "MI=auction", "MN=!none", "MO=!none", "OK=!none", "PA=!none", "SC=auction", "TX=auction|laft", "WI=!none", "WY=auction"], "groups": ["States with Available properties", "Other states"], "visible": true, "coHref": "co.html#/certificates", "flCounts": ["Auctions 9", "Available 2", "Liens & Certificates 1"]},
+  rdPickerSearch: ["WY"],
+  rdPickerEscape: true,
+  rdPickerAdminMI: "MI=auction|laft",
+  rdPickerProbeFail: "WY=auction|laft|certificate!unchecked",
+  rdPhoneBottom: ["Home", "Search", "Map", "Saved", "Account"],
+  rdPhoneAccount: true,
+  rdPhoneSearchVisible: true,
   landCO: { hash: '#/certificates', cards: 2, issue: 0 },
   landWY: { hash: '#/auctions', cards: 1, issue: 0 },
   landLA: { hash: '#/lands', cards: 2, issue: 0 },

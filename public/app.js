@@ -9650,7 +9650,7 @@ function renderListHead(shown, k, tabCounts) {
   const sub = document.getElementById("listSubtitle");
   if (!t) return;
   const name = ledgerNavName(k);
-  t.textContent = k === "certificate" ? name : `${name} Properties`;
+  t.textContent = k === "certificate" ? name : `${k === "auction" ? "Auction" : name} Properties`;
   if (sub) {
     const total = (tabCounts && tabCounts[k]) || 0;
     sub.textContent = PROPERTIES_LOADED
