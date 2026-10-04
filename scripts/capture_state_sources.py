@@ -1241,6 +1241,38 @@ def app_hosts(session: requests.Session, url: str) -> dict:
     return out
 
 
+# Pass 3 (2026-10-04): Mississippi only - the map app's script references the
+# State ITS ArcGIS server; find the tax-forfeited-lands layer there.
+FIVE3_DIRECTORY = "https://gisserver.its.ms.gov/arcgis/rest/services"
+FIVE3_FOLDER_RE = re.compile(r"sos|tfl|forfeit|public.?land|land", re.I)
+FIVE3_ITEMS = ["bae26a0f2eaa455280a85537d4f3ea0a", "d74c6b741a83487e8ca56bc8ceafbd27"]
+
+
+def directory_crawl(session: requests.Session, root: str, folder_re, *, max_services: int = 12) -> list[dict]:
+    """An ArcGIS server's directory (root + folders matching folder_re): every
+    service whose name matches folder_re gets its layers' metadata."""
+    pages = []
+    top = arcgis_directory(session, root)
+    pages.append({"url": root, "kind": "arcgis_directory", **top})
+    names = list(top.get("services") or [])
+    for folder in top.get("folders") or []:
+        if folder_re.search(folder):
+            sub = arcgis_directory(session, f"{root}/{folder}")
+            pages.append({"url": f"{root}/{folder}", "kind": "arcgis_directory", **sub})
+            names += list(sub.get("services") or [])
+    done = 0
+    for name in names:
+        svc_name = name.split(" ")[0]
+        if not folder_re.search(svc_name) or done >= max_services:
+            continue
+        kind = "MapServer" if "MapServer" in name else "FeatureServer"
+        url = f"{root}/{svc_name.split(':')[0]}/{kind}"
+        pages.append({"url": url, "kind": "arcgis", "layers": arcgis_layer_meta(session, url)})
+        done += 1
+        time.sleep(0.5)
+    return pages
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--digest", default=None)
@@ -1258,6 +1290,7 @@ def main(argv=None) -> int:
     ap.add_argument("--enrich-sources", action="store_true", help="read the ENRICH_* parcel / tax-roll candidates (property-enrichment sprint)")
     ap.add_argument("--available-five", action="store_true", help="read the AVAILABLE_FIVE_* candidates (MS, PA, MO, MN, OK)")
     ap.add_argument("--available-five-2", action="store_true", help="pass 2 of the available-five capture")
+    ap.add_argument("--available-five-3", action="store_true", help="pass 3 (Mississippi state GIS server)")
     ap.add_argument("--out", default=str(OUT_PATH))
     args = ap.parse_args(argv)
     if args.digest:
@@ -1478,6 +1511,21 @@ def main(argv=None) -> int:
             e2["pages"].append(page)
             print(f"  five2 app hosts   services={len(page.get('services') or [])} {url}", flush=True)
         report["states"].setdefault("ZZ", {"sources": []})["sources"].append(e2)
+    if args.available_five_3:
+        e3 = {"source_id": "available_five_pass3_ms", "county": "(available five pass 3)", "pages": []}
+        e3["pages"] += directory_crawl(session, FIVE3_DIRECTORY, FIVE3_FOLDER_RE)
+        print(f"  five3 directory   {len(e3['pages'])} page(s)", flush=True)
+        for item_id in FIVE3_ITEMS:
+            e3["pages"].append({"url": f"item:{item_id}", "kind": "arcgis_item", **arcgis_item(session, item_id)})
+            page = item_services(session, item_id)
+            e3["pages"].append(page)
+            print(f"  five3 item        services={len(page['services'])} {item_id}", flush=True)
+            for svc in page["services"][:4]:
+                root = re.sub(r"/\d+$", "", svc)
+                if "World_Imagery" in root:
+                    continue
+                e3["pages"].append({"url": root, "kind": "arcgis", "layers": arcgis_layer_meta(session, root)})
+        report["states"].setdefault("MS", {"sources": []})["sources"].append(e3)
     passes = []
     if args.five_state_pass2:
         passes.append(("pass2", FIVE_STATE_PASS2_PAGES, FIVE_STATE_PASS2_SERVICES, FIVE_STATE_PROBES, {}))
