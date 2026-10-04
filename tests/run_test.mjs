@@ -3337,6 +3337,79 @@ await navMap.close();
     await l.close();
   }
   const NEW_STATES = [['MI', 'mi', 'Michigan'], ['WY', 'wy', 'Wyoming'], ['SC', 'sc', 'South Carolina'], ['CO', 'co', 'Colorado'], ['WI', 'wi', 'Wisconsin']];
+  // ---- Load resilience + landing ledger (2026-10-04) ----
+  // landingLedger(): a state opens on the first ledger with visible records.
+  {
+    const land = async (file) => {
+      const pg = await newPage({ viewport: { width: 1200, height: 900 } });
+      await pg.goto(BASE_URL.replace(/index\.html$/, file), { waitUntil: 'networkidle' });
+      await pg.waitForTimeout(400);
+      const r = { hash: await pg.evaluate(() => location.hash), cards: await pg.locator('#main .prop-card').count(),
+                  issue: await pg.locator('#loadIssue').count() };
+      await pg.close();
+      return r;
+    };
+    results.landCO = await land('co.html');   // liens only -> Liens & Certificates, never an empty Auctions tab
+    results.landWY = await land('wy.html');   // auctions only -> Auctions
+    results.landLA = await land('la.html');   // Available present -> Available
+    results.landWI = await land('wi.html');   // nothing collected -> default ledger, empty, nothing invented
+    results.landWIAvailable = results.landWI.hash === '#/lands';
+  }
+  // One page failing must never blank the state; retries are bounded.
+  {
+    const open = async (qs, hash = '') => {
+      const pg = await newPage({ viewport: { width: 1200, height: 900 } });
+      await pg.addInitScript(() => { window.__tdwRetryScale = 0.01; });
+      await pg.goto(BASE_URL + qs + hash, { waitUntil: 'networkidle' });
+      await pg.waitForTimeout(500);
+      return pg;
+    };
+    // Auctions page at offset 4 always times out (pages of 2 rows via maxrows=2).
+    let pg = await open('?maxrows=2&failpage=auctions:4', '#/auctions');
+    results.partialFail = {
+      cards: await pg.locator('#main .prop-card').count(),
+      banner: ((await pg.locator('#loadIssue').textContent()) || '').replace(/\s+/g, ' ').trim(),
+      retryButton: await pg.locator('#loadIssue [data-action="retryload"]').count(),
+      attempts: await pg.evaluate(() => window.__stubPageCalls['auctions:4']),
+      errorState: await pg.locator('#main .error-state').count()
+    };
+    await pg.close();
+    // The same failure seen from another ledger: its rows are complete, the notice names the affected ledger.
+    pg = await open('?maxrows=2&failpage=auctions:4', '#/lands');
+    results.partialOtherLedger = {
+      cards: await pg.locator('#main .prop-card').count(),
+      banner: ((await pg.locator('#loadIssue').textContent()) || '').replace(/\s+/g, ' ').trim()
+    };
+    await pg.close();
+    // A page that fails once is retried and recovers: no notice, all rows.
+    pg = await open('?maxrows=2&flakypage=auctions:2:1', '#/auctions');
+    results.flakyRecovered = {
+      issue: await pg.locator('#loadIssue').count(),
+      attempts: await pg.evaluate(() => window.__stubPageCalls['auctions:2']),
+      cardsMatchFull: null
+    };
+    await pg.close();
+    // Retry button: the page fails through every attempt; once the source recovers, Retry loads the rest.
+    pg = await open('?maxrows=2&failpage=auctions:4', '#/auctions');
+    const before = await pg.locator('#main .prop-card').count();
+    const hadIssue = await pg.locator('#loadIssue').count();
+    await pg.evaluate(() => { window.__stubHealPages = true; });   // the database recovers
+    await pg.click('#loadIssue [data-action="retryload"]');
+    await pg.waitForTimeout(800);
+    results.retryRecovers = { hadIssue, issueAfter: await pg.locator('#loadIssue').count(),
+                              grew: (await pg.locator('#main .prop-card').count()) > before };
+    await pg.close();
+    // Every ledger's first page failing is the full error state (not "no properties").
+    pg = await open('?failpage=auctions:0,buy:0,lien:0', '#/auctions');
+    results.allFail = { errorState: await pg.locator('#main .error-state').count(), cards: await pg.locator('#main .prop-card').count() };
+    await pg.close();
+    // Bounded concurrency: with every page delayed, at most 2 pages per ledger are in flight (3 ledgers).
+    pg = await open('?maxrows=1&pagedelay=40', '#/auctions');
+    await pg.waitForTimeout(1500);
+    results.peakInflight = await pg.evaluate(() => window.__stubPeakInflight);
+    results.peakInflightBounded = results.peakInflight <= 6 && results.peakInflight >= 2;
+    await pg.close();
+  }
   results.xsPages = {};
   for (const [code, file, name] of NEW_STATES) {
     const pg = await newPage({ viewport: { width: 1200, height: 900 } });
@@ -4083,7 +4156,7 @@ const EXPECTED = {
   detroitSubsetPreview: {"ids": ["pmi_dlbs1", "pmi_dlbs2"], "note": "Detroit Land Bank: 6 collected · 4 with a verified structure in the source's own status · 2 in the customer subset (deterministic ~50%). Only the customer subset is shown here. The subset still passes the publication gate: source review is separate.", "reviewChips": 2, "subsetChips": 0},
   detroitSubsetPreviewMap: ["pmi_dlbs1", "pmi_dlbs2"],
   detroitSubsetVectors: {"cases": 50, "mismatches": []},
-  availDefaultLanding: {"FL": {"hash": "#/lands", "activeTab": "laft", "cards": true, "ledgers": ["laft"]}, "LA": {"hash": "#/lands", "activeTab": "laft", "cards": true, "ledgers": ["laft"]}, "WY": {"hash": "#/auctions", "activeTab": "auction", "cards": false, "ledgers": []}},
+  availDefaultLanding: {"FL": {"hash": "#/lands", "activeTab": "laft", "cards": true, "ledgers": ["laft"]}, "LA": {"hash": "#/lands", "activeTab": "laft", "cards": true, "ledgers": ["laft"]}, "WY": {"hash": "#/auctions", "activeTab": "auction", "cards": true, "ledgers": ["auction"]}},   // 2026-10-04: WY fixture row pwy1 (landing-ledger test)
   // Acquisition-path semantics (2026-10-03): Horry's county-wide bid-form PDF.
   acqPathHorryDetail: { modes: ['bid'], saysOnline: false, saysPropertyLink: false, saysBid: true,
     pdfLinks: ['Download bid form', 'County process page →', 'Application form to download (published by the source) →', 'Application / purchase instructions →'],
@@ -4105,7 +4178,7 @@ const EXPECTED = {
   },
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: { ready: true, controlled: true, tagline: "Tax Sale Property Intelligence", noState: true, cache: ["tdw-shell-v74"] },
+  brandSwReload: { ready: true, controlled: true, tagline: "Tax Sale Property Intelligence", noState: true, cache: ["tdw-shell-v76"] },
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · Tax Acquisitions — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · Tax Acquisitions — Florida", floridaCopy: true },
@@ -4468,6 +4541,16 @@ const EXPECTED = {
   navMapDeepCounty: 'Bay',
   navMapDeepContext: 'Ledger: Available · County: Bay County',
   navMapDeepHash: '#/map?ledger=laft&county=Bay',
+  landCO: { hash: '#/certificates', cards: 2, issue: 0 },
+  landWY: { hash: '#/auctions', cards: 1, issue: 0 },
+  landLA: { hash: '#/lands', cards: 2, issue: 0 },
+  landWIAvailable: false,
+  partialFail: { cards: 2, banner: 'Some results could not be loaded. 4 records loaded in this list; the rest could not be loaded. Retry', retryButton: 1, attempts: 3, errorState: 0 },
+  partialOtherLedger: { cards: 2, banner: 'Some results could not be loaded. Affected: Auctions. Counts there may be incomplete. Retry' },
+  flakyRecovered: { issue: 0, attempts: 2, cardsMatchFull: null },
+  retryRecovers: { hadIssue: 1, issueAfter: 0, grew: true },
+  allFail: { errorState: 1, cards: 0 },
+  peakInflightBounded: true,
   navMapStateOptions: ['FL:Florida', 'TX:Texas', 'LA:Louisiana', 'MI:Michigan', 'WY:Wyoming', 'SC:South Carolina', 'CO:Colorado', 'WI:Wisconsin'],
   navMapStateValue: 'FL',
   adminAnonRedirected: true,

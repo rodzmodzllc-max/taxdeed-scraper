@@ -1777,3 +1777,13 @@ body[data-page="admin"]{background:var(--paper);color:var(--ink);min-height:100v
 .gov-approved{color:var(--ok);font-weight:600}
 .gov-review_required{color:var(--warn);font-weight:600}
 .gov-hard_blocked{color:var(--bad);font-weight:600}
+
+/* Load resilience (2026-10-04): a page of results that could not be loaded.
+   The rows that did load stay on screen; this says so and offers a retry. */
+.load-issue{display:flex;align-items:center;gap:.75rem;flex-wrap:wrap;margin:0 0 .75rem;padding:.6rem .8rem;
+  border:1px solid var(--warn,#b7791f);border-left-width:4px;border-radius:8px;background:var(--warn-bg,rgba(183,121,31,.1));
+  color:var(--ink,inherit);font-size:.9rem}
+.load-issue-text{flex:1 1 16rem}
+.load-issue-retry{padding:.4rem .9rem;min-height:36px;border-radius:6px;border:1px solid currentColor;background:transparent;
+  color:inherit;font:inherit;font-weight:600;cursor:pointer}
+.load-issue.retrying .load-issue-retry{opacity:.6;pointer-events:none}
