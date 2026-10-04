@@ -1,0 +1,717 @@
+{
+ "comment": "screening-v1 vectors. Each case: a row, the expected classification and the expected reason codes (any order, severity info included). Both public/screening.js and harvesters/screening/rules.py must produce identical full results.",
+ "cases": [
+  {
+   "name": "normal FL vacant residential parcel, full data",
+   "row": {
+    "source": "auction",
+    "state": "FL",
+    "parcel": "12-34-56",
+    "acreage": 0.25,
+    "market": 40000,
+    "bid": 3500,
+    "dor_use_code": "00"
+   },
+   "classification": "PRIORITY_REVIEW",
+   "codes": [
+    "OPENING_BID_LOW_RELATIVE_TO_VALUE"
+   ]
+  },
+  {
+   "name": "normal FL house, bid 50% of value",
+   "row": {
+    "source": "auction",
+    "state": "FL",
+    "parcel": "A1",
+    "acreage": 0.2,
+    "market": 200000,
+    "bid": 100000,
+    "dor_use_code": "01",
+    "num_buildings": 1
+   },
+   "classification": "PRIORITY_REVIEW",
+   "codes": []
+  },
+  {
+   "name": "tiny vacant parcel (FL DOR 00)",
+   "row": {
+    "source": "laft",
+    "state": "FL",
+    "parcel": "P2",
+    "acreage": 0.004,
+    "market": 300,
+    "purchase_amount": 900,
+    "purchase_amount_kind": "OPENING_BID",
+    "dor_use_code": "00"
+   },
+   "classification": "LIMITED_OPPORTUNITY",
+   "codes": [
+    "TINY_PARCEL",
+    "LOW_JUST_VALUE",
+    "OPENING_BID_HIGH_RELATIVE_TO_VALUE"
+   ]
+  },
+  {
+   "name": "tiny parcel, vacancy not established: review only",
+   "row": {
+    "source": "auction",
+    "state": "FL",
+    "parcel": "P3",
+    "acreage": 0.005,
+    "market": 5000,
+    "bid": 1000
+   },
+   "classification": "REVIEW",
+   "codes": [
+    "TINY_PARCEL",
+    "PROPERTY_CLASS_UNKNOWN"
+   ]
+  },
+  {
+   "name": "tiny land share on a condo unit is not flagged",
+   "row": {
+    "source": "auction",
+    "state": "FL",
+    "parcel": "C4",
+    "acreage": 0.003,
+    "market": 150000,
+    "bid": 8000,
+    "dor_use_code": "04"
+   },
+   "classification": "PRIORITY_REVIEW",
+   "codes": [
+    "OPENING_BID_LOW_RELATIVE_TO_VALUE"
+   ]
+  },
+  {
+   "name": "small acreage (provisional): review",
+   "row": {
+    "source": "auction",
+    "state": "FL",
+    "parcel": "S5",
+    "acreage": 0.03,
+    "market": 9000,
+    "bid": 2000,
+    "dor_use_code": "00"
+   },
+   "classification": "REVIEW",
+   "codes": [
+    "SMALL_ACREAGE"
+   ]
+  },
+  {
+   "name": "acreage derived from lot sq ft",
+   "row": {
+    "source": "auction",
+    "state": "FL",
+    "parcel": "L6",
+    "lot_sqft": 10890,
+    "market": 20000,
+    "bid": 4000,
+    "dor_use_code": "00"
+   },
+   "classification": "PRIORITY_REVIEW",
+   "codes": []
+  },
+  {
+   "name": "missing acreage",
+   "row": {
+    "source": "auction",
+    "state": "FL",
+    "parcel": "M7",
+    "market": 20000,
+    "bid": 4000,
+    "dor_use_code": "00"
+   },
+   "classification": "REVIEW",
+   "codes": [
+    "ACREAGE_MISSING"
+   ]
+  },
+  {
+   "name": "missing value",
+   "row": {
+    "source": "auction",
+    "state": "FL",
+    "parcel": "M8",
+    "acreage": 1.2,
+    "bid": 4000,
+    "dor_use_code": "00"
+   },
+   "classification": "REVIEW",
+   "codes": [
+    "VALUE_DATA_MISSING"
+   ]
+  },
+  {
+   "name": "right-of-way by FL DOR use code 94",
+   "row": {
+    "source": "laft",
+    "state": "FL",
+    "parcel": "R9",
+    "acreage": 0.4,
+    "market": 340,
+    "bid": 600,
+    "dor_use_code": "94"
+   },
+   "classification": "LIMITED_OPPORTUNITY",
+   "codes": [
+    "POSSIBLE_RIGHT_OF_WAY",
+    "LOW_JUST_VALUE",
+    "OPENING_BID_HIGH_RELATIVE_TO_VALUE"
+   ]
+  },
+  {
+   "name": "drainage / waste land by DOR 96",
+   "row": {
+    "source": "auction",
+    "state": "FL",
+    "parcel": "D10",
+    "acreage": 0.2,
+    "market": 1500,
+    "bid": 400,
+    "dor_use_code": "96"
+   },
+   "classification": "LIMITED_OPPORTUNITY",
+   "codes": [
+    "DRAINAGE_INDICATOR"
+   ]
+  },
+  {
+   "name": "utility DOR 91, common area DOR 9 (unpadded)",
+   "row": {
+    "source": "auction",
+    "state": "FL",
+    "parcel": "U11",
+    "acreage": 0.5,
+    "market": 2000,
+    "bid": 300,
+    "dor_use_code": "9"
+   },
+   "classification": "LIMITED_OPPORTUNITY",
+   "codes": [
+    "COMMON_AREA_INDICATOR"
+   ]
+  },
+  {
+   "name": "DOR codes are Florida's: a TX row with 94 in dor_use_code is not flagged",
+   "row": {
+    "source": "laft",
+    "state": "TX",
+    "parcel": "T12",
+    "assessed": 30000,
+    "bid": 5000,
+    "dor_use_code": "94"
+   },
+   "classification": "REVIEW",
+   "codes": [
+    "ACREAGE_MISSING",
+    "PROPERTY_CLASS_UNKNOWN"
+   ]
+  },
+  {
+   "name": "possible easement from legal description",
+   "row": {
+    "source": "auction",
+    "state": "FL",
+    "parcel": "E13",
+    "acreage": 0.3,
+    "market": 9000,
+    "bid": 1200,
+    "dor_use_code": "00",
+    "legal_desc": "INGRESS/EGRESS EASEMENT OVER N 10 FT OF LOT 4"
+   },
+   "classification": "HIGH_RISK_REVIEW",
+   "codes": [
+    "POSSIBLE_EASEMENT"
+   ]
+  },
+  {
+   "name": "LESS R/W and SUBJ TO EASEMENT are exclusions, not indicators",
+   "row": {
+    "source": "auction",
+    "state": "FL",
+    "parcel": "E14",
+    "acreage": 0.3,
+    "market": 9000,
+    "bid": 1200,
+    "dor_use_code": "00",
+    "legal_desc": "LOT 3 BLK 2 LESS RD R/W SUBJ TO EASEMENT OF RECORD"
+   },
+   "classification": "PRIORITY_REVIEW",
+   "codes": []
+  },
+  {
+   "name": "condo legal TOGETHER WITH common elements is not a common-area parcel",
+   "row": {
+    "source": "auction",
+    "state": "FL",
+    "parcel": "C15",
+    "acreage": 0.01,
+    "market": 90000,
+    "bid": 3000,
+    "dor_use_code": "04",
+    "legal_desc": "UNIT 4 TOGETHER WITH AN UNDIVIDED INT IN THE COMMON ELEMENTS"
+   },
+   "classification": "PRIORITY_REVIEW",
+   "codes": [
+    "OPENING_BID_LOW_RELATIVE_TO_VALUE"
+   ]
+  },
+  {
+   "name": "abandoned right-of-way named in the legal description",
+   "row": {
+    "source": "laft",
+    "state": "FL",
+    "parcel": "R16",
+    "acreage": 0.6,
+    "market": 2500,
+    "bid": 700,
+    "legal_desc": "THAT PART OF OLD COUNTY RD RIGHT OF WAY ABANDONED"
+   },
+   "classification": "HIGH_RISK_REVIEW",
+   "codes": [
+    "POSSIBLE_RIGHT_OF_WAY",
+    "PROPERTY_CLASS_UNKNOWN"
+   ]
+  },
+  {
+   "name": "strip of land",
+   "row": {
+    "source": "laft",
+    "state": "FL",
+    "parcel": "S17",
+    "acreage": 0.08,
+    "market": 1200,
+    "bid": 400,
+    "dor_use_code": "00",
+    "legal_desc": "A 15 FT STRIP ALONG THE E SIDE OF LOT 9"
+   },
+   "classification": "HIGH_RISK_REVIEW",
+   "codes": [
+    "STRIP_DESCRIPTION"
+   ]
+  },
+  {
+   "name": "high bid / value",
+   "row": {
+    "source": "laft",
+    "state": "FL",
+    "parcel": "H18",
+    "acreage": 0.3,
+    "market": 4000,
+    "purchase_amount": 5200,
+    "purchase_amount_kind": "OPENING_BID",
+    "dor_use_code": "00"
+   },
+   "classification": "REVIEW",
+   "codes": [
+    "OPENING_BID_HIGH_RELATIVE_TO_VALUE"
+   ]
+  },
+  {
+   "name": "low bid / value is information only",
+   "row": {
+    "source": "auction",
+    "state": "FL",
+    "parcel": "L19",
+    "acreage": 1.0,
+    "market": 100000,
+    "bid": 2500,
+    "dor_use_code": "00"
+   },
+   "classification": "PRIORITY_REVIEW",
+   "codes": [
+    "OPENING_BID_LOW_RELATIVE_TO_VALUE"
+   ]
+  },
+  {
+   "name": "amount of unstated kind is not an opening bid",
+   "row": {
+    "source": "auction",
+    "state": "WY",
+    "parcel": "W20",
+    "assessed": 10000,
+    "purchase_amount": 20000,
+    "purchase_amount_kind": "PUBLISHED_AMOUNT_KIND_UNSPECIFIED",
+    "land_use": "Residential"
+   },
+   "classification": "REVIEW",
+   "codes": [
+    "ACREAGE_MISSING"
+   ]
+  },
+  {
+   "name": "NOT_PUBLISHED amount is never an amount",
+   "row": {
+    "source": "laft",
+    "state": "FL",
+    "parcel": "N21",
+    "acreage": 0.5,
+    "market": 9000,
+    "bid": 0,
+    "purchase_amount_kind": "NOT_PUBLISHED",
+    "dor_use_code": "00"
+   },
+   "classification": "PRIORITY_REVIEW",
+   "codes": []
+  },
+  {
+   "name": "missing parcel: insufficient data",
+   "row": {
+    "source": "auction",
+    "state": "FL",
+    "case_no": "2026-TD-1",
+    "bid": 900,
+    "market": 9000
+   },
+   "classification": "INSUFFICIENT_DATA",
+   "codes": [
+    "PARCEL_MISSING",
+    "ACREAGE_MISSING",
+    "PROPERTY_CLASS_UNKNOWN",
+    "INSUFFICIENT_DATA"
+   ]
+  },
+  {
+   "name": "parcel only: insufficient data",
+   "row": {
+    "source": "laft",
+    "state": "MI",
+    "parcel": "22-001",
+    "latitude": 42.3,
+    "longitude": -83.0
+   },
+   "classification": "INSUFFICIENT_DATA",
+   "codes": [
+    "ACREAGE_MISSING",
+    "VALUE_DATA_MISSING",
+    "PROPERTY_CLASS_UNKNOWN",
+    "INSUFFICIENT_DATA"
+   ]
+  },
+  {
+   "name": "Detroit neighborhood lot: class from the source's own program wording",
+   "row": {
+    "source": "laft",
+    "state": "MI",
+    "parcel": "22-002",
+    "source_id": "mi_detroit_landbank_lots",
+    "inventory_status_raw": "Neighborhood Lot For Sale"
+   },
+   "classification": "REVIEW",
+   "codes": [
+    "ACREAGE_MISSING",
+    "VALUE_DATA_MISSING"
+   ]
+  },
+  {
+   "name": "Detroit side lot: buyer eligibility restricted",
+   "row": {
+    "source": "laft",
+    "state": "MI",
+    "parcel": "22-003",
+    "source_id": "mi_detroit_landbank_lots",
+    "inventory_status_raw": "Side Lot For Sale"
+   },
+   "classification": "LIMITED_OPPORTUNITY",
+   "codes": [
+    "BUYER_ELIGIBILITY_RESTRICTED",
+    "ACREAGE_MISSING",
+    "VALUE_DATA_MISSING"
+   ]
+  },
+  {
+   "name": "certificate is not screened",
+   "row": {
+    "source": "certificate",
+    "state": "FL",
+    "parcel": "X",
+    "acreage": 0.001,
+    "dor_use_code": "94"
+   },
+   "classification": "NOT_SCREENED",
+   "codes": []
+  },
+  {
+   "name": "no evidence, no false classification: TX struck-off row with CAD value",
+   "row": {
+    "source": "laft",
+    "state": "TX",
+    "parcel": "R000123",
+    "assessed": 45000,
+    "bid": 6100,
+    "latitude": 29.4,
+    "longitude": -98.5
+   },
+   "classification": "REVIEW",
+   "codes": [
+    "ACREAGE_MISSING",
+    "PROPERTY_CLASS_UNKNOWN"
+   ]
+  },
+  {
+   "name": "parcel placeholder text is not a parcel",
+   "row": {
+    "source": "auction",
+    "state": "FL",
+    "parcel": "N/A",
+    "acreage": 1,
+    "market": 5000,
+    "bid": 100,
+    "dor_use_code": "00"
+   },
+   "classification": "INSUFFICIENT_DATA",
+   "codes": [
+    "PARCEL_MISSING",
+    "OPENING_BID_LOW_RELATIVE_TO_VALUE",
+    "INSUFFICIENT_DATA"
+   ]
+  },
+  {
+   "name": "MO lot from land_use text; value missing",
+   "row": {
+    "source": "laft",
+    "state": "MO",
+    "parcel": "1234",
+    "land_use": "Lot",
+    "legal_desc": "C B 123 LOT 4"
+   },
+   "classification": "REVIEW",
+   "codes": [
+    "ACREAGE_MISSING",
+    "VALUE_DATA_MISSING"
+   ]
+  },
+  {
+   "name": "a right-of-way named as a boundary is not evidence about the parcel",
+   "row": {
+    "source": "auction",
+    "state": "FL",
+    "parcel": "B22",
+    "acreage": 0.3,
+    "market": 9000,
+    "bid": 1200,
+    "dor_use_code": "00",
+    "legal_desc": "COM NW COR BLK J TH E ALG R/W"
+   },
+   "classification": "PRIORITY_REVIEW",
+   "codes": []
+  },
+  {
+   "name": "lots sold & strip: an addition, not a strip parcel",
+   "row": {
+    "source": "auction",
+    "state": "SC",
+    "parcel": "B23",
+    "acreage": 0.5,
+    "assessed": 9000,
+    "bid": 1200,
+    "land_use": "Residential",
+    "legal_desc": "LTS 23 & 24 & STRIP"
+   },
+   "classification": "PRIORITY_REVIEW",
+   "codes": []
+  },
+  {
+   "name": "strip deep inside a long description is not a strip parcel",
+   "row": {
+    "source": "laft",
+    "state": "LA",
+    "parcel": "B24",
+    "market": 9000,
+    "land_use": "RESIDENTIAL",
+    "legal_desc": "WARD: 1-1 #4, LOT: A-3,, SUBDIV: SWART ADDITION. RESUB OF LOT A AND A 27 FT. STRIP EXTENDING TO PARK BLVD."
+   },
+   "classification": "REVIEW",
+   "codes": [
+    "ACREAGE_MISSING"
+   ]
+  },
+  {
+   "name": "strip in parentheses",
+   "row": {
+    "source": "auction",
+    "state": "SC",
+    "parcel": "B25",
+    "assessed": 2000,
+    "bid": 300,
+    "legal_desc": "HWY 100(STRIP)"
+   },
+   "classification": "HIGH_RISK_REVIEW",
+   "codes": [
+    "STRIP_DESCRIPTION",
+    "ACREAGE_MISSING",
+    "PROPERTY_CLASS_UNKNOWN"
+   ]
+  },
+  {
+   "name": "common area with no word break before it",
+   "row": {
+    "source": "laft",
+    "state": "MO",
+    "parcel": "B26",
+    "land_use": "Lot",
+    "legal_desc": "C B 3767 AUBERT AV172.87 FT X 15 FTAUBERT COURT TOWNHOUSESCOMMON AREA - DRIVEWAY"
+   },
+   "classification": "HIGH_RISK_REVIEW",
+   "codes": [
+    "COMMON_AREA_INDICATOR",
+    "ACREAGE_MISSING",
+    "VALUE_DATA_MISSING"
+   ]
+  },
+  {
+   "name": "not a building site",
+   "row": {
+    "source": "laft",
+    "state": "LA",
+    "parcel": "B27",
+    "market": 100,
+    "land_use": "RESIDENTIAL",
+    "legal_desc": "3RD FILING. (COMMON AREA NOT A BUILDING SITE). RESUB. 2005."
+   },
+   "classification": "HIGH_RISK_REVIEW",
+   "codes": [
+    "COMMON_AREA_INDICATOR",
+    "NOT_A_BUILDING_SITE",
+    "ACREAGE_MISSING",
+    "LOW_JUST_VALUE"
+   ]
+  },
+  {
+   "name": "LESS DRAINAGE SERVITUDE is an exclusion; a drainage canal as boundary is not matched",
+   "row": {
+    "source": "laft",
+    "state": "LA",
+    "parcel": "B28",
+    "market": 5000,
+    "land_use": "RESIDENTIAL",
+    "legal_desc": "N. PTS. OF LOTS 39 BD. S BY A DRAINAGE CANAL. (LESS DRAINAGE SERV. TO PARISH)"
+   },
+   "classification": "REVIEW",
+   "codes": [
+    "ACREAGE_MISSING"
+   ]
+  },
+  {
+   "name": "detention pond designation",
+   "row": {
+    "source": "laft",
+    "state": "SC",
+    "parcel": "B29",
+    "land_use": "Residential",
+    "legal_desc": "STONES EDGE DETENTION POND/CA 3"
+   },
+   "classification": "HIGH_RISK_REVIEW",
+   "codes": [
+    "DRAINAGE_INDICATOR",
+    "ACREAGE_MISSING",
+    "VALUE_DATA_MISSING"
+   ]
+  }
+ ],
+ "buy_box": [
+  {
+   "row": {
+    "source": "auction",
+    "state": "FL",
+    "parcel": "B1",
+    "acreage": 2,
+    "market": 50000,
+    "bid": 5000,
+    "dor_use_code": "00"
+   },
+   "box": {
+    "minAcres": 1,
+    "minValue": 10000,
+    "maxAmount": 6000,
+    "maxBidToValue": 0.2
+   },
+   "passes": true
+  },
+  {
+   "row": {
+    "source": "auction",
+    "state": "FL",
+    "parcel": "B2",
+    "market": 50000,
+    "bid": 5000,
+    "dor_use_code": "00"
+   },
+   "box": {
+    "minAcres": 1
+   },
+   "passes": false
+  },
+  {
+   "row": {
+    "source": "auction",
+    "state": "FL",
+    "parcel": "B3",
+    "acreage": 2,
+    "bid": 5000,
+    "dor_use_code": "00"
+   },
+   "box": {
+    "maxBidToValue": 0.5
+   },
+   "passes": false
+  },
+  {
+   "row": {
+    "source": "auction",
+    "state": "FL",
+    "parcel": "B4",
+    "acreage": 3,
+    "market": 9000,
+    "bid": 5000
+   },
+   "box": {
+    "maxAcres": 2
+   },
+   "passes": false
+  },
+  {
+   "row": {
+    "source": "auction",
+    "state": "FL",
+    "parcel": "B5",
+    "acreage": 3,
+    "market": 9000,
+    "bid": 5000
+   },
+   "box": {
+    "requireClass": true
+   },
+   "passes": false
+  },
+  {
+   "row": {
+    "source": "auction",
+    "state": "FL",
+    "acreage": 3,
+    "market": 9000,
+    "bid": 5000,
+    "dor_use_code": "00"
+   },
+   "box": {
+    "requireParcel": true
+   },
+   "passes": false
+  },
+  {
+   "row": {
+    "source": "auction",
+    "state": "FL",
+    "parcel": "B7",
+    "acreage": 3,
+    "market": 9000,
+    "bid": 5000,
+    "dor_use_code": "00"
+   },
+   "box": {},
+   "passes": true
+  }
+ ]
+}

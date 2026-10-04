@@ -292,6 +292,7 @@ not one long scroll where Lands Available sits under 300+ auction cards. -->
 then one removable chip per active filter (renderFilterChips() in app.js). -->
 <div class="list-head" id="listHead"><div><h1 class="list-title" id="listTitle">Properties</h1><p class="list-sub" id="listSubtitle"></p></div><button type="button" class="list-map-btn" id="listMapBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 6l7-3 8 3 7-3v16l-7 3-8-3-1 3z"/><path d="M8 3v16M16 6v16"/></svg>Map view</button></div>
 <div class="filter-chips" id="filterChips" hidden></div>
+<div class="screen-bar" id="screenBar" hidden></div>
 <div class="summary-strip">
 <button class="chip total" data-status="all" type="button">Shown&nbsp;<b id="chipTotal">0</b></button>
 <button class="chip ok" data-status="live" type="button">Active&nbsp;<b id="chipActive">0</b></button>
@@ -465,6 +466,28 @@ applyLedgerChrome(); filtering is automatic, no Search button. -->
 <label class="tog"><input type="checkbox" id="availValues"> <span>County value on file</span></label>
 </div>
 <button class="reset-btn" id="hiddenListBtn" type="button" hidden><span id="hiddenCount">0</span> hidden - view &amp; recover</button>
+</div>
+
+<!-- Research screen (screening-v1, public/screening.js): the investor's own
+buy box, applied on top of the screen. Auctions and Available only (a
+certificate is a lien, not a parcel). Access and parcel geometry are not in
+the data, so they are named here and never offered as filters. -->
+<div class="filters-section" id="screenFilters">
+<div class="filters-section-head"><span class="filters-section-title">Research screen</span></div>
+<div class="filters-row">
+<div class="field"><span class="field-label">Acreage min</span><input type="number" id="screenMinAcres" placeholder="Any" min="0" step="0.01" inputmode="decimal" aria-label="Minimum acreage"></div>
+<div class="field"><span class="field-label">Acreage max</span><input type="number" id="screenMaxAcres" placeholder="Any" min="0" step="0.01" inputmode="decimal" aria-label="Maximum acreage"></div>
+<div class="field"><span class="field-label">County value min</span><input type="number" id="screenMinValue" placeholder="Any" min="0" step="1000" inputmode="numeric" aria-label="Minimum county value"></div>
+<div class="field"><span class="field-label">Bid ÷ county value max (%)</span><input type="number" id="screenMaxRatio" placeholder="Any" min="0" step="5" inputmode="decimal" aria-label="Maximum bid as a percentage of county value"></div>
+<div class="field"><span class="field-label">Source</span><select id="screenSourceFilter" aria-label="Source"><option value="any">Any source</option></select></div>
+</div>
+<div class="filters-row">
+<label class="tog"><input type="checkbox" id="screenReqParcel"> <span>Require parcel number</span></label>
+<label class="tog"><input type="checkbox" id="screenReqAcreage"> <span>Require acreage</span></label>
+<label class="tog"><input type="checkbox" id="screenReqValue"> <span>Require county value</span></label>
+<label class="tog"><input type="checkbox" id="screenReqClass"> <span>Require property class</span></label>
+</div>
+<p class="screen-filter-note">A range never matches a record that lacks the field. Road access and parcel geometry are not in the data yet, so they cannot be filtered. The maximum opening bid is the Bid Range above.</p>
 </div>
 
 <!-- Advanced multi-select filters, collapsed behind dropdown-style

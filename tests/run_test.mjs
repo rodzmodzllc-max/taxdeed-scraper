@@ -41,8 +41,14 @@ const browser = await chromium.launch(launchOpts);
 // instead. (This is hygiene, not the fix for the CI timeout this branch
 // hit - see the cold-load note by the #/certificates check further down.)
 const THIRD_PARTY_EMBED = /:\/\/(www\.)?openstreetmap\.org\//;
+// Research screen (screening-v1): every check written before the screen
+// existed asserts against the complete inventory, so those pages open in
+// "All inventory" (window.__tdwScreenView). The screen's own block below
+// opens pages with { screen: "default" } to exercise the real default.
 async function newPage(opts) {
-  const pg = await browser.newPage(opts);
+  const { screen, ...rest } = opts || {};
+  const pg = await browser.newPage(rest);
+  if (screen !== "default") await pg.addInitScript(() => { window.__tdwScreenView = "all"; });
   await pg.route(THIRD_PARTY_EMBED, route => route.fulfill({
     status: 200, contentType: 'text/html', body: '<!doctype html><title>embed stubbed by the suite</title>' }));
   return pg;
@@ -4283,6 +4289,99 @@ await monDash.close();
   await big.close();
 }
 
+// --- Research screen (screening-v1, 2026-10-04) ---
+// Real default: these pages open WITHOUT the __tdwScreenView hook. Texas
+// fixture auctions: ptx1/ptx2 are REVIEW (promoted), ptx4/ptx5 carry no
+// value, size or class (INSUFFICIENT_DATA, not promoted). Nothing is ever
+// removed: All inventory and a search reach every row.
+{
+  const sp = await newPage({ viewport: { width: 1300, height: 900 }, screen: 'default' });
+  sp.on('pageerror', e => errors.push('pageerror(screen): ' + e.message));
+  await sp.goto(TX_BASE_URL + '#/auctions', { waitUntil: 'networkidle' });
+  await sp.waitForSelector('#screenBar:not([hidden])', { timeout: 30000 });
+  const cardIds = () => sp.evaluate(() => [...document.querySelectorAll('#main .prop-card')].map(c => c.dataset.pid).sort());
+  const bar = () => sp.evaluate(() => ({
+    summary: document.getElementById('screenSummary').textContent.replace(/\s+/g, ' ').trim(),
+    buttons: [...document.querySelectorAll('#screenBar .screen-btn')].map(b => b.textContent.replace(/\s+/g, ' ').trim() + (b.classList.contains('on') ? ' [on]' : ''))
+  }));
+  results.screenDefaultCards = await cardIds();
+  results.screenDefaultBar = await bar();
+  results.screenDefaultNote = await sp.evaluate(() => document.getElementById('screenModeNote').textContent.replace(/\s+/g, ' ').trim());
+  results.screenPromotedLine = await sp.evaluate(() => document.querySelector('.prop-card[data-pid="ptx2"] .screen-line').textContent.replace(/\s+/g, ' ').trim());
+  // Show all inventory: every row back, the unpromoted ones labelled with the reason.
+  await sp.click('#screenModeNote [data-screen-view="all"]');
+  await sp.waitForTimeout(300);
+  results.screenAllCards = await cardIds();
+  results.screenAllLine = await sp.evaluate(() => document.querySelector('.prop-card[data-pid="ptx5"] .screen-line').textContent.replace(/\s+/g, ' ').trim());
+  results.screenAllChip = await sp.evaluate(() => [...document.querySelectorAll('#filterChips .filter-chip')].map(c => c.firstChild.textContent.trim()));
+  // One group only.
+  await sp.click('#screenBar .screen-btn[data-screen-view="INSUFFICIENT_DATA"]');
+  await sp.waitForTimeout(300);
+  results.screenInsufficientCards = await cardIds();
+  // Back to discovery, then search finds a record the default view does not promote.
+  await sp.click('#screenBar .screen-btn[data-screen-view="discovery"]');
+  await sp.waitForTimeout(300);
+  await sp.fill('#searchInput', '20-11-0957');
+  await sp.waitForTimeout(700);
+  results.screenSearchFindsFiltered = await cardIds();
+  results.screenSearchNote = await sp.evaluate(() => /your search looks through all of them/.test(document.getElementById('screenModeNote').textContent));
+  await sp.fill('#searchInput', '');
+  await sp.waitForTimeout(500);
+  // Property page for an unpromoted record: classification, every reason with evidence, what the data cannot tell.
+  await sp.click('#screenBar .screen-btn[data-screen-view="all"]');
+  await sp.waitForTimeout(300);
+  await sp.click('.prop-card[data-pid="ptx5"] .detail-btn');
+  await sp.waitForTimeout(600);
+  results.screenDetail = await sp.evaluate(() => {
+    const sec = document.querySelector('.detail-section[data-section="screen"]');
+    if (!sec) return null;
+    return {
+      head: sec.querySelector('.screen-head').textContent.replace(/\s+/g, ' ').trim(),
+      reasons: [...sec.querySelectorAll('.screen-reasons li b')].map(b => b.textContent),
+      geometry: [...sec.querySelectorAll('.kv-row')].map(r => r.textContent.replace(/\s+/g, ' ').trim()).filter(t => /geometry|Access/.test(t)),
+      version: sec.querySelector('.screen-version').textContent.includes('screening-v1'),
+      navPill: [...document.querySelectorAll('.detail-nav [data-action="jump"]')].some(b => b.textContent.trim() === 'Research screen'),
+      why: [...document.querySelectorAll('#whySeeing li')].map(l => l.textContent).find(t => /research screen/.test(t)) || null
+    };
+  });
+  results.screenNoReturnWords = await sp.evaluate(() => {
+    const t = (document.getElementById('screenBar').textContent + ' ' + ((document.querySelector('.detail-section[data-section="screen"]') || {}).textContent || ''));
+    return !/\bROI\b|expected profit|guaranteed|projected profit|best investment/i.test(t);
+  });
+  await sp.keyboard.press('Escape');
+  await sp.waitForTimeout(300);
+  await sp.close();
+
+  // Florida, real default: the buy box narrows on fields the rows carry and a
+  // range never matches a row without the field; Reset returns to discovery.
+  const fp = await newPage({ viewport: { width: 1300, height: 900 }, screen: 'default' });
+  fp.on('pageerror', e => errors.push('pageerror(screen-fl): ' + e.message));
+  await fp.goto(BASE_URL + '#/auctions', { waitUntil: 'networkidle' });
+  await fp.waitForSelector('#screenBar:not([hidden])', { timeout: 30000 });
+  const flIds = () => fp.evaluate(() => [...document.querySelectorAll('#main .prop-card')].map(c => c.dataset.pid).sort());
+  results.screenFlDefaultCards = await flIds();
+  results.screenFlBar = await fp.evaluate(() => document.getElementById('screenSummary').textContent.replace(/\s+/g, ' ').trim());
+  results.screenFiltersVisible = await fp.evaluate(() => !document.getElementById('screenFilters').hidden);
+  if (!(await fp.locator('#screenMinAcres').isVisible())) { await fp.click('#filtersToggle'); await fp.waitForTimeout(300); }
+  await fp.fill('#screenMinAcres', '0.3');
+  await fp.waitForTimeout(400);
+  results.screenFlMinAcres = await flIds();
+  await fp.fill('#screenMinAcres', '');
+  await fp.check('#screenReqValue');
+  await fp.fill('#screenMaxRatio', '10');
+  await fp.waitForTimeout(400);
+  results.screenFlRatio = await flIds();
+  results.screenFlChips = await fp.evaluate(() => [...document.querySelectorAll('#filterChips .filter-chip')].map(c => c.firstChild.textContent.trim()));
+  await fp.click('#resetBtn');
+  await fp.waitForTimeout(400);
+  results.screenFlAfterReset = { cards: await flIds(), view: await fp.evaluate(() => document.querySelector('#screenBar .screen-btn.on').dataset.screenView), ratio: await fp.inputValue('#screenMaxRatio') };
+  // Certificates are not screened: no bar, no screen filters.
+  await fp.click('.ledger-tab[data-ledger="certificate"]');
+  await fp.waitForTimeout(400);
+  results.screenCertHidden = await fp.evaluate(() => ({ bar: document.getElementById('screenBar').hidden, filters: document.getElementById('screenFilters').hidden, lines: document.querySelectorAll('#main .screen-line').length }));
+  await fp.close();
+}
+
 await browser.close();
 
 // ============================================================
@@ -4331,7 +4430,7 @@ const EXPECTED = {
   },
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: { ready: true, controlled: true, tagline: "Tax Sale Property Intelligence", noState: true, cache: ["tdw-shell-v77"] },
+  brandSwReload: { ready: true, controlled: true, tagline: "Tax Sale Property Intelligence", noState: true, cache: ["tdw-shell-v79"] },
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · Tax Acquisitions — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · Tax Acquisitions — Florida", floridaCopy: true },
@@ -4561,7 +4660,7 @@ const EXPECTED = {
   oppBidText: '$5,000.00 Value ÷ bid 18.0× (screening ratio, not a return)',
   oppValueText: '$90,000 2025 County Just Value · County Assessed Value $80,000',
   oppGaps: ['Image not checked yet', 'Not yet geocoded', 'Flood zone not checked'],
-  detailNavLabels: ['Overview', 'Decision', 'Tax & Value', 'Property', 'History', 'Sale events', 'Watch', 'Risk & Legal', 'Map', 'Source', 'Provenance'],   // shell redesign: section nav reads as tabs   // customer-value sprint: the Auction decision block
+  detailNavLabels: ['Overview', 'Research screen', 'Decision', 'Tax & Value', 'Property', 'History', 'Sale events', 'Watch', 'Risk & Legal', 'Map', 'Source', 'Provenance'],   // shell redesign: section nav reads as tabs   // customer-value sprint: the Auction decision block
   detailNavJumpScrolled: true,
   detailNavJumpMarksPill: true,
   showOnMapBtnText: 'Show county on the Map page',
@@ -4706,7 +4805,7 @@ const EXPECTED = {
   rdNavAuction: {"hash": "#/auctions", "title": "Auction Properties"},
   rdGlobal: {"rows": ["p15:Available"], "all": "See all 1 result in the list →", "expanded": "true"},
   rdGlobalOpen: {"modal": true, "crumbs": ["Home/Available/15 Manatee Ln"]},
-  rdDetail: {"tabs": ["Acquisition", "Overview", "Decision", "Inventory", "Tax & Value", "Property", "Sale events", "Watch", "Risk & Legal", "Map", "Source", "Provenance"], "why": ["It is in the Available ledger for Florida because its source lists it.", "Last read from the source Nd ago.", "Its source is approved for customer publication."], "acquire": 1},
+  rdDetail: {"tabs": ["Acquisition", "Overview", "Research screen", "Decision", "Inventory", "Tax & Value", "Property", "Sale events", "Watch", "Risk & Legal", "Map", "Source", "Provenance"], "why": ["It is in the Available ledger for Florida because its source lists it.", "Last read from the source Nd ago.", "Its source is approved for customer publication.", "The research screen (screening-v1) classes it “Research candidate”, so the default discovery view shows it."], "acquire": 1},
   rdCrumbHome: {"modalHidden": true, "dashVisible": true},
   rdGlobalEmpty: "No Florida property matches “zzzz-no-such”. Search covers address, parcel, case and certificate numbers and the county; to look in another state, switch state first.",
   rdGlobalEscape: true,
@@ -5390,7 +5489,28 @@ const EXPECTED = {
   certDecRelated: 'Currently in Auctions (case A-1). Same state, county and parcel number; why a record moved between ledgers is not recorded.',
   certDecNavHasDecision: 1,
   certCsvHeader: ['State', 'County', 'Certificate #', 'Account #', 'Parcel', 'Tax Year', 'Amount', 'Interest Rate (as published)', 'Issued Date', 'Expiration Date', 'Est. Accrued Interest', 'TDA Eligibility Date', 'Status (per the source)', 'Status Observed', 'Same Parcel In Other Ledgers', 'County-Held List URL', 'Source', 'Last Synced', 'Source Review Status'],
-  certCsvHeaderLacks: true
+  certCsvHeaderLacks: true,
+  // Research screen (screening-v1): real default on tx / index pages.
+  screenDefaultCards: ["ptx1", "ptx2"],
+  screenDefaultBar: {"summary": "3 source properties2 match the research screen0 flagged for additional research1 insufficient data", "buttons": ["Discovery view 2 [on]", "Research candidates 0", "Needs review 2", "Limited opportunity 0", "High-risk review 0", "Insufficient data 1", "All inventory 3"]},
+  screenDefaultNote: "Discovery view: research candidates and records that need review. 1 other record is in the full inventory. Show all inventory A research screen built from each record's own fields - not a valuation, score or recommendation.",
+  screenPromotedLine: "Needs reviewAcreage missing + Property class unknown",
+  screenAllCards: ["ptx1", "ptx2", "ptx5"],
+  screenAllLine: "Not promoted by default · Insufficient dataReason: Acreage missing + County value missing + 1 more",
+  screenAllChip: ["Research screen: All inventory"],
+  screenInsufficientCards: ["ptx5"],
+  screenSearchFindsFiltered: ["ptx5"],
+  screenSearchNote: true,
+  screenDetail: {"head": "Insufficient data · not promoted by default - still in the full inventory, found by search and by “All inventory”", "reasons": ["Acreage missing", "County value missing", "Property class unknown", "Insufficient data"], "geometry": ["Parcel geometryNot available - no parcel boundary is in this data", "AccessNot tracked - no source data on road access"], "version": true, "navPill": true, "why": "The research screen classes it “Insufficient data” (Acreage missing + County value missing + Property class unknown), so the default discovery view does not promote it; it shows because you chose All inventory."},
+  screenNoReturnWords: true,
+  screenFlDefaultCards: ["p1", "p10", "p11", "p12", "p5", "p6", "p7", "p8", "p9"],
+  screenFlBar: "9 source properties9 match the research screen0 flagged for additional research0 insufficient data",
+  screenFiltersVisible: true,
+  screenFlMinAcres: ["p1"],
+  screenFlRatio: ["p1", "p10", "p11", "p12", "p5", "p6", "p8", "p9"],
+  screenFlChips: ["Bid ÷ county value max (%): 10", "Require county value"],
+  screenFlAfterReset: {"cards": ["p1", "p10", "p11", "p12", "p5", "p6", "p7", "p8", "p9"], "view": "discovery", "ratio": ""},
+  screenCertHidden: {"bar": true, "filters": true, "lines": 0}
 };
 
 const mismatches = [];

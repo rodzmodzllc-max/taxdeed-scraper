@@ -2409,3 +2409,14 @@ order with no row missing or repeated.
 
 - `claude/improvement-roadmap.md` in the "tax florida app" claude.ai Project — the full dated log of every fix, audit finding, and open decision. This is where new findings should be appended, not here.
 - This file (`CLAUDE.md`) should stay a **stable architecture map** — update it when the architecture, data model, or a hard-won lesson changes, not for routine status updates. Verify claims here still hold before trusting them blindly — this file itself was wrong about the repo count until 2026-08-25, and wrong about local-PC involvement until 2026-08-25.
+
+## Investor discovery: the research screen (2026-10-04, PR open, no migration)
+
+Full description: `docs/investor-screening.md`. Stable facts:
+- **Screening classifies; it never deletes, closes, hides or writes.** `public/screening.js` (browser) and `harvesters/screening/rules.py` (mirror) are pinned to identical output by `tests/python/fixtures/screening_cases.json`. Change both, add a vector, bump `SCREENING_VERSION` (`screening-v1`).
+- Classes: PRIORITY_REVIEW / REVIEW (promoted by default), LIMITED_OPPORTUNITY / HIGH_RISK_REVIEW / INSUFFICIENT_DATA (not promoted), NOT_SCREENED (certificates). Every reason cites a field and its evidence; missing data is REVIEW, never a defect.
+- Evidence used: FL DOR use codes 09/91/93/94/95/96 (FL rows only), the Detroit side-lot program terms, tiny (< 0.01 ac) VACANT parcels, designation-only legal-description wording (exclusions like "LESS R/W" and boundaries like "ALG R/W" never match). Small acreage (< 0.05 ac) and low value (< $1,000) are provisional REVIEW only. No parcel geometry or access data exists: every record reports GEOMETRY_NOT_AVAILABLE / ACCESS_UNKNOWN.
+- List: `#screenBar` (counts + Discovery / each class / All inventory); a search always looks through the whole inventory; buy box `#screenFilters`; card `.screen-line`; property page section `screen`; CSV columns. The Map page is not screened.
+- Tests: `tests/run_test.mjs` opens pre-screen pages with `window.__tdwScreenView = "all"` (so old counts hold); the screen's own block opens pages with `{ screen: "default" }`.
+- Production measurement (read-only SQL port): `scripts/sql/screening_v1_measure.sql`. Screening metrics are never called ROI / profit / return.
+- `sw.js` -> `tdw-shell-v79`.
