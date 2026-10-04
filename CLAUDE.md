@@ -2356,6 +2356,26 @@ Full description: `docs/available-expansion-2026-10.md`.
 - Mississippi is deferred: no public source of record; the only GIS layer is a City of Jackson blight-project snapshot.
 - `sw.js` → `tdw-shell-v75`.
 
+## Shell redesign (2026-10-04, PR open, frontend only)
+
+Full description: `docs/ui-redesign.md`. Stable facts:
+- **Sidebar** (identical markup on every page): Home = `data-page="dashboard"`,
+  Search = `data-page="list"`, one entry per ledger with `data-nav-ledger`
+  (never `data-page` + `data-ledger`), Saved Searches / States & Counties /
+  About as `data-nav` actions, Watchlist and Map as pages. On the List page the
+  rail lights the ledger entry, not Search (`syncLedgerNav()`).
+- **Global search** (`#globalSearchInput`) and Home search use the List's own
+  `textMatches()` over the loaded, already-gated rows; Enter opens the List.
+- **State picker** (`#statePicker`): counts only for the open state; other
+  states get a `limit 1` existence probe per ledger (customers: customer-
+  published rows only). Never a cross-state count - the Detroit subset is a
+  browser-side rule a server count cannot apply.
+- **TDZ:** render() runs during module init, so anything it reaches in the
+  redesign section is a function declaration (e.g. `chipControlIds()`), never
+  a top-level `const` - a `const` there aborted the whole module.
+- The filters panel lives in `.auctions-body` (left column at >=1280px).
+- `sw.js` -> `tdw-shell-v77`.
+
 ## Where to look for more
 
 - `claude/improvement-roadmap.md` in the "tax florida app" claude.ai Project — the full dated log of every fix, audit finding, and open decision. This is where new findings should be appended, not here.

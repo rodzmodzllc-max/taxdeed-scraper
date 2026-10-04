@@ -986,6 +986,10 @@ const MONITOR = {
 // the console after the first cut of this section broke page load.
 let mapFilter = { search: "", county: "ALL", ledger: "all", watchlistOnly: false };
 
+// Shell redesign (2026-10-04): global search / state picker UI state. Same
+// TDZ reason as mapFilter - render() reaches renderListHead() during init.
+let SHELL_UI = { gsTimer: null, gsActive: -1, gsMatches: [], picker: null };
+
 function goneExpired(p) {
   if (!isGone(p) || !p.gone_since) return false;
   const flagged = FAVS.has(p.id) || (NOTES[p.id] || []).some(n => n.body || n.stage);
@@ -2181,6 +2185,7 @@ async function checkApprovalAndEnter(session) {
   // openGovernance() refuses a non-admin and RLS admits admins only).
   const govItem = document.getElementById("governanceMenuItem");
   if (govItem) govItem.hidden = !IS_ADMIN;
+  syncAdminNav();
   if (profile && profile.approved) showApp();
   else showPending();
 }
@@ -3270,6 +3275,7 @@ function card(p, showCounty) {
       ${marketVal ? `<div class="card-stat card-stat-headline"><div class="card-stat-label">${esc(valueLabel(p))}</div><div class="card-stat-val market">${fmtShort(marketVal)}</div></div>` : ""}
     </div>
     ${p.source === "auction" && bidPublished && marketVal > 0 ? equitySpreadBarHtml(p) : ""}
+    ${cardAcqBadgeHtml(p)}
     ${ledgerLineHtml(p)}
     ${cardFactsHtml(p)}
     ${spec.length ? `<div class="prop-spec">${spec.map(b => `<span>${esc(b)}</span>`).join("")}</div>` : ""}
@@ -4265,7 +4271,10 @@ async function hydrateInventoryHistory(container, p) {
 // that actually rendered (built AFTER the body, by scanning it for
 // data-section anchors, so a row with no History section gets no dead
 // "History" pill). Scrolling is done by the "jump" click action below.
-const DETAIL_NAV_LABELS = { acquire: "Acquire", summary: "Summary", decision: "Decision", inventory: "Inventory", financial: "Financial", property: "Property", history: "History", events: "Sale events", monitor: "Watch", risk: "Risk & Legal", map: "Map", sources: "Sources", provenance: "Data" };
+// Shell redesign (2026-10-04): the section nav reads as the page's tabs -
+// Overview / Acquisition / Tax & Value / ... / Map / Source - each a jump to a
+// section that actually rendered (never an empty tab).
+const DETAIL_NAV_LABELS = { acquire: "Acquisition", summary: "Overview", decision: "Decision", inventory: "Inventory", financial: "Tax & Value", property: "Property", history: "History", events: "Sale events", monitor: "Watch", risk: "Risk & Legal", map: "Map", sources: "Source", provenance: "Provenance" };
 function detailNavHtml(bodyHtml) {
   const ids = [];
   bodyHtml.replace(/data-section="([a-z]+)"/g, (m, id) => { if (DETAIL_NAV_LABELS[id] && !ids.includes(id)) ids.push(id); return m; });
@@ -5033,6 +5042,7 @@ function detailHtml(p) {
 
   const html = `
     <button class="detail-close" data-action="closedetail" type="button" aria-label="Close">✕</button>
+    ${detailCrumbsHtml(p)}
     <div class="prop-county-tag">${esc(p.county)} ${UNIT_WORD}, ${esc(regionOf(p))}${isCert ? " · Certificate" : (p.source === "laft" ? (isDatedList(p) ? " · Adjudicated (dated list)" : regionOf(p) === "TX" ? " · Struck-off inventory" : " · Lands Available") : " · Auction")}</div>
     <h2 class="detail-address">${title}</h2>
     <div class="prop-top-actions" style="margin:.2rem 0 .5rem">
@@ -5041,6 +5051,7 @@ function detailHtml(p) {
       ${statusPillHtml(p)}
     </div>
     <!--NAV-->
+    ${whySeeingHtml(p)}
     ${!isCert && regionOf(p) === "FL" ? `<div class="lien-banner ${esc(p.lien_level)}">
       <div class="lien-toprow"><span class="lien-label">Manual lien notes: ${LIEN_LABEL[p.lien_level] || p.lien_level}</span><span class="type-badge">${esc(p.prop_type || "Type: Unknown")}</span></div>
       <span class="lien-text">${esc(p.lien_note || "")}</span>
@@ -5480,6 +5491,14 @@ document.addEventListener("click", async e => {
   const pid = btn.dataset.pid;
 
   if (action === "retryload") { retryPropertyLoad(); return; }
+  // Detail breadcrumb (2026-10-04): Home / <ledger> / <property>. The modal
+  // closes first (its own Back layer), then the page changes.
+  if (action === "crumbhome" || action === "crumbledger") {
+    const inModal = btn.closest("#detailModal");
+    if (inModal) closeDetail(); else clearDetailPanel();
+    if (action === "crumbhome") showPage("dashboard"); else goToLedger(btn.dataset.ledger);
+    return;
+  }
   if (action === "fav") {
     if (!ME || !pid) return;
     btn.disabled = true;
@@ -5707,6 +5726,14 @@ function render() {
   // count together - the same three numbers the ledger selector shows.
   const navListCountEl = document.getElementById("navCountList");
   if (navListCountEl) navListCountEl.textContent = (tabCounts.auction || 0) + (tabCounts.laft || 0) + (tabCounts.certificate || 0);
+  // Shell redesign (2026-10-04): each ledger's own sidebar entry carries its
+  // count - the same number as its tab.
+  LEDGER_ORDER.forEach(k => {
+    const el = document.getElementById("navCount" + k[0].toUpperCase() + k.slice(1));
+    if (el) el.textContent = (tabCounts[k] || 0).toLocaleString("en-US");
+  });
+  renderListHead(shown, activeLedger, tabCounts);
+  renderFilterChips();
 
   // Expand/Collapse-all button label reflects whether every county currently
   // in view is already expanded.
@@ -5775,6 +5802,8 @@ function render() {
   // typeof check so this file still runs standalone if that section is
   // ever stripped.
   if (typeof renderShellExtras === "function") renderShellExtras(shown, activeLedger);
+  SHELL_UI.lastShown = shown;
+  if (typeof renderListCountyPanel === "function") renderListCountyPanel(shown);
   hydrateVisuals(document.getElementById("main"));
 }
 
@@ -8196,8 +8225,18 @@ function syncLedgerNav(pageName) {
   try { name = pageName || shellPage; } catch { name = pageName || "list"; }
   const bidModal = document.getElementById("bidListModal");
   if (bidModal && !bidModal.hidden) name = "watchlist";
-  document.querySelectorAll(".nav-item[data-page], .nav-bottom-item[data-page]").forEach(btn => {
-    const on = btn.dataset.page === name;
+  // Shell redesign (2026-10-04): on the List page the sidebar lights the
+  // ledger entry being read (data-nav-ledger) rather than Search, so exactly
+  // one rail entry names what is on screen. The phone bar has no ledger
+  // entries, so its Search lights on the List page as before.
+  let ledgerNow = null;
+  try { ledgerNow = state.ledger; } catch { ledgerNow = null; }   // TDZ-safe, same as shellPage above
+  const railLedger = name === "list" && document.querySelector(`.nav-item[data-nav-ledger="${ledgerNow}"]`);
+  document.querySelectorAll(".nav-item[data-page], .nav-bottom-item[data-page], .nav-item[data-nav-ledger]").forEach(btn => {
+    let on;
+    if (btn.dataset.navLedger) on = name === "list" && btn.dataset.navLedger === ledgerNow;
+    else if (btn.classList.contains("nav-item") && btn.dataset.page === "list" && railLedger) on = false;
+    else on = btn.dataset.page === name;
     btn.classList.toggle("on", on);
     if (on) btn.setAttribute("aria-current", "page"); else btn.removeAttribute("aria-current");
   });
@@ -8486,6 +8525,7 @@ function renderSourceReviewPanel(rows) {
 }
 
 function renderDashboard() {
+  renderHome();
   const statsEl = document.getElementById("dashStats");
   if (!statsEl) return; // dashboard markup not present (older fixture, etc.)
   const countyEl = document.getElementById("dashCountyRows");
@@ -8712,6 +8752,7 @@ function clearDetailPanel() {
   panel.className = "detail-panel";
   panel.innerHTML = `<div class="detail-panel-empty">Select a property from the list to see its full page here.</div>`;
   document.querySelectorAll(".data-table tbody tr.selected").forEach(tr => tr.classList.remove("selected"));
+  if (SHELL_UI.lastShown) renderListCountyPanel(SHELL_UI.lastShown);
   document.querySelectorAll("#main .prop-card.selected").forEach(c => c.classList.remove("selected"));
 }
 
@@ -9372,3 +9413,601 @@ async function loadMonitoring() {
 }
 
 installMonitoringUi();
+
+// ==================== Shell redesign (2026-10-04) ====================
+// The navigation shell, the global search, Home, the List head with its
+// filter chips, the state picker sheet and the List's county panel. Every
+// figure here is computed from rows this session already loaded (ALL, which
+// the publication gate has already applied for this viewer) - nothing is
+// counted, priced or described that a row does not carry.
+
+function ledgerNavName(k) { return ledgerCopy(k).nav || ledgerCopy(k).title || k; }
+function unitWordFor(n) {
+  const w = UNIT_WORD.toLowerCase();
+  if (n === 1) return w;
+  return w === "parish" ? "parishes" : w.endsWith("y") ? w.slice(0, -1) + "ies" : w + "s";
+}
+function syncLedgerNavNames() {
+  document.querySelectorAll(".nav-item[data-nav-ledger] .nav-ledger-name").forEach(el => {
+    el.textContent = ledgerNavName(el.closest("[data-nav-ledger]").dataset.navLedger);
+  });
+}
+syncLedgerNavNames();
+
+// Rows counted as "in" a ledger anywhere in the shell: the same exclusions
+// the ledger tabs use (past-due auctions, hidden rows, expired gone rows).
+function shellActiveRows(k) {
+  return ALL.filter(p => p.source === k && !isPastDue(p) && !HIDDEN.has(p.id) && !goneExpired(p) && !isGone(p));
+}
+function goToLedger(k) {
+  showPage("list");
+  if (LEDGERS[k]) setLedger(k);
+}
+
+// ---- global search ----
+var GS_MIN = 2, GS_LIMIT = 8;   // var: read only from event handlers, never during init
+function gsEls() {
+  return { input: document.getElementById("globalSearchInput"), box: document.getElementById("globalSearchResults"), clear: document.getElementById("globalSearchClear") };
+}
+function gsMatches(q) {
+  const out = [];
+  for (const p of ALL) {
+    if (HIDDEN.has(p.id) || goneExpired(p)) continue;
+    if (textMatches(p, q)) out.push(p);
+  }
+  // Available first, then auctions, then certificates; inside a ledger, the
+  // List's own default order (county, then case).
+  const rank = { laft: 0, auction: 1, certificate: 2 };
+  out.sort((a, b) => (rank[a.source] ?? 9) - (rank[b.source] ?? 9) || String(a.county).localeCompare(String(b.county)) || String(a.case_no || "").localeCompare(String(b.case_no || "")));
+  return out;
+}
+function gsRowHtml(p, i) {
+  const street = p.source === "certificate" ? "" : realAddress(p);
+  const title = p.source === "certificate" ? `Certificate #${esc(p.certificate_no || "not published")}` : (street ? esc(street) : lotTitle(p));
+  const ids = [hasParcel(p) ? `Parcel ${esc(p.parcel)}` : "", p.case_no ? `Case ${esc(p.case_no)}` : ""].filter(Boolean).join(" · ");
+  return `<button type="button" class="gs-row" role="option" id="gsOpt${i}" data-gs-pid="${esc(String(p.id))}" aria-selected="false">
+    <span class="ledger-badge" data-ledger="${esc(p.source)}">${esc(ledgerNavName(p.source))}</span>
+    <span class="gs-main"><span class="gs-title">${title}</span><span class="gs-sub">${esc(p.county || "")} ${esc(UNIT_WORD)}, ${esc(PAGE_STATE)}${ids ? " · " + ids : ""}</span></span>
+  </button>`;
+}
+function renderGlobalSearch() {
+  const { input, box, clear } = gsEls();
+  if (!input || !box) return;
+  const q = input.value.trim();
+  if (clear) clear.hidden = !q;
+  SHELL_UI.gsActive = -1;
+  if (q.length < GS_MIN) { box.hidden = true; input.setAttribute("aria-expanded", "false"); box.innerHTML = ""; return; }
+  box.hidden = false;
+  input.setAttribute("aria-expanded", "true");
+  if (!PROPERTIES_LOADED) {
+    box.innerHTML = `<div class="gs-status" id="gsLoading" role="status"><span class="gs-spinner" aria-hidden="true"></span>Loading ${esc(STATE_INFO.name)} properties…</div>`;
+    return;
+  }
+  const all = gsMatches(q);
+  SHELL_UI.gsMatches = all;
+  if (!all.length) {
+    box.innerHTML = `<div class="gs-status" id="gsEmpty" role="status">No ${esc(STATE_INFO.name)} property matches “${esc(q)}”. Search covers address, parcel, case and certificate numbers and the ${esc(UNIT_WORD.toLowerCase())}; to look in another state, switch state first.</div>`;
+    return;
+  }
+  box.innerHTML = all.slice(0, GS_LIMIT).map(gsRowHtml).join("") +
+    `<button type="button" class="gs-all" data-gs-all="1">See all ${all.length.toLocaleString("en-US")} result${all.length === 1 ? "" : "s"} in the list &rarr;</button>`;
+}
+function closeGlobalSearch() {
+  const { input, box } = gsEls();
+  if (box) box.hidden = true;
+  if (input) input.setAttribute("aria-expanded", "false");
+}
+// Open the List filtered by the query, on the ledger that has matches
+// (the current one when it has any).
+function goToListSearch(q) {
+  const query = String(q || "").trim();
+  const matches = query ? gsMatches(query) : [];
+  let ledger = state.ledger;
+  if (query && !matches.some(p => p.source === ledger)) {
+    const first = LEDGER_ORDER.find(k => matches.some(p => p.source === k));
+    if (first) ledger = first;
+  }
+  closeGlobalSearch();
+  showPage("list");
+  if (ledger !== state.ledger) setLedger(ledger);
+  const si = document.getElementById("searchInput");
+  if (si) si.value = query;
+  state.search = query;
+  updateBadge();
+  render();
+}
+(function bindGlobalSearch() {
+  const { input, box, clear } = gsEls();
+  if (!input || !box) return;
+  input.addEventListener("input", () => { clearTimeout(SHELL_UI.gsTimer); SHELL_UI.gsTimer = setTimeout(renderGlobalSearch, 120); });
+  input.addEventListener("focus", () => { if (input.value.trim().length >= GS_MIN) renderGlobalSearch(); });
+  input.addEventListener("keydown", e => {
+    const opts = Array.from(box.querySelectorAll(".gs-row"));
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      if (box.hidden || !opts.length) return;
+      e.preventDefault();
+      SHELL_UI.gsActive = (SHELL_UI.gsActive + (e.key === "ArrowDown" ? 1 : -1) + opts.length) % opts.length;
+      opts.forEach((o, i) => o.setAttribute("aria-selected", String(i === SHELL_UI.gsActive)));
+      input.setAttribute("aria-activedescendant", opts[SHELL_UI.gsActive].id);
+      opts[SHELL_UI.gsActive].scrollIntoView({ block: "nearest" });
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      if (SHELL_UI.gsActive >= 0 && opts[SHELL_UI.gsActive]) { opts[SHELL_UI.gsActive].click(); return; }
+      goToListSearch(input.value);
+      input.blur();
+    } else if (e.key === "Escape") {
+      closeGlobalSearch();
+    }
+  });
+  box.addEventListener("click", e => {
+    const row = e.target.closest("[data-gs-pid]");
+    if (row) {
+      const p = ALL.find(x => String(x.id) === row.dataset.gsPid);
+      closeGlobalSearch();
+      if (p) openDetail(p);
+      return;
+    }
+    if (e.target.closest("[data-gs-all]")) goToListSearch(input.value);
+  });
+  if (clear) clear.addEventListener("click", () => { input.value = ""; renderGlobalSearch(); input.focus(); });
+  document.addEventListener("click", e => { if (!e.target.closest("#globalSearch")) closeGlobalSearch(); });
+})();
+
+// ---- Home ----
+function homeLedgerCardHtml(k) {
+  const rows = shellActiveRows(k);
+  const cfg = ledgerCopy(k);
+  const counties = new Set(rows.map(p => p.county)).size;
+  const n = rows.length;
+  const unit = k === "certificate" && PAGE_STATE !== "FL" ? "records" : ({ laft: "properties", auction: "upcoming sales", certificate: "certificates" })[k];
+  return `<button type="button" class="home-ledger-card${k === "laft" ? " primary" : ""}" data-ledger="${esc(k)}" data-home-ledger="${esc(k)}">
+    <span class="home-ledger-kicker">${esc(ledgerNavName(k).toUpperCase())}</span>
+    <span class="home-ledger-count" id="homeCount_${esc(k)}">${PROPERTIES_LOADED ? n.toLocaleString("en-US") : "—"}</span>
+    <span class="home-ledger-unit">${esc(unit)}${PROPERTIES_LOADED && n ? ` across ${counties} ${esc(unitWordFor(counties))}` : ""}</span>
+    <span class="home-ledger-blurb">${esc(PROPERTIES_LOADED && !n ? `None listed for ${STATE_INFO.name} right now.` : (cfg.sub || ""))}</span>
+    <span class="home-ledger-go">${k === "laft" ? "Explore" : "Open"} &rarr;</span>
+  </button>`;
+}
+function homeRecentRows() {
+  return ALL.filter(p => p.first_seen_at && !isPastDue(p) && !HIDDEN.has(p.id) && !isGone(p))
+    .sort((a, b) => String(b.first_seen_at).localeCompare(String(a.first_seen_at)))
+    .slice(0, 6);
+}
+function homeRecentCardHtml(p) {
+  const street = p.source === "certificate" ? "" : realAddress(p);
+  const title = p.source === "certificate" ? `Certificate #${esc(p.certificate_no || "not published")}` : (street ? esc(street) : lotTitle(p));
+  const amountLabel = p.source === "laft" ? "Purchase price" : p.source === "certificate" ? "Face amount" : amountWord(p, "Opening bid");
+  return `<button type="button" class="home-recent-card" data-home-pid="${esc(String(p.id))}">
+    ${propertyVisual(p, "prop-card-photo home-recent-photo")}
+    <span class="home-recent-body">
+      <span class="ledger-badge" data-ledger="${esc(p.source)}">${esc(ledgerNavName(p.source))}</span>
+      <span class="home-recent-title">${title}</span>
+      <span class="home-recent-sub">${esc(p.county || "")} ${esc(UNIT_WORD)}, ${esc(PAGE_STATE)}</span>
+      <span class="home-recent-amount"><span>${esc(amountLabel)}</span><b class="${hasPublishedBid(p) ? "" : "unpublished"}">${esc(bidDisplayCard(p))}</b></span>
+      <span class="home-recent-when">First observed ${esc(dateOnly(p.first_seen_at))}</span>
+    </span>
+  </button>`;
+}
+function topCountyName() {
+  const c = new Map();
+  ALL.forEach(p => { if (p.county) c.set(p.county, (c.get(p.county) || 0) + 1); });
+  let best = null, n = -1;
+  c.forEach((v, k) => { if (v > n) { best = k; n = v; } });
+  return best;
+}
+function renderHome() {
+  const ledgersEl = document.getElementById("homeLedgers");
+  if (!ledgersEl) return;
+  const order = ["laft", "auction", "certificate"];
+  ledgersEl.innerHTML = order.map(homeLedgerCardHtml).join("") + `
+    <button type="button" class="home-ledger-card home-states-card" id="homeStatesCard" aria-haspopup="dialog" aria-controls="statePicker">
+      <span class="home-ledger-kicker">BROWSE BY STATE</span>
+      <span class="home-ledger-count">${STATE_CODES.length}</span>
+      <span class="home-ledger-unit">states covered</span>
+      <span class="home-ledger-blurb">Find properties in your target area.</span>
+      <span class="home-ledger-go">View States &rarr;</span>
+    </button>`;
+  const scope = document.getElementById("homeScope");
+  if (scope) scope.innerHTML = `Searching <b>${esc(STATE_INFO.name)}</b> · <button type="button" class="link-btn" id="homeChangeState">Change state</button>`;
+  const hs = document.getElementById("homeSearchInput");
+  if (hs && PAGE_STATE !== "FL") {
+    const county = topCountyName();
+    hs.placeholder = `e.g. 3124 Oak St, parcel 123-456-789${county ? `, ${county} ${UNIT_WORD}` : ""}...`;
+  }
+  const recentEl = document.getElementById("homeRecent");
+  if (recentEl) {
+    if (!PROPERTIES_LOADED) {
+      recentEl.innerHTML = Array.from({ length: 3 }, () => `<div class="home-recent-card skel-card" aria-hidden="true"><div class="skel skel-photo"></div><div class="skel skel-line"></div><div class="skel skel-line short"></div></div>`).join("");
+    } else {
+      const rows = homeRecentRows();
+      recentEl.innerHTML = rows.length ? rows.map(homeRecentCardHtml).join("")
+        : `<div class="dash-empty" id="homeRecentEmpty">No first-observed date is recorded for ${esc(STATE_INFO.name)} properties yet, so nothing is listed as recently added.</div>`;
+      hydrateVisuals(recentEl);
+    }
+  }
+}
+(function bindHome() {
+  const form = document.getElementById("homeSearchForm");
+  if (form) form.addEventListener("submit", e => {
+    e.preventDefault();
+    const v = (document.getElementById("homeSearchInput") || {}).value || "";
+    goToListSearch(v);
+  });
+  const hero = document.getElementById("pageDashboard");
+  if (hero) hero.addEventListener("click", e => {
+    const led = e.target.closest("[data-home-ledger]");
+    if (led) { goToLedger(led.dataset.homeLedger); return; }
+    const pid = e.target.closest("[data-home-pid]");
+    if (pid) { const p = ALL.find(x => String(x.id) === pid.dataset.homePid); if (p) openDetail(p); return; }
+    if (e.target.closest("#homeStatesCard") || e.target.closest("#homeChangeState")) { openStatePicker(e.target.closest("button")); return; }
+    if (e.target.closest("#homeRecentAll")) goToLedger(landingLedger(ALL, state.ledger));
+  });
+})();
+
+// ---- List head + filter chips ----
+function renderListHead(shown, k, tabCounts) {
+  const t = document.getElementById("listTitle");
+  const sub = document.getElementById("listSubtitle");
+  if (!t) return;
+  const name = ledgerNavName(k);
+  t.textContent = k === "certificate" ? name : `${name} Properties`;
+  if (sub) {
+    const total = (tabCounts && tabCounts[k]) || 0;
+    sub.textContent = PROPERTIES_LOADED
+      ? `${shown.length.toLocaleString("en-US")} shown of ${total.toLocaleString("en-US")} in ${STATE_INFO.name}`
+      : `Loading ${STATE_INFO.name}…`;
+  }
+}
+// One chip per active filter, read from the controls themselves; removing a
+// chip resets that one control through its own existing handler, so the
+// chips can never disagree with the panel.
+function controlActive(el) {
+  if (!el || el.closest("[hidden]")) return false;
+  if (el.type === "checkbox") return el.checked;
+  if (el.tagName === "SELECT") return el.value !== "any" && el.value !== "" && el.value !== "ALL";
+  return String(el.value || "").trim() !== "";
+}
+function controlLabel(el) {
+  const field = el.closest(".field, .tog");
+  const lab = field ? (field.querySelector(".field-label") || field.querySelector("span")) : null;
+  const name = lab ? lab.textContent.replace(/\s+/g, " ").trim() : (el.getAttribute("aria-label") || el.id);
+  if (el.type === "checkbox") return name;
+  if (el.tagName === "SELECT") return `${name}: ${el.options[el.selectedIndex] ? el.options[el.selectedIndex].text : el.value}`;
+  return `${name}: ${el.value}`;
+}
+// Declared as a function, not a top-level const: render() reaches
+// filterChipList() during module init, before this line would have run.
+function chipControlIds() {
+  return ["favOnly", "topOnly", "soonOnly", "hideOldOnly", "archiveToggle", "hideSliversOnly", "hideBareLandOnly",
+  "assessedMin", "availPathFilter", "availAmountKindFilter", "availStatusFilter", "acreageMin", "availSeenRecently", "availLandUseFilter",
+  "availGeocoded", "availValues", "taxableMin", "imageryFilter", "acqStateFilter", "watchStatusFilter", "freshDaysFilter", "saleFromFilter", "saleToFilter"];
+}
+function filterChipList() {
+  const chips = [];
+  if (state.search) chips.push({ key: "search", label: `Search: “${state.search}”` });
+  if (ALL_COUNTIES.length && state.counties.size !== ALL_COUNTIES.length) {
+    chips.push({ key: "counties", label: state.counties.size === 1 ? `${UNIT_WORD}: ${Array.from(state.counties)[0]}` : `${UNIT_WORD}: ${state.counties.size} selected` });
+  }
+  if (state.bidMin !== null || state.bidMax !== null) {
+    const lo = state.bidMin !== null ? fmtShort(state.bidMin) : "$0", hi = state.bidMax !== null ? fmtShort(state.bidMax) : "any";
+    chips.push({ key: "bid", label: `${state.ledger === "laft" ? "Price" : "Amount"}: ${lo} – ${hi}` });
+  }
+  if (state.types.size !== TYPE_ORDER.length) chips.push({ key: "types", label: `Property type: ${state.types.size} of ${TYPE_ORDER.length}` });
+  if (state.liens.size !== LIEN_ORDER.length) chips.push({ key: "liens", label: `Lien notes: ${state.liens.size} of ${LIEN_ORDER.length}` });
+  if (state.statusView === "live" || state.statusView === "gone") chips.push({ key: "status", label: state.statusView === "live" ? "Active only" : "No longer listed only" });
+  chipControlIds().forEach(id => {
+    const el = document.getElementById(id);
+    if (controlActive(el)) chips.push({ key: "ctl:" + id, label: controlLabel(el) });
+  });
+  return chips;
+}
+function renderFilterChips() {
+  const host = document.getElementById("filterChips");
+  if (!host) return;
+  const chips = filterChipList();
+  host.hidden = !chips.length;
+  host.innerHTML = chips.map(c => `<span class="filter-chip" data-chip="${esc(c.key)}">${esc(c.label)}<button type="button" class="filter-chip-x" data-chip-remove="${esc(c.key)}" aria-label="Remove filter: ${esc(c.label)}">&times;</button></span>`).join("") +
+    (chips.length ? `<button type="button" class="filter-chip-clear" id="filterChipsClear">Clear all</button>` : "");
+}
+function removeFilterChip(key) {
+  const fire = el => { el.dispatchEvent(new Event("input", { bubbles: true })); el.dispatchEvent(new Event("change", { bubbles: true })); };
+  if (key === "search") {
+    const si = document.getElementById("searchInput");
+    if (si) { si.value = ""; fire(si); }
+    state.search = ""; updateBadge(); render();
+    return;
+  }
+  if (key === "counties") {
+    const all = document.querySelector('.mini-btn[data-group="counties"][data-mode="all"]');
+    const cq = document.getElementById("countyQuick");
+    if (cq) cq.value = "ALL";
+    if (all) all.click(); else { state.counties = new Set(ALL_COUNTIES); updateBadge(); render(); }
+    return;
+  }
+  if (key === "bid") { if (bindBidRangeSliders.reset) bindBidRangeSliders.reset(); updateBadge(); render(); return; }
+  if (key === "types" || key === "liens") { const b = document.querySelector(`.mini-btn[data-group="${key}"][data-mode="all"]`); if (b) b.click(); return; }
+  if (key === "status") { const c = document.querySelector('.summary-strip .chip[data-status="all"]'); if (c) c.click(); return; }
+  if (key.startsWith("ctl:")) {
+    const el = document.getElementById(key.slice(4));
+    if (!el) return;
+    if (el.type === "checkbox") el.checked = false;
+    else if (el.tagName === "SELECT") el.value = Array.from(el.options).some(o => o.value === "any") ? "any" : "";
+    else el.value = "";
+    fire(el);
+    renderFilterChips();
+  }
+}
+(function bindListHead() {
+  const host = document.getElementById("filterChips");
+  if (host) host.addEventListener("click", e => {
+    const x = e.target.closest("[data-chip-remove]");
+    if (x) { removeFilterChip(x.dataset.chipRemove); return; }
+    if (e.target.closest("#filterChipsClear")) { const r = document.getElementById("resetBtn"); if (r) r.click(); }
+  });
+  const mapBtn = document.getElementById("listMapBtn");
+  if (mapBtn) mapBtn.addEventListener("click", () => {
+    mapFilter.ledger = state.ledger;
+    mapFilter.county = state.counties.size === 1 ? Array.from(state.counties)[0] : "ALL";
+    showPage("map");
+  });
+  // The filter panel is a bottom sheet on a phone / tablet; its own close
+  // button runs the same toggle.
+  const close = document.getElementById("filtersSheetClose");
+  if (close) close.addEventListener("click", () => { const t = document.getElementById("filtersToggle"); if (t) t.click(); });
+})();
+
+// ---- state picker sheet ----
+// Every production state (STATE_META). The current state's ledger counts come
+// from the rows this session holds. Other states are probed lazily when the
+// sheet opens - one "does this ledger have at least one row you may see"
+// request per state and ledger (limit 1, under your own row-level security;
+// customers probe customer-published rows only), two at a time, cached for
+// this tab. Counts for another state are NOT fetched: the customer inventory
+// rules applied in this browser (the Detroit subset) cannot be applied to a
+// server count, so a count there could overstate what you would see.
+var PICKER_CACHE_KEY = "tdw_state_ledgers_v1";
+function pickerCacheRead() {
+  try { const v = JSON.parse(sessionStorage.getItem(PICKER_CACHE_KEY + (IS_ADMIN ? ":a" : PUBLICATION_MODE === "preview" ? ":p" : ":c")) || "null"); return v && typeof v === "object" ? v : {}; } catch { return {}; }
+}
+function pickerCacheWrite(v) {
+  try { sessionStorage.setItem(PICKER_CACHE_KEY + (IS_ADMIN ? ":a" : PUBLICATION_MODE === "preview" ? ":p" : ":c"), JSON.stringify(v)); } catch { /* private mode */ }
+}
+async function probeStateLedger(st, k) {
+  let q = sb.from("properties").select("id").eq("state", st).eq("source", k).limit(1);
+  if (!IS_ADMIN && PUBLICATION_MODE !== "preview") q = q.or("publication_status.is.null,publication_status.in.(APPROVED,APPROVED_GRANDFATHERED)");
+  const r = await q;
+  if (r && r.error) return null;
+  return !!(r && r.data && r.data.length);
+}
+async function probeOtherStates(onUpdate) {
+  const cache = SHELL_UI.picker || pickerCacheRead();
+  SHELL_UI.picker = cache;
+  const jobs = [];
+  STATE_CODES.forEach(st => { if (st === PAGE_STATE) return; LEDGER_ORDER.forEach(k => { if (!cache[st] || !(k in cache[st])) jobs.push([st, k]); }); });
+  let i = 0;
+  const worker = async () => {
+    while (i < jobs.length) {
+      const [st, k] = jobs[i++];
+      let v = null;
+      try { v = await probeStateLedger(st, k); } catch { v = null; }
+      (cache[st] = cache[st] || {})[k] = v;
+      pickerCacheWrite(cache);
+      onUpdate();
+    }
+  };
+  await Promise.all([worker(), worker()]);
+}
+function stateLedgerHref(st, k) {
+  const meta = STATE_META[st];
+  if (!meta) return null;
+  return meta.page + (location.search || "") + (k ? "#/" + LEDGERS[k].slug : "");
+}
+function statePickerRowHtml(st) {
+  const meta = STATE_META[st];
+  const here = st === PAGE_STATE;
+  const cache = SHELL_UI.picker || {};
+  const badges = LEDGER_ORDER.map(k => {
+    if (here) {
+      const n = shellActiveRows(k).length;
+      if (!n) return "";
+      return `<a class="ledger-badge" data-ledger="${k}" href="${esc(stateLedgerHref(st, k))}">${esc(ledgerNavName(k))} <b>${n.toLocaleString("en-US")}</b></a>`;
+    }
+    const v = cache[st] ? cache[st][k] : undefined;
+    if (v === undefined) return `<span class="ledger-badge pending" data-ledger="${k}" aria-label="Checking ${esc(LEDGERS[k].nav)}">…</span>`;
+    if (v === null) return `<span class="ledger-badge unknown" data-ledger="${k}" title="Could not be checked right now">${esc(LEDGERS[k].nav)} ?</span>`;
+    return v ? `<a class="ledger-badge" data-ledger="${k}" href="${esc(stateLedgerHref(st, k))}">${esc(LEDGERS[k].nav)}</a>` : "";
+  }).join("");
+  // "None" only when every ledger was actually checked and has no row - a
+  // probe that failed or is still running never reads as "nothing here".
+  const vals = here ? LEDGER_ORDER.map(k => shellActiveRows(k).length > 0) : LEDGER_ORDER.map(k => (cache[st] ? cache[st][k] : undefined));
+  const none = vals.every(v => v === false);
+  const failed = !here && vals.some(v => v === null) && !vals.some(v => v === true);
+  return `<div class="state-row${here ? " current" : ""}" data-state-row="${esc(st)}" data-name="${esc(meta.name.toLowerCase())}">
+    <a class="state-row-name" href="${esc(stateLedgerHref(st, null))}"${here ? ' aria-current="page"' : ""}>${esc(meta.name)}<span class="state-row-code">${esc(st)}</span>${here ? '<span class="state-row-here">Current</span>' : ""}</a>
+    <span class="state-row-ledgers">${badges}${none ? `<span class="state-row-none">No properties currently available for this state.</span>` : ""}${failed ? `<span class="state-row-none">Couldn't check this state right now - open it to see what it has.</span>` : ""}</span>
+  </div>`;
+}
+function hasAvailable(st) {
+  if (st === PAGE_STATE) return shellActiveRows("laft").length > 0;
+  const c = SHELL_UI.picker && SHELL_UI.picker[st];
+  return !!(c && c.laft);
+}
+function renderStatePicker() {
+  const body = document.getElementById("statePickerBody");
+  if (!body) return;
+  const q = ((document.getElementById("statePickerSearch") || {}).value || "").trim().toLowerCase();
+  const codes = STATE_CODES.filter(st => !q || STATE_META[st].name.toLowerCase().includes(q) || st.toLowerCase() === q)
+    .sort((a, b) => STATE_META[a].name.localeCompare(STATE_META[b].name));
+  const withAvail = codes.filter(hasAvailable), others = codes.filter(st => !hasAvailable(st));
+  body.innerHTML = (codes.length ? "" : `<div class="dash-empty">No supported state matches “${esc(q)}”.</div>`) +
+    (withAvail.length ? `<h3 class="state-group-head">States with Available properties</h3>${withAvail.map(statePickerRowHtml).join("")}` : "") +
+    (others.length ? `<h3 class="state-group-head">${withAvail.length ? "Other states" : "States"}</h3>${others.map(statePickerRowHtml).join("")}` : "") +
+    `<p class="state-picker-note">Counts are shown for ${esc(STATE_INFO.name)}, the state you are in. For other states the badges show which ledgers have properties you can see; open a state to see its counts.</p>`;
+}
+let statePickerReturn = null;
+function closeStatePicker() {
+  const sheet = document.getElementById("statePicker"), bd = document.getElementById("statePickerBackdrop");
+  if (!sheet || sheet.hidden) return;
+  sheet.hidden = true; if (bd) bd.hidden = true;
+  popBackLayer("statepicker");
+  if (statePickerReturn && statePickerReturn.focus) statePickerReturn.focus();
+}
+function openStatePicker(returnEl) {
+  const sheet = document.getElementById("statePicker"), bd = document.getElementById("statePickerBackdrop");
+  if (!sheet) return;
+  statePickerReturn = returnEl || document.activeElement;
+  SHELL_UI.picker = SHELL_UI.picker || pickerCacheRead();
+  sheet.hidden = false; if (bd) bd.hidden = false;
+  pushBackLayer("statepicker", closeStatePicker);
+  renderStatePicker();
+  const s = document.getElementById("statePickerSearch");
+  if (s) { s.value = ""; s.focus(); }
+  probeOtherStates(renderStatePicker).catch(() => {});
+}
+(function bindStatePicker() {
+  const s = document.getElementById("statePickerSearch");
+  if (s) s.addEventListener("input", renderStatePicker);
+  const c = document.getElementById("statePickerClose");
+  if (c) c.addEventListener("click", closeStatePicker);
+  const bd = document.getElementById("statePickerBackdrop");
+  if (bd) bd.addEventListener("click", closeStatePicker);
+  const sheet = document.getElementById("statePicker");
+  if (sheet) sheet.addEventListener("keydown", e => {
+    if (e.key === "Escape") { e.stopPropagation(); closeStatePicker(); return; }
+    if (e.key !== "Tab") return;
+    const f = Array.from(sheet.querySelectorAll("a[href], button, input")).filter(el => el.offsetParent !== null);
+    if (!f.length) return;
+    if (e.shiftKey && document.activeElement === f[0]) { e.preventDefault(); f[f.length - 1].focus(); }
+    else if (!e.shiftKey && document.activeElement === f[f.length - 1]) { e.preventDefault(); f[0].focus(); }
+  });
+  const btn = document.getElementById("statePickerBtn");
+  if (btn) btn.addEventListener("click", () => openStatePicker(btn));
+})();
+
+// ---- navigation actions (entries that are not pages) ----
+(function bindShellNav() {
+  document.querySelectorAll(".nav-item[data-nav-ledger]").forEach(btn => {
+    btn.addEventListener("click", () => goToLedger(btn.dataset.navLedger));
+  });
+  const saved = document.getElementById("navSavedSearchesBtn");
+  if (saved) saved.addEventListener("click", () => openSavedSearches(saved));
+  const states = document.getElementById("navStatesBtn");
+  if (states) states.addEventListener("click", () => openStatePicker(states));
+  const about = document.getElementById("navAboutBtn");
+  if (about) about.addEventListener("click", () => helpUi.open());
+  const acct = document.getElementById("navBottomAccount");
+  if (acct) acct.addEventListener("click", e => { e.stopPropagation(); openAccountMenu(); });
+})();
+function syncAdminNav() {
+  const a = document.getElementById("navAdminLink");
+  if (a) a.hidden = !IS_ADMIN;
+}
+
+// ---- the List's county panel (desktop, nothing selected) ----
+// The right-hand column of the List shows where the listed rows are: the
+// state's own county outline, each county shaded by how many of the rows on
+// screen it holds, with the count in its tooltip. Clicking a county filters
+// the list to it. It is drawn only on wide screens and only while no
+// property is open in that column - the full property page takes it over.
+function listPanelWide() { try { return window.matchMedia("(min-width:1280px)").matches; } catch { return false; } }
+function renderListCountyPanel(shown) {
+  const panel = document.getElementById("detailPanel");
+  if (!panel || selectedPid != null || !listPanelWide()) return;
+  const empty = panel.querySelector(".detail-panel-empty");
+  if (!empty) return;
+  const counts = new Map();
+  shown.forEach(p => { if (p.county) counts.set(p.county, (counts.get(p.county) || 0) + 1); });
+  const max = Math.max(1, ...counts.values());
+  let host = panel.querySelector("#listCountyPanel");
+  if (!host) {
+    empty.insertAdjacentHTML("beforebegin", `<div class="list-county-panel" id="listCountyPanel">
+      <div class="lcp-head"><b id="lcpTitle">Where these are</b><span id="lcpSub"></span></div>
+      <div class="lcp-map" id="lcpMap" role="group" aria-label="${esc(UNIT_WORD)} map - choose one to filter the list"></div>
+      <div class="lcp-legend"><span>Fewer</span><span class="lcp-ramp" aria-hidden="true"></span><span>More</span></div>
+      <button type="button" class="link-btn" id="lcpOpenMap">Open the full map &rarr;</button>
+    </div>`);
+    host = panel.querySelector("#listCountyPanel");
+    host.querySelector("#lcpOpenMap").addEventListener("click", () => { const b = document.getElementById("listMapBtn"); if (b) b.click(); });
+  }
+  const sub = host.querySelector("#lcpSub");
+  if (sub) sub.textContent = `${shown.length.toLocaleString("en-US")} shown in ${counts.size} ${unitWordFor(counts.size)}`;
+  loadBasemapGeom().then(geom => {
+    const mapEl = host.querySelector("#lcpMap");
+    if (!mapEl || !geom || !geom.counties.size) { if (mapEl) mapEl.textContent = "Map outline unavailable."; return; }
+    const NS = "http://www.w3.org/2000/svg";
+    let svg = mapEl.querySelector("svg");
+    if (!svg) {
+      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+      geom.counties.forEach(c => { x0 = Math.min(x0, c.box.x); y0 = Math.min(y0, c.box.y); x1 = Math.max(x1, c.box.x + c.box.w); y1 = Math.max(y1, c.box.y + c.box.h); });
+      svg = document.createElementNS(NS, "svg");
+      svg.setAttribute("viewBox", `${x0} ${y0} ${x1 - x0} ${y1 - y0}`);
+      svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
+      geom.counties.forEach((c, name) => {
+        const path = document.createElementNS(NS, "path");
+        path.setAttribute("d", c.d);
+        path.setAttribute("data-county", name);
+        path.setAttribute("tabindex", "-1");
+        const t = document.createElementNS(NS, "title");
+        path.appendChild(t);
+        svg.appendChild(path);
+      });
+      mapEl.innerHTML = "";
+      mapEl.appendChild(svg);
+      svg.addEventListener("click", e => {
+        const path = e.target.closest("path[data-county]");
+        if (!path || !path.classList.contains("has")) return;
+        const cq = document.getElementById("countyQuick");
+        if (!cq) return;
+        cq.value = path.dataset.county;
+        if (cq.value !== path.dataset.county) return;     // not an option in this ledger
+        cq.dispatchEvent(new Event("change", { bubbles: true }));
+      });
+      svg.addEventListener("keydown", e => {
+        if (e.key !== "Enter" && e.key !== " ") return;
+        const path = e.target.closest("path[data-county]");
+        if (path) { e.preventDefault(); path.dispatchEvent(new MouseEvent("click", { bubbles: true })); }
+      });
+    }
+    svg.querySelectorAll("path[data-county]").forEach(path => {
+      const n = counts.get(path.dataset.county) || 0;
+      path.classList.toggle("has", n > 0);
+      path.setAttribute("tabindex", n > 0 ? "0" : "-1");
+      path.setAttribute("role", n > 0 ? "button" : "presentation");
+      path.style.setProperty("--lcp-level", n ? (0.25 + 0.75 * Math.sqrt(n / max)).toFixed(3) : "0");
+      const title = path.querySelector("title");
+      if (title) title.textContent = `${path.dataset.county} ${UNIT_WORD}: ${n.toLocaleString("en-US")} shown`;
+    });
+  });
+}
+
+// ---- property page: breadcrumb, "why am I seeing this", card acquisition badge ----
+function detailCrumbsHtml(p) {
+  const street = p.source === "certificate" ? "" : realAddress(p);
+  const here = p.source === "certificate" ? `Certificate #${p.certificate_no || "not published"}` : (street || (hasParcel(p) ? `Parcel ${p.parcel}` : (p.case_no ? `Case ${p.case_no}` : "Property")));
+  return `<nav class="detail-crumbs" aria-label="Breadcrumb"><button type="button" class="crumb" data-action="crumbhome">Home</button><span class="crumb-sep" aria-hidden="true">/</span><button type="button" class="crumb" data-action="crumbledger" data-ledger="${esc(p.source)}">${esc(ledgerNavName(p.source))}</button><span class="crumb-sep" aria-hidden="true">/</span><span class="crumb-here" aria-current="page">${esc(here)}</span></nav>`;
+}
+// Built only from what the row carries and how this session filters it -
+// never a score, a recommendation or a reason the data cannot support.
+function whySeeingHtml(p) {
+  const reasons = [];
+  const src = harvesterSourceLabel(p);
+  const ledger = ledgerNavName(p.source);
+  reasons.push(`It is in the ${esc(ledger)} ledger for ${esc(STATE_INFO.name)} because ${src ? `<b>${esc(src)}</b>` : "its source"} lists it${p.source === "auction" && p.sale_date ? ` with a sale date of ${esc(fmtDate(String(p.sale_date).slice(0, 10)))}` : ""}.`);
+  if (p.source === "laft" && p.inventory_status_raw) reasons.push(`The source's own status wording: “${esc(p.inventory_status_raw)}”.`);
+  if (isDatedList(p)) reasons.push(`This is a dated list: ${esc(datedListText(p))}. It is not a statement that the property is available today.`);
+  if (isGone(p)) reasons.push(`It is no longer on the source list (${esc(outcomeText(p))}). Leaving a list is not a sale.`);
+  if (p.last_seen_at) reasons.push(`Last read from the source ${esc(relativeTime(p.last_seen_at))}.`);
+  else reasons.push("A per-row last-read date is not recorded for this source.");
+  if (!isCustomerPublishable(p)) reasons.push(`Its source is awaiting customer-publication review (${esc(sourceReviewLabel(p))}); it is ${esc(reviewViewerReason())}.`);
+  else reasons.push("Its source is approved for customer publication.");
+  if (state.search && textMatches(p, state.search)) reasons.push(`It matches your search “${esc(state.search)}”.`);
+  if (FAVS.has(p.id) || BIDLIST.has(p.id)) reasons.push("It is on your favorites or watchlist.");
+  return `<details class="why-seeing" id="whySeeing"><summary>Why am I seeing this?</summary><ul>${reasons.map(r => `<li>${r}</li>`).join("")}</ul></details>`;
+}
+function cardAcqBadgeHtml(p) {
+  if (p.source !== "laft") return "";
+  const a = acquisitionOf(p);
+  if (!a.verified) return `<div class="card-acq"><span class="acq-badge" data-acq="${a.mode === "none" ? "none" : "unverified"}">${a.mode === "none" ? "No purchase path published" : "Acquisition path not yet verified"}</span></div>`;
+  const label = a.mode === "online" ? ACQUISITION_MODE_LABELS.online : a.mode === "bid" ? "Bid form" : a.mode === "application" ? "Application required" : (ACQUISITION_MODE_LABELS[a.mode] || a.short);
+  return `<div class="card-acq"><span class="acq-badge" data-acq="${esc(a.mode)}">${esc(label)}</span>${a.mode !== "online" ? `<span class="acq-note">No online purchase link on file</span>` : ""}</div>`;
+}

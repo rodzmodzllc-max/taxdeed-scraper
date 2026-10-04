@@ -105,32 +105,34 @@ owner approves it, so there'd be nothing to show here anyway. -->
 <!-- ============ app ============ -->
 <div id="app" class="app-shell" hidden>
 <nav class="nav-rail" id="navRail" aria-label="Main">
-<div class="nav-rail-brand"><img src="icons/icon-192.png?v=2" width="44" height="44" alt="" aria-hidden="true"><span>Tax<span class="brand-accent">•</span>Acquisitions</span></div>
+<div class="nav-rail-brand"><img src="icons/icon-192.png?v=2" width="44" height="44" alt="" aria-hidden="true"><span class="brand-lockup"><span class="brand-title">TaxDeed-Scraper</span><span class="brand-sub">Public Property Intelligence</span></span></div>
 <div class="nav-list">
-<!-- Unified navigation (2026-09-30): exactly four destinations - Dashboard,
-     List (every ledger, selected inside the page by #ledgerTabs), Map and
-     Watchlist. The three per-ledger entries this list used to carry are gone;
-     app.js showPage()/syncLedgerNav() light an entry on its page alone. The
-     List count is the sum of the three ledger counts; the Watchlist entry
-     opens the watchlist and is lit while it is open. -->
-<button class="nav-item" data-page="dashboard" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>Dashboard</button>
-<button class="nav-item on" data-page="list" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>List <b class="nav-count" id="navCountList">0</b></button>
-<button class="nav-item" data-page="map" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 6l7-3 8 3 7-3v16l-7 3-8-3-1 3z"/><path d="M8 3v16M16 6v16"/></svg>Map</button>
+<!-- Shell redesign (2026-10-04). Home, Search (the List page), one entry per
+     ledger (data-nav-ledger: opens the List on that ledger; the label is
+     ledgerCopy(key).nav, written by app.js so a state's own ledger name is
+     used), Saved searches, Watchlist, Map, States & Counties (the state
+     picker sheet) and About (the "How to read this data" guide). Entries
+     with data-page route through showPage(); the others are actions.
+     app.js syncLedgerNav() lights the entry for what is on screen. -->
+<button class="nav-item" data-page="dashboard" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg>Home</button>
+<button class="nav-item" data-page="list" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>Search</button>
+<span class="nav-group-label" aria-hidden="true">Ledgers</span>
+<button class="nav-item nav-ledger" data-nav-ledger="laft" type="button"><span class="nav-dot" aria-hidden="true"></span><span class="nav-ledger-name">Available</span> <b class="nav-count" id="navCountLaft">0</b></button>
+<button class="nav-item nav-ledger" data-nav-ledger="auction" type="button"><span class="nav-dot" aria-hidden="true"></span><span class="nav-ledger-name">Auctions</span> <b class="nav-count" id="navCountAuction">0</b></button>
+<button class="nav-item nav-ledger" data-nav-ledger="certificate" type="button"><span class="nav-dot" aria-hidden="true"></span><span class="nav-ledger-name">Liens &amp; Certificates</span> <b class="nav-count" id="navCountCertificate">0</b></button>
+<span class="nav-group-label" aria-hidden="true">Workspace</span>
+<button class="nav-item" data-nav="saved" id="navSavedSearchesBtn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-6-4-6 4z"/></svg>Saved Searches</button>
 <button class="nav-item" data-page="watchlist" id="navWatchlistBtn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 21V4a1 1 0 011-1c1.2 0 1.2 1 3 1s1.8-1 3.5-1 1.3 1 3.5 1a1 1 0 011 1v9a1 1 0 01-1 1c-2.2 0-2.3-1-3.5-1s-1.3 1-3.5 1-1.8-1-3-1"/></svg>Watchlist <b class="nav-count" id="navWatchlistCount">0/10</b></button>
+<button class="nav-item" data-page="map" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 6l7-3 8 3 7-3v16l-7 3-8-3-1 3z"/><path d="M8 3v16M16 6v16"/></svg>Map</button>
+<button class="nav-item" data-nav="states" id="navStatesBtn" type="button" aria-haspopup="dialog" aria-controls="statePicker"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-8-4.6-8-11a8 8 0 1116 0c0 6.4-8 11-8 11z"/><circle cx="12" cy="10" r="3"/></svg>States &amp; Counties</button>
+<button class="nav-item" data-nav="about" id="navAboutBtn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></svg>About</button>
 </div>
-<!-- Same account menu as the header badge and the Dashboard's own Settings
-button - a third entry point, matching the reference design's sidebar gear
-icon. Deliberately not a fourth nav-list item wired to a new page: unlike
-Dashboard/Auctions/Map/Watchlist, there's no separate "Settings page" -
-just the existing theme/password/install/sign-out menu. -->
+<!-- Account and admin controls sit at the foot of the rail. The admin entry
+     is visibility only (IS_ADMIN, read from the server profile); /admin
+     re-checks with the server itself. -->
 <div class="nav-rail-foot">
-<button class="nav-item" id="navSettingsBtn" type="button" aria-haspopup="true" aria-controls="accountMenu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 004.6 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.6a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>Settings</button>
-</div>
-<div class="nav-rail-portfolio" id="navPortfolio">
-<h3>Portfolio Overview</h3>
-<div class="nav-rail-stat"><span>Total Properties</span><b id="navStatTotal">0</b></div>
-<div class="nav-rail-stat"><span>Active</span><b id="navStatActive">0</b></div>
-<div class="nav-rail-stat"><span>County values</span><b id="navStatValue">$0</b></div>
+<a class="nav-item" id="navAdminLink" href="admin.html" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l8 3v6c0 5-3.4 8.4-8 9-4.6-.6-8-4-8-9V6z"/></svg>Admin</a>
+<button class="nav-item" id="navSettingsBtn" type="button" aria-haspopup="true" aria-controls="accountMenu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/></svg>Account &amp; settings</button>
 </div>
 </nav>
 <div class="shell-main">
@@ -139,11 +141,20 @@ below - see the note on .masthead for why the taller block isn't the
 one that pins itself. -->
 <div class="topbar">
 <img class="brand-mark" src="icons/icon-192.png?v=2" width="44" height="44" alt="" aria-hidden="true">
-<span class="brand-name">Tax<span class="brand-accent">•</span>Acquisitions</span>
+<span class="brand-name">TaxDeed-Scraper</span>
 <!-- One account badge instead of three loose buttons. Theme, password and
 sign out were competing for width with the ledger tabs on a phone; they are
 account concerns, so they live behind the badge with the rest of them. The
 same buttons keep the same ids, so nothing that referenced them had to move. -->
+<!-- Global search (2026-10-04): matches the address, parcel, case and
+certificate numbers and the county of the selected state's loaded rows - the
+same textMatches() the List uses. Enter opens the List filtered by it. -->
+<div class="global-search" id="globalSearch" role="search">
+  <span class="global-search-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></span>
+  <input type="search" id="globalSearchInput" placeholder="Search by address, parcel, county, or case number..." aria-label="Search properties by address, parcel, county or case number" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="globalSearchResults">
+  <button type="button" class="global-search-clear" id="globalSearchClear" aria-label="Clear search" hidden>&times;</button>
+  <div class="global-search-results" id="globalSearchResults" role="listbox" aria-label="Search results" hidden></div>
+</div>
 <span class="header-btns">
 <!-- The one state selector (global working context): options come from
 STATE_META in app.js (buildStateSelect()); choosing one navigates to that
@@ -151,6 +162,7 @@ state's page and carries the current route along. -->
 <label class="state-switch" title="State">
   <select id="stateSelect" aria-label="State"></select>
 </label>
+<button type="button" class="state-picker-btn" id="statePickerBtn" aria-haspopup="dialog" aria-controls="statePicker" title="Browse states">States</button>
 <div class="account" id="account">
   <button class="account-badge" id="accountBtn" type="button" aria-haspopup="menu"
           aria-expanded="false" aria-controls="accountMenu" title="Account">
@@ -199,9 +211,28 @@ other people's profiles rows in the first place). -->
      says the same thing), so once the other three went there was nothing
      left here but an empty band with the account badge stranded in it. -->
 <section class="page" id="pageDashboard" hidden>
+<!-- Home (2026-10-04): search first, then the three ledgers with their real
+counts for the selected state, browse-by-state, and the most recently first
+observed properties. Every figure is computed from loaded rows - see
+renderHome() in app.js. The operating view below it is unchanged. -->
+<div class="home-hero" id="homeHero">
+<h1 class="home-title">Find tax-sale and government-held property</h1>
+<p class="home-sub">Real properties. Real sources. Clear acquisition paths.</p>
+<form class="home-search" id="homeSearchForm" role="search">
+<span class="home-search-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></span>
+<input type="search" id="homeSearchInput" placeholder="e.g. 3124 Oak St, parcel 123-456-789, Broward County..." aria-label="Search properties by address, parcel, county or case number" autocomplete="off">
+<button type="submit" class="home-search-btn">Search</button>
+</form>
+<p class="home-scope" id="homeScope"></p>
+</div>
+<div class="home-ledgers" id="homeLedgers"></div>
+<div class="home-section" id="homeRecentSection">
+<div class="home-section-head"><h2>Recently added</h2><button type="button" class="link-btn" id="homeRecentAll">View all &rarr;</button></div>
+<div class="home-recent" id="homeRecent"></div>
+</div>
 <div class="dash-head dash-head-row">
 <div>
-<h1>Dashboard</h1>
+<h2 class="dash-title">Operating view</h2>
 <p id="dashSubtitle">Operating view across every ledger.</p>
 </div>
 <!-- Same account menu as the header badge (theme, password, install, sign
@@ -276,6 +307,10 @@ not one long scroll where Lands Available sits under 300+ auction cards. -->
 <button class="ledger-tab" data-ledger="laft" type="button"><span class="ledger-tab-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg></span>Available <b id="tabCountLaft">0</b></button>
 <button class="ledger-tab" data-ledger="certificate" type="button"><span class="ledger-tab-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 2h7l5 5v13a2 2 0 01-2 2H7a2 2 0 01-2-2V4a2 2 0 012-2z"/><path d="M9 12h6M9 16h6M9 8h2"/></svg></span>Liens &amp; Certificates <b id="tabCountCertificate">0</b></button>
 </nav>
+<!-- List head (2026-10-04): the ledger's name and its count for the state,
+then one removable chip per active filter (renderFilterChips() in app.js). -->
+<div class="list-head" id="listHead"><div><h1 class="list-title" id="listTitle">Properties</h1><p class="list-sub" id="listSubtitle"></p></div><button type="button" class="list-map-btn" id="listMapBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 6l7-3 8 3 7-3v16l-7 3-8-3-1 3z"/><path d="M8 3v16M16 6v16"/></svg>Map view</button></div>
+<div class="filter-chips" id="filterChips" hidden></div>
 <div class="summary-strip">
 <button class="chip total" data-status="all" type="button">Shown&nbsp;<b id="chipTotal">0</b></button>
 <button class="chip ok" data-status="live" type="button">Active&nbsp;<b id="chipActive">0</b></button>
@@ -323,7 +358,20 @@ can stay closed until asked for at every width - see explore.css. -->
 </span>
 </button>
 </div>
-<div class="filters-panel" id="filtersPanel">
+</div>
+
+<!-- ============ Auctions body: card list, full width ============
+Phase 54: this used to be a two-pane "explore shell" - #main plus a county
+map panel beside it, switched between List/Split/Map by #viewToggle. Marc's
+ask was explicit: Auctions should just be the list, and Map should be its
+own page you actually feel yourself navigating to (see #pageMap below, and
+the Phase 54 comment on SHELL_PAGES in app.js). So #main is unwrapped - no
+shell, no mode, no embedded map - and the desktop table view (#tableToggleBtn,
+a wholly separate feature from the old view-toggle) still sits right beside
+it exactly as before. -->
+<div class="auctions-body">
+<div class="filters-panel" id="filtersPanel" aria-label="Filters">
+<div class="filters-sheet-head"><span>Filters</span><button type="button" class="sheet-close" id="filtersSheetClose" aria-label="Close filters">&times;</button></div>
 
 <div class="filters-section">
 <div class="filters-section-head">
@@ -478,18 +526,6 @@ chips - each summary shows how many are currently selected. -->
 </div>
 
 </div>
-</div>
-
-<!-- ============ Auctions body: card list, full width ============
-Phase 54: this used to be a two-pane "explore shell" - #main plus a county
-map panel beside it, switched between List/Split/Map by #viewToggle. Marc's
-ask was explicit: Auctions should just be the list, and Map should be its
-own page you actually feel yourself navigating to (see #pageMap below, and
-the Phase 54 comment on SHELL_PAGES in app.js). So #main is unwrapped - no
-shell, no mode, no embedded map - and the desktop table view (#tableToggleBtn,
-a wholly separate feature from the old view-toggle) still sits right beside
-it exactly as before. -->
-<div class="auctions-body">
 <div class="data-table-wrap" id="dataTableWrap">
 <table class="data-table" id="dataTable">
 <thead><tr><th>Property</th><th>County</th><th class="dt-num">Opening Bid</th><th class="dt-num" title="County just/assessed value on file for the stated roll year - not a market estimate">County value</th><th>Status</th><th></th></tr></thead>
@@ -632,14 +668,24 @@ street-level pins would be a precision the data doesn't have. -->
 </section>
 </div>
 </div>
+<!-- State picker sheet (2026-10-04): every production state from STATE_META,
+states with Available inventory first, ledger counts per state read lazily
+when the sheet opens (head-only count requests under the viewer's own RLS,
+customers counted on customer-published rows only). -->
+<div class="sheet-backdrop" id="statePickerBackdrop" hidden></div>
+<div class="sheet state-picker" id="statePicker" role="dialog" aria-modal="true" aria-labelledby="statePickerTitle" hidden>
+<div class="sheet-head"><h2 id="statePickerTitle">States &amp; Counties</h2><button type="button" class="sheet-close" id="statePickerClose" aria-label="Close">&times;</button></div>
+<label class="sheet-search"><span class="sr-only">Search states</span><input type="search" id="statePickerSearch" placeholder="Search states..." autocomplete="off"></label>
+<div class="state-picker-body" id="statePickerBody"></div>
+</div>
 <nav class="nav-bottom" id="navBottom" aria-label="Main">
-<!-- Same four destinations as the rail (see the note on .nav-list). Four
-     items fit a 320px phone without scrolling; the per-ledger entries live
-     inside the List page now (#ledgerTabs), not here. -->
-<button class="nav-bottom-item" data-page="dashboard" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9"/><rect x="14" y="3" width="7" height="5"/><rect x="14" y="12" width="7" height="9"/><rect x="3" y="16" width="7" height="5"/></svg>Dashboard</button>
-<button class="nav-bottom-item on" data-page="list" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>List</button>
+<!-- Phone: Home, Search (the List page), Map, Saved (the watchlist) and
+     Account (the account menu). Ledgers are chosen inside Search. -->
+<button class="nav-bottom-item" data-page="dashboard" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg>Home</button>
+<button class="nav-bottom-item on" data-page="list" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>Search</button>
 <button class="nav-bottom-item" data-page="map" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 6l7-3 8 3 7-3v16l-7 3-8-3-1 3z"/><path d="M8 3v16M16 6v16"/></svg>Map</button>
-<button class="nav-bottom-item" data-page="watchlist" id="navBottomWatchlistBtn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 21V4a1 1 0 011-1c1.2 0 1.2 1 3 1s1.8-1 3.5-1 1.3 1 3.5 1a1 1 0 011 1v9a1 1 0 01-1 1c-2.2 0-2.3-1-3.5-1s-1.3 1-3.5 1-1.8-1-3-1"/></svg>Watchlist</button>
+<button class="nav-bottom-item" data-page="watchlist" id="navBottomWatchlistBtn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 21V4a1 1 0 011-1c1.2 0 1.2 1 3 1s1.8-1 3.5-1 1.3 1 3.5 1a1 1 0 011 1v9a1 1 0 01-1 1c-2.2 0-2.3-1-3.5-1s-1.3 1-3.5 1-1.8-1-3-1"/></svg>Saved</button>
+<button class="nav-bottom-item nav-bottom-account" id="navBottomAccount" type="button" aria-haspopup="true" aria-controls="accountMenu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/></svg>Account</button>
 </nav>
 
 <!-- ============ "My Watchlist" modal ============ -->

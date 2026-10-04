@@ -2032,25 +2032,28 @@ results.dashLedgerRowTitles = await dashPage.locator('#dashLedgerRows .dash-row-
 results.navRailItems = await dashPage.locator('.nav-list .nav-item[data-page]').evaluateAll(els => els.map(e => e.dataset.page + ':' + e.textContent.replace(/\s+/g, ' ').trim()));
 results.navBottomItems = await dashPage.locator('#navBottom .nav-bottom-item[data-page]').evaluateAll(els => els.map(e => e.dataset.page));
 results.navLedgerEntriesGone = await dashPage.locator('.nav-item[data-ledger], .nav-bottom-item[data-ledger]').count();
-results.navDashboardLit = await dashPage.locator('.nav-list .nav-item.on').evaluateAll(els => els.map(e => e.dataset.page));
+results.navDashboardLit = await dashPage.locator('.nav-list .nav-item.on').evaluateAll(els => els.map(e => e.dataset.page || 'ledger:' + e.dataset.navLedger));
 results.navDashboardHash = await dashPage.evaluate(() => location.hash);
 await dashPage.click('.nav-list .nav-item[data-page="list"]');
 await dashPage.waitForTimeout(300);
 results.navListClickShowsListPage = await dashPage.locator('#pageList').evaluate(el => !el.hidden);
-results.navListClickLit = await dashPage.locator('.nav-list .nav-item.on').evaluateAll(els => els.map(e => e.dataset.page));
+results.navListClickLit = await dashPage.locator('.nav-list .nav-item.on').evaluateAll(els => els.map(e => e.dataset.page || 'ledger:' + e.dataset.navLedger));
 results.navListClickHash = await dashPage.evaluate(() => location.hash);
 await dashPage.click('.ledger-tab[data-ledger="certificate"]');
 await dashPage.waitForTimeout(300);
 results.tabCertHash = await dashPage.evaluate(() => location.hash);
-results.tabCertNavLit = await dashPage.locator('.nav-list .nav-item.on').evaluateAll(els => els.map(e => e.dataset.page));
+results.tabCertNavLit = await dashPage.locator('.nav-list .nav-item.on').evaluateAll(els => els.map(e => e.dataset.page || 'ledger:' + e.dataset.navLedger));
 results.tabCertHeading = ((await dashPage.locator('.ledger-head h2').textContent()) || '').trim();
 await dashPage.click('.ledger-tab[data-ledger="laft"]');
 await dashPage.waitForTimeout(300);
 results.tabLaftHash = await dashPage.evaluate(() => location.hash);
 results.tabLaftHeading = ((await dashPage.locator('.ledger-head h2').textContent()) || '').trim();
-results.navListCountIsSum = await dashPage.evaluate(() => {
-  const tabs = Array.from(document.querySelectorAll('#ledgerTabs .ledger-tab b')).map(b => Number(b.textContent));
-  return Number(document.getElementById('navCountList').textContent) === tabs.reduce((a, b) => a + b, 0) && tabs.reduce((a, b) => a + b, 0) > 0;
+// Shell redesign (2026-10-04): each ledger has its own sidebar entry, and
+// its count is the same number as that ledger's tab (the old single List
+// entry carried their sum).
+results.navLedgerCountsMatchTabs = await dashPage.evaluate(() => {
+  const tabs = Array.from(document.querySelectorAll('#ledgerTabs .ledger-tab')).map(t => [t.dataset.ledger, Number(t.querySelector('b').textContent)]);
+  return tabs.every(([k, n]) => Number(document.querySelector(`.nav-item[data-nav-ledger="${k}"] .nav-count`).textContent.replace(/,/g, '')) === n) && tabs.reduce((a, [, n]) => a + n, 0) > 0;
 });
 // The List page no longer carries its own state tabs: the state is the
 // header's #stateSelect (see the global state context block below).
@@ -2060,11 +2063,11 @@ results.listHasNoStateTabs = (await dashPage.locator('#regionTabs, a[data-state-
 await dashPage.click('.nav-list .nav-item[data-page="watchlist"]');
 await dashPage.waitForTimeout(300);
 results.navWatchlistOpen = await dashPage.locator('#bidListModal').evaluate(el => !el.hidden);
-results.navWatchlistLit = await dashPage.locator('.nav-list .nav-item.on').evaluateAll(els => els.map(e => e.dataset.page));
+results.navWatchlistLit = await dashPage.locator('.nav-list .nav-item.on').evaluateAll(els => els.map(e => e.dataset.page || 'ledger:' + e.dataset.navLedger));
 results.navWatchlistHash = await dashPage.evaluate(() => location.hash);
 await dashPage.click('#bidListModal [data-action="closebidlist"]');
 await dashPage.waitForTimeout(400);
-results.navWatchlistClosedLit = await dashPage.locator('.nav-list .nav-item.on').evaluateAll(els => els.map(e => e.dataset.page));
+results.navWatchlistClosedLit = await dashPage.locator('.nav-list .nav-item.on').evaluateAll(els => els.map(e => e.dataset.page || 'ledger:' + e.dataset.navLedger));
 results.navWatchlistClosedHash = await dashPage.evaluate(() => location.hash);
 results.navWatchlistClosedListVisible = await dashPage.locator('#pageList').evaluate(el => !el.hidden);
 await dashPage.click('.ledger-tab[data-ledger="auction"]');
@@ -2989,7 +2992,7 @@ const navMap = await newPage({ viewport: { width: 1200, height: 900 } });
 await navMap.goto(BASE_URL + '#/map?ledger=laft&county=Bay', { waitUntil: 'networkidle' });
 await navMap.waitForTimeout(600);
 results.navMapDeepVisible = await navMap.locator('#pageMap').evaluate(el => !el.hidden);
-results.navMapDeepLit = await navMap.locator('.nav-list .nav-item.on').evaluateAll(els => els.map(e => e.dataset.page));
+results.navMapDeepLit = await navMap.locator('.nav-list .nav-item.on').evaluateAll(els => els.map(e => e.dataset.page || 'ledger:' + e.dataset.navLedger));
 results.navMapDeepLaftPill = await navMap.locator('#mapLedgerPills [data-ledger="laft"]').evaluate(el => el.classList.contains('on'));
 results.navMapDeepCounty = await navMap.locator('#mapCountySelect').inputValue();
 results.navMapDeepContext = ((await navMap.locator('#mapContext').textContent()) || '').replace(/\s+/g, ' ').trim();
@@ -3022,7 +3025,7 @@ results.navMapSearchHash = await navMap.evaluate(() => location.hash);
 await navMap.click('.nav-list .nav-item[data-page="list"]');
 await navMap.waitForTimeout(300);
 results.navMapToListHash = await navMap.evaluate(() => location.hash);
-results.navMapToListLit = await navMap.locator('.nav-list .nav-item.on').evaluateAll(els => els.map(e => e.dataset.page));
+results.navMapToListLit = await navMap.locator('.nav-list .nav-item.on').evaluateAll(els => els.map(e => e.dataset.page || 'ledger:' + e.dataset.navLedger));
 await navMap.click('.nav-list .nav-item[data-page="map"]');
 await navMap.waitForTimeout(300);
 results.navListToMapHashKeepsContext = await navMap.evaluate(() => location.hash);
@@ -3411,6 +3414,150 @@ await navMap.close();
     results.peakInflightBounded = results.peakInflight <= 6 && results.peakInflight >= 2;
     await pg.close();
   }
+  // ---- Shell redesign (2026-10-04): Home, global search, state picker,
+  // filter chips, county panel, property page chrome, mobile nav ----
+  {
+    const open = async (qs, hash, vp = { width: 1440, height: 900 }) => {
+      const pg = await newPage({ viewport: vp });
+      pg.on('pageerror', e => errors.push('redesign pageerror: ' + e.message));
+      await pg.goto(BASE_URL + qs + hash, { waitUntil: 'networkidle' });
+      await pg.waitForTimeout(400);
+      return pg;
+    };
+    const txt = async (pg, sel) => ((await pg.locator(sel).first().textContent()) || '').replace(/\s+/g, ' ').trim();
+    // Home: the search hero, three ledger cards with the same counts as the
+    // ledger tabs, browse-by-state, and recently added from first_seen_at.
+    let pg = await open('', '#/dashboard');
+    results.rdHome = {
+      title: await txt(pg, '.home-title'),
+      cards: await pg.locator('#homeLedgers [data-home-ledger]').evaluateAll(els => els.map(e => e.dataset.homeLedger + ':' + e.querySelector('.home-ledger-count').textContent)),
+      statesCard: await pg.locator('#homeStatesCard').count(),
+      recentHasFirstSeen: await pg.locator('#homeRecent .home-recent-when').evaluateAll(els => els.length > 0 && els.every(e => /^First observed /.test(e.textContent))),
+      tabCounts: await pg.locator('#ledgerTabs .ledger-tab').evaluateAll(els => els.map(e => e.dataset.ledger + ':' + e.querySelector('b').textContent)),
+      noScoreWords: await pg.locator('#homeHero, #homeLedgers, #homeRecentSection').evaluateAll(els => els.every(e => !/\b(score|ranking|recommend|AI)\b/i.test(e.textContent)))
+    };
+    // Home search submits to the List, filtered, on the ledger that has matches.
+    await pg.fill('#homeSearchInput', 'Manatee');
+    await pg.press('#homeSearchInput', 'Enter');
+    await pg.waitForTimeout(400);
+    results.rdHomeSearch = { hash: await pg.evaluate(() => location.hash), listSearch: await pg.inputValue('#searchInput'),
+      cards: await pg.locator('#main .prop-card').count(), chip: await txt(pg, '#filterChips .filter-chip') };
+    // Removing the search chip clears the search; Clear all resets everything.
+    await pg.click('#filterChips [data-chip-remove="search"]');
+    await pg.waitForTimeout(300);
+    results.rdChipRemoved = { listSearch: await pg.inputValue('#searchInput'), chips: await pg.locator('#filterChips .filter-chip').count(), hidden: await pg.locator('#filterChips').evaluate(el => el.hidden) };
+    // A control chip: the Available purchase-path filter.
+    await pg.selectOption('#availPathFilter', 'none');
+    await pg.waitForTimeout(300);
+    results.rdPathChip = await pg.locator('#filterChips .filter-chip').allTextContents();
+    await pg.click('#filterChipsClear');
+    await pg.waitForTimeout(300);
+    results.rdClearAll = { chips: await pg.locator('#filterChips .filter-chip').count(), path: await pg.inputValue('#availPathFilter') };
+    // List head names the ledger and its count; the sidebar lights the ledger entry.
+    results.rdListHead = { title: await txt(pg, '#listTitle'), sub: await txt(pg, '#listSubtitle'),
+      lit: await pg.locator('.nav-list .nav-item.on').evaluateAll(els => els.map(e => e.dataset.page || 'ledger:' + e.dataset.navLedger)) };
+    // County panel (wide desktop, nothing selected): counties with rows are
+    // shaded and clicking one filters the list to it.
+    await pg.waitForSelector('#lcpMap path.has', { timeout: 5000 }).catch(() => {});
+    const shaded = await pg.locator('#lcpMap path.has').evaluateAll(els => els.map(e => e.dataset.county).sort());
+    results.rdCountyPanel = { shaded };
+    if (shaded.length) {
+      await pg.locator(`#lcpMap path.has[data-county="${shaded[0]}"]`).dispatchEvent('click');
+      await pg.waitForTimeout(400);
+      results.rdCountyPanel.after = { quick: await pg.inputValue('#countyQuick'), chip: await txt(pg, '#filterChips .filter-chip'), cards: await pg.locator('#main .prop-card').count() };
+    }
+    // Sidebar ledger entries open that ledger.
+    await pg.click('.nav-item[data-nav-ledger="certificate"]');
+    await pg.waitForTimeout(300);
+    results.rdNavCert = { hash: await pg.evaluate(() => location.hash), title: await txt(pg, '#listTitle') };
+    await pg.click('.nav-item[data-nav-ledger="auction"]');
+    await pg.waitForTimeout(300);
+    results.rdNavAuction = { hash: await pg.evaluate(() => location.hash), title: await txt(pg, '#listTitle') };
+    await pg.close();
+
+    // Global search: results from loaded rows, ledger-badged; a row opens the
+    // property; Enter opens the List filtered; a miss says so.
+    pg = await open('', '#/lands');
+    await pg.fill('#globalSearchInput', 'Manatee');
+    await pg.waitForTimeout(300);
+    results.rdGlobal = { rows: await pg.locator('#globalSearchResults .gs-row').evaluateAll(els => els.map(e => e.dataset.gsPid + ':' + e.querySelector('.ledger-badge').textContent)),
+      all: await txt(pg, '#globalSearchResults .gs-all'), expanded: await pg.getAttribute('#globalSearchInput', 'aria-expanded') };
+    await pg.press('#globalSearchInput', 'ArrowDown');
+    await pg.press('#globalSearchInput', 'Enter');
+    await pg.waitForTimeout(500);
+    results.rdGlobalOpen = { modal: await pg.locator('#detailModal').evaluate(el => !el.hidden), crumbs: await pg.locator('#detailModalInner .detail-crumbs').allTextContents() };
+    // Property page chrome: breadcrumb, tabs, "Why am I seeing this?", acquisition section.
+    results.rdDetail = {
+      tabs: await pg.locator('#detailModalInner .detail-nav button').allTextContents(),
+      why: await pg.locator('#detailModalInner #whySeeing li').allTextContents(),
+      acquire: await pg.locator('#detailModalInner [data-section="acquire"]').count()
+    };
+    await pg.click('#detailModalInner .crumb[data-action="crumbhome"]');
+    await pg.waitForTimeout(400);
+    results.rdCrumbHome = { modalHidden: await pg.locator('#detailModal').evaluate(el => el.hidden), dashVisible: await pg.locator('#pageDashboard').evaluate(el => !el.hidden) };
+    await pg.fill('#globalSearchInput', 'zzzz-no-such');
+    await pg.waitForTimeout(300);
+    results.rdGlobalEmpty = await txt(pg, '#gsEmpty');
+    await pg.press('#globalSearchInput', 'Escape');
+    results.rdGlobalEscape = await pg.locator('#globalSearchResults').evaluate(el => el.hidden);
+    await pg.close();
+
+    // Card acquisition badge never claims an online purchase for an unverified path.
+    pg = await open('', '#/lands');
+    await pg.click('#expandAllBtn');
+    await pg.waitForTimeout(300);
+    results.rdCardAcq = await pg.locator('#main .prop-card[data-pid] .card-acq').evaluateAll(els => els.map(e => e.closest('.prop-card').dataset.pid + ':' + e.textContent.replace(/\s+/g, ' ').trim()));
+    await pg.close();
+
+    // State picker: every production state; the current state with counts,
+    // others with the ledgers that have rows this viewer may see. Customer
+    // mode probes customer-published rows only (Michigan's Available sources
+    // are unreviewed in the fixture, so a customer sees no Available badge
+    // there and an admin does).
+    const picker = async (qs) => {
+      const p2 = await open(qs, '#/lands');
+      await p2.click('#navStatesBtn');
+      await p2.waitForFunction(() => !document.querySelector('#statePickerBody .ledger-badge.pending'), null, { timeout: 8000 }).catch(() => {});
+      const rows = await p2.locator('#statePickerBody .state-row').evaluateAll(els => els.map(e => e.dataset.stateRow + '=' +
+        Array.from(e.querySelectorAll('.ledger-badge')).map(b => b.dataset.ledger).join('|') + (e.querySelector('.state-row-none') ? '!' + (e.querySelector('.state-row-none').textContent.startsWith('No properties') ? 'none' : 'unchecked') : '')));
+      const groups = await p2.locator('#statePickerBody .state-group-head').allTextContents();
+      return { p2, rows, groups };
+    };
+    let pk = await picker('');
+    results.rdPicker = { rows: pk.rows.sort(), groups: pk.groups, visible: await pk.p2.locator('#statePicker').evaluate(el => !el.hidden),
+      coHref: await pk.p2.locator('.state-row[data-state-row="CO"] a.ledger-badge').first().getAttribute('href'),
+      flCounts: await pk.p2.locator('.state-row[data-state-row="FL"] .ledger-badge').allTextContents() };
+    await pk.p2.fill('#statePickerSearch', 'wyo');
+    await pk.p2.waitForTimeout(150);
+    results.rdPickerSearch = await pk.p2.locator('#statePickerBody .state-row').evaluateAll(els => els.map(e => e.dataset.stateRow));
+    await pk.p2.keyboard.press('Escape');
+    await pk.p2.waitForTimeout(200);
+    results.rdPickerEscape = await pk.p2.locator('#statePicker').evaluate(el => el.hidden);
+    await pk.p2.close();
+    pk = await picker('?profile=admin');
+    results.rdPickerAdminMI = pk.rows.find(r => r.startsWith('MI=')) || null;
+    await pk.p2.close();
+    pk = await picker('?probefail=1');
+    results.rdPickerProbeFail = pk.rows.find(r => r.startsWith('WY=')) || null;
+    await pk.p2.close();
+
+    // Phone: five bottom entries, Account opens the account menu, and the
+    // global search sits in the top bar.
+    pg = await open('', '#/lands', { width: 390, height: 844 });
+    results.rdPhoneBottom = await pg.locator('#navBottom .nav-bottom-item').allTextContents();
+    await pg.click('#navBottomAccount');
+    await pg.waitForTimeout(200);
+    results.rdPhoneAccount = await pg.locator('#accountMenu').evaluate(el => !el.hidden);
+    results.rdPhoneSearchVisible = await pg.locator('#globalSearchInput').isVisible();
+    await pg.close();
+
+    // Loading: Home shows placeholders, never a zero, until the rows arrive.
+    pg = await newPage({ viewport: { width: 1440, height: 900 } });
+    await pg.goto(BASE_URL + '?pagedelay=1500#/dashboard');
+    await pg.waitForSelector('#homeLedgers [data-home-ledger]', { timeout: 8000 }).catch(() => {});
+    results.rdHomeLoading = { count: await txt(pg, '#homeCount_laft'), skeleton: await pg.locator('#homeRecent .skel-card').count() };
+    await pg.close();
+  }
   results.xsPages = {};
   for (const [code, file, name] of NEW_STATES) {
     const pg = await newPage({ viewport: { width: 1200, height: 900 } });
@@ -3668,7 +3815,7 @@ await navLands.goto(BASE_URL + '#/lands', { waitUntil: 'networkidle' });
 await navLands.waitForTimeout(500);
 results.navLandsListVisible = await navLands.locator('#pageList').evaluate(el => !el.hidden);
 results.navLandsHeading = ((await navLands.locator('.ledger-head h2').textContent()) || '').trim();
-results.navLandsLit = await navLands.locator('.nav-list .nav-item.on').evaluateAll(els => els.map(e => e.dataset.page));
+results.navLandsLit = await navLands.locator('.nav-list .nav-item.on').evaluateAll(els => els.map(e => e.dataset.page || 'ledger:' + e.dataset.navLedger));
 // Editing the address bar to another route switches pages without a reload.
 await navLands.evaluate(() => { location.hash = '#/dashboard'; });
 await navLands.waitForTimeout(400);
@@ -3682,7 +3829,7 @@ const navWl = await newPage({ viewport: { width: 1200, height: 900 } });
 await navWl.goto(BASE_URL + '#/watchlist', { waitUntil: 'networkidle' });
 await navWl.waitForTimeout(500);
 results.navWatchlistDeepOpen = await navWl.locator('#bidListModal').evaluate(el => !el.hidden);
-results.navWatchlistDeepLit = await navWl.locator('.nav-list .nav-item.on').evaluateAll(els => els.map(e => e.dataset.page));
+results.navWatchlistDeepLit = await navWl.locator('.nav-list .nav-item.on').evaluateAll(els => els.map(e => e.dataset.page || 'ledger:' + e.dataset.navLedger));
 await navWl.close();
 const navList = await newPage({ viewport: { width: 1200, height: 900 } });
 await navList.goto(BASE_URL + '#/list', { waitUntil: 'networkidle' });
@@ -4528,7 +4675,7 @@ const EXPECTED = {
   tabCertHeading: 'Liens & Certificates',
   tabLaftHash: '#/lands',
   tabLaftHeading: 'Available',
-  navListCountIsSum: true,
+  navLedgerCountsMatchTabs: true,
   listHasNoStateTabs: true,
   navWatchlistOpen: true,
   navWatchlistLit: ['watchlist'],
