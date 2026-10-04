@@ -370,6 +370,98 @@
    "candidates": [
     {
      "access": "ACCESSIBLE",
+     "availability": "NOT_READ",
+     "county": "Ramsey",
+     "governance": "REVIEW_REQUIRED",
+     "identifier_confirmed": false,
+     "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
+     "publication_review": "",
+     "read_at": "",
+     "source_id": "MN:Ramsey:mn_ramsey_tax_forfeit",
+     "url": "https://maps.co.ramsey.mn.us/arcgis/rest/services/PRR/TaxForfeitLand_PublicData/MapServer/0"
+    }
+   ],
+   "last_reads": {},
+   "production_counties": [],
+   "production_sources": 0,
+   "rejected": [],
+   "research": {},
+   "state": "MN",
+   "status": "REVIEW_REQUIRED"
+  },
+  {
+   "candidates": [
+    {
+     "access": "ACCESSIBLE",
+     "availability": "NOT_READ",
+     "county": "St. Louis City",
+     "governance": "REVIEW_REQUIRED",
+     "identifier_confirmed": false,
+     "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
+     "publication_review": "",
+     "read_at": "",
+     "source_id": "MO:St. Louis City:mo_stl_lra_inventory",
+     "url": "https://www.stlouis-mo.gov/data/datasets/dataset.cfm?id=30"
+    }
+   ],
+   "last_reads": {},
+   "production_counties": [],
+   "production_sources": 0,
+   "rejected": [],
+   "research": {},
+   "state": "MO",
+   "status": "REVIEW_REQUIRED"
+  },
+  {
+   "candidates": [
+    {
+     "access": "ACCESSIBLE",
+     "availability": "NOT_READ",
+     "county": "Oklahoma",
+     "governance": "REVIEW_REQUIRED",
+     "identifier_confirmed": false,
+     "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
+     "publication_review": "",
+     "read_at": "",
+     "source_id": "OK:Oklahoma:ok_oklahoma_county_owned",
+     "url": "https://docs.oklahomacounty.org/treasurer/CountyOwnedList.asp"
+    }
+   ],
+   "last_reads": {},
+   "production_counties": [],
+   "production_sources": 0,
+   "rejected": [],
+   "research": {},
+   "state": "OK",
+   "status": "REVIEW_REQUIRED"
+  },
+  {
+   "candidates": [
+    {
+     "access": "ACCESSIBLE",
+     "availability": "NOT_READ",
+     "county": "Fayette",
+     "governance": "REVIEW_REQUIRED",
+     "identifier_confirmed": false,
+     "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
+     "publication_review": "",
+     "read_at": "",
+     "source_id": "PA:Fayette:pa_fayette_repository",
+     "url": "https://www.fayettecountypa.org/DocumentCenter/View/9761/Repository-Update-10-7-2025"
+    }
+   ],
+   "last_reads": {},
+   "production_counties": [],
+   "production_sources": 0,
+   "rejected": [],
+   "research": {},
+   "state": "PA",
+   "status": "REVIEW_REQUIRED"
+  },
+  {
+   "candidates": [
+    {
+     "access": "ACCESSIBLE",
      "availability": "CURRENT_INVENTORY",
      "county": "Georgetown",
      "governance": "REVIEW_REQUIRED",

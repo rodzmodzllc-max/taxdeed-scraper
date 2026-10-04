@@ -59,6 +59,27 @@ PAGES = {
                       "previous sales are shown as the county publishes them; the county states when it has no current "
                       "sales. No fee or closing-cost rule is tracked. Confirm terms with the County Clerk and a title company "
                       "or attorney before bidding."),
+    # AVAILABLE expansion (2026-10-04): one county AVAILABLE source each, collected for admin
+    # use while its publication review is pending (docs/available-expansion-2026-10.md).
+    "MO": dict(name="Missouri",
+               notice="<b>Missouri coverage is the City of St. Louis Land Reutilization Authority inventory.</b> Only parcels "
+                      "the inventory itself marks Available are read. It publishes no price, and none is shown. No fee or "
+                      "closing-cost rule is tracked. Confirm terms with the Land Reutilization Authority and a title company or "
+                      "attorney before applying."),
+    "OK": dict(name="Oklahoma",
+               notice="<b>Oklahoma coverage is Oklahoma County's county-owned property list.</b> The figure shown is the list's "
+                      "own suggested initial bid, not a minimum or a price; the county's list says 'BUYER BEWARE'. No fee or "
+                      "closing-cost rule is tracked. Confirm terms with the County Treasurer and a title company or attorney "
+                      "before bidding."),
+    "PA": dict(name="Pennsylvania",
+               notice="<b>Pennsylvania coverage is Fayette County's repository list, shown with the list's own date.</b> "
+                      "Minimum bids are shown as the list publishes them; a repository sale needs the taxing bodies' consent. "
+                      "No fee or closing-cost rule is tracked. Confirm with the Tax Claim Bureau and a title company or "
+                      "attorney before bidding."),
+    "MN": dict(name="Minnesota",
+               notice="<b>Minnesota coverage is Ramsey County's tax-forfeited land layer.</b> Only parcels the county marks "
+                      "Available for purchase are read; minimum bids are shown as published. No fee or closing-cost rule is "
+                      "tracked. Confirm terms with the county and a title company or attorney before buying."),
 }
 
 

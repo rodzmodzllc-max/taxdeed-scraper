@@ -30,7 +30,7 @@ import laft_purchase_paths as PP  # noqa: E402
 import publication_gate as PG  # noqa: E402
 import unit_freshness as U  # noqa: E402
 
-EXPANSION_STATES = {"MI", "WY", "SC", "CO", "WI"}
+EXPANSION_STATES = {"MI", "WY", "SC", "CO", "WI", "MO", "OK", "PA", "MN"}   # + AVAILABLE expansion 2026-10-04
 ROWS = csr.load_registry()
 BY_SID = pub.decisions_by_source(ROWS)
 T = datetime(2026, 9, 30, 12, 0, tzinfo=timezone.utc)
@@ -67,7 +67,8 @@ def test_g01_committed_registry_publishes_only_the_grandfathered_production_sour
                 # An auction / lien source awaiting review writes nothing; an AVAILABLE
                 # one is collected for development and labelled, never customer-published
                 # (collection vs customer publication, 2026-10-02).
-                expected = "not customer-published" if r.source_id in EX.AVAILABLE_SPRINT_SOURCE_IDS else "no row is written"
+                expected = ("not customer-published" if r.source_id in EX.AVAILABLE_SPRINT_SOURCE_IDS | EX.AVAILABLE_FIVE_SOURCE_IDS
+                            else "no row is written")
                 assert eff == "UNREVIEWED" and expected in r.restrictions, (r.state, r.source_id)
         elif r.is_production:
             assert eff == "APPROVED_GRANDFATHERED", (r.state, r.county, r.source_id)     # already served today; carried forward
@@ -379,7 +380,7 @@ def test_m02_workflow_runs_the_gate_after_the_laft_sync_non_blocking_and_touches
 # ==================== 7. regression ====================
 
 def test_x01_fl_tx_al_ar_la_az_regressions():
-    assert states.PRODUCTION_STATES == {"FL", "TX", "LA", "MI", "WY", "SC", "CO", "WI"} and not any(states.is_activated(c) for c in ("AL", "AR", "AZ"))
+    assert states.PRODUCTION_STATES == {"FL", "TX", "LA", "MI", "WY", "SC", "CO", "WI", "MO", "OK", "PA", "MN"} and not any(states.is_activated(c) for c in ("AL", "AR", "AZ"))
     # FL Available production sources: still the 52 units, all grandfathered-publishable, no purchase path invented.
     fl = [r for r in ROWS if r.state == "FL" and r.is_production and "AVAILABLE" in r.ledger_set]
     assert len(fl) == 52 and all(pub.effective_publication(r) == "APPROVED_GRANDFATHERED" and not r.purchase_url for r in fl)

@@ -32,7 +32,7 @@ import outcome_ingest as OI  # noqa: E402
 import publication_gate as PG  # noqa: E402
 import purchase_path_engine as PE  # noqa: E402
 
-EXPANSION_STATES = {"MI", "WY", "SC", "CO", "WI"}
+EXPANSION_STATES = {"MI", "WY", "SC", "CO", "WI", "MO", "OK", "PA", "MN"}   # + AVAILABLE expansion 2026-10-04
 ROWS = csr.load_registry()
 MIG = REPO / "scripts/migrations/023_available_commercial_release.sql"
 APP = (REPO / "public/app.js").read_text(encoding="utf-8")
@@ -492,7 +492,7 @@ def test_r01_fl_tx_al_ar_la_az_regressions_hold():
             if eff == "APPROVED":
                 assert r.is_production and "Creative Commons" in r.restrictions, (r.state, r.source_id)
             else:
-                expected = "not customer-published" if r.source_id in EX.AVAILABLE_SPRINT_SOURCE_IDS else "no row is written"
+                expected = "not customer-published" if r.source_id in (EX.AVAILABLE_SPRINT_SOURCE_IDS | EX.AVAILABLE_FIVE_SOURCE_IDS) else "no row is written"
                 assert eff == "UNREVIEWED" and expected in r.restrictions, (r.state, r.source_id)
         elif r.is_production:
             assert eff == "APPROVED_GRANDFATHERED", (r.state, r.source_id)
