@@ -65,7 +65,7 @@ jobs:
           # mirrored-asset pattern as fl-cities.json/fl-zips.json/
           # tx-counties.svg just above, not the fl-counties.svg root-only
           # exception noted below.
-          FILES="_headers admin.html admin.js app.js available-coverage.json boot.js county-centroids.json explore.css explore.js fl-cities.json fl-zips.json index.html la.html la-parishes.svg manifest.webmanifest mi.html mi-counties.svg wy.html wy-counties.svg sc.html sc-counties.svg co.html co-counties.svg wi.html wi-counties.svg mo.html mo-counties.svg ok.html ok-counties.svg pa.html pa-counties.svg mn.html mn-counties.svg satellite-map.js source-inventory.json styles.css supabase-js.umd.js supabase-loader.js sw.js tx.html tx-counties.svg"
+          FILES="_headers admin.html admin.js app.js available-coverage.json boot.js county-centroids.json explore.css explore.js fl-cities.json fl-zips.json index.html la.html la-parishes.svg manifest.webmanifest mi.html mi-counties.svg wy.html wy-counties.svg sc.html sc-counties.svg co.html co-counties.svg wi.html wi-counties.svg mo.html mo-counties.svg ok.html ok-counties.svg pa.html pa-counties.svg mn.html mn-counties.svg satellite-map.js screening.js source-inventory.json styles.css supabase-js.umd.js supabase-loader.js sw.js tx.html tx-counties.svg"
           echo "FILES=$FILES" >> "$GITHUB_ENV"
 
           for f in $FILES; do

@@ -50,6 +50,7 @@ DEPLOYED_BUNDLE_FILES = (
     # its same-origin fallback copy.
     "boot.js",
     "supabase-loader.js",
+    "screening.js",
     "supabase-js.umd.js",
     # Added Phase 54/55 (map page rebuild + satellite basemap toggle). Both
     # went into sync-public-to-root.yml's FILES list at the time but not into

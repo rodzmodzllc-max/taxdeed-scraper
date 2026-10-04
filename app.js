@@ -1,4 +1,8 @@
 import { loadCreateClient } from "./supabase-loader.js";
+// Research screen (screening-v1): pure rules, mirrored by harvesters/screening.
+// Imported bindings are initialised before this module body runs, so render()
+// can reach them during init without a TDZ.
+import { screenProperty, keyReasons, passesBuyBox, CLASSIFICATION_LABELS, REASON_LABELS, DEFAULT_DISCOVERY, SCREENING_VERSION, SCREENED_SOURCES, SCREENING_DEFAULTS } from "./screening.js";
 // esm.sh first, this site's own copy if that fails or hangs (supabase-loader.js).
 const createClient = await loadCreateClient();
 
@@ -941,6 +945,15 @@ const state = {
   taxableMin: null, imagery: "any", acqState: "any", watchStatus: "any", freshDays: null, saleFrom: "", saleTo: "",
   includeQT: false, maxBidPct: 40,
   statusView: "all",
+  // Research screen (2026-10-04, screening-v1): which classifications the
+  // List shows. "discovery" = the default investor view (research
+  // candidates + needs review); "all" = the complete source inventory; any
+  // single classification shows just that group. A search always looks
+  // through the whole inventory. buyBox is the investor's own criteria,
+  // applied on top; sourceFilter narrows to one harvester source.
+  screenView: "discovery",
+  buyBox: { minAcres: null, maxAcres: null, minValue: null, maxAmount: null, maxBidToValue: null, requireParcel: false, requireAcreage: false, requireValue: false, requireClass: false },
+  sourceFilter: "any", screenIgnore: false,
   ledger: "auction",
   // Which state this is used to be a mutable filter here (`region`), toggled
   // by clicking a tab while the frontend fetched the whole table and hid the
@@ -2956,7 +2969,127 @@ function passes(p) {
     if (state.hideSlivers && hasNum(p.lot_sqft) && Number(p.lot_sqft) < 0.10 * 43560) return false;
     if (state.hideBareLandOnly && isBareLand(p)) return false;
   }
+  if (state.sourceFilter !== "any" && rowSourceId(p) !== state.sourceFilter) return false;
+  // Research screen (screening-v1). Screening only decides what the List
+  // PROMOTES: "All inventory" and any search see every row, each labelled
+  // with why it was not promoted. The buy box is the investor's own
+  // criteria; a range never passes a row that lacks the field.
+  if (SCREENED_SOURCES.includes(p.source)) {
+    const sc = screenOf(p);
+    if (!state.screenIgnore && !screenViewPasses(sc)) return false;
+    if (!passesBuyBox(p, sc, state.buyBox)) return false;
+  }
   return true;
+}
+
+// ==================== Research screen (screening-v1) ====================
+// public/screening.js holds the rules; these helpers only cache, filter and
+// render them. Function declarations (hoisted) for the same TDZ reason as
+// chipControlIds(): render() reaches them during module init.
+function screenOf(p) {
+  const cache = screenOf.cache || (screenOf.cache = new WeakMap());
+  let r = cache.get(p);
+  if (!r) { r = screenProperty(p); cache.set(p, r); }
+  return r;
+}
+function rowSourceId(p) { return String((p && (p.source_id || p.harvester_source)) || ""); }
+function screenViewPasses(sc) {
+  const v = state.screenView;
+  if (v === "all") return true;
+  if (v === "discovery") return sc.promoted || !!String(state.search || "").trim();
+  return sc.classification === v;
+}
+function screenReasonText(sc, n) {
+  const ks = keyReasons(sc).filter(r => r.code !== "INSUFFICIENT_DATA");
+  const list = ks.slice(0, n || 2).map(r => REASON_LABELS[r.code] || r.code);
+  return list.join(" + ") + (ks.length > (n || 2) ? ` + ${ks.length - (n || 2)} more` : "");
+}
+// One short line on the card: what the screen says, and - when the row is
+// not promoted by default - why. Never a score.
+function screenLineHtml(p) {
+  if (!SCREENED_SOURCES.includes(p.source)) return "";
+  const sc = screenOf(p);
+  const label = CLASSIFICATION_LABELS[sc.classification] || sc.classification;
+  const why = screenReasonText(sc, 2);
+  if (sc.promoted) {
+    return `<div class="screen-line" data-screen="${esc(sc.classification)}"><span class="screen-tag">${esc(label)}</span>${sc.classification === "REVIEW" && why ? `<span class="screen-why">${esc(why)}</span>` : ""}</div>`;
+  }
+  return `<div class="screen-line" data-screen="${esc(sc.classification)}"><span class="screen-tag">Not promoted by default · ${esc(label)}</span>${why ? `<span class="screen-why">Reason: ${esc(why)}</span>` : ""}</div>`;
+}
+const SCREEN_SEVERITY_TEXT = { limited: "Limits utility", risk: "Needs research", review: "Missing or provisional", info: "Information" };
+function fmtPct(v) { return `${(v * 100).toFixed(v < 0.1 ? 1 : 0)}%`; }
+// The full-page section: classification, every reason with its evidence,
+// the screening metrics (ratios of published numbers, never a return), and
+// what the data cannot tell (geometry, access).
+function screeningSectionHtml(p) {
+  if (!SCREENED_SOURCES.includes(p.source)) return "";
+  const sc = screenOf(p), m = sc.metrics || {};
+  const label = CLASSIFICATION_LABELS[sc.classification] || sc.classification;
+  const reasons = (sc.reasons || []).slice().sort((a, b) => ["limited", "risk", "review", "info"].indexOf(a.severity) - ["limited", "risk", "review", "info"].indexOf(b.severity));
+  const metric = (k, v) => `<div class="kv-row"><span class="kv-label">${esc(k)}</span><span class="kv-val">${v}</span></div>`;
+  const metrics = [];
+  if (m.amount !== null && m.amount !== undefined && m.value !== null && m.value !== undefined) {
+    metrics.push(metric("Bid ÷ county value", esc(fmtPct(m.bidToValue))));
+    metrics.push(metric("County value ÷ bid", esc(`${m.valueToBid}×`)));
+    metrics.push(metric("Value spread (county value − bid)", esc(`${m.valueSpread < 0 ? "−" : ""}${fmtShort(Math.abs(m.valueSpread))}`)));
+  }
+  if (m.pricePerAcre !== null && m.pricePerAcre !== undefined) metrics.push(metric("Bid per acre", esc(fmtShort(m.pricePerAcre))));
+  if (m.valuePerAcre !== null && m.valuePerAcre !== undefined) metrics.push(metric("County value per acre", esc(fmtShort(m.valuePerAcre))));
+  if (m.acres !== null && m.acres !== undefined) metrics.push(metric("Acreage used", esc(`${m.acres} ac${m.acresBasis === "lot_sqft" ? " (from lot sq ft)" : ""}`)));
+  const valueBasis = m.valueBasis === "market" ? valueLabel(p) : m.valueBasis === "assessed" ? assessedSourceLabel(p) : "";
+  const body = `
+    <p class="screen-head" data-screen="${esc(sc.classification)}"><b>${esc(label)}</b> · ${sc.promoted ? "promoted in the default discovery view" : "not promoted by default - still in the full inventory, found by search and by \u201cAll inventory\u201d"}</p>
+    ${reasons.length ? `<ul class="screen-reasons">${reasons.map(r => `<li data-severity="${esc(r.severity)}"><b>${esc(REASON_LABELS[r.code] || r.code)}</b> <span class="screen-sev">${esc(SCREEN_SEVERITY_TEXT[r.severity] || r.severity)}</span><br><span class="screen-evidence">${esc(r.evidence)}</span></li>`).join("")}</ul>` : `<p class="screen-none">No screening flags: the record carries a parcel number, size, county value and property class, and none of them matched a rule.</p>`}
+    ${metrics.length ? `<div class="kv-list screen-metrics">${metrics.join("")}</div><p class="screen-note">Screening metrics are arithmetic on published figures${valueBasis ? ` (county value = ${esc(valueBasis)})` : ""}. They are not an appraisal, a return or a profit estimate: liens that survive the sale, title work, costs and the final price are not in them.</p>` : `<p class="screen-note">No screening metric can be computed: it needs both a published amount and a county value.</p>`}
+    <div class="kv-list"><div class="kv-row"><span class="kv-label">Parcel geometry</span><span class="kv-val muted">Not available - no parcel boundary is in this data</span></div><div class="kv-row"><span class="kv-label">Access</span><span class="kv-val muted">Not tracked - no source data on road access</span></div></div>
+    <p class="screen-version">Rules ${esc(SCREENING_VERSION)} · built only from this record's own fields · never deletes or hides a record.</p>`;
+  return detailSectionHtml("Research screen", body, "screen-card", "screen");
+}
+// Counts for the List head: every classification among the rows that pass
+// every OTHER filter, so the numbers always add up to what "All inventory"
+// would show.
+function screenCounts(rows) {
+  const counts = { PRIORITY_REVIEW: 0, REVIEW: 0, LIMITED_OPPORTUNITY: 0, HIGH_RISK_REVIEW: 0, INSUFFICIENT_DATA: 0, total: 0 };
+  const saved = state.screenIgnore;
+  state.screenIgnore = true;
+  try {
+    rows.forEach(p => { if (!passes(p)) return; counts.total++; const c = screenOf(p).classification; if (c in counts) counts[c]++; });
+  } finally { state.screenIgnore = saved; }
+  return counts;
+}
+var SCREEN_VIEW_ORDER = ["discovery", "PRIORITY_REVIEW", "REVIEW", "LIMITED_OPPORTUNITY", "HIGH_RISK_REVIEW", "INSUFFICIENT_DATA", "all"];
+function renderScreenBar(ledger, ledgerRows, sourceTotal) {
+  const host = document.getElementById("screenBar");
+  if (!host) return;
+  if (!SCREENED_SOURCES.includes(ledger) || !PROPERTIES_LOADED) { host.hidden = true; host.innerHTML = ""; return; }
+  const c = screenCounts(ledgerRows);
+  const n = v => Number(v || 0).toLocaleString("en-US");
+  const disc = c.PRIORITY_REVIEW + c.REVIEW, flagged = c.LIMITED_OPPORTUNITY + c.HIGH_RISK_REVIEW;
+  const btn = (v, label, count) => `<button type="button" class="screen-btn${state.screenView === v ? " on" : ""}" data-screen-view="${v}" aria-pressed="${state.screenView === v}">${esc(label)} <b>${n(count)}</b></button>`;
+  const searching = !!String(state.search || "").trim();
+  host.hidden = false;
+  host.innerHTML = `
+    <p class="screen-summary" id="screenSummary"><span><b>${n(sourceTotal)}</b> source properties</span><span><b>${n(disc)}</b> match the research screen</span><span><b>${n(flagged)}</b> flagged for additional research</span><span><b>${n(c.INSUFFICIENT_DATA)}</b> insufficient data</span></p>
+    <div class="screen-btns" role="group" aria-label="Research screen">
+      ${btn("discovery", "Discovery view", disc)}${btn("PRIORITY_REVIEW", "Research candidates", c.PRIORITY_REVIEW)}${btn("REVIEW", "Needs review", c.REVIEW)}${btn("LIMITED_OPPORTUNITY", "Limited opportunity", c.LIMITED_OPPORTUNITY)}${btn("HIGH_RISK_REVIEW", "High-risk review", c.HIGH_RISK_REVIEW)}${btn("INSUFFICIENT_DATA", "Insufficient data", c.INSUFFICIENT_DATA)}${btn("all", "All inventory", c.total)}
+    </div>
+    <p class="screen-mode-note" id="screenModeNote">${state.screenView === "all" ? "Showing the complete source inventory. Records the discovery view does not promote are labelled with the reason." : state.screenView === "discovery" ? `Discovery view: research candidates and records that need review. ${n(c.total - disc)} other record${c.total - disc === 1 ? " is" : "s are"} in the full inventory${searching ? " - your search looks through all of them" : ""}. <button type="button" class="screen-link" data-screen-view="all">Show all inventory</button>` : `Showing only “${esc(CLASSIFICATION_LABELS[state.screenView] || state.screenView)}”. <button type="button" class="screen-link" data-screen-view="discovery">Back to the discovery view</button>`} <span class="screen-disclaimer">A research screen built from each record's own fields - not a valuation, score or recommendation.</span></p>`;
+}
+function setScreenView(v) {
+  if (!SCREEN_VIEW_ORDER.includes(v)) return;
+  state.screenView = v;
+  updateBadge(); render();
+}
+// Source filter: only the harvester sources present in the loaded rows of
+// the current ledger, named by their stored id label.
+function buildScreenSourceSelect() {
+  const el = document.getElementById("screenSourceFilter");
+  if (!el) return;
+  const ids = Array.from(new Set(ALL.filter(p => p.source === state.ledger).map(rowSourceId).filter(Boolean))).sort();
+  const current = state.sourceFilter;
+  el.innerHTML = `<option value="any">Any source</option>` + ids.map(v => `<option value="${esc(v)}">${esc(harvesterSourceLabel({ harvester_source: v, source_id: v }) || v)}</option>`).join("");
+  el.value = ids.includes(current) ? current : "any";
+  if (el.value !== current) state.sourceFilter = "any";
 }
 
 function noteHtml(p) {
@@ -3253,6 +3386,7 @@ function card(p, showCounty) {
     ${propertyVisual(p, "prop-card-photo")}
     ${tag}
     ${sourceLineHtml(p)}
+    ${screenLineHtml(p)}
     <div class="prop-top">
       <div class="prop-address">${titleLine}</div>
       <div class="prop-top-actions">
@@ -4274,7 +4408,7 @@ async function hydrateInventoryHistory(container, p) {
 // Shell redesign (2026-10-04): the section nav reads as the page's tabs -
 // Overview / Acquisition / Tax & Value / ... / Map / Source - each a jump to a
 // section that actually rendered (never an empty tab).
-const DETAIL_NAV_LABELS = { acquire: "Acquisition", summary: "Overview", decision: "Decision", inventory: "Inventory", financial: "Tax & Value", property: "Property", history: "History", events: "Sale events", monitor: "Watch", risk: "Risk & Legal", map: "Map", sources: "Source", provenance: "Provenance" };
+const DETAIL_NAV_LABELS = { acquire: "Acquisition", summary: "Overview", screen: "Research screen", decision: "Decision", inventory: "Inventory", financial: "Tax & Value", property: "Property", history: "History", events: "Sale events", monitor: "Watch", risk: "Risk & Legal", map: "Map", sources: "Source", provenance: "Provenance" };
 function detailNavHtml(bodyHtml) {
   const ids = [];
   bodyHtml.replace(/data-section="([a-z]+)"/g, (m, id) => { if (DETAIL_NAV_LABELS[id] && !ids.includes(id)) ids.push(id); return m; });
@@ -5071,6 +5205,7 @@ function detailHtml(p) {
     ${sourceReviewBannerHtml(p)}
     ${acquireBlockHtml(p)}
     ${opportunitySummaryHtml(p)}
+    ${screeningSectionHtml(p)}
     ${availableDecisionHtml(p)}
     ${auctionDecisionHtml(p)}
     ${inventoryCardHtml(p)}
@@ -5733,6 +5868,8 @@ function render() {
     if (el) el.textContent = (tabCounts[k] || 0).toLocaleString("en-US");
   });
   renderListHead(shown, activeLedger, tabCounts);
+  buildScreenSourceSelect();
+  renderScreenBar(activeLedger, ALL.filter(inLedger), tabCounts[activeLedger] || 0);
   renderFilterChips();
 
   // Expand/Collapse-all button label reflects whether every county currently
@@ -6399,6 +6536,10 @@ function applyLedgerChrome() {
   if (junkRow) junkRow.hidden = key !== "laft";
   const availRow = document.getElementById("availableFilters");
   if (availRow) availRow.hidden = key !== "laft";
+  // The research screen applies to parcels offered for sale (auctions,
+  // Available); a tax certificate is a lien and is not screened.
+  const screenSection = document.getElementById("screenFilters");
+  if (screenSection) screenSection.hidden = !SCREENED_SOURCES.includes(key);
   if (key === "laft") buildAvailLandUseSelect();
 
   // The CSV export is the same file either way - only the label changes, so
@@ -6646,7 +6787,10 @@ if (exportCsvBtn) exportCsvBtn.addEventListener("click", () => {
     ["Acquisition Last Verified", p => p.purchase_path_observed_on || ""],
     ["Imagery On File", p => p.photo_url ? "Yes" : "No"],
     ["Days Since Last Read", p => { const d = daysSince(p.last_seen_at); return d === null ? "" : d; }],
-    ["Source Review Status", p => sourceReviewText(p)]
+    ["Source Review Status", p => sourceReviewText(p)],
+    ["Research Screen", p => CLASSIFICATION_LABELS[screenOf(p).classification] || ""],
+    ["Research Screen Reasons", p => keyReasons(screenOf(p)).map(r => REASON_LABELS[r.code] || r.code).join("; ")],
+    ["Research Screen Rules", () => SCREENING_VERSION]
   ];
   const cols = [
     ["State", p => regionOf(p)],
@@ -6774,7 +6918,10 @@ if (exportCsvBtn) exportCsvBtn.addEventListener("click", () => {
     ["County E-mail", p => acquisitionOf(p).email || ""],
     ["Sale Process Page", p => acquisitionOf(p).evidenceUrl || ""],
     ["Sale Process Last Verified", p => p.purchase_path_observed_on || ""],
-    ["Source Review Status", p => sourceReviewText(p)]
+    ["Source Review Status", p => sourceReviewText(p)],
+    ["Research Screen", p => CLASSIFICATION_LABELS[screenOf(p).classification] || ""],
+    ["Research Screen Reasons", p => keyReasons(screenOf(p)).map(r => REASON_LABELS[r.code] || r.code).join("; ")],
+    ["Research Screen Rules", () => SCREENING_VERSION]
   ];
   // Liens & Certificates: the certificate's own published facts, source and
   // freshness - never the parcel-level tax-roll columns a certificate row
@@ -7017,6 +7164,45 @@ if (acreageMinEl) acreageMinEl.addEventListener("input", () => {
 });
 bindCheckbox("hideBareLandOnly", "hideBareLandOnly");
 
+// ---- research screen: the investor's own buy box (screening-v1) ----
+// Each control writes one state.buyBox key; passesBuyBox() in screening.js
+// applies them. A range never passes a record that lacks the field.
+function bindBuyBoxNumber(id, key, scale) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.addEventListener("input", () => {
+    const v = parseFloat(el.value);
+    state.buyBox[key] = isNaN(v) ? null : v * (scale || 1);
+    updateBadge(); render();
+  });
+}
+function bindBuyBoxCheck(id, key) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  el.addEventListener("change", () => { state.buyBox[key] = el.checked; updateBadge(); render(); });
+}
+bindBuyBoxNumber("screenMinAcres", "minAcres");
+bindBuyBoxNumber("screenMaxAcres", "maxAcres");
+bindBuyBoxNumber("screenMinValue", "minValue");
+bindBuyBoxNumber("screenMaxRatio", "maxBidToValue", 0.01);   // typed as a percentage
+bindBuyBoxCheck("screenReqParcel", "requireParcel");
+bindBuyBoxCheck("screenReqAcreage", "requireAcreage");
+bindBuyBoxCheck("screenReqValue", "requireValue");
+bindBuyBoxCheck("screenReqClass", "requireClass");
+bindSelect("screenSourceFilter", "sourceFilter");
+function resetScreenFilters() {
+  state.screenView = "discovery";
+  state.sourceFilter = "any";
+  Object.keys(state.buyBox).forEach(k => { state.buyBox[k] = typeof state.buyBox[k] === "boolean" ? false : null; });
+  ["screenMinAcres", "screenMaxAcres", "screenMinValue", "screenMaxRatio"].forEach(id => { const el = document.getElementById(id); if (el) el.value = ""; });
+  ["screenReqParcel", "screenReqAcreage", "screenReqValue", "screenReqClass"].forEach(id => { const el = document.getElementById(id); if (el) el.checked = false; });
+  const src = document.getElementById("screenSourceFilter"); if (src) src.value = "any";
+}
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-screen-view]");
+  if (b) setScreenView(b.dataset.screenView);
+});
+
 // Archive is a MODE (statusView), not a boolean flag, so it can't go through
 // bindCheckbox. Ticking it switches the whole view to past-due auctions;
 // unticking returns to "all" rather than to whatever status filter happened
@@ -7058,6 +7244,7 @@ if (resetBtn) resetBtn.addEventListener("click", () => {
   ["availPathFilter", "availAmountKindFilter", "availStatusFilter", "availLandUseFilter"].forEach(id => { const el = document.getElementById(id); if (el) el.value = "any"; });
   const acreageEl = document.getElementById("acreageMin"); if (acreageEl) acreageEl.value = "";
   resetMonitorFilters();
+  resetScreenFilters();
 
   buildAllChips();
   if (mapLoaded) { refreshMapPaths(); if (zoomedCounty) zoomToState(); }
@@ -9680,7 +9867,8 @@ function controlLabel(el) {
 function chipControlIds() {
   return ["favOnly", "topOnly", "soonOnly", "hideOldOnly", "archiveToggle", "hideSliversOnly", "hideBareLandOnly",
   "assessedMin", "availPathFilter", "availAmountKindFilter", "availStatusFilter", "acreageMin", "availSeenRecently", "availLandUseFilter",
-  "availGeocoded", "availValues", "taxableMin", "imageryFilter", "acqStateFilter", "watchStatusFilter", "freshDaysFilter", "saleFromFilter", "saleToFilter"];
+  "availGeocoded", "availValues", "taxableMin", "imageryFilter", "acqStateFilter", "watchStatusFilter", "freshDaysFilter", "saleFromFilter", "saleToFilter",
+  "screenMinAcres", "screenMaxAcres", "screenMinValue", "screenMaxRatio", "screenReqParcel", "screenReqAcreage", "screenReqValue", "screenReqClass", "screenSourceFilter"];
 }
 function filterChipList() {
   const chips = [];
@@ -9694,6 +9882,7 @@ function filterChipList() {
   }
   if (state.types.size !== TYPE_ORDER.length) chips.push({ key: "types", label: `Property type: ${state.types.size} of ${TYPE_ORDER.length}` });
   if (state.liens.size !== LIEN_ORDER.length) chips.push({ key: "liens", label: `Lien notes: ${state.liens.size} of ${LIEN_ORDER.length}` });
+  if (SCREENED_SOURCES.includes(state.ledger) && state.screenView !== "discovery") chips.push({ key: "screen", label: `Research screen: ${state.screenView === "all" ? "All inventory" : (CLASSIFICATION_LABELS[state.screenView] || state.screenView)}` });
   if (state.statusView === "live" || state.statusView === "gone") chips.push({ key: "status", label: state.statusView === "live" ? "Active only" : "No longer listed only" });
   chipControlIds().forEach(id => {
     const el = document.getElementById(id);
@@ -9726,6 +9915,7 @@ function removeFilterChip(key) {
   }
   if (key === "bid") { if (bindBidRangeSliders.reset) bindBidRangeSliders.reset(); updateBadge(); render(); return; }
   if (key === "types" || key === "liens") { const b = document.querySelector(`.mini-btn[data-group="${key}"][data-mode="all"]`); if (b) b.click(); return; }
+  if (key === "screen") { setScreenView("discovery"); return; }
   if (key === "status") { const c = document.querySelector('.summary-strip .chip[data-status="all"]'); if (c) c.click(); return; }
   if (key.startsWith("ctl:")) {
     const el = document.getElementById(key.slice(4));
@@ -10000,6 +10190,11 @@ function whySeeingHtml(p) {
   else reasons.push("A per-row last-read date is not recorded for this source.");
   if (!isCustomerPublishable(p)) reasons.push(`Its source is awaiting customer-publication review (${esc(sourceReviewLabel(p))}); it is ${esc(reviewViewerReason())}.`);
   else reasons.push("Its source is approved for customer publication.");
+  if (SCREENED_SOURCES.includes(p.source)) {
+    const sc = screenOf(p);
+    if (sc.promoted) reasons.push(`The research screen (${esc(SCREENING_VERSION)}) classes it “${esc(CLASSIFICATION_LABELS[sc.classification])}”, so the default discovery view shows it.`);
+    else reasons.push(`The research screen classes it “${esc(CLASSIFICATION_LABELS[sc.classification])}” (${esc(screenReasonText(sc, 3))}), so the default discovery view does not promote it; it shows because you ${state.search ? "searched for it" : state.screenView === "all" ? "chose All inventory" : "chose that group"}.`);
+  }
   if (state.search && textMatches(p, state.search)) reasons.push(`It matches your search “${esc(state.search)}”.`);
   if (FAVS.has(p.id) || BIDLIST.has(p.id)) reasons.push("It is on your favorites or watchlist.");
   return `<details class="why-seeing" id="whySeeing"><summary>Why am I seeing this?</summary><ul>${reasons.map(r => `<li>${r}</li>`).join("")}</ul></details>`;
