@@ -46,6 +46,11 @@ DEPLOYED_BUNDLE_FILES = (
     "admin.html",   # 2026-09-30 admin area (/admin) and its module
     "admin.js",
     "app.js",
+    # 2026-10-03 boot resilience: startup watchdog + supabase-js loader and
+    # its same-origin fallback copy.
+    "boot.js",
+    "supabase-loader.js",
+    "supabase-js.umd.js",
     # Added Phase 54/55 (map page rebuild + satellite basemap toggle). Both
     # went into sync-public-to-root.yml's FILES list at the time but not into
     # this one, which turned main red on every push until it was noticed -

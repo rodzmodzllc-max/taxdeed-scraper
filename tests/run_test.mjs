@@ -2236,6 +2236,46 @@ await fpFailPage.close();
     cache: await swp.evaluate(async () => (await caches.keys()).filter(k => k.startsWith('tdw-shell-')))
   };
   await swp.close();
+  // --- Boot resilience (2026-10-03: production showed a black page with no
+  // request ever reaching Supabase). (1) When the esm.sh supabase-js import
+  // fails, supabase-loader.js falls back to this site's own copy and the
+  // sign-in screen still appears. (2) When the app script never runs, boot.js
+  // replaces the blank page with a visible explanation. (3) A normal start
+  // never shows that panel.
+  {
+    const fb = await newPage({ viewport: { width: 390, height: 844 } });
+    await fb.route(/\/index\.html(\?.*)?$/, async route => {
+      const res = await route.fetch();
+      const body = (await res.text()).replace('./vendor/supabase-stub.js', './vendor/no-such-module.js');
+      await route.fulfill({ response: res, body });
+    });
+    await fb.goto(BASE_URL + '?authtest=1#/auctions', { waitUntil: 'networkidle' });
+    await fb.waitForTimeout(500);
+    results.bootFallback = await fb.evaluate(() => ({
+      authGate: !document.getElementById('authGate').hidden,
+      source: window.__tdwSupabaseSource || null,
+      noted: (window.__tdwBootErrors || []).some(e => /esm\.sh failed/.test(e)),
+      panel: !!document.getElementById('bootFailure')
+    }));
+    await fb.close();
+    const st = await newPage({ viewport: { width: 390, height: 844 } });
+    await st.addInitScript(() => { window.__tdwBootTimeoutMs = 1200; });
+    await st.route(/\/app\.js(\?.*)?$/, route => route.abort());
+    await st.goto(BASE_URL + '#/auctions', { waitUntil: 'load' });
+    await st.waitForTimeout(2000);
+    results.bootStalled = await st.evaluate(() => ({
+      panel: !!document.getElementById('bootFailure'),
+      buttons: [...document.querySelectorAll('#bootFailure button')].map(b => b.textContent),
+      mentionsAppJs: /Could not load .*app\.js/.test((document.getElementById('bootErrors') || {}).textContent || '')
+    }));
+    await st.close();
+    const ok = await newPage({ viewport: { width: 390, height: 844 } });
+    await ok.addInitScript(() => { window.__tdwBootTimeoutMs = 1200; });
+    await ok.goto(BASE_URL + '#/auctions', { waitUntil: 'networkidle' });
+    await ok.waitForTimeout(2000);
+    results.bootNormalNoPanel = await ok.evaluate(() => !document.getElementById('bootFailure') && !document.getElementById('app').hidden);
+    await ok.close();
+  }
   // Generic shell (signed in): brand, nav and footer name no state; the
   // header's state selector is the state context and is excluded.
   const sh = await newPage({ viewport: { width: 1200, height: 900 } });
@@ -4028,6 +4068,10 @@ await browser.close();
 
 
 const EXPECTED = {
+  // Boot resilience (2026-10-03).
+  bootFallback: { authGate: true, source: "local", noted: true, panel: false },
+  bootStalled: { panel: true, buttons: ["Reload", "Reset app cache and reload"], mentionsAppJs: true },
+  bootNormalNoPanel: true,
   // Scale regression (2026-10-02): 30,002-row Wayne County.
   scaleListInitial: {"cardsInDocument": 50, "wayneCount": "30006/30006 active", "groupMore": "Show next 50 · showing 50 of 30,006", "tableRows": 200, "tableMore": "Show next 200 · showing 200 of 30,006", "domUnder15k": true},
   scaleListAfterMore: {"cards": 100, "groupMore": "Show next 50 · showing 100 of 30,006"},
@@ -4061,7 +4105,7 @@ const EXPECTED = {
   },
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: { ready: true, controlled: true, tagline: "Tax Sale Property Intelligence", noState: true, cache: ["tdw-shell-v73"] },
+  brandSwReload: { ready: true, controlled: true, tagline: "Tax Sale Property Intelligence", noState: true, cache: ["tdw-shell-v74"] },
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · Tax Acquisitions — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · Tax Acquisitions — Florida", floridaCopy: true },

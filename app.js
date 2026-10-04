@@ -1,4 +1,6 @@
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { loadCreateClient } from "./supabase-loader.js";
+// esm.sh first, this site's own copy if that fails or hangs (supabase-loader.js).
+const createClient = await loadCreateClient();
 
 const cfg = window.TDW_CONFIG || {};
 if (!cfg.supabaseUrl || cfg.supabaseUrl.includes("YOUR-PROJECT-REF")) {
@@ -7830,9 +7832,12 @@ if (themeBtnEl) themeBtnEl.addEventListener("click", () => {
 });
 
 if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register("sw.js").catch(() => {});
-  });
+  // This module awaits supabase-loader.js (top-level await), so it can resume
+  // after the window "load" event has already fired - a bare load listener
+  // would then never run and the service worker would never register.
+  const registerSw = () => navigator.serviceWorker.register("sw.js").catch(() => {});
+  if (document.readyState === "complete") registerSw();
+  else window.addEventListener("load", registerSw);
 }
 
 // ---- install button ----

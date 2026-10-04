@@ -24,7 +24,9 @@
 // Flow: no session -> the normal sign-in (index.html). Session but the
 // server says not an admin -> the normal application (index.html). Admin ->
 // the shell, identified only as "Admin" (no e-mail address shown).
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import { loadCreateClient } from "./supabase-loader.js";
+// esm.sh first, this site's own copy if that fails or hangs (supabase-loader.js).
+const createClient = await loadCreateClient();
 
 const cfg = window.TDW_CONFIG || {};
 const APP_URL = "index.html";
