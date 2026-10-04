@@ -96,6 +96,12 @@ class TabularConfig:
     # full: a row whose "identifier" is a note line or a word (a workbook's
     # footer, a section label) is not a property and is counted, never kept.
     id_pattern: str | None = None
+    # AVAILABLE expansion (2026-10-04). The source's OWN status words that mean
+    # the row is offered (e.g. St. Louis LRA Parcel_Status "Available"). When
+    # set, a row whose status cell is any other word - or blank - is counted
+    # (`excluded_status`) and never kept: availability is the source's
+    # statement, never inferred from presence on a mixed inventory list.
+    status_include: tuple[str, ...] = ()
 
 
 # Cell tokens a source uses for "no value here" (never a published value).
@@ -161,6 +167,7 @@ class TabularListAdapter:
         self.label_as_of: date | None = None
         self._row_links: list[dict[str, str]] = []
         self.rejected_ids = 0
+        self.excluded_status = 0
 
     def field_for(self, label: str) -> tuple[str, ...] | None:
         """Every record field a column label fills (None = not a mapped column)."""
@@ -182,6 +189,11 @@ class TabularListAdapter:
     def parse_csv(self, text: str, *, retrieved_at: datetime, document_name: str | None = None) -> list[OtcRecord]:
         reader = csv.reader(io.StringIO(text))
         rows = [r for r in reader if any(c.strip() for c in r)]
+        return self._records(rows, retrieved_at=retrieved_at, document_name=document_name)
+
+    def parse_rows(self, rows: list[list[str]], *, retrieved_at: datetime, document_name: str | None = None) -> list[OtcRecord]:
+        """Rows already split into cells (a PDF table, a workbook)."""
+        rows = [[re.sub(r"\s+", " ", c or "").strip() for c in r] for r in rows if any((c or "").strip() for c in r)]
         return self._records(rows, retrieved_at=retrieved_at, document_name=document_name)
 
     def parse_html_table(self, html: str | bytes, *, retrieved_at: datetime, document_name: str | None = None) -> list[OtcRecord]:
@@ -246,6 +258,9 @@ class TabularListAdapter:
             if self.cfg.id_pattern and not re.fullmatch(self.cfg.id_pattern, values["case_no"]):
                 self.rejected_ids += 1
                 continue
+            if self.cfg.status_include and _norm(values.get("status", "")) not in {_norm(s) for s in self.cfg.status_include}:
+                self.excluded_status += 1
+                continue
             sold_price = None
             status_text = values.get("status")
             if self.cfg.amount_sold_pattern and values.get("amount"):
@@ -307,6 +322,19 @@ class TabularListAdapter:
             if score > best_score:
                 best_idx, best_fields, best_score = idx, fields, score
         return best_idx, best_fields
+
+
+def pdf_table_rows(data: bytes) -> list[list[str]]:
+    """Every table row of a text PDF, page after page (pdfplumber's own table
+    finder; a header repeated on each page is just another row - the id
+    pattern rejects it). A scanned PDF yields no rows (never a guess)."""
+    import pdfplumber  # noqa: PLC0415 - only the PDF sources need it
+    rows: list[list[str]] = []
+    with pdfplumber.open(io.BytesIO(data)) as pdf:
+        for page in pdf.pages:
+            for table in page.extract_tables() or []:
+                rows.extend([[c if c is not None else "" for c in r] for r in table])
+    return rows
 
 
 # The Texas government-direct lists the audit found, and why each is a

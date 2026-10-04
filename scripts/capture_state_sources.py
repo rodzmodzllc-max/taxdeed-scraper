@@ -1249,10 +1249,10 @@ FIVE3_SERVICE_RE = re.compile(r"sos|tfl|forfeit|public.?land|tax", re.I)
 FIVE3_ITEMS = ["bae26a0f2eaa455280a85537d4f3ea0a", "d74c6b741a83487e8ca56bc8ceafbd27"]
 FIVE3_LAYER_PROBES = [
     ("https://gisserver.its.ms.gov/arcgis/rest/services/Hosted/Hinds_Tax_Forfeit_Properties_May_2026/FeatureServer/0", "1=1",
-     ["PPIN", "Parcel_No_", "Certificate__"],
-     ["Status", "Bid_Property", "Web", "Blighted", "Tidelands", "Strike_Reason", "County", "Judicial_District", "Municipality"]),
+     ["ppin", "parcel_no_", "certificate__"],
+     ["status", "bid_property", "web", "blighted", "tidelands", "strike_reason", "county", "judicial_district", "municipality"]),
     ("https://gisserver.its.ms.gov/arcgis/rest/services/Hosted/City_of_Jackson_Active_SOS_Parcels_Test/FeatureServer/0", "1=1",
-     ["PPIN", "SoSParNo"], ["County", "Municipality", "SchoolDistrict"]),
+     ["ppin", "sosparno"], ["county", "municipality", "schooldistrict"]),
 ]
 
 
