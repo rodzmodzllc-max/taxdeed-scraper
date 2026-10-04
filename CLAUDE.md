@@ -2313,6 +2313,23 @@ stay `hidden`, and the visitor sees an empty dark page.
   `DEPLOYED_BUNDLE_FILES`.
 - `sw.js` -> `tdw-shell-v74`.
 
+## get_properties narrow sort (2026-10-04, migration 025 written, NOT applied)
+
+On 2026-10-04, Michigan (30,801 Available rows) and Louisiana (10,334) showed
+"Couldn't load property data right now": every `get_properties()` page sorted
+the state's FULL rows (~47 MB) before LIMIT/OFFSET, which took 2.76 s per
+Michigan page and spilled ~95 MB to disk. With ~8 pages in parallel, the
+pages hit the statement timeout.
+
+`scripts/migrations/025_get_properties_narrow_sort.sql` sorts only
+`(county, case_no, id)` in a CTE, then joins the page's full rows by id. In
+production, read-only, that took 0.59 s. Signature, columns, STABLE,
+`search_path`, grants and RLS are unchanged. Migration 024's DO block
+recognises the definition and leaves it alone.
+
+Rule: never ORDER BY full rows in a paged RPC over a large state; sort the
+keys, then fetch.
+
 ## Where to look for more
 
 - `claude/improvement-roadmap.md` in the "tax florida app" claude.ai Project — the full dated log of every fix, audit finding, and open decision. This is where new findings should be appended, not here.
