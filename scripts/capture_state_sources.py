@@ -1244,7 +1244,8 @@ def app_hosts(session: requests.Session, url: str) -> dict:
 # Pass 3 (2026-10-04): Mississippi only - the map app's script references the
 # State ITS ArcGIS server; find the tax-forfeited-lands layer there.
 FIVE3_DIRECTORY = "https://gisserver.its.ms.gov/arcgis/rest/services"
-FIVE3_FOLDER_RE = re.compile(r"sos|tfl|forfeit|public.?land|land", re.I)
+FIVE3_FOLDER_RE = re.compile(r"sos|tfl|forfeit|public.?land|land|hosted", re.I)
+FIVE3_SERVICE_RE = re.compile(r"sos|tfl|forfeit|public.?land|tax", re.I)
 FIVE3_ITEMS = ["bae26a0f2eaa455280a85537d4f3ea0a", "d74c6b741a83487e8ca56bc8ceafbd27"]
 
 
@@ -1254,6 +1255,7 @@ def directory_crawl(session: requests.Session, root: str, folder_re, *, max_serv
     pages = []
     top = arcgis_directory(session, root)
     pages.append({"url": root, "kind": "arcgis_directory", **top})
+    # (service names under a matching folder are listed in that folder's page)
     names = list(top.get("services") or [])
     for folder in top.get("folders") or []:
         if folder_re.search(folder):
@@ -1263,7 +1265,7 @@ def directory_crawl(session: requests.Session, root: str, folder_re, *, max_serv
     done = 0
     for name in names:
         svc_name = name.split(" ")[0]
-        if not folder_re.search(svc_name) or done >= max_services:
+        if not FIVE3_SERVICE_RE.search(svc_name) or done >= max_services:
             continue
         kind = "MapServer" if "MapServer" in name else "FeatureServer"
         url = f"{root}/{svc_name.split(':')[0]}/{kind}"
