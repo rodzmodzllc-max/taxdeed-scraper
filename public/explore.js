@@ -81,7 +81,11 @@ const STATE_ASSETS = {
   WY: { basemap: "wy-counties.svg", cities: "wy-cities.json", zips: "wy-zips.json" },
   SC: { basemap: "sc-counties.svg", cities: "sc-cities.json", zips: "sc-zips.json" },
   CO: { basemap: "co-counties.svg", cities: "co-cities.json", zips: "co-zips.json" },
-  WI: { basemap: "wi-counties.svg", cities: "wi-cities.json", zips: "wi-zips.json" }
+  WI: { basemap: "wi-counties.svg", cities: "wi-cities.json", zips: "wi-zips.json" },
+  MO: { basemap: "mo-counties.svg", cities: "mo-cities.json", zips: "mo-zips.json" },
+  OK: { basemap: "ok-counties.svg", cities: "ok-cities.json", zips: "ok-zips.json" },
+  PA: { basemap: "pa-counties.svg", cities: "pa-cities.json", zips: "pa-zips.json" },
+  MN: { basemap: "mn-counties.svg", cities: "mn-cities.json", zips: "mn-zips.json" }
 };
 const PAGE_STATE = STATE_ASSETS[document.body.dataset.state] ? document.body.dataset.state : "FL";
 const STATE_INFO = STATE_ASSETS[PAGE_STATE];
@@ -303,6 +307,30 @@ const PROJ = {
     y: { lon: 0, lat: -0.209887398, c: 9.899736672 },
     baseW: 1000,
     baseH: 1063
+  },
+  MO: {
+    x: { lon: 0.143951598, lat: 0, c: 13.805962504 },
+    y: { lon: 0, lat: -0.206811222, c: 8.421914195 },
+    baseW: 1000,
+    baseH: 887
+  },
+  OK: {
+    x: { lon: 0.112002542, lat: 0, c: 11.556716219 },
+    y: { lon: 0, lat: -0.271783884, c: 10.096205637 },
+    baseW: 1000,
+    baseH: 505
+  },
+  PA: {
+    x: { lon: 0.164794867, lat: 0, c: 13.289401314 },
+    y: { lon: 0, lat: -0.365727205, c: 15.492773054 },
+    baseW: 1000,
+    baseH: 597
+  },
+  MN: {
+    x: { lon: 0.123882385, lat: 0, c: 12.066279913 },
+    y: { lon: 0, lat: -0.163731421, c: 8.104039826 },
+    baseW: 1000,
+    baseH: 1098
   }
 };
 

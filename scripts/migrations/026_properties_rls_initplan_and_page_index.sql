@@ -1,5 +1,5 @@
 -- 026_properties_rls_initplan_and_page_index.sql
--- Large-state page performance (2026-10-04). NOT APPLIED until approved.
+-- Large-state page performance (2026-10-04). APPLIED 2026-10-04 as version 20261004180726.
 --
 -- Production evidence (read-only):
 --   - one deep get_properties('MI','buy',...,1000,29000) page took 4,556 ms;

@@ -268,6 +268,71 @@ WI = _expansion("WI", "Wisconsin",
                 "sealed bid form to the County Clerk (page); no online purchase link",
                 "Minimum Bid Amount = the published minimum bid (OPENING_BID); Sale Price = a published result")
 
+# ---- AVAILABLE expansion (2026-10-04): MO, OK, PA, MN ----------------------
+# One county AVAILABLE source each, read value-free by the AVAILABLE-five
+# evidence passes (harvesters/otc/adapters/expansion.py,
+# docs/available-expansion-2026-10.md). Activation here makes the state
+# COLLECTABLE; customer publication stays per source: every one is UNREVIEWED
+# (scripts/source_publication.py) - admins see the rows labelled, customers see
+# none until an admin review approves the source. Mississippi was evaluated
+# and deferred (no deterministic public source of record).
+def _available_expansion(code: str, name: str, source_of_record: str, coverage: str, identifier: str, semantics: str,
+                         purchase: str, amount: str) -> StateConfig:
+    EXPANSION_EVIDENCE[code] = {
+        "source_of_record_identified": source_of_record,
+        "live_source_verified": "read by the AVAILABLE-five evidence passes (capture_state_sources.py --available-five / -2 / "
+                                "-3), runs 37203515518 / 37203652975 / 37203694092 / 37203843581, 2026-10-04, value-free",
+        "publishing_unit_coverage_established": coverage,
+        "identifier_format_established": identifier,
+        "inventory_semantics_established": semantics,
+        "purchase_path_established": purchase,
+        "amount_semantics_established": amount,
+        "parser_fixture_validated": "tests/python/fixtures/available_five/ carries the LIVE column names verbatim with synthetic "
+                                    "values in the live shapes; the shared adapter parses it deterministically. Live parser "
+                                    "validation (harvest only, no database): run 37204541253, every source COMPLETE",
+        "governance_approved": "existing publication governance: the source is UNREVIEWED - collected for admin use, never "
+                              "customer-published until an admin review approves it (no reuse licence assumed)",
+        "production_registry_authorized": "owner instruction 2026-10-04 to build and register these AVAILABLE sources for admin "
+                                          "collection; merging the PR is the decision",
+    }
+    return _register(StateConfig(code=code, name=name, publishing_units=(PublishingUnit.COUNTY.value,),
+                                 production_inventory_types=frozenset({"", "POST_SALE"}), lifecycle_inventory_type=None,
+                                 production=True, activation=ALL_REQUIREMENTS))
+
+
+MO = _available_expansion(
+    "MO", "Missouri",
+    "St. Louis Land Reutilization Authority inventory CSV (City of St. Louis open data, dataset 30)",
+    "one unit (the independent City of St. Louis); the other 114 counties are not covered",
+    "ParcelId: the City's 11-digit parcel number (10,345 distinct in 10,348 rows)",
+    "the source's own Parcel_Status: 'Available' (offered) vs 'Unavailable'; only 'Available' is read",
+    "no purchase link per row; the LRA's own offer process (not captured yet)",
+    "no amount column -> NOT_PUBLISHED")
+OK = _available_expansion(
+    "OK", "Oklahoma",
+    "Oklahoma County Treasurer 'County Owned Property' list (docs.oklahomacounty.org)",
+    "one county (Oklahoma); the other 76 are not covered",
+    "Parcel_No (shape 9999-99-999-9999)",
+    "'Once the County owns these properties, they can be purchased by the public through a bidding process' - every row offered",
+    "the Treasurer's bid form (PDF, offline)",
+    "'Suggested Initial Bid Amount' -> PUBLISHED_AMOUNT_KIND_UNSPECIFIED (a suggestion, never a minimum or price)")
+PA = _available_expansion(
+    "PA", "Pennsylvania",
+    "Fayette County Tax Claim Bureau repository list (PDF 'Repository Update 10-7-2025')",
+    "one county (Fayette); the other 66 are not covered",
+    "PARCEL (shape 99-99-9999 with optional -9999 segments)",
+    "repository of unsold properties, bids opened monthly; a row with 'Bid Received' is pending and not read as offered",
+    "sealed bid to the Tax Claim Bureau; no form URL verified",
+    "'Min. Bid' -> OPENING_BID")
+MN = _available_expansion(
+    "MN", "Minnesota",
+    "Ramsey County Tax Forfeited Land public layer (maps.co.ramsey.mn.us)",
+    "one county (Ramsey); the other 86 are not covered",
+    "PIN: the county's 12-digit parcel id",
+    "the layer's own Status: only 'Available for purchase' (over the counter) is read",
+    "over the counter at the county (no purchase link on the layer)",
+    "MinimumBid -> OPENING_BID")
+
 # West Virginia (2026-10-01): the State Auditor's statewide land-sale /
 # certified-lands search (statuses CERTIFIED, SOLD, REDEEMED, NO BID,
 # DEEDED...). Owner-approved for publication, but NOT activated: its county

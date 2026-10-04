@@ -2330,7 +2330,52 @@ recognises the definition and leaves it alone.
 Rule: never ORDER BY full rows in a paged RPC over a large state; sort the
 keys, then fetch.
 
-## Migration 026: properties access rule once per statement + page index (2026-10-04, written, NOT applied)
+## AVAILABLE expansion: MO, OK, PA, MN (2026-10-04, PR open, no migration)
+
+Full description: `docs/available-expansion-2026-10.md`.
+
+**Sources** (all UNREVIEWED: collected for admins, never customer-published until an admin review approves them):
+
+| State | Source | Rows read live |
+|---|---|---|
+| MO | St. Louis LRA CSV (`Parcel_Status = Available` only) | 9,758 |
+| OK | Oklahoma County county-owned list (suggested bid = `PUBLISHED_AMOUNT_KIND_UNSPECIFIED`; offline bid form) | 195 |
+| PA | Fayette repository PDF (`Bid Received` excluded; dated 2025-10-07) | 376 |
+| MN | Ramsey tax-forfeited layer (`Available for purchase` only) | 2 |
+
+**Shared adapter additions** (`tabular.py`):
+- `status_include` / `status_exclude`;
+- `ColumnMap.land_use`;
+- `parse_rows` / `pdf_table_rows`;
+- `header_required` and the status column are enforced on every input path;
+- runner kinds `csv` / `pdf_table` in `harvest_expansion.py`.
+
+**Names and rules:**
+- "St. Louis City" names the independent city apart from St. Louis County (`build_state_basemap.py --rename`).
+- Owner columns are never mapped.
+- Mississippi is deferred: no public source of record; the only GIS layer is a City of Jackson blight-project snapshot.
+- `sw.js` → `tdw-shell-v75`.
+
+## Shell redesign (2026-10-04, PR open, frontend only)
+
+Full description: `docs/ui-redesign.md`. Stable facts:
+- **Sidebar** (identical markup on every page): Home = `data-page="dashboard"`,
+  Search = `data-page="list"`, one entry per ledger with `data-nav-ledger`
+  (never `data-page` + `data-ledger`), Saved Searches / States & Counties /
+  About as `data-nav` actions, Watchlist and Map as pages. On the List page the
+  rail lights the ledger entry, not Search (`syncLedgerNav()`).
+- **Global search** (`#globalSearchInput`) and Home search use the List's own
+  `textMatches()` over the loaded, already-gated rows; Enter opens the List.
+- **State picker** (`#statePicker`): counts only for the open state; other
+  states get a `limit 1` existence probe per ledger (customers: customer-
+  published rows only). Never a cross-state count - the Detroit subset is a
+  browser-side rule a server count cannot apply.
+- **TDZ:** render() runs during module init, so anything it reaches in the
+  redesign section is a function declaration (e.g. `chipControlIds()`), never
+  a top-level `const` - a `const` there aborted the whole module.
+- The filters panel lives in `.auctions-body` (left column at >=1280px).
+- `sw.js` -> `tdw-shell-v77`.
+## Migration 026: properties access rule once per statement + page index (2026-10-04, APPLIED as version 20261004180726)
 
 `scripts/migrations/026_properties_rls_initplan_and_page_index.sql`. Production's
 only policy on `properties` ("properties: approved only", PERMISSIVE, ALL,
@@ -2353,6 +2398,12 @@ Measured on a production-shaped local bench (PG16, production `auth.uid()` /
 identical before and after.
 
 Rule: wrap per-user helper calls in RLS policies as `(select fn())`.
+
+Applied to production 2026-10-04 (version `20261004180726`, executable SQL
+identical to this file). Measured in production as an approved customer:
+deep MI page 4,494 ms -> 106 ms; every MI / LA page read back in the same
+order with no row missing or repeated.
+
 
 ## Where to look for more
 

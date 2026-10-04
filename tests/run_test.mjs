@@ -2032,25 +2032,28 @@ results.dashLedgerRowTitles = await dashPage.locator('#dashLedgerRows .dash-row-
 results.navRailItems = await dashPage.locator('.nav-list .nav-item[data-page]').evaluateAll(els => els.map(e => e.dataset.page + ':' + e.textContent.replace(/\s+/g, ' ').trim()));
 results.navBottomItems = await dashPage.locator('#navBottom .nav-bottom-item[data-page]').evaluateAll(els => els.map(e => e.dataset.page));
 results.navLedgerEntriesGone = await dashPage.locator('.nav-item[data-ledger], .nav-bottom-item[data-ledger]').count();
-results.navDashboardLit = await dashPage.locator('.nav-list .nav-item.on').evaluateAll(els => els.map(e => e.dataset.page));
+results.navDashboardLit = await dashPage.locator('.nav-list .nav-item.on').evaluateAll(els => els.map(e => e.dataset.page || 'ledger:' + e.dataset.navLedger));
 results.navDashboardHash = await dashPage.evaluate(() => location.hash);
 await dashPage.click('.nav-list .nav-item[data-page="list"]');
 await dashPage.waitForTimeout(300);
 results.navListClickShowsListPage = await dashPage.locator('#pageList').evaluate(el => !el.hidden);
-results.navListClickLit = await dashPage.locator('.nav-list .nav-item.on').evaluateAll(els => els.map(e => e.dataset.page));
+results.navListClickLit = await dashPage.locator('.nav-list .nav-item.on').evaluateAll(els => els.map(e => e.dataset.page || 'ledger:' + e.dataset.navLedger));
 results.navListClickHash = await dashPage.evaluate(() => location.hash);
 await dashPage.click('.ledger-tab[data-ledger="certificate"]');
 await dashPage.waitForTimeout(300);
 results.tabCertHash = await dashPage.evaluate(() => location.hash);
-results.tabCertNavLit = await dashPage.locator('.nav-list .nav-item.on').evaluateAll(els => els.map(e => e.dataset.page));
+results.tabCertNavLit = await dashPage.locator('.nav-list .nav-item.on').evaluateAll(els => els.map(e => e.dataset.page || 'ledger:' + e.dataset.navLedger));
 results.tabCertHeading = ((await dashPage.locator('.ledger-head h2').textContent()) || '').trim();
 await dashPage.click('.ledger-tab[data-ledger="laft"]');
 await dashPage.waitForTimeout(300);
 results.tabLaftHash = await dashPage.evaluate(() => location.hash);
 results.tabLaftHeading = ((await dashPage.locator('.ledger-head h2').textContent()) || '').trim();
-results.navListCountIsSum = await dashPage.evaluate(() => {
-  const tabs = Array.from(document.querySelectorAll('#ledgerTabs .ledger-tab b')).map(b => Number(b.textContent));
-  return Number(document.getElementById('navCountList').textContent) === tabs.reduce((a, b) => a + b, 0) && tabs.reduce((a, b) => a + b, 0) > 0;
+// Shell redesign (2026-10-04): each ledger has its own sidebar entry, and
+// its count is the same number as that ledger's tab (the old single List
+// entry carried their sum).
+results.navLedgerCountsMatchTabs = await dashPage.evaluate(() => {
+  const tabs = Array.from(document.querySelectorAll('#ledgerTabs .ledger-tab')).map(t => [t.dataset.ledger, Number(t.querySelector('b').textContent)]);
+  return tabs.every(([k, n]) => Number(document.querySelector(`.nav-item[data-nav-ledger="${k}"] .nav-count`).textContent.replace(/,/g, '')) === n) && tabs.reduce((a, [, n]) => a + n, 0) > 0;
 });
 // The List page no longer carries its own state tabs: the state is the
 // header's #stateSelect (see the global state context block below).
@@ -2060,11 +2063,11 @@ results.listHasNoStateTabs = (await dashPage.locator('#regionTabs, a[data-state-
 await dashPage.click('.nav-list .nav-item[data-page="watchlist"]');
 await dashPage.waitForTimeout(300);
 results.navWatchlistOpen = await dashPage.locator('#bidListModal').evaluate(el => !el.hidden);
-results.navWatchlistLit = await dashPage.locator('.nav-list .nav-item.on').evaluateAll(els => els.map(e => e.dataset.page));
+results.navWatchlistLit = await dashPage.locator('.nav-list .nav-item.on').evaluateAll(els => els.map(e => e.dataset.page || 'ledger:' + e.dataset.navLedger));
 results.navWatchlistHash = await dashPage.evaluate(() => location.hash);
 await dashPage.click('#bidListModal [data-action="closebidlist"]');
 await dashPage.waitForTimeout(400);
-results.navWatchlistClosedLit = await dashPage.locator('.nav-list .nav-item.on').evaluateAll(els => els.map(e => e.dataset.page));
+results.navWatchlistClosedLit = await dashPage.locator('.nav-list .nav-item.on').evaluateAll(els => els.map(e => e.dataset.page || 'ledger:' + e.dataset.navLedger));
 results.navWatchlistClosedHash = await dashPage.evaluate(() => location.hash);
 results.navWatchlistClosedListVisible = await dashPage.locator('#pageList').evaluate(el => !el.hidden);
 await dashPage.click('.ledger-tab[data-ledger="auction"]');
@@ -2989,7 +2992,7 @@ const navMap = await newPage({ viewport: { width: 1200, height: 900 } });
 await navMap.goto(BASE_URL + '#/map?ledger=laft&county=Bay', { waitUntil: 'networkidle' });
 await navMap.waitForTimeout(600);
 results.navMapDeepVisible = await navMap.locator('#pageMap').evaluate(el => !el.hidden);
-results.navMapDeepLit = await navMap.locator('.nav-list .nav-item.on').evaluateAll(els => els.map(e => e.dataset.page));
+results.navMapDeepLit = await navMap.locator('.nav-list .nav-item.on').evaluateAll(els => els.map(e => e.dataset.page || 'ledger:' + e.dataset.navLedger));
 results.navMapDeepLaftPill = await navMap.locator('#mapLedgerPills [data-ledger="laft"]').evaluate(el => el.classList.contains('on'));
 results.navMapDeepCounty = await navMap.locator('#mapCountySelect').inputValue();
 results.navMapDeepContext = ((await navMap.locator('#mapContext').textContent()) || '').replace(/\s+/g, ' ').trim();
@@ -3022,7 +3025,7 @@ results.navMapSearchHash = await navMap.evaluate(() => location.hash);
 await navMap.click('.nav-list .nav-item[data-page="list"]');
 await navMap.waitForTimeout(300);
 results.navMapToListHash = await navMap.evaluate(() => location.hash);
-results.navMapToListLit = await navMap.locator('.nav-list .nav-item.on').evaluateAll(els => els.map(e => e.dataset.page));
+results.navMapToListLit = await navMap.locator('.nav-list .nav-item.on').evaluateAll(els => els.map(e => e.dataset.page || 'ledger:' + e.dataset.navLedger));
 await navMap.click('.nav-list .nav-item[data-page="map"]');
 await navMap.waitForTimeout(300);
 results.navListToMapHashKeepsContext = await navMap.evaluate(() => location.hash);
@@ -3336,7 +3339,224 @@ await navMap.close();
     };
     await l.close();
   }
-  const NEW_STATES = [['MI', 'mi', 'Michigan'], ['WY', 'wy', 'Wyoming'], ['SC', 'sc', 'South Carolina'], ['CO', 'co', 'Colorado'], ['WI', 'wi', 'Wisconsin']];
+  const NEW_STATES = [['MI', 'mi', 'Michigan'], ['WY', 'wy', 'Wyoming'], ['SC', 'sc', 'South Carolina'], ['CO', 'co', 'Colorado'], ['WI', 'wi', 'Wisconsin'],
+    ['MO', 'mo', 'Missouri'], ['OK', 'ok', 'Oklahoma'], ['PA', 'pa', 'Pennsylvania'], ['MN', 'mn', 'Minnesota']];
+  // ---- Load resilience + landing ledger (2026-10-04) ----
+  // landingLedger(): a state opens on the first ledger with visible records.
+  {
+    const land = async (file) => {
+      const pg = await newPage({ viewport: { width: 1200, height: 900 } });
+      await pg.goto(BASE_URL.replace(/index\.html$/, file), { waitUntil: 'networkidle' });
+      await pg.waitForTimeout(400);
+      const r = { hash: await pg.evaluate(() => location.hash), cards: await pg.locator('#main .prop-card').count(),
+                  issue: await pg.locator('#loadIssue').count() };
+      await pg.close();
+      return r;
+    };
+    results.landCO = await land('co.html');   // liens only -> Liens & Certificates, never an empty Auctions tab
+    results.landWY = await land('wy.html');   // auctions only -> Auctions
+    results.landLA = await land('la.html');   // Available present -> Available
+    results.landWI = await land('wi.html');   // nothing collected -> default ledger, empty, nothing invented
+    results.landWIAvailable = results.landWI.hash === '#/lands';
+  }
+  // One page failing must never blank the state; retries are bounded.
+  {
+    const open = async (qs, hash = '') => {
+      const pg = await newPage({ viewport: { width: 1200, height: 900 } });
+      await pg.addInitScript(() => { window.__tdwRetryScale = 0.01; });
+      await pg.goto(BASE_URL + qs + hash, { waitUntil: 'networkidle' });
+      await pg.waitForTimeout(500);
+      return pg;
+    };
+    // Auctions page at offset 4 always times out (pages of 2 rows via maxrows=2).
+    let pg = await open('?maxrows=2&failpage=auctions:4', '#/auctions');
+    results.partialFail = {
+      cards: await pg.locator('#main .prop-card').count(),
+      banner: ((await pg.locator('#loadIssue').textContent()) || '').replace(/\s+/g, ' ').trim(),
+      retryButton: await pg.locator('#loadIssue [data-action="retryload"]').count(),
+      attempts: await pg.evaluate(() => window.__stubPageCalls['auctions:4']),
+      errorState: await pg.locator('#main .error-state').count()
+    };
+    await pg.close();
+    // The same failure seen from another ledger: its rows are complete, the notice names the affected ledger.
+    pg = await open('?maxrows=2&failpage=auctions:4', '#/lands');
+    results.partialOtherLedger = {
+      cards: await pg.locator('#main .prop-card').count(),
+      banner: ((await pg.locator('#loadIssue').textContent()) || '').replace(/\s+/g, ' ').trim()
+    };
+    await pg.close();
+    // A page that fails once is retried and recovers: no notice, all rows.
+    pg = await open('?maxrows=2&flakypage=auctions:2:1', '#/auctions');
+    results.flakyRecovered = {
+      issue: await pg.locator('#loadIssue').count(),
+      attempts: await pg.evaluate(() => window.__stubPageCalls['auctions:2']),
+      cardsMatchFull: null
+    };
+    await pg.close();
+    // Retry button: the page fails through every attempt; once the source recovers, Retry loads the rest.
+    pg = await open('?maxrows=2&failpage=auctions:4', '#/auctions');
+    const before = await pg.locator('#main .prop-card').count();
+    const hadIssue = await pg.locator('#loadIssue').count();
+    await pg.evaluate(() => { window.__stubHealPages = true; });   // the database recovers
+    await pg.click('#loadIssue [data-action="retryload"]');
+    await pg.waitForTimeout(800);
+    results.retryRecovers = { hadIssue, issueAfter: await pg.locator('#loadIssue').count(),
+                              grew: (await pg.locator('#main .prop-card').count()) > before };
+    await pg.close();
+    // Every ledger's first page failing is the full error state (not "no properties").
+    pg = await open('?failpage=auctions:0,buy:0,lien:0', '#/auctions');
+    results.allFail = { errorState: await pg.locator('#main .error-state').count(), cards: await pg.locator('#main .prop-card').count() };
+    await pg.close();
+    // Bounded concurrency: with every page delayed, at most 2 pages per ledger are in flight (3 ledgers).
+    pg = await open('?maxrows=1&pagedelay=40', '#/auctions');
+    await pg.waitForTimeout(1500);
+    results.peakInflight = await pg.evaluate(() => window.__stubPeakInflight);
+    results.peakInflightBounded = results.peakInflight <= 6 && results.peakInflight >= 2;
+    await pg.close();
+  }
+  // ---- Shell redesign (2026-10-04): Home, global search, state picker,
+  // filter chips, county panel, property page chrome, mobile nav ----
+  {
+    const open = async (qs, hash, vp = { width: 1440, height: 900 }) => {
+      const pg = await newPage({ viewport: vp });
+      pg.on('pageerror', e => errors.push('redesign pageerror: ' + e.message));
+      await pg.goto(BASE_URL + qs + hash, { waitUntil: 'networkidle' });
+      await pg.waitForTimeout(400);
+      return pg;
+    };
+    const txt = async (pg, sel) => ((await pg.locator(sel).first().textContent()) || '').replace(/\s+/g, ' ').trim();
+    // Home: the search hero, three ledger cards with the same counts as the
+    // ledger tabs, browse-by-state, and recently added from first_seen_at.
+    let pg = await open('', '#/dashboard');
+    results.rdHome = {
+      title: await txt(pg, '.home-title'),
+      cards: await pg.locator('#homeLedgers [data-home-ledger]').evaluateAll(els => els.map(e => e.dataset.homeLedger + ':' + e.querySelector('.home-ledger-count').textContent)),
+      statesCard: await pg.locator('#homeStatesCard').count(),
+      recentHasFirstSeen: await pg.locator('#homeRecent .home-recent-when').evaluateAll(els => els.length > 0 && els.every(e => /^First observed /.test(e.textContent))),
+      tabCounts: await pg.locator('#ledgerTabs .ledger-tab').evaluateAll(els => els.map(e => e.dataset.ledger + ':' + e.querySelector('b').textContent)),
+      noScoreWords: await pg.locator('#homeHero, #homeLedgers, #homeRecentSection').evaluateAll(els => els.every(e => !/\b(score|ranking|recommend|AI)\b/i.test(e.textContent)))
+    };
+    // Home search submits to the List, filtered, on the ledger that has matches.
+    await pg.fill('#homeSearchInput', 'Manatee');
+    await pg.press('#homeSearchInput', 'Enter');
+    await pg.waitForTimeout(400);
+    results.rdHomeSearch = { hash: await pg.evaluate(() => location.hash), listSearch: await pg.inputValue('#searchInput'),
+      cards: await pg.locator('#main .prop-card').count(), chip: await txt(pg, '#filterChips .filter-chip') };
+    // Removing the search chip clears the search; Clear all resets everything.
+    await pg.click('#filterChips [data-chip-remove="search"]');
+    await pg.waitForTimeout(300);
+    results.rdChipRemoved = { listSearch: await pg.inputValue('#searchInput'), chips: await pg.locator('#filterChips .filter-chip').count(), hidden: await pg.locator('#filterChips').evaluate(el => el.hidden) };
+    // A control chip: the Available purchase-path filter.
+    await pg.selectOption('#availPathFilter', 'none');
+    await pg.waitForTimeout(300);
+    results.rdPathChip = await pg.locator('#filterChips .filter-chip').allTextContents();
+    await pg.click('#filterChipsClear');
+    await pg.waitForTimeout(300);
+    results.rdClearAll = { chips: await pg.locator('#filterChips .filter-chip').count(), path: await pg.inputValue('#availPathFilter') };
+    // List head names the ledger and its count; the sidebar lights the ledger entry.
+    results.rdListHead = { title: await txt(pg, '#listTitle'), sub: await txt(pg, '#listSubtitle'),
+      lit: await pg.locator('.nav-list .nav-item.on').evaluateAll(els => els.map(e => e.dataset.page || 'ledger:' + e.dataset.navLedger)) };
+    // County panel (wide desktop, nothing selected): counties with rows are
+    // shaded and clicking one filters the list to it.
+    await pg.waitForSelector('#lcpMap path.has', { timeout: 5000 }).catch(() => {});
+    const shaded = await pg.locator('#lcpMap path.has').evaluateAll(els => els.map(e => e.dataset.county).sort());
+    results.rdCountyPanel = { shaded };
+    if (shaded.length) {
+      await pg.locator(`#lcpMap path.has[data-county="${shaded[0]}"]`).dispatchEvent('click');
+      await pg.waitForTimeout(400);
+      results.rdCountyPanel.after = { quick: await pg.inputValue('#countyQuick'), chip: await txt(pg, '#filterChips .filter-chip'), cards: await pg.locator('#main .prop-card').count() };
+    }
+    // Sidebar ledger entries open that ledger.
+    await pg.click('.nav-item[data-nav-ledger="certificate"]');
+    await pg.waitForTimeout(300);
+    results.rdNavCert = { hash: await pg.evaluate(() => location.hash), title: await txt(pg, '#listTitle') };
+    await pg.click('.nav-item[data-nav-ledger="auction"]');
+    await pg.waitForTimeout(300);
+    results.rdNavAuction = { hash: await pg.evaluate(() => location.hash), title: await txt(pg, '#listTitle') };
+    await pg.close();
+
+    // Global search: results from loaded rows, ledger-badged; a row opens the
+    // property; Enter opens the List filtered; a miss says so.
+    pg = await open('', '#/lands');
+    await pg.fill('#globalSearchInput', 'Manatee');
+    await pg.waitForTimeout(300);
+    results.rdGlobal = { rows: await pg.locator('#globalSearchResults .gs-row').evaluateAll(els => els.map(e => e.dataset.gsPid + ':' + e.querySelector('.ledger-badge').textContent)),
+      all: await txt(pg, '#globalSearchResults .gs-all'), expanded: await pg.getAttribute('#globalSearchInput', 'aria-expanded') };
+    await pg.press('#globalSearchInput', 'ArrowDown');
+    await pg.press('#globalSearchInput', 'Enter');
+    await pg.waitForTimeout(500);
+    results.rdGlobalOpen = { modal: await pg.locator('#detailModal').evaluate(el => !el.hidden), crumbs: await pg.locator('#detailModalInner .detail-crumbs').allTextContents() };
+    // Property page chrome: breadcrumb, tabs, "Why am I seeing this?", acquisition section.
+    results.rdDetail = {
+      tabs: await pg.locator('#detailModalInner .detail-nav button').allTextContents(),
+      why: await pg.locator('#detailModalInner #whySeeing li').allTextContents(),
+      acquire: await pg.locator('#detailModalInner [data-section="acquire"]').count()
+    };
+    await pg.click('#detailModalInner .crumb[data-action="crumbhome"]');
+    await pg.waitForTimeout(400);
+    results.rdCrumbHome = { modalHidden: await pg.locator('#detailModal').evaluate(el => el.hidden), dashVisible: await pg.locator('#pageDashboard').evaluate(el => !el.hidden) };
+    await pg.fill('#globalSearchInput', 'zzzz-no-such');
+    await pg.waitForTimeout(300);
+    results.rdGlobalEmpty = await txt(pg, '#gsEmpty');
+    await pg.press('#globalSearchInput', 'Escape');
+    results.rdGlobalEscape = await pg.locator('#globalSearchResults').evaluate(el => el.hidden);
+    await pg.close();
+
+    // Card acquisition badge never claims an online purchase for an unverified path.
+    pg = await open('', '#/lands');
+    await pg.click('#expandAllBtn');
+    await pg.waitForTimeout(300);
+    // Badge text, and whether the card as a whole states the missing online
+    // link exactly once (on the badge or the Purchase path line, never both).
+    results.rdCardAcq = await pg.locator('#main .prop-card[data-pid] .card-acq').evaluateAll(els => els.map(e => {
+      const card = e.closest('.prop-card');
+      return card.dataset.pid + ':' + e.querySelector('.acq-badge').textContent.trim() + ':' + (card.textContent.split('No online purchase link on file').length - 1);
+    }));
+    await pg.close();
+
+    // State picker: every production state; the current state with counts,
+    // others with the ledgers that have rows this viewer may see. Customer
+    // mode probes customer-published rows only (Michigan's Available sources
+    // are unreviewed in the fixture, so a customer sees no Available badge
+    // there and an admin does).
+    const picker = async (qs) => {
+      const p2 = await open(qs, '#/lands');
+      await p2.click('#navStatesBtn');
+      await p2.waitForFunction(() => !document.querySelector('#statePickerBody .ledger-badge.pending'), null, { timeout: 8000 }).catch(() => {});
+      const rows = await p2.locator('#statePickerBody .state-row').evaluateAll(els => els.map(e => e.dataset.stateRow + '=' +
+        Array.from(e.querySelectorAll('.ledger-badge')).map(b => b.dataset.ledger).join('|') + (e.querySelector('.state-row-none') ? '!' + (e.querySelector('.state-row-none').textContent.startsWith('No properties') ? 'none' : 'unchecked') : '')));
+      const groups = await p2.locator('#statePickerBody .state-group-head').allTextContents();
+      return { p2, rows, groups };
+    };
+    let pk = await picker('');
+    results.rdPicker = { rows: pk.rows.sort(), groups: pk.groups, visible: await pk.p2.locator('#statePicker').evaluate(el => !el.hidden),
+      coHref: await pk.p2.locator('.state-row[data-state-row="CO"] a.ledger-badge').first().getAttribute('href'),
+      flCounts: await pk.p2.locator('.state-row[data-state-row="FL"] .ledger-badge').allTextContents() };
+    await pk.p2.fill('#statePickerSearch', 'wyo');
+    await pk.p2.waitForTimeout(150);
+    results.rdPickerSearch = await pk.p2.locator('#statePickerBody .state-row').evaluateAll(els => els.map(e => e.dataset.stateRow));
+    await pk.p2.keyboard.press('Escape');
+    await pk.p2.waitForTimeout(200);
+    results.rdPickerEscape = await pk.p2.locator('#statePicker').evaluate(el => el.hidden);
+    await pk.p2.close();
+    pk = await picker('?profile=admin');
+    results.rdPickerAdminMI = pk.rows.find(r => r.startsWith('MI=')) || null;
+    await pk.p2.close();
+    pk = await picker('?probefail=1');
+    results.rdPickerProbeFail = pk.rows.find(r => r.startsWith('WY=')) || null;
+    await pk.p2.close();
+
+    // Phone: five bottom entries, Account opens the account menu, and the
+    // global search sits in the top bar.
+    pg = await open('', '#/lands', { width: 390, height: 844 });
+    results.rdPhoneBottom = await pg.locator('#navBottom .nav-bottom-item').allTextContents();
+    await pg.click('#navBottomAccount');
+    await pg.waitForTimeout(200);
+    results.rdPhoneAccount = await pg.locator('#accountMenu').evaluate(el => !el.hidden);
+    results.rdPhoneSearchVisible = await pg.locator('#globalSearchInput').isVisible();
+    await pg.close();
+
+  }
   results.xsPages = {};
   for (const [code, file, name] of NEW_STATES) {
     const pg = await newPage({ viewport: { width: 1200, height: 900 } });
@@ -3572,7 +3792,11 @@ await navMap.close();
       inViewport: sel.left >= 0 && acc.right <= window.innerWidth,
       sameRow: Math.abs((sel.top + sel.bottom) / 2 - (acc.top + acc.bottom) / 2) < 4,
       selectorFirst: sel.right <= acc.left,
-      headerCompact: bar.height <= 64,
+      // Shell redesign (2026-10-04): the phone header is two rows by design -
+      // brand / state / account, then the global search across the full
+      // width. Each row stays compact.
+      headerCompact: (() => { const gsr = document.getElementById('globalSearch').getBoundingClientRect();
+        return Math.max(sel.bottom, acc.bottom) - bar.top <= 64 && gsr.top >= Math.max(sel.bottom, acc.bottom) && gsr.height <= 48 && bar.height <= 120; })(),
       noHorizontalScroll: document.documentElement.scrollWidth <= window.innerWidth,
       value: document.getElementById('stateSelect').value
     };
@@ -3594,7 +3818,7 @@ await navLands.goto(BASE_URL + '#/lands', { waitUntil: 'networkidle' });
 await navLands.waitForTimeout(500);
 results.navLandsListVisible = await navLands.locator('#pageList').evaluate(el => !el.hidden);
 results.navLandsHeading = ((await navLands.locator('.ledger-head h2').textContent()) || '').trim();
-results.navLandsLit = await navLands.locator('.nav-list .nav-item.on').evaluateAll(els => els.map(e => e.dataset.page));
+results.navLandsLit = await navLands.locator('.nav-list .nav-item.on').evaluateAll(els => els.map(e => e.dataset.page || 'ledger:' + e.dataset.navLedger));
 // Editing the address bar to another route switches pages without a reload.
 await navLands.evaluate(() => { location.hash = '#/dashboard'; });
 await navLands.waitForTimeout(400);
@@ -3608,7 +3832,7 @@ const navWl = await newPage({ viewport: { width: 1200, height: 900 } });
 await navWl.goto(BASE_URL + '#/watchlist', { waitUntil: 'networkidle' });
 await navWl.waitForTimeout(500);
 results.navWatchlistDeepOpen = await navWl.locator('#bidListModal').evaluate(el => !el.hidden);
-results.navWatchlistDeepLit = await navWl.locator('.nav-list .nav-item.on').evaluateAll(els => els.map(e => e.dataset.page));
+results.navWatchlistDeepLit = await navWl.locator('.nav-list .nav-item.on').evaluateAll(els => els.map(e => e.dataset.page || 'ledger:' + e.dataset.navLedger));
 await navWl.close();
 const navList = await newPage({ viewport: { width: 1200, height: 900 } });
 await navList.goto(BASE_URL + '#/list', { waitUntil: 'networkidle' });
@@ -4083,7 +4307,7 @@ const EXPECTED = {
   detroitSubsetPreview: {"ids": ["pmi_dlbs1", "pmi_dlbs2"], "note": "Detroit Land Bank: 6 collected · 4 with a verified structure in the source's own status · 2 in the customer subset (deterministic ~50%). Only the customer subset is shown here. The subset still passes the publication gate: source review is separate.", "reviewChips": 2, "subsetChips": 0},
   detroitSubsetPreviewMap: ["pmi_dlbs1", "pmi_dlbs2"],
   detroitSubsetVectors: {"cases": 50, "mismatches": []},
-  availDefaultLanding: {"FL": {"hash": "#/lands", "activeTab": "laft", "cards": true, "ledgers": ["laft"]}, "LA": {"hash": "#/lands", "activeTab": "laft", "cards": true, "ledgers": ["laft"]}, "WY": {"hash": "#/auctions", "activeTab": "auction", "cards": false, "ledgers": []}},
+  availDefaultLanding: {"FL": {"hash": "#/lands", "activeTab": "laft", "cards": true, "ledgers": ["laft"]}, "LA": {"hash": "#/lands", "activeTab": "laft", "cards": true, "ledgers": ["laft"]}, "WY": {"hash": "#/auctions", "activeTab": "auction", "cards": true, "ledgers": ["auction"]}},   // 2026-10-04: WY fixture row pwy1 (landing-ledger test)
   // Acquisition-path semantics (2026-10-03): Horry's county-wide bid-form PDF.
   acqPathHorryDetail: { modes: ['bid'], saysOnline: false, saysPropertyLink: false, saysBid: true,
     pdfLinks: ['Download bid form', 'County process page →', 'Application form to download (published by the source) →', 'Application / purchase instructions →'],
@@ -4105,7 +4329,7 @@ const EXPECTED = {
   },
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: { ready: true, controlled: true, tagline: "Tax Sale Property Intelligence", noState: true, cache: ["tdw-shell-v74"] },
+  brandSwReload: { ready: true, controlled: true, tagline: "Tax Sale Property Intelligence", noState: true, cache: ["tdw-shell-v77"] },
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · Tax Acquisitions — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · Tax Acquisitions — Florida", floridaCopy: true },
@@ -4335,7 +4559,7 @@ const EXPECTED = {
   oppBidText: '$5,000.00 Value ÷ bid 18.0× (screening ratio, not a return)',
   oppValueText: '$90,000 2025 County Just Value · County Assessed Value $80,000',
   oppGaps: ['Image not checked yet', 'Not yet geocoded', 'Flood zone not checked'],
-  detailNavLabels: ['Summary', 'Decision', 'Financial', 'Property', 'History', 'Sale events', 'Watch', 'Risk & Legal', 'Map', 'Sources', 'Data'],   // customer-value sprint: the Auction decision block
+  detailNavLabels: ['Overview', 'Decision', 'Tax & Value', 'Property', 'History', 'Sale events', 'Watch', 'Risk & Legal', 'Map', 'Source', 'Provenance'],   // shell redesign: section nav reads as tabs   // customer-value sprint: the Auction decision block
   detailNavJumpScrolled: true,
   detailNavJumpMarksPill: true,
   showOnMapBtnText: 'Show county on the Map page',
@@ -4441,25 +4665,25 @@ const EXPECTED = {
   mapPageVisibleOnMapNav: true,
   navMapBtnOnAfterMapNav: true,
   mapPageTitle: 'Map',
-  navRailItems: ['dashboard:Dashboard', 'list:List 12', 'map:Map', 'watchlist:Watchlist 0/10'],
+  navRailItems: ['dashboard:Home', 'list:Search', 'watchlist:Watchlist 0/10', 'map:Map'],   // shell redesign: per-ledger entries carry the counts
   navBottomItems: ['dashboard', 'list', 'map', 'watchlist'],
   navLedgerEntriesGone: 0,
   navDashboardLit: ['dashboard'],
   navDashboardHash: '#/dashboard',
   navListClickShowsListPage: true,
-  navListClickLit: ['list'],
+  navListClickLit: ['ledger:auction'],   // shell redesign: the rail lights the ledger entry on the List
   navListClickHash: '#/auctions',
   tabCertHash: '#/certificates',
-  tabCertNavLit: ['list'],
+  tabCertNavLit: ['ledger:certificate'],
   tabCertHeading: 'Liens & Certificates',
   tabLaftHash: '#/lands',
   tabLaftHeading: 'Available',
-  navListCountIsSum: true,
+  navLedgerCountsMatchTabs: true,
   listHasNoStateTabs: true,
   navWatchlistOpen: true,
   navWatchlistLit: ['watchlist'],
   navWatchlistHash: '#/watchlist',
-  navWatchlistClosedLit: ['list'],
+  navWatchlistClosedLit: ['ledger:laft'],
   navWatchlistClosedHash: '#/lands',
   navWatchlistClosedListVisible: true,
   navMapDeepVisible: true,
@@ -4468,7 +4692,42 @@ const EXPECTED = {
   navMapDeepCounty: 'Bay',
   navMapDeepContext: 'Ledger: Available · County: Bay County',
   navMapDeepHash: '#/map?ledger=laft&county=Bay',
-  navMapStateOptions: ['FL:Florida', 'TX:Texas', 'LA:Louisiana', 'MI:Michigan', 'WY:Wyoming', 'SC:South Carolina', 'CO:Colorado', 'WI:Wisconsin'],
+  // Shell redesign (2026-10-04)
+  rdHome: {"title": "Find tax-sale and government-held property", "cards": ["laft:2", "auction:9", "certificate:1"], "statesCard": 1, "recentHasFirstSeen": true, "tabCounts": ["auction:9", "laft:2", "certificate:1"], "noScoreWords": true},
+  rdHomeSearch: {"hash": "#/lands", "listSearch": "Manatee", "cards": 1, "chip": "Search: “Manatee”×"},
+  rdChipRemoved: {"listSearch": "", "chips": 0, "hidden": true},
+  rdPathChip: ["Purchase path: No online path on file×"],
+  rdClearAll: {"chips": 0, "path": "any"},
+  rdListHead: {"title": "Available Properties", "sub": "2 shown of 2 in Florida", "lit": ["ledger:laft"]},
+  rdCountyPanel: {"shaded": ["Bay", "Citrus"], "after": {"quick": "Bay", "chip": "County: Bay×", "cards": 1}},
+  rdNavCert: {"hash": "#/certificates", "title": "Liens & Certificates"},
+  rdNavAuction: {"hash": "#/auctions", "title": "Auction Properties"},
+  rdGlobal: {"rows": ["p15:Available"], "all": "See all 1 result in the list →", "expanded": "true"},
+  rdGlobalOpen: {"modal": true, "crumbs": ["Home/Available/15 Manatee Ln"]},
+  rdDetail: {"tabs": ["Acquisition", "Overview", "Decision", "Inventory", "Tax & Value", "Property", "Sale events", "Watch", "Risk & Legal", "Map", "Source", "Provenance"], "why": ["It is in the Available ledger for Florida because its source lists it.", "Last read from the source 14d ago.", "Its source is approved for customer publication."], "acquire": 1},
+  rdCrumbHome: {"modalHidden": true, "dashVisible": true},
+  rdGlobalEmpty: "No Florida property matches “zzzz-no-such”. Search covers address, parcel, case and certificate numbers and the county; to look in another state, switch state first.",
+  rdGlobalEscape: true,
+  rdCardAcq: ["p3:Phone the county:1", "p15:Multi-step county process:1"],
+  rdPicker: {"rows": ["CO=certificate", "FL=auction|laft|certificate", "LA=laft", "MI=auction", "MN=!none", "MO=!none", "OK=!none", "PA=!none", "SC=auction", "TX=auction|laft", "WI=!none", "WY=auction"], "groups": ["States with Available properties", "Other states"], "visible": true, "coHref": "co.html#/certificates", "flCounts": ["Auctions 9", "Available 2", "Liens & Certificates 1"]},
+  rdPickerSearch: ["WY"],
+  rdPickerEscape: true,
+  rdPickerAdminMI: "MI=auction|laft",
+  rdPickerProbeFail: "WY=auction|laft|certificate!unchecked",
+  rdPhoneBottom: ["Home", "Search", "Map", "Saved", "Account"],
+  rdPhoneAccount: true,
+  rdPhoneSearchVisible: true,
+  landCO: { hash: '#/certificates', cards: 2, issue: 0 },
+  landWY: { hash: '#/auctions', cards: 1, issue: 0 },
+  landLA: { hash: '#/lands', cards: 2, issue: 0 },
+  landWIAvailable: false,
+  partialFail: { cards: 2, banner: 'Some results could not be loaded. 4 records loaded in this list; the rest could not be loaded. Retry', retryButton: 1, attempts: 3, errorState: 0 },
+  partialOtherLedger: { cards: 2, banner: 'Some results could not be loaded. Affected: Auctions. Counts there may be incomplete. Retry' },
+  flakyRecovered: { issue: 0, attempts: 2, cardsMatchFull: null },
+  retryRecovers: { hadIssue: 1, issueAfter: 0, grew: true },
+  allFail: { errorState: 1, cards: 0 },
+  peakInflightBounded: true,
+  navMapStateOptions: ['FL:Florida', 'TX:Texas', 'LA:Louisiana', 'MI:Michigan', 'WY:Wyoming', 'SC:South Carolina', 'CO:Colorado', 'WI:Wisconsin', 'MO:Missouri', 'OK:Oklahoma', 'PA:Pennsylvania', 'MN:Minnesota'],
   navMapStateValue: 'FL',
   adminAnonRedirected: true,
   adminAnonShellShown: false,
@@ -4485,9 +4744,9 @@ const EXPECTED = {
   adminShellShown: true,
   adminIdentityText: 'Admin',
   adminShellShowsNoEmail: true,
-  adminSourcesRows: 343,
+  adminSourcesRows: 347,
   adminSourcesGovernanceKinds: 'APPROVED,HARD_BLOCKED,REVIEW_REQUIRED',
-  adminSourcesStatusText: '343 source(s): 221 approved, 107 review required, 15 hard blocked.',
+  adminSourcesStatusText: '347 source(s): 221 approved, 111 review required, 15 hard blocked.',
   adminSourcesReviewOnly: true,
   adminSourcesLgbsReason: true,
   adminSourcesLaOnly: true,
@@ -4527,9 +4786,10 @@ const EXPECTED = {
   signupDisabledNoSession: true,
   laBodyState: 'LA',
   laTitle: 'Available — Adjudicated Property · Tax Acquisitions — Louisiana',
-  laStateSelect: { value: 'LA', options: ['FL', 'TX', 'LA', 'MI', 'WY', 'SC', 'CO', 'WI'] },
-  xsPages: Object.fromEntries([['MI', 'Michigan'], ['WY', 'Wyoming'], ['SC', 'South Carolina'], ['CO', 'Colorado'], ['WI', 'Wisconsin']].map(([c, n]) => [c,
-    { state: c, title: `Auctions · Tax Acquisitions — ${n}`, select: c, options: ['FL', 'TX', 'LA', 'MI', 'WY', 'SC', 'CO', 'WI'], floridaWording: false, basemapOk: true }])),
+  laStateSelect: { value: 'LA', options: ['FL', 'TX', 'LA', 'MI', 'WY', 'SC', 'CO', 'WI', 'MO', 'OK', 'PA', 'MN'] },
+  xsPages: Object.fromEntries([['MI', 'Michigan'], ['WY', 'Wyoming'], ['SC', 'South Carolina'], ['CO', 'Colorado'], ['WI', 'Wisconsin'],
+    ['MO', 'Missouri'], ['OK', 'Oklahoma'], ['PA', 'Pennsylvania'], ['MN', 'Minnesota']].map(([c, n]) => [c,
+    { state: c, title: `Auctions · Tax Acquisitions — ${n}`, select: c, options: ['FL', 'TX', 'LA', 'MI', 'WY', 'SC', 'CO', 'WI', 'MO', 'OK', 'PA', 'MN'], floridaWording: false, basemapOk: true }])),
   xsMiCard: { count: 1, county: true, sev: true, noJustValue: true },
   xsCoCardCount: true,
   xsCoDetail: { treasurer: true, steps: true, noStreetView: true, noUndefined: true, sourceNamed: true },
@@ -4555,7 +4815,7 @@ const EXPECTED = {
   laDetailNoFixedPrice: true,
   gsSelectInHeader: 1,
   gsSelectBesideAccount: "account",
-  gsOptions: ["FL:Florida", "TX:Texas", "LA:Louisiana", "MI:Michigan", "WY:Wyoming", "SC:South Carolina", "CO:Colorado", "WI:Wisconsin"],
+  gsOptions: ["FL:Florida", "TX:Texas", "LA:Louisiana", "MI:Michigan", "WY:Wyoming", "SC:South Carolina", "CO:Colorado", "WI:Wisconsin", "MO:Missouri", "OK:Oklahoma", "PA:Pennsylvania", "MN:Minnesota"],
   gsStateSelectCount: 1,
   gsAccountMenuOpens: true,
   gsFlorida: {"dash": {"file": "index.html", "hash": "#/dashboard", "state": "FL"}, "dashAuctionTile": "9", "dashCountiesSub": "Florida · 12 tracked incl. no-longer-listed", "list": {"file": "index.html", "hash": "#/lands", "state": "FL"}, "listOnlyFlorida": true, "map": {"file": "index.html", "hash": "#/map", "state": "FL"}, "mapPaths": 67, "watch": {"file": "index.html", "hash": "#/watchlist", "state": "FL"}, "watchPids": ["p1"], "watchElsewhere": "1 saved item is not in Florida's current listings (saved under another state, or no longer listed). Switch state in the header to see another state's items."},
@@ -4569,7 +4829,7 @@ const EXPECTED = {
   gsDeepLinkTexas: {"state": "TX", "modal": true},
   gsDeepLinkSwitch: {"file": "index.html", "hash": "#/auctions", "state": "FL", "modal": false},
   gsPhone: {"bothVisible": true, "inViewport": true, "sameRow": true, "selectorFirst": true, "headerCompact": true, "noHorizontalScroll": true, "value": "TX"},
-  gsPhoneBottomNav: ["dashboard", "list", "map", "watchlist"],
+  gsPhoneBottomNav: ["dashboard", "list", "map", "watchlist", null],
   navMapHasNoOwnStateSelect: true,
   navMapAllLedgersLabel: 'All Ledgers',
   navMapCertPillLabel: 'Liens & Certificates',
@@ -4583,13 +4843,13 @@ const EXPECTED = {
   navMapAllHash: '#/map',
   navMapSearchHash: '#/map?q=Oak',
   navMapToListHash: "#/lands",
-  navMapToListLit: ['list'],
+  navMapToListLit: ['ledger:laft'],
   navListToMapHashKeepsContext: '#/map?q=Oak',
   navLegacyMapVisible: true,
   navLegacyMapHash: '#/map',
   navLandsListVisible: true,
   navLandsHeading: 'Available',
-  navLandsLit: ['list'],
+  navLandsLit: ['ledger:laft'],
   navHashEditDashboardVisible: true,
   navHashEditCertHeading: 'Liens & Certificates',
   navHashEditCertListVisible: true,
@@ -4608,9 +4868,9 @@ const EXPECTED = {
   navDashTileOpensList: true,
   navDashTileHash: '#/lands',
   navDashTileHeading: 'Available',
-  navPhoneBottomItems: 4,
+  navPhoneBottomItems: 5,
   navPhoneBottomFits: true,
-  navPhoneBottomLabels: ['Dashboard', 'List', 'Map', 'Watchlist'],
+  navPhoneBottomLabels: ['Home', 'Search', 'Map', 'Saved', 'Account'],
   navWlCards: ['p4'],
   navWlRelated: ['Currently listed in Auctions · also on your watchlist'],
   navWlCount: '2/10',

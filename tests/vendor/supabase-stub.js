@@ -342,7 +342,14 @@ const FIXTURE_PROPERTIES = [
     otc_provenance: { adapter: "arcgis", acquisition: { mode: "multi_step", channels: ["application"], office: "Douglas County Treasurer", observed_on: "2026-10-01",
       evidence_url: "https://www.douglasco.gov/documents/request-for-assignment-of-county-held.pdf/", application_url: "https://www.douglasco.gov/documents/request-for-assignment-of-county-held.pdf/",
       steps: ["Complete the county's Request for Assignment of County-Held Tax Lien", "All county-held liens on the parcel must be redeemed if the assignment is granted", "Call the Douglas County Treasurer's office for the current payoff amount"] } },
-    publication_status: "APPROVED", ledger_type: "lien", updated_at: "2026-10-01T12:00:00Z" }
+    publication_status: "APPROVED", ledger_type: "lien", updated_at: "2026-10-01T12:00:00Z" },
+  // 2026-10-04 (landing ledger): an auctions-only state's row - Albany WY's tax sale list
+  // publishes no sale date for the list's rows, so it is visible in the live view.
+  { id: "pwy1", source: "auction", state: "WY", county: "Albany", case_no: "R0099001", parcel: "99-00-001", address: "1 FIXTURE WY ST",
+    bid: 0, status: "active", sale_date: null, lien_level: "unscreened", lien_note: "",
+    harvester_source: "wy_albany_tax_sale", source_id: "wy_albany_tax_sale", source_authority: "GOVERNMENT_DIRECT",
+    purchase_amount: 1500, purchase_amount_kind: "PUBLISHED_AMOUNT_KIND_UNSPECIFIED", last_seen_at: "2026-10-03T12:00:00Z",
+    publication_status: "APPROVED", ledger_type: "auctions", updated_at: "2026-10-03T12:00:00Z" }
 ];
 // Brevard has a county_calendar row so the "Auction {date}" label test can
 // cover the CALENDAR-lookup path, not just the per-property sale_date
@@ -497,7 +504,10 @@ class MockQuery {
   in(col, vals) { this._filters.push([col, vals, "in"]); return this; }
   lt(col, val) { this._filters.push([col, val, "lt"]); return this; }
   range() { return this; }
-  limit() { return this; }
+  limit(n) { this._limit = n; return this; }
+  // PostgREST or=(...) - only the customer publication filter the state
+  // picker sends is understood (see the properties branch below).
+  or(expr) { this._or = String(expr || ""); return this; }
   gte() { return this; }
   maybeSingle() { this._single = true; return this; }
   insert(row) { this._op = "insert"; this._row = row; return this; }
@@ -562,7 +572,21 @@ class MockQuery {
       else if (this._op === "delete") window.__stubBidListDeletes = (window.__stubBidListDeletes || 0) + 1;
     } else if (this._op === "select") {
       const matches = row => this._filters.every(([c, v, kind]) => kind === "in" ? (v || []).includes(row[c]) : kind === "lt" ? String(row[c]) < String(v) : row[c] === v);
-      if (this.table === "properties") result.data = FIXTURE_PROPERTIES;
+      if (this.table === "properties") {
+        // The legacy unscoped fallback (no filters) still gets every row. A
+        // filtered read - the state picker's "does this ledger have a row you
+        // may see" probe - applies eq() on state (implicitly FL, as the RPC
+        // does), source, the customer publication filter and the limit.
+        // ?probefail=1 makes every probe fail, like a network error.
+        if (!this._filters.length && !this._or) result.data = FIXTURE_PROPERTIES;
+        else if (new URLSearchParams(location.search).get("probefail") === "1") result = { data: null, error: { message: "probe failed (stub)" } };
+        else {
+          window.__stubPropertyProbes = (window.__stubPropertyProbes || 0) + 1;
+          let rows = FIXTURE_PROPERTIES.filter(r => this._filters.every(([c, v]) => (c === "state" ? (r.state || "FL") : r[c]) === v));
+          if (/publication_status\.is\.null/.test(this._or || "")) rows = rows.filter(r => !r.publication_status || ["APPROVED", "APPROVED_GRANDFATHERED"].includes(r.publication_status));
+          result.data = this._limit ? rows.slice(0, this._limit) : rows;
+        }
+      }
       else if (this.table === "auction_events") result.data = EVENT_ROWS.filter(matches);
       else if (this.table === "auction_event_observations") result.data = OBSERVATION_ROWS.filter(matches);
       else if (this.table === "source_health") {
@@ -793,6 +817,26 @@ export function createClient() {
           .filter(p => !args.p_ledger_type || (p.ledger_type || LEDGER_FOR_SOURCE[p.source]) === args.p_ledger_type)
           .slice().sort((a, b) => String(a.county).localeCompare(String(b.county)) || String(a.case_no).localeCompare(String(b.case_no)));
         const offset = Number(args.p_offset) || 0, limit = Math.min(Number(args.p_limit) || 20000, cap);
+        // Load-resilience fixtures (2026-10-04):
+        //   ?failpage=<ledger>:<offset>[,...]   that page always fails (statement timeout)
+        //   ?flakypage=<ledger>:<offset>:<n>     that page fails n times, then succeeds
+        //   ?pagedelay=<ms>                      every page takes <ms>; peak concurrency is recorded
+        const qs = new URLSearchParams(location.search);
+        const key = `${args.p_ledger_type}:${offset}`;
+        const calls = window.__stubPageCalls = window.__stubPageCalls || {};
+        calls[key] = (calls[key] || 0) + 1;
+        const delay = Number(qs.get("pagedelay")) || 0;
+        if (delay) {
+          window.__stubInflight = (window.__stubInflight || 0) + 1;
+          window.__stubPeakInflight = Math.max(window.__stubPeakInflight || 0, window.__stubInflight);
+          await new Promise(r => setTimeout(r, delay));
+          window.__stubInflight--;
+        }
+        const timeout = { data: null, error: { message: "canceling statement due to statement timeout", code: "57014" } };
+        //   window.__stubHealPages = true                   failpage stops failing (a later retry succeeds)
+        if (!window.__stubHealPages && (qs.get("failpage") || "").split(",").includes(key)) return timeout;
+        const flaky = (qs.get("flakypage") || "").split(",").map(x => x.split(":")).find(x => `${x[0]}:${x[1]}` === key);
+        if (flaky && calls[key] <= Number(flaky[2] || 1)) return timeout;
         return { data: rows.slice(offset, offset + limit), error: null };
       }
       return { data: null, error: { message: `stub: unhandled rpc "${fnName}"`, code: "PGRST202" } };

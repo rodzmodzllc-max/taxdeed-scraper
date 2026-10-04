@@ -1,0 +1,7 @@
+ParcelId,Parcel_Status,Usage,Property_Source,AddrNum,StName,Address,WARD,NeighborhoodName,Class,LegalDescription,PropertyType,SQFT
+10000100010,Available,"X,X",Tax Suit,100,TEST ST,100 TEST ST,1,Test Neighborhood,A,C.B. 0001 TEST ST 25 FT,Lot,2500
+10000100020,Unavailable,"X,X",Tax Suit,102,TEST ST,102 TEST ST,1,Test Neighborhood,A,C.B. 0001 TEST ST 25 FT,Lot,2500
+10000100030,Available,"Y,Y",Tax Suit,104,SAMPLE AVE,104 SAMPLE AVE,2,Sample Park,B,C.B. 0002 SAMPLE AVE 30 FT,Building,3000
+10000100030,Available,"Y,Y",Tax Suit,104,SAMPLE AVE,104 SAMPLE AVE,2,Sample Park,B,C.B. 0002 SAMPLE AVE 30 FT,Building,3000
+NOTAPARCEL,Available,,,,,,,,,,Other,
+10000100040,,"Z,Z",Donation,106,SAMPLE AVE,106 SAMPLE AVE,2,Sample Park,B,C.B. 0002 SAMPLE AVE 30 FT,Other,1000
