@@ -849,6 +849,18 @@ inventing an address - see docs/production-configuration.md section 4. -->
 </div>
 
 <!-- ============ help: how to read this data ============ -->
+<!-- ============ county intelligence dossier (app.js openCountyDossier) ============
+     One county's sources per ledger, coverage, read health, acquisition
+     process and financial terms - from public/county-intelligence.json and
+     the per-county freshness rows. Filled when opened. -->
+<div class="detail-modal" id="countyModal" hidden>
+<div class="detail-modal-inner county-modal-inner" role="dialog" aria-modal="true" aria-labelledby="countyModalTitle">
+<button class="detail-close" id="countyCloseBtn" type="button" aria-label="Close">&times;</button>
+<h2 class="detail-address" id="countyModalTitle" style="font-size:1.15rem">County intelligence</h2>
+<div class="terms-body" id="countyModalBody"></div>
+</div>
+</div>
+
 <div class="detail-modal" id="helpModal" hidden>
 <div class="detail-modal-inner" id="helpModalInner">
 <button class="detail-close" id="helpCloseBtn" type="button" aria-label="Close">&times;</button>

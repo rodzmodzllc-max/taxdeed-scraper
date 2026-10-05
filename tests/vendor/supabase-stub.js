@@ -438,6 +438,9 @@ const REGISTRY_ROWS = REGISTRY_MODE === "none" ? null : [
   { state: "FL", county: "Citrus", source_id: "fl_laft_html", last_attempt_at: hoursAgo(3), last_attempt_status: "COMPLETE", last_success_at: hoursAgo(3), last_success_row_count: 6, consecutive_failures: 0, publication_status: "APPROVED_GRANDFATHERED", restrictions: null, governance_status: "APPROVED_GRANDFATHERED", verification_status: "PRODUCTION_VERIFIED" },
   // A RESTRICTED candidate (p14's source): the admin panel must show its reason.
   { state: "FL", county: "Broward", source_id: "fl_laft_broward_candidate", last_attempt_at: null, last_attempt_status: null, last_success_at: null, last_success_row_count: null, consecutive_failures: 0, publication_status: "RESTRICTED", restrictions: "terms of use under legal review", governance_status: "LEGAL_REVIEW_REQUIRED", verification_status: "CANDIDATE" },
+  // Dixie: a complete read in which the source listed nothing (checked zero) -
+  // never shown like Bay's unreachable source.
+  { state: "FL", county: "Dixie", source_id: "fl_laft_html", last_attempt_at: hoursAgo(4), last_attempt_status: "EMPTY", last_success_at: hoursAgo(4), last_success_row_count: 0, consecutive_failures: 0, publication_status: "APPROVED_GRANDFATHERED", restrictions: null, governance_status: "APPROVED_GRANDFATHERED", verification_status: "PRODUCTION_VERIFIED" },
   { state: "TX", county: "Galveston", source_id: "tx_lgbs", last_attempt_at: hoursAgo(30), last_attempt_status: "INCOMPLETE", last_success_at: hoursAgo(54), last_success_row_count: 120, consecutive_failures: 0, publication_status: "APPROVED_GRANDFATHERED", restrictions: null, governance_status: "APPROVED_GRANDFATHERED", verification_status: "PRODUCTION_VERIFIED" }
 ];
 const SOURCE_HEALTH_ROWS = HEALTH_MODE === "none" ? null : [

@@ -3813,7 +3813,7 @@ await navMap.close();
     }
     // Viewport sweep: no horizontal page overflow on Home / List / Map / property page, 390-1920px.
     {
-      const widths = [390, 768, 1024, 1280, 1440, 1920];
+      const widths = [390, 430, 768, 1024, 1280, 1440, 1920];
       const pagesToCheck = [['home', 'la.html#/dashboard'], ['listFL', 'index.html#/auctions'], ['listLA', 'la.html#/lands'], ['map', 'la.html#/map'], ['detail', 'la.html#/lands/pla2']];
       const overflow = [];
       for (const w of widths) for (const [k, u] of pagesToCheck) {
@@ -3822,7 +3822,7 @@ await navMap.close();
         await pg.waitForTimeout(350);
         const over = await pg.evaluate(() => document.scrollingElement.scrollWidth - document.scrollingElement.clientWidth);
         if (over > 0) overflow.push(`${w}:${k}:${over}`);
-        if (w === 390 && (k === 'listLA' || k === 'detail' || k === 'map' || k === 'home')) {
+        if ((w === 390 || w === 430) && (k === 'listLA' || k === 'detail' || k === 'map' || k === 'home')) {
           const small = await pg.evaluate(() => {
             const sel = ['#stateSelect', '#accountBtn', '#ledgerTabs .ledger-tab', '#listMapBtn', '#mapSearchInput', '#mapCountySelect', '.map-ledger-pills button',
               '#homeGuide [data-guide]', '#detailModal:not([hidden]) [data-section="acquire"] a'];
@@ -3877,6 +3877,85 @@ await navMap.close();
     }
     results.auctionHeadlineLabels = labels;
     results.auctionNoPriceLabel = Object.values(labels).flat().every(l => !/price/i.test(l));
+  }
+  // ---- Acquisition checklist, source truth, county intelligence (2026-10-05) ----
+  {
+    const pg = await newPage({ viewport: { width: 1280, height: 900 } });
+    pg.on('pageerror', e => errors.push('truth pageerror: ' + e.message));
+    await pg.goto(BASE_URL + '#/lands/p15', { waitUntil: 'networkidle' });
+    await pg.waitForSelector('#detailModal:not([hidden]) [data-section="acquire"]', { timeout: 8000 });
+    await pg.waitForTimeout(300);
+    const m = '#detailModal:not([hidden]) ';
+    results.acqChecklist = await pg.evaluate(m => {
+      const items = [...document.querySelectorAll(m + '.acq-checklist li')];
+      return { keys: items.map(li => li.dataset.check), states: Object.fromEntries(items.map(li => [li.dataset.check, li.dataset.checkState])),
+        method: (document.querySelector(m + '[data-check="method"] .ck-val') || {}).textContent || '',
+        head: ((document.querySelector(m + '.acq-checklist-head span') || {}).textContent || '').trim(),
+        firstInAcquire: !!document.querySelector(m + '[data-section="acquire"] > .acq-checklist-wrap') };
+    }, m);
+    results.acqChecklistNoInference = await pg.evaluate(() => {
+      // A bare row with nothing on file: every item is a gap, nothing defaulted.
+      const p = { id: 'x1', source: 'laft', state: 'FL', county: 'Nowhere', bid: 0, purchase_amount_kind: 'NOT_PUBLISHED' };
+      const c = window.__tdwAcquireChecklist(p);
+      return { n: c.length, known: c.filter(x => x.state === 'known').map(x => x.key), summary: c[c.length - 1].state };
+    });
+    results.sourceTruth = await pg.evaluate(m => {
+      const s = document.querySelector(m + '[data-section="truth"]');
+      if (!s) return null;
+      return { labels: [...s.querySelectorAll('dt')].map(e => e.textContent.trim()), health: (s.querySelector('[data-health]') || {}).dataset?.health || null,
+        dossierBtn: !!s.querySelector('[data-action="countyintel"][data-county="Citrus"]'), navPill: !!document.querySelector(m + '.detail-nav [data-target="truth"]') };
+    }, m);
+    // Shared vectors: the same function as scripts/unit_freshness.customer_health().
+    const hv = JSON.parse(fs.readFileSync(new URL('./python/fixtures/source_health_cases.json', import.meta.url), 'utf8'));
+    results.sourceHealthVectors = await pg.evaluate(hv => hv.cases.filter(c => {
+      const r = window.__tdwSourceHealthState(c.unit, { review: c.review, now: hv.now });
+      return r.state !== c.state || r.checkedZero !== c.checked_zero;
+    }).map(c => c.name), hv);
+    // Dossier for p15's county from the Source truth button.
+    await pg.click(m + '[data-section="truth"] [data-action="countyintel"]');
+    await pg.waitForSelector('#countyModal:not([hidden]) .dossier', { timeout: 5000 });
+    results.dossierCitrus = await pg.evaluate(() => {
+      const d = document.querySelector('#countyModal .dossier');
+      return { title: document.getElementById('countyModalTitle').textContent, intel: d.dataset.intel,
+        ledgers: Object.fromEntries([...d.querySelectorAll('.dossier-ledger')].map(l => [l.dataset.ledger, l.dataset.coverage])),
+        acq: /Verified from an official page/.test(d.textContent), terms: /Read from the source/.test(d.textContent),
+        listBtn: !!d.querySelector('[data-action="dossierlist"][data-ledger="laft"]') };
+    });
+    await pg.click('#countyModal [data-action="dossierlist"][data-ledger="laft"]');
+    await pg.waitForTimeout(300);
+    results.dossierToList = await pg.evaluate(() => ({ modal: document.getElementById('countyModal').hidden, hash: location.hash,
+      counties: [...new Set([...document.querySelectorAll('#main .county-group')].map(g => g.dataset.county))] }));
+    // Checked zero vs unreachable: Dixie's source listed nothing; Bay's could not be read.
+    const dossierOf = async county => {
+      await pg.evaluate(c => { const b = document.createElement('button'); b.dataset.action = 'countyintel'; b.dataset.county = c; b.id = 'tmpIntel'; document.body.appendChild(b); b.click(); b.remove(); }, county);
+      await pg.waitForFunction(c => { const d = document.querySelector('#countyModal:not([hidden]) .dossier'); return d && d.dataset.county === c; }, county, { timeout: 5000 });
+      const r = await pg.evaluate(() => {
+        const l = document.querySelector('#countyModal .dossier-ledger[data-ledger="laft"]');
+        const chip = l.querySelector('[data-health]');
+        return { coverage: l.dataset.coverage, health: chip && chip.dataset.health, checkedZero: !!(chip && chip.dataset.checkedZero), text: (chip && chip.textContent) || '' };
+      });
+      await pg.click('#countyCloseBtn');
+      return r;
+    };
+    results.dossierDixie = await dossierOf('Dixie');
+    results.dossierBay = await dossierOf('Bay');
+    results.dossierUnresearched = await (async () => {
+      await pg.evaluate(() => { const b = document.createElement('button'); b.dataset.action = 'countyintel'; b.dataset.county = 'Nowhere'; document.body.appendChild(b); b.click(); b.remove(); });
+      await pg.waitForSelector('#countyModal:not([hidden]) .dossier', { timeout: 5000 });
+      const r = await pg.evaluate(() => { const d = document.querySelector('#countyModal .dossier'); return { intel: d.dataset.intel, notClaim: /not a statement that nothing is for sale/.test(d.textContent) }; });
+      await pg.click('#countyCloseBtn');
+      return r;
+    })();
+    // Every county group in the List links to its dossier.
+    await pg.close();
+    const pg2 = await newPage({ viewport: { width: 1280, height: 900 } });
+    await pg2.goto(BASE_URL + '#/auctions', { waitUntil: 'networkidle' });
+    await pg2.waitForTimeout(300);
+    results.countyGroupIntel = await pg2.evaluate(() => {
+      const g = [...document.querySelectorAll('#main .county-group')];
+      return g.length > 0 && g.every(x => x.querySelector('.county-intel-row [data-action="countyintel"]'));
+    });
+    await pg2.close();
   }
   // ---- Shell redesign (2026-10-04): Home, global search, state picker,
   // filter chips, county panel, property page chrome, mobile nav ----
@@ -5124,7 +5203,7 @@ await browser.close();
 
 const EXPECTED = {
   // 2026-10-05 Available amount semantics + acquisition cost / forms.
-  amountSemantics: {"fl54": [{"county": "Bay", "state": "partial", "label": "Opening bid", "current": false, "cardSaysPurchasePrice": false, "cardSaysNotPriceToBuy": true}, {"county": "Citrus", "state": "partial", "label": "Opening bid", "current": false, "cardSaysPurchasePrice": false, "cardSaysNotPriceToBuy": true}, {"county": "Duval", "state": "partial", "label": "Opening bid", "current": false, "cardSaysPurchasePrice": false, "cardSaysNotPriceToBuy": true}, {"county": "Escambia", "state": "partial", "label": "Opening bid", "current": false, "cardSaysPurchasePrice": false, "cardSaysNotPriceToBuy": true}, {"county": "Gadsden", "state": "partial", "label": "Opening bid", "current": false, "cardSaysPurchasePrice": false, "cardSaysNotPriceToBuy": true}, {"county": "Hernando", "state": "partial", "label": "Opening bid", "current": false, "cardSaysPurchasePrice": false, "cardSaysNotPriceToBuy": true}, {"county": "Hillsborough", "state": "partial", "label": "Opening bid", "current": false, "cardSaysPurchasePrice": false, "cardSaysNotPriceToBuy": true}, {"county": "Indian River", "state": "partial", "label": "Original opening bid", "current": false, "cardSaysPurchasePrice": false, "cardSaysNotPriceToBuy": true}, {"county": "Leon", "state": "partial", "label": "Opening bid", "current": false, "cardSaysPurchasePrice": false, "cardSaysNotPriceToBuy": true}, {"county": "Levy", "state": "partial", "label": "Opening bid", "current": false, "cardSaysPurchasePrice": false, "cardSaysNotPriceToBuy": true}, {"county": "Orange", "state": "partial", "label": "Minimum purchase amount", "current": false, "cardSaysPurchasePrice": false, "cardSaysNotPriceToBuy": true}, {"county": "Osceola", "state": "partial", "label": "Opening bid", "current": false, "cardSaysPurchasePrice": false, "cardSaysNotPriceToBuy": true}, {"county": "Palm Beach", "state": "partial", "label": "Opening bid", "current": false, "cardSaysPurchasePrice": false, "cardSaysNotPriceToBuy": true}, {"county": "St. Lucie", "state": "partial", "label": "Opening bid", "current": false, "cardSaysPurchasePrice": false, "cardSaysNotPriceToBuy": true}], "fl54Total": 54, "minimum": "Minimum purchase amount", "horryColumn": "Minimum bid", "citrusExpired": {"state": "official_expired", "label": "Total due", "value": null, "display": "Expired", "current": false, "cardShowsExpired": true, "cardShows27689AsHeadline": false, "cardExpiredNote": true, "blockOpeningBid": true, "blockOfficialExpired": false, "blockSource": true}, "citrusCurrent": {"state": "official_current", "label": "Total due from purchaser", "value": 27689.42, "current": true, "card": true, "block": false, "provenance": false}, "history": {"count": 1, "current": 27689.42, "line": true}, "values": {"headline": 2607, "taxNotOnFile": true, "never40000AsTax": true, "never50000AsPrice": true}, "unpublishedWithValue": {"label": "Price", "display": "Not published", "value": null}, "certificate": "Certificate amount", "noDoubleCount": {"known": 22916.7, "complete": true, "additions": ["interest=100", "omitted_taxes=20000", "doc_stamps=200", "recording_fees=10"], "officialState": "expired", "official": 22916.7, "headlineIsNotKnown": true}, "partialKnown": {"known": 2706.7, "complete": false}, "noData": {"known": 2606.7, "knownAdditions": 0, "cannotCalc": true, "included": true, "noYearCount": true, "officialNotOnFile": false, "neverPurchasePrice": true}, "additionsScope": {"sc": 0, "realtdm": 3}, "otherSources": {"realtdm": "Base purchase price", "putnam": "Estimated purchase price", "tx": "Minimum bid (vendor listing)", "ok": "The county's suggested starting bid in a bidding process - not a purchase price.", "mi": "Not published"}, "forms": {"list": [["Statement request form", "Required by the county's published steps", "Offline - download, complete and submit as the steps say", "https://www.duvalclerk.example/request-form.pdf"]], "shown": true, "statementRequest": false, "applicationLinkKept": true, "onlyRowUrls": true}, "formNotRequired": ["Published by the county - the source does not say it is required"], "noPath": {"notYet": true, "cta": false, "hrefs": ["https://example.invalid/gadsden-list"]}, "horryNotBuyNow": {"buyNow": false, "purchaseFor": false, "bidForm": true}, "louisiana": {"state": "not_published", "label": "Price", "value": null, "display": "Application required", "current": false, "headline": ["Price", "Application required"], "basis": "You make an offer - the price is negotiated", "advancedCosts": true, "notInPrice": true, "assessedNeverPrice": true}, "texas": {"liberty": {"state": "vendor", "label": "Minimum bid (vendor listing)", "value": 900, "display": "$900.00", "current": false, "headline": ["Minimum bid (vendor listing)", "$900"], "basis": "Minimum bid - you bid at or above it"}, "galveston": {"state": "vendor", "label": "Minimum bid (vendor listing)", "value": 4451.95, "display": "$4,451.95", "current": false, "headline": ["Minimum bid (vendor listing)", "$4,452"], "basis": "Minimum bid - you bid at or above it"}, "deposit": true, "depositSeparate": true, "depositNotAdded": true}, "michigan": {"side": {"state": "program_price", "label": "Published program price", "value": 100, "display": "$100.00", "current": false, "headline": ["Published program price", "$100"], "basis": "Price set by the owner's published program (dated)"}, "sideDated": true, "neighborhood": {"state": "program_price", "label": "Published program price", "value": null, "display": "See program terms", "current": false, "headline": ["Published program price", "See program terms"], "basis": "Price set by the owner's published program (dated)"}, "marketed": {"state": "not_published", "label": "Price", "value": null, "display": "Not published", "current": false, "headline": ["Price", "Not published"], "basis": "No amount is published by the source"}, "oceana": {"state": "not_published", "label": "Price", "value": null, "display": "Application required", "current": false, "headline": ["Price", "Application required"], "basis": "You submit a proposal on the owner's application"}}, "southCarolina": {"georgetown": {"state": "partial", "label": "Opening bid", "value": 3200, "display": "$3,200.00", "current": false, "headline": ["Opening bid", "$3,200"], "basis": "Submitted / sealed bid - the government decides and states the amount due"}, "totalAfterDecision": true, "noStatementRequest": true, "noAdditions": true, "horry": {"state": "partial", "label": "Minimum bid", "value": 1500, "display": "$1,500.00", "current": false, "headline": ["Minimum bid", "$1,500"], "basis": "Submitted / sealed bid - the government decides and states the amount due"}}, "otherStates": {"mo": {"state": "not_published", "label": "Price", "value": null, "display": "Not published", "current": false, "headline": ["Price", "Not published"], "basis": "No amount is published by the source"}, "ok": {"state": "unspecified", "label": "Suggested initial bid (county's column)", "value": 1500, "display": "$1,500.00", "current": false, "headline": ["Suggested initial bid (county's column)", "$1,500"], "basis": "Submitted / sealed bid - the government decides and states the amount due"}, "pa": {"state": "partial", "label": "Minimum bid", "value": 700, "display": "$700.00", "current": false, "headline": ["Minimum bid", "$700"], "basis": "Submitted / sealed bid - the government decides and states the amount due"}, "mn": {"state": "partial", "label": "Minimum bid", "value": 9000, "display": "$9,000.00", "current": false, "headline": ["Minimum bid", "$9,000"], "basis": "Minimum bid - you bid at or above it"}, "realtdm": {"state": "base", "label": "Base purchase price", "value": 4774.04, "display": "$4,774.04", "current": false, "headline": ["Base purchase price", "$4,774"], "basis": "Base price - the items below are added on top"}, "putnam": {"state": "estimate", "label": "Estimated purchase price", "value": 800, "display": "$800.00", "current": false, "headline": ["Estimated purchase price", "$800"], "basis": "The source's own estimate"}}, "unknownSemantics": {"state": "unspecified", "label": "Amount type not published", "value": 1234, "display": "$1,234.00", "current": false, "headline": ["Amount type not published", "$1,234"], "basis": null, "noAdditions": true}, "publishedPriceNoTerms": {"state": "price", "label": "Purchase price", "value": 5000, "display": "$5,000.00", "current": false, "headline": ["Purchase price", "$5,000"], "basis": null}, "flKnownTax": {"tax": true, "partialKnown": true, "officialSeparate": true}},
+  amountSemantics: {"fl54": [{"county": "Bay", "state": "partial", "label": "Opening bid", "current": false, "cardSaysPurchasePrice": false, "cardSaysNotPriceToBuy": true}, {"county": "Citrus", "state": "partial", "label": "Opening bid", "current": false, "cardSaysPurchasePrice": false, "cardSaysNotPriceToBuy": true}, {"county": "Duval", "state": "partial", "label": "Opening bid", "current": false, "cardSaysPurchasePrice": false, "cardSaysNotPriceToBuy": true}, {"county": "Escambia", "state": "partial", "label": "Opening bid", "current": false, "cardSaysPurchasePrice": false, "cardSaysNotPriceToBuy": true}, {"county": "Gadsden", "state": "partial", "label": "Opening bid", "current": false, "cardSaysPurchasePrice": false, "cardSaysNotPriceToBuy": true}, {"county": "Hernando", "state": "partial", "label": "Opening bid", "current": false, "cardSaysPurchasePrice": false, "cardSaysNotPriceToBuy": true}, {"county": "Hillsborough", "state": "partial", "label": "Opening bid", "current": false, "cardSaysPurchasePrice": false, "cardSaysNotPriceToBuy": true}, {"county": "Indian River", "state": "partial", "label": "Original opening bid", "current": false, "cardSaysPurchasePrice": false, "cardSaysNotPriceToBuy": true}, {"county": "Leon", "state": "partial", "label": "Opening bid", "current": false, "cardSaysPurchasePrice": false, "cardSaysNotPriceToBuy": true}, {"county": "Levy", "state": "partial", "label": "Opening bid", "current": false, "cardSaysPurchasePrice": false, "cardSaysNotPriceToBuy": true}, {"county": "Orange", "state": "partial", "label": "Minimum purchase amount", "current": false, "cardSaysPurchasePrice": false, "cardSaysNotPriceToBuy": true}, {"county": "Osceola", "state": "partial", "label": "Opening bid", "current": false, "cardSaysPurchasePrice": false, "cardSaysNotPriceToBuy": true}, {"county": "Palm Beach", "state": "partial", "label": "Opening bid", "current": false, "cardSaysPurchasePrice": false, "cardSaysNotPriceToBuy": true}, {"county": "St. Lucie", "state": "partial", "label": "Opening bid", "current": false, "cardSaysPurchasePrice": false, "cardSaysNotPriceToBuy": true}], "fl54Total": 54, "minimum": "Minimum purchase amount", "horryColumn": "Minimum bid", "citrusExpired": {"state": "official_expired", "label": "Total due", "value": null, "display": "Expired", "current": false, "cardShowsExpired": true, "cardShows27689AsHeadline": false, "cardExpiredNote": true, "blockOpeningBid": true, "blockOfficialExpired": false, "blockSource": true}, "citrusCurrent": {"state": "official_current", "label": "Total due from purchaser", "value": 27689.42, "current": true, "card": true, "block": false, "provenance": false}, "history": {"count": 1, "current": 27689.42, "line": true}, "values": {"headline": 2607, "taxNotOnFile": true, "never40000AsTax": true, "never50000AsPrice": true}, "unpublishedWithValue": {"label": "Price", "display": "Not published", "value": null}, "certificate": "Certificate amount", "noDoubleCount": {"known": 22916.7, "complete": true, "additions": ["interest=100", "omitted_taxes=20000", "doc_stamps=200", "recording_fees=10"], "officialState": "expired", "official": 22916.7, "headlineIsNotKnown": true}, "partialKnown": {"known": 2706.7, "complete": false}, "noData": {"known": 2606.7, "knownAdditions": 0, "cannotCalc": true, "included": true, "noYearCount": true, "officialNotOnFile": false, "neverPurchasePrice": true}, "additionsScope": {"sc": 0, "realtdm": 3}, "otherSources": {"realtdm": "Base purchase price", "putnam": "Estimated purchase price", "tx": "Minimum bid (vendor listing)", "ok": "The county's suggested starting bid in a bidding process - not a purchase price.", "mi": "Not published"}, "forms": {"list": [["Statement request form", "Required by the county's published steps", "Offline - download, complete and submit as the steps say", "https://www.duvalclerk.example/request-form.pdf"]], "shown": true, "statementRequest": false, "applicationLinkKept": true, "onlyRowUrls": true}, "formNotRequired": ["Published by the county - the source does not say it is required"], "noPath": {"notYet": true, "cta": false, "hrefs": ["https://example.invalid/gadsden-list", "https://example.invalid/gadsden-list"]}, "horryNotBuyNow": {"buyNow": false, "purchaseFor": false, "bidForm": true}, "louisiana": {"state": "not_published", "label": "Price", "value": null, "display": "Application required", "current": false, "headline": ["Price", "Application required"], "basis": "You make an offer - the price is negotiated", "advancedCosts": true, "notInPrice": true, "assessedNeverPrice": true}, "texas": {"liberty": {"state": "vendor", "label": "Minimum bid (vendor listing)", "value": 900, "display": "$900.00", "current": false, "headline": ["Minimum bid (vendor listing)", "$900"], "basis": "Minimum bid - you bid at or above it"}, "galveston": {"state": "vendor", "label": "Minimum bid (vendor listing)", "value": 4451.95, "display": "$4,451.95", "current": false, "headline": ["Minimum bid (vendor listing)", "$4,452"], "basis": "Minimum bid - you bid at or above it"}, "deposit": true, "depositSeparate": true, "depositNotAdded": true}, "michigan": {"side": {"state": "program_price", "label": "Published program price", "value": 100, "display": "$100.00", "current": false, "headline": ["Published program price", "$100"], "basis": "Price set by the owner's published program (dated)"}, "sideDated": true, "neighborhood": {"state": "program_price", "label": "Published program price", "value": null, "display": "See program terms", "current": false, "headline": ["Published program price", "See program terms"], "basis": "Price set by the owner's published program (dated)"}, "marketed": {"state": "not_published", "label": "Price", "value": null, "display": "Not published", "current": false, "headline": ["Price", "Not published"], "basis": "No amount is published by the source"}, "oceana": {"state": "not_published", "label": "Price", "value": null, "display": "Application required", "current": false, "headline": ["Price", "Application required"], "basis": "You submit a proposal on the owner's application"}}, "southCarolina": {"georgetown": {"state": "partial", "label": "Opening bid", "value": 3200, "display": "$3,200.00", "current": false, "headline": ["Opening bid", "$3,200"], "basis": "Submitted / sealed bid - the government decides and states the amount due"}, "totalAfterDecision": true, "noStatementRequest": true, "noAdditions": true, "horry": {"state": "partial", "label": "Minimum bid", "value": 1500, "display": "$1,500.00", "current": false, "headline": ["Minimum bid", "$1,500"], "basis": "Submitted / sealed bid - the government decides and states the amount due"}}, "otherStates": {"mo": {"state": "not_published", "label": "Price", "value": null, "display": "Not published", "current": false, "headline": ["Price", "Not published"], "basis": "No amount is published by the source"}, "ok": {"state": "unspecified", "label": "Suggested initial bid (county's column)", "value": 1500, "display": "$1,500.00", "current": false, "headline": ["Suggested initial bid (county's column)", "$1,500"], "basis": "Submitted / sealed bid - the government decides and states the amount due"}, "pa": {"state": "partial", "label": "Minimum bid", "value": 700, "display": "$700.00", "current": false, "headline": ["Minimum bid", "$700"], "basis": "Submitted / sealed bid - the government decides and states the amount due"}, "mn": {"state": "partial", "label": "Minimum bid", "value": 9000, "display": "$9,000.00", "current": false, "headline": ["Minimum bid", "$9,000"], "basis": "Minimum bid - you bid at or above it"}, "realtdm": {"state": "base", "label": "Base purchase price", "value": 4774.04, "display": "$4,774.04", "current": false, "headline": ["Base purchase price", "$4,774"], "basis": "Base price - the items below are added on top"}, "putnam": {"state": "estimate", "label": "Estimated purchase price", "value": 800, "display": "$800.00", "current": false, "headline": ["Estimated purchase price", "$800"], "basis": "The source's own estimate"}}, "unknownSemantics": {"state": "unspecified", "label": "Amount type not published", "value": 1234, "display": "$1,234.00", "current": false, "headline": ["Amount type not published", "$1,234"], "basis": null, "noAdditions": true}, "publishedPriceNoTerms": {"state": "price", "label": "Purchase price", "value": 5000, "display": "$5,000.00", "current": false, "headline": ["Purchase price", "$5,000"], "basis": null}, "flKnownTax": {"tax": true, "partialKnown": true, "officialSeparate": true}},
   acqP3CostLabels: ["How the price is set", "Opening bid", "Added on top", "Known tax obligation", "Known amount", "Official total due"],
   acqP3CostText: "How the price is set Opening / minimum amount - the items below are added on top Source wording Opening bid $2,000.00 Not the price to buy now: the county's total adds omitted taxes, accrued interest and deed fees. Request the current Lands Available statement from the clerk. Added on top Interest accrued on the listed figure since it was set Not on file Taxes that came due after the listed figure was set (omitted / subsequent years' taxes) Not on file Documentary stamp tax on the deed Not on file Recording fees Not on file Already inside the opening bid (F.S. 197.502(6)) and never added again: the outstanding tax certificates, the delinquent, omitted and current taxes then due, interest, and the costs and fees as of when the opening bid was set - plus half the assessed value on homestead property. Known tax obligation Not on file Which later tax years are owed, and how much, is printed on the official statement - this app holds no tax-bill amount (assessed / taxable values are property values, not taxes owed). Known amount Cannot be calculated None of the items added on top has an amount on file - the listed figure alone is not the amount due. Official total due Not on file The clerk's Lands Available statement - request it from the clerk; it is valid only until the date printed on it.",
   acqP3Forms: ["Current official statement of the amount due Request from the office The clerk's Lands Available statement - request it from the clerk; it is valid only until the date printed on it. Request it via e-mail taxdeeds@bayclerk.example.gov."],
@@ -5191,7 +5270,7 @@ const EXPECTED = {
   detroitSubsetVectors: {"cases": 50, "mismatches": []},
   availDefaultLanding: {"FL": {"hash": "#/lands", "activeTab": "laft", "cards": true, "ledgers": ["laft"]}, "LA": {"hash": "#/lands", "activeTab": "laft", "cards": true, "ledgers": ["laft"]}, "WY": {"hash": "#/auctions", "activeTab": "auction", "cards": true, "ledgers": ["auction"]}},   // 2026-10-04: WY fixture row pwy1 (landing-ledger test)
   // Acquisition-path semantics (2026-10-03): Horry's county-wide bid-form PDF.
-  acqPathHorryDetail: {"modes": ["bid"], "saysOnline": false, "saysPropertyLink": false, "saysBid": true, "pdfLinks": ["Download bid form", "Bid form →", "County process page →", "Application form to download (published by the source) →", "Application / purchase instructions →"], "pathEvidence": true},
+  acqPathHorryDetail: {"modes": ["bid"], "saysOnline": false, "saysPropertyLink": false, "saysBid": true, "pdfLinks": ["Bid form →", "Download bid form", "Bid form →", "County process page →", "Application form to download (published by the source) →", "Application / purchase instructions →"], "pathEvidence": true},
   // Collection vs customer publication (2026-10-02).
   devVisAdminMiLands: {"cards": 6, "reviewChips": ["Source review: Unreviewed · not customer-published", "Source review: Unreviewed · not customer-published", "Source review: Unreviewed · not customer-published", "Source review: Unreviewed · not customer-published", "Source review: Unreviewed · not customer-published", "Source review: Unreviewed · not customer-published"], "programs": ["Marketed Structure For Sale", "Marketed Structure For Sale", "Marketed Structure For Sale", "Marketed Structure For Sale", "Own It Now", "Side Lot For Sale"], "pending": "6 records from sources awaiting customer-publication review are shown to you as an admin, each labelled \"Source review\". Customers in published mode do not see them.", "withheld": null},
   devVisAdminDetail: {"banner": "Source review: Unreviewed. This record comes from a source awaiting customer-publication review - shown to you as an admin. It is not customer-published. Its availability below is the source's own statement and is a separate fact.", "reviewRow": "Source publication review: Unreviewed Customer-visible: No (shown to you as an admin) Source program / status: Side Lot For Sale Detroit customer subset: Not included in current Detroit customer subset - no structure in the source's own status (vacant lot or program record) · structure evidence: none in the source's status", "identifier": true, "program": true, "lastRead": true, "neverApproved": true},
@@ -5209,7 +5288,7 @@ const EXPECTED = {
   },
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: { ready: true, controlled: true, tagline: "Tax Sale Property Intelligence", noState: true, cache: ["tdw-shell-v87"] },
+  brandSwReload: { ready: true, controlled: true, tagline: "Tax Sale Property Intelligence", noState: true, cache: ["tdw-shell-v88"] },
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · Tax Acquisitions — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · Tax Acquisitions — Florida", floridaCopy: true },
@@ -5444,7 +5523,7 @@ const EXPECTED = {
   oppBidText: '$5,000.00 Value ÷ bid 18.0× (screening ratio, not a return)',
   oppValueText: '$90,000 2025 County Just Value · County Assessed Value $80,000',
   oppGaps: ['Image not checked yet', 'Not yet geocoded', 'Flood zone not checked'],
-  detailNavLabels: ['Overview', 'Decision', 'Tax & Value', 'Property', 'History', 'Sale events', 'Watch', 'Risk & Legal', 'Map', 'Source', 'Provenance'],   // shell redesign: section nav reads as tabs   // customer-value sprint: the Auction decision block
+  detailNavLabels: ["Source truth", "Overview", "Decision", "Tax & Value", "Property", "History", "Sale events", "Watch", "Risk & Legal", "Map", "Source", "Provenance"],   // shell redesign: section nav reads as tabs   // customer-value sprint: the Auction decision block
   detailNavJumpScrolled: true,
   detailNavJumpMarksPill: true,
   showOnMapBtnText: 'Show county on the Map page',
@@ -5589,7 +5668,7 @@ const EXPECTED = {
   rdNavAuction: {"hash": "#/auctions", "title": "Auction Properties"},
   rdGlobal: {"rows": ["p15:Available"], "all": "See all 1 result in the list →", "expanded": "true"},
   rdGlobalOpen: {"modal": true, "crumbs": ["Home/Available/15 Manatee Ln"]},
-  rdDetail: {"tabs": ["How to acquire", "Overview", "Decision", "Inventory", "Tax & Value", "Property", "Sale events", "Watch", "Risk & Legal", "Map", "Source", "Provenance"], "why": ["It is in the Available ledger for Florida because its source lists it.", "Last read from the source Nd ago.", "Its source is approved for customer publication."], "acquire": 1},
+  rdDetail: {"tabs": ["How to acquire", "Source truth", "Overview", "Decision", "Inventory", "Tax & Value", "Property", "Sale events", "Watch", "Risk & Legal", "Map", "Source", "Provenance"], "why": ["It is in the Available ledger for Florida because its source lists it.", "Last read from the source Nd ago.", "Its source is approved for customer publication."], "acquire": 1},
   rdCrumbHome: {"modalHidden": true, "dashVisible": true},
   rdGlobalEmpty: "No Florida property matches “zzzz-no-such”. Search covers address, parcel, case and certificate numbers and the county; to look in another state, switch state first.",
   rdGlobalEscape: true,
@@ -6039,11 +6118,11 @@ const EXPECTED = {
   dashHealthRows: ['fl_deeds:HEALTHY', 'fl_certificates:INCOMPLETE', 'fl_laft:FAILED', 'db_backup:STALE', 'tx_sales:INCOMPLETE'],
   dashHealthBadgeTexas: true,
   dashHealthIncompleteNames: true,
-  dashUnitRows: ['Alachua:current', 'Bay:stale', 'Citrus:current'],
+  dashUnitRows: ["Alachua:current", "Bay:stale", "Citrus:current", "Dixie:current"],
   dashUnitLedgerHeads: ['auction', 'laft', 'certificate'],
-  dashUnitRowsUnderAvailable: ['Alachua', 'Bay', 'Citrus'],
+  dashUnitRowsUnderAvailable: ["Alachua", "Bay", "Citrus", "Dixie"],
   dashUnitEmptyGroups: 2,
-  dashLedgerFreshAvailable: '2 of 3 counties current',
+  dashLedgerFreshAvailable: "3 of 4 counties current",
   dashLedgerFreshAuctionsAbsent: 0,
   dashLedgerRowTitles: ['Auctions', 'Available', 'Liens & Certificates'],
   certDetailRelated: ['auction:p1:Auctions'],
@@ -6332,6 +6411,20 @@ const EXPECTED = {
   auctionHeadlineLabels: {"TX": ["Minimum Bid", "Total value (source as published)", "Opening Bid"], "MI": ["Opening Bid", "State Equalized Value (county list)"],
     "FL": ["Opening Bid", "County Just Value", "2025 County Just Value"], "SC": ["Opening Bid"]},
   auctionNoPriceLabel: true,
+  // Acquisition checklist, source truth, county intelligence (2026-10-05).
+  acqChecklist: {"keys": ["status", "seller", "method", "amount", "amount_type", "form", "deposit", "documents", "instructions", "listing", "contact", "deadlines", "verified", "not_published"],
+    "states": {"status": "known", "seller": "known", "method": "known", "amount": "not_published", "amount_type": "known", "form": "known", "deposit": "not_published", "documents": "known",
+      "instructions": "known", "listing": "known", "contact": "known", "deadlines": "not_published", "verified": "known", "not_published": "summary"},
+    "method": "Multi-step county process", "head": "10 of 13 on file", "firstInAcquire": true},
+  acqChecklistNoInference: {"n": 14, "known": [], "summary": "summary"},
+  sourceTruth: {"labels": ["Source", "Official listing", "Source health", "This record", "Source date", "Publication review", "County intelligence"], "health": "CURRENT", "dossierBtn": true, "navPill": true},
+  sourceHealthVectors: [],
+  dossierCitrus: {"title": "Citrus County, FL", "intel": "VERIFIED", "ledgers": {"laft": "COVERED", "auction": "COVERED", "certificate": "COVERED"}, "acq": true, "terms": true, "listBtn": true},
+  dossierToList: {"modal": true, "hash": "#/lands", "counties": ["Citrus"]},
+  dossierDixie: {"coverage": "COVERED", "health": "CURRENT", "checkedZero": true, "text": "Current · checked, none listed"},
+  dossierBay: {"coverage": "SOURCE_UNAVAILABLE", "health": "SOURCE_UNAVAILABLE", "checkedZero": false, "text": "Source unavailable"},
+  dossierUnresearched: {"intel": "NOT_YET_RESEARCHED", "notClaim": true},
+  countyGroupIntel: true,
   // Available price honesty (2026-10-05).
   priceWording: {"openingBid": {"label": "Opening bid", "partial": true, "note": "Not the full price: the source publishes this as a starting amount. Ask the county for the current total.", "total": null, "expired": null, "gap": "Current purchase total not on file - the listed figure is the opening bid only"}, "fixed": {"label": "Purchase price", "partial": false, "note": "As the source publishes it - confirm the amount due before paying.", "total": null, "expired": null, "gap": null}, "expiredStatement": {"label": "Total due", "partial": true, "note": "Last clerk statement $27,689.42, valid through Aug 31, 2026 - that date has passed. Request an updated statement from the clerk.", "total": 27689.42, "expired": true, "gap": "County purchase statement has expired - request an updated total"}, "currentStatement": {"label": "Total due from purchaser", "partial": true, "note": "Clerk statement, valid if received by Dec 31, 2099.", "total": 27689.42, "expired": false, "gap": null}}
 };

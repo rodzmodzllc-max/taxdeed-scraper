@@ -2575,3 +2575,30 @@ Full description: `docs/financial-honesty-across-states.md`. Stable facts:
   list column is an opening bid, even though it is stored in `min_bid`.
 - **"Just Value" is Florida-only** in `valueLabel()`.
 - `sw.js` -> `tdw-shell-v87`.
+
+## Acquisition checklist, source truth, county intelligence (2026-10-05, PR open, no migration)
+
+Full description: `docs/county-intelligence.md`. Stable facts:
+- **Acquisition checklist:** `acquireChecklist(p)` in app.js is fourteen items
+  (`ACQUIRE_CHECKLIST_KEYS`). Each item is `known` / `not_published` /
+  `not_verified`; item 14 lists the gaps. No default, no score.
+- **Source health:** app.js `sourceHealthState()` is the same function as
+  `unit_freshness.customer_health()`, pinned by
+  `tests/python/fixtures/source_health_cases.json`.
+  - States: CURRENT / RECENT / STALE / SOURCE_UNAVAILABLE / PARTIAL /
+    NEEDS_REVIEW / MANUAL / NOT_RECORDED.
+  - `checked_zero` (a complete read listing nothing) is never shown like an
+    unreachable source.
+  - The registry select now reads `last_error_category`.
+- **County intelligence:** `harvesters/sources/county_intel.py` →
+  `public/county-intelligence.json` (`scripts/build_county_intelligence.py
+  --check`, mirrored). Rebuild it after editing the registry, either evidence
+  table, the financial terms or a candidate file.
+  - Coverage per ledger and the county state come from repository records.
+  - SOURCE_UNAVAILABLE is only a runtime overlay in app.js (`countyIntelFor`).
+  - Customers see unreviewed sources counted, never named.
+- **Where it shows:** "Source truth" (`sourceTruthHtml`, section id `truth`) on
+  every property page; the dossier modal `#countyModal` on every page (la.html
+  hand-edited, the others generated from tx.html); a county-group link
+  `.county-intel-row`.
+- `sw.js` → `tdw-shell-v88`.
