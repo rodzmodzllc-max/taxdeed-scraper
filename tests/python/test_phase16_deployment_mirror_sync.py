@@ -59,6 +59,7 @@ DEPLOYED_BUNDLE_FILES = (
     "satellite-map.js",
     "source-inventory.json",
     "available-coverage.json",
+    "available-terms.json",
     "explore.css",
     "explore.js",
     "fl-cities.json",

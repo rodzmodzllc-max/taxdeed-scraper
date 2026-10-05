@@ -179,7 +179,7 @@ def test_f03_the_dated_list_is_never_called_available_now():
     assert 'const isDatedList = p => p && p.source === "laft" && p.inventory_type === "ADJUDICATED_PROPERTY";' in app
     # Every availability statement branches on it before the Florida "available now" wording.
     kicker = app[app.index("  else if (p.source === \"laft\") {"):]
-    assert kicker.index("isDatedList(p)") < kicker.index('"Lands Available list · fixed price"')
+    assert kicker.index("isDatedList(p)") < kicker.index('"Lands Available list · over the counter"')
     when = app[app.index('else if (isLaft && txStatus)'):]
     assert when.index("isDatedList(p)") < when.index('"Available now - no auction date"')
     assert "Not verified as available now - on the Parish's adjudicated-property list as of" in app

@@ -470,7 +470,7 @@ def test_f03_filters_read_stored_fields_and_the_admin_panel_is_admin_gated():
     for f in ("public/index.html", "public/tx.html"):
         html = (REPO / f).read_text(encoding="utf-8")
         assert 'id="adminPublication" hidden' in html and 'id="availLandUseFilter"' in html and 'id="availGeocoded"' in html and 'id="availValues"' in html
-    assert (REPO / "public/sw.js").read_text(encoding="utf-8").count('const CACHE = "tdw-shell-v78"') == 1
+    assert (REPO / "public/sw.js").read_text(encoding="utf-8").count('const CACHE = "tdw-shell-v80"') == 1
 
 
 # ==================== 8. regressions ====================

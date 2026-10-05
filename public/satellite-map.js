@@ -280,11 +280,14 @@ function escapeHtml(s) {
   }[c]));
 }
 
+let amountShort = null;
 function priceLineFor(p) {
+  // 2026-10-05: labelled, from app.js amountShort - never a bare figure.
+  if (typeof amountShort === "function") { const a = amountShort(p); return `${a.label}: ${a.text}`; }
   const bids = Number(p.bid);
   return bids > 0
     ? new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 }).format(bids)
-    : "no published price";
+    : "no published amount";
 }
 
 function groupByCounty() {
@@ -927,6 +930,7 @@ function absorb(detail) {
   rows = Array.isArray(d.rows) ? d.rows : [];
   ledger = d.ledger || ledger;
   openDetail = d.openDetail || openDetail;
+  amountShort = d.amountShort || amountShort;
   renderGoogle();
   renderMaptiler();
 }
