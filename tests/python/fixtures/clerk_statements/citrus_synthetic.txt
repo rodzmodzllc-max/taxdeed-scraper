@@ -1,0 +1,28 @@
+SYNTHETIC FIXTURE - not a real statement. Line labels and order follow the
+Citrus "LOL" statement structure read value-free from OCR (diagnostic run
+37253789695); every figure is invented. Two deliberate OCR artefacts: the
+doc-stamp RATE line and a Lands Available Total whose "$" was read as "8".
+
+TAX COLLECTOR SECTION
+OPENING BID AMOUNT DUE           $ 2,606.70
+ADDITIONAL INTEREST THROUGH SEPTEMBER OF 2026 AMOUNT    $ 811.44
+TAX YEAR 2024 AMOUNT DUE         $ 11,902.10
+TAX YEAR 2025 AMOUNT DUE         $ 12,108.88
+TOTAL AMOUNT OF TAXES DUE        $ 24,010.98
+
+LIST OF LANDS STATEMENT  Case No. 2099-0001TD
+OMITTED TAXES                    $11,902.10
+OMITTED TAXES                    $12,108.88
+TOTAL OMITTED TAXES              $24,010.98
+OPENING BID                      $2,606.70
+LANDS AVAILABLE INTEREST         $811.44
+LANDS AVAILABLE TOTAL            827,429.12
+LANDS AVAILABLE TOTAL            $27,429.12
+DOCUMENTARY STAMP TAX RATE       0.70
+DOCUMENTARY STAMP TAX            $192.10
+DEED RECORDING FEE               $18.50
+AFFIDAVIT RECORDING FEE          $69.70
+LOL TOTAL                        $27,709.42
+LESS PREPAID RECORDING FEES      $20.00
+TOTAL DUE FROM PURCHASER         $27,689.42
+IF RECEIVED BY 8/31/2026
