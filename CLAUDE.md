@@ -2479,6 +2479,15 @@ Full description: `docs/commercial-layer.md`. Stable facts:
 
 Full description: `docs/investor-beta.md`. Stable facts:
 - **`public/acquisition-evidence.json`** (`scripts/build_acquisition_evidence.py --check`, mirrored) holds the county-level verified acquisition records from both evidence tables, built by the engine's own `resolve()`. Rebuild it after editing either evidence CSV.
-- app.js `acquisitionProvenance(p)` fills a row's lost acquisition record from that file, only for the same state + source + county + path type; the row's own keys win. Every acquisition reader goes through it. Root cause, unfixed: `sync_state_inventory.py` replaces `otc_provenance` wholesale.
+- app.js `acquisitionProvenance(p)` fills a row's lost acquisition record from that file, only for the same state + source + county + path type; the row's own keys win. Every acquisition reader goes through it. Root cause fixed 2026-10-05 (see Investor conversion below).
 - Usage events: `state_selected`, `county_selected`, `map_used`, `acquisition_section_viewed` and classified acquisition / form / source link opens go through `track()`. They are added to migration 024's CHECK list (024 is still NOT applied), and nothing is recorded until it is. `ACQ_VIEWED` is a `var` (TDZ).
 - `sw.js` -> `tdw-shell-v82`.
+
+## Investor conversion: Available (2026-10-05, PR open, no migration)
+
+Full description: `docs/investor-conversion.md`. Stable facts:
+- **`sync_state_inventory.py` merges `otc_provenance`.** PostgREST merge-duplicates replaces a jsonb column, so the sync reads back the stored dict and path columns (`stored_rows`). `merge_acquisition()` keeps verified acquisition evidence as a unit unless the new read is equal-or-richer for the same path type. It never uses another source's row and never mixes path types. An active row stating no path keeps the stored path columns. Pinned by `tests/python/test_acquisition_persistence.py`.
+- **"How to acquire"** (`acquireBlockHtml`) is the Available page's first section and answers seven questions in order. Every answer comes only from the verified record or the row; otherwise "Not yet verified" or "not published". When no online path exists it says "No online purchase link on file".
+- **Saved properties:** the existing watchlist renders `savedAcquisitionHtml()` under each Available card (method, amount, form, official links, plus `data-action="openacq"`). There is no second list.
+- **Links carry `data-acq-link`** (form / instructions / source) for the funnel events. Every visible Available source must have a terms row (test-pinned).
+- `sw.js` -> `tdw-shell-v83`.

@@ -1677,6 +1677,16 @@ live here are removed with the #pageMap section itself - see the note by
    verified. No badge, no score. */
 .acquire-card .acq-block{display:flex;flex-direction:column;gap:.3rem}
 .acq-h{font-size:.68rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-soft);margin-top:.35rem}
+/* "How to acquire" (2026-10-05): one block per investor question */
+.acquire-card .acq-q{display:flex;flex-direction:column;gap:.25rem;padding:.45rem 0;border-top:1px solid var(--card-line)}
+.acquire-card .acq-q:first-child{border-top:0;padding-top:0}
+.acq-muted{margin:0;color:var(--ink-soft);font-size:.86rem}
+/* Saved property: the way back to the official path, under its watchlist card */
+.bidlist-acq{display:flex;flex-direction:column;gap:.35rem;margin:-.35rem 0 .8rem;padding:.55rem .75rem;border:1px solid var(--card-line);border-top:0;border-radius:0 0 10px 10px;font-size:.86rem}
+.bidlist-acq-head{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center}
+.bidlist-acq-amount{color:var(--ink-soft)}
+.bidlist-acq-links{display:flex;flex-wrap:wrap;gap:.35rem}
+.bidlist-acq .reset-btn{align-self:flex-start}
 .acq-why-text{margin:0;font-size:.86rem;font-weight:600}
 .acq-why-basis{margin:0;font-size:.74rem;color:var(--ink-soft)}
 .acq-why-link{margin:.1rem 0 0;font-size:.78rem}
