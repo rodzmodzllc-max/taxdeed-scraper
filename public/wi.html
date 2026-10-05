@@ -6,14 +6,17 @@
      was tried and then pulled back out. -->
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <meta name="color-scheme" content="light dark">
-<title>Tax Acquisitions — Tax Sale Property Intelligence</title>
+<title>TaxDeed-Scraper — Public Property Acquisition Intelligence</title>
 <link rel="stylesheet" href="styles.css">
 <!-- Loads AFTER styles.css on purpose: explore.css adds the split list+map
 view and applies a handful of plain-specificity overrides to the card and
 filter-bar classes above, which only win if it comes second. -->
 <link rel="stylesheet" href="explore.css">
+<!-- identity.css (2026-10-05): the TaxDeed-Scraper design language - loaded last so it re-skins the
+existing markup; no id, class or data attribute changes meaning in it. -->
+<link rel="stylesheet" href="identity.css">
 <link rel="manifest" href="manifest.webmanifest">
-<meta name="theme-color" content="#0F172A">
+<meta name="theme-color" content="#F3EFE8">
 <!-- ?v=2 cache-busts the re-logo'd icon files - see sw.js's comment on
      SHELL for why a filename-only swap wasn't enough for returning users. -->
 <link rel="icon" href="icons/icon-192.png?v=2">
@@ -21,7 +24,7 @@ filter-bar classes above, which only win if it comes second. -->
 <link rel="apple-touch-icon" href="icons/apple-touch-icon.png?v=2">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="Tax Acquisitions">
+<meta name="apple-mobile-web-app-title" content="TaxDeed-Scraper">
 <script src="config.js"></script>
 <script src="boot.js"></script>
 </head>
@@ -29,13 +32,41 @@ filter-bar classes above, which only win if it comes second. -->
 
 <!-- ============ sign in ============ -->
 <div id="authGate" hidden>
+<!-- Identity redesign (2026-10-05): an editorial split - a drawn parcel plat
+     (inline SVG, no image request) beside the sign-in sheet. The plat is
+     abstract linework, not a real place. Hidden below 900px. -->
+<aside class="auth-visual" aria-hidden="true">
+<svg class="auth-plat" viewBox="0 0 800 900" preserveAspectRatio="xMidYMid slice" focusable="false">
+<g fill="none" stroke="#5B544B" stroke-width="1">
+<path d="M0 120H800M0 300H800M0 470H800M0 660H800M0 820H800"/>
+<path d="M140 0V900M330 0V900M520 0V900M690 0V900"/>
+<path d="M0 210H330M330 390H800M140 560H690M0 740H520M520 560V900M60 300V470M240 470V660M420 120V300M610 300V470M440 660V820"/>
+<path d="M330 120L520 300M520 470L690 660" stroke-dasharray="4 6"/>
+</g>
+<g stroke="none">
+<rect x="141" y="301" width="188" height="168" fill="#4E6B54" opacity=".85"/>
+<rect x="521" y="121" width="168" height="178" fill="#A4512A" opacity=".85"/>
+<rect x="241" y="471" width="88" height="188" fill="#6B4A6E" opacity=".85"/>
+<rect x="611" y="301" width="78" height="168" fill="#4E6B54" opacity=".55"/>
+<rect x="441" y="661" width="78" height="158" fill="#A4512A" opacity=".55"/>
+</g>
+<g fill="#EDE6DA" font-family="IBM Plex Mono, monospace" font-size="11" opacity=".75">
+<text x="150" y="292">PARCEL 12-34-567</text><text x="530" y="112">SALE 10/12</text><text x="250" y="680">CERT 2024-0381</text>
+</g>
+</svg>
+<div class="auth-visual-top"><div class="auth-visual-mark">TaxDeed-Scraper<span>Public property acquisition intelligence</span></div></div>
+<div class="auth-visual-foot">
+<p class="auth-visual-quote">The record, the source, and the way to acquire it.</p>
+<div class="auth-visual-legend"><span><i style="background:#4E6B54"></i>Available</span><span><i style="background:#A4512A"></i>Auctions</span><span><i style="background:#6B4A6E"></i>Liens &amp; Certificates</span></div>
+</div>
+</aside>
 <div class="auth-card">
 <div class="auth-brand">
 <img class="brand-mark brand-mark-auth" src="icons/icon-192.png?v=2" width="72" height="72" alt="" aria-hidden="true">
-<h1>Tax Acquisitions</h1>
+<h1>TaxDeed-Scraper</h1>
 </div>
-<p class="auth-tagline">Tax Sale Property Intelligence</p>
-<p class="auth-subtagline">Tax-sale, available-property, and lien/certificate research across supported states</p>
+<p class="auth-tagline">Public Property Acquisition Intelligence</p>
+<p class="auth-subtagline">Find government-held and tax-sale property. Understand the record. Know how to acquire it. Tax-sale, available-property, and lien/certificate research across supported states.</p>
 <p class="auth-lead" id="authLead">Sign in to continue.</p>
 <form id="authForm">
 <!-- Phase 63: real labels, not placeholder-only fields - see index.html's
@@ -64,6 +95,7 @@ field). -->
 <button class="auth-mode-toggle" id="forgotPasswordBtn" type="button">Forgot password?</button>
 <button class="auth-mode-toggle" id="resendConfirmBtn" type="button" hidden>Resend confirmation email</button>
 <div class="auth-msg" id="authMsg"></div>
+<ul class="auth-points" id="authPoints"><li>Search verified public-property inventory.</li><li>Track acquisition paths.</li><li>Save properties and research.</li></ul>
 <p class="auth-legal-links"><a href="terms.html">Terms of Service</a> · <a href="privacy.html">Privacy Policy</a> · <a href="acceptable-use.html">Acceptable Use</a> · <a href="source-disclaimer.html">Source &amp; research disclaimer</a></p>
 </div>
 </div>
@@ -77,7 +109,7 @@ owner approves it, so there'd be nothing to show here anyway. -->
 <div class="auth-card">
 <div class="auth-brand">
 <img class="brand-mark brand-mark-auth" src="icons/icon-192.png?v=2" width="72" height="72" alt="" aria-hidden="true">
-<h1>Tax Acquisitions</h1>
+<h1>TaxDeed-Scraper</h1>
 </div>
 <p class="auth-lead">Account created — awaiting approval.</p>
 <p class="auth-tagline" style="margin-bottom:1.4rem">The owner has been notified. You'll get access to the ledgers once your account is approved - no need to sign up again.</p>
@@ -95,7 +127,7 @@ own page; access is granted only by the verified stripe-webhook. -->
 <div class="auth-card">
 <div class="auth-brand">
 <img class="brand-mark brand-mark-auth" src="icons/icon-192.png?v=2" width="72" height="72" alt="" aria-hidden="true">
-<h1>Tax Acquisitions</h1>
+<h1>TaxDeed-Scraper</h1>
 </div>
 <p class="auth-lead">Choose your plan</p>
 <div id="planBody"></div>
@@ -107,8 +139,7 @@ own page; access is granted only by the verified stripe-webhook. -->
 <!-- ============ app ============ -->
 <div id="app" class="app-shell" hidden>
 <nav class="nav-rail" id="navRail" aria-label="Main">
-<div class="nav-rail-brand"><img src="icons/icon-192.png?v=2" width="44" height="44" alt="" aria-hidden="true"><span class="brand-lockup"><span class="brand-title">TaxDeed-Scraper</span><span class="brand-sub">Public Property Intelligence</span></span></div>
-<div class="nav-list">
+<div class="nav-rail-brand"><img src="icons/icon-192.png?v=2" width="44" height="44" alt="" aria-hidden="true"><span class="brand-lockup"><span class="brand-title">TaxDeed-Scraper</span><span class="brand-sub">Public Property Acquisition Intelligence</span></span></div>
 <!-- Shell redesign (2026-10-04). Home, Search (the List page), one entry per
      ledger (data-nav-ledger: opens the List on that ledger; the label is
      ledgerCopy(key).nav, written by app.js so a state's own ledger name is
@@ -116,17 +147,22 @@ own page; access is granted only by the verified stripe-webhook. -->
      picker sheet) and About (the "How to read this data" guide). Entries
      with data-page route through showPage(); the others are actions.
      app.js syncLedgerNav() lights the entry for what is on screen. -->
+<!-- Identity redesign (2026-10-05): on desktop the rail is a two-row masthead -
+     the product navigation (.nav-primary: Home, Search, the three ledgers, Map)
+     and the utility links (.nav-secondary: Saved searches, Watchlist, County
+     Intelligence, About). Same buttons, ids and data attributes as before. -->
+<div class="nav-list nav-primary">
 <button class="nav-item" data-page="dashboard" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M10 20v-6h4v6"/></svg>Home</button>
 <button class="nav-item" data-page="list" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>Search</button>
-<span class="nav-group-label" aria-hidden="true">Ledgers</span>
 <button class="nav-item nav-ledger" data-nav-ledger="laft" type="button"><span class="nav-dot" aria-hidden="true"></span><span class="nav-ledger-name">Available</span> <b class="nav-count" id="navCountLaft">0</b></button>
 <button class="nav-item nav-ledger" data-nav-ledger="auction" type="button"><span class="nav-dot" aria-hidden="true"></span><span class="nav-ledger-name">Auctions</span> <b class="nav-count" id="navCountAuction">0</b></button>
 <button class="nav-item nav-ledger" data-nav-ledger="certificate" type="button"><span class="nav-dot" aria-hidden="true"></span><span class="nav-ledger-name">Liens &amp; Certificates</span> <b class="nav-count" id="navCountCertificate">0</b></button>
-<span class="nav-group-label" aria-hidden="true">Workspace</span>
+<button class="nav-item" data-page="map" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 6l7-3 8 3 7-3v16l-7 3-8-3-1 3z"/><path d="M8 3v16M16 6v16"/></svg>Map</button>
+</div>
+<div class="nav-list nav-secondary">
 <button class="nav-item" data-nav="saved" id="navSavedSearchesBtn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-6-4-6 4z"/></svg>Saved Searches</button>
 <button class="nav-item" data-page="watchlist" id="navWatchlistBtn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 21V4a1 1 0 011-1c1.2 0 1.2 1 3 1s1.8-1 3.5-1 1.3 1 3.5 1a1 1 0 011 1v9a1 1 0 01-1 1c-2.2 0-2.3-1-3.5-1s-1.3 1-3.5 1-1.8-1-3-1"/></svg>Watchlist <b class="nav-count" id="navWatchlistCount">0/10</b></button>
-<button class="nav-item" data-page="map" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 6l7-3 8 3 7-3v16l-7 3-8-3-1 3z"/><path d="M8 3v16M16 6v16"/></svg>Map</button>
-<button class="nav-item" data-nav="states" id="navStatesBtn" type="button" aria-haspopup="dialog" aria-controls="statePicker"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-8-4.6-8-11a8 8 0 1116 0c0 6.4-8 11-8 11z"/><circle cx="12" cy="10" r="3"/></svg>States &amp; Counties</button>
+<button class="nav-item" data-nav="states" id="navStatesBtn" type="button" aria-haspopup="dialog" aria-controls="statePicker"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-8-4.6-8-11a8 8 0 1116 0c0 6.4-8 11-8 11z"/><circle cx="12" cy="10" r="3"/></svg>County Intelligence</button>
 <button class="nav-item" data-nav="about" id="navAboutBtn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 16v-4M12 8h.01"/></svg>About</button>
 </div>
 <!-- Account and admin controls sit at the foot of the rail. The admin entry
@@ -153,7 +189,7 @@ certificate numbers and the county of the selected state's loaded rows - the
 same textMatches() the List uses. Enter opens the List filtered by it. -->
 <div class="global-search" id="globalSearch" role="search">
   <span class="global-search-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></span>
-  <input type="search" id="globalSearchInput" placeholder="Search by address, parcel, county, or case number..." aria-label="Search properties by address, parcel, county or case number" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="globalSearchResults">
+  <input type="search" id="globalSearchInput" placeholder="Search address, parcel, APN, county or case number" aria-label="Search properties by address, parcel, county or case number" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="globalSearchResults">
   <button type="button" class="global-search-clear" id="globalSearchClear" aria-label="Clear search" hidden>&times;</button>
   <div class="global-search-results" id="globalSearchResults" role="listbox" aria-label="Search results" hidden></div>
 </div>
@@ -219,18 +255,23 @@ counts for the selected state, browse-by-state, and the most recently first
 observed properties. Every figure is computed from loaded rows - see
 renderHome() in app.js. The operating view below it is unchanged. -->
 <div class="home-hero" id="homeHero">
-<h1 class="home-title">Find tax-sale and government-held property</h1>
-<p class="home-sub">Real properties. Real sources. Clear acquisition paths.</p>
+<span class="home-eyebrow eyebrow">Find property</span>
+<h1 class="home-title">Public property you can research, verify and acquire.</h1>
+<p class="home-sub">Every record names its source, when it was last read, and the official way to acquire it.</p>
 <form class="home-search" id="homeSearchForm" role="search">
 <span class="home-search-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></span>
-<input type="search" id="homeSearchInput" placeholder="e.g. 3124 Oak St, parcel 123-456-789, Broward County..." aria-label="Search properties by address, parcel, county or case number" autocomplete="off">
+<input type="search" id="homeSearchInput" placeholder="Search address, parcel, county, APN or case number" aria-label="Search properties by address, parcel, county or case number" autocomplete="off">
 <button type="submit" class="home-search-btn">Search</button>
 </form>
 <p class="home-scope" id="homeScope"></p>
 </div>
 <div class="home-ledgers" id="homeLedgers"></div>
+<!-- The workstation (identity redesign, 2026-10-05): Available now, upcoming
+     sales, county intelligence and the customer's saved work, each a ruled
+     list built from loaded rows by renderHomeDesk() in app.js. -->
+<div class="home-desk" id="homeDesk"></div>
 <div class="home-section" id="homeRecentSection">
-<div class="home-section-head"><h2>Recently added</h2><button type="button" class="link-btn" id="homeRecentAll">View all &rarr;</button></div>
+<div class="home-section-head"><h2>Recent changes · newly observed</h2><button type="button" class="link-btn" id="homeRecentAll">View all &rarr;</button></div>
 <div class="home-recent" id="homeRecent"></div>
 </div>
 <div class="dash-head dash-head-row">

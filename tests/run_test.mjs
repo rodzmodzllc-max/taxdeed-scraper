@@ -1556,8 +1556,12 @@ if ((await page.locator('#expandAllBtn').textContent()) === 'Expand all') {
 }
 results.desktopCertListSingleColumn = await page.locator('.prop-list').first().evaluate(el =>
   getComputedStyle(el).gridTemplateColumns.trim().split(' ').length === 1);
-results.desktopCertCardIsRow = await page.locator('.cert-card').first().evaluate(el =>
-  getComputedStyle(el).display === 'flex');
+// A row: flex, or (identity redesign, 2026-10-05) a grid with the instrument
+// on the left and its figures in a second column.
+results.desktopCertCardIsRow = await page.locator('.cert-card').first().evaluate(el => {
+  const cs = getComputedStyle(el);
+  return cs.display === 'flex' || (cs.display === 'grid' && cs.gridTemplateColumns.trim().split(/\s+/).length >= 2);
+});
 
 // ============================================================
 // Phase 34: state-aware external links. fallbackZillowUrl()/
@@ -4038,6 +4042,72 @@ await navMap.close();
     });
     await sp.close();
   }
+  // ---- Identity redesign (2026-10-05): every main screen at seven widths ----
+  {
+    const widths = [390, 430, 768, 1024, 1280, 1440, 1920];
+    const problems = [];
+    const overflow = async pg => pg.evaluate(() => document.scrollingElement.scrollWidth - document.scrollingElement.clientWidth);
+    const layout = {};
+    for (const w of widths) {
+      // Sign in and sign up: the editorial split from 900px, a single sheet below.
+      const a = await newPage({ viewport: { width: w, height: 900 } });
+      await a.goto(BASE_URL + '?authtest=1', { waitUntil: 'networkidle' });
+      await a.waitForTimeout(250);
+      const login = await a.evaluate(() => ({ visual: !!(document.querySelector('.auth-visual') && document.querySelector('.auth-visual').offsetParent),
+        brand: document.querySelector('#authGate h1').textContent.trim(), tagline: document.querySelector('#authGate .auth-tagline').textContent.trim(),
+        bg: getComputedStyle(document.body).backgroundColor }));
+      if ((await overflow(a)) > 0) problems.push(`${w}:login:overflow`);
+      await a.click('#authModeToggle'); await a.waitForTimeout(150);
+      if ((await overflow(a)) > 0) problems.push(`${w}:signup:overflow`);
+      const signupFields = await a.locator('#authGate .auth-field:visible').count();
+      await a.close();
+      if (login.visual !== (w >= 900)) problems.push(`${w}:login:visual=${login.visual}`);
+      // Signed in: masthead on desktop, bottom bar below; home workstation; dossier.
+      const pg = await newPage({ viewport: { width: w, height: 900 } });
+      pg.on('pageerror', e => errors.push('identity pageerror: ' + e.message));
+      await pg.goto(BASE_URL + '#/dashboard', { waitUntil: 'networkidle' });
+      await pg.waitForTimeout(350);
+      const shell = await pg.evaluate(() => {
+        const prim = document.querySelector('.nav-primary');
+        const rail = document.getElementById('navRail');
+        const r = rail ? rail.getBoundingClientRect() : null;
+        return { railTop: !!r && r.width >= window.innerWidth - 2 && r.height < 160 && rail.offsetParent !== null,
+          primaryRow: !!prim && getComputedStyle(prim).flexDirection === 'row',
+          bottom: !!document.getElementById('navBottom') && getComputedStyle(document.getElementById('navBottom')).display !== 'none',
+          desk: ['homeAvailableNow', 'homeUpcomingSales', 'homeCountyIntel', 'homeSaved'].every(id => !!document.getElementById(id)) };
+      });
+      if (w >= 1024 && !(shell.railTop && shell.primaryRow)) problems.push(`${w}:masthead`);
+      if (w < 1024 && !shell.bottom) problems.push(`${w}:bottombar`);
+      if (!shell.desk) problems.push(`${w}:homeDesk`);
+      if ((await overflow(pg)) > 0) problems.push(`${w}:home:overflow`);
+      for (const h of ['#/certificates', '#/auctions', '#/lands']) {
+        await pg.evaluate(hh => { location.hash = hh; }, h); await pg.waitForTimeout(250);
+        if ((await overflow(pg)) > 0) problems.push(`${w}:${h}:overflow`);
+      }
+      await pg.evaluate(() => { const b = document.createElement('button'); b.dataset.action = 'countyintel'; b.dataset.county = 'Citrus'; document.body.appendChild(b); b.click(); b.remove(); });
+      await pg.waitForSelector('#countyModal:not([hidden]) .dossier', { timeout: 5000 }).catch(() => problems.push(`${w}:dossier:missing`));
+      if ((await overflow(pg)) > 0) problems.push(`${w}:dossier:overflow`);
+      const closeH = await pg.evaluate(() => Math.round(document.getElementById('countyCloseBtn').getBoundingClientRect().height));
+      if (w <= 430 && closeH < 32) problems.push(`${w}:dossierClose:${closeH}`);
+      await pg.close();
+      layout[w] = { login, signupFields };
+    }
+    results.identityViewports = problems;
+    results.identityLogin = { brand: layout[1440].login.brand, tagline: layout[1440].login.tagline, bg: layout[1440].login.bg, signupFields: layout[1440].signupFields };
+    // The palette: no navy chrome left on the main surfaces.
+    const pc = await newPage({ viewport: { width: 1440, height: 900 } });
+    await pc.goto(BASE_URL + '#/lands', { waitUntil: 'networkidle' });
+    await pc.waitForTimeout(300);
+    results.identityPalette = await pc.evaluate(() => {
+      const bg = sel => { const e = document.querySelector(sel); return e ? getComputedStyle(e).backgroundColor : null; };
+      const navy = c => /rgb\((1[0-9]|[0-9]), (1[0-9]|2[0-9]|3[0-9]), (3[0-9]|4[0-9]|5[0-9])\)/.test(c || '');
+      const surfaces = { body: bg('body'), rail: bg('#navRail'), topbar: bg('.topbar'), masthead: bg('.masthead') };
+      return { noNavy: Object.values(surfaces).every(c => !navy(c)), body: surfaces.body,
+        ledgerAccent: getComputedStyle(document.documentElement).getPropertyValue('--led-accent').trim(),
+        display: getComputedStyle(document.querySelector('.list-title, .detail-address, h1') || document.body).fontFamily.includes('Serif') };
+    });
+    await pc.close();
+  }
   // ---- Shell redesign (2026-10-04): Home, global search, state picker,
   // filter chips, county panel, property page chrome, mobile nav ----
   {
@@ -5368,12 +5438,12 @@ const EXPECTED = {
     FL: { status: null, text: '', cards: 2 }
   },
   // Multi-state product branding (2026-10-02).
-  brandGate: {"index.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: { ready: true, controlled: true, tagline: "Tax Sale Property Intelligence", noState: true, cache: ["tdw-shell-v89"] },
-  brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · Tax Acquisitions — Michigan" },
+  brandGate: {"index.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
+  brandSwReload: {"ready": true, "controlled": true, "tagline": "Public Property Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v90"]},
+  brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · TaxDeed-Scraper — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
-  brandFlContext: { title: "Available · Tax Acquisitions — Florida", floridaCopy: true },
-  brandTxContext: { title: "OTC Catalog — Struck-Off Inventory · Tax Acquisitions — Texas", ledgerTab: "laft", hash: "#/lands" },
+  brandFlContext: { title: "Available · TaxDeed-Scraper — Florida", floridaCopy: true },
+  brandTxContext: { title: "OTC Catalog — Struck-Off Inventory · TaxDeed-Scraper — Texas", ledgerTab: "laft", hash: "#/lands" },
   brandStateSwitch: { file: "wy.html", hash: "#/lands", state: "WY" },
   brandEmptyState: { says: true, neverUnsupported: true, stillListed: true, selected: "WI" },
 
@@ -5484,9 +5554,9 @@ const EXPECTED = {
   ledgerDocAttr: ['auction', 'laft', 'certificate'],
   ledgerHeadings: ['Auctions', 'Available', 'Liens & Certificates'],
   ledgerTitles: [
-    'Auctions · Tax Acquisitions — Florida',
-    'Available · Tax Acquisitions — Florida',
-    'Liens & Certificates · Tax Acquisitions — Florida'
+    'Auctions · TaxDeed-Scraper — Florida',
+    'Available · TaxDeed-Scraper — Florida',
+    'Liens & Certificates · TaxDeed-Scraper — Florida'
   ],
   everyLedgerHasHowLine: true,
   everyLedgerHasFactsLine: true,
@@ -5604,7 +5674,7 @@ const EXPECTED = {
   oppBidText: '$5,000.00 Value ÷ bid 18.0× (screening ratio, not a return)',
   oppValueText: '$90,000 2025 County Just Value · County Assessed Value $80,000',
   oppGaps: ['Image not checked yet', 'Not yet geocoded', 'Flood zone not checked'],
-  detailNavLabels: ["Source truth", "Overview", "Decision", "Tax & Value", "Property", "History", "Sale events", "Watch", "Risk & Legal", "Map", "Source", "Provenance"],   // shell redesign: section nav reads as tabs   // customer-value sprint: the Auction decision block
+  detailNavLabels: ["Overview", "Decision", "Tax & Value", "Property", "History", "Sale events", "Watch", "Risk & Legal", "Map", "Source truth", "Source", "Provenance"],   // shell redesign: section nav reads as tabs   // customer-value sprint: the Auction decision block
   detailNavJumpScrolled: true,
   detailNavJumpMarksPill: true,
   showOnMapBtnText: 'Show county on the Map page',
@@ -5710,7 +5780,7 @@ const EXPECTED = {
   mapPageVisibleOnMapNav: true,
   navMapBtnOnAfterMapNav: true,
   mapPageTitle: 'Map',
-  navRailItems: ['dashboard:Home', 'list:Search', 'watchlist:Watchlist 0/10', 'map:Map'],   // shell redesign: per-ledger entries carry the counts
+  navRailItems: ["dashboard:Home", "list:Search", "map:Map", "watchlist:Watchlist 0/10"],   // shell redesign: per-ledger entries carry the counts
   navBottomItems: ['dashboard', 'list', 'map', 'watchlist'],
   navLedgerEntriesGone: 0,
   navDashboardLit: ['dashboard'],
@@ -5738,7 +5808,7 @@ const EXPECTED = {
   navMapDeepContext: 'Ledger: Available · County: Bay County',
   navMapDeepHash: '#/map?ledger=laft&county=Bay',
   // Shell redesign (2026-10-04)
-  rdHome: {"title": "Find tax-sale and government-held property", "cards": ["laft:2", "auction:9", "certificate:1"], "statesCard": 1, "recentHasFirstSeen": true, "tabCounts": ["auction:9", "laft:2", "certificate:1"], "noScoreWords": true},
+  rdHome: {"title": "Public property you can research, verify and acquire.", "cards": ["laft:2", "auction:9", "certificate:1"], "statesCard": 1, "recentHasFirstSeen": true, "tabCounts": ["auction:9", "laft:2", "certificate:1"], "noScoreWords": true},
   rdHomeSearch: {"hash": "#/lands", "listSearch": "Manatee", "cards": 1, "chip": "Search: “Manatee”×"},
   rdChipRemoved: {"listSearch": "", "chips": 0, "hidden": true},
   rdPathChip: ["Purchase path: No online path on file×"],
@@ -5749,7 +5819,7 @@ const EXPECTED = {
   rdNavAuction: {"hash": "#/auctions", "title": "Auction Properties"},
   rdGlobal: {"rows": ["p15:Available"], "all": "See all 1 result in the list →", "expanded": "true"},
   rdGlobalOpen: {"modal": true, "crumbs": ["Home/Available/15 Manatee Ln"]},
-  rdDetail: {"tabs": ["How to acquire", "Source truth", "Overview", "Decision", "Inventory", "Tax & Value", "Property", "Sale events", "Watch", "Risk & Legal", "Map", "Source", "Provenance"], "why": ["It is in the Available ledger for Florida because its source lists it.", "Last read from the source Nd ago.", "Its source is approved for customer publication."], "acquire": 1},
+  rdDetail: {"tabs": ["How to acquire", "Overview", "Decision", "Inventory", "Tax & Value", "Property", "Sale events", "Watch", "Risk & Legal", "Map", "Source truth", "Source", "Provenance"], "why": ["It is in the Available ledger for Florida because its source lists it.", "Last read from the source Nd ago.", "Its source is approved for customer publication."], "acquire": 1},
   rdCrumbHome: {"modalHidden": true, "dashVisible": true},
   rdGlobalEmpty: "No Florida property matches “zzzz-no-such”. Search covers address, parcel, case and certificate numbers and the county; to look in another state, switch state first.",
   rdGlobalEscape: true,
@@ -5830,11 +5900,11 @@ const EXPECTED = {
   signupDisabledMsg: 'New account registration is closed right now, so this account was not created. Please try again later or contact support.',
   signupDisabledNoSession: true,
   laBodyState: 'LA',
-  laTitle: 'Available — Adjudicated Property · Tax Acquisitions — Louisiana',
+  laTitle: 'Available — Adjudicated Property · TaxDeed-Scraper — Louisiana',
   laStateSelect: { value: 'LA', options: ['FL', 'TX', 'LA', 'MI', 'WY', 'SC', 'CO', 'WI', 'MO', 'OK', 'PA', 'MN'] },
   xsPages: Object.fromEntries([['MI', 'Michigan'], ['WY', 'Wyoming'], ['SC', 'South Carolina'], ['CO', 'Colorado'], ['WI', 'Wisconsin'],
     ['MO', 'Missouri'], ['OK', 'Oklahoma'], ['PA', 'Pennsylvania'], ['MN', 'Minnesota']].map(([c, n]) => [c,
-    { state: c, title: `Auctions · Tax Acquisitions — ${n}`, select: c, options: ['FL', 'TX', 'LA', 'MI', 'WY', 'SC', 'CO', 'WI', 'MO', 'OK', 'PA', 'MN'], floridaWording: false, basemapOk: true }])),
+    { state: c, title: `Auctions · TaxDeed-Scraper — ${n}`, select: c, options: ['FL', 'TX', 'LA', 'MI', 'WY', 'SC', 'CO', 'WI', 'MO', 'OK', 'PA', 'MN'], floridaWording: false, basemapOk: true }])),
   xsMiCard: { count: 1, county: true, sev: true, noJustValue: true },
   xsCoCardCount: true,
   xsCoDetail: { treasurer: true, steps: true, noStreetView: true, noUndefined: true, sourceNamed: true },
@@ -6517,6 +6587,10 @@ const EXPECTED = {
   coverageExplorer: {"heading": "Coverage in Florida", "total": 67, "hasVerified": true, "note": true},
   coverageToDossier: {"picker": true, "county": "Citrus"},
   whySection: {"items": 6, "noCompetitor": true, "noScoreClaim": true},
+  // Identity redesign (2026-10-05).
+  identityViewports: [],
+  identityLogin: {"brand": "TaxDeed-Scraper", "tagline": "Public Property Acquisition Intelligence", "bg": "rgb(243, 239, 232)", "signupFields": 8},
+  identityPalette: {"noNavy": true, "body": "rgb(243, 239, 232)", "ledgerAccent": "#4E6B54", "display": true},
   // Available price honesty (2026-10-05).
   priceWording: {"openingBid": {"label": "Opening bid", "partial": true, "note": "Not the full price: the source publishes this as a starting amount. Ask the county for the current total.", "total": null, "expired": null, "gap": "Current purchase total not on file - the listed figure is the opening bid only"}, "fixed": {"label": "Purchase price", "partial": false, "note": "As the source publishes it - confirm the amount due before paying.", "total": null, "expired": null, "gap": null}, "expiredStatement": {"label": "Total due", "partial": true, "note": "Last clerk statement $27,689.42, valid through Aug 31, 2026 - that date has passed. Request an updated statement from the clerk.", "total": 27689.42, "expired": true, "gap": "County purchase statement has expired - request an updated total"}, "currentStatement": {"label": "Total due from purchaser", "partial": true, "note": "Clerk statement, valid if received by Dec 31, 2099.", "total": 27689.42, "expired": false, "gap": null}}
 };

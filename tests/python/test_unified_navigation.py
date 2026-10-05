@@ -29,7 +29,10 @@ def test_n01_shell_navigation_pages_ledger_entries_and_actions_on_both_pages():
     # (Saved Searches, States & Counties, About). The phone bar routes the
     # same four pages plus the account menu.
     for html in (INDEX, TX):
-        assert _nav_pages(html, "nav-item") == ["dashboard", "list", "watchlist", "map"]
+        # Identity redesign (2026-10-05): product navigation (Home, Search, the
+        # ledgers, Map) and utility links (Saved Searches, Watchlist, County
+        # Intelligence, About) are two lists - the same buttons.
+        assert _nav_pages(html, "nav-item") == ["dashboard", "list", "map", "watchlist"]
         assert _nav_pages(html, "nav-bottom-item") == ["dashboard", "list", "map", "watchlist"]
         assert re.findall(r'class="nav-item nav-ledger" data-nav-ledger="([a-z]+)"', html) == ["laft", "auction", "certificate"]
         assert re.findall(r'class="nav-item" data-nav="([a-z]+)"', html) == ["saved", "states", "about"]
@@ -40,7 +43,7 @@ def test_n01_shell_navigation_pages_ledger_entries_and_actions_on_both_pages():
         assert '<a class="nav-item" id="navAdminLink" href="admin.html" hidden>' in html
     # Both pages ship the same navigation markup (a state's own ledger name is
     # written by app.js from ledgerCopy(key).nav).
-    rail = lambda h: re.search(r'<div class="nav-list">.*?</div>\n', h, re.S).group(0)  # noqa: E731
+    rail = lambda h: re.search(r'<div class="nav-list nav-primary">.*?</div>\n<div class="nav-list nav-secondary">.*?</div>\n', h, re.S).group(0)  # noqa: E731
     bottom = lambda h: re.search(r'<nav class="nav-bottom".*?</nav>', h, re.S).group(0)  # noqa: E731
     assert rail(INDEX) == rail(TX) and bottom(INDEX) == bottom(TX)
     assert "function syncLedgerNavNames()" in APP and "ledgerCopy(k).nav" in APP
@@ -138,6 +141,6 @@ def test_n09_watchlist_folds_the_same_parcel_across_ledgers_and_is_a_destination
 
 
 def test_n10_service_worker_bumped_and_root_mirror_matches_public():
-    assert (REPO / "public/sw.js").read_text(encoding="utf-8").count('const CACHE = "tdw-shell-v89"') == 1
+    assert (REPO / "public/sw.js").read_text(encoding="utf-8").count('const CACHE = "tdw-shell-v90"') == 1
     for f in ("app.js", "styles.css", "sw.js", "index.html", "tx.html", "explore.css"):
         assert (REPO / f).read_bytes() == (REPO / "public" / f).read_bytes(), f

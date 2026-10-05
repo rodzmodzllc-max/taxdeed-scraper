@@ -24,8 +24,8 @@ def test_the_old_florida_shell_is_reported():
 
 
 def test_comments_are_not_visible_text():
-    html = ('<title>Tax Acquisitions — Tax Sale Property Intelligence</title><div id="authGate"><!-- Florida note -->'
-            '<p class="auth-tagline">Tax Sale Property Intelligence</p></div><div id="pendingGate">')
+    html = ('<title>TaxDeed-Scraper — Public Property Acquisition Intelligence</title><div id="authGate"><!-- Florida note -->'
+            '<p class="auth-tagline">Public Property Acquisition Intelligence</p></div><div id="pendingGate">')
     assert C.check_page(html) == []
 
 

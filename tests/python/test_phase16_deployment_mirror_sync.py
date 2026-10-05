@@ -69,6 +69,7 @@ DEPLOYED_BUNDLE_FILES = (
     "available-coverage.json",
     "available-terms.json",
     "county-intelligence.json",   # 2026-10-05 county intelligence dossier
+    "identity.css",               # 2026-10-05 TaxDeed-Scraper design language
     "acquisition-evidence.json",
     "explore.css",
     "explore.js",
