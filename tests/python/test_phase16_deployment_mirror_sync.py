@@ -68,6 +68,7 @@ DEPLOYED_BUNDLE_FILES = (
     "source-inventory.json",
     "available-coverage.json",
     "available-terms.json",
+    "acquisition-evidence.json",
     "explore.css",
     "explore.js",
     "fl-cities.json",

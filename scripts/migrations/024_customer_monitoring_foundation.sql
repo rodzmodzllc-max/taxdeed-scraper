@@ -182,7 +182,8 @@ create table if not exists public.product_events (
   event text not null check (event in (
     'session_start', 'search_performed', 'property_viewed', 'property_saved', 'property_watched',
     'acquisition_source_opened', 'acquisition_instructions_opened', 'application_opened', 'official_source_opened',
-    'export_performed', 'alert_created', 'alert_opened', 'saved_search_created', 'saved_search_opened')),
+    'export_performed', 'alert_created', 'alert_opened', 'saved_search_created', 'saved_search_opened',
+    'state_selected', 'county_selected', 'map_used', 'acquisition_section_viewed')),
   state text,
   ledger text,
   property_id uuid,

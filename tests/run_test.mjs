@@ -3371,6 +3371,32 @@ await navMap.close();
     noUndefined: !/undefined/.test(la2d)
   };
   await la2.close();
+  // Investor beta (2026-10-05): a row whose otc_provenance lost its acquisition
+  // record (production: 3,500 East Baton Rouge rows after an adapter sync
+  // replaced it wholesale) still shows the county's VERIFIED process from
+  // acquisition-evidence.json - same source, county and path type only.
+  const la3 = await newPage({ viewport: { width: 1200, height: 900 } });
+  await la3.goto(BASE_URL.replace(/index\.html$/, 'la.html') + '?stripacq=1#/lands/pla2', { waitUntil: 'networkidle' });
+  await la3.waitForTimeout(600);
+  const la3acq = ((await la3.locator('#detailModalInner [data-section="acquire"]').textContent().catch(() => '')) || '').replace(/\s+/g, ' ');
+  results.laStrippedAcquisition = {
+    multiStep: /Multi-step county process/.test(la3acq),
+    office: /Office of the Parish Attorney/.test(la3acq),
+    confirmFirst: /Confirm the property is still adjudicated/.test(la3acq),
+    requestForm: /Request to Purchase/.test(la3acq),
+    evidenceLink: (await la3.locator('#detailModalInner [data-section="acquire"] a[href*="brla.gov"]').count()) > 0,
+    notPending: !/Not yet verified/.test(la3acq),
+    noBuyNow: !/buy now/i.test(la3acq),
+    noUndefined: !/undefined/.test(la3acq)
+  };
+  // A row of a source / county with no verified record never borrows one.
+  results.acqEvidenceNoBorrow = await la3.evaluate(() => {
+    const rec = (window.__tdwAcqEvidenceFor || (() => 'missing'))({ state: 'LA', county: 'Orleans', source_id: 'la_ebr_adjudicated', purchase_path_type: 'county_instructions' });
+    const rec2 = (window.__tdwAcqEvidenceFor || (() => 'missing'))({ state: 'LA', county: 'East Baton Rouge', source_id: 'la_ebr_adjudicated', purchase_path_type: 'in_person' });
+    const rec3 = (window.__tdwAcqEvidenceFor || (() => 'missing'))({ state: 'LA', county: 'East Baton Rouge', source_id: 'la_ebr_adjudicated', purchase_path_type: 'county_instructions' });
+    return { otherCounty: rec, otherType: rec2, same: !!(rec3 && rec3.acquisition && rec3.acquisition.mode === 'multi_step') };
+  });
+  await la3.close();
 }
 
 // ============================================================
@@ -4066,6 +4092,34 @@ await monDetail.waitForTimeout(1900);
   results.monAnalyticsEvents = Array.from(new Set(evs.map(e => e.event))).sort();
   results.monAnalyticsNoText = !JSON.stringify(evs).includes('Manatee');
 }
+// 9b. Investor usage events (2026-10-05): state / county / map / property /
+// acquisition section / acquisition link - names and coarse props only.
+{
+  await monDetail.evaluate(() => { try { sessionStorage.setItem('tdw_state_switch', JSON.stringify({ from: 'TX', to: 'FL' })); } catch {} });
+  await monDetail.goto(BASE_URL.replace('index.html', 'index.html?an=2') + '#/lands/p15', { waitUntil: 'networkidle' });
+  await monDetail.waitForTimeout(700);
+  await monDetail.evaluate(() => { const el = document.querySelector('#detailModalInner [data-section="acquire"]'); if (el) el.scrollIntoView(); });
+  await monDetail.waitForTimeout(400);
+  // Links are followed for real by investors; here the navigation is suppressed
+  // after the (capture-phase) analytics listener has seen the click.
+  await monDetail.evaluate(() => document.addEventListener('click', e => { if (e.target.closest('a[href]')) e.preventDefault(); }));
+  const acqLinks = monDetail.locator('#detailModalInner [data-section="acquire"] a[href^="http"]');
+  if (await acqLinks.count()) await acqLinks.first().click();
+  await monDetail.evaluate(() => { document.getElementById('detailModal').hidden = true; });
+  const cq = monDetail.locator('#countyQuick');
+  if (await cq.count()) {
+    const opt = await cq.evaluate(el => Array.from(el.options).map(o => o.value).find(v => v && v !== 'ALL'));
+    if (opt) await cq.selectOption(opt);
+  }
+  await monDetail.evaluate(() => { const b = document.querySelector('.nav-item[data-page="map"], .nav-bottom-item[data-page="map"]'); if (b) b.click(); });
+  await monDetail.waitForTimeout(400);
+  const evs = await monDetail.evaluate(() => window.__stubProductEvents || []);
+  const names = new Set(evs.map(e => e.event));
+  results.investorEvents = ['state_selected', 'property_viewed', 'acquisition_section_viewed', 'county_selected', 'map_used']
+    .filter(n => names.has(n));
+  results.investorAcqLinkEvent = evs.some(e => ['application_opened', 'acquisition_instructions_opened', 'acquisition_source_opened'].includes(e.event));
+  results.investorEventsNoUrls = !/https?:\/\//.test(JSON.stringify(evs.map(e => e.props || {})));
+}
 await monDetail.close();
 await monPage.close();
 // 10. Without migration 024: browser-only saved searches, honest alerts and
@@ -4699,6 +4753,8 @@ const EXPECTED = {
   acqP3CostText: "How the price is set Opening / minimum amount - the items below are added on top Source wording Opening bid $2,000.00 Not the price to buy now: the county's total adds omitted taxes, accrued interest and deed fees. Request the current Lands Available statement from the clerk. Added on top Interest accrued on the listed figure since it was set Not on file Taxes that came due after the listed figure was set (omitted / subsequent years' taxes) Not on file Documentary stamp tax on the deed Not on file Recording fees Not on file Already inside the opening bid (F.S. 197.502(6)) and never added again: the outstanding tax certificates, the delinquent, omitted and current taxes then due, interest, and the costs and fees as of when the opening bid was set - plus half the assessed value on homestead property. Known tax obligation Not on file Which later tax years are owed, and how much, is printed on the official statement - this app holds no tax-bill amount (assessed / taxable values are property values, not taxes owed). Known amount Cannot be calculated None of the items added on top has an amount on file - the listed figure alone is not the amount due. Official total due Not on file The clerk's Lands Available statement - request it from the clerk; it is valid only until the date printed on it.",
   acqP3Forms: ["Current official statement of the amount due Request from the office The clerk's Lands Available statement - request it from the clerk; it is valid only until the date printed on it. Request it via e-mail taxdeeds@bayclerk.example.gov."],
   acqP3NeverPurchasePrice: true,
+  laStrippedAcquisition: {"multiStep": true, "office": true, "confirmFirst": true, "requestForm": true, "evidenceLink": true, "notPending": true, "noBuyNow": true, "noUndefined": true},
+  acqEvidenceNoBorrow: {"otherCounty": null, "otherType": null, "same": true},
 
   // Paid beta (2026-10-05): access / entitlement / plan / billing / legal / support.
   paidLegacyAccess: ["tester", "tester_beta", "legacy", "preview"],
@@ -4774,7 +4830,7 @@ const EXPECTED = {
   },
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: { ready: true, controlled: true, tagline: "Tax Sale Property Intelligence", noState: true, cache: ["tdw-shell-v81"] },
+  brandSwReload: { ready: true, controlled: true, tagline: "Tax Sale Property Intelligence", noState: true, cache: ["tdw-shell-v82"] },
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · Tax Acquisitions — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · Tax Acquisitions — Florida", floridaCopy: true },
@@ -4808,6 +4864,9 @@ const EXPECTED = {
   monAlertsBadgeAfterRead: true,
   monWatchServerChanges: 2,
   monAnalyticsEvents: ['search_performed', 'session_start'],
+  investorEvents: ['state_selected', 'property_viewed', 'acquisition_section_viewed', 'county_selected', 'map_used'],
+  investorAcqLinkEvent: true,
+  investorEventsNoUrls: true,
   monAnalyticsNoText: true,
   monNoneHistory: 'Server change history is not enabled on this deployment yet (migration 024 has not been applied).',
   monNoneStorage: 'Saved in this browser only - t',
