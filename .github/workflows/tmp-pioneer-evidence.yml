@@ -1,5 +1,5 @@
-# Temporary, read-only: runs scripts/capture_pioneer_statements.py on push to
-# this throwaway branch. No secrets, no database, nothing written.
+# Temporary, read-only: dry-runs scripts/harvest_clerk_statements.py on push
+# to this throwaway branch (value-free report). No secrets, no database.
 name: tmp pioneer statement evidence
 on:
   push:
@@ -9,7 +9,7 @@ permissions:
 jobs:
   capture:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -17,5 +17,4 @@ jobs:
       - run: |
           sudo apt-get install -y -qq tesseract-ocr >/dev/null
           pip install -q requests pdfplumber pytesseract
-          python3 scripts/tmp_statute_text.py || true
-          python3 scripts/capture_pioneer_statements.py
+          python3 scripts/harvest_clerk_statements.py --counties Citrus,Duval,Palm\ Beach --report
