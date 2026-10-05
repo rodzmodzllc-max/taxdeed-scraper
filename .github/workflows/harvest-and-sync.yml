@@ -213,7 +213,9 @@ on:
         default: ''
       evidence_scope:
         description: >-
-          (job=evidence only) "available" = the AVAILABLE purchase-process
+          (job=evidence only) "pioneer_statements" = where Pioneer
+          TaxSmartWeb clerks publish the per-case Lands Available purchase
+          statement, structure and label shapes only. "available" = the AVAILABLE purchase-process
           capture (default). "auction_results" = skip it and read only the
           RealAuction CLOSED / CANCELED area of evidence_realauction_dates
           through the harvester's own anonymous AJAX endpoint, value-free.
@@ -243,7 +245,7 @@ on:
         required: false
         type: choice
         default: available
-        options: [available, auction_results, state_sources, expansion, field_fill, five_state, five_state_pass2, five_state_pass3, enrich_sources, enrich_sources_2, enrich_sources_3, enrich_sources_4, acquisition_candidates, available_discovery, sc_available, available_sources, available_validate]
+        options: [available, pioneer_statements, auction_results, state_sources, expansion, field_fill, five_state, five_state_pass2, five_state_pass3, enrich_sources, enrich_sources_2, enrich_sources_3, enrich_sources_4, acquisition_candidates, available_discovery, sc_available, available_sources, available_validate]
 
 concurrency:
   group: harvest-and-sync
@@ -1338,6 +1340,14 @@ jobs:
           RA_DATES: ${{ github.event.inputs.evidence_realauction_dates }}
           SCOPE: ${{ github.event.inputs.evidence_scope }}
         run: |
+          if [ "$SCOPE" = "pioneer_statements" ]; then
+            # 2026-10-05: where Pioneer TaxSmartWeb clerks publish the per-case
+            # Lands Available purchase statement ("Total Due from Purchaser").
+            # One row per county, structure and label shapes only; nothing is
+            # written (scripts/capture_pioneer_statements.py).
+            python3 scripts/capture_pioneer_statements.py
+            exit 0
+          fi
           if [ "$SCOPE" = "state_sources" ]; then
             # Candidate states only (AL / AR / LA / AZ): structure, CSV headers
             # and value shapes, dataset licence metadata, terms pages. Nothing
