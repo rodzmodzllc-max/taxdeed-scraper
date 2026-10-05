@@ -94,6 +94,95 @@ def pdf_labels(blob: bytes) -> str:
     return f"{pages} page(s), text {len(text)} chars; labels: " + ("; ".join(hits) if hits else "none of the statement labels")
 
 
+# Pass 2 (2026-10-05, after run 37247820926 showed Details?id=<row id> ->
+# Home/Image/<doc id> links and a SCANNED first document): which docket
+# entry is the statement, what the Details page itself labels, and whether
+# OCR can read the statement. Docket descriptors are printed through a
+# document-type vocabulary only - any other token (a name, an address) prints
+# as "~" - so nothing personal can reach the public log.
+DOC_VOCAB = set("""TAX DEED APPLICATION APPLICATIONS LIST OF LANDS LAND AVAILABLE FOR TAXES STATEMENT NOTICE NOTICES CERTIFICATE
+CERTIFICATES CERTIFIED MAIL RETURN RECEIPT RECEIPTS PROOF PUBLICATION AFFIDAVIT SALE SALES TITLE SEARCH REPORT OWNERSHIP
+ENCUMBRANCE O&E OE BID BIDS BIDDER RESULTS RESULT REDEMPTION REDEEMED PAYMENT PAYMENTS AMOUNT TOTAL DUE PURCHASER
+OPENING INVOICE FEE FEES SHERIFF SERVICE SERVED NON-SERVICE NONSERVICE ADDRESS PROPERTY PROPERTIES INFORMATION
+INFO LETTER LETTERS MAILING MAILINGS POSTED POSTING AD ADVERTISEMENT AD. LEGAL COPY COPIES ORDER RECEIPTED
+TD TDA CANCEL CANCELLED CANCELED ESCHEAT ESCHEATED SURPLUS COUNTY CLERK TAXES OMITTED INTEREST DELINQUENT
+NOTICE: WORKSHEET CALCULATION SUMMARY AND TO THE ON IN A AT BY FROM HOMESTEAD LOL DOCKET DOCUMENT DOC IMAGE
+PAGE PAGES MISC MISCELLANEOUS UNSERVED RETURNED UNDELIVERABLE GREEN CARD CARDS ADS PUBLISH PUBLISHED""".split())
+STATEMENT_WORDS = re.compile(r"LIST\s+OF\s+LANDS|LANDS\s+AVAILABLE|STATEMENT|TOTAL\s+DUE|INVOICE|WORKSHEET|CALCULATION", re.I)
+MONEY_LABEL = re.compile(r"([A-Za-z][A-Za-z .#/&()-]{2,40}?)\s*:?\s*</t[dh]>\s*<td[^>]*>\s*\$?\s*-?[\d,]+\.\d{2}", re.I)
+TERMS = re.compile(r"[^.<>]{0,160}\b(disclaimer|terms of use|copyright|commercial|not responsible|no warrant|reproduc|resale|redistribut|unofficial|official record)[^.<>]{0,160}", re.I)
+
+
+def vocab_only(text: str) -> str:
+    out = []
+    for tok in re.sub(r"<[^>]+>", " ", text).split():
+        t = tok.strip(",;:()[]").upper()
+        if re.fullmatch(r"[\d/.-]+", t):
+            out.append(mask(t))
+        else:
+            out.append(t if t in DOC_VOCAB else "~")
+    return re.sub(r"(~ )+~", "~", " ".join(out))[:120]
+
+
+def ocr_labels(blob: bytes, max_pages: int = 3) -> str:
+    try:
+        import pdfplumber
+        import pytesseract
+    except ImportError as exc:
+        return f"OCR unavailable ({exc.name})"
+    try:
+        with pdfplumber.open(io.BytesIO(blob)) as pdf:
+            texts = []
+            for pg in pdf.pages[:max_pages]:
+                img = pg.to_image(resolution=200).original
+                texts.append(pytesseract.image_to_string(img))
+            text = "\n".join(texts)
+    except Exception as exc:  # noqa: BLE001
+        return f"OCR failed ({type(exc).__name__})"
+    hits = [f"{lab}={shape_after(text, lab)}" for lab in LABELS if lab.lower() in text.lower()]
+    return f"OCR {min(max_pages, 99)} page(s), {len(text)} chars; labels: " + ("; ".join(hits) if hits else "none of the statement labels")
+
+
+def details_pass(s: requests.Session, base: str, row_id: str) -> None:
+    url = urljoin(base, f"Home/Details?id={row_id}")
+    try:
+        r = s.get(url, timeout=30)
+    except Exception as exc:  # noqa: BLE001
+        print(f"  details: {type(exc).__name__}")
+        return
+    html = r.text
+    labels = sorted({mask(m.group(1).strip()) for m in MONEY_LABEL.finditer(html)})
+    print(f"  details {r.status_code}: money labels on the page: {labels or 'none'}")
+    heads = sorted({vocab_only(h) for h in re.findall(r"<th[^>]*>(.*?)</th>", html, re.I | re.S) if h.strip()})
+    print(f"  details table headers: {heads}")
+    for m in TERMS.finditer(html):
+        snippet = mask(re.sub(r"\s+", " ", m.group(0)).strip())[:300]
+        print(f"  terms text: {snippet}")
+    docs = []
+    for tr in re.findall(r"<tr[^>]*>(.*?)</tr>", html, re.I | re.S):
+        link = re.search(r"""href\s*=\s*["']([^"']*Image/\d+)["']""", tr, re.I)
+        if link:
+            docs.append((link.group(1), vocab_only(tr)))
+    print(f"  docket documents: {len(docs)}")
+    for href, desc in docs:
+        print(f"    doc {describe_url(href)} :: {desc}")
+    picked = [(h, d) for h, d in docs if STATEMENT_WORDS.search(d)]
+    print(f"  statement-like documents: {len(picked)}")
+    for href, desc in picked[:2]:
+        try:
+            d = s.get(urljoin(url, href), timeout=60)
+        except Exception as exc:  # noqa: BLE001
+            print(f"    fetch failed: {type(exc).__name__}")
+            continue
+        ctype = d.headers.get("Content-Type", "")
+        print(f"    {desc}: {d.status_code} {ctype[:30]} {len(d.content)} bytes")
+        if "pdf" in ctype.lower():
+            info = pdf_labels(d.content)
+            print(f"      text layer: {info}")
+            if "no text layer" in info or "none of the statement labels" in info:
+                print(f"      {ocr_labels(d.content)}")
+
+
 def main() -> int:
     s = requests.Session()
     s.headers["User-Agent"] = UA
@@ -134,6 +223,10 @@ def main() -> int:
         print(f"  grid handlers/navigation present: {handlers}")
         for m in re.finditer(r"(window\.open|location\.href\s*=)\s*\(?\s*([^;]{0,160})", html):
             print(f"    nav expr: {mask(m.group(2)).strip()[:160]}")
+
+        if row_id:
+            details_pass(s, base, row_id)
+            continue  # pass 1's generic probing already ran (run 37247820926)
 
         tried = 0
         for u in urls:

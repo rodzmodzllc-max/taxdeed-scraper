@@ -1345,6 +1345,9 @@ jobs:
             # Lands Available purchase statement ("Total Due from Purchaser").
             # One row per county, structure and label shapes only; nothing is
             # written (scripts/capture_pioneer_statements.py).
+            # Pass 2 OCRs only statement-like docket documents (pass 1 found
+            # them scanned, no text layer).
+            sudo apt-get install -y -qq tesseract-ocr >/dev/null && pip install -q pytesseract || echo "OCR tools unavailable - text-layer check only"
             python3 scripts/capture_pioneer_statements.py
             exit 0
           fi
