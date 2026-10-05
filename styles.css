@@ -2151,3 +2151,13 @@ a.ledger-badge:hover{text-decoration:underline}
 .admin-customers{overflow-x:auto}
 .admin-customers-table td,.admin-customers-table th{text-align:left !important;vertical-align:top}
 .admin-sub{color:var(--ink-soft);font-size:.74rem}
+
+/* Home first-run guide (2026-10-05). */
+.home-guide{margin:0 0 1rem;padding:.8rem 1rem;border:1px solid var(--card-line);border-radius:10px;background:var(--card)}
+.home-guide.collapsed{padding:0;border:0;background:none}
+.home-guide-head{display:flex;justify-content:space-between;align-items:center;gap:.5rem;margin-bottom:.4rem}
+.home-guide-steps{list-style:none;margin:0;padding:0;display:grid;gap:.5rem;grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+.home-guide-step{display:flex;gap:.55rem;align-items:flex-start;font-size:.84rem;line-height:1.4;color:var(--ink-soft)}
+.home-guide-step b{color:var(--ink)}
+.home-guide-num{flex:0 0 1.5rem;height:1.5rem;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:.78rem;background:var(--ink);color:var(--card)}
+.home-guide-collapsed{margin:0 0 .6rem}

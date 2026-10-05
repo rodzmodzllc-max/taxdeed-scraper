@@ -3773,6 +3773,69 @@ await navMap.close();
       await pg2.close();
     }
   }
+  // ---- First-run guide + viewport sweep (2026-10-05) ----
+  {
+    const html = (f) => BASE_URL.replace(/index\.html$/, f);
+    // Guide: five steps from real data; hide / show persists per browser; actions route.
+    {
+      const pg = await newPage({ viewport: { width: 1280, height: 900 } });
+      pg.on('pageerror', e => errors.push('guide pageerror: ' + e.message));
+      await pg.goto(html('la.html') + '#/dashboard', { waitUntil: 'networkidle' });
+      await pg.waitForTimeout(500);
+      const steps = await pg.locator('#homeGuide .home-guide-step').count();
+      const verifyText = ((await pg.locator('#homeGuide .home-guide-step[data-step="3"]').textContent()) || '').replace(/\s+/g, ' ').trim();
+      const findText = ((await pg.locator('#homeGuide .home-guide-step[data-step="1"]').textContent()) || '').replace(/\s+/g, ' ').trim();
+      await pg.click('#homeGuideHide'); await pg.waitForTimeout(150);
+      const hidden = { steps: await pg.locator('#homeGuide .home-guide-step').count(), show: await pg.locator('#homeGuideShow').count() };
+      await pg.reload({ waitUntil: 'networkidle' }); await pg.waitForTimeout(400);
+      const stillHidden = await pg.locator('#homeGuideShow').count();
+      await pg.click('#homeGuideShow'); await pg.waitForTimeout(150);
+      const shownAgain = await pg.locator('#homeGuide .home-guide-step').count();
+      await pg.click('#homeGuide [data-guide="list"]'); await pg.waitForTimeout(300);
+      const routed = await pg.evaluate(() => location.hash);
+      results.homeGuide = { steps, findMentionsState: /in Louisiana/.test(findText), verifyCounts: /\d+ of \d+ available propert/.test(verifyText),
+        verifyHonest: /Not yet verified/.test(verifyText) && /official source/.test(verifyText),
+        noScores: !/\b(score|scores|ROI|AI|rating)\b|expected return/i.test(findText + verifyText), hidden, stillHidden, shownAgain, routed };
+      await pg.close();
+    }
+    // Global search while a ledger is still loading: says so, never a final "no match"; refreshes when it arrives.
+    {
+      const pg = await newPage({ viewport: { width: 1280, height: 900 } });
+      await pg.goto(html('la.html') + '?ledgerdelay=buy:3000#/auctions', { waitUntil: 'domcontentloaded' });
+      await pg.waitForSelector('#main [data-ledger-empty="1"]', { timeout: 2900 }).catch(() => {});
+      await pg.fill('#globalSearchInput', 'FIXTURE AVE');
+      await pg.waitForTimeout(300);
+      const during = { partial: await pg.locator('#gsEmpty, #gsPartial').count(), text: ((await pg.locator('#gsEmpty, #gsPartial').first().textContent().catch(() => '')) || '').trim() };
+      await pg.waitForFunction(() => /^\d[\d,]*$/.test((document.getElementById('tabCountLaft') || {}).textContent || ''), null, { timeout: 15000 }).catch(() => {});
+      await pg.waitForTimeout(400);
+      results.searchWhileLoading = { during, afterRows: await pg.locator('#globalSearchResults [data-gs-pid]').count() > 0, afterNote: await pg.locator('#gsPartial, #gsEmpty').count() };
+      await pg.close();
+    }
+    // Viewport sweep: no horizontal page overflow on Home / List / Map / property page, 390-1920px.
+    {
+      const widths = [390, 768, 1024, 1280, 1440, 1920];
+      const pagesToCheck = [['home', 'la.html#/dashboard'], ['listFL', 'index.html#/auctions'], ['listLA', 'la.html#/lands'], ['map', 'la.html#/map'], ['detail', 'la.html#/lands/pla2']];
+      const overflow = [];
+      for (const w of widths) for (const [k, u] of pagesToCheck) {
+        const pg = await newPage({ viewport: { width: w, height: 900 } });
+        await pg.goto(html(u.split('#')[0]) + '#' + u.split('#')[1], { waitUntil: 'networkidle' });
+        await pg.waitForTimeout(350);
+        const over = await pg.evaluate(() => document.scrollingElement.scrollWidth - document.scrollingElement.clientWidth);
+        if (over > 0) overflow.push(`${w}:${k}:${over}`);
+        if (w === 390 && (k === 'listLA' || k === 'detail' || k === 'map' || k === 'home')) {
+          const small = await pg.evaluate(() => {
+            const sel = ['#stateSelect', '#accountBtn', '#ledgerTabs .ledger-tab', '#listMapBtn', '#mapSearchInput', '#mapCountySelect', '.map-ledger-pills button',
+              '#homeGuide [data-guide]', '#detailModal:not([hidden]) [data-section="acquire"] a'];
+            return sel.flatMap(q => [...document.querySelectorAll(q)].filter(e => e.offsetParent !== null).map(e => [q, Math.round(e.getBoundingClientRect().height)]))
+              .filter(([, h]) => h > 0 && h < 44).map(([q, h]) => q + ':' + h);
+          });
+          if (small.length) overflow.push(`${w}:${k}:small:${[...new Set(small)].join('|')}`);
+        }
+        await pg.close();
+      }
+      results.viewportSweep = overflow;
+    }
+  }
   // ---- Shell redesign (2026-10-04): Home, global search, state picker,
   // filter chips, county panel, property page chrome, mobile nav ----
   {
@@ -5104,7 +5167,7 @@ const EXPECTED = {
   },
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: { ready: true, controlled: true, tagline: "Tax Sale Property Intelligence", noState: true, cache: ["tdw-shell-v85"] },
+  brandSwReload: { ready: true, controlled: true, tagline: "Tax Sale Property Intelligence", noState: true, cache: ["tdw-shell-v86"] },
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · Tax Acquisitions — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · Tax Acquisitions — Florida", floridaCopy: true },
@@ -6213,6 +6276,10 @@ const EXPECTED = {
   savedStatusActive: "active",
   savedAcqStillShown: true,
   savedMissingNamed: {"row": 1, "text": true, "removeBtn": 1},
+  // First-run guide + viewport sweep (2026-10-05).
+  homeGuide: {"steps": 5, "findMentionsState": true, "verifyCounts": true, "verifyHonest": true, "noScores": true, "hidden": {"steps": 0, "show": 1}, "stillHidden": 1, "shownAgain": 5, "routed": "#/lands"},
+  searchWhileLoading: {"during": {"partial": 1, "text": "Still loading some Louisiana records - no match in the records loaded so far."}, "afterRows": true, "afterNote": 0},
+  viewportSweep: [],
   // Available price honesty (2026-10-05).
   priceWording: {"openingBid": {"label": "Opening bid", "partial": true, "note": "Not the full price: the source publishes this as a starting amount. Ask the county for the current total.", "total": null, "expired": null, "gap": "Current purchase total not on file - the listed figure is the opening bid only"}, "fixed": {"label": "Purchase price", "partial": false, "note": "As the source publishes it - confirm the amount due before paying.", "total": null, "expired": null, "gap": null}, "expiredStatement": {"label": "Total due", "partial": true, "note": "Last clerk statement $27,689.42, valid through Aug 31, 2026 - that date has passed. Request an updated statement from the clerk.", "total": 27689.42, "expired": true, "gap": "County purchase statement has expired - request an updated total"}, "currentStatement": {"label": "Total due from purchaser", "partial": true, "note": "Clerk statement, valid if received by Dec 31, 2099.", "total": 27689.42, "expired": false, "gap": null}}
 };
