@@ -3391,7 +3391,7 @@ function card(p, showCounty) {
     </div>
     ${classificationBadgeHtml(p) ? `<div class="prop-classification-line">${classificationBadgeHtml(p)}</div>` : ""}
     <div class="card-stat-grid ${marketVal ? "card-stat-grid-2" : "card-stat-grid-1"}">
-      <div class="card-stat card-stat-headline"><div class="card-stat-label">${p.source === "laft" ? "Purchase Price" : amountWord(p, "Opening Bid")}</div><div class="card-stat-val bid${bidPublished ? "" : " unpublished"}">${bidDisplayCard(p)}</div></div>
+      <div class="card-stat card-stat-headline"><div class="card-stat-label">${p.source === "laft" ? esc(availableAmountLabel(p)) : amountWord(p, "Opening Bid")}</div><div class="card-stat-val bid${bidPublished || purchaseStatementOf(p) ? "" : " unpublished"}${isPartialAmount(p) && !purchaseStatementOf(p) ? " partial" : ""}">${purchaseStatementOf(p) ? fmtShort(purchaseStatementOf(p).total) : bidDisplayCard(p)}</div>${currentPriceNote(p) ? `<div class="card-price-note${purchaseStatementOf(p) && purchaseStatementOf(p).expired ? " expired" : ""}">${esc(currentPriceNote(p))}</div>` : ""}</div>
       ${marketVal ? `<div class="card-stat card-stat-headline"><div class="card-stat-label">${esc(valueLabel(p))}</div><div class="card-stat-val market">${fmtShort(marketVal)}</div></div>` : ""}
     </div>
     ${p.source === "auction" && bidPublished && marketVal > 0 ? equitySpreadBarHtml(p) : ""}
@@ -3709,6 +3709,8 @@ function dataGaps(p) {
   if (!realAddress(p)) gaps.push("Street address (parcel-only listing)");
   if (!hasParcel(p)) gaps.push("Parcel # not published");
   if (!hasPublishedBid(p)) gaps.push(p.source === "laft" ? "Purchase price not published" : "Opening bid not published");
+  else if (p.source === "laft" && isPartialAmount(p) && !purchaseStatementOf(p)) gaps.push("Current purchase total not on file - the listed figure is the opening bid only");
+  else if (p.source === "laft" && purchaseStatementOf(p) && purchaseStatementOf(p).expired) gaps.push("County purchase statement has expired - request an updated total");
   if (!hasNum(p.market) && !hasNum(p.assessed)) gaps.push("No county value on file");
   if (p.source === "auction" && !p.sale_date) gaps.push("Sale date not scheduled");
   // Phase 72: no url_auction means the source published no link this
@@ -4189,6 +4191,9 @@ function availableDecisionHtml(p) {
   else if (hasPublishedBid(p)) cost = `${esc(fmtMoney(p.bid))}${sub(esc(tx ? "Vendor minimum bid (legacy column)" : AMOUNT_KIND_LABELS.PUBLISHED_AMOUNT_KIND_UNSPECIFIED))}`;
   else { cost = muted("Not published"); costCls = "muted"; }
   if (tp && ["quoted_amount", "amount_plus_costs", "amount_on_application"].includes(tp.type)) cost += sub(esc(tp.label));
+  const stCost = purchaseStatementOf(p);
+  if (stCost) cost = `${esc(fmtMoney(stCost.total))}${sub(esc(currentPriceNote(p)))}${stCost.url ? sub(`<a href="${esc(stCost.url)}" target="_blank" rel="noopener">County statement →</a>`) : ""}`;
+  else if (isPartialAmount(p)) cost += sub(esc(currentPriceNote(p)));
   rows.push(q("cost", "What does it cost?", cost, costCls));
   // 5. Where is it?
   rows.push(q("where", "Where is it?", `${street ? esc(street) : muted("No street address in the listing")}${sub(esc(`${p.county} ${UNIT_WORD}, ${region}`))}${sub(coords ? `<span class="mono">${Number(p.latitude).toFixed(5)}, ${Number(p.longitude).toFixed(5)}</span> · authoritative coordinates on file` : `<span class="muted">Not yet geocoded - no point is shown for this parcel</span>`)}`));
@@ -4470,6 +4475,54 @@ const AMOUNT_KIND_LABELS = {
   FIXED_PURCHASE_PRICE: "Purchase price", ESTIMATED_PURCHASE_PRICE: "Estimated purchase price",
   PUBLISHED_AMOUNT_KIND_UNSPECIFIED: "Published amount - what the source called it was not recorded"
 };
+// 2026-10-05 (customer report, Citrus 2024-0075TD): a Florida Lands
+// Available row's published figure is usually the OPENING BID from the tax
+// deed application - the county's price to buy it now adds the omitted
+// (later-year) taxes, the interest accrued since, and the deed fees. The card
+// called that opening bid "Purchase price" ($2,607 on a parcel whose clerk
+// statement reads "Total Due from Purchaser $27,689.42"). These kinds are a
+// starting figure, never the price to buy now.
+var PARTIAL_AMOUNT_KINDS = ["OPENING_BID", "ORIGINAL_OPENING_BID", "MINIMUM_PURCHASE_AMOUNT"];
+function isPartialAmount(p) { return !!p && PARTIAL_AMOUNT_KINDS.includes(p.purchase_amount_kind); }
+// The county's own purchase statement, when one has been read
+// (otc_provenance.purchase_statement: total_due, valid_through, document_url,
+// observed_on). A statement is a quote with an end date: once that date has
+// passed the interest has moved on and the total is out of date.
+function purchaseStatementOf(p) {
+  const st = p && p.otc_provenance && p.otc_provenance.purchase_statement;
+  if (!st || !hasNum(st.total_due) || !(Number(st.total_due) > 0)) return null;
+  const through = st.valid_through ? String(st.valid_through).slice(0, 10) : "";
+  const expired = !!through && through < new Date().toISOString().slice(0, 10);
+  return { total: Number(st.total_due), through, expired, url: st.document_url || "", observed: st.observed_on ? String(st.observed_on).slice(0, 10) : "" };
+}
+// What the Available headline figure IS - named by its kind, never "Purchase
+// price" unless the source said it is the price.
+function availableAmountLabel(p) {
+  if (purchaseStatementOf(p)) return "Total due from purchaser";
+  if (p.purchase_amount_kind && AMOUNT_KIND_LABELS[p.purchase_amount_kind] && p.purchase_amount_kind !== "PUBLISHED_AMOUNT_KIND_UNSPECIFIED") return AMOUNT_KIND_LABELS[p.purchase_amount_kind];
+  if (p.purchase_amount_kind === "PUBLISHED_AMOUNT_KIND_UNSPECIFIED") return "Published amount";
+  return "Purchase price";
+}
+// One line under the headline: what the figure leaves out, or how current
+// the county's statement is.
+// Test hook (tests/run_test.mjs): the price wording for synthetic rows.
+window.__tdwPriceWording = p => ({ label: availableAmountLabel(p), partial: isPartialAmount(p), note: currentPriceNote(p), statement: purchaseStatementOf(p), gaps: dataGaps(p) });
+function currentPriceNote(p) {
+  if (!p || p.source !== "laft") return "";
+  const st = purchaseStatementOf(p);
+  if (st) {
+    const when = st.through ? `valid if received by ${fmtDate(st.through)}` : "validity date not printed";
+    return st.expired
+      ? `County statement ${when} - that date has passed and interest has accrued since; request an updated statement before buying.`
+      : `County statement, ${when}. Includes the opening bid, omitted taxes, interest and fees.`;
+  }
+  if (isPartialAmount(p)) {
+    return regionOf(p) === "FL"
+      ? "Not the price to buy now: the county's total adds omitted taxes, accrued interest and deed fees. Request the current Lands Available statement from the clerk."
+      : "Not the full price: the source publishes this as a starting amount. Ask the county for the current total.";
+  }
+  return "";
+}
 const SOURCE_AUTHORITY_LABELS = {
   GOVERNMENT_DIRECT: "the county / clerk's own site", GOVERNMENT_PLATFORM: "a platform contracted by the county",
   VENDOR_COUNSEL: "delinquent-tax counsel for the taxing units (vendor listing)", VENDOR_AUCTION: "an auction platform (vendor listing)"
@@ -4600,7 +4653,10 @@ function inventoryCardHtml(p) {
   else if (hasNum(p.purchase_amount) && Number(p.purchase_amount) > 0) amount = `${esc(fmtMoney(p.purchase_amount))}<span class="kv-sub">${esc(AMOUNT_KIND_LABELS[p.purchase_amount_kind] || AMOUNT_KIND_LABELS.PUBLISHED_AMOUNT_KIND_UNSPECIFIED)}</span>`;
   else if (hasPublishedBid(p)) amount = `${esc(fmtMoney(p.bid))}<span class="kv-sub">${esc(tx ? "Vendor minimum bid (legacy column)" : AMOUNT_KIND_LABELS.PUBLISHED_AMOUNT_KIND_UNSPECIFIED)}</span>`;
   else amount = muted("Not published");
-  inv.push(row(tx ? "Amount" : "Price", amount));
+  const stInv = purchaseStatementOf(p);
+  if (stInv) amount = `${esc(fmtMoney(stInv.total))}<span class="kv-sub">${esc(currentPriceNote(p))}</span>`;
+  else if (isPartialAmount(p)) amount += `<span class="kv-sub">${esc(currentPriceNote(p))}</span>`;
+  inv.push(row(tx ? "Amount" : stInv ? "Total due" : isPartialAmount(p) ? "Opening amount" : "Price", amount));
   if (p.certificate_no) inv.push(row("Certificate #", esc(p.certificate_no), "mono"));
   // Migration 019 columns: rendered only when the API projects them, so an
   // older RPC never shows a false "Not published".
@@ -9696,7 +9752,7 @@ function homeRecentRows() {
 function homeRecentCardHtml(p) {
   const street = p.source === "certificate" ? "" : realAddress(p);
   const title = p.source === "certificate" ? `Certificate #${esc(p.certificate_no || "not published")}` : (street ? esc(street) : lotTitle(p));
-  const amountLabel = p.source === "laft" ? "Purchase price" : p.source === "certificate" ? "Face amount" : amountWord(p, "Opening bid");
+  const amountLabel = p.source === "laft" ? availableAmountLabel(p) : p.source === "certificate" ? "Face amount" : amountWord(p, "Opening bid");
   return `<button type="button" class="home-recent-card" data-home-pid="${esc(String(p.id))}">
     ${propertyVisual(p, "prop-card-photo home-recent-photo")}
     <span class="home-recent-body">

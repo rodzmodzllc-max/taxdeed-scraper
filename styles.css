@@ -2086,3 +2086,10 @@ a.ledger-badge:hover{text-decoration:underline}
   .auctions-body{grid-template-columns:minmax(0,1fr) 300px}
   .app-shell{grid-template-columns:220px minmax(0,1fr)}
 }
+
+/* Available price honesty (2026-10-05): an opening bid is never shown as the
+   price to buy now; the note under it says what the county's total adds, or
+   how current the county's purchase statement is. */
+.card-stat-val.partial{color:var(--ink-soft)}
+.card-price-note{margin-top:.3rem;font-size:.72rem;line-height:1.35;color:var(--ink-soft)}
+.card-price-note.expired{color:var(--warn)}

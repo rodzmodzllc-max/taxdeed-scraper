@@ -2485,7 +2485,7 @@ results.flProvenanceFresh = ((await flInvPage.locator('#detailModalInner .proven
 results.flProvenanceNoScoreWords = !/confidence score|ai score|investment score|quality badge|probability|verified label/i.test(((await flInvPage.locator('#detailModalInner .provenance-card').textContent()) || '').replace(/Data Quality & Provenance|Report a data problem/g, ''));
 results.flInventoryGroups = await flInvPage.locator('#detailModalInner .inventory-card .kv-group-head').allTextContents();
 results.flInventoryType = await invVal(flInvPage, 'Inventory');
-results.flInventoryPrice = await invVal(flInvPage, 'Price');
+results.flInventoryPrice = await invVal(flInvPage, 'Opening amount');
 results.flInventoryCertificate = await invVal(flInvPage, 'Certificate #');
 results.flInventoryAvailable = await invVal(flInvPage, 'Available for purchase');
 results.flInventoryEscheat = await invVal(flInvPage, 'Escheats to county');
@@ -4340,6 +4340,26 @@ await monDash.close();
   await big.close();
 }
 
+// --- Available price honesty (2026-10-05, Citrus 2024-0075TD) ---
+// An opening bid is never called the purchase price; a county purchase
+// statement is shown with its valid-through date and flagged once expired.
+{
+  const pp = await newPage({ viewport: { width: 1000, height: 800 } });
+  await pp.goto(BASE_URL + '#/lands', { waitUntil: 'networkidle' });
+  await pp.waitForFunction(() => typeof window.__tdwPriceWording === 'function', null, { timeout: 30000 });
+  results.priceWording = await pp.evaluate(() => {
+    const base = { source: 'laft', state: 'FL', county: 'Citrus', parcel: '1', bid: 2606.7 };
+    const w = p => { const r = window.__tdwPriceWording(p); return { label: r.label, partial: r.partial, note: r.note, total: r.statement ? r.statement.total : null, expired: r.statement ? r.statement.expired : null, gap: r.gaps.find(g => /purchase total|statement/.test(g)) || null }; };
+    return {
+      openingBid: w({ ...base, purchase_amount: 2606.7, purchase_amount_kind: 'OPENING_BID' }),
+      fixed: w({ ...base, purchase_amount: 1500, purchase_amount_kind: 'FIXED_PURCHASE_PRICE' }),
+      expiredStatement: w({ ...base, purchase_amount: 2606.7, purchase_amount_kind: 'OPENING_BID', otc_provenance: { purchase_statement: { total_due: 27689.42, valid_through: '2026-08-31', document_url: 'https://example.invalid/statement.pdf' } } }),
+      currentStatement: w({ ...base, purchase_amount: 2606.7, purchase_amount_kind: 'OPENING_BID', otc_provenance: { purchase_statement: { total_due: 27689.42, valid_through: '2099-12-31' } } })
+    };
+  });
+  await pp.close();
+}
+
 await browser.close();
 
 // ============================================================
@@ -4388,7 +4408,7 @@ const EXPECTED = {
   },
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: { ready: true, controlled: true, tagline: "Tax Sale Property Intelligence", noState: true, cache: ["tdw-shell-v78"] },
+  brandSwReload: { ready: true, controlled: true, tagline: "Tax Sale Property Intelligence", noState: true, cache: ["tdw-shell-v80"] },
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · Tax Acquisitions — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · Tax Acquisitions — Florida", floridaCopy: true },
@@ -5124,7 +5144,7 @@ const EXPECTED = {
   certDetailTdaEligibleNow: true,
   certDetailYieldInfoTips: 2,
   exportBtnLabelLaft: '⬇ Export OTC List (CSV)',
-  laftPurchasePriceLabel: 'Purchase Price',
+  laftPurchasePriceLabel: 'Opening bid',   // 2026-10-05: an opening bid is never called the purchase price
   laftCtaText: 'View county Lands Available list',
   bidListChipTextInitial: '0/10',
   bidBtnIconBefore: '⚐',
@@ -5295,7 +5315,7 @@ const EXPECTED = {
   txInventoryGapNamesAcquisition: true,
   txInventoryGapNeverNamesLink: true,
   txInventoryAcquire: "Multi-step county process Tax Assessor-Collector (fixture) - full process in \"How do I acquire it?\" above",
-  flInventoryLabels: ['Status', 'Inventory', 'Price', 'Certificate #', 'Available for purchase', 'Escheats to county', 'Source list', 'Source document', 'List as of', 'Source document dated', 'Published by', 'Last read from source', 'Parcel #', 'Legal description', 'Name in which assessed', 'Assessed value', 'Taxable value', 'Acreage', 'Land use', 'Homestead', 'How to acquire', 'Purchase link'],
+  flInventoryLabels: ['Status', 'Inventory', 'Opening amount', 'Certificate #', 'Available for purchase', 'Escheats to county', 'Source list', 'Source document', 'List as of', 'Source document dated', 'Published by', 'Last read from source', 'Parcel #', 'Legal description', 'Name in which assessed', 'Assessed value', 'Taxable value', 'Acreage', 'Land use', 'Homestead', 'How to acquire', 'Purchase link'],
   flInventoryGroups: ['Inventory', 'Property', 'Purchase path'],
   flInventoryStatus: 'Available over the counter Basis: list presence · observed Aug 11, 2026',
   flProvenanceRows: [
@@ -5308,7 +5328,7 @@ const EXPECTED = {
   flProvenanceFresh: 'Last read from the source Aug 11, 2026 · list dated Aug 10, 2026',
   flProvenanceNoScoreWords: true,
   flInventoryType: 'Lands Available - fixed price, over the counter (F.S. 197.502(7))',
-  flInventoryPrice: '$2,000.00 Opening bid',
+  flInventoryPrice: "$2,000.00 Opening bid Not the price to buy now: the county's total adds omitted taxes, accrued interest and deed fees. Request the current Lands Available statement from the clerk.",
   flInventoryCertificate: '2019-0042',
   flInventoryAvailable: 'Jun 15, 2026',
   flInventoryEscheat: 'Jul 1, 2029 Deadline stated by the county list (F.S. 197.502(8))',
@@ -5464,7 +5484,9 @@ const EXPECTED = {
   selfSignupPending: {"pending": true, "app": false, "gate": false},
   selfSignupDuplicateMsg: "An account with this email already exists. Choose “Already have an account? Sign in”, or “Forgot password?” to set a new password.",
   selfSignupRefusalMsg: "Please choose a password of at least 8 characters.",
-  selfSignupRefusalNoFallback: 1
+  selfSignupRefusalNoFallback: 1,
+  // Available price honesty (2026-10-05).
+  priceWording: {"openingBid": {"label": "Opening bid", "partial": true, "note": "Not the price to buy now: the county's total adds omitted taxes, accrued interest and deed fees. Request the current Lands Available statement from the clerk.", "total": null, "expired": null, "gap": "Current purchase total not on file - the listed figure is the opening bid only"}, "fixed": {"label": "Purchase price", "partial": false, "note": "", "total": null, "expired": null, "gap": null}, "expiredStatement": {"label": "Total due from purchaser", "partial": true, "note": "County statement valid if received by Aug 31, 2026 - that date has passed and interest has accrued since; request an updated statement before buying.", "total": 27689.42, "expired": true, "gap": "County purchase statement has expired - request an updated total"}, "currentStatement": {"label": "Total due from purchaser", "partial": true, "note": "County statement, valid if received by Dec 31, 2099. Includes the opening bid, omitted taxes, interest and fees.", "total": 27689.42, "expired": false, "gap": null}}
 };
 
 const mismatches = [];
