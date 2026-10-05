@@ -1,0 +1,20 @@
+{
+  "_comment": "The 54 active Florida AVAILABLE rows whose listed figure is an opening bid / minimum amount, by county, source and amount kind (read-only production query, 2026-10-05). Counts only - no row data. tests/run_test.mjs renders one synthetic row per group and requires every group to get the partial-amount semantics (never 'Purchase price'); tests/python/test_amount_semantics.py pins the total.",
+  "observed_on": "2026-10-05",
+  "groups": [
+    {"county": "Bay", "source_id": "fl_laft_pioneer", "kind": "OPENING_BID", "n": 2},
+    {"county": "Citrus", "source_id": "fl_laft_pioneer", "kind": "OPENING_BID", "n": 5},
+    {"county": "Duval", "source_id": "fl_laft_pioneer", "kind": "OPENING_BID", "n": 1},
+    {"county": "Escambia", "source_id": "fl_laft_html", "kind": "OPENING_BID", "n": 1},
+    {"county": "Gadsden", "source_id": "fl_laft_html", "kind": "OPENING_BID", "n": 8},
+    {"county": "Hernando", "source_id": "fl_laft_pioneer", "kind": "OPENING_BID", "n": 6},
+    {"county": "Hillsborough", "source_id": "fl_laft_hillsborough", "kind": "OPENING_BID", "n": 3},
+    {"county": "Indian River", "source_id": "fl_laft_html", "kind": "ORIGINAL_OPENING_BID", "n": 2},
+    {"county": "Leon", "source_id": "fl_laft_leon", "kind": "OPENING_BID", "n": 2},
+    {"county": "Levy", "source_id": "fl_laft_pioneer", "kind": "OPENING_BID", "n": 5},
+    {"county": "Orange", "source_id": "fl_laft_orange", "kind": "MINIMUM_PURCHASE_AMOUNT", "n": 3},
+    {"county": "Osceola", "source_id": "fl_laft_osceola", "kind": "OPENING_BID", "n": 10},
+    {"county": "Palm Beach", "source_id": "fl_laft_pioneer", "kind": "OPENING_BID", "n": 3},
+    {"county": "St. Lucie", "source_id": "fl_laft_stlucie", "kind": "OPENING_BID", "n": 3}
+  ]
+}

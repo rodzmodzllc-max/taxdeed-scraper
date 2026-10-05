@@ -1139,7 +1139,7 @@ function stripSubText(p) {
   if (p.source === "certificate") return "Certificate" + (p.expiration_date ? " · expires " + p.expiration_date : "");
   // A Texas "laft" row is struck-off / future-sale inventory (LGBS), never
   // Florida's statutory fixed-price list - same rule as app.js's kickerParts().
-  if (p.source === "laft") return p.state === "TX" ? "Struck-off inventory" : "Lands Available · fixed price";
+  if (p.source === "laft") return p.state === "TX" ? "Struck-off inventory" : "Lands Available · over the counter";
   return "Auction" + (p.sale_date ? " · sale " + p.sale_date : " · not scheduled");
 }
 // app.js hands over previewFacts() with each render (see absorb()); this is
@@ -1151,6 +1151,9 @@ function facts(p) {
 }
 
 function bidText(p) {
+  // 2026-10-05: always with its label (app.js amountShort) - an Available
+  // opening bid is never a bare figure that reads as the price.
+  if (typeof amountShort === "function") { const a = amountShort(p); return escHtml(`${a.label}: ${a.text}`); }
   const n = Number(p.bid);
   return p.bid !== null && p.bid !== undefined && n > 0 ? fmtShort(n) : "Not published";
 }
@@ -1233,10 +1236,10 @@ function showPreview(p) {
   const visual = typeof propertyVisual === "function" ? propertyVisual(p, "pv-visual") : "";
   const money = f ? `
     <div class="pv-money">
-      <div class="pv-stat"><span class="pv-label">${escHtml(f.bidLabel)}</span><b class="pv-val bid${f.bid ? "" : " muted"}">${escHtml(f.bid || "Not published")}</b></div>
+      <div class="pv-stat"><span class="pv-label">${escHtml(f.bidLabel)}</span><b class="pv-val bid${f.bid ? "" : " muted"}">${escHtml(f.bid || "Not published")}</b>${f.bidNote ? `<small class="pv-amount-note">${escHtml(f.bidNote)}</small>` : ""}</div>
       <div class="pv-stat"><span class="pv-label">Value on file</span><b class="pv-val${f.value ? "" : " muted"}">${escHtml(f.value || "No county value on file")}</b>${f.valueLabel ? `<small>${escHtml(f.valueLabel)}</small>` : ""}</div>
     </div>` : `
-    <div class="pv-money"><div class="pv-stat"><span class="pv-label">Opening bid</span><b class="pv-val bid">${bidText(p)}</b></div></div>`;
+    <div class="pv-money"><div class="pv-stat"><b class="pv-val bid">${bidText(p)}</b></div></div>`;
   const ids = f ? `
     <dl class="pv-ids">
       <div><dt>${escHtml(f.parcelLabel)}</dt><dd${f.parcel ? "" : ' class="muted"'}>${escHtml(f.parcel || "Not published")}</dd></div>
@@ -1612,8 +1615,8 @@ function bindMapInteraction() {
     const bids = list.map(p => Number(p.bid)).filter(n => n > 0);
     const range = bids.length
       ? (bids.length === 1 ? fmtShort(bids[0]) : `${fmtShort(Math.min(...bids))} - ${fmtShort(Math.max(...bids))}`)
-      : "no published price";
-    tip.innerHTML = `<b>${county} ${UNIT_WORD}</b><span>${list.length} ${list.length === 1 ? "property" : "properties"} - ${range}</span>`;
+      : "no published amount";
+    tip.innerHTML = `<b>${county} ${UNIT_WORD}</b><span>${list.length} ${list.length === 1 ? "property" : "properties"} - ${bids.length ? `listed amounts ${range} (bids / listed figures, not purchase prices)` : range}</span>`;
     const box = canvas.getBoundingClientRect();
     // Flip the tooltip to the left of the cursor near the right edge so it
     // can't run off the panel.
@@ -1683,6 +1686,7 @@ function bindReset() {
 // event, so the preview renders with the cards' own honest wording and the
 // same photo -> satellite still -> county context -> placeholder imagery.
 let previewFacts = null;
+let amountShort = null;
 let propertyVisual = null;
 let hydrateVisuals = null;
 
@@ -1692,6 +1696,7 @@ function absorb(detail) {
   ledger = d.ledger || ledger;
   openDetail = d.openDetail || openDetail;
   previewFacts = d.previewFacts || previewFacts;
+  amountShort = d.amountShort || amountShort;
   propertyVisual = d.propertyVisual || propertyVisual;
   hydrateVisuals = d.hydrateVisuals || hydrateVisuals;
   // The Map page's own county select (#mapCountySelect) is the source of

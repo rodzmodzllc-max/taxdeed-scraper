@@ -2409,3 +2409,27 @@ order with no row missing or repeated.
 
 - `claude/improvement-roadmap.md` in the "tax florida app" claude.ai Project — the full dated log of every fix, audit finding, and open decision. This is where new findings should be appended, not here.
 - This file (`CLAUDE.md`) should stay a **stable architecture map** — update it when the architecture, data model, or a hard-won lesson changes, not for routine status updates. Verify claims here still hold before trusting them blindly — this file itself was wrong about the repo count until 2026-08-25, and wrong about local-PC involvement until 2026-08-25.
+
+## Available amount semantics (2026-10-05, PR #82, no migration)
+
+Full description: `docs/available-amount-semantics.md`. Stable facts:
+- **`amountInfo(p)` in app.js is the one description of an Available figure**
+  (card, Home, Map strip / preview / popups, summary, decision, inventory,
+  stats, table, export). States: official_current / official_expired / price /
+  base / estimate / partial / vendor / unspecified / quoted / not_published.
+  An opening bid / minimum is never "Purchase price"; RealTDM's figure is a
+  "Base purchase price"; Texas LGBS is "Minimum bid (vendor listing)".
+- **No tax amount owed is stored anywhere.** assessed / market /
+  taxable_value are values; never derive a tax from them.
+- **Florida opening bid (F.S. 197.502(6), 2026 text) already includes**
+  certificates, delinquent / omitted / current taxes then due, interest,
+  costs - and half the assessed value on homestead. Lands Available adds only
+  interest, later years' taxes, doc stamps, recording (`FL_LAFT_ADDITIONS`).
+  No "two years of taxes" rule exists in the statute or the clerks' pages.
+- `fees()` no longer adds the homestead half (it was a double count) and
+  returns null for Available rows.
+- A clerk statement lives in `otc_provenance.purchase_statement` (total_due,
+  valid_through, document_url, observed_on, publisher, components) with
+  earlier ones in `purchase_statement_history`; past valid_through = Expired,
+  never current. None is stored yet; the Pioneer statements are scanned
+  images (OCR) with unestablished reuse permission.

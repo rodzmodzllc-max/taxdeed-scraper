@@ -3,15 +3,12 @@
 Static checks only. They read local files, contact no source, and touch no
 Supabase project.
 
-1. Homestead fee estimate (open question, NOT silently fixed).
-   fees() in public/app.js adds half the assessed value on a homesteaded
-   Florida parcel on top of the published opening bid. FS 197.502(6)(c)
-   may already fold that amount into the opening bid, which would make
-   this a double count. Production evidence is suggestive but not proof, so
-   the arithmetic is deliberately unchanged, pending accountant or attorney
-   review. These tests pin today's formula, so that any change to it is
-   deliberate and reviewed. They also check that the open question stays
-   disclosed wherever the figure is explained.
+1. Homestead fee estimate (RESOLVED 2026-10-05).
+   fees() in public/app.js used to add half the assessed value on a
+   homesteaded Florida parcel on top of the published opening bid. The 2026
+   text of FS 197.502(6)(c) says the opening bid on homestead property "shall
+   include" that amount, so the add-on was a double count and is removed.
+   These tests pin the corrected formula and fail if the surcharge returns.
 
 2. Product claims corrected in this pass must not creep back: title
    screening, private notes, NAIP imagery labelled as Street View, Florida
@@ -44,37 +41,36 @@ def _fees_body():
     return m.group(1)
 
 
-def _python_fees(bid, assessed, homestead, include_qt=False):
-    """Mirror of fees() in public/app.js for a Florida row, as it stands today."""
+def _python_fees(bid, include_qt=False):
+    """Mirror of fees() in public/app.js for a Florida auction row."""
     dsr, rec, qt = _const("DOC_STAMP_RATE"), _const("RECORDING_FEE"), _const("QUIET_TITLE_EST")
-    base = bid + (assessed / 2 if homestead else 0)
-    total = base + base * dsr + rec + (qt if include_qt else 0)
+    total = bid + bid * dsr + rec + (qt if include_qt else 0)
     return total - bid
 
 
 def test_fees_formula_is_pinned():
     body = _fees_body()
     assert 'if (regionOf(p) !== "FL") return null;' in body
-    assert "const base = bid + homesteadSurcharge(p);" in body
-    assert "base * DOC_STAMP_RATE + RECORDING_FEE" in body
-    assert "const homesteadSurcharge = p => (p.homestead ? Number(p.assessed || 0) / 2 : 0);" in APP
+    assert 'if (p.source === "laft") return null;' in body
+    assert "bid * DOC_STAMP_RATE + RECORDING_FEE" in body
+    assert "homesteadSurcharge(" not in APP
 
 
-def test_fees_homestead_example_documents_possible_double_count():
-    # $50,000 opening bid, $80,000 assessed, homesteaded. If the clerk's
-    # opening bid already includes the $40,000 half-assessed amount, the
-    # correct add-on would be about $380. Today's estimate is about $40,660.
-    # This test records the current figure. It is not an endorsement of it.
-    assert round(_python_fees(50000, 80000, True), 2) == 40660.0
-    assert round(_python_fees(50000, 80000, False), 2) == 380.0
+def test_fees_never_double_count_the_homestead_half():
+    # $50,000 opening bid, $80,000 assessed, homesteaded. FS 197.502(6)(c)
+    # already puts the $40,000 half-assessed amount inside the opening bid,
+    # so the add-on is doc stamps + recording only, homestead or not.
+    assert round(_python_fees(50000), 2) == 380.0
+    assert "assessed" not in _fees_body().split("RESOLVED")[0]
 
 
-def test_fees_open_question_is_disclosed():
-    assert "OPEN QUESTION" in _fees_body()
+def test_fees_disclosure_matches_the_formula():
+    assert "RESOLVED 2026-10-05" in _fees_body()
     tip = re.search(r'const FEES_TIP = "(.*?)";', APP).group(1)
-    assert "counts it twice" in tip and "review" in tip
+    assert "NOT added" in tip and "197.502(6)(c)" in tip
     idx = read("public/index.html")
-    assert idx.count("counted twice") >= 2  # footer + Terms
+    assert "counted twice" not in idx
+    assert idx.count("already") >= 2 and "197.502(6)(c)" in idx
 
 
 def test_texas_page_has_no_florida_fee_or_statute_copy():
