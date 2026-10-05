@@ -180,6 +180,6 @@ def test_a09_frontend_labels_mirror_the_engine_and_absence_wording_is_never_no_l
     for h in ("Acquisition Path", "Acquisition Steps (published by the source)", "County Office", "County Phone", "County E-mail",
               "County Address (in person)", "County Mailing Address", "Application / Instructions Document", "Matched To Source By"):
         assert f'["{h}"' in cols, h
-    assert (REPO / "public/sw.js").read_text(encoding="utf-8").count('const CACHE = "tdw-shell-v81"') == 1
+    assert (REPO / "public/sw.js").read_text(encoding="utf-8").count('const CACHE = "tdw-shell-v82"') == 1
     for f in ("app.js", "styles.css", "sw.js"):
         assert (REPO / f).read_bytes() == (REPO / "public" / f).read_bytes(), f

@@ -859,7 +859,12 @@ export function createClient() {
         const rows = FIXTURE_PROPERTIES.concat(pState === "MI" && window.__stubBigRows ? window.__stubBigRows : [])
           .filter(p => !EMPTY_STATE && (p.state || "FL") === pState)
           .filter(p => !args.p_ledger_type || (p.ledger_type || LEDGER_FOR_SOURCE[p.source]) === args.p_ledger_type)
-          .slice().sort((a, b) => String(a.county).localeCompare(String(b.county)) || String(a.case_no).localeCompare(String(b.case_no)));
+          .slice().sort((a, b) => String(a.county).localeCompare(String(b.county)) || String(a.case_no).localeCompare(String(b.case_no)))
+          // ?stripacq=1 (2026-10-05): pla2 in the shape production's 3,500 East
+          // Baton Rouge rows had after an adapter sync replaced otc_provenance
+          // wholesale - the typed path columns stay, the acquisition record is gone.
+          .map(p => new URLSearchParams(location.search).get("stripacq") === "1" && p.id === "pla2"
+            ? { ...p, otc_provenance: { adapter: "la_ebr_adjudicated", identifier: "case_no", amount: null, coordinates: "published" } } : p);
         const offset = Number(args.p_offset) || 0, limit = Math.min(Number(args.p_limit) || 20000, cap);
         // Load-resilience fixtures (2026-10-04):
         //   ?failpage=<ledger>:<offset>[,...]   that page always fails (statement timeout)
