@@ -2409,3 +2409,15 @@ order with no row missing or repeated.
 
 - `claude/improvement-roadmap.md` in the "tax florida app" claude.ai Project — the full dated log of every fix, audit finding, and open decision. This is where new findings should be appended, not here.
 - This file (`CLAUDE.md`) should stay a **stable architecture map** — update it when the architecture, data model, or a hard-won lesson changes, not for routine status updates. Verify claims here still hold before trusting them blindly — this file itself was wrong about the repo count until 2026-08-25, and wrong about local-PC involvement until 2026-08-25.
+
+## Clerk purchase statements (2026-10-05, PR open, read-only, no migration)
+
+Full description: `docs/clerk-statements.md`. `scripts/harvest_clerk_statements.py`
+reads Pioneer TaxSmartWeb "List of Lands" statements (scanned PDFs, OCR) and
+writes only `out/clerk_statements.json`; it touches no database and runs in no
+workflow. A statement is VERIFIED only when exactly one reading of its OCR'd
+lines satisfies the statement's own three subtotals to the cent; the record
+keeps the clerk's printed Total Due from Purchaser. Current = the verified
+statement from the docket's NEWEST statement document, else none. Only Citrus
+is configured. Reuse permission for the clerk images is not established; no
+production write is authorized.
