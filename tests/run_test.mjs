@@ -4151,6 +4151,40 @@ await navMap.close();
       minTap: Math.min(...Array.from(document.querySelectorAll('#upcomingSales .cc-event')).filter(e => e.offsetParent !== null).flatMap(e => Array.from(e.querySelectorAll('.cc-link,.cc-dossier'))).map(a => Math.round(a.getBoundingClientRect().height))) }));
     await m.close();
   }
+  // ---- Financial position + documents & links, every Available state (2026-10-05) ----
+  {
+    const fpv = JSON.parse(fs.readFileSync(new URL('./python/fixtures/financial_position_cases.json', import.meta.url), 'utf8'));
+    const dcv = JSON.parse(fs.readFileSync(new URL('./python/fixtures/acquisition_documents_cases.json', import.meta.url), 'utf8'));
+    const pg = await newPage({ viewport: { width: 1280, height: 900 } });
+    pg.on('pageerror', e => errors.push('fp pageerror: ' + e.message));
+    await pg.goto(BASE_URL + '#/lands', { waitUntil: 'networkidle' });
+    await pg.waitForTimeout(300);
+    results.financialPositionVectors = await pg.evaluate(v => v.cases.filter(c => JSON.stringify(window.__tdwFinancialPositionCore(c.amount, c.terms, c.statement)) !== JSON.stringify(c.expected)).map(c => c.name), fpv);
+    results.acquisitionDocumentVectors = await pg.evaluate(v => v.cases.filter(c => window.__tdwClassifyAcquisitionLink(c.url, c.role, c.kind) !== c.expected).map(c => c.name), dcv);
+    await pg.close();
+    const states = {};
+    for (const [page, pid] of [['index.html', 'p15'], ['index.html', 'p3'], ['tx.html', 'ptx3'], ['la.html', 'pla1'], ['mi.html', 'pmi_dlba1'], ['sc.html', 'psc_horry1']]) {
+      const d = await newPage({ viewport: { width: 1280, height: 900 } });
+      d.on('pageerror', e => errors.push('fp detail pageerror: ' + e.message));
+      // Unreviewed sources (MI, SC) are admin-visible only.
+      await d.goto(BASE_URL.replace(/index\.html$/, page) + (/^(pmi|psc)/.test(pid) ? '?profile=admin' : '') + '#/lands/' + pid, { waitUntil: 'networkidle' });
+      await d.waitForTimeout(500);
+      states[pid] = await d.evaluate(() => {
+        const m = document.querySelector('#detailModal:not([hidden])');
+        if (!m) return null;
+        const money = m.querySelector('[data-section="money"]'), docs = m.querySelector('[data-section="documents"]');
+        const order = [...m.querySelectorAll('[data-section]')].map(e => e.dataset.section);
+        return { money: !!money, acqBasis: money ? money.querySelector('.fp-acq').dataset.fpBasis : null,
+          total: money ? money.querySelector('.fp-total').dataset.fpTotal : null,
+          totalText: money ? money.querySelector('.fp-total .fp-acq-val').textContent.trim() : null,
+          docs: docs ? [...docs.querySelectorAll('[data-doc-class]')].map(e => e.dataset.docClass) : null,
+          order: order.indexOf('acquire') >= 0 && order.indexOf('money') === order.indexOf('acquire') + 1 && order.indexOf('documents') === order.indexOf('truth') + 1,
+          noScore: !/\b(score|ROI|undervalued|great investment|hot property)\b/i.test(money ? money.textContent : '') };
+      });
+      await d.close();
+    }
+    results.financialPositionStates = states;
+  }
   // ---- Final visual refinement (2026-10-05) ----
   {
     const q = {};
@@ -5519,7 +5553,7 @@ const EXPECTED = {
   detroitSubsetVectors: {"cases": 50, "mismatches": []},
   availDefaultLanding: {"FL": {"hash": "#/lands", "activeTab": "laft", "cards": true, "ledgers": ["laft"]}, "LA": {"hash": "#/lands", "activeTab": "laft", "cards": true, "ledgers": ["laft"]}, "WY": {"hash": "#/auctions", "activeTab": "auction", "cards": true, "ledgers": ["auction"]}},   // 2026-10-04: WY fixture row pwy1 (landing-ledger test)
   // Acquisition-path semantics (2026-10-03): Horry's county-wide bid-form PDF.
-  acqPathHorryDetail: {"modes": ["bid"], "saysOnline": false, "saysPropertyLink": false, "saysBid": true, "pdfLinks": ["Bid form →", "Download bid form", "Bid form →", "County process page →", "Application form to download (published by the source) →", "Application / purchase instructions →"], "pathEvidence": true},
+  acqPathHorryDetail: {"modes": ["bid"], "saysOnline": false, "saysPropertyLink": false, "saysBid": true, "pdfLinks": ["Bid form →", "Download bid form", "Bid form →", "County process page →", "Application form to download (published by the source) →", "Application / purchase instructions →", "Download the form - complete and submit it offline →"], "pathEvidence": true},
   // Collection vs customer publication (2026-10-02).
   devVisAdminMiLands: {"cards": 6, "reviewChips": ["Source review: Unreviewed · not customer-published", "Source review: Unreviewed · not customer-published", "Source review: Unreviewed · not customer-published", "Source review: Unreviewed · not customer-published", "Source review: Unreviewed · not customer-published", "Source review: Unreviewed · not customer-published"], "programs": ["Marketed Structure For Sale", "Marketed Structure For Sale", "Marketed Structure For Sale", "Marketed Structure For Sale", "Own It Now", "Side Lot For Sale"], "pending": "6 records from sources awaiting customer-publication review are shown to you as an admin, each labelled \"Source review\". Customers in published mode do not see them.", "withheld": null},
   devVisAdminDetail: {"banner": "Source review: Unreviewed. This record comes from a source awaiting customer-publication review - shown to you as an admin. It is not customer-published. Its availability below is the source's own statement and is a separate fact.", "reviewRow": "Source publication review: Unreviewed Customer-visible: No (shown to you as an admin) Source program / status: Side Lot For Sale Detroit customer subset: Not included in current Detroit customer subset - no structure in the source's own status (vacant lot or program record) · structure evidence: none in the source's status", "identifier": true, "program": true, "lastRead": true, "neverApproved": true},
@@ -5537,7 +5571,7 @@ const EXPECTED = {
   },
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: {"ready": true, "controlled": true, "tagline": "Public Property Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v92"]},
+  brandSwReload: {"ready": true, "controlled": true, "tagline": "Public Property Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v93"]},
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · TaxDeed-Scraper — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · TaxDeed-Scraper — Florida", floridaCopy: true },
@@ -5772,7 +5806,7 @@ const EXPECTED = {
   oppBidText: '$5,000.00 Value ÷ bid 18.0× (screening ratio, not a return)',
   oppValueText: '$90,000 2025 County Just Value · County Assessed Value $80,000',
   oppGaps: ['Image not checked yet', 'Not yet geocoded', 'Flood zone not checked'],
-  detailNavLabels: ["Overview", "Decision", "Tax & Value", "Property", "History", "Sale events", "Watch", "Risk & Legal", "Map", "Source truth", "Source", "Provenance"],   // shell redesign: section nav reads as tabs   // customer-value sprint: the Auction decision block
+  detailNavLabels: ["Overview", "Decision", "Tax & Value", "Property", "History", "Sale events", "Watch", "Risk & Legal", "Map", "Source truth", "Documents", "Source", "Provenance"],   // shell redesign: section nav reads as tabs   // customer-value sprint: the Auction decision block
   detailNavJumpScrolled: true,
   detailNavJumpMarksPill: true,
   showOnMapBtnText: 'Show county on the Map page',
@@ -5917,7 +5951,7 @@ const EXPECTED = {
   rdNavAuction: {"hash": "#/auctions", "title": "Auction Properties"},
   rdGlobal: {"rows": ["p15:Available"], "all": "See all 1 result in the list →", "expanded": "true"},
   rdGlobalOpen: {"modal": true, "crumbs": ["Home/Available/15 Manatee Ln"]},
-  rdDetail: {"tabs": ["How to acquire", "Overview", "Decision", "Inventory", "Tax & Value", "Property", "Sale events", "Watch", "Risk & Legal", "Map", "Source truth", "Source", "Provenance"], "why": ["It is in the Available ledger for Florida because its source lists it.", "Last read from the source Nd ago.", "Its source is approved for customer publication."], "acquire": 1},
+  rdDetail: {"tabs": ["How to acquire", "Financial position", "Overview", "Decision", "Inventory", "Tax & Value", "Property", "Sale events", "Watch", "Risk & Legal", "Map", "Source truth", "Documents", "Source", "Provenance"], "why": ["It is in the Available ledger for Florida because its source lists it.", "Last read from the source Nd ago.", "Its source is approved for customer publication."], "acquire": 1},
   rdCrumbHome: {"modalHidden": true, "dashVisible": true},
   rdGlobalEmpty: "No Florida property matches “zzzz-no-such”. Search covers address, parcel, case and certificate numbers and the county; to look in another state, switch state first.",
   rdGlobalEscape: true,
@@ -6697,6 +6731,10 @@ const EXPECTED = {
   commandCenter: {"events": 9, "shown": 8, "head": "Auction command center · next 45 days", "firstFacts": ["1 of 1 with a published bid", "Sale process not yet verified"], "linksFromRows": true, "noInvented": true},
   commandCenterDossier: true,
   commandCenterMobile: {"visible": 4, "overflow": 0, "minTap": 44},
+  // Financial position + documents & links (2026-10-05).
+  financialPositionVectors: [],
+  acquisitionDocumentVectors: [],
+  financialPositionStates: {"p15": {"money": true, "acqBasis": "not_published", "total": "none", "totalText": "Not published", "docs": ["INSTRUCTIONS", "FORM", "SOURCE_PAGE"], "order": true, "noScore": true}, "p3": {"money": true, "acqBasis": "partial", "total": "none", "totalText": "Not published", "docs": ["INSTRUCTIONS", "DOCUMENT", "SOURCE_PAGE"], "order": true, "noScore": true}, "ptx3": {"money": true, "acqBasis": "vendor", "total": "none", "totalText": "Not published", "docs": ["INSTRUCTIONS", "SOURCE_PAGE"], "order": true, "noScore": true}, "pla1": {"money": true, "acqBasis": "not_published", "total": "none", "totalText": "Not published", "docs": ["INSTRUCTIONS", "DOCUMENT", "SOURCE_PAGE"], "order": true, "noScore": true}, "pmi_dlba1": {"money": true, "acqBasis": "program_price", "total": "none", "totalText": "Not published", "docs": ["SOURCE_PAGE"], "order": true, "noScore": true}, "psc_horry1": {"money": true, "acqBasis": "partial", "total": "none", "totalText": "Not published", "docs": ["FORM", "SOURCE_PAGE"], "order": true, "noScore": true}},
   // Final visual refinement (2026-10-05).
   refineLedgerQuestions: {"laft": "What can I acquire now?", "auction": "What is coming up for sale?", "certificate": "What tax lien or certificate am I buying?"},
   refineDossier: {"status": ["Ledger", "Status", "Last read"], "lastRead": "Sep 20, 2026", "order": ["dossier-status", "acquire", "lien-banner", "risk", "truth", "sources"], "lede": true, "noScoreWords": true},
