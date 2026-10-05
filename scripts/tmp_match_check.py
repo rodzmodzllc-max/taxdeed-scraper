@@ -1,14 +1,13 @@
-"""Temporary, value-free: does the VERIFIED Citrus statement equal the figures
-on the customer's own screenshot (case 2024-0075TD, Total Due from Purchaser
-27,689.42, if received by 8/31/2026)? Prints yes/no only."""
+"""Temporary, value-free comparisons only (yes/no, earlier/later)."""
 import json, subprocess, sys
-subprocess.run([sys.executable, "scripts/harvest_clerk_statements.py", "--counties", "Citrus"], check=True)
+subprocess.run([sys.executable, "scripts/harvest_clerk_statements.py", "--counties", "Citrus", "--report"], check=True)
 res = json.load(open("out/clerk_statements.json"))
 for st in res["statements"]:
-    cur = st["purchase_statement"]
     print("case matches screenshot:", st["case_no"] == "2024-0075TD")
-    print("total_due matches screenshot:", cur["total_due"] == 27689.42)
-    print("valid_through matches screenshot:", cur["valid_through"] == "2026-08-31")
-    c = cur["components"]
-    print("opening_bid matches grid base bid 2606.70:", c["opening_bid"] == 2606.70)
-    print("opening bid + 4 additions == printed total:", round(c["opening_bid"] + c["interest"] + c["omitted_taxes"] + c["doc_stamps"] + c["recording_fees"], 2) == cur["total_due"])
+    print("current statement present:", st["purchase_statement"] is not None)
+    for label, rec in [("current", st["purchase_statement"])] + [(f"history[{i}]", r) for i, r in enumerate(st["purchase_statement_history"])]:
+        if not rec: continue
+        t, v, d = rec["total_due"], rec["valid_through"], rec.get("statement_date")
+        print(f"{label}: total vs screenshot {'higher' if t > 27689.42 else 'lower' if t < 27689.42 else 'equal'}; "
+              f"valid_through vs 2026-08-31 {'later' if v and v > '2026-08-31' else 'earlier' if v and v < '2026-08-31' else 'equal' if v else 'none'}; "
+              f"statement date present {bool(d)}; expired today {v is not None and v < res['observed_on']}")

@@ -218,6 +218,15 @@ def statement_record(p: Parsed, *, county: str, case_no: str, document_url: str,
     }
 
 
+def current_and_history(records: list[dict], newest_statement_date: str | None) -> tuple[dict | None, list[dict]]:
+    """Current = the verified statement from the docket's newest statement
+    document; if the newest did not verify, there is no current figure."""
+    current, history = order_statements(records)
+    if current and newest_statement_date and current.get("statement_date") != newest_statement_date:
+        return None, [current] + history
+    return current, history
+
+
 def is_expired(valid_through: str | None, today: date) -> bool | None:
     if not valid_through:
         return None
@@ -295,11 +304,21 @@ def harvest(counties: list[str], max_pages: int = 4) -> dict:
                     recs.append(statement_record(p, county=county, case_no=case_no, document_url=url, observed_on=observed,
                                                  publisher=cfg.publisher, docket_label=re.sub(r"\d", "9", label)[:40],
                                                  statement_date=_iso(dm.group(1)) if dm else None))
+            # The current figure must come from the docket's NEWEST statement
+            # document; when that one does not verify, nothing is current
+            # (an older verified statement is history only - never shown as
+            # the clerk's latest amount).
+            newest_date = max((_iso(m.group(1)) for _h, t in docs for m in [re.search(DATE, t)] if m), default=None)
             current, history = order_statements(recs)
+            if current and newest_date and current.get("statement_date") != newest_date:
+                history = [current] + history
+                current = None
+                cstat["statuses"]["NEWEST_UNVERIFIED"] = cstat["statuses"].get("NEWEST_UNVERIFIED", 0) + 1
+            if current or history:
+                result["statements"].append({"county": county, "case_no": case_no, "purchase_statement": current, "purchase_statement_history": history})
             if current:
                 exp = is_expired(current["valid_through"], today)
                 cstat["expired" if exp else "current"] += 1
-                result["statements"].append({"county": county, "case_no": case_no, "purchase_statement": current, "purchase_statement_history": history})
         result["counties"][county] = cstat
     return result
 
@@ -315,8 +334,12 @@ def report(result: dict) -> str:
                      f"statuses={json.dumps(c['statuses'], sort_keys=True)} missing_labels={json.dumps(c.get('missing_labels', {}), sort_keys=True)} current_statements={c['current']} expired_statements={c['expired']}")
     for st in result["statements"]:
         cur = st["purchase_statement"]
-        lines.append(f"  case shape {re.sub(r'[0-9]', '9', st['case_no'])}: current statement valid_through shape "
-                     f"{re.sub(r'[0-9]', '9', cur['valid_through'] or '-')}, components={sorted(cur['components'])}, history={len(st['purchase_statement_history'])}")
+        shape = re.sub(r"[0-9]", "9", st["case_no"])
+        if cur:
+            lines.append(f"  case shape {shape}: current statement valid_through shape {re.sub(r'[0-9]', '9', cur['valid_through'] or '-')}, "
+                         f"components={sorted(cur['components'])}, history={len(st['purchase_statement_history'])}")
+        else:
+            lines.append(f"  case shape {shape}: no current statement (newest did not verify), history={len(st['purchase_statement_history'])}")
     return "\n".join(lines)
 
 
