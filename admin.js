@@ -60,6 +60,7 @@ async function gate() {
   document.getElementById("adminShell").hidden = false;
   document.body.dataset.admin = "verified";
   await refreshPending();
+  await refreshCustomers();
   await refreshUsage();
   await refreshSources();
 }
@@ -179,6 +180,66 @@ async function refreshPending() {
     if (updErr) { btn.disabled = false; btn.textContent = "Approve"; status.textContent = "Could not approve: " + updErr.message; return; }
     await refreshPending();
   }));
+}
+
+// Customers & access (paid beta, migration 027): admin_billing_overview()
+// is admin-only on the server (it raises for anyone else) and returns the
+// SAME entitlement decision the app enforces. Before 027 is applied, access
+// is approval only - the card says so and lists accounts from profiles.
+const ROLE_LABELS = { admin: "Administrator", tester: "Tester (beta)", customer: "Customer", inactive: "No access" };
+const STATE_LABELS = {
+  admin_override: "Administrator", tester_beta: "Approved tester", manual_customer: "Granted by an administrator",
+  active: "Paid - active", trial: "Paid - trial", cancelling: "Paid - cancellation scheduled",
+  payment_failed_grace: "Payment failed - in grace period", payment_failed: "Payment failed - access paused",
+  cancelled: "Cancelled", inactive: "Pending / no subscription"
+};
+function dateOnly(v) { const t = v ? Date.parse(v) : NaN; return Number.isNaN(t) ? "" : new Date(t).toISOString().slice(0, 10); }
+async function refreshCustomers() {
+  const status = document.getElementById("adminCustomersStatus");
+  const list = document.getElementById("adminCustomersList");
+  if (!status || !list) return;
+  const { data, error } = await sb.rpc("admin_billing_overview");
+  if (error) {
+    const missing = error.code === "PGRST202" || error.code === "42883" || /could not find the function/i.test(error.message || "");
+    if (!missing) { status.textContent = "Could not load accounts: " + error.message; list.innerHTML = ""; return; }
+    const { data: profs, error: pErr } = await sb.from("profiles").select("email,approved,is_admin,requested_at").order("requested_at");
+    if (pErr) { status.textContent = "Could not load accounts: " + pErr.message; list.innerHTML = ""; return; }
+    const rows = (profs || []).map(p => ({ email: p.email, role: p.is_admin ? "admin" : p.approved ? "tester" : "inactive",
+      state: p.is_admin ? "admin_override" : p.approved ? "tester_beta" : "inactive", access: !!(p.is_admin || p.approved),
+      reason: p.is_admin ? "Administrator" : p.approved ? "Approved by an administrator" : "Waiting for approval" }));
+    const c = rows.reduce((m, r) => { m[r.role] = (m[r.role] || 0) + 1; return m; }, {});
+    status.textContent = "Billing is not installed yet (migration 027 is not applied): access comes from approval only. " +
+      ["admin", "tester", "inactive"].map(k => `${c[k] || 0} ${ROLE_LABELS[k].toLowerCase()}`).join(" · ") + ".";
+    revealable(list, () => customersTable(rows, false));
+    return;
+  }
+  const rows = data || [];
+  const counts = rows.reduce((m, r) => { m[r.role] = (m[r.role] || 0) + 1; return m; }, {});
+  status.textContent = `${rows.length} account${rows.length === 1 ? "" : "s"}: ` +
+    ["admin", "tester", "customer", "inactive"].map(k => `${counts[k] || 0} ${ROLE_LABELS[k].toLowerCase()}`).join(" · ") + ".";
+  revealable(list, () => customersTable(rows, true));
+}
+// Account e-mail addresses are not on screen until asked for: this page shows
+// no e-mail by default (screen sharing, shoulder surfing).
+function revealable(list, render) {
+  list.innerHTML = `<button class="admin-btn admin-btn-quiet" type="button" id="adminCustomersShow">Show accounts</button>`;
+  document.getElementById("adminCustomersShow").addEventListener("click", () => { list.innerHTML = render(); });
+}
+function customersTable(rows, billing) {
+  if (!rows.length) return "";
+  const head = `<tr><th>Account</th><th>Access</th><th>Why</th>${billing ? "<th>Subscription</th><th>Period end</th><th>Problem</th>" : ""}</tr>`;
+  const body = rows.map(r => {
+    const problem = r.state === "payment_failed" || r.state === "payment_failed_grace" ? "Payment failed" + (r.payment_failed_at ? " " + dateOnly(r.payment_failed_at) : "")
+      : r.cancel_at_period_end ? "Cancels at period end" : r.last_payment_status === "failed" ? "Last payment failed" : "";
+    return `<tr data-role="${esc(r.role)}" data-state="${esc(r.state)}">
+      <td>${esc(r.email || r.user_id || "")}</td>
+      <td><b>${esc(ROLE_LABELS[r.role] || r.role)}</b>${r.access ? "" : " (no access)"}<br><span class="admin-sub">${esc(STATE_LABELS[r.state] || r.state || "")}</span></td>
+      <td>${esc(r.reason || "")}</td>
+      ${billing ? `<td>${esc(r.subscription_status || "None")}${r.stripe_subscription_id ? `<br><span class="admin-sub">${esc(r.stripe_subscription_id)}</span>` : ""}</td>
+      <td>${esc(dateOnly(r.current_period_end))}</td><td>${esc(problem)}</td>` : ""}
+    </tr>`;
+  }).join("");
+  return `<table class="admin-usage-table admin-customers-table"><thead>${head}</thead><tbody>${body}</tbody></table>`;
 }
 
 document.getElementById("adminSignOut").addEventListener("click", async () => {

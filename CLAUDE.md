@@ -2443,3 +2443,34 @@ Full description: `docs/available-amount-semantics.md`. Stable facts:
   QUOTED_ON_REQUEST / NOT_PUBLISHED. Application costs and deposits are never
   added to a price. Add a row only from a source actually read (quote +
   evidence + observed_on); rebuild the JSON after editing the CSV.
+
+## Controlled paid beta: commercial layer (2026-10-05, PR open, migration 027 NOT applied)
+
+Full description: `docs/commercial-layer.md`. Stable facts:
+- **One access decision**: `entitlementFor()` (`supabase/functions/_shared/billing_core.js`)
+  = `public.entitlement_for()` (migration 027); shared vectors in
+  `tests/billing/fixtures/entitlement_cases.json`. Roles admin / tester /
+  customer / inactive; precedence admin > tester > customer. Existing approved
+  accounts are testers (`profiles.access_grant` default `tester`).
+- **Frontend**: `ACCESS` + `viewerScope()` (`all` / `preview` / `enforced` / `paid`)
+  in app.js (declared with `var` - TDZ). Without 027, `my_entitlement()` is
+  missing and the approval record decides exactly as before. A customer never
+  gets the tester preview: `isPaidBetaPublishable()` = APPROVED + in
+  `commercial-scope.json`'s paid-beta set (fails closed).
+- **Paid-beta scope is NOT the tester preview**: `data/paid_beta_sources.csv`
+  -> `harvesters/governance/commercial_scope.py` -> `public/commercial-scope.json`
+  (`scripts/build_commercial_scope.py --check`), seeded into
+  `commercial_source_scope` by 027 (test-pinned equal). Paid beta = explicit
+  APPROVED + provenance / lifecycle / financial / acquisition ok. Initially:
+  la_ebr_adjudicated, sc_york_tax_sale, mi_lenawee_tax_sale,
+  mi_eaton_treasurer_sale, wi_green_tax_deed_sales. Never approve a source to
+  grow this set.
+- **Stripe**: `stripe-webhook` (verify signature, idempotent per event id,
+  stale-event guard; deploy `--no-verify-jwt`) is the only writer of
+  `subscriptions`; `billing-checkout` / `billing-portal` take price and account
+  from the server. A checkout redirect never grants access.
+- **Billing ships off** (`config.js billing.enabled: false`); legal pages read
+  `config.js legal.*` and show "not configured" for anything missing. Admin
+  "Customers & access" shows e-mails only after "Show accounts".
+- `sw.js` -> `tdw-shell-v81`.
+

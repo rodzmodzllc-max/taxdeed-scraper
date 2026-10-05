@@ -181,7 +181,14 @@ def test_s03_signups_disabled_error_gets_a_clear_message():
     assert 'authMsg.textContent = signUpErrorText(error);' in APP_JS
     assert "New accounts stay pending until an administrator approves them." in APP_JS
     # A new account without approval sees the pending screen, never the app.
-    assert "if (profile && profile.approved) showApp();\n  else showPending();" in APP_JS
+    # Paid beta (2026-10-05): the same rule, now beside the server's entitlement.
+    # Without one (migration 027 not applied), an unapproved account is never
+    # let in: it gets the pending screen (showPlanOrPending(null) has no
+    # entitlement, so it can only show pending); with one, only access = true
+    # enters.
+    assert "if (approved) { showApp(); afterEntryBillingRoute(); }\n  else showPlanOrPending(null);" in APP_JS
+    assert "if (!cfg.enabled || !ent || !planGate) { if (planGate) planGate.hidden = true; showPending(); return; }" in APP_JS
+    assert "if (ent.access) { showApp(); afterEntryBillingRoute(); }\n    else showPlanOrPending(ent);" in APP_JS
 
 
 def test_s04_docs_name_the_manual_dashboard_setting():

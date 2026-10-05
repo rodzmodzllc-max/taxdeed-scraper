@@ -119,7 +119,7 @@ def test_no_collection_sync_or_lifecycle_code_uses_the_subset():
 def test_frontend_admin_sees_everything_and_the_subset_runs_before_the_publication_gate():
     fn = APP[APP.index("function isPublishable(p)"):APP.index("function sourceReviewLabel")]
     order = [fn.index('p.publication_status === "BLOCKED"'), fn.index("if (IS_ADMIN) return true"),
-             fn.index("if (!inCustomerInventory(p)) return false"), fn.index("isCustomerPublishable(p) || PUBLICATION_MODE")]
+             fn.index("if (!inCustomerInventory(p)) return false"), fn.index('isCustomerPublishable(p) || viewerScope() === "preview"')]
     assert order == sorted(order)
     load = APP[APP.index("DETROIT_SUMMARY = { collected: 0, structure: 0, subset: 0 };\n  ALL.forEach"):]
     assert "if (!IS_ADMIN && !inCustomerInventory(p)) return false;" in load[:2000]

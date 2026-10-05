@@ -764,6 +764,16 @@ export function createClient() {
     // back to auth.signUp, which is what every older sign-up check exercises.
     functions: {
       async invoke(name, opts) {
+        // Paid beta: billing-checkout / billing-portal. ?billingfn=ok answers
+        // with a same-document URL (the test reads window.__tdwBillingRedirects
+        // - the page never leaves); ?billingfn=down answers 503 not configured.
+        if (name === "billing-checkout" || name === "billing-portal") {
+          const bf = new URLSearchParams(location.search).get("billingfn");
+          window.__stubBillingCalls = (window.__stubBillingCalls || []).concat([{ name, fields: Object.keys((opts && opts.body) || {}).sort() }]);
+          if (bf === "ok") return { data: { url: "#stub-stripe-" + (name === "billing-checkout" ? "checkout" : "portal") }, error: null };
+          return { data: null, error: { name: "FunctionsHttpError", message: "Edge Function returned a non-2xx status code",
+            context: { status: 503, json: async () => ({ error: "billing_not_configured", message: "Subscriptions are not open yet." }) } } };
+        }
         const mode = new URLSearchParams(location.search).get("selfsignup");
         const body = (opts && opts.body) || {};
         window.__stubFnCalls = (window.__stubFnCalls || []).concat([{ name, email: body.email, fields: Object.keys(body).sort() }]);
@@ -872,6 +882,42 @@ export function createClient() {
         const flaky = (qs.get("flakypage") || "").split(",").map(x => x.split(":")).find(x => `${x[0]}:${x[1]}` === key);
         if (flaky && calls[key] <= Number(flaky[2] || 1)) return timeout;
         return { data: rows.slice(offset, offset + limit), error: null };
+      }
+      // Paid beta (migration 027). Without ?entitlement= the function is
+      // "not deployed" (PGRST202) and the app keeps the approval-record path -
+      // which is what every pre-existing check exercises.
+      //   ?entitlement=tester|admin|customer|manual|cancelling|grace|inactive|payment_failed|cancelled|activating
+      if (fnName === "my_entitlement") {
+        const mode = new URLSearchParams(location.search).get("entitlement");
+        if (!mode) return { data: null, error: { message: "Could not find the function public.my_entitlement without parameters in the schema cache", code: "PGRST202" } };
+        const end = new Date(Date.now() + 20 * 86400000).toISOString();
+        const sub = (state, status, extra) => ({ subscription_state: state, subscription_status: status, current_period_end: end, plan_key: "monthly", cancel_at_period_end: false, last_payment_status: "paid", ...(extra || {}) });
+        window.__stubEntitlementCalls = (window.__stubEntitlementCalls || 0) + 1;
+        const paid = { role: "customer", state: "active", access: true, scope: "approved", reason: "Paid subscription", ...sub("active", "active") };
+        const table = {
+          admin: { role: "admin", state: "admin_override", access: true, scope: "all", reason: "Administrator", subscription_state: null, subscription_status: null },
+          tester: { role: "tester", state: "tester_beta", access: true, scope: "preview", reason: "Approved tester (beta) - no subscription needed", subscription_state: null, subscription_status: null },
+          customer: paid,
+          manual: { role: "customer", state: "manual_customer", access: true, scope: "approved", reason: "Customer access granted by an administrator", subscription_state: null, subscription_status: null },
+          cancelling: { ...paid, state: "cancelling", ...sub("cancelling", "active", { cancel_at_period_end: true }) },
+          grace: { ...paid, state: "payment_failed_grace", reason: "Payment failed - access continues during the 7-day grace period", ...sub("payment_failed_grace", "past_due", { last_payment_status: "failed" }) },
+          inactive: { role: "inactive", state: "inactive", access: false, scope: "none", reason: "No approval and no active subscription", subscription_state: null, subscription_status: null },
+          payment_failed: { role: "inactive", state: "payment_failed", access: false, scope: "none", reason: "Payment failed - the grace period has ended", ...sub("payment_failed", "past_due", { last_payment_status: "failed" }) },
+          cancelled: { role: "inactive", state: "cancelled", access: false, scope: "none", reason: "Subscription cancelled", ...sub("cancelled", "canceled") }
+        };
+        // activating: the webhook has not landed for the first two reads.
+        if (mode === "activating") return { data: window.__stubEntitlementCalls > 2 ? paid : table.inactive, error: null };
+        return { data: table[mode] || table.inactive, error: null };
+      }
+      if (fnName === "admin_billing_overview") {
+        if (!new URLSearchParams(location.search).get("entitlement")) return { data: null, error: { message: "Could not find the function public.admin_billing_overview without parameters in the schema cache", code: "PGRST202" } };
+        return { data: [
+          { email: "admin@example.com", role: "admin", state: "admin_override", access: true, reason: "Administrator", subscription_status: null },
+          { email: "tester@example.com", role: "tester", state: "tester_beta", access: true, reason: "Approved tester (beta) - no subscription needed", subscription_status: null },
+          { email: "paid@example.com", role: "customer", state: "active", access: true, reason: "Paid subscription", subscription_status: "active", stripe_subscription_id: "sub_FIXTURE1", current_period_end: "2026-11-05T00:00:00Z", cancel_at_period_end: false, last_payment_status: "paid" },
+          { email: "late@example.com", role: "customer", state: "payment_failed_grace", access: true, reason: "Payment failed - access continues during the 7-day grace period", subscription_status: "past_due", stripe_subscription_id: "sub_FIXTURE2", current_period_end: "2026-10-03T00:00:00Z", last_payment_status: "failed", payment_failed_at: "2026-10-03T00:00:00Z" },
+          { email: "pending@example.com", role: "inactive", state: "inactive", access: false, reason: "No approval and no active subscription", subscription_status: null }
+        ], error: null };
       }
       return { data: null, error: { message: `stub: unhandled rpc "${fnName}"`, code: "PGRST202" } };
     }

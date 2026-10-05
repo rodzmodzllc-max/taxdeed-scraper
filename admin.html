@@ -35,6 +35,12 @@ row-level security) whether the signed-in account is an admin. Anyone else
     <p class="admin-note" id="adminPendingStatus" role="status">Loading pending accounts</p>
     <div class="admin-approvals-list" id="adminPendingList"></div>
   </section>
+  <section class="admin-card" aria-labelledby="adminCustomersLabel">
+    <p class="admin-label" id="adminCustomersLabel">Customers &amp; access</p>
+    <p class="admin-note">Who can use the product and why: administrator, approved tester, paying customer or no access - from the server's single access decision. Card details never reach this page; Stripe holds them.</p>
+    <p class="admin-note" id="adminCustomersStatus" role="status">Loading accounts</p>
+    <div class="admin-customers" id="adminCustomersList"></div>
+  </section>
   <section class="admin-card" aria-labelledby="adminUsageLabel">
     <p class="admin-label" id="adminUsageLabel">Product usage, last 30 days</p>
     <p class="admin-note">Counts of in-app actions per event and distinct accounts. No search text, addresses or other free text is recorded.</p>
