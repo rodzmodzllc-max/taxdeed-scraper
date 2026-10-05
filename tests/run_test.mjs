@@ -4108,6 +4108,49 @@ await navMap.close();
     });
     await pc.close();
   }
+  // ---- Opportunity finder + auction command center (2026-10-05) ----
+  {
+    const pg = await newPage({ viewport: { width: 1440, height: 900 } });
+    pg.on('pageerror', e => errors.push('finder pageerror: ' + e.message));
+    await pg.goto(BASE_URL + '#/auctions', { waitUntil: 'networkidle' });
+    await pg.waitForTimeout(400);
+    results.finderSortOptions = await pg.evaluate(() => ['sortBy', 'sortSecondary'].map(id => Array.from(document.getElementById(id).options).map(o => o.value).filter(v => ['pathFirst', 'amountFirst', 'readRecent'].includes(v))));
+    results.finderBadges = await pg.evaluate(() => {
+      return { p3: window.__tdwRecordBadges('p3'), p15: window.__tdwRecordBadges('p15'),
+        auctionAmountBadges: document.querySelectorAll('#main .prop-card .rb-amount').length,
+        noScoreWords: !/score|rank|grade|rating/i.test(Array.from(document.querySelectorAll('.record-badge')).map(e => e.textContent + ' ' + e.title).join(' ')) };
+    });
+    results.finderSortPath = await pg.evaluate(() => {
+      const ids = window.__tdwEvidenceSort('pathFirst', 'laft');
+      const has = ids.map(id => (window.__tdwRecordBadges(id) || []).includes('path'));
+      return { n: ids.length, verifiedFirst: has.every((h, i) => i === 0 || !h || has[i - 1]) && has.some(Boolean) };
+    });
+    results.finderReadRecent = await pg.evaluate(() => {
+      const ids = window.__tdwEvidenceSort('readRecent', 'laft');
+      return ids.length > 1;
+    });
+    results.commandCenter = await pg.evaluate(() => {
+      const cc = document.getElementById('upcomingSales');
+      if (!cc) return null;
+      const links = Array.from(cc.querySelectorAll('.cc-link')).map(a => a.getAttribute('href'));
+      return { events: Number(cc.dataset.events), shown: cc.querySelectorAll('.cc-event').length,
+        head: cc.querySelector('.cc-head .eyebrow').textContent.trim(),
+        firstFacts: Array.from(cc.querySelectorAll('.cc-event')[0].querySelectorAll('.cc-facts span')).map(s => s.textContent),
+        linksFromRows: links.length > 0 && links.every(h => /^https?:\/\//.test(h)),
+        noInvented: !/deposit|registration deadline|bidder/i.test(cc.textContent) };
+    });
+    await pg.click('#upcomingSales .cc-dossier');
+    results.commandCenterDossier = await pg.waitForSelector('#countyModal:not([hidden]) .dossier', { timeout: 5000 }).then(() => true).catch(() => false);
+    await pg.close();
+    const m = await newPage({ viewport: { width: 390, height: 844 } });
+    await m.goto(BASE_URL + '#/auctions', { waitUntil: 'networkidle' });
+    await m.waitForTimeout(400);
+    results.commandCenterMobile = await m.evaluate(() => ({
+      visible: Array.from(document.querySelectorAll('#upcomingSales .cc-event')).filter(e => e.offsetParent !== null).length,
+      overflow: document.scrollingElement.scrollWidth - document.scrollingElement.clientWidth,
+      minTap: Math.min(...Array.from(document.querySelectorAll('#upcomingSales .cc-event')).filter(e => e.offsetParent !== null).flatMap(e => Array.from(e.querySelectorAll('.cc-link,.cc-dossier'))).map(a => Math.round(a.getBoundingClientRect().height))) }));
+    await m.close();
+  }
   // ---- Shell redesign (2026-10-04): Home, global search, state picker,
   // filter chips, county panel, property page chrome, mobile nav ----
   {
@@ -5439,7 +5482,7 @@ const EXPECTED = {
   },
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: {"ready": true, "controlled": true, "tagline": "Public Property Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v90"]},
+  brandSwReload: {"ready": true, "controlled": true, "tagline": "Public Property Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v91"]},
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · TaxDeed-Scraper — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · TaxDeed-Scraper — Florida", floridaCopy: true },
@@ -6591,6 +6634,14 @@ const EXPECTED = {
   identityViewports: [],
   identityLogin: {"brand": "TaxDeed-Scraper", "tagline": "Public Property Acquisition Intelligence", "bg": "rgb(243, 239, 232)", "signupFields": 8},
   identityPalette: {"noNavy": true, "body": "rgb(243, 239, 232)", "ledgerAccent": "#4E6B54", "display": true},
+  // Opportunity finder + auction command center (2026-10-05).
+  finderSortOptions: [["pathFirst", "amountFirst", "readRecent"], ["pathFirst", "amountFirst", "readRecent"]],
+  finderBadges: {"p3": ["path", "amount"], "p15": ["path"], "auctionAmountBadges": 0, "noScoreWords": true},
+  finderSortPath: {"n": 2, "verifiedFirst": true},
+  finderReadRecent: true,
+  commandCenter: {"events": 9, "shown": 8, "head": "Auction command center · next 45 days", "firstFacts": ["1 of 1 with a published bid", "Sale process not yet verified"], "linksFromRows": true, "noInvented": true},
+  commandCenterDossier: true,
+  commandCenterMobile: {"visible": 4, "overflow": 0, "minTap": 44},
   // Available price honesty (2026-10-05).
   priceWording: {"openingBid": {"label": "Opening bid", "partial": true, "note": "Not the full price: the source publishes this as a starting amount. Ask the county for the current total.", "total": null, "expired": null, "gap": "Current purchase total not on file - the listed figure is the opening bid only"}, "fixed": {"label": "Purchase price", "partial": false, "note": "As the source publishes it - confirm the amount due before paying.", "total": null, "expired": null, "gap": null}, "expiredStatement": {"label": "Total due", "partial": true, "note": "Last clerk statement $27,689.42, valid through Aug 31, 2026 - that date has passed. Request an updated statement from the clerk.", "total": 27689.42, "expired": true, "gap": "County purchase statement has expired - request an updated total"}, "currentStatement": {"label": "Total due from purchaser", "partial": true, "note": "Clerk statement, valid if received by Dec 31, 2099.", "total": 27689.42, "expired": false, "gap": null}}
 };

@@ -3780,6 +3780,66 @@ function previewFacts(p) {
   };
 }
 
+// ==================== opportunity finder: record evidence ====================
+// What a row demonstrably HAS, one fact per badge, each read from a stored
+// field (2026-10-05). There is no weighting and no total: a badge is either
+// on the record or it is not, and its tooltip says exactly what it means.
+// The evidence-first sorts (SORT_COMPARATORS) order by these same facts.
+//   path    - a verified acquisition path (Available) or a verified county
+//             sale process (Auctions): acquisitionOf().verified, never the
+//             list page.
+//   amount  - an amount the source published: for Available, amountInfo()
+//             returned a figure (an official total due, a price, a base
+//             price, a minimum, a quoted figure...) and not an expired
+//             statement; for Auctions / Certificates, a published bid.
+//   fresh   - read from the source in the last 7 days (last_seen_at).
+//   dated   - a dated list, never "available now" (isDatedList()).
+var RECORD_FRESH_DAYS = 7;
+function recordEvidence(p) {
+  const out = { path: false, amount: false, official: false, fresh: false, dated: false };
+  if (!p) return out;
+  if (p.source === "laft" || p.source === "auction") {
+    const a = acquisitionOf(p);
+    out.path = !!a.verified && a.mode !== "none";
+  }
+  if (p.source === "laft") {
+    const ai = amountInfo(p);
+    out.amount = ai.value !== null && ai.value !== undefined && ai.state !== "official_expired";
+    out.official = ai.state === "official_current";
+  } else {
+    out.amount = hasPublishedBid(p);
+  }
+  const d = daysSince(p.last_seen_at);
+  out.fresh = d !== null && d >= 0 && d <= RECORD_FRESH_DAYS;
+  out.dated = isDatedList(p);
+  return out;
+}
+function recordBadges(p) {
+  const e = recordEvidence(p);
+  const b = [];
+  if (e.path) b.push({ key: "path", label: p.source === "auction" ? "Verified sale process" : "Verified acquisition path",
+    title: p.source === "auction" ? "The county's sale process was read from its own page or document (county-level)." : "How to acquire was read from the source's own page or document." });
+  if (e.official) b.push({ key: "official", label: "Official total due", title: "A clerk statement with a total due that has not expired." });
+  // Auctions and certificates nearly always publish their bid, so a badge
+  // there would say nothing; on Available a published figure is the
+  // exception worth seeing.
+  else if (e.amount && p.source === "laft") b.push({ key: "amount", label: "Amount published",
+    title: "The source published a figure for this record. Its meaning is labelled where it is shown." });
+  if (e.fresh) b.push({ key: "fresh", label: `Read ≤ ${RECORD_FRESH_DAYS} days ago`, title: "Read from the source within the last " + RECORD_FRESH_DAYS + " days." });
+  if (e.dated) b.push({ key: "dated", label: "Dated list", title: "The source publishes this as a dated list - not verified available now." });
+  return b;
+}
+function recordBadgesHtml(p) {
+  const b = recordBadges(p);
+  if (!b.length) return "";
+  return `<div class="record-badges" aria-label="Evidence on this record">${b.map(x => `<span class="record-badge rb-${esc(x.key)}" title="${esc(x.title)}">${esc(x.label)}</span>`).join("")}</div>`;
+}
+
+// Test hooks: the badge keys of one loaded row, and one evidence-first
+// ordering of a ledger's loaded rows (ids).
+window.__tdwRecordBadges = id => { const p = ALL.find(x => String(x.id) === String(id)); return p ? recordBadges(p).map(b => b.key) : null; };
+window.__tdwEvidenceSort = (name, source) => { SORT_KEY_CACHE = new Map(); return ALL.filter(p => p.source === source).sort(SORT_COMPARATORS[name]).map(p => String(p.id)); };
+
 function card(p, showCounty) {
   const el = document.createElement("div");
   const fav = FAVS.has(p.id), top = isTopPick(p);
@@ -3824,6 +3884,7 @@ function card(p, showCounty) {
     ${propertyVisual(p, "prop-card-photo")}
     ${tag}
     ${sourceLineHtml(p)}
+    ${recordBadgesHtml(p)}
     <div class="prop-top">
       <div class="prop-address">${titleLine}</div>
       <div class="prop-top-actions">
@@ -4032,6 +4093,7 @@ function certCard(p, showCounty) {
   el.innerHTML = `
     ${tag}
     ${classificationBadgeHtml(p) ? `<div class="prop-classification-line">${classificationBadgeHtml(p)}</div>` : ""}
+    ${recordBadgesHtml(p)}
     <div class="prop-top">
       <div class="prop-address">Certificate #${esc(p.certificate_no || "Unknown")}</div>
       <div class="prop-top-actions">
@@ -7284,8 +7346,30 @@ const SORT_COMPARATORS = {
   expSoonAsc: (a, b) => {
     const da = certDaysUntil(a.expiration_date), db = certDaysUntil(b.expiration_date);
     return (da === null ? Infinity : da) - (db === null ? Infinity : db);
-  }
+  },
+  // Opportunity finder (2026-10-05): evidence-first orderings. Each one puts
+  // the rows that HAVE one piece of evidence ahead of the rows that do not -
+  // a single, visible criterion, never a weighted score. Ties keep the
+  // query's own order (or fall to the "Then by" sort). Keys are cached per
+  // sortRows() call so a 30,000-row state is not re-evaluated per comparison.
+  pathFirst: (a, b) => evidenceSortKey("pathFirst", a) - evidenceSortKey("pathFirst", b),
+  amountFirst: (a, b) => evidenceSortKey("amountFirst", a) - evidenceSortKey("amountFirst", b),
+  readRecent: (a, b) => evidenceSortKey("readRecent", a) - evidenceSortKey("readRecent", b)
 };
+// var: sortRows() runs during module init (render()), before a let/const
+// further down would leave its temporal dead zone.
+var SORT_KEY_CACHE = new Map();
+function evidenceSortKey(name, p) {
+  let m = SORT_KEY_CACHE.get(name);
+  if (!m) { m = new Map(); SORT_KEY_CACHE.set(name, m); }
+  if (m.has(p)) return m.get(p);
+  let k;
+  if (name === "pathFirst") k = recordEvidence(p).path ? 0 : 1;
+  else if (name === "amountFirst") k = recordEvidence(p).amount ? 0 : 1;
+  else { const t = Date.parse(p.last_seen_at || ""); k = isNaN(t) ? 0 : -t; }  // never read sorts last
+  m.set(p, k);
+  return k;
+}
 
 function sortRows(rows) {
   const primary = SORT_COMPARATORS[state.sortBy];
@@ -7295,6 +7379,7 @@ function sortRows(rows) {
   // nothing to sort by, so skip the copy+sort entirely (matches the old
   // no-secondary-sort behavior exactly).
   if (!primary && !secondary) return rows;
+  SORT_KEY_CACHE = new Map();
   return rows.slice().sort((a, b) => {
     if (primary) {
       const r = primary(a, b);
@@ -7403,21 +7488,58 @@ function ledgerFacts(kind, shown) {
 // Upcoming sales (identity redesign, 2026-10-05): the Auctions ledger reads
 // as events - date, county, how many properties - built from the rows' own
 // sale_date (upcomingAuctionRows). An event filters the list to its county.
+// Auction command center (2026-10-05): the auction ledger's head lists the
+// next sale events of the rows on screen (the current filters apply), one
+// line per sale date + county, with only what those rows carry: how many
+// properties, how many you watch, how many have a published bid, whether
+// the county's sale process is verified, and the sale listing link the
+// rows themselves publish (auctionLinkInfo - never a constructed URL).
+// No deposit, registration deadline or bidder rule is shown: none is
+// stored per sale, so the dossier is where the county's process lives.
+var COMMAND_CENTER_DAYS = 45;
+function auctionCommandRows(rows) {
+  const byKey = new Map();
+  (rows || []).forEach(p => {
+    if (p.source !== "auction" || !p.sale_date || isGone(p)) return;
+    const d = daysUntil(p);
+    if (d === null || d < 0 || d > COMMAND_CENTER_DAYS) return;
+    const key = p.sale_date + "|" + (p.county || "Unknown");
+    let e = byKey.get(key);
+    if (!e) { e = { date: p.sale_date, county: p.county || "Unknown", days: d, count: 0, watched: 0, bids: 0, process: false, link: null }; byKey.set(key, e); }
+    e.count++;
+    if (BIDLIST.has(p.id) || FAVS.has(p.id)) e.watched++;
+    if (hasPublishedBid(p)) e.bids++;
+    if (!e.process && recordEvidence(p).path) e.process = true;
+    if (!e.link) { const l = auctionLinkInfo(p); if (l.href && (l.kind === "sale" || l.kind === "county")) e.link = l; }
+  });
+  return Array.from(byKey.values()).sort((a, b) => a.date < b.date ? -1 : a.date > b.date ? 1 : a.county.localeCompare(b.county));
+}
 function upcomingSalesHtml(rows) {
-  const ev = upcomingAuctionRows(rows || []);
-  if (!ev.length) return "";
+  const all = auctionCommandRows(rows);
+  if (!all.length) return "";
+  const ev = all.slice(0, 8);
   const word = (ledgerCopy("auction").nav || "Auction").replace(/s$/, "");
-  return `<div class="upcoming-sales" id="upcomingSales"><span class="eyebrow">Upcoming sales</span><ol class="sales-timeline">${ev.map(e => {
+  const props = all.reduce((n, e) => n + e.count, 0);
+  const watched = all.reduce((n, e) => n + e.watched, 0);
+  return `<div class="upcoming-sales command-center" id="upcomingSales" data-events="${all.length}">
+    <div class="cc-head"><span class="eyebrow">Auction command center · next ${COMMAND_CENTER_DAYS} days</span>
+      <span class="cc-sum">${all.length} sale event${all.length === 1 ? "" : "s"} · ${props.toLocaleString("en-US")} propert${props === 1 ? "y" : "ies"}${watched ? ` · ${watched} on your watchlist` : ""}</span></div>
+    <ol class="sales-timeline">${ev.map(e => {
     const d = new Date(e.date + "T12:00:00");
     const mon = isNaN(d) ? "" : d.toLocaleString("en-US", { month: "short" }).toUpperCase();
     const day = isNaN(d) ? "" : String(d.getDate());
-    return `<li><button type="button" class="desk-event sales-event" data-action="dossierlist" data-county="${esc(e.county)}" data-ledger="auction">
+    const when = e.days === 0 ? "Today" : e.days === 1 ? "Tomorrow" : `In ${e.days} days`;
+    const facts = [`${e.bids} of ${e.count} with a published bid`, e.process ? "Sale process verified" : "Sale process not yet verified"];
+    if (e.watched) facts.unshift(`${e.watched} watched`);
+    return `<li class="cc-event${e.days <= 3 ? " cc-soon" : ""}"><button type="button" class="desk-event sales-event" data-action="dossierlist" data-county="${esc(e.county)}" data-ledger="auction">
       <span class="desk-date"><b>${esc(day)}</b><span>${esc(mon)}</span></span>
       <span class="desk-event-where">${esc(e.county)} ${esc(UNIT_WORD)} · ${esc(PAGE_STATE)}</span>
-      <span class="desk-event-what">${esc(word)} sale</span>
+      <span class="desk-event-what">${esc(word)} sale · ${esc(when)}</span>
       <span class="desk-event-n">${e.count} propert${e.count === 1 ? "y" : "ies"}</span>
-    </button></li>`;
-  }).join("")}</ol></div>`;
+      <span class="cc-facts">${facts.map(t => `<span>${esc(t)}</span>`).join("")}</span>
+    </button><span class="cc-actions">${e.link ? `<a class="cc-link" href="${esc(e.link.href)}" target="_blank" rel="noopener"${e.link.note ? ` title="${esc(e.link.note)}"` : ""}>${esc(e.link.kind === "sale" ? "Sale listing →" : "County auction site →")}</a>` : ""}
+<button type="button" class="cc-dossier" data-action="countyintel" data-county="${esc(e.county)}">County process</button></span></li>`;
+  }).join("")}</ol>${all.length > 4 ? `<p class="cc-more muted">${all.length} sale events in the next ${COMMAND_CENTER_DAYS} days${all.length > ev.length ? `, ${ev.length} shown here` : ""} - sort by sale date to see every one.</p>` : ""}</div>`;
 }
 function section(container, title, sub, rows, kind) {
   const sec = document.createElement("section"); sec.className = "mega-section";
