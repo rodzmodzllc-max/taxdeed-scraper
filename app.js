@@ -2622,10 +2622,17 @@ async function showApp() {
   const deepLinkedPid = pidFromHash();
   // #/governance (admin-only view): captured before setLedger() rewrites the hash.
   const wantsGovernance = isGovernanceHash();
+  // The bootstrap reaches showApp() twice on a normal load (the getSession()
+  // path and the initial auth event). A load already completed for this same
+  // account is reused - the state's pages are never downloaded twice. A
+  // different account (a real new sign-in) always loads.
+  const reuse = PROPERTIES_LOADED && LOADED_FOR !== null && !!ME && LOADED_FOR === ME.id;
   const genEl = document.getElementById("generatedAt");
-  if (genEl) genEl.textContent = "Loading";
-  renderSkeleton();
-  const loaded = await loadAll();
+  if (!reuse) {
+    if (genEl) genEl.textContent = "Loading";
+    renderSkeleton();
+  }
+  const loaded = reuse ? true : await loadAll(routed);
   state.counties = new Set(ALL_COUNTIES);
   buildAllChips();
   updateBadge();
@@ -2677,6 +2684,12 @@ async function showApp() {
   if (deepLinkedPid != null) {
     const p = ALL.find(x => String(x.id) === deepLinkedPid);
     if (p) openDetail(p);
+    // Independent loading: the property can sit on a later page or in a
+    // background ledger - try once more when every ledger is in.
+    else if (PROPERTIES_DONE) PROPERTIES_DONE.then(() => {
+      const q = ALL.find(x => String(x.id) === deepLinkedPid);
+      if (q && pidFromHash() == null) openDetail(q);
+    });
   }
 }
 
@@ -2877,11 +2890,24 @@ async function callPageWithRetry(call, offset) {
     await new Promise(res => setTimeout(res, retryDelayMs(attempt)));
   }
 }
-async function fetchLedgerPages(ledgerType) {
-  const call = offset => sb.rpc("get_properties", { p_state: PAGE_STATE, p_ledger_type: ledgerType, p_limit: PROPERTY_PAGE_SIZE, p_offset: offset });
-  const first = await callPageWithRetry(call, 0);
+// Customer-facing performance fix (2026-10-05). The list is read through
+// get_properties_list() (migration 028): the same page as get_properties()
+// with field_provenance reduced to the review markers and otc_provenance
+// without the keys no list surface reads (Louisiana's Available ledger was
+// ~113 MB of JSON, ~76 MB of it per-row provenance). The full pair is loaded when a property is
+// opened (ensureFullProvenance). Until 028 is applied the function is missing
+// (PGRST202) and the app reads get_properties() exactly as before.
+var LIST_RPC = "get_properties_list";
+async function fetchLedgerPages(ledgerType, onPage) {
+  const call = offset => sb.rpc(LIST_RPC, { p_state: PAGE_STATE, p_ledger_type: ledgerType, p_limit: PROPERTY_PAGE_SIZE, p_offset: offset });
+  let first = await callPageWithRetry(call, 0);
+  if (first.error && isMissingFnError(first.error) && LIST_RPC === "get_properties_list") {
+    LIST_RPC = "get_properties";
+    first = await callPageWithRetry(call, 0);
+  }
   if (first.error) return { data: [], error: first.error, ledgerType, complete: false, failedOffset: 0 };
   const rows = [...(first.data || [])];
+  if (onPage) onPage(rows);
   const step = rows.length;
   if (!step) return { data: rows, error: null, ledgerType, complete: true };
   let offset = step;
@@ -2896,39 +2922,159 @@ async function fetchLedgerPages(ledgerType) {
       }
       const page = r.data || [];
       rows.push(...page);
+      if (onPage) onPage(rows);
       if (page.length < step) return { data: rows, error: null, ledgerType, complete: true };
     }
     offset += step * PROPERTY_PAGE_WAVE;
   }
   return { data: rows, error: null, ledgerType, complete: true };
 }
-// The bootstrap can reach loadAll() twice at once (the getSession() path and
-// the SIGNED_IN event); one in-flight properties fetch is shared, so the
-// database never sees the state's pages requested twice in parallel.
-let PROPERTIES_INFLIGHT = null;
-function fetchProperties() {
-  if (!PROPERTIES_INFLIGHT) PROPERTIES_INFLIGHT = fetchPropertiesOnce().finally(() => { PROPERTIES_INFLIGHT = null; });
-  return PROPERTIES_INFLIGHT;
-}
-async function fetchPropertiesOnce() {
-  const pages = await Promise.all(PROPERTY_LEDGER_TYPES.map(fetchLedgerPages));
-  const missing = pages.find(r => r.error && isMissingFnError(r.error));
-  if (missing) {
-    console.warn("get_properties() RPC not found (003_ledger_type_and_state_isolation.sql not run yet?) - falling back to unscoped select(). Row-level isolation is client-side only until that migration runs.", missing.error);
-    LOAD_ISSUES = [];
-    return sb.from("properties").select("*").order("county").order("case_no");
+// Independent ledger loading (2026-10-05). The List used to wait for every
+// ledger of the state - all pages - before painting anything, so Louisiana
+// Auctions (0 rows, answered in ~10 ms) sat on skeletons while 10,334
+// Available rows downloaded. Now each ledger loads on its own: the active one
+// first, the others after its first page; rows land in LEDGER_RAW as pages
+// arrive and ALL is rebuilt from them (applyLedgerRows). LEDGER_LOAD says,
+// per ledger, whether its count is final - an empty ledger is only called
+// empty once its own load is done.
+//   idle -> loading -> partial (some pages in) -> done | error
+// One run per account per page load: the bootstrap's second pass (the
+// getSession() path and the initial auth event, a few ms apart) shares it,
+// in flight or finished, so the database never sees the state's pages
+// requested twice.
+const LEDGER_FOR_TYPE = { auctions: "auction", buy: "laft", lien: "certificate" };
+// The first line of a settled, genuinely empty ledger (the state's own
+// ledger copy follows it as the explanation).
+var LEDGER_EMPTY_HEAD = {
+  auction: "No auction properties currently available.",
+  laft: "No available properties currently listed.",
+  certificate: "No liens or certificates currently available."
+};
+const TYPE_FOR_LEDGER = { auction: "auctions", laft: "buy", certificate: "lien" };
+var LEDGER_LOAD = { auction: "idle", laft: "idle", certificate: "idle" };
+var LEDGER_RAW = {};
+var PROPERTIES_RUN = null, PROPERTIES_RUN_USER = null;
+var PROPERTIES_DONE = null;
+var LOADED_FOR = null;   // the account the loaded rows belong to (showApp reuse guard)
+function ledgerSettled(k) { return !!LEDGER_LOAD && (LEDGER_LOAD[k] === "done" || LEDGER_LOAD[k] === "error"); }
+function allLedgersSettled() { return !!LEDGER_LOAD && Object.keys(LEDGER_LOAD).every(ledgerSettled); }
+// Whether the List can paint without misleading: a routed ledger once its
+// first page (or its failure) is in; with no ledger in the URL, once the
+// landing ledger can be decided (landingLedger order: Available, Auctions,
+// Liens & Certificates - the first with a visible row, a ledger counting as
+// empty only once its own load is settled).
+function firstPaintReady(activeKey) {
+  if (activeKey) {
+    // A failed routed ledger waits for the others: with rows elsewhere it is a
+    // partial load (the notice and Retry), with every ledger failed it is the
+    // full error state - never decided from the one failure alone.
+    if (LEDGER_LOAD[activeKey] === "error") return allLedgersSettled() || PROPERTY_LEDGER_TYPES.some(t => (LEDGER_RAW[t] || []).length);
+    return LEDGER_LOAD[activeKey] !== "idle" && LEDGER_LOAD[activeKey] !== "loading";
   }
-  const failed = pages.filter(r => r.error);
-  // Every ledger failed and nothing loaded: the full "couldn't load" state.
-  if (failed.length === pages.length && pages.every(r => !r.data.length)) return { data: null, error: failed[0].error };
-  LOAD_ISSUES = failed.map(r => ({ ledgerType: r.ledgerType, loaded: r.data.length, failedOffset: r.failedOffset,
-                                   message: String((r.error && r.error.message) || "") }));
+  for (const k of ["laft", "auction", "certificate"]) {
+    const visible = (LEDGER_RAW[TYPE_FOR_LEDGER[k]] || []).some(p => !isGone(p) && !isPastDue(p));
+    if (visible && LEDGER_LOAD[k] !== "idle" && LEDGER_LOAD[k] !== "loading") return true;
+    if (!ledgerSettled(k)) return false;
+  }
+  return true;
+}
+// -> { ready: Promise<boolean>, done: Promise } ; ready resolves true when the
+// first paint can happen, false when every ledger failed with nothing loaded.
+function fetchProperties(activeKey, onUpdate, force) {
+  const who = ME ? ME.id : null;
+  if (PROPERTIES_RUN && !force && PROPERTIES_RUN_USER === who) return PROPERTIES_RUN;
+  PROPERTIES_RUN_USER = who;
+  const types = activeKey ? [TYPE_FOR_LEDGER[activeKey], ...PROPERTY_LEDGER_TYPES.filter(t => t !== TYPE_FOR_LEDGER[activeKey])]
+    : ["buy", "auctions", "lien"];
+  LEDGER_RAW = {};
+  LOAD_ISSUES = [];
+  Object.keys(LEDGER_LOAD).forEach(k => { LEDGER_LOAD[k] = "idle"; });
+  let readyDone = false, resolveReady;
+  const ready = new Promise(r => { resolveReady = r; });
+  const settle = (type) => {
+    if (!readyDone) {
+      if (allLedgersSettled() && !PROPERTY_LEDGER_TYPES.some(t => (LEDGER_RAW[t] || []).length) && LOAD_ISSUES.length === PROPERTY_LEDGER_TYPES.length) {
+        readyDone = true; resolveReady(false); return;
+      }
+      if (firstPaintReady(activeKey)) { readyDone = true; resolveReady(true); return; }
+    } else if (onUpdate) onUpdate(LEDGER_FOR_TYPE[type]);
+  };
+  const loadOne = (type, onFirst) => {
+    const k = LEDGER_FOR_TYPE[type];
+    LEDGER_LOAD[k] = "loading";
+    let first = true;
+    return fetchLedgerPages(type, rows => {
+      LEDGER_RAW[type] = rows.slice();
+      LEDGER_LOAD[k] = "partial";
+      if (first) { first = false; if (onFirst) onFirst(); }
+      settle(type);
+    }).then(res => {
+      LEDGER_RAW[type] = res.data;
+      LEDGER_LOAD[k] = res.error && !res.data.length ? "error" : "done";
+      if (res.error) LOAD_ISSUES.push({ ledgerType: type, loaded: res.data.length, failedOffset: res.failedOffset, message: String((res.error && res.error.message) || "") });
+      if (first) { first = false; if (onFirst) onFirst(); }
+      settle(type);
+      return res;
+    });
+  };
+  // The active ledger first; the others once its first page is in, so a large
+  // background ledger never competes with the page the customer is looking at.
+  let startRest;
+  const restStarted = new Promise(r => { startRest = r; });
+  const head = loadOne(types[0], () => startRest());
+  const rest = restStarted.then(() => Promise.all(types.slice(1).map(t => loadOne(t))));
+  const done = Promise.all([head, rest]).then(async () => {
+    const missing = Object.values(LEDGER_RAW).length === 0 && LOAD_ISSUES.some(i => /could not find the function|PGRST202|does not exist/i.test(i.message));
+    if (missing) {
+      // get_properties() itself missing (003 not run): the unscoped read, as before.
+      console.warn("get_properties() RPC not found - falling back to unscoped select(). Row-level isolation is client-side only until that migration runs.");
+      const r = await sb.from("properties").select("*").order("county").order("case_no");
+      LOAD_ISSUES = [];
+      PROPERTY_LEDGER_TYPES.forEach(t => { LEDGER_RAW[t] = (r.data || []).filter(p => p.source === LEDGER_FOR_TYPE[t]); LEDGER_LOAD[LEDGER_FOR_TYPE[t]] = r.error ? "error" : "done"; });
+      if (r.error) LOAD_ISSUES = PROPERTY_LEDGER_TYPES.map(t => ({ ledgerType: t, loaded: 0, failedOffset: 0, message: r.error.message }));
+      if (!readyDone) { readyDone = true; resolveReady(!r.error); } else if (onUpdate) onUpdate(null);
+    }
+    if (!readyDone) { readyDone = true; resolveReady(PROPERTY_LEDGER_TYPES.some(t => (LEDGER_RAW[t] || []).length) || LOAD_ISSUES.length < PROPERTY_LEDGER_TYPES.length); }
+  });
+  // Kept after it completes: the bootstrap's second pass (and anything else
+  // in this page load) reuses it. Only Retry (force) or another account
+  // starts a new run.
+  PROPERTIES_RUN = { ready, done };
+  return PROPERTIES_RUN;
+}
+// ALL, rebuilt from every ledger loaded so far: de-duplicated by id, the
+// Detroit customer subset and the publication gate applied, the withheld /
+// review counters recomputed - the same rules as before, now re-runnable as
+// each ledger's pages arrive.
+function applyLedgerRows() {
   const seen = new Set();
-  return { data: pages.flatMap(r => r.data).filter(p => !seen.has(p.id) && seen.add(p.id)), error: null };
+  let rows = PROPERTY_LEDGER_TYPES.flatMap(t => LEDGER_RAW[t] || []).filter(p => !seen.has(p.id) && seen.add(p.id));
+  WITHHELD = { auction: 0, laft: 0, certificate: 0 };
+  // Publication is the source decision only - an Available row without a
+  // captured acquisition path is still published (acquisitionGaps()).
+  REVIEW_PENDING_SHOWN = { auction: 0, laft: 0, certificate: 0 };
+  DETROIT_SUMMARY = { collected: 0, structure: 0, subset: 0 };
+  rows.forEach(p => {
+    const d = detroitSubsetStatus(p);
+    if (!d || p.publication_status === "BLOCKED") return;
+    DETROIT_SUMMARY.collected++;
+    if (d !== "not_structure") DETROIT_SUMMARY.structure++;
+    if (d === "in_subset") DETROIT_SUMMARY.subset++;
+  });
+  ALL = rows.filter(p => {
+    // Outside the Detroit customer subset: not customer inventory at all, so
+    // not "withheld" either (DETROIT_SUMMARY names it on the ledger instead).
+    if (!IS_ADMIN && !inCustomerInventory(p)) return false;
+    if (isPublishable(p)) {
+      if (!isCustomerPublishable(p) && p.source in REVIEW_PENDING_SHOWN) REVIEW_PENDING_SHOWN[p.source]++;
+      return true;
+    }
+    if (p.source in WITHHELD) WITHHELD[p.source]++;
+    return false;
+  });
 }
 
-// The ledger a load issue belongs to, in the List's own vocabulary.
-const LEDGER_FOR_TYPE = { auctions: "auction", buy: "laft", lien: "certificate" };
+// The ledger a load issue belongs to, in the List's own vocabulary (LEDGER_FOR_TYPE above).
 function loadIssueHtml() {
   if (!LOAD_ISSUES.length) return "";
   const names = LOAD_ISSUES.map(i => (LEDGERS[LEDGER_FOR_TYPE[i.ledgerType]] || {}).title || i.ledgerType);
@@ -2946,7 +3092,7 @@ async function retryPropertyLoad() {
   const box = document.getElementById("loadIssue");
   if (box) box.classList.add("retrying");
   try {
-    const ok = await loadAll();
+    const ok = await loadAll(state.ledger, { force: true });
     if (ok) { buildAllChips(); updateBadge(); render(); }
   } finally { RETRYING_LOAD = false; }
 }
@@ -2964,10 +3110,16 @@ function landingLedger(rows, fallback) {
   return fallback;
 }
 
-async function loadAll() {
+// Independent ledger loading (2026-10-05): the first paint waits for the
+// active ledger's first page (fetchProperties().ready) and the small per-user
+// tables, nothing else. Other ledgers, the auction-outcome index and the
+// watchlist diff arrive in the background and re-render (scheduleLedgerUpdate).
+async function loadAll(activeKey, opts) {
   const today = new Date().toISOString().slice(0, 10);
-  const [props, notes, favs, hid, cal, bidlist, health, freshness, availCoverage, availTerms, commercialScope, acqEvidence] = await Promise.all([
-    fetchProperties(),
+  const run = fetchProperties(activeKey || null, scheduleLedgerUpdate, !!(opts && opts.force));
+  PROPERTIES_DONE = run.done;
+  const [ok, notes, favs, hid, cal, bidlist, health, freshness, availCoverage, availTerms, commercialScope, acqEvidence] = await Promise.all([
+    run.ready,
     sb.from("notes").select("*"),
     sb.from("favorites").select("property_id"),
     sb.from("hidden").select("property_id"),
@@ -2992,38 +3144,16 @@ async function loadAll() {
   ]);
   AVAILABLE_TERMS = (availTerms && Array.isArray(availTerms.terms)) ? availTerms.terms : [];
   ACQUISITION_EVIDENCE = (acqEvidence && Array.isArray(acqEvidence.records)) ? acqEvidence.records : [];
-  if (props.error) {
+  if (!ok) {
     const genEl = document.getElementById("generatedAt");
-    if (genEl) genEl.textContent = "Error: " + props.error.message;
+    if (genEl) genEl.textContent = "Error: " + ((LOAD_ISSUES[0] && LOAD_ISSUES[0].message) || "properties could not be loaded");
     return false;
   }
-  ALL = props.data || [];
   PAID_BETA_SOURCES = new Set(commercialScope && Array.isArray(commercialScope.paid_beta_source_ids) ? commercialScope.paid_beta_source_ids : []);
   PAID_BETA_LOADED = !!commercialScope;
-  WITHHELD = { auction: 0, laft: 0, certificate: 0 };
-  // Publication is the source decision only - an Available row without a
-  // captured acquisition path is still published (acquisitionGaps()).
-  REVIEW_PENDING_SHOWN = { auction: 0, laft: 0, certificate: 0 };
-  DETROIT_SUMMARY = { collected: 0, structure: 0, subset: 0 };
-  ALL.forEach(p => {
-    const d = detroitSubsetStatus(p);
-    if (!d || p.publication_status === "BLOCKED") return;
-    DETROIT_SUMMARY.collected++;
-    if (d !== "not_structure") DETROIT_SUMMARY.structure++;
-    if (d === "in_subset") DETROIT_SUMMARY.subset++;
-  });
-  ALL = ALL.filter(p => {
-    // Outside the Detroit customer subset: not customer inventory at all, so
-    // not "withheld" either (DETROIT_SUMMARY names it on the ledger instead).
-    if (!IS_ADMIN && !inCustomerInventory(p)) return false;
-    if (isPublishable(p)) {
-      if (!isCustomerPublishable(p) && p.source in REVIEW_PENDING_SHOWN) REVIEW_PENDING_SHOWN[p.source]++;
-      return true;
-    }
-    if (p.source in WITHHELD) WITHHELD[p.source]++;
-    return false;
-  });
+  applyLedgerRows();
   PROPERTIES_LOADED = true;
+  LOADED_FOR = ME ? ME.id : null;
   AVAILABLE_COVERAGE = (availCoverage && Array.isArray(availCoverage.states) && availCoverage.states.find(c => c.state === PAGE_STATE)) || null;
   NOTES = {}; (notes.data || []).forEach(n => { (NOTES[n.property_id] = NOTES[n.property_id] || []).push(n); });
   FAVS = new Set((favs.data || []).map(r => r.property_id));
@@ -3035,16 +3165,35 @@ async function loadAll() {
   BIDLIST = new Set(BIDLIST_ORDER);
   CALENDAR = {}; if (!cal.error) { (cal.data || []).forEach(r => { (CALENDAR[r.county] = CALENDAR[r.county] || []).push(r.sale_date); }); }
   SOURCE_HEALTH = health.error ? null : (health.data || []);
-  AUCTION_OUTCOMES = await fetchAuctionOutcomeIndex(today);
   UNIT_FRESHNESS = freshness.error ? null : (freshness.data || []);
-  // Diff ONCE per page load: the bootstrap can run loadAll() twice (the
-  // getSession() path and the SIGNED_IN event both reach showApp()), and a
-  // second diff would compare against the snapshot the first pass just
-  // wrote - erasing every signal. The snapshot itself is refreshed on every
-  // pass so the next page load compares against the latest watched set.
-  if (WATCH_CHANGES === null) WATCH_CHANGES = computeWatchChanges();
-  saveWatchSnapshot();
   renderSourceHealthTerms();
+  updateGeneratedAt();
+  // Auction outcomes are a separate, small read: they decorate auction cards
+  // and never gate the first paint. Cards render "Outcome not yet verified"
+  // wording only from AUCTION_OUTCOMES, so until it arrives they show the
+  // listing alone; the re-render adds the outcome.
+  fetchAuctionOutcomeIndex(today).then(o => { AUCTION_OUTCOMES = o; scheduleLedgerUpdate("auction"); }).catch(() => {});
+  // The watchlist diff needs every ledger (a watched certificate must not
+  // read as "removed" because Certificates had not loaded yet). Diff ONCE per
+  // page load: the bootstrap can run loadAll() twice (the getSession() path
+  // and the SIGNED_IN event both reach showApp()), and a second diff would
+  // compare against the snapshot the first pass just wrote - erasing every
+  // signal. The snapshot itself is refreshed once every ledger is in, and
+  // never from a load where a ledger failed (an incomplete set is not "the
+  // latest watched set").
+  run.done.then(() => {
+    applyLedgerRows();
+    if (!LOAD_ISSUES.length) {
+      if (WATCH_CHANGES === null) WATCH_CHANGES = computeWatchChanges();
+      saveWatchSnapshot();
+    }
+    updateGeneratedAt();
+    scheduleLedgerUpdate(null);
+  });
+  return true;
+}
+// Masthead / Terms freshness sentence from the newest updated_at loaded so far.
+function updateGeneratedAt() {
   // Same sentence as before, written into the Terms modal instead of the
   // masthead. The header is the logo and the title; when the whole dataset
   // is behind, that is provenance and belongs with the rest of "where the
@@ -3056,11 +3205,29 @@ async function loadAll() {
     const staleHours = newest ? (Date.now() - Date.parse(newest)) / 3600000 : null;
     const isStale = staleHours !== null && staleHours > STALE_DATA_HOURS;
     genEl.classList.toggle("stale", isStale);
-    genEl.textContent = !newest ? "No data yet." :
+    genEl.textContent = !newest ? (allLedgersSettled() ? "No data yet." : "Loading") :
       isStale ? "⚠ Data updated " + new Date(newest).toLocaleString() + " - sync may be behind" :
       "Data updated " + new Date(newest).toLocaleString();
   }
-  return true;
+}
+// Background ledger pages / outcomes arriving after the first paint. Coalesced
+// (one re-render per animation-ish window, however many pages land), and a
+// background ledger's pages only refresh counts while the customer reads
+// another ledger - the list they are scrolling is not rebuilt under them.
+var LEDGER_UPDATE_TIMER = null, LEDGER_UPDATE_KEYS = new Set();
+function scheduleLedgerUpdate(key) {
+  if (!PROPERTIES_LOADED) return;
+  LEDGER_UPDATE_KEYS.add(key == null ? "*" : key);
+  if (LEDGER_UPDATE_TIMER) return;
+  LEDGER_UPDATE_TIMER = setTimeout(() => {
+    LEDGER_UPDATE_TIMER = null;
+    const keys = LEDGER_UPDATE_KEYS; LEDGER_UPDATE_KEYS = new Set();
+    applyLedgerRows();
+    const listVisible = !!document.getElementById("pageList") && !document.getElementById("pageList").hidden;
+    if (keys.has("*") || keys.has(state.ledger) || !listVisible) render();
+    else renderLedgerCounts();
+    window.dispatchEvent(new CustomEvent("tdw:ledgersupdated", { detail: { ledgers: Array.from(keys) } }));
+  }, 120);
 }
 
 // County chips and the county map (below) both drive state.counties, so a
@@ -4122,7 +4289,20 @@ function countyAcquisitionRecord(p) {
 window.__tdwAcqEvidenceFor = p => countyAcquisitionRecord(p);   // read-only, for the regression suite
 function acquisitionProvenance(p) {
   const op = p && p.otc_provenance && typeof p.otc_provenance === "object" ? p.otc_provenance : {};
-  if (!p || !p.purchase_path_type || (op.acquisition && typeof op.acquisition === "object")) return op;
+  if (p && p.purchase_path_type && op.acquisition && typeof op.acquisition === "object") {
+    // List payload (migration 028) leaves purchase_instructions out: it is the
+    // county's process text, repeated in every row. Filled back only from the
+    // county record of the SAME source, county, path type and evidence page -
+    // the record the row's own was written from - never from another one.
+    if (p.provenance_scope === "list" && !op.purchase_instructions) {
+      const rec = countyAcquisitionRecord(p);
+      if (rec && rec.purchase_instructions && (rec.purchase_evidence_url || "") === (op.purchase_evidence_url || "")) {
+        return { ...op, purchase_instructions: rec.purchase_instructions };
+      }
+    }
+    return op;
+  }
+  if (!p || !p.purchase_path_type) return op;
   const rec = countyAcquisitionRecord(p);
   if (!rec) return op;
   const { state: _s, source_id: _i, county: _c, path_type: _t, ...keys } = rec;
@@ -5449,11 +5629,18 @@ function provenanceCardHtml(p) {
     detail += `<div class="prov-fresh">${esc(bits.join(" · "))}</div>`;
   }
   detail += availabilityEvidenceHtml(p);
-  if (p.field_provenance !== undefined) {
+  // List payload (migration 028): the row carries only the provenance keys the
+  // list reads; the full pair is being fetched (ensureFullProvenance). Never
+  // shown as "no provenance recorded" while it is merely not loaded yet.
+  if (p.provenance_scope === "list") {
+    detail += p.__provenanceError
+      ? `<div class="prov-loading prov-error" role="status" id="provLoadError">Full source provenance could not be loaded right now. <button type="button" class="link-btn" data-action="retryprovenance" data-pid="${esc(String(p.id))}">Retry</button></div>`
+      : `<div class="prov-loading" role="status" id="provLoading">Loading full source provenance…</div>`;
+  } else if (p.field_provenance !== undefined) {
     const table = provenanceRowsHtml(p.field_provenance, p);
     detail += table || `<div class="prov-empty">No per-field provenance recorded for this row yet - values shown on this page came with the harvested listing and have not been individually traced.</div>`;
   }
-  if (p.otc_provenance !== undefined && p.otc_provenance) detail += otcProvenanceHtml(p.otc_provenance);
+  if (p.provenance_scope !== "list" && p.otc_provenance !== undefined && p.otc_provenance) detail += otcProvenanceHtml(p.otc_provenance);
   const body = `<div class="detail-provenance">
       ${harvesterSourceLabel(p) ? `<span>Data source: ${esc(harvesterSourceLabel(p))}</span>` : ""}
       <span class="${isRowStale(p) ? "stale" : ""}">${esc(lastSyncedText(p))}</span>
@@ -5950,6 +6137,8 @@ function openDetail(p) {
   // after a favourite or a watchlist change rebuilds the modal.
   inner.className = "detail-modal-inner prop-card " + cardStatus(p);
   inner.innerHTML = detailHtml(p);
+  inner.dataset.pid = String(p.id);
+  ensureFullProvenance(p);
   hydrateVisuals(inner);
   if (p.source !== "certificate") hydrateEventHistory(inner, p);
   if (p.source === "laft") hydrateInventoryHistory(inner, p);
@@ -5976,6 +6165,40 @@ function openDetail(p) {
   } catch { /* file:// etc */ }
   if (wasHidden) focusIntoModal(modal);
   syncBodyScrollLock();
+}
+// Full provenance for one property (migration 028's get_property_provenance),
+// fetched when its page opens and merged into the row in place - every
+// surface that holds the row (ALL, the loaded ledger pages) sees it. One
+// request per property per page load; a failure leaves the list-scope keys
+// and offers a retry, never an empty "no provenance" claim.
+var PROVENANCE_PENDING = new Map();
+function ensureFullProvenance(p) {
+  if (!p || p.provenance_scope !== "list" || p.__provenanceError || PROVENANCE_PENDING.has(p.id)) return PROVENANCE_PENDING.get(p && p.id);
+  const req = Promise.resolve()
+    .then(() => sb.rpc("get_property_provenance", { p_id: p.id }))
+    .then(({ data, error }) => {
+      const row = Array.isArray(data) ? data[0] : data;
+      if (error || !row) { p.__provenanceError = true; return; }
+      p.otc_provenance = row.otc_provenance === undefined ? p.otc_provenance : row.otc_provenance;
+      p.field_provenance = row.field_provenance === undefined ? p.field_provenance : row.field_provenance;
+      p.provenance_scope = "full";
+    })
+    .catch(() => { p.__provenanceError = true; })
+    .finally(() => {
+      PROVENANCE_PENDING.delete(p.id);
+      // Only the property actually on screen is redrawn, keeping its scroll.
+      const modal = document.getElementById("detailModal");
+      const inner = document.getElementById("detailModalInner");
+      if (modal && !modal.hidden && inner && inner.dataset.pid === String(p.id)) {
+        const top = inner.scrollTop; refreshOpenDetail(p.id); inner.scrollTop = top;
+      }
+      const panel = document.getElementById("detailPanel");
+      const ptop = panel ? panel.scrollTop : 0;
+      refreshDetailPanel(p.id);
+      if (panel) panel.scrollTop = ptop;
+    });
+  PROVENANCE_PENDING.set(p.id, req);
+  return req;
 }
 function closeDetail() {
   const modal = document.getElementById("detailModal");
@@ -6272,6 +6495,11 @@ document.addEventListener("click", async e => {
   const pid = btn.dataset.pid;
 
   if (action === "retryload") { retryPropertyLoad(); return; }
+  if (action === "retryprovenance") {
+    const rp = ALL.find(x => String(x.id) === String(pid));
+    if (rp) { rp.__provenanceError = false; refreshOpenDetail(rp.id); refreshDetailPanel(rp.id); }
+    return;
+  }
   // Detail breadcrumb (2026-10-04): Home / <ledger> / <property>. The modal
   // closes first (its own Back layer), then the page changes.
   if (action === "crumbhome" || action === "crumbledger") {
@@ -6458,30 +6686,19 @@ document.addEventListener("input", e => {
 // visible at a time via the tab bar - not one long page where Lands
 // Available sat under 300+ auction cards and read as "not populated"
 // because nobody scrolled that far to find it.
-function render() {
-  const bidListCountEl = document.getElementById("bidListCount");
-  if (bidListCountEl) bidListCountEl.textContent = `${BIDLIST.size}/${BID_LIST_MAX}` + (BID_LIST_PENDING.length ? ` +${BID_LIST_PENDING.length}⏳` : "");
-  // Unified navigation (2026-09-30): the rail's Watchlist entry carries the same n/10.
-  const navWatchlistCountEl = document.getElementById("navWatchlistCount");
-  if (navWatchlistCountEl) navWatchlistCountEl.textContent = `${BIDLIST.size}/${BID_LIST_MAX}`;
-
-  const main = document.getElementById("main"); if (!main) return; main.innerHTML = loadIssueHtml();
-  if (!LEDGERS[state.ledger]) state.ledger = "auction";
-  const activeLedger = state.ledger;
-  const cfg = ledgerCopy(activeLedger);
-  const inLedger = p => p.source === activeLedger;
-  const { shown } = section(main, cfg.title, cfg.sub, ALL.filter(inLedger), activeLedger);
-
-  // A raw count of every row in the source counted things the ledger will
-  // never show you: past-due auctions (archive-only, excluded from every
-  // normal view by isPastDue), rows you have hidden, and rows whose
-  // gone-grace period has expired. On Auctions that meant the tab advertised
-  // a number tens larger than the list beneath it, most of it archive.
-  //
-  // These are deliberately NOT scoped to the current filters - the tab says
-  // how much is in the ledger, which is what you need to decide whether to
-  // go there. How much matches your filters is the Shown chip's job.
+// A ledger's count while it is still loading is not a count: "…" before its
+// first page, "1,000…" while later pages arrive, the number once settled.
+// Before any data (skeleton) the old 0 is kept.
+function ledgerCountText(k, n, locale) {
+  const txt = locale ? n.toLocaleString("en-US") : String(n);
+  if (!PROPERTIES_LOADED || ledgerSettled(k)) return txt;
+  return n ? txt + "…" : "…";
+}
+// Tab, List-nav and sidebar ledger counts. Also called alone when a background
+// ledger's pages arrive while another ledger is on screen.
+function renderLedgerCounts(scrollActive) {
   const tabCounts = { auction: 0, laft: 0, certificate: 0 };
+  const activeLedger = state.ledger;
   ALL.forEach(p => {
     if (!(p.source in tabCounts)) return;
     // ALL only ever holds PAGE_STATE's own rows (loadAll() fetches via the
@@ -6505,22 +6722,52 @@ function render() {
     // On a narrow phone the strip can still scroll. Whatever else is cut off,
     // the tab for the page you are actually on must be fully visible - a
     // half-clipped active tab is how the strip stops reading as navigation.
-    if (active && btn.scrollIntoView) {
+    if (active && scrollActive && btn.scrollIntoView) {
       try { btn.scrollIntoView({ block: "nearest", inline: "center" }); } catch { /* older engines */ }
     }
     const countEl = document.getElementById("tabCount" + src[0].toUpperCase() + src.slice(1));
-    if (countEl) countEl.textContent = tabCounts[src] || 0;
+    if (countEl) countEl.textContent = ledgerCountText(src, tabCounts[src] || 0, false);
   });
   // Unified navigation (2026-09-30): the List entry carries every ledger's
   // count together - the same three numbers the ledger selector shows.
   const navListCountEl = document.getElementById("navCountList");
-  if (navListCountEl) navListCountEl.textContent = (tabCounts.auction || 0) + (tabCounts.laft || 0) + (tabCounts.certificate || 0);
+  if (navListCountEl) {
+    const sum = (tabCounts.auction || 0) + (tabCounts.laft || 0) + (tabCounts.certificate || 0);
+    navListCountEl.textContent = PROPERTIES_LOADED && !allLedgersSettled() ? (sum ? sum + "…" : "…") : sum;
+  }
   // Shell redesign (2026-10-04): each ledger's own sidebar entry carries its
   // count - the same number as its tab.
   LEDGER_ORDER.forEach(k => {
     const el = document.getElementById("navCount" + k[0].toUpperCase() + k.slice(1));
-    if (el) el.textContent = (tabCounts[k] || 0).toLocaleString("en-US");
+    if (el) el.textContent = ledgerCountText(k, tabCounts[k] || 0, true);
   });
+  return tabCounts;
+}
+
+function render() {
+  const bidListCountEl = document.getElementById("bidListCount");
+  if (bidListCountEl) bidListCountEl.textContent = `${BIDLIST.size}/${BID_LIST_MAX}` + (BID_LIST_PENDING.length ? ` +${BID_LIST_PENDING.length}⏳` : "");
+  // Unified navigation (2026-09-30): the rail's Watchlist entry carries the same n/10.
+  const navWatchlistCountEl = document.getElementById("navWatchlistCount");
+  if (navWatchlistCountEl) navWatchlistCountEl.textContent = `${BIDLIST.size}/${BID_LIST_MAX}`;
+
+  const main = document.getElementById("main"); if (!main) return; main.innerHTML = loadIssueHtml();
+  if (!LEDGERS[state.ledger]) state.ledger = "auction";
+  const activeLedger = state.ledger;
+  const cfg = ledgerCopy(activeLedger);
+  const inLedger = p => p.source === activeLedger;
+  const { shown } = section(main, cfg.title, cfg.sub, ALL.filter(inLedger), activeLedger);
+
+  // A raw count of every row in the source counted things the ledger will
+  // never show you: past-due auctions (archive-only, excluded from every
+  // normal view by isPastDue), rows you have hidden, and rows whose
+  // gone-grace period has expired. On Auctions that meant the tab advertised
+  // a number tens larger than the list beneath it, most of it archive.
+  //
+  // These are deliberately NOT scoped to the current filters - the tab says
+  // how much is in the ledger, which is what you need to decide whether to
+  // go there. How much matches your filters is the Shown chip's job.
+  const tabCounts = renderLedgerCounts(true);
   renderListHead(shown, activeLedger, tabCounts);
   renderFilterChips();
 
@@ -6769,9 +7016,26 @@ function section(container, title, sub, rows, kind) {
       // "Nothing here" means something different on each ledger, and the old
       // shared "Nothing found." made an empty Lands Available look broken
       // rather than simply small - which it is, by design.
-      const stateEmpty = PROPERTIES_LOADED && !ALL.length;
-      e.textContent = (stateEmpty ? "No properties currently available for this state. " : "") + (cfg.empty || "Nothing found.");
+      //
+      // Independent loading (2026-10-05): a ledger still loading is never
+      // called empty, and an empty ledger says so as soon as its OWN load is
+      // settled - Louisiana Auctions does not wait for Louisiana Available.
+      const ledgerLoading = PROPERTIES_LOADED && !ledgerSettled(kind);
+      const ledgerEmpty = PROPERTIES_LOADED && !ledgerLoading && !ALL.some(p => p.source === kind);
+      const stateEmpty = PROPERTIES_LOADED && allLedgersSettled() && !ALL.length;
+      if (ledgerLoading) {
+        e.classList.add("ledger-loading");
+        e.dataset.ledgerLoading = "1";
+        e.setAttribute("role", "status");
+        e.textContent = `Loading ${ledgerNavName(kind)} for ${STATE_INFO.name}…`;
+        sec.appendChild(e); container.appendChild(sec);
+        return { shown };
+      }
+      const head = stateEmpty ? "No properties currently available for this state. "
+        : ledgerEmpty && !LOAD_ISSUES.some(i => LEDGER_FOR_TYPE[i.ledgerType] === kind) ? LEDGER_EMPTY_HEAD[kind] + " " : "";
+      e.textContent = head + (cfg.empty || "Nothing found.");
       if (stateEmpty) e.dataset.stateEmpty = "1";
+      if (ledgerEmpty) e.dataset.ledgerEmpty = "1";
       // AVAILABLE only, and only when the ledger itself holds no row for this
       // state (filters cleared): name WHICH zero this is.
       if (kind === "laft" && PROPERTIES_LOADED && !ALL.some(p => p.source === "laft")) {
@@ -9628,6 +9892,7 @@ function selectProperty(p) {
   selectedPid = p.id;
   panel.className = "detail-panel prop-card " + cardStatus(p);
   panel.innerHTML = detailHtml(p);
+  ensureFullProvenance(p);
   hydrateVisuals(panel);
   hydrateChangeHistory(panel, p);
   observeAcquisitionSection(panel, p);
@@ -10461,12 +10726,13 @@ function homeLedgerCardHtml(k) {
   const cfg = ledgerCopy(k);
   const counties = new Set(rows.map(p => p.county)).size;
   const n = rows.length;
+  const fin = PROPERTIES_LOADED && ledgerSettled(k);
   const unit = k === "certificate" && PAGE_STATE !== "FL" ? "records" : ({ laft: "properties", auction: "upcoming sales", certificate: "certificates" })[k];
   return `<button type="button" class="home-ledger-card${k === "laft" ? " primary" : ""}" data-ledger="${esc(k)}" data-home-ledger="${esc(k)}">
     <span class="home-ledger-kicker">${esc(ledgerNavName(k).toUpperCase())}</span>
-    <span class="home-ledger-count" id="homeCount_${esc(k)}">${PROPERTIES_LOADED ? n.toLocaleString("en-US") : "—"}</span>
+    <span class="home-ledger-count" id="homeCount_${esc(k)}">${PROPERTIES_LOADED ? ledgerCountText(k, n, true) : "—"}</span>
     <span class="home-ledger-unit">${esc(unit)}${PROPERTIES_LOADED && n ? ` across ${counties} ${esc(unitWordFor(counties))}` : ""}</span>
-    <span class="home-ledger-blurb">${esc(PROPERTIES_LOADED && !n ? `None listed for ${STATE_INFO.name} right now.` : (cfg.sub || ""))}</span>
+    <span class="home-ledger-blurb">${esc(fin && !n ? `None listed for ${STATE_INFO.name} right now.` : !fin && PROPERTIES_LOADED ? "Loading…" : (cfg.sub || ""))}</span>
     <span class="home-ledger-go">${k === "laft" ? "Explore" : "Open"} &rarr;</span>
   </button>`;
 }
@@ -10556,9 +10822,9 @@ function renderListHead(shown, k, tabCounts) {
   t.textContent = k === "certificate" ? name : `${k === "auction" ? "Auction" : name} Properties`;
   if (sub) {
     const total = (tabCounts && tabCounts[k]) || 0;
-    sub.textContent = PROPERTIES_LOADED
-      ? `${shown.length.toLocaleString("en-US")} shown of ${total.toLocaleString("en-US")} in ${STATE_INFO.name}`
-      : `Loading ${STATE_INFO.name}…`;
+    sub.textContent = !PROPERTIES_LOADED ? `Loading ${STATE_INFO.name}…`
+      : !ledgerSettled(k) ? `${shown.length.toLocaleString("en-US")} shown of ${total.toLocaleString("en-US")} loaded so far in ${STATE_INFO.name} · loading the rest…`
+      : `${shown.length.toLocaleString("en-US")} shown of ${total.toLocaleString("en-US")} in ${STATE_INFO.name}`;
   }
 }
 // One chip per active filter, read from the controls themselves; removing a

@@ -3549,6 +3549,131 @@ await navMap.close();
     results.peakInflightBounded = results.peakInflight <= 6 && results.peakInflight >= 2;
     await pg.close();
   }
+  // ---- Independent ledger loading + list payload (2026-10-05) ----
+  // A ledger renders from its own first page; another ledger downloading
+  // (Louisiana / Michigan Available) never holds it back. The list RPC
+  // (migration 028) carries no detail-only provenance; opening a property
+  // loads the full pair once.
+  {
+    const html = (f) => BASE_URL.replace(/index\.html$/, f);
+    const openAt = async (url, vp = { width: 1440, height: 900 }) => {
+      const pg = await newPage({ viewport: vp });
+      pg.on('pageerror', e => errors.push('ledgerload pageerror: ' + e.message));
+      const t0 = Date.now();
+      await pg.goto(url, { waitUntil: 'domcontentloaded' });
+      return { pg, t0 };
+    };
+    // 1. Louisiana Auctions (empty) while Louisiana Available takes 4 s per page.
+    for (const [label, vp] of [['Desktop', { width: 1440, height: 900 }], ['Mobile', { width: 390, height: 844 }]]) {
+      const { pg, t0 } = await openAt(html('la.html') + '?ledgerdelay=buy:4000#/auctions', vp);
+      await pg.waitForSelector('#main [data-ledger-empty="1"]', { timeout: 3800 }).catch(() => {});
+      const ms = Date.now() - t0;
+      results['laAuctionsEmpty' + label] = {
+        beforeAvailable: ms < 4000,
+        text: ((await pg.locator('#main [data-ledger-empty="1"]').first().textContent().catch(() => '')) || '').split('.')[0] + '.',
+        stateEmptyClaim: await pg.locator('#main [data-state-empty]').count(),
+        skeleton: await pg.locator('#main .skel').count(),
+        availableTab: ((await pg.locator('#tabCountLaft').textContent().catch(() => '')) || '').trim()
+      };
+      // Available finishes in the background: its count becomes final, Auctions stays empty.
+      await pg.waitForFunction(() => /^\d[\d,]*$/.test((document.getElementById('tabCountLaft') || {}).textContent || ''), null, { timeout: 15000 }).catch(() => {});
+      results['laAvailableArrives' + label] = {
+        availableTab: ((await pg.locator('#tabCountLaft').textContent()) || '').trim(),
+        stillEmpty: await pg.locator('#main [data-ledger-empty="1"]').count(),
+        hash: await pg.evaluate(() => location.hash)
+      };
+      await pg.close();
+    }
+    // 2. Switching to a ledger still downloading shows a loading line - never "empty" - then its rows.
+    {
+      const { pg } = await openAt(html('la.html') + '?ledgerdelay=buy:3500#/auctions');
+      await pg.waitForSelector('#main [data-ledger-empty="1"]', { timeout: 3400 }).catch(() => {});
+      await pg.evaluate(() => document.querySelector('#ledgerTabs .ledger-tab[data-ledger="laft"]').click());
+      await pg.waitForTimeout(150);
+      const loadingLine = await pg.locator('#main [data-ledger-loading="1"]').count();
+      const loadingText = ((await pg.locator('#main [data-ledger-loading="1"]').first().textContent().catch(() => '')) || '').trim();
+      const claimedEmpty = await pg.locator('#main [data-ledger-empty="1"], #main [data-state-empty]').count();
+      await pg.waitForSelector('#main .prop-card', { timeout: 8000, state: 'attached' }).catch(() => {});
+      results.laLandsLoadingThenRows = { loadingLine, loadingText, claimedEmpty, cards: await pg.locator('#main .prop-card').count(),
+        loadingGone: (await pg.locator('#main [data-ledger-loading="1"]').count()) === 0 };
+      await pg.close();
+    }
+    // 3. Michigan Auctions renders its card while a 3,000-row Available ledger is still paging slowly.
+    {
+      const { pg } = await openAt(html('mi.html') + '?bigcounty=3000&ledgerdelay=buy:3000#/auctions');
+      await pg.waitForSelector('#main .prop-card', { timeout: 8000, state: 'attached' }).catch(() => {});
+      // painted while Available was still downloading (its tab not final yet)
+      results.miAuctionsNotBlocked = { cards: await pg.locator('#main .prop-card').count(),
+        availablePendingAtPaint: /…$/.test(((await pg.locator('#tabCountLaft').textContent()) || '').trim()) };
+      await pg.waitForFunction(() => /^\d[\d,]*$/.test((document.getElementById('tabCountLaft') || {}).textContent || ''), null, { timeout: 30000 }).catch(() => {});
+      results.miAvailableArrives = { availableTab: ((await pg.locator('#tabCountLaft').textContent()) || '').trim(),
+        auctionCards: await pg.locator('#main .prop-card').count(), hash: await pg.evaluate(() => location.hash) };
+      await pg.close();
+    }
+    // 4. Florida: the auction-outcome lookup answering late never delays the list.
+    {
+      const { pg } = await openAt(BASE_URL + '?tabledelay=auction_events:6000#/auctions');
+      await pg.waitForSelector('#main .prop-card', { timeout: 8000, state: 'attached' }).catch(() => {});
+      results.flOutcomesNotGating = { cards: (await pg.locator('#main .prop-card').count()) > 0,
+        outcomesDoneAtPaint: await pg.evaluate(() => !!(window.__stubTableDone || {}).auction_events) };
+      await pg.close();
+    }
+    // 5. One list call per (ledger, page); the list RPC carries list-scope provenance only.
+    {
+      const { pg } = await openAt(BASE_URL + '#/auctions');
+      await pg.waitForLoadState('networkidle'); await pg.waitForTimeout(400);
+      results.listCallsOnce = await pg.evaluate(() => {
+        const log = (window.__stubRpcLog || []).filter(r => r.fn === 'get_properties_list');
+        const keys = log.map(r => `${r.ledger}:${r.offset}`);
+        return { calls: log.length, unique: new Set(keys).size, ledgers: [...new Set(log.map(r => r.ledger))].sort(),
+                 fullRpcCalls: (window.__stubRpcLog || []).filter(r => r.fn === 'get_properties').length };
+      });
+      await pg.close();
+    }
+    // 6. Louisiana Available: list rows are slim; opening one loads the full pair once and
+    //    "How to acquire" / forms / provenance are intact.
+    {
+      const { pg } = await openAt(html('la.html') + '#/lands');
+      await pg.waitForLoadState('networkidle'); await pg.waitForTimeout(400);
+      results.laListSlim = await pg.evaluate(() => {
+        const rows = (window.__tdwLastRender || {}).rows || [];
+        const heavy = rows.filter(r => r.otc_provenance && 'purchase_instructions' in r.otc_provenance).length;
+        const fpDetail = rows.filter(r => r.field_provenance && Object.values(r.field_provenance).some(v => v && (v.evidence || v.list_url || v.recorded_at))).length;
+        return { rows: rows.length, heavy, fpDetail, scoped: rows.every(r => r.provenance_scope === 'list'),
+                 acquisitionKept: rows.some(r => r.otc_provenance && r.otc_provenance.acquisition) };
+      });
+      const clickView = () => pg.evaluate(() => { const b = document.querySelector('#main [data-action="viewdetails"][data-pid="pla2"]'); if (b) b.click(); return !!b; });
+      results.laDetailButton = await clickView();
+      await pg.waitForTimeout(700);
+      const m = pg.locator('#detailModalInner');
+      results.laDetailFullProvenance = {
+        calls: await pg.evaluate(() => window.__stubProvenanceCalls || 0),
+        loadingGone: (await m.locator('#provLoading').count()) === 0,
+        provRows: (await m.locator('.provenance-card .prov-row, .provenance-card tr, .provenance-card .prov-lines > *').count()) > 0,
+        acquire: (await m.locator('[data-section="acquire"]').count()) === 1,
+        acqLinks: (await m.locator('[data-section="acquire"] a[data-acq-link]').count()) > 0,
+        scopeAfter: await pg.evaluate(() => ((window.__tdwLastRender || {}).rows || []).find(r => r.id === 'pla2')?.provenance_scope || null)
+      };
+      // Re-opening the same property does not fetch again.
+      await pg.keyboard.press('Escape'); await pg.waitForTimeout(200);
+      await clickView(); await pg.waitForTimeout(500);
+      results.laDetailFetchedOnce = await pg.evaluate(() => window.__stubProvenanceCalls || 0);
+      await pg.close();
+    }
+    // 7. Migration 028 not applied: the app falls back to get_properties() (full rows), no detail fetch.
+    {
+      const { pg } = await openAt(html('la.html') + '?nolistrpc=1#/lands/pla2');
+      await pg.waitForLoadState('networkidle'); await pg.waitForTimeout(600);
+      results.laFallbackFullRpc = await pg.evaluate(() => {
+        const log = window.__stubRpcLog || [];
+        const rows = (window.__tdwLastRender || {}).rows || [];
+        return { fullCalls: log.filter(r => r.fn === 'get_properties').length > 0, listCalls: log.filter(r => r.fn === 'get_properties_list').length,
+                 scoped: rows.some(r => r.provenance_scope), provenanceCalls: window.__stubProvenanceCalls || 0,
+                 modal: !document.getElementById('detailModal').hidden, loadingNote: !!document.getElementById('provLoading') };
+      });
+      await pg.close();
+    }
+  }
   // ---- Shell redesign (2026-10-04): Home, global search, state picker,
   // filter chips, county panel, property page chrome, mobile nav ----
   {
@@ -4880,7 +5005,7 @@ const EXPECTED = {
   },
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: { ready: true, controlled: true, tagline: "Tax Sale Property Intelligence", noState: true, cache: ["tdw-shell-v83"] },
+  brandSwReload: { ready: true, controlled: true, tagline: "Tax Sale Property Intelligence", noState: true, cache: ["tdw-shell-v84"] },
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · Tax Acquisitions — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · Tax Acquisitions — Florida", floridaCopy: true },
@@ -5964,6 +6089,21 @@ const EXPECTED = {
   selfSignupDuplicateMsg: "An account with this email already exists. Choose “Already have an account? Sign in”, or “Forgot password?” to set a new password.",
   selfSignupRefusalMsg: "Please choose a password of at least 8 characters.",
   selfSignupRefusalNoFallback: 1,
+  // Independent ledger loading + list payload (2026-10-05).
+  laAuctionsEmptyDesktop: {"beforeAvailable": true, "text": "No auction properties currently available.", "stateEmptyClaim": 0, "skeleton": 0, "availableTab": "…"},
+  laAvailableArrivesDesktop: {"availableTab": "2", "stillEmpty": 1, "hash": "#/auctions"},
+  laAuctionsEmptyMobile: {"beforeAvailable": true, "text": "No auction properties currently available.", "stateEmptyClaim": 0, "skeleton": 0, "availableTab": "…"},
+  laAvailableArrivesMobile: {"availableTab": "2", "stillEmpty": 1, "hash": "#/auctions"},
+  laLandsLoadingThenRows: {"loadingLine": 1, "loadingText": "Loading Available for Louisiana…", "claimedEmpty": 0, "cards": 2, "loadingGone": true},
+  miAuctionsNotBlocked: {"cards": 1, "availablePendingAtPaint": true},
+  miAvailableArrives: {"availableTab": "0", "auctionCards": 1, "hash": "#/auctions"},
+  flOutcomesNotGating: {"cards": true, "outcomesDoneAtPaint": false},
+  listCallsOnce: {"calls": 9, "unique": 9, "ledgers": ["auctions", "buy", "lien"], "fullRpcCalls": 0},
+  laListSlim: {"rows": 2, "heavy": 0, "fpDetail": 0, "scoped": true, "acquisitionKept": true},
+  laDetailButton: true,
+  laDetailFullProvenance: {"calls": 1, "loadingGone": true, "provRows": true, "acquire": true, "acqLinks": true, "scopeAfter": "full"},
+  laDetailFetchedOnce: 1,
+  laFallbackFullRpc: {"fullCalls": true, "listCalls": 0, "scoped": false, "provenanceCalls": 0, "modal": true, "loadingNote": false},
   // Available price honesty (2026-10-05).
   priceWording: {"openingBid": {"label": "Opening bid", "partial": true, "note": "Not the full price: the source publishes this as a starting amount. Ask the county for the current total.", "total": null, "expired": null, "gap": "Current purchase total not on file - the listed figure is the opening bid only"}, "fixed": {"label": "Purchase price", "partial": false, "note": "As the source publishes it - confirm the amount due before paying.", "total": null, "expired": null, "gap": null}, "expiredStatement": {"label": "Total due", "partial": true, "note": "Last clerk statement $27,689.42, valid through Aug 31, 2026 - that date has passed. Request an updated statement from the clerk.", "total": 27689.42, "expired": true, "gap": "County purchase statement has expired - request an updated total"}, "currentStatement": {"label": "Total due from purchaser", "partial": true, "note": "Clerk statement, valid if received by Dec 31, 2099.", "total": 27689.42, "expired": false, "gap": null}}
 };
