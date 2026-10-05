@@ -2561,3 +2561,17 @@ Full description: `docs/onboarding-mobile-search.md`. Stable facts:
   is loading, or "may be incomplete" after a failed one. It refreshes from
   `scheduleLedgerUpdate`.
 - `sw.js` -> `tdw-shell-v86`.
+
+## Financial honesty across states (2026-10-05, PR open, stacked on the first-run guide PR)
+
+Full description: `docs/financial-honesty-across-states.md`. Stable facts:
+- **No-figure rows:** when a row has no figure but the source terms state
+  the process, the display reads "Application required" / "Bid required" /
+  "Quoted on request" (`NO_FIGURE_DISPLAY`). The state stays
+  `not_published`.
+- **One auction bid label:** `auctionBidLabel(p)` serves every surface.
+  "Minimum bid" is used only for `MINIMUM_BID_SOURCES` (tx_lgbs, whose own
+  field is `minimum_bid`); every other source reads "Opening bid". Michigan's
+  list column is an opening bid, even though it is stored in `min_bid`.
+- **"Just Value" is Florida-only** in `valueLabel()`.
+- `sw.js` -> `tdw-shell-v87`.

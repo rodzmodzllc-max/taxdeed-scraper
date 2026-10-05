@@ -1651,7 +1651,8 @@ function valueLabel(p) {
     // Six-state expansion: the figure named as its source names it (STATE_META.marketLabel).
     const meta = STATE_META[regionOf(p)];
     if (meta && meta.marketLabel) return meta.marketLabel;
-    if (!["FL", "TX"].includes(regionOf(p))) return "Total value (source as published)";
+    // "Just value" is Florida's statutory term - never another state's label.
+    if (regionOf(p) !== "FL") return "Total value (source as published)";
     return hasNum(p.value_year) ? `${p.value_year} County Just Value` : "County Just Value";
   }
   return assessedSourceLabel(p);
@@ -1702,6 +1703,17 @@ window.__tdwHasPublishedBid = hasPublishedBid;
 // what it is (Albany WY's bare "Total") is never called an opening / minimum
 // bid - it is labelled as a published amount of unstated kind.
 const amountWord = (p, dflt) => (p && p.source === "auction" && p.purchase_amount_kind === "PUBLISHED_AMOUNT_KIND_UNSPECIFIED") ? "Published amount (kind not stated)" : dflt;
+// An auction's bid figure, named the same on every surface (card, summary,
+// preview, short label - 2026-10-05; the card said "Opening Bid" where the
+// summary said "Minimum bid" for the same row). The figure is named as its
+// source names it: Linebarger (tx_lgbs) publishes "minimum_bid"; every other
+// auction source here publishes an opening bid (Florida's statutory term; the
+// Michigan county lists' own column, stored in min_bid). Never a price.
+var MINIMUM_BID_SOURCES = ["tx_lgbs"];
+function auctionBidLabel(p, titleCase) {
+  const w = amountWord(p, p && MINIMUM_BID_SOURCES.includes(p.source_id || p.harvester_source) ? "Minimum bid" : "Opening bid");
+  return titleCase ? w.replace(/\b(bid|amount)\b/g, m => m[0].toUpperCase() + m.slice(1)) : w;
+}
 const bidDisplay = p => (hasPublishedBid(p) ? fmtMoney(p.bid) : "Not published");
 // Phase 65 / 71: the deed/LAFT CARD always shows the bid as a whole dollar,
 // rounded to the nearest dollar ("$324,265", never "$324,264.72") - on a
@@ -3744,7 +3756,7 @@ function previewFacts(p) {
   if (p.legal_desc) more.push(["Legal", String(p.legal_desc).length > 140 ? String(p.legal_desc).slice(0, 137) + "…" : String(p.legal_desc)]);
   return {
     kicker: `${where} · ${k.type} · ${k.phase}`, where, phaseCls: k.cls,
-    bidLabel: p.source === "laft" ? availableAmountLabel(p) : amountWord(p, "Minimum bid"),
+    bidLabel: p.source === "laft" ? availableAmountLabel(p) : auctionBidLabel(p),
     bid: p.source === "laft" ? (amountInfo(p).value !== null && amountInfo(p).value !== undefined ? fmtMoney(amountInfo(p).value) : (amountInfo(p).display === "Not published" ? null : amountInfo(p).display)) : (hasPublishedBid(p) ? fmtMoney(p.bid) : null),
     bidNote: p.source === "laft" ? amountInfo(p).note : "",
     value: hasMarket ? fmtShort(p.market) : hasAssessed ? fmtShort(p.assessed) : null,
@@ -3822,7 +3834,7 @@ function card(p, showCounty) {
     </div>
     ${classificationBadgeHtml(p) ? `<div class="prop-classification-line">${classificationBadgeHtml(p)}</div>` : ""}
     <div class="card-stat-grid ${marketVal ? "card-stat-grid-2" : "card-stat-grid-1"}">
-      <div class="card-stat card-stat-headline">${p.source === "laft" ? availableHeadlineHtml(p) : `<div class="card-stat-label">${amountWord(p, "Opening Bid")}</div><div class="card-stat-val bid${bidPublished ? "" : " unpublished"}">${bidDisplayCard(p)}</div>`}</div>
+      <div class="card-stat card-stat-headline">${p.source === "laft" ? availableHeadlineHtml(p) : `<div class="card-stat-label">${auctionBidLabel(p, true)}</div><div class="card-stat-val bid${bidPublished ? "" : " unpublished"}">${bidDisplayCard(p)}</div>`}</div>
       ${marketVal ? `<div class="card-stat card-stat-headline"><div class="card-stat-label">${esc(valueLabel(p))}</div><div class="card-stat-val market">${fmtShort(marketVal)}</div></div>` : ""}
     </div>
     ${p.source === "auction" && bidPublished && marketVal > 0 ? equitySpreadBarHtml(p) : ""}
@@ -4246,7 +4258,7 @@ function opportunitySummaryHtml(p) {
     ["Where", where, ""],
     ["When", esc(when), whenCls],
     isLaft ? (() => { const ai = amountInfo(p); const v = ai.value !== null && ai.value !== undefined ? fmtMoney(ai.value) : ai.display; return [ai.label, `${esc(v)}${ai.value !== null && ai.value !== undefined ? ratio : ""}${ai.note ? `<span class="opp-sub">${esc(ai.note)}</span>` : ""}`, ai.current ? "bid" : ai.value !== null && ai.value !== undefined ? "bid partial" : "muted"]; })()
-      : [amountWord(p, "Minimum bid"), bid ? `${esc(bid)}${ratio}` : `<span class="muted">Not published</span>`, bid ? "bid" : ""],
+      : [auctionBidLabel(p), bid ? `${esc(bid)}${ratio}` : `<span class="muted">Not published</span>`, bid ? "bid" : ""],
     ...(isLaft ? [(() => { const a = acquisitionOf(p); return ["How to acquire", a.verified ? `${esc(a.label)}<span class="opp-sub">${esc(a.office || (a.channels.length ? a.channels.map(c => ACQUISITION_MODE_SHORT[c] || c).join(" · ") : "See the decision below"))}</span>` : `<span class="muted">${esc(a.mode === "none" ? "No purchase path (stated by the source)" : "Not yet verified")}</span>`, a.verified ? "ok" : "muted"]; })()] : []),
     ["Value on file", value, valueCls],
     ["Missing", missing, gaps.length ? "" : "ok"]
@@ -5193,6 +5205,14 @@ function partialAmountLabel(p) { return /min/i.test(sourceAmountColumn(p)) ? "Mi
 //  unspecified       - the source did not say what the amount is
 //  quoted            - quoted only on application
 //  not_published     - no amount
+// Price not published, but the source states the process (available-terms.json
+// basis). Display text + note; never a figure.
+var NO_FIGURE_DISPLAY = {
+  OFFER_NEGOTIATED: ["Application required", "No price is published: you apply and make an offer, and the price is negotiated with the office."],
+  PROPOSAL: ["Application required", "No price is published: you submit the office's application / proposal form, and it decides."],
+  BID_SUBMISSION: ["Bid required", "No price is published: you submit a bid, and the office decides and states the amount due."],
+  QUOTED_ON_REQUEST: ["Quoted on request", "No price is published: the office quotes the current amount when you ask."]
+};
 function amountInfo(p) {
   const st = purchaseStatementOf(p);
   const kind = p ? p.purchase_amount_kind : null;
@@ -5214,6 +5234,11 @@ function amountInfo(p) {
     return Object.assign(base, { state: "program_price", label: "Published program price", value: pp, display: pp === null ? "See program terms" : undefined, note: terms.program_price_note || "", terms });
   }
   if (kind === "NOT_PUBLISHED" || (figure === null && kind !== "QUOTED_ON_APPLICATION")) {
+    // No figure, but the source's own terms say how the price is reached
+    // (2026-10-05): say that instead of a bare "Not published". Still the
+    // not_published state - nothing here is an amount.
+    const how = !figure && terms ? NO_FIGURE_DISPLAY[terms.basis] : null;
+    if (how) return Object.assign(base, { state: "not_published", label: "Price", value: null, display: how[0], note: how[1], terms });
     return Object.assign(base, { state: "not_published", label: "Price", value: null, display: "Not published", note: "" });
   }
   if (kind === "QUOTED_ON_APPLICATION") {
@@ -5248,7 +5273,7 @@ function amountShort(p) {
     const i = amountInfo(p);
     return { label: i.label, text: i.value !== null && i.value !== undefined ? fmtShort(i.value) : (i.display || "Not published"), state: i.state };
   }
-  return { label: p && p.source === "certificate" ? "Certificate amount" : amountWord(p, "Opening bid"), text: bidDisplayCard(p), state: hasPublishedBid(p) ? "bid" : "not_published" };
+  return { label: p && p.source === "certificate" ? "Certificate amount" : auctionBidLabel(p), text: bidDisplayCard(p), state: hasPublishedBid(p) ? "bid" : "not_published" };
 }
 // The Available card's headline cell (label, figure, one-line note).
 function availableHeadlineHtml(p) {
@@ -5939,7 +5964,7 @@ function detailHtml(p) {
   const stats = [];
   if (!isCert) {
     if (p.source === "laft") { const as = amountInfo(p); stats.push([as.label, as.value !== null && as.value !== undefined ? fmtMoney(as.value) : (as.display || "Not published"), "financial"]); }
-    else stats.push([amountWord(p, "Opening Bid"), bidDisplay(p), "financial"]);
+    else stats.push([auctionBidLabel(p, true), bidDisplay(p), "financial"]);
     // Named for what it is - the appraiser's own just value for a stated roll
     // year - rather than the old "Market Value", which implied a live
     // estimate this app has never had and cannot legitimately obtain.

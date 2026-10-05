@@ -411,7 +411,9 @@ def test_a05_an_amount_of_unstated_kind_is_never_a_minimum_bid(tmp_path):
     mi = run("MI", tmp_path / "mi")["rows"]
     assert all(r["min_bid"] > 0 and "purchase_amount" not in r for r in mi)
     app = (REPO / "public/app.js").read_text(encoding="utf-8")
-    assert 'amountWord(p, "Opening Bid")' in app and "Published amount (kind not stated)" in app
+    # 2026-10-05: one label function on every surface; Michigan's column is an opening bid, only LGBS is a minimum bid.
+    assert "function auctionBidLabel(p, titleCase)" in app and 'var MINIMUM_BID_SOURCES = ["tx_lgbs"];' in app
+    assert "Published amount (kind not stated)" in app
 
 
 def test_l03_every_row_states_its_path_so_a_closed_listing_sheds_one(tmp_path):
