@@ -2657,3 +2657,19 @@ Full description: `docs/opportunity-finder.md`. Stable facts:
   45 days of the filtered rows, per sale date + county; links only from
   `auctionLinkInfo()`; no deposit / registration / bidder terms (none stored).
 - `sw.js` -> `tdw-shell-v91`.
+
+## Final visual refinement (2026-10-05, PR open, frontend only)
+
+Full description: `docs/final-visual-refinement.md`. Stable facts:
+- **Ledger questions:** `LEDGERS[...].question` is shown in each ledger head,
+  in the ledger's colour. The List page hides the repeated section `h2`
+  visually only; it stays readable by screen readers.
+- **Property page order:** identity → `detailStatusHtml()` (ledger / status /
+  last read) → How to acquire → … → Risk & Legal (the FL lien-notes banner
+  lives here now) → Map → Source truth → documents. Sections are numbered by
+  a CSS counter.
+- **Source truth rows** (fixed order): Source record, Last read, Source date,
+  Publication status, Source health, Acquisition path / Sale process, Price /
+  bid / Certificate amount, Official listing, County intelligence. Never add a
+  score or a confidence.
+- `sw.js` → `tdw-shell-v92`.

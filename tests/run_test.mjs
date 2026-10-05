@@ -4151,6 +4151,61 @@ await navMap.close();
       minTap: Math.min(...Array.from(document.querySelectorAll('#upcomingSales .cc-event')).filter(e => e.offsetParent !== null).flatMap(e => Array.from(e.querySelectorAll('.cc-link,.cc-dossier'))).map(a => Math.round(a.getBoundingClientRect().height))) }));
     await m.close();
   }
+  // ---- Final visual refinement (2026-10-05) ----
+  {
+    const q = {};
+    for (const [h, k] of [['#/lands', 'laft'], ['#/auctions', 'auction'], ['#/certificates', 'certificate']]) {
+      const pg = await newPage({ viewport: { width: 1280, height: 900 } });
+      pg.on('pageerror', e => errors.push('refine pageerror: ' + e.message));
+      await pg.goto(BASE_URL + h, { waitUntil: 'networkidle' });
+      await pg.waitForTimeout(300);
+      q[k] = await pg.evaluate(k => { const e = document.querySelector(`[data-ledger-question="${k}"]`); return e ? e.textContent.trim() : null; }, k);
+      await pg.close();
+    }
+    results.refineLedgerQuestions = q;
+    const pg = await newPage({ viewport: { width: 1280, height: 900 } });
+    await pg.goto(BASE_URL + '#/lands/p15', { waitUntil: 'networkidle' });
+    await pg.waitForSelector('#detailModal:not([hidden]) .dossier-status', { timeout: 8000 });
+    results.refineDossier = await pg.evaluate(() => {
+      const m = document.querySelector('#detailModal:not([hidden])');
+      const st = m.querySelector('.dossier-status');
+      const order = [...m.querySelectorAll('.dossier-status, [data-section="acquire"], [data-section="truth"], .lien-banner, [data-section="risk"], [data-section="sources"]')].map(e => e.dataset.section || e.className.split(' ')[0]);
+      const truth = m.querySelector('[data-section="truth"]');
+      return { status: [...st.querySelectorAll('dt')].map(e => e.textContent.trim()), lastRead: st.querySelectorAll('dd')[2].textContent.trim(), order,
+        lede: !!truth.querySelector('.truth-lede'), noScoreWords: !/\b(score|confidence|AI verified|AI confidence|great investment|ROI|undervalued)\b/i.test(truth.textContent) };
+    });
+    await pg.close();
+    const vp = [];
+    for (const w of [390, 430, 768]) {
+      const d = await newPage({ viewport: { width: w, height: 844 } });
+      await d.goto(BASE_URL + '#/lands/p15', { waitUntil: 'networkidle' });
+      await d.waitForTimeout(400);
+      const ov = await d.evaluate(() => document.scrollingElement.scrollWidth - document.scrollingElement.clientWidth);
+      if (ov > 0) vp.push(`${w}:detail:overflow`);
+      await d.close();
+      const a = await newPage({ viewport: { width: w, height: 844 } });
+      await a.goto(BASE_URL + '?authtest=1', { waitUntil: 'networkidle' });
+      await a.waitForTimeout(250);
+      const f = await a.evaluate(() => { const vis = [...document.querySelectorAll('#authGate .auth-field')].filter(e => e.offsetParent !== null);
+        return { n: vis.length, minH: Math.min(...vis.map(e => Math.round(e.querySelector('input').getBoundingClientRect().height))) }; });
+      if (f.n !== 2) vp.push(`${w}:signin:fields=${f.n}`);
+      if (f.minH < 44) vp.push(`${w}:signin:h=${f.minH}`);
+      await a.close();
+    }
+    // Wide screens: a property row's identity column never runs under its figures.
+    for (const w of [1440, 1920]) {
+      const r = await newPage({ viewport: { width: w, height: 900 } });
+      await r.goto(BASE_URL + '#/lands', { waitUntil: 'networkidle' });
+      await r.waitForTimeout(400);
+      const bad = await r.evaluate(() => [...document.querySelectorAll('#main .prop-card[data-pid]')].filter(c => c.offsetParent !== null).some(c => {
+        const cols = getComputedStyle(c).gridTemplateColumns.split(' ').filter(Boolean);
+        return cols.length === 3 && parseFloat(cols[1]) < 200;   // the identity column squeezed out
+      }));
+      if (bad) vp.push(`${w}:row:overlap`);
+      await r.close();
+    }
+    results.refineViewports = vp;
+  }
   // ---- Shell redesign (2026-10-04): Home, global search, state picker,
   // filter chips, county panel, property page chrome, mobile nav ----
   {
@@ -5482,7 +5537,7 @@ const EXPECTED = {
   },
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: {"ready": true, "controlled": true, "tagline": "Public Property Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v91"]},
+  brandSwReload: {"ready": true, "controlled": true, "tagline": "Public Property Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v92"]},
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · TaxDeed-Scraper — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · TaxDeed-Scraper — Florida", floridaCopy: true },
@@ -6611,7 +6666,7 @@ const EXPECTED = {
       "instructions": "known", "listing": "known", "contact": "known", "deadlines": "not_published", "verified": "known", "not_published": "summary"},
     "method": "Multi-step county process", "head": "10 of 13 on file", "firstInAcquire": true},
   acqChecklistNoInference: {"n": 14, "known": [], "summary": "summary"},
-  sourceTruth: {"labels": ["Source", "Official listing", "Source health", "This record", "Source date", "Publication review", "County intelligence"], "health": "CURRENT", "dossierBtn": true, "navPill": true},
+  sourceTruth: {"labels": ["Source record", "Last read", "Source date", "Publication status", "Source health", "Acquisition path", "Price", "Official listing", "County intelligence"], "health": "CURRENT", "dossierBtn": true, "navPill": true},
   sourceHealthVectors: [],
   dossierCitrus: {"title": "Citrus County, FL", "intel": "VERIFIED", "ledgers": {"laft": "COVERED", "auction": "COVERED", "certificate": "COVERED"}, "acq": true, "terms": true, "listBtn": true},
   dossierToList: {"modal": true, "hash": "#/lands", "counties": ["Citrus"]},
@@ -6642,6 +6697,10 @@ const EXPECTED = {
   commandCenter: {"events": 9, "shown": 8, "head": "Auction command center · next 45 days", "firstFacts": ["1 of 1 with a published bid", "Sale process not yet verified"], "linksFromRows": true, "noInvented": true},
   commandCenterDossier: true,
   commandCenterMobile: {"visible": 4, "overflow": 0, "minTap": 44},
+  // Final visual refinement (2026-10-05).
+  refineLedgerQuestions: {"laft": "What can I acquire now?", "auction": "What is coming up for sale?", "certificate": "What tax lien or certificate am I buying?"},
+  refineDossier: {"status": ["Ledger", "Status", "Last read"], "lastRead": "Sep 20, 2026", "order": ["dossier-status", "acquire", "lien-banner", "risk", "truth", "sources"], "lede": true, "noScoreWords": true},
+  refineViewports: [],
   // Available price honesty (2026-10-05).
   priceWording: {"openingBid": {"label": "Opening bid", "partial": true, "note": "Not the full price: the source publishes this as a starting amount. Ask the county for the current total.", "total": null, "expired": null, "gap": "Current purchase total not on file - the listed figure is the opening bid only"}, "fixed": {"label": "Purchase price", "partial": false, "note": "As the source publishes it - confirm the amount due before paying.", "total": null, "expired": null, "gap": null}, "expiredStatement": {"label": "Total due", "partial": true, "note": "Last clerk statement $27,689.42, valid through Aug 31, 2026 - that date has passed. Request an updated statement from the clerk.", "total": 27689.42, "expired": true, "gap": "County purchase statement has expired - request an updated total"}, "currentStatement": {"label": "Total due from purchaser", "partial": true, "note": "Clerk statement, valid if received by Dec 31, 2099.", "total": 27689.42, "expired": false, "gap": null}}
 };
