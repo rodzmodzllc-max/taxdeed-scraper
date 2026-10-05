@@ -461,6 +461,36 @@ let WITHHELD = { auction: 0, laft: 0, certificate: 0 };
 // A BLOCKED source is never shown to anyone. Source review status is NOT the
 // property's availability status - the two are always labelled separately.
 const PUBLICATION_MODE = String((window.TDW_CONFIG || {}).publicationMode || "enforced") === "preview" ? "preview" : "enforced";
+// ==================== Access / entitlement (paid beta, 2026-10-05) ====================
+// ONE access decision per session, from the server: public.my_entitlement()
+// (migration 027, mirror of supabase/functions/_shared/billing_core.js).
+//   role admin     -> every collected row (labelled)
+//   role tester    -> today's tester experience: publicationMode decides
+//                     preview (sources under review, labelled) or enforced
+//   role customer  -> the paid-beta inventory only: rows whose source has an
+//                     explicit APPROVED decision AND is in the paid-beta scope
+//                     (commercial-scope.json; migration 027 enforces the same
+//                     set server-side). Paid and admin-granted customers alike.
+//   role inactive  -> no app: the plan screen (billing configured) or the
+//                     pending-approval screen
+// Before 027 is applied my_entitlement() does not exist and the role comes
+// from the profile exactly as before (admin / approved = tester / pending),
+// so nothing changes for anyone until that deliberate step.
+// `var`: render() can run during module init, before this line's section of
+// the file would otherwise be initialised (see the TDZ note on selectedPid).
+var ACCESS = { role: null, state: null, source: "legacy", entitlement: null };
+var PAID_BETA_SOURCES = new Set();
+var PAID_BETA_LOADED = false;
+function viewerScope() {
+  if (IS_ADMIN) return "all";
+  if (ACCESS.role === "customer") return "paid";
+  return PUBLICATION_MODE === "preview" ? "preview" : "enforced";
+}
+// The paid-beta rule. Fails closed: until commercial-scope.json is read, a
+// customer sees nothing rather than everything.
+function isPaidBetaPublishable(p) {
+  return !!p && p.publication_status === "APPROVED" && PAID_BETA_SOURCES.has(p.source_id) && inCustomerInventory(p);
+}
 const SOURCE_REVIEW_LABELS = {
   APPROVED: "Approved",
   APPROVED_GRANDFATHERED: "Approved (grandfathered)",
@@ -521,7 +551,8 @@ function isPublishable(p) {
   if (p && p.publication_status === "BLOCKED") return false;
   if (IS_ADMIN) return true;
   if (!inCustomerInventory(p)) return false;
-  return isCustomerPublishable(p) || PUBLICATION_MODE === "preview";
+  if (viewerScope() === "paid") return isPaidBetaPublishable(p);
+  return isCustomerPublishable(p) || viewerScope() === "preview";
 }
 function sourceReviewLabel(p) {
   const s = p && p.publication_status;
@@ -2251,6 +2282,8 @@ const pendingSignOutBtn = document.getElementById("pendingSignOutBtn");
 if (pendingSignOutBtn) {
   pendingSignOutBtn.addEventListener("click", () => doSignOut(null));
 }
+const planSignOutBtn = document.getElementById("planSignOutBtn");
+if (planSignOutBtn) planSignOutBtn.addEventListener("click", () => doSignOut(null));
 
 async function doSignOut(reason) {
   stopIdleWatch();
@@ -2313,8 +2346,183 @@ async function checkApprovalAndEnter(session) {
   const govItem = document.getElementById("governanceMenuItem");
   if (govItem) govItem.hidden = !IS_ADMIN;
   syncAdminNav();
-  if (profile && profile.approved) showApp();
-  else showPending();
+  // Paid beta (migration 027): the server's entitlement decides. Before 027
+  // exists the approval record decides, exactly as it always has.
+  const ent = await readEntitlement();
+  if (ent) {
+    ACCESS = { role: ent.role, state: ent.state, source: "entitlement", entitlement: ent };
+    if (ent.access) { showApp(); afterEntryBillingRoute(); }
+    else showPlanOrPending(ent);
+    return;
+  }
+  const approved = !!(profile && profile.approved);
+  ACCESS = { role: IS_ADMIN ? "admin" : approved ? "tester" : "inactive", state: IS_ADMIN ? "admin_override" : approved ? "tester_beta" : "inactive", source: "legacy", entitlement: null };
+  if (approved) { showApp(); afterEntryBillingRoute(); }
+  else showPlanOrPending(null);
+}
+
+// ==================== paid beta: entitlement, plan screen, billing ====================
+// The server is the only authority for access (public.my_entitlement(),
+// migration 027). Nothing here grants access: a Stripe checkout redirect
+// back to #/billing?checkout=success only re-reads the server, which changes
+// only when the verified stripe-webhook has recorded the subscription.
+// Captured at load, before any hash routing rewrites the address.
+var BILLING_INTENT = (function () {
+  const m = /^#\/?billing(?:\?(.*))?$/.exec(location.hash || "");
+  if (!m) return null;
+  const q = new URLSearchParams(m[1] || "");
+  return { checkout: q.get("checkout") || null };
+})();
+const BILLING_STATE_LABELS = {
+  admin_override: "Administrator",
+  tester_beta: "Tester (beta)",
+  manual_customer: "Customer - access granted by an administrator",
+  active: "Active",
+  trial: "Trial",
+  cancelling: "Cancellation scheduled",
+  payment_failed_grace: "Payment failed - grace period",
+  payment_failed: "Payment failed - access paused",
+  cancelled: "Cancelled",
+  inactive: "No active subscription"
+};
+function billingConfig() {
+  const b = (window.TDW_CONFIG || {}).billing || {};
+  const planName = String(b.planName || "").trim();
+  const priceDisplay = String(b.priceDisplay || "").trim();
+  return {
+    enabled: b.enabled === true,
+    planName, priceDisplay,
+    complete: b.enabled === true && !!planName && !!priceDisplay,
+    checkoutFunction: String(b.checkoutFunction || "billing-checkout"),
+    portalFunction: String(b.portalFunction || "billing-portal")
+  };
+}
+function isMissingFunctionError(error) {
+  const code = error && error.code;
+  return code === "PGRST202" || code === "42883" || /could not find the function/i.test(String((error && error.message) || ""));
+}
+async function readEntitlement() {
+  try {
+    const { data, error } = await sb.rpc("my_entitlement");
+    if (error) {
+      if (!isMissingFunctionError(error)) console.warn("Entitlement check failed - using the approval record.", error);
+      return null;
+    }
+    return data && typeof data === "object" && typeof data.role === "string" ? data : null;
+  } catch (e) {
+    console.warn("Entitlement check failed - using the approval record.", e);
+    return null;
+  }
+}
+async function functionErrorMessage(error, fallback) {
+  try {
+    const ctx = error && error.context;
+    const body = ctx && typeof ctx.json === "function" ? await ctx.json() : null;
+    if (body && body.message) return String(body.message);
+  } catch { /* not JSON */ }
+  return fallback;
+}
+const planGate = document.getElementById("planGate");
+// The plan screen exists only where billing is switched on in config.js AND
+// the server can answer for a subscription (migration 027). Anything less is
+// the existing pending-approval screen - never a half-configured checkout.
+function showPlanOrPending(ent) {
+  const cfg = billingConfig();
+  if (!cfg.enabled || !ent || !planGate) { if (planGate) planGate.hidden = true; showPending(); return; }
+  stopIdleWatch();
+  if (gate) gate.hidden = true;
+  if (app) app.hidden = true;
+  if (pendingGate) pendingGate.hidden = true;
+  planGate.hidden = false;
+  renderPlanGate(ent);
+  if (BILLING_INTENT && BILLING_INTENT.checkout === "success") pollEntitlementAfterCheckout();
+}
+function planStateMessage(ent) {
+  if (BILLING_INTENT && BILLING_INTENT.checkout === "success") return "Stripe has received your payment details. Waiting for Stripe to confirm the subscription - this page continues automatically once it does (usually within a minute).";
+  if (BILLING_INTENT && BILLING_INTENT.checkout === "cancelled") return "Checkout was cancelled. Nothing was charged.";
+  switch (ent && ent.state) {
+    case "payment_failed": return "Your last payment failed and paid access is paused. Update your payment method to restore access.";
+    case "cancelled": return "Your subscription has ended. Subscribe again to restore access.";
+    default: return "Subscribe to open the paid-beta inventory.";
+  }
+}
+function renderPlanGate(ent) {
+  const cfg = billingConfig();
+  const body = document.getElementById("planBody");
+  if (!body) return;
+  const hasSub = !!(ent && ent.subscription_status);
+  body.innerHTML = `
+    <p class="plan-state" id="planState" data-state="${esc((ent && ent.state) || "inactive")}">${esc(planStateMessage(ent))}</p>
+    ${cfg.complete
+      ? `<div class="plan-card" id="planCard"><div class="plan-name">${esc(cfg.planName)}</div><div class="plan-price">${esc(cfg.priceDisplay)}</div>
+           <p class="plan-scope">The paid beta covers the sources approved for paid customers - a deliberately small, reviewed set, not every state or source the service collects. Sources still under review are not included.</p></div>
+         <button type="button" id="planSubscribeBtn">${hasSub ? "Subscribe again" : "Subscribe"}</button>`
+      : `<div class="plan-unconfigured" id="planUnconfigured"><b>Subscriptions are not open yet.</b> The plan name and price have not been configured for this deployment (config.js billing.planName / billing.priceDisplay).</div>`}
+    ${hasSub ? `<button type="button" class="auth-mode-toggle" id="planManageBtn">Manage billing (update payment method)</button>` : ""}
+    <p class="plan-tester-note">Testers and invited accounts: access is granted by an administrator - no payment needed. If you were invited, wait for approval.</p>
+    <div class="auth-msg" id="planMsg" role="status"></div>`;
+  const sub = document.getElementById("planSubscribeBtn");
+  if (sub) sub.addEventListener("click", startCheckout);
+  const manage = document.getElementById("planManageBtn");
+  if (manage) manage.addEventListener("click", () => openBillingPortal("planMsg"));
+}
+async function startCheckout() {
+  const cfg = billingConfig();
+  const msg = document.getElementById("planMsg");
+  const btn = document.getElementById("planSubscribeBtn");
+  if (!cfg.complete) return;
+  if (btn) btn.disabled = true;
+  if (msg) { msg.className = "auth-msg"; msg.textContent = "Opening secure checkout"; }
+  const { data, error } = await sb.functions.invoke(cfg.checkoutFunction, { body: {} });
+  if (error || !data || !data.url) {
+    if (btn) btn.disabled = false;
+    if (msg) { msg.className = "auth-msg err"; msg.textContent = await functionErrorMessage(error, "Checkout could not be started. Please try again or contact support."); }
+    return;
+  }
+  window.__tdwBillingRedirects = (window.__tdwBillingRedirects || []).concat([data.url]);
+  location.assign(data.url);
+}
+async function openBillingPortal(msgId) {
+  const cfg = billingConfig();
+  const msg = document.getElementById(msgId);
+  if (msg) { msg.className = "auth-msg"; msg.textContent = "Opening the billing portal"; }
+  const { data, error } = await sb.functions.invoke(cfg.portalFunction, { body: {} });
+  if (error || !data || !data.url) {
+    if (msg) { msg.className = "auth-msg err"; msg.textContent = await functionErrorMessage(error, "The billing portal could not be opened. Please try again or contact support."); }
+    return;
+  }
+  window.__tdwBillingRedirects = (window.__tdwBillingRedirects || []).concat([data.url]);
+  location.assign(data.url);
+}
+// After a checkout redirect: re-read the SERVER until the webhook has
+// recorded the subscription (bounded), then enter. Never enters on the
+// redirect alone.
+let entitlementPoll = null;
+function pollEntitlementAfterCheckout() {
+  if (entitlementPoll) return;
+  let tries = 0;
+  const delay = Number(window.__tdwEntitlementPollMs) || 3000;
+  entitlementPoll = setInterval(async () => {
+    tries++;
+    const ent = await readEntitlement();
+    if (ent && ent.access) {
+      clearInterval(entitlementPoll); entitlementPoll = null;
+      ACCESS = { role: ent.role, state: ent.state, source: "entitlement", entitlement: ent };
+      if (planGate) planGate.hidden = true;
+      showApp();
+      afterEntryBillingRoute();
+      return;
+    }
+    if (tries >= 20) {
+      clearInterval(entitlementPoll); entitlementPoll = null;
+      const msg = document.getElementById("planMsg");
+      if (msg) { msg.className = "auth-msg err"; msg.textContent = "Stripe has not confirmed the subscription yet. Refresh this page in a few minutes, or contact support if access does not open."; }
+    }
+  }, delay);
+}
+function afterEntryBillingRoute() {
+  if (!BILLING_INTENT) return;
+  setTimeout(() => openBillingModal(), 0);
 }
 
 let lastActivity = Date.now();
@@ -2750,7 +2958,7 @@ function landingLedger(rows, fallback) {
 
 async function loadAll() {
   const today = new Date().toISOString().slice(0, 10);
-  const [props, notes, favs, hid, cal, bidlist, health, freshness, availCoverage, availTerms] = await Promise.all([
+  const [props, notes, favs, hid, cal, bidlist, health, freshness, availCoverage, availTerms, commercialScope] = await Promise.all([
     fetchProperties(),
     sb.from("notes").select("*"),
     sb.from("favorites").select("property_id"),
@@ -2765,7 +2973,11 @@ async function loadAll() {
     // not recorded yet, shown as such.
     sb.from("county_source_registry").select("state,county,source_id,last_attempt_at,last_attempt_status,last_success_at,last_success_row_count,consecutive_failures").order("county"),
     fetch("available-coverage.json", { cache: "no-store" }).then(r => (r.ok ? r.json() : null)).catch(() => null),
-    fetch("available-terms.json", { cache: "no-store" }).then(r => (r.ok ? r.json() : null)).catch(() => null)
+    fetch("available-terms.json", { cache: "no-store" }).then(r => (r.ok ? r.json() : null)).catch(() => null),
+    // Paid-beta source scope (scripts/build_commercial_scope.py). Only a
+    // customer's view depends on it; a failed read leaves the set empty
+    // (a customer then sees nothing, never everything).
+    fetch("commercial-scope.json", { cache: "no-store" }).then(r => (r.ok ? r.json() : null)).catch(() => null)
   ]);
   AVAILABLE_TERMS = (availTerms && Array.isArray(availTerms.terms)) ? availTerms.terms : [];
   if (props.error) {
@@ -2774,6 +2986,8 @@ async function loadAll() {
     return false;
   }
   ALL = props.data || [];
+  PAID_BETA_SOURCES = new Set(commercialScope && Array.isArray(commercialScope.paid_beta_source_ids) ? commercialScope.paid_beta_source_ids : []);
+  PAID_BETA_LOADED = !!commercialScope;
   WITHHELD = { auction: 0, laft: 0, certificate: 0 };
   // Publication is the source decision only - an Available row without a
   // captured acquisition path is still published (acquisitionGaps()).
@@ -6459,7 +6673,7 @@ function section(container, title, sub, rows, kind) {
       </p>
       ${REVIEW_PENDING_SHOWN[kind] ? `<p class="ledger-review-pending" id="ledgerReviewPending">${REVIEW_PENDING_SHOWN[kind]} record${REVIEW_PENDING_SHOWN[kind] === 1 ? "" : "s"} from sources awaiting customer-publication review ${REVIEW_PENDING_SHOWN[kind] === 1 ? "is" : "are"} ${esc(reviewViewerReason())}, each labelled "Source review". Customers in published mode do not see ${REVIEW_PENDING_SHOWN[kind] === 1 ? "it" : "them"}.</p>` : ""}
       ${WITHHELD[kind] ? `<p class="ledger-withheld" id="ledgerWithheld">${WITHHELD[kind]} record${WITHHELD[kind] === 1 ? "" : "s"} withheld - source not approved for customer publication (restricted or not yet reviewed). Counted, not shown.</p>` : ""}
-      ${kind === "laft" && DETROIT_SUMMARY.collected && (IS_ADMIN || PUBLICATION_MODE === "preview") ? `<p class="ledger-detroit-subset" id="ledgerDetroitSubset">Detroit Land Bank: ${DETROIT_SUMMARY.collected.toLocaleString("en-US")} collected · ${DETROIT_SUMMARY.structure.toLocaleString("en-US")} with a verified structure in the source's own status · ${DETROIT_SUMMARY.subset.toLocaleString("en-US")} in the customer subset (deterministic ~50%). ${IS_ADMIN ? "You see every collected record; those outside the subset are labelled and stay collected." : "Only the customer subset is shown here."} The subset still passes the publication gate: source review is separate.</p>` : ""}
+      ${kind === "laft" && DETROIT_SUMMARY.collected && (IS_ADMIN || viewerScope() === "preview") ? `<p class="ledger-detroit-subset" id="ledgerDetroitSubset">Detroit Land Bank: ${DETROIT_SUMMARY.collected.toLocaleString("en-US")} collected · ${DETROIT_SUMMARY.structure.toLocaleString("en-US")} with a verified structure in the source's own status · ${DETROIT_SUMMARY.subset.toLocaleString("en-US")} in the customer subset (deterministic ~50%). ${IS_ADMIN ? "You see every collected record; those outside the subset are labelled and stay collected." : "Only the customer subset is shown here."} The subset still passes the publication gate: source review is separate.</p>` : ""}
       ${state.statusView === "archive" ? `<p class="ledger-mode-note" id="archiveModeNote">📁 Past auctions only — sale date already gone. <button class="ledger-mode-exit" id="exitArchiveBtn" type="button">Back to current listings</button></p>` : ""}
     </div>`;
   if (!shown.length) {
@@ -8410,7 +8624,9 @@ const SUPPORT_TOPICS = [
   ["support", "Contact support", "General question or problem using the app"],
   ["data", "Report a data problem", "A figure, date, address or status on a property looks wrong"],
   ["source", "Report a source problem", "A county or vendor link is dead, or a source stopped updating"],
-  ["account", "Account or billing question", "Sign-in, approval, access or billing"],
+  ["account", "Account problem", "Sign-in, approval or access"],
+  ["billing", "Billing problem", "Subscription, payment, card, invoice or cancellation"],
+  ["technical", "Technical problem", "A page does not load, a button does nothing, or something looks broken"],
   ["deletion", "Request account deletion", "If the in-app Delete my account option is unavailable"]
 ];
 const supportUi = simpleModal("support", { modal: "supportModal", close: "supportCloseBtn" });
@@ -8449,6 +8665,68 @@ function openSupportModal(ctx) {
   const b = document.getElementById(id);
   if (b) b.addEventListener("click", () => openSupportModal({}));
 });
+
+// ---- plan & billing (paid beta, 2026-10-05) ----
+// What this account's access is and why, from the server's entitlement
+// (migration 027) - never from anything the browser holds. A paying customer
+// manages card, invoices and cancellation in Stripe's own billing portal.
+const billingUi = simpleModal("billing", { modal: "billingModal", close: "billingCloseBtn" });
+function billingDate(v) {
+  const t = v ? Date.parse(v) : NaN;
+  return Number.isNaN(t) ? null : new Date(t).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
+}
+function renderBillingModal() {
+  const body = document.getElementById("billingBody");
+  if (!body) return;
+  const cfg = billingConfig();
+  const e = ACCESS.entitlement;
+  const rows = [];
+  const row = (k, v) => rows.push(`<div class="billing-row"><dt>${esc(k)}</dt><dd>${v}</dd></div>`);
+  row("Access", `<b>${esc(BILLING_STATE_LABELS[ACCESS.state] || ACCESS.state || "Unknown")}</b>`);
+  if (ACCESS.source === "legacy") {
+    row("Why", esc(ACCESS.role === "admin" ? "Administrator account." : "Approved by an administrator."));
+    row("Billing", "Not set up for this deployment yet - access comes from an administrator's approval.");
+  } else {
+    row("Why", esc((e && e.reason) || ""));
+    if (e && e.subscription_status) {
+      row("Plan", esc(cfg.planName || (e.plan_key ? "Monthly plan" : "Not a configured plan")));
+      row("Subscription", esc(BILLING_STATE_LABELS[e.subscription_state] || e.subscription_status));
+      const end = billingDate(e.current_period_end);
+      if (end) row(e.cancel_at_period_end ? "Access ends" : (e.subscription_state === "active" ? "Renews" : "Current period ends"), esc(end));
+      if (e.cancel_at_period_end) row("Cancellation", "Scheduled - you keep access until the end of the paid period.");
+      if (e.last_payment_status === "failed") row("Payment", "The last payment failed. Update your payment method in the billing portal.");
+    } else if (ACCESS.role === "tester") {
+      row("Subscription", "None needed while you are a tester.");
+    } else if (ACCESS.role === "admin") {
+      row("Subscription", "None needed - administrator.");
+    } else if (ACCESS.state === "manual_customer") {
+      row("Subscription", "None - customer access was granted by an administrator.");
+    }
+  }
+  const scope = { all: "Every collected source, labelled (administrator).",
+    preview: "Tester preview: approved sources plus sources still under review, each labelled.",
+    enforced: "Sources approved for customer publication.",
+    paid: "The paid-beta sources: sources with an explicit approval for paid customers." }[viewerScope()];
+  row("Inventory", esc(scope));
+  if (BILLING_INTENT && BILLING_INTENT.checkout === "success" && ACCESS.role === "customer") row("Checkout", "Payment confirmed by Stripe - your subscription is active.");
+  const canManage = ACCESS.source === "entitlement" && cfg.enabled && e && e.subscription_status;
+  body.innerHTML = `<dl class="billing-list" id="billingList">${rows.join("")}</dl>
+    ${canManage ? `<button type="button" class="detail-btn" id="billingPortalBtn">Manage billing</button>` : ""}
+    <p class="terms-note">Billing questions: Contact support (account menu) and choose "Billing problem".</p>
+    <div class="auth-msg" id="billingMsg" role="status"></div>`;
+  const btn = document.getElementById("billingPortalBtn");
+  if (btn) btn.addEventListener("click", () => openBillingPortal("billingMsg"));
+}
+function openBillingModal() {
+  renderBillingModal();
+  billingUi.open();
+}
+["billingBtnMenu"].forEach(id => {
+  const b = document.getElementById(id);
+  if (b) b.addEventListener("click", () => openBillingModal());
+});
+window.__tdwVisibility = p => isPublishable(p);
+window.__tdwAccess = () => ({ role: ACCESS.role, state: ACCESS.state, source: ACCESS.source, scope: viewerScope(), paidBetaSources: [...PAID_BETA_SOURCES] });
 
 // ---- source publication governance (admin only) ----
 // Its own view, reached from the account menu ("Source Publication
@@ -10266,14 +10544,15 @@ function removeFilterChip(key) {
 // server count, so a count there could overstate what you would see.
 var PICKER_CACHE_KEY = "tdw_state_ledgers_v1";
 function pickerCacheRead() {
-  try { const v = JSON.parse(sessionStorage.getItem(PICKER_CACHE_KEY + (IS_ADMIN ? ":a" : PUBLICATION_MODE === "preview" ? ":p" : ":c")) || "null"); return v && typeof v === "object" ? v : {}; } catch { return {}; }
+  try { const v = JSON.parse(sessionStorage.getItem(PICKER_CACHE_KEY + ({ all: ":a", preview: ":p", paid: ":b" }[viewerScope()] || ":c")) || "null"); return v && typeof v === "object" ? v : {}; } catch { return {}; }
 }
 function pickerCacheWrite(v) {
-  try { sessionStorage.setItem(PICKER_CACHE_KEY + (IS_ADMIN ? ":a" : PUBLICATION_MODE === "preview" ? ":p" : ":c"), JSON.stringify(v)); } catch { /* private mode */ }
+  try { sessionStorage.setItem(PICKER_CACHE_KEY + ({ all: ":a", preview: ":p", paid: ":b" }[viewerScope()] || ":c"), JSON.stringify(v)); } catch { /* private mode */ }
 }
 async function probeStateLedger(st, k) {
   let q = sb.from("properties").select("id").eq("state", st).eq("source", k).limit(1);
-  if (!IS_ADMIN && PUBLICATION_MODE !== "preview") q = q.or("publication_status.is.null,publication_status.in.(APPROVED,APPROVED_GRANDFATHERED)");
+  if (viewerScope() === "paid") q = q.eq("publication_status", "APPROVED").in("source_id", [...PAID_BETA_SOURCES]);
+  else if (!IS_ADMIN && PUBLICATION_MODE !== "preview") q = q.or("publication_status.is.null,publication_status.in.(APPROVED,APPROVED_GRANDFATHERED)");
   const r = await q;
   if (r && r.error) return null;
   return !!(r && r.data && r.data.length);

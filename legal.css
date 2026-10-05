@@ -1,0 +1,18 @@
+/* Legal pages (terms / privacy / acceptable use / source disclaimer). Plain,
+   readable, same palette as the app; light and dark. */
+:root{--ink:#0F172A;--ink-soft:#475569;--paper:#F8FAFC;--card:#FFFFFF;--line:#E2E8F0;--warn-bg:#FEF3C7;--warn-ink:#78350F;--link:#1D4ED8}
+@media (prefers-color-scheme:dark){:root{--ink:#F1F5F9;--ink-soft:#94A3B8;--paper:#0A0D13;--card:#0F1620;--line:#212C40;--warn-bg:#3A2A08;--warn-ink:#FDE68A;--link:#93C5FD}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--paper);color:var(--ink);font:16px/1.6 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:46rem;margin:0 auto;padding:2rem 1rem 4rem}
+header.legal-head{margin-bottom:1.5rem}
+header.legal-head a{color:var(--link);font-size:.9rem}
+h1{font-size:1.6rem;line-height:1.25;margin:.6rem 0 .3rem}
+h2{font-size:1.1rem;margin:1.8rem 0 .4rem}
+p,li{color:var(--ink)}
+.legal-meta{color:var(--ink-soft);font-size:.88rem;margin:0}
+.legal-unconfigured{background:var(--warn-bg);color:var(--warn-ink);border-radius:8px;padding:.8rem 1rem;margin:1rem 0;font-size:.9rem}
+.legal-unconfigured[hidden]{display:none}
+nav.legal-nav{border-top:1px solid var(--line);margin-top:2.5rem;padding-top:1rem;font-size:.88rem}
+nav.legal-nav a{color:var(--link);margin-right:1rem}
+.legal-missing{font-style:italic;color:var(--ink-soft)}

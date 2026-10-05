@@ -4513,6 +4513,175 @@ await monDash.close();
   await sp.close();
 }
 
+// ============================================================
+// Paid beta (2026-10-05): access / entitlement / plan / billing. Production
+// has no migration 027 yet, so the default (no ?entitlement=) path is the
+// approval record exactly as before - every other check in this file runs on
+// it. These checks exercise the 027 path through the stub's my_entitlement().
+// ============================================================
+{
+  const STATE_URL = st => BASE_URL.replace(/index\.html$/, st + '.html');
+  const baseCfg = fs.readFileSync(new URL('./config.js', import.meta.url), 'utf8');
+  const prevCfg = baseCfg + '\nwindow.TDW_CONFIG.publicationMode = "preview";\n';
+  const billCfg = prevCfg + 'window.TDW_CONFIG.billing = { enabled: true, planName: "Paid beta - monthly", priceDisplay: "TEST PRICE / month" };\n';
+  const billIncompleteCfg = prevCfg + 'window.TDW_CONFIG.billing = { enabled: true, planName: "", priceDisplay: "" };\n';
+  const cfgPage = async (cfg, url, init) => {
+    const pg = await newPage({ viewport: { width: 1200, height: 900 } });
+    pg.on('pageerror', e => errors.push('pageerror: ' + e.message));
+    if (init) await pg.addInitScript(init);
+    await pg.route(/\/config\.js(\?|$)/, r => r.fulfill({ status: 200, contentType: 'application/javascript', body: cfg }));
+    await pg.goto(url, { waitUntil: 'networkidle' });
+    await pg.waitForTimeout(700);
+    return pg;
+  };
+  const shown = pg => pg.evaluate(() => (window.__tdwLastRender ? window.__tdwLastRender.rows.map(r => String(r.id)) : []).sort());
+  const screens = pg => pg.evaluate(() => ({ app: !document.getElementById('app').hidden, pending: !document.getElementById('pendingGate').hidden,
+    plan: !document.getElementById('planGate').hidden, auth: !document.getElementById('authGate').hidden }));
+  const vis = pg => pg.evaluate(() => {
+    const f = window.__tdwVisibility;
+    const row = (pub, sid) => ({ id: 'x', source: 'laft', publication_status: pub, source_id: sid, parcel: '1' });
+    return { approvedPaidBeta: f(row('APPROVED', 'la_ebr_adjudicated')), approvedNotPaidBeta: f(row('APPROVED', 'wy_albany_tax_sale')),
+      grandfathered: f(row('APPROVED_GRANDFATHERED', 'fl_laft_pioneer')), undecided: f(row(null, 'fl_realauction')),
+      unreviewed: f(row('UNREVIEWED', 'mo_stl_lra_inventory')), blocked: f(row('BLOCKED', 'tx_mvba')) };
+  });
+  const menuBilling = async pg => {
+    await pg.click('#accountBtn'); await pg.waitForTimeout(100);
+    await pg.click('#billingBtnMenu'); await pg.waitForTimeout(150);
+    return pg.evaluate(() => [...document.querySelectorAll('#billingList .billing-row')].map(r => r.querySelector('dt').textContent + ': ' + r.querySelector('dd').textContent.replace(/\s+/g, ' ').trim().replace(/[A-Z][a-z]{2} \d{1,2}, \d{4}/g, '<date>')));
+  };
+
+  // 1. Today's production path (no 027): the approval record decides; an
+  //    approved account is a tester and sees the preview inventory.
+  const legacy = await cfgPage(prevCfg, BASE_URL + '#/list');
+  results.paidLegacyAccess = await legacy.evaluate(() => { const a = window.__tdwAccess(); return [a.role, a.state, a.source, a.scope]; });
+  results.paidLegacyVisibility = await vis(legacy);
+  results.paidLegacyBilling = await menuBilling(legacy);
+  await legacy.close();
+
+  // 2. Tester entitlement (027 applied): identical preview inventory, labelled.
+  const tester = await cfgPage(prevCfg, STATE_URL('sc') + '?entitlement=tester#/lands');
+  results.paidTesterAccess = await tester.evaluate(() => { const a = window.__tdwAccess(); return [a.role, a.state, a.source, a.scope]; });
+  results.paidTesterScLands = await shown(tester);
+  results.paidTesterReviewChips = await tester.evaluate(() => [...document.querySelectorAll('.prop-card .source-review-chip')].map(e => e.textContent.trim()));
+  results.paidTesterVisibility = await vis(tester);
+  await tester.close();
+
+  // 3. Paying customer - even with the tester preview switched on, a
+  //    customer sees the paid-beta sources only.
+  const paidLa = await cfgPage(prevCfg, STATE_URL('la') + '?entitlement=customer#/lands');
+  results.paidCustomerAccess = await paidLa.evaluate(() => { const a = window.__tdwAccess(); return [a.role, a.state, a.source, a.scope, a.paidBetaSources.length]; });
+  results.paidCustomerLaShown = await shown(paidLa);
+  results.paidCustomerVisibility = await vis(paidLa);
+  results.paidCustomerBilling = await menuBilling(paidLa);
+  results.paidCustomerPortalButton = await paidLa.locator('#billingPortalBtn').count();
+  await paidLa.close();
+  const paidScL = await cfgPage(prevCfg, STATE_URL('sc') + '?entitlement=customer#/lands');
+  results.paidCustomerScLands = { shown: await shown(paidScL), chips: await paidScL.locator('.prop-card .source-review-chip').count() };
+  await paidScL.close();
+  const paidScA = await cfgPage(prevCfg, STATE_URL('sc') + '?entitlement=customer#/auctions');
+  results.paidCustomerScAuctions = await shown(paidScA);
+  await paidScA.close();
+  const paidFl = await cfgPage(prevCfg, BASE_URL + '?entitlement=customer#/auctions');
+  results.paidCustomerFlShown = (await shown(paidFl)).length;
+  await paidFl.close();
+  const manual = await cfgPage(prevCfg, STATE_URL('la') + '?entitlement=manual#/lands');
+  results.paidManualCustomer = { access: await manual.evaluate(() => window.__tdwAccess().scope), shown: await shown(manual) };
+  await manual.close();
+  const grace = await cfgPage(billCfg, STATE_URL('la') + '?entitlement=grace&billingfn=ok#/lands');
+  results.paidGraceBilling = await menuBilling(grace);
+  await grace.click('#billingPortalBtn'); await grace.waitForTimeout(200);
+  results.paidGracePortal = await grace.evaluate(() => ({ calls: window.__stubBillingCalls, redirects: window.__tdwBillingRedirects }));
+  await grace.close();
+  const canc = await cfgPage(prevCfg, STATE_URL('la') + '?entitlement=cancelling#/lands');
+  results.paidCancellingBilling = await menuBilling(canc);
+  await canc.close();
+
+  // 4. No access, billing switched off (today's config): pending screen, no checkout.
+  const offPg = await cfgPage(prevCfg, BASE_URL + '?entitlement=inactive#/list');
+  results.paidInactiveBillingOff = await screens(offPg);
+  await offPg.close();
+
+  // 5. No access, billing on: the plan screen; Subscribe asks the server for
+  //    a checkout and sends nothing that could set a price or an account.
+  const planPg = await cfgPage(billCfg, BASE_URL + '?entitlement=inactive&billingfn=ok#/list');
+  results.paidPlanScreens = await screens(planPg);
+  results.paidPlanCard = ((await planPg.locator('#planCard').textContent()) || '').replace(/\s+/g, ' ').trim();
+  results.paidPlanRowsLoaded = await planPg.evaluate(() => (window.__tdwLastRender ? window.__tdwLastRender.rows.length : 0));
+  await planPg.click('#planSubscribeBtn'); await planPg.waitForTimeout(300);
+  results.paidCheckoutCall = await planPg.evaluate(() => ({ calls: window.__stubBillingCalls, redirects: window.__tdwBillingRedirects }));
+  await planPg.close();
+  const downPg = await cfgPage(billCfg, BASE_URL + '?entitlement=inactive&billingfn=down#/list');
+  await downPg.click('#planSubscribeBtn'); await downPg.waitForTimeout(300);
+  results.paidCheckoutUnavailable = ((await downPg.locator('#planMsg').textContent()) || '').trim();
+  await downPg.close();
+  const incPg = await cfgPage(billIncompleteCfg, BASE_URL + '?entitlement=inactive#/list');
+  results.paidPlanIncomplete = { subscribe: await incPg.locator('#planSubscribeBtn').count(), text: ((await incPg.locator('#planUnconfigured').textContent()) || '').replace(/\s+/g, ' ').trim() };
+  await incPg.close();
+
+  // 6. Payment failed beyond grace / cancelled: plan screen with the reason.
+  const failPg = await cfgPage(billCfg, BASE_URL + '?entitlement=payment_failed#/list');
+  results.paidPaymentFailed = { screens: await screens(failPg), state: await failPg.locator('#planState').getAttribute('data-state'),
+    text: ((await failPg.locator('#planState').textContent()) || '').trim(), manage: await failPg.locator('#planManageBtn').count() };
+  await failPg.close();
+  const cancPg = await cfgPage(billCfg, BASE_URL + '?entitlement=cancelled#/list');
+  results.paidCancelled = { app: (await screens(cancPg)).app, text: ((await cancPg.locator('#planState').textContent()) || '').trim() };
+  await cancPg.close();
+
+  // 7. Back from Stripe: the redirect alone never opens the app ...
+  const noHook = await cfgPage(billCfg, BASE_URL + '?entitlement=inactive#/billing?checkout=success', () => { window.__tdwEntitlementPollMs = 50; });
+  await noHook.waitForTimeout(400);
+  results.paidRedirectAloneNoAccess = { app: (await screens(noHook)).app, plan: (await screens(noHook)).plan };
+  await noHook.close();
+  // ... the app opens once the SERVER reports the subscription (webhook landed).
+  const hook = await cfgPage(billCfg, BASE_URL + '?entitlement=activating#/billing?checkout=success', () => { window.__tdwEntitlementPollMs = 50; });
+  await hook.waitForTimeout(800);
+  results.paidActivatedAfterWebhook = { app: (await screens(hook)).app, billingOpen: await hook.locator('#billingModal').isVisible(),
+    role: await hook.evaluate(() => window.__tdwAccess().role) };
+  await hook.close();
+
+  // 8. Support: account, billing, data / source and technical topics.
+  const sup = await cfgPage(prevCfg, BASE_URL + '#/list');
+  await sup.click('#accountBtn'); await sup.waitForTimeout(100);
+  await sup.click('#supportBtnMenu'); await sup.waitForTimeout(150);
+  results.paidSupportTopics = await sup.locator('#supportBody .support-topic').evaluateAll(els => els.map(e => e.dataset.topic));
+  results.paidSupportUnconfigured = await sup.locator('#supportUnconfigured').isVisible();
+  await sup.close();
+
+  // 9. Legal pages are reachable and say what is not configured yet.
+  results.paidLegalPages = {};
+  for (const f of ['terms', 'privacy', 'acceptable-use', 'source-disclaimer']) {
+    const lp = await cfgPage(baseCfg, BASE_URL.replace(/index\.html$/, f + '.html'));
+    results.paidLegalPages[f] = { h1: ((await lp.locator('h1').textContent()) || '').trim(), unconfigured: await lp.locator('#legalUnconfigured').isVisible(),
+      missing: await lp.evaluate(() => document.documentElement.getAttribute('data-legal-missing')) };
+    await lp.close();
+  }
+  const legalCfg = baseCfg + '\nwindow.TDW_CONFIG.legal = { operatorName: "Fixture Operator LLC", governingLaw: "Fixture law", effectiveDate: "2026-10-05", contactEmail: "fixture@example.com" };\nwindow.TDW_CONFIG.billing = { priceDisplay: "TEST PRICE / month" };\n';
+  const lpc = await cfgPage(legalCfg, BASE_URL.replace(/index\.html$/, 'terms.html'));
+  results.paidLegalConfigured = { unconfigured: await lpc.locator('#legalUnconfigured').isVisible(), operator: ((await lpc.locator('[data-legal="operatorName"]').first().textContent()) || '').trim(),
+    contactHref: await lpc.locator('[data-legal="contactEmail"] a').first().getAttribute('href') };
+  await lpc.close();
+  const authLinks = await cfgPage(baseCfg, BASE_URL + '?authtest=1');
+  results.paidAuthLegalLinks = await authLinks.locator('#authGate .auth-legal-links a').evaluateAll(els => els.map(e => e.getAttribute('href')));
+  await authLinks.close();
+
+  // 10. Admin: who can use the product and why.
+  const ADMIN_URL = BASE_URL.replace(/index\.html$/, 'admin.html') + '?stubauth=1';
+  const adm = await newPage({ viewport: { width: 1200, height: 900 } });
+  await adm.goto(BASE_URL + '?stubauth=1#/auctions', { waitUntil: 'networkidle' });
+  await adm.fill('#email', 'admin@example.com'); await adm.fill('#password', 'fixture-admin-pass');
+  await adm.click('#signInBtn'); await adm.waitForTimeout(700);
+  await adm.goto(ADMIN_URL + '&entitlement=admin', { waitUntil: 'networkidle' }); await adm.waitForTimeout(700);
+  results.paidAdminNoEmailBeforeReveal = !/@/.test((await adm.locator('#adminShell').textContent()) || '');
+  await adm.click('#adminCustomersShow'); await adm.waitForTimeout(150);
+  results.paidAdminCustomers = {
+    status: ((await adm.locator('#adminCustomersStatus').textContent()) || '').trim(),
+    rows: await adm.locator('#adminCustomersList tbody tr').evaluateAll(trs => trs.map(t => [t.dataset.role, t.dataset.state, t.children[5] ? t.children[5].textContent.trim() : ''].join('|')))
+  };
+  await adm.goto(ADMIN_URL, { waitUntil: 'networkidle' }); await adm.waitForTimeout(700);
+  results.paidAdminCustomersLegacy = ((await adm.locator('#adminCustomersStatus').textContent()) || '').trim();
+  await adm.close();
+}
+
 await browser.close();
 
 // ============================================================
@@ -4531,6 +4700,45 @@ const EXPECTED = {
   acqP3Forms: ["Current official statement of the amount due Request from the office The clerk's Lands Available statement - request it from the clerk; it is valid only until the date printed on it. Request it via e-mail taxdeeds@bayclerk.example.gov."],
   acqP3NeverPurchasePrice: true,
 
+  // Paid beta (2026-10-05): access / entitlement / plan / billing / legal / support.
+  paidLegacyAccess: ["tester", "tester_beta", "legacy", "preview"],
+  paidLegacyVisibility: {"approvedPaidBeta": true, "approvedNotPaidBeta": true, "grandfathered": true, "undecided": true, "unreviewed": true, "blocked": false},
+  paidLegacyBilling: ["Access: Tester (beta)", "Why: Approved by an administrator.", "Billing: Not set up for this deployment yet - access comes from an administrator's approval.", "Inventory: Tester preview: approved sources plus sources still under review, each labelled."],
+  paidTesterAccess: ["tester", "tester_beta", "entitlement", "preview"],
+  paidTesterScLands: ["psc_horry1"],
+  paidTesterReviewChips: ["Source review: Unreviewed · not customer-published"],
+  paidTesterVisibility: {"approvedPaidBeta": true, "approvedNotPaidBeta": true, "grandfathered": true, "undecided": true, "unreviewed": true, "blocked": false},
+  paidCustomerAccess: ["customer", "active", "entitlement", "paid", 5],
+  paidCustomerLaShown: ["pla1", "pla2"],
+  paidCustomerVisibility: {"approvedPaidBeta": true, "approvedNotPaidBeta": false, "grandfathered": false, "undecided": false, "unreviewed": false, "blocked": false},
+  paidCustomerBilling: ["Access: Active", "Why: Paid subscription", "Plan: Monthly plan", "Subscription: Active", "Renews: <date>", "Inventory: The paid-beta sources: sources with an explicit approval for paid customers."],
+  paidCustomerPortalButton: 0,
+  paidCustomerScLands: {"shown": [], "chips": 0},
+  paidCustomerScAuctions: ["psc1"],
+  paidCustomerFlShown: 0,
+  paidManualCustomer: {"access": "paid", "shown": ["pla1", "pla2"]},
+  paidGraceBilling: ["Access: Payment failed - grace period", "Why: Payment failed - access continues during the 7-day grace period", "Plan: Paid beta - monthly", "Subscription: Payment failed - grace period", "Current period ends: <date>", "Payment: The last payment failed. Update your payment method in the billing portal.", "Inventory: The paid-beta sources: sources with an explicit approval for paid customers."],
+  paidGracePortal: {"calls": [{"name": "billing-portal", "fields": []}], "redirects": ["#stub-stripe-portal"]},
+  paidCancellingBilling: ["Access: Cancellation scheduled", "Why: Paid subscription", "Plan: Monthly plan", "Subscription: Cancellation scheduled", "Access ends: <date>", "Cancellation: Scheduled - you keep access until the end of the paid period.", "Inventory: The paid-beta sources: sources with an explicit approval for paid customers."],
+  paidInactiveBillingOff: {"app": false, "pending": true, "plan": false, "auth": false},
+  paidPlanScreens: {"app": false, "pending": false, "plan": true, "auth": false},
+  paidPlanCard: "Paid beta - monthlyTEST PRICE / month The paid beta covers the sources approved for paid customers - a deliberately small, reviewed set, not every state or source the service collects. Sources still under review are not included.",
+  paidPlanRowsLoaded: 0,
+  paidCheckoutCall: {"calls": [{"name": "billing-checkout", "fields": []}], "redirects": ["#stub-stripe-checkout"]},
+  paidCheckoutUnavailable: "Subscriptions are not open yet.",
+  paidPlanIncomplete: {"subscribe": 0, "text": "Subscriptions are not open yet. The plan name and price have not been configured for this deployment (config.js billing.planName / billing.priceDisplay)."},
+  paidPaymentFailed: {"screens": {"app": false, "pending": false, "plan": true, "auth": false}, "state": "payment_failed", "text": "Your last payment failed and paid access is paused. Update your payment method to restore access.", "manage": 1},
+  paidCancelled: {"app": false, "text": "Your subscription has ended. Subscribe again to restore access."},
+  paidRedirectAloneNoAccess: {"app": false, "plan": true},
+  paidActivatedAfterWebhook: {"app": true, "billingOpen": true, "role": "customer"},
+  paidSupportTopics: ["support", "data", "source", "account", "billing", "technical", "deletion"],
+  paidSupportUnconfigured: true,
+  paidLegalPages: {"terms": {"h1": "Terms of Service", "unconfigured": true, "missing": "operatorName,effectiveDate,contactEmail,priceDisplay,governingLaw"}, "privacy": {"h1": "Privacy Policy", "unconfigured": true, "missing": "operatorName,effectiveDate,contactEmail"}, "acceptable-use": {"h1": "Acceptable Use Policy", "unconfigured": true, "missing": "operatorName,effectiveDate,contactEmail"}, "source-disclaimer": {"h1": "Source & Research Disclaimer", "unconfigured": true, "missing": "operatorName,effectiveDate"}},
+  paidLegalConfigured: {"unconfigured": false, "operator": "Fixture Operator LLC", "contactHref": "mailto:fixture@example.com"},
+  paidAuthLegalLinks: ["terms.html", "privacy.html", "acceptable-use.html", "source-disclaimer.html"],
+  paidAdminNoEmailBeforeReveal: true,
+  paidAdminCustomers: {"status": "5 accounts: 1 administrator · 1 tester (beta) · 2 customer · 1 no access.", "rows": ["admin|admin_override|", "tester|tester_beta|", "customer|active|", "customer|payment_failed_grace|Payment failed 2026-10-03", "inactive|inactive|"]},
+  paidAdminCustomersLegacy: "Billing is not installed yet (migration 027 is not applied): access comes from approval only. 1 administrator · 1 tester (beta) · 0 no access.",
   // Boot resilience (2026-10-03).
   bootFallback: { authGate: true, source: "local", noted: true, panel: false },
   bootStalled: { panel: true, buttons: ["Reload", "Reset app cache and reload"], mentionsAppJs: true },
@@ -4566,7 +4774,7 @@ const EXPECTED = {
   },
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: { ready: true, controlled: true, tagline: "Tax Sale Property Intelligence", noState: true, cache: ["tdw-shell-v80"] },
+  brandSwReload: { ready: true, controlled: true, tagline: "Tax Sale Property Intelligence", noState: true, cache: ["tdw-shell-v81"] },
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · Tax Acquisitions — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · Tax Acquisitions — Florida", floridaCopy: true },
@@ -5419,13 +5627,13 @@ const EXPECTED = {
   watchChangeSnapshotRewritten: true,
   supportModalVisible: true,
   supportUnconfiguredShown: 1,
-  supportTopicsDisabled: 5,
+  supportTopicsDisabled: 7,
   supportContextHasPage: true,
   supportFromPropertyHasContext: true,
-  supportMailtoLinks: 5,
+  supportMailtoLinks: 7,
   supportMailtoHref: 'mailto:help%40example.test',
   supportSourceReportButton: 1,
-  supportTopicLabels: ['Contact support', 'Report a data problem', 'Report a source problem', 'Account or billing question', 'Request account deletion'],
+  supportTopicLabels: ['Contact support', 'Report a data problem', 'Report a source problem', 'Account problem', 'Billing problem', 'Technical problem', 'Request account deletion'],
   helpModalVisible: true,
   helpCoversRequiredTopics: true,
   helpHasNoEmoji: true,
@@ -5583,7 +5791,7 @@ const EXPECTED = {
   availCsvP15Path: true,
   govStatePages: Object.fromEntries(['mi', 'wy', 'sc', 'co', 'wi'].map(f => [f, { admView: true, admHash: '#/governance', onWorkspace: false, userView: false, userItem: false, userHashRewritten: true }])),
   govWorkspace: { inlinePanelVisible: false, panelInsideView: true, panelOnWorkspace: false, approvalsVisible: true, approvalRows: true },
-  govMenu: { itemVisible: true, itemText: 'Source Publication Governance', order: ['editProfileBtn', 'changePasswordBtn', 'themeBtn', 'alertsMenuItem', 'helpBtnMenu', 'supportBtnMenu', 'adminAreaLink', 'governanceMenuItem', 'termsBtnMenu', 'signOutBtn', 'deleteAccountBtn'] },
+  govMenu: { itemVisible: true, itemText: 'Source Publication Governance', order: ['editProfileBtn', 'changePasswordBtn', 'billingBtnMenu', 'themeBtn', 'alertsMenuItem', 'helpBtnMenu', 'supportBtnMenu', 'adminAreaLink', 'governanceMenuItem', 'termsBtnMenu', 'signOutBtn', 'deleteAccountBtn'] },
   govOpened: { viewVisible: true, hash: '#/governance', menuClosed: true, title: 'Source Publication Governance' },
   govClosedByBack: { hidden: true, hash: '#/auctions' },
   govAdminRoute: { visible: true, rows: 5, hash: '#/governance' },

@@ -83,6 +83,7 @@ hidden field. -->
 <button class="auth-mode-toggle" id="forgotPasswordBtn" type="button">Forgot password?</button>
 <button class="auth-mode-toggle" id="resendConfirmBtn" type="button" hidden>Resend confirmation email</button>
 <div class="auth-msg" id="authMsg"></div>
+<p class="auth-legal-links"><a href="terms.html">Terms of Service</a> · <a href="privacy.html">Privacy Policy</a> · <a href="acceptable-use.html">Acceptable Use</a> · <a href="source-disclaimer.html">Source &amp; research disclaimer</a></p>
 </div>
 </div>
 
@@ -100,6 +101,25 @@ owner approves it, so there'd be nothing to show here anyway. -->
 <p class="auth-lead">Account created — awaiting approval.</p>
 <p class="auth-tagline" style="margin-bottom:1.4rem">The owner has been notified. You'll get access to the ledgers once your account is approved - no need to sign up again.</p>
 <button class="auth-mode-toggle" id="pendingSignOutBtn" type="button" style="padding-top:0">Sign out</button>
+<p class="auth-legal-links"><a href="terms.html">Terms of Service</a> · <a href="privacy.html">Privacy Policy</a> · <a href="acceptable-use.html">Acceptable Use</a> · <a href="source-disclaimer.html">Source &amp; research disclaimer</a></p>
+</div>
+</div>
+
+<!-- ============ paid beta: plan screen ============
+Shown instead of the pending-approval screen to a signed-in account with no
+access, ONLY when config.js turns billing on AND the server can answer for a
+subscription (migration 027). app.js renders the body; checkout is Stripe's
+own page; access is granted only by the verified stripe-webhook. -->
+<div id="planGate" hidden>
+<div class="auth-card">
+<div class="auth-brand">
+<img class="brand-mark brand-mark-auth" src="icons/icon-192.png?v=2" width="72" height="72" alt="" aria-hidden="true">
+<h1>Tax Acquisitions</h1>
+</div>
+<p class="auth-lead">Choose your plan</p>
+<div id="planBody"></div>
+<button class="auth-mode-toggle" id="planSignOutBtn" type="button">Sign out</button>
+<p class="auth-legal-links"><a href="terms.html">Terms of Service</a> · <a href="privacy.html">Privacy Policy</a> · <a href="acceptable-use.html">Acceptable Use</a> · <a href="source-disclaimer.html">Source &amp; research disclaimer</a></p>
 </div>
 </div>
 
@@ -177,6 +197,7 @@ state's page and carries the current route along. -->
     </div>
     <button class="account-item" id="editProfileBtn" type="button" role="menuitem">Edit profile</button>
     <button class="account-item" id="changePasswordBtn" type="button" role="menuitem">Change password</button>
+    <button class="account-item" id="billingBtnMenu" type="button" role="menuitem">Plan &amp; billing</button>
     <button class="account-item" id="themeBtn" type="button" role="menuitem">
       <span id="themeIcon">☼</span> Theme: <span id="themeLabel">Auto</span>
     </button>
@@ -810,6 +831,15 @@ nobody has to guess. -->
 Rendered by app.js (renderSupportModal). The destination is
 TDW_CONFIG.supportEmail; when it is blank the modal says so instead of
 inventing an address - see docs/production-configuration.md section 4. -->
+<!-- ============ plan & billing (paid beta) ============ -->
+<div class="detail-modal" id="billingModal" hidden>
+<div class="detail-modal-inner" id="billingModalInner">
+<button class="detail-close" id="billingCloseBtn" type="button" aria-label="Close">&times;</button>
+<h2 class="detail-address" style="font-size:1.15rem">Plan &amp; billing</h2>
+<div id="billingBody" class="terms-body"></div>
+</div>
+</div>
+
 <div class="detail-modal" id="supportModal" hidden>
 <div class="detail-modal-inner" id="supportModalInner">
 <button class="detail-close" id="supportCloseBtn" type="button" aria-label="Close">&times;</button>
@@ -904,6 +934,9 @@ inventing an address - see docs/production-configuration.md section 4. -->
 
 <h3>Your account</h3>
 <p>Access is granted by the account owner and may be withdrawn. Don't share your login. Favorites, hidden listings and your watchlist are stored against your account and are private to you. Team notes are shared: every approved member of this account can read the notes you leave on a property, along with the part of your email address before the @ - they are not private. You can reset your password from the sign-in screen and delete your account from the account menu; deleting removes your profile, favorites, hidden listings, watchlist and your notes, and nothing else.</p>
+
+<h3>Legal documents</h3>
+<p class="terms-legal-links"><a href="terms.html">Terms of Service</a> · <a href="privacy.html">Privacy Policy</a> · <a href="acceptable-use.html">Acceptable Use</a> · <a href="source-disclaimer.html">Source &amp; research disclaimer</a></p>
 
 <p class="terms-note">Questions about any of this: use Contact support (account menu or footer).</p>
 </div>

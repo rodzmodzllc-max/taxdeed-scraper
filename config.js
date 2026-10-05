@@ -37,6 +37,35 @@ window.TDW_CONFIG = {
   // customers see approved sources only.
   publicationMode: "preview",
 
+  // Paid beta (2026-10-05). Switched OFF until the owner completes the
+  // production steps in docs/commercial-layer.md (Stripe account, monthly
+  // price, webhook, Edge Function secrets, migration 027). While off, nobody
+  // is offered a checkout and sign-up keeps the existing approval flow.
+  // Paying customers never get the tester preview above: they always see the
+  // paid-beta sources only (commercial-scope.json + migration 027's policy).
+  // No secret belongs here - Stripe keys live only in the Edge Function
+  // secrets. planName / priceDisplay are display text that must match the
+  // Stripe price; leave them blank until that price exists.
+  billing: {
+    enabled: false,
+    planName: "",
+    priceDisplay: "",
+    checkoutFunction: "billing-checkout",
+    portalFunction: "billing-portal"
+  },
+
+  // Business details shown on the legal pages (terms.html, privacy.html,
+  // acceptable-use.html, source-disclaimer.html). Blank on purpose: each page
+  // shows "not configured" until these are filled in, so an incomplete
+  // document never reads as complete. contactEmail falls back to
+  // supportEmail.
+  legal: {
+    operatorName: "",
+    governingLaw: "",
+    effectiveDate: "",
+    contactEmail: ""
+  },
+
   // Optional, independent of each other. Power the Map page's Google and
   // MapTiler satellite toggle buttons (satellite-map.js) - each a real
   // satellite/terrain basemap, as an alternative to the app's own

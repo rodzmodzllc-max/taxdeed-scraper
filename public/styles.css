@@ -92,7 +92,7 @@ a{color:var(--accent)} button{font-family:inherit}
 /* ---- auth gate: dedicated sign-in screen - centered card over a subtle
    navy-to-emerald gradient wash, brand mark + tagline up top, instead of
    bare centered text on the plain page background. ---- */
-#authGate, #pendingGate{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1.2rem;
+#authGate, #pendingGate, #planGate{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1.2rem;
   background:
     radial-gradient(ellipse 90% 60% at 15% -10%, color-mix(in srgb, var(--ok) 16%, transparent), transparent),
     radial-gradient(ellipse 90% 60% at 100% 110%, color-mix(in srgb, var(--header-bg) 30%, transparent), transparent),
@@ -101,17 +101,17 @@ a{color:var(--accent)} button{font-family:inherit}
    specificity, so #authGate/#pendingGate would stay visible (as
    display:flex) even while hidden without this override - same class of
    bug as an earlier .pagination-bar[hidden] miss in this app. */
-#authGate[hidden], #pendingGate[hidden]{display:none}
+#authGate[hidden], #pendingGate[hidden], #planGate[hidden]{display:none}
 .auth-card{width:100%;max-width:360px;background:var(--card);border:1px solid var(--card-line);
   border-radius:4px;box-shadow:0 1px 2px rgba(15,23,42,.06),0 16px 40px rgba(15,23,42,.14);
   padding:2rem 1.6rem 1.7rem;text-align:center}
 .auth-brand{display:flex;align-items:center;justify-content:center;gap:.5rem;margin-bottom:1rem}
-#authGate h1, #pendingGate h1{font-family:var(--font-sans);font-weight:800;font-size:1.35rem;margin:0;
+#authGate h1, #pendingGate h1, #planGate h1{font-family:var(--font-sans);font-weight:800;font-size:1.35rem;margin:0;
   letter-spacing:-.01em;color:var(--ink)}
 .auth-tagline{font-size:.78rem;color:var(--ink-soft);line-height:1.4;margin:0 0 1.5rem}
 .auth-tagline:has(+ .auth-subtagline){margin-bottom:.2rem;font-weight:600}
 .auth-subtagline{font-size:.74rem;color:var(--ink-soft);line-height:1.4;margin:0 0 1.5rem}
-#authGate p.auth-lead, #pendingGate p.auth-lead{font-size:.85rem;color:var(--ink-soft);margin:0 0 1.2rem}
+#authGate p.auth-lead, #pendingGate p.auth-lead, #planGate p.auth-lead{font-size:.85rem;color:var(--ink-soft);margin:0 0 1.2rem}
 /* Phase 63: real labels for #authForm's fields (see index.html's comment
    on the form for why) - .auth-field wraps each <input>, same idiom as
    #profileForm's .pf-field. The label itself carries no hidden state of its
@@ -132,15 +132,15 @@ a{color:var(--accent)} button{font-family:inherit}
    theme (it's the body text color), which would leave white button text
    unreadable on a now-light background. --header-bg is the one color this
    app deliberately keeps dark navy in both themes. */
-#authGate button, #pendingGate button{
+#authGate button, #pendingGate button, #planGate button{
   width:100%;padding:.7rem;font-size:.92rem;font-weight:700;border:none;border-radius:3px;
   background:var(--header-bg);color:#fff;cursor:pointer;margin-top:.2rem;letter-spacing:.01em;
 }
-#authGate button:hover, #pendingGate button:hover{background:var(--ok)}
-#authGate button:disabled, #pendingGate button:disabled{opacity:.5;cursor:default;background:var(--header-bg)}
-#authGate button.auth-mode-toggle, #pendingGate button.auth-mode-toggle{width:100%;background:none;border:none;padding:.55rem 0 0;margin:0;
+#authGate button:hover, #pendingGate button:hover, #planGate button:hover{background:var(--ok)}
+#authGate button:disabled, #pendingGate button:disabled, #planGate button:disabled{opacity:.5;cursor:default;background:var(--header-bg)}
+#authGate button.auth-mode-toggle, #pendingGate button.auth-mode-toggle, #planGate button.auth-mode-toggle{width:100%;background:none;border:none;padding:.55rem 0 0;margin:0;
   font-size:.78rem;color:var(--accent);cursor:pointer;text-decoration:underline;font-weight:400}
-#authGate button.auth-mode-toggle:hover, #pendingGate button.auth-mode-toggle:hover{background:none;text-decoration:none}
+#authGate button.auth-mode-toggle:hover, #pendingGate button.auth-mode-toggle:hover, #planGate button.auth-mode-toggle:hover{background:none;text-decoration:none}
 .auth-msg{margin-top:.9rem;font-size:.82rem;min-height:1.2em}
 .auth-msg.err{color:var(--bad)}
 
@@ -2110,3 +2110,23 @@ a.ledger-badge:hover{text-decoration:underline}
 .acq-form-req.req{background:var(--bad-bg);color:var(--bad);font-weight:700}
 .dt-sub{display:block;font-size:.68rem;color:var(--ink-soft);font-weight:400}
 .pv-amount-note{display:block;font-size:.68rem;line-height:1.3;color:var(--ink-soft);font-weight:400;margin-top:.15rem}
+/* ==================== paid beta: plan screen, billing, legal links (2026-10-05) ==================== */
+#planGate #planSubscribeBtn{width:100%;margin-top:.8rem}
+.plan-state{font-size:.9rem;margin:0 0 .9rem}
+.plan-card{border:1px solid var(--card-line);border-radius:10px;padding:.9rem 1rem;background:var(--card)}
+.plan-name{font-weight:700;font-size:1.02rem}
+.plan-price{font-size:1.3rem;font-weight:700;margin:.2rem 0 .4rem}
+.plan-scope{font-size:.8rem;color:var(--ink-soft);margin:0}
+.plan-unconfigured{border:1px dashed var(--card-line);border-radius:10px;padding:.8rem 1rem;font-size:.85rem;color:var(--ink-soft)}
+.plan-tester-note{font-size:.78rem;color:var(--ink-soft);margin:.9rem 0 0}
+.auth-legal-links,.terms-legal-links{font-size:.75rem;color:var(--ink-soft);margin:.9rem 0 0;text-align:center;line-height:1.6}
+.auth-legal-links a,.terms-legal-links a{color:inherit}
+.terms-legal-links{text-align:left}
+.billing-list{margin:0 0 1rem;display:grid;gap:.45rem}
+.billing-row{display:grid;grid-template-columns:minmax(7rem,30%) 1fr;gap:.75rem;font-size:.88rem}
+.billing-row dt{color:var(--ink-soft);margin:0}
+.billing-row dd{margin:0}
+@media (max-width:480px){.billing-row{grid-template-columns:1fr;gap:.1rem}}
+.admin-customers{overflow-x:auto}
+.admin-customers-table td,.admin-customers-table th{text-align:left !important;vertical-align:top}
+.admin-sub{color:var(--ink-soft);font-size:.74rem}

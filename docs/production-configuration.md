@@ -266,3 +266,23 @@ project as of 2026-09-29). None of that was deployed for appearance's sake.
 Unchanged by this PR. `public/_headers` is the CSP; nothing in this PR adds
 a host. `detectSessionInUrl` is now `true` in `app.js` so the password-
 reset link can complete; that reads the URL fragment/query on load only.
+
+## 11. Paid beta: billing, legal, support (2026-10-05)
+
+Full design: `docs/commercial-layer.md`. Everything below is manual and
+NOT done; the repository ships billing switched off.
+
+| Item | Where | Value to supply |
+|---|---|---|
+| Stripe secret key | Supabase -> Edge Functions -> Secrets: `STRIPE_SECRET_KEY` | a restricted key (Customers write, Checkout Sessions write, Customer portal write, Subscriptions read) |
+| Monthly price | Stripe product + recurring monthly price -> `STRIPE_PRICE_ID` | `price_...` |
+| Webhook secret | Stripe webhook endpoint `https://cqnnnvpbocafuvpzfbzu.supabase.co/functions/v1/stripe-webhook` -> `STRIPE_WEBHOOK_SECRET` | `whsec_...` (events listed in docs/commercial-layer.md section 6) |
+| Return URL | `APP_URL` secret (optional) | `https://rodz-taxdeeds.pages.dev/index.html` |
+| Customer portal | Stripe dashboard -> Settings -> Billing -> Customer portal | allow payment-method update, invoices, cancel at period end |
+| Plan display | root `config.js` `billing.planName`, `billing.priceDisplay`, then `billing.enabled: true` | must match the Stripe price |
+| Migration | `scripts/migrations/027_commercial_billing_entitlements.sql` | apply only with explicit authorization |
+| Support address | root `config.js` `supportEmail` | a shared mailbox the business reads |
+| Legal details | root `config.js` `legal.operatorName`, `legal.governingLaw`, `legal.effectiveDate`, `legal.contactEmail` | the operating entity's real details; have counsel review the four pages |
+| Password reset redirect | Supabase Auth -> URL Configuration (section 2 above) | Site URL `https://rodz-taxdeeds.pages.dev`; Redirect URLs `https://rodz-taxdeeds.pages.dev/**` (every state page), plus custom SMTP |
+| Production maps key | root `config.js` `googleMapsApiKey` (section 8 above) | a key on a billed Google Cloud project, HTTP-referrer restricted to `https://rodz-taxdeeds.pages.dev/*`, API-restricted to Maps JavaScript API (+ Maps Static API if static imagery is kept) |
+| Backup encryption | repository variable `ARTIFACT_PUBLIC_KEY` (section 5 above) | an OpenPGP public key; private key kept offline |

@@ -44,7 +44,7 @@ def test_v02_the_account_menu_carries_one_admin_only_entry():
         # after "Admin area", before Terms / Sign out
         assert menu.index('id="adminAreaLink"') < menu.index('id="governanceMenuItem"') < menu.index('id="signOutBtn"'), page
     # Shown only for the server-read admin flag, next to the Admin area link.
-    block = _between(APP, 'const adminLink = document.getElementById("adminAreaLink");', "if (profile && profile.approved)")
+    block = _between(APP, 'const adminLink = document.getElementById("adminAreaLink");', "const ent = await readEntitlement();")
     assert 'govItem.hidden = !IS_ADMIN' in block
 
 
