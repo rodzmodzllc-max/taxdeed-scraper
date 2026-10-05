@@ -44,7 +44,8 @@ DOC_WORDS = re.compile(r"detail|document|doc|image|pdf|view|case|statement|lol|l
 LABELS = [
     "Total Due from Purchaser", "IF RECEIVED BY", "Lands Available Total", "LOL Total", "Opening Bid",
     "Lands Available Interest", "Omitted Taxes", "Total Omitted Taxes", "Documentary Stamp Tax",
-    "Deed Recording Fee", "TOTAL AMOUNT OF TAXES DUE", "List of Lands",
+    "Deed Recording Fee", "TOTAL AMOUNT OF TAXES DUE", "List of Lands", "Total Due", "Recording Fee", "Doc Stamps",
+    "Documentary Stamp", "Interest", "Taxes", "Statement Date", "Good Through", "Valid Through",
 ]
 
 
@@ -108,7 +109,7 @@ INFO LETTER LETTERS MAILING MAILINGS POSTED POSTING AD ADVERTISEMENT AD. LEGAL C
 TD TDA CANCEL CANCELLED CANCELED ESCHEAT ESCHEATED SURPLUS COUNTY CLERK TAXES OMITTED INTEREST DELINQUENT
 NOTICE: WORKSHEET CALCULATION SUMMARY AND TO THE ON IN A AT BY FROM HOMESTEAD LOL DOCKET DOCUMENT DOC IMAGE
 PAGE PAGES MISC MISCELLANEOUS UNSERVED RETURNED UNDELIVERABLE GREEN CARD CARDS ADS PUBLISH PUBLISHED""".split())
-STATEMENT_WORDS = re.compile(r"LIST\s+OF\s+LANDS|LANDS\s+AVAILABLE|STATEMENT|TOTAL\s+DUE|INVOICE|WORKSHEET|CALCULATION", re.I)
+STATEMENT_WORDS = re.compile(r"\bLOL\b|LIST\s+OF\s+LANDS|LANDS\s+AVAILABLE|STATEMENT|TOTAL\s+DUE|INVOICE|WORKSHEET|CALCULATION", re.I)
 MONEY_LABEL = re.compile(r"([A-Za-z][A-Za-z .#/&()-]{2,40}?)\s*:?\s*</t[dh]>\s*<td[^>]*>\s*\$?\s*-?[\d,]+\.\d{2}", re.I)
 TERMS = re.compile(r"[^.<>]{0,160}\b(disclaimer|terms of use|copyright|commercial|not responsible|no warrant|reproduc|resale|redistribut|unofficial|official record)[^.<>]{0,160}", re.I)
 
@@ -168,7 +169,7 @@ def details_pass(s: requests.Session, base: str, row_id: str) -> None:
         print(f"    doc {describe_url(href)} :: {desc}")
     picked = [(h, d) for h, d in docs if STATEMENT_WORDS.search(d)]
     print(f"  statement-like documents: {len(picked)}")
-    for href, desc in picked[:2]:
+    for href, desc in picked[:3]:
         try:
             d = s.get(urljoin(url, href), timeout=60)
         except Exception as exc:  # noqa: BLE001

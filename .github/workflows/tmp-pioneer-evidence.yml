@@ -17,4 +17,5 @@ jobs:
       - run: |
           sudo apt-get install -y -qq tesseract-ocr >/dev/null
           pip install -q requests pdfplumber pytesseract
+          python3 scripts/tmp_statute_text.py || true
           python3 scripts/capture_pioneer_statements.py
