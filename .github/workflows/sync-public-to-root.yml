@@ -94,7 +94,11 @@ jobs:
           set -euo pipefail
 
           # Files that live in public/ but are deliberately NOT mirrored.
-          NOT_DEPLOYED="README.md"
+          # laft-refresh-report.json (scripts/build_laft_refresh_report.py)
+          # is a repository-internal governance/coverage report for the
+          # weekly scheduled routine to read - deliberately not a customer-
+          # facing surface, so it stays out of the deployed bundle.
+          NOT_DEPLOYED="README.md laft-refresh-report.json"
 
           missing=""
           for path in public/*; do
