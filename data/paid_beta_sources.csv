@@ -1,0 +1,31 @@
+source_id,state,paid_beta,active_rows,provenance,lifecycle,financial,acquisition,reason,decided_on
+la_ebr_adjudicated,LA,yes,10334,ok,ok,ok,ok,Public Domain open-data list approved by the owner as a dated list (never called available now); financial terms OFFER_NEGOTIATED (no price published); acquisition process verified from the Parish Attorney's own memorandum and form.,2026-10-05
+sc_york_tax_sale,SC,yes,853,ok,ok,ok,ok,Owner-approved for publication 2026-09-30; county list read with provenance; auction amounts labelled as the county publishes them; county sale process recorded.,2026-10-05
+mi_lenawee_tax_sale,MI,yes,35,ok,ok,ok,ok,Owner-approved for publication 2026-09-30; upcoming sale rows with provenance; county sale process recorded.,2026-10-05
+mi_eaton_treasurer_sale,MI,yes,3,ok,ok,ok,ok,Owner-approved for publication 2026-09-30; the county's own sold flag closes rows; county sale process recorded.,2026-10-05
+wi_green_tax_deed_sales,WI,yes,0,n/a,n/a,n/a,n/a,Owner-approved for publication 2026-09-30; previous-sale rows closed with a result only where the county published one; bid-form process recorded. No active rows at the moment.,2026-10-05
+wy_albany_tax_sale,WY,no,253,ok,gap,ok,gap,"Publication approved, but every row's inventory status is unknown after the county's 2026 sale finished and no acquisition / sale process is represented - not defensible to sell until the lifecycle is verified.",2026-10-05
+co_douglas_county_held_liens,CO,no,141,ok,ok,ok,ok,"Publication approved (CC BY-SA 4.0), but these rows also show fields from Colorado Public Parcels (State OIT), whose terms prohibit resale of the data - selling access needs an owner decision on that enrichment layer first.",2026-10-05
+co_morgan_county_held_certificates,CO,no,3,ok,ok,ok,ok,"Publication approved, but these rows also show fields from Colorado Public Parcels (State OIT), whose terms prohibit resale of the data - selling access needs an owner decision on that enrichment layer first.",2026-10-05
+fl_laft_pioneer,FL,no,22,ok,ok,ok,partial,"APPROVED_GRANDFATHERED: legacy approval, never explicitly reviewed for paid reuse. Requires a publication decision.",2026-10-05
+fl_laft_hillsborough,FL,no,3,ok,ok,ok,gap,"APPROVED_GRANDFATHERED: legacy approval, never explicitly reviewed for paid reuse. Requires a publication decision.",2026-10-05
+fl_laft_leon,FL,no,2,ok,ok,ok,ok,"APPROVED_GRANDFATHERED: legacy approval, never explicitly reviewed for paid reuse. Requires a publication decision.",2026-10-05
+fl_laft_orange,FL,no,3,ok,ok,ok,ok,"APPROVED_GRANDFATHERED: legacy approval, never explicitly reviewed for paid reuse. Requires a publication decision.",2026-10-05
+fl_laft_osceola,FL,no,10,ok,ok,ok,gap,"APPROVED_GRANDFATHERED: legacy approval, never explicitly reviewed for paid reuse. Requires a publication decision.",2026-10-05
+fl_laft_pdfs,FL,no,15,partial,gap,ok,partial,"APPROVED_GRANDFATHERED: legacy approval, never explicitly reviewed for paid reuse. Requires a publication decision.",2026-10-05
+fl_laft_html,FL,no,57,ok,ok,ok,gap,"APPROVED_GRANDFATHERED: legacy approval, never explicitly reviewed for paid reuse. Requires a publication decision.",2026-10-05
+fl_laft_realtdm,FL,no,42,ok,ok,ok,partial,"APPROVED_GRANDFATHERED: legacy approval, never explicitly reviewed for paid reuse. Requires a publication decision.",2026-10-05
+fl_laft_stlucie,FL,no,3,ok,ok,ok,gap,"APPROVED_GRANDFATHERED: legacy approval, never explicitly reviewed for paid reuse. Requires a publication decision.",2026-10-05
+fl_realauction,FL,no,1297,partial,gap,ok,partial,No publication decision on the rows (NULL); the registry records only a grandfathered approval of the RealAuction county sites. Requires a publication decision.,2026-10-05
+fl_lienhub_certificates,FL,no,1611,partial,gap,ok,gap,"No publication decision on the rows (NULL); registry grandfathered only; LienHub has refused reads since 2026-10-01, so freshness is not established. Requires a publication decision.",2026-10-05
+tx_lgbs,TX,no,440,partial,gap,ok,partial,Vendor listing (LGBS); its own rights audit is REVIEW_REQUIRED and it runs manual-only. Requires a publication decision.,2026-10-05
+tx_realauction,TX,no,103,partial,gap,ok,partial,No publication decision on the rows (NULL); rights audit REVIEW_REQUIRED; manual-only. Requires a publication decision.,2026-10-05
+mi_detroit_landbank_lots,MI,no,30766,ok,ok,ok,gap,UNREVIEWED: tester preview only (Detroit customer subset applies).,2026-10-05
+mi_detroit_landbank_programs,MI,no,12,ok,ok,ok,gap,UNREVIEWED: tester preview only (Detroit customer subset applies).,2026-10-05
+mi_oceana_landbank,MI,no,5,ok,ok,ok,ok,UNREVIEWED: tester preview only.,2026-10-05
+mo_stl_lra_inventory,MO,no,9758,ok,ok,ok,gap,UNREVIEWED: tester preview only.,2026-10-05
+ok_oklahoma_county_owned,OK,no,195,ok,ok,ok,ok,UNREVIEWED: tester preview only.,2026-10-05
+pa_fayette_repository,PA,no,376,ok,ok,ok,gap,UNREVIEWED: tester preview only.,2026-10-05
+mn_ramsey_tax_forfeit,MN,no,2,ok,ok,ok,gap,UNREVIEWED: tester preview only.,2026-10-05
+sc_horry_forfeited_land,SC,no,51,ok,ok,ok,ok,UNREVIEWED: tester preview only.,2026-10-05
+sc_georgetown_forfeited_land,SC,no,1,ok,ok,ok,ok,UNREVIEWED: tester preview only.,2026-10-05
