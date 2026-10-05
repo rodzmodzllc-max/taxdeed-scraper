@@ -405,6 +405,14 @@ function pushBackLayer(name, close) {
   try { history.pushState({ tdw: name }, ""); } catch { /* file:// etc */ }
 }
 
+// Run fn once the self-initiated history.back() that just closed a layer has
+// landed (its popstate), so a layer opened next is not popped by it.
+function afterSelfBack(fn) {
+  let done = false;
+  const go = () => { if (done) return; done = true; window.removeEventListener("popstate", go); setTimeout(fn, 0); };
+  window.addEventListener("popstate", go);
+  setTimeout(go, 400);
+}
 function popBackLayer(name) {
   const i = BACK_LAYERS.findIndex(l => l.name === name);
   if (i < 0) return;
@@ -4641,6 +4649,7 @@ async function openCountyDossier(county, st, returnEl) {
   if (title) title.textContent = `${county} ${UNIT_WORD}, ${st}`;
   body.innerHTML = `<p class="muted">Loading county intelligence…</p>`;
   countyModalUi.open(returnEl);
+  track("county_dossier_opened", { county_known: !!county });
   const doc = await loadCountyIntel();
   if (!doc) { body.innerHTML = `<p class="muted">County intelligence could not be loaded right now.</p><button type="button" class="detail-btn" data-action="countyintel" data-county="${esc(county)}">Retry</button>`; return; }
   body.innerHTML = countyDossierHtml(countyIntelFor(doc, st, county), st);
@@ -6591,6 +6600,24 @@ function savedStatusHtml(p) {
   if (ch) return `<div class="saved-status saved-changed" data-saved-status="changed" data-pid="${esc(String(p.id))}"><b>Changed since your last visit:</b> ${esc(ch.changes.join(" · "))}</div>`;
   return `<div class="saved-status saved-active" data-saved-status="active" data-pid="${esc(String(p.id))}">Still listed${p.last_seen_at ? ` · last read from the source ${esc(dateOnly(p.last_seen_at))}` : ""}</div>`;
 }
+// Research queue (2026-10-05): what is still open for each watched property -
+// for an Available row its acquisition-checklist gaps, otherwise the data
+// gaps the property page names. Ordered as the watchlist is; nothing is
+// ranked or scored. The row opens the property page (at How to acquire for
+// Available).
+function researchItemsFor(p) {
+  if (p.source === "laft") return acquireChecklist(p).filter(x => x.state === "not_published" || x.state === "not_verified").map(x => `${x.label}: ${x.state === "not_verified" ? "not yet verified" : "not published"}`);
+  return dataGaps(p);
+}
+function researchQueueHtml(rows) {
+  const items = rows.map(p => ({ p, open: researchItemsFor(p) })).filter(x => x.open.length);
+  if (!rows.length) return "";
+  if (!items.length) return `<div class="research-queue" id="researchQueue"><div class="bidlist-related-head">Research queue</div><p class="muted">Nothing open - every watched property has its checklist on file.</p></div>`;
+  return `<details class="research-queue" id="researchQueue"><summary><b>Research queue</b> · ${items.length} watched propert${items.length === 1 ? "y has" : "ies have"} open items</summary><ul>${items.map(({ p, open }) =>
+    `<li class="rq-row" data-pid="${esc(String(p.id))}"><button type="button" class="link-btn" data-action="openacq" data-pid="${esc(String(p.id))}">${shortPropLabel(p)}</button><span class="rq-ledger">${esc(ledgerNavName(p.source))}</span><ul class="rq-items">${open.map(t => `<li>${esc(t)}</li>`).join("")}</ul></li>`).join("")}</ul>
+    <p class="muted rq-note">Each item is something the source has not published or this app has not verified yet - check it with the county office before acting.</p></details>`;
+}
+window.__tdwResearchItems = p => researchItemsFor(p);
 function renderBidListModal() {
   const inner = document.getElementById("bidListModalInner");
   if (!inner) return;
@@ -6632,6 +6659,7 @@ function renderBidListModal() {
     <h2 class="detail-address" style="margin-top:.1rem">⚑ My Watchlist <span style="color:var(--ink-soft);font-weight:600">(${countLabel})</span></h2>
     <p class="mega-sub" style="margin:0 0 .8rem">The short list you're actively tracking — separate from ♡ Favorites, capped at ${BID_LIST_MAX} to keep it focused.</p>
     <div class="bidlist-changes" id="bidListChanges">${watchChangesHtml(WATCH_CHANGES)}${watchedServerChangesHtml()}</div>
+    ${researchQueueHtml(rows)}
     ${listHtml}
     <div class="prop-list flat" id="bidListRows"></div>
     ${missingHtml}
@@ -6861,7 +6889,14 @@ document.addEventListener("click", async e => {
   const pid = btn.dataset.pid;
 
   if (action === "retryload") { retryPropertyLoad(); return; }
-  if (action === "countyintel") { openCountyDossier(btn.dataset.county, btn.dataset.state || PAGE_STATE, btn); return; }
+  if (action === "countyintel") {
+    // From the state picker: the picker's own history entry must be gone
+    // before the dossier pushes its own, or the two backs race and the
+    // second one leaves the page.
+    if (btn.closest("#statePicker")) { closeStatePicker(); afterSelfBack(() => openCountyDossier(btn.dataset.county, btn.dataset.state || PAGE_STATE, null)); }
+    else openCountyDossier(btn.dataset.county, btn.dataset.state || PAGE_STATE, btn);
+    return;
+  }
   if (action === "dossierlist") {
     const county = btn.dataset.county, k = btn.dataset.ledger;
     if (countyModalUi) countyModalUi.close();
@@ -10738,6 +10773,7 @@ function savedSearchItemHtml(s) {
       <button type="button" class="detail-btn" data-ss-apply="${esc(s.id)}">Show in list</button>
       <button type="button" class="detail-btn" data-ss-seen="${esc(s.id)}">Mark seen</button>
       <button type="button" class="detail-btn" data-ss-rename="${esc(s.id)}">Rename</button>
+      <button type="button" class="detail-btn" data-ss-duplicate="${esc(s.id)}">Duplicate</button>
       <button type="button" class="detail-btn" data-ss-update="${esc(s.id)}" title="${esc("Replace this search's criteria with: " + criteriaSummary(currentCriteria()))}">Replace with current filters</button>
       ${alertsCtl}
       <button type="button" class="detail-btn danger" data-ss-delete="${esc(s.id)}">Delete</button>
@@ -10904,6 +10940,13 @@ function installMonitoringUi() {
         await ssPersist(s, { criteria, last_viewed_at: new Date().toISOString(), last_match_ids: rows.map(p => p.id) });
         track("saved_search_updated", { change: "criteria", criteria_keys: Object.keys(criteria).length });
         renderSavedSearchesModal(); renderMonitorChrome();
+      } else if (t.dataset.ssDuplicate) {
+        // A copy with the same criteria and its own comparison baseline
+        // (everything matching now is its starting point, nothing is "new").
+        const s = byId(t.dataset.ssDuplicate); if (!s) return;
+        const copy = await ssCreate(`${s.name} (copy)`.slice(0, 80), JSON.parse(JSON.stringify(s.criteria || {})));
+        if (copy) track("saved_search_updated", { change: "duplicate" });
+        renderSavedSearchesModal(); renderMonitorChrome();
       } else if (t.dataset.ssDelete) {
         const s = byId(t.dataset.ssDelete); if (!s) return;
         await ssDelete(s); renderSavedSearchesModal(); renderMonitorChrome();
@@ -11057,11 +11100,93 @@ var GS_MIN = 2, GS_LIMIT = 8;   // var: read only from event handlers, never dur
 function gsEls() {
   return { input: document.getElementById("globalSearchInput"), box: document.getElementById("globalSearchResults"), clear: document.getElementById("globalSearchClear") };
 }
+// Natural search (2026-10-05): a plain-language query mapped to the List's
+// own filters by fixed rules - no model, no guessing. Recognised phrases:
+// a ledger ("available", "lands available", "otc", "auction(s)", "lien(s)",
+// "certificate(s)"), a county / parish of this state by name, a price bound
+// ("under $5,000", "below 5k", "over $1,000", "between 1k and 5k"), and
+// "verified" (a verified acquisition path). Whatever is left is the text
+// search. Each recognised phrase is shown back as a chip, so the customer
+// sees exactly what was understood before applying it.
+const NQ_LEDGER_WORDS = [
+  [/\b(lands? available|available|otc|over[- ]the[- ]counter|struck[- ]off|adjudicated|land bank)\b/i, "laft"],
+  [/\b(auctions?|tax deeds?|deed sales?|sheriff sales?)\b/i, "auction"],
+  [/\b(liens?|certificates?|tax certs?)\b/i, "certificate"]
+];
+function nqMoney(s) {
+  const m = String(s).replace(/[$,\s]/g, "").match(/^(\d+(?:\.\d+)?)(k|m)?$/i);
+  if (!m) return null;
+  return Math.round(Number(m[1]) * (m[2] ? (m[2].toLowerCase() === "k" ? 1000 : 1000000) : 1));
+}
+function parseNaturalQuery(raw, counties) {
+  let q = " " + String(raw || "").trim() + " ";
+  const out = { ledger: null, county: null, min: null, max: null, verified: false, text: "", chips: [], plain: false };
+  // A query that starts with a number is an address, parcel or case number
+  // ("15 Manatee Ln" is a street, not Manatee County): plain text search.
+  if (/^\s*\d/.test(q) && !/^\s*\$/.test(q)) { out.plain = true; out.text = String(raw || "").trim(); return out; }
+  const money = "\\$?\\s?[\\d,]+(?:\\.\\d+)?\\s?[km]?";
+  let m;
+  if ((m = q.match(new RegExp(`\\bbetween\\s+(${money})\\s+(?:and|to|-)\\s+(${money})`, "i")))) {
+    const a = nqMoney(m[1]), b = nqMoney(m[2]);
+    if (a !== null && b !== null) { out.min = Math.min(a, b); out.max = Math.max(a, b); q = q.replace(m[0], " "); }
+  }
+  if ((m = q.match(new RegExp(`\\b(?:under|below|less than|max(?:imum)?|up to|<)\\s*(${money})`, "i")))) {
+    const v = nqMoney(m[1]); if (v !== null) { out.max = v; q = q.replace(m[0], " "); }
+  }
+  if ((m = q.match(new RegExp(`\\b(?:over|above|more than|min(?:imum)?|at least|>)\\s*(${money})`, "i")))) {
+    const v = nqMoney(m[1]); if (v !== null) { out.min = v; q = q.replace(m[0], " "); }
+  }
+  for (const [re, k] of NQ_LEDGER_WORDS) {
+    if ((m = q.match(re))) { out.ledger = k; q = q.replace(m[0], " "); break; }
+  }
+  if ((m = q.match(/\b(verified|with (?:a )?(?:verified )?(?:acquisition|purchase) path)\b/i))) { out.verified = true; q = q.replace(m[0], " "); }
+  // Longest county name first, so "St. Lucie" wins over "Lucie" and
+  // "East Baton Rouge" over "Baton Rouge".
+  const names = (counties || []).slice().sort((a, b) => b.length - a.length);
+  for (const c of names) {
+    const re = new RegExp(`\\b${c.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+")}(?:\\s+(?:county|parish))?\\b`, "i");
+    if ((m = q.match(re))) { out.county = c; q = q.replace(m[0], " "); break; }
+  }
+  q = q.replace(/\b(in|properties|property|for sale|with|the|and|of)\b/gi, " ");
+  out.text = q.replace(/\s+/g, " ").trim();
+  return out;
+}
+function nqStructured(nq) { return !!(nq && !nq.plain && (nq.ledger || nq.county || nq.min !== null || nq.max !== null || nq.verified)); }
+// The same predicates the List applies once these become its filters
+// (passes(): ledger, county, the bid range on p.bid, the verified path).
+function nqMatches(p, nq) {
+  if (nq.ledger && p.source !== nq.ledger) return false;
+  if (nq.county && p.county !== nq.county) return false;
+  if (nq.min !== null && Number(p.bid) < nq.min) return false;
+  if (nq.max !== null && Number(p.bid) > nq.max) return false;
+  if (nq.verified && !ssAcquisitionVerified(p)) return false;
+  return !nq.text || textMatches(p, nq.text);
+}
+function nqChipsHtml(nq) {
+  const chips = [];
+  if (nq.ledger) chips.push(ledgerNavName(nq.ledger));
+  if (nq.county) chips.push(`${nq.county} ${UNIT_WORD}`);
+  if (nq.min !== null && nq.max !== null) chips.push(`Amount ${fmtMoney(nq.min)} - ${fmtMoney(nq.max)}`);
+  else if (nq.max !== null) chips.push(`Amount up to ${fmtMoney(nq.max)}`);
+  else if (nq.min !== null) chips.push(`Amount from ${fmtMoney(nq.min)}`);
+  if (nq.verified) chips.push("Verified acquisition path");
+  if (nq.text) chips.push(`Text "${nq.text}"`);
+  return chips.map(c => `<span class="gs-nq-chip">${esc(c)}</span>`).join("");
+}
+window.__tdwParseNaturalQuery = (q, counties) => parseNaturalQuery(q, counties);
 function gsMatches(q) {
   const out = [];
+  const nq = parseNaturalQuery(q, ALL_COUNTIES);
+  const structured = nqStructured(nq);
   for (const p of ALL) {
     if (HIDDEN.has(p.id) || goneExpired(p)) continue;
-    if (textMatches(p, q)) out.push(p);
+    if (structured ? nqMatches(p, nq) : textMatches(p, q)) out.push(p);
+  }
+  // Nothing matches the understood reading but the words themselves do
+  // (a name that happens to contain a county): the words win.
+  if (structured && !out.length) {
+    for (const p of ALL) if (!HIDDEN.has(p.id) && !goneExpired(p) && textMatches(p, q)) out.push(p);
+    if (out.length) out.__plainFallback = true;
   }
   // Available first, then auctions, then certificates; inside a ledger, the
   // List's own default order (county, then case).
@@ -11100,11 +11225,21 @@ function renderGlobalSearch() {
     ? `<div class="gs-status gs-partial" id="gsPartial" role="status">Still loading some ${esc(STATE_INFO.name)} records - results may grow.</div>`
     : LOAD_ISSUES.length ? `<div class="gs-status gs-partial" id="gsPartial" role="status">Some ${esc(STATE_INFO.name)} records could not be loaded - results may be incomplete.</div>` : "";
   if (!all.length) {
+    const nq0 = parseNaturalQuery(q, ALL_COUNTIES);
+    if (nqStructured(nq0)) {
+      box.innerHTML = `<div class="gs-nq" id="gsNq"><span class="gs-nq-lead">Understood as</span>${nqChipsHtml(nq0)}</div>` + (partial || "") +
+        `<div class="gs-status" id="gsEmpty" role="status">No ${esc(STATE_INFO.name)} property in the ${allLedgersSettled() ? "" : "loaded "}records matches all of these.</div>`;
+      return;
+    }
     box.innerHTML = (partial ? partial.replace('id="gsPartial"', 'id="gsEmpty"').replace("results may grow.", "no match in the records loaded so far.").replace("results may be incomplete.", "no match in the records that loaded.")
       : `<div class="gs-status" id="gsEmpty" role="status">No ${esc(STATE_INFO.name)} property matches “${esc(q)}”. Search covers address, parcel, case and certificate numbers and the ${esc(UNIT_WORD.toLowerCase())}; to look in another state, switch state first.</div>`);
     return;
   }
-  box.innerHTML = partial + all.slice(0, GS_LIMIT).map(gsRowHtml).join("") +
+  const nq = parseNaturalQuery(q, ALL_COUNTIES);
+  const nqHtml = nqStructured(nq) && !all.__plainFallback
+    ? `<div class="gs-nq" id="gsNq"><span class="gs-nq-lead">Understood as</span>${nqChipsHtml(nq)}<button type="button" class="gs-nq-apply" data-gs-nq="1">Apply as List filters &rarr;</button>${nq.min !== null || nq.max !== null ? `<span class="gs-nq-note">Amount bounds use the List's bid filter: rows with no published amount stay in.</span>` : ""}</div>`
+    : "";
+  box.innerHTML = nqHtml + partial + all.slice(0, GS_LIMIT).map(gsRowHtml).join("") +
     `<button type="button" class="gs-all" data-gs-all="1">See all ${all.length.toLocaleString("en-US")} result${all.length === 1 ? "" : "s"} in the list &rarr;</button>`;
 }
 function closeGlobalSearch() {
@@ -11115,6 +11250,8 @@ function closeGlobalSearch() {
 // Open the List filtered by the query, on the ledger that has matches
 // (the current one when it has any).
 function goToListSearch(q) {
+  const nq = parseNaturalQuery(q, ALL_COUNTIES);
+  if (nqStructured(nq) && !gsMatches(q).__plainFallback) { applyNaturalQuery(nq); return; }
   const query = String(q || "").trim();
   const matches = query ? gsMatches(query) : [];
   let ledger = state.ledger;
@@ -11130,6 +11267,27 @@ function goToListSearch(q) {
   state.search = query;
   updateBadge();
   render();
+}
+// Turn an understood query into the List's own filters - the same controls
+// the customer could set by hand, so the List shows exactly what they mean.
+function applyNaturalQuery(nq) {
+  const matches = ALL.filter(p => !HIDDEN.has(p.id) && !goneExpired(p) && nqMatches(p, nq));
+  const ledger = nq.ledger || (matches.some(p => p.source === state.ledger) ? state.ledger : (LEDGER_ORDER.find(k => matches.some(p => p.source === k)) || state.ledger));
+  closeGlobalSearch();
+  showPage("list");
+  if (ledger !== state.ledger) setLedger(ledger);
+  state.counties = new Set(nq.county ? [nq.county] : ALL_COUNTIES);
+  if (bindBidRangeSliders.apply) bindBidRangeSliders.apply(nq.min, nq.max);
+  // "verified" is the List's own Acquisition path filter.
+  state.acqState = nq.verified ? "verified" : "any";
+  const acqSel = document.getElementById("acqStateFilter");
+  if (acqSel) acqSel.value = state.acqState;
+  const si = document.getElementById("searchInput");
+  if (si) si.value = nq.text;
+  state.search = nq.text;
+  updateBadge();
+  render();
+  track("search_interpreted", { ledger: nq.ledger || "", county: !!nq.county, bounds: nq.min !== null || nq.max !== null, verified: nq.verified, text: !!nq.text });
 }
 (function bindGlobalSearch() {
   const { input, box, clear } = gsEls();
@@ -11162,7 +11320,7 @@ function goToListSearch(q) {
       if (p) openDetail(p);
       return;
     }
-    if (e.target.closest("[data-gs-all]")) goToListSearch(input.value);
+    if (e.target.closest("[data-gs-all], [data-gs-nq]")) goToListSearch(input.value);
   });
   if (clear) clear.addEventListener("click", () => { input.value = ""; renderGlobalSearch(); input.focus(); });
   document.addEventListener("click", e => { if (!e.target.closest("#globalSearch")) closeGlobalSearch(); });
@@ -11504,6 +11662,27 @@ function hasAvailable(st) {
   const c = SHELL_UI.picker && SHELL_UI.picker[st];
   return !!(c && c.laft);
 }
+// Coverage explorer (2026-10-05): the open state's counties by intelligence
+// state, from county-intelligence.json (loaded with the picker). Counties the
+// file does not list are counted as not yet researched - never shown as
+// "nothing for sale". Each county opens its dossier.
+function coverageExplorerHtml(q) {
+  if (!COUNTY_INTEL) return `<div class="coverage-explorer" id="coverageExplorer"><h3 class="state-group-head">Coverage in ${esc(STATE_INFO.name)}</h3><p class="muted">Loading county coverage…</p></div>`;
+  const st = COUNTY_INTEL.states.find(x => x.state === PAGE_STATE);
+  if (!st) return "";
+  const listed = st.counties.map(c => countyIntelFor(COUNTY_INTEL, PAGE_STATE, c.county));
+  const unlisted = Math.max(0, (st.county_total || 0) - listed.length);
+  const counts = {};
+  listed.forEach(c => { counts[c.intel] = (counts[c.intel] || 0) + 1; });
+  if (unlisted) counts.NOT_YET_RESEARCHED = (counts.NOT_YET_RESEARCHED || 0) + unlisted;
+  const order = ["VERIFIED", "PARTIALLY_VERIFIED", "SOURCE_BACKED", "NEEDS_REVIEW", "SOURCE_UNAVAILABLE", "NOT_YET_RESEARCHED"];
+  const shown = listed.filter(c => !q || c.county.toLowerCase().includes(q)).sort((a, b) => order.indexOf(a.intel) - order.indexOf(b.intel) || a.county.localeCompare(b.county));
+  return `<div class="coverage-explorer" id="coverageExplorer"><h3 class="state-group-head">Coverage in ${esc(STATE_INFO.name)}</h3>
+    <div class="cov-summary">${order.filter(k => counts[k]).map(k => `<span class="cov-count" data-intel="${k}">${countyIntelChipHtml(k)} <b>${counts[k]}</b></span>`).join("")}</div>
+    <ul class="cov-list">${shown.map(c => `<li><button type="button" class="link-btn" data-action="countyintel" data-county="${esc(c.county)}">${esc(c.county)}</button> ${countyIntelChipHtml(c.intel)}</li>`).join("")}</ul>
+    ${unlisted ? `<p class="muted cov-note">${unlisted} other ${esc(UNIT_WORD.toLowerCase())}${unlisted === 1 ? " is" : "s are"} not yet researched - no source is recorded there yet, which is not a statement that nothing is for sale.</p>` : ""}
+  </div>`;
+}
 function renderStatePicker() {
   const body = document.getElementById("statePickerBody");
   if (!body) return;
@@ -11514,6 +11693,7 @@ function renderStatePicker() {
   body.innerHTML = (codes.length ? "" : `<div class="dash-empty">No supported state matches “${esc(q)}”.</div>`) +
     (withAvail.length ? `<h3 class="state-group-head">States with Available properties</h3>${withAvail.map(statePickerRowHtml).join("")}` : "") +
     (others.length ? `<h3 class="state-group-head">${withAvail.length ? "Other states" : "States"}</h3>${others.map(statePickerRowHtml).join("")}` : "") +
+    coverageExplorerHtml(q) +
     `<p class="state-picker-note">Counts are shown for ${esc(STATE_INFO.name)}, the state you are in. For other states the badges show which ledgers have properties you can see; open a state to see its counts.</p>`;
 }
 let statePickerReturn = null;
@@ -11535,6 +11715,7 @@ function openStatePicker(returnEl) {
   const s = document.getElementById("statePickerSearch");
   if (s) { s.value = ""; s.focus(); }
   probeOtherStates(renderStatePicker).catch(() => {});
+  loadCountyIntel().then(() => { const sh = document.getElementById("statePicker"); if (sh && !sh.hidden) renderStatePicker(); });
 }
 (function bindStatePicker() {
   const s = document.getElementById("statePickerSearch");
