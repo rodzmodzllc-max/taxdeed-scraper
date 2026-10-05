@@ -4771,7 +4771,7 @@ const EXPECTED = {
   withheldRowNeverRendered: 0,
   // Fixture p15 was last read 2026-09-20: from 2026-10-05 on it is permanently
   // outside the 14-day window, so it is not "read recently" and counts as stale.
-  availFilterCounts: {"pathNone": 1, "pathOnline": 0, "amountPublished": 1, "amountUnpublished": 1, "statusAvailable": 2, "statusClosed": 0, "acreageHalf": 1, "acreageTwo": 0, "seenRecently": 0, "afterReset": 2},
+  availFilterCounts: { pathNone: 1, pathOnline: 0, amountPublished: 1, amountUnpublished: 1, statusAvailable: 2, statusClosed: 0, acreageHalf: 1, acreageTwo: 0, seenRecently: 0, afterReset: 2 },   // p3 (Bay) + p15 (Citrus): p15 has an instructions link, no published amount, 0.3 ac
   flAvailabilityEvidence: [
     'Availability evidence | LIST_PRESENCE: on the county\'s Lands Available list at the last read (F.S. 197.502(7)) · observed Aug 11, 2026',
     'Last verified | Read from the source Aug 11, 2026',
@@ -5101,7 +5101,7 @@ const EXPECTED = {
   navDashNoValueTile: true,
   // Fixture p15 was last read 2026-09-20: from 2026-10-05 on it is permanently
   // outside the 14-day window, so it is not "read recently" and counts as stale.
-  navDashAttention: ["soon:4 properties · 4 sale dates", "watched-gone:None", "stale:2 of 2", "sources:1 unavailable at the last read · 1 in back-off"],
+  navDashAttention: ['soon:4 properties · 4 sale dates', 'watched-gone:None', 'stale:2 of 2', 'sources:1 unavailable at the last read · 1 in back-off'],
   navDashRecent: ['auction:First-recorded date not trackedPer-row read date not tracked', 'laft:0 first recorded in the last 7 days0 read from the source in the last 7 days', 'certificate:First-recorded date not trackedPer-row read date not tracked'],
   navDashPaths: ["verified:2 of 2", "phone_mail:1", "county_instructions:1", "unverified:0"],   // the Florida fixture rows both carry a verified path
   navDashNoScoreWords: true,

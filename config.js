@@ -28,6 +28,15 @@ window.TDW_CONFIG = {
   // docs/production-configuration.md section 4.
   supportEmail: "",
 
+  // Tester preview (2026-10-05, owner's decision): every approved account,
+  // not only admins, also sees rows from sources still awaiting publication
+  // review (Detroit, St. Louis, Oklahoma County, Fayette PA, Ramsey MN,
+  // Horry / Georgetown SC), each labelled "Source review". BLOCKED sources
+  // are never shown and the Detroit customer subset still applies. Set this
+  // back to "enforced" (or delete the line) before selling to customers, so
+  // customers see approved sources only.
+  publicationMode: "preview",
+
   // Optional, independent of each other. Power the Map page's Google and
   // MapTiler satellite toggle buttons (satellite-map.js) - each a real
   // satellite/terrain basemap, as an alternative to the app's own
