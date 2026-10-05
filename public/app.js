@@ -4396,7 +4396,7 @@ function acquisitionCostRows(p) {
 }
 function acquisitionFormsHtml(p) {
   const forms = acquisitionForms(p);
-  const items = forms.map(f => `<li class="acq-form" data-form-kind="${esc(f.kind)}"><a href="${esc(f.url)}" target="_blank" rel="noopener">${esc(f.name)} →</a> <span class="acq-form-req${/^Required/.test(f.requirement) ? " req" : ""}">${esc(f.requirement)}</span><span class="acq-sub">${esc(f.purpose)} · ${esc(f.channel)}</span></li>`);
+  const items = forms.map(f => `<li class="acq-form" data-form-kind="${esc(f.kind)}"><a href="${esc(f.url)}" data-acq-link="${f.kind === "purchase_instructions" ? "instructions" : "form"}" target="_blank" rel="noopener">${esc(f.name)} →</a> <span class="acq-form-req${/^Required/.test(f.requirement) ? " req" : ""}">${esc(f.requirement)}</span><span class="acq-sub">${esc(f.purpose)} · ${esc(f.channel)}</span></li>`);
   const tt = termsFor(p);
   // The statement is obtained on request only where the terms say so (a
   // county that notifies the total after a decision is not a request).
@@ -4407,6 +4407,14 @@ function acquisitionFormsHtml(p) {
   }
   return items.length ? `<ul class="acq-forms">${items.join("")}</ul>` : "";
 }
+// "How to acquire" (investor-conversion sprint, 2026-10-05): the first section
+// of every Available property page, answering the investor's questions in
+// order - what is this, what does the source say I pay, how do I acquire it,
+// what form, where do I submit it, who do I contact, what is the official
+// source. Every answer is a field the row or its verified county record
+// carries; a gap says "Not yet verified" or "not published", never a guess.
+// Links carry data-acq-link (form / source / instructions) for the usage
+// events - the link itself, never its URL, is what is recorded.
 function acquireBlockHtml(p) {
   if (p.source !== "laft") return "";
   const a = acquisitionOf(p);
@@ -4414,43 +4422,74 @@ function acquireBlockHtml(p) {
   const op = acquisitionProvenance(p);
   const sm = op.source_match && typeof op.source_match === "object" ? op.source_match : null;
   const avail = availabilityLink(p);
-  const ext = (href, label, cls) => `<a class="${cls}" href="${esc(href)}" ${/^(mailto|tel):/.test(href) ? "" : 'target="_blank" rel="noopener"'}>${esc(label)}</a>`;
-  const whyHtml = `<p class="acq-why-text">${esc(why.text)}</p>` +
-    (why.basis ? `<p class="acq-why-basis">${esc(why.basis)}</p>` : "") +
-    (sm && sm.value ? `<p class="acq-why-basis">Matched to the listing by ${esc(String(sm.identifier).replace("_", " "))} ${esc(sm.value)}${sm.read_at ? ` · listing read ${esc(dateOnly(sm.read_at))}` : ""}</p>` : "") +
-    (avail ? `<p class="acq-why-link">${ext(avail.href, avail.label + " →", "acq-link")}</p>` : "");
+  const ext = (href, label, cls, kind) => `<a class="${cls}" href="${esc(href)}"${kind ? ` data-acq-link="${kind}"` : ""} ${/^(mailto|tel):/.test(href) ? "" : 'target="_blank" rel="noopener"'}>${esc(label)}</a>`;
+  const dl = (rows, cls) => rows.length ? `<dl class="acq-dl${cls ? " " + cls : ""}">${rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${v}</dd>`).join("")}</dl>` : "";
+  const muted = t => `<p class="acq-muted">${esc(t)}</p>`;
   const state = acquisitionCompleteness(a);
   const notYet = `<span class="acq-pending">Not yet verified</span>`;
-  const rows = [];
+  const q = (n, title, body) => `<div class="acq-q" data-acq-q="${n}"><div class="acq-h">${esc(title)}</div>${body}</div>`;
+  // 1. What is this?
+  const whatHtml = `<p class="acq-why-text">${esc(why.text)}</p>` +
+    (why.basis ? `<p class="acq-why-basis">${esc(why.basis)}</p>` : "") +
+    (sm && sm.value ? `<p class="acq-why-basis">Matched to the listing by ${esc(String(sm.identifier).replace("_", " "))} ${esc(sm.value)}${sm.read_at ? ` · listing read ${esc(dateOnly(sm.read_at))}` : ""}</p>` : "");
+  // 2. What does the source say I need to pay?
+  const costRows = acquisitionCostRows(p);
+  const payHtml = costRows.length ? dl(costRows, "acq-cost") : muted("No amount is published by the source - ask the office named below for the current amount.");
+  // 3. How do I acquire it?
+  const howRows = [];
   let cta = null;
   if (state === "none") {
-    // CASE 2: the source establishes availability; the process is not yet verified.
-    rows.push(["Acquisition path", notYet]);
-    if (avail) rows.push(["Official availability source", ext(avail.href, "Open official source →", "acq-link")]);
-    rows.push(["How to acquire", esc(avail ? "See the official source for current instructions." : "Contact the county office named on the listing for current instructions.")]);
+    howRows.push(["Acquisition path", notYet]);
+    howRows.push(["How to acquire", esc(avail ? "See the official source for current instructions." : "Contact the county office named on the listing for current instructions.")]);
   } else {
     cta = acquisitionCta(a);
-    rows.push(["Method", esc(a.label)]);
-    if (a.steps.length) rows.push(["Instructions", `<ol class="acq-steps">${a.steps.map(st => `<li>${esc(st)}</li>`).join("")}</ol>`]);
-    else if (a.instructions) rows.push(["Instructions", esc(a.instructions)]);
-    if (a.office) rows.push(["Handled by", esc(a.office)]);
-    if (state === "partial") rows.push(["Additional acquisition details", notYet]);
-    const officialHref = a.evidenceUrl || a.url || (avail && avail.href);
-    if (officialHref) rows.push(["Official source", ext(officialHref, (a.evidenceUrl || a.url ? (a.evidenceTitle || "County process page") : avail.label) + " →", "acq-link")]);
-    rows.push(["Last verified", esc(a.observedOn ? dateOnly(a.observedOn) : "date not recorded")]);
-    if (a.applicationUrl && (!cta || cta.href !== a.applicationUrl)) rows.push(["Application", ext(a.applicationUrl, "Download application →", "acq-link")]);
-    if (a.scope !== "property") rows.push(["Applies to", esc("The county's process for every property on its list - not an approval for this parcel; confirm it is still available before paying.")]);
+    howRows.push(["Method", esc(a.label)]);
+    if (a.steps.length) howRows.push(["Instructions", `<ol class="acq-steps">${a.steps.map(st => `<li>${esc(st)}</li>`).join("")}</ol>`]);
+    else if (a.instructions) howRows.push(["Instructions", esc(a.instructions)]);
+    if (state === "partial") howRows.push(["Additional acquisition details", notYet]);
+    if (a.scope !== "property") howRows.push(["Applies to", esc("The county's process for every property on its list - not an approval for this parcel; confirm it is still available before paying.")]);
   }
-  const costRows = acquisitionCostRows(p);
+  const howHtml = (cta ? `<p class="acq-cta-row">${ext(cta.href, cta.label, "acq-cta", /^(mailto|tel):/.test(cta.href) ? "instructions" : (cta.href === a.applicationUrl || ["application_download", "application_page"].includes(a.type) ? "form" : "instructions"))}${cta.sub ? `<span class="acq-cta-sub">${esc(cta.sub)}</span>` : ""}</p>` : "") + dl(howRows);
+  // 4. What form do I need?
   const formsHtml = acquisitionFormsHtml(p);
-  if (p.last_seen_at) rows.push(["Listing last read", esc(dateOnly(p.last_seen_at))]);
-  return detailSectionHtml("Available / OTC", `<div class="acq-block" data-acq-state="${state}">
-    <div class="acq-h">Why this property is available</div>${whyHtml}
-    ${costRows.length ? `<div class="acq-h">What it costs</div><dl class="acq-dl acq-cost">${costRows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${v}</dd>`).join("")}</dl>` : ""}
-    ${formsHtml ? `<div class="acq-h">Forms and documents</div>${formsHtml}` : ""}
-    <div class="acq-h">How to acquire</div>
-    ${cta ? `<p class="acq-cta-row">${ext(cta.href, cta.label, "acq-cta")}${cta.sub ? `<span class="acq-cta-sub">${esc(cta.sub)}</span>` : ""}</p>` : ""}
-    <dl class="acq-dl">${rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${v}</dd>`).join("")}</dl>
+  const formHtml = formsHtml || muted(a.verified ? "No form is published by the source - follow the steps above." : "Not yet verified - no county form has been established from evidence.");
+  // 5. Where do I submit it?
+  const submitRows = [];
+  if (a.verified) {
+    if (a.mode === "online" && a.url) submitRows.push(["Online", ext(a.url, "County acquisition page →", "acq-link", "instructions")]);
+    if (a.address) submitRows.push(["In person", esc(a.address)]);
+    if (a.mailing) submitRows.push(["By mail", esc(a.mailing)]);
+    if (a.email) submitRows.push(["By e-mail", ext(`mailto:${a.email}`, a.email, "acq-link", "instructions")]);
+    if (a.payment) submitRows.push(["Payment", esc(a.payment)]);
+  }
+  const submitHtml = submitRows.length ? dl(submitRows, "acq-submit")
+    : muted(a.verified ? "The source does not name a submission address - follow the steps above or ask the office below." : "Not yet verified.");
+  // 6. Who do I contact?
+  const contactRows = [];
+  if (a.verified) {
+    if (a.office) contactRows.push(["Handled by", esc(a.office)]);
+    if (a.phone) contactRows.push(["Phone", a.phone.split(/\s+or\s+/).map(ph => ext(`tel:${ph.replace(/[^\d+]/g, "")}`, ph, "acq-link", "instructions")).join(" or ")]);
+    if (a.email && !submitRows.some(([k]) => k === "By e-mail")) contactRows.push(["E-mail", ext(`mailto:${a.email}`, a.email, "acq-link", "instructions")]);
+  }
+  const contactHtml = contactRows.length ? dl(contactRows, "acq-contact-dl")
+    : muted(a.verified ? "No contact is published on the evidence page." : "Not yet verified - no county contact has been established from evidence.");
+  // 7. What is the official source?
+  const srcRows = [];
+  const officialHref = a.verified ? (a.evidenceUrl || a.url) : null;
+  if (officialHref) srcRows.push(["Official source", ext(officialHref, (a.evidenceTitle || "County process page") + " →", "acq-link", "instructions")]);
+  if (avail) srcRows.push([officialHref ? "Official availability listing" : "Official availability source",
+    `<span class="acq-why-link">${ext(avail.href, (officialHref ? avail.label : "Open official source") + " →", "acq-link", "source")}</span>`]);
+  if (a.verified) srcRows.push(["Last verified", esc(a.observedOn ? dateOnly(a.observedOn) : "date not recorded")]);
+  if (a.mode !== "online") srcRows.push(["Online purchase", esc("No online purchase link on file")]);
+  if (p.last_seen_at) srcRows.push(["Listing last read", esc(dateOnly(p.last_seen_at))]);
+  return detailSectionHtml("How to acquire", `<div class="acq-block" data-acq-state="${state}">
+    ${q(1, "What is this?", whatHtml)}
+    ${q(2, "What does the source say I need to pay?", payHtml)}
+    ${q(3, "How do I acquire it?", howHtml)}
+    ${q(4, "What form do I need?", formHtml)}
+    ${q(5, "Where do I submit it?", submitHtml)}
+    ${q(6, "Who do I contact?", contactHtml)}
+    ${q(7, "What is the official source?", dl(srcRows))}
   </div>`, "acquire-card", "acquire");
 }
 function availableDecisionHtml(p) {
@@ -4756,7 +4795,7 @@ async function hydrateInventoryHistory(container, p) {
 // Shell redesign (2026-10-04): the section nav reads as the page's tabs -
 // Overview / Acquisition / Tax & Value / ... / Map / Source - each a jump to a
 // section that actually rendered (never an empty tab).
-const DETAIL_NAV_LABELS = { acquire: "Acquisition", summary: "Overview", decision: "Decision", inventory: "Inventory", financial: "Tax & Value", property: "Property", history: "History", events: "Sale events", monitor: "Watch", risk: "Risk & Legal", map: "Map", sources: "Source", provenance: "Provenance" };
+const DETAIL_NAV_LABELS = { acquire: "How to acquire", summary: "Overview", decision: "Decision", inventory: "Inventory", financial: "Tax & Value", property: "Property", history: "History", events: "Sale events", monitor: "Watch", risk: "Risk & Legal", map: "Map", sources: "Source", provenance: "Provenance" };
 function detailNavHtml(bodyHtml) {
   const ids = [];
   bodyHtml.replace(/data-section="([a-z]+)"/g, (m, id) => { if (DETAIL_NAV_LABELS[id] && !ids.includes(id)) ids.push(id); return m; });
@@ -6021,6 +6060,8 @@ function renderBidListModal() {
   rows.forEach(p => {
     if (folded.has(p.id)) return;
     listEl.appendChild(p.source === "certificate" ? certCard(p, true) : card(p, true));
+    const acq = savedAcquisitionHtml(p);
+    if (acq) { const box = document.createElement("div"); box.className = "bidlist-acq"; box.dataset.pid = p.id; box.innerHTML = acq; listEl.appendChild(box); }
     const rel = relatedRecordsFor(p);
     if (!rel.length) return;
     const lines = rel.map(o => {
@@ -6321,6 +6362,14 @@ document.addEventListener("click", async e => {
     const target = host && host.querySelector(`[data-section="${btn.dataset.target}"]`);
     if (target) target.scrollIntoView({ block: "start", behavior: "smooth" });
     if (host) host.querySelectorAll(".detail-nav button").forEach(b => b.classList.toggle("on", b === btn));
+  } else if (action === "openacq") {
+    // Saved / watchlist card -> the property page, opened at "How to acquire".
+    const p = pid && ALL.find(x => String(x.id) === String(pid));
+    if (!p) return;
+    openDetail(p);
+    const host = document.getElementById("detailModalInner");
+    const target = host && host.querySelector('[data-section="acquire"]');
+    if (target) target.scrollIntoView({ block: "start" });
   } else if (action === "showonmap") {
     if (!pid) return;
     const p = ALL.find(x => String(x.id) === String(pid));
@@ -10197,7 +10246,7 @@ function installMonitoringUi() {
   document.addEventListener("click", e => {
     const a = e.target.closest && e.target.closest("a[href]");
     if (!a) return;
-    const host = a.closest("#detailModalInner, #detailPanel");
+    const host = a.closest("#detailModalInner, #detailPanel, #bidListModalInner");
     if (!host) return;
     const pidEl = a.closest("[data-pid]") || host.querySelector("[data-pid]");
     const pid = pidEl ? pidEl.dataset.pid : null;
@@ -10211,7 +10260,9 @@ function installMonitoringUi() {
       return;
     }
     let event = null;
-    if (sec === "acquire" || sec === "decision") {
+    const marked = a.dataset ? a.dataset.acqLink : "";
+    if (marked) event = { form: "application_opened", source: "acquisition_source_opened", instructions: "acquisition_instructions_opened" }[marked] || null;
+    else if (sec === "acquire" || sec === "decision") {
       // A form or application document is part of the acquisition path; the
       // availability listing is the official source; the rest is the
       // county's process page.
@@ -10856,6 +10907,29 @@ function whySeeingHtml(p) {
   if (state.search && textMatches(p, state.search)) reasons.push(`It matches your search “${esc(state.search)}”.`);
   if (FAVS.has(p.id) || BIDLIST.has(p.id)) reasons.push("It is on your favorites or watchlist.");
   return `<details class="why-seeing" id="whySeeing"><summary>Why am I seeing this?</summary><ul>${reasons.map(r => `<li>${r}</li>`).join("")}</ul></details>`;
+}
+// A saved Available property keeps its way back to the official path
+// (investor-conversion sprint, 2026-10-05): under its watchlist card, the
+// verified method, the amount as the source states it, the county form and
+// the official source - the same records the property page reads, never a
+// copy - plus a button that reopens the page at "How to acquire".
+function savedAcquisitionHtml(p) {
+  if (!p || p.source !== "laft") return "";
+  const a = acquisitionOf(p);
+  const info = amountInfo(p);
+  const forms = acquisitionForms(p);
+  const avail = availabilityLink(p);
+  const link = (href, label, kind) => `<a class="acq-link" href="${esc(href)}" data-acq-link="${kind}" target="_blank" rel="noopener">${esc(label)} →</a>`;
+  const bits = [];
+  bits.push(`<span class="acq-badge" data-acq="${esc(a.verified ? a.mode : (a.mode === "none" ? "none" : "unverified"))}">${esc(a.verified ? a.label : (a.mode === "none" ? "No purchase path published" : "Acquisition path not yet verified"))}</span>`);
+  bits.push(`<span class="bidlist-acq-amount">${esc(info.label || "Amount")}: ${esc(amountDisplay(p))}</span>`);
+  const links = [];
+  if (forms.length) links.push(link(forms[0].url, forms[0].name, forms[0].kind === "purchase_instructions" ? "instructions" : "form"));
+  if (a.verified && a.evidenceUrl && !forms.some(f => f.url === a.evidenceUrl)) links.push(link(a.evidenceUrl, "Official process page", "instructions"));
+  if (avail) links.push(link(avail.href, "Official listing", "source"));
+  return `<div class="bidlist-acq-head">${bits.join("")}</div>` +
+    (links.length ? `<div class="bidlist-acq-links">${links.join(" · ")}</div>` : "") +
+    `<button class="reset-btn" type="button" data-action="openacq" data-pid="${esc(p.id)}">How to acquire</button>`;
 }
 function cardAcqBadgeHtml(p) {
   if (p.source !== "laft") return "";

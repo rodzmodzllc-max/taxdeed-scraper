@@ -167,7 +167,9 @@ def test_g09_cta_labels_are_the_truthful_set():
     avail = re.search(r"function availabilityLink\(p\) \{(.*?)\n\}", APP, re.S).group(1)
     assert "View official availability" in avail and "delinquent-tax counsel" in avail
     block = re.search(r"function acquireBlockHtml\(p\) \{(.*?)\n\}\n", APP, re.S).group(1)
-    for heading in ("Why this property is available", "How to acquire", '"Method"', '"Official source"', '"Last verified"',
+    for heading in ("What is this?", "What does the source say I need to pay?", "How do I acquire it?", "What form do I need?",
+                    "Where do I submit it?", "Who do I contact?", "What is the official source?", "No online purchase link on file",
+                    "How to acquire", '"Method"', '"Official source"', '"Last verified"',
                     '"Acquisition path"', '"Official availability source"', "Open official source", "See the official source for current instructions.",
                     '"Additional acquisition details"', "Not yet verified"):
         assert heading in block, heading

@@ -27,7 +27,7 @@ The page showed only a bare path type.
 - `acquisitionProvenance(p)` in app.js fills in that record **only when** the row has a typed path, has no record of its own, and has the same state, source, county and path type. The row's own keys always win.
 - `acquisitionOf`, `acquisitionGaps`, the How-to-acquire block, the decision rows and the export all read through it.
 
-**Pipeline root cause, not fixed in this phase** (harvesting and sync changes need authorization): the sync should merge `otc_provenance` instead of replacing it, or re-run the purchase-path engine on every synced row.
+**Pipeline root cause:** fixed on 2026-10-05; see `docs/investor-conversion.md` section 1. The sync now merges `otc_provenance` and never erases verified acquisition evidence.
 
 ## Usage events
 

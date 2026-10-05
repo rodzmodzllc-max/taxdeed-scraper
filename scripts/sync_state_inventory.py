@@ -60,6 +60,99 @@ PLACEHOLDER_PREFIXES = ("Parcel ", "Case ")
 
 NEVER_NULL_PATH_KEYS = ("purchase_url", "purchase_url_kind")
 
+# ---------------------------------------------------------------------------
+# Acquisition-evidence persistence (2026-10-05)
+# ---------------------------------------------------------------------------
+# PostgREST's merge-duplicates upsert REPLACES a jsonb column. A row carries
+# the adapter's own otc_provenance (layer, identifier, coordinates ...), while
+# the verified acquisition record - steps, office, contacts, form, evidence
+# page - is written by the laft lifecycle / purchase-path engine into the SAME
+# column. Sending the adapter's dict as-is erased that record: on 2026-10-04
+# 3,500 East Baton Rouge rows kept purchase_path_type but lost the record.
+# The sync now merges into the stored dict (stored_rows) and keeps verified
+# evidence unless this read carries equal-or-richer evidence for the same
+# path type. The group below moves together - never key by key, so evidence
+# from two observations is never spliced into one record.
+ACQUISITION_KEYS = ("acquisition", "purchase_evidence_url", "purchase_evidence_type", "purchase_evidence_title",
+                    "purchase_instructions", "purchase_path_observed_on")
+PATH_COLUMNS = ("purchase_path_type", "purchase_path_scope", "purchase_path_evidence", "purchase_path_observed_on",
+                "purchase_url", "purchase_url_kind")
+_CONTACT_KEYS = ("phone", "email", "address", "mailing_address", "application_url", "office", "payment")
+
+
+def acquisition_strength(prov) -> tuple:
+    """How much VERIFIED acquisition evidence an otc_provenance dict carries:
+    (complete record, published steps + contact fields, has an evidence
+    page). () when it carries none. Only what the source published counts."""
+    if not isinstance(prov, dict):
+        return ()
+    acq = prov.get("acquisition")
+    if not isinstance(acq, dict) or not acq.get("mode"):
+        return ()
+    steps = [s for s in (acq.get("steps") or []) if str(s).strip()]
+    complete = bool(steps) and any(acq.get(k) for k in ("phone", "email", "address", "mailing_address", "application_url"))
+    fields = len(steps) + sum(1 for k in _CONTACT_KEYS if acq.get(k))
+    return (int(complete), fields, int(bool(acq.get("evidence_url") or prov.get("purchase_evidence_url"))))
+
+
+def merge_acquisition(row: dict, stored: dict | None) -> tuple[dict, dict, str]:
+    """(otc_provenance to send, path columns to restore, outcome) for one row
+    of the SAME identity (state, source, county, case_no) and the same
+    harvester_source as `stored` - the caller guarantees that. Pure.
+
+    - The stored dict is the base; the row's own non-blank keys overwrite it
+      (adapter facts are refreshed, never lost to a blank).
+    - Verified acquisition evidence (ACQUISITION_KEYS) is a unit:
+        * a row that states a DIFFERENT, non-null path type than the stored
+          one takes only its own evidence (never mixed across path types);
+        * a row whose evidence is at least as strong as the stored one
+          replaces it (a newer equal-or-richer observation);
+        * otherwise the stored evidence is kept - a read that lacks the
+          field, or carries weaker evidence, erases nothing.
+    - An ACTIVE row that states no path (purchase_path_type null) over a
+      stored verified path keeps the stored path columns too, so the record
+      and the columns it belongs to stay together. A row that is no longer
+      active sheds its path, as before (a closed listing has no acquisition
+      path - scripts/harvest_expansion.py)."""
+    new = row.get("otc_provenance") if isinstance(row.get("otc_provenance"), dict) else {}
+    stored = stored or {}
+    sprov = stored.get("otc_provenance") if isinstance(stored.get("otc_provenance"), dict) else {}
+    merged = dict(sprov)
+    merged.update({k: v for k, v in new.items() if not FP.is_blank(v)})
+    stored_type = stored.get("purchase_path_type")
+    states_path = "purchase_path_type" in row
+    row_type = row.get("purchase_path_type") if states_path else stored_type
+    active = str(row.get("status") or "active").lower() == "active"
+    restore: dict = {}
+    s_strength, n_strength = acquisition_strength(sprov), acquisition_strength(new)
+
+    def take(src: dict) -> None:
+        for k in ACQUISITION_KEYS:
+            if k in src and not FP.is_blank(src[k]):
+                merged[k] = src[k]
+            else:
+                merged.pop(k, None)
+
+    if not s_strength:
+        take(new)
+        return merged, restore, ("acquisition_added" if n_strength else "no_acquisition")
+    if states_path and row_type is None:
+        if not active:
+            take(new)
+            return merged, restore, "acquisition_shed_not_active"
+        if stored_type:
+            restore = {k: stored.get(k) for k in PATH_COLUMNS if k in stored}
+        take(sprov)
+        return merged, restore, "acquisition_preserved"
+    if stored_type and row_type and row_type != stored_type:
+        take(new)
+        return merged, restore, "acquisition_path_type_changed"
+    if n_strength and n_strength >= s_strength:
+        take(new)
+        return merged, restore, "acquisition_replaced_equal_or_richer"
+    take(sprov)
+    return merged, restore, "acquisition_preserved"
+
 
 def _record_source(source_id: str) -> str:
     """The properties.source a configured adapter source writes ('laft' /
@@ -109,7 +202,8 @@ def registry_rows(state: str, path: Path = REGISTRY) -> dict[str, object]:
 
 
 def plan(state: str, rows: list[dict], registry: dict, status_units: dict[str, str], *, observed_at: str | None = None,
-         stored_provenance: dict | None = None, stored_first_seen: dict | None = None) -> tuple[list[dict], dict]:
+         stored_provenance: dict | None = None, stored_first_seen: dict | None = None,
+         stored_rows: dict | None = None) -> tuple[list[dict], dict]:
     """(rows to upsert, counts). Pure - no I/O. Raises ValueError when the
     state or a row's source may not be synced at all.
 
@@ -124,10 +218,16 @@ def plan(state: str, rows: list[dict], registry: dict, status_units: dict[str, s
     `first_seen_at` is sent too (properties_seen_order_check requires
     last_seen_at >= first_seen_at): a row already stored keeps its stored
     value (`stored_first_seen`, identity -> timestamp), a new row is first
-    seen at this run's observed_at - never the insert's later now() default."""
+    seen at this run's observed_at - never the insert's later now() default.
+
+    `stored_rows` (identity -> {harvester_source, otc_provenance, path
+    columns}) is what the row's otc_provenance is MERGED into
+    (merge_acquisition): verified acquisition evidence is never erased by a
+    read that lacks it, and a stored row of another source is never used."""
     observed_at = observed_at or FP.now_iso()
     stored_provenance = stored_provenance or {}
     stored_first_seen = stored_first_seen or {}
+    stored_rows = stored_rows or {}
     if not states.is_activated(state):
         raise ValueError(f"state {state} is not activated: {', '.join(states.activation_blockers(state))}")
     counts = {"input": len(rows), "upsert": 0, "skipped_unit_not_read": 0, "wrong_state": 0, "withheld_not_publishable": 0,
@@ -162,6 +262,16 @@ def plan(state: str, rows: list[dict], registry: dict, status_units: dict[str, s
         first = stored_first_seen.get(identity(row)) if identity(row) in stored_first_seen else observed_at
         row["first_seen_at"] = first if first is None or FP_ts(first) <= FP_ts(observed_at) else observed_at
         row["field_provenance"] = list_provenance(row, stored_provenance.get(identity(row)), observed_at)
+        prior = stored_rows.get(identity(row))
+        if prior is not None and prior.get("harvester_source") not in (None, reg.source_id):
+            prior = None                        # another source's row: never a merge base
+        if prior is not None:                    # a new row's own dict is sent unchanged
+            prov, restore, outcome = merge_acquisition(row, prior)
+            row["otc_provenance"] = prov
+            row.update(restore)
+            if outcome != "no_acquisition":
+                # Reported only when it happens (counts only, never a value).
+                counts[outcome] = counts.get(outcome, 0) + 1
         keys.setdefault(reg.source_id, set()).update(row)
         out.append(row)
     # A source whose rows do not state their own acquisition path (Louisiana:
@@ -245,15 +355,19 @@ def status_units(path: Path) -> dict[str, str]:
     return {str(e.get("county")): str(e.get("status")) for e in entries or [] if isinstance(e, dict)}
 
 
-def stored_provenance(base: str, key: str, state: str, source_ids: set[str], first_seen: dict | None = None) -> dict:
+def stored_provenance(base: str, key: str, state: str, source_ids: set[str], first_seen: dict | None = None,
+                      rows_out: dict | None = None) -> dict:
     """identity -> the stored field_provenance of this state's rows from
     these sources (every status), so a sync merges into it. When
-    `first_seen` is given it is filled with identity -> stored first_seen_at."""
+    `first_seen` is given it is filled with identity -> stored first_seen_at;
+    when `rows_out` is given, with identity -> the stored harvester_source,
+    otc_provenance and acquisition path columns (merge_acquisition)."""
     import urllib.parse  # noqa: PLC0415
     out, offset = {}, 0
     ids = ",".join(sorted(source_ids))
     while True:
-        q = urllib.parse.urlencode({"select": "source,county,case_no,field_provenance,first_seen_at", "state": f"eq.{state}",
+        q = urllib.parse.urlencode({"select": "source,county,case_no,field_provenance,first_seen_at,harvester_source,otc_provenance,"
+                                              + ",".join(PATH_COLUMNS), "state": f"eq.{state}",
                                     "harvester_source": f"in.({ids})", "order": "id", "limit": 1000, "offset": offset})
         req = urllib.request.Request(f"{base.rstrip('/')}/rest/v1/properties?{q}",
                                      headers={"apikey": key, "Authorization": f"Bearer {key}", "User-Agent": USER_AGENT})
@@ -263,6 +377,8 @@ def stored_provenance(base: str, key: str, state: str, source_ids: set[str], fir
             out[identity(r)] = r.get("field_provenance")
             if first_seen is not None:
                 first_seen[identity(r)] = r.get("first_seen_at")
+            if rows_out is not None:
+                rows_out[identity(r)] = {k: r.get(k) for k in ("harvester_source", "otc_provenance", *PATH_COLUMNS)}
         if len(page) < 1000:
             return out
         offset += 1000
@@ -315,13 +431,13 @@ def main(argv=None) -> int:
     url, key = os.environ.get("SUPABASE_URL"), os.environ.get("SUPABASE_SERVICE_KEY")
     import source_publication as SP  # noqa: PLC0415 - registry + latest valid admin review
     reg, _ = SP.registry_with_reviews(args.state) if (url and key and not args.dry_run) else SP.registry_with_reviews(args.state, reviews={})
-    stored, first_seen = {}, {}
+    stored, first_seen, stored_rows = {}, {}, {}
     if url and key and not args.dry_run and states.is_activated(args.state):
         stored = stored_provenance(url, key, args.state, {sid for sid, r in reg.items() if r.is_production} or {"-"},
-                                   first_seen=first_seen)
+                                   first_seen=first_seen, rows_out=stored_rows)
     try:
         to_send, counts = plan(args.state, rows, reg, status_units(Path(args.status)), stored_provenance=stored,
-                               stored_first_seen=first_seen)
+                               stored_first_seen=first_seen, stored_rows=stored_rows)
     except ValueError as exc:
         print(f"::error title=sync_{args.state.lower()}::{exc} - 0 requests made")
         return 2
