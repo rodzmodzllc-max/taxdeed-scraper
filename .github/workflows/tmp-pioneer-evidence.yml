@@ -17,4 +17,4 @@ jobs:
       - run: |
           sudo apt-get install -y -qq tesseract-ocr >/dev/null
           pip install -q requests pdfplumber pytesseract
-          python3 scripts/harvest_clerk_statements.py --counties Citrus,Duval,Palm\ Beach --report
+          python3 scripts/tmp_statement_diag.py
