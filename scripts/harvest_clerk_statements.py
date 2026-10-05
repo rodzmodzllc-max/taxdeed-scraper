@@ -66,24 +66,34 @@ class CountyStatementConfig:
     enabled: bool
     publisher: str
     docket_pattern: str            # regex on a docket entry's own text
-    labels: dict                   # component key -> regex label (statement's own wording)
-    total_labels: tuple            # the statement's printed total, first match wins
+    lines: dict                    # line key -> regex anchored on the statement's own line label
     valid_through_labels: tuple
     reason: str = ""
 
 
+# Citrus "LOL" statement, structure read value-free from the OCR (diagnostic
+# run 37253789695): three printed subtotals, each checked:
+#   OPENING BID + LANDS AVAILABLE INTEREST + TOTAL OMITTED TAXES = LANDS AVAILABLE TOTAL
+#   LANDS AVAILABLE TOTAL + DOCUMENTARY STAMP TAX + DEED RECORDING FEE
+#        + AFFIDAVIT RECORDING FEE                                = LOL TOTAL
+#   LOL TOTAL - LESS ... RECORDING FEES                           = TOTAL DUE FROM PURCHASER
+# Older statements carry no TOTAL DUE FROM PURCHASER line and yield no figure.
 CITRUS = CountyStatementConfig(
     county="Citrus", enabled=True,
     publisher="Citrus County Clerk of the Circuit Court and Comptroller",
     docket_pattern=r"^\s*LOL\b",
-    labels={
-        "opening_bid": r"Opening\s+Bid",
-        "interest": r"Lands\s+Available\s+Interest",
-        "omitted_taxes": r"Total\s+Omitted\s+Taxes",
-        "doc_stamps": r"Documentary\s+Stamp\s+Tax",
-        "recording_fees": r"Deed\s+Recording\s+Fee",
+    lines={
+        "opening_bid": r"^OPENING\s+BID$",
+        "interest": r"^LANDS\s+AVAILABLE\s+INTEREST$",
+        "omitted_taxes": r"^TOTAL\s+OMITTED\s+TAXES$",
+        "la_total": r"^LANDS\s+AVAILABLE\s+TOTAL$",
+        "doc_stamps": r"^DOCUMENTARY\s+STAMP\s+TAX$",
+        "deed_recording_fee": r"^DEED\s+RECORDING\s+FEE$",
+        "affidavit_recording_fee": r"^AFFIDAVIT\s+RECORDING\s+FEE$",
+        "lol_total": r"^LOL\s+TOTAL$",
+        "less_recording_fees": r"^LESS\b.*\bRECORDING\s+FEES?$",
+        "total_due": r"^TOTAL\s+DUE\s+FROM\s+PURCHASER$",
     },
-    total_labels=(r"Total\s+Due\s+from\s+Purchaser", r"Lands\s+Available\s+Total"),
     valid_through_labels=(r"IF\s+RECEIVED\s+BY", r"Valid\s+Through"),
 )
 NOT_VERIFIED = {
@@ -121,36 +131,77 @@ def _iso(d: str | None) -> str | None:
 
 @dataclass
 class Parsed:
-    status: str                     # VERIFIED / OCR_UNVERIFIED / NO_TOTAL / NO_LABELS
+    status: str                     # VERIFIED / OCR_UNVERIFIED / NO_TOTAL / NO_LABELS / AMBIGUOUS
     total_due: float | None = None
     valid_through: str | None = None
     components: dict = field(default_factory=dict)
     missing: list = field(default_factory=list)
 
 
+LINE_MONEY = re.compile(r"(\$)?\s*(-?[\d,]+\.\d{2})\s*$")
+
+
+def statement_lines(text: str) -> list[tuple[str, float, bool]]:
+    """(label, amount, printed-with-$) for every line that ENDS in an amount.
+    The label is upper-cased with OCR punctuation noise stripped."""
+    out = []
+    for raw in text.splitlines():
+        m = LINE_MONEY.search(raw.strip())
+        if not m:
+            continue
+        label = re.sub(r"[^A-Za-z ]+", " ", raw.strip()[:m.start()]).upper()
+        label = re.sub(r"\s+", " ", label).strip()
+        amt = _num(m.group(2))
+        if label and amt is not None:
+            out.append((label, amt, bool(m.group(1))))
+    return out
+
+
 def parse_statement(text: str, cfg: CountyStatementConfig) -> Parsed:
-    """Parse one statement's OCR text. VERIFIED only when every component the
-    configuration names was read AND they sum to the printed total to the
-    cent - so a misread digit can never become a customer figure."""
-    comps = {k: _num(_after(text, rx, MONEY)) for k, rx in cfg.labels.items()}
-    total = None
-    for rx in cfg.total_labels:
-        total = _num(_after(text, rx, MONEY))
-        if total is not None:
-            break
+    """VERIFIED only when exactly one choice of the OCR'd line amounts makes
+    all three of the statement's own subtotals add up to the cent - so a
+    misread digit (or a '$' read as a digit) can never become a figure. The
+    figure kept is the PRINTED 'Total Due from Purchaser', never our sum."""
+    import itertools
+    lines = statement_lines(text)
+    cands = {k: sorted({a for (lab, a, _d) in lines if re.search(rx, lab)}) for k, rx in cfg.lines.items()}
     valid = None
     for rx in cfg.valid_through_labels:
         valid = _iso(_after(text, rx, DATE, span=40))
         if valid:
             break
-    missing = [k for k, v in comps.items() if v is None]
-    if all(v is None for v in comps.values()):
-        return Parsed("NO_LABELS", missing=missing)
-    if total is None:
-        return Parsed("NO_TOTAL", components={k: v for k, v in comps.items() if v is not None}, missing=missing, valid_through=valid)
-    if missing or round(sum(comps.values()), 2) != total:
-        return Parsed("OCR_UNVERIFIED", components={k: v for k, v in comps.items() if v is not None}, missing=missing, valid_through=valid)
-    return Parsed("VERIFIED", total_due=total, valid_through=valid, components=comps)
+    found = [k for k, v in cands.items() if v]
+    if not found:
+        return Parsed("NO_LABELS", missing=list(cfg.lines))
+    missing = [k for k, v in cands.items() if not v]
+    if "total_due" in missing:
+        return Parsed("NO_TOTAL", missing=missing, valid_through=valid)
+    if missing:
+        return Parsed("OCR_UNVERIFIED", missing=missing, valid_through=valid)
+    keys = list(cfg.lines)
+    solutions = []
+    for combo in itertools.product(*(cands[k] for k in keys)):
+        v = dict(zip(keys, combo))
+        c = lambda x: round(x, 2)
+        if (c(v["opening_bid"] + v["interest"] + v["omitted_taxes"]) == v["la_total"]
+                and c(v["la_total"] + v["doc_stamps"] + v["deed_recording_fee"] + v["affidavit_recording_fee"]) == v["lol_total"]
+                and c(v["lol_total"] - v["less_recording_fees"]) == v["total_due"]):
+            solutions.append(v)
+        if len(solutions) > 50:
+            break
+    if not solutions:
+        return Parsed("OCR_UNVERIFIED", valid_through=valid)
+    if len({tuple(sorted(sv.items())) for sv in solutions}) != 1:
+        return Parsed("AMBIGUOUS", valid_through=valid)
+    v = solutions[0]
+    comps = {"opening_bid": v["opening_bid"], "interest": v["interest"], "omitted_taxes": v["omitted_taxes"],
+             "doc_stamps": v["doc_stamps"],
+             # Net recording, exactly as the statement nets it (deed + affidavit
+             # - the 'LESS ... RECORDING FEES' line), so the four additions plus
+             # the opening bid equal the printed total.
+             "recording_fees": round(v["deed_recording_fee"] + v["affidavit_recording_fee"] - v["less_recording_fees"], 2),
+             "printed_lines": {k: v[k] for k in ("la_total", "lol_total", "deed_recording_fee", "affidavit_recording_fee", "less_recording_fees")}}
+    return Parsed("VERIFIED", total_due=v["total_due"], valid_through=valid, components=comps)
 
 
 def statement_record(p: Parsed, *, county: str, case_no: str, document_url: str, observed_on: str,
