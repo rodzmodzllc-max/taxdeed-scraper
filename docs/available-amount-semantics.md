@@ -138,3 +138,50 @@ Read-only captures (a throwaway workflow branch, runs 37248790485 /
 A harvester for these statements is a separate change: it needs OCR with a
 validation that the itemised lines sum to the printed total, per-county
 format verification, and a publication decision on the documents' reuse.
+
+## 6. Every state and source: the financial-terms table (global pass)
+
+The Florida rules above are now one case of a source-aware model that covers
+every Available source. There is no universal formula.
+
+- **`data/available_financial_terms.csv`** (validated by
+  `harvesters/sources/available_terms.problems()`, rendered to
+  `public/available-terms.json` by `scripts/build_available_terms.py`,
+  `--check` pinned by `tests/python/test_available_terms.py`) holds one row
+  per source, with optional county / published-status scoping. The frontend's
+  `termsFor(p)` takes the most specific matching row.
+- **Basis** says what the listed figure is: OFFICIAL_PRICE, PROGRAM_PRICE,
+  OFFICIAL_TOTAL_DUE, OPENING_BID_PLUS_ADDITIONS, BASE_PRICE_PLUS_ADDITIONS,
+  ESTIMATE, MINIMUM_BID, BID_SUBMISSION, OFFER_NEGOTIATED, PROPOSAL,
+  QUOTED_ON_REQUEST, NOT_PUBLISHED.
+- **Additions** (interest, omitted_taxes, doc_stamps, recording_fees) are
+  listed only where the statute or the source names them, and are added only
+  to an opening / minimum / base figure. A figure that already includes an
+  item (`included_in_figure`) never gets it again.
+- **Application costs and deposits** are always their own rows, never added
+  to a price. `in_price` = yes / no / unknown states whether the source says
+  they are part of the price.
+- **Every row carries `quote`, `evidence` and `observed_on`.** A row is added
+  only from a source that has been read; an unverified claim (for example
+  Horry's 15% administrative fee, search-index only) is left out.
+
+| State / source | Basis | What the customer sees |
+|---|---|---|
+| FL clerk lists (Pioneer, Hillsborough, Leon, Osceola, St. Lucie, Orange, HTML, PDFs) | OPENING_BID_PLUS_ADDITIONS | Opening bid + the four statutory additions, each "Not on file"; official total from a clerk statement only |
+| FL Putnam | ESTIMATE | Estimated purchase price |
+| FL RealTDM | BASE_PRICE_PLUS_ADDITIONS | Base purchase price + interest / doc stamps / recording |
+| LA East Baton Rouge | OFFER_NEGOTIATED | No price; offer + advanced costs (`in_price=no`) |
+| TX LGBS | MINIMUM_BID | Minimum bid (vendor listing); Galveston adds a 5% bid deposit (`in_price=unknown`) |
+| MI Detroit side / neighborhood / oversized lots | PROGRAM_PRICE | Policy program price (Side Lot $100, dated to the 2023 policy; the others conditional), buyer restrictions noted |
+| MI Detroit other statuses and programs, MO St. Louis LRA | NOT_PUBLISHED | Not published |
+| MI Oceana | PROPOSAL | Proposal by application |
+| OK Oklahoma County | BID_SUBMISSION | "Suggested initial bid (county's column)" |
+| PA Fayette, SC Horry | BID_SUBMISSION | Minimum bid |
+| MN Ramsey | MINIMUM_BID | Minimum bid |
+| SC Georgetown | BID_SUBMISSION | Opening bid; the total is stated by the county after the Commission decides |
+
+A source with no terms row falls back to the stored `purchase_amount_kind`,
+and an unknown kind reads "Amount type not published", never a price.
+Calculated figures are labelled "Known amount (calculated)", or "...so far
+(calculated, incomplete)" when an addition is not on file. They are never
+called the official total. No production row was written by this pass.

@@ -2433,3 +2433,13 @@ Full description: `docs/available-amount-semantics.md`. Stable facts:
   earlier ones in `purchase_statement_history`; past valid_through = Expired,
   never current. None is stored yet; the Pioneer statements are scanned
   images (OCR) with unestablished reuse permission.
+- **Every state is source-aware** through `data/available_financial_terms.csv`
+  (`harvesters/sources/available_terms.py` validates; `scripts/build_available_terms.py`
+  renders `public/available-terms.json`, mirrored, `--check` pinned). app.js
+  `termsFor(p)` picks the most specific row (state + source + county + status).
+  Basis vocabulary: OFFICIAL_PRICE / PROGRAM_PRICE / OFFICIAL_TOTAL_DUE /
+  OPENING_BID_PLUS_ADDITIONS / BASE_PRICE_PLUS_ADDITIONS / ESTIMATE /
+  MINIMUM_BID / BID_SUBMISSION / OFFER_NEGOTIATED / PROPOSAL /
+  QUOTED_ON_REQUEST / NOT_PUBLISHED. Application costs and deposits are never
+  added to a price. Add a row only from a source actually read (quote +
+  evidence + observed_on); rebuild the JSON after editing the CSV.

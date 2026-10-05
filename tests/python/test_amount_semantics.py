@@ -30,26 +30,40 @@ def test_fl54_composition():
     assert sum(g["n"] for g in FIX["groups"]) == 54
     kinds = {g["kind"] for g in FIX["groups"]}
     assert kinds == {"OPENING_BID", "ORIGINAL_OPENING_BID", "MINIMUM_PURCHASE_AMOUNT"}
-    # Every kind in the fixture is one the frontend treats as a starting figure.
     partial = _js_block("PARTIAL_AMOUNT_KINDS")
     for k in kinds:
         assert f'"{k}"' in partial
+    # Every one of the 54 rows' sources has source-aware terms that add items
+    # on top of the opening bid and say what it already includes.
+    sys.path.insert(0, str(ROOT))
+    from harvesters.sources import available_terms as T
+    terms = T.load()
+    for g in FIX["groups"]:
+        rows = [t for t in terms if t["state"] == "FL" and t["source_id"] == g["source_id"] and t["county"] in ("", g["county"])]
+        assert rows, g
+        best = max(rows, key=lambda t: bool(t["county"]))
+        assert best["basis"] == "OPENING_BID_PLUS_ADDITIONS", g
+        assert best["additions"] == "interest|omitted_taxes|doc_stamps|recording_fees" and best["included_in_figure"]
 
 
 def test_additions_never_double_count():
-    adds = _js_block("FL_LAFT_ADDITIONS")
-    keys = re.findall(r'key: "([a-z_]+)"', adds)
-    assert keys == ["interest", "omitted_taxes", "doc_stamps", "recording_fees"]
-    # What F.S. 197.502(6) already puts inside the opening bid is never an addition.
-    for inside in ("delinquent", "certificate", "current_taxes", "application_fee", "deposit"):
-        assert inside not in " ".join(keys)
-    # The known amount sums only the ADDITION keys; never every component.
+    sys.path.insert(0, str(ROOT))
+    from harvesters.sources import available_terms as T
+    assert T.ADDITION_KEYS == ("interest", "omitted_taxes", "doc_stamps", "recording_fees")
+    # What F.S. 197.502(6) already puts inside the opening bid is never an addition key.
+    for inside in ("delinquent", "certificate", "current_taxes", "application_fee", "deposit", "homestead"):
+        assert not any(inside in k for k in T.ADDITION_KEYS)
+    # The known amount sums only the ADDITION keys the terms name, never every component.
     body = APP[APP.index("function acquisitionCostBreakdown(p)"):APP.index("function acquisitionForms(p)")]
-    assert "FL_LAFT_ADDITIONS.map" in body and "Object.values(comps)" not in body
+    assert "ADDITION_LABELS[k]" in body and "Object.values(comps)" not in body
+    js_keys = re.findall(r"^  ([a-z_]+): ", APP[APP.index("var ADDITION_LABELS = {"):APP.index("};", APP.index("var ADDITION_LABELS = {"))], re.M)
+    assert tuple(js_keys) == T.ADDITION_KEYS
 
 
 def test_no_tax_year_count_assumed():
-    block = APP[APP.index("var FL_LAFT_ADDITIONS = ["):APP.index("function acquisitionCostBreakdown(p)")]
+    rows = (ROOT / "data" / "available_financial_terms.csv").read_text(encoding="utf-8")
+    assert not re.search(r"two[- ]year|2 years", rows, re.I)
+    block = APP[APP.index("var ADDITION_LABELS = {"):APP.index("function acquisitionCostBreakdown(p)")]
     assert not re.search(r"two[- ]year|2 years", block, re.I)
 
 

@@ -439,6 +439,10 @@ let PROPERTIES_LOADED = false;
 // build_available_coverage.py). Read only to name a zero - never to create,
 // hide or soften a row. null = file not loaded (the generic copy stands).
 let AVAILABLE_COVERAGE = null;
+// Source-aware AVAILABLE financial terms (public/available-terms.json, from
+// data/available_financial_terms.csv): what each source's figure is and what
+// it establishes about acquiring the property. Loaded with the data.
+let AVAILABLE_TERMS = [];
 // AVAILABLE commercialization (2026-09-30): rows whose SOURCE is not approved
 // for customer publication (migration 022's publication_status, propagated
 // from county_source_registry by scripts/publication_gate.py) are withheld
@@ -707,7 +711,7 @@ const LEDGERS = {
     title: "Available",
     nav: "Available",
     sub: "Property purchasable after a sale: Florida's Lands Available for Taxes list. Failed to sell at auction; bought over the counter from the Clerk - no bidding, no sale date. The listed opening bid is not the price to buy now: the Clerk adds later years' taxes, interest and fees.",
-    how: "No auction and no competition - first come, first served at the price shown. Statute adds taxes and fees accrued since the failed sale, so treat the figure as a floor.",
+    how: "No auction and no competition - first come, first served from the clerk. The figure shown is the opening bid, not the price: statute adds interest, later years' taxes, documentary stamps and recording fees, and the clerk's statement gives the amount due.",
     empty: "No Lands Available listings match. This list is small by nature - a county only adds a parcel here after it fails to sell at auction, and it leaves again as soon as someone buys it.",
     tx: {
       title: "OTC Catalog — Struck-Off Inventory",
@@ -725,7 +729,7 @@ const LEDGERS = {
     la: {
       title: "Available — Adjudicated Property",
       sub: "Property adjudicated to East Baton Rouge Parish after no one bought it at the tax sale, from the Parish's open-data list. Each row shows the date the Parish last updated the list - it is not a statement that the property is available now.",
-      how: "The list publishes no price and no purchase process. Confirm the property's current status and how to acquire it with the Parish before acting.",
+      how: "The list publishes no price. Under the Parish's process you make an offer (the price is negotiated) and pay the Parish's advanced costs separately - see each property's acquisition section. Confirm the property's current status with the Parish before acting.",
       empty: "No adjudicated properties match. Louisiana coverage is one parish (East Baton Rouge)."
     }
   },
@@ -2746,7 +2750,7 @@ function landingLedger(rows, fallback) {
 
 async function loadAll() {
   const today = new Date().toISOString().slice(0, 10);
-  const [props, notes, favs, hid, cal, bidlist, health, freshness, availCoverage] = await Promise.all([
+  const [props, notes, favs, hid, cal, bidlist, health, freshness, availCoverage, availTerms] = await Promise.all([
     fetchProperties(),
     sb.from("notes").select("*"),
     sb.from("favorites").select("property_id"),
@@ -2760,8 +2764,10 @@ async function loadAll() {
     // written by scripts/unit_freshness.py). Missing table or columns =
     // not recorded yet, shown as such.
     sb.from("county_source_registry").select("state,county,source_id,last_attempt_at,last_attempt_status,last_success_at,last_success_row_count,consecutive_failures").order("county"),
-    fetch("available-coverage.json", { cache: "no-store" }).then(r => (r.ok ? r.json() : null)).catch(() => null)
+    fetch("available-coverage.json", { cache: "no-store" }).then(r => (r.ok ? r.json() : null)).catch(() => null),
+    fetch("available-terms.json", { cache: "no-store" }).then(r => (r.ok ? r.json() : null)).catch(() => null)
   ]);
+  AVAILABLE_TERMS = (availTerms && Array.isArray(availTerms.terms)) ? availTerms.terms : [];
   if (props.error) {
     const genEl = document.getElementById("generatedAt");
     if (genEl) genEl.textContent = "Error: " + props.error.message;
@@ -4076,57 +4082,81 @@ function acquisitionCompleteness(a) {
 function acquisitionCostRows(p) {
   const b = acquisitionCostBreakdown(p);
   if (!b) return [];
-  const i = b.info;
+  const i = b.info, t = b.terms;
   const rows = [];
-  const sub = t => `<span class="acq-sub">${t}</span>`;
-  if (i.figure !== null) {
-    const lbl = b.base ? b.base.label : (i.state === "official_current" || i.state === "official_expired" ? "Listed amount" : i.label);
-    const note = i.state === "official_current" || i.state === "official_expired" ? "" : i.note;
-    rows.push([lbl, `<span class="acq-amt" data-amount-state="${esc(i.state)}">${esc(fmtMoney(i.figure))}</span>${note ? sub(esc(note)) : ""}`]);
-  } else {
-    rows.push([i.label === "Price" ? "Price" : i.label, `<span class="muted">${esc(i.state === "not_published" ? "Not published by the source" : i.display)}</span>${i.note && i.state !== "official_expired" ? sub(esc(i.note)) : ""}`]);
+  const sub = x => `<span class="acq-sub">${x}</span>`;
+  const amt = (v, cls) => `<span class="acq-amt${cls ? " " + cls : ""}" data-amount-state="${esc(i.state)}">${esc(fmtMoney(v))}</span>`;
+  // 1. How the source sets the amount, with its own wording.
+  if (t && AVAILABLE_BASIS_LABELS[t.basis]) {
+    rows.push(["How the price is set", `${esc(AVAILABLE_BASIS_LABELS[t.basis])}` +
+      `<details class="acq-src"><summary>Source wording</summary><span class="acq-sub">${esc(t.quote || "")}</span><span class="acq-sub">Evidence: ${esc(t.evidence || "")}${t.observed_on ? ` · observed ${esc(fmtDate(t.observed_on))}` : ""}</span></details>`]);
   }
+  // 2. A published program price (dated) - never "current purchase price".
+  if (i.state === "program_price") {
+    rows.push(["Published program price", (i.value !== null && i.value !== undefined ? amt(i.value) : `<span class="muted">${esc(i.display || "See program terms")}</span>`) + (i.note ? sub(esc(i.note)) : "")]);
+  } else if (i.figure !== null) {
+    // 3. The listed figure, named for what it is.
+    const official = i.state === "official_current" || i.state === "official_expired";
+    const lbl = b.base ? b.base.label : (official ? "Listed amount" : i.label);
+    rows.push([lbl, amt(i.figure, i.state === "price" ? "" : "partial") + (!official && i.note ? sub(esc(i.note)) : "")]);
+  } else if (i.state !== "official_current" && i.state !== "official_expired") {
+    rows.push([i.label === "Price" ? "Price" : i.label, `<span class="muted">${esc(i.state === "not_published" ? "Not published by the source" : i.display)}</span>${i.note ? sub(esc(i.note)) : ""}`]);
+  }
+  // 4. What the source adds on top - each item, with its amount or "Not on file".
   if (b.additions.length) {
-    rows.push(["Added by the clerk", `<ul class="acq-adds">${b.additions.map(a => `<li data-add="${esc(a.key)}"><span>${esc(a.label)}</span> <b class="${a.amount === null ? "muted" : ""}">${a.amount === null ? "Not on file" : esc(fmtMoney(a.amount))}</b></li>`).join("")}</ul>` +
-      sub(esc("Per F.S. 197.502(7) / 197.542(1) and the clerks' own Lands Available statements.")) + sub(esc(b.includedNote))]);
-    const tax = b.additions.find(a => a.key === "omitted_taxes");
-    rows.push(["Known tax obligation", tax && tax.amount !== null ? `${esc(fmtMoney(tax.amount))}${sub(esc("Taxes that came due after the opening bid was set, from the clerk statement"))}`
-      : `<span class="muted">Not on file</span>${sub(esc("Which later tax years are owed, and how much, is printed on the clerk's statement - this app holds no tax-bill amount (assessed / taxable values are property values, not taxes owed)."))}`]);
+    rows.push(["Added on top", `<ul class="acq-adds">${b.additions.map(a => `<li data-add="${esc(a.key)}"><span>${esc(a.label)}</span> <b class="${a.amount === null ? "muted" : ""}">${a.amount === null ? "Not on file" : esc(fmtMoney(a.amount))}</b></li>`).join("")}</ul>` +
+      (b.includedNote ? sub(esc(b.includedNote)) : "")]);
+    if (b.additions.some(a => a.key === "omitted_taxes")) {
+      const tax = b.additions.find(a => a.key === "omitted_taxes");
+      rows.push(["Known tax obligation", tax.amount !== null ? `${esc(fmtMoney(tax.amount))}${sub(esc("Taxes that came due after the listed figure was set, from the official statement"))}`
+        : `<span class="muted">Not on file</span>${sub(esc("Which later tax years are owed, and how much, is printed on the official statement - this app holds no tax-bill amount (assessed / taxable values are property values, not taxes owed)."))}`]);
+    }
+    // 5. Calculated known amount - only from amounts actually on file.
     if (b.knownAdditions > 0) {
       rows.push([b.knownComplete ? "Known amount (calculated)" : "Known amount so far (calculated, incomplete)",
-        `${esc(fmtMoney(b.known))}${sub(esc(`Opening bid + ${b.knownAdditions} of ${b.additions.length} added items on file - a calculation, not the official total${b.knownComplete ? "" : "; items marked Not on file are missing"}.`))}`]);
+        `${esc(fmtMoney(b.known))}${sub(esc(`Listed figure + ${b.knownAdditions} of ${b.additions.length} added items on file - a calculation, not the official total${b.knownComplete ? "" : "; items marked Not on file are missing"}.`))}`]);
     } else {
-      rows.push(["Known amount", `<span class="muted">Cannot be calculated</span>${sub(esc("None of the items the clerk adds has an amount on file - the opening bid alone is not the amount due."))}`]);
+      rows.push(["Known amount", `<span class="muted">Cannot be calculated</span>${sub(esc("None of the items added on top has an amount on file - the listed figure alone is not the amount due."))}`]);
     }
   }
-  if (regionOf(p) === "FL" && (b.base || b.official)) {
-    const st = b.official;
-    if (st && b.officialState === "current") {
-      rows.push(["Official clerk total", `<span class="acq-amt ok">${esc(fmtMoney(st.total))}</span>` +
-        sub(esc(`Valid if received by ${st.through ? fmtDate(st.through) : "- no date printed"}`)) +
-        sub(esc(`Source: ${st.publisher || `${p.county} County Clerk`}${st.observed ? ` · read ${fmtDate(st.observed)}` : ""}${st.statementDate ? ` · statement dated ${fmtDate(st.statementDate)}` : ""}`)) +
-        (st.url ? sub(`<a href="${esc(st.url)}" target="_blank" rel="noopener">Clerk statement →</a>`) : "")]);
-    } else if (st) {
-      rows.push(["Official clerk total", `<span class="bad">Expired</span>` +
-        sub(esc(`Last statement ${fmtMoney(st.total)}, valid through ${fmtDate(st.through)} - request an updated statement from the clerk.`)) +
-        sub(esc(`Source: ${st.publisher || `${p.county} County Clerk`}${st.observed ? ` · read ${fmtDate(st.observed)}` : ""}`)) +
-        (st.url ? sub(`<a href="${esc(st.url)}" target="_blank" rel="noopener">Expired clerk statement →</a>`) : "")]);
-    } else {
-      rows.push(["Official clerk total", `<span class="muted">Not on file</span>${sub(esc("Request the current Lands Available statement from the clerk - it is the amount due, and it is valid only until the date printed on it."))}`]);
-    }
-    if (b.history.length) {
-      rows.push(["Earlier statements (historical)", `<ul class="acq-history">${b.history.map(h => `<li>${esc(fmtMoney(h.total))} · valid through ${esc(h.through ? fmtDate(h.through) : "not printed")}${h.observed ? ` · read ${esc(fmtDate(h.observed))}` : ""} <span class="muted">(historical - not current)</span></li>`).join("")}</ul>`]);
-    }
+  // 6. The official total - current, expired or how to obtain it.
+  const st = b.official;
+  const who = st ? (st.publisher || `${p.county} ${UNIT_WORD} office`) : "";
+  if (st && b.officialState === "current") {
+    rows.push(["Official total due", amt(st.total, "ok") + sub(esc(`Valid if received by ${st.through ? fmtDate(st.through) : "- no date printed"}`)) +
+      sub(esc(`Source: ${who}${st.observed ? ` · read ${fmtDate(st.observed)}` : ""}${st.statementDate ? ` · statement dated ${fmtDate(st.statementDate)}` : ""}`)) +
+      (st.url ? sub(`<a href="${esc(st.url)}" target="_blank" rel="noopener">Official statement →</a>`) : "")]);
+  } else if (st) {
+    rows.push(["Official total due", `<span class="bad">Expired</span>` +
+      sub(esc(`Last statement ${fmtMoney(st.total)}, valid through ${fmtDate(st.through)} - request an updated statement.`)) +
+      sub(esc(`Source: ${who}${st.observed ? ` · read ${fmtDate(st.observed)}` : ""}`)) +
+      (st.url ? sub(`<a href="${esc(st.url)}" target="_blank" rel="noopener">Expired statement →</a>`) : "")]);
+  } else if (b.officialHow) {
+    rows.push(["Official total due", `<span class="muted">Not on file</span>${sub(esc(b.officialHow))}`]);
+  }
+  if (b.history.length) {
+    rows.push(["Earlier statements (historical)", `<ul class="acq-history">${b.history.map(h => `<li>${esc(fmtMoney(h.total))} · valid through ${esc(h.through ? fmtDate(h.through) : "not printed")}${h.observed ? ` · read ${esc(fmtDate(h.observed))}` : ""} <span class="muted">(historical - not current)</span></li>`).join("")}</ul>`]);
+  }
+  // 7. Application costs and deposits - always separate, never in a price.
+  if (t && t.application_costs) {
+    rows.push(["Application / advanced costs", `${esc(t.application_costs)}` + sub(esc(t.application_costs_in_price === "no" ? "The source says these are not part of the purchase price - shown separately, never added to it."
+      : t.application_costs_in_price === "yes" ? "The source says these are part of the purchase price." : "The source does not say whether these are part of the price - shown separately, never added to it."))]);
+  }
+  if (t && t.deposit) {
+    rows.push(["Deposit", `${esc(t.deposit)}` + sub(esc(t.deposit_in_price === "yes" ? "The source says the deposit is applied to the price." : "A deposit requirement - shown separately, never added to a price."))]);
   }
   return rows;
 }
 function acquisitionFormsHtml(p) {
   const forms = acquisitionForms(p);
   const items = forms.map(f => `<li class="acq-form" data-form-kind="${esc(f.kind)}"><a href="${esc(f.url)}" target="_blank" rel="noopener">${esc(f.name)} →</a> <span class="acq-form-req${/^Required/.test(f.requirement) ? " req" : ""}">${esc(f.requirement)}</span><span class="acq-sub">${esc(f.purpose)} · ${esc(f.channel)}</span></li>`);
-  if (regionOf(p) === "FL" && isPartialAmount(p) && !purchaseStatementOf(p)) {
+  const tt = termsFor(p);
+  // The statement is obtained on request only where the terms say so (a
+  // county that notifies the total after a decision is not a request).
+  if (tt && tt.official_total && ["OPENING_BID_PLUS_ADDITIONS", "QUOTED_ON_REQUEST"].includes(tt.basis) && (isPartialAmount(p) || tt.basis === "QUOTED_ON_REQUEST") && !purchaseStatementOf(p)) {
     const a = acquisitionOf(p);
-    const how = a.verified ? (a.email ? `e-mail ${a.email}` : a.phone ? `call ${a.phone.split(/\s+or\s+/)[0]}` : "the steps below") : "the clerk's office";
-    items.push(`<li class="acq-form" data-form-kind="statement_request"><span>Current Lands Available statement</span> <span class="acq-form-req">Request from the clerk</span><span class="acq-sub">${esc(`The amount due, valid until the date printed on it - request it via ${how}.`)}</span></li>`);
+    const how = a.verified ? (a.email ? `e-mail ${a.email}` : a.phone ? `call ${a.phone.split(/\s+or\s+/)[0]}` : "the steps below") : "the office named on the listing";
+    items.push(`<li class="acq-form" data-form-kind="statement_request"><span>Current official statement of the amount due</span> <span class="acq-form-req">Request from the office</span><span class="acq-sub">${esc(`${tt.official_total} Request it via ${how}.`)}</span></li>`);
   }
   return items.length ? `<ul class="acq-forms">${items.join("")}</ul>` : "";
 }
@@ -4586,17 +4616,45 @@ const AMOUNT_KIND_LABELS = {
 //  - MI / MO / LA / PA (one row): no amount published.
 var PARTIAL_AMOUNT_KINDS = ["OPENING_BID", "ORIGINAL_OPENING_BID", "MINIMUM_PURCHASE_AMOUNT"];
 function isPartialAmount(p) { return !!p && PARTIAL_AMOUNT_KINDS.includes(p.purchase_amount_kind); }
-// Per-source facts that a kind alone cannot carry (data-driven; a source not
-// named here falls back to its kind).
-var SOURCE_AMOUNT_SEMANTICS = {
-  fl_laft_realtdm: {
-    label: "Base purchase price", state: "base",
-    note: "The clerk's base figure, before the recording fees, documentary stamps and interest the clerk's own page adds as of the purchase day - not a final quote. Confirm the amount due with the clerk."
-  },
-  tx_lgbs: {
-    label: "Minimum bid (vendor listing)", state: "vendor",
-    note: "The delinquent-tax counsel's listed minimum bid - not a purchase price. Confirm the amount with the taxing units before buying."
+// The source's own terms (data/available_financial_terms.csv): the most
+// specific row for this property's state + source [+ county] [+ the source's
+// own status]. Null = no terms recorded: kind-based wording only.
+function termsFor(p) {
+  if (!p || !Array.isArray(AVAILABLE_TERMS) || !AVAILABLE_TERMS.length) return null;
+  const st = regionOf(p), sid = p.source_id || p.harvester_source;
+  let best = null, score = -1;
+  for (const t of AVAILABLE_TERMS) {
+    if (t.state !== st || t.source_id !== sid) continue;
+    if (t.county && t.county !== p.county) continue;
+    if (t.status_raw && t.status_raw !== String(p.inventory_status_raw || "").trim()) continue;
+    const sc = (t.county ? 2 : 0) + (t.status_raw ? 1 : 0);
+    if (sc > score) { best = t; score = sc; }
   }
+  return best;
+}
+// How the source sets the amount (harvesters/sources/available_terms.py
+// BASES - a Python test pins the keys equal).
+var AVAILABLE_BASIS_LABELS = {
+  OFFICIAL_PRICE: "Official purchase price published by the source",
+  PROGRAM_PRICE: "Price set by the owner's published program (dated)",
+  OFFICIAL_TOTAL_DUE: "Official amount due published by the source",
+  OPENING_BID_PLUS_ADDITIONS: "Opening / minimum amount - the items below are added on top",
+  BASE_PRICE_PLUS_ADDITIONS: "Base price - the items below are added on top",
+  ESTIMATE: "The source's own estimate",
+  MINIMUM_BID: "Minimum bid - you bid at or above it",
+  BID_SUBMISSION: "Submitted / sealed bid - the government decides and states the amount due",
+  OFFER_NEGOTIATED: "You make an offer - the price is negotiated",
+  PROPOSAL: "You submit a proposal on the owner's application",
+  QUOTED_ON_REQUEST: "Quoted by the office on request",
+  NOT_PUBLISHED: "No amount is published by the source"
+};
+// Items a source can establish as ADDED on top of its figure (never items
+// the figure already contains - those are the terms' included_in_figure).
+var ADDITION_LABELS = {
+  interest: "Interest accrued on the listed figure since it was set",
+  omitted_taxes: "Taxes that came due after the listed figure was set (omitted / subsequent years' taxes)",
+  doc_stamps: "Documentary stamp tax on the deed",
+  recording_fees: "Recording fees"
 };
 // The column / attribute name the source itself used for the figure, when the
 // harvester recorded it (otc_provenance.amount: "column 'MINIMUM BID' = ...").
@@ -4656,21 +4714,26 @@ function amountInfo(p) {
     return Object.assign(base, { state: "official_expired", label: "Total due", value: null, display: "Expired",
       note: `Last clerk statement ${fmtMoney(st.total)}, valid through ${fmtDate(st.through)} - that date has passed. Request an updated statement from the clerk.` });
   }
+  const terms = termsFor(p);
+  if (figure === null && terms && terms.basis === "PROGRAM_PRICE") {
+    const pp = hasNum(terms.program_price) ? Number(terms.program_price) : null;
+    return Object.assign(base, { state: "program_price", label: "Published program price", value: pp, display: pp === null ? "See program terms" : undefined, note: terms.program_price_note || "", terms });
+  }
   if (kind === "NOT_PUBLISHED" || (figure === null && kind !== "QUOTED_ON_APPLICATION")) {
     return Object.assign(base, { state: "not_published", label: "Price", value: null, display: "Not published", note: "" });
   }
   if (kind === "QUOTED_ON_APPLICATION") {
     return Object.assign(base, { state: "quoted", label: "Price", value: null, display: "Quoted on application", note: "The source gives the price only to an applicant." });
   }
-  const sid = p && (p.source_id || p.harvester_source);
-  const sem = SOURCE_AMOUNT_SEMANTICS[sid];
-  if (sem && (sid !== "fl_laft_realtdm" || kind === "FIXED_PURCHASE_PRICE")) return Object.assign(base, { state: sem.state, label: sem.label, value: figure, note: sem.note });
+  // The source's own terms name the figure first; the kind is the fallback.
+  if (terms && terms.basis === "BASE_PRICE_PLUS_ADDITIONS") return Object.assign(base, { state: "base", label: terms.figure_label || "Base purchase price", value: figure, note: terms.figure_note || "", terms });
+  if (terms && terms.basis === "ESTIMATE") return Object.assign(base, { state: "estimate", label: terms.figure_label || "Estimated purchase price", value: figure, note: terms.figure_note || "", terms });
+  if (terms && terms.basis === "MINIMUM_BID" && terms.figure_label && !isPartialAmount(p) && kind !== "FIXED_PURCHASE_PRICE") return Object.assign(base, { state: "vendor", label: terms.figure_label, value: figure, note: terms.figure_note || "", terms });
+  if (terms && terms.basis === "BID_SUBMISSION" && terms.figure_label && !isPartialAmount(p)) return Object.assign(base, { state: "unspecified", label: terms.figure_label, value: figure, note: terms.figure_note || "", terms });
   if (isPartialAmount(p)) {
-    const label = partialAmountLabel(p);
-    const fl = regionOf(p) === "FL";
-    return Object.assign(base, { state: "partial", label, value: figure,
-      note: fl ? "Not the price to buy now: the county's total adds omitted taxes, accrued interest and deed fees. Request the current Lands Available statement from the clerk."
-        : "Not the full price: the source publishes this as a starting amount. Ask the county for the current total." });
+    const label = (terms && terms.figure_label) || partialAmountLabel(p);
+    return Object.assign(base, { state: "partial", label, value: figure, terms,
+      note: (terms && terms.figure_note) || "Not the full price: the source publishes this as a starting amount. Ask the county for the current total." });
   }
   if (kind === "ESTIMATED_PURCHASE_PRICE") return Object.assign(base, { state: "estimate", label: "Estimated purchase price", value: figure, note: "The county's own estimate - confirm the amount due with the clerk before paying." });
   if (kind === "FIXED_PURCHASE_PRICE") return Object.assign(base, { state: "price", label: "Purchase price", value: figure, note: "As the source publishes it - confirm the amount due before paying." });
@@ -4701,61 +4764,33 @@ function availableHeadlineHtml(p) {
   return `<div class="card-stat-label">${esc(i.label)}</div><div class="card-stat-val bid${cls}" data-amount-state="${esc(i.state)}">${esc(has ? fmtShort(i.value) : (i.display || "Not published"))}</div>` +
     (i.note ? `<div class="card-price-note${i.state === "official_expired" ? " expired" : ""}">${esc(i.note)}</div>` : "");
 }
-// Florida Lands Available: what the buyer pays ON TOP of the opening bid.
-// Sources (read 2026-10-05, the 2026 Florida Statutes and the clerks' own
-// documents):
-//  - F.S. 197.502(6): the opening bid ALREADY includes the outstanding
-//    certificates, omitted years' taxes, delinquent taxes, current taxes if
-//    due, interest and the costs and fees as of when it was set - and, on
-//    homestead property, half the latest assessed value. None of those is
-//    added again.
-//  - F.S. 197.502(7): Lands Available is bought "for the opening bid";
-//    "Interest on the opening bid continues to accrue through the month of
-//    sale as prescribed by s. 197.542".
-//  - F.S. 197.542(1): delinquent taxes / certificates arising after the tax
-//    deed application must be paid, and the purchaser pays the documentary
-//    stamp tax and the recording fees.
-//  - The clerks' own wording: Duval FAQ ("the opening bid, subsequent omitted
-//    taxes, and any accrued interest. Documentary stamps and recording fees");
-//    Orange ("the opening bid, plus omitted years taxes"); the Citrus "List of
-//    Lands" statement's own lines (Opening Bid, Lands Available Interest,
-//    Omitted Taxes, Documentary Stamp Tax, Deed Recording Fee, Lands
-//    Available Total, Valid Through).
-// The tax YEARS added are the years that came due after the opening bid was
-// set; how many depends on how long the parcel has been listed, and the
-// clerk's statement names them. No year count (e.g. "two years") is assumed
-// and no tax amount is on file in this app's data (no tax-bill, delinquent
-// balance or millage column exists - assessed / market / taxable values are
-// property values, not taxes owed).
-var FL_LAFT_ADDITIONS = [
-  { key: "interest", label: "Lands Available interest on the opening bid (accrues through the month of sale - F.S. 197.502(7))" },
-  { key: "omitted_taxes", label: "Taxes that came due after the opening bid was set (omitted / subsequent years' taxes - F.S. 197.542(1))" },
-  { key: "doc_stamps", label: "Documentary stamp tax on the deed" },
-  { key: "recording_fees", label: "Deed recording fee" }
-];
-var FL_LAFT_ADDITION_KEYS = FL_LAFT_ADDITIONS.map(a => a.key);
-var FL_LAFT_INCLUDED_IN_OPENING_BID = "Already inside the opening bid (F.S. 197.502(6)) and never added again: the outstanding tax certificates, the delinquent, omitted and current taxes then due, interest, and the costs and fees as of when the opening bid was set - plus half the assessed value on homestead property.";
-// The cost breakdown. `known` sums the opening bid and ONLY the addition
-// amounts actually on file (from a clerk statement's components); anything
-// else in components (delinquent taxes, certificates - already inside the
-// opening bid) is never added. `known` is complete only when every addition
-// has an amount. The official clerk total stays separate and is never
-// replaced by this sum.
+// The cost breakdown, driven by the source's terms (termsFor): the listed
+// figure, the items the source establishes as ADDED on top (only on a
+// starting / base figure, and only the keys the terms name - an item the
+// figure already includes is in terms.included_in_figure and is never
+// added), the known amount (the figure plus ONLY the added amounts actually
+// on file, e.g. a clerk statement's components - anything else in the
+// components is ignored), and the official total kept separate.
+// Florida's additions come from F.S. 197.502(7) / 197.542(1) via the terms
+// table (data/available_financial_terms.csv), not from code; a source with
+// no terms gets no additions and no calculation.
 function acquisitionCostBreakdown(p) {
   if (!p || p.source !== "laft") return null;
   const info = amountInfo(p);
-  const fl = regionOf(p) === "FL";
-  const starting = PARTIAL_AMOUNT_KINDS.includes(p.purchase_amount_kind) && info.figure !== null;
+  const terms = termsFor(p);
+  const keys = terms && terms.additions ? String(terms.additions).split("|").filter(k => ADDITION_LABELS[k]) : [];
+  const startingFigure = info.figure !== null && (PARTIAL_AMOUNT_KINDS.includes(p.purchase_amount_kind) || (terms && terms.basis === "BASE_PRICE_PLUS_ADDITIONS"));
   const comps = (info.statement || {}).components || {};
-  const additions = fl && starting ? FL_LAFT_ADDITIONS.map(a => ({ key: a.key, label: a.label, amount: hasNum(comps[a.key]) ? Number(comps[a.key]) : null })) : [];
+  const additions = startingFigure ? keys.map(k => ({ key: k, label: ADDITION_LABELS[k], amount: hasNum(comps[k]) ? Number(comps[k]) : null })) : [];
   const knownAdds = additions.filter(a => a.amount !== null);
-  const known = starting ? Math.round((info.figure + knownAdds.reduce((s, a) => s + a.amount, 0)) * 100) / 100 : null;
+  const known = startingFigure ? Math.round((info.figure + knownAdds.reduce((s, a) => s + a.amount, 0)) * 100) / 100 : null;
   return {
-    base: starting ? { label: partialAmountLabel(p), amount: info.figure } : null,
-    additions, includedNote: fl && starting ? FL_LAFT_INCLUDED_IN_OPENING_BID : "",
+    base: startingFigure ? { label: (terms && terms.basis === "BASE_PRICE_PLUS_ADDITIONS" && terms.figure_label) || (terms && terms.figure_label) || partialAmountLabel(p), amount: info.figure } : null,
+    additions, includedNote: additions.length && terms ? (terms.included_in_figure || "") : "",
     known, knownAdditions: knownAdds.length, knownComplete: additions.length > 0 && knownAdds.length === additions.length,
     official: info.statement, officialState: info.state === "official_current" ? "current" : info.state === "official_expired" ? "expired" : "none",
-    history: info.history, info
+    officialHow: terms ? (terms.official_total || "") : "",
+    history: info.history, info, terms
   };
 }
 // The forms / documents the acquisition evidence already publishes for this
