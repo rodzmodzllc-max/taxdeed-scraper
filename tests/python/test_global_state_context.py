@@ -68,7 +68,9 @@ def test_g04_a_switch_carries_the_route_but_never_a_property_id():
 
 def test_g05_watchlist_is_filtered_by_state_never_mutated():
     block = APP[APP.index("function renderBidListModal"):APP.index("function openBidList")]
-    assert "BIDLIST_ORDER.filter(id => !ALL.some(p => p.id === id)).length" in block
+    # 2026-10-05: saved items not in this state's data are named (when this browser saw them here) or counted
+    assert "const missingIds = BIDLIST_ORDER.filter(id => !ALL.some(p => p.id === id));" in block
+    assert 'id="savedMissing"' in block
     assert 'id="bidListElsewhere"' in block
     for write in (".delete(", ".insert(", ".update(", "BIDLIST.delete(", "BIDLIST_ORDER.splice("):
         assert write not in block, write

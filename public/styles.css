@@ -1720,6 +1720,17 @@ live here are removed with the #pageMap section itself - see the note by
 /* Watchlist: items saved under another state (or no longer listed) are
    counted here, never removed - the state is a viewing context. */
 .bidlist-elsewhere{margin:0 0 .7rem;font-size:.76rem;color:var(--ink-soft)}
+/* Saved-property status (2026-10-05): one line above each saved card. */
+.saved-status{margin:.6rem 0 -.2rem;padding:.4rem .6rem;border-radius:8px 8px 0 0;font-size:.78rem;line-height:1.35;border:1px solid var(--card-line);border-bottom:0}
+.saved-status.saved-active{color:var(--ink-soft);background:var(--ok-bg, transparent)}
+.saved-status.saved-changed{color:var(--ink);background:var(--warn-bg, transparent)}
+.saved-status.saved-gone{color:var(--bad);background:var(--bad-bg, transparent)}
+.saved-missing{margin:.8rem 0;padding:.6rem .7rem;border:1px dashed var(--card-line);border-radius:8px;font-size:.8rem}
+.saved-missing ul{margin:0;padding-left:1rem}
+.saved-missing-row{margin:.25rem 0}
+.saved-missing-row .reset-btn{min-height:36px}
+.ss-rename{display:flex;flex-wrap:wrap;gap:.4rem;align-items:flex-end;margin:.4rem 0}
+.ss-rename[hidden]{display:none}
 .bidlist-related{margin:-.35rem 0 .7rem;padding:.45rem .7rem;border:1px dashed var(--card-line);border-radius:4px;background:var(--card);font-size:.76rem}
 .bidlist-related-head{font-weight:700;color:var(--ink-soft);font-size:.68rem;letter-spacing:.04em;text-transform:uppercase;margin-bottom:.2rem}
 .bidlist-related ul{margin:0;padding-left:1.1rem}
