@@ -28,7 +28,7 @@ import urllib.request
 PRODUCTION = "https://rodz-taxdeeds.pages.dev"
 PAGES = ["index.html", "tx.html", "la.html", "mi.html", "wy.html", "sc.html", "co.html", "wi.html", "mo.html", "ok.html", "pa.html", "mn.html"]
 STATE_WORDS = re.compile(r"Florida|Texas|Louisiana|Michigan|Wyoming|South Carolina|Colorado|Wisconsin")
-TAGLINE = "Tax Sale Property Intelligence"
+TAGLINE = "Public Property Acquisition Intelligence"   # identity redesign, 2026-10-05
 
 
 def preview_hosts(branch: str) -> list[str]:

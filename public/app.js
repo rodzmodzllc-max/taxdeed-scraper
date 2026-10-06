@@ -4601,6 +4601,18 @@ function countyIntelChipHtml(key) {
   return `<span class="intel-chip ${L.cls}" data-intel="${esc(key)}">${esc(L.label)}</span>`;
 }
 const DOSSIER_LEDGERS = [["AVAILABLE", "laft"], ["AUCTIONS", "auction"], ["LIENS_CERTIFICATES", "certificate"]];
+// A registry source's readable name: its own terminology when recorded,
+// else the harvester's customer name, else the id.
+const DOSSIER_SOURCE_NAMES = {
+  fl_realauction: "County online auction site (RealAuction)", fl_bid4assets_okaloosa: "County online auction (Bid4Assets)",
+  fl_lienhub_certificates: "County-held certificates (LienHub)", fl_laft_pdfs: "Clerk's Lands Available list (document)",
+  fl_laft_html: "Clerk's Lands Available page", fl_laft_pioneer: "Clerk's Lands Available (Pioneer portal)",
+  fl_laft_realtdm: "Clerk's Lands Available (RealTDM)", fl_laft_orange: "Comptroller's Lands Available list"
+};
+function dossierSourceName(x) {
+  if (x.name && x.name !== x.source_id) return x.name;
+  return DOSSIER_SOURCE_NAMES[x.source_id] || HARVESTER_SOURCE_NAMES[x.source_id] || String(x.source_id).replace(/_/g, " ");
+}
 function countyDossierHtml(c, st) {
   const scope = viewerScope();
   const seeAll = scope === "all" || scope === "preview";
@@ -4614,8 +4626,8 @@ function countyDossierHtml(c, st) {
     const shown = l.sources.filter(x => x.publication !== "BLOCKED" && (seeAll || x.customer_approved));
     const hidden = l.sources.filter(x => x.publication !== "BLOCKED" && !seeAll && !x.customer_approved).length;
     const srcHtml = shown.map(x => `<li class="dossier-src" data-source="${esc(x.source_id)}">
-        <div class="ds-name">${x.url ? `<a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.name)} →</a>` : esc(x.name)}${x.production ? "" : ` <span class="muted">(not harvested)</span>`}</div>
-        <div class="ds-meta">${esc(x.publisher || "Publisher not recorded")} · ${esc(x.customer_approved ? "Approved for customer publication" : "Awaiting publication review")}</div>
+        <div class="ds-name">${x.url ? `<a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(dossierSourceName(x))} →</a>` : esc(dossierSourceName(x))}${x.production ? "" : ` <span class="muted">(not harvested)</span>`}</div>
+        <div class="ds-meta">${esc(SOURCE_AUTHORITY_LABELS[x.publisher] ? `Published by ${SOURCE_AUTHORITY_LABELS[x.publisher]}` : (x.publisher || "Publisher not recorded"))} · ${esc(x.customer_approved ? "Approved for customer publication" : "Awaiting publication review")}</div>
         ${x.production ? `<div class="ds-health">${sourceHealthChipHtml(x.unit, { review: !x.customer_approved })} <span class="ds-health-text">${esc(sourceHealthText(x.unit, { review: !x.customer_approved }).text)}</span></div>` : ""}
       </li>`).join("");
     return `<div class="dossier-ledger" data-ledger="${key}" data-coverage="${esc(l.coverage)}">
@@ -6384,7 +6396,6 @@ function detailHtml(p) {
     ${propertyVisual(p, "detail-hero-photo")}
     ${sourceReviewBannerHtml(p)}
     ${acquireBlockHtml(p)}
-    ${sourceTruthHtml(p)}
     ${opportunitySummaryHtml(p)}
     ${availableDecisionHtml(p)}
     ${auctionDecisionHtml(p)}
@@ -6397,6 +6408,7 @@ function detailHtml(p) {
     ${monitorSectionHtml(p)}
     ${riskLegalCardHtml(p)}
     ${gisLocationCardHtml(p)}
+    ${sourceTruthHtml(p)}
     `}
     ${/* Phase 36 fix: the calculator's Net Profit Estimate subtracts fees(p),
         which is now null for non-FL rows (no verified TX fee formula exists) -
@@ -7388,6 +7400,25 @@ function ledgerFacts(kind, shown) {
   return bits.join(" · ");
 }
 
+// Upcoming sales (identity redesign, 2026-10-05): the Auctions ledger reads
+// as events - date, county, how many properties - built from the rows' own
+// sale_date (upcomingAuctionRows). An event filters the list to its county.
+function upcomingSalesHtml(rows) {
+  const ev = upcomingAuctionRows(rows || []);
+  if (!ev.length) return "";
+  const word = (ledgerCopy("auction").nav || "Auction").replace(/s$/, "");
+  return `<div class="upcoming-sales" id="upcomingSales"><span class="eyebrow">Upcoming sales</span><ol class="sales-timeline">${ev.map(e => {
+    const d = new Date(e.date + "T12:00:00");
+    const mon = isNaN(d) ? "" : d.toLocaleString("en-US", { month: "short" }).toUpperCase();
+    const day = isNaN(d) ? "" : String(d.getDate());
+    return `<li><button type="button" class="desk-event sales-event" data-action="dossierlist" data-county="${esc(e.county)}" data-ledger="auction">
+      <span class="desk-date"><b>${esc(day)}</b><span>${esc(mon)}</span></span>
+      <span class="desk-event-where">${esc(e.county)} ${esc(UNIT_WORD)} · ${esc(PAGE_STATE)}</span>
+      <span class="desk-event-what">${esc(word)} sale</span>
+      <span class="desk-event-n">${e.count} propert${e.count === 1 ? "y" : "ies"}</span>
+    </button></li>`;
+  }).join("")}</ol></div>`;
+}
 function section(container, title, sub, rows, kind) {
   const sec = document.createElement("section"); sec.className = "mega-section";
   const shown = sortRows(rows.filter(passes));
@@ -7407,6 +7438,7 @@ function section(container, title, sub, rows, kind) {
       <p class="mega-sub">${sub}</p>
       ${cfg.how ? `<p class="ledger-how">${cfg.how}</p>` : ""}
       ${facts ? `<p class="ledger-facts">${esc(facts)}</p>` : ""}
+      ${kind === "auction" ? upcomingSalesHtml(shown) : ""}
       <p class="ledger-legend" aria-label="What the colour on each card's left edge means">
         <span class="lgd lgd-active">Active</span>
         <span class="lgd lgd-stale">Not synced recently</span>
@@ -7817,7 +7849,7 @@ function applyLedgerChrome() {
   document.documentElement.dataset.region = PAGE_STATE;
 
   // The browser tab and the app switcher should say which page this is too.
-  document.title = (cfg.title ? cfg.title + " · " : "") + "Tax Acquisitions — " + STATE_INFO.name;
+  document.title = (cfg.title ? cfg.title + " · " : "") + "TaxDeed-Scraper — " + STATE_INFO.name;
 
   // Phase 67: the Map page's toolbar title carries the state as well ("Map ·
   // Florida"). The old page subtitle ("...by county across Florida") was the
@@ -9419,7 +9451,7 @@ function renderSupportModal(ctx) {
   const email = String((window.TDW_CONFIG || {}).supportEmail || "").trim();
   const context = supportContext(ctx);
   const topics = SUPPORT_TOPICS.map(([key, title, sub]) => {
-    const subject = `[Tax Acquisitions] ${title}`;
+    const subject = `[TaxDeed-Scraper] ${title}`;
     const bodyText = `${title}\n\n(describe the problem here)\n\n---\n${context.join("\n")}`;
     const active = ctx && ctx.topic === key ? " on" : "";
     return email
@@ -11415,6 +11447,49 @@ function renderHomeGuide() {
   g.classList.toggle("collapsed", guideHidden());
   g.innerHTML = homeGuideHtml();
 }
+// The Home workstation (identity redesign, 2026-10-05): four ruled lists -
+// Available now, upcoming sales, county intelligence and saved work. Every
+// line is a loaded row or a count over loaded rows; nothing is ranked or
+// scored. Available now lists rows in the List's own default order.
+function homeDeskRowHtml(p) {
+  const street = realAddress(p);
+  const amt = amountShort(p);
+  const a = p.source === "laft" ? acquisitionOf(p) : null;
+  const seen = p.last_seen_at ? `last read ${dateOnly(p.last_seen_at)}` : "read date not recorded";
+  return `<button type="button" class="desk-row" data-ledger="${esc(p.source)}" data-home-pid="${esc(String(p.id))}">
+    <span class="desk-kicker">${esc(STATE_INFO.name)} · ${esc(p.county || "")} ${esc(UNIT_WORD)}</span>
+    <span class="desk-title">${street ? esc(street) : lotTitle(p)}</span>
+    <span class="desk-sub">${hasParcel(p) ? `Parcel ${esc(p.parcel)}` : "Parcel # not published"}</span>
+    <span class="desk-money"><b class="${amt.state === "not_published" || amt.state === "official_expired" ? "unpublished" : ""}">${esc(amt.text)}</b><span>${esc(amt.label)}</span></span>
+    <span class="desk-meta">${a ? `<span>Acquisition <b>${esc(a.verified ? a.short || a.label : "Not yet verified")}</b></span>` : ""}<span>Source <b>${esc(harvesterSourceLabel(p) || "not recorded")}</b></span><span>${esc(seen)}</span></span>
+  </button>`;
+}
+function renderHomeDesk() {
+  const host = document.getElementById("homeDesk");
+  if (!host) return;
+  if (!PROPERTIES_LOADED) { host.innerHTML = ""; return; }
+  const live = ALL.filter(p => !HIDDEN.has(p.id) && !goneExpired(p) && !isGone(p) && !isPastDue(p));
+  const avail = sortRows(live.filter(p => p.source === "laft")).slice(0, 6);
+  const availLoading = !ledgerSettled("laft");
+  const sales = upcomingAuctionRows(live.filter(p => p.source === "auction"));
+  const counties = new Map();
+  live.forEach(p => { if (p.county) counties.set(p.county, (counties.get(p.county) || 0) + 1); });
+  const topCounties = Array.from(counties.entries()).sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0])).slice(0, 6);
+  const intelOf = c => COUNTY_INTEL ? countyIntelFor(COUNTY_INTEL, PAGE_STATE, c).intel : null;
+  const head = (title, sub, more) => `<div class="home-desk-head"><h2>${esc(title)}</h2>${sub ? `<span class="home-desk-sub">${sub}</span>` : ""}${more || ""}</div>`;
+  const availHtml = `<section class="home-desk-block" id="homeAvailableNow" data-ledger="laft">${head("Available now", esc(`${STATE_INFO.name} · ${ledgerCountText("laft", live.filter(p => p.source === "laft").length, true)} listed`), `<button type="button" class="link-btn" data-home-ledger="laft">All Available &rarr;</button>`)}
+    ${avail.length ? avail.map(homeDeskRowHtml).join("") : `<p class="home-desk-empty">${esc(availLoading ? "Loading Available…" : `No Available properties are listed for ${STATE_INFO.name} right now.`)}</p>`}</section>`;
+  const word = (ledgerCopy("auction").nav || "Auction").replace(/s$/, "");
+  const salesHtml = `<section class="home-desk-block" id="homeUpcomingSales" data-ledger="auction">${head("Upcoming auctions", "", `<button type="button" class="link-btn" data-home-ledger="auction">All auctions &rarr;</button>`)}
+    ${sales.length ? sales.map(e => { const d = new Date(e.date + "T12:00:00"); return `<button type="button" class="desk-event" data-action="dossierlist" data-county="${esc(e.county)}" data-ledger="auction"><span class="desk-date"><b>${isNaN(d) ? "" : d.getDate()}</b><span>${isNaN(d) ? "" : esc(d.toLocaleString("en-US", { month: "short" }).toUpperCase())}</span></span><span class="desk-event-where">${esc(e.county)} ${esc(UNIT_WORD)} · ${esc(PAGE_STATE)}</span><span class="desk-event-what">${esc(word)} sale</span><span class="desk-event-n">${e.count} propert${e.count === 1 ? "y" : "ies"}</span></button>`; }).join("")
+      : `<p class="home-desk-empty">${esc(ledgerSettled("auction") ? `No upcoming sale dates are listed for ${STATE_INFO.name}.` : "Loading auctions…")}</p>`}</section>`;
+  const countyHtml = `<section class="home-desk-block" id="homeCountyIntel">${head("County intelligence", "", `<button type="button" class="link-btn" id="homeAllCounties">All counties &rarr;</button>`)}
+    <div class="desk-counties">${topCounties.length ? topCounties.map(([c, n]) => { const k = intelOf(c); return `<button type="button" class="desk-county" data-action="countyintel" data-county="${esc(c)}"><b>${esc(c)}</b>${k ? countyIntelChipHtml(k) : ""}<span class="n">${n.toLocaleString("en-US")} on file</span></button>`; }).join("") : `<p class="home-desk-empty">No county has records on file yet.</p>`}</div></section>`;
+  const savedHtml = `<section class="home-desk-block" id="homeSaved">${head("Saved", "")}
+    <div class="desk-saved"><button type="button" id="homeSavedProps" data-guide="watchlist"><b>${BIDLIST.size}</b><span>Saved propert${BIDLIST.size === 1 ? "y" : "ies"} (watchlist)</span></button><button type="button" id="homeSavedSearches" data-guide="searches"><b>${(MONITOR.savedSearches || []).filter(x => !x.state || x.state === PAGE_STATE).length}</b><span>Saved searches</span></button></div></section>`;
+  host.innerHTML = `<div class="home-desk-col">${availHtml}${salesHtml}</div><div class="home-desk-col">${countyHtml}${savedHtml}</div>`;
+  if (!COUNTY_INTEL) loadCountyIntel().then(d => { if (d) renderHomeDesk(); });
+}
 function renderHome() {
   const ledgersEl = document.getElementById("homeLedgers");
   if (!ledgersEl) return;
@@ -11433,8 +11508,9 @@ function renderHome() {
   const hs = document.getElementById("homeSearchInput");
   if (hs && PAGE_STATE !== "FL") {
     const county = topCountyName();
-    hs.placeholder = `e.g. 3124 Oak St, parcel 123-456-789${county ? `, ${county} ${UNIT_WORD}` : ""}...`;
+    hs.placeholder = `Search address, parcel, county, APN or case number${county ? ` - e.g. ${county} ${UNIT_WORD}` : ""}`;
   }
+  renderHomeDesk();
   const recentEl = document.getElementById("homeRecent");
   if (recentEl) {
     if (!PROPERTIES_LOADED) {
@@ -11460,7 +11536,7 @@ function renderHome() {
     if (led) { goToLedger(led.dataset.homeLedger); return; }
     const pid = e.target.closest("[data-home-pid]");
     if (pid) { const p = ALL.find(x => String(x.id) === pid.dataset.homePid); if (p) openDetail(p); return; }
-    if (e.target.closest("#homeStatesCard") || e.target.closest("#homeChangeState")) { openStatePicker(e.target.closest("button")); return; }
+    if (e.target.closest("#homeStatesCard") || e.target.closest("#homeChangeState") || e.target.closest("#homeAllCounties")) { openStatePicker(e.target.closest("button")); return; }
     if (e.target.closest("#homeRecentAll")) goToLedger(landingLedger(ALL, state.ledger));
     const guide = e.target.closest("[data-guide]");
     if (guide) {

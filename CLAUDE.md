@@ -2620,3 +2620,26 @@ Full description: `docs/investor-workflow.md`. Stable facts:
 - **Layers:** a layer opened right after closing another uses
   `afterSelfBack()`, so the two `history.back()` calls cannot race.
 - `sw.js` → `tdw-shell-v89`.
+
+## TaxDeed-Scraper identity redesign (2026-10-05, PR open, frontend only)
+
+Full description: `docs/identity-redesign.md`. Stable facts:
+- **`public/identity.css` is loaded last** on index / tx / la and the
+  generated state pages. It holds the design language: stone, charcoal and
+  copper, with sage / rust / plum per ledger, serif display type, thin rules
+  and squared tags. It is precached and in the mirror lists. Never
+  reintroduce navy chrome or pill / card stacks: the test block
+  "Identity redesign" checks for them.
+- **Desktop navigation is a masthead:** `.nav-primary` (Home, Search, the
+  three ledgers, Map) and `.nav-secondary` (Saved Searches, Watchlist,
+  County Intelligence, About) inside `#navRail`. The ids and data
+  attributes are unchanged.
+- **Product name:** TaxDeed-Scraper. The tagline is "Public Property
+  Acquisition Intelligence" (the `check_deployed_branding.py` TAGLINE).
+  The legal pages and admin.html still say "Tax Acquisitions"; renaming them
+  is the owner's decision.
+- **Pages:**
+  - Home has `#homeDesk` (`renderHomeDesk()`).
+  - The auction ledger head has `upcomingSalesHtml()`.
+  - On the property page, Source truth comes after the map.
+- `sw.js` → `tdw-shell-v90`.
