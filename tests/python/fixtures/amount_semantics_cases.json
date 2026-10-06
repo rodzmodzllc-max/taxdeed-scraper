@@ -1,0 +1,31 @@
+{
+ "_comment": "Shared vectors: harvesters/sources/amount_semantics.py semantic_type() / temporal_status() and app.js amountSemanticType() / amountTemporal(). 'today' is fixed. Values are SYNTHETIC.",
+ "today": "2026-10-06",
+ "rows": [
+  {"name": "current purchase price (fixed price list)", "row": {"source_id": "fl_laft_realtdm", "purchase_amount": 2500, "purchase_amount_kind": "FIXED_PURCHASE_PRICE", "last_seen_at": "2026-10-05T12:00:00Z"}, "semantic": "CURRENT_PURCHASE_PRICE", "temporal": "CURRENT"},
+  {"name": "opening bid only", "row": {"source_id": "fl_laft_pioneer", "purchase_amount": 4100, "purchase_amount_kind": "OPENING_BID", "last_seen_at": "2026-10-04T12:00:00Z"}, "semantic": "OPENING_BID", "temporal": "CURRENT"},
+  {"name": "minimum-named column makes a minimum bid", "row": {"source_id": "sc_horry_forfeited_land", "purchase_amount": 1500, "purchase_amount_kind": "OPENING_BID", "otc_provenance": {"amount": "column 'MINIMUM BID' = 1500"}, "last_seen_at": "2026-10-02T12:00:00Z"}, "semantic": "MINIMUM_BID", "temporal": "CURRENT"},
+  {"name": "minimum purchase amount is a minimum, never a price", "row": {"source_id": "fl_laft_orange", "purchase_amount": 900, "purchase_amount_kind": "MINIMUM_PURCHASE_AMOUNT", "last_seen_at": "2026-10-05T12:00:00Z"}, "semantic": "MINIMUM_BID", "temporal": "CURRENT"},
+  {"name": "vendor minimum bid with no kind", "row": {"source_id": "tx_lgbs", "bid": 3200, "last_seen_at": "2026-09-01T12:00:00Z"}, "semantic": "MINIMUM_BID", "temporal": "UNKNOWN"},
+  {"name": "current amount due (statement inside its date)", "row": {"source_id": "fl_laft_pioneer", "purchase_amount": 4100, "purchase_amount_kind": "OPENING_BID", "otc_provenance": {"purchase_statement": {"total_due": 27689.42, "valid_through": "2026-10-31", "observed_on": "2026-10-01"}}}, "semantic": "CURRENT_AMOUNT_DUE", "temporal": "CURRENT"},
+  {"name": "expired statement", "row": {"source_id": "fl_laft_pioneer", "otc_provenance": {"purchase_statement": {"total_due": 27689.42, "valid_through": "2026-08-31", "observed_on": "2026-08-01"}}}, "semantic": "CURRENT_AMOUNT_DUE", "temporal": "EXPIRED"},
+  {"name": "no published price", "row": {"source_id": "mo_stl_lra_inventory", "purchase_amount_kind": "NOT_PUBLISHED", "last_seen_at": "2026-10-04T12:00:00Z"}, "semantic": null, "temporal": "UNKNOWN"},
+  {"name": "quoted on application", "row": {"source_id": "la_ebr_adjudicated", "purchase_amount_kind": "QUOTED_ON_APPLICATION"}, "semantic": null, "temporal": "UNKNOWN"},
+  {"name": "original opening bid is historical", "row": {"source_id": "fl_laft_html", "purchase_amount": 5000, "purchase_amount_kind": "ORIGINAL_OPENING_BID", "last_seen_at": "2026-10-05T12:00:00Z"}, "semantic": "OPENING_BID", "temporal": "HISTORICAL"},
+  {"name": "figure on a closed row is historical", "row": {"source_id": "fl_laft_html", "status": "closed", "purchase_amount": 5000, "purchase_amount_kind": "OPENING_BID", "last_seen_at": "2026-10-05T12:00:00Z"}, "semantic": "OPENING_BID", "temporal": "HISTORICAL"},
+  {"name": "dated list figure: currency not established", "row": {"source_id": "pa_fayette_repository", "purchase_amount": 500, "purchase_amount_kind": "OPENING_BID", "otc_provenance": {"amount": "column 'Min. Bid' = 500"}, "list_as_of": "2025-06-01", "last_seen_at": "2026-10-04T12:00:00Z"}, "semantic": "MINIMUM_BID", "temporal": "UNKNOWN"},
+  {"name": "unspecified published amount", "row": {"source_id": "ok_oklahoma_county_owned", "purchase_amount": 350, "purchase_amount_kind": "PUBLISHED_AMOUNT_KIND_UNSPECIFIED", "last_seen_at": "2026-10-04T12:00:00Z"}, "semantic": "OTHER_PUBLISHED_AMOUNT", "temporal": "CURRENT"},
+  {"name": "estimate is not a price", "row": {"source_id": "fl_laft_html", "purchase_amount": 7000, "purchase_amount_kind": "ESTIMATED_PURCHASE_PRICE", "last_seen_at": "2026-10-05T12:00:00Z"}, "semantic": "OTHER_PUBLISHED_AMOUNT", "temporal": "CURRENT"},
+  {"name": "assessed value is never an amount", "row": {"source_id": "mo_stl_lra_inventory", "assessed": 40000, "market": 90000, "taxable_value": 38000, "purchase_amount_kind": "NOT_PUBLISHED"}, "semantic": null, "temporal": "UNKNOWN"}
+ ],
+ "statements": [
+  {"name": "taxes included in the current total (reconciles)", "rights": "PERMITTED", "text": "STATEMENT OF AMOUNT DUE\nGood Through: 10/31/2026\nOpening Bid $1,234.56\nTaxes $500.00\nInterest $45.12\nRecording Fees $10.00\nTotal Due $1,789.68", "status": "COMPLETE", "total": 1789.68, "valid_through": "2026-10-31", "components": {"opening_bid": 1234.56, "taxes": 500.0, "interest": 45.12, "recording_fees": 10.0}},
+  {"name": "expired statement is read but flagged expired", "rights": "PERMITTED", "text": "Valid Through 08/31/2026\nTotal Amount Due $27,689.42", "status": "COMPLETE", "total": 27689.42, "valid_through": "2026-08-31", "expired": true},
+  {"name": "components that do not reconcile", "rights": "PERMITTED", "text": "Good Thru 10/31/2026\nTaxes $500.00\nInterest $45.12\nTotal Due $900.00", "status": "NEEDS_REVIEW", "total": 900.0},
+  {"name": "OCR-garbled total is not a number", "rights": "PERMITTED", "text": "Good Through 10/31/2026\nTotal Due $1,2O4.56", "status": "FAILED", "total": null},
+  {"name": "two different totals", "rights": "PERMITTED", "text": "Total Due $100.00\nAmount Due $120.00", "status": "NEEDS_REVIEW", "total": null},
+  {"name": "duplicate identical total lines are one total", "rights": "PERMITTED", "text": "Total Due $100.00\nTotal Due $100.00", "status": "COMPLETE", "total": 100.0},
+  {"name": "rights not established: internal verification only", "rights": "REVIEW_REQUIRED", "text": "Good Through 10/31/2026\nTotal Due $1,789.68", "status": "NEEDS_REVIEW", "total": 1789.68, "displayable": false},
+  {"name": "no total at all", "rights": "PERMITTED", "text": "Lands Available list\nParcel 12-34", "status": "FAILED", "total": null}
+ ]
+}

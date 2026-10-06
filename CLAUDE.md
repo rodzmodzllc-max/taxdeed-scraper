@@ -2771,3 +2771,17 @@ Full description: `docs/authoritative-coordinates.md`. Stable facts:
   (`mo_stl_parcels_coordinates`) and `DEEP_TARGETS` with
   `"purpose": "coordinates"` (MO / OK / PA / SC). Probe before use.
 - `sw.js` -> `tdw-shell-v97`.
+
+## Current acquisition amounts (2026-10-06, PR open, no migration)
+
+Full description: `docs/current-acquisition-amounts.md`. Stable facts:
+- `harvesters/sources/amount_semantics.py` = app.js `amountSemanticType()` /
+  `amountTemporal()` (vectors `tests/python/fixtures/amount_semantics_cases.json`).
+  Twelve semantic types; time status CURRENT / HISTORICAL / EXPIRED / UNKNOWN
+  (list read within 14 days and dated within 365 for CURRENT). A minimum-named
+  source column makes an opening bid a MINIMUM_BID.
+- `parse_statement_text()` validates a statement: one total, OCR-garbled
+  figures refused, components must reconcile, rights not PERMITTED =
+  not displayable. No statement is stored anywhere yet.
+- Property page shows Amount type / Amount status / Valid through (`.fp-meta`).
+  `sw.js` -> `tdw-shell-v98`.
