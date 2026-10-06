@@ -120,12 +120,13 @@ def usable(source_id: str, delivery: str) -> bool:
 # --- matching ------------------------------------------------------------
 
 MATCH_METHODS = ("source_coordinates", "parcel_roll_coordinates", "parcel_layer_coordinates",
-                 "vendor_coordinates", "recorded_coordinates", "none")
+                 "vendor_coordinates", "geocoded_address", "recorded_coordinates", "none")
 MATCH_LABELS = {
     "source_coordinates": "Centered on the coordinates the source list publishes for this record",
     "parcel_roll_coordinates": "Centered on this parcel's coordinates from the state tax roll",
     "parcel_layer_coordinates": "Centered on this parcel's coordinates from a parcel layer",
     "vendor_coordinates": "Centered on the coordinates in the vendor listing",
+    "geocoded_address": "Centered on the geocoded street address (an address location, not the parcel boundary)",
     "recorded_coordinates": "Centered on the coordinates on file for this record (origin not recorded)",
     "none": "No property imagery available - no coordinates on file",
 }
@@ -136,6 +137,7 @@ _PROVENANCE_METHOD = {
     "statewide_parcel": "parcel_layer_coordinates",
     "county_gis": "parcel_layer_coordinates",
     "vendor_listing": "vendor_coordinates",
+    "census_geocoder": "geocoded_address",
 }
 
 

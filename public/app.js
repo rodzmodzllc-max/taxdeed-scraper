@@ -1441,10 +1441,56 @@ var IMAGERY_MATCH_LABELS = {
   parcel_roll_coordinates: "Centered on this parcel's coordinates from the state tax roll",
   parcel_layer_coordinates: "Centered on this parcel's coordinates from a parcel layer",
   vendor_coordinates: "Centered on the coordinates in the vendor listing",
+  geocoded_address: "Centered on the geocoded street address (an address location, not the parcel boundary)",
   recorded_coordinates: "Centered on the coordinates on file for this record (origin not recorded)",
   none: "No property imagery available - no coordinates on file"
 };
-var IMAGERY_PROVENANCE_METHOD = { county_list: "source_coordinates", fdor_nal: "parcel_roll_coordinates", statewide_parcel: "parcel_layer_coordinates", county_gis: "parcel_layer_coordinates", vendor_listing: "vendor_coordinates" };
+var IMAGERY_PROVENANCE_METHOD = { county_list: "source_coordinates", fdor_nal: "parcel_roll_coordinates", statewide_parcel: "parcel_layer_coordinates", county_gis: "parcel_layer_coordinates", vendor_listing: "vendor_coordinates", census_geocoder: "geocoded_address" };
+// Authoritative coordinates (2026-10-06): how a row's latitude / longitude
+// were obtained - harvesters/sources/coordinates.py coordinate_provenance(),
+// pinned by tests/python/fixtures/coordinate_cases.json. var: TDZ.
+var COORD_METHOD_LABELS = {
+  PARCEL_GIS: "Official parcel GIS layer",
+  TAX_ROLL: "Official tax-roll parcel layer",
+  LAND_BANK_GIS: "Land bank GIS layer",
+  OFFICIAL_ADDRESS: "Location published by the source list",
+  OTHER_REVIEWED: "Government-published location",
+  VENDOR_LISTING: "Vendor listing (not an official parcel location)",
+  DETERMINISTIC_GEOCODE: "Address geocode (US Census Bureau) - not a parcel location",
+  UNRECORDED: "Origin not recorded"
+};
+var COORD_GEOMETRY_LABELS = { POINT: "Point", PARCEL_CENTROID: "Parcel centroid", PARCEL_GEOMETRY: "Parcel boundary" };
+var COORD_AUTHORITATIVE = ["PARCEL_GIS", "TAX_ROLL", "LAND_BANK_GIS", "OFFICIAL_ADDRESS", "OTHER_REVIEWED"];
+var COORD_SOURCE_COORDINATES = {
+  la_ebr_adjudicated: ["OFFICIAL_ADDRESS", "POINT"],
+  mi_detroit_landbank_lots: ["LAND_BANK_GIS", "POINT"],
+  mi_detroit_landbank_programs: ["LAND_BANK_GIS", "POINT"],
+  mn_ramsey_tax_forfeit: ["PARCEL_GIS", "POINT"]
+};
+var COORD_PROVENANCE_COORDINATES = {
+  fdor_nal: ["TAX_ROLL", "PARCEL_CENTROID"],
+  statewide_parcel: ["PARCEL_GIS", "PARCEL_CENTROID"],
+  county_gis: ["PARCEL_GIS", "PARCEL_CENTROID"],
+  vendor_listing: ["VENDOR_LISTING", "POINT"],
+  census_geocoder: ["DETERMINISTIC_GEOCODE", "POINT"]
+};
+function coordinateProvenance(p) {
+  if (!imageryHasCoords(p)) return { method: "NONE", geometry: "", authoritative: false, label: "No authoritative coordinates available", geometry_label: "" };
+  const fp = p.field_provenance && typeof p.field_provenance === "object" ? p.field_provenance : {};
+  const entry = fp.latitude && typeof fp.latitude === "object" ? fp.latitude : {};
+  const src = entry.source || "";
+  let method = "UNRECORDED", geometry = "POINT";
+  if (COORD_PROVENANCE_COORDINATES[src]) {
+    [method, geometry] = COORD_PROVENANCE_COORDINATES[src];
+    if (COORD_METHOD_LABELS[entry.method]) method = entry.method;
+    if (COORD_GEOMETRY_LABELS[entry.geometry]) geometry = entry.geometry;
+  } else if (src === "county_list" || !src) {
+    const sid = p.source_id || p.harvester_source || "";
+    if (COORD_SOURCE_COORDINATES[sid]) [method, geometry] = COORD_SOURCE_COORDINATES[sid];
+    else if (src === "county_list") { method = "OTHER_REVIEWED"; geometry = "POINT"; }
+  }
+  return { method, geometry, authoritative: COORD_AUTHORITATIVE.includes(method), label: COORD_METHOD_LABELS[method], geometry_label: COORD_GEOMETRY_LABELS[geometry] || "" };
+}
 function imageryHasCoords(p) {
   const lat = Number(p && p.latitude), lng = Number(p && p.longitude);
   return hasNum(p && p.latitude) && hasNum(p && p.longitude) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180 && !(lat === 0 && lng === 0);
@@ -1697,6 +1743,7 @@ document.addEventListener("error", e => {
 }, true);
 // Exposed for the regression suite (tests/run_test.mjs) to check the URL
 // builder without a key in the fixture - same pattern as __tdwMapLastRender.
+window.__tdwCoordinates = { coordinateProvenance };
 window.__tdwAcqEvidence = { acquisitionEvidenceStatus, labels: ACQ_EVIDENCE_STATUS_LABELS };
 window.__tdwImagery = { staticImageUrl, naipExportUrl, imageryMatchMethod, imageryState };
 // A small, free, key-less embedded map (OpenStreetMap's own export/embed
@@ -6211,12 +6258,17 @@ function gisLocationCardHtml(p) {
   const kv = `
     <div class="kv-row"><span class="kv-label">Latitude</span><span class="kv-val${hasCoords ? " mono" : " muted"}">${hasCoords ? p.latitude.toFixed(5) : "Not yet geocoded"}</span></div>
     <div class="kv-row"><span class="kv-label">Longitude</span><span class="kv-val${hasCoords ? " mono" : " muted"}">${hasCoords ? p.longitude.toFixed(5) : "Not yet geocoded"}</span></div>`;
+  const cp = coordinateProvenance(p);
+  const coordRows = cp.method === "NONE"
+    ? `<div class="kv-row" data-coord-method="NONE"><span class="kv-label">Coordinate source</span><span class="kv-val muted">No authoritative coordinates available</span></div>`
+    : `<div class="kv-row" data-coord-method="${esc(cp.method)}"><span class="kv-label">Coordinate source</span><span class="kv-val">${esc(cp.label)}${cp.authoritative ? "" : `<span class="kv-sub">Not an authoritative parcel location</span>`}</span></div>
+    <div class="kv-row"><span class="kv-label">Location type</span><span class="kv-val">${esc(cp.geometry_label)}${cp.geometry === "PARCEL_CENTROID" ? `<span class="kv-sub">The centre of the parcel polygon - not a building or the buildable area</span>` : ""}</span></div>`;
   const embed = hasCoords ? `<div class="detail-map-embed"><iframe src="${esc(osmEmbedUrl(p.latitude, p.longitude))}" loading="lazy" title="Property location map" referrerpolicy="no-referrer-when-downgrade"></iframe></div>` : "";
   // Phase 66: one step from the full page to the app's own Map page, zoomed
   // to this county with this property selected (its pin, when it has one;
   // its strip card and preview either way) - see showOnMap().
   const mapBtn = `<button class="show-on-map-btn" type="button" data-action="showonmap" data-pid="${p.id}">${svgIcon("map")}${hasCoords ? "Show pin on the Map page" : "Show county on the Map page"}</button>`;
-  return detailSectionHtml("GIS & Location", `<div class="kv-list">${kv}</div>${embed}${mapBtn}`, "", "map");
+  return detailSectionHtml("GIS & Location", `<div class="kv-list">${kv}${coordRows}</div>${embed}${mapBtn}`, "", "map");
 }
 // Kept as the exact original .detail-provenance markup/text (two plain
 // <span>s: "Data source: X" and lastSyncedText()'s own wording) inside the

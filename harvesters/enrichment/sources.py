@@ -239,3 +239,41 @@ TX_JIM_WELLS_CAD = register(ParcelSourceConfig(
     publication_status="UNREVIEWED", counties=("Jim Wells",), centroid=True, columns_verified=True, batch_size=50,
     notes="all-sources engine deep probe run 36922621158: 11 of 11 rows match on geoID = case_no; legalDescr 11, legalAcrea 9.",
 ))
+
+
+# ---------------------------------------------------------------------------
+# Missouri - City of St. Louis parcel layer, for COORDINATES ONLY
+# (authoritative-coordinates sprint, 2026-10-06).
+#
+# The LRA inventory list (mo_stl_lra_inventory) publishes a street address
+# but no coordinates. The city's own parcel layer GIS.ASR.PARCELS (PDA_ZONING
+# MapServer layer 0) is keyed on HANDLE, which the city names as the parcel
+# key in its parcel datasets.
+#
+# SEARCH INDEX ONLY - nothing here has been read live: every stlouis-mo.gov
+# host is blocked from the development sandbox. This config is therefore
+# inert (columns_verified=False, publication UNREVIEWED; enrichment_allowed()
+# refuses it). It writes no column except the centroid of the one matched
+# parcel polygon (latitude / longitude, provenance statewide_parcel ->
+# coordinates.PARCEL_GIS / PARCEL_CENTROID).
+#
+# Before it may run:
+#   1. available_mode=metadata reads the layer's own field list
+#      (scripts/discover_sources.py DEEP_TARGETS);
+#   2. available_mode=probe measures exact HANDLE matches against the LRA
+#      ParcelId (believed to be the same 11-digit handle - NOT verified);
+#   3. the terms of reuse are reviewed.
+# ---------------------------------------------------------------------------
+MO_STL_PARCELS = register(ParcelSourceConfig(
+    source_id="mo_stl_parcels_coordinates", state="MO",
+    agency="City of St. Louis (Assessor parcel GIS)",
+    dataset="GIS.ASR.PARCELS (public/PDA_ZONING MapServer layer 0)",
+    landing_url="https://www.stlouis-mo.gov/data/datasets/dataset.cfm?id=82",
+    layer_url="https://stlgis.stlouis-mo.gov/arcgis/rest/services/public/PDA_ZONING/MapServer/0",
+    id_field="HANDLE", id_rule="digits", field_map={},
+    licence="City of St. Louis open data - terms not yet reviewed for this product",
+    publication_status="UNREVIEWED", centroid=True, columns_verified=False,
+    counties=("St. Louis City",),
+    notes="Coordinates only: the area-weighted centroid of the one parcel whose HANDLE equals the row's parcel id. "
+          "Search-index evidence only; inert until the layer's fields and the HANDLE / ParcelId match are measured live.",
+))

@@ -1,0 +1,54 @@
+{
+ "_comment": "Shared vectors: harvesters/sources/coordinates.coordinate_provenance() and app.js coordinateProvenance() must agree. Values are SYNTHETIC.",
+ "provenance": [
+  {"name": "authoritative parcel GIS centroid", "row": {"latitude": 30.1, "longitude": -85.6, "field_provenance": {"latitude": {"source": "statewide_parcel"}}}, "method": "PARCEL_GIS", "geometry": "PARCEL_CENTROID", "authoritative": true},
+  {"name": "tax roll centroid", "row": {"latitude": 28.5, "longitude": -82.3, "field_provenance": {"latitude": {"source": "fdor_nal"}}}, "method": "TAX_ROLL", "geometry": "PARCEL_CENTROID", "authoritative": true},
+  {"name": "land bank layer point", "row": {"latitude": 42.36, "longitude": -83.08, "source_id": "mi_detroit_landbank_lots", "field_provenance": {"latitude": {"source": "county_list"}}}, "method": "LAND_BANK_GIS", "geometry": "POINT", "authoritative": true},
+  {"name": "official address location from the source list", "row": {"latitude": 30.45, "longitude": -91.18, "source_id": "la_ebr_adjudicated", "field_provenance": {"latitude": {"source": "county_list"}}}, "method": "OFFICIAL_ADDRESS", "geometry": "POINT", "authoritative": true},
+  {"name": "county tax-forfeit layer point", "row": {"latitude": 44.95, "longitude": -93.09, "source_id": "mn_ramsey_tax_forfeit", "field_provenance": {"latitude": {"source": "county_list"}}}, "method": "PARCEL_GIS", "geometry": "POINT", "authoritative": true},
+  {"name": "deterministic geocode is never authoritative", "row": {"latitude": 38.62, "longitude": -90.2, "source_id": "mo_stl_lra_inventory", "field_provenance": {"latitude": {"source": "census_geocoder", "method": "DETERMINISTIC_GEOCODE"}}}, "method": "DETERMINISTIC_GEOCODE", "geometry": "POINT", "authoritative": false},
+  {"name": "vendor listing coordinates", "row": {"latitude": 30.0, "longitude": -94.8, "source_id": "tx_lgbs", "field_provenance": {"latitude": {"source": "vendor_listing"}}}, "method": "VENDOR_LISTING", "geometry": "POINT", "authoritative": false},
+  {"name": "origin not recorded", "row": {"latitude": 27.9, "longitude": -82.4, "source_id": "fl_laft_html"}, "method": "UNRECORDED", "geometry": "POINT", "authoritative": false},
+  {"name": "no coordinates", "row": {"latitude": null, "longitude": null, "source_id": "pa_fayette_repository"}, "method": "NONE", "geometry": "", "authoritative": false},
+  {"name": "null island is not a coordinate", "row": {"latitude": 0, "longitude": 0}, "method": "NONE", "geometry": "", "authoritative": false}
+ ],
+ "replace": [
+  {"existing": "NONE", "new": "DETERMINISTIC_GEOCODE", "replace": true},
+  {"existing": "DETERMINISTIC_GEOCODE", "new": "PARCEL_GIS", "replace": true},
+  {"existing": "UNRECORDED", "new": "TAX_ROLL", "replace": true},
+  {"existing": "PARCEL_GIS", "new": "DETERMINISTIC_GEOCODE", "replace": false},
+  {"existing": "OFFICIAL_ADDRESS", "new": "VENDOR_LISTING", "replace": false},
+  {"existing": "PARCEL_GIS", "new": "PARCEL_GIS", "replace": false},
+  {"existing": "TAX_ROLL", "new": "LAND_BANK_GIS", "replace": false},
+  {"existing": "OTHER_REVIEWED", "new": "PARCEL_GIS", "replace": true},
+  {"existing": "VENDOR_LISTING", "new": "OTHER_REVIEWED", "replace": true},
+  {"existing": "PARCEL_GIS", "new": "NEARBY_PARCEL", "replace": false}
+ ],
+ "match": [
+  {"kind": "parcel_id", "features": 1, "accept": true},
+  {"kind": "parcel_id", "features": 2, "accept": false},
+  {"kind": "parcel_id", "features": 0, "accept": false},
+  {"kind": "account_number", "features": 1, "accept": true},
+  {"kind": "address_state_county_house_number", "features": 1, "address_agrees": true, "accept": true},
+  {"kind": "address_state_county_house_number", "features": 1, "address_agrees": false, "accept": false},
+  {"kind": "nearest_feature", "features": 1, "accept": false},
+  {"kind": "fuzzy_address", "features": 1, "accept": false}
+ ],
+ "county": [
+  {"county": "St. Louis City", "census": [{"BASENAME": "St. Louis", "NAME": "St. Louis city"}], "match": true},
+  {"county": "St. Louis City", "census": [{"BASENAME": "St. Louis", "NAME": "St. Louis County"}], "match": false},
+  {"county": "St. Louis", "census": [{"BASENAME": "St. Louis", "NAME": "St. Louis city"}], "match": false},
+  {"county": "St. Louis", "census": [{"BASENAME": "St. Louis", "NAME": "St. Louis County"}], "match": true},
+  {"county": "St. Lucie", "census": [{"BASENAME": "St. Lucie", "NAME": "St. Lucie County"}], "match": true},
+  {"county": "East Baton Rouge", "census": [{"BASENAME": "East Baton Rouge", "NAME": "East Baton Rouge Parish"}], "match": true},
+  {"county": "Lee", "census": [{"NAME": "Lee County"}], "match": true},
+  {"county": "Lee", "census": [{"BASENAME": "Collier", "NAME": "Collier County"}], "match": false}
+ ],
+ "address": [
+  {"input": "1234 N FIXTURE ST", "matched": "1234 N FIXTURE ST, ST LOUIS, MO, 63101", "agrees": true},
+  {"input": "1234 FIXTURE ST", "matched": "1236 FIXTURE ST, ST LOUIS, MO, 63101", "agrees": false},
+  {"input": "1234 FIXTURE ST", "matched": "1234 OTHER AVE, ST LOUIS, MO, 63101", "agrees": false},
+  {"input": "FIXTURE ST", "matched": "1234 FIXTURE ST, ST LOUIS, MO, 63101", "agrees": false},
+  {"input": "1234 FIXTURE ST", "matched": "FIXTURE ST, ST LOUIS, MO", "agrees": false}
+ ]
+}
