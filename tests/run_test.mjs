@@ -4121,6 +4121,39 @@ await navMap.close();
     });
     await pc.close();
   }
+  // ---- Off the county's current sale list (2026-10-06) ----
+  // A future-dated auction that is missing from its county's latest read
+  // must not read as an upcoming sale (production: 338 FL rows on 2026-10-06).
+  {
+    const pg = await newPage({ viewport: { width: 1440, height: 900 } });
+    pg.on('pageerror', e => errors.push('offlist pageerror: ' + e.message));
+    await pg.goto(BASE_URL + '?offlist=1' + '#/auctions', { waitUntil: 'networkidle' });
+    await pg.waitForTimeout(400);
+    results.offListCards = await pg.evaluate(() => {
+      const phase = id => { const e = document.querySelector(`#main .prop-card[data-pid="${id}"] .kicker-phase`); return e ? e.textContent : null; };
+      const cc = document.getElementById('upcomingSales');
+      return { p9: /^Not on the county's current sale list · was scheduled /.test(phase('p9') || ''),
+        p8Upcoming: /^Sale /.test(phase('p8') || ''),
+        p9Line: !!document.querySelector('#main .prop-card[data-pid="p9"] [data-off-list="1"]'),
+        p9Flag: !!window.__tdwOffList('p9'), p8Flag: window.__tdwOffList('p8'),
+        neverReadCounty: window.__tdwOffList('p1'),
+        commandCenter: cc ? !/Harbor Ln/.test(cc.textContent) : true };
+    });
+    await pg.close();
+    const d = await newPage({ viewport: { width: 1440, height: 900 } });
+    await d.goto(BASE_URL + '?offlist=1' + '#/auctions/p9', { waitUntil: 'networkidle' });
+    await d.waitForTimeout(500);
+    results.offListDetail = await d.evaluate(() => {
+      const st = document.querySelector('.dossier-status');
+      return st ? /Not on the county list read /.test(st.textContent) && !!st.querySelector('dd.warn') : null;
+    });
+    await d.close();
+    const n = await newPage({ viewport: { width: 1440, height: 900 } });
+    await n.goto(BASE_URL + '#/auctions', { waitUntil: 'networkidle' });
+    await n.waitForTimeout(300);
+    results.offListDefault = await n.evaluate(() => window.__tdwOffList('p9'));
+    await n.close();
+  }
   // ---- Opportunity finder + auction command center (2026-10-05) ----
   {
     const pg = await newPage({ viewport: { width: 1440, height: 900 } });
@@ -6230,7 +6263,7 @@ const EXPECTED = {
   },
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v107"]},
+  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v108"]},
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · TAXACQ — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · TAXACQ — Florida", floridaCopy: true },
@@ -7380,6 +7413,9 @@ const EXPECTED = {
   whySection: {"items": 6, "noCompetitor": true, "noScoreClaim": true},
   // Identity redesign (2026-10-05).
   identityViewports: [],
+  offListCards: { p9: true, p8Upcoming: true, p9Line: true, p9Flag: true, p8Flag: null, neverReadCounty: null, commandCenter: true },
+  offListDetail: true,
+  offListDefault: null,
   taxacqBrand: { title: true, rail: 'TAXACQ', sub: 'Tax Acquisition Intelligence', topbar: 'TAXACQ', noOldText: true, aboutWhy: true },
   identityLogin: {"brand": "TAXACQ", "tagline": "Tax Acquisition Intelligence", "bg": "rgb(243, 239, 232)", "signupFields": 8},
   identityPalette: {"noNavy": true, "body": "rgb(243, 239, 232)", "ledgerAccent": "#4E6B54", "display": true},

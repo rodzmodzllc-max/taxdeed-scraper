@@ -2970,3 +2970,19 @@ Full description: `docs/taxacq-branding.md`. Stable facts:
   - Playwright `taxacqBrand` checks the signed-in app.
 - TAXACQ is **not** trade-name cleared (legal blocker 16), and no domain is claimed.
   `sw.js` → `tdw-shell-v107`.
+
+## Auctions off the county's current sale list (2026-10-06, PR open, frontend only)
+
+Production read-only, 2026-10-06: 338 active FL auction rows with future sale dates had never been stamped
+`last_seen_at` and had not been upserted since 2026-10-03, while their counties were read today. They had left
+the county's Waiting feed (cancelled, redeemed or rescheduled; the feed does not say which). The deed sync's
+close-out only closes rows whose sale day has PASSED, so they stayed "active" and read as upcoming sales.
+- app.js `offCurrentSaleList(p)`: a non-gone auction with a future or no sale date whose own `last_seen_at` is
+  missing or more than 36 h older than its county's newest read (`countyAuctionReads()`, the max `last_seen_at`
+  over the loaded active auction rows of the same state + county). A county never read is never flagged.
+- It reads "Not on the county's current sale list · was scheduled <date>" (kicker), "Not on the county list
+  read <date> - no result published" (auction result line), a warn "Last read" cell in the status band, and is
+  left out of the auction command center and Home's upcoming auctions. No cause, closure or result is claimed.
+- `OFF_LIST_GRACE_MS` / `AUCTION_READ_CACHE` are `var` (TDZ). Stub knob `?offlist=1` (p8 fresh, p9 unread).
+- Closing such rows server-side would be a lifecycle change to the deed sync (future-dated rows absent from a
+  COMPLETE county) and is a separate, owner-authorized decision. `sw.js` -> `tdw-shell-v108`.
