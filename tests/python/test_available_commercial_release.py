@@ -410,7 +410,9 @@ def test_wf01_job_selector_gates_every_job_and_never_schedules_texas():
     wf = yaml.safe_load((REPO / ".github/workflows/harvest-and-sync.yml").read_text(encoding="utf-8"))
     on = wf.get("on") or wf.get(True)
     job = on["workflow_dispatch"]["inputs"]["job"]
-    assert job["default"] == "all" and job["options"] == ["all", "deeds", "certificates", "laft", "texas", "backup", "evidence", "outcomes", "expansion", "enrich", "storage", "available"]
+    assert job["default"] == "all" and job["options"] == ["all", "deeds", "certificates", "laft", "texas", "backup", "evidence", "outcomes", "expansion", "enrich", "storage", "available", "geocode"]
+    # Authoritative geocoding (2026-10-06) is manual-only, never part of "all".
+    assert wf["jobs"]["geocode"]["if"] == "github.event_name == 'workflow_dispatch' && github.event.inputs.job == 'geocode'"
     # The enrichment backfill (property-enrichment sprint) is manual-only, never part of "all".
     assert wf["jobs"]["enrich"]["if"] == "github.event_name == 'workflow_dispatch' && github.event.inputs.job == 'enrich'"
     # The evidence capture is manual-only and is NOT part of "all" (it is a
