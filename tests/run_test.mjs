@@ -4021,7 +4021,7 @@ await navMap.close();
     const sp = await newPage({ viewport: { width: 1280, height: 900 } });
     await sp.goto(BASE_URL + '#/dashboard', { waitUntil: 'networkidle' });
     await sp.waitForTimeout(300);
-    await sp.click('#navStatesBtn');
+    await sp.click('#statePickerBtn');
     await sp.waitForSelector('#coverageExplorer .cov-list li', { timeout: 5000 });
     results.coverageExplorer = await sp.evaluate(() => {
       const ex = document.getElementById('coverageExplorer');
@@ -4184,6 +4184,109 @@ await navMap.close();
       await d.close();
     }
     results.financialPositionStates = states;
+  }
+  // ---- County Intelligence page (2026-10-06) ----
+  {
+    const cv = JSON.parse(fs.readFileSync(new URL('./python/fixtures/county_research_cases.json', import.meta.url), 'utf8')).cases;
+    let cp = await newPage({ viewport: { width: 1280, height: 900 } });
+    cp.on('pageerror', e => errors.push('county pageerror: ' + e.message));
+    await cp.goto(BASE_URL + '#/county/Alachua', { waitUntil: 'networkidle' });
+    await cp.waitForSelector('#pageCounty .cty[data-county="Alachua"]', { timeout: 10000 });
+    results.countyVectors = await cp.evaluate(cases => cases.filter(c => {
+      const o = window.__tdwCountyResearch(c.facts);
+      return JSON.stringify(o.steps.map(s => s.state)) !== JSON.stringify(c.states) || o.reached !== c.reached;
+    }).map(c => c.name), cv);
+    const pageFacts = cp => cp.evaluate(() => {
+      const a = document.querySelector('#pageCounty .cty');
+      return {
+        hash: location.hash, pageVisible: !document.getElementById('pageCounty').hidden, listHidden: document.getElementById('pageList').hidden,
+        title: a.querySelector('.cty-title').textContent,
+        reached: a.querySelector('.cty-ladder').dataset.reached,
+        steps: [...a.querySelectorAll('.cty-step')].map(s => s.dataset.step + '=' + s.dataset.state),
+        sections: [...a.querySelectorAll('[data-county-section]')].map(s => s.dataset.countySection),
+        nextSale: !!a.querySelector('[data-next-sale]'),
+        outcomes: [...a.querySelectorAll('.cty-outcomes li')].map(l => l.dataset.outcome),
+        gaps: [...a.querySelectorAll('.cty-gaps li')].map(l => l.dataset.gap),
+        acqUnits: [...a.querySelectorAll('.cty-unit')].map(u => u.dataset.source + '=' + u.dataset.acqStatus),
+        noScore: !/\bscore\b|\d+\s*%\s*(confidence|likely)|recommend/i.test(a.textContent),
+        navOn: document.getElementById('navStatesBtn').classList.contains('on')
+      };
+    });
+    results.countyAlachua = await pageFacts(cp);
+    // County -> property (2026-10-06): each ledger lists its records, and a record opens its own page.
+    results.countyRecords = await cp.evaluate(() => Object.fromEntries([...document.querySelectorAll('#pageCounty .cty-records')].map(u => [u.dataset.ledger, [...u.querySelectorAll('.cty-record')].map(li => li.dataset.pid)])));
+    await cp.evaluate(() => document.querySelector('#pageCounty .cty-records[data-ledger="auction"] .cty-record-btn').click());
+    await cp.waitForFunction(() => !document.getElementById('detailModal').hidden, null, { timeout: 5000 });
+    results.countyRecordOpens = await cp.evaluate(() => location.hash);
+    await cp.evaluate(() => document.querySelector('[data-action="closedetail"]').click());
+    await cp.waitForTimeout(300);
+    // A county with an Available unit and a verified path but no certificates: no Liens section.
+    await cp.evaluate(() => window.__tdwOpenCountyPage('Citrus', 'FL'));
+    await cp.waitForSelector('#pageCounty .cty[data-county="Citrus"]', { timeout: 5000 });
+    results.countyCitrus = await pageFacts(cp);
+    // A county nothing is recorded for: no source, nothing invented.
+    await cp.evaluate(() => window.__tdwOpenCountyPage('Nowhere', 'FL'));
+    await cp.waitForSelector('#pageCounty .cty[data-county="Nowhere"]', { timeout: 5000 });
+    results.countyUnknown = await pageFacts(cp);
+    // Index from the County Intelligence nav entry; a row opens the county page.
+    await cp.click('#navStatesBtn');
+    await cp.waitForSelector('#pageCounty .cty-index', { timeout: 5000 });
+    results.countyIndex = await cp.evaluate(() => ({ hash: location.hash, rows: document.querySelectorAll('.cty-row').length,
+      hasCitrus: !!document.querySelector('.cty-row[data-county-row="Citrus"]'), navOn: document.getElementById('navStatesBtn').classList.contains('on') }));
+    await cp.fill('#countyIndexSearch', 'citr');
+    await cp.waitForTimeout(250);
+    results.countyIndexFilter = await cp.evaluate(() => [...document.querySelectorAll('.cty-row')].map(r => r.dataset.countyRow));
+    await cp.click('.cty-row[data-county-row="Citrus"] .cty-row-btn');
+    await cp.waitForSelector('#pageCounty .cty[data-county="Citrus"]', { timeout: 5000 });
+    results.countyIndexToPage = await cp.evaluate(() => location.hash);
+    // County -> List (filtered to the county and ledger).
+    await cp.click('#pageCounty [data-county-section="available"] [data-action="dossierlist"]');
+    await cp.waitForTimeout(400);
+    results.countyToList = await cp.evaluate(() => ({ hash: location.hash, listVisible: !document.getElementById('pageList').hidden,
+      counties: ((window.__tdwLastRender || {}).rows || []).map(p => p.county).filter((v, i, a) => a.indexOf(v) === i) }));
+    // Property -> county page (Source truth link). A fresh page: a hash-only
+    // goto is a same-document navigation and would not reopen the property.
+    await cp.close();
+    cp = await newPage({ viewport: { width: 1280, height: 900 } });
+    await cp.goto(BASE_URL + '#/lands/p15', { waitUntil: 'networkidle' });
+    await cp.waitForSelector('#detailModalInner .county-page-link', { timeout: 10000, state: 'attached' });
+    await cp.evaluate(() => document.querySelector('#detailModalInner .county-page-link').click());
+    await cp.waitForSelector('#pageCounty .cty[data-county="Citrus"]', { timeout: 5000 });
+    results.propertyToCounty = await cp.evaluate(() => ({ hash: location.hash, detailClosed: document.getElementById('detailModal').hidden }));
+    // The quick dossier modal links to the full page.
+    await cp.evaluate(() => { const b = document.querySelector('#pageCounty [data-action="countyindex"]'); if (b) b.click(); });
+    await cp.close();
+    cp = await newPage({ viewport: { width: 1280, height: 900 } });
+    await cp.goto(BASE_URL + '#/lands/p15', { waitUntil: 'networkidle' });
+    await cp.waitForSelector('#detailModalInner [data-action="countyintel"]', { timeout: 10000, state: 'attached' });
+    await cp.evaluate(() => document.querySelector('#detailModalInner [data-action="countyintel"]').click());
+    await cp.waitForSelector('#countyModal:not([hidden]) .dossier-full [data-action="countypage"]', { timeout: 5000 });
+    await cp.click('#countyModal .dossier-full [data-action="countypage"]');
+    await cp.waitForSelector('#pageCounty .cty[data-county="Citrus"]', { timeout: 5000 });
+    results.dossierToCountyPage = await cp.evaluate(() => ({ hash: location.hash, modalClosed: document.getElementById('countyModal').hidden }));
+    await cp.close();
+    cp = await newPage({ viewport: { width: 1280, height: 900 } });
+    await cp.goto(BASE_URL + '#/auctions/p10', { waitUntil: 'networkidle' });
+    await cp.waitForSelector('#detailModalInner .county-page-link', { timeout: 10000, state: 'attached' });
+    results.auctionCountyLinkText = await cp.locator('#detailModalInner .county-page-link').textContent();
+    await cp.evaluate(() => document.querySelector('#detailModalInner .county-page-link').click());
+    await cp.waitForSelector('#pageCounty .cty[data-county="Marion"]', { timeout: 5000 });
+    results.countyMarionHistory = await cp.evaluate(() => { const sec = document.querySelector('[data-county-section="auctions"]');
+      const h = [...sec.querySelectorAll('h4')].find(x => /Historical/i.test(x.textContent)); return h && h.nextElementSibling ? h.nextElementSibling.textContent.trim() : null; });
+    await cp.close();
+    // Mobile and desktop widths: no horizontal overflow on the page or the index.
+    const ov = [];
+    for (const w of [390, 430, 768, 1024, 1440, 1920]) {
+      const mp = await newPage({ viewport: { width: w, height: 900 } });
+      for (const h of ['#/county/Alachua', '#/counties']) {
+        await mp.goto(BASE_URL + h, { waitUntil: 'networkidle' });
+        await mp.waitForSelector('#pageCounty .cty, #pageCounty .cty-index', { timeout: 10000 });
+        const o = await mp.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+        if (o > 1) ov.push(w + h + ':' + o);
+      }
+      await mp.close();
+    }
+    results.countyOverflow = ov;
   }
   // ---- Current acquisition amounts: semantic type + currency (2026-10-06) ----
   {
@@ -4527,7 +4630,7 @@ await navMap.close();
     // there and an admin does).
     const picker = async (qs) => {
       const p2 = await open(qs, '#/lands');
-      await p2.click('#navStatesBtn');
+      await p2.click('#statePickerBtn');
       await p2.waitForFunction(() => !document.querySelector('#statePickerBody .ledger-badge.pending'), null, { timeout: 8000 }).catch(() => {});
       const rows = await p2.locator('#statePickerBody .state-row').evaluateAll(els => els.map(e => e.dataset.stateRow + '=' +
         Array.from(e.querySelectorAll('.ledger-badge')).map(b => b.dataset.ledger).join('|') + (e.querySelector('.state-row-none') ? '!' + (e.querySelector('.state-row-none').textContent.startsWith('No properties') ? 'none' : 'unchecked') : '')));
@@ -5752,7 +5855,7 @@ const EXPECTED = {
   },
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: {"ready": true, "controlled": true, "tagline": "Public Property Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v98"]},
+  brandSwReload: {"ready": true, "controlled": true, "tagline": "Public Property Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v99"]},
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · TaxDeed-Scraper — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · TaxDeed-Scraper — Florida", floridaCopy: true },
@@ -6917,6 +7020,22 @@ const EXPECTED = {
   acquisitionDocumentVectors: [],
   financialPositionStates: {"p15": {"money": true, "acqBasis": "not_published", "total": "none", "totalText": "Not published", "docs": ["INSTRUCTIONS", "FORM", "SOURCE_PAGE"], "order": true, "noScore": true}, "p3": {"money": true, "acqBasis": "partial", "total": "none", "totalText": "Not published", "docs": ["INSTRUCTIONS", "DOCUMENT", "SOURCE_PAGE"], "order": true, "noScore": true}, "ptx3": {"money": true, "acqBasis": "vendor", "total": "none", "totalText": "Not published", "docs": ["INSTRUCTIONS", "SOURCE_PAGE"], "order": true, "noScore": true}, "pla1": {"money": true, "acqBasis": "not_published", "total": "none", "totalText": "Not published", "docs": ["INSTRUCTIONS", "DOCUMENT", "SOURCE_PAGE"], "order": true, "noScore": true}, "pmi_dlba1": {"money": true, "acqBasis": "program_price", "total": "none", "totalText": "Not published", "docs": ["SOURCE_PAGE"], "order": true, "noScore": true}, "psc_horry1": {"money": true, "acqBasis": "partial", "total": "none", "totalText": "Not published", "docs": ["FORM", "SOURCE_PAGE"], "order": true, "noScore": true}},
   // Final visual refinement (2026-10-05).
+  // County Intelligence page (2026-10-06).
+  countyVectors: [],
+  countyAlachua: {"hash": "#/county/Alachua", "pageVisible": true, "listHidden": true, "title": "Alachua County", "reached": "SOURCE_VERIFIED", "steps": ["DISCOVERED=VERIFIED", "SOURCE_VERIFIED=VERIFIED", "INVENTORY_VERIFIED=PARTIAL", "ACQUISITION_PATH_VERIFIED=PARTIAL", "PROPERTY_DATA_VERIFIED=NOT_VERIFIED", "OUTCOME_DATA_VERIFIED=NOT_VERIFIED"], "sections": ["available", "auctions", "liens", "property", "truth", "gaps"], "nextSale": true, "outcomes": ["not_verified"], "gaps": ["coordinates", "auction_process", "outcomes"], "acqUnits": ["fl_laft_realtdm=VERIFIED"], "noScore": true, "navOn": true},
+  countyCitrus: {"hash": "#/county/Citrus", "pageVisible": true, "listHidden": true, "title": "Citrus County", "reached": "SOURCE_VERIFIED", "steps": ["DISCOVERED=VERIFIED", "SOURCE_VERIFIED=VERIFIED", "INVENTORY_VERIFIED=PARTIAL", "ACQUISITION_PATH_VERIFIED=PARTIAL", "PROPERTY_DATA_VERIFIED=NOT_VERIFIED", "OUTCOME_DATA_VERIFIED=NOT_APPLICABLE"], "sections": ["available", "auctions", "liens", "property", "truth", "gaps"], "nextSale": false, "outcomes": [], "gaps": ["amount", "coordinates_source", "auction_process", "outcomes"], "acqUnits": ["fl_laft_pioneer=VERIFIED", "fl_laft_html=VERIFIED"], "noScore": true, "navOn": true},
+  countyUnknown: {"hash": "#/county/Nowhere", "pageVisible": true, "listHidden": true, "title": "Nowhere County", "reached": "NONE", "steps": ["DISCOVERED=NOT_VERIFIED", "SOURCE_VERIFIED=NOT_VERIFIED", "INVENTORY_VERIFIED=NOT_VERIFIED", "ACQUISITION_PATH_VERIFIED=NOT_APPLICABLE", "PROPERTY_DATA_VERIFIED=NOT_APPLICABLE", "OUTCOME_DATA_VERIFIED=NOT_APPLICABLE"], "sections": ["available", "auctions", "property", "truth", "gaps"], "nextSale": false, "outcomes": [], "gaps": ["no_source"], "acqUnits": [], "noScore": true, "navOn": true},
+  countyIndex: {"hash": "#/counties", "rows": 66, "hasCitrus": true, "navOn": true},
+  countyIndexFilter: ["Citrus"],
+  countyIndexToPage: "#/county/Citrus",
+  countyToList: {"hash": "#/lands", "listVisible": true, "counties": ["Citrus"]},
+  propertyToCounty: {"hash": "#/county/Citrus", "detailClosed": true},
+  dossierToCountyPage: {"hash": "#/county/Citrus", "modalClosed": true},
+  auctionCountyLinkText: "County auction intelligence →",
+  countyMarionHistory: "No past auction on file for this county - historical results are not available here.",
+  countyOverflow: [],
+  countyRecords: {"auction": ["p1"], "certificate": ["p4"]},
+  countyRecordOpens: "#/auctions/p1",
   // Current acquisition amounts (2026-10-06).
   amountVectors: [],
   amountMeta: {"pa": {"semantic": "OPENING_BID", "rows": ["Amount type: Opening bid", "Valid through: Not published"], "statusMatchesRule": true}, "ok": {"semantic": "OTHER_PUBLISHED_AMOUNT", "rows": ["Amount type: Other published amount", "Valid through: Not published"], "statusMatchesRule": true}, "mo": {"semantic": "NONE", "rows": ["Amount type: Not published", "Valid through: Not published"], "statusMatchesRule": true}, "mn": {"semantic": "OPENING_BID", "rows": ["Amount type: Opening bid", "Valid through: Not published"], "statusMatchesRule": true}},

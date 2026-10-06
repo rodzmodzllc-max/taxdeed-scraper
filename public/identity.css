@@ -700,3 +700,85 @@ body:has(#authGate:not([hidden])){padding-bottom:0!important}
 .fp-meta dt { color: var(--ink-soft); }
 .fp-meta dd { margin: 0; }
 .fp-acq[data-fp-basis] .fp-meta[data-amount-temporal="EXPIRED"] dd:nth-of-type(2) { color: var(--bad, #9b2c2c); font-weight: 600; }
+
+/* ---- County Intelligence page (2026-10-06) -------------------------- */
+.county-page{padding:1.25rem 1rem 3rem;max-width:1180px;margin:0 auto}
+.cty-crumbs{font-size:.8rem;color:var(--warm-gray);margin-bottom:.6rem}
+.cty-head{border-bottom:2px solid var(--rule-strong);padding-bottom:.9rem;margin-bottom:1rem}
+.cty-kicker{font-family:var(--font-mono,monospace);font-size:.7rem;letter-spacing:.14em;text-transform:uppercase;color:var(--warm-gray);margin:0}
+.cty-title{font-family:var(--font-display);font-size:clamp(1.6rem,4vw,2.4rem);font-weight:600;margin:.15rem 0 .3rem;color:var(--charcoal)}
+.cty-lede{color:var(--warm-gray);max-width:62ch;margin:0}
+.cty-ledger-strip{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.8rem}
+.cty-ledger-count{display:inline-flex;align-items:center;gap:.4rem;min-height:44px;padding:.35rem .8rem;border:1px solid var(--rule);background:var(--paper-white);color:var(--charcoal);font:inherit;border-radius:var(--radius-sm);cursor:pointer}
+.cty-ledger-count:disabled{opacity:.55;cursor:default}
+.cty-ledger-count b{font-variant-numeric:tabular-nums}
+.cty-dot{display:inline-block;width:.6rem;height:.6rem;border-radius:50%;background:var(--warm-gray);flex-shrink:0}
+.cty-dot[data-ledger="laft"]{background:var(--c-laft)}.cty-dot[data-ledger="auction"]{background:var(--c-auction)}.cty-dot[data-ledger="certificate"]{background:var(--c-certificate)}
+.cty-ladder{border:1px solid var(--rule);background:var(--paper-white);padding:.9rem 1rem;margin-bottom:1.2rem}
+.cty-ladder-head{margin:0 0 .6rem}.cty-next{color:var(--warm-gray)}
+.cty-steps{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:0;border-top:1px solid var(--rule)}
+.cty-step{padding:.55rem .6rem .4rem;border-right:1px solid var(--rule);border-top:3px solid var(--rule);display:flex;flex-direction:column;gap:.15rem;min-width:0}
+.cty-step:last-child{border-right:0}
+.cty-step[data-state="VERIFIED"]{border-top-color:var(--ok)}
+.cty-step[data-state="PARTIAL"]{border-top-color:var(--warn)}
+.cty-step[data-state="NOT_APPLICABLE"]{border-top-style:dashed}
+.cty-step-name{font-weight:600;font-size:.82rem}
+.cty-step-state{font-size:.74rem;color:var(--warm-gray);text-transform:uppercase;letter-spacing:.06em}
+.cty-step[data-state="VERIFIED"] .cty-step-state{color:var(--ok)}.cty-step[data-state="PARTIAL"] .cty-step-state{color:var(--warn)}
+.cty-step-why{font-size:.76rem;color:var(--warm-gray);overflow-wrap:anywhere}
+.cty-note,.cty-sub{font-size:.8rem;color:var(--warm-gray);margin:.5rem 0 0}
+.cty-section{border-top:2px solid var(--rule-strong);padding-top:.7rem;margin-top:1.4rem}
+.cty-section h3{display:flex;align-items:center;gap:.45rem;flex-wrap:wrap;font-family:var(--font-display);font-size:1.25rem;margin:0 0 .6rem}
+.cty-section h4{font-size:.78rem;letter-spacing:.1em;text-transform:uppercase;color:var(--warm-gray);margin:1rem 0 .4rem}
+.cty-q{font-family:inherit;font-size:.85rem;font-weight:400;color:var(--warm-gray)}
+.cty-kv{display:grid;grid-template-columns:minmax(10rem,16rem) 1fr;gap:.35rem 1rem;margin:0}
+.cty-kv dt{color:var(--warm-gray);font-size:.86rem}.cty-kv dd{margin:0;overflow-wrap:anywhere}
+.cty-kv .kv-sub{display:block;font-size:.78rem;color:var(--warm-gray)}
+.cty-srcs{list-style:none;margin:.8rem 0 0;padding:0;border-top:1px solid var(--rule)}
+.cty-src{padding:.5rem 0;border-bottom:1px solid var(--rule)}.cty-src-meta{font-size:.8rem;color:var(--warm-gray)}
+.cty-unit{border:1px solid var(--rule);background:var(--paper-white);padding:.7rem .85rem;margin-top:.8rem}
+.cty-unit h4{margin:0 0 .45rem;text-transform:none;letter-spacing:0;font-size:.95rem;color:var(--charcoal)}
+.cty-sales,.cty-outcomes,.cty-gaps{margin:.2rem 0 0;padding-left:1.1rem}
+.cty-sales li,.cty-outcomes li,.cty-gaps li{margin:.2rem 0}
+.cty-actions{display:flex;flex-wrap:wrap;gap:.8rem;margin-top:.8rem}
+.cty-table-wrap{overflow-x:auto}
+.cty-table{width:100%;border-collapse:collapse;font-size:.85rem}
+.cty-table th,.cty-table td{text-align:left;padding:.45rem .5rem;border-bottom:1px solid var(--rule);vertical-align:top}
+.cty-table th{font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--warm-gray);font-weight:600}
+.cty-index-tools{display:flex;flex-wrap:wrap;gap:.8rem;align-items:center;margin-bottom:.8rem}
+.cty-index-tools input{min-height:44px;flex:1 1 16rem;max-width:26rem;padding:.4rem .7rem;border:1px solid var(--rule);background:var(--paper-white);font:inherit}
+.cty-index-legend,.cty-row-btn{display:grid;grid-template-columns:minmax(8rem,1.1fr) minmax(9rem,1.2fr) minmax(9rem,1fr) minmax(7rem,.8fr);gap:.6rem;align-items:center}
+.cty-index-legend{font-size:.7rem;letter-spacing:.1em;text-transform:uppercase;color:var(--warm-gray);padding:.3rem .6rem;border-bottom:2px solid var(--rule-strong)}
+.cty-rows{list-style:none;margin:0;padding:0}
+.cty-row-btn{width:100%;min-height:44px;padding:.55rem .6rem;border:0;border-bottom:1px solid var(--rule);background:transparent;color:var(--charcoal);font:inherit;text-align:left;cursor:pointer}
+.cty-row-btn:hover,.cty-row-btn:focus-visible{background:var(--paper-white)}
+.cty-row-name{font-weight:600}.cty-row-status,.cty-row-next{font-size:.82rem;color:var(--warm-gray)}
+.cty-row-counts{display:grid;grid-template-columns:repeat(3,1fr);gap:.3rem;font-variant-numeric:tabular-nums}
+.cty-row-counts [data-ledger="laft"]{color:var(--c-laft)}.cty-row-counts [data-ledger="auction"]{color:var(--c-auction)}.cty-row-counts [data-ledger="certificate"]{color:var(--c-certificate)}
+.dossier-full{margin:1rem 0 .4rem}
+@media (max-width:900px){
+  .cty-steps{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .cty-step:nth-child(2n){border-right:0}
+}
+@media (max-width:640px){
+  .county-page{padding:1rem 1rem 5rem}
+  .cty-steps{grid-template-columns:1fr}
+  .cty-step{border-right:0}
+  .cty-kv{grid-template-columns:1fr;gap:.1rem}
+  .cty-kv dd{margin-bottom:.45rem}
+  .cty-index-legend{display:none}
+  .cty-row-btn{grid-template-columns:1fr auto;grid-template-areas:"name counts" "status next"}
+  .cty-row-name{grid-area:name}.cty-row-counts{grid-area:counts}.cty-row-status{grid-area:status}.cty-row-next{grid-area:next;text-align:right}
+  .cty-table thead{display:none}
+  .cty-table tr{display:block;border-bottom:1px solid var(--rule);padding:.4rem 0}
+  .cty-table td{display:block;border:0;padding:.1rem 0}
+}
+
+/* County -> property records (2026-10-06) */
+.cty-records{list-style:none;margin:.2rem 0 .6rem;padding:0;border-top:1px solid var(--rule)}
+.cty-record{border-bottom:1px solid var(--rule)}
+.cty-record-btn{display:grid;grid-template-columns:1fr auto;column-gap:.8rem;width:100%;padding:.45rem 0;background:none;border:0;text-align:left;color:inherit;cursor:pointer;font:inherit;min-height:44px}
+.cty-record-btn:hover .cty-record-title,.cty-record-btn:focus-visible .cty-record-title{text-decoration:underline}
+.cty-record-title{font-weight:600;overflow-wrap:anywhere}
+.cty-record-sub{grid-column:1;font-size:.8rem;color:var(--ink-soft);overflow-wrap:anywhere}
+.cty-record-go{grid-column:2;grid-row:1 / span 2;align-self:center;font-size:.8rem;color:var(--copper-deep);white-space:nowrap}
