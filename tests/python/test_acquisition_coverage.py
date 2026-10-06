@@ -93,6 +93,65 @@ def test_c04b_unstamped_row_with_a_source_id_receives_its_countys_verified_proce
     assert L.carry_plan([dict(row, source_id=None)], set(), CTX, have_023=True) == []
 
 
+# The production Pasco parse artifact (2026-10-06, read-only): case "2. The"
+# and a 465-character run-together parcel. Shape reproduced, text synthetic.
+JUNK_PARCEL = ("PARCEL 12-34-56-0010-00100-0010 ESCHEATEDTOCOUNTY " * 10).strip()
+
+
+def _unstamped(**kw):
+    row = {"id": 11, "county": "Pasco", "case_no": "2019-TD-1", "parcel": "12-34-56-0010-00100-0010",
+           "status": "active", "last_seen_at": None, "otc_provenance": None, "source_id": "fl_laft_pdfs",
+           "list_url": "https://www.pascoclerk.com/x", "document_url": None}
+    row.update(kw)
+    return row
+
+
+def test_c04d_legitimate_unstamped_row_receives_its_countys_verified_process():
+    (row_id, payload), = L.carry_plan([_unstamped()], set(), CTX, have_023=True)
+    assert row_id == 11 and payload["purchase_path_type"] == "phone_mail"
+    assert payload["otc_provenance"].get("acquisition")
+    # A row with only one of the two identifiers is still a legitimate row.
+    assert L.carry_plan([_unstamped(parcel=None)], set(), CTX, have_023=True)
+    assert L.carry_plan([_unstamped(case_no="")], set(), CTX, have_023=True)
+
+
+def test_c04e_malformed_identifier_receives_nothing_and_is_not_touched():
+    junk = _unstamped(case_no="2. The", parcel=JUNK_PARCEL)
+    before = dict(junk)
+    assert len(JUNK_PARCEL) > 400
+    assert L.carry_plan([junk], set(), CTX, have_023=True) == []
+    assert junk == before                                   # nothing closed, edited or removed
+    # Each rule on its own is enough to withhold the county's process.
+    for bad in ({"parcel": JUNK_PARCEL},                     # over the parcel length limit
+                {"case_no": "2. The"},                       # a single digit is not an identity
+                {"parcel": "12-34\n56-78"},                  # spans a line break
+                {"parcel": "SEE ATTACHED", "case_no": None}, # no digit
+                {"parcel": None, "case_no": None}):          # no identifier at all
+        assert L.carry_plan([_unstamped(**bad)], set(), CTX, have_023=True) == [], bad
+    assert not L.carry_identifiers_valid(junk)
+    assert L.carry_identifiers_valid(_unstamped())
+
+
+def test_c04f_unavailable_county_evidence_receives_nothing():
+    # Hendry's two production rows (identifiers valid, county evidence UNAVAILABLE).
+    for case_no, parcel in (("23-09", "2-01-43-29-010-0050-F020"),
+                            ("23-09 / Cert 15-2918", "2 29 43 01 010 0050-F02.0")):
+        row = _unstamped(county="Hendry", case_no=case_no, parcel=parcel, list_url=None)
+        assert L.carry_identifiers_valid(row)
+        assert L.carry_plan([row], set(), CTX, have_023=True) == []
+
+
+def test_c04g_copied_evidence_never_claims_a_county_list_match():
+    for row in (_unstamped(), _unstamped(document_url="https://www.pascoclerk.com/list.pdf")):
+        (_, payload), = L.carry_plan([row], set(), CTX, have_023=True)
+        prov = payload["otc_provenance"]
+        assert "source_match" not in prov
+        assert "last_seen_at" not in payload and "status" not in payload
+        assert prov.get("source_id") in (None, "fl_laft_pdfs")   # evidence from the row's own source only
+    other = _unstamped(source_id="fl_laft_html")              # same county, a source with no Pasco evidence
+    assert L.carry_plan([other], set(), CTX, have_023=True) == []
+
+
 def test_c04c_lifecycle_reads_the_row_columns_the_unstamped_carry_needs():
     assert {"source_id", "list_url", "document_url"} <= set(L.CARRY_017_COLUMNS)
     assert set(L.CARRY_017_COLUMNS) <= set(L.CARRY_COLUMNS)
