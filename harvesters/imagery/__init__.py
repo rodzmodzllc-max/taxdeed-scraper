@@ -199,6 +199,35 @@ def imagery_state(row: dict) -> str:
     return "no_coordinates"
 
 
+# --- what the image's centre stands for (2026-10-06) -----------------------
+# The live image is centred on the record's coordinates; how much that centre
+# can be trusted depends on where the coordinates came from. "parcel" = a tax
+# roll / parcel layer (the parcel itself); "listed_point" = the point the
+# source list publishes for the record; "approximate" = a vendor listing, an
+# address geocode or an unrecorded origin - the image may show neighbouring
+# land. Never a statement about the property itself.
+IMAGERY_BASES = ("parcel", "listed_point", "approximate", "none")
+BASIS_OF_MATCH = {
+    "parcel_roll_coordinates": "parcel", "parcel_layer_coordinates": "parcel",
+    "source_coordinates": "listed_point",
+    "vendor_coordinates": "approximate", "geocoded_address": "approximate", "recorded_coordinates": "approximate",
+    "none": "none",
+}
+BASIS_LABELS = {
+    "parcel": "Centered on the parcel's own location (official parcel / tax-roll layer)",
+    "listed_point": "Centered on the point the source list publishes for this record",
+    "approximate": "Approximate point (not from an official parcel layer) - the image may show neighbouring land",
+    "none": "No coordinates on file - no image can be matched to this record",
+}
+# Shown with every image: what aerial imagery does NOT establish.
+CONTEXT_NOTE = ("Aerial imagery is context only: it does not show parcel boundaries, ownership, "
+                "current condition or title.")
+
+
+def imagery_basis(row: dict) -> str:
+    return BASIS_OF_MATCH[match_method(row)]
+
+
 # --- priority -------------------------------------------------------------
 
 CUSTOMER_PUBLICATION = ("APPROVED", "APPROVED_GRANDFATHERED")
@@ -244,6 +273,7 @@ def coverage(rows) -> list[dict]:
             c["attempted_stored"] += 1
         m = match_method(r)
         c["match_" + m] += 1
+        c["basis_" + BASIS_OF_MATCH[m]] += 1
         if m != "none":
             c["deterministic_match"] += 1
     out = []
@@ -257,6 +287,8 @@ def coverage(rows) -> list[dict]:
             "stored_images": c["state_stored"], "live_images": c["state_live"],
             "displayed": displayed,
             "checked_no_image": c["state_checked_no_image"],
+            "parcel_centred": c["basis_parcel"], "listed_point": c["basis_listed_point"],
+            "approximate_point": c["basis_approximate"],
             "missing": c["available"] - displayed,
             "attempted_stored": c["attempted_stored"],
             "image_sources": ["usda_naip"] if displayed else [],

@@ -1446,6 +1446,18 @@ var IMAGERY_MATCH_LABELS = {
   none: "No property imagery available - no coordinates on file"
 };
 var IMAGERY_PROVENANCE_METHOD = { county_list: "source_coordinates", fdor_nal: "parcel_roll_coordinates", statewide_parcel: "parcel_layer_coordinates", county_gis: "parcel_layer_coordinates", vendor_listing: "vendor_coordinates", census_geocoder: "geocoded_address" };
+// What the image's centre stands for (2026-10-06) - harvesters/imagery
+// BASIS_OF_MATCH / BASIS_LABELS / CONTEXT_NOTE, pinned by
+// tests/python/fixtures/imagery_cases.json. var: TDZ.
+var IMAGERY_BASIS_OF_MATCH = { parcel_roll_coordinates: "parcel", parcel_layer_coordinates: "parcel", source_coordinates: "listed_point",
+  vendor_coordinates: "approximate", geocoded_address: "approximate", recorded_coordinates: "approximate", none: "none" };
+var IMAGERY_BASIS_LABELS = {
+  parcel: "Centered on the parcel's own location (official parcel / tax-roll layer)",
+  listed_point: "Centered on the point the source list publishes for this record",
+  approximate: "Approximate point (not from an official parcel layer) - the image may show neighbouring land",
+  none: "No coordinates on file - no image can be matched to this record"
+};
+var IMAGERY_CONTEXT_NOTE = "Aerial imagery is context only: it does not show parcel boundaries, ownership, current condition or title.";
 // Authoritative coordinates (2026-10-06): how a row's latitude / longitude
 // were obtained - harvesters/sources/coordinates.py coordinate_provenance(),
 // pinned by tests/python/fixtures/coordinate_cases.json. var: TDZ.
@@ -1521,11 +1533,18 @@ function imageryState(p) {
   if (p && p.photo_url === "") return "checked_no_image";
   return imageryHasCoords(p) ? "live" : "no_coordinates";
 }
+function imageryBasis(p) { return IMAGERY_BASIS_OF_MATCH[imageryMatchMethod(p)]; }
+// This session only: the live image was requested and did not load.
+function naipFailedFor(p) { return imageryHasCoords(p) && naipFailedSet().has(naipKey(p.latitude, p.longitude)); }
 function naipLiveHtml(p, cls) {
   const big = cls === "detail-hero-photo";
   const sz = big ? NAIP_DETAIL_SIZE : NAIP_THUMB_SIZE;
   const match = imageryMatchMethod(p);
-  return `<div class="${cls} has-photo naip-live" data-imagery="naip_live" data-match="${esc(match)}" data-lat="${Number(p.latitude)}" data-lng="${Number(p.longitude)}" data-county="${esc(p.county)}"><img class="naip-live-img" data-naip-src="${esc(naipExportUrl(p.latitude, p.longitude, sz))}" alt="USDA NAIP aerial image centered on this record's coordinates" loading="lazy" decoding="async" width="${sz[0]}" height="${sz[1]}"><span class="photo-caption" title="${esc(IMAGERY_MATCH_LABELS[match] + ". Imagery may be years old and does not show current condition.")}">${esc(big ? "Aerial imagery · USDA NAIP (public domain) · " + IMAGERY_MATCH_LABELS[match].replace(/^Centered on /, "centered on ") : "Aerial · USDA NAIP")}</span></div>`;
+  const basis = IMAGERY_BASIS_OF_MATCH[match];
+  const approx = basis === "approximate";
+  const caption = big ? "Aerial imagery · USDA NAIP (public domain) · " + IMAGERY_MATCH_LABELS[match].replace(/^Centered on /, "centered on ") + (approx ? " · approximate point" : "")
+    : "Aerial · USDA NAIP" + (approx ? " · approx. point" : "");
+  return `<div class="${cls} has-photo naip-live" data-imagery="naip_live" data-match="${esc(match)}" data-basis="${esc(basis)}" data-lat="${Number(p.latitude)}" data-lng="${Number(p.longitude)}" data-county="${esc(p.county)}"><img class="naip-live-img" data-naip-src="${esc(naipExportUrl(p.latitude, p.longitude, sz))}" alt="USDA NAIP aerial image centered on this record's coordinates" loading="lazy" decoding="async" width="${sz[0]}" height="${sz[1]}"><span class="photo-caption" title="${esc(IMAGERY_BASIS_LABELS[basis] + ". Imagery may be years old. " + IMAGERY_CONTEXT_NOTE)}">${esc(caption)}</span></div>`;
 }
 function propertyVisual(p, cls) {
   if (hasPhoto(p)) return photoOrPlaceholder(p, cls);
@@ -1537,7 +1556,10 @@ function propertyVisual(p, cls) {
   }
   if (cls === "pv-visual") return "";
   if (coords) {
-    return `<div class="${cls} minimap" data-lat="${Number(p.latitude)}" data-lng="${Number(p.longitude)}" data-county="${esc(p.county)}"><span class="photo-caption">Location in ${esc(p.county)} ${UNIT_WORD}</span></div>`;
+    // A live aerial image that was requested and did not load says so, rather
+    // than reading as if no image was ever tried.
+    const failed = naipLiveEnabled() && naipFailedFor(p);
+    return `<div class="${cls} minimap" data-lat="${Number(p.latitude)}" data-lng="${Number(p.longitude)}" data-county="${esc(p.county)}"${failed ? ' data-imagery="naip_failed"' : ""}><span class="photo-caption">${failed ? "Aerial image unavailable · " : ""}Location in ${esc(p.county)} ${UNIT_WORD}</span></div>`;
   }
   // No coordinates: the county in context, drawn from the app's own basemap
   // (no request leaves the site), captioned with what is and is not known.
@@ -1730,12 +1752,13 @@ document.addEventListener("error", e => {
     naipFailedSet().add(naipKey(host.dataset.lat, host.dataset.lng));
     const sat = staticImageUrl({ latitude: host.dataset.lat, longitude: host.dataset.lng });
     host.classList.remove("naip-live");
-    delete host.dataset.imagery;
+    host.dataset.imagery = "naip_failed";
     if (sat) {
       img.className = "static-sat-img";
       img.src = sat.url;
       host.classList.add("static-sat");
       host.dataset.provider = sat.provider;
+      host.dataset.imagery = "provider_static";
       const cap = host.querySelector(".photo-caption");
       if (cap) { cap.textContent = sat.label; cap.removeAttribute("title"); }
       return;
@@ -1750,14 +1773,15 @@ document.addEventListener("error", e => {
   host.classList.remove("has-photo", "static-sat");
   if (host.classList.contains("pv-visual")) { host.remove(); return; }
   host.classList.add("minimap");
-  if (cap) cap.textContent = `Location in ${host.dataset.county || ""} ${UNIT_WORD}`;
+  // Say the aerial image failed, never just "location" as if none was tried.
+  if (cap) cap.textContent = `${host.dataset.imagery === "naip_failed" ? "Aerial image unavailable · " : ""}Location in ${host.dataset.county || ""} ${UNIT_WORD}`;
   hydrateVisuals(host.parentElement);
 }, true);
 // Exposed for the regression suite (tests/run_test.mjs) to check the URL
 // builder without a key in the fixture - same pattern as __tdwMapLastRender.
 window.__tdwCoordinates = { coordinateProvenance };
 window.__tdwAcqEvidence = { acquisitionEvidenceStatus, labels: ACQ_EVIDENCE_STATUS_LABELS };
-window.__tdwImagery = { staticImageUrl, naipExportUrl, imageryMatchMethod, imageryState };
+window.__tdwImagery = { staticImageUrl, naipExportUrl, imageryMatchMethod, imageryState, imageryBasis };
 // A small, free, key-less embedded map (OpenStreetMap's own export/embed
 // iframe) for the detail view's GIS & Location card - only ever rendered
 // when scripts/geocode_properties.py has actually filled in real
@@ -7930,11 +7954,13 @@ function sourceTruthHtml(p) {
 function imageryTruthHtml(p) {
   const sub = t => `<span class="kv-sub">${esc(t)}</span>`;
   const st = imageryState(p);
-  if (st === "stored") return esc(photoCaption(p)) + sub(p.photo_source === "usda_naip" ? "A stored copy of USDA NAIP aerial imagery (public domain), centered on this record's coordinates." : "A stored image; its source is named in the caption.");
+  if (st === "stored") return esc(photoCaption(p)) + sub(p.photo_source === "usda_naip" ? "A stored copy of USDA NAIP aerial imagery (public domain), centered on this record's coordinates." : "A stored image; its source is named in the caption.") + sub(IMAGERY_CONTEXT_NOTE);
   if (st === "checked_no_image") return `<span class="muted">No imagery</span>` + sub("The aerial-imagery check found no NAIP coverage at these coordinates.");
   if (st === "no_coordinates") return `<span class="muted">No property imagery available</span>` + sub("No coordinates are on file for this record, so no image can be matched to it.");
   if (!naipLiveEnabled()) return `<span class="muted">Not shown</span>` + sub("Live aerial imagery is switched off on this deployment.");
-  return "USDA NAIP aerial imagery (public domain), from USGS The National Map" + sub(IMAGERY_MATCH_LABELS[imageryMatchMethod(p)] + ". Imagery may be years old.");
+  if (naipFailedFor(p)) return `<span class="muted">Aerial image unavailable</span>` + sub("The live USDA NAIP image was requested for these coordinates and did not load this session.");
+  return "USDA NAIP aerial imagery (public domain), from USGS The National Map" + sub(IMAGERY_MATCH_LABELS[imageryMatchMethod(p)] + ". Imagery may be years old.")
+    + sub(IMAGERY_BASIS_LABELS[imageryBasis(p)] + ".") + sub(IMAGERY_CONTEXT_NOTE);
 }
 function detailStatusHtml(p) {
   const k = kickerParts(p);

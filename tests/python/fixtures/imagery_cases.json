@@ -17,7 +17,8 @@
     400,
     300
    ],
-   "url": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?bbox=-91.188254,30.450635,-91.187054,30.451835&bboxSR=4326&size=400,300&format=jpg&f=image"
+   "url": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?bbox=-91.188254,30.450635,-91.187054,30.451835&bboxSR=4326&size=400,300&format=jpg&f=image",
+   "basis": "listed_point"
   },
   {
    "name": "fl_fdor_roll",
@@ -36,7 +37,8 @@
     800,
     600
    ],
-   "url": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?bbox=-82.500600,28.799400,-82.499400,28.800600&bboxSR=4326&size=800,600&format=jpg&f=image"
+   "url": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?bbox=-82.500600,28.799400,-82.499400,28.800600&bboxSR=4326&size=800,600&format=jpg&f=image",
+   "basis": "parcel"
   },
   {
    "name": "tx_vendor",
@@ -55,7 +57,8 @@
     400,
     300
    ],
-   "url": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?bbox=-94.800600,29.299400,-94.799400,29.300600&bboxSR=4326&size=400,300&format=jpg&f=image"
+   "url": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?bbox=-94.800600,29.299400,-94.799400,29.300600&bboxSR=4326&size=400,300&format=jpg&f=image",
+   "basis": "approximate"
   },
   {
    "name": "fl_unrecorded_origin",
@@ -70,7 +73,8 @@
     400,
     300
    ],
-   "url": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?bbox=-85.600600,30.099400,-85.599400,30.100600&bboxSR=4326&size=400,300&format=jpg&f=image"
+   "url": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?bbox=-85.600600,30.099400,-85.599400,30.100600&bboxSR=4326&size=400,300&format=jpg&f=image",
+   "basis": "approximate"
   },
   {
    "name": "no_coordinates",
@@ -79,7 +83,8 @@
     "longitude": null
    },
    "match": "none",
-   "state": "no_coordinates"
+   "state": "no_coordinates",
+   "basis": "none"
   },
   {
    "name": "zero_zero_is_not_a_location",
@@ -88,7 +93,8 @@
     "longitude": 0
    },
    "match": "none",
-   "state": "no_coordinates"
+   "state": "no_coordinates",
+   "basis": "none"
   },
   {
    "name": "stored_photo",
@@ -98,7 +104,8 @@
     "photo_url": "https://x.supabase.co/a.webp"
    },
    "match": "recorded_coordinates",
-   "state": "stored"
+   "state": "stored",
+   "basis": "approximate"
   },
   {
    "name": "checked_no_image",
@@ -108,7 +115,38 @@
     "photo_url": ""
    },
    "match": "recorded_coordinates",
-   "state": "checked_no_image"
+   "state": "checked_no_image",
+   "basis": "approximate"
+  },
+  {
+   "name": "co_parcel_layer",
+   "row": {
+    "latitude": 40.25,
+    "longitude": -103.8,
+    "field_provenance": {
+     "latitude": {
+      "source": "statewide_parcel"
+     }
+    }
+   },
+   "match": "parcel_layer_coordinates",
+   "state": "live",
+   "basis": "parcel"
+  },
+  {
+   "name": "census_geocode",
+   "row": {
+    "latitude": 29.65,
+    "longitude": -82.33,
+    "field_provenance": {
+     "latitude": {
+      "source": "census_geocoder"
+     }
+    }
+   },
+   "match": "geocoded_address",
+   "state": "live",
+   "basis": "approximate"
   }
  ]
 }
