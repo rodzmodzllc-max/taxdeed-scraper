@@ -2643,3 +2643,17 @@ Full description: `docs/identity-redesign.md`. Stable facts:
   - The auction ledger head has `upcomingSalesHtml()`.
   - On the property page, Source truth comes after the map.
 - `sw.js` → `tdw-shell-v90`.
+
+## Opportunity finder + auction command center (2026-10-05, PR open, no migration)
+
+Full description: `docs/opportunity-finder.md`. Stable facts:
+- **Evidence-first sorts** (`pathFirst`, `amountFirst`, `readRecent` in
+  `SORT_COMPARATORS`, options in `#sortBy` / `#sortSecondary`): one criterion
+  each, never a score. Keys cached per `sortRows()` call in `SORT_KEY_CACHE`
+  (a `var` - TDZ).
+- **Record badges** (`recordBadges(p)`): path / official / amount (Available
+  only) / fresh (≤ 7 days) / dated. A fact or nothing; no weighting.
+- **Auction command center** (`auctionCommandRows`, `upcomingSalesHtml`): next
+  45 days of the filtered rows, per sale date + county; links only from
+  `auctionLinkInfo()`; no deposit / registration / bidder terms (none stored).
+- `sw.js` -> `tdw-shell-v91`.
