@@ -4288,6 +4288,123 @@ await navMap.close();
     }
     results.countyOverflow = ov;
   }
+  // ---- My Research: research lists + customer workflow state (2026-10-06) ----
+  {
+    const rp = await newPage({ viewport: { width: 1280, height: 900 } });
+    rp.on('pageerror', e => errors.push('research pageerror: ' + e.message));
+    await rp.goto(BASE_URL + '#/lands/p15', { waitUntil: 'networkidle' });
+    await rp.waitForSelector('#detailModalInner .research-panel .research-add', { timeout: 10000, state: 'attached' });
+    const officialBefore = await rp.evaluate(() => { const p = window.__tdwLastRender ? null : null; return document.querySelector('#detailModalInner [data-official-status]').textContent; });
+    await rp.evaluate(() => { document.querySelector('#detailModalInner .research-new-name').value = 'October Florida Auction'; document.querySelector('#detailModalInner [data-action="researchnewsave"]').click(); });
+    await rp.waitForFunction(() => (window.__tdwResearch().items || []).length === 1, null, { timeout: 5000 });
+    await rp.evaluate(() => { const s = document.querySelector('#detailModalInner select.research-state'); s.value = 'DUE_DILIGENCE'; s.dispatchEvent(new Event('change', { bubbles: true })); });
+    await rp.waitForTimeout(250);
+    await rp.evaluate(() => { const t = document.querySelector('#detailModalInner textarea.research-note'); t.value = 'Ask the clerk about recording fees'; document.querySelector('#detailModalInner [data-action="researchnote"]').click(); });
+    await rp.waitForTimeout(250);
+    const refused = await rp.evaluate(async () => { const it = window.__tdwResearch().items[0]; return [await window.__tdwResearchApi.update(it.id, { research_state: 'SOLD' }), await window.__tdwResearchApi.update(it.id, { research_state: 'available' })]; });
+    results.researchServer = await rp.evaluate(([before, refused]) => {
+      const r = window.__tdwResearch(), db = window.__stubResearchDb();
+      const it = db.research_items[0];
+      return { mode: r.mode, lists: db.research_lists.map(l => l.name), state: it.research_state, note: it.note, refused,
+        officialUnchanged: document.querySelector('#detailModalInner [data-official-status]').textContent === before,
+        noStateOnProperty: !Object.keys((window.__tdwLastRender || { rows: [] }).rows.find(p => p.id === 'p15') || {}).some(k => /research/i.test(k)),
+        storageNote: document.querySelector('#detailModalInner .research-storage').dataset.researchMode };
+    }, [officialBefore, refused]);
+    // A second list, then the My Research page: tabs, rows, the state filter, separate official / research columns.
+    await rp.evaluate(() => { document.querySelector('#detailModalInner .research-new-name').value = 'Watch'; document.querySelector('#detailModalInner [data-action="researchnewsave"]').click(); });
+    await rp.waitForFunction(() => window.__tdwResearch().items.length === 2, null, { timeout: 5000 });
+    await rp.evaluate(() => document.querySelector('[data-action="closedetail"]').click());
+    await rp.waitForTimeout(250);
+    await rp.click('#navResearchBtn');
+    await rp.waitForSelector('#pageResearch .research-table', { timeout: 5000 });
+    results.researchPage = await rp.evaluate(() => ({ hash: location.hash, navOn: document.getElementById('navResearchBtn').classList.contains('on'),
+      tabs: [...document.querySelectorAll('.research-tab')].map(t => t.textContent.trim().replace(/\s+/g, ' ')),
+      head: [...document.querySelectorAll('.research-table th')].map(t => t.textContent.trim()).filter(Boolean),
+      rows: [...document.querySelectorAll('.research-row')].map(r => r.dataset.pid + ':' + r.dataset.state + ':' + r.querySelector('[data-official-status]').textContent.trim()) }));
+    results.researchPipeline = await rp.evaluate(() => [...document.querySelectorAll('#pageResearch .research-step')].map(b => b.dataset.state + '=' + b.querySelector('b').textContent));
+    await rp.click('#pageResearch .research-step[data-state="DUE_DILIGENCE"]');
+    await rp.waitForTimeout(250);
+    results.researchPipelineFilter = await rp.evaluate(() => [...document.querySelectorAll('#pageResearch .research-row')].map(r => r.dataset.state));
+    await rp.click('#pageResearch .research-step[data-state="DUE_DILIGENCE"]');
+    await rp.waitForTimeout(250);
+    await rp.selectOption('#researchStateFilter', 'DUE_DILIGENCE');
+    await rp.waitForTimeout(200);
+    results.researchFilter = await rp.evaluate(() => [...document.querySelectorAll('.research-row')].map(r => r.dataset.state));
+    await rp.selectOption('#researchStateFilter', 'all');
+    await rp.waitForTimeout(200);
+    await rp.click('.research-row [data-action="researchremove"]');
+    await rp.waitForTimeout(250);
+    results.researchAfterRemove = await rp.evaluate(() => ({ items: window.__stubResearchDb().research_items.length, rows: document.querySelectorAll('.research-row').length, navCount: document.getElementById('navResearchCount').textContent }));
+    // Research row -> county page; Home -> My Research.
+    await rp.click('.research-row [data-action="countypage"]');
+    await rp.waitForSelector('#pageCounty .cty', { timeout: 5000 });
+    results.researchToCounty = await rp.evaluate(() => location.hash);
+    await rp.close();
+    // Migration 029 not applied: the same workspace in this browser, labelled, and kept across a reload.
+    const lp = await newPage({ viewport: { width: 1280, height: 900 } });
+    await lp.goto(BASE_URL.replace('index.html', 'index.html?research=none') + '#/lands/p3', { waitUntil: 'networkidle' });
+    await lp.waitForSelector('#detailModalInner .research-panel .research-add', { timeout: 10000, state: 'attached' });
+    await lp.evaluate(() => { document.querySelector('#detailModalInner .research-new-name').value = 'Due Diligence'; document.querySelector('#detailModalInner [data-action="researchnewsave"]').click(); });
+    await lp.waitForFunction(() => window.__tdwResearch().items.length === 1, null, { timeout: 5000 });
+    const localFirst = await lp.evaluate(() => ({ mode: window.__tdwResearch().mode, note: document.querySelector('#detailModalInner .research-storage').dataset.researchMode }));
+    await lp.goto(BASE_URL.replace('index.html', 'index.html?research=none') + '#/research', { waitUntil: 'networkidle' });
+    await lp.waitForSelector('#pageResearch .research-table', { timeout: 10000 });
+    results.researchLocal = Object.assign(localFirst, await lp.evaluate(() => ({ afterReload: document.querySelectorAll('.research-row').length,
+      pageNote: document.querySelector('#pageResearch .research-storage').dataset.researchMode })));
+    await lp.close();
+    const ov = [];
+    for (const w of [390, 430, 768, 1024, 1440, 1920]) {
+      const mp = await newPage({ viewport: { width: w, height: 900 } });
+      await mp.goto(BASE_URL.replace('index.html', 'index.html?research=none') + '#/lands/p15', { waitUntil: 'networkidle' });
+      await mp.waitForSelector('#detailModalInner .research-panel .research-add', { timeout: 10000, state: 'attached' });
+      await mp.evaluate(() => { document.querySelector('#detailModalInner .research-new-name').value = 'Mobile list'; document.querySelector('#detailModalInner [data-action="researchnewsave"]').click(); });
+      await mp.waitForTimeout(300);
+      // A full load (different query) - the saved list lives in this browser in this mode.
+      await mp.goto(BASE_URL.replace('index.html', 'index.html?research=none&v=2') + '#/research', { waitUntil: 'networkidle' });
+      await mp.waitForSelector('#pageResearch .research-row', { timeout: 10000, state: 'attached' });
+      const o = await mp.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+      if (o > 1) ov.push(w + ':' + o);
+      await mp.close();
+    }
+    results.researchOverflow = ov;
+    // Verification pass (2026-10-06): the research state sits in the property's
+    // status band beside - never instead of - the official status; the
+    // section follows the property intelligence; My Research shows a
+    // pipeline and, when empty, how to start.
+    {
+      const vp = await newPage({ viewport: { width: 1280, height: 900 } });
+      await vp.goto(BASE_URL.replace('index.html', 'index.html?research=none&v=verify') + '#/lands/p15', { waitUntil: 'networkidle' });
+      await vp.waitForSelector('#detailModalInner .research-panel .research-add', { timeout: 10000, state: 'attached' });
+      const cellOf = () => vp.evaluate(() => { const c = document.querySelector('#detailModalInner [data-research-cell]');
+        return c ? { state: c.dataset.researchState, own: /not an official status/.test(c.textContent), besideOfficial: !!c.parentElement.querySelector('dd') && c.parentElement.children.length } : null; });
+      results.researchCellBefore = await cellOf();
+      results.researchSectionOrder = await vp.evaluate(() => { const ids = [...document.querySelectorAll('#detailModalInner [data-section]')].map(e => e.dataset.section);
+        return { afterProperty: ids.indexOf('research') > ids.indexOf('property') && ids.indexOf('property') > -1, afterAcquire: ids.indexOf('research') > ids.indexOf('acquire') }; });
+      await vp.evaluate(() => document.querySelector('#detailModalInner [data-research-cell] button').click());
+      results.researchCellJump = await vp.waitForFunction(() => { const r = document.querySelector('#detailModalInner [data-section="research"]').getBoundingClientRect(); return r.top < innerHeight && r.bottom > 0; }, null, { timeout: 4000 }).then(() => true, () => false);
+      await vp.evaluate(() => { document.querySelector('#detailModalInner .research-new-name').value = 'Verify'; document.querySelector('#detailModalInner [data-action="researchnewsave"]').click(); });
+      await vp.waitForTimeout(500);
+      results.researchCellAfter = await cellOf();
+      await vp.close();
+      const ep = await newPage({ viewport: { width: 1280, height: 900 } });
+      await ep.goto(BASE_URL.replace('index.html', 'index.html?research=none&v=empty') + '#/research', { waitUntil: 'networkidle' });
+      await ep.waitForSelector('#pageResearch .research-start', { timeout: 10000 });
+      results.researchEmptyStart = await ep.evaluate(() => ({ steps: document.querySelectorAll('#pageResearch .research-start-steps li').length,
+        browse: !!document.querySelector('#pageResearch [data-action="researchbrowse"]'), counties: !!document.querySelector('#pageResearch [data-action="countyindex"]') }));
+      await ep.click('#pageResearch [data-action="countyindex"]');
+      await ep.waitForSelector('#pageCounty .cty-index', { timeout: 5000 });
+      results.researchEmptyToCounties = await ep.evaluate(() => location.hash);
+      await ep.close();
+      const hp = await newPage({ viewport: { width: 1280, height: 900 } });
+      await hp.goto(BASE_URL.replace('index.html', 'index.html?v=guide') + '#/dashboard', { waitUntil: 'networkidle' });
+      await hp.waitForSelector('#homeGuide [data-guide="research"]', { timeout: 10000 });
+      results.homeGuideWorkflow = await hp.evaluate(() => ({ research: !!document.querySelector('#homeGuide [data-guide="research"]'), counties: !!document.querySelector('#homeGuide [data-guide="counties"]') }));
+      await hp.click('#homeGuide [data-guide="counties"]');
+      await hp.waitForSelector('#pageCounty .cty-index', { timeout: 5000 });
+      results.homeGuideToCounties = await hp.evaluate(() => location.hash);
+      await hp.close();
+    }
+  }
   // ---- Current acquisition amounts: semantic type + currency (2026-10-06) ----
   {
     const av = JSON.parse(fs.readFileSync(new URL('./python/fixtures/amount_semantics_cases.json', import.meta.url), 'utf8'));
@@ -5855,7 +5972,7 @@ const EXPECTED = {
   },
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: {"ready": true, "controlled": true, "tagline": "Public Property Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v99"]},
+  brandSwReload: {"ready": true, "controlled": true, "tagline": "Public Property Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v100"]},
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · TaxDeed-Scraper — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · TaxDeed-Scraper — Florida", floridaCopy: true },
@@ -6196,7 +6313,7 @@ const EXPECTED = {
   mapPageVisibleOnMapNav: true,
   navMapBtnOnAfterMapNav: true,
   mapPageTitle: 'Map',
-  navRailItems: ["dashboard:Home", "list:Search", "map:Map", "watchlist:Watchlist 0/10"],   // shell redesign: per-ledger entries carry the counts
+  navRailItems: ["dashboard:Home", "list:Search", "map:Map", "research:My Research 0", "watchlist:Watchlist 0/10"],   // shell redesign: per-ledger entries carry the counts; My Research (2026-10-06)
   navBottomItems: ['dashboard', 'list', 'map', 'watchlist'],
   navLedgerEntriesGone: 0,
   navDashboardLit: ['dashboard'],
@@ -7034,6 +7151,24 @@ const EXPECTED = {
   auctionCountyLinkText: "County auction intelligence →",
   countyMarionHistory: "No past auction on file for this county - historical results are not available here.",
   countyOverflow: [],
+  // My Research: research lists + workflow state (2026-10-06).
+  researchServer: {"mode": "server", "lists": ["October Florida Auction"], "state": "DUE_DILIGENCE", "note": "Ask the clerk about recording fees", "refused": [false, false], "officialUnchanged": true, "noStateOnProperty": true, "storageNote": "server"},
+  researchPage: {"hash": "#/research", "navOn": true, "tabs": ["All lists 2", "October Florida Auction 1", "Watch 1"], "head": ["From the records", "Your workflow", "Property", "County", "Ledger", "Official status", "Upcoming", "Acquisition path", "Due diligence", "Your research state", "Saved", "Your note"], "rows": ["p15:DUE_DILIGENCE:Available · Available over the counter", "p15:DISCOVERED:Available · Available over the counter"]},
+  researchFilter: ["DUE_DILIGENCE"],
+  researchAfterRemove: {"items": 1, "rows": 1, "navCount": "1"},
+  researchToCounty: "#/county/Citrus",
+  researchLocal: {"mode": "local", "note": "local", "afterReload": 1, "pageNote": "local"},
+  researchOverflow: [],
+  researchCellBefore: {"state": "none", "own": true, "besideOfficial": 4},
+  researchSectionOrder: {"afterProperty": true, "afterAcquire": true},
+  researchCellJump: true,
+  researchCellAfter: {"state": "DISCOVERED", "own": true, "besideOfficial": 4},
+  researchEmptyStart: {"steps": 4, "browse": true, "counties": true},
+  researchEmptyToCounties: "#/counties",
+  researchPipeline: ["DISCOVERED=1", "RESEARCHING=0", "DUE_DILIGENCE=1", "ACQUISITION_READY=0", "PASSED=0", "ACQUIRED=0"],
+  researchPipelineFilter: ["DUE_DILIGENCE"],
+  homeGuideWorkflow: {"research": true, "counties": true},
+  homeGuideToCounties: "#/counties",
   countyRecords: {"auction": ["p1"], "certificate": ["p4"]},
   countyRecordOpens: "#/auctions/p1",
   // Current acquisition amounts (2026-10-06).
@@ -7054,7 +7189,7 @@ const EXPECTED = {
   naipFallback: {"live": 0, "broken": 0, "minimap": true},
   naipOffNoRequests: 0,
   refineLedgerQuestions: {"laft": "What can I acquire now?", "auction": "What is coming up for sale?", "certificate": "What tax lien or certificate am I buying?"},
-  refineDossier: {"status": ["Ledger", "Status", "Last read"], "lastRead": "Sep 20, 2026", "order": ["dossier-status", "acquire", "lien-banner", "risk", "truth", "sources"], "lede": true, "noScoreWords": true},
+  refineDossier: {"status": ["Ledger", "Status", "Last read", "Your research (your label, not an official status)"], "lastRead": "Sep 20, 2026", "order": ["dossier-status", "acquire", "lien-banner", "risk", "truth", "sources"], "lede": true, "noScoreWords": true},
   refineViewports: [],
   // Available price honesty (2026-10-05).
   priceWording: {"openingBid": {"label": "Opening bid", "partial": true, "note": "Not the full price: the source publishes this as a starting amount. Ask the county for the current total.", "total": null, "expired": null, "gap": "Current purchase total not on file - the listed figure is the opening bid only"}, "fixed": {"label": "Purchase price", "partial": false, "note": "As the source publishes it - confirm the amount due before paying.", "total": null, "expired": null, "gap": null}, "expiredStatement": {"label": "Total due", "partial": true, "note": "Last clerk statement $27,689.42, valid through Aug 31, 2026 - that date has passed. Request an updated statement from the clerk.", "total": 27689.42, "expired": true, "gap": "County purchase statement has expired - request an updated total"}, "currentStatement": {"label": "Total due from purchaser", "partial": true, "note": "Clerk statement, valid if received by Dec 31, 2099.", "total": 27689.42, "expired": false, "gap": null}}

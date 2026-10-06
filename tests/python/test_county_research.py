@@ -39,7 +39,7 @@ def test_no_score_in_output():
 
 
 def test_js_labels_mirror_python():
-    body = re.search(r"var COUNTY_RESEARCH_STEP_LABELS = \{(.*?)\};", APP, re.S).group(1)
+    body = re.search(r"var COUNTY_RESEARCH_STEP_LABELS = (?:COUNTY_RESEARCH_STEP_LABELS \|\| )?\{(.*?)\};", APP, re.S).group(1)
     assert dict(re.findall(r"(\w+):\s*\"([^\"]+)\"", body)) == CR.STEP_LABELS
-    steps = re.search(r"var COUNTY_RESEARCH_STEPS = \[(.*?)\];", APP, re.S).group(1)
+    steps = re.search(r"var COUNTY_RESEARCH_STEPS = (?:COUNTY_RESEARCH_STEPS \|\| )?\[(.*?)\];", APP, re.S).group(1)
     assert tuple(re.findall(r"\"(\w+)\"", steps)) == CR.STEPS
