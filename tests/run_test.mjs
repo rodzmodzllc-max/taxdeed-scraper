@@ -6378,7 +6378,7 @@ const EXPECTED = {
   oppBidText: '$5,000.00 Value ÷ bid 18.0× (screening ratio, not a return)',
   oppValueText: '$90,000 2025 County Just Value · County Assessed Value $80,000',
   oppGaps: ['Image not checked yet', 'Not yet geocoded', 'Flood zone not checked'],
-  detailNavLabels: ["My research", "Due diligence", "Overview", "Decision", "Timeline", "Tax & Value", "Property", "History", "Sale events", "Watch", "Risk & Legal", "Map", "Source truth", "Documents", "Source", "Provenance"],   // shell redesign: section nav reads as tabs   // customer-value sprint: the Auction decision block
+  detailNavLabels: ["Overview", "Decision", "Tax & Value", "Property", "History", "Risk & Legal", "Map", "My research", "Due diligence", "Timeline", "Sale events", "Watch", "Source truth", "Documents", "Source", "Provenance"],   // shell redesign: section nav reads as tabs   // customer-value sprint: the Auction decision block
   detailNavJumpScrolled: true,
   detailNavJumpMarksPill: true,
   showOnMapBtnText: 'Show county on the Map page',
@@ -6523,7 +6523,7 @@ const EXPECTED = {
   rdNavAuction: {"hash": "#/auctions", "title": "Auction Properties"},
   rdGlobal: {"rows": ["p15:Available"], "all": "See all 1 result in the list →", "expanded": "true"},
   rdGlobalOpen: {"modal": true, "crumbs": ["Home/Available/15 Manatee Ln"]},
-  rdDetail: {"tabs": ["How to acquire", "Financial position", "My research", "Due diligence", "Overview", "Decision", "Inventory", "Timeline", "Tax & Value", "Property", "Sale events", "Watch", "Risk & Legal", "Map", "Source truth", "Documents", "Source", "Provenance"], "why": ["It is in the Available ledger for Florida because its source lists it.", "Last read from the source Nd ago.", "Its source is approved for customer publication."], "acquire": 1},
+  rdDetail: {"tabs": ["How to acquire", "Financial position", "Overview", "Decision", "Inventory", "Tax & Value", "Property", "Risk & Legal", "Map", "My research", "Due diligence", "Timeline", "Sale events", "Watch", "Source truth", "Documents", "Source", "Provenance"], "why": ["It is in the Available ledger for Florida because its source lists it.", "Last read from the source Nd ago.", "Its source is approved for customer publication."], "acquire": 1},
   rdCrumbHome: {"modalHidden": true, "dashVisible": true},
   rdGlobalEmpty: "No Florida property matches “zzzz-no-such”. Search covers address, parcel, case and certificate numbers and the county; to look in another state, switch state first.",
   rdGlobalEscape: true,
@@ -7388,7 +7388,7 @@ const EXPECTED = {
   naipFallback: {"live": 0, "broken": 0, "minimap": true},
   naipOffNoRequests: 0,
   refineLedgerQuestions: {"laft": "What can I acquire now?", "auction": "What is coming up for sale?", "certificate": "What tax lien or certificate am I buying?"},
-  refineDossier: {"status": ["Ledger", "Status", "Last read"], "lastRead": "Sep 20, 2026", "order": ["dossier-status", "acquire", "lien-banner", "risk", "truth", "sources"], "lede": true, "noScoreWords": true},
+  refineDossier: {"status": ["Ledger", "Status", "Last read", "Your research (your label, not an official status)"], "lastRead": "Sep 20, 2026", "order": ["dossier-status", "acquire", "lien-banner", "risk", "truth", "sources"], "lede": true, "noScoreWords": true},
   refineViewports: [],
   // Available price honesty (2026-10-05).
   priceWording: {"openingBid": {"label": "Opening bid", "partial": true, "note": "Not the full price: the source publishes this as a starting amount. Ask the county for the current total.", "total": null, "expired": null, "gap": "Current purchase total not on file - the listed figure is the opening bid only"}, "fixed": {"label": "Purchase price", "partial": false, "note": "As the source publishes it - confirm the amount due before paying.", "total": null, "expired": null, "gap": null}, "expiredStatement": {"label": "Total due", "partial": true, "note": "Last clerk statement $27,689.42, valid through Aug 31, 2026 - that date has passed. Request an updated statement from the clerk.", "total": 27689.42, "expired": true, "gap": "County purchase statement has expired - request an updated total"}, "currentStatement": {"label": "Total due from purchaser", "partial": true, "note": "Clerk statement, valid if received by Dec 31, 2099.", "total": 27689.42, "expired": false, "gap": null}}
