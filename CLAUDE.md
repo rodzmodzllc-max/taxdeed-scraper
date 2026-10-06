@@ -2673,3 +2673,21 @@ Full description: `docs/final-visual-refinement.md`. Stable facts:
   bid / Certificate amount, Official listing, County intelligence. Never add a
   score or a confidence.
 - `sw.js` → `tdw-shell-v92`.
+
+## AVAILABLE financial position + documents & links (2026-10-05, PR open, no migration)
+
+Full description: `docs/available-financial-position.md`. Stable facts:
+- **Financial position** (`harvesters/sources/financial_position.py` =
+  app.js `financialPositionCore()`, shared vectors
+  `tests/python/fixtures/financial_position_cases.json`). Parts: current
+  acquisition amount, known tax obligation, known fees, other published
+  amounts, application costs / deposit (always separate), and the total.
+  A total is never computed: it is the source's current statement or
+  "Not published". A value column is never a tax (a test greps for it).
+- **Documents & links** (`harvesters/sources/acquisition_documents.py` = app.js
+  `classifyAcquisitionLink()`, vectors `acquisition_documents_cases.json`):
+  PURCHASE_LINK / FORM / INSTRUCTIONS / DOCUMENT / SOURCE_PAGE. A PDF is never
+  a purchase link, and a non-https link is never shown.
+- **Property page:** `data-section` `money` sits right after `acquire`, and
+  `documents` sits right after `truth`.
+- `sw.js` -> `tdw-shell-v93`.

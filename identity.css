@@ -639,3 +639,34 @@ body:has(#authGate:not([hidden])){padding-bottom:0!important}
    (styles.css, >=1600px) left each row narrower than its own container query
    assumed, and the row's columns overlapped at 1920px. */
 .prop-list,[data-ledger="laft"] .prop-list{grid-template-columns:minmax(0,1fr)!important}
+
+/* ---- Financial position + documents (2026-10-05) ---------------------- */
+.fp-acq,.fp-total{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:.1rem 1rem;align-items:baseline;padding:.55rem 0;border-top:1px solid var(--rule)}
+.fp-total{border-top:2px solid var(--charcoal);margin-top:.4rem}
+.fp-acq-label{font-size:.66rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft)}
+.fp-acq-val{font-family:var(--font-mono);font-size:1.05rem;font-weight:600;color:var(--ink);text-align:right}
+.fp-acq .fp-line-note,.fp-total .fp-line-note{grid-column:1 / -1}
+.fp-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.2rem 1.4rem}
+.fp-group{border-top:1px solid var(--rule);padding:.45rem 0}
+.fp-group-head{font-size:.62rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--led-accent,var(--ink-soft));margin-bottom:.25rem}
+.fp-lines{list-style:none;margin:0;padding:0}
+.fp-lines li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:0 .8rem;padding:.2rem 0;font-size:.82rem}
+.fp-line-amt{font-family:var(--font-mono);text-align:right}
+.fp-line-note{display:block;grid-column:1 / -1;font-size:.72rem;color:var(--ink-soft)}
+.fp-empty,.fp-side{font-size:.8rem;margin:0}
+.acq-docs{list-style:none;margin:0;padding:0}
+.acq-docs li{display:grid;grid-template-columns:minmax(0,9rem) minmax(0,1fr);gap:.2rem 1rem;padding:.42rem 0;border-top:1px solid var(--rule);font-size:.84rem}
+.acq-doc-class{font-family:var(--font-mono);font-size:.62rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft)}
+.acq-docs a{min-height:32px;display:inline-flex;align-items:center;overflow-wrap:anywhere}
+@media (max-width:640px){
+  .fp-grid{grid-template-columns:1fr}
+  .acq-docs li{grid-template-columns:1fr}
+  .acq-docs a{min-height:44px}
+}
+.fp-line-amt .muted{font-family:var(--font-sans);font-size:.74rem;text-align:right}
+.acq-doc-host{display:block;grid-column:2;font-size:.7rem;color:var(--ink-soft)}
+@media (max-width:640px){ .acq-doc-host{grid-column:1} }
+@media (max-width:640px){
+  .fp-lines li{grid-template-columns:1fr}
+  .fp-line-amt,.fp-line-amt .muted{text-align:left}
+}

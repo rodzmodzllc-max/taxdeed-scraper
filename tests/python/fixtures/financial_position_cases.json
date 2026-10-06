@@ -1,0 +1,474 @@
+{
+ "cases": [
+  {
+   "name": "fl_opening_bid_no_statement",
+   "amount": {
+    "state": "partial",
+    "label": "Opening bid",
+    "value": 2000,
+    "display": null
+   },
+   "terms": {
+    "basis": "OPENING_BID_PLUS_ADDITIONS",
+    "additions": "interest|omitted_taxes|doc_stamps|recording_fees",
+    "included_in_figure": "Already inside the opening bid (F.S. 197.502(6)) and never added again",
+    "official_total": "The clerk's Lands Available statement - request it from the clerk."
+   },
+   "statement": null,
+   "expected": {
+    "acquisition": {
+     "label": "Opening bid",
+     "value": 2000.0,
+     "display": null,
+     "authoritative": false,
+     "basis": "partial"
+    },
+    "taxes": [
+     {
+      "key": "included_in_figure",
+      "label": "Already inside the listed figure",
+      "amount": null,
+      "status": "included",
+      "note": "Already inside the opening bid (F.S. 197.502(6)) and never added again"
+     },
+     {
+      "key": "omitted_taxes",
+      "label": "Taxes that came due after the listed figure was set",
+      "amount": null,
+      "status": "added_not_published"
+     }
+    ],
+    "interest": [
+     {
+      "key": "interest",
+      "label": "Interest",
+      "amount": null,
+      "status": "added_not_published"
+     }
+    ],
+    "fees": [
+     {
+      "key": "doc_stamps",
+      "label": "Documentary stamp tax on the deed",
+      "amount": null,
+      "status": "added_not_published"
+     },
+     {
+      "key": "recording_fees",
+      "label": "Recording fees",
+      "amount": null,
+      "status": "added_not_published"
+     }
+    ],
+    "other": [],
+    "known_tax_obligation": null,
+    "application_costs": null,
+    "deposit": null,
+    "total": {
+     "amount": null,
+     "basis": "none",
+     "note": "The clerk's Lands Available statement - request it from the clerk."
+    }
+   }
+  },
+  {
+   "name": "fl_current_statement_no_double_count",
+   "amount": {
+    "state": "official_current",
+    "label": "Total due from purchaser",
+    "value": 27689.42,
+    "display": null
+   },
+   "terms": {
+    "basis": "OPENING_BID_PLUS_ADDITIONS",
+    "additions": "interest|omitted_taxes|doc_stamps|recording_fees",
+    "included_in_figure": "Already inside the opening bid (F.S. 197.502(6)) and never added again",
+    "official_total": "The clerk's Lands Available statement - request it from the clerk."
+   },
+   "statement": {
+    "total": 27689.42,
+    "expired": false,
+    "components": {
+     "opening_bid": 24000,
+     "omitted_taxes": 2100.5,
+     "interest": 980.12,
+     "doc_stamps": 168.8,
+     "recording_fees": 440
+    }
+   },
+   "expected": {
+    "acquisition": {
+     "label": "Official total due",
+     "value": 27689.42,
+     "display": null,
+     "authoritative": true,
+     "basis": "official_statement"
+    },
+    "taxes": [
+     {
+      "key": "omitted_taxes",
+      "label": "Taxes that came due after the listed figure was set",
+      "amount": 2100.5,
+      "status": "included"
+     }
+    ],
+    "interest": [
+     {
+      "key": "interest",
+      "label": "Interest",
+      "amount": 980.12,
+      "status": "included"
+     }
+    ],
+    "fees": [
+     {
+      "key": "doc_stamps",
+      "label": "Documentary stamp tax on the deed",
+      "amount": 168.8,
+      "status": "included"
+     },
+     {
+      "key": "recording_fees",
+      "label": "Recording fees",
+      "amount": 440.0,
+      "status": "included"
+     }
+    ],
+    "other": [
+     {
+      "key": "opening_bid",
+      "label": "Opening bid",
+      "amount": 24000.0,
+      "status": "included"
+     }
+    ],
+    "known_tax_obligation": 3080.62,
+    "application_costs": null,
+    "deposit": null,
+    "total": {
+     "amount": 27689.42,
+     "basis": "official_statement",
+     "note": "The official total published by the source. Its parts are shown as included, never added again."
+    }
+   }
+  },
+  {
+   "name": "fl_expired_statement",
+   "amount": {
+    "state": "official_expired",
+    "label": "Total due",
+    "value": null,
+    "display": "Expired"
+   },
+   "terms": {
+    "basis": "OPENING_BID_PLUS_ADDITIONS",
+    "additions": "interest|omitted_taxes|doc_stamps|recording_fees",
+    "included_in_figure": "Already inside the opening bid (F.S. 197.502(6)) and never added again",
+    "official_total": "The clerk's Lands Available statement - request it from the clerk."
+   },
+   "statement": {
+    "total": 27689.42,
+    "expired": true,
+    "components": {
+     "omitted_taxes": 2100.5
+    }
+   },
+   "expected": {
+    "acquisition": {
+     "label": "Total due",
+     "value": null,
+     "display": "Expired - request a current statement",
+     "authoritative": false,
+     "basis": "expired_statement"
+    },
+    "taxes": [
+     {
+      "key": "included_in_figure",
+      "label": "Already inside the listed figure",
+      "amount": null,
+      "status": "included",
+      "note": "Already inside the opening bid (F.S. 197.502(6)) and never added again"
+     },
+     {
+      "key": "omitted_taxes",
+      "label": "Taxes that came due after the listed figure was set",
+      "amount": 2100.5,
+      "status": "expired_statement"
+     }
+    ],
+    "interest": [
+     {
+      "key": "interest",
+      "label": "Interest",
+      "amount": null,
+      "status": "added_not_published"
+     }
+    ],
+    "fees": [
+     {
+      "key": "doc_stamps",
+      "label": "Documentary stamp tax on the deed",
+      "amount": null,
+      "status": "added_not_published"
+     },
+     {
+      "key": "recording_fees",
+      "label": "Recording fees",
+      "amount": null,
+      "status": "added_not_published"
+     }
+    ],
+    "other": [],
+    "known_tax_obligation": null,
+    "application_costs": null,
+    "deposit": null,
+    "total": {
+     "amount": null,
+     "basis": "none",
+     "note": "The clerk's Lands Available statement - request it from the clerk."
+    }
+   }
+  },
+  {
+   "name": "realtdm_base_price",
+   "amount": {
+    "state": "base",
+    "label": "Base purchase price",
+    "value": 3000,
+    "display": null
+   },
+   "terms": {
+    "basis": "BASE_PRICE_PLUS_ADDITIONS",
+    "additions": "interest|doc_stamps|recording_fees",
+    "included_in_figure": "The base figure is the case's Purchase Price",
+    "official_total": "The clerk's case page computes the amount due as of today."
+   },
+   "statement": null,
+   "expected": {
+    "acquisition": {
+     "label": "Base purchase price",
+     "value": 3000.0,
+     "display": null,
+     "authoritative": false,
+     "basis": "base"
+    },
+    "taxes": [
+     {
+      "key": "included_in_figure",
+      "label": "Already inside the listed figure",
+      "amount": null,
+      "status": "included",
+      "note": "The base figure is the case's Purchase Price"
+     }
+    ],
+    "interest": [
+     {
+      "key": "interest",
+      "label": "Interest",
+      "amount": null,
+      "status": "added_not_published"
+     }
+    ],
+    "fees": [
+     {
+      "key": "doc_stamps",
+      "label": "Documentary stamp tax on the deed",
+      "amount": null,
+      "status": "added_not_published"
+     },
+     {
+      "key": "recording_fees",
+      "label": "Recording fees",
+      "amount": null,
+      "status": "added_not_published"
+     }
+    ],
+    "other": [],
+    "known_tax_obligation": null,
+    "application_costs": null,
+    "deposit": null,
+    "total": {
+     "amount": null,
+     "basis": "none",
+     "note": "The clerk's case page computes the amount due as of today."
+    }
+   }
+  },
+  {
+   "name": "la_offer_negotiated_advanced_costs",
+   "amount": {
+    "state": "not_published",
+    "label": "Price",
+    "value": null,
+    "display": "Application required"
+   },
+   "terms": {
+    "basis": "OFFER_NEGOTIATED",
+    "application_costs": "Advanced costs, per parcel, paid by certified check or money order",
+    "application_costs_in_price": "no"
+   },
+   "statement": null,
+   "expected": {
+    "acquisition": {
+     "label": "Price",
+     "value": null,
+     "display": "Application required",
+     "authoritative": false,
+     "basis": "not_published"
+    },
+    "taxes": [],
+    "interest": [],
+    "fees": [],
+    "other": [],
+    "known_tax_obligation": null,
+    "application_costs": {
+     "text": "Advanced costs, per parcel, paid by certified check or money order",
+     "in_price": "no"
+    },
+    "deposit": null,
+    "total": {
+     "amount": null,
+     "basis": "none",
+     "note": "The source publishes no total for this record."
+    }
+   }
+  },
+  {
+   "name": "tx_minimum_bid_deposit_unknown",
+   "amount": {
+    "state": "vendor",
+    "label": "Minimum bid (vendor listing)",
+    "value": 4500,
+    "display": null
+   },
+   "terms": {
+    "basis": "MINIMUM_BID",
+    "deposit": "Bid deposit of at least 5% of the total amount of your bids",
+    "deposit_in_price": "unknown"
+   },
+   "statement": null,
+   "expected": {
+    "acquisition": {
+     "label": "Minimum bid (vendor listing)",
+     "value": 4500.0,
+     "display": null,
+     "authoritative": false,
+     "basis": "vendor"
+    },
+    "taxes": [],
+    "interest": [],
+    "fees": [],
+    "other": [],
+    "known_tax_obligation": null,
+    "application_costs": null,
+    "deposit": {
+     "text": "Bid deposit of at least 5% of the total amount of your bids",
+     "in_price": "unknown"
+    },
+    "total": {
+     "amount": null,
+     "basis": "none",
+     "note": "The source publishes no total for this record."
+    }
+   }
+  },
+  {
+   "name": "mi_program_price",
+   "amount": {
+    "state": "program_price",
+    "label": "Published program price",
+    "value": 100,
+    "display": null
+   },
+   "terms": {
+    "basis": "PROGRAM_PRICE"
+   },
+   "statement": null,
+   "expected": {
+    "acquisition": {
+     "label": "Published program price",
+     "value": 100.0,
+     "display": null,
+     "authoritative": false,
+     "basis": "program_price"
+    },
+    "taxes": [],
+    "interest": [],
+    "fees": [],
+    "other": [],
+    "known_tax_obligation": null,
+    "application_costs": null,
+    "deposit": null,
+    "total": {
+     "amount": null,
+     "basis": "none",
+     "note": "The source publishes no total for this record."
+    }
+   }
+  },
+  {
+   "name": "fixed_price_no_terms",
+   "amount": {
+    "state": "price",
+    "label": "Purchase price",
+    "value": 5000,
+    "display": null
+   },
+   "terms": null,
+   "statement": null,
+   "expected": {
+    "acquisition": {
+     "label": "Purchase price",
+     "value": 5000.0,
+     "display": null,
+     "authoritative": true,
+     "basis": "price"
+    },
+    "taxes": [],
+    "interest": [],
+    "fees": [],
+    "other": [],
+    "known_tax_obligation": null,
+    "application_costs": null,
+    "deposit": null,
+    "total": {
+     "amount": null,
+     "basis": "none",
+     "note": "The source publishes no total for this record."
+    }
+   }
+  },
+  {
+   "name": "nothing_published",
+   "amount": {
+    "state": "not_published",
+    "label": "Price",
+    "value": null,
+    "display": "Not published"
+   },
+   "terms": null,
+   "statement": null,
+   "expected": {
+    "acquisition": {
+     "label": "Price",
+     "value": null,
+     "display": "Not published",
+     "authoritative": false,
+     "basis": "not_published"
+    },
+    "taxes": [],
+    "interest": [],
+    "fees": [],
+    "other": [],
+    "known_tax_obligation": null,
+    "application_costs": null,
+    "deposit": null,
+    "total": {
+     "amount": null,
+     "basis": "none",
+     "note": "The source publishes no total for this record."
+    }
+   }
+  }
+ ]
+}

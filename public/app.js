@@ -5354,7 +5354,7 @@ async function hydrateInventoryHistory(container, p) {
 // Shell redesign (2026-10-04): the section nav reads as the page's tabs -
 // Overview / Acquisition / Tax & Value / ... / Map / Source - each a jump to a
 // section that actually rendered (never an empty tab).
-const DETAIL_NAV_LABELS = { acquire: "How to acquire", truth: "Source truth", summary: "Overview", decision: "Decision", inventory: "Inventory", financial: "Tax & Value", property: "Property", history: "History", events: "Sale events", monitor: "Watch", risk: "Risk & Legal", map: "Map", sources: "Source", provenance: "Provenance" };
+const DETAIL_NAV_LABELS = { acquire: "How to acquire", money: "Financial position", documents: "Documents", truth: "Source truth", summary: "Overview", decision: "Decision", inventory: "Inventory", financial: "Tax & Value", property: "Property", history: "History", events: "Sale events", monitor: "Watch", risk: "Risk & Legal", map: "Map", sources: "Source", provenance: "Provenance" };
 function detailNavHtml(bodyHtml) {
   const ids = [];
   bodyHtml.replace(/data-section="([a-z]+)"/g, (m, id) => { if (DETAIL_NAV_LABELS[id] && !ids.includes(id)) ids.push(id); return m; });
@@ -5682,6 +5682,164 @@ function acquisitionForms(p) {
   if (a.verified && a.url && ["application_download", "application_page"].includes(a.type)) add(a.url, p.purchase_url_kind || "application_form");
   return out;
 }
+// ==================== financial position (2026-10-05) ====================
+// The one rule for money on an Available property, the same function as
+// harvesters/sources/financial_position.py (tests/python/fixtures/
+// financial_position_cases.json pins both). Numbers are NEVER added unless the
+// source published the total: a current clerk statement is authoritative and
+// its parts are "included"; an opening / base figure stays what it is and the
+// items the source adds on top are named with no amount; application costs
+// and deposits are always separate. No tax is derived from a value.
+var FP_TAX_KEYS = ["omitted_taxes", "taxes", "delinquent_taxes", "current_taxes", "subsequent_taxes"];
+var FP_INTEREST_KEYS = ["interest", "penalties", "penalty"];
+var FP_FEE_KEYS = ["doc_stamps", "recording_fees", "clerk_fees", "fees", "deed_fees"];
+var FP_LABELS = {
+  omitted_taxes: "Taxes that came due after the listed figure was set", taxes: "Taxes", delinquent_taxes: "Delinquent taxes",
+  current_taxes: "Current-year taxes", subsequent_taxes: "Subsequent years' taxes", interest: "Interest", penalties: "Penalties",
+  penalty: "Penalty", doc_stamps: "Documentary stamp tax on the deed", recording_fees: "Recording fees", clerk_fees: "Clerk fees",
+  fees: "Fees", deed_fees: "Deed fees"
+};
+function fpGroup(k) { return FP_TAX_KEYS.includes(k) ? "taxes" : FP_INTEREST_KEYS.includes(k) ? "interest" : FP_FEE_KEYS.includes(k) ? "fees" : "other"; }
+function fpLabel(k) { if (FP_LABELS[k]) return FP_LABELS[k]; const t = String(k).replace(/_/g, " "); return t.charAt(0).toUpperCase() + t.slice(1); }
+function fpNum(v) { if (v === null || v === undefined || v === "" || typeof v === "boolean") return null; const n = Number(v); return Number.isFinite(n) ? n : null; }
+function fpRound(v) { return Math.round(v * 100) / 100; }
+function financialPositionCore(amount, terms, statement) {
+  amount = amount || {}; terms = terms || {}; statement = statement || null;
+  const groups = { taxes: [], interest: [], fees: [], other: [] };
+  const stCurrent = !!(statement && !statement.expired && fpNum(statement.total) !== null);
+  const stExpired = !!(statement && statement.expired);
+  const value = fpNum(amount.value);
+  let acquisition;
+  if (stCurrent) acquisition = { label: "Official total due", value: fpNum(statement.total), display: null, authoritative: true, basis: "official_statement" };
+  else if (stExpired) acquisition = { label: "Total due", value: null, display: "Expired - request a current statement", authoritative: false, basis: "expired_statement" };
+  else acquisition = { label: amount.label || "Price", value, display: value !== null ? null : (amount.display || "Not published"),
+    authoritative: amount.state === "price" && value !== null, basis: amount.state || "not_published" };
+  const comps = (statement && statement.components) || {};
+  if (statement) {
+    Object.keys(comps).sort().forEach(k => {
+      const a = fpNum(comps[k]);
+      if (a === null) return;
+      groups[fpGroup(k)].push({ key: k, label: fpLabel(k), amount: fpRound(a), status: stCurrent ? "included" : "expired_statement" });
+    });
+  }
+  let adds = terms.additions || [];
+  if (typeof adds === "string") adds = adds.split("|").filter(Boolean);
+  if (["OPENING_BID_PLUS_ADDITIONS", "BASE_PRICE_PLUS_ADDITIONS"].includes(terms.basis) && !stCurrent) {
+    adds.forEach(k => {
+      if (groups[fpGroup(k)].some(l => l.key === k)) return;
+      groups[fpGroup(k)].push({ key: k, label: fpLabel(k), amount: null, status: "added_not_published" });
+    });
+    if (terms.included_in_figure) groups.taxes.unshift({ key: "included_in_figure", label: "Already inside the listed figure", amount: null, status: "included", note: terms.included_in_figure });
+  }
+  const taxLines = groups.taxes.concat(groups.interest).filter(l => l.amount !== null && l.status === "included");
+  const knownTax = taxLines.length ? fpRound(taxLines.reduce((s, l) => s + l.amount, 0)) : null;
+  const total = stCurrent
+    ? { amount: fpNum(statement.total), basis: "official_statement", note: "The official total published by the source. Its parts are shown as included, never added again." }
+    : { amount: null, basis: "none", note: terms.official_total || "The source publishes no total for this record." };
+  const side = (tk, ik) => { const text = terms[tk] || ""; if (!text) return null; const flag = terms[ik] || "unknown"; return { text, in_price: ["yes", "no"].includes(flag) ? flag : "unknown" }; };
+  return { acquisition, taxes: groups.taxes, interest: groups.interest, fees: groups.fees, other: groups.other,
+    known_tax_obligation: knownTax, application_costs: side("application_costs", "application_costs_in_price"), deposit: side("deposit", "deposit_in_price"), total };
+}
+// The record's own inputs, normalized for the core.
+function financialPosition(p) {
+  if (!p || p.source !== "laft") return null;
+  const i = amountInfo(p);
+  const st = purchaseStatementOf(p);
+  return financialPositionCore({ state: i.state, label: i.label, value: i.value, display: i.display }, termsFor(p),
+    st ? { total: st.total, expired: st.expired, components: st.components } : null);
+}
+var FP_STATUS_TEXT = { included: "Included in the total / figure", added_not_published: "Added on top - amount not published", expired_statement: "From an expired statement" };
+function financialPositionHtml(p) {
+  const fp = financialPosition(p);
+  if (!fp) return "";
+  const money = v => esc(fmtMoney(v));
+  const a = fp.acquisition;
+  const lines = (title, list, empty) => `<div class="fp-group"><div class="fp-group-head">${esc(title)}</div>${list.length
+    ? `<ul class="fp-lines">${list.map(l => `<li data-fp-status="${esc(l.status)}"><span class="fp-line-label">${esc(l.label)}</span><span class="fp-line-amt">${l.amount !== null ? money(l.amount) : `<span class="muted">${esc(FP_STATUS_TEXT[l.status] || "Not published")}</span>`}</span>${l.amount !== null ? `<span class="fp-line-note">${esc(FP_STATUS_TEXT[l.status] || "")}</span>` : ""}${l.note ? `<span class="fp-line-note">${esc(l.note)}</span>` : ""}</li>`).join("")}</ul>`
+    : `<p class="fp-empty muted">${esc(empty)}</p>`}</div>`;
+  const side = (title, s) => s ? `<div class="fp-group"><div class="fp-group-head">${esc(title)}</div><p class="fp-side">${esc(s.text)}<span class="fp-line-note">${esc(s.in_price === "no" ? "Not part of the price - shown separately, never added." : s.in_price === "yes" ? "The source says this is part of the price." : "The source does not say whether this is part of the price - shown separately, never added.")}</span></p></div>` : "";
+  const body = `
+    <div class="fp-acq" data-fp-basis="${esc(a.basis)}"><span class="fp-acq-label">Current acquisition amount · ${esc(a.label)}</span>
+      <span class="fp-acq-val${a.value === null ? " muted" : ""}">${a.value !== null ? money(a.value) : esc(a.display || "Not published")}</span>
+      <span class="fp-line-note">${esc(a.authoritative ? "Authoritative: published by the source as the amount." : a.value !== null ? "As the source labels it - not a total of everything owed." : "No figure published for this record.")}</span></div>
+    <div class="fp-grid">
+      ${lines("Known tax obligation", fp.taxes.concat(fp.interest), "No tax amount published by the source for this record. A property value is not a tax owed.")}
+      ${lines("Known fees", fp.fees, "No fees published by the source for this record.")}
+      ${lines("Other published amounts", fp.other, "None published.")}
+      ${side("Application / advanced costs", fp.application_costs)}${side("Deposit", fp.deposit)}
+    </div>
+    <div class="fp-total" data-fp-total="${esc(fp.total.basis)}"><span class="fp-acq-label">Total</span>
+      <span class="fp-acq-val${fp.total.amount === null ? " muted" : ""}">${fp.total.amount !== null ? money(fp.total.amount) : "Not published"}</span>
+      <span class="fp-line-note">${esc(fp.total.note)}</span></div>`;
+  return detailSectionHtml("Financial position", body, "fp-card", "money");
+}
+// ==================== documents & links (2026-10-05) ====================
+// The same rule as harvesters/sources/acquisition_documents.py (pinned by
+// tests/python/fixtures/acquisition_documents_cases.json): a PDF is never a
+// purchase link, an instructions page is not a form, the list is the source.
+var ACQ_DOC_LABELS = { PURCHASE_LINK: "Purchase / apply online", FORM: "Form", INSTRUCTIONS: "Instructions", DOCUMENT: "Document", SOURCE_PAGE: "Official listing page" };
+function classifyAcquisitionLink(url, role, kind) {
+  const u = String(url || "").trim();
+  if (!/^https:\/\//i.test(u)) return null;
+  const doc = isDocumentUrl(u);
+  if (role === "list_url") return doc ? "DOCUMENT" : "SOURCE_PAGE";
+  if (role === "document_url") return "DOCUMENT";
+  if (role === "application_url") return "FORM";
+  if (role === "evidence_url") return doc ? "DOCUMENT" : "INSTRUCTIONS";
+  if (role === "purchase_url") {
+    if (["bid_form", "offer_form", "application_form"].includes(kind)) return "FORM";
+    if (kind === "purchase_instructions") return "INSTRUCTIONS";
+    if (kind === "online_purchase") return doc ? "FORM" : "PURCHASE_LINK";
+    return doc ? "DOCUMENT" : "INSTRUCTIONS";
+  }
+  if (role === "path_url") {
+    if (kind === "application_download") return "FORM";
+    if (kind === "county_instructions") return "INSTRUCTIONS";
+    if (["direct_property_url", "application_page"].includes(kind)) return doc ? "FORM" : "PURCHASE_LINK";
+    return doc ? "DOCUMENT" : "INSTRUCTIONS";
+  }
+  return null;
+}
+function acquisitionDocuments(p) {
+  if (!p) return [];
+  const a = p.source === "laft" || p.source === "auction" ? acquisitionOf(p) : { verified: false };
+  const links = [
+    { url: p.purchase_url, role: "purchase_url", kind: p.purchase_url_kind },
+    { url: a.verified ? a.applicationUrl : null, role: "application_url" },
+    { url: a.verified ? a.url : null, role: "path_url", kind: a.type },
+    { url: a.verified ? a.evidenceUrl : null, role: "evidence_url" },
+    { url: p.document_url, role: "document_url" },
+    { url: p.list_url, role: "list_url" }
+  ];
+  const out = [], seen = new Set();
+  links.forEach(l => {
+    const cls = classifyAcquisitionLink(l.url, l.role, l.kind);
+    const u = String(l.url || "").trim();
+    if (!cls || seen.has(u)) return;
+    seen.add(u);
+    out.push({ url: u, role: l.role, cls });
+  });
+  return out;
+}
+function linkHost(u) { try { return new URL(u).hostname.replace(/^www\./, ""); } catch (e) { return ""; } }
+function ACQ_DOC_LINK_TEXT(d) {
+  if (d.cls === "FORM") return isDocumentUrl(d.url) ? "Download the form - complete and submit it offline" : "Open the form";
+  if (d.cls === "PURCHASE_LINK") return "Open the online purchase / application page";
+  if (d.cls === "SOURCE_PAGE") return "Open the official listing";
+  if (d.cls === "INSTRUCTIONS") return "Read the office's instructions";
+  return "Open the source document";
+}
+function acquisitionDocumentsHtml(p) {
+  if (!p || p.source === "certificate") return "";
+  const docs = acquisitionDocuments(p);
+  const body = docs.length
+    ? `<ul class="acq-docs">${docs.map(d => `<li data-doc-class="${esc(d.cls)}"><span class="acq-doc-class">${esc(ACQ_DOC_LABELS[d.cls])}</span><a href="${esc(d.url)}" target="_blank" rel="noopener" data-acq-link="${esc(d.cls === "FORM" ? "form" : d.cls === "INSTRUCTIONS" ? "instructions" : "source")}">${esc(ACQ_DOC_LINK_TEXT(d))} →</a><span class="acq-doc-host">${esc(linkHost(d.url))}</span></li>`).join("")}</ul>`
+    : `<p class="muted">No document, form or listing link is on file for this record.</p>`;
+  return detailSectionHtml("Documents & links", body, "docs-card", "documents");
+}
+window.__tdwFinancialPositionCore = (a, t, s) => financialPositionCore(a, t, s);
+window.__tdwClassifyAcquisitionLink = (u, r, k) => classifyAcquisitionLink(u, r, k);
+window.__tdwAcquisitionDocuments = p => acquisitionDocuments(p);
 // Test hooks (tests/run_test.mjs).
 window.__tdwPriceWording = p => ({ label: availableAmountLabel(p), partial: isPartialAmount(p), note: currentPriceNote(p), statement: purchaseStatementOf(p), gaps: dataGaps(p) });
 window.__tdwAmountInfo = p => { const i = amountInfo(p); return { state: i.state, label: i.label, value: i.value, display: amountDisplay(p), current: i.current, note: i.note, history: i.history.length }; };
@@ -6487,6 +6645,7 @@ function detailHtml(p) {
     ${propertyVisual(p, "detail-hero-photo")}
     ${sourceReviewBannerHtml(p)}
     ${acquireBlockHtml(p)}
+    ${financialPositionHtml(p)}
     ${opportunitySummaryHtml(p)}
     ${availableDecisionHtml(p)}
     ${auctionDecisionHtml(p)}
@@ -6506,6 +6665,7 @@ function detailHtml(p) {
     ${riskLegalCardHtml(p)}
     ${gisLocationCardHtml(p)}
     ${sourceTruthHtml(p)}
+    ${acquisitionDocumentsHtml(p)}
     `}
     ${/* Phase 36 fix: the calculator's Net Profit Estimate subtracts fees(p),
         which is now null for non-FL rows (no verified TX fee formula exists) -
