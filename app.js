@@ -5163,6 +5163,25 @@ function countyMoneyRange(rows) {
 function countyKv(rows) {
   return `<dl class="cty-kv">${rows.filter(Boolean).map(([k, v, attr]) => `<dt>${esc(k)}</dt><dd${attr ? ` ${attr}` : ""}>${v}</dd>`).join("")}</dl>`;
 }
+// County -> property (2026-10-06): the records themselves, not only a count -
+// up to six per ledger, each opening its own property page, the rest in the
+// List. Order is the ledger's own: Available by case, auctions by sale date,
+// certificates by expiration.
+var COUNTY_RECORDS_SHOWN = COUNTY_RECORDS_SHOWN || 6;
+function countyRecordsHtml(ps, ledger, heading) {
+  if (!ps.length) return "";
+  const shown = ps.slice(0, COUNTY_RECORDS_SHOWN);
+  const rest = ps.length - shown.length;
+  const line = p => {
+    const street = p.source === "certificate" ? "" : realAddress(p);
+    const title = p.source === "certificate" ? `Certificate #${esc(p.certificate_no || "not published")}` : (street ? esc(street) : lotTitle(p));
+    const ids = [hasParcel(p) ? `Parcel ${esc(p.parcel)}` : "", p.case_no && p.source !== "certificate" ? `Case ${esc(p.case_no)}` : ""].filter(Boolean).join(" · ");
+    const { phase } = kickerParts(p);
+    return `<li class="cty-record" data-pid="${esc(String(p.id))}"><button type="button" class="cty-record-btn" data-action="viewdetails" data-pid="${esc(String(p.id))}">
+      <span class="cty-record-title">${title}</span><span class="cty-record-sub">${ids ? ids + " · " : ""}${esc(phase)}</span><span class="cty-record-go" aria-hidden="true">Open →</span></button></li>`;
+  };
+  return `<h4>${esc(heading)}</h4><ul class="cty-records" data-ledger="${esc(ledger)}">${shown.map(line).join("")}</ul>${rest > 0 ? `<p class="cty-sub">${rest.toLocaleString("en-US")} more in the List.</p>` : ""}`;
+}
 function countyAvailableHtml(c, st, sources, rows, seeAll) {
   const live = rows.live.filter(p => p.source === "laft");
   const srcs = sources.filter(x => x.ledger === "laft" && (seeAll || x.customer_approved || x.fromRows));
@@ -5202,6 +5221,7 @@ function countyAvailableHtml(c, st, sources, rows, seeAll) {
   const nAll = live.length;
   return `<section class="cty-section" data-county-section="available"><h3><span class="cty-dot" data-ledger="laft"></span>${esc(ledgerNavName("laft"))} <span class="cty-q">${esc(LEDGERS.laft.question || "")}</span></h3>
     ${countyKv([["On file now", `<b>${nAll.toLocaleString("en-US")}</b>${LEDGER_LOAD.laft === "loading" || LEDGER_LOAD.laft === "partial" ? ' <span class="muted">(still loading)</span>' : ""}`]].concat(amountRows))}
+    ${countyRecordsHtml(live.slice().sort((a, b) => String(a.case_no || "").localeCompare(String(b.case_no || ""))), "laft", "Properties on file")}
     ${srcs.length ? `<ul class="cty-srcs">${srcs.map(x => countySourceLineHtml(x, seeAll)).join("")}</ul>` : `<p class="muted">No Available source is recorded for this ${esc(UNIT_WORD.toLowerCase())}. That is not a statement that nothing can be acquired here.</p>`}
     ${unitHtml}
     ${nAll ? `<div class="cty-actions"><button type="button" class="link-btn" data-action="dossierlist" data-county="${esc(c.county)}" data-ledger="laft">Open in the List (${nAll.toLocaleString("en-US")}) →</button> <button type="button" class="link-btn" data-action="countymap" data-county="${esc(c.county)}" data-ledger="laft">Show on the Map →</button></div>` : ""}
@@ -5256,6 +5276,7 @@ function countyAuctionsHtml(c, st, sources, rows, seeAll) {
   return `<section class="cty-section" data-county-section="auctions"><h3><span class="cty-dot" data-ledger="auction"></span>${esc(ledgerNavName("auction"))} <span class="cty-q">${esc(LEDGERS.auction.question || "")}</span></h3>
     ${countyKv(kv)}
     ${dates ? `<h4>Sale calendar</h4><ul class="cty-sales">${dates}</ul>` : ""}
+    ${countyRecordsHtml(upcoming, "auction", "Upcoming sales on file")}
     <h4>Historical results</h4>${outcomeHtml}
     ${srcs.length ? `<ul class="cty-srcs">${srcs.map(x => countySourceLineHtml(x, seeAll)).join("")}</ul>` : `<p class="muted">No auction source is recorded for this ${esc(UNIT_WORD.toLowerCase())}.</p>`}
     ${live.length ? `<div class="cty-actions"><button type="button" class="link-btn" data-action="dossierlist" data-county="${esc(c.county)}" data-ledger="auction">Open in the List (${live.length.toLocaleString("en-US")}) →</button></div>` : ""}
@@ -5277,6 +5298,7 @@ function countyLiensHtml(c, st, sources, rows, seeAll) {
   ];
   return `<section class="cty-section" data-county-section="liens"><h3><span class="cty-dot" data-ledger="certificate"></span>${esc(ledgerNavName("certificate"))} <span class="cty-q">${esc(LEDGERS.certificate.question || "")}</span></h3>
     ${countyKv(kv)}
+    ${countyRecordsHtml(live.slice().sort((a, b) => String(a.expiration_date || "9").localeCompare(String(b.expiration_date || "9"))), "certificate", "Certificates on file")}
     ${srcs.length ? `<ul class="cty-srcs">${srcs.map(x => countySourceLineHtml(x, seeAll)).join("")}</ul>` : ""}
     ${live.length ? `<div class="cty-actions"><button type="button" class="link-btn" data-action="dossierlist" data-county="${esc(c.county)}" data-ledger="certificate">Open in the List (${live.length.toLocaleString("en-US")}) →</button></div>` : ""}
   </section>`;
@@ -5426,7 +5448,7 @@ function countyIndexHtml(doc, st) {
     </div>
     <div class="cty-index-legend"><span>${esc(UNIT_WORD)}</span><span>Research status</span><span class="cty-row-counts"><span data-ledger="laft">${esc(ledgerNavName("laft"))}</span><span data-ledger="auction">${esc(ledgerNavName("auction"))}</span><span data-ledger="certificate">${esc(ledgerNavName("certificate"))}</span></span><span>Upcoming</span></div>
     <ul class="cty-rows">${items || `<li class="muted">No ${esc(UNIT_WORD.toLowerCase())} matches.</li>`}</ul>
-    <p class="dossier-note">${recorded.size} of ${total || "?"} ${esc(UNIT_WORD.toLowerCase())}s have a source, a research record or a property on file. A ${esc(UNIT_WORD.toLowerCase())} with none is not yet researched - that is not a statement that nothing is for sale there.</p>
+    <p class="dossier-note">${recorded.size} of ${total || "?"} ${esc(unitWordFor(total || 2))} have a source, a research record or a property on file. A ${esc(UNIT_WORD.toLowerCase())} with none is not yet researched - that is not a statement that nothing is for sale there.</p>
   </div>`;
 }
 function ensureCountySection() {
@@ -5697,6 +5719,10 @@ function hydrateResearchPanels(pid) {
     const p = ALL.find(x => String(x.id) === String(pid));
     if (p) el.outerHTML = researchPanelHtml(p);
   });
+  document.querySelectorAll(`[data-research-cell="${CSS.escape(String(pid))}"]`).forEach(el => {
+    const p = ALL.find(x => String(x.id) === String(pid));
+    if (p) el.outerHTML = researchStatusCellHtml(p);
+  });
 }
 async function researchAfterOpen(p) {
   await loadResearch();
@@ -5727,14 +5753,31 @@ function researchRowHtml(it) {
     <td data-label="${esc(UNIT_WORD)}">${p ? `<button type="button" class="link-btn" data-action="countypage" data-county="${esc(p.county)}" data-state="${esc(regionOf(p))}">${esc(p.county)}</button>` : ""}</td>
     <td data-label="Ledger">${p ? `<span class="cty-dot" data-ledger="${esc(p.source)}"></span>${esc(ledgerNavName(p.source))}` : ""}</td>
     <td data-label="Official status" data-official-status>${esc(officialStatusText(p))}</td>
-    <td data-label="Your research state">${researchStateSelectHtml(it)}</td>
-    <td data-label="Saved">${esc(dateOnly(it.saved_at))}${RESEARCH_PAGE.listId === "all" ? `<span class="kv-sub">${esc(researchListName(it.list_id))}</span>` : ""}</td>
     <td data-label="Upcoming">${upcoming ? esc(upcoming) : '<span class="muted">-</span>'}</td>
     <td data-label="Acquisition path">${esc(researchAcqStatus(p))}</td>
     <td data-label="Due diligence" data-diligence-summary>${typeof diligenceSummaryHtml === "function" ? diligenceSummaryHtml(p, it) : '<span class="muted">-</span>'}</td>
-    <td data-label="Note">${it.note ? esc(it.note.length > 80 ? it.note.slice(0, 80) + "…" : it.note) : '<span class="muted">-</span>'}</td>
+    <td data-label="Your research state" class="rs-yours rs-first">${researchStateSelectHtml(it)}</td>
+    <td data-label="Saved" class="rs-yours">${esc(dateOnly(it.saved_at))}${RESEARCH_PAGE.listId === "all" ? `<span class="kv-sub">${esc(researchListName(it.list_id))}</span>` : ""}</td>
+    <td data-label="Your note" class="rs-yours">${it.note ? esc(it.note.length > 80 ? it.note.slice(0, 80) + "…" : it.note) : '<span class="muted">-</span>'}</td>
     <td data-label=""><button type="button" class="link-btn" data-action="researchremove" data-item="${esc(it.id)}">Remove</button></td>
   </tr>`;
+}
+// Where each saved property stands in YOUR workflow: one step per research
+// state with its count; a step filters the table. A count, never a score.
+function researchPipelineHtml(inList, byState, fs) {
+  return `<ol class="research-pipeline" aria-label="Your research workflow">${RESEARCH_STATES.map(s => `<li><button type="button" class="research-step${fs === s ? " on" : ""}" data-action="researchstep" data-state="${esc(s)}" aria-pressed="${fs === s}"><b>${byState[s] || 0}</b><span>${esc(RESEARCH_STATE_LABELS[s])}</span></button></li>`).join("")}</ol>`;
+}
+function researchEmptyHtml() {
+  return `<div class="research-empty research-start">
+    <h3>Start your research</h3>
+    <ol class="research-start-steps">
+      <li><b>Find a property</b> in Available, Auctions or Liens &amp; Certificates - or start from a ${esc(UNIT_WORD.toLowerCase())} on County Intelligence.</li>
+      <li><b>Save it to a research list</b> from the “My research” section on its page (for example “October Florida Auction”).</li>
+      <li><b>Track your own state</b> - Discovered, Researching, Due diligence, Acquisition ready, Passed, Acquired - beside the property's official status.</li>
+      <li><b>Work its due-diligence checklist</b>: what the records verify, what is not published and what is not verified yet.</li>
+    </ol>
+    <p class="research-start-go"><button type="button" class="detail-btn" data-action="researchbrowse" data-ledger="laft">Browse Available →</button> <button type="button" class="link-btn" data-action="countyindex">County Intelligence →</button></p>
+  </div>`;
 }
 async function renderResearchPage() {
   researchStateObj();
@@ -5760,8 +5803,9 @@ async function renderResearchPage() {
       ${cur ? `<button type="button" class="link-btn" data-action="researchrename" data-list="${esc(cur.id)}">Rename list</button><button type="button" class="link-btn" data-action="researchdelete" data-list="${esc(cur.id)}">Delete list</button>` : ""}
       <label class="research-filter"><span>Research state</span><select id="researchStateFilter"><option value="all">All (${inList.length})</option>${RESEARCH_STATES.map(s => `<option value="${s}"${fs === s ? " selected" : ""}>${esc(RESEARCH_STATE_LABELS[s])} (${byState[s] || 0})</option>`).join("")}</select></label>
     </div>
-    ${shown.length ? `<div class="cty-table-wrap"><table class="cty-table research-table"><thead><tr><th>Property</th><th>${esc(UNIT_WORD)}</th><th>Ledger</th><th>Official status</th><th>Your research state</th><th>Saved</th><th>Upcoming</th><th>Acquisition path</th><th>Due diligence</th><th>Note</th><th></th></tr></thead><tbody>${shown.map(researchRowHtml).join("")}</tbody></table></div>`
-      : `<p class="muted research-empty">${RESEARCH.items.length ? "Nothing in this view." : "No property saved yet. Open any property and use “Save to research” under My research."}</p>`}
+    ${RESEARCH.items.length ? researchPipelineHtml(inList, byState, fs) : ""}
+    ${shown.length ? `<div class="cty-table-wrap"><table class="cty-table research-table"><thead><tr class="rs-groups"><th colspan="7" scope="colgroup">From the records</th><th colspan="4" scope="colgroup" class="rs-yours rs-first">Your workflow</th></tr><tr><th>Property</th><th>${esc(UNIT_WORD)}</th><th>Ledger</th><th>Official status</th><th>Upcoming</th><th>Acquisition path</th><th>Due diligence</th><th class="rs-yours rs-first">Your research state</th><th class="rs-yours">Saved</th><th class="rs-yours">Your note</th><th class="rs-yours"></th></tr></thead><tbody>${shown.map(researchRowHtml).join("")}</tbody></table></div>`
+      : RESEARCH.items.length ? `<p class="muted research-empty">Nothing in this view.</p>` : researchEmptyHtml()}
     <p class="dossier-note">Official status is read from the source's records. Your research state is your own workflow label - it is never written to the property and never changes what the county publishes.</p>
   </div>`;
   const f = sec.querySelector("#researchStateFilter");
@@ -5945,7 +5989,7 @@ function diligenceEvidence(p, key, state) {
     case "acq_path": return a && a.verified ? `${a.label}${a.observedOn ? ` - verified ${dateOnly(a.observedOn)}` : ""}` : (state === "SOURCE_UNAVAILABLE" ? "The official pages could not be read" : "No official process page has been verified");
     case "acq_url": return a && a.verified ? ((a.applicationUrl || a.url) ? "Official document on file (How to acquire)" : "The verified process publishes no document") : "Depends on a verified acquisition path";
     case "acq_amount": { const s = amountSemanticType(p); const t = amountTemporal(p); return s ? `${AMOUNT_SEMANTIC_LABELS[s]} - ${AMOUNT_TEMPORAL_LABELS[t.status]}` : "No amount published by the source"; }
-    case "acq_amount_date": { const st = amountStatementRaw(p); return st && st.valid_through ? `Statement valid through ${dateOnly(st.valid_through)}` : (p.last_seen_at ? `As published on the list read ${dateOnly(p.last_seen_at)}` : "No date published"); }
+    case "acq_amount_date": { if (state === "NOT_PUBLISHED") return "No dated amount published by the source"; const st = amountStatementRaw(p); return st && st.valid_through ? `Statement valid through ${dateOnly(st.valid_through)}` : (p.last_seen_at ? `As published on the list read ${dateOnly(p.last_seen_at)}` : "No date published"); }
     case "coords": { const c = coordinateProvenance(p); return c.method === "NONE" ? "No coordinates on file" : `${c.label}${c.geometry_label ? ` (${c.geometry_label.toLowerCase()})` : ""}`; }
     case "acreage": return hasNum(p.acreage) || hasNum(p.lot_sqft) ? (srcOf("acreage") || srcOf("lot_sqft") ? `Recorded from ${srcOf("acreage") || srcOf("lot_sqft")}` : "On file; origin not recorded") : "Not published";
     case "land_use": return p.land_use || p.dor_use_code ? (srcOf("land_use") || srcOf("dor_use_code") ? `Recorded from ${srcOf("land_use") || srcOf("dor_use_code")}` : "On file; origin not recorded") : "Not published";
@@ -5984,6 +6028,13 @@ function diligenceSummaryHtml(p, it) {
 // The property-page section. Every property gets the checklist; the
 // customer's own review marks and notes are available once it is saved to a
 // research list (they are kept on that research item).
+var DILIGENCE_STATE_MEANING = DILIGENCE_STATE_MEANING || {
+  VERIFIED: "The records carry evidence for it.",
+  NOT_VERIFIED: "A value may exist, but nothing on file proves it.",
+  NOT_PUBLISHED: "The source does not publish it for this record.",
+  NOT_APPLICABLE: "Does not apply to this ledger.",
+  SOURCE_UNAVAILABLE: "The source could not be read at its last attempt."
+};
 function diligenceSectionHtml(p) {
   const items = diligenceFor(p);
   const c = diligenceCounts(items);
@@ -6004,9 +6055,13 @@ function diligenceSectionHtml(p) {
   }).join("");
   const na = c.NOT_APPLICABLE;
   const head = `<div class="dd-head"><b>${c.VERIFIED}</b> verified · <b>${c.NOT_VERIFIED}</b> not verified · <b>${c.NOT_PUBLISHED}</b> not published${c.SOURCE_UNAVAILABLE ? ` · <b>${c.SOURCE_UNAVAILABLE}</b> source unavailable` : ""}<span class="muted"> · ${na} not applicable to ${esc(ledgerNavName(p.source))}</span></div>`;
-  const body = `<div class="dd" data-pid="${esc(p.id)}">${head}${groups}
-    <p class="dd-rule">“Verified” means the property's records carry evidence for the item - the source list that published it was read, a recorded field origin, an official coordinate method, a verified acquisition record or a result the source published. A populated value without evidence is “Not verified”. Your own review marks never change these states.</p>
-    ${saved ? "" : `<p class="dd-rule">Save this property to a research list (My research) to keep your own review marks and notes per item.</p>`}</div>`;
+  // The key comes first (2026-10-06 verification pass): what each state
+  // means, and that the customer's own marks are kept apart from evidence.
+  const key = `<dl class="dd-key" aria-label="What each state means">${["VERIFIED", "NOT_VERIFIED", "NOT_PUBLISHED", "NOT_APPLICABLE", "SOURCE_UNAVAILABLE"].map(st => `<div data-dd-state="${st}"><dt class="dd-state">${esc(DILIGENCE_STATE_LABELS[st])}</dt><dd>${esc(DILIGENCE_STATE_MEANING[st])}</dd></div>`).join("")}</dl>`;
+  const body = `<div class="dd" data-pid="${esc(p.id)}">
+    <p class="dd-rule">Every item is decided from this property's records only. “Verified” means the records carry evidence for it - the source list that published it was read, a recorded field origin, an official coordinate method, a verified acquisition record or a result the source published. A populated value without evidence is “Not verified”. Your own review marks never change these states.</p>
+    ${key}${head}${groups}
+    ${saved ? "" : `<p class="dd-rule dd-save-hint">Save this property to a research list (My research) to keep your own review marks and notes per item - they sit beside the evidence, never in place of it.</p>`}</div>`;
   return detailSectionHtml("Due diligence", body, "dd-section", "diligence");
 }
 function hydrateDiligence(pid) {
@@ -7876,7 +7931,25 @@ function detailStatusHtml(p) {
     ["Status", k.phase, k.cls],
     ["Last read", p.last_seen_at ? dateOnly(p.last_seen_at) : "Not recorded", p.last_seen_at ? "" : "muted"]
   ];
-  return `<dl class="dossier-status" aria-label="Current status">${items.map(([t, v, c]) => `<div><dt>${esc(t)}</dt><dd class="${esc(c)}">${esc(v)}</dd></div>`).join("")}</dl>`;
+  return `<dl class="dossier-status" aria-label="Current status">${items.map(([t, v, c]) => `<div><dt>${esc(t)}</dt><dd class="${esc(c)}">${esc(v)}</dd></div>`).join("")}${researchStatusCellHtml(p)}</dl>`;
+}
+// The customer's own research state in the property page's status band
+// (2026-10-06): visible at the top so it is never buried, styled and labelled
+// as the customer's workflow - never as, or instead of, the official status
+// beside it. Jumps to the full My research section further down.
+function researchStatusCellHtml(p) {
+  researchStateObj();
+  const items = RESEARCH.loaded ? researchSavedFor(p.id) : [];
+  const state = items.length ? items[0].research_state : "";
+  const value = !RESEARCH.loaded ? "…" : items.length
+    ? `${esc(RESEARCH_STATE_LABELS[state] || state)}<span class="dossier-sub">${esc(items.map(i => researchListName(i.list_id)).join(" · "))}</span>`
+    : `Not saved<span class="dossier-sub">Save it to a research list</span>`;
+  // Due diligence (2026-10-06): the checklist's evidence count rides in the
+  // same cell - verified out of the items that apply, from the records only.
+  const c = diligenceCounts(diligenceFor(p));
+  const applicable = c.VERIFIED + c.NOT_VERIFIED + c.NOT_PUBLISHED + c.SOURCE_UNAVAILABLE;
+  const dd = `<button type="button" class="dossier-research-btn dossier-dd" data-action="jump" data-target="diligence" data-dd-verified="${c.VERIFIED}" data-dd-applicable="${applicable}">Due diligence: ${c.VERIFIED} of ${applicable} verified by the records <span aria-hidden="true">→</span></button>`;
+  return `<div class="dossier-research" data-research-cell="${esc(String(p.id))}" data-research-state="${esc(state || "none")}"><dt>Your research <span class="dossier-own">(your label, not an official status)</span></dt><dd><button type="button" class="dossier-research-btn" data-action="jump" data-target="research">${value} <span aria-hidden="true">→</span></button>${dd}</dd></div>`;
 }
 function detailHtml(p) {
   const isCert = p.source === "certificate";
@@ -8030,12 +8103,12 @@ function detailHtml(p) {
     ${isCert ? `
     ${certStatusLinesHtml(p)}
     ${certificateDecisionHtml(p)}
-    ${detailSectionHtml("My research", researchPanelHtml(p), "research-section", "research")}
-    ${diligenceSectionHtml(p)}
     ${sourceTruthHtml(p)}
     <div class="detail-grid">
       ${stats.map(detailStatTileHtml).join("")}
     </div>
+    ${detailSectionHtml("My research", researchPanelHtml(p), "research-section", "research")}
+    ${diligenceSectionHtml(p)}
     ${relatedRecordsHtml(p)}
     ${parcelTimelineHtml(p)}
     ${monitorSectionHtml(p)}` : `
@@ -8043,8 +8116,6 @@ function detailHtml(p) {
     ${sourceReviewBannerHtml(p)}
     ${acquireBlockHtml(p)}
     ${financialPositionHtml(p)}
-    ${detailSectionHtml("My research", researchPanelHtml(p), "research-section", "research")}
-    ${diligenceSectionHtml(p)}
     ${opportunitySummaryHtml(p)}
     ${availableDecisionHtml(p)}
     ${auctionDecisionHtml(p)}
@@ -8054,6 +8125,8 @@ function detailHtml(p) {
     ${statGroupHtml("Financial", stats.filter(s => s[2] === "financial"), "financial")}
     ${statGroupHtml("Property Details", stats.filter(s => s[2] === "property"), "property")}
     ${statGroupHtml("History", stats.filter(s => s[2] === "history"), "history")}
+    ${detailSectionHtml("My research", researchPanelHtml(p), "research-section", "research")}
+    ${diligenceSectionHtml(p)}
     ${eventHistorySlotHtml(p)}
     ${monitorSectionHtml(p)}
     ${!isCert && regionOf(p) === "FL" ? `<div class="lien-banner ${esc(p.lien_level)}">
@@ -8613,6 +8686,8 @@ document.addEventListener("click", async e => {
     if (note !== null) await setDiligenceMark(btn.dataset.item, btn.dataset.key, { note: String(note).slice(0, 500) });
     return;
   }
+  if (action === "researchstep") { researchStateObj(); RESEARCH.filterState = RESEARCH.filterState === btn.dataset.state ? "all" : btn.dataset.state; renderResearchPage(); return; }
+  if (action === "researchbrowse") { goToLedger(btn.dataset.ledger || "laft"); return; }
   if (action === "researchlist") { RESEARCH_PAGE.listId = btn.dataset.list || "all"; renderResearchPage(); return; }
   if (action === "researchcreate") {
     const inp = document.getElementById("researchNewListName");
@@ -13410,12 +13485,13 @@ function homeGuideHtml() {
     ["Find", !PROPERTIES_LOADED ? `Loading ${STATE_INFO.name}…`
       : `${n(active)} active record${active === 1 ? "" : "s"} in ${STATE_INFO.name}${counties ? ` across ${n(counties)} ${unitWordFor(counties)}` : ""}${settled ? "" : " so far"}. Filter by ${UNIT_WORD.toLowerCase()}, source, amount and date.`,
       `<button type="button" class="link-btn" data-guide="list">Open the list</button>`],
-    ["Research", "Open a property for its values, source, the date it was last read, and where each field came from.", ""],
+    ["Research", `Start from a ${UNIT_WORD.toLowerCase()} - its inventory, sales, sources and gaps on County Intelligence - or open a property for its values, source and where each field came from.`,
+      `<button type="button" class="link-btn" data-guide="counties">County Intelligence</button>`],
     ["Verify how to acquire", avail.length
       ? `${n(verified)} of ${n(avail.length)} available propert${avail.length === 1 ? "y has" : "ies have"} a verified acquisition path; the rest say "Not yet verified". Always confirm with the official source before you apply or pay.`
       : "Available properties show the office's acquisition process once it has been verified. Always confirm with the official source.", ""],
-    ["Save", `Save up to ${BID_LIST_MAX} properties to your watchlist (${BIDLIST.size} saved now). Saved properties keep their acquisition details and status.`,
-      `<button type="button" class="link-btn" data-guide="watchlist">Open watchlist</button>`],
+    ["Save & work it", `Save properties to your own research lists, mark where each one stands, and work its due-diligence checklist (${RESEARCH && RESEARCH.items ? RESEARCH.items.length : 0} in My Research). Watch up to ${BID_LIST_MAX} for changes (${BIDLIST.size} watched).`,
+      `<button type="button" class="link-btn" data-guide="research">My Research</button> <button type="button" class="link-btn" data-guide="watchlist">Watchlist</button>`],
     ["Track", `${n(searches)} saved search${searches === 1 ? "" : "es"} for ${STATE_INFO.name}. New matches and changes to saved properties are shown when you return.`,
       `<button type="button" class="link-btn" data-guide="searches">Saved searches</button>`]
   ];
@@ -13530,6 +13606,8 @@ function renderHome() {
       if (g === "hide" || g === "show") { setGuideHidden(g === "hide"); renderHomeGuide(); const f = document.getElementById(g === "hide" ? "homeGuideShow" : "homeGuideHide"); if (f) f.focus(); }
       else if (g === "list") goToLedger(landingLedger(ALL, state.ledger));
       else if (g === "watchlist") openBidList();
+      else if (g === "research") openResearchPage("all");
+      else if (g === "counties") openCountyIndex();
       else if (g === "searches") openSavedSearches(guide);
     }
   });
