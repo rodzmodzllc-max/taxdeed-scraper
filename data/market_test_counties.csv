@@ -1,7 +1,38 @@
 state,county,ledger,reason
-SC,York,AUCTION,strongest test market (FOCUS)
-CO,Douglas,LIEN,strongest test market (FOCUS)
-CO,Morgan,LIEN,strongest test market (FOCUS)
-MI,Eaton,AUCTION,strongest test market (FOCUS)
-MI,Lenawee,AUCTION,strongest test market (FOCUS)
-LA,East Baton Rouge,AVAILABLE,strongest test market (BROWSE)
+FL,Orange,AUCTION,strongest test market (FOCUS); county FOCUS
+FL,Highlands,AUCTION,strongest test market (FOCUS); county FOCUS
+FL,Washington,AUCTION,strongest test market (FOCUS); county FOCUS
+FL,Manatee,AUCTION,strongest test market (FOCUS); county FOCUS
+FL,Charlotte,AUCTION,strongest test market (FOCUS); county FOCUS
+FL,Bay,AUCTION,strongest test market (FOCUS); county FOCUS
+FL,Broward,AUCTION,strongest test market (FOCUS); county FOCUS
+FL,Jackson,AUCTION,strongest test market (FOCUS); county FOCUS
+FL,Putnam,AUCTION,strongest test market (FOCUS); county FOCUS
+FL,Escambia,AUCTION,strongest test market (FOCUS); county FOCUS
+FL,Palm Beach,AUCTION,strongest test market (FOCUS); county FOCUS
+FL,Miami-Dade,AUCTION,strongest test market (FOCUS); county FOCUS
+FL,Clay,AUCTION,strongest test market (FOCUS); county FOCUS
+FL,Seminole,AUCTION,strongest test market (FOCUS); county FOCUS
+FL,Polk,AUCTION,strongest test market (FOCUS); county FOCUS
+FL,Marion,AUCTION,strongest test market (FOCUS); county FOCUS
+FL,Santa Rosa,AUCTION,strongest test market (FOCUS); county FOCUS
+FL,Sarasota,AUCTION,strongest test market (FOCUS); county FOCUS
+FL,Indian River,AUCTION,strongest test market (FOCUS); county FOCUS
+FL,Duval,AUCTION,strongest test market (FOCUS); county FOCUS
+FL,Alachua,AUCTION,strongest test market (FOCUS); county FOCUS
+FL,Pasco,AUCTION,strongest test market (FOCUS); county FOCUS
+FL,St. Lucie,AUCTION,strongest test market (FOCUS); county FOCUS
+FL,Martin,AUCTION,strongest test market (FOCUS); county FOCUS
+FL,Osceola,AUCTION,strongest test market (FOCUS); county FOCUS
+FL,Suwannee,AUCTION,strongest test market (FOCUS); county FOCUS
+FL,Walton,AUCTION,strongest test market (FOCUS); county FOCUS
+FL,Hendry,AUCTION,strongest test market (FOCUS); county FOCUS
+FL,Nassau,AUCTION,strongest test market (FOCUS); county FOCUS
+FL,DeSoto,AUCTION,strongest test market (FOCUS); county FOCUS
+FL,Gilchrist,AUCTION,strongest test market (FOCUS); county FOCUS
+SC,York,AUCTION,strongest test market (FOCUS); county FOCUS
+CO,Douglas,LIEN,strongest test market (FOCUS); county FOCUS
+CO,Morgan,LIEN,strongest test market (FOCUS); county FOCUS
+MI,Lenawee,AUCTION,strongest test market (FOCUS); county FOCUS
+MI,Eaton,AUCTION,strongest test market (FOCUS); county FOCUS
+LA,East Baton Rouge,AVAILABLE,strongest test market (BROWSE); county BROWSE

@@ -2923,7 +2923,9 @@ Full description: `docs/enrichment-geocoding.md`. Stable facts:
 ## Market measurement and test-market shortlist (2026-10-06, PR open, no migration)
 
 Full description: `docs/market-testing.md`; generated shortlist: `docs/market-test-report.md`. Stable facts:
-- **`harvesters/sources/market_metrics.py`**: a market is one state × ledger. There is no score.
+- **`harvesters/sources/market_metrics.py`**: a market is one state × ledger; a county market
+  (`county_markets()`, filterable by state / county / ledger) is one state × county × ledger,
+  classified by the same rules. There is no score.
   Tiers:
   - HELD: no customer-visible record;
   - NOT_CURRENT: a finished sale;
@@ -2935,11 +2937,15 @@ Full description: `docs/market-testing.md`; generated shortlist: `docs/market-te
   evidence for liens, and verified acquisition evidence only for Available. Size never
   promotes a market past a failed rule. HELD markets are listed, never dropped.
 - **Inputs:**
-  - `data/market_audit_snapshot.json`: counts only, read-only 2026-10-06; re-measure with
-    `job=geocode` plan;
-  - `data/market_caveats.csv`: documented facts, each with its evidence;
+  - `data/market_audit_snapshot.json`: counts only, read-only 2026-10-06; `units` (state × ledger)
+    and `county_units` (126 state × county × ledger), the units being the county sums
+    (test-pinned). Re-measure with `job=geocode` plan, then
+    `build_market_report.py --from-audit out/public/enrichment-audit.json`;
+  - `data/market_caveats.csv`: documented facts, each with its evidence. A caveat names a state ×
+    ledger; its optional `county` column narrows it to one county;
   - `public/acquisition-evidence.json`.
 - **Builder:** `scripts/build_market_report.py` (`--check`, test-pinned) writes the report and
-  `data/market_test_counties.csv`, which is enrichment rule P5's county list. Rebuild after
-  editing any input.
+  `data/market_test_counties.csv`, which is enrichment rule P5's county list. A county is listed
+  when it belongs to a strongest market, is customer-visible and fails no rule its market does
+  not fail (`market_test_counties()`). Rebuild after editing any input.
 - No market is activated by being on a list.

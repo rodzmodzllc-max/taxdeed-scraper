@@ -38,7 +38,8 @@ Percentages are of active records. Imagery-capable = coordinates (the live USDA 
 
 ### 1. FL Auction (FOCUS)
 
-* **Counties:** 41 counties (statewide sources)
+* **Counties:** 41 counties (31 FOCUS at county level); leading: Orange, Highlands, Washington, Manatee, Charlotte
+* **Market-test counties (P5):** Orange, Highlands, Washington, Manatee, Charlotte, Bay, Broward, Jackson, Putnam, Escambia, Palm Beach, Miami-Dade, Clay, Seminole, Polk, Marion, Santa Rosa, Sarasota, Indian River, Duval, Alachua, Pasco, St. Lucie, Martin, Osceola, Suwannee, Walton, Hendry, Nassau, DeSoto, Gilchrist
 * **Ledger:** AUCTION
 * **Usable inventory:** 1,351 customer-visible of 1,351 active
 * **Published path:** 100% (auction url)
@@ -51,9 +52,56 @@ Percentages are of active records. Imagery-capable = coordinates (the live USDA 
 * **Why it is interesting (measured):** 1,351 customer-visible records in 41 counties; 100% carry the published path (auction url); 82% imagery-capable coordinates
 * **Missing:** authoritative coordinates 14%; legal descriptions 73%; taxable values 68%; acreage 66%; land use 72%
 
+Counties (FOCUS first, then fewest failed rules and most visible records):
+
+| County | Tier | Failed rules | Active | Visible | Identity | Coords | Authoritative coords | Path | Legal | Taxable | Imagery-capable |
+|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| Orange | FOCUS | - | 84 | 84 | 100% | 100% | 10% | 100% | 100% | 84% | 100% |
+| Highlands | FOCUS | - | 63 | 63 | 100% | 100% | 19% | 100% | 100% | 100% | 100% |
+| Washington | FOCUS | - | 61 | 61 | 100% | 100% | 33% | 100% | 100% | 98% | 100% |
+| Manatee | FOCUS | - | 60 | 60 | 100% | 100% | 35% | 100% | 100% | 97% | 100% |
+| Charlotte | FOCUS | - | 57 | 57 | 100% | 100% | 10% | 100% | 100% | 100% | 100% |
+| Bay | FOCUS | - | 47 | 47 | 100% | 100% | 8% | 100% | 100% | 100% | 100% |
+| Broward | FOCUS | - | 45 | 45 | 100% | 100% | 20% | 100% | 100% | 96% | 100% |
+| Jackson | FOCUS | - | 42 | 42 | 100% | 100% | 43% | 100% | 100% | 71% | 100% |
+| Putnam | FOCUS | - | 40 | 40 | 100% | 100% | 50% | 100% | 100% | 50% | 100% |
+| Escambia | FOCUS | - | 39 | 39 | 100% | 100% | 3% | 100% | 100% | 100% | 100% |
+| Palm Beach | FOCUS | - | 39 | 39 | 100% | 100% | 26% | 100% | 100% | 90% | 100% |
+| Miami-Dade | FOCUS | - | 34 | 34 | 100% | 91% | 0% | 100% | 29% | 29% | 91% |
+| Clay | FOCUS | - | 29 | 29 | 100% | 100% | 21% | 100% | 100% | 97% | 100% |
+| Seminole | FOCUS | - | 28 | 28 | 100% | 100% | 43% | 100% | 100% | 100% | 100% |
+| Polk | FOCUS | - | 27 | 27 | 100% | 100% | 41% | 100% | 100% | 89% | 100% |
+| Marion | FOCUS | - | 24 | 24 | 100% | 100% | 0% | 100% | 100% | 92% | 100% |
+| Santa Rosa | FOCUS | - | 21 | 21 | 100% | 90% | 5% | 100% | 90% | 90% | 90% |
+| Sarasota | FOCUS | - | 20 | 20 | 100% | 100% | 0% | 100% | 100% | 100% | 100% |
+| Indian River | FOCUS | - | 19 | 19 | 100% | 100% | 0% | 100% | 100% | 95% | 100% |
+| Duval | FOCUS | - | 18 | 18 | 100% | 100% | 0% | 100% | 100% | 100% | 100% |
+| Alachua | FOCUS | - | 17 | 17 | 100% | 88% | 35% | 100% | 88% | 82% | 88% |
+| Pasco | FOCUS | - | 16 | 16 | 100% | 94% | 0% | 100% | 88% | 88% | 94% |
+| St. Lucie | FOCUS | - | 15 | 15 | 100% | 100% | 0% | 100% | 100% | 93% | 100% |
+| Martin | FOCUS | - | 14 | 14 | 100% | 100% | 0% | 100% | 100% | 100% | 100% |
+| Osceola | FOCUS | - | 13 | 13 | 100% | 100% | 0% | 100% | 100% | 100% | 100% |
+| Suwannee | FOCUS | - | 12 | 12 | 100% | 100% | 0% | 100% | 0% | 0% | 100% |
+| Walton | FOCUS | - | 11 | 11 | 100% | 91% | 0% | 100% | 91% | 91% | 91% |
+| Hendry | FOCUS | - | 10 | 10 | 100% | 100% | 0% | 100% | 100% | 100% | 100% |
+| Nassau | FOCUS | - | 9 | 9 | 100% | 100% | 0% | 100% | 100% | 100% | 100% |
+| DeSoto | FOCUS | - | 4 | 4 | 100% | 100% | 0% | 100% | 100% | 100% | 100% |
+| Gilchrist | FOCUS | - | 2 | 2 | 100% | 100% | 100% | 100% | 100% | 100% | 100% |
+| Hillsborough | BROWSE | coordinates | 125 | 125 | 100% | 30% | 0% | 100% | 0% | 0% | 30% |
+| Lee | BROWSE | coordinates | 113 | 113 | 100% | 68% | 12% | 100% | 64% | 62% | 68% |
+| Volusia | BROWSE | coordinates | 40 | 40 | 100% | 65% | 20% | 100% | 58% | 55% | 65% |
+| Leon | BROWSE | coordinates | 35 | 35 | 100% | 74% | 0% | 100% | 29% | 29% | 74% |
+| Brevard | BROWSE | coordinates | 27 | 27 | 100% | 41% | 0% | 100% | 0% | 0% | 41% |
+| Pinellas | BROWSE | coordinates | 23 | 23 | 100% | 17% | 0% | 100% | 0% | 0% | 17% |
+| Lake | BROWSE | coordinates | 20 | 20 | 100% | 10% | 0% | 100% | 0% | 0% | 10% |
+| Flagler | BROWSE | coordinates | 1 | 1 | 100% | 0% | 0% | 100% | 100% | 0% | 0% |
+| Hernando | BROWSE | identity, coordinates | 25 | 25 | 0% | 12% | 0% | 100% | 0% | 0% | 12% |
+| Citrus | BROWSE | identity, coordinates | 22 | 22 | 0% | 27% | 0% | 100% | 0% | 0% | 27% |
+
 ### 2. SC Auction (FOCUS)
 
 * **Counties:** York
+* **Market-test counties (P5):** York
 * **Ledger:** AUCTION
 * **Usable inventory:** 853 customer-visible of 853 active
 * **Published path:** 100% (auction url)
@@ -69,6 +117,7 @@ Percentages are of active records. Imagery-capable = coordinates (the live USDA 
 ### 3. CO Lien (FOCUS)
 
 * **Counties:** Douglas, Morgan
+* **Market-test counties (P5):** Douglas, Morgan
 * **Ledger:** LIEN
 * **Usable inventory:** 144 customer-visible of 144 active
 * **Published path:** 100% (acquisition evidence)
@@ -81,9 +130,17 @@ Percentages are of active records. Imagery-capable = coordinates (the live USDA 
 * **Why it is interesting (measured):** 144 customer-visible records in 2 counties; 100% carry the published path (acquisition evidence); 81% imagery-capable coordinates
 * **Missing:** taxable values 79%; acreage 79%; land use 79%
 
+Counties (FOCUS first, then fewest failed rules and most visible records):
+
+| County | Tier | Failed rules | Active | Visible | Identity | Coords | Authoritative coords | Path | Legal | Taxable | Imagery-capable |
+|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| Douglas | FOCUS | - | 141 | 141 | 100% | 81% | 81% | 100% | 81% | 81% | 81% |
+| Morgan | FOCUS | - | 3 | 3 | 100% | 100% | 100% | 100% | 100% | 0% | 100% |
+
 ### 4. MI Auction (FOCUS)
 
-* **Counties:** Eaton, Lenawee
+* **Counties:** Lenawee, Eaton
+* **Market-test counties (P5):** Lenawee, Eaton
 * **Ledger:** AUCTION
 * **Usable inventory:** 38 customer-visible of 38 active
 * **Published path:** 100% (auction url)
@@ -96,9 +153,17 @@ Percentages are of active records. Imagery-capable = coordinates (the live USDA 
 * **Why it is interesting (measured):** 38 customer-visible records in 2 counties; 100% carry the published path (auction url); 100% imagery-capable coordinates
 * **Missing:** taxable values 8%; land use 5%
 
+Counties (FOCUS first, then fewest failed rules and most visible records):
+
+| County | Tier | Failed rules | Active | Visible | Identity | Coords | Authoritative coords | Path | Legal | Taxable | Imagery-capable |
+|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| Lenawee | FOCUS | - | 35 | 35 | 100% | 100% | 100% | 100% | 100% | 0% | 100% |
+| Eaton | FOCUS | - | 3 | 3 | 100% | 100% | 100% | 100% | 100% | 100% | 100% |
+
 ### 5. LA Available (BROWSE)
 
 * **Counties:** East Baton Rouge
+* **Market-test counties (P5):** East Baton Rouge
 * **Ledger:** AVAILABLE
 * **Usable inventory:** 10,334 customer-visible of 10,334 active
 * **Published path:** 100% (acquisition evidence); 1 county with a verified acquisition record
@@ -116,7 +181,7 @@ Percentages are of active records. Imagery-capable = coordinates (the live USDA 
 
 ### 1. FL Available (BROWSE)
 
-* **Counties:** 25 counties (statewide sources)
+* **Counties:** 25 counties (8 FOCUS at county level); leading: Hernando, Highlands, Levy, Alachua, Orange
 * **Ledger:** AVAILABLE
 * **Usable inventory:** 158 customer-visible of 158 active
 * **Published path:** 28% (acquisition evidence); 19 counties with a verified acquisition record
@@ -129,9 +194,39 @@ Percentages are of active records. Imagery-capable = coordinates (the live USDA 
 * **Why it is interesting (measured):** 158 customer-visible records in 25 counties; 28% carry the published path (acquisition evidence); 90% imagery-capable coordinates
 * **Missing:** fewer than 80% of visible records carry the ledger's published path; authoritative coordinates 2%; taxable values 80%
 
+Counties (FOCUS first, then fewest failed rules and most visible records):
+
+| County | Tier | Failed rules | Active | Visible | Identity | Coords | Authoritative coords | Path | Legal | Taxable | Imagery-capable |
+|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| Hernando | FOCUS | - | 6 | 6 | 100% | 100% | 0% | 100% | 100% | 50% | 100% |
+| Highlands | FOCUS | - | 5 | 5 | 100% | 100% | 40% | 100% | 100% | 100% | 100% |
+| Levy | FOCUS | - | 5 | 5 | 100% | 100% | 0% | 100% | 100% | 100% | 100% |
+| Alachua | FOCUS | - | 4 | 4 | 100% | 100% | 0% | 100% | 100% | 100% | 100% |
+| Orange | FOCUS | - | 3 | 3 | 100% | 100% | 0% | 100% | 100% | 0% | 100% |
+| Leon | FOCUS | - | 2 | 2 | 100% | 100% | 0% | 100% | 100% | 100% | 100% |
+| Marion | FOCUS | - | 2 | 2 | 100% | 100% | 0% | 100% | 100% | 50% | 100% |
+| Duval | FOCUS | - | 1 | 1 | 100% | 100% | 0% | 100% | 100% | 100% | 100% |
+| Putnam | BROWSE | path | 46 | 46 | 100% | 100% | 0% | 0% | 100% | 98% | 100% |
+| Polk | BROWSE | path | 16 | 16 | 100% | 100% | 0% | 0% | 100% | 100% | 100% |
+| Sarasota | BROWSE | path | 14 | 14 | 100% | 100% | 0% | 0% | 100% | 100% | 100% |
+| Volusia | BROWSE | coordinates | 11 | 11 | 100% | 73% | 0% | 100% | 73% | 9% | 73% |
+| Osceola | BROWSE | path | 10 | 10 | 100% | 100% | 0% | 0% | 100% | 100% | 100% |
+| Gadsden | BROWSE | path | 8 | 8 | 100% | 100% | 0% | 0% | 100% | 100% | 100% |
+| Citrus | BROWSE | coordinates | 5 | 5 | 100% | 0% | 0% | 100% | 0% | 0% | 0% |
+| Palm Beach | BROWSE | path | 3 | 3 | 100% | 100% | 0% | 0% | 100% | 67% | 100% |
+| St. Lucie | BROWSE | path | 3 | 3 | 100% | 100% | 0% | 0% | 100% | 100% | 100% |
+| Bay | BROWSE | path | 2 | 2 | 100% | 100% | 0% | 0% | 100% | 100% | 100% |
+| Hendry | BROWSE | path | 2 | 2 | 100% | 100% | 50% | 0% | 100% | 100% | 100% |
+| Lee | BROWSE | path | 1 | 1 | 100% | 100% | 0% | 0% | 100% | 100% | 100% |
+| Hillsborough | BROWSE | coordinates, path | 3 | 3 | 100% | 0% | 0% | 0% | 0% | 0% | 0% |
+| Indian River | BROWSE | coordinates, path | 2 | 2 | 100% | 0% | 0% | 0% | 0% | 0% | 0% |
+| Miami-Dade | BROWSE | coordinates, path | 2 | 2 | 100% | 50% | 0% | 0% | 50% | 50% | 50% |
+| Pasco | BROWSE | coordinates, path | 1 | 1 | 100% | 0% | 0% | 0% | 0% | 0% | 0% |
+| Escambia | BROWSE | identity, coordinates, path | 1 | 1 | 0% | 0% | 0% | 0% | 100% | 0% | 0% |
+
 ### 2. FL Lien (BROWSE)
 
-* **Counties:** 25 counties (statewide sources)
+* **Counties:** 25 counties (0 FOCUS at county level); leading: Miami-Dade, Duval, Pasco, Alachua, Sarasota
 * **Ledger:** LIEN
 * **Usable inventory:** 1,611 customer-visible of 1,611 active
 * **Published path:** 100% (auction url)
@@ -144,9 +239,39 @@ Percentages are of active records. Imagery-capable = coordinates (the live USDA 
 * **Why it is interesting (measured):** 1,611 customer-visible records in 25 counties; 100% carry the published path (auction url); 52% imagery-capable coordinates
 * **Missing:** fewer than 75% of visible records carry coordinates; a freshness, dated-list or source-review caveat applies; authoritative coordinates 2%; legal descriptions 32%; taxable values 32%; acreage 42%; land use 32%
 
+Counties (FOCUS first, then fewest failed rules and most visible records):
+
+| County | Tier | Failed rules | Active | Visible | Identity | Coords | Authoritative coords | Path | Legal | Taxable | Imagery-capable |
+|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| Miami-Dade | BROWSE | current | 193 | 193 | 100% | 94% | 0% | 100% | 6% | 6% | 94% |
+| Duval | BROWSE | current | 122 | 122 | 100% | 100% | 0% | 100% | 100% | 100% | 100% |
+| Pasco | BROWSE | current | 112 | 112 | 100% | 95% | 0% | 100% | 95% | 95% | 95% |
+| Alachua | BROWSE | current | 100 | 100 | 100% | 79% | 0% | 100% | 79% | 79% | 79% |
+| Sarasota | BROWSE | current | 93 | 93 | 100% | 100% | 0% | 100% | 100% | 100% | 100% |
+| Escambia | BROWSE | current | 32 | 32 | 100% | 75% | 75% | 100% | 75% | 75% | 75% |
+| St. Lucie | BROWSE | current | 16 | 16 | 100% | 100% | 0% | 100% | 100% | 100% | 100% |
+| Orange | BROWSE | current | 15 | 15 | 100% | 100% | 0% | 100% | 100% | 100% | 100% |
+| Lake | BROWSE | current | 13 | 13 | 100% | 100% | 0% | 100% | 100% | 100% | 100% |
+| Seminole | BROWSE | current | 11 | 11 | 100% | 100% | 0% | 100% | 100% | 100% | 100% |
+| Nassau | BROWSE | current | 9 | 9 | 100% | 100% | 0% | 100% | 100% | 100% | 100% |
+| Sumter | BROWSE | current | 6 | 6 | 100% | 83% | 0% | 100% | 83% | 83% | 83% |
+| Broward | BROWSE | current | 4 | 4 | 100% | 100% | 0% | 100% | 100% | 100% | 100% |
+| Bay | BROWSE | current | 1 | 1 | 100% | 100% | 0% | 100% | 100% | 100% | 100% |
+| Okaloosa | BROWSE | current | 1 | 1 | 100% | 100% | 0% | 100% | 100% | 100% | 100% |
+| Santa Rosa | BROWSE | coordinates, current | 480 | 480 | 100% | 31% | 0% | 100% | 0% | 0% | 31% |
+| Volusia | BROWSE | coordinates, current | 228 | 228 | 100% | 1% | 0% | 100% | 1% | 1% | 1% |
+| Hillsborough | BROWSE | coordinates, current | 82 | 82 | 100% | 7% | 0% | 100% | 0% | 0% | 7% |
+| Walton | BROWSE | coordinates, current | 42 | 42 | 100% | 7% | 0% | 100% | 5% | 5% | 7% |
+| Hernando | BROWSE | coordinates, current | 25 | 25 | 100% | 0% | 0% | 100% | 0% | 0% | 0% |
+| Flagler | BROWSE | coordinates, current | 9 | 9 | 100% | 0% | 0% | 100% | 100% | 0% | 0% |
+| Osceola | BROWSE | coordinates, current | 8 | 8 | 100% | 0% | 0% | 100% | 0% | 0% | 0% |
+| Monroe | BROWSE | coordinates, current | 4 | 4 | 100% | 0% | 0% | 100% | 0% | 0% | 0% |
+| Martin | BROWSE | coordinates, current | 3 | 3 | 100% | 0% | 0% | 100% | 0% | 0% | 0% |
+| Citrus | BROWSE | coordinates, current | 2 | 2 | 100% | 50% | 0% | 100% | 0% | 0% | 50% |
+
 ### 3. TX Available (BROWSE)
 
-* **Counties:** 8 counties (statewide sources)
+* **Counties:** 8 counties (0 FOCUS at county level); leading: Galveston, Liberty, Leon, Maverick, Jim Wells
 * **Ledger:** AVAILABLE
 * **Usable inventory:** 421 customer-visible of 421 active
 * **Published path:** 44% (acquisition evidence); 1 county with a verified acquisition record
@@ -159,9 +284,22 @@ Percentages are of active records. Imagery-capable = coordinates (the live USDA 
 * **Why it is interesting (measured):** 421 customer-visible records in 8 counties; 44% carry the published path (acquisition evidence); 100% imagery-capable coordinates
 * **Missing:** fewer than 80% of visible records carry the ledger's published path; a freshness, dated-list or source-review caveat applies; authoritative coordinates 0%; legal descriptions 56%; taxable values 0%; acreage 0%; land use 0%
 
+Counties (FOCUS first, then fewest failed rules and most visible records):
+
+| County | Tier | Failed rules | Active | Visible | Identity | Coords | Authoritative coords | Path | Legal | Taxable | Imagery-capable |
+|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| Galveston | BROWSE | current | 183 | 183 | 100% | 100% | 0% | 100% | 94% | 0% | 100% |
+| Liberty | BROWSE | path, current | 113 | 113 | 100% | 100% | 0% | 0% | 0% | 0% | 100% |
+| Leon | BROWSE | path, current | 84 | 84 | 100% | 100% | 0% | 0% | 51% | 0% | 100% |
+| Maverick | BROWSE | path, current | 14 | 14 | 100% | 100% | 0% | 0% | 86% | 0% | 100% |
+| Jim Wells | BROWSE | path, current | 11 | 11 | 100% | 100% | 0% | 0% | 0% | 0% | 100% |
+| Hardin | BROWSE | path, current | 9 | 9 | 100% | 100% | 0% | 0% | 33% | 0% | 100% |
+| Van Zandt | BROWSE | path, current | 6 | 6 | 100% | 100% | 0% | 0% | 100% | 0% | 100% |
+| Goliad | BROWSE | path, current | 1 | 1 | 100% | 100% | 0% | 0% | 0% | 0% | 100% |
+
 ### 4. TX Auction (BROWSE)
 
-* **Counties:** 12 counties (statewide sources)
+* **Counties:** 12 counties (0 FOCUS at county level); leading: Dallas, Nueces, Victoria, Caldwell, Travis
 * **Ledger:** AUCTION
 * **Usable inventory:** 122 customer-visible of 122 active
 * **Published path:** 84% (auction url)
@@ -173,6 +311,23 @@ Percentages are of active records. Imagery-capable = coordinates (the live USDA 
 * **Visibility:** customer-visible; reachable through state / county navigation; gaps named on every record
 * **Why it is interesting (measured):** 122 customer-visible records in 12 counties; 84% carry the published path (auction url); 67% imagery-capable coordinates
 * **Missing:** fewer than 75% of visible records carry coordinates; a freshness, dated-list or source-review caveat applies; authoritative coordinates 0%; legal descriptions 8%; taxable values 0%; acreage 0%; land use 0%
+
+Counties (FOCUS first, then fewest failed rules and most visible records):
+
+| County | Tier | Failed rules | Active | Visible | Identity | Coords | Authoritative coords | Path | Legal | Taxable | Imagery-capable |
+|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| Dallas | BROWSE | current | 12 | 12 | 100% | 100% | 0% | 100% | 0% | 0% | 100% |
+| Nueces | BROWSE | current | 10 | 10 | 100% | 100% | 0% | 100% | 0% | 0% | 100% |
+| Victoria | BROWSE | current | 5 | 5 | 100% | 80% | 0% | 100% | 0% | 0% | 80% |
+| Caldwell | BROWSE | current | 4 | 4 | 100% | 75% | 0% | 100% | 0% | 0% | 75% |
+| Travis | BROWSE | current | 4 | 4 | 100% | 75% | 0% | 100% | 0% | 0% | 75% |
+| Galveston | BROWSE | path, current | 22 | 22 | 100% | 100% | 0% | 54% | 46% | 0% | 100% |
+| Smith | BROWSE | coordinates, current | 17 | 17 | 100% | 35% | 0% | 100% | 0% | 0% | 35% |
+| Cameron | BROWSE | coordinates, current | 12 | 12 | 100% | 25% | 0% | 100% | 0% | 0% | 25% |
+| Atascosa | BROWSE | coordinates, current | 10 | 10 | 100% | 60% | 0% | 100% | 0% | 0% | 60% |
+| Matagorda | BROWSE | coordinates, current | 10 | 10 | 100% | 0% | 0% | 100% | 0% | 0% | 0% |
+| Concho | BROWSE | path, current | 9 | 9 | 100% | 100% | 0% | 0% | 0% | 0% | 100% |
+| Llano | BROWSE | coordinates, current | 7 | 7 | 100% | 57% | 0% | 100% | 0% | 0% | 57% |
 
 
 ## Not prioritized yet
@@ -191,6 +346,13 @@ Percentages are of active records. Imagery-capable = coordinates (the live USDA 
 * **Visibility:** admins only until the source is cleared for customers; counted, never shown to customers
 * **Why it is interesting (measured):** 0 customer-visible records in 2 counties; 0% carry the published path (acquisition evidence); 100% imagery-capable coordinates
 * **Missing:** legal descriptions 0%; taxable values 0%; acreage 0%; land use 0%
+
+Counties (FOCUS first, then fewest failed rules and most visible records):
+
+| County | Tier | Failed rules | Active | Visible | Identity | Coords | Authoritative coords | Path | Legal | Taxable | Imagery-capable |
+|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| Wayne | HELD | not_customer_visible | 30,778 | 0 | 100% | 100% | 100% | 0% | 0% | 0% | 100% |
+| Oceana | HELD | not_customer_visible | 5 | 0 | 100% | 20% | 0% | 100% | 0% | 0% | 20% |
 
 ### 2. MO Available (HELD)
 
@@ -257,7 +419,7 @@ Percentages are of active records. Imagery-capable = coordinates (the live USDA 
 
 ### 1. SC Available (HELD)
 
-* **Counties:** Georgetown, Horry
+* **Counties:** Horry, Georgetown
 * **Ledger:** AVAILABLE
 * **Usable inventory:** 0 customer-visible of 52 active
 * **Published path:** 100% (acquisition evidence); 2 counties with a verified acquisition record
@@ -269,6 +431,13 @@ Percentages are of active records. Imagery-capable = coordinates (the live USDA 
 * **Visibility:** admins only until the source is cleared for customers; counted, never shown to customers
 * **Why it is interesting (measured):** 0 customer-visible records in 2 counties; 100% carry the published path (acquisition evidence); 0% imagery-capable coordinates
 * **Missing:** authoritative coordinates 0%; taxable values 0%; acreage 0%; land use 0%
+
+Counties (FOCUS first, then fewest failed rules and most visible records):
+
+| County | Tier | Failed rules | Active | Visible | Identity | Coords | Authoritative coords | Path | Legal | Taxable | Imagery-capable |
+|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| Horry | HELD | not_customer_visible | 51 | 0 | 100% | 0% | 0% | 100% | 100% | 0% | 0% |
+| Georgetown | HELD | not_customer_visible | 1 | 0 | 100% | 0% | 0% | 100% | 100% | 0% | 0% |
 
 ### 2. MN Available (HELD)
 

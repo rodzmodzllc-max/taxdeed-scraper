@@ -7,19 +7,28 @@ any list here.**
 
 ## What a market is
 
-A market is one state × ledger: AVAILABLE, AUCTION or LIEN. Single-county
-sources are named by county (York SC, East Baton Rouge LA, Albany WY, ...).
-Florida and Texas markets are statewide: the snapshot holds state × ledger
-counts. A county-level split comes from `scripts/enrichment_audit.py`, which
-runs as part of `job=geocode`. Each county could then become its own market
-with the same rules, by adding its counts to `data/market_audit_snapshot.json`.
+A market is one state × ledger: AVAILABLE, AUCTION or LIEN. A **county market**
+is one state × county × ledger, classified by exactly the same rules
+(`county_markets()`). The snapshot holds both: `units` (16 state × ledger) and
+`county_units` (126 state × county × ledger), from the same read-only
+measurement. Each state unit equals the sum of its county units, which a test
+pins.
+
+The report shows, for every shortlisted market, its counties in rule order:
+FOCUS first, then by number of failed rules, then by visible records.
+Statewide markets name their leading counties. For example, FL Auction has 41
+counties, 31 of them FOCUS at county level. FL Available is a BROWSE market
+(28% verified acquisition evidence), but 8 of its 25 counties are FOCUS on
+their own.
 
 ## Inputs (all in the repository)
 
 * `data/market_audit_snapshot.json`: counts only, measured read-only in
   production on 2026-10-06, over records with status active or available.
 * `data/market_caveats.csv`: documented facts that limit a market. Each row
-  cites where it is documented. Kinds:
+  cites where it is documented. A caveat names a state × ledger; its optional
+  `county` column narrows it to one county (the state market still carries it).
+  Kinds:
   * `freshness`, `dated_list`, `source_review` and `not_current` affect the tier;
   * `gap` is reported only.
 * `public/acquisition-evidence.json`: counties with a verified acquisition
@@ -88,18 +97,25 @@ and the existing interface already scales:
   Intelligence index and per-ledger counts reach every market. FOCUS markets
   are not pushed into a customer's view by default.
 * **Enrichment goes where customers look.** `data/market_test_counties.csv`
-  (generated from the strongest markets) feeds enrichment rule P5. Its
-  counties' records, including ones not yet customer-visible, are enriched
-  before other non-visible records.
+  (generated from the strongest markets) feeds enrichment rule P5. A county is
+  listed when it belongs to a strongest market, is customer-visible, and fails
+  no rule its market does not fail: a county is never weaker than the market
+  it represents. FL Hillsborough (30% coordinates) is therefore not listed
+  under FL Auction. Records in listed counties, including ones not yet
+  customer-visible, are enriched before other non-visible records.
 
 ## Re-measuring
 
 1. Dispatch `job=geocode` with `geocode_mode=plan` (read-only). It writes
    `out/public/enrichment-audit.json`.
-2. Copy the state × ledger (or state × county × ledger) counts into
-   `data/market_audit_snapshot.json`.
-3. Update `data/market_caveats.csv` when a documented fact changes.
-4. Run `python3 scripts/build_market_report.py`.
+2. Run `python3 scripts/build_market_report.py --from-audit <that file>`. It
+   replaces the snapshot's counts (county units, and the state units as their
+   sums), keeps the source names, and rebuilds both outputs.
+3. Update `data/market_caveats.csv` when a documented fact changes, then run
+   `python3 scripts/build_market_report.py`.
+
+`--state XX --county Name --ledger AUCTION` prints the matching county markets
+and writes nothing.
 
 `--check` (and its test) fails when the report or the county list is not
 current.

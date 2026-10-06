@@ -3,12 +3,21 @@
 
   docs/market-test-report.md       every market's metrics, tier, failed rules,
                                    visibility and the shortlist (generated)
-  data/market_test_counties.csv    the counties of the strongest markets that
-                                   name their counties (enrichment rule P5)
+  data/market_test_counties.csv    the counties of the strongest markets that are
+                                   visible and no weaker than their market
+                                   (enrichment rule P5)
 
 From data/market_audit_snapshot.json, data/market_caveats.csv and
 public/acquisition-evidence.json (harvesters/sources/market_metrics.py).
 --check exits 1 when either file is not current. No network, no database.
+
+  --from-audit PATH   replace the snapshot's counts with an
+                      out/public/enrichment-audit.json written by
+                      scripts/enrichment_audit.py (job=geocode, plan mode), then
+                      rebuild. Counts only; sources and county names are kept.
+  --state / --county / --ledger
+                      print the matching county markets (tier, failed rules,
+                      metrics) and write nothing.
 """
 from __future__ import annotations
 
@@ -53,7 +62,21 @@ def _missing(m: MM.Market) -> str:
     return "; ".join(gaps) or "nothing measured as missing"
 
 
-def render(ms: list[MM.Market], snapshot: dict) -> str:
+def _county_row(c: MM.Market) -> str:
+    x = c.metrics()
+    return (f"| {c.county} | {c.tier} | {', '.join(c.failed) or '-'} | {x['active']:,} | {x['visible']:,} | "
+            f"{x['identity_pct']:.0f}% | {x['coordinates_pct']:.0f}% | {x['authoritative_coordinates_pct']:.0f}% | "
+            f"{x['path_pct']:.0f}% | {x['legal_description_pct']:.0f}% | {x['taxable_value_pct']:.0f}% | "
+            f"{x['imagery_capable_pct']:.0f}% |\n")
+
+
+COUNTY_HEAD = ("| County | Tier | Failed rules | Active | Visible | Identity | Coords | Authoritative coords | Path | Legal | "
+               "Taxable | Imagery-capable |\n|---|---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|\n")
+LEADING = 5
+
+
+def render(ms: list[MM.Market], snapshot: dict, cms: list[MM.Market] | None = None) -> str:
+    cms = cms if cms is not None else []
     sl = MM.shortlist(ms)
     out = io.StringIO()
     w = out.write
@@ -91,8 +114,19 @@ def render(ms: list[MM.Market], snapshot: dict) -> str:
         for i, m in enumerate(sl[key], 1):
             x = m.metrics()
             w(f"### {i}. {m.name} ({m.tier})\n\n")
-            names = ", ".join(m.unit.get("county_names") or []) or f"{x['counties']} counties (statewide sources)"
+            mine = MM.counties_of(m, cms)
+            tested = MM.market_test_counties(m, cms)
+            if mine and len(mine) <= LEADING:
+                names = ", ".join(c.county for c in mine)
+            elif mine:
+                focus = sum(1 for c in mine if c.tier == "FOCUS")
+                names = (f"{len(mine)} counties ({focus} FOCUS at county level); leading: "
+                         + ", ".join(c.county for c in mine[:LEADING]))
+            else:
+                names = ", ".join(m.unit.get("county_names") or []) or f"{x['counties']} counties"
             w(f"* **Counties:** {names}\n")
+            if m in sl["strongest"]:
+                w(f"* **Market-test counties (P5):** {', '.join(c.county for c in tested) or 'none'}\n")
             w(f"* **Ledger:** {m.ledger}\n")
             w(f"* **Usable inventory:** {x['visible']:,} customer-visible of {x['active']:,} active\n")
             w(f"* **Published path:** {x['path_pct']:.0f}% ({x['path_metric'].replace('_', ' ')})"
@@ -108,27 +142,105 @@ def render(ms: list[MM.Market], snapshot: dict) -> str:
               + ("; its counties are listed for market testing (data/market_test_counties.csv, enrichment rule P5)" if listed else "")
               + "\n")
             w(f"* **Why it is interesting (measured):** {_why(m)}\n")
-            w(f"* **Missing:** {_missing(m)}\n\n")
+            w(f"* **Missing:** {_missing(m)}\n")
+            if len(mine) > 1:
+                w(f"\nCounties (FOCUS first, then fewest failed rules and most visible records):\n\n{COUNTY_HEAD}")
+                for c in mine:
+                    w(_county_row(c))
+            w("\n")
     return out.getvalue()
 
 
-def counties_csv(ms: list[MM.Market]) -> str:
+def counties_csv(ms: list[MM.Market], cms: list[MM.Market]) -> str:
     out = io.StringIO()
     wr = csv.writer(out, lineterminator="\n")
     wr.writerow(["state", "county", "ledger", "reason"])
     for m in MM.shortlist(ms)["strongest"]:
-        for c in m.unit.get("county_names") or []:
-            wr.writerow([m.state, c, m.ledger, f"strongest test market ({m.tier})"])
+        for c in MM.market_test_counties(m, cms):
+            wr.writerow([m.state, c.county, m.ledger, f"strongest test market ({m.tier}); county {c.tier}"])
     return out.getvalue()
+
+
+AUDIT_KEYS = {  # enrichment_audit.py METRICS -> snapshot keys
+    "records": "active", "coordinates": "coordinates", "authoritative_coordinates": "authoritative_coordinates",
+    "parcel": "parcel", "legal_description": "legal_description", "assessed_value": "assessed_value",
+    "taxable_value": "taxable_value", "acreage": "acreage", "land_use": "land_use", "owner_name": "owner_name",
+    "fdor_enriched": "fdor_enriched", "acquisition_evidence": "acquisition_evidence", "purchase_url": "purchase_url",
+    "auction_url": "auction_url", "imagery_capable": "imagery_capable", "stored_imagery": "stored_imagery",
+    "missing_source_truth": "missing_source_truth", "incomplete_provenance": "incomplete_provenance",
+}
+COORD_METHOD_KEYS = {"UNRECORDED": "unrecorded_coordinates", "VENDOR_LISTING": "vendor_coordinates"}
+
+
+def snapshot_from_audit(audit: dict, previous: dict, measured_on: str) -> dict:
+    """A snapshot from an enrichment-audit.json: county_units from its units,
+    units as their sums. Sources / county names are carried from `previous`."""
+    ledger = {"AVAILABLE": "AVAILABLE", "AUCTION": "AUCTION", "LIEN": "LIEN"}
+    cu = []
+    for u in audit.get("units") or []:
+        if u.get("ledger") not in ledger:
+            continue
+        c = {"state": u["state"], "county": u["county"], "ledger": u["ledger"]}
+        for k, v in AUDIT_KEYS.items():
+            c[v] = int(u["all"].get(k, 0))
+        c["visible"] = int(u["visible"].get("records", 0))
+        methods = u.get("coordinate_methods") or {}
+        for k, v in COORD_METHOD_KEYS.items():
+            c[v] = int(methods.get(k, 0))
+        cu.append(c)
+    cu.sort(key=lambda c: (c["state"], c["ledger"], c["county"]))
+    prev = {(u["state"], u["ledger"]): u for u in previous.get("units") or []}
+    units: dict[tuple, dict] = {}
+    for c in cu:
+        key = (c["state"], c["ledger"])
+        u = units.setdefault(key, {"state": key[0], "ledger": key[1], "counties": 0})
+        u["counties"] += 1
+        for k, v in c.items():
+            if isinstance(v, int):
+                u[k] = u.get(k, 0) + v
+    for key, u in units.items():
+        u["county_names"] = sorted(c["county"] for c in cu if (c["state"], c["ledger"]) == key) if u["counties"] <= 3 else []
+        u["sources"] = list((prev.get(key) or {}).get("sources") or [])
+    return {"_comment": previous.get("_comment", ""), "measured_on": measured_on,
+            "units": [units[k] for k in sorted(units)], "county_units": cu}
+
+
+def _print_filtered(cms: list[MM.Market]) -> None:
+    for c in sorted(cms, key=lambda c: (c.state, c.ledger, TIER_ORDER(c), c.county)):
+        x = c.metrics()
+        print(f"{c.name}: {c.tier} failed={','.join(c.failed) or '-'} active={x['active']} visible={x['visible']} "
+              f"coords={x['coordinates_pct']:.0f}% auth={x['authoritative_coordinates_pct']:.0f}% "
+              f"path={x['path_pct']:.0f}% imagery={x['imagery_capable_pct']:.0f}%")
+
+
+def TIER_ORDER(m: MM.Market) -> int:
+    return MM.TIERS.index(m.tier)
 
 
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--check", action="store_true")
+    ap.add_argument("--from-audit")
+    ap.add_argument("--measured-on", default="")
+    ap.add_argument("--state", action="append")
+    ap.add_argument("--county", action="append")
+    ap.add_argument("--ledger", action="append")
     a = ap.parse_args(argv)
     snap = MM.load_snapshot()
+    if a.state or a.county or a.ledger:
+        _print_filtered(MM.county_markets(snap, states=a.state, counties=a.county,
+                                          ledgers=[x.upper() for x in a.ledger or []]))
+        return 0
+    if a.from_audit:
+        import json
+        from datetime import date
+        audit = json.loads(Path(a.from_audit).read_text(encoding="utf-8"))
+        snap = snapshot_from_audit(audit, snap, a.measured_on or date.today().isoformat())
+        MM.SNAPSHOT.write_text(json.dumps(snap, indent=1) + "\n", encoding="utf-8")
+        print(f"wrote {MM.SNAPSHOT.relative_to(REPO)}")
     ms = MM.markets(snap)
-    want = {REPORT: render(ms, snap), COUNTIES: counties_csv(ms)}
+    cms = MM.county_markets(snap)
+    want = {REPORT: render(ms, snap, cms), COUNTIES: counties_csv(ms, cms)}
     if a.check:
         stale = [p for p, t in want.items() if not p.exists() or p.read_text(encoding="utf-8") != t]
         for p in stale:

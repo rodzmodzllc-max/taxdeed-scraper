@@ -1,11 +1,13 @@
 """Market measurement for commercial testing: explicit rules, no score.
 
-A "market" is one state x ledger (AVAILABLE / AUCTION / LIEN), measured from
-data/market_audit_snapshot.json (counts only, read-only production audit) and
-the repository's own evidence: verified acquisition counties
+A "market" is one state x ledger (AVAILABLE / AUCTION / LIEN); a "county
+market" is one state x county x ledger. Both are measured from
+data/market_audit_snapshot.json (counts only, read-only production audit:
+"units" and "county_units", the county sums equal the state units) and the
+repository's own evidence: verified acquisition counties
 (public/acquisition-evidence.json) and documented caveats
-(data/market_caveats.csv). County-level markets come from the same counts once
-scripts/enrichment_audit.py's county split is recorded.
+(data/market_caveats.csv; a caveat names a state x ledger, optionally narrowed
+to one county). County markets are classified by the same rules.
 
 Every market gets the underlying metrics and one tier from rules that can be
 read in a sentence each:
@@ -17,8 +19,9 @@ read in a sentence each:
                  identity     >= 95% of visible records carry a parcel / account id
                  coordinates  >= 75% carry coordinates (imagery-capable)
                  path         >= 80% carry their ledger's published path
-                              (auction URL for auctions; acquisition evidence
-                              for Available and liens)
+                              (the sale page for auctions; the certificate
+                              sale page or acquisition evidence for liens;
+                              verified acquisition evidence for Available)
                  current      no freshness / dated-list / source-review caveat
   BROWSE       visible, and at least one FOCUS rule fails; the failed rules
                are listed by name.
@@ -63,10 +66,12 @@ class Market:
     verified_counties: int = 0
     tier: str = ""
     failed: list = field(default_factory=list)
+    county: str = ""          # set for a county market (state x county x ledger)
 
     @property
     def name(self) -> str:
-        return f"{self.state} {self.ledger.title()}"
+        base = f"{self.state} {self.ledger.title()}"
+        return f"{base} · {self.county}" if self.county else base
 
     @property
     def visible(self) -> int:
@@ -92,7 +97,7 @@ class Market:
         u = self.unit
         a = u["active"]
         return {
-            "counties": u["counties"], "active": a, "visible": u["visible"],
+            "counties": u.get("counties", 1), "active": a, "visible": u["visible"],
             "coordinates_pct": _pct(u["coordinates"], a),
             "authoritative_coordinates_pct": _pct(u["authoritative_coordinates"], a),
             "identity_pct": _pct(u["parcel"], a),
@@ -103,7 +108,8 @@ class Market:
             "land_use_pct": _pct(u["land_use"], a),
             "path_metric": self.path_metric(),
             "path_pct": _pct(u[self.path_metric()], a),
-            "imagery_capable_pct": _pct(u["coordinates"], a),
+            # Live USDA NAIP needs coordinates and no '' "checked, no image" sentinel.
+            "imagery_capable_pct": _pct(u.get("imagery_capable", u["coordinates"]), a),
             "stored_imagery_pct": _pct(u["stored_imagery"], a),
             "verified_acquisition_counties": self.verified_counties,
         }
@@ -124,6 +130,29 @@ def verified_counties_by_state(repo: Path = REPO) -> dict[str, int]:
     for st, _county in load_verified_counties(repo):
         out[st] = out.get(st, 0) + 1
     return out
+
+
+def verified_county_set(repo: Path = REPO) -> set[tuple[str, str]]:
+    from harvesters.enrichment.priority import load_verified_counties
+    return set(load_verified_counties(repo))
+
+
+def _caveats_for(caveats, state: str, ledger: str, county: str = "") -> list:
+    """A caveat names a state x ledger; an optional county column narrows it to
+    one county (the state market still carries it)."""
+    out = []
+    for c in caveats:
+        if c["state"] != state or c["ledger"] != ledger:
+            continue
+        cc = (c.get("county") or "").strip()
+        if county and cc and cc != county:
+            continue
+        out.append(c)
+    return out
+
+
+def _wanted(value: str, allowed) -> bool:
+    return not allowed or value in {str(a).strip() for a in allowed}
 
 
 def classify(m: Market) -> Market:
@@ -147,17 +176,53 @@ def classify(m: Market) -> Market:
     return m
 
 
-def markets(snapshot: dict | None = None, caveats: list | None = None, verified: dict | None = None) -> list[Market]:
+def markets(snapshot: dict | None = None, caveats: list | None = None, verified: dict | None = None,
+            states=None, ledgers=None) -> list[Market]:
+    """State x ledger markets, optionally filtered by state / ledger."""
     snapshot = snapshot if snapshot is not None else load_snapshot()
     caveats = caveats if caveats is not None else load_caveats()
     verified = verified if verified is not None else verified_counties_by_state()
     out = []
     for u in snapshot["units"]:
-        m = Market(u["state"], u["ledger"], u,
-                   caveats=[c for c in caveats if c["state"] == u["state"] and c["ledger"] == u["ledger"]],
+        if not (_wanted(u["state"], states) and _wanted(u["ledger"], ledgers)):
+            continue
+        m = Market(u["state"], u["ledger"], u, caveats=_caveats_for(caveats, u["state"], u["ledger"]),
                    verified_counties=verified.get(u["state"], 0) if u["ledger"] == "AVAILABLE" else 0)
         out.append(classify(m))
     return out
+
+
+def county_markets(snapshot: dict | None = None, caveats: list | None = None, verified: set | None = None,
+                   states=None, counties=None, ledgers=None) -> list[Market]:
+    """State x county x ledger markets from snapshot["county_units"], classified
+    by the same rules (a state x ledger caveat applies to each of its counties),
+    optionally filtered by state / county / ledger."""
+    snapshot = snapshot if snapshot is not None else load_snapshot()
+    caveats = caveats if caveats is not None else load_caveats()
+    verified = verified if verified is not None else verified_county_set()
+    out = []
+    for u in snapshot.get("county_units") or []:
+        if not (_wanted(u["state"], states) and _wanted(u["county"], counties) and _wanted(u["ledger"], ledgers)):
+            continue
+        m = Market(u["state"], u["ledger"], dict(u, counties=1), county=u["county"],
+                   caveats=_caveats_for(caveats, u["state"], u["ledger"], u["county"]),
+                   verified_counties=int((u["state"], u["county"]) in verified) if u["ledger"] == "AVAILABLE" else 0)
+        out.append(classify(m))
+    return out
+
+
+def counties_of(m: Market, county_ms: list[Market]) -> list[Market]:
+    """A state x ledger market's county markets: FOCUS first, then by failed
+    rules, then visible and active records - the same keys as the shortlist."""
+    mine = [c for c in county_ms if c.state == m.state and c.ledger == m.ledger]
+    return sorted(mine, key=lambda c: (TIERS.index(c.tier), len(c.failed), -c.visible, -int(c.unit["active"]), c.county))
+
+
+def market_test_counties(m: Market, county_ms: list[Market]) -> list[Market]:
+    """The counties of a market that are listed for market testing: visible,
+    and failing no rule the market itself does not fail (a county never weaker
+    than the market it represents)."""
+    return [c for c in counties_of(m, county_ms) if c.visible and set(c.failed) <= set(m.failed)]
 
 
 def shortlist(ms: list[Market], n: int = 5) -> dict:
