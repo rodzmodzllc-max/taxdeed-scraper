@@ -4213,6 +4213,13 @@ await navMap.close();
       };
     });
     results.countyAlachua = await pageFacts(cp);
+    // County -> property (2026-10-06): each ledger lists its records, and a record opens its own page.
+    results.countyRecords = await cp.evaluate(() => Object.fromEntries([...document.querySelectorAll('#pageCounty .cty-records')].map(u => [u.dataset.ledger, [...u.querySelectorAll('.cty-record')].map(li => li.dataset.pid)])));
+    await cp.evaluate(() => document.querySelector('#pageCounty .cty-records[data-ledger="auction"] .cty-record-btn').click());
+    await cp.waitForFunction(() => !document.getElementById('detailModal').hidden, null, { timeout: 5000 });
+    results.countyRecordOpens = await cp.evaluate(() => location.hash);
+    await cp.evaluate(() => document.querySelector('[data-action="closedetail"]').click());
+    await cp.waitForTimeout(300);
     // A county with an Available unit and a verified path but no certificates: no Liens section.
     await cp.evaluate(() => window.__tdwOpenCountyPage('Citrus', 'FL'));
     await cp.waitForSelector('#pageCounty .cty[data-county="Citrus"]', { timeout: 5000 });
@@ -7109,6 +7116,8 @@ const EXPECTED = {
   researchToCounty: "#/county/Citrus",
   researchLocal: {"mode": "local", "note": "local", "afterReload": 1, "pageNote": "local"},
   researchOverflow: [],
+  countyRecords: {"auction": ["p1"], "certificate": ["p4"]},
+  countyRecordOpens: "#/auctions/p1",
   // Current acquisition amounts (2026-10-06).
   amountVectors: [],
   amountMeta: {"pa": {"semantic": "OPENING_BID", "rows": ["Amount type: Opening bid", "Valid through: Not published"], "statusMatchesRule": true}, "ok": {"semantic": "OTHER_PUBLISHED_AMOUNT", "rows": ["Amount type: Other published amount", "Valid through: Not published"], "statusMatchesRule": true}, "mo": {"semantic": "NONE", "rows": ["Amount type: Not published", "Valid through: Not published"], "statusMatchesRule": true}, "mn": {"semantic": "OPENING_BID", "rows": ["Amount type: Opening bid", "Valid through: Not published"], "statusMatchesRule": true}},

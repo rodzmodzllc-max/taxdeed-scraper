@@ -5103,6 +5103,25 @@ function countyMoneyRange(rows) {
 function countyKv(rows) {
   return `<dl class="cty-kv">${rows.filter(Boolean).map(([k, v, attr]) => `<dt>${esc(k)}</dt><dd${attr ? ` ${attr}` : ""}>${v}</dd>`).join("")}</dl>`;
 }
+// County -> property (2026-10-06): the records themselves, not only a count -
+// up to six per ledger, each opening its own property page, the rest in the
+// List. Order is the ledger's own: Available by case, auctions by sale date,
+// certificates by expiration.
+var COUNTY_RECORDS_SHOWN = COUNTY_RECORDS_SHOWN || 6;
+function countyRecordsHtml(ps, ledger, heading) {
+  if (!ps.length) return "";
+  const shown = ps.slice(0, COUNTY_RECORDS_SHOWN);
+  const rest = ps.length - shown.length;
+  const line = p => {
+    const street = p.source === "certificate" ? "" : realAddress(p);
+    const title = p.source === "certificate" ? `Certificate #${esc(p.certificate_no || "not published")}` : (street ? esc(street) : lotTitle(p));
+    const ids = [hasParcel(p) ? `Parcel ${esc(p.parcel)}` : "", p.case_no && p.source !== "certificate" ? `Case ${esc(p.case_no)}` : ""].filter(Boolean).join(" · ");
+    const { phase } = kickerParts(p);
+    return `<li class="cty-record" data-pid="${esc(String(p.id))}"><button type="button" class="cty-record-btn" data-action="viewdetails" data-pid="${esc(String(p.id))}">
+      <span class="cty-record-title">${title}</span><span class="cty-record-sub">${ids ? ids + " · " : ""}${esc(phase)}</span><span class="cty-record-go" aria-hidden="true">Open →</span></button></li>`;
+  };
+  return `<h4>${esc(heading)}</h4><ul class="cty-records" data-ledger="${esc(ledger)}">${shown.map(line).join("")}</ul>${rest > 0 ? `<p class="cty-sub">${rest.toLocaleString("en-US")} more in the List.</p>` : ""}`;
+}
 function countyAvailableHtml(c, st, sources, rows, seeAll) {
   const live = rows.live.filter(p => p.source === "laft");
   const srcs = sources.filter(x => x.ledger === "laft" && (seeAll || x.customer_approved || x.fromRows));
@@ -5142,6 +5161,7 @@ function countyAvailableHtml(c, st, sources, rows, seeAll) {
   const nAll = live.length;
   return `<section class="cty-section" data-county-section="available"><h3><span class="cty-dot" data-ledger="laft"></span>${esc(ledgerNavName("laft"))} <span class="cty-q">${esc(LEDGERS.laft.question || "")}</span></h3>
     ${countyKv([["On file now", `<b>${nAll.toLocaleString("en-US")}</b>${LEDGER_LOAD.laft === "loading" || LEDGER_LOAD.laft === "partial" ? ' <span class="muted">(still loading)</span>' : ""}`]].concat(amountRows))}
+    ${countyRecordsHtml(live.slice().sort((a, b) => String(a.case_no || "").localeCompare(String(b.case_no || ""))), "laft", "Properties on file")}
     ${srcs.length ? `<ul class="cty-srcs">${srcs.map(x => countySourceLineHtml(x, seeAll)).join("")}</ul>` : `<p class="muted">No Available source is recorded for this ${esc(UNIT_WORD.toLowerCase())}. That is not a statement that nothing can be acquired here.</p>`}
     ${unitHtml}
     ${nAll ? `<div class="cty-actions"><button type="button" class="link-btn" data-action="dossierlist" data-county="${esc(c.county)}" data-ledger="laft">Open in the List (${nAll.toLocaleString("en-US")}) →</button> <button type="button" class="link-btn" data-action="countymap" data-county="${esc(c.county)}" data-ledger="laft">Show on the Map →</button></div>` : ""}
@@ -5196,6 +5216,7 @@ function countyAuctionsHtml(c, st, sources, rows, seeAll) {
   return `<section class="cty-section" data-county-section="auctions"><h3><span class="cty-dot" data-ledger="auction"></span>${esc(ledgerNavName("auction"))} <span class="cty-q">${esc(LEDGERS.auction.question || "")}</span></h3>
     ${countyKv(kv)}
     ${dates ? `<h4>Sale calendar</h4><ul class="cty-sales">${dates}</ul>` : ""}
+    ${countyRecordsHtml(upcoming, "auction", "Upcoming sales on file")}
     <h4>Historical results</h4>${outcomeHtml}
     ${srcs.length ? `<ul class="cty-srcs">${srcs.map(x => countySourceLineHtml(x, seeAll)).join("")}</ul>` : `<p class="muted">No auction source is recorded for this ${esc(UNIT_WORD.toLowerCase())}.</p>`}
     ${live.length ? `<div class="cty-actions"><button type="button" class="link-btn" data-action="dossierlist" data-county="${esc(c.county)}" data-ledger="auction">Open in the List (${live.length.toLocaleString("en-US")}) →</button></div>` : ""}
@@ -5217,6 +5238,7 @@ function countyLiensHtml(c, st, sources, rows, seeAll) {
   ];
   return `<section class="cty-section" data-county-section="liens"><h3><span class="cty-dot" data-ledger="certificate"></span>${esc(ledgerNavName("certificate"))} <span class="cty-q">${esc(LEDGERS.certificate.question || "")}</span></h3>
     ${countyKv(kv)}
+    ${countyRecordsHtml(live.slice().sort((a, b) => String(a.expiration_date || "9").localeCompare(String(b.expiration_date || "9"))), "certificate", "Certificates on file")}
     ${srcs.length ? `<ul class="cty-srcs">${srcs.map(x => countySourceLineHtml(x, seeAll)).join("")}</ul>` : ""}
     ${live.length ? `<div class="cty-actions"><button type="button" class="link-btn" data-action="dossierlist" data-county="${esc(c.county)}" data-ledger="certificate">Open in the List (${live.length.toLocaleString("en-US")}) →</button></div>` : ""}
   </section>`;
@@ -5366,7 +5388,7 @@ function countyIndexHtml(doc, st) {
     </div>
     <div class="cty-index-legend"><span>${esc(UNIT_WORD)}</span><span>Research status</span><span class="cty-row-counts"><span data-ledger="laft">${esc(ledgerNavName("laft"))}</span><span data-ledger="auction">${esc(ledgerNavName("auction"))}</span><span data-ledger="certificate">${esc(ledgerNavName("certificate"))}</span></span><span>Upcoming</span></div>
     <ul class="cty-rows">${items || `<li class="muted">No ${esc(UNIT_WORD.toLowerCase())} matches.</li>`}</ul>
-    <p class="dossier-note">${recorded.size} of ${total || "?"} ${esc(UNIT_WORD.toLowerCase())}s have a source, a research record or a property on file. A ${esc(UNIT_WORD.toLowerCase())} with none is not yet researched - that is not a statement that nothing is for sale there.</p>
+    <p class="dossier-note">${recorded.size} of ${total || "?"} ${esc(unitWordFor(total || 2))} have a source, a research record or a property on file. A ${esc(UNIT_WORD.toLowerCase())} with none is not yet researched - that is not a statement that nothing is for sale there.</p>
   </div>`;
 }
 function ensureCountySection() {
@@ -7880,8 +7902,12 @@ function openDetail(p) {
   // doesn't add a second one. Runs on every open, not just wasHidden ones,
   // so the id stays correct if this is a refresh-in-place (favorite toggle,
   // watchlist change) rather than a fresh open.
+  // The slug is the property's OWN ledger (2026-10-06): a cross-ledger link
+  // (a certificate's timeline opening the same parcel's auction record) must
+  // not write "#/certificates/<auction id>", which would reopen it under the
+  // wrong ledger after a cold start.
   try {
-    history.replaceState(history.state, "", "#/" + LEDGERS[state.ledger].slug + "/" + p.id);
+    history.replaceState(history.state, "", "#/" + (LEDGERS[p.source] || LEDGERS[state.ledger]).slug + "/" + p.id);
   } catch { /* file:// etc */ }
   if (wasHidden) focusIntoModal(modal);
   syncBodyScrollLock();
