@@ -7578,8 +7578,12 @@ function openDetail(p) {
   // doesn't add a second one. Runs on every open, not just wasHidden ones,
   // so the id stays correct if this is a refresh-in-place (favorite toggle,
   // watchlist change) rather than a fresh open.
+  // The slug is the property's OWN ledger (2026-10-06): a cross-ledger link
+  // (a certificate's timeline opening the same parcel's auction record) must
+  // not write "#/certificates/<auction id>", which would reopen it under the
+  // wrong ledger after a cold start.
   try {
-    history.replaceState(history.state, "", "#/" + LEDGERS[state.ledger].slug + "/" + p.id);
+    history.replaceState(history.state, "", "#/" + (LEDGERS[p.source] || LEDGERS[state.ledger]).slug + "/" + p.id);
   } catch { /* file:// etc */ }
   if (wasHidden) focusIntoModal(modal);
   syncBodyScrollLock();
