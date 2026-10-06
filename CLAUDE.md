@@ -2417,7 +2417,7 @@ Full description: `docs/search-crosslinks-timeline.md`. Stable facts:
   dated fact for the record and the same parcel in other ledgers. A result
   only from `auctionOutcomeState().verified`; leaving a list is never a sale.
 - `openDetail()` writes the hash with the property's OWN ledger slug.
-- `sw.js` -> `tdw-shell-v102`.
+- `sw.js` -> `tdw-shell-v104` (v103 is held by PR #112; v104 adds the phone Account sheet "Go to" group).
 
 ## Where to look for more
 

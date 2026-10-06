@@ -892,3 +892,8 @@ body:has(#authGate:not([hidden])){padding-bottom:0!important}
 .dd-key [data-dd-state="NOT_VERIFIED"] .dd-state{color:var(--warn)}
 .dd-key [data-dd-state="SOURCE_UNAVAILABLE"] .dd-state{color:var(--bad)}
 .dd-key .dd-state{display:inline-block}
+
+/* Phone Account sheet: workspace entries the bottom bar does not carry. */
+.account-goto{border-bottom:1px solid var(--rule);padding:.2rem 0 .3rem;margin-bottom:.2rem}
+.account-goto-head{margin:.3rem .9rem .1rem;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-soft)}
+@media (min-width:1024px){ .account-goto{display:none} }

@@ -13895,6 +13895,30 @@ function openStatePicker(returnEl) {
   if (about) about.addEventListener("click", () => helpUi.open());
   const acct = document.getElementById("navBottomAccount");
   if (acct) acct.addEventListener("click", e => { e.stopPropagation(); openAccountMenu(); });
+  // Phone: the rail's workspace entries are not on the bottom bar, so the
+  // Account sheet carries them as a short "Go to" group (hidden wherever the
+  // rail shows). Each one runs the rail entry's own handler once the sheet's
+  // history entry is gone.
+  const head = accountMenu && accountMenu.querySelector(".account-head");
+  if (head && !document.getElementById("accountGoto")) {
+    const g = document.createElement("div");
+    g.className = "account-goto"; g.id = "accountGoto";
+    g.innerHTML = `<p class="account-goto-head">Go to</p>`
+      + `<button class="account-item" type="button" role="menuitem" data-goto="research">My Research</button>`
+      + `<button class="account-item" type="button" role="menuitem" data-goto="counties">County Intelligence</button>`
+      + `<button class="account-item" type="button" role="menuitem" data-goto="searches">Saved searches</button>`;
+    head.after(g);
+    g.addEventListener("click", e => {
+      const b = e.target.closest("[data-goto]");
+      if (!b) return;
+      const go = b.dataset.goto;
+      afterSelfBack(() => {
+        if (go === "research") openResearchPage("all");
+        else if (go === "counties") openCountyIndex();
+        else if (go === "searches" && saved) saved.click();
+      });
+    });
+  }
 })();
 function syncAdminNav() {
   const a = document.getElementById("navAdminLink");

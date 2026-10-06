@@ -4405,6 +4405,34 @@ await navMap.close();
       await hp.close();
     }
   }
+  // ---- Phone reach: Account sheet "Go to" (2026-10-06) ----
+  // The bottom bar has no My Research / County Intelligence entry; the Account
+  // sheet carries them on a phone and hides them where the rail shows.
+  {
+    const mp = await newPage({ viewport: { width: 390, height: 844 } });
+    mp.on('pageerror', e => errors.push('account goto pageerror: ' + e.message));
+    await mp.goto(BASE_URL.replace('index.html', 'index.html?v=goto') + '#/dashboard', { waitUntil: 'networkidle' });
+    await mp.waitForSelector('#navBottomAccount', { timeout: 10000 });
+    const viaGoto = async (go, sel) => {
+      await mp.click('#navBottomAccount');
+      await mp.click(`#accountGoto [data-goto="${go}"]`);
+      return mp.waitForSelector(sel, { timeout: 5000 }).then(async () => ({ hash: await mp.evaluate(() => location.hash), menuClosed: await mp.evaluate(() => document.getElementById('accountMenu').hidden) }), () => null);
+    };
+    await mp.click('#navBottomAccount');
+    const labels = await mp.evaluate(() => [...document.querySelectorAll('#accountGoto [data-goto]')].filter(b => b.offsetParent).map(b => b.textContent));
+    await mp.keyboard.press('Escape'); await mp.evaluate(() => { const m = document.getElementById('accountMenu'); if (!m.hidden) document.getElementById('navBottomAccount').click(); });
+    await mp.waitForTimeout(450);
+    const research = await viaGoto('research', '#pageResearch:not([hidden])');
+    await mp.waitForTimeout(450);
+    const counties = await viaGoto('counties', '#pageCounty .cty-index');
+    await mp.close();
+    const dp = await newPage({ viewport: { width: 1440, height: 900 } });
+    await dp.goto(BASE_URL.replace('index.html', 'index.html?v=goto') + '#/dashboard', { waitUntil: 'networkidle' });
+    await dp.waitForSelector('#accountGoto', { state: 'attached', timeout: 10000 });
+    const desktopHidden = await dp.evaluate(() => getComputedStyle(document.getElementById('accountGoto')).display === 'none');
+    await dp.close();
+    results.accountGotoPhone = { labels, research, counties, desktopHidden };
+  }
   // ---- Due diligence: evidence state per checklist item (2026-10-06) ----
   {
     const dv = JSON.parse(fs.readFileSync(new URL('./python/fixtures/due_diligence_cases.json', import.meta.url), 'utf8')).cases;
@@ -6143,7 +6171,7 @@ const EXPECTED = {
   },
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: {"ready": true, "controlled": true, "tagline": "Public Property Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v102"]},
+  brandSwReload: {"ready": true, "controlled": true, "tagline": "Public Property Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v104"]},
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · TaxDeed-Scraper — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · TaxDeed-Scraper — Florida", floridaCopy: true },
@@ -7368,6 +7396,7 @@ const EXPECTED = {
   researchPipelineFilter: ["DUE_DILIGENCE"],
   homeGuideWorkflow: {"research": true, "counties": true},
   homeGuideToCounties: "#/counties",
+  accountGotoPhone: {"labels": ["My Research", "County Intelligence", "Saved searches"], "research": {"hash": "#/research", "menuClosed": true}, "counties": {"hash": "#/counties", "menuClosed": true}, "desktopHidden": true},
   countyRecords: {"auction": ["p1"], "certificate": ["p4"]},
   countyRecordOpens: "#/auctions/p1",
   // Current acquisition amounts (2026-10-06).
