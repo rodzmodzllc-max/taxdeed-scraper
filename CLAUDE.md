@@ -2546,3 +2546,18 @@ Full description: `docs/saved-searches-and-properties.md`. Stable facts:
   - the watch snapshot keeps missing entries (`missing: true`), and the
     modal names them under `#savedMissing`, never removing them silently.
 - `sw.js` -> `tdw-shell-v85`.
+
+## First-run guide, touch targets, search while loading (2026-10-05, PR open, stacked on the saved-searches PR)
+
+Full description: `docs/onboarding-mobile-search.md`. Stable facts:
+- **Home guide:** `#homeGuide` (`homeGuideHtml` / `renderHomeGuide`) is five
+  steps, every line built from loaded data; there are no scores or sample
+  figures. It is hidden per browser by `tdw_home_guide_hidden_v1`.
+- **Touch targets:** at ≤768px or on a coarse pointer, primary controls are
+  ≥44px (end of `explore.css`). The Playwright `viewportSweep` checks:
+  - no horizontal overflow at 390 / 768 / 1024 / 1280 / 1440 / 1920px;
+  - those 44px targets at 390px.
+- **Global search:** says "Still loading … results may grow" while a ledger
+  is loading, or "may be incomplete" after a failed one. It refreshes from
+  `scheduleLedgerUpdate`.
+- `sw.js` -> `tdw-shell-v86`.

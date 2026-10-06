@@ -3245,6 +3245,8 @@ function scheduleLedgerUpdate(key) {
     const keys = LEDGER_UPDATE_KEYS; LEDGER_UPDATE_KEYS = new Set();
     applyLedgerRows();
     buildAllChips();          // counties / sources that arrived with these pages
+    const gsBox = document.getElementById("globalSearchResults");
+    if (gsBox && !gsBox.hidden && typeof renderGlobalSearch === "function") renderGlobalSearch();
     const listVisible = !!document.getElementById("pageList") && !document.getElementById("pageList").hidden;
     if (keys.has("*") || keys.has(state.ledger) || !listVisible) render();
     else renderLedgerCounts();
@@ -10765,11 +10767,18 @@ function renderGlobalSearch() {
   }
   const all = gsMatches(q);
   SHELL_UI.gsMatches = all;
+  // Independent loading (2026-10-05): search covers the records loaded so far.
+  // Say so while a ledger is still loading, or when one failed - a "no match"
+  // must never read as final when the data is not all in.
+  const partial = !allLedgersSettled()
+    ? `<div class="gs-status gs-partial" id="gsPartial" role="status">Still loading some ${esc(STATE_INFO.name)} records - results may grow.</div>`
+    : LOAD_ISSUES.length ? `<div class="gs-status gs-partial" id="gsPartial" role="status">Some ${esc(STATE_INFO.name)} records could not be loaded - results may be incomplete.</div>` : "";
   if (!all.length) {
-    box.innerHTML = `<div class="gs-status" id="gsEmpty" role="status">No ${esc(STATE_INFO.name)} property matches “${esc(q)}”. Search covers address, parcel, case and certificate numbers and the ${esc(UNIT_WORD.toLowerCase())}; to look in another state, switch state first.</div>`;
+    box.innerHTML = (partial ? partial.replace('id="gsPartial"', 'id="gsEmpty"').replace("results may grow.", "no match in the records loaded so far.").replace("results may be incomplete.", "no match in the records that loaded.")
+      : `<div class="gs-status" id="gsEmpty" role="status">No ${esc(STATE_INFO.name)} property matches “${esc(q)}”. Search covers address, parcel, case and certificate numbers and the ${esc(UNIT_WORD.toLowerCase())}; to look in another state, switch state first.</div>`);
     return;
   }
-  box.innerHTML = all.slice(0, GS_LIMIT).map(gsRowHtml).join("") +
+  box.innerHTML = partial + all.slice(0, GS_LIMIT).map(gsRowHtml).join("") +
     `<button type="button" class="gs-all" data-gs-all="1">See all ${all.length.toLocaleString("en-US")} result${all.length === 1 ? "" : "s"} in the list &rarr;</button>`;
 }
 function closeGlobalSearch() {
@@ -10877,9 +10886,55 @@ function topCountyName() {
   c.forEach((v, k) => { if (v > n) { best = k; n = v; } });
   return best;
 }
+// First-run guide (2026-10-05): five short steps - find, research, verify how
+// to acquire, save, track - each line built from this state's loaded data
+// (no sample figures, no scores). Hidden per browser with "Hide this guide";
+// "How this works" brings it back.
+var GUIDE_KEY = "tdw_home_guide_hidden_v1";
+function guideHidden() { try { return localStorage.getItem(GUIDE_KEY) === "1"; } catch { return false; } }
+function setGuideHidden(v) { try { if (v) localStorage.setItem(GUIDE_KEY, "1"); else localStorage.removeItem(GUIDE_KEY); } catch { /* private mode */ } }
+function homeGuideHtml() {
+  if (guideHidden()) {
+    return `<p class="home-guide-collapsed"><button type="button" class="link-btn" data-guide="show" id="homeGuideShow">How this works</button></p>`;
+  }
+  const settled = PROPERTIES_LOADED && allLedgersSettled();
+  const active = ["laft", "auction", "certificate"].reduce((n, k) => n + shellActiveRows(k).length, 0);
+  const counties = new Set(ALL.filter(p => !isGone(p) && !isPastDue(p)).map(p => p.county).filter(Boolean)).size;
+  const avail = shellActiveRows("laft");
+  const verified = avail.filter(p => acquisitionOf(p).verified).length;
+  const searches = (MONITOR.savedSearches || []).filter(s => s.state === PAGE_STATE).length;
+  const n = v => Number(v).toLocaleString("en-US");
+  const steps = [
+    ["Find", !PROPERTIES_LOADED ? `Loading ${STATE_INFO.name}…`
+      : `${n(active)} active record${active === 1 ? "" : "s"} in ${STATE_INFO.name}${counties ? ` across ${n(counties)} ${unitWordFor(counties)}` : ""}${settled ? "" : " so far"}. Filter by ${UNIT_WORD.toLowerCase()}, source, amount and date.`,
+      `<button type="button" class="link-btn" data-guide="list">Open the list</button>`],
+    ["Research", "Open a property for its values, source, the date it was last read, and where each field came from.", ""],
+    ["Verify how to acquire", avail.length
+      ? `${n(verified)} of ${n(avail.length)} available propert${avail.length === 1 ? "y has" : "ies have"} a verified acquisition path; the rest say "Not yet verified". Always confirm with the official source before you apply or pay.`
+      : "Available properties show the office's acquisition process once it has been verified. Always confirm with the official source.", ""],
+    ["Save", `Save up to ${BID_LIST_MAX} properties to your watchlist (${BIDLIST.size} saved now). Saved properties keep their acquisition details and status.`,
+      `<button type="button" class="link-btn" data-guide="watchlist">Open watchlist</button>`],
+    ["Track", `${n(searches)} saved search${searches === 1 ? "" : "es"} for ${STATE_INFO.name}. New matches and changes to saved properties are shown when you return.`,
+      `<button type="button" class="link-btn" data-guide="searches">Saved searches</button>`]
+  ];
+  return `<div class="home-guide-head"><b>How this works</b><span class="home-guide-actions"><button type="button" class="link-btn" data-guide="hide" id="homeGuideHide">Hide this guide</button></span></div>
+    <ol class="home-guide-steps">${steps.map(([t, body, act], i) => `<li class="home-guide-step" data-step="${i + 1}"><span class="home-guide-num" aria-hidden="true">${i + 1}</span><span class="home-guide-body"><b>${esc(t)}</b> ${esc(body)} ${act}</span></li>`).join("")}</ol>`;
+}
+function renderHomeGuide() {
+  const ledgersEl = document.getElementById("homeLedgers");
+  if (!ledgersEl) return;
+  let g = document.getElementById("homeGuide");
+  if (!g) {
+    ledgersEl.insertAdjacentHTML("beforebegin", `<section class="home-guide" id="homeGuide" aria-label="How this works"></section>`);
+    g = document.getElementById("homeGuide");
+  }
+  g.classList.toggle("collapsed", guideHidden());
+  g.innerHTML = homeGuideHtml();
+}
 function renderHome() {
   const ledgersEl = document.getElementById("homeLedgers");
   if (!ledgersEl) return;
+  renderHomeGuide();
   const order = ["laft", "auction", "certificate"];
   ledgersEl.innerHTML = order.map(homeLedgerCardHtml).join("") + `
     <button type="button" class="home-ledger-card home-states-card" id="homeStatesCard" aria-haspopup="dialog" aria-controls="statePicker">
@@ -10923,6 +10978,14 @@ function renderHome() {
     if (pid) { const p = ALL.find(x => String(x.id) === pid.dataset.homePid); if (p) openDetail(p); return; }
     if (e.target.closest("#homeStatesCard") || e.target.closest("#homeChangeState")) { openStatePicker(e.target.closest("button")); return; }
     if (e.target.closest("#homeRecentAll")) goToLedger(landingLedger(ALL, state.ledger));
+    const guide = e.target.closest("[data-guide]");
+    if (guide) {
+      const g = guide.dataset.guide;
+      if (g === "hide" || g === "show") { setGuideHidden(g === "hide"); renderHomeGuide(); const f = document.getElementById(g === "hide" ? "homeGuideShow" : "homeGuideHide"); if (f) f.focus(); }
+      else if (g === "list") goToLedger(landingLedger(ALL, state.ledger));
+      else if (g === "watchlist") openBidList();
+      else if (g === "searches") openSavedSearches(guide);
+    }
   });
 })();
 

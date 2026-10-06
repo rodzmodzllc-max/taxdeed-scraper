@@ -1099,3 +1099,17 @@ color:#fff;cursor:pointer;margin-top:.3rem;letter-spacing:.01em}
     font-family:inherit;font-size:.72rem;font-weight:700;color:var(--accent);background:var(--accent-soft);
     border:none;border-radius:3px;cursor:pointer}
 }
+
+/* Touch targets (2026-10-05): every primary control on a phone or touch
+   screen is at least 44px tall - the state selector, account button, ledger
+   tabs, List "Map view", the Map page's search / county / ledger pills, the
+   inline "Change state" link and the saved-search / watchlist actions. */
+@media (max-width: 768px), (pointer: coarse) {
+  #stateSelect, #accountBtn, .ledger-tab, #listMapBtn,
+  #mapSearchInput, #mapCountySelect, .map-ledger-pills button, .map-watch-pill,
+  #homeChangeState, .home-guide-actions button, .home-guide-step .link-btn,
+  .saved-search .detail-btn, .saved-missing-row .reset-btn,
+  [data-section="acquire"] a, .acq-form a { min-height: 44px; }
+  #homeChangeState, .home-guide-step .link-btn, [data-section="acquire"] a, .acq-form a { display: inline-flex; align-items: center; }
+  .map-ledger-pills button, .map-watch-pill { padding-top: .5rem; padding-bottom: .5rem; }
+}
