@@ -4326,7 +4326,7 @@ function parcelTimelineHtml(p) {
   const body = items.length
     ? `<ol class="parcel-timeline">${items.map(e => `<li data-kind="${esc(e.kind)}" data-ledger="${esc(e.ledger)}"${e.self ? ' data-self="1"' : ""}>
         <span class="tl-when">${esc(fmtDate(e.at))}</span>
-        <span class="tl-what"><span class="ledger-badge" data-ledger="${esc(e.ledger)}">${esc(ledgerNavName(e.ledger))}</span> ${esc(e.label)}<span class="tl-sub">${esc(e.ident)}${e.self ? " · this record" : ` · <button type="button" class="link-btn" data-action="viewdetails" data-pid="${esc(String(e.pid))}">open</button>`}</span></span>
+        <span class="tl-what"><span class="ledger-badge" data-ledger="${esc(e.ledger)}">${esc(ledgerNavName(e.ledger))}</span> ${esc(e.label)}<span class="tl-sub">${esc(e.ident)}${e.self ? " · this record" : ` · <button type="button" class="link-btn" data-action="viewdetails" data-pid="${esc(String(e.pid))}">Open the ${esc(ledgerNavName(e.ledger))} record →</button>`}</span></span>
       </li>`).join("")}</ol>`
     : `<p class="tl-note">No dated observation is recorded for this parcel yet.</p>`;
   return detailSectionHtml("Parcel timeline", head + body + `<p class="tl-note">Built from this app's own observations. A result is shown only where the source published one; a passed date or a record leaving a list is never a sale, a redemption or a forfeiture. Earlier history before tracking began is not reconstructed.</p>`, "timeline-section", "timeline");
@@ -8103,7 +8103,6 @@ function detailHtml(p) {
     ${isCert ? `
     ${certStatusLinesHtml(p)}
     ${certificateDecisionHtml(p)}
-    ${sourceTruthHtml(p)}
     <div class="detail-grid">
       ${stats.map(detailStatTileHtml).join("")}
     </div>
@@ -8111,6 +8110,7 @@ function detailHtml(p) {
     ${diligenceSectionHtml(p)}
     ${relatedRecordsHtml(p)}
     ${parcelTimelineHtml(p)}
+    ${sourceTruthHtml(p)}
     ${monitorSectionHtml(p)}` : `
     ${propertyVisual(p, "detail-hero-photo")}
     ${sourceReviewBannerHtml(p)}
@@ -8120,15 +8120,9 @@ function detailHtml(p) {
     ${availableDecisionHtml(p)}
     ${auctionDecisionHtml(p)}
     ${inventoryCardHtml(p)}
-    ${relatedRecordsHtml(p)}
-    ${parcelTimelineHtml(p)}
     ${statGroupHtml("Financial", stats.filter(s => s[2] === "financial"), "financial")}
     ${statGroupHtml("Property Details", stats.filter(s => s[2] === "property"), "property")}
     ${statGroupHtml("History", stats.filter(s => s[2] === "history"), "history")}
-    ${detailSectionHtml("My research", researchPanelHtml(p), "research-section", "research")}
-    ${diligenceSectionHtml(p)}
-    ${eventHistorySlotHtml(p)}
-    ${monitorSectionHtml(p)}
     ${!isCert && regionOf(p) === "FL" ? `<div class="lien-banner ${esc(p.lien_level)}">
       <div class="lien-toprow"><span class="lien-label">Manual lien notes: ${LIEN_LABEL[p.lien_level] || p.lien_level}</span><span class="type-badge">${esc(p.prop_type || "Type: Unknown")}</span></div>
       <span class="lien-text">${esc(p.lien_note || "")}</span>
@@ -8137,6 +8131,12 @@ function detailHtml(p) {
     </div>` : ""}
     ${riskLegalCardHtml(p)}
     ${gisLocationCardHtml(p)}
+    ${detailSectionHtml("My research", researchPanelHtml(p), "research-section", "research")}
+    ${diligenceSectionHtml(p)}
+    ${relatedRecordsHtml(p)}
+    ${parcelTimelineHtml(p)}
+    ${eventHistorySlotHtml(p)}
+    ${monitorSectionHtml(p)}
     ${sourceTruthHtml(p)}
     ${acquisitionDocumentsHtml(p)}
     `}

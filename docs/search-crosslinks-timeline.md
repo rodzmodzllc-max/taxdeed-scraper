@@ -80,3 +80,20 @@ none is stored. Test hook: `window.__tdwParcelTimeline(pid)`.
   cross-link hash;
 - the county link;
 - no horizontal overflow at 390 / 430 / 768 / 1024 / 1440 / 1920 px.
+
+## Verification pass (2026-10-06): one property-page order for every ledger
+
+From top to bottom:
+1. Identity
+2. Status band: ledger, official status, last read, and "Your research", which carries the due-diligence count
+3. How to acquire
+4. Financial position
+5. Property intelligence: overview, decision, inventory, tax and value, property, history, Risk & Legal, map
+6. My research
+7. Due diligence
+8. History: same parcel in other ledgers, parcel timeline, sale events
+9. Watch
+10. Source truth
+11. Documents
+
+A certificate page follows the same order, with Source truth after its timeline. The timeline's cross-ledger link reads "Open the <ledger> record →".
