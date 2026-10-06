@@ -273,6 +273,26 @@ const COUNTY_FORMAT = {
 const ALL_COUNTIES = [
   "Alachua", "Baker", "Bay", "Bradford", "Brevard", "Broward", "Calhoun", "Charlotte", "Citrus", "Clay", "Collier", "Columbia", "DeSoto", "Dixie", "Duval", "Escambia", "Flagler", "Franklin", "Gadsden", "Gilchrist", "Glades", "Gulf", "Hamilton", "Hardee", "Hendry", "Hernando", "Highlands", "Hillsborough", "Holmes", "Indian River", "Jackson", "Jefferson", "Lafayette", "Lake", "Lee", "Leon", "Levy", "Liberty", "Madison", "Manatee", "Marion", "Martin", "Miami-Dade", "Monroe", "Nassau", "Okaloosa", "Okeechobee", "Orange", "Osceola", "Palm Beach", "Pasco", "Pinellas", "Polk", "Putnam", "Santa Rosa", "Sarasota", "Seminole", "St. Johns", "St. Lucie", "Sumter", "Suwannee", "Taylor", "Union", "Volusia", "Wakulla", "Walton", "Washington"
 ];
+// Every other state (2026-10-05): the county universe is that state's own
+// counties as its loaded rows name them (extendCountyUniverse, run as each
+// ledger's pages arrive) - never Florida's list. Before this, a Michigan or
+// Louisiana page offered Florida's 67 counties in its county picker, every
+// one "(0)", and the county filter was ignored outside Florida.
+if (PAGE_STATE !== "FL") ALL_COUNTIES.length = 0;
+function extendCountyUniverse(rows) {
+  if (PAGE_STATE === "FL") return;
+  // "All counties" is the full universe; a county that first appears in a
+  // later page joins the selection when everything was selected.
+  const wasAll = state.counties.size >= ALL_COUNTIES.length;
+  const have = new Set(ALL_COUNTIES);
+  let grew = false;
+  rows.forEach(p => {
+    if (!p.county || have.has(p.county)) return;
+    have.add(p.county); ALL_COUNTIES.push(p.county); grew = true;
+    if (wasAll) state.counties.add(p.county);
+  });
+  if (grew) ALL_COUNTIES.sort((a, b) => a.localeCompare(b));
+}
 
 // Reference links per county so a county with 0 scraped properties (or any
 // property, really) can still be manually verified against the county's own
@@ -981,7 +1001,7 @@ const state = {
   // Customer monitoring (2026-10-01): cross-ledger filters, every one a
   // stored field or its stated absence (saved_search_match.py mirrors the
   // saveable ones). watchStatus is per-user, so it is a list filter only.
-  taxableMin: null, imagery: "any", acqState: "any", watchStatus: "any", freshDays: null, saleFrom: "", saleTo: "",
+  taxableMin: null, imagery: "any", acqState: "any", watchStatus: "any", freshDays: null, saleFrom: "", saleTo: "", sourceId: "any",
   includeQT: false, maxBidPct: 40,
   statusView: "all",
   ledger: "auction",
@@ -3072,6 +3092,7 @@ function applyLedgerRows() {
     if (p.source in WITHHELD) WITHHELD[p.source]++;
     return false;
   });
+  extendCountyUniverse(ALL);
 }
 
 // The ledger a load issue belongs to, in the List's own vocabulary (LEDGER_FOR_TYPE above).
@@ -3223,6 +3244,7 @@ function scheduleLedgerUpdate(key) {
     LEDGER_UPDATE_TIMER = null;
     const keys = LEDGER_UPDATE_KEYS; LEDGER_UPDATE_KEYS = new Set();
     applyLedgerRows();
+    buildAllChips();          // counties / sources that arrived with these pages
     const listVisible = !!document.getElementById("pageList") && !document.getElementById("pageList").hidden;
     if (keys.has("*") || keys.has(state.ledger) || !listVisible) render();
     else renderLedgerCounts();
@@ -3325,6 +3347,7 @@ function buildAllChips() {
   const countyCountEl = document.getElementById("countyCount");
   if (countyCountEl) countyCountEl.textContent = `${state.counties.size}/${names.length}`;
   buildCountyRefLinks(counts, names);
+  buildSourceFilterOptions();
 }
 
 // Counties with 0 scraped properties still get a chip (see countyNamesByCount
@@ -3428,7 +3451,9 @@ function passes(p) {
   if (state.topPicksOnly && !isTopPick(p)) return false;
   if (state.soonOnly) { const d = daysUntil(p); if (d === null || d < 0 || d > SOON_DAYS) return false; }
   if (state.hideOldListings) { const d = daysSinceUpdate(p); if (d >= 7) return false; }
-  if (PAGE_STATE === "FL" && !state.counties.has(p.county)) return false;
+  // Every state (2026-10-05): a county filter is active whenever the selection
+  // is narrower than the state's county universe.
+  if (state.counties.size < ALL_COUNTIES.length && !state.counties.has(p.county)) return false;
   if (!matchesSearch(p)) return false;
   // Certificates aren't screened for title and don't have a property type -
   // the type/lien chip filters only make sense for FL deed/LAFT rows. Texas
@@ -3464,6 +3489,7 @@ function passes(p) {
   if (state.watchStatus === "watched" && !BIDLIST.has(p.id) && !FAVS.has(p.id)) return false;
   if (state.watchStatus === "not_watched" && (BIDLIST.has(p.id) || FAVS.has(p.id))) return false;
   if (state.freshDays !== null) { const d = daysSince(p.last_seen_at); if (d === null || d > state.freshDays) return false; }
+  if (state.sourceId !== "any" && (p.source_id || p.harvester_source) !== state.sourceId) return false;
   if (state.saleFrom || state.saleTo) {
     const sd = String(p.sale_date || "").slice(0, 10);
     if (!sd || (state.saleFrom && sd < state.saleFrom) || (state.saleTo && sd > state.saleTo)) return false;
@@ -6239,6 +6265,17 @@ function shortPropLabel(p) {
   if (p.address && p.address.trim()) return esc(p.address);
   return `Parcel #${esc(p.parcel || "Unknown")} (${esc(p.county)} ${UNIT_WORD})`;
 }
+// One line above each saved card: still listed, changed since the last visit
+// (the same signals as "Changes to your watched properties"), or no longer
+// listed by the source - never "sold" unless the source published a result.
+function savedStatusHtml(p) {
+  const ch = WATCH_CHANGES && Array.isArray(WATCH_CHANGES.items) ? WATCH_CHANGES.items.find(i => i.pid === p.id && !i.gone) : null;
+  if (isGone(p)) {
+    return `<div class="saved-status saved-gone" data-saved-status="gone" data-pid="${esc(String(p.id))}">No longer listed by the source${p.gone_since ? ` (since ${esc(dateOnly(p.gone_since))})` : ""} - kept on your watchlist. This does not mean it sold.</div>`;
+  }
+  if (ch) return `<div class="saved-status saved-changed" data-saved-status="changed" data-pid="${esc(String(p.id))}"><b>Changed since your last visit:</b> ${esc(ch.changes.join(" · "))}</div>`;
+  return `<div class="saved-status saved-active" data-saved-status="active" data-pid="${esc(String(p.id))}">Still listed${p.last_seen_at ? ` · last read from the source ${esc(dateOnly(p.last_seen_at))}` : ""}</div>`;
+}
 function renderBidListModal() {
   const inner = document.getElementById("bidListModalInner");
   if (!inner) return;
@@ -6249,14 +6286,26 @@ function renderBidListModal() {
   // in the selected state's context: rows are looked up in ALL, which holds
   // only PAGE_STATE's rows. Saved items that are not among them - saved
   // under another state, or no longer listed - are counted, never removed.
-  const elsewhere = BIDLIST_ORDER.filter(id => !ALL.some(p => p.id === id)).length;
+  // Saved items not in this state's current data: the ones this browser last
+  // saw here are named (kept, never removed silently); the rest are counted.
+  const snap = readWatchSnapshot();
+  const snapRows = snap && snap.state === PAGE_STATE && snap.rows ? snap.rows : {};
+  const missingIds = BIDLIST_ORDER.filter(id => !ALL.some(p => p.id === id));
+  const known = missingIds.filter(id => snapRows[id]);
+  const elsewhere = missingIds.length - known.length;
+  const missingHtml = known.length ? `<div class="saved-missing" id="savedMissing"><div class="bidlist-related-head">No longer in ${esc(STATE_INFO.name)}'s current listings</div><ul>${known.map(id => {
+    const w = snapRows[id];
+    return `<li class="saved-missing-row" data-pid="${esc(id)}"><span>${esc(String(w.label || "").replace(/<[^>]*>/g, "").trim() || "Saved property")}${w.county ? ` · ${esc(w.county)} ${esc(UNIT_WORD)}` : ""}</span>` +
+      ` <span class="muted">left the source's listing${w.missing_since ? ` (noticed ${esc(dateOnly(w.missing_since))})` : ""} - this does not mean it sold. Kept on your watchlist until you remove it.</span>` +
+      ` <button class="reset-btn" data-action="bidlist" data-pid="${esc(id)}" type="button">Remove</button></li>`;
+  }).join("")}</ul></div>` : "";
   const elsewhereHtml = elsewhere
     ? `<p class="bidlist-elsewhere" id="bidListElsewhere">${elsewhere} saved item${elsewhere === 1 ? " is" : "s are"} not in ${esc(STATE_INFO.name)}'s current listings (saved under another state, or no longer listed). Switch state in the header to see another state's items.</p>`
     : "";
   const listHtml = rows.length
     ? ""
-    : elsewhere
-      ? `<div class="empty-state">No watchlist items in ${esc(STATE_INFO.name)}.</div>`
+    : elsewhere || known.length
+      ? `<div class="empty-state">No watchlist items currently listed in ${esc(STATE_INFO.name)}.</div>`
       : `<div class="empty-state">Your watchlist is empty. Click ⚐ on any property to save it here — up to ${BID_LIST_MAX}.</div>`;
   const pendingHtml = pendingRows.length ? `
     <div class="bidlist-pending">
@@ -6269,8 +6318,9 @@ function renderBidListModal() {
     <p class="mega-sub" style="margin:0 0 .8rem">The short list you're actively tracking — separate from ♡ Favorites, capped at ${BID_LIST_MAX} to keep it focused.</p>
     <div class="bidlist-changes" id="bidListChanges">${watchChangesHtml(WATCH_CHANGES)}${watchedServerChangesHtml()}</div>
     ${listHtml}
-    ${elsewhereHtml}
     <div class="prop-list flat" id="bidListRows"></div>
+    ${missingHtml}
+    ${elsewhereHtml}
     ${pendingHtml}`;
   // Unified navigation (2026-09-30): a parcel that sits on the watchlist in
   // two ledgers (the same state / county / parcel number - the deterministic
@@ -6282,6 +6332,7 @@ function renderBidListModal() {
   const folded = new Set();
   rows.forEach(p => {
     if (folded.has(p.id)) return;
+    listEl.insertAdjacentHTML("beforeend", savedStatusHtml(p));
     listEl.appendChild(p.source === "certificate" ? certCard(p, true) : card(p, true));
     const acq = savedAcquisitionHtml(p);
     if (acq) { const box = document.createElement("div"); box.className = "bidlist-acq"; box.dataset.pid = p.id; box.innerHTML = acq; listEl.appendChild(box); }
@@ -7208,10 +7259,10 @@ function updateBadge() {
   if (state.favoritesOnly || state.topPicksOnly || state.soonOnly || state.hideOldListings || state.hideSlivers || state.hideBareLandOnly) n++;
   if (state.statusView !== "all") n++;
   if (state.maxBidPct !== 40) n++;
-  if (state.counties.size !== ALL_COUNTIES.length) n++;
+  if (state.counties.size < ALL_COUNTIES.length) n++;
   if (state.types.size !== TYPE_ORDER.length) n++;
   if (state.liens.size !== LIEN_ORDER.length) n++;
-  if (state.taxableMin !== null || state.imagery !== "any" || state.acqState !== "any" || state.watchStatus !== "any" || state.freshDays !== null || state.saleFrom || state.saleTo) n++;
+  if (state.taxableMin !== null || state.imagery !== "any" || state.acqState !== "any" || state.watchStatus !== "any" || state.freshDays !== null || state.saleFrom || state.saleTo || state.sourceId !== "any") n++;
   const b = document.getElementById("filtersBadge");
   if (b) { b.textContent = n; b.hidden = n === 0; }
   // Analytics: one search_performed per settled filter change (debounced),
@@ -8832,7 +8883,16 @@ function readWatchSnapshot() {
 function saveWatchSnapshot() {
   try {
     const rows = {};
-    watchedIds().forEach(id => { const p = ALL.find(x => x.id === id); if (p) rows[id] = watchSnapshotOf(p); });
+    // A watched property that is no longer in this state's data keeps its
+    // last known entry, marked missing, so the watchlist can still name it
+    // (and say it left the listings) instead of silently forgetting it.
+    const prev = readWatchSnapshot();
+    const prevRows = prev && prev.state === PAGE_STATE && prev.rows ? prev.rows : {};
+    watchedIds().forEach(id => {
+      const p = ALL.find(x => x.id === id);
+      if (p) rows[id] = watchSnapshotOf(p);
+      else if (prevRows[id]) rows[id] = Object.assign({}, prevRows[id], { missing: true, missing_since: prevRows[id].missing_since || new Date().toISOString().slice(0, 10) });
+    });
     localStorage.setItem(WATCH_SNAPSHOT_KEY, JSON.stringify({ savedAt: new Date().toISOString(), state: PAGE_STATE, rows }));
   } catch { /* private mode - signals just won't persist */ }
 }
@@ -8843,6 +8903,7 @@ function computeWatchChanges() {
   Object.entries(snap.rows).forEach(([id, was]) => {
     const p = ALL.find(x => x.id === id);
     const changes = [];
+    if (!p && was.missing) return;          // already reported when it left; listed under "No longer in the current listings"
     if (!p) {
       changes.push("No longer in the current dataset - the listing left the source feed or list. Why is not recorded.");
       items.push({ pid: id, label: was.label || id, county: was.county || "", changes, gone: true });
@@ -9992,6 +10053,7 @@ function savedSearchMatches(criteria, p, now) {
   const c = criteria || {};
   if (c.ledger && p.source !== c.ledger) return false;
   if (c.counties && c.counties.length && !c.counties.includes(p.county)) return false;
+  if (c.source_ids && c.source_ids.length && !c.source_ids.includes(p.source_id || p.harvester_source)) return false;
   if (!ssBetween(ssNum(p.acreage), ssNum(c.acreage_min), ssNum(c.acreage_max))) return false;
   if (!ssBetween(ssNum(p.assessed), ssNum(c.assessed_min), ssNum(c.assessed_max))) return false;
   if (!ssBetween(ssNum(p.taxable_value), ssNum(c.taxable_min), ssNum(c.taxable_max))) return false;
@@ -10117,7 +10179,7 @@ async function ssDelete(s) {
 // ---- saved searches: criteria <-> the list's filters ----
 function currentCriteria() {
   const c = { ledger: state.ledger };
-  if (PAGE_STATE === "FL" && state.counties.size !== ALL_COUNTIES.length) c.counties = Array.from(state.counties).sort();
+  if (state.counties.size < ALL_COUNTIES.length) c.counties = Array.from(state.counties).sort();
   if (state.bidMin !== null) c.bid_min = state.bidMin;
   if (state.bidMax !== null) c.bid_max = state.bidMax;
   if (state.assessedMin) c.assessed_min = state.assessedMin;
@@ -10130,6 +10192,7 @@ function currentCriteria() {
   if (state.acqState !== "any") c.acquisition = state.acqState;
   if (state.imagery !== "any") c.imagery = state.imagery;
   if (state.freshDays !== null) c.fresh_days = state.freshDays;
+  if (state.sourceId !== "any") c.source_ids = [state.sourceId];
   else if (state.ledger === "laft" && state.availSeenRecently) c.fresh_days = 14;
   return c;
 }
@@ -10146,6 +10209,7 @@ function criteriaSummary(c) {
   if (c.acquisition) bits.push(c.acquisition === "verified" ? "acquisition path verified" : "acquisition path not yet verified");
   if (c.imagery) bits.push(c.imagery === "has" ? "imagery on file" : "no imagery on file");
   if (c.fresh_days !== undefined) bits.push(`read from source in the last ${c.fresh_days} day${Number(c.fresh_days) === 1 ? "" : "s"}`);
+  if (c.source_ids && c.source_ids.length) bits.push(`source: ${c.source_ids.map(sourceIdLabel).join(", ")}`);
   if (c.available_only) bits.push("active listings only");
   return bits.join(" · ");
 }
@@ -10170,7 +10234,8 @@ function savedSearchDiff(s) {
 function applySavedSearch(s) {
   const c = s.criteria || {};
   if (c.ledger && c.ledger !== state.ledger) setLedger(c.ledger);
-  if (PAGE_STATE === "FL") state.counties = new Set(c.counties && c.counties.length ? c.counties : ALL_COUNTIES);
+  state.counties = new Set(c.counties && c.counties.length ? c.counties : ALL_COUNTIES);
+  syncCountyQuickSelect();
   state.assessedMin = c.assessed_min !== undefined ? Number(c.assessed_min) : null;
   state.acreageMin = c.acreage_min !== undefined ? Number(c.acreage_min) : null;
   state.taxableMin = c.taxable_min !== undefined ? Number(c.taxable_min) : null;
@@ -10179,6 +10244,7 @@ function applySavedSearch(s) {
   state.acqState = c.acquisition || "any";
   state.imagery = c.imagery || "any";
   state.freshDays = c.fresh_days !== undefined ? Number(c.fresh_days) : null;
+  state.sourceId = c.source_ids && c.source_ids.length === 1 ? c.source_ids[0] : "any";
   state.statusView = c.available_only ? "live" : "all";
   syncMonitorFilterInputs();
   const am = document.getElementById("assessedMin"); if (am) am.value = state.assessedMin ?? "";
@@ -10198,6 +10264,7 @@ const MONITOR_FILTERS_HTML = `<div class="filters-row" id="monitorFilters">
 <div class="field"><span class="field-label">Acquisition path</span><select id="acqStateFilter" aria-label="Acquisition path"><option value="any">Any</option><option value="verified">Verified</option><option value="not_verified">Not yet verified</option></select></div>
 <div class="field"><span class="field-label">Watch status</span><select id="watchStatusFilter" aria-label="Watch status"><option value="any">Any</option><option value="watched">On my watchlist or favorites</option><option value="not_watched">Not watched</option></select></div>
 <div class="field"><span class="field-label">Read from the source</span><select id="freshDaysFilter" aria-label="Read from the source"><option value="">Any time</option><option value="1">Last 24 hours</option><option value="7">Last 7 days</option><option value="30">Last 30 days</option></select></div>
+<div class="field"><span class="field-label">Source</span><select id="sourceFilter" aria-label="Source"><option value="any">Any source</option></select></div>
 <div class="field"><span class="field-label">Sale date from</span><input type="date" id="saleFromFilter" aria-label="Sale date from"></div>
 <div class="field"><span class="field-label">Sale date to</span><input type="date" id="saleToFilter" aria-label="Sale date to"></div>
 </div>`;
@@ -10206,9 +10273,26 @@ function syncMonitorFilterInputs() {
   set("taxableMin", state.taxableMin ?? ""); set("imageryFilter", state.imagery); set("acqStateFilter", state.acqState);
   set("watchStatusFilter", state.watchStatus); set("freshDaysFilter", state.freshDays === null ? "" : String(state.freshDays));
   set("saleFromFilter", state.saleFrom); set("saleToFilter", state.saleTo);
+  buildSourceFilterOptions();
+}
+// The List's Source filter: every source this state's loaded rows were
+// harvested from, named as the provenance card names it, with its count.
+function sourceIdLabel(id) {
+  const p = ALL.find(x => (x.source_id || x.harvester_source) === id);
+  return (p && harvesterSourceLabel(p)) || String(id);
+}
+function buildSourceFilterOptions() {
+  const el = document.getElementById("sourceFilter");
+  if (!el) return;
+  const counts = new Map();
+  ALL.forEach(p => { const id = p.source_id || p.harvester_source; if (id) counts.set(id, (counts.get(id) || 0) + 1); });
+  if (state.sourceId !== "any" && !counts.has(state.sourceId)) counts.set(state.sourceId, 0);
+  const ids = Array.from(counts.keys()).sort((a, b) => sourceIdLabel(a).localeCompare(sourceIdLabel(b)));
+  el.innerHTML = `<option value="any">Any source</option>` + ids.map(id => `<option value="${esc(id)}">${esc(sourceIdLabel(id))} (${counts.get(id).toLocaleString("en-US")})</option>`).join("");
+  el.value = state.sourceId;
 }
 function resetMonitorFilters() {
-  state.taxableMin = null; state.imagery = "any"; state.acqState = "any"; state.watchStatus = "any"; state.freshDays = null; state.saleFrom = ""; state.saleTo = "";
+  state.taxableMin = null; state.imagery = "any"; state.acqState = "any"; state.watchStatus = "any"; state.freshDays = null; state.saleFrom = ""; state.saleTo = ""; state.sourceId = "any";
   syncMonitorFilterInputs();
 }
 function bindMonitorFilters() {
@@ -10220,6 +10304,7 @@ function bindMonitorFilters() {
   on("freshDaysFilter", "change", el => { state.freshDays = el.value === "" ? null : Number(el.value); });
   on("saleFromFilter", "change", el => { state.saleFrom = el.value; });
   on("saleToFilter", "change", el => { state.saleTo = el.value; });
+  on("sourceFilter", "change", el => { state.sourceId = el.value || "any"; });
 }
 
 // ---- property page: Watch & changes ----
@@ -10313,6 +10398,7 @@ function savedSearchItemHtml(s) {
     : `<span class="dec-sub">Alerts need saved searches stored on the server, which this deployment does not have yet.</span>`;
   return `<div class="saved-search" data-ss="${esc(s.id)}">
     <div class="ss-head"><b class="ss-name">${esc(s.name)}</b> <span class="muted ss-criteria">${esc(criteriaSummary(s.criteria || {}))}</span></div>
+    <form class="ss-rename" data-ss-rename-form="${esc(s.id)}" hidden><label class="ss-form-label">New name<input type="text" class="ss-rename-input" maxlength="80" value="${esc(s.name)}" required></label><button type="submit" class="detail-btn">Save name</button> <button type="button" class="detail-btn" data-ss-rename-cancel="${esc(s.id)}">Cancel</button></form>
     <div class="ss-counts"><span class="ss-count" data-k="matches">${d.rows.length} matching</span> · <span class="ss-count ss-new" data-k="new">${d.added.length} new</span> · <span class="ss-count ss-changed" data-k="changed">${d.fpKnown ? d.changed.length + " changed" : "changes not compared on this device"}</span> · <span class="ss-count ss-removed-count" data-k="removed">${d.removed.length} no longer matching</span></div>
     ${since ? `<div class="dec-sub">Compared with ${esc(since)}, when this search was last marked seen.</div>` : ""}
     ${d.added.length || d.changed.length || d.removed.length ? `<details class="ss-detail"><summary>Show what changed</summary>
@@ -10323,6 +10409,8 @@ function savedSearchItemHtml(s) {
     <div class="ss-actions">
       <button type="button" class="detail-btn" data-ss-apply="${esc(s.id)}">Show in list</button>
       <button type="button" class="detail-btn" data-ss-seen="${esc(s.id)}">Mark seen</button>
+      <button type="button" class="detail-btn" data-ss-rename="${esc(s.id)}">Rename</button>
+      <button type="button" class="detail-btn" data-ss-update="${esc(s.id)}" title="${esc("Replace this search's criteria with: " + criteriaSummary(currentCriteria()))}">Replace with current filters</button>
       ${alertsCtl}
       <button type="button" class="detail-btn danger" data-ss-delete="${esc(s.id)}">Delete</button>
     </div>
@@ -10444,6 +10532,15 @@ function installMonitoringUi() {
   const ssBody = document.getElementById("savedSearchesBody");
   if (ssBody) {
     ssBody.addEventListener("submit", async e => {
+      const rf = e.target.closest("[data-ss-rename-form]");
+      if (rf) {
+        e.preventDefault();
+        const s = MONITOR.savedSearches.find(x => x.id === rf.dataset.ssRenameForm);
+        const name = ((rf.querySelector(".ss-rename-input") || {}).value || "").trim().slice(0, 80);
+        if (s && name && name !== s.name) { await ssPersist(s, { name }); track("saved_search_updated", { change: "rename" }); }
+        renderSavedSearchesModal(); renderMonitorChrome();
+        return;
+      }
       if (e.target.id !== "saveSearchForm") return;
       e.preventDefault();
       const nameEl = document.getElementById("saveSearchName");
@@ -10462,6 +10559,22 @@ function installMonitoringUi() {
         const rows = savedSearchRows(s.criteria || {});
         ssWriteFp(s.id, rows);
         await ssPersist(s, { last_viewed_at: new Date().toISOString(), last_match_ids: rows.map(p => p.id) });
+        renderSavedSearchesModal(); renderMonitorChrome();
+      } else if (t.dataset.ssRename) {
+        const f = ssBody.querySelector(`[data-ss-rename-form="${cssEscape(t.dataset.ssRename)}"]`);
+        if (f) { f.hidden = false; const i = f.querySelector(".ss-rename-input"); if (i) { i.focus(); i.select(); } }
+      } else if (t.dataset.ssRenameCancel) {
+        const f = ssBody.querySelector(`[data-ss-rename-form="${cssEscape(t.dataset.ssRenameCancel)}"]`);
+        if (f) f.hidden = true;
+      } else if (t.dataset.ssUpdate) {
+        // The list's current filters replace the saved criteria; the comparison
+        // baseline restarts from what matches now (nothing is reported as "new").
+        const s = byId(t.dataset.ssUpdate); if (!s) return;
+        const criteria = currentCriteria();
+        const rows = savedSearchRows(criteria);
+        ssWriteFp(s.id, rows);
+        await ssPersist(s, { criteria, last_viewed_at: new Date().toISOString(), last_match_ids: rows.map(p => p.id) });
+        track("saved_search_updated", { change: "criteria", criteria_keys: Object.keys(criteria).length });
         renderSavedSearchesModal(); renderMonitorChrome();
       } else if (t.dataset.ssDelete) {
         const s = byId(t.dataset.ssDelete); if (!s) return;
@@ -10849,12 +10962,12 @@ function controlLabel(el) {
 function chipControlIds() {
   return ["favOnly", "topOnly", "soonOnly", "hideOldOnly", "archiveToggle", "hideSliversOnly", "hideBareLandOnly",
   "assessedMin", "availPathFilter", "availAmountKindFilter", "availStatusFilter", "acreageMin", "availSeenRecently", "availLandUseFilter",
-  "availGeocoded", "availValues", "taxableMin", "imageryFilter", "acqStateFilter", "watchStatusFilter", "freshDaysFilter", "saleFromFilter", "saleToFilter"];
+  "availGeocoded", "availValues", "taxableMin", "imageryFilter", "acqStateFilter", "watchStatusFilter", "freshDaysFilter", "sourceFilter", "saleFromFilter", "saleToFilter"];
 }
 function filterChipList() {
   const chips = [];
   if (state.search) chips.push({ key: "search", label: `Search: “${state.search}”` });
-  if (ALL_COUNTIES.length && state.counties.size !== ALL_COUNTIES.length) {
+  if (ALL_COUNTIES.length && state.counties.size < ALL_COUNTIES.length) {
     chips.push({ key: "counties", label: state.counties.size === 1 ? `${UNIT_WORD}: ${Array.from(state.counties)[0]}` : `${UNIT_WORD}: ${state.counties.size} selected` });
   }
   if (state.bidMin !== null || state.bidMax !== null) {

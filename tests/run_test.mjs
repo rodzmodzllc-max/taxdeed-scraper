@@ -3674,6 +3674,105 @@ await navMap.close();
       await pg.close();
     }
   }
+  // ---- Saved properties + saved searches + per-state county filter (2026-10-05) ----
+  {
+    const html = (f) => BASE_URL.replace(/index\.html$/, f);
+    const open = async (url, vp = { width: 1440, height: 900 }) => {
+      const pg = await newPage({ viewport: vp });
+      pg.on('pageerror', e => errors.push('savedflow pageerror: ' + e.message));
+      pg.on('dialog', d => d.accept());
+      await pg.goto(url, { waitUntil: 'networkidle' });
+      await pg.waitForTimeout(500);
+      return pg;
+    };
+    // County picker is the state's own counties, and it filters outside Florida too.
+    {
+      const pg = await open(html('tx.html') + '#/auctions');
+      const opts = await pg.evaluate(() => [...document.getElementById('countyQuick').options].map(o => o.value));
+      const before = await pg.locator('#main .prop-card').count();
+      await pg.selectOption('#countyQuick', 'Harris');
+      await pg.waitForTimeout(300);
+      const after = await pg.locator('#main .prop-card').count();
+      const counties = await pg.evaluate(() => [...new Set([...document.querySelectorAll('#main .county-group')].map(g => g.dataset.county))]);
+      await pg.selectOption('#countyQuick', 'ALL');
+      await pg.waitForTimeout(300);
+      results.txCountyFilter = { hasFloridaCounty: opts.includes('Alachua'), hasHarris: opts.includes('Harris'), narrowed: after < before && after > 0,
+        onlyHarris: counties.length === 1 && counties[0] === 'Harris', restored: (await pg.locator('#main .prop-card').count()) === before };
+      await pg.close();
+      const la = await open(html('la.html') + '#/lands');
+      results.laCountyOptions = await la.evaluate(() => [...document.getElementById('countyQuick').options].map(o => o.value));
+      await la.close();
+    }
+    // Source filter: options from the loaded rows; filtering narrows; saved into a search.
+    {
+      const pg = await open(BASE_URL + '#/auctions');
+      const opts = await pg.evaluate(() => [...document.getElementById('sourceFilter').options].map(o => o.value).filter(v => v !== 'any'));
+      const before = await pg.locator('#main .prop-card').count();
+      const pick = opts[0];
+      await pg.evaluate(v => { const el = document.getElementById('sourceFilter'); el.value = v; el.dispatchEvent(new Event('change', { bubbles: true })); }, pick);
+      await pg.waitForTimeout(300);
+      const after = await pg.locator('#main .prop-card').count();
+      const allFromSource = await pg.evaluate(v => ((window.__tdwLastRender || {}).rows || []).every(r => (r.source_id || r.harvester_source) === v), pick);
+      results.sourceFilter = { options: opts.length > 0, narrowedOrEqual: after <= before && after > 0, allFromSource };
+      // Saved search keeps the source and the county; rename; replace with current filters.
+      await pg.click('#savedSearchesBtn');
+      await pg.waitForTimeout(200);
+      results.ssCriteriaHasSource = /source:/.test(((await pg.locator('#saveSearchCriteria').textContent()) || ''));
+      await pg.fill('#saveSearchName', 'Source check');
+      await pg.click('#saveSearchSubmit');
+      await pg.waitForTimeout(300);
+      const item = pg.locator('.saved-search').filter({ hasText: 'Source check' }).first();
+      await item.locator('[data-ss-rename]').click();
+      await item.locator('.ss-rename-input').fill('Source check renamed');
+      await item.locator('.ss-rename button[type="submit"]').click();
+      await pg.waitForTimeout(300);
+      const renamed = await pg.locator('.saved-search .ss-name').filter({ hasText: 'Source check renamed' }).count();
+      // Change the filters, then replace the saved criteria with them.
+      await pg.keyboard.press('Escape'); await pg.waitForTimeout(150);
+      await pg.evaluate(() => { const el = document.getElementById('sourceFilter'); el.value = 'any'; el.dispatchEvent(new Event('change', { bubbles: true })); });
+      await pg.selectOption('#countyQuick', { index: 1 });
+      const countyPicked = await pg.evaluate(() => document.getElementById('countyQuick').value);
+      await pg.waitForTimeout(200);
+      await pg.click('#savedSearchesBtn'); await pg.waitForTimeout(200);
+      const item2 = pg.locator('.saved-search').filter({ hasText: 'Source check renamed' }).first();
+      await item2.locator('[data-ss-update]').click();
+      await pg.waitForTimeout(300);
+      const crit = ((await pg.locator('.saved-search').filter({ hasText: 'Source check renamed' }).first().locator('.ss-criteria').textContent()) || '');
+      results.ssRenameReplace = { renamed, replacedHasCounty: crit.includes(countyPicked), replacedNoSource: !/source:/.test(crit) };
+      // Show in list restores the saved county.
+      await pg.evaluate(() => { const el = document.getElementById('countyQuick'); el.value = 'ALL'; el.dispatchEvent(new Event('change', { bubbles: true })); });
+      await pg.locator('.saved-search').filter({ hasText: 'Source check renamed' }).first().locator('[data-ss-apply]').click();
+      await pg.waitForTimeout(300);
+      results.ssApplyRestoresCounty = (await pg.evaluate(() => document.getElementById('countyQuick').value)) === countyPicked;
+      await pg.close();
+    }
+    // Saved properties: status line per card; a saved property that left the data stays named.
+    {
+      const pg = await open(html('la.html') + '?bidlist=pla2#/lands');
+      await pg.evaluate(() => { const b = document.querySelector('[data-page="watchlist"], #navWatchlistBtn, #bidListBtn'); if (b) b.click(); });
+      await pg.waitForTimeout(400);
+      results.savedStatusActive = await pg.evaluate(() => { const el = document.querySelector('#bidListRows .saved-status[data-pid="pla2"]'); return el ? el.dataset.savedStatus : null; });
+      results.savedAcqStillShown = (await pg.locator('#bidListRows .bidlist-acq[data-pid="pla2"]').count()) === 1;
+      await pg.close();
+      // Same account later: pla2 is no longer in the data (?emptystate=1 serves no rows). It stays listed by name.
+      const pg2 = await newPage({ viewport: { width: 390, height: 844 } });
+      pg2.on('pageerror', e => errors.push('savedflow pageerror: ' + e.message));
+      await pg2.goto(html('la.html') + '?bidlist=pla2#/lands', { waitUntil: 'networkidle' });
+      await pg2.waitForTimeout(400);
+      // Simulate the earlier visit's snapshot (what saveWatchSnapshot wrote there), then reload without the row.
+      await pg2.evaluate(() => localStorage.setItem('tdw_watch_snapshot_v1', JSON.stringify({ savedAt: '2026-10-01T00:00:00Z', state: 'LA', rows: { pla2: { label: '12 FIXTURE AVE', county: 'East Baton Rouge', status: 'active' } } })));
+      await pg2.goto(html('la.html') + '?bidlist=pla2&emptystate=1#/lands', { waitUntil: 'networkidle' });
+      await pg2.waitForTimeout(400);
+      await pg2.evaluate(() => { const b = document.querySelector('[data-page="watchlist"], #navWatchlistBtn, #bidListBtn'); if (b) b.click(); });
+      await pg2.waitForTimeout(400);
+      results.savedMissingNamed = {
+        row: await pg2.locator('#savedMissing .saved-missing-row[data-pid="pla2"]').count(),
+        text: (((await pg2.locator('#savedMissing .saved-missing-row[data-pid="pla2"]').textContent().catch(() => '')) || '').includes('does not mean it sold')),
+        removeBtn: await pg2.locator('#savedMissing [data-action="bidlist"][data-pid="pla2"]').count()
+      };
+      await pg2.close();
+    }
+  }
   // ---- Shell redesign (2026-10-04): Home, global search, state picker,
   // filter chips, county panel, property page chrome, mobile nav ----
   {
@@ -5005,7 +5104,7 @@ const EXPECTED = {
   },
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: { ready: true, controlled: true, tagline: "Tax Sale Property Intelligence", noState: true, cache: ["tdw-shell-v84"] },
+  brandSwReload: { ready: true, controlled: true, tagline: "Tax Sale Property Intelligence", noState: true, cache: ["tdw-shell-v85"] },
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · Tax Acquisitions — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · Tax Acquisitions — Florida", floridaCopy: true },
@@ -5024,7 +5123,7 @@ const EXPECTED = {
   monSsCounts: '2 matching · 0 new · 0 changed · 0 no longer matching',
   monSsAlertsToggle: 1,
   monSsAppliedLedger: 'laft',
-  monFiltersRow: 7,
+  monFiltersRow: 8,   // + Source (2026-10-05)
   monWatchedCards: ['p15', 'p3'],
   monAcqVerifiedCards: ['p15', 'p3'],
   monResetClearsAcq: 'any',
@@ -6104,6 +6203,16 @@ const EXPECTED = {
   laDetailFullProvenance: {"calls": 1, "loadingGone": true, "provRows": true, "acquire": true, "acqLinks": true, "scopeAfter": "full"},
   laDetailFetchedOnce: 1,
   laFallbackFullRpc: {"fullCalls": true, "listCalls": 0, "scoped": false, "provenanceCalls": 0, "modal": true, "loadingNote": false},
+  // Saved properties + saved searches + per-state county filter (2026-10-05).
+  txCountyFilter: {"hasFloridaCounty": false, "hasHarris": true, "narrowed": true, "onlyHarris": true, "restored": true},
+  laCountyOptions: ["ALL", "East Baton Rouge"],
+  sourceFilter: {"options": true, "narrowedOrEqual": true, "allFromSource": true},
+  ssCriteriaHasSource: true,
+  ssRenameReplace: {"renamed": 1, "replacedHasCounty": true, "replacedNoSource": true},
+  ssApplyRestoresCounty: true,
+  savedStatusActive: "active",
+  savedAcqStillShown: true,
+  savedMissingNamed: {"row": 1, "text": true, "removeBtn": 1},
   // Available price honesty (2026-10-05).
   priceWording: {"openingBid": {"label": "Opening bid", "partial": true, "note": "Not the full price: the source publishes this as a starting amount. Ask the county for the current total.", "total": null, "expired": null, "gap": "Current purchase total not on file - the listed figure is the opening bid only"}, "fixed": {"label": "Purchase price", "partial": false, "note": "As the source publishes it - confirm the amount due before paying.", "total": null, "expired": null, "gap": null}, "expiredStatement": {"label": "Total due", "partial": true, "note": "Last clerk statement $27,689.42, valid through Aug 31, 2026 - that date has passed. Request an updated statement from the clerk.", "total": 27689.42, "expired": true, "gap": "County purchase statement has expired - request an updated total"}, "currentStatement": {"label": "Total due from purchaser", "partial": true, "note": "Clerk statement, valid if received by Dec 31, 2099.", "total": 27689.42, "expired": false, "gap": null}}
 };

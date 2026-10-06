@@ -2,12 +2,12 @@
   "note": "Shared by tests/python/test_customer_monitoring.py (scripts/saved_search_match.py) and tests/run_test.mjs (savedSearchMatches in public/app.js): both must give these answers. now = 2026-10-01T12:00:00Z.",
   "now": "2026-10-01T12:00:00Z",
   "rows": {
-    "avail": {"source": "laft", "county": "Bay", "state": "FL", "status": "active", "acreage": 1.2, "assessed": 60000, "taxable_value": 41000,
+    "avail": {"source": "laft", "source_id": "fl_laft_pioneer", "county": "Bay", "state": "FL", "status": "active", "acreage": 1.2, "assessed": 60000, "taxable_value": 41000,
               "purchase_amount": 2000, "land_use": "Vacant residential", "purchase_path_type": "phone_mail", "photo_url": "https://x/p.jpg",
               "last_seen_at": "2026-09-30T06:00:00Z"},
     "avail_unknowns": {"source": "laft", "county": "Polk", "state": "FL", "status": "active", "bid": 0},
     "closed": {"source": "laft", "county": "Bay", "state": "FL", "status": "closed", "acreage": 2},
-    "auction": {"source": "auction", "county": "Duval", "state": "FL", "status": "active", "sale_date": "2026-10-15", "min_bid": 5400,
+    "auction": {"source": "auction", "harvester_source": "fl_realauction", "county": "Duval", "state": "FL", "status": "active", "sale_date": "2026-10-15", "min_bid": 5400,
                 "prop_type": "Single Family", "last_seen_at": "2026-08-01T00:00:00Z"}
   },
   "cases": [
@@ -38,6 +38,10 @@
     {"criteria": {"imagery": "none"}, "row": "avail_unknowns", "match": true},
     {"criteria": {"fresh_days": 2}, "row": "avail", "match": true},
     {"criteria": {"fresh_days": 2}, "row": "auction", "match": false},
-    {"criteria": {"fresh_days": 2}, "row": "avail_unknowns", "match": false}
+    {"criteria": {"fresh_days": 2}, "row": "avail_unknowns", "match": false},
+    {"criteria": {"source_ids": ["fl_laft_pioneer"]}, "row": "avail", "match": true},
+    {"criteria": {"source_ids": ["fl_laft_html"]}, "row": "avail", "match": false},
+    {"criteria": {"source_ids": ["fl_realauction"]}, "row": "auction", "match": true},
+    {"criteria": {"source_ids": ["fl_laft_pioneer"]}, "row": "avail_unknowns", "match": false}
   ]
 }

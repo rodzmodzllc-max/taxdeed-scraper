@@ -19,7 +19,7 @@ GONE = frozenset({"closed", "expired", "gone", "sold", "redeemed", "cancelled", 
 URL_TYPES = frozenset({"direct_property_url", "county_instructions", "application_page", "application_download"})
 CRITERIA_KEYS = ("ledger", "counties", "acreage_min", "acreage_max", "assessed_min", "assessed_max", "taxable_min",
                  "taxable_max", "bid_min", "bid_max", "sale_from", "sale_to", "available_only", "land_use",
-                 "acquisition", "imagery", "fresh_days")
+                 "acquisition", "imagery", "fresh_days", "source_ids")
 
 
 def _num(v):
@@ -60,6 +60,9 @@ def matches(criteria: dict, row: dict, *, now: datetime | None = None) -> bool:
     if c.get("ledger") and row.get("source") != c["ledger"]:
         return False
     if c.get("counties") and row.get("county") not in set(c["counties"]):
+        return False
+    # the source the row was harvested from (source_id, else harvester_source)
+    if c.get("source_ids") and (row.get("source_id") or row.get("harvester_source")) not in set(c["source_ids"]):
         return False
     if not _between(_num(row.get("acreage")), _num(c.get("acreage_min")), _num(c.get("acreage_max"))):
         return False

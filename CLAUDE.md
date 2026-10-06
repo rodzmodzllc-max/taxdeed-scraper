@@ -2527,3 +2527,22 @@ Full description: `docs/property-list-performance.md`. Stable facts:
   - `?nolistrpc=1` simulates 028 not being applied;
   - `window.__stubRpcLog` and `__stubProvenanceCalls` count the calls.
 - `sw.js` -> `tdw-shell-v84`.
+
+## Saved searches, saved properties, per-state county filter (2026-10-05, PR open, stacked on the performance PR)
+
+Full description: `docs/saved-searches-and-properties.md`. Stable facts:
+- **County universe:** `ALL_COUNTIES` is Florida's list only on the FL page.
+  Elsewhere it is filled by `extendCountyUniverse()` from the loaded rows. A
+  county filter is active whenever `state.counties.size < ALL_COUNTIES.length`,
+  in every state.
+- **Source filter:** `#sourceFilter` (`state.sourceId`) drives a new
+  saved-search key, `source_ids`, matched on `source_id` else
+  `harvester_source`. It is implemented in both app.js `savedSearchMatches`
+  and `scripts/saved_search_match.py`; the shared cases pin both.
+- **Saved searches:** rename and "Replace with current filters" record
+  `saved_search_updated` (in 024's CHECK list; 024 still unapplied).
+- **Watchlist:**
+  - a status line per saved card (`savedStatusHtml`);
+  - the watch snapshot keeps missing entries (`missing: true`), and the
+    modal names them under `#savedMissing`, never removing them silently.
+- `sw.js` -> `tdw-shell-v85`.
