@@ -534,8 +534,8 @@ def source_match_of(row: dict, *, list_url, document_url, read_at: str) -> dict 
     return match
 
 
-CARRY_COLUMNS = ("parcel", "certificate_no", "last_seen_at", "otc_provenance", "purchase_path_type", "purchase_path_scope",
-                 "purchase_path_evidence", "purchase_path_observed_on")
+CARRY_017_COLUMNS = ("parcel", "certificate_no", "last_seen_at", "otc_provenance", "source_id", "list_url", "document_url")
+CARRY_COLUMNS = CARRY_017_COLUMNS + ("purchase_path_type", "purchase_path_scope", "purchase_path_evidence", "purchase_path_observed_on")
 
 
 def carry_plan(db_rows: list[dict], observed_keys: set, path_ctx: "PathContext | None", *, have_023: bool) -> list[tuple[int, dict]]:
@@ -561,10 +561,18 @@ def carry_plan(db_rows: list[dict], observed_keys: set, path_ctx: "PathContext |
         if (str(r.get("county")), str(r.get("case_no"))) in observed_keys or not r.get("id"):
             continue
         prov = r.get("otc_provenance") if isinstance(r.get("otc_provenance"), dict) else {}
-        if not prov:
-            continue                                    # never provenance-stamped: nothing established to keep
+        # A row the sync stored but no lifecycle read ever stamped (empty
+        # otc_provenance - e.g. Pasco / Hendry when their PDF read was never
+        # COMPLETE) still names its source in the row's own source_id column.
+        # The verified evidence is county + source level, so such a row
+        # receives its county's verified process too; it never receives a
+        # source_match (it was never read). A row with neither is skipped.
+        source_id = prov.get("source_id") or r.get("source_id")
+        if not prov and not source_id:
+            continue                                    # nothing names the row's source: nothing to attach
         new_prov = dict(prov)
-        list_url, document_url = prov.get("list_url"), prov.get("document_url")
+        list_url = prov.get("list_url") or r.get("list_url")
+        document_url = prov.get("document_url") or r.get("document_url")
         if not prov.get("source_match") and r.get("last_seen_at") and (list_url or document_url):
             match = source_match_of(r, list_url=list_url, document_url=document_url, read_at=str(r["last_seen_at"]))
             if match:
@@ -573,7 +581,7 @@ def carry_plan(db_rows: list[dict], observed_keys: set, path_ctx: "PathContext |
                 new_prov["source_match"] = match
         cols: dict = {}
         if path_ctx is not None:
-            path, _refusals = path_ctx.resolve(r, source_id=prov.get("source_id"), county=r.get("county"),
+            path, _refusals = path_ctx.resolve(r, source_id=source_id, county=r.get("county"),
                                                list_url=list_url, document_url=document_url)
             if path is not None:
                 new_prov.update(path.provenance())
@@ -843,7 +851,7 @@ def main(argv=None) -> int:
     have_019 = api.has_migration_019()
     have_023 = have_017 and api.has_migration_023()
     path_ctx = PathContext(Path(args.registry), state, have_023=have_023, evidence_path=Path(args.path_evidence))
-    extra = (tuple(SF.OPTIONAL_COLUMNS) if have_019 else ()) + (CARRY_COLUMNS if have_023 else CARRY_COLUMNS[:4] if have_017 else ())
+    extra = (tuple(SF.OPTIONAL_COLUMNS) if have_019 else ()) + (CARRY_COLUMNS if have_023 else CARRY_017_COLUMNS if have_017 else ())
     # Every county on record, not only this run's: a county missing from the
     # status file entirely (NOT_RUN) still keeps and receives its evidence.
     counties_all = sorted(set(counties) | {str(r.get("county")) for r in api.get_all(f"state=eq.{state}&source=eq.{SOURCE}&status=eq.active&select=county")})

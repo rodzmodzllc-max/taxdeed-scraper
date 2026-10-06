@@ -75,6 +75,29 @@ def test_c04_observed_closed_never_read_and_unstamped_rows_are_skipped():
     assert 3 not in out                                                      # never read: no match, no evidence for source "x"
 
 
+def test_c04b_unstamped_row_with_a_source_id_receives_its_countys_verified_process_but_no_match():
+    # Production 2026-10-06: Pasco's only Available row (fl_laft_pdfs) had no
+    # otc_provenance and no last_seen_at, so its county's VERIFIED process
+    # never reached it and the customer read "not yet verified".
+    row = {"id": 9, "county": "Pasco", "case_no": "2019-TD-1", "parcel": "12-34", "status": "active", "last_seen_at": None,
+           "otc_provenance": None, "source_id": "fl_laft_pdfs", "list_url": "https://www.pascoclerk.com/x", "document_url": None}
+    (row_id, payload), = L.carry_plan([row], set(), CTX, have_023=True)
+    assert row_id == 9
+    assert payload["purchase_path_type"] == "phone_mail"
+    prov = payload["otc_provenance"]
+    assert prov.get("acquisition") and "source_match" not in prov            # never read: no property-to-list match is claimed
+    assert "last_seen_at" not in payload and "status" not in payload
+    # No evidence for the county: nothing is attached, nothing is written.
+    assert L.carry_plan([dict(row, county="Gadsden", source_id="fl_laft_html")], set(), CTX, have_023=True) == []
+    # Neither provenance nor a source_id: skipped, exactly as before.
+    assert L.carry_plan([dict(row, source_id=None)], set(), CTX, have_023=True) == []
+
+
+def test_c04c_lifecycle_reads_the_row_columns_the_unstamped_carry_needs():
+    assert {"source_id", "list_url", "document_url"} <= set(L.CARRY_017_COLUMNS)
+    assert set(L.CARRY_017_COLUMNS) <= set(L.CARRY_COLUMNS)
+
+
 def test_c05_parcel_only_identity_matches_by_parcel_and_no_fuzzy_key_is_ever_used():
     (_, payload), = L.carry_plan([_db(case_no="", parcel="12-34")], set(), CTX, have_023=True)
     assert payload["otc_provenance"]["source_match"]["identifier"] == "parcel"
