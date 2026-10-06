@@ -3957,6 +3957,87 @@ await navMap.close();
     });
     await pg2.close();
   }
+  // ---- Understood search, saved-search duplicate, research queue, coverage explorer, why (2026-10-05) ----
+  {
+    const pg = await newPage({ viewport: { width: 1280, height: 900 } });
+    pg.on('pageerror', e => errors.push('workflow pageerror: ' + e.message));
+    await pg.goto(BASE_URL + '#/dashboard', { waitUntil: 'networkidle' });
+    await pg.waitForTimeout(400);
+    results.nqParse = await pg.evaluate(() => {
+      const c = ['Citrus', 'St. Lucie', 'Bay', 'East Baton Rouge'];
+      const f = q => { const r = window.__tdwParseNaturalQuery(q, c); return [r.ledger, r.county, r.min, r.max, r.verified, r.text]; };
+      return {
+        a: f('available in Citrus under $5,000'),
+        b: f('auctions st. lucie county between 1k and 10k'),
+        c: f('verified lands available'),
+        d: f('123 Main St'),
+        e: f('certificates over 2,500 Bay'),
+        f: f('adjudicated East Baton Rouge parish'),
+      };
+    });
+    // Global search: understood chips, then the List's own filters.
+    await pg.fill('#globalSearchInput', 'available in Citrus');
+    await pg.waitForSelector('#gsNq', { timeout: 3000 });
+    const chips = await pg.evaluate(() => [...document.querySelectorAll('#gsNq .gs-nq-chip')].map(e => e.textContent));
+    await pg.click('#gsNq .gs-nq-apply');
+    await pg.waitForTimeout(400);
+    results.nqApply = { chips, ...(await pg.evaluate(() => ({ hash: location.hash,
+      counties: [...new Set([...document.querySelectorAll('#main .county-group')].map(g => g.dataset.county))],
+      chip: [...document.querySelectorAll('#filterChips .filter-chip')].map(e => e.dataset.chip) }))) };
+    // A plain query keeps the old behaviour (no understood block).
+    await pg.fill('#globalSearchInput', '15 Manatee');
+    await pg.waitForTimeout(300);
+    results.nqPlain = { understood: await pg.locator('#gsNq').count(), rows: await pg.locator('#globalSearchResults [data-gs-pid]').count() > 0 };
+    await pg.keyboard.press('Escape');
+    // "verified" maps to the List's Acquisition path filter.
+    await pg.fill('#globalSearchInput', 'verified available');
+    await pg.waitForSelector('#gsNq', { timeout: 3000 });
+    await pg.keyboard.press('Enter');
+    await pg.waitForTimeout(400);
+    results.nqVerified = await pg.evaluate(() => ({ acq: (document.getElementById('acqStateFilter') || {}).value || null,
+      allVerified: ((window.__tdwLastRender || {}).rows || []).every(r => r.purchase_path_type && r.purchase_path_type !== 'none_published') }));
+    // Saved search: duplicate keeps the criteria under a new name.
+    await pg.click('#savedSearchesBtn'); await pg.waitForTimeout(200);
+    await pg.fill('#saveSearchName', 'Dup me');
+    await pg.click('#saveSearchSubmit'); await pg.waitForTimeout(300);
+    const orig = await pg.locator('.saved-search').filter({ hasText: 'Dup me' }).first().locator('.ss-criteria').textContent();
+    await pg.locator('.saved-search').filter({ hasText: 'Dup me' }).first().locator('[data-ss-duplicate]').click();
+    await pg.waitForTimeout(300);
+    const copy = pg.locator('.saved-search').filter({ hasText: 'Dup me (copy)' });
+    results.ssDuplicate = { copies: await copy.count(), sameCriteria: (await copy.first().locator('.ss-criteria').textContent()) === orig };
+    await pg.keyboard.press('Escape');
+    await pg.close();
+    // Research queue: the watched Available fixture's open checklist items.
+    const wq = await newPage({ viewport: { width: 1280, height: 900 } });
+    await wq.goto(BASE_URL + '#/lands', { waitUntil: 'networkidle' });
+    await wq.waitForTimeout(300);
+    results.researchItemsP15 = await wq.evaluate(() => { const p = (window.__tdwLastRender || {}).rows.find(r => r.id === 'p15'); return p ? window.__tdwResearchItems(p) : null; });
+    await wq.close();
+    // Coverage explorer in the state picker.
+    const sp = await newPage({ viewport: { width: 1280, height: 900 } });
+    await sp.goto(BASE_URL + '#/dashboard', { waitUntil: 'networkidle' });
+    await sp.waitForTimeout(300);
+    await sp.click('#navStatesBtn');
+    await sp.waitForSelector('#coverageExplorer .cov-list li', { timeout: 5000 });
+    results.coverageExplorer = await sp.evaluate(() => {
+      const ex = document.getElementById('coverageExplorer');
+      const counts = Object.fromEntries([...ex.querySelectorAll('.cov-count')].map(e => [e.dataset.intel, Number(e.querySelector('b').textContent)]));
+      return { heading: ex.querySelector('h3').textContent, total: Object.values(counts).reduce((a, b) => a + b, 0), hasVerified: (counts.VERIFIED || 0) > 0,
+        note: /not a statement that nothing is for sale/.test(ex.textContent) || !ex.querySelector('.cov-note') };
+    });
+    await sp.click('#coverageExplorer [data-action="countyintel"][data-county="Citrus"]');
+    await sp.waitForSelector('#countyModal:not([hidden]) .dossier', { timeout: 5000 });
+    results.coverageToDossier = await sp.evaluate(() => ({ picker: document.getElementById('statePicker').hidden, county: document.querySelector('#countyModal .dossier').dataset.county }));
+    await sp.click('#countyCloseBtn');
+    // Why TaxDeed-Scraper (About).
+    await sp.evaluate(() => document.getElementById('navAboutBtn').click()); await sp.waitForTimeout(200);
+    results.whySection = await sp.evaluate(() => {
+      const l = document.getElementById('whyList');
+      return { items: l ? l.querySelectorAll('li').length : 0, noCompetitor: !/handson|parcelfair|taxsale\.com|realauction is worse/i.test(l ? l.textContent : ''),
+        noScoreClaim: /No scores, no predictions/.test(l ? l.textContent : '') };
+    });
+    await sp.close();
+  }
   // ---- Shell redesign (2026-10-04): Home, global search, state picker,
   // filter chips, county panel, property page chrome, mobile nav ----
   {
@@ -5288,7 +5369,7 @@ const EXPECTED = {
   },
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Sale Property Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: { ready: true, controlled: true, tagline: "Tax Sale Property Intelligence", noState: true, cache: ["tdw-shell-v88"] },
+  brandSwReload: { ready: true, controlled: true, tagline: "Tax Sale Property Intelligence", noState: true, cache: ["tdw-shell-v89"] },
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · Tax Acquisitions — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · Tax Acquisitions — Florida", floridaCopy: true },
@@ -5673,7 +5754,7 @@ const EXPECTED = {
   rdGlobalEmpty: "No Florida property matches “zzzz-no-such”. Search covers address, parcel, case and certificate numbers and the county; to look in another state, switch state first.",
   rdGlobalEscape: true,
   rdCardAcq: ["p3:Phone the county:1", "p15:Multi-step county process:1"],
-  rdPicker: {"rows": ["CO=certificate", "FL=auction|laft|certificate", "LA=laft", "MI=auction", "MN=!none", "MO=!none", "OK=!none", "PA=!none", "SC=auction", "TX=auction|laft", "WI=!none", "WY=auction"], "groups": ["States with Available properties", "Other states"], "visible": true, "coHref": "co.html#/certificates", "flCounts": ["Auctions 9", "Available 2", "Liens & Certificates 1"]},
+  rdPicker: {"rows": ["CO=certificate", "FL=auction|laft|certificate", "LA=laft", "MI=auction", "MN=!none", "MO=!none", "OK=!none", "PA=!none", "SC=auction", "TX=auction|laft", "WI=!none", "WY=auction"], "groups": ["States with Available properties", "Other states", "Coverage in Florida"], "visible": true, "coHref": "co.html#/certificates", "flCounts": ["Auctions 9", "Available 2", "Liens & Certificates 1"]},
   rdPickerSearch: ["WY"],
   rdPickerEscape: true,
   rdPickerAdminMI: "MI=auction|laft",
@@ -6425,6 +6506,17 @@ const EXPECTED = {
   dossierBay: {"coverage": "SOURCE_UNAVAILABLE", "health": "SOURCE_UNAVAILABLE", "checkedZero": false, "text": "Source unavailable"},
   dossierUnresearched: {"intel": "NOT_YET_RESEARCHED", "notClaim": true},
   countyGroupIntel: true,
+  // Understood search, saved-search duplicate, research queue, coverage explorer, why (2026-10-05).
+  nqParse: {"a": ["laft", "Citrus", null, 5000, false, ""], "b": ["auction", "St. Lucie", 1000, 10000, false, ""], "c": ["laft", null, null, null, true, ""],
+    "d": [null, null, null, null, false, "123 Main St"], "e": ["certificate", "Bay", 2500, null, false, ""], "f": ["laft", "East Baton Rouge", null, null, false, ""]},
+  nqApply: {"chips": ["Available", "Citrus County"], "hash": "#/lands", "counties": ["Citrus"], "chip": ["counties"]},
+  nqPlain: {"understood": 0, "rows": true},
+  nqVerified: {"acq": "verified", "allVerified": true},
+  ssDuplicate: {"copies": 1, "sameCriteria": true},
+  researchItemsP15: ["Amount: not published", "Deposit: not published", "Deadlines: not published"],
+  coverageExplorer: {"heading": "Coverage in Florida", "total": 67, "hasVerified": true, "note": true},
+  coverageToDossier: {"picker": true, "county": "Citrus"},
+  whySection: {"items": 6, "noCompetitor": true, "noScoreClaim": true},
   // Available price honesty (2026-10-05).
   priceWording: {"openingBid": {"label": "Opening bid", "partial": true, "note": "Not the full price: the source publishes this as a starting amount. Ask the county for the current total.", "total": null, "expired": null, "gap": "Current purchase total not on file - the listed figure is the opening bid only"}, "fixed": {"label": "Purchase price", "partial": false, "note": "As the source publishes it - confirm the amount due before paying.", "total": null, "expired": null, "gap": null}, "expiredStatement": {"label": "Total due", "partial": true, "note": "Last clerk statement $27,689.42, valid through Aug 31, 2026 - that date has passed. Request an updated statement from the clerk.", "total": 27689.42, "expired": true, "gap": "County purchase statement has expired - request an updated total"}, "currentStatement": {"label": "Total due from purchaser", "partial": true, "note": "Clerk statement, valid if received by Dec 31, 2099.", "total": 27689.42, "expired": false, "gap": null}}
 };

@@ -2205,3 +2205,22 @@ a.ledger-badge:hover{text-decoration:underline}
 .ds-meta,.ds-health-text{color:var(--ink-soft);font-size:.74rem}
 .ds-health{display:flex;flex-wrap:wrap;gap:.3rem;align-items:baseline;margin-top:.15rem}
 .dossier-note{font-size:.74rem;color:var(--ink-soft);margin-top:1rem}
+
+/* ---- understood search, research queue, coverage explorer, why (2026-10-05) ---- */
+.gs-nq{display:flex;flex-wrap:wrap;align-items:center;gap:.3rem .4rem;padding:.5rem .7rem;border-bottom:1px solid var(--card-line);font-size:.78rem}
+.gs-nq-lead{color:var(--ink-soft);font-weight:600}
+.gs-nq-chip{padding:.08rem .5rem;border-radius:999px;background:var(--accent-soft,rgba(37,99,235,.1));border:1px solid var(--card-line)}
+.gs-nq-apply{margin-left:auto;font-size:.78rem;font-weight:600;background:none;border:0;color:var(--accent,#2563eb);cursor:pointer;min-height:32px}
+.gs-nq-note{flex-basis:100%;color:var(--ink-soft);font-size:.72rem}
+.research-queue{border:1px solid var(--card-line);border-radius:10px;padding:.5rem .7rem;margin:0 0 .8rem;font-size:.8rem}
+.research-queue summary{cursor:pointer}
+.research-queue > ul{list-style:none;margin:.4rem 0 0;padding:0;display:flex;flex-direction:column;gap:.45rem}
+.rq-ledger{margin-left:.4rem;font-size:.72rem;color:var(--ink-soft)}
+.rq-items{margin:.15rem 0 0 1rem;padding:0;color:var(--ink-soft);font-size:.76rem}
+.rq-note{font-size:.72rem;margin:.4rem 0 0}
+.coverage-explorer{margin-top:.8rem}
+.cov-summary{display:flex;flex-wrap:wrap;gap:.35rem .7rem;margin:.3rem 0 .5rem;font-size:.78rem}
+.cov-list{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fill,minmax(13rem,1fr));gap:.25rem .8rem;font-size:.8rem}
+.cov-list li{display:flex;align-items:center;gap:.4rem;justify-content:space-between}
+.cov-note{font-size:.74rem}
+.why-list{margin:.3rem 0 .8rem 1.1rem;padding:0;display:flex;flex-direction:column;gap:.35rem}

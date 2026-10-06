@@ -2602,3 +2602,21 @@ Full description: `docs/county-intelligence.md`. Stable facts:
   hand-edited, the others generated from tx.html); a county-group link
   `.county-intel-row`.
 - `sw.js` → `tdw-shell-v88`.
+
+## Understood search, research queue, coverage explorer (2026-10-05, PR open, no migration)
+
+Full description: `docs/investor-workflow.md`. Stable facts:
+- **`parseNaturalQuery()`** maps the global search to the List's own filters
+  (ledger, county, bid range, `acqState`). It uses rules only, no model.
+  - A query starting with a digit stays a plain text search.
+  - An understood reading with no matches falls back to the plain text.
+- Every `track()` event must be in migration 024's CHECK list. A test pins
+  this: an unknown event would switch tracking off for the session. New
+  events: `search_interpreted`, `county_dossier_opened`.
+- **Watchlist:** saved searches have Duplicate; the watchlist has a research
+  queue (`researchQueueHtml`, never ranked).
+- **State picker:** a coverage explorer (`coverageExplorerHtml`).
+- **About:** "Why TaxDeed-Scraper" (`#whyList`). No competitor is named.
+- **Layers:** a layer opened right after closing another uses
+  `afterSelfBack()`, so the two `history.back()` calls cannot race.
+- `sw.js` → `tdw-shell-v89`.
