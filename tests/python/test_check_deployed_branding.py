@@ -24,9 +24,20 @@ def test_the_old_florida_shell_is_reported():
 
 
 def test_comments_are_not_visible_text():
-    html = ('<title>TaxDeed-Scraper — Public Property Acquisition Intelligence</title><div id="authGate"><!-- Florida note -->'
-            '<p class="auth-tagline">Public Property Acquisition Intelligence</p></div><div id="pendingGate">')
+    html = ('<title>TAXACQ — Tax Acquisition Intelligence</title><div id="authGate"><!-- Florida note, TaxDeed-Scraper -->'
+            '<h1>TAXACQ</h1><p class="auth-tagline">Tax Acquisition Intelligence</p></div><div id="pendingGate">')
     assert C.check_page(html) == []
+
+
+def test_the_repository_name_as_product_name_is_reported():
+    html = ('<title>TaxDeed-Scraper — Public Property Acquisition Intelligence</title>'
+            '<meta name="apple-mobile-web-app-title" content="TaxDeed-Scraper"><div id="authGate"><h1>TaxDeed-Scraper</h1>'
+            '<p class="auth-tagline">Public Property Acquisition Intelligence</p></div><div id="pendingGate">')
+    problems = C.check_page(html)
+    assert any("title lacks 'TAXACQ'" in p for p in problems)
+    assert any("repository name" in p for p in problems)
+    assert any("lacks 'Tax Acquisition Intelligence'" in p for p in problems)
+    assert any("sign-in block lacks 'TAXACQ'" in p for p in problems)
 
 
 def test_preview_host_follows_the_cloudflare_alias_rule():

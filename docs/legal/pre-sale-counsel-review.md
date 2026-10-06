@@ -269,7 +269,7 @@ Remaining positioning items for counsel:
 - **Filter match** (value ÷ bid ≥ 12× plus a "no flags noted" manual lien
   note). Counsel should decide whether any filter that ranks properties
   needs further disclaimer.
-- **Brand name.** "Tax Acquisitions" has not been checked for trademark
+- **Brand name.** "TAXACQ" (customer-facing since 2026-10-06; formerly "Tax Acquisitions") has not been checked for trademark
   conflicts.
 
 ## 7. Documents counsel will need to draft or approve
@@ -336,7 +336,7 @@ Remaining positioning items for counsel:
 16. Do the scenario worksheet, value ÷ bid filter and "Filter match" tag
     raise any investment-advice, real-estate-broker or consumer-protection
     concern once customers pay?
-17. Is "Tax Acquisitions" clear to use as a trade name?
+17. Is "TAXACQ" clear to use as a trade name? (Not checked; no domain is claimed.)
 18. Which entity sells the service, and what limitation-of-liability and
     indemnity terms are needed, given that users bid real money at county
     sales?

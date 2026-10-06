@@ -22,11 +22,11 @@ def test_auth_gate_and_static_title_name_no_state():
         html = (REPO / "public" / page).read_text(encoding="utf-8")
         gate = re.sub(r"<!--.*?-->", "", _gate(html), flags=re.S)
         assert not STATES.search(gate), page
-        assert '<p class="auth-tagline">Public Property Acquisition Intelligence</p>' in gate, page
-        assert "<h1>TaxDeed-Scraper</h1>" in gate, page
+        assert '<p class="auth-tagline">Tax Acquisition Intelligence</p>' in gate, page
+        assert "<h1>TAXACQ</h1>" in gate, page
         assert "across supported states" in gate, page
         title = re.search(r"<title>(.*?)</title>", html).group(1)
-        assert title == "TaxDeed-Scraper — Public Property Acquisition Intelligence", page
+        assert title == "TAXACQ — Tax Acquisition Intelligence", page
         assert '<div class="dash-panel-head">Data sources (all states)</div>' in html, page
         for stale in ("Florida Tax Deed Intelligence", "Texas Tax Sale Intelligence", "Adjudicated Property Tracking", "County Tax Sale Tracking"):
             assert stale not in html, (page, stale)

@@ -1,6 +1,6 @@
 {
-  "name": "Tax Acquisitions",
-  "short_name": "Tax Acq",
+  "name": "TAXACQ — Tax Acquisition Intelligence",
+  "short_name": "TAXACQ",
   "description": "Research tool for public tax deed, tax certificate and county-held property listings. Not a title search, appraisal, or legal or investment advice.",
   "start_url": "/",
   "scope": "/",
