@@ -4269,7 +4269,67 @@ function relatedRecordsHtml(p) {
     : related.length
       ? related.map(relatedRecordLine).join("")
       : `<p class="related-empty">No record for parcel ${esc(p.parcel)} in the other ledgers in the current dataset.</p>`;
-  return detailSectionHtml("Same parcel in other ledgers", body, "", "related");
+  const county = p.county ? `<p class="related-county"><button type="button" class="link-btn related-county-link" data-action="countypage" data-county="${esc(p.county)}" data-state="${esc(regionOf(p))}">Everything in ${esc(p.county)} ${esc(UNIT_WORD)}: ledgers, sources, process →</button></p>` : "";
+  return detailSectionHtml("Same parcel in other ledgers", body + county, "", "related");
+}
+
+// ==================== Parcel timeline: outcome history across ledgers (2026-10-06) ====================
+// One chronological list of every DATED fact this app holds for the parcel:
+// this record and the same parcel's records in the other ledgers (exact
+// state + county + parcel identity, relatedRecordsFor). Each entry is a
+// stored date with what it means - first observed, a scheduled sale, a
+// certificate's issue / expiration date as published, leaving a source list,
+// the last read - and a sale result ONLY where the source published one
+// (auctionOutcomeState's verified states). A passed sale date, leaving a list
+// or moving between ledgers is never called a sale, a redemption or a
+// forfeiture; why a record moved is not recorded and never inferred.
+function parcelTimelineFor(p) {
+  const recs = [p].concat(hasParcel(p) ? relatedRecordsFor(p) : []);
+  const today = new Date().toISOString().slice(0, 10);
+  const out = [];
+  const day = v => (v ? String(v).slice(0, 10) : "");
+  recs.forEach(o => {
+    const led = ledgerCopy(o.source).title || o.source;
+    const ident = o.source === "certificate" ? `certificate #${o.certificate_no || "not published"}` : `case ${o.case_no || "not published"}`;
+    const base = { pid: o.id, ledger: o.source, self: o.id === p.id, ident };
+    const push = (at, kind, label) => { if (day(at)) out.push({ ...base, at: day(at), kind, label }); };
+    push(o.first_seen_at, "first_seen", `First observed in ${led}`);
+    if (o.source === "certificate") {
+      push(o.issued_date, "cert_issued", "Certificate issued (as published)");
+      if (day(o.expiration_date)) push(o.expiration_date, "cert_expiration", day(o.expiration_date) >= today ? "Certificate expiration date (as published) - upcoming" : "Certificate expiration date (as published) - passed; redemption status not published");
+    }
+    if (o.source === "auction" && day(o.sale_date)) {
+      const st = auctionOutcomeState(o);
+      const future = day(o.sale_date) >= today;
+      const label = future && isGone(o) ? "Sale date last published - the record has since left the source list"
+        : future ? "Sale scheduled"
+        : st && st.verified ? `Sale date - ${st.label}${st.raw ? ` (source wording “${st.raw}”)` : ""}`
+        : st && st.key === "outcome_not_published" ? "Sale date passed - outcome not published by the source"
+        : "Sale date passed - outcome not yet verified";
+      out.push({ ...base, at: day(o.sale_date), kind: st && st.verified ? "sale_result" : (future ? (isGone(o) ? "sale_last_published" : "sale_scheduled") : "sale_passed"), label, verified: !!(st && st.verified) });
+    }
+    const left = o.delisted_at || o.gone_since;
+    if (left) push(left, "left_list", `Left the ${led} source list - not a sale result`);
+    else if (o.last_seen_at && !isGone(o)) push(o.last_seen_at, "last_read", `Last read on ${led} (still listed)`);
+  });
+  const order = { first_seen: 0, cert_issued: 1, sale_scheduled: 2, sale_last_published: 2, sale_passed: 2, sale_result: 2, cert_expiration: 3, left_list: 4, last_read: 5 };
+  out.sort((a, b) => a.at.localeCompare(b.at) || (order[a.kind] - order[b.kind]) || LEDGER_ORDER.indexOf(a.ledger) - LEDGER_ORDER.indexOf(b.ledger));
+  return out;
+}
+window.__tdwParcelTimeline = pid => { const p = ALL.find(x => String(x.id) === String(pid)); return p ? parcelTimelineFor(p).map(e => ({ at: e.at, kind: e.kind, ledger: e.ledger, self: e.self, label: e.label })) : null; };
+function parcelTimelineHtml(p) {
+  const items = parcelTimelineFor(p);
+  const ledgers = new Set(items.map(e => e.ledger));
+  const head = !hasParcel(p)
+    ? `<p class="tl-note">No parcel number on this record, so only this record's own dates are shown.</p>`
+    : ledgers.size > 1 ? `<p class="tl-note">This parcel appears in ${ledgers.size} ledgers. Same state, ${esc(UNIT_WORD.toLowerCase())} and parcel number; why a record moved between ledgers is not recorded.</p>` : "";
+  const body = items.length
+    ? `<ol class="parcel-timeline">${items.map(e => `<li data-kind="${esc(e.kind)}" data-ledger="${esc(e.ledger)}"${e.self ? ' data-self="1"' : ""}>
+        <span class="tl-when">${esc(fmtDate(e.at))}</span>
+        <span class="tl-what"><span class="ledger-badge" data-ledger="${esc(e.ledger)}">${esc(ledgerNavName(e.ledger))}</span> ${esc(e.label)}<span class="tl-sub">${esc(e.ident)}${e.self ? " · this record" : ` · <button type="button" class="link-btn" data-action="viewdetails" data-pid="${esc(String(e.pid))}">open</button>`}</span></span>
+      </li>`).join("")}</ol>`
+    : `<p class="tl-note">No dated observation is recorded for this parcel yet.</p>`;
+  return detailSectionHtml("Parcel timeline", head + body + `<p class="tl-note">Built from this app's own observations. A result is shown only where the source published one; a passed date or a record leaving a list is never a sale, a redemption or a forfeiture. Earlier history before tracking began is not reconstructed.</p>`, "timeline-section", "timeline");
 }
 
 // Certificates are liens, not property - no address/owner/assessed/lien
@@ -6605,7 +6665,7 @@ async function hydrateInventoryHistory(container, p) {
 // Shell redesign (2026-10-04): the section nav reads as the page's tabs -
 // Overview / Acquisition / Tax & Value / ... / Map / Source - each a jump to a
 // section that actually rendered (never an empty tab).
-const DETAIL_NAV_LABELS = { acquire: "How to acquire", money: "Financial position", research: "My research", diligence: "Due diligence", documents: "Documents", truth: "Source truth", summary: "Overview", decision: "Decision", inventory: "Inventory", financial: "Tax & Value", property: "Property", history: "History", events: "Sale events", monitor: "Watch", risk: "Risk & Legal", map: "Map", sources: "Source", provenance: "Provenance" };
+const DETAIL_NAV_LABELS = { acquire: "How to acquire", money: "Financial position", research: "My research", diligence: "Due diligence", documents: "Documents", truth: "Source truth", summary: "Overview", decision: "Decision", inventory: "Inventory", financial: "Tax & Value", property: "Property", history: "History", timeline: "Timeline", events: "Sale events", monitor: "Watch", risk: "Risk & Legal", map: "Map", sources: "Source", provenance: "Provenance" };
 function detailNavHtml(bodyHtml) {
   const ids = [];
   bodyHtml.replace(/data-section="([a-z]+)"/g, (m, id) => { if (DETAIL_NAV_LABELS[id] && !ids.includes(id)) ids.push(id); return m; });
@@ -7977,6 +8037,7 @@ function detailHtml(p) {
       ${stats.map(detailStatTileHtml).join("")}
     </div>
     ${relatedRecordsHtml(p)}
+    ${parcelTimelineHtml(p)}
     ${monitorSectionHtml(p)}` : `
     ${propertyVisual(p, "detail-hero-photo")}
     ${sourceReviewBannerHtml(p)}
@@ -7989,6 +8050,7 @@ function detailHtml(p) {
     ${auctionDecisionHtml(p)}
     ${inventoryCardHtml(p)}
     ${relatedRecordsHtml(p)}
+    ${parcelTimelineHtml(p)}
     ${statGroupHtml("Financial", stats.filter(s => s[2] === "financial"), "financial")}
     ${statGroupHtml("Property Details", stats.filter(s => s[2] === "property"), "property")}
     ${statGroupHtml("History", stats.filter(s => s[2] === "history"), "history")}
@@ -8118,8 +8180,12 @@ function openDetail(p) {
   // doesn't add a second one. Runs on every open, not just wasHidden ones,
   // so the id stays correct if this is a refresh-in-place (favorite toggle,
   // watchlist change) rather than a fresh open.
+  // The slug is the property's OWN ledger (2026-10-06): a cross-ledger link
+  // (a certificate's timeline opening the same parcel's auction record) must
+  // not write "#/certificates/<auction id>", which would reopen it under the
+  // wrong ledger after a cold start.
   try {
-    history.replaceState(history.state, "", "#/" + LEDGERS[state.ledger].slug + "/" + p.id);
+    history.replaceState(history.state, "", "#/" + (LEDGERS[p.source] || LEDGERS[state.ledger]).slug + "/" + p.id);
   } catch { /* file:// etc */ }
   if (wasHidden) focusIntoModal(modal);
   syncBodyScrollLock();
@@ -13019,6 +13085,98 @@ function nqChipsHtml(nq) {
   return chips.map(c => `<span class="gs-nq-chip">${esc(c)}</span>`).join("");
 }
 window.__tdwParseNaturalQuery = (q, counties) => parseNaturalQuery(q, counties);
+// ---- Grouped search (2026-10-06): states, counties, saved research ----
+// Beside the property rows, the search box routes a query to the product
+// experience it names: a state name opens that state, a county name opens
+// the county's intelligence page, a research list name or a saved property
+// opens My Research. Deterministic word matching only - no model, no score;
+// each group lists its matches in a fixed order (exact before prefix before
+// contained, then alphabetical). Functions only (TDZ: nothing here runs
+// during module init).
+function gsNorm(s) { return String(s || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim(); }
+function gsWordIn(hay, needle) { return needle && (" " + hay + " ").includes(" " + needle + " "); }
+function gsRankName(name, q) {
+  const n = gsNorm(name);
+  if (!n || !q) return -1;
+  if (n === q) return 0;
+  if (q.length >= 3 && n.startsWith(q)) return 1;
+  if (gsWordIn(q, n)) return 2;
+  return -1;
+}
+function gsStateMatches(q) {
+  const qn = gsNorm(q).replace(/\b(state|of)\b/g, " ").replace(/\s+/g, " ").trim();
+  if (!qn) return [];
+  const out = [];
+  for (const st of Object.keys(STATE_META)) {
+    if (st === PAGE_STATE) continue;
+    let r = gsRankName(STATE_META[st].name, qn);
+    if (r < 0 && qn === st.toLowerCase()) r = 0;
+    if (r >= 0) out.push({ st, name: STATE_META[st].name, rank: r });
+  }
+  return out.sort((a, b) => a.rank - b.rank || a.name.localeCompare(b.name)).slice(0, 3);
+}
+function gsCountyMatches(q) {
+  const unitRe = new RegExp("\\b(county|counties|parish|parishes)\\b", "g");
+  const qn = gsNorm(q).replace(unitRe, " ").replace(/\s+/g, " ").trim();
+  if (qn.length < 2) return [];
+  const seen = new Set(), out = [];
+  for (const c of (ALL_COUNTIES || [])) {
+    if (seen.has(c)) continue;
+    seen.add(c);
+    const r = gsRankName(c, qn);
+    if (r < 0) continue;
+    const rows = ALL.filter(p => p.county === c && !HIDDEN.has(p.id) && !goneExpired(p));
+    const by = {};
+    rows.forEach(p => { by[p.source] = (by[p.source] || 0) + 1; });
+    out.push({ county: c, rank: r, total: rows.length, by });
+  }
+  return out.sort((a, b) => a.rank - b.rank || a.county.localeCompare(b.county)).slice(0, 3);
+}
+function gsResearchMatches(q) {
+  if (typeof RESEARCH === "undefined" || !RESEARCH || !RESEARCH.loaded) return [];
+  const qn = gsNorm(q);
+  const out = [];
+  (RESEARCH.lists || []).forEach(l => {
+    const n = gsNorm(l.name);
+    if (n && qn && (n === qn || n.includes(qn))) out.push({ kind: "list", listId: l.id, name: l.name, count: (RESEARCH.items || []).filter(i => i.list_id === l.id).length });
+  });
+  (RESEARCH.items || []).forEach(i => {
+    const p = ALL.find(x => String(x.id) === String(i.property_id));
+    if (!p || !textMatches(p, q)) return;
+    const l = (RESEARCH.lists || []).find(x => x.id === i.list_id);
+    out.push({ kind: "item", listId: i.list_id, listName: l ? l.name : "", pid: p.id, p, state: i.research_state });
+  });
+  return out.slice(0, 4);
+}
+function gsGroups(q) {
+  // A query starting with a digit is an address, parcel or case number (the
+  // natural-query rule): it never routes to a state or a county.
+  if (/^\s*\d/.test(String(q || ""))) return { states: [], counties: [], research: gsResearchMatches(q) };
+  return { states: gsStateMatches(q), counties: gsCountyMatches(q), research: gsResearchMatches(q) };
+}
+window.__tdwSearchGroups = q => {
+  const g = gsGroups(q);
+  return { states: g.states.map(s => s.st), counties: g.counties.map(c => ({ county: c.county, total: c.total })),
+    research: g.research.map(r => r.kind === "list" ? `list:${r.name}` : `item:${r.pid}`) };
+};
+function gsGroupsHtml(g, startIdx) {
+  let i = startIdx;
+  const parts = [];
+  if (g.states.length) parts.push(`<div class="gs-group" role="presentation">States</div>` + g.states.map(s =>
+    `<button type="button" class="gs-row gs-row-aux" role="option" id="gsOpt${i++}" data-gs-state="${esc(s.st)}" aria-selected="false">
+      <span class="gs-kind">State</span><span class="gs-main"><span class="gs-title">${esc(s.name)}</span><span class="gs-sub">Open ${esc(s.name)} - its ledgers, counties and sources</span></span></button>`).join(""));
+  if (g.counties.length) parts.push(`<div class="gs-group" role="presentation">${esc(UNIT_WORD === "Parish" ? "Parishes" : "Counties")}</div>` + g.counties.map(c => {
+    const counts = LEDGER_ORDER.filter(k => c.by[k]).map(k => `${c.by[k].toLocaleString("en-US")} ${ledgerNavName(k)}`).join(" · ");
+    return `<button type="button" class="gs-row gs-row-aux" role="option" id="gsOpt${i++}" data-gs-county="${esc(c.county)}" aria-selected="false">
+      <span class="gs-kind">${esc(UNIT_WORD)}</span><span class="gs-main"><span class="gs-title">${esc(c.county)} ${esc(UNIT_WORD)}, ${esc(PAGE_STATE)}</span><span class="gs-sub">${counts ? esc(counts) + " · " : "No loaded records · "}${esc(UNIT_WORD.toLowerCase())} intelligence page</span></span></button>`;
+  }).join(""));
+  if (g.research.length) parts.push(`<div class="gs-group" role="presentation">My research</div>` + g.research.map(r => r.kind === "list"
+    ? `<button type="button" class="gs-row gs-row-aux" role="option" id="gsOpt${i++}" data-gs-research="${esc(r.listId)}" aria-selected="false">
+      <span class="gs-kind">List</span><span class="gs-main"><span class="gs-title">${esc(r.name)}</span><span class="gs-sub">${r.count} saved propert${r.count === 1 ? "y" : "ies"}</span></span></button>`
+    : `<button type="button" class="gs-row gs-row-aux" role="option" id="gsOpt${i++}" data-gs-research="${esc(r.listId)}" aria-selected="false">
+      <span class="gs-kind">Saved</span><span class="gs-main"><span class="gs-title">${r.p.source === "certificate" ? `Certificate #${esc(r.p.certificate_no || "not published")}` : (realAddress(r.p) ? esc(realAddress(r.p)) : lotTitle(r.p))}</span><span class="gs-sub">In ${esc(r.listName || "a research list")} · your state: ${esc((RESEARCH_STATE_LABELS || {})[r.state] || r.state || "")}</span></span></button>`).join(""));
+  return { html: parts.join(""), next: i };
+}
 function gsMatches(q) {
   const out = [];
   const nq = parseNaturalQuery(q, ALL_COUNTIES);
@@ -13069,8 +13227,14 @@ function renderGlobalSearch() {
   const partial = !allLedgersSettled()
     ? `<div class="gs-status gs-partial" id="gsPartial" role="status">Still loading some ${esc(STATE_INFO.name)} records - results may grow.</div>`
     : LOAD_ISSUES.length ? `<div class="gs-status gs-partial" id="gsPartial" role="status">Some ${esc(STATE_INFO.name)} records could not be loaded - results may be incomplete.</div>` : "";
+  const groups = gsGroups(q);
+  const aux = gsGroupsHtml(groups, 0);
   if (!all.length) {
     const nq0 = parseNaturalQuery(q, ALL_COUNTIES);
+    if (aux.html) {
+      box.innerHTML = aux.html + (partial || "") + `<div class="gs-status" id="gsEmpty" role="status">No ${esc(STATE_INFO.name)} property ${allLedgersSettled() ? "" : "in the loaded records "}matches “${esc(q)}” itself.</div>`;
+      return;
+    }
     if (nqStructured(nq0)) {
       box.innerHTML = `<div class="gs-nq" id="gsNq"><span class="gs-nq-lead">Understood as</span>${nqChipsHtml(nq0)}</div>` + (partial || "") +
         `<div class="gs-status" id="gsEmpty" role="status">No ${esc(STATE_INFO.name)} property in the ${allLedgersSettled() ? "" : "loaded "}records matches all of these.</div>`;
@@ -13084,7 +13248,8 @@ function renderGlobalSearch() {
   const nqHtml = nqStructured(nq) && !all.__plainFallback
     ? `<div class="gs-nq" id="gsNq"><span class="gs-nq-lead">Understood as</span>${nqChipsHtml(nq)}<button type="button" class="gs-nq-apply" data-gs-nq="1">Apply as List filters &rarr;</button>${nq.min !== null || nq.max !== null ? `<span class="gs-nq-note">Amount bounds use the List's bid filter: rows with no published amount stay in.</span>` : ""}</div>`
     : "";
-  box.innerHTML = nqHtml + partial + all.slice(0, GS_LIMIT).map(gsRowHtml).join("") +
+  const propHead = aux.html ? `<div class="gs-group" role="presentation">Properties</div>` : "";
+  box.innerHTML = aux.html + nqHtml + partial + propHead + all.slice(0, GS_LIMIT).map((p, j) => gsRowHtml(p, aux.next + j)).join("") +
     `<button type="button" class="gs-all" data-gs-all="1">See all ${all.length.toLocaleString("en-US")} result${all.length === 1 ? "" : "s"} in the list &rarr;</button>`;
 }
 function closeGlobalSearch() {
@@ -13163,6 +13328,14 @@ function applyNaturalQuery(nq) {
       const p = ALL.find(x => String(x.id) === row.dataset.gsPid);
       closeGlobalSearch();
       if (p) openDetail(p);
+      return;
+    }
+    const aux = e.target.closest("[data-gs-state], [data-gs-county], [data-gs-research]");
+    if (aux) {
+      closeGlobalSearch();
+      if (aux.dataset.gsState) { const href = STATE_META[aux.dataset.gsState] ? STATE_META[aux.dataset.gsState].page + (location.search || "") + "#/dashboard" : null; if (href) location.href = href; }
+      else if (aux.dataset.gsCounty) openCountyPage(aux.dataset.gsCounty, PAGE_STATE);
+      else openResearchPage(aux.dataset.gsResearch);
       return;
     }
     if (e.target.closest("[data-gs-all], [data-gs-nq]")) goToListSearch(input.value);

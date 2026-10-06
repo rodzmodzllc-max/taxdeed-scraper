@@ -4431,6 +4431,88 @@ await navMap.close();
     }
     results.diligenceOverflow = ov;
   }
+  // ---- Grouped search, cross-links, parcel timeline (2026-10-06) ----
+  {
+    const sp = await newPage({ viewport: { width: 1280, height: 900 } });
+    sp.on('pageerror', e => errors.push('search groups pageerror: ' + e.message));
+    await sp.goto(BASE_URL + '#/dashboard', { waitUntil: 'networkidle' });
+    await sp.waitForFunction(() => typeof window.__tdwSearchGroups === 'function' && (window.__tdwLastRender || { rows: [] }).rows.length > 0, null, { timeout: 10000 });
+    results.searchGroupVectors = await sp.evaluate(() => Object.fromEntries(['citrus', 'Alachua County', 'texas', 'tx', 'Florida', '15 Manatee', 'zz'].map(q => [q, window.__tdwSearchGroups(q)])));
+    // A county name routes to the county page (first option, keyboard).
+    await sp.fill('#globalSearchInput', 'citrus');
+    await sp.waitForSelector('#globalSearchResults .gs-row', { timeout: 5000 });
+    results.searchGroupDropdown = await sp.evaluate(() => [...document.querySelectorAll('#globalSearchResults > *')].map(e => e.classList.contains('gs-group') ? 'group:' + e.textContent.trim()
+      : e.dataset.gsCounty ? 'county:' + e.dataset.gsCounty : e.dataset.gsPid ? 'property:' + e.dataset.gsPid : e.classList.contains('gs-nq') ? 'understood' : e.classList.contains('gs-all') ? 'all' : e.className));
+    results.searchGroupOptionIds = await sp.evaluate(() => [...document.querySelectorAll('#globalSearchResults .gs-row')].map(e => e.id));
+    await sp.press('#globalSearchInput', 'ArrowDown');
+    await sp.press('#globalSearchInput', 'Enter');
+    await sp.waitForSelector('#pageCounty:not([hidden])', { timeout: 5000 });
+    results.searchCountyRoute = await sp.evaluate(() => ({ hash: location.hash, named: /Citrus/.test(document.getElementById('pageCounty').textContent) }));
+    // A saved research list routes to My Research, on that list.
+    await sp.goto(BASE_URL.replace('index.html', 'index.html?v=sg') + '#/lands/p15', { waitUntil: 'networkidle' });
+    await sp.waitForSelector('#detailModalInner .research-panel .research-add', { timeout: 10000, state: 'attached' });
+    await sp.evaluate(() => { document.querySelector('#detailModalInner .research-new-name').value = 'Gulf Lots'; document.querySelector('#detailModalInner [data-action="researchnewsave"]').click(); });
+    await sp.waitForTimeout(400);
+    await sp.evaluate(() => document.querySelector('[data-action="closedetail"]').click());
+    await sp.waitForTimeout(300);
+    results.searchResearchGroups = await sp.evaluate(() => ({ list: window.__tdwSearchGroups('gulf').research, item: window.__tdwSearchGroups('Manatee').research }));
+    await sp.fill('#globalSearchInput', 'gulf');
+    await sp.waitForSelector('#globalSearchResults [data-gs-research]', { timeout: 5000 });
+    await sp.click('#globalSearchResults [data-gs-research]');
+    await sp.waitForSelector('#pageResearch:not([hidden]) .research-tab.on', { timeout: 5000 });
+    results.searchResearchRoute = await sp.evaluate(() => ({ hash: location.hash, tab: document.querySelector('#pageResearch .research-tab.on').textContent.trim() }));
+    await sp.close();
+    // A state name opens that state.
+    const ss = await newPage({ viewport: { width: 1280, height: 900 } });
+    await ss.goto(BASE_URL + '#/dashboard', { waitUntil: 'networkidle' });
+    await ss.waitForFunction(() => (window.__tdwLastRender || { rows: [] }).rows.length > 0, null, { timeout: 10000 });
+    await ss.fill('#globalSearchInput', 'texas');
+    await ss.waitForSelector('#globalSearchResults [data-gs-state="TX"]', { timeout: 5000 });
+    await Promise.all([ss.waitForNavigation({ timeout: 10000 }), ss.click('#globalSearchResults [data-gs-state="TX"]')]);
+    results.searchStateRoute = await ss.evaluate(() => location.pathname.split('/').pop() + location.hash);
+    await ss.close();
+    // Parcel timeline: one dated list across ledgers, a result only where published.
+    const tp = await newPage({ viewport: { width: 1280, height: 900 } });
+    await tp.goto(BASE_URL + '#/certificates/p4', { waitUntil: 'networkidle' });
+    await tp.waitForSelector('#detailModalInner [data-section="timeline"] .parcel-timeline li', { timeout: 10000, state: 'attached' });
+    results.timelineVectors = await tp.evaluate(() => Object.fromEntries(['p1', 'p2', 'p3', 'p4', 'p13', 'p15'].map(id => [id, (window.__tdwParcelTimeline(id) || []).map(e => `${e.ledger}:${e.kind}${e.self ? ':self' : ''}`)])));
+    results.timelineCert = await tp.evaluate(() => ({
+      items: [...document.querySelectorAll('#detailModalInner .parcel-timeline li')].map(li => `${li.dataset.ledger}:${li.dataset.kind}${li.dataset.self ? ':self' : ''}`),
+      note: /appears in 2 ledgers/.test(document.querySelector('#detailModalInner [data-section="timeline"]').textContent),
+      neverSold: /never a sale, a redemption or a forfeiture/.test(document.querySelector('#detailModalInner [data-section="timeline"]').textContent),
+      navPill: [...document.querySelectorAll('#detailModalInner .detail-nav button')].some(b => b.textContent === 'Timeline'),
+      countyLink: !!document.querySelector('#detailModalInner .related-county [data-action="countypage"]')
+    }));
+    // Certificate -> the same parcel's auction record, from the timeline.
+    await tp.click('#detailModalInner .parcel-timeline li[data-ledger="auction"] [data-action="viewdetails"]');
+    await tp.waitForFunction(() => /#\/auctions\/p1$/.test(location.hash), null, { timeout: 5000 });
+    results.timelineCrossLink = await tp.evaluate(() => location.hash);
+    // Property -> county page, from the same-parcel section.
+    await tp.waitForSelector('#detailModalInner .related-county [data-action="countypage"]', { timeout: 5000, state: 'attached' });
+    await tp.evaluate(() => document.querySelector('#detailModalInner .related-county [data-action="countypage"]').click());
+    await tp.waitForSelector('#pageCounty:not([hidden])', { timeout: 5000 });
+    results.timelineCountyRoute = await tp.evaluate(() => location.hash);
+    await tp.close();
+    const ov = [];
+    for (const w of [390, 430, 768, 1024, 1440, 1920]) {
+      const mp = await newPage({ viewport: { width: w, height: 900 } });
+      await mp.goto(BASE_URL + '#/certificates/p4', { waitUntil: 'networkidle' });
+      await mp.waitForSelector('#detailModalInner .parcel-timeline li', { timeout: 10000, state: 'attached' });
+      const o = await mp.evaluate(() => { const m = document.getElementById('detailModalInner'); return Math.max(document.documentElement.scrollWidth - document.documentElement.clientWidth, m ? m.scrollWidth - m.clientWidth : 0); });
+      if (o > 1) ov.push(w + ':timeline:' + o);
+      await mp.evaluate(() => document.querySelector('[data-action="closedetail"]').click());
+      await mp.waitForTimeout(250);
+      const gs = await mp.$('#globalSearchInput');
+      if (gs && await gs.isVisible()) {
+        await mp.fill('#globalSearchInput', 'citrus');
+        await mp.waitForSelector('#globalSearchResults .gs-row', { timeout: 5000 });
+        const o2 = await mp.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+        if (o2 > 1) ov.push(w + ':search:' + o2);
+      }
+      await mp.close();
+    }
+    results.searchTimelineOverflow = ov;
+  }
   // ---- Current acquisition amounts: semantic type + currency (2026-10-06) ----
   {
     const av = JSON.parse(fs.readFileSync(new URL('./python/fixtures/amount_semantics_cases.json', import.meta.url), 'utf8'));
@@ -5998,7 +6080,7 @@ const EXPECTED = {
   },
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: {"ready": true, "controlled": true, "tagline": "Public Property Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v101"]},
+  brandSwReload: {"ready": true, "controlled": true, "tagline": "Public Property Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v102"]},
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · TaxDeed-Scraper — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · TaxDeed-Scraper — Florida", floridaCopy: true },
@@ -6233,7 +6315,7 @@ const EXPECTED = {
   oppBidText: '$5,000.00 Value ÷ bid 18.0× (screening ratio, not a return)',
   oppValueText: '$90,000 2025 County Just Value · County Assessed Value $80,000',
   oppGaps: ['Image not checked yet', 'Not yet geocoded', 'Flood zone not checked'],
-  detailNavLabels: ["My research", "Due diligence", "Overview", "Decision", "Tax & Value", "Property", "History", "Sale events", "Watch", "Risk & Legal", "Map", "Source truth", "Documents", "Source", "Provenance"],   // shell redesign: section nav reads as tabs   // customer-value sprint: the Auction decision block
+  detailNavLabels: ["My research", "Due diligence", "Overview", "Decision", "Timeline", "Tax & Value", "Property", "History", "Sale events", "Watch", "Risk & Legal", "Map", "Source truth", "Documents", "Source", "Provenance"],   // shell redesign: section nav reads as tabs   // customer-value sprint: the Auction decision block
   detailNavJumpScrolled: true,
   detailNavJumpMarksPill: true,
   showOnMapBtnText: 'Show county on the Map page',
@@ -6378,7 +6460,7 @@ const EXPECTED = {
   rdNavAuction: {"hash": "#/auctions", "title": "Auction Properties"},
   rdGlobal: {"rows": ["p15:Available"], "all": "See all 1 result in the list →", "expanded": "true"},
   rdGlobalOpen: {"modal": true, "crumbs": ["Home/Available/15 Manatee Ln"]},
-  rdDetail: {"tabs": ["How to acquire", "Financial position", "My research", "Due diligence", "Overview", "Decision", "Inventory", "Tax & Value", "Property", "Sale events", "Watch", "Risk & Legal", "Map", "Source truth", "Documents", "Source", "Provenance"], "why": ["It is in the Available ledger for Florida because its source lists it.", "Last read from the source Nd ago.", "Its source is approved for customer publication."], "acquire": 1},
+  rdDetail: {"tabs": ["How to acquire", "Financial position", "My research", "Due diligence", "Overview", "Decision", "Inventory", "Timeline", "Tax & Value", "Property", "Sale events", "Watch", "Risk & Legal", "Map", "Source truth", "Documents", "Source", "Provenance"], "why": ["It is in the Available ledger for Florida because its source lists it.", "Last read from the source Nd ago.", "Its source is approved for customer publication."], "acquire": 1},
   rdCrumbHome: {"modalHidden": true, "dashVisible": true},
   rdGlobalEmpty: "No Florida property matches “zzzz-no-such”. Search covers address, parcel, case and certificate numbers and the county; to look in another state, switch state first.",
   rdGlobalEscape: true,
@@ -7196,6 +7278,19 @@ const EXPECTED = {
   diligenceLedgers: {"p13": {"keys": 16, "groups": ["identity", "property", "auction", "source"], "pick": {"result": "NOT_PUBLISHED", "sale_date": "VERIFIED", "bid": "VERIFIED", "auction_source": "NOT_VERIFIED", "coords": "NOT_PUBLISHED"}}, "p10": {"keys": 15, "groups": ["identity", "property", "auction", "source"], "pick": {"sale_date": "NOT_VERIFIED", "bid": "VERIFIED", "auction_source": "VERIFIED", "coords": "NOT_PUBLISHED"}}, "p4": {"keys": 11, "groups": ["identity", "certificate", "source"], "pick": {"cert_number": "VERIFIED", "cert_face": "VERIFIED", "cert_interest": "VERIFIED", "cert_redemption": "VERIFIED"}}},
   diligenceLocalPersist: true,
   diligenceOverflow: [],
+  // Grouped search, cross-links, parcel timeline (2026-10-06).
+  searchGroupVectors: {"citrus": {"states": [], "counties": [{"county": "Citrus", "total": 1}], "research": []}, "Alachua County": {"states": [], "counties": [{"county": "Alachua", "total": 3}], "research": []}, "texas": {"states": ["TX"], "counties": [], "research": []}, "tx": {"states": ["TX"], "counties": [], "research": []}, "Florida": {"states": [], "counties": [], "research": []}, "15 Manatee": {"states": [], "counties": [], "research": []}, "zz": {"states": [], "counties": [], "research": []}},
+  searchGroupDropdown: ["group:Counties", "county:Citrus", "understood", "group:Properties", "property:p15", "all"],
+  searchGroupOptionIds: ["gsOpt0", "gsOpt1"],
+  searchCountyRoute: {"hash": "#/county/Citrus", "named": true},
+  searchResearchGroups: {"list": ["list:Gulf Lots"], "item": ["item:p15"]},
+  searchResearchRoute: {"hash": "#/research", "tab": "Gulf Lots 1"},
+  searchStateRoute: "tx.html#/dashboard",
+  timelineVectors: {"p1": ["certificate:cert_issued", "auction:sale_scheduled:self", "certificate:cert_expiration"], "p2": ["auction:left_list:self", "auction:sale_last_published:self"], "p3": ["laft:last_read:self"], "p4": ["certificate:cert_issued:self", "auction:sale_scheduled", "certificate:cert_expiration:self"], "p13": ["auction:sale_passed:self"], "p15": ["laft:first_seen:self", "laft:last_read:self"]},
+  timelineCert: {"items": ["certificate:cert_issued:self", "auction:sale_scheduled", "certificate:cert_expiration:self"], "note": true, "neverSold": true, "navPill": true, "countyLink": true},
+  timelineCrossLink: "#/auctions/p1",
+  timelineCountyRoute: "#/county/Alachua",
+  searchTimelineOverflow: [],
   // Current acquisition amounts (2026-10-06).
   amountVectors: [],
   amountMeta: {"pa": {"semantic": "OPENING_BID", "rows": ["Amount type: Opening bid", "Valid through: Not published"], "statusMatchesRule": true}, "ok": {"semantic": "OTHER_PUBLISHED_AMOUNT", "rows": ["Amount type: Other published amount", "Valid through: Not published"], "statusMatchesRule": true}, "mo": {"semantic": "NONE", "rows": ["Amount type: Not published", "Valid through: Not published"], "statusMatchesRule": true}, "mn": {"semantic": "OPENING_BID", "rows": ["Amount type: Opening bid", "Valid through: Not published"], "statusMatchesRule": true}},

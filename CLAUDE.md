@@ -2405,6 +2405,20 @@ deep MI page 4,494 ms -> 106 ms; every MI / LA page read back in the same
 order with no row missing or repeated.
 
 
+## Grouped search, cross-links, parcel timeline (2026-10-06, PR open, no migration)
+
+Full description: `docs/search-crosslinks-timeline.md`. Stable facts:
+- **Global search groups** (`gsGroups()`): States (another registered
+  state → its page), Counties (open state's county → county page), My
+  research (list name / saved property → My Research). Deterministic word
+  matching; a digit-led query never routes to a state or county. Group rows
+  are `.gs-row` options with sequential `gsOpt<n>` ids.
+- **Parcel timeline** (`parcelTimelineFor`, section `timeline`): every
+  dated fact for the record and the same parcel in other ledgers. A result
+  only from `auctionOutcomeState().verified`; leaving a list is never a sale.
+- `openDetail()` writes the hash with the property's OWN ledger slug.
+- `sw.js` -> `tdw-shell-v102`.
+
 ## Where to look for more
 
 - `claude/improvement-roadmap.md` in the "tax florida app" claude.ai Project — the full dated log of every fix, audit finding, and open decision. This is where new findings should be appended, not here.
