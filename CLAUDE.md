@@ -2803,3 +2803,20 @@ Full description: `docs/county-intelligence-page.md`. Stable facts:
   Source truth, Research gaps. Customers see unreviewed sources counted only.
 - Section code is `var` / function declarations (TDZ). `sw.js` -> `tdw-shell-v99`.
 
+## My Research: research lists + customer workflow state (2026-10-06, PR open, migration 029 NOT applied)
+
+Full description: `docs/research-workspace.md`. Stable facts:
+- `#/research` (`#pageResearch`, created at runtime) + a "My research" section
+  on every property page + the "My Research" nav entry (injected by
+  `syncResearchNav()`) + Home "In my research".
+- Customer research state (DISCOVERED / RESEARCHING / DUE_DILIGENCE /
+  ACQUISITION_READY / PASSED / ACQUIRED, `RESEARCH_STATES`) is NEVER a source
+  status: shown beside `officialStatusText(p)`, refused outside the six
+  values before any request, never written to `properties`.
+- Migration 029 (`research_lists`, `research_items`; own-row PERMISSIVE +
+  RESTRICTIVE `is_approved()`, InitPlans, grants revoked first) is written and
+  live-tested, NOT applied. Without it the workspace lives in localStorage
+  (`tdw_research_v1:<user>`), labelled "Kept in this browser only".
+- Stub: `?research=none` simulates 029 absent; `__stubResearchDb()` reads it.
+  `sw.js` -> `tdw-shell-v100`.
+

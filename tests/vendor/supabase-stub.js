@@ -524,6 +524,47 @@ function monitorQuery(q) {
   return { data: q._single ? (out[0] || null) : out, error: null };
 }
 
+// Research workspace (migration 029, written and not applied). `?research=none`
+// simulates 029 not being applied (PGRST205 - the app keeps the lists in the
+// browser); the default emulates the tables with the migration's own checks:
+// the customer workflow vocabulary and one row per (list, property).
+const RESEARCH_MODE = new URLSearchParams(location.search).get("research") || "default";
+const RESEARCH_DB = RESEARCH_MODE === "none" ? null : { research_lists: [], research_items: [] };
+const RESEARCH_TABLES = new Set(["research_lists", "research_items"]);
+const RESEARCH_STATE_CHECK = ["DISCOVERED", "RESEARCHING", "DUE_DILIGENCE", "ACQUISITION_READY", "PASSED", "ACQUIRED"];
+let RESEARCH_SEQ = 0;
+function researchQuery(q) {
+  window.__stubResearchCalls = (window.__stubResearchCalls || 0) + 1;
+  if (RESEARCH_DB === null) return { data: null, error: { message: `Could not find the table 'public.${q.table}' in the schema cache`, code: "PGRST205" } };
+  const rows = RESEARCH_DB[q.table];
+  const matches = row => q._filters.every(([c, v]) => String(row[c]) === String(v));
+  const bad = r => r && r.research_state !== undefined && !RESEARCH_STATE_CHECK.includes(r.research_state);
+  if (q._op === "insert") {
+    if (bad(q._row)) return { data: null, error: { message: "new row violates check constraint \"research_items_research_state_check\"", code: "23514" } };
+    const now = new Date().toISOString();
+    const row = Object.assign({ id: "rs-" + (++RESEARCH_SEQ), user_id: "u1", created_at: now, updated_at: now }, q.table === "research_items"
+      ? { research_state: "DISCOVERED", note: null, diligence: {}, saved_at: now, state_changed_at: now } : {}, q._row);
+    if (q.table === "research_items" && rows.some(r => r.list_id === row.list_id && String(r.property_id) === String(row.property_id)))
+      return { data: null, error: { message: "duplicate key value violates unique constraint", code: "23505" } };
+    rows.push(row);
+    return { data: [Object.assign({}, row)], error: null };
+  }
+  if (q._op === "update") {
+    if (bad(q._row)) return { data: null, error: { message: "new row violates check constraint \"research_items_research_state_check\"", code: "23514" } };
+    rows.filter(matches).forEach(r => Object.assign(r, q._row));
+    window.__stubResearchUpdates = (window.__stubResearchUpdates || []).concat([Object.assign({ table: q.table }, q._row)]);
+    return { data: null, error: null };
+  }
+  if (q._op === "delete") {
+    const gone = rows.filter(matches).map(r => r.id);
+    const keep = rows.filter(r => !matches(r)); rows.length = 0; rows.push(...keep);
+    if (q.table === "research_lists") { const it = RESEARCH_DB.research_items; const k2 = it.filter(i => !gone.includes(i.list_id)); it.length = 0; it.push(...k2); }
+    return { data: null, error: null };
+  }
+  return { data: rows.filter(matches).map(r => Object.assign({}, r)), error: null };
+}
+window.__stubResearchDb = () => RESEARCH_DB ? JSON.parse(JSON.stringify(RESEARCH_DB)) : null;
+
 class MockQuery {
   constructor(table) { this.table = table; this._op = "select"; this._filters = []; this._single = false; }
   select() { return this; }
@@ -544,7 +585,9 @@ class MockQuery {
   upsert(row) { this._op = "upsert"; this._row = row; return this; }
   then(resolve) {
     let result = { data: [], error: null };
-    if (MONITOR_TABLES.has(this.table)) {
+    if (RESEARCH_TABLES.has(this.table)) {
+      result = researchQuery(this);
+    } else if (MONITOR_TABLES.has(this.table)) {
       result = monitorQuery(this);
     } else if (this.table === "profiles" && STUB_AUTH) {
       // Row-level security, as the real policies: "profiles: read own row"

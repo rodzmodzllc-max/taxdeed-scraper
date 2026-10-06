@@ -2899,11 +2899,14 @@ async function showApp() {
   if (route && route.page === "map") { applyMapParams(route.params); showPage("map"); }
   else if (route && route.page === "dashboard") showPage("dashboard");
   else if (route && route.page === "county") { if (route.county) openCountyPage(route.county, PAGE_STATE); else openCountyIndex(); }
+  else if (route && route.page === "research") openResearchPage();
   else { showPage("list"); if (route && route.page === "watchlist") openBidList(); }
   startIdleWatch();
   // Customer monitoring (saved searches, alerts, change events, analytics) -
   // after the first paint, never blocking it; each piece degrades on its own.
   loadMonitoring().catch(() => { MONITOR.loaded = true; });
+  // My Research (research lists, migration 029 or this browser) - after the first paint.
+  loadResearch().catch(() => { RESEARCH.loaded = true; }).then(() => { if (shellPage === "research") renderResearchPage(); });
   // Source publication governance is no longer loaded onto the main workspace:
   // it lives in its own admin-only view (openGovernance), loaded when opened.
   if (IS_ADMIN) refreshAdminApprovals();
@@ -4940,8 +4943,8 @@ async function openCountyDossier(county, st, returnEl) {
 // score, an estimate or a recommendation; a gap is named as a gap.
 // Every declaration in this section is a `var` or a function declaration:
 // a #/county deep link can reach showPage() during module init (TDZ).
-var COUNTY_RESEARCH_STEPS = ["DISCOVERED", "SOURCE_VERIFIED", "INVENTORY_VERIFIED", "ACQUISITION_PATH_VERIFIED", "PROPERTY_DATA_VERIFIED", "OUTCOME_DATA_VERIFIED"];
-var COUNTY_RESEARCH_STEP_LABELS = {
+var COUNTY_RESEARCH_STEPS = COUNTY_RESEARCH_STEPS || ["DISCOVERED", "SOURCE_VERIFIED", "INVENTORY_VERIFIED", "ACQUISITION_PATH_VERIFIED", "PROPERTY_DATA_VERIFIED", "OUTCOME_DATA_VERIFIED"];
+var COUNTY_RESEARCH_STEP_LABELS = COUNTY_RESEARCH_STEP_LABELS || {
   DISCOVERED: "Discovered",
   SOURCE_VERIFIED: "Source verified",
   INVENTORY_VERIFIED: "Inventory verified",
@@ -4949,7 +4952,7 @@ var COUNTY_RESEARCH_STEP_LABELS = {
   PROPERTY_DATA_VERIFIED: "Property data verified",
   OUTCOME_DATA_VERIFIED: "Outcome data verified"
 };
-var COUNTY_STEP_STATE_LABELS = { VERIFIED: "Verified", PARTIAL: "Partly verified", NOT_VERIFIED: "Not yet verified", NOT_APPLICABLE: "Not applicable" };
+var COUNTY_STEP_STATE_LABELS = COUNTY_STEP_STATE_LABELS || { VERIFIED: "Verified", PARTIAL: "Partly verified", NOT_VERIFIED: "Not yet verified", NOT_APPLICABLE: "Not applicable" };
 // The same rule as harvesters/sources/county_research.research_status();
 // tests/python/fixtures/county_research_cases.json pins both.
 function countyResearchStatus(facts) {
@@ -4990,7 +4993,7 @@ function countyResearchStatus(facts) {
 window.__tdwCountyResearch = countyResearchStatus;
 function countyResearchLabel(reached) { return reached ? COUNTY_RESEARCH_STEP_LABELS[reached] : "Not yet researched"; }
 
-var COUNTY_PAGE = { view: "index", county: null, st: null, showAll: false, filter: "", centroids: null };
+var COUNTY_PAGE = COUNTY_PAGE || { view: "index", county: null, st: null, showAll: false, filter: "", centroids: null };
 // The rows of one county this session can see (ALL is already gated), split
 // into what is on file now and every row including closed ones still in the
 // grace window (past auctions for the outcome history).
@@ -5380,6 +5383,7 @@ function ensureCountySection() {
   return sec;
 }
 async function renderCountyPage() {
+  countyPageState();
   const sec = ensureCountySection();
   const st = COUNTY_PAGE.st || PAGE_STATE;
   if (!COUNTY_INTEL) sec.innerHTML = `<p class="muted cty-loading">Loading county intelligence…</p>`;
@@ -5399,10 +5403,16 @@ async function renderCountyPage() {
     });
   }
 }
+function countyPageState() {
+  if (!COUNTY_PAGE) COUNTY_PAGE = { view: "index", county: null, st: null, showAll: false, filter: "", centroids: null };
+  return COUNTY_PAGE;
+}
 function countyPageHash() {
+  countyPageState();
   return COUNTY_PAGE.view === "county" && COUNTY_PAGE.county ? "#/county/" + encodeURIComponent(COUNTY_PAGE.county) : "#/counties";
 }
 function openCountyPage(county, st) {
+  countyPageState();
   COUNTY_PAGE.view = "county"; COUNTY_PAGE.county = county; COUNTY_PAGE.st = st || PAGE_STATE;
   if (countyModalUi && document.getElementById("countyModal") && !document.getElementById("countyModal").hidden) countyModalUi.close();
   if (document.getElementById("detailModal") && !document.getElementById("detailModal").hidden) closeDetail();
@@ -5410,10 +5420,321 @@ function openCountyPage(county, st) {
   showPage("county");
 }
 function openCountyIndex() {
+  countyPageState();
   COUNTY_PAGE.view = "index"; COUNTY_PAGE.county = null; COUNTY_PAGE.st = PAGE_STATE;
   showPage("county");
 }
 window.__tdwOpenCountyPage = openCountyPage;
+// ==================== MY RESEARCH: research lists + customer workflow state (2026-10-06) ====================
+// A customer's own research workspace: named lists ("October Florida
+// Auction", "Due Diligence", ...), the properties saved into them, the
+// customer's own workflow state for each, and a note. Stored in
+// research_lists / research_items (migration 029, written and NOT applied);
+// until those tables exist the same workspace is kept in this browser only and
+// the page says so. The customer's workflow state is never a government or
+// source status: it is never written to a property, and every surface shows
+// it beside - never instead of - the official ledger and source status.
+// Every declaration here is a `var` or a function declaration (TDZ: a
+// #/research deep link reaches showPage() during module init).
+var RESEARCH_STATES = RESEARCH_STATES || ["DISCOVERED", "RESEARCHING", "DUE_DILIGENCE", "ACQUISITION_READY", "PASSED", "ACQUIRED"];
+var RESEARCH_STATE_LABELS = RESEARCH_STATE_LABELS || {
+  DISCOVERED: "Discovered", RESEARCHING: "Researching", DUE_DILIGENCE: "Due diligence",
+  ACQUISITION_READY: "Acquisition ready", PASSED: "Passed", ACQUIRED: "Acquired"
+};
+var RESEARCH = RESEARCH || { mode: null, lists: [], items: [], loaded: false, error: null, filterList: "all", filterState: "all" };
+var RESEARCH_PAGE = RESEARCH_PAGE || { listId: "all" };
+function researchLocalKey() { return "tdw_research_v1:" + (ME && ME.id ? ME.id : "anon"); }
+function researchUuid() {
+  try { if (crypto && crypto.randomUUID) return crypto.randomUUID(); } catch { /* old browser */ }
+  return "r-" + Date.now().toString(36) + "-" + Math.random().toString(36).slice(2, 10);
+}
+function researchSaveLocal() {
+  try { localStorage.setItem(researchLocalKey(), JSON.stringify({ lists: RESEARCH.lists, items: RESEARCH.items })); return true; }
+  catch { return false; }
+}
+// Server tables when migration 029 is applied, this browser otherwise. A read
+// error that is not "table missing" is shown, never silently replaced by the
+// browser copy (that would look like lost work).
+function researchStateObj() {
+  if (!RESEARCH) RESEARCH = { mode: null, lists: [], items: [], loaded: false, error: null, filterList: "all", filterState: "all" };
+  if (!RESEARCH_PAGE) RESEARCH_PAGE = { listId: "all" };
+  return RESEARCH;
+}
+async function loadResearch() {
+  researchStateObj();
+  if (RESEARCH.loaded && RESEARCH.mode) return RESEARCH;
+  try {
+    const lists = await sb.from("research_lists").select("id,name,created_at,updated_at").order("created_at");
+    if (lists.error && isMissingTable(lists.error)) {
+      RESEARCH.mode = "local";
+      let saved = null;
+      try { saved = JSON.parse(localStorage.getItem(researchLocalKey()) || "null"); } catch { saved = null; }
+      RESEARCH.lists = saved && Array.isArray(saved.lists) ? saved.lists : [];
+      RESEARCH.items = saved && Array.isArray(saved.items) ? saved.items : [];
+    } else if (lists.error) {
+      RESEARCH.mode = "server"; RESEARCH.error = "Your research lists could not be loaded right now.";
+    } else {
+      const items = await sb.from("research_items").select("id,list_id,property_id,research_state,note,diligence,saved_at,state_changed_at").order("saved_at");
+      RESEARCH.mode = "server";
+      RESEARCH.lists = lists.data || [];
+      RESEARCH.items = items.error ? [] : (items.data || []);
+      if (items.error) RESEARCH.error = "Your saved properties could not be loaded right now.";
+    }
+  } catch {
+    RESEARCH.mode = "local"; RESEARCH.lists = []; RESEARCH.items = [];
+  }
+  RESEARCH.loaded = true;
+  syncResearchNav();
+  return RESEARCH;
+}
+window.__tdwResearch = () => JSON.parse(JSON.stringify({ mode: RESEARCH.mode, lists: RESEARCH.lists, items: RESEARCH.items }));
+// Test hook: the write path, so a test can show a non-customer state is refused before any request.
+window.__tdwResearchApi = { update: (id, patch) => updateResearchItem(id, patch) };
+function researchSavedFor(pid) { return RESEARCH.items.filter(i => String(i.property_id) === String(pid)); }
+function researchListName(id) { const l = RESEARCH.lists.find(x => x.id === id); return l ? l.name : "List"; }
+async function createResearchList(name) {
+  const n = String(name || "").trim().slice(0, 80);
+  if (!n) return null;
+  if (RESEARCH.lists.length >= 50) { showErrorToast("Research list limit reached (50)."); return null; }
+  if (RESEARCH.mode === "server") {
+    const { data, error } = await sb.from("research_lists").insert({ name: n }).select();
+    if (error) { showErrorToast("Couldn't create the research list - " + error.message); return null; }
+    const row = Array.isArray(data) ? data[0] : data;
+    RESEARCH.lists.push(row);
+    return row;
+  }
+  const row = { id: researchUuid(), name: n, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
+  RESEARCH.lists.push(row);
+  researchSaveLocal();
+  return row;
+}
+async function renameResearchList(id, name) {
+  const n = String(name || "").trim().slice(0, 80);
+  const l = RESEARCH.lists.find(x => x.id === id);
+  if (!l || !n) return;
+  if (RESEARCH.mode === "server") {
+    const { error } = await sb.from("research_lists").update({ name: n, updated_at: new Date().toISOString() }).eq("id", id);
+    if (error) { showErrorToast("Couldn't rename the list - " + error.message); return; }
+  }
+  l.name = n;
+  if (RESEARCH.mode !== "server") researchSaveLocal();
+}
+async function deleteResearchList(id) {
+  if (RESEARCH.mode === "server") {
+    const { error } = await sb.from("research_lists").delete().eq("id", id);
+    if (error) { showErrorToast("Couldn't delete the list - " + error.message); return; }
+  }
+  RESEARCH.lists = RESEARCH.lists.filter(l => l.id !== id);
+  RESEARCH.items = RESEARCH.items.filter(i => i.list_id !== id);
+  if (RESEARCH.mode !== "server") researchSaveLocal();
+  syncResearchNav();
+}
+async function saveToResearch(p, listId) {
+  if (!p || !listId) return null;
+  if (RESEARCH.items.some(i => i.list_id === listId && String(i.property_id) === String(p.id))) return null;
+  if (RESEARCH.items.length >= 2000) { showErrorToast("Research limit reached (2,000 saved properties)."); return null; }
+  const now = new Date().toISOString();
+  let row = { list_id: listId, property_id: p.id, research_state: "DISCOVERED", note: null, diligence: {}, saved_at: now, state_changed_at: now };
+  if (RESEARCH.mode === "server") {
+    const { data, error } = await sb.from("research_items").insert({ list_id: listId, property_id: p.id }).select();
+    if (error) { showErrorToast("Couldn't save to research - " + error.message); return null; }
+    row = Object.assign(row, Array.isArray(data) ? data[0] : data);
+  } else {
+    row.id = researchUuid();
+  }
+  RESEARCH.items.push(row);
+  if (RESEARCH.mode !== "server") researchSaveLocal();
+  track("property_saved", { property_id: p.id, ledger: p.source, target: "research_list" });
+  syncResearchNav();
+  return row;
+}
+async function updateResearchItem(id, patch) {
+  const it = RESEARCH.items.find(i => i.id === id);
+  if (!it) return false;
+  const clean = {};
+  if (patch.research_state !== undefined) {
+    if (!RESEARCH_STATES.includes(patch.research_state)) return false;   // never a source status
+    clean.research_state = patch.research_state;
+  }
+  if (patch.note !== undefined) clean.note = String(patch.note || "").slice(0, 2000) || null;
+  if (patch.diligence !== undefined) clean.diligence = patch.diligence;
+  if (RESEARCH.mode === "server") {
+    const { error } = await sb.from("research_items").update(clean).eq("id", id);
+    if (error) { showErrorToast("Couldn't update the research item - " + error.message); return false; }
+  }
+  if (clean.research_state && clean.research_state !== it.research_state) it.state_changed_at = new Date().toISOString();
+  Object.assign(it, clean);
+  if (RESEARCH.mode !== "server") researchSaveLocal();
+  return true;
+}
+async function removeResearchItem(id) {
+  if (RESEARCH.mode === "server") {
+    const { error } = await sb.from("research_items").delete().eq("id", id);
+    if (error) { showErrorToast("Couldn't remove from research - " + error.message); return; }
+  }
+  RESEARCH.items = RESEARCH.items.filter(i => i.id !== id);
+  if (RESEARCH.mode !== "server") researchSaveLocal();
+  syncResearchNav();
+}
+// The OFFICIAL status of a property, from the property's own records - shown
+// beside the customer's research state, never replaced by it.
+function officialStatusText(p) {
+  if (!p) return "Not on file in this state's loaded records";
+  if (goneExpired(p) || isGone(p)) return `${ledgerNavName(p.source)} · no longer on the source's list`;
+  if (p.source === "auction") {
+    const s = auctionOutcomeState(p);
+    if (s && s.verified) return `${ledgerNavName("auction")} · ${s.label}`;
+    return `${ledgerNavName("auction")} · ${p.sale_date ? (String(p.sale_date).slice(0, 10) >= new Date().toISOString().slice(0, 10) ? "sale scheduled " + fmtDate(String(p.sale_date).slice(0, 10)) : "sale date passed - result " + (s && s.label ? s.label.toLowerCase() : "not published")) : "no sale date on file"}`;
+  }
+  if (p.source === "certificate") return `${ledgerNavName("certificate")} · ${p.inventory_status && INVENTORY_STATUS_LABELS[p.inventory_status] ? INVENTORY_STATUS_LABELS[p.inventory_status] : "listed by the source"}`;
+  return `${ledgerNavName("laft")} · ${p.inventory_status && INVENTORY_STATUS_LABELS[p.inventory_status] ? INVENTORY_STATUS_LABELS[p.inventory_status] : "on the source's Available list"}`;
+}
+function researchAcqStatus(p) {
+  if (!p) return "Not recorded";
+  if (p.source === "certificate") return "Not applicable - a certificate is bought at the county's certificate sale";
+  const a = acquisitionOf(p);
+  if (a.verified) return p.source === "auction" ? "Sale process verified" : "Acquisition path verified";
+  const u = acquisitionEvidenceStatus(p);
+  return u ? (ACQ_EVIDENCE_STATUS_LABELS[u.status] || "Not yet verified") : "Not yet verified";
+}
+function researchStateSelectHtml(it) {
+  return `<select class="research-state" data-research-item="${esc(it.id)}" aria-label="Your research state">${RESEARCH_STATES.map(s => `<option value="${s}"${it.research_state === s ? " selected" : ""}>${esc(RESEARCH_STATE_LABELS[s])}</option>`).join("")}</select>`;
+}
+function researchStorageNoteHtml() {
+  if (RESEARCH.mode === "local") return `<p class="research-storage" data-research-mode="local">Kept in this browser only - your research lists are not yet stored on your account, so they will not appear on another device and are lost if this browser's site data is cleared.</p>`;
+  if (RESEARCH.error) return `<p class="research-storage warn" data-research-mode="error">${esc(RESEARCH.error)}</p>`;
+  return `<p class="research-storage" data-research-mode="server">Saved to your account. Only you can see your research lists.</p>`;
+}
+// Property page block: save to a list, then the customer's own state and note.
+function researchPanelHtml(p) {
+  researchStateObj();
+  if (!RESEARCH.loaded) return `<div class="research-panel" data-pid="${esc(p.id)}"><p class="muted">Loading your research lists…</p></div>`;
+  const items = researchSavedFor(p.id);
+  const lists = RESEARCH.lists;
+  const free = lists.filter(l => !items.some(i => i.list_id === l.id));
+  const add = `<div class="research-add">
+      ${free.length ? `<select class="research-list-pick" aria-label="Research list">${free.map(l => `<option value="${esc(l.id)}">${esc(l.name)}</option>`).join("")}</select><button type="button" class="detail-btn" data-action="researchsave" data-pid="${esc(p.id)}">Save to research</button>` : ""}
+      <input type="text" class="research-new-name" maxlength="80" placeholder="${lists.length ? "or name a new list" : "Name a research list (e.g. October Florida Auction)"}" aria-label="New research list name">
+      <button type="button" class="link-btn" data-action="researchnewsave" data-pid="${esc(p.id)}">Create list &amp; save</button>
+    </div>`;
+  const rows = items.map(it => `<li class="research-item" data-research-item="${esc(it.id)}">
+      <div class="research-item-head"><b>${esc(researchListName(it.list_id))}</b> <span class="muted">saved ${esc(dateOnly(it.saved_at))}</span>
+        <button type="button" class="link-btn" data-action="researchremove" data-item="${esc(it.id)}">Remove</button></div>
+      <label class="research-field"><span>Your research state</span>${researchStateSelectHtml(it)}</label>
+      <label class="research-field"><span>Your note</span><textarea class="research-note" data-research-item="${esc(it.id)}" maxlength="2000" rows="2" placeholder="Visible only to you">${esc(it.note || "")}</textarea></label>
+      <button type="button" class="link-btn" data-action="researchnote" data-item="${esc(it.id)}">Save note</button>
+    </li>`).join("");
+  return `<div class="research-panel" data-pid="${esc(p.id)}">
+    <dl class="research-official"><dt>Official status (from the source)</dt><dd data-official-status>${esc(officialStatusText(p))}</dd></dl>
+    ${rows ? `<ul class="research-items">${rows}</ul>` : `<p class="muted research-none">Not saved to any research list yet.</p>`}
+    ${add}
+    ${researchStorageNoteHtml()}
+    <p class="research-sep">Your research state is your own workflow - it never changes the property's official status, and nothing here is sent to the county.</p>
+  </div>`;
+}
+function hydrateResearchPanels(pid) {
+  document.querySelectorAll(`.research-panel[data-pid="${CSS.escape(String(pid))}"]`).forEach(el => {
+    const p = ALL.find(x => String(x.id) === String(pid));
+    if (p) el.outerHTML = researchPanelHtml(p);
+  });
+}
+async function researchAfterOpen(p) {
+  await loadResearch();
+  hydrateResearchPanels(p.id);
+}
+// ---- the My Research page (#/research) ----
+function ensureResearchSection() {
+  let sec = document.getElementById("pageResearch");
+  if (sec) return sec;
+  const map = document.getElementById("pageMap");
+  sec = document.createElement("section");
+  sec.className = "page research-page";
+  sec.id = "pageResearch";
+  sec.hidden = true;
+  sec.setAttribute("aria-label", "My Research");
+  if (map && map.parentNode) map.parentNode.insertBefore(sec, map.nextSibling);
+  else (document.getElementById("app") || document.body).appendChild(sec);
+  return sec;
+}
+function researchRowHtml(it) {
+  const p = ALL.find(x => String(x.id) === String(it.property_id)) || null;
+  const today = new Date().toISOString().slice(0, 10);
+  const upcoming = p && p.source === "auction" && p.sale_date && String(p.sale_date).slice(0, 10) >= today ? fmtDate(String(p.sale_date).slice(0, 10)) : "";
+  const title = p ? (p.address && !/^parcel/i.test(p.address) ? p.address : (p.parcel ? "Parcel " + p.parcel : "Case " + (p.case_no || "?"))) : "Property not in this state's loaded records";
+  return `<tr class="research-row" data-research-item="${esc(it.id)}" data-pid="${esc(it.property_id)}" data-state="${esc(it.research_state)}">
+    <td data-label="Property">${p ? `<button type="button" class="link-btn" data-action="researchopen" data-pid="${esc(p.id)}">${esc(title)}</button>` : `<span class="muted">${esc(title)}</span>`}</td>
+    <td data-label="${esc(UNIT_WORD)}">${p ? `<button type="button" class="link-btn" data-action="countypage" data-county="${esc(p.county)}" data-state="${esc(regionOf(p))}">${esc(p.county)}</button>` : ""}</td>
+    <td data-label="Ledger">${p ? `<span class="cty-dot" data-ledger="${esc(p.source)}"></span>${esc(ledgerNavName(p.source))}` : ""}</td>
+    <td data-label="Official status" data-official-status>${esc(officialStatusText(p))}</td>
+    <td data-label="Your research state">${researchStateSelectHtml(it)}</td>
+    <td data-label="Saved">${esc(dateOnly(it.saved_at))}${RESEARCH_PAGE.listId === "all" ? `<span class="kv-sub">${esc(researchListName(it.list_id))}</span>` : ""}</td>
+    <td data-label="Upcoming">${upcoming ? esc(upcoming) : '<span class="muted">-</span>'}</td>
+    <td data-label="Acquisition path">${esc(researchAcqStatus(p))}</td>
+    <td data-label="Due diligence" data-diligence-summary>${typeof diligenceSummaryHtml === "function" ? diligenceSummaryHtml(p, it) : '<span class="muted">-</span>'}</td>
+    <td data-label="Note">${it.note ? esc(it.note.length > 80 ? it.note.slice(0, 80) + "…" : it.note) : '<span class="muted">-</span>'}</td>
+    <td data-label=""><button type="button" class="link-btn" data-action="researchremove" data-item="${esc(it.id)}">Remove</button></td>
+  </tr>`;
+}
+async function renderResearchPage() {
+  researchStateObj();
+  const sec = ensureResearchSection();
+  if (!RESEARCH.loaded) sec.innerHTML = `<p class="muted">Loading your research…</p>`;
+  await loadResearch();
+  const lid = RESEARCH_PAGE.listId;
+  const fs = RESEARCH.filterState;
+  const inList = RESEARCH.items.filter(i => lid === "all" || i.list_id === lid);
+  const shown = inList.filter(i => fs === "all" || i.research_state === fs);
+  const byState = {};
+  inList.forEach(i => { byState[i.research_state] = (byState[i.research_state] || 0) + 1; });
+  const listTabs = [`<button type="button" class="research-tab${lid === "all" ? " on" : ""}" data-action="researchlist" data-list="all">All lists <b>${RESEARCH.items.length}</b></button>`]
+    .concat(RESEARCH.lists.map(l => `<button type="button" class="research-tab${lid === l.id ? " on" : ""}" data-action="researchlist" data-list="${esc(l.id)}">${esc(l.name)} <b>${RESEARCH.items.filter(i => i.list_id === l.id).length}</b></button>`)).join("");
+  const cur = RESEARCH.lists.find(l => l.id === lid);
+  sec.innerHTML = `<div class="research">
+    <header class="cty-head"><p class="cty-kicker">${esc(STATE_META[PAGE_STATE] ? STATE_META[PAGE_STATE].name : PAGE_STATE)} · My Research</p><h2 class="cty-title">My Research</h2>
+      <p class="cty-lede">The properties you are working, in your own lists, with your own research state beside each property's official status.</p></header>
+    ${researchStorageNoteHtml()}
+    <div class="research-tabs" role="tablist">${listTabs}</div>
+    <div class="research-tools">
+      <input type="text" id="researchNewListName" maxlength="80" placeholder="New list name" aria-label="New research list name"><button type="button" class="detail-btn" data-action="researchcreate">Create list</button>
+      ${cur ? `<button type="button" class="link-btn" data-action="researchrename" data-list="${esc(cur.id)}">Rename list</button><button type="button" class="link-btn" data-action="researchdelete" data-list="${esc(cur.id)}">Delete list</button>` : ""}
+      <label class="research-filter"><span>Research state</span><select id="researchStateFilter"><option value="all">All (${inList.length})</option>${RESEARCH_STATES.map(s => `<option value="${s}"${fs === s ? " selected" : ""}>${esc(RESEARCH_STATE_LABELS[s])} (${byState[s] || 0})</option>`).join("")}</select></label>
+    </div>
+    ${shown.length ? `<div class="cty-table-wrap"><table class="cty-table research-table"><thead><tr><th>Property</th><th>${esc(UNIT_WORD)}</th><th>Ledger</th><th>Official status</th><th>Your research state</th><th>Saved</th><th>Upcoming</th><th>Acquisition path</th><th>Due diligence</th><th>Note</th><th></th></tr></thead><tbody>${shown.map(researchRowHtml).join("")}</tbody></table></div>`
+      : `<p class="muted research-empty">${RESEARCH.items.length ? "Nothing in this view." : "No property saved yet. Open any property and use “Save to research” under My research."}</p>`}
+    <p class="dossier-note">Official status is read from the source's records. Your research state is your own workflow label - it is never written to the property and never changes what the county publishes.</p>
+  </div>`;
+  const f = sec.querySelector("#researchStateFilter");
+  if (f) f.addEventListener("change", () => { RESEARCH.filterState = f.value; renderResearchPage(); });
+}
+function openResearchPage(listId) {
+  researchStateObj();
+  if (listId) RESEARCH_PAGE.listId = listId;
+  showPage("research");
+}
+function syncResearchNav() {
+  let btn = document.getElementById("navResearchBtn");
+  const sec = document.querySelector("#navRail .nav-secondary");
+  if (!btn && sec) {
+    const wl = document.getElementById("navWatchlistBtn");
+    btn = document.createElement("button");
+    btn.className = "nav-item"; btn.type = "button"; btn.id = "navResearchBtn"; btn.dataset.page = "research";
+    btn.innerHTML = `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16M4 12h16M4 19h10"/></svg>My Research <b class="nav-count" id="navResearchCount">0</b>`;
+    btn.addEventListener("click", () => openResearchPage());
+    if (wl && wl.parentNode === sec) sec.insertBefore(btn, wl); else sec.insertBefore(btn, sec.firstChild);
+  }
+  const c = document.getElementById("navResearchCount");
+  if (c) c.textContent = String(RESEARCH.items.length);
+}
+// Customer workflow state changes and note edits, from the panel or the page.
+document.addEventListener("change", async e => {
+  const sel = e.target && e.target.closest && e.target.closest("select.research-state");
+  if (!sel) return;
+  const ok = await updateResearchItem(sel.dataset.researchItem, { research_state: sel.value });
+  if (ok) {
+    const row = sel.closest(".research-row");
+    if (row) row.dataset.state = sel.value;
+  }
+});
 const TRANSITION_LABELS = {
   newly_observed: "First observed on the list", status_changed: "Status changed", removed: "Removed from the list (closed - not a sale result)",
   result_published: "Result published by the source", reactivated: "Back on the list (reactivated)"
@@ -7413,6 +7734,7 @@ function detailHtml(p) {
     ${isCert ? `
     ${certStatusLinesHtml(p)}
     ${certificateDecisionHtml(p)}
+    ${detailSectionHtml("My research", researchPanelHtml(p), "research-section", "research")}
     ${sourceTruthHtml(p)}
     <div class="detail-grid">
       ${stats.map(detailStatTileHtml).join("")}
@@ -7423,6 +7745,7 @@ function detailHtml(p) {
     ${sourceReviewBannerHtml(p)}
     ${acquireBlockHtml(p)}
     ${financialPositionHtml(p)}
+    ${detailSectionHtml("My research", researchPanelHtml(p), "research-section", "research")}
     ${opportunitySummaryHtml(p)}
     ${availableDecisionHtml(p)}
     ${auctionDecisionHtml(p)}
@@ -7539,6 +7862,7 @@ function openDetail(p) {
   if (p.source !== "certificate") hydrateEventHistory(inner, p);
   if (p.source === "laft") hydrateInventoryHistory(inner, p);
   hydrateChangeHistory(inner, p);
+  researchAfterOpen(p);
   if (wasHidden) track("property_viewed", { property_id: p.id, ledger: p.source });
   observeAcquisitionSection(inner, p);
   modal.hidden = false;
@@ -7941,6 +8265,64 @@ document.addEventListener("click", async e => {
     // second one leaves the page.
     if (btn.closest("#statePicker")) { closeStatePicker(); afterSelfBack(() => openCountyDossier(btn.dataset.county, btn.dataset.state || PAGE_STATE, null)); }
     else openCountyDossier(btn.dataset.county, btn.dataset.state || PAGE_STATE, btn);
+    return;
+  }
+  // My Research (2026-10-06): lists, saving, the customer's own state and note.
+  if (action === "researchsave" || action === "researchnewsave") {
+    const p = ALL.find(x => String(x.id) === String(pid));
+    const panel = btn.closest(".research-panel");
+    if (!p || !panel) return;
+    await loadResearch();
+    let listId = null;
+    if (action === "researchnewsave") {
+      const inp = panel.querySelector(".research-new-name");
+      const l = await createResearchList(inp ? inp.value : "");
+      if (!l) { if (inp) inp.focus(); return; }
+      listId = l.id;
+    } else {
+      const sel = panel.querySelector(".research-list-pick");
+      listId = sel ? sel.value : null;
+    }
+    if (listId) await saveToResearch(p, listId);
+    hydrateResearchPanels(p.id);
+    return;
+  }
+  if (action === "researchremove") {
+    const it = RESEARCH.items.find(i => i.id === btn.dataset.item);
+    await removeResearchItem(btn.dataset.item);
+    if (it) hydrateResearchPanels(it.property_id);
+    if (shellPage === "research") renderResearchPage();
+    return;
+  }
+  if (action === "researchnote") {
+    const ta = document.querySelector(`textarea.research-note[data-research-item="${CSS.escape(btn.dataset.item)}"]`);
+    if (ta && await updateResearchItem(btn.dataset.item, { note: ta.value })) { btn.textContent = "Saved"; setTimeout(() => { btn.textContent = "Save note"; }, 1200); }
+    return;
+  }
+  if (action === "researchhome") { openResearchPage("all"); return; }
+  if (action === "researchlist") { RESEARCH_PAGE.listId = btn.dataset.list || "all"; renderResearchPage(); return; }
+  if (action === "researchcreate") {
+    const inp = document.getElementById("researchNewListName");
+    const l = await createResearchList(inp ? inp.value : "");
+    if (l) { RESEARCH_PAGE.listId = l.id; renderResearchPage(); } else if (inp) inp.focus();
+    return;
+  }
+  if (action === "researchrename") {
+    const l = RESEARCH.lists.find(x => x.id === btn.dataset.list);
+    const name = l ? window.prompt("Rename research list", l.name) : null;
+    if (name) { await renameResearchList(l.id, name); renderResearchPage(); }
+    return;
+  }
+  if (action === "researchdelete") {
+    const l = RESEARCH.lists.find(x => x.id === btn.dataset.list);
+    if (l && window.confirm(`Delete "${l.name}" and remove its ${RESEARCH.items.filter(i => i.list_id === l.id).length} saved propert${RESEARCH.items.filter(i => i.list_id === l.id).length === 1 ? "y" : "ies"} from your research? The properties themselves are not affected.`)) {
+      await deleteResearchList(l.id); RESEARCH_PAGE.listId = "all"; renderResearchPage();
+    }
+    return;
+  }
+  if (action === "researchopen") {
+    const p = ALL.find(x => String(x.id) === String(pid));
+    if (p) openDetail(p);
     return;
   }
   // County Intelligence page (2026-10-06).
@@ -8834,6 +9216,7 @@ function routeFromHash() {
   // County Intelligence (2026-10-06): #/counties (the state's index) and
   // #/county/<name> (one county's page). The county belongs to PAGE_STATE.
   if (seg === "counties") return { page: "county", county: null, ledger: null, pid: null, params };
+  if (seg === "research") return { page: "research", ledger: null, pid: null, params };
   if (seg === "county") {
     let county = null;
     try { county = sub ? decodeURIComponent(sub) : null; } catch { county = null; }
@@ -8877,6 +9260,7 @@ function pageHash(name) {
   if (name === "map") return mapHash();
   if (name === "dashboard") return "#/dashboard";
   if (name === "county") return countyPageHash();
+  if (name === "research") return "#/research";
   return "#/" + (LEDGERS[state.ledger] || LEDGERS.auction).slug;
 }
 // replaceState, never pushState: the Android-back stack (BACK_LAYERS) owns
@@ -9098,6 +9482,8 @@ window.addEventListener("hashchange", () => {
     if (shellPage !== "map") showPage("map"); else renderMapPage();
   } else if (r.page === "dashboard") {
     if (shellPage !== "dashboard") showPage("dashboard");
+  } else if (r.page === "research") {
+    if (shellPage !== "research") openResearchPage();
   } else if (r.page === "county") {
     if (r.county) { if (shellPage !== "county" || COUNTY_PAGE.county !== r.county) openCountyPage(r.county, PAGE_STATE); }
     else if (shellPage !== "county" || COUNTY_PAGE.view !== "index") openCountyIndex();
@@ -10897,13 +11283,14 @@ let shellPage = "list";
 // Unified navigation (2026-09-30): three pages plus the watchlist, which is
 // a layer over whichever page is open (openBidList()), reached from the same
 // four-entry nav. "auctions" is accepted as the List page's old name.
-const SHELL_PAGES = { dashboard: "pageDashboard", list: "pageList", map: "pageMap", county: "pageCounty" };
+const SHELL_PAGES = { dashboard: "pageDashboard", list: "pageList", map: "pageMap", county: "pageCounty", research: "pageResearch" };
 
 function showPage(name) {
   if (name === "auctions") name = "list";
   if (name === "watchlist") { openBidList(); return; }
   if (!SHELL_PAGES[name]) name = "list";
   if (name === "county") ensureCountySection();
+  if (name === "research") ensureResearchSection();
 
   Object.entries(SHELL_PAGES).forEach(([key, id]) => {
     const el = document.getElementById(id);
@@ -10916,6 +11303,7 @@ function showPage(name) {
   if (name === "dashboard") renderDashboard();
   if (name === "map") renderMapPage();
   if (name === "county") renderCountyPage();
+  if (name === "research") renderResearchPage();
   syncPageHash();
 
   window.scrollTo({ top: 0, behavior: "auto" });
@@ -11521,6 +11909,7 @@ function selectProperty(p) {
   ensureFullProvenance(p);
   hydrateVisuals(panel);
   hydrateChangeHistory(panel, p);
+  researchAfterOpen(p);
   observeAcquisitionSection(panel, p);
   document.querySelectorAll(".data-table tbody tr[data-pid]").forEach(tr => {
     tr.classList.toggle("selected", String(tr.dataset.pid) === String(p.id));
@@ -12663,7 +13052,7 @@ function renderHomeDesk() {
   const countyHtml = `<section class="home-desk-block" id="homeCountyIntel">${head("County intelligence", "", `<button type="button" class="link-btn" id="homeAllCounties">All counties &rarr;</button>`)}
     <div class="desk-counties">${topCounties.length ? topCounties.map(([c, n]) => { const k = intelOf(c); return `<button type="button" class="desk-county" data-action="countyintel" data-county="${esc(c)}"><b>${esc(c)}</b>${k ? countyIntelChipHtml(k) : ""}<span class="n">${n.toLocaleString("en-US")} on file</span></button>`; }).join("") : `<p class="home-desk-empty">No county has records on file yet.</p>`}</div></section>`;
   const savedHtml = `<section class="home-desk-block" id="homeSaved">${head("Saved", "")}
-    <div class="desk-saved"><button type="button" id="homeSavedProps" data-guide="watchlist"><b>${BIDLIST.size}</b><span>Saved propert${BIDLIST.size === 1 ? "y" : "ies"} (watchlist)</span></button><button type="button" id="homeSavedSearches" data-guide="searches"><b>${(MONITOR.savedSearches || []).filter(x => !x.state || x.state === PAGE_STATE).length}</b><span>Saved searches</span></button></div></section>`;
+    <div class="desk-saved"><button type="button" id="homeSavedProps" data-guide="watchlist"><b>${BIDLIST.size}</b><span>Saved propert${BIDLIST.size === 1 ? "y" : "ies"} (watchlist)</span></button><button type="button" id="homeSavedSearches" data-guide="searches"><b>${(MONITOR.savedSearches || []).filter(x => !x.state || x.state === PAGE_STATE).length}</b><span>Saved searches</span></button><button type="button" id="homeResearch" data-action="researchhome"><b>${RESEARCH && RESEARCH.items ? RESEARCH.items.length : 0}</b><span>In my research</span></button></div></section>`;
   host.innerHTML = `<div class="home-desk-col">${availHtml}${salesHtml}</div><div class="home-desk-col">${countyHtml}${savedHtml}</div>`;
   if (!COUNTY_INTEL) loadCountyIntel().then(d => { if (d) renderHomeDesk(); });
 }
