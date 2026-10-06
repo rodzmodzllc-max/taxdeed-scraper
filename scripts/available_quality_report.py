@@ -26,6 +26,26 @@ from pathlib import Path
 REPO = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(REPO))
 from harvesters import imagery  # noqa: E402
+from harvesters.sources import amount_semantics as AMT  # noqa: E402
+from harvesters.sources import coordinates as COORD  # noqa: E402
+
+# Acquisition / coordinates / amounts (2026-10-06): three independent
+# workstreams, each counted on its own so a gap in one never reads as a gap in
+# another. Acquisition status is per unit (public/acquisition-evidence.json
+# "status"), applied to every row of the unit.
+ACQ_STATUS_FILE = REPO / "public" / "acquisition-evidence.json"
+COORD_GROUPS = {"PARCEL_GIS": "authoritative_parcel_gis", "TAX_ROLL": "authoritative_parcel_gis",
+                "LAND_BANK_GIS": "authoritative_parcel_gis", "OFFICIAL_ADDRESS": "official_address",
+                "OTHER_REVIEWED": "official_address", "DETERMINISTIC_GEOCODE": "deterministic_geocode",
+                "VENDOR_LISTING": "vendor_listing", "UNRECORDED": "origin_not_recorded", "NONE": "missing"}
+
+
+def _acq_units() -> dict:
+    try:
+        data = json.loads(ACQ_STATUS_FILE.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return {(u["state"], u["source_id"], u["county"]): u["status"] for u in data.get("status", [])}
 
 CLOSED = ("closed", "sold", "gone", "expired", "redeemed", "cancelled", "canceled", "withdrawn")
 COLUMNS = ("id,state,county,source,source_id,harvester_source,status,publication_status,parcel,address,"
@@ -52,10 +72,31 @@ def report(rows, now: datetime | None = None) -> list[dict]:
     now = now or datetime.now(timezone.utc)
     rows = list(active_available(rows))
     acc = defaultdict(lambda: defaultdict(int))
+    units = _acq_units()
+    today = now.date()
     for r in rows:
         key = (r.get("state") or "", r.get("source_id") or r.get("harvester_source") or "")
         c = acc[key]
         c["available"] += 1
+        # A. acquisition evidence (per unit; a verified typed path on the row also counts)
+        st = units.get((key[0], key[1], r.get("county") or ""))
+        path = r.get("purchase_path_type")
+        if path and path != "none_published":
+            st = "VERIFIED"
+        c["acq_" + (st or "NOT_FOUND").lower()] += 1
+        # B. coordinates
+        c["coord_" + COORD_GROUPS[COORD.coordinate_provenance(r)["method"]]] += 1
+        # C. amounts
+        sem = AMT.semantic_type(r)
+        c["amt_" + (sem or "none").lower()] += 1
+        c["amt_temporal_" + AMT.temporal_status(r, today)[0].lower()] += 1
+        stmt_raw = ((r.get("otc_provenance") or {}).get("purchase_statement") if isinstance(r.get("otc_provenance"), dict) else None) or {}
+        comps = stmt_raw.get("components") if isinstance(stmt_raw, dict) else None
+        if isinstance(comps, dict):
+            if any(k in comps for k in ("taxes", "delinquent_taxes", "current_taxes", "omitted_taxes", "subsequent_taxes")):
+                c["amt_published_taxes"] += 1
+            if any(k in comps for k in ("recording_fees", "doc_stamps", "clerk_fees", "deed_fees", "fees")):
+                c["amt_published_fees"] += 1
         c["parcel"] += 0 if _blank(r.get("parcel")) else 1
         addr = str(r.get("address") or "")
         c["address"] += 1 if addr.strip() and not addr.lower().startswith("parcel") else 0
@@ -90,6 +131,13 @@ def report(rows, now: datetime | None = None) -> list[dict]:
             "available", "parcel", "address", "amount_published", "official_statement", "acquisition_verified",
             "values", "acreage", "land_use", "legal_desc", "field_provenance", "list_or_document_date",
             "read_7d", "never_read", "lifecycle_status")},
+            "acquisition": {s.lower(): c.get("acq_" + s.lower(), 0) for s in ("VERIFIED", "NEEDS_REVIEW", "UNAVAILABLE", "NOT_FOUND")},
+            "coordinates": {g: c.get("coord_" + g, 0) for g in sorted(set(COORD_GROUPS.values()))},
+            "amounts": {**{t.lower(): c.get("amt_" + t.lower(), 0) for t in ("CURRENT_PURCHASE_PRICE", "CURRENT_AMOUNT_DUE",
+                                                                             "OPENING_BID", "MINIMUM_BID", "OTHER_PUBLISHED_AMOUNT")},
+                        "no_current_amount": c.get("amt_none", 0),
+                        "published_taxes": c.get("amt_published_taxes", 0), "published_fees": c.get("amt_published_fees", 0),
+                        **{"temporal_" + t.lower(): c.get("amt_temporal_" + t.lower(), 0) for t in AMT.TEMPORAL}},
             "imagery": {k: i.get(k) for k in ("coordinate_coverage", "deterministic_match", "stored_images", "live_images",
                                                "displayed", "checked_no_image", "missing", "image_sources", "terms_status",
                                                "match_methods")}})
