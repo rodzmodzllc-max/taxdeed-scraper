@@ -395,6 +395,15 @@ function futureDate(days) {
 //                                               one other account pending
 //   notable    approved=true,  is_admin=false, profiles table absent - the
 //              "migration not run yet" fallback (falls back to showApp())
+// ?offlist=1 (2026-10-06 off-current-list regression): Escambia's p8 carries a
+// fresh last_seen_at (the county's latest read) while p9, same county and
+// future-dated, was never read - so p9 is "not on the county's current sale
+// list". Off by default so every other pin is unchanged.
+if (new URLSearchParams(location.search).get("offlist") === "1") {
+  const p8 = FIXTURE_PROPERTIES.find(r => r.id === "p8");
+  if (p8) p8.last_seen_at = new Date(Date.now() - 3600 * 1000).toISOString();
+}
+
 const PROFILE_MODE = new URLSearchParams(location.search).get("profile") || "default";
 
 const PROFILES_TABLE = PROFILE_MODE === "notable" ? null : [

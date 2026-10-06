@@ -3820,6 +3820,50 @@ function bidListBtnHtml(p, compact) {
 // unchanged (tests and the 60s refresh both key on it).
 // Phase 67: the ledger word + phase word, as data, so the card kicker and
 // the Map page's preview/strip (previewFacts) say exactly the same thing.
+// Off the county's current sale list (2026-10-06). A Florida deed harvest
+// reads each county's whole Waiting feed (three calendar months) and stamps
+// last_seen_at on every row it read; the sync closes only rows whose sale day
+// has passed. A future-dated row that has dropped off a county's feed
+// (cancelled, redeemed or rescheduled - the feed does not say which) therefore
+// stays "active" with its old sale date. This names that state from the rows
+// already loaded: the county's latest read is the newest last_seen_at among
+// its active auction rows; a row whose own last read is missing or more than
+// OFF_LIST_GRACE_MS older than that is not on the list the county last
+// published. No cause is inferred and no result is claimed. Counties never
+// read (no last_seen_at at all, e.g. manual-only sources) are never flagged.
+// `var` on purpose: render() can run during module init (TDZ).
+var OFF_LIST_GRACE_MS = 36 * 3600 * 1000;
+var AUCTION_READ_CACHE = null;
+function seenTime(v) {
+  const t = v ? Date.parse(String(v).replace(" ", "T")) : NaN;
+  return isNaN(t) ? null : t;
+}
+function countyAuctionReads() {
+  const rows = ALL || [];
+  if (AUCTION_READ_CACHE && AUCTION_READ_CACHE.src === rows && AUCTION_READ_CACHE.n === rows.length) return AUCTION_READ_CACHE.map;
+  const map = new Map();
+  rows.forEach(p => {
+    if (!p || p.source !== "auction" || isGone(p)) return;
+    const t = seenTime(p.last_seen_at);
+    if (t === null) return;
+    const k = regionOf(p) + "|" + p.county;
+    if (!(map.get(k) >= t)) map.set(k, t);
+  });
+  AUCTION_READ_CACHE = { src: rows, n: rows.length, map };
+  return map;
+}
+function offCurrentSaleList(p) {
+  if (!p || p.source !== "auction" || isGone(p)) return null;
+  const d = daysUntil(p);
+  if (d !== null && d < 0) return null;            // a passed sale date has its own wording
+  const read = countyAuctionReads().get(regionOf(p) + "|" + p.county);
+  if (!read) return null;
+  const seen = seenTime(p.last_seen_at);
+  if (seen !== null && read - seen <= OFF_LIST_GRACE_MS) return null;
+  return { countyRead: new Date(read).toISOString(), lastRead: seen === null ? null : String(p.last_seen_at) };
+}
+window.__tdwOffList = id => { const p = (ALL || []).find(r => String(r.id) === String(id)); return p ? offCurrentSaleList(p) : undefined; };
+
 function kickerParts(p) {
   if (p.source === "certificate") {
     return { type: "Certificate", phase: p.expiration_date ? "Expires " + fmtDate(p.expiration_date) : "Expiry not published", cls: "phase-upcoming" };
@@ -3842,6 +3886,10 @@ function kickerParts(p) {
     else if (/future sale/i.test(txStatus)) { phase = "Future sale · not yet scheduled"; cls = "phase-none"; }
     else if (/struck off/i.test(txStatus)) { phase = "Struck off · resale inventory"; cls = "phase-fixed"; }
     else { phase = "Struck-off inventory · sale status not recorded"; cls = "phase-none"; }
+  }
+  else if (offCurrentSaleList(p)) {
+    phase = "Not on the county's current sale list" + (p.sale_date ? " · was scheduled " + fmtDate(p.sale_date) : "");
+    cls = "phase-past";
   }
   else if (!p.sale_date) { phase = "Sale not scheduled"; cls = "phase-none"; }
   else {
@@ -3914,6 +3962,8 @@ function ledgerLineHtml(p) {
     const d = daysUntil(p);
     const held = isGone(p) || (d !== null && d < 0);
     const hasOutcome = String(p.outcome == null ? "" : p.outcome).trim() !== "";
+    const off = !held && offCurrentSaleList(p);
+    if (off) return `<div class="prop-ledger-line" data-off-list="1"><span><b>Auction result</b><span class="muted">${esc(`Not on the county list read ${dateOnly(off.countyRead)} - no result published`)}</span></span></div>`;
     const text = held ? (hasOutcome ? outcomeText(p) : "Not published by the source") : "Sale not yet held";
     return `<div class="prop-ledger-line"><span><b>Auction result</b><span class="${held && !hasOutcome ? "muted" : ""}">${esc(text)}</span></span></div>`;
   }
@@ -7969,6 +8019,8 @@ function detailStatusHtml(p) {
     ["Status", k.phase, k.cls],
     ["Last read", p.last_seen_at ? dateOnly(p.last_seen_at) : "Not recorded", p.last_seen_at ? "" : "muted"]
   ];
+  const off = offCurrentSaleList(p);
+  if (off) items[2] = ["Last read", `Not on the county list read ${dateOnly(off.countyRead)}${off.lastRead ? ` · last listed ${dateOnly(off.lastRead)}` : ""}`, "warn"];
   return `<dl class="dossier-status" aria-label="Current status">${items.map(([t, v, c]) => `<div><dt>${esc(t)}</dt><dd class="${esc(c)}">${esc(v)}</dd></div>`).join("")}${researchStatusCellHtml(p)}</dl>`;
 }
 // The customer's own research state in the property page's status band
@@ -9297,7 +9349,7 @@ var COMMAND_CENTER_DAYS = 45;
 function auctionCommandRows(rows) {
   const byKey = new Map();
   (rows || []).forEach(p => {
-    if (p.source !== "auction" || !p.sale_date || isGone(p)) return;
+    if (p.source !== "auction" || !p.sale_date || isGone(p) || offCurrentSaleList(p)) return;
     const d = daysUntil(p);
     if (d === null || d < 0 || d > COMMAND_CENTER_DAYS) return;
     const key = p.sale_date + "|" + (p.county || "Unknown");
@@ -11999,7 +12051,7 @@ function dashboardStats() {
 function upcomingAuctionRows(active) {
   const byKey = new Map();
   active.forEach(p => {
-    if (!p.sale_date) return;
+    if (!p.sale_date || offCurrentSaleList(p)) return;   // off the county's current list - not "upcoming"
     const d = daysUntil(p);
     if (d === null || d < 0) return; // already passed - not "upcoming"
     const key = p.sale_date + "|" + (p.county || "Unknown");
