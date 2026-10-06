@@ -4,7 +4,10 @@
 Fetches every state page of a deployed copy of the app (production, or a
 Cloudflare Pages branch preview) and checks what a signed-out visitor is
 served: the sign-in / sign-up / reset block (#authGate) and the page title
-must name the product, never one state. It also prints the deployed
+must name the product, never one state. Since 2026-10-06 the product is
+TAXACQ ("Tax Acquisition Intelligence"): the title and the sign-in block must
+carry it, and no visible text or meta content may present the repository's
+technical name as the product. It also prints the deployed
 service-worker cache name. Plain GETs, no credentials, nothing written.
 
     python3 scripts/check_deployed_branding.py --base https://rodz-taxdeeds.pages.dev
@@ -28,7 +31,10 @@ import urllib.request
 PRODUCTION = "https://rodz-taxdeeds.pages.dev"
 PAGES = ["index.html", "tx.html", "la.html", "mi.html", "wy.html", "sc.html", "co.html", "wi.html", "mo.html", "ok.html", "pa.html", "mn.html"]
 STATE_WORDS = re.compile(r"Florida|Texas|Louisiana|Michigan|Wyoming|South Carolina|Colorado|Wisconsin")
-TAGLINE = "Public Property Acquisition Intelligence"   # identity redesign, 2026-10-05
+BRAND = "TAXACQ"                         # customer-facing product name, 2026-10-06
+TAGLINE = "Tax Acquisition Intelligence"   # its subtitle
+# The repository's own technical name, never a customer-facing brand.
+OLD_BRAND = re.compile(r"tax\s*-?\s*deed\s*-?\s*scraper", re.I)
 
 
 def preview_hosts(branch: str) -> list[str]:
@@ -59,6 +65,11 @@ def check_page(html: str) -> list[str]:
     title = re.search(r"<title>(.*?)</title>", html, re.S)
     if title and STATE_WORDS.search(title.group(1)):
         problems.append(f"title names a state: {title.group(1).strip()!r}")
+    if title and BRAND not in title.group(1):
+        problems.append(f"title lacks {BRAND!r}: {title.group(1).strip()!r}")
+    page_text = visible(html) + " " + " ".join(re.findall(r'content="([^"]*)"', html))
+    if OLD_BRAND.search(page_text):
+        problems.append("page shows the repository name as the product name")
     start = html.find('<div id="authGate"')
     if start < 0:
         return problems + ["no #authGate block"]
@@ -70,6 +81,8 @@ def check_page(html: str) -> list[str]:
         problems.append(f"sign-in block names a state: {gate[max(0, i - 40):i + 60].strip()!r}")
     if TAGLINE not in gate:
         problems.append(f"sign-in block lacks {TAGLINE!r}")
+    if BRAND not in gate:
+        problems.append(f"sign-in block lacks {BRAND!r}")
     return problems
 
 

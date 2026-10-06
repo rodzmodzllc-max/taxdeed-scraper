@@ -151,7 +151,7 @@ def test_f01_a_third_state_page_with_its_own_assets():
     assert 'LA: { basemap: "la-parishes.svg"' in (REPO / "public/explore.js").read_text(encoding="utf-8")
     assert "LA: { center: [-91.9, 31.0]" in (REPO / "public/satellite-map.js").read_text(encoding="utf-8")
     html = (REPO / "public/la.html").read_text(encoding="utf-8")
-    assert '<body data-state="LA">' in html and "<title>TaxDeed-Scraper — Public Property Acquisition Intelligence</title>" in html   # product title; app.js names the state once signed in
+    assert '<body data-state="LA">' in html and "<title>TAXACQ — Tax Acquisition Intelligence</title>" in html   # product title; app.js names the state once signed in
     for page in ("index.html", "tx.html", "la.html"):
         text = (REPO / "public" / page).read_text(encoding="utf-8")
         # One header state selector per page (options built from STATE_META, which carries LA).

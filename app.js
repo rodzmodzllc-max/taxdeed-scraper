@@ -9783,7 +9783,7 @@ function applyLedgerChrome() {
   document.documentElement.dataset.region = PAGE_STATE;
 
   // The browser tab and the app switcher should say which page this is too.
-  document.title = (cfg.title ? cfg.title + " · " : "") + "TaxDeed-Scraper — " + STATE_INFO.name;
+  document.title = (cfg.title ? cfg.title + " · " : "") + "TAXACQ — " + STATE_INFO.name;
 
   // Phase 67: the Map page's toolbar title carries the state as well ("Map ·
   // Florida"). The old page subtitle ("...by county across Florida") was the
@@ -11390,7 +11390,7 @@ function renderSupportModal(ctx) {
   const email = String((window.TDW_CONFIG || {}).supportEmail || "").trim();
   const context = supportContext(ctx);
   const topics = SUPPORT_TOPICS.map(([key, title, sub]) => {
-    const subject = `[TaxDeed-Scraper] ${title}`;
+    const subject = `[TAXACQ] ${title}`;
     const bodyText = `${title}\n\n(describe the problem here)\n\n---\n${context.join("\n")}`;
     const active = ctx && ctx.topic === key ? " on" : "";
     return email

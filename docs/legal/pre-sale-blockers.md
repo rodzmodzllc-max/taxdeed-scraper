@@ -37,7 +37,7 @@ Owner key:
 | 13 | Email digest: a real unsubscribe, sender identification and a postal address before it is ever deployed. It is not deployed today. | Counsel, Eng |
 | 14 | Counsel-approved disclaimer text to replace the engineering-written disclaimers in the Terms modal, footer and digest. | Counsel |
 | 15 | Texas redemption summary (Tex. Tax Code §34.21) confirmed or removed. | Counsel |
-| 16 | Trade-name clearance for "Tax Acquisitions". | Counsel |
+| 16 | Trade-name clearance for "TAXACQ" (the customer-facing name since 2026-10-06; formerly "Tax Acquisitions"). Not cleared. | Counsel |
 | 17 | A record of sub-processors (Supabase, Cloudflare, GitHub, Google, MapTiler, the email provider). | Owner, Counsel |
 | 18 | Terms recorded for sources marked "Not yet verified live": Bid4Assets, the 8 non-PDF LAFT platforms, the Santa Rosa / Palm Coast GIS, Census, FEMA and FDOR. | Eng, then Counsel |
 

@@ -97,7 +97,7 @@ function buildEmailHtml(rows: Row[]): string {
         ${rowsHtml}
       </table>
       <p style="color:#64748b;font-size:.9em;margin-top:16px">
-        You're getting this because these properties are in your favorites in Tax Acquisitions.
+        You're getting this because these properties are in your favorites in TAXACQ.
         Sale dates and bids are copied from county and vendor sources and can change, be postponed or be cancelled without notice - confirm on the official source before acting.
         This is research information, not a title search and not legal, tax or investment advice.<br><br>
         To stop these emails, remove these properties from your favorites. There is no one-click unsubscribe yet; contact the account owner if you want to stop receiving the digest.

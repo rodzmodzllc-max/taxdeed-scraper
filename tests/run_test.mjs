@@ -4033,7 +4033,7 @@ await navMap.close();
     await sp.waitForSelector('#countyModal:not([hidden]) .dossier', { timeout: 5000 });
     results.coverageToDossier = await sp.evaluate(() => ({ picker: document.getElementById('statePicker').hidden, county: document.querySelector('#countyModal .dossier').dataset.county }));
     await sp.click('#countyCloseBtn');
-    // Why TaxDeed-Scraper (About).
+    // Why TAXACQ (About).
     await sp.evaluate(() => document.getElementById('navAboutBtn').click()); await sp.waitForTimeout(200);
     results.whySection = await sp.evaluate(() => {
       const l = document.getElementById('whyList');
@@ -4105,6 +4105,19 @@ await navMap.close();
       return { noNavy: Object.values(surfaces).every(c => !navy(c)), body: surfaces.body,
         ledgerAccent: getComputedStyle(document.documentElement).getPropertyValue('--led-accent').trim(),
         display: getComputedStyle(document.querySelector('.list-title, .detail-address, h1') || document.body).fontFamily.includes('Serif') };
+    });
+    // TAXACQ (2026-10-06): the signed-in app names the product TAXACQ and never
+    // shows the repository's technical name - visible text, the tab title, the
+    // About guide and every accessible label.
+    results.taxacqBrand = await pc.evaluate(() => {
+      const old = /tax\s*-?\s*deed\s*-?\s*scraper/i;
+      const labels = [...document.querySelectorAll('[aria-label],[title],[alt]')]
+        .map(e => [e.getAttribute('aria-label'), e.getAttribute('title'), e.getAttribute('alt')].join(' ')).join(' ');
+      const about = (document.getElementById('helpModal') || {}).textContent || '';
+      return { title: /TAXACQ — /.test(document.title), rail: (document.querySelector('.brand-title') || {}).textContent,
+        sub: (document.querySelector('.brand-sub') || {}).textContent, topbar: (document.querySelector('.topbar .brand-name') || {}).textContent,
+        noOldText: !old.test(document.body.innerText) && !old.test(document.title) && !old.test(labels),
+        aboutWhy: about.includes('Why TAXACQ') && !old.test(about) };
     });
     await pc.close();
   }
@@ -6216,12 +6229,12 @@ const EXPECTED = {
     FL: { status: null, text: '', cards: 2 }
   },
   // Multi-state product branding (2026-10-02).
-  brandGate: {"index.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: {"ready": true, "controlled": true, "tagline": "Public Property Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v106"]},
-  brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · TaxDeed-Scraper — Michigan" },
+  brandGate: {"index.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
+  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v107"]},
+  brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · TAXACQ — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
-  brandFlContext: { title: "Available · TaxDeed-Scraper — Florida", floridaCopy: true },
-  brandTxContext: { title: "OTC Catalog — Struck-Off Inventory · TaxDeed-Scraper — Texas", ledgerTab: "laft", hash: "#/lands" },
+  brandFlContext: { title: "Available · TAXACQ — Florida", floridaCopy: true },
+  brandTxContext: { title: "OTC Catalog — Struck-Off Inventory · TAXACQ — Texas", ledgerTab: "laft", hash: "#/lands" },
   brandStateSwitch: { file: "wy.html", hash: "#/lands", state: "WY" },
   brandEmptyState: { says: true, neverUnsupported: true, stillListed: true, selected: "WI" },
 
@@ -6332,9 +6345,9 @@ const EXPECTED = {
   ledgerDocAttr: ['auction', 'laft', 'certificate'],
   ledgerHeadings: ['Auctions', 'Available', 'Liens & Certificates'],
   ledgerTitles: [
-    'Auctions · TaxDeed-Scraper — Florida',
-    'Available · TaxDeed-Scraper — Florida',
-    'Liens & Certificates · TaxDeed-Scraper — Florida'
+    'Auctions · TAXACQ — Florida',
+    'Available · TAXACQ — Florida',
+    'Liens & Certificates · TAXACQ — Florida'
   ],
   everyLedgerHasHowLine: true,
   everyLedgerHasFactsLine: true,
@@ -6678,11 +6691,11 @@ const EXPECTED = {
   signupDisabledMsg: 'New account registration is closed right now, so this account was not created. Please try again later or contact support.',
   signupDisabledNoSession: true,
   laBodyState: 'LA',
-  laTitle: 'Available — Adjudicated Property · TaxDeed-Scraper — Louisiana',
+  laTitle: 'Available — Adjudicated Property · TAXACQ — Louisiana',
   laStateSelect: { value: 'LA', options: ['FL', 'TX', 'LA', 'MI', 'WY', 'SC', 'CO', 'WI', 'MO', 'OK', 'PA', 'MN'] },
   xsPages: Object.fromEntries([['MI', 'Michigan'], ['WY', 'Wyoming'], ['SC', 'South Carolina'], ['CO', 'Colorado'], ['WI', 'Wisconsin'],
     ['MO', 'Missouri'], ['OK', 'Oklahoma'], ['PA', 'Pennsylvania'], ['MN', 'Minnesota']].map(([c, n]) => [c,
-    { state: c, title: `Auctions · TaxDeed-Scraper — ${n}`, select: c, options: ['FL', 'TX', 'LA', 'MI', 'WY', 'SC', 'CO', 'WI', 'MO', 'OK', 'PA', 'MN'], floridaWording: false, basemapOk: true }])),
+    { state: c, title: `Auctions · TAXACQ — ${n}`, select: c, options: ['FL', 'TX', 'LA', 'MI', 'WY', 'SC', 'CO', 'WI', 'MO', 'OK', 'PA', 'MN'], floridaWording: false, basemapOk: true }])),
   xsMiCard: { count: 1, county: true, sev: true, noJustValue: true },
   xsCoCardCount: true,
   xsCoDetail: { treasurer: true, steps: true, noStreetView: true, noUndefined: true, sourceNamed: true },
@@ -7367,7 +7380,8 @@ const EXPECTED = {
   whySection: {"items": 6, "noCompetitor": true, "noScoreClaim": true},
   // Identity redesign (2026-10-05).
   identityViewports: [],
-  identityLogin: {"brand": "TaxDeed-Scraper", "tagline": "Public Property Acquisition Intelligence", "bg": "rgb(243, 239, 232)", "signupFields": 8},
+  taxacqBrand: { title: true, rail: 'TAXACQ', sub: 'Tax Acquisition Intelligence', topbar: 'TAXACQ', noOldText: true, aboutWhy: true },
+  identityLogin: {"brand": "TAXACQ", "tagline": "Tax Acquisition Intelligence", "bg": "rgb(243, 239, 232)", "signupFields": 8},
   identityPalette: {"noNavy": true, "body": "rgb(243, 239, 232)", "ledgerAccent": "#4E6B54", "display": true},
   // Opportunity finder + auction command center (2026-10-05).
   finderSortOptions: [["pathFirst", "amountFirst", "readRecent"], ["pathFirst", "amountFirst", "readRecent"]],

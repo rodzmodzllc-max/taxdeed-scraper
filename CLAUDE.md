@@ -2949,3 +2949,24 @@ Full description: `docs/market-testing.md`; generated shortlist: `docs/market-te
   when it belongs to a strongest market, is customer-visible and fails no rule its market does
   not fail (`market_test_counties()`). Rebuild after editing any input.
 - No market is activated by being on a list.
+
+## TAXACQ customer-facing brand (2026-10-06, PR open, frontend copy only)
+
+Full description: `docs/taxacq-branding.md`. Stable facts:
+- **The product customers see is TAXACQ**, with the subtitle "Tax Acquisition Intelligence" and
+  the promise "Find the property. Understand the record. Know how to acquire it." This
+  supersedes "TaxDeed-Scraper" (the identity redesign) and "Tax Acquisitions" (legal / admin
+  pages) as customer-facing names. Never show the repository name as the product.
+- **Technical names are unchanged on purpose:** the repository `taxdeed-scraper`, the packages,
+  the tables, the migrations, source ids, `User-Agent: taxdeed-scraper/1.0`, the `tdw-*` prefixes
+  and the `rodz-taxdeeds.pages.dev` domain.
+- **Source names are never rebranded.** Evidence, source-inventory and county-intelligence files
+  carry the publisher's own names.
+- **Tests:**
+  - `tests/python/test_taxacq_branding.py` covers the pages, the manifest, app.js strings, the
+    root copies and the preserved identifiers;
+  - `scripts/check_deployed_branding.py` (`BRAND` / `TAGLINE` / `OLD_BRAND`) checks the
+    deployed shell;
+  - Playwright `taxacqBrand` checks the signed-in app.
+- TAXACQ is **not** trade-name cleared (legal blocker 16), and no domain is claimed.
+  `sw.js` → `tdw-shell-v107`.
