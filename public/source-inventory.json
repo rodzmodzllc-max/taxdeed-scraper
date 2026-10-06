@@ -5105,6 +5105,50 @@
    "url": "https://www.arcgis.com/home/item.html?id=e0c4f46a09b9405cb18837e66e85c622"
   },
   {
+   "access": "NOT_CHECKED",
+   "access_note": "not captured yet",
+   "county": "Wayne",
+   "evidence": "web search 2026-10-06",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "",
+   "legacy_status": "",
+   "name": "Detroit Land Bank Authority: Purchase Property",
+   "next_action": "Capture with job=evidence, evidence_scope=acquisition_candidates",
+   "origin": "candidate",
+   "publisher": "county office",
+   "roles": [
+    "acquisition",
+    "discovery"
+   ],
+   "source_id": "candidate:MI:Wayne:51",
+   "source_type": "GOVERNMENT",
+   "state": "MI",
+   "url": "https://buildingdetroit.org/purchase_property"
+  },
+  {
+   "access": "NOT_CHECKED",
+   "access_note": "not captured yet",
+   "county": "Wayne",
+   "evidence": "web search 2026-10-06",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "",
+   "legacy_status": "",
+   "name": "Detroit Land Bank Authority: Land Reuse Programs (side lots and neighborhood lots)",
+   "next_action": "Capture with job=evidence, evidence_scope=acquisition_candidates",
+   "origin": "candidate",
+   "publisher": "county office",
+   "roles": [
+    "acquisition",
+    "discovery"
+   ],
+   "source_id": "candidate:MI:Wayne:52",
+   "source_type": "GOVERNMENT",
+   "state": "MI",
+   "url": "https://buildingdetroit.org/land-reuse-programs"
+  },
+  {
    "access": "ACCESSIBLE",
    "access_note": "production harvester harvest_expansion.py --state MN; last completeness UNKNOWN",
    "county": "Ramsey",
@@ -5129,6 +5173,50 @@
    "url": "https://maps.co.ramsey.mn.us/arcgis/rest/services/PRR/TaxForfeitLand_PublicData/MapServer/0"
   },
   {
+   "access": "NOT_CHECKED",
+   "access_note": "not captured yet",
+   "county": "Ramsey",
+   "evidence": "web search 2026-10-06",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "",
+   "legacy_status": "",
+   "name": "Over-the-Counter Property List: first-come first-served purchase after the auction",
+   "next_action": "Capture with job=evidence, evidence_scope=acquisition_candidates",
+   "origin": "candidate",
+   "publisher": "county office",
+   "roles": [
+    "acquisition",
+    "discovery"
+   ],
+   "source_id": "candidate:MN:Ramsey:49",
+   "source_type": "GOVERNMENT",
+   "state": "MN",
+   "url": "https://www.ramseycountymn.gov/residents/property-home/taxes-values/productive-properties/tax-forfeited-public-sales/spring-2026-tax-forfeited-land-online-auction/over-counter-property-list"
+  },
+  {
+   "access": "NOT_CHECKED",
+   "access_note": "not captured yet",
+   "county": "Ramsey",
+   "evidence": "web search 2026-10-06",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "",
+   "legacy_status": "",
+   "name": "Tax-forfeited land sale terms and conditions",
+   "next_action": "Capture with job=evidence, evidence_scope=acquisition_candidates",
+   "origin": "candidate",
+   "publisher": "county office",
+   "roles": [
+    "acquisition",
+    "discovery"
+   ],
+   "source_id": "candidate:MN:Ramsey:50",
+   "source_type": "GOVERNMENT",
+   "state": "MN",
+   "url": "https://www.ramseycountymn.gov/residents/property-home/taxes-values/productive-properties/tax-forfeited-public-sales/spring-2026-tax-forfeited-land-online-auction/ramsey-county-tax-forfeited-land-online-sales-terms-conditions"
+  },
+  {
    "access": "ACCESSIBLE",
    "access_note": "production harvester harvest_expansion.py --state MO; last completeness UNKNOWN",
    "county": "St. Louis City",
@@ -5151,6 +5239,50 @@
    "source_type": "DOCUMENT",
    "state": "MO",
    "url": "https://www.stlouis-mo.gov/data/datasets/dataset.cfm?id=30"
+  },
+  {
+   "access": "NOT_CHECKED",
+   "access_note": "not captured yet",
+   "county": "St. Louis City",
+   "evidence": "web search 2026-10-06",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "",
+   "legacy_status": "",
+   "name": "LRA Offer to Purchase: program choice, Offer Submission Checklist and Form, in-person submission by appointment",
+   "next_action": "Capture with job=evidence, evidence_scope=acquisition_candidates",
+   "origin": "candidate",
+   "publisher": "county office",
+   "roles": [
+    "acquisition",
+    "discovery"
+   ],
+   "source_id": "candidate:MO:St. Louis City:44",
+   "source_type": "GOVERNMENT",
+   "state": "MO",
+   "url": "https://www.lrastl.org/offer-to-purchase"
+  },
+  {
+   "access": "NOT_CHECKED",
+   "access_note": "not captured yet",
+   "county": "St. Louis City",
+   "evidence": "web search 2026-10-06",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "",
+   "legacy_status": "",
+   "name": "City of St. Louis: Purchase City-Owned Property (LRA)",
+   "next_action": "Capture with job=evidence, evidence_scope=acquisition_candidates",
+   "origin": "candidate",
+   "publisher": "county office",
+   "roles": [
+    "acquisition",
+    "discovery"
+   ],
+   "source_id": "candidate:MO:St. Louis City:45",
+   "source_type": "GOVERNMENT",
+   "state": "MO",
+   "url": "https://www.stlouis-mo.gov/government/property/purchase-city-owned-property.cfm"
   },
   {
    "access": "ACCESSIBLE",
@@ -5284,6 +5416,72 @@
    "source_type": "DOCUMENT",
    "state": "PA",
    "url": "https://www.fayettecountypa.org/DocumentCenter/View/9761/Repository-Update-10-7-2025"
+  },
+  {
+   "access": "NOT_CHECKED",
+   "access_note": "not captured yet",
+   "county": "Fayette",
+   "evidence": "web search 2026-10-06",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "",
+   "legacy_status": "",
+   "name": "Tax Claim Bureau Repository Sale page",
+   "next_action": "Capture with job=evidence, evidence_scope=acquisition_candidates",
+   "origin": "candidate",
+   "publisher": "county office",
+   "roles": [
+    "acquisition",
+    "discovery"
+   ],
+   "source_id": "candidate:PA:Fayette:46",
+   "source_type": "GOVERNMENT",
+   "state": "PA",
+   "url": "https://www.fayettecountypa.org/930/Repository-Sale"
+  },
+  {
+   "access": "NOT_CHECKED",
+   "access_note": "not captured yet",
+   "county": "Fayette",
+   "evidence": "web search 2026-10-06",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "",
+   "legacy_status": "",
+   "name": "Tax Claim Bureau repository sale FAQ (sealed bid form, affidavit, certified funds)",
+   "next_action": "Capture with job=evidence, evidence_scope=acquisition_candidates",
+   "origin": "candidate",
+   "publisher": "county office",
+   "roles": [
+    "acquisition",
+    "discovery"
+   ],
+   "source_id": "candidate:PA:Fayette:47",
+   "source_type": "GOVERNMENT",
+   "state": "PA",
+   "url": "https://www.fayettecountypa.org/DocumentCenter/View/5600/repository-FAQ"
+  },
+  {
+   "access": "NOT_CHECKED",
+   "access_note": "not captured yet",
+   "county": "Fayette",
+   "evidence": "web search 2026-10-06",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "",
+   "legacy_status": "",
+   "name": "Tax Claim Bureau office page",
+   "next_action": "Capture with job=evidence, evidence_scope=acquisition_candidates",
+   "origin": "candidate",
+   "publisher": "county office",
+   "roles": [
+    "acquisition",
+    "discovery"
+   ],
+   "source_id": "candidate:PA:Fayette:48",
+   "source_type": "GOVERNMENT",
+   "state": "PA",
+   "url": "https://www.fayettecountypa.org/269/Tax-Claim-Bureau"
   },
   {
    "access": "ACCESSIBLE",
@@ -7980,32 +8178,33 @@
    "sources": 11
   },
   "MI": {
-   "APPROVED": 4,
+   "APPROVED": 6,
    "HARD_BLOCKED": 0,
    "REVIEW_REQUIRED": 5,
    "by_type": {
     "GIS": 1,
-    "GOVERNMENT": 8
+    "GOVERNMENT": 10
    },
-   "sources": 9
+   "sources": 11
   },
   "MN": {
-   "APPROVED": 0,
+   "APPROVED": 2,
    "HARD_BLOCKED": 0,
    "REVIEW_REQUIRED": 1,
    "by_type": {
-    "GOVERNMENT": 1
+    "GOVERNMENT": 3
    },
-   "sources": 1
+   "sources": 3
   },
   "MO": {
-   "APPROVED": 0,
+   "APPROVED": 2,
    "HARD_BLOCKED": 0,
    "REVIEW_REQUIRED": 1,
    "by_type": {
-    "DOCUMENT": 1
+    "DOCUMENT": 1,
+    "GOVERNMENT": 2
    },
-   "sources": 1
+   "sources": 3
   },
   "NATIONAL": {
    "APPROVED": 3,
@@ -8027,13 +8226,14 @@
    "sources": 1
   },
   "PA": {
-   "APPROVED": 0,
+   "APPROVED": 3,
    "HARD_BLOCKED": 0,
    "REVIEW_REQUIRED": 1,
    "by_type": {
-    "DOCUMENT": 1
+    "DOCUMENT": 1,
+    "GOVERNMENT": 3
    },
-   "sources": 1
+   "sources": 4
   },
   "SC": {
    "APPROVED": 2,

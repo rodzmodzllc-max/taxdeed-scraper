@@ -479,6 +479,31 @@ let AVAILABLE_TERMS = [];
 // state, source, county and path type. Declared with var: render() can run
 // during module init (TDZ).
 var ACQUISITION_EVIDENCE = [];
+// Acquisition-evidence status per AVAILABLE (state, source, county) unit
+// (acquisition-evidence.json "status", from
+// harvesters/sources/acquisition_evidence_status.py): VERIFIED / NEEDS_REVIEW /
+// UNAVAILABLE / NOT_FOUND, the acquisition authority, the reason, and - for a
+// unit not yet verified - the official pages a capture must read. County /
+// source-wide: one record shared by every property of the unit. var: TDZ.
+var ACQUISITION_STATUS = [];
+var ACQ_EVIDENCE_STATUS_LABELS = {
+  VERIFIED: "Verified official process",
+  NEEDS_REVIEW: "Official process identified - not yet verified",
+  UNAVAILABLE: "Official source could not be read",
+  NOT_FOUND: "No official acquisition process found"
+};
+var ACQ_DOC_KIND_LABELS = {
+  SOURCE_PAGE: "Official page", PURCHASE_LINK: "Purchase link", APPLICATION_FORM: "Application form",
+  BID_FORM: "Bid form", INSTRUCTIONS: "Instructions", TAX_STATEMENT: "Tax statement",
+  PROCEDURE: "Procedure", CONTACT: "Contact", PAYMENT_INSTRUCTIONS: "Payment instructions",
+  DEED_TRANSFER_INFO: "Deed / transfer information", OTHER_OFFICIAL_DOCUMENT: "Official document"
+};
+function acquisitionEvidenceStatus(p) {
+  if (!p || p.source !== "laft" || !Array.isArray(ACQUISITION_STATUS)) return null;
+  const sid = p.source_id || p.harvester_source;
+  const st = p.state || PAGE_STATE;
+  return ACQUISITION_STATUS.find(u => u.state === st && u.source_id === sid && u.county === p.county) || null;
+}
 // AVAILABLE commercialization (2026-09-30): rows whose SOURCE is not approved
 // for customer publication (migration 022's publication_status, propagated
 // from county_source_registry by scripts/publication_gate.py) are withheld
@@ -1672,6 +1697,7 @@ document.addEventListener("error", e => {
 }, true);
 // Exposed for the regression suite (tests/run_test.mjs) to check the URL
 // builder without a key in the fixture - same pattern as __tdwMapLastRender.
+window.__tdwAcqEvidence = { acquisitionEvidenceStatus, labels: ACQ_EVIDENCE_STATUS_LABELS };
 window.__tdwImagery = { staticImageUrl, naipExportUrl, imageryMatchMethod, imageryState };
 // A small, free, key-less embedded map (OpenStreetMap's own export/embed
 // iframe) for the detail view's GIS & Location card - only ever rendered
@@ -3303,6 +3329,7 @@ async function loadAll(activeKey, opts) {
   ]);
   AVAILABLE_TERMS = (availTerms && Array.isArray(availTerms.terms)) ? availTerms.terms : [];
   ACQUISITION_EVIDENCE = (acqEvidence && Array.isArray(acqEvidence.records)) ? acqEvidence.records : [];
+  ACQUISITION_STATUS = (acqEvidence && Array.isArray(acqEvidence.status)) ? acqEvidence.status : [];
   if (!ok) {
     const genEl = document.getElementById("generatedAt");
     if (genEl) genEl.textContent = "Error: " + ((LOAD_ISSUES[0] && LOAD_ISSUES[0].message) || "properties could not be loaded");
@@ -5118,8 +5145,17 @@ function acquireBlockHtml(p) {
   // 3. How do I acquire it?
   const howRows = [];
   let cta = null;
+  const evs = acquisitionEvidenceStatus(p);
   if (state === "none") {
     howRows.push(["Acquisition path", notYet]);
+    if (evs && evs.status !== "VERIFIED") {
+      howRows.push(["Evidence status", `<span class="acq-ev-status" data-acq-evidence="${esc(evs.status)}">${esc(ACQ_EVIDENCE_STATUS_LABELS[evs.status] || evs.status)}</span>` +
+        (evs.reason ? `<span class="acq-ev-reason">${esc(evs.reason)}${evs.attempted_on ? ` (${esc(evs.basis === "search_index" ? "found" : "checked")} ${esc(dateOnly(evs.attempted_on))})` : ""}</span>` : "")]);
+      if (evs.authority) howRows.push(["Acquisition authority", esc(evs.authority)]);
+      const cands = (evs.candidates || []).filter(c => /^https:\/\//.test(c.url));
+      if (cands.length) howRows.push(["Official pages to check", `<ul class="acq-ev-cands">${cands.map(c => `<li>${ext(c.url, (ACQ_DOC_KIND_LABELS[c.doc_kind] || "Official page") + " · " + linkHost(c.url) + " →", "acq-link", "candidate")} <span class="acq-ev-note">not yet verified</span></li>`).join("")}</ul>`]);
+      if (evs.document_url && /^https:\/\//.test(evs.document_url)) howRows.push(["Official document read", ext(evs.document_url, "Official policy document · " + linkHost(evs.document_url) + " →", "acq-link", "candidate")]);
+    }
     howRows.push(["How to acquire", esc(avail ? "See the official source for current instructions." : "Contact the county office named on the listing for current instructions.")]);
   } else {
     cta = acquisitionCta(a);
@@ -5160,6 +5196,7 @@ function acquireBlockHtml(p) {
   if (avail) srcRows.push([officialHref ? "Official availability listing" : "Official availability source",
     `<span class="acq-why-link">${ext(avail.href, (officialHref ? avail.label : "Open official source") + " →", "acq-link", "source")}</span>`]);
   if (a.verified) srcRows.push(["Last verified", esc(a.observedOn ? dateOnly(a.observedOn) : "date not recorded")]);
+  if (evs && evs.authority && a.verified) srcRows.push(["Acquisition authority", esc(evs.authority)]);
   if (a.mode !== "online") srcRows.push(["Online purchase", esc("No online purchase link on file")]);
   if (p.last_seen_at) srcRows.push(["Listing last read", esc(dateOnly(p.last_seen_at))]);
   return detailSectionHtml("How to acquire", `${acquireChecklistHtml(p)}<div class="acq-block" data-acq-state="${state}">

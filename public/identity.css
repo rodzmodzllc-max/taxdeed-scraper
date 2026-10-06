@@ -683,3 +683,14 @@ body:has(#authGate:not([hidden])){padding-bottom:0!important}
   .map-list-filters .mlf-label { display: none; }
   .map-list-filters .mlf-short { display: inline; }
 }
+
+/* Acquisition-evidence status (2026-10-06): a not-yet-verified unit names its
+   status, reason, authority and the official pages a capture must read. */
+.acq-ev-status { display: inline-block; font-size: .78rem; font-weight: 600; letter-spacing: .02em; padding: .1rem .4rem; border: 1px solid currentColor; }
+.acq-ev-status[data-acq-evidence="NEEDS_REVIEW"] { color: var(--copper-deep); }
+.acq-ev-status[data-acq-evidence="UNAVAILABLE"] { color: var(--bad, #9b2c2c); }
+.acq-ev-status[data-acq-evidence="NOT_FOUND"] { color: var(--ink-soft); }
+.acq-ev-reason { display: block; margin-top: .25rem; color: var(--ink-soft); font-size: .85rem; }
+.acq-ev-cands { margin: 0; padding-left: 1.1rem; }
+.acq-ev-cands li { margin: .15rem 0; overflow-wrap: anywhere; }
+.acq-ev-note { color: var(--ink-soft); font-size: .78rem; font-style: italic; }
