@@ -2898,6 +2898,7 @@ async function showApp() {
   // over the List page), the legacy #map - or the List page by default.
   if (route && route.page === "map") { applyMapParams(route.params); showPage("map"); }
   else if (route && route.page === "dashboard") showPage("dashboard");
+  else if (route && route.page === "county") { if (route.county) openCountyPage(route.county, PAGE_STATE); else openCountyIndex(); }
   else { showPage("list"); if (route && route.page === "watchlist") openBidList(); }
   startIdleWatch();
   // Customer monitoring (saved searches, alerts, change events, analytics) -
@@ -4909,6 +4910,7 @@ function countyDossierHtml(c, st) {
     <h3>Acquisition process</h3>${acqHtml}
     <h3>Financial terms</h3><p${c.financial_terms ? "" : ' class="muted"'}>${c.financial_terms ? "Read from the source - each Available property page shows how its amount is set and what is added on top." : "Not yet read for this county's Available source."}</p>
     ${c.research_candidates ? `<h3>Research</h3><p class="muted">${c.research_candidates} candidate page${c.research_candidates === 1 ? "" : "s"} recorded for review - not yet a source of properties.</p>` : ""}
+    <p class="dossier-full"><button type="button" class="detail-btn" data-action="countypage" data-county="${esc(c.county)}" data-state="${esc(st)}">Open the full ${esc(c.county)} ${esc(UNIT_WORD)} page →</button></p>
     <p class="dossier-note">Built from this app's source records - it describes what is tracked, never what is or is not for sale. The county's own office is the record.</p>
   </div>`;
 }
@@ -4927,6 +4929,491 @@ async function openCountyDossier(county, st, returnEl) {
   if (!doc) { body.innerHTML = `<p class="muted">County intelligence could not be loaded right now.</p><button type="button" class="detail-btn" data-action="countyintel" data-county="${esc(county)}">Retry</button>`; return; }
   body.innerHTML = countyDossierHtml(countyIntelFor(doc, st, county), st);
 }
+// ==================== COUNTY INTELLIGENCE PAGE (2026-10-06) ====================
+// The county as a first-class research page (#/county/<name>) and the
+// state's county index (#/counties), above the quick dossier modal. Built
+// from the same records the modal reads - county-intelligence.json (sources
+// per ledger, publication, verification), acquisition-evidence.json (status
+// per Available unit and the verified county records), the registry read
+// health (UNIT_FRESHNESS) and the rows this viewer can already see (ALL is
+// gated at load) - plus the research-status ladder below. Nothing here is a
+// score, an estimate or a recommendation; a gap is named as a gap.
+// Every declaration in this section is a `var` or a function declaration:
+// a #/county deep link can reach showPage() during module init (TDZ).
+var COUNTY_RESEARCH_STEPS = ["DISCOVERED", "SOURCE_VERIFIED", "INVENTORY_VERIFIED", "ACQUISITION_PATH_VERIFIED", "PROPERTY_DATA_VERIFIED", "OUTCOME_DATA_VERIFIED"];
+var COUNTY_RESEARCH_STEP_LABELS = {
+  DISCOVERED: "Discovered",
+  SOURCE_VERIFIED: "Source verified",
+  INVENTORY_VERIFIED: "Inventory verified",
+  ACQUISITION_PATH_VERIFIED: "Acquisition path verified",
+  PROPERTY_DATA_VERIFIED: "Property data verified",
+  OUTCOME_DATA_VERIFIED: "Outcome data verified"
+};
+var COUNTY_STEP_STATE_LABELS = { VERIFIED: "Verified", PARTIAL: "Partly verified", NOT_VERIFIED: "Not yet verified", NOT_APPLICABLE: "Not applicable" };
+// The same rule as harvesters/sources/county_research.research_status();
+// tests/python/fixtures/county_research_cases.json pins both.
+function countyResearchStatus(facts) {
+  const f = facts || {};
+  const n = k => Number(f[k] || 0);
+  const ratio = (done, total) => total <= 0 ? "NOT_APPLICABLE" : done >= total ? "VERIFIED" : done > 0 ? "PARTIAL" : "NOT_VERIFIED";
+  const steps = [];
+  steps.push(["DISCOVERED", f.known ? "VERIFIED" : "NOT_VERIFIED", f.known ? "A source or research record names this county" : "No source, candidate page or finding is recorded"]);
+  const prod = n("production_sources");
+  steps.push(["SOURCE_VERIFIED", prod ? "VERIFIED" : "NOT_VERIFIED", prod ? `${prod} production-verified source(s)` : "No production-verified source"]);
+  const read = n("sources_read"), unavailable = n("sources_unavailable");
+  let inv, why;
+  if (!prod) { inv = "NOT_VERIFIED"; why = "No production source to read"; }
+  else {
+    inv = ratio(read, prod);
+    why = `${Math.min(read, prod)} of ${prod} source(s) with a recorded complete read`;
+    if (unavailable) why += `; ${unavailable} could not be read at the last attempt`;
+  }
+  steps.push(["INVENTORY_VERIFIED", inv, why]);
+  const units = n("available_units") + (f.auction_ledger ? 1 : 0);
+  const done = n("available_units_verified") + (f.auction_ledger && f.auction_process_verified ? 1 : 0);
+  const acq = ratio(done, units);
+  steps.push(["ACQUISITION_PATH_VERIFIED", acq, acq === "NOT_APPLICABLE" ? "No Available or Auctions ledger here" : `${Math.min(done, units)} of ${units} acquisition / sale process(es) verified from an official page`]);
+  const rows = n("rows"), ok = n("rows_property_ok");
+  const prop = ratio(ok, rows);
+  steps.push(["PROPERTY_DATA_VERIFIED", prop, prop === "NOT_APPLICABLE" ? "No property on file" : `${Math.min(ok, rows)} of ${rows} on file with a parcel identifier and authoritative coordinates`]);
+  const past = n("past_auctions"), out = n("past_auctions_outcome");
+  const oc = ratio(out, past);
+  steps.push(["OUTCOME_DATA_VERIFIED", oc, oc === "NOT_APPLICABLE" ? "No past auction on file" : `${Math.min(out, past)} of ${past} past auction(s) with an outcome published by the source`]);
+  let reached = null;
+  for (const [name, st] of steps) {
+    if (st === "VERIFIED") { reached = name; continue; }
+    if (st === "NOT_APPLICABLE") continue;
+    break;
+  }
+  return { steps: steps.map(([step, s, reason]) => ({ step, state: s, reason })), reached };
+}
+window.__tdwCountyResearch = countyResearchStatus;
+function countyResearchLabel(reached) { return reached ? COUNTY_RESEARCH_STEP_LABELS[reached] : "Not yet researched"; }
+
+var COUNTY_PAGE = { view: "index", county: null, st: null, showAll: false, filter: "", centroids: null };
+// The rows of one county this session can see (ALL is already gated), split
+// into what is on file now and every row including closed ones still in the
+// grace window (past auctions for the outcome history).
+function countyRowsFor(county, st) {
+  const all = ALL.filter(p => p.county === county && regionOf(p) === st && !HIDDEN.has(p.id));
+  return { all, live: all.filter(p => !goneExpired(p) && !isGone(p)) };
+}
+function countyUnitFor(st, county, sid) {
+  if (!Array.isArray(UNIT_FRESHNESS)) return null;
+  return UNIT_FRESHNESS.find(u => u.county === county && (u.state || st) === st && u.source_id === sid) || null;
+}
+// Every source the county is fed by, one entry per (ledger, source id): the
+// registry's own rows (county-intelligence.json) plus any source a visible
+// row names that the file does not list (never a blocked one).
+function countySources(c, st, rows) {
+  const out = [];
+  const seen = new Set();
+  DOSSIER_LEDGERS.forEach(([name, key]) => {
+    const l = (c.ledgers && c.ledgers[name]) || { sources: [] };
+    l.sources.forEach(x => {
+      if (x.publication === "BLOCKED") return;
+      const k = key + "|" + x.source_id;
+      if (seen.has(k)) return;
+      seen.add(k);
+      out.push(Object.assign({}, x, { ledger: key, unit: x.unit || countyUnitFor(st, c.county, x.source_id) }));
+    });
+  });
+  rows.forEach(p => {
+    const sid = p.source_id || p.harvester_source;
+    if (!sid) return;
+    const k = p.source + "|" + sid;
+    if (seen.has(k) || out.some(x => x.ledger === p.source && sid.startsWith(x.source_id))) return;
+    seen.add(k);
+    out.push({ source_id: sid, name: harvesterSourceLabel(p) || sid, ledger: p.source, production: true, verification: "PRODUCTION_VERIFIED",
+      publication: p.publication_status || null, customer_approved: isCustomerPublishable(p), publisher: "", url: "", fromRows: true,
+      unit: countyUnitFor(st, c.county, sid) });
+  });
+  return out;
+}
+function countyAcqUnits(st, county) {
+  return Array.isArray(ACQUISITION_STATUS) ? ACQUISITION_STATUS.filter(u => u.state === st && u.county === county) : [];
+}
+function countyAcqRecords(st, county, sids) {
+  if (!Array.isArray(ACQUISITION_EVIDENCE)) return [];
+  return ACQUISITION_EVIDENCE.filter(r => r && r.state === st && sids.includes(r.source_id) && (r.county === county || r.county === "*") && r.acquisition && typeof r.acquisition === "object");
+}
+// Facts for the ladder, counted from records - the same shape the Python
+// rule takes.
+function countyFacts(c, st, sources, rows) {
+  const prod = sources.filter(x => x.production && x.verification === "PRODUCTION_VERIFIED" && x.publication !== "BLOCKED");
+  const prodIds = Array.from(new Set(prod.map(x => x.source_id)));
+  const unitOf = sid => prod.find(x => x.source_id === sid && x.unit) ? prod.find(x => x.source_id === sid && x.unit).unit : null;
+  const read = prodIds.filter(sid => { const u = unitOf(sid); return !!(u && u.last_success_at); }).length;
+  const unavailable = prodIds.filter(sid => { const u = unitOf(sid); return u && sourceHealthState(u).state === "SOURCE_UNAVAILABLE"; }).length;
+  const availIds = Array.from(new Set(sources.filter(x => x.ledger === "laft" && x.production).map(x => x.source_id)));
+  const units = countyAcqUnits(st, c.county);
+  const availVerified = availIds.filter(sid => units.some(u => u.source_id === sid && u.status === "VERIFIED") ||
+    rows.live.some(p => p.source === "laft" && (p.source_id || p.harvester_source) === sid && acquisitionOf(p).verified)).length;
+  const auctionIds = Array.from(new Set(sources.filter(x => x.ledger === "auction" && x.production).map(x => x.source_id)));
+  const auctionRows = rows.live.filter(p => p.source === "auction");
+  const auctionLedger = auctionIds.length > 0 || auctionRows.length > 0;
+  const auctionProcess = auctionRows.some(p => acquisitionOf(p).verified) || countyAcqRecords(st, c.county, auctionIds).length > 0;
+  const today = new Date().toISOString().slice(0, 10);
+  const past = rows.all.filter(p => p.source === "auction" && p.sale_date && String(p.sale_date).slice(0, 10) < today);
+  const known = c.intel !== "NOT_YET_RESEARCHED" || Number(c.research_candidates || 0) > 0 || sources.length > 0;
+  return {
+    known, production_sources: prodIds.length, sources_read: read, sources_unavailable: unavailable,
+    available_units: availIds.length, available_units_verified: availVerified,
+    auction_ledger: auctionLedger, auction_process_verified: auctionProcess,
+    rows: rows.live.filter(p => p.source !== "certificate").length, rows_property_ok: rows.live.filter(p => p.source !== "certificate" && hasParcel(p) && coordinateProvenance(p).authoritative).length,
+    past_auctions: past.length, past_auctions_outcome: past.filter(p => { const s = auctionOutcomeState(p); return s && s.verified; }).length
+  };
+}
+window.__tdwCountyFacts = (county, st) => {
+  if (!COUNTY_INTEL) return null;
+  const c = countyIntelFor(COUNTY_INTEL, st || PAGE_STATE, county);
+  const rows = countyRowsFor(county, st || PAGE_STATE);
+  return countyFacts(c, st || PAGE_STATE, countySources(c, st || PAGE_STATE, rows.all), rows);
+};
+function countyLadderHtml(rs) {
+  const firstGap = rs.steps.find(s => s.state === "NOT_VERIFIED" || s.state === "PARTIAL");
+  return `<div class="cty-ladder" data-reached="${esc(rs.reached || "NONE")}">
+    <p class="cty-ladder-head"><b>Research status:</b> ${esc(countyResearchLabel(rs.reached))}${firstGap ? ` <span class="cty-next">· ${esc(COUNTY_RESEARCH_STEP_LABELS[firstGap.step])}: ${esc(COUNTY_STEP_STATE_LABELS[firstGap.state].toLowerCase())}</span>` : ""}</p>
+    <ol class="cty-steps">${rs.steps.map(s => `<li class="cty-step" data-step="${esc(s.step)}" data-state="${esc(s.state)}"><span class="cty-step-name">${esc(COUNTY_RESEARCH_STEP_LABELS[s.step])}</span><span class="cty-step-state">${esc(COUNTY_STEP_STATE_LABELS[s.state])}</span><span class="cty-step-why">${esc(s.reason)}</span></li>`).join("")}</ol>
+    <p class="cty-note">Each step is a statement about the records this app holds for the county - not a rating of the county or of any property in it.</p>
+  </div>`;
+}
+function countySourceLineHtml(x, seeAll) {
+  const review = !x.customer_approved;
+  const name = dossierSourceName(x);
+  const link = x.url ? `<a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(name)} →</a>` : esc(name);
+  const pub = x.publisher && SOURCE_AUTHORITY_LABELS[x.publisher] ? `Published by ${SOURCE_AUTHORITY_LABELS[x.publisher]}` : "Publisher not recorded";
+  const status = x.customer_approved ? "Approved for customer publication" : "Awaiting publication review";
+  const read = x.unit && x.unit.last_success_at ? `Last complete read ${relativeTime(x.unit.last_success_at)}` : "No complete read recorded";
+  return `<li class="cty-src" data-source="${esc(x.source_id)}" data-ledger="${esc(x.ledger)}">
+    <div class="cty-src-name">${link}${x.production ? "" : ' <span class="muted">(research page - not harvested)</span>'}</div>
+    <div class="cty-src-meta">${esc(pub)} · ${esc(status)}${x.production ? ` · ${esc(read)}` : ""}</div>
+    ${x.production ? `<div class="cty-src-health">${sourceHealthChipHtml(x.unit, { review })}</div>` : ""}
+  </li>`;
+}
+function countyMoneyRange(rows) {
+  const vals = rows.map(amountRowFigure).filter(v => v !== null);
+  if (!vals.length) return "";
+  const lo = Math.min(...vals), hi = Math.max(...vals);
+  return lo === hi ? fmtShort(lo) : `${fmtShort(lo)} – ${fmtShort(hi)}`;
+}
+function countyKv(rows) {
+  return `<dl class="cty-kv">${rows.filter(Boolean).map(([k, v, attr]) => `<dt>${esc(k)}</dt><dd${attr ? ` ${attr}` : ""}>${v}</dd>`).join("")}</dl>`;
+}
+function countyAvailableHtml(c, st, sources, rows, seeAll) {
+  const live = rows.live.filter(p => p.source === "laft");
+  const srcs = sources.filter(x => x.ledger === "laft" && (seeAll || x.customer_approved || x.fromRows));
+  const units = countyAcqUnits(st, c.county);
+  const unitHtml = Array.from(new Set(srcs.filter(x => x.production).map(x => x.source_id))).map(sid => {
+    const u = units.find(v => v.source_id === sid) || null;
+    const rec = countyAcqRecords(st, c.county, [sid])[0] || null;
+    const rowVerified = live.find(p => (p.source_id || p.harvester_source) === sid && acquisitionOf(p).verified) || null;
+    const status = u ? u.status : (rowVerified ? "VERIFIED" : "NOT_FOUND");
+    const a = rec ? rec.acquisition : null;
+    const ra = rowVerified ? acquisitionOf(rowVerified) : null;
+    const mode = (a && a.mode) || (ra && ra.mode) || "";
+    const steps = (a && Array.isArray(a.steps) ? a.steps : (ra ? ra.steps : [])) || [];
+    const office = (a && a.office) || (ra && ra.office) || (u && u.authority) || "";
+    const appUrl = (a && a.application_url) || (ra && ra.applicationUrl) || "";
+    const evUrl = (rec && rec.purchase_evidence_url) || (ra && ra.evidenceUrl) || "";
+    const evTitle = (rec && rec.purchase_evidence_title) || (ra && ra.evidenceTitle) || "Official process page";
+    const observed = (rec && rec.purchase_path_observed_on) || (ra && ra.observedOn) || (u && u.attempted_on) || "";
+    const rows2 = [
+      ["Evidence status", `<span class="acq-ev-status" data-status="${esc(status)}">${esc(ACQ_EVIDENCE_STATUS_LABELS[status] || status)}</span>${u && u.reason && status !== "VERIFIED" ? `<span class="kv-sub">${esc(u.reason)}</span>` : ""}`],
+      ["Acquisition authority", office ? esc(office) : '<span class="muted">Not recorded</span>'],
+      ["How it is acquired", status === "VERIFIED" && mode ? esc(ACQUISITION_MODE_LABELS[mode] || mode) : '<span class="muted">Not yet verified</span>'],
+      ["Application / purchase document", appUrl ? `<a href="${esc(appUrl)}" target="_blank" rel="noopener" data-acq-link="form">Application / instructions document →</a>` : '<span class="muted">Not published</span>'],
+      ["Official process page", evUrl ? `<a href="${esc(evUrl)}" target="_blank" rel="noopener" data-acq-link="instructions">${esc(evTitle)} →</a>${observed ? `<span class="kv-sub">Last verified ${esc(dateOnly(observed))}</span>` : ""}` : '<span class="muted">Not yet verified</span>']
+    ];
+    const stepsHtml = status === "VERIFIED" && steps.length ? `<ol class="acq-steps">${steps.map(s => `<li>${esc(s)}</li>`).join("")}</ol>` : "";
+    const cands = u && Array.isArray(u.candidates) && (status === "NEEDS_REVIEW" || status === "UNAVAILABLE") ? u.candidates : [];
+    const candHtml = cands.length ? `<p class="cty-sub">Official pages to check (not yet verified): ${cands.map(cd => `<a href="${esc(cd.url)}" target="_blank" rel="noopener" data-acq-link="candidate">${esc(ACQ_DOC_KIND_LABELS[cd.doc_kind] || "Official page")} →</a>`).join(" · ")}</p>` : "";
+    const srcName = dossierSourceName(srcs.find(x => x.source_id === sid) || { source_id: sid });
+    return `<div class="cty-unit" data-source="${esc(sid)}" data-acq-status="${esc(status)}"><h4>${esc(srcName)}</h4>${countyKv(rows2)}${stepsHtml}${candHtml}</div>`;
+  }).join("");
+  // Published figures, grouped by what the source says they are.
+  const bySem = {};
+  live.forEach(p => { const s = amountSemanticType(p); (bySem[s || "NONE"] = bySem[s || "NONE"] || []).push(p); });
+  const amountRows = Object.entries(bySem).filter(([k]) => k !== "NONE").map(([k, ps]) => [AMOUNT_SEMANTIC_LABELS[k] || k, `${ps.length.toLocaleString("en-US")} propert${ps.length === 1 ? "y" : "ies"} · ${esc(countyMoneyRange(ps))} <span class="kv-sub">as published by the source</span>`]);
+  if (bySem.NONE) amountRows.push(["No amount published", `${bySem.NONE.length.toLocaleString("en-US")} propert${bySem.NONE.length === 1 ? "y" : "ies"}`]);
+  const nAll = live.length;
+  return `<section class="cty-section" data-county-section="available"><h3><span class="cty-dot" data-ledger="laft"></span>${esc(ledgerNavName("laft"))} <span class="cty-q">${esc(LEDGERS.laft.question || "")}</span></h3>
+    ${countyKv([["On file now", `<b>${nAll.toLocaleString("en-US")}</b>${LEDGER_LOAD.laft === "loading" || LEDGER_LOAD.laft === "partial" ? ' <span class="muted">(still loading)</span>' : ""}`]].concat(amountRows))}
+    ${srcs.length ? `<ul class="cty-srcs">${srcs.map(x => countySourceLineHtml(x, seeAll)).join("")}</ul>` : `<p class="muted">No Available source is recorded for this ${esc(UNIT_WORD.toLowerCase())}. That is not a statement that nothing can be acquired here.</p>`}
+    ${unitHtml}
+    ${nAll ? `<div class="cty-actions"><button type="button" class="link-btn" data-action="dossierlist" data-county="${esc(c.county)}" data-ledger="laft">Open in the List (${nAll.toLocaleString("en-US")}) →</button> <button type="button" class="link-btn" data-action="countymap" data-county="${esc(c.county)}" data-ledger="laft">Show on the Map →</button></div>` : ""}
+  </section>`;
+}
+function countyAuctionsHtml(c, st, sources, rows, seeAll) {
+  const today = new Date().toISOString().slice(0, 10);
+  const srcs = sources.filter(x => x.ledger === "auction" && (seeAll || x.customer_approved || x.fromRows));
+  const live = rows.live.filter(p => p.source === "auction");
+  const upcoming = live.filter(p => p.sale_date && String(p.sale_date).slice(0, 10) >= today).sort((a, b) => String(a.sale_date).localeCompare(String(b.sale_date)));
+  const byDate = new Map();
+  upcoming.forEach(p => { const d = String(p.sale_date).slice(0, 10); if (!byDate.has(d)) byDate.set(d, []); byDate.get(d).push(p); });
+  const watched = upcoming.filter(p => FAVS.has(p.id) || BIDLIST.has(p.id)).length;
+  const withBid = upcoming.filter(p => hasPublishedBid(p));
+  const bidLabel = withBid.length ? auctionBidLabel(withBid[0], false) : "Opening bid";
+  // The county's sale process: the verified record for its auction source,
+  // or the row-level verified process. Registration and deposit are shown
+  // only as the county's own published steps - never derived.
+  const auctionIds = srcs.map(x => x.source_id);
+  const rec = countyAcqRecords(st, c.county, auctionIds)[0] || null;
+  const rowProc = live.find(p => acquisitionOf(p).verified) || null;
+  const a = rec ? rec.acquisition : null;
+  const ra = rowProc ? acquisitionOf(rowProc) : null;
+  const steps = (a && Array.isArray(a.steps) ? a.steps : (ra ? ra.steps : [])) || [];
+  const procVerified = !!(a || ra);
+  const evUrl = (rec && rec.purchase_evidence_url) || (ra && ra.evidenceUrl) || "";
+  const platform = srcs.filter(x => x.production).map(x => x.url ? `<a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(dossierSourceName(x))} →</a>` : esc(dossierSourceName(x))).join(" · ");
+  const dates = Array.from(byDate.entries()).slice(0, 6).map(([d, ps]) => {
+    const link = ps.map(p => auctionLinkInfo(p)).find(l => l && l.kind === "sale" && l.href) || null;
+    return `<li class="cty-sale" data-sale-date="${esc(d)}"><b>${esc(fmtDate(d))}</b> · ${ps.length} propert${ps.length === 1 ? "y" : "ies"}${ps.some(p => FAVS.has(p.id) || BIDLIST.has(p.id)) ? ` · ${ps.filter(p => FAVS.has(p.id) || BIDLIST.has(p.id)).length} watched` : ""}${link ? ` · <a href="${esc(link.href)}" target="_blank" rel="noopener">Official sale-day page →</a>` : ""}</li>`;
+  }).join("");
+  // Outcome history: only results the source published. A past auction with
+  // no published result is counted as such - never as sold or unsold.
+  const past = rows.all.filter(p => p.source === "auction" && p.sale_date && String(p.sale_date).slice(0, 10) < today);
+  const outcomeCounts = {};
+  let notVerified = 0, soldNoAmount = 0;
+  past.forEach(p => {
+    const s = auctionOutcomeState(p);
+    if (s && s.verified) { outcomeCounts[s.label] = (outcomeCounts[s.label] || 0) + 1; if (s.key === "sold" && s.amount === null) soldNoAmount++; }
+    else notVerified++;
+  });
+  const outcomeHtml = past.length
+    ? `<ul class="cty-outcomes">${Object.entries(outcomeCounts).map(([l, n2]) => `<li data-outcome="verified">${esc(l)}: <b>${n2}</b></li>`).join("")}${notVerified ? `<li data-outcome="not_verified">Result not published or not yet verified: <b>${notVerified}</b></li>` : ""}</ul>${soldNoAmount ? `<p class="cty-sub">Winning bid not published for ${soldNoAmount} sold propert${soldNoAmount === 1 ? "y" : "ies"}.</p>` : ""}<p class="cty-sub">Bidder identity and bidder counts are not recorded.</p>`
+    : `<p class="muted">No past auction on file for this ${esc(UNIT_WORD.toLowerCase())} - historical results are not available here.</p>`;
+  const kv = [
+    ["Upcoming on file", `<b>${upcoming.length.toLocaleString("en-US")}</b>${watched ? ` · ${watched} on your watchlist or favorites` : ""}`],
+    ["Next sale date", upcoming.length ? `<b data-next-sale="${esc(String(upcoming[0].sale_date).slice(0, 10))}">${esc(fmtDate(String(upcoming[0].sale_date).slice(0, 10)))}</b>` : '<span class="muted">No sale date on file</span>'],
+    ["Auction platform", platform || '<span class="muted">Not recorded</span>'],
+    [`${bidLabel}s (upcoming)`, withBid.length ? `${esc(countyMoneyRange(withBid))} <span class="kv-sub">${withBid.length} of ${upcoming.length} with a published figure - the bidding starts here; it is not a price</span>` : '<span class="muted">Not published</span>'],
+    ["Registration & deposit", procVerified && steps.length ? `<ol class="acq-steps">${steps.map(s => `<li>${esc(s)}</li>`).join("")}</ol><span class="kv-sub">As published by the county${evUrl ? ` · <a href="${esc(evUrl)}" target="_blank" rel="noopener">county sale page →</a>` : ""}</span>` : '<span class="muted">Not yet verified from the county\'s own page</span>']
+  ];
+  return `<section class="cty-section" data-county-section="auctions"><h3><span class="cty-dot" data-ledger="auction"></span>${esc(ledgerNavName("auction"))} <span class="cty-q">${esc(LEDGERS.auction.question || "")}</span></h3>
+    ${countyKv(kv)}
+    ${dates ? `<h4>Sale calendar</h4><ul class="cty-sales">${dates}</ul>` : ""}
+    <h4>Historical results</h4>${outcomeHtml}
+    ${srcs.length ? `<ul class="cty-srcs">${srcs.map(x => countySourceLineHtml(x, seeAll)).join("")}</ul>` : `<p class="muted">No auction source is recorded for this ${esc(UNIT_WORD.toLowerCase())}.</p>`}
+    ${live.length ? `<div class="cty-actions"><button type="button" class="link-btn" data-action="dossierlist" data-county="${esc(c.county)}" data-ledger="auction">Open in the List (${live.length.toLocaleString("en-US")}) →</button></div>` : ""}
+  </section>`;
+}
+function countyLiensHtml(c, st, sources, rows, seeAll) {
+  const srcs = sources.filter(x => x.ledger === "certificate" && (seeAll || x.customer_approved || x.fromRows));
+  const live = rows.live.filter(p => p.source === "certificate");
+  if (!live.length && !srcs.some(x => x.production)) return "";
+  const issued = live.map(p => p.issued_date).filter(Boolean).map(d => String(d).slice(0, 10)).sort();
+  const rates = live.filter(p => hasNum(p.interest_rate)).map(p => Number(p.interest_rate));
+  const exp = live.map(p => p.expiration_date).filter(Boolean).map(d => String(d).slice(0, 10)).sort();
+  const kv = [
+    ["Certificates on file", `<b>${live.length.toLocaleString("en-US")}</b>`],
+    ["Certificate amounts", live.some(hasPublishedBid) ? `${esc(countyMoneyRange(live.filter(hasPublishedBid)))} <span class="kv-sub">face / certificate amount as published - a lien, not a property price</span>` : '<span class="muted">Not published</span>'],
+    ["Interest rate", rates.length ? esc(Math.min(...rates) === Math.max(...rates) ? `${rates[0]}%` : `${Math.min(...rates)}% – ${Math.max(...rates)}%`) + ' <span class="kv-sub">as published</span>' : '<span class="muted">Not published</span>'],
+    ["Issued", issued.length ? esc(issued[0] === issued[issued.length - 1] ? fmtDate(issued[0]) : `${fmtDate(issued[0])} – ${fmtDate(issued[issued.length - 1])}`) : '<span class="muted">Not published</span>'],
+    ["Redemption / expiration", exp.length ? esc(`${fmtDate(exp[0])}${exp.length > 1 ? ` – ${fmtDate(exp[exp.length - 1])}` : ""}`) + ' <span class="kv-sub">dates the source publishes</span>' : '<span class="muted">Not published</span>']
+  ];
+  return `<section class="cty-section" data-county-section="liens"><h3><span class="cty-dot" data-ledger="certificate"></span>${esc(ledgerNavName("certificate"))} <span class="cty-q">${esc(LEDGERS.certificate.question || "")}</span></h3>
+    ${countyKv(kv)}
+    ${srcs.length ? `<ul class="cty-srcs">${srcs.map(x => countySourceLineHtml(x, seeAll)).join("")}</ul>` : ""}
+    ${live.length ? `<div class="cty-actions"><button type="button" class="link-btn" data-action="dossierlist" data-county="${esc(c.county)}" data-ledger="certificate">Open in the List (${live.length.toLocaleString("en-US")}) →</button></div>` : ""}
+  </section>`;
+}
+function countyPropertyIntelHtml(rows) {
+  const r = rows.live.filter(p => p.source !== "certificate");
+  if (!r.length) return `<section class="cty-section" data-county-section="property"><h3>Property intelligence</h3><p class="muted">No property on file here.</p></section>`;
+  const N = r.length;
+  const cnt = fn => r.filter(fn).length;
+  const coord = r.map(p => coordinateProvenance(p));
+  const fp = p => p.field_provenance && typeof p.field_provenance === "object" ? p.field_provenance : {};
+  const line = (k, n, note) => [k, `<b>${n.toLocaleString("en-US")}</b> of ${N.toLocaleString("en-US")}${note ? ` <span class="kv-sub">${esc(note)}</span>` : ""}`, `data-count="${n}"`];
+  return `<section class="cty-section" data-county-section="property"><h3>Property intelligence</h3>
+    ${countyKv([
+      line("Parcel / account identifier", cnt(hasParcel)),
+      line("Assessed value", cnt(p => hasNum(p.assessed) && Number(p.assessed) > 0)),
+      line("Taxable value", cnt(p => hasNum(p.taxable_value))),
+      line("Acreage or lot size", cnt(p => hasNum(p.acreage) || hasNum(p.lot_sqft))),
+      line("Land use", cnt(p => !!p.land_use || !!p.dor_use_code)),
+      line("Homestead recorded", cnt(p => p.homestead === true || p.homestead === false)),
+      line("Authoritative coordinates", coord.filter(x => x.authoritative).length, "official parcel, tax-roll, land-bank or list location"),
+      line("Other coordinates", coord.filter(x => x.method !== "NONE" && !x.authoritative).length, "vendor listing, address geocode or unrecorded origin"),
+      line("Stored imagery", cnt(p => !!p.photo_url)),
+      line("Legal description", cnt(p => !!p.legal_desc)),
+      line("Florida tax-roll (FDOR) enrichment", cnt(p => Object.values(fp(p)).some(e => e && e.source === "fdor_nal")))
+    ])}
+    <p class="cty-sub">Counted from the properties on file; a value counts only when the row carries it, and coordinates count as authoritative only from an official source.</p>
+  </section>`;
+}
+function countyTruthHtml(c, st, sources, seeAll) {
+  const shown = sources.filter(x => seeAll || x.customer_approved || x.fromRows);
+  const hidden = sources.filter(x => !(seeAll || x.customer_approved || x.fromRows)).length;
+  const rowsHtml = shown.map(x => {
+    const h = sourceHealthText(x.unit, { review: !x.customer_approved });
+    return `<tr data-source="${esc(x.source_id)}"><td>${esc(ledgerNavName(x.ledger))}</td><td>${x.url ? `<a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(dossierSourceName(x))} →</a>` : esc(dossierSourceName(x))}</td>
+      <td>${esc(x.publisher && SOURCE_AUTHORITY_LABELS[x.publisher] ? SOURCE_AUTHORITY_LABELS[x.publisher] : "Not recorded")}</td>
+      <td>${esc(x.customer_approved ? "Approved" : (SOURCE_REVIEW_LABELS[x.publication] || "Awaiting review"))}</td>
+      <td>${x.production ? (x.unit && x.unit.last_success_at ? esc(relativeTime(x.unit.last_success_at)) : '<span class="muted">Not recorded</span>') : '<span class="muted">Not harvested</span>'}</td>
+      <td>${x.production ? sourceHealthChipHtml(x.unit, { review: !x.customer_approved }) : '<span class="muted">-</span>'}<span class="sr-only">${esc(h.text)}</span></td></tr>`;
+  }).join("");
+  return `<section class="cty-section" data-county-section="truth"><h3>Source truth</h3>
+    ${shown.length ? `<div class="cty-table-wrap"><table class="cty-table"><thead><tr><th>Ledger</th><th>Official source</th><th>Source type</th><th>Publication</th><th>Last read</th><th>Health</th></tr></thead><tbody>${rowsHtml}</tbody></table></div>` : `<p class="muted">No source is recorded for this ${esc(UNIT_WORD.toLowerCase())}.</p>`}
+    ${hidden ? `<p class="cty-sub">${hidden} further source${hidden === 1 ? "" : "s"} awaiting customer-publication review (not shown).</p>` : ""}
+    <p class="cty-sub">Registration deadlines and filing deadlines are shown only where the county's own page states them; none is inferred.</p>
+  </section>`;
+}
+// The research gaps: what is NOT known, each tied to a record that can show
+// it. Never filled with a guess.
+function countyGaps(c, st, sources, rows, facts) {
+  const gaps = [];
+  const live = rows.live;
+  const avail = live.filter(p => p.source === "laft");
+  const noAmt = avail.filter(p => !amountSemanticType(p)).length;
+  if (noAmt) gaps.push(["amount", `Current acquisition amount not published for ${noAmt} of ${avail.length} Available propert${avail.length === 1 ? "y" : "ies"}`]);
+  const units = countyAcqUnits(st, c.county);
+  sources.filter(x => x.ledger === "laft" && x.production).forEach(x => {
+    const u = units.find(v => v.source_id === x.source_id);
+    const rowOk = avail.some(p => (p.source_id || p.harvester_source) === x.source_id && acquisitionOf(p).verified);
+    if ((!u || u.status !== "VERIFIED") && !rowOk) gaps.push(["path", `Purchase path not yet verified - ${dossierSourceName(x)}${u ? ` (${ACQ_EVIDENCE_STATUS_LABELS[u.status] || u.status})` : ""}`]);
+  });
+  const prop = live.filter(p => p.source !== "certificate");
+  const noCoord = prop.filter(p => coordinateProvenance(p).method === "NONE").length;
+  if (noCoord) gaps.push(["coordinates", `Coordinates not available for ${noCoord} of ${prop.length} propert${prop.length === 1 ? "y" : "ies"}`]);
+  const weak = prop.filter(p => { const m = coordinateProvenance(p); return m.method !== "NONE" && !m.authoritative; }).length;
+  if (weak) gaps.push(["coordinates_source", `Coordinates for ${weak} propert${weak === 1 ? "y are" : "ies are"} not from an official parcel source`]);
+  if (facts.auction_ledger && !facts.auction_process_verified) gaps.push(["auction_process", "Registration, deposit and payment rules not yet verified from the county's own page"]);
+  if (facts.auction_ledger && !facts.past_auctions) gaps.push(["outcomes", "Historical outcomes not available - no past auction on file"]);
+  if (facts.past_auctions > facts.past_auctions_outcome) gaps.push(["outcomes", `Result not published or not yet verified for ${facts.past_auctions - facts.past_auctions_outcome} past auction${facts.past_auctions - facts.past_auctions_outcome === 1 ? "" : "s"}`]);
+  const sold = rows.all.filter(p => { const s = auctionOutcomeState(p); return s && s.verified && s.key === "sold" && s.amount === null; }).length;
+  if (sold) gaps.push(["winning_bid", `Winning bid not published for ${sold} sold propert${sold === 1 ? "y" : "ies"}`]);
+  const review = sources.filter(x => !x.customer_approved && x.production).length;
+  if (review) gaps.push(["review", `Source requires publication review (${review})`]);
+  sources.filter(x => x.production && x.unit && sourceHealthState(x.unit).state === "SOURCE_UNAVAILABLE").forEach(x => gaps.push(["unavailable", `Source unavailable at the last attempt - ${dossierSourceName(x)}`]));
+  if (!sources.length) gaps.push(["no_source", `No source-backed inventory recorded for this ${UNIT_WORD.toLowerCase()} - not a statement that nothing is for sale`]);
+  return gaps;
+}
+function countyGapsHtml(gaps) {
+  return `<section class="cty-section" data-county-section="gaps"><h3>Research gaps</h3>
+    ${gaps.length ? `<ul class="cty-gaps">${gaps.map(([k, t]) => `<li data-gap="${esc(k)}">${esc(t)}</li>`).join("")}</ul>` : '<p class="muted">No open gap recorded for the records on file.</p>'}
+  </section>`;
+}
+function countyPageHtml(c, st) {
+  const scope = viewerScope();
+  const seeAll = scope === "all" || scope === "preview";
+  const rows = countyRowsFor(c.county, st);
+  const sources = countySources(c, st, rows.all);
+  const facts = countyFacts(c, st, sources, rows);
+  const rs = countyResearchStatus(facts);
+  const counts = { laft: 0, auction: 0, certificate: 0 };
+  rows.live.forEach(p => { if (p.source in counts) counts[p.source]++; });
+  const stName = STATE_META[st] ? STATE_META[st].name : st;
+  return `<article class="cty" data-county="${esc(c.county)}" data-state="${esc(st)}">
+    <nav class="cty-crumbs" aria-label="Breadcrumb"><button type="button" class="link-btn" data-action="countyindex">County Intelligence</button> / <span>${esc(stName)}</span></nav>
+    <header class="cty-head">
+      <p class="cty-kicker">${esc(stName)} · County Intelligence</p>
+      <h2 class="cty-title">${esc(c.county)} ${esc(UNIT_WORD)}</h2>
+      <p class="cty-lede">What this app knows before you buy tax-sale or government-held property here - and what it does not.</p>
+      <div class="cty-ledger-strip">${["laft", "auction", "certificate"].map(k => `<button type="button" class="cty-ledger-count" data-action="dossierlist" data-county="${esc(c.county)}" data-ledger="${k}" ${counts[k] ? "" : "disabled"}><span class="cty-dot" data-ledger="${k}"></span>${esc(ledgerNavName(k))} <b>${counts[k].toLocaleString("en-US")}</b></button>`).join("")}</div>
+    </header>
+    ${countyLadderHtml(rs)}
+    ${countyAvailableHtml(c, st, sources, rows, seeAll)}
+    ${countyAuctionsHtml(c, st, sources, rows, seeAll)}
+    ${countyLiensHtml(c, st, sources, rows, seeAll)}
+    ${countyPropertyIntelHtml(rows)}
+    ${countyTruthHtml(c, st, sources, seeAll)}
+    ${countyGapsHtml(countyGaps(c, st, sources, rows, facts))}
+    <p class="dossier-note">Built from this app's source records and the properties on file. It describes what is tracked, never what is or is not for sale - the county's own office is the record.</p>
+  </article>`;
+}
+// The state's county index: every county with a record (source, research or
+// a property on file), each with its research status and ledger counts.
+// "Show every county" adds the counties nothing is recorded for yet.
+function countyIndexHtml(doc, st) {
+  const stName = STATE_META[st] ? STATE_META[st].name : st;
+  const s = doc && Array.isArray(doc.states) ? doc.states.find(x => x.state === st) : null;
+  const names = new Set();
+  (s ? s.counties : []).forEach(c => names.add(c.county));
+  ALL.forEach(p => { if (regionOf(p) === st && p.county) names.add(p.county); });
+  const recorded = new Set(names);
+  if (COUNTY_PAGE.showAll && COUNTY_PAGE.centroids && COUNTY_PAGE.centroids[st]) Object.keys(COUNTY_PAGE.centroids[st]).forEach(n => names.add(n));
+  const q = COUNTY_PAGE.filter.trim().toLowerCase();
+  const today = new Date().toISOString().slice(0, 10);
+  const items = Array.from(names).filter(n => !q || n.toLowerCase().includes(q)).sort((a, b) => a.localeCompare(b)).map(name => {
+    const c = countyIntelFor(doc, st, name);
+    const rows = countyRowsFor(name, st);
+    const sources = countySources(c, st, rows.all);
+    const rs = countyResearchStatus(countyFacts(c, st, sources, rows));
+    const n = k => rows.live.filter(p => p.source === k).length;
+    const next = rows.live.filter(p => p.source === "auction" && p.sale_date && String(p.sale_date).slice(0, 10) >= today).map(p => String(p.sale_date).slice(0, 10)).sort()[0];
+    const unavailable = sources.some(x => x.production && x.unit && sourceHealthState(x.unit).state === "SOURCE_UNAVAILABLE");
+    return `<li class="cty-row" data-county-row="${esc(name)}" data-reached="${esc(rs.reached || "NONE")}">
+      <button type="button" class="cty-row-btn" data-action="countypage" data-county="${esc(name)}">
+        <span class="cty-row-name">${esc(name)}</span>
+        <span class="cty-row-status">${esc(countyResearchLabel(rs.reached))}${unavailable ? ' · <span class="warn">source unavailable</span>' : ""}</span>
+        <span class="cty-row-counts"><span data-ledger="laft">${n("laft")}</span><span data-ledger="auction">${n("auction")}</span><span data-ledger="certificate">${n("certificate")}</span></span>
+        <span class="cty-row-next">${next ? `Next sale ${esc(fmtDate(next))}` : ""}</span>
+      </button></li>`;
+  }).join("");
+  const total = s ? s.county_total : null;
+  return `<div class="cty-index" data-state="${esc(st)}">
+    <header class="cty-head"><p class="cty-kicker">${esc(stName)}</p><h2 class="cty-title">County Intelligence</h2>
+      <p class="cty-lede">Research a ${esc(UNIT_WORD.toLowerCase())} before you buy: its Available inventory and acquisition process, its auctions and their results, its liens and certificates, and what is still unknown.</p></header>
+    <div class="cty-index-tools">
+      <input type="search" id="countyIndexSearch" placeholder="Find a ${esc(UNIT_WORD.toLowerCase())}" aria-label="Find a ${esc(UNIT_WORD.toLowerCase())}" value="${esc(COUNTY_PAGE.filter)}">
+      <button type="button" class="link-btn" data-action="countyshowall">${COUNTY_PAGE.showAll ? `Only ${UNIT_WORD.toLowerCase()} records on file` : `Show every ${UNIT_WORD.toLowerCase()}${total ? ` (${total})` : ""}`}</button>
+      <button type="button" class="link-btn" data-action="countystates">Other states & coverage →</button>
+    </div>
+    <div class="cty-index-legend"><span>${esc(UNIT_WORD)}</span><span>Research status</span><span class="cty-row-counts"><span data-ledger="laft">${esc(ledgerNavName("laft"))}</span><span data-ledger="auction">${esc(ledgerNavName("auction"))}</span><span data-ledger="certificate">${esc(ledgerNavName("certificate"))}</span></span><span>Upcoming</span></div>
+    <ul class="cty-rows">${items || `<li class="muted">No ${esc(UNIT_WORD.toLowerCase())} matches.</li>`}</ul>
+    <p class="dossier-note">${recorded.size} of ${total || "?"} ${esc(UNIT_WORD.toLowerCase())}s have a source, a research record or a property on file. A ${esc(UNIT_WORD.toLowerCase())} with none is not yet researched - that is not a statement that nothing is for sale there.</p>
+  </div>`;
+}
+function ensureCountySection() {
+  let sec = document.getElementById("pageCounty");
+  if (sec) return sec;
+  const map = document.getElementById("pageMap");
+  sec = document.createElement("section");
+  sec.className = "page county-page";
+  sec.id = "pageCounty";
+  sec.hidden = true;
+  sec.setAttribute("aria-label", "County Intelligence");
+  if (map && map.parentNode) map.parentNode.insertBefore(sec, map.nextSibling);
+  else (document.getElementById("app") || document.body).appendChild(sec);
+  return sec;
+}
+async function renderCountyPage() {
+  const sec = ensureCountySection();
+  const st = COUNTY_PAGE.st || PAGE_STATE;
+  if (!COUNTY_INTEL) sec.innerHTML = `<p class="muted cty-loading">Loading county intelligence…</p>`;
+  const doc = await loadCountyIntel();
+  if (!doc) { sec.innerHTML = `<div class="cty"><p class="muted">County intelligence could not be loaded right now.</p><button type="button" class="detail-btn" data-action="countyretry">Retry</button></div>`; return; }
+  if (COUNTY_PAGE.view === "county" && COUNTY_PAGE.county) sec.innerHTML = countyPageHtml(countyIntelFor(doc, st, COUNTY_PAGE.county), st);
+  else {
+    if (COUNTY_PAGE.showAll && !COUNTY_PAGE.centroids) {
+      try { COUNTY_PAGE.centroids = await (await fetch("county-centroids.json")).json(); } catch { COUNTY_PAGE.centroids = {}; }
+    }
+    sec.innerHTML = countyIndexHtml(doc, st);
+    const inp = sec.querySelector("#countyIndexSearch");
+    if (inp) inp.addEventListener("input", () => {
+      COUNTY_PAGE.filter = inp.value;
+      const pos = inp.selectionStart;
+      renderCountyPage().then(() => { const i2 = document.getElementById("countyIndexSearch"); if (i2) { i2.focus(); try { i2.setSelectionRange(pos, pos); } catch { /* */ } } });
+    });
+  }
+}
+function countyPageHash() {
+  return COUNTY_PAGE.view === "county" && COUNTY_PAGE.county ? "#/county/" + encodeURIComponent(COUNTY_PAGE.county) : "#/counties";
+}
+function openCountyPage(county, st) {
+  COUNTY_PAGE.view = "county"; COUNTY_PAGE.county = county; COUNTY_PAGE.st = st || PAGE_STATE;
+  if (countyModalUi && document.getElementById("countyModal") && !document.getElementById("countyModal").hidden) countyModalUi.close();
+  if (document.getElementById("detailModal") && !document.getElementById("detailModal").hidden) closeDetail();
+  track("county_dossier_opened", { county_known: !!county });
+  showPage("county");
+}
+function openCountyIndex() {
+  COUNTY_PAGE.view = "index"; COUNTY_PAGE.county = null; COUNTY_PAGE.st = PAGE_STATE;
+  showPage("county");
+}
+window.__tdwOpenCountyPage = openCountyPage;
 const TRANSITION_LABELS = {
   newly_observed: "First observed on the list", status_changed: "Status changed", removed: "Removed from the list (closed - not a sale result)",
   result_published: "Result published by the source", reactivated: "Back on the list (reactivated)"
@@ -6748,7 +7235,7 @@ function sourceTruthHtml(p) {
   const href = listing ? listing.href : (p.list_url || p.document_url || p.url_auction || null);
   rows.push(["Official listing", href ? `<a href="${esc(href)}" target="_blank" rel="noopener" data-acq-link="source">${esc(listing ? listing.label : "Open the source listing")} →</a>` : muted("No listing link on file")]);
   if (p.source !== "certificate") rows.push(["Imagery", imageryTruthHtml(p)]);
-  rows.push([`${UNIT_WORD} intelligence`, `<button type="button" class="link-btn" data-action="countyintel" data-county="${esc(p.county)}" data-state="${esc(regionOf(p))}">${esc(`${p.county} ${UNIT_WORD}: sources, coverage and process`)} →</button>`]);
+  rows.push([`${UNIT_WORD} intelligence`, `<button type="button" class="link-btn" data-action="countyintel" data-county="${esc(p.county)}" data-state="${esc(regionOf(p))}">${esc(`${p.county} ${UNIT_WORD}: sources, coverage and process`)} →</button> <button type="button" class="link-btn county-page-link" data-action="countypage" data-county="${esc(p.county)}" data-state="${esc(regionOf(p))}">${esc(p.source === "auction" ? "County auction intelligence" : "Full county page")} →</button>`]);
   return detailSectionHtml("Source truth", `<p class="truth-lede">The record as its source publishes it. Nothing here is inferred or scored.</p><dl class="truth-dl">${rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${v}</dd>`).join("")}</dl>`, "truth-card", "truth");
 }
 // Current status (2026-10-05): the one line under the property's identity -
@@ -7454,6 +7941,23 @@ document.addEventListener("click", async e => {
     // second one leaves the page.
     if (btn.closest("#statePicker")) { closeStatePicker(); afterSelfBack(() => openCountyDossier(btn.dataset.county, btn.dataset.state || PAGE_STATE, null)); }
     else openCountyDossier(btn.dataset.county, btn.dataset.state || PAGE_STATE, btn);
+    return;
+  }
+  // County Intelligence page (2026-10-06).
+  if (action === "countypage") {
+    if (btn.closest("#statePicker")) { closeStatePicker(); afterSelfBack(() => openCountyPage(btn.dataset.county, btn.dataset.state || PAGE_STATE)); }
+    else openCountyPage(btn.dataset.county, btn.dataset.state || PAGE_STATE);
+    return;
+  }
+  if (action === "countyindex") { openCountyIndex(); return; }
+  if (action === "countyshowall") { COUNTY_PAGE.showAll = !COUNTY_PAGE.showAll; renderCountyPage(); return; }
+  if (action === "countystates") { openStatePicker(btn); return; }
+  if (action === "countyretry") { COUNTY_INTEL_PROMISE = null; renderCountyPage(); return; }
+  if (action === "countymap") {
+    mapFilter.county = btn.dataset.county;
+    mapFilter.ledger = btn.dataset.ledger && LEDGERS[btn.dataset.ledger] ? btn.dataset.ledger : "all";
+    document.querySelectorAll("#mapLedgerPills [data-ledger]").forEach(b => b.classList.toggle("on", b.dataset.ledger === mapFilter.ledger));
+    showPage("map");
     return;
   }
   if (action === "dossierlist") {
@@ -8327,6 +8831,14 @@ function routeFromHash() {
   if (SLUG_TO_LEDGER[seg]) return { page: "list", ledger: SLUG_TO_LEDGER[seg], pid: sub, params };
   if (seg === "list") return { page: "list", ledger: sub && SLUG_TO_LEDGER[sub] ? SLUG_TO_LEDGER[sub] : null, pid: null, params };
   if (seg === "dashboard" || seg === "map" || seg === "watchlist") return { page: seg, ledger: null, pid: null, params };
+  // County Intelligence (2026-10-06): #/counties (the state's index) and
+  // #/county/<name> (one county's page). The county belongs to PAGE_STATE.
+  if (seg === "counties") return { page: "county", county: null, ledger: null, pid: null, params };
+  if (seg === "county") {
+    let county = null;
+    try { county = sub ? decodeURIComponent(sub) : null; } catch { county = null; }
+    return { page: "county", county, ledger: null, pid: null, params };
+  }
   return null;
 }
 function ledgerFromHash() {
@@ -8364,6 +8876,7 @@ function applyMapParams(params) {
 function pageHash(name) {
   if (name === "map") return mapHash();
   if (name === "dashboard") return "#/dashboard";
+  if (name === "county") return countyPageHash();
   return "#/" + (LEDGERS[state.ledger] || LEDGERS.auction).slug;
 }
 // replaceState, never pushState: the Android-back stack (BACK_LAYERS) owns
@@ -8585,6 +9098,9 @@ window.addEventListener("hashchange", () => {
     if (shellPage !== "map") showPage("map"); else renderMapPage();
   } else if (r.page === "dashboard") {
     if (shellPage !== "dashboard") showPage("dashboard");
+  } else if (r.page === "county") {
+    if (r.county) { if (shellPage !== "county" || COUNTY_PAGE.county !== r.county) openCountyPage(r.county, PAGE_STATE); }
+    else if (shellPage !== "county" || COUNTY_PAGE.view !== "index") openCountyIndex();
   } else if (r.page === "watchlist") {
     openBidList();
   }
@@ -10381,12 +10897,13 @@ let shellPage = "list";
 // Unified navigation (2026-09-30): three pages plus the watchlist, which is
 // a layer over whichever page is open (openBidList()), reached from the same
 // four-entry nav. "auctions" is accepted as the List page's old name.
-const SHELL_PAGES = { dashboard: "pageDashboard", list: "pageList", map: "pageMap" };
+const SHELL_PAGES = { dashboard: "pageDashboard", list: "pageList", map: "pageMap", county: "pageCounty" };
 
 function showPage(name) {
   if (name === "auctions") name = "list";
   if (name === "watchlist") { openBidList(); return; }
   if (!SHELL_PAGES[name]) name = "list";
+  if (name === "county") ensureCountySection();
 
   Object.entries(SHELL_PAGES).forEach(([key, id]) => {
     const el = document.getElementById(id);
@@ -10398,6 +10915,7 @@ function showPage(name) {
 
   if (name === "dashboard") renderDashboard();
   if (name === "map") renderMapPage();
+  if (name === "county") renderCountyPage();
   syncPageHash();
 
   window.scrollTo({ top: 0, behavior: "auto" });
@@ -10435,6 +10953,12 @@ function syncLedgerNav(pageName) {
     btn.classList.toggle("on", on);
     if (on) btn.setAttribute("aria-current", "page"); else btn.removeAttribute("aria-current");
   });
+  // County Intelligence is an action entry (data-nav) that opens a page.
+  const cty = document.getElementById("navStatesBtn");
+  if (cty) {
+    cty.classList.toggle("on", name === "county");
+    if (name === "county") cty.setAttribute("aria-current", "page"); else cty.removeAttribute("aria-current");
+  }
 }
 document.querySelectorAll(".nav-item[data-page], .nav-bottom-item[data-page]").forEach(btn => {
   btn.addEventListener("click", () => showPage(btn.dataset.page));
@@ -12476,7 +13000,10 @@ function openStatePicker(returnEl) {
   const saved = document.getElementById("navSavedSearchesBtn");
   if (saved) saved.addEventListener("click", () => openSavedSearches(saved));
   const states = document.getElementById("navStatesBtn");
-  if (states) states.addEventListener("click", () => openStatePicker(states));
+  // County Intelligence opens the state's county index (2026-10-06); the
+  // state picker / coverage explorer stays on the header's "States" button
+  // and on the index's own "Other states & coverage" link.
+  if (states) states.addEventListener("click", () => openCountyIndex());
   const about = document.getElementById("navAboutBtn");
   if (about) about.addEventListener("click", () => helpUi.open());
   const acct = document.getElementById("navBottomAccount");

@@ -2785,3 +2785,21 @@ Full description: `docs/current-acquisition-amounts.md`. Stable facts:
   not displayable. No statement is stored anywhere yet.
 - Property page shows Amount type / Amount status / Valid through (`.fp-meta`).
   `sw.js` -> `tdw-shell-v98`.
+
+## County Intelligence page (2026-10-06, PR open, no migration)
+
+Full description: `docs/county-intelligence-page.md`. Stable facts:
+- `#/counties` (index) and `#/county/<name>` (page), rendered into
+  `#pageCounty`, which `ensureCountySection()` creates (no HTML change).
+  `SHELL_PAGES.county`; the nav "County Intelligence" entry opens the index;
+  the state picker stays on the header "States" button.
+- Research ladder: `harvesters/sources/county_research.py` = app.js
+  `countyResearchStatus()` (vectors `county_research_cases.json`). Six steps,
+  VERIFIED / PARTIAL / NOT_VERIFIED / NOT_APPLICABLE, reached = last step
+  with no earlier gap. Rows on file never verify a county; no score.
+- Sections: Available, Auctions (calendar, platform, bid range as published,
+  registration only as published steps, verified outcomes only), Liens
+  (only with certificate inventory/source), Property intelligence (X of N),
+  Source truth, Research gaps. Customers see unreviewed sources counted only.
+- Section code is `var` / function declarations (TDZ). `sw.js` -> `tdw-shell-v99`.
+
