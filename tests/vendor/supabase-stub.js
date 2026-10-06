@@ -614,9 +614,42 @@ class MockQuery {
       else if (this.table === "hidden") result.data = [];
       else if (this.table === "county_calendar") result.data = CALENDAR_ROWS;
     }
+    // ?tabledelay=auction_events:3000 (2026-10-05): that table answers late -
+    // proves a secondary read never gates the first paint.
+    const td = (new URLSearchParams(location.search).get("tabledelay") || "").split(",").map(x => x.split(":")).find(x => x[0] === this.table);
+    if (td) return new Promise(r => setTimeout(r, Number(td[1]) || 0)).then(() => { (window.__stubTableDone = window.__stubTableDone || {})[this.table] = true; resolve(result); return result; });
     resolve(result);
     return Promise.resolve(result);
   }
+}
+
+// ?stripacq=1 (2026-10-05): pla2 in the shape production's 3,500 East Baton
+// Rouge rows had after an adapter sync replaced otc_provenance wholesale.
+function stubVariant(p) {
+  return new URLSearchParams(location.search).get("stripacq") === "1" && p.id === "pla2"
+    ? { ...p, otc_provenance: { adapter: "la_ebr_adjudicated", identifier: "case_no", amount: null, coordinates: "published" } } : p;
+}
+// Migration 028's list projection, mirrored (tests/python/test_property_list_payload.py
+// pins these key lists equal to the SQL's).
+const LIST_OTC_DROPPED_KEYS = ["purchase_instructions", "query_where", "attributes", "layer_url", "columns", "id_field", "object_id_field"];
+const LIST_REVIEW_SOURCE_IDS = ["tx_lgbs", "tx_realauction"];
+function slimForList(p) {
+  const out = { ...p, provenance_scope: "list" };
+  const op = p.otc_provenance;
+  if (op && typeof op === "object" && !Array.isArray(op)) {
+    out.otc_provenance = Object.fromEntries(Object.entries(op).filter(([k]) => !LIST_OTC_DROPPED_KEYS.includes(k)));
+  }
+  const fp = p.field_provenance;
+  if (fp && typeof fp === "object" && !Array.isArray(fp)) {
+    const f = {};
+    for (const [k, v] of Object.entries(fp)) {
+      if (!v || typeof v !== "object" || Array.isArray(v)) continue;
+      if (!("governance" in v) && !LIST_REVIEW_SOURCE_IDS.includes(v.source_id)) continue;
+      f[k] = Object.fromEntries(Object.entries({ source: v.source, source_id: v.source_id, governance: v.governance }).filter(([, x]) => x != null));
+    }
+    out.field_provenance = Object.keys(f).length ? f : null;
+  } else out.field_provenance = null;
+  return out;
 }
 
 // ?bidlist=p1,ptx1 seeds the account's watchlist (see MockQuery.then).
@@ -818,7 +851,23 @@ export function createClient() {
         MONITOR_DB.product_events.forEach(e => { counts[e.event] = (counts[e.event] || 0) + 1; });
         return { data: Object.entries(counts).map(([event, events]) => ({ event, events, users: 1, first_at: null, last_at: null })), error: null };
       }
-      if (fnName === "get_properties") {
+      // Migration 028 (2026-10-05): get_properties_list() is the same page with
+      // the list projection of otc_provenance / field_provenance (slimForList,
+      // the stub mirror of the SQL) plus provenance_scope 'list';
+      // get_property_provenance() returns one row's full pair.
+      //   ?nolistrpc=1            028 not applied (PGRST202) - the app falls back to get_properties
+      //   ?ledgerdelay=buy:1500   every page of that ledger takes that long (independent loading)
+      // Every properties RPC is logged to window.__stubRpcLog (fn, ledger, offset).
+      if (fnName === "get_property_provenance") {
+        window.__stubProvenanceCalls = (window.__stubProvenanceCalls || 0) + 1;
+        if (new URLSearchParams(location.search).get("nolistrpc") === "1") return { data: null, error: { message: "Could not find the function public.get_property_provenance(p_id) in the schema cache", code: "PGRST202" } };
+        const row = FIXTURE_PROPERTIES.map(stubVariant).find(r => String(r.id) === String(args.p_id));
+        return { data: row ? [{ id: row.id, otc_provenance: row.otc_provenance ?? null, field_provenance: row.field_provenance ?? null }] : [], error: null };
+      }
+      if (fnName === "get_properties_list" && new URLSearchParams(location.search).get("nolistrpc") === "1") {
+        return { data: null, error: { message: "Could not find the function public.get_properties_list(p_ledger_type, p_limit, p_offset, p_state) in the schema cache", code: "PGRST202" } };
+      }
+      if (fnName === "get_properties" || fnName === "get_properties_list") {
         const pState = args && args.p_state;
         // This suite mostly loads index.html (data-state="FL", see
         // PAGE_STATE in app.js) and FIXTURE_PROPERTIES has never carried an
@@ -863,8 +912,7 @@ export function createClient() {
           // ?stripacq=1 (2026-10-05): pla2 in the shape production's 3,500 East
           // Baton Rouge rows had after an adapter sync replaced otc_provenance
           // wholesale - the typed path columns stay, the acquisition record is gone.
-          .map(p => new URLSearchParams(location.search).get("stripacq") === "1" && p.id === "pla2"
-            ? { ...p, otc_provenance: { adapter: "la_ebr_adjudicated", identifier: "case_no", amount: null, coordinates: "published" } } : p);
+          .map(stubVariant);
         const offset = Number(args.p_offset) || 0, limit = Math.min(Number(args.p_limit) || 20000, cap);
         // Load-resilience fixtures (2026-10-04):
         //   ?failpage=<ledger>:<offset>[,...]   that page always fails (statement timeout)
@@ -874,6 +922,9 @@ export function createClient() {
         const key = `${args.p_ledger_type}:${offset}`;
         const calls = window.__stubPageCalls = window.__stubPageCalls || {};
         calls[key] = (calls[key] || 0) + 1;
+        (window.__stubRpcLog = window.__stubRpcLog || []).push({ fn: fnName, ledger: args.p_ledger_type, offset, t: Math.round(performance.now()) });
+        const ledgerDelay = (qs.get("ledgerdelay") || "").split(",").map(x => x.split(":")).find(x => x[0] === args.p_ledger_type);
+        if (ledgerDelay) await new Promise(r => setTimeout(r, Number(ledgerDelay[1]) || 0));
         const delay = Number(qs.get("pagedelay")) || 0;
         if (delay) {
           window.__stubInflight = (window.__stubInflight || 0) + 1;
@@ -886,7 +937,8 @@ export function createClient() {
         if (!window.__stubHealPages && (qs.get("failpage") || "").split(",").includes(key)) return timeout;
         const flaky = (qs.get("flakypage") || "").split(",").map(x => x.split(":")).find(x => `${x[0]}:${x[1]}` === key);
         if (flaky && calls[key] <= Number(flaky[2] || 1)) return timeout;
-        return { data: rows.slice(offset, offset + limit), error: null };
+        const pageRows = rows.slice(offset, offset + limit);
+        return { data: fnName === "get_properties_list" ? pageRows.map(slimForList) : pageRows, error: null };
       }
       // Paid beta (migration 027). Without ?entitlement= the function is
       // "not deployed" (PGRST202) and the app keeps the approval-record path -

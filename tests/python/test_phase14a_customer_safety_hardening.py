@@ -149,7 +149,11 @@ def test_B_no_new_read_path_bypass_was_introduced_around_get_properties():
     get_properties()/select("*") - Phase 14A must not have accidentally
     added a second, parallel read path this phase's audit didn't cover."""
     app_js = _read("public", "app.js")
-    assert app_js.count('sb.rpc("get_properties"') == 1
+    # 2026-10-05: one property-list call site, through LIST_RPC (get_properties_list,
+    # falling back to get_properties), plus the one id-scoped detail read.
+    assert app_js.count('sb.rpc(LIST_RPC') == 1
+    assert app_js.count('sb.rpc("get_properties"') == 0
+    assert app_js.count('sb.rpc("get_property_provenance", { p_id: p.id })') == 1
     # Count only non-comment lines - the fallback pattern is also named once
     # in a `//` comment (fetchProperties()'s own explanatory header, which
     # quotes the old pattern by name to explain why the RPC replaced it),

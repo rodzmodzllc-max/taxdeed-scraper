@@ -219,7 +219,8 @@ def test_f03_exports_are_customer_fields_only_per_ledger():
     assert '["Result (per the source)"' in auction and "inventory_status_raw" in auction
     assert 'state.ledger === "laft" ? availableCols : state.ledger === "certificate" ? certificateCols : cols' in APP
     # Withheld inventory never reaches ALL, so it never reaches any export.
-    flt = APP[APP.index("  ALL = ALL.filter(p => {"):APP.index("  PROPERTIES_LOADED = true;")]
+    # (2026-10-05: the filter lives in applyLedgerRows(), re-run as each ledger's pages arrive.)
+    flt = APP[APP.index("  ALL = rows.filter(p => {"):APP.index("function loadIssueHtml() {")]
     assert "if (isPublishable(p)) {" in flt and "WITHHELD[p.source]++;" in flt and "return false;" in flt
 
 
@@ -230,7 +231,7 @@ def test_k01_get_properties_contract_and_ledger_isolation_intact():
     assert "result_amount, result_date, result_party\n  from public.properties" in sql
     assert "023_available_commercial_release.sql" in [p.name for p in (REPO / "scripts/migrations").glob("02*.sql")]
     domains.assert_isolated()
-    assert (REPO / "public/sw.js").read_text(encoding="utf-8").count('const CACHE = "tdw-shell-v83"') == 1
+    assert (REPO / "public/sw.js").read_text(encoding="utf-8").count('const CACHE = "tdw-shell-v84"') == 1
 
 
 def test_c03_publication_measurement_counts_a_typed_non_url_path_as_a_purchase_path():

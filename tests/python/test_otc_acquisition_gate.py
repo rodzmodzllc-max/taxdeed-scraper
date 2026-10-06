@@ -150,7 +150,7 @@ def test_g08_acquisition_gaps_and_frontend_parity_and_no_withholding():
     js = dict(re.findall(r'(\w+): "([^"]+)"', m))
     assert js == PE.ACQUISITION_GAP_REASONS
     # Publication is the source decision only: the customer filter never consults the acquisition record.
-    flt = APP[APP.index("  ALL = ALL.filter(p => {"):APP.index("  PROPERTIES_LOADED = true;")]
+    flt = APP[APP.index("  ALL = rows.filter(p => {"):APP.index("function loadIssueHtml() {")]   # 2026-10-05: re-run per ledger
     assert "if (isPublishable(p)) {" in flt and "if (p.source in WITHHELD) WITHHELD[p.source]++;" in flt
     assert "acquisition" not in flt.lower()
     assert "acquisitionGap" not in re.search(r"function isPublishable\(p\) \{(.*?)\n\}", APP, re.S).group(1)

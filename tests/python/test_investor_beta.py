@@ -60,7 +60,9 @@ def test_frontend_fallback_requires_same_source_county_and_type():
     assert 'r.county === p.county' in body
     # The row's own record always wins; the fallback is only for a missing one.
     prov = APP[APP.index("function acquisitionProvenance(p)"):APP.index("function acquisitionOf(p)")]
-    assert "op.acquisition && typeof op.acquisition === \"object\")) return op" in prov
+    assert 'if (p && p.purchase_path_type && op.acquisition && typeof op.acquisition === "object") {' in prov
+    # list payload (028): only purchase_instructions is refilled, only from the identical record
+    assert "rec.purchase_instructions && (rec.purchase_evidence_url || \"\") === (op.purchase_evidence_url || \"\")" in prov
     assert "...keys, ...op" in prov
 
 

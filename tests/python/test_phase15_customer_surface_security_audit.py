@@ -148,7 +148,10 @@ def test_A_fetchProperties_still_calls_get_properties_as_its_primary_path():
     this test makes that dependency explicit rather than implicit."""
     app_js = _app_js()
     # Paged per ledger since 2026-10-01 (PostgREST max-rows = 1000 applies to RPCs).
-    assert 'sb.rpc("get_properties", { p_state: PAGE_STATE, p_ledger_type: ledgerType, p_limit: PROPERTY_PAGE_SIZE, p_offset: offset })' in app_js
+    # 2026-10-05: the same state-scoped page through LIST_RPC (get_properties_list,
+    # migration 028, falling back to get_properties when that is not deployed).
+    assert 'sb.rpc(LIST_RPC, { p_state: PAGE_STATE, p_ledger_type: ledgerType, p_limit: PROPERTY_PAGE_SIZE, p_offset: offset })' in app_js
+    assert 'var LIST_RPC = "get_properties_list";' in app_js and 'LIST_RPC = "get_properties";' in app_js
 
 
 # ==================== B: CSV field reconciliation against 005's live contract ====================

@@ -2491,3 +2491,39 @@ Full description: `docs/investor-conversion.md`. Stable facts:
 - **Saved properties:** the existing watchlist renders `savedAcquisitionHtml()` under each Available card (method, amount, form, official links, plus `data-action="openacq"`). There is no second list.
 - **Links carry `data-acq-link`** (form / instructions / source) for the funnel events. Every visible Available source must have a terms row (test-pinned).
 - `sw.js` -> `tdw-shell-v83`.
+
+## Independent ledger loading + list payload (2026-10-05, PR open, migration 028 NOT applied)
+
+Full description: `docs/property-list-performance.md`. Stable facts:
+- **The List paints from the active ledger's first page.**
+  `fetchProperties(activeKey, onUpdate)` returns `{ready, done}`, and
+  `loadAll()` awaits `ready` plus the small per-user reads only. Other
+  ledgers, the auction-outcome index and the watchlist diff arrive in the
+  background (`scheduleLedgerUpdate`, coalesced; counts-only while another
+  ledger is on screen).
+- **Per-ledger load state:** `LEDGER_LOAD[k]` moves idle / loading / partial
+  / done / error.
+  - A ledger still loading is never called empty. It shows `…` counts and
+    `data-ledger-loading`.
+  - A settled empty one starts with `LEDGER_EMPTY_HEAD`
+    (`data-ledger-empty`).
+  - "No properties currently available for this state" appears only when
+    every ledger is settled.
+- **List payload:** the List reads `get_properties_list()` (migration 028)
+  and falls back to `get_properties()` on PGRST202.
+  - List rows carry `provenance_scope: 'list'`.
+  - `field_provenance` is reduced to the review markers.
+  - `otc_provenance` drops only `purchase_instructions` and the ArcGIS
+    internals; `acquisitionProvenance()` refills the instructions from the
+    identical county record.
+  - `openDetail` / `selectProperty` call `ensureFullProvenance(p)`
+    (`get_property_provenance`, once per property).
+- **Shared lists:** the stub's `LIST_OTC_DROPPED_KEYS` /
+  `LIST_REVIEW_SOURCE_IDS` must equal the SQL (a test pins them). Never read
+  a dropped key on a list surface.
+- **Stub knobs:**
+  - `?ledgerdelay=buy:ms` delays every page of that ledger;
+  - `?tabledelay=table:ms` delays one table read;
+  - `?nolistrpc=1` simulates 028 not being applied;
+  - `window.__stubRpcLog` and `__stubProvenanceCalls` count the calls.
+- `sw.js` -> `tdw-shell-v84`.
