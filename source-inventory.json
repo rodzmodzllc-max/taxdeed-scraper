@@ -5242,6 +5242,28 @@
   },
   {
    "access": "NOT_CHECKED",
+   "access_note": "columns not verified",
+   "county": "St. Louis City",
+   "evidence": "Coordinates only: the area-weighted centroid of the one parcel whose HANDLE equals the row's parcel id. Search-index evidence only; inert until the layer's fields and the HANDLE / ParcelId match are measured live.",
+   "governance": "REVIEW_REQUIRED",
+   "governance_reason": "no publication / reuse review recorded yet; licence: City of St. Louis open data - terms not yet reviewed for this product",
+   "last_checked": "",
+   "legacy_status": "UNREVIEWED",
+   "name": "GIS.ASR.PARCELS (public/PDA_ZONING MapServer layer 0)",
+   "next_action": "enrichment refused: layer columns not verified against the live source",
+   "origin": "parcel_config",
+   "publisher": "City of St. Louis (Assessor parcel GIS)",
+   "roles": [
+    "coordinates",
+    "identity"
+   ],
+   "source_id": "mo_stl_parcels_coordinates",
+   "source_type": "GIS",
+   "state": "MO",
+   "url": "https://www.stlouis-mo.gov/data/datasets/dataset.cfm?id=82"
+  },
+  {
+   "access": "NOT_CHECKED",
    "access_note": "not captured yet",
    "county": "St. Louis City",
    "evidence": "web search 2026-10-06",
@@ -8199,12 +8221,13 @@
   "MO": {
    "APPROVED": 2,
    "HARD_BLOCKED": 0,
-   "REVIEW_REQUIRED": 1,
+   "REVIEW_REQUIRED": 2,
    "by_type": {
     "DOCUMENT": 1,
+    "GIS": 1,
     "GOVERNMENT": 2
    },
-   "sources": 3
+   "sources": 4
   },
   "NATIONAL": {
    "APPROVED": 3,

@@ -2750,3 +2750,24 @@ Full description: `docs/acquisition-evidence-status.md`. Stable facts:
   Candidate links carry `data-acq-link="candidate"` and are always marked
   "not yet verified".
 - `sw.js` -> `tdw-shell-v96`.
+
+## Authoritative coordinates (2026-10-06, PR open, no migration)
+
+Full description: `docs/authoritative-coordinates.md`. Stable facts:
+- **Coordinate provenance.** `harvesters/sources/coordinates.py`
+  `coordinate_provenance()` returns the method (PARCEL_GIS / TAX_ROLL /
+  LAND_BANK_GIS / OFFICIAL_ADDRESS / OTHER_REVIEWED / VENDOR_LISTING /
+  DETERMINISTIC_GEOCODE / UNRECORDED) and the geometry (POINT /
+  PARCEL_CENTROID). app.js `coordinateProvenance()` mirrors it, pinned by
+  `coordinate_cases.json`.
+- **Matching and replacement.** Coordinates come only from a deterministic
+  match (`accept_match`), never from a nearby feature. `should_replace()`
+  never goes down the ranking or from authoritative to non-authoritative.
+  `field_provenance.RANK["census_geocoder"] = 0`.
+- **Geocoder.** `geocode_properties.py`: independent cities match only on
+  the Census NAME. `GEOCODE_SOURCE_ID` makes a run strict (house number +
+  street word, provenance written, counts-only log).
+- **Parcel coordinate layers.** These are inert configs
+  (`mo_stl_parcels_coordinates`) and `DEEP_TARGETS` with
+  `"purpose": "coordinates"` (MO / OK / PA / SC). Probe before use.
+- `sw.js` -> `tdw-shell-v97`.

@@ -49,6 +49,7 @@ RANK = {
     "county_gis": 2,       # a county-run parcel layer (Santa Rosa, Flagler)
     "statewide_parcel": 2, # a state's statewide parcel / assessment layer (harvesters/enrichment/parcels.py) - FDOR's peer
     "vendor_listing": 1,   # a vendor/counsel listing (LGBS, RealAuction)
+    "census_geocoder": 0,  # US Census Bureau address geocode (coordinates only): an address location, never a parcel location - any other source replaces it
 }
 UNKNOWN_RANK = 2  # a value with no entry: treated like a government source
 SOURCES = frozenset(RANK)

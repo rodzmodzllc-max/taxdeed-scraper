@@ -249,6 +249,18 @@ DEEP_TARGETS = [
      "url": "https://services3.arcgis.com/LbQai106UcFy2LlR/arcgis/rest/services/LibertyCADWebService/FeatureServer/0"},
     {"state": "TX", "county": "Goliad", "kind": "arcgis",
      "url": "https://services8.arcgis.com/WbC8UcChzGlcbEPR/arcgis/rest/services/GoliadCADWebService/FeatureServer/0"},
+    # Authoritative-coordinates sprint (2026-10-06): official parcel layers for
+    # the AVAILABLE populations with no coordinates. Found through the search
+    # index only; the metadata / probe passes read their own field lists and
+    # measure exact identifier matches (value-free) before any config may run.
+    {"state": "MO", "county": "St. Louis City", "kind": "arcgis", "purpose": "coordinates",
+     "url": "https://stlgis.stlouis-mo.gov/arcgis/rest/services/public/PDA_ZONING/MapServer/0"},
+    {"state": "OK", "county": "Oklahoma", "kind": "arcgis", "purpose": "coordinates",
+     "url": "https://services8.arcgis.com/euhkr1dAJeQBIjV0/arcgis/rest/services/TaxParcelsPublics_view/FeatureServer/0"},
+    {"state": "PA", "county": "Fayette", "kind": "arcgis", "purpose": "coordinates",
+     "url": "https://mapservices.pasda.psu.edu/server/rest/services/pasda/FayetteCounty/MapServer"},
+    {"state": "SC", "county": "Horry", "kind": "arcgis", "purpose": "coordinates",
+     "url": "https://www.horrycounty.org/gispublic/rest/services/Public/HorryCountyGIS/MapServer/24"},
 ]
 
 

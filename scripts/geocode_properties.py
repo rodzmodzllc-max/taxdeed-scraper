@@ -91,6 +91,20 @@ SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
 SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "")
 BATCH_LIMIT = int(os.environ.get("GEOCODE_BATCH_LIMIT", "250"))
 DRY_RUN = os.environ.get("GEOCODE_DRY_RUN", "").strip().lower() in ("1", "true", "yes")
+# Authoritative-coordinates sprint (2026-10-06): GEOCODE_SOURCE_ID scopes a run
+# to one AVAILABLE source (e.g. mo_stl_lra_inventory, whose list publishes a
+# street address but no coordinates). A scoped run is STRICT:
+#   - the Census match must also agree on the house number and street word
+#     (harvesters/sources/coordinates.address_agrees), never only on county;
+#   - each write carries field_provenance latitude / longitude entries
+#     (source census_geocoder, method DETERMINISTIC_GEOCODE - an address
+#     location, never presented as a parcel location), merged into the
+#     stored provenance;
+#   - the log prints counts only (job logs are public; no address is printed).
+# Unscoped runs keep their historic behaviour.
+SCOPE_SOURCE_ID = os.environ.get("GEOCODE_SOURCE_ID", "").strip()
+sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parents[1]))
+from harvesters.sources import coordinates as COORD  # noqa: E402
 REQUEST_DELAY_SECONDS = 0.4  # polite pacing against a free public API
 # The `geographies` flavour of the one-line endpoint returns the same
 # coordinates as `locations` PLUS the county the point falls in (under a
@@ -128,9 +142,13 @@ def _fetch(limit, address_conditions):
     row's `state` is SELECTED, so build_query() can use it, never assumed."""
     params = {
         "latitude": "is.null",
-        "select": "id,address,county,state",
+        "select": "id,address,county,state" + (",field_provenance" if SCOPE_SOURCE_ID else ""),
         "limit": str(limit),
     }
+    if SCOPE_SOURCE_ID:
+        params["source_id"] = f"eq.{SCOPE_SOURCE_ID}"
+        params["source"] = "eq.laft"
+        params["order"] = "id.asc"
     if address_conditions is None:
         params["address"] = "not.is.null"
     else:
@@ -219,11 +237,10 @@ def verify_match(match, state, county):
     counties = geographies.get("Counties") or []
     if not counties:
         return False, "unverifiable-county"
-    names = set()
-    for entry in counties:
-        base = entry.get("BASENAME") or re.sub(r"\s+county$", "", entry.get("NAME") or "", flags=re.IGNORECASE)
-        names.add(_norm(base))
-    if _norm(county) not in names:
+    # coordinates.county_matches: a county matches on its base name; an
+    # independent city ("St. Louis City") only on the Census NAME
+    # "St. Louis city" - never on St. Louis County, which shares the base name.
+    if not COORD.county_matches(county, counties):
         return False, "county-mismatch"
     return True, "verified"
 
@@ -251,6 +268,8 @@ def geocode_one(address, county, state):
     reason = "no-match"
     for match in matches:
         ok, reason = verify_match(match, state, county)
+        if ok and SCOPE_SOURCE_ID and not COORD.address_agrees(address, match.get("matchedAddress", "")):
+            ok, reason = False, "address-mismatch"
         if not ok:
             continue
         coords = match["coordinates"]
@@ -264,17 +283,28 @@ def geocode_one(address, county, state):
     return None, reason
 
 
-def patch_property(property_id, latitude, longitude):
-    """Writes ONLY latitude/longitude. State, county and every other column
-    stay exactly as the harvester left them - this step supplements a
-    missing coordinate, it never rewrites identity."""
+def _rowlog(msg, **kw):
+    """A per-row log line. Suppressed on a scoped (AVAILABLE) run: job logs
+    are public, so such a run prints counts only, never an address."""
+    if not SCOPE_SOURCE_ID:
+        print(msg, **kw)
+
+
+def patch_property(property_id, latitude, longitude, provenance=None):
+    """Writes ONLY latitude/longitude (plus, on a scoped run, the merged
+    field_provenance that records how they were obtained). State, county and
+    every other column stay exactly as the harvester left them - this step
+    supplements a missing coordinate, it never rewrites identity."""
     url = f"{SUPABASE_URL}/rest/v1/properties?id=eq.{property_id}"
     patch_headers = dict(HEADERS)
     patch_headers["Prefer"] = "return=minimal"
+    body = {"latitude": latitude, "longitude": longitude}
+    if provenance is not None:
+        body["field_provenance"] = provenance
     resp = requests.patch(
         url,
         headers=patch_headers,
-        json={"latitude": latitude, "longitude": longitude},
+        json=body,
         timeout=15,
     )
     resp.raise_for_status()
@@ -305,7 +335,7 @@ def main():
             # Never guess a state for a row that has none - a Florida
             # default here is exactly the defect this rewrite removes.
             counts["skipped-no-state"] += 1
-            print(f"  [{i}/{len(rows)}] skipped (row has no state): {address!r} / {county}")
+            _rowlog(f"  [{i}/{len(rows)}] skipped (row has no state): {address!r} / {county}")
             continue
         query = build_query(address, state)
         tally = per_state.setdefault(state, [0, 0])
@@ -314,26 +344,32 @@ def main():
             result, reason = geocode_one(address, county, state)
         except requests.RequestException as e:
             counts["errors"] += 1
-            print(f"  [{i}/{len(rows)}] ERROR geocoding {query!r}: {e}", file=sys.stderr)
+            _rowlog(f"  [{i}/{len(rows)}] ERROR geocoding {query!r}: {e}", file=sys.stderr)
             time.sleep(REQUEST_DELAY_SECONDS)
             continue
 
         if result is None:
             counts[reason] = counts.get(reason, 0) + 1
             if reason == "no-match":
-                print(f"  [{i}/{len(rows)}] no match: {query}")
+                _rowlog(f"  [{i}/{len(rows)}] no match: {query}")
             else:
-                print(f"  [{i}/{len(rows)}] rejected ({reason}, row county {county}): {query}")
+                _rowlog(f"  [{i}/{len(rows)}] rejected ({reason}, row county {county}): {query}")
         else:
             counts["verified"] += 1
             tally[0] += 1
-            print(f"  [{i}/{len(rows)}] verified ({county} County, {state}): {query} -> {result['matched_address']}")
+            _rowlog(f"  [{i}/{len(rows)}] verified ({county} County, {state}): {query} -> {result['matched_address']}")
             if not DRY_RUN:
+                prov = None
+                if SCOPE_SOURCE_ID:
+                    prov = dict(row.get("field_provenance") or {}) if isinstance(row.get("field_provenance"), dict) else {}
+                    entry = COORD.geocode_provenance_entry("census_matched_address")
+                    prov["latitude"] = dict(entry)
+                    prov["longitude"] = dict(entry)
                 try:
-                    patch_property(row["id"], result["latitude"], result["longitude"])
+                    patch_property(row["id"], result["latitude"], result["longitude"], prov)
                 except requests.RequestException as e:
                     counts["errors"] += 1
-                    print(f"  [{i}/{len(rows)}] ERROR saving coordinates for {row['id']}: {e}", file=sys.stderr)
+                    _rowlog(f"  [{i}/{len(rows)}] ERROR saving coordinates for {row['id']}: {e}", file=sys.stderr)
 
         time.sleep(REQUEST_DELAY_SECONDS)
 

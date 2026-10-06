@@ -4185,6 +4185,30 @@ await navMap.close();
     }
     results.financialPositionStates = states;
   }
+  // ---- Authoritative coordinates: provenance in GIS & Location (2026-10-06) ----
+  {
+    const cv = JSON.parse(fs.readFileSync(new URL('./python/fixtures/coordinate_cases.json', import.meta.url), 'utf8'));
+    const co = {};
+    for (const [st, id] of [['mn', 'pmn1'], ['la', 'pla1'], ['mo', 'pmo1']]) {
+      const pg = await newPage({ viewport: { width: 1280, height: 900 } });
+      pg.on('pageerror', e => errors.push('coord pageerror: ' + e.message));
+      await pg.goto(BASE_URL.replace(/index\.html$/, st + '.html') + '?profile=admin#/lands/' + id, { waitUntil: 'networkidle' });
+      await pg.waitForTimeout(500);
+      if (st === 'mn') results.coordVectors = await pg.evaluate(v => v.provenance.filter(c => {
+        const r = window.__tdwCoordinates.coordinateProvenance(c.row);
+        return r.method !== c.method || r.geometry !== c.geometry || r.authoritative !== c.authoritative;
+      }).map(c => c.name), cv);
+      co[st] = await pg.evaluate(() => {
+        const m = document.querySelector('#detailModal:not([hidden]) [data-section="map"]');
+        if (!m) return null;
+        const row = k => { const l = [...m.querySelectorAll('.kv-label')].find(x => x.textContent === k); return l ? l.nextElementSibling.textContent.trim() : null; };
+        const r = m.querySelector('[data-coord-method]');
+        return { method: r ? r.dataset.coordMethod : null, source: row('Coordinate source'), type: row('Location type') };
+      });
+      await pg.close();
+    }
+    results.coordGisRows = co;
+  }
   // ---- Acquisition-evidence status per unit (2026-10-06) ----
   {
     const ev = {};
@@ -5698,7 +5722,7 @@ const EXPECTED = {
   },
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: {"ready": true, "controlled": true, "tagline": "Public Property Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v96"]},
+  brandSwReload: {"ready": true, "controlled": true, "tagline": "Public Property Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v97"]},
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · TaxDeed-Scraper — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · TaxDeed-Scraper — Florida", floridaCopy: true },
@@ -6118,9 +6142,9 @@ const EXPECTED = {
   adminShellShown: true,
   adminIdentityText: 'Admin',
   adminShellShowsNoEmail: true,
-  adminSourcesRows: 356,
+  adminSourcesRows: 357,
   adminSourcesGovernanceKinds: 'APPROVED,HARD_BLOCKED,REVIEW_REQUIRED',
-  adminSourcesStatusText: '356 source(s): 230 approved, 111 review required, 15 hard blocked.',
+  adminSourcesStatusText: '357 source(s): 230 approved, 112 review required, 15 hard blocked.',
   adminSourcesReviewOnly: true,
   adminSourcesLgbsReason: true,
   adminSourcesLaOnly: true,
@@ -6863,6 +6887,8 @@ const EXPECTED = {
   acquisitionDocumentVectors: [],
   financialPositionStates: {"p15": {"money": true, "acqBasis": "not_published", "total": "none", "totalText": "Not published", "docs": ["INSTRUCTIONS", "FORM", "SOURCE_PAGE"], "order": true, "noScore": true}, "p3": {"money": true, "acqBasis": "partial", "total": "none", "totalText": "Not published", "docs": ["INSTRUCTIONS", "DOCUMENT", "SOURCE_PAGE"], "order": true, "noScore": true}, "ptx3": {"money": true, "acqBasis": "vendor", "total": "none", "totalText": "Not published", "docs": ["INSTRUCTIONS", "SOURCE_PAGE"], "order": true, "noScore": true}, "pla1": {"money": true, "acqBasis": "not_published", "total": "none", "totalText": "Not published", "docs": ["INSTRUCTIONS", "DOCUMENT", "SOURCE_PAGE"], "order": true, "noScore": true}, "pmi_dlba1": {"money": true, "acqBasis": "program_price", "total": "none", "totalText": "Not published", "docs": ["SOURCE_PAGE"], "order": true, "noScore": true}, "psc_horry1": {"money": true, "acqBasis": "partial", "total": "none", "totalText": "Not published", "docs": ["FORM", "SOURCE_PAGE"], "order": true, "noScore": true}},
   // Final visual refinement (2026-10-05).
+  coordVectors: [],
+  coordGisRows: {"mn": {"method": "PARCEL_GIS", "source": "Official parcel GIS layer", "type": "Point"}, "la": {"method": "OFFICIAL_ADDRESS", "source": "Location published by the source list", "type": "Point"}, "mo": {"method": "NONE", "source": "No authoritative coordinates available", "type": null}},
   acqEvidenceStatus: {"mo": {"status": "NEEDS_REVIEW", "authority": "Land Reutilization Authority (St. Louis Development Corporation)", "candidates": 2, "allMarked": true, "httpsOnly": true, "method": null}, "pa": {"status": "NEEDS_REVIEW", "authority": "Fayette County Tax Claim Bureau", "candidates": 3, "allMarked": true, "httpsOnly": true, "method": null}, "mn": {"status": "NEEDS_REVIEW", "authority": "Ramsey County Tax-Forfeited Land", "candidates": 2, "allMarked": true, "httpsOnly": true, "method": null}, "ok": {"status": null, "authority": null, "candidates": 0, "allMarked": true, "httpsOnly": true, "method": "Bid application required - purchase process not online"}},
   acqModeFilter: {"phone": ["p3"], "multi_step": ["p15"], "online": [], "unverified": []},
   acqModeChip: "Acquisition method: Phone the county",
