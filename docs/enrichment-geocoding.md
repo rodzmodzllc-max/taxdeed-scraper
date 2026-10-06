@@ -60,11 +60,44 @@ The same measurement covered the other fields. Coverage by ledger:
 FL "Value" is the assessed or just value. FDOR enrichment covers 983 of 1,351
 FL auction rows and 671 of 1,611 FL lien rows.
 
-County-level counts come from `scripts/enrichment_audit.py`, which runs as the
-first step of the `geocode` workflow job and writes
-`out/public/enrichment-audit.json` (counts only). A county breakdown was not
-pulled into this document: a further production query was declined during the
-sprint.
+### County breakdown (production, read-only, 2026-10-06)
+
+A second read-only query split the same records into 126 state × county ×
+ledger units. The units sum exactly to the table above. The counts are stored
+in `data/market_audit_snapshot.json` (`county_units`, PR C).
+`scripts/enrichment_audit.py` produces the same split from the `geocode` job
+(`out/public/enrichment-audit.json`).
+
+1,062 FL / CO records have no coordinates, spread over 38 county × ledger
+units. They are the geocoder's `MISSING` candidates. The largest:
+
+| County | Ledger | Active | Without coordinates | Parcel id present |
+|---|---|---:|---:|---:|
+| FL Santa Rosa | Liens | 480 | 333 | 480 |
+| FL Volusia | Liens | 228 | 226 | 228 |
+| FL Hillsborough | Auctions | 125 | 87 | 125 |
+| FL Hillsborough | Liens | 82 | 76 | 82 |
+| FL Walton | Liens | 42 | 39 | 42 |
+| FL Lee | Auctions | 113 | 36 | 113 |
+| CO Douglas | Liens | 141 | 27 | 141 |
+| FL Hernando | Liens | 25 | 25 | 25 |
+| FL Hernando | Auctions | 25 | 22 | **0** |
+| FL Alachua | Liens | 100 | 21 | 100 |
+| FL Pinellas | Auctions | 23 | 19 | 23 |
+| FL Lake | Auctions | 20 | 18 | 20 |
+| FL Brevard | Auctions | 27 | 16 | 27 |
+| FL Citrus | Auctions | 22 | 16 | **0** |
+
+Two notes on these counts:
+
+* **No identifier.** Citrus and Hernando auction records carry no parcel
+  identifier: their sale lists publish a case number only. With one Escambia
+  Available record, that makes 39 records without coordinates that plan as
+  `NO_IDENTIFIER`. The geocoder never attaches a point to them by address or
+  by neighbour.
+* **Missing provenance.** 1,135 of 1,351 FL auction records, 1,586 of 1,611
+  FL lien records and 122 of 122 TX auction records have an empty
+  `field_provenance`. Their coordinates are counted as "unrecorded" above.
 
 ## 2. Enrichment priority (`harvesters/enrichment/priority.py`)
 
@@ -166,7 +199,8 @@ counts above:
 
 | Population | Class | Records |
 |---|---|---:|
-| FL rows without coordinates | `MISSING` (FDOR / Santa Rosa) | 1,035 (247 auction, 16 Available, 772 lien) |
+| FL rows without coordinates and with a parcel id | `MISSING` (FDOR / Santa Rosa) | 996 |
+| FL rows without coordinates and without a parcel id (Citrus 16 and Hernando 22 auction, Escambia 1 Available) | `NO_IDENTIFIER` | 39 |
 | CO lien rows without coordinates | `MISSING` (CO OIT) | 27 |
 | FL rows with unrecorded coordinates | `UPGRADE_NOT_REQUESTED` (`UPGRADE` with `--allow-upgrade`) | 1,868 |
 | MO St. Louis | `SOURCE_NOT_APPROVED` | 9,758 |
