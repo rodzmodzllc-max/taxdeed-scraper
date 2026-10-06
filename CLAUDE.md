@@ -2919,3 +2919,27 @@ Full description: `docs/enrichment-geocoding.md`. Stable facts:
   never as if no image was tried. A provider snapshot after a failure is `data-imagery="provider_static"`.
 - **Imagery follows coordinates:** `scripts/geocode_authoritative.py` writes coordinates, and the live
   NAIP view then appears with no stored image. `sw.js` → `tdw-shell-v106`.
+
+## Market measurement and test-market shortlist (2026-10-06, PR open, no migration)
+
+Full description: `docs/market-testing.md`; generated shortlist: `docs/market-test-report.md`. Stable facts:
+- **`harvesters/sources/market_metrics.py`**: a market is one state × ledger. There is no score.
+  Tiers:
+  - HELD: no customer-visible record;
+  - NOT_CURRENT: a finished sale;
+  - FOCUS: identity ≥95%, coordinates ≥75%, published path ≥80%, and no freshness /
+    dated-list / source-review caveat;
+  - BROWSE: everything else, with the failed rules named.
+
+  The published path is the sale URL for auctions, the certificate sale page or acquisition
+  evidence for liens, and verified acquisition evidence only for Available. Size never
+  promotes a market past a failed rule. HELD markets are listed, never dropped.
+- **Inputs:**
+  - `data/market_audit_snapshot.json`: counts only, read-only 2026-10-06; re-measure with
+    `job=geocode` plan;
+  - `data/market_caveats.csv`: documented facts, each with its evidence;
+  - `public/acquisition-evidence.json`.
+- **Builder:** `scripts/build_market_report.py` (`--check`, test-pinned) writes the report and
+  `data/market_test_counties.csv`, which is enrichment rule P5's county list. Rebuild after
+  editing any input.
+- No market is activated by being on a list.

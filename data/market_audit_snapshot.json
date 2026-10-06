@@ -1,0 +1,435 @@
+{
+ "_comment": "Counts only, measured read-only in production on 2026-10-06 over records with status active / available. visible = publication_status NULL or APPROVED / APPROVED_GRANDFATHERED (the enforced customer view; the Detroit customer subset is not applied here). County-level splits come from scripts/enrichment_audit.py (job=geocode). auction_url counts url_auction, which Available sources also use for their official list page.",
+ "measured_on": "2026-10-06",
+ "units": [
+  {
+   "state": "CO",
+   "ledger": "LIEN",
+   "counties": 2,
+   "active": 144,
+   "visible": 144,
+   "coordinates": 117,
+   "authoritative_coordinates": 117,
+   "parcel": 144,
+   "legal_description": 117,
+   "assessed_value": 114,
+   "taxable_value": 114,
+   "acreage": 114,
+   "land_use": 114,
+   "owner_name": 117,
+   "fdor_enriched": 0,
+   "acquisition_evidence": 144,
+   "purchase_url": 141,
+   "auction_url": 144,
+   "stored_imagery": 87,
+   "county_names": [
+    "Douglas",
+    "Morgan"
+   ],
+   "sources": [
+    "Douglas County county-held tax liens (CC BY-SA 4.0)",
+    "Morgan County certificate list"
+   ]
+  },
+  {
+   "state": "FL",
+   "ledger": "AUCTION",
+   "counties": 41,
+   "active": 1351,
+   "visible": 1351,
+   "coordinates": 1104,
+   "authoritative_coordinates": 189,
+   "parcel": 1304,
+   "legal_description": 983,
+   "assessed_value": 1243,
+   "taxable_value": 916,
+   "acreage": 899,
+   "land_use": 979,
+   "owner_name": 983,
+   "fdor_enriched": 983,
+   "acquisition_evidence": 0,
+   "purchase_url": 0,
+   "auction_url": 1351,
+   "stored_imagery": 1104,
+   "county_names": [],
+   "sources": [
+    "County RealAuction / RealTaxDeed tax-deed sale sites (46 counties registered)"
+   ]
+  },
+  {
+   "state": "FL",
+   "ledger": "AVAILABLE",
+   "counties": 25,
+   "active": 158,
+   "visible": 158,
+   "coordinates": 142,
+   "authoritative_coordinates": 3,
+   "parcel": 157,
+   "legal_description": 143,
+   "assessed_value": 142,
+   "taxable_value": 126,
+   "acreage": 140,
+   "land_use": 142,
+   "owner_name": 147,
+   "fdor_enriched": 142,
+   "acquisition_evidence": 44,
+   "purchase_url": 0,
+   "auction_url": 158,
+   "stored_imagery": 142,
+   "county_names": [],
+   "sources": [
+    "County clerks' Lands Available for Taxes lists (PDF / HTML / RealTDM)"
+   ]
+  },
+  {
+   "state": "FL",
+   "ledger": "LIEN",
+   "counties": 25,
+   "active": 1611,
+   "visible": 1611,
+   "coordinates": 839,
+   "authoritative_coordinates": 25,
+   "parcel": 1611,
+   "legal_description": 524,
+   "assessed_value": 1611,
+   "taxable_value": 515,
+   "acreage": 670,
+   "land_use": 515,
+   "owner_name": 1611,
+   "fdor_enriched": 671,
+   "acquisition_evidence": 0,
+   "purchase_url": 0,
+   "auction_url": 1611,
+   "stored_imagery": 837,
+   "county_names": [],
+   "sources": [
+    "LienHub tax-certificate sales (32 counties registered)"
+   ]
+  },
+  {
+   "state": "LA",
+   "ledger": "AVAILABLE",
+   "counties": 1,
+   "active": 10334,
+   "visible": 10334,
+   "coordinates": 10334,
+   "authoritative_coordinates": 10334,
+   "parcel": 10334,
+   "legal_description": 8351,
+   "assessed_value": 10334,
+   "taxable_value": 5739,
+   "acreage": 0,
+   "land_use": 5999,
+   "owner_name": 10286,
+   "fdor_enriched": 0,
+   "acquisition_evidence": 10334,
+   "purchase_url": 10334,
+   "auction_url": 10334,
+   "stored_imagery": 2183,
+   "county_names": [
+    "East Baton Rouge"
+   ],
+   "sources": [
+    "East Baton Rouge Parish open-data adjudicated property list (Public Domain)"
+   ]
+  },
+  {
+   "state": "MI",
+   "ledger": "AUCTION",
+   "counties": 2,
+   "active": 38,
+   "visible": 38,
+   "coordinates": 38,
+   "authoritative_coordinates": 38,
+   "parcel": 38,
+   "legal_description": 38,
+   "assessed_value": 3,
+   "taxable_value": 3,
+   "acreage": 38,
+   "land_use": 2,
+   "owner_name": 0,
+   "fdor_enriched": 0,
+   "acquisition_evidence": 38,
+   "purchase_url": 35,
+   "auction_url": 38,
+   "stored_imagery": 38,
+   "county_names": [
+    "Eaton",
+    "Lenawee"
+   ],
+   "sources": [
+    "Eaton County Treasurer sale",
+    "Lenawee County tax sale"
+   ]
+  },
+  {
+   "state": "MI",
+   "ledger": "AVAILABLE",
+   "counties": 2,
+   "active": 30783,
+   "visible": 0,
+   "coordinates": 30779,
+   "authoritative_coordinates": 30778,
+   "parcel": 30783,
+   "legal_description": 0,
+   "assessed_value": 0,
+   "taxable_value": 0,
+   "acreage": 0,
+   "land_use": 0,
+   "owner_name": 0,
+   "fdor_enriched": 0,
+   "acquisition_evidence": 5,
+   "purchase_url": 5,
+   "auction_url": 30783,
+   "stored_imagery": 206,
+   "county_names": [
+    "Wayne",
+    "Oceana"
+   ],
+   "sources": [
+    "Detroit Land Bank Authority lots and programs",
+    "Oceana County Land Bank"
+   ]
+  },
+  {
+   "state": "MN",
+   "ledger": "AVAILABLE",
+   "counties": 1,
+   "active": 2,
+   "visible": 0,
+   "coordinates": 2,
+   "authoritative_coordinates": 2,
+   "parcel": 2,
+   "legal_description": 2,
+   "assessed_value": 0,
+   "taxable_value": 0,
+   "acreage": 0,
+   "land_use": 0,
+   "owner_name": 0,
+   "fdor_enriched": 0,
+   "acquisition_evidence": 0,
+   "purchase_url": 0,
+   "auction_url": 2,
+   "stored_imagery": 2,
+   "county_names": [
+    "Ramsey"
+   ],
+   "sources": [
+    "Ramsey County tax-forfeited land layer"
+   ]
+  },
+  {
+   "state": "MO",
+   "ledger": "AVAILABLE",
+   "counties": 1,
+   "active": 9758,
+   "visible": 0,
+   "coordinates": 0,
+   "authoritative_coordinates": 0,
+   "parcel": 9758,
+   "legal_description": 9758,
+   "assessed_value": 0,
+   "taxable_value": 0,
+   "acreage": 0,
+   "land_use": 9380,
+   "owner_name": 0,
+   "fdor_enriched": 0,
+   "acquisition_evidence": 0,
+   "purchase_url": 0,
+   "auction_url": 9758,
+   "stored_imagery": 0,
+   "county_names": [
+    "St. Louis City"
+   ],
+   "sources": [
+    "St. Louis Land Reutilization Authority (LRA) CSV"
+   ]
+  },
+  {
+   "state": "OK",
+   "ledger": "AVAILABLE",
+   "counties": 1,
+   "active": 195,
+   "visible": 0,
+   "coordinates": 0,
+   "authoritative_coordinates": 0,
+   "parcel": 195,
+   "legal_description": 195,
+   "assessed_value": 0,
+   "taxable_value": 0,
+   "acreage": 0,
+   "land_use": 0,
+   "owner_name": 0,
+   "fdor_enriched": 0,
+   "acquisition_evidence": 195,
+   "purchase_url": 195,
+   "auction_url": 195,
+   "stored_imagery": 0,
+   "county_names": [
+    "Oklahoma"
+   ],
+   "sources": [
+    "Oklahoma County county-owned property list"
+   ]
+  },
+  {
+   "state": "PA",
+   "ledger": "AVAILABLE",
+   "counties": 1,
+   "active": 376,
+   "visible": 0,
+   "coordinates": 0,
+   "authoritative_coordinates": 0,
+   "parcel": 376,
+   "legal_description": 376,
+   "assessed_value": 0,
+   "taxable_value": 0,
+   "acreage": 0,
+   "land_use": 0,
+   "owner_name": 0,
+   "fdor_enriched": 0,
+   "acquisition_evidence": 0,
+   "purchase_url": 0,
+   "auction_url": 376,
+   "stored_imagery": 0,
+   "county_names": [
+    "Fayette"
+   ],
+   "sources": [
+    "Fayette County repository list (PDF)"
+   ]
+  },
+  {
+   "state": "SC",
+   "ledger": "AUCTION",
+   "counties": 1,
+   "active": 853,
+   "visible": 853,
+   "coordinates": 853,
+   "authoritative_coordinates": 853,
+   "parcel": 853,
+   "legal_description": 852,
+   "assessed_value": 852,
+   "taxable_value": 852,
+   "acreage": 813,
+   "land_use": 853,
+   "owner_name": 853,
+   "fdor_enriched": 0,
+   "acquisition_evidence": 853,
+   "purchase_url": 0,
+   "auction_url": 853,
+   "stored_imagery": 324,
+   "county_names": [
+    "York"
+   ],
+   "sources": [
+    "York County tax sale list"
+   ]
+  },
+  {
+   "state": "SC",
+   "ledger": "AVAILABLE",
+   "counties": 2,
+   "active": 52,
+   "visible": 0,
+   "coordinates": 0,
+   "authoritative_coordinates": 0,
+   "parcel": 52,
+   "legal_description": 52,
+   "assessed_value": 0,
+   "taxable_value": 0,
+   "acreage": 0,
+   "land_use": 0,
+   "owner_name": 0,
+   "fdor_enriched": 0,
+   "acquisition_evidence": 52,
+   "purchase_url": 52,
+   "auction_url": 52,
+   "stored_imagery": 0,
+   "county_names": [
+    "Georgetown",
+    "Horry"
+   ],
+   "sources": [
+    "Georgetown / Horry Forfeited Land Commission lists"
+   ]
+  },
+  {
+   "state": "TX",
+   "ledger": "AUCTION",
+   "counties": 12,
+   "active": 122,
+   "visible": 122,
+   "coordinates": 82,
+   "authoritative_coordinates": 0,
+   "parcel": 122,
+   "legal_description": 10,
+   "assessed_value": 122,
+   "taxable_value": 0,
+   "acreage": 0,
+   "land_use": 0,
+   "owner_name": 0,
+   "fdor_enriched": 0,
+   "acquisition_evidence": 0,
+   "purchase_url": 0,
+   "auction_url": 103,
+   "stored_imagery": 82,
+   "county_names": [],
+   "sources": [
+    "Texas RealAuction county sale sites (manual-only)"
+   ]
+  },
+  {
+   "state": "TX",
+   "ledger": "AVAILABLE",
+   "counties": 8,
+   "active": 421,
+   "visible": 421,
+   "coordinates": 421,
+   "authoritative_coordinates": 0,
+   "parcel": 421,
+   "legal_description": 236,
+   "assessed_value": 421,
+   "taxable_value": 0,
+   "acreage": 0,
+   "land_use": 0,
+   "owner_name": 0,
+   "fdor_enriched": 0,
+   "acquisition_evidence": 183,
+   "purchase_url": 183,
+   "auction_url": 0,
+   "stored_imagery": 421,
+   "county_names": [],
+   "sources": [
+    "LGBS struck-off listing (vendor; REVIEW_REQUIRED; manual-only)"
+   ]
+  },
+  {
+   "state": "WY",
+   "ledger": "AUCTION",
+   "counties": 1,
+   "active": 253,
+   "visible": 253,
+   "coordinates": 253,
+   "authoritative_coordinates": 253,
+   "parcel": 253,
+   "legal_description": 253,
+   "assessed_value": 253,
+   "taxable_value": 0,
+   "acreage": 245,
+   "land_use": 0,
+   "owner_name": 253,
+   "fdor_enriched": 0,
+   "acquisition_evidence": 0,
+   "purchase_url": 0,
+   "auction_url": 253,
+   "stored_imagery": 253,
+   "county_names": [
+    "Albany"
+   ],
+   "sources": [
+    "Albany County tax sale list"
+   ]
+  }
+ ]
+}
