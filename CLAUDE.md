@@ -2731,3 +2731,22 @@ Full description: `docs/available-workflow-map.md`. Stable facts:
   from `acquisitionOf(p)`. Available rows only. It is not in the saved-search
   vocabulary.
 - `sw.js` -> `tdw-shell-v95`.
+
+## Acquisition evidence status (2026-10-06, PR open, no migration)
+
+Full description: `docs/acquisition-evidence-status.md`. Stable facts:
+- **One status per AVAILABLE unit:** `harvesters/sources/acquisition_evidence_status.py`
+  gives each (state, source, county) VERIFIED / NEEDS_REVIEW / UNAVAILABLE /
+  NOT_FOUND, generated into `public/acquisition-evidence.json` `"status"`.
+- **Where VERIFIED comes from:** only the evidence tables or a
+  PRODUCTION_VERIFIED registry purchase document. Outcomes
+  (`data/acquisition_evidence_outcomes.csv`) can never say VERIFIED, and a
+  capture outcome must cite its run id.
+- **Candidate pages:** `data/acquisition_candidate_pages.csv` gained
+  `source_id` / `doc_kind`. After editing it, rebuild county-intelligence /
+  source-inventory / acquisition-evidence.
+- **Frontend:** `acquisitionEvidenceStatus(p)`. The labels
+  (`ACQ_EVIDENCE_STATUS_LABELS`, `ACQ_DOC_KIND_LABELS`) are pinned to Python.
+  Candidate links carry `data-acq-link="candidate"` and are always marked
+  "not yet verified".
+- `sw.js` -> `tdw-shell-v96`.

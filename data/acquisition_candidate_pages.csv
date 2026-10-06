@@ -1,45 +1,54 @@
-state,county,url,found_via,note
-FL,Hillsborough,https://www.hillsclerk.com/taxdeeds,web search 2026-10-01,Clerk Tax Deed Sales page; Lands Available purchase after 90 days
-FL,Escambia,https://www.escambiaclerk.com/m/faq?cat=53,web search 2026-10-01,Clerk FAQ (tax deeds): e-mail for a Lands Available quote
-FL,Escambia,https://www.escambiaclerk.com/362/Tax-Deeds,web search 2026-10-01,Clerk Tax Deeds page
-FL,Indian River,https://indianriverclerk.com/land-available-for-taxes/,web search 2026-10-01,Clerk Land Available for Taxes page (also the source list)
-FL,Indian River,https://indianriverclerk.com/recording-services/tax-deed-faqs/,web search 2026-10-01,Clerk Tax Deed FAQ
-FL,Putnam,https://putnamclerk.com/tax-deed-sales/,web search 2026-10-01,Clerk Tax Deed Sales page
-FL,Putnam,https://putnamtax.com/faq/specific-tax-deed-information/,web search 2026-10-01,Tax Collector tax-deed FAQ
-FL,Osceola,https://osceolaclerk.com/tax-deeds/,web search 2026-10-01,Clerk Tax Deed Records & Sales page; Lands Available purchase
-FL,Hendry,https://www.hendryclerk.org/tax-deeds/,web search 2026-10-01,Clerk Tax Deeds page
-FL,Hendry,https://www.hendryclerk.org/clerk-services/property-sales/,web search 2026-10-01,Clerk Property Sales page
-FL,Bay,https://www.baycoclerk.com/public-records/property-sales/tax-deed-auctions/,web search 2026-10-01,Clerk Tax Deed Auctions page
-FL,Duval,https://www.duvalclerk.gov/getmedia/0c909a7f-583d-49c0-b5d3-da5c2cbe5ad0/392460_3_LANDS-AVAILABLE-FAQ-New.pdf,web search 2026-10-01,Clerk Lands Available for Taxes FAQ (PDF)
-FL,Duval,https://www.duvalclerk.gov/getmedia/da81e285-996b-479c-b957-872955605fb8/392460_2_Land-s-Available-Request-Form.pdf,web search 2026-10-01,Clerk Lands Available request form (PDF)
-FL,Duval,https://www2.duvalclerk.com/departments/tax-deeds/,web search 2026-10-01,Clerk Tax Deeds page
-FL,Palm Beach,https://www.mypalmbeachclerk.com/about-us/frequently-asked-questions-faq/tax-deed-sales-faq,web search 2026-10-01,Clerk Tax Deed Sales FAQ; Request for Lands Available form
-FL,Palm Beach,https://www.mypalmbeachclerk.com/services/forms-library/forms-a-z,web search 2026-10-01,Clerk forms library (Request for Lands Available For Taxes Information)
-FL,Alachua,https://www.alachuaclerk.org/civil/taxlands.cfm,web search 2026-10-01,Clerk List of Lands Available page
-FL,Alachua,https://alachuacounty.us/Depts/Clerk/TaxDeeds/Pages/TaxDeedSales.aspx,web search 2026-10-01,Clerk Tax Deed Sales page
-FL,Highlands,https://www.highlandsclerkfl.gov/clerk_to_the_board/tax_deeds/lands_available.php,web search 2026-10-01,Clerk Lands Available page; purchase from the Clerk after 90 days
-FL,Lee,https://www.leeclerk.org/departments/courts/property-sales/tax-deed-sales,web search 2026-10-01,Clerk Tax Deeds page
-FL,Lee,https://www.leeclerk.org/i-want-to/ask/frequently-asked-questions/tax-deed-sales,web search 2026-10-01,Clerk Tax Deed Sales FAQ
-FL,Miami-Dade,https://www.miamidadeclerk.gov/clerk/property-tax-deeds.page,web search 2026-10-01,Clerk Property Tax Deeds page
-FL,Polk,https://www.polkclerkfl.gov/189/Tax-Deeds,web search 2026-10-01,Clerk Tax Deeds page
-FL,Sarasota,https://www.sarasotaclerk.com/Home-and-Property/Tax-Deeds/List-of-Lands-Available,web search 2026-10-01,Clerk List of Lands Available page; first-come first-served; e-mail for cost
-FL,St. Lucie,https://stlucieclerk.gov/faqs2/online-auctions-faqs,web search 2026-10-01,Clerk Online Auctions FAQ; Lands Available by phone
-TX,Galveston,https://www.galvestoncountytx.gov/our-county/tax-assessor-collector/property-tax/sheriff-sale-information,web search 2026-10-01,Tax Assessor-Collector Sheriff Sale Information; struck-off property re-auctioned at future Sheriff Sales
-TX,Galveston,https://sheriff.galvestoncountytx.gov/Forms/Sale/sheriff_sale_rules.pdf,web search 2026-10-01,Sheriff sale rules (PDF); resale committees
-TX,Galveston,https://sheriff.galvestoncountytx.gov/Forms/Sale/Sheriff_Sale_Procedures.pdf,web search 2026-10-01,Sheriff sales information & procedures (PDF)
-TX,Liberty,https://www.co.liberty.tx.us/page/liberty.foreclosures,web search 2026-10-01,County foreclosure & trustee sale notices
-TX,Liberty,https://notices.libertycountytx.com/auctions,web search 2026-10-01,County notices site - auctions (domain unconfirmed)
-TX,Leon,https://comptroller.texas.gov/taxes/property-tax/county-directory/leon.php,web search 2026-10-01,Texas Comptroller county directory - Leon tax assessor-collector contact
-TX,Leon,https://www.co.leon.tx.us/upload/page/4935/docs/TAC/Oct%202020%20Tax%20Sale.pdf,web search 2026-10-01,County tax sale notice 2020 (resale under 34.05) - dated example only
-TX,Maverick,https://www.maverickcad.org/,web search 2026-10-01,Maverick CAD home (contact only)
-TX,Jim Wells,https://www.cityofalice.org/government/departments/finance/property_tax_sales.php,web search 2026-10-01,City of Alice Property Tax Sales page
-TX,Jim Wells,https://www.co.jim-wells.tx.us/page/co.county.clerk.forclosure,web search 2026-10-01,County Clerk notice of foreclosure sale
-TX,Hardin,https://www.co.hardin.tx.us/page/hardin.foreclosuresales,web search 2026-10-01,County foreclosure sales page
-TX,Hardin,https://newtools.cira.state.tx.us/upload/page/10643/Agenda%20Documents/11-12-2024/Resolution%2031-24%20Public%20Sale%20of%20Properties.pdf,web search 2026-10-01,Commissioners court resolution - sheriff resale of struck-off property
-TX,Van Zandt,https://www.vanzandtcounty.org/page/vanzandt.County.Assessor.Collector,web search 2026-10-01,Tax Assessor-Collector page; public and private resales of struck-off property
-TX,Van Zandt,https://www.vanzandtcounty.org/upload/page/2685/2022/County%20Tax%20Assessor%20Website%20update%209.1.22.pdf,web search 2026-10-01,Tax Assessor-Collector website update (PDF)
-TX,Goliad,https://www.co.goliad.tx.us/page/goliad.county.assessor.collector,web search 2026-10-01,Tax Assessor-Collector page (contact)
-LA,East Baton Rouge,https://www.brla.gov/450/Parish-Attorneys-Office,web search 2026-10-01,Parish Attorney's Office department page (office address / phone for the adjudicated-property process)
-LA,East Baton Rouge,https://www.brla.gov/455/Adjudicated-Property,web search 2026-10-01,Parish Attorney Adjudicated Property page (process and forms)
-LA,East Baton Rouge,https://www.brla.gov/DocumentCenter/View/795/Adjudicated-Memo-PDF,web search 2026-10-01,Parish Attorney Property Division memorandum on purchasing adjudicated property (PDF)
-LA,East Baton Rouge,https://www.brla.gov/DocumentCenter/View/9351/REQUEST-TO-PURCHASE-ADJUDICATED-PROPERTY,web search 2026-10-01,Request to Purchase Adjudicated Property form (PDF)
+state,county,url,found_via,note,source_id,doc_kind
+FL,Hillsborough,https://www.hillsclerk.com/taxdeeds,web search 2026-10-01,Clerk Tax Deed Sales page; Lands Available purchase after 90 days,,
+FL,Escambia,https://www.escambiaclerk.com/m/faq?cat=53,web search 2026-10-01,Clerk FAQ (tax deeds): e-mail for a Lands Available quote,,
+FL,Escambia,https://www.escambiaclerk.com/362/Tax-Deeds,web search 2026-10-01,Clerk Tax Deeds page,,
+FL,Indian River,https://indianriverclerk.com/land-available-for-taxes/,web search 2026-10-01,Clerk Land Available for Taxes page (also the source list),,
+FL,Indian River,https://indianriverclerk.com/recording-services/tax-deed-faqs/,web search 2026-10-01,Clerk Tax Deed FAQ,,
+FL,Putnam,https://putnamclerk.com/tax-deed-sales/,web search 2026-10-01,Clerk Tax Deed Sales page,,
+FL,Putnam,https://putnamtax.com/faq/specific-tax-deed-information/,web search 2026-10-01,Tax Collector tax-deed FAQ,,
+FL,Osceola,https://osceolaclerk.com/tax-deeds/,web search 2026-10-01,Clerk Tax Deed Records & Sales page; Lands Available purchase,,
+FL,Hendry,https://www.hendryclerk.org/tax-deeds/,web search 2026-10-01,Clerk Tax Deeds page,,
+FL,Hendry,https://www.hendryclerk.org/clerk-services/property-sales/,web search 2026-10-01,Clerk Property Sales page,,
+FL,Bay,https://www.baycoclerk.com/public-records/property-sales/tax-deed-auctions/,web search 2026-10-01,Clerk Tax Deed Auctions page,,
+FL,Duval,https://www.duvalclerk.gov/getmedia/0c909a7f-583d-49c0-b5d3-da5c2cbe5ad0/392460_3_LANDS-AVAILABLE-FAQ-New.pdf,web search 2026-10-01,Clerk Lands Available for Taxes FAQ (PDF),,
+FL,Duval,https://www.duvalclerk.gov/getmedia/da81e285-996b-479c-b957-872955605fb8/392460_2_Land-s-Available-Request-Form.pdf,web search 2026-10-01,Clerk Lands Available request form (PDF),,
+FL,Duval,https://www2.duvalclerk.com/departments/tax-deeds/,web search 2026-10-01,Clerk Tax Deeds page,,
+FL,Palm Beach,https://www.mypalmbeachclerk.com/about-us/frequently-asked-questions-faq/tax-deed-sales-faq,web search 2026-10-01,Clerk Tax Deed Sales FAQ; Request for Lands Available form,,
+FL,Palm Beach,https://www.mypalmbeachclerk.com/services/forms-library/forms-a-z,web search 2026-10-01,Clerk forms library (Request for Lands Available For Taxes Information),,
+FL,Alachua,https://www.alachuaclerk.org/civil/taxlands.cfm,web search 2026-10-01,Clerk List of Lands Available page,,
+FL,Alachua,https://alachuacounty.us/Depts/Clerk/TaxDeeds/Pages/TaxDeedSales.aspx,web search 2026-10-01,Clerk Tax Deed Sales page,,
+FL,Highlands,https://www.highlandsclerkfl.gov/clerk_to_the_board/tax_deeds/lands_available.php,web search 2026-10-01,Clerk Lands Available page; purchase from the Clerk after 90 days,,
+FL,Lee,https://www.leeclerk.org/departments/courts/property-sales/tax-deed-sales,web search 2026-10-01,Clerk Tax Deeds page,,
+FL,Lee,https://www.leeclerk.org/i-want-to/ask/frequently-asked-questions/tax-deed-sales,web search 2026-10-01,Clerk Tax Deed Sales FAQ,,
+FL,Miami-Dade,https://www.miamidadeclerk.gov/clerk/property-tax-deeds.page,web search 2026-10-01,Clerk Property Tax Deeds page,,
+FL,Polk,https://www.polkclerkfl.gov/189/Tax-Deeds,web search 2026-10-01,Clerk Tax Deeds page,,
+FL,Sarasota,https://www.sarasotaclerk.com/Home-and-Property/Tax-Deeds/List-of-Lands-Available,web search 2026-10-01,Clerk List of Lands Available page; first-come first-served; e-mail for cost,,
+FL,St. Lucie,https://stlucieclerk.gov/faqs2/online-auctions-faqs,web search 2026-10-01,Clerk Online Auctions FAQ; Lands Available by phone,,
+TX,Galveston,https://www.galvestoncountytx.gov/our-county/tax-assessor-collector/property-tax/sheriff-sale-information,web search 2026-10-01,Tax Assessor-Collector Sheriff Sale Information; struck-off property re-auctioned at future Sheriff Sales,,
+TX,Galveston,https://sheriff.galvestoncountytx.gov/Forms/Sale/sheriff_sale_rules.pdf,web search 2026-10-01,Sheriff sale rules (PDF); resale committees,,
+TX,Galveston,https://sheriff.galvestoncountytx.gov/Forms/Sale/Sheriff_Sale_Procedures.pdf,web search 2026-10-01,Sheriff sales information & procedures (PDF),,
+TX,Liberty,https://www.co.liberty.tx.us/page/liberty.foreclosures,web search 2026-10-01,County foreclosure & trustee sale notices,,
+TX,Liberty,https://notices.libertycountytx.com/auctions,web search 2026-10-01,County notices site - auctions (domain unconfirmed),,
+TX,Leon,https://comptroller.texas.gov/taxes/property-tax/county-directory/leon.php,web search 2026-10-01,Texas Comptroller county directory - Leon tax assessor-collector contact,,
+TX,Leon,https://www.co.leon.tx.us/upload/page/4935/docs/TAC/Oct%202020%20Tax%20Sale.pdf,web search 2026-10-01,County tax sale notice 2020 (resale under 34.05) - dated example only,,
+TX,Maverick,https://www.maverickcad.org/,web search 2026-10-01,Maverick CAD home (contact only),,
+TX,Jim Wells,https://www.cityofalice.org/government/departments/finance/property_tax_sales.php,web search 2026-10-01,City of Alice Property Tax Sales page,,
+TX,Jim Wells,https://www.co.jim-wells.tx.us/page/co.county.clerk.forclosure,web search 2026-10-01,County Clerk notice of foreclosure sale,,
+TX,Hardin,https://www.co.hardin.tx.us/page/hardin.foreclosuresales,web search 2026-10-01,County foreclosure sales page,,
+TX,Hardin,https://newtools.cira.state.tx.us/upload/page/10643/Agenda%20Documents/11-12-2024/Resolution%2031-24%20Public%20Sale%20of%20Properties.pdf,web search 2026-10-01,Commissioners court resolution - sheriff resale of struck-off property,,
+TX,Van Zandt,https://www.vanzandtcounty.org/page/vanzandt.County.Assessor.Collector,web search 2026-10-01,Tax Assessor-Collector page; public and private resales of struck-off property,,
+TX,Van Zandt,https://www.vanzandtcounty.org/upload/page/2685/2022/County%20Tax%20Assessor%20Website%20update%209.1.22.pdf,web search 2026-10-01,Tax Assessor-Collector website update (PDF),,
+TX,Goliad,https://www.co.goliad.tx.us/page/goliad.county.assessor.collector,web search 2026-10-01,Tax Assessor-Collector page (contact),,
+LA,East Baton Rouge,https://www.brla.gov/450/Parish-Attorneys-Office,web search 2026-10-01,Parish Attorney's Office department page (office address / phone for the adjudicated-property process),,
+LA,East Baton Rouge,https://www.brla.gov/455/Adjudicated-Property,web search 2026-10-01,Parish Attorney Adjudicated Property page (process and forms),,
+LA,East Baton Rouge,https://www.brla.gov/DocumentCenter/View/795/Adjudicated-Memo-PDF,web search 2026-10-01,Parish Attorney Property Division memorandum on purchasing adjudicated property (PDF),,
+LA,East Baton Rouge,https://www.brla.gov/DocumentCenter/View/9351/REQUEST-TO-PURCHASE-ADJUDICATED-PROPERTY,web search 2026-10-01,Request to Purchase Adjudicated Property form (PDF),,
+MO,St. Louis City,https://www.lrastl.org/offer-to-purchase,web search 2026-10-06,"LRA Offer to Purchase: program choice, Offer Submission Checklist and Form, in-person submission by appointment",mo_stl_lra_inventory,PROCEDURE
+MO,St. Louis City,https://www.stlouis-mo.gov/government/property/purchase-city-owned-property.cfm,web search 2026-10-06,City of St. Louis: Purchase City-Owned Property (LRA),mo_stl_lra_inventory,INSTRUCTIONS
+PA,Fayette,https://www.fayettecountypa.org/930/Repository-Sale,web search 2026-10-06,Tax Claim Bureau Repository Sale page,pa_fayette_repository,PROCEDURE
+PA,Fayette,https://www.fayettecountypa.org/DocumentCenter/View/5600/repository-FAQ,web search 2026-10-06,"Tax Claim Bureau repository sale FAQ (sealed bid form, affidavit, certified funds)",pa_fayette_repository,INSTRUCTIONS
+PA,Fayette,https://www.fayettecountypa.org/269/Tax-Claim-Bureau,web search 2026-10-06,Tax Claim Bureau office page,pa_fayette_repository,CONTACT
+MN,Ramsey,https://www.ramseycountymn.gov/residents/property-home/taxes-values/productive-properties/tax-forfeited-public-sales/spring-2026-tax-forfeited-land-online-auction/over-counter-property-list,web search 2026-10-06,Over-the-Counter Property List: first-come first-served purchase after the auction,mn_ramsey_tax_forfeit,PROCEDURE
+MN,Ramsey,https://www.ramseycountymn.gov/residents/property-home/taxes-values/productive-properties/tax-forfeited-public-sales/spring-2026-tax-forfeited-land-online-auction/ramsey-county-tax-forfeited-land-online-sales-terms-conditions,web search 2026-10-06,Tax-forfeited land sale terms and conditions,mn_ramsey_tax_forfeit,INSTRUCTIONS
+MI,Wayne,https://buildingdetroit.org/purchase_property,web search 2026-10-06,Detroit Land Bank Authority: Purchase Property,,PROCEDURE
+MI,Wayne,https://buildingdetroit.org/land-reuse-programs,web search 2026-10-06,Detroit Land Bank Authority: Land Reuse Programs (side lots and neighborhood lots),mi_detroit_landbank_lots,INSTRUCTIONS

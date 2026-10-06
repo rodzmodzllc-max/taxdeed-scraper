@@ -4185,6 +4185,28 @@ await navMap.close();
     }
     results.financialPositionStates = states;
   }
+  // ---- Acquisition-evidence status per unit (2026-10-06) ----
+  {
+    const ev = {};
+    for (const [st, id] of [['mo', 'pmo1'], ['pa', 'ppa1'], ['mn', 'pmn1'], ['ok', 'pok1']]) {
+      const pg = await newPage({ viewport: { width: 1280, height: 900 } });
+      pg.on('pageerror', e => errors.push('acqev pageerror: ' + e.message));
+      await pg.goto(BASE_URL.replace(/index\.html$/, st + '.html') + '?profile=admin#/lands/' + id, { waitUntil: 'networkidle' });
+      await pg.waitForTimeout(500);
+      ev[st] = await pg.evaluate(() => {
+        const m = document.querySelector('#detailModal:not([hidden]) [data-section="acquire"]');
+        if (!m) return null;
+        const st = m.querySelector('.acq-ev-status');
+        const cands = [...m.querySelectorAll('[data-acq-link="candidate"]')];
+        const row = k => { const d = [...m.querySelectorAll('[data-acq-q="3"] dt')].find(x => x.textContent === k); return d ? d.nextElementSibling.textContent.trim() : null; };
+        return { status: st ? st.dataset.acqEvidence : null, authority: row('Acquisition authority'),
+          candidates: cands.length, allMarked: cands.every(a => a.parentElement.textContent.includes('not yet verified')),
+          httpsOnly: cands.every(a => a.href.startsWith('https://')), method: row('Method') };
+      });
+      await pg.close();
+    }
+    results.acqEvidenceStatus = ev;
+  }
   // ---- Acquisition method filter + Map uses the List's filters (2026-10-05) ----
   {
     const pg = await newPage({ viewport: { width: 1280, height: 900 } });
@@ -5676,7 +5698,7 @@ const EXPECTED = {
   },
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: {"ready": true, "controlled": true, "tagline": "Public Property Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v95"]},
+  brandSwReload: {"ready": true, "controlled": true, "tagline": "Public Property Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v96"]},
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · TaxDeed-Scraper — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · TaxDeed-Scraper — Florida", floridaCopy: true },
@@ -5725,13 +5747,13 @@ const EXPECTED = {
   monDashRuns: ['fl_realauction:812 observed / 14 new / 40 changed / 9 no longer listed', 'fl_laft_html:120 observed / 3 new / 5 changed / 2 no longer listed / 1 listed again'],
   acqWithheldLineCount: 0,
   acqP16State: 'none',
-  acqP16Rows: ['Acquisition path | Not yet verified', 'How to acquire | See the official source for current instructions.', 'Official availability source | Open official source →', 'Online purchase | No online purchase link on file'],
+  acqP16Rows: ['Acquisition path | Not yet verified', 'Evidence status | No official acquisition process foundCounty pages carry foreclosure notices only - no resale process (checked Oct 1, 2026)', 'Acquisition authority | County tax assessor-collector / taxing units', 'How to acquire | See the official source for current instructions.', 'Official availability source | Open official source →', 'Online purchase | No online purchase link on file'],
   acqP16SourceHref: 'https://taxsales.lgbs.com/',
   acqP16NoCta: 0,
   acqP16PendingNotError: true,
   acqP3Heads: ["What is this?", "What does the source say I need to pay?", "How do I acquire it?", "What form do I need?", "Where do I submit it?", "Who do I contact?", "What is the official source?"],
   acqP3Cta: 'Contact county to purchase | mailto:taxdeeds@bayclerk.example.gov',
-  acqP3Labels: ["Method", "Instructions", "Applies to", "By e-mail", "Handled by", "Phone", "Official source", "Official availability listing", "Last verified", "Online purchase", "Listing last read"],
+  acqP3Labels: ["Method", "Instructions", "Applies to", "By e-mail", "Handled by", "Phone", "Official source", "Official availability listing", "Last verified", "Acquisition authority", "Online purchase", "Listing last read"],
   acqP3Availability: 'View official availability → | https://x/list.pdf',
   acqP3FirstSection: 'acquire',
   acqP3NoScoreWords: true,
@@ -6096,9 +6118,9 @@ const EXPECTED = {
   adminShellShown: true,
   adminIdentityText: 'Admin',
   adminShellShowsNoEmail: true,
-  adminSourcesRows: 347,
+  adminSourcesRows: 356,
   adminSourcesGovernanceKinds: 'APPROVED,HARD_BLOCKED,REVIEW_REQUIRED',
-  adminSourcesStatusText: '347 source(s): 221 approved, 111 review required, 15 hard blocked.',
+  adminSourcesStatusText: '356 source(s): 230 approved, 111 review required, 15 hard blocked.',
   adminSourcesReviewOnly: true,
   adminSourcesLgbsReason: true,
   adminSourcesLaOnly: true,
@@ -6841,6 +6863,7 @@ const EXPECTED = {
   acquisitionDocumentVectors: [],
   financialPositionStates: {"p15": {"money": true, "acqBasis": "not_published", "total": "none", "totalText": "Not published", "docs": ["INSTRUCTIONS", "FORM", "SOURCE_PAGE"], "order": true, "noScore": true}, "p3": {"money": true, "acqBasis": "partial", "total": "none", "totalText": "Not published", "docs": ["INSTRUCTIONS", "DOCUMENT", "SOURCE_PAGE"], "order": true, "noScore": true}, "ptx3": {"money": true, "acqBasis": "vendor", "total": "none", "totalText": "Not published", "docs": ["INSTRUCTIONS", "SOURCE_PAGE"], "order": true, "noScore": true}, "pla1": {"money": true, "acqBasis": "not_published", "total": "none", "totalText": "Not published", "docs": ["INSTRUCTIONS", "DOCUMENT", "SOURCE_PAGE"], "order": true, "noScore": true}, "pmi_dlba1": {"money": true, "acqBasis": "program_price", "total": "none", "totalText": "Not published", "docs": ["SOURCE_PAGE"], "order": true, "noScore": true}, "psc_horry1": {"money": true, "acqBasis": "partial", "total": "none", "totalText": "Not published", "docs": ["FORM", "SOURCE_PAGE"], "order": true, "noScore": true}},
   // Final visual refinement (2026-10-05).
+  acqEvidenceStatus: {"mo": {"status": "NEEDS_REVIEW", "authority": "Land Reutilization Authority (St. Louis Development Corporation)", "candidates": 2, "allMarked": true, "httpsOnly": true, "method": null}, "pa": {"status": "NEEDS_REVIEW", "authority": "Fayette County Tax Claim Bureau", "candidates": 3, "allMarked": true, "httpsOnly": true, "method": null}, "mn": {"status": "NEEDS_REVIEW", "authority": "Ramsey County Tax-Forfeited Land", "candidates": 2, "allMarked": true, "httpsOnly": true, "method": null}, "ok": {"status": null, "authority": null, "candidates": 0, "allMarked": true, "httpsOnly": true, "method": "Bid application required - purchase process not online"}},
   acqModeFilter: {"phone": ["p3"], "multi_step": ["p15"], "online": [], "unverified": []},
   acqModeChip: "Acquisition method: Phone the county",
   mapSharedFilters: {"shared": ["p3"], "toggle": {"on": true, "pressed": "true", "text": "Same filters as the List (1)"}, "offCount": 12, "offHash": "#/map?lf=0"},

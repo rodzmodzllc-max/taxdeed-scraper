@@ -301,6 +301,31 @@ const FIXTURE_PROPERTIES = [
     purchase_path_type: "application_download", purchase_path_scope: "source", purchase_path_observed_on: "2026-10-02",
     purchase_path_evidence: "source-level bid_form page verified for this source (data/county_source_registry.csv, last_checked 2026-10-02)",
     last_seen_at: "2026-10-02T12:00:00Z", publication_status: "UNREVIEWED", ledger_type: "buy", updated_at: "2026-10-02T12:00:00Z" },
+  // 2026-10-06 (acquisition evidence / coordinates / amounts sprint): one row per
+  // MO / PA / MN / OK AVAILABLE source, in the shapes their syncs write. Values
+  // are SYNTHETIC. All four sources are UNREVIEWED (admin / preview only).
+  { id: "pmo1", source: "laft", state: "MO", county: "St. Louis City", case_no: "99999000100", parcel: "99999000100", address: "1 FIXTURE LRA ST", bid: 0, status: "active", sale_date: null, lien_level: "unscreened", lien_note: "",
+    harvester_source: "mo_stl_lra_inventory", source_id: "mo_stl_lra_inventory", source_authority: "GOVERNMENT_DIRECT", inventory_type: "POST_SALE",
+    list_url: "https://www.stlouis-mo.gov/data/datasets/dataset.cfm?id=82", url_auction: "https://www.stlouis-mo.gov/data/datasets/dataset.cfm?id=82", url_auction_kind: "county",
+    purchase_amount: null, purchase_amount_kind: "NOT_PUBLISHED", land_use: "Lot", inventory_status_raw: "Available",
+    last_seen_at: "2026-10-04T12:00:00Z", publication_status: "UNREVIEWED", ledger_type: "buy", updated_at: "2026-10-04T12:00:00Z" },
+  { id: "ppa1", source: "laft", state: "PA", county: "Fayette", case_no: "99-99-9999", parcel: "99-99-9999", address: null, legal_desc: "FIXTURE LOT 2", bid: 500, status: "active", sale_date: null, lien_level: "unscreened", lien_note: "",
+    harvester_source: "pa_fayette_repository", source_id: "pa_fayette_repository", source_authority: "GOVERNMENT_DIRECT", inventory_type: "POST_SALE",
+    list_url: "https://www.fayettecountypa.org/930/Repository-Sale", document_url: "https://www.fayettecountypa.org/DocumentCenter/View/9761", url_auction: "https://www.fayettecountypa.org/930/Repository-Sale", url_auction_kind: "county",
+    purchase_amount: 500, purchase_amount_kind: "OPENING_BID", list_as_of: "2025-10-07",
+    last_seen_at: "2026-10-04T12:00:00Z", publication_status: "UNREVIEWED", ledger_type: "buy", updated_at: "2026-10-04T12:00:00Z" },
+  { id: "pmn1", source: "laft", state: "MN", county: "Ramsey", case_no: "999999999999", parcel: "999999999999", address: "2 FIXTURE FORFEIT AVE", legal_desc: "FIXTURE LOT 3", bid: 15000, status: "active", sale_date: null, lien_level: "unscreened", lien_note: "",
+    harvester_source: "mn_ramsey_tax_forfeit", source_id: "mn_ramsey_tax_forfeit", source_authority: "GOVERNMENT_DIRECT", inventory_type: "POST_SALE",
+    list_url: "https://www.ramseycountymn.gov/residents/property-home/taxes-values/productive-properties", url_auction: "https://www.ramseycountymn.gov/residents/property-home/taxes-values/productive-properties", url_auction_kind: "county",
+    purchase_amount: 15000, purchase_amount_kind: "OPENING_BID", latitude: 44.95, longitude: -93.09,
+    field_provenance: { latitude: { source: "county_list", evidence: "layer point geometry" }, longitude: { source: "county_list", evidence: "layer point geometry" } },
+    last_seen_at: "2026-10-04T12:00:00Z", publication_status: "UNREVIEWED", ledger_type: "buy", updated_at: "2026-10-04T12:00:00Z" },
+  { id: "pok1", source: "laft", state: "OK", county: "Oklahoma", case_no: "9999-99-999-9999", parcel: "9999-99-999-9999", address: null, legal_desc: "FIXTURE BLOCK 4", bid: 350, status: "active", sale_date: null, lien_level: "unscreened", lien_note: "",
+    harvester_source: "ok_oklahoma_county_owned", source_id: "ok_oklahoma_county_owned", source_authority: "GOVERNMENT_DIRECT", inventory_type: "POST_SALE",
+    list_url: "https://www.oklahomacounty.org/departments/treasurer/county-owned-property", url_auction: "https://www.oklahomacounty.org/departments/treasurer/county-owned-property", url_auction_kind: "county",
+    purchase_url: "https://www.oklahomacounty.org/Portals/0/fixture-bid-form.pdf", purchase_url_kind: "bid_form", purchase_amount: 350, purchase_amount_kind: "PUBLISHED_AMOUNT_KIND_UNSPECIFIED",
+    purchase_path_type: "application_download", purchase_path_scope: "source", purchase_path_observed_on: "2026-10-04",
+    last_seen_at: "2026-10-04T12:00:00Z", publication_status: "UNREVIEWED", ledger_type: "buy", updated_at: "2026-10-04T12:00:00Z" },
   // 2026-09-30 (six-state expansion): rows in the shapes scripts/harvest_expansion.py
   // + sync_state_inventory.py write. Values are SYNTHETIC.
   { id: "pmi1", source: "auction", state: "MI", county: "Eaton", case_no: "100-200-300-400-50", parcel: "100-200-300-400-50", address: "100 FIXTURE ST", bid: 4200, min_bid: 4200, status: "active", sale_date: null, lien_level: "unscreened", lien_note: "",
