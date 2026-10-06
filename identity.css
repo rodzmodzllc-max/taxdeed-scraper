@@ -694,3 +694,9 @@ body:has(#authGate:not([hidden])){padding-bottom:0!important}
 .acq-ev-cands { margin: 0; padding-left: 1.1rem; }
 .acq-ev-cands li { margin: .15rem 0; overflow-wrap: anywhere; }
 .acq-ev-note { color: var(--ink-soft); font-size: .78rem; font-style: italic; }
+
+/* Amount type and currency under the current acquisition amount (2026-10-06). */
+.fp-meta { display: grid; grid-template-columns: max-content 1fr; gap: .15rem .9rem; margin: .5rem 0 0; font-size: .82rem; }
+.fp-meta dt { color: var(--ink-soft); }
+.fp-meta dd { margin: 0; }
+.fp-acq[data-fp-basis] .fp-meta[data-amount-temporal="EXPIRED"] dd:nth-of-type(2) { color: var(--bad, #9b2c2c); font-weight: 600; }

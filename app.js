@@ -5956,6 +5956,72 @@ function financialPosition(p) {
     st ? { total: st.total, expired: st.expired, components: st.components } : null);
 }
 var FP_STATUS_TEXT = { included: "Included in the total / figure", added_not_published: "Added on top - amount not published", expired_statement: "From an expired statement" };
+// ==================== amount semantics + currency (2026-10-06) ====================
+// harvesters/sources/amount_semantics.py semantic_type() / temporal_status(),
+// pinned by tests/python/fixtures/amount_semantics_cases.json. What the
+// figure IS (never collapsed into "price") and whether it is current. var: TDZ.
+var AMOUNT_SEMANTIC_LABELS = {
+  OPENING_BID: "Opening bid", MINIMUM_BID: "Minimum bid", CURRENT_PURCHASE_PRICE: "Current purchase price",
+  CURRENT_AMOUNT_DUE: "Current amount due", APPLICATION_FEE: "Application fee", DEPOSIT: "Deposit",
+  TAX_AMOUNT: "Taxes", INTEREST_AMOUNT: "Interest", PENALTY_AMOUNT: "Penalties", DEED_FEE: "Deed fee",
+  RECORDING_FEE: "Recording fee", OTHER_PUBLISHED_AMOUNT: "Other published amount"
+};
+var AMOUNT_TEMPORAL_LABELS = { CURRENT: "Current", HISTORICAL: "Historical", EXPIRED: "Expired - request a current statement", UNKNOWN: "Currency not established" };
+var AMOUNT_KIND_SEMANTIC = {
+  OPENING_BID: "OPENING_BID", ORIGINAL_OPENING_BID: "OPENING_BID", MINIMUM_PURCHASE_AMOUNT: "MINIMUM_BID",
+  FIXED_PURCHASE_PRICE: "CURRENT_PURCHASE_PRICE", ESTIMATED_PURCHASE_PRICE: "OTHER_PUBLISHED_AMOUNT",
+  PUBLISHED_AMOUNT_KIND_UNSPECIFIED: "OTHER_PUBLISHED_AMOUNT"
+};
+var AMOUNT_FRESH_DAYS = 14;
+var AMOUNT_LIST_STALE_DAYS = 365;
+var AMOUNT_MINIMUM_BID_SOURCES = ["tx_lgbs"];
+function amountStatementRaw(p) {
+  const st = p && p.otc_provenance && typeof p.otc_provenance === "object" ? p.otc_provenance.purchase_statement : null;
+  return st && typeof st === "object" && Number(st.total_due) > 0 ? st : null;
+}
+function amountRowFigure(p) {
+  for (const k of ["purchase_amount", "bid"]) { const v = Number(p && p[k]); if (p && p[k] !== null && p[k] !== undefined && p[k] !== "" && isFinite(v) && v > 0) return v; }
+  return null;
+}
+function amountSemanticType(p) {
+  if (amountStatementRaw(p)) return "CURRENT_AMOUNT_DUE";
+  const kind = p.purchase_amount_kind;
+  if (kind === "NOT_PUBLISHED" || kind === "QUOTED_ON_APPLICATION" || amountRowFigure(p) === null) return null;
+  const sid = p.source_id || p.harvester_source || "";
+  if (!kind) return AMOUNT_MINIMUM_BID_SOURCES.includes(sid) ? "MINIMUM_BID" : "OTHER_PUBLISHED_AMOUNT";
+  let sem = AMOUNT_KIND_SEMANTIC[kind] || "OTHER_PUBLISHED_AMOUNT";
+  if (sem === "OPENING_BID" && /min/i.test(sourceAmountColumn(p))) sem = "MINIMUM_BID";
+  return sem;
+}
+function amountTemporal(p, today) {
+  const t = today || new Date().toISOString().slice(0, 10);
+  const day = v => (v ? String(v).slice(0, 10) : "");
+  const daysBetween = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 86400000);
+  const st = amountStatementRaw(p);
+  if (st) {
+    const through = day(st.valid_through);
+    if (through && through < t) return { status: "EXPIRED", reason: "statement valid through " + through };
+    return { status: "CURRENT", reason: through ? "statement valid through " + through : "statement with no valid-through date" };
+  }
+  if (amountSemanticType(p) === null) return { status: "UNKNOWN", reason: "no figure published" };
+  if (["closed", "sold", "gone", "expired", "redeemed", "cancelled", "canceled", "withdrawn"].includes(String(p.status || "active").toLowerCase())) return { status: "HISTORICAL", reason: "the record is no longer listed" };
+  if (p.purchase_amount_kind === "ORIGINAL_OPENING_BID") return { status: "HISTORICAL", reason: "the original opening bid, superseded" };
+  const seen = day(p.last_seen_at);
+  if (!seen || daysBetween(seen, t) > AMOUNT_FRESH_DAYS) return { status: "UNKNOWN", reason: "the source list was not read recently" };
+  const listed = day(p.list_as_of);
+  if (listed && daysBetween(listed, t) > AMOUNT_LIST_STALE_DAYS) return { status: "UNKNOWN", reason: "the source list is dated " + listed };
+  return { status: "CURRENT", reason: "as published on the source list read " + seen };
+}
+window.__tdwAmountSemantics = { amountSemanticType, amountTemporal, AMOUNT_TEMPORAL_LABELS };
+function amountMetaHtml(p) {
+  const sem = amountSemanticType(p);
+  const tm = amountTemporal(p);
+  const st = amountStatementRaw(p);
+  const rows = [["Amount type", sem ? AMOUNT_SEMANTIC_LABELS[sem] : "Not published"],
+    ["Amount status", `${AMOUNT_TEMPORAL_LABELS[tm.status]}${tm.reason ? " - " + tm.reason.replace(/(\d{4}-\d{2}-\d{2})/g, d => dateOnly(d)) : ""}`],
+    ["Valid through", st && st.valid_through ? dateOnly(String(st.valid_through).slice(0, 10)) : "Not published"]];
+  return `<dl class="fp-meta" data-amount-semantic="${esc(sem || "NONE")}" data-amount-temporal="${esc(tm.status)}">${rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join("")}</dl>`;
+}
 function financialPositionHtml(p) {
   const fp = financialPosition(p);
   if (!fp) return "";
@@ -5968,7 +6034,7 @@ function financialPositionHtml(p) {
   const body = `
     <div class="fp-acq" data-fp-basis="${esc(a.basis)}"><span class="fp-acq-label">Current acquisition amount · ${esc(a.label)}</span>
       <span class="fp-acq-val${a.value === null ? " muted" : ""}">${a.value !== null ? money(a.value) : esc(a.display || "Not published")}</span>
-      <span class="fp-line-note">${esc(a.authoritative ? "Authoritative: published by the source as the amount." : a.value !== null ? "As the source labels it - not a total of everything owed." : "No figure published for this record.")}</span></div>
+      <span class="fp-line-note">${esc(a.authoritative ? "Authoritative: published by the source as the amount." : a.value !== null ? "As the source labels it - not a total of everything owed." : "No figure published for this record.")}</span>${amountMetaHtml(p)}</div>
     <div class="fp-grid">
       ${lines("Known tax obligation", fp.taxes.concat(fp.interest), "No tax amount published by the source for this record. A property value is not a tax owed.")}
       ${lines("Known fees", fp.fees, "No fees published by the source for this record.")}
