@@ -5152,7 +5152,9 @@ function acquireBlockHtml(p) {
       howRows.push(["Evidence status", `<span class="acq-ev-status" data-acq-evidence="${esc(evs.status)}">${esc(ACQ_EVIDENCE_STATUS_LABELS[evs.status] || evs.status)}</span>` +
         (evs.reason ? `<span class="acq-ev-reason">${esc(evs.reason)}${evs.attempted_on ? ` (${esc(evs.basis === "search_index" ? "found" : "checked")} ${esc(dateOnly(evs.attempted_on))})` : ""}</span>` : "")]);
       if (evs.authority) howRows.push(["Acquisition authority", esc(evs.authority)]);
-      const cands = (evs.candidates || []).filter(c => /^https:\/\//.test(c.url));
+      // Pages to check only while a capture can still settle it: a NOT_FOUND
+      // unit's pages were read and carry no process.
+      const cands = ["NEEDS_REVIEW", "UNAVAILABLE"].includes(evs.status) ? (evs.candidates || []).filter(c => /^https:\/\//.test(c.url)) : [];
       if (cands.length) howRows.push(["Official pages to check", `<ul class="acq-ev-cands">${cands.map(c => `<li>${ext(c.url, (ACQ_DOC_KIND_LABELS[c.doc_kind] || "Official page") + " · " + linkHost(c.url) + " →", "acq-link", "candidate")} <span class="acq-ev-note">not yet verified</span></li>`).join("")}</ul>`]);
       if (evs.document_url && /^https:\/\//.test(evs.document_url)) howRows.push(["Official document read", ext(evs.document_url, "Official policy document · " + linkHost(evs.document_url) + " →", "acq-link", "candidate")]);
     }
