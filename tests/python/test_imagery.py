@@ -129,3 +129,44 @@ def test_quality_report_offline_counts_only(tmp_path):
     assert aqr.main(["--rows", str(p), "--out", str(tmp_path / "q.json")]) == 0
     text = (tmp_path / "q.json").read_text()
     assert "1 A St" not in text and '"123"' not in text            # no identifier or address in the report
+
+
+# --- what the image's centre stands for (2026-10-06) ------------------------
+def test_basis_vectors_match_the_python_rules():
+    for c in CASES:
+        assert I.imagery_basis(c["row"]) == c["basis"], c["name"]
+
+
+def test_only_parcel_layer_coordinates_are_parcel_centred():
+    assert {m for m, b in I.BASIS_OF_MATCH.items() if b == "parcel"} == {"parcel_roll_coordinates", "parcel_layer_coordinates"}
+    # Vendor, address geocode and unrecorded origins are approximate - never parcel.
+    for m in ("vendor_coordinates", "geocoded_address", "recorded_coordinates"):
+        assert I.BASIS_OF_MATCH[m] == "approximate"
+    assert set(I.BASIS_OF_MATCH) == set(I.MATCH_METHODS)
+    assert set(I.BASIS_LABELS) == set(I.IMAGERY_BASES)
+
+
+def test_context_note_never_claims_boundaries_ownership_condition_or_title():
+    note = I.CONTEXT_NOTE
+    for word in ("boundaries", "ownership", "condition", "title"):
+        assert word in note
+    assert "context only" in note and "does not show" in note
+
+
+def test_app_mirrors_the_basis_rules_and_note():
+    app = (REPO / "public" / "app.js").read_text(encoding="utf-8")
+    for m, b in I.BASIS_OF_MATCH.items():
+        assert f'{m}: "{b}"' in app, m
+    for b, label in I.BASIS_LABELS.items():
+        assert label in app, b
+    assert I.CONTEXT_NOTE in app
+
+
+def test_coverage_counts_basis():
+    rows = [
+        {"state": "FL", "source_id": "x", "latitude": 29.6, "longitude": -82.3, "field_provenance": {"latitude": {"source": "fdor_nal"}}},
+        {"state": "FL", "source_id": "x", "latitude": 29.6, "longitude": -82.3},
+        {"state": "FL", "source_id": "x"},
+    ]
+    (u,) = I.coverage(rows)
+    assert (u["parcel_centred"], u["approximate_point"], u["listed_point"]) == (1, 1, 0)

@@ -2902,3 +2902,20 @@ Full description: `docs/enrichment-geocoding.md`. Stable facts:
   **`scripts/enrichment_audit.py`** writes the counts-only state × county ×
   ledger audit.
 - Nothing has been dispatched. The first run needs the owner's authorization.
+
+## Imagery honesty: basis, context note, failure state (2026-10-06, PR open, no migration)
+
+- `harvesters/imagery` adds `imagery_basis(row)` (mirrored by app.js `imageryBasis`, pinned by
+  `tests/python/fixtures/imagery_cases.json`):
+  - `parcel`: a tax roll / parcel layer;
+  - `listed_point`: the source list's own point;
+  - `approximate`: a vendor listing, an address geocode or an unrecorded origin;
+  - `none`.
+
+  `CONTEXT_NOTE` is shown with every image: it does not show parcel boundaries, ownership,
+  current condition or title.
+- **Captions:** a live NAIP image on an approximate point says "approximate point". A live image
+  that fails to load reads "Aerial image unavailable · Location in …" (`data-imagery="naip_failed"`),
+  never as if no image was tried. A provider snapshot after a failure is `data-imagery="provider_static"`.
+- **Imagery follows coordinates:** `scripts/geocode_authoritative.py` writes coordinates, and the live
+  NAIP view then appears with no stored image. `sw.js` → `tdw-shell-v106`.

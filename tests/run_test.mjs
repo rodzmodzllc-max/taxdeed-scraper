@@ -4779,7 +4779,7 @@ await navMap.close();
     let { pg, requested } = await naipPage(BASE_URL.replace(/index\.html$/, 'la.html') + '#/lands');
     results.naipVectors = await pg.evaluate(v => v.cases.filter(c => {
       const I = window.__tdwImagery;
-      if (I.imageryMatchMethod(c.row) !== c.match || I.imageryState(c.row) !== c.state) return true;
+      if (I.imageryMatchMethod(c.row) !== c.match || I.imageryState(c.row) !== c.state || I.imageryBasis(c.row) !== c.basis) return true;
       return c.url ? I.naipExportUrl(c.row.latitude, c.row.longitude, c.size) !== c.url : false;
     }).map(c => c.name), iv);
     results.naipCards = await pg.evaluate(() => {
@@ -4798,6 +4798,8 @@ await navMap.close();
       const truth = m && m.querySelector('[data-section="truth"]');
       const row = truth && [...truth.querySelectorAll('dt')].find(d => d.textContent.trim() === 'Imagery');
       return { hero: !!hero, big: !!hero && /size=800,600/.test(hero.querySelector('img').src),
+        basis: hero ? hero.dataset.basis : null,
+        contextNote: !!hero && /context only: it does not show parcel boundaries, ownership, current condition or title/.test(hero.querySelector('.photo-caption').title),
         caption: hero ? hero.querySelector('.photo-caption').textContent : null,
         truth: row ? row.nextElementSibling.textContent.trim() : null };
     });
@@ -4807,7 +4809,10 @@ await navMap.close();
     await pg.waitForTimeout(600);
     results.naipFallback = await pg.evaluate(() => ({ live: document.querySelectorAll('#main .naip-live').length,
       broken: [...document.querySelectorAll('#main .prop-card img')].filter(i => i.complete && i.naturalWidth === 0 && /nationalmap/.test(i.src)).length,
-      minimap: document.querySelectorAll('#main .prop-card .minimap').length > 0 }));
+      minimap: document.querySelectorAll('#main .prop-card .minimap').length > 0,
+      // A failed live image says so (2026-10-06), never just "Location in ...".
+      saysUnavailable: [...document.querySelectorAll('#main .prop-card .minimap .photo-caption')].some(c => /^Aerial image unavailable · Location in /.test(c.textContent)),
+      marked: document.querySelectorAll('#main .prop-card [data-imagery="naip_failed"]').length > 0 }));
     await pg.close();
     // Off by default in the fixture: no request to USGS at all.
     const off = await newPage({ viewport: { width: 1280, height: 900 } });
@@ -6212,7 +6217,7 @@ const EXPECTED = {
   },
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: {"ready": true, "controlled": true, "tagline": "Public Property Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v105"]},
+  brandSwReload: {"ready": true, "controlled": true, "tagline": "Public Property Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v106"]},
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · TaxDeed-Scraper — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · TaxDeed-Scraper — Florida", floridaCopy: true },
@@ -7452,10 +7457,10 @@ const EXPECTED = {
   mapListFiltersColdOff: "false",
   mapListFiltersViewports: [],
   naipVectors: [],
-  naipCards: {"n": 2, "deferred": true, "thumb": true, "caption": "Aerial · USDA NAIP", "match": ["recorded_coordinates", "recorded_coordinates"], "noStreetView": true},
+  naipCards: {"n": 2, "deferred": true, "thumb": true, "caption": "Aerial · USDA NAIP · approx. point", "match": ["recorded_coordinates", "recorded_coordinates"], "noStreetView": true},
   naipRequestedOnlyUsgs: true,
-  naipDetail: {"hero": true, "big": true, "caption": "Aerial imagery · USDA NAIP (public domain) · centered on the coordinates on file for this record (origin not recorded)", "truth": "USDA NAIP aerial imagery (public domain), from USGS The National MapCentered on the coordinates on file for this record (origin not recorded). Imagery may be years old."},
-  naipFallback: {"live": 0, "broken": 0, "minimap": true},
+  naipDetail: {"hero": true, "big": true, "basis": "approximate", "contextNote": true, "caption": "Aerial imagery · USDA NAIP (public domain) · centered on the coordinates on file for this record (origin not recorded) · approximate point", "truth": "USDA NAIP aerial imagery (public domain), from USGS The National MapCentered on the coordinates on file for this record (origin not recorded). Imagery may be years old.Approximate point (not from an official parcel layer) - the image may show neighbouring land.Aerial imagery is context only: it does not show parcel boundaries, ownership, current condition or title."},
+  naipFallback: {"live": 0, "broken": 0, "minimap": true, "saysUnavailable": true, "marked": true},
   naipOffNoRequests: 0,
   refineLedgerQuestions: {"laft": "What can I acquire now?", "auction": "What is coming up for sale?", "certificate": "What tax lien or certificate am I buying?"},
   refineDossier: {"status": ["Ledger", "Status", "Last read", "Your research (your label, not an official status)"], "lastRead": "Sep 20, 2026", "order": ["dossier-status", "acquire", "lien-banner", "risk", "truth", "sources"], "lede": true, "noScoreWords": true},
