@@ -2432,6 +2432,16 @@ type scaled for the shrunken page; dismissal is per browser
 (`tdw_desktop_site_notice_hidden_v1`). Real phones and desktops never see it
 (Playwright block "Phone in Desktop site mode"). `sw.js` -> `tdw-shell-v105` (above the stack's v104; v103 is skipped).
 
+**Imagery without coordinates (same PR).** A record with no stored image and
+no coordinates used to show only the slim "Image not checked yet · Not yet
+geocoded" bar (production FL on 2026-10-06: 21 active Available rows, e.g.
+Escambia; MO / OK / PA / SC carry no coordinates at all). `propertyVisual()`
+now draws that row's county from the app's own basemap behind the same two
+lines (`.minimap-county`, `renderMinimapInto()` county-only: tinted, never a
+dot). No request leaves the site. A real image for those rows still needs
+coordinates (an authorized geocode / enrichment run). Playwright block
+"Imagery without coordinates".
+
 ## Where to look for more
 
 - `claude/improvement-roadmap.md` in the "tax florida app" claude.ai Project — the full dated log of every fix, audit finding, and open decision. This is where new findings should be appended, not here.

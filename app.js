@@ -1539,6 +1539,13 @@ function propertyVisual(p, cls) {
   if (coords) {
     return `<div class="${cls} minimap" data-lat="${Number(p.latitude)}" data-lng="${Number(p.longitude)}" data-county="${esc(p.county)}"><span class="photo-caption">Location in ${esc(p.county)} ${UNIT_WORD}</span></div>`;
   }
+  // No coordinates: the county in context, drawn from the app's own basemap
+  // (no request leaves the site), captioned with what is and is not known.
+  if (p.county && STATE_META[regionOf(p)] && STATE_META[regionOf(p)].basemap) {
+    // Keeps rung 4's two honest lines (image state, location state) as the
+    // caption, so nothing about the image or the location reads as known.
+    return `<div class="${cls} no-photo minimap minimap-county" data-county="${esc(p.county)}"><span class="photo-caption mm-county-caption"><span class="vis-main">${esc(photoStateText(p))}</span><span class="vis-sub">${esc(p.county)} ${UNIT_WORD} · exact location not yet geocoded</span></span></div>`;
+  }
   return `<div class="${cls} no-photo">${svgIcon(isBareLand(p) ? "layers" : "building")}<span class="vis-main">${esc(photoStateText(p))}</span><span class="vis-sub">Not yet geocoded</span></div>`;
 }
 
@@ -1609,9 +1616,13 @@ function renderMinimapInto(host) {
   if (!geom || host.querySelector("svg")) return;
   const county = host.dataset.county;
   const target = geom.counties.get(county);
+  // County-only (2026-10-06): a record with no coordinates still gets its
+  // county drawn in context - tinted, never a dot, so nothing claims a
+  // location the record does not have.
+  const countyOnly = host.dataset.lat === undefined && host.dataset.lng === undefined;
   const lat = Number(host.dataset.lat), lng = Number(host.dataset.lng);
-  if (!target || !isFinite(lat) || !isFinite(lng)) { host.classList.add("minimap-unavailable"); return; }
-  const pt = minimapProject(lat, lng);
+  if (!target || (!countyOnly && (!isFinite(lat) || !isFinite(lng)))) { host.classList.add("minimap-unavailable"); return; }
+  const pt = countyOnly ? null : minimapProject(lat, lng);
   // Frame: the county's box padded 25%, widened to a 2:1 landscape so it
   // fills the same banner the photo would. Neighbours inside that frame
   // are drawn quietly for context; the county itself is tinted.
@@ -1625,7 +1636,7 @@ function renderMinimapInto(host) {
   svg.setAttribute("viewBox", `${vb.x} ${vb.y} ${vb.w} ${vb.h}`);
   svg.setAttribute("preserveAspectRatio", "xMidYMid slice");
   svg.setAttribute("role", "img");
-  svg.setAttribute("aria-label", `Approximate location within ${county} ${UNIT_WORD}`);
+  svg.setAttribute("aria-label", countyOnly ? `${county} ${UNIT_WORD} - exact location not yet geocoded` : `Approximate location within ${county} ${UNIT_WORD}`);
   geom.counties.forEach((c, name) => {
     if (name === county || !inFrame(c.box)) return;
     const path = document.createElementNS(NS, "path");
@@ -1637,6 +1648,7 @@ function renderMinimapInto(host) {
   own.setAttribute("d", target.d);
   own.setAttribute("class", "mm-county");
   svg.appendChild(own);
+  if (countyOnly) { svg.classList.add("mm-map"); host.insertBefore(svg, host.firstChild); return; }
   const r = Math.max(vb.w, vb.h) * 0.014;
   const halo = document.createElementNS(NS, "circle");
   halo.setAttribute("cx", pt.x); halo.setAttribute("cy", pt.y); halo.setAttribute("r", r * 2.4);
