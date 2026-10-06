@@ -6263,7 +6263,7 @@ const EXPECTED = {
   mapPageVisibleOnMapNav: true,
   navMapBtnOnAfterMapNav: true,
   mapPageTitle: 'Map',
-  navRailItems: ["dashboard:Home", "list:Search", "map:Map", "watchlist:Watchlist 0/10"],   // shell redesign: per-ledger entries carry the counts
+  navRailItems: ["dashboard:Home", "list:Search", "map:Map", "research:My Research 0", "watchlist:Watchlist 0/10"],   // shell redesign: per-ledger entries carry the counts; My Research (2026-10-06)
   navBottomItems: ['dashboard', 'list', 'map', 'watchlist'],
   navLedgerEntriesGone: 0,
   navDashboardLit: ['dashboard'],
