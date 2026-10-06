@@ -5,4 +5,4 @@
 // supportEmail is deliberately blank here so the suite exercises the
 // "no support address configured" path; run_test.mjs also loads a page
 // with ?support=1 to cover the configured path via the stub.
-window.TDW_CONFIG = { supabaseUrl: "https://fake-project.supabase.co", supabasePublishableKey: "sb_publishable_fake", supportEmail: "" };
+window.TDW_CONFIG = { supabaseUrl: "https://fake-project.supabase.co", supabasePublishableKey: "sb_publishable_fake", supportEmail: "", naipLiveImagery: false };

@@ -64,6 +64,8 @@ import requests
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import enrichment_units as EU  # noqa: E402 - (state, county) units
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from harvesters import imagery as IMG  # noqa: E402 - coverage priority
 import image_storage as IS  # noqa: E402 - optimize + content-addressed paths
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
@@ -371,6 +373,11 @@ def main():
     tiers = []
     for name, flt in IMAGERY_TIERS:
         units = fetch_counties_needing_photos(flt)
+        if name == "available":
+            # Coverage priority (harvesters/imagery.imagery_priority): counties
+            # holding customer-visible Available rows are worked first. An
+            # operational order only - never a judgement about a property.
+            units = IMG.order_units(units, fetch_counties_needing_photos({**flt, **IMG.CUSTOMER_FILTER}))
         tiers.append((name, flt, units))
         report["tiers"][name] = {"outstanding": sum(n for _, n in units), "attempted": 0, "stored": 0, "no_coverage": 0, "failed": 0,
                                  "collected": name in COLLECTED_TIERS}

@@ -2691,3 +2691,26 @@ Full description: `docs/available-financial-position.md`. Stable facts:
 - **Property page:** `data-section` `money` sits right after `acquire`, and
   `documents` sits right after `truth`.
 - `sw.js` -> `tdw-shell-v93`.
+
+## AVAILABLE imagery: rights, deterministic match, live NAIP (2026-10-05, PR open, no migration)
+
+Full description: `docs/available-imagery.md`. Stable facts:
+- **`harvesters/imagery`** is the one imagery decision. It holds:
+  - the sources with `terms_status`: usda_naip APPROVED; MapTiler / Google static PROVIDER_DISPLAY; county orthoimagery REVIEW_REQUIRED; Street View BLOCKED;
+  - the match method from `field_provenance.latitude.source` (never "nearby");
+  - `naip_export_url()`;
+  - the imagery priority, a coverage queue and never a score;
+  - `coverage()`.
+
+  app.js mirrors the constants (`naipExportUrl`, `IMAGERY_MATCH_LABELS`), pinned by `tests/python/fixtures/imagery_cases.json`.
+- **Live NAIP rung** (`propertyVisual`, after a stored photo). It applies to a record with coordinates and `photo_url` not `''`:
+  - the image is a USGS exportImage of a 0.0012° box centered on the record;
+  - 400×300 on cards, 800×600 on the property page;
+  - the request waits until the image is in view (`data-naip-src` plus `hydrateNaip`; native lazy loading never fired in this layout);
+  - a failure is remembered per session and steps down a rung;
+  - `config.js naipLiveImagery: false` switches it off, and the fixture is off;
+  - CSP: `img-src https://imagery.nationalmap.gov`.
+- **Source truth** has an "Imagery" row (`imageryTruthHtml`).
+- `enrich_property_photos_naip.py` runs customer-visible counties first.
+- `scripts/available_quality_report.py`: a counts-only quality and imagery report per state / source.
+- `sw.js` -> `tdw-shell-v94`.

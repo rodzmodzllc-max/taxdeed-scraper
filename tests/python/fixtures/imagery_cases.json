@@ -1,0 +1,114 @@
+{
+ "cases": [
+  {
+   "name": "la_source_list",
+   "row": {
+    "latitude": 30.4512345,
+    "longitude": -91.1876543,
+    "field_provenance": {
+     "latitude": {
+      "source": "county_list"
+     }
+    }
+   },
+   "match": "source_coordinates",
+   "state": "live",
+   "size": [
+    400,
+    300
+   ],
+   "url": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?bbox=-91.188254,30.450635,-91.187054,30.451835&bboxSR=4326&size=400,300&format=jpg&f=image"
+  },
+  {
+   "name": "fl_fdor_roll",
+   "row": {
+    "latitude": 28.8,
+    "longitude": -82.5,
+    "field_provenance": {
+     "latitude": {
+      "source": "fdor_nal"
+     }
+    }
+   },
+   "match": "parcel_roll_coordinates",
+   "state": "live",
+   "size": [
+    800,
+    600
+   ],
+   "url": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?bbox=-82.500600,28.799400,-82.499400,28.800600&bboxSR=4326&size=800,600&format=jpg&f=image"
+  },
+  {
+   "name": "tx_vendor",
+   "row": {
+    "latitude": 29.3,
+    "longitude": -94.8,
+    "field_provenance": {
+     "latitude": {
+      "source": "vendor_listing"
+     }
+    }
+   },
+   "match": "vendor_coordinates",
+   "state": "live",
+   "size": [
+    400,
+    300
+   ],
+   "url": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?bbox=-94.800600,29.299400,-94.799400,29.300600&bboxSR=4326&size=400,300&format=jpg&f=image"
+  },
+  {
+   "name": "fl_unrecorded_origin",
+   "row": {
+    "latitude": 30.1,
+    "longitude": -85.6,
+    "field_provenance": {}
+   },
+   "match": "recorded_coordinates",
+   "state": "live",
+   "size": [
+    400,
+    300
+   ],
+   "url": "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?bbox=-85.600600,30.099400,-85.599400,30.100600&bboxSR=4326&size=400,300&format=jpg&f=image"
+  },
+  {
+   "name": "no_coordinates",
+   "row": {
+    "latitude": null,
+    "longitude": null
+   },
+   "match": "none",
+   "state": "no_coordinates"
+  },
+  {
+   "name": "zero_zero_is_not_a_location",
+   "row": {
+    "latitude": 0,
+    "longitude": 0
+   },
+   "match": "none",
+   "state": "no_coordinates"
+  },
+  {
+   "name": "stored_photo",
+   "row": {
+    "latitude": 30.1,
+    "longitude": -85.6,
+    "photo_url": "https://x.supabase.co/a.webp"
+   },
+   "match": "recorded_coordinates",
+   "state": "stored"
+  },
+  {
+   "name": "checked_no_image",
+   "row": {
+    "latitude": 30.1,
+    "longitude": -85.6,
+    "photo_url": ""
+   },
+   "match": "recorded_coordinates",
+   "state": "checked_no_image"
+  }
+ ]
+}

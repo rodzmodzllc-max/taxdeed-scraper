@@ -4185,6 +4185,70 @@ await navMap.close();
     }
     results.financialPositionStates = states;
   }
+  // ---- Live NAIP imagery: deterministic match, rights, lazy, fallback (2026-10-05) ----
+  {
+    const iv = JSON.parse(fs.readFileSync(new URL('./python/fixtures/imagery_cases.json', import.meta.url), 'utf8'));
+    // The fixture config switches live imagery off; these pages switch it on
+    // and answer USGS with a 1x1 image (or a failure), never the real host.
+    const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
+    const naipPage = async (url, vp, fail) => {
+      const pg = await newPage({ viewport: vp || { width: 1280, height: 900 } });
+      pg.on('pageerror', e => errors.push('naip pageerror: ' + e.message));
+      const requested = [];
+      await pg.route('**/config.js', async route => {
+        const r = await route.fetch(); const body = (await r.text()).replace('naipLiveImagery: false', 'naipLiveImagery: true');
+        await route.fulfill({ response: r, body });
+      });
+      await pg.route('https://imagery.nationalmap.gov/**', route => { requested.push(route.request().url()); return fail ? route.abort() : route.fulfill({ status: 200, contentType: 'image/png', body: PNG }); });
+      await pg.goto(url, { waitUntil: 'networkidle' });
+      await pg.waitForTimeout(300);
+      // Lazy images load only in view: bring each one into view.
+      for (const h of await pg.$$('.naip-live')) { await h.scrollIntoViewIfNeeded().catch(() => {}); }
+      await pg.waitForTimeout(500);
+      return { pg, requested };
+    };
+    let { pg, requested } = await naipPage(BASE_URL.replace(/index\.html$/, 'la.html') + '#/lands');
+    results.naipVectors = await pg.evaluate(v => v.cases.filter(c => {
+      const I = window.__tdwImagery;
+      if (I.imageryMatchMethod(c.row) !== c.match || I.imageryState(c.row) !== c.state) return true;
+      return c.url ? I.naipExportUrl(c.row.latitude, c.row.longitude, c.size) !== c.url : false;
+    }).map(c => c.name), iv);
+    results.naipCards = await pg.evaluate(() => {
+      const hosts = [...document.querySelectorAll('#main .prop-card .naip-live')];
+      const imgs = hosts.map(h => h.querySelector('img'));
+      return { n: hosts.length, deferred: imgs.every(i => /^https:\/\/imagery\.nationalmap\.gov\//.test(i.dataset.naipSrc || '')),
+        thumb: imgs.every(i => /size=400,300/.test(i.src)), caption: hosts.length ? hosts[0].querySelector('.photo-caption').textContent : null,
+        match: hosts.map(h => h.dataset.match).sort(), noStreetView: !document.querySelector('img[src*="streetview"]') };
+    });
+    results.naipRequestedOnlyUsgs = requested.length > 0 && requested.every(u => u.startsWith('https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage?'));
+    await pg.close();
+    ({ pg } = await naipPage(BASE_URL.replace(/index\.html$/, 'la.html') + '#/lands/pla1'));
+    results.naipDetail = await pg.evaluate(() => {
+      const m = document.querySelector('#detailModal:not([hidden])');
+      const hero = m && m.querySelector('.detail-hero-photo.naip-live');
+      const truth = m && m.querySelector('[data-section="truth"]');
+      const row = truth && [...truth.querySelectorAll('dt')].find(d => d.textContent.trim() === 'Imagery');
+      return { hero: !!hero, big: !!hero && /size=800,600/.test(hero.querySelector('img').src),
+        caption: hero ? hero.querySelector('.photo-caption').textContent : null,
+        truth: row ? row.nextElementSibling.textContent.trim() : null };
+    });
+    await pg.close();
+    // USGS unreachable: the image steps down to the county context, never a broken image.
+    ({ pg } = await naipPage(BASE_URL.replace(/index\.html$/, 'la.html') + '#/lands', null, true));
+    await pg.waitForTimeout(600);
+    results.naipFallback = await pg.evaluate(() => ({ live: document.querySelectorAll('#main .naip-live').length,
+      broken: [...document.querySelectorAll('#main .prop-card img')].filter(i => i.complete && i.naturalWidth === 0 && /nationalmap/.test(i.src)).length,
+      minimap: document.querySelectorAll('#main .prop-card .minimap').length > 0 }));
+    await pg.close();
+    // Off by default in the fixture: no request to USGS at all.
+    const off = await newPage({ viewport: { width: 1280, height: 900 } });
+    let offRequests = 0;
+    await off.route('https://imagery.nationalmap.gov/**', route => { offRequests++; return route.abort(); });
+    await off.goto(BASE_URL.replace(/index\.html$/, 'la.html') + '#/lands', { waitUntil: 'networkidle' });
+    await off.waitForTimeout(300);
+    results.naipOffNoRequests = offRequests;
+    await off.close();
+  }
   // ---- Final visual refinement (2026-10-05) ----
   {
     const q = {};
@@ -5571,7 +5635,7 @@ const EXPECTED = {
   },
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: {"ready": true, "controlled": true, "tagline": "Public Property Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v93"]},
+  brandSwReload: {"ready": true, "controlled": true, "tagline": "Public Property Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v94"]},
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · TaxDeed-Scraper — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · TaxDeed-Scraper — Florida", floridaCopy: true },
@@ -6700,7 +6764,7 @@ const EXPECTED = {
       "instructions": "known", "listing": "known", "contact": "known", "deadlines": "not_published", "verified": "known", "not_published": "summary"},
     "method": "Multi-step county process", "head": "10 of 13 on file", "firstInAcquire": true},
   acqChecklistNoInference: {"n": 14, "known": [], "summary": "summary"},
-  sourceTruth: {"labels": ["Source record", "Last read", "Source date", "Publication status", "Source health", "Acquisition path", "Price", "Official listing", "County intelligence"], "health": "CURRENT", "dossierBtn": true, "navPill": true},
+  sourceTruth: {"labels": ["Source record", "Last read", "Source date", "Publication status", "Source health", "Acquisition path", "Price", "Official listing", "Imagery", "County intelligence"], "health": "CURRENT", "dossierBtn": true, "navPill": true},
   sourceHealthVectors: [],
   dossierCitrus: {"title": "Citrus County, FL", "intel": "VERIFIED", "ledgers": {"laft": "COVERED", "auction": "COVERED", "certificate": "COVERED"}, "acq": true, "terms": true, "listBtn": true},
   dossierToList: {"modal": true, "hash": "#/lands", "counties": ["Citrus"]},
@@ -6736,6 +6800,12 @@ const EXPECTED = {
   acquisitionDocumentVectors: [],
   financialPositionStates: {"p15": {"money": true, "acqBasis": "not_published", "total": "none", "totalText": "Not published", "docs": ["INSTRUCTIONS", "FORM", "SOURCE_PAGE"], "order": true, "noScore": true}, "p3": {"money": true, "acqBasis": "partial", "total": "none", "totalText": "Not published", "docs": ["INSTRUCTIONS", "DOCUMENT", "SOURCE_PAGE"], "order": true, "noScore": true}, "ptx3": {"money": true, "acqBasis": "vendor", "total": "none", "totalText": "Not published", "docs": ["INSTRUCTIONS", "SOURCE_PAGE"], "order": true, "noScore": true}, "pla1": {"money": true, "acqBasis": "not_published", "total": "none", "totalText": "Not published", "docs": ["INSTRUCTIONS", "DOCUMENT", "SOURCE_PAGE"], "order": true, "noScore": true}, "pmi_dlba1": {"money": true, "acqBasis": "program_price", "total": "none", "totalText": "Not published", "docs": ["SOURCE_PAGE"], "order": true, "noScore": true}, "psc_horry1": {"money": true, "acqBasis": "partial", "total": "none", "totalText": "Not published", "docs": ["FORM", "SOURCE_PAGE"], "order": true, "noScore": true}},
   // Final visual refinement (2026-10-05).
+  naipVectors: [],
+  naipCards: {"n": 2, "deferred": true, "thumb": true, "caption": "Aerial · USDA NAIP", "match": ["recorded_coordinates", "recorded_coordinates"], "noStreetView": true},
+  naipRequestedOnlyUsgs: true,
+  naipDetail: {"hero": true, "big": true, "caption": "Aerial imagery · USDA NAIP (public domain) · centered on the coordinates on file for this record (origin not recorded)", "truth": "USDA NAIP aerial imagery (public domain), from USGS The National MapCentered on the coordinates on file for this record (origin not recorded). Imagery may be years old."},
+  naipFallback: {"live": 0, "broken": 0, "minimap": true},
+  naipOffNoRequests: 0,
   refineLedgerQuestions: {"laft": "What can I acquire now?", "auction": "What is coming up for sale?", "certificate": "What tax lien or certificate am I buying?"},
   refineDossier: {"status": ["Ledger", "Status", "Last read"], "lastRead": "Sep 20, 2026", "order": ["dossier-status", "acquire", "lien-banner", "risk", "truth", "sources"], "lede": true, "noScoreWords": true},
   refineViewports: [],
