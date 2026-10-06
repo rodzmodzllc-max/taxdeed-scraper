@@ -2419,6 +2419,29 @@ Full description: `docs/search-crosslinks-timeline.md`. Stable facts:
 - `openDetail()` writes the hash with the property's OWN ledger slug.
 - `sw.js` -> `tdw-shell-v104` (v103 is skipped - it was reserved for PR #112, which carries its own later version; v104 adds the phone Account sheet "Go to" group).
 
+## Phone in "Desktop site" mode (2026-10-06, PR open, no migration)
+
+A production phone screenshot showed the whole app laid out ~980px wide and
+shrunk: unreadable text, the desktop toolbar on one row. The viewport meta is
+correct on every page; Chrome's / Samsung Internet's "Desktop site" setting
+(which an installed app inherits) ignores it, and no CSS can undo that.
+`public/boot.js` detects exactly that case - `(pointer: coarse)` with no fine
+pointer, a screen no wider than 600px, and the page laid out at least 1.6x
+wider - and shows `#desktopSiteNotice` with how to turn the setting off, in
+type scaled for the shrunken page; dismissal is per browser
+(`tdw_desktop_site_notice_hidden_v1`). Real phones and desktops never see it
+(Playwright block "Phone in Desktop site mode"). `sw.js` -> `tdw-shell-v105` (above the stack's v104; v103 is skipped).
+
+**Imagery without coordinates (same PR).** A record with no stored image and
+no coordinates used to show only the slim "Image not checked yet · Not yet
+geocoded" bar (production FL on 2026-10-06: 21 active Available rows, e.g.
+Escambia; MO / OK / PA / SC carry no coordinates at all). `propertyVisual()`
+now draws that row's county from the app's own basemap behind the same two
+lines (`.minimap-county`, `renderMinimapInto()` county-only: tinted, never a
+dot). No request leaves the site. A real image for those rows still needs
+coordinates (an authorized geocode / enrichment run). Playwright block
+"Imagery without coordinates".
+
 ## Where to look for more
 
 - `claude/improvement-roadmap.md` in the "tax florida app" claude.ai Project — the full dated log of every fix, audit finding, and open decision. This is where new findings should be appended, not here.

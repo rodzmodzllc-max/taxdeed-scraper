@@ -568,6 +568,13 @@ summary.county-head::-webkit-details-marker{display:none}
 .minimap .mm-halo{fill:color-mix(in srgb,var(--bad) 25%,transparent);stroke:var(--bad);stroke-width:1;vector-effect:non-scaling-stroke}
 .minimap .mm-dot{fill:var(--bad);stroke:#fff;stroke-width:1.2;vector-effect:non-scaling-stroke}
 .minimap.minimap-unavailable{aspect-ratio:auto;height:2.2rem}
+/* County-only (no coordinates): the county drawn in context behind rung 4's
+   two lines - never a dot. Overrides the slim .no-photo bar. */
+.prop-card-photo.minimap-county.no-photo,.detail-hero-photo.minimap-county.no-photo{display:block;height:auto}
+.minimap.minimap-county > svg.mm-map{position:absolute;inset:0;width:100%;height:100%;opacity:1}
+.minimap-county .mm-county-caption{display:flex;flex-wrap:wrap;gap:.1rem .4rem;max-width:calc(100% - 1rem)}
+.minimap.minimap-county .mm-county-caption .vis-sub{color:#fff;opacity:.85}
+.minimap.minimap-county .mm-county-caption .vis-sub::before{content:none}
 .prop-card-photo.no-photo .vis-sub,.detail-hero-photo.no-photo .vis-sub{color:var(--ink-soft);font-weight:500;opacity:.85}
 .prop-card-photo.no-photo .vis-sub::before,.detail-hero-photo.no-photo .vis-sub::before{content:"·";margin-right:.4rem;opacity:.6}
 .static-sat img{background:var(--paper)}
