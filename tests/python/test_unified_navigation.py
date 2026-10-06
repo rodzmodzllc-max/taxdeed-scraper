@@ -143,6 +143,6 @@ def test_n09_watchlist_folds_the_same_parcel_across_ledgers_and_is_a_destination
 
 
 def test_n10_service_worker_bumped_and_root_mirror_matches_public():
-    assert (REPO / "public/sw.js").read_text(encoding="utf-8").count('const CACHE = "tdw-shell-v100"') == 1
+    assert (REPO / "public/sw.js").read_text(encoding="utf-8").count('const CACHE = "tdw-shell-v101"') == 1
     for f in ("app.js", "styles.css", "sw.js", "index.html", "tx.html", "explore.css"):
         assert (REPO / f).read_bytes() == (REPO / "public" / f).read_bytes(), f

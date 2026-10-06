@@ -4405,6 +4405,92 @@ await navMap.close();
       await hp.close();
     }
   }
+  // ---- Due diligence: evidence state per checklist item (2026-10-06) ----
+  {
+    const dv = JSON.parse(fs.readFileSync(new URL('./python/fixtures/due_diligence_cases.json', import.meta.url), 'utf8')).cases;
+    const ddState = pg => pg.evaluate(() => Object.fromEntries([...document.querySelectorAll('#detailModalInner .dd-item')].map(i => [i.dataset.ddKey, i.dataset.ddState])));
+    const dp = await newPage({ viewport: { width: 1280, height: 900 } });
+    dp.on('pageerror', e => errors.push('diligence pageerror: ' + e.message));
+    await dp.goto(BASE_URL + '#/lands/p15', { waitUntil: 'networkidle' });
+    await dp.waitForSelector('#detailModalInner [data-section="diligence"] .dd-item', { timeout: 10000, state: 'attached' });
+    results.diligenceVectors = await dp.evaluate(cases => cases.filter(c => {
+      const got = Object.fromEntries(window.__tdwDiligence.fromFacts(c.facts).map(i => [i.key, i.state]));
+      return Object.entries(c.expect).some(([k, v]) => got[k] !== v);
+    }).map(c => c.name), dv);
+    results.diligenceAvailable = await ddState(dp);
+    // Populated is not verified: every item whose row value exists but has no recorded origin reads NOT_VERIFIED.
+    results.diligencePopulatedNotVerified = await dp.evaluate(() => {
+      const p = (window.__tdwLastRender || { rows: [] }).rows.find(r => r.id === 'p15') || null;
+      const f = window.__tdwDiligence.facts(p);
+      const st = Object.fromEntries([...document.querySelectorAll('#detailModalInner .dd-item')].map(i => [i.dataset.ddKey, i.dataset.ddState]));
+      return ['legal', 'acreage', 'land_use', 'values'].filter(k => f[k] === 'unsourced').map(k => k + '=' + st[k]);
+    });
+    results.diligenceRuleText = await dp.evaluate(() => /A populated value without evidence is “Not verified”/.test(document.querySelector('#detailModalInner .dd-rule').textContent));
+    // Verification pass (2026-10-06): the five-state key comes first, and the
+    // status band's research cell carries the checklist's evidence count.
+    results.diligenceKeyFirst = await dp.evaluate(() => { const dd = document.querySelector('#detailModalInner .dd');
+      const key = dd.querySelector('.dd-key'), firstGroup = dd.querySelector('.dd-group');
+      return { states: [...key.querySelectorAll('[data-dd-state]')].map(d => d.dataset.ddState), beforeItems: !!(key.compareDocumentPosition(firstGroup) & Node.DOCUMENT_POSITION_FOLLOWING) }; });
+    results.diligenceCellCount = await dp.evaluate(() => { const b = document.querySelector('#detailModalInner [data-research-cell] .dossier-dd');
+      const items = [...document.querySelectorAll('#detailModalInner .dd-item')];
+      return b ? { verified: Number(b.dataset.ddVerified), applicable: Number(b.dataset.ddApplicable), matchesChecklist: Number(b.dataset.ddVerified) === items.filter(i => i.dataset.ddState === 'VERIFIED').length && Number(b.dataset.ddApplicable) === items.length } : null; });
+    results.diligenceAmountDateWording = await dp.evaluate(() => { const i = document.querySelector('#detailModalInner .dd-item[data-dd-key="acq_amount_date"]');
+      return i ? i.dataset.ddState + ':' + i.querySelector('.dd-evidence').textContent : null; });
+    results.diligenceSaveHint = await dp.evaluate(() => !!document.querySelector('#detailModalInner .dd') && !document.querySelector('#detailModalInner .dd-reviewed'));
+    // Save to research, then mark an item reviewed: the mark persists and the evidence state does not move.
+    await dp.evaluate(() => { document.querySelector('#detailModalInner .research-new-name').value = 'Due Diligence'; document.querySelector('#detailModalInner [data-action="researchnewsave"]').click(); });
+    await dp.waitForSelector('#detailModalInner .dd-reviewed[data-key="acq_amount"]', { timeout: 5000, state: 'attached' });
+    const before = await dp.evaluate(() => document.querySelector('#detailModalInner .dd-item[data-dd-key="acq_amount"]').dataset.ddState);
+    await dp.evaluate(() => { const c = document.querySelector('#detailModalInner .dd-reviewed[data-key="acq_amount"]'); c.checked = true; c.dispatchEvent(new Event('change', { bubbles: true })); });
+    await dp.waitForTimeout(400);
+    results.diligenceMark = await dp.evaluate(before => {
+      const it = window.__stubResearchDb().research_items[0];
+      return { stored: !!(it.diligence.acq_amount && it.diligence.acq_amount.reviewed), stateBefore: before,
+        stateAfter: document.querySelector('#detailModalInner .dd-item[data-dd-key="acq_amount"]').dataset.ddState,
+        checked: document.querySelector('#detailModalInner .dd-reviewed[data-key="acq_amount"]').checked };
+    }, before);
+    // The My Research row summarises the same checklist.
+    await dp.evaluate(() => document.querySelector('[data-action="closedetail"]').click());
+    await dp.waitForTimeout(250);
+    await dp.click('#navResearchBtn');
+    await dp.waitForSelector('#pageResearch .research-row .dd-summary', { timeout: 5000 });
+    results.diligenceResearchSummary = await dp.evaluate(() => { const s = document.querySelector('.research-row .dd-summary'); return { verified: Number(s.dataset.verified), applicable: Number(s.dataset.applicable), sub: s.nextElementSibling.textContent.trim().replace(/\d+/g, 'N') }; });
+    await dp.close();
+    // Auction (past, no published result), auction (upcoming) and certificate: ledger-scoped items.
+    const per = {};
+    for (const [hash, id] of [['#/auctions/p13', 'p13'], ['#/auctions/p10', 'p10'], ['#/certificates/p4', 'p4']]) {
+      const pg = await newPage({ viewport: { width: 1280, height: 900 } });
+      await pg.goto(BASE_URL + hash, { waitUntil: 'networkidle' });
+      await pg.waitForSelector('#detailModalInner [data-section="diligence"] .dd-item', { timeout: 10000, state: 'attached' });
+      const st = await ddState(pg);
+      per[id] = { keys: Object.keys(st).length, groups: await pg.evaluate(() => [...document.querySelectorAll('#detailModalInner .dd-group')].map(g => g.dataset.ddGroup)),
+        pick: Object.fromEntries(['result', 'sale_date', 'bid', 'auction_source', 'cert_number', 'cert_face', 'cert_interest', 'cert_redemption', 'acq_path', 'coords'].filter(k => st[k]).map(k => [k, st[k]])) };
+      await pg.close();
+    }
+    results.diligenceLedgers = per;
+    // Browser-only research (029 not applied): marks survive a reload.
+    const lp = await newPage({ viewport: { width: 1280, height: 900 } });
+    await lp.goto(BASE_URL.replace('index.html', 'index.html?research=none') + '#/lands/p3', { waitUntil: 'networkidle' });
+    await lp.waitForSelector('#detailModalInner .research-panel .research-add', { timeout: 10000, state: 'attached' });
+    await lp.evaluate(() => { document.querySelector('#detailModalInner .research-new-name').value = 'Watch'; document.querySelector('#detailModalInner [data-action="researchnewsave"]').click(); });
+    await lp.waitForSelector('#detailModalInner .dd-reviewed[data-key="parcel"]', { timeout: 5000, state: 'attached' });
+    await lp.evaluate(() => { const c = document.querySelector('#detailModalInner .dd-reviewed[data-key="parcel"]'); c.checked = true; c.dispatchEvent(new Event('change', { bubbles: true })); });
+    await lp.waitForTimeout(300);
+    await lp.goto(BASE_URL.replace('index.html', 'index.html?research=none&v=3') + '#/lands/p3', { waitUntil: 'networkidle' });
+    await lp.waitForSelector('#detailModalInner .dd-reviewed[data-key="parcel"]', { timeout: 10000, state: 'attached' });
+    results.diligenceLocalPersist = await lp.evaluate(() => document.querySelector('#detailModalInner .dd-reviewed[data-key="parcel"]').checked);
+    await lp.close();
+    const ov = [];
+    for (const w of [390, 430, 768, 1024, 1440, 1920]) {
+      const mp = await newPage({ viewport: { width: w, height: 900 } });
+      await mp.goto(BASE_URL + '#/lands/p15', { waitUntil: 'networkidle' });
+      await mp.waitForSelector('#detailModalInner [data-section="diligence"] .dd-item', { timeout: 10000, state: 'attached' });
+      const o = await mp.evaluate(() => { const m = document.getElementById('detailModalInner'); return Math.max(document.documentElement.scrollWidth - document.documentElement.clientWidth, m ? m.scrollWidth - m.clientWidth : 0); });
+      if (o > 1) ov.push(w + ':' + o);
+      await mp.close();
+    }
+    results.diligenceOverflow = ov;
+  }
   // ---- Current acquisition amounts: semantic type + currency (2026-10-06) ----
   {
     const av = JSON.parse(fs.readFileSync(new URL('./python/fixtures/amount_semantics_cases.json', import.meta.url), 'utf8'));
@@ -5972,7 +6058,7 @@ const EXPECTED = {
   },
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: {"ready": true, "controlled": true, "tagline": "Public Property Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v100"]},
+  brandSwReload: {"ready": true, "controlled": true, "tagline": "Public Property Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v101"]},
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · TaxDeed-Scraper — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · TaxDeed-Scraper — Florida", floridaCopy: true },
@@ -6207,7 +6293,7 @@ const EXPECTED = {
   oppBidText: '$5,000.00 Value ÷ bid 18.0× (screening ratio, not a return)',
   oppValueText: '$90,000 2025 County Just Value · County Assessed Value $80,000',
   oppGaps: ['Image not checked yet', 'Not yet geocoded', 'Flood zone not checked'],
-  detailNavLabels: ["Overview", "Decision", "Tax & Value", "Property", "History", "Sale events", "Watch", "Risk & Legal", "Map", "Source truth", "Documents", "Source", "Provenance"],   // shell redesign: section nav reads as tabs   // customer-value sprint: the Auction decision block
+  detailNavLabels: ["Overview", "Decision", "Tax & Value", "Property", "History", "My research", "Due diligence", "Sale events", "Watch", "Risk & Legal", "Map", "Source truth", "Documents", "Source", "Provenance"],   // shell redesign: section nav reads as tabs   // customer-value sprint: the Auction decision block
   detailNavJumpScrolled: true,
   detailNavJumpMarksPill: true,
   showOnMapBtnText: 'Show county on the Map page',
@@ -6352,7 +6438,7 @@ const EXPECTED = {
   rdNavAuction: {"hash": "#/auctions", "title": "Auction Properties"},
   rdGlobal: {"rows": ["p15:Available"], "all": "See all 1 result in the list →", "expanded": "true"},
   rdGlobalOpen: {"modal": true, "crumbs": ["Home/Available/15 Manatee Ln"]},
-  rdDetail: {"tabs": ["How to acquire", "Financial position", "Overview", "Decision", "Inventory", "Tax & Value", "Property", "Sale events", "Watch", "Risk & Legal", "Map", "Source truth", "Documents", "Source", "Provenance"], "why": ["It is in the Available ledger for Florida because its source lists it.", "Last read from the source Nd ago.", "Its source is approved for customer publication."], "acquire": 1},
+  rdDetail: {"tabs": ["How to acquire", "Financial position", "Overview", "Decision", "Inventory", "Tax & Value", "Property", "My research", "Due diligence", "Sale events", "Watch", "Risk & Legal", "Map", "Source truth", "Documents", "Source", "Provenance"], "why": ["It is in the Available ledger for Florida because its source lists it.", "Last read from the source Nd ago.", "Its source is approved for customer publication."], "acquire": 1},
   rdCrumbHome: {"modalHidden": true, "dashVisible": true},
   rdGlobalEmpty: "No Florida property matches “zzzz-no-such”. Search covers address, parcel, case and certificate numbers and the county; to look in another state, switch state first.",
   rdGlobalEscape: true,
@@ -7159,6 +7245,20 @@ const EXPECTED = {
   researchToCounty: "#/county/Citrus",
   researchLocal: {"mode": "local", "note": "local", "afterReload": 1, "pageNote": "local"},
   researchOverflow: [],
+  // Due diligence (2026-10-06).
+  diligenceVectors: [],
+  diligenceAvailable: {"parcel": "VERIFIED", "county": "VERIFIED", "legal": "NOT_PUBLISHED", "acq_source": "VERIFIED", "acq_path": "VERIFIED", "acq_url": "VERIFIED", "acq_amount": "NOT_PUBLISHED", "acq_amount_date": "NOT_PUBLISHED", "coords": "NOT_VERIFIED", "acreage": "NOT_VERIFIED", "land_use": "NOT_VERIFIED", "imagery": "NOT_VERIFIED", "values": "NOT_VERIFIED", "source_record": "VERIFIED", "last_read": "NOT_VERIFIED", "provenance": "NOT_VERIFIED", "source_health": "VERIFIED"},
+  diligencePopulatedNotVerified: ["acreage=NOT_VERIFIED", "land_use=NOT_VERIFIED", "values=NOT_VERIFIED"],
+  diligenceRuleText: true,
+  diligenceSaveHint: true,
+  diligenceMark: {"stored": true, "stateBefore": "NOT_PUBLISHED", "stateAfter": "NOT_PUBLISHED", "checked": true},
+  diligenceResearchSummary: {"verified": 7, "applicable": 17, "sub": "N not verified · N not published · N reviewed by you"},
+  diligenceLedgers: {"p13": {"keys": 16, "groups": ["identity", "property", "auction", "source"], "pick": {"result": "NOT_PUBLISHED", "sale_date": "VERIFIED", "bid": "VERIFIED", "auction_source": "NOT_VERIFIED", "coords": "NOT_PUBLISHED"}}, "p10": {"keys": 15, "groups": ["identity", "property", "auction", "source"], "pick": {"sale_date": "NOT_VERIFIED", "bid": "VERIFIED", "auction_source": "VERIFIED", "coords": "NOT_PUBLISHED"}}, "p4": {"keys": 11, "groups": ["identity", "certificate", "source"], "pick": {"cert_number": "VERIFIED", "cert_face": "VERIFIED", "cert_interest": "VERIFIED", "cert_redemption": "VERIFIED"}}},
+  diligenceLocalPersist: true,
+  diligenceOverflow: [],
+  diligenceKeyFirst: {"states": ["VERIFIED", "NOT_VERIFIED", "NOT_PUBLISHED", "NOT_APPLICABLE", "SOURCE_UNAVAILABLE"], "beforeItems": true},
+  diligenceCellCount: {"verified": 7, "applicable": 17, "matchesChecklist": true},
+  diligenceAmountDateWording: "NOT_PUBLISHED:No dated amount published by the source",
   researchCellBefore: {"state": "none", "own": true, "besideOfficial": 4},
   researchSectionOrder: {"afterProperty": true, "afterAcquire": true},
   researchCellJump: true,

@@ -5667,6 +5667,7 @@ function hydrateResearchPanels(pid) {
 async function researchAfterOpen(p) {
   await loadResearch();
   hydrateResearchPanels(p.id);
+  if (typeof hydrateDiligence === "function") hydrateDiligence(p.id);
 }
 // ---- the My Research page (#/research) ----
 function ensureResearchSection() {
@@ -5778,6 +5779,252 @@ document.addEventListener("change", async e => {
     const row = sel.closest(".research-row");
     if (row) row.dataset.state = sel.value;
   }
+});
+// ==================== DUE DILIGENCE (2026-10-06) ====================
+// One evidence state per checklist item, decided by the property's records -
+// never by a field merely being populated. diligenceFacts(p) turns a row into
+// categories; diligenceChecklistFromFacts() is the same rule as
+// harvesters/sources/due_diligence.checklist() (tests/python/fixtures/
+// due_diligence_cases.json pins both). The customer's own review notes per
+// item live in research_items.diligence and never change an item's state.
+// `var` / function declarations only (TDZ).
+var DILIGENCE_STATE_LABELS = DILIGENCE_STATE_LABELS || {
+  VERIFIED: "Verified",
+  NOT_VERIFIED: "Not verified",
+  NOT_PUBLISHED: "Not published",
+  NOT_APPLICABLE: "Not applicable",
+  SOURCE_UNAVAILABLE: "Source unavailable"
+};
+var DILIGENCE_GROUP_LABELS = DILIGENCE_GROUP_LABELS || { identity: "Property identity", acquisition: "Acquisition", property: "Property", auction: "Auction", certificate: "Lien / certificate", source: "Source" };
+var DILIGENCE_ITEMS = DILIGENCE_ITEMS || [
+  ["parcel", "identity", "Parcel / account identifier"],
+  ["county", "identity", "County"],
+  ["legal", "identity", "Legal description"],
+  ["acq_source", "acquisition", "Official source"],
+  ["acq_path", "acquisition", "Acquisition path"],
+  ["acq_url", "acquisition", "Purchase / application document"],
+  ["acq_amount", "acquisition", "Current amount"],
+  ["acq_amount_date", "acquisition", "Amount date"],
+  ["coords", "property", "Coordinates"],
+  ["acreage", "property", "Acreage"],
+  ["land_use", "property", "Land use"],
+  ["imagery", "property", "Imagery"],
+  ["values", "property", "Assessed / taxable value"],
+  ["sale_date", "auction", "Sale date"],
+  ["bid", "auction", "Opening / minimum bid"],
+  ["auction_source", "auction", "Auction source"],
+  ["result", "auction", "Sale result"],
+  ["cert_number", "certificate", "Certificate number"],
+  ["cert_face", "certificate", "Face / certificate amount"],
+  ["cert_interest", "certificate", "Interest rate"],
+  ["cert_redemption", "certificate", "Redemption / expiration"],
+  ["source_record", "source", "Source record"],
+  ["last_read", "source", "Last read"],
+  ["provenance", "source", "Provenance"],
+  ["source_health", "source", "Source health"]
+];
+function diligenceChecklistFromFacts(f) {
+  f = f || {};
+  const led = f.ledger || "laft";
+  const unavailable = f.source_health === "SOURCE_UNAVAILABLE";
+  const sourced = v => ({ sourced: "VERIFIED", unsourced: "NOT_VERIFIED" })[v || "none"] || "NOT_PUBLISHED";
+  const st = {};
+  st.parcel = !f.parcel ? "NOT_PUBLISHED" : (f.read_ever ? "VERIFIED" : "NOT_VERIFIED");
+  st.county = f.county && f.read_ever ? "VERIFIED" : "NOT_VERIFIED";
+  st.legal = sourced(f.legal);
+  if (led !== "laft") ["acq_source", "acq_path", "acq_url", "acq_amount", "acq_amount_date"].forEach(k => { st[k] = "NOT_APPLICABLE"; });
+  else {
+    st.acq_source = unavailable ? "SOURCE_UNAVAILABLE" : (f.source_publication === "approved" ? "VERIFIED" : "NOT_VERIFIED");
+    st.acq_path = f.acq_path === "verified" ? "VERIFIED" : (f.acq_path === "unavailable" ? "SOURCE_UNAVAILABLE" : "NOT_VERIFIED");
+    st.acq_url = f.acq_path === "verified" ? (f.acq_url ? "VERIFIED" : "NOT_PUBLISHED") : "NOT_VERIFIED";
+    st.acq_amount = ({ current: "VERIFIED", not_current: "NOT_VERIFIED" })[f.amount || "none"] || "NOT_PUBLISHED";
+    st.acq_amount_date = ({ current: "VERIFIED", expired: "NOT_VERIFIED" })[f.amount_date || "none"] || "NOT_PUBLISHED";
+  }
+  if (led === "certificate") ["coords", "acreage", "land_use", "imagery", "values"].forEach(k => { st[k] = "NOT_APPLICABLE"; });
+  else {
+    st.coords = ({ authoritative: "VERIFIED", other: "NOT_VERIFIED" })[f.coords || "none"] || "NOT_PUBLISHED";
+    st.acreage = sourced(f.acreage);
+    st.land_use = sourced(f.land_use);
+    st.imagery = ({ stored: "VERIFIED", checked_none: "NOT_PUBLISHED" })[f.imagery || "not_checked"] || "NOT_VERIFIED";
+    st.values = sourced(f.values);
+  }
+  if (led !== "auction") ["sale_date", "bid", "auction_source", "result"].forEach(k => { st[k] = "NOT_APPLICABLE"; });
+  else {
+    st.sale_date = f.sale_date ? (f.read_ever ? "VERIFIED" : "NOT_VERIFIED") : "NOT_PUBLISHED";
+    st.bid = f.bid ? "VERIFIED" : "NOT_PUBLISHED";
+    st.auction_source = f.auction_link ? "VERIFIED" : "NOT_VERIFIED";
+    st.result = ({ verified: "VERIFIED", future: "NOT_APPLICABLE", not_verified: "NOT_VERIFIED" })[f.sale_outcome || "none"] || "NOT_PUBLISHED";
+  }
+  if (led !== "certificate") ["cert_number", "cert_face", "cert_interest", "cert_redemption"].forEach(k => { st[k] = "NOT_APPLICABLE"; });
+  else {
+    st.cert_number = f.cert_number ? "VERIFIED" : "NOT_PUBLISHED";
+    st.cert_face = f.cert_face ? "VERIFIED" : "NOT_PUBLISHED";
+    st.cert_interest = f.cert_interest ? "VERIFIED" : "NOT_PUBLISHED";
+    st.cert_redemption = f.cert_redemption ? "VERIFIED" : "NOT_PUBLISHED";
+  }
+  st.source_record = f.source_record ? "VERIFIED" : "NOT_VERIFIED";
+  st.last_read = unavailable ? "SOURCE_UNAVAILABLE" : (f.read_recently ? "VERIFIED" : "NOT_VERIFIED");
+  st.provenance = f.provenance ? "VERIFIED" : "NOT_VERIFIED";
+  const h = f.source_health || "NOT_RECORDED";
+  st.source_health = h === "SOURCE_UNAVAILABLE" ? "SOURCE_UNAVAILABLE" : (h === "CURRENT" || h === "RECENT" ? "VERIFIED" : "NOT_VERIFIED");
+  return DILIGENCE_ITEMS.map(([key, group, label]) => ({ key, group, label, state: st[key] }));
+}
+// The facts, from the row's own records. "sourced" means a recorded
+// field_provenance entry names where the value came from; a populated value
+// without one is "unsourced" - present, but not verified.
+function diligenceFacts(p) {
+  const fp = p && p.field_provenance && typeof p.field_provenance === "object" ? p.field_provenance : {};
+  const prov = k => !!(fp[k] && typeof fp[k] === "object" && fp[k].source);
+  const pick = (has, keys) => !has ? "none" : (keys.some(prov) ? "sourced" : "unsourced");
+  const today = Date.now();
+  const seen = p.last_seen_at ? Date.parse(p.last_seen_at) : NaN;
+  const unit = typeof unitFreshnessFor === "function" ? unitFreshnessFor(p) : null;
+  const review = !isCustomerPublishable(p);
+  const health = sourceHealthState(unit, { review }).state;
+  const a = p.source === "certificate" ? { verified: false } : acquisitionOf(p);
+  const ev = p.source === "laft" ? acquisitionEvidenceStatus(p) : null;
+  const sem = p.source === "laft" ? amountSemanticType(p) : null;
+  const tm = p.source === "laft" ? amountTemporal(p) : { status: "UNKNOWN" };
+  const stmt = p.source === "laft" ? amountStatementRaw(p) : null;
+  const coord = coordinateProvenance(p);
+  const out = p.source === "auction" ? auctionOutcomeState(p) : null;
+  const link = p.source === "auction" ? auctionLinkInfo(p) : null;
+  return {
+    ledger: p.source,
+    parcel: hasParcel(p), county: !!p.county,
+    read_ever: !isNaN(seen) || !!(unit && unit.last_success_at),
+    read_recently: !isNaN(seen) && (today - seen) <= 14 * 864e5,
+    legal: pick(!!p.legal_desc, ["legal_desc"]),
+    source_publication: review ? "review" : "approved",
+    source_health: health,
+    acq_path: a.verified ? "verified" : (ev && ev.status === "UNAVAILABLE" ? "unavailable" : "not_verified"),
+    acq_url: !!(a.verified && (a.applicationUrl || a.url)),
+    amount: !sem ? "none" : (tm.status === "CURRENT" ? "current" : "not_current"),
+    amount_date: stmt ? (tm.status === "EXPIRED" ? "expired" : "current") : (sem && tm.status === "CURRENT" ? "current" : (sem ? "expired" : "none")),
+    coords: coord.method === "NONE" ? "none" : (coord.authoritative ? "authoritative" : "other"),
+    acreage: pick(hasNum(p.acreage) || hasNum(p.lot_sqft), ["acreage", "lot_sqft"]),
+    land_use: pick(!!(p.land_use || p.dor_use_code), ["land_use", "dor_use_code"]),
+    imagery: p.photo_url ? "stored" : (p.photo_url === "" ? "checked_none" : "not_checked"),
+    values: pick((hasNum(p.assessed) && Number(p.assessed) > 0) || hasNum(p.taxable_value), ["assessed", "taxable_value", "market"]),
+    sale_date: !!p.sale_date, bid: hasPublishedBid(p), auction_link: !!(link && link.href && (link.kind === "sale" || link.kind === "property")),
+    sale_outcome: !out ? "none" : (out.key === "scheduled" ? "future" : (out.verified ? "verified" : (out.key === "outcome_not_published" ? "not_published" : "not_verified"))),
+    cert_number: !!p.certificate_no, cert_face: p.source === "certificate" && hasPublishedBid(p), cert_interest: hasNum(p.interest_rate),
+    cert_redemption: !!p.expiration_date || /redeem/i.test(String(p.inventory_status || "")),
+    source_record: !!(p.source_id || p.harvester_source),
+    provenance: Object.keys(fp).length > 0
+  };
+}
+window.__tdwDiligence = { fromFacts: diligenceChecklistFromFacts, facts: p => diligenceFacts(p) };
+// The evidence text beside each state - what the record shows, never a guess.
+function diligenceEvidence(p, key, state) {
+  const fp = p.field_provenance && typeof p.field_provenance === "object" ? p.field_provenance : {};
+  const srcOf = k => fp[k] && fp[k].source ? String(fp[k].source).replace(/_/g, " ") : "";
+  const read = p.last_seen_at ? `source list read ${dateOnly(p.last_seen_at)}` : "no read of the source recorded";
+  const a = p.source === "certificate" ? null : acquisitionOf(p);
+  switch (key) {
+    case "parcel": return p.parcel ? `${p.parcel} - ${read}` : "The source publishes no parcel identifier for this record";
+    case "county": return `${p.county || "?"} ${UNIT_WORD} - ${read}`;
+    case "legal": return p.legal_desc ? (srcOf("legal_desc") ? `Recorded from ${srcOf("legal_desc")}` : "On file; origin not recorded") : "Not published by the source";
+    case "acq_source": return `${harvesterSourceLabel(p) || "Source"} - ${isCustomerPublishable(p) ? "approved for customer publication" : "awaiting publication review"}`;
+    case "acq_path": return a && a.verified ? `${a.label}${a.observedOn ? ` - verified ${dateOnly(a.observedOn)}` : ""}` : (state === "SOURCE_UNAVAILABLE" ? "The official pages could not be read" : "No official process page has been verified");
+    case "acq_url": return a && a.verified ? ((a.applicationUrl || a.url) ? "Official document on file (How to acquire)" : "The verified process publishes no document") : "Depends on a verified acquisition path";
+    case "acq_amount": { const s = amountSemanticType(p); const t = amountTemporal(p); return s ? `${AMOUNT_SEMANTIC_LABELS[s]} - ${AMOUNT_TEMPORAL_LABELS[t.status]}` : "No amount published by the source"; }
+    case "acq_amount_date": { if (state === "NOT_PUBLISHED") return "No dated amount published by the source"; const st = amountStatementRaw(p); return st && st.valid_through ? `Statement valid through ${dateOnly(st.valid_through)}` : (p.last_seen_at ? `As published on the list read ${dateOnly(p.last_seen_at)}` : "No date published"); }
+    case "coords": { const c = coordinateProvenance(p); return c.method === "NONE" ? "No coordinates on file" : `${c.label}${c.geometry_label ? ` (${c.geometry_label.toLowerCase()})` : ""}`; }
+    case "acreage": return hasNum(p.acreage) || hasNum(p.lot_sqft) ? (srcOf("acreage") || srcOf("lot_sqft") ? `Recorded from ${srcOf("acreage") || srcOf("lot_sqft")}` : "On file; origin not recorded") : "Not published";
+    case "land_use": return p.land_use || p.dor_use_code ? (srcOf("land_use") || srcOf("dor_use_code") ? `Recorded from ${srcOf("land_use") || srcOf("dor_use_code")}` : "On file; origin not recorded") : "Not published";
+    case "imagery": return p.photo_url ? `Stored image${p.photo_source ? ` (${String(p.photo_source).replace(/_/g, " ")})` : ""}` : (p.photo_url === "" ? "Checked - no stored image" : "Not checked yet");
+    case "values": return srcOf("assessed") || srcOf("taxable_value") ? `Recorded from ${srcOf("assessed") || srcOf("taxable_value")}` : ((hasNum(p.assessed) && Number(p.assessed) > 0) || hasNum(p.taxable_value) ? "On file; origin not recorded" : "Not published");
+    case "sale_date": return p.sale_date ? `${fmtDate(String(p.sale_date).slice(0, 10))} - ${read}` : "No sale date published";
+    case "bid": return hasPublishedBid(p) ? `${auctionBidLabel(p)} ${fmtMoney(p.bid)} as published - not a price` : "Not published";
+    case "auction_source": { const l = auctionLinkInfo(p); return l && l.href ? l.label : "No official sale page on file"; }
+    case "result": { const s = auctionOutcomeState(p); return !s ? "No sale on file" : (s.verified ? `${s.label} (source wording "${s.raw}")` : s.key === "scheduled" ? "Sale not held yet" : s.label); }
+    case "cert_number": return p.certificate_no || "Not published";
+    case "cert_face": return hasPublishedBid(p) ? `${fmtMoney(p.bid)} as published - a lien, not a property price` : "Not published";
+    case "cert_interest": return hasNum(p.interest_rate) ? `${p.interest_rate}% as published` : "Not published";
+    case "cert_redemption": return p.expiration_date ? `Expires ${dateOnly(p.expiration_date)}` : "Not published";
+    case "source_record": return harvesterSourceLabel(p) || (p.source_id || p.harvester_source || "Not recorded");
+    case "last_read": return p.last_seen_at ? `Last read ${dateOnly(p.last_seen_at)}${state === "VERIFIED" ? "" : " - more than 14 days ago or not recent"}` : "No read recorded";
+    case "provenance": return Object.keys(fp).length ? `${Object.keys(fp).length} field(s) with a recorded origin` : "No field origin recorded";
+    case "source_health": { const u = unitFreshnessFor(p); return sourceHealthText(u, { review: !isCustomerPublishable(p) }).label; }
+    default: return "";
+  }
+}
+function diligenceFor(p) { return diligenceChecklistFromFacts(diligenceFacts(p)); }
+function diligenceCounts(items) {
+  const c = { VERIFIED: 0, NOT_VERIFIED: 0, NOT_PUBLISHED: 0, NOT_APPLICABLE: 0, SOURCE_UNAVAILABLE: 0 };
+  items.forEach(i => { c[i.state]++; });
+  return c;
+}
+// The My Research row summary (called from researchRowHtml).
+function diligenceSummaryHtml(p, it) {
+  if (!p) return '<span class="muted">Not on file</span>';
+  const c = diligenceCounts(diligenceFor(p));
+  const applicable = c.VERIFIED + c.NOT_VERIFIED + c.NOT_PUBLISHED + c.SOURCE_UNAVAILABLE;
+  const reviewed = it && it.diligence && typeof it.diligence === "object" ? Object.values(it.diligence).filter(v => v && v.reviewed).length : 0;
+  return `<span class="dd-summary" data-verified="${c.VERIFIED}" data-applicable="${applicable}">${c.VERIFIED} of ${applicable} verified</span>` +
+    `<span class="kv-sub">${c.NOT_VERIFIED} not verified · ${c.NOT_PUBLISHED} not published${c.SOURCE_UNAVAILABLE ? ` · ${c.SOURCE_UNAVAILABLE} source unavailable` : ""}${reviewed ? ` · ${reviewed} reviewed by you` : ""}</span>`;
+}
+// The property-page section. Every property gets the checklist; the
+// customer's own review marks and notes are available once it is saved to a
+// research list (they are kept on that research item).
+var DILIGENCE_STATE_MEANING = DILIGENCE_STATE_MEANING || {
+  VERIFIED: "The records carry evidence for it.",
+  NOT_VERIFIED: "A value may exist, but nothing on file proves it.",
+  NOT_PUBLISHED: "The source does not publish it for this record.",
+  NOT_APPLICABLE: "Does not apply to this ledger.",
+  SOURCE_UNAVAILABLE: "The source could not be read at its last attempt."
+};
+function diligenceSectionHtml(p) {
+  const items = diligenceFor(p);
+  const c = diligenceCounts(items);
+  const saved = (typeof researchSavedFor === "function" && RESEARCH && RESEARCH.loaded) ? researchSavedFor(p.id)[0] || null : null;
+  const marks = saved && saved.diligence && typeof saved.diligence === "object" ? saved.diligence : {};
+  const groups = Object.keys(DILIGENCE_GROUP_LABELS).map(g => {
+    const rows = items.filter(i => i.group === g);
+    if (rows.every(i => i.state === "NOT_APPLICABLE")) return "";
+    return `<div class="dd-group" data-dd-group="${g}"><h4>${esc(DILIGENCE_GROUP_LABELS[g])}</h4><ul class="dd-items">${rows.filter(i => i.state !== "NOT_APPLICABLE").map(i => {
+      const m = marks[i.key] || {};
+      return `<li class="dd-item" data-dd-key="${esc(i.key)}" data-dd-state="${esc(i.state)}">
+        <span class="dd-label">${esc(i.label)}</span>
+        <span class="dd-state">${esc(DILIGENCE_STATE_LABELS[i.state])}</span>
+        <span class="dd-evidence">${esc(diligenceEvidence(p, i.key, i.state))}</span>
+        ${saved ? `<span class="dd-mine"><label><input type="checkbox" class="dd-reviewed" data-item="${esc(saved.id)}" data-key="${esc(i.key)}"${m.reviewed ? " checked" : ""}> Reviewed by me</label>${m.note ? `<span class="dd-note">${esc(m.note)}</span>` : ""}<button type="button" class="link-btn" data-action="ddnote" data-item="${esc(saved.id)}" data-key="${esc(i.key)}">${m.note ? "Edit note" : "Add note"}</button></span>` : ""}
+      </li>`;
+    }).join("")}</ul></div>`;
+  }).join("");
+  const na = c.NOT_APPLICABLE;
+  const head = `<div class="dd-head"><b>${c.VERIFIED}</b> verified · <b>${c.NOT_VERIFIED}</b> not verified · <b>${c.NOT_PUBLISHED}</b> not published${c.SOURCE_UNAVAILABLE ? ` · <b>${c.SOURCE_UNAVAILABLE}</b> source unavailable` : ""}<span class="muted"> · ${na} not applicable to ${esc(ledgerNavName(p.source))}</span></div>`;
+  // The key comes first (2026-10-06 verification pass): what each state
+  // means, and that the customer's own marks are kept apart from evidence.
+  const key = `<dl class="dd-key" aria-label="What each state means">${["VERIFIED", "NOT_VERIFIED", "NOT_PUBLISHED", "NOT_APPLICABLE", "SOURCE_UNAVAILABLE"].map(st => `<div data-dd-state="${st}"><dt class="dd-state">${esc(DILIGENCE_STATE_LABELS[st])}</dt><dd>${esc(DILIGENCE_STATE_MEANING[st])}</dd></div>`).join("")}</dl>`;
+  const body = `<div class="dd" data-pid="${esc(p.id)}">
+    <p class="dd-rule">Every item is decided from this property's records only. “Verified” means the records carry evidence for it - the source list that published it was read, a recorded field origin, an official coordinate method, a verified acquisition record or a result the source published. A populated value without evidence is “Not verified”. Your own review marks never change these states.</p>
+    ${key}${head}${groups}
+    ${saved ? "" : `<p class="dd-rule dd-save-hint">Save this property to a research list (My research) to keep your own review marks and notes per item - they sit beside the evidence, never in place of it.</p>`}</div>`;
+  return detailSectionHtml("Due diligence", body, "dd-section", "diligence");
+}
+function hydrateDiligence(pid) {
+  document.querySelectorAll(`.dd[data-pid="${CSS.escape(String(pid))}"]`).forEach(el => {
+    const p = ALL.find(x => String(x.id) === String(pid));
+    const sec = el.closest('[data-section="diligence"]');
+    if (p && sec) sec.outerHTML = diligenceSectionHtml(p);
+  });
+}
+async function setDiligenceMark(itemId, key, patch) {
+  const it = RESEARCH.items.find(i => i.id === itemId);
+  if (!it || !DILIGENCE_ITEMS.some(d => d[0] === key)) return false;
+  const next = Object.assign({}, it.diligence || {});
+  const cur = Object.assign({}, next[key] || {}, patch, { at: new Date().toISOString() });
+  if (!cur.reviewed && !cur.note) delete next[key]; else next[key] = cur;
+  const ok = await updateResearchItem(itemId, { diligence: next });
+  if (ok) hydrateDiligence(it.property_id);
+  return ok;
+}
+document.addEventListener("change", async e => {
+  const cb = e.target && e.target.closest && e.target.closest("input.dd-reviewed");
+  if (!cb) return;
+  await setDiligenceMark(cb.dataset.item, cb.dataset.key, { reviewed: cb.checked });
 });
 const TRANSITION_LABELS = {
   newly_observed: "First observed on the list", status_changed: "Status changed", removed: "Removed from the list (closed - not a sale result)",
@@ -6413,7 +6660,7 @@ async function hydrateInventoryHistory(container, p) {
 // Shell redesign (2026-10-04): the section nav reads as the page's tabs -
 // Overview / Acquisition / Tax & Value / ... / Map / Source - each a jump to a
 // section that actually rendered (never an empty tab).
-const DETAIL_NAV_LABELS = { acquire: "How to acquire", money: "Financial position", documents: "Documents", truth: "Source truth", summary: "Overview", decision: "Decision", inventory: "Inventory", financial: "Tax & Value", property: "Property", history: "History", events: "Sale events", monitor: "Watch", risk: "Risk & Legal", map: "Map", sources: "Source", provenance: "Provenance" };
+const DETAIL_NAV_LABELS = { acquire: "How to acquire", money: "Financial position", research: "My research", diligence: "Due diligence", documents: "Documents", truth: "Source truth", summary: "Overview", decision: "Decision", inventory: "Inventory", financial: "Tax & Value", property: "Property", history: "History", events: "Sale events", monitor: "Watch", risk: "Risk & Legal", map: "Map", sources: "Source", provenance: "Provenance" };
 function detailNavHtml(bodyHtml) {
   const ids = [];
   bodyHtml.replace(/data-section="([a-z]+)"/g, (m, id) => { if (DETAIL_NAV_LABELS[id] && !ids.includes(id)) ids.push(id); return m; });
@@ -7637,7 +7884,12 @@ function researchStatusCellHtml(p) {
   const value = !RESEARCH.loaded ? "…" : items.length
     ? `${esc(RESEARCH_STATE_LABELS[state] || state)}<span class="dossier-sub">${esc(items.map(i => researchListName(i.list_id)).join(" · "))}</span>`
     : `Not saved<span class="dossier-sub">Save it to a research list</span>`;
-  return `<div class="dossier-research" data-research-cell="${esc(String(p.id))}" data-research-state="${esc(state || "none")}"><dt>Your research <span class="dossier-own">(your label, not an official status)</span></dt><dd><button type="button" class="dossier-research-btn" data-action="jump" data-target="research">${value} <span aria-hidden="true">→</span></button></dd></div>`;
+  // Due diligence (2026-10-06): the checklist's evidence count rides in the
+  // same cell - verified out of the items that apply, from the records only.
+  const c = diligenceCounts(diligenceFor(p));
+  const applicable = c.VERIFIED + c.NOT_VERIFIED + c.NOT_PUBLISHED + c.SOURCE_UNAVAILABLE;
+  const dd = `<button type="button" class="dossier-research-btn dossier-dd" data-action="jump" data-target="diligence" data-dd-verified="${c.VERIFIED}" data-dd-applicable="${applicable}">Due diligence: ${c.VERIFIED} of ${applicable} verified by the records <span aria-hidden="true">→</span></button>`;
+  return `<div class="dossier-research" data-research-cell="${esc(String(p.id))}" data-research-state="${esc(state || "none")}"><dt>Your research <span class="dossier-own">(your label, not an official status)</span></dt><dd><button type="button" class="dossier-research-btn" data-action="jump" data-target="research">${value} <span aria-hidden="true">→</span></button>${dd}</dd></div>`;
 }
 function detailHtml(p) {
   const isCert = p.source === "certificate";
@@ -7796,6 +8048,7 @@ function detailHtml(p) {
       ${stats.map(detailStatTileHtml).join("")}
     </div>
     ${detailSectionHtml("My research", researchPanelHtml(p), "research-section", "research")}
+    ${diligenceSectionHtml(p)}
     ${relatedRecordsHtml(p)}
     ${monitorSectionHtml(p)}` : `
     ${propertyVisual(p, "detail-hero-photo")}
@@ -7811,6 +8064,7 @@ function detailHtml(p) {
     ${statGroupHtml("Property Details", stats.filter(s => s[2] === "property"), "property")}
     ${statGroupHtml("History", stats.filter(s => s[2] === "history"), "history")}
     ${detailSectionHtml("My research", researchPanelHtml(p), "research-section", "research")}
+    ${diligenceSectionHtml(p)}
     ${eventHistorySlotHtml(p)}
     ${monitorSectionHtml(p)}
     ${!isCert && regionOf(p) === "FL" ? `<div class="lien-banner ${esc(p.lien_level)}">
@@ -8346,6 +8600,7 @@ document.addEventListener("click", async e => {
     }
     if (listId) await saveToResearch(p, listId);
     hydrateResearchPanels(p.id);
+    hydrateDiligence(p.id);
     return;
   }
   if (action === "researchremove") {
@@ -8361,6 +8616,14 @@ document.addEventListener("click", async e => {
     return;
   }
   if (action === "researchhome") { openResearchPage("all"); return; }
+  // Due diligence: the customer's own note per checklist item (never a state change).
+  if (action === "ddnote") {
+    const it = RESEARCH.items.find(i => i.id === btn.dataset.item);
+    const cur = it && it.diligence && it.diligence[btn.dataset.key] ? it.diligence[btn.dataset.key].note || "" : "";
+    const note = window.prompt("Your note for this item (visible only to you)", cur);
+    if (note !== null) await setDiligenceMark(btn.dataset.item, btn.dataset.key, { note: String(note).slice(0, 500) });
+    return;
+  }
   if (action === "researchstep") { researchStateObj(); RESEARCH.filterState = RESEARCH.filterState === btn.dataset.state ? "all" : btn.dataset.state; renderResearchPage(); return; }
   if (action === "researchbrowse") { goToLedger(btn.dataset.ledger || "laft"); return; }
   if (action === "researchlist") { RESEARCH_PAGE.listId = btn.dataset.list || "all"; renderResearchPage(); return; }
