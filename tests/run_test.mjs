@@ -4321,6 +4321,12 @@ await navMap.close();
       tabs: [...document.querySelectorAll('.research-tab')].map(t => t.textContent.trim().replace(/\s+/g, ' ')),
       head: [...document.querySelectorAll('.research-table th')].map(t => t.textContent.trim()).filter(Boolean),
       rows: [...document.querySelectorAll('.research-row')].map(r => r.dataset.pid + ':' + r.dataset.state + ':' + r.querySelector('[data-official-status]').textContent.trim()) }));
+    results.researchPipeline = await rp.evaluate(() => [...document.querySelectorAll('#pageResearch .research-step')].map(b => b.dataset.state + '=' + b.querySelector('b').textContent));
+    await rp.click('#pageResearch .research-step[data-state="DUE_DILIGENCE"]');
+    await rp.waitForTimeout(250);
+    results.researchPipelineFilter = await rp.evaluate(() => [...document.querySelectorAll('#pageResearch .research-row')].map(r => r.dataset.state));
+    await rp.click('#pageResearch .research-step[data-state="DUE_DILIGENCE"]');
+    await rp.waitForTimeout(250);
     await rp.selectOption('#researchStateFilter', 'DUE_DILIGENCE');
     await rp.waitForTimeout(200);
     results.researchFilter = await rp.evaluate(() => [...document.querySelectorAll('.research-row')].map(r => r.dataset.state));
@@ -4361,6 +4367,43 @@ await navMap.close();
       await mp.close();
     }
     results.researchOverflow = ov;
+    // Verification pass (2026-10-06): the research state sits in the property's
+    // status band beside - never instead of - the official status; the
+    // section follows the property intelligence; My Research shows a
+    // pipeline and, when empty, how to start.
+    {
+      const vp = await newPage({ viewport: { width: 1280, height: 900 } });
+      await vp.goto(BASE_URL.replace('index.html', 'index.html?research=none&v=verify') + '#/lands/p15', { waitUntil: 'networkidle' });
+      await vp.waitForSelector('#detailModalInner .research-panel .research-add', { timeout: 10000, state: 'attached' });
+      const cellOf = () => vp.evaluate(() => { const c = document.querySelector('#detailModalInner [data-research-cell]');
+        return c ? { state: c.dataset.researchState, own: /not an official status/.test(c.textContent), besideOfficial: !!c.parentElement.querySelector('dd') && c.parentElement.children.length } : null; });
+      results.researchCellBefore = await cellOf();
+      results.researchSectionOrder = await vp.evaluate(() => { const ids = [...document.querySelectorAll('#detailModalInner [data-section]')].map(e => e.dataset.section);
+        return { afterProperty: ids.indexOf('research') > ids.indexOf('property') && ids.indexOf('property') > -1, afterAcquire: ids.indexOf('research') > ids.indexOf('acquire') }; });
+      await vp.evaluate(() => document.querySelector('#detailModalInner [data-research-cell] button').click());
+      results.researchCellJump = await vp.waitForFunction(() => { const r = document.querySelector('#detailModalInner [data-section="research"]').getBoundingClientRect(); return r.top < innerHeight && r.bottom > 0; }, null, { timeout: 4000 }).then(() => true, () => false);
+      await vp.evaluate(() => { document.querySelector('#detailModalInner .research-new-name').value = 'Verify'; document.querySelector('#detailModalInner [data-action="researchnewsave"]').click(); });
+      await vp.waitForTimeout(500);
+      results.researchCellAfter = await cellOf();
+      await vp.close();
+      const ep = await newPage({ viewport: { width: 1280, height: 900 } });
+      await ep.goto(BASE_URL.replace('index.html', 'index.html?research=none&v=empty') + '#/research', { waitUntil: 'networkidle' });
+      await ep.waitForSelector('#pageResearch .research-start', { timeout: 10000 });
+      results.researchEmptyStart = await ep.evaluate(() => ({ steps: document.querySelectorAll('#pageResearch .research-start-steps li').length,
+        browse: !!document.querySelector('#pageResearch [data-action="researchbrowse"]'), counties: !!document.querySelector('#pageResearch [data-action="countyindex"]') }));
+      await ep.click('#pageResearch [data-action="countyindex"]');
+      await ep.waitForSelector('#pageCounty .cty-index', { timeout: 5000 });
+      results.researchEmptyToCounties = await ep.evaluate(() => location.hash);
+      await ep.close();
+      const hp = await newPage({ viewport: { width: 1280, height: 900 } });
+      await hp.goto(BASE_URL.replace('index.html', 'index.html?v=guide') + '#/dashboard', { waitUntil: 'networkidle' });
+      await hp.waitForSelector('#homeGuide [data-guide="research"]', { timeout: 10000 });
+      results.homeGuideWorkflow = await hp.evaluate(() => ({ research: !!document.querySelector('#homeGuide [data-guide="research"]'), counties: !!document.querySelector('#homeGuide [data-guide="counties"]') }));
+      await hp.click('#homeGuide [data-guide="counties"]');
+      await hp.waitForSelector('#pageCounty .cty-index', { timeout: 5000 });
+      results.homeGuideToCounties = await hp.evaluate(() => location.hash);
+      await hp.close();
+    }
   }
   // ---- Current acquisition amounts: semantic type + currency (2026-10-06) ----
   {
@@ -7110,12 +7153,22 @@ const EXPECTED = {
   countyOverflow: [],
   // My Research: research lists + workflow state (2026-10-06).
   researchServer: {"mode": "server", "lists": ["October Florida Auction"], "state": "DUE_DILIGENCE", "note": "Ask the clerk about recording fees", "refused": [false, false], "officialUnchanged": true, "noStateOnProperty": true, "storageNote": "server"},
-  researchPage: {"hash": "#/research", "navOn": true, "tabs": ["All lists 2", "October Florida Auction 1", "Watch 1"], "head": ["Property", "County", "Ledger", "Official status", "Your research state", "Saved", "Upcoming", "Acquisition path", "Due diligence", "Note"], "rows": ["p15:DUE_DILIGENCE:Available · Available over the counter", "p15:DISCOVERED:Available · Available over the counter"]},
+  researchPage: {"hash": "#/research", "navOn": true, "tabs": ["All lists 2", "October Florida Auction 1", "Watch 1"], "head": ["From the records", "Your workflow", "Property", "County", "Ledger", "Official status", "Upcoming", "Acquisition path", "Due diligence", "Your research state", "Saved", "Your note"], "rows": ["p15:DUE_DILIGENCE:Available · Available over the counter", "p15:DISCOVERED:Available · Available over the counter"]},
   researchFilter: ["DUE_DILIGENCE"],
   researchAfterRemove: {"items": 1, "rows": 1, "navCount": "1"},
   researchToCounty: "#/county/Citrus",
   researchLocal: {"mode": "local", "note": "local", "afterReload": 1, "pageNote": "local"},
   researchOverflow: [],
+  researchCellBefore: {"state": "none", "own": true, "besideOfficial": 4},
+  researchSectionOrder: {"afterProperty": true, "afterAcquire": true},
+  researchCellJump: true,
+  researchCellAfter: {"state": "DISCOVERED", "own": true, "besideOfficial": 4},
+  researchEmptyStart: {"steps": 4, "browse": true, "counties": true},
+  researchEmptyToCounties: "#/counties",
+  researchPipeline: ["DISCOVERED=1", "RESEARCHING=0", "DUE_DILIGENCE=1", "ACQUISITION_READY=0", "PASSED=0", "ACQUIRED=0"],
+  researchPipelineFilter: ["DUE_DILIGENCE"],
+  homeGuideWorkflow: {"research": true, "counties": true},
+  homeGuideToCounties: "#/counties",
   countyRecords: {"auction": ["p1"], "certificate": ["p4"]},
   countyRecordOpens: "#/auctions/p1",
   // Current acquisition amounts (2026-10-06).

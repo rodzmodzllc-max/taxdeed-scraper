@@ -64,3 +64,26 @@ The watchlist answers "tell me when this changes". My Research answers a differe
   - no horizontal overflow at 390 / 430 / 768 / 1024 / 1440 / 1920.
 
 `sw.js` → `tdw-shell-v100`.
+
+## Verification pass (2026-10-06)
+
+- **Status band.** The property page's status band (Ledger / Status / Last read)
+  carries a fourth cell, **Your research**. It shows the customer's research
+  state and lists, or "Not saved". It is marked with a dashed copper rule and
+  labelled "(your label, not an official status)", so it never reads as, or
+  replaces, the official status beside it. Tapping it jumps to the My research
+  section.
+- **Section order.** The full My research section now follows the property
+  intelligence: How to acquire → Financial position → Overview / Decision /
+  Inventory → Tax & Value / Property / History → **My research**. The cell at
+  the top keeps it from being buried.
+- **My Research page.**
+  - A pipeline strip gives one count per research state, a count and never a
+    score; a step filters the table.
+  - The table's columns are grouped "From the records" (official status,
+    upcoming sale, acquisition path, due diligence) and "Your workflow" (your
+    state, saved, your note), with the second group shaded.
+  - An empty workspace explains the four steps and links to Available and
+    County Intelligence.
+- **Home guide.** Step 2 names County Intelligence and step 4 ("Save & work
+  it") names My Research and the due-diligence checklist, each with a link.

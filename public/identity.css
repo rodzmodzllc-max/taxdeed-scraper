@@ -813,3 +813,34 @@ body:has(#authGate:not([hidden])){padding-bottom:0!important}
 .cty-record-title{font-weight:600;overflow-wrap:anywhere}
 .cty-record-sub{grid-column:1;font-size:.8rem;color:var(--ink-soft);overflow-wrap:anywhere}
 .cty-record-go{grid-column:2;grid-row:1 / span 2;align-self:center;font-size:.8rem;color:var(--copper-deep);white-space:nowrap}
+
+/* Verification pass (2026-10-06): the customer's own research state in the
+   property status band - a dashed copper rule and its own label, so it reads
+   as the customer's workflow, never as the official status beside it. */
+.dossier-status{grid-template-columns:repeat(3,minmax(0,1fr)) minmax(0,1.25fr)}
+.dossier-status > div.dossier-research{background:var(--copper-soft);border-left:2px dashed var(--copper)!important;padding-left:.8rem}
+.dossier-own{font-weight:500;letter-spacing:.02em;text-transform:none;color:var(--copper-deep)}
+.dossier-research-btn{background:none;border:0;padding:0;font:inherit;color:var(--ink);text-align:left;cursor:pointer;min-height:44px;display:block;width:100%}
+.dossier-research-btn:hover,.dossier-research-btn:focus-visible{text-decoration:underline}
+.dossier-sub{display:block;font-size:.76rem;font-weight:500;color:var(--ink-soft)}
+.research-pipeline{list-style:none;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:0;margin:.6rem 0 .9rem;padding:0;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule)}
+.research-pipeline li + li{border-left:1px solid var(--rule)}
+.research-step{display:flex;flex-direction:column;align-items:flex-start;gap:.1rem;width:100%;min-height:44px;padding:.5rem .7rem;background:none;border:0;font:inherit;color:var(--ink);cursor:pointer;text-align:left}
+.research-step b{font-family:var(--serif, Georgia, serif);font-size:1.35rem;line-height:1}
+.research-step span{font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-soft)}
+.research-step.on{background:var(--copper-soft);box-shadow:inset 0 -2px 0 var(--copper)}
+.research-table .rs-groups th{font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft);border-bottom:0;padding-bottom:0}
+.research-table .rs-yours{background:var(--copper-soft)}
+.research-table .rs-first{border-left:2px dashed var(--copper)}
+.research-start{border-top:1px solid var(--rule);padding:.8rem 0}
+.research-start h3{margin:.2rem 0 .5rem;font-family:var(--serif, Georgia, serif)}
+.research-start-steps{margin:0 0 .8rem;padding-left:1.2rem;color:var(--ink)}
+.research-start-steps li{margin:.3rem 0}
+@media (max-width:768px){
+  .dossier-status{grid-template-columns:1fr 1fr}
+  .dossier-status > div.dossier-research{grid-column:1 / -1;border-left:2px dashed var(--copper)!important;border-top:1px solid var(--rule)}
+  .research-pipeline{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .research-pipeline li:nth-child(4){border-left:0}
+  .research-pipeline li:nth-child(n+4){border-top:1px solid var(--rule)}
+  .research-table .rs-groups{display:none}
+}
