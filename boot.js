@@ -95,3 +95,49 @@
     if (!started()) showPanel();
   }, ms);
 })();
+
+// Phone showing the desktop layout (2026-10-06). When the browser's "Desktop
+// site" setting is on (Chrome / Samsung Internet; an installed app inherits
+// it), the browser ignores this page's mobile viewport and lays the page out
+// about 980px wide, then shrinks it onto the phone - every font becomes tiny
+// and nothing in the page's CSS can undo it. Detect exactly that case - a
+// touch-only device whose screen is phone-sized while the page is laid out far
+// wider - and say how to switch it off, in type sized for the shrunken page.
+(function () {
+  var KEY = "tdw_desktop_site_notice_hidden_v1";
+  function detect() {
+    var sw = Math.min(screen.width || 0, screen.height || 0);
+    var coarse = window.matchMedia && matchMedia("(pointer: coarse)").matches && !matchMedia("(any-pointer: fine)").matches;
+    var w = document.documentElement.clientWidth || window.innerWidth || 0;
+    return !!(coarse && sw && sw <= 600 && w >= sw * 1.6);
+  }
+  window.__tdwDesktopSiteDetect = detect;
+  function show() {
+    try { if (localStorage.getItem(KEY)) return; } catch (e) { /* show anyway */ }
+    if (!detect() || document.getElementById("desktopSiteNotice")) return;
+    var sw = Math.min(screen.width, screen.height);
+    var k = Math.max(1, (document.documentElement.clientWidth || window.innerWidth) / sw);
+    var box = document.createElement("div");
+    box.id = "desktopSiteNotice";
+    box.setAttribute("role", "alert");
+    box.style.cssText = "position:relative;z-index:2000;background:#26221d;color:#f4efe6;" +
+      "font:" + Math.round(16 * k) + "px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif;padding:" + Math.round(14 * k) + "px " + Math.round(16 * k) + "px";
+    var t = document.createElement("strong");
+    t.textContent = "Text too small? Your browser is showing the desktop version.";
+    t.style.display = "block";
+    var p = document.createElement("span");
+    p.textContent = " Turn off \u201cDesktop site\u201d: in Chrome, tap \u22ee then uncheck Desktop site (or Settings \u2192 Site settings \u2192 Desktop site). In Samsung Internet, tap \u2261 then Mobile version. An installed app follows Chrome's setting; reopen it afterwards.";
+    p.style.display = "block";
+    var b = document.createElement("button");
+    b.type = "button";
+    b.id = "desktopSiteNoticeClose";
+    b.textContent = "Dismiss";
+    b.style.cssText = "margin-top:" + Math.round(10 * k) + "px;font:inherit;padding:" + Math.round(8 * k) + "px " + Math.round(14 * k) + "px;" +
+      "border:1px solid #f4efe6;background:transparent;color:inherit;border-radius:4px;cursor:pointer";
+    b.addEventListener("click", function () { try { localStorage.setItem(KEY, "1"); } catch (e) { /* ignore */ } box.remove(); });
+    box.appendChild(t); box.appendChild(p); box.appendChild(b);
+    document.body.insertBefore(box, document.body.firstChild);
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", show);
+  else show();
+})();
