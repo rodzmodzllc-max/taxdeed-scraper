@@ -11139,13 +11139,18 @@ function observeAcquisitionSection(host, p) {
   if (!host || !p || ACQ_VIEWED.has(p.id) || typeof IntersectionObserver !== "function") return;
   const el = host.querySelector('[data-section="acquire"]') || host.querySelector('[data-section="decision"] .dec-row[data-q="how"]');
   if (!el) return;
+  // "In view" = a quarter of the section, or - for a section taller than the
+  // screen (How to acquire runs ~2,800px on a phone, so 25% of it can never
+  // be visible at once) - a quarter of the screen filled by it.
+  const seen = e => e.isIntersecting && (e.intersectionRatio >= 0.25 ||
+    (e.rootBounds && e.intersectionRect.height >= 0.25 * e.rootBounds.height));
   const io = new IntersectionObserver(entries => {
-    if (!entries.some(e => e.isIntersecting)) return;
+    if (!entries.some(seen)) return;
     io.disconnect();
     if (ACQ_VIEWED.has(p.id)) return;
     ACQ_VIEWED.add(p.id);
     track("acquisition_section_viewed", { property_id: p.id, ledger: p.source, mode: acquisitionOf(p).mode || "not_verified" });
-  }, { threshold: 0.25 });
+  }, { threshold: [0, 0.05, 0.1, 0.15, 0.2, 0.25] });
   io.observe(el);
 }
 function track(event, props) {
