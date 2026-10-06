@@ -74,7 +74,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(1, str(Path(__file__).resolve().parent.parent))  # harvesters.* (repo root)
 from laft_status import (DB_AMOUNT_KINDS, CLOSEOUT_ELIGIBLE, load_status,  # noqa: E402
-                         statuses_by_county)
+                         plausible_identifier, statuses_by_county)
 import laft_source_fields as SF  # noqa: E402
 import purchase_path_engine as PE  # noqa: E402
 from harvesters.governance import states  # noqa: E402
@@ -538,6 +538,32 @@ CARRY_017_COLUMNS = ("parcel", "certificate_no", "last_seen_at", "otc_provenance
 CARRY_COLUMNS = CARRY_017_COLUMNS + ("purchase_path_type", "purchase_path_scope", "purchase_path_evidence", "purchase_path_observed_on")
 
 
+def carry_identifiers_valid(row: dict) -> bool:
+    """Conservative identity check for a row no lifecycle read ever stamped,
+    before county-level evidence is carried onto it.
+
+    True only when the row carries at least one identifier (parcel or
+    case_no) and EVERY identifier it carries:
+      - passes the harvesters' own plausibility rule
+        (laft_status.plausible_identifier: no line break, contains a digit,
+        at most 40 characters for a parcel / 60 for a case number), and
+      - contains at least two digits.
+
+    A row that fails is a parse artifact (e.g. Pasco's case "2. The" with a
+    465-character run-together parcel), not a property; it is left exactly as
+    stored - never closed, never edited - and simply receives nothing."""
+    present = [(row.get(k), kind) for k, kind in (("parcel", "parcel"), ("case_no", "case_no"))
+               if row.get(k) is not None and str(row.get(k)).strip()]
+    if not present:
+        return False
+    for value, kind in present:
+        if not plausible_identifier(value, kind=kind):
+            return False
+        if len(re.findall(r"\d", str(value))) < 2:
+            return False
+    return True
+
+
 def carry_plan(db_rows: list[dict], observed_keys: set, path_ctx: "PathContext | None", *, have_023: bool) -> list[tuple[int, dict]]:
     """Acquisition sprint 2 (2026-09-30): keep verified customer evidence on
     rows this run did NOT read (their county was INCOMPLETE, SOURCE_UNAVAILABLE,
@@ -570,6 +596,8 @@ def carry_plan(db_rows: list[dict], observed_keys: set, path_ctx: "PathContext |
         source_id = prov.get("source_id") or r.get("source_id")
         if not prov and not source_id:
             continue                                    # nothing names the row's source: nothing to attach
+        if not prov and not carry_identifiers_valid(r):
+            continue                                    # malformed identity (e.g. run-together PDF text): nothing attached
         new_prov = dict(prov)
         list_url = prov.get("list_url") or r.get("list_url")
         document_url = prov.get("document_url") or r.get("document_url")
