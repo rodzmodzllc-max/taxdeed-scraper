@@ -4812,9 +4812,12 @@ await navMap.close();
     pg = await open('', '#/lands');
     await pg.fill('#globalSearchInput', 'Manatee');
     await pg.waitForTimeout(300);
-    results.rdGlobal = { rows: await pg.locator('#globalSearchResults .gs-row').evaluateAll(els => els.map(e => e.dataset.gsPid + ':' + e.querySelector('.ledger-badge').textContent)),
+    // Grouped search (2026-10-06): "Manatee" also names a county, so a county
+    // route row precedes the property rows; it is pinned on its own.
+    results.rdGlobalAux = await pg.locator('#globalSearchResults .gs-row-aux').evaluateAll(els => els.map(e => e.dataset.gsCounty ? 'county:' + e.dataset.gsCounty : e.dataset.gsState ? 'state:' + e.dataset.gsState : 'research'));
+    results.rdGlobal = { rows: await pg.locator('#globalSearchResults .gs-row[data-gs-pid]').evaluateAll(els => els.map(e => e.dataset.gsPid + ':' + e.querySelector('.ledger-badge').textContent)),
       all: await txt(pg, '#globalSearchResults .gs-all'), expanded: await pg.getAttribute('#globalSearchInput', 'aria-expanded') };
-    await pg.press('#globalSearchInput', 'ArrowDown');
+    for (let i = 0, n = results.rdGlobalAux.length + 1; i < n; i++) await pg.press('#globalSearchInput', 'ArrowDown');
     await pg.press('#globalSearchInput', 'Enter');
     await pg.waitForTimeout(500);
     results.rdGlobalOpen = { modal: await pg.locator('#detailModal').evaluate(el => !el.hidden), crumbs: await pg.locator('#detailModalInner .detail-crumbs').allTextContents() };
@@ -7291,6 +7294,7 @@ const EXPECTED = {
   timelineCrossLink: "#/auctions/p1",
   timelineCountyRoute: "#/county/Alachua",
   searchTimelineOverflow: [],
+  rdGlobalAux: ["county:Manatee"],
   // Current acquisition amounts (2026-10-06).
   amountVectors: [],
   amountMeta: {"pa": {"semantic": "OPENING_BID", "rows": ["Amount type: Opening bid", "Valid through: Not published"], "statusMatchesRule": true}, "ok": {"semantic": "OTHER_PUBLISHED_AMOUNT", "rows": ["Amount type: Other published amount", "Valid through: Not published"], "statusMatchesRule": true}, "mo": {"semantic": "NONE", "rows": ["Amount type: Not published", "Valid through: Not published"], "statusMatchesRule": true}, "mn": {"semantic": "OPENING_BID", "rows": ["Amount type: Opening bid", "Valid through: Not published"], "statusMatchesRule": true}},
