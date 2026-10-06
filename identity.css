@@ -773,3 +773,12 @@ body:has(#authGate:not([hidden])){padding-bottom:0!important}
   .cty-table tr{display:block;border-bottom:1px solid var(--rule);padding:.4rem 0}
   .cty-table td{display:block;border:0;padding:.1rem 0}
 }
+
+/* County -> property records (2026-10-06) */
+.cty-records{list-style:none;margin:.2rem 0 .6rem;padding:0;border-top:1px solid var(--rule)}
+.cty-record{border-bottom:1px solid var(--rule)}
+.cty-record-btn{display:grid;grid-template-columns:1fr auto;column-gap:.8rem;width:100%;padding:.45rem 0;background:none;border:0;text-align:left;color:inherit;cursor:pointer;font:inherit;min-height:44px}
+.cty-record-btn:hover .cty-record-title,.cty-record-btn:focus-visible .cty-record-title{text-decoration:underline}
+.cty-record-title{font-weight:600;overflow-wrap:anywhere}
+.cty-record-sub{grid-column:1;font-size:.8rem;color:var(--ink-soft);overflow-wrap:anywhere}
+.cty-record-go{grid-column:2;grid-row:1 / span 2;align-self:center;font-size:.8rem;color:var(--copper-deep);white-space:nowrap}
