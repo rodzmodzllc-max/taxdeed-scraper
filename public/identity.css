@@ -826,6 +826,8 @@ body:has(#authGate:not([hidden])){padding-bottom:0!important}
 @media (max-width:640px){
   .dd-item{grid-template-columns:1fr auto}
   .dd-evidence{grid-column:1 / -1}
+}
+
 /* County -> property records (2026-10-06) */
 .cty-records{list-style:none;margin:.2rem 0 .6rem;padding:0;border-top:1px solid var(--rule)}
 .cty-record{border-bottom:1px solid var(--rule)}
@@ -865,3 +867,14 @@ body:has(#authGate:not([hidden])){padding-bottom:0!important}
   .research-pipeline li:nth-child(n+4){border-top:1px solid var(--rule)}
   .research-table .rs-groups{display:none}
 }
+.dossier-research-btn.dossier-dd{min-height:32px;font-size:.78rem;font-weight:600;color:var(--copper-deep);border-top:1px solid rgba(0,0,0,.08);margin-top:.2rem;padding-top:.2rem}
+.dd-key{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:0;margin:.4rem 0 .7rem;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule)}
+.dd-key > div{padding:.45rem .6rem .45rem 0}
+.dd-key > div + div{padding-left:.6rem;border-left:1px solid var(--rule)}
+.dd-key dt{margin:0 0 .2rem}
+.dd-key dd{margin:0;font-size:.78rem;color:var(--ink-soft)}
+@media (max-width:768px){.dd-key{grid-template-columns:1fr 1fr}.dd-key > div + div{border-left:0;padding-left:0}.dd-key > div{border-top:1px solid var(--rule)}}
+.dd-key [data-dd-state="VERIFIED"] .dd-state{color:var(--ok)}
+.dd-key [data-dd-state="NOT_VERIFIED"] .dd-state{color:var(--warn)}
+.dd-key [data-dd-state="SOURCE_UNAVAILABLE"] .dd-state{color:var(--bad)}
+.dd-key .dd-state{display:inline-block}

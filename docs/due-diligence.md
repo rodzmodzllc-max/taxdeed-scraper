@@ -67,3 +67,22 @@ The My Research row shows "N of M verified", followed by counts of not verified,
   - no overflow at 390 / 430 / 768 / 1024 / 1440 / 1920.
 
 `sw.js` → `tdw-shell-v101`.
+
+## Verification pass (2026-10-06)
+
+- **Key first.** The checklist opens with what each state means: Verified,
+  Not verified, Not published, Not applicable and Source unavailable, each
+  with a one-line definition (`DILIGENCE_STATE_MEANING`). The rule ("a
+  populated value without evidence is Not verified"; your marks never change
+  a state) comes before the items, not after them.
+- **Status band.** The property's status band carries the evidence count,
+  "Due diligence: N of M verified by the records". It sits inside the "Your
+  research" cell and jumps to the checklist.
+- **Wording.** "Amount date" no longer says "as published on the list" when
+  its state is Not published. It reads "No dated amount published by the
+  source".
+- **Order.** The checklist follows My research, which follows the property
+  intelligence.
+- **CSS guard.** `tests/python/test_css_balance.py` fails when any
+  stylesheet's braces do not balance. A merge had dropped one, which left
+  every later rule inside a media query.

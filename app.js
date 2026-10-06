@@ -5929,7 +5929,7 @@ function diligenceEvidence(p, key, state) {
     case "acq_path": return a && a.verified ? `${a.label}${a.observedOn ? ` - verified ${dateOnly(a.observedOn)}` : ""}` : (state === "SOURCE_UNAVAILABLE" ? "The official pages could not be read" : "No official process page has been verified");
     case "acq_url": return a && a.verified ? ((a.applicationUrl || a.url) ? "Official document on file (How to acquire)" : "The verified process publishes no document") : "Depends on a verified acquisition path";
     case "acq_amount": { const s = amountSemanticType(p); const t = amountTemporal(p); return s ? `${AMOUNT_SEMANTIC_LABELS[s]} - ${AMOUNT_TEMPORAL_LABELS[t.status]}` : "No amount published by the source"; }
-    case "acq_amount_date": { const st = amountStatementRaw(p); return st && st.valid_through ? `Statement valid through ${dateOnly(st.valid_through)}` : (p.last_seen_at ? `As published on the list read ${dateOnly(p.last_seen_at)}` : "No date published"); }
+    case "acq_amount_date": { if (state === "NOT_PUBLISHED") return "No dated amount published by the source"; const st = amountStatementRaw(p); return st && st.valid_through ? `Statement valid through ${dateOnly(st.valid_through)}` : (p.last_seen_at ? `As published on the list read ${dateOnly(p.last_seen_at)}` : "No date published"); }
     case "coords": { const c = coordinateProvenance(p); return c.method === "NONE" ? "No coordinates on file" : `${c.label}${c.geometry_label ? ` (${c.geometry_label.toLowerCase()})` : ""}`; }
     case "acreage": return hasNum(p.acreage) || hasNum(p.lot_sqft) ? (srcOf("acreage") || srcOf("lot_sqft") ? `Recorded from ${srcOf("acreage") || srcOf("lot_sqft")}` : "On file; origin not recorded") : "Not published";
     case "land_use": return p.land_use || p.dor_use_code ? (srcOf("land_use") || srcOf("dor_use_code") ? `Recorded from ${srcOf("land_use") || srcOf("dor_use_code")}` : "On file; origin not recorded") : "Not published";
@@ -5968,6 +5968,13 @@ function diligenceSummaryHtml(p, it) {
 // The property-page section. Every property gets the checklist; the
 // customer's own review marks and notes are available once it is saved to a
 // research list (they are kept on that research item).
+var DILIGENCE_STATE_MEANING = DILIGENCE_STATE_MEANING || {
+  VERIFIED: "The records carry evidence for it.",
+  NOT_VERIFIED: "A value may exist, but nothing on file proves it.",
+  NOT_PUBLISHED: "The source does not publish it for this record.",
+  NOT_APPLICABLE: "Does not apply to this ledger.",
+  SOURCE_UNAVAILABLE: "The source could not be read at its last attempt."
+};
 function diligenceSectionHtml(p) {
   const items = diligenceFor(p);
   const c = diligenceCounts(items);
@@ -5988,9 +5995,13 @@ function diligenceSectionHtml(p) {
   }).join("");
   const na = c.NOT_APPLICABLE;
   const head = `<div class="dd-head"><b>${c.VERIFIED}</b> verified · <b>${c.NOT_VERIFIED}</b> not verified · <b>${c.NOT_PUBLISHED}</b> not published${c.SOURCE_UNAVAILABLE ? ` · <b>${c.SOURCE_UNAVAILABLE}</b> source unavailable` : ""}<span class="muted"> · ${na} not applicable to ${esc(ledgerNavName(p.source))}</span></div>`;
-  const body = `<div class="dd" data-pid="${esc(p.id)}">${head}${groups}
-    <p class="dd-rule">“Verified” means the property's records carry evidence for the item - the source list that published it was read, a recorded field origin, an official coordinate method, a verified acquisition record or a result the source published. A populated value without evidence is “Not verified”. Your own review marks never change these states.</p>
-    ${saved ? "" : `<p class="dd-rule">Save this property to a research list (My research) to keep your own review marks and notes per item.</p>`}</div>`;
+  // The key comes first (2026-10-06 verification pass): what each state
+  // means, and that the customer's own marks are kept apart from evidence.
+  const key = `<dl class="dd-key" aria-label="What each state means">${["VERIFIED", "NOT_VERIFIED", "NOT_PUBLISHED", "NOT_APPLICABLE", "SOURCE_UNAVAILABLE"].map(st => `<div data-dd-state="${st}"><dt class="dd-state">${esc(DILIGENCE_STATE_LABELS[st])}</dt><dd>${esc(DILIGENCE_STATE_MEANING[st])}</dd></div>`).join("")}</dl>`;
+  const body = `<div class="dd" data-pid="${esc(p.id)}">
+    <p class="dd-rule">Every item is decided from this property's records only. “Verified” means the records carry evidence for it - the source list that published it was read, a recorded field origin, an official coordinate method, a verified acquisition record or a result the source published. A populated value without evidence is “Not verified”. Your own review marks never change these states.</p>
+    ${key}${head}${groups}
+    ${saved ? "" : `<p class="dd-rule dd-save-hint">Save this property to a research list (My research) to keep your own review marks and notes per item - they sit beside the evidence, never in place of it.</p>`}</div>`;
   return detailSectionHtml("Due diligence", body, "dd-section", "diligence");
 }
 function hydrateDiligence(pid) {
@@ -7873,7 +7884,12 @@ function researchStatusCellHtml(p) {
   const value = !RESEARCH.loaded ? "…" : items.length
     ? `${esc(RESEARCH_STATE_LABELS[state] || state)}<span class="dossier-sub">${esc(items.map(i => researchListName(i.list_id)).join(" · "))}</span>`
     : `Not saved<span class="dossier-sub">Save it to a research list</span>`;
-  return `<div class="dossier-research" data-research-cell="${esc(String(p.id))}" data-research-state="${esc(state || "none")}"><dt>Your research <span class="dossier-own">(your label, not an official status)</span></dt><dd><button type="button" class="dossier-research-btn" data-action="jump" data-target="research">${value} <span aria-hidden="true">→</span></button></dd></div>`;
+  // Due diligence (2026-10-06): the checklist's evidence count rides in the
+  // same cell - verified out of the items that apply, from the records only.
+  const c = diligenceCounts(diligenceFor(p));
+  const applicable = c.VERIFIED + c.NOT_VERIFIED + c.NOT_PUBLISHED + c.SOURCE_UNAVAILABLE;
+  const dd = `<button type="button" class="dossier-research-btn dossier-dd" data-action="jump" data-target="diligence" data-dd-verified="${c.VERIFIED}" data-dd-applicable="${applicable}">Due diligence: ${c.VERIFIED} of ${applicable} verified by the records <span aria-hidden="true">→</span></button>`;
+  return `<div class="dossier-research" data-research-cell="${esc(String(p.id))}" data-research-state="${esc(state || "none")}"><dt>Your research <span class="dossier-own">(your label, not an official status)</span></dt><dd><button type="button" class="dossier-research-btn" data-action="jump" data-target="research">${value} <span aria-hidden="true">→</span></button>${dd}</dd></div>`;
 }
 function detailHtml(p) {
   const isCert = p.source === "certificate";

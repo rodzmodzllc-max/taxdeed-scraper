@@ -4426,6 +4426,16 @@ await navMap.close();
       return ['legal', 'acreage', 'land_use', 'values'].filter(k => f[k] === 'unsourced').map(k => k + '=' + st[k]);
     });
     results.diligenceRuleText = await dp.evaluate(() => /A populated value without evidence is “Not verified”/.test(document.querySelector('#detailModalInner .dd-rule').textContent));
+    // Verification pass (2026-10-06): the five-state key comes first, and the
+    // status band's research cell carries the checklist's evidence count.
+    results.diligenceKeyFirst = await dp.evaluate(() => { const dd = document.querySelector('#detailModalInner .dd');
+      const key = dd.querySelector('.dd-key'), firstGroup = dd.querySelector('.dd-group');
+      return { states: [...key.querySelectorAll('[data-dd-state]')].map(d => d.dataset.ddState), beforeItems: !!(key.compareDocumentPosition(firstGroup) & Node.DOCUMENT_POSITION_FOLLOWING) }; });
+    results.diligenceCellCount = await dp.evaluate(() => { const b = document.querySelector('#detailModalInner [data-research-cell] .dossier-dd');
+      const items = [...document.querySelectorAll('#detailModalInner .dd-item')];
+      return b ? { verified: Number(b.dataset.ddVerified), applicable: Number(b.dataset.ddApplicable), matchesChecklist: Number(b.dataset.ddVerified) === items.filter(i => i.dataset.ddState === 'VERIFIED').length && Number(b.dataset.ddApplicable) === items.length } : null; });
+    results.diligenceAmountDateWording = await dp.evaluate(() => { const i = document.querySelector('#detailModalInner .dd-item[data-dd-key="acq_amount_date"]');
+      return i ? i.dataset.ddState + ':' + i.querySelector('.dd-evidence').textContent : null; });
     results.diligenceSaveHint = await dp.evaluate(() => !!document.querySelector('#detailModalInner .dd') && !document.querySelector('#detailModalInner .dd-reviewed'));
     // Save to research, then mark an item reviewed: the mark persists and the evidence state does not move.
     await dp.evaluate(() => { document.querySelector('#detailModalInner .research-new-name').value = 'Due Diligence'; document.querySelector('#detailModalInner [data-action="researchnewsave"]').click(); });
@@ -7246,6 +7256,9 @@ const EXPECTED = {
   diligenceLedgers: {"p13": {"keys": 16, "groups": ["identity", "property", "auction", "source"], "pick": {"result": "NOT_PUBLISHED", "sale_date": "VERIFIED", "bid": "VERIFIED", "auction_source": "NOT_VERIFIED", "coords": "NOT_PUBLISHED"}}, "p10": {"keys": 15, "groups": ["identity", "property", "auction", "source"], "pick": {"sale_date": "NOT_VERIFIED", "bid": "VERIFIED", "auction_source": "VERIFIED", "coords": "NOT_PUBLISHED"}}, "p4": {"keys": 11, "groups": ["identity", "certificate", "source"], "pick": {"cert_number": "VERIFIED", "cert_face": "VERIFIED", "cert_interest": "VERIFIED", "cert_redemption": "VERIFIED"}}},
   diligenceLocalPersist: true,
   diligenceOverflow: [],
+  diligenceKeyFirst: {"states": ["VERIFIED", "NOT_VERIFIED", "NOT_PUBLISHED", "NOT_APPLICABLE", "SOURCE_UNAVAILABLE"], "beforeItems": true},
+  diligenceCellCount: {"verified": 7, "applicable": 17, "matchesChecklist": true},
+  diligenceAmountDateWording: "NOT_PUBLISHED:No dated amount published by the source",
   researchCellBefore: {"state": "none", "own": true, "besideOfficial": 4},
   researchSectionOrder: {"afterProperty": true, "afterAcquire": true},
   researchCellJump: true,
