@@ -2161,3 +2161,47 @@ a.ledger-badge:hover{text-decoration:underline}
 .home-guide-step b{color:var(--ink)}
 .home-guide-num{flex:0 0 1.5rem;height:1.5rem;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:.78rem;background:var(--ink);color:var(--card)}
 .home-guide-collapsed{margin:0 0 .6rem}
+
+/* ---- acquisition checklist, source truth, county intelligence (2026-10-05) ---- */
+.acq-checklist-wrap{border:1px solid var(--card-line);border-radius:10px;padding:.55rem .7rem;margin:0 0 .8rem}
+.acq-checklist-head{display:flex;justify-content:space-between;align-items:baseline;gap:.5rem;font-size:.82rem;margin-bottom:.35rem}
+.acq-checklist-head span{color:var(--ink-soft);font-size:.74rem}
+.acq-checklist{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.25rem .9rem;font-size:.78rem}
+.acq-checklist li{display:grid;grid-template-columns:minmax(0,7.2rem) minmax(0,1fr);gap:.1rem .5rem;padding:.25rem 0;border-top:1px dashed var(--card-line);align-items:start}
+.acq-checklist li[data-check="not_published"]{grid-column:1/-1}
+.acq-checklist .ck-label{color:var(--ink-soft);font-weight:600}
+.acq-checklist .ck-val{overflow-wrap:anywhere}
+.acq-checklist .ck-sub{display:block;color:var(--ink-soft);font-size:.72rem}
+.acq-checklist .ck-state{grid-column:2;justify-self:start;font-size:.68rem;padding:.05rem .4rem;border-radius:999px;background:var(--warn-bg,rgba(200,140,0,.12));color:var(--warn,#9a6700)}
+.acq-checklist li[data-check-state="not_published"] .ck-val,.acq-checklist li[data-check-state="not_verified"] .ck-val{color:var(--ink-soft)}
+.acq-checklist li[data-check-state="summary"] .ck-val{color:var(--ink)}
+@media (max-width:640px){ .acq-checklist{grid-template-columns:1fr} }
+.truth-dl{display:grid;grid-template-columns:minmax(0,9rem) minmax(0,1fr);gap:.3rem .7rem;margin:0;font-size:.8rem}
+.truth-dl dt{color:var(--ink-soft);font-weight:600}
+.truth-dl dd{margin:0;overflow-wrap:anywhere}
+.truth-dl .kv-sub{display:block;color:var(--ink-soft);font-size:.74rem;margin-top:.15rem}
+@media (max-width:480px){ .truth-dl{grid-template-columns:1fr} .truth-dl dd{margin-bottom:.35rem} }
+.health-chip,.intel-chip{display:inline-block;font-size:.72rem;font-weight:600;padding:.08rem .5rem;border-radius:999px;border:1px solid var(--card-line);white-space:nowrap}
+.health-chip.ok,.intel-chip.ok{background:var(--ok-bg,rgba(0,140,70,.12));color:var(--ok,#137a3f);border-color:transparent}
+.health-chip.warn,.intel-chip.warn{background:var(--warn-bg,rgba(200,140,0,.12));color:var(--warn,#9a6700);border-color:transparent}
+.health-chip.bad,.intel-chip.bad{background:var(--bad-bg,rgba(200,40,40,.12));color:var(--bad,#b42318);border-color:transparent}
+.health-chip.muted,.intel-chip.muted{color:var(--ink-soft)}
+.county-intel-row{padding:.15rem .9rem .35rem;font-size:.76rem}
+.county-modal-inner{max-width:720px}
+.dossier h3{font-size:.9rem;margin:1rem 0 .35rem}
+.dossier-head{display:flex;flex-direction:column;gap:.35rem}
+.dossier-head p{margin:0}
+.dossier-ledger{border:1px solid var(--card-line);border-radius:10px;padding:.55rem .7rem;margin:.45rem 0}
+.dl-head{display:flex;flex-wrap:wrap;gap:.35rem .7rem;align-items:baseline}
+.dl-cov{font-size:.74rem;font-weight:600}
+.dossier-ledger[data-coverage="COVERED"] .dl-cov{color:var(--ok,#137a3f)}
+.dossier-ledger[data-coverage="SOURCE_UNAVAILABLE"] .dl-cov{color:var(--bad,#b42318)}
+.dossier-ledger[data-coverage="PARTIALLY_COVERED"] .dl-cov,.dossier-ledger[data-coverage="RESEARCH_ONLY"] .dl-cov{color:var(--warn,#9a6700)}
+.dossier-ledger[data-coverage="NO_SOURCE_BACKED_INVENTORY"] .dl-cov{color:var(--ink-soft)}
+.dl-count{margin-left:auto;font-size:.74rem;color:var(--ink-soft)}
+.dl-text{margin:.25rem 0;font-size:.78rem;color:var(--ink-soft)}
+.dossier-srcs{list-style:none;margin:.3rem 0;padding:0;display:flex;flex-direction:column;gap:.45rem}
+.dossier-src{font-size:.8rem}
+.ds-meta,.ds-health-text{color:var(--ink-soft);font-size:.74rem}
+.ds-health{display:flex;flex-wrap:wrap;gap:.3rem;align-items:baseline;margin-top:.15rem}
+.dossier-note{font-size:.74rem;color:var(--ink-soft);margin-top:1rem}

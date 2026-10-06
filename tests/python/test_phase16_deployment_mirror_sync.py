@@ -68,6 +68,7 @@ DEPLOYED_BUNDLE_FILES = (
     "source-inventory.json",
     "available-coverage.json",
     "available-terms.json",
+    "county-intelligence.json",   # 2026-10-05 county intelligence dossier
     "acquisition-evidence.json",
     "explore.css",
     "explore.js",

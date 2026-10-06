@@ -311,6 +311,48 @@ def unit_stale(unit: dict, *, now: datetime | None = None, stale_hours: float = 
     return ((now or datetime.now(timezone.utc)) - t).total_seconds() / 3600.0 > stale_hours
 
 
+# Customer-readable source health (2026-10-05). One state per county source,
+# read from the same registry columns the app selects. app.js
+# sourceHealthState() is the same function; tests/python/fixtures/
+# source_health_cases.json pins both.
+#   SOURCE_UNAVAILABLE  the last attempt could not reach the source - inventory
+#                       kept, nothing closed. NOT the same as an empty list.
+#   PARTIAL             the last attempt read only part of the source.
+#   NEEDS_REVIEW        the source is awaiting customer-publication review.
+#   MANUAL              a manual-only source: read on request, never aged.
+#   CURRENT / RECENT / STALE  last complete read within 36 h / 7 days / older.
+#   NOT_RECORDED        no read recorded for this source.
+# ``checked_zero`` marks a complete read in which the source listed nothing.
+RECENT_HOURS = 24.0 * 7
+CUSTOMER_HEALTH_STATES = ("CURRENT", "RECENT", "STALE", "SOURCE_UNAVAILABLE", "PARTIAL", "NEEDS_REVIEW", "MANUAL", "NOT_RECORDED")
+
+
+def customer_health(unit: dict | None, *, now: datetime | None = None, review: bool = False) -> dict:
+    now = now or datetime.now(timezone.utc)
+    if not unit:
+        return {"state": "NEEDS_REVIEW" if review else "NOT_RECORDED", "checked_zero": False}
+    status = str(unit.get("last_attempt_status") or "")
+    checked_zero = bool(unit.get("last_success_at")) and (
+        status == "EMPTY" or (status in SUCCESS and unit.get("last_success_row_count") in (0, "0")))
+    if source_unavailable(unit):
+        state = "SOURCE_UNAVAILABLE"
+    elif status == "INCOMPLETE":
+        state = "PARTIAL"
+    elif review:
+        state = "NEEDS_REVIEW"
+    elif unit.get("source_id") in MANUAL_ONLY_SOURCES:
+        state = "MANUAL"
+    elif not unit.get("last_success_at") and not status:
+        state = "NOT_RECORDED"
+    elif not unit_stale(unit, now=now):
+        state = "CURRENT"
+    elif not unit_stale(unit, now=now, stale_hours=RECENT_HOURS):
+        state = "RECENT"
+    else:
+        state = "STALE"
+    return {"state": state, "checked_zero": checked_zero}
+
+
 def public_report(record: dict, counts: dict, *, at: str, now: datetime | None = None) -> dict:
     units = []
     by_ledger: dict[str, dict[str, int]] = {}

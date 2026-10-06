@@ -3164,7 +3164,7 @@ async function loadAll(activeKey, opts) {
     // Per-county freshness (migration 018's registry + 021's columns,
     // written by scripts/unit_freshness.py). Missing table or columns =
     // not recorded yet, shown as such.
-    sb.from("county_source_registry").select("state,county,source_id,last_attempt_at,last_attempt_status,last_success_at,last_success_row_count,consecutive_failures").order("county"),
+    sb.from("county_source_registry").select("state,county,source_id,last_attempt_at,last_attempt_status,last_success_at,last_success_row_count,consecutive_failures,last_error_category").order("county"),
     fetch("available-coverage.json", { cache: "no-store" }).then(r => (r.ok ? r.json() : null)).catch(() => null),
     fetch("available-terms.json", { cache: "no-store" }).then(r => (r.ok ? r.json() : null)).catch(() => null),
     // Paid-beta source scope (scripts/build_commercial_scope.py). Only a
@@ -4480,6 +4480,171 @@ function unitFreshnessText(u) {
   const bad = unavailable || since === null || isNaN(since) || since > 36;
   return { text: bits.join(" · "), cls: bad ? "warn" : "ok" };
 }
+// ==================== SOURCE HEALTH & COUNTY INTELLIGENCE (2026-10-05) ====================
+// Customer-readable source health: one state per county source, from the
+// same registry columns UNIT_FRESHNESS selects. The same function as
+// scripts/unit_freshness.customer_health(); tests/python/fixtures/
+// source_health_cases.json pins both. A complete read in which the source
+// listed nothing (checkedZero) is a different fact from a source that could
+// not be read (SOURCE_UNAVAILABLE) - the two are never shown alike.
+const MANUAL_ONLY_SOURCE_IDS = ["tx_lgbs", "tx_realauction"];   // unit_freshness.MANUAL_ONLY_SOURCES
+const SOURCE_HEALTH_LABELS = {
+  CURRENT: { label: "Current", cls: "ok", text: "Read completely within the last 36 hours." },
+  RECENT: { label: "Recent", cls: "ok", text: "Read completely within the last 7 days." },
+  STALE: { label: "Stale", cls: "warn", text: "No complete read in the last 7 days - check the official source before acting." },
+  SOURCE_UNAVAILABLE: { label: "Source unavailable", cls: "bad", text: "The last attempt could not reach the source. Listings already on file are kept and nothing was closed - this is not the same as an empty list." },
+  PARTIAL: { label: "Partial read", cls: "warn", text: "The last attempt read only part of the source. Listings it did not see are kept; nothing was closed." },
+  NEEDS_REVIEW: { label: "Needs review", cls: "warn", text: "Collected, awaiting customer-publication review of the source." },
+  MANUAL: { label: "Read on request", cls: "muted", text: "This source is read only when a read is requested - it is not refreshed on a schedule." },
+  NOT_RECORDED: { label: "Not recorded", cls: "muted", text: "No read of this source has been recorded yet." }
+};
+function sourceHealthState(u, opts) {
+  const o = opts || {};
+  const now = o.now ? Date.parse(o.now) : Date.now();
+  if (!u) return { state: o.review ? "NEEDS_REVIEW" : "NOT_RECORDED", checkedZero: false };
+  const status = String(u.last_attempt_status || "");
+  const success = status === "COMPLETE" || status === "EMPTY";
+  const checkedZero = !!u.last_success_at && (status === "EMPTY" || (success && (u.last_success_row_count === 0 || u.last_success_row_count === "0")));
+  const unavailable = status === "SOURCE_UNAVAILABLE" || (status === "FAILED" && /^(TRANSPORT_|PROXY_|ACCESS_)/.test(String(u.last_error_category || "")));
+  const ageH = u.last_success_at ? (now - Date.parse(u.last_success_at)) / 3600000 : null;
+  let state;
+  if (unavailable) state = "SOURCE_UNAVAILABLE";
+  else if (status === "INCOMPLETE") state = "PARTIAL";
+  else if (o.review) state = "NEEDS_REVIEW";
+  else if (MANUAL_ONLY_SOURCE_IDS.includes(u.source_id)) state = "MANUAL";
+  else if (!u.last_success_at && !status) state = "NOT_RECORDED";
+  else if (ageH !== null && !isNaN(ageH) && ageH <= 36) state = "CURRENT";
+  else if (ageH !== null && !isNaN(ageH) && ageH <= 24 * 7) state = "RECENT";
+  else state = "STALE";
+  return { state, checkedZero };
+}
+// The sentence a customer reads: the state, when, and the zero distinction.
+function sourceHealthText(u, opts) {
+  const h = sourceHealthState(u, opts);
+  const L = SOURCE_HEALTH_LABELS[h.state];
+  const bits = [L.text];
+  if (u && u.last_success_at) bits.push(`Last complete read ${relativeTime(u.last_success_at)}${u.last_success_row_count !== null && u.last_success_row_count !== undefined ? ` (${Number(u.last_success_row_count).toLocaleString("en-US")} listed)` : ""}.`);
+  if (u && u.last_attempt_at && h.state === "SOURCE_UNAVAILABLE") bits.push(`Last attempt ${relativeTime(u.last_attempt_at)}.`);
+  if (h.checkedZero && h.state !== "SOURCE_UNAVAILABLE") bits.push("Checked: the source listed no properties at that read.");
+  return Object.assign({}, h, { label: L.label, cls: L.cls, text: bits.join(" ") });
+}
+function sourceHealthChipHtml(u, opts) {
+  const h = sourceHealthText(u, opts);
+  return `<span class="health-chip ${h.cls}" data-health="${h.state}"${h.checkedZero ? ' data-checked-zero="1"' : ""} title="${esc(h.text)}">${esc(h.label)}${h.checkedZero && h.state !== "SOURCE_UNAVAILABLE" ? " · checked, none listed" : ""}</span>`;
+}
+window.__tdwSourceHealthState = (u, opts) => sourceHealthState(u, opts);
+
+// County intelligence (public/county-intelligence.json, built by
+// scripts/build_county_intelligence.py from the source registry, the
+// verified acquisition evidence, the financial terms and the discovery
+// candidates). Read lazily - only when a dossier opens. A county the file
+// does not list is NOT_YET_RESEARCHED with no source on any ledger.
+// SOURCE_UNAVAILABLE is decided here from the last read, never by the file.
+const COUNTY_INTEL_LABELS = {
+  VERIFIED: { label: "Verified", cls: "ok", text: "An approved source feeds this county, its acquisition process was verified from an official page, and the source's financial terms have been read." },
+  SOURCE_BACKED: { label: "Source-backed", cls: "ok", text: "An approved source feeds this county. Its acquisition process and financial terms are not yet verified." },
+  PARTIALLY_VERIFIED: { label: "Partially verified", cls: "warn", text: "An approved Available source feeds this county; either its acquisition process or its financial terms are verified, not both." },
+  NEEDS_REVIEW: { label: "Needs review", cls: "warn", text: "Sources or candidate pages are recorded for this county, but none is approved for customer publication yet." },
+  NOT_YET_RESEARCHED: { label: "Not yet researched", cls: "muted", text: "No source, candidate page or evidence is recorded for this county yet - that is not a statement that nothing is for sale here." },
+  SOURCE_UNAVAILABLE: { label: "Source unavailable", cls: "bad", text: "The county's source could not be read at the last attempt. Listings already on file are kept." }
+};
+const COUNTY_COVERAGE_LABELS = {
+  COVERED: { label: "Covered", text: "A production source approved for customer publication." },
+  PARTIALLY_COVERED: { label: "Partially covered", text: "A production source is collected but not yet approved for customer publication." },
+  RESEARCH_ONLY: { label: "Research only", text: "A source or candidate page is known but not harvested in production." },
+  NO_SOURCE_BACKED_INVENTORY: { label: "No source-backed inventory", text: "No source is recorded for this ledger here. It does not mean nothing is for sale." },
+  SOURCE_UNAVAILABLE: { label: "Source unavailable", text: "The source could not be read at the last attempt; listings already on file are kept." }
+};
+let COUNTY_INTEL = null, COUNTY_INTEL_PROMISE = null;
+function loadCountyIntel() {
+  if (COUNTY_INTEL) return Promise.resolve(COUNTY_INTEL);
+  if (!COUNTY_INTEL_PROMISE) {
+    COUNTY_INTEL_PROMISE = fetch("county-intelligence.json", { cache: "no-store" })
+      .then(r => (r.ok ? r.json() : null)).catch(() => null)
+      .then(d => { COUNTY_INTEL = d; if (!d) COUNTY_INTEL_PROMISE = null; return d; });
+  }
+  return COUNTY_INTEL_PROMISE;
+}
+// One county's record, with the runtime overlay: a ledger whose production
+// sources were all unreachable at their last attempt is SOURCE_UNAVAILABLE.
+function countyIntelFor(doc, st, county) {
+  const s = doc && Array.isArray(doc.states) ? doc.states.find(x => x.state === st) : null;
+  const base = (s && s.counties.find(c => c.county === county)) || {
+    county, intel: "NOT_YET_RESEARCHED", financial_terms: false, research_candidates: 0,
+    ledgers: { AVAILABLE: { coverage: "NO_SOURCE_BACKED_INVENTORY", sources: [] }, AUCTIONS: { coverage: "NO_SOURCE_BACKED_INVENTORY", sources: [] }, LIENS_CERTIFICATES: { coverage: "NO_SOURCE_BACKED_INVENTORY", sources: [] } }
+  };
+  const out = JSON.parse(JSON.stringify(base));
+  const units = Array.isArray(UNIT_FRESHNESS) ? UNIT_FRESHNESS.filter(u => u.county === county && (u.state || st) === st) : [];
+  let anyUnavailable = false, anyLive = false;
+  Object.values(out.ledgers).forEach(l => {
+    l.sources.forEach(src => { src.unit = units.find(u => u.source_id === src.source_id) || null; });
+    const live = l.sources.filter(x => x.production && x.publication !== "BLOCKED");
+    if (live.length) anyLive = true;
+    if (live.length && live.every(x => x.unit && sourceHealthState(x.unit).state === "SOURCE_UNAVAILABLE")) {
+      l.coverage = "SOURCE_UNAVAILABLE"; anyUnavailable = true;
+    }
+  });
+  if (anyLive && anyUnavailable && Object.values(out.ledgers).every(l => !l.sources.some(x => x.production && x.publication !== "BLOCKED") || l.coverage === "SOURCE_UNAVAILABLE")) out.intel = "SOURCE_UNAVAILABLE";
+  return out;
+}
+window.__tdwCountyIntelFor = (doc, st, county) => countyIntelFor(doc, st, county);
+function countyIntelChipHtml(key) {
+  const L = COUNTY_INTEL_LABELS[key] || COUNTY_INTEL_LABELS.NOT_YET_RESEARCHED;
+  return `<span class="intel-chip ${L.cls}" data-intel="${esc(key)}">${esc(L.label)}</span>`;
+}
+const DOSSIER_LEDGERS = [["AVAILABLE", "laft"], ["AUCTIONS", "auction"], ["LIENS_CERTIFICATES", "certificate"]];
+function countyDossierHtml(c, st) {
+  const scope = viewerScope();
+  const seeAll = scope === "all" || scope === "preview";
+  const I = COUNTY_INTEL_LABELS[c.intel] || COUNTY_INTEL_LABELS.NOT_YET_RESEARCHED;
+  const rows = ALL.filter(p => p.county === c.county && regionOf(p) === st && !HIDDEN.has(p.id) && !goneExpired(p));
+  const ledgerHtml = DOSSIER_LEDGERS.map(([name, key]) => {
+    const l = c.ledgers[name] || { coverage: "NO_SOURCE_BACKED_INVENTORY", sources: [] };
+    const C = COUNTY_COVERAGE_LABELS[l.coverage] || COUNTY_COVERAGE_LABELS.NO_SOURCE_BACKED_INVENTORY;
+    const n = rows.filter(p => p.source === key).length;
+    const loading = LEDGER_LOAD[key] === "loading" || LEDGER_LOAD[key] === "partial";
+    const shown = l.sources.filter(x => x.publication !== "BLOCKED" && (seeAll || x.customer_approved));
+    const hidden = l.sources.filter(x => x.publication !== "BLOCKED" && !seeAll && !x.customer_approved).length;
+    const srcHtml = shown.map(x => `<li class="dossier-src" data-source="${esc(x.source_id)}">
+        <div class="ds-name">${x.url ? `<a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.name)} →</a>` : esc(x.name)}${x.production ? "" : ` <span class="muted">(not harvested)</span>`}</div>
+        <div class="ds-meta">${esc(x.publisher || "Publisher not recorded")} · ${esc(x.customer_approved ? "Approved for customer publication" : "Awaiting publication review")}</div>
+        ${x.production ? `<div class="ds-health">${sourceHealthChipHtml(x.unit, { review: !x.customer_approved })} <span class="ds-health-text">${esc(sourceHealthText(x.unit, { review: !x.customer_approved }).text)}</span></div>` : ""}
+      </li>`).join("");
+    return `<div class="dossier-ledger" data-ledger="${key}" data-coverage="${esc(l.coverage)}">
+      <div class="dl-head"><b>${esc(ledgerNavName(key))}</b><span class="dl-cov" title="${esc(C.text)}">${esc(C.label)}</span><span class="dl-count">${loading ? "loading…" : `${n.toLocaleString("en-US")} on file`}</span></div>
+      <p class="dl-text">${esc(C.text)}</p>
+      ${srcHtml ? `<ul class="dossier-srcs">${srcHtml}</ul>` : ""}
+      ${hidden ? `<p class="dl-text muted">${hidden} source${hidden === 1 ? "" : "s"} awaiting customer-publication review (not shown).</p>` : ""}
+      ${n ? `<button type="button" class="link-btn" data-action="dossierlist" data-county="${esc(c.county)}" data-ledger="${key}">Show these ${n.toLocaleString("en-US")} in the List →</button>` : ""}
+    </div>`;
+  }).join("");
+  const acq = c.acquisition;
+  const acqHtml = acq && acq.verified
+    ? `<p>Verified from an official page${acq.observed_on ? ` on ${esc(dateOnly(acq.observed_on))}` : ""}${acq.office ? ` - handled by ${esc(acq.office)}` : ""}.${acq.evidence_url ? ` <a href="${esc(acq.evidence_url)}" target="_blank" rel="noopener">${esc(acq.evidence_title || "Official process page")} →</a>` : ""}</p>`
+    : `<p class="muted">Not yet verified - no official process page has been read for this ${esc(UNIT_WORD.toLowerCase())}'s Available source.</p>`;
+  return `<div class="dossier" data-county="${esc(c.county)}" data-intel="${esc(c.intel)}">
+    <div class="dossier-head">${countyIntelChipHtml(c.intel)}<p>${esc(I.text)}</p></div>
+    <h3>Ledgers</h3>${ledgerHtml}
+    <h3>Acquisition process</h3>${acqHtml}
+    <h3>Financial terms</h3><p${c.financial_terms ? "" : ' class="muted"'}>${c.financial_terms ? "Read from the source - each Available property page shows how its amount is set and what is added on top." : "Not yet read for this county's Available source."}</p>
+    ${c.research_candidates ? `<h3>Research</h3><p class="muted">${c.research_candidates} candidate page${c.research_candidates === 1 ? "" : "s"} recorded for review - not yet a source of properties.</p>` : ""}
+    <p class="dossier-note">Built from this app's source records - it describes what is tracked, never what is or is not for sale. The county's own office is the record.</p>
+  </div>`;
+}
+let countyModalUi = null;
+async function openCountyDossier(county, st, returnEl) {
+  if (!county) return;
+  st = st || PAGE_STATE;
+  if (!countyModalUi) countyModalUi = simpleModal("county", { modal: "countyModal", close: "countyCloseBtn" });
+  const title = document.getElementById("countyModalTitle"), body = document.getElementById("countyModalBody");
+  if (!body) return;
+  if (title) title.textContent = `${county} ${UNIT_WORD}, ${st}`;
+  body.innerHTML = `<p class="muted">Loading county intelligence…</p>`;
+  countyModalUi.open(returnEl);
+  const doc = await loadCountyIntel();
+  if (!doc) { body.innerHTML = `<p class="muted">County intelligence could not be loaded right now.</p><button type="button" class="detail-btn" data-action="countyintel" data-county="${esc(county)}">Retry</button>`; return; }
+  body.innerHTML = countyDossierHtml(countyIntelFor(doc, st, county), st);
+}
 const TRANSITION_LABELS = {
   newly_observed: "First observed on the list", status_changed: "Status changed", removed: "Removed from the list (closed - not a sale result)",
   result_published: "Result published by the source", reactivated: "Back on the list (reactivated)"
@@ -4627,6 +4792,93 @@ function acquisitionFormsHtml(p) {
   }
   return items.length ? `<ul class="acq-forms">${items.join("")}</ul>` : "";
 }
+// The acquisition checklist (2026-10-05): fourteen facts an investor needs
+// before acting on an Available property, each answered from the row, its
+// verified county record or the source's financial terms - or marked
+// "Not published" (the source does not state it) / "Not yet verified" (no
+// verified record exists yet). The fourteenth item lists the gaps. Nothing is
+// inferred: a missing fact is a gap, never a default. A test pins the keys.
+const ACQUIRE_CHECKLIST_KEYS = ["status", "seller", "method", "amount", "amount_type", "form", "deposit", "documents",
+  "instructions", "listing", "contact", "deadlines", "verified", "not_published"];
+function acquireChecklist(p) {
+  if (!p || p.source !== "laft") return [];
+  const a = acquisitionOf(p);
+  const i = amountInfo(p);
+  const t = termsFor(p);
+  const forms = acquisitionForms(p);
+  const avail = availabilityLink(p);
+  const items = [];
+  const known = (key, label, value, extra) => items.push(Object.assign({ key, label, value, state: "known" }, extra || {}));
+  const gap = (key, label, state, value) => items.push({ key, label, state, value: value || (state === "not_published" ? "Not published" : "Not yet verified") });
+  // 1. Status - the source's own availability statement.
+  if (isDatedList(p)) known("status", "Status", `On a dated list (${p.list_as_of ? dateOnly(p.list_as_of) : "date not published"}) - not verified as available now`);
+  else if (p.inventory_status && INVENTORY_STATUS_LABELS[p.inventory_status]) known("status", "Status", INVENTORY_STATUS_LABELS[p.inventory_status] + (p.inventory_status_raw ? ` - "${p.inventory_status_raw}"` : ""));
+  else if (p.last_seen_at) known("status", "Status", `On the source's Available list when read ${dateOnly(p.last_seen_at)}`);
+  else gap("status", "Status", "not_verified", "Not yet confirmed by a read of the source");
+  // 2. Seller - the office the verified record names.
+  if (a.verified && a.office) known("seller", "Seller", a.office);
+  else gap("seller", "Seller", a.verified ? "not_published" : "not_verified");
+  // 3. Method.
+  if (a.verified) known("method", "Method", a.label); else gap("method", "Method", "not_verified");
+  // 4-5. Amount and what kind of amount it is.
+  const hasAmt = i.value !== null && i.value !== undefined;
+  if (hasAmt) known("amount", "Amount", fmtMoney(i.value), { sub: i.label });
+  else if (i.state === "official_expired") gap("amount", "Amount", "not_published", "Statement expired - request an updated total");
+  else gap("amount", "Amount", "not_published", i.display && i.display !== "Not published" ? i.display : "Not published");
+  if (t && AVAILABLE_BASIS_LABELS[t.basis]) known("amount_type", "Amount type", AVAILABLE_BASIS_LABELS[t.basis], { sub: hasAmt ? i.label : "" });
+  else if (hasAmt && i.state !== "unspecified") known("amount_type", "Amount type", i.label);
+  else gap("amount_type", "Amount type", "not_published", hasAmt ? "The source does not say what this amount is" : "");
+  // 6. Form.
+  const form = forms.find(f => f.kind !== "purchase_instructions");
+  if (form) known("form", "Form", form.name, { href: form.url, sub: form.requirement });
+  else gap("form", "Form", a.verified ? "not_published" : "not_verified", a.verified ? "No form published - follow the steps" : "");
+  // 7. Deposit - from the source's terms only.
+  if (t && t.deposit) known("deposit", "Deposit", t.deposit);
+  else gap("deposit", "Deposit", t ? "not_published" : "not_verified", t ? "None stated by the source" : "Source terms not yet read");
+  // 8. Documents - every published document beyond the form.
+  const docs = forms.filter(f => f !== form);
+  if (docs.length) known("documents", "Documents", docs.map(f => f.name).join(", "), { href: docs[0].url });
+  else gap("documents", "Documents", a.verified ? "not_published" : "not_verified", a.verified ? "None published beyond the form" : "");
+  // 9. Instructions.
+  if (a.steps.length) known("instructions", "Instructions", `${a.steps.length} step${a.steps.length === 1 ? "" : "s"} published by the source`);
+  else if (a.instructions) known("instructions", "Instructions", "Published by the source");
+  else gap("instructions", "Instructions", a.verified ? "not_published" : "not_verified");
+  // 10. Listing page.
+  if (avail) known("listing", "Listing page", avail.label, { href: avail.href });
+  else gap("listing", "Listing page", "not_published", "No listing link on file");
+  // 11. Contact.
+  const contact = [a.phone && a.phone.split(/\s+or\s+/)[0], a.email, a.address || a.mailing].filter(Boolean);
+  if (a.verified && contact.length) known("contact", "Contact", contact.join(" · "));
+  else gap("contact", "Contact", a.verified ? "not_published" : "not_verified");
+  // 12. Deadlines - only dates a source printed.
+  const dl = [];
+  const st = purchaseStatementOf(p);
+  if (st && st.through) dl.push(`${st.expired ? "Statement expired" : "Statement valid through"} ${fmtDate(st.through)}`);
+  if (p.escheatment_date) dl.push(`Escheats to the county ${dateOnly(p.escheatment_date)}`);
+  if (p.available_date) dl.push(`Available from ${dateOnly(p.available_date)}`);
+  if (dl.length) known("deadlines", "Deadlines", dl.join(" · "));
+  else gap("deadlines", "Deadlines", "not_published", "None published by the source");
+  // 13. Last verification.
+  const ver = [];
+  if (a.verified) ver.push(`process ${a.observedOn ? dateOnly(a.observedOn) : "date not recorded"}`);
+  if (p.last_seen_at) ver.push(`listing ${dateOnly(p.last_seen_at)}`);
+  if (ver.length) known("verified", "Last verification", ver.join(" · "));
+  else gap("verified", "Last verification", "not_verified", "Not yet verified");
+  // 14. What is not published / not yet verified.
+  const missing = items.filter(x => x.state !== "known").map(x => x.label);
+  if (missing.length) items.push({ key: "not_published", label: "Not published or not yet verified", value: missing.join(", "), state: "summary" });
+  else items.push({ key: "not_published", label: "Not published or not yet verified", value: "Nothing - every item above is on file", state: "known" });
+  return items;
+}
+function acquireChecklistHtml(p) {
+  const items = acquireChecklist(p);
+  if (!items.length) return "";
+  const stateWord = { known: "", not_published: "Not published", not_verified: "Not yet verified", summary: "" };
+  const known = items.filter(x => x.state === "known" && x.key !== "not_published").length;
+  return `<div class="acq-checklist-wrap"><div class="acq-checklist-head"><b>Acquisition checklist</b><span>${known} of 13 on file</span></div>
+    <ol class="acq-checklist">${items.map(x => `<li data-check="${x.key}" data-check-state="${x.state}"><span class="ck-label">${esc(x.label)}</span><span class="ck-val">${x.href ? `<a href="${esc(x.href)}" target="_blank" rel="noopener" data-acq-link="${x.key === "listing" ? "source" : "form"}">${esc(x.value)} →</a>` : esc(x.value)}${x.sub ? `<span class="ck-sub">${esc(x.sub)}</span>` : ""}</span>${stateWord[x.state] ? `<span class="ck-state">${stateWord[x.state]}</span>` : ""}</li>`).join("")}</ol></div>`;
+}
+window.__tdwAcquireChecklist = p => acquireChecklist(p).map(x => ({ key: x.key, state: x.state, value: x.value }));
 // "How to acquire" (investor-conversion sprint, 2026-10-05): the first section
 // of every Available property page, answering the investor's questions in
 // order - what is this, what does the source say I pay, how do I acquire it,
@@ -4702,7 +4954,7 @@ function acquireBlockHtml(p) {
   if (a.verified) srcRows.push(["Last verified", esc(a.observedOn ? dateOnly(a.observedOn) : "date not recorded")]);
   if (a.mode !== "online") srcRows.push(["Online purchase", esc("No online purchase link on file")]);
   if (p.last_seen_at) srcRows.push(["Listing last read", esc(dateOnly(p.last_seen_at))]);
-  return detailSectionHtml("How to acquire", `<div class="acq-block" data-acq-state="${state}">
+  return detailSectionHtml("How to acquire", `${acquireChecklistHtml(p)}<div class="acq-block" data-acq-state="${state}">
     ${q(1, "What is this?", whatHtml)}
     ${q(2, "What does the source say I need to pay?", payHtml)}
     ${q(3, "How do I acquire it?", howHtml)}
@@ -5015,7 +5267,7 @@ async function hydrateInventoryHistory(container, p) {
 // Shell redesign (2026-10-04): the section nav reads as the page's tabs -
 // Overview / Acquisition / Tax & Value / ... / Map / Source - each a jump to a
 // section that actually rendered (never an empty tab).
-const DETAIL_NAV_LABELS = { acquire: "How to acquire", summary: "Overview", decision: "Decision", inventory: "Inventory", financial: "Tax & Value", property: "Property", history: "History", events: "Sale events", monitor: "Watch", risk: "Risk & Legal", map: "Map", sources: "Source", provenance: "Provenance" };
+const DETAIL_NAV_LABELS = { acquire: "How to acquire", truth: "Source truth", summary: "Overview", decision: "Decision", inventory: "Inventory", financial: "Tax & Value", property: "Property", history: "History", events: "Sale events", monitor: "Watch", risk: "Risk & Legal", map: "Map", sources: "Source", provenance: "Provenance" };
 function detailNavHtml(bodyHtml) {
   const ids = [];
   bodyHtml.replace(/data-section="([a-z]+)"/g, (m, id) => { if (DETAIL_NAV_LABELS[id] && !ids.includes(id)) ids.push(id); return m; });
@@ -5923,6 +6175,40 @@ async function hydrateEventHistory(container, p) {
   slot.innerHTML = eventHistoryHtml(events, observations);
 }
 
+// "Source truth" (2026-10-05): one panel, every ledger, answering where this
+// record comes from and how current that source is - the source and its
+// publisher, the official listing, the source's read health (a checked
+// zero is never shown like an unreachable source), this record's own first
+// and last observation, the source's publication review, and the county's
+// intelligence dossier. Nothing here is computed beyond dates.
+function unitForRow(p) {
+  if (!Array.isArray(UNIT_FRESHNESS) || !p) return null;
+  const st = regionOf(p);
+  const same = UNIT_FRESHNESS.filter(u => u.county === p.county && (u.state || st) === st);
+  return same.find(u => p.source_id && u.source_id === p.source_id) || same.find(u => unitLedgerKeys(u).includes(p.source)) || null;
+}
+function sourceTruthHtml(p) {
+  const rows = [];
+  const muted = t => `<span class="muted">${esc(t)}</span>`;
+  const auth = p.source_authority && SOURCE_AUTHORITY_LABELS[p.source_authority];
+  rows.push(["Source", `${esc(harvesterSourceLabel(p) || "Not recorded")}${auth ? `<span class="kv-sub">Published by ${esc(auth)}</span>` : ""}`]);
+  const listing = p.source === "laft" ? availabilityLink(p) : null;
+  const href = listing ? listing.href : (p.list_url || p.document_url || p.url_auction || null);
+  rows.push(["Official listing", href ? `<a href="${esc(href)}" target="_blank" rel="noopener" data-acq-link="source">${esc(listing ? listing.label : "Open the source listing")} →</a>` : muted("No listing link on file")]);
+  const u = unitForRow(p);
+  const review = !isCustomerPublishable(p);
+  const h = sourceHealthText(u, { review });
+  rows.push(["Source health", `${sourceHealthChipHtml(u, { review })}<span class="kv-sub">${esc(UNIT_FRESHNESS === null ? "Read health is not recorded by this deployment yet." : h.text)}</span>`]);
+  const seen = [];
+  if (p.first_seen_at) seen.push(`first observed ${dateOnly(p.first_seen_at)}`);
+  if (p.last_seen_at) seen.push(`last read ${dateOnly(p.last_seen_at)}`);
+  rows.push(["This record", seen.length ? esc(seen.join(" · ")) : muted("Observation dates not recorded")]);
+  const srcDate = p.list_as_of ? `List dated ${dateOnly(p.list_as_of)}` : p.source_published_at ? `Document dated ${dateOnly(p.source_published_at)}` : "";
+  rows.push(["Source date", srcDate ? esc(srcDate) : muted("Not published by the source")]);
+  rows.push(["Publication review", `${esc(sourceReviewLabel(p))}${review ? `<span class="kv-sub">${esc(`Not customer-published - ${reviewViewerReason()}.`)}</span>` : ""}`]);
+  rows.push([`${UNIT_WORD} intelligence`, `<button type="button" class="link-btn" data-action="countyintel" data-county="${esc(p.county)}" data-state="${esc(regionOf(p))}">${esc(`${p.county} ${UNIT_WORD}: sources, coverage and process`)} →</button>`]);
+  return detailSectionHtml("Source truth", `<dl class="truth-dl">${rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${v}</dd>`).join("")}</dl>`, "truth-card", "truth");
+}
 function detailHtml(p) {
   const isCert = p.source === "certificate";
   const fav = FAVS.has(p.id);
@@ -6080,6 +6366,7 @@ function detailHtml(p) {
     ${isCert ? `
     ${certStatusLinesHtml(p)}
     ${certificateDecisionHtml(p)}
+    ${sourceTruthHtml(p)}
     <div class="detail-grid">
       ${stats.map(detailStatTileHtml).join("")}
     </div>
@@ -6088,6 +6375,7 @@ function detailHtml(p) {
     ${propertyVisual(p, "detail-hero-photo")}
     ${sourceReviewBannerHtml(p)}
     ${acquireBlockHtml(p)}
+    ${sourceTruthHtml(p)}
     ${opportunitySummaryHtml(p)}
     ${availableDecisionHtml(p)}
     ${auctionDecisionHtml(p)}
@@ -6573,6 +6861,16 @@ document.addEventListener("click", async e => {
   const pid = btn.dataset.pid;
 
   if (action === "retryload") { retryPropertyLoad(); return; }
+  if (action === "countyintel") { openCountyDossier(btn.dataset.county, btn.dataset.state || PAGE_STATE, btn); return; }
+  if (action === "dossierlist") {
+    const county = btn.dataset.county, k = btn.dataset.ledger;
+    if (countyModalUi) countyModalUi.close();
+    if (document.getElementById("detailModal") && !document.getElementById("detailModal").hidden) closeDetail();
+    goToLedger(k);
+    state.counties = new Set([county]);
+    updateBadge(); render();
+    return;
+  }
   if (action === "retryprovenance") {
     const rp = ALL.find(x => String(x.id) === String(pid));
     if (rp) { rp.__provenanceError = false; refreshOpenDetail(rp.id); refreshDetailPanel(rp.id); }
@@ -7214,6 +7512,9 @@ function section(container, title, sub, rows, kind) {
       const bannerHtml = countyInfoBannerHtml(county);
       if (bannerHtml) det.insertAdjacentHTML("beforeend", bannerHtml);
     }
+    // The county's intelligence dossier: its sources, coverage per ledger,
+    // read health and acquisition process (openCountyDossier).
+    det.insertAdjacentHTML("beforeend", `<div class="county-intel-row"><button type="button" class="link-btn" data-action="countyintel" data-county="${esc(county)}">${esc(`${county} ${UNIT_WORD} - sources, coverage & process`)} →</button></div>`);
 
     // Every group builds its cards up front, including collapsed ones.
     //
