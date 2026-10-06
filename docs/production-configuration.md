@@ -41,7 +41,21 @@ removes it. As `service_role`: the next scheduled sync upserts normally.
 
 ## 2. Supabase Auth settings (dashboard: Authentication)
 
-- **Site URL** = `https://rodz-taxdeeds.pages.dev`.
+- **Site URL** = `https://rodz-taxdeeds.pages.dev` until the custom domain
+  `taxacq.com` serves the app; then `https://taxacq.com` (see "Custom domain"
+  below). Keep the pages.dev entries on the Redirect URLs list either way.
+- **Custom domain `taxacq.com` (2026-10-06).** Every auth redirect is built
+  from the page's own origin (`location.origin + location.pathname`), and
+  billing return URLs from the request's allowlisted origin, so the code
+  needs no hostname. What the dashboard needs:
+  - Redirect URLs: add `https://taxacq.com/**` (and `https://www.taxacq.com/**`
+    only if www is served rather than redirected).
+  - Edge functions: `self-signup` (and billing-checkout / billing-portal
+    when billing is deployed) must be redeployed from main so their origin
+    allowlist includes `https://taxacq.com` and `https://www.taxacq.com`;
+    until then sign-up on the custom domain falls back to `auth.signUp`
+    (e-mail confirmation) and checkout returns 403.
+  - MapTiler: add `taxacq.com` to the key's Allowed HTTP Origins.
 - **Redirect URLs** must include `https://rodz-taxdeeds.pages.dev/index.html`
   and `https://rodz-taxdeeds.pages.dev/tx.html` (and the bare origin). The
   password-reset e-mail links back to whichever page the request came from
@@ -89,7 +103,7 @@ removes it. As `service_role`: the next scheduled sync upserts normally.
     creates the profile with `approved = false`, and nothing the caller sends
     can change that.
     - The function protects itself with an origin allowlist
-      (`*.rodz-taxdeeds.pages.dev`), input validation, a 4 KB body cap, a
+      (`*.rodz-taxdeeds.pages.dev`, `taxacq.com`, `www.taxacq.com`), input validation, a 4 KB body cap, a
       honeypot field and a best-effort per-IP limit.
     - Trade-off: the address is not verified. Admin approval is the gate.
     - If the function cannot be reached, the app falls back to
@@ -283,6 +297,6 @@ NOT done; the repository ships billing switched off.
 | Migration | `scripts/migrations/027_commercial_billing_entitlements.sql` | apply only with explicit authorization |
 | Support address | root `config.js` `supportEmail` | a shared mailbox the business reads |
 | Legal details | root `config.js` `legal.operatorName`, `legal.governingLaw`, `legal.effectiveDate`, `legal.contactEmail` | the operating entity's real details; have counsel review the four pages |
-| Password reset redirect | Supabase Auth -> URL Configuration (section 2 above) | Site URL `https://rodz-taxdeeds.pages.dev`; Redirect URLs `https://rodz-taxdeeds.pages.dev/**` (every state page), plus custom SMTP |
+| Password reset redirect | Supabase Auth -> URL Configuration (section 2 above) | Site URL `https://rodz-taxdeeds.pages.dev` (then `https://taxacq.com` once the domain serves); Redirect URLs `https://rodz-taxdeeds.pages.dev/**` and `https://taxacq.com/**` (every state page), plus custom SMTP |
 | Production maps key | root `config.js` `googleMapsApiKey` (section 8 above) | a key on a billed Google Cloud project, HTTP-referrer restricted to `https://rodz-taxdeeds.pages.dev/*`, API-restricted to Maps JavaScript API (+ Maps Static API if static imagery is kept) |
 | Backup encryption | repository variable `ARTIFACT_PUBLIC_KEY` (section 5 above) | an OpenPGP public key; private key kept offline |

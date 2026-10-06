@@ -5,7 +5,9 @@
 // form-encoded call to Stripe's REST API with the secret key.
 import { createClient } from "npm:@supabase/supabase-js@2";
 
-export const ALLOWED_ORIGIN = /^(https:\/\/([a-z0-9-]+\.)?rodz-taxdeeds\.pages\.dev|http:\/\/localhost(:\d+)?|http:\/\/127\.0\.0\.1(:\d+)?)$/;
+// Origins: the Pages project (production + branch previews), the custom domain
+// taxacq.com and its www host (exact hosts only, https only), local dev.
+export const ALLOWED_ORIGIN = /^(https:\/\/([a-z0-9-]+\.)?rodz-taxdeeds\.pages\.dev|https:\/\/(www\.)?taxacq\.com|http:\/\/localhost(:\d+)?|http:\/\/127\.0\.0\.1(:\d+)?)$/;
 
 export function cors(origin: string | null): Record<string, string> {
   const h: Record<string, string> = {

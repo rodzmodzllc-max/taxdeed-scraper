@@ -31,7 +31,9 @@ import { createClient } from "npm:@supabase/supabase-js@2";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
-const ALLOWED_ORIGIN = /^(https:\/\/([a-z0-9-]+\.)?rodz-taxdeeds\.pages\.dev|http:\/\/localhost(:\d+)?|http:\/\/127\.0\.0\.1(:\d+)?)$/;
+// Origins: the Pages project (production + branch previews), the custom domain
+// taxacq.com and its www host (exact hosts only, https only), local dev.
+const ALLOWED_ORIGIN = /^(https:\/\/([a-z0-9-]+\.)?rodz-taxdeeds\.pages\.dev|https:\/\/(www\.)?taxacq\.com|http:\/\/localhost(:\d+)?|http:\/\/127\.0\.0\.1(:\d+)?)$/;
 const EMAIL_RE = /^[^\s@]{1,64}@[^\s@]{1,190}\.[^\s@]{2,63}$/;
 const FIELDS = ["first_name", "last_name", "company", "address", "phone"] as const;
 const PER_IP_PER_HOUR = 8;
