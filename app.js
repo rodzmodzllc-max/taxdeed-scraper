@@ -1397,9 +1397,69 @@ function staticImageUrl(p, cfg) {
 // pv-visual). The Map page's preview ("pv-visual") skips rungs 3-4: the
 // map beside it already IS the location context, and its own Location line
 // says "not yet geocoded" in words.
+// ==================== live NAIP imagery (2026-10-05) ====================
+// The same rules as harvesters/imagery (a test pins the constants): USDA NAIP
+// aerial imagery, public domain, requested straight from USGS The National
+// Map for the record's OWN coordinates - the same square the stored-image
+// pipeline frames, so nothing is stored and no budget is spent. Lazy, one
+// request per card in view; a thumbnail on lists, a larger image on the
+// property page. It sits after a stored image and before the key-based
+// provider snapshots. A row the stored-image check found no coverage for
+// (photo_url '') is not asked again. An error steps down a rung.
+// Config: TDW_CONFIG.naipLiveImagery === false switches it off (the test
+// fixture does, as it does for every third-party image request).
+var NAIP_EXPORT_ENDPOINT = "https://imagery.nationalmap.gov/arcgis/rest/services/USGSNAIPImagery/ImageServer/exportImage";
+var NAIP_BOX_DEGREES = 0.0012;
+var NAIP_THUMB_SIZE = [400, 300], NAIP_DETAIL_SIZE = [800, 600];
+var IMAGERY_MATCH_LABELS = {
+  source_coordinates: "Centered on the coordinates the source list publishes for this record",
+  parcel_roll_coordinates: "Centered on this parcel's coordinates from the state tax roll",
+  parcel_layer_coordinates: "Centered on this parcel's coordinates from a parcel layer",
+  vendor_coordinates: "Centered on the coordinates in the vendor listing",
+  recorded_coordinates: "Centered on the coordinates on file for this record (origin not recorded)",
+  none: "No property imagery available - no coordinates on file"
+};
+var IMAGERY_PROVENANCE_METHOD = { county_list: "source_coordinates", fdor_nal: "parcel_roll_coordinates", statewide_parcel: "parcel_layer_coordinates", county_gis: "parcel_layer_coordinates", vendor_listing: "vendor_coordinates" };
+function imageryHasCoords(p) {
+  const lat = Number(p && p.latitude), lng = Number(p && p.longitude);
+  return hasNum(p && p.latitude) && hasNum(p && p.longitude) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180 && !(lat === 0 && lng === 0);
+}
+function imageryMatchMethod(p) {
+  if (!imageryHasCoords(p)) return "none";
+  const fp = p.field_provenance && typeof p.field_provenance === "object" ? p.field_provenance : {};
+  const src = fp.latitude && fp.latitude.source;
+  return IMAGERY_PROVENANCE_METHOD[src] || "recorded_coordinates";
+}
+function naipBbox(lat, lng) {
+  const h = NAIP_BOX_DEGREES / 2;
+  return [lng - h, lat - h, lng + h, lat + h].map(v => v.toFixed(6)).join(",");
+}
+function naipExportUrl(lat, lng, size) {
+  const sz = size || NAIP_THUMB_SIZE;
+  return `${NAIP_EXPORT_ENDPOINT}?bbox=${naipBbox(Number(lat), Number(lng))}&bboxSR=4326&size=${sz[0]},${sz[1]}&format=jpg&f=image`;
+}
+// Coordinates whose live NAIP request failed this session: not asked again on
+// every re-render (function-held so it is safe during module init - TDZ).
+function naipFailedSet() { return window.__tdwNaipFailed || (window.__tdwNaipFailed = new Set()); }
+function naipKey(lat, lng) { return Number(lat).toFixed(6) + "," + Number(lng).toFixed(6); }
+function naipLiveEnabled() { const c = window.TDW_CONFIG || {}; return c.naipLiveImagery !== false; }
+// What a record shows (harvesters/imagery.imagery_state): stored / live /
+// checked_no_image / no_coordinates.
+function imageryState(p) {
+  if (hasPhoto(p)) return "stored";
+  if (p && p.photo_url === "") return "checked_no_image";
+  return imageryHasCoords(p) ? "live" : "no_coordinates";
+}
+function naipLiveHtml(p, cls) {
+  const big = cls === "detail-hero-photo";
+  const sz = big ? NAIP_DETAIL_SIZE : NAIP_THUMB_SIZE;
+  const match = imageryMatchMethod(p);
+  return `<div class="${cls} has-photo naip-live" data-imagery="naip_live" data-match="${esc(match)}" data-lat="${Number(p.latitude)}" data-lng="${Number(p.longitude)}" data-county="${esc(p.county)}"><img class="naip-live-img" data-naip-src="${esc(naipExportUrl(p.latitude, p.longitude, sz))}" alt="USDA NAIP aerial image centered on this record's coordinates" loading="lazy" decoding="async" width="${sz[0]}" height="${sz[1]}"><span class="photo-caption" title="${esc(IMAGERY_MATCH_LABELS[match] + ". Imagery may be years old and does not show current condition.")}">${esc(big ? "Aerial imagery · USDA NAIP (public domain) · " + IMAGERY_MATCH_LABELS[match].replace(/^Centered on /, "centered on ") : "Aerial · USDA NAIP")}</span></div>`;
+}
 function propertyVisual(p, cls) {
   if (hasPhoto(p)) return photoOrPlaceholder(p, cls);
   const coords = hasNum(p.latitude) && hasNum(p.longitude);
+  if (coords && p.photo_url !== "" && naipLiveEnabled() && imageryHasCoords(p) && !naipFailedSet().has(naipKey(p.latitude, p.longitude))) return naipLiveHtml(p, cls);
   const sat = coords ? staticImageUrl(p) : null;
   if (sat) {
     return `<div class="${cls} has-photo static-sat" data-provider="${sat.provider}" data-lat="${Number(p.latitude)}" data-lng="${Number(p.longitude)}" data-county="${esc(p.county)}"><img class="static-sat-img" src="${esc(sat.url)}" alt="Satellite image centred on this property's coordinates" loading="lazy" decoding="async" width="${STATIC_IMG_W}" height="${STATIC_IMG_H}"><span class="photo-caption">${esc(sat.label)}</span></div>`;
@@ -1521,8 +1581,42 @@ function renderMinimapInto(host) {
 // into view (a county group can hold dozens of cards), and the basemap is
 // fetched the first time any one of them does - never on page load.
 let minimapObserver = null;
+// Live NAIP images carry their URL in data-naip-src and are given a src only
+// when they come into view (the same observer pattern as the mini-maps), so
+// opening a list of thousands of rows never requests thousands of images.
+let naipObserver = null;
+var NAIP_PENDING = new Set();
+var naipCheckQueued = false;
+function naipLoad(host) { NAIP_PENDING.delete(host); const img = host.querySelector("img.naip-live-img[data-naip-src]"); if (img && !img.getAttribute("src")) { img.loading = "eager"; img.src = img.dataset.naipSrc; } }
+// A geometric check on scroll / resize as well as the observer: the image is
+// requested once its box is within 300px of the viewport, never before.
+function naipCheckPending() {
+  naipCheckQueued = false;
+  const h = window.innerHeight || 800;
+  NAIP_PENDING.forEach(host => {
+    if (!host.isConnected) { NAIP_PENDING.delete(host); return; }
+    const r = host.getBoundingClientRect();
+    if (r.width > 0 && r.height > 0 && r.bottom > -300 && r.top < h + 300) naipLoad(host);
+  });
+}
+function naipQueueCheck() { if (naipCheckQueued || !NAIP_PENDING.size) return; naipCheckQueued = true; requestAnimationFrame(naipCheckPending); }
+document.addEventListener("scroll", naipQueueCheck, { capture: true, passive: true });
+window.addEventListener("resize", naipQueueCheck, { passive: true });
+function hydrateNaip(scope) {
+  const hosts = scope.querySelectorAll ? scope.querySelectorAll(".naip-live:not([data-nv])") : [];
+  if (!hosts.length) return;
+  if (!naipObserver && typeof IntersectionObserver === "function") {
+    naipObserver = new IntersectionObserver(entries => {
+      entries.forEach(en => { if (!en.isIntersecting) return; naipObserver.unobserve(en.target); naipLoad(en.target); });
+    }, { rootMargin: "300px" });
+  }
+  // The host is observed, not the <img>: an image with no src has no box.
+  hosts.forEach(h => { h.dataset.nv = "1"; NAIP_PENDING.add(h); if (naipObserver) naipObserver.observe(h); });
+  naipQueueCheck();
+}
 function hydrateVisuals(root) {
   const scope = root || document;
+  hydrateNaip(scope);
   const hosts = scope.querySelectorAll ? scope.querySelectorAll(".minimap:not([data-mm])") : [];
   if (!hosts.length) return;
   if (!minimapObserver && typeof IntersectionObserver === "function") {
@@ -1545,6 +1639,26 @@ function hydrateVisuals(root) {
 // image. Capture phase: <img> error events don't bubble.
 document.addEventListener("error", e => {
   const img = e.target;
+  if (img instanceof HTMLImageElement && img.classList.contains("naip-live-img")) {
+    // NAIP unreachable or no imagery: try a provider snapshot, else fall
+    // through to the county context below.
+    const host = img.parentElement;
+    if (!host) return;
+    naipFailedSet().add(naipKey(host.dataset.lat, host.dataset.lng));
+    const sat = staticImageUrl({ latitude: host.dataset.lat, longitude: host.dataset.lng });
+    host.classList.remove("naip-live");
+    delete host.dataset.imagery;
+    if (sat) {
+      img.className = "static-sat-img";
+      img.src = sat.url;
+      host.classList.add("static-sat");
+      host.dataset.provider = sat.provider;
+      const cap = host.querySelector(".photo-caption");
+      if (cap) { cap.textContent = sat.label; cap.removeAttribute("title"); }
+      return;
+    }
+    img.classList.add("static-sat-img");
+  }
   if (!(img instanceof HTMLImageElement) || !img.classList.contains("static-sat-img")) return;
   const host = img.parentElement;
   if (!host) return;
@@ -1558,7 +1672,7 @@ document.addEventListener("error", e => {
 }, true);
 // Exposed for the regression suite (tests/run_test.mjs) to check the URL
 // builder without a key in the fixture - same pattern as __tdwMapLastRender.
-window.__tdwImagery = { staticImageUrl };
+window.__tdwImagery = { staticImageUrl, naipExportUrl, imageryMatchMethod, imageryState };
 // A small, free, key-less embedded map (OpenStreetMap's own export/embed
 // iframe) for the detail view's GIS & Location card - only ever rendered
 // when scripts/geocode_properties.py has actually filled in real
@@ -6469,12 +6583,24 @@ function sourceTruthHtml(p) {
   const listing = p.source === "laft" ? availabilityLink(p) : null;
   const href = listing ? listing.href : (p.list_url || p.document_url || p.url_auction || null);
   rows.push(["Official listing", href ? `<a href="${esc(href)}" target="_blank" rel="noopener" data-acq-link="source">${esc(listing ? listing.label : "Open the source listing")} →</a>` : muted("No listing link on file")]);
+  if (p.source !== "certificate") rows.push(["Imagery", imageryTruthHtml(p)]);
   rows.push([`${UNIT_WORD} intelligence`, `<button type="button" class="link-btn" data-action="countyintel" data-county="${esc(p.county)}" data-state="${esc(regionOf(p))}">${esc(`${p.county} ${UNIT_WORD}: sources, coverage and process`)} →</button>`]);
   return detailSectionHtml("Source truth", `<p class="truth-lede">The record as its source publishes it. Nothing here is inferred or scored.</p><dl class="truth-dl">${rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${v}</dd>`).join("")}</dl>`, "truth-card", "truth");
 }
 // Current status (2026-10-05): the one line under the property's identity -
 // what the record is, where it stands and when its source was last read -
 // so the page reads identity, status, then how to acquire.
+// The Source truth "Imagery" row: what the image is, its rights, and how it
+// is tied to this record (harvesters/imagery).
+function imageryTruthHtml(p) {
+  const sub = t => `<span class="kv-sub">${esc(t)}</span>`;
+  const st = imageryState(p);
+  if (st === "stored") return esc(photoCaption(p)) + sub(p.photo_source === "usda_naip" ? "A stored copy of USDA NAIP aerial imagery (public domain), centered on this record's coordinates." : "A stored image; its source is named in the caption.");
+  if (st === "checked_no_image") return `<span class="muted">No imagery</span>` + sub("The aerial-imagery check found no NAIP coverage at these coordinates.");
+  if (st === "no_coordinates") return `<span class="muted">No property imagery available</span>` + sub("No coordinates are on file for this record, so no image can be matched to it.");
+  if (!naipLiveEnabled()) return `<span class="muted">Not shown</span>` + sub("Live aerial imagery is switched off on this deployment.");
+  return "USDA NAIP aerial imagery (public domain), from USGS The National Map" + sub(IMAGERY_MATCH_LABELS[imageryMatchMethod(p)] + ". Imagery may be years old.");
+}
 function detailStatusHtml(p) {
   const k = kickerParts(p);
   const items = [
