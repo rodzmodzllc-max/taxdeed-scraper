@@ -65,4 +65,4 @@ listed on desktop and 4 on phones, with a count of the rest.
 - `tests/python/test_opportunity_finder.py`: options on every page, the cache
   is a `var` and reset per sort, badges carry no score wording, and the
   command center uses only row fields.
-- `sw.js` → `tdw-shell-v91`.
+- `sw.js` → `tdw-shell-v91` (v92 after the final visual refinement).

@@ -737,6 +737,7 @@ const LEDGERS = {
   auction: {
     slug: "auctions",
     icon: svgIcon("scale"),
+    question: "What is coming up for sale?",
     // 2026-09-30: three first-class customer ledgers - AUCTIONS / AVAILABLE /
     // LIENS & CERTIFICATES (harvesters/ledgers/__init__.py CUSTOMER_NAMES is
     // the same three names on the harvest side). `title` is the ledger's
@@ -777,6 +778,7 @@ const LEDGERS = {
     icon: svgIcon("layers"),
     title: "Available",
     nav: "Available",
+    question: "What can I acquire now?",
     sub: "Property purchasable after a sale: Florida's Lands Available for Taxes list. Failed to sell at auction; bought over the counter from the Clerk - no bidding, no sale date. The listed opening bid is not the price to buy now: the Clerk adds later years' taxes, interest and fees.",
     how: "No auction and no competition - first come, first served from the clerk. The figure shown is the opening bid, not the price: statute adds interest, later years' taxes, documentary stamps and recording fees, and the clerk's statement gives the amount due.",
     empty: "No Lands Available listings match. This list is small by nature - a county only adds a parcel here after it fails to sell at auction, and it leaves again as soon as someone buys it.",
@@ -805,12 +807,14 @@ const LEDGERS = {
     icon: svgIcon("doc"),
     title: "Liens & Certificates",
     nav: "Liens & Certificates",
+    question: "What tax lien or certificate am I buying?",
     sub: "The lien instrument itself, never the land: county-held tax certificates available for purchase by assignment - a debt secured by the property, not the property.",
     how: "You are buying the lien, not the land. It earns interest until the owner redeems it; only if nobody redeems can you apply for a deed.",
     empty: "No certificates match. Certificates are county-held liens - the list moves as owners redeem them.",
     tx: {
       title: "Redeemable Tax Deeds",
       nav: "Redeemable Deeds",
+      question: "What redeemable deed am I looking at?",
       sub: "A deed you already own, still subject to the former owner's statutory right to redeem it for a premium (Tex. Tax Code §34.21).",
       how: "Not a lien purchase - you own the deed. The former owner can redeem within 180 days (25% flat premium) or 2 years for homestead/agricultural/mineral property (25% year 1, 50% year 2), on the aggregate cost, not the bid alone. General summary for orientation only - this app does not track redemption status or deadlines; confirm terms with a Texas attorney.",
       // Phase 14A correction - see the parallel note on the auction ledger's
@@ -6270,27 +6274,57 @@ function unitForRow(p) {
   const same = UNIT_FRESHNESS.filter(u => u.county === p.county && (u.state || st) === st);
   return same.find(u => p.source_id && u.source_id === p.source_id) || same.find(u => unitLedgerKeys(u).includes(p.source)) || null;
 }
+// Source truth (2026-10-05, refined): the record as its source publishes
+// it, in a fixed order a reader learns once - source record, last read,
+// source date, publication status, source health, acquisition path, price,
+// official listing, county. Every value is a stored field or a stated
+// absence; nothing here is a confidence, a score or an inference.
 function sourceTruthHtml(p) {
   const rows = [];
   const muted = t => `<span class="muted">${esc(t)}</span>`;
   const auth = p.source_authority && SOURCE_AUTHORITY_LABELS[p.source_authority];
-  rows.push(["Source", `${esc(harvesterSourceLabel(p) || "Not recorded")}${auth ? `<span class="kv-sub">Published by ${esc(auth)}</span>` : ""}`]);
+  const label = harvesterSourceLabel(p);
+  rows.push(["Source record", label ? `${esc(label)}${auth ? `<span class="kv-sub">Published by ${esc(auth)}</span>` : ""}`
+    : auth ? `${esc(auth.charAt(0).toUpperCase() + auth.slice(1))}<span class="kv-sub">Dataset name not recorded</span>` : muted("Not recorded")]);
+  rows.push(["Last read", p.last_seen_at ? `${esc(dateOnly(p.last_seen_at))}${p.first_seen_at ? `<span class="kv-sub">First observed ${esc(dateOnly(p.first_seen_at))}</span>` : ""}`
+    : muted(p.first_seen_at ? `Not recorded - first observed ${dateOnly(p.first_seen_at)}` : "Not recorded for this record")]);
+  const srcDate = p.list_as_of ? `List dated ${dateOnly(p.list_as_of)}` : p.source_published_at ? `Document dated ${dateOnly(p.source_published_at)}` : "";
+  rows.push(["Source date", srcDate ? esc(srcDate) : muted("Not published by the source")]);
+  const review = !isCustomerPublishable(p);
+  rows.push(["Publication status", `${esc(sourceReviewLabel(p))}${review ? `<span class="kv-sub">${esc(`Not customer-published - ${reviewViewerReason()}.`)}</span>` : ""}`]);
+  const u = unitForRow(p);
+  const h = sourceHealthText(u, { review });
+  rows.push(["Source health", `${sourceHealthChipHtml(u, { review })}<span class="kv-sub">${esc(UNIT_FRESHNESS === null ? "Read health is not recorded by this deployment yet." : h.text)}</span>`]);
+  if (p.source === "laft" || p.source === "auction") {
+    const a = acquisitionOf(p);
+    const text = a.verified ? (p.source === "auction" ? (AUCTION_PROCESS_MODE_LABELS[a.mode] || "County sale process") : a.label) : null;
+    rows.push([p.source === "auction" ? "Sale process" : "Acquisition path", text ? esc(text) + (a.observedOn ? `<span class="kv-sub">Verified from the source ${esc(fmtDate(String(a.observedOn).slice(0, 10)))}</span>` : "")
+      : muted(a.mode === "none" ? "None - the source states there is none" : "Not yet verified")]);
+  }
+  if (p.source === "laft") {
+    const ai = amountInfo(p);
+    const v = ai.value !== null && ai.value !== undefined ? fmtMoney(ai.value) : (ai.display || "Not published");
+    rows.push(["Price", `${ai.value !== null && ai.value !== undefined ? `<span class="truth-money">${esc(v)}</span>` : (ai.state === "not_published" ? muted(v) : esc(v))}${ai.label && ai.label !== "Price" ? `<span class="kv-sub">${esc(ai.label)}</span>` : ""}`]);
+  } else {
+    rows.push([p.source === "certificate" ? "Certificate amount" : auctionBidLabel(p), hasPublishedBid(p) ? `<span class="truth-money">${esc(fmtMoney(p.bid))}</span>` : muted("Not published")]);
+  }
   const listing = p.source === "laft" ? availabilityLink(p) : null;
   const href = listing ? listing.href : (p.list_url || p.document_url || p.url_auction || null);
   rows.push(["Official listing", href ? `<a href="${esc(href)}" target="_blank" rel="noopener" data-acq-link="source">${esc(listing ? listing.label : "Open the source listing")} →</a>` : muted("No listing link on file")]);
-  const u = unitForRow(p);
-  const review = !isCustomerPublishable(p);
-  const h = sourceHealthText(u, { review });
-  rows.push(["Source health", `${sourceHealthChipHtml(u, { review })}<span class="kv-sub">${esc(UNIT_FRESHNESS === null ? "Read health is not recorded by this deployment yet." : h.text)}</span>`]);
-  const seen = [];
-  if (p.first_seen_at) seen.push(`first observed ${dateOnly(p.first_seen_at)}`);
-  if (p.last_seen_at) seen.push(`last read ${dateOnly(p.last_seen_at)}`);
-  rows.push(["This record", seen.length ? esc(seen.join(" · ")) : muted("Observation dates not recorded")]);
-  const srcDate = p.list_as_of ? `List dated ${dateOnly(p.list_as_of)}` : p.source_published_at ? `Document dated ${dateOnly(p.source_published_at)}` : "";
-  rows.push(["Source date", srcDate ? esc(srcDate) : muted("Not published by the source")]);
-  rows.push(["Publication review", `${esc(sourceReviewLabel(p))}${review ? `<span class="kv-sub">${esc(`Not customer-published - ${reviewViewerReason()}.`)}</span>` : ""}`]);
   rows.push([`${UNIT_WORD} intelligence`, `<button type="button" class="link-btn" data-action="countyintel" data-county="${esc(p.county)}" data-state="${esc(regionOf(p))}">${esc(`${p.county} ${UNIT_WORD}: sources, coverage and process`)} →</button>`]);
-  return detailSectionHtml("Source truth", `<dl class="truth-dl">${rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${v}</dd>`).join("")}</dl>`, "truth-card", "truth");
+  return detailSectionHtml("Source truth", `<p class="truth-lede">The record as its source publishes it. Nothing here is inferred or scored.</p><dl class="truth-dl">${rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${v}</dd>`).join("")}</dl>`, "truth-card", "truth");
+}
+// Current status (2026-10-05): the one line under the property's identity -
+// what the record is, where it stands and when its source was last read -
+// so the page reads identity, status, then how to acquire.
+function detailStatusHtml(p) {
+  const k = kickerParts(p);
+  const items = [
+    ["Ledger", ledgerCopy(p.source).title || k.type, ""],
+    ["Status", k.phase, k.cls],
+    ["Last read", p.last_seen_at ? dateOnly(p.last_seen_at) : "Not recorded", p.last_seen_at ? "" : "muted"]
+  ];
+  return `<dl class="dossier-status" aria-label="Current status">${items.map(([t, v, c]) => `<div><dt>${esc(t)}</dt><dd class="${esc(c)}">${esc(v)}</dd></div>`).join("")}</dl>`;
 }
 function detailHtml(p) {
   const isCert = p.source === "certificate";
@@ -6438,13 +6472,8 @@ function detailHtml(p) {
       ${statusPillHtml(p)}
     </div>
     <!--NAV-->
+    ${detailStatusHtml(p)}
     ${whySeeingHtml(p)}
-    ${!isCert && regionOf(p) === "FL" ? `<div class="lien-banner ${esc(p.lien_level)}">
-      <div class="lien-toprow"><span class="lien-label">Manual lien notes: ${LIEN_LABEL[p.lien_level] || p.lien_level}</span><span class="type-badge">${esc(p.prop_type || "Type: Unknown")}</span></div>
-      <span class="lien-text">${esc(p.lien_note || "")}</span>
-      <span class="lien-caveat">${esc(LIEN_NOTES_CAVEAT)}</span>
-      <span class="muni-lien-note">${infoTip(MUNI_LIEN_TIP)} Verify municipal/utility/IRS liens - these survive a tax deed sale</span>
-    </div>` : ""}
     ${regionOf(p) === "TX" && classificationBadgeHtml(p) ? `<div class="prop-classification-line" style="margin:.2rem 0 .5rem">${classificationBadgeHtml(p)}</div>` : ""}
     ${isCert ? `
     ${certStatusLinesHtml(p)}
@@ -6468,6 +6497,12 @@ function detailHtml(p) {
     ${statGroupHtml("History", stats.filter(s => s[2] === "history"), "history")}
     ${eventHistorySlotHtml(p)}
     ${monitorSectionHtml(p)}
+    ${!isCert && regionOf(p) === "FL" ? `<div class="lien-banner ${esc(p.lien_level)}">
+      <div class="lien-toprow"><span class="lien-label">Manual lien notes: ${LIEN_LABEL[p.lien_level] || p.lien_level}</span><span class="type-badge">${esc(p.prop_type || "Type: Unknown")}</span></div>
+      <span class="lien-text">${esc(p.lien_note || "")}</span>
+      <span class="lien-caveat">${esc(LIEN_NOTES_CAVEAT)}</span>
+      <span class="muni-lien-note">${infoTip(MUNI_LIEN_TIP)} Verify municipal/utility/IRS liens - these survive a tax deed sale</span>
+    </div>` : ""}
     ${riskLegalCardHtml(p)}
     ${gisLocationCardHtml(p)}
     ${sourceTruthHtml(p)}
@@ -7553,6 +7588,7 @@ function section(container, title, sub, rows, kind) {
   // a different word at the top.
   sec.innerHTML = `
     <div class="mega-head ledger-head">
+      ${cfg.question ? `<p class="ledger-question" data-ledger-question="${esc(kind)}">${esc(cfg.question)}</p>` : ""}
       <div class="ledger-head-top">
         <span class="ledger-head-icon" aria-hidden="true">${cfg.icon || ""}</span>
         <h2>${title}</h2>
