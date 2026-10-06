@@ -159,7 +159,7 @@ on:
         required: false
         type: choice
         default: all
-        options: [all, deeds, certificates, laft, texas, backup, evidence, outcomes, expansion, enrich, storage, available]
+        options: [all, deeds, certificates, laft, texas, backup, evidence, outcomes, expansion, enrich, storage, available, geocode]
       enrich_states:
         description: >-
           (job=enrich only) Comma-separated postal codes for the enrichment
@@ -207,6 +207,37 @@ on:
         type: choice
         default: plan
         options: [plan, metadata, probe, discover, apply, acquisition, imagery]
+      geocode_mode:
+        description: >-
+          (job=geocode only) Authoritative geocoding (scripts/geocode_authoritative.py).
+          plan = read-only classification of every active record and the
+          candidate list in enrichment-priority order, no source request;
+          dry-run = plan + the official parcel-layer lookups (matched / no
+          match / ambiguous / source unavailable / parser failure) and how
+          many coordinates WOULD be written, nothing written; apply = the dry
+          run and the writes. Coordinates come only from an official parcel /
+          tax-roll layer matched on the record's own identifier.
+        required: false
+        type: choice
+        default: plan
+        options: [plan, dry-run, apply]
+      geocode_states:
+        description: (job=geocode only) Comma-separated postal codes; blank = every state with a coordinate source.
+        required: false
+        default: ''
+      geocode_limit:
+        description: (job=geocode, dry-run / apply) look up at most N candidates, highest priority first; blank = all.
+        required: false
+        default: ''
+      geocode_allow_upgrade:
+        description: >-
+          (job=geocode only) "yes" also replaces stored coordinates whose origin
+          is weaker (unrecorded / vendor listing / address geocode). Counted
+          separately in the report. Default no.
+        required: false
+        type: choice
+        default: 'no'
+        options: ['no', 'yes']
       storage_max:
         description: (job=storage, apply modes) optimize at most N objects this run; blank = all.
         required: false
@@ -1837,6 +1868,68 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: available-enrichment-${{ github.run_id }}
+          path: |
+            out/public/
+            out/private/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  geocode:
+    # Authoritative geocoding - MANUAL ONLY (job=geocode), never scheduled and
+    # never part of "all". Default mode is plan (read-only, no source
+    # request); dry-run queries the official parcel layers and writes
+    # nothing; apply writes, and passes --confirm-apply only in that mode.
+    # Also writes the counts-only enrichment audit (state x county x ledger).
+    name: Authoritative geocoding (${{ github.event.inputs.geocode_mode }}) - manual only
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.job == 'geocode'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python dependencies
+        run: pip install requests
+
+      - name: Enrichment coverage audit (counts only, read-only)
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/enrichment_audit.py
+
+      - name: Authoritative geocoding
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          GEOCODE_MODE: ${{ github.event.inputs.geocode_mode }}
+          GEOCODE_STATES: ${{ github.event.inputs.geocode_states }}
+          GEOCODE_LIMIT: ${{ github.event.inputs.geocode_limit }}
+          GEOCODE_UPGRADE: ${{ github.event.inputs.geocode_allow_upgrade }}
+        run: |
+          ARGS="--mode ${GEOCODE_MODE:-plan}"
+          if [ "${GEOCODE_MODE}" = "apply" ]; then ARGS="$ARGS --confirm-apply"; fi
+          if [ -n "$GEOCODE_STATES" ]; then ARGS="$ARGS --states $GEOCODE_STATES"; fi
+          if [ -n "$GEOCODE_LIMIT" ]; then ARGS="$ARGS --limit $GEOCODE_LIMIT"; fi
+          if [ "$GEOCODE_UPGRADE" = "yes" ]; then ARGS="$ARGS --allow-upgrade"; fi
+          python3 scripts/geocode_authoritative.py $ARGS
+
+      - name: Prepare artifact (public evidence only)
+        if: always()
+        env:
+          ARTIFACT_PUBLIC_KEY: ${{ vars.ARTIFACT_PUBLIC_KEY }}
+        run: python3 scripts/artifact_evidence.py --job "geocode" "out/public/geocode-*.json" "out/public/enrichment-audit.json"
+
+      - name: Upload evidence (counts only)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: geocode-${{ github.run_id }}
           path: |
             out/public/
             out/private/

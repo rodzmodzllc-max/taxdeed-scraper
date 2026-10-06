@@ -2870,3 +2870,35 @@ Full description: `docs/due-diligence.md`. Stable facts:
   customer review marks / notes live in `research_items.diligence` and never
   change a state. `sw.js` -> `tdw-shell-v101`.
 
+
+## Enrichment priority + authoritative geocoding (2026-10-06, PR open, no migration)
+
+Full description: `docs/enrichment-geocoding.md`. Stable facts:
+- **`harvesters/enrichment/priority.py`**: explicit rules, no score:
+  - P1 / P2 / P3: customer-visible Available / Auction / Lien;
+  - P4: a county with a verified acquisition path;
+  - P5: a market-test county (`data/market_test_counties.csv`);
+  - P6: strong identity with gaps;
+  - P7: the rest.
+
+  Order is rule, then state, county, id. Inactive rows are never enriched.
+- **`harvesters/enrichment/geocode.py`**: coordinate sources are only
+  - FDOR cadastral (TAX_ROLL);
+  - Santa Rosa parcels;
+  - every `centroid=True` parcel config (PARCEL_GIS);
+
+  all as PARCEL_CENTROID, and queried only when APPROVED and verified.
+  - **Matching:** exactly one feature on the record's own identifier; no
+    address / fuzzy / nearest match.
+  - **Points:** a point outside the state is a PARSER_FAILURE.
+  - **Replacement:** `coordinates.should_replace` decides. Stored coordinates
+    with a weaker or unrecorded origin are replaced only with `--allow-upgrade`.
+- **`scripts/geocode_authoritative.py`** (manual `job=geocode`):
+  - `geocode_mode` plan (default) / dry-run / apply;
+  - apply also needs `--confirm-apply`, which the workflow passes only in apply
+    mode;
+  - output is counts only.
+
+  **`scripts/enrichment_audit.py`** writes the counts-only state × county ×
+  ledger audit.
+- Nothing has been dispatched. The first run needs the owner's authorization.
