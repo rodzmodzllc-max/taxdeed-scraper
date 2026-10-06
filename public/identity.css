@@ -805,3 +805,25 @@ body:has(#authGate:not([hidden])){padding-bottom:0!important}
   .research-table td{display:grid;grid-template-columns:8.5rem 1fr;gap:.5rem;border:0;padding:.15rem 0}
   .research-table td::before{content:attr(data-label);color:var(--warm-gray);font-size:.78rem}
 }
+
+/* ---- Due diligence (2026-10-06) -------------------------------------- */
+.dd-head{font-size:.88rem;margin-bottom:.6rem}
+.dd-group{border-top:1px solid var(--rule);padding-top:.4rem;margin-top:.6rem}
+.dd-group h4{font-size:.72rem;letter-spacing:.1em;text-transform:uppercase;color:var(--warm-gray);margin:.1rem 0 .3rem}
+.dd-items{list-style:none;margin:0;padding:0}
+.dd-item{display:grid;grid-template-columns:minmax(9rem,13rem) 8.5rem 1fr;gap:.2rem .8rem;padding:.35rem 0;border-bottom:1px dotted var(--rule);align-items:baseline}
+.dd-label{font-weight:600;font-size:.86rem}
+.dd-state{font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;border:1px solid currentColor;padding:.05rem .35rem;justify-self:start;color:var(--warm-gray)}
+.dd-item[data-dd-state="VERIFIED"] .dd-state{color:var(--ok)}
+.dd-item[data-dd-state="NOT_VERIFIED"] .dd-state{color:var(--warn)}
+.dd-item[data-dd-state="SOURCE_UNAVAILABLE"] .dd-state{color:var(--bad)}
+.dd-evidence{font-size:.84rem;color:var(--charcoal);overflow-wrap:anywhere}
+.dd-mine{grid-column:1 / -1;display:flex;flex-wrap:wrap;gap:.6rem;align-items:center;font-size:.8rem;color:var(--warm-gray)}
+.dd-mine label{display:inline-flex;gap:.3rem;align-items:center;min-height:32px}
+.dd-note{font-style:italic;color:var(--charcoal)}
+.dd-rule{font-size:.78rem;color:var(--warm-gray);margin:.6rem 0 0}
+.dd-summary{font-weight:600}
+@media (max-width:640px){
+  .dd-item{grid-template-columns:1fr auto}
+  .dd-evidence{grid-column:1 / -1}
+}

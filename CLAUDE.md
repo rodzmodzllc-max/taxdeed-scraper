@@ -2820,3 +2820,16 @@ Full description: `docs/research-workspace.md`. Stable facts:
 - Stub: `?research=none` simulates 029 absent; `__stubResearchDb()` reads it.
   `sw.js` -> `tdw-shell-v100`.
 
+## Due diligence (2026-10-06, PR open, no new migration - uses 029)
+
+Full description: `docs/due-diligence.md`. Stable facts:
+- `harvesters/sources/due_diligence.checklist(facts)` = app.js
+  `diligenceChecklistFromFacts()` (vectors `due_diligence_cases.json`);
+  `diligenceFacts(p)` derives the facts from the existing evidence functions.
+- States VERIFIED / NOT_VERIFIED / NOT_PUBLISHED / NOT_APPLICABLE /
+  SOURCE_UNAVAILABLE. A populated field without a recorded origin (or a read
+  of its source) is NOT_VERIFIED - never verified because it is filled.
+- "Due diligence" section (`data-section="diligence"`) on every property;
+  customer review marks / notes live in `research_items.diligence` and never
+  change a state. `sw.js` -> `tdw-shell-v101`.
+
