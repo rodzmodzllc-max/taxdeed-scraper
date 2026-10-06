@@ -4185,6 +4185,47 @@ await navMap.close();
     }
     results.financialPositionStates = states;
   }
+  // ---- Acquisition method filter + Map uses the List's filters (2026-10-05) ----
+  {
+    const pg = await newPage({ viewport: { width: 1280, height: 900 } });
+    pg.on('pageerror', e => errors.push('acqmode pageerror: ' + e.message));
+    await pg.goto(BASE_URL + '#/lands', { waitUntil: 'networkidle' });
+    await pg.waitForTimeout(400);
+    const setMode = v => pg.evaluate(v => { const e = document.getElementById('acqModeFilter'); e.value = v; e.dispatchEvent(new Event('change')); }, v);
+    const ids = () => pg.evaluate(() => [...document.querySelectorAll('#main .prop-card')].map(c => c.dataset.pid).sort());
+    const modes = {};
+    for (const v of ['phone', 'multi_step', 'online', 'unverified']) { await setMode(v); await pg.waitForTimeout(150); modes[v] = await ids(); }
+    results.acqModeFilter = modes;
+    await setMode('phone'); await pg.waitForTimeout(150);
+    results.acqModeChip = await pg.evaluate(() => { const c = document.querySelector('[data-chip="ctl:acqModeFilter"]'); return c ? c.firstChild.textContent.trim() : null; });
+    const mapRows = () => pg.evaluate(() => ((window.__tdwMapLastRender || {}).rows || []).map(p => p.id).sort());
+    await pg.evaluate(() => { location.hash = '#/map'; });
+    await pg.waitForTimeout(500);
+    const shared = await mapRows();
+    const toggle = await pg.evaluate(() => { const e = document.getElementById('mapListFilters'); return e ? { on: e.classList.contains('on'), pressed: e.getAttribute('aria-pressed'), text: (e.querySelector('.mlf-label').textContent + e.querySelector('.mlf-count').textContent).trim() } : null; });
+    await pg.click('#mapListFilters');
+    await pg.waitForTimeout(300);
+    const off = await mapRows();
+    results.mapSharedFilters = { shared, toggle, offCount: off.length, offHash: await pg.evaluate(() => location.hash) };
+    await setMode('any');
+    await pg.close();
+    const cold = await newPage({ viewport: { width: 1280, height: 900 } });
+    await cold.goto(BASE_URL + '#/map?lf=0', { waitUntil: 'networkidle' });
+    await cold.waitForTimeout(400);
+    results.mapListFiltersColdOff = await cold.evaluate(() => { const e = document.getElementById('mapListFilters'); return e ? e.getAttribute('aria-pressed') : null; });
+    await cold.close();
+    const ov = [];
+    for (const w of [390, 430, 768, 1024, 1280, 1440, 1920]) {
+      const v = await newPage({ viewport: { width: w, height: 844 } });
+      await v.goto(BASE_URL + '#/map', { waitUntil: 'networkidle' });
+      await v.waitForTimeout(300);
+      const r = await v.evaluate(() => { const a = document.getElementById('mapListFilters'), w = document.getElementById('mapWatchlistOnly');
+        return { ov: document.scrollingElement.scrollWidth - document.scrollingElement.clientWidth, btn: !!a, row: !!a && Math.abs(a.getBoundingClientRect().top - w.getBoundingClientRect().top) < 2 }; });
+      if (r.ov > 0 || !r.btn || (w <= 640 && !r.row)) ov.push(`${w}:${r.ov}:${r.btn}:${r.row}`);
+      await v.close();
+    }
+    results.mapListFiltersViewports = ov;
+  }
   // ---- Live NAIP imagery: deterministic match, rights, lazy, fallback (2026-10-05) ----
   {
     const iv = JSON.parse(fs.readFileSync(new URL('./python/fixtures/imagery_cases.json', import.meta.url), 'utf8'));
@@ -5635,7 +5676,7 @@ const EXPECTED = {
   },
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Public Property Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: {"ready": true, "controlled": true, "tagline": "Public Property Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v94"]},
+  brandSwReload: {"ready": true, "controlled": true, "tagline": "Public Property Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v95"]},
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · TaxDeed-Scraper — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · TaxDeed-Scraper — Florida", floridaCopy: true },
@@ -5654,7 +5695,7 @@ const EXPECTED = {
   monSsCounts: '2 matching · 0 new · 0 changed · 0 no longer matching',
   monSsAlertsToggle: 1,
   monSsAppliedLedger: 'laft',
-  monFiltersRow: 8,   // + Source (2026-10-05)
+  monFiltersRow: 9,   // + Source, + Acquisition method (2026-10-05)
   monWatchedCards: ['p15', 'p3'],
   monAcqVerifiedCards: ['p15', 'p3'],
   monResetClearsAcq: 'any',
@@ -6800,6 +6841,11 @@ const EXPECTED = {
   acquisitionDocumentVectors: [],
   financialPositionStates: {"p15": {"money": true, "acqBasis": "not_published", "total": "none", "totalText": "Not published", "docs": ["INSTRUCTIONS", "FORM", "SOURCE_PAGE"], "order": true, "noScore": true}, "p3": {"money": true, "acqBasis": "partial", "total": "none", "totalText": "Not published", "docs": ["INSTRUCTIONS", "DOCUMENT", "SOURCE_PAGE"], "order": true, "noScore": true}, "ptx3": {"money": true, "acqBasis": "vendor", "total": "none", "totalText": "Not published", "docs": ["INSTRUCTIONS", "SOURCE_PAGE"], "order": true, "noScore": true}, "pla1": {"money": true, "acqBasis": "not_published", "total": "none", "totalText": "Not published", "docs": ["INSTRUCTIONS", "DOCUMENT", "SOURCE_PAGE"], "order": true, "noScore": true}, "pmi_dlba1": {"money": true, "acqBasis": "program_price", "total": "none", "totalText": "Not published", "docs": ["SOURCE_PAGE"], "order": true, "noScore": true}, "psc_horry1": {"money": true, "acqBasis": "partial", "total": "none", "totalText": "Not published", "docs": ["FORM", "SOURCE_PAGE"], "order": true, "noScore": true}},
   // Final visual refinement (2026-10-05).
+  acqModeFilter: {"phone": ["p3"], "multi_step": ["p15"], "online": [], "unverified": []},
+  acqModeChip: "Acquisition method: Phone the county",
+  mapSharedFilters: {"shared": ["p3"], "toggle": {"on": true, "pressed": "true", "text": "Same filters as the List (1)"}, "offCount": 12, "offHash": "#/map?lf=0"},
+  mapListFiltersColdOff: "false",
+  mapListFiltersViewports: [],
   naipVectors: [],
   naipCards: {"n": 2, "deferred": true, "thumb": true, "caption": "Aerial · USDA NAIP", "match": ["recorded_coordinates", "recorded_coordinates"], "noStreetView": true},
   naipRequestedOnlyUsgs: true,

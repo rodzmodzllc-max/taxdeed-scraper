@@ -1013,7 +1013,7 @@ const state = {
   // Customer monitoring (2026-10-01): cross-ledger filters, every one a
   // stored field or its stated absence (saved_search_match.py mirrors the
   // saveable ones). watchStatus is per-user, so it is a list filter only.
-  taxableMin: null, imagery: "any", acqState: "any", watchStatus: "any", freshDays: null, saleFrom: "", saleTo: "", sourceId: "any",
+  taxableMin: null, imagery: "any", acqState: "any", acqMode: "any", watchStatus: "any", freshDays: null, saleFrom: "", saleTo: "", sourceId: "any",
   includeQT: false, maxBidPct: 40,
   statusView: "all",
   ledger: "auction",
@@ -1059,7 +1059,7 @@ const MONITOR = {
 // `let` declared only down there stays in its temporal dead zone until
 // that line runs - caught the same way selectedPid's bug was, by reading
 // the console after the first cut of this section broke page load.
-let mapFilter = { search: "", county: "ALL", ledger: "all", watchlistOnly: false };
+let mapFilter = { search: "", county: "ALL", ledger: "all", watchlistOnly: false, listFilters: true };
 
 // Shell redesign (2026-10-04): global search / state picker UI state. Same
 // TDZ reason as mapFilter - render() reaches renderListHead() during init.
@@ -3626,6 +3626,13 @@ function passes(p) {
   if (state.imagery === "has" && !p.photo_url) return false;
   if (state.imagery === "none" && p.photo_url) return false;
   if (state.acqState !== "any" && (state.acqState === "verified") !== ssAcquisitionVerified(p)) return false;
+  // Acquisition method (2026-10-05): what the verified record says the
+  // customer must do. Available rows only; "unverified" is the stated gap.
+  if (state.acqMode !== "any") {
+    if (p.source !== "laft") return false;
+    const a = acquisitionOf(p);
+    if (state.acqMode === "unverified" ? a.verified : (!a.verified || a.mode !== state.acqMode)) return false;
+  }
   if (state.watchStatus === "watched" && !BIDLIST.has(p.id) && !FAVS.has(p.id)) return false;
   if (state.watchStatus === "not_watched" && (BIDLIST.has(p.id) || FAVS.has(p.id))) return false;
   if (state.freshDays !== null) { const d = daysSince(p.last_seen_at); if (d === null || d > state.freshDays) return false; }
@@ -8101,7 +8108,7 @@ function updateBadge() {
   if (state.counties.size < ALL_COUNTIES.length) n++;
   if (state.types.size !== TYPE_ORDER.length) n++;
   if (state.liens.size !== LIEN_ORDER.length) n++;
-  if (state.taxableMin !== null || state.imagery !== "any" || state.acqState !== "any" || state.watchStatus !== "any" || state.freshDays !== null || state.saleFrom || state.saleTo || state.sourceId !== "any") n++;
+  if (state.taxableMin !== null || state.imagery !== "any" || state.acqState !== "any" || state.acqMode !== "any" || state.watchStatus !== "any" || state.freshDays !== null || state.saleFrom || state.saleTo || state.sourceId !== "any") n++;
   const b = document.getElementById("filtersBadge");
   if (b) { b.textContent = n; b.hidden = n === 0; }
   // Analytics: one search_performed per settled filter change (debounced),
@@ -8177,6 +8184,7 @@ function mapHash() {
   if (mapFilter.county !== "ALL") q.set("county", mapFilter.county);
   if (mapFilter.search) q.set("q", mapFilter.search);
   if (mapFilter.watchlistOnly) q.set("watch", "1");
+  if (!mapFilter.listFilters) q.set("lf", "0");
   const qs = q.toString();
   return "#/map" + (qs ? "?" + qs : "");
 }
@@ -8188,10 +8196,12 @@ function applyMapParams(params) {
   mapFilter.county = params.county || "ALL";
   mapFilter.search = params.q || "";
   mapFilter.watchlistOnly = params.watch === "1";
+  mapFilter.listFilters = params.lf !== "0";
   const searchEl = document.getElementById("mapSearchInput");
   if (searchEl) searchEl.value = mapFilter.search;
   const watchEl = document.getElementById("mapWatchlistOnly");
   if (watchEl) { watchEl.classList.toggle("on", mapFilter.watchlistOnly); watchEl.setAttribute("aria-pressed", mapFilter.watchlistOnly ? "true" : "false"); }
+  syncMapListFiltersToggle();
   document.querySelectorAll("#mapLedgerPills [data-ledger]").forEach(b => b.classList.toggle("on", b.dataset.ledger === mapFilter.ledger));
 }
 function pageHash(name) {
@@ -10313,6 +10323,11 @@ function computeMapRows() {
     if (mapFilter.watchlistOnly && !BIDLIST.has(p.id)) return false;
     if (mapFilter.county !== "ALL" && p.county !== mapFilter.county) return false;
     if (!textMatches(p, mapFilter.search)) return false;
+    // One set of filters (2026-10-05): by default the Map shows exactly what
+    // the List's filters let through (county, amount, Available filters,
+    // acquisition method, source ...), on top of the Map's own toolbar. The
+    // List's archive view (past sales only) has no map equivalent.
+    if (mapFilter.listFilters && state.statusView !== "archive" && !passes(p)) return false;
     return true;
   });
 }
@@ -10344,7 +10359,33 @@ function buildMapCountySelect() {
 // "Ledger: Available · County: Bay" - what the map is showing, from the
 // inputs the rows are filtered by. The state is the header's #stateSelect
 // (PAGE_STATE), not repeated here.
+// The "Same filters as the List" toggle, injected beside the watchlist pill
+// so every state page (static and generated) gets it without markup edits.
+function ensureMapListFiltersToggle() {
+  let el = document.getElementById("mapListFilters");
+  if (el) return el;
+  const watch = document.getElementById("mapWatchlistOnly");
+  if (!watch) return null;
+  watch.insertAdjacentHTML("afterend", `<button type="button" class="map-watch-pill map-list-filters" id="mapListFilters" aria-pressed="true" title="Show only what the List's filters let through"><span class="pill-dot pill-dot-list" aria-hidden="true"></span><span class="mlf-label">Same filters as the List</span><span class="mlf-short" aria-hidden="true">List filters</span><span class="mlf-count"></span></button>`);
+  el = document.getElementById("mapListFilters");
+  el.addEventListener("click", () => {
+    mapFilter.listFilters = !mapFilter.listFilters;
+    syncMapListFiltersToggle();
+    renderMapPage();
+  });
+  return el;
+}
+function syncMapListFiltersToggle() {
+  const el = ensureMapListFiltersToggle();
+  if (!el) return;
+  el.classList.toggle("on", mapFilter.listFilters);
+  el.setAttribute("aria-pressed", mapFilter.listFilters ? "true" : "false");
+  let n = 0; try { n = filterChipList().length; } catch { n = 0; }
+  const c = el.querySelector(".mlf-count");
+  if (c) c.textContent = mapFilter.listFilters && n ? ` (${n})` : "";
+}
 function renderMapContext() {
+  syncMapListFiltersToggle();
   const ledEl = document.getElementById("mapContextLedger");
   const ctyEl = document.getElementById("mapContextCounty");
   if (ledEl) ledEl.textContent = mapFilter.ledger === "all" ? "All Ledgers" : (ledgerCopy(mapFilter.ledger).title || mapFilter.ledger);
@@ -10388,6 +10429,10 @@ function showOnMap(p) {
   const watchEl = document.getElementById("mapWatchlistOnly");
   if (watchEl) watchEl.classList.remove("on");
   document.querySelectorAll("#mapLedgerPills [data-ledger]").forEach(b => b.classList.toggle("on", b.dataset.ledger === "all"));
+  // A property the List's filters would hide is still shown: the request is
+  // "this property on the map", so the shared filters step aside.
+  if (!passes(p)) mapFilter.listFilters = false;
+  syncMapListFiltersToggle();
   window.__tdwMapSelectPid = String(p.id);
   window.dispatchEvent(new CustomEvent("tdw:mapselect", { detail: { pid: String(p.id) } }));
   showPage("map"); // renders the Map page, which re-dispatches tdw:maprendered
@@ -11101,6 +11146,7 @@ const MONITOR_FILTERS_HTML = `<div class="filters-row" id="monitorFilters">
 <div class="field"><span class="field-label">Taxable value min</span><input type="number" id="taxableMin" placeholder="0" min="0" step="1000" inputmode="numeric"></div>
 <div class="field"><span class="field-label">Imagery</span><select id="imageryFilter" aria-label="Imagery"><option value="any">Any</option><option value="has">Image on file</option><option value="none">No image on file</option></select></div>
 <div class="field"><span class="field-label">Acquisition path</span><select id="acqStateFilter" aria-label="Acquisition path"><option value="any">Any</option><option value="verified">Verified</option><option value="not_verified">Not yet verified</option></select></div>
+<div class="field"><span class="field-label">Acquisition method</span><select id="acqModeFilter" aria-label="Acquisition method"><option value="any">Any</option><option value="online">Purchase or apply online</option><option value="application">County application form</option><option value="bid">Bid application</option><option value="instructions">County purchase instructions</option><option value="mail">Mail a written request</option><option value="in_person">Apply in person</option><option value="email">E-mail the county</option><option value="phone">Phone the county</option><option value="contact">Contact the county for the amount</option><option value="multi_step">Multi-step county process</option><option value="unverified">Not yet verified</option></select></div>
 <div class="field"><span class="field-label">Watch status</span><select id="watchStatusFilter" aria-label="Watch status"><option value="any">Any</option><option value="watched">On my watchlist or favorites</option><option value="not_watched">Not watched</option></select></div>
 <div class="field"><span class="field-label">Read from the source</span><select id="freshDaysFilter" aria-label="Read from the source"><option value="">Any time</option><option value="1">Last 24 hours</option><option value="7">Last 7 days</option><option value="30">Last 30 days</option></select></div>
 <div class="field"><span class="field-label">Source</span><select id="sourceFilter" aria-label="Source"><option value="any">Any source</option></select></div>
@@ -11109,7 +11155,7 @@ const MONITOR_FILTERS_HTML = `<div class="filters-row" id="monitorFilters">
 </div>`;
 function syncMonitorFilterInputs() {
   const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
-  set("taxableMin", state.taxableMin ?? ""); set("imageryFilter", state.imagery); set("acqStateFilter", state.acqState);
+  set("taxableMin", state.taxableMin ?? ""); set("imageryFilter", state.imagery); set("acqStateFilter", state.acqState); set("acqModeFilter", state.acqMode);
   set("watchStatusFilter", state.watchStatus); set("freshDaysFilter", state.freshDays === null ? "" : String(state.freshDays));
   set("saleFromFilter", state.saleFrom); set("saleToFilter", state.saleTo);
   buildSourceFilterOptions();
@@ -11131,7 +11177,7 @@ function buildSourceFilterOptions() {
   el.value = state.sourceId;
 }
 function resetMonitorFilters() {
-  state.taxableMin = null; state.imagery = "any"; state.acqState = "any"; state.watchStatus = "any"; state.freshDays = null; state.saleFrom = ""; state.saleTo = ""; state.sourceId = "any";
+  state.taxableMin = null; state.imagery = "any"; state.acqState = "any"; state.acqMode = "any"; state.watchStatus = "any"; state.freshDays = null; state.saleFrom = ""; state.saleTo = ""; state.sourceId = "any";
   syncMonitorFilterInputs();
 }
 function bindMonitorFilters() {
@@ -11139,6 +11185,7 @@ function bindMonitorFilters() {
   on("taxableMin", "input", el => { state.taxableMin = el.value.trim() === "" ? null : Number(el.value); });
   on("imageryFilter", "change", el => { state.imagery = el.value; });
   on("acqStateFilter", "change", el => { state.acqState = el.value; });
+  on("acqModeFilter", "change", el => { state.acqMode = el.value || "any"; });
   on("watchStatusFilter", "change", el => { state.watchStatus = el.value; });
   on("freshDaysFilter", "change", el => { state.freshDays = el.value === "" ? null : Number(el.value); });
   on("saleFromFilter", "change", el => { state.saleFrom = el.value; });
@@ -12011,7 +12058,9 @@ function renderListHead(shown, k, tabCounts) {
 // chip resets that one control through its own existing handler, so the
 // chips can never disagree with the panel.
 function controlActive(el) {
-  if (!el || el.closest("[hidden]")) return false;
+  // A hidden filter row (another ledger's) is not active; a hidden PAGE is -
+  // the Map counts the List's filters while the List itself is off screen.
+  if (!el || el.closest("[hidden]:not(.page)")) return false;
   if (el.type === "checkbox") return el.checked;
   if (el.tagName === "SELECT") return el.value !== "any" && el.value !== "" && el.value !== "ALL";
   return String(el.value || "").trim() !== "";
@@ -12029,7 +12078,7 @@ function controlLabel(el) {
 function chipControlIds() {
   return ["favOnly", "topOnly", "soonOnly", "hideOldOnly", "archiveToggle", "hideSliversOnly", "hideBareLandOnly",
   "assessedMin", "availPathFilter", "availAmountKindFilter", "availStatusFilter", "acreageMin", "availSeenRecently", "availLandUseFilter",
-  "availGeocoded", "availValues", "taxableMin", "imageryFilter", "acqStateFilter", "watchStatusFilter", "freshDaysFilter", "sourceFilter", "saleFromFilter", "saleToFilter"];
+  "availGeocoded", "availValues", "taxableMin", "imageryFilter", "acqStateFilter", "acqModeFilter", "watchStatusFilter", "freshDaysFilter", "sourceFilter", "saleFromFilter", "saleToFilter"];
 }
 function filterChipList() {
   const chips = [];

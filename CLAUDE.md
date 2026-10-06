@@ -2714,3 +2714,20 @@ Full description: `docs/available-imagery.md`. Stable facts:
 - `enrich_property_photos_naip.py` runs customer-visible counties first.
 - `scripts/available_quality_report.py`: a counts-only quality and imagery report per state / source.
 - `sw.js` -> `tdw-shell-v94`.
+
+## Shared List / Map filters + acquisition method (2026-10-05, PR open, frontend only)
+
+Full description: `docs/available-workflow-map.md`. Stable facts:
+- **Shared filters:** `computeMapRows()` also requires `passes(p)` while
+  `mapFilter.listFilters` is on (the default).
+  - The toggle is `#mapListFilters`, injected beside the watchlist pill, with
+    `lf=0` in the map hash when off.
+  - The List's archive view is never applied to the Map.
+  - `showOnMap()` turns the toggle off for a property the List's filters
+    would hide.
+- **`controlActive()`** ignores `[hidden].page` ancestors, so List filters
+  count while the List is off screen.
+- **Acquisition method filter:** `state.acqMode` / `#acqModeFilter`, read
+  from `acquisitionOf(p)`. Available rows only. It is not in the saved-search
+  vocabulary.
+- `sw.js` -> `tdw-shell-v95`.

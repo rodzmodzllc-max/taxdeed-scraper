@@ -670,3 +670,16 @@ body:has(#authGate:not([hidden])){padding-bottom:0!important}
   .fp-lines li{grid-template-columns:1fr}
   .fp-line-amt,.fp-line-amt .muted{text-align:left}
 }
+
+/* Map: "Same filters as the List" (2026-10-05) - the shared-filter toggle,
+   in the ink of the copper accent rather than the watchlist rose. */
+.map-list-filters.on { background: var(--copper-soft); color: var(--copper-deep); border-color: currentColor; }
+.pill-dot-list { background: var(--copper); }
+.map-list-filters .mlf-count { font-variant-numeric: tabular-nums; }
+.map-list-filters .mlf-short { display: none; }
+/* Phones: the two toggles share one row so the map stage keeps its height. */
+@media (max-width: 640px) {
+  .map-watch-pill, .map-list-filters { flex: 1 1 calc(50% - .4rem); min-width: 0; }
+  .map-list-filters .mlf-label { display: none; }
+  .map-list-filters .mlf-short { display: inline; }
+}
