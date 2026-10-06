@@ -5013,9 +5013,12 @@ await monDetail.waitForTimeout(1900);
 {
   await monDetail.evaluate(() => { try { sessionStorage.setItem('tdw_state_switch', JSON.stringify({ from: 'TX', to: 'FL' })); } catch {} });
   await monDetail.goto(BASE_URL.replace('index.html', 'index.html?an=2') + '#/lands/p15', { waitUntil: 'networkidle' });
-  await monDetail.waitForTimeout(700);
+  // Wait for the deep-linked property's acquisition section itself, then for
+  // the event - fixed sleeps raced the slower CI runner (the modal was hidden
+  // below before the section had ever been on screen).
+  await monDetail.waitForSelector('#detailModalInner [data-section="acquire"]', { timeout: 15000 }).catch(() => {});
   await monDetail.evaluate(() => { const el = document.querySelector('#detailModalInner [data-section="acquire"]'); if (el) el.scrollIntoView(); });
-  await monDetail.waitForTimeout(400);
+  await monDetail.waitForFunction(() => (window.__stubProductEvents || []).some(e => e.event === 'acquisition_section_viewed'), null, { timeout: 10000 }).catch(() => {});
   // Links are followed for real by investors; here the navigation is suppressed
   // after the (capture-phase) analytics listener has seen the click.
   await monDetail.evaluate(() => document.addEventListener('click', e => { if (e.target.closest('a[href]')) e.preventDefault(); }));
