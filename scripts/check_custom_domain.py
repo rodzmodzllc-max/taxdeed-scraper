@@ -90,6 +90,15 @@ def mixed_content(html: str) -> list[str]:
     return sorted(set(re.findall(r'(?:src|href|action|poster)\s*=\s*["\'](http://[^"\']+)', html, flags=re.I)))
 
 
+def injected(domain_body: bytes, reference_body: bytes) -> str:
+    """Name the <script> tags the domain serves that the reference does not
+    (e.g. something an edge feature adds to the HTML)."""
+    tags = lambda b: re.findall(r"<script\b[^>]*>[\s\S]{0,90}", b.decode("utf-8", "replace"), flags=re.I)
+    ref = set(tags(reference_body))
+    extra = [re.sub(r"\s+", " ", t)[:140] for t in tags(domain_body) if t not in ref]
+    return (" [added scripts: " + " || ".join(extra) + "]") if extra else ""
+
+
 def check(domain: str, reference: str, www: str | None) -> list[tuple[bool, str]]:
     out: list[tuple[bool, str]] = []
     host = urllib.parse.urlsplit(domain).hostname
@@ -124,7 +133,7 @@ def check(domain: str, reference: str, www: str | None) -> list[tuple[bool, str]
             _, s2, _, b2, _ = follow(f"{reference}/{name}")
             same = s1 == 200 and s2 == 200 and hashlib.sha256(b1).digest() == hashlib.sha256(b2).digest()
             out.append((same, f"{name}: domain {s1}, reference {s2}, {'identical' if same else 'DIFFERENT'}"
-                        + why(s1, h1, b1)))
+                        + why(s1, h1, b1) + (injected(b1, b2) if not same and name.endswith(".html") else "")))
             if name == "sw.js":
                 ctype = h1.get("content-type", "")
                 out.append(("javascript" in ctype, f"sw.js content-type {ctype!r}"))
