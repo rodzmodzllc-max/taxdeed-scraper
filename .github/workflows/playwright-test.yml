@@ -100,9 +100,33 @@ jobs:
       - name: Production deployment
         env:
           REQUIRE: ${{ github.event_name == 'push' && '--require --wait 900' || '' }}
-        run: python3 scripts/check_deployed_branding.py --base https://rodz-taxdeeds.pages.dev $REQUIRE
+        run: python3 scripts/check_deployed_branding.py --base https://rodz-taxdeeds.pages.dev --base https://taxacq.com $REQUIRE
+
+      # The custom domain (2026-10-07) must serve the same deployment as the
+      # Pages hostname: verified TLS, no redirect loop, byte-identical shell
+      # files, same CSP, no mixed content, www never a second copy.
+      - name: Custom domain serves the production deployment
+        env:
+          WAIT: ${{ github.event_name == 'push' && '--wait 900' || '' }}
+        run: python3 scripts/check_custom_domain.py --domain https://taxacq.com --reference https://rodz-taxdeeds.pages.dev --www https://www.taxacq.com --require $WAIT
 
       # Sign-up runs through the self-signup Edge Function (2026-10-04). Only
       # refused payloads are sent: no account is ever created by this check.
       - name: Self-signup Edge Function reachable (CORS + validation)
-        run: python3 scripts/check_self_signup.py --origin https://rodz-taxdeeds.pages.dev
+        run: |
+          python3 scripts/check_self_signup.py --origin https://rodz-taxdeeds.pages.dev
+          python3 scripts/check_self_signup.py --origin https://taxacq.com
+
+      # Signed-out browser load of both hosts: sign-in screen, app boot,
+      # service worker scope + control, same-origin requests, no mixed
+      # content / CSP violations. Nothing is typed or submitted.
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Live browser check (taxacq.com + pages.dev)
+        run: |
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+          node scripts/check_live_browser.mjs https://taxacq.com https://rodz-taxdeeds.pages.dev
