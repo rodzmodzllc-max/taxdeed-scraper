@@ -93,7 +93,7 @@ def mixed_content(html: str) -> list[str]:
 def injected(domain_body: bytes, reference_body: bytes) -> str:
     """Name the <script> tags the domain serves that the reference does not
     (e.g. something an edge feature adds to the HTML)."""
-    tags = lambda b: re.findall(r"<script\b[^>]*>[\s\S]{0,90}", b.decode("utf-8", "replace"), flags=re.I)
+    tags = lambda b: re.findall(r"<script\b[^>]*>[\s\S]*?</script>", b.decode("utf-8", "replace"), flags=re.I)
     ref = set(tags(reference_body))
     extra = [re.sub(r"\s+", " ", t)[:140] for t in tags(domain_body) if t not in ref]
     return (" [added scripts: " + " || ".join(extra) + "]") if extra else ""
