@@ -23,33 +23,49 @@ from __future__ import annotations
 
 import argparse
 import hashlib
-import http.client
 import re
 import ssl
 import sys
 import time
+import urllib.error
 import urllib.parse
+import urllib.request
 
 SHELL_FILES = ("index.html", "tx.html", "la.html", "app.js", "sw.js", "boot.js", "supabase-loader.js",
                "config.js", "manifest.webmanifest", "styles.css", "identity.css", "explore.js")
 MAX_HOPS = 8
 
 
-def request(url: str, method: str = "GET"):
-    """One request, no redirect following. Returns (status, headers, body) or raises."""
-    u = urllib.parse.urlsplit(url)
-    if u.scheme == "https":
-        conn = http.client.HTTPSConnection(u.hostname, u.port or 443, timeout=30,
-                                           context=ssl.create_default_context())
-    else:
-        conn = http.client.HTTPConnection(u.hostname, u.port or 80, timeout=30)
-    path = (u.path or "/") + (f"?{u.query}" if u.query else "")
-    conn.request(method, path, headers={"User-Agent": "taxacq-domain-check", "Cache-Control": "no-cache"})
-    r = conn.getresponse()
-    body = r.read()
-    headers = {k.lower(): v for k, v in r.getheaders()}
-    conn.close()
-    return r.status, headers, body
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    def redirect_request(self, *args, **kwargs):  # report redirects instead of following them
+        return None
+
+
+_OPENER = urllib.request.build_opener(_NoRedirect, urllib.request.HTTPSHandler(context=ssl.create_default_context()))
+
+
+def request(url: str):
+    """One request (same shape as check_deployed_branding.py's), no redirect following.
+    Returns (status, headers, body); TLS is verified by urllib."""
+    req = urllib.request.Request(url, headers={"User-Agent": "taxdeed-branding-check", "Cache-Control": "no-cache"})
+    try:
+        with _OPENER.open(req, timeout=30) as r:
+            return r.status, {k.lower(): v for k, v in r.getheaders()}, r.read()
+    except urllib.error.HTTPError as e:
+        return e.code, {k.lower(): v for k, v in e.headers.items()}, e.read()
+
+
+def why(status: int, headers: dict, body: bytes) -> str:
+    """For a non-200: who answered (Cloudflare challenge / WAF vs. the app)."""
+    if status == 200:
+        return ""
+    bits = [f"server={headers.get('server', '?')}"]
+    if headers.get("cf-mitigated"):
+        bits.append(f"cf-mitigated={headers['cf-mitigated']}")
+    m = re.search(rb"<title>([^<]{0,80})", body or b"", flags=re.I)
+    if m:
+        bits.append(f"title={m.group(1).decode('utf-8', 'replace').strip()!r}")
+    return " [" + ", ".join(bits) + "]"
 
 
 def follow(url: str):
@@ -82,7 +98,8 @@ def check(domain: str, reference: str, www: str | None) -> list[tuple[bool, str]
         final, status, headers, body, hops = follow(domain + "/")
         same_host = urllib.parse.urlsplit(final).hostname == host and final.startswith("https://")
         out.append((status == 200 and same_host,
-                    f"HTTPS {domain}/ -> {status} at {final} after {len(hops)} redirect(s); certificate verified"))
+                    f"HTTPS {domain}/ -> {status} at {final} after {len(hops)} redirect(s); certificate verified"
+                    + why(status, headers, body)))
         html = body.decode("utf-8", "replace")
         out.append(("TAXACQ" in html, "TAXACQ branding in the served page"))
         out.append(('id="authGate"' in html, "sign-in screen (#authGate) present in the served page"))
@@ -103,10 +120,11 @@ def check(domain: str, reference: str, www: str | None) -> list[tuple[bool, str]
 
     for name in SHELL_FILES:
         try:
-            s1, h1, b1 = request(f"{domain}/{name}")
-            s2, _, b2 = request(f"{reference}/{name}")
+            _, s1, h1, b1, _ = follow(f"{domain}/{name}")
+            _, s2, _, b2, _ = follow(f"{reference}/{name}")
             same = s1 == 200 and s2 == 200 and hashlib.sha256(b1).digest() == hashlib.sha256(b2).digest()
-            out.append((same, f"{name}: domain {s1}, reference {s2}, {'identical' if same else 'DIFFERENT'}"))
+            out.append((same, f"{name}: domain {s1}, reference {s2}, {'identical' if same else 'DIFFERENT'}"
+                        + why(s1, h1, b1)))
             if name == "sw.js":
                 ctype = h1.get("content-type", "")
                 out.append(("javascript" in ctype, f"sw.js content-type {ctype!r}"))
@@ -132,7 +150,9 @@ def check(domain: str, reference: str, www: str | None) -> list[tuple[bool, str]
                 out.append((fu.path in ("/tx.html", "/tx") and "check=1" in fu.query,
                             f"{www} redirects to {final} (path/query kept)"))
             else:
-                out.append((False, f"{www} serves its own copy at {final} ({status}) instead of redirecting"))
+                _, wst, wh, wb, _ = follow(f"{www}/")
+                out.append((False, f"{www} answers itself at {final} ({status}) instead of redirecting"
+                            + why(wst, wh, wb)))
         except Exception as e:  # noqa: BLE001
             out.append((True, f"{www} not served ({type(e).__name__}); no second copy of the app"))
     return out
