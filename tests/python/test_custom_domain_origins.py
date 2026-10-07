@@ -37,3 +37,17 @@ def test_look_alike_and_insecure_origins_are_refused():
                     "https://api.taxacq.com", "https://taxacq.co", "https://taxacq.com:8443",
                     "https://www.taxacq.com/", "https://evil.com/?https://taxacq.com"):
             assert not rx.fullmatch(bad), (path, bad)
+
+
+def test_custom_domain_check_flags_mixed_content_and_is_wired_into_ci():
+    import sys
+    sys.path.insert(0, str(REPO / "scripts"))
+    import check_custom_domain as C
+    page = ('<script src="https://esm.sh/x"></script><img src="http://cdn.example/a.png">'
+            '<!-- <a href="http://old"> --><a href="/tx.html">')
+    assert C.mixed_content(page) == ["http://cdn.example/a.png"]
+    assert C.mixed_content('<link href="styles.css"><svg xmlns="http://www.w3.org/2000/svg">') == []
+    wf = (REPO / ".github/workflows/playwright-test.yml").read_text(encoding="utf-8")
+    assert "check_custom_domain.py --domain https://taxacq.com --reference https://rodz-taxdeeds.pages.dev" in wf
+    assert "check_self_signup.py --origin https://taxacq.com" in wf
+    assert "check_live_browser.mjs https://taxacq.com https://rodz-taxdeeds.pages.dev" in wf
