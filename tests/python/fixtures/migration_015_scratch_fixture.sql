@@ -142,8 +142,10 @@ create table public.properties (
   constraint properties_state_source_county_case_no_key unique (state, source, county, case_no)
 );
 alter table public.properties enable row level security;
+-- Live shape since migration 026 (applied 2026-10-04): the helper is wrapped
+-- in a scalar subquery so it runs once per statement (InitPlan).
 create policy "properties: approved only" on public.properties
-  as permissive for all to public using (public.is_approved()) with check (public.is_approved());
+  as permissive for all to public using ((select public.is_approved())) with check ((select public.is_approved()));
 -- 005a: anon has no SELECT; authenticated's SELECT is column-level.
 revoke select on public.properties from anon, authenticated;
 grant select (id, state, county, source, case_no, status, sale_date, bid, gone_since, updated_at, ledger_type)

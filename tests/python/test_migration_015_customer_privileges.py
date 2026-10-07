@@ -100,7 +100,8 @@ def test_s02_properties_becomes_read_only_for_customers_without_a_zero_permissiv
     # The SELECT policy must exist BEFORE the FOR ALL policy is dropped -
     # CLAUDE.md's 2026-08-24 outage was a table with zero permissive policies.
     assert create < drop
-    assert "for select to authenticated using (public.is_approved())" in stmts[create]
+    # 026's once-per-statement form is kept (a bare is_approved() is per row).
+    assert "for select to authenticated using ((select public.is_approved()))" in stmts[create]
     assert "with check" not in stmts[create]
     assert any(s == "revoke insert, update, delete, truncate, references, trigger on public.properties from anon, authenticated" for s in stmts)
 
@@ -166,6 +167,20 @@ def test_s07_trigger_functions_closed_and_search_paths_pinned():
         assert any(s.startswith(f"alter function public.{fn}(") and s.endswith("set search_path = public") for s in stmts), fn
 
 
+def test_s07b_guard_and_signed_in_only_helpers():
+    body = sql_only()
+    stmts = statements()
+    guard = body.index("015 guard")
+    assert guard < body.index('create policy "properties: approved read"')
+    assert "polname = 'properties: approved only'" in body and "polname = 'county_calendar: approved only'" in body
+    for fn in ("public.is_approved()", "public.is_admin()", "public.get_properties(text, text, text, integer, integer)"):
+        assert f"revoke execute on function {fn} from public, anon" in stmts, fn
+        assert f"grant execute on function {fn} to authenticated, service_role" in stmts, fn
+    # Never weaken: no new grant to anon, no SECURITY DEFINER other than delete_my_account.
+    assert not any(" to anon" in s and s.startswith("grant") for s in stmts)
+    assert body.lower().count("security definer") == 1
+
+
 def test_s08_delete_my_account_shape():
     body = sql_only()
     m = re.search(r"create function public\.delete_my_account\(\)(.*?)\$\$;", body, re.S)
@@ -191,7 +206,11 @@ def test_s08_delete_my_account_shape():
 
 def test_s09_no_data_changes_no_service_role_changes_no_notes_policy_change():
     body = sql_only().lower()
-    assert "service_role" not in body
+    # service_role is only ever GIVEN execute (so revoking PUBLIC never takes
+    # it away) - nothing is revoked from it and no table grant names it.
+    for stmt in statements():
+        if "service_role" in stmt:
+            assert stmt.startswith("grant execute on function public.") and stmt.endswith("to authenticated, service_role"), stmt
     for verb in ("insert into", "update public.", "truncate table", "truncate public.", "drop table", "alter table"):
         assert verb not in body, verb
     # `delete from` only inside the function body.
@@ -280,10 +299,10 @@ def as_user(uid: str | None, role: str = "authenticated") -> str:
 
 
 def test_l01_policies_and_grants_after_migration(scratch):
-    out = scratch("select tablename||':'||permissive||':'||cmd||':'||array_to_string(roles,',')||':'||qual from pg_policies where tablename in ('properties','county_calendar') order by 1;")
-    assert out.split() == [
-        "county_calendar:PERMISSIVE:SELECT:authenticated:is_approved()",
-        "properties:PERMISSIVE:SELECT:authenticated:is_approved()",
+    out = scratch("select tablename||':'||permissive||':'||cmd||':'||array_to_string(roles,',')||':'||regexp_replace(qual, '\\s+', ' ', 'g') from pg_policies where tablename in ('properties','county_calendar') order by 1;")
+    assert [l.replace("( SELECT", "(SELECT") for l in out.splitlines() if l.strip()] == [
+        "county_calendar:PERMISSIVE:SELECT:authenticated:(SELECT is_approved() AS is_approved)",
+        "properties:PERMISSIVE:SELECT:authenticated:(SELECT is_approved() AS is_approved)",
     ]
     out = scratch("select table_name||':'||grantee||':'||string_agg(privilege_type, ',' order by privilege_type) from information_schema.role_table_grants where table_schema='public' and grantee in ('anon','authenticated') group by table_name, grantee order by 1;")
     rows = dict(line.rsplit(":", 1) for line in out.split())
@@ -415,3 +434,36 @@ def test_l08_function_hardening_visible_in_catalog(scratch):
         ||':'|| has_function_privilege('authenticated','public.enforce_bid_list_limit()','execute')::text;
     """)
     assert out.strip() == "false:true:false:false"
+
+
+def test_l09_helpers_and_read_rpc_signed_in_only(scratch):
+    out = scratch("""
+      select has_function_privilege('anon','public.is_approved()','execute')::text
+        ||':'|| has_function_privilege('anon','public.is_admin()','execute')::text
+        ||':'|| has_function_privilege('anon','public.get_properties(text,text,text,integer,integer)','execute')::text
+        ||':'|| has_function_privilege('authenticated','public.is_approved()','execute')::text
+        ||':'|| has_function_privilege('authenticated','public.get_properties(text,text,text,integer,integer)','execute')::text
+        ||':'|| has_function_privilege('service_role','public.is_admin()','execute')::text;
+    """)
+    assert out.strip() == "false:false:false:true:true:true"
+    out = scratch(as_user(None, "anon") + "select public.is_approved(); select count(*) from public.get_properties('FL');")
+    assert out.count("permission denied for function") == 2, out
+
+
+def test_l10_customer_read_keeps_once_per_statement_policy(scratch):
+    out = scratch(as_user(USER_A) + "explain (costs off) select count(*) from public.properties;")
+    assert "InitPlan" in out, out
+
+
+def test_l11_guard_refuses_a_second_run_and_changes_nothing(scratch):
+    staged = Path("/tmp") / f"mig015_rerun_{uuid.uuid4().hex[:8]}.sql"
+    staged.write_text(SQL, encoding="utf-8")
+    staged.chmod(0o644)
+    try:
+        out = scratch(f"\\i {staged}")
+    finally:
+        staged.unlink(missing_ok=True)
+    assert "015 guard" in out, out
+    out = scratch("select count(*) from pg_policy where polrelid = 'public.properties'::regclass;")
+    assert out.strip() == "1"
+

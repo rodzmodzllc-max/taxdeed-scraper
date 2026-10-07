@@ -2,7 +2,8 @@
 -- write it; and a customer can delete their own account.
 --
 -- STATUS: PROPOSED, NOT APPLIED. Written for the SaaS launch-readiness
--- hardening PR (2026-09-29). Like every migration in this directory it is
+-- hardening PR (2026-09-29); revised 2026-10-07 against the live schema
+-- (after 021-026 were applied) - see "REVISION 2026-10-07" below. Like every migration in this directory it is
 -- applied by hand, by the project owner, after review - never by CI, never
 -- by the assistant session that wrote it. See "HOW TO APPLY" at the bottom.
 --
@@ -82,6 +83,30 @@
 -- SUPABASE_SERVICE_KEY (service_role), which this file does not touch.
 --
 -- ============================================================
+-- REVISION 2026-10-07 (read live from pg_policy / grants / pg_proc)
+-- ============================================================
+--   - Migration 026 rewrote "properties: approved only" as
+--     USING ((select is_approved())) - an InitPlan, evaluated once per
+--     statement (deep Michigan page 4.5 s -> 0.1 s). The replacement SELECT
+--     policy below keeps that exact form; a bare is_approved() would bring
+--     back the per-row evaluation 026 removed.
+--   - A guard aborts the whole transaction unless `properties` and
+--     `county_calendar` each still have exactly the one FOR ALL policy this
+--     file replaces (the RESTRICTIVE/PERMISSIVE lesson in CLAUDE.md).
+--   - is_approved(), is_admin() and get_properties() are no longer
+--     executable by anon (Supabase advisor: SECURITY DEFINER functions
+--     callable without signing in). Every policy that calls them is either
+--     TO authenticated or on a table anon has no privilege on after this
+--     file, so anon never evaluates them; authenticated and service_role
+--     keep EXECUTE.
+--   - Unchanged since 2026-09-29: no app code writes `properties` or
+--     `county_calendar` (public/*.js only select them); the tables created
+--     since (auction_events, auction_event_observations,
+--     county_source_registry, inventory_status_observations,
+--     source_publication_reviews) already grant clients SELECT only, plus
+--     admin-only INSERT on source_publication_reviews.
+--
+-- ============================================================
 -- WHAT THIS DOES NOT DO
 -- ============================================================
 --   - Does not change get_properties() (013 stays the current projection),
@@ -105,7 +130,7 @@
 --   drop policy "properties: approved read" on public.properties;
 --   create policy "properties: approved only" on public.properties
 --     as permissive for all to public
---     using (public.is_approved()) with check (public.is_approved());
+--     using ((select public.is_approved())) with check ((select public.is_approved()));
 --   grant insert, update, delete, truncate, references, trigger
 --     on public.properties to anon, authenticated;
 --   -- county_calendar: same three statements with its own names.
@@ -116,6 +141,8 @@
 --   grant all on <each legacy table> to anon, authenticated;
 --   grant execute on function public.handle_new_user(),
 --     public.enforce_bid_list_limit() to anon, authenticated, public;
+--   grant execute on function public.is_approved(), public.is_admin(),
+--     public.get_properties(text, text, text, integer, integer) to anon, public;
 --   alter function <each of the eight> reset search_path;
 --   drop function public.delete_my_account();
 --
@@ -143,11 +170,33 @@
 begin;
 
 -- ------------------------------------------------------------
+-- 0. guard: the policies this file replaces are still the only ones
+-- ------------------------------------------------------------
+do $$
+declare
+  n_props int;
+  n_cal int;
+begin
+  select count(*) into n_props from pg_policy where polrelid = 'public.properties'::regclass;
+  select count(*) into n_cal from pg_policy where polrelid = 'public.county_calendar'::regclass;
+  if n_props <> 1 or not exists (select 1 from pg_policy where polrelid = 'public.properties'::regclass
+                                   and polname = 'properties: approved only' and polcmd = '*' and polpermissive) then
+    raise exception '015 guard: public.properties policies changed since this migration was written (found %)', n_props;
+  end if;
+  if n_cal <> 1 or not exists (select 1 from pg_policy where polrelid = 'public.county_calendar'::regclass
+                                 and polname = 'county_calendar: approved only' and polcmd = '*' and polpermissive) then
+    raise exception '015 guard: public.county_calendar policies changed since this migration was written (found %)', n_cal;
+  end if;
+end;
+$$;
+
+-- ------------------------------------------------------------
 -- 1. properties: approved customers read; nobody but service_role writes
 -- ------------------------------------------------------------
+-- (select ...) keeps 026's once-per-statement evaluation.
 create policy "properties: approved read" on public.properties
   as permissive for select to authenticated
-  using (public.is_approved());
+  using ((select public.is_approved()));
 
 drop policy "properties: approved only" on public.properties;
 
@@ -159,7 +208,7 @@ revoke insert, update, delete, truncate, references, trigger
 -- ------------------------------------------------------------
 create policy "county_calendar: approved read" on public.county_calendar
   as permissive for select to authenticated
-  using (public.is_approved());
+  using ((select public.is_approved()));
 
 drop policy "county_calendar: approved only" on public.county_calendar;
 
@@ -191,6 +240,14 @@ revoke all on public.auction_records, public.auctions, public.tax_auctions,
 -- ------------------------------------------------------------
 revoke execute on function public.handle_new_user() from public, anon, authenticated;
 revoke execute on function public.enforce_bid_list_limit() from public, anon, authenticated;
+
+-- The access helpers and the read RPC are for signed-in callers only.
+revoke execute on function public.is_approved() from public, anon;
+revoke execute on function public.is_admin() from public, anon;
+revoke execute on function public.get_properties(text, text, text, integer, integer) from public, anon;
+grant execute on function public.is_approved() to authenticated, service_role;
+grant execute on function public.is_admin() to authenticated, service_role;
+grant execute on function public.get_properties(text, text, text, integer, integer) to authenticated, service_role;
 
 alter function public.get_properties(text, text, text, integer, integer) set search_path = public;
 alter function public.properties_sync_geom() set search_path = public;
