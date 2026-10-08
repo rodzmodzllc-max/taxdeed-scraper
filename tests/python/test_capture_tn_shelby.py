@@ -74,3 +74,22 @@ def test_wired_as_a_read_only_evidence_scope():
     block = block[:block.index("\n          fi\n")]
     assert "python3 scripts/capture_tn_shelby.py" in block and "SUPABASE" not in block
     assert "tn_shelby" in wf[wf.index("evidence_scope:"):wf.index("concurrency:")]
+
+
+def test_json_shape_never_prints_values():
+    import capture_tn_shelby as m
+    data = {"props": {"pageProps": {"parcels": [{"parcelId": "G0219 00412", "owner": "JANE Q PUBLIC",
+                                                 "address": "1234 ELM ST", "price": 4500.0}]},
+                      "byId": {f"0{i}2034 0001{i}": {"x": 1} for i in range(8)}}}
+    text = json.dumps(m.json_shape(data))
+    for secret in ("G0219", "JANE", "ELM", "4500", "02034"):
+        assert secret not in text
+    assert "parcelId" in text and "len=1" in text and "<object with 8 keys>" in text
+
+
+def test_data_urls_finds_api_paths_and_drops_noise():
+    import capture_tn_shelby as m
+    js = 'fetch("/api/properties?status=x");a="https://reactjs.org/docs/error";b="https://services.arcgis.com/x/arcgis/rest/services/LB/FeatureServer/0"'
+    paths, hosts = m.data_urls(js)
+    assert paths == ["/api/properties"]
+    assert hosts == ["https://services.arcgis.com/x/arcgis/rest/services/LB/FeatureServer/0"]

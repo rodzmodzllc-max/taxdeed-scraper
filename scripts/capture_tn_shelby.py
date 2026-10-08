@@ -229,6 +229,93 @@ def layer_entry(session, url: str) -> dict:
     return out
 
 
+# --- Land Bank deep pass (2026-10-08, second read): the site is a Next.js
+# app; its property data is fetched by a page chunk, not named in the first
+# scripts. Routes come from _buildManifest.js, data URLs from every chunk, and
+# any JSON endpoint is described by SHAPE only (key names, types, lengths).
+NOISE_HOSTS = ("reactjs.org", "react.dev", "nextjs.org", "w3.org", "github.com", "googleapis.com",
+               "jsdelivr.net", "schema.org", "mozilla.org", "fb.me", "vercel", "unpkg.com", "polyfill")
+API_PATH = re.compile(r"""["'`](/(?:api|_next/data)/[A-Za-z0-9_./\-]{1,120})["'`?]""")
+ABS_URL = re.compile(r"""https?://[A-Za-z0-9.\-]+(?:/[A-Za-z0-9_./\-]{0,120})?""")
+ROUTE = re.compile(r"""["'](/[A-Za-z0-9_\-/\[\]]{0,80})["']""")
+MAX_ROUTES = 15
+MAX_CHUNKS = 45
+MAX_APIS = 10
+
+
+def json_shape(v, depth: int = 0):
+    """Key names (digits masked), types and lengths; never a value."""
+    if depth > 5:
+        return "..."
+    if isinstance(v, dict):
+        keys = list(v)
+        if len(keys) > 40 or sum(any(c.isdigit() for c in str(k)) for k in keys) > len(keys) // 2:
+            return f"<object with {len(keys)} keys>"
+        return {re.sub(r"\d", "9", str(k)): json_shape(x, depth + 1) for k, x in v.items()}
+    if isinstance(v, list):
+        return [f"len={len(v)}", json_shape(v[0], depth + 1)] if v else ["len=0"]
+    return type(v).__name__
+
+
+def data_urls(text: str) -> tuple[list[str], list[str]]:
+    paths = sorted(set(API_PATH.findall(text)))
+    hosts = sorted({u for u in ABS_URL.findall(text) if not any(n in u for n in NOISE_HOSTS)})
+    return paths[:40], hosts[:40]
+
+
+def landbank_deep(session) -> dict:
+    base = "https://landbank.shelbycountytn.gov"
+    out = {"routes": [], "pages": [], "chunks": [], "apis": []}
+    home, _ = fetch(session, base + "/")
+    html = home.text if home is not None and home.status_code == 200 else ""
+    manifest = next((m for m in re.findall(r'src="([^"]*_buildManifest\.js)"', html)), None)
+    if manifest:
+        r, _ = fetch(session, urljoin(base, manifest))
+        if r is not None and r.status_code == 200:
+            out["routes"] = sorted({x for x in ROUTE.findall(r.text) if not x.startswith("/_")})[:60]
+    chunks: list[str] = []
+    for route in ["/"] + [x for x in out["routes"] if "[" not in x][:MAX_ROUTES]:
+        r, err = fetch(session, base + route)
+        entry = {"route": route, "status": getattr(r, "status_code", err)}
+        if r is not None and r.status_code == 200:
+            nd = re.search(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', r.text, re.S)
+            if nd:
+                try:
+                    entry["next_data_shape"] = json_shape(json.loads(nd.group(1)).get("props", {}))
+                except ValueError:
+                    entry["next_data_shape"] = "unparseable"
+            for src in re.findall(r'src="(/_next/static/[^"]+\.js)"', r.text):
+                if src not in chunks:
+                    chunks.append(src)
+            entry["api_paths"], entry["hosts"] = data_urls(r.text)
+        out["pages"].append(entry)
+        time.sleep(0.4)
+    apis: set[str] = set()
+    for src in chunks[:MAX_CHUNKS]:
+        r, err = fetch(session, urljoin(base, src))
+        if r is None or r.status_code != 200:
+            out["chunks"].append({"src": src, "status": getattr(r, "status_code", err)})
+            continue
+        paths, hosts = data_urls(r.text)
+        if paths or hosts:
+            out["chunks"].append({"src": src, "status": 200, "api_paths": paths, "hosts": hosts})
+        apis.update(urljoin(base, p) for p in paths if "${" not in p)
+        apis.update(h for h in hosts if re.search(r"/(api|services|odata)/|FeatureServer|MapServer", h, re.I))
+        time.sleep(0.25)
+    for url in sorted(apis)[:MAX_APIS]:
+        r, err = fetch(session, url + ("?f=pjson" if re.search(r"(FeatureServer|MapServer)(/\d+)?$", url) else ""))
+        e = {"url": url, "status": getattr(r, "status_code", err)}
+        if r is not None:
+            e["content_type"] = r.headers.get("Content-Type", "")
+            try:
+                e["shape"] = json_shape(r.json())
+            except ValueError:
+                e["shape"] = f"non-JSON, {len(r.content)} bytes"
+        out["apis"].append(e)
+        time.sleep(0.4)
+    return out
+
+
 def capture() -> dict:
     import requests
     session = requests.Session()
@@ -264,6 +351,7 @@ def capture() -> dict:
         report["sale_books"].append(e)
         print(f"  sale_book {b.rsplit('/', 1)[-1]:<28} {e.get('status', e.get('error'))} pages={e.get('pdf_pages')}", flush=True)
         time.sleep(0.6)
+    report["landbank_deep"] = landbank_deep(session)
     return report
 
 
@@ -295,6 +383,18 @@ def digest(report: dict) -> str:
             out.append("  fields: " + ", ".join(f"{n}:{t}" for n, t in l["fields"]))
         if l.get("sublayers"):
             out.append("  sublayers: " + ", ".join(f"{i}:{n}" for i, n in l["sublayers"]))
+    d = report.get("landbank_deep")
+    if d:
+        out.append("\n[landbank_deep] routes: " + ", ".join(d["routes"]))
+        for p in d["pages"]:
+            out.append(f"  page {p['route']} -> {p['status']} api={p.get('api_paths')} hosts={p.get('hosts')}")
+            if p.get("next_data_shape") is not None:
+                out.append("    __NEXT_DATA__ props: " + json.dumps(p["next_data_shape"])[:1500])
+        for c in d["chunks"]:
+            out.append(f"  chunk {c['src']} -> {c['status']} api={c.get('api_paths')} hosts={c.get('hosts')}")
+        for a in d["apis"]:
+            out.append(f"  api {a['url']} -> {a['status']} {a.get('content_type', '')}")
+            out.append("    shape: " + json.dumps(a.get("shape"))[:2000])
     return "\n".join(out)
 
 
