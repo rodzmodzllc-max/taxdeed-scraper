@@ -99,3 +99,14 @@ def test_epropertyplus_path_pattern():
     import capture_tn_shelby as m
     js = 'u="/landmgmtpub/remote/public/property/getPublishedProperties";v="remote/public/x/y"'
     assert sorted(m.EPP_PATH.findall(js)) == ["/landmgmtpub/remote/public/property/getPublishedProperties", "remote/public/x/y"]
+
+
+def test_inventory_summary_prints_vocabulary_never_rows():
+    import capture_tn_shelby as m
+    rows = [{"parcelNumber": "G0219 00412", "propertyAddress": "1234 ELM ST", "comments": "Call JANE Q PUBLIC 901-555-1212",
+             "currentStatus": "Available", "available": "Yes", "city": "MEMPHIS", "askingPrice": 4500.0,
+             "latitude": 35.1, "longitude": -90.0, "id": 77}]
+    text = json.dumps(m.inventory_summary(rows, 1))
+    for secret in ("G0219", "ELM", "JANE", "555", "4500", "77,"):
+        assert secret not in text
+    assert "Available" in text and "MEMPHIS" in text and "A9999 99999" in text

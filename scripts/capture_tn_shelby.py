@@ -388,6 +388,69 @@ def epropertyplus(session) -> dict:
     return out
 
 
+# --- Inventory summary (fifth read): page the portal's own published list the
+# way its own code does (page / limit / customFields) and keep only counts:
+# total, fill rates, identifier SHAPES, and the vocabulary of the status /
+# category columns (a value is printed only when it is a short, digit-free
+# phrase - a status word or a place name, never an address or a comment).
+VOCAB_FIELDS = ("currentStatus", "available", "inventoryType", "propertyClass", "county", "city", "state",
+                "s_custom_0046", "s_custom_0047")
+CUSTOM_FIELDS = ("s_custom_0046", "s_custom_0047", "dt_custom_0011", "dt_custom_0028", "s_custom_0029", "d_custom_0012")
+VOCAB_VALUE = re.compile(r"^[A-Za-z][A-Za-z /&()'.,-]{0,40}$")
+PAGE_LIMIT = 500
+MAX_PAGES = 60
+
+
+def vocab(v) -> str:
+    if v is None or v == "":
+        return "<blank>"
+    v = str(v).strip()
+    return v if VOCAB_VALUE.match(v) else f"<withheld {shape(v)[:12]}>"
+
+
+def inventory_summary(rows: list[dict], size) -> dict:
+    keys = sorted({k for r in rows for k in r})
+    fill = {k: sum(1 for r in rows if r.get(k) not in (None, "", 0, 0.0)) for k in keys}
+    zero = {k: sum(1 for r in rows if r.get(k) in (0, 0.0)) for k in keys}
+    cats = {f: collections.Counter(vocab(r.get(f)) for r in rows).most_common(25) for f in VOCAB_FIELDS}
+    cross = collections.Counter((vocab(r.get("available")), vocab(r.get("currentStatus")), vocab(r.get("s_custom_0046")))
+                                for r in rows).most_common(30)
+    ids = [str(r.get("parcelNumber") or "") for r in rows]
+    return {"size": size, "rows_read": len(rows), "keys": keys, "fill": fill, "zero": zero, "vocab": cats,
+            "available_x_status_x_forsale": cross,
+            "parcel_shapes": collections.Counter(shape(i) for i in ids).most_common(8),
+            "parcel_unique": len(set(ids)), "id_unique": len({r.get("id") for r in rows}),
+            "lat_in_tn": sum(1 for r in rows if isinstance(r.get("latitude"), (int, float)) and 34.9 < r["latitude"] < 36.7
+                             and isinstance(r.get("longitude"), (int, float)) and -90.4 < r["longitude"] < -81.6)}
+
+
+def epp_inventory(session) -> dict:
+    url = EPP + "/landmgmtpub/remote/public/property/getPublishedProperties"
+    rows, size, pages, err = [], None, 0, None
+    cf = json.dumps(list(CUSTOM_FIELDS))
+    while pages < MAX_PAGES:
+        pages += 1
+        try:
+            r = session.get(url, timeout=90, headers={"User-Agent": UA, "Accept": "application/json"},
+                            params={"page": pages, "limit": PAGE_LIMIT, "customFields": cf})
+            d = r.json()
+        except Exception as ex:  # noqa: BLE001
+            err = f"page {pages}: {type(ex).__name__}"
+            break
+        if not d.get("success"):
+            err = f"page {pages}: success=false"
+            break
+        size = d.get("size", size)
+        batch = d.get("rows") or []
+        rows += batch
+        if not batch or (isinstance(size, int) and len(rows) >= size):
+            break
+        time.sleep(0.5)
+    out = inventory_summary(rows, size)
+    out.update({"pages": pages, "error": err})
+    return out
+
+
 def capture() -> dict:
     import requests
     session = requests.Session()
@@ -425,6 +488,7 @@ def capture() -> dict:
         time.sleep(0.6)
     report["landbank_deep"] = landbank_deep(session)
     report["epropertyplus"] = epropertyplus(session)
+    report["epp_inventory"] = epp_inventory(session)
     return report
 
 
@@ -482,6 +546,16 @@ def digest(report: dict) -> str:
         for c in ep["calls"]:
             out.append(f"  {c.get('method')} {c['url']} body={c.get('body')} -> {c.get('status', c.get('error'))} {c.get('content_type', '')} bytes={c.get('bytes')}")
             out.append("    shape: " + json.dumps(c.get("shape"))[:2500])
+    inv = report.get("epp_inventory")
+    if inv:
+        out.append(f"\n[epp_inventory] size={inv['size']} rows_read={inv['rows_read']} pages={inv['pages']} error={inv['error']} "
+                   f"parcel_unique={inv['parcel_unique']} id_unique={inv['id_unique']} coords_in_TN={inv['lat_in_tn']}")
+        out.append("  fill: " + json.dumps(inv["fill"]))
+        out.append("  zero: " + json.dumps({k: v for k, v in inv["zero"].items() if v}))
+        out.append(f"  parcel shapes: {inv['parcel_shapes']}")
+        for f, c in inv["vocab"].items():
+            out.append(f"  vocab {f}: {c}")
+        out.append(f"  available x currentStatus x forSaleStatus: {inv['available_x_status_x_forsale']}")
     return "\n".join(out)
 
 
