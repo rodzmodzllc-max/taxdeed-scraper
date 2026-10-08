@@ -59,12 +59,16 @@ PAGES = [
     ("county_cm_process", "https://www.shelbycountytn.gov/DocumentCenter/View/42037/CandM-Info-On-Tax-Sale-Process-v2024"),
     ("county_landbank_flash_sale", "https://www.shelbycountytn.gov/DocumentCenter/View/44679/SHELBY-COUNTY-LAND-BANK-ANNOUNCES-FLASH-SALE-ON-SELECT-PROPERTIES"),
     ("memphis_real_estate", "https://www.memphistn.gov/real-estate"),
+    # Third read (2026-10-08): the Land Bank's own pages link its inventory to
+    # this ePropertyPlus tenant and its process to these two documents.
+    ("landbank_how_it_works", "https://www.shelbycountytn.gov/DocumentCenter/View/40748/Shelby-County-Land-Bank---How-it-Works"),
+    ("landbank_offer_packet", "https://shelbycountytn.gov/DocumentCenter/View/40049/Offer-to-Purchase-and-Sales-Agreement-Packet_0"),
 ]
 SALE_BOOKS = [
     "https://www.shelbycountytn.gov/DocumentCenter/View/45087/TX-2024TS2202SaleBook",
     "https://www.shelbycountytn.gov/DocumentCenter/View/44156/TX-2024TS2201SaleBook",
 ]
-OFFICIAL_HOSTS = ("shelbycountytn.gov", "memphistn.gov", "arcgis.com", "zeusauction.com")
+OFFICIAL_HOSTS = ("shelbycountytn.gov", "memphistn.gov", "arcgis.com", "zeusauction.com", "epropertyplus.com")
 MAX_SCRIPTS = 8
 MAX_LAYERS = 12
 MAX_EXTRA_BOOKS = 2
@@ -316,6 +320,54 @@ def landbank_deep(session) -> dict:
     return out
 
 
+# --- ePropertyPlus pass (third read): the Land Bank inventory portal. Script
+# sources are scanned for the portal's own "remote/public" data paths; each is
+# then requested (GET, then an empty-filter POST) and described by SHAPE only.
+EPP = "https://public-sctn.epropertyplus.com"
+EPP_PATH = re.compile(r"""["'`]((?:/landmgmtpub)?/?remote/public/[A-Za-z0-9_./\-]{1,100})["'`]""")
+MAX_EPP_SCRIPTS = 25
+MAX_EPP_CALLS = 8
+
+
+def epropertyplus(session) -> dict:
+    out = {"landing": None, "scripts": [], "paths": [], "calls": []}
+    r, err = fetch(session, EPP + "/landmgmtpub/app/base/landing")
+    out["landing"] = {"status": getattr(r, "status_code", err), "final_url": getattr(r, "url", None),
+                      "content_type": r.headers.get("Content-Type", "") if r is not None else ""}
+    if r is None or r.status_code != 200:
+        return out
+    soup_html = r.text
+    out["landing"]["title"] = safe_text((re.search(r"<title>(.*?)</title>", soup_html, re.S | re.I) or [None, ""])[1].strip())
+    srcs = [urljoin(r.url, x) for x in re.findall(r'<script[^>]+src="([^"]+)"', soup_html)]
+    paths: set[str] = set(EPP_PATH.findall(soup_html))
+    for src in [x for x in srcs if "epropertyplus.com" in x][:MAX_EPP_SCRIPTS]:
+        rs, e2 = fetch(session, src)
+        found = sorted(set(EPP_PATH.findall(rs.text))) if rs is not None and rs.status_code == 200 else []
+        out["scripts"].append({"src": src, "status": getattr(rs, "status_code", e2), "paths": found[:40]})
+        paths.update(found)
+        time.sleep(0.25)
+    norm = sorted({("/landmgmtpub/" + p.split("remote/", 1)[0].strip("/") + "/remote/" + p.split("remote/", 1)[1]).replace("/landmgmtpub/landmgmtpub", "/landmgmtpub").replace("//", "/") for p in paths})
+    out["paths"] = norm[:60]
+    for path in [p for p in norm if re.search(r"propert|publish|search|inventory|listing", p, re.I)][:MAX_EPP_CALLS]:
+        url = EPP + path
+        for method in ("GET", "POST"):
+            try:
+                rr = session.request(method, url, timeout=40, headers={"User-Agent": UA, "Accept": "application/json"},
+                                     json={} if method == "POST" else None)
+                e = {"url": url, "method": method, "status": rr.status_code, "content_type": rr.headers.get("Content-Type", "")}
+                try:
+                    e["shape"] = json_shape(rr.json())
+                except ValueError:
+                    e["shape"] = f"non-JSON, {len(rr.content)} bytes"
+            except Exception as ex:  # noqa: BLE001
+                e = {"url": url, "method": method, "error": type(ex).__name__}
+            out["calls"].append(e)
+            time.sleep(0.4)
+            if e.get("status") == 200 and isinstance(e.get("shape"), (dict, list)):
+                break
+    return out
+
+
 def capture() -> dict:
     import requests
     session = requests.Session()
@@ -352,6 +404,7 @@ def capture() -> dict:
         print(f"  sale_book {b.rsplit('/', 1)[-1]:<28} {e.get('status', e.get('error'))} pages={e.get('pdf_pages')}", flush=True)
         time.sleep(0.6)
     report["landbank_deep"] = landbank_deep(session)
+    report["epropertyplus"] = epropertyplus(session)
     return report
 
 
@@ -395,6 +448,15 @@ def digest(report: dict) -> str:
         for a in d["apis"]:
             out.append(f"  api {a['url']} -> {a['status']} {a.get('content_type', '')}")
             out.append("    shape: " + json.dumps(a.get("shape"))[:2000])
+    ep = report.get("epropertyplus")
+    if ep:
+        out.append(f"\n[epropertyplus] landing: {ep['landing']}")
+        for x in ep["scripts"]:
+            out.append(f"  script {x['src']} -> {x['status']} paths={x['paths']}")
+        out.append(f"  paths: {ep['paths']}")
+        for c in ep["calls"]:
+            out.append(f"  {c.get('method')} {c['url']} -> {c.get('status', c.get('error'))} {c.get('content_type', '')}")
+            out.append("    shape: " + json.dumps(c.get("shape"))[:2500])
     return "\n".join(out)
 
 

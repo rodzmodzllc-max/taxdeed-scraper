@@ -93,3 +93,9 @@ def test_data_urls_finds_api_paths_and_drops_noise():
     paths, hosts = m.data_urls(js)
     assert paths == ["/api/properties"]
     assert hosts == ["https://services.arcgis.com/x/arcgis/rest/services/LB/FeatureServer/0"]
+
+
+def test_epropertyplus_path_pattern():
+    import capture_tn_shelby as m
+    js = 'u="/landmgmtpub/remote/public/property/getPublishedProperties";v="remote/public/x/y"'
+    assert sorted(m.EPP_PATH.findall(js)) == ["/landmgmtpub/remote/public/property/getPublishedProperties", "remote/public/x/y"]
