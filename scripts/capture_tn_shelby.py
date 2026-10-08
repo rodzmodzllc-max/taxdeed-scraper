@@ -326,7 +326,13 @@ def landbank_deep(session) -> dict:
 EPP = "https://public-sctn.epropertyplus.com"
 EPP_PATH = re.compile(r"""["'`]((?:/landmgmtpub)?/?remote/public/[A-Za-z0-9_./\-]{1,100})["'`]""")
 MAX_EPP_SCRIPTS = 25
-MAX_EPP_CALLS = 8
+CALL_SITE_KEYS = ("getPublishedProperties", "mapvisualization/public/list", "printProperties")
+EPP_CALLS = [
+    ("/landmgmtpub/remote/public/mapvisualization/public/list", "GET", None),
+    ("/landmgmtpub/remote/public/property/getPublishedProperties", "GET", None),
+    ("/landmgmtpub/remote/public/property/getPublishedProperties", "POST", {}),
+    ("/landmgmtpub/remote/public/property/getPublishedProperties", "GET", {"page": 1, "limit": 2}),
+]
 
 
 def epropertyplus(session) -> dict:
@@ -344,27 +350,41 @@ def epropertyplus(session) -> dict:
         rs, e2 = fetch(session, src)
         found = sorted(set(EPP_PATH.findall(rs.text))) if rs is not None and rs.status_code == 200 else []
         out["scripts"].append({"src": src, "status": getattr(rs, "status_code", e2), "paths": found[:40]})
+        if rs is not None and rs.status_code == 200:
+            out.setdefault("_js", []).append(rs.text)
         paths.update(found)
         time.sleep(0.25)
     norm = sorted({("/landmgmtpub/" + p.split("remote/", 1)[0].strip("/") + "/remote/" + p.split("remote/", 1)[1]).replace("/landmgmtpub/landmgmtpub", "/landmgmtpub").replace("//", "/") for p in paths})
     out["paths"] = norm[:60]
-    for path in [p for p in norm if re.search(r"propert|publish|search|inventory|listing", p, re.I)][:MAX_EPP_CALLS]:
+    # How the portal's own code calls its inventory endpoints (vendor JS
+    # source around the call - code, never data).
+    js = "".join(t for t in out.pop("_js", []))
+    out["call_sites"] = {}
+    for key in CALL_SITE_KEYS:
+        out["call_sites"][key] = [re.sub(r"\s+", " ", js[max(0, m.start() - 350): m.end() + 450])
+                                  for m in re.finditer(re.escape(key), js)][:3]
+    # Field definitions: schema names and display labels only.
+    r2, _ = fetch(session, EPP + "/landmgmtpub/remote/public/property/getCustomFieldConfigsV2")
+    try:
+        props = (r2.json().get("returnVal") or {}).get("Property") or []
+        out["fields"] = [{"n": f.get("n"), "dn": safe_text(f.get("dn") or ""), "t": f.get("t"), "s": f.get("s")} for f in props]
+    except Exception:  # noqa: BLE001
+        out["fields"] = None
+    for path, method, body in EPP_CALLS:
         url = EPP + path
-        for method in ("GET", "POST"):
+        try:
+            rr = session.request(method, url, timeout=60, headers={"User-Agent": UA, "Accept": "application/json"},
+                                 json=body if method == "POST" else None, params=body if method == "GET" else None)
+            e = {"url": url, "method": method, "body": body, "status": rr.status_code,
+                 "content_type": rr.headers.get("Content-Type", ""), "bytes": len(rr.content)}
             try:
-                rr = session.request(method, url, timeout=40, headers={"User-Agent": UA, "Accept": "application/json"},
-                                     json={} if method == "POST" else None)
-                e = {"url": url, "method": method, "status": rr.status_code, "content_type": rr.headers.get("Content-Type", "")}
-                try:
-                    e["shape"] = json_shape(rr.json())
-                except ValueError:
-                    e["shape"] = f"non-JSON, {len(rr.content)} bytes"
-            except Exception as ex:  # noqa: BLE001
-                e = {"url": url, "method": method, "error": type(ex).__name__}
-            out["calls"].append(e)
-            time.sleep(0.4)
-            if e.get("status") == 200 and isinstance(e.get("shape"), (dict, list)):
-                break
+                e["shape"] = json_shape(rr.json())
+            except ValueError:
+                e["shape"] = "non-JSON"
+        except Exception as ex:  # noqa: BLE001
+            e = {"url": url, "method": method, "body": body, "error": type(ex).__name__}
+        out["calls"].append(e)
+        time.sleep(0.5)
     return out
 
 
@@ -454,8 +474,13 @@ def digest(report: dict) -> str:
         for x in ep["scripts"]:
             out.append(f"  script {x['src']} -> {x['status']} paths={x['paths']}")
         out.append(f"  paths: {ep['paths']}")
+        for k, v in (ep.get("call_sites") or {}).items():
+            for i, ctx in enumerate(v):
+                out.append(f"  callsite {k} #{i}: {ctx}")
+        for f in ep.get("fields") or []:
+            out.append(f"  field {f['n']} | {f['dn']} | {f['t']} | searchable={f['s']}")
         for c in ep["calls"]:
-            out.append(f"  {c.get('method')} {c['url']} -> {c.get('status', c.get('error'))} {c.get('content_type', '')}")
+            out.append(f"  {c.get('method')} {c['url']} body={c.get('body')} -> {c.get('status', c.get('error'))} {c.get('content_type', '')} bytes={c.get('bytes')}")
             out.append("    shape: " + json.dumps(c.get("shape"))[:2500])
     return "\n".join(out)
 
