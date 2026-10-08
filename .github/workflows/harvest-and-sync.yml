@@ -272,11 +272,15 @@ on:
           six-state harvest (scripts/harvest_expansion.py) for MI and SC with NO
           database credential: the held AVAILABLE sources are read through the
           real adapters and only counts / identifier shapes are printed;
-          nothing is synced.
+          nothing is synced. "tn_shelby" = Tennessee onboarding: the Shelby
+          County Land Bank site (and any ArcGIS layer behind its map: metadata
+          and a count only), the Clerk & Master tax-sale page and sale-book
+          PDFs, and the City of Memphis real-estate page, STRUCTURE only
+          (scripts/capture_tn_shelby.py).
         required: false
         type: choice
         default: available
-        options: [available, pioneer_statements, auction_results, state_sources, expansion, field_fill, five_state, five_state_pass2, five_state_pass3, enrich_sources, enrich_sources_2, enrich_sources_3, enrich_sources_4, acquisition_candidates, available_discovery, sc_available, available_sources, available_validate]
+        options: [available, pioneer_statements, auction_results, state_sources, expansion, field_fill, five_state, five_state_pass2, five_state_pass3, enrich_sources, enrich_sources_2, enrich_sources_3, enrich_sources_4, acquisition_candidates, available_discovery, sc_available, available_sources, available_validate, tn_shelby]
 
 concurrency:
   group: harvest-and-sync
@@ -1450,6 +1454,16 @@ jobs:
             IFS=',' read -ra cs <<< "$COUNTIES"
             for c in "${cs[@]}"; do c="$(echo "$c" | xargs)"; [ -n "$c" ] && cargs="$cargs --county \"$c\""; done
             eval python3 scripts/capture_purchase_evidence.py --candidates --candidates-file data/available_discovery_pages.csv --follow --discovery $cargs
+            exit 0
+          fi
+          if [ "$SCOPE" = "tn_shelby" ]; then
+            # Tennessee onboarding (2026-10-08): Shelby County Land Bank,
+            # Clerk & Master tax-sale page + sale books, City of Memphis real
+            # estate. Structure only: headings whose every word is
+            # whitelisted, digits masked, counts, identifier shapes, ArcGIS
+            # layer metadata and counts; never a row, name, address, parcel
+            # or amount. No database credential exists in this job.
+            python3 scripts/capture_tn_shelby.py
             exit 0
           fi
           if [ "$SCOPE" = "sc_available" ]; then
