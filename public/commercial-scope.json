@@ -536,6 +536,18 @@
    "reason": "Owner-approved for publication 2026-09-30; county list read with provenance; auction amounts labelled as the county publishes them; county sale process recorded."
   },
   {
+   "source_id": "tn_shelby_landbank",
+   "state": "TN",
+   "publication_status": "UNREVIEWED",
+   "commercial_scope": "UNREVIEWED",
+   "collected": false,
+   "paid_beta": false,
+   "tester_preview": false,
+   "active_rows": 0,
+   "checks": null,
+   "reason": "Registered, not collected."
+  },
+  {
    "source_id": "tx_hctax",
    "state": "TX",
    "publication_status": "RESTRICTED",

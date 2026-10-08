@@ -64,7 +64,7 @@ def test_r01_ar_is_registered_not_production_and_la_is_activated_on_live_evidenc
     assert cfg.production_inventory_types == {"ADJUDICATED_PROPERTY"} and "read live 2026-09-30" in cfg.lifecycle_inventory_basis
     assert states.activation_blockers("LA") == []
     assert L.lifecycle_inventory("LA")[0] == "ADJUDICATED_PROPERTY"
-    assert states.PRODUCTION_STATES == frozenset({"FL", "TX", "LA", "MI", "WY", "SC", "CO", "WI", "MO", "OK", "PA", "MN"})
+    assert states.PRODUCTION_STATES == frozenset({"FL", "TX", "LA", "MI", "WY", "SC", "CO", "WI", "MO", "OK", "PA", "MN", "TN"})
     ev = AR.COSL_EVIDENCE
     assert {e.grade for e in ev} == {"SEARCH_INDEX", "AUDIT_NOTE"} and sum(e.grade == "AUDIT_NOTE" for e in ev) == 1
     assert all(e.url == "" or e.url.split("/")[2].endswith("cosl.org") for e in ev)

@@ -159,6 +159,21 @@ def run_source(src, fetch_json, fetch_text, *, retrieved_at, fixture: str | None
             # for (e.g. last year's list): no current inventory - its own signal.
             return "EMPTY", [], None, None, "past_cycle"
         return res.outcome, res.records, None, None, ("empty_layer" if res.outcome == "EMPTY" else None)
+    if src.kind == "epropertyplus":
+        # Tennessee (2026-10-08): a land bank's ePropertyPlus portal, paged.
+        from harvesters.otc.adapters import epropertyplus as EPP  # noqa: PLC0415
+        if fixture:
+            pages = json.loads(Path(fixture).read_text(encoding="utf-8"))
+            pages = pages if isinstance(pages, list) else [pages]
+            fj = lambda url: pages[min(int(re.search(r"page=(\d+)", url).group(1)), len(pages)) - 1]  # noqa: E731
+        else:
+            fj = fetch_json
+        res = EPP.fetch_all(cfg, fj, retrieved_at=retrieved_at)
+        if res.outcome == "FAILED":
+            return "FAILED", [], res.error_category, res.error_detail, None
+        print(f"{cfg.source_id}: portal size={res.size} read={res.rows_read} offered={len(res.records)} "
+              f"not-offered={res.excluded_status} bad-id={res.rejected_ids} duplicate={res.duplicates}")
+        return res.outcome, res.records, None, None, ("no_offered_status" if res.outcome == "EMPTY" else None)
     if src.kind == "sc_flc_pdf":
         from harvesters.otc.adapters import sc_flc  # noqa: PLC0415
         try:

@@ -1703,6 +1703,15 @@
    "scope": "source"
   },
   {
+   "state": "TN",
+   "source_id": "tn_shelby_landbank",
+   "county": "Shelby",
+   "status": "NOT_FOUND",
+   "basis": "search_index",
+   "reason": "No official acquisition page identified yet",
+   "scope": "source"
+  },
+  {
    "state": "TX",
    "source_id": "tx_hctax",
    "county": "Harris",

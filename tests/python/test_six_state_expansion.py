@@ -29,7 +29,7 @@ import sync_state_inventory as SY  # noqa: E402
 
 FIX = REPO / "tests/python/fixtures/expansion"
 T = datetime(2026, 9, 30, 12, tzinfo=timezone.utc)
-NEW = {"MI", "WY", "SC", "CO", "WI", "MO", "OK", "PA", "MN"}   # + the 2026-10-04 AVAILABLE expansion
+NEW = {"MI", "WY", "SC", "CO", "WI", "MO", "OK", "PA", "MN", "TN"}   # + the 2026-10-04 AVAILABLE expansion
 FIXTURES = {
     "MI": {"mi_eaton_treasurer_sale": "mi_eaton_page.json", "mi_lenawee_tax_sale": "mi_lenawee_page.json"},
     "WY": {"wy_albany_tax_sale": "wy_albany_page.json"},
@@ -60,6 +60,7 @@ AVAILABLE_FIVE_HOSTS = {   # AVAILABLE expansion 2026-10-04 (docs/available-expa
     "ok_oklahoma_county_owned": "https://docs.oklahomacounty.org/treasurer/",
     "pa_fayette_repository": "https://www.fayettecountypa.org/DocumentCenter/View/9761/",
     "mn_ramsey_tax_forfeit": "https://maps.co.ramsey.mn.us/arcgis/rest/services/PRR/TaxForfeitLand_PublicData/",
+    "tn_shelby_landbank": "https://public-sctn.epropertyplus.com",     # Tennessee 2026-10-08 (docs/tennessee-survey.md)
 }
 FIVE_STATE_HOSTS = {
     "co_douglas_county_held_liens": "https://services.arcgis.com/seTexOicoRXDvRsJ/",
@@ -134,7 +135,7 @@ def test_r02_every_config_is_column_verified_and_pinned_to_its_host():
     certs = {"co_morgan_county_held_certificates", "co_douglas_county_held_liens"}
     assert {kinds[k] for k in certs} == {"certificate"}
     # AVAILABLE only where the source itself offers government-held property (the AVAILABLE sprint's sources).
-    available = EX.AVAILABLE_SPRINT_SOURCE_IDS | EX.AVAILABLE_FIVE_SOURCE_IDS
+    available = EX.AVAILABLE_SPRINT_SOURCE_IDS | EX.AVAILABLE_FIVE_SOURCE_IDS | EX.TN_SOURCE_IDS
     assert {kinds[k] for k in available} == {"laft"}
     assert {v for k, v in kinds.items() if k not in certs | available} == {"auction"}
 
@@ -393,7 +394,7 @@ def test_w01_expansion_job_is_a_matrix_in_the_existing_slot_and_touches_no_sched
     import yaml
     wf = yaml.safe_load((REPO / ".github/workflows/harvest-and-sync.yml").read_text(encoding="utf-8"))
     job = wf["jobs"]["expansion"]
-    assert job["strategy"]["matrix"]["state"] == ["MI", "WY", "SC", "CO", "WI", "MO", "OK", "PA", "MN"] and job["strategy"]["fail-fast"] is False
+    assert job["strategy"]["matrix"]["state"] == ["MI", "WY", "SC", "CO", "WI", "MO", "OK", "PA", "MN", "TN"] and job["strategy"]["fail-fast"] is False
     assert "github.event.schedule == '0 12 * * *'" in job["if"] and "'expansion'" in job["if"]
     runs = " ".join(s.get("run", "") for s in job["steps"])
     assert "harvest_expansion.py" in runs and "--close-absent" in runs and "enrich_statewide_parcels.py" in runs

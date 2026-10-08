@@ -582,6 +582,29 @@
   {
    "candidates": [
     {
+     "access": "ACCESSIBLE",
+     "availability": "NOT_READ",
+     "county": "Shelby",
+     "governance": "REVIEW_REQUIRED",
+     "identifier_confirmed": false,
+     "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
+     "publication_review": "",
+     "read_at": "",
+     "source_id": "TN:Shelby:tn_shelby_landbank",
+     "url": "https://public-sctn.epropertyplus.com/landmgmtpub/app/base/landing"
+    }
+   ],
+   "last_reads": {},
+   "production_counties": [],
+   "production_sources": 0,
+   "rejected": [],
+   "research": {},
+   "state": "TN",
+   "status": "REVIEW_REQUIRED"
+  },
+  {
+   "candidates": [
+    {
      "access": "NOT_CHECKED",
      "availability": "NOT_READ",
      "county": "Bandera",

@@ -66,6 +66,7 @@ SOURCE_COORDINATES = {
     "mi_detroit_landbank_lots": ("LAND_BANK_GIS", "POINT", "the DLBA layer's own latitude / longitude attributes"),
     "mi_detroit_landbank_programs": ("LAND_BANK_GIS", "POINT", "the DLBA layer's own latitude / longitude attributes"),
     "mn_ramsey_tax_forfeit": ("PARCEL_GIS", "POINT", "the county tax-forfeited land layer's own point for the parcel"),
+    "tn_shelby_landbank": ("LAND_BANK_GIS", "POINT", "the Shelby County Land Bank portal's own latitude / longitude"),
 }
 # field_provenance.latitude.source -> method / geometry, for enriched rows.
 PROVENANCE_COORDINATES = {

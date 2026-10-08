@@ -142,6 +142,8 @@ SOURCE_LEDGERS: dict[str, frozenset[Ledger]] = {
     "ok_oklahoma_county_owned": frozenset({Ledger.AVAILABLE}),
     "pa_fayette_repository": frozenset({Ledger.AVAILABLE}),
     "mn_ramsey_tax_forfeit": frozenset({Ledger.AVAILABLE}),
+    # Tennessee (2026-10-08): Shelby County Land Bank (UNREVIEWED) - docs/tennessee-survey.md.
+    "tn_shelby_landbank": frozenset({Ledger.AVAILABLE}),
 }
 # The four blocked Texas vendors: discovery only, they feed no ledger.
 BLOCKED_SOURCE_IDS = frozenset({"tx_pbfcm", "tx_mvba", "tx_govease", "tx_ctsa"})

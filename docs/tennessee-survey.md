@@ -43,8 +43,38 @@ Other counties with an official list or notice online:
 
 ## Build order
 
-1. **Shelby** (in progress): Land Bank (Available) + C&M sale books (Auctions). This starts with a read-only structure capture (`job=evidence`, `evidence_scope=tn_shelby`, `scripts/capture_tn_shelby.py`).
+1. **Shelby** (built, see below): the Land Bank (Available). The C&M sale books turned out to be post-sale results, not an upcoming-sale list.
 2. **Davidson and Hamilton.**
 3. **Montgomery, Rutherford, Knox.**
 
 Every Tennessee source starts unreviewed: collected for admins and never customer-published until an admin review approves it.
+
+## Shelby County: what the live reads established (2026-10-08)
+
+There were five value-free evidence runs (`job=evidence`, `evidence_scope=tn_shelby`, `scripts/capture_tn_shelby.py`): 37855584514, 37855783595, 37856005485, 37856189946 and 37856396525. None of them printed a row, name, address, parcel number or amount.
+
+**Land Bank inventory (built).** `landbank.shelbycountytn.gov` is a static Next.js site. Its pages send buyers to the Land Bank's ePropertyPlus portal, `public-sctn.epropertyplus.com`. The portal's own code reads `/landmgmtpub/remote/public/property/getPublishedProperties?page=<n>&limit=<k>` anonymously. The response is `{success, size, rows}`.
+- **Size:** 12,884 published parcels, all in Shelby County. Each parcelNumber is unique, a 14-character county parcel ID.
+- **Coordinates:** 12,877 rows carry coordinates inside Tennessee.
+- **Fields:**
+  - status: `currentStatus`, `available` (Y/N), `inventoryType` (`County DTP` for 12,843 rows);
+  - property: `propertyClass` (mostly Residential Vacant), `propertyAddress1`, `city` (`TBD` on 8,730 rows);
+  - money: `currentAssessment` and `assessmentYear`, `askingPrice` (filled on 12,715 rows);
+  - `comments`, which is free text and never mapped.
+- **Rule for Available:** the portal's own fields must say the parcel is offered, meaning `currentStatus` is `FOR SALE` and `available` is `Y`. That holds for 2,039 rows. Every other status is not read:
+  - closed or pending sales: SALE COMPLETE (9,229), SALE CLOSED OUT, SALE PENDING (with or without CC), SALE APPROVED PENDING CLOSING;
+  - donations: DONATION PENDING, DONATION COMPLETE and its compliance monitoring;
+  - redemption: IN REDEMPTION, Redeemed, Notice to Redeem;
+  - holds and evaluations: Commission Hold, Hold for Litigation, IN EVALUATION;
+  - other: NOT FOR SALE, Rescinded, Retired, Demolition Pending.
+- **Amount:** `askingPrice` is kept as a published amount of unspecified kind (`PUBLISHED_AMOUNT_KIND_UNSPECIFIED`, financial basis `OFFER_NEGOTIATED`). It is never called a fixed price: the Land Bank's Policies & Procedures page links an *Offer to Purchase and Sales Agreement Packet*. That packet is a scanned PDF with no text layer, so its terms were not read.
+- **Where it lives:** adapter `harvesters/otc/adapters/epropertyplus.py`, config `TN_SHELBY_LANDBANK` (`harvesters/otc/adapters/expansion.py`), source id `tn_shelby_landbank`. It is **UNREVIEWED**: collected for admins and never customer-published until an admin review approves it. The portal is vendor-hosted (ePropertyPlus), but this tenant is the Land Bank's own published inventory, and the Land Bank's own site points buyers to it. Reusing it still needs that review.
+- **Coordinates:** the portal's own points (`LAND_BANK_GIS`, POINT).
+
+**Clerk & Master sale books (not built).** The numbered sale-book PDFs (`TX-2024TS2202SaleBook` and others) are **post-sale** books. Their contents:
+- each parcel's high bid, or "NO BID BY COUNTY. PROPERTY NOT SOLD.";
+- confirmation and redemption dates.
+
+They are results of sales already held, not an upcoming-sale list. Bidding itself is on ZeusAuction (SRI), a vendor. An Auctions source for Shelby would need the upcoming list, which these pages do not publish, and the vendor's terms reviewed. These books could later feed verified auction outcomes, the same way `data/auction_outcome_wordings.csv` does for Florida.
+
+**City of Memphis real estate** links to Memphis open-data hub apps. They were not followed.

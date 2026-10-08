@@ -67,7 +67,9 @@ const STATE_META = {
   MO: { name: "Missouri", page: "mo.html", basemap: "mo-counties.svg", cities: "mo-cities.json", zips: "mo-zips.json" },
   OK: { name: "Oklahoma", page: "ok.html", basemap: "ok-counties.svg", cities: "ok-cities.json", zips: "ok-zips.json" },
   PA: { name: "Pennsylvania", page: "pa.html", basemap: "pa-counties.svg", cities: "pa-cities.json", zips: "pa-zips.json" },
-  MN: { name: "Minnesota", page: "mn.html", basemap: "mn-counties.svg", cities: "mn-cities.json", zips: "mn-zips.json" }
+  MN: { name: "Minnesota", page: "mn.html", basemap: "mn-counties.svg", cities: "mn-cities.json", zips: "mn-zips.json" },
+  // 2026-10-08 (Tennessee): the Shelby County Land Bank, collected for admin use (UNREVIEWED).
+  TN: { name: "Tennessee", page: "tn.html", basemap: "tn-counties.svg", cities: "tn-cities.json", zips: "tn-zips.json" }
 };
 // Unified navigation (2026-09-30): the states a person can switch between are
 // exactly STATE_META's keys - the states this app has a page, a basemap and
@@ -903,6 +905,11 @@ const EXPANSION_LEDGER_COPY = {
       "sub": "No Minnesota auction source is tracked.",
       "how": "Minnesota auction inventory is not harvested by this app.",
       "empty": "No Minnesota auction records are tracked. Minnesota coverage is Ramsey County's tax-forfeited land layer (see Available)."
+    },
+    "TN": {
+      "sub": "No Tennessee auction source is tracked.",
+      "how": "Tennessee auction inventory is not harvested by this app.",
+      "empty": "No Tennessee auction records are tracked. Tennessee coverage is the Shelby County Land Bank's inventory (see Available)."
     }
   },
   "laft": {
@@ -950,6 +957,11 @@ const EXPANSION_LEDGER_COPY = {
       "sub": "Tax-forfeited parcels Ramsey County's own layer marks 'Available for purchase' (over the counter). Parcels sold at auction or already purchased are not shown.",
       "how": "Buy over the counter from Ramsey County's tax-forfeited land office. The figure shown is the layer's own Minimum Bid. The layer publishes no purchase link.",
       "empty": "No Minnesota available parcels match. Minnesota coverage is Ramsey County's tax-forfeited land layer."
+    },
+    "TN": {
+      "sub": "County-owned parcels the Shelby County Land Bank's own portal marks 'FOR SALE' and available. Sold, pending, donation and redemption parcels are not shown.",
+      "how": "Make an offer through the Land Bank's Offer to Purchase and Sales Agreement packet. The figure shown is the portal's own Asking Price. The portal publishes no per-parcel purchase link.",
+      "empty": "No Tennessee available parcels match. Tennessee coverage is the Shelby County Land Bank's inventory."
     }
   },
   "certificate": {
@@ -997,6 +1009,11 @@ const EXPANSION_LEDGER_COPY = {
       "sub": "No Minnesota certificate source is tracked.",
       "how": "Minnesota certificate inventory is not harvested by this app.",
       "empty": "No Minnesota certificate records are tracked. Minnesota coverage is Ramsey County's tax-forfeited land layer (see Available)."
+    },
+    "TN": {
+      "sub": "Tennessee sells no tax-lien certificates.",
+      "how": "Tennessee tax sales sell redeemable deeds, not certificates.",
+      "empty": "No Tennessee certificate records exist: Tennessee sells no tax-lien certificates. Tennessee coverage is the Shelby County Land Bank's inventory (see Available)."
     }
   }
 };
@@ -1477,7 +1494,8 @@ var COORD_SOURCE_COORDINATES = {
   la_ebr_adjudicated: ["OFFICIAL_ADDRESS", "POINT"],
   mi_detroit_landbank_lots: ["LAND_BANK_GIS", "POINT"],
   mi_detroit_landbank_programs: ["LAND_BANK_GIS", "POINT"],
-  mn_ramsey_tax_forfeit: ["PARCEL_GIS", "POINT"]
+  mn_ramsey_tax_forfeit: ["PARCEL_GIS", "POINT"],
+  tn_shelby_landbank: ["LAND_BANK_GIS", "POINT"]
 };
 var COORD_PROVENANCE_COORDINATES = {
   fdor_nal: ["TAX_ROLL", "PARCEL_CENTROID"],
@@ -1593,7 +1611,8 @@ const MINIMAP_PROJ = {
   MO: { x: { lon: 0.143951598, lat: 0, c: 13.805962504 }, y: { lon: 0, lat: -0.206811222, c: 8.421914195 }, baseW: 1000, baseH: 887 },
   OK: { x: { lon: 0.112002542, lat: 0, c: 11.556716219 }, y: { lon: 0, lat: -0.271783884, c: 10.096205637 }, baseW: 1000, baseH: 505 },
   PA: { x: { lon: 0.164794867, lat: 0, c: 13.289401314 }, y: { lon: 0, lat: -0.365727205, c: 15.492773054 }, baseW: 1000, baseH: 597 },
-  MN: { x: { lon: 0.123882385, lat: 0, c: 12.066279913 }, y: { lon: 0, lat: -0.163731421, c: 8.104039826 }, baseW: 1000, baseH: 1098 }
+  MN: { x: { lon: 0.123882385, lat: 0, c: 12.066279913 }, y: { lon: 0, lat: -0.163731421, c: 8.104039826 }, baseW: 1000, baseH: 1098 },
+  TN: { x: { lon: 0.110842134, lat: 0, c: 10.030011741 }, y: { lon: 0, lat: -0.50263163, c: 18.509220566 }, baseW: 1000, baseH: 272 }
 };
 function minimapProject(lat, lon) {
   const p = MINIMAP_PROJ[PAGE_STATE];   // PAGE_STATE is always a STATE_META key; each has its own fit

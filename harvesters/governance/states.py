@@ -277,7 +277,7 @@ WI = _expansion("WI", "Wisconsin",
 # none until an admin review approves the source. Mississippi was evaluated
 # and deferred (no deterministic public source of record).
 def _available_expansion(code: str, name: str, source_of_record: str, coverage: str, identifier: str, semantics: str,
-                         purchase: str, amount: str) -> StateConfig:
+                         purchase: str, amount: str, **evidence: str) -> StateConfig:
     EXPANSION_EVIDENCE[code] = {
         "source_of_record_identified": source_of_record,
         "live_source_verified": "read by the AVAILABLE-five evidence passes (capture_state_sources.py --available-five / -2 / "
@@ -295,6 +295,7 @@ def _available_expansion(code: str, name: str, source_of_record: str, coverage: 
         "production_registry_authorized": "owner instruction 2026-10-04 to build and register these AVAILABLE sources for admin "
                                           "collection; merging the PR is the decision",
     }
+    EXPANSION_EVIDENCE[code].update(evidence)
     return _register(StateConfig(code=code, name=name, publishing_units=(PublishingUnit.COUNTY.value,),
                                  production_inventory_types=frozenset({"", "POST_SALE"}), lifecycle_inventory_type=None,
                                  production=True, activation=ALL_REQUIREMENTS))
@@ -332,6 +333,28 @@ MN = _available_expansion(
     "the layer's own Status: only 'Available for purchase' (over the counter) is read",
     "over the counter at the county (no purchase link on the layer)",
     "MinimumBid -> OPENING_BID")
+
+# Tennessee (2026-10-08): the Shelby County Land Bank's ePropertyPlus portal,
+# read value-free by `job=evidence`, `evidence_scope=tn_shelby`
+# (scripts/capture_tn_shelby.py). The statewide survey (docs/tennessee-survey.md)
+# ranks the other counties' sources; only Shelby is built.
+TN = _available_expansion(
+    "TN", "Tennessee",
+    "Shelby County Land Bank inventory on its ePropertyPlus portal (public-sctn.epropertyplus.com), linked from the "
+    "Land Bank's own site",
+    "one county (Shelby); the other 94 are not covered",
+    "parcelNumber: the county's 14-character parcel id (12,884 distinct in 12,884 rows)",
+    "the portal's own currentStatus 'FOR SALE' with available 'Y' (2,039 rows); sold, pending, donation, redemption and "
+    "hold rows are not read",
+    "the Land Bank's Offer to Purchase and Sales Agreement packet (offline); no per-parcel purchase link",
+    "askingPrice ('Asking Price') -> PUBLISHED_AMOUNT_KIND_UNSPECIFIED (an asking price before an offer, never a fixed price)",
+    live_source_verified="read by the tn_shelby evidence passes (scripts/capture_tn_shelby.py), runs 37855584514 / "
+                         "37855783595 / 37856005485 / 37856189946 / 37856396525, 2026-10-08, value-free",
+    parser_fixture_validated="tests/python/fixtures/tennessee/ carries the LIVE field names verbatim with synthetic values in "
+                             "the live shapes; harvesters/otc/adapters/epropertyplus.py parses it deterministically",
+    production_registry_authorized="owner instruction 2026-10-08 ('I want to add tennesee'; 'Start building Shelby County') "
+                                   "to build and register Shelby for admin collection; merging the PR is the decision",
+)
 
 # West Virginia (2026-10-01): the State Auditor's statewide land-sale /
 # certified-lands search (statuses CERTIFIED, SOLD, REDEEMED, NO BID,

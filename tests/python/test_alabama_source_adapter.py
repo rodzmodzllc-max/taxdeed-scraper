@@ -67,7 +67,7 @@ def test_e01_evidence_ledger_names_only_the_agency_and_every_requirement_stays_u
         assert note and ("not" in note or "no " in note or "SYNTHETIC" in note), req   # each says why it is unmet
     # The state: registered, not activated, not production; the production states are FL/TX
     # and (2026-09-30, state-expansion sprint) LA - never AL.
-    assert not states.is_activated("AL") and states.PRODUCTION_STATES == frozenset({"FL", "TX", "LA", "MI", "WY", "SC", "CO", "WI", "MO", "OK", "PA", "MN"})
+    assert not states.is_activated("AL") and states.PRODUCTION_STATES == frozenset({"FL", "TX", "LA", "MI", "WY", "SC", "CO", "WI", "MO", "OK", "PA", "MN", "TN"})
     assert states.activation_blockers("AL") == list(states.ACTIVATION_REQUIREMENTS)
     assert states.AL.lifecycle_inventory_type == "STATE_HELD_TAX_LAND" and states.AL.production is False
 
@@ -282,7 +282,7 @@ def test_l03_an_activated_alabama_stamps_its_inventory_type_only_while_it_is_sto
         monkeypatch.setattr(csr_mod, "DB_SUPPORTED_INVENTORY_TYPES", csr_mod.DB_SUPPORTED_INVENTORY_TYPES - {"STATE_HELD_TAX_LAND"})
         with pytest.raises(ValueError, match="not storable"):
             L.lifecycle_inventory("AL")
-    assert not states.is_activated("AL") and states.PRODUCTION_STATES == frozenset({"FL", "TX", "LA", "MI", "WY", "SC", "CO", "WI", "MO", "OK", "PA", "MN"})
+    assert not states.is_activated("AL") and states.PRODUCTION_STATES == frozenset({"FL", "TX", "LA", "MI", "WY", "SC", "CO", "WI", "MO", "OK", "PA", "MN", "TN"})
 
 
 # ==================== 4. the gated live flow ====================

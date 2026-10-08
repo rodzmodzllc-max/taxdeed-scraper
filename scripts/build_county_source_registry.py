@@ -423,19 +423,21 @@ def expansion_rows() -> list[dict]:
             arcgis = src.kind == "arcgis"
             publication, restrictions = EX.PUBLICATION[cfg.source_id]
             five = cfg.source_id in EX.AVAILABLE_FIVE_SOURCE_IDS   # AVAILABLE expansion 2026-10-04
-            available = cfg.source_id in EX.AVAILABLE_SPRINT_SOURCE_IDS or five
+            tn = cfg.source_id in EX.TN_SOURCE_IDS                  # Tennessee 2026-10-08
+            available = cfg.source_id in EX.AVAILABLE_SPRINT_SOURCE_IDS or five or tn
             # The six PR #57 sources were read in the expansion passes; the
             # five-state sprint's sources in its own three passes; the AVAILABLE
             # sprint's in the available_sources / sc_available captures.
             new = cfg.source_id not in EX.SIX_STATE_SOURCE_IDS
-            runs = (EX.AVAILABLE_FIVE_EVIDENCE_RUNS if five else EX.AVAILABLE_SPRINT_EVIDENCE_RUNS if available
+            runs = (EX.TN_EVIDENCE_RUNS if tn else EX.AVAILABLE_FIVE_EVIDENCE_RUNS if five else EX.AVAILABLE_SPRINT_EVIDENCE_RUNS if available
                     else EX.FIVE_STATE_EVIDENCE_RUNS if new else EX.EVIDENCE_RUNS)
             decision = (("LICENCE STATED BY THE SOURCE (quoted in restrictions)" if publication == "APPROVED"
                          else "NO PUBLICATION DECISION YET (UNREVIEWED)") if new else "OWNER PUBLICATION DECISION 2026-09-30")
-            day = "2026-10-04" if five else "2026-10-02" if available else "2026-10-01" if new else "2026-09-30"
+            day = "2026-10-08" if tn else "2026-10-04" if five else "2026-10-02" if available else "2026-10-01" if new else "2026-09-30"
             doc = {"arcgis": getattr(cfg, "layer_url", ""), "sc_flc_pdf": getattr(cfg, "document_url", ""),
-                   "csv": getattr(cfg, "document_url", ""), "pdf_table": getattr(cfg, "document_url", "")}.get(src.kind, "")
-            access, fmt = {"arcgis": ("JSON_ENDPOINT", "JSON"), "sc_flc_pdf": ("HTTP_GET_PDF", "PDF"),
+                   "csv": getattr(cfg, "document_url", ""), "pdf_table": getattr(cfg, "document_url", ""),
+                   "epropertyplus": getattr(cfg, "portal", "") + "/landmgmtpub/remote/public/property/getPublishedProperties"}.get(src.kind, "")
+            access, fmt = {"arcgis": ("JSON_ENDPOINT", "JSON"), "epropertyplus": ("JSON_ENDPOINT", "JSON"), "sc_flc_pdf": ("HTTP_GET_PDF", "PDF"),
                            "pdf_table": ("HTTP_GET_PDF", "PDF"), "csv": ("HTTP_GET_HTML", "CSV"),
                            "xlsx_flc_lists": ("HTTP_GET_HTML", "XLSX")}.get(src.kind, ("HTTP_GET_HTML", "HTML_TABLE"))
             unit_name = cfg.county if cfg.county.endswith(" City") else f"{cfg.county} County"
@@ -452,7 +454,7 @@ def expansion_rows() -> list[dict]:
                 last_checked=day, completeness_status="UNKNOWN",
                 evidence_ref=(f"LIVE CAPTURE {day} (GitHub Actions runs {', '.join(runs)}): "
                               + (f"{unit_name} - {cfg.source_id}; " if new else f"{ev['source_of_record_identified']}; ")
-                              + f"{decision}; docs/{'available-expansion-2026-10' if five else 'available-inventory' if available else 'five-state-enrichment' if new else 'six-state-expansion'}.md"),
+                              + f"{decision}; docs/{'tennessee-survey' if tn else 'available-expansion-2026-10' if five else 'available-inventory' if available else 'five-state-enrichment' if new else 'six-state-expansion'}.md"),
                 notes=cfg.notes, publishing_unit="COUNTY", publishing_unit_name=unit_name,
                 amount_kind=cfg.amount_kind.value, update_frequency="not published by the source (read on each run)",
                 source_terminology=ev["inventory_semantics_established"] if not new else {

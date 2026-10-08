@@ -80,6 +80,13 @@ PAGES = {
                notice="<b>Minnesota coverage is Ramsey County's tax-forfeited land layer.</b> Only parcels the county marks "
                       "Available for purchase are read; minimum bids are shown as published. No fee or closing-cost rule is "
                       "tracked. Confirm terms with the county and a title company or attorney before buying."),
+    # Tennessee (2026-10-08): the Shelby County Land Bank, collected for admin use while its
+    # publication review is pending (docs/tennessee-survey.md).
+    "TN": dict(name="Tennessee",
+               notice="<b>Tennessee coverage is the Shelby County Land Bank's inventory.</b> Only parcels the Land Bank's own "
+                      "portal marks for sale and available are read. The figure shown is the portal's asking price, before "
+                      "any offer; it is not a fixed price. No fee or closing-cost rule is tracked. Confirm terms with the "
+                      "Land Bank and a title company or attorney before making an offer."),
 }
 
 

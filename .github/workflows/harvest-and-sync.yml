@@ -1034,7 +1034,8 @@ jobs:
       matrix:
         # MO / OK / PA / MN (2026-10-04): AVAILABLE sources collected for admin use
         # (UNREVIEWED - never customer-published until an admin review approves them).
-        state: [MI, WY, SC, CO, WI, MO, OK, PA, MN]
+        # TN (2026-10-08): Shelby County Land Bank (UNREVIEWED) - docs/tennessee-survey.md.
+        state: [MI, WY, SC, CO, WI, MO, OK, PA, MN, TN]
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -1488,7 +1489,7 @@ jobs:
             # The real harvest path for the held AVAILABLE sources, read-only: no
             # database credential exists in this job, nothing is synced, and the
             # harvester prints counts / statuses / identifier SHAPES only.
-            for st in MI SC; do python3 scripts/harvest_expansion.py --state "$st" || true; done
+            for st in MI SC TN; do python3 scripts/harvest_expansion.py --state "$st" || true; done
             exit 0
           fi
           if [ "$SCOPE" = "acquisition_candidates" ]; then
