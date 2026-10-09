@@ -3008,3 +3008,17 @@ Full description: `docs/tennessee-survey.md` (statewide survey of all 95 countie
 - **Program names outside Florida:** Available rows name their program through app.js `availableProgram(p)` (`AVAILABLE_PROGRAMS`, keyed by source id). This covers the kicker, the summary "What", the detail tag, the group line and the list link label (`laftListLabel()`, kept out of `auctionLinkInfo()`, which must not branch on region). "Lands Available" is Florida-only.
 - **Ledger names:** generated state pages say "Liens & Certificates"; only tx.html says "Redeemable Deeds" (`build_state_page.py`, la.html by hand).
 - Fixture `ptn1` (Shelby, UNREVIEWED); Playwright `tnVisibility`. `sw.js` -> `tdw-shell-v110`.
+
+## Sign-up requires a password (2026-10-09, PR open, no migration, function NOT redeployed)
+
+A tester reported signing up "without entering a password". Traced:
+- **No passwordless path exists.** The form's password field is `required`. `self-signup` creates the account with `admin.createUser({email, password, email_confirm: true})`, and the browser then calls `signInWithPassword` with the same password. The fallback `auth.signUp` also sends it. The app never calls OTP, magic-link, OAuth or invite methods.
+- **Production (read-only, flags only, 2026-10-09):** every one of the six `auth.users` rows has a password.
+  - The newest account's first session is `password` in the same minute it was created, i.e. the automatic sign-in after signup.
+  - Only the 2026-08-17 invite-created account has never signed in with a password (`otp` sessions only: invite, then recovery link).
+- **Likely cause:** browsers' "suggest strong password" fills both new-password fields, and self-signup signs the person in at once with no confirmation e-mail, so the password is never typed. Unconfirmed; it was not reproduced on the tester's device.
+- **Gaps fixed:** the JS handler relied only on `required` (a scripted submit skips it), and the server accepted a whitespace-only password of 8+ characters.
+  - One rule now: missing / empty / whitespace-only / outside 8..72 is refused. It lives in `supabase/functions/_shared/signup_password.js`, used by self-signup.
+  - `signupPasswordProblem()` in app.js applies the same rule before any request; `tests/billing/signup_password.test.mjs` pins the two equal.
+  - The field reads "Create a password (at least 8 characters)" in sign-up mode, and `#authMsg` is `aria-live`.
+- The server half takes effect only when `self-signup` is redeployed (owner). `sw.js` -> `tdw-shell-v112` (v111 is held by the approval / recovery PR).

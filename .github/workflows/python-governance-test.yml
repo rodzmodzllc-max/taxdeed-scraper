@@ -84,3 +84,7 @@ jobs:
       # network and no Stripe account. Node ships on ubuntu-latest.
       - name: Run billing core tests (tests/billing/)
         run: node --test tests/billing/billing_core.test.mjs
+      # Sign-up password rule (2026-10-09): the self-signup server rule, its
+      # browser copy, and that the app has no passwordless sign-in.
+      - name: Run sign-up password rule tests
+        run: node --test tests/billing/signup_password.test.mjs

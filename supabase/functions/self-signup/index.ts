@@ -27,6 +27,7 @@
 // this function.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { signupPasswordProblem } from "../_shared/signup_password.js";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -77,13 +78,14 @@ Deno.serve(async (req) => {
   if (typeof body.website === "string" && body.website.trim()) return reply(400, { error: "rejected" }, origin);   // honeypot
 
   const email = String(body.email ?? "").trim().toLowerCase();
-  const password = String(body.password ?? "");
+  // A missing password stays missing (never the string "undefined").
+  const password = typeof body.password !== "string" ? "" : body.password;
   if (!EMAIL_RE.test(email) || email.length > 254) {
     return reply(400, { error: "invalid_email", message: "That email address doesn't look valid. Please check it and try again." }, origin);
   }
-  if (password.length < 8 || password.length > 72) {
-    return reply(400, { error: "weak_password", message: "Please choose a password of at least 8 characters." }, origin);
-  }
+  // Missing / empty / whitespace-only / outside 8..72 (_shared/signup_password.js).
+  const pwProblem = signupPasswordProblem(password);
+  if (pwProblem) return reply(400, pwProblem, origin);
   const meta: Record<string, string> = {};
   for (const f of FIELDS) {
     const v = String(body[f] ?? "").trim();

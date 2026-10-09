@@ -2323,6 +2323,8 @@ const gate = document.getElementById("authGate");
 const app = document.getElementById("app");
 const pendingGate = document.getElementById("pendingGate");
 const authMsg = document.getElementById("authMsg");
+// Validation and progress messages are announced to screen readers.
+if (authMsg && !authMsg.hasAttribute("aria-live")) authMsg.setAttribute("aria-live", "polite");
 const authLead = document.getElementById("authLead");
 const authModeToggle = document.getElementById("authModeToggle");
 const passwordConfirmEl = document.getElementById("passwordConfirm");
@@ -2352,7 +2354,18 @@ function setAuthMode(mode) {
   if (passwordConfirmEl) { passwordConfirmEl.hidden = !signUp; passwordConfirmEl.required = signUp; passwordConfirmEl.value = ""; }
   SIGNUP_PROFILE_FIELDS.forEach(el => { if (el) { el.hidden = !signUp; el.required = signUp; el.value = ""; } });
   const pw = document.getElementById("password");
-  if (pw) pw.autocomplete = signUp ? "new-password" : "current-password";
+  if (pw) {
+    pw.autocomplete = signUp ? "new-password" : "current-password";
+    // Sign-up creates a password account (2026-10-09): the field says so and
+    // carries the same minimum the server enforces. Sign-in keeps no minimum
+    // (an existing password is whatever it is).
+    pw.required = true;
+    if (signUp) pw.minLength = 8; else pw.removeAttribute("minlength");
+    pw.removeAttribute("aria-invalid");
+    const lbl = pw.closest("label") && pw.closest("label").querySelector("span");
+    if (lbl) lbl.textContent = signUp ? "Create a password (at least 8 characters)" : "Password";
+  }
+  if (passwordConfirmEl) passwordConfirmEl.removeAttribute("aria-invalid");
   if (authMsg) { authMsg.className = "auth-msg"; authMsg.textContent = ""; }
   showResendConfirmation(false);
 }
@@ -2429,6 +2442,16 @@ function signInErrorText(error) {
   }
   return msg || "Could not sign in. Please try again.";
 }
+// The sign-up password rule - same as supabase/functions/_shared/
+// signup_password.js (a test pins the two equal). Returns the message to show,
+// or "" when the password is acceptable. A function declaration (hoisted), so
+// it is safe from the submit handler whenever that runs.
+function signupPasswordProblem(password) {
+  if (typeof password !== "string" || password.trim() === "") return "Enter a password for your new account.";
+  if (password.length < 8) return "Please choose a password of at least 8 characters.";
+  if (password.length > 72) return "Please choose a password of at most 72 characters.";
+  return "";
+}
 function showResendConfirmation(show) {
   const b = document.getElementById("resendConfirmBtn");
   if (b) b.hidden = !show;
@@ -2443,10 +2466,25 @@ if (authForm) {
     const password = document.getElementById("password").value;
 
     if (authMode === "signup") {
-      if (passwordConfirmEl && password !== passwordConfirmEl.value) {
-        if (authMsg) { authMsg.className = "auth-msg err"; authMsg.textContent = "Passwords don't match."; }
+      // A TAXACQ account is a password account. Refuse a missing, empty or
+      // whitespace-only password here, before any request - not only through
+      // the input's `required` attribute, which a script-driven submit skips.
+      // supabase/functions/self-signup enforces the same rule server-side.
+      const pwEl = document.getElementById("password");
+      const pwProblem = signupPasswordProblem(password);
+      if (pwProblem) {
+        if (authMsg) { authMsg.className = "auth-msg err"; authMsg.textContent = pwProblem; }
+        if (pwEl) { pwEl.setAttribute("aria-invalid", "true"); pwEl.focus(); }
         return;
       }
+      if (pwEl) pwEl.removeAttribute("aria-invalid");
+      if (passwordConfirmEl && password !== passwordConfirmEl.value) {
+        if (authMsg) { authMsg.className = "auth-msg err"; authMsg.textContent = "Passwords don't match."; }
+        passwordConfirmEl.setAttribute("aria-invalid", "true");
+        passwordConfirmEl.focus();
+        return;
+      }
+      if (passwordConfirmEl) passwordConfirmEl.removeAttribute("aria-invalid");
       const firstName = firstNameEl ? firstNameEl.value.trim() : "";
       const lastName = lastNameEl ? lastNameEl.value.trim() : "";
       const company = companyEl ? companyEl.value.trim() : "";
