@@ -264,7 +264,7 @@ def test_g01_publication_decisions_per_source():
     for sid in gated:
         assert pub.effective_publication(reg[sid]) == "UNREVIEWED" and not SP.publishable(reg[sid]), sid
     # AVAILABLE sprint: the held AVAILABLE sources are UNREVIEWED too (collected and held, never written).
-    held = set(EX.AVAILABLE_SPRINT_SOURCE_IDS) | set(EX.AVAILABLE_FIVE_SOURCE_IDS)   # + AVAILABLE expansion 2026-10-04
+    held = set(EX.AVAILABLE_SPRINT_SOURCE_IDS) | set(EX.AVAILABLE_FIVE_SOURCE_IDS) | set(EX.TN_SOURCE_IDS)   # + AVAILABLE expansion 2026-10-04
     for sid in held:
         assert pub.effective_publication(reg[sid]) == "UNREVIEWED" and not SP.publishable(reg[sid]), sid
     assert set(EX.PUBLICATION) == approved | gated | held

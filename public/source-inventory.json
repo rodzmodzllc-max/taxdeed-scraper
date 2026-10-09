@@ -10,6 +10,7 @@
   "OK",
   "PA",
   "SC",
+  "TN",
   "TX",
   "WI",
   "WY"
@@ -5802,6 +5803,30 @@
   },
   {
    "access": "ACCESSIBLE",
+   "access_note": "production harvester harvest_expansion.py --state TN; last completeness UNKNOWN",
+   "county": "Shelby",
+   "evidence": "LIVE CAPTURE 2026-10-08 (GitHub Actions runs 37855584514, 37855783595, 37856005485, 37856189946, 37856396525): Shelby County - tn_shelby_landbank; NO PUBLICATION DECISION YET (UNREVIEWED); docs/tennessee-survey.md",
+   "governance": "REVIEW_REQUIRED",
+   "governance_reason": "no publication / reuse review recorded yet",
+   "last_checked": "2026-10-08",
+   "legacy_status": "UNREVIEWED",
+   "name": "government-held property the source itself offers for acquisition (AVAILABLE)",
+   "next_action": "Publication / rights review (registry restrictions: AVAILABLE source read live; no reuse licence or owner decision yet: collected and synced for development, labelled UNREVIEWED; not customer-published until an admin review approves it.)",
+   "origin": "registry",
+   "publisher": "Shelby County",
+   "roles": [
+    "availability",
+    "identity",
+    "lifecycle",
+    "source_date"
+   ],
+   "source_id": "TN:Shelby:tn_shelby_landbank",
+   "source_type": "GOVERNMENT",
+   "state": "TN",
+   "url": "https://public-sctn.epropertyplus.com/landmgmtpub/app/base/landing"
+  },
+  {
+   "access": "ACCESSIBLE",
    "access_note": "production harvester harvesters/texas_harvester.py; last completeness UNKNOWN",
    "county": "Angelina",
    "evidence": "data/tx_realauction_counties.csv; harvesters/governance/registry.py tx_realauction",
@@ -8128,6 +8153,7 @@
   "OK",
   "PA",
   "SC",
+  "TN",
   "TX",
   "UT",
   "WI",
@@ -8267,6 +8293,15 @@
     "GOVERNMENT": 10
    },
    "sources": 13
+  },
+  "TN": {
+   "APPROVED": 0,
+   "HARD_BLOCKED": 0,
+   "REVIEW_REQUIRED": 1,
+   "by_type": {
+    "GOVERNMENT": 1
+   },
+   "sources": 1
   },
   "TX": {
    "APPROVED": 16,

@@ -22,6 +22,7 @@ from dataclasses import dataclass
 
 from ..model import AmountKind, InventoryType, PurchaseUrlKind, SourceAuthority
 from .arcgis import ArcGisFieldMap, ArcGisLayerConfig
+from .epropertyplus import EppConfig
 from .sc_flc import GEORGETOWN as SC_GEORGETOWN_FLC   # Georgetown SC FLC list (PR #69)
 from .tabular import ColumnMap, TabularConfig
 
@@ -413,6 +414,32 @@ MN_RAMSEY_TAX_FORFEIT = ArcGisLayerConfig(
           "or purchased from the counter are not read. PIN = the 12-digit county parcel id.")
 
 
+# ---- Tennessee (2026-10-08): Shelby County Land Bank -----------------------
+# The Land Bank's own site (landbank.shelbycountytn.gov) sends buyers to its
+# ePropertyPlus portal (public-sctn.epropertyplus.com); the portal's own code
+# reads getPublishedProperties. Value-free evidence runs 37855584514,
+# 37855783595, 37856005485, 37856189946, 37856396525 (2026-10-08): 12,884
+# published parcels, all Shelby; the portal's own fields say which are
+# offered - currentStatus 'FOR SALE' with available 'Y' (2,039). Sold,
+# pending, donation, redemption, hold and evaluation rows are not read.
+# parcelNumber is the county's 14-character parcel id. askingPrice is the
+# portal's "Asking Price"; offers go through the Land Bank's Offer to Purchase
+# packet, so it is kept as a published amount of UNSPECIFIED kind, never
+# called a fixed price or a minimum.
+TN_EVIDENCE_RUNS = ("37855584514", "37855783595", "37856005485", "37856189946", "37856396525")
+TN_SHELBY_LANDBANK = EppConfig(
+    source_id="tn_shelby_landbank", state="TN", county="Shelby",
+    portal="https://public-sctn.epropertyplus.com",
+    list_url="https://public-sctn.epropertyplus.com/landmgmtpub/app/base/landing",
+    offered=(("currentStatus", "FOR SALE"), ("available", "Y")),
+    id_pattern=r"[A-Z0-9]{14}",
+    amount_field="askingPrice", amount_kind=AmountKind.PUBLISHED_AMOUNT_KIND_UNSPECIFIED, amount_label="Asking Price",
+    columns_verified=True,
+    notes="Shelby County Land Bank inventory (county-owned parcels from delinquent-tax sales, inventory type 'County "
+          "DTP'). Offered = the portal's own currentStatus 'FOR SALE' and available 'Y'. Offers by the Land Bank's "
+          "Offer to Purchase and Sales Agreement packet; no per-parcel purchase link is constructed.")
+
+
 HELD_AVAILABLE = ("AVAILABLE source read live; no reuse licence or owner decision yet: collected and synced for "
                   "development, labelled UNREVIEWED; not customer-published until an admin review approves it.")
 PUBLICATION = {
@@ -436,12 +463,13 @@ PUBLICATION = {
     "ok_oklahoma_county_owned": ("UNREVIEWED", HELD_AVAILABLE),
     "pa_fayette_repository": ("UNREVIEWED", HELD_AVAILABLE),
     "mn_ramsey_tax_forfeit": ("UNREVIEWED", HELD_AVAILABLE),
+    "tn_shelby_landbank": ("UNREVIEWED", HELD_AVAILABLE),
 }
 
 
 @dataclass(frozen=True)
 class ExpansionSource:
-    kind: str                     # "arcgis" | "html_table" | "csv" | "pdf_table" | "xlsx_flc_lists" | "sc_flc_pdf"
+    kind: str                     # "arcgis" | "html_table" | "csv" | "pdf_table" | "xlsx_flc_lists" | "sc_flc_pdf" | "epropertyplus"
     config: object
     url: str                      # what is fetched
 
@@ -468,6 +496,7 @@ SOURCES: dict[str, tuple[ExpansionSource, ...]] = {
     "OK": (ExpansionSource("html_table", OK_OKLAHOMA_COUNTY_OWNED, OK_OKLAHOMA_COUNTY_OWNED.list_url),),
     "PA": (ExpansionSource("pdf_table", PA_FAYETTE_REPOSITORY, PA_FAYETTE_REPOSITORY.document_url),),
     "MN": (ExpansionSource("arcgis", MN_RAMSEY_TAX_FORFEIT, MN_RAMSEY_TAX_FORFEIT.layer_url),),
+    "TN": (ExpansionSource("epropertyplus", TN_SHELBY_LANDBANK, TN_SHELBY_LANDBANK.portal),),
 }
 
 
@@ -475,3 +504,4 @@ AVAILABLE_SPRINT_SOURCE_IDS = frozenset({"mi_detroit_landbank_lots", "mi_detroit
                                          "sc_horry_forfeited_land", "sc_georgetown_forfeited_land"})
 AVAILABLE_FIVE_SOURCE_IDS = frozenset({"mo_stl_lra_inventory", "ok_oklahoma_county_owned", "pa_fayette_repository",
                                        "mn_ramsey_tax_forfeit"})
+TN_SOURCE_IDS = frozenset({"tn_shelby_landbank"})

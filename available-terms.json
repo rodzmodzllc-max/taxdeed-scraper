@@ -287,6 +287,16 @@
    "quote": "Once a decision is made by the Committee you will be notified of their decision and the total amount due via email or telephone number provided on the bidder application.",
    "evidence": "harvesters/otc/adapters/sc_flc.py GEORGETOWN acquisition (evidence runs 37033274319 / 37035908843)",
    "observed_on": "2026-10-02"
+  },
+  {
+   "state": "TN",
+   "source_id": "tn_shelby_landbank",
+   "basis": "OFFER_NEGOTIATED",
+   "figure_label": "Asking price (Land Bank portal)",
+   "figure_note": "The Land Bank's asking price before an offer - not a fixed price. Offers go through the Land Bank's Offer to Purchase and Sales Agreement packet.",
+   "quote": "portal field 'askingPrice' (display name 'Asking Price'); the Land Bank's Policies & Procedures page links the 'Offer to Purchase and Sales Agreement Packet'",
+   "evidence": "tn_shelby evidence runs 37856189946 / 37856396525 (docs/tennessee-survey.md)",
+   "observed_on": "2026-10-08"
   }
  ]
 }

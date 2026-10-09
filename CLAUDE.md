@@ -2986,3 +2986,18 @@ close-out only closes rows whose sale day has PASSED, so they stayed "active" an
 - `OFF_LIST_GRACE_MS` / `AUCTION_READ_CACHE` are `var` (TDZ). Stub knob `?offlist=1` (p8 fresh, p9 unread).
 - Closing such rows server-side would be a lifecycle change to the deed sync (future-dated rows absent from a
   COMPLETE county) and is a separate, owner-authorized decision. `sw.js` -> `tdw-shell-v108`.
+
+## Tennessee: Shelby County Land Bank (2026-10-08, PR open, no migration)
+
+Full description: `docs/tennessee-survey.md` (statewide survey of all 95 counties, plus the Shelby findings). Stable facts:
+- **TN is a production state** (`states.TN`) with one AVAILABLE source, `tn_shelby_landbank`, **UNREVIEWED**: collected for admins, never customer-published until an admin review approves it.
+- **Source:** the Land Bank's site sends buyers to its ePropertyPlus portal, `public-sctn.epropertyplus.com`. `harvesters/otc/adapters/epropertyplus.py` pages `getPublishedProperties` (`page` / `limit`, `{success, size, rows}`):
+  - fewer rows than `size`, a failed page or a missing field is FAILED, never partial;
+  - offered means the portal's own `currentStatus = 'FOR SALE'` and `available = 'Y'` (2,039 of 12,884 rows on 2026-10-08);
+  - the ID is `parcelNumber` (14 characters), and coordinates are the portal's own points (`LAND_BANK_GIS`);
+  - `askingPrice` is `PUBLISHED_AMOUNT_KIND_UNSPECIFIED` (terms basis `OFFER_NEGOTIATED`), never a fixed price;
+  - `comments` is never mapped.
+- **Shelby C&M sale books are post-sale results** (high bid / "NO BID BY COUNTY"), not an upcoming list; no Auctions source is built. Tennessee sells no lien certificates.
+- `scripts/capture_tn_shelby.py` is the value-free probe (`job=evidence`, `evidence_scope=tn_shelby`). `available_validate` now also runs TN read-only.
+- A new state touches: `states.py`, the expansion config + `SOURCES`, ledgers, the registry builder, coordinates (py + `COORD_SOURCE_COORDINATES` in app.js), `geocode.STATE_BOUNDS`, financial terms, `build_state_basemap.py` + `build_state_page.py`, `STATE_META` / `EXPANSION_LEDGER_COPY` / `MINIMAP_PROJ` (app.js), `STATE_ASSETS` / `PROJ` (explore.js), `STATEWIDE_VIEW` (satellite-map.js), sw.js SHELL, the mirror `FILES`, the Playwright importmap list, `check_deployed_branding.PAGES`, the regenerated JSON files, and the tests that pin state sets.
+- `sw.js` -> `tdw-shell-v109`.

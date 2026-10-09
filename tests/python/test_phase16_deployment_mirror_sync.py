@@ -90,7 +90,7 @@ DEPLOYED_BUNDLE_FILES = (
     "co.html", "co-counties.svg",
     "wi.html", "wi-counties.svg",
     "mo.html", "mo-counties.svg", "ok.html", "ok-counties.svg",
-    "pa.html", "pa-counties.svg", "mn.html", "mn-counties.svg",
+    "pa.html", "pa-counties.svg", "mn.html", "mn-counties.svg", "tn.html", "tn-counties.svg",
 )
 
 

@@ -75,7 +75,7 @@ def _row(**kw) -> csr.CountySourceRow:
 def test_st01_registered_and_production_states():
     # AL (2026-09-29) is REGISTERED (representable) but not PRODUCTION / activated.
     # LA became production on 2026-09-30 (state-expansion sprint).
-    assert states.supported_states() == {"FL", "TX", "AL", "AR", "LA", "AZ", "MI", "WY", "SC", "CO", "WI", "WV", "UT", "MO", "OK", "PA", "MN"} and states.PRODUCTION_STATES == {"FL", "TX", "LA", "MI", "WY", "SC", "CO", "WI", "MO", "OK", "PA", "MN"}
+    assert states.supported_states() == {"FL", "TX", "AL", "AR", "LA", "AZ", "MI", "WY", "SC", "CO", "WI", "WV", "UT", "MO", "OK", "PA", "MN", "TN"} and states.PRODUCTION_STATES == {"FL", "TX", "LA", "MI", "WY", "SC", "CO", "WI", "MO", "OK", "PA", "MN", "TN"}
     assert states.is_activated("FL") and states.is_activated("TX") and not states.is_activated("AL")
     assert states.activation_blockers("AL") == list(states.ACTIVATION_REQUIREMENTS)
     assert states.activation_blockers("FL") == [] and states.activation_blockers("QQ")[0] == "not_registered"
@@ -205,7 +205,7 @@ def test_r01_committed_registry_is_unchanged_county_level_and_still_valid():
     # 227 (2026-10-01, five-state sprint) = 222 + Douglas CO (2, CC BY-SA 4.0) and the three
     # implemented-but-UNREVIEWED county sources (Morgan CO deed auctions, Dane WI, Oconee SC).
     # 232 = 227 + the AVAILABLE sprint's five held MI / SC AVAILABLE sources (expansion.py).
-    assert len(rows) == 236 and {r.state for r in rows} == {"FL", "TX", "AL", "AR", "LA", "AZ", "MI", "WY", "SC", "CO", "WI", "MO", "OK", "PA", "MN"}
+    assert len(rows) == 237 and {r.state for r in rows} == {"FL", "TX", "AL", "AR", "LA", "AZ", "MI", "WY", "SC", "CO", "WI", "MO", "OK", "PA", "MN", "TN"}
     available = [r for r in rows if r.state in ("FL", "TX") and "AVAILABLE" in r.ledger_set or r.state in ("FL", "TX") and not r.ledger_set]
     assert len(available) == 112 - 3
     assert all(r.publishing_unit == "COUNTY" for r in rows if r.state in ("FL", "TX"))

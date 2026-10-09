@@ -85,7 +85,8 @@ const STATE_ASSETS = {
   MO: { basemap: "mo-counties.svg", cities: "mo-cities.json", zips: "mo-zips.json" },
   OK: { basemap: "ok-counties.svg", cities: "ok-cities.json", zips: "ok-zips.json" },
   PA: { basemap: "pa-counties.svg", cities: "pa-cities.json", zips: "pa-zips.json" },
-  MN: { basemap: "mn-counties.svg", cities: "mn-cities.json", zips: "mn-zips.json" }
+  MN: { basemap: "mn-counties.svg", cities: "mn-cities.json", zips: "mn-zips.json" },
+  TN: { basemap: "tn-counties.svg", cities: "tn-cities.json", zips: "tn-zips.json" }
 };
 const PAGE_STATE = STATE_ASSETS[document.body.dataset.state] ? document.body.dataset.state : "FL";
 const STATE_INFO = STATE_ASSETS[PAGE_STATE];
@@ -331,6 +332,12 @@ const PROJ = {
     y: { lon: 0, lat: -0.163731421, c: 8.104039826 },
     baseW: 1000,
     baseH: 1098
+  },
+  TN: {
+    x: { lon: 0.110842134, lat: 0, c: 10.030011741 },
+    y: { lon: 0, lat: -0.50263163, c: 18.509220566 },
+    baseW: 1000,
+    baseH: 272
   }
 };
 

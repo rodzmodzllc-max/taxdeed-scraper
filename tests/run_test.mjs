@@ -3479,7 +3479,7 @@ await navMap.close();
     await l.close();
   }
   const NEW_STATES = [['MI', 'mi', 'Michigan'], ['WY', 'wy', 'Wyoming'], ['SC', 'sc', 'South Carolina'], ['CO', 'co', 'Colorado'], ['WI', 'wi', 'Wisconsin'],
-    ['MO', 'mo', 'Missouri'], ['OK', 'ok', 'Oklahoma'], ['PA', 'pa', 'Pennsylvania'], ['MN', 'mn', 'Minnesota']];
+    ['MO', 'mo', 'Missouri'], ['OK', 'ok', 'Oklahoma'], ['PA', 'pa', 'Pennsylvania'], ['MN', 'mn', 'Minnesota'], ['TN', 'tn', 'Tennessee']];
   // ---- Load resilience + landing ledger (2026-10-04) ----
   // landingLedger(): a state opens on the first ledger with visible records.
   {
@@ -6263,7 +6263,7 @@ const EXPECTED = {
   },
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v108"]},
+  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v109"]},
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · TAXACQ — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · TAXACQ — Florida", floridaCopy: true },
@@ -6648,7 +6648,7 @@ const EXPECTED = {
   rdGlobalEmpty: "No Florida property matches “zzzz-no-such”. Search covers address, parcel, case and certificate numbers and the county; to look in another state, switch state first.",
   rdGlobalEscape: true,
   rdCardAcq: ["p3:Phone the county:1", "p15:Multi-step county process:1"],
-  rdPicker: {"rows": ["CO=certificate", "FL=auction|laft|certificate", "LA=laft", "MI=auction", "MN=!none", "MO=!none", "OK=!none", "PA=!none", "SC=auction", "TX=auction|laft", "WI=!none", "WY=auction"], "groups": ["States with Available properties", "Other states", "Coverage in Florida"], "visible": true, "coHref": "co.html#/certificates", "flCounts": ["Auctions 9", "Available 2", "Liens & Certificates 1"]},
+  rdPicker: {"rows": ["CO=certificate", "FL=auction|laft|certificate", "LA=laft", "MI=auction", "MN=!none", "MO=!none", "OK=!none", "PA=!none", "SC=auction", "TN=!none", "TX=auction|laft", "WI=!none", "WY=auction"], "groups": ["States with Available properties", "Other states", "Coverage in Florida"], "visible": true, "coHref": "co.html#/certificates", "flCounts": ["Auctions 9", "Available 2", "Liens & Certificates 1"]},
   rdPickerSearch: ["WY"],
   rdPickerEscape: true,
   rdPickerAdminMI: "MI=auction|laft",
@@ -6666,7 +6666,7 @@ const EXPECTED = {
   retryRecovers: { hadIssue: 1, issueAfter: 0, grew: true },
   allFail: { errorState: 1, cards: 0 },
   peakInflightBounded: true,
-  navMapStateOptions: ['FL:Florida', 'TX:Texas', 'LA:Louisiana', 'MI:Michigan', 'WY:Wyoming', 'SC:South Carolina', 'CO:Colorado', 'WI:Wisconsin', 'MO:Missouri', 'OK:Oklahoma', 'PA:Pennsylvania', 'MN:Minnesota'],
+  navMapStateOptions: ['FL:Florida', 'TX:Texas', 'LA:Louisiana', 'MI:Michigan', 'WY:Wyoming', 'SC:South Carolina', 'CO:Colorado', 'WI:Wisconsin', 'MO:Missouri', 'OK:Oklahoma', 'PA:Pennsylvania', 'MN:Minnesota', 'TN:Tennessee'],
   navMapStateValue: 'FL',
   adminAnonRedirected: true,
   adminAnonShellShown: false,
@@ -6683,9 +6683,9 @@ const EXPECTED = {
   adminShellShown: true,
   adminIdentityText: 'Admin',
   adminShellShowsNoEmail: true,
-  adminSourcesRows: 357,
+  adminSourcesRows: 358,
   adminSourcesGovernanceKinds: 'APPROVED,HARD_BLOCKED,REVIEW_REQUIRED',
-  adminSourcesStatusText: '357 source(s): 230 approved, 112 review required, 15 hard blocked.',
+  adminSourcesStatusText: '358 source(s): 230 approved, 113 review required, 15 hard blocked.',
   adminSourcesReviewOnly: true,
   adminSourcesLgbsReason: true,
   adminSourcesLaOnly: true,
@@ -6725,10 +6725,10 @@ const EXPECTED = {
   signupDisabledNoSession: true,
   laBodyState: 'LA',
   laTitle: 'Available — Adjudicated Property · TAXACQ — Louisiana',
-  laStateSelect: { value: 'LA', options: ['FL', 'TX', 'LA', 'MI', 'WY', 'SC', 'CO', 'WI', 'MO', 'OK', 'PA', 'MN'] },
+  laStateSelect: { value: 'LA', options: ['FL', 'TX', 'LA', 'MI', 'WY', 'SC', 'CO', 'WI', 'MO', 'OK', 'PA', 'MN', 'TN'] },
   xsPages: Object.fromEntries([['MI', 'Michigan'], ['WY', 'Wyoming'], ['SC', 'South Carolina'], ['CO', 'Colorado'], ['WI', 'Wisconsin'],
-    ['MO', 'Missouri'], ['OK', 'Oklahoma'], ['PA', 'Pennsylvania'], ['MN', 'Minnesota']].map(([c, n]) => [c,
-    { state: c, title: `Auctions · TAXACQ — ${n}`, select: c, options: ['FL', 'TX', 'LA', 'MI', 'WY', 'SC', 'CO', 'WI', 'MO', 'OK', 'PA', 'MN'], floridaWording: false, basemapOk: true }])),
+    ['MO', 'Missouri'], ['OK', 'Oklahoma'], ['PA', 'Pennsylvania'], ['MN', 'Minnesota'], ['TN', 'Tennessee']].map(([c, n]) => [c,
+    { state: c, title: `Auctions · TAXACQ — ${n}`, select: c, options: ['FL', 'TX', 'LA', 'MI', 'WY', 'SC', 'CO', 'WI', 'MO', 'OK', 'PA', 'MN', 'TN'], floridaWording: false, basemapOk: true }])),
   xsMiCard: { count: 1, county: true, sev: true, noJustValue: true },
   xsCoCardCount: true,
   xsCoDetail: { treasurer: true, steps: true, noStreetView: true, noUndefined: true, sourceNamed: true },
@@ -6754,7 +6754,7 @@ const EXPECTED = {
   laDetailNoFixedPrice: true,
   gsSelectInHeader: 1,
   gsSelectBesideAccount: "account",
-  gsOptions: ["FL:Florida", "TX:Texas", "LA:Louisiana", "MI:Michigan", "WY:Wyoming", "SC:South Carolina", "CO:Colorado", "WI:Wisconsin", "MO:Missouri", "OK:Oklahoma", "PA:Pennsylvania", "MN:Minnesota"],
+  gsOptions: ["FL:Florida", "TX:Texas", "LA:Louisiana", "MI:Michigan", "WY:Wyoming", "SC:South Carolina", "CO:Colorado", "WI:Wisconsin", "MO:Missouri", "OK:Oklahoma", "PA:Pennsylvania", "MN:Minnesota", "TN:Tennessee"],
   gsStateSelectCount: 1,
   gsAccountMenuOpens: true,
   gsFlorida: {"dash": {"file": "index.html", "hash": "#/dashboard", "state": "FL"}, "dashAuctionTile": "9", "dashCountiesSub": "Florida · 12 tracked incl. no-longer-listed", "list": {"file": "index.html", "hash": "#/lands", "state": "FL"}, "listOnlyFlorida": true, "map": {"file": "index.html", "hash": "#/map", "state": "FL"}, "mapPaths": 67, "watch": {"file": "index.html", "hash": "#/watchlist", "state": "FL"}, "watchPids": ["p1"], "watchElsewhere": "1 saved item is not in Florida's current listings (saved under another state, or no longer listed). Switch state in the header to see another state's items."},

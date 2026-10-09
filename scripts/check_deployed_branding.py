@@ -29,7 +29,7 @@ import urllib.error
 import urllib.request
 
 PRODUCTION = "https://rodz-taxdeeds.pages.dev"
-PAGES = ["index.html", "tx.html", "la.html", "mi.html", "wy.html", "sc.html", "co.html", "wi.html", "mo.html", "ok.html", "pa.html", "mn.html"]
+PAGES = ["index.html", "tx.html", "la.html", "mi.html", "wy.html", "sc.html", "co.html", "wi.html", "mo.html", "ok.html", "pa.html", "mn.html", "tn.html"]
 STATE_WORDS = re.compile(r"Florida|Texas|Louisiana|Michigan|Wyoming|South Carolina|Colorado|Wisconsin")
 BRAND = "TAXACQ"                         # customer-facing product name, 2026-10-06
 TAGLINE = "Tax Acquisition Intelligence"   # its subtitle
