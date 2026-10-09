@@ -63,6 +63,12 @@ MONTGOMERY_RUTHERFORD_KNOX = [
     ("rutherford", "cm_delinquent_sales", "https://rcchancery.com/delinquent_sales"),
     ("knox", "trustee_tax_sale", "https://www.knoxcounty.org/trustee/tax_sale_info.php"),
 ]
+# County sites behind a WAF refuse a bot User-Agent (Montgomery answered 403
+# on 2026-10-09); the same browser User-Agent the harvesters and the purchase
+# evidence capture use. Read-only GETs either way.
+C.UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/124.0.0.0 Safari/537.36")
+PRIORITY = re.compile(r"(tax.?sale|taxsale|results|delinquent|surplus|sold)", re.I)
 PAGE_SETS = {"davidson_hamilton": DAVIDSON_HAMILTON, "montgomery_rutherford_knox": MONTGOMERY_RUTHERFORD_KNOX}
 PAGES = DAVIDSON_HAMILTON
 FOLLOW = re.compile(r"(\.pdf$|\.xlsx?$|\.csv$|tax.?sale|delinquent|surplus|sealed|bid|property.?list|real.?property|"
@@ -155,7 +161,7 @@ def capture(pages=None) -> dict:
         time.sleep(0.6)
     followed = 0
     for p in list(report["pages"]):
-        for link in p.get("all_links") or []:
+        for link in sorted(p.get("all_links") or [], key=lambda l: not PRIORITY.search(l["href"])):
             href = link["href"]
             if followed >= MAX_FOLLOW or href in seen or not link["official"] or not FOLLOW.search(href):
                 continue
