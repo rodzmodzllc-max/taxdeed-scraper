@@ -121,3 +121,25 @@ These are the results of a sale already held, not an upcoming list. No current l
 **State of Tennessee after five counties:** Shelby's Land Bank is the only buildable inventory found. The other large counties publish either schedules and results (Davidson, Hamilton, Knox) or nothing reachable (Montgomery behind a 403, Rutherford through GovEase). The next useful step would be a different kind of source:
 - a county-held property list, like Shelby's land bank;
 - or a Clerk & Master who posts the parcel list ahead of the sale (Blount and Campbell, per the survey).
+
+## Blount and Campbell: what the live reads established (2026-10-09)
+
+There were four value-free evidence runs (`evidence_scope=tn_blount_campbell`, `scripts/capture_tn_counties.py --set blount_campbell`): 37866753934, 37866862723, 37866978780 and 37867087742. The probe now also resolves embedded ArcGIS apps down to their layers (field names and a record count only), and reads a WordPress media index (document URL, type and date only).
+
+**Blount.** The *Delinquent Property Tax Sale*, *Tax Sale Procedures* and *Tax Sale FAQs* pages link no parcel list. The *2026 Delinquent Tax Procedures* file is a Word document, not a list.
+- The survey's note that the list is posted about a month before the June sale and updated weekly is consistent with this: in October no list is up.
+- The two ArcGIS apps embedded on those pages are the county's general GIS template, with no tax-sale layer. Their layers cover boundaries, commission and school districts, parcels, address points, centerlines and service areas.
+- The **Blount Parcels** layer (`services3.arcgis.com/NIOS5f3vobGvnGtD/.../BlountParcels/FeatureServer/0`, 67,339 polygons, `PARID` / `PARCELID` / `GISLINK`, `CALC_ACRE`) is a candidate enrichment source for coordinates and acreage, should Blount inventory ever be built. It is not reviewed.
+- **Nothing is built** until the 2027 list is posted. A read in spring 2027 would show its structure.
+
+**Campbell.** The list the survey found (`.../uploads/2024/10/2023-DT-Tax-Sale-List-updated-04-14-26-@11.pdf`) now returns **404**.
+- The county's own site search for "tax sale" returns only the Chancery Court, Trustee and County Clerk pages.
+- The WordPress media index has no document matching "tax sale".
+- The Chancery Court (Clerk & Master) page links only a court-costs schedule (updated 2026), and the Trustee page links only Comptroller guidance.
+- **Nothing is built**: the list was taken down and is not linked anywhere on the site.
+
+**Tennessee after seven counties:** the Shelby Land Bank remains the only buildable inventory. The rest are:
+- seasonal lists that are not up now (Blount);
+- lists that were withdrawn (Campbell);
+- schedules and results only (Davidson, Hamilton, Knox);
+- unreachable (Montgomery behind a 403, Rutherford through GovEase).
