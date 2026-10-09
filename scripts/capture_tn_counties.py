@@ -77,6 +77,9 @@ BLOUNT_CAMPBELL = [
     ("blount", "delinquent_tax_sale", "https://blounttn.gov/2029/Delinquent-Property-Tax-Sale"),
     ("blount", "procedures_2026", "https://www.blounttn.gov/DocumentCenter/View/26595/2026-Delinquent-Tax-Procedures-PDF"),
     ("campbell", "home", "https://campbellcountytn.gov/"),
+    ("campbell", "site_search", "https://campbellcountytn.gov/?s=tax+sale"),
+    ("campbell", "wp_media", "https://campbellcountytn.gov/wp-json/wp/v2/media?search=tax%20sale&per_page=50"
+                             "&_fields=source_url,mime_type,date"),
     ("campbell", "tax_sale_list",
      "https://campbellcountytn.gov/wp-content/uploads/2024/10/2023-DT-Tax-Sale-List-updated-04-14-26-@11.pdf"),
 ]
@@ -127,6 +130,14 @@ def all_links(html: str, base: str) -> list[dict]:
 def entry(session, county: str, kind: str, url: str) -> dict:
     e = C.page_entry(session, kind, url)
     e["county"] = county
+    if "/wp-json/wp/v2/media" in url and e.get("status") == 200:
+        # A WordPress media index: public document URLs, their type and date only.
+        r, _ = C.fetch(session, url)
+        try:
+            e["media"] = [{"url": m.get("source_url"), "mime": m.get("mime_type"), "date": (m.get("date") or "")[:10]}
+                          for m in (r.json() if r is not None else [])][:50]
+        except (ValueError, AttributeError):
+            e["media_error"] = "not a media list"
     if e.get("pdf"):
         r, _ = C.fetch(session, url)
         if r is not None and r.status_code == 200:
@@ -262,6 +273,8 @@ def digest(report: dict) -> str:
             if l["in_table"] or not l["official"] or FOLLOW.search(l["href"]):
                 out.append(f"  any-link{' [table]' if l['in_table'] else ''}{'' if l['official'] else ' [external]'}: "
                            f"{l['text']} -> {l['href']}")
+        for m in p.get("media") or []:
+            out.append(f"  media {m['date']} {m['mime']} {m['url']}")
         for f in p.get("forms") or []:
             out.append(f"  form {f['method'].upper()} {f['action']} fields={f['fields']}")
         for t in p.get("html_tables") or []:
