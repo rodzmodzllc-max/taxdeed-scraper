@@ -4737,6 +4737,54 @@ await navMap.close();
     }
     results.coordGisRows = co;
   }
+  // ---- Tennessee visibility: land-bank inventory labelled as such (2026-10-09) ----
+  {
+    const TN_URL = BASE_URL.replace(/index\.html$/, 'tn.html');
+    const tn = {};
+    for (const [who, q] of [['admin', '?profile=admin'], ['customer', '']]) {
+      const pg = await newPage({ viewport: { width: 1280, height: 900 } });
+      pg.on('pageerror', e => errors.push('tn pageerror: ' + e.message));
+      await pg.goto(TN_URL + q + '#/lands', { waitUntil: 'networkidle' });
+      await pg.waitForTimeout(600);
+      const r = await pg.evaluate(() => {
+        const t = s => { const e = document.querySelector(s); return e ? e.textContent.replace(/\s+/g, ' ').trim() : null; };
+        return {
+          stateOption: [...document.querySelectorAll('#stateSelect option')].some(o => o.value === 'TN'),
+          stateSelected: (document.querySelector('#stateSelect') || {}).value || null,
+          tabs: [...document.querySelectorAll('#ledgerTabs .ledger-tab')].map(b => b.textContent.replace(/\s+/g, ' ').replace(/[\d…]+\s*$/, '').trim()),
+          countLaft: t('#tabCountLaft'),
+          cardRendered: !!document.querySelector('.prop-card[data-pid="ptn1"]') || [...document.querySelectorAll('[data-pid="ptn1"]')].length > 0,
+          withheld: t('#ledgerWithheld'),
+          emptyHead: !!document.querySelector('[data-ledger-empty]'),
+          redeemable: document.body.innerHTML.includes('Redeemable Deeds'),
+        };
+      });
+      await pg.locator('[data-page="map"]').first().click().catch(() => {});
+      await pg.waitForTimeout(500);
+      r.mapCount = await pg.evaluate(() => { const e = document.querySelector('#exploreMapCount'); return e ? e.textContent.replace(/\s+/g, ' ').trim() : null; });
+      if (who === 'admin') {
+        // A fresh page: a hash-only goto on the same page is a same-document navigation.
+        const dp = await newPage({ viewport: { width: 1280, height: 900 } });
+        dp.on('pageerror', e => errors.push('tn detail pageerror: ' + e.message));
+        await dp.goto(TN_URL + q + '#/lands/ptn1', { waitUntil: 'networkidle' });
+        await dp.waitForTimeout(600);
+        r.detail = await dp.evaluate(() => {
+          const m = document.querySelector('#detailModal:not([hidden])');
+          if (!m) return null;
+          const txt = m.textContent.replace(/\s+/g, ' ');
+          return {
+            program: txt.includes('Land bank inventory'),
+            sourceStatus: txt.includes('FOR SALE'),
+            noTaxDeedWords: !/tax deed|tax lien|Lands Available|Redeemable/i.test(txt.replace(/Liens & Certificates/g, '')),
+          };
+        });
+        await dp.close();
+      }
+      tn[who] = r;
+      await pg.close();
+    }
+    results.tnVisibility = tn;
+  }
   // ---- Acquisition-evidence status per unit (2026-10-06) ----
   {
     const ev = {};
@@ -6175,6 +6223,12 @@ await browser.close();
 
 
 const EXPECTED = {
+  tnVisibility: {
+    admin: { stateOption: true, stateSelected: 'TN', tabs: ['Auctions', 'Available', 'Liens & Certificates'], countLaft: '1', cardRendered: true, withheld: null, emptyHead: false, redeemable: false, mapCount: '1 shown across 1 county',
+      detail: { program: true, sourceStatus: true, noTaxDeedWords: true } },
+    customer: { stateOption: true, stateSelected: 'TN', tabs: ['Auctions', 'Available', 'Liens & Certificates'], countLaft: '0', cardRendered: false,
+      withheld: '1 record withheld - source not approved for customer publication (restricted or not yet reviewed). Counted, not shown.', emptyHead: true, redeemable: false, mapCount: 'Nothing matches the current filters' },
+  },
   countyOnlyImagery: {"countyOnly": true, "drawn": true, "noPoint": true, "caption": ["Checked - no stored image for this address", "Bay County · exact location not yet geocoded"]},
   desktopSiteNotice: {"desktopSite": {"shown": true, "readable": true, "first": true}, "dismissedStaysHidden": true, "phone": {"shown": false}, "laptop": {"shown": false}},
   // 2026-10-05 Available amount semantics + acquisition cost / forms.
@@ -6256,14 +6310,14 @@ const EXPECTED = {
   devVisPreviewScLands: { cards: 1, reviewChips: ['Source review: Unreviewed · not customer-published'], programs: [], pending: '1 record from sources awaiting customer-publication review is shown in customer preview mode, each labelled "Source review". Customers in published mode do not see it.', withheld: null },
   // AVAILABLE coverage: the zero names its reason; Florida (rows present) shows none.
   availCoverage: {
-    MI: { status: 'REVIEW_REQUIRED', text: 'Why this list is empty: Official program pages were found but are awaiting capture and publication review. Nothing is published from them yet. 4 candidate sources: Lenawee, Oceana, Wayne. Current list found, awaiting publication review: Lenawee.', cards: 0 },
+    MI: { status: 'REVIEW_REQUIRED', text: 'Why this list is empty: Official sources were found and are awaiting publication review. Nothing is published from them yet. 4 candidate sources: Lenawee, Oceana, Wayne. Current list found, awaiting publication review: Lenawee.', cards: 0 },
     CO: { status: 'NO_QUALIFYING_PROGRAM', text: 'Why this list is empty: No qualifying government-held inventory - this state\'s post-sale instrument is a lien or an auction, not property held for purchase. Unsold parcels stay with the county as tax liens / certificates (see Liens & Certificates or Auctions).', cards: 0 },
     WY: { status: 'NO_QUALIFYING_PROGRAM', text: 'Why this list is empty: No qualifying government-held inventory - this state\'s post-sale instrument is a lien or an auction, not property held for purchase. Unsold parcels stay with the county as tax liens / certificates (see Liens & Certificates or Auctions).', cards: 0 },
     FL: { status: null, text: '', cards: 2 }
   },
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v109"]},
+  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v110"]},
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · TAXACQ — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · TAXACQ — Florida", floridaCopy: true },
