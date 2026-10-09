@@ -3026,3 +3026,18 @@ Full description: `supabase/functions/notify-approval/README.md`. Stable facts:
   - `tests/python/test_migration_030_approval_notifications.py`;
   - Playwright `signupApproveNotifyCalls`.
 - `sw.js` → `tdw-shell-v111`.
+
+## Password recovery verified against the real supabase-js (2026-10-09, same PR)
+
+- **Flow:**
+  - "Forgot password?" calls `resetPasswordForEmail` with `recoveryRedirectUrl()`. That is always `<allowlisted origin>/index.html`, or `https://taxacq.com/index.html` for any other origin, so the Redirect URLs list needs exact entries only.
+  - The link returns `#access_token=…&type=recovery`.
+  - supabase-js (implicit flow, `detectSessionInUrl`) emits `PASSWORD_RECOVERY`, which opens `#recoveryModal`.
+  - `updateUser({ password })` is authorised by the recovery session alone.
+- **Fixed defects:**
+  - a refresh before saving lost the form (the `tdw_recovery_pending` sessionStorage flag now reopens it);
+  - the minimum was 6 characters versus sign-up's 8;
+  - raw Supabase error text was shown; it is now mapped by `recoveryErrorText()`, and a failed request never says "sent";
+  - the expired-link copy only covered sign-up confirmation;
+  - on desktop, `identity.css` `.app-shell{display:block!important}` showed the app chrome to signed-out and pending accounts; `.app-shell[hidden]` now wins.
+- **Tests:** `tests/recovery_flow_test.mjs` (26 checks; CI step in playwright-test.yml) runs the vendored `supabase-js.umd.js` against a fake Auth/REST server. It never uses the stub. The recovery e-mail itself is sent by Supabase Auth, not by Resend.

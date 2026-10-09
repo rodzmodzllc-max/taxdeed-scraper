@@ -48,20 +48,41 @@ removes it. As `service_role`: the next scheduled sync upserts normally.
   from the page's own origin (`location.origin + location.pathname`), and
   billing return URLs from the request's allowlisted origin, so the code
   needs no hostname. What the dashboard needs:
-  - Redirect URLs: add `https://taxacq.com/**` (and `https://www.taxacq.com/**`
-    only if www is served rather than redirected).
+  - Redirect URLs: exact entries only - see "Redirect URLs (password reset)"
+    below (no `/**` wildcard is needed).
   - Edge functions: `self-signup` (and billing-checkout / billing-portal
     when billing is deployed) must be redeployed from main so their origin
     allowlist includes `https://taxacq.com` and `https://www.taxacq.com`;
     until then sign-up on the custom domain falls back to `auth.signUp`
     (e-mail confirmation) and checkout returns 403.
   - MapTiler: add `taxacq.com` to the key's Allowed HTTP Origins.
-- **Redirect URLs** must include `https://rodz-taxdeeds.pages.dev/index.html`
-  and `https://rodz-taxdeeds.pages.dev/tx.html` (and the bare origin). The
-  password-reset e-mail links back to whichever page the request came from
-  (`resetPasswordForEmail(..., { redirectTo: location.origin + location.pathname })`);
-  a URL not on this list is refused by Supabase and the reset silently
-  lands on the Site URL instead.
+- **Redirect URLs (password reset, 2026-10-09).** The reset e-mail always
+  links back to ONE page per origin: `recoveryRedirectUrl()` in app.js sends
+  `https://<origin>/index.html` for `taxacq.com`, `www.taxacq.com` and
+  `rodz-taxdeeds.pages.dev`, and `https://taxacq.com/index.html` for any
+  other origin (a branch preview). So the list needs these exact entries,
+  no wildcard:
+  - `https://taxacq.com/index.html`
+  - `https://www.taxacq.com/index.html` (only if www is served)
+  - `https://rodz-taxdeeds.pages.dev/index.html`
+  A URL not on the list is refused by Supabase and the link lands on the Site
+  URL instead (the recovery form still works there, on the Site URL's page).
+  The sign-up confirmation resend still uses the page's own path.
+- **Password-reset flow, as built:** "Forgot password?" on the sign-in form
+  calls `resetPasswordForEmail` (neutral reply whether or not the address has
+  an account; a failed request never says "sent"). The e-mail's
+  `{{ .ConfirmationURL }}` passes through Supabase's verify endpoint and
+  returns with `#access_token=...&type=recovery`; supabase-js
+  (`detectSessionInUrl`, implicit flow) consumes it and emits
+  `PASSWORD_RECOVERY`, which opens "Set a new password" (min 8 characters,
+  same as sign-up). `updateUser({ password })` is authorised by the recovery
+  session only. A refresh before saving reopens the form; an expired or used
+  link returns `#error_code=otp_expired` and the sign-in screen offers a new
+  reset. Covered against the real supabase-js by `tests/recovery_flow_test.mjs`.
+- **Recovery e-mail sender:** Supabase Auth sends it (built-in mail service
+  unless custom SMTP is set below) - NOT the Resend API key the Edge Functions
+  use. Branding / reply-to of the reset e-mail are set in Authentication ->
+  Emails (template + SMTP sender), not in this repository.
 - **Email templates -> Reset password**: the default template is fine. The
   app handles the `PASSWORD_RECOVERY` event by opening a "Set a new password"
   form; the link must be opened in a browser, not in an app that strips the
@@ -297,6 +318,6 @@ NOT done; the repository ships billing switched off.
 | Migration | `scripts/migrations/027_commercial_billing_entitlements.sql` | apply only with explicit authorization |
 | Support address | root `config.js` `supportEmail` | a shared mailbox the business reads |
 | Legal details | root `config.js` `legal.operatorName`, `legal.governingLaw`, `legal.effectiveDate`, `legal.contactEmail` | the operating entity's real details; have counsel review the four pages |
-| Password reset redirect | Supabase Auth -> URL Configuration (section 2 above) | Site URL `https://rodz-taxdeeds.pages.dev` (then `https://taxacq.com` once the domain serves); Redirect URLs `https://rodz-taxdeeds.pages.dev/**` and `https://taxacq.com/**` (every state page), plus custom SMTP |
+| Password reset redirect | Supabase Auth -> URL Configuration (section 2 above) | Site URL `https://rodz-taxdeeds.pages.dev` (then `https://taxacq.com` once the domain serves); Redirect URLs exactly `https://taxacq.com/index.html`, `https://rodz-taxdeeds.pages.dev/index.html` (+ `https://www.taxacq.com/index.html` if www is served), plus custom SMTP |
 | Production maps key | root `config.js` `googleMapsApiKey` (section 8 above) | a key on a billed Google Cloud project, HTTP-referrer restricted to `https://rodz-taxdeeds.pages.dev/*`, API-restricted to Maps JavaScript API (+ Maps Static API if static imagery is kept) |
 | Backup encryption | repository variable `ARTIFACT_PUBLIC_KEY` (section 5 above) | an OpenPGP public key; private key kept offline |

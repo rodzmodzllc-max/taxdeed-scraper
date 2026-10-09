@@ -2565,9 +2565,20 @@ if (resendConfirmBtn) resendConfirmBtn.addEventListener("click", async () => {
   if (!authMsg) return;
   authMsg.className = "auth-msg err";
   authMsg.textContent = /expired|invalid/i.test(code + " " + desc)
-    ? "That email link has expired or was already used. If you already confirmed your email, just sign in. Otherwise sign in once to get the “Resend confirmation email” option, and open the newest email."
-    : (desc || "That email link could not be used. Please sign in or request a new link.");
+    ? "That email link has expired or was already used. To reset your password, enter your email below and choose Forgot password? to get a new link. If you were confirming a new account and already did, just sign in; otherwise sign in once to get the “Resend confirmation email” option. Always open the newest email."
+    : "That email link could not be used. Please sign in, or enter your email and choose Forgot password? to request a new link.";
 })();
+
+// The reset link always returns to ONE page per allowlisted origin, so the
+// Supabase Redirect URLs list needs exact entries only (no wildcards):
+// https://taxacq.com/index.html, https://www.taxacq.com/index.html and
+// https://rodz-taxdeeds.pages.dev/index.html. Any other origin (a branch
+// preview, a copy of the site) is sent to the production page instead -
+// never to an arbitrary host. The recovery form exists on every page.
+var RECOVERY_ORIGINS = /^(https:\/\/(www\.)?taxacq\.com|https:\/\/rodz-taxdeeds\.pages\.dev|http:\/\/localhost(:\d+)?|http:\/\/127\.0\.0\.1(:\d+)?)$/;
+function recoveryRedirectUrl() {
+  return (RECOVERY_ORIGINS.test(location.origin) ? location.origin : "https://taxacq.com") + "/index.html";
+}
 
 const forgotPasswordBtn = document.getElementById("forgotPasswordBtn");
 if (forgotPasswordBtn) forgotPasswordBtn.addEventListener("click", async () => {
@@ -2578,17 +2589,20 @@ if (forgotPasswordBtn) forgotPasswordBtn.addEventListener("click", async () => {
   }
   forgotPasswordBtn.disabled = true;
   if (authMsg) { authMsg.className = "auth-msg"; authMsg.textContent = "Sending reset link"; }
-  const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: location.origin + location.pathname });
+  let error = null;
+  try { ({ error } = await sb.auth.resetPasswordForEmail(email, { redirectTo: recoveryRedirectUrl() })); }
+  catch (e) { error = e || new Error("network"); }
   forgotPasswordBtn.disabled = false;
   if (error) {
-    if (authMsg) { authMsg.className = "auth-msg err"; authMsg.textContent = isEmailRateLimit(error) ? "We couldn't send a reset email right now - the hourly email limit has been reached. Please try again in about an hour, or contact support." : error.message; }
+    // Never "sent" when the request failed, and never the server's raw text.
+    if (authMsg) { authMsg.className = "auth-msg err"; authMsg.textContent = isEmailRateLimit(error) ? "We couldn't send a reset email right now - the hourly email limit has been reached. Please try again in about an hour, or contact support." : "We couldn't request a reset email right now. Check your connection and try again in a few minutes."; }
     return;
   }
   if (authMsg) {
     authMsg.className = "auth-msg";
     // Same wording whether or not the address exists - the request does not
     // reveal which e-mails have accounts.
-    authMsg.textContent = "If an account exists for that email, a password-reset link has been sent. Open it in this browser to set a new password.";
+    authMsg.textContent = "If an account exists for that email, a password-reset link has been sent. Open the link in the newest email to set a new password.";
   }
 });
 
@@ -2605,6 +2619,7 @@ if (planSignOutBtn) planSignOutBtn.addEventListener("click", () => doSignOut(nul
 
 async function doSignOut(reason) {
   stopIdleWatch();
+  try { sessionStorage.removeItem("tdw_recovery_pending"); } catch { /* storage blocked */ }
   if (reason) sessionStorage.setItem("tdw_signout_reason", reason);
   await sb.auth.signOut();
   location.reload();
@@ -2862,7 +2877,16 @@ sb.auth.onAuthStateChange((event, session) => {
   // new-password form opens. getElementById at call time, not module-level
   // consts - this callback can fire before the modal section further down
   // has been evaluated.
-  if (event === "PASSWORD_RECOVERY" && typeof openRecoveryModal === "function") openRecoveryModal();
+  if (event === "PASSWORD_RECOVERY") {
+    // Remembered for this tab, so a refresh before the new password is
+    // saved reopens the form instead of silently leaving the user signed in
+    // on the recovery session. Cleared on success and on sign-out.
+    try { sessionStorage.setItem("tdw_recovery_pending", "1"); } catch { /* storage blocked */ }
+    if (typeof openRecoveryModal === "function") openRecoveryModal();
+  } else if ((event === "INITIAL_SESSION" || event === "SIGNED_IN") && session && session.user && recoveryPending()
+             && typeof openRecoveryModal === "function") {
+    openRecoveryModal();
+  }
   if (session && session.user) {
     // Phase 63: autoRefreshToken fires TOKEN_REFRESHED roughly hourly for
     // any open tab, and USER_UPDATED fires right after the profile-edit/
@@ -11406,12 +11430,38 @@ function simpleModal(name, ids) {
   return { open, close, modal };
 }
 
+// Password recovery helpers (declared as var / function: the auth listener
+// above can fire before this part of the module is evaluated - TDZ).
+var MIN_PASSWORD_LENGTH = 8;
+function recoveryPending() {
+  try { return sessionStorage.getItem("tdw_recovery_pending") === "1"; } catch { return false; }
+}
+// A safe, actionable message for a failed password update - never the
+// server's raw text, a token or the password.
+function recoveryErrorText(error) {
+  const code = String((error && (error.code || error.name)) || "");
+  const text = String((error && error.message) || "");
+  const status = Number(error && error.status) || 0;
+  if (code === "weak_password" || /weak|at least|characters|pwned|leaked/i.test(text)) {
+    return `That password doesn't meet the requirements. Choose a longer, less common password of at least ${MIN_PASSWORD_LENGTH} characters.`;
+  }
+  if (code === "same_password" || /different from the old/i.test(text)) return "Choose a password different from your current one.";
+  if (/AuthSessionMissing|session_not_found|session_expired|bad_jwt/i.test(code) || status === 401 || status === 403) {
+    return "This reset link has expired. Close this window, sign out, then enter your email and choose Forgot password? for a new link.";
+  }
+  return "We couldn't update your password right now. Check your connection and try again; if it keeps failing, request a new reset link.";
+}
+
 // ---- set a new password (after a reset link) ----
 const recoveryUi = simpleModal("recovery", { modal: "recoveryModal", close: "recoveryCloseBtn" });
 function openRecoveryModal() {
   const form = document.getElementById("recoveryForm");
   const msg = document.getElementById("rcMsg");
   if (form) form.reset();
+  // The same minimum the sign-up function enforces (self-signup: 8).
+  ["rcNew", "rcConfirm"].forEach(id => { const el = document.getElementById(id); if (el) el.minLength = MIN_PASSWORD_LENGTH; });
+  const lbl = document.querySelector("#recoveryForm label span");
+  if (lbl) lbl.textContent = `New password (at least ${MIN_PASSWORD_LENGTH} characters)`;
   if (msg) { msg.textContent = ""; msg.className = "auth-msg"; }
   recoveryUi.open();
 }
@@ -11425,13 +11475,17 @@ function openRecoveryModal() {
     const confirm = document.getElementById("rcConfirm").value;
     const btn = document.getElementById("rcSubmitBtn");
     if (pw !== confirm) { if (msg) { msg.className = "auth-msg err"; msg.textContent = "Passwords don't match."; } return; }
+    if (pw.length < MIN_PASSWORD_LENGTH) { if (msg) { msg.className = "auth-msg err"; msg.textContent = `Choose a password of at least ${MIN_PASSWORD_LENGTH} characters.`; } return; }
     if (btn) btn.disabled = true;
     if (msg) { msg.className = "auth-msg"; msg.textContent = "Saving…"; }
-    const { error } = await sb.auth.updateUser({ password: pw });
+    let error = null;
+    // The recovery session identifies the account - nothing here names a user.
+    try { ({ error } = await sb.auth.updateUser({ password: pw })); } catch (e2) { error = e2 || new Error("network"); }
     if (btn) btn.disabled = false;
-    if (error) { if (msg) { msg.className = "auth-msg err"; msg.textContent = error.message; } return; }
-    if (msg) { msg.className = "auth-msg"; msg.textContent = "Password updated. You are signed in."; }
-    setTimeout(recoveryUi.close, 900);
+    if (error) { if (msg) { msg.className = "auth-msg err"; msg.textContent = recoveryErrorText(error); } return; }
+    try { sessionStorage.removeItem("tdw_recovery_pending"); } catch { /* storage blocked */ }
+    if (msg) { msg.className = "auth-msg"; msg.textContent = "Password updated. You are signed in - next time, sign in with your new password."; }
+    setTimeout(recoveryUi.close, 1500);
   });
 })();
 

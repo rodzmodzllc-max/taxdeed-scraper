@@ -79,6 +79,14 @@ jobs:
       - name: Run regression test
         run: node tests/run_test.mjs
 
+      # Password recovery against the REAL supabase-js (the site's own
+      # supabase-js.umd.js) and a fake Supabase Auth server - no network,
+      # no e-mail (tests/recovery_flow_test.mjs).
+      - name: Run password-recovery test
+        env:
+          BASE_URL: http://localhost:8934/index.html
+        run: node tests/recovery_flow_test.mjs
+
   # Read-only check of what a signed-out visitor is actually SERVED by a
   # deployment (scripts/check_deployed_branding.py): the sign-in block and
   # title of every state page must name the product, never one state. On a
