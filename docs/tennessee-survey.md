@@ -44,7 +44,7 @@ Other counties with an official list or notice online:
 ## Build order
 
 1. **Shelby** (built, see below): the Land Bank (Available). The C&M sale books turned out to be post-sale results, not an upcoming-sale list.
-2. **Davidson and Hamilton.**
+2. **Davidson and Hamilton**: read 2026-10-09, nothing buildable yet (see below).
 3. **Montgomery, Rutherford, Knox.**
 
 Every Tennessee source starts unreviewed: collected for admins and never customer-published until an admin review approves it.
@@ -78,3 +78,27 @@ There were five value-free evidence runs (`job=evidence`, `evidence_scope=tn_she
 They are results of sales already held, not an upcoming-sale list. Bidding itself is on ZeusAuction (SRI), a vendor. An Auctions source for Shelby would need the upcoming list, which these pages do not publish, and the vendor's terms reviewed. These books could later feed verified auction outcomes, the same way `data/auction_outcome_wordings.csv` does for Florida.
 
 **City of Memphis real estate** links to Memphis open-data hub apps. They were not followed.
+
+## Davidson and Hamilton: what the live reads established (2026-10-09)
+
+Two value-free evidence runs (`job=evidence`, `evidence_scope=tn_davidson_hamilton`, `scripts/capture_tn_counties.py`): 37864149419 and 37864266953. The second pass collected every link on each page, including links inside tables and links to other hosts, and followed the list-like files on official hosts.
+
+**Davidson (Clerk & Master, `chanceryclerkandmaster.nashville.gov`).** The *Property Tax Schedule* and *Delinquent Tax Sale Information* pages publish the 2026–27 sale schedule as a set of dates, roughly monthly from May 2026 to January 2027. The only files they link are:
+- the court's filing-fee schedule;
+- an *Authorization to Bid* form (2018, scanned);
+- an *Excess Proceeds* spreadsheet (September 2026), which covers funds left over from past sales.
+
+**No per-sale parcel list is linked from either page**, on any host, inside or outside a table. Nothing is built: an Auctions source needs the parcel list itself.
+
+**Hamilton (Real Property Office, `hamiltontn.gov`).**
+- *Current Sale Information* is two individual commercial offerings (a 28-page marketing package and an RFP), not a list of county-held tax parcels.
+- The tax-sale leftovers appear only as **Sold Lists**: 2022 to September 2025, each "PROPERTY SOLD LIST FOR <month year>" with a TYPE … SALE PRICE table. These are results, and the September 2025 file has no text layer.
+- The Clerk & Master's *2026 Tax Sale* notice (3 pages, an auction with a redemption period) carries no parcel table.
+
+**Nothing is built for either county.** Building Available or Auctions from these pages would mean an empty or invented inventory.
+
+What these reads could support later:
+- Hamilton's sold lists and Davidson's excess-proceeds file as **verified results**, once a parcel-level match and a publication review exist;
+- a Davidson auction source, if the Clerk & Master posts the per-sale lists before a sale. The schedule says sales run roughly monthly.
+
+**Next Tennessee candidates:** Montgomery (publishes the properties sold), Rutherford (searchable delinquent-tax database) and Knox (largest annual sale outside Memphis). Each needs the same value-free read first.
