@@ -76,6 +76,7 @@ PRIORITY = re.compile(r"(tax.?sale|taxsale|results|delinquent|surplus|sold)", re
 BLOUNT_CAMPBELL = [
     ("blount", "delinquent_tax_sale", "https://blounttn.gov/2029/Delinquent-Property-Tax-Sale"),
     ("blount", "procedures_2026", "https://www.blounttn.gov/DocumentCenter/View/26595/2026-Delinquent-Tax-Procedures-PDF"),
+    ("campbell", "home", "https://campbellcountytn.gov/"),
     ("campbell", "tax_sale_list",
      "https://campbellcountytn.gov/wp-content/uploads/2024/10/2023-DT-Tax-Sale-List-updated-04-14-26-@11.pdf"),
 ]
@@ -158,6 +159,67 @@ def forms(html: str, base: str) -> list[dict]:
     return out
 
 
+APP_ID = re.compile(r"(?:webappviewer/index\.html\?id=|experience/|[?&](?:appid|webmap|id)=)([0-9a-f]{32})", re.I)
+ITEM_DATA = "https://www.arcgis.com/sharing/rest/content/items/{}/data?f=json"
+ITEM_META = "https://www.arcgis.com/sharing/rest/content/items/{}?f=json"
+MAX_APP_LAYERS = 12
+
+
+def _webmap_ids(data) -> set[str]:
+    """Web-map item ids named anywhere inside an app's JSON (Web AppBuilder
+    puts it under map.itemId, Experience Builder under dataSources)."""
+    found = set()
+    if isinstance(data, dict):
+        for k, v in data.items():
+            if k in ("itemId", "webmap") and isinstance(v, str) and re.fullmatch(r"[0-9a-f]{32}", v):
+                found.add(v)
+            found |= _webmap_ids(v)
+    elif isinstance(data, list):
+        for v in data:
+            found |= _webmap_ids(v)
+    return found
+
+
+def arcgis_apps(session, endpoints) -> list[dict]:
+    """An embedded ArcGIS app -> its web map(s) -> operational layers: title
+    (digits masked), URL, field names / types and a record COUNT. No row."""
+    out, seen_layers = [], set()
+    for app_id in sorted({m for e in endpoints for m in APP_ID.findall(e)}):
+        entry = {"app": app_id, "webmaps": []}
+        r, err = C.fetch(session, ITEM_DATA.format(app_id))
+        try:
+            data = r.json() if r is not None and r.status_code == 200 else {}
+        except ValueError:
+            data = {}
+        maps = _webmap_ids(data) - {app_id}
+        meta, _ = C.fetch(session, ITEM_META.format(app_id))
+        try:
+            if meta is not None and meta.json().get("type") == "Web Map":
+                maps.add(app_id)
+        except ValueError:
+            pass
+        for mid in sorted(maps)[:4]:
+            w, _ = C.fetch(session, ITEM_DATA.format(mid))
+            try:
+                wm = w.json() if w is not None and w.status_code == 200 else {}
+            except ValueError:
+                wm = {}
+            layers = []
+            for lyr in (wm.get("operationalLayers") or [])[:30]:
+                url = lyr.get("url") or ""
+                title = C.mask(str(lyr.get("title") or ""))[:80]
+                info = {"title": title, "url": url}
+                if url and url not in seen_layers and len(seen_layers) < MAX_APP_LAYERS:
+                    seen_layers.add(url)
+                    info["layer"] = C.layer_entry(session, url)
+                    time.sleep(0.3)
+                layers.append(info)
+            entry["webmaps"].append({"id": mid, "layers": layers})
+        out.append(entry)
+        time.sleep(0.4)
+    return out
+
+
 def capture(pages=None) -> dict:
     pages = pages or PAGES
     import requests
@@ -185,6 +247,8 @@ def capture(pages=None) -> dict:
             report["pages"].append(e)
             print(f"  {p['county']:<9} follow {href} -> {e.get('status', e.get('error'))}", flush=True)
             time.sleep(0.6)
+    endpoints = {ep for p in report["pages"] for ep in ((p.get("html") or {}).get("endpoints") or [])}
+    report["arcgis_apps"] = arcgis_apps(session, endpoints)
     return report
 
 
@@ -202,6 +266,18 @@ def digest(report: dict) -> str:
             out.append(f"  form {f['method'].upper()} {f['action']} fields={f['fields']}")
         for t in p.get("html_tables") or []:
             out.append(f"  html table id={t['id']} rows={t['rows']} headers={t['headers']}")
+    for a in report.get("arcgis_apps") or []:
+        out.append(f"\n[arcgis app] {a['app']}")
+        for w in a["webmaps"]:
+            out.append(f"  webmap {w['id']}")
+            for l in w["layers"]:
+                lay = l.get("layer") or {}
+                out.append(f"    layer '{l['title']}' {l['url']} name={lay.get('name')} geom={lay.get('geometry_type')} "
+                           f"count={lay.get('count')} err={lay.get('error')}")
+                if lay.get("fields"):
+                    out.append("      fields: " + ", ".join(f"{n}:{t}" for n, t in lay["fields"]))
+                if lay.get("sublayers"):
+                    out.append("      sublayers: " + ", ".join(f"{i}:{n}" for i, n in lay["sublayers"]))
     return "\n".join(out)
 
 

@@ -83,3 +83,12 @@ def test_blount_campbell_scope():
     block = wf[wf.index('if [ "$SCOPE" = "tn_blount_campbell" ]'):]
     block = block[:block.index("\n          fi\n")]
     assert "capture_tn_counties.py --set blount_campbell" in block
+
+
+def test_arcgis_app_ids_and_webmap_discovery():
+    eps = ["https://blountgis.maps.arcgis.com/apps/webappviewer/index.html?id=47aa62b29af74cc0b2a1d63ac5ec8e4d",
+           "https://experience.arcgis.com/experience/35c2ae08d1644d91abef7d281ddac36a/"]
+    ids = {m for e in eps for m in M.APP_ID.findall(e)}
+    assert ids == {"47aa62b29af74cc0b2a1d63ac5ec8e4d", "35c2ae08d1644d91abef7d281ddac36a"}
+    data = {"map": {"itemId": "a" * 32}, "dataSources": {"ds": {"itemId": "b" * 32, "x": [{"webmap": "c" * 32}]}}}
+    assert M._webmap_ids(data) == {"a" * 32, "b" * 32, "c" * 32}
