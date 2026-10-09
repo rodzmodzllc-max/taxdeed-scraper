@@ -3025,6 +3025,12 @@ Full description: `supabase/functions/notify-approval/README.md`. Stable facts:
   - `node --test tests/billing/approval_notify.test.mjs` (in the python-governance workflow);
   - `tests/python/test_migration_030_approval_notifications.py`;
   - Playwright `signupApproveNotifyCalls`.
+- **Second kind, `admin_new_signup` (same outbox, same processor):**
+  - an AFTER INSERT trigger on `profiles` queues one alert per created account; the queue step is wrapped so a failure only raises a WARNING and never blocks sign-up;
+  - the recipient is the constant `SIGNUP_ALERT.to` (info@taxacq.com);
+  - the alert shows the sign-up time, the account e-mail and the actual confirmation / approval status, read by `claim_account_notifications()` from `auth.users` / `profiles`, plus a link to `admin.html#pending`;
+  - `self-signup` sends due rows right after creating an account (`EdgeRuntime.waitUntil`);
+  - the outbox wiring is shared in `_shared/account_notify_db.ts`.
 - `sw.js` → `tdw-shell-v113` (v111 was reserved; #127 took v112 first).
 
 ## Password recovery verified against the real supabase-js (2026-10-09, same PR)
@@ -3053,4 +3059,4 @@ A tester reported signing up "without entering a password". Traced:
   - One rule now: missing / empty / whitespace-only / outside 8..72 is refused. It lives in `supabase/functions/_shared/signup_password.js`, used by self-signup.
   - `signupPasswordProblem()` in app.js applies the same rule before any request; `tests/billing/signup_password.test.mjs` pins the two equal.
   - The field reads "Create a password (at least 8 characters)" in sign-up mode, and `#authMsg` is `aria-live`.
-- The server half takes effect only when `self-signup` is redeployed (owner). `sw.js` -> `tdw-shell-v112` (v111 was reserved for the approval / recovery PR, which shipped as v113).
+- The server half takes effect only when `self-signup` is redeployed (owner). Request validation and creation live in `_shared/signup_request.js` (`handleSignup(body, createUser)`, node-tested with an injected `createUser`); the password reaches `createUser` exactly as typed, never trimmed. `sw.js` -> `tdw-shell-v112` (v111 was reserved for the approval / recovery PR, which shipped as v113).

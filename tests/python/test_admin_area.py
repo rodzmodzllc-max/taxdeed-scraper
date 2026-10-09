@@ -167,12 +167,17 @@ def test_s02_sign_up_never_asks_for_approval_or_a_role():
             assert word not in text, word
     # The server-side path stores only the five profile fields, already
     # confirmed, and never sets approval or a role.
+    # Validation and creation live in _shared/signup_request.js (2026-10-09);
+    # the handler only reaches createUser through handleSignup.
     fn = (REPO / "supabase/functions/self-signup/index.ts").read_text(encoding="utf-8")
-    assert 'const FIELDS = ["first_name", "last_name", "company", "address", "phone"] as const;' in fn
-    assert "email_confirm: true, user_metadata: meta" in fn
-    code = "\n".join(l for l in fn.splitlines() if not l.strip().startswith("//"))
-    for word in ("approved", "is_admin", "app_metadata"):
-        assert word not in code, word
+    req = (REPO / "supabase/functions/_shared/signup_request.js").read_text(encoding="utf-8")
+    assert 'PROFILE_FIELDS = Object.freeze(["first_name", "last_name", "company", "address", "phone"]);' in req
+    assert "email_confirm: true, user_metadata: v.meta" in req
+    assert "handleSignup(body, (attrs) => admin.auth.admin.createUser(attrs))" in fn
+    for src in (fn, req):
+        code = "\n".join(l for l in src.splitlines() if not l.strip().startswith("//"))
+        for word in ("approved", "is_admin", "app_metadata"):
+            assert word not in code, word
 
 
 def test_s03_signups_disabled_error_gets_a_clear_message():

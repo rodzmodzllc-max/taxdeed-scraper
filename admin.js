@@ -168,12 +168,17 @@ function sendApprovalNotifications() {
 }
 
 // Notification health for administrators (counts only, never an address).
+// The outbox holds two kinds; each is counted on its own.
 async function approvalNotificationStatus() {
-  const { data, error } = await sb.from("account_notifications").select("status");
+  const { data, error } = await sb.from("account_notifications").select("status,kind");
   if (error || !data) return "";
-  const n = (st) => data.filter(r => r.status === st).length;
-  const waiting = n("pending") + n("sending") + n("failed");
-  return waiting ? ` ${waiting} approval e-mail${waiting === 1 ? " is" : "s are"} waiting to be sent or retried${n("failed") ? " (" + n("failed") + " failed so far)" : ""}.` : "";
+  const line = (kind, one, many) => {
+    const rows = data.filter(r => (r.kind || "account_approved") === kind);
+    const n = (st) => rows.filter(r => r.status === st).length;
+    const waiting = n("pending") + n("sending") + n("failed");
+    return waiting ? ` ${waiting} ${waiting === 1 ? one + " is" : many + " are"} waiting to be sent or retried${n("failed") ? " (" + n("failed") + " failed so far)" : ""}.` : "";
+  };
+  return line("account_approved", "approval e-mail", "approval e-mails") + line("admin_new_signup", "new sign-up alert", "new sign-up alerts");
 }
 
 async function refreshPending() {
