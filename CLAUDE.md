@@ -3009,6 +3009,38 @@ Full description: `docs/tennessee-survey.md` (statewide survey of all 95 countie
 - **Ledger names:** generated state pages say "Liens & Certificates"; only tx.html says "Redeemable Deeds" (`build_state_page.py`, la.html by hand).
 - Fixture `ptn1` (Shelby, UNREVIEWED); Playwright `tnVisibility`. `sw.js` -> `tdw-shell-v110`.
 
+## Account-approval e-mails (2026-10-09, PR open, migration 030 NOT applied, function NOT deployed)
+
+Full description: `supabase/functions/notify-approval/README.md`. Stable facts:
+- **Approval** is an admin's own UPDATE of `profiles.approved` (RLS `profiles: admin full access`). Production has no trigger and no database webhook on `profiles`. Before this change, only `self-signup` was deployed; the old webhook-driven `notify-approval` never ran.
+- **Migration 030** adds the outbox `account_notifications`:
+  - a trigger on approved false → true queues one row per (user, kind) for ever, in the same transaction;
+  - `claim_account_notifications()` and `finish_account_notification()` are service-role only;
+  - `requeue_account_notification()` is admin-only;
+  - admins can read the table, customers have no access;
+  - there is no backfill of earlier approvals.
+- **Sender:** `notify-approval` (admin JWT or service-role key; no request body) uses `_shared/approval_notify_core.js`. That module holds the content (HTML and text), authorization, the Resend call with an `Idempotency-Key` per row, and the processor. Logs carry counts and codes only.
+- **Callers:** app.js / admin.js call it fire-and-forget after an approve; `/admin` load also sweeps due retries.
+- **Tests:**
+  - `node --test tests/billing/approval_notify.test.mjs` (in the python-governance workflow);
+  - `tests/python/test_migration_030_approval_notifications.py`;
+  - Playwright `signupApproveNotifyCalls`.
+- `sw.js` → `tdw-shell-v113` (v111 was reserved; #127 took v112 first).
+
+## Password recovery verified against the real supabase-js (2026-10-09, same PR)
+
+- **Flow:**
+  - "Forgot password?" calls `resetPasswordForEmail` with `recoveryRedirectUrl()`. That is always `<allowlisted origin>/index.html`, or `https://taxacq.com/index.html` for any other origin, so the Redirect URLs list needs exact entries only.
+  - The link returns `#access_token=…&type=recovery`.
+  - supabase-js (implicit flow, `detectSessionInUrl`) emits `PASSWORD_RECOVERY`, which opens `#recoveryModal`.
+  - `updateUser({ password })` is authorised by the recovery session alone.
+- **Fixed defects:**
+  - a refresh before saving lost the form (the `tdw_recovery_pending` sessionStorage flag now reopens it);
+  - the minimum was 6 characters versus sign-up's 8;
+  - raw Supabase error text was shown; it is now mapped by `recoveryErrorText()`, and a failed request never says "sent";
+  - the expired-link copy only covered sign-up confirmation;
+  - on desktop, `identity.css` `.app-shell{display:block!important}` showed the app chrome to signed-out and pending accounts; `.app-shell[hidden]` now wins.
+- **Tests:** `tests/recovery_flow_test.mjs` (26 checks; CI step in playwright-test.yml) runs the vendored `supabase-js.umd.js` against a fake Auth/REST server. It never uses the stub. The recovery e-mail itself is sent by Supabase Auth, not by Resend.
 ## Sign-up requires a password (2026-10-09, PR open, no migration, function NOT redeployed)
 
 A tester reported signing up "without entering a password". Traced:
@@ -3021,4 +3053,4 @@ A tester reported signing up "without entering a password". Traced:
   - One rule now: missing / empty / whitespace-only / outside 8..72 is refused. It lives in `supabase/functions/_shared/signup_password.js`, used by self-signup.
   - `signupPasswordProblem()` in app.js applies the same rule before any request; `tests/billing/signup_password.test.mjs` pins the two equal.
   - The field reads "Create a password (at least 8 characters)" in sign-up mode, and `#authMsg` is `aria-live`.
-- The server half takes effect only when `self-signup` is redeployed (owner). `sw.js` -> `tdw-shell-v112` (v111 is held by the approval / recovery PR).
+- The server half takes effect only when `self-signup` is redeployed (owner). `sw.js` -> `tdw-shell-v112` (v111 was reserved for the approval / recovery PR, which shipped as v113).

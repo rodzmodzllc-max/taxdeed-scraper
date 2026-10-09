@@ -1,136 +1,80 @@
 // supabase/functions/notify-approval/index.ts
 //
-// Fires once per approval: emails the newly-approved user (not the owner)
-// letting them know their FL Tax Deed Watchlist account is ready, so they
-// don't have to remember to check back and sign in blind. Companion to
-// notify-signup, which emails the owner when someone new signs up - this
-// one closes the loop back to the user once that sign-up is approved.
+// Sends the "Your TAXACQ account has been approved" e-mail from the durable
+// outbox migration 030 creates (public.account_notifications). Rewritten
+// 2026-10-09: the previous version reacted to a database webhook that was
+// never configured in production and kept no record of what it sent.
 //
-// Wire-up (see README.md next to this file for the full walkthrough):
-//   1. schema-v6-approvals.sql (repo root) must already be applied - this
-//      just reacts to public.profiles.approved flipping to true, it
-//      doesn't change the gate itself.
-//   2. Deploy this function (supabase functions deploy notify-approval).
-//   3. Set its secrets (RESEND_API_KEY, NOTIFY_FROM_EMAIL) - same values
-//      notify-signup and send-digest already use, if you've set those up.
-//   4. Dashboard -> Database -> Webhooks -> Create a new webhook:
-//        Table: public.profiles, Event: UPDATE, Type: HTTP Request,
-//        URL: this function's URL, Method: POST,
-//        Header: X-Notify-Secret: <same value as NOTIFY_WEBHOOK_SECRET>
+// How a notification flows:
+//   1. An admin approves (app.js / admin.js: UPDATE profiles SET approved =
+//      true). Migration 030's trigger queues ONE account_approved row in the
+//      same transaction - no approval, no row; never a second row.
+//   2. The admin's browser then calls this function (fire-and-forget). It
+//      claims due rows (row-locked, leased), renders the e-mail, sends it
+//      through Resend with an idempotency key per row, and records sent /
+//      failed (with back-off) / skipped. A failed send never touches the
+//      approval itself.
+//   3. Retries: any later call processes rows whose back-off has elapsed;
+//      the admin panel's "Send pending notifications" button calls it too,
+//      and a server-side sweep may call it with the service-role key.
 //
-// This is entirely optional - approving someone from the in-app admin
-// panel or the Supabase table editor works fine without it. This just
-// saves the approved user from having to remember to check back.
+// Authorization: the caller's JWT must belong to an administrator, or the
+// bearer must be the project's service-role key. The request body is never
+// read - no caller can choose a recipient.
 //
-// Requires these Edge Function secrets:
-//   SUPABASE_URL              - auto-provided by Supabase, no action needed
-//   SUPABASE_SERVICE_ROLE_KEY - auto-provided by Supabase, no action needed
-//   RESEND_API_KEY            - your Resend.com API key (same one
-//                                notify-signup / send-digest use, if
-//                                you've already set that up)
-//   NOTIFY_FROM_EMAIL         - verified "from" address, e.g.
-//                                notify@yourdomain.com, or Resend's shared
-//                                onboarding@resend.dev while testing
-//   NOTIFY_WEBHOOK_SECRET     - optional shared secret; if set, requests must
-//                                send header X-Notify-Secret: <value>
-//                                (reuse the same value as notify-signup's,
-//                                if you already set one there)
-//   APP_URL                   - optional; if set, the email links straight
-//                                to your app instead of just naming it
-
+// Deploy WITH JWT verification (the default). Secrets (shared with the
+// project's other functions; never sent to the browser):
+//   RESEND_API_KEY        required to send; without it rows fail with NOT_CONFIGURED and retry later
+//   SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY  provided by Supabase
+// The sender, reply-to, site and mailing address are fixed in
+// _shared/approval_notify_core.js (APPROVAL_EMAIL).
 import { createClient } from "npm:@supabase/supabase-js@2";
+import { authorize, processDue, sendViaResend } from "../_shared/approval_notify_core.js";
+import { cors, reply } from "../_shared/billing_http.ts";
 
-const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
-const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
+const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") ?? "";
-const NOTIFY_FROM_EMAIL = Deno.env.get("NOTIFY_FROM_EMAIL") ?? "";
-const NOTIFY_WEBHOOK_SECRET = Deno.env.get("NOTIFY_WEBHOOK_SECRET") ?? "";
-const APP_URL = Deno.env.get("APP_URL") ?? "";
 
-const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY);
+const admin = createClient(SUPABASE_URL, SERVICE_ROLE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
 
-function esc(s: unknown): string {
-  return String(s ?? "").replace(/[&<>"']/g, (c) =>
-    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c] as string)
-  );
-}
-
-type WebhookPayload = {
-  type: string;
-  table: string;
-  record: { id: string; email: string | null; approved: boolean; approved_at: string | null };
-  old_record?: { id: string; email: string | null; approved: boolean } | null;
-};
-
-async function sendEmail(to: string, subject: string, html: string): Promise<boolean> {
-  if (!RESEND_API_KEY || !NOTIFY_FROM_EMAIL) {
-    console.error("RESEND_API_KEY / NOTIFY_FROM_EMAIL not configured - skipping send, dumping to log instead");
-    console.log(`Would send to ${to}: ${subject}`);
-    return false;
-  }
-  const resp = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${RESEND_API_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ from: NOTIFY_FROM_EMAIL, to, subject, html }),
-  });
-  if (!resp.ok) console.error(`Resend send to ${to} failed: ${resp.status} ${await resp.text()}`);
-  return resp.ok;
+async function isAdminForJwt(jwt: string): Promise<boolean> {
+  const { data, error } = await admin.auth.getUser(jwt);
+  if (error || !data.user) return false;
+  const { data: p } = await admin.from("profiles").select("is_admin").eq("id", data.user.id).maybeSingle();
+  return !!(p && p.is_admin === true);
 }
 
 Deno.serve(async (req) => {
-  if (NOTIFY_WEBHOOK_SECRET) {
-    if (req.headers.get("X-Notify-Secret") !== NOTIFY_WEBHOOK_SECRET) {
-      return new Response(JSON.stringify({ error: "unauthorized" }), { status: 401 });
-    }
-  }
+  const origin = req.headers.get("origin");
+  if (req.method === "OPTIONS") return new Response("ok", { headers: cors(origin) });
+  if (req.method !== "POST") return reply(405, { error: "method_not_allowed" }, origin);
 
-  let payload: WebhookPayload;
+  const bearer = (req.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, "");
+  const auth = await authorize({ bearer, serviceRoleKey: SERVICE_ROLE_KEY, isAdminForJwt });
+  if (!auth.ok) return reply(auth.status, { error: auth.reason }, origin);
+
+  const db = {
+    async claim(limit: number) {
+      const { data, error } = await admin.rpc("claim_account_notifications", { p_limit: limit, p_lease_seconds: 300 });
+      if (error) throw new Error(error.code === "PGRST202" ? "outbox_not_installed" : "claim_failed");
+      return data ?? [];
+    },
+    async finish(id: string, attempt: number, outcome: string, messageId: string | null, err: string | null, retry: number) {
+      const { data, error } = await admin.rpc("finish_account_notification", {
+        p_id: id, p_attempt: attempt, p_outcome: outcome, p_message_id: messageId, p_error: err, p_retry_seconds: retry,
+      });
+      return !error && data === true;
+    },
+  };
   try {
-    payload = await req.json();
-  } catch {
-    return new Response(JSON.stringify({ error: "invalid JSON body" }), { status: 400 });
+    const counts = await processDue({ db, send: (m) => sendViaResend(fetch, RESEND_API_KEY, m), limit: 20 });
+    // Counts only - never an address, a body or a provider response.
+    console.log(`notify-approval: ${JSON.stringify(counts)}`);
+    return reply(200, counts, origin);
+  } catch (e) {
+    const code = e instanceof Error ? e.message : "error";
+    console.error(`notify-approval: ${code}`);
+    return reply(code === "outbox_not_installed" ? 503 : 500, { error: code }, origin);
   }
-  if (payload.table !== "profiles" || payload.type !== "UPDATE") {
-    return new Response(JSON.stringify({ skipped: true, reason: "not a profiles UPDATE" }), {
-      headers: { "Content-Type": "application/json" },
-    });
-  }
-
-  const row = payload.record;
-  const was = payload.old_record;
-  // Only fire on the false -> true transition, not every profile UPDATE
-  // (e.g. an admin toggling is_admin, or re-saving the same row).
-  if (!row || !row.approved || (was && was.approved)) {
-    return new Response(JSON.stringify({ skipped: true, reason: "not a new approval" }), {
-      headers: { "Content-Type": "application/json" },
-    });
-  }
-  if (!row.email) {
-    return new Response(JSON.stringify({ skipped: true, reason: "no email on profile" }), {
-      headers: { "Content-Type": "application/json" },
-    });
-  }
-
-  // Sanity-check against the DB rather than trusting the webhook body
-  // blindly, same as notify-signup.
-  const { data: profile } = await admin.from("profiles").select("approved,email").eq("id", row.id).maybeSingle();
-  if (!profile || !profile.approved) {
-    return new Response(JSON.stringify({ skipped: true, reason: "not approved in DB" }), {
-      headers: { "Content-Type": "application/json" },
-    });
-  }
-
-  const linkHtml = APP_URL
-    ? `<p><a href="${esc(APP_URL)}" style="color:#2563eb">Sign in to the FL Tax Deed Watchlist</a></p>`
-    : `<p>Sign in to the FL Tax Deed Watchlist with the email and password you signed up with.</p>`;
-
-  const html = `
-    <div style="font-family:system-ui,sans-serif;color:#0f172a">
-      <h2 style="margin:0 0 12px">Your account is approved</h2>
-      <p>Good news - your FL Tax Deed Watchlist account has been approved. You now have full access to the auction ledgers, filters, and your saved lists.</p>
-      ${linkHtml}
-    </div>`;
-
-  const ok = await sendEmail(profile.email ?? row.email, "Your FL Tax Deed Watchlist account is approved", html);
-  return new Response(JSON.stringify({ sent: ok }), { headers: { "Content-Type": "application/json" } });
 });

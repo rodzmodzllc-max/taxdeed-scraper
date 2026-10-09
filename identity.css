@@ -113,6 +113,9 @@ a{color:var(--copper-deep)}
    command bar - search, state, account. No permanent sidebar. */
 @media (min-width:1024px){
   .app-shell{display:block!important;grid-template-columns:none!important}
+  /* The !important above must not beat the hidden attribute: a signed-out or
+     pending account never sees the app chrome (2026-10-09). */
+  .app-shell[hidden]{display:none!important}
   .nav-rail{position:relative!important;top:auto;height:auto!important;width:auto;overflow:visible!important;
     display:grid!important;grid-template-columns:auto minmax(0,1fr) auto;grid-template-areas:"brand util foot" "prim prim prim";
     align-items:center;column-gap:1.4rem;padding:0 1.6rem!important;background:var(--stone)!important;border:0!important;

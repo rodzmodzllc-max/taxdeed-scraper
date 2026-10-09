@@ -3237,6 +3237,11 @@ await navMap.close();
   await admin.waitForTimeout(500);
   results.signupAdminPendingAfterApprove = await admin.locator('#adminPendingList .admin-approval-row').evaluateAll(els => els.map(e => e.querySelector('.admin-approval-name').textContent.trim()));
   results.signupAdminApproveRowsChanged = await admin.evaluate(() => (window.__stubProfileUpdates || []).slice(-1)[0].rows);
+  // Approval e-mail (migration 030 + notify-approval): the admin page asks the
+  // server to send what the approval queued - once on load (retry sweep) and
+  // once after the approve - and never names a recipient (empty body).
+  results.signupApproveNotifyCalls = await admin.evaluate(() => (window.__stubFnCalls || [])
+    .filter(c => c.name === 'notify-approval').map(c => c.fields.join(',') || 'no-body-fields'));
 
   // D. The approved user signs in and uses the app; /admin is still refused.
   const member = await ctx.newPage();
@@ -6387,7 +6392,7 @@ const EXPECTED = {
   },
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v112"]},
+  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v113"]},
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · TAXACQ — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · TAXACQ — Florida", floridaCopy: true },
@@ -6837,6 +6842,7 @@ const EXPECTED = {
   signupAdminPendingList: ['newcomer@example.com', 'sneaky@example.com'],
   signupAdminPendingStatus: '2 accounts are waiting for approval.',
   signupAdminPendingAfterApprove: ['sneaky@example.com'],
+  signupApproveNotifyCalls: ['no-body-fields', 'no-body-fields'],
   signupAdminApproveRowsChanged: 1,
   signupApprovedAppVisible: true,
   signupApprovedPendingHidden: true,
@@ -7255,12 +7261,12 @@ const EXPECTED = {
   helpHasNoEmoji: true,
   forgotNeedsEmail: true,
   forgotResetCall: [['someone@example.com', true]],
-  forgotMessage: 'If an account exists for that email, a password-reset link has been sent. Open it in this browser to set a new password.',
-  forgotErrorShown: 'stub: reset refused',
+  forgotMessage: 'If an account exists for that email, a password-reset link has been sent. Open the link in the newest email to set a new password.',
+  forgotErrorShown: "We couldn't request a reset email right now. Check your connection and try again in a few minutes.",
   recoveryModalOpens: true,
   recoveryMismatchRefused: true,
   recoveryUpdateCall: ['newpass123'],
-  recoveryMessage: 'Password updated. You are signed in.',
+  recoveryMessage: 'Password updated. You are signed in - next time, sign in with your new password.',
   deleteModalVisible: true,
   deleteModalStatesScope: true,
   deleteWrongWordRefused: true,
@@ -7463,7 +7469,7 @@ const EXPECTED = {
   resendVisibleAfterUnconfirmed: true,
   resendCall: [{"type": "signup", "email": "new@example.com", "redirect": true}],
   resendMsg: "If that account is waiting for confirmation, a new confirmation link has been sent. Open the newest email - earlier links stop working.",
-  expiredLinkMsg: "That email link has expired or was already used. If you already confirmed your email, just sign in. Otherwise sign in once to get the “Resend confirmation email” option, and open the newest email.",
+  expiredLinkMsg: "That email link has expired or was already used. To reset your password, enter your email below and choose Forgot password? to get a new link. If you were confirming a new account and already did, just sign in; otherwise sign in once to get the “Resend confirmation email” option. Always open the newest email.",
   expiredLinkHashCleared: true,
   // Server-side sign-up (self-signup Edge Function).
   selfSignupCall: [{"name": "self-signup", "email": "client@example.com", "fields": ["address", "company", "email", "first_name", "last_name", "password", "phone"]}],

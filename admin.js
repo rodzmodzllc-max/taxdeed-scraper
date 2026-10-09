@@ -59,6 +59,7 @@ async function gate() {
   document.getElementById("adminIdentity").textContent = "Admin";
   document.getElementById("adminShell").hidden = false;
   document.body.dataset.admin = "verified";
+  sendApprovalNotifications();          // sweep: send any approval e-mail whose retry is due
   await refreshPending();
   await refreshCustomers();
   await refreshUsage();
@@ -158,13 +159,31 @@ function requestedOn(iso) {
   return d && !isNaN(d) ? d.toLocaleDateString("en-US", { year: "numeric", month: "short", day: "numeric", timeZone: "UTC" }) : "date not recorded";
 }
 
+// Approval e-mail (migration 030 + supabase/functions/notify-approval): the
+// approval queued one notification in the same transaction; this asks the
+// server to send what is due (fire-and-forget, never blocks the approval).
+// Opening this page also sweeps any notification whose retry is due.
+function sendApprovalNotifications() {
+  try { sb.functions.invoke("notify-approval", { body: {} }).catch(() => {}); } catch (e) { /* never blocks approval */ }
+}
+
+// Notification health for administrators (counts only, never an address).
+async function approvalNotificationStatus() {
+  const { data, error } = await sb.from("account_notifications").select("status");
+  if (error || !data) return "";
+  const n = (st) => data.filter(r => r.status === st).length;
+  const waiting = n("pending") + n("sending") + n("failed");
+  return waiting ? ` ${waiting} approval e-mail${waiting === 1 ? " is" : "s are"} waiting to be sent or retried${n("failed") ? " (" + n("failed") + " failed so far)" : ""}.` : "";
+}
+
 async function refreshPending() {
   const status = document.getElementById("adminPendingStatus");
   const list = document.getElementById("adminPendingList");
   const { data, error } = await sb.from("profiles").select("id,email,requested_at").eq("approved", false).order("requested_at");
   if (error) { status.textContent = "Could not load pending accounts: " + error.message; list.innerHTML = ""; return; }
   const rows = data || [];
-  status.textContent = rows.length ? rows.length + (rows.length === 1 ? " account is" : " accounts are") + " waiting for approval." : "No accounts are waiting for approval.";
+  status.textContent = (rows.length ? rows.length + (rows.length === 1 ? " account is" : " accounts are") + " waiting for approval." : "No accounts are waiting for approval.")
+    + await approvalNotificationStatus();
   list.innerHTML = rows.map(p => `
     <span class="admin-approval-row" data-id="${esc(p.id)}">
       <span class="admin-approval-info"><span class="admin-approval-name">${esc(p.email || p.id)}</span></span>
@@ -178,6 +197,7 @@ async function refreshPending() {
       .update({ approved: true, approved_at: new Date().toISOString() })
       .eq("id", btn.dataset.id);
     if (updErr) { btn.disabled = false; btn.textContent = "Approve"; status.textContent = "Could not approve: " + updErr.message; return; }
+    sendApprovalNotifications();
     await refreshPending();
   }));
 }
