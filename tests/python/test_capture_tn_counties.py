@@ -57,3 +57,21 @@ def test_all_links_include_table_and_external_links_and_skip_govease():
     assert hrefs["https://chanceryclerkandmaster.nashville.gov/x.pdf"]["official"] is True
     assert hrefs["https://vendor.example/sale"]["in_table"] is True and hrefs["https://vendor.example/sale"]["text"] == "[text withheld]"
     assert not any("govease" in h for h in hrefs)
+
+
+def test_forms_print_field_names_never_values():
+    html = ("<form action='/search' method='post'><input name='parcel' value='093-45.00'>"
+            "<input name='owner' value='JANE Q PUBLIC'><input type='hidden' name='__VIEWSTATE' value='x'></form>")
+    out = json.dumps(M.forms(html, "https://rcchancery.com/delinquent_sales"))
+    assert '"parcel"' in out and '"owner"' in out and "__VIEWSTATE" not in out
+    for s in SECRETS:
+        assert s not in out
+
+
+def test_page_sets_and_workflow_scope():
+    assert set(M.PAGE_SETS) == {"davidson_hamilton", "montgomery_rutherford_knox"}
+    assert {c for c, _, _ in M.MONTGOMERY_RUTHERFORD_KNOX} == {"montgomery", "rutherford", "knox"}
+    wf = (ROOT / ".github/workflows/harvest-and-sync.yml").read_text()
+    block = wf[wf.index('if [ "$SCOPE" = "tn_montgomery_rutherford_knox" ]'):]
+    block = block[:block.index("\n          fi\n")]
+    assert "capture_tn_counties.py --set montgomery_rutherford_knox" in block

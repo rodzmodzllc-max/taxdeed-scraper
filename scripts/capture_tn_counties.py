@@ -40,21 +40,33 @@ sys.path.insert(0, str(HERE))
 import capture_tn_shelby as C  # noqa: E402
 
 OUT_PATH = C.REPO / "out" / "public" / "tn-counties-structure.json"
-C.OFFICIAL_HOSTS = C.OFFICIAL_HOSTS + ("nashville.gov", "hamiltontn.gov", "padctn.org")
+C.OFFICIAL_HOSTS = C.OFFICIAL_HOSTS + ("nashville.gov", "hamiltontn.gov", "padctn.org",
+                                       "montgomerytn.gov", "mcgtn.org", "rcchancery.com", "rutherfordcountytn.gov",
+                                       "knoxcounty.org", "knoxcountytrustee.org")
 C.SAFE_WORDS = C.SAFE_WORDS | frozenset("""
 acct appraisal assessed assessment balance bidding block case cases chancery civil control davidson district docket
-group hamilton id item judgment lien map nashville no number opened opening parcel pin real rpo sealed sold subdivision
+group hamilton id item judgment montgomery rutherford knox knoxville clarksville murfreesboro trustee results
+surplus lien map nashville no number opened opening parcel pin real rpo sealed sold subdivision
 tract value ward amount due assessor
 """.split())
 
-PAGES = [
+DAVIDSON_HAMILTON = [
     ("davidson", "cm_tax_schedule", "https://chanceryclerkandmaster.nashville.gov/fees/property-tax-schedule/"),
     ("hamilton", "rpo_home", "https://hamiltontn.gov/Department_RealPropertyOffice.aspx"),
     ("hamilton", "rpo_sold_list", "https://www.hamiltontn.gov/pdf/RealProperty/2025sale/March/Sold-Property-List.pdf"),
     ("hamilton", "cm_tax_sale_notice",
      "https://www.hamiltontn.gov/Clerkmasterforms/taxsale/2026TaxSale/TAX%20SALE%20INFORMATION%202026.pdf"),
 ]
-FOLLOW = re.compile(r"(\.pdf$|\.xlsx?$|\.csv$|tax.?sale|delinquent|surplus|sealed|bid|property.?list|real.?property)", re.I)
+# Tennessee step 3 (2026-10-09): Montgomery, Rutherford, Knox (docs/tennessee-survey.md).
+MONTGOMERY_RUTHERFORD_KNOX = [
+    ("montgomery", "cm_tax_sale", "https://montgomerytn.gov/chancery/tax-sale"),
+    ("rutherford", "cm_delinquent_sales", "https://rcchancery.com/delinquent_sales"),
+    ("knox", "trustee_tax_sale", "https://www.knoxcounty.org/trustee/tax_sale_info.php"),
+]
+PAGE_SETS = {"davidson_hamilton": DAVIDSON_HAMILTON, "montgomery_rutherford_knox": MONTGOMERY_RUTHERFORD_KNOX}
+PAGES = DAVIDSON_HAMILTON
+FOLLOW = re.compile(r"(\.pdf$|\.xlsx?$|\.csv$|tax.?sale|delinquent|surplus|sealed|bid|property.?list|real.?property|"
+                    r"results|sold|search)", re.I)
 MAX_FOLLOW = 12
 
 
@@ -114,15 +126,28 @@ def entry(session, county: str, kind: str, url: str) -> dict:
         if r is not None and r.status_code == 200:
             e["html_tables"] = html_tables(r.text)
             e["all_links"] = all_links(r.text, r.url)
+            e["forms"] = forms(r.text, r.url)
     return e
 
 
-def capture() -> dict:
+def forms(html: str, base: str) -> list[dict]:
+    """A search form's action, method and FIELD NAMES (never a value)."""
+    from bs4 import BeautifulSoup
+    out = []
+    for f in BeautifulSoup(html, "html.parser").find_all("form")[:6]:
+        names = [i.get("name") for i in f.find_all(["input", "select", "textarea"]) if i.get("name")]
+        out.append({"action": urljoin(base, f.get("action") or ""), "method": (f.get("method") or "get").lower(),
+                    "fields": [n for n in names if not n.startswith("__")][:30]})
+    return out
+
+
+def capture(pages=None) -> dict:
+    pages = pages or PAGES
     import requests
     session = requests.Session()
     report = {"generated_at": datetime.now(timezone.utc).replace(microsecond=0).isoformat(), "pages": []}
     seen = set()
-    for county, kind, url in PAGES:
+    for county, kind, url in pages:
         e = entry(session, county, kind, url)
         report["pages"].append(e)
         seen.add(url)
@@ -144,7 +169,7 @@ def capture() -> dict:
 
 
 def digest(report: dict) -> str:
-    out = [f"Davidson / Hamilton TN structure capture {report.get('generated_at')}"]
+    out = [f"Tennessee county structure capture ({report.get('set', 'davidson_hamilton')}) {report.get('generated_at')}"]
     for p in report["pages"]:
         out.append(C.digest({"pages": [p]}).split("\n", 1)[1])
         for t in p.get("pdf_tables") or []:
@@ -153,6 +178,8 @@ def digest(report: dict) -> str:
             if l["in_table"] or not l["official"] or FOLLOW.search(l["href"]):
                 out.append(f"  any-link{' [table]' if l['in_table'] else ''}{'' if l['official'] else ' [external]'}: "
                            f"{l['text']} -> {l['href']}")
+        for f in p.get("forms") or []:
+            out.append(f"  form {f['method'].upper()} {f['action']} fields={f['fields']}")
         for t in p.get("html_tables") or []:
             out.append(f"  html table id={t['id']} rows={t['rows']} headers={t['headers']}")
     return "\n".join(out)
@@ -162,11 +189,13 @@ def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--digest")
     ap.add_argument("--out", default=str(OUT_PATH))
+    ap.add_argument("--set", default="davidson_hamilton", choices=sorted(PAGE_SETS))
     a = ap.parse_args(argv)
     if a.digest:
         print(digest(json.loads(Path(a.digest).read_text(encoding="utf-8"))))
         return 0
-    report = capture()
+    report = capture(PAGE_SETS[a.set])
+    report["set"] = a.set
     out = Path(a.out)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
