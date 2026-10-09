@@ -45,7 +45,7 @@ Other counties with an official list or notice online:
 
 1. **Shelby** (built, see below): the Land Bank (Available). The C&M sale books turned out to be post-sale results, not an upcoming-sale list.
 2. **Davidson and Hamilton**: read 2026-10-09, nothing buildable yet (see below).
-3. **Montgomery, Rutherford, Knox.**
+3. **Montgomery, Rutherford, Knox**: read 2026-10-09, nothing buildable yet (see below).
 
 Every Tennessee source starts unreviewed: collected for admins and never customer-published until an admin review approves it.
 
@@ -102,3 +102,22 @@ What these reads could support later:
 - a Davidson auction source, if the Clerk & Master posts the per-sale lists before a sale. The schedule says sales run roughly monthly.
 
 **Next Tennessee candidates:** Montgomery (publishes the properties sold), Rutherford (searchable delinquent-tax database) and Knox (largest annual sale outside Memphis). Each needs the same value-free read first.
+
+## Montgomery, Rutherford and Knox: what the live reads established (2026-10-09)
+
+There were three value-free evidence runs (`job=evidence`, `evidence_scope=tn_montgomery_rutherford_knox`, `scripts/capture_tn_counties.py --set montgomery_rutherford_knox`): 37866090032, 37866176217 and 37866257521. From the second pass on they sent a browser User-Agent and followed tax-sale links first, including links on followed pages.
+
+**Montgomery.** `montgomerytn.gov/chancery/tax-sale`, its `www.` form and `mcgtn.org/chancery` all answered **403** to the GitHub runners, even with a browser User-Agent. The site blocks this traffic, so nothing can be read or built from here. The survey's lead (a GovEase sale plus a published list of properties sold) is unverified.
+
+**Rutherford.** The Clerk & Master's *Delinquent Tax Sales* page (`rcchancery.com/delinquent_sales`) carries only headings and the site's keyword search box (`keyword`, `SEC`). It links no parcel list on an official host. Its sale runs on GovEase, which this project deliberately never follows. **Nothing is built.**
+
+**Knox.** The Trustee's *Tax Sale* page (`trustee.knoxcounty.org/services/tax-sale`) links four documents for **Tax Sale 25**:
+- the *Final Results* (4 pages, about 200 lines carrying amounts, headed by docket number);
+- the Clerk & Master's *Terms and Conditions* (minimum bid and redemption terms);
+- a *Decree Confirming Sale* and a *Report of Sale*, both scanned with no text layer.
+
+These are the results of a sale already held, not an upcoming list. No current list is linked. **Nothing is built.** The results file could later feed verified auction outcomes once a Knox auction inventory exists to match against.
+
+**State of Tennessee after five counties:** Shelby's Land Bank is the only buildable inventory found. The other large counties publish either schedules and results (Davidson, Hamilton, Knox) or nothing reachable (Montgomery behind a 403, Rutherford through GovEase). The next useful step would be a different kind of source:
+- a county-held property list, like Shelby's land bank;
+- or a Clerk & Master who posts the parcel list ahead of the sale (Blount and Campbell, per the survey).
