@@ -276,11 +276,11 @@ on:
           County Land Bank site (and any ArcGIS layer behind its map: metadata
           and a count only), the Clerk & Master tax-sale page and sale-book
           PDFs, and the City of Memphis real-estate page, STRUCTURE only
-          (scripts/capture_tn_shelby.py).
+          (scripts/capture_tn_shelby.py). "tn_davidson_hamilton" = the same for Davidson and Hamilton (scripts/capture_tn_counties.py).
         required: false
         type: choice
         default: available
-        options: [available, pioneer_statements, auction_results, state_sources, expansion, field_fill, five_state, five_state_pass2, five_state_pass3, enrich_sources, enrich_sources_2, enrich_sources_3, enrich_sources_4, acquisition_candidates, available_discovery, sc_available, available_sources, available_validate, tn_shelby]
+        options: [available, pioneer_statements, auction_results, state_sources, expansion, field_fill, five_state, five_state_pass2, five_state_pass3, enrich_sources, enrich_sources_2, enrich_sources_3, enrich_sources_4, acquisition_candidates, available_discovery, sc_available, available_sources, available_validate, tn_shelby, tn_davidson_hamilton]
 
 concurrency:
   group: harvest-and-sync
@@ -1455,6 +1455,14 @@ jobs:
             IFS=',' read -ra cs <<< "$COUNTIES"
             for c in "${cs[@]}"; do c="$(echo "$c" | xargs)"; [ -n "$c" ] && cargs="$cargs --county \"$c\""; done
             eval python3 scripts/capture_purchase_evidence.py --candidates --candidates-file data/available_discovery_pages.csv --follow --discovery $cargs
+            exit 0
+          fi
+          if [ "$SCOPE" = "tn_davidson_hamilton" ]; then
+            # Tennessee step 2 (2026-10-09): Davidson Clerk & Master tax-sale
+            # lists and Hamilton Real Property Office / tax-sale notice.
+            # Structure only (whitelisted headings / table header cells,
+            # identifier SHAPES, counts); no row, name, address or amount.
+            python3 scripts/capture_tn_counties.py
             exit 0
           fi
           if [ "$SCOPE" = "tn_shelby" ]; then
