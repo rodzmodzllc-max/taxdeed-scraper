@@ -314,6 +314,15 @@ const FIXTURE_PROPERTIES = [
     list_url: "https://www.fayettecountypa.org/930/Repository-Sale", document_url: "https://www.fayettecountypa.org/DocumentCenter/View/9761", url_auction: "https://www.fayettecountypa.org/930/Repository-Sale", url_auction_kind: "county",
     purchase_amount: 500, purchase_amount_kind: "OPENING_BID", list_as_of: "2025-10-07",
     last_seen_at: "2026-10-04T12:00:00Z", publication_status: "UNREVIEWED", ledger_type: "buy", updated_at: "2026-10-04T12:00:00Z" },
+  // 2026-10-09 (Tennessee): one Shelby County Land Bank row in the shape the
+  // ePropertyPlus adapter + sync write. SYNTHETIC values; UNREVIEWED source.
+  { id: "ptn1", source: "laft", state: "TN", county: "Shelby", case_no: "99999A99999999", parcel: "99999A99999999", address: "3 FIXTURE LAND BANK RD", bid: 4500, status: "active", sale_date: null, lien_level: "unscreened", lien_note: "",
+    harvester_source: "tn_shelby_landbank", source_id: "tn_shelby_landbank", source_authority: "GOVERNMENT_DIRECT", inventory_type: "POST_SALE",
+    list_url: "https://public-sctn.epropertyplus.com/landmgmtpub/app/base/landing", url_auction: "https://public-sctn.epropertyplus.com/landmgmtpub/app/base/landing", url_auction_kind: "county",
+    purchase_amount: 4500, purchase_amount_kind: "PUBLISHED_AMOUNT_KIND_UNSPECIFIED", land_use: "Residential Vacant", assessed: 1001, inventory_status_raw: "FOR SALE",
+    latitude: 35.1, longitude: -90.0,
+    field_provenance: { latitude: { source: "county_list", evidence: "the Shelby County Land Bank portal's own latitude / longitude" }, longitude: { source: "county_list", evidence: "the Shelby County Land Bank portal's own latitude / longitude" } },
+    last_seen_at: "2026-10-08T23:23:00Z", publication_status: "UNREVIEWED", ledger_type: "buy", updated_at: "2026-10-08T23:23:00Z" },
   { id: "pmn1", source: "laft", state: "MN", county: "Ramsey", case_no: "999999999999", parcel: "999999999999", address: "2 FIXTURE FORFEIT AVE", legal_desc: "FIXTURE LOT 3", bid: 15000, status: "active", sale_date: null, lien_level: "unscreened", lien_note: "",
     harvester_source: "mn_ramsey_tax_forfeit", source_id: "mn_ramsey_tax_forfeit", source_authority: "GOVERNMENT_DIRECT", inventory_type: "POST_SALE",
     list_url: "https://www.ramseycountymn.gov/residents/property-home/taxes-values/productive-properties", url_auction: "https://www.ramseycountymn.gov/residents/property-home/taxes-values/productive-properties", url_auction_kind: "county",

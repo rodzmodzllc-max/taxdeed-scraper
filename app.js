@@ -1041,6 +1041,24 @@ function ledgerCopy(key) {
 // A DATED list (Louisiana's adjudicated-property rows): the source's own
 // last-update date is the only availability statement the row can make.
 const isDatedList = p => p && p.source === "laft" && p.inventory_type === "ADJUDICATED_PROPERTY";
+// What each non-Florida AVAILABLE source actually is (its own program), so a
+// land bank, a repository or forfeited land is never called Florida's
+// "Lands Available ... over the counter from the clerk". A source not named
+// here reads as government-held property, never as a tax sale.
+// Function declaration + var: reached from render() during module init (TDZ).
+var AVAILABLE_PROGRAMS = {
+  tn_shelby_landbank: "Land bank inventory",
+  mi_detroit_landbank_lots: "Land bank inventory", mi_detroit_landbank_programs: "Land bank inventory",
+  mi_oceana_landbank: "Land bank inventory",
+  mo_stl_lra_inventory: "Land Reutilization Authority inventory",
+  mn_ramsey_tax_forfeit: "Tax-forfeited land",
+  pa_fayette_repository: "Repository list (unsold at tax sale)",
+  ok_oklahoma_county_owned: "County-owned property",
+  sc_horry_forfeited_land: "Forfeited Land Commission list", sc_georgetown_forfeited_land: "Forfeited Land Commission list"
+};
+function availableProgram(p) {
+  return AVAILABLE_PROGRAMS[(p && (p.source_id || p.harvester_source)) || ""] || "Government-held property";
+}
 const datedListText = p => `Adjudicated · list as of ${p.list_as_of ? fmtDate(p.list_as_of) : "date not published"}`;
 
 const state = {
@@ -2251,6 +2269,12 @@ function harvesterSourceLabel(p) {
 // (a row written before migration 013 by a writer that predates it) gets the
 // neutral "View listing", which claims nothing about scope.
 const AUCTION_LINK_KINDS = ["property", "sale", "county", "info"];
+// Copy only, never the link kind: Florida's lists are the counties' "Lands
+// Available" lists; elsewhere the list belongs to whatever program the source
+// runs (land bank, repository, forfeited land), so it is named neutrally.
+function laftListLabel(p) {
+  return regionOf(p) === "FL" ? "View county Lands Available list" : "View the source's published list";
+}
 function auctionLinkInfo(p) {
   const href = p && p.url_auction ? String(p.url_auction).trim() : "";
   const kind = p && AUCTION_LINK_KINDS.includes(p.url_auction_kind) ? p.url_auction_kind : null;
@@ -2270,7 +2294,7 @@ function auctionLinkInfo(p) {
   if (kind === "county") {
     const label = p.source === "certificate" ? "View county-held liens list"
       : isDatedList(p) ? "View the Parish's adjudicated-property dataset"
-      : p.source === "laft" ? "View county Lands Available list"
+      : p.source === "laft" ? laftListLabel(p)
       : "View county auction site";
     return { href, kind, label, note: "A county page where this property can be found - not a page for this property alone." };
   }
@@ -3901,6 +3925,7 @@ function kickerParts(p) {
   if (isGone(p)) { phase = "No longer listed"; cls = "phase-closed"; }
   else if (p.source === "laft") {
     if (isDatedList(p)) { phase = datedListText(p) + " · not verified available now"; cls = "phase-none"; }
+    else if (regionOf(p) !== "FL" && !isTx) { phase = availableProgram(p) + (p.inventory_status_raw ? " · " + String(p.inventory_status_raw) : ""); cls = "phase-fixed"; }
     else if (!isTx) { phase = "Lands Available list · over the counter"; cls = "phase-fixed"; }
     else if (/future sale/i.test(txStatus)) { phase = "Future sale · not yet scheduled"; cls = "phase-none"; }
     else if (/struck off/i.test(txStatus)) { phase = "Struck off · resale inventory"; cls = "phase-fixed"; }
@@ -4630,7 +4655,7 @@ const AVAILABLE_COVERAGE_LABELS = {
   SOURCE_EMPTY: "Source checked - the county list was empty at its last read.",
   SOURCE_UNAVAILABLE: "Source unavailable - the last read of the county list failed. Nothing is assumed from a failed read.",
   MATCHING_FAILED: "The last read could not be matched to parcel identifiers, so nothing was published from it.",
-  REVIEW_REQUIRED: "Official program pages were found but are awaiting capture and publication review. Nothing is published from them yet.",
+  REVIEW_REQUIRED: "Official sources were found and are awaiting publication review. Nothing is published from them yet.",
   HARD_BLOCKED: "Only blocked sources were found; none is used.",
   NO_QUALIFYING_PROGRAM: "No qualifying government-held inventory - this state's post-sale instrument is a lien or an auction, not property held for purchase.",
   NO_SOURCE_DISCOVERED: "No AVAILABLE source has been discovered for this state yet."
@@ -4657,7 +4682,8 @@ function opportunitySummaryHtml(p) {
   // A Texas "laft" row is LGBS struck-off / future-sale inventory, never
   // Florida's statutory over-the-counter list - see kickerParts().
   const what = isLaft
-    ? (isDatedList(p) ? "Adjudicated property (Parish open-data list)" : region === "TX" ? "Texas struck-off / future-sale inventory (vendor listing)" : "Lands Available for Taxes (over the counter from the clerk)")
+    ? (isDatedList(p) ? "Adjudicated property (Parish open-data list)" : region === "TX" ? "Texas struck-off / future-sale inventory (vendor listing)"
+      : region === "FL" ? "Lands Available for Taxes (over the counter from the clerk)" : availableProgram(p))
     : (region === "FL" ? "Florida tax deed auction" : `${(STATE_META[region] && STATE_META[region].name) || region} tax sale auction`);
   const src = harvesterSourceLabel(p);
   const street = realAddress(p);
@@ -7429,6 +7455,11 @@ function provenanceSourceLabel(source, p) {
   if (source === "county_list" && p && p.source && p.source !== "laft") {
     return p.source === "certificate" ? "County certificate / lien list" : "County tax-sale list";
   }
+  // "Lands Available" is Florida's term; elsewhere the list belongs to the
+  // source's own program (land bank, repository, forfeited land).
+  if (source === "county_list" && p && p.source === "laft" && regionOf(p) !== "FL") {
+    return "Source list (" + availableProgram(p) + ")";
+  }
   return PROVENANCE_SOURCE_LABELS[source] || String(source);
 }
 // Sources whose reuse terms are under review (harvesters/sources/model.py
@@ -8198,7 +8229,7 @@ function detailHtml(p) {
   const html = `
     <button class="detail-close" data-action="closedetail" type="button" aria-label="Close">✕</button>
     ${detailCrumbsHtml(p)}
-    <div class="prop-county-tag">${esc(p.county)} ${UNIT_WORD}, ${esc(regionOf(p))}${isCert ? " · Certificate" : (p.source === "laft" ? (isDatedList(p) ? " · Adjudicated (dated list)" : regionOf(p) === "TX" ? " · Struck-off inventory" : " · Lands Available") : " · Auction")}</div>
+    <div class="prop-county-tag">${esc(p.county)} ${UNIT_WORD}, ${esc(regionOf(p))}${isCert ? " · Certificate" : (p.source === "laft" ? (isDatedList(p) ? " · Adjudicated (dated list)" : regionOf(p) === "TX" ? " · Struck-off inventory" : regionOf(p) === "FL" ? " · Lands Available" : " · " + esc(availableProgram(p))) : " · Auction")}</div>
     <h2 class="detail-address">${title}</h2>
     <div class="prop-top-actions" style="margin:.2rem 0 .5rem">
       <button class="icon-btn heart-btn${fav ? " on" : ""}" data-action="fav" data-pid="${p.id}" type="button">${fav ? "♥ Favorited" : "♡ Favorite"}</button>
@@ -9291,7 +9322,8 @@ function groupSecondaryLine(ledgerKey, date) {
   // opportunitySummaryHtml(). Nothing here says it is purchasable today.
   if (ledgerKey === "laft") return PAGE_STATE === "TX" ? "Struck-off / future-sale inventory - no auction date; see each card's status"
     : PAGE_STATE === "LA" ? "Adjudicated property - the Parish's list as of its own last-update date, not verified available now"
-    : "Lands Available - over the counter, available now";
+    : PAGE_STATE === "FL" ? "Lands Available - over the counter, available now"
+    : "Government-held property the source offers - each card shows the source's own status";
   return "County-held certificates";
 }
 
@@ -9341,7 +9373,7 @@ function ledgerFacts(kind, shown) {
       bits.push(soonest === 0 ? "a sale closing today" : "next sale in " + soonest + " day" + (soonest === 1 ? "" : "s"));
     }
   } else if (kind === "laft") {
-    const priced = shown.filter(hasPublishedBid).map(p => Number(p.bid));
+    const priced = shown.filter(hasPublishedBid).map(p => Number(p.purchase_amount != null ? p.purchase_amount : p.bid));
     if (priced.length) bits.push("from " + fmtShort(Math.min.apply(null, priced)));
   } else if (kind === "certificate") {
     const expiring = shown.filter(p => {

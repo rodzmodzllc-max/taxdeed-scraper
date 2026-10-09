@@ -3001,3 +3001,10 @@ Full description: `docs/tennessee-survey.md` (statewide survey of all 95 countie
 - `scripts/capture_tn_shelby.py` is the value-free probe (`job=evidence`, `evidence_scope=tn_shelby`). `available_validate` now also runs TN read-only.
 - A new state touches: `states.py`, the expansion config + `SOURCES`, ledgers, the registry builder, coordinates (py + `COORD_SOURCE_COORDINATES` in app.js), `geocode.STATE_BOUNDS`, financial terms, `build_state_basemap.py` + `build_state_page.py`, `STATE_META` / `EXPANSION_LEDGER_COPY` / `MINIMAP_PROJ` (app.js), `STATE_ASSETS` / `PROJ` (explore.js), `STATEWIDE_VIEW` (satellite-map.js), sw.js SHELL, the mirror `FILES`, the Playwright importmap list, `check_deployed_branding.PAGES`, the regenerated JSON files, and the tests that pin state sets.
 - `sw.js` -> `tdw-shell-v109`.
+
+## Tennessee visibility + program labels (2026-10-09, PR open, frontend only)
+
+- **Why TN looked empty:** production held 0 TN rows because no scheduled `expansion` run had happened since #123 merged. The selector, page and gates were fine. Shelby's source is UNREVIEWED, so once rows arrive, admins and preview testers see them labelled, and customers see "N records withheld" plus the empty state until an admin approves the source.
+- **Program names outside Florida:** Available rows name their program through app.js `availableProgram(p)` (`AVAILABLE_PROGRAMS`, keyed by source id). This covers the kicker, the summary "What", the detail tag, the group line and the list link label (`laftListLabel()`, kept out of `auctionLinkInfo()`, which must not branch on region). "Lands Available" is Florida-only.
+- **Ledger names:** generated state pages say "Liens & Certificates"; only tx.html says "Redeemable Deeds" (`build_state_page.py`, la.html by hand).
+- Fixture `ptn1` (Shelby, UNREVIEWED); Playwright `tnVisibility`. `sw.js` -> `tdw-shell-v110`.

@@ -96,6 +96,11 @@ def render(code: str, template: str) -> str:
     for old, new in (
         (TX_BODY, f'<body data-state="{code}">'),
         (TX_NOTICE, cfg["notice"]),
+        # The third ledger's static labels: "Redeemable Deeds" is Texas's own name for
+        # that slot (ledgerCopy's tx block); every other state keeps the base name.
+        ('</span>Redeemable Deeds <b id="tabCountCertificate">', '</span>Liens &amp; Certificates <b id="tabCountCertificate">'),
+        ('<span class="pill-dot pill-dot-certificate" aria-hidden="true"></span>Redeemable Deeds</button>',
+         '<span class="pill-dot pill-dot-certificate" aria-hidden="true"></span>Liens &amp; Certificates</button>'),
         (TX_TERMS_COMMENT, f"<!-- {cfg['name']} terms (2026-09-30, six-state expansion). No {cfg['name']} statutory copy\n"
                            "is stated here: none has been reviewed with counsel. Do not add it without counsel review. -->"),
     ):

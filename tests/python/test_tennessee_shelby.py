@@ -137,3 +137,21 @@ def test_workflow_collects_tn_and_validates_it_read_only():
     wf = (ROOT / ".github/workflows/harvest-and-sync.yml").read_text()
     assert "state: [MI, WY, SC, CO, WI, MO, OK, PA, MN, TN]" in wf
     assert 'for st in MI SC TN; do python3 scripts/harvest_expansion.py' in wf
+
+
+def test_generated_pages_name_the_certificate_ledger_honestly():
+    """Only Texas sells redeemable tax deeds; every other page (Tennessee
+    included) names the third ledger "Liens & Certificates"."""
+    pages = sorted((ROOT / "public").glob("*.html"))
+    for page in pages:
+        html = page.read_text(encoding="utf-8")
+        if page.name == "tx.html":
+            assert "Redeemable Deeds" in html
+        else:
+            assert "Redeemable Deeds" not in html, page.name
+
+
+def test_app_names_available_programs_outside_florida():
+    app = (ROOT / "public/app.js").read_text(encoding="utf-8")
+    assert 'tn_shelby_landbank: "Land bank inventory"' in app
+    assert "function availableProgram(p)" in app

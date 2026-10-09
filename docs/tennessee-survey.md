@@ -78,3 +78,27 @@ There were five value-free evidence runs (`job=evidence`, `evidence_scope=tn_she
 They are results of sales already held, not an upcoming-sale list. Bidding itself is on ZeusAuction (SRI), a vendor. An Auctions source for Shelby would need the upcoming list, which these pages do not publish, and the vendor's terms reviewed. These books could later feed verified auction outcomes, the same way `data/auction_outcome_wordings.csv` does for Florida.
 
 **City of Memphis real estate** links to Memphis open-data hub apps. They were not followed.
+
+## Visibility audit (2026-10-09)
+
+Why Tennessee showed nothing after PR #123 merged:
+
+- **No rows yet.** Production held 0 TN rows (`select count(*) from properties where state='TN'`, read-only, 2026-10-09). The `expansion` matrix runs at 12:00 UTC. PR #123 merged at 00:41 UTC on 2026-10-09, so no scheduled read had collected Shelby yet. No workflow was dispatched for this audit.
+- **The selector was never the blocker.** TN was already in `STATE_META`, and `tn.html` and `tn-counties.svg` were deployed.
+- **When rows arrive, who sees them** depends on publication. `tn_shelby_landbank` is UNREVIEWED:
+  - admins and preview-mode testers see each row labelled "Source review";
+  - paying customers see "N records withheld" and the empty state until an admin approves the source. Approval is the owner's decision.
+- **Expected count:** 2,039 rows, the offered set (`currentStatus = FOR SALE`, `available = Y`) from read-only validation run 37859070247 (2026-10-08 23:23 UTC), out of 12,884 published portal rows. All of them are land-bank inventory. None is an auction, a lien or a tax deed.
+
+Labels fixed so land-bank rows are not mislabelled:
+
+- **Outside Florida, Available rows name their program** (`availableProgram()` in app.js): "Land bank inventory · FOR SALE", using the source's own status. They never say "Lands Available", which is Florida's statutory term. This applies to:
+  - the card kicker;
+  - the summary "What";
+  - the detail header;
+  - the group line;
+  - the list link label.
+- **Generated state pages name the third ledger "Liens & Certificates"**, not "Redeemable Deeds". Only Texas sells redeemable deeds, and Tennessee sells no certificates.
+- The empty-state coverage wording for REVIEW_REQUIRED now says sources were found and are awaiting publication review.
+
+Counties rechecked in this sprint, with no change: Blount (list seasonal, not posted) and Campbell (list PDF 404). Davidson, Hamilton, Montgomery, Rutherford and Knox are as recorded above. No county besides Shelby publishes current inventory a harvester can read.
