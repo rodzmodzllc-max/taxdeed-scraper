@@ -3373,12 +3373,16 @@ await navMap.close();
     fnCalls: (window.__stubFnCalls || []).filter(c => c.email === 'nopass@example.com').map(c => c.fields.includes('password')),
     signUpCalls: (window.__stubSignUpCalls || []).length }));
   results.signupValidPending = await pwReq.locator('#pendingGate').isVisible() && await pwReq.locator('#app').isHidden();
-  // Back on sign-in, the field is a plain password field again (no minimum).
-  results.signupPasswordFieldSignin = await pwReq.evaluate(() => {
+  await pwReq.close();
+  // Sign-up -> back to sign-in: the field is a plain password field again (no minimum).
+  const pwBack = await newPage({ viewport: { width: 1000, height: 800 } });
+  await pwBack.goto(APP_URL + '#/auctions', { waitUntil: 'networkidle' });
+  await pwBack.click('#authModeToggle'); await pwBack.click('#authModeToggle');
+  results.signupPasswordFieldSignin = await pwBack.evaluate(() => {
     const pw = document.getElementById('password');
     return { label: pw.closest('label').querySelector('span').textContent, minLength: pw.minLength, autocomplete: pw.autocomplete };
   });
-  await pwReq.close();
+  await pwBack.close();
 
   // An expired / already-used confirmation link lands with an error hash.
   const expired = await newPage({ viewport: { width: 1000, height: 800 } });
