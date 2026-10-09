@@ -3314,10 +3314,80 @@ await navMap.close();
   await fnDup.close();
   const fnBad = await newPage({ viewport: { width: 1000, height: 800 } });
   await fnBad.goto(APP_URL + '&selfsignup=bad' + '#/auctions', { waitUntil: 'networkidle' });
-  await fillSignUp(fnBad, 'short@example.com', 'short');
+  await fillSignUp(fnBad, 'short@example.com', 'fixture-refused-pass');
   results.selfSignupRefusalMsg = ((await fnBad.locator('#authMsg').textContent()) || '').trim();
   results.selfSignupRefusalNoFallback = await fnBad.evaluate(() => (window.__stubFnCalls || []).length);
   await fnBad.close();
+
+  // Password required (2026-10-09). A TAXACQ account is a password account:
+  // a missing, empty or whitespace-only password - or one under 8 characters -
+  // is refused in the browser before ANY request (no self-signup call, no
+  // auth.signUp), even when the submit skips the input's own validation
+  // (a scripted submit event). The stub's self-signup applies the server's
+  // rule too (supabase/functions/_shared/signup_password.js).
+  const pwReq = await newPage({ viewport: { width: 1000, height: 800 } });
+  await pwReq.goto(APP_URL + '&selfsignup=1' + '#/auctions', { waitUntil: 'networkidle' });
+  await pwReq.click('#authModeToggle');
+  results.signupPasswordField = await pwReq.evaluate(() => {
+    const pw = document.getElementById('password');
+    return { label: pw.closest('label').querySelector('span').textContent, required: pw.required, minLength: pw.minLength,
+      autocomplete: pw.autocomplete, confirmRequired: document.getElementById('passwordConfirm').required,
+      live: document.getElementById('authMsg').getAttribute('aria-live') };
+  });
+  const fillProfile = async () => {
+    await pwReq.fill('#firstName', 'Pat'); await pwReq.fill('#lastName', 'Example'); await pwReq.fill('#company', 'Independent');
+    await pwReq.fill('#address', '1 Main St'); await pwReq.fill('#phone', '555-0100'); await pwReq.fill('#email', 'nopass@example.com');
+  };
+  await fillProfile();
+  // (a) Missing password, ordinary click: the browser's own required check stops it.
+  await pwReq.fill('#password', ''); await pwReq.fill('#passwordConfirm', '');
+  await pwReq.click('#signInBtn'); await pwReq.waitForTimeout(300);
+  results.signupMissingPasswordNativeBlocked = await pwReq.evaluate(() => !document.getElementById('password').validity.valid);
+  // (b)-(e) The same with the input's validation skipped (scripted submit).
+  const scripted = async (pw, confirm) => {
+    await pwReq.fill('#password', pw); await pwReq.fill('#passwordConfirm', confirm);
+    await pwReq.evaluate(() => document.getElementById('authForm').dispatchEvent(new Event('submit', { cancelable: true, bubbles: true })));
+    await pwReq.waitForTimeout(300);
+    return pwReq.evaluate(() => ({ msg: document.getElementById('authMsg').textContent.trim(),
+      invalid: document.getElementById('password').getAttribute('aria-invalid'),
+      focused: document.activeElement && document.activeElement.id }));
+  };
+  results.signupMissingPasswordScripted = await scripted('', '');
+  results.signupWhitespacePassword = await scripted('          ', '          ');
+  results.signupShortPassword = await scripted('abc', 'abc');
+  results.signupPasswordRequestsSent = await pwReq.evaluate(() => ({ fn: (window.__stubFnCalls || []).length, signUp: (window.__stubSignUpCalls || []).length }));
+  results.signupPendingNotShownWithoutPassword = await pwReq.locator('#pendingGate').isHidden() && await pwReq.locator('#app').isHidden();
+  // The server rule (stub mirror): a direct call that skips the page is refused too.
+  results.signupServerRefusesBlank = await pwReq.evaluate(async () => {
+    const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
+    const c = createClient();
+    const out = {};
+    for (const [k, pw] of [['missing', undefined], ['empty', ''], ['spaces', '          '], ['short', 'abc']]) {
+      const body = { email: k + '@example.com', first_name: 'P', last_name: 'E', company: 'I', address: 'A', phone: '1' };
+      if (pw !== undefined) body.password = pw;
+      const { error } = await c.functions.invoke('self-signup', { body });
+      out[k] = error ? (await error.context.json()).error : 'created';
+    }
+    return out;
+  });
+  // A valid password then goes through self-signup (one call, with a password
+  // field) and lands on the pending-approval screen - approval still required.
+  await pwReq.fill('#password', 'fixture-valid-pass'); await pwReq.fill('#passwordConfirm', 'fixture-valid-pass');
+  await pwReq.click('#signInBtn'); await pwReq.waitForTimeout(700);
+  results.signupValidAfterRefusals = await pwReq.evaluate(() => ({
+    fnCalls: (window.__stubFnCalls || []).filter(c => c.email === 'nopass@example.com').map(c => c.fields.includes('password')),
+    signUpCalls: (window.__stubSignUpCalls || []).length }));
+  results.signupValidPending = await pwReq.locator('#pendingGate').isVisible() && await pwReq.locator('#app').isHidden();
+  await pwReq.close();
+  // Sign-up -> back to sign-in: the field is a plain password field again (no minimum).
+  const pwBack = await newPage({ viewport: { width: 1000, height: 800 } });
+  await pwBack.goto(APP_URL + '#/auctions', { waitUntil: 'networkidle' });
+  await pwBack.click('#authModeToggle'); await pwBack.click('#authModeToggle');
+  results.signupPasswordFieldSignin = await pwBack.evaluate(() => {
+    const pw = document.getElementById('password');
+    return { label: pw.closest('label').querySelector('span').textContent, minLength: pw.minLength, autocomplete: pw.autocomplete };
+  });
+  await pwBack.close();
 
   // An expired / already-used confirmation link lands with an error hash.
   const expired = await newPage({ viewport: { width: 1000, height: 800 } });
@@ -6322,7 +6392,7 @@ const EXPECTED = {
   },
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v111"]},
+  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v113"]},
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · TAXACQ — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · TAXACQ — Florida", floridaCopy: true },
@@ -7407,6 +7477,17 @@ const EXPECTED = {
   selfSignupDuplicateMsg: "An account with this email already exists. Choose “Already have an account? Sign in”, or “Forgot password?” to set a new password.",
   selfSignupRefusalMsg: "Please choose a password of at least 8 characters.",
   selfSignupRefusalNoFallback: 1,
+  signupPasswordField: {"label": "Create a password (at least 8 characters)", "required": true, "minLength": 8, "autocomplete": "new-password", "confirmRequired": true, "live": "polite"},
+  signupMissingPasswordNativeBlocked: true,
+  signupMissingPasswordScripted: {"msg": "Enter a password for your new account.", "invalid": "true", "focused": "password"},
+  signupWhitespacePassword: {"msg": "Enter a password for your new account.", "invalid": "true", "focused": "password"},
+  signupShortPassword: {"msg": "Please choose a password of at least 8 characters.", "invalid": "true", "focused": "password"},
+  signupPasswordRequestsSent: {"fn": 0, "signUp": 0},
+  signupPendingNotShownWithoutPassword: true,
+  signupServerRefusesBlank: {"missing": "missing_password", "empty": "missing_password", "spaces": "missing_password", "short": "weak_password"},
+  signupValidAfterRefusals: {"fnCalls": [true], "signUpCalls": 0},
+  signupValidPending: true,
+  signupPasswordFieldSignin: {"label": "Password", "minLength": -1, "autocomplete": "current-password"},
   // Independent ledger loading + list payload (2026-10-05).
   laAuctionsEmptyDesktop: {"beforeAvailable": true, "text": "No auction properties currently available.", "stateEmptyClaim": 0, "skeleton": 0, "availableTab": "…"},
   laAvailableArrivesDesktop: {"availableTab": "2", "stillEmpty": 1, "hash": "#/auctions"},

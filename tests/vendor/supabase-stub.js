@@ -831,6 +831,9 @@ export function createClient() {
       },
       async signUp(creds) {
         const email = creds && creds.email;
+        // Counted (fields only, never values) so a test can prove a refused
+        // sign-up never reached Supabase Auth.
+        window.__stubSignUpCalls = (window.__stubSignUpCalls || []).concat([{ fields: Object.keys(creds || {}).sort() }]);
         if (STUB_AUTH) {
           if (STUB_SIGNUP_DISABLED) return { data: { user: null, session: null }, error: { message: "Signups not allowed for this instance", status: 422 } };
           if (STUB_EMAIL_LIMIT) return { data: { user: null, session: null }, error: STUB_RATE_ERR };
@@ -902,6 +905,10 @@ export function createClient() {
         const res = (status, json) => ({ data: null, error: { name: "FunctionsHttpError", message: "Edge Function returned a non-2xx status code", context: { status, json: async () => json } } });
         if (name !== "self-signup" || !mode) return res(404, {});
         if (mode === "bad") return res(400, { error: "weak_password", message: "Please choose a password of at least 8 characters." });
+        // Same rule as supabase/functions/_shared/signup_password.js.
+        const pw = typeof body.password === "string" ? body.password : "";
+        if (!pw.trim()) return res(400, { error: "missing_password", message: "Enter a password for your new account." });
+        if (pw.length < 8 || pw.length > 72) return res(400, { error: "weak_password", message: "Please choose a password of at least 8 characters." });
         const users = stubUsers();
         if (users.some(x => x.email === body.email)) return res(409, { error: "already_registered", message: "An account with this email already exists. Choose “Already have an account? Sign in”, or “Forgot password?” to set a new password." });
         users.push({ id: "s" + (users.length + 1), email: body.email, password: body.password, approved: false, is_admin: false, requested_at: new Date().toISOString() });

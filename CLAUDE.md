@@ -3025,7 +3025,7 @@ Full description: `supabase/functions/notify-approval/README.md`. Stable facts:
   - `node --test tests/billing/approval_notify.test.mjs` (in the python-governance workflow);
   - `tests/python/test_migration_030_approval_notifications.py`;
   - Playwright `signupApproveNotifyCalls`.
-- `sw.js` → `tdw-shell-v111`.
+- `sw.js` → `tdw-shell-v113` (v111 was reserved; #127 took v112 first).
 
 ## Password recovery verified against the real supabase-js (2026-10-09, same PR)
 
@@ -3041,3 +3041,16 @@ Full description: `supabase/functions/notify-approval/README.md`. Stable facts:
   - the expired-link copy only covered sign-up confirmation;
   - on desktop, `identity.css` `.app-shell{display:block!important}` showed the app chrome to signed-out and pending accounts; `.app-shell[hidden]` now wins.
 - **Tests:** `tests/recovery_flow_test.mjs` (26 checks; CI step in playwright-test.yml) runs the vendored `supabase-js.umd.js` against a fake Auth/REST server. It never uses the stub. The recovery e-mail itself is sent by Supabase Auth, not by Resend.
+## Sign-up requires a password (2026-10-09, PR open, no migration, function NOT redeployed)
+
+A tester reported signing up "without entering a password". Traced:
+- **No passwordless path exists.** The form's password field is `required`. `self-signup` creates the account with `admin.createUser({email, password, email_confirm: true})`, and the browser then calls `signInWithPassword` with the same password. The fallback `auth.signUp` also sends it. The app never calls OTP, magic-link, OAuth or invite methods.
+- **Production (read-only, flags only, 2026-10-09):** every one of the six `auth.users` rows has a password.
+  - The newest account's first session is `password` in the same minute it was created, i.e. the automatic sign-in after signup.
+  - Only the 2026-08-17 invite-created account has never signed in with a password (`otp` sessions only: invite, then recovery link).
+- **Likely cause:** browsers' "suggest strong password" fills both new-password fields, and self-signup signs the person in at once with no confirmation e-mail, so the password is never typed. Unconfirmed; it was not reproduced on the tester's device.
+- **Gaps fixed:** the JS handler relied only on `required` (a scripted submit skips it), and the server accepted a whitespace-only password of 8+ characters.
+  - One rule now: missing / empty / whitespace-only / outside 8..72 is refused. It lives in `supabase/functions/_shared/signup_password.js`, used by self-signup.
+  - `signupPasswordProblem()` in app.js applies the same rule before any request; `tests/billing/signup_password.test.mjs` pins the two equal.
+  - The field reads "Create a password (at least 8 characters)" in sign-up mode, and `#authMsg` is `aria-live`.
+- The server half takes effect only when `self-signup` is redeployed (owner). `sw.js` -> `tdw-shell-v112` (v111 was reserved for the approval / recovery PR, which shipped as v113).
