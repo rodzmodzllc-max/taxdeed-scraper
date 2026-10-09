@@ -276,11 +276,11 @@ on:
           County Land Bank site (and any ArcGIS layer behind its map: metadata
           and a count only), the Clerk & Master tax-sale page and sale-book
           PDFs, and the City of Memphis real-estate page, STRUCTURE only
-          (scripts/capture_tn_shelby.py). "tn_davidson_hamilton" / "tn_montgomery_rutherford_knox" = the same for those counties (scripts/capture_tn_counties.py).
+          (scripts/capture_tn_shelby.py). "tn_davidson_hamilton" / "tn_montgomery_rutherford_knox" / "tn_blount_campbell" = the same for those counties (scripts/capture_tn_counties.py).
         required: false
         type: choice
         default: available
-        options: [available, pioneer_statements, auction_results, state_sources, expansion, field_fill, five_state, five_state_pass2, five_state_pass3, enrich_sources, enrich_sources_2, enrich_sources_3, enrich_sources_4, acquisition_candidates, available_discovery, sc_available, available_sources, available_validate, tn_shelby, tn_davidson_hamilton, tn_montgomery_rutherford_knox]
+        options: [available, pioneer_statements, auction_results, state_sources, expansion, field_fill, five_state, five_state_pass2, five_state_pass3, enrich_sources, enrich_sources_2, enrich_sources_3, enrich_sources_4, acquisition_candidates, available_discovery, sc_available, available_sources, available_validate, tn_shelby, tn_davidson_hamilton, tn_montgomery_rutherford_knox, tn_blount_campbell]
 
 concurrency:
   group: harvest-and-sync
@@ -1455,6 +1455,11 @@ jobs:
             IFS=',' read -ra cs <<< "$COUNTIES"
             for c in "${cs[@]}"; do c="$(echo "$c" | xargs)"; [ -n "$c" ] && cargs="$cargs --county \"$c\""; done
             eval python3 scripts/capture_purchase_evidence.py --candidates --candidates-file data/available_discovery_pages.csv --follow --discovery $cargs
+            exit 0
+          fi
+          if [ "$SCOPE" = "tn_blount_campbell" ]; then
+            # Tennessee step 4 (2026-10-09): Blount and Campbell, value-free.
+            python3 scripts/capture_tn_counties.py --set blount_campbell
             exit 0
           fi
           if [ "$SCOPE" = "tn_montgomery_rutherford_knox" ]; then

@@ -42,11 +42,11 @@ import capture_tn_shelby as C  # noqa: E402
 OUT_PATH = C.REPO / "out" / "public" / "tn-counties-structure.json"
 C.OFFICIAL_HOSTS = C.OFFICIAL_HOSTS + ("nashville.gov", "hamiltontn.gov", "padctn.org",
                                        "montgomerytn.gov", "mcgtn.org", "rcchancery.com", "rutherfordcountytn.gov",
-                                       "knoxcounty.org", "knoxcountytrustee.org")
+                                       "knoxcounty.org", "knoxcountytrustee.org", "blounttn.gov", "campbellcountytn.gov")
 C.SAFE_WORDS = C.SAFE_WORDS | frozenset("""
 acct appraisal assessed assessment balance bidding block case cases chancery civil control davidson district docket
 group hamilton id item judgment montgomery rutherford knox knoxville clarksville murfreesboro trustee results
-surplus lien map nashville no number opened opening parcel pin real rpo sealed sold subdivision
+surplus blount campbell maryville jacksboro list updated lien map nashville no number opened opening parcel pin real rpo sealed sold subdivision
 tract value ward amount due assessor
 """.split())
 
@@ -71,7 +71,16 @@ MONTGOMERY_RUTHERFORD_KNOX = [
 C.UA = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) "
         "Chrome/124.0.0.0 Safari/537.36")
 PRIORITY = re.compile(r"(tax.?sale|taxsale|results|delinquent|surplus|sold)", re.I)
-PAGE_SETS = {"davidson_hamilton": DAVIDSON_HAMILTON, "montgomery_rutherford_knox": MONTGOMERY_RUTHERFORD_KNOX}
+# Tennessee step 4 (2026-10-09): the two counties the survey found posting a
+# list ahead of the sale.
+BLOUNT_CAMPBELL = [
+    ("blount", "delinquent_tax_sale", "https://blounttn.gov/2029/Delinquent-Property-Tax-Sale"),
+    ("blount", "procedures_2026", "https://www.blounttn.gov/DocumentCenter/View/26595/2026-Delinquent-Tax-Procedures-PDF"),
+    ("campbell", "tax_sale_list",
+     "https://campbellcountytn.gov/wp-content/uploads/2024/10/2023-DT-Tax-Sale-List-updated-04-14-26-@11.pdf"),
+]
+PAGE_SETS = {"davidson_hamilton": DAVIDSON_HAMILTON, "montgomery_rutherford_knox": MONTGOMERY_RUTHERFORD_KNOX,
+             "blount_campbell": BLOUNT_CAMPBELL}
 PAGES = DAVIDSON_HAMILTON
 FOLLOW = re.compile(r"(\.pdf$|\.xlsx?$|\.csv$|tax.?sale|delinquent|surplus|sealed|bid|property.?list|real.?property|"
                     r"results|sold|search)", re.I)

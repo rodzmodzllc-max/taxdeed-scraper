@@ -69,9 +69,17 @@ def test_forms_print_field_names_never_values():
 
 
 def test_page_sets_and_workflow_scope():
-    assert set(M.PAGE_SETS) == {"davidson_hamilton", "montgomery_rutherford_knox"}
+    assert set(M.PAGE_SETS) == {"davidson_hamilton", "montgomery_rutherford_knox", "blount_campbell"}
     assert {c for c, _, _ in M.MONTGOMERY_RUTHERFORD_KNOX} == {"montgomery", "rutherford", "knox"}
     wf = (ROOT / ".github/workflows/harvest-and-sync.yml").read_text()
     block = wf[wf.index('if [ "$SCOPE" = "tn_montgomery_rutherford_knox" ]'):]
     block = block[:block.index("\n          fi\n")]
     assert "capture_tn_counties.py --set montgomery_rutherford_knox" in block
+
+
+def test_blount_campbell_scope():
+    assert {c for c, _, _ in M.BLOUNT_CAMPBELL} == {"blount", "campbell"}
+    wf = (ROOT / ".github/workflows/harvest-and-sync.yml").read_text()
+    block = wf[wf.index('if [ "$SCOPE" = "tn_blount_campbell" ]'):]
+    block = block[:block.index("\n          fi\n")]
+    assert "capture_tn_counties.py --set blount_campbell" in block
