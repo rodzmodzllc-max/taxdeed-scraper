@@ -47,3 +47,13 @@ def test_workflow_scope_runs_the_probe():
     block = wf[wf.index('if [ "$SCOPE" = "tn_davidson_hamilton" ]'):]
     block = block[:block.index("\n          fi\n")]
     assert "python3 scripts/capture_tn_counties.py" in block and "exit 0" in block
+
+
+def test_all_links_include_table_and_external_links_and_skip_govease():
+    html = ("<a href='/x.pdf'>Tax Sale List</a><table><tr><td><a href='https://vendor.example/sale'>JANE Q PUBLIC</a></td>"
+            "</tr></table><a href='https://www.govease.com/x'>x</a>")
+    links = M.all_links(html, "https://chanceryclerkandmaster.nashville.gov/p/")
+    hrefs = {l["href"]: l for l in links}
+    assert hrefs["https://chanceryclerkandmaster.nashville.gov/x.pdf"]["official"] is True
+    assert hrefs["https://vendor.example/sale"]["in_table"] is True and hrefs["https://vendor.example/sale"]["text"] == "[text withheld]"
+    assert not any("govease" in h for h in hrefs)

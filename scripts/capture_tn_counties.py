@@ -55,7 +55,7 @@ PAGES = [
      "https://www.hamiltontn.gov/Clerkmasterforms/taxsale/2026TaxSale/TAX%20SALE%20INFORMATION%202026.pdf"),
 ]
 FOLLOW = re.compile(r"(\.pdf$|\.xlsx?$|\.csv$|tax.?sale|delinquent|surplus|sealed|bid|property.?list|real.?property)", re.I)
-MAX_FOLLOW = 8
+MAX_FOLLOW = 12
 
 
 def table_headers(rows: list[list]) -> list[list[str]]:
@@ -71,6 +71,27 @@ def html_tables(html: str) -> list[dict]:
         heads = [C.safe_text(th.get_text(" ")) for th in t.find_all("th")][:30]
         out.append({"id": t.get("id"), "rows": len(t.find_all("tr")), "headers": heads})
     return out
+
+
+SKIP_HOSTS = ("facebook.com", "twitter.com", "x.com", "instagram.com", "youtube.com", "linkedin.com", "google.com",
+              "govease.com")          # GovEase: a vendor this project does not implement - never followed
+
+
+def all_links(html: str, base: str) -> list[dict]:
+    """Every link on the page INCLUDING those inside tables (the Shelby
+    helper drops tables before collecting links) and on any host. Link text
+    only through the whitelist; the href is a public URL."""
+    from bs4 import BeautifulSoup
+    out, seen = [], set()
+    for a in BeautifulSoup(html, "html.parser").find_all("a", href=True):
+        href = urljoin(base, a["href"]).split("#")[0]
+        host = (C.urlsplit(href).hostname or "").lower()
+        if not href.startswith(("http://", "https://")) or href in seen or any(host.endswith(h) for h in SKIP_HOSTS):
+            continue
+        seen.add(href)
+        out.append({"href": href, "text": C.safe_text(a.get_text(" ", strip=True)), "official": C.official(href),
+                    "in_table": a.find_parent("table") is not None})
+    return out[:150]
 
 
 def entry(session, county: str, kind: str, url: str) -> dict:
@@ -92,6 +113,7 @@ def entry(session, county: str, kind: str, url: str) -> dict:
         r, _ = C.fetch(session, url)
         if r is not None and r.status_code == 200:
             e["html_tables"] = html_tables(r.text)
+            e["all_links"] = all_links(r.text, r.url)
     return e
 
 
@@ -108,9 +130,9 @@ def capture() -> dict:
         time.sleep(0.6)
     followed = 0
     for p in list(report["pages"]):
-        for link in (p.get("html") or {}).get("links", []):
-            href = link["href"].split("#")[0]
-            if followed >= MAX_FOLLOW or href in seen or not FOLLOW.search(href):
+        for link in p.get("all_links") or []:
+            href = link["href"]
+            if followed >= MAX_FOLLOW or href in seen or not link["official"] or not FOLLOW.search(href):
                 continue
             seen.add(href)
             followed += 1
@@ -127,6 +149,10 @@ def digest(report: dict) -> str:
         out.append(C.digest({"pages": [p]}).split("\n", 1)[1])
         for t in p.get("pdf_tables") or []:
             out.append(f"  pdf table header rows: {t}")
+        for l in p.get("all_links") or []:
+            if l["in_table"] or not l["official"] or FOLLOW.search(l["href"]):
+                out.append(f"  any-link{' [table]' if l['in_table'] else ''}{'' if l['official'] else ' [external]'}: "
+                           f"{l['text']} -> {l['href']}")
         for t in p.get("html_tables") or []:
             out.append(f"  html table id={t['id']} rows={t['rows']} headers={t['headers']}")
     return "\n".join(out)
