@@ -23,20 +23,27 @@
 // per-IP limit.
 //
 // Secrets: SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY are provided to every
-// Edge Function by Supabase; nothing to set. The service key never leaves
-// this function.
+// Edge Function by Supabase; RESEND_API_KEY is the project secret
+// notify-approval already uses (the new-sign-up alert is sent from here right
+// after the account is created). None of them leaves this function.
+//
+// New-sign-up alert (2026-10-09): migration 030 queues one admin_new_signup
+// row per created account (profiles INSERT trigger), so a failed sign-up
+// queues nothing and a retried one cannot queue twice. The recipient is fixed
+// in _shared/approval_notify_core.js; nothing in this request can change it.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
-import { signupPasswordProblem } from "../_shared/signup_password.js";
+import { handleSignup } from "../_shared/signup_request.js";
+import { processDue, sendViaResend } from "../_shared/approval_notify_core.js";
+import { accountNotifyDb } from "../_shared/account_notify_db.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY") ?? "";
 
 // Origins: the Pages project (production + branch previews), the custom domain
 // taxacq.com and its www host (exact hosts only, https only), local dev.
 const ALLOWED_ORIGIN = /^(https:\/\/([a-z0-9-]+\.)?rodz-taxdeeds\.pages\.dev|https:\/\/(www\.)?taxacq\.com|http:\/\/localhost(:\d+)?|http:\/\/127\.0\.0\.1(:\d+)?)$/;
-const EMAIL_RE = /^[^\s@]{1,64}@[^\s@]{1,190}\.[^\s@]{2,63}$/;
-const FIELDS = ["first_name", "last_name", "company", "address", "phone"] as const;
 const PER_IP_PER_HOUR = 8;
 const hits = new Map<string, number[]>();
 
@@ -75,34 +82,20 @@ Deno.serve(async (req) => {
   let body: Record<string, unknown>;
   try { body = JSON.parse(raw); } catch { return reply(400, { error: "bad_json" }, origin); }
 
-  if (typeof body.website === "string" && body.website.trim()) return reply(400, { error: "rejected" }, origin);   // honeypot
-
-  const email = String(body.email ?? "").trim().toLowerCase();
-  // A missing password stays missing (never the string "undefined").
-  const password = typeof body.password !== "string" ? "" : body.password;
-  if (!EMAIL_RE.test(email) || email.length > 254) {
-    return reply(400, { error: "invalid_email", message: "That email address doesn't look valid. Please check it and try again." }, origin);
-  }
-  // Missing / empty / whitespace-only / outside 8..72 (_shared/signup_password.js).
-  const pwProblem = signupPasswordProblem(password);
-  if (pwProblem) return reply(400, pwProblem, origin);
-  const meta: Record<string, string> = {};
-  for (const f of FIELDS) {
-    const v = String(body[f] ?? "").trim();
-    if (!v || v.length > 200) return reply(400, { error: "missing_fields", message: "Please fill in all fields. No company? Enter \"Independent\"." }, origin);
-    meta[f] = v;
-  }
-
   const admin = createClient(SUPABASE_URL, SERVICE_KEY, { auth: { persistSession: false, autoRefreshToken: false } });
-  const { data, error } = await admin.auth.admin.createUser({ email, password, email_confirm: true, user_metadata: meta });
-  if (error) {
-    const msg = String(error.message || "");
-    if (/already.*registered|already been registered|already exists/i.test(msg) || (error as { code?: string }).code === "email_exists") {
-      return reply(409, { error: "already_registered", message: "An account with this email already exists. Choose “Already have an account? Sign in”, or “Forgot password?” to set a new password." }, origin);
-    }
-    if (/password/i.test(msg)) return reply(400, { error: "weak_password", message: msg }, origin);
-    console.error("self-signup createUser failed:", (error as { status?: number }).status, (error as { code?: string }).code);
-    return reply(500, { error: "create_failed", message: "Could not create the account. Please try again." }, origin);
+  // Validation (password rule included) and account creation:
+  // _shared/signup_request.js. createUser is only reached by a valid request.
+  const result = await handleSignup(body, (attrs) => admin.auth.admin.createUser(attrs));
+  if (result.failure) console.error("self-signup createUser failed:", result.failure.status, result.failure.code);
+  if (result.created) {
+    // The account now exists, and migration 030's trigger queued its operator
+    // alert in the same transaction. Send due account e-mails without
+    // delaying the response; a failure leaves the row queued for the next
+    // sweep and never touches the new account. Counts only in the log.
+    const work = processDue({ db: accountNotifyDb(admin), send: (m) => sendViaResend(fetch, RESEND_API_KEY, m), limit: 5 })
+      .then((c) => console.log(`self-signup notifications: ${JSON.stringify(c)}`))
+      .catch((e) => console.error(`self-signup notifications: ${e instanceof Error ? e.message : "error"}`));
+    try { (globalThis as { EdgeRuntime?: { waitUntil(p: Promise<unknown>): void } }).EdgeRuntime?.waitUntil(work); } catch { /* best effort */ }
   }
-  return reply(200, { ok: true, user_id: data.user?.id ?? null }, origin);
+  return reply(result.status, result.body, origin);
 });

@@ -1,7 +1,9 @@
 // supabase/functions/notify-approval/index.ts
 //
-// Sends the "Your TAXACQ account has been approved" e-mail from the durable
-// outbox migration 030 creates (public.account_notifications). Rewritten
+// Sends the account e-mails queued in the durable outbox migration 030
+// creates (public.account_notifications): "Your TAXACQ account has been
+// approved" to the approved person, and the operator's new-sign-up alert to
+// the fixed operator address (_shared/approval_notify_core.js SIGNUP_ALERT). Rewritten
 // 2026-10-09: the previous version reacted to a database webhook that was
 // never configured in production and kept no record of what it sent.
 //
@@ -31,6 +33,7 @@
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { authorize, processDue, sendViaResend } from "../_shared/approval_notify_core.js";
 import { cors, reply } from "../_shared/billing_http.ts";
+import { accountNotifyDb } from "../_shared/account_notify_db.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -54,19 +57,7 @@ Deno.serve(async (req) => {
   const auth = await authorize({ bearer, serviceRoleKey: SERVICE_ROLE_KEY, isAdminForJwt });
   if (!auth.ok) return reply(auth.status, { error: auth.reason }, origin);
 
-  const db = {
-    async claim(limit: number) {
-      const { data, error } = await admin.rpc("claim_account_notifications", { p_limit: limit, p_lease_seconds: 300 });
-      if (error) throw new Error(error.code === "PGRST202" ? "outbox_not_installed" : "claim_failed");
-      return data ?? [];
-    },
-    async finish(id: string, attempt: number, outcome: string, messageId: string | null, err: string | null, retry: number) {
-      const { data, error } = await admin.rpc("finish_account_notification", {
-        p_id: id, p_attempt: attempt, p_outcome: outcome, p_message_id: messageId, p_error: err, p_retry_seconds: retry,
-      });
-      return !error && data === true;
-    },
-  };
+  const db = accountNotifyDb(admin);
   try {
     const counts = await processDue({ db, send: (m) => sendViaResend(fetch, RESEND_API_KEY, m), limit: 20 });
     // Counts only - never an address, a body or a provider response.

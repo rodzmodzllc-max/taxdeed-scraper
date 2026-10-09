@@ -1,14 +1,17 @@
 // supabase/functions/_shared/approval_notify_core.js
 //
-// Account-approval e-mail: content, caller authorization, the Resend call and
+// Account e-mails from the migration-030 outbox - the account-approval e-mail
+// (to the approved person) and the operator's new-sign-up alert (to the fixed
+// operator address below): content, caller authorization, the Resend call and
 // the outbox processor - pure JS with injected I/O so node --test can run it
 // (tests/billing/approval_notify.test.mjs) and the Deno handler
 // (notify-approval/index.ts) only wires real dependencies.
 //
-// The recipient is never taken from a request: the processor only sends to
-// the address public.claim_account_notifications() returns from profiles for
-// a row the approval trigger queued (migration 030). Nothing here logs an
-// address, a body or a key.
+// The recipient is never taken from a request. An approval e-mail goes to the
+// address public.claim_account_notifications() returns from profiles for a row
+// the approval trigger queued; a sign-up alert goes ONLY to
+// SIGNUP_ALERT.to, a constant in this file. Nothing here logs an address, a
+// body or a key.
 
 export const APPROVAL_EMAIL = Object.freeze({
   from: "TAXACQ <info@taxacq.com>",
@@ -17,6 +20,17 @@ export const APPROVAL_EMAIL = Object.freeze({
   contact: "info@taxacq.com",
   address: "6175 NW 167th Ave, Hialeah, FL 33015",
   subject: "Your TAXACQ account has been approved",
+});
+
+// Operator alert for every newly created account (kind admin_new_signup).
+// The recipient is this constant - not a row value, not a request value.
+export const SIGNUP_ALERT = Object.freeze({
+  from: "TAXACQ <info@taxacq.com>",
+  to: "info@taxacq.com",
+  // admin.html's "Pending sign-ups" card (section id "pending") - the page
+  // where an administrator approves or leaves an account pending.
+  adminUrl: "https://taxacq.com/admin.html#pending",
+  subject: "New TAXACQ account created",
 });
 
 export const MAX_ATTEMPTS = 8;
@@ -107,6 +121,54 @@ export function renderApprovalEmail(cfg = APPROVAL_EMAIL) {
   return { subject: cfg.subject, html, text };
 }
 
+// "2026-10-09 14:32 UTC" - deterministic, no locale.
+export function utcStamp(value) {
+  const d = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(d.getTime())) return "Not recorded";
+  return d.toISOString().slice(0, 16).replace("T", " ") + " UTC";
+}
+
+// The operator alert. Statuses are the ones read at send time from the
+// account itself (auth.users / profiles), never assumed. The account e-mail
+// is user-supplied text: it is only ever escaped, and an implausible one is
+// shown as such rather than dropped.
+export function renderSignupAlert(row, cfg = SIGNUP_ALERT) {
+  const adminUrl = /^https:\/\/[a-z0-9.-]+\/[^\s"'<>]*$/i.test(cfg.adminUrl) ? cfg.adminUrl : SIGNUP_ALERT.adminUrl;
+  const email = typeof row.email === "string" && row.email.trim() ? row.email.trim().slice(0, 254) : "Not recorded";
+  const facts = [
+    ["Signed up", utcStamp(row.signed_up_at)],
+    ["Account email", email + (email !== "Not recorded" && !validEmail(email) ? " (not a valid address)" : "")],
+    ["Email confirmation", row.email_confirmed === true ? "Confirmed" : "Not confirmed"],
+    ["Approval", row.approved === true ? "Approved" : "Pending approval"],
+  ];
+  const text = [
+    "A new TAXACQ account was created.",
+    "",
+    ...facts.map(([k, v]) => `${k}: ${v}`),
+    "",
+    "Statuses are as of when this alert was sent.",
+    "",
+    `Review pending sign-ups: ${adminUrl}`,
+    "",
+    "Automatic operator alert. The account holder does not receive this message.",
+  ].join("\n");
+  const rows = facts.map(([k, v]) =>
+    `<tr><td style="padding:4px 12px 4px 0;color:#5b6675;font-size:14px">${esc(k)}</td><td style="padding:4px 0;color:#1f2933;font-size:14px"><strong>${esc(v)}</strong></td></tr>`).join("");
+  const html = `<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(cfg.subject)}</title></head>
+<body style="margin:0;padding:24px 12px;background:#f4f1ea;font-family:Arial,Helvetica,sans-serif">
+<table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:6px">
+<tr><td style="background:#0b1a2e;padding:16px 24px;border-bottom:3px solid #c9a24b;color:#ffffff;font-family:Georgia,'Times New Roman',serif;font-size:18px;letter-spacing:3px">TAXACQ &middot; Operator alert</td></tr>
+<tr><td style="padding:20px 24px">
+  <p style="margin:0 0 12px;font-size:15px;color:#0b1a2e">A new TAXACQ account was created.</p>
+  <table role="presentation" cellspacing="0" cellpadding="0">${rows}</table>
+  <p style="margin:12px 0 18px;font-size:12px;color:#5b6675">Statuses are as of when this alert was sent.</p>
+  <a href="${esc(adminUrl)}" style="display:inline-block;padding:10px 18px;background:#0b1a2e;color:#ffffff;text-decoration:none;border-radius:4px;font-size:14px">Review pending sign-ups</a>
+  <p style="margin:18px 0 0;font-size:12px;color:#5b6675">Automatic operator alert. The account holder does not receive this message.</p>
+</td></tr></table></body></html>`;
+  return { subject: cfg.subject, html, text };
+}
+
 // Who may run the processor: an administrator (JWT checked against
 // profiles.is_admin by the caller-supplied lookup) or the server itself
 // (the project's service-role key as the bearer - e.g. a scheduled sweep).
@@ -140,17 +202,26 @@ export async function sendViaResend(fetchFn, apiKey, msg) {
 }
 
 // Process due notifications: claim (row-locked, leased), send, record.
-// db: { claim(limit) -> [{id, kind, attempt, email, approved}], finish(id, attempt, outcome, messageId, error, retrySeconds) -> bool }
+// db: { claim(limit) -> [{id, kind, attempt, email, approved, signed_up_at, email_confirmed}],
+//       finish(id, attempt, outcome, messageId, error, retrySeconds) -> bool }
 // send(msg) -> { ok, id } | { ok:false, code }
 // Returns counts only.
-export async function processDue({ db, send, limit = 10, cfg = APPROVAL_EMAIL }) {
+export async function processDue({ db, send, limit = 10, cfg = APPROVAL_EMAIL, alert = SIGNUP_ALERT }) {
   const counts = { claimed: 0, sent: 0, failed: 0, skipped: 0, stale: 0 };
   const rows = (await db.claim(limit)) || [];
   counts.claimed = rows.length;
   const mail = renderApprovalEmail(cfg);
   for (const r of rows) {
     let outcome, messageId = null, error = null;
-    if (r.kind !== "account_approved") { outcome = "skipped"; error = "UNKNOWN_KIND"; }
+    if (r.kind === "admin_new_signup") {
+      // Sent whatever the account's statuses are - the alert reports them.
+      const a = renderSignupAlert(r, alert);
+      const res = await send({ from: alert.from, replyTo: alert.to, to: alert.to, subject: a.subject, html: a.html,
+                               text: a.text, idempotencyKey: `admin_new_signup/${r.id}` });
+      if (res && res.ok) { outcome = "sent"; messageId = res.id || null; }
+      else { outcome = "failed"; error = (res && res.code) || "UNKNOWN"; }
+    }
+    else if (r.kind !== "account_approved") { outcome = "skipped"; error = "UNKNOWN_KIND"; }
     else if (r.approved !== true) { outcome = "skipped"; error = "NOT_APPROVED"; }
     else if (!validEmail(r.email)) { outcome = "skipped"; error = "NO_VALID_EMAIL"; }
     else {

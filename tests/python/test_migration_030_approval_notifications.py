@@ -43,10 +43,26 @@ def test_s01_additive_only_no_backfill():
     for bad in ("drop table", "drop column", "alter column", "delete from", "truncate", "alter table public.profiles add"):
         assert bad not in body
     assert "insert into public.account_notifications" in body
-    # The only insert is the trigger's; nothing selects existing approved profiles into the outbox.
-    assert body.count("insert into public.account_notifications") == 1
+    # The only inserts are the two triggers'; nothing selects existing profiles into the outbox.
+    assert body.count("insert into public.account_notifications") == 2
+    assert "insert into public.account_notifications (user_id, kind) values (new.id, 'account_approved')" in body
+    assert "insert into public.account_notifications (user_id, kind) values (new.id, 'admin_new_signup')" in body
     assert "on conflict (user_id, kind) do nothing" in body
     assert "unique (user_id, kind)" in body
+
+
+def test_s03_signup_alert_is_insert_only_and_never_blocks_account_creation():
+    body = code()
+    assert "kind in ('account_approved', 'admin_new_signup')" in body
+    assert "after insert on public.profiles" in body
+    # A failure to queue the alert is caught: account creation cannot fail on it.
+    sig = body[body.index("function public.enqueue_admin_signup_notification()"):]
+    sig = sig[:sig.index("$$;")]
+    assert "exception when others then" in sig and "raise warning" in sig
+    assert "revoke all on function public.enqueue_admin_signup_notification() from public, anon, authenticated;" in body
+    # The claim reports confirmation and sign-up time from auth.users, read at send time.
+    assert "signed_up_at timestamptz, email_confirmed boolean" in body
+    assert "left join auth.users u on u.id = c.user_id" in body
 
 
 def test_s02_trigger_is_transition_only_and_privileges_are_closed():
@@ -75,7 +91,10 @@ def scratch():
     staged = []
     # The admin and a second pending account exist BEFORE 030 (like every
     # account in production), so applying 030 must not queue anything for them.
-    seed = (f"insert into auth.users (id, email) values ('{ADMIN}', 'admin@example.com'), ('{PENDING2}', 'p2@example.com');\n"
+    # auth.users columns production has and the fixture does not (the alert reads them).
+    seed = ("alter table auth.users add column if not exists created_at timestamptz not null default now(),"
+            " add column if not exists email_confirmed_at timestamptz;\n"
+            f"insert into auth.users (id, email) values ('{ADMIN}', 'admin@example.com'), ('{PENDING2}', 'p2@example.com');\n"
             f"update public.profiles set approved = true, is_admin = true where id = '{ADMIN}';\n")
     try:
         for path, text in ((FIXTURE, None), (Path("seed.sql"), seed), (MIGRATION, None), (MIGRATION, None)):
@@ -197,3 +216,58 @@ def test_l08_finish_rejects_unknown_outcome_and_trims_error(scratch):
     assert "unknown outcome" in out
     out = scratch(f"insert into account_notifications (user_id, kind, last_error) values ('{CUSTOMER}', 'account_approved', repeat('x', 81));")
     assert "check constraint" in out
+
+
+# ---- operator alert for every new account (admin_new_signup) ----
+NEW1 = "66666666-6666-6666-6666-666666666666"
+NEW2 = "77777777-7777-7777-7777-777777777777"
+NEW3 = "88888888-8888-8888-8888-888888888888"
+
+
+def alerts(run, uid) -> str:
+    return run(f"select count(*) from account_notifications where user_id = '{uid}' and kind = 'admin_new_signup';").strip()
+
+
+def test_l09_existing_accounts_get_no_signup_alert(scratch):
+    assert scratch("select count(*) from account_notifications where kind = 'admin_new_signup';").strip() == "0"
+
+
+def test_l10_created_account_queues_exactly_one_alert(scratch):
+    out = scratch(f"insert into auth.users (id, email, email_confirmed_at) values ('{NEW1}', 'new1@example.com', now());")
+    assert "ERROR" not in out
+    assert alerts(scratch, NEW1) == "1"
+    # A retried / concurrent creation of the same account fails or no-ops: still one.
+    scratch(f"insert into auth.users (id, email) values ('{NEW1}', 'new1@example.com');")
+    scratch(f"insert into profiles (id, email) values ('{NEW1}', 'new1@example.com') on conflict (id) do nothing;")
+    assert alerts(scratch, NEW1) == "1"
+    # Approving it later adds the separate approval row, never a second alert.
+    scratch(as_user(ADMIN, f"update profiles set approved = true where id = '{NEW1}';"))
+    assert alerts(scratch, NEW1) == "1"
+    assert queued(scratch, NEW1) == "2"
+
+
+def test_l11_failed_signup_queues_nothing(scratch):
+    scratch(f"begin; insert into auth.users (id, email) values ('{NEW2}', 'new2@example.com'); rollback;")
+    assert scratch(f"select count(*) from profiles where id = '{NEW2}';").strip() == "0"
+    assert alerts(scratch, NEW2) == "0"
+
+
+def test_l12_alert_failure_never_blocks_account_creation(scratch):
+    # Break the outbox inside a transaction: the account is still created.
+    out = scratch(f"""begin;
+alter table account_notifications rename to account_notifications_off;
+insert into auth.users (id, email) values ('{NEW3}', 'new3@example.com');
+select 'profile=' || count(*) from profiles where id = '{NEW3}';
+rollback;""")
+    assert "profile=1" in out
+    assert "admin_new_signup not queued" in out           # reported as a WARNING, not an error
+
+
+def test_l13_claim_returns_actual_status_and_signup_time(scratch):
+    scratch("update account_notifications set status = 'sent' where kind = 'account_approved';")
+    rows = scratch("set role service_role; select kind||'|'||coalesce(email,'')||'|'||approved||'|'||email_confirmed||'|'||(signed_up_at is not null) "
+                   "from claim_account_notifications(10, 300);").strip().splitlines()
+    assert "admin_new_signup|new1@example.com|true|true|true" in rows
+    # Customers and anon still cannot read or claim.
+    assert "permission denied" in scratch(as_user(CUSTOMER, "select * from claim_account_notifications(10, 300);"))
+    assert scratch(as_user(CUSTOMER, "select count(*) from account_notifications;")).strip() == "0"

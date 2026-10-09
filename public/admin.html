@@ -29,7 +29,7 @@ row-level security) whether the signed-in account is an admin. Anyone else
     <p class="admin-identity" id="adminIdentity"></p>
     <p class="admin-note">Administrator access is granted and checked by the server for every protected operation.</p>
   </section>
-  <section class="admin-card" aria-labelledby="adminPendingLabel">
+  <section class="admin-card" id="pending" aria-labelledby="adminPendingLabel">
     <p class="admin-label" id="adminPendingLabel">Pending sign-ups</p>
     <p class="admin-note">New accounts start pending and cannot read any ledger until approved. Approving sets the account's approval on the server; accounts you do not approve simply stay pending.</p>
     <p class="admin-note" id="adminPendingStatus" role="status">Loading pending accounts</p>

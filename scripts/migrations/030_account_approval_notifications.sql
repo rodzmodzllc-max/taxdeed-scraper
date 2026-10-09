@@ -1,7 +1,12 @@
 -- 030_account_approval_notifications.sql
 --
--- Durable, idempotent "your account is approved" e-mails (2026-10-09).
--- WRITTEN, NOT APPLIED. Applying it is an owner decision.
+-- Durable, idempotent account e-mails (2026-10-09). WRITTEN, NOT APPLIED.
+-- Applying it is an owner decision. Two kinds share ONE outbox:
+--   account_approved  - "your account is approved", to the approved person;
+--   admin_new_signup  - "a new account was created", to the operator's own
+--                       fixed address (set in the sender's code, never in a
+--                       row or a request).
+-- Password-reset e-mails are not here: Supabase Auth sends those itself.
 --
 -- Why a table: approval is a plain admin UPDATE of public.profiles
 -- (approved -> true, approved_at; app.js / admin.js, RLS "profiles: admin
@@ -18,6 +23,14 @@
 --   * retry with back-off and a capped number of attempts; failures keep a
 --     short error CODE (never an address or a message body).
 -- Existing approved accounts get NO row: nobody is e-mailed retroactively.
+--
+-- admin_new_signup is queued by an AFTER INSERT trigger on public.profiles.
+-- handle_new_user() inserts that row inside the same transaction that
+-- creates auth.users, so a failed sign-up (bad password, existing address,
+-- any error) creates no account, no profile and no alert. The unique key
+-- gives one alert per account for ever, whatever the retries. Accounts that
+-- exist before this migration get no alert. A failure to queue the alert is
+-- caught and reported as a WARNING so it can never block account creation.
 -- The sender (supabase/functions/notify-approval) also passes a provider
 -- idempotency key per row, so a retry after a lost response is not a
 -- second delivery.
@@ -27,7 +40,7 @@ begin;
 create table if not exists public.account_notifications (
   id                  uuid primary key default gen_random_uuid(),
   user_id             uuid not null references public.profiles(id) on delete cascade,
-  kind                text not null check (kind in ('account_approved')),
+  kind                text not null check (kind in ('account_approved', 'admin_new_signup')),
   status              text not null default 'pending' check (status in ('pending', 'sending', 'sent', 'failed', 'skipped')),
   attempts            integer not null default 0 check (attempts >= 0),
   next_attempt_at     timestamptz not null default now(),
@@ -74,12 +87,39 @@ create trigger profiles_enqueue_approval_notification
   when (new.approved is true and old.approved is distinct from true)
   execute function public.enqueue_account_approved_notification();
 
+-- Queue the operator alert for a newly created account (profiles INSERT,
+-- i.e. a committed auth.users row). Never blocks account creation.
+create or replace function public.enqueue_admin_signup_notification() returns trigger
+language plpgsql security definer
+set search_path to 'public'
+as $$
+begin
+  begin
+    insert into public.account_notifications (user_id, kind) values (new.id, 'admin_new_signup')
+    on conflict (user_id, kind) do nothing;
+  exception when others then
+    raise warning 'admin_new_signup not queued: %', sqlstate;
+  end;
+  return new;
+end
+$$;
+revoke all on function public.enqueue_admin_signup_notification() from public, anon, authenticated;
+
+drop trigger if exists profiles_enqueue_admin_signup_notification on public.profiles;
+create trigger profiles_enqueue_admin_signup_notification
+  after insert on public.profiles
+  for each row
+  execute function public.enqueue_admin_signup_notification();
+
 -- Claim due rows for sending (service_role only). A row is due when it is
 -- pending, or failed with attempts left and its back-off elapsed, or stuck
 -- in 'sending' past its lease. Returns the CURRENT address and approval
--- flag from profiles - never a value supplied by a caller.
+-- flag from profiles - never a value supplied by a caller - plus, for the
+-- operator alert, when the account was created and whether its address is
+-- confirmed (auth.users), read at send time.
 create or replace function public.claim_account_notifications(p_limit integer default 10, p_lease_seconds integer default 300)
-returns table (id uuid, kind text, attempt integer, email text, approved boolean)
+returns table (id uuid, kind text, attempt integer, email text, approved boolean,
+               signed_up_at timestamptz, email_confirmed boolean)
 language plpgsql security definer
 set search_path to 'public'
 as $$
@@ -101,8 +141,10 @@ begin
       from due where n.id = due.id
     returning n.id, n.kind, n.attempts, n.user_id
   )
-  select c.id, c.kind, c.attempts, p.email, p.approved
-    from claimed c join public.profiles p on p.id = c.user_id;
+  select c.id, c.kind, c.attempts, p.email, p.approved,
+         coalesce(u.created_at, p.requested_at), (u.email_confirmed_at is not null)
+    from claimed c join public.profiles p on p.id = c.user_id
+    left join auth.users u on u.id = c.user_id;
 end
 $$;
 

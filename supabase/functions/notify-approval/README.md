@@ -1,4 +1,21 @@
-# Account-approval e-mail (`notify-approval`)
+# Account e-mails (`notify-approval`)
+
+One outbox (migration 030, `public.account_notifications`), one processor, two kinds:
+
+| Kind | Queued by | Sent to | Subject |
+|---|---|---|---|
+| `account_approved` | trigger on `profiles.approved` false → true | the approved person (`profiles.email`) | "Your TAXACQ account has been approved" |
+| `admin_new_signup` | trigger on `profiles` INSERT (a committed `auth.users` row) | `info@taxacq.com` only, a constant in `_shared/approval_notify_core.js` (`SIGNUP_ALERT`) | "New TAXACQ account created" |
+
+Password-reset e-mails are not part of this: Supabase Auth sends them.
+
+The operator alert lists the sign-up time (UTC), the account e-mail, the email-confirmation status and the approval status, all read from `auth.users` / `profiles` when the alert is sent. It links to `https://taxacq.com/admin.html#pending`, the admin page's "Pending sign-ups" section.
+- A failed sign-up creates no account, so nothing is queued.
+- `unique (user_id, kind)` means one alert per account, ever.
+- A failure to queue is caught (a WARNING), so it never blocks account creation.
+- `self-signup` sends due rows right after it creates an account, using `EdgeRuntime.waitUntil` so the response is not delayed. Retries happen on any later sweep.
+
+## Account-approval e-mail
 
 Sends **"Your TAXACQ account has been approved"** once, to the approved person's own address, after an administrator approves them.
 
@@ -39,10 +56,11 @@ Logs carry counts and codes only: never an address, a body or a key.
 1. Apply `scripts/migrations/030_account_approval_notifications.sql`.
 2. `supabase functions deploy notify-approval`. Keep JWT verification on, which is the default.
 3. Secret `RESEND_API_KEY`: the existing key, with `taxacq.com` verified in Resend. Nothing else is needed; the sender and reply-to are fixed in code.
-4. Optional: point a scheduled job at this function with the service-role key, so retries happen even when no admin opens `/admin`.
+4. Redeploy `self-signup` (it now sends the new-sign-up alert and enforces the shared password rule).
+5. Optional: point a scheduled job at this function with the service-role key, so retries happen even when no admin opens `/admin`.
 
 Test delivery only to a designated test account: approve it from `/admin`, then read `account_notifications` (as an admin) for its status.
 
 Tests:
-- `tests/billing/approval_notify.test.mjs`: content, authorization, idempotency, retries, mocked Resend.
+- `tests/billing/approval_notify.test.mjs`: content, authorization, idempotency, retries, mocked Resend, and the operator alert (fixed recipient, one per account, escaping, retry).
 - `tests/python/test_migration_030_approval_notifications.py`: trigger, RLS and claim/finish, run against PostgreSQL.
