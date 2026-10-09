@@ -77,6 +77,8 @@ BLOUNT_CAMPBELL = [
     ("blount", "delinquent_tax_sale", "https://blounttn.gov/2029/Delinquent-Property-Tax-Sale"),
     ("blount", "procedures_2026", "https://www.blounttn.gov/DocumentCenter/View/26595/2026-Delinquent-Tax-Procedures-PDF"),
     ("campbell", "home", "https://campbellcountytn.gov/"),
+    ("campbell", "chancery_court", "https://campbellcountytn.gov/courts/chancery-court/"),
+    ("campbell", "trustee", "https://campbellcountytn.gov/elected-officials/trustee/"),
     ("campbell", "site_search", "https://campbellcountytn.gov/?s=tax+sale"),
     ("campbell", "wp_media", "https://campbellcountytn.gov/wp-json/wp/v2/media?search=tax%20sale&per_page=50"
                              "&_fields=source_url,mime_type,date"),
