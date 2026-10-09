@@ -60,6 +60,8 @@ DAVIDSON_HAMILTON = [
 # Tennessee step 3 (2026-10-09): Montgomery, Rutherford, Knox (docs/tennessee-survey.md).
 MONTGOMERY_RUTHERFORD_KNOX = [
     ("montgomery", "cm_tax_sale", "https://montgomerytn.gov/chancery/tax-sale"),
+    ("montgomery", "cm_tax_sale_www", "https://www.montgomerytn.gov/chancery/tax-sale"),
+    ("montgomery", "mcgtn_chancery", "https://mcgtn.org/chancery"),
     ("rutherford", "cm_delinquent_sales", "https://rcchancery.com/delinquent_sales"),
     ("knox", "trustee_tax_sale", "https://www.knoxcounty.org/trustee/tax_sale_info.php"),
 ]
@@ -73,7 +75,7 @@ PAGE_SETS = {"davidson_hamilton": DAVIDSON_HAMILTON, "montgomery_rutherford_knox
 PAGES = DAVIDSON_HAMILTON
 FOLLOW = re.compile(r"(\.pdf$|\.xlsx?$|\.csv$|tax.?sale|delinquent|surplus|sealed|bid|property.?list|real.?property|"
                     r"results|sold|search)", re.I)
-MAX_FOLLOW = 12
+MAX_FOLLOW = 16
 
 
 def table_headers(rows: list[list]) -> list[list[str]]:
@@ -160,7 +162,10 @@ def capture(pages=None) -> dict:
         print(f"  {county:<9} {kind:<22} {e.get('status', e.get('error'))}", flush=True)
         time.sleep(0.6)
     followed = 0
-    for p in list(report["pages"]):
+    i = 0
+    while i < len(report["pages"]):             # pages reached by following are followed too
+        p = report["pages"][i]
+        i += 1
         for link in sorted(p.get("all_links") or [], key=lambda l: not PRIORITY.search(l["href"])):
             href = link["href"]
             if followed >= MAX_FOLLOW or href in seen or not link["official"] or not FOLLOW.search(href):
