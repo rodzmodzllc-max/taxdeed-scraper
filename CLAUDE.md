@@ -3008,3 +3008,21 @@ Full description: `docs/tennessee-survey.md` (statewide survey of all 95 countie
 - **Program names outside Florida:** Available rows name their program through app.js `availableProgram(p)` (`AVAILABLE_PROGRAMS`, keyed by source id). This covers the kicker, the summary "What", the detail tag, the group line and the list link label (`laftListLabel()`, kept out of `auctionLinkInfo()`, which must not branch on region). "Lands Available" is Florida-only.
 - **Ledger names:** generated state pages say "Liens & Certificates"; only tx.html says "Redeemable Deeds" (`build_state_page.py`, la.html by hand).
 - Fixture `ptn1` (Shelby, UNREVIEWED); Playwright `tnVisibility`. `sw.js` -> `tdw-shell-v110`.
+
+## Account-approval e-mails (2026-10-09, PR open, migration 030 NOT applied, function NOT deployed)
+
+Full description: `supabase/functions/notify-approval/README.md`. Stable facts:
+- **Approval** is an admin's own UPDATE of `profiles.approved` (RLS `profiles: admin full access`). Production has no trigger and no database webhook on `profiles`. Before this change, only `self-signup` was deployed; the old webhook-driven `notify-approval` never ran.
+- **Migration 030** adds the outbox `account_notifications`:
+  - a trigger on approved false → true queues one row per (user, kind) for ever, in the same transaction;
+  - `claim_account_notifications()` and `finish_account_notification()` are service-role only;
+  - `requeue_account_notification()` is admin-only;
+  - admins can read the table, customers have no access;
+  - there is no backfill of earlier approvals.
+- **Sender:** `notify-approval` (admin JWT or service-role key; no request body) uses `_shared/approval_notify_core.js`. That module holds the content (HTML and text), authorization, the Resend call with an `Idempotency-Key` per row, and the processor. Logs carry counts and codes only.
+- **Callers:** app.js / admin.js call it fire-and-forget after an approve; `/admin` load also sweeps due retries.
+- **Tests:**
+  - `node --test tests/billing/approval_notify.test.mjs` (in the python-governance workflow);
+  - `tests/python/test_migration_030_approval_notifications.py`;
+  - Playwright `signupApproveNotifyCalls`.
+- `sw.js` → `tdw-shell-v111`.

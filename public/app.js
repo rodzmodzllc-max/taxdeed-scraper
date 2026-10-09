@@ -3031,6 +3031,15 @@ async function showApp() {
 // company columns to profiles (copied from auth user metadata by
 // handle_new_user()) to restore the richer display, but that's a schema
 // migration and out of scope for this fix.
+// Approval e-mail (migration 030 + supabase/functions/notify-approval): the
+// approval itself already queued exactly one notification in the database,
+// in the same transaction. This only asks the server to send what is due -
+// fire-and-forget, no recipient in the request, and a failure here never
+// affects the approval (the row stays queued and is retried later).
+function sendApprovalNotifications() {
+  try { sb.functions.invoke("notify-approval", { body: {} }).catch(() => {}); } catch (e) { /* never blocks approval */ }
+}
+
 async function refreshAdminApprovals() {
   const wrap = document.getElementById("adminApprovals");
   const list = document.getElementById("adminApprovalsList");
@@ -3056,6 +3065,7 @@ async function refreshAdminApprovals() {
         .update({ approved: true, approved_at: new Date().toISOString() })
         .eq("id", btn.dataset.id);
       if (updErr) { btn.disabled = false; btn.textContent = "✓ Approve"; alert("Couldn't approve: " + updErr.message); return; }
+      sendApprovalNotifications();
       refreshAdminApprovals();
     });
   });

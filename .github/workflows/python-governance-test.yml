@@ -83,4 +83,4 @@ jobs:
       # shared by the Supabase Edge Functions; node:test runs it with no
       # network and no Stripe account. Node ships on ubuntu-latest.
       - name: Run billing core tests (tests/billing/)
-        run: node --test tests/billing/billing_core.test.mjs
+        run: node --test tests/billing/billing_core.test.mjs tests/billing/approval_notify.test.mjs

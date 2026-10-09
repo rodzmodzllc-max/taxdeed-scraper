@@ -3237,6 +3237,11 @@ await navMap.close();
   await admin.waitForTimeout(500);
   results.signupAdminPendingAfterApprove = await admin.locator('#adminPendingList .admin-approval-row').evaluateAll(els => els.map(e => e.querySelector('.admin-approval-name').textContent.trim()));
   results.signupAdminApproveRowsChanged = await admin.evaluate(() => (window.__stubProfileUpdates || []).slice(-1)[0].rows);
+  // Approval e-mail (migration 030 + notify-approval): the admin page asks the
+  // server to send what the approval queued - once on load (retry sweep) and
+  // once after the approve - and never names a recipient (empty body).
+  results.signupApproveNotifyCalls = await admin.evaluate(() => (window.__stubFnCalls || [])
+    .filter(c => c.name === 'notify-approval').map(c => c.fields.join(',') || 'no-body-fields'));
 
   // D. The approved user signs in and uses the app; /admin is still refused.
   const member = await ctx.newPage();
@@ -6317,7 +6322,7 @@ const EXPECTED = {
   },
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v110"]},
+  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v111"]},
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · TAXACQ — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · TAXACQ — Florida", floridaCopy: true },
@@ -6767,6 +6772,7 @@ const EXPECTED = {
   signupAdminPendingList: ['newcomer@example.com', 'sneaky@example.com'],
   signupAdminPendingStatus: '2 accounts are waiting for approval.',
   signupAdminPendingAfterApprove: ['sneaky@example.com'],
+  signupApproveNotifyCalls: ['no-body-fields', 'no-body-fields'],
   signupAdminApproveRowsChanged: 1,
   signupApprovedAppVisible: true,
   signupApprovedPendingHidden: true,
