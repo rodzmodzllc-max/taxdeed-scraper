@@ -15,8 +15,32 @@ from ..governance import states
 from ..governance.county_source_registry import (DB_SUPPORTED_INVENTORY_TYPES, InventoryType,
                                                  PurchaseUrlKind, SourceAuthority)
 
+from decimal import ROUND_HALF_UP, Decimal
+
+
+def to_cents(value: float | None) -> float | None:
+    """A currency amount rounded to whole cents (half away from zero), or
+    None. Spreadsheet cells and PDF text reach the adapters as floats that
+    can carry representation noise (0.30000000000000004) or a stray third
+    decimal; public.properties stores `bid` / `min_bid` / `assessed` /
+    `market` as numeric(12,2) but `purchase_amount` / `result_amount` /
+    `taxable_value` / `land_value` / `improvement_value` as unbounded
+    numeric, so the same figure landed rounded in one column and raw in
+    another (Horry SC, 2026-10-09: 23 rows, |bid - purchase_amount| <=
+    0.005). Rounding once here, from the float's shortest repr (what JSON
+    sends), matches Postgres' numeric(12,2) rounding. Only currency fields
+    go through this - never acreage, coordinates, rates or identifiers."""
+    if value is None:
+        return None
+    return float(Decimal(repr(float(value))).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
+
+
+# Currency columns an OtcRecord carries besides its amount / result_amount.
+CURRENCY_VALUE_FIELDS = ("assessed", "market", "taxable_value", "land_value", "improvement_value")
+
+
 __all__ = ["AmountKind", "DB_SUPPORTED_AMOUNT_KINDS", "DB_SUPPORTED_INVENTORY_TYPES", "InventoryType",
-           "OtcRecord", "PurchaseUrlKind", "SourceAuthority", "UrlRef"]
+           "OtcRecord", "PurchaseUrlKind", "SourceAuthority", "UrlRef", "to_cents"]
 
 
 class AmountKind(str, Enum):
@@ -213,6 +237,7 @@ class OtcRecord:
             problems.append(f"amount_kind {self.amount_kind.value} is not storable in public.properties until a migration widens the check constraint")
         if problems:
             raise ValueError("; ".join(problems))
+        amount = to_cents(self.amount)        # one rounded figure for bid / purchase_amount / min_bid
         row = {
             "state": self.state,
             "source": self.record_source,
@@ -221,8 +246,8 @@ class OtcRecord:
             "parcel": self.parcel,
             "address": self.address or (f"Parcel {self.parcel}" if self.parcel else f"Case {self.case_no}"),
             "legal_desc": self.legal_desc,
-            "bid": self.amount if self.amount is not None else 0,
-            "purchase_amount": self.amount,
+            "bid": amount if amount is not None else 0,
+            "purchase_amount": amount,
             "purchase_amount_kind": self.amount_kind.value,
             "inventory_type": self.inventory_type.value if self.inventory_type else None,
             "source_authority": self.source_authority.value,
@@ -252,7 +277,7 @@ class OtcRecord:
                      "acreage", "land_use", "taxable_value", "land_value", "improvement_value"):
             value = getattr(self, name)
             if value is not None:
-                row[name] = value
+                row[name] = to_cents(value) if name in CURRENCY_VALUE_FIELDS else value
         if self.issued_date is not None:
             row["issued_date"] = self.issued_date.isoformat()
         if self.published_outcome == "sold" or self.listing_closed:
@@ -260,7 +285,7 @@ class OtcRecord:
         if self.result_amount is not None or self.result_date is not None:
             row["status"] = "closed"
             if self.result_amount is not None:
-                row["result_amount"] = self.result_amount
+                row["result_amount"] = to_cents(self.result_amount)
             if self.result_date is not None:
                 row["result_date"] = self.result_date.isoformat()
         if self.record_source == "auction":
@@ -270,7 +295,7 @@ class OtcRecord:
             row.pop("inventory_type", None)
             if self.amount is not None and self.amount_kind in (AmountKind.OPENING_BID, AmountKind.MINIMUM_PURCHASE_AMOUNT):
                 # The source calls it an opening / minimum bid: the auction's own column.
-                row["min_bid"] = self.amount
+                row["min_bid"] = amount
                 row.pop("purchase_amount", None)
                 row.pop("purchase_amount_kind", None)
             elif self.amount is None:
@@ -302,9 +327,9 @@ class OtcRecord:
             "state": self.state, "source": self.record_source, "county": self.county, "case_no": self.case_no,
             "certificate_no": self.certificate_no, "interest_rate": self.interest_rate,
             "parcel": self.parcel, "owner_name": self.owner_name, "address": self.address, "legal_desc": self.legal_desc,
-            "assessed": self.assessed, "market": self.market, "tax_year": self.tax_year,
+            "assessed": to_cents(self.assessed), "market": to_cents(self.market), "tax_year": self.tax_year,
             "latitude": self.latitude, "longitude": self.longitude,
-            "bid": "" if self.amount is None else self.amount, "bid_kind": self.amount_kind.value,
+            "bid": "" if self.amount is None else to_cents(self.amount), "bid_kind": self.amount_kind.value,
             "url_auction": self.list_url, "purchase_url": self.purchase_url,
             "purchase_url_kind": self.purchase_url_kind.value if self.purchase_url_kind else None,
             "inventory_type": self.inventory_type.value if self.inventory_type else None,
@@ -312,8 +337,8 @@ class OtcRecord:
             "list_as_of": self.list_as_of.isoformat() if self.list_as_of else None,
             "source_status_text": self.source_status_text, "otc_provenance": dict(self.provenance),
             "sale_date": self.sale_date.isoformat() if self.sale_date else None,
-            "acreage": self.acreage, "land_use": self.land_use, "taxable_value": self.taxable_value,
-            "land_value": self.land_value, "improvement_value": self.improvement_value,
+            "acreage": self.acreage, "land_use": self.land_use, "taxable_value": to_cents(self.taxable_value),
+            "land_value": to_cents(self.land_value), "improvement_value": to_cents(self.improvement_value),
         }
         return {k: v for k, v in row.items() if v is not None}
 
