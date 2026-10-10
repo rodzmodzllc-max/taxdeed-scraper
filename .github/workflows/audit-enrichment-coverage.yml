@@ -1,0 +1,81 @@
+name: Audit enrichment coverage (READ-ONLY)
+
+# Manual only. No `schedule:` block on purpose - this is a measurement tool,
+# not part of the pipeline.
+#
+# Its own workflow rather than a job inside harvest-and-sync.yml because that
+# workflow's `workflow_dispatch` runs EVERY job (deeds, certificates, laft,
+# texas, backup) under one concurrency group - so "run the audit" would also
+# mean "run the whole production harvest," and the audit would then measure
+# whichever moment of that run it happened to land on. Kept separate, same
+# shape as probe-enrichment-sources.yml, so a baseline can be taken at any
+# time without touching the pipeline.
+#
+# Read-only: scripts/audit_enrichment_coverage.py issues GET requests against
+# the `properties` REST endpoint only, writes no rows, touches no schema, and
+# commits nothing. Its only outputs are the two artifacts below plus the same
+# summary in the run log.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    name: Measure enrichment coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install Python dependencies
+        run: pip install requests
+
+      - name: Verify read credentials are present
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${SUPABASE_URL:-}" ] || [ -z "${SUPABASE_SERVICE_KEY:-}" ]; then
+            echo "::error::SUPABASE_URL / SUPABASE_SERVICE_KEY not available to this job"
+            exit 1
+          fi
+          echo "Credentials present (values never printed)."
+
+      - name: Run the read-only audit
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/audit_enrichment_coverage.py
+
+      - name: Audit summary to the run log
+        if: always()
+        run: |
+          if [ -f out/enrichment-audit.md ]; then
+            cat out/enrichment-audit.md >> "$GITHUB_STEP_SUMMARY"
+            echo "----- audit summary -----"
+            cat out/enrichment-audit.md
+          else
+            echo "::warning::no audit summary produced"
+          fi
+
+      - name: Upload audit artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: enrichment-audit-${{ github.run_id }}
+          path: |
+            out/enrichment_audit.json
+            out/enrichment-audit.md
+          if-no-files-found: warn
+          retention-days: 30
