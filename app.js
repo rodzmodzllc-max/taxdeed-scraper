@@ -2251,6 +2251,17 @@ const HARVESTER_SOURCE_NAMES = {
   wi_dane_tax_deed_auction: "Dane County Treasurer - Tax Deed Auction",
   sc_oconee_tax_sale_list: "Oconee County - Delinquent Tax Sale List"
 };
+// The source a row is attributed to, for display (remediation). harvester_source
+// is the harvester's display name; when a row has only its source_id (the
+// publisher's registry key, e.g. fl_laft_pioneer) that identifier is shown
+// rather than "Source not recorded" on a row that does have a source.
+function sourceNameFor(p) {
+  const named = harvesterSourceLabel(p);
+  if (named) return named;
+  if (!p || !p.source_id) return null;
+  return String(p.source_id).split("_").map((w, i) =>
+    (i === 0 && w.length === 2) || w === "laft" ? w.toUpperCase() : w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+}
 function harvesterSourceLabel(p) {
   if (!p || !p.harvester_source) return null;
   const raw = String(p.harvester_source);
@@ -3215,7 +3226,11 @@ async function showApp() {
   else if (route && route.page === "dashboard") showPage("dashboard");
   else if (route && route.page === "county") { if (route.county) openCountyPage(route.county, PAGE_STATE); else openCountyIndex(); }
   else if (route && route.page === "research") openResearchPage();
-  else { showPage("list"); if (route && route.page === "watchlist") openBidList(); }
+  // Landing (remediation): a bare URL, or any route not named here, opens
+  // Home. The Available list is reached from Home or the nav, never by default.
+  else if (route && route.page === "list") showPage("list");
+  else if (route && route.page === "watchlist") { showPage("list"); openBidList(); }
+  else showPage("dashboard");
   startIdleWatch();
   // Customer monitoring (saved searches, alerts, change events, analytics) -
   // after the first paint, never blocking it; each piece degrades on its own.
@@ -5058,6 +5073,12 @@ function acquisitionProvenance(p) {
   const { state: _s, source_id: _i, county: _c, path_type: _t, ...keys } = rec;
   return { ...keys, ...op, acquisition: rec.acquisition };
 }
+// The one "verified acquisition path" test (remediation). A typed path is
+// verified only when it is attributed to a source: the Available dashboard
+// counted any row with a path type, while its rows showed "Source not recorded".
+function hasVerifiedPath(p) {
+  return !!p && !!p.source_id && acquisitionOf(p).verified;
+}
 function acquisitionOf(p) {
   const tp = typedPurchasePath(p);
   const op = acquisitionProvenance(p);
@@ -5072,7 +5093,9 @@ function acquisitionOf(p) {
   const mode = (acq && ACQUISITION_MODE_LABELS[acq.mode]) ? acq.mode : typeMode;
   const str = k => acq && acq[k] ? String(acq[k]) : "";
   return {
-    verified: tp.type !== "none_published",
+    // Verified only with a source attached - the same rule hasVerifiedPath()
+    // counts by, so a card and the dashboard can never disagree.
+    verified: tp.type !== "none_published" && !!p.source_id,
     mode, label: ACQUISITION_MODE_LABELS[mode], short: ACQUISITION_MODE_SHORT[mode],
     channels: acq && Array.isArray(acq.channels) ? acq.channels.map(String) : [],
     steps: acq && Array.isArray(acq.steps) ? acq.steps.map(String) : [],
@@ -5184,8 +5207,7 @@ function unitFreshnessText(u) {
   if (since === null || isNaN(since)) bits.push("no complete read recorded");
   else if (since > 36) bits.push(`no complete read in the last 36 hours (last complete read ${relativeTime(u.last_success_at)})`);
   else bits.push(`current - last complete read ${relativeTime(u.last_success_at)}`);
-  if (Number(u.consecutive_failures) >= 3) bits.push("back-off: attempted at most once per 48 hours until a read succeeds");
-  else if (Number(u.consecutive_failures) > 0) bits.push(`${u.consecutive_failures} consecutive failed attempt${Number(u.consecutive_failures) === 1 ? "" : "s"}`);
+  if (Number(u.consecutive_failures) > 0) bits.push("update unsuccessful; retry pending");
   if (u.last_success_row_count !== null && u.last_success_row_count !== undefined) bits.push(`${u.last_success_row_count} rows at the last complete read`);
   const bad = unavailable || since === null || isNaN(since) || since > 36;
   return { text: bits.join(" · "), cls: bad ? "warn" : "ok" };
@@ -6915,7 +6937,7 @@ function availableDecisionHtml(p) {
   // 8. Where did the data come from?
   const src = [];
   const link = (href, label) => `<a href="${esc(href)}" target="_blank" rel="noopener">${esc(label)} →</a>`;
-  src.push(esc(harvesterSourceLabel(p) || p.source_id || "Source not recorded"));
+  src.push(esc(sourceNameFor(p) || "Source not recorded"));
   if (p.list_url) src.push(link(p.list_url, "Source list"));
   if (p.document_url && p.document_url !== p.list_url) src.push(link(p.document_url, "Source document"));
   // Source documents a customer can open: the listing, the list document,
@@ -6977,7 +6999,7 @@ function auctionDecisionHtml(p) {
   const link = auctionLinkInfo(p);
   rows.push(q("process", "How do I register and bid?", auctionProcessHtml(p), acquisitionOf(p).verified ? "ok" : "muted"));
   if (sourceUnderReview(p)) rows.push(q("review", "Is the source approved?", `<span class="prov-review">Source under review</span>${sub(esc(REVIEW_REQUIRED_TEXT))}`, "muted"));
-  rows.push(q("source", "What is the source?", `${esc(harvesterSourceLabel(p) || "Source not recorded")}${link && link.href ? ` · <a href="${esc(link.href)}" target="_blank" rel="noopener">${esc(link.label || "Source page")} →</a>` : ""}${sub(esc(`${lastSyncedText(p)}${p.last_seen_at ? ` · last read ${dateOnly(p.last_seen_at)}` : ""}`))}`));
+  rows.push(q("source", "What is the source?", `${esc(sourceNameFor(p) || "Source not recorded")}${link && link.href ? ` · <a href="${esc(link.href)}" target="_blank" rel="noopener">${esc(link.label || "Source page")} →</a>` : ""}${sub(esc(`${lastSyncedText(p)}${p.last_seen_at ? ` · last read ${dateOnly(p.last_seen_at)}` : ""}`))}`));
   let result, resultCls = "";
   const ost = auctionOutcomeState(p);
   const RESULTS = { sold: 1, redeemed: 1, withdrawn: 1, cancelled: 1, struck_off: 1 };
@@ -7039,7 +7061,7 @@ function certificateDecisionHtml(p) {
     rows.push(q("acquire", "How do I buy it?", acquisitionHtml(p) + acquisitionContactHtml(a), a.verified ? "ok" : "muted"));
   }
   if (sourceUnderReview(p)) rows.push(q("review", "Is the source approved?", `<span class="prov-review">Source under review</span>${sub(esc(REVIEW_REQUIRED_TEXT))}`, "muted"));
-  rows.push(q("source", "Source and freshness?", `${esc(harvesterSourceLabel(p) || "Source not recorded")}${p.url_auction ? ` · <a href="${esc(p.url_auction)}" target="_blank" rel="noopener">County-held list →</a>` : ""}${sub(esc(`${lastSyncedText(p)}${p.inventory_status_observed_at ? ` · status observed ${dateOnly(p.inventory_status_observed_at)}` : ""}`))}`));
+  rows.push(q("source", "Source and freshness?", `${esc(sourceNameFor(p) || "Source not recorded")}${p.url_auction ? ` · <a href="${esc(p.url_auction)}" target="_blank" rel="noopener">County-held list →</a>` : ""}${sub(esc(`${lastSyncedText(p)}${p.inventory_status_observed_at ? ` · status observed ${dateOnly(p.inventory_status_observed_at)}` : ""}`))}`));
   const xl = crossLedgerSummary(p);
   rows.push(q("related", "Same parcel in Auctions or Available?", xl.cls ? muted(xl.text) : esc(xl.text), xl.cls));
   const gaps = [];
@@ -8596,10 +8618,20 @@ function restoreModalFocus() {
   if (el && document.contains(el) && typeof el.focus === "function") el.focus();
 }
 
+// One detail surface per width (remediation). On the List at desktop widths
+// the side panel is the surface; on phones and on the Home / Map / Research
+// pages (which have no side panel) the full-page modal is. A property is never
+// shown in both at once.
+function detailPanelOnList() {
+  let page;
+  try { page = shellPage; } catch { page = "list"; }
+  return page === "list" && !!(window.matchMedia && window.matchMedia("(min-width:1024px)").matches);
+}
 function openDetail(p) {
   const modal = document.getElementById("detailModal");
   const inner = document.getElementById("detailModalInner");
   if (!modal || !inner) return;
+  if (modal.hidden && detailPanelOnList()) { selectProperty(p); return; }
   // Only move focus in on a genuine open (modal was hidden) - openDetail()
   // is also called to rebuild the modal's content in place while it's
   // already open (e.g. after toggling favorite), and stealing focus back to
@@ -9211,7 +9243,6 @@ document.addEventListener("click", async e => {
     if (!pid) return;
     const p = ALL.find(x => x.id === pid);
     if (p) openDetail(p);
-    if (p && typeof selectProperty === "function") selectProperty(p);
   } else if (action === "jump") {
     // Phase 66: section nav on the full property page. Scrolls within
     // whichever container is showing this page (the modal, or the desktop
@@ -9469,7 +9500,6 @@ function render() {
   // ever stripped.
   if (typeof renderShellExtras === "function") renderShellExtras(shown, activeLedger);
   SHELL_UI.lastShown = shown;
-  if (typeof renderListCountyPanel === "function") renderListCountyPanel(shown);
   hydrateVisuals(document.getElementById("main"));
 }
 
@@ -10132,7 +10162,7 @@ function applyLedgerChrome() {
   document.documentElement.dataset.region = PAGE_STATE;
 
   // The browser tab and the app switcher should say which page this is too.
-  document.title = (cfg.title ? cfg.title + " · " : "") + "TAXACQ — " + STATE_INFO.name;
+  applyPageTitle();
 
   // Phase 67: the Map page's toolbar title carries the state as well ("Map ·
   // Florida"). The old page subtitle ("...by county across Florida") was the
@@ -11283,11 +11313,6 @@ if (accountBtn) {
 // Dashboard's own Settings button opens the exact same menu as the header
 // account badge - one popover, two entry points, so it isn't only reachable
 // via the small badge on a phone.
-const dashSettingsBtn = document.getElementById("dashSettingsBtn");
-if (dashSettingsBtn) dashSettingsBtn.addEventListener("click", e => {
-  e.stopPropagation();
-  openAccountMenu();
-});
 
 // ==================== edit profile ====================
 const profileModal = document.getElementById("profileModal");
@@ -11416,8 +11441,19 @@ function relativeTime(iso) {
   if (h < 48) return `${h}h ago`;
   return `${Math.round(h / 24)}d ago`;
 }
+// Customer wording for a source's health (remediation): one plain status and
+// the last update. The counts, incomplete-unit lists and retry detail are
+// operator diagnostics and are shown to administrators only.
+var CUSTOMER_HEALTH_TEXT = { HEALTHY: "Current", INCOMPLETE: "Partly updated", FAILED: "Update unsuccessful; retry pending", STALE: "Not recently updated", MANUAL: "Updated on request", NOT_RUN: "Not yet updated" };
 function sourceHealthRowHtml(rec) {
   const health = healthOf(rec);
+  if (!IS_ADMIN) {
+    return `<div class="health-row" data-source="${esc(rec.source)}" data-health="${esc(health)}">
+    <span class="health-label">${esc(rec.label || rec.source)}</span>
+    <span class="health-badge ${esc(health.toLowerCase())}">${esc(CUSTOMER_HEALTH_TEXT[health] || "Status not recorded")}</span>
+    <span class="health-sub">Last updated ${esc(relativeTime(rec.last_success_at))}</span>
+  </div>`;
+  }
   const units = rec.units_total !== null && rec.units_total !== undefined
     ? `${rec.units_complete}/${rec.units_total} units complete` : "completeness not gated";
   const bits = [
@@ -11454,6 +11490,15 @@ function sourceHealthRowsHtml(rows, pageState) {
 function unitFreshnessRowHtml(u) {
   const last = u.last_attempt_status ? String(u.last_attempt_status).toLowerCase() : "?";
   const ok = u.last_attempt_status === "COMPLETE" || u.last_attempt_status === "EMPTY";
+  if (!IS_ADMIN) {
+    const unavailable = u.last_attempt_status === "SOURCE_UNAVAILABLE" || /^(TRANSPORT_|PROXY_|ACCESS_)/.test(String(u.last_error_category || ""));
+    const sub = unavailable ? "Source unavailable at the last check - existing listings are kept" : (ok ? `Last updated ${relativeTime(u.last_success_at || u.last_attempt_at)}` : "Not updated recently");
+    return `<div class="health-row unit-row" data-county="${esc(u.county)}" data-source="${esc(u.source_id || "")}" data-fresh="${ok ? "current" : "stale"}" data-unavailable="${unavailable ? "1" : "0"}">
+    <span class="health-label">${esc(u.county)}</span>
+    <span class="health-badge ${ok ? "healthy" : "stale"}">${ok ? "Current" : "Not current"}</span>
+    <span class="health-sub">${esc(sub)}</span>
+  </div>`;
+  }
   const bits = [
     `last read ${relativeTime(u.last_attempt_at)} (${last})`,
     u.last_success_at ? `last complete read ${relativeTime(u.last_success_at)}` : "no complete read recorded",
@@ -12008,8 +12053,8 @@ window.addEventListener("appinstalled", () => {
     const next = document.getElementById("cpNew").value;
     const confirm = document.getElementById("cpConfirm").value;
 
-    if (next.length < 6) {
-      showMsg("New password must be at least 6 characters.", true);
+    if (next.length < MIN_PASSWORD_LENGTH) {
+      showMsg(`New password must be at least ${MIN_PASSWORD_LENGTH} characters.`, true);
       return;
     }
     if (next !== confirm) {
@@ -12090,6 +12135,23 @@ let shellPage = "list";
 // four-entry nav. "auctions" is accepted as the List page's old name.
 const SHELL_PAGES = { dashboard: "pageDashboard", list: "pageList", map: "pageMap", county: "pageCounty", research: "pageResearch" };
 
+// Browser title per route (remediation): the title follows the page on
+// screen - Home, Map, County, Research, the List's ledger, or an open
+// property - never the List's ledger on every other route. Safe before
+// `shellPage` is initialized (setLedger runs during startup), so it reads
+// the variable defensively, the same way syncLedgerNav() does.
+function applyPageTitle(propertyLabel) {
+  let page;
+  try { page = shellPage; } catch { page = "list"; }
+  let head;
+  if (propertyLabel) head = propertyLabel;
+  else if (page === "dashboard") head = "Home";
+  else if (page === "map") head = "Map";
+  else if (page === "county") head = "County Intelligence";
+  else if (page === "research") head = "My Research";
+  else { const cfg = ledgerCopy(state.ledger); head = (cfg && cfg.title) || "Properties"; }
+  document.title = head + " · TAXACQ — " + STATE_INFO.name;
+}
 function showPage(name) {
   if (name === "auctions") name = "list";
   if (name === "watchlist") { openBidList(); return; }
@@ -12110,6 +12172,11 @@ function showPage(name) {
   if (name === "county") renderCountyPage();
   if (name === "research") renderResearchPage();
   syncPageHash();
+  applyPageTitle();
+  // Home's own hero search is the search for that page; the header search
+  // would be a second box beside it, so it is hidden there (remediation).
+  const gsWrap = document.getElementById("globalSearch");
+  if (gsWrap) gsWrap.hidden = name === "dashboard";
 
   window.scrollTo({ top: 0, behavior: "auto" });
 }
@@ -12414,7 +12481,7 @@ function dashboardOps(active) {
     if (p.first_seen_at) { firstSeenTracked[p.source] = true; const d = daysSince(p.first_seen_at); if (d !== null && d <= 7) newByLedger[p.source]++; }
     if (p.last_seen_at) { lastSeenTracked[p.source] = true; const d = daysSince(p.last_seen_at); if (d !== null && d <= 7) seenByLedger[p.source]++; }
   });
-  const typed = laft.filter(p => typedPurchasePath(p));
+  const typed = laft.filter(hasVerifiedPath);
   const byType = new Map();
   typed.forEach(p => { const t = typedPurchasePath(p).type; byType.set(t, (byType.get(t) || 0) + 1); });
   return { soon, soonDates, watchedGone, laft, laftStale, laftNeverRead, unavailable, backoff, newByLedger, seenByLedger, firstSeenTracked, lastSeenTracked, typed, byType };
@@ -12695,12 +12762,12 @@ document.addEventListener("click", e => {
 
 function clearDetailPanel() {
   selectedPid = null;
+  try { if (pidFromHash() != null) history.replaceState(history.state, "", "#/" + LEDGERS[state.ledger].slug); } catch { /* file:// etc */ }
   const panel = document.getElementById("detailPanel");
   if (!panel) return;
   panel.className = "detail-panel";
   panel.innerHTML = `<div class="detail-panel-empty">Select a property from the list to see its full page here.</div>`;
   document.querySelectorAll(".data-table tbody tr.selected").forEach(tr => tr.classList.remove("selected"));
-  if (SHELL_UI.lastShown) renderListCountyPanel(SHELL_UI.lastShown);
   document.querySelectorAll("#main .prop-card.selected").forEach(c => c.classList.remove("selected"));
 }
 
@@ -12709,10 +12776,15 @@ function selectProperty(p) {
   if (!panel || !p) return;
   if (selectedPid !== p.id) track("property_viewed", { property_id: p.id, ledger: p.source, surface: "panel" });
   selectedPid = p.id;
+  try { history.replaceState(history.state, "", "#/" + (LEDGERS[p.source] || LEDGERS[state.ledger]).slug + "/" + p.id); } catch { /* file:// etc */ }
   panel.className = "detail-panel prop-card " + cardStatus(p);
   panel.innerHTML = detailHtml(p);
   ensureFullProvenance(p);
   hydrateVisuals(panel);
+  // Same hydration openDetail() gives the modal: one property page, whichever
+  // surface shows it (remediation - the panel had lost these two sections).
+  if (p.source !== "certificate") hydrateEventHistory(panel, p);
+  if (p.source === "laft") hydrateInventoryHistory(panel, p);
   hydrateChangeHistory(panel, p);
   researchAfterOpen(p);
   observeAcquisitionSection(panel, p);
@@ -12751,8 +12823,14 @@ function renderShellExtras(shown, activeLedger) {
     TABLE_STATE.listed = Math.min(shown.length, Math.max(TABLE_PAGE, TABLE_STATE.listed || 0));
     appendTableRows(tbody, 0, TABLE_STATE.listed);
   }
-  if (selectedPid != null && !shown.some(p => String(p.id) === String(selectedPid))) {
-    clearDetailPanel();
+  // Remediation: the panel is cleared when its property is gone, hidden, or
+  // belongs to another ledger - not merely filtered out of the list. A deep
+  // link (or a search result) to a property the filters exclude is the same
+  // property page the modal would show, so it stays open, as the modal does.
+  if (selectedPid != null) {
+    const cur = ALL.find(p => String(p.id) === String(selectedPid));
+    const gone = !cur || HIDDEN.has(cur.id) || (activeLedger && cur.source !== activeLedger);
+    if (gone) clearDetailPanel();
   }
 }
 
@@ -13274,10 +13352,6 @@ function renderRunRows() {
 function installMonitoringUi() {
   const qc = document.getElementById("quickControls");
   const exportBtn = document.getElementById("exportCsvBtn");
-  if (qc && !document.getElementById("savedSearchesBtn")) {
-    const btn = `<button class="export-btn saved-searches-btn" id="savedSearchesBtn" type="button" title="Save these filters and see what is new or changed since you last looked"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-6-4-6 4z"/></svg> Saved searches <b class="ss-badge" id="savedSearchesCount" hidden></b></button>`;
-    if (exportBtn) exportBtn.insertAdjacentHTML("beforebegin", btn); else qc.insertAdjacentHTML("beforeend", btn);
-  }
   const menu = document.getElementById("accountMenu");
   const helpItem = document.getElementById("helpBtnMenu");
   if (menu && !document.getElementById("alertsMenuItem")) {
@@ -13808,7 +13882,10 @@ function applyNaturalQuery(nq) {
     } else if (e.key === "Enter") {
       e.preventDefault();
       if (SHELL_UI.gsActive >= 0 && opts[SHELL_UI.gsActive]) { opts[SHELL_UI.gsActive].click(); return; }
-      goToListSearch(input.value);
+      // On the Map the same search filters the map; everywhere else it opens
+      // the List filtered by it. One search component, one meaning per page.
+      if (shellPage === "map") { mapFilter.search = input.value.trim(); renderMapPage(); closeGlobalSearch(); }
+      else goToListSearch(input.value);
       input.blur();
     } else if (e.key === "Escape") {
       closeGlobalSearch();
@@ -13885,47 +13962,6 @@ function topCountyName() {
 // (no sample figures, no scores). Hidden per browser with "Hide this guide";
 // "How this works" brings it back.
 var GUIDE_KEY = "tdw_home_guide_hidden_v1";
-function guideHidden() { try { return localStorage.getItem(GUIDE_KEY) === "1"; } catch { return false; } }
-function setGuideHidden(v) { try { if (v) localStorage.setItem(GUIDE_KEY, "1"); else localStorage.removeItem(GUIDE_KEY); } catch { /* private mode */ } }
-function homeGuideHtml() {
-  if (guideHidden()) {
-    return `<p class="home-guide-collapsed"><button type="button" class="link-btn" data-guide="show" id="homeGuideShow">How this works</button></p>`;
-  }
-  const settled = PROPERTIES_LOADED && allLedgersSettled();
-  const active = ["laft", "auction", "certificate"].reduce((n, k) => n + shellActiveRows(k).length, 0);
-  const counties = new Set(ALL.filter(p => !isGone(p) && !isPastDue(p)).map(p => p.county).filter(Boolean)).size;
-  const avail = shellActiveRows("laft");
-  const verified = avail.filter(p => acquisitionOf(p).verified).length;
-  const searches = (MONITOR.savedSearches || []).filter(s => s.state === PAGE_STATE).length;
-  const n = v => Number(v).toLocaleString("en-US");
-  const steps = [
-    ["Find", !PROPERTIES_LOADED ? `Loading ${STATE_INFO.name}…`
-      : `${n(active)} active record${active === 1 ? "" : "s"} in ${STATE_INFO.name}${counties ? ` across ${n(counties)} ${unitWordFor(counties)}` : ""}${settled ? "" : " so far"}. Filter by ${UNIT_WORD.toLowerCase()}, source, amount and date.`,
-      `<button type="button" class="link-btn" data-guide="list">Open the list</button>`],
-    ["Research", `Start from a ${UNIT_WORD.toLowerCase()} - its inventory, sales, sources and gaps on County Intelligence - or open a property for its values, source and where each field came from.`,
-      `<button type="button" class="link-btn" data-guide="counties">County Intelligence</button>`],
-    ["Verify how to acquire", avail.length
-      ? `${n(verified)} of ${n(avail.length)} available propert${avail.length === 1 ? "y has" : "ies have"} a verified acquisition path; the rest say "Not yet verified". Always confirm with the official source before you apply or pay.`
-      : "Available properties show the office's acquisition process once it has been verified. Always confirm with the official source.", ""],
-    ["Save & work it", `Save properties to your own research lists, mark where each one stands, and work its due-diligence checklist (${RESEARCH && RESEARCH.items ? RESEARCH.items.length : 0} in My Research). Watch up to ${BID_LIST_MAX} for changes (${BIDLIST.size} watched).`,
-      `<button type="button" class="link-btn" data-guide="research">My Research</button> <button type="button" class="link-btn" data-guide="watchlist">Watchlist</button>`],
-    ["Track", `${n(searches)} saved search${searches === 1 ? "" : "es"} for ${STATE_INFO.name}. New matches and changes to saved properties are shown when you return.`,
-      `<button type="button" class="link-btn" data-guide="searches">Saved searches</button>`]
-  ];
-  return `<div class="home-guide-head"><b>How this works</b><span class="home-guide-actions"><button type="button" class="link-btn" data-guide="hide" id="homeGuideHide">Hide this guide</button></span></div>
-    <ol class="home-guide-steps">${steps.map(([t, body, act], i) => `<li class="home-guide-step" data-step="${i + 1}"><span class="home-guide-num" aria-hidden="true">${i + 1}</span><span class="home-guide-body"><b>${esc(t)}</b> ${esc(body)} ${act}</span></li>`).join("")}</ol>`;
-}
-function renderHomeGuide() {
-  const ledgersEl = document.getElementById("homeLedgers");
-  if (!ledgersEl) return;
-  let g = document.getElementById("homeGuide");
-  if (!g) {
-    ledgersEl.insertAdjacentHTML("beforebegin", `<section class="home-guide" id="homeGuide" aria-label="How this works"></section>`);
-    g = document.getElementById("homeGuide");
-  }
-  g.classList.toggle("collapsed", guideHidden());
-  g.innerHTML = homeGuideHtml();
-}
 // The Home workstation (identity redesign, 2026-10-05): four ruled lists -
 // Available now, upcoming sales, county intelligence and saved work. Every
 // line is a loaded row or a count over loaded rows; nothing is ranked or
@@ -13972,7 +14008,6 @@ function renderHomeDesk() {
 function renderHome() {
   const ledgersEl = document.getElementById("homeLedgers");
   if (!ledgersEl) return;
-  renderHomeGuide();
   const order = ["laft", "auction", "certificate"];
   ledgersEl.innerHTML = order.map(homeLedgerCardHtml).join("") + `
     <button type="button" class="home-ledger-card home-states-card" id="homeStatesCard" aria-haspopup="dialog" aria-controls="statePicker">
@@ -14015,13 +14050,15 @@ function renderHome() {
     if (led) { goToLedger(led.dataset.homeLedger); return; }
     const pid = e.target.closest("[data-home-pid]");
     if (pid) { const p = ALL.find(x => String(x.id) === pid.dataset.homePid); if (p) openDetail(p); return; }
-    if (e.target.closest("#homeStatesCard") || e.target.closest("#homeChangeState") || e.target.closest("#homeAllCounties")) { openStatePicker(e.target.closest("button")); return; }
+    // The header's state dropdown is the one state control: "Change state"
+    // focuses it; the states card and "All counties" open the coverage sheet.
+    if (e.target.closest("#homeChangeState")) { const sel = document.getElementById("stateSelect"); if (sel) sel.focus(); return; }
+    if (e.target.closest("#homeStatesCard") || e.target.closest("#homeAllCounties")) { openStatePicker(e.target.closest("button")); return; }
     if (e.target.closest("#homeRecentAll")) goToLedger(landingLedger(ALL, state.ledger));
     const guide = e.target.closest("[data-guide]");
     if (guide) {
       const g = guide.dataset.guide;
-      if (g === "hide" || g === "show") { setGuideHidden(g === "hide"); renderHomeGuide(); const f = document.getElementById(g === "hide" ? "homeGuideShow" : "homeGuideHide"); if (f) f.focus(); }
-      else if (g === "list") goToLedger(landingLedger(ALL, state.ledger));
+      if (g === "list") goToLedger(landingLedger(ALL, state.ledger));
       else if (g === "watchlist") openBidList();
       else if (g === "research") openResearchPage("all");
       else if (g === "counties") openCountyIndex();
@@ -14131,12 +14168,6 @@ function removeFilterChip(key) {
     const x = e.target.closest("[data-chip-remove]");
     if (x) { removeFilterChip(x.dataset.chipRemove); return; }
     if (e.target.closest("#filterChipsClear")) { const r = document.getElementById("resetBtn"); if (r) r.click(); }
-  });
-  const mapBtn = document.getElementById("listMapBtn");
-  if (mapBtn) mapBtn.addEventListener("click", () => {
-    mapFilter.ledger = state.ledger;
-    mapFilter.county = state.counties.size === 1 ? Array.from(state.counties)[0] : "ALL";
-    showPage("map");
   });
   // The filter panel is a bottom sheet on a phone / tablet; its own close
   // button runs the same toggle.
@@ -14292,8 +14323,6 @@ function openStatePicker(returnEl) {
     if (e.shiftKey && document.activeElement === f[0]) { e.preventDefault(); f[f.length - 1].focus(); }
     else if (!e.shiftKey && document.activeElement === f[f.length - 1]) { e.preventDefault(); f[0].focus(); }
   });
-  const btn = document.getElementById("statePickerBtn");
-  if (btn) btn.addEventListener("click", () => openStatePicker(btn));
 })();
 
 // ---- navigation actions (entries that are not pages) ----
@@ -14310,8 +14339,6 @@ function openStatePicker(returnEl) {
   if (states) states.addEventListener("click", () => openCountyIndex());
   const about = document.getElementById("navAboutBtn");
   if (about) about.addEventListener("click", () => helpUi.open());
-  const acct = document.getElementById("navBottomAccount");
-  if (acct) acct.addEventListener("click", e => { e.stopPropagation(); openAccountMenu(); });
   // Phone: the rail's workspace entries are not on the bottom bar, so the
   // Account sheet carries them as a short "Go to" group (hidden wherever the
   // rail shows). Each one runs the rail entry's own handler once the sheet's
@@ -14348,76 +14375,6 @@ function syncAdminNav() {
 // screen it holds, with the count in its tooltip. Clicking a county filters
 // the list to it. It is drawn only on wide screens and only while no
 // property is open in that column - the full property page takes it over.
-function listPanelWide() { try { return window.matchMedia("(min-width:1280px)").matches; } catch { return false; } }
-function renderListCountyPanel(shown) {
-  const panel = document.getElementById("detailPanel");
-  if (!panel || selectedPid != null || !listPanelWide()) return;
-  const empty = panel.querySelector(".detail-panel-empty");
-  if (!empty) return;
-  const counts = new Map();
-  shown.forEach(p => { if (p.county) counts.set(p.county, (counts.get(p.county) || 0) + 1); });
-  const max = Math.max(1, ...counts.values());
-  let host = panel.querySelector("#listCountyPanel");
-  if (!host) {
-    empty.insertAdjacentHTML("beforebegin", `<div class="list-county-panel" id="listCountyPanel">
-      <div class="lcp-head"><b id="lcpTitle">Where these are</b><span id="lcpSub"></span></div>
-      <div class="lcp-map" id="lcpMap" role="group" aria-label="${esc(UNIT_WORD)} map - choose one to filter the list"></div>
-      <div class="lcp-legend"><span>Fewer</span><span class="lcp-ramp" aria-hidden="true"></span><span>More</span></div>
-      <button type="button" class="link-btn" id="lcpOpenMap">Open the full map &rarr;</button>
-    </div>`);
-    host = panel.querySelector("#listCountyPanel");
-    host.querySelector("#lcpOpenMap").addEventListener("click", () => { const b = document.getElementById("listMapBtn"); if (b) b.click(); });
-  }
-  const sub = host.querySelector("#lcpSub");
-  if (sub) sub.textContent = `${shown.length.toLocaleString("en-US")} shown in ${counts.size} ${unitWordFor(counts.size)}`;
-  loadBasemapGeom().then(geom => {
-    const mapEl = host.querySelector("#lcpMap");
-    if (!mapEl || !geom || !geom.counties.size) { if (mapEl) mapEl.textContent = "Map outline unavailable."; return; }
-    const NS = "http://www.w3.org/2000/svg";
-    let svg = mapEl.querySelector("svg");
-    if (!svg) {
-      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-      geom.counties.forEach(c => { x0 = Math.min(x0, c.box.x); y0 = Math.min(y0, c.box.y); x1 = Math.max(x1, c.box.x + c.box.w); y1 = Math.max(y1, c.box.y + c.box.h); });
-      svg = document.createElementNS(NS, "svg");
-      svg.setAttribute("viewBox", `${x0} ${y0} ${x1 - x0} ${y1 - y0}`);
-      svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
-      geom.counties.forEach((c, name) => {
-        const path = document.createElementNS(NS, "path");
-        path.setAttribute("d", c.d);
-        path.setAttribute("data-county", name);
-        path.setAttribute("tabindex", "-1");
-        const t = document.createElementNS(NS, "title");
-        path.appendChild(t);
-        svg.appendChild(path);
-      });
-      mapEl.innerHTML = "";
-      mapEl.appendChild(svg);
-      svg.addEventListener("click", e => {
-        const path = e.target.closest("path[data-county]");
-        if (!path || !path.classList.contains("has")) return;
-        const cq = document.getElementById("countyQuick");
-        if (!cq) return;
-        cq.value = path.dataset.county;
-        if (cq.value !== path.dataset.county) return;     // not an option in this ledger
-        cq.dispatchEvent(new Event("change", { bubbles: true }));
-      });
-      svg.addEventListener("keydown", e => {
-        if (e.key !== "Enter" && e.key !== " ") return;
-        const path = e.target.closest("path[data-county]");
-        if (path) { e.preventDefault(); path.dispatchEvent(new MouseEvent("click", { bubbles: true })); }
-      });
-    }
-    svg.querySelectorAll("path[data-county]").forEach(path => {
-      const n = counts.get(path.dataset.county) || 0;
-      path.classList.toggle("has", n > 0);
-      path.setAttribute("tabindex", n > 0 ? "0" : "-1");
-      path.setAttribute("role", n > 0 ? "button" : "presentation");
-      path.style.setProperty("--lcp-level", n ? (0.25 + 0.75 * Math.sqrt(n / max)).toFixed(3) : "0");
-      const title = path.querySelector("title");
-      if (title) title.textContent = `${path.dataset.county} ${UNIT_WORD}: ${n.toLocaleString("en-US")} shown`;
-    });
-  });
-}
 
 // ---- property page: breadcrumb, "why am I seeing this", card acquisition badge ----
 function detailCrumbsHtml(p) {

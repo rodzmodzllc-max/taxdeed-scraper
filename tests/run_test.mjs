@@ -41,10 +41,48 @@ const browser = await chromium.launch(launchOpts);
 // instead. (This is hygiene, not the fix for the CI timeout this branch
 // hit - see the cold-load note by the #/certificates check further down.)
 const THIRD_PARTY_EMBED = /:\/\/(www\.)?openstreetmap\.org\//;
+// Remediation (2026-10-10): an open property is shown in ONE surface per
+// width - the full-page modal on phones (and off the List), the side panel
+// on the List at desktop widths. Tests that address the property page by its
+// modal selector (#detailModalInner ...) therefore match whichever surface is
+// visible: the selector is widened to both containers, each restricted with
+// :visible so the hidden one never matches. Selectors without the modal
+// container are passed through untouched.
+const DETAIL_MODAL_SEL = '#detailModalInner';
+function detailSurfaceSelector(sel) {
+  if (typeof sel !== 'string' || !sel.includes(DETAIL_MODAL_SEL)) return sel;
+  return sel.split(',').map(part => part.trim()).flatMap(part => part.includes(DETAIL_MODAL_SEL)
+    ? [`${part}:visible`, `${part.split(DETAIL_MODAL_SEL).join('#detailPanel')}:visible`]
+    : [part]).join(', ');
+}
+// Remediation (2026-10-10): the Map no longer prints a separate "Ledger · County"
+// line; its toolbar controls are the display. This reads them back in the same
+// "Ledger: X · County: Y" form the old line used, so each check compares the
+// same meaning.
+async function mapSelectionText(pg) {
+  return pg.evaluate(() => {
+    const pill = document.querySelector('#mapLedgerPills button.on');
+    const sel = document.getElementById('mapCountySelect');
+    const opt = sel && sel.selectedOptions[0];
+    const ledger = pill ? pill.textContent.trim() : 'All Ledgers';
+    const county = !opt || opt.value === 'ALL' ? 'All counties' : opt.textContent.replace(/\s*\(\d+\)\s*$/, '').trim();
+    return `Ledger: ${ledger} · County: ${county}`;
+  });
+}
 async function newPage(opts) {
-  const pg = await browser.newPage(opts);
-  await pg.route(THIRD_PARTY_EMBED, route => route.fulfill({
+  const raw = await browser.newPage(opts);
+  await raw.route(THIRD_PARTY_EMBED, route => route.fulfill({
     status: 200, contentType: 'text/html', body: '<!doctype html><title>embed stubbed by the suite</title>' }));
+  const pg = new Proxy(raw, {
+    get(target, prop) {
+      const v = Reflect.get(target, prop, target);
+      if (typeof v !== 'function') return v;
+      return (...args) => {
+        if (typeof args[0] === 'string') args[0] = detailSurfaceSelector(args[0]);
+        return v.apply(target, args);
+      };
+    }
+  });
   return pg;
 }
 const page = await newPage({ viewport: { width: 390, height: 844 } });
@@ -309,7 +347,10 @@ results.navMapBtnOnAfterMapNav = await page.locator('.nav-bottom-item[data-page=
 // Unified navigation (2026-09-30): the title is "Map" over a context line
 // (state from PAGE_STATE, ledger pill, county select) - renderMapContext().
 results.mapPageTitle = ((await page.locator('#pageMap .map-page-title').textContent()) || '').trim();
-results.mapContextFlorida = ((await page.locator('#mapContext').textContent()) || '').replace(/\s+/g, ' ').trim();
+// Remediation (2026-10-10): the "Ledger: · County:" line duplicated the
+// toolbar's ledger pills and county select, so it is gone; the controls are
+// the one authoritative display of the Map's selection.
+results.mapContextRemoved = (await page.locator('#mapContext').count()) === 0;
 results.mapHashOnMapNav = await page.evaluate(() => location.hash);
 results.mapPathCount = await page.locator('#exploreMapCanvas path[data-county]').count();
 // Portfolio-wide (every ledger, not just whatever ledger tab Auctions
@@ -393,10 +434,14 @@ results.mapCanvasZoomedAfterReset = await page.locator('#exploreMapCanvas').eval
 
 // The Map page's own toolbar - search, ledger pills, watchlist-only - all
 // independent of the Auctions page's filters/ledger tabs.
-await page.fill('#mapSearchInput', 'nonexistentxyz123');
+// Remediation (2026-10-10): the Map has no search box of its own; the header
+// search is the one search, and on the Map it filters the map (Enter).
+await page.fill('#globalSearchInput', 'nonexistentxyz123');
+await page.press('#globalSearchInput', 'Enter');
 await page.waitForTimeout(150);
 results.mapBubbleCountAfterDeadSearch = await page.locator('#exploreMapCanvas .cluster-bubble').count();
-await page.fill('#mapSearchInput', '');
+await page.fill('#globalSearchInput', '');
+await page.press('#globalSearchInput', 'Enter');
 await page.waitForTimeout(150);
 await page.click('#mapLedgerPills [data-ledger="laft"]');
 await page.waitForTimeout(150);
@@ -772,12 +817,14 @@ results.duvalGroupClosedBeforeSearch = await page.locator('.county-group[data-co
 
 // --- search: "Searchable" should isolate p7 (12 Searchable Blvd, Duval) and
 // auto-expand its county group even though it was just collapsed ---
-await page.fill('#searchInput', 'Searchable');
+await page.fill('#globalSearchInput', 'Searchable');
+await page.press('#globalSearchInput', 'Enter');
 await page.waitForTimeout(200);
 results.searchFilteredCardCount = await page.locator('.prop-card').count();
 results.searchFilteredAddress = (await page.locator('.prop-card .prop-address').first().textContent() || '').trim();
 results.searchAutoExpandsMatch = await page.locator('.county-group[data-county="Duval"]').evaluateAll(els => els.some(el => el.open));
-await page.fill('#searchInput', '');
+await page.fill('#globalSearchInput', '');
+await page.press('#globalSearchInput', 'Enter');
 await page.waitForTimeout(150);
 results.cardCountAfterClearingSearch = await page.locator('.prop-card').count();
 
@@ -1501,10 +1548,17 @@ results.desktopAuctionListSingleColumn = await page.locator('.prop-list').first(
   getComputedStyle(el).gridTemplateColumns.trim().split(' ').length === 1);
 await page.locator('.prop-card').first().locator('.detail-btn').first().click();
 await page.waitForTimeout(300);
-results.desktopAuctionModalDocksRight = await page.locator('#detailModal').evaluate(el =>
-  getComputedStyle(el).justifyContent === 'flex-end');
+// Remediation (2026-10-10): one detail surface per width. On the List at a
+// desktop width the property opens in the side panel ONLY - the modal stays
+// hidden, so the same property is never shown twice.
+results.desktopViewdetailsSingleSurface = {
+  modalHidden: await page.locator('#detailModal').evaluate(el => el.hidden),
+  panelShows: await page.locator('#detailPanel .calc-drawer').count() > 0,
+  hashNamesProperty: /^#\/auctions\/\w+$/.test(await page.evaluate(() => location.hash))
+};
 
-// Close the full-screen modal BEFORE touching the panel below: while open,
+// Historical note: when a property opened in both surfaces at once, the modal
+// overlay swallowed clicks on the panel, so the modal had to be closed first.
 // the modal is a fixed-position overlay that sits on top of #detailPanel in
 // the stacking order, so its own subtree intercepts every pointer event
 // over the panel (Playwright confirmed this concretely - a click on the
@@ -1512,8 +1566,6 @@ results.desktopAuctionModalDocksRight = await page.locator('#detailModal').evalu
 // until the modal was closed first). This is normal overlay behavior, not a
 // defect: a real user can't interact with anything the modal is covering
 // either, they'd close it first too.
-await page.click('#detailModalInner [data-action="closedetail"]');
-await page.waitForTimeout(150);
 
 // Phase 20: the SAME viewdetails click above also called selectProperty(p),
 // which renders this property's own copy of detailHtml(p) - complete with
@@ -1731,7 +1783,7 @@ const txMapPage = await newPage({ viewport: { width: 1280, height: 900 } });
 await txMapPage.goto(TX_BASE_URL + '#map', { waitUntil: 'networkidle' });
 await txMapPage.waitForTimeout(600);
 results.txMapPageVisibleOnColdLoad = await txMapPage.locator('#pageMap').isVisible();
-results.txMapContextTexas = ((await txMapPage.locator('#mapContext').textContent()) || '').replace(/\s+/g, ' ').trim();
+results.txMapContextTexas = await mapSelectionText(txMapPage);
 results.txMapStateValue = await txMapPage.locator('#stateSelect').inputValue();
 results.txMapPathCount = await txMapPage.locator('#exploreMapCanvas path[data-county]').count();
 await txMapPage.close();
@@ -2023,12 +2075,11 @@ results.dashWatchNoNotificationsClaim = ((await dashPage.locator('#dashWatchChan
 results.dashUnitLedgerHeads = await dashPage.locator('#dashUnitRows .unit-head').evaluateAll(els => els.map(e => e.dataset.ledgerHead));
 results.dashUnitRowsUnderAvailable = await dashPage.locator('#dashUnitRows .unit-head[data-ledger-head="laft"] ~ .unit-row').evaluateAll(els => els.map(e => e.dataset.county));
 results.dashUnitEmptyGroups = await dashPage.locator('#dashUnitRows .unit-empty').count();
-results.dashLedgerFreshAvailable = ((await dashPage.locator('#dashLedgerRows .dash-row[data-ledger-row="laft"] .dash-row-fresh:not(.dash-row-withheld)').textContent()) || '').trim();
-results.dashLedgerWithheldAvailable = ((await dashPage.locator('#dashLedgerRows .dash-row[data-ledger-row="laft"] .dash-row-withheld').textContent()) || '').trim();
-results.dashLedgerWithheldAuctionsAbsent = await dashPage.locator('#dashLedgerRows .dash-row[data-ledger-row="auction"] .dash-row-withheld').count();
+// Remediation (2026-10-10): the "By Ledger" panel repeated the ledger tiles
+// above it, so it is removed; the withheld count is stated once, on the tile.
+results.dashLedgerPanelRemoved = (await dashPage.locator('#dashLedgerRows').count()) === 0;
+results.dashWithheldShownOnce = ((await dashPage.locator('#dashStats').textContent()) || '').includes('1 withheld');
 results.dashUnitBayUnavailable = await dashPage.locator('#dashUnitRows .unit-row[data-county="Bay"]').getAttribute('data-unavailable');
-results.dashLedgerFreshAuctionsAbsent = await dashPage.locator('#dashLedgerRows .dash-row[data-ledger-row="auction"] .dash-row-fresh').count();
-results.dashLedgerRowTitles = await dashPage.locator('#dashLedgerRows .dash-row-name').evaluateAll(els => els.map(e => e.textContent.trim()));
 // Unified navigation (2026-09-30): exactly four destinations - Dashboard,
 // List, Map, Watchlist - in the rail and the bottom bar, no per-ledger
 // entries; the ledger is picked inside the List page (#ledgerTabs) and the
@@ -2055,10 +2106,12 @@ results.tabLaftHeading = ((await dashPage.locator('.ledger-head h2').textContent
 // Shell redesign (2026-10-04): each ledger has its own sidebar entry, and
 // its count is the same number as that ledger's tab (the old single List
 // entry carried their sum).
-results.navLedgerCountsMatchTabs = await dashPage.evaluate(() => {
-  const tabs = Array.from(document.querySelectorAll('#ledgerTabs .ledger-tab')).map(t => [t.dataset.ledger, Number(t.querySelector('b').textContent)]);
-  return tabs.every(([k, n]) => Number(document.querySelector(`.nav-item[data-nav-ledger="${k}"] .nav-count`).textContent.replace(/,/g, '')) === n) && tabs.reduce((a, [, n]) => a + n, 0) > 0;
-});
+// Remediation (2026-10-10): the List's ledger tabs no longer repeat the count;
+// each ledger's count is shown once, on its primary-nav entry.
+results.navLedgerCountsOnce = await dashPage.evaluate(() => ({
+  tabCountsRemoved: document.querySelectorAll('#ledgerTabs .ledger-tab b').length === 0,
+  navCountEachLedger: ['laft', 'auction', 'certificate'].every(k => !!document.querySelector(`.nav-item[data-nav-ledger="${k}"] .nav-count`))
+}));
 // The List page no longer carries its own state tabs: the state is the
 // header's #stateSelect (see the global state context block below).
 results.listHasNoStateTabs = (await dashPage.locator('#regionTabs, a[data-state-link]').count()) === 0;
@@ -3004,7 +3057,7 @@ results.navMapDeepVisible = await navMap.locator('#pageMap').evaluate(el => !el.
 results.navMapDeepLit = await navMap.locator('.nav-list .nav-item.on').evaluateAll(els => els.map(e => e.dataset.page || 'ledger:' + e.dataset.navLedger));
 results.navMapDeepLaftPill = await navMap.locator('#mapLedgerPills [data-ledger="laft"]').evaluate(el => el.classList.contains('on'));
 results.navMapDeepCounty = await navMap.locator('#mapCountySelect').inputValue();
-results.navMapDeepContext = ((await navMap.locator('#mapContext').textContent()) || '').replace(/\s+/g, ' ').trim();
+results.navMapDeepContext = await mapSelectionText(navMap);
 results.navMapDeepHash = await navMap.evaluate(() => location.hash);
 results.navMapStateOptions = await navMap.locator('#stateSelect option').evaluateAll(els => els.map(e => e.value + ':' + e.textContent));
 results.navMapStateValue = await navMap.locator('#stateSelect').inputValue();
@@ -3019,14 +3072,15 @@ await navMap.click('#mapLedgerPills [data-ledger="certificate"]');
 await navMap.waitForTimeout(300);
 results.navMapCertCountyOptions = await navMap.locator('#mapCountySelect option').evaluateAll(els => els.map(e => e.textContent));
 results.navMapCertCountyValue = await navMap.locator('#mapCountySelect').inputValue();
-results.navMapCertContext = ((await navMap.locator('#mapContext').textContent()) || '').replace(/\s+/g, ' ').trim();
+results.navMapCertContext = await mapSelectionText(navMap);
 results.navMapCertHash = await navMap.evaluate(() => location.hash);
 results.navMapCertBubbleCount = await navMap.locator('#exploreMapCanvas .cluster-bubble').count();
 await navMap.click('#mapLedgerPills [data-ledger="all"]');
 await navMap.waitForTimeout(300);
 results.navMapAllCountyOptions = await navMap.locator('#mapCountySelect option').evaluateAll(els => els.map(e => e.textContent));
 results.navMapAllHash = await navMap.evaluate(() => location.hash);
-await navMap.fill('#mapSearchInput', 'Oak');
+await navMap.fill('#globalSearchInput', 'Oak');
+await navMap.press('#globalSearchInput', 'Enter');
 await navMap.waitForTimeout(300);
 results.navMapSearchHash = await navMap.evaluate(() => location.hash);
 // The ledger picked on the Map page does not leak into the List page's
@@ -3853,7 +3907,7 @@ await navMap.close();
       const allFromSource = await pg.evaluate(v => ((window.__tdwLastRender || {}).rows || []).every(r => (r.source_id || r.harvester_source) === v), pick);
       results.sourceFilter = { options: opts.length > 0, narrowedOrEqual: after <= before && after > 0, allFromSource };
       // Saved search keeps the source and the county; rename; replace with current filters.
-      await pg.click('#savedSearchesBtn');
+      await pg.click('#navSavedSearchesBtn');
       await pg.waitForTimeout(200);
       results.ssCriteriaHasSource = /source:/.test(((await pg.locator('#saveSearchCriteria').textContent()) || ''));
       await pg.fill('#saveSearchName', 'Source check');
@@ -3871,7 +3925,7 @@ await navMap.close();
       await pg.selectOption('#countyQuick', { index: 1 });
       const countyPicked = await pg.evaluate(() => document.getElementById('countyQuick').value);
       await pg.waitForTimeout(200);
-      await pg.click('#savedSearchesBtn'); await pg.waitForTimeout(200);
+      await pg.click('#navSavedSearchesBtn'); await pg.waitForTimeout(200);
       const item2 = pg.locator('.saved-search').filter({ hasText: 'Source check renamed' }).first();
       await item2.locator('[data-ss-update]').click();
       await pg.waitForTimeout(300);
@@ -3920,20 +3974,11 @@ await navMap.close();
       pg.on('pageerror', e => errors.push('guide pageerror: ' + e.message));
       await pg.goto(html('la.html') + '#/dashboard', { waitUntil: 'networkidle' });
       await pg.waitForTimeout(500);
-      const steps = await pg.locator('#homeGuide .home-guide-step').count();
-      const verifyText = ((await pg.locator('#homeGuide .home-guide-step[data-step="3"]').textContent()) || '').replace(/\s+/g, ' ').trim();
-      const findText = ((await pg.locator('#homeGuide .home-guide-step[data-step="1"]').textContent()) || '').replace(/\s+/g, ' ').trim();
-      await pg.click('#homeGuideHide'); await pg.waitForTimeout(150);
-      const hidden = { steps: await pg.locator('#homeGuide .home-guide-step').count(), show: await pg.locator('#homeGuideShow').count() };
-      await pg.reload({ waitUntil: 'networkidle' }); await pg.waitForTimeout(400);
-      const stillHidden = await pg.locator('#homeGuideShow').count();
-      await pg.click('#homeGuideShow'); await pg.waitForTimeout(150);
-      const shownAgain = await pg.locator('#homeGuide .home-guide-step').count();
-      await pg.click('#homeGuide [data-guide="list"]'); await pg.waitForTimeout(300);
-      const routed = await pg.evaluate(() => location.hash);
-      results.homeGuide = { steps, findMentionsState: /in Louisiana/.test(findText), verifyCounts: /\d+ of \d+ available propert/.test(verifyText),
-        verifyHonest: /Not yet verified/.test(verifyText) && /official source/.test(verifyText),
-        noScores: !/\b(score|scores|ROI|AI|rating)\b|expected return/i.test(findText + verifyText), hidden, stillHidden, shownAgain, routed };
+      // Remediation (2026-10-10): the "How this works" guide repeated the nav,
+      // the counts and the ledger cards. It is removed, not hidden: Home has
+      // one search, one set of ledger tiles and nothing to dismiss.
+      results.homeGuide = { guideAbsent: (await pg.locator('#homeGuide').count()) === 0,
+        homeHeroSearch: (await pg.locator('#homeSearchInput').count()) === 1 };
       await pg.close();
     }
     // Global search while a ledger is still loading: says so, never a final "no match"; refreshes when it arrives.
@@ -3962,8 +4007,8 @@ await navMap.close();
         if (over > 0) overflow.push(`${w}:${k}:${over}`);
         if ((w === 390 || w === 430) && (k === 'listLA' || k === 'detail' || k === 'map' || k === 'home')) {
           const small = await pg.evaluate(() => {
-            const sel = ['#stateSelect', '#accountBtn', '#ledgerTabs .ledger-tab', '#listMapBtn', '#mapSearchInput', '#mapCountySelect', '.map-ledger-pills button',
-              '#homeGuide [data-guide]', '#detailModal:not([hidden]) [data-section="acquire"] a'];
+            const sel = ['#stateSelect', '#accountBtn', '#ledgerTabs .ledger-tab', '#mapCountySelect', '.map-ledger-pills button',
+              '#detailModal:not([hidden]) [data-section="acquire"] a'];
             return sel.flatMap(q => [...document.querySelectorAll(q)].filter(e => e.offsetParent !== null).map(e => [q, Math.round(e.getBoundingClientRect().height)]))
               .filter(([, h]) => h > 0 && h < 44).map(([q, h]) => q + ':' + h);
           });
@@ -4135,7 +4180,7 @@ await navMap.close();
     results.nqVerified = await pg.evaluate(() => ({ acq: (document.getElementById('acqStateFilter') || {}).value || null,
       allVerified: ((window.__tdwLastRender || {}).rows || []).every(r => r.purchase_path_type && r.purchase_path_type !== 'none_published') }));
     // Saved search: duplicate keeps the criteria under a new name.
-    await pg.click('#savedSearchesBtn'); await pg.waitForTimeout(200);
+    await pg.click('#navSavedSearchesBtn'); await pg.waitForTimeout(200);
     await pg.fill('#saveSearchName', 'Dup me');
     await pg.click('#saveSearchSubmit'); await pg.waitForTimeout(300);
     const orig = await pg.locator('.saved-search').filter({ hasText: 'Dup me' }).first().locator('.ss-criteria').textContent();
@@ -4155,7 +4200,7 @@ await navMap.close();
     const sp = await newPage({ viewport: { width: 1280, height: 900 } });
     await sp.goto(BASE_URL + '#/dashboard', { waitUntil: 'networkidle' });
     await sp.waitForTimeout(300);
-    await sp.click('#statePickerBtn');
+    await sp.click('#homeStatesCard'); // Remediation: the header States button is gone; the Home states card opens the same sheet
     await sp.waitForSelector('#coverageExplorer .cov-list li', { timeout: 5000 });
     results.coverageExplorer = await sp.evaluate(() => {
       const ex = document.getElementById('coverageExplorer');
@@ -4577,11 +4622,6 @@ await navMap.close();
       await ep.close();
       const hp = await newPage({ viewport: { width: 1280, height: 900 } });
       await hp.goto(BASE_URL.replace('index.html', 'index.html?v=guide') + '#/dashboard', { waitUntil: 'networkidle' });
-      await hp.waitForSelector('#homeGuide [data-guide="research"]', { timeout: 10000 });
-      results.homeGuideWorkflow = await hp.evaluate(() => ({ research: !!document.querySelector('#homeGuide [data-guide="research"]'), counties: !!document.querySelector('#homeGuide [data-guide="counties"]') }));
-      await hp.click('#homeGuide [data-guide="counties"]');
-      await hp.waitForSelector('#pageCounty .cty-index', { timeout: 5000 });
-      results.homeGuideToCounties = await hp.evaluate(() => location.hash);
       await hp.close();
     }
   }
@@ -4592,13 +4632,13 @@ await navMap.close();
     const mp = await newPage({ viewport: { width: 390, height: 844 } });
     mp.on('pageerror', e => errors.push('account goto pageerror: ' + e.message));
     await mp.goto(BASE_URL.replace('index.html', 'index.html?v=goto') + '#/dashboard', { waitUntil: 'networkidle' });
-    await mp.waitForSelector('#navBottomAccount', { timeout: 10000 });
+    await mp.waitForSelector('#accountBtn', { timeout: 10000 });
     const viaGoto = async (go, sel) => {
-      await mp.click('#navBottomAccount');
+      await mp.click('#accountBtn');
       await mp.click(`#accountGoto [data-goto="${go}"]`);
       return mp.waitForSelector(sel, { timeout: 5000 }).then(async () => ({ hash: await mp.evaluate(() => location.hash), menuClosed: await mp.evaluate(() => document.getElementById('accountMenu').hidden) }), () => null);
     };
-    await mp.click('#navBottomAccount');
+    await mp.click('#accountBtn');
     const labels = await mp.evaluate(() => [...document.querySelectorAll('#accountGoto [data-goto]')].filter(b => b.offsetParent).map(b => b.textContent));
     await mp.keyboard.press('Escape'); await mp.evaluate(() => { const m = document.getElementById('accountMenu'); if (!m.hidden) document.getElementById('navBottomAccount').click(); });
     await mp.waitForTimeout(450);
@@ -5132,12 +5172,12 @@ await navMap.close();
     await pg.fill('#homeSearchInput', 'Manatee');
     await pg.press('#homeSearchInput', 'Enter');
     await pg.waitForTimeout(400);
-    results.rdHomeSearch = { hash: await pg.evaluate(() => location.hash), listSearch: await pg.inputValue('#searchInput'),
+    results.rdHomeSearch = { hash: await pg.evaluate(() => location.hash), listSearch: await pg.inputValue('#globalSearchInput'),
       cards: await pg.locator('#main .prop-card').count(), chip: await txt(pg, '#filterChips .filter-chip') };
     // Removing the search chip clears the search; Clear all resets everything.
     await pg.click('#filterChips [data-chip-remove="search"]');
     await pg.waitForTimeout(300);
-    results.rdChipRemoved = { listSearch: await pg.inputValue('#searchInput'), chips: await pg.locator('#filterChips .filter-chip').count(), hidden: await pg.locator('#filterChips').evaluate(el => el.hidden) };
+    results.rdChipRemoved = { listSearch: await pg.inputValue('#globalSearchInput'), chips: await pg.locator('#filterChips .filter-chip').count(), hidden: await pg.locator('#filterChips').evaluate(el => el.hidden) };
     // A control chip: the Available purchase-path filter.
     await pg.selectOption('#availPathFilter', 'none');
     await pg.waitForTimeout(300);
@@ -5217,8 +5257,8 @@ await navMap.close();
     // are unreviewed in the fixture, so a customer sees no Available badge
     // there and an admin does).
     const picker = async (qs) => {
-      const p2 = await open(qs, '#/lands');
-      await p2.click('#statePickerBtn');
+      const p2 = await open(qs, '#/dashboard');
+      await p2.click('#homeStatesCard');
       await p2.waitForFunction(() => !document.querySelector('#statePickerBody .ledger-badge.pending'), null, { timeout: 8000 }).catch(() => {});
       const rows = await p2.locator('#statePickerBody .state-row').evaluateAll(els => els.map(e => e.dataset.stateRow + '=' +
         Array.from(e.querySelectorAll('.ledger-badge')).map(b => b.dataset.ledger).join('|') + (e.querySelector('.state-row-none') ? '!' + (e.querySelector('.state-row-none').textContent.startsWith('No properties') ? 'none' : 'unchecked') : '')));
@@ -5247,7 +5287,7 @@ await navMap.close();
     // global search sits in the top bar.
     pg = await open('', '#/lands', { width: 390, height: 844 });
     results.rdPhoneBottom = await pg.locator('#navBottom .nav-bottom-item').allTextContents();
-    await pg.click('#navBottomAccount');
+    await pg.click('#accountBtn');
     await pg.waitForTimeout(200);
     results.rdPhoneAccount = await pg.locator('#accountMenu').evaluate(el => !el.hidden);
     results.rdPhoneSearchVisible = await pg.locator('#globalSearchInput').isVisible();
@@ -5548,7 +5588,7 @@ results.navDashDeepVisible = await navDash.locator('#pageDashboard').evaluate(el
 results.navDashTiles = await navDash.locator('#dashStats .stat-tile').evaluateAll(els => els.map(e => (e.dataset.ledgerTile || 'counties') + ':' + e.querySelector('.stat-tile-val').textContent.trim()));
 results.navDashNoValueTile = await navDash.locator('#dashStats').evaluate(el => !/Sum of county values/.test(el.textContent));
 results.navDashAttention = await navDash.locator('#dashAttentionRows .dash-row').evaluateAll(els => els.map(e => e.dataset.att + ':' + e.querySelector('.dash-row-vals').textContent.replace(/\s+/g, ' ').trim()));
-results.navDashRecent = await navDash.locator('#dashRecentRows .dash-row').evaluateAll(els => els.map(e => e.dataset.recent + ':' + e.querySelector('.dash-row-vals').textContent.replace(/\s+/g, ' ').trim()));
+results.navDashRecentPanelRemoved = (await navDash.locator('#dashRecentRows').count()) === 0; // Remediation: the Recent panel duplicated Home's recent changes
 results.navDashPaths = await navDash.locator('#dashPathRows .dash-row').evaluateAll(els => els.map(e => (e.dataset.path || e.dataset.pathType) + ':' + e.querySelector('.dash-row-vals').textContent.replace(/\s+/g, ' ').trim()));
 results.navDashNoScoreWords = await navDash.locator('#pageDashboard').evaluate(el => !/\b(score|ranking|recommend|AI)\b/i.test(el.textContent));
 results.navDashSubtitle = ((await navDash.locator('#dashSubtitle').textContent()) || '').trim();
@@ -5628,7 +5668,7 @@ await monPage.waitForTimeout(600);
 }
 // 3. Server saved search: save, storage wording, apply.
 results.monAlertsBadge = ((await monPage.locator('#alertsUnread').textContent()) || '').trim();
-await monPage.click('#savedSearchesBtn');
+await monPage.click('#navSavedSearchesBtn');
 await monPage.waitForTimeout(200);
 results.monSsStorage = ((await monPage.locator('#savedSearchStorage').textContent()) || '').trim().slice(0, 28);
 await monPage.fill('#saveSearchName', 'Available Florida');
@@ -5640,7 +5680,7 @@ results.monSsAlertsToggle = await monPage.locator('#savedSearchList [data-ss-ale
 await monPage.click('#savedSearchesCloseBtn');
 await monPage.click('.ledger-tab[data-ledger="auction"]');
 await monPage.waitForTimeout(200);
-await monPage.click('#savedSearchesBtn');
+await monPage.click('#navSavedSearchesBtn');
 await monPage.waitForTimeout(200);
 await monPage.locator('#savedSearchList [data-ss-apply]').first().click();
 await monPage.waitForTimeout(300);
@@ -5692,7 +5732,8 @@ results.monWatchServerChanges = await monDetail.locator('#watchServerChanges li'
 // 9. Analytics: session_start + property_viewed; a search never sends its text.
 await monDetail.goto(BASE_URL.replace('index.html', 'index.html?an=1') + '#/lands', { waitUntil: 'networkidle' });
 await monDetail.waitForTimeout(600);
-await monDetail.fill('#searchInput', 'Manatee');
+await monDetail.fill('#globalSearchInput', 'Manatee');
+await monDetail.press('#globalSearchInput', 'Enter');
 await monDetail.waitForTimeout(1900);
 {
   const evs = await monDetail.evaluate(() => window.__stubProductEvents || []);
@@ -5746,7 +5787,7 @@ await monNone.goto(BASE_URL.replace('index.html', 'index.html?monitor=none') + '
 await monNone.waitForTimeout(700);
 results.monNoneHistory = ((await monNone.locator('#detailModalInner [data-changes-for="p15"]').textContent()) || '').trim();
 await monNone.evaluate(() => { document.getElementById('detailModal').hidden = true; });
-await monNone.click('#savedSearchesBtn');
+await monNone.click('#navSavedSearchesBtn');
 await monNone.waitForTimeout(200);
 results.monNoneStorage = ((await monNone.locator('#savedSearchStorage').textContent()) || '').trim().slice(0, 30);
 results.monNoneCounts = await monNone.locator('.saved-search[data-ss="ss-local-1"] .ss-count').evaluateAll(els => els.map(e => e.textContent.trim()));
@@ -5981,10 +6022,12 @@ await monDash.close();
     cards: document.querySelectorAll('.county-group[data-county="Wayne"] .prop-card').length,
     groupMore: (document.querySelector('.county-group[data-county="Wayne"] .group-more') || {}).textContent
   }));
-  await big.fill('#searchInput', '90012345');
+  await big.fill('#globalSearchInput', '90012345');
+await big.press('#globalSearchInput', 'Enter');
   await big.waitForTimeout(700);
   results.scaleSearch = await big.evaluate(() => [...document.querySelectorAll('.prop-card .prop-parcel-line, .prop-card')].length > 0 && document.querySelectorAll('.prop-card').length);
-  await big.fill('#searchInput', '');
+  await big.fill('#globalSearchInput', '');
+await big.press('#globalSearchInput', 'Enter');
   await big.waitForTimeout(500);
   await big.evaluate(() => { location.hash = '#/map'; });
   await big.waitForTimeout(1200);
@@ -6451,7 +6494,7 @@ const EXPECTED = {
   },
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v114"]},
+  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v115"]},
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · TAXACQ — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · TAXACQ — Florida", floridaCopy: true },
@@ -6537,7 +6580,7 @@ const EXPECTED = {
   // Gone for everyone now, admin included.
   freshnessBadgesForAdmin: 0,
   desktopAuctionListSingleColumn: true,
-  desktopAuctionModalDocksRight: true,
+  desktopViewdetailsSingleSurface: { modalHidden: true, panelShows: true, hashNamesProperty: true },
   // Phase 20 regression coverage for the desktop persistent panel surface -
   // same fixture property and same math as the modal's calcInitial*/calc*AfterInput
   // checks above, read from #detailPanel's own result elements instead.
@@ -6669,8 +6712,8 @@ const EXPECTED = {
   ],
   flProvLegendCount: 1,
   flPurchaseModeLine: "How to purchase | Phone or mail process (published by the source; no online path)",
-  dashLedgerWithheldAvailable: '1 withheld (source not approved for publication)',
-  dashLedgerWithheldAuctionsAbsent: 0,
+  dashLedgerPanelRemoved: true,
+  dashWithheldShownOnce: true,
   dashUnitBayUnavailable: '1',
   bayStripCardCount: 1,
   bayPinCount: 0,
@@ -6805,7 +6848,7 @@ const EXPECTED = {
   tabCertHeading: 'Liens & Certificates',
   tabLaftHash: '#/lands',
   tabLaftHeading: 'Available',
-  navLedgerCountsMatchTabs: true,
+  navLedgerCountsOnce: { tabCountsRemoved: true, navCountEachLedger: true },
   listHasNoStateTabs: true,
   navWatchlistOpen: true,
   navWatchlistLit: ['watchlist'],
@@ -6991,20 +7034,20 @@ const EXPECTED = {
   // Fixture p15 was last read 2026-09-20: from 2026-10-05 on it is permanently
   // outside the 14-day window, so it is not "read recently" and counts as stale.
   navDashAttention: ['soon:4 properties · 4 sale dates', 'watched-gone:None', 'stale:2 of 2', 'sources:1 unavailable at the last read · 1 in back-off'],
-  navDashRecent: ['auction:First-recorded date not trackedPer-row read date not tracked', 'laft:0 first recorded in the last 7 days0 read from the source in the last 7 days', 'certificate:First-recorded date not trackedPer-row read date not tracked'],
+  navDashRecentPanelRemoved: true,
   navDashPaths: ["verified:2 of 2", "phone_mail:1", "county_instructions:1", "unverified:0"],   // the Florida fixture rows both carry a verified path
   navDashNoScoreWords: true,
   navDashSubtitle: 'Florida: 12 active properties across 3 ledgers in 8 counties.',
   navDashTileOpensList: true,
   navDashTileHash: '#/lands',
   navDashTileHeading: 'Available',
-  navPhoneBottomItems: 5,
+  navPhoneBottomItems: 4,
   navPhoneBottomFits: true,
-  navPhoneBottomLabels: ['Home', 'Search', 'Map', 'Saved', 'Account'],
+  navPhoneBottomLabels: ['Home', 'Search', 'Map', 'Saved'],
   navWlCards: ['p4'],
   navWlRelated: ['Currently listed in Auctions · also on your watchlist'],
   navWlCount: '2/10',
-  mapContextFlorida: 'Ledger: All Ledgers · County: All counties',
+  mapContextRemoved: true,
   mapHashOnMapNav: '#/map',
   mapPathCount: 67,
   // Portfolio-wide (every ledger) rather than scoped to whatever the
@@ -7286,9 +7329,6 @@ const EXPECTED = {
   dashUnitLedgerHeads: ['auction', 'laft', 'certificate'],
   dashUnitRowsUnderAvailable: ["Alachua", "Bay", "Citrus", "Dixie"],
   dashUnitEmptyGroups: 2,
-  dashLedgerFreshAvailable: "3 of 4 counties current",
-  dashLedgerFreshAuctionsAbsent: 0,
-  dashLedgerRowTitles: ['Auctions', 'Available', 'Liens & Certificates'],
   certDetailRelated: ['auction:p1:Auctions'],
   certDetailStatusLines: 4,
   relatedOpenLandsOnAuctionRow: '1 Main St',
@@ -7588,7 +7628,7 @@ const EXPECTED = {
   savedAcqStillShown: true,
   savedMissingNamed: {"row": 1, "text": true, "removeBtn": 1},
   // First-run guide + viewport sweep (2026-10-05).
-  homeGuide: {"steps": 5, "findMentionsState": true, "verifyCounts": true, "verifyHonest": true, "noScores": true, "hidden": {"steps": 0, "show": 1}, "stillHidden": 1, "shownAgain": 5, "routed": "#/lands"},
+  homeGuide: { guideAbsent: true, homeHeroSearch: true },
   searchWhileLoading: {"during": {"partial": 1, "text": "Still loading some Louisiana records - no match in the records loaded so far."}, "afterRows": true, "afterNote": 0},
   viewportSweep: [],
   // Financial honesty across states (2026-10-05).
@@ -7705,8 +7745,6 @@ const EXPECTED = {
   researchEmptyToCounties: "#/counties",
   researchPipeline: ["DISCOVERED=1", "RESEARCHING=0", "DUE_DILIGENCE=1", "ACQUISITION_READY=0", "PASSED=0", "ACQUIRED=0"],
   researchPipelineFilter: ["DUE_DILIGENCE"],
-  homeGuideWorkflow: {"research": true, "counties": true},
-  homeGuideToCounties: "#/counties",
   accountGotoPhone: {"labels": ["My Research", "County Intelligence", "Saved searches"], "research": {"hash": "#/research", "menuClosed": true}, "counties": {"hash": "#/counties", "menuClosed": true}, "desktopHidden": true},
   countyRecords: {"auction": ["p1"], "certificate": ["p4"]},
   countyRecordOpens: "#/auctions/p1",
