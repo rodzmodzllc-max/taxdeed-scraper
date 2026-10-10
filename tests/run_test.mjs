@@ -4854,7 +4854,7 @@ await navMap.close();
     const ip = await newPage({ viewport: { width: 412, height: 915 } });
     ip.on('pageerror', e => errors.push('county-only imagery pageerror: ' + e.message));
     await ip.goto(BASE_URL.replace('index.html', 'index.html?v=countyonly') + '#/lands/p3', { waitUntil: 'networkidle' });
-    await ip.waitForSelector('#detailModalInner .detail-hero-photo', { timeout: 10000, state: 'attached' });
+    await ip.waitForFunction(() => !!(document.querySelector('#detailPanel .detail-hero-photo') || document.querySelector('#detailModalInner .detail-hero-photo')), null, { timeout: 10000 });
     await ip.waitForFunction(() => !!(document.querySelector('#detailPanel .detail-hero-photo svg') || document.querySelector('#detailModalInner .detail-hero-photo svg')), null, { timeout: 8000 }).catch(() => {});
     results.countyOnlyImagery = await ip.evaluate(() => { const h = (document.querySelector('#detailPanel .detail-hero-photo') || document.querySelector('#detailModalInner .detail-hero-photo'));
       return { countyOnly: h.classList.contains('minimap-county'), drawn: !!h.querySelector('svg .mm-county'), noPoint: !h.querySelector('.mm-dot, .mm-halo'), caption: [...h.querySelectorAll('.photo-caption > span')].map(x => x.textContent) }; });
