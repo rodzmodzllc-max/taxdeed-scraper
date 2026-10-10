@@ -783,12 +783,13 @@ const STUB_SESSION_KEY = "stub-auth-session";
 const STUB_DB_KEY = "stub-server-db";
 const STUB_SERVER_USERS = [
   { id: "n1", email: "normal@example.com", password: "fixture-normal-pass", approved: true, is_admin: false },
-  { id: "a1", email: "admin@example.com", password: "fixture-admin-pass", approved: true, is_admin: true },
-  // An account a provider sign-in created (Google / Apple / Microsoft): pending,
-  // and its metadata holds only the name the provider shared. The password is
-  // a FIXTURE stand-in for the provider round trip.
-  { id: "o1", email: "provider-user@example.com", password: "fixture-provider-pass", approved: false, is_admin: false, user_metadata: { full_name: "Jordan Q Tester" } }
+  { id: "a1", email: "admin@example.com", password: "fixture-admin-pass", approved: true, is_admin: true }
 ];
+// ?provideruser=1: also an account a provider sign-in created (Google / Apple /
+// Microsoft) - pending, its metadata only the name the provider shared. The
+// password is a FIXTURE stand-in for the provider round trip.
+const STUB_PROVIDER_USER = { id: "o1", email: "provider-user@example.com", password: "fixture-provider-pass", approved: false, is_admin: false, user_metadata: { full_name: "Jordan Q Tester" } };
+if (new URLSearchParams(location.search).get("provideruser") === "1") STUB_SERVER_USERS.push(STUB_PROVIDER_USER);
 function stubUsers() {
   try { const saved = JSON.parse(localStorage.getItem(STUB_DB_KEY)); if (Array.isArray(saved)) return saved; } catch { /* seed below */ }
   return STUB_SERVER_USERS.map(u => ({ ...u }));

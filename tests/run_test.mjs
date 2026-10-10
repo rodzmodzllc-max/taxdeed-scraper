@@ -3424,13 +3424,14 @@ await navMap.close();
   // asks for them, pre-filled from the provider's name, saves them to the
   // account and still waits for approval. A password account never sees it.
   const oaUser = await newPage({ viewport: { width: 390, height: 844 } });
-  await oaUser.goto(APP_URL + '#/auctions', { waitUntil: 'networkidle' });
+  await oaUser.goto(APP_URL + '&provideruser=1' + '#/auctions', { waitUntil: 'networkidle' });
   await oaUser.fill('#email', 'provider-user@example.com'); await oaUser.fill('#password', 'fixture-provider-pass');
   await oaUser.click('#signInBtn'); await oaUser.waitForTimeout(600);
   results.oauthPendingDetailsShown = await oaUser.locator('#pendingDetails').isVisible();
   results.oauthPendingPrefill = await oaUser.evaluate(() => { const f = document.getElementById('pendingDetails'); return f ? [f.elements.first_name.value, f.elements.last_name.value, f.elements.company.value] : null; });
+  // Blank fields are refused before any request (the browser's required check).
   await oaUser.click('#pendingDetails button[type="submit"]'); await oaUser.waitForTimeout(150);
-  results.oauthPendingIncomplete = ((await oaUser.locator('#pendingDetailsMsg').textContent()) || '').trim();
+  results.oauthPendingIncomplete = await oaUser.evaluate(() => ({ valid: document.getElementById('pendingDetails').checkValidity(), calls: (window.__stubUpdateUserCalls || []).length }));
   await oaUser.fill('#pendingDetails input[name="company"]', 'Independent');
   await oaUser.fill('#pendingDetails input[name="address"]', '1 Fixture Way');
   await oaUser.fill('#pendingDetails input[name="phone"]', '555-0100');
@@ -7558,7 +7559,7 @@ const EXPECTED = {
   oauthReturnError: {"msg": "Sign-in with Google didn't complete, so you are not signed in. Please try again, or use your email and password.", "urlClean": true},
   oauthPendingDetailsShown: true,
   oauthPendingPrefill: ["Jordan", "Q Tester", ""],
-  oauthPendingIncomplete: 'Please fill in all fields. No company? Enter "Independent".',
+  oauthPendingIncomplete: {"valid": false, "calls": 0},
   oauthPendingSaved: {"fields": [["address", "company", "first_name", "last_name", "phone"]], "text": "Details saved. You will get access once your account is approved.", "stillPending": true},
   passwordSignupNoDetailsForm: true,
   // Independent ledger loading + list payload (2026-10-05).
