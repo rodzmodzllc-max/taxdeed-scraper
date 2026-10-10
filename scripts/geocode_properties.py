@@ -121,6 +121,20 @@ CENSUS_VINTAGE = "Current_Current"
 ADDRESS_CONTEXT_FILTER = 'or(address.like."*,*",address.match."[0-9]{5}")'
 ADDRESS_NO_CONTEXT_FILTER = 'address.not.like."*,*",address.not.match."[0-9]{5}"'
 
+# Sources that publish their OWN point for every parcel they list
+# (harvesters/sources/coordinates.SOURCE_COORDINATES, method LAND_BANK_GIS).
+# When such a source leaves one parcel without a point, an address geocode
+# must not stand in for it: that would be a different, weaker location
+# method mixed into an authoritative-point source, presented beside its
+# siblings as if it were the same thing. The row stays without coordinates
+# (the map shows the county; nothing breaks) until the source itself, or an
+# approved parcel layer matched on the parcel id, supplies one.
+# 2026-10-10: Tennessee Shelby - 1 of 2,038 offered rows has no portal point.
+NO_ADDRESS_GEOCODE_SOURCES = ("tn_shelby_landbank",)
+# NULL-safe: a row with no harvester_source (Florida's PowerShell syncs) is
+# still geocoded - `not.in` alone would drop NULLs in SQL.
+NO_ADDRESS_GEOCODE_FILTER = f"(harvester_source.is.null,harvester_source.not.in.({','.join(NO_ADDRESS_GEOCODE_SOURCES)}))"
+
 if not SUPABASE_URL or not SERVICE_KEY:
     print("SUPABASE_URL / SUPABASE_SERVICE_KEY environment variables are not set - check the workflow's secrets.", file=sys.stderr)
     sys.exit(1)
@@ -174,6 +188,7 @@ def _fetch(limit, address_conditions):
         "delisted_at": "is.null",
         "select": "id,address,county,state" + (",field_provenance" if SCOPE_SOURCE_ID else ""),
         "limit": str(limit),
+        "or": NO_ADDRESS_GEOCODE_FILTER,
     }
     if SCOPE_SOURCE_ID:
         params["source_id"] = f"eq.{SCOPE_SOURCE_ID}"

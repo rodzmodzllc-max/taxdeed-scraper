@@ -273,6 +273,34 @@ def fetch_counties_needing_flood():
     return EU.outstanding_units(EU.get_paged(_get_json, f"{SUPABASE_URL}/rest/v1/properties", params, 100000))
 
 
+def plan_slices(counties, batch_limit=None, per_county=None):
+    """[(unit, limit, outstanding)] for one run. Pure.
+
+    Pass 1 is the anti-starvation slice: every unit, in the given order,
+    gets up to `per_county` rows before any unit gets more. Pass 2 hands the
+    budget pass 1 left unused to the units that still have a backlog, in the
+    same order - so a state with ONE county (Tennessee: Shelby, 2,037 rows
+    with coordinates and no flood check on 2026-10-10) is no longer held to
+    40 rows a run while the rest of a 500-row budget goes unspent. The run's
+    total never exceeds `batch_limit`, and no unit is given more rows than
+    its own outstanding count."""
+    batch_limit = BATCH_LIMIT if batch_limit is None else batch_limit
+    per_county = PER_COUNTY_LIMIT if per_county is None else per_county
+    give = []
+    left = batch_limit
+    for unit, outstanding in counties:
+        n = max(0, min(per_county, outstanding or 0, left))
+        give.append(n)
+        left -= n
+    for i, (unit, outstanding) in enumerate(counties):
+        if left <= 0:
+            break
+        extra = max(0, min((outstanding or 0) - give[i], left))
+        give[i] += extra
+        left -= extra
+    return [(unit, n, outstanding) for (unit, outstanding), n in zip(counties, give) if n > 0]
+
+
 def fetch_county_batch(unit, limit, outstanding=None):
     """A random window into the county's backlog, for the reason Phase 51
     established: without `order` PostgREST returns the same rows every run,
@@ -332,13 +360,11 @@ def main():
     failed = 0
     zones = Counter()
 
-    for unit, outstanding in counties:
+    for unit, limit, outstanding in plan_slices(counties):
         county = EU.label(unit)
         if attempted >= BATCH_LIMIT:
             break
-        rows = fetch_county_batch(
-            unit, min(PER_COUNTY_LIMIT, BATCH_LIMIT - attempted), outstanding
-        )
+        rows = fetch_county_batch(unit, min(limit, BATCH_LIMIT - attempted), outstanding)
         if not rows:
             continue
 

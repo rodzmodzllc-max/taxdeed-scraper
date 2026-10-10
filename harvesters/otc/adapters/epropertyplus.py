@@ -32,13 +32,13 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import date, datetime
 from typing import Any, Callable
 from urllib.parse import urlencode
 
 from ..model import AmountKind, InventoryType, OtcRecord, PurchaseUrlKind, SourceAuthority
 
-__all__ = ["EppConfig", "EppResult", "fetch_all", "page_url", "parse_rows"]
+__all__ = ["EppConfig", "EppResult", "fetch_all", "list_date", "page_url", "parse_rows"]
 
 LIST_PATH = "/landmgmtpub/remote/public/property/getPublishedProperties"
 REQUIRED = ("parcelNumber", "currentStatus", "available")
@@ -65,6 +65,10 @@ class EppConfig:
     page_limit: int = 500
     max_pages: int = 100
     columns_verified: bool = False
+    # A portal field that states the LIST's own date. None (Shelby, every
+    # verified tenant so far) = the portal states none, and list_as_of stays
+    # empty: the read time is never a publication date.
+    list_as_of_field: str | None = None
     notes: str = ""
 
 
@@ -98,6 +102,30 @@ def _positive(v: Any) -> float | None:
     except (TypeError, ValueError):
         return None
     return f if f > 0 else None
+
+
+_DATE_FORMATS = ("%Y-%m-%d", "%m/%d/%Y")
+
+
+def list_date(v: Any) -> date | None:
+    """A source-published date, or None. Accepts a calendar date
+    (YYYY-MM-DD, MM/DD/YYYY) or an ISO datetime WITH its offset, whose date
+    is taken as the source wrote it (2026-10-07T23:30:00-05:00 is the 7th,
+    never shifted to UTC). A naive datetime, an epoch number, or anything
+    else is ambiguous or malformed -> None (never guessed)."""
+    t = _text(v)
+    if not t:
+        return None
+    for fmt in _DATE_FORMATS:
+        try:
+            return datetime.strptime(t, fmt).date()
+        except ValueError:
+            pass
+    try:
+        dt = datetime.fromisoformat(t.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return dt.date() if dt.tzinfo is not None else None
 
 
 def _offered(row: dict, cfg: EppConfig) -> bool:
@@ -142,6 +170,9 @@ def parse_rows(cfg: EppConfig, rows: list[dict], *, retrieved_at: datetime) -> t
         }
         if coords:
             prov["coordinates"] = "the portal's own latitude / longitude for the parcel"
+        as_of = list_date(row.get(cfg.list_as_of_field)) if cfg.list_as_of_field else None
+        prov["list_as_of"] = (f"field {cfg.list_as_of_field!r} (the portal's own date)" if as_of
+                              else "not stated by the portal - never the read time")
         out.append(OtcRecord(
             state=cfg.state, county=cfg.county, case_no=pid,
             source_id=cfg.source_id, source_authority=cfg.source_authority,
@@ -155,6 +186,7 @@ def parse_rows(cfg: EppConfig, rows: list[dict], *, retrieved_at: datetime) -> t
             assessed=_positive(row.get("currentAssessment")),
             tax_year=_text(row.get("assessmentYear")),
             source_status_text=_text(row.get("currentStatus")),
+            list_as_of=as_of,
             **coords,
         ))
     return out, counts
