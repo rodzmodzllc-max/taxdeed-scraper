@@ -173,6 +173,8 @@ def run_source(src, fetch_json, fetch_text, *, retrieved_at, fixture: str | None
             return "FAILED", [], res.error_category, res.error_detail, None
         print(f"{cfg.source_id}: portal size={res.size} read={res.rows_read} offered={len(res.records)} "
               f"not-offered={res.excluded_status} bad-id={res.rejected_ids} duplicate={res.duplicates}")
+        if res.outcome == "INCOMPLETE":
+            return "INCOMPLETE", res.records, res.error_category, res.error_detail, None
         return res.outcome, res.records, None, None, ("no_offered_status" if res.outcome == "EMPTY" else None)
     if src.kind == "sc_flc_pdf":
         from harvesters.otc.adapters import sc_flc  # noqa: PLC0415
@@ -347,7 +349,7 @@ def main(argv=None) -> int:
                 cat = cat if cat in ERROR_CATEGORIES else "UNKNOWN"
                 recorder.failed(county, cat, f"{sid}: {detail or cat}", source_url=url, source_id=sid)
             elif status == "INCOMPLETE":
-                recorder.incomplete(county, "PARSE_FORMAT_CHANGE", f"{sid}: record(s) failed validation",
+                recorder.incomplete(county, "PARSE_FORMAT_CHANGE", f"{sid}: {detail or 'record(s) failed validation'}",
                                     row_count=rows, source_url=url, parse_ok=True, source_id=sid)
             elif rows:
                 recorder.complete(county, rows, source_url=url, source_id=sid)

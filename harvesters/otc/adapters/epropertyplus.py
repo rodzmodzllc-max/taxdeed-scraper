@@ -18,6 +18,10 @@ exactly one of
 
   COMPLETE  every page read, at least one row carries the configured offered status
   EMPTY     every page read, no row carries it (the portal's own statement)
+  INCOMPLETE every page read, offered rows found, but at least one OFFERED
+            row's parcel id failed `id_pattern`: the good rows are kept,
+            and nothing is closed (the rejected row may be a stored row the
+            portal still lists under a reformatted id)
   FAILED    transport error, success=false, a malformed page, a missing
             required field, a page cap hit, or fewer rows than the portal's own
             `size` - nothing read is trusted, never a partial zero
@@ -66,7 +70,7 @@ class EppConfig:
 
 @dataclass
 class EppResult:
-    outcome: str                                  # COMPLETE | EMPTY | FAILED
+    outcome: str                                  # COMPLETE | EMPTY | INCOMPLETE | FAILED
     records: list[OtcRecord] = field(default_factory=list)
     error_category: str | None = None
     error_detail: str | None = None
@@ -191,4 +195,11 @@ def fetch_all(cfg: EppConfig, fetch_json: Callable[[str], Any], *, retrieved_at:
     if not records and counts["rejected_ids"]:
         # Offered rows exist but none carries a valid identifier: a format change, never "empty".
         res.outcome, res.error_category, res.error_detail = "FAILED", "PARSE_FORMAT_CHANGE", "no offered row with a valid parcel id"
+    elif counts["rejected_ids"]:
+        # 2026-10-10: an offered row whose id fails the pattern used to leave
+        # the read COMPLETE, and close-out treats COMPLETE as the whole list -
+        # a stored row the portal still offers (under a reformatted id) would
+        # have been closed. Keep the valid rows; never close on this read.
+        res.outcome, res.error_category = "INCOMPLETE", "PARSE_FORMAT_CHANGE"
+        res.error_detail = f"{counts['rejected_ids']} offered row(s) with an unrecognised parcel id"
     return res
