@@ -8625,7 +8625,7 @@ function restoreModalFocus() {
 function detailPanelOnList() {
   let page;
   try { page = shellPage; } catch { page = "list"; }
-  return page === "list" && !!(window.matchMedia && window.matchMedia("(min-width:1024px)").matches);
+  return page === "list" && !!(window.matchMedia && window.matchMedia("(min-width:1280px)").matches);
 }
 function openDetail(p) {
   const modal = document.getElementById("detailModal");
@@ -9256,7 +9256,9 @@ document.addEventListener("click", async e => {
     const p = pid && ALL.find(x => String(x.id) === String(pid));
     if (!p) return;
     openDetail(p);
-    const host = document.getElementById("detailModalInner");
+    // The property opens in whichever surface this width uses (remediation):
+    // the side panel on the List at desktop widths, the modal otherwise.
+    const host = document.getElementById("detailModal").hidden ? document.getElementById("detailPanel") : document.getElementById("detailModalInner");
     const target = host && host.querySelector('[data-section="acquire"]');
     if (target) target.scrollIntoView({ block: "start" });
   } else if (action === "showonmap") {

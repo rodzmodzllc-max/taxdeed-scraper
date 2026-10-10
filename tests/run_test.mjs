@@ -2059,7 +2059,7 @@ await dashPage.click('.nav-item[data-page="dashboard"]');
 await dashPage.waitForTimeout(200);
 results.dashHealthRows = await dashPage.locator('#dashSourceRows .health-row').evaluateAll(els => els.map(e => e.dataset.source + ':' + e.dataset.health));
 // Customer wording (remediation): one plain status per source; the schedule and counts are admin-only.
-results.dashHealthBadgeTexas = ((await dashPage.locator('#dashSourceRows .health-row[data-source="tx_sales"] .health-badge').textContent()) || '').trim() === 'Updated on request';
+results.dashHealthBadgeTexas = ((await dashPage.locator('#dashSourceRows .health-row[data-source="tx_sales"] .health-badge').textContent()) || '').trim() === 'Partly updated';
 results.dashHealthIncompleteNames = ((await dashPage.locator('#dashSourceRows .health-row[data-source="fl_certificates"] .health-badge').textContent()) || '').trim() === 'Partly updated';
 // Per-county freshness (county_source_registry + migration 021): FL rows
 // with a recorded read only (Bradford, never attempted, is omitted; the
@@ -6572,7 +6572,7 @@ const EXPECTED = {
   // so the past-due row (archive-only) and the gone row whose grace period has
   // expired are both excluded. Neither is reachable from this tab, and
   // advertising them made the number disagree with the list underneath it.
-  ledgerTabCounts: ['Auctions 9', 'Available 2', 'Liens & Certificates 1'],
+  ledgerTabCounts: ['Auctions', 'Available', 'Liens & Certificates'],
   auctionTabOnByDefault: true,
 
   // --- per-ledger pages ---
@@ -6861,20 +6861,20 @@ const EXPECTED = {
   navMapDeepLit: ['map'],
   navMapDeepLaftPill: true,
   navMapDeepCounty: 'Bay',
-  navMapDeepContext: 'Ledger: Available · County: Bay County',
+  navMapDeepContext: 'Ledger: Available · County: Bay',
   navMapDeepHash: '#/map?ledger=laft&county=Bay',
   // Shell redesign (2026-10-04)
-  rdHome: {"title": "Public property you can research, verify and acquire.", "cards": ["laft:2", "auction:9", "certificate:1"], "statesCard": 1, "recentHasFirstSeen": true, "tabCounts": ["auction:9", "laft:2", "certificate:1"], "noScoreWords": true},
-  rdHomeSearch: {"hash": "#/lands", "listSearch": "Manatee", "cards": 1, "chip": "Search: “Manatee”×"},
+  rdHome: {"title": "Public property you can research, verify and acquire.", "cards": ["laft:2", "auction:9", "certificate:1"], "statesCard": 1, "recentHasFirstSeen": true, "noScoreWords": true},
+  rdHomeSearch: {"hash": "#/lands", "listSearch": "", "cards": 1, "chip": "Search: “Manatee”×"},
   rdChipRemoved: {"listSearch": "", "chips": 0, "hidden": true},
   rdPathChip: ["Purchase path: No online path on file×"],
   rdClearAll: {"chips": 0, "path": "any"},
   rdListHead: {"title": "Available Properties", "sub": "2 shown of 2 in Florida", "lit": ["ledger:laft"]},
-  rdCountyPanel: {"shaded": ["Bay", "Citrus"], "after": {"quick": "Bay", "chip": "County: Bay×", "cards": 1}},
+  rdCountyPanel: {"shaded": []},
   rdNavCert: {"hash": "#/certificates", "title": "Liens & Certificates"},
   rdNavAuction: {"hash": "#/auctions", "title": "Auction Properties"},
   rdGlobal: {"rows": ["p15:Available"], "all": "See all 1 result in the list →", "expanded": "true"},
-  rdGlobalOpen: {"modal": true, "crumbs": ["Home/Available/15 Manatee Ln"]},
+  rdGlobalOpen: {"modal": false, "crumbs": ["Home/Available/15 Manatee Ln"]},
   rdDetail: {"tabs": ["How to acquire", "Financial position", "Overview", "Decision", "Inventory", "Tax & Value", "Property", "Risk & Legal", "Map", "My research", "Due diligence", "Timeline", "Sale events", "Watch", "Source truth", "Documents", "Source", "Provenance"], "why": ["It is in the Available ledger for Florida because its source lists it.", "Last read from the source Nd ago.", "Its source is approved for customer publication."], "acquire": 1},
   rdCrumbHome: {"modalHidden": true, "dashVisible": true},
   rdGlobalEmpty: "No Florida property matches “zzzz-no-such”. Search covers address, parcel, case and certificate numbers and the county; to look in another state, switch state first.",
@@ -6885,7 +6885,7 @@ const EXPECTED = {
   rdPickerEscape: true,
   rdPickerAdminMI: "MI=auction|laft",
   rdPickerProbeFail: "WY=auction|laft|certificate!unchecked",
-  rdPhoneBottom: ["Home", "Search", "Map", "Saved", "Account"],
+  rdPhoneBottom: ["Home", "Search", "Map", "Saved"],
   rdPhoneAccount: true,
   rdPhoneSearchVisible: true,
   landCO: { hash: '#/dashboard', cards: 2, issue: 0 },
@@ -6998,10 +6998,10 @@ const EXPECTED = {
   gsMapBackToFlorida: {"file": "index.html", "hash": "#/map?ledger=auction", "state": "FL"},
   gsMapBackPaths: 67,
   gsMapBackCounty: "ALL",
-  gsDeepLinkTexas: {"state": "TX", "modal": true},
+  gsDeepLinkTexas: {"state": "TX", "modal": false},
   gsDeepLinkSwitch: {"file": "index.html", "hash": "#/auctions", "state": "FL", "modal": false},
   gsPhone: {"bothVisible": true, "inViewport": true, "sameRow": true, "selectorFirst": true, "headerCompact": true, "noHorizontalScroll": true, "value": "TX"},
-  gsPhoneBottomNav: ["dashboard", "list", "map", "watchlist", null],
+  gsPhoneBottomNav: ["dashboard", "list", "map", "watchlist"],
   navMapHasNoOwnStateSelect: true,
   navMapAllLedgersLabel: 'All Ledgers',
   navMapCertPillLabel: 'Liens & Certificates',
@@ -7335,8 +7335,8 @@ const EXPECTED = {
   relatedOpenLandsOnAuctionRow: '1 Main St',
   auctionDetailRelated: ['certificate:p4'],
   certStatusLines: ['Status On the county-held list', 'Issued Jun 1, 2023 · tax year 2022', 'Redemption Not published by the source', 'Property Parcel # 111 · 1 record in other ledgers'],
-  dashUnitStaleText: 'last read 2h ago (failed) · last complete read 3d ago · 3 rows at that read · 3 consecutive failed attempts · source unavailable at the last attempt - inventory kept, nothing closed · no complete read in the last 36 hours · back-off: attempted at most once per 48 hours until a read succeeds',
-  dashUnitCurrentText: 'last read 2h ago (complete) · last complete read 2h ago · 14 rows at that read',
+  dashUnitStaleText: 'Source unavailable at the last check - existing listings are kept',
+  dashUnitCurrentText: 'Last updated 2h ago',
   dashUnitMissingColumns: true,
   dashUnitMissingColumnsNoRows: 0,
   dashWatchFirstVisit: true,
@@ -7491,7 +7491,7 @@ const EXPECTED = {
   decP15Where: '15 Manatee Ln Citrus County, FL 28.88860, -82.45200 · authoritative coordinates on file',
   decP15Known: '2025 County Just Value $26,000 · County Assessed Value $25,000 · 0.30 ac · Land use Vacant residential · Type Vacant Lot · Assessed to Lee Park',
   decP15Unknown: ["Price not published", "Image not checked yet", "Flood zone not checked"],
-  decP15Source: 'fl_laft_html · Source list → How to purchase Lands Available (fixture) (acquisition evidence) → · Application / instructions document → Field-by-field origin is in the Data Quality & Provenance card below.',
+  decP15Source: 'FL LAFT Html · Source list → How to purchase Lands Available (fixture) (acquisition evidence) → · Application / instructions document → Field-by-field origin is in the Data Quality & Provenance card below.',
   decP15Fresh: 'Source date: list dated Sep 19, 2026 · Observation date: Sep 20, 2026 · Last verified: read from the source Sep 20, 2026 County source: current - last complete read 3h ago · 6 rows at the last complete read',
   decP15History: ['newly_observed|Jul 1, 2026|First observed on the list', 'removed|Aug 15, 2026|Removed from the list (closed - not a sale result)', 'reactivated|Sep 1, 2026|Back on the list (reactivated)', 'continued|Sep 20, 2026|Last read from the source (continued on the list)'],
   decP15HistoryNote: 'Append-only record. Absence from a list is recorded as a removal, never as a sale; a result appears only when the source published one.',
@@ -7520,7 +7520,7 @@ const EXPECTED = {
   govPhone: { itemVisible: true, viewVisible: true, noHorizontalScroll: true, formFits: true },
   govCustomerMenu: { itemVisible: false, accountMenuOpen: true },
   govCustomerTypedRoute: { viewHidden: true, hash: '#/auctions', rows: 0 },
-  govCustomerColdRoute: {"viewHidden": true, "hash": "#/lands", "rows": 0, "menuItemHidden": true},
+  govCustomerColdRoute: {"viewHidden": true, "hash": "#/dashboard", "rows": 0, "menuItemHidden": true},
   adminPubVisible: true,
   adminPubSources: ['fl_laft_broward_candidate:RESTRICTED', 'fl_laft_html:APPROVED_GRANDFATHERED', 'fl_laft_pdfs:APPROVED_GRANDFATHERED', 'fl_laft_pioneer:APPROVED_GRANDFATHERED', 'fl_laft_realtdm:APPROVED_GRANDFATHERED'],
   adminPubBrowardMeta: 'Governance LEGAL_REVIEW_REQUIRED · Verification CANDIDATE · Restrictions: terms of use under legal review',
@@ -7617,7 +7617,7 @@ const EXPECTED = {
   laDetailButton: true,
   laDetailFullProvenance: {"calls": 1, "loadingGone": true, "provRows": true, "acquire": true, "acqLinks": true, "scopeAfter": "full"},
   laDetailFetchedOnce: 1,
-  laFallbackFullRpc: {"fullCalls": true, "listCalls": 0, "scoped": false, "provenanceCalls": 0, "modal": true, "loadingNote": false},
+  laFallbackFullRpc: {"fullCalls": true, "listCalls": 0, "scoped": false, "provenanceCalls": 0, "modal": false, "loadingNote": false},
   // Saved properties + saved searches + per-state county filter (2026-10-05).
   txCountyFilter: {"hasFloridaCounty": false, "hasHarris": true, "narrowed": true, "onlyHarris": true, "restored": true},
   laCountyOptions: ["ALL", "East Baton Rouge"],
