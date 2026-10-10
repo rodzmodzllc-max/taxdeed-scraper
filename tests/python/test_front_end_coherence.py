@@ -100,7 +100,7 @@ def test_customer_health_wording_hides_operator_diagnostics():
 
 def test_service_worker_cache_is_bumped():
     sw = (REPO / "public/sw.js").read_text(encoding="utf-8")
-    assert re.search(r'const CACHE = "tdw-shell-v11[5-9]"', sw), "cache not bumped"
+    assert re.search(r'const CACHE = "tdw-shell-v11[6-9]"', sw), "cache not bumped"
 
 
 def test_acquisition_card_and_dashboard_share_one_verified_rule():

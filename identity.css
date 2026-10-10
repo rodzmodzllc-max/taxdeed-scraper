@@ -934,3 +934,33 @@ body:has(#authGate:not([hidden])){padding-bottom:0!important}
 .auctions-body>.detail-panel{min-width:0;max-width:100%;overflow-wrap:anywhere}
 .auctions-body>.detail-panel *{min-width:0;max-width:100%;box-sizing:border-box}
 .auctions-body>.detail-panel table{display:block;overflow-x:auto}
+
+/* Sign-in visual (remediation 2026-10-10): a slow, unlabeled preview of property
+   card layouts behind the copy. The cards are sample layouts, not listings: no
+   identifiers, prices or dates, only the three ledger colours and skeleton lines,
+   captioned "Layout sample, not a listing." They stay sharp (no blur) and sit at
+   low opacity with faded top and bottom edges so the sign-in copy keeps its
+   contrast. Each column scrolls one copy of its cards per loop; the duplicate
+   group is aria-hidden. Reduced-motion users get the static layout (see the
+   global reduced-motion rule above). */
+@media (min-width:900px){
+  .auth-preview{position:absolute;inset:0;z-index:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;
+    padding:20px 22px;box-sizing:border-box;opacity:.32;overflow:hidden;pointer-events:none;
+    -webkit-mask-image:linear-gradient(to bottom,transparent,#000 22%,#000 78%,transparent);
+    mask-image:linear-gradient(to bottom,transparent,#000 22%,#000 78%,transparent)}
+  .auth-preview-col{overflow:hidden;min-height:0}
+  .auth-preview-track{display:flex;flex-direction:column;animation:auth-preview-up 48s linear infinite}
+  .auth-preview-col:nth-child(2) .auth-preview-track{animation-duration:58s;animation-delay:-20s}
+  .auth-preview-col:nth-child(3) .auth-preview-track{animation-duration:44s;animation-delay:-9s}
+  .auth-preview-group{display:flex;flex-direction:column;gap:16px;padding-bottom:16px}
+  .auth-preview-card{flex:none;height:138px;box-sizing:border-box;border:1px solid rgba(237,230,218,.5);border-radius:6px;
+    background:rgba(237,230,218,.05);padding:12px 12px 10px;display:flex;flex-direction:column;gap:9px}
+  .auth-preview-card i{display:block;height:4px;width:44%;border-radius:2px;background:var(--c)}
+  .auth-preview-card b{display:block;height:7px;width:88%;border-radius:2px;background:rgba(237,230,218,.35)}
+  .auth-preview-card b.s{width:58%}
+  .auth-preview-note{position:relative;z-index:1;margin:0 0 .9rem;font-family:var(--font-sans);font-size:.6rem;font-weight:700;
+    letter-spacing:.14em;text-transform:uppercase;color:#D08A63}
+  @keyframes auth-preview-up{from{transform:translateY(0)}to{transform:translateY(-50%)}}
+  /* The quote, caption and legend sit on a calm band: the cards fade out under it. */
+  .auth-visual-foot{background:linear-gradient(to top,var(--charcoal) 60%,rgba(0,0,0,0));padding:6rem 3.2rem 0;margin:-6rem -3.2rem 0}
+}
