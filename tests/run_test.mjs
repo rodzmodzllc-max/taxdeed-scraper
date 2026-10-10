@@ -5239,6 +5239,15 @@ await navMap.close();
       await pg.route('https://imagery.nationalmap.gov/**', route => { requested.push(route.request().url()); return fail ? route.abort() : route.fulfill({ status: 200, contentType: 'image/png', body: PNG }); });
       await pg.goto(url, { waitUntil: 'networkidle' });
       await pg.waitForTimeout(300);
+      // The cards sit inside county groups that start collapsed. Open them the
+      // way a reader does (the summary click records the county as expanded,
+      // so a later render keeps it open). Under content-visibility a collapsed
+      // group's children keep a stale layout box, which is the only reason
+      // these checks ever hydrated anything before 2026-10-10 - and why a
+      // taller ledger head (PR #134) pushed the second card past the
+      // observer's margin on CI.
+      for (const sm of await pg.$$('details.county-group:not([open]) > summary')) { await sm.click().catch(() => {}); }
+      await pg.waitForTimeout(300);
       // Lazy images load only in view: bring each one into view.
       // Hydration is observer-driven (rootMargin 300px) and, with `fail`,
       // each image then steps down a rung. The list can re-render after
