@@ -42,6 +42,7 @@ sys.path.insert(1, str(Path(__file__).resolve().parent))
 from source_publication import collectable  # noqa: E402
 sys.path.insert(0, str(HERE))
 import field_provenance as FP  # noqa: E402
+import rest_pages as RP  # noqa: E402
 
 REGISTRY = REPO / "data" / "county_source_registry.csv"
 OUT = REPO / "out"
@@ -49,6 +50,12 @@ USER_AGENT = "taxdeed-scraper state-inventory-sync (+https://github.com/rodzmodz
 BATCH = 500
 LEDGER_TYPE_FOR_SOURCE = {"laft": "buy", "auction": "auctions", "certificate": "lien"}
 OBSERVED = frozenset({"COMPLETE", "INCOMPLETE"})
+
+
+def _read_headers(key: str) -> dict:
+    return {"apikey": key, "Authorization": f"Bearer {key}", "User-Agent": USER_AGENT}
+
+
 # Columns a county list can supply, recorded in field_provenance as
 # source `county_list` (rank 2) so the statewide enrichment factory never
 # overwrites them and a reader can tell list values from enriched ones.
@@ -241,7 +248,7 @@ def plan(state: str, rows: list[dict], registry: dict, status_units: dict[str, s
         reg = registry.get(r.get("source_id") or "")
         if reg is None or not reg.is_production or reg.governance_status not in RUNNABLE_GOVERNANCE:
             raise ValueError(f"source {r.get('source_id')!r} is not a production, governance-approved {state} registry row")
-        if status_units.get(r.get("county") or "") not in OBSERVED:
+        if unit_status(status_units, r.get("source_id"), r.get("county")) not in OBSERVED:
             counts["skipped_unit_not_read"] += 1
             continue
         if not collectable(reg, r.get("source") or ""):
@@ -310,7 +317,7 @@ def plan_close(state: str, harvested: list[dict], stored: list[dict], units: dic
     for r in stored:
         if r.get("state") != state or r.get("status") != "active" or r.get("harvester_source") not in source_ids:
             continue
-        if units.get(r.get("county") or "") not in CLOSEABLE:
+        if unit_status(units, r.get("harvester_source"), r.get("county")) not in CLOSEABLE:
             continue
         if (r.get("source"), r.get("county"), r.get("case_no")) not in seen:
             out.append({"id": r["id"], "status": "closed", "delisted_at": FP.now_iso()})
@@ -318,21 +325,12 @@ def plan_close(state: str, harvested: list[dict], stored: list[dict], units: dic
 
 
 def stored_active(base: str, key: str, state: str, source_ids: set[str]) -> list[dict]:
-    import urllib.parse  # noqa: PLC0415
-    rows, offset = [], 0
-    ids = ",".join(sorted(source_ids))
-    while True:
-        q = urllib.parse.urlencode({"select": "id,state,source,county,case_no,status,harvester_source", "state": f"eq.{state}",
-                                    "status": "eq.active", "harvester_source": f"in.({ids})", "order": "id",
-                                    "limit": 1000, "offset": offset})
-        req = urllib.request.Request(f"{base.rstrip('/')}/rest/v1/properties?{q}",
-                                     headers={"apikey": key, "Authorization": f"Bearer {key}", "User-Agent": USER_AGENT})
-        with urllib.request.urlopen(req, timeout=120) as resp:
-            page = json.loads(resp.read() or b"[]")
-        rows += page
-        if len(page) < 1000:
-            return rows
-        offset += 1000
+    """Every stored active row of these sources - keyset pages with a bounded
+    retry (rest_pages): an offset read sorted the whole state per page and
+    crossed the statement timeout under load (HTTP 500)."""
+    return RP.read_all(base, "properties", _read_headers(key),
+                       {"select": "id,state,source,county,case_no,status,harvester_source", "state": f"eq.{state}",
+                        "status": "eq.active", "harvester_source": f"in.({','.join(sorted(source_ids))})"})
 
 
 def close_rows(base: str, key: str, closes: list[dict]) -> None:
@@ -345,14 +343,55 @@ def close_rows(base: str, key: str, closes: list[dict]) -> None:
             pass
 
 
-def status_units(path: Path) -> dict[str, str]:
+# Worst first: a county-level fallback is only as good as its weakest read.
+_FALLBACK_ORDER = ("FAILED", "INCOMPLETE", "COMPLETE", "EMPTY")
+
+
+def unit_status(units: dict, source_id, county) -> str | None:
+    """The status of ONE source's read of ONE county. A per-source entry
+    ((source_id, county) key) decides for that source alone; a bare county
+    key is the fallback for status files whose entries name no source."""
+    hit = units.get((str(source_id or ""), str(county or "")))
+    return hit if hit is not None else units.get(str(county or ""))
+
+
+def _entries(path: Path) -> list[dict]:
     if not path.exists():
-        return {}
+        return []
     data = json.loads(path.read_text(encoding="utf-8"))
     entries = data.get("counties") if isinstance(data, dict) else data
     if isinstance(entries, dict):
         entries = [{"county": k, **v} for k, v in entries.items()]
-    return {str(e.get("county")): str(e.get("status")) for e in entries or [] if isinstance(e, dict)}
+    return [e for e in entries or [] if isinstance(e, dict)]
+
+
+def _rank(status: str) -> int:
+    return _FALLBACK_ORDER.index(status) if status in _FALLBACK_ORDER else 0
+
+
+def status_units(path: Path) -> dict[str, str]:
+    """{county: status} = the WORST status any entry of that county reports
+    (FAILED > INCOMPLETE > COMPLETE > EMPTY). The fallback for rows whose
+    source has no entry of its own (source_units)."""
+    out: dict[str, str] = {}
+    for e in _entries(path):
+        county, status = str(e.get("county")), str(e.get("status"))
+        if county not in out or _rank(status) < _rank(out[county]):
+            out[county] = status
+    return out
+
+
+def source_units(path: Path) -> dict[tuple[str, str], str]:
+    """{(source_id, county): status} - one source's own read of one county.
+    2026-10-09: a single merged county verdict let a failed Detroit programs
+    read hide the complete Detroit lots read, so 30,706 lot rows were not
+    synced and kept their 2026-10-06 last read."""
+    return {(str(e["source_id"]), str(e.get("county"))): str(e.get("status")) for e in _entries(path) if e.get("source_id")}
+
+
+def units_for(path: Path) -> dict:
+    """Both maps in one: unit_status() reads the per-source key first."""
+    return {**status_units(path), **source_units(path)}
 
 
 def stored_provenance(base: str, key: str, state: str, source_ids: set[str], first_seen: dict | None = None,
@@ -362,26 +401,18 @@ def stored_provenance(base: str, key: str, state: str, source_ids: set[str], fir
     `first_seen` is given it is filled with identity -> stored first_seen_at;
     when `rows_out` is given, with identity -> the stored harvester_source,
     otc_provenance and acquisition path columns (merge_acquisition)."""
-    import urllib.parse  # noqa: PLC0415
-    out, offset = {}, 0
-    ids = ",".join(sorted(source_ids))
-    while True:
-        q = urllib.parse.urlencode({"select": "source,county,case_no,field_provenance,first_seen_at,harvester_source,otc_provenance,"
-                                              + ",".join(PATH_COLUMNS), "state": f"eq.{state}",
-                                    "harvester_source": f"in.({ids})", "order": "id", "limit": 1000, "offset": offset})
-        req = urllib.request.Request(f"{base.rstrip('/')}/rest/v1/properties?{q}",
-                                     headers={"apikey": key, "Authorization": f"Bearer {key}", "User-Agent": USER_AGENT})
-        with urllib.request.urlopen(req, timeout=120) as resp:
-            page = json.loads(resp.read() or b"[]")
-        for r in page:
-            out[identity(r)] = r.get("field_provenance")
-            if first_seen is not None:
-                first_seen[identity(r)] = r.get("first_seen_at")
-            if rows_out is not None:
-                rows_out[identity(r)] = {k: r.get(k) for k in ("harvester_source", "otc_provenance", *PATH_COLUMNS)}
-        if len(page) < 1000:
-            return out
-        offset += 1000
+    out: dict = {}
+    rows = RP.read_all(base, "properties", _read_headers(key),
+                       {"select": "id,source,county,case_no,field_provenance,first_seen_at,harvester_source,otc_provenance,"
+                                  + ",".join(PATH_COLUMNS), "state": f"eq.{state}",
+                        "harvester_source": f"in.({','.join(sorted(source_ids))})"})
+    for r in rows:
+        out[identity(r)] = r.get("field_provenance")
+        if first_seen is not None:
+            first_seen[identity(r)] = r.get("first_seen_at")
+        if rows_out is not None:
+            rows_out[identity(r)] = {k: r.get(k) for k in ("harvester_source", "otc_provenance", *PATH_COLUMNS)}
+    return out
 
 
 def upsert(base: str, key: str, rows: list[dict]) -> int:
@@ -436,7 +467,7 @@ def main(argv=None) -> int:
         stored = stored_provenance(url, key, args.state, {sid for sid, r in reg.items() if r.is_production} or {"-"},
                                    first_seen=first_seen, rows_out=stored_rows)
     try:
-        to_send, counts = plan(args.state, rows, reg, status_units(Path(args.status)), stored_provenance=stored,
+        to_send, counts = plan(args.state, rows, reg, units_for(Path(args.status)), stored_provenance=stored,
                                stored_first_seen=first_seen, stored_rows=stored_rows)
     except ValueError as exc:
         print(f"::error title=sync_{args.state.lower()}::{exc} - 0 requests made")
@@ -453,7 +484,7 @@ def main(argv=None) -> int:
         # Only sources this run may publish: a gated source's stored rows are never
         # 'closed' by another source's read of the same county.
         source_ids = {sid for sid, r in reg.items() if r.is_production and collectable(r, _record_source(sid))}
-        units = status_units(Path(args.status))
+        units = units_for(Path(args.status))
         closes = plan_close(args.state, rows, stored_active(url, key, args.state, source_ids), units, source_ids)
         close_rows(url, key, closes)
         print(f"{args.state}: closed {len(closes)} row(s) no longer listed by a COMPLETE / EMPTY county read")

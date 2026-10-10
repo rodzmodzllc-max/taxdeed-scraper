@@ -80,4 +80,4 @@ def test_saved_property_reuses_the_existing_watchlist():
 
 
 def test_service_worker_cache_bumped():
-    assert 'const CACHE = "tdw-shell-v114"' in SW
+    assert 'const CACHE = "tdw-shell-v117"' in SW

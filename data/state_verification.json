@@ -1,0 +1,1399 @@
+{
+ "by_state": {
+  "*": {
+   "BLOCKED": 0,
+   "FAIL": 0,
+   "NOT_APPLICABLE": 0,
+   "NOT_VERIFIED": 0,
+   "PASS": 1
+  },
+  "CO": {
+   "BLOCKED": 0,
+   "FAIL": 0,
+   "NOT_APPLICABLE": 2,
+   "NOT_VERIFIED": 2,
+   "PASS": 13
+  },
+  "FL": {
+   "BLOCKED": 0,
+   "FAIL": 0,
+   "NOT_APPLICABLE": 0,
+   "NOT_VERIFIED": 2,
+   "PASS": 20
+  },
+  "LA": {
+   "BLOCKED": 0,
+   "FAIL": 0,
+   "NOT_APPLICABLE": 0,
+   "NOT_VERIFIED": 2,
+   "PASS": 9
+  },
+  "MI": {
+   "BLOCKED": 0,
+   "FAIL": 0,
+   "NOT_APPLICABLE": 0,
+   "NOT_VERIFIED": 3,
+   "PASS": 15
+  },
+  "MN": {
+   "BLOCKED": 0,
+   "FAIL": 0,
+   "NOT_APPLICABLE": 0,
+   "NOT_VERIFIED": 3,
+   "PASS": 11
+  },
+  "MO": {
+   "BLOCKED": 0,
+   "FAIL": 0,
+   "NOT_APPLICABLE": 0,
+   "NOT_VERIFIED": 3,
+   "PASS": 11
+  },
+  "OK": {
+   "BLOCKED": 0,
+   "FAIL": 0,
+   "NOT_APPLICABLE": 0,
+   "NOT_VERIFIED": 2,
+   "PASS": 12
+  },
+  "PA": {
+   "BLOCKED": 0,
+   "FAIL": 0,
+   "NOT_APPLICABLE": 0,
+   "NOT_VERIFIED": 3,
+   "PASS": 11
+  },
+  "SC": {
+   "BLOCKED": 0,
+   "FAIL": 0,
+   "NOT_APPLICABLE": 0,
+   "NOT_VERIFIED": 2,
+   "PASS": 15
+  },
+  "TN": {
+   "BLOCKED": 0,
+   "FAIL": 0,
+   "NOT_APPLICABLE": 0,
+   "NOT_VERIFIED": 3,
+   "PASS": 11
+  },
+  "TX": {
+   "BLOCKED": 0,
+   "FAIL": 0,
+   "NOT_APPLICABLE": 0,
+   "NOT_VERIFIED": 3,
+   "PASS": 9
+  },
+  "WI": {
+   "BLOCKED": 0,
+   "FAIL": 0,
+   "NOT_APPLICABLE": 2,
+   "NOT_VERIFIED": 2,
+   "PASS": 11
+  },
+  "WY": {
+   "BLOCKED": 0,
+   "FAIL": 0,
+   "NOT_APPLICABLE": 2,
+   "NOT_VERIFIED": 2,
+   "PASS": 10
+  }
+ },
+ "findings": [
+  {
+   "check": "rules_valid",
+   "detail": "2 rule(s) recorded",
+   "state": "CO",
+   "status": "PASS"
+  },
+  {
+   "check": "state_law_recorded",
+   "detail": "no statute has been read and recorded for this state; unresolved: tax_lien_law",
+   "state": "CO",
+   "status": "NOT_VERIFIED"
+  },
+  {
+   "check": "ledger_tracking",
+   "detail": "TRACKED: co_douglas_tax_sale_list, co_morgan_treasurer_deed_auctions",
+   "state": "CO",
+   "status": "PASS",
+   "subject": "AUCTIONS"
+  },
+  {
+   "check": "ledger_copy",
+   "detail": "customer copy agrees with tracking",
+   "state": "CO",
+   "status": "PASS",
+   "subject": "AUCTIONS"
+  },
+  {
+   "check": "ledger_tracking",
+   "detail": "NOT_TRACKED",
+   "state": "CO",
+   "status": "PASS",
+   "subject": "AVAILABLE"
+  },
+  {
+   "check": "ledger_copy",
+   "detail": "customer copy agrees with tracking",
+   "state": "CO",
+   "status": "PASS",
+   "subject": "AVAILABLE"
+  },
+  {
+   "check": "ledger_tracking",
+   "detail": "TRACKED: co_douglas_county_held_liens, co_morgan_county_held_certificates",
+   "state": "CO",
+   "status": "PASS",
+   "subject": "LIENS_CERTIFICATES"
+  },
+  {
+   "check": "ledger_copy",
+   "detail": "customer copy agrees with tracking",
+   "state": "CO",
+   "status": "PASS",
+   "subject": "LIENS_CERTIFICATES"
+  },
+  {
+   "check": "source_classification",
+   "detail": "LIENS_CERTIFICATES",
+   "state": "CO",
+   "status": "PASS",
+   "subject": "co_douglas_county_held_liens"
+  },
+  {
+   "check": "source_classification",
+   "detail": "AUCTIONS",
+   "state": "CO",
+   "status": "PASS",
+   "subject": "co_douglas_tax_sale_list"
+  },
+  {
+   "check": "source_classification",
+   "detail": "LIENS_CERTIFICATES",
+   "state": "CO",
+   "status": "PASS",
+   "subject": "co_morgan_county_held_certificates"
+  },
+  {
+   "check": "source_classification",
+   "detail": "AUCTIONS",
+   "state": "CO",
+   "status": "PASS",
+   "subject": "co_morgan_treasurer_deed_auctions"
+  },
+  {
+   "check": "available_terms",
+   "detail": "no AVAILABLE source tracked",
+   "state": "CO",
+   "status": "NOT_APPLICABLE"
+  },
+  {
+   "check": "acquisition_path",
+   "detail": "no AVAILABLE source tracked",
+   "state": "CO",
+   "status": "NOT_APPLICABLE"
+  },
+  {
+   "check": "state_page",
+   "detail": "co.html",
+   "state": "CO",
+   "status": "PASS"
+  },
+  {
+   "check": "customer_rules",
+   "detail": "rules page data present (public/state-rules.json)",
+   "state": "CO",
+   "status": "PASS"
+  },
+  {
+   "check": "rule_links",
+   "detail": "1 official link(s) for unresolved rules were not opened from this environment",
+   "state": "CO",
+   "status": "NOT_VERIFIED"
+  },
+  {
+   "check": "rules_valid",
+   "detail": "8 rule(s) recorded",
+   "state": "FL",
+   "status": "PASS"
+  },
+  {
+   "check": "state_law_recorded",
+   "detail": "3 statute provision(s) read and recorded; unresolved: available_escheat, certificate_term, redemption, registration_deposit",
+   "state": "FL",
+   "status": "PASS"
+  },
+  {
+   "check": "ledger_tracking",
+   "detail": "TRACKED: fl_bid4assets_okaloosa, fl_realauction",
+   "state": "FL",
+   "status": "PASS",
+   "subject": "AUCTIONS"
+  },
+  {
+   "check": "ledger_tracking",
+   "detail": "TRACKED: fl_laft_hillsborough, fl_laft_html, fl_laft_leon, fl_laft_orange, fl_laft_osceola, fl_laft_pdfs, fl_laft_pioneer, fl_laft_realtdm, fl_laft_stlucie",
+   "state": "FL",
+   "status": "PASS",
+   "subject": "AVAILABLE"
+  },
+  {
+   "check": "ledger_tracking",
+   "detail": "TRACKED: fl_lienhub_certificates",
+   "state": "FL",
+   "status": "PASS",
+   "subject": "LIENS_CERTIFICATES"
+  },
+  {
+   "check": "source_classification",
+   "detail": "AUCTIONS",
+   "state": "FL",
+   "status": "PASS",
+   "subject": "fl_bid4assets_okaloosa"
+  },
+  {
+   "check": "source_classification",
+   "detail": "AVAILABLE",
+   "state": "FL",
+   "status": "PASS",
+   "subject": "fl_laft_hillsborough"
+  },
+  {
+   "check": "source_classification",
+   "detail": "AVAILABLE",
+   "state": "FL",
+   "status": "PASS",
+   "subject": "fl_laft_html"
+  },
+  {
+   "check": "source_classification",
+   "detail": "AVAILABLE",
+   "state": "FL",
+   "status": "PASS",
+   "subject": "fl_laft_leon"
+  },
+  {
+   "check": "source_classification",
+   "detail": "AVAILABLE",
+   "state": "FL",
+   "status": "PASS",
+   "subject": "fl_laft_orange"
+  },
+  {
+   "check": "source_classification",
+   "detail": "AVAILABLE",
+   "state": "FL",
+   "status": "PASS",
+   "subject": "fl_laft_osceola"
+  },
+  {
+   "check": "source_classification",
+   "detail": "AVAILABLE",
+   "state": "FL",
+   "status": "PASS",
+   "subject": "fl_laft_pdfs"
+  },
+  {
+   "check": "source_classification",
+   "detail": "AVAILABLE",
+   "state": "FL",
+   "status": "PASS",
+   "subject": "fl_laft_pioneer"
+  },
+  {
+   "check": "source_classification",
+   "detail": "AVAILABLE",
+   "state": "FL",
+   "status": "PASS",
+   "subject": "fl_laft_realtdm"
+  },
+  {
+   "check": "source_classification",
+   "detail": "AVAILABLE",
+   "state": "FL",
+   "status": "PASS",
+   "subject": "fl_laft_stlucie"
+  },
+  {
+   "check": "source_classification",
+   "detail": "LIENS_CERTIFICATES",
+   "state": "FL",
+   "status": "PASS",
+   "subject": "fl_lienhub_certificates"
+  },
+  {
+   "check": "source_classification",
+   "detail": "AUCTIONS",
+   "state": "FL",
+   "status": "PASS",
+   "subject": "fl_realauction"
+  },
+  {
+   "check": "available_terms",
+   "detail": "every AVAILABLE source has a terms row (9)",
+   "state": "FL",
+   "status": "PASS"
+  },
+  {
+   "check": "acquisition_path",
+   "detail": "19/52 AVAILABLE unit(s) with a verified official process - the rest show 'Not yet verified' / 'No online purchase link on file'",
+   "state": "FL",
+   "status": "NOT_VERIFIED"
+  },
+  {
+   "check": "state_page",
+   "detail": "index.html",
+   "state": "FL",
+   "status": "PASS"
+  },
+  {
+   "check": "customer_rules",
+   "detail": "rules page data present (public/state-rules.json)",
+   "state": "FL",
+   "status": "PASS"
+  },
+  {
+   "check": "rule_links",
+   "detail": "3 official link(s) for unresolved rules were not opened from this environment",
+   "state": "FL",
+   "status": "NOT_VERIFIED"
+  },
+  {
+   "check": "rules_valid",
+   "detail": "2 rule(s) recorded",
+   "state": "LA",
+   "status": "PASS"
+  },
+  {
+   "check": "state_law_recorded",
+   "detail": "no statute has been read and recorded for this state; unresolved: adjudicated_property_law",
+   "state": "LA",
+   "status": "NOT_VERIFIED"
+  },
+  {
+   "check": "ledger_tracking",
+   "detail": "NOT_TRACKED",
+   "state": "LA",
+   "status": "PASS",
+   "subject": "AUCTIONS"
+  },
+  {
+   "check": "ledger_tracking",
+   "detail": "TRACKED: la_ebr_adjudicated",
+   "state": "LA",
+   "status": "PASS",
+   "subject": "AVAILABLE"
+  },
+  {
+   "check": "ledger_tracking",
+   "detail": "NOT_TRACKED",
+   "state": "LA",
+   "status": "PASS",
+   "subject": "LIENS_CERTIFICATES"
+  },
+  {
+   "check": "source_classification",
+   "detail": "AVAILABLE",
+   "state": "LA",
+   "status": "PASS",
+   "subject": "la_ebr_adjudicated"
+  },
+  {
+   "check": "available_terms",
+   "detail": "every AVAILABLE source has a terms row (1)",
+   "state": "LA",
+   "status": "PASS"
+  },
+  {
+   "check": "acquisition_path",
+   "detail": "1/1 AVAILABLE unit(s) with a verified official process",
+   "state": "LA",
+   "status": "PASS"
+  },
+  {
+   "check": "state_page",
+   "detail": "la.html",
+   "state": "LA",
+   "status": "PASS"
+  },
+  {
+   "check": "customer_rules",
+   "detail": "rules page data present (public/state-rules.json)",
+   "state": "LA",
+   "status": "PASS"
+  },
+  {
+   "check": "rule_links",
+   "detail": "1 official link(s) for unresolved rules were not opened from this environment",
+   "state": "LA",
+   "status": "NOT_VERIFIED"
+  },
+  {
+   "check": "rules_valid",
+   "detail": "2 rule(s) recorded",
+   "state": "MI",
+   "status": "PASS"
+  },
+  {
+   "check": "state_law_recorded",
+   "detail": "no statute has been read and recorded for this state; unresolved: tax_sale_model",
+   "state": "MI",
+   "status": "NOT_VERIFIED"
+  },
+  {
+   "check": "ledger_tracking",
+   "detail": "TRACKED: mi_eaton_treasurer_sale, mi_lenawee_tax_sale",
+   "state": "MI",
+   "status": "PASS",
+   "subject": "AUCTIONS"
+  },
+  {
+   "check": "ledger_copy",
+   "detail": "customer copy agrees with tracking",
+   "state": "MI",
+   "status": "PASS",
+   "subject": "AUCTIONS"
+  },
+  {
+   "check": "ledger_tracking",
+   "detail": "TRACKED: mi_detroit_landbank_lots, mi_detroit_landbank_programs, mi_oceana_landbank",
+   "state": "MI",
+   "status": "PASS",
+   "subject": "AVAILABLE"
+  },
+  {
+   "check": "ledger_copy",
+   "detail": "customer copy agrees with tracking",
+   "state": "MI",
+   "status": "PASS",
+   "subject": "AVAILABLE"
+  },
+  {
+   "check": "ledger_tracking",
+   "detail": "NOT_TRACKED",
+   "state": "MI",
+   "status": "PASS",
+   "subject": "LIENS_CERTIFICATES"
+  },
+  {
+   "check": "ledger_copy",
+   "detail": "customer copy agrees with tracking",
+   "state": "MI",
+   "status": "PASS",
+   "subject": "LIENS_CERTIFICATES"
+  },
+  {
+   "check": "source_classification",
+   "detail": "AVAILABLE",
+   "state": "MI",
+   "status": "PASS",
+   "subject": "mi_detroit_landbank_lots"
+  },
+  {
+   "check": "source_classification",
+   "detail": "AVAILABLE",
+   "state": "MI",
+   "status": "PASS",
+   "subject": "mi_detroit_landbank_programs"
+  },
+  {
+   "check": "source_classification",
+   "detail": "AUCTIONS",
+   "state": "MI",
+   "status": "PASS",
+   "subject": "mi_eaton_treasurer_sale"
+  },
+  {
+   "check": "source_classification",
+   "detail": "AUCTIONS",
+   "state": "MI",
+   "status": "PASS",
+   "subject": "mi_lenawee_tax_sale"
+  },
+  {
+   "check": "source_classification",
+   "detail": "AVAILABLE",
+   "state": "MI",
+   "status": "PASS",
+   "subject": "mi_oceana_landbank"
+  },
+  {
+   "check": "available_terms",
+   "detail": "every AVAILABLE source has a terms row (3)",
+   "state": "MI",
+   "status": "PASS"
+  },
+  {
+   "check": "acquisition_path",
+   "detail": "1/3 AVAILABLE unit(s) with a verified official process - the rest show 'Not yet verified' / 'No online purchase link on file'",
+   "state": "MI",
+   "status": "NOT_VERIFIED"
+  },
+  {
+   "check": "state_page",
+   "detail": "mi.html",
+   "state": "MI",
+   "status": "PASS"
+  },
+  {
+   "check": "customer_rules",
+   "detail": "rules page data present (public/state-rules.json)",
+   "state": "MI",
+   "status": "PASS"
+  },
+  {
+   "check": "rule_links",
+   "detail": "1 official link(s) for unresolved rules were not opened from this environment",
+   "state": "MI",
+   "status": "NOT_VERIFIED"
+  },
+  {
+   "check": "rules_valid",
+   "detail": "2 rule(s) recorded",
+   "state": "MN",
+   "status": "PASS"
+  },
+  {
+   "check": "state_law_recorded",
+   "detail": "no statute has been read and recorded for this state; unresolved: tax_forfeit_law",
+   "state": "MN",
+   "status": "NOT_VERIFIED"
+  },
+  {
+   "check": "ledger_tracking",
+   "detail": "NOT_TRACKED",
+   "state": "MN",
+   "status": "PASS",
+   "subject": "AUCTIONS"
+  },
+  {
+   "check": "ledger_copy",
+   "detail": "customer copy agrees with tracking",
+   "state": "MN",
+   "status": "PASS",
+   "subject": "AUCTIONS"
+  },
+  {
+   "check": "ledger_tracking",
+   "detail": "TRACKED: mn_ramsey_tax_forfeit",
+   "state": "MN",
+   "status": "PASS",
+   "subject": "AVAILABLE"
+  },
+  {
+   "check": "ledger_copy",
+   "detail": "customer copy agrees with tracking",
+   "state": "MN",
+   "status": "PASS",
+   "subject": "AVAILABLE"
+  },
+  {
+   "check": "ledger_tracking",
+   "detail": "NOT_TRACKED",
+   "state": "MN",
+   "status": "PASS",
+   "subject": "LIENS_CERTIFICATES"
+  },
+  {
+   "check": "ledger_copy",
+   "detail": "customer copy agrees with tracking",
+   "state": "MN",
+   "status": "PASS",
+   "subject": "LIENS_CERTIFICATES"
+  },
+  {
+   "check": "source_classification",
+   "detail": "AVAILABLE",
+   "state": "MN",
+   "status": "PASS",
+   "subject": "mn_ramsey_tax_forfeit"
+  },
+  {
+   "check": "available_terms",
+   "detail": "every AVAILABLE source has a terms row (1)",
+   "state": "MN",
+   "status": "PASS"
+  },
+  {
+   "check": "acquisition_path",
+   "detail": "0/1 AVAILABLE unit(s) with a verified official process - the rest show 'Not yet verified' / 'No online purchase link on file'",
+   "state": "MN",
+   "status": "NOT_VERIFIED"
+  },
+  {
+   "check": "state_page",
+   "detail": "mn.html",
+   "state": "MN",
+   "status": "PASS"
+  },
+  {
+   "check": "customer_rules",
+   "detail": "rules page data present (public/state-rules.json)",
+   "state": "MN",
+   "status": "PASS"
+  },
+  {
+   "check": "rule_links",
+   "detail": "1 official link(s) for unresolved rules were not opened from this environment",
+   "state": "MN",
+   "status": "NOT_VERIFIED"
+  },
+  {
+   "check": "rules_valid",
+   "detail": "2 rule(s) recorded",
+   "state": "MO",
+   "status": "PASS"
+  },
+  {
+   "check": "state_law_recorded",
+   "detail": "no statute has been read and recorded for this state; unresolved: acquisition_process, land_bank_law",
+   "state": "MO",
+   "status": "NOT_VERIFIED"
+  },
+  {
+   "check": "ledger_tracking",
+   "detail": "NOT_TRACKED",
+   "state": "MO",
+   "status": "PASS",
+   "subject": "AUCTIONS"
+  },
+  {
+   "check": "ledger_copy",
+   "detail": "customer copy agrees with tracking",
+   "state": "MO",
+   "status": "PASS",
+   "subject": "AUCTIONS"
+  },
+  {
+   "check": "ledger_tracking",
+   "detail": "TRACKED: mo_stl_lra_inventory",
+   "state": "MO",
+   "status": "PASS",
+   "subject": "AVAILABLE"
+  },
+  {
+   "check": "ledger_copy",
+   "detail": "customer copy agrees with tracking",
+   "state": "MO",
+   "status": "PASS",
+   "subject": "AVAILABLE"
+  },
+  {
+   "check": "ledger_tracking",
+   "detail": "NOT_TRACKED",
+   "state": "MO",
+   "status": "PASS",
+   "subject": "LIENS_CERTIFICATES"
+  },
+  {
+   "check": "ledger_copy",
+   "detail": "customer copy agrees with tracking",
+   "state": "MO",
+   "status": "PASS",
+   "subject": "LIENS_CERTIFICATES"
+  },
+  {
+   "check": "source_classification",
+   "detail": "AVAILABLE",
+   "state": "MO",
+   "status": "PASS",
+   "subject": "mo_stl_lra_inventory"
+  },
+  {
+   "check": "available_terms",
+   "detail": "every AVAILABLE source has a terms row (1)",
+   "state": "MO",
+   "status": "PASS"
+  },
+  {
+   "check": "acquisition_path",
+   "detail": "0/1 AVAILABLE unit(s) with a verified official process - the rest show 'Not yet verified' / 'No online purchase link on file'",
+   "state": "MO",
+   "status": "NOT_VERIFIED"
+  },
+  {
+   "check": "state_page",
+   "detail": "mo.html",
+   "state": "MO",
+   "status": "PASS"
+  },
+  {
+   "check": "customer_rules",
+   "detail": "rules page data present (public/state-rules.json)",
+   "state": "MO",
+   "status": "PASS"
+  },
+  {
+   "check": "rule_links",
+   "detail": "1 official link(s) for unresolved rules were not opened from this environment",
+   "state": "MO",
+   "status": "NOT_VERIFIED"
+  },
+  {
+   "check": "rules_valid",
+   "detail": "2 rule(s) recorded",
+   "state": "OK",
+   "status": "PASS"
+  },
+  {
+   "check": "state_law_recorded",
+   "detail": "no statute has been read and recorded for this state; unresolved: tax_sale_law",
+   "state": "OK",
+   "status": "NOT_VERIFIED"
+  },
+  {
+   "check": "ledger_tracking",
+   "detail": "NOT_TRACKED",
+   "state": "OK",
+   "status": "PASS",
+   "subject": "AUCTIONS"
+  },
+  {
+   "check": "ledger_copy",
+   "detail": "customer copy agrees with tracking",
+   "state": "OK",
+   "status": "PASS",
+   "subject": "AUCTIONS"
+  },
+  {
+   "check": "ledger_tracking",
+   "detail": "TRACKED: ok_oklahoma_county_owned",
+   "state": "OK",
+   "status": "PASS",
+   "subject": "AVAILABLE"
+  },
+  {
+   "check": "ledger_copy",
+   "detail": "customer copy agrees with tracking",
+   "state": "OK",
+   "status": "PASS",
+   "subject": "AVAILABLE"
+  },
+  {
+   "check": "ledger_tracking",
+   "detail": "NOT_TRACKED",
+   "state": "OK",
+   "status": "PASS",
+   "subject": "LIENS_CERTIFICATES"
+  },
+  {
+   "check": "ledger_copy",
+   "detail": "customer copy agrees with tracking",
+   "state": "OK",
+   "status": "PASS",
+   "subject": "LIENS_CERTIFICATES"
+  },
+  {
+   "check": "source_classification",
+   "detail": "AVAILABLE",
+   "state": "OK",
+   "status": "PASS",
+   "subject": "ok_oklahoma_county_owned"
+  },
+  {
+   "check": "available_terms",
+   "detail": "every AVAILABLE source has a terms row (1)",
+   "state": "OK",
+   "status": "PASS"
+  },
+  {
+   "check": "acquisition_path",
+   "detail": "1/1 AVAILABLE unit(s) with a verified official process",
+   "state": "OK",
+   "status": "PASS"
+  },
+  {
+   "check": "state_page",
+   "detail": "ok.html",
+   "state": "OK",
+   "status": "PASS"
+  },
+  {
+   "check": "customer_rules",
+   "detail": "rules page data present (public/state-rules.json)",
+   "state": "OK",
+   "status": "PASS"
+  },
+  {
+   "check": "rule_links",
+   "detail": "1 official link(s) for unresolved rules were not opened from this environment",
+   "state": "OK",
+   "status": "NOT_VERIFIED"
+  },
+  {
+   "check": "rules_valid",
+   "detail": "2 rule(s) recorded",
+   "state": "PA",
+   "status": "PASS"
+  },
+  {
+   "check": "state_law_recorded",
+   "detail": "no statute has been read and recorded for this state; unresolved: repository_law",
+   "state": "PA",
+   "status": "NOT_VERIFIED"
+  },
+  {
+   "check": "ledger_tracking",
+   "detail": "NOT_TRACKED",
+   "state": "PA",
+   "status": "PASS",
+   "subject": "AUCTIONS"
+  },
+  {
+   "check": "ledger_copy",
+   "detail": "customer copy agrees with tracking",
+   "state": "PA",
+   "status": "PASS",
+   "subject": "AUCTIONS"
+  },
+  {
+   "check": "ledger_tracking",
+   "detail": "TRACKED: pa_fayette_repository",
+   "state": "PA",
+   "status": "PASS",
+   "subject": "AVAILABLE"
+  },
+  {
+   "check": "ledger_copy",
+   "detail": "customer copy agrees with tracking",
+   "state": "PA",
+   "status": "PASS",
+   "subject": "AVAILABLE"
+  },
+  {
+   "check": "ledger_tracking",
+   "detail": "NOT_TRACKED",
+   "state": "PA",
+   "status": "PASS",
+   "subject": "LIENS_CERTIFICATES"
+  },
+  {
+   "check": "ledger_copy",
+   "detail": "customer copy agrees with tracking",
+   "state": "PA",
+   "status": "PASS",
+   "subject": "LIENS_CERTIFICATES"
+  },
+  {
+   "check": "source_classification",
+   "detail": "AVAILABLE",
+   "state": "PA",
+   "status": "PASS",
+   "subject": "pa_fayette_repository"
+  },
+  {
+   "check": "available_terms",
+   "detail": "every AVAILABLE source has a terms row (1)",
+   "state": "PA",
+   "status": "PASS"
+  },
+  {
+   "check": "acquisition_path",
+   "detail": "0/1 AVAILABLE unit(s) with a verified official process - the rest show 'Not yet verified' / 'No online purchase link on file'",
+   "state": "PA",
+   "status": "NOT_VERIFIED"
+  },
+  {
+   "check": "state_page",
+   "detail": "pa.html",
+   "state": "PA",
+   "status": "PASS"
+  },
+  {
+   "check": "customer_rules",
+   "detail": "rules page data present (public/state-rules.json)",
+   "state": "PA",
+   "status": "PASS"
+  },
+  {
+   "check": "rule_links",
+   "detail": "1 official link(s) for unresolved rules were not opened from this environment",
+   "state": "PA",
+   "status": "NOT_VERIFIED"
+  },
+  {
+   "check": "rules_valid",
+   "detail": "3 rule(s) recorded",
+   "state": "SC",
+   "status": "PASS"
+  },
+  {
+   "check": "state_law_recorded",
+   "detail": "no statute has been read and recorded for this state; unresolved: redemption_law",
+   "state": "SC",
+   "status": "NOT_VERIFIED"
+  },
+  {
+   "check": "ledger_tracking",
+   "detail": "TRACKED: sc_oconee_tax_sale_list, sc_york_tax_sale",
+   "state": "SC",
+   "status": "PASS",
+   "subject": "AUCTIONS"
+  },
+  {
+   "check": "ledger_copy",
+   "detail": "customer copy agrees with tracking",
+   "state": "SC",
+   "status": "PASS",
+   "subject": "AUCTIONS"
+  },
+  {
+   "check": "ledger_tracking",
+   "detail": "TRACKED: sc_georgetown_forfeited_land, sc_horry_forfeited_land",
+   "state": "SC",
+   "status": "PASS",
+   "subject": "AVAILABLE"
+  },
+  {
+   "check": "ledger_copy",
+   "detail": "customer copy agrees with tracking",
+   "state": "SC",
+   "status": "PASS",
+   "subject": "AVAILABLE"
+  },
+  {
+   "check": "ledger_tracking",
+   "detail": "NOT_TRACKED",
+   "state": "SC",
+   "status": "PASS",
+   "subject": "LIENS_CERTIFICATES"
+  },
+  {
+   "check": "ledger_copy",
+   "detail": "customer copy agrees with tracking",
+   "state": "SC",
+   "status": "PASS",
+   "subject": "LIENS_CERTIFICATES"
+  },
+  {
+   "check": "source_classification",
+   "detail": "AVAILABLE",
+   "state": "SC",
+   "status": "PASS",
+   "subject": "sc_georgetown_forfeited_land"
+  },
+  {
+   "check": "source_classification",
+   "detail": "AVAILABLE",
+   "state": "SC",
+   "status": "PASS",
+   "subject": "sc_horry_forfeited_land"
+  },
+  {
+   "check": "source_classification",
+   "detail": "AUCTIONS",
+   "state": "SC",
+   "status": "PASS",
+   "subject": "sc_oconee_tax_sale_list"
+  },
+  {
+   "check": "source_classification",
+   "detail": "AUCTIONS",
+   "state": "SC",
+   "status": "PASS",
+   "subject": "sc_york_tax_sale"
+  },
+  {
+   "check": "available_terms",
+   "detail": "every AVAILABLE source has a terms row (2)",
+   "state": "SC",
+   "status": "PASS"
+  },
+  {
+   "check": "acquisition_path",
+   "detail": "2/2 AVAILABLE unit(s) with a verified official process",
+   "state": "SC",
+   "status": "PASS"
+  },
+  {
+   "check": "state_page",
+   "detail": "sc.html",
+   "state": "SC",
+   "status": "PASS"
+  },
+  {
+   "check": "customer_rules",
+   "detail": "rules page data present (public/state-rules.json)",
+   "state": "SC",
+   "status": "PASS"
+  },
+  {
+   "check": "rule_links",
+   "detail": "1 official link(s) for unresolved rules were not opened from this environment",
+   "state": "SC",
+   "status": "NOT_VERIFIED"
+  },
+  {
+   "check": "rules_valid",
+   "detail": "3 rule(s) recorded",
+   "state": "TN",
+   "status": "PASS"
+  },
+  {
+   "check": "state_law_recorded",
+   "detail": "no statute has been read and recorded for this state; unresolved: acquisition_process, tax_sale_law",
+   "state": "TN",
+   "status": "NOT_VERIFIED"
+  },
+  {
+   "check": "ledger_tracking",
+   "detail": "NOT_TRACKED",
+   "state": "TN",
+   "status": "PASS",
+   "subject": "AUCTIONS"
+  },
+  {
+   "check": "ledger_copy",
+   "detail": "customer copy agrees with tracking",
+   "state": "TN",
+   "status": "PASS",
+   "subject": "AUCTIONS"
+  },
+  {
+   "check": "ledger_tracking",
+   "detail": "TRACKED: tn_shelby_landbank",
+   "state": "TN",
+   "status": "PASS",
+   "subject": "AVAILABLE"
+  },
+  {
+   "check": "ledger_copy",
+   "detail": "customer copy agrees with tracking",
+   "state": "TN",
+   "status": "PASS",
+   "subject": "AVAILABLE"
+  },
+  {
+   "check": "ledger_tracking",
+   "detail": "NOT_TRACKED",
+   "state": "TN",
+   "status": "PASS",
+   "subject": "LIENS_CERTIFICATES"
+  },
+  {
+   "check": "ledger_copy",
+   "detail": "customer copy agrees with tracking",
+   "state": "TN",
+   "status": "PASS",
+   "subject": "LIENS_CERTIFICATES"
+  },
+  {
+   "check": "source_classification",
+   "detail": "AVAILABLE",
+   "state": "TN",
+   "status": "PASS",
+   "subject": "tn_shelby_landbank"
+  },
+  {
+   "check": "available_terms",
+   "detail": "every AVAILABLE source has a terms row (1)",
+   "state": "TN",
+   "status": "PASS"
+  },
+  {
+   "check": "acquisition_path",
+   "detail": "0/1 AVAILABLE unit(s) with a verified official process - the rest show 'Not yet verified' / 'No online purchase link on file'",
+   "state": "TN",
+   "status": "NOT_VERIFIED"
+  },
+  {
+   "check": "state_page",
+   "detail": "tn.html",
+   "state": "TN",
+   "status": "PASS"
+  },
+  {
+   "check": "customer_rules",
+   "detail": "rules page data present (public/state-rules.json)",
+   "state": "TN",
+   "status": "PASS"
+  },
+  {
+   "check": "rule_links",
+   "detail": "2 official link(s) for unresolved rules were not opened from this environment",
+   "state": "TN",
+   "status": "NOT_VERIFIED"
+  },
+  {
+   "check": "rules_valid",
+   "detail": "4 rule(s) recorded",
+   "state": "TX",
+   "status": "PASS"
+  },
+  {
+   "check": "state_law_recorded",
+   "detail": "no statute has been read and recorded for this state; unresolved: redemption, tax_sale_model",
+   "state": "TX",
+   "status": "NOT_VERIFIED"
+  },
+  {
+   "check": "ledger_tracking",
+   "detail": "TRACKED: tx_lgbs, tx_realauction",
+   "state": "TX",
+   "status": "PASS",
+   "subject": "AUCTIONS"
+  },
+  {
+   "check": "ledger_tracking",
+   "detail": "TRACKED: tx_lgbs",
+   "state": "TX",
+   "status": "PASS",
+   "subject": "AVAILABLE"
+  },
+  {
+   "check": "ledger_tracking",
+   "detail": "NOT_TRACKED",
+   "state": "TX",
+   "status": "PASS",
+   "subject": "LIENS_CERTIFICATES"
+  },
+  {
+   "check": "source_classification",
+   "detail": "AUCTIONS/AVAILABLE",
+   "state": "TX",
+   "status": "PASS",
+   "subject": "tx_lgbs"
+  },
+  {
+   "check": "source_classification",
+   "detail": "AUCTIONS",
+   "state": "TX",
+   "status": "PASS",
+   "subject": "tx_realauction"
+  },
+  {
+   "check": "available_terms",
+   "detail": "every AVAILABLE source has a terms row (1)",
+   "state": "TX",
+   "status": "PASS"
+  },
+  {
+   "check": "acquisition_path",
+   "detail": "1/8 AVAILABLE unit(s) with a verified official process - the rest show 'Not yet verified' / 'No online purchase link on file'",
+   "state": "TX",
+   "status": "NOT_VERIFIED"
+  },
+  {
+   "check": "state_page",
+   "detail": "tx.html",
+   "state": "TX",
+   "status": "PASS"
+  },
+  {
+   "check": "customer_rules",
+   "detail": "rules page data present (public/state-rules.json)",
+   "state": "TX",
+   "status": "PASS"
+  },
+  {
+   "check": "rule_links",
+   "detail": "1 official link(s) for unresolved rules were not opened from this environment",
+   "state": "TX",
+   "status": "NOT_VERIFIED"
+  },
+  {
+   "check": "rules_valid",
+   "detail": "1 rule(s) recorded",
+   "state": "WI",
+   "status": "PASS"
+  },
+  {
+   "check": "state_law_recorded",
+   "detail": "no statute has been read and recorded for this state; unresolved: tax_deed_law",
+   "state": "WI",
+   "status": "NOT_VERIFIED"
+  },
+  {
+   "check": "ledger_tracking",
+   "detail": "TRACKED: wi_dane_tax_deed_auction, wi_green_tax_deed_sales",
+   "state": "WI",
+   "status": "PASS",
+   "subject": "AUCTIONS"
+  },
+  {
+   "check": "ledger_copy",
+   "detail": "customer copy agrees with tracking",
+   "state": "WI",
+   "status": "PASS",
+   "subject": "AUCTIONS"
+  },
+  {
+   "check": "ledger_tracking",
+   "detail": "NOT_TRACKED",
+   "state": "WI",
+   "status": "PASS",
+   "subject": "AVAILABLE"
+  },
+  {
+   "check": "ledger_copy",
+   "detail": "customer copy agrees with tracking",
+   "state": "WI",
+   "status": "PASS",
+   "subject": "AVAILABLE"
+  },
+  {
+   "check": "ledger_tracking",
+   "detail": "NOT_TRACKED",
+   "state": "WI",
+   "status": "PASS",
+   "subject": "LIENS_CERTIFICATES"
+  },
+  {
+   "check": "ledger_copy",
+   "detail": "customer copy agrees with tracking",
+   "state": "WI",
+   "status": "PASS",
+   "subject": "LIENS_CERTIFICATES"
+  },
+  {
+   "check": "source_classification",
+   "detail": "AUCTIONS",
+   "state": "WI",
+   "status": "PASS",
+   "subject": "wi_dane_tax_deed_auction"
+  },
+  {
+   "check": "source_classification",
+   "detail": "AUCTIONS",
+   "state": "WI",
+   "status": "PASS",
+   "subject": "wi_green_tax_deed_sales"
+  },
+  {
+   "check": "available_terms",
+   "detail": "no AVAILABLE source tracked",
+   "state": "WI",
+   "status": "NOT_APPLICABLE"
+  },
+  {
+   "check": "acquisition_path",
+   "detail": "no AVAILABLE source tracked",
+   "state": "WI",
+   "status": "NOT_APPLICABLE"
+  },
+  {
+   "check": "state_page",
+   "detail": "wi.html",
+   "state": "WI",
+   "status": "PASS"
+  },
+  {
+   "check": "customer_rules",
+   "detail": "rules page data present (public/state-rules.json)",
+   "state": "WI",
+   "status": "PASS"
+  },
+  {
+   "check": "rule_links",
+   "detail": "1 official link(s) for unresolved rules were not opened from this environment",
+   "state": "WI",
+   "status": "NOT_VERIFIED"
+  },
+  {
+   "check": "rules_valid",
+   "detail": "2 rule(s) recorded",
+   "state": "WY",
+   "status": "PASS"
+  },
+  {
+   "check": "state_law_recorded",
+   "detail": "no statute has been read and recorded for this state; unresolved: tax_sale_law",
+   "state": "WY",
+   "status": "NOT_VERIFIED"
+  },
+  {
+   "check": "ledger_tracking",
+   "detail": "TRACKED: wy_albany_tax_sale",
+   "state": "WY",
+   "status": "PASS",
+   "subject": "AUCTIONS"
+  },
+  {
+   "check": "ledger_copy",
+   "detail": "customer copy agrees with tracking",
+   "state": "WY",
+   "status": "PASS",
+   "subject": "AUCTIONS"
+  },
+  {
+   "check": "ledger_tracking",
+   "detail": "NOT_TRACKED",
+   "state": "WY",
+   "status": "PASS",
+   "subject": "AVAILABLE"
+  },
+  {
+   "check": "ledger_copy",
+   "detail": "customer copy agrees with tracking",
+   "state": "WY",
+   "status": "PASS",
+   "subject": "AVAILABLE"
+  },
+  {
+   "check": "ledger_tracking",
+   "detail": "NOT_TRACKED",
+   "state": "WY",
+   "status": "PASS",
+   "subject": "LIENS_CERTIFICATES"
+  },
+  {
+   "check": "ledger_copy",
+   "detail": "customer copy agrees with tracking",
+   "state": "WY",
+   "status": "PASS",
+   "subject": "LIENS_CERTIFICATES"
+  },
+  {
+   "check": "source_classification",
+   "detail": "AUCTIONS",
+   "state": "WY",
+   "status": "PASS",
+   "subject": "wy_albany_tax_sale"
+  },
+  {
+   "check": "available_terms",
+   "detail": "no AVAILABLE source tracked",
+   "state": "WY",
+   "status": "NOT_APPLICABLE"
+  },
+  {
+   "check": "acquisition_path",
+   "detail": "no AVAILABLE source tracked",
+   "state": "WY",
+   "status": "NOT_APPLICABLE"
+  },
+  {
+   "check": "state_page",
+   "detail": "wy.html",
+   "state": "WY",
+   "status": "PASS"
+  },
+  {
+   "check": "customer_rules",
+   "detail": "rules page data present (public/state-rules.json)",
+   "state": "WY",
+   "status": "PASS"
+  },
+  {
+   "check": "rule_links",
+   "detail": "1 official link(s) for unresolved rules were not opened from this environment",
+   "state": "WY",
+   "status": "NOT_VERIFIED"
+  },
+  {
+   "check": "copy_law_claims",
+   "detail": "discloses the claim is not verified: 34.21",
+   "state": "*",
+   "status": "PASS",
+   "subject": "A deed you already own, still subject to the former owner's right to redeem it f"
+  }
+ ],
+ "summary": {
+  "BLOCKED": 0,
+  "FAIL": 0,
+  "NOT_APPLICABLE": 6,
+  "NOT_VERIFIED": 32,
+  "PASS": 159
+ }
+}

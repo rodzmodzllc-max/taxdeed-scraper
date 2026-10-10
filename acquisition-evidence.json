@@ -1706,10 +1706,20 @@
    "state": "TN",
    "source_id": "tn_shelby_landbank",
    "county": "Shelby",
-   "status": "NOT_FOUND",
-   "basis": "search_index",
-   "reason": "No official acquisition page identified yet",
-   "scope": "source"
+   "status": "NEEDS_REVIEW",
+   "basis": "capture",
+   "reason": "Land Bank Policies & Procedures page links an Offer to Purchase and Sales Agreement Packet; the packet is a scanned PDF with no text layer and its terms were not read",
+   "attempted_on": "2026-10-08",
+   "run_id": "37856189946 37856396525",
+   "authority_type": "county_land_bank",
+   "authority": "Shelby County Land Bank",
+   "scope": "source",
+   "candidates": [
+    {
+     "url": "https://landbank.shelbycountytn.gov",
+     "doc_kind": "SOURCE_PAGE"
+    }
+   ]
   },
   {
    "state": "TX",

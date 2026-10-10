@@ -2459,6 +2459,7 @@ results.txInventoryPurchase = await invVal(txClPage, 'Purchase link');
 results.txInventoryAcquire = await invVal(txClPage, 'How to acquire');
 results.txInventoryOwner = await invVal(txClPage, 'Owner of record');
 results.txInventoryParcel = await invVal(txClPage, 'Parcel #');
+results.txInventoryCause = await invVal(txClPage, 'Tax suit cause #');
 results.txInventoryAnchors = await txClPage.locator('#detailModalInner .inventory-card a').count();
 // Acquisition sprint: the gap is the UNVERIFIED process, never a missing hyperlink.
 results.txInventoryGapNamesAcquisition = !((await txClPage.locator('#detailModalInner .opp-gaps').textContent()) || '').includes('Acquisition path not yet verified');   // verified county process (fixture)
@@ -4288,6 +4289,33 @@ await navMap.close();
     results.offListDefault = await n.evaluate(() => window.__tdwOffList('p9'));
     await n.close();
   }
+  // ---- Texas cause numbers are never parcel identity (2026-10-10) ----
+  // ptx3 and ptx8 (?txcause=1) share one LGBS tax-suit cause but are two CAD
+  // accounts - two parcels. Neither is "the same parcel" as the other, and the
+  // cause is labelled as a cause, never as "Parcel #".
+  {
+    const pg = await newPage({ viewport: { width: 1440, height: 900 } });
+    pg.on('pageerror', e => errors.push('txcause pageerror: ' + e.message));
+    await pg.goto(TX_BASE_URL + '?txcause=1' + '#/lands', { waitUntil: 'networkidle' });
+    await pg.waitForTimeout(400);
+    results.txCauseCardParcel = await pg.evaluate(() => ['ptx3', 'ptx8'].map(id => {
+      const e = document.querySelector(`#main .prop-card[data-pid="${id}"] .prop-parcel-line`);
+      return e ? e.textContent.trim() : null;
+    }));
+    await pg.close();
+    const d = await newPage({ viewport: { width: 1440, height: 900 } });
+    await d.goto(TX_BASE_URL + '?txcause=1' + '#/lands/ptx3', { waitUntil: 'networkidle' });
+    await d.waitForTimeout(500);
+    results.txCauseDetail = await d.evaluate(() => {
+      const m = document.getElementById('detailModalInner');
+      const txt = m ? m.innerText.replace(/\s+/g, ' ') : '';
+      return { related: m ? m.querySelectorAll('.related-record').length : null,
+        sameParcelClaim: /ptx8|6600 BLOCK/.test(m ? m.innerHTML : ''),
+        causeAsParcel: /Parcel #? ?23-TX-0644/.test(txt),
+        causeShown: /Cause 23-TX-0644/.test(txt) || /Tax suit cause # 23-TX-0644/.test(txt) };
+    });
+    await d.close();
+  }
   // ---- Opportunity finder + auction command center (2026-10-05) ----
   {
     const pg = await newPage({ viewport: { width: 1440, height: 900 } });
@@ -4910,6 +4938,10 @@ await navMap.close();
             program: txt.includes('Land bank inventory'),
             sourceStatus: txt.includes('FOR SALE'),
             noTaxDeedWords: !/tax deed|tax lien|Lands Available|Redeemable/i.test(txt.replace(/Liens & Certificates/g, '')),
+            // 2026-10-10: the Land Bank's list page is a list, never a purchase link.
+            noPurchaseLink: txt.includes('No online purchase link on file'),
+            listNotPurchase: ![...m.querySelectorAll('a[data-acq-link="purchase"], a.acq-cta')].some(a => /epropertyplus\.com/.test(a.getAttribute('href') || '')),
+            noAuctionDate: !/Sale date|Auction date|Sale (Mon|Tue|Wed|Thu|Fri|Sat|Sun)/.test(txt),
           };
         });
         await dp.close();
@@ -4918,6 +4950,59 @@ await navMap.close();
       await pg.close();
     }
     results.tnVisibility = tn;
+  }
+  // ---- State rules page (#/rules, 2026-10-10) ----
+  // Every rule shows its kind and status; nothing unverified reads as
+  // verified; a county rule appears only for its own county; untracked
+  // ledgers say so rather than looking empty.
+  {
+    const rulesOf = async (url) => {
+      const pg = await newPage({ viewport: { width: 1280, height: 900 } });
+      pg.on('pageerror', e => errors.push('rules pageerror: ' + e.message));
+      await pg.goto(url, { waitUntil: 'networkidle' });
+      await pg.waitForTimeout(500);
+      const r = await pg.evaluate(() => {
+        const root = document.getElementById('rulesPage');
+        if (!root) return null;
+        const items = [...root.querySelectorAll('.rule-item')];
+        return {
+          title: (root.querySelector('h1') || {}).textContent || '',
+          ledgers: Object.fromEntries([...root.querySelectorAll('.rules-ledger')].map(li => [li.dataset.ledger, li.dataset.status])),
+          items: items.length,
+          verifiedWithoutStatus: items.filter(i => i.dataset.status !== 'VERIFIED' && /Verified \w/.test(i.querySelector('.rule-meta') ? i.querySelector('.rule-meta').textContent : '')).length,
+          unverifiedLabelled: items.filter(i => i.dataset.status !== 'VERIFIED').every(i => /Not verified/.test(i.textContent)),
+          countyScoped: items.filter(i => i.dataset.scope === 'county').map(i => (i.querySelector('.rule-scope') || {}).textContent),
+          noScores: !/score|confidence|rating/i.test(root.textContent),
+          hash: location.hash,
+          visible: !document.getElementById('pageRules').hidden,
+        };
+      });
+      await pg.close();
+      return r;
+    };
+    const TNR = BASE_URL.replace(/index\.html$/, 'tn.html'), SCR = BASE_URL.replace(/index\.html$/, 'sc.html');
+    const tn = await rulesOf(TNR + '#/rules');
+    results.rulesTn = tn && { title: tn.title.trim(), ledgers: tn.ledgers, verifiedWithoutStatus: tn.verifiedWithoutStatus,
+      unverifiedLabelled: tn.unverifiedLabelled, noScores: tn.noScores, hash: tn.hash, visible: tn.visible, hasItems: tn.items > 0 };
+    const gt = await rulesOf(SCR + '#/rules?county=Georgetown');
+    const hy = await rulesOf(SCR + '#/rules?county=Horry');
+    results.rulesCounty = { georgetown: gt && [...new Set(gt.countyScoped)].sort(), horry: hy && [...new Set(hy.countyScoped)].sort(),
+      gtTitle: gt && gt.title.trim() };
+    const fl = await rulesOf(BASE_URL + '#/rules');
+    results.rulesFl = fl && { ledgers: fl.ledgers, unverifiedLabelled: fl.unverifiedLabelled, verifiedWithoutStatus: fl.verifiedWithoutStatus };
+    // Reached from a property page's Source truth and from the state picker.
+    const d = await newPage({ viewport: { width: 1280, height: 900 } });
+    await d.goto(TNR + '?profile=admin#/lands/ptn1', { waitUntil: 'networkidle' });
+    await d.waitForTimeout(500);
+    results.rulesFromProperty = await d.evaluate(() => {
+      const b = document.querySelector('#detailModalInner [data-action="staterules"]');
+      return b ? { county: b.dataset.county, text: b.textContent.trim() } : null;
+    });
+    await d.locator('#detailModalInner [data-action="staterules"]').first().click().catch(() => {});
+    await d.waitForTimeout(500);
+    results.rulesFromPropertyLanded = await d.evaluate(() => ({ hash: location.hash, shown: !!document.querySelector('#rulesPage[data-county="Shelby"]'),
+      modalClosed: document.getElementById('detailModal').hidden }));
+    await d.close();
   }
   // ---- Acquisition-evidence status per unit (2026-10-06) ----
   {
@@ -6357,9 +6442,16 @@ await browser.close();
 
 
 const EXPECTED = {
+  rulesTn: { title: 'Tennessee tax-sale rules', ledgers: { AUCTIONS: 'NOT_TRACKED', AVAILABLE: 'TRACKED', LIENS_CERTIFICATES: 'NOT_TRACKED' },
+    verifiedWithoutStatus: 0, unverifiedLabelled: true, noScores: true, hash: '#/rules', visible: true, hasItems: true },
+  // Georgetown's own rules appear for Georgetown and never for Horry.
+  rulesCounty: { georgetown: ['Georgetown County only'], horry: [], gtTitle: 'South Carolina tax-sale rules - Georgetown County' },
+  rulesFl: { ledgers: { AUCTIONS: 'TRACKED', AVAILABLE: 'TRACKED', LIENS_CERTIFICATES: 'TRACKED' }, unverifiedLabelled: true, verifiedWithoutStatus: 0 },
+  rulesFromProperty: { county: 'Shelby', text: 'Tennessee tax-sale rules for Shelby County →' },
+  rulesFromPropertyLanded: { hash: '#/rules?county=Shelby', shown: true, modalClosed: true },
   tnVisibility: {
     admin: { stateOption: true, stateSelected: 'TN', tabs: ['Auctions', 'Available', 'Liens & Certificates'], countLaft: '1', cardRendered: true, withheld: null, emptyHead: false, redeemable: false, mapCount: '1 shown across 1 county',
-      detail: { program: true, sourceStatus: true, noTaxDeedWords: true } },
+      detail: { program: true, sourceStatus: true, noTaxDeedWords: true, noPurchaseLink: true, listNotPurchase: true, noAuctionDate: true } },
     customer: { stateOption: true, stateSelected: 'TN', tabs: ['Auctions', 'Available', 'Liens & Certificates'], countLaft: '0', cardRendered: false,
       withheld: '1 record withheld - source not approved for customer publication (restricted or not yet reviewed). Counted, not shown.', emptyHead: true, redeemable: false, mapCount: 'Nothing matches the current filters' },
   },
@@ -6451,7 +6543,7 @@ const EXPECTED = {
   },
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v114"]},
+  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v117"]},
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · TAXACQ — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · TAXACQ — Florida", floridaCopy: true },
@@ -6871,9 +6963,9 @@ const EXPECTED = {
   adminShellShown: true,
   adminIdentityText: 'Admin',
   adminShellShowsNoEmail: true,
-  adminSourcesRows: 358,
+  adminSourcesRows: 359,
   adminSourcesGovernanceKinds: 'APPROVED,HARD_BLOCKED,REVIEW_REQUIRED',
-  adminSourcesStatusText: '358 source(s): 230 approved, 113 review required, 15 hard blocked.',
+  adminSourcesStatusText: '359 source(s): 231 approved, 113 review required, 15 hard blocked.',
   adminSourcesReviewOnly: true,
   adminSourcesLgbsReason: true,
   adminSourcesLaOnly: true,
@@ -7352,7 +7444,7 @@ const EXPECTED = {
   bidLegacyPositiveStillPublished: true,
   bidTxVendorRowWithoutKindUsesLegacyRule: true,
   // Enrichment phase: Inventory & Purchase card.
-  txInventoryLabels: ["Status", "Inventory", "Minimum bid (vendor listing)", "Source list", "Published by", "Last read from source", "Parcel #", "Legal description", "Owner of record", "Assessed value", "Taxable value", "Acreage", "Land use", "How to acquire", "Purchase link"],
+  txInventoryLabels: ["Status", "Inventory", "Minimum bid (vendor listing)", "Source list", "Published by", "Last read from source", "Parcel #", "Tax suit cause #", "Legal description", "Owner of record", "Assessed value", "Taxable value", "Acreage", "Land use", "How to acquire", "Purchase link"],
   txInventoryStatus: 'Struck off to the taxing unit (per the source) Source status "Struck off to Jurisdiction" · observed Sep 23, 2026',
   txProvenanceHasNoTable: 0,
   txInventoryGroups: ['Inventory', 'Property', 'Purchase path'],
@@ -7361,7 +7453,12 @@ const EXPECTED = {
   txInventorySourceList: "Vendor list page \u2192",   // the registry listing the applier writes
   txInventoryPurchase: "Application / purchase instructions \u2192 Purchase instructions - the county's process page, not a link for this specific property",
   txInventoryOwner: 'Not on file',
-  txInventoryParcel: '23-TX-0644',
+  // The CAD account is the parcel; the tax-suit cause (stored in `parcel` by
+  // the Texas harvester) is shown as what it is (2026-10-10 fix).
+  txInventoryParcel: '129500040015000',
+  txInventoryCause: '23-TX-0644',
+  txCauseCardParcel: ['Parcel # 129500040015000', 'Parcel # 129500040016000'],
+  txCauseDetail: { related: 0, sameParcelClaim: false, causeAsParcel: false, causeShown: true },
   txInventoryAnchors: 2,
   txInventoryGapNamesAcquisition: true,
   txInventoryGapNeverNamesLink: true,
@@ -7607,7 +7704,7 @@ const EXPECTED = {
       "instructions": "known", "listing": "known", "contact": "known", "deadlines": "not_published", "verified": "known", "not_published": "summary"},
     "method": "Multi-step county process", "head": "10 of 13 on file", "firstInAcquire": true},
   acqChecklistNoInference: {"n": 14, "known": [], "summary": "summary"},
-  sourceTruth: {"labels": ["Source record", "Last read", "Source date", "Publication status", "Source health", "Acquisition path", "Price", "Official listing", "Imagery", "County intelligence"], "health": "CURRENT", "dossierBtn": true, "navPill": true},
+  sourceTruth: {"labels": ["Source record", "Last read", "Source date", "Publication status", "Source health", "Acquisition path", "Price", "Official listing", "Imagery", "County intelligence", "State rules"], "health": "CURRENT", "dossierBtn": true, "navPill": true},
   sourceHealthVectors: [],
   dossierCitrus: {"title": "Citrus County, FL", "intel": "VERIFIED", "ledgers": {"laft": "COVERED", "auction": "COVERED", "certificate": "COVERED"}, "acq": true, "terms": true, "listBtn": true},
   dossierToList: {"modal": true, "hash": "#/lands", "counties": ["Citrus"]},

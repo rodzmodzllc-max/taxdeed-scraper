@@ -5826,6 +5826,28 @@
    "url": "https://public-sctn.epropertyplus.com/landmgmtpub/app/base/landing"
   },
   {
+   "access": "NOT_CHECKED",
+   "access_note": "not captured yet",
+   "county": "Shelby",
+   "evidence": "capture runs 37856189946 37856396525",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "",
+   "legacy_status": "",
+   "name": "Shelby County Land Bank site; sends buyers to its ePropertyPlus portal and links the offer packet",
+   "next_action": "Capture with job=evidence, evidence_scope=acquisition_candidates",
+   "origin": "candidate",
+   "publisher": "county office",
+   "roles": [
+    "acquisition",
+    "discovery"
+   ],
+   "source_id": "candidate:TN:Shelby:53",
+   "source_type": "GOVERNMENT",
+   "state": "TN",
+   "url": "https://landbank.shelbycountytn.gov"
+  },
+  {
    "access": "ACCESSIBLE",
    "access_note": "production harvester harvesters/texas_harvester.py; last completeness UNKNOWN",
    "county": "Angelina",
@@ -8295,13 +8317,13 @@
    "sources": 13
   },
   "TN": {
-   "APPROVED": 0,
+   "APPROVED": 1,
    "HARD_BLOCKED": 0,
    "REVIEW_REQUIRED": 1,
    "by_type": {
-    "GOVERNMENT": 1
+    "GOVERNMENT": 2
    },
-   "sources": 1
+   "sources": 2
   },
   "TX": {
    "APPROVED": 16,

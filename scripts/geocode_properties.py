@@ -32,7 +32,19 @@ were being retried every single run - measured live 2026-09-01: 147 rows
 with a genuine comma-containing address had been sitting at zero
 coordinates for over a week of twice-daily runs. Fixed by fetching the
 likely-real (comma-containing address) rows FIRST, in their own query, and
-only spending any leftover budget on the rest - see fetch_ungeocoded().
+only spending any leftover budget on the rest - see read_pool().
+
+Fair, resumable queue (2026-10-10). The tier fix moved the pin, it did not
+remove it: measured read-only on 2026-10-10, 248 address-context rows that
+keep failing (FL certificates / auctions, SC, CO, TX, MI) took 248 of the 250
+slots every run, and 9,759 Missouri rows in the second tier got about two
+attempts a run. The run now reads the whole outstanding pool (keyset pages,
+both tiers, context rows first within each county), plans the budget per
+(state, county) with scripts/enrichment_queue.py - a fair first slice per
+unit, leftover budget handed on, the unit order rotated from where the last
+run stopped - and walks each unit from a checkpointed cursor. A row that does
+not match is retried after one full pass of its unit, never at the head of
+every run; an interrupted run resumes after the last row it finished.
 
 State + verification fix (2026-09-22, Phase 68). Three defects, all found by
 reading production run logs and the rows they produced, not by reading code:
@@ -89,7 +101,26 @@ import requests
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
 SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "")
-BATCH_LIMIT = int(os.environ.get("GEOCODE_BATCH_LIMIT", "250"))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import enrichment_queue as EQ  # noqa: E402
+
+# The US Census Bureau Geocoder publishes no per-request quota for its
+# one-line endpoint (its batch endpoint takes up to 10,000 addresses per
+# file); this script stays sequential (concurrency 1) with a 0.4 s pause per
+# request. The run budget stays at the historic 250 by default - the
+# bottleneck was the pinned order, not the budget - and can be raised per run
+# through GEOCODE_BATCH_LIMIT up to a hard 1,000 (~15 minutes of requests).
+GEOCODE_MAX_BATCH = 1000
+try:
+    BATCH_LIMIT = EQ.env_limit("GEOCODE_BATCH_LIMIT", 250, GEOCODE_MAX_BATCH)
+    PER_UNIT_LIMIT = EQ.env_limit("GEOCODE_PER_UNIT_LIMIT", 50, GEOCODE_MAX_BATCH)
+except ValueError as _exc:
+    print(f"GEOCODE CONFIG ERROR - {_exc}. Nothing read or written.", file=sys.stderr)
+    sys.exit(2)
+POOL_MAX = 50000            # rows read into the planning pool per run (keyset pages of 1,000)
+POOL_PAGE = 1000
+CHECKPOINT_PATH = os.environ.get("GEOCODE_CHECKPOINT", "").strip() or None   # the deeds job sets out/.harvest_cache/geocode_checkpoint.json
+CENSUS_ATTEMPTS = 3         # a Census 5xx / timeout is retried twice; a 4xx or no-match never
 DRY_RUN = os.environ.get("GEOCODE_DRY_RUN", "").strip().lower() in ("1", "true", "yes")
 # Authoritative-coordinates sprint (2026-10-06): GEOCODE_SOURCE_ID scopes a run
 # to one AVAILABLE source (e.g. mo_stl_lra_inventory, whose list publishes a
@@ -121,6 +152,20 @@ CENSUS_VINTAGE = "Current_Current"
 ADDRESS_CONTEXT_FILTER = 'or(address.like."*,*",address.match."[0-9]{5}")'
 ADDRESS_NO_CONTEXT_FILTER = 'address.not.like."*,*",address.not.match."[0-9]{5}"'
 
+# Sources that publish their OWN point for every parcel they list
+# (harvesters/sources/coordinates.SOURCE_COORDINATES, method LAND_BANK_GIS).
+# When such a source leaves one parcel without a point, an address geocode
+# must not stand in for it: that would be a different, weaker location
+# method mixed into an authoritative-point source, presented beside its
+# siblings as if it were the same thing. The row stays without coordinates
+# (the map shows the county; nothing breaks) until the source itself, or an
+# approved parcel layer matched on the parcel id, supplies one.
+# 2026-10-10: Tennessee Shelby - 1 of 2,038 offered rows has no portal point.
+NO_ADDRESS_GEOCODE_SOURCES = ("tn_shelby_landbank",)
+# NULL-safe: a row with no harvester_source (Florida's PowerShell syncs) is
+# still geocoded - `not.in` alone would drop NULLs in SQL.
+NO_ADDRESS_GEOCODE_FILTER = f"(harvester_source.is.null,harvester_source.not.in.({','.join(NO_ADDRESS_GEOCODE_SOURCES)}))"
+
 if not SUPABASE_URL or not SERVICE_KEY:
     print("SUPABASE_URL / SUPABASE_SERVICE_KEY environment variables are not set - check the workflow's secrets.", file=sys.stderr)
     sys.exit(1)
@@ -132,7 +177,32 @@ HEADERS = {
 }
 
 
-def _fetch(limit, address_conditions):
+# A loaded database answers this read with HTTP 500 (statement timeout) now
+# and then - it stopped the 2026-10-10 deeds job before its FDOR / FEMA /
+# NAIP steps. A GET is idempotent: retry a transient status a bounded number
+# of times, never a 4xx (a request that will not succeed by repeating it).
+RETRY_STATUSES = frozenset({500, 502, 503, 504, 520, 521, 522, 523, 524})
+FETCH_ATTEMPTS = 4
+
+
+def _get_with_retry(url, params, *, attempts=FETCH_ATTEMPTS, sleep=time.sleep):
+    resp = None
+    for attempt in range(1, attempts + 1):
+        try:
+            resp = requests.get(url, headers=HEADERS, params=params, timeout=30)
+        except (requests.ConnectionError, requests.Timeout):
+            resp = None
+        else:
+            if resp.status_code not in RETRY_STATUSES:
+                return resp
+        if attempt < attempts:
+            sleep(2.0 * (2 ** (attempt - 1)))
+    if resp is None:
+        raise requests.ConnectionError(f"geocode read failed after {attempts} attempts (connection error / timeout)")
+    return resp
+
+
+def _fetch(limit, address_conditions, after=None):
     """address_conditions is a comma-joined list of extra PostgREST
     conditions on the `address` column (already in `and=(...)` syntax), or
     None for no extra condition beyond `address IS NOT NULL`.
@@ -142,22 +212,28 @@ def _fetch(limit, address_conditions):
     row's `state` is SELECTED, so build_query() can use it, never assumed."""
     params = {
         "latitude": "is.null",
+        # Only rows still on a source's list: a closed / delisted row is
+        # never enriched (harvesters/enrichment/priority.py), so it must not
+        # spend this run's geocoding budget either.
+        "status": "in.(active,available,scheduled)",
+        "delisted_at": "is.null",
         "select": "id,address,county,state" + (",field_provenance" if SCOPE_SOURCE_ID else ""),
         "limit": str(limit),
+        "or": NO_ADDRESS_GEOCODE_FILTER,
     }
+    params["order"] = "id.asc"
+    if after is not None:
+        params["id"] = f"gt.{after}"            # keyset page: walks the primary key, no sort
     if SCOPE_SOURCE_ID:
         params["source_id"] = f"eq.{SCOPE_SOURCE_ID}"
         params["source"] = "eq.laft"
-        params["order"] = "id.asc"
     if address_conditions is None:
         params["address"] = "not.is.null"
     else:
         # Can't repeat the `address` query-string key for two conditions,
         # so combine both into one PostgREST `and=(...)` expression.
         params["and"] = f"(address.not.is.null,{address_conditions})"
-    resp = requests.get(
-        f"{SUPABASE_URL}/rest/v1/properties", headers=HEADERS, params=params, timeout=30
-    )
+    resp = _get_with_retry(f"{SUPABASE_URL}/rest/v1/properties", params)
     if resp.status_code == 400 and "latitude" in resp.text.lower():
         # Matches the certificates-sync failure pattern on purpose - a
         # missing column reads as "schema-v8-geocoding.sql hasn't been run
@@ -173,25 +249,54 @@ def _fetch(limit, address_conditions):
     return resp.json()
 
 
-def fetch_ungeocoded(limit):
-    """Rows with address context (comma or ZIP) first, bare-street/junk rows
-    only with whatever budget is left over - see the priority-fix notes in
-    the module docstring for why this ordering matters. The two filters are
-    exact complements, so the two fetches can never overlap.
+def read_pool(max_rows=None):
+    """[(tier, row)] - every outstanding row, address-context rows (tier 1)
+    then the rest (tier 2), each tier read in keyset pages. The two filters
+    are exact complements, so no row is read twice.
 
     The LIKE pattern is double-quoted (`"*,*"` not `*,*`) because these
     filters ride inside a PostgREST `and=(...)` combinator, whose own
     top-level parser splits on unquoted commas - an unquoted literal comma
     in the pattern gets read as a condition separator instead of pattern
     text, which PostgREST then rejects outright (400 Bad Request), not a
-    silent misparse. Caught live 2026-09-01. The regex pattern is quoted
-    for the same reason (its braces are harmless, its brackets are not
-    special to the combinator, but quoting keeps both tiers uniform)."""
-    real = _fetch(limit, ADDRESS_CONTEXT_FILTER)
-    if len(real) >= limit:
-        return real
-    junk = _fetch(limit - len(real), ADDRESS_NO_CONTEXT_FILTER)
-    return real + junk
+    silent misparse. Caught live 2026-09-01."""
+    max_rows = POOL_MAX if max_rows is None else max_rows
+    pool = []
+    for tier, cond in ((1, ADDRESS_CONTEXT_FILTER), (2, ADDRESS_NO_CONTEXT_FILTER)):
+        after = None
+        while len(pool) < max_rows:
+            page = _fetch(min(POOL_PAGE, max_rows - len(pool)), cond, after) or []
+            pool += [(tier, r) for r in page]
+            if len(page) < POOL_PAGE:
+                break
+            after = page[-1]["id"]
+    return pool
+
+
+def plan_work(pool, checkpoint, budget=None, per_unit=None):
+    """[(unit, row_key, row)] for this run, plus counts. Pure apart from the
+    checkpoint's next-unit pointer. Units are (state, county); a row's key is
+    "<tier>:<id>", so a unit's context rows come before its bare ones."""
+    budget = BATCH_LIMIT if budget is None else budget
+    per_unit = PER_UNIT_LIMIT if per_unit is None else per_unit
+    by_unit = {}
+    no_county = 0
+    for tier, row in pool:
+        county = row.get("county")
+        if not county:
+            no_county += 1
+            continue
+        unit = ((row.get("state") or "").strip().upper(), county)
+        by_unit.setdefault(unit, {})[f"{tier}:{row['id']}"] = row
+    units = EQ.rotate(sorted((u, len(r)) for u, r in by_unit.items()), checkpoint.data.get("next_unit"))
+    slices = EQ.plan_slices(units, budget, per_unit)
+    work = []
+    for unit, n, _ in slices:
+        rows = by_unit[unit]
+        work += [(unit, k, rows[k]) for k in EQ.take_after(sorted(rows), checkpoint.cursor(unit), n)]
+    if slices:
+        checkpoint.set_next_unit(EQ.unit_key(slices[-1][0]))
+    return work, {"pool": len(pool), "units": len(by_unit), "units_served": len(slices), "no_county": no_county}
 
 
 def _norm(text):
@@ -259,7 +364,18 @@ def geocode_one(address, county, state):
         "format": "json",
     }
     url = f"{CENSUS_ENDPOINT}?{urllib.parse.urlencode(params)}"
-    resp = requests.get(url, timeout=15)
+    for attempt in range(1, CENSUS_ATTEMPTS + 1):
+        try:
+            resp = requests.get(url, timeout=15)
+        except (requests.ConnectionError, requests.Timeout):
+            if attempt == CENSUS_ATTEMPTS:
+                raise
+            time.sleep(2.0 * attempt)
+            continue
+        if resp.status_code in RETRY_STATUSES and attempt < CENSUS_ATTEMPTS:
+            time.sleep(2.0 * attempt)
+            continue
+        break
     resp.raise_for_status()
     data = resp.json()
     matches = data.get("result", {}).get("addressMatches", [])
@@ -295,7 +411,10 @@ def patch_property(property_id, latitude, longitude, provenance=None):
     field_provenance that records how they were obtained). State, county and
     every other column stay exactly as the harvester left them - this step
     supplements a missing coordinate, it never rewrites identity."""
-    url = f"{SUPABASE_URL}/rest/v1/properties?id=eq.{property_id}"
+    # latitude=is.null: a row that gained coordinates since it was read (a
+    # parcel layer, a second run) is never overwritten - a retried or repeated
+    # write is a no-op, never a second answer.
+    url = f"{SUPABASE_URL}/rest/v1/properties?id=eq.{property_id}&latitude=is.null"
     patch_headers = dict(HEADERS)
     patch_headers["Prefer"] = "return=minimal"
     body = {"latitude": latitude, "longitude": longitude}
@@ -311,9 +430,14 @@ def patch_property(property_id, latitude, longitude, provenance=None):
 
 
 def main():
-    rows = fetch_ungeocoded(BATCH_LIMIT)
+    checkpoint = EQ.Checkpoint(None if DRY_RUN else CHECKPOINT_PATH)
+    pool = read_pool()
+    work, plan = plan_work(pool, checkpoint)
+    rows = [r for _u, _k, r in work]
     mode = " [DRY RUN - nothing will be written]" if DRY_RUN else ""
-    print(f"Found {len(rows)} propert{'y' if len(rows) == 1 else 'ies'} without coordinates (limit {BATCH_LIMIT} per run).{mode}")
+    print(f"Found {plan['pool']} propert{'y' if plan['pool'] == 1 else 'ies'} without coordinates in {plan['units']} county unit(s); "
+          f"budget {BATCH_LIMIT} per run, {PER_UNIT_LIMIT} per unit first; {len(rows)} planned across {plan['units_served']} unit(s)."
+          f"{mode}")
     if not rows:
         print("Nothing to geocode.")
         return
@@ -324,7 +448,10 @@ def main():
         "errors": 0,
     }
     per_state = {}  # state -> [verified, attempted]
-    for i, row in enumerate(rows, 1):
+    for i, (unit, key, row) in enumerate(work, 1):
+        if i > 1:
+            checkpoint.advance(*prev)
+        prev = (unit, key)
         address = row.get("address")
         county = row.get("county")
         state = (row.get("state") or "").strip().upper()
@@ -373,6 +500,7 @@ def main():
 
         time.sleep(REQUEST_DELAY_SECONDS)
 
+    checkpoint.advance(*prev)                  # the last row, once its work (or skip) is done
     attempted = sum(v for v in counts.values()) - counts["skipped-no-address"] - counts["skipped-no-state"]
     print(
         f"Done. Verified {counts['verified']}, no match {counts['no-match']}, "
@@ -393,7 +521,7 @@ def main():
     # Phase 12 (Production Provenance & Data Lineage Integration): this is
     # the one real, currently-running ENRICHED-stage step in this
     # codebase's actual production pipeline (confirmed: this script has no
-    # state FILTER anywhere in _fetch()/fetch_ungeocoded() above - it runs
+    # state FILTER anywhere in _fetch()/read_pool() above - it runs
     # against TX and FL rows alike; the row's state is read, never used to
     # exclude rows). Logged here, plain-language, rather than as a
     # harvesters/governance/provenance.py Provenance object: a
@@ -407,7 +535,7 @@ def main():
     # distinction this line documents: SOURCE VALUES (a row's
     # originally-harvested `latitude`/`longitude`, if any) are NEVER touched
     # here - only rows already NULL are ever selected (see
-    # fetch_ungeocoded()'s `latitude: "is.null"` filter above), so an
+    # read_pool()'s `latitude: "is.null"` filter above), so an
     # ENRICHED value here always supplements, never overwrites, whatever a
     # SOURCE value would have been. See
     # docs/provenance-production-integration.md's "Enrichment lineage"
