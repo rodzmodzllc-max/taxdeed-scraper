@@ -2767,8 +2767,8 @@ Full description: `docs/final-visual-refinement.md`. Stable facts:
   a CSS counter.
 - **Source truth rows** (fixed order): Source record, Last read, Source date,
   Publication status, Source health, Acquisition path / Sale process, Price /
-  bid / Certificate amount, Official listing, County intelligence. Never add a
-  score or a confidence.
+  bid / Certificate amount, Official listing, County intelligence (and, since
+  2026-10-10, State rules). Never add a score or a confidence.
 - `sw.js` → `tdw-shell-v92`.
 
 ## AVAILABLE financial position + documents & links (2026-10-05, PR open, no migration)
