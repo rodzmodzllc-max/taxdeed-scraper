@@ -3146,8 +3146,8 @@ await navMap.close();
   const onAdminShell = async pg => pg.evaluate(() => /admin\.html/.test(location.pathname) && !document.getElementById('adminShell').hidden);
   const fillSignUp = async (pg, email, password) => {
     await pg.click('#authModeToggle');
-    await pg.fill('#firstName', 'Pat'); await pg.fill('#lastName', 'Example'); await pg.fill('#company', 'Independent');
-    await pg.fill('#address', '1 Main St'); await pg.fill('#phone', '555-0100');
+    await pg.fill('#firstName', 'Pat'); await pg.fill('#lastName', 'Example');
+    await pg.fill('#address', '1 Main St');
     await pg.fill('#email', email); await pg.fill('#password', password); await pg.fill('#passwordConfirm', password);
     await pg.click('#signInBtn');
     await pg.waitForTimeout(700);
@@ -3335,8 +3335,8 @@ await navMap.close();
       live: document.getElementById('authMsg').getAttribute('aria-live') };
   });
   const fillProfile = async () => {
-    await pwReq.fill('#firstName', 'Pat'); await pwReq.fill('#lastName', 'Example'); await pwReq.fill('#company', 'Independent');
-    await pwReq.fill('#address', '1 Main St'); await pwReq.fill('#phone', '555-0100'); await pwReq.fill('#email', 'nopass@example.com');
+    await pwReq.fill('#firstName', 'Pat'); await pwReq.fill('#lastName', 'Example');
+    await pwReq.fill('#address', '1 Main St'); await pwReq.fill('#email', 'nopass@example.com');
   };
   await fillProfile();
   // (a) Missing password, ordinary click: the browser's own required check stops it.
@@ -3428,13 +3428,11 @@ await navMap.close();
   await oaUser.fill('#email', 'provider-user@example.com'); await oaUser.fill('#password', 'fixture-provider-pass');
   await oaUser.click('#signInBtn'); await oaUser.waitForTimeout(600);
   results.oauthPendingDetailsShown = await oaUser.locator('#pendingDetails').isVisible();
-  results.oauthPendingPrefill = await oaUser.evaluate(() => { const f = document.getElementById('pendingDetails'); return f ? [f.elements.first_name.value, f.elements.last_name.value, f.elements.company.value] : null; });
+  results.oauthPendingPrefill = await oaUser.evaluate(() => { const f = document.getElementById('pendingDetails'); return f ? [f.elements.first_name.value, f.elements.last_name.value, f.elements.address.value, !f.elements.company, !f.elements.phone] : null; });
   // Blank fields are refused before any request (the browser's required check).
   await oaUser.click('#pendingDetails button[type="submit"]'); await oaUser.waitForTimeout(150);
   results.oauthPendingIncomplete = await oaUser.evaluate(() => ({ valid: document.getElementById('pendingDetails').checkValidity(), calls: (window.__stubUpdateUserCalls || []).length }));
-  await oaUser.fill('#pendingDetails input[name="company"]', 'Independent');
   await oaUser.fill('#pendingDetails input[name="address"]', '1 Fixture Way');
-  await oaUser.fill('#pendingDetails input[name="phone"]', '555-0100');
   await oaUser.click('#pendingDetails button[type="submit"]'); await oaUser.waitForTimeout(300);
   results.oauthPendingSaved = await oaUser.evaluate(() => ({
     fields: (window.__stubUpdateUserCalls || []).map(c => Object.keys(c.data || {}).sort()),
@@ -6451,7 +6449,7 @@ const EXPECTED = {
   },
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v114"]},
+  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v115"]},
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · TAXACQ — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · TAXACQ — Florida", floridaCopy: true },
@@ -7531,7 +7529,7 @@ const EXPECTED = {
   expiredLinkMsg: "That email link has expired or was already used. To reset your password, enter your email below and choose Forgot password? to get a new link. If you were confirming a new account and already did, just sign in; otherwise sign in once to get the “Resend confirmation email” option. Always open the newest email.",
   expiredLinkHashCleared: true,
   // Server-side sign-up (self-signup Edge Function).
-  selfSignupCall: [{"name": "self-signup", "email": "client@example.com", "fields": ["address", "company", "email", "first_name", "last_name", "password", "phone"]}],
+  selfSignupCall: [{"name": "self-signup", "email": "client@example.com", "fields": ["address", "email", "first_name", "last_name", "password"]}],
   selfSignupPending: {"pending": true, "app": false, "gate": false},
   selfSignupDuplicateMsg: "An account with this email already exists. Choose “Already have an account? Sign in”, or “Forgot password?” to set a new password.",
   selfSignupRefusalMsg: "Please choose a password of at least 8 characters.",
@@ -7558,9 +7556,9 @@ const EXPECTED = {
   oauthFailButtonEnabled: true,
   oauthReturnError: {"msg": "Sign-in with Google didn't complete, so you are not signed in. Please try again, or use your email and password.", "urlClean": true},
   oauthPendingDetailsShown: true,
-  oauthPendingPrefill: ["Jordan", "Q Tester", ""],
+  oauthPendingPrefill: ["Jordan", "Q Tester", "", true, true],
   oauthPendingIncomplete: {"valid": false, "calls": 0},
-  oauthPendingSaved: {"fields": [["address", "company", "first_name", "last_name", "phone"]], "text": "Details saved. You will get access once your account is approved.", "stillPending": true},
+  oauthPendingSaved: {"fields": [["address", "first_name", "last_name"]], "text": "Details saved. You will get access once your account is approved.", "stillPending": true},
   passwordSignupNoDetailsForm: true,
   // Independent ledger loading + list payload (2026-10-05).
   laAuctionsEmptyDesktop: {"beforeAvailable": true, "text": "No auction properties currently available.", "stateEmptyClaim": 0, "skeleton": 0, "availableTab": "…"},
@@ -7632,7 +7630,7 @@ const EXPECTED = {
   offListDetail: true,
   offListDefault: null,
   taxacqBrand: { title: true, rail: 'TAXACQ', sub: 'Tax Acquisition Intelligence', topbar: 'TAXACQ', noOldText: true, aboutWhy: true },
-  identityLogin: {"brand": "TAXACQ", "tagline": "Tax Acquisition Intelligence", "bg": "rgb(243, 239, 232)", "signupFields": 8},
+  identityLogin: {"brand": "TAXACQ", "tagline": "Tax Acquisition Intelligence", "bg": "rgb(243, 239, 232)", "signupFields": 6},
   identityPalette: {"noNavy": true, "body": "rgb(243, 239, 232)", "ledgerAccent": "#4E6B54", "display": true},
   // Opportunity finder + auction command center (2026-10-05).
   finderSortOptions: [["pathFirst", "amountFirst", "readRecent"], ["pathFirst", "amountFirst", "readRecent"]],
