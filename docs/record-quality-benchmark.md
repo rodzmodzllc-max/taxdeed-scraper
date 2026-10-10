@@ -52,6 +52,6 @@ Producing that export is a production read. It needs the owner's authorization a
 **What the snapshot shows, stated plainly:**
 - Every selected county has 100% parcel identifiers and source links.
 - Gaps:
-  - FL certificate and auction counties carry **no authoritative coordinates** (Hillsborough, Santa Rosa, Volusia, Miami-Dade: 0%) and **no recorded per-field provenance** (incomplete provenance about 100%);
+  - FL certificate and auction counties carry **almost no authoritative coordinates** (Hillsborough, Santa Rosa and Miami-Dade: 0; Volusia: 1 of 228) and **no recorded per-field provenance** for nearly every record (incomplete provenance: 125/125, 480/480, 193/193 and 227/228);
   - TX Liberty (Available) has **no acquisition evidence and no purchase URL**;
   - WY Albany (Auctions) has **no acquisition evidence**.
