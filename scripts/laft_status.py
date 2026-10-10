@@ -373,9 +373,13 @@ class StatusRecorder:
     # ---- recording helpers -------------------------------------------------
     def _add(self, entry: CountyStatus) -> CountyStatus:
         entry.validate()
-        # Replace an earlier entry for the same county from this harvester
-        # (a retry within one run supersedes the first attempt).
-        self.entries = [e for e in self.entries if e.county != entry.county]
+        # Replace an earlier entry for the same county AND source from this
+        # harvester (a retry within one run supersedes the first attempt).
+        # A harvester that reads several sources of one county (the
+        # expansion runner: Detroit lots + programs, both Wayne) keeps one
+        # entry per source - one source's failure never stands in for
+        # another source's complete read.
+        self.entries = [e for e in self.entries if (e.county, e.source_id) != (entry.county, entry.source_id)]
         self.entries.append(entry)
         return entry
 

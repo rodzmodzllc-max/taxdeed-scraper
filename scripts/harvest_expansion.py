@@ -334,21 +334,25 @@ def main(argv=None) -> int:
         print(f"{st}: {dupes} duplicate identifier(s) dropped (first listing kept)")
     recorder = StatusRecorder(f"expansion_{st.lower()}", source_class="GOVERNMENT_DIRECT", source_id=f"expansion_{st.lower()}",
                               parser_version=PARSER_VERSION, path=out / f"harvest_{st.lower()}_status.json", state=st)
+    # One status entry per (source, county) - never one merged verdict per
+    # county. 2026-10-09: Detroit Land Bank lots read COMPLETE (30,706 rows)
+    # while Detroit's programs layer (same county, Wayne) FAILED; the merged
+    # county entry said FAILED, so the sync skipped every lot row and 30,758
+    # rows kept their 2026-10-06 last read. Each source's own read now
+    # decides what of THAT source is written or closed.
     for county, results in per_county.items():
-        url = results[0][6]
-        failed = [r for r in results if r[1] == "FAILED"]
-        rows = sum(r[2] for r in results)
-        partial = [r for r in results if r[1] == "INCOMPLETE"]
-        if failed:
-            cat = failed[0][3] if failed[0][3] in ERROR_CATEGORIES else "UNKNOWN"
-            recorder.failed(county, cat, f"{failed[0][0].source_id}: {failed[0][4] or cat}", source_url=url)
-        elif partial:
-            recorder.incomplete(county, "PARSE_FORMAT_CHANGE", f"{partial[0][0].source_id}: record(s) failed validation",
-                                row_count=rows, source_url=url, parse_ok=True)
-        elif rows:
-            recorder.complete(county, rows, source_url=url)
-        else:
-            recorder.empty(county, results[0][5] or "empty_layer", source_url=url)
+        for cfg, status, rows, cat, detail, empty, url in results:
+            sid = cfg.source_id
+            if status == "FAILED":
+                cat = cat if cat in ERROR_CATEGORIES else "UNKNOWN"
+                recorder.failed(county, cat, f"{sid}: {detail or cat}", source_url=url, source_id=sid)
+            elif status == "INCOMPLETE":
+                recorder.incomplete(county, "PARSE_FORMAT_CHANGE", f"{sid}: record(s) failed validation",
+                                    row_count=rows, source_url=url, parse_ok=True, source_id=sid)
+            elif rows:
+                recorder.complete(county, rows, source_url=url, source_id=sid)
+            else:
+                recorder.empty(county, empty or "empty_layer", source_url=url, source_id=sid)
     recorder.write()
     (out / f"harvest_{st.lower()}.json").write_text(json.dumps([r.to_harvest_row() for r in records], indent=2, sort_keys=True, default=str), encoding="utf-8")
     prows, paths = attach_purchase_paths(st, [r.to_properties_row() for r in records], harvest_date=retrieved_at.date().isoformat())

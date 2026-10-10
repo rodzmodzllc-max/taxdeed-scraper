@@ -76,6 +76,7 @@ sys.path.insert(1, str(Path(__file__).resolve().parent.parent))  # harvesters.* 
 from laft_status import (DB_AMOUNT_KINDS, CLOSEOUT_ELIGIBLE, load_status,  # noqa: E402
                          plausible_identifier, statuses_by_county)
 import laft_source_fields as SF  # noqa: E402
+import rest_pages as RP  # noqa: E402
 import purchase_path_engine as PE  # noqa: E402
 from harvesters.governance import states  # noqa: E402
 from harvesters.governance.county_source_registry import DB_SUPPORTED_INVENTORY_TYPES, PurchaseUrlKind  # noqa: E402
@@ -673,28 +674,39 @@ class Api:
         return h
 
     def get(self, query: str) -> list[dict]:
-        req = urllib.request.Request(f"{self.base}?{query}", headers=self._headers())
-        with urllib.request.urlopen(req, timeout=60) as resp:
-            self.requests_made += 1
-            return json.loads(resp.read().decode())
+        # Bounded retry on a transient 5xx / timeout (rest_pages): a GET is
+        # idempotent, and one loaded-database 500 used to stop the lifecycle.
+        rows = RP.get_json(f"{self.base}?{query}", self._headers(), timeout=60)
+        self.requests_made += 1
+        return rows
 
     def get_all(self, query: str, *, page: int = API_PAGE) -> list[dict]:
-        """Every row matching `query`, read in `page`-sized pages.
+        """Every row matching `query`, read in `page`-sized keyset pages.
 
         PostgREST caps every response at its max-rows (1,000 on this
         project), whatever `limit` asks for - a single 10,000-row limit
         silently returned the first 1,000 rows (East Baton Rouge's 10,334
-        Louisiana rows were cut to 1,000). Pages are ordered by the primary
-        key so no row is read twice or skipped; a short page ends the read.
+        Louisiana rows were cut to 1,000). Pages walk the primary key
+        (`id=gt.<last>&order=id.asc`), so no row is read twice or skipped
+        and a deep page costs what the first one does - an offset page made
+        Postgres sort the whole state first and crossed the statement
+        timeout under load (2026-10-09). A short page ends the read.
         """
+        params = urllib.parse.parse_qsl(query, keep_blank_values=True)
+        sel = [i for i, (k, _) in enumerate(params) if k == "select"]
+        for i in sel:
+            cols = [c.strip() for c in params[i][1].split(",")]
+            if "id" not in cols:
+                params[i] = ("select", params[i][1] + ",id")
+        base_q = urllib.parse.urlencode(params, safe="(),.*:\"", quote_via=urllib.parse.quote)
         rows: list[dict] = []
-        offset = 0
+        after = None
         while True:
-            chunk = self.get(f"{query}&order=id.asc&limit={page}&offset={offset}")
+            chunk = self.get(f"{base_q}&order=id.asc&limit={page}" + (f"&id=gt.{after}" if after is not None else ""))
             rows.extend(chunk)
             if len(chunk) < page:
                 return rows
-            offset += len(chunk)
+            after = chunk[-1]["id"]
 
     def patch(self, query: str, body: dict) -> None:
         if self.dry_run:
