@@ -7,6 +7,67 @@ workflow was dispatched, no production row was written, and no source was
 approved. Every production figure here comes from read-only SQL (`begin read
 only`) or an existing job log.
 
+## Baseline re-verified (read-only, 2026-10-10 15:31 UTC)
+
+| Source | Active | Bid ≠ amount (cents) | Not 2 dp | No amount | Distinct case | Parcel length 14 | No coordinates | List date | Path typed | Flood | Publication | Last read |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| `sc_horry_forfeited_land` | 51 | 0 | 0 | 0 | 51 | - | 51 | 0 | 51 | 0 | UNREVIEWED | 2026-10-09 18:13 |
+| `tn_shelby_landbank` | 2,038 | 0 | 0 | 1 | 2,038 | 2,038 | 1 | 0 | 0 | 0 | UNREVIEWED | 2026-10-09 18:19 |
+
+Every Shelby row carries source status "FOR SALE" and ledger `buy` (Available).
+
+## Tennessee source semantics: the AVAILABLE ledger, decided from the source
+
+`harvesters/otc/adapters/expansion.TN_SHELBY_SEMANTICS` records the answers, and
+`tests/python/test_tennessee_enrichment.py` pins them to the config, the ledger
+map and the fixture.
+
+| Question | Answer (evidence runs 37855584514 … 37856396525) |
+|---|---|
+| Publisher | Shelby County Land Bank (county government). It runs its own ePropertyPlus tenant, and the Land Bank's site sends buyers there. |
+| What the records are | County-owned parcels already taken through delinquent-tax sales (`inventoryType` "County DTP" on 12,843 of 12,884). This is post-sale, government-held inventory. |
+| What "FOR SALE" means | The Land Bank currently offers the parcel. The test is `currentStatus` FOR SALE **and** `available` Y, never the status string alone: SALE PENDING rows with `available` Y are excluded. |
+| Transaction | An offer on the Land Bank's Offer to Purchase and Sales Agreement packet. `askingPrice` is a published amount of unspecified kind (OFFER_NEGOTIATED). |
+| Auction / sale date | None. Shelby's tax-sale auctions belong to the Clerk & Master, a different source that is not built. |
+| Complete for | The Land Bank's published inventory. A read counts as COMPLETE only when every page is read and the row count equals the portal's own `size`. |
+| Ledger | **AVAILABLE**: unchanged, and now justified by fields. Never AUCTIONS. There is no Tennessee certificate product. |
+
+Each row now also carries the portal's own `inventoryType` wording in its
+provenance (`portal_inventory_type`).
+
+## Enrichment throughput: the geocoder's fair, resumable queue
+
+**Measured** (read-only, 2026-10-10). Rows without coordinates that the
+geocoder can read:
+
+- tier 1 (comma or ZIP), 248 rows: FL certificates 123, SC 51, CO 24, FL auctions 17, TX 17, FL Available 12, MI 4;
+- tier 2 (bare street), 10,365 rows: MO 9,759, PA 376, OK 195, and others.
+
+The script read 250 rows in physical order and never recorded a failed match.
+So the 248 tier-1 rows, which keep failing, took 248 of the 250 slots on every
+run, and Missouri got about 2 attempts a run.
+
+**Fix** (`scripts/enrichment_queue.py`, used by `scripts/geocode_properties.py`):
+
+| Requirement | Implementation |
+|---|---|
+| Configurable, validated cap | `GEOCODE_BATCH_LIMIT` (default 250, max 1,000) and `GEOCODE_PER_UNIT_LIMIT` (default 50). A non-integer or out-of-range value exits 2 before any read. Flood: `FLOOD_BATCH_LIMIT` / `FLOOD_PER_COUNTY_LIMIT` (500 / 40, max 10,000, which covers the manual `enrich` job's 9,000). |
+| Why the default stays 250 | The bottleneck was the pinned order, not the budget. The Census Geocoder publishes no per-request quota for its one-line endpoint, so the default was not raised on a guess. |
+| Fairness | Units are (state, county). Pass 1 gives each unit 50 rows. Pass 2 hands the leftover out round robin, 50 at a time. The unit order starts after the last unit served by the previous run. |
+| Resume / checkpoint | Per unit, the cursor is the last row key processed (`<tier>:<id>`). It is written atomically after each finished row to `out/.harvest_cache/geocode_checkpoint.json`, which the deeds job's existing `actions/cache` step restores and saves. An interrupted run resumes at the unfinished row. |
+| Retry | A row that does not match is retried only after its unit has been walked once (the cursor wraps). Census 5xx / timeout: 3 attempts with backoff. A 4xx or a no-match is never retried within the run. |
+| Idempotency | The PATCH carries `latitude=is.null`, so a row that gained coordinates since it was read is never overwritten, and a repeated write is a no-op. |
+| Concurrency | 1 (sequential), with a 0.4 s pause per request, as before. |
+| Logs | Budget, pool size, units, rows planned, verified / no match / rejected / errors / skipped, per state. |
+
+In the fixture with the production shape (248 failing tier-1 rows plus
+Missouri rows), one run now writes 100 Missouri rows. Before, Missouri got
+about 2 attempts.
+
+The flood step's per-county cap gets the same two-pass plan
+(`plan_slices()`, shared), so Tennessee (one county) is no longer held to
+40 rows a run.
+
 ## Fix 1: the verified baselines are pinned
 
 `data/current_state/verified-baselines-2026-10-10.json` holds counts only.
@@ -117,7 +178,8 @@ pinned there:
 
 | Metric | Before | After this branch | Evidence |
 |---|---|---|---|
-| Horry bid / amount discrepancies | 23 → 0 (e7040d2) | 0, pinned by tests | baseline file |
+| Horry bid / amount discrepancies | 23 → 0 (e7040d2) | 0, pinned by tests; the check now compares at whole cents (`amounts_disagree`, SQL `round(.,2)`), so a scale-only difference can never read as a discrepancy | baseline file; re-verified 15:31 UTC |
+| Geocoder Missouri attempts per run behind failing rows | ~2 | 100 (fixture with the production shape) | `test_failing_context_rows_no_longer_starve_the_second_tier` |
 | TN rows a rejected-id read could wrongly close | every stored row of an affected id | 0 (INCOMPLETE read) | `test_tn_offered_row_with_an_unrecognised_id_...` |
 | TN flood rows possible per run | 40 | up to 500 (the run budget) | `test_plan_slices_...`, `test_flood_run_...` |
 | TN rows open to an address geocode | 1 | 0 | `test_address_geocoder_never_reads_...` |

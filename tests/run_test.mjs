@@ -4938,6 +4938,10 @@ await navMap.close();
             program: txt.includes('Land bank inventory'),
             sourceStatus: txt.includes('FOR SALE'),
             noTaxDeedWords: !/tax deed|tax lien|Lands Available|Redeemable/i.test(txt.replace(/Liens & Certificates/g, '')),
+            // 2026-10-10: the Land Bank's list page is a list, never a purchase link.
+            noPurchaseLink: txt.includes('No online purchase link on file'),
+            listNotPurchase: ![...m.querySelectorAll('a[data-acq-link="purchase"], a.acq-cta')].some(a => /epropertyplus\.com/.test(a.getAttribute('href') || '')),
+            noAuctionDate: !/Sale date|Auction date|Sale (Mon|Tue|Wed|Thu|Fri|Sat|Sun)/.test(txt),
           };
         });
         await dp.close();
@@ -6387,7 +6391,7 @@ await browser.close();
 const EXPECTED = {
   tnVisibility: {
     admin: { stateOption: true, stateSelected: 'TN', tabs: ['Auctions', 'Available', 'Liens & Certificates'], countLaft: '1', cardRendered: true, withheld: null, emptyHead: false, redeemable: false, mapCount: '1 shown across 1 county',
-      detail: { program: true, sourceStatus: true, noTaxDeedWords: true } },
+      detail: { program: true, sourceStatus: true, noTaxDeedWords: true, noPurchaseLink: true, listNotPurchase: true, noAuctionDate: true } },
     customer: { stateOption: true, stateSelected: 'TN', tabs: ['Auctions', 'Available', 'Liens & Certificates'], countLaft: '0', cardRendered: false,
       withheld: '1 record withheld - source not approved for customer publication (restricted or not yet reviewed). Counted, not shown.', emptyHead: true, redeemable: false, mapCount: 'Nothing matches the current filters' },
   },
@@ -6479,7 +6483,7 @@ const EXPECTED = {
   },
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v114"]},
+  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v116"]},
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · TAXACQ — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · TAXACQ — Florida", floridaCopy: true },
@@ -6899,9 +6903,9 @@ const EXPECTED = {
   adminShellShown: true,
   adminIdentityText: 'Admin',
   adminShellShowsNoEmail: true,
-  adminSourcesRows: 358,
+  adminSourcesRows: 359,
   adminSourcesGovernanceKinds: 'APPROVED,HARD_BLOCKED,REVIEW_REQUIRED',
-  adminSourcesStatusText: '358 source(s): 230 approved, 113 review required, 15 hard blocked.',
+  adminSourcesStatusText: '359 source(s): 231 approved, 113 review required, 15 hard blocked.',
   adminSourcesReviewOnly: true,
   adminSourcesLgbsReason: true,
   adminSourcesLaOnly: true,

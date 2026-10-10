@@ -301,3 +301,30 @@ def test_texas_vendor_rows_store_the_cause_in_parcel_and_the_frontend_knows_it()
     assert "const raw = p && parcelOf(p) ? String(parcelOf(p)) : \"\";" in app        # parcelKey
     assert 'prop.push(row("Tax suit cause #", esc(causeOf(p)), "mono"));' in app
     assert app == (ROOT / "app.js").read_text(encoding="utf-8")                      # root mirror
+
+
+# ------------------------------------------------------------------ Horry: the discrepancy rule itself
+
+@pytest.mark.parametrize("a, b, want", [
+    (1234.565, 1234.57, False),          # numeric scale only: the 23-row false positive of 2026-10-09
+    (0.1 + 0.2, 0.3, False),
+    (1234.5600000000002, 1234.56, False),
+    (1234.56, 1234.57, True),            # a real cent is detected
+    (900.0, 901.0, True),
+    (None, 900.0, None), (900.0, None, None), (None, None, None),   # missing is never "equal"
+])
+def test_amounts_disagree(a, b, want):
+    from harvesters.otc.model import amounts_disagree
+    assert amounts_disagree(a, b) is want
+
+
+def test_a_second_sync_of_horry_rows_reports_no_discrepancy():
+    """Rows as stored after one sync (bid numeric(12,2), purchase_amount as sent)
+    compared on the next run: no false discrepancy, ever."""
+    from harvesters.otc.model import amounts_disagree
+    for run in range(2):
+        for r in _horry_rows(HORRY_CELLS):
+            stored_bid = float(f"{r['bid']:.2f}")          # what numeric(12,2) keeps
+            assert amounts_disagree(stored_bid, r["purchase_amount"]) is False, run
+    sql = (ROOT / "scripts/sql/source_quality_matrix.sql").read_text()
+    assert "round(bid::numeric, 2) <> round(purchase_amount::numeric, 2)" in sql

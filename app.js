@@ -10604,7 +10604,6 @@ if (exportCsvBtn) exportCsvBtn.addEventListener("click", () => {
     ["Certificate #", p => p.certificate_no || ""],
     ["Account #", p => p.case_no || ""],
     ["Parcel", p => parcelOf(p) || ""],
-    ["Tax Suit Cause", p => causeOf(p) || ""],
     ["Tax Year", p => p.tax_year || ""],
     ["Amount", p => hasPublishedBid(p) ? p.bid : ""],
     ["Interest Rate (as published)", p => p.interest_rate ?? ""],

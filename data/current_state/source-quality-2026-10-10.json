@@ -1,7 +1,7 @@
 {
- "baseline_commit": "85d66f0",
+ "baseline_commit": "e9a4622",
  "evidence": "read-only SQL scripts/sql/source_quality_matrix.sql (Supabase, begin read only)",
- "measured_at": "2026-10-10 15:23:11.950037+00",
+ "measured_at": "2026-10-10 15:31:38.334866+00",
  "rows": [
   {
    "active": 138,

@@ -168,6 +168,8 @@ def parse_rows(cfg: EppConfig, rows: list[dict], *, retrieved_at: datetime) -> t
             "amount": (f"field {cfg.amount_field!r} ({cfg.amount_label}) = {kind.value}" if amount is not None
                        else "no amount on the row"),
         }
+        if _text(row.get("inventoryType")):
+            prov["portal_inventory_type"] = _text(row.get("inventoryType"))      # the source's own wording
         if coords:
             prov["coordinates"] = "the portal's own latitude / longitude for the parcel"
         as_of = list_date(row.get(cfg.list_as_of_field)) if cfg.list_as_of_field else None

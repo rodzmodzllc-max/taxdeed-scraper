@@ -2471,7 +2471,12 @@ Full description: `docs/data-quality-sprint.md`; per-source matrix: `docs/source
   `list_as_of_field` is None for Shelby, which publishes none.
 - **Address geocoder:** `geocode_properties.NO_ADDRESS_GEOCODE_SOURCES` (`tn_shelby_landbank`) is never address-geocoded -
   a source that publishes its own points keeps a missing point missing. The filter is NULL-safe on `harvester_source`.
-- **Flood:** `enrich_flood_zone.plan_slices()` hands budget pass 1 left unused to units with a backlog (one-county states).
+- **Fair enrichment queue:** `scripts/enrichment_queue.py` (`env_limit`, `plan_slices` round-robin pass 2, `rotate`,
+  `take_after`, `Checkpoint`). The geocoder plans per (state, county) and resumes from
+  `GEOCODE_CHECKPOINT` (deeds job: `out/.harvest_cache/geocode_checkpoint.json`); its PATCH carries
+  `latitude=is.null`. Limits: geocode 250 (max 1,000), flood 500 / 40 per county (max 10,000); invalid -> exit 2.
+- **Tennessee semantics:** `expansion.TN_SHELBY_SEMANTICS` (Land Bank post-sale inventory, offer process, no auction)
+  is why Shelby is AVAILABLE; `currency` checks use `model.amounts_disagree` (whole cents; missing is None).
 - **Acquisition evidence type** per row: `acquisition_evidence_status.evidence_type()` (property_specific / listing_level /
   application_process / source_list_only / no_verified_online_path), never from a URL's existence. Shelby is NEEDS_REVIEW.
 - **Texas `parcel` is the tax-suit CAUSE number** for `tx_lgbs` / `tx_realauction` (the CAD account is `case_no`); one cause

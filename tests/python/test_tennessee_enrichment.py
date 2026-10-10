@@ -242,7 +242,7 @@ def test_address_geocoder_never_reads_an_authoritative_point_source(monkeypatch)
         def raise_for_status(self): pass
         def json(self): return []
     monkeypatch.setattr(geo.requests, "get", lambda url, headers, params, timeout: (seen.append(dict(params)), R())[1])
-    geo.fetch_ungeocoded(10)
+    geo.read_pool(10)
     assert seen and all(p["or"] == "(harvester_source.is.null,harvester_source.not.in.(tn_shelby_landbank))" for p in seen)
     assert set(geo.NO_ADDRESS_GEOCODE_SOURCES) <= {s for s, v in __import__(
         "harvesters.sources.coordinates", fromlist=["x"]).SOURCE_COORDINATES.items() if v[0] == "LAND_BANK_GIS"}
@@ -265,7 +265,8 @@ def test_plan_slices_gives_a_one_county_state_the_unused_budget(monkeypatch):
     # Every unit gets its fair first slice before any unit gets more.
     units = [(("FL", "Bay"), 10), (("TN", "Shelby"), 2037), (("SC", "Horry"), 60)]
     plan = f.plan_slices(units, 200, 40)
-    assert plan == [(("FL", "Bay"), 10, 10), (("TN", "Shelby"), 150, 2037), (("SC", "Horry"), 40, 60)]
+    # Pass 2 is round robin, 40 at a time: Horry is filled to its 60, Shelby takes the rest.
+    assert plan == [(("FL", "Bay"), 10, 10), (("TN", "Shelby"), 130, 2037), (("SC", "Horry"), 60, 60)]
     assert sum(n for _, n, _ in plan) <= 200
     # Budget smaller than one slice each: pass 1 order wins, nothing extra.
     assert f.plan_slices(units, 30, 40) == [(("FL", "Bay"), 10, 10), (("TN", "Shelby"), 20, 2037)]
@@ -320,3 +321,32 @@ def test_frontend_keeps_preview_mode_and_the_withheld_wording():
     app = (ROOT / "public/app.js").read_text(encoding="utf-8")
     assert "withheld - source not approved for customer publication" in app and "Source review: " in app
     assert "function isCustomerPublishable" in app
+
+
+# ------------------------------------------------------------- Part 2: source semantics
+
+def test_shelby_semantics_decide_the_available_ledger_not_the_status_string():
+    from harvesters.ledgers import SOURCE_LEDGERS, Ledger
+    sem = EX.TN_SHELBY_SEMANTICS
+    cfg = EX.TN_SHELBY_LANDBANK
+    assert sem["ledger"] == "AVAILABLE" and SOURCE_LEDGERS[SID] == {Ledger.AVAILABLE}
+    assert cfg.record_source == "laft" and cfg.inventory_type.value == "POST_SALE"
+    assert "Land Bank" in sem["publisher"] and "County DTP" in sem["inventory"]
+    assert set(sem["fields"]) >= {f for f, _ in cfg.offered}            # the classification's own fields
+    assert sem["auction"].startswith("none")                              # never AUCTIONS
+    # FOR SALE alone is never enough: SALE PENDING with available Y, and FOR SALE with N, are excluded.
+    pages = _pages()
+    statuses = {(r["currentStatus"], r["available"]) for pg in pages for r in pg["rows"]}
+    assert ("SALE PENDING", "Y") in statuses and ("FOR SALE", "N") in statuses
+    recs = _records()
+    assert {r.source_status_text for r in recs} == {"FOR SALE"} and len(recs) == 2
+    assert {r.provenance["portal_inventory_type"] for r in recs} == {"County DTP"}
+    for r in recs:
+        row = r.to_properties_row()
+        assert row["source"] == "laft" and row.get("sale_date") is None   # no auction date is invented
+
+
+def test_no_tennessee_certificate_or_auction_source_exists():
+    tn = [s.config for s in EX.SOURCES["TN"]]
+    assert [c.source_id for c in tn] == [SID]
+    assert all(c.record_source == "laft" for c in tn)

@@ -494,6 +494,10 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          # The fair queue's cursor (scripts/enrichment_queue.py) lives in
+          # the job's out/.harvest_cache, which the actions/cache step above
+          # restores and saves - so each run resumes where the last stopped.
+          GEOCODE_CHECKPOINT: out/.harvest_cache/geocode_checkpoint.json
         run: python3 scripts/geocode_properties.py
 
       - name: Backfill address/property-type enrichment (FL DOR statewide parcel lookup)
