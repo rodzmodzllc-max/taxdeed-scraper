@@ -3630,7 +3630,7 @@ await navMap.close();
   results.savedReopen = await sv.evaluate(() => {
     const modal = document.getElementById('detailModal');
     const sec = document.querySelector((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '[data-section="acquire"]');
-    const host = document.getElementById('detailModalInner');
+    const host = (document.getElementById('detailModal').hidden ? document.getElementById('detailPanel') : document.getElementById('detailModalInner'));
     if (!sec || !host) return { open: false };
     const r = sec.getBoundingClientRect(), h = host.getBoundingClientRect();
     return { open: !modal.hidden, hash: /#\/lands\/pla2$/.test(location.hash), atAcquire: r.top >= h.top - 4 && r.top < h.top + 200 };
@@ -4733,7 +4733,7 @@ await navMap.close();
       const mp = await newPage({ viewport: { width: w, height: 900 } });
       await mp.goto(BASE_URL + '#/lands/p15', { waitUntil: 'networkidle' });
       await mp.waitForSelector('#detailModalInner [data-section="diligence"] .dd-item', { timeout: 10000, state: 'attached' });
-      const o = await mp.evaluate(() => { const m = document.getElementById('detailModalInner'); return Math.max(document.documentElement.scrollWidth - document.documentElement.clientWidth, m ? m.scrollWidth - m.clientWidth : 0); });
+      const o = await mp.evaluate(() => { const m = (document.getElementById('detailModal').hidden ? document.getElementById('detailPanel') : document.getElementById('detailModalInner')); return Math.max(document.documentElement.scrollWidth - document.documentElement.clientWidth, m ? m.scrollWidth - m.clientWidth : 0); });
       if (o > 1) ov.push(w + ':' + o);
       await mp.close();
     }
@@ -4806,7 +4806,7 @@ await navMap.close();
       const mp = await newPage({ viewport: { width: w, height: 900 } });
       await mp.goto(BASE_URL + '#/certificates/p4', { waitUntil: 'networkidle' });
       await mp.waitForSelector('#detailModalInner .parcel-timeline li', { timeout: 10000, state: 'attached' });
-      const o = await mp.evaluate(() => { const m = document.getElementById('detailModalInner'); return Math.max(document.documentElement.scrollWidth - document.documentElement.clientWidth, m ? m.scrollWidth - m.clientWidth : 0); });
+      const o = await mp.evaluate(() => { const m = (document.getElementById('detailModal').hidden ? document.getElementById('detailPanel') : document.getElementById('detailModalInner')); return Math.max(document.documentElement.scrollWidth - document.documentElement.clientWidth, m ? m.scrollWidth - m.clientWidth : 0); });
       if (o > 1) ov.push(w + ':timeline:' + o);
       await mp.evaluate(() => document.querySelector('[data-action="closedetail"]').click());
       await mp.waitForTimeout(250);
@@ -5858,7 +5858,7 @@ await monDash.close();
   await adminDetail.goto(STATE_URL('mi') + '?profile=admin#/lands/pmi_dlba1', { waitUntil: 'networkidle' });
   await adminDetail.waitForTimeout(700);
   results.devVisAdminDetail = await adminDetail.evaluate(() => {
-    const m = document.querySelector('#detailModalInner');
+    const m = (document.getElementById('detailModal').hidden ? document.getElementById('detailPanel') : document.getElementById('detailModalInner'));
     const txt = m ? m.innerText.replace(/\s+/g, ' ') : '';
     const row = m && m.querySelector('.source-review-row');
     const banner = m && m.querySelector('#sourceReviewBanner');
@@ -5974,7 +5974,7 @@ await monDash.close();
   await horry.goto(STATE_URL('sc') + '?profile=admin#/lands/psc_horry1', { waitUntil: 'networkidle' });
   await horry.waitForTimeout(700);
   results.acqPathHorryDetail = await horry.evaluate(() => {
-    const m = document.querySelector('#detailModalInner');
+    const m = (document.getElementById('detailModal').hidden ? document.getElementById('detailPanel') : document.getElementById('detailModalInner'));
     const txt = m ? m.innerText.replace(/\s+/g, ' ') : '';
     const pdf = 'https://horrycountysc.gov/media/sinbmsz5/horrycountyflcguidelines.pdf';
     const links = m ? [...m.querySelectorAll('a')].filter(a => a.href === pdf).map(a => a.textContent.replace(/\s+/g, ' ').trim()) : [];
