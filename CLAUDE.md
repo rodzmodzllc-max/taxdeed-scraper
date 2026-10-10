@@ -2442,6 +2442,25 @@ dot). No request leaves the site. A real image for those rows still needs
 coordinates (an authorized geocode / enrichment run). Playwright block
 "Imagery without coordinates".
 
+## Current-state sprint: keyset reads, per-source status, enrichment isolation (2026-10-10, PR open, no migration)
+
+Full description: `docs/current-state-sprint.md`; coverage matrix: `docs/current-state-coverage.md`. Stable facts:
+- **Population reads go through `scripts/rest_pages.py`.** Keyset pages
+  (`id=gt.<last>&order=id.asc`) and a bounded retry, GET only, on 5xx /
+  connection errors; a 4xx is raised unchanged. Offset paging sorted the
+  whole state per page and hit the statement timeout (HTTP 500) under load.
+  That stopped the SC and LA syncs and the deeds job's geocoding. A test
+  forbids offset paging in the sync and the lifecycle.
+- **Status is per (source, county).** `StatusRecorder` keeps one entry per
+  source of a county. The sync and its close-out read `unit_status()`; a
+  county-only key is the worst read of that county. One failed Detroit
+  source had hidden the other's 30,706-row complete read.
+- **Deeds enrichment steps are isolated:** `if: !cancelled()` +
+  `continue-on-error`.
+- **Coverage matrix:** `scripts/sql/current_state_coverage.sql` (read-only)
+  → `data/current_state/*.json` → `scripts/current_state_report.py`
+  (`--check` pinned).
+
 ## Where to look for more
 
 - `claude/improvement-roadmap.md` in the "tax florida app" claude.ai Project — the full dated log of every fix, audit finding, and open decision. This is where new findings should be appended, not here.

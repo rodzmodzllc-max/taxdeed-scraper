@@ -132,6 +132,31 @@ HEADERS = {
 }
 
 
+# A loaded database answers this read with HTTP 500 (statement timeout) now
+# and then - it stopped the 2026-10-10 deeds job before its FDOR / FEMA /
+# NAIP steps. A GET is idempotent: retry a transient status a bounded number
+# of times, never a 4xx (a request that will not succeed by repeating it).
+RETRY_STATUSES = frozenset({500, 502, 503, 504, 520, 521, 522, 523, 524})
+FETCH_ATTEMPTS = 4
+
+
+def _get_with_retry(url, params, *, attempts=FETCH_ATTEMPTS, sleep=time.sleep):
+    resp = None
+    for attempt in range(1, attempts + 1):
+        try:
+            resp = requests.get(url, headers=HEADERS, params=params, timeout=30)
+        except (requests.ConnectionError, requests.Timeout):
+            resp = None
+        else:
+            if resp.status_code not in RETRY_STATUSES:
+                return resp
+        if attempt < attempts:
+            sleep(2.0 * (2 ** (attempt - 1)))
+    if resp is None:
+        raise requests.ConnectionError(f"geocode read failed after {attempts} attempts (connection error / timeout)")
+    return resp
+
+
 def _fetch(limit, address_conditions):
     """address_conditions is a comma-joined list of extra PostgREST
     conditions on the `address` column (already in `and=(...)` syntax), or
@@ -142,6 +167,11 @@ def _fetch(limit, address_conditions):
     row's `state` is SELECTED, so build_query() can use it, never assumed."""
     params = {
         "latitude": "is.null",
+        # Only rows still on a source's list: a closed / delisted row is
+        # never enriched (harvesters/enrichment/priority.py), so it must not
+        # spend this run's geocoding budget either.
+        "status": "in.(active,available,scheduled)",
+        "delisted_at": "is.null",
         "select": "id,address,county,state" + (",field_provenance" if SCOPE_SOURCE_ID else ""),
         "limit": str(limit),
     }
@@ -155,9 +185,7 @@ def _fetch(limit, address_conditions):
         # Can't repeat the `address` query-string key for two conditions,
         # so combine both into one PostgREST `and=(...)` expression.
         params["and"] = f"(address.not.is.null,{address_conditions})"
-    resp = requests.get(
-        f"{SUPABASE_URL}/rest/v1/properties", headers=HEADERS, params=params, timeout=30
-    )
+    resp = _get_with_retry(f"{SUPABASE_URL}/rest/v1/properties", params)
     if resp.status_code == 400 and "latitude" in resp.text.lower():
         # Matches the certificates-sync failure pattern on purpose - a
         # missing column reads as "schema-v8-geocoding.sql hasn't been run
