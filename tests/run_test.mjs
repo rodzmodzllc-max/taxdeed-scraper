@@ -5648,8 +5648,8 @@ async function ledgerCardCounts(url) {
   return out;
 }
 {
-  const full = await ledgerCardCounts(BASE_URL);
-  const paged = await ledgerCardCounts(BASE_URL.replace('index.html', 'index.html?maxrows=2'));
+  const full = await ledgerCardCounts(BASE_URL + '#/auctions');
+  const paged = await ledgerCardCounts(BASE_URL.replace('index.html', 'index.html?maxrows=2') + '#/auctions');
   // Auctions holds 9 fixture rows, so with a cap of 2 it takes 5 pages.
   results.monPagedSameCards = full.auction === paged.auction && full.laft === paged.laft && full.certificate === paged.certificate && full.auction.split(',').length > 2;
   results.monPagedMoreCalls = paged.calls > full.calls;
