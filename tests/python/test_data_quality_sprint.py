@@ -254,3 +254,50 @@ def test_tn_missing_coordinate_keeps_the_record_without_inventing_one():
                            {(TN_SID, "Shelby"): "COMPLETE"}, observed_at=OBS)
     assert counts["upsert"] == len(res.records)                    # still synced
     assert "latitude" not in sent[[r["case_no"] for r in sent].index(no_coord[0].case_no)]["field_provenance"]
+
+
+# ------------------------------------------------------------------ Fix 3: source matrix
+
+def test_source_quality_matrix_is_current_and_counts_only():
+    import source_quality_report as SQ
+    snap = ROOT / "data/current_state/source-quality-2026-10-10.json"
+    assert SQ.main(["--snapshot", str(snap), "--out", str(ROOT / "docs/source-quality-matrix.md"), "--check"]) == 0
+    data = json.loads(snap.read_text(encoding="utf-8"))
+    allowed = {"state", "county", "source_id", "ledger", "publication", "last_seen_max"}
+    for r in data["rows"]:
+        for k, v in r.items():
+            assert k in allowed or isinstance(v, int), k            # every other field is a count
+        assert r["active"] >= max(r[k] for k in ("parcel", "coords", "flood_checked", "amount", "source_link"))
+    sql = (ROOT / "scripts/sql/source_quality_matrix.sql").read_text(encoding="utf-8").lower()
+    assert not any(w in sql for w in ("insert ", "update ", "delete ", "alter ", "drop ", "create "))
+
+
+def test_source_matrix_reports_every_cell_with_its_denominator():
+    import source_quality_report as SQ
+    rows = [{"state": "TN", "county": "Shelby", "source_id": SID_TN, "ledger": "laft", "active": 4, "parcel": 4,
+             "coords": 3, "flood_checked": 0, "amount": 3, "source_link": 4, "list_as_of": 0, "path_typed": 0,
+             "provenance": 4, "never_seen": 0, "seen_gt36h": 0, "past_sale": 0, "parcel_no_digit": 0, "dup_parcel": 0,
+             "bid_amount_mismatch": 0, "link_not_https": 0, "list_as_of_future": 0, "seen_order_bad": 0,
+             "publication": "UNREVIEWED", "last_seen_max": "2026-10-09T18:19:42+00:00"}]
+    text = SQ.render({"measured_at": "t", "evidence": "e", "baseline_commit": "0000000", "rows": rows})
+    assert "| 4 | 4/4 | 3/4 | 0/4 | 3/4 |" in text and "UNREVIEWED" in text
+
+
+SID_TN = "tn_shelby_landbank"
+
+
+# ------------------------------------------------------------------ Fix 3/4: Texas cause numbers
+
+def test_texas_vendor_rows_store_the_cause_in_parcel_and_the_frontend_knows_it():
+    """harvesters/texas_harvester.py maps the tax-suit Cause Number to `parcel`
+    and the CAD account to `case_no`; production 2026-10-10 had 32 LGBS causes
+    each on 2-26 different active rows. app.js must use the account as the
+    parcel identity (cross-ledger matching, labels) and call the cause a cause."""
+    th = (ROOT / "harvesters/texas_harvester.py").read_text(encoding="utf-8")
+    assert "cause_number: str | None = None  # legal tax-suit cause/case number - maps to DB `parcel`" in th
+    assert '"parcel": raw.get("cause_nbr")' in (ROOT / "scripts/lgbs_available_refresh.py").read_text(encoding="utf-8")
+    app = (ROOT / "public/app.js").read_text(encoding="utf-8")
+    assert '["tx_lgbs", "tx_realauction"].indexOf(p.harvester_source || p.source_id || "")' in app
+    assert "const raw = p && parcelOf(p) ? String(parcelOf(p)) : \"\";" in app        # parcelKey
+    assert 'prop.push(row("Tax suit cause #", esc(causeOf(p)), "mono"));' in app
+    assert app == (ROOT / "app.js").read_text(encoding="utf-8")                      # root mirror

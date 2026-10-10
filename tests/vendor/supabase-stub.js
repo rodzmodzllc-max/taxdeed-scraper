@@ -413,6 +413,17 @@ if (new URLSearchParams(location.search).get("offlist") === "1") {
   if (p8) p8.last_seen_at = new Date(Date.now() - 3600 * 1000).toISOString();
 }
 
+// ?txcause=1 (2026-10-10 Texas cause-number regression): a second LGBS row in
+// Galveston listed under the SAME tax-suit cause as ptx3 but a different CAD
+// account (production: one cause on up to 26 different properties). The two
+// are different parcels and must never be shown as the same parcel. Off by
+// default so every other pin is unchanged.
+if (new URLSearchParams(location.search).get("txcause") === "1") {
+  const ptx3 = FIXTURE_PROPERTIES.find(r => r.id === "ptx3");
+  if (ptx3) FIXTURE_PROPERTIES.push(Object.assign({}, ptx3, { id: "ptx8", case_no: "129500040016000",
+    address: "VACANT LOT IN 6600 BLOCK OF OBRIEN ST, Hitchcock, TX 77563", bid: 3100, min_bid: 3100 }));
+}
+
 const PROFILE_MODE = new URLSearchParams(location.search).get("profile") || "default";
 
 const PROFILES_TABLE = PROFILE_MODE === "notable" ? null : [

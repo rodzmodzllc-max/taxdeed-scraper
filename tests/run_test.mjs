@@ -2459,6 +2459,7 @@ results.txInventoryPurchase = await invVal(txClPage, 'Purchase link');
 results.txInventoryAcquire = await invVal(txClPage, 'How to acquire');
 results.txInventoryOwner = await invVal(txClPage, 'Owner of record');
 results.txInventoryParcel = await invVal(txClPage, 'Parcel #');
+results.txInventoryCause = await invVal(txClPage, 'Tax suit cause #');
 results.txInventoryAnchors = await txClPage.locator('#detailModalInner .inventory-card a').count();
 // Acquisition sprint: the gap is the UNVERIFIED process, never a missing hyperlink.
 results.txInventoryGapNamesAcquisition = !((await txClPage.locator('#detailModalInner .opp-gaps').textContent()) || '').includes('Acquisition path not yet verified');   // verified county process (fixture)
@@ -4287,6 +4288,33 @@ await navMap.close();
     await n.waitForTimeout(300);
     results.offListDefault = await n.evaluate(() => window.__tdwOffList('p9'));
     await n.close();
+  }
+  // ---- Texas cause numbers are never parcel identity (2026-10-10) ----
+  // ptx3 and ptx8 (?txcause=1) share one LGBS tax-suit cause but are two CAD
+  // accounts - two parcels. Neither is "the same parcel" as the other, and the
+  // cause is labelled as a cause, never as "Parcel #".
+  {
+    const pg = await newPage({ viewport: { width: 1440, height: 900 } });
+    pg.on('pageerror', e => errors.push('txcause pageerror: ' + e.message));
+    await pg.goto(TX_BASE_URL + '?txcause=1' + '#/lands', { waitUntil: 'networkidle' });
+    await pg.waitForTimeout(400);
+    results.txCauseCardParcel = await pg.evaluate(() => ['ptx3', 'ptx8'].map(id => {
+      const e = document.querySelector(`#main .prop-card[data-pid="${id}"] .prop-parcel-line`);
+      return e ? e.textContent.trim() : null;
+    }));
+    await pg.close();
+    const d = await newPage({ viewport: { width: 1440, height: 900 } });
+    await d.goto(TX_BASE_URL + '?txcause=1' + '#/lands/ptx3', { waitUntil: 'networkidle' });
+    await d.waitForTimeout(500);
+    results.txCauseDetail = await d.evaluate(() => {
+      const m = document.getElementById('detailModalInner');
+      const txt = m ? m.innerText.replace(/\s+/g, ' ') : '';
+      return { related: m ? m.querySelectorAll('.related-record').length : null,
+        sameParcelClaim: /ptx8|6600 BLOCK/.test(m ? m.innerHTML : ''),
+        causeAsParcel: /Parcel #? ?23-TX-0644/.test(txt),
+        causeShown: /Cause 23-TX-0644/.test(txt) || /Tax suit cause # 23-TX-0644/.test(txt) };
+    });
+    await d.close();
   }
   // ---- Opportunity finder + auction command center (2026-10-05) ----
   {
@@ -7352,7 +7380,7 @@ const EXPECTED = {
   bidLegacyPositiveStillPublished: true,
   bidTxVendorRowWithoutKindUsesLegacyRule: true,
   // Enrichment phase: Inventory & Purchase card.
-  txInventoryLabels: ["Status", "Inventory", "Minimum bid (vendor listing)", "Source list", "Published by", "Last read from source", "Parcel #", "Legal description", "Owner of record", "Assessed value", "Taxable value", "Acreage", "Land use", "How to acquire", "Purchase link"],
+  txInventoryLabels: ["Status", "Inventory", "Minimum bid (vendor listing)", "Source list", "Published by", "Last read from source", "Parcel #", "Tax suit cause #", "Legal description", "Owner of record", "Assessed value", "Taxable value", "Acreage", "Land use", "How to acquire", "Purchase link"],
   txInventoryStatus: 'Struck off to the taxing unit (per the source) Source status "Struck off to Jurisdiction" · observed Sep 23, 2026',
   txProvenanceHasNoTable: 0,
   txInventoryGroups: ['Inventory', 'Property', 'Purchase path'],
@@ -7361,7 +7389,12 @@ const EXPECTED = {
   txInventorySourceList: "Vendor list page \u2192",   // the registry listing the applier writes
   txInventoryPurchase: "Application / purchase instructions \u2192 Purchase instructions - the county's process page, not a link for this specific property",
   txInventoryOwner: 'Not on file',
-  txInventoryParcel: '23-TX-0644',
+  // The CAD account is the parcel; the tax-suit cause (stored in `parcel` by
+  // the Texas harvester) is shown as what it is (2026-10-10 fix).
+  txInventoryParcel: '129500040015000',
+  txInventoryCause: '23-TX-0644',
+  txCauseCardParcel: ['Parcel # 129500040015000', 'Parcel # 129500040016000'],
+  txCauseDetail: { related: 0, sameParcelClaim: false, causeAsParcel: false, causeShown: true },
   txInventoryAnchors: 2,
   txInventoryGapNamesAcquisition: true,
   txInventoryGapNeverNamesLink: true,

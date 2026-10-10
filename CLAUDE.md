@@ -2461,6 +2461,26 @@ Full description: `docs/current-state-sprint.md`; coverage matrix: `docs/current
   → `data/current_state/*.json` → `scripts/current_state_report.py`
   (`--check` pinned).
 
+## Data-quality sprint: baselines, Tennessee enrichment, Texas causes (2026-10-10, PR open, no migration)
+
+Full description: `docs/data-quality-sprint.md`; per-source matrix: `docs/source-quality-matrix.md`. Stable facts:
+- **Verified baselines** (Horry SC, Tennessee Shelby) are pinned, counts only, in
+  `data/current_state/verified-baselines-2026-10-10.json` and `tests/python/test_data_quality_sprint.py`.
+- **ePropertyPlus:** an OFFERED row whose parcel id fails `id_pattern` makes the read INCOMPLETE (good rows synced, nothing
+  closed). `list_date()` reads only a portal-published date (an offset datetime keeps its written date; naive/epoch -> None);
+  `list_as_of_field` is None for Shelby, which publishes none.
+- **Address geocoder:** `geocode_properties.NO_ADDRESS_GEOCODE_SOURCES` (`tn_shelby_landbank`) is never address-geocoded -
+  a source that publishes its own points keeps a missing point missing. The filter is NULL-safe on `harvester_source`.
+- **Flood:** `enrich_flood_zone.plan_slices()` hands budget pass 1 left unused to units with a backlog (one-county states).
+- **Acquisition evidence type** per row: `acquisition_evidence_status.evidence_type()` (property_specific / listing_level /
+  application_process / source_list_only / no_verified_online_path), never from a URL's existence. Shelby is NEEDS_REVIEW.
+- **Texas `parcel` is the tax-suit CAUSE number** for `tx_lgbs` / `tx_realauction` (the CAD account is `case_no`); one cause
+  covers several parcels. app.js `parcelOf(p)` / `causeOf(p)` / `caseIdentText(p)`: the account is the parcel shown and
+  matched across ledgers, the cause is "Tax suit cause #". Never read `p.parcel` as a parcel identity on a new surface.
+  Stub knob `?txcause=1` (ptx8 shares ptx3's cause). `sw.js` -> `tdw-shell-v116` (v115 is held by #130).
+- **Source matrix:** `scripts/sql/source_quality_matrix.sql` (read-only) -> `data/current_state/source-quality-*.json` ->
+  `scripts/source_quality_report.py` (`--check` pinned); every cell `n/N`.
+
 ## Where to look for more
 
 - `claude/improvement-roadmap.md` in the "tax florida app" claude.ai Project — the full dated log of every fix, audit finding, and open decision. This is where new findings should be appended, not here.
