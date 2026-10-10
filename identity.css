@@ -452,6 +452,24 @@ a{color:var(--copper-deep)}
 #authGate button[type="submit"]:hover,#authGate #signInBtn:hover{background:var(--copper-deep)!important}
 #authGate button.auth-mode-toggle,#pendingGate button.auth-mode-toggle,#planGate button.auth-mode-toggle{color:var(--copper-deep)!important;text-align:left!important;text-decoration:underline;text-underline-offset:3px}
 .auth-legal-links{text-align:left!important}
+/* Sign in with Google / Apple / Microsoft (app.js renderOAuthButtons, shown only
+   for providers config.js oauthProviders lists) - neutral outlined buttons, never
+   the charcoal primary, so the email form keeps its own primary action. */
+#authGate .oauth-buttons{display:flex;flex-direction:column;gap:.5rem}
+#authGate button.oauth-btn{display:flex;align-items:center;justify-content:center;gap:.65rem;margin:0;height:48px;
+  background:var(--paper-white)!important;color:var(--ink)!important;border:1px solid var(--rule-strong)!important;
+  border-radius:var(--radius)!important;font-weight:600;font-size:.92rem;letter-spacing:0;text-transform:none}
+#authGate button.oauth-btn:hover{background:var(--stone)!important}
+#authGate button.oauth-btn svg{flex:none}
+.oauth-note{font-size:.76rem;color:var(--ink-soft);margin:.55rem 0 0}
+.oauth-or{display:flex;align-items:center;gap:.7rem;margin:1.1rem 0 1rem;font-size:.66rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-soft)}
+.oauth-or::before,.oauth-or::after{content:"";flex:1;border-top:1px solid var(--rule)}
+/* Pending screen: the details an account created through a provider still owes. */
+.pending-details{margin:0 0 1rem;text-align:left}
+.pending-details-lead{font-size:.88rem;color:var(--ink);margin:0 0 .9rem}
+#pendingGate .pending-details input{width:100%;padding:.65rem .75rem;font-size:.95rem;height:46px;border-radius:var(--radius);
+  border:1px solid var(--rule-strong);background:var(--paper-white);color:var(--ink)}
+#pendingGate .pending-details input:focus{outline:2px solid var(--copper);outline-offset:1px}
 .auth-points{list-style:none;margin:1.6rem 0 0;padding:1rem 0 0;border-top:1px solid var(--rule);font-size:.8rem;color:var(--ink-soft);display:flex;flex-direction:column;gap:.35rem}
 .auth-points li::before{content:"\2014\00a0";color:var(--copper)}
 @media (max-width:899.98px){

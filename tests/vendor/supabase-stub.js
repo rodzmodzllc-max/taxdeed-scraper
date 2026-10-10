@@ -783,7 +783,11 @@ const STUB_SESSION_KEY = "stub-auth-session";
 const STUB_DB_KEY = "stub-server-db";
 const STUB_SERVER_USERS = [
   { id: "n1", email: "normal@example.com", password: "fixture-normal-pass", approved: true, is_admin: false },
-  { id: "a1", email: "admin@example.com", password: "fixture-admin-pass", approved: true, is_admin: true }
+  { id: "a1", email: "admin@example.com", password: "fixture-admin-pass", approved: true, is_admin: true },
+  // An account a provider sign-in created (Google / Apple / Microsoft): pending,
+  // and its metadata holds only the name the provider shared. The password is
+  // a FIXTURE stand-in for the provider round trip.
+  { id: "o1", email: "provider-user@example.com", password: "fixture-provider-pass", approved: false, is_admin: false, user_metadata: { full_name: "Jordan Q Tester" } }
 ];
 function stubUsers() {
   try { const saved = JSON.parse(localStorage.getItem(STUB_DB_KEY)); if (Array.isArray(saved)) return saved; } catch { /* seed below */ }
@@ -795,7 +799,7 @@ function stubSessionUser() {
   let id = null;
   try { id = sessionStorage.getItem(STUB_SESSION_KEY); } catch { id = null; }
   const u = stubUsers().find(x => x.id === id);
-  return u ? { id: u.id, email: u.email } : null;
+  return u ? { id: u.id, email: u.email, user_metadata: u.user_metadata || {} } : null;
 }
 function stubEmit(event, user) { stubListeners.forEach(cb => setTimeout(() => cb(event, user ? { user } : null), 0)); }
 
@@ -823,7 +827,7 @@ export function createClient() {
           const u = stubUsers().find(x => creds && x.email === creds.email && x.password === creds.password);
           if (!u) return { data: { user: null, session: null }, error: { message: "Invalid login credentials", status: 400 } };
           sessionStorage.setItem(STUB_SESSION_KEY, u.id);
-          const user = { id: u.id, email: u.email };
+          const user = { id: u.id, email: u.email, user_metadata: u.user_metadata || {} };
           stubEmit("SIGNED_IN", user);
           return { data: { user, session: { user } }, error: null };
         }
@@ -843,11 +847,12 @@ export function createClient() {
           }
           // handle_new_user(): (id, email) only - approved and is_admin take
           // the column defaults (false), never anything from the metadata.
-          const created = { id: "s" + (users.length + 1), email, password: creds.password, approved: false, is_admin: false, requested_at: new Date().toISOString() };
+          const created = { id: "s" + (users.length + 1), email, password: creds.password, approved: false, is_admin: false, requested_at: new Date().toISOString(),
+                            user_metadata: (creds.options && creds.options.data) || {} };
           users.push(created);
           stubSaveUsers(users);
           sessionStorage.setItem(STUB_SESSION_KEY, created.id);
-          const user = { id: created.id, email };
+          const user = { id: created.id, email, user_metadata: created.user_metadata };
           stubEmit("SIGNED_IN", user);
           return { data: { user, session: { user } }, error: null };
         }
@@ -871,6 +876,14 @@ export function createClient() {
         if (STUB_EMAIL_LIMIT) return { data: null, error: STUB_RATE_ERR };
         return { data: {}, error: null };
       },
+      // Sign in with a provider: recorded, never navigates (the real
+      // supabase-js leaves for the provider). ?oauthfail=1 refuses.
+      async signInWithOAuth(args) {
+        window.__stubOAuthCalls = (window.__stubOAuthCalls || []).concat([{ provider: args && args.provider,
+          redirectTo: args && args.options && args.options.redirectTo, scopes: (args && args.options && args.options.scopes) || null }]);
+        if (new URLSearchParams(location.search).get("oauthfail") === "1") return { data: null, error: { message: "stub: provider refused" } };
+        return { data: { provider: args && args.provider, url: "#stub-oauth" }, error: null };
+      },
       async resetPasswordForEmail(email, opts) {
         window.__stubResetCalls = (window.__stubResetCalls || []).concat([{ email, redirectTo: opts && opts.redirectTo }]);
         if (new URLSearchParams(location.search).get("resetfail") === "1") return { data: null, error: { message: "stub: reset refused" } };
@@ -878,6 +891,15 @@ export function createClient() {
       },
       async updateUser(attrs) {
         window.__stubUpdateUserCalls = (window.__stubUpdateUserCalls || []).concat([attrs]);
+        if (STUB_AUTH && attrs && attrs.data) {
+          const users = stubUsers();
+          const u = users.find(x => x.id === (stubSessionUser() || {}).id);
+          if (u) {
+            u.user_metadata = { ...(u.user_metadata || {}), ...attrs.data };
+            stubSaveUsers(users);
+            return { data: { user: { id: u.id, email: u.email, user_metadata: u.user_metadata } }, error: null };
+          }
+        }
         return { data: { user: { id: "u1", email: "test@example.com", user_metadata: (attrs && attrs.data) || {} } }, error: null };
       }
     },
@@ -911,7 +933,9 @@ export function createClient() {
         if (pw.length < 8 || pw.length > 72) return res(400, { error: "weak_password", message: "Please choose a password of at least 8 characters." });
         const users = stubUsers();
         if (users.some(x => x.email === body.email)) return res(409, { error: "already_registered", message: "An account with this email already exists. Choose “Already have an account? Sign in”, or “Forgot password?” to set a new password." });
-        users.push({ id: "s" + (users.length + 1), email: body.email, password: body.password, approved: false, is_admin: false, requested_at: new Date().toISOString() });
+        const meta = {};
+        ["first_name", "last_name", "company", "address", "phone"].forEach(k => { if (typeof body[k] === "string") meta[k] = body[k]; });
+        users.push({ id: "s" + (users.length + 1), email: body.email, password: body.password, approved: false, is_admin: false, requested_at: new Date().toISOString(), user_metadata: meta });
         stubSaveUsers(users);
         return { data: { ok: true }, error: null };
       }

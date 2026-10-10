@@ -28,6 +28,16 @@ window.TDW_CONFIG = {
   // docs/production-configuration.md section 4.
   supportEmail: "",
 
+  // Sign in with Google / Apple / Microsoft (2026-10-10). Empty on purpose:
+  // a "Continue with ..." button appears only for a provider listed here, and
+  // a provider must first be enabled in Supabase -> Authentication ->
+  // Sign In / Providers (its client id and secret live there, never here),
+  // or the button leads to a raw error page. Supabase's ids: "google",
+  // "apple", "azure" (Microsoft). Example once all three are enabled:
+  //   oauthProviders: ["google", "apple", "azure"],
+  // New accounts still wait for approval. See docs/social-sign-in.md.
+  oauthProviders: [],
+
   // Tester preview (2026-10-05, owner's decision): every approved account,
   // not only admins, also sees rows from sources still awaiting publication
   // review (Detroit, St. Louis, Oklahoma County, Fayette PA, Ramsey MN,

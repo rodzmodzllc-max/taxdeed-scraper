@@ -3389,6 +3389,64 @@ await navMap.close();
   });
   await pwBack.close();
 
+  // Sign in with Google / Apple / Microsoft (2026-10-10). No buttons unless
+  // config.js lists the provider; listed, each calls signInWithOAuth with
+  // Supabase's id, the exact allowlisted return page, and (Microsoft) the
+  // email scope. The email form stays, and a refused start says so.
+  const oaOff = await newPage({ viewport: { width: 1000, height: 800 } });
+  await oaOff.goto(APP_URL + '#/auctions', { waitUntil: 'networkidle' });
+  results.oauthButtonsHiddenByDefault = await oaOff.locator('#oauthBlock, [data-oauth]').count();
+  await oaOff.close();
+  const oaOn = await newPage({ viewport: { width: 390, height: 844 } });
+  await oaOn.goto(APP_URL + '&oauth=google,apple,azure,bogus' + '#/auctions', { waitUntil: 'networkidle' });
+  results.oauthButtons = await oaOn.evaluate(() => [...document.querySelectorAll('[data-oauth]')].map(b => [b.getAttribute('data-oauth'), b.textContent.trim()]));
+  results.oauthBeforeEmailForm = await oaOn.evaluate(() => !!(document.getElementById('oauthBlock').compareDocumentPosition(document.getElementById('authForm')) & Node.DOCUMENT_POSITION_FOLLOWING));
+  results.oauthButtonMinHeight = await oaOn.evaluate(() => Math.min(...[...document.querySelectorAll('[data-oauth]')].map(b => Math.round(b.getBoundingClientRect().height))) >= 44);
+  for (const p of ['google', 'azure']) { await oaOn.click(`[data-oauth="${p}"]`); await oaOn.waitForTimeout(150); }
+  results.oauthCalls = await oaOn.evaluate(() => (window.__stubOAuthCalls || []).map(c => [c.provider, c.redirectTo.endsWith('/index.html'), c.scopes]));
+  await oaOn.click('#authModeToggle');
+  results.oauthShownInSignup = await oaOn.locator('[data-oauth]').count();
+  await oaOn.close();
+  const oaFail = await newPage({ viewport: { width: 1000, height: 800 } });
+  await oaFail.goto(APP_URL + '&oauth=apple&oauthfail=1' + '#/auctions', { waitUntil: 'networkidle' });
+  await oaFail.click('[data-oauth="apple"]'); await oaFail.waitForTimeout(200);
+  results.oauthFailMsg = ((await oaFail.locator('#authMsg').textContent()) || '').trim();
+  results.oauthFailButtonEnabled = await oaFail.locator('[data-oauth="apple"]').isEnabled();
+  await oaFail.close();
+  // A cancelled provider sign-in returns with ?error=...; the message names the provider.
+  const oaBack = await newPage({ viewport: { width: 1000, height: 800 } });
+  await oaBack.goto(APP_URL + '&oauth=google' + '#/auctions', { waitUntil: 'networkidle' });
+  await oaBack.evaluate(() => sessionStorage.setItem('tdw_oauth_provider', 'google'));
+  await oaBack.goto(APP_URL + '&oauth=google&error=access_denied&error_description=User+cancelled', { waitUntil: 'networkidle' });
+  results.oauthReturnError = { msg: ((await oaBack.locator('#authMsg').textContent()) || '').trim(), urlClean: !/error/.test(await oaBack.evaluate(() => location.search)) };
+  await oaBack.close();
+  // An account a provider created has no sign-up details: the pending screen
+  // asks for them, pre-filled from the provider's name, saves them to the
+  // account and still waits for approval. A password account never sees it.
+  const oaUser = await newPage({ viewport: { width: 390, height: 844 } });
+  await oaUser.goto(APP_URL + '#/auctions', { waitUntil: 'networkidle' });
+  await oaUser.fill('#email', 'provider-user@example.com'); await oaUser.fill('#password', 'fixture-provider-pass');
+  await oaUser.click('#signInBtn'); await oaUser.waitForTimeout(600);
+  results.oauthPendingDetailsShown = await oaUser.locator('#pendingDetails').isVisible();
+  results.oauthPendingPrefill = await oaUser.evaluate(() => { const f = document.getElementById('pendingDetails'); return f ? [f.elements.first_name.value, f.elements.last_name.value, f.elements.company.value] : null; });
+  await oaUser.click('#pendingDetails button[type="submit"]'); await oaUser.waitForTimeout(150);
+  results.oauthPendingIncomplete = ((await oaUser.locator('#pendingDetailsMsg').textContent()) || '').trim();
+  await oaUser.fill('#pendingDetails input[name="company"]', 'Independent');
+  await oaUser.fill('#pendingDetails input[name="address"]', '1 Fixture Way');
+  await oaUser.fill('#pendingDetails input[name="phone"]', '555-0100');
+  await oaUser.click('#pendingDetails button[type="submit"]'); await oaUser.waitForTimeout(300);
+  results.oauthPendingSaved = await oaUser.evaluate(() => ({
+    fields: (window.__stubUpdateUserCalls || []).map(c => Object.keys(c.data || {}).sort()),
+    text: (document.getElementById('pendingDetails') || {}).textContent || '',
+    stillPending: !document.getElementById('pendingGate').hidden && document.getElementById('app').hidden }));
+  await oaUser.close();
+  const pwUser = await newPage({ viewport: { width: 1000, height: 800 } });
+  await pwUser.goto(APP_URL + '&selfsignup=1' + '#/auctions', { waitUntil: 'networkidle' });
+  await fillSignUp(pwUser, 'detailed@example.com', 'fixture-detailed-pass');
+  await pwUser.waitForTimeout(600);
+  results.passwordSignupNoDetailsForm = await pwUser.locator('#pendingGate').isVisible() && await pwUser.locator('#pendingDetails').count() === 0;
+  await pwUser.close();
+
   // An expired / already-used confirmation link lands with an error hash.
   const expired = await newPage({ viewport: { width: 1000, height: 800 } });
   await expired.goto(APP_URL + '#error=access_denied&error_code=otp_expired&error_description=Email+link+is+invalid+or+has+expired', { waitUntil: 'networkidle' });
@@ -6392,7 +6450,7 @@ const EXPECTED = {
   },
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v113"]},
+  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v114"]},
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · TAXACQ — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · TAXACQ — Florida", floridaCopy: true },
@@ -7488,6 +7546,21 @@ const EXPECTED = {
   signupValidAfterRefusals: {"fnCalls": [true], "signUpCalls": 0},
   signupValidPending: true,
   signupPasswordFieldSignin: {"label": "Password", "minLength": -1, "autocomplete": "current-password"},
+  // Sign in with Google / Apple / Microsoft (2026-10-10).
+  oauthButtonsHiddenByDefault: 0,
+  oauthButtons: [["google", "Continue with Google"], ["apple", "Continue with Apple"], ["azure", "Continue with Microsoft"]],
+  oauthBeforeEmailForm: true,
+  oauthButtonMinHeight: true,
+  oauthCalls: [["google", true, null], ["azure", true, "email"]],
+  oauthShownInSignup: 3,
+  oauthFailMsg: "We couldn't open Apple sign-in right now. Please try again, or use your email and password.",
+  oauthFailButtonEnabled: true,
+  oauthReturnError: {"msg": "Sign-in with Google didn't complete, so you are not signed in. Please try again, or use your email and password.", "urlClean": true},
+  oauthPendingDetailsShown: true,
+  oauthPendingPrefill: ["Jordan", "Q Tester", ""],
+  oauthPendingIncomplete: 'Please fill in all fields. No company? Enter "Independent".',
+  oauthPendingSaved: {"fields": [["address", "company", "first_name", "last_name", "phone"]], "text": "Details saved. You will get access once your account is approved.", "stillPending": true},
+  passwordSignupNoDetailsForm: true,
   // Independent ledger loading + list payload (2026-10-05).
   laAuctionsEmptyDesktop: {"beforeAvailable": true, "text": "No auction properties currently available.", "stateEmptyClaim": 0, "skeleton": 0, "availableTab": "…"},
   laAvailableArrivesDesktop: {"availableTab": "2", "stillEmpty": 1, "hash": "#/auctions"},

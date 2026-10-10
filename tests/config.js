@@ -6,3 +6,9 @@
 // "no support address configured" path; run_test.mjs also loads a page
 // with ?support=1 to cover the configured path via the stub.
 window.TDW_CONFIG = { supabaseUrl: "https://fake-project.supabase.co", supabasePublishableKey: "sb_publishable_fake", supportEmail: "", naipLiveImagery: false };
+// ?oauth=google,apple,azure turns the "Continue with ..." buttons on for the
+// sign-in tests (fixture only; the stub's signInWithOAuth never navigates).
+try {
+  const o = new URLSearchParams(location.search).get("oauth");
+  if (o) window.TDW_CONFIG.oauthProviders = o.split(",");
+} catch (e) { /* no location */ }

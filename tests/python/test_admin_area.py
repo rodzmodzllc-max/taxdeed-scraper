@@ -112,8 +112,8 @@ def test_c02_no_admin_credential_is_committed():
             continue
         assert not pattern.search(text), name
     stub = (REPO / "tests/vendor/supabase-stub.js").read_text(encoding="utf-8")
-    assert set(re.findall(r'password: "([^"]+)"', stub)) == {"fixture-normal-pass", "fixture-admin-pass"}
-    assert set(re.findall(r'email: "([^"]+)", password:', stub)) == {"normal@example.com", "admin@example.com"}
+    assert set(re.findall(r'password: "([^"]+)"', stub)) == {"fixture-normal-pass", "fixture-admin-pass", "fixture-provider-pass"}
+    assert set(re.findall(r'email: "([^"]+)", password:', stub)) == {"normal@example.com", "admin@example.com", "provider-user@example.com"}
     # When a person runs this with the real value in their environment, it must appear nowhere.
     secret = os.environ.get("ADMIN_PASSWORD")
     if secret:

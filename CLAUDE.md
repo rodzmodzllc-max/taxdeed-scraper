@@ -3060,3 +3060,27 @@ A tester reported signing up "without entering a password". Traced:
   - `signupPasswordProblem()` in app.js applies the same rule before any request; `tests/billing/signup_password.test.mjs` pins the two equal.
   - The field reads "Create a password (at least 8 characters)" in sign-up mode, and `#authMsg` is `aria-live`.
 - The server half takes effect only when `self-signup` is redeployed (owner). Request validation and creation live in `_shared/signup_request.js` (`handleSignup(body, createUser)`, node-tested with an injected `createUser`); the password reaches `createUser` exactly as typed, never trimmed. `sw.js` -> `tdw-shell-v112` (v111 was reserved for the approval / recovery PR, which shipped as v113).
+
+## Sign in with Google / Apple / Microsoft (2026-10-10, PR open, no migration)
+
+Full description: `docs/social-sign-in.md`. Stable facts:
+- **Buttons only for listed providers.** "Continue with ..." buttons appear
+  only for providers listed in the root `config.js` `oauthProviders`, which
+  ships empty. Supabase's ids are `google`, `apple` and `azure` (Microsoft,
+  `scopes: "email"`). A provider not enabled in the Supabase dashboard
+  returns a raw error page, so a provider is listed only after its switch is
+  on and one test sign-in has worked.
+- **Return page.** `redirectTo` is `recoveryRedirectUrl()`, the same exact
+  `/index.html` as the reset link, so no new Redirect URL is needed.
+- **Approval is unchanged.** A first provider sign-in creates a pending
+  account, and migration 030 queues the operator alert.
+- **Delayed alert.** That alert is sent at the next sweep (an admin opening
+  the admin area or approving), not immediately: only `self-signup` sends at
+  once.
+- **Missing details.** The pending screen's `#pendingDetails` asks an
+  account with missing sign-up details for them, pre-filled from the
+  provider's name, and saves them through `auth.updateUser`. Saving grants
+  nothing.
+- **Test hooks.** Stub knobs: `?oauth=google,apple,azure`, `?oauthfail=1`;
+  fixture user `provider-user@example.com`.
+- `sw.js` -> `tdw-shell-v114`.
