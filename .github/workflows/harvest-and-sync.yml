@@ -486,12 +486,26 @@ jobs:
         run: python3 scripts/unit_freshness.py --status out/harvest_all_status.json:fl_deeds --state FL
 
       - name: Backfill geocoding (US Census Bureau Geocoder)
+        # Enrichment is independent of every other enrichment step: one
+        # failing (2026-10-10: the geocoding read hit HTTP 500) must never
+        # skip FDOR / FEMA / NAIP after it. Not on a cancelled run.
+        if: ${{ !cancelled() }}
+        continue-on-error: true
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          # The fair queue's cursor (scripts/enrichment_queue.py) lives in
+          # the job's out/.harvest_cache, which the actions/cache step above
+          # restores and saves - so each run resumes where the last stopped.
+          GEOCODE_CHECKPOINT: out/.harvest_cache/geocode_checkpoint.json
         run: python3 scripts/geocode_properties.py
 
       - name: Backfill address/property-type enrichment (FL DOR statewide parcel lookup)
+        # Enrichment is independent of every other enrichment step: one
+        # failing (2026-10-10: the geocoding read hit HTTP 500) must never
+        # skip FDOR / FEMA / NAIP after it. Not on a cancelled run.
+        if: ${{ !cancelled() }}
+        continue-on-error: true
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
@@ -504,6 +518,11 @@ jobs:
       # violations. No-ops cleanly (exit 0) until
       # scripts/migrations/010_flood_hazard.sql has been applied.
       - name: Backfill FEMA flood hazard (National Flood Hazard Layer)
+        # Enrichment is independent of every other enrichment step: one
+        # failing (2026-10-10: the geocoding read hit HTTP 500) must never
+        # skip FDOR / FEMA / NAIP after it. Not on a cancelled run.
+        if: ${{ !cancelled() }}
+        continue-on-error: true
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
@@ -519,6 +538,7 @@ jobs:
         # Imagery is enrichment: a storage failure (budget reached, upload
         # error, Pillow missing) must never fail the structured harvest/sync
         # this job already completed, nor skip the steps after it.
+        if: ${{ !cancelled() }}
         continue-on-error: true
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}

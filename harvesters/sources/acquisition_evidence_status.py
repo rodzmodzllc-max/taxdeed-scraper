@@ -83,6 +83,7 @@ _AUTHORITY = {
     "mn_ramsey_tax_forfeit": ("other_government", "Ramsey County Tax-Forfeited Land"),
     "sc_horry_forfeited_land": ("other_government", "Horry County Forfeited Land Commission"),
     "sc_georgetown_forfeited_land": ("other_government", "Georgetown County Forfeited Land Commission"),
+    "tn_shelby_landbank": ("county_land_bank", "Shelby County Land Bank"),
 }
 _AUTHORITY_COUNTY = {("tx_lgbs", "Galveston"): ("other_government", "Galveston County Sheriff's Office")}
 
@@ -196,3 +197,61 @@ def unit_status(state: str, source_id: str, county: str, *, evidence, registry_r
         return UnitStatus(status="NEEDS_REVIEW", basis="search_index", candidates=cand_out,
                           reason="Official pages identified; no capture recorded yet", **base)
     return UnitStatus(status="NOT_FOUND", basis="search_index", reason="No official acquisition page identified yet", **base)
+
+
+# What kind of acquisition evidence a ROW carries (2026-10-10). One value per
+# row, decided only from what was verified - never from a URL's existence:
+#   property_specific        a verified per-parcel purchase page (scope 'property')
+#   listing_level            a verified purchase / offer step on the source's
+#                            listing, shared by its parcels (source scope)
+#   application_process      a verified county process that is an application,
+#                            instructions or an offline step
+#   source_list_only         no verified process; only the official list the
+#                            row was read from
+#   no_verified_online_path  nothing verified and no usable official list link
+EVIDENCE_TYPES = ("property_specific", "listing_level", "application_process", "source_list_only",
+                  "no_verified_online_path")
+EVIDENCE_TYPE_LABELS = {
+    "property_specific": "Property-specific purchase page (verified)",
+    "listing_level": "Purchase step on the official listing (verified)",
+    "application_process": "Official application process (verified)",
+    "source_list_only": "Official list only - no online purchase link on file",
+    "no_verified_online_path": "No online purchase link on file",
+}
+_LISTING_TYPES = frozenset({"direct_property_url"})
+_URL_TYPES = frozenset({"direct_property_url", "county_instructions", "application_page", "application_download"})
+_PROCESS_TYPES = frozenset({"county_instructions", "application_page", "application_download", "in_person",
+                            "phone_mail", "quoted_amount", "amount_plus_costs", "amount_on_application"})
+
+
+def _https(url) -> bool:
+    u = str(url or "").strip()
+    return u.startswith("https://") and len(u) > len("https://x.y") and " " not in u
+
+
+def evidence_type(row: dict, unit: "UnitStatus | None" = None) -> str:
+    """The acquisition evidence type of one properties row. Pure.
+
+    `row` carries the stored path columns (purchase_path_type /
+    purchase_path_scope / purchase_url) and list_url; `unit` is the row's
+    acquisition unit status, when known. A path the engine did not type
+    (purchase_path_type NULL) is never treated as verified, whatever URL the
+    row holds; a URL type without an https URL is malformed and counts as
+    nothing verified."""
+    ptype = (row.get("purchase_path_type") or "").strip()
+    scope = (row.get("purchase_path_scope") or "").strip()
+    url = row.get("purchase_url")
+    typed_ok = bool(ptype) and (ptype not in _URL_TYPES or _https(url)) and ptype != "none_published"
+    if typed_ok and scope == "property" and ptype in _URL_TYPES:
+        return "property_specific"
+    if typed_ok and ptype in _LISTING_TYPES:
+        return "listing_level"
+    if typed_ok and ptype in _PROCESS_TYPES:
+        return "application_process"
+    if unit is not None and unit.status == "VERIFIED" and unit.path_type in _PROCESS_TYPES:
+        return "application_process"
+    if unit is not None and unit.status == "VERIFIED" and unit.path_type in _LISTING_TYPES:
+        return "listing_level"
+    if _https(row.get("list_url")):
+        return "source_list_only"
+    return "no_verified_online_path"
