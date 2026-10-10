@@ -24,6 +24,7 @@ const b64 = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
 const now = Math.floor(Date.now() / 1000);
 const TOKEN = `${b64({ alg: 'HS256', typ: 'JWT' })}.${b64({ sub: UID, role: 'authenticated', aud: 'authenticated', exp: now + 3600, iat: now, email: EMAIL, amr: [{ method: 'otp', timestamp: now }] })}.fixture-signature`;
 const RECOVERY_HASH = `#access_token=${TOKEN}&expires_at=${now + 3600}&expires_in=3600&refresh_token=fixture-refresh&token_type=bearer&type=recovery`;
+const TOKEN_HASH = 'fixture-token-hash-0123456789abcdef';
 const user = { id: UID, aud: 'authenticated', role: 'authenticated', email: EMAIL, app_metadata: { provider: 'email' }, user_metadata: {}, created_at: '2026-10-01T00:00:00Z' };
 
 const results = {};
@@ -34,7 +35,7 @@ const browser = await chromium.launch({ executablePath: process.env.CHROMIUM_PAT
 
 // One isolated browser context per scenario (fresh sessionStorage).
 async function scenario({ approved = true, updateStatus = 200, updateBody = null, viewport } = {}) {
-  const log = { userGets: 0, updates: [], resets: [], tokenSeenWrongly: false };
+  const log = { userGets: 0, updates: [], resets: [], verifies: [], tokenSeenWrongly: false };
   const ctx = await browser.newContext(viewport ? { viewport, isMobile: true, hasTouch: true } : {});
   await ctx.route('**/*', async (route) => {
     const req = route.request();
@@ -49,6 +50,14 @@ async function scenario({ approved = true, updateStatus = 200, updateBody = null
         log.updates.push({ bearerIsRecoveryToken: auth === `Bearer ${TOKEN}`, keys: Object.keys(body).sort(), passwordMatches: body.password === NEW_PW });
         if (updateStatus !== 200) return route.fulfill({ status: updateStatus, json: updateBody || { code: 'unexpected_failure', msg: 'internal' } });
         return route.fulfill({ json: user });
+      }
+      // A token_hash link (e-mail template pointing at this site): GoTrue's
+      // POST /verify exchanges it for a session. TOKEN_HASH is the only valid one.
+      if (p === '/auth/v1/verify' && req.method() === 'POST') {
+        const body = JSON.parse(req.postData() || '{}');
+        log.verifies.push({ type: body.type, ok: body.token_hash === TOKEN_HASH });
+        if (body.token_hash !== TOKEN_HASH) return route.fulfill({ status: 403, json: { code: 'otp_expired', msg: 'Email link is invalid or has expired' } });
+        return route.fulfill({ json: { access_token: TOKEN, token_type: 'bearer', expires_in: 3600, expires_at: now + 3600, refresh_token: 'fixture-refresh', user } });
       }
       if (p === '/auth/v1/recover') {
         const body = JSON.parse(req.postData() || '{}');
@@ -188,6 +197,33 @@ for (const [name, status, body, expect] of [
   await page.waitForTimeout(2500);
   const gates = { app: await visible(page, '#app'), pending: await visible(page, '#pendingGate'), auth: await visible(page, '#authGate'), log: log.profileReads };
   check('pendingUserStillGated', !gates.app && gates.pending, JSON.stringify(gates));
+  await ctx.close();
+}
+
+// 15. A reset link that points at this site (?token_hash=...&type=recovery):
+// the page exchanges the token itself, the form opens, the token leaves the
+// address before the request, and an expired token says so.
+{
+  const { ctx, page, log, consoleText } = await scenario();
+  await page.goto(BASE + '?token_hash=' + TOKEN_HASH + '&type=recovery', { waitUntil: 'load' });
+  await page.locator('#recoveryModal').waitFor({ state: 'visible', timeout: 15000 }).catch(() => {});
+  check('tokenHashLinkOpensForm', await visible(page, '#recoveryModal'), JSON.stringify(log.verifies));
+  check('tokenHashVerifiedOnce', log.verifies.length === 1 && log.verifies[0].ok && log.verifies[0].type === 'recovery', JSON.stringify(log.verifies));
+  check('tokenHashRemovedFromUrl', !(await page.evaluate(() => location.href)).includes('token_hash'));
+  await page.fill('#rcNew', NEW_PW); await page.fill('#rcConfirm', NEW_PW);
+  await page.click('#rcSubmitBtn'); await page.waitForTimeout(800);
+  check('tokenHashUpdateUsesSession', log.updates.length === 1 && log.updates[0].bearerIsRecoveryToken && log.updates[0].passwordMatches, JSON.stringify(log.updates));
+  check('tokenHashNotLeaked', !consoleText.some(t => t.includes(TOKEN_HASH)) && !(await page.content()).includes(TOKEN_HASH));
+  await ctx.close();
+}
+{
+  const { ctx, page, log } = await scenario();
+  await page.goto(BASE + '?token_hash=used-or-expired&type=recovery', { waitUntil: 'load' });
+  await page.locator('#authGate').waitFor({ state: 'visible', timeout: 15000 });
+  await page.waitForTimeout(1500);
+  const msg = await text(page, '#authMsg');
+  check('expiredTokenHashExplained', msg.includes('password-reset link has expired') && msg.includes('Forgot password?') && !(await visible(page, '#recoveryModal')), msg);
+  check('expiredTokenHashRemovedFromUrl', !(await page.evaluate(() => location.href)).includes('token_hash') && log.verifies.length === 1);
   await ctx.close();
 }
 

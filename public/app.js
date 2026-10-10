@@ -2622,6 +2622,39 @@ if (resendConfirmBtn) resendConfirmBtn.addEventListener("click", async () => {
     : "That email link could not be used. Please sign in, or enter your email and choose Forgot password? to request a new link.";
 })();
 
+// Auth e-mail links that point at THIS site (2026-10-10). The Supabase e-mail
+// templates (docs/auth-email.md) link straight to
+//   https://taxacq.com/index.html?token_hash=...&type=recovery
+// instead of Supabase's own /auth/v1/verify page, so the person never sees a
+// supabase.co address. The page exchanges the one-time token itself
+// (auth.verifyOtp). For type=recovery, supabase-js then emits
+// PASSWORD_RECOVERY, which opens the new-password form exactly as the older
+// fragment-style link does. The token is taken off the address before the
+// request and is never shown or logged. A used or expired token gets the
+// same plain-language message as an expired fragment link.
+var EMAIL_LINK_TYPES = ["recovery", "signup", "email", "invite", "email_change"];
+(function handleTokenHashLink() {
+  const q = new URLSearchParams(location.search);
+  const tokenHash = q.get("token_hash");
+  const type = q.get("type");
+  if (!tokenHash || !EMAIL_LINK_TYPES.includes(type)) return;
+  q.delete("token_hash"); q.delete("type");
+  const rest = q.toString();
+  try { history.replaceState(history.state, "", location.pathname + (rest ? "?" + rest : "") + location.hash); } catch { /* ignore */ }
+  (async () => {
+    let error = null;
+    try { ({ error } = await sb.auth.verifyOtp({ token_hash: tokenHash, type })); }
+    catch (e) { error = e || new Error("network"); }
+    if (!error) return;
+    if (authMsg) {
+      authMsg.className = "auth-msg err";
+      authMsg.textContent = type === "recovery"
+        ? "That password-reset link has expired or was already used. Enter your email below and choose Forgot password? to get a new link. Always open the newest email."
+        : "That email link has expired or was already used. Please sign in, or request a new link.";
+    }
+  })();
+})();
+
 // The reset link always returns to ONE page per allowlisted origin, so the
 // Supabase Redirect URLs list needs exact entries only (no wildcards):
 // https://taxacq.com/index.html, https://www.taxacq.com/index.html and

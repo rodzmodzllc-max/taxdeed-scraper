@@ -3084,3 +3084,15 @@ Full description: `docs/social-sign-in.md`. Stable facts:
 - **Test hooks.** Stub knobs: `?oauth=google,apple,azure`, `?oauthfail=1`;
   fixture user `provider-user@example.com`.
 - `sw.js` -> `tdw-shell-v114`.
+
+## Auth e-mails through Resend, links to taxacq.com (2026-10-10, same PR)
+
+Full description: `docs/auth-email.md`. Stable facts:
+- **Sending.** Supabase Auth's own e-mails (password reset, sign-up confirmation, email change) are moved to Resend by the owner. This is a dashboard setting, not code: Authentication → SMTP, `smtp.resend.com:465`, user `resend`, sender `info@taxacq.com`.
+- **Templates.** They link to `https://taxacq.com/index.html?token_hash={{ .TokenHash }}&type=recovery|email|email_change`.
+- **App side.** `handleTokenHashLink()` in app.js:
+  - takes the token off the address;
+  - calls `auth.verifyOtp`;
+  - recovery then emits PASSWORD_RECOVERY and opens the existing form;
+  - a used or expired token reads "That password-reset link has expired …".
+- **Tests.** `tests/recovery_flow_test.mjs` covers this with the real supabase-js (POST `/auth/v1/verify` fake).
