@@ -2595,6 +2595,21 @@ if (resendConfirmBtn) resendConfirmBtn.addEventListener("click", async () => {
 // router never sees it.
 (function handleAuthLinkError() {
   const h = String(location.hash || "");
+  // A provider sign-in (Google / Apple / Microsoft) that was cancelled or
+  // refused comes back with ?error=...&error_description=... (query or
+  // fragment) - say which sign-in did not complete, never the raw text.
+  let oauthProvider = null;
+  try { oauthProvider = sessionStorage.getItem("tdw_oauth_provider"); sessionStorage.removeItem("tdw_oauth_provider"); } catch { /* storage blocked */ }
+  const query = new URLSearchParams(location.search);
+  if (oauthProvider && (query.has("error") || /(^|[#&/])error=/.test(h))) {
+    query.delete("error"); query.delete("error_code"); query.delete("error_description");
+    const rest = query.toString();
+    try { history.replaceState(history.state, "", location.pathname + (rest ? "?" + rest : "")); } catch { /* ignore */ }
+    // OAUTH_PROVIDERS (below) is not assigned yet when this runs at load.
+    const label = { google: "Google", apple: "Apple", azure: "Microsoft" }[oauthProvider] || "that provider";
+    if (authMsg) { authMsg.className = "auth-msg err"; authMsg.textContent = `Sign-in with ${label} didn't complete, so you are not signed in. Please try again, or use your email and password.`; }
+    return;
+  }
   if (!/error_description=|error_code=/.test(h)) return;
   const q = new URLSearchParams(h.replace(/^#\/?/, ""));
   const code = q.get("error_code") || "";
@@ -2607,6 +2622,39 @@ if (resendConfirmBtn) resendConfirmBtn.addEventListener("click", async () => {
     : "That email link could not be used. Please sign in, or enter your email and choose Forgot password? to request a new link.";
 })();
 
+// Auth e-mail links that point at THIS site (2026-10-10). The Supabase e-mail
+// templates (docs/auth-email.md) link straight to
+//   https://taxacq.com/index.html?token_hash=...&type=recovery
+// instead of Supabase's own /auth/v1/verify page, so the person never sees a
+// supabase.co address. The page exchanges the one-time token itself
+// (auth.verifyOtp). For type=recovery, supabase-js then emits
+// PASSWORD_RECOVERY, which opens the new-password form exactly as the older
+// fragment-style link does. The token is taken off the address before the
+// request and is never shown or logged. A used or expired token gets the
+// same plain-language message as an expired fragment link.
+var EMAIL_LINK_TYPES = ["recovery", "signup", "email", "invite", "email_change"];
+(function handleTokenHashLink() {
+  const q = new URLSearchParams(location.search);
+  const tokenHash = q.get("token_hash");
+  const type = q.get("type");
+  if (!tokenHash || !EMAIL_LINK_TYPES.includes(type)) return;
+  q.delete("token_hash"); q.delete("type");
+  const rest = q.toString();
+  try { history.replaceState(history.state, "", location.pathname + (rest ? "?" + rest : "") + location.hash); } catch { /* ignore */ }
+  (async () => {
+    let error = null;
+    try { ({ error } = await sb.auth.verifyOtp({ token_hash: tokenHash, type })); }
+    catch (e) { error = e || new Error("network"); }
+    if (!error) return;
+    if (authMsg) {
+      authMsg.className = "auth-msg err";
+      authMsg.textContent = type === "recovery"
+        ? "That password-reset link has expired or was already used. Enter your email below and choose Forgot password? to get a new link. Always open the newest email."
+        : "That email link has expired or was already used. Please sign in, or request a new link.";
+    }
+  })();
+})();
+
 // The reset link always returns to ONE page per allowlisted origin, so the
 // Supabase Redirect URLs list needs exact entries only (no wildcards):
 // https://taxacq.com/index.html, https://www.taxacq.com/index.html and
@@ -2616,6 +2664,131 @@ if (resendConfirmBtn) resendConfirmBtn.addEventListener("click", async () => {
 var RECOVERY_ORIGINS = /^(https:\/\/(www\.)?taxacq\.com|https:\/\/rodz-taxdeeds\.pages\.dev|http:\/\/localhost(:\d+)?|http:\/\/127\.0\.0\.1(:\d+)?)$/;
 function recoveryRedirectUrl() {
   return (RECOVERY_ORIGINS.test(location.origin) ? location.origin : "https://taxacq.com") + "/index.html";
+}
+
+// ==================== sign in with Google / Apple / Microsoft ====================
+// Supabase Auth's own OAuth flow (signInWithOAuth): the browser goes to the
+// provider, comes back to recoveryRedirectUrl() (the same exact, allowlisted
+// page the reset link uses) and supabase-js (detectSessionInUrl) emits
+// SIGNED_IN - the existing approval gate then decides, exactly as for a
+// password account. An OAuth sign-in creates the account on first use: the
+// handle_new_user trigger inserts its profiles row with approved = false and
+// migration 030 queues the operator alert, so the provider grants no access.
+//
+// A button appears only for a provider listed in config.js oauthProviders,
+// because a provider that is not enabled in the Supabase dashboard answers
+// with a raw error page. Ids are Supabase's: "azure" is Microsoft.
+var OAUTH_PROVIDERS = {
+  google: { label: "Google", icon: '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5a5.6 5.6 0 0 1-2.4 3.6v3h3.9c2.2-2.1 3.5-5.1 3.5-8.8z"/><path fill="#34A853" d="M12 24c3.2 0 6-1.1 7.9-2.9l-3.9-3c-1.1.7-2.4 1.2-4 1.2-3.1 0-5.7-2.1-6.6-4.9H1.4v3.1A12 12 0 0 0 12 24z"/><path fill="#FBBC05" d="M5.4 14.4a7.2 7.2 0 0 1 0-4.7V6.6h-4a12 12 0 0 0 0 10.9l4-3.1z"/><path fill="#EA4335" d="M12 4.8c1.8 0 3.3.6 4.6 1.8l3.4-3.4A12 12 0 0 0 1.4 6.6l4 3.1C6.3 6.9 8.9 4.8 12 4.8z"/></svg>' },
+  apple: { label: "Apple", icon: '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M16.4 12.7c0-2.6 2.1-3.8 2.2-3.9-1.2-1.8-3.1-2-3.7-2-1.6-.2-3.1.9-3.9.9-.8 0-2.1-.9-3.4-.9-1.7 0-3.3 1-4.2 2.6-1.8 3.1-.5 7.7 1.3 10.2.9 1.2 1.9 2.6 3.2 2.6 1.3-.1 1.8-.8 3.3-.8 1.6 0 2 .8 3.4.8 1.4 0 2.3-1.3 3.1-2.5 1-1.4 1.4-2.8 1.4-2.9 0 0-2.7-1-2.7-4.1zM13.9 5.1c.7-.9 1.2-2 1-3.1-1 0-2.2.7-2.9 1.5-.6.7-1.2 1.9-1 3 1.1.1 2.2-.6 2.9-1.4z"/></svg>' },
+  azure: { label: "Microsoft", scopes: "email", icon: '<svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="#F25022" d="M1 1h10.5v10.5H1z"/><path fill="#7FBA00" d="M12.5 1H23v10.5H12.5z"/><path fill="#00A4EF" d="M1 12.5h10.5V23H1z"/><path fill="#FFB900" d="M12.5 12.5H23V23H12.5z"/></svg>' }
+};
+function oauthProvidersEnabled() {
+  const list = (window.TDW_CONFIG || {}).oauthProviders;
+  return Array.isArray(list) ? list.filter((p, i) => OAUTH_PROVIDERS[p] && list.indexOf(p) === i) : [];
+}
+function renderOAuthButtons() {
+  const form = document.getElementById("authForm");
+  const providers = oauthProvidersEnabled();
+  if (!form || !providers.length || document.getElementById("oauthBlock")) return;
+  const block = document.createElement("div");
+  block.className = "oauth-block";
+  block.id = "oauthBlock";
+  block.innerHTML = '<div class="oauth-buttons">' + providers.map(p =>
+    `<button type="button" class="oauth-btn" data-oauth="${p}">${OAUTH_PROVIDERS[p].icon}<span>Continue with ${OAUTH_PROVIDERS[p].label}</span></button>`).join("") +
+    '</div><p class="oauth-note">New accounts wait for approval, whichever way you sign up.</p>' +
+    '<p class="oauth-or"><span>or use your email</span></p>';
+  form.parentNode.insertBefore(block, form);
+  block.addEventListener("click", e => {
+    const b = e.target.closest("[data-oauth]");
+    if (b) startOAuth(b.getAttribute("data-oauth"), b);
+  });
+}
+async function startOAuth(provider, btn) {
+  const p = OAUTH_PROVIDERS[provider];
+  if (!p) return;
+  if (btn) btn.disabled = true;
+  if (authMsg) { authMsg.className = "auth-msg"; authMsg.textContent = `Opening ${p.label}`; }
+  try { sessionStorage.setItem("tdw_oauth_provider", provider); } catch { /* storage blocked */ }
+  const options = { redirectTo: recoveryRedirectUrl() };
+  if (p.scopes) options.scopes = p.scopes;
+  let error = null;
+  try { ({ error } = await sb.auth.signInWithOAuth({ provider, options })); }
+  catch (e) { error = e || new Error("network"); }
+  // On success the browser is already leaving for the provider.
+  if (error) {
+    if (btn) btn.disabled = false;
+    if (authMsg) { authMsg.className = "auth-msg err"; authMsg.textContent = `We couldn't open ${p.label} sign-in right now. Please try again, or use your email and password.`; }
+  }
+}
+renderOAuthButtons();
+
+// An account created through a provider has none of the sign-up form's
+// details (name, company, address, phone). The pending screen asks for the
+// missing ones, pre-filled from the name the provider shared; they are saved
+// to the account's own metadata (auth.updateUser), the same place the
+// sign-up form and the Edit profile form keep them. Saving changes nothing
+// about access - approval still decides.
+var PENDING_DETAIL_FIELDS = [
+  ["first_name", "First name", "given-name", "text"],
+  ["last_name", "Last name", "family-name", "text"],
+  ["company", "Company (no company? Enter Independent)", "organization", "text"],
+  ["address", "Address", "street-address", "text"],
+  ["phone", "Phone number", "tel", "tel"]
+];
+function pendingDetailsMissing(meta) {
+  return PENDING_DETAIL_FIELDS.some(([k]) => !String((meta || {})[k] || "").trim());
+}
+function providerNameParts(meta) {
+  const m = meta || {};
+  const full = String(m.full_name || m.name || "").trim().replace(/\s+/g, " ");
+  const sp = full.indexOf(" ");
+  return {
+    first_name: String(m.first_name || m.given_name || (sp > 0 ? full.slice(0, sp) : full)).trim(),
+    last_name: String(m.last_name || m.family_name || (sp > 0 ? full.slice(sp + 1) : "")).trim()
+  };
+}
+function renderPendingDetails() {
+  const card = pendingGate && pendingGate.querySelector(".auth-card");
+  const old = document.getElementById("pendingDetails");
+  const meta = (ME && ME.user_metadata) || {};
+  if (!card || !ME || !pendingDetailsMissing(meta)) { if (old) old.remove(); return; }
+  if (old) return;
+  const guess = providerNameParts(meta);
+  const val = k => String(meta[k] || guess[k] || "").trim();
+  const form = document.createElement("form");
+  form.id = "pendingDetails";
+  form.className = "pending-details";
+  form.innerHTML = '<p class="pending-details-lead">Tell us who you are so your account can be reviewed.</p>' +
+    PENDING_DETAIL_FIELDS.map(([k, label, ac, type]) =>
+      `<label class="auth-field"><span>${label}</span><input type="${type}" name="${k}" autocomplete="${ac}" maxlength="200" required value="${esc(val(k))}"></label>`).join("") +
+    '<button type="submit">Save details</button><div class="auth-msg" id="pendingDetailsMsg" aria-live="polite"></div>';
+  const signOut = document.getElementById("pendingSignOutBtn");
+  card.insertBefore(form, signOut || null);
+  form.addEventListener("submit", async e => {
+    e.preventDefault();
+    const msg = document.getElementById("pendingDetailsMsg");
+    const data = {};
+    PENDING_DETAIL_FIELDS.forEach(([k]) => { data[k] = String(form.elements[k].value || "").trim(); });
+    if (Object.values(data).some(v => !v)) {
+      if (msg) { msg.className = "auth-msg err"; msg.textContent = 'Please fill in all fields. No company? Enter "Independent".'; }
+      return;
+    }
+    const btn = form.querySelector('button[type="submit"]');
+    if (btn) btn.disabled = true;
+    if (msg) { msg.className = "auth-msg"; msg.textContent = "Saving"; }
+    let res = null, error = null;
+    try { ({ data: res, error } = await sb.auth.updateUser({ data })); }
+    catch (err) { error = err || new Error("network"); }
+    if (btn) btn.disabled = false;
+    if (error) {
+      if (msg) { msg.className = "auth-msg err"; msg.textContent = "We couldn't save your details right now. Please try again."; }
+      return;
+    }
+    if (res && res.user) ME = res.user;
+    refreshAccountBadge();
+    form.innerHTML = '<p class="pending-details-lead">Details saved. You will get access once your account is approved.</p>';
+  });
 }
 
 const forgotPasswordBtn = document.getElementById("forgotPasswordBtn");
@@ -2668,6 +2841,7 @@ function showPending() {
   if (gate) gate.hidden = true;
   if (app) app.hidden = true;
   if (pendingGate) pendingGate.hidden = false;
+  renderPendingDetails();
 }
 
 // Gatekeeper between "signed in" and "sees the app": every account also

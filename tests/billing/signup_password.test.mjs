@@ -149,9 +149,18 @@ test("the sign-up handler refuses before any request, and the app has no passwor
   assert.ok(i > 0 && check > i && check < firstRequest, "password check precedes self-signup and auth.signUp");
   // The fallback still sends the password and keeps the confirmation e-mail.
   assert.match(APP, /sb\.auth\.signUp\(\{\s*email,\s*password,\s*options: \{ data: profile, emailRedirectTo:/);
-  for (const m of ["signInWithOtp", "signInWithOAuth", "signInWithIdToken", "signInWithSSO", "signInAnonymously", "inviteUserByEmail", "magiclink"]) {
+  for (const m of ["signInWithOtp", "signInWithIdToken", "signInWithSSO", "signInAnonymously", "inviteUserByEmail", "magiclink"]) {
     assert.ok(!APP.includes(m), `app.js must not use ${m}`);
   }
+  // Provider sign-in (Google / Apple / Microsoft, 2026-10-10) is the one
+  // intentional exception: a single call, inside startOAuth(), reached only
+  // from buttons for providers config.js oauthProviders lists (none by
+  // default). Those accounts still wait for approval like any other.
+  assert.equal(APP.split("signInWithOAuth(").length - 1, 1, "exactly one signInWithOAuth call");
+  const oauthFn = APP.indexOf("async function startOAuth(");
+  const oauthCall = APP.indexOf("signInWithOAuth(");
+  assert.ok(oauthFn > 0 && oauthCall > oauthFn && oauthCall < APP.indexOf("\n}", oauthFn), "signInWithOAuth only inside startOAuth()");
+  assert.match(APP, /const list = \(window\.TDW_CONFIG \|\| \{\}\)\.oauthProviders;/);
   // Recovery stays available; nothing logs a password.
   assert.match(APP, /resetPasswordForEmail\(/);
   assert.doesNotMatch(APP, /console\.\w+\([^)]*password/i);
