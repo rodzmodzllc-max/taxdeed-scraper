@@ -4951,6 +4951,59 @@ await navMap.close();
     }
     results.tnVisibility = tn;
   }
+  // ---- State rules page (#/rules, 2026-10-10) ----
+  // Every rule shows its kind and status; nothing unverified reads as
+  // verified; a county rule appears only for its own county; untracked
+  // ledgers say so rather than looking empty.
+  {
+    const rulesOf = async (url) => {
+      const pg = await newPage({ viewport: { width: 1280, height: 900 } });
+      pg.on('pageerror', e => errors.push('rules pageerror: ' + e.message));
+      await pg.goto(url, { waitUntil: 'networkidle' });
+      await pg.waitForTimeout(500);
+      const r = await pg.evaluate(() => {
+        const root = document.getElementById('rulesPage');
+        if (!root) return null;
+        const items = [...root.querySelectorAll('.rule-item')];
+        return {
+          title: (root.querySelector('h1') || {}).textContent || '',
+          ledgers: Object.fromEntries([...root.querySelectorAll('.rules-ledger')].map(li => [li.dataset.ledger, li.dataset.status])),
+          items: items.length,
+          verifiedWithoutStatus: items.filter(i => i.dataset.status !== 'VERIFIED' && /Verified \w/.test(i.querySelector('.rule-meta') ? i.querySelector('.rule-meta').textContent : '')).length,
+          unverifiedLabelled: items.filter(i => i.dataset.status !== 'VERIFIED').every(i => /Not verified/.test(i.textContent)),
+          countyScoped: items.filter(i => i.dataset.scope === 'county').map(i => (i.querySelector('.rule-scope') || {}).textContent),
+          noScores: !/score|confidence|rating/i.test(root.textContent),
+          hash: location.hash,
+          visible: !document.getElementById('pageRules').hidden,
+        };
+      });
+      await pg.close();
+      return r;
+    };
+    const TNR = BASE_URL.replace(/index\.html$/, 'tn.html'), SCR = BASE_URL.replace(/index\.html$/, 'sc.html');
+    const tn = await rulesOf(TNR + '#/rules');
+    results.rulesTn = tn && { title: tn.title.trim(), ledgers: tn.ledgers, verifiedWithoutStatus: tn.verifiedWithoutStatus,
+      unverifiedLabelled: tn.unverifiedLabelled, noScores: tn.noScores, hash: tn.hash, visible: tn.visible, hasItems: tn.items > 0 };
+    const gt = await rulesOf(SCR + '#/rules?county=Georgetown');
+    const hy = await rulesOf(SCR + '#/rules?county=Horry');
+    results.rulesCounty = { georgetown: gt && [...new Set(gt.countyScoped)].sort(), horry: hy && [...new Set(hy.countyScoped)].sort(),
+      gtTitle: gt && gt.title.trim() };
+    const fl = await rulesOf(BASE_URL + '#/rules');
+    results.rulesFl = fl && { ledgers: fl.ledgers, unverifiedLabelled: fl.unverifiedLabelled, verifiedWithoutStatus: fl.verifiedWithoutStatus };
+    // Reached from a property page's Source truth and from the state picker.
+    const d = await newPage({ viewport: { width: 1280, height: 900 } });
+    await d.goto(TNR + '?profile=admin#/lands/ptn1', { waitUntil: 'networkidle' });
+    await d.waitForTimeout(500);
+    results.rulesFromProperty = await d.evaluate(() => {
+      const b = document.querySelector('#detailModalInner [data-action="staterules"]');
+      return b ? { county: b.dataset.county, text: b.textContent.trim() } : null;
+    });
+    await d.locator('#detailModalInner [data-action="staterules"]').first().click().catch(() => {});
+    await d.waitForTimeout(500);
+    results.rulesFromPropertyLanded = await d.evaluate(() => ({ hash: location.hash, shown: !!document.querySelector('#rulesPage[data-county="Shelby"]'),
+      modalClosed: document.getElementById('detailModal').hidden }));
+    await d.close();
+  }
   // ---- Acquisition-evidence status per unit (2026-10-06) ----
   {
     const ev = {};
@@ -6389,6 +6442,13 @@ await browser.close();
 
 
 const EXPECTED = {
+  rulesTn: { title: 'Tennessee tax-sale rules', ledgers: { AUCTIONS: 'NOT_TRACKED', AVAILABLE: 'TRACKED', LIENS_CERTIFICATES: 'NOT_TRACKED' },
+    verifiedWithoutStatus: 0, unverifiedLabelled: true, noScores: true, hash: '#/rules', visible: true, hasItems: true },
+  // Georgetown's own rules appear for Georgetown and never for Horry.
+  rulesCounty: { georgetown: ['Georgetown County only'], horry: [], gtTitle: 'South Carolina tax-sale rules - Georgetown County' },
+  rulesFl: { ledgers: { AUCTIONS: 'TRACKED', AVAILABLE: 'TRACKED', LIENS_CERTIFICATES: 'TRACKED' }, unverifiedLabelled: true, verifiedWithoutStatus: 0 },
+  rulesFromProperty: { county: 'Shelby', text: 'Tennessee tax-sale rules for Shelby County →' },
+  rulesFromPropertyLanded: { hash: '#/rules?county=Shelby', shown: true, modalClosed: true },
   tnVisibility: {
     admin: { stateOption: true, stateSelected: 'TN', tabs: ['Auctions', 'Available', 'Liens & Certificates'], countLaft: '1', cardRendered: true, withheld: null, emptyHead: false, redeemable: false, mapCount: '1 shown across 1 county',
       detail: { program: true, sourceStatus: true, noTaxDeedWords: true, noPurchaseLink: true, listNotPurchase: true, noAuctionDate: true } },
@@ -6483,7 +6543,7 @@ const EXPECTED = {
   },
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v116"]},
+  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v117"]},
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · TAXACQ — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · TAXACQ — Florida", floridaCopy: true },

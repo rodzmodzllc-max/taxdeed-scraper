@@ -2486,6 +2486,22 @@ Full description: `docs/data-quality-sprint.md`; per-source matrix: `docs/source
 - **Source matrix:** `scripts/sql/source_quality_matrix.sql` (read-only) -> `data/current_state/source-quality-*.json` ->
   `scripts/source_quality_report.py` (`--check` pinned); every cell `n/N`.
 
+## State rules registry, verification engine, State rules page (2026-10-10, PR open, no migration)
+
+Full description: `docs/state-rules.md`. Stable facts:
+- **`data/state_rules.csv`** (`harvesters/governance/state_rules.py`): kind LAW / PROCEDURE / SOURCE / UNRESOLVED; status
+  VERIFIED only with an https source, title, `verified_on` and repository evidence (LAW also its citation). A "lead only"
+  citation is never VERIFIED; an unverified row has no date. County rows replace the statewide topic for that county only.
+  Only three Florida statute provisions are VERIFIED LAW (read 2026-10-05); the sandbox cannot reach statute sites.
+- **`data/state_ledgers.csv`**: TRACKED / NOT_TRACKED / NOT_OFFERED (needs evidence; none claimed) / NOT_VERIFIED per ledger.
+- **`harvesters/governance/state_verification.py`**: PASS / FAIL / BLOCKED / NOT_APPLICABLE / NOT_VERIFIED findings, no score.
+  A missing record FAILs. `ledger_copy` fails customer copy that denies a fed ledger; `copy_law_claims` fails a statute cited
+  in ledger copy without a VERIFIED LAW rule unless the string says "not verified".
+- **`scripts/build_state_rules.py`** (`--check` pinned) -> `public/state-rules.json` (mirrored) + `data/state_verification.json`.
+  Rebuild after editing either CSV, the evidence tables, the registry or ledger copy in app.js.
+- **Frontend**: `#/rules`, `#/rules?county=` (`renderRulesPage`, `rulesForCounty` mirrors `rules_for`), linked from the state
+  picker and every property's Source truth. `sw.js` -> `tdw-shell-v117`.
+
 ## Where to look for more
 
 - `claude/improvement-roadmap.md` in the "tax florida app" claude.ai Project — the full dated log of every fix, audit finding, and open decision. This is where new findings should be appended, not here.

@@ -90,8 +90,10 @@ def test_n05_router_routes_four_pages_and_keeps_every_existing_hash_working():
     assert 'if (SLUG_TO_LEDGER[seg]) return { page: "list", ledger: SLUG_TO_LEDGER[seg], pid: sub, params };' in block  # #/auctions|lands|certificates[/pid]
     assert 'if (seg === "list")' in block and 'seg === "dashboard" || seg === "map" || seg === "watchlist"' in block
     # County Intelligence (2026-10-06) is a fourth shell page; the three original pages are unchanged.
-    assert 'const SHELL_PAGES = { dashboard: "pageDashboard", list: "pageList", map: "pageMap", county: "pageCounty", research: "pageResearch" };' in APP
+    # State rules (2026-10-10) is one more shell page (#/rules); the others are unchanged.
+    assert 'const SHELL_PAGES = { dashboard: "pageDashboard", list: "pageList", map: "pageMap", county: "pageCounty", research: "pageResearch", rules: "pageRules" };' in APP
     assert 'if (seg === "counties")' in block and 'if (seg === "county")' in block and 'if (seg === "research")' in block
+    assert 'if (seg === "rules")' in block
     assert 'if (name === "auctions") name = "list";' in APP and 'if (name === "watchlist") { openBidList(); return; }' in APP
     # Map context is hash state, not routes per combination.
     assert 'q.set("ledger", mapFilter.ledger)' in APP and 'q.set("county", mapFilter.county)' in APP and 'q.set("q", mapFilter.search)' in APP
@@ -143,6 +145,6 @@ def test_n09_watchlist_folds_the_same_parcel_across_ledgers_and_is_a_destination
 
 
 def test_n10_service_worker_bumped_and_root_mirror_matches_public():
-    assert (REPO / "public/sw.js").read_text(encoding="utf-8").count('const CACHE = "tdw-shell-v116"') == 1
+    assert (REPO / "public/sw.js").read_text(encoding="utf-8").count('const CACHE = "tdw-shell-v117"') == 1
     for f in ("app.js", "styles.css", "sw.js", "index.html", "tx.html", "explore.css"):
         assert (REPO / f).read_bytes() == (REPO / "public" / f).read_bytes(), f

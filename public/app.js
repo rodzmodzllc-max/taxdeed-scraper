@@ -811,10 +811,10 @@ const LEDGERS = {
     empty: "No Lands Available listings match. This list is small by nature - a county only adds a parcel here after it fails to sell at auction, and it leaves again as soon as someone buys it.",
     tx: {
       title: "OTC Catalog — Struck-Off Inventory",
-      sub: "Failed to sell at auction; the taxing unit now holds it. Often purchasable directly (resale), subject to the same statutory redemption rights.",
+      sub: "Failed to sell at auction; the taxing unit now holds it. Often offered directly for resale. Whether, and how long, the former owner can still redeem is set by Texas law that TAXACQ has not verified against the statute's text - see State rules.",
       // Phase 72: see the auction ledger's note above - only LGBS supplies
       // struck-off rows today.
-      how: "No competitive bidding - offered by the taxing unit at or above the minimum. Rows here come from LGBS's struck-off and future-sale listings; the status on each card says which. A struck-off property already sold once can still be redeemed by the former owner, same as at auction.",
+      how: "No competitive bidding - offered by the taxing unit at or above the minimum. Rows here come from LGBS's struck-off and future-sale listings; the status on each card says which. Redemption after a resale is governed by Texas law, which has not been verified here - see State rules.",
       // Phase 14A correction - see the parallel note on the auction ledger's
       // `tx.empty` string above for why this changed.
       empty: "No Texas struck-off inventory matches yet. Texas harvesting runs on-demand (not yet on an automatic schedule) - this list reflects the most recent manual harvest run, so an empty result can mean no recent run, not unavailable harvesting. The Dashboard's Data sources panel shows when Texas was last harvested and whether that run was complete."
@@ -842,8 +842,8 @@ const LEDGERS = {
       title: "Redeemable Tax Deeds",
       nav: "Redeemable Deeds",
       question: "What redeemable deed am I looking at?",
-      sub: "A deed you already own, still subject to the former owner's statutory right to redeem it for a premium (Tex. Tax Code §34.21).",
-      how: "Not a lien purchase - you own the deed. The former owner can redeem within 180 days (25% flat premium) or 2 years for homestead/agricultural/mineral property (25% year 1, 50% year 2), on the aggregate cost, not the bid alone. General summary for orientation only - this app does not track redemption status or deadlines; confirm terms with a Texas attorney.",
+      sub: "A deed you already own, still subject to the former owner's right to redeem it for a premium under Texas law (Tex. Tax Code §34.21 - not verified against the statute's text here).",
+      how: "Not a lien purchase - you own the deed. Not verified against the statute's text: the former owner can redeem within 180 days (25% flat premium) or 2 years for homestead/agricultural/mineral property (25% year 1, 50% year 2), on the aggregate cost, not the bid alone. General summary for orientation only - this app does not track redemption status or deadlines; confirm terms with a Texas attorney.",
       // Phase 14A correction - see the parallel note on the auction ledger's
       // `tx.empty` string above for why this changed.
       empty: "No Texas redeemable deeds match yet. Texas harvesting runs on-demand (not yet on an automatic schedule) - this list reflects the most recent manual harvest run, so an empty result can mean no recent run, not unavailable harvesting. The Dashboard's Data sources panel shows when Texas was last harvested and whether that run was complete."
@@ -914,9 +914,9 @@ const EXPANSION_LEDGER_COPY = {
   },
   "laft": {
     "MI": {
-      "sub": "No Michigan post-sale available source is tracked.",
-      "how": "Michigan post-sale available inventory is not harvested by this app.",
-      "empty": "No Michigan post-sale available records are tracked. Michigan coverage is Eaton and Lenawee counties' published tax-sale lists (see Auctions)."
+      "sub": "Land bank inventory the Detroit Land Bank Authority and the Oceana County Land Bank publish themselves. Both sources await customer-publication review: collected, shown labelled to reviewers, not yet customer-published.",
+      "how": "Each land bank sells on its own published terms (Detroit: its published programs; Oceana: its own application). A figure shown is the land bank's own published price; see each parcel's acquisition section for what has been verified.",
+      "empty": "No Michigan land bank parcels match. Michigan Available coverage is the Detroit Land Bank Authority and Oceana County Land Bank inventories, which await customer-publication review."
     },
     "WY": {
       "sub": "No Wyoming post-sale available source is tracked.",
@@ -924,9 +924,9 @@ const EXPANSION_LEDGER_COPY = {
       "empty": "No Wyoming post-sale available records are tracked. Wyoming coverage is Albany County's published tax sale list (see Auctions)."
     },
     "SC": {
-      "sub": "No South Carolina post-sale available source is tracked.",
-      "how": "South Carolina post-sale available inventory is not harvested by this app.",
-      "empty": "No South Carolina post-sale available records are tracked. South Carolina coverage is York County's published tax sale list (see Auctions)."
+      "sub": "Land the Horry and Georgetown County Forfeited Land Commissions list after their tax sales. Only land whose sale is past the redemption period is shown. Both sources await customer-publication review.",
+      "how": "Horry: bid on the Forfeited Land Commission's bid form. Georgetown: the Commission decides a bidder application and then states the total amount due; the property is offered as is and the deed is a quit claim deed. The figure shown is the amount the list publishes, named as the list names it.",
+      "empty": "No South Carolina forfeited land matches. South Carolina Available coverage is the Horry and Georgetown Forfeited Land Commission lists, which await customer-publication review."
     },
     "CO": {
       "sub": "No Colorado post-sale available source is tracked.",
@@ -1011,9 +1011,9 @@ const EXPANSION_LEDGER_COPY = {
       "empty": "No Minnesota certificate records are tracked. Minnesota coverage is Ramsey County's tax-forfeited land layer (see Available)."
     },
     "TN": {
-      "sub": "Tennessee sells no tax-lien certificates.",
-      "how": "Tennessee tax sales sell redeemable deeds, not certificates.",
-      "empty": "No Tennessee certificate records exist: Tennessee sells no tax-lien certificates. Tennessee coverage is the Shelby County Land Bank's inventory (see Available)."
+      "sub": "No Tennessee certificate source is tracked.",
+      "how": "Tennessee certificate inventory is not harvested by this app. Whether Tennessee tax sales sell certificates at all has not been verified from statute here - see State rules.",
+      "empty": "No Tennessee certificate records are tracked. Tennessee coverage is the Shelby County Land Bank's inventory (see Available)."
     }
   }
 };
@@ -3234,6 +3234,7 @@ async function showApp() {
   else if (route && route.page === "dashboard") showPage("dashboard");
   else if (route && route.page === "county") { if (route.county) openCountyPage(route.county, PAGE_STATE); else openCountyIndex(); }
   else if (route && route.page === "research") openResearchPage();
+  else if (route && route.page === "rules") openRulesPage(route.county);
   else { showPage("list"); if (route && route.page === "watchlist") openBidList(); }
   startIdleWatch();
   // Customer monitoring (saved searches, alerts, change events, analytics) -
@@ -6125,6 +6126,105 @@ async function researchAfterOpen(p) {
   hydrateResearchPanels(p.id);
   if (typeof hydrateDiligence === "function") hydrateDiligence(p.id);
 }
+// ==================== State rules page (#/rules, 2026-10-10) ====================
+// public/state-rules.json (scripts/build_state_rules.py) holds, per state:
+// the three ledgers' tracking status, the recorded rules (statewide and
+// county, each with its kind - state law / government procedure / source
+// behaviour / unresolved - and status), the verified county procedures, and
+// the verification engine's findings. Nothing here is inferred: a rule that
+// was not read from its official source reads "Not verified". A county rule
+// replaces the statewide rule of the same topic for that county only
+// (rulesForCounty mirrors harvesters/governance/state_rules.rules_for).
+var STATE_RULES = null, STATE_RULES_PROMISE = null;
+var RULES_PAGE = RULES_PAGE || { county: null };
+var RULE_KIND_ORDER = ["LAW", "PROCEDURE", "SOURCE", "UNRESOLVED"];
+var RULE_LEDGER_ORDER = ["AUCTIONS", "AVAILABLE", "LIENS_CERTIFICATES"];
+var RULE_LEDGER_NAMES = { AUCTIONS: "Auctions", AVAILABLE: "Available", LIENS_CERTIFICATES: "Liens & Certificates" };
+function loadStateRules() {
+  if (STATE_RULES) return Promise.resolve(STATE_RULES);
+  if (!STATE_RULES_PROMISE) {
+    STATE_RULES_PROMISE = fetch("state-rules.json", { cache: "no-store" })
+      .then(r => (r.ok ? r.json() : null)).then(d => { STATE_RULES = d; return d; })
+      .catch(() => { STATE_RULES_PROMISE = null; return null; });
+  }
+  return STATE_RULES_PROMISE;
+}
+function rulesForCounty(entry, county) {
+  const merged = {};
+  (entry.rules || []).forEach(r => { merged[r.topic] = r; });
+  if (county) (entry.county_rules || []).filter(r => r.county === county).forEach(r => { merged[r.topic] = r; });
+  return Object.keys(merged).sort().map(k => merged[k]);
+}
+function ensureRulesSection() {
+  let sec = document.getElementById("pageRules");
+  if (sec) return sec;
+  const map = document.getElementById("pageMap");
+  sec = document.createElement("section");
+  sec.className = "page rules-page";
+  sec.id = "pageRules";
+  sec.hidden = true;
+  sec.setAttribute("aria-label", "State rules");
+  if (map && map.parentNode) map.parentNode.insertBefore(sec, map.nextSibling);
+  else (document.getElementById("app") || document.body).appendChild(sec);
+  return sec;
+}
+function rulesPageHash() {
+  return RULES_PAGE.county ? "#/rules?county=" + encodeURIComponent(RULES_PAGE.county) : "#/rules";
+}
+function openRulesPage(county) {
+  RULES_PAGE.county = county || null;
+  if (document.getElementById("detailModal") && !document.getElementById("detailModal").hidden) closeDetail();
+  showPage("rules");
+}
+function ruleItemHtml(r, doc) {
+  const status = (doc.statuses || {})[r.status] || r.status;
+  const kind = (doc.kinds || {})[r.kind] || r.kind;
+  const verified = r.status === "VERIFIED";
+  const link = r.source_url ? `<a href="${esc(r.source_url)}" target="_blank" rel="noopener">${esc(r.source_title || "Official source")} →</a>` : "";
+  return `<li class="rule-item" data-status="${esc(r.status)}" data-kind="${esc(r.kind)}" data-scope="${esc(r.scope || "statewide")}">
+    <div class="rule-head"><span class="rule-kind">${esc(kind)}</span><span class="rule-status ${verified ? "ok" : "muted"}">${esc(status)}</span>${r.county ? `<span class="rule-scope">${esc(r.county)} ${esc(UNIT_WORD)} only</span>` : `<span class="rule-scope">Statewide</span>`}</div>
+    <p class="rule-statement">${esc(r.statement)}</p>
+    <p class="rule-meta">${r.citation ? `<span>${esc(r.citation)}</span>` : ""}${link ? `<span>${link}</span>` : ""}${verified && r.verified_on ? `<span>Verified ${esc(fmtDate(r.verified_on))}</span>` : `<span>Not verified - check the official source</span>`}</p>
+    ${r.ambiguity ? `<p class="rule-meta muted">${esc(r.ambiguity)}</p>` : ""}
+  </li>`;
+}
+function rulesPageHtml(doc, st, county) {
+  const entry = doc.states && doc.states[st];
+  if (!entry) return `<div class="rules"><h1>${esc(STATE_INFO.name)} tax-sale rules</h1><p class="muted">No rules are recorded for this state yet.</p></div>`;
+  const ledgers = RULE_LEDGER_ORDER.map(k => {
+    const l = (entry.ledgers || {})[k] || { status: "NOT_VERIFIED", note: "Not recorded" };
+    return `<li class="rules-ledger" data-ledger="${k}" data-status="${esc(l.status)}"><b>${esc(RULE_LEDGER_NAMES[k])}</b> <span class="rule-status ${l.status === "TRACKED" ? "ok" : "muted"}">${esc((doc.ledger_statuses || {})[l.status] || l.status)}</span><span class="rules-ledger-note">${esc(l.note)}</span></li>`;
+  }).join("");
+  const rules = rulesForCounty(entry, county);
+  const byKind = k => rules.filter(r => r.kind === k);
+  const groups = RULE_KIND_ORDER.map(k => byKind(k).length ? `<h3 class="rules-kind-head">${esc((doc.kinds || {})[k] || k)}</h3><ul class="rules-list">${byKind(k).map(r => ruleItemHtml(r, doc)).join("")}</ul>` : "").join("");
+  const others = (entry.county_rules || []).filter(r => r.county !== county);
+  const procs = (entry.county_procedures || []).filter(p => !county || p.county === county);
+  const procHtml = procs.length ? `<ul class="rules-list">${procs.map(p => `<li class="rule-item" data-status="VERIFIED" data-scope="county"><div class="rule-head"><span class="rule-kind">Government procedure</span><span class="rule-status ok">Verified</span><span class="rule-scope">${esc(p.county)} ${esc(UNIT_WORD)} only</span></div>
+      <p class="rule-statement">${esc(p.instructions || p.evidence || p.source_title || "")}</p>
+      <p class="rule-meta"><span><a href="${esc(p.evidence_url)}" target="_blank" rel="noopener">${esc(p.source_title || "Official page")} →</a></span>${p.observed_on ? `<span>Verified ${esc(fmtDate(p.observed_on))}</span>` : ""}</p></li>`).join("")}</ul>`
+    : `<p class="muted">${county ? `No verified procedure is recorded for ${esc(county)} ${esc(UNIT_WORD)} - check with the ${esc(UNIT_WORD.toLowerCase())} office.` : "No county procedure has been verified yet."}</p>`;
+  const notVerified = ((doc.verification || {})[st] || {}).findings || [];
+  const open = notVerified.filter(f => f.status !== "PASS" && f.status !== "NOT_APPLICABLE");
+  return `<div class="rules" id="rulesPage" data-state="${esc(st)}"${county ? ` data-county="${esc(county)}"` : ""}>
+    <div class="rules-head"><h1>${esc(entry.name)} tax-sale rules${county ? ` - ${esc(county)} ${esc(UNIT_WORD)}` : ""}</h1>
+      <p class="rules-lede">What this state's tracked sources sell, how a buyer proceeds, and what is still unknown. A research aid, not legal advice: every statement links its official source, and anything not read from that source is marked Not verified.</p>
+      ${county ? `<p><button type="button" class="link-btn" data-action="staterules">All of ${esc(entry.name)} →</button></p>` : ""}</div>
+    <section class="rules-sec"><h2>What TAXACQ tracks in ${esc(entry.name)}</h2><ul class="rules-ledgers">${ledgers}</ul></section>
+    <section class="rules-sec"><h2>${county ? `Rules for ${esc(county)} ${esc(UNIT_WORD)}` : "Statewide rules"}</h2>${groups || `<p class="muted">No rule recorded.</p>`}
+      ${!county && others.length ? `<h3 class="rules-kind-head">${esc(UNIT_WORD)}-specific</h3><ul class="rules-list">${others.map(r => ruleItemHtml(r, doc)).join("")}</ul>` : ""}</section>
+    <section class="rules-sec"><h2>${esc(UNIT_WORD)} procedures (verified)</h2>${procHtml}</section>
+    <section class="rules-sec"><h2>Open items</h2>${open.length ? `<ul class="rules-open">${open.map(f => `<li data-check="${esc(f.check)}" data-status="${esc(f.status)}"><b>${esc((doc.statuses || {})[f.status] || f.status.replace(/_/g, " ").toLowerCase())}</b> ${esc(f.detail)}${f.subject ? ` <span class="muted">(${esc(f.subject)})</span>` : ""}</li>`).join("")}</ul>` : `<p class="muted">No open items.</p>`}</section>
+  </div>`;
+}
+async function renderRulesPage() {
+  const sec = ensureRulesSection();
+  if (!STATE_RULES) sec.innerHTML = `<p class="muted">Loading state rules…</p>`;
+  const doc = await loadStateRules();
+  if (!doc) { sec.innerHTML = `<div class="rules"><p class="muted">State rules could not be loaded right now.</p><button type="button" class="detail-btn" data-action="rulesretry">Retry</button></div>`; return; }
+  sec.innerHTML = rulesPageHtml(doc, PAGE_STATE, RULES_PAGE.county);
+}
+
 // ---- the My Research page (#/research) ----
 function ensureResearchSection() {
   let sec = document.getElementById("pageResearch");
@@ -8310,6 +8410,7 @@ function sourceTruthHtml(p) {
   rows.push(["Official listing", href ? `<a href="${esc(href)}" target="_blank" rel="noopener" data-acq-link="source">${esc(listing ? listing.label : "Open the source listing")} →</a>` : muted("No listing link on file")]);
   if (p.source !== "certificate") rows.push(["Imagery", imageryTruthHtml(p)]);
   rows.push([`${UNIT_WORD} intelligence`, `<button type="button" class="link-btn" data-action="countyintel" data-county="${esc(p.county)}" data-state="${esc(regionOf(p))}">${esc(`${p.county} ${UNIT_WORD}: sources, coverage and process`)} →</button> <button type="button" class="link-btn county-page-link" data-action="countypage" data-county="${esc(p.county)}" data-state="${esc(regionOf(p))}">${esc(p.source === "auction" ? "County auction intelligence" : "Full county page")} →</button>`]);
+  rows.push(["State rules", `<button type="button" class="link-btn" data-action="staterules" data-county="${esc(p.county)}">${esc(`${STATE_META[regionOf(p)] ? STATE_META[regionOf(p)].name : regionOf(p)} tax-sale rules for ${p.county} ${UNIT_WORD}`)} →</button>`]);
   return detailSectionHtml("Source truth", `<p class="truth-lede">The record as its source publishes it. Nothing here is inferred or scored.</p><dl class="truth-dl">${rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${v}</dd>`).join("")}</dl>`, "truth-card", "truth");
 }
 // Current status (2026-10-05): the one line under the property's identity -
@@ -9129,6 +9230,13 @@ document.addEventListener("click", async e => {
   if (action === "countyshowall") { COUNTY_PAGE.showAll = !COUNTY_PAGE.showAll; renderCountyPage(); return; }
   if (action === "countystates") { openStatePicker(btn); return; }
   if (action === "countyretry") { COUNTY_INTEL_PROMISE = null; renderCountyPage(); return; }
+  if (action === "staterules") {
+    const c = btn.dataset.county || null;
+    if (btn.closest("#statePicker")) { closeStatePicker(); afterSelfBack(() => openRulesPage(c)); }
+    else openRulesPage(c);
+    return;
+  }
+  if (action === "rulesretry") { STATE_RULES_PROMISE = null; renderRulesPage(); return; }
   if (action === "countymap") {
     mapFilter.county = btn.dataset.county;
     mapFilter.ledger = btn.dataset.ledger && LEDGERS[btn.dataset.ledger] ? btn.dataset.ledger : "all";
@@ -10012,6 +10120,8 @@ function routeFromHash() {
   // #/county/<name> (one county's page). The county belongs to PAGE_STATE.
   if (seg === "counties") return { page: "county", county: null, ledger: null, pid: null, params };
   if (seg === "research") return { page: "research", ledger: null, pid: null, params };
+  // State rules (2026-10-10): #/rules (statewide) and #/rules?county=<name>.
+  if (seg === "rules") return { page: "rules", county: params.county || null, ledger: null, pid: null, params };
   if (seg === "county") {
     let county = null;
     try { county = sub ? decodeURIComponent(sub) : null; } catch { county = null; }
@@ -10056,6 +10166,7 @@ function pageHash(name) {
   if (name === "dashboard") return "#/dashboard";
   if (name === "county") return countyPageHash();
   if (name === "research") return "#/research";
+  if (name === "rules") return rulesPageHash();
   return "#/" + (LEDGERS[state.ledger] || LEDGERS.auction).slug;
 }
 // replaceState, never pushState: the Android-back stack (BACK_LAYERS) owns
@@ -10279,6 +10390,8 @@ window.addEventListener("hashchange", () => {
     if (shellPage !== "dashboard") showPage("dashboard");
   } else if (r.page === "research") {
     if (shellPage !== "research") openResearchPage();
+  } else if (r.page === "rules") {
+    if (shellPage !== "rules" || RULES_PAGE.county !== (r.county || null)) openRulesPage(r.county);
   } else if (r.page === "county") {
     if (r.county) { if (shellPage !== "county" || COUNTY_PAGE.county !== r.county) openCountyPage(r.county, PAGE_STATE); }
     else if (shellPage !== "county" || COUNTY_PAGE.view !== "index") openCountyIndex();
@@ -12110,7 +12223,7 @@ let shellPage = "list";
 // Unified navigation (2026-09-30): three pages plus the watchlist, which is
 // a layer over whichever page is open (openBidList()), reached from the same
 // four-entry nav. "auctions" is accepted as the List page's old name.
-const SHELL_PAGES = { dashboard: "pageDashboard", list: "pageList", map: "pageMap", county: "pageCounty", research: "pageResearch" };
+const SHELL_PAGES = { dashboard: "pageDashboard", list: "pageList", map: "pageMap", county: "pageCounty", research: "pageResearch", rules: "pageRules" };
 
 function showPage(name) {
   if (name === "auctions") name = "list";
@@ -12118,6 +12231,7 @@ function showPage(name) {
   if (!SHELL_PAGES[name]) name = "list";
   if (name === "county") ensureCountySection();
   if (name === "research") ensureResearchSection();
+  if (name === "rules") ensureRulesSection();
 
   Object.entries(SHELL_PAGES).forEach(([key, id]) => {
     const el = document.getElementById(id);
@@ -12131,6 +12245,7 @@ function showPage(name) {
   if (name === "map") renderMapPage();
   if (name === "county") renderCountyPage();
   if (name === "research") renderResearchPage();
+  if (name === "rules") renderRulesPage();
   syncPageHash();
 
   window.scrollTo({ top: 0, behavior: "auto" });
@@ -14275,6 +14390,7 @@ function renderStatePicker() {
     (withAvail.length ? `<h3 class="state-group-head">States with Available properties</h3>${withAvail.map(statePickerRowHtml).join("")}` : "") +
     (others.length ? `<h3 class="state-group-head">${withAvail.length ? "Other states" : "States"}</h3>${others.map(statePickerRowHtml).join("")}` : "") +
     coverageExplorerHtml(q) +
+    `<p class="state-rules-link-row"><button type="button" class="link-btn" data-action="staterules" id="statePickerRules">${esc(STATE_INFO.name)} tax-sale rules and sources</button></p>` +
     `<p class="state-picker-note">Counts are shown for ${esc(STATE_INFO.name)}, the state you are in. For other states the badges show which ledgers have properties you can see; open a state to see its counts.</p>`;
 }
 let statePickerReturn = null;
