@@ -3983,7 +3983,7 @@ await navMap.close();
     }
     // Global search while a ledger is still loading: says so, never a final "no match"; refreshes when it arrives.
     {
-      const pg = await newPage({ viewport: { width: 1280, height: 900 } });
+      const pg = await newPage({ viewport: { width: 900, height: 900 } });
       await pg.goto(html('la.html') + '?ledgerdelay=buy:3000#/auctions', { waitUntil: 'domcontentloaded' });
       await pg.waitForSelector('#main [data-ledger-empty="1"]', { timeout: 2900 }).catch(() => {});
       await pg.fill('#globalSearchInput', 'FIXTURE AVE');
@@ -4052,7 +4052,7 @@ await navMap.close();
     // Auction cards (TX vendor minimum bids, MI minimum bids, FL opening bids): the headline label is the bid, never a price.
     const labels = {};
     for (const [f, k] of [['tx.html', 'TX'], ['mi.html', 'MI'], ['index.html', 'FL'], ['sc.html', 'SC']]) {
-      const ap = await newPage({ viewport: { width: 1280, height: 900 } });
+      const ap = await newPage({ viewport: { width: 900, height: 900 } });
       await ap.goto(BASE_URL.replace(/index\.html$/, f) + '#/auctions', { waitUntil: 'networkidle' });
       await ap.waitForTimeout(400);
       labels[k] = await ap.evaluate(() => [...new Set([...document.querySelectorAll('#main .prop-card .card-stat-headline .card-stat-label')].map(e => e.textContent.trim()))].slice(0, 3));
@@ -4063,7 +4063,7 @@ await navMap.close();
   }
   // ---- Acquisition checklist, source truth, county intelligence (2026-10-05) ----
   {
-    const pg = await newPage({ viewport: { width: 1280, height: 900 } });
+    const pg = await newPage({ viewport: { width: 900, height: 900 } });
     pg.on('pageerror', e => errors.push('truth pageerror: ' + e.message));
     await pg.goto(BASE_URL + '#/lands/p15', { waitUntil: 'networkidle' });
     await pg.waitForSelector('#detailModal:not([hidden]) [data-section="acquire"]', { timeout: 8000 });
@@ -4389,7 +4389,7 @@ await navMap.close();
     await pg.close();
     const states = {};
     for (const [page, pid] of [['index.html', 'p15'], ['index.html', 'p3'], ['tx.html', 'ptx3'], ['la.html', 'pla1'], ['mi.html', 'pmi_dlba1'], ['sc.html', 'psc_horry1']]) {
-      const d = await newPage({ viewport: { width: 1280, height: 900 } });
+      const d = await newPage({ viewport: { width: 900, height: 900 } });
       d.on('pageerror', e => errors.push('fp detail pageerror: ' + e.message));
       // Unreviewed sources (MI, SC) are admin-visible only.
       await d.goto(BASE_URL.replace(/index\.html$/, page) + (/^(pmi|psc)/.test(pid) ? '?profile=admin' : '') + '#/lands/' + pid, { waitUntil: 'networkidle' });
@@ -4865,7 +4865,7 @@ await navMap.close();
     const av = JSON.parse(fs.readFileSync(new URL('./python/fixtures/amount_semantics_cases.json', import.meta.url), 'utf8'));
     const am = {};
     for (const [st, id] of [['pa', 'ppa1'], ['ok', 'pok1'], ['mo', 'pmo1'], ['mn', 'pmn1']]) {
-      const pg = await newPage({ viewport: { width: 1280, height: 900 } });
+      const pg = await newPage({ viewport: { width: 900, height: 900 } });
       pg.on('pageerror', e => errors.push('amount pageerror: ' + e.message));
       await pg.goto(BASE_URL.replace(/index\.html$/, st + '.html') + '?profile=admin#/lands/' + id, { waitUntil: 'networkidle' });
       await pg.waitForTimeout(500);
@@ -4892,7 +4892,7 @@ await navMap.close();
     const cv = JSON.parse(fs.readFileSync(new URL('./python/fixtures/coordinate_cases.json', import.meta.url), 'utf8'));
     const co = {};
     for (const [st, id] of [['mn', 'pmn1'], ['la', 'pla1'], ['mo', 'pmo1']]) {
-      const pg = await newPage({ viewport: { width: 1280, height: 900 } });
+      const pg = await newPage({ viewport: { width: 900, height: 900 } });
       pg.on('pageerror', e => errors.push('coord pageerror: ' + e.message));
       await pg.goto(BASE_URL.replace(/index\.html$/, st + '.html') + '?profile=admin#/lands/' + id, { waitUntil: 'networkidle' });
       await pg.waitForTimeout(500);
@@ -4938,7 +4938,7 @@ await navMap.close();
       r.mapCount = await pg.evaluate(() => { const e = document.querySelector('#exploreMapCount'); return e ? e.textContent.replace(/\s+/g, ' ').trim() : null; });
       if (who === 'admin') {
         // A fresh page: a hash-only goto on the same page is a same-document navigation.
-        const dp = await newPage({ viewport: { width: 1280, height: 900 } });
+        const dp = await newPage({ viewport: { width: 900, height: 900 } });
         dp.on('pageerror', e => errors.push('tn detail pageerror: ' + e.message));
         await dp.goto(TN_URL + q + '#/lands/ptn1', { waitUntil: 'networkidle' });
         await dp.waitForTimeout(600);
@@ -4963,7 +4963,7 @@ await navMap.close();
   {
     const ev = {};
     for (const [st, id] of [['mo', 'pmo1'], ['pa', 'ppa1'], ['mn', 'pmn1'], ['ok', 'pok1']]) {
-      const pg = await newPage({ viewport: { width: 1280, height: 900 } });
+      const pg = await newPage({ viewport: { width: 900, height: 900 } });
       pg.on('pageerror', e => errors.push('acqev pageerror: ' + e.message));
       await pg.goto(BASE_URL.replace(/index\.html$/, st + '.html') + '?profile=admin#/lands/' + id, { waitUntil: 'networkidle' });
       await pg.waitForTimeout(500);
@@ -5005,7 +5005,7 @@ await navMap.close();
     results.mapSharedFilters = { shared, toggle, offCount: off.length, offHash: await pg.evaluate(() => location.hash) };
     await setMode('any');
     await pg.close();
-    const cold = await newPage({ viewport: { width: 1280, height: 900 } });
+    const cold = await newPage({ viewport: { width: 900, height: 900 } });
     await cold.goto(BASE_URL + '#/map?lf=0', { waitUntil: 'networkidle' });
     await cold.waitForTimeout(400);
     results.mapListFiltersColdOff = await cold.evaluate(() => { const e = document.getElementById('mapListFilters'); return e ? e.getAttribute('aria-pressed') : null; });
@@ -5095,7 +5095,7 @@ await navMap.close();
   {
     const q = {};
     for (const [h, k] of [['#/lands', 'laft'], ['#/auctions', 'auction'], ['#/certificates', 'certificate']]) {
-      const pg = await newPage({ viewport: { width: 1280, height: 900 } });
+      const pg = await newPage({ viewport: { width: 900, height: 900 } });
       pg.on('pageerror', e => errors.push('refine pageerror: ' + e.message));
       await pg.goto(BASE_URL + h, { waitUntil: 'networkidle' });
       await pg.waitForTimeout(300);
@@ -5103,7 +5103,7 @@ await navMap.close();
       await pg.close();
     }
     results.refineLedgerQuestions = q;
-    const pg = await newPage({ viewport: { width: 1280, height: 900 } });
+    const pg = await newPage({ viewport: { width: 900, height: 900 } });
     await pg.goto(BASE_URL + '#/lands/p15', { waitUntil: 'networkidle' });
     await pg.waitForSelector('#detailModal:not([hidden]) .dossier-status', { timeout: 8000 });
     results.refineDossier = await pg.evaluate(() => {
