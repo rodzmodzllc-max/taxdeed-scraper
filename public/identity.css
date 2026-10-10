@@ -918,3 +918,19 @@ body:has(#authGate:not([hidden])){padding-bottom:0!important}
 .account-goto{border-bottom:1px solid var(--rule);padding:.2rem 0 .3rem;margin-bottom:.2rem}
 .account-goto-head{margin:.3rem .9rem .1rem;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-soft)}
 @media (min-width:1024px){ .account-goto{display:none} }
+
+/* Remediation (2026-10-10): on a phone the three ledgers form one even row.
+   Long labels ("Liens & Certificates") wrap inside their tab instead of
+   clipping at the edge, and the row no longer scrolls sideways. */
+@media (max-width:1023px){
+  .ledger-tabs{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;overflow:visible!important;-webkit-mask-image:none!important;mask-image:none!important}
+  .ledger-tab{white-space:normal!important;text-align:center;line-height:1.2;min-height:44px}
+}
+
+/* Remediation (2026-10-10): the property page is also the desktop side panel
+   (a column of roughly 360px). Its wide parts - the diligence grid and the
+   parcel timeline - were forcing the whole page sideways at 1024-1920px. Inside
+   the panel every block may shrink, and long words wrap instead of widening it. */
+.auctions-body>.detail-panel{min-width:0;max-width:100%;overflow-wrap:anywhere}
+.auctions-body>.detail-panel *{min-width:0;max-width:100%;box-sizing:border-box}
+.auctions-body>.detail-panel table{display:block;overflow-x:auto}

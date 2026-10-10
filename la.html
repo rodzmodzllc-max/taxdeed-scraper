@@ -189,7 +189,7 @@ certificate numbers and the county of the selected state's loaded rows - the
 same textMatches() the List uses. Enter opens the List filtered by it. -->
 <div class="global-search" id="globalSearch" role="search">
   <span class="global-search-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></span>
-  <input type="search" id="globalSearchInput" placeholder="Search address, parcel, APN, county or case number" aria-label="Search properties by address, parcel, county or case number" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="globalSearchResults">
+  <input type="search" id="globalSearchInput" placeholder="Address, parcel, case number, county or owner" aria-label="Search properties by address, parcel, case number, county or owner" autocomplete="off" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="globalSearchResults">
   <button type="button" class="global-search-clear" id="globalSearchClear" aria-label="Clear search" hidden>&times;</button>
   <div class="global-search-results" id="globalSearchResults" role="listbox" aria-label="Search results" hidden></div>
 </div>
@@ -197,7 +197,6 @@ same textMatches() the List uses. Enter opens the List filtered by it. -->
 <!-- The one state selector (global working context): options come from
 STATE_META in app.js (buildStateSelect()); choosing one navigates to that
 state's page and carries the current route along. -->
-<button type="button" class="state-picker-btn" id="statePickerBtn" aria-haspopup="dialog" aria-controls="statePicker" title="Browse states">States</button>
 <label class="state-switch" title="State">
   <select id="stateSelect" aria-label="State"></select>
 </label>
@@ -260,7 +259,7 @@ renderHome() in app.js. The operating view below it is unchanged. -->
 <p class="home-sub">Every record names its source, when it was last read, and the official way to acquire it.</p>
 <form class="home-search" id="homeSearchForm" role="search">
 <span class="home-search-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></span>
-<input type="search" id="homeSearchInput" placeholder="Search address, parcel, county, APN or case number" aria-label="Search properties by address, parcel, county or case number" autocomplete="off">
+<input type="search" id="homeSearchInput" placeholder="Address, parcel, case number, county or owner" aria-label="Search properties by address, parcel, case number, county or owner" autocomplete="off">
 <button type="submit" class="home-search-btn">Search</button>
 </form>
 <p class="home-scope" id="homeScope"></p>
@@ -279,10 +278,6 @@ renderHome() in app.js. The operating view below it is unchanged. -->
 <h2 class="dash-title">Operating view</h2>
 <p id="dashSubtitle">Operating view across every ledger.</p>
 </div>
-<!-- Same account menu as the header badge (theme, password, install, sign
-out) - just a second, more visible entry point, since the badge alone is
-easy to miss on a phone. See openAccountMenu() in app.js. -->
-<button class="dash-settings-btn" id="dashSettingsBtn" type="button" aria-haspopup="true" aria-controls="accountMenu" title="Settings"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 004.6 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.6a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg><span>Settings</span></button>
 </div>
 <!-- Unified navigation (2026-09-30): an operating view. One tile per ledger
 (active count, counties; opens the List page on that ledger), then what
@@ -297,28 +292,8 @@ See renderDashboard() / dashboardOps() in app.js. -->
 <div id="dashAttentionRows"></div>
 </div>
 <div class="dash-panel">
-<div class="dash-panel-head">Recent</div>
-<div id="dashRecentRows"></div>
-</div>
-<div class="dash-panel">
 <div class="dash-panel-head">Verified purchase paths (Available)</div>
 <div id="dashPathRows"></div>
-</div>
-<div class="dash-panel">
-<div class="dash-panel-head">By County</div>
-<div id="dashCountyRows"></div>
-</div>
-<div class="dash-panel">
-<div class="dash-panel-head">By Ledger</div>
-<div id="dashLedgerRows"></div>
-</div>
-<!-- Real, not fabricated: built straight from each row's own sale_date in
-renderDashboard()'s upcomingAuctionRows() - no synthetic "recent activity"
-feed, since this project has no events/audit-log table to source one from
-honestly. -->
-<div class="dash-panel">
-<div class="dash-panel-head">Upcoming Auctions</div>
-<div id="dashUpcomingRows"></div>
 </div>
 <!-- Dataset health, one row per source, from public.source_health
 (migration 016, written by scripts/source_health.py after each harvest
@@ -347,13 +322,13 @@ app.js and docs/production-configuration.md section 7. -->
 <!-- Two (really three) separate ledgers, front and center right after sign-in -
 not one long scroll where Lands Available sits under 300+ auction cards. -->
 <nav class="ledger-tabs" id="ledgerTabs" aria-label="Ledger">
-<button class="ledger-tab" data-ledger="auction" type="button"><span class="ledger-tab-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v18M5 7l3.5-3.5L12 7M5 7c0 2.8 1.6 5 3.5 5S12 9.8 12 7M19 7l-3.5-3.5L12 7M19 7c0 2.8-1.6 5-3.5 5S12 9.8 12 7M4 21h16"/></svg></span>Auctions <b id="tabCountAuction">0</b></button>
-<button class="ledger-tab" data-ledger="laft" type="button"><span class="ledger-tab-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg></span>Available <b id="tabCountLaft">0</b></button>
-<button class="ledger-tab" data-ledger="certificate" type="button"><span class="ledger-tab-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 2h7l5 5v13a2 2 0 01-2 2H7a2 2 0 01-2-2V4a2 2 0 012-2z"/><path d="M9 12h6M9 16h6M9 8h2"/></svg></span>Liens &amp; Certificates <b id="tabCountCertificate">0</b></button>
+<button class="ledger-tab" data-ledger="auction" type="button"><span class="ledger-tab-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v18M5 7l3.5-3.5L12 7M5 7c0 2.8 1.6 5 3.5 5S12 9.8 12 7M19 7l-3.5-3.5L12 7M19 7c0 2.8-1.6 5-3.5 5S12 9.8 12 7M4 21h16"/></svg></span>Auctions</button>
+<button class="ledger-tab" data-ledger="laft" type="button"><span class="ledger-tab-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2L2 7l10 5 10-5-10-5z"/><path d="M2 17l10 5 10-5"/><path d="M2 12l10 5 10-5"/></svg></span>Available</button>
+<button class="ledger-tab" data-ledger="certificate" type="button"><span class="ledger-tab-icon" aria-hidden="true"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 2h7l5 5v13a2 2 0 01-2 2H7a2 2 0 01-2-2V4a2 2 0 012-2z"/><path d="M9 12h6M9 16h6M9 8h2"/></svg></span>Liens &amp; Certificates</button>
 </nav>
 <!-- List head (2026-10-04): the ledger's name and its count for the state,
 then one removable chip per active filter (renderFilterChips() in app.js). -->
-<div class="list-head" id="listHead"><div><h1 class="list-title" id="listTitle">Properties</h1><p class="list-sub" id="listSubtitle"></p></div><button type="button" class="list-map-btn" id="listMapBtn"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 6l7-3 8 3 7-3v16l-7 3-8-3-1 3z"/><path d="M8 3v16M16 6v16"/></svg>Map view</button></div>
+<div class="list-head" id="listHead"><div><h1 class="list-title" id="listTitle">Properties</h1><p class="list-sub" id="listSubtitle"></p></div></div>
 <div class="filter-chips" id="filterChips" hidden></div>
 <div class="summary-strip">
 <button class="chip total" data-status="all" type="button">Shown&nbsp;<b id="chipTotal">0</b></button>
@@ -380,10 +355,6 @@ Sort below), the List/Split/Map view switcher, a per-page limit so
 hundreds of cards don't render at once, and a one-click CSV export of
 whatever's currently filtered. -->
 <div class="quick-controls" id="quickControls">
-<div class="qc-field">
-<span class="qc-icon"><svg class="" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></span>
-<input type="text" id="searchInput" placeholder="Search case #, parcel #, owner, county…" title="Matches case number, parcel number, certificate number, owner name, county and address. Punctuation is ignored, so a parcel pasted from a county site matches either way." autocomplete="off">
-</div>
 <div class="qc-field qc-county">
 <span class="qc-icon"><svg class="" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-8-4.6-8-11a8 8 0 1116 0c0 6.4-8 11-8 11z"/><circle cx="12" cy="10" r="3"/></svg></span>
 <select id="countyQuick"><option value="ALL">All Counties</option></select>
@@ -612,14 +583,6 @@ full note. Same structure, same ids. -->
 <div class="map-toolbar" id="mapToolbar">
 <div class="map-page-titlebox">
 <h1 class="map-page-title">Map</h1>
-<!-- The context line reads what the map is showing right now: the ledger
-pill and the county select (the state is the header's #stateSelect).
-Written by renderMapContext() in app.js on every map render. -->
-<p class="map-context" id="mapContext"><span>Ledger: <b id="mapContextLedger"></b></span> · <span>County: <b id="mapContextCounty"></b></span></p>
-</div>
-<div class="qc-field map-toolbar-search">
-<span class="qc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg></span>
-<input type="text" id="mapSearchInput" placeholder="Search case #, parcel #, owner, county…" title="Matches case number, parcel number, certificate number, owner name, county and address." autocomplete="off">
 </div>
 <div class="qc-field qc-county map-toolbar-county">
 <span class="qc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21s-8-4.6-8-11a8 8 0 1116 0c0 6.4-8 11-8 11z"/><circle cx="12" cy="10" r="3"/></svg></span>
@@ -693,7 +656,6 @@ customers counted on customer-published rows only). -->
 <button class="nav-bottom-item on" data-page="list" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>Search</button>
 <button class="nav-bottom-item" data-page="map" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 6l7-3 8 3 7-3v16l-7 3-8-3-1 3z"/><path d="M8 3v16M16 6v16"/></svg>Map</button>
 <button class="nav-bottom-item" data-page="watchlist" id="navBottomWatchlistBtn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 21V4a1 1 0 011-1c1.2 0 1.2 1 3 1s1.8-1 3.5-1 1.3 1 3.5 1a1 1 0 011 1v9a1 1 0 01-1 1c-2.2 0-2.3-1-3.5-1s-1.3 1-3.5 1-1.8-1-3-1"/></svg>Saved</button>
-<button class="nav-bottom-item nav-bottom-account" id="navBottomAccount" type="button" aria-haspopup="true" aria-controls="accountMenu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/></svg>Account</button>
 </nav>
 
 <!-- ============ "My Watchlist" modal ============ -->
@@ -729,8 +691,8 @@ they know the existing one. -->
 <h2 class="detail-address" style="font-size:1.15rem">Change password</h2>
 <form id="changePasswordForm">
 <input type="password" id="cpCurrent" placeholder="Current password" autocomplete="current-password" required>
-<input type="password" id="cpNew" placeholder="New password (min 6 characters)" autocomplete="new-password" required minlength="6">
-<input type="password" id="cpConfirm" placeholder="Confirm new password" autocomplete="new-password" required minlength="6">
+<input type="password" id="cpNew" placeholder="New password (min 8 characters)" autocomplete="new-password" required minlength="8">
+<input type="password" id="cpConfirm" placeholder="Confirm new password" autocomplete="new-password" required minlength="8">
 <button type="submit" id="cpSubmitBtn">Update password</button>
 </form>
 <div class="auth-msg" id="cpMsg"></div>
@@ -781,10 +743,10 @@ custom token handling. -->
 <h2 class="detail-address" style="font-size:1.15rem">Set a new password</h2>
 <p class="mega-sub" style="margin:0 0 .8rem">You opened a password-reset link. Choose a new password for your account.</p>
 <form id="recoveryForm">
-<label class="pf-field"><span>New password (min 6 characters)</span>
-  <input type="password" id="rcNew" autocomplete="new-password" required minlength="6"></label>
+<label class="pf-field"><span>New password (min 8 characters)</span>
+  <input type="password" id="rcNew" autocomplete="new-password" required minlength="8"></label>
 <label class="pf-field"><span>Confirm new password</span>
-  <input type="password" id="rcConfirm" autocomplete="new-password" required minlength="6"></label>
+  <input type="password" id="rcConfirm" autocomplete="new-password" required minlength="8"></label>
 <button type="submit" id="rcSubmitBtn">Save new password</button>
 </form>
 <div class="auth-msg" id="rcMsg"></div>
@@ -883,7 +845,7 @@ inventing an address - see docs/production-configuration.md section 4. -->
 <p><b>Value ÷ bid</b> is the county value on file divided by the opening bid - arithmetic for screening, not a return or a margin. Fee figures are estimates with a stated open question. Nothing here is a recommendation to bid.</p>
 
 <h3>Before you bid</h3>
-<p>Verify every figure on the county's own site, order a title search, and have a title company or attorney review the parcel. Liens, code enforcement actions and other encumbrances survive a tax deed sale and are not visible here.</p>
+<p>Read the bidding checks in <b>Terms &amp; disclaimer</b> before relying on any figure here.</p>
 </div>
 </div>
 </div>

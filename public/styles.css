@@ -1466,7 +1466,7 @@ the field read as one control. */
    list-area children to column 1 and the panel to column 2/row 1 keeps the
    layout correct regardless of which list view is active. */
 .auctions-body{display:block}
-@media (min-width:1024px){
+@media (min-width:1280px){
   .auctions-body{display:grid;grid-template-columns:minmax(0,1fr) 380px;gap:1.1rem;align-items:start}
   .auctions-body>.data-table-wrap,.auctions-body>#main{grid-column:1;grid-row:1}
   .auctions-body>.detail-panel{grid-column:2;grid-row:1}
@@ -1475,7 +1475,10 @@ the field read as one control. */
   .auctions-body{grid-template-columns:minmax(0,1fr) 420px}
 }
 .detail-panel{display:none}
-@media (min-width:1024px){
+/* Remediation (2026-10-10): the side panel needs a readable column, so it is
+   shown from 1280px. Between 1024 and 1279px a property opens in the full-page
+   modal (one surface per width - see detailPanelOnList() in app.js). */
+@media (min-width:1280px){
   .detail-panel{display:block;position:sticky;top:.9rem;max-height:calc(100vh - 1.8rem);overflow-y:auto;
     background:var(--card);border:1px solid var(--card-line);border-radius:4px;padding:1rem}
   .detail-panel-empty{padding:2.2rem 1rem;text-align:center;color:var(--ink-soft);font-size:.82rem}
