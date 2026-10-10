@@ -4613,6 +4613,35 @@ await navMap.close();
     await dp.close();
     results.accountGotoPhone = { labels, research, counties, desktopHidden };
   }
+  // ---- Record origins: what each key fact is based on (2026-10-10) ----
+  {
+    const rv = JSON.parse(fs.readFileSync(new URL('./python/fixtures/record_origin_cases.json', import.meta.url), 'utf8')).cases;
+    const ro = pg => pg.evaluate(() => Object.fromEntries([...document.querySelectorAll('#detailModalInner #recordOrigins .ro-row')].map(r => [r.dataset.field, r.dataset.origin])));
+    const rp = await newPage({ viewport: { width: 1280, height: 900 } });
+    rp.on('pageerror', e => errors.push('record origins pageerror: ' + e.message));
+    await rp.goto(BASE_URL + '#/auctions/p1', { waitUntil: 'networkidle' });
+    await rp.waitForSelector('#detailModalInner #recordOrigins .ro-row', { timeout: 10000, state: 'attached' });
+    results.recordOriginVectors = await rp.evaluate(cases => cases.filter(c => {
+      const got = window.__tdwRecordOrigins.fromFacts(c.facts);
+      return Object.entries(c.expect).some(([k, v]) => got[k] !== v);
+    }).map(c => c.name), rv);
+    results.recordOriginsAuction = await ro(rp);
+    results.recordOriginsTitle = await rp.evaluate(() => document.querySelector('#detailModalInner #recordOrigins .ro-title').textContent);
+    results.recordOriginsStatusNote = await rp.evaluate(() => document.querySelector('#detailModalInner #recordOrigins .ro-row[data-field="status"] .ro-note').textContent);
+    await rp.goto(BASE_URL + '#/lands/p3', { waitUntil: 'networkidle' });
+    await rp.reload({ waitUntil: 'networkidle' });
+    await rp.waitForSelector('#detailModalInner #recordOrigins .ro-row', { timeout: 10000, state: 'attached' });
+    results.recordOriginsAvailable = await ro(rp);
+    await rp.goto(BASE_URL + '#/certificates/p4', { waitUntil: 'networkidle' });
+    await rp.reload({ waitUntil: 'networkidle' });
+    await rp.waitForSelector('#detailModalInner #recordOrigins .ro-row', { timeout: 10000, state: 'attached' });
+    results.recordOriginsCertificate = await ro(rp);
+    results.certificateOwnership = await rp.evaluate(() => {
+      const r = document.querySelector('#detailModalInner .dec-row[data-q="ownership"]');
+      return r ? r.textContent.replace(/\s+/g, ' ').trim() : null;
+    });
+    await rp.close();
+  }
   // ---- Due diligence: evidence state per checklist item (2026-10-06) ----
   {
     const dv = JSON.parse(fs.readFileSync(new URL('./python/fixtures/due_diligence_cases.json', import.meta.url), 'utf8')).cases;
@@ -6451,7 +6480,7 @@ const EXPECTED = {
   },
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v114"]},
+  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v115"]},
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · TAXACQ — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · TAXACQ — Florida", floridaCopy: true },
@@ -7510,7 +7539,7 @@ const EXPECTED = {
   aucExportOutcomeCols: true,
   aucExportNoGovernance: true,
   aucExportNeverSoldWithoutEvidence: true,
-  certDecQuestions: ['What certificate / lien?', 'Amount?', 'Interest / return terms, if published?', 'Redemption information, if published?', 'Source and freshness?', 'Same parcel in Auctions or Available?', 'What is not known?'],
+  certDecQuestions: ['What certificate / lien?', 'Amount?', 'Does buying it transfer the property?', 'Interest / return terms, if published?', 'Redemption information, if published?', 'Source and freshness?', 'Same parcel in Auctions or Available?', 'What is not known?'],
   certDecWhat: 'Certificate #CERT-42 Alachua County, FL · tax year 2022 · account ACC-999 · parcel 111',
   certDecAmount: '$1,234.56',
   certDecTerms: /^Interest rate 18% \(as published\) · Issued Jun 1, 2023 · Certificate expires [A-Z][a-z]{2} \d{1,2}, \d{4} Published figures only; no return is estimated here\.$/,
@@ -7547,6 +7576,14 @@ const EXPECTED = {
   signupValidAfterRefusals: {"fnCalls": [true], "signUpCalls": 0},
   signupValidPending: true,
   signupPasswordFieldSignin: {"label": "Password", "minLength": -1, "autocomplete": "current-password"},
+  // Record origins + certificate ownership (2026-10-10).
+  recordOriginVectors: [],
+  recordOriginsAuction: {"identity": "STALE", "address": "STALE", "amount": "STALE", "date": "STALE", "status": "INFERRED", "value": "STALE", "coordinates": "NOT_AVAILABLE", "flood": "NOT_AVAILABLE"},
+  recordOriginsTitle: "What this record is based on",
+  recordOriginsStatusNote: "On the source list at the last read - not a published status",
+  recordOriginsAvailable: {"identity": "STALE", "address": "STALE", "amount": "STALE", "date": "STALE", "status": "INFERRED", "value": "ENRICHED", "coordinates": "NOT_AVAILABLE", "flood": "NOT_AVAILABLE"},
+  recordOriginsCertificate: {"identity": "STALE", "amount": "STALE", "date": "STALE", "status": "INFERRED", "value": "NOT_AVAILABLE"},
+  certificateOwnership: "Does buying it transfer the property?NoA tax certificate is a lien on the property, not the property itself. Buying one does not transfer ownership; title changes only through a separate, later process under state law that the certificate holder must pursue.",
   // Sign in with Google / Apple / Microsoft (2026-10-10).
   oauthButtonsHiddenByDefault: 0,
   oauthButtons: [["google", "Continue with Google"], ["apple", "Continue with Apple"], ["azure", "Continue with Microsoft"]],

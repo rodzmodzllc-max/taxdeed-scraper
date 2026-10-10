@@ -3096,3 +3096,19 @@ Full description: `docs/auth-email.md`. Stable facts:
   - recovery then emits PASSWORD_RECOVERY and opens the existing form;
   - a used or expired token reads "That password-reset link has expired …".
 - **Tests.** `tests/recovery_flow_test.mjs` covers this with the real supabase-js (POST `/auth/v1/verify` fake).
+
+## Record trust + quality benchmark (2026-10-10, PR open, stacked on #129, no migration)
+
+Stable facts:
+- **Record origins.** `harvesters/quality/record_origins.py` = app.js `recordOriginsFromFacts()`, pinned by `tests/python/fixtures/record_origin_cases.json`.
+  - States: PUBLISHED / ENRICHED / INFERRED / STALE / NOT_PUBLISHED / NOT_AVAILABLE / NOT_VERIFIED.
+  - An unknown origin code is never published.
+  - Every property page (all three ledgers) shows "What this record is based on" (`#recordOrigins`). No score.
+- **Certificates.** The certificate decision has an "ownership" row: a certificate does not transfer the property (`CERTIFICATE_OWNERSHIP_NOTE`).
+- **Invariants and benchmark.** `harvesters/quality/record_invariants.py` holds the invariants and per-county metrics, with amount-kind semantics.
+  - `scripts/record_quality_benchmark.py` takes `--snapshot` (counts only) or `--rows` (with `--now`).
+  - `docs/record-quality-benchmark-results.md` is generated and `--check` pinned.
+  - Methodology: `docs/record-quality-benchmark.md`.
+- **Static guards** (`tests/python/test_record_quality.py`): every `data-action` has a handler, and the public bundle carries no secret.
+- **Other docs:** `docs/competitive-matrix.md` (search-index only, no confirmed cells) and `docs/customer-testing-script.md` (no sessions run).
+- `sw.js` → `tdw-shell-v115`.
