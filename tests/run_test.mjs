@@ -992,7 +992,7 @@ results.detailStatValues = await page.evaluate(() => {
     return clone.textContent.trim();
   };
   const out = {};
-  document.querySelectorAll('#detailModalInner .detail-stat').forEach(el => {
+  document.querySelectorAll((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '.detail-stat').forEach(el => {
     out[labelOf(el)] = el.querySelector('.detail-stat-val').textContent.trim();
   });
   return ['Year Built', 'Living Area', 'Lot Size', 'Buildings', 'Last Sale', 'Land Value', 'Building / Improvement Value'].map(k => out[k] || '-').join(' | ');
@@ -1003,14 +1003,14 @@ results.detailLegalIsFull = ((await page.locator('#detailModalInner .detail-lega
 // named and distinguishable from the just value above it - the two are
 // different numbers and the old page called one of them "Market Value".
 results.detailNamesBothValues = await page.evaluate(() => {
-  const labels = [...document.querySelectorAll('#detailModalInner .detail-stat-label')].map(e => e.textContent.trim());
+  const labels = [...document.querySelectorAll((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '.detail-stat-label')].map(e => e.textContent.trim());
   return labels.includes('2025 County Just Value') && labels.includes('County Assessed Value');
 });
 // p1 has no homestead exemption on file - the stat should not appear at
 // all (not "No"), since absence of the field is "not confirmed", never a
 // confirmed negative.
 results.homesteadStatAbsentForP1 = !(await page.evaluate(() =>
-  [...document.querySelectorAll('#detailModalInner .detail-stat-label')].some(e => e.textContent.trim() === 'Homestead Exemption')));
+  [...document.querySelectorAll((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '.detail-stat-label')].some(e => e.textContent.trim() === 'Homestead Exemption')));
 // Florida-law reminder that survives every property, not just risky ones -
 // code/utility/IRS liens are never screened for by this app.
 results.muniLienNoteVisible = await page.locator('#detailModalInner .muni-lien-note').count();
@@ -1194,7 +1194,7 @@ results.laftBareLandStat = await page.evaluate(() => {
     if (tip) tip.remove();
     return clone.textContent.trim();
   };
-  const el = [...document.querySelectorAll('#detailModalInner .detail-stat')]
+  const el = [...document.querySelectorAll((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '.detail-stat')]
     .find(e => labelOf(e) === 'Building / Improvement Value');
   return el ? el.querySelector('.detail-stat-val').textContent.trim() : null;
 });
@@ -3592,7 +3592,7 @@ await navMap.close();
   // seven "How to acquire" questions from the county's verified record -
   // the Request to Purchase form, the mailing address, the office phone, the
   // official page - and says plainly there is no online purchase link.
-  const la3q = await la3.evaluate(() => Array.from(document.querySelectorAll('#detailModalInner [data-section="acquire"] .acq-q'))
+  const la3q = await la3.evaluate(() => Array.from(document.querySelectorAll((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '[data-section="acquire"] .acq-q'))
     .map(q => [q.dataset.acqQ, (q.querySelector('.acq-h') || {}).textContent, q.textContent.replace(/\s+/g, ' ')]));
   const qText = n => ((la3q.find(x => x[0] === String(n)) || [])[2]) || '';
   results.laSevenQuestions = {
@@ -3629,7 +3629,7 @@ await navMap.close();
   await sv.waitForTimeout(500);
   results.savedReopen = await sv.evaluate(() => {
     const modal = document.getElementById('detailModal');
-    const sec = (document.querySelector('#detailPanel [data-section="acquire"]') || document.querySelector('#detailModalInner [data-section="acquire"]'));
+    const sec = document.querySelector((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '[data-section="acquire"]');
     const host = document.getElementById('detailModalInner');
     if (!sec || !host) return { open: false };
     const r = sec.getBoundingClientRect(), h = host.getBoundingClientRect();
@@ -4475,7 +4475,7 @@ await navMap.close();
     cp = await newPage({ viewport: { width: 1280, height: 900 } });
     await cp.goto(BASE_URL + '#/lands/p15', { waitUntil: 'networkidle' });
     await cp.waitForSelector('#detailModalInner .county-page-link', { timeout: 10000, state: 'attached' });
-    await cp.evaluate(() => (document.querySelector('#detailPanel .county-page-link') || (document.querySelector('#detailPanel .county-page-link') || document.querySelector('#detailModalInner .county-page-link'))).click());
+    await cp.evaluate(() => (document.querySelector('#detailPanel .county-page-link') || document.querySelector((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '.county-page-link')).click());
     await cp.waitForSelector('#pageCounty .cty[data-county="Citrus"]', { timeout: 5000 });
     results.propertyToCounty = await cp.evaluate(() => ({ hash: location.hash, detailClosed: document.getElementById('detailModal').hidden }));
     // The quick dossier modal links to the full page.
@@ -4484,7 +4484,7 @@ await navMap.close();
     cp = await newPage({ viewport: { width: 1280, height: 900 } });
     await cp.goto(BASE_URL + '#/lands/p15', { waitUntil: 'networkidle' });
     await cp.waitForSelector('#detailModalInner [data-action="countyintel"]', { timeout: 10000, state: 'attached' });
-    await cp.evaluate(() => (document.querySelector('#detailPanel [data-action="countyintel"]') || (document.querySelector('#detailPanel [data-action="countyintel"]') || document.querySelector('#detailModalInner [data-action="countyintel"]'))).click());
+    await cp.evaluate(() => (document.querySelector('#detailPanel [data-action="countyintel"]') || document.querySelector((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '[data-action="countyintel"]')).click());
     await cp.waitForSelector('#countyModal:not([hidden]) .dossier-full [data-action="countypage"]', { timeout: 5000 });
     await cp.click('#countyModal .dossier-full [data-action="countypage"]');
     await cp.waitForSelector('#pageCounty .cty[data-county="Citrus"]', { timeout: 5000 });
@@ -4494,7 +4494,7 @@ await navMap.close();
     await cp.goto(BASE_URL + '#/auctions/p10', { waitUntil: 'networkidle' });
     await cp.waitForSelector('#detailModalInner .county-page-link', { timeout: 10000, state: 'attached' });
     results.auctionCountyLinkText = await cp.locator('#detailModalInner .county-page-link').textContent();
-    await cp.evaluate(() => (document.querySelector('#detailPanel .county-page-link') || (document.querySelector('#detailPanel .county-page-link') || document.querySelector('#detailModalInner .county-page-link'))).click());
+    await cp.evaluate(() => (document.querySelector('#detailPanel .county-page-link') || document.querySelector((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '.county-page-link')).click());
     await cp.waitForSelector('#pageCounty .cty[data-county="Marion"]', { timeout: 5000 });
     results.countyMarionHistory = await cp.evaluate(() => { const sec = document.querySelector('[data-county-section="auctions"]');
       const h = [...sec.querySelectorAll('h4')].find(x => /Historical/i.test(x.textContent)); return h && h.nextElementSibling ? h.nextElementSibling.textContent.trim() : null; });
@@ -4519,24 +4519,24 @@ await navMap.close();
     rp.on('pageerror', e => errors.push('research pageerror: ' + e.message));
     await rp.goto(BASE_URL + '#/lands/p15', { waitUntil: 'networkidle' });
     await rp.waitForSelector('#detailModalInner .research-panel .research-add', { timeout: 10000, state: 'attached' });
-    const officialBefore = await rp.evaluate(() => { const p = window.__tdwLastRender ? null : null; return (document.querySelector('#detailPanel [data-official-status]') || document.querySelector('#detailModalInner [data-official-status]')).textContent; });
-    await rp.evaluate(() => { (document.querySelector('#detailPanel .research-new-name') || document.querySelector('#detailModalInner .research-new-name')).value = 'October Florida Auction'; (document.querySelector('#detailPanel [data-action="researchnewsave"]') || (document.querySelector('#detailPanel [data-action="researchnewsave"]') || document.querySelector('#detailModalInner [data-action="researchnewsave"]'))).click(); });
+    const officialBefore = await rp.evaluate(() => { const p = window.__tdwLastRender ? null : null; return document.querySelector((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '[data-official-status]').textContent; });
+    await rp.evaluate(() => { document.querySelector((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '.research-new-name').value = 'October Florida Auction'; (document.querySelector('#detailPanel [data-action="researchnewsave"]') || document.querySelector((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '[data-action="researchnewsave"]')).click(); });
     await rp.waitForFunction(() => (window.__tdwResearch().items || []).length === 1, null, { timeout: 5000 });
-    await rp.evaluate(() => { const s = (document.querySelector('#detailPanel select.research-state') || document.querySelector('#detailModalInner select.research-state')); s.value = 'DUE_DILIGENCE'; s.dispatchEvent(new Event('change', { bubbles: true })); });
+    await rp.evaluate(() => { const s = document.querySelector((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + 'select.research-state'); s.value = 'DUE_DILIGENCE'; s.dispatchEvent(new Event('change', { bubbles: true })); });
     await rp.waitForTimeout(250);
-    await rp.evaluate(() => { const t = (document.querySelector('#detailPanel textarea.research-note') || document.querySelector('#detailModalInner textarea.research-note')); t.value = 'Ask the clerk about recording fees'; (document.querySelector('#detailPanel [data-action="researchnote"]') || (document.querySelector('#detailPanel [data-action="researchnote"]') || document.querySelector('#detailModalInner [data-action="researchnote"]'))).click(); });
+    await rp.evaluate(() => { const t = document.querySelector((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + 'textarea.research-note'); t.value = 'Ask the clerk about recording fees'; (document.querySelector('#detailPanel [data-action="researchnote"]') || document.querySelector((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '[data-action="researchnote"]')).click(); });
     await rp.waitForTimeout(250);
     const refused = await rp.evaluate(async () => { const it = window.__tdwResearch().items[0]; return [await window.__tdwResearchApi.update(it.id, { research_state: 'SOLD' }), await window.__tdwResearchApi.update(it.id, { research_state: 'available' })]; });
     results.researchServer = await rp.evaluate(([before, refused]) => {
       const r = window.__tdwResearch(), db = window.__stubResearchDb();
       const it = db.research_items[0];
       return { mode: r.mode, lists: db.research_lists.map(l => l.name), state: it.research_state, note: it.note, refused,
-        officialUnchanged: (document.querySelector('#detailPanel [data-official-status]') || document.querySelector('#detailModalInner [data-official-status]')).textContent === before,
+        officialUnchanged: document.querySelector((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '[data-official-status]').textContent === before,
         noStateOnProperty: !Object.keys((window.__tdwLastRender || { rows: [] }).rows.find(p => p.id === 'p15') || {}).some(k => /research/i.test(k)),
-        storageNote: (document.querySelector('#detailPanel .research-storage') || document.querySelector('#detailModalInner .research-storage')).dataset.researchMode };
+        storageNote: document.querySelector((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '.research-storage').dataset.researchMode };
     }, [officialBefore, refused]);
     // A second list, then the My Research page: tabs, rows, the state filter, separate official / research columns.
-    await rp.evaluate(() => { (document.querySelector('#detailPanel .research-new-name') || document.querySelector('#detailModalInner .research-new-name')).value = 'Watch'; (document.querySelector('#detailPanel [data-action="researchnewsave"]') || (document.querySelector('#detailPanel [data-action="researchnewsave"]') || document.querySelector('#detailModalInner [data-action="researchnewsave"]'))).click(); });
+    await rp.evaluate(() => { document.querySelector((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '.research-new-name').value = 'Watch'; (document.querySelector('#detailPanel [data-action="researchnewsave"]') || document.querySelector((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '[data-action="researchnewsave"]')).click(); });
     await rp.waitForFunction(() => window.__tdwResearch().items.length === 2, null, { timeout: 5000 });
     await rp.evaluate(() => document.querySelector('[data-action="closedetail"]').click());
     await rp.waitForTimeout(250);
@@ -4569,9 +4569,9 @@ await navMap.close();
     const lp = await newPage({ viewport: { width: 1280, height: 900 } });
     await lp.goto(BASE_URL.replace('index.html', 'index.html?research=none') + '#/lands/p3', { waitUntil: 'networkidle' });
     await lp.waitForSelector('#detailModalInner .research-panel .research-add', { timeout: 10000, state: 'attached' });
-    await lp.evaluate(() => { (document.querySelector('#detailPanel .research-new-name') || document.querySelector('#detailModalInner .research-new-name')).value = 'Due Diligence'; (document.querySelector('#detailPanel [data-action="researchnewsave"]') || (document.querySelector('#detailPanel [data-action="researchnewsave"]') || document.querySelector('#detailModalInner [data-action="researchnewsave"]'))).click(); });
+    await lp.evaluate(() => { document.querySelector((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '.research-new-name').value = 'Due Diligence'; (document.querySelector('#detailPanel [data-action="researchnewsave"]') || document.querySelector((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '[data-action="researchnewsave"]')).click(); });
     await lp.waitForFunction(() => window.__tdwResearch().items.length === 1, null, { timeout: 5000 });
-    const localFirst = await lp.evaluate(() => ({ mode: window.__tdwResearch().mode, note: (document.querySelector('#detailPanel .research-storage') || document.querySelector('#detailModalInner .research-storage')).dataset.researchMode }));
+    const localFirst = await lp.evaluate(() => ({ mode: window.__tdwResearch().mode, note: document.querySelector((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '.research-storage').dataset.researchMode }));
     await lp.goto(BASE_URL.replace('index.html', 'index.html?research=none') + '#/research', { waitUntil: 'networkidle' });
     await lp.waitForSelector('#pageResearch .research-table', { timeout: 10000 });
     results.researchLocal = Object.assign(localFirst, await lp.evaluate(() => ({ afterReload: document.querySelectorAll('.research-row').length,
@@ -4582,7 +4582,7 @@ await navMap.close();
       const mp = await newPage({ viewport: { width: w, height: 900 } });
       await mp.goto(BASE_URL.replace('index.html', 'index.html?research=none') + '#/lands/p15', { waitUntil: 'networkidle' });
       await mp.waitForSelector('#detailModalInner .research-panel .research-add', { timeout: 10000, state: 'attached' });
-      await mp.evaluate(() => { (document.querySelector('#detailPanel .research-new-name') || document.querySelector('#detailModalInner .research-new-name')).value = 'Mobile list'; (document.querySelector('#detailPanel [data-action="researchnewsave"]') || (document.querySelector('#detailPanel [data-action="researchnewsave"]') || document.querySelector('#detailModalInner [data-action="researchnewsave"]'))).click(); });
+      await mp.evaluate(() => { document.querySelector((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '.research-new-name').value = 'Mobile list'; (document.querySelector('#detailPanel [data-action="researchnewsave"]') || document.querySelector((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '[data-action="researchnewsave"]')).click(); });
       await mp.waitForTimeout(300);
       // A full load (different query) - the saved list lives in this browser in this mode.
       await mp.goto(BASE_URL.replace('index.html', 'index.html?research=none&v=2') + '#/research', { waitUntil: 'networkidle' });
@@ -4600,14 +4600,14 @@ await navMap.close();
       const vp = await newPage({ viewport: { width: 1280, height: 900 } });
       await vp.goto(BASE_URL.replace('index.html', 'index.html?research=none&v=verify') + '#/lands/p15', { waitUntil: 'networkidle' });
       await vp.waitForSelector('#detailModalInner .research-panel .research-add', { timeout: 10000, state: 'attached' });
-      const cellOf = () => vp.evaluate(() => { const c = (document.querySelector('#detailPanel [data-research-cell]') || document.querySelector('#detailModalInner [data-research-cell]'));
+      const cellOf = () => vp.evaluate(() => { const c = document.querySelector((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '[data-research-cell]');
         return c ? { state: c.dataset.researchState, own: /not an official status/.test(c.textContent), besideOfficial: !!c.parentElement.querySelector('dd') && c.parentElement.children.length } : null; });
       results.researchCellBefore = await cellOf();
-      results.researchSectionOrder = await vp.evaluate(() => { const ids = [...document.querySelectorAll('#detailModalInner [data-section]')].map(e => e.dataset.section);
+      results.researchSectionOrder = await vp.evaluate(() => { const ids = [...document.querySelectorAll((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '[data-section]')].map(e => e.dataset.section);
         return { afterProperty: ids.indexOf('research') > ids.indexOf('property') && ids.indexOf('property') > -1, afterAcquire: ids.indexOf('research') > ids.indexOf('acquire') }; });
-      await vp.evaluate(() => (document.querySelector('#detailPanel [data-research-cell] button') || (document.querySelector('#detailPanel [data-research-cell] button') || document.querySelector('#detailModalInner [data-research-cell] button'))).click());
-      results.researchCellJump = await vp.waitForFunction(() => { const r = (document.querySelector('#detailPanel [data-section="research"]') || document.querySelector('#detailModalInner [data-section="research"]')).getBoundingClientRect(); return r.top < innerHeight && r.bottom > 0; }, null, { timeout: 4000 }).then(() => true, () => false);
-      await vp.evaluate(() => { (document.querySelector('#detailPanel .research-new-name') || document.querySelector('#detailModalInner .research-new-name')).value = 'Verify'; (document.querySelector('#detailPanel [data-action="researchnewsave"]') || (document.querySelector('#detailPanel [data-action="researchnewsave"]') || document.querySelector('#detailModalInner [data-action="researchnewsave"]'))).click(); });
+      await vp.evaluate(() => (document.querySelector('#detailPanel [data-research-cell] button') || document.querySelector((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '[data-research-cell] button')).click());
+      results.researchCellJump = await vp.waitForFunction(() => { const r = document.querySelector((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '[data-section="research"]').getBoundingClientRect(); return r.top < innerHeight && r.bottom > 0; }, null, { timeout: 4000 }).then(() => true, () => false);
+      await vp.evaluate(() => { document.querySelector((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '.research-new-name').value = 'Verify'; (document.querySelector('#detailPanel [data-action="researchnewsave"]') || document.querySelector((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '[data-action="researchnewsave"]')).click(); });
       await vp.waitForTimeout(500);
       results.researchCellAfter = await cellOf();
       await vp.close();
@@ -4656,7 +4656,7 @@ await navMap.close();
   // ---- Due diligence: evidence state per checklist item (2026-10-06) ----
   {
     const dv = JSON.parse(fs.readFileSync(new URL('./python/fixtures/due_diligence_cases.json', import.meta.url), 'utf8')).cases;
-    const ddState = pg => pg.evaluate(() => Object.fromEntries([...document.querySelectorAll('#detailModalInner .dd-item')].map(i => [i.dataset.ddKey, i.dataset.ddState])));
+    const ddState = pg => pg.evaluate(() => Object.fromEntries([...document.querySelectorAll((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '.dd-item')].map(i => [i.dataset.ddKey, i.dataset.ddState])));
     const dp = await newPage({ viewport: { width: 1280, height: 900 } });
     dp.on('pageerror', e => errors.push('diligence pageerror: ' + e.message));
     await dp.goto(BASE_URL + '#/lands/p15', { waitUntil: 'networkidle' });
@@ -4670,32 +4670,32 @@ await navMap.close();
     results.diligencePopulatedNotVerified = await dp.evaluate(() => {
       const p = (window.__tdwLastRender || { rows: [] }).rows.find(r => r.id === 'p15') || null;
       const f = window.__tdwDiligence.facts(p);
-      const st = Object.fromEntries([...document.querySelectorAll('#detailModalInner .dd-item')].map(i => [i.dataset.ddKey, i.dataset.ddState]));
+      const st = Object.fromEntries([...document.querySelectorAll((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '.dd-item')].map(i => [i.dataset.ddKey, i.dataset.ddState]));
       return ['legal', 'acreage', 'land_use', 'values'].filter(k => f[k] === 'unsourced').map(k => k + '=' + st[k]);
     });
-    results.diligenceRuleText = await dp.evaluate(() => /A populated value without evidence is “Not verified”/.test((document.querySelector('#detailPanel .dd-rule') || document.querySelector('#detailModalInner .dd-rule')).textContent));
+    results.diligenceRuleText = await dp.evaluate(() => /A populated value without evidence is “Not verified”/.test(document.querySelector((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '.dd-rule').textContent));
     // Verification pass (2026-10-06): the five-state key comes first, and the
     // status band's research cell carries the checklist's evidence count.
-    results.diligenceKeyFirst = await dp.evaluate(() => { const dd = (document.querySelector('#detailPanel .dd') || document.querySelector('#detailModalInner .dd'));
+    results.diligenceKeyFirst = await dp.evaluate(() => { const dd = document.querySelector((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '.dd');
       const key = dd.querySelector('.dd-key'), firstGroup = dd.querySelector('.dd-group');
       return { states: [...key.querySelectorAll('[data-dd-state]')].map(d => d.dataset.ddState), beforeItems: !!(key.compareDocumentPosition(firstGroup) & Node.DOCUMENT_POSITION_FOLLOWING) }; });
-    results.diligenceCellCount = await dp.evaluate(() => { const b = (document.querySelector('#detailPanel [data-research-cell] .dossier-dd') || document.querySelector('#detailModalInner [data-research-cell] .dossier-dd'));
-      const items = [...document.querySelectorAll('#detailModalInner .dd-item')];
+    results.diligenceCellCount = await dp.evaluate(() => { const b = document.querySelector((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '[data-research-cell] .dossier-dd');
+      const items = [...document.querySelectorAll((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '.dd-item')];
       return b ? { verified: Number(b.dataset.ddVerified), applicable: Number(b.dataset.ddApplicable), matchesChecklist: Number(b.dataset.ddVerified) === items.filter(i => i.dataset.ddState === 'VERIFIED').length && Number(b.dataset.ddApplicable) === items.length } : null; });
-    results.diligenceAmountDateWording = await dp.evaluate(() => { const i = (document.querySelector('#detailPanel .dd-item[data-dd-key="acq_amount_date"]') || document.querySelector('#detailModalInner .dd-item[data-dd-key="acq_amount_date"]'));
+    results.diligenceAmountDateWording = await dp.evaluate(() => { const i = document.querySelector((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '.dd-item[data-dd-key="acq_amount_date"]');
       return i ? i.dataset.ddState + ':' + i.querySelector('.dd-evidence').textContent : null; });
-    results.diligenceSaveHint = await dp.evaluate(() => !!(document.querySelector('#detailPanel .dd') || document.querySelector('#detailModalInner .dd')) && !(document.querySelector('#detailPanel .dd-reviewed') || document.querySelector('#detailModalInner .dd-reviewed')));
+    results.diligenceSaveHint = await dp.evaluate(() => !!document.querySelector((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '.dd') && !document.querySelector((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '.dd-reviewed'));
     // Save to research, then mark an item reviewed: the mark persists and the evidence state does not move.
-    await dp.evaluate(() => { (document.querySelector('#detailPanel .research-new-name') || document.querySelector('#detailModalInner .research-new-name')).value = 'Due Diligence'; (document.querySelector('#detailPanel [data-action="researchnewsave"]') || (document.querySelector('#detailPanel [data-action="researchnewsave"]') || document.querySelector('#detailModalInner [data-action="researchnewsave"]'))).click(); });
+    await dp.evaluate(() => { document.querySelector((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '.research-new-name').value = 'Due Diligence'; (document.querySelector('#detailPanel [data-action="researchnewsave"]') || document.querySelector((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '[data-action="researchnewsave"]')).click(); });
     await dp.waitForSelector('#detailModalInner .dd-reviewed[data-key="acq_amount"]', { timeout: 5000, state: 'attached' });
-    const before = await dp.evaluate(() => (document.querySelector('#detailPanel .dd-item[data-dd-key="acq_amount"]') || document.querySelector('#detailModalInner .dd-item[data-dd-key="acq_amount"]')).dataset.ddState);
-    await dp.evaluate(() => { const c = (document.querySelector('#detailPanel .dd-reviewed[data-key="acq_amount"]') || document.querySelector('#detailModalInner .dd-reviewed[data-key="acq_amount"]')); c.checked = true; c.dispatchEvent(new Event('change', { bubbles: true })); });
+    const before = await dp.evaluate(() => document.querySelector((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '.dd-item[data-dd-key="acq_amount"]').dataset.ddState);
+    await dp.evaluate(() => { const c = document.querySelector((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '.dd-reviewed[data-key="acq_amount"]'); c.checked = true; c.dispatchEvent(new Event('change', { bubbles: true })); });
     await dp.waitForTimeout(400);
     results.diligenceMark = await dp.evaluate(before => {
       const it = window.__stubResearchDb().research_items[0];
       return { stored: !!(it.diligence.acq_amount && it.diligence.acq_amount.reviewed), stateBefore: before,
-        stateAfter: (document.querySelector('#detailPanel .dd-item[data-dd-key="acq_amount"]') || document.querySelector('#detailModalInner .dd-item[data-dd-key="acq_amount"]')).dataset.ddState,
-        checked: (document.querySelector('#detailPanel .dd-reviewed[data-key="acq_amount"]') || document.querySelector('#detailModalInner .dd-reviewed[data-key="acq_amount"]')).checked };
+        stateAfter: document.querySelector((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '.dd-item[data-dd-key="acq_amount"]').dataset.ddState,
+        checked: document.querySelector((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '.dd-reviewed[data-key="acq_amount"]').checked };
     }, before);
     // The My Research row summarises the same checklist.
     await dp.evaluate(() => document.querySelector('[data-action="closedetail"]').click());
@@ -4711,7 +4711,7 @@ await navMap.close();
       await pg.goto(BASE_URL + hash, { waitUntil: 'networkidle' });
       await pg.waitForSelector('#detailModalInner [data-section="diligence"] .dd-item', { timeout: 10000, state: 'attached' });
       const st = await ddState(pg);
-      per[id] = { keys: Object.keys(st).length, groups: await pg.evaluate(() => [...document.querySelectorAll('#detailModalInner .dd-group')].map(g => g.dataset.ddGroup)),
+      per[id] = { keys: Object.keys(st).length, groups: await pg.evaluate(() => [...document.querySelectorAll((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '.dd-group')].map(g => g.dataset.ddGroup)),
         pick: Object.fromEntries(['result', 'sale_date', 'bid', 'auction_source', 'cert_number', 'cert_face', 'cert_interest', 'cert_redemption', 'acq_path', 'coords'].filter(k => st[k]).map(k => [k, st[k]])) };
       await pg.close();
     }
@@ -4720,13 +4720,13 @@ await navMap.close();
     const lp = await newPage({ viewport: { width: 1280, height: 900 } });
     await lp.goto(BASE_URL.replace('index.html', 'index.html?research=none') + '#/lands/p3', { waitUntil: 'networkidle' });
     await lp.waitForSelector('#detailModalInner .research-panel .research-add', { timeout: 10000, state: 'attached' });
-    await lp.evaluate(() => { (document.querySelector('#detailPanel .research-new-name') || document.querySelector('#detailModalInner .research-new-name')).value = 'Watch'; (document.querySelector('#detailPanel [data-action="researchnewsave"]') || (document.querySelector('#detailPanel [data-action="researchnewsave"]') || document.querySelector('#detailModalInner [data-action="researchnewsave"]'))).click(); });
+    await lp.evaluate(() => { document.querySelector((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '.research-new-name').value = 'Watch'; (document.querySelector('#detailPanel [data-action="researchnewsave"]') || document.querySelector((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '[data-action="researchnewsave"]')).click(); });
     await lp.waitForSelector('#detailModalInner .dd-reviewed[data-key="parcel"]', { timeout: 5000, state: 'attached' });
-    await lp.evaluate(() => { const c = (document.querySelector('#detailPanel .dd-reviewed[data-key="parcel"]') || document.querySelector('#detailModalInner .dd-reviewed[data-key="parcel"]')); c.checked = true; c.dispatchEvent(new Event('change', { bubbles: true })); });
+    await lp.evaluate(() => { const c = document.querySelector((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '.dd-reviewed[data-key="parcel"]'); c.checked = true; c.dispatchEvent(new Event('change', { bubbles: true })); });
     await lp.waitForTimeout(300);
     await lp.goto(BASE_URL.replace('index.html', 'index.html?research=none&v=3') + '#/lands/p3', { waitUntil: 'networkidle' });
     await lp.waitForSelector('#detailModalInner .dd-reviewed[data-key="parcel"]', { timeout: 10000, state: 'attached' });
-    results.diligenceLocalPersist = await lp.evaluate(() => (document.querySelector('#detailPanel .dd-reviewed[data-key="parcel"]') || document.querySelector('#detailModalInner .dd-reviewed[data-key="parcel"]')).checked);
+    results.diligenceLocalPersist = await lp.evaluate(() => document.querySelector((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '.dd-reviewed[data-key="parcel"]').checked);
     await lp.close();
     const ov = [];
     for (const w of [390, 430, 768, 1024, 1440, 1920]) {
@@ -4759,7 +4759,7 @@ await navMap.close();
     // A saved research list routes to My Research, on that list.
     await sp.goto(BASE_URL.replace('index.html', 'index.html?v=sg') + '#/lands/p15', { waitUntil: 'networkidle' });
     await sp.waitForSelector('#detailModalInner .research-panel .research-add', { timeout: 10000, state: 'attached' });
-    await sp.evaluate(() => { (document.querySelector('#detailPanel .research-new-name') || document.querySelector('#detailModalInner .research-new-name')).value = 'Gulf Lots'; (document.querySelector('#detailPanel [data-action="researchnewsave"]') || (document.querySelector('#detailPanel [data-action="researchnewsave"]') || document.querySelector('#detailModalInner [data-action="researchnewsave"]'))).click(); });
+    await sp.evaluate(() => { document.querySelector((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '.research-new-name').value = 'Gulf Lots'; (document.querySelector('#detailPanel [data-action="researchnewsave"]') || document.querySelector((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '[data-action="researchnewsave"]')).click(); });
     await sp.waitForTimeout(400);
     await sp.evaluate(() => document.querySelector('[data-action="closedetail"]').click());
     await sp.waitForTimeout(300);
@@ -4785,11 +4785,11 @@ await navMap.close();
     await tp.waitForSelector('#detailModalInner [data-section="timeline"] .parcel-timeline li', { timeout: 10000, state: 'attached' });
     results.timelineVectors = await tp.evaluate(() => Object.fromEntries(['p1', 'p2', 'p3', 'p4', 'p13', 'p15'].map(id => [id, (window.__tdwParcelTimeline(id) || []).map(e => `${e.ledger}:${e.kind}${e.self ? ':self' : ''}`)])));
     results.timelineCert = await tp.evaluate(() => ({
-      items: [...document.querySelectorAll('#detailModalInner .parcel-timeline li')].map(li => `${li.dataset.ledger}:${li.dataset.kind}${li.dataset.self ? ':self' : ''}`),
-      note: /appears in 2 ledgers/.test((document.querySelector('#detailPanel [data-section="timeline"]') || document.querySelector('#detailModalInner [data-section="timeline"]')).textContent),
-      neverSold: /never a sale, a redemption or a forfeiture/.test((document.querySelector('#detailPanel [data-section="timeline"]') || document.querySelector('#detailModalInner [data-section="timeline"]')).textContent),
-      navPill: [...document.querySelectorAll('#detailModalInner .detail-nav button')].some(b => b.textContent === 'Timeline'),
-      countyLink: !!(document.querySelector('#detailPanel .related-county [data-action="countypage"]') || document.querySelector('#detailModalInner .related-county [data-action="countypage"]'))
+      items: [...document.querySelectorAll((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '.parcel-timeline li')].map(li => `${li.dataset.ledger}:${li.dataset.kind}${li.dataset.self ? ':self' : ''}`),
+      note: /appears in 2 ledgers/.test(document.querySelector((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '[data-section="timeline"]').textContent),
+      neverSold: /never a sale, a redemption or a forfeiture/.test(document.querySelector((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '[data-section="timeline"]').textContent),
+      navPill: [...document.querySelectorAll((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '.detail-nav button')].some(b => b.textContent === 'Timeline'),
+      countyLink: !!document.querySelector((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '.related-county [data-action="countypage"]')
     }));
     // Certificate -> the same parcel's auction record, from the timeline.
     await tp.click('#detailModalInner .parcel-timeline li[data-ledger="auction"] [data-action="viewdetails"]');
@@ -4797,7 +4797,7 @@ await navMap.close();
     results.timelineCrossLink = await tp.evaluate(() => location.hash);
     // Property -> county page, from the same-parcel section.
     await tp.waitForSelector('#detailModalInner .related-county [data-action="countypage"]', { timeout: 5000, state: 'attached' });
-    await tp.evaluate(() => (document.querySelector('#detailPanel .related-county [data-action="countypage"]') || (document.querySelector('#detailPanel .related-county [data-action="countypage"]') || document.querySelector('#detailModalInner .related-county [data-action="countypage"]'))).click());
+    await tp.evaluate(() => (document.querySelector('#detailPanel .related-county [data-action="countypage"]') || document.querySelector((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '.related-county [data-action="countypage"]')).click());
     await tp.waitForSelector('#pageCounty:not([hidden])', { timeout: 5000 });
     results.timelineCountyRoute = await tp.evaluate(() => location.hash);
     await tp.close();
@@ -4854,9 +4854,9 @@ await navMap.close();
     const ip = await newPage({ viewport: { width: 412, height: 915 } });
     ip.on('pageerror', e => errors.push('county-only imagery pageerror: ' + e.message));
     await ip.goto(BASE_URL.replace('index.html', 'index.html?v=countyonly') + '#/lands/p3', { waitUntil: 'networkidle' });
-    await ip.waitForFunction(() => !!(document.querySelector('#detailPanel .detail-hero-photo') || document.querySelector('#detailModalInner .detail-hero-photo')), null, { timeout: 10000 });
-    await ip.waitForFunction(() => !!(document.querySelector('#detailPanel .detail-hero-photo svg') || document.querySelector('#detailModalInner .detail-hero-photo svg')), null, { timeout: 8000 }).catch(() => {});
-    results.countyOnlyImagery = await ip.evaluate(() => { const h = (document.querySelector('#detailPanel .detail-hero-photo') || document.querySelector('#detailModalInner .detail-hero-photo'));
+    await ip.waitForFunction(() => !!document.querySelector((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '.detail-hero-photo'), null, { timeout: 10000 });
+    await ip.waitForFunction(() => !!document.querySelector((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '.detail-hero-photo svg'), null, { timeout: 8000 }).catch(() => {});
+    results.countyOnlyImagery = await ip.evaluate(() => { const h = document.querySelector((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '.detail-hero-photo');
       return { countyOnly: h.classList.contains('minimap-county'), drawn: !!h.querySelector('svg .mm-county'), noPoint: !h.querySelector('.mm-dot, .mm-halo'), caption: [...h.querySelectorAll('.photo-caption > span')].map(x => x.textContent) }; });
     await ip.close();
   }
@@ -5748,7 +5748,7 @@ await monDetail.waitForTimeout(1900);
   // the event - fixed sleeps raced the slower CI runner (the modal was hidden
   // below before the section had ever been on screen).
   await monDetail.waitForSelector('#detailModalInner [data-section="acquire"]', { timeout: 15000 }).catch(() => {});
-  await monDetail.evaluate(() => { const el = (document.querySelector('#detailPanel [data-section="acquire"]') || document.querySelector('#detailModalInner [data-section="acquire"]')); if (el) el.scrollIntoView(); });
+  await monDetail.evaluate(() => { const el = document.querySelector((document.getElementById('detailModal').hidden ? '#detailPanel ' : '#detailModalInner ') + '[data-section="acquire"]'); if (el) el.scrollIntoView(); });
   await monDetail.waitForFunction(() => (window.__stubProductEvents || []).some(e => e.event === 'acquisition_section_viewed'), null, { timeout: 10000 }).catch(() => {});
   // Links are followed for real by investors; here the navigation is suppressed
   // after the (capture-phase) analytics listener has seen the click.
