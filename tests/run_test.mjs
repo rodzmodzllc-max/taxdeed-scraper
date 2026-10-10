@@ -4475,7 +4475,7 @@ await navMap.close();
     cp = await newPage({ viewport: { width: 1280, height: 900 } });
     await cp.goto(BASE_URL + '#/lands/p15', { waitUntil: 'networkidle' });
     await cp.waitForSelector('#detailModalInner .county-page-link', { timeout: 10000, state: 'attached' });
-    await cp.evaluate(() => document.querySelector('#detailModalInner .county-page-link').click());
+    await cp.evaluate(() => (document.querySelector('#detailPanel .county-page-link') || document.querySelector('#detailModalInner .county-page-link')).click());
     await cp.waitForSelector('#pageCounty .cty[data-county="Citrus"]', { timeout: 5000 });
     results.propertyToCounty = await cp.evaluate(() => ({ hash: location.hash, detailClosed: document.getElementById('detailModal').hidden }));
     // The quick dossier modal links to the full page.
@@ -4494,7 +4494,7 @@ await navMap.close();
     await cp.goto(BASE_URL + '#/auctions/p10', { waitUntil: 'networkidle' });
     await cp.waitForSelector('#detailModalInner .county-page-link', { timeout: 10000, state: 'attached' });
     results.auctionCountyLinkText = await cp.locator('#detailModalInner .county-page-link').textContent();
-    await cp.evaluate(() => document.querySelector('#detailModalInner .county-page-link').click());
+    await cp.evaluate(() => (document.querySelector('#detailPanel .county-page-link') || document.querySelector('#detailModalInner .county-page-link')).click());
     await cp.waitForSelector('#pageCounty .cty[data-county="Marion"]', { timeout: 5000 });
     results.countyMarionHistory = await cp.evaluate(() => { const sec = document.querySelector('[data-county-section="auctions"]');
       const h = [...sec.querySelectorAll('h4')].find(x => /Historical/i.test(x.textContent)); return h && h.nextElementSibling ? h.nextElementSibling.textContent.trim() : null; });
