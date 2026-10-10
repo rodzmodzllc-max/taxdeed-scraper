@@ -811,10 +811,10 @@ const LEDGERS = {
     empty: "No Lands Available listings match. This list is small by nature - a county only adds a parcel here after it fails to sell at auction, and it leaves again as soon as someone buys it.",
     tx: {
       title: "OTC Catalog — Struck-Off Inventory",
-      sub: "Failed to sell at auction; the taxing unit now holds it. Often offered directly for resale. Whether, and how long, the former owner can still redeem is set by Texas law that TAXACQ has not verified against the statute's text - see State rules.",
+      sub: "Failed to sell at auction; the taxing unit now holds it. Whether and how the unit resells it is set per taxing unit (Tex. Tax Code 34.05 - not verified against the statute's text): a struck-off listing is not automatically for sale, and not at a fixed price. Whether, and how long, the former owner can still redeem is Texas law that TAXACQ has not verified - see State rules.",
       // Phase 72: see the auction ledger's note above - only LGBS supplies
       // struck-off rows today.
-      how: "No competitive bidding - offered by the taxing unit at or above the minimum. Rows here come from LGBS's struck-off and future-sale listings; the status on each card says which. Redemption after a resale is governed by Texas law, which has not been verified here - see State rules.",
+      how: "Where a taxing unit resells, there is no competitive bidding and the unit runs its own process; the figure shown is the listing's minimum, not a price the unit has agreed to. Rows here come from LGBS's struck-off and future-sale listings; the status on each card says which. Redemption after a resale is governed by Texas law, which has not been verified here - see State rules.",
       // Phase 14A correction - see the parallel note on the auction ledger's
       // `tx.empty` string above for why this changed.
       empty: "No Texas struck-off inventory matches yet. Texas harvesting runs on-demand (not yet on an automatic schedule) - this list reflects the most recent manual harvest run, so an empty result can mean no recent run, not unavailable harvesting. The Dashboard's Data sources panel shows when Texas was last harvested and whether that run was complete."
@@ -3538,6 +3538,118 @@ var PROPERTIES_DONE = null;
 var LOADED_FOR = null;   // the account the loaded rows belong to (showApp reuse guard)
 function ledgerSettled(k) { return !!LEDGER_LOAD && (LEDGER_LOAD[k] === "done" || LEDGER_LOAD[k] === "error"); }
 function allLedgersSettled() { return !!LEDGER_LOAD && Object.keys(LEDGER_LOAD).every(ledgerSettled); }
+
+// ==================== Ledger eligibility and zero-count semantics (2026-10-10) ====================
+// Eligibility (does this state offer the product), tracking (does TAXACQ read
+// a source for it), county coverage, the current qualifying count, the last
+// count a complete read listed, read health and freshness are SEPARATE facts:
+// eligibility and coverage come from data/state_ledgers.csv via
+// public/state-rules.json, the count from the loaded rows, health and the
+// last known count from the per-county registry freshness. A zero is never
+// ambiguous - every zero names which of these cases it is - and a failed or
+// incomplete read never turns into a bare zero and never changes eligibility.
+// var / function declarations: section() runs from render() during module
+// init (TDZ).
+var LEDGER_NAME_FOR_KEY = { auction: "AUCTIONS", laft: "AVAILABLE", certificate: "LIENS_CERTIFICATES" };
+var ZERO_CASE_COPY = {
+  NOT_OFFERED: { label: "Not offered", text: "This state does not offer this type of tax-sale product under the verified rules." },
+  NO_CURRENT_INVENTORY: { label: "No current inventory", text: "This product exists in this state, but no qualifying record was present in the last successful source read." },
+  COUNTY_DEPENDENT: { label: "County by county", text: "This product is offered only in qualifying counties or through specific local taxing entities, and no qualifying record is present for the counties TAXACQ reads." },
+  NOT_VERIFIED: { label: "Not verified", text: "The rules or availability of this product in this state have not been verified yet. This zero is not a statement that the state does not offer it." },
+  NOT_IMPLEMENTED: { label: "No source implemented", text: "Inventory is not displayed because no source for this product is implemented for this state yet. This is not proof that no properties exist." },
+  SOURCE_RESTRICTED: { label: "Source restricted or pending review", text: "Inventory is not displayed because its source is restricted or awaiting customer-publication review. This is not proof that no properties exist." },
+  SOURCE_FAILURE: { label: "Source read failed or incomplete", text: "The last read of this product's source failed or was incomplete, so the current count cannot be confirmed. Only the last known count is shown, labelled as such; nothing was closed and eligibility is unchanged." }
+};
+function ledgerUnits(kind) {
+  if (!Array.isArray(UNIT_FRESHNESS)) return null;
+  return UNIT_FRESHNESS.filter(u => u.state === PAGE_STATE && unitLedgerKeys(u).includes(kind));
+}
+function ledgerEligibility(kind) {
+  const entry = STATE_RULES && STATE_RULES.states && STATE_RULES.states[PAGE_STATE];
+  const led = entry && entry.ledgers && entry.ledgers[LEDGER_NAME_FOR_KEY[kind]];
+  return led || null;
+}
+// One record per ledger: the facts above, and the zero case (null while rows
+// are present and the load succeeded). Precedence: a failed load is a
+// failure whatever the count; NOT_OFFERED is law; then, for a zero, a failed
+// or stale read, an unimplemented source, a withheld / restricted source,
+// unverified rules, county scope, and only then "no current inventory".
+function ledgerZeroState(kind) {
+  const led = ledgerEligibility(kind);
+  const eligibility = led && led.eligibility ? led.eligibility : "NOT_VERIFIED";
+  const tracked = !!led && led.status === "TRACKED";
+  const count = ALL.filter(p => p.source === kind).length;
+  const withheld = (WITHHELD && WITHHELD[kind]) || 0;
+  const pending = (REVIEW_PENDING_SHOWN && REVIEW_PENDING_SHOWN[kind]) || 0;
+  const loadFailed = !!PROPERTIES_LOADED && (LEDGER_LOAD[kind] === "error" || LOAD_ISSUES.some(i => LEDGER_FOR_TYPE[i.ledgerType] === kind));
+  const settled = !!PROPERTIES_LOADED && LEDGER_LOAD[kind] !== "idle" && LEDGER_LOAD[kind] !== "loading";
+  const units = ledgerUnits(kind);
+  const healths = (units || []).map(u => sourceHealthState(u));
+  const unitsRead = (units || []).filter(u => u.last_success_at);
+  const lastRead = unitsRead.length ? unitsRead.map(u => u.last_success_at).sort().pop() : null;
+  const counted = unitsRead.filter(u => u.last_success_row_count !== null && u.last_success_row_count !== undefined);
+  const lastKnown = counted.length ? counted.reduce((n, u) => n + Number(u.last_success_row_count), 0) : null;
+  const unhealthy = healths.filter(h => h.state === "SOURCE_UNAVAILABLE" || h.state === "PARTIAL" || h.state === "STALE").length;
+  const readOk = healths.some(h => h.state === "CURRENT" || h.state === "RECENT");
+  const health = units === null || !healths.length ? "NOT_RECORDED"
+    : healths.every(h => h.state === "SOURCE_UNAVAILABLE") ? "SOURCE_UNAVAILABLE"
+    : unhealthy && !readOk ? "DEGRADED" : unhealthy ? "PARTIAL" : readOk ? "CURRENT" : healths[0].state;
+  let zeroCase = null;
+  if (loadFailed) zeroCase = "SOURCE_FAILURE";
+  else if (eligibility === "NOT_OFFERED") zeroCase = "NOT_OFFERED";
+  else if (count > 0 || !settled) zeroCase = null;
+  else if (healths.length && unhealthy && !readOk) zeroCase = "SOURCE_FAILURE";
+  else if (!tracked) zeroCase = "NOT_IMPLEMENTED";
+  else if (withheld || pending || eligibility === "SOURCE_RESTRICTED") zeroCase = "SOURCE_RESTRICTED";
+  else if (eligibility === "NOT_VERIFIED") zeroCase = "NOT_VERIFIED";
+  else if (eligibility === "COUNTY_DEPENDENT") zeroCase = "COUNTY_DEPENDENT";
+  else zeroCase = "NO_CURRENT_INVENTORY";
+  return { kind, led, eligibility, tracked, count, withheld, pending, loadFailed, settled, units, health, lastRead, lastKnown, unhealthy, zeroCase,
+    coverage: led && Array.isArray(led.coverage) ? led.coverage : [] };
+}
+function ledgerNoun(kind, n) {
+  const num = Number(n).toLocaleString("en-US");
+  return kind === "certificate" ? `${num} instrument${n === 1 ? "" : "s"}` : `${num} propert${n === 1 ? "y" : "ies"}`;
+}
+function coverageStatusWord(c) {
+  const pubs = (c.sources || []).map(x => x.publication);
+  if (pubs.some(p => p === "APPROVED" || p === "APPROVED_GRANDFATHERED")) return "published";
+  if (pubs.some(p => p === "UNREVIEWED")) return "collected, awaiting review";
+  if (pubs.some(p => p === "RESTRICTED")) return "restricted";
+  if (pubs.some(p => p === "BLOCKED")) return "blocked";
+  if ((c.procedures || []).length) return "procedure verified, no inventory source";
+  return "recorded";
+}
+// The status strip above every ledger: offered / tracked / current count /
+// source read, and - when the count is zero - which zero it is. opts.compact
+// drops the links (the rules page is already the rules page).
+function ledgerStatusHtml(kind, shown, opts) {
+  const o = opts || {};
+  const z = ledgerZeroState(kind);
+  const doc = STATE_RULES || {};
+  const eligLabel = (doc.eligibilities || {})[z.eligibility] || z.eligibility.replace(/_/g, " ").toLowerCase();
+  const eligCls = z.eligibility === "OFFERED" || z.eligibility === "COUNTY_DEPENDENT" ? "ok" : z.eligibility === "NOT_OFFERED" ? "bad" : "muted";
+  const countText = !z.settled ? "Loading…" : z.loadFailed ? (z.count ? `${ledgerNoun(kind, z.count)} loaded - load failed, may be incomplete` : "Count unavailable - load failed") : ledgerNoun(kind, z.count);
+  const filtered = z.settled && !z.loadFailed && Array.isArray(shown) && shown.length !== z.count ? ` · ${shown.length.toLocaleString("en-US")} match the current filters` : "";
+  const units = z.units;
+  const freshness = units === null ? "Read health not recorded on this deployment"
+    : !units.length ? "No source read recorded for this ledger"
+    : (z.lastRead ? `Last complete read ${relativeTime(z.lastRead)}` : "No complete read recorded")
+      + (z.unhealthy ? ` · ${z.unhealthy} of ${units.length} source${units.length === 1 ? "" : "s"} unavailable, partial or stale` : ` · ${units.length} source${units.length === 1 ? "" : "s"} read`);
+  const lastKnown = z.zeroCase === "SOURCE_FAILURE" ? (z.lastKnown !== null ? `Last known count: ${ledgerNoun(kind, z.lastKnown)}${z.lastRead ? ` (last complete read ${relativeTime(z.lastRead)})` : ""}` : "Last known count: not recorded") : "";
+  const why = z.zeroCase ? ZERO_CASE_COPY[z.zeroCase] : null;
+  const unitsCap = UNITS_WORD.charAt(0).toUpperCase() + UNITS_WORD.slice(1);
+  const covText = z.eligibility === "COUNTY_DEPENDENT" && z.coverage.length ? `${unitsCap} with a tracked source or verified procedure: ${z.coverage.map(c => c.county).join(", ")}` : "";
+  const verified = z.led && z.led.eligibility_verified_on ? `verified ${fmtDate(z.led.eligibility_verified_on)}` : "not verified";
+  return `<div class="ledger-status" data-ledger-status="${esc(kind)}" data-eligibility="${esc(z.eligibility)}" data-zero-case="${esc(z.zeroCase || "")}" data-health="${esc(z.health)}" data-tracked="${z.tracked ? "1" : "0"}">
+    <span class="ls-item"><b>Offered here</b><span class="ls-val ${eligCls}" data-ls-eligibility>${esc(eligLabel)}</span><span class="ls-sub">${esc(verified)}</span></span>
+    <span class="ls-item"><b>Tracked</b><span class="ls-val" data-ls-tracked>${esc(z.led ? ((doc.ledger_statuses || {})[z.led.status] || z.led.status) : "Not recorded")}</span></span>
+    <span class="ls-item"><b>Current count</b><span class="ls-val" data-ls-count="${z.settled && !z.loadFailed ? z.count : ""}">${esc(countText)}</span>${filtered ? `<span class="ls-sub">${esc(filtered)}</span>` : ""}</span>
+    <span class="ls-item"><b>Source read</b><span class="ls-val" data-ls-read>${esc(freshness)}</span></span>
+    ${why ? `<p class="ls-why" data-zero-why="${esc(z.zeroCase)}"><b>${esc(why.label)}.</b> ${esc(why.text)}${lastKnown ? ` ${esc(lastKnown)}.` : ""}${covText ? ` ${esc(covText)}.` : ""}</p>` : ""}
+    ${o.compact ? "" : `<p class="ls-links">${z.led && z.led.meaning ? `<span class="ls-meaning">${esc(z.led.meaning)}</span>` : ""}<button type="button" class="link-btn" data-action="staterules" data-ledger="${esc(LEDGER_NAME_FOR_KEY[kind])}">State rules and sources →</button>${z.led && z.led.eligibility_source_url ? `<a href="${esc(z.led.eligibility_source_url)}" target="_blank" rel="noopener">Official reference →</a>` : ""}</p>`}
+  </div>`;
+}
 // Whether the List can paint without misleading: a routed ledger once its
 // first page (or its failure) is in; with no ledger in the URL, once the
 // landing ledger can be decided (landingLedger order: Available, Auctions,
@@ -3699,7 +3811,7 @@ async function loadAll(activeKey, opts) {
   const today = new Date().toISOString().slice(0, 10);
   const run = fetchProperties(activeKey || null, scheduleLedgerUpdate, !!(opts && opts.force));
   PROPERTIES_DONE = run.done;
-  const [ok, notes, favs, hid, cal, bidlist, health, freshness, availCoverage, availTerms, commercialScope, acqEvidence] = await Promise.all([
+  const [ok, notes, favs, hid, cal, bidlist, health, freshness, availCoverage, availTerms, commercialScope, acqEvidence, stateRulesDoc] = await Promise.all([
     run.ready,
     sb.from("notes").select("*"),
     sb.from("favorites").select("property_id"),
@@ -3721,8 +3833,12 @@ async function loadAll(activeKey, opts) {
     fetch("commercial-scope.json", { cache: "no-store" }).then(r => (r.ok ? r.json() : null)).catch(() => null),
     // County-level verified acquisition records (scripts/build_acquisition_evidence.py)
     // - the fallback when a row's own otc_provenance lost its record.
-    fetch("acquisition-evidence.json", { cache: "no-store" }).then(r => (r.ok ? r.json() : null)).catch(() => null)
+    fetch("acquisition-evidence.json", { cache: "no-store" }).then(r => (r.ok ? r.json() : null)).catch(() => null),
+    // Ledger eligibility + state rules (public/state-rules.json, 2026-10-10):
+    // read before the first paint so a zero ledger can name which zero it is.
+    loadStateRules()
   ]);
+  void stateRulesDoc;
   AVAILABLE_TERMS = (availTerms && Array.isArray(availTerms.terms)) ? availTerms.terms : [];
   ACQUISITION_EVIDENCE = (acqEvidence && Array.isArray(acqEvidence.records)) ? acqEvidence.records : [];
   ACQUISITION_STATUS = (acqEvidence && Array.isArray(acqEvidence.status)) ? acqEvidence.status : [];
@@ -6136,7 +6252,7 @@ async function researchAfterOpen(p) {
 // replaces the statewide rule of the same topic for that county only
 // (rulesForCounty mirrors harvesters/governance/state_rules.rules_for).
 var STATE_RULES = null, STATE_RULES_PROMISE = null;
-var RULES_PAGE = RULES_PAGE || { county: null };
+var RULES_PAGE = RULES_PAGE || { county: null, ledger: null };
 var RULE_KIND_ORDER = ["LAW", "PROCEDURE", "SOURCE", "UNRESOLVED"];
 var RULE_LEDGER_ORDER = ["AUCTIONS", "AVAILABLE", "LIENS_CERTIFICATES"];
 var RULE_LEDGER_NAMES = { AUCTIONS: "Auctions", AVAILABLE: "Available", LIENS_CERTIFICATES: "Liens & Certificates" };
@@ -6171,8 +6287,9 @@ function ensureRulesSection() {
 function rulesPageHash() {
   return RULES_PAGE.county ? "#/rules?county=" + encodeURIComponent(RULES_PAGE.county) : "#/rules";
 }
-function openRulesPage(county) {
+function openRulesPage(county, ledger) {
   RULES_PAGE.county = county || null;
+  RULES_PAGE.ledger = ledger && RULE_LEDGER_NAMES[ledger] ? ledger : null;
   if (document.getElementById("detailModal") && !document.getElementById("detailModal").hidden) closeDetail();
   showPage("rules");
 }
@@ -6184,36 +6301,73 @@ function ruleItemHtml(r, doc) {
   return `<li class="rule-item" data-status="${esc(r.status)}" data-kind="${esc(r.kind)}" data-scope="${esc(r.scope || "statewide")}">
     <div class="rule-head"><span class="rule-kind">${esc(kind)}</span><span class="rule-status ${verified ? "ok" : "muted"}">${esc(status)}</span>${r.county ? `<span class="rule-scope">${esc(r.county)} ${esc(UNIT_WORD)} only</span>` : `<span class="rule-scope">Statewide</span>`}</div>
     <p class="rule-statement">${esc(r.statement)}</p>
-    <p class="rule-meta">${r.citation ? `<span>${esc(r.citation)}</span>` : ""}${link ? `<span>${link}</span>` : ""}${verified && r.verified_on ? `<span>Verified ${esc(fmtDate(r.verified_on))}</span>` : `<span>Not verified - check the official source</span>`}</p>
+    <p class="rule-meta">${r.citation ? `<span>${esc(r.citation)}</span>` : ""}${link ? `<span>${link}</span>` : ""}${verified && r.verified_on ? `<span>Verified ${esc(fmtDate(r.verified_on))}</span>` : `<span>Not verified - check the official source</span>`}${r.office ? `<span>${esc(r.office)}</span>` : ""}<span>Version ${esc(r.version || "1")}${r.changed_on ? ` · ${esc(fmtDate(r.changed_on))}` : ""}</span></p>
     ${r.ambiguity ? `<p class="rule-meta muted">${esc(r.ambiguity)}</p>` : ""}
+    ${r.implementation_status === "IMPLEMENTED" && r.depends_on ? `<p class="rule-meta muted">Implemented: ${esc(r.depends_on)}</p>` : ""}
   </li>`;
+}
+function ruleLedgers(r) {
+  const parts = String(r.ledger || "ALL").split("|").filter(Boolean);
+  return parts.includes("ALL") ? RULE_LEDGER_ORDER.slice() : parts;
+}
+function rulesKindGroupsHtml(doc, rules) {
+  const byKind = k => rules.filter(r => r.kind === k);
+  return RULE_KIND_ORDER.map(k => byKind(k).length ? `<h4 class="rules-kind-head">${esc((doc.kinds || {})[k] || k)}</h4><ul class="rules-list">${byKind(k).map(r => ruleItemHtml(r, doc)).join("")}</ul>` : "").join("");
+}
+function rulesLedgerBlockHtml(doc, entry, k, county, rules) {
+  const l = (entry.ledgers || {})[k] || { status: "NOT_VERIFIED", note: "Not recorded", eligibility: "NOT_VERIFIED", coverage: [] };
+  const key = LEDGER_KEY_BY_NAME[k];
+  const elig = l.eligibility || "NOT_VERIFIED";
+  const eligLabel = (doc.eligibilities || {})[elig] || elig;
+  const eligCls = elig === "OFFERED" || elig === "COUNTY_DEPENDENT" ? "ok" : elig === "NOT_OFFERED" ? "bad" : "muted";
+  const cov = Array.isArray(l.coverage) ? l.coverage : [];
+  const mine = rules.filter(r => ruleLedgers(r).includes(k) && ruleLedgers(r).length < 3);
+  const here = county ? cov.find(c => c.county === county) : null;
+  const covHtml = cov.length ? `<ul class="rules-cov" aria-label="${esc(UNIT_WORD)} coverage">${cov.map(c => `<li data-county="${esc(c.county)}"${county === c.county ? ' class="here"' : ""}>${esc(c.county)} <span class="muted">${esc(coverageStatusWord(c))}</span></li>`).join("")}</ul>`
+    : `<p class="muted">No ${esc(UNIT_WORD.toLowerCase())} source or verified procedure is recorded for this ledger.</p>`;
+  const countyLine = county ? `<p class="rules-county-line" data-county-covered="${here ? "1" : "0"}">${esc(county)} ${esc(UNIT_WORD)}: ${here ? `covered - ${esc(coverageStatusWord(here))}` : "not covered by a tracked source or verified procedure"}.</p>` : "";
+  return `<section class="rules-ledger" data-ledger="${esc(k)}" data-status="${esc(l.status)}" data-eligibility="${esc(elig)}" id="rulesLedger${esc(k)}">
+    <div class="rules-ledger-head"><h3>${esc(RULE_LEDGER_NAMES[k])}</h3>
+      <span class="rule-status ${eligCls}" data-rules-eligibility>${esc(eligLabel)}</span>
+      <span class="rule-status ${l.status === "TRACKED" ? "ok" : "muted"}" data-rules-tracking>${esc((doc.ledger_statuses || {})[l.status] || l.status)}</span></div>
+    ${l.meaning ? `<p class="rules-meaning">${esc(l.meaning)}</p>` : ""}
+    <p class="rules-ledger-note">${esc(l.note)}</p>
+    ${l.office ? `<p class="rule-meta"><span>Responsible office: ${esc(l.office)}</span></p>` : ""}
+    <p class="rules-basis"><b>Why this classification:</b> ${esc(l.eligibility_basis || "Not recorded.")}</p>
+    <p class="rule-meta">${l.eligibility_source_url ? `<span><a href="${esc(l.eligibility_source_url)}" target="_blank" rel="noopener">Official reference →</a></span>` : ""}${l.eligibility_verified_on ? `<span>Verified ${esc(fmtDate(l.eligibility_verified_on))}</span>` : `<span>Not verified - check the official source</span>`}</p>
+    <h4 class="rules-kind-head">${esc(UNIT_WORD)} coverage</h4>${covHtml}${countyLine}
+    <h4 class="rules-kind-head">Current inventory</h4>${ledgerStatusHtml(key, ALL.filter(p => p.source === key), { compact: true })}
+    ${mine.length ? `<h4 class="rules-kind-head">Rules for this ledger</h4>${rulesKindGroupsHtml(doc, mine)}` : `<p class="muted">No rule specific to this ledger is recorded yet.</p>`}
+  </section>`;
 }
 function rulesPageHtml(doc, st, county) {
   const entry = doc.states && doc.states[st];
   if (!entry) return `<div class="rules"><h1>${esc(STATE_INFO.name)} tax-sale rules</h1><p class="muted">No rules are recorded for this state yet.</p></div>`;
-  const ledgers = RULE_LEDGER_ORDER.map(k => {
-    const l = (entry.ledgers || {})[k] || { status: "NOT_VERIFIED", note: "Not recorded" };
-    return `<li class="rules-ledger" data-ledger="${k}" data-status="${esc(l.status)}"><b>${esc(RULE_LEDGER_NAMES[k])}</b> <span class="rule-status ${l.status === "TRACKED" ? "ok" : "muted"}">${esc((doc.ledger_statuses || {})[l.status] || l.status)}</span><span class="rules-ledger-note">${esc(l.note)}</span></li>`;
-  }).join("");
   const rules = rulesForCounty(entry, county);
-  const byKind = k => rules.filter(r => r.kind === k);
-  const groups = RULE_KIND_ORDER.map(k => byKind(k).length ? `<h3 class="rules-kind-head">${esc((doc.kinds || {})[k] || k)}</h3><ul class="rules-list">${byKind(k).map(r => ruleItemHtml(r, doc)).join("")}</ul>` : "").join("");
+  const ledgers = RULE_LEDGER_ORDER.map(k => rulesLedgerBlockHtml(doc, entry, k, county, rules)).join("");
+  const general = rules.filter(r => ruleLedgers(r).length === 3);
   const others = (entry.county_rules || []).filter(r => r.county !== county);
   const procs = (entry.county_procedures || []).filter(p => !county || p.county === county);
   const procHtml = procs.length ? `<ul class="rules-list">${procs.map(p => `<li class="rule-item" data-status="VERIFIED" data-scope="county"><div class="rule-head"><span class="rule-kind">Government procedure</span><span class="rule-status ok">Verified</span><span class="rule-scope">${esc(p.county)} ${esc(UNIT_WORD)} only</span></div>
       <p class="rule-statement">${esc(p.instructions || p.evidence || p.source_title || "")}</p>
       <p class="rule-meta"><span><a href="${esc(p.evidence_url)}" target="_blank" rel="noopener">${esc(p.source_title || "Official page")} →</a></span>${p.observed_on ? `<span>Verified ${esc(fmtDate(p.observed_on))}</span>` : ""}</p></li>`).join("")}</ul>`
     : `<p class="muted">${county ? `No verified procedure is recorded for ${esc(county)} ${esc(UNIT_WORD)} - check with the ${esc(UNIT_WORD.toLowerCase())} office.` : "No county procedure has been verified yet."}</p>`;
+  const history = (entry.history || []).filter(h => !county || !h.county || h.county === county);
+  const historyHtml = history.length ? `<ul class="rules-list rules-history">${history.map(h => `<li class="rule-item" data-history-topic="${esc(h.topic)}" data-history-version="${esc(h.version)}"><div class="rule-head"><span class="rule-kind">Version ${esc(h.version)} superseded</span><span class="rule-status muted">${esc(fmtDate(h.changed_on))}</span>${h.county ? `<span class="rule-scope">${esc(h.county)} ${esc(UNIT_WORD)} only</span>` : ""}</div>
+      <p class="rule-statement"><b>${esc(h.topic.replace(/_/g, " "))}:</b> ${esc(h.change)}</p>
+      <p class="rule-meta"><span>Was (${esc((doc.statuses || {})[h.prior_status] || h.prior_status)}): ${esc(h.prior_statement)}</span></p>${h.affects ? `<p class="rule-meta muted">Affects: ${esc(h.affects)}</p>` : ""}</li>`).join("")}</ul>`
+    : `<p class="muted">No rule has been changed since it was recorded.</p>`;
   const notVerified = ((doc.verification || {})[st] || {}).findings || [];
   const open = notVerified.filter(f => f.status !== "PASS" && f.status !== "NOT_APPLICABLE");
   return `<div class="rules" id="rulesPage" data-state="${esc(st)}"${county ? ` data-county="${esc(county)}"` : ""}>
     <div class="rules-head"><h1>${esc(entry.name)} tax-sale rules${county ? ` - ${esc(county)} ${esc(UNIT_WORD)}` : ""}</h1>
-      <p class="rules-lede">What this state's tracked sources sell, how a buyer proceeds, and what is still unknown. A research aid, not legal advice: every statement links its official source, and anything not read from that source is marked Not verified.</p>
+      <p class="rules-lede">What each ledger represents in this state, whether the state offers that product, which ${esc(UNITS_WORD)} and sources TAXACQ reads, how many qualifying records it holds right now and why a count is zero when it is. A research aid, not legal advice: every statement links its official source, and anything not read from that source is marked Not verified.</p>
       ${county ? `<p><button type="button" class="link-btn" data-action="staterules">All of ${esc(entry.name)} →</button></p>` : ""}</div>
-    <section class="rules-sec"><h2>What TAXACQ tracks in ${esc(entry.name)}</h2><ul class="rules-ledgers">${ledgers}</ul></section>
-    <section class="rules-sec"><h2>${county ? `Rules for ${esc(county)} ${esc(UNIT_WORD)}` : "Statewide rules"}</h2>${groups || `<p class="muted">No rule recorded.</p>`}
-      ${!county && others.length ? `<h3 class="rules-kind-head">${esc(UNIT_WORD)}-specific</h3><ul class="rules-list">${others.map(r => ruleItemHtml(r, doc)).join("")}</ul>` : ""}</section>
+    <section class="rules-sec"><h2>The three ledgers in ${esc(entry.name)}</h2><div class="rules-ledgers">${ledgers}</div></section>
+    <section class="rules-sec"><h2>${county ? `General rules for ${esc(county)} ${esc(UNIT_WORD)}` : "General rules (every ledger)"}</h2>${general.length ? rulesKindGroupsHtml(doc, general) : `<p class="muted">No general rule recorded.</p>`}
+      ${!county && others.length ? `<h4 class="rules-kind-head">${esc(UNIT_WORD)}-specific</h4><ul class="rules-list">${others.map(r => ruleItemHtml(r, doc)).join("")}</ul>` : ""}</section>
     <section class="rules-sec"><h2>${esc(UNIT_WORD)} procedures (verified)</h2>${procHtml}</section>
+    <section class="rules-sec"><h2>Rule history</h2>${historyHtml}</section>
     <section class="rules-sec"><h2>Open items</h2>${open.length ? `<ul class="rules-open">${open.map(f => `<li data-check="${esc(f.check)}" data-status="${esc(f.status)}"><b>${esc((doc.statuses || {})[f.status] || f.status.replace(/_/g, " ").toLowerCase())}</b> ${esc(f.detail)}${f.subject ? ` <span class="muted">(${esc(f.subject)})</span>` : ""}</li>`).join("")}</ul>` : `<p class="muted">No open items.</p>`}</section>
   </div>`;
 }
@@ -6223,6 +6377,10 @@ async function renderRulesPage() {
   const doc = await loadStateRules();
   if (!doc) { sec.innerHTML = `<div class="rules"><p class="muted">State rules could not be loaded right now.</p><button type="button" class="detail-btn" data-action="rulesretry">Retry</button></div>`; return; }
   sec.innerHTML = rulesPageHtml(doc, PAGE_STATE, RULES_PAGE.county);
+  if (RULES_PAGE.ledger) {
+    const block = document.getElementById("rulesLedger" + RULES_PAGE.ledger);
+    if (block && typeof block.scrollIntoView === "function") block.scrollIntoView({ block: "start" });
+  }
 }
 
 // ---- the My Research page (#/research) ----
@@ -9231,9 +9389,9 @@ document.addEventListener("click", async e => {
   if (action === "countystates") { openStatePicker(btn); return; }
   if (action === "countyretry") { COUNTY_INTEL_PROMISE = null; renderCountyPage(); return; }
   if (action === "staterules") {
-    const c = btn.dataset.county || null;
-    if (btn.closest("#statePicker")) { closeStatePicker(); afterSelfBack(() => openRulesPage(c)); }
-    else openRulesPage(c);
+    const c = btn.dataset.county || null, l = btn.dataset.ledger || null;
+    if (btn.closest("#statePicker")) { closeStatePicker(); afterSelfBack(() => openRulesPage(c, l)); }
+    else openRulesPage(c, l);
     return;
   }
   if (action === "rulesretry") { STATE_RULES_PROMISE = null; renderRulesPage(); return; }
@@ -9835,6 +9993,7 @@ function section(container, title, sub, rows, kind) {
       <p class="mega-sub">${sub}</p>
       ${cfg.how ? `<p class="ledger-how">${cfg.how}</p>` : ""}
       ${facts ? `<p class="ledger-facts">${esc(facts)}</p>` : ""}
+      ${ledgerStatusHtml(kind, shown)}
       ${kind === "auction" ? upcomingSalesHtml(shown) : ""}
       <p class="ledger-legend" aria-label="What the colour on each card's left edge means">
         <span class="lgd lgd-active">Active</span>

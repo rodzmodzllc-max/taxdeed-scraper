@@ -2502,6 +2502,27 @@ Full description: `docs/state-rules.md`. Stable facts:
 - **Frontend**: `#/rules`, `#/rules?county=` (`renderRulesPage`, `rulesForCounty` mirrors `rules_for`), linked from the state
   picker and every property's Source truth. `sw.js` -> `tdw-shell-v117`.
 
+## Ledger eligibility, county coverage, zero-count semantics (2026-10-10, PR open, no migration)
+
+Full description: `docs/ledger-eligibility.md`. Stable facts:
+- **Seven separate facts per ledger**: eligibility (`data/state_ledgers.csv` `eligibility`: OFFERED / NOT_OFFERED /
+  COUNTY_DEPENDENT / NOT_VERIFIED / SOURCE_RESTRICTED, with basis, https source and date for the evidenced classes),
+  county coverage (`state_verification.county_coverage`: registry rows + county-scoped verified procedures), tracking
+  (`status`), the current count (loaded rows), the last known count (`last_success_row_count` over the ledger's units),
+  read health (`sourceHealthState`) and verification status. Never derive one from another. OFFERED / NOT_OFFERED need
+  a VERIFIED LAW rule for that ledger (FL only today); nothing is NOT_OFFERED.
+- **A zero is never ambiguous**: `ledgerZeroState(kind)` in app.js (var / function declarations - TDZ) picks one of
+  NOT_OFFERED / NO_CURRENT_INVENTORY / COUNTY_DEPENDENT / NOT_VERIFIED / NOT_IMPLEMENTED / SOURCE_RESTRICTED /
+  SOURCE_FAILURE in the documented precedence; `ZERO_CASE_COPY` keys must equal `state_verification.ZERO_CASES`. A
+  failed load or read shows the last known count labelled as such, never a bare zero; a missing record is NOT_VERIFIED.
+  The strip (`.ledger-status`) sits in every ledger head and in each `#/rules` ledger block.
+- **Rules carry `ledger` (`|`-joined or ALL), `office`, `related_sources`, `depends_on`, `implementation_status`,
+  `test_ref`, `version`, `changed_on`**; `data/state_rules_history.csv` is append-only and a rule at version N needs
+  history rows 1..N-1 (never overwrite a statement silently - add a history row and bump the version).
+- Engine checks added: `ledger_eligibility`, `county_coverage`, `rule_history`, `zero_state_cases`,
+  `no_false_zero_copy`, `no_false_zero_lifecycle`, `tx_classification`, `tx_struck_off_copy`, `fl_separation`.
+  Stub knobs `?emptyledger=`, `?unitstatus=`. `sw.js` -> `tdw-shell-v118`.
+
 ## Where to look for more
 
 - `claude/improvement-roadmap.md` in the "tax florida app" claude.ai Project — the full dated log of every fix, audit finding, and open decision. This is where new findings should be appended, not here.

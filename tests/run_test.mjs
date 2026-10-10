@@ -5004,6 +5004,89 @@ await navMap.close();
       modalClosed: document.getElementById('detailModal').hidden }));
     await d.close();
   }
+  // ---- Ledger eligibility and zero-count semantics (2026-10-10) ----
+  // Eligibility (public/state-rules.json), tracking, the current count, the
+  // last known count and read health are separate facts on every ledger
+  // head, and a zero names which zero it is. A failed load never prints a
+  // bare zero. Stub knobs: ?emptyledger=<type>, ?unitstatus=<source>:<STATUS>.
+  {
+    const stripOf = async (url, kind, settle) => {
+      const pg = await newPage({ viewport: { width: 1280, height: 900 } });
+      pg.on('pageerror', e => errors.push('zero pageerror: ' + e.message));
+      await pg.addInitScript(() => { window.__tdwRetryScale = 0.01; });
+      await pg.goto(url, { waitUntil: 'networkidle' });
+      await pg.waitForTimeout(settle || 600);
+      const r = await pg.evaluate(k => {
+        const el = document.querySelector(`.ledger-status[data-ledger-status="${k}"]`);
+        if (!el) return null;
+        const why = el.querySelector('.ls-why');
+        return { eligibility: el.dataset.eligibility, zeroCase: el.dataset.zeroCase, tracked: el.dataset.tracked, health: el.dataset.health,
+          elig: el.querySelector('[data-ls-eligibility]').textContent, count: el.querySelector('[data-ls-count]').textContent,
+          read: el.querySelector('[data-ls-read]').textContent.replace(/\d+[hdm] ago/g, 'N ago'),
+          whyLabel: why ? why.querySelector('b').textContent : null, whyText: why ? why.textContent : '',
+          links: [...el.querySelectorAll('.ls-links a, .ls-links button')].map(a => a.textContent.trim()) };
+      }, kind);
+      await pg.close();
+      return r;
+    };
+    const TNZ = BASE_URL.replace(/index\.html$/, 'tn.html'), TXZ = BASE_URL.replace(/index\.html$/, 'tx.html');
+    const MIZ = BASE_URL.replace(/index\.html$/, 'mi.html'), WYZ = BASE_URL.replace(/index\.html$/, 'wy.html');
+    // B. Offered (statute read), no current inventory after a complete read.
+    const b = await stripOf(BASE_URL + '?emptyledger=lien&certunit=1#/certificates', 'certificate');
+    results.zeroOfferedNoInventory = b && { eligibility: b.eligibility, zeroCase: b.zeroCase, tracked: b.tracked, count: b.count, whyLabel: b.whyLabel, read: b.read,
+      saysExists: /This product exists in this state/.test(b.whyText), links: b.links };
+    // Rows present: no zero case, the same facts stay on the strip.
+    const n = await stripOf(BASE_URL + '#/certificates', 'certificate');
+    results.zeroNoneWhenRows = n && { zeroCase: n.zeroCase, eligibility: n.eligibility, whyLabel: n.whyLabel, countEndsWith: n.count.replace(/^\d+ /, '') };
+    // F. The load failed: never a bare zero, the last known count labelled as such.
+    const f = await stripOf(BASE_URL + '?failpage=lien:0&certunit=1#/certificates', 'certificate', 2500);
+    results.zeroLoadFailure = f && { zeroCase: f.zeroCase, eligibility: f.eligibility, count: f.count, whyLabel: f.whyLabel,
+      lastKnown: /Last known count: 9 instruments/.test(f.whyText), bareZero: /^0 instruments$/.test(f.count) };
+    // F. A partial source read with no rows: last known count, nothing closed.
+    const fp = await stripOf(TXZ + '?emptyledger=buy#/lands', 'laft');
+    results.zeroPartialRead = fp && { zeroCase: fp.zeroCase, eligibility: fp.eligibility, health: fp.health, lastKnown: /Last known count: 120 properties/.test(fp.whyText), count: fp.count };
+    // D. Tracked, read completely, rules not verified: the zero is not authoritative.
+    const d = await stripOf(TXZ + '?emptyledger=buy&unitstatus=tx_lgbs:COMPLETE:0#/lands', 'laft');
+    results.zeroNotVerified = d && { zeroCase: d.zeroCase, eligibility: d.eligibility, health: d.health, whyLabel: d.whyLabel,
+      notAuthoritative: /not a statement that the state does not offer it/.test(d.whyText), read: d.read };
+    // E. No source implemented (not tracked) - eligibility stays its own fact.
+    const e1 = await stripOf(TNZ + '#/auctions', 'auction');
+    results.zeroNotImplemented = e1 && { zeroCase: e1.zeroCase, eligibility: e1.eligibility, tracked: e1.tracked, whyLabel: e1.whyLabel, notProof: /not proof that no properties exist/.test(e1.whyText) };
+    const wy = await stripOf(WYZ + '#/certificates', 'certificate');
+    results.zeroEligibleButUntracked = wy && { zeroCase: wy.zeroCase, eligibility: wy.eligibility, tracked: wy.tracked, coverage: /Albany/.test(wy.whyText) };
+    // E. Source awaiting review: customers see the zero explained, admins see the rows.
+    const e2 = await stripOf(TNZ + '#/lands', 'laft');
+    const e2a = await stripOf(TNZ + '?profile=admin#/lands', 'laft');
+    results.zeroPendingReview = e2 && e2a && { customer: { zeroCase: e2.zeroCase, eligibility: e2.eligibility, count: e2.count, whyLabel: e2.whyLabel }, admin: { zeroCase: e2a.zeroCase, count: e2a.count } };
+    // C. County-dependent product with no rows names the covered counties.
+    const c = await stripOf(MIZ + '?emptyledger=auctions#/auctions', 'auction');
+    results.zeroCountyDependent = c && { zeroCase: c.zeroCase, eligibility: c.eligibility, whyLabel: c.whyLabel, counties: (c.whyText.match(/verified procedure: ([^.]+)\./) || [])[1] || null };
+    // A. Nothing is NOT_OFFERED: no evidence of that was read, so no page may say it.
+    const pgA = await newPage({ viewport: { width: 1280, height: 900 } });
+    await pgA.goto(BASE_URL + '#/auctions', { waitUntil: 'networkidle' });
+    results.zeroNotOfferedUnclaimed = await pgA.evaluate(() => ({ notOffered: !!document.querySelector('.ledger-status[data-eligibility="NOT_OFFERED"]'),
+      offered: document.querySelector('.ledger-status[data-ledger-status="auction"]').dataset.eligibility }));
+    // The strip's rules link opens the State rules page at that ledger's block.
+    await pgA.locator('.ledger-status[data-ledger-status="auction"] [data-action="staterules"]').click();
+    await pgA.waitForTimeout(500);
+    results.zeroStripToRules = await pgA.evaluate(() => ({ hash: location.hash, block: !!document.querySelector('#rulesLedgerAUCTIONS'),
+      blocks: [...document.querySelectorAll('.rules-ledger')].map(l => [l.dataset.ledger, l.dataset.eligibility, l.dataset.status]),
+      strips: document.querySelectorAll('#rulesPage .ledger-status').length, noScores: !/\b(score|confidence)\b/i.test(document.getElementById('rulesPage').textContent) }));
+    await pgA.close();
+    // County coverage and rule history on the rules page.
+    const pgC = await newPage({ viewport: { width: 1280, height: 900 } });
+    await pgC.goto(BASE_URL.replace(/index\.html$/, 'sc.html') + '#/rules?county=Georgetown', { waitUntil: 'networkidle' });
+    await pgC.waitForTimeout(500);
+    results.rulesCoverage = await pgC.evaluate(() => Object.fromEntries([...document.querySelectorAll('.rules-ledger')].map(l => [l.dataset.ledger, {
+      cov: [...l.querySelectorAll('.rules-cov li')].map(x => x.textContent.trim()), here: (l.querySelector('.rules-county-line') || {}).textContent || null,
+      covered: (l.querySelector('.rules-county-line') || { dataset: {} }).dataset.countyCovered }])));
+    await pgC.goto(TXZ + '#/rules', { waitUntil: 'networkidle' });
+    await pgC.waitForTimeout(500);
+    results.rulesHistory = await pgC.evaluate(() => ({ entries: [...document.querySelectorAll('.rules-history .rule-item')].map(x => [x.dataset.historyTopic, x.dataset.historyVersion]),
+      versions: [...document.querySelectorAll('#rulesPage .rule-item .rule-meta')].filter(m => /Version 2/.test(m.textContent)).length,
+      notFixedPrice: /not automatically for sale/.test(document.getElementById('rulesPage').textContent) }));
+    await pgC.close();
+  }
   // ---- Acquisition-evidence status per unit (2026-10-06) ----
   {
     const ev = {};
@@ -6442,6 +6525,21 @@ await browser.close();
 
 
 const EXPECTED = {
+  zeroOfferedNoInventory: { eligibility: 'OFFERED', zeroCase: 'NO_CURRENT_INVENTORY', tracked: '1', count: '0 instruments', whyLabel: 'No current inventory.', read: 'Last complete read N ago · 1 source read', saysExists: true, links: ['State rules and sources →', 'Official reference →'] },
+  zeroNoneWhenRows: { zeroCase: '', eligibility: 'OFFERED', whyLabel: null, countEndsWith: 'instrument' },
+  zeroLoadFailure: { zeroCase: 'SOURCE_FAILURE', eligibility: 'OFFERED', count: 'Count unavailable - load failed', whyLabel: 'Source read failed or incomplete.', lastKnown: true, bareZero: false },
+  zeroPartialRead: { zeroCase: 'SOURCE_FAILURE', eligibility: 'NOT_VERIFIED', health: 'DEGRADED', lastKnown: true, count: '0 properties' },
+  zeroNotVerified: { zeroCase: 'NOT_VERIFIED', eligibility: 'NOT_VERIFIED', health: 'MANUAL', whyLabel: 'Not verified.', notAuthoritative: true, read: 'Last complete read N ago · 1 source read' },
+  zeroNotImplemented: { zeroCase: 'NOT_IMPLEMENTED', eligibility: 'NOT_VERIFIED', tracked: '0', whyLabel: 'No source implemented.', notProof: true },
+  zeroEligibleButUntracked: { zeroCase: 'NOT_IMPLEMENTED', eligibility: 'COUNTY_DEPENDENT', tracked: '0', coverage: true },
+  zeroPendingReview: { customer: { zeroCase: 'SOURCE_RESTRICTED', eligibility: 'COUNTY_DEPENDENT', count: '0 properties', whyLabel: 'Source restricted or pending review.' }, admin: { zeroCase: '', count: '1 property' } },
+  zeroCountyDependent: { zeroCase: 'COUNTY_DEPENDENT', eligibility: 'COUNTY_DEPENDENT', whyLabel: 'County by county.', counties: 'Eaton, Lenawee' },
+  zeroNotOfferedUnclaimed: { notOffered: false, offered: 'OFFERED' },
+  zeroStripToRules: { hash: '#/rules', block: true, blocks: [['AUCTIONS', 'OFFERED', 'TRACKED'], ['AVAILABLE', 'OFFERED', 'TRACKED'], ['LIENS_CERTIFICATES', 'OFFERED', 'TRACKED']], strips: 3, noScores: true },
+  rulesCoverage: { AUCTIONS: { cov: ['Oconee collected, awaiting review', 'York published'], here: 'Georgetown County: not covered by a tracked source or verified procedure.', covered: '0' },
+    AVAILABLE: { cov: ['Georgetown collected, awaiting review', 'Horry collected, awaiting review'], here: 'Georgetown County: covered - collected, awaiting review.', covered: '1' },
+    LIENS_CERTIFICATES: { cov: [], here: 'Georgetown County: not covered by a tracked source or verified procedure.', covered: '0' } },
+  rulesHistory: { entries: [['tax_sale_model', '1']], versions: 1, notFixedPrice: true },
   rulesTn: { title: 'Tennessee tax-sale rules', ledgers: { AUCTIONS: 'NOT_TRACKED', AVAILABLE: 'TRACKED', LIENS_CERTIFICATES: 'NOT_TRACKED' },
     verifiedWithoutStatus: 0, unverifiedLabelled: true, noScores: true, hash: '#/rules', visible: true, hasItems: true },
   // Georgetown's own rules appear for Georgetown and never for Horry.
@@ -6543,7 +6641,7 @@ const EXPECTED = {
   },
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v117"]},
+  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v118"]},
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · TAXACQ — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · TAXACQ — Florida", floridaCopy: true },
