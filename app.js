@@ -5051,6 +5051,7 @@ function certCard(p, showCounty) {
     ${tag}
     ${classificationBadgeHtml(p) ? `<div class="prop-classification-line">${classificationBadgeHtml(p)}</div>` : ""}
     ${recordBadgesHtml(p)}
+    ${sourceLineHtml(p)}
     <div class="prop-top">
       <div class="prop-address">Certificate #${esc(p.certificate_no || "Unknown")}</div>
       <div class="prop-top-actions">

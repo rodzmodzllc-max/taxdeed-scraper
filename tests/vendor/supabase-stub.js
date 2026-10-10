@@ -442,10 +442,11 @@ const PUB_PATH_FL_CERT = { ledger: "LIENS_CERTIFICATES", inventory_type: "certif
   destination_url: "https://alachua.county-held.example.gov/certificates", path_type: "certificate_purchase", scope: "county",
   verification_status: "VERIFIED", last_verified: "2026-10-01" };
 const PUB_DECISIONS = {
-  // AUCTIONS: the only link is the county's homepage - not a route to the process.
-  p2: { publication_state: "ADMIN_ONLY_NO_PATH", publication_progress: "RULES_VERIFIED", publication_reasons: ["PATH_UNTRUSTED"],
+  // AUCTIONS: the only link is the county's homepage - not a route to the process
+  // (p11 is active; p2's "dropped" lifecycle status makes it CLOSED here).
+  p11: { publication_state: "ADMIN_ONLY_NO_PATH", publication_progress: "RULES_VERIFIED", publication_reasons: ["PATH_UNTRUSTED"],
     publication_remediation: "Record the actual process page or published procedure, not the homepage.",
-    publication_path: { ledger: "AUCTIONS", state: "FL", county: "Baker", path_type: "auction_bidding", scope: "record", verification_status: "UNTRUSTED", missing_reason: "PATH_UNTRUSTED" } },
+    publication_path: { ledger: "AUCTIONS", state: "FL", county: "Marion", path_type: "auction_bidding", scope: "record", verification_status: "UNTRUSTED", missing_reason: "PATH_UNTRUSTED" } },
   // AVAILABLE: no official acquisition page found for the county yet.
   p3: { publication_state: "ADMIN_ONLY_NO_PATH", publication_progress: "RULES_VERIFIED", publication_reasons: ["PATH_NOT_FOUND"],
     publication_remediation: "Add candidate pages (data/acquisition_candidate_pages.csv) and capture them.",
