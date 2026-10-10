@@ -918,3 +918,17 @@ body:has(#authGate:not([hidden])){padding-bottom:0!important}
 .account-goto{border-bottom:1px solid var(--rule);padding:.2rem 0 .3rem;margin-bottom:.2rem}
 .account-goto-head{margin:.3rem .9rem .1rem;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-soft)}
 @media (min-width:1024px){ .account-goto{display:none} }
+
+/* What this record is based on (app.js recordOriginsHtml): one row per key
+   fact - field, origin, note. Origins are text, coloured only to separate
+   "published" from "not published / not recorded"; no score, no meter. */
+.record-origins{margin:.6rem 0 .9rem;border-top:1px solid var(--rule);font-size:.82rem}
+.record-origins .ro-title{font-size:.68rem;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-soft);margin:.6rem 0 .3rem}
+.record-origins .ro-row{display:grid;grid-template-columns:minmax(9rem,1fr) minmax(11rem,1.3fr) 2fr;gap:.6rem;padding:.32rem 0;border-bottom:1px solid var(--rule)}
+.record-origins .ro-field{color:var(--ink)}
+.record-origins .ro-state{font-weight:600;color:var(--ink)}
+.record-origins .ro-note{color:var(--ink-soft)}
+.record-origins .ro-row[data-origin="NOT_PUBLISHED"] .ro-state,.record-origins .ro-row[data-origin="NOT_AVAILABLE"] .ro-state,
+.record-origins .ro-row[data-origin="NOT_VERIFIED"] .ro-state{color:var(--ink-soft);font-weight:400}
+.record-origins .ro-row[data-origin="STALE"] .ro-state{color:var(--warn,#9a6700)}
+@media (max-width:640px){ .record-origins .ro-row{grid-template-columns:1fr 1fr} .record-origins .ro-note{grid-column:1 / -1} }

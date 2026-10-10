@@ -7015,6 +7015,7 @@ function auctionDecisionHtml(p) {
 // certificate itself (never the parcel), from the county-held list's own
 // columns; redemption and outcome are "not published" unless a source
 // column says otherwise.
+var CERTIFICATE_OWNERSHIP_NOTE = CERTIFICATE_OWNERSHIP_NOTE || "A tax certificate is a lien on the property, not the property itself. Buying one does not transfer ownership; title changes only through a separate, later process under state law that the certificate holder must pursue.";
 function certificateDecisionHtml(p) {
   if (p.source !== "certificate") return "";
   const muted = t => `<span class="muted">${esc(t)}</span>`;
@@ -7023,6 +7024,9 @@ function certificateDecisionHtml(p) {
   const rows = [];
   rows.push(q("what", "What certificate / lien?", `Certificate #${esc(p.certificate_no || "Unknown")}${sub(esc(`${p.county} ${UNIT_WORD}, ${regionOf(p)}${p.tax_year ? ` · tax year ${p.tax_year}` : ""}${p.case_no ? ` · account ${p.case_no}` : ""}${hasParcel(p) ? ` · parcel ${p.parcel}` : " · parcel # not published"}`))}`));
   rows.push(q("amount", "Amount?", hasPublishedBid(p) ? esc(fmtMoney(p.bid)) : muted("Not published"), hasPublishedBid(p) ? "" : "muted"));
+  // A certificate is a lien, never the property: say so where the customer
+  // decides, not only in a footnote.
+  rows.push(q("ownership", "Does buying it transfer the property?", `No${sub(esc(CERTIFICATE_OWNERSHIP_NOTE))}`));
   const terms = [];
   if (hasNum(p.interest_rate)) terms.push(`Interest rate ${p.interest_rate}% (as published)`);
   if (p.issued_date) terms.push(`Issued ${fmtDate(String(p.issued_date).slice(0, 10))}`);
@@ -7986,6 +7990,109 @@ function availabilityEvidenceHtml(p) {
   return `<div class="prov-lines prov-available">${lines.join("")}</div>
     <p class="prov-legend"><b>Published by the source</b> = the value as the county or agency published it. <b>Derived by our system</b> = matched or computed by this app from a public dataset (tax-roll parcel match, geocoder, FEMA layer), named as such. <b>Not published</b> = the source did not state it; nothing is filled in.</p>`;
 }
+// ==================== record origins ====================
+// What each key fact on this record is based on - published by the source,
+// added from a matched public dataset, derived by a documented rule, stale,
+// not published, not available or of unrecorded origin. One rule, mirrored by
+// harvesters/quality/record_origins.py and pinned by
+// tests/python/fixtures/record_origin_cases.json. No score, no confidence.
+// var + function declarations: render paths can reach these during module
+// init (TDZ).
+var RECORD_ORIGIN_LABELS = RECORD_ORIGIN_LABELS || {
+  PUBLISHED: "Published by the source",
+  ENRICHED: "Added from a matched public dataset",
+  INFERRED: "Derived by a documented rule",
+  STALE: "Published - not refreshed recently",
+  NOT_PUBLISHED: "Not published",
+  NOT_AVAILABLE: "Not available",
+  NOT_VERIFIED: "Origin not recorded"
+};
+var RECORD_ORIGIN_FIELDS = RECORD_ORIGIN_FIELDS || ["identity", "address", "amount", "date", "status", "value", "coordinates", "flood"];
+var RECORD_ORIGIN_LIST_NATIVE = RECORD_ORIGIN_LIST_NATIVE || ["identity", "address", "amount", "date", "status"];
+var RECORD_ORIGIN_SRC = RECORD_ORIGIN_SRC || {
+  list: "PUBLISHED", county_list: "PUBLISHED", vendor_listing: "PUBLISHED", source_point: "PUBLISHED", result: "PUBLISHED",
+  fdor_nal: "ENRICHED", county_gis: "ENRICHED", statewide_parcel: "ENRICHED", parcel_gis: "ENRICHED", fema: "ENRICHED", hand_research: "ENRICHED",
+  geocode: "INFERRED", rule: "INFERRED"
+};
+var RECORD_ORIGIN_STALE_SENSITIVE = RECORD_ORIGIN_STALE_SENSITIVE || ["list", "county_list", "vendor_listing", "result"];
+function recordOriginsFromFacts(facts) {
+  const f = facts || {};
+  const out = {};
+  RECORD_ORIGIN_FIELDS.forEach(field => {
+    const fact = f[field] || {};
+    const src = String(fact.src || "");
+    let state;
+    if (!fact.present) state = RECORD_ORIGIN_LIST_NATIVE.includes(field) ? "NOT_PUBLISHED" : "NOT_AVAILABLE";
+    else {
+      state = Object.prototype.hasOwnProperty.call(RECORD_ORIGIN_SRC, src) ? RECORD_ORIGIN_SRC[src] : "NOT_VERIFIED";
+      if (f.stale && state === "PUBLISHED" && RECORD_ORIGIN_STALE_SENSITIVE.includes(src)) state = "STALE";
+    }
+    out[field] = state;
+  });
+  return out;
+}
+// The facts (categories, never values) a row supports.
+function recordOriginFacts(p) {
+  const fp = p.field_provenance && typeof p.field_provenance === "object" ? p.field_provenance : {};
+  const srcOf = (cols, fallback) => {
+    for (const c of cols) if (fp[c] && typeof fp[c] === "object" && fp[c].source) return String(fp[c].source);
+    return fallback;
+  };
+  const cert = p.source === "certificate";
+  const amountQuoted = p.purchase_amount_kind === "QUOTED_ON_APPLICATION";
+  const amountPresent = !amountQuoted && (hasPublishedBid(p) || (hasNum(p.purchase_amount) && Number(p.purchase_amount) > 0));
+  const datePresent = p.source === "auction" ? !!p.sale_date
+    : p.source === "laft" ? !!(p.list_as_of || p.source_published_at || p.available_date)
+    : !!(p.issued_date || p.sale_date || p.tax_year);
+  let statusSrc = "rule";
+  if (p.inventory_status_basis === "SOURCE_STATUS") statusSrc = "result";
+  else if (p.source === "auction" && typeof auctionOutcomeState === "function") {
+    try { if (auctionOutcomeState(p).verified) statusSrc = "result"; } catch (e) { /* keep the rule */ }
+  }
+  const coord = coordinateProvenance(p);
+  const coordSrc = { PARCEL_GIS: "parcel_gis", TAX_ROLL: "parcel_gis", LAND_BANK_GIS: "source_point", OFFICIAL_ADDRESS: "source_point",
+    OTHER_REVIEWED: "source_point", VENDOR_LISTING: "vendor_listing", DETERMINISTIC_GEOCODE: "geocode", UNRECORDED: "" }[coord.method] || "";
+  const valuePresent = hasNum(p.market) || hasNum(p.assessed) || hasNum(p.taxable_value);
+  return {
+    stale: isRowStale(p),
+    identity: { present: cert ? !!(p.certificate_no || p.case_no) : hasParcel(p), src: srcOf(["parcel"], "list") },
+    address: { present: !cert && !!realAddress(p), src: srcOf(["address"], "list") },
+    amount: { present: amountPresent, src: srcOf(["purchase_amount", "min_bid"], "list") },
+    date: { present: datePresent, src: srcOf(["list_as_of", "sale_date"], "list") },
+    status: { present: true, src: statusSrc },
+    value: { present: valuePresent, src: srcOf(["market", "assessed", "taxable_value", "assessed_value"], fp.market || fp.assessed || fp.taxable_value ? "" : "list") },
+    coordinates: { present: coord.method !== "NONE", src: coordSrc },
+    flood: { present: typeof p.flood_checked_at === "string" && !!p.flood_checked_at, src: "fema" }
+  };
+}
+var RECORD_ORIGIN_FIELD_LABELS = RECORD_ORIGIN_FIELD_LABELS || {
+  identity: "Parcel / record identifier", address: "Property address", amount: "Amount", date: "Sale / list date",
+  status: "Status", value: "Assessed / market value", coordinates: "Map location", flood: "Flood zone"
+};
+function recordOriginNote(field, state, p) {
+  if (field === "status" && state === "INFERRED") {
+    return GONE_STATUSES_FOR_ORIGIN.includes(p.status) ? "Left the source list - no result was published" : "On the source list at the last read - not a published status";
+  }
+  if (field === "coordinates" && state === "INFERRED") return "Street-address geocode - an approximate point, not the parcel";
+  if (field === "coordinates" && state === "PUBLISHED" && coordinateProvenance(p).method === "VENDOR_LISTING") return "Vendor listing point - not an official parcel location";
+  if (field === "amount" && state === "NOT_PUBLISHED" && p.purchase_amount_kind === "QUOTED_ON_APPLICATION") return "Quoted on application - no current price is published";
+  if (state === "STALE") return p.last_seen_at ? `Last read ${dateOnly(p.last_seen_at)} - not refreshed since` : (p.updated_at ? `Last synced ${dateOnly(p.updated_at)} - not refreshed since` : "Last read not recorded");
+  if (field === "identity" && p.source === "certificate") return "Certificate / account number as the source published it";
+  return "";
+}
+var GONE_STATUSES_FOR_ORIGIN = GONE_STATUSES_FOR_ORIGIN || ["gone", "closed", "dropped", "past_due"];
+// The pure rule, for the shared-vector check in tests/run_test.mjs.
+try { window.__tdwRecordOrigins = { fromFacts: recordOriginsFromFacts, facts: recordOriginFacts }; } catch (e) { /* no window */ }
+function recordOriginsHtml(p) {
+  if (!p || !p.source) return "";
+  const states = recordOriginsFromFacts(recordOriginFacts(p));
+  const rows = RECORD_ORIGIN_FIELDS.filter(f => !(p.source === "certificate" && (f === "address" || f === "coordinates" || f === "flood"))).map(f => {
+    const st = states[f];
+    const note = recordOriginNote(f, st, p);
+    return `<div class="ro-row" data-field="${f}" data-origin="${st}"><span class="ro-field">${esc(RECORD_ORIGIN_FIELD_LABELS[f])}</span><span class="ro-state">${esc(RECORD_ORIGIN_LABELS[st])}</span><span class="ro-note">${esc(note)}</span></div>`;
+  });
+  return `<div class="record-origins" id="recordOrigins"><div class="ro-title">What this record is based on</div>${rows.join("")}</div>`;
+}
 function provenanceCardHtml(p) {
   // The two-span .detail-provenance block is kept byte-for-byte (tests read
   // its raw text); everything below it is the per-field / per-row origin
@@ -8014,6 +8121,7 @@ function provenanceCardHtml(p) {
       ${harvesterSourceLabel(p) ? `<span>Data source: ${esc(harvesterSourceLabel(p))}</span>` : ""}
       <span class="${isRowStale(p) ? "stale" : ""}">${esc(lastSyncedText(p))}</span>
     </div>
+    ${recordOriginsHtml(p)}
     ${sourceReviewHtml(p)}
     ${detail}
     <button class="detail-btn detail-report-btn" data-action="support" data-topic="data" data-pid="${p.id}" type="button">Report a data problem</button>`;
@@ -8547,7 +8655,7 @@ function detailHtml(p) {
     ${isCert && !hasFieldProvenance(p) ? `<div class="detail-provenance">
       ${harvesterSourceLabel(p) ? `<span>Data source: ${esc(harvesterSourceLabel(p))}</span>` : ""}
       <span class="${isRowStale(p) ? "stale" : ""}">${esc(lastSyncedText(p))}</span>
-    </div>` : provenanceCardHtml(p)}
+    </div>${recordOriginsHtml(p)}` : provenanceCardHtml(p)}
     ${noteHtml(p)}`;
   // Phase 66: the section nav is built from the sections that actually
   // rendered above (see detailNavHtml), so it is spliced in afterwards.
