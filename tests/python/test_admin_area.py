@@ -171,7 +171,9 @@ def test_s02_sign_up_never_asks_for_approval_or_a_role():
     # the handler only reaches createUser through handleSignup.
     fn = (REPO / "supabase/functions/self-signup/index.ts").read_text(encoding="utf-8")
     req = (REPO / "supabase/functions/_shared/signup_request.js").read_text(encoding="utf-8")
-    assert 'PROFILE_FIELDS = Object.freeze(["first_name", "last_name", "company", "address", "phone"]);' in req
+    # 2026-10-10: company and phone are optional, never required at sign-up.
+    assert 'PROFILE_FIELDS = Object.freeze(["first_name", "last_name", "address"]);' in req
+    assert 'OPTIONAL_PROFILE_FIELDS = Object.freeze(["company", "phone"]);' in req
     assert "email_confirm: true, user_metadata: v.meta" in req
     assert "handleSignup(body, (attrs) => admin.auth.admin.createUser(attrs))" in fn
     for src in (fn, req):

@@ -2336,7 +2336,10 @@ const lastNameEl = document.getElementById("lastName");
 const companyEl = document.getElementById("company");
 const addressEl = document.getElementById("address");
 const phoneEl = document.getElementById("phone");
-const SIGNUP_PROFILE_FIELDS = [firstNameEl, lastNameEl, companyEl, addressEl, phoneEl];
+// 2026-10-10: sign-up asks for name and address only; company and phone are
+// optional and live in Edit profile. companyEl / phoneEl are null on the
+// sign-in page now and stay declared for the profile code paths.
+const SIGNUP_PROFILE_FIELDS = [firstNameEl, lastNameEl, addressEl];
 
 // "Sign in" is the default; the toggle flips this to a self-serve signup
 // flow (sb.auth.signUp). NOTE: this only controls whether a Supabase Auth
@@ -2487,21 +2490,19 @@ if (authForm) {
       if (passwordConfirmEl) passwordConfirmEl.removeAttribute("aria-invalid");
       const firstName = firstNameEl ? firstNameEl.value.trim() : "";
       const lastName = lastNameEl ? lastNameEl.value.trim() : "";
-      const company = companyEl ? companyEl.value.trim() : "";
       const address = addressEl ? addressEl.value.trim() : "";
-      const phone = phoneEl ? phoneEl.value.trim() : "";
-      // All five are required - Company has no separate "skip" control, since
-      // someone with no company enters "Independent" there instead.
-      if (!firstName || !lastName || !company || !address || !phone) {
+      // Name and address are required (2026-10-10: company and phone are no
+      // longer asked at sign-up - they are optional in Edit profile).
+      if (!firstName || !lastName || !address) {
         if (authMsg) {
           authMsg.className = "auth-msg err";
-          authMsg.textContent = "Please fill in all fields. No company? Enter \"Independent\".";
+          authMsg.textContent = "Please fill in your name and address.";
         }
         return;
       }
       if (btn) btn.disabled = true;
       if (authMsg) { authMsg.className = "auth-msg"; authMsg.textContent = "Creating account"; }
-      const profile = { first_name: firstName, last_name: lastName, company, address, phone };
+      const profile = { first_name: firstName, last_name: lastName, address };
       // 2026-10-04: sign-up goes through the self-signup Edge Function
       // (supabase/functions/self-signup), which creates the account already
       // confirmed and sends NO e-mail - Supabase's built-in sender allows only
@@ -2724,17 +2725,16 @@ async function startOAuth(provider, btn) {
 renderOAuthButtons();
 
 // An account created through a provider has none of the sign-up form's
-// details (name, company, address, phone). The pending screen asks for the
-// missing ones, pre-filled from the name the provider shared; they are saved
-// to the account's own metadata (auth.updateUser), the same place the
-// sign-up form and the Edit profile form keep them. Saving changes nothing
-// about access - approval still decides.
+// details (name, address). The pending screen asks for the missing ones,
+// pre-filled from the name the provider shared; they are saved to the
+// account's own metadata (auth.updateUser), the same place the sign-up form
+// and the Edit profile form keep them. Saving changes nothing about access -
+// approval still decides. Company and phone are optional (Edit profile),
+// so they are never demanded here (2026-10-10).
 var PENDING_DETAIL_FIELDS = [
   ["first_name", "First name", "given-name", "text"],
   ["last_name", "Last name", "family-name", "text"],
-  ["company", "Company (no company? Enter Independent)", "organization", "text"],
-  ["address", "Address", "street-address", "text"],
-  ["phone", "Phone number", "tel", "tel"]
+  ["address", "Address", "street-address", "text"]
 ];
 function pendingDetailsMissing(meta) {
   return PENDING_DETAIL_FIELDS.some(([k]) => !String((meta || {})[k] || "").trim());
@@ -2771,7 +2771,7 @@ function renderPendingDetails() {
     const data = {};
     PENDING_DETAIL_FIELDS.forEach(([k]) => { data[k] = String(form.elements[k].value || "").trim(); });
     if (Object.values(data).some(v => !v)) {
-      if (msg) { msg.className = "auth-msg err"; msg.textContent = 'Please fill in all fields. No company? Enter "Independent".'; }
+      if (msg) { msg.className = "auth-msg err"; msg.textContent = "Please fill in your name and address."; }
       return;
     }
     const btn = form.querySelector('button[type="submit"]');
@@ -11335,8 +11335,9 @@ if (profileForm) profileForm.addEventListener("submit", async e => {
     address: PF("pfAddress").value.trim(),
     phone: PF("pfPhone").value.trim()
   };
-  if (Object.values(data).some(v => !v)) {
-    if (pfMsg) { pfMsg.className = "auth-msg err"; pfMsg.textContent = 'Please fill in all fields. No company? Enter "Independent".'; }
+  // Name and address are required; company and phone are optional (2026-10-10).
+  if (!data.first_name || !data.last_name || !data.address) {
+    if (pfMsg) { pfMsg.className = "auth-msg err"; pfMsg.textContent = "Please fill in your name and address."; }
     return;
   }
   if (btn) btn.disabled = true;

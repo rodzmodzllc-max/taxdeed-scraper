@@ -13,7 +13,11 @@
 import { signupPasswordProblem } from "./signup_password.js";
 
 const EMAIL_RE = /^[^\s@]{1,64}@[^\s@]{1,190}\.[^\s@]{2,63}$/;
-export const PROFILE_FIELDS = Object.freeze(["first_name", "last_name", "company", "address", "phone"]);
+// Required at sign-up: name and address. Company and phone are OPTIONAL
+// (2026-10-10 - the form no longer asks for them; Edit profile can add them):
+// stored when sent and non-empty, never required, never invented.
+export const PROFILE_FIELDS = Object.freeze(["first_name", "last_name", "address"]);
+export const OPTIONAL_PROFILE_FIELDS = Object.freeze(["company", "phone"]);
 
 // -> { ok: true, email, password, meta } | { ok: false, status, body }
 export function validateSignupBody(body) {
@@ -30,8 +34,13 @@ export function validateSignupBody(body) {
   const meta = {};
   for (const f of PROFILE_FIELDS) {
     const v = typeof body[f] === "string" ? body[f].trim() : "";
-    if (!v || v.length > 200) return { ok: false, status: 400, body: { error: "missing_fields", message: "Please fill in all fields. No company? Enter \"Independent\"." } };
+    if (!v || v.length > 200) return { ok: false, status: 400, body: { error: "missing_fields", message: "Please fill in your name and address." } };
     meta[f] = v;
+  }
+  for (const f of OPTIONAL_PROFILE_FIELDS) {
+    const v = typeof body[f] === "string" ? body[f].trim() : "";
+    if (v.length > 200) return { ok: false, status: 400, body: { error: "missing_fields", message: "Please fill in your name and address." } };
+    if (v) meta[f] = v;
   }
   return { ok: true, email, password, meta };
 }

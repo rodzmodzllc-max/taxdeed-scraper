@@ -77,12 +77,8 @@ field). -->
   <input type="text" id="firstName" autocomplete="given-name" hidden></label>
 <label class="auth-field"><span>Last name</span>
   <input type="text" id="lastName" autocomplete="family-name" hidden></label>
-<label class="auth-field"><span>Company</span>
-  <input type="text" id="company" placeholder="No company? Enter Independent" autocomplete="organization" hidden></label>
 <label class="auth-field"><span>Address</span>
   <input type="text" id="address" autocomplete="street-address" hidden></label>
-<label class="auth-field"><span>Phone number</span>
-  <input type="tel" id="phone" autocomplete="tel" hidden></label>
 <label class="auth-field"><span>Email</span>
   <input type="email" id="email" autocomplete="username" required></label>
 <label class="auth-field"><span>Password</span>
@@ -738,7 +734,8 @@ they know the existing one. -->
 </div>
 
 <!-- ============ edit profile ============
-Name, company, address and phone are collected at sign-up and stored in the
+Name and address are collected at sign-up (company and phone are optional,
+entered here if wanted - 2026-10-10) and stored in the
 Supabase auth user's metadata, NOT in public.profiles (which only holds id,
 email, approved, is_admin and the two timestamps). So this edits them with
 sb.auth.updateUser({ data: ... }) - no table, no RLS policy, and a user can
@@ -758,12 +755,12 @@ nothing saying which is which. -->
   <label class="pf-field"><span>Last name</span>
     <input type="text" id="pfLast" autocomplete="family-name" required></label>
 </div>
-<label class="pf-field"><span>Company</span>
-  <input type="text" id="pfCompany" placeholder="No company? Enter Independent" autocomplete="organization" required></label>
+<label class="pf-field"><span>Company (optional)</span>
+  <input type="text" id="pfCompany" autocomplete="organization"></label>
 <label class="pf-field"><span>Address</span>
   <input type="text" id="pfAddress" autocomplete="street-address" required></label>
-<label class="pf-field"><span>Phone</span>
-  <input type="tel" id="pfPhone" autocomplete="tel" required></label>
+<label class="pf-field"><span>Phone (optional)</span>
+  <input type="tel" id="pfPhone" autocomplete="tel"></label>
 <button type="submit" id="pfSubmitBtn">Save changes</button>
 </form>
 <div class="auth-msg" id="pfMsg"></div>
