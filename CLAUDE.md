@@ -2442,6 +2442,87 @@ dot). No request leaves the site. A real image for those rows still needs
 coordinates (an authorized geocode / enrichment run). Playwright block
 "Imagery without coordinates".
 
+## Current-state sprint: keyset reads, per-source status, enrichment isolation (2026-10-10, PR open, no migration)
+
+Full description: `docs/current-state-sprint.md`; coverage matrix: `docs/current-state-coverage.md`. Stable facts:
+- **Population reads go through `scripts/rest_pages.py`.** Keyset pages
+  (`id=gt.<last>&order=id.asc`) and a bounded retry, GET only, on 5xx /
+  connection errors; a 4xx is raised unchanged. Offset paging sorted the
+  whole state per page and hit the statement timeout (HTTP 500) under load.
+  That stopped the SC and LA syncs and the deeds job's geocoding. A test
+  forbids offset paging in the sync and the lifecycle.
+- **Status is per (source, county).** `StatusRecorder` keeps one entry per
+  source of a county. The sync and its close-out read `unit_status()`; a
+  county-only key is the worst read of that county. One failed Detroit
+  source had hidden the other's 30,706-row complete read.
+- **Deeds enrichment steps are isolated:** `if: !cancelled()` +
+  `continue-on-error`.
+- **Coverage matrix:** `scripts/sql/current_state_coverage.sql` (read-only)
+  → `data/current_state/*.json` → `scripts/current_state_report.py`
+  (`--check` pinned).
+
+## Data-quality sprint: baselines, Tennessee enrichment, Texas causes (2026-10-10, PR open, no migration)
+
+Full description: `docs/data-quality-sprint.md`; per-source matrix: `docs/source-quality-matrix.md`. Stable facts:
+- **Verified baselines** (Horry SC, Tennessee Shelby) are pinned, counts only, in
+  `data/current_state/verified-baselines-2026-10-10.json` and `tests/python/test_data_quality_sprint.py`.
+- **ePropertyPlus:** an OFFERED row whose parcel id fails `id_pattern` makes the read INCOMPLETE (good rows synced, nothing
+  closed). `list_date()` reads only a portal-published date (an offset datetime keeps its written date; naive/epoch -> None);
+  `list_as_of_field` is None for Shelby, which publishes none.
+- **Address geocoder:** `geocode_properties.NO_ADDRESS_GEOCODE_SOURCES` (`tn_shelby_landbank`) is never address-geocoded -
+  a source that publishes its own points keeps a missing point missing. The filter is NULL-safe on `harvester_source`.
+- **Fair enrichment queue:** `scripts/enrichment_queue.py` (`env_limit`, `plan_slices` round-robin pass 2, `rotate`,
+  `take_after`, `Checkpoint`). The geocoder plans per (state, county) and resumes from
+  `GEOCODE_CHECKPOINT` (deeds job: `out/.harvest_cache/geocode_checkpoint.json`); its PATCH carries
+  `latitude=is.null`. Limits: geocode 250 (max 1,000), flood 500 / 40 per county (max 10,000); invalid -> exit 2.
+- **Tennessee semantics:** `expansion.TN_SHELBY_SEMANTICS` (Land Bank post-sale inventory, offer process, no auction)
+  is why Shelby is AVAILABLE; `currency` checks use `model.amounts_disagree` (whole cents; missing is None).
+- **Acquisition evidence type** per row: `acquisition_evidence_status.evidence_type()` (property_specific / listing_level /
+  application_process / source_list_only / no_verified_online_path), never from a URL's existence. Shelby is NEEDS_REVIEW.
+- **Texas `parcel` is the tax-suit CAUSE number** for `tx_lgbs` / `tx_realauction` (the CAD account is `case_no`); one cause
+  covers several parcels. app.js `parcelOf(p)` / `causeOf(p)` / `caseIdentText(p)`: the account is the parcel shown and
+  matched across ledgers, the cause is "Tax suit cause #". Never read `p.parcel` as a parcel identity on a new surface.
+  Stub knob `?txcause=1` (ptx8 shares ptx3's cause). `sw.js` -> `tdw-shell-v116` (v115 is held by #130).
+- **Source matrix:** `scripts/sql/source_quality_matrix.sql` (read-only) -> `data/current_state/source-quality-*.json` ->
+  `scripts/source_quality_report.py` (`--check` pinned); every cell `n/N`.
+
+## State rules registry, verification engine, State rules page (2026-10-10, PR open, no migration)
+
+Full description: `docs/state-rules.md`. Stable facts:
+- **`data/state_rules.csv`** (`harvesters/governance/state_rules.py`): kind LAW / PROCEDURE / SOURCE / UNRESOLVED; status
+  VERIFIED only with an https source, title, `verified_on` and repository evidence (LAW also its citation). A "lead only"
+  citation is never VERIFIED; an unverified row has no date. County rows replace the statewide topic for that county only.
+  Only three Florida statute provisions are VERIFIED LAW (read 2026-10-05); the sandbox cannot reach statute sites.
+- **`data/state_ledgers.csv`**: TRACKED / NOT_TRACKED / NOT_OFFERED (needs evidence; none claimed) / NOT_VERIFIED per ledger.
+- **`harvesters/governance/state_verification.py`**: PASS / FAIL / BLOCKED / NOT_APPLICABLE / NOT_VERIFIED findings, no score.
+  A missing record FAILs. `ledger_copy` fails customer copy that denies a fed ledger; `copy_law_claims` fails a statute cited
+  in ledger copy without a VERIFIED LAW rule unless the string says "not verified".
+- **`scripts/build_state_rules.py`** (`--check` pinned) -> `public/state-rules.json` (mirrored) + `data/state_verification.json`.
+  Rebuild after editing either CSV, the evidence tables, the registry or ledger copy in app.js.
+- **Frontend**: `#/rules`, `#/rules?county=` (`renderRulesPage`, `rulesForCounty` mirrors `rules_for`), linked from the state
+  picker and every property's Source truth. `sw.js` -> `tdw-shell-v117`.
+
+## Ledger eligibility, county coverage, zero-count semantics (2026-10-10, PR open, no migration)
+
+Full description: `docs/ledger-eligibility.md`. Stable facts:
+- **Seven separate facts per ledger**: eligibility (`data/state_ledgers.csv` `eligibility`: OFFERED / NOT_OFFERED /
+  COUNTY_DEPENDENT / NOT_VERIFIED / SOURCE_RESTRICTED, with basis, https source and date for the evidenced classes),
+  county coverage (`state_verification.county_coverage`: registry rows + county-scoped verified procedures), tracking
+  (`status`), the current count (loaded rows), the last known count (`last_success_row_count` over the ledger's units),
+  read health (`sourceHealthState`) and verification status. Never derive one from another. OFFERED / NOT_OFFERED need
+  a VERIFIED LAW rule for that ledger (FL only today); nothing is NOT_OFFERED.
+- **A zero is never ambiguous**: `ledgerZeroState(kind)` in app.js (var / function declarations - TDZ) picks one of
+  NOT_OFFERED / NO_CURRENT_INVENTORY / COUNTY_DEPENDENT / NOT_VERIFIED / NOT_IMPLEMENTED / SOURCE_RESTRICTED /
+  SOURCE_FAILURE in the documented precedence; `ZERO_CASE_COPY` keys must equal `state_verification.ZERO_CASES`. A
+  failed load or read shows the last known count labelled as such, never a bare zero; a missing record is NOT_VERIFIED.
+  The strip (`.ledger-status`) sits in every ledger head and in each `#/rules` ledger block.
+- **Rules carry `ledger` (`|`-joined or ALL), `office`, `related_sources`, `depends_on`, `implementation_status`,
+  `test_ref`, `version`, `changed_on`**; `data/state_rules_history.csv` is append-only and a rule at version N needs
+  history rows 1..N-1 (never overwrite a statement silently - add a history row and bump the version).
+- Engine checks added: `ledger_eligibility`, `county_coverage`, `rule_history`, `zero_state_cases`,
+  `no_false_zero_copy`, `no_false_zero_lifecycle`, `tx_classification`, `tx_struck_off_copy`, `fl_separation`.
+  Stub knobs `?emptyledger=`, `?unitstatus=`. `sw.js` -> `tdw-shell-v118`.
+
 ## Where to look for more
 
 - `claude/improvement-roadmap.md` in the "tax florida app" claude.ai Project — the full dated log of every fix, audit finding, and open decision. This is where new findings should be appended, not here.
@@ -2707,8 +2788,8 @@ Full description: `docs/final-visual-refinement.md`. Stable facts:
   a CSS counter.
 - **Source truth rows** (fixed order): Source record, Last read, Source date,
   Publication status, Source health, Acquisition path / Sale process, Price /
-  bid / Certificate amount, Official listing, County intelligence. Never add a
-  score or a confidence.
+  bid / Certificate amount, Official listing, County intelligence (and, since
+  2026-10-10, State rules). Never add a score or a confidence.
 - `sw.js` → `tdw-shell-v92`.
 
 ## AVAILABLE financial position + documents & links (2026-10-05, PR open, no migration)
@@ -3096,3 +3177,36 @@ Full description: `docs/auth-email.md`. Stable facts:
   - recovery then emits PASSWORD_RECOVERY and opens the existing form;
   - a used or expired token reads "That password-reset link has expired …".
 - **Tests.** `tests/recovery_flow_test.mjs` covers this with the real supabase-js (POST `/auth/v1/verify` fake).
+
+## Mandatory acquisition-path gate for customer publication (2026-10-10, PR open, migration 031 NOT applied)
+
+Full description: `docs/publication-gate.md`. Stable facts:
+- **Harvested data is not customer inventory.** `harvesters/governance/publication_state.py`
+  decides ONE state per row, in order: source approved → state / county rules
+  verified (`data/state_ledgers.csv` + coverage) → record valid → a credible
+  acquisition path (AUCTIONS: sale / county `url_auction`; AVAILABLE: verified
+  acquisition evidence for the unit or a record-level typed path; LIENS: a
+  typed path or the county's registry certificate page; a county portal or
+  procedure is enough, a homepage / search page / http never) → freshness
+  (AUCTIONS 7 d, AVAILABLE 14 d, LIENS 7 d; sale date; evidence ≤ 180 d).
+  States: DISCOVERED / RULES_VERIFIED / PATH_VERIFIED / CUSTOMER_PUBLISHED /
+  ADMIN_ONLY_NO_PATH / ADMIN_ONLY_SOURCE_REVIEW / ADMIN_ONLY_STALE / CLOSED,
+  with `publication_progress` (milestone), `publication_reasons`,
+  `publication_remediation`, `publication_path` (structured evidence). They
+  never replace the lifecycle status; a failed read changes nothing; nothing
+  here closes a row.
+- **Migration 031** (`031_publication_state_gate.sql`, NOT applied) ALTERS the
+  single `properties` policy to `is_approved() AND (publication_state =
+  'CUSTOMER_PUBLISHED' OR is_admin())` - server-side for every surface; NULL
+  is never customer-visible, so **apply order is 031, then the writer for
+  every state (`job=publication`)**; between the two steps customers see
+  nothing. RPCs `count_publication_states` (counts, every approved account)
+  and `get_withheld_states` (admins); table `publication_decisions` (log).
+- **Writer:** `scripts/publication_state_writer.py --state XX` (after every
+  sync and manual `job=publication`); keyset reads, changed rows only, never a
+  lifecycle status; plan-only without 031.
+- **Frontend:** `PUBLICATION` (`applyPublicationReads`) in app.js; labels
+  pinned to Python; the strip's "Withheld from customers" item, zero case
+  `WITHHELD`, admin chips `.pub-state-chip`, property-page `publicationGateHtml`.
+  Stub knob `?pubgate=1`. Tester preview no longer bypasses the gate once 031
+  is applied. `sw.js` -> `tdw-shell-v119`.

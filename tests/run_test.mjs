@@ -2459,6 +2459,7 @@ results.txInventoryPurchase = await invVal(txClPage, 'Purchase link');
 results.txInventoryAcquire = await invVal(txClPage, 'How to acquire');
 results.txInventoryOwner = await invVal(txClPage, 'Owner of record');
 results.txInventoryParcel = await invVal(txClPage, 'Parcel #');
+results.txInventoryCause = await invVal(txClPage, 'Tax suit cause #');
 results.txInventoryAnchors = await txClPage.locator('#detailModalInner .inventory-card a').count();
 // Acquisition sprint: the gap is the UNVERIFIED process, never a missing hyperlink.
 results.txInventoryGapNamesAcquisition = !((await txClPage.locator('#detailModalInner .opp-gaps').textContent()) || '').includes('Acquisition path not yet verified');   // verified county process (fixture)
@@ -4288,6 +4289,33 @@ await navMap.close();
     results.offListDefault = await n.evaluate(() => window.__tdwOffList('p9'));
     await n.close();
   }
+  // ---- Texas cause numbers are never parcel identity (2026-10-10) ----
+  // ptx3 and ptx8 (?txcause=1) share one LGBS tax-suit cause but are two CAD
+  // accounts - two parcels. Neither is "the same parcel" as the other, and the
+  // cause is labelled as a cause, never as "Parcel #".
+  {
+    const pg = await newPage({ viewport: { width: 1440, height: 900 } });
+    pg.on('pageerror', e => errors.push('txcause pageerror: ' + e.message));
+    await pg.goto(TX_BASE_URL + '?txcause=1' + '#/lands', { waitUntil: 'networkidle' });
+    await pg.waitForTimeout(400);
+    results.txCauseCardParcel = await pg.evaluate(() => ['ptx3', 'ptx8'].map(id => {
+      const e = document.querySelector(`#main .prop-card[data-pid="${id}"] .prop-parcel-line`);
+      return e ? e.textContent.trim() : null;
+    }));
+    await pg.close();
+    const d = await newPage({ viewport: { width: 1440, height: 900 } });
+    await d.goto(TX_BASE_URL + '?txcause=1' + '#/lands/ptx3', { waitUntil: 'networkidle' });
+    await d.waitForTimeout(500);
+    results.txCauseDetail = await d.evaluate(() => {
+      const m = document.getElementById('detailModalInner');
+      const txt = m ? m.innerText.replace(/\s+/g, ' ') : '';
+      return { related: m ? m.querySelectorAll('.related-record').length : null,
+        sameParcelClaim: /ptx8|6600 BLOCK/.test(m ? m.innerHTML : ''),
+        causeAsParcel: /Parcel #? ?23-TX-0644/.test(txt),
+        causeShown: /Cause 23-TX-0644/.test(txt) || /Tax suit cause # 23-TX-0644/.test(txt) };
+    });
+    await d.close();
+  }
   // ---- Opportunity finder + auction command center (2026-10-05) ----
   {
     const pg = await newPage({ viewport: { width: 1440, height: 900 } });
@@ -4910,6 +4938,10 @@ await navMap.close();
             program: txt.includes('Land bank inventory'),
             sourceStatus: txt.includes('FOR SALE'),
             noTaxDeedWords: !/tax deed|tax lien|Lands Available|Redeemable/i.test(txt.replace(/Liens & Certificates/g, '')),
+            // 2026-10-10: the Land Bank's list page is a list, never a purchase link.
+            noPurchaseLink: txt.includes('No online purchase link on file'),
+            listNotPurchase: ![...m.querySelectorAll('a[data-acq-link="purchase"], a.acq-cta')].some(a => /epropertyplus\.com/.test(a.getAttribute('href') || '')),
+            noAuctionDate: !/Sale date|Auction date|Sale (Mon|Tue|Wed|Thu|Fri|Sat|Sun)/.test(txt),
           };
         });
         await dp.close();
@@ -4918,6 +4950,214 @@ await navMap.close();
       await pg.close();
     }
     results.tnVisibility = tn;
+  }
+  // ---- State rules page (#/rules, 2026-10-10) ----
+  // Every rule shows its kind and status; nothing unverified reads as
+  // verified; a county rule appears only for its own county; untracked
+  // ledgers say so rather than looking empty.
+  {
+    const rulesOf = async (url) => {
+      const pg = await newPage({ viewport: { width: 1280, height: 900 } });
+      pg.on('pageerror', e => errors.push('rules pageerror: ' + e.message));
+      await pg.goto(url, { waitUntil: 'networkidle' });
+      await pg.waitForTimeout(500);
+      const r = await pg.evaluate(() => {
+        const root = document.getElementById('rulesPage');
+        if (!root) return null;
+        const items = [...root.querySelectorAll('.rule-item')];
+        return {
+          title: (root.querySelector('h1') || {}).textContent || '',
+          ledgers: Object.fromEntries([...root.querySelectorAll('.rules-ledger')].map(li => [li.dataset.ledger, li.dataset.status])),
+          items: items.length,
+          verifiedWithoutStatus: items.filter(i => i.dataset.status !== 'VERIFIED' && /Verified \w/.test(i.querySelector('.rule-meta') ? i.querySelector('.rule-meta').textContent : '')).length,
+          unverifiedLabelled: items.filter(i => i.dataset.status !== 'VERIFIED').every(i => /Not verified/.test(i.textContent)),
+          countyScoped: items.filter(i => i.dataset.scope === 'county').map(i => (i.querySelector('.rule-scope') || {}).textContent),
+          noScores: !/score|confidence|rating/i.test(root.textContent),
+          hash: location.hash,
+          visible: !document.getElementById('pageRules').hidden,
+        };
+      });
+      await pg.close();
+      return r;
+    };
+    const TNR = BASE_URL.replace(/index\.html$/, 'tn.html'), SCR = BASE_URL.replace(/index\.html$/, 'sc.html');
+    const tn = await rulesOf(TNR + '#/rules');
+    results.rulesTn = tn && { title: tn.title.trim(), ledgers: tn.ledgers, verifiedWithoutStatus: tn.verifiedWithoutStatus,
+      unverifiedLabelled: tn.unverifiedLabelled, noScores: tn.noScores, hash: tn.hash, visible: tn.visible, hasItems: tn.items > 0 };
+    const gt = await rulesOf(SCR + '#/rules?county=Georgetown');
+    const hy = await rulesOf(SCR + '#/rules?county=Horry');
+    results.rulesCounty = { georgetown: gt && [...new Set(gt.countyScoped)].sort(), horry: hy && [...new Set(hy.countyScoped)].sort(),
+      gtTitle: gt && gt.title.trim() };
+    const fl = await rulesOf(BASE_URL + '#/rules');
+    results.rulesFl = fl && { ledgers: fl.ledgers, unverifiedLabelled: fl.unverifiedLabelled, verifiedWithoutStatus: fl.verifiedWithoutStatus };
+    // Reached from a property page's Source truth and from the state picker.
+    const d = await newPage({ viewport: { width: 1280, height: 900 } });
+    await d.goto(TNR + '?profile=admin#/lands/ptn1', { waitUntil: 'networkidle' });
+    await d.waitForTimeout(500);
+    results.rulesFromProperty = await d.evaluate(() => {
+      const b = document.querySelector('#detailModalInner [data-action="staterules"]');
+      return b ? { county: b.dataset.county, text: b.textContent.trim() } : null;
+    });
+    await d.locator('#detailModalInner [data-action="staterules"]').first().click().catch(() => {});
+    await d.waitForTimeout(500);
+    results.rulesFromPropertyLanded = await d.evaluate(() => ({ hash: location.hash, shown: !!document.querySelector('#rulesPage[data-county="Shelby"]'),
+      modalClosed: document.getElementById('detailModal').hidden }));
+    await d.close();
+  }
+  // ---- Ledger eligibility and zero-count semantics (2026-10-10) ----
+  // Eligibility (public/state-rules.json), tracking, the current count, the
+  // last known count and read health are separate facts on every ledger
+  // head, and a zero names which zero it is. A failed load never prints a
+  // bare zero. Stub knobs: ?emptyledger=<type>, ?unitstatus=<source>:<STATUS>.
+  {
+    const stripOf = async (url, kind, settle) => {
+      const pg = await newPage({ viewport: { width: 1280, height: 900 } });
+      pg.on('pageerror', e => errors.push('zero pageerror: ' + e.message));
+      await pg.addInitScript(() => { window.__tdwRetryScale = 0.01; });
+      await pg.goto(url, { waitUntil: 'networkidle' });
+      await pg.waitForTimeout(settle || 600);
+      const r = await pg.evaluate(k => {
+        const el = document.querySelector(`.ledger-status[data-ledger-status="${k}"]`);
+        if (!el) return null;
+        const why = el.querySelector('.ls-why');
+        return { eligibility: el.dataset.eligibility, zeroCase: el.dataset.zeroCase, tracked: el.dataset.tracked, health: el.dataset.health,
+          elig: el.querySelector('[data-ls-eligibility]').textContent, count: el.querySelector('[data-ls-count]').textContent,
+          read: el.querySelector('[data-ls-read]').textContent.replace(/\d+[hdm] ago/g, 'N ago'),
+          whyLabel: why ? why.querySelector('b').textContent : null, whyText: why ? why.textContent : '',
+          links: [...el.querySelectorAll('.ls-links a, .ls-links button')].map(a => a.textContent.trim()) };
+      }, kind);
+      await pg.close();
+      return r;
+    };
+    const TNZ = BASE_URL.replace(/index\.html$/, 'tn.html'), TXZ = BASE_URL.replace(/index\.html$/, 'tx.html');
+    const MIZ = BASE_URL.replace(/index\.html$/, 'mi.html'), WYZ = BASE_URL.replace(/index\.html$/, 'wy.html');
+    // B. Offered (statute read), no current inventory after a complete read.
+    const b = await stripOf(BASE_URL + '?emptyledger=lien&certunit=1#/certificates', 'certificate');
+    results.zeroOfferedNoInventory = b && { eligibility: b.eligibility, zeroCase: b.zeroCase, tracked: b.tracked, count: b.count, whyLabel: b.whyLabel, read: b.read,
+      saysExists: /This product exists in this state/.test(b.whyText), links: b.links };
+    // Rows present: no zero case, the same facts stay on the strip.
+    const n = await stripOf(BASE_URL + '#/certificates', 'certificate');
+    results.zeroNoneWhenRows = n && { zeroCase: n.zeroCase, eligibility: n.eligibility, whyLabel: n.whyLabel, countEndsWith: n.count.replace(/^\d+ /, '') };
+    // F. The load failed: never a bare zero, the last known count labelled as such.
+    const f = await stripOf(BASE_URL + '?failpage=lien:0&certunit=1#/certificates', 'certificate', 2500);
+    results.zeroLoadFailure = f && { zeroCase: f.zeroCase, eligibility: f.eligibility, count: f.count, whyLabel: f.whyLabel,
+      lastKnown: /Last known count: 9 instruments/.test(f.whyText), bareZero: /^0 instruments$/.test(f.count) };
+    // F. A partial source read with no rows: last known count, nothing closed.
+    const fp = await stripOf(TXZ + '?emptyledger=buy#/lands', 'laft');
+    results.zeroPartialRead = fp && { zeroCase: fp.zeroCase, eligibility: fp.eligibility, health: fp.health, lastKnown: /Last known count: 120 properties/.test(fp.whyText), count: fp.count };
+    // D. Tracked, read completely, rules not verified: the zero is not authoritative.
+    const d = await stripOf(TXZ + '?emptyledger=buy&unitstatus=tx_lgbs:COMPLETE:0#/lands', 'laft');
+    results.zeroNotVerified = d && { zeroCase: d.zeroCase, eligibility: d.eligibility, health: d.health, whyLabel: d.whyLabel,
+      notAuthoritative: /not a statement that the state does not offer it/.test(d.whyText), read: d.read };
+    // E. No source implemented (not tracked) - eligibility stays its own fact.
+    const e1 = await stripOf(TNZ + '#/auctions', 'auction');
+    results.zeroNotImplemented = e1 && { zeroCase: e1.zeroCase, eligibility: e1.eligibility, tracked: e1.tracked, whyLabel: e1.whyLabel, notProof: /not proof that no properties exist/.test(e1.whyText) };
+    const wy = await stripOf(WYZ + '#/certificates', 'certificate');
+    results.zeroEligibleButUntracked = wy && { zeroCase: wy.zeroCase, eligibility: wy.eligibility, tracked: wy.tracked, coverage: /Albany/.test(wy.whyText) };
+    // E. Source awaiting review: customers see the zero explained, admins see the rows.
+    const e2 = await stripOf(TNZ + '#/lands', 'laft');
+    const e2a = await stripOf(TNZ + '?profile=admin#/lands', 'laft');
+    results.zeroPendingReview = e2 && e2a && { customer: { zeroCase: e2.zeroCase, eligibility: e2.eligibility, count: e2.count, whyLabel: e2.whyLabel }, admin: { zeroCase: e2a.zeroCase, count: e2a.count } };
+    // C. County-dependent product with no rows names the covered counties.
+    const c = await stripOf(MIZ + '?emptyledger=auctions#/auctions', 'auction');
+    results.zeroCountyDependent = c && { zeroCase: c.zeroCase, eligibility: c.eligibility, whyLabel: c.whyLabel, counties: (c.whyText.match(/verified procedure: ([^.]+)\./) || [])[1] || null };
+    // A. Nothing is NOT_OFFERED: no evidence of that was read, so no page may say it.
+    const pgA = await newPage({ viewport: { width: 1280, height: 900 } });
+    await pgA.goto(BASE_URL + '#/auctions', { waitUntil: 'networkidle' });
+    results.zeroNotOfferedUnclaimed = await pgA.evaluate(() => ({ notOffered: !!document.querySelector('.ledger-status[data-eligibility="NOT_OFFERED"]'),
+      offered: document.querySelector('.ledger-status[data-ledger-status="auction"]').dataset.eligibility }));
+    // The strip's rules link opens the State rules page at that ledger's block.
+    await pgA.locator('.ledger-status[data-ledger-status="auction"] [data-action="staterules"]').click();
+    await pgA.waitForTimeout(500);
+    results.zeroStripToRules = await pgA.evaluate(() => ({ hash: location.hash, block: !!document.querySelector('#rulesLedgerAUCTIONS'),
+      blocks: [...document.querySelectorAll('.rules-ledger')].map(l => [l.dataset.ledger, l.dataset.eligibility, l.dataset.status]),
+      strips: document.querySelectorAll('#rulesPage .ledger-status').length, noScores: !/\b(score|confidence)\b/i.test(document.getElementById('rulesPage').textContent) }));
+    await pgA.close();
+    // ==================== Mandatory acquisition-path gate (2026-10-10, migration 031, ?pubgate=1) ====================
+    // The stub plays the SERVER: a customer's property RPCs return only
+    // CUSTOMER_PUBLISHED rows, an admin's return every row, and the two RPCs
+    // (count_publication_states / get_withheld_states) answer as the real
+    // functions do. Withheld fixture rows: p2 (auction, homepage link), p3
+    // (Available, no acquisition page found), p4 (lien, stale observation),
+    // p13 (auction, sale date passed), p14 (restricted source).
+    const gateSurfaces = async (q) => {
+      const pg = await newPage({ viewport: { width: 1280, height: 900 } });
+      const out = {};
+      for (const [kind, hash] of [['auction', '#/auctions'], ['laft', '#/lands'], ['certificate', '#/certificates']]) {
+        await pg.goto(BASE_URL + q + hash, { waitUntil: 'networkidle' });
+        await pg.waitForTimeout(900);
+        out[kind] = await pg.evaluate((k) => {
+          const el = document.querySelector(`.ledger-status[data-ledger-status="${k}"]`);
+          const w = el && el.querySelector('[data-ls-withheld]');
+          const para = document.getElementById('ledgerPublicationWithheld');
+          return { cards: [...document.querySelectorAll('.prop-card')].map(c => c.dataset.pid).sort(), zero: el ? el.dataset.zeroCase : null,
+            count: el ? el.querySelector('[data-ls-count]').textContent : null, withheld: w ? w.textContent : null, withheldN: w ? w.dataset.lsWithheld : null,
+            chips: [...document.querySelectorAll('.pub-state-chip')].map(c => c.dataset.pubState).sort(),
+            para: para ? para.textContent.replace(/^(\d+ records? withheld pending verification \([^)]*\))\. .*$/, '$1 · ' + (/Shown to you as an admin/.test(para.textContent) ? 'admin' : /Counted, not shown/.test(para.textContent) ? 'customer' : '?')) : null };
+        }, kind);
+      }
+      // global search, Map and the Home tile all derive from the same gated rows
+      await pg.goto(BASE_URL + q + '#/lands', { waitUntil: 'networkidle' });
+      await pg.waitForTimeout(600);
+      await pg.fill('#globalSearchInput', 'Oak');
+      await pg.waitForTimeout(600);
+      out.searchHits = await pg.evaluate(() => document.querySelectorAll('#globalSearchResults .gs-row').length);
+      await pg.evaluate(() => { location.hash = '#/map?ledger=laft'; });
+      await pg.waitForTimeout(1500);
+      out.map = await pg.evaluate(() => ({ head: (document.querySelector('.map-side-head') || {}).textContent.replace(/\s+/g, ' ').trim(), pins: document.querySelectorAll('.explore-map .pin, .explore-map .cluster-bubble').length }));
+      await pg.evaluate(() => { location.hash = '#/dashboard'; });
+      await pg.waitForTimeout(800);
+      out.tile = await pg.evaluate(() => ({ val: document.querySelector('[data-ledger-tile="laft"] .stat-tile-val').textContent, sub: document.querySelector('[data-ledger-tile="laft"] .stat-tile-sub').textContent }));
+      // the Available export carries the gated rows only
+      await pg.evaluate(() => { location.hash = '#/lands'; });
+      await pg.waitForTimeout(600);
+      const dl = pg.waitForEvent('download');
+      await pg.click('#exportCsvBtn');
+      const csvPath = await (await dl).path();
+      out.csvRows = fs.readFileSync(csvPath, 'utf8').trim().split('\n').length - 1;
+      await pg.close();
+      return out;
+    };
+    results.gateCustomer = await gateSurfaces('?pubgate=1');
+    results.gateAdmin = await gateSurfaces('?pubgate=1&profile=admin');
+    // Off (031 not applied): no withheld item, no chips, today's behaviour.
+    const gateOff = await gateSurfaces('');
+    results.gateOff = { withheld: [gateOff.auction.withheld, gateOff.laft.withheld, gateOff.certificate.withheld], chips: gateOff.laft.chips, cards: gateOff.laft.cards, para: gateOff.laft.para };
+    // Property page: an admin sees the decision, its reasons, the path evidence and the remediation; a customer's published row says every gate passed; a customer deep link to a withheld row opens nothing.
+    const gatePage = async (q, pid) => {
+      const pg = await newPage({ viewport: { width: 1280, height: 900 } });
+      await pg.goto(BASE_URL + q + '#/lands/' + pid, { waitUntil: 'networkidle' });
+      await pg.waitForTimeout(900);
+      const r = await pg.evaluate(() => {
+        const row = document.querySelector('.pub-gate-row');
+        const b = document.getElementById('publicationGateBanner');
+        return { modal: !!document.querySelector('#detailModal:not([hidden])'), hash: location.hash, gate: row ? row.dataset.pubState : null,
+          reached: row ? (row.textContent.match(/reached: ([^·]+)/) || [])[1]?.trim() || null : null,
+          reasons: [...document.querySelectorAll('.pub-reason')].map(x => x.dataset.reason), path: (document.querySelector('.pub-gate-path') || {}).textContent || null,
+          remediation: (document.querySelector('.pub-gate-remediation') || {}).textContent || null, banner: b ? b.dataset.pubState : null,
+          visibleNo: /Customer-visible: No/.test((document.querySelector('.source-review-row') || {}).textContent || ''),
+          allPassed: /source approved, state rules verified, record valid, acquisition path documented, observation current/.test((document.querySelector('.pub-gate-row') || {}).textContent || '') };
+      });
+      await pg.close();
+      return r;
+    };
+    results.gatePageAdminWithheld = await gatePage('?pubgate=1&profile=admin', 'p3');
+    results.gatePageCustomerPublished = await gatePage('?pubgate=1', 'p15');
+    results.gatePageCustomerWithheldDeepLink = await gatePage('?pubgate=1', 'p3');
+    results.gatePageOff = await gatePage('', 'p15');
+    // County coverage and rule history on the rules page.
+    const pgC = await newPage({ viewport: { width: 1280, height: 900 } });
+    await pgC.goto(BASE_URL.replace(/index\.html$/, 'sc.html') + '#/rules?county=Georgetown', { waitUntil: 'networkidle' });
+    await pgC.waitForTimeout(500);
+    results.rulesCoverage = await pgC.evaluate(() => Object.fromEntries([...document.querySelectorAll('.rules-ledger')].map(l => [l.dataset.ledger, {
+      cov: [...l.querySelectorAll('.rules-cov li')].map(x => x.textContent.trim()), here: (l.querySelector('.rules-county-line') || {}).textContent || null,
+      covered: (l.querySelector('.rules-county-line') || { dataset: {} }).dataset.countyCovered }])));
+    await pgC.goto(TXZ + '#/rules', { waitUntil: 'networkidle' });
+    await pgC.waitForTimeout(500);
+    results.rulesHistory = await pgC.evaluate(() => ({ entries: [...document.querySelectorAll('.rules-history .rule-item')].map(x => [x.dataset.historyTopic, x.dataset.historyVersion]),
+      versions: [...document.querySelectorAll('#rulesPage .rule-item .rule-meta')].filter(m => /Version 2/.test(m.textContent)).length,
+      notFixedPrice: /not automatically for sale/.test(document.getElementById('rulesPage').textContent) }));
+    await pgC.close();
   }
   // ---- Acquisition-evidence status per unit (2026-10-06) ----
   {
@@ -4999,9 +5239,32 @@ await navMap.close();
       await pg.route('https://imagery.nationalmap.gov/**', route => { requested.push(route.request().url()); return fail ? route.abort() : route.fulfill({ status: 200, contentType: 'image/png', body: PNG }); });
       await pg.goto(url, { waitUntil: 'networkidle' });
       await pg.waitForTimeout(300);
+      // The cards sit inside county groups that start collapsed. Open them the
+      // way a reader does (the summary click records the county as expanded,
+      // so a later render keeps it open). Under content-visibility a collapsed
+      // group's children keep a stale layout box, which is the only reason
+      // these checks ever hydrated anything before 2026-10-10 - and why a
+      // taller ledger head (PR #134) pushed the second card past the
+      // observer's margin on CI.
+      for (const sm of await pg.$$('details.county-group:not([open]) > summary')) { await sm.click().catch(() => {}); }
+      await pg.waitForTimeout(300);
       // Lazy images load only in view: bring each one into view.
-      for (const h of await pg.$$('.naip-live')) { await h.scrollIntoViewIfNeeded().catch(() => {}); }
-      await pg.waitForTimeout(500);
+      // Hydration is observer-driven (rootMargin 300px) and, with `fail`,
+      // each image then steps down a rung. The list can re-render after
+      // networkidle (a background ledger page arriving), which detaches any
+      // element handle taken before it, and the ledger status strip (PR #134)
+      // pushes the second card past the observer's margin, so: re-query and
+      // scroll every live host into view on each pass, until every image
+      // has its src (or, with `fail`, no live host is left) - never a fixed
+      // pause and never a stale handle (the fixed 500ms and a single
+      // pre-render scroll both failed on CI, 2026-10-10).
+      const naipDeadline = Date.now() + 10000;
+      while (Date.now() < naipDeadline) {
+        await pg.evaluate(() => document.querySelectorAll('.naip-live').forEach(h => h.scrollIntoView({ block: 'center' })));
+        await pg.waitForTimeout(250);
+        if (await pg.evaluate(() => [...document.querySelectorAll('.naip-live img')].every(i => i.src))) break;
+      }
+      await pg.waitForTimeout(300);
       return { pg, requested };
     };
     let { pg, requested } = await naipPage(BASE_URL.replace(/index\.html$/, 'la.html') + '#/lands');
@@ -5034,7 +5297,10 @@ await navMap.close();
     await pg.close();
     // USGS unreachable: the image steps down to the county context, never a broken image.
     ({ pg } = await naipPage(BASE_URL.replace(/index\.html$/, 'la.html') + '#/lands', null, true));
-    await pg.waitForTimeout(600);
+    for (let i = 0; i < 40 && await pg.evaluate(() => !!document.querySelector('#main .naip-live')); i++) {
+      await pg.evaluate(() => document.querySelectorAll('.naip-live').forEach(h => h.scrollIntoView({ block: 'center' })));
+      await pg.waitForTimeout(250);
+    }
     results.naipFallback = await pg.evaluate(() => ({ live: document.querySelectorAll('#main .naip-live').length,
       broken: [...document.querySelectorAll('#main .prop-card img')].filter(i => i.complete && i.naturalWidth === 0 && /nationalmap/.test(i.src)).length,
       minimap: document.querySelectorAll('#main .prop-card .minimap').length > 0,
@@ -5975,7 +6241,13 @@ await monDash.close();
     tableMore: (document.getElementById('tableMoreBtn') || {}).textContent,
     domUnder15k: document.getElementsByTagName('*').length < 15000
   }));
-  await big.evaluate(() => { document.querySelector('.county-group[data-county="Wayne"]').open = true; });
+  // Open the group the way a reader does: the summary click records the
+  // county as expanded, so a render triggered by a background ledger page
+  // arriving keeps it open (setting .open directly was undone by such a
+  // render under load, 2026-10-10, and the Show-next button then stayed
+  // hidden).
+  if (!(await big.evaluate(() => document.querySelector('.county-group[data-county="Wayne"]').open))) await big.click('.county-group[data-county="Wayne"] > summary');
+  await big.waitForSelector('.county-group[data-county="Wayne"] .group-more', { state: 'visible', timeout: 15000 });
   await big.click('.county-group[data-county="Wayne"] .group-more');
   results.scaleListAfterMore = await big.evaluate(() => ({
     cards: document.querySelectorAll('.county-group[data-county="Wayne"] .prop-card').length,
@@ -6357,9 +6629,44 @@ await browser.close();
 
 
 const EXPECTED = {
+  zeroOfferedNoInventory: { eligibility: 'OFFERED', zeroCase: 'NO_CURRENT_INVENTORY', tracked: '1', count: '0 instruments', whyLabel: 'No current inventory.', read: 'Last complete read N ago · 1 source read', saysExists: true, links: ['State rules and sources →', 'Official reference →'] },
+  zeroNoneWhenRows: { zeroCase: '', eligibility: 'OFFERED', whyLabel: null, countEndsWith: 'instrument' },
+  zeroLoadFailure: { zeroCase: 'SOURCE_FAILURE', eligibility: 'OFFERED', count: 'Count unavailable - load failed', whyLabel: 'Source read failed or incomplete.', lastKnown: true, bareZero: false },
+  zeroPartialRead: { zeroCase: 'SOURCE_FAILURE', eligibility: 'NOT_VERIFIED', health: 'DEGRADED', lastKnown: true, count: '0 properties' },
+  zeroNotVerified: { zeroCase: 'NOT_VERIFIED', eligibility: 'NOT_VERIFIED', health: 'MANUAL', whyLabel: 'Not verified.', notAuthoritative: true, read: 'Last complete read N ago · 1 source read' },
+  zeroNotImplemented: { zeroCase: 'NOT_IMPLEMENTED', eligibility: 'NOT_VERIFIED', tracked: '0', whyLabel: 'No source implemented.', notProof: true },
+  zeroEligibleButUntracked: { zeroCase: 'NOT_IMPLEMENTED', eligibility: 'COUNTY_DEPENDENT', tracked: '0', coverage: true },
+  zeroPendingReview: { customer: { zeroCase: 'SOURCE_RESTRICTED', eligibility: 'COUNTY_DEPENDENT', count: '0 properties', whyLabel: 'Source restricted or pending review.' }, admin: { zeroCase: '', count: '1 property' } },
+  zeroCountyDependent: { zeroCase: 'COUNTY_DEPENDENT', eligibility: 'COUNTY_DEPENDENT', whyLabel: 'County by county.', counties: 'Eaton, Lenawee' },
+  zeroNotOfferedUnclaimed: { notOffered: false, offered: 'OFFERED' },
+  zeroStripToRules: { hash: '#/rules', block: true, blocks: [['AUCTIONS', 'OFFERED', 'TRACKED'], ['AVAILABLE', 'OFFERED', 'TRACKED'], ['LIENS_CERTIFICATES', 'OFFERED', 'TRACKED']], strips: 3, noScores: true },
+  gateCustomer: { auction: { cards: ['p1', 'p10', 'p12', 'p5', 'p6', 'p7', 'p8', 'p9'], zero: '', count: '8 properties', withheld: '2 records withheld pending verification (1 no verified acquisition path, 1 stale observation or sale date)', withheldN: '2', chips: [], para: '2 records withheld pending verification (1 no verified acquisition path, 1 stale observation or sale date) · customer' },
+    laft: { cards: ['p15'], zero: '', count: '1 property', withheld: '2 records withheld pending verification (1 no verified acquisition path, 1 source or rules under review)', withheldN: '2', chips: [], para: '2 records withheld pending verification (1 no verified acquisition path, 1 source or rules under review) · customer' },
+    certificate: { cards: [], zero: 'WITHHELD', count: '0 instruments', withheld: '1 record withheld pending verification (1 stale observation or sale date)', withheldN: '1', chips: [], para: '1 record withheld pending verification (1 stale observation or sale date) · customer' },
+    searchHits: 0, map: { head: 'Where these are 1 shown across 1 county', pins: 1 }, tile: { val: '1', sub: 'active · 1 county · 2 withheld pending verification' }, csvRows: 1 },
+  gateAdmin: { auction: { cards: ['p1', 'p10', 'p11', 'p12', 'p5', 'p6', 'p7', 'p8', 'p9'], zero: '', count: '11 properties', withheld: '2 records withheld pending verification (1 no verified acquisition path, 1 stale observation or sale date)', withheldN: '2', chips: ['ADMIN_ONLY_NO_PATH'], para: '2 records withheld pending verification (1 no verified acquisition path, 1 stale observation or sale date) · admin' },
+    laft: { cards: ['p14', 'p15', 'p3'], zero: '', count: '3 properties', withheld: '2 records withheld pending verification (1 no verified acquisition path, 1 source or rules under review)', withheldN: '2', chips: ['ADMIN_ONLY_NO_PATH', 'ADMIN_ONLY_SOURCE_REVIEW'], para: '2 records withheld pending verification (1 no verified acquisition path, 1 source or rules under review) · admin' },
+    certificate: { cards: ['p4'], zero: '', count: '1 instrument', withheld: '1 record withheld pending verification (1 stale observation or sale date)', withheldN: '1', chips: ['ADMIN_ONLY_STALE'], para: '1 record withheld pending verification (1 stale observation or sale date) · admin' },
+    searchHits: 1, map: { head: 'Where these are 3 shown across 3 counties', pins: 3 }, tile: { val: '3', sub: 'active · 3 counties · 2 withheld pending verification' }, csvRows: 3 },
+  gateOff: { withheld: [null, null, null], chips: [], cards: ['p15', 'p3'], para: null },
+  gatePageAdminWithheld: { modal: true, hash: '#/lands/p3', gate: 'ADMIN_ONLY_NO_PATH', reached: 'Source and rules verified', reasons: ['PATH_NOT_FOUND'], path: 'Acquisition path evidence: county-level · not found · No official acquisition page has been found for this county.', remediation: 'To publish: Add candidate pages (data/acquisition_candidate_pages.csv) and capture them.', banner: 'ADMIN_ONLY_NO_PATH', visibleNo: true, allPassed: false },
+  gatePageCustomerPublished: { modal: true, hash: '#/lands/p15', gate: 'CUSTOMER_PUBLISHED', reached: null, reasons: [], path: null, remediation: null, banner: null, visibleNo: false, allPassed: true },
+  gatePageCustomerWithheldDeepLink: { modal: false, hash: '#/lands', gate: null, reached: null, reasons: [], path: null, remediation: null, banner: null, visibleNo: false, allPassed: false },
+  gatePageOff: { modal: true, hash: '#/lands/p15', gate: '', reached: null, reasons: [], path: null, remediation: null, banner: null, visibleNo: false, allPassed: false },
+  rulesCoverage: { AUCTIONS: { cov: ['Oconee collected, awaiting review', 'York published'], here: 'Georgetown County: not covered by a tracked source or verified procedure.', covered: '0' },
+    AVAILABLE: { cov: ['Georgetown collected, awaiting review', 'Horry collected, awaiting review'], here: 'Georgetown County: covered - collected, awaiting review.', covered: '1' },
+    LIENS_CERTIFICATES: { cov: [], here: 'Georgetown County: not covered by a tracked source or verified procedure.', covered: '0' } },
+  rulesHistory: { entries: [['tax_sale_model', '1']], versions: 1, notFixedPrice: true },
+  rulesTn: { title: 'Tennessee tax-sale rules', ledgers: { AUCTIONS: 'NOT_TRACKED', AVAILABLE: 'TRACKED', LIENS_CERTIFICATES: 'NOT_TRACKED' },
+    verifiedWithoutStatus: 0, unverifiedLabelled: true, noScores: true, hash: '#/rules', visible: true, hasItems: true },
+  // Georgetown's own rules appear for Georgetown and never for Horry.
+  rulesCounty: { georgetown: ['Georgetown County only'], horry: [], gtTitle: 'South Carolina tax-sale rules - Georgetown County' },
+  rulesFl: { ledgers: { AUCTIONS: 'TRACKED', AVAILABLE: 'TRACKED', LIENS_CERTIFICATES: 'TRACKED' }, unverifiedLabelled: true, verifiedWithoutStatus: 0 },
+  rulesFromProperty: { county: 'Shelby', text: 'Tennessee tax-sale rules for Shelby County →' },
+  rulesFromPropertyLanded: { hash: '#/rules?county=Shelby', shown: true, modalClosed: true },
   tnVisibility: {
     admin: { stateOption: true, stateSelected: 'TN', tabs: ['Auctions', 'Available', 'Liens & Certificates'], countLaft: '1', cardRendered: true, withheld: null, emptyHead: false, redeemable: false, mapCount: '1 shown across 1 county',
-      detail: { program: true, sourceStatus: true, noTaxDeedWords: true } },
+      detail: { program: true, sourceStatus: true, noTaxDeedWords: true, noPurchaseLink: true, listNotPurchase: true, noAuctionDate: true } },
     customer: { stateOption: true, stateSelected: 'TN', tabs: ['Auctions', 'Available', 'Liens & Certificates'], countLaft: '0', cardRendered: false,
       withheld: '1 record withheld - source not approved for customer publication (restricted or not yet reviewed). Counted, not shown.', emptyHead: true, redeemable: false, mapCount: 'Nothing matches the current filters' },
   },
@@ -6436,7 +6743,7 @@ const EXPECTED = {
   acqPathHorryDetail: {"modes": ["bid"], "saysOnline": false, "saysPropertyLink": false, "saysBid": true, "pdfLinks": ["Bid form →", "Download bid form", "Bid form →", "County process page →", "Application form to download (published by the source) →", "Application / purchase instructions →", "Download the form - complete and submit it offline →"], "pathEvidence": true},
   // Collection vs customer publication (2026-10-02).
   devVisAdminMiLands: {"cards": 6, "reviewChips": ["Source review: Unreviewed · not customer-published", "Source review: Unreviewed · not customer-published", "Source review: Unreviewed · not customer-published", "Source review: Unreviewed · not customer-published", "Source review: Unreviewed · not customer-published", "Source review: Unreviewed · not customer-published"], "programs": ["Marketed Structure For Sale", "Marketed Structure For Sale", "Marketed Structure For Sale", "Marketed Structure For Sale", "Own It Now", "Side Lot For Sale"], "pending": "6 records from sources awaiting customer-publication review are shown to you as an admin, each labelled \"Source review\". Customers in published mode do not see them.", "withheld": null},
-  devVisAdminDetail: {"banner": "Source review: Unreviewed. This record comes from a source awaiting customer-publication review - shown to you as an admin. It is not customer-published. Its availability below is the source's own statement and is a separate fact.", "reviewRow": "Source publication review: Unreviewed Customer-visible: No (shown to you as an admin) Source program / status: Side Lot For Sale Detroit customer subset: Not included in current Detroit customer subset - no structure in the source's own status (vacant lot or program record) · structure evidence: none in the source's status", "identifier": true, "program": true, "lastRead": true, "neverApproved": true},
+  devVisAdminDetail: {"banner": "Source review: Unreviewed. This record comes from a source awaiting customer-publication review - shown to you as an admin. It is not customer-published. Its availability below is the source's own statement and is a separate fact.", "reviewRow": "Source publication review: Unreviewed Customer-visible: No (shown to you as an admin) Customer-publication gate: Not enforced on this deployment (migration 031 not applied) Source program / status: Side Lot For Sale Detroit customer subset: Not included in current Detroit customer subset - no structure in the source's own status (vacant lot or program record) · structure evidence: none in the source's status", "identifier": true, "program": true, "lastRead": true, "neverApproved": true},
   devVisAdminDash: {"mode": "Customer mode: customers see approved sources only; you see every collected source, labelled. 2 sources awaiting customer-publication review in Michigan.", "lots": "mi_detroit_landbank_lots Available Source review: Unreviewed5 collected · 5 active · 1 countyCustomer-visible: 0Customer subset: 2 of 4 with a verified structureLast read Oct 3, 2026", "programs": "mi_detroit_landbank_programs Available Source review: Unreviewed1 collected · 1 active · 1 countyCustomer-visible: 0Customer subset: 0 of 0 with a verified structureLast read Oct 2, 2026"},
   devVisCustomerDashPanel: false,
   devVisCustomerMiLands: { cards: 0, reviewChips: [], programs: [], pending: null, withheld: '2 records withheld - source not approved for customer publication (restricted or not yet reviewed). Counted, not shown.' },
@@ -6451,7 +6758,7 @@ const EXPECTED = {
   },
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v114"]},
+  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v119"]},
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · TAXACQ — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · TAXACQ — Florida", floridaCopy: true },
@@ -6871,9 +7178,9 @@ const EXPECTED = {
   adminShellShown: true,
   adminIdentityText: 'Admin',
   adminShellShowsNoEmail: true,
-  adminSourcesRows: 358,
+  adminSourcesRows: 359,
   adminSourcesGovernanceKinds: 'APPROVED,HARD_BLOCKED,REVIEW_REQUIRED',
-  adminSourcesStatusText: '358 source(s): 230 approved, 113 review required, 15 hard blocked.',
+  adminSourcesStatusText: '359 source(s): 231 approved, 113 review required, 15 hard blocked.',
   adminSourcesReviewOnly: true,
   adminSourcesLgbsReason: true,
   adminSourcesLaOnly: true,
@@ -7352,7 +7659,7 @@ const EXPECTED = {
   bidLegacyPositiveStillPublished: true,
   bidTxVendorRowWithoutKindUsesLegacyRule: true,
   // Enrichment phase: Inventory & Purchase card.
-  txInventoryLabels: ["Status", "Inventory", "Minimum bid (vendor listing)", "Source list", "Published by", "Last read from source", "Parcel #", "Legal description", "Owner of record", "Assessed value", "Taxable value", "Acreage", "Land use", "How to acquire", "Purchase link"],
+  txInventoryLabels: ["Status", "Inventory", "Minimum bid (vendor listing)", "Source list", "Published by", "Last read from source", "Parcel #", "Tax suit cause #", "Legal description", "Owner of record", "Assessed value", "Taxable value", "Acreage", "Land use", "How to acquire", "Purchase link"],
   txInventoryStatus: 'Struck off to the taxing unit (per the source) Source status "Struck off to Jurisdiction" · observed Sep 23, 2026',
   txProvenanceHasNoTable: 0,
   txInventoryGroups: ['Inventory', 'Property', 'Purchase path'],
@@ -7361,7 +7668,12 @@ const EXPECTED = {
   txInventorySourceList: "Vendor list page \u2192",   // the registry listing the applier writes
   txInventoryPurchase: "Application / purchase instructions \u2192 Purchase instructions - the county's process page, not a link for this specific property",
   txInventoryOwner: 'Not on file',
-  txInventoryParcel: '23-TX-0644',
+  // The CAD account is the parcel; the tax-suit cause (stored in `parcel` by
+  // the Texas harvester) is shown as what it is (2026-10-10 fix).
+  txInventoryParcel: '129500040015000',
+  txInventoryCause: '23-TX-0644',
+  txCauseCardParcel: ['Parcel # 129500040015000', 'Parcel # 129500040016000'],
+  txCauseDetail: { related: 0, sameParcelClaim: false, causeAsParcel: false, causeShown: true },
   txInventoryAnchors: 2,
   txInventoryGapNamesAcquisition: true,
   txInventoryGapNeverNamesLink: true,
@@ -7607,7 +7919,7 @@ const EXPECTED = {
       "instructions": "known", "listing": "known", "contact": "known", "deadlines": "not_published", "verified": "known", "not_published": "summary"},
     "method": "Multi-step county process", "head": "10 of 13 on file", "firstInAcquire": true},
   acqChecklistNoInference: {"n": 14, "known": [], "summary": "summary"},
-  sourceTruth: {"labels": ["Source record", "Last read", "Source date", "Publication status", "Source health", "Acquisition path", "Price", "Official listing", "Imagery", "County intelligence"], "health": "CURRENT", "dossierBtn": true, "navPill": true},
+  sourceTruth: {"labels": ["Source record", "Last read", "Source date", "Publication status", "Source health", "Acquisition path", "Price", "Official listing", "Imagery", "County intelligence", "State rules"], "health": "CURRENT", "dossierBtn": true, "navPill": true},
   sourceHealthVectors: [],
   dossierCitrus: {"title": "Citrus County, FL", "intel": "VERIFIED", "ledgers": {"laft": "COVERED", "auction": "COVERED", "certificate": "COVERED"}, "acq": true, "terms": true, "listBtn": true},
   dossierToList: {"modal": true, "hash": "#/lands", "counties": ["Citrus"]},

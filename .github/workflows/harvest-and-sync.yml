@@ -159,7 +159,7 @@ on:
         required: false
         type: choice
         default: all
-        options: [all, deeds, certificates, laft, texas, backup, evidence, outcomes, expansion, enrich, storage, available, geocode]
+        options: [all, deeds, certificates, laft, texas, backup, evidence, outcomes, expansion, enrich, storage, available, geocode, publication]
       enrich_states:
         description: >-
           (job=enrich only) Comma-separated postal codes for the enrichment
@@ -377,6 +377,7 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 scripts/stamp_seen.py --state FL --source auction --harvest out/harvest_all.json --case-key case
 
+
       - name: Source id - fill a blank source_id the row itself proves (auction)
         # scripts/backfill_source_ids.py: the PowerShell sync never sends
         # source_id; fill-blank only (source_id=is.null in every filter).
@@ -386,6 +387,19 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 scripts/backfill_source_ids.py --source auction
+
+      - name: Publication state - customer-publication gate (FL)
+        # scripts/publication_state_writer.py (migration 031): one auditable
+        # publication state per active row - source approval, verified state
+        # rules, validation, a credible acquisition path, freshness - and the
+        # decision log. Plan-only until 031 exists; never closes a row; never
+        # fails the job.
+        if: always()
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/publication_state_writer.py --state FL
 
       - name: Change detection - deterministic property changes and customer alerts
         # scripts/detect_property_changes.py: status / sale date / opening bid /
@@ -486,12 +500,26 @@ jobs:
         run: python3 scripts/unit_freshness.py --status out/harvest_all_status.json:fl_deeds --state FL
 
       - name: Backfill geocoding (US Census Bureau Geocoder)
+        # Enrichment is independent of every other enrichment step: one
+        # failing (2026-10-10: the geocoding read hit HTTP 500) must never
+        # skip FDOR / FEMA / NAIP after it. Not on a cancelled run.
+        if: ${{ !cancelled() }}
+        continue-on-error: true
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+          # The fair queue's cursor (scripts/enrichment_queue.py) lives in
+          # the job's out/.harvest_cache, which the actions/cache step above
+          # restores and saves - so each run resumes where the last stopped.
+          GEOCODE_CHECKPOINT: out/.harvest_cache/geocode_checkpoint.json
         run: python3 scripts/geocode_properties.py
 
       - name: Backfill address/property-type enrichment (FL DOR statewide parcel lookup)
+        # Enrichment is independent of every other enrichment step: one
+        # failing (2026-10-10: the geocoding read hit HTTP 500) must never
+        # skip FDOR / FEMA / NAIP after it. Not on a cancelled run.
+        if: ${{ !cancelled() }}
+        continue-on-error: true
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
@@ -504,6 +532,11 @@ jobs:
       # violations. No-ops cleanly (exit 0) until
       # scripts/migrations/010_flood_hazard.sql has been applied.
       - name: Backfill FEMA flood hazard (National Flood Hazard Layer)
+        # Enrichment is independent of every other enrichment step: one
+        # failing (2026-10-10: the geocoding read hit HTTP 500) must never
+        # skip FDOR / FEMA / NAIP after it. Not on a cancelled run.
+        if: ${{ !cancelled() }}
+        continue-on-error: true
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
@@ -519,6 +552,7 @@ jobs:
         # Imagery is enrichment: a storage failure (budget reached, upload
         # error, Pillow missing) must never fail the structured harvest/sync
         # this job already completed, nor skip the steps after it.
+        if: ${{ !cancelled() }}
         continue-on-error: true
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
@@ -629,6 +663,7 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 scripts/stamp_seen.py --state FL --source certificate --harvest out/harvest_certificates.json --case-key case_no --status out/harvest_certificates_status.json
 
+
       - name: Source id - fill a blank source_id the row itself proves (certificate)
         # scripts/backfill_source_ids.py: the PowerShell sync never sends
         # source_id; fill-blank only (source_id=is.null in every filter).
@@ -638,6 +673,19 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 scripts/backfill_source_ids.py --source certificate
+
+      - name: Publication state - customer-publication gate (FL)
+        # scripts/publication_state_writer.py (migration 031): one auditable
+        # publication state per active row - source approval, verified state
+        # rules, validation, a credible acquisition path, freshness - and the
+        # decision log. Plan-only until 031 exists; never closes a row; never
+        # fails the job.
+        if: always()
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/publication_state_writer.py --state FL
 
       - name: Change detection - deterministic property changes and customer alerts
         # scripts/detect_property_changes.py: status / sale date / opening bid /
@@ -927,6 +975,19 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 scripts/publication_gate.py --state FL
 
+      - name: Publication state - customer-publication gate (FL)
+        # scripts/publication_state_writer.py (migration 031): one auditable
+        # publication state per active row - source approval, verified state
+        # rules, validation, a credible acquisition path, freshness - and the
+        # decision log. Plan-only until 031 exists; never closes a row; never
+        # fails the job.
+        if: always()
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/publication_state_writer.py --state FL
+
       # ---- Louisiana (2026-09-30, state-expansion sprint) --------------------
       # East Baton Rouge Parish's open-data "Adjudicated Property" dataset
       # (harvesters/otc/adapters/louisiana.py; docs/state-expansion.md). A
@@ -975,6 +1036,7 @@ jobs:
         run: |
           python3 scripts/unit_freshness.py --status out/harvest_louisiana_status.json --state LA --persist out/.harvest_cache/unit_freshness_la.json --report out/public/unit-freshness-la.json || true
           python3 scripts/publication_gate.py --state LA --report out/public/publication-gate-la.json
+          python3 scripts/publication_state_writer.py --state LA || true
 
       # ---- Texas AVAILABLE acquisition paths (2026-10-01) -------------------
       # Texas AVAILABLE rows come from the manual-only LGBS harvest, which is
@@ -993,6 +1055,7 @@ jobs:
         run: |
           python3 scripts/apply_acquisition_paths.py --state TX --source-id tx_lgbs --report out/public/acquisition-apply-tx.json
           python3 scripts/publication_gate.py --state TX --report out/public/publication-gate-tx.json
+          python3 scripts/publication_state_writer.py --state TX || true
 
       - name: Change detection - deterministic property changes and customer alerts
         # scripts/detect_property_changes.py: status / sale date / opening bid /
@@ -1104,6 +1167,7 @@ jobs:
           st=$(echo "${{ matrix.state }}" | tr '[:upper:]' '[:lower:]')
           python3 scripts/unit_freshness.py --status "out/harvest_${st}_status.json" --state ${{ matrix.state }} --persist "out/.harvest_cache/unit_freshness_${st}.json" --report "out/public/unit-freshness-${st}.json" || true
           python3 scripts/publication_gate.py --state ${{ matrix.state }} --report "out/public/publication-gate-${st}.json"
+          python3 scripts/publication_state_writer.py --state ${{ matrix.state }} || true
 
       - name: Change detection - deterministic property changes and customer alerts
         # scripts/detect_property_changes.py: status / sale date / opening bid /
@@ -1635,6 +1699,49 @@ jobs:
             out/private/
           if-no-files-found: ignore
           retention-days: 14
+
+  publication:
+    # Customer-publication gate on its own - MANUAL ONLY (job=publication):
+    # decide and write the publication state of every active row in every
+    # production state (scripts/publication_state_writer.py, migration 031).
+    # The first run after 031 is applied is this job; afterwards the harvest
+    # jobs re-run the writer after every sync. No harvest, no closure.
+    name: Customer-publication gate (manual only)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.job == 'publication'
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Publication state - every production state
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: |
+          for st in $(python3 -c "from harvesters.governance import states; print(' '.join(sorted(states.PRODUCTION_STATES)))"); do
+            python3 scripts/publication_state_writer.py --state "$st"
+          done
+
+      - name: Prepare artifact (public evidence only)
+        if: always()
+        env:
+          ARTIFACT_PUBLIC_KEY: ${{ vars.ARTIFACT_PUBLIC_KEY }}
+        run: python3 scripts/artifact_evidence.py --job publication-state --status out/public/publication-state-fl.json
+
+      - name: Upload artifact (evidence)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: publication-state-${{ github.run_id }}
+          path: |
+            out/public/
+            out/private/
 
   outcomes:
     # Verified auction outcomes on their own - MANUAL ONLY (job=outcomes),

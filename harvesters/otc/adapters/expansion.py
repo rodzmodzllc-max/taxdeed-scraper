@@ -427,6 +427,25 @@ MN_RAMSEY_TAX_FORFEIT = ArcGisLayerConfig(
 # packet, so it is kept as a published amount of UNSPECIFIED kind, never
 # called a fixed price or a minimum.
 TN_EVIDENCE_RUNS = ("37855584514", "37855783595", "37856005485", "37856189946", "37856396525")
+# What the Shelby source IS, and why it is the AVAILABLE ledger (2026-10-10).
+# Every answer is from the evidence runs above and docs/tennessee-survey.md;
+# a test pins this record against the config, the ledger map and the registry.
+TN_SHELBY_SEMANTICS = {
+    "publisher": "Shelby County Land Bank (county government) - its own ePropertyPlus tenant, which the Land Bank's "
+                 "site (landbank.shelbycountytn.gov) sends buyers to",
+    "inventory": "county-owned parcels already taken through delinquent-tax sales (the portal's inventoryType "
+                 "'County DTP' on 12,843 of 12,884 rows) - post-sale, government-held inventory",
+    "for_sale_means": "the Land Bank currently offers the parcel: currentStatus 'FOR SALE' AND available 'Y' - "
+                      "never the status string alone (SALE PENDING rows with available 'Y' are excluded)",
+    "transaction": "an offer to the Land Bank on its Offer to Purchase and Sales Agreement packet; askingPrice is a "
+                   "published amount of unspecified kind (financial basis OFFER_NEGOTIATED)",
+    "auction": "none - the source publishes no sale date, auction or bid event; Shelby's tax-sale auctions are the "
+               "Clerk & Master's, a different source (post-sale books only, not built)",
+    "ledger": "AVAILABLE",
+    "complete_for": "the Land Bank's published inventory: a read is COMPLETE only when every page is read and the "
+                    "row count equals the portal's own size",
+    "fields": ("currentStatus", "available", "inventoryType", "parcelNumber", "askingPrice"),
+}
 TN_SHELBY_LANDBANK = EppConfig(
     source_id="tn_shelby_landbank", state="TN", county="Shelby",
     portal="https://public-sctn.epropertyplus.com",
