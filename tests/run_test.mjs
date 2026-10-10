@@ -1141,7 +1141,7 @@ results.homesteadBadgeAbsentForP1 = await page.locator('.prop-card').first().loc
 // elements exist in BOTH #detailModalInner and #detailPanel's copies at
 // once, and a bare '.info-tip' selector was silently counting both (8
 // instead of the real, single-render count of 4).
-results.infoTipCount = await page.locator('#detailModalInner .info-tip').count();
+results.infoTipCount = await page.evaluate(() => (document.getElementById('detailModal').hidden ? document.getElementById('detailPanel') : document.getElementById('detailModalInner')).querySelectorAll('.info-tip').length);
 // --- bare-land branch (p3, LAFT ledger): land_value equal to market means
 // the derived Building/Improvement stat should read as bare land, not a
 // misleading "$0". Safe to open a second property's detail page here -
@@ -2058,8 +2058,9 @@ await dashPage.waitForTimeout(500);
 await dashPage.click('.nav-item[data-page="dashboard"]');
 await dashPage.waitForTimeout(200);
 results.dashHealthRows = await dashPage.locator('#dashSourceRows .health-row').evaluateAll(els => els.map(e => e.dataset.source + ':' + e.dataset.health));
-results.dashHealthBadgeTexas = ((await dashPage.locator('#dashSourceRows .health-row[data-source="tx_sales"] .health-sub').textContent()) || '').includes('manual runs, no schedule');
-results.dashHealthIncompleteNames = ((await dashPage.locator('#dashSourceRows .health-row[data-source="fl_certificates"] .health-sub').textContent()) || '').includes('incomplete: Baker, Gulf');
+// Customer wording (remediation): one plain status per source; the schedule and counts are admin-only.
+results.dashHealthBadgeTexas = ((await dashPage.locator('#dashSourceRows .health-row[data-source="tx_sales"] .health-badge').textContent()) || '').trim() === 'Updated on request';
+results.dashHealthIncompleteNames = ((await dashPage.locator('#dashSourceRows .health-row[data-source="fl_certificates"] .health-badge').textContent()) || '').trim() === 'Partly updated';
 // Per-county freshness (county_source_registry + migration 021): FL rows
 // with a recorded read only (Bradford, never attempted, is omitted; the
 // Texas row belongs to tx.html), Current vs Stale by the last attempt.
@@ -3633,7 +3634,7 @@ await navMap.close();
     const host = (document.getElementById('detailModal').hidden ? document.getElementById('detailPanel') : document.getElementById('detailModalInner'));
     if (!sec || !host) return { open: false };
     const r = sec.getBoundingClientRect(), h = host.getBoundingClientRect();
-    return { open: !modal.hidden, hash: /#\/lands\/pla2$/.test(location.hash), atAcquire: r.top >= h.top - 4 && r.top < h.top + 200 };
+    return { open: !!host && host.getBoundingClientRect().height > 0, hash: /#\/lands\/pla2$/.test(location.hash), atAcquire: r.top >= h.top - 4 && r.top < h.top + 200 };
   });
   await sv.close();
 }
@@ -4395,7 +4396,7 @@ await navMap.close();
       await d.goto(BASE_URL.replace(/index\.html$/, page) + (/^(pmi|psc)/.test(pid) ? '?profile=admin' : '') + '#/lands/' + pid, { waitUntil: 'networkidle' });
       await d.waitForTimeout(500);
       states[pid] = await d.evaluate(() => {
-        const m = document.querySelector('#detailModal:not([hidden])');
+        const m = (document.getElementById('detailModal').hidden ? document.getElementById('detailPanel') : document.getElementById('detailModalInner'));
         if (!m) return null;
         const money = m.querySelector('[data-section="money"]'), docs = m.querySelector('[data-section="documents"]');
         const order = [...m.querySelectorAll('[data-section]')].map(e => e.dataset.section);
@@ -4943,7 +4944,7 @@ await navMap.close();
         await dp.goto(TN_URL + q + '#/lands/ptn1', { waitUntil: 'networkidle' });
         await dp.waitForTimeout(600);
         r.detail = await dp.evaluate(() => {
-          const m = document.querySelector('#detailModal:not([hidden])');
+          const m = (document.getElementById('detailModal').hidden ? document.getElementById('detailPanel') : document.getElementById('detailModalInner'));
           if (!m) return null;
           const txt = m.textContent.replace(/\s+/g, ' ');
           return {
@@ -5061,7 +5062,7 @@ await navMap.close();
     await pg.close();
     ({ pg } = await naipPage(BASE_URL.replace(/index\.html$/, 'la.html') + '#/lands/pla1'));
     results.naipDetail = await pg.evaluate(() => {
-      const m = document.querySelector('#detailModal:not([hidden])');
+      const m = (document.getElementById('detailModal').hidden ? document.getElementById('detailPanel') : document.getElementById('detailModalInner'));
       const hero = m && m.querySelector('.detail-hero-photo.naip-live');
       const truth = m && m.querySelector('[data-section="truth"]');
       const row = truth && [...truth.querySelectorAll('dt')].find(d => d.textContent.trim() === 'Imagery');
@@ -5107,7 +5108,7 @@ await navMap.close();
     await pg.goto(BASE_URL + '#/lands/p15', { waitUntil: 'networkidle' });
     await pg.waitForSelector('#detailModal:not([hidden]) .dossier-status', { timeout: 8000 });
     results.refineDossier = await pg.evaluate(() => {
-      const m = document.querySelector('#detailModal:not([hidden])');
+      const m = (document.getElementById('detailModal').hidden ? document.getElementById('detailPanel') : document.getElementById('detailModalInner'));
       const st = m.querySelector('.dossier-status');
       const order = [...m.querySelectorAll('.dossier-status, [data-section="acquire"], [data-section="truth"], .lien-banner, [data-section="risk"], [data-section="sources"]')].map(e => e.dataset.section || e.className.split(' ')[0]);
       const truth = m.querySelector('[data-section="truth"]');
@@ -5955,7 +5956,8 @@ await monDash.close();
   // has none (WY).
   const landing = async (file) => {
     const pg = await newPage({ viewport: { width: 1200, height: 900 } });
-    await pg.goto(BASE_URL.replace(/index\.html$/, file), { waitUntil: 'networkidle' });
+    // The bare URL opens Home (remediation); the List's default ledger is what this checks.
+    await pg.goto(BASE_URL.replace(/index\.html$/, file) + '#/list', { waitUntil: 'networkidle' });
     await pg.waitForTimeout(500);
     const out = await pg.evaluate(() => ({
       hash: location.hash,
@@ -6886,9 +6888,9 @@ const EXPECTED = {
   rdPhoneBottom: ["Home", "Search", "Map", "Saved", "Account"],
   rdPhoneAccount: true,
   rdPhoneSearchVisible: true,
-  landCO: { hash: '#/certificates', cards: 2, issue: 0 },
-  landWY: { hash: '#/auctions', cards: 1, issue: 0 },
-  landLA: { hash: '#/lands', cards: 2, issue: 0 },
+  landCO: { hash: '#/dashboard', cards: 2, issue: 0 },
+  landWY: { hash: '#/dashboard', cards: 1, issue: 0 },
+  landLA: { hash: '#/dashboard', cards: 2, issue: 0 },
   landWIAvailable: false,
   partialFail: { cards: 2, banner: 'Some results could not be loaded. 4 records loaded in this list; the rest could not be loaded. Retry', retryButton: 1, attempts: 3, errorState: 0 },
   partialOtherLedger: { cards: 2, banner: 'Some results could not be loaded. Affected: Auctions. Counts there may be incomplete. Retry' },
@@ -7462,7 +7464,7 @@ const EXPECTED = {
   decP3HowLinkCount: 0,   // nothing verified = no link, ever
   decP3Available: 'Available over the counter basis: list presence · observed Aug 11, 2026 last verified: read from the source Aug 11, 2026 · county source unavailable at the last attempt - inventory kept, nothing closed',
   decP3Where: '3 Oak Ave Bay County, FL Not yet geocoded - no point is shown for this parcel',
-  decP3Fresh: 'Source date: list dated Aug 10, 2026 · Observation date: Aug 11, 2026 · Last verified: read from the source Aug 11, 2026 County source: source unavailable at the last attempt - inventory kept, nothing closed · no complete read in the last 36 hours (last complete read 3d ago) · back-off: attempted at most once per 48 hours until a read succeeds · 3 rows at the last complete read',
+  decP3Fresh: 'Source date: list dated Aug 10, 2026 · Observation date: Aug 11, 2026 · Last verified: read from the source Aug 11, 2026 County source: source unavailable at the last attempt - inventory kept, nothing closed · no complete read in the last 36 hours (last complete read 3d ago) · update unsuccessful; retry pending · 3 rows at the last complete read',
   decP3History: 'Aug 11, 2026 Last read from the source (continued on the list) Append-only record. Absence from a list is recorded as a removal, never as a sale; a result appears only when the source published one.',
   decP3Related: 'No record for parcel 333 in the other ledgers in the current dataset',
   decP3PathEvidenceLine: "Phone or mail process (published by the source; no online path) \u00b7 source-level \u00b7 Clerk's Lands Available page: call or e-mail the Tax Deed department for the current amount (fixture) \u00b7 observed Sep 30, 2026",
