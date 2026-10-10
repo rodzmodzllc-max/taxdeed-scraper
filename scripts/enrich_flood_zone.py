@@ -55,8 +55,19 @@ import enrichment_units as EU  # noqa: E402 - (state, county) units
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY")
 
-BATCH_LIMIT = int(os.environ.get("FLOOD_BATCH_LIMIT", "500"))
-PER_COUNTY_LIMIT = int(os.environ.get("FLOOD_PER_COUNTY_LIMIT", "40"))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import enrichment_queue as EQ  # noqa: E402
+
+# FEMA's NFHL MapServer publishes no request quota; requests stay sequential
+# with REQUEST_DELAY_SECONDS between them. The manual `enrich` job raises the
+# budget (9,000) - hence the hard ceiling of 10,000, never unbounded.
+FLOOD_MAX_BATCH = 10000
+try:
+    BATCH_LIMIT = EQ.env_limit("FLOOD_BATCH_LIMIT", 500, FLOOD_MAX_BATCH)
+    PER_COUNTY_LIMIT = EQ.env_limit("FLOOD_PER_COUNTY_LIMIT", 40, FLOOD_MAX_BATCH)
+except ValueError as _exc:
+    print(f"FLOOD CONFIG ERROR - {_exc}. Nothing read or written.", file=sys.stderr)
+    sys.exit(2)
 COUNTY_MISS_STREAK = int(os.environ.get("FLOOD_COUNTY_MISS_STREAK", "10"))
 REQUEST_DELAY_SECONDS = float(os.environ.get("FLOOD_REQUEST_DELAY_SECONDS", "0.25"))
 REQUEST_TIMEOUT = int(os.environ.get("FLOOD_REQUEST_TIMEOUT", "20"))
@@ -273,6 +284,19 @@ def fetch_counties_needing_flood():
     return EU.outstanding_units(EU.get_paged(_get_json, f"{SUPABASE_URL}/rest/v1/properties", params, 100000))
 
 
+def plan_slices(counties, batch_limit=None, per_county=None):
+    """[(unit, limit, outstanding)] for one run (scripts/enrichment_queue.py).
+
+    Pass 1 is the anti-starvation slice: every unit, in the given order,
+    gets up to `per_county` rows before any unit gets more. Pass 2 hands the
+    budget pass 1 left unused to the units that still have a backlog - so a
+    state with ONE county (Tennessee: Shelby, 2,037 rows with coordinates and
+    no flood check on 2026-10-10) is no longer held to 40 rows a run while
+    the rest of a 500-row budget goes unspent."""
+    return EQ.plan_slices(counties, BATCH_LIMIT if batch_limit is None else batch_limit,
+                          PER_COUNTY_LIMIT if per_county is None else per_county)
+
+
 def fetch_county_batch(unit, limit, outstanding=None):
     """A random window into the county's backlog, for the reason Phase 51
     established: without `order` PostgREST returns the same rows every run,
@@ -332,13 +356,11 @@ def main():
     failed = 0
     zones = Counter()
 
-    for unit, outstanding in counties:
+    for unit, limit, outstanding in plan_slices(counties):
         county = EU.label(unit)
         if attempted >= BATCH_LIMIT:
             break
-        rows = fetch_county_batch(
-            unit, min(PER_COUNTY_LIMIT, BATCH_LIMIT - attempted), outstanding
-        )
+        rows = fetch_county_batch(unit, min(limit, BATCH_LIMIT - attempted), outstanding)
         if not rows:
             continue
 

@@ -413,6 +413,17 @@ if (new URLSearchParams(location.search).get("offlist") === "1") {
   if (p8) p8.last_seen_at = new Date(Date.now() - 3600 * 1000).toISOString();
 }
 
+// ?txcause=1 (2026-10-10 Texas cause-number regression): a second LGBS row in
+// Galveston listed under the SAME tax-suit cause as ptx3 but a different CAD
+// account (production: one cause on up to 26 different properties). The two
+// are different parcels and must never be shown as the same parcel. Off by
+// default so every other pin is unchanged.
+if (new URLSearchParams(location.search).get("txcause") === "1") {
+  const ptx3 = FIXTURE_PROPERTIES.find(r => r.id === "ptx3");
+  if (ptx3) FIXTURE_PROPERTIES.push(Object.assign({}, ptx3, { id: "ptx8", case_no: "129500040016000",
+    address: "VACANT LOT IN 6600 BLOCK OF OBRIEN ST, Hitchcock, TX 77563", bid: 3100, min_bid: 3100 }));
+}
+
 const PROFILE_MODE = new URLSearchParams(location.search).get("profile") || "default";
 
 const PROFILES_TABLE = PROFILE_MODE === "notable" ? null : [
@@ -483,6 +494,12 @@ const REGISTRY_ROWS = REGISTRY_MODE === "none" ? null : [
   { state: "FL", county: "Broward", source_id: "fl_laft_broward_candidate", last_attempt_at: null, last_attempt_status: null, last_success_at: null, last_success_row_count: null, consecutive_failures: 0, publication_status: "RESTRICTED", restrictions: "terms of use under legal review", governance_status: "LEGAL_REVIEW_REQUIRED", verification_status: "CANDIDATE" },
   // Dixie: a complete read in which the source listed nothing (checked zero) -
   // never shown like Bay's unreachable source.
+  // ?certunit=1 (2026-10-10): a certificate unit read completely - the Liens &
+  // Certificates zero case "no current inventory" needs a successful read on
+  // record. Opt-in so the dashboard / admin unit counts stay as pinned.
+  ...(new URLSearchParams(location.search).get("certunit") === "1" ? [
+    { state: "FL", county: "Walton", source_id: "fl_lienhub_certificates", last_attempt_at: hoursAgo(5), last_attempt_status: "COMPLETE", last_success_at: hoursAgo(5), last_success_row_count: 9, consecutive_failures: 0, publication_status: "APPROVED_GRANDFATHERED", restrictions: null, governance_status: "APPROVED_GRANDFATHERED", verification_status: "PRODUCTION_VERIFIED" }
+  ] : []),
   { state: "FL", county: "Dixie", source_id: "fl_laft_html", last_attempt_at: hoursAgo(4), last_attempt_status: "EMPTY", last_success_at: hoursAgo(4), last_success_row_count: 0, consecutive_failures: 0, publication_status: "APPROVED_GRANDFATHERED", restrictions: null, governance_status: "APPROVED_GRANDFATHERED", verification_status: "PRODUCTION_VERIFIED" },
   { state: "TX", county: "Galveston", source_id: "tx_lgbs", last_attempt_at: hoursAgo(30), last_attempt_status: "INCOMPLETE", last_success_at: hoursAgo(54), last_success_row_count: 120, consecutive_failures: 0, publication_status: "APPROVED_GRANDFATHERED", restrictions: null, governance_status: "APPROVED_GRANDFATHERED", verification_status: "PRODUCTION_VERIFIED" }
 ];
@@ -684,9 +701,21 @@ class MockQuery {
           : { data: SOURCE_HEALTH_ROWS, error: null };
       }
       else if (this.table === "county_source_registry") {
-        result = REGISTRY_ROWS === null
+        // ?unitstatus=<source_id>:<STATUS>[,...] (2026-10-10 zero-count
+        // semantics): that source's units answer with this last_attempt_status
+        // (COMPLETE / EMPTY also mark a success now), so a ledger's read health
+        // can be set independently of the fixture's default rows.
+        const us = (new URLSearchParams(location.search).get("unitstatus") || "").split(",").filter(Boolean).map(x => x.split(":"));
+        const rows = REGISTRY_ROWS === null ? null : REGISTRY_ROWS.map(r => {
+          const o = us.find(x => x[0] === r.source_id);
+          if (!o) return r;
+          const success = o[1] === "COMPLETE" || o[1] === "EMPTY";
+          return { ...r, last_attempt_at: hoursAgo(1), last_attempt_status: o[1], last_success_at: success ? hoursAgo(1) : r.last_success_at,
+            last_success_row_count: success ? (o[2] !== undefined ? Number(o[2]) : r.last_success_row_count) : r.last_success_row_count, last_error_category: success ? null : r.last_error_category };
+        });
+        result = rows === null
           ? { data: null, error: { message: "column county_source_registry.last_attempt_at does not exist", code: "42703" } }
-          : { data: REGISTRY_ROWS, error: null };
+          : { data: rows, error: null };
       }
       else if (this.table === "inventory_status_observations") {
         result = INVENTORY_HISTORY_ROWS === null
@@ -1035,6 +1064,10 @@ export function createClient() {
           // wholesale - the typed path columns stay, the acquisition record is gone.
           .map(stubVariant);
         const offset = Number(args.p_offset) || 0, limit = Math.min(Number(args.p_limit) || 20000, cap);
+        // ?emptyledger=<ledger>[,...] (2026-10-10 zero-count semantics): that
+        // ledger answers with no rows at all, so the zero-case copy can be
+        // exercised for a state whose fixture otherwise holds rows.
+        if ((new URLSearchParams(location.search).get("emptyledger") || "").split(",").includes(args.p_ledger_type)) return { data: [], error: null };
         // Load-resilience fixtures (2026-10-04):
         //   ?failpage=<ledger>:<offset>[,...]   that page always fails (statement timeout)
         //   ?flakypage=<ledger>:<offset>:<n>     that page fails n times, then succeeds
