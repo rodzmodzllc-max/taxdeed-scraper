@@ -169,7 +169,7 @@ def test_A5_upload_steps_are_otherwise_unchanged():
     # "enrich" (property-enrichment sprint) is manual-only and uploads the same layout per matrix leg.
     # "available" (all-sources AVAILABLE enrichment engine) is manual-only and uploads the same layout.
     # "geocode" (authoritative geocoding, 2026-10-06) is manual-only and uploads the same layout.
-    assert set(steps) == {"deeds", "certificates", "laft", "texas", "backup", "evidence", "outcomes", "expansion", "enrich", "storage", "available", "geocode"}
+    assert set(steps) == {"deeds", "certificates", "laft", "texas", "backup", "evidence", "outcomes", "expansion", "enrich", "storage", "available", "geocode", "publication"}
     assert _patterns(steps["geocode"]) == ["out/public/", "out/private/"]
     assert _patterns(steps["available"]) == ["out/public/", "out/private/"]
     assert _patterns(steps["expansion"]) == ["out/public/", "out/private/"]

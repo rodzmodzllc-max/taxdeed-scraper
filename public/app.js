@@ -634,7 +634,7 @@ function applyPublicationReads(counts, withheld) {
   if (counts && !counts.error) {
     PUBLICATION.counts = {};
     (counts.data || []).forEach(r => {
-      const k = LEDGER_KEY_FOR_TYPE[r.ledger_type];
+      const k = LEDGER_KEY_FOR_TYPE[r.ledger];   // the RPC names the column `ledger` (app.js never reads ledger_type)
       if (!k) return;
       (PUBLICATION.counts[k] = PUBLICATION.counts[k] || {})[r.publication_state] = Number(r.n) || 0;
     });

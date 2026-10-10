@@ -119,9 +119,9 @@ comment on table public.publication_decisions is
 
 -- 3. counts only, for every approved account
 create or replace function public.count_publication_states(p_state text, p_ledger_type text default null)
-returns table(ledger_type text, publication_state text, n bigint)
+returns table(ledger text, publication_state text, n bigint)
 language sql stable security definer set search_path = public as $$
-  select p.ledger_type, coalesce(p.publication_state, 'DISCOVERED') as publication_state, count(*)::bigint
+  select p.ledger_type as ledger, coalesce(p.publication_state, 'DISCOVERED') as publication_state, count(*)::bigint
   from public.properties p
   where (select public.is_approved())
     and p.state = p_state
@@ -135,10 +135,10 @@ grant execute on function public.count_publication_states(text, text) to authent
 
 -- 4. the withheld rows with their reasons (RLS applies: admins only, in practice)
 create or replace function public.get_withheld_states(p_state text)
-returns table(id uuid, ledger_type text, publication_state text, publication_progress text, publication_reasons jsonb,
+returns table(id uuid, ledger text, publication_state text, publication_progress text, publication_reasons jsonb,
               publication_remediation text, publication_path jsonb, publication_state_at timestamptz)
 language sql stable security invoker set search_path = public as $$
-  select p.id, p.ledger_type, coalesce(p.publication_state, 'DISCOVERED'), p.publication_progress, p.publication_reasons,
+  select p.id, p.ledger_type as ledger, coalesce(p.publication_state, 'DISCOVERED'), p.publication_progress, p.publication_reasons,
          p.publication_remediation, p.publication_path, p.publication_state_at
   from public.properties p
   where p.state = p_state

@@ -449,13 +449,13 @@ def test_l03_pending_unknown_and_anon_read_nothing(scratch):
 
 
 def test_l04_counts_rpc_answers_every_approved_account_with_counts_only(scratch):
-    q = "select ledger_type || ':' || publication_state || ':' || n from count_publication_states('FL');"
+    q = "select ledger || ':' || publication_state || ':' || n from count_publication_states('FL');"
     cust = [l for l in scratch(as_user(USERS["customer"], q)).splitlines() if ":" in l]
     assert sorted(cust) == ["auctions:ADMIN_ONLY_NO_PATH:1", "auctions:CUSTOMER_PUBLISHED:1", "auctions:DISCOVERED:1",
                             "buy:ADMIN_ONLY_SOURCE_REVIEW:1", "buy:CUSTOMER_PUBLISHED:1", "lien:ADMIN_ONLY_STALE:1", "lien:CUSTOMER_PUBLISHED:1"]
     assert sorted(l for l in scratch(as_user(USERS["admin"], q)).splitlines() if ":" in l) == sorted(cust)
     assert [l for l in scratch(as_user(USERS["pending"], q)).splitlines() if ":" in l] == []
-    one = [l for l in scratch(as_user(USERS["customer"], "select ledger_type || ':' || publication_state || ':' || n from count_publication_states('FL', 'lien');")).splitlines() if ":" in l]
+    one = [l for l in scratch(as_user(USERS["customer"], "select ledger || ':' || publication_state || ':' || n from count_publication_states('FL', 'lien');")).splitlines() if ":" in l]
     assert sorted(one) == ["lien:ADMIN_ONLY_STALE:1", "lien:CUSTOMER_PUBLISHED:1"]
 
 

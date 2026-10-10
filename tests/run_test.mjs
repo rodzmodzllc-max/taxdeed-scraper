@@ -5241,7 +5241,11 @@ await navMap.close();
       await pg.waitForTimeout(300);
       // Lazy images load only in view: bring each one into view.
       for (const h of await pg.$$('.naip-live')) { await h.scrollIntoViewIfNeeded().catch(() => {}); }
-      await pg.waitForTimeout(500);
+      // Hydration is observer-driven (and, with `fail`, each image then steps
+      // down a rung): wait for that to settle rather than a fixed pause - the
+      // fixed 500ms flaked on a slow CI runner (PR #134, 2026-10-10).
+      await pg.waitForFunction(() => [...document.querySelectorAll('.naip-live img')].every(i => i.src), null, { timeout: 8000 }).catch(() => {});
+      await pg.waitForTimeout(300);
       return { pg, requested };
     };
     let { pg, requested } = await naipPage(BASE_URL.replace(/index\.html$/, 'la.html') + '#/lands');
@@ -5274,7 +5278,7 @@ await navMap.close();
     await pg.close();
     // USGS unreachable: the image steps down to the county context, never a broken image.
     ({ pg } = await naipPage(BASE_URL.replace(/index\.html$/, 'la.html') + '#/lands', null, true));
-    await pg.waitForTimeout(600);
+    await pg.waitForFunction(() => !document.querySelector('#main .naip-live'), null, { timeout: 8000 }).catch(() => {});
     results.naipFallback = await pg.evaluate(() => ({ live: document.querySelectorAll('#main .naip-live').length,
       broken: [...document.querySelectorAll('#main .prop-card img')].filter(i => i.complete && i.naturalWidth === 0 && /nationalmap/.test(i.src)).length,
       minimap: document.querySelectorAll('#main .prop-card .minimap').length > 0,

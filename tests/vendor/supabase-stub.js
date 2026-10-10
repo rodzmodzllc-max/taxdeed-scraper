@@ -1173,11 +1173,11 @@ export function createClient() {
             const k = `${p.ledger_type || LEDGER_FOR_SOURCE[p.source]}|${pubDecisionOf(p).publication_state}`;
             counts[k] = (counts[k] || 0) + 1;
           });
-          return { data: Object.entries(counts).sort().map(([k, n]) => ({ ledger_type: k.split("|")[0], publication_state: k.split("|")[1], n })), error: null };
+          return { data: Object.entries(counts).sort().map(([k, n]) => ({ ledger: k.split("|")[0], publication_state: k.split("|")[1], n })), error: null };
         }
         if (!stubCallerIsAdmin()) return { data: [], error: null };   // RLS: a customer reads no withheld row
         return { data: active.filter(p => pubDecisionOf(p).publication_state !== "CUSTOMER_PUBLISHED")
-          .map(p => Object.assign({ id: p.id, ledger_type: p.ledger_type || LEDGER_FOR_SOURCE[p.source] }, pubDecisionOf(p))), error: null };
+          .map(p => Object.assign({ id: p.id, ledger: p.ledger_type || LEDGER_FOR_SOURCE[p.source] }, pubDecisionOf(p))), error: null };
       }
       if (fnName === "my_entitlement") {
         const mode = new URLSearchParams(location.search).get("entitlement");

@@ -377,6 +377,17 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 scripts/stamp_seen.py --state FL --source auction --harvest out/harvest_all.json --case-key case
 
+
+      - name: Source id - fill a blank source_id the row itself proves (auction)
+        # scripts/backfill_source_ids.py: the PowerShell sync never sends
+        # source_id; fill-blank only (source_id=is.null in every filter).
+        if: steps.sync.outcome == 'success'
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/backfill_source_ids.py --source auction
+
       - name: Publication state - customer-publication gate (FL)
         # scripts/publication_state_writer.py (migration 031): one auditable
         # publication state per active row - source approval, verified state
@@ -389,16 +400,6 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 scripts/publication_state_writer.py --state FL
-
-      - name: Source id - fill a blank source_id the row itself proves (auction)
-        # scripts/backfill_source_ids.py: the PowerShell sync never sends
-        # source_id; fill-blank only (source_id=is.null in every filter).
-        if: steps.sync.outcome == 'success'
-        continue-on-error: true
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-        run: python3 scripts/backfill_source_ids.py --source auction
 
       - name: Change detection - deterministic property changes and customer alerts
         # scripts/detect_property_changes.py: status / sale date / opening bid /
@@ -662,6 +663,17 @@ jobs:
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 scripts/stamp_seen.py --state FL --source certificate --harvest out/harvest_certificates.json --case-key case_no --status out/harvest_certificates_status.json
 
+
+      - name: Source id - fill a blank source_id the row itself proves (certificate)
+        # scripts/backfill_source_ids.py: the PowerShell sync never sends
+        # source_id; fill-blank only (source_id=is.null in every filter).
+        if: steps.sync.outcome == 'success'
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/backfill_source_ids.py --source certificate
+
       - name: Publication state - customer-publication gate (FL)
         # scripts/publication_state_writer.py (migration 031): one auditable
         # publication state per active row - source approval, verified state
@@ -674,16 +686,6 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 scripts/publication_state_writer.py --state FL
-
-      - name: Source id - fill a blank source_id the row itself proves (certificate)
-        # scripts/backfill_source_ids.py: the PowerShell sync never sends
-        # source_id; fill-blank only (source_id=is.null in every filter).
-        if: steps.sync.outcome == 'success'
-        continue-on-error: true
-        env:
-          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-        run: python3 scripts/backfill_source_ids.py --source certificate
 
       - name: Change detection - deterministic property changes and customer alerts
         # scripts/detect_property_changes.py: status / sale date / opening bid /
