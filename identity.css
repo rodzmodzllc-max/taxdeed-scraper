@@ -957,6 +957,16 @@ body:has(#authGate:not([hidden])){padding-bottom:0!important}
 .ledger-status .ls-why{flex-basis:100%;margin:.25rem 0 0;max-width:95ch}
 .ledger-status .ls-links{flex-basis:100%;margin:.1rem 0 0;display:flex;flex-wrap:wrap;gap:.9rem;color:var(--warm-gray)}
 .ledger-status .ls-meaning{color:var(--charcoal)}
+/* Customer-publication gate (2026-10-10, migration 031): withheld counts and admin labels */
+.ledger-status .ls-val.warn{color:var(--rust);font-weight:600}
+.ledger-pub-withheld{border-left-color:var(--rust)!important;color:var(--charcoal)!important}
+.pub-state-chip{font-size:.72rem;font-weight:600;color:var(--rust);background:var(--paper-white);border:1px solid var(--rust);padding:.05rem .5rem}
+.pub-gate-row{flex-basis:100%}
+.pub-gate-row.pending b{color:var(--rust)}
+.pub-gate-reasons,.pub-gate-path,.pub-gate-remediation{flex-basis:100%;color:var(--charcoal)}
+.pub-reason{display:inline-block;margin:0 .35rem .15rem 0;padding:0 .35rem;border:1px solid var(--rule);background:var(--paper-white)}
+.pub-gate-banner{border-color:var(--rust)!important}
+.pub-remediation{display:block;margin-top:.25rem}
 .rules-open li{border-top:1px solid var(--rule);padding:.45rem 0;font-size:.85rem}
 .state-rules-link-row{margin:.8rem 0 0}
 @media (max-width:640px){.rules-ledger{grid-template-columns:1fr}}

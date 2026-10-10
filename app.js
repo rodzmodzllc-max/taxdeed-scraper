@@ -566,6 +566,127 @@ function isCustomerPublishable(p) {
   const s = p && p.publication_status;
   return !s || s === "APPROVED" || s === "APPROVED_GRANDFATHERED";
 }
+// ==================== Mandatory acquisition-path gate (2026-10-10) ====================
+// Migration 031 + harvesters/governance/publication_state.py: every active row
+// carries ONE customer-publication state, decided server-side by
+// scripts/publication_state_writer.py (source approval -> verified state /
+// county rules -> record validation -> a credible acquisition path ->
+// freshness) and ENFORCED by the properties access policy: a customer's
+// read (every RPC, count, map, export, search, property page) returns only
+// CUSTOMER_PUBLISHED rows; admins read every row. So nothing here hides a
+// row the server would show - this block only (a) labels the withheld rows
+// an admin sees, with the reasons and the remediation, (b) tells a customer
+// how many records are withheld pending verification, so an empty ledger is
+// never mistaken for "no inventory", and (c) re-applies the customer rule as
+// defence in depth. Until 031 is applied, count_publication_states() does not
+// exist and PUBLICATION.enforced stays false: today's behaviour, unchanged.
+// Labels mirror publication_state.STATE_LABELS / REASONS (a test pins them equal).
+const PUBLICATION_STATE_LABELS = {
+  DISCOVERED: "Discovered - not yet evaluated",
+  RULES_VERIFIED: "Source and rules verified",
+  PATH_VERIFIED: "Acquisition path verified",
+  CUSTOMER_PUBLISHED: "Customer-published",
+  ADMIN_ONLY_NO_PATH: "Admin only - no verified acquisition path",
+  ADMIN_ONLY_SOURCE_REVIEW: "Admin only - source or rules under review",
+  ADMIN_ONLY_STALE: "Admin only - stale",
+  CLOSED: "Closed"
+};
+const PUBLICATION_REASON_LABELS = {
+  SOURCE_UNREVIEWED: "The source is collected but awaiting customer-publication review.",
+  SOURCE_RESTRICTED: "The source's terms are under legal review.",
+  SOURCE_BLOCKED: "The source is blocked.",
+  SOURCE_UNKNOWN: "The row's source is not in the source registry.",
+  RULES_NOT_VERIFIED: "The state's rules for this product are not verified (eligibility NOT_VERIFIED).",
+  RULES_NOT_OFFERED: "The verified rules say this state does not offer this product.",
+  COUNTY_NOT_COVERED: "The product is county-dependent and this county has no tracked source or verified procedure.",
+  RECORD_INVALID: "The record is missing its state, county, ledger or identifier.",
+  PATH_MISSING: "No acquisition path is documented for this record or its county.",
+  PATH_UNTRUSTED: "The only link on file is a homepage, a search page or not https - not a route to the process.",
+  PATH_NEEDS_REVIEW: "The county's acquisition process was captured but not verified.",
+  PATH_UNAVAILABLE: "The county's acquisition page could not be read.",
+  PATH_NOT_FOUND: "No official acquisition page has been found for this county.",
+  PATH_STALE: "The acquisition evidence is older than the allowed age.",
+  OBSERVATION_STALE: "The record was not observed in a successful source read within the allowed window.",
+  SALE_DATE_PASSED: "The sale date has passed and no result is published.",
+  NOT_ACTIVE: "The lifecycle status is not active."
+};
+const PUBLICATION_PATH_TYPE_LABELS = { auction_bidding: "Auction / bidding", direct_purchase: "Direct purchase", application: "Application",
+  certificate_purchase: "Certificate / lien purchase", other_verified_process: "Other verified process" };
+// Which withheld state a customer's count groups under, in the ledger copy.
+const PUBLICATION_WITHHELD_GROUPS = [
+  ["ADMIN_ONLY_NO_PATH", "no verified acquisition path"],
+  ["ADMIN_ONLY_SOURCE_REVIEW", "source or rules under review"],
+  ["ADMIN_ONLY_STALE", "stale observation or sale date"],
+  ["DISCOVERED", "not yet evaluated"],
+  ["RULES_VERIFIED", "not yet evaluated"],
+  ["PATH_VERIFIED", "not yet evaluated"]
+];
+const LEDGER_KEY_FOR_TYPE = { auctions: "auction", buy: "laft", lien: "certificate" };
+// enforced: migration 031 present (the counts RPC answered). counts: per
+// ledger key, per publication state, every ACTIVE row of this state on the
+// server (customer-published or not). withheld: id -> the server's decision
+// for every non-published active row THIS viewer may read (admins; empty
+// for customers by RLS).
+let PUBLICATION = { enforced: false, counts: null, withheld: new Map() };
+function applyPublicationReads(counts, withheld) {
+  const missing = r => r && r.error && /PGRST202|could not find the function|does not exist/i.test(String(r.error.message || r.error.code || ""));
+  PUBLICATION = { enforced: !!(counts && !counts.error) || (!!withheld && !withheld.error && !missing(withheld)), counts: null, withheld: new Map() };
+  if (counts && !counts.error) {
+    PUBLICATION.counts = {};
+    (counts.data || []).forEach(r => {
+      const k = LEDGER_KEY_FOR_TYPE[r.ledger_type];
+      if (!k) return;
+      (PUBLICATION.counts[k] = PUBLICATION.counts[k] || {})[r.publication_state] = Number(r.n) || 0;
+    });
+  }
+  if (withheld && !withheld.error) (withheld.data || []).forEach(r => { PUBLICATION.withheld.set(String(r.id), r); });
+}
+// Server-side counts of active rows NOT customer-published, per ledger key,
+// with the breakdown; null until 031 is applied.
+function publicationWithheld(kind) {
+  if (!PUBLICATION.enforced || !PUBLICATION.counts) return null;
+  const by = PUBLICATION.counts[kind] || {};
+  const groups = [];
+  let total = 0;
+  PUBLICATION_WITHHELD_GROUPS.forEach(([st, label]) => {
+    const n = by[st] || 0;
+    if (!n) return;
+    total += n;
+    const g = groups.find(x => x.label === label);
+    if (g) g.n += n; else groups.push({ label, n });
+  });
+  return { total, groups, published: by.CUSTOMER_PUBLISHED || 0 };
+}
+function publicationWithheldText(kind) {
+  const w = publicationWithheld(kind);
+  if (!w || !w.total) return "";
+  return `${w.total.toLocaleString("en-US")} record${w.total === 1 ? "" : "s"} withheld pending verification (${w.groups.map(g => `${g.n.toLocaleString("en-US")} ${g.label}`).join(", ")})`;
+}
+// A row's own decision, as the server stored it (admins: from
+// get_withheld_states; every row a customer can read is customer-published).
+function publicationStateOf(p) {
+  if (!p || !PUBLICATION.enforced) return null;
+  return p.publication_state || null;
+}
+function publicationStateLabel(p) {
+  const s = publicationStateOf(p);
+  return s ? (PUBLICATION_STATE_LABELS[s] || s) : "Not enforced on this deployment";
+}
+function publicationReasonsText(p) {
+  return (Array.isArray(p && p.publication_reasons) ? p.publication_reasons : []).map(r => PUBLICATION_REASON_LABELS[r] || r).join(" ");
+}
+// The structured acquisition-path evidence behind a withheld decision, as text.
+function publicationPathText(p) {
+  const e = p && p.publication_path;
+  if (!e || typeof e !== "object") return "";
+  const bits = [];
+  if (e.path_type) bits.push(PUBLICATION_PATH_TYPE_LABELS[e.path_type] || e.path_type);
+  if (e.scope) bits.push(`${e.scope}-level`);
+  if (e.verification_status) bits.push(String(e.verification_status).toLowerCase().replace(/_/g, " "));
+  if (e.last_verified) bits.push(`verified ${fmtDate(String(e.last_verified).slice(0, 10))}`);
+  if (e.missing_reason) bits.push(PUBLICATION_REASON_LABELS[e.missing_reason] || e.missing_reason);
+  return bits.join(" · ");
+}
 // ==================== Detroit customer subset (2026-10-03) ====================
 // A VISIBILITY stage between the full collected inventory and the publication
 // gate - mirrors harvesters/otc/detroit_subset.py (a fixture pins both):
@@ -613,6 +734,10 @@ window.__tdwDetroitSubset = { status: detroitSubsetStatus, fnv1a32 };
 function isPublishable(p) {
   if (p && p.publication_status === "BLOCKED") return false;
   if (IS_ADMIN) return true;
+  // Defence in depth for the acquisition-path gate: the server already
+  // returns only CUSTOMER_PUBLISHED rows to a customer; a row that somehow
+  // carries another decision is never shown to one.
+  if (PUBLICATION.enforced && p && p.publication_state && p.publication_state !== "CUSTOMER_PUBLISHED") return false;
   if (!inCustomerInventory(p)) return false;
   if (viewerScope() === "paid") return isPaidBetaPublishable(p);
   return isCustomerPublishable(p) || viewerScope() === "preview";
@@ -631,6 +756,8 @@ function sourceLineHtml(p) {
   const bits = [];
   if (p.source === "laft" && p.inventory_status_raw) bits.push(`<span class="source-program" title="The source's own status / program wording, verbatim">${esc(p.inventory_status_raw)}</span>`);
   if (!isCustomerPublishable(p)) bits.push(`<span class="source-review-chip" title="The source's customer-publication review status - not the property's availability">Source review: ${esc(sourceReviewLabel(p))} · not customer-published</span>`);
+  const ps = publicationStateOf(p);
+  if (ps && ps !== "CUSTOMER_PUBLISHED") bits.push(`<span class="pub-state-chip" data-pub-state="${esc(ps)}" title="${esc(`Customer-publication gate: ${PUBLICATION_STATE_LABELS[ps] || ps}. ${publicationReasonsText(p)}`)}">Not customer-published: ${esc(PUBLICATION_STATE_LABELS[ps] || ps)}</span>`);
   const det = detroitSubsetStatus(p);
   if (det && det !== "in_subset") bits.push(`<span class="source-subset-chip" data-subset="${det}" title="${esc(DETROIT_SUBSET_REASONS[det])}">Not included in current Detroit customer subset</span>`);
   return bits.length ? `<div class="prop-source-line">${bits.join("")}</div>` : "";
@@ -638,16 +765,38 @@ function sourceLineHtml(p) {
 // Full property page: the source review status as its own fact, every row.
 function sourceReviewHtml(p) {
   const customer = isCustomerPublishable(p);
-  return `<div class="source-review-row${customer ? "" : " pending"}" data-source-review="${esc(p.publication_status || "")}">
+  const ps = publicationStateOf(p);
+  const gated = ps && ps !== "CUSTOMER_PUBLISHED";
+  return `<div class="source-review-row${customer && !gated ? "" : " pending"}" data-source-review="${esc(p.publication_status || "")}">
       <span>Source publication review: <b>${esc(sourceReviewLabel(p))}</b></span>
-      <span>Customer-visible: <b>${customer ? "Yes" : "No"}</b>${customer ? "" : ` (${esc(reviewViewerReason())})`}</span>
+      <span>Customer-visible: <b>${customer && !gated ? "Yes" : "No"}</b>${customer && !gated ? "" : ` (${esc(reviewViewerReason())})`}</span>
+      ${publicationGateHtml(p)}
       ${p.source === "laft" && p.inventory_status_raw ? `<span>Source program / status: <b>${esc(p.inventory_status_raw)}</b></span>` : ""}
       ${detroitSubsetStatus(p) ? `<span class="source-subset-row" data-subset="${detroitSubsetStatus(p)}">Detroit customer subset: <b>${esc(DETROIT_SUBSET_REASONS[detroitSubsetStatus(p)])}</b> · structure evidence: <b>${esc(detroitSubsetStatus(p) === "not_structure" ? "none in the source's status" : `source status "${String(p.inventory_status_raw || "")}"`)}</b></span>` : ""}
     </div>`;
 }
 function sourceReviewBannerHtml(p) {
-  if (isCustomerPublishable(p)) return "";
-  return `<div class="source-review-banner" id="sourceReviewBanner"><b>Source review: ${esc(sourceReviewLabel(p))}.</b> This record comes from a source awaiting customer-publication review - ${esc(reviewViewerReason())}. It is not customer-published. Its availability below is the source's own statement and is a separate fact.</div>`;
+  const ps = publicationStateOf(p);
+  const gate = ps && ps !== "CUSTOMER_PUBLISHED"
+    ? `<div class="source-review-banner pub-gate-banner" id="publicationGateBanner" data-pub-state="${esc(ps)}"><b>Not customer-published: ${esc(PUBLICATION_STATE_LABELS[ps] || ps)}.</b> ${esc(publicationReasonsText(p))} ${esc(reviewViewerReason().replace(/^shown/, "Shown"))}; customers do not see this record.${p.publication_remediation ? ` <span class="pub-remediation">To publish: ${esc(p.publication_remediation)}</span>` : ""}</div>`
+    : "";
+  if (isCustomerPublishable(p)) return gate;
+  return gate + `<div class="source-review-banner" id="sourceReviewBanner"><b>Source review: ${esc(sourceReviewLabel(p))}.</b> This record comes from a source awaiting customer-publication review - ${esc(reviewViewerReason())}. It is not customer-published. Its availability below is the source's own statement and is a separate fact.</div>`;
+}
+// The customer-publication decision on the full property page: the state,
+// the milestone reached, every reason, the structured path evidence and the
+// exact remediation - or, for a published row, that every gate passed.
+function publicationGateHtml(p) {
+  const ps = publicationStateOf(p);
+  if (!PUBLICATION.enforced) return `<span class="pub-gate-row" data-pub-state="">Customer-publication gate: <b>Not enforced on this deployment</b> (migration 031 not applied)</span>`;
+  if (!ps) return `<span class="pub-gate-row" data-pub-state="">Customer-publication gate: <b>No decision recorded</b> - the gate decides active records; this record's lifecycle status is ${esc(String(p.status || "unknown"))}</span>`;
+  if (ps === "CUSTOMER_PUBLISHED") return `<span class="pub-gate-row" data-pub-state="CUSTOMER_PUBLISHED">Customer-publication gate: <b>Customer-published</b> - source approved, state rules verified, record valid, acquisition path documented, observation current (server-enforced)</span>`;
+  const reasons = Array.isArray(p.publication_reasons) ? p.publication_reasons : [];
+  const path = publicationPathText(p);
+  return `<span class="pub-gate-row pending" data-pub-state="${esc(ps)}">Customer-publication gate: <b>${esc(PUBLICATION_STATE_LABELS[ps] || ps)}</b>${p.publication_progress ? ` · reached: ${esc(PUBLICATION_STATE_LABELS[p.publication_progress] || p.publication_progress)}` : ""}${p.publication_state_at ? ` · decided ${esc(fmtDate(String(p.publication_state_at).slice(0, 10)))}` : ""}</span>
+      ${reasons.length ? `<span class="pub-gate-reasons">Why: ${reasons.map(r => `<span class="pub-reason" data-reason="${esc(r)}">${esc(PUBLICATION_REASON_LABELS[r] || r)}</span>`).join(" ")}</span>` : ""}
+      ${path ? `<span class="pub-gate-path">Acquisition path evidence: ${esc(path)}</span>` : ""}
+      ${p.publication_remediation ? `<span class="pub-gate-remediation">To publish: <b>${esc(p.publication_remediation)}</b></span>` : ""}`;
 }
 // Acquisition-path sprint (2026-10-01): the acquisition path is ENRICHMENT,
 // never a publication decision. A row the source establishes as Available is
@@ -3558,7 +3707,8 @@ var ZERO_CASE_COPY = {
   NOT_VERIFIED: { label: "Not verified", text: "The rules or availability of this product in this state have not been verified yet. This zero is not a statement that the state does not offer it." },
   NOT_IMPLEMENTED: { label: "No source implemented", text: "Inventory is not displayed because no source for this product is implemented for this state yet. This is not proof that no properties exist." },
   SOURCE_RESTRICTED: { label: "Source restricted or pending review", text: "Inventory is not displayed because its source is restricted or awaiting customer-publication review. This is not proof that no properties exist." },
-  SOURCE_FAILURE: { label: "Source read failed or incomplete", text: "The last read of this product's source failed or was incomplete, so the current count cannot be confirmed. Only the last known count is shown, labelled as such; nothing was closed and eligibility is unchanged." }
+  SOURCE_FAILURE: { label: "Source read failed or incomplete", text: "The last read of this product's source failed or was incomplete, so the current count cannot be confirmed. Only the last known count is shown, labelled as such; nothing was closed and eligibility is unchanged." },
+  WITHHELD: { label: "Records withheld pending verification", text: "Records for this product were collected but are withheld from customers until each passes the publication gate - source approval, verified state and county rules, record validation, a documented acquisition path and a current observation. This is not proof that no properties exist." }
 };
 function ledgerUnits(kind) {
   if (!Array.isArray(UNIT_FRESHNESS)) return null;
@@ -3594,18 +3744,26 @@ function ledgerZeroState(kind) {
   const health = units === null || !healths.length ? "NOT_RECORDED"
     : healths.every(h => h.state === "SOURCE_UNAVAILABLE") ? "SOURCE_UNAVAILABLE"
     : unhealthy && !readOk ? "DEGRADED" : unhealthy ? "PARTIAL" : readOk ? "CURRENT" : healths[0].state;
+  // The server's customer-publication gate (migration 031): rows withheld
+  // pending verification, counted server-side for every account. A zero
+  // with withheld rows is "withheld", never "no inventory"; when every
+  // withheld row is withheld for its SOURCE, the source case is the exact one.
+  const pub = publicationWithheld(kind);
+  const pubWithheld = pub ? pub.total : 0;
+  const pubSourceOnly = !!pub && pub.total > 0 && pub.groups.every(g => g.label === "source or rules under review");
   let zeroCase = null;
   if (loadFailed) zeroCase = "SOURCE_FAILURE";
   else if (eligibility === "NOT_OFFERED") zeroCase = "NOT_OFFERED";
   else if (count > 0 || !settled) zeroCase = null;
   else if (healths.length && unhealthy && !readOk) zeroCase = "SOURCE_FAILURE";
   else if (!tracked) zeroCase = "NOT_IMPLEMENTED";
-  else if (withheld || pending || eligibility === "SOURCE_RESTRICTED") zeroCase = "SOURCE_RESTRICTED";
+  else if (withheld || pending || eligibility === "SOURCE_RESTRICTED" || pubSourceOnly) zeroCase = "SOURCE_RESTRICTED";
+  else if (pubWithheld) zeroCase = "WITHHELD";
   else if (eligibility === "NOT_VERIFIED") zeroCase = "NOT_VERIFIED";
   else if (eligibility === "COUNTY_DEPENDENT") zeroCase = "COUNTY_DEPENDENT";
   else zeroCase = "NO_CURRENT_INVENTORY";
   return { kind, led, eligibility, tracked, count, withheld, pending, loadFailed, settled, units, health, lastRead, lastKnown, unhealthy, zeroCase,
-    coverage: led && Array.isArray(led.coverage) ? led.coverage : [] };
+    pub, pubWithheld, coverage: led && Array.isArray(led.coverage) ? led.coverage : [] };
 }
 function ledgerNoun(kind, n) {
   const num = Number(n).toLocaleString("en-US");
@@ -3646,7 +3804,8 @@ function ledgerStatusHtml(kind, shown, opts) {
     <span class="ls-item"><b>Tracked</b><span class="ls-val" data-ls-tracked>${esc(z.led ? ((doc.ledger_statuses || {})[z.led.status] || z.led.status) : "Not recorded")}</span></span>
     <span class="ls-item"><b>Current count</b><span class="ls-val" data-ls-count="${z.settled && !z.loadFailed ? z.count : ""}">${esc(countText)}</span>${filtered ? `<span class="ls-sub">${esc(filtered)}</span>` : ""}</span>
     <span class="ls-item"><b>Source read</b><span class="ls-val" data-ls-read>${esc(freshness)}</span></span>
-    ${why ? `<p class="ls-why" data-zero-why="${esc(z.zeroCase)}"><b>${esc(why.label)}.</b> ${esc(why.text)}${lastKnown ? ` ${esc(lastKnown)}.` : ""}${covText ? ` ${esc(covText)}.` : ""}</p>` : ""}
+    ${z.pub ? `<span class="ls-item"><b>Withheld from customers</b><span class="ls-val${z.pubWithheld ? " warn" : ""}" data-ls-withheld="${z.pubWithheld}" title="Records collected but not customer-published until they pass the publication gate: source approval, verified state and county rules, record validation, a documented acquisition path and a current observation">${esc(z.pubWithheld ? publicationWithheldText(kind) : "None - every active record passed the publication gate")}</span>${z.pubWithheld && IS_ADMIN ? `<span class="ls-sub">Shown to you as an admin, each labelled; customers do not see them</span>` : ""}</span>` : ""}
+    ${why ? `<p class="ls-why" data-zero-why="${esc(z.zeroCase)}"><b>${esc(why.label)}.</b> ${esc(why.text)}${lastKnown ? ` ${esc(lastKnown)}.` : ""}${covText ? ` ${esc(covText)}.` : ""}${z.zeroCase === "WITHHELD" || (z.zeroCase === "SOURCE_RESTRICTED" && z.pubWithheld) ? ` ${esc(publicationWithheldText(kind))}.` : ""}</p>` : ""}
     ${o.compact ? "" : `<p class="ls-links">${z.led && z.led.meaning ? `<span class="ls-meaning">${esc(z.led.meaning)}</span>` : ""}<button type="button" class="link-btn" data-action="staterules" data-ledger="${esc(LEDGER_NAME_FOR_KEY[kind])}">State rules and sources →</button>${z.led && z.led.eligibility_source_url ? `<a href="${esc(z.led.eligibility_source_url)}" target="_blank" rel="noopener">Official reference →</a>` : ""}</p>`}
   </div>`;
 }
@@ -3753,6 +3912,21 @@ function applyLedgerRows() {
     if (d !== "not_structure") DETROIT_SUMMARY.structure++;
     if (d === "in_subset") DETROIT_SUMMARY.subset++;
   });
+  // The server's customer-publication decision on every row this viewer can
+  // read (migration 031): a withheld row carries its state, reasons, path
+  // evidence and remediation; anything else the server returned to an
+  // admin is customer-published (or closed) - never guessed client-side.
+  if (PUBLICATION.enforced) rows.forEach(p => {
+    const w = PUBLICATION.withheld.get(String(p.id));
+    if (w) {
+      p.publication_state = w.publication_state; p.publication_progress = w.publication_progress;
+      p.publication_reasons = Array.isArray(w.publication_reasons) ? w.publication_reasons : [];
+      p.publication_remediation = w.publication_remediation || ""; p.publication_path = w.publication_path || null;
+      p.publication_state_at = w.publication_state_at || null;
+    } else if (!p.publication_state && (!IS_ADMIN || String(p.status || "active") === "active")) p.publication_state = "CUSTOMER_PUBLISHED";
+    // An admin's non-active row outside the map has no decision to read (the
+    // writer decides active rows only): left unlabelled, never guessed.
+  });
   ALL = rows.filter(p => {
     // Outside the Detroit customer subset: not customer inventory at all, so
     // not "withheld" either (DETROIT_SUMMARY names it on the ledger instead).
@@ -3811,7 +3985,7 @@ async function loadAll(activeKey, opts) {
   const today = new Date().toISOString().slice(0, 10);
   const run = fetchProperties(activeKey || null, scheduleLedgerUpdate, !!(opts && opts.force));
   PROPERTIES_DONE = run.done;
-  const [ok, notes, favs, hid, cal, bidlist, health, freshness, availCoverage, availTerms, commercialScope, acqEvidence, stateRulesDoc] = await Promise.all([
+  const [ok, notes, favs, hid, cal, bidlist, health, freshness, availCoverage, availTerms, commercialScope, acqEvidence, stateRulesDoc, pubCounts, pubWithheld] = await Promise.all([
     run.ready,
     sb.from("notes").select("*"),
     sb.from("favorites").select("property_id"),
@@ -3836,9 +4010,17 @@ async function loadAll(activeKey, opts) {
     fetch("acquisition-evidence.json", { cache: "no-store" }).then(r => (r.ok ? r.json() : null)).catch(() => null),
     // Ledger eligibility + state rules (public/state-rules.json, 2026-10-10):
     // read before the first paint so a zero ledger can name which zero it is.
-    loadStateRules()
+    loadStateRules(),
+    // Customer-publication gate (migration 031): counts only, every approved
+    // account - how many active rows of this state sit in each state, so a
+    // zero can say "N withheld pending verification"; and the withheld rows
+    // with their reasons, which RLS returns to admins only. PGRST202 (031 not
+    // applied) = not enforced, today's behaviour.
+    sb.rpc("count_publication_states", { p_state: PAGE_STATE }),
+    sb.rpc("get_withheld_states", { p_state: PAGE_STATE })
   ]);
   void stateRulesDoc;
+  applyPublicationReads(pubCounts, pubWithheld);
   AVAILABLE_TERMS = (availTerms && Array.isArray(availTerms.terms)) ? availTerms.terms : [];
   ACQUISITION_EVIDENCE = (acqEvidence && Array.isArray(acqEvidence.records)) ? acqEvidence.records : [];
   ACQUISITION_STATUS = (acqEvidence && Array.isArray(acqEvidence.status)) ? acqEvidence.status : [];
@@ -10002,6 +10184,7 @@ function section(container, title, sub, rows, kind) {
       </p>
       ${REVIEW_PENDING_SHOWN[kind] ? `<p class="ledger-review-pending" id="ledgerReviewPending">${REVIEW_PENDING_SHOWN[kind]} record${REVIEW_PENDING_SHOWN[kind] === 1 ? "" : "s"} from sources awaiting customer-publication review ${REVIEW_PENDING_SHOWN[kind] === 1 ? "is" : "are"} ${esc(reviewViewerReason())}, each labelled "Source review". Customers in published mode do not see ${REVIEW_PENDING_SHOWN[kind] === 1 ? "it" : "them"}.</p>` : ""}
       ${WITHHELD[kind] ? `<p class="ledger-withheld" id="ledgerWithheld">${WITHHELD[kind]} record${WITHHELD[kind] === 1 ? "" : "s"} withheld - source not approved for customer publication (restricted or not yet reviewed). Counted, not shown.</p>` : ""}
+      ${publicationWithheldText(kind) ? `<p class="ledger-withheld ledger-pub-withheld" id="ledgerPublicationWithheld">${esc(publicationWithheldText(kind))}. ${IS_ADMIN ? "Shown to you as an admin, each labelled \"Not customer-published\" with its reasons and the step that publishes it; customers do not see them." : "Counted, not shown: each becomes visible once its source, the state rules, the record, its acquisition path and its observation are verified."}</p>` : ""}
       ${kind === "laft" && DETROIT_SUMMARY.collected && (IS_ADMIN || viewerScope() === "preview") ? `<p class="ledger-detroit-subset" id="ledgerDetroitSubset">Detroit Land Bank: ${DETROIT_SUMMARY.collected.toLocaleString("en-US")} collected · ${DETROIT_SUMMARY.structure.toLocaleString("en-US")} with a verified structure in the source's own status · ${DETROIT_SUMMARY.subset.toLocaleString("en-US")} in the customer subset (deterministic ~50%). ${IS_ADMIN ? "You see every collected record; those outside the subset are labelled and stay collected." : "Only the customer subset is shown here."} The subset still passes the publication gate: source review is separate.</p>` : ""}
       ${state.statusView === "archive" ? `<p class="ledger-mode-note" id="archiveModeNote">📁 Past auctions only — sale date already gone. <button class="ledger-mode-exit" id="exitArchiveBtn" type="button">Back to current listings</button></p>` : ""}
     </div>`;
@@ -12798,7 +12981,7 @@ function renderDashboard() {
     const cfg = ledgerCopy(key);
     const n = active.filter(p => p.source === key).length;
     const c = countiesByLedger[key].size;
-    return `<button class="stat-tile stat-tile-btn" type="button" data-go-ledger="${esc(key)}" data-ledger-tile="${esc(key)}" title="Open the List page on ${esc(cfg.title)}"><span class="stat-tile-icon${key === "auction" ? " accent" : ""}">${LEDGERS[key].icon}</span><div><div class="stat-tile-label">${esc(cfg.title)}</div><div class="stat-tile-val${key === "auction" ? " accent" : ""}">${n}</div><div class="stat-tile-sub">active · ${c} count${c === 1 ? "y" : "ies"}${WITHHELD[key] ? ` · ${WITHHELD[key]} withheld` : ""}</div></div></button>`;
+    return `<button class="stat-tile stat-tile-btn" type="button" data-go-ledger="${esc(key)}" data-ledger-tile="${esc(key)}" title="Open the List page on ${esc(cfg.title)}"><span class="stat-tile-icon${key === "auction" ? " accent" : ""}">${LEDGERS[key].icon}</span><div><div class="stat-tile-label">${esc(cfg.title)}</div><div class="stat-tile-val${key === "auction" ? " accent" : ""}">${n}</div><div class="stat-tile-sub">active · ${c} count${c === 1 ? "y" : "ies"}${WITHHELD[key] ? ` · ${WITHHELD[key]} withheld` : ""}${publicationWithheld(key) && publicationWithheld(key).total ? ` · ${publicationWithheld(key).total.toLocaleString("en-US")} withheld pending verification` : ""}</div></div></button>`;
   }).join("") +
     `<div class="stat-tile"><span class="stat-tile-icon">${svgIcon("pin")}</span><div><div class="stat-tile-label">Counties with inventory</div><div class="stat-tile-val">${byCounty.size}</div><div class="stat-tile-sub">${esc(STATE_INFO.name)} · ${rows.length} tracked incl. no-longer-listed</div></div></div>`;
   statsEl.querySelectorAll("[data-go-ledger]").forEach(btn => btn.addEventListener("click", () => { showPage("list"); setLedger(btn.dataset.goLedger); }));
@@ -12872,7 +13055,7 @@ function renderDashboard() {
       // lifecycles - harvesters/ledgers/domains.py): a failed read in one
       // ledger is reported under that ledger only, never as an empty other.
       const fresh = ledgerFreshnessSummary(UNIT_FRESHNESS, PAGE_STATE, key);
-      const withheld = WITHHELD[key] ? `<span class="dash-row-fresh dash-row-withheld">${WITHHELD[key]} withheld (source not approved for publication)</span>` : "";
+      const withheld = (WITHHELD[key] ? `<span class="dash-row-fresh dash-row-withheld">${WITHHELD[key]} withheld (source not approved for publication)</span>` : "") + (publicationWithheldText(key) ? `<span class="dash-row-fresh dash-row-withheld" data-pub-withheld="${publicationWithheld(key).total}">${esc(publicationWithheldText(key))}</span>` : "");
       return `<div class="dash-row" data-ledger-row="${esc(key)}"><div class="dash-row-name">${LEDGERS[key].icon}${esc(cfg.title)}</div><div class="dash-row-vals"><b>${count}</b>${fresh ? `<span class="dash-row-fresh">${esc(fresh)}</span>` : ""}${withheld}</div></div>`;
     }).join("");
   }

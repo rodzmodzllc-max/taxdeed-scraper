@@ -3177,3 +3177,36 @@ Full description: `docs/auth-email.md`. Stable facts:
   - recovery then emits PASSWORD_RECOVERY and opens the existing form;
   - a used or expired token reads "That password-reset link has expired …".
 - **Tests.** `tests/recovery_flow_test.mjs` covers this with the real supabase-js (POST `/auth/v1/verify` fake).
+
+## Mandatory acquisition-path gate for customer publication (2026-10-10, PR open, migration 031 NOT applied)
+
+Full description: `docs/publication-gate.md`. Stable facts:
+- **Harvested data is not customer inventory.** `harvesters/governance/publication_state.py`
+  decides ONE state per row, in order: source approved → state / county rules
+  verified (`data/state_ledgers.csv` + coverage) → record valid → a credible
+  acquisition path (AUCTIONS: sale / county `url_auction`; AVAILABLE: verified
+  acquisition evidence for the unit or a record-level typed path; LIENS: a
+  typed path or the county's registry certificate page; a county portal or
+  procedure is enough, a homepage / search page / http never) → freshness
+  (AUCTIONS 7 d, AVAILABLE 14 d, LIENS 7 d; sale date; evidence ≤ 180 d).
+  States: DISCOVERED / RULES_VERIFIED / PATH_VERIFIED / CUSTOMER_PUBLISHED /
+  ADMIN_ONLY_NO_PATH / ADMIN_ONLY_SOURCE_REVIEW / ADMIN_ONLY_STALE / CLOSED,
+  with `publication_progress` (milestone), `publication_reasons`,
+  `publication_remediation`, `publication_path` (structured evidence). They
+  never replace the lifecycle status; a failed read changes nothing; nothing
+  here closes a row.
+- **Migration 031** (`031_publication_state_gate.sql`, NOT applied) ALTERS the
+  single `properties` policy to `is_approved() AND (publication_state =
+  'CUSTOMER_PUBLISHED' OR is_admin())` - server-side for every surface; NULL
+  is never customer-visible, so **apply order is 031, then the writer for
+  every state (`job=publication`)**; between the two steps customers see
+  nothing. RPCs `count_publication_states` (counts, every approved account)
+  and `get_withheld_states` (admins); table `publication_decisions` (log).
+- **Writer:** `scripts/publication_state_writer.py --state XX` (after every
+  sync and manual `job=publication`); keyset reads, changed rows only, never a
+  lifecycle status; plan-only without 031.
+- **Frontend:** `PUBLICATION` (`applyPublicationReads`) in app.js; labels
+  pinned to Python; the strip's "Withheld from customers" item, zero case
+  `WITHHELD`, admin chips `.pub-state-chip`, property-page `publicationGateHtml`.
+  Stub knob `?pubgate=1`. Tester preview no longer bypasses the gate once 031
+  is applied. `sw.js` -> `tdw-shell-v119`.
