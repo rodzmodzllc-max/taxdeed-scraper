@@ -2692,7 +2692,7 @@ results.acqUnavailableKeepsPath = await dec2.evaluate(() => {
 });
 results.acqPropertyScopeLabel = await dec2.evaluate(() => {
   const d = document.createElement('div');
-  d.innerHTML = window.__tdwAcquisitionHtml({ source: 'laft', state: 'FL', county: 'Citrus', case_no: 'X-2', purchase_path_type: 'direct_property_url',
+  d.innerHTML = window.__tdwAcquisitionHtml({ source: 'laft', state: 'FL', county: 'Citrus', source_id: 'fl_laft_html', case_no: 'X-2', purchase_path_type: 'direct_property_url',
     purchase_path_scope: 'property', purchase_path_evidence: 'e', purchase_path_observed_on: '2026-09-30', purchase_url: 'https://clerk.example.gov/buy/X-2' });
   return d.querySelector('.acq-scope').textContent;
 });
@@ -3765,12 +3765,12 @@ await navMap.close();
         text: ((await pg.locator('#main [data-ledger-empty="1"]').first().textContent().catch(() => '')) || '').split('.')[0] + '.',
         stateEmptyClaim: await pg.locator('#main [data-state-empty]').count(),
         skeleton: await pg.locator('#main .skel').count(),
-        availableTab: ((await pg.locator('#tabCountLaft').textContent().catch(() => '')) || '').trim()
+        availableTab: ((await pg.locator('#navCountLaft').textContent().catch(() => '')) || '').trim()
       };
       // Available finishes in the background: its count becomes final, Auctions stays empty.
       await pg.waitForFunction(() => /^\d[\d,]*$/.test((document.getElementById('tabCountLaft') || {}).textContent || ''), null, { timeout: 15000 }).catch(() => {});
       results['laAvailableArrives' + label] = {
-        availableTab: ((await pg.locator('#tabCountLaft').textContent()) || '').trim(),
+        availableTab: ((await pg.locator('#navCountLaft').textContent()) || '').trim(),
         stillEmpty: await pg.locator('#main [data-ledger-empty="1"]').count(),
         hash: await pg.evaluate(() => location.hash)
       };
@@ -3796,9 +3796,9 @@ await navMap.close();
       await pg.waitForSelector('#main .prop-card', { timeout: 8000, state: 'attached' }).catch(() => {});
       // painted while Available was still downloading (its tab not final yet)
       results.miAuctionsNotBlocked = { cards: await pg.locator('#main .prop-card').count(),
-        availablePendingAtPaint: /…$/.test(((await pg.locator('#tabCountLaft').textContent()) || '').trim()) };
+        availablePendingAtPaint: /…$/.test(((await pg.locator('#navCountLaft').textContent()) || '').trim()) };
       await pg.waitForFunction(() => /^\d[\d,]*$/.test((document.getElementById('tabCountLaft') || {}).textContent || ''), null, { timeout: 30000 }).catch(() => {});
-      results.miAvailableArrives = { availableTab: ((await pg.locator('#tabCountLaft').textContent()) || '').trim(),
+      results.miAvailableArrives = { availableTab: ((await pg.locator('#navCountLaft').textContent()) || '').trim(),
         auctionCards: await pg.locator('#main .prop-card').count(), hash: await pg.evaluate(() => location.hash) };
       await pg.close();
     }
@@ -4926,7 +4926,7 @@ await navMap.close();
           stateOption: [...document.querySelectorAll('#stateSelect option')].some(o => o.value === 'TN'),
           stateSelected: (document.querySelector('#stateSelect') || {}).value || null,
           tabs: [...document.querySelectorAll('#ledgerTabs .ledger-tab')].map(b => b.textContent.replace(/\s+/g, ' ').replace(/[\d…]+\s*$/, '').trim()),
-          countLaft: t('#tabCountLaft'),
+          countLaft: t('#navCountLaft'),
           cardRendered: !!document.querySelector('.prop-card[data-pid="ptn1"]') || [...document.querySelectorAll('[data-pid="ptn1"]')].length > 0,
           withheld: t('#ledgerWithheld'),
           emptyHead: !!document.querySelector('[data-ledger-empty]'),
@@ -5165,7 +5165,6 @@ await navMap.close();
       cards: await pg.locator('#homeLedgers [data-home-ledger]').evaluateAll(els => els.map(e => e.dataset.homeLedger + ':' + e.querySelector('.home-ledger-count').textContent)),
       statesCard: await pg.locator('#homeStatesCard').count(),
       recentHasFirstSeen: await pg.locator('#homeRecent .home-recent-when').evaluateAll(els => els.length > 0 && els.every(e => /^First observed /.test(e.textContent))),
-      tabCounts: await pg.locator('#ledgerTabs .ledger-tab').evaluateAll(els => els.map(e => e.dataset.ledger + ':' + e.querySelector('b').textContent)),
       noScoreWords: await pg.locator('#homeHero, #homeLedgers, #homeRecentSection').evaluateAll(els => els.every(e => !/\b(score|ranking|recommend|AI)\b/i.test(e.textContent)))
     };
     // Home search submits to the List, filtered, on the ledger that has matches.
