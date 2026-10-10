@@ -6241,7 +6241,13 @@ await monDash.close();
     tableMore: (document.getElementById('tableMoreBtn') || {}).textContent,
     domUnder15k: document.getElementsByTagName('*').length < 15000
   }));
-  await big.evaluate(() => { document.querySelector('.county-group[data-county="Wayne"]').open = true; });
+  // Open the group the way a reader does: the summary click records the
+  // county as expanded, so a render triggered by a background ledger page
+  // arriving keeps it open (setting .open directly was undone by such a
+  // render under load, 2026-10-10, and the Show-next button then stayed
+  // hidden).
+  if (!(await big.evaluate(() => document.querySelector('.county-group[data-county="Wayne"]').open))) await big.click('.county-group[data-county="Wayne"] > summary');
+  await big.waitForSelector('.county-group[data-county="Wayne"] .group-more', { state: 'visible', timeout: 15000 });
   await big.click('.county-group[data-county="Wayne"] .group-more');
   results.scaleListAfterMore = await big.evaluate(() => ({
     cards: document.querySelectorAll('.county-group[data-county="Wayne"] .prop-card').length,
