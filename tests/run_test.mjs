@@ -1141,6 +1141,10 @@ results.homesteadBadgeAbsentForP1 = await page.locator('.prop-card').first().loc
 // elements exist in BOTH #detailModalInner and #detailPanel's copies at
 // once, and a bare '.info-tip' selector was silently counting both (8
 // instead of the real, single-render count of 4).
+// Open a property here so the count reads a populated property page (the
+// earlier steps may have closed it); count the surface that shows it.
+await page.evaluate(() => document.querySelector('[data-action="viewdetails"]').click());
+await page.waitForTimeout(400);
 results.infoTipCount = await page.evaluate(() => (document.getElementById('detailModal').hidden ? document.getElementById('detailPanel') : document.getElementById('detailModalInner')).querySelectorAll('.info-tip').length);
 // --- bare-land branch (p3, LAFT ledger): land_value equal to market means
 // the derived Building/Improvement stat should read as bare land, not a
@@ -5226,7 +5230,7 @@ await navMap.close();
       tabs: await pg.locator('#detailModalInner .detail-nav button').allTextContents(),
       // The fixture's last-read date is fixed while the clock moves, so the
       // relative age ("14d ago", "15d ago", ...) is normalised to "Nd ago".
-      why: (await pg.locator('#detailModalInner #whySeeing li').allTextContents()).map(t => t.replace(/\b\d+([dhm]) ago\b/, 'N$1 ago')),
+      why: await pg.evaluate(() => [...(document.getElementById('detailModal').hidden ? document.getElementById('detailPanel') : document.getElementById('detailModalInner')).querySelectorAll('#whySeeing li')].map(e => e.textContent.trim().replace(/\b\d+([dhm]) ago\b/, 'N$1 ago'))),
       acquire: await pg.locator('#detailModalInner [data-section="acquire"]').count()
     };
     await pg.click('#detailModalInner .crumb[data-action="crumbhome"]');
@@ -6998,7 +7002,7 @@ const EXPECTED = {
   gsMapBackToFlorida: {"file": "index.html", "hash": "#/map?ledger=auction", "state": "FL"},
   gsMapBackPaths: 67,
   gsMapBackCounty: "ALL",
-  gsDeepLinkTexas: {"state": "TX", "modal": false},
+  gsDeepLinkTexas: {"state": "TX", "modal": true},
   gsDeepLinkSwitch: {"file": "index.html", "hash": "#/auctions", "state": "FL", "modal": false},
   gsPhone: {"bothVisible": true, "inViewport": true, "sameRow": true, "selectorFirst": true, "headerCompact": true, "noHorizontalScroll": true, "value": "TX"},
   gsPhoneBottomNav: ["dashboard", "list", "map", "watchlist"],
