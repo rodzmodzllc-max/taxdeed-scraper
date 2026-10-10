@@ -5240,11 +5240,21 @@ await navMap.close();
       await pg.goto(url, { waitUntil: 'networkidle' });
       await pg.waitForTimeout(300);
       // Lazy images load only in view: bring each one into view.
-      for (const h of await pg.$$('.naip-live')) { await h.scrollIntoViewIfNeeded().catch(() => {}); }
-      // Hydration is observer-driven (and, with `fail`, each image then steps
-      // down a rung): wait for that to settle rather than a fixed pause - the
-      // fixed 500ms flaked on a slow CI runner (PR #134, 2026-10-10).
-      await pg.waitForFunction(() => [...document.querySelectorAll('.naip-live img')].every(i => i.src), null, { timeout: 8000 }).catch(() => {});
+      // Hydration is observer-driven (rootMargin 300px) and, with `fail`,
+      // each image then steps down a rung. The list can re-render after
+      // networkidle (a background ledger page arriving), which detaches any
+      // element handle taken before it, and the ledger status strip (PR #134)
+      // pushes the second card past the observer's margin, so: re-query and
+      // scroll every live host into view on each pass, until every image
+      // has its src (or, with `fail`, no live host is left) - never a fixed
+      // pause and never a stale handle (the fixed 500ms and a single
+      // pre-render scroll both failed on CI, 2026-10-10).
+      const naipDeadline = Date.now() + 10000;
+      while (Date.now() < naipDeadline) {
+        await pg.evaluate(() => document.querySelectorAll('.naip-live').forEach(h => h.scrollIntoView({ block: 'center' })));
+        await pg.waitForTimeout(250);
+        if (await pg.evaluate(() => [...document.querySelectorAll('.naip-live img')].every(i => i.src))) break;
+      }
       await pg.waitForTimeout(300);
       return { pg, requested };
     };
@@ -5278,7 +5288,10 @@ await navMap.close();
     await pg.close();
     // USGS unreachable: the image steps down to the county context, never a broken image.
     ({ pg } = await naipPage(BASE_URL.replace(/index\.html$/, 'la.html') + '#/lands', null, true));
-    await pg.waitForFunction(() => !document.querySelector('#main .naip-live'), null, { timeout: 8000 }).catch(() => {});
+    for (let i = 0; i < 40 && await pg.evaluate(() => !!document.querySelector('#main .naip-live')); i++) {
+      await pg.evaluate(() => document.querySelectorAll('.naip-live').forEach(h => h.scrollIntoView({ block: 'center' })));
+      await pg.waitForTimeout(250);
+    }
     results.naipFallback = await pg.evaluate(() => ({ live: document.querySelectorAll('#main .naip-live').length,
       broken: [...document.querySelectorAll('#main .prop-card img')].filter(i => i.complete && i.naturalWidth === 0 && /nationalmap/.test(i.src)).length,
       minimap: document.querySelectorAll('#main .prop-card .minimap').length > 0,
