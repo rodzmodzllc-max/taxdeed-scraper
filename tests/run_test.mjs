@@ -7529,7 +7529,7 @@ const EXPECTED = {
   expiredLinkMsg: "That email link has expired or was already used. To reset your password, enter your email below and choose Forgot password? to get a new link. If you were confirming a new account and already did, just sign in; otherwise sign in once to get the “Resend confirmation email” option. Always open the newest email.",
   expiredLinkHashCleared: true,
   // Server-side sign-up (self-signup Edge Function).
-  selfSignupCall: [{"name": "self-signup", "email": "client@example.com", "fields": ["address", "company", "email", "first_name", "last_name", "password", "phone"]}],
+  selfSignupCall: [{"name": "self-signup", "email": "client@example.com", "fields": ["address", "email", "first_name", "last_name", "password"]}],
   selfSignupPending: {"pending": true, "app": false, "gate": false},
   selfSignupDuplicateMsg: "An account with this email already exists. Choose “Already have an account? Sign in”, or “Forgot password?” to set a new password.",
   selfSignupRefusalMsg: "Please choose a password of at least 8 characters.",
