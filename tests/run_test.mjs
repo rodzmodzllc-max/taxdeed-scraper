@@ -1146,6 +1146,9 @@ results.homesteadBadgeAbsentForP1 = await page.locator('.prop-card').first().loc
 await page.evaluate(() => document.querySelector('[data-action="viewdetails"]').click());
 await page.waitForTimeout(400);
 results.infoTipCount = await page.evaluate(() => (document.getElementById('detailModal').hidden ? document.getElementById('detailPanel') : document.getElementById('detailModalInner')).querySelectorAll('.info-tip').length);
+// Close the property again so the steps below start from the list.
+await page.evaluate(() => { const b = document.querySelector('#detailModal [data-action="closedetail"]'); if (b && !document.getElementById('detailModal').hidden) b.click(); });
+await page.waitForTimeout(200);
 // --- bare-land branch (p3, LAFT ledger): land_value equal to market means
 // the derived Building/Improvement stat should read as bare land, not a
 // misleading "$0". Safe to open a second property's detail page here -
