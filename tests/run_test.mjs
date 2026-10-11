@@ -3803,7 +3803,7 @@ await navMap.close();
         availableTab: ((await pg.locator('#navCountLaft').textContent().catch(() => '')) || '').trim()
       };
       // Available finishes in the background: its count becomes final, Auctions stays empty.
-      await pg.waitForFunction(() => /^\d[\d,]*$/.test((document.getElementById('tabCountLaft') || {}).textContent || ''), null, { timeout: 15000 }).catch(() => {});
+      await pg.waitForFunction(() => /^\d[\d,]*$/.test((document.getElementById('navCountLaft') || {}).textContent || ''), null, { timeout: 15000 }).catch(() => {});
       results['laAvailableArrives' + label] = {
         availableTab: ((await pg.locator('#navCountLaft').textContent()) || '').trim(),
         stillEmpty: await pg.locator('#main [data-ledger-empty="1"]').count(),
@@ -3832,7 +3832,7 @@ await navMap.close();
       // painted while Available was still downloading (its tab not final yet)
       results.miAuctionsNotBlocked = { cards: await pg.locator('#main .prop-card').count(),
         availablePendingAtPaint: /…$/.test(((await pg.locator('#navCountLaft').textContent()) || '').trim()) };
-      await pg.waitForFunction(() => /^\d[\d,]*$/.test((document.getElementById('tabCountLaft') || {}).textContent || ''), null, { timeout: 30000 }).catch(() => {});
+      await pg.waitForFunction(() => /^\d[\d,]*$/.test((document.getElementById('navCountLaft') || {}).textContent || ''), null, { timeout: 30000 }).catch(() => {});
       results.miAvailableArrives = { availableTab: ((await pg.locator('#navCountLaft').textContent()) || '').trim(),
         auctionCards: await pg.locator('#main .prop-card').count(), hash: await pg.evaluate(() => location.hash) };
       await pg.close();
@@ -4024,7 +4024,7 @@ await navMap.close();
       await pg.fill('#globalSearchInput', 'FIXTURE AVE');
       await pg.waitForTimeout(300);
       const during = { partial: await pg.locator('#gsEmpty, #gsPartial').count(), text: ((await pg.locator('#gsEmpty, #gsPartial').first().textContent().catch(() => '')) || '').trim() };
-      await pg.waitForFunction(() => /^\d[\d,]*$/.test((document.getElementById('tabCountLaft') || {}).textContent || ''), null, { timeout: 15000 }).catch(() => {});
+      await pg.waitForFunction(() => /^\d[\d,]*$/.test((document.getElementById('navCountLaft') || {}).textContent || ''), null, { timeout: 15000 }).catch(() => {});
       await pg.waitForTimeout(400);
       results.searchWhileLoading = { during, afterRows: await pg.locator('#globalSearchResults [data-gs-pid]').count() > 0, afterNote: await pg.locator('#gsPartial, #gsEmpty').count() };
       await pg.close();

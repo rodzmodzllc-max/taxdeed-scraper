@@ -4671,51 +4671,33 @@ function card(p, showCounty) {
   const spec = specBits(p);
   const sale = lastSaleText(p);
   const isClosed = isGone(p);
+  // Lean card (remediation, 2026-10-11): the picture is the focus, then the
+  // facts a customer needs at a glance - what it is, where, the price, and the
+  // way in. Lien, homestead, value-ratio, acquisition and financing figures and
+  // the source / record badges move to the full property page, where each
+  // carries its own source and caveat.
   el.innerHTML = `
     ${isClosed ? `<div class="closed-banner${Number(p.sold_price) > 0 ? " sold" : ""}" title="${esc(GONE_STATUS_CAVEAT)}">${esc(outcomeText(p))}${p.gone_since ? ` <span class="closed-when">since ${esc(fmtDate(String(p.gone_since).slice(0, 10)))}</span>` : ""}</div>` : ""}
-    ${top ? `<div class="toppick-banner" title="Arithmetic on county figures plus a manual note - not a recommendation to bid">Filter match <span class="ratio-pill">${valueRatio(p).toFixed(1)}× county value ÷ bid · no lien flags noted</span></div>` : ""}
     ${propertyVisual(p, "prop-card-photo")}
-    ${tag}
-    ${sourceLineHtml(p)}
-    ${recordBadgesHtml(p)}
-    <div class="prop-top">
-      <div class="prop-address">${titleLine}</div>
-      <div class="prop-top-actions">
-        <button class="icon-btn heart-btn${fav ? " on" : ""}" data-action="fav" data-pid="${p.id}" type="button" title="Favorite">${fav ? "♥" : "♡"}</button>
-        ${bidListBtnHtml(p, true)}
-        <button class="icon-btn remove-btn" data-action="hide" data-pid="${p.id}" type="button" title="Hide">✕</button>
-        ${cd}
-        ${!isClosed ? `<span class="lien-pill ${esc(p.lien_level)}" title="${esc(LIEN_NOTES_CAVEAT)}">Lien notes: ${LIEN_LABEL[p.lien_level] || p.lien_level}</span>` : ""}
-        ${!isClosed && p.homestead ? `<span class="lien-pill homestead" title="${esc(HOMESTEAD_TIP)}">Homestead</span>` : ""}
-        ${!isClosed ? `<span class="pill ${esc(p.status)}">${esc(p.status)}</span>` : ""}
+    <div class="prop-body">
+      ${tag}
+      <div class="prop-top">
+        <div class="prop-address">${titleLine}</div>
+        <div class="prop-top-actions">
+          <button class="icon-btn heart-btn${fav ? " on" : ""}" data-action="fav" data-pid="${p.id}" type="button" title="Favorite" aria-label="Favorite">${fav ? "♥" : "♡"}</button>
+          ${bidListBtnHtml(p, true)}
+          <button class="icon-btn remove-btn" data-action="hide" data-pid="${p.id}" type="button" title="Hide" aria-label="Hide">✕</button>
+          ${cd}
+        </div>
       </div>
-    </div>
-    <div class="prop-ids">
-      ${hasAddress ? (hasParcel(p) ? `<span class="prop-parcel-line">Parcel # ${esc(p.parcel)}</span>` : `<span class="prop-parcel-line muted">Parcel # not published</span>`) : ""}
-      ${p.case_no ? `<span class="prop-case-line">Case ${esc(p.case_no)}</span>` : ""}
-    </div>
-    ${classificationBadgeHtml(p) ? `<div class="prop-classification-line">${classificationBadgeHtml(p)}</div>` : ""}
-    <div class="card-stat-grid ${marketVal ? "card-stat-grid-2" : "card-stat-grid-1"}">
-      <div class="card-stat card-stat-headline">${p.source === "laft" ? availableHeadlineHtml(p) : `<div class="card-stat-label">${auctionBidLabel(p, true)}</div><div class="card-stat-val bid${bidPublished ? "" : " unpublished"}">${bidDisplayCard(p)}</div>`}</div>
-      ${marketVal ? `<div class="card-stat card-stat-headline"><div class="card-stat-label">${esc(valueLabel(p))}</div><div class="card-stat-val market">${fmtShort(marketVal)}</div></div>` : ""}
-    </div>
-    ${p.source === "auction" && bidPublished && marketVal > 0 ? equitySpreadBarHtml(p) : ""}
-    ${cardAcqBadgeHtml(p)}
-    ${ledgerLineHtml(p)}
-    ${cardFactsHtml(p)}
-    ${spec.length ? `<div class="prop-spec">${spec.map(b => `<span>${esc(b)}</span>`).join("")}</div>` : ""}
-    ${sale || p.legal_desc ? `<details class="card-more">
-      <summary>More · ${[sale ? "last sale" : "", p.legal_desc ? "legal description" : ""].filter(Boolean).join(", ")}</summary>
-      ${sale ? `<div class="prop-lastsale">Last sold <b>${esc(sale)}</b></div>` : ""}
-      ${p.legal_desc ? `<div class="prop-legal" title="${esc(p.legal_desc)}">${esc(p.legal_desc)}</div>` : ""}
-    </details>` : ""}
-    <div class="prop-links">
-      ${fallbackStreetviewUrl(p) ? `<a href="${esc(fallbackStreetviewUrl(p))}" target="_blank" rel="noopener"${isEstimatedLink(streetviewLinkLabel(p), p) ? ' title="Search link built by this app from the coordinates or address - not a county record and not a Street View image"' : ""}>${linkIcon(streetviewLinkLabel(p))}${esc(streetviewLinkLabel(p))}</a>` : ''}
-      ${p.url_appraiser ? `<a href="${esc(p.url_appraiser)}" target="_blank" rel="noopener">${linkIcon("Appraiser")}Appraiser</a>` : ''}
-      ${fallbackZillowUrl(p) ? `<a href="${esc(fallbackZillowUrl(p))}" target="_blank" rel="noopener"${isEstimatedLink("Zillow", p) ? ' title="Estimated search link, built from the address - not confirmed by the county"' : ""}>${linkIcon("Zillow")}Zillow</a>` : ''}
-    </div>
-    ${auctionLinkHtml(p, "cta-btn")}
-    <button class="detail-btn" data-action="viewdetails" data-pid="${p.id}" type="button">View full property page →</button>`;
+      <div class="prop-ids">
+        ${hasAddress ? (hasParcel(p) ? `<span class="prop-parcel-line">Parcel # ${esc(p.parcel)}</span>` : `<span class="prop-parcel-line muted">Parcel # not published</span>`) : ""}
+        ${p.case_no ? `<span class="prop-case-line">Case ${esc(p.case_no)}</span>` : ""}
+      </div>
+      <div class="card-price">${p.source === "laft" ? availableHeadlineHtml(p) : `<div class="card-stat-label">${auctionBidLabel(p, true)}</div><div class="card-stat-val bid${bidPublished ? "" : " unpublished"}">${bidPublished ? bidDisplayCard(p) : "Not published"}</div>`}</div>
+      ${auctionLinkHtml(p, "cta-btn")}
+      <button class="detail-btn" data-action="viewdetails" data-pid="${p.id}" type="button">View property →</button>
+    </div>`;
   return el;
 }
 
@@ -9956,8 +9938,7 @@ function section(container, title, sub, rows, kind) {
         <span class="ledger-head-icon" aria-hidden="true">${cfg.icon || ""}</span>
         <h2>${title}</h2>
       </div>
-      <p class="mega-sub">${sub}</p>
-      ${cfg.how ? `<p class="ledger-how">${cfg.how}</p>` : ""}
+      <details class="ledger-about"><summary>About this list</summary><p class="mega-sub">${sub}</p>${cfg.how ? `<p class="ledger-how">${cfg.how}</p>` : ""}</details>
       ${facts ? `<p class="ledger-facts">${esc(facts)}</p>` : ""}
       ${kind === "auction" ? upcomingSalesHtml(shown) : ""}
       <p class="ledger-legend" aria-label="What the colour on each card's left edge means">
@@ -10051,6 +10032,9 @@ function section(container, title, sub, rows, kind) {
   // separating one sale date from the next.
   let lastDividerDate;
   const showDateDividers = kind === "auction";
+  // A short list (three counties or fewer) opens every county, so the cards are
+  // the first thing on the page; longer lists stay collapsed by county.
+  const openEveryCounty = orderedKeys.length <= 3;
   orderedKeys.forEach(key => {
     const { county, date, rows: countyRows } = groups.get(key);
     const total = totalsByGroup.get(key) ?? countyRows.length;
@@ -10072,7 +10056,7 @@ function section(container, title, sub, rows, kind) {
     det.className = "county-group";
     det.dataset.county = county;
     det.dataset.groupKey = key;
-    if (isOpen) det.open = true;
+    if (isOpen || openEveryCounty) det.open = true;
 
     const summary = document.createElement("summary");
     summary.className = "county-head";

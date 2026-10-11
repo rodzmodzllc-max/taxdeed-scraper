@@ -987,3 +987,26 @@ body:has(#authGate:not([hidden])){padding-bottom:0!important}
   /* The quote, caption and legend sit on a calm band: the cards fade out under it. */
   .auth-visual-foot{background:linear-gradient(to top,var(--charcoal) 60%,rgba(0,0,0,0));padding:6rem 3.2rem 0;margin:-6rem -3.2rem 0}
 }
+
+/* Card redesign (remediation, 2026-10-11): the picture leads. Cards are a 4:3
+   image over a short body - type and county, address, parcel, one price and the
+   way in. Imagery is the public-domain USDA NAIP aerial where stored, else the
+   county context placeholder; nothing decorative is added. */
+.prop-card .prop-card-photo{width:100%;height:auto;aspect-ratio:4/3;max-height:none;border-radius:0}
+.prop-card .prop-card-photo img,.prop-card .prop-card-photo svg{width:100%;height:100%;object-fit:cover}
+.prop-card .prop-body{padding:12px 14px 14px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.prop-card .prop-body .prop-top{align-items:flex-start;gap:6px}
+.prop-card .prop-body .prop-address{overflow-wrap:anywhere}
+.prop-card .card-price .card-stat-val{font-family:var(--font-display);font-size:1.45rem;line-height:1.15;color:var(--ink);font-weight:700}
+.prop-card .card-price .card-stat-label{font-size:.66rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft)}
+/* The ledger's long description sits behind a disclosure so the cards lead. */
+.ledger-about{margin:.4rem 0 .6rem}
+.ledger-about>summary{cursor:pointer;font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--copper-deep);padding:.2rem 0}
+.ledger-about>.mega-sub,.ledger-about>.ledger-how{margin-top:.5rem}
+/* Inside a county group the card stacks: the picture leads, full width of a
+   comfortable column, the facts follow. */
+.county-group .prop-list .prop-card,.county-group .prop-card{display:flex!important;flex-direction:column;grid-template-columns:none!important;max-width:420px}
+.county-group .prop-card .prop-card-photo{width:100%}
+.county-group .prop-card>.prop-card-photo{flex:0 0 auto;align-self:stretch;width:calc(100% + 1.6rem)!important;min-width:0;height:auto!important;max-height:none!important;aspect-ratio:4/3!important;box-sizing:border-box;margin:-.7rem -.8rem .6rem!important}
+.county-group .prop-card>.prop-body{width:100%;box-sizing:border-box}
+.county-group .prop-card>*{grid-column:auto!important;grid-row:auto!important}
