@@ -31,6 +31,19 @@ Vocabulary (also migration 021's check constraint, byte-for-byte):
   closed            left the list / feed (an observation, not an outcome)
   unknown           the source published no state that this vocabulary covers, or a sale date passed with no result published
 
+AVAILABLE rows outside Florida (adapter-backed sources - land banks, county
+repositories, forfeited-land lists, the Louisiana adjudicated list; 2026-10-11):
+  available_otc     ONLY when the source's own status wording for the row is one
+                    of that source's published "offered" wordings
+                    (AVAILABLE_OFFERED_WORDINGS, pinned to the adapter configs)
+  active            on the source's inventory list with no mapped availability
+                    wording - list presence is all the source publishes
+                    (a dated list says so in its basis)
+  sold              only the source's own sold flag (arcgis sold_flag)
+  closed            absent from the list at a COMPLETE / EMPTY read
+Nothing else: a program name ("Own It Now") is kept verbatim as raw, never
+read as a status, and absence is never a result.
+
 Bases:
   SOURCE_STATUS   the source's own status wording (raw kept verbatim)
   LIST_PRESENCE   whether the row was on the list/feed at the last COMPLETE/EMPTY read
@@ -124,16 +137,7 @@ def fl_laft_status(row: dict, *, sold_column_present: bool = False) -> StatusObs
 def fl_auction_status(row: dict, *, today: date) -> StatusObservation:
     """A Florida deed-auction row. The feed publishes a scheduled date and
     presence; no result."""
-    ps = _pipeline_status(row.get("status"))
-    if ps in GONE_PIPELINE_STATUSES:
-        return StatusObservation("closed", "LIST_PRESENCE", note="left the county's auction feed; the result is not published there")
-    sale = _date_of(row.get("sale_date"))
-    if sale is None:
-        return StatusObservation("active", "LIST_PRESENCE", note="on the county's auction feed; no sale date published")
-    if sale >= today:
-        return StatusObservation("upcoming", "SCHEDULED_DATE", note=f"scheduled for {sale.isoformat()} per the county's auction feed")
-    return StatusObservation("unknown", "SCHEDULED_DATE",
-                             note=f"sale date {sale.isoformat()} has passed; the feed publishes no result (sold / no sale / redeemed are not distinguishable)")
+    return feed_auction_status(row, today=today, feed="the county's auction feed")
 
 
 def tx_lgbs_status(row: dict) -> StatusObservation:
@@ -183,6 +187,69 @@ def fl_certificate_status(row: dict) -> StatusObservation:
                                  note="absent from the county-held certificate list at a COMPLETE read; redeemed, assigned or expired is not published there")
     return StatusObservation("certificate_listed", "LIST_PRESENCE",
                              note="on the county-held certificate list at the last read; purchasable by assignment from the Tax Collector")
+
+
+# The AVAILABLE sources' own "offered" wordings, as their adapter configs
+# select or publish them (harvesters/otc/adapters/expansion.py: the DLBA
+# layer's status filter, MO's status_include, MN's Status requirement, the
+# ePropertyPlus `offered` rule). A row whose inventory_status_raw is one of
+# these is `available_otc` on the source's own authority; tests pin this
+# table to those configs so the two cannot drift. A source absent here
+# publishes no per-row availability wording: list presence is all it says.
+AVAILABLE_OFFERED_WORDINGS: dict[str, tuple[str, ...]] = {
+    "mi_detroit_landbank_lots": ("Neighborhood Lot For Sale", "Side Lot For Sale", "Oversized Lot For Sale",
+                                 "Marketed Lot For Sale", "Marketed Structure For Sale"),
+    "mo_stl_lra_inventory": ("Available",),
+    "mn_ramsey_tax_forfeit": ("Available for purchase",),
+    "tn_shelby_landbank": ("FOR SALE",),
+}
+
+
+def source_id_of(row: dict) -> str:
+    """The row's source id: `source_id` (migration 022, propagated from the
+    registry) else the harvester's own `harvester_source`."""
+    return str(row.get("source_id") or row.get("harvester_source") or "")
+
+
+def available_record_status(row: dict, *, source_id: str) -> StatusObservation:
+    """An AVAILABLE row from an adapter-backed source outside Florida (see
+    the module docstring). `source_id` picks the offered-wording table; the
+    row's otc_provenance is NOT required (a later sync can drop its
+    `adapter` key - 6,334 Louisiana rows had on 2026-10-11)."""
+    prov = row.get("otc_provenance") if isinstance(row.get("otc_provenance"), dict) else {}
+    raw = str(row.get("inventory_status_raw") or "").strip() or None
+    gone = _pipeline_status(row.get("status")) in GONE_PIPELINE_STATUSES
+    if gone:
+        return StatusObservation("closed", "LIST_PRESENCE", raw=raw,
+                                 note="absent from the source's inventory list at a COMPLETE/EMPTY read; why is not published")
+    if prov.get("published_outcome") == "sold" and raw:
+        return StatusObservation("sold", "SOURCE_STATUS", raw=raw, note="the source's own sold flag on its inventory list")
+    offered = {w.casefold() for w in AVAILABLE_OFFERED_WORDINGS.get(source_id, ())}
+    if raw and raw.casefold() in offered:
+        return StatusObservation("available_otc", "SOURCE_STATUS", raw=raw,
+                                 note=f"the source's own availability status for this row ({source_id})")
+    dated = _date_of(row.get("list_as_of"))
+    where = f"the source's inventory list dated {dated.isoformat()}" if dated else "the source's current inventory list"
+    if raw:
+        return StatusObservation("active", "LIST_PRESENCE", raw=raw,
+                                 note=f"on {where} at the last read; the wording is kept verbatim and is not a mapped availability status")
+    return StatusObservation("active", "LIST_PRESENCE",
+                             note=f"on {where} at the last read; the source publishes no per-row availability status")
+
+
+def feed_auction_status(row: dict, *, today: date, feed: str) -> StatusObservation:
+    """A deed-auction row read from a sale-calendar feed that publishes a
+    scheduled date and presence, no result (Florida and Texas RealAuction)."""
+    ps = _pipeline_status(row.get("status"))
+    if ps in GONE_PIPELINE_STATUSES:
+        return StatusObservation("closed", "LIST_PRESENCE", note=f"left {feed}; the result is not published there")
+    sale = _date_of(row.get("sale_date"))
+    if sale is None:
+        return StatusObservation("active", "LIST_PRESENCE", note=f"on {feed}; no sale date published")
+    if sale >= today:
+        return StatusObservation("upcoming", "SCHEDULED_DATE", note=f"scheduled for {sale.isoformat()} per {feed}")
+    return StatusObservation("unknown", "SCHEDULED_DATE",
+                             note=f"sale date {sale.isoformat()} has passed; the feed publishes no result (sold / no sale / redeemed are not distinguishable)")
 
 
 ADAPTER_KINDS = frozenset({"arcgis", "tabular"})
@@ -241,19 +308,27 @@ def status_for_row(row: dict, *, today: date, sold_column_present: bool = False)
     kind has no mapping (certificates; unknown vendors) - nothing is written."""
     state = str(row.get("state") or "FL")
     source = str(row.get("source") or "")
-    hs = str(row.get("harvester_source") or "")
+    sid = source_id_of(row)
     if state == "FL" and source == "laft":
         return fl_laft_status(row, sold_column_present=sold_column_present)
     if state == "FL" and source == "auction":
         return fl_auction_status(row, today=today)
     if state == "FL" and source == "certificate":
         return fl_certificate_status(row)
-    if state == "TX" and hs == "tx_lgbs":
+    if sid == "tx_lgbs":
         return tx_lgbs_status(row)
+    if sid == "tx_realauction" and source == "auction":
+        return feed_auction_status(row, today=today, feed="the county's RealAuction sale calendar")
     if state == "AL" and source == "laft":
         prov = row.get("otc_provenance") if isinstance(row.get("otc_provenance"), dict) else {}
         return alabama_status(str(prov.get("normalized_status") or "UNKNOWN"),
                               row.get("source_status_text") or prov.get("source_status_text"))
+    if state != "FL" and source == "laft" and sid:
+        # Every adapter-backed AVAILABLE source (LA, MI, MN, MO, OK, PA, SC,
+        # TN ...). Before 2026-10-11 these fell through to
+        # adapter_record_status, which maps auction / certificate rows only,
+        # so ~54,000 rows never received a status.
+        return available_record_status(row, source_id=sid)
     if state not in ("FL", "TX", "AL", "LA"):
         return adapter_record_status(row, today=today)
     return None

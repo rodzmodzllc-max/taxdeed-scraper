@@ -53,8 +53,8 @@ import outcome_ingest as OI  # noqa: E402
 DEFAULT_SOLD_FILES = [REPO / "out" / n for n in ("harvest_laft_sold.json", "harvest_laft_sold_html.json", "harvest_laft_sold_pdfs.json")]
 REPORT_PATH = REPO / "out" / "public" / "inventory-status.json"
 USER_AGENT = "taxdeed-scraper/1.0 (+https://github.com/rodzmodzllc-max/taxdeed-scraper; inventory status writer)"
-SELECT = ("id,state,county,case_no,source,harvester_source,status,sale_date,tx_sale_status,list_url,url_auction,"
-          "inventory_status,inventory_status_raw,otc_provenance")
+SELECT = ("id,state,county,case_no,source,source_id,harvester_source,status,sale_date,tx_sale_status,list_url,url_auction,"
+          "list_as_of,inventory_status,inventory_status_raw,otc_provenance")
 BATCH = 40
 STATUS_COLUMNS = ("inventory_status", "inventory_status_raw", "inventory_status_basis", "inventory_status_observed_at")
 RESULT_COLUMNS = ("result_amount", "result_date", "result_party")   # migration 023, probed
@@ -132,7 +132,9 @@ def plan(rows: list[dict], *, today: date, sold: set[tuple[str, str]] | None = N
             transition = "status_changed"
         counts.setdefault("by_transition", {})[transition] = counts.get("by_transition", {}).get(transition, 0) + 1
         change = {"id": r["id"], "county": r.get("county"), "case_no": r.get("case_no"), "status": obs.status,
-                  "raw": obs.raw, "basis": obs.basis_text(), "source_id": r.get("harvester_source"),
+                  # source_id (migration 022) first: Florida rows carry it and no
+                  # harvester_source, so 4,857 observations had none (2026-10-11).
+                  "raw": obs.raw, "basis": obs.basis_text(), "source_id": IS.source_id_of(r) or None,
                   "evidence_url": r.get("list_url") or r.get("url_auction"), "transition": transition}
         if transition == "result_published":
             fields = results.get((str(r.get("county") or ""), str(r.get("case_no") or ""))) or {}
