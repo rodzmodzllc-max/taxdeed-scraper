@@ -506,6 +506,142 @@ function acquisitionEvidenceStatus(p) {
   const st = p.state || PAGE_STATE;
   return ACQUISITION_STATUS.find(u => u.state === st && u.source_id === sid && u.county === p.county) || null;
 }
+// ==================== Acquisition-path gate (2026-10-10) ====================
+// Customer actionability of an AVAILABLE record: only a property with a
+// defensible, VERIFIED acquisition path is an actionable opportunity to a
+// customer; an unverified candidate stays visible to administrators for
+// investigation and is never deleted. A typed path, a source id, a URL, a
+// source label or an observed date alone is never proof. Same function as
+// harvesters/sources/acquisition_gate.verify() - the shared vectors in
+// tests/python/fixtures/acquisition_gate_cases.json pin the two equal.
+// STAGED: config.js availableGate is "off" (the source publication decision
+// alone decides, as before) or "enforce" (a non-admin sees an Available row
+// only when the gate passes). var / function declarations: TDZ.
+var ACQ_GATE_OBSERVATION_DAYS = 14;
+var ACQ_GATE_LIST_DAYS = 365;
+var ACQ_GATE_EVIDENCE_DAYS = 180;
+var ACQ_GATE_MODE = String((window.TDW_CONFIG || {}).availableGate || "off") === "enforce" ? "enforce" : "off";
+var ACQ_GATE_REASONS = {
+  SOURCE_ID_MISSING: "The record names no source",
+  SOURCE_NOT_PUBLISHED: "The source is not approved for customer publication",
+  ROW_NOT_ACTIVE: "The record is not active",
+  OBSERVATION_MISSING: "No read date has been recorded for this record",
+  OBSERVATION_STALE: "The record was not read from its source in the last 14 days",
+  LIST_DATED_STALE: "The source's list is dated more than 365 days ago",
+  EVIDENCE_UNIT_UNKNOWN: "No acquisition-evidence status exists for this source and county",
+  EVIDENCE_NEEDS_REVIEW: "An official process was identified but has not been verified",
+  EVIDENCE_UNAVAILABLE: "The official acquisition pages could not be read",
+  EVIDENCE_NOT_FOUND: "No official acquisition process was found",
+  EVIDENCE_NO_RECORD: "The unit is marked verified but no county process record is on file",
+  EVIDENCE_UNTRUSTED_URL: "The evidence page is not an official https page",
+  EVIDENCE_NO_CHANNEL: "The verified process names no way to act (no form, page, or steps with a contact)",
+  EVIDENCE_STALE: "The county process was last verified more than 180 days ago",
+  PATH_NONE: "The source states there is no purchase path",
+  PATH_MISMATCH: "The record's typed path disagrees with the verified county process"
+};
+var ACQ_GATE_CLASS_OF_REASON = {
+  SOURCE_ID_MISSING: "metadata_gap", SOURCE_NOT_PUBLISHED: "source_not_published", ROW_NOT_ACTIVE: "stale",
+  OBSERVATION_MISSING: "metadata_gap", OBSERVATION_STALE: "stale", LIST_DATED_STALE: "stale",
+  EVIDENCE_UNIT_UNKNOWN: "metadata_gap", EVIDENCE_NEEDS_REVIEW: "pending_verification", EVIDENCE_UNAVAILABLE: "pending_verification",
+  EVIDENCE_NOT_FOUND: "no_route", EVIDENCE_NO_RECORD: "metadata_gap", EVIDENCE_UNTRUSTED_URL: "pending_verification",
+  EVIDENCE_NO_CHANNEL: "pending_verification", EVIDENCE_STALE: "pending_verification", PATH_NONE: "no_route", PATH_MISMATCH: "pending_verification"
+};
+var ACQ_GATE_CLASS_PRECEDENCE = ["source_not_published", "no_route", "pending_verification", "metadata_gap", "stale"];
+var ACQ_GATE_CLASS_LABELS = {
+  verified: "Verified acquisition path",
+  source_not_published: "Source not customer-published",
+  no_route: "No acquisition route found",
+  pending_verification: "Acquisition route pending verification",
+  metadata_gap: "Missing record metadata",
+  stale: "Not current"
+};
+var ACQ_GATE_UNTRUSTED_HOSTS = ["google.com", "bing.com", "duckduckgo.com", "yahoo.com", "search.brave.com", "pbfcm.com", "mvbalaw.com", "govease.com", "ctsa.com", "lgbs.com"];
+function acqGateDaysBetween(iso, today) {
+  if (!iso) return null;
+  const d = Date.parse(String(iso).slice(0, 10) + "T00:00:00Z");
+  if (isNaN(d)) return null;
+  const t = Date.parse(String(today).slice(0, 10) + "T00:00:00Z");
+  return Math.round((t - d) / 86400000);
+}
+function acqGateUntrustedUrl(url) {
+  if (typeof url !== "string" || !url.startsWith("https://")) return true;
+  let u; try { u = new URL(url); } catch { return true; }
+  const host = (u.hostname || "").toLowerCase();
+  if (!host) return true;
+  if ((u.pathname === "" || u.pathname === "/") && !u.search && !u.hash) return true;
+  return ACQ_GATE_UNTRUSTED_HOSTS.some(sfx => host === sfx || host.endsWith("." + sfx));
+}
+function acqGateHasChannel(acq) {
+  if (!acq || typeof acq !== "object") return false;
+  if (typeof acq.application_url === "string" && acq.application_url.startsWith("https://")) return true;
+  if (acq.mode === "online" && typeof acq.url === "string" && acq.url.startsWith("https://")) return true;
+  const contact = ["phone", "email", "address", "mailing_address"].some(k => typeof acq[k] === "string" && acq[k].trim());
+  return Array.isArray(acq.steps) && acq.steps.length > 0 && contact;
+}
+function acqGateClassify(reasons) {
+  if (!reasons.length) return "verified";
+  const classes = new Set(reasons.map(r => ACQ_GATE_CLASS_OF_REASON[r]));
+  return ACQ_GATE_CLASS_PRECEDENCE.find(c => classes.has(c)) || "pending_verification";
+}
+// The county-level record for the row's unit (its own county, else the
+// source-wide "*" record) - whatever the row's own typed path says.
+function acquisitionGateRecord(p) {
+  if (!p || !Array.isArray(ACQUISITION_EVIDENCE)) return null;
+  const sid = p.source_id || p.harvester_source;
+  const st = p.state || PAGE_STATE;
+  const same = ACQUISITION_EVIDENCE.filter(r => r && r.state === st && r.source_id === sid);
+  return same.find(r => r.county === p.county) || same.find(r => r.county === "*") || null;
+}
+function acquisitionVerificationWith(row, unit, record, today) {
+  const reasons = [];
+  const push = r => { if (!reasons.includes(r)) reasons.push(r); };
+  const sid = row.source_id || row.harvester_source;
+  if (!sid) push("SOURCE_ID_MISSING");
+  if (!["APPROVED", "APPROVED_GRANDFATHERED"].includes(row.publication_status)) push("SOURCE_NOT_PUBLISHED");
+  if (!["active", "available"].includes(row.status || "active")) push("ROW_NOT_ACTIVE");
+  const seen = acqGateDaysBetween(row.last_seen_at, today);
+  if (seen === null) push("OBSERVATION_MISSING"); else if (seen > ACQ_GATE_OBSERVATION_DAYS) push("OBSERVATION_STALE");
+  const listed = acqGateDaysBetween(row.list_as_of, today);
+  if (listed !== null && listed > ACQ_GATE_LIST_DAYS) push("LIST_DATED_STALE");
+  const status = (unit && unit.status) || "";
+  let pathType = "", observed = "";
+  if (row.purchase_path_type === "none_published") push("PATH_NONE");
+  if (!unit) push("EVIDENCE_UNIT_UNKNOWN");
+  else if (status === "NEEDS_REVIEW") push("EVIDENCE_NEEDS_REVIEW");
+  else if (status === "UNAVAILABLE") push("EVIDENCE_UNAVAILABLE");
+  else if (status === "NOT_FOUND") push("EVIDENCE_NOT_FOUND");
+  else if (status === "VERIFIED") {
+    if (!record) push("EVIDENCE_NO_RECORD");
+    else {
+      pathType = String(record.path_type || "");
+      const acq = record.acquisition && typeof record.acquisition === "object" ? record.acquisition : null;
+      observed = String(record.purchase_path_observed_on || (acq && acq.observed_on) || "");
+      if (acq && acq.mode === "none") push("PATH_NONE");
+      if (acqGateUntrustedUrl(record.purchase_evidence_url)) push("EVIDENCE_UNTRUSTED_URL");
+      if (!acqGateHasChannel(acq)) push("EVIDENCE_NO_CHANNEL");
+      const age = acqGateDaysBetween(observed, today);
+      if (age === null || age > ACQ_GATE_EVIDENCE_DAYS) push("EVIDENCE_STALE");
+      const rt = row.purchase_path_type;
+      if (rt && rt !== "none_published" && pathType && rt !== pathType) push("PATH_MISMATCH");
+    }
+  } else push("EVIDENCE_UNIT_UNKNOWN");
+  return { verified: !reasons.length, reasons, classification: acqGateClassify(reasons), evidenceStatus: status, pathType, evidenceObservedOn: observed };
+}
+// The gate for one loaded row (AVAILABLE only; null for any other ledger).
+function acquisitionVerification(p) {
+  if (!p || p.source !== "laft") return null;
+  return acquisitionVerificationWith(p, acquisitionEvidenceStatus(p), acquisitionGateRecord(p), new Date().toISOString().slice(0, 10));
+}
+// Does the gate let a NON-admin see this row? Off: always. Enforce: only a
+// verified Available row. Never applied to an administrator.
+function acqGateAllows(p) {
+  if (ACQ_GATE_MODE !== "enforce" || !p || p.source !== "laft") return true;
+  const v = acquisitionVerification(p);
+  return !!(v && v.verified);
+}
+// Counts of Available rows the gate withholds from this viewer, per class.
+let GATE_WITHHELD = { total: 0, by: {} };
+window.__tdwAcquisitionGate = { verifyWith: acquisitionVerificationWith, verify: acquisitionVerification, mode: () => ACQ_GATE_MODE };
 // AVAILABLE commercialization (2026-09-30): rows whose SOURCE is not approved
 // for customer publication (migration 022's publication_status, propagated
 // from county_source_registry by scripts/publication_gate.py) are withheld
@@ -614,8 +750,11 @@ function isPublishable(p) {
   if (p && p.publication_status === "BLOCKED") return false;
   if (IS_ADMIN) return true;
   if (!inCustomerInventory(p)) return false;
-  if (viewerScope() === "paid") return isPaidBetaPublishable(p);
-  return isCustomerPublishable(p) || viewerScope() === "preview";
+  // The acquisition-path gate (when enforced) applies to every non-admin,
+  // the tester preview included: an unverified Available row is not an
+  // actionable opportunity for anyone but an administrator.
+  if (viewerScope() === "paid") return isPaidBetaPublishable(p) && acqGateAllows(p);
+  return (isCustomerPublishable(p) || viewerScope() === "preview") && acqGateAllows(p);
 }
 function sourceReviewLabel(p) {
   const s = p && p.publication_status;
@@ -633,6 +772,12 @@ function sourceLineHtml(p) {
   if (!isCustomerPublishable(p)) bits.push(`<span class="source-review-chip" title="The source's customer-publication review status - not the property's availability">Source review: ${esc(sourceReviewLabel(p))} · not customer-published</span>`);
   const det = detroitSubsetStatus(p);
   if (det && det !== "in_subset") bits.push(`<span class="source-subset-chip" data-subset="${det}" title="${esc(DETROIT_SUBSET_REASONS[det])}">Not included in current Detroit customer subset</span>`);
+  // Administrators see the acquisition-path gate's finding on every
+  // unverified Available row - what customers are (or would be) withheld.
+  if (IS_ADMIN && p.source === "laft") {
+    const v = acquisitionVerification(p);
+    if (v && !v.verified) bits.push(`<span class="acq-gate-chip" data-acq-gate="${esc(v.classification)}" title="${esc(v.reasons.map(r => ACQ_GATE_REASONS[r] || r).join("; "))}">${ACQ_GATE_MODE === "enforce" ? "Withheld from customers" : "Not customer-actionable (gate off)"}: ${esc(ACQ_GATE_CLASS_LABELS[v.classification] || v.classification)}</span>`);
+  }
   return bits.length ? `<div class="prop-source-line">${bits.join("")}</div>` : "";
 }
 // Full property page: the source review status as its own fact, every row.
@@ -2270,6 +2415,17 @@ const HARVESTER_SOURCE_NAMES = {
   wi_dane_tax_deed_auction: "Dane County Treasurer - Tax Deed Auction",
   sc_oconee_tax_sale_list: "Oconee County - Delinquent Tax Sale List"
 };
+// The source a row is attributed to, for display (remediation). harvester_source
+// is the harvester's display name; when a row has only its source_id (the
+// publisher's registry key, e.g. fl_laft_pioneer) that identifier is shown
+// rather than "Source not recorded" on a row that does have a source.
+function sourceNameFor(p) {
+  const named = harvesterSourceLabel(p);
+  if (named) return named;
+  if (!p || !p.source_id) return null;
+  return String(p.source_id).split("_").map((w, i) =>
+    (i === 0 && w.length === 2) || w === "laft" ? w.toUpperCase() : w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
+}
 function harvesterSourceLabel(p) {
   if (!p || !p.harvester_source) return null;
   const raw = String(p.harvester_source);
@@ -3198,7 +3354,18 @@ async function showApp() {
     renderSkeleton();
   }
   const loaded = reuse ? true : await loadAll(routed);
-  state.counties = new Set(ALL_COUNTIES);
+  // A fresh load starts from every county - unless the hash already names
+  // one (#/map?county=): with one county model (2026-10-10) that county IS
+  // the selection, so it is seeded here, before the first render, rather
+  // than reset to "all" and re-applied by applyMapParams() a moment later.
+  // The bootstrap runs twice on a normal load (see `reuse` above) and the
+  // second pass's reset used to clear the routed county for one render,
+  // which popped explore.js's county-zoom layer (an async history.back())
+  // and re-pushed it before that back had landed - leaving the history
+  // stack off by one, and a later self-back on about:blank. A REUSED
+  // bootstrap (same account, rows already loaded) keeps the selection.
+  const routeCounty = route && route.page === "map" && route.params && route.params.county && ALL_COUNTIES.includes(route.params.county) ? route.params.county : null;
+  if (!reuse) state.counties = routeCounty ? new Set([routeCounty]) : new Set(ALL_COUNTIES);
   buildAllChips();
   updateBadge();
   // Phase 36 fix: a failed properties fetch used to fall straight through
@@ -3235,7 +3402,11 @@ async function showApp() {
   else if (route && route.page === "county") { if (route.county) openCountyPage(route.county, PAGE_STATE); else openCountyIndex(); }
   else if (route && route.page === "research") openResearchPage();
   else if (route && route.page === "rules") openRulesPage(route.county);
-  else { showPage("list"); if (route && route.page === "watchlist") openBidList(); }
+  // Landing (remediation): a bare URL, or any route not named here, opens
+  // Home. The Available list is reached from Home or the nav, never by default.
+  else if (route && route.page === "list") showPage("list");
+  else if (route && route.page === "watchlist") showPage("watchlist");
+  else showPage("dashboard");
   startIdleWatch();
   // Customer monitoring (saved searches, alerts, change events, analytics) -
   // after the first paint, never blocking it; each piece degrades on its own.
@@ -3641,6 +3812,7 @@ function applyLedgerRows() {
     if (d !== "not_structure") DETROIT_SUMMARY.structure++;
     if (d === "in_subset") DETROIT_SUMMARY.subset++;
   });
+  GATE_WITHHELD = { total: 0, by: {} };
   ALL = rows.filter(p => {
     // Outside the Detroit customer subset: not customer inventory at all, so
     // not "withheld" either (DETROIT_SUMMARY names it on the ledger instead).
@@ -3648,6 +3820,15 @@ function applyLedgerRows() {
     if (isPublishable(p)) {
       if (!isCustomerPublishable(p) && p.source in REVIEW_PENDING_SHOWN) REVIEW_PENDING_SHOWN[p.source]++;
       return true;
+    }
+    // Withheld by the acquisition-path gate (enforced, non-admin): counted
+    // on its own, by class, never folded into the source-review count.
+    if (p.source === "laft" && !acqGateAllows(p) && (isCustomerPublishable(p) || viewerScope() === "preview")) {
+      const v = acquisitionVerification(p);
+      const cls = v ? v.classification : "pending_verification";
+      GATE_WITHHELD.total++;
+      GATE_WITHHELD.by[cls] = (GATE_WITHHELD.by[cls] || 0) + 1;
+      return false;
     }
     if (p.source in WITHHELD) WITHHELD[p.source]++;
     return false;
@@ -3827,7 +4008,7 @@ function toggleCounty(name) {
     c.setAttribute("aria-pressed", on ? "true" : "false");
   });
   if (mapLoaded) document.querySelectorAll('#mapHost path[data-county]').forEach(p => { if (p.dataset.county === name) p.classList.toggle("sel", on); });
-  syncCountyQuickSelect();
+  syncCountyPickers();
   updateBadge();
   render();
 }
@@ -3879,16 +4060,52 @@ function countyNamesByCount() {
   // disappearing.
   return ALL_COUNTIES.slice().sort((a, b) => (counts.get(b) || 0) - (counts.get(a) || 0) || a.localeCompare(b));
 }
-// The quick "Select County" dropdown is a single-pick shortcut over the same
-// state.counties set the multi-select chips drive - picking one county here
-// narrows to just that county; picking "All Counties" restores the full set.
-// It can't represent an arbitrary multi-county selection made via the chips,
-// so it just falls back to showing "All Counties" whenever the selection
-// isn't exactly zero-or-one county.
-function syncCountyQuickSelect() {
+// One county selection model (remediation, 2026-10-10). state.counties IS the
+// selection. The List's quick select (#countyQuick), the Filters chips
+// (#countyChips) and the Map page's select (#mapCountySelect) are three views
+// of it, built by one option builder and bound to one handler
+// (applyCountySelection). mapFilter.county is DERIVED from it - the one
+// county chosen, when the selection is narrower than the state's universe -
+// never a second, independent selection. A single-pick select cannot show an
+// arbitrary multi-county chip selection, so it reads "All" then.
+function countyPickerOptionsHtml(names, counts, allLabel) {
+  return `<option value="ALL">${esc(allLabel)}</option>` +
+    names.map(v => `<option value="${esc(v)}">${esc(v)} (${counts.get(v) || 0})</option>`).join("");
+}
+function selectedCountyOrAll() {
+  return state.counties.size === 1 && state.counties.size < ALL_COUNTIES.length ? Array.from(state.counties)[0] : "ALL";
+}
+function syncCountyPickers() {
+  const one = selectedCountyOrAll();
   const el = document.getElementById("countyQuick");
-  if (!el) return;
-  el.value = state.counties.size === 1 ? Array.from(state.counties)[0] : "ALL";
+  if (el) el.value = one;
+  mapFilter.county = one;
+  const mel = document.getElementById("mapCountySelect");
+  if (mel && Array.from(mel.options).some(o => o.value === one)) mel.value = one;
+}
+// The one change handler behind both single-pick selects (and the map's
+// bubble tap, which drives #mapCountySelect): narrow to that county, or
+// restore every county. Picking a county is a strong signal the reader wants
+// to see straight into it, so its List groups open (auctions can have several
+// date-groups for one county - every one of them).
+function applyCountySelection(v) {
+  state.counties = v === "ALL" ? new Set(ALL_COUNTIES) : new Set([v]);
+  if (v !== "ALL") {
+    const keys = new Set([v]);
+    ALL.forEach(p => { if (p.county === v) keys.add(groupKeyOf(p.source, v, p.sale_date)); });
+    keys.forEach(k => state.expandedCounties.add(k));
+  }
+  buildAllChips();
+  // A state whose universe is one county (its selection can never be
+  // "narrower"): an explicit pick still means that county on the Map.
+  if (v !== "ALL") {
+    mapFilter.county = v;
+    const mel = document.getElementById("mapCountySelect");
+    if (mel && Array.from(mel.options).some(o => o.value === v)) mel.value = v;
+  }
+  if (mapLoaded) { refreshMapPaths(); if (zoomedCounty) zoomToState(); }
+  updateBadge();
+  render();
 }
 function buildAllChips() {
   const counts = countyCounts();
@@ -3897,11 +4114,8 @@ function buildAllChips() {
   buildChips("typeChips", TYPE_ORDER, state.types);
   buildChips("lienChips", LIEN_ORDER, state.liens, v => LIEN_LABEL[v], v => "lien-" + v);
   const countyQuickEl = document.getElementById("countyQuick");
-  if (countyQuickEl) {
-    countyQuickEl.innerHTML = `<option value="ALL">All Counties</option>` +
-      names.map(v => `<option value="${esc(v)}">${esc(v)} (${counts.get(v) || 0})</option>`).join("");
-    syncCountyQuickSelect();
-  }
+  if (countyQuickEl) countyQuickEl.innerHTML = countyPickerOptionsHtml(names, counts, "All Counties");
+  syncCountyPickers();
   // "N of M selected" badges on the Advanced Filters dropdown summaries.
   const typeCountEl = document.getElementById("typeCount");
   if (typeCountEl) typeCountEl.textContent = `${state.types.size}/${TYPE_ORDER.length}`;
@@ -4477,51 +4691,38 @@ function card(p, showCounty) {
   const spec = specBits(p);
   const sale = lastSaleText(p);
   const isClosed = isGone(p);
+  // An auction the county's current list no longer carries: one muted line says
+  // so, and that no result is published - the kicker alone does not say that.
+  const offList = !isClosed && p.source === "auction" ? offCurrentSaleList(p) : null;
+  const offListNote = offList ? `<div class="prop-ledger-line" data-off-list="1"><span class="muted">Not on the county list read ${esc(offList.countyRead ? fmtDate(String(offList.countyRead).slice(0, 10)) : "")} · no result published</span></div>` : "";
+  // Lean card (remediation, 2026-10-11): the picture is the focus, then the
+  // facts a customer needs at a glance - what it is, where, the price, and the
+  // way in. Lien, homestead, value-ratio, acquisition and financing figures and
+  // the source / record badges move to the full property page, where each
+  // carries its own source and caveat.
   el.innerHTML = `
     ${isClosed ? `<div class="closed-banner${Number(p.sold_price) > 0 ? " sold" : ""}" title="${esc(GONE_STATUS_CAVEAT)}">${esc(outcomeText(p))}${p.gone_since ? ` <span class="closed-when">since ${esc(fmtDate(String(p.gone_since).slice(0, 10)))}</span>` : ""}</div>` : ""}
-    ${top ? `<div class="toppick-banner" title="Arithmetic on county figures plus a manual note - not a recommendation to bid">Filter match <span class="ratio-pill">${valueRatio(p).toFixed(1)}× county value ÷ bid · no lien flags noted</span></div>` : ""}
     ${propertyVisual(p, "prop-card-photo")}
-    ${tag}
-    ${sourceLineHtml(p)}
-    ${recordBadgesHtml(p)}
-    <div class="prop-top">
-      <div class="prop-address">${titleLine}</div>
-      <div class="prop-top-actions">
-        <button class="icon-btn heart-btn${fav ? " on" : ""}" data-action="fav" data-pid="${p.id}" type="button" title="Favorite">${fav ? "♥" : "♡"}</button>
-        ${bidListBtnHtml(p, true)}
-        <button class="icon-btn remove-btn" data-action="hide" data-pid="${p.id}" type="button" title="Hide">✕</button>
-        ${cd}
-        ${!isClosed ? `<span class="lien-pill ${esc(p.lien_level)}" title="${esc(LIEN_NOTES_CAVEAT)}">Lien notes: ${LIEN_LABEL[p.lien_level] || p.lien_level}</span>` : ""}
-        ${!isClosed && p.homestead ? `<span class="lien-pill homestead" title="${esc(HOMESTEAD_TIP)}">Homestead</span>` : ""}
-        ${!isClosed ? `<span class="pill ${esc(p.status)}">${esc(p.status)}</span>` : ""}
+    <div class="prop-body">
+      ${tag}
+      <div class="prop-top">
+        <div class="prop-address">${titleLine}</div>
+        <div class="prop-top-actions">
+          <button class="icon-btn heart-btn${fav ? " on" : ""}" data-action="fav" data-pid="${p.id}" type="button" title="Favorite" aria-label="Favorite">${fav ? "♥" : "♡"}</button>
+          ${bidListBtnHtml(p, true)}
+          <button class="icon-btn remove-btn" data-action="hide" data-pid="${p.id}" type="button" title="Hide" aria-label="Hide">✕</button>
+          ${cd}
+        </div>
       </div>
-    </div>
-    <div class="prop-ids">
-      ${hasAddress ? (hasParcel(p) ? `<span class="prop-parcel-line">Parcel # ${esc(parcelOf(p))}</span>` : `<span class="prop-parcel-line muted">Parcel # not published</span>`) : ""}
-      ${p.case_no ? `<span class="prop-case-line">Case ${esc(p.case_no)}</span>` : ""}
-    </div>
-    ${classificationBadgeHtml(p) ? `<div class="prop-classification-line">${classificationBadgeHtml(p)}</div>` : ""}
-    <div class="card-stat-grid ${marketVal ? "card-stat-grid-2" : "card-stat-grid-1"}">
-      <div class="card-stat card-stat-headline">${p.source === "laft" ? availableHeadlineHtml(p) : `<div class="card-stat-label">${auctionBidLabel(p, true)}</div><div class="card-stat-val bid${bidPublished ? "" : " unpublished"}">${bidDisplayCard(p)}</div>`}</div>
-      ${marketVal ? `<div class="card-stat card-stat-headline"><div class="card-stat-label">${esc(valueLabel(p))}</div><div class="card-stat-val market">${fmtShort(marketVal)}</div></div>` : ""}
-    </div>
-    ${p.source === "auction" && bidPublished && marketVal > 0 ? equitySpreadBarHtml(p) : ""}
-    ${cardAcqBadgeHtml(p)}
-    ${ledgerLineHtml(p)}
-    ${cardFactsHtml(p)}
-    ${spec.length ? `<div class="prop-spec">${spec.map(b => `<span>${esc(b)}</span>`).join("")}</div>` : ""}
-    ${sale || p.legal_desc ? `<details class="card-more">
-      <summary>More · ${[sale ? "last sale" : "", p.legal_desc ? "legal description" : ""].filter(Boolean).join(", ")}</summary>
-      ${sale ? `<div class="prop-lastsale">Last sold <b>${esc(sale)}</b></div>` : ""}
-      ${p.legal_desc ? `<div class="prop-legal" title="${esc(p.legal_desc)}">${esc(p.legal_desc)}</div>` : ""}
-    </details>` : ""}
-    <div class="prop-links">
-      ${fallbackStreetviewUrl(p) ? `<a href="${esc(fallbackStreetviewUrl(p))}" target="_blank" rel="noopener"${isEstimatedLink(streetviewLinkLabel(p), p) ? ' title="Search link built by this app from the coordinates or address - not a county record and not a Street View image"' : ""}>${linkIcon(streetviewLinkLabel(p))}${esc(streetviewLinkLabel(p))}</a>` : ''}
-      ${p.url_appraiser ? `<a href="${esc(p.url_appraiser)}" target="_blank" rel="noopener">${linkIcon("Appraiser")}Appraiser</a>` : ''}
-      ${fallbackZillowUrl(p) ? `<a href="${esc(fallbackZillowUrl(p))}" target="_blank" rel="noopener"${isEstimatedLink("Zillow", p) ? ' title="Estimated search link, built from the address - not confirmed by the county"' : ""}>${linkIcon("Zillow")}Zillow</a>` : ''}
-    </div>
-    ${auctionLinkHtml(p, "cta-btn")}
-    <button class="detail-btn" data-action="viewdetails" data-pid="${p.id}" type="button">View full property page →</button>`;
+      <div class="prop-ids">
+        ${hasAddress ? (hasParcel(p) ? `<span class="prop-parcel-line">Parcel # ${esc(parcelOf(p))}</span>` : `<span class="prop-parcel-line muted">Parcel # not published</span>`) : ""}
+        ${p.case_no ? `<span class="prop-case-line">Case ${esc(p.case_no)}</span>` : ""}
+      </div>
+      <div class="card-price">${p.source === "laft" ? availableHeadlineHtml(p) : `<div class="card-stat-label">${auctionBidLabel(p, true)}</div><div class="card-stat-val bid${bidPublished ? "" : " unpublished"}">${bidPublished ? bidDisplayCard(p) : "Not published"}</div>`}</div>
+      ${offListNote}
+      ${auctionLinkHtml(p, "cta-btn")}
+      <button class="detail-btn" data-action="viewdetails" data-pid="${p.id}" type="button">View property →</button>
+    </div>`;
   return el;
 }
 
@@ -5078,6 +5279,12 @@ function acquisitionProvenance(p) {
   const { state: _s, source_id: _i, county: _c, path_type: _t, ...keys } = rec;
   return { ...keys, ...op, acquisition: rec.acquisition };
 }
+// The one "verified acquisition path" test (remediation). A typed path is
+// verified only when it is attributed to a source: the Available dashboard
+// counted any row with a path type, while its rows showed "Source not recorded".
+function hasVerifiedPath(p) {
+  return !!p && !!p.source_id && acquisitionOf(p).verified;
+}
 function acquisitionOf(p) {
   const tp = typedPurchasePath(p);
   const op = acquisitionProvenance(p);
@@ -5092,7 +5299,9 @@ function acquisitionOf(p) {
   const mode = (acq && ACQUISITION_MODE_LABELS[acq.mode]) ? acq.mode : typeMode;
   const str = k => acq && acq[k] ? String(acq[k]) : "";
   return {
-    verified: tp.type !== "none_published",
+    // Verified only with a source attached - the same rule hasVerifiedPath()
+    // counts by, so a card and the dashboard can never disagree.
+    verified: tp.type !== "none_published" && !!p.source_id,
     mode, label: ACQUISITION_MODE_LABELS[mode], short: ACQUISITION_MODE_SHORT[mode],
     channels: acq && Array.isArray(acq.channels) ? acq.channels.map(String) : [],
     steps: acq && Array.isArray(acq.steps) ? acq.steps.map(String) : [],
@@ -5204,8 +5413,7 @@ function unitFreshnessText(u) {
   if (since === null || isNaN(since)) bits.push("no complete read recorded");
   else if (since > 36) bits.push(`no complete read in the last 36 hours (last complete read ${relativeTime(u.last_success_at)})`);
   else bits.push(`current - last complete read ${relativeTime(u.last_success_at)}`);
-  if (Number(u.consecutive_failures) >= 3) bits.push("back-off: attempted at most once per 48 hours until a read succeeds");
-  else if (Number(u.consecutive_failures) > 0) bits.push(`${u.consecutive_failures} consecutive failed attempt${Number(u.consecutive_failures) === 1 ? "" : "s"}`);
+  if (Number(u.consecutive_failures) > 0) bits.push("update unsuccessful; retry pending");
   if (u.last_success_row_count !== null && u.last_success_row_count !== undefined) bits.push(`${u.last_success_row_count} rows at the last complete read`);
   const bad = unavailable || since === null || isNaN(since) || since > 36;
   return { text: bits.join(" · "), cls: bad ? "warn" : "ok" };
@@ -7034,7 +7242,7 @@ function availableDecisionHtml(p) {
   // 8. Where did the data come from?
   const src = [];
   const link = (href, label) => `<a href="${esc(href)}" target="_blank" rel="noopener">${esc(label)} →</a>`;
-  src.push(esc(harvesterSourceLabel(p) || p.source_id || "Source not recorded"));
+  src.push(esc(sourceNameFor(p) || "Source not recorded"));
   if (p.list_url) src.push(link(p.list_url, "Source list"));
   if (p.document_url && p.document_url !== p.list_url) src.push(link(p.document_url, "Source document"));
   // Source documents a customer can open: the listing, the list document,
@@ -7096,7 +7304,7 @@ function auctionDecisionHtml(p) {
   const link = auctionLinkInfo(p);
   rows.push(q("process", "How do I register and bid?", auctionProcessHtml(p), acquisitionOf(p).verified ? "ok" : "muted"));
   if (sourceUnderReview(p)) rows.push(q("review", "Is the source approved?", `<span class="prov-review">Source under review</span>${sub(esc(REVIEW_REQUIRED_TEXT))}`, "muted"));
-  rows.push(q("source", "What is the source?", `${esc(harvesterSourceLabel(p) || "Source not recorded")}${link && link.href ? ` · <a href="${esc(link.href)}" target="_blank" rel="noopener">${esc(link.label || "Source page")} →</a>` : ""}${sub(esc(`${lastSyncedText(p)}${p.last_seen_at ? ` · last read ${dateOnly(p.last_seen_at)}` : ""}`))}`));
+  rows.push(q("source", "What is the source?", `${esc(sourceNameFor(p) || "Source not recorded")}${link && link.href ? ` · <a href="${esc(link.href)}" target="_blank" rel="noopener">${esc(link.label || "Source page")} →</a>` : ""}${sub(esc(`${lastSyncedText(p)}${p.last_seen_at ? ` · last read ${dateOnly(p.last_seen_at)}` : ""}`))}`));
   let result, resultCls = "";
   const ost = auctionOutcomeState(p);
   const RESULTS = { sold: 1, redeemed: 1, withdrawn: 1, cancelled: 1, struck_off: 1 };
@@ -7158,7 +7366,7 @@ function certificateDecisionHtml(p) {
     rows.push(q("acquire", "How do I buy it?", acquisitionHtml(p) + acquisitionContactHtml(a), a.verified ? "ok" : "muted"));
   }
   if (sourceUnderReview(p)) rows.push(q("review", "Is the source approved?", `<span class="prov-review">Source under review</span>${sub(esc(REVIEW_REQUIRED_TEXT))}`, "muted"));
-  rows.push(q("source", "Source and freshness?", `${esc(harvesterSourceLabel(p) || "Source not recorded")}${p.url_auction ? ` · <a href="${esc(p.url_auction)}" target="_blank" rel="noopener">County-held list →</a>` : ""}${sub(esc(`${lastSyncedText(p)}${p.inventory_status_observed_at ? ` · status observed ${dateOnly(p.inventory_status_observed_at)}` : ""}`))}`));
+  rows.push(q("source", "Source and freshness?", `${esc(sourceNameFor(p) || "Source not recorded")}${p.url_auction ? ` · <a href="${esc(p.url_auction)}" target="_blank" rel="noopener">County-held list →</a>` : ""}${sub(esc(`${lastSyncedText(p)}${p.inventory_status_observed_at ? ` · status observed ${dateOnly(p.inventory_status_observed_at)}` : ""}`))}`));
   const xl = crossLedgerSummary(p);
   rows.push(q("related", "Same parcel in Auctions or Available?", xl.cls ? muted(xl.text) : esc(xl.text), xl.cls));
   const gaps = [];
@@ -8399,6 +8607,16 @@ function sourceTruthHtml(p) {
       : muted(a.mode === "none" ? "None - the source states there is none" : "Not yet verified")]);
   }
   if (p.source === "laft") {
+    // Customer actionability (the acquisition-path gate, 2026-10-10): the
+    // verdict and every reason, and whether the gate is enforced here.
+    const v = acquisitionVerification(p);
+    const modeNote = ACQ_GATE_MODE === "enforce" ? "Gate enforced: customers see verified records only." : "Gate not enforced on this deployment: shown for information.";
+    rows.push(["Customer actionability", v && v.verified
+      ? `<span class="acq-gate-verdict" data-acq-gate="verified">${esc(ACQ_GATE_CLASS_LABELS.verified)}</span><span class="kv-sub">${esc(modeNote)}</span>`
+      : `<span class="acq-gate-verdict" data-acq-gate="${esc(v ? v.classification : "pending_verification")}">${esc(ACQ_GATE_CLASS_LABELS[v ? v.classification : "pending_verification"])}</span>` +
+        `<span class="kv-sub">${esc((v ? v.reasons : []).map(r => ACQ_GATE_REASONS[r] || r).join(" · "))}</span><span class="kv-sub">${esc(modeNote)}</span>`]);
+  }
+  if (p.source === "laft") {
     const ai = amountInfo(p);
     const v = ai.value !== null && ai.value !== undefined ? fmtMoney(ai.value) : (ai.display || "Not published");
     rows.push(["Price", `${ai.value !== null && ai.value !== undefined ? `<span class="truth-money">${esc(v)}</span>` : (ai.state === "not_published" ? muted(v) : esc(v))}${ai.label && ai.label !== "Price" ? `<span class="kv-sub">${esc(ai.label)}</span>` : ""}`]);
@@ -8605,6 +8823,7 @@ function detailHtml(p) {
     </div>
     <!--NAV-->
     ${detailStatusHtml(p)}
+    ${sourceLineHtml(p)}
     ${whySeeingHtml(p)}
     ${regionOf(p) === "TX" && classificationBadgeHtml(p) ? `<div class="prop-classification-line" style="margin:.2rem 0 .5rem">${classificationBadgeHtml(p)}</div>` : ""}
     ${isCert ? `
@@ -8675,15 +8894,14 @@ function detailHtml(p) {
   return html.replace("<!--NAV-->", detailNavHtml(html));
 }
 
-// Both the detail modal and the watchlist modal are fixed-position overlays
-// that can be open at the same time (viewing a property's full page from
-// inside the watchlist) - background scroll should stay locked as long as
-// EITHER one is open, not just whichever closed most recently.
+// The detail modal and the hidden-properties modal are fixed-position
+// overlays that can be open at the same time - background scroll should stay
+// locked as long as EITHER one is open, not just whichever closed most
+// recently. (The watchlist is a page now, not an overlay.)
 function syncBodyScrollLock() {
   const detailOpen = !document.getElementById("detailModal")?.hidden;
-  const bidListOpen = !document.getElementById("bidListModal")?.hidden;
   const hiddenModalOpen = !document.getElementById("hiddenModal")?.hidden;
-  document.body.style.overflow = (detailOpen || bidListOpen || hiddenModalOpen) ? "hidden" : "";
+  document.body.style.overflow = (detailOpen || hiddenModalOpen) ? "hidden" : "";
 }
 
 // Phase 32D accessibility audit: none of this app's overlay modals moved
@@ -8717,10 +8935,20 @@ function restoreModalFocus() {
   if (el && document.contains(el) && typeof el.focus === "function") el.focus();
 }
 
+// One detail surface per width (remediation). On the List at desktop widths
+// the side panel is the surface; on phones and on the Home / Map / Research
+// pages (which have no side panel) the full-page modal is. A property is never
+// shown in both at once.
+function detailPanelOnList() {
+  let page;
+  try { page = shellPage; } catch { page = "list"; }
+  return page === "list" && !!(window.matchMedia && window.matchMedia("(min-width:1280px)").matches);
+}
 function openDetail(p) {
   const modal = document.getElementById("detailModal");
   const inner = document.getElementById("detailModalInner");
   if (!modal || !inner) return;
+  if (modal.hidden && detailPanelOnList()) { selectProperty(p); return; }
   // Only move focus in on a genuine open (modal was hidden) - openDetail()
   // is also called to rebuild the modal's content in place while it's
   // already open (e.g. after toggling favorite), and stealing focus back to
@@ -8872,8 +9100,13 @@ function researchQueueHtml(rows) {
     <p class="muted rq-note">Each item is something the source has not published or this app has not verified yet - check it with the county office before acting.</p></details>`;
 }
 window.__tdwResearchItems = p => researchItemsFor(p);
+// renderBidListModal keeps its historical name (the watchlist used to be a
+// modal over the List); since the remediation of 2026-10-10 it renders the
+// standalone #pageWatchlist section. renderWatchlistPage is the page-era name
+// showPage() calls.
+function renderWatchlistPage() { renderBidListModal(); }
 function renderBidListModal() {
-  const inner = document.getElementById("bidListModalInner");
+  const inner = ensureWatchlistSection();
   if (!inner) return;
   const rows = bidListRows();
   const pendingRows = BID_LIST_PENDING.map(id => ALL.find(p => p.id === id)).filter(Boolean);
@@ -8908,10 +9141,13 @@ function renderBidListModal() {
       <div class="bidlist-pending-head">⏳ Waiting for a slot (${pendingRows.length}) - added automatically, oldest first, as you remove items above</div>
       ${pendingRows.map(p => `<div class="bidlist-pending-row"><span>${shortPropLabel(p)}</span><button class="reset-btn" data-action="bidlist" data-pid="${p.id}" type="button">Cancel</button></div>`).join("")}
     </div>` : "";
+  const backName = WATCHLIST_FROM === "dashboard" ? "Home" : WATCHLIST_FROM === "map" ? "Map" : WATCHLIST_FROM === "research" ? "My Research" : WATCHLIST_FROM === "county" ? "County Intelligence" : "the list";
   inner.innerHTML = `
-    <button class="detail-close" data-action="closebidlist" type="button" aria-label="Close">✕</button>
-    <h2 class="detail-address" style="margin-top:.1rem">⚑ My Watchlist <span style="color:var(--ink-soft);font-weight:600">(${countLabel})</span></h2>
-    <p class="mega-sub" style="margin:0 0 .8rem">The short list you're actively tracking — separate from ♡ Favorites, capped at ${BID_LIST_MAX} to keep it focused.</p>
+    <div class="watchlist-head">
+      <button class="link-btn watchlist-back" data-action="closebidlist" type="button">&larr; Back to ${esc(backName)}</button>
+      <h1 class="detail-address watchlist-title" id="watchlistTitle">⚑ My Watchlist <span class="watchlist-count">(${countLabel})</span></h1>
+      <p class="mega-sub watchlist-sub">The short list you're actively tracking in ${esc(STATE_INFO.name)} — separate from ♡ Favorites, capped at ${BID_LIST_MAX} to keep it focused.</p>
+    </div>
     <div class="bidlist-changes" id="bidListChanges">${watchChangesHtml(WATCH_CHANGES)}${watchedServerChangesHtml()}</div>
     ${researchQueueHtml(rows)}
     ${listHtml}
@@ -8947,37 +9183,44 @@ function renderBidListModal() {
     listEl.appendChild(note);
   });
 }
+// The Watchlist is a page (remediation, 2026-10-10): #/watchlist is a page
+// hash like #/dashboard or #/map (replaceState, never a history layer), the
+// rail / phone-bar entries light it through syncLedgerNav() like every other
+// page, and the property page opens over it as a modal. openBidList() is the
+// one entry point every older caller still uses.
+var WATCHLIST_FROM = "list";   // the page the watchlist was opened from ("Back" returns there)
 function openBidList() {
-  const modal = document.getElementById("bidListModal");
-  if (!modal) return;
-  const wasHidden = modal.hidden;
-  renderBidListModal();
-  modal.hidden = false;
-  pushBackLayer("bidlist", closeBidList);
-  // Unified navigation (2026-09-30): the watchlist is a destination with its
-  // own hash, applied to the entry pushBackLayer just created (same
-  // replaceState idiom as openDetail()), and its nav entry is lit while open.
-  try { history.replaceState(history.state, "", "#/watchlist"); } catch { /* file:// etc */ }
-  if (typeof syncLedgerNav === "function") syncLedgerNav();
-  if (wasHidden) focusIntoModal(modal);
-  syncBodyScrollLock();
+  showPage("watchlist");
 }
+// "Back" on the Watchlist page: return to the page it was opened from.
 function closeBidList() {
-  const modal = document.getElementById("bidListModal");
-  if (!modal) return;
-  modal.hidden = true;
-  popBackLayer("bidlist");
-  if (typeof syncLedgerNav === "function") syncLedgerNav();
-  syncBodyScrollLock();
-  restoreModalFocus();
+  let here; try { here = shellPage; } catch { here = null; }
+  if (here !== "watchlist") return;
+  const back = WATCHLIST_FROM && SHELL_PAGES[WATCHLIST_FROM] && WATCHLIST_FROM !== "watchlist" ? WATCHLIST_FROM : "list";
+  showPage(back);
 }
 // After adding/removing a watchlist item (from anywhere - a ledger card, the
-// detail modal, or the watchlist modal itself), rebuild the modal in place if
-// it's currently open so it never shows a stale list.
+// detail modal, or the Watchlist page itself), rebuild the page in place if
+// it's the one on screen so it never shows a stale list.
 function refreshBidListModal() {
-  const modal = document.getElementById("bidListModal");
-  if (!modal || modal.hidden) return;
-  renderBidListModal();
+  let here; try { here = shellPage; } catch { return; }
+  if (here !== "watchlist") return;
+  renderWatchlistPage();
+}
+// The page's section, created on first use (same pattern as the County
+// Intelligence and My Research pages, so no page markup changes).
+function ensureWatchlistSection() {
+  let sec = document.getElementById("pageWatchlist");
+  if (sec) return sec;
+  const map = document.getElementById("pageMap");
+  sec = document.createElement("section");
+  sec.className = "page watchlist-page";
+  sec.id = "pageWatchlist";
+  sec.hidden = true;
+  sec.setAttribute("aria-label", "My Watchlist");
+  if (map && map.parentNode) map.parentNode.insertBefore(sec, map.nextSibling);
+  else (document.getElementById("app") || document.body).appendChild(sec);
+  return sec;
 }
 // Called right after a watchlist removal frees up a slot - adds queued
 // properties (oldest attempt first) until either the queue is empty or the
@@ -9005,8 +9248,6 @@ async function promoteNextPending() {
     }
   }
 }
-const bidListModalEl = document.getElementById("bidListModal");
-if (bidListModalEl) bidListModalEl.addEventListener("click", e => { if (e.target === bidListModalEl) closeBidList(); });
 const bidListToggleBtn = document.getElementById("bidListToggle");
 if (bidListToggleBtn) bidListToggleBtn.addEventListener("click", () => openBidList());
 
@@ -9131,7 +9372,6 @@ document.addEventListener("keydown", e => {
   if (profileModalEl && !profileModalEl.hidden && typeof closeProfileModal === "function") { closeProfileModal(); return; }
   const termsModalEl = document.getElementById("termsModal");
   if (termsModalEl && !termsModalEl.hidden && typeof closeTermsModal === "function") { closeTermsModal(); return; }
-  closeBidList();
 });
 
 // Card-level actions: favorite, hide, copy-to-clipboard, save note. Nothing
@@ -9238,7 +9478,7 @@ document.addEventListener("click", async e => {
   }
   if (action === "rulesretry") { STATE_RULES_PROMISE = null; renderRulesPage(); return; }
   if (action === "countymap") {
-    mapFilter.county = btn.dataset.county;
+    if (btn.dataset.county) applyCountySelection(btn.dataset.county);   // the shared county selection
     mapFilter.ledger = btn.dataset.ledger && LEDGERS[btn.dataset.ledger] ? btn.dataset.ledger : "all";
     document.querySelectorAll("#mapLedgerPills [data-ledger]").forEach(b => b.classList.toggle("on", b.dataset.ledger === mapFilter.ledger));
     showPage("map");
@@ -9339,7 +9579,6 @@ document.addEventListener("click", async e => {
     if (!pid) return;
     const p = ALL.find(x => x.id === pid);
     if (p) openDetail(p);
-    if (p && typeof selectProperty === "function") selectProperty(p);
   } else if (action === "jump") {
     // Phase 66: section nav on the full property page. Scrolls within
     // whichever container is showing this page (the modal, or the desktop
@@ -9353,7 +9592,9 @@ document.addEventListener("click", async e => {
     const p = pid && ALL.find(x => String(x.id) === String(pid));
     if (!p) return;
     openDetail(p);
-    const host = document.getElementById("detailModalInner");
+    // The property opens in whichever surface this width uses (remediation):
+    // the side panel on the List at desktop widths, the modal otherwise.
+    const host = document.getElementById("detailModal").hidden ? document.getElementById("detailPanel") : document.getElementById("detailModalInner");
     const target = host && host.querySelector('[data-section="acquire"]');
     if (target) target.scrollIntoView({ block: "start" });
   } else if (action === "showonmap") {
@@ -9597,7 +9838,6 @@ function render() {
   // ever stripped.
   if (typeof renderShellExtras === "function") renderShellExtras(shown, activeLedger);
   SHELL_UI.lastShown = shown;
-  if (typeof renderListCountyPanel === "function") renderListCountyPanel(shown);
   hydrateVisuals(document.getElementById("main"));
 }
 
@@ -9832,8 +10072,7 @@ function section(container, title, sub, rows, kind) {
         <span class="ledger-head-icon" aria-hidden="true">${cfg.icon || ""}</span>
         <h2>${title}</h2>
       </div>
-      <p class="mega-sub">${sub}</p>
-      ${cfg.how ? `<p class="ledger-how">${cfg.how}</p>` : ""}
+      <details class="ledger-about"><summary>About this list</summary><p class="mega-sub">${sub}</p>${cfg.how ? `<p class="ledger-how">${cfg.how}</p>` : ""}</details>
       ${facts ? `<p class="ledger-facts">${esc(facts)}</p>` : ""}
       ${kind === "auction" ? upcomingSalesHtml(shown) : ""}
       <p class="ledger-legend" aria-label="What the colour on each card's left edge means">
@@ -9843,6 +10082,7 @@ function section(container, title, sub, rows, kind) {
       </p>
       ${REVIEW_PENDING_SHOWN[kind] ? `<p class="ledger-review-pending" id="ledgerReviewPending">${REVIEW_PENDING_SHOWN[kind]} record${REVIEW_PENDING_SHOWN[kind] === 1 ? "" : "s"} from sources awaiting customer-publication review ${REVIEW_PENDING_SHOWN[kind] === 1 ? "is" : "are"} ${esc(reviewViewerReason())}, each labelled "Source review". Customers in published mode do not see ${REVIEW_PENDING_SHOWN[kind] === 1 ? "it" : "them"}.</p>` : ""}
       ${WITHHELD[kind] ? `<p class="ledger-withheld" id="ledgerWithheld">${WITHHELD[kind]} record${WITHHELD[kind] === 1 ? "" : "s"} withheld - source not approved for customer publication (restricted or not yet reviewed). Counted, not shown.</p>` : ""}
+      ${kind === "laft" && GATE_WITHHELD.total ? `<p class="ledger-withheld ledger-gate-withheld" id="ledgerGateWithheld">${GATE_WITHHELD.total} record${GATE_WITHHELD.total === 1 ? "" : "s"} withheld pending acquisition-path verification (${Object.entries(GATE_WITHHELD.by).map(([c, n]) => `${n} ${(ACQ_GATE_CLASS_LABELS[c] || c).toLowerCase()}`).join(" · ")}). Counted, not shown: a listing without a verified way to acquire it is not an actionable opportunity.</p>` : ""}
       ${kind === "laft" && DETROIT_SUMMARY.collected && (IS_ADMIN || viewerScope() === "preview") ? `<p class="ledger-detroit-subset" id="ledgerDetroitSubset">Detroit Land Bank: ${DETROIT_SUMMARY.collected.toLocaleString("en-US")} collected · ${DETROIT_SUMMARY.structure.toLocaleString("en-US")} with a verified structure in the source's own status · ${DETROIT_SUMMARY.subset.toLocaleString("en-US")} in the customer subset (deterministic ~50%). ${IS_ADMIN ? "You see every collected record; those outside the subset are labelled and stay collected." : "Only the customer subset is shown here."} The subset still passes the publication gate: source review is separate.</p>` : ""}
       ${state.statusView === "archive" ? `<p class="ledger-mode-note" id="archiveModeNote">📁 Past auctions only — sale date already gone. <button class="ledger-mode-exit" id="exitArchiveBtn" type="button">Back to current listings</button></p>` : ""}
     </div>`;
@@ -9926,6 +10166,9 @@ function section(container, title, sub, rows, kind) {
   // separating one sale date from the next.
   let lastDividerDate;
   const showDateDividers = kind === "auction";
+  // A short list (three counties or fewer) opens every county, so the cards are
+  // the first thing on the page; longer lists stay collapsed by county.
+  const openEveryCounty = orderedKeys.length <= 3;
   orderedKeys.forEach(key => {
     const { county, date, rows: countyRows } = groups.get(key);
     const total = totalsByGroup.get(key) ?? countyRows.length;
@@ -9947,7 +10190,7 @@ function section(container, title, sub, rows, kind) {
     det.className = "county-group";
     det.dataset.county = county;
     det.dataset.groupKey = key;
-    if (isOpen) det.open = true;
+    if (isOpen || openEveryCounty) det.open = true;
 
     const summary = document.createElement("summary");
     summary.className = "county-head";
@@ -10150,7 +10393,9 @@ function mapHash() {
 function applyMapParams(params) {
   const led = params.ledger;
   mapFilter.ledger = led && (led === "all" || LEDGERS[led]) ? led : "all";
-  mapFilter.county = params.county || "ALL";
+  // The county in a #/map?county= link is the shared selection (one model).
+  const county = params.county && ALL_COUNTIES.includes(params.county) ? params.county : "ALL";
+  if (selectedCountyOrAll() !== county || mapFilter.county !== county) applyCountySelection(county);
   mapFilter.search = params.q || "";
   mapFilter.watchlistOnly = params.watch === "1";
   mapFilter.listFilters = params.lf !== "0";
@@ -10167,6 +10412,7 @@ function pageHash(name) {
   if (name === "county") return countyPageHash();
   if (name === "research") return "#/research";
   if (name === "rules") return rulesPageHash();
+  if (name === "watchlist") return "#/watchlist";
   return "#/" + (LEDGERS[state.ledger] || LEDGERS.auction).slug;
 }
 // replaceState, never pushState: the Android-back stack (BACK_LAYERS) owns
@@ -10263,7 +10509,7 @@ function applyLedgerChrome() {
   document.documentElement.dataset.region = PAGE_STATE;
 
   // The browser tab and the app switcher should say which page this is too.
-  document.title = (cfg.title ? cfg.title + " · " : "") + "TAXACQ — " + STATE_INFO.name;
+  applyPageTitle();
 
   // Phase 67: the Map page's toolbar title carries the state as well ("Map ·
   // Florida"). The old page subtitle ("...by county across Florida") was the
@@ -10396,7 +10642,7 @@ window.addEventListener("hashchange", () => {
     if (r.county) { if (shellPage !== "county" || COUNTY_PAGE.county !== r.county) openCountyPage(r.county, PAGE_STATE); }
     else if (shellPage !== "county" || COUNTY_PAGE.view !== "index") openCountyIndex();
   } else if (r.page === "watchlist") {
-    openBidList();
+    if (shellPage !== "watchlist") showPage("watchlist");
   }
 });
 
@@ -10458,21 +10704,7 @@ if (searchInputEl) {
 const countyQuickEl = document.getElementById("countyQuick");
 if (countyQuickEl) countyQuickEl.addEventListener("change", () => {
   if (countyQuickEl.value !== "ALL") track("county_selected", { surface: "list" });
-  const v = countyQuickEl.value;
-  state.counties = v === "ALL" ? new Set(ALL_COUNTIES) : new Set([v]);
-  // Picking one specific county is a strong signal the user wants to see
-  // straight into it, not just narrow the filter and leave it collapsed.
-  // Auctions can have several date-groups for the same county, so expand
-  // every one of them, not just a single "county" key.
-  if (v !== "ALL") {
-    const keys = new Set([v]);
-    ALL.forEach(p => { if (p.county === v) keys.add(groupKeyOf(p.source, v, p.sale_date)); });
-    keys.forEach(k => state.expandedCounties.add(k));
-  }
-  buildAllChips();
-  if (mapLoaded) { refreshMapPaths(); if (zoomedCounty) zoomToState(); }
-  updateBadge();
-  render();
+  applyCountySelection(countyQuickEl.value);
 });
 
 // County groups are native <details> - the browser handles the actual
@@ -11418,11 +11650,6 @@ if (accountBtn) {
 // Dashboard's own Settings button opens the exact same menu as the header
 // account badge - one popover, two entry points, so it isn't only reachable
 // via the small badge on a phone.
-const dashSettingsBtn = document.getElementById("dashSettingsBtn");
-if (dashSettingsBtn) dashSettingsBtn.addEventListener("click", e => {
-  e.stopPropagation();
-  openAccountMenu();
-});
 
 // ==================== edit profile ====================
 const profileModal = document.getElementById("profileModal");
@@ -11541,7 +11768,7 @@ function healthOf(rec, now) {
   }
   return "HEALTHY";
 }
-const HEALTH_TEXT = { HEALTHY: "Healthy", INCOMPLETE: "Incomplete", FAILED: "Failed", STALE: "Stale", NOT_RUN: "Not run" };
+// (The operator labels HEALTH_TEXT moved to admin.js with the operator view, 2026-10-10.)
 function relativeTime(iso) {
   if (!iso) return "never";
   const t = Date.parse(iso);
@@ -11551,23 +11778,21 @@ function relativeTime(iso) {
   if (h < 48) return `${h}h ago`;
   return `${Math.round(h / 24)}d ago`;
 }
+// Customer wording for a source's health (remediation): one plain status and
+// the last update. The counts, incomplete-unit lists and retry detail are
+// operator diagnostics and are shown to administrators only.
+var CUSTOMER_HEALTH_TEXT = { HEALTHY: "Current", INCOMPLETE: "Partly updated", FAILED: "Update unsuccessful; retry pending", STALE: "Not recently updated", MANUAL: "Updated on request", NOT_RUN: "Not yet updated" };
+// The customer page shows one plain status and the last update, for
+// everyone (an admin included). The operator detail - cadence, attempt
+// status, row counts, incomplete units, retry state - is in the
+// administrator area (admin.html, "Source freshness and health"), never on
+// the customer page (remediation, 2026-10-10).
 function sourceHealthRowHtml(rec) {
   const health = healthOf(rec);
-  const units = rec.units_total !== null && rec.units_total !== undefined
-    ? `${rec.units_complete}/${rec.units_total} units complete` : "completeness not gated";
-  const bits = [
-    rec.mode === "manual" ? "manual runs, no schedule" : (rec.cadence_hours ? `every ${rec.cadence_hours}h` : "scheduled"),
-    `last success ${relativeTime(rec.last_success_at)}`,
-    `last attempt ${relativeTime(rec.last_attempt_at)} (${String(rec.last_attempt_status || "?").toLowerCase()})`,
-    rec.row_count !== null && rec.row_count !== undefined ? `${rec.row_count} rows` : "row count unknown",
-    units
-  ];
-  const inc = (rec.incomplete_units || []).slice(0, 4);
-  const detail = inc.length ? ` · incomplete: ${inc.join(", ")}${(rec.incomplete_units || []).length > 4 ? ", …" : ""}` : (rec.error && health === "FAILED" ? ` · ${rec.error}` : "");
   return `<div class="health-row" data-source="${esc(rec.source)}" data-health="${esc(health)}">
     <span class="health-label">${esc(rec.label || rec.source)}</span>
-    <span class="health-badge ${esc(health.toLowerCase())}">${esc(HEALTH_TEXT[health] || health)}</span>
-    <span class="health-sub">${esc(bits.join(" · "))}${esc(detail)}</span>
+    <span class="health-badge ${esc(health.toLowerCase())}">${esc(CUSTOMER_HEALTH_TEXT[health] || "Status not recorded")}</span>
+    <span class="health-sub">Last updated ${esc(relativeTime(rec.last_success_at))}</span>
   </div>`;
 }
 function sourceHealthRowsHtml(rows, pageState) {
@@ -11586,29 +11811,6 @@ function sourceHealthRowsHtml(rows, pageState) {
 // that read carried, and how many attempts in a row have failed. A county
 // whose last attempt was not a success is marked stale in wording, not
 // hidden; a county never attempted since the columns existed is omitted.
-function unitFreshnessRowHtml(u) {
-  const last = u.last_attempt_status ? String(u.last_attempt_status).toLowerCase() : "?";
-  const ok = u.last_attempt_status === "COMPLETE" || u.last_attempt_status === "EMPTY";
-  const bits = [
-    `last read ${relativeTime(u.last_attempt_at)} (${last})`,
-    u.last_success_at ? `last complete read ${relativeTime(u.last_success_at)}` : "no complete read recorded",
-    u.last_success_row_count !== null && u.last_success_row_count !== undefined ? `${u.last_success_row_count} rows at that read` : "row count unknown"
-  ];
-  if (Number(u.consecutive_failures) > 0) bits.push(`${u.consecutive_failures} consecutive failed attempt${Number(u.consecutive_failures) === 1 ? "" : "s"}`);
-  // 2026-09-30: the customer freshness states - source unavailable at the
-  // last attempt (transport / proxy / access), no complete read in 36h,
-  // back-off hold (three blocked failures; scripts/unit_freshness.py).
-  const unavailable = u.last_attempt_status === "SOURCE_UNAVAILABLE" || /^(TRANSPORT_|PROXY_|ACCESS_)/.test(String(u.last_error_category || ""));
-  if (unavailable) bits.push("source unavailable at the last attempt - inventory kept, nothing closed");
-  const sinceSuccess = u.last_success_at ? (Date.now() - Date.parse(u.last_success_at)) / 3600000 : null;
-  if (sinceSuccess === null || isNaN(sinceSuccess) || sinceSuccess > 36) bits.push("no complete read in the last 36 hours");
-  if (Number(u.consecutive_failures) >= 3) bits.push("back-off: attempted at most once per 48 hours until a read succeeds");
-  return `<div class="health-row unit-row" data-county="${esc(u.county)}" data-source="${esc(u.source_id || "")}" data-fresh="${ok ? "current" : "stale"}" data-unavailable="${unavailable ? "1" : "0"}">
-    <span class="health-label">${esc(u.county)}<span class="unit-source mono"> ${esc(u.source_id || "")}</span></span>
-    <span class="health-badge ${ok ? "healthy" : "stale"}">${ok ? "Current" : "Stale"}</span>
-    <span class="health-sub">${esc(bits.join(" · "))}</span>
-  </div>`;
-}
 // Which ledger(s) a harvest-side source id feeds - the frontend copy of
 // harvesters/ledgers/__init__.py SOURCE_LEDGERS, keyed by the ledger keys
 // this file uses (auction / laft / certificate). A row that carries a
@@ -11644,6 +11846,20 @@ function ledgerFreshnessSummary(rows, pageState, ledgerKey) {
   const current = mine.filter(r => r.last_attempt_status === "COMPLETE" || r.last_attempt_status === "EMPTY").length;
   const unavailable = mine.filter(r => r.last_attempt_status === "SOURCE_UNAVAILABLE").length;
   return `${current} of ${mine.length} count${mine.length === 1 ? "y" : "ies"} current` + (unavailable ? ` · ${unavailable} source unavailable` : "");
+}
+function unitFreshnessRowHtml(u) {
+  const ok = u.last_attempt_status === "COMPLETE" || u.last_attempt_status === "EMPTY";
+  // Customer wording only: whether the county is current and when it was
+  // last updated, or that the source was unavailable at the last check. The
+  // operator detail (attempt status, row counts, consecutive failures,
+  // back-off) is in admin.html (remediation, 2026-10-10).
+  const unavailable = u.last_attempt_status === "SOURCE_UNAVAILABLE" || /^(TRANSPORT_|PROXY_|ACCESS_)/.test(String(u.last_error_category || ""));
+  const sub = unavailable ? "Source unavailable at the last check - existing listings are kept" : (ok ? `Last updated ${relativeTime(u.last_success_at || u.last_attempt_at)}` : "Not updated recently");
+  return `<div class="health-row unit-row" data-county="${esc(u.county)}" data-source="${esc(u.source_id || "")}" data-fresh="${ok ? "current" : "stale"}" data-unavailable="${unavailable ? "1" : "0"}">
+    <span class="health-label">${esc(u.county)}</span>
+    <span class="health-badge ${ok ? "healthy" : "stale"}">${ok ? "Current" : "Not current"}</span>
+    <span class="health-sub">${esc(sub)}</span>
+  </div>`;
 }
 function unitFreshnessRowsHtml(rows, pageState) {
   if (rows === null) return `<div class="dash-empty">Per-county freshness is not recorded yet on this deployment (migration 021 / scripts/unit_freshness.py not live).</div>`;
@@ -12083,7 +12299,7 @@ window.addEventListener("appinstalled", () => {
   deferredInstallPrompt = null;
 });
 // ============ change password modal ============
-// Reuses the .detail-modal shell pattern already used by detailModal/bidListModal.
+// Reuses the .detail-modal shell pattern already used by detailModal/hiddenModal.
 // Flow: re-verify the current password via signInWithPassword() before calling
 // sb.auth.updateUser() - a plain updateUser() alone would let anyone using an
 // already-open signed-in session change the password without proving they
@@ -12143,8 +12359,8 @@ window.addEventListener("appinstalled", () => {
     const next = document.getElementById("cpNew").value;
     const confirm = document.getElementById("cpConfirm").value;
 
-    if (next.length < 6) {
-      showMsg("New password must be at least 6 characters.", true);
+    if (next.length < MIN_PASSWORD_LENGTH) {
+      showMsg(`New password must be at least ${MIN_PASSWORD_LENGTH} characters.`, true);
       return;
     }
     if (next !== confirm) {
@@ -12220,18 +12436,41 @@ let shellPage = "list";
 //   has a List/Split/Map switcher at all; it IS the Map page's renderer now.
 // - The Auctions page's #viewToggle (List/Split) and its embedded
 //   .explore-map-panel are removed - Auctions is just the list.
-// Unified navigation (2026-09-30): three pages plus the watchlist, which is
-// a layer over whichever page is open (openBidList()), reached from the same
-// four-entry nav. "auctions" is accepted as the List page's old name.
-const SHELL_PAGES = { dashboard: "pageDashboard", list: "pageList", map: "pageMap", county: "pageCounty", research: "pageResearch", rules: "pageRules" };
+// Unified navigation (2026-09-30): Dashboard, List and Map, later County
+// Intelligence, My Research and State rules, and since the 2026-10-10 remediation the
+// Watchlist too - a page of its own (#/watchlist), no longer a layer over the
+// List. "auctions" is accepted as the List page's old name.
+const SHELL_PAGES = { dashboard: "pageDashboard", list: "pageList", map: "pageMap", county: "pageCounty", research: "pageResearch", rules: "pageRules", watchlist: "pageWatchlist" };
 
+// Browser title per route (remediation): the title follows the page on
+// screen - Home, Map, County, Research, the List's ledger, or an open
+// property - never the List's ledger on every other route. Safe before
+// `shellPage` is initialized (setLedger runs during startup), so it reads
+// the variable defensively, the same way syncLedgerNav() does.
+function applyPageTitle(propertyLabel) {
+  let page;
+  try { page = shellPage; } catch { page = "list"; }
+  let head;
+  if (propertyLabel) head = propertyLabel;
+  else if (page === "dashboard") head = "Home";
+  else if (page === "map") head = "Map";
+  else if (page === "county") head = "County Intelligence";
+  else if (page === "research") head = "My Research";
+  else if (page === "watchlist") head = "Watchlist";
+  else { const cfg = ledgerCopy(state.ledger); head = (cfg && cfg.title) || "Properties"; }
+  document.title = head + " · TAXACQ — " + STATE_INFO.name;
+}
 function showPage(name) {
   if (name === "auctions") name = "list";
-  if (name === "watchlist") { openBidList(); return; }
   if (!SHELL_PAGES[name]) name = "list";
   if (name === "county") ensureCountySection();
   if (name === "research") ensureResearchSection();
   if (name === "rules") ensureRulesSection();
+  // Watchlist (remediation, 2026-10-10): a page of its own, reached from the
+  // rail, the phone bar, the List chip and #/watchlist - no longer a modal
+  // over the List. The page remembers where it was opened from so "Back"
+  // on it returns there.
+  if (name === "watchlist") { ensureWatchlistSection(); try { if (shellPage !== "watchlist") WATCHLIST_FROM = shellPage; } catch { WATCHLIST_FROM = "list"; } }
 
   Object.entries(SHELL_PAGES).forEach(([key, id]) => {
     const el = document.getElementById(id);
@@ -12246,7 +12485,13 @@ function showPage(name) {
   if (name === "county") renderCountyPage();
   if (name === "research") renderResearchPage();
   if (name === "rules") renderRulesPage();
+  if (name === "watchlist") renderWatchlistPage();
   syncPageHash();
+  applyPageTitle();
+  // Home's own hero search is the search for that page; the header search
+  // would be a second box beside it, so it is hidden there (remediation).
+  const gsWrap = document.getElementById("globalSearch");
+  if (gsWrap) gsWrap.hidden = name === "dashboard";
 
   window.scrollTo({ top: 0, behavior: "auto" });
 }
@@ -12266,8 +12511,6 @@ function syncLedgerNav(pageName) {
   // read it defensively.
   let name;
   try { name = pageName || shellPage; } catch { name = pageName || "list"; }
-  const bidModal = document.getElementById("bidListModal");
-  if (bidModal && !bidModal.hidden) name = "watchlist";
   // Shell redesign (2026-10-04): on the List page the sidebar lights the
   // ledger entry being read (data-nav-ledger) rather than Search, so exactly
   // one rail entry names what is on screen. The phone bar has no ledger
@@ -12362,10 +12605,23 @@ function buildMapCountySelect() {
   const counts = new Map();
   mapCountyCandidates().forEach(p => { const c = p.county || "Unknown"; counts.set(c, (counts.get(c) || 0) + 1); });
   const names = Array.from(counts.keys()).sort((a, b) => a.localeCompare(b));
-  if (mapFilter.county !== "ALL" && !counts.has(mapFilter.county)) mapFilter.county = "ALL";
-  el.innerHTML = `<option value="ALL">All Counties (${names.length})</option>` +
-    names.map(v => `<option value="${esc(v)}">${esc(v)} (${counts.get(v) || 0})</option>`).join("");
+  if (mapFilter.county !== "ALL" && !counts.has(mapFilter.county)) {
+    // One county model: a county with no rows in the Map's newly chosen
+    // ledger falls back to All Counties EVERYWHERE (the List too), exactly as
+    // picking "All Counties" by hand would - never a Map-only fallback that
+    // leaves the List narrowed to a county the Map no longer shows. Only
+    // once this ledger's rows are settled, though: while they are still
+    // loading the county is kept (listed with no count yet), so a routed
+    // #/map?county= is not cleared by a render that ran before its rows
+    // arrived (that transient clear is what corrupted the back stack).
+    if (mapLedgerSettled()) { applyCountySelection("ALL"); return; }
+    names.push(mapFilter.county); names.sort((a, b) => a.localeCompare(b));
+  }
+  el.innerHTML = countyPickerOptionsHtml(names, counts, `All Counties (${names.length})`);
   el.value = mapFilter.county;
+}
+function mapLedgerSettled() {
+  try { return mapFilter.ledger === "all" ? allLedgersSettled() : ledgerSettled(mapFilter.ledger); } catch { return true; }
 }
 // "Ledger: Available · County: Bay" - what the map is showing, from the
 // inputs the rows are filtered by. The state is the header's #stateSelect
@@ -12434,7 +12690,7 @@ function showOnMap(p) {
   mapFilter.search = "";
   mapFilter.watchlistOnly = false;
   mapFilter.ledger = "all";
-  mapFilter.county = p.county;
+  if (p.county) applyCountySelection(p.county);   // the shared county selection (one model)
   const searchEl = document.getElementById("mapSearchInput");
   if (searchEl) searchEl.value = "";
   const watchEl = document.getElementById("mapWatchlistOnly");
@@ -12454,11 +12710,12 @@ if (mapSearchInputEl) mapSearchInputEl.addEventListener("input", () => {
   mapFilter.search = mapSearchInputEl.value;
   renderMapPage();
 });
+// The Map's select is the same selection as the List's (applyCountySelection):
+// a county picked here is the county the List shows, and vice versa.
 const mapCountySelectEl = document.getElementById("mapCountySelect");
 if (mapCountySelectEl) mapCountySelectEl.addEventListener("change", () => {
-  mapFilter.county = mapCountySelectEl.value;
-  if (mapFilter.county !== "ALL") track("county_selected", { surface: "map" });
-  renderMapPage();
+  if (mapCountySelectEl.value !== "ALL") track("county_selected", { surface: "map" });
+  applyCountySelection(mapCountySelectEl.value);
 });
 document.querySelectorAll("#mapLedgerPills [data-ledger]").forEach(btn => {
   btn.addEventListener("click", () => {
@@ -12551,7 +12808,7 @@ function dashboardOps(active) {
     if (p.first_seen_at) { firstSeenTracked[p.source] = true; const d = daysSince(p.first_seen_at); if (d !== null && d <= 7) newByLedger[p.source]++; }
     if (p.last_seen_at) { lastSeenTracked[p.source] = true; const d = daysSince(p.last_seen_at); if (d !== null && d <= 7) seenByLedger[p.source]++; }
   });
-  const typed = laft.filter(p => typedPurchasePath(p));
+  const typed = laft.filter(hasVerifiedPath);
   const byType = new Map();
   typed.forEach(p => { const t = typedPurchasePath(p).type; byType.set(t, (byType.get(t) || 0) + 1); });
   return { soon, soonDates, watchedGone, laft, laftStale, laftNeverRead, unavailable, backoff, newByLedger, seenByLedger, firstSeenTracked, lastSeenTracked, typed, byType };
@@ -12561,89 +12818,27 @@ function dashRow(icon, name, vals, attrs) {
   return `<div class="dash-row"${attrs || ""}><div class="dash-row-name">${svgIcon(icon)}${name}</div><div class="dash-row-vals">${vals}</div></div>`;
 }
 
-// Admin / development (2026-10-02): every collected source in this state, its
-// review status, what is collected, what a customer would see, and when it was
-// last read - so collected inventory can be inspected before any customer
-// publication decision. Admin-only; built into the Dashboard at render time.
-function sourceReviewSummary(rows) {
-  const by = new Map();
-  rows.forEach(p => {
-    const key = p.source_id || p.harvester_source || "(no source id)";
-    const e = by.get(key) || { source: key, ledger: p.source, status: p.publication_status || null, rows: 0, active: 0, customer: 0, counties: new Set(), lastSeen: null,
-      detroit: DETROIT_SOURCE_IDS.includes(key), structure: 0, subset: 0 };
-    e.rows++;
-    if (!isGone(p)) e.active++;
-    // Customer-visible = in the customer inventory (the Detroit subset stage) AND published.
-    if (isCustomerPublishable(p) && inCustomerInventory(p)) e.customer++;
-    const det = detroitSubsetStatus(p);
-    if (det && det !== "not_structure") e.structure++;
-    if (det === "in_subset") e.subset++;
-    e.counties.add(p.county || "Unknown");
-    if (p.last_seen_at && (!e.lastSeen || p.last_seen_at > e.lastSeen)) e.lastSeen = p.last_seen_at;
-    by.set(key, e);
-  });
-  return [...by.values()].sort((x, y) => (isCustomerPublishable({ publication_status: x.status }) - isCustomerPublishable({ publication_status: y.status })) || y.rows - x.rows);
-}
-function renderSourceReviewPanel(rows) {
-  const anchor = document.getElementById("dashAttentionRows");
-  const host = anchor && anchor.closest(".dash-panel") && anchor.closest(".dash-panel").parentElement;
-  let panel = document.getElementById("dashSourceReview");
-  if (!IS_ADMIN || !host) { if (panel) panel.remove(); return; }
-  if (!panel) {
-    panel = document.createElement("div");
-    panel.className = "dash-panel dash-source-review";
-    panel.id = "dashSourceReview";
-    host.insertBefore(panel, host.firstChild);
-  }
-  const list = sourceReviewSummary(rows);
-  const pending = list.filter(e => !isCustomerPublishable({ publication_status: e.status }));
-  const mode = PUBLICATION_MODE === "preview"
-    ? "Customer preview mode: every collected source is shown to every user, labelled."
-    : "Customer mode: customers see approved sources only; you see every collected source, labelled.";
-  panel.innerHTML = `<div class="dash-panel-head">Collected inventory by source (admin)</div>
-    <p class="dash-source-review-mode" id="dashPublicationMode">${esc(mode)} ${pending.length} source${pending.length === 1 ? "" : "s"} awaiting customer-publication review in ${esc(STATE_INFO.name)}.</p>
-    <div class="dash-source-review-rows" id="dashSourceReviewRows">${list.length ? list.map(e => `
-      <div class="dash-row" data-source-id="${esc(e.source)}">
-        <div class="dash-row-name">${esc(e.source)} <span class="dash-row-fresh">${esc(ledgerCopy(e.ledger).title || e.ledger)}</span></div>
-        <div class="dash-row-meta"><span>Source review: <b>${esc(sourceReviewLabel({ publication_status: e.status }))}</b></span><span><b>${e.rows}</b> collected · ${e.active} active · ${e.counties.size} count${e.counties.size === 1 ? "y" : "ies"}</span><span>Customer-visible: <b>${e.customer}</b></span>${e.detroit ? `<span class="dash-detroit-subset">Customer subset: <b>${e.subset}</b> of ${e.structure} with a verified structure</span>` : ""}<span>${e.lastSeen ? `Last read ${esc(dateOnly(e.lastSeen))}` : "Last read not recorded"}</span></div>
-      </div>`).join("") : `<div class="dash-empty">No collected rows in ${esc(STATE_INFO.name)}.</div>`}</div>`;
-}
+// The "Collected inventory by source" operator panel that used to be built
+// into the Dashboard for admins (2026-10-02) lives in the administrator area
+// now - admin.html, "Collected inventory by source" (remediation,
+// 2026-10-10). The customer page carries no operator diagnostics.
 
 function renderDashboard() {
   renderHome();
-  const statsEl = document.getElementById("dashStats");
-  if (!statsEl) return; // dashboard markup not present (older fixture, etc.)
+  const attEl0 = document.getElementById("dashAttentionRows");
+  if (!attEl0) return; // dashboard markup not present (older fixture, etc.)
   const countyEl = document.getElementById("dashCountyRows");
   const ledgerEl = document.getElementById("dashLedgerRows");
   const upcomingEl = document.getElementById("dashUpcomingRows");
-  const subEl = document.getElementById("dashSubtitle");
 
   const { rows, active, totalValue, byLedger, byCounty } = dashboardStats();
   const ops = dashboardOps(active);
-  const ledgersWithData = Object.values(byLedger).filter(Boolean).length;
 
-  if (subEl) {
-    subEl.textContent = rows.length
-      ? `${STATE_INFO.name}: ${active.length} active propert${active.length === 1 ? "y" : "ies"} across ${ledgersWithData || 1} ledger${ledgersWithData === 1 ? "" : "s"} in ${byCounty.size} count${byCounty.size === 1 ? "y" : "ies"}.`
-      : "Nothing tracked yet - properties will show up here as counties are harvested.";
-  }
-
-  // One tile per ledger (active count, counties with inventory) - each opens
-  // the List page on that ledger - plus the counties tile. The old "sum of
-  // county values" tile is gone: a total of other people's appraisals is not
-  // an operating number.
-  const countiesByLedger = {};
-  LEDGER_ORDER.forEach(k => { countiesByLedger[k] = new Set(); });
-  active.forEach(p => { if (countiesByLedger[p.source]) countiesByLedger[p.source].add(p.county || "Unknown"); });
-  statsEl.innerHTML = LEDGER_ORDER.map(key => {
-    const cfg = ledgerCopy(key);
-    const n = active.filter(p => p.source === key).length;
-    const c = countiesByLedger[key].size;
-    return `<button class="stat-tile stat-tile-btn" type="button" data-go-ledger="${esc(key)}" data-ledger-tile="${esc(key)}" title="Open the List page on ${esc(cfg.title)}"><span class="stat-tile-icon${key === "auction" ? " accent" : ""}">${LEDGERS[key].icon}</span><div><div class="stat-tile-label">${esc(cfg.title)}</div><div class="stat-tile-val${key === "auction" ? " accent" : ""}">${n}</div><div class="stat-tile-sub">active · ${c} count${c === 1 ? "y" : "ies"}${WITHHELD[key] ? ` · ${WITHHELD[key]} withheld` : ""}</div></div></button>`;
-  }).join("") +
-    `<div class="stat-tile"><span class="stat-tile-icon">${svgIcon("pin")}</span><div><div class="stat-tile-label">Counties with inventory</div><div class="stat-tile-val">${byCounty.size}</div><div class="stat-tile-sub">${esc(STATE_INFO.name)} · ${rows.length} tracked incl. no-longer-listed</div></div></div>`;
-  statsEl.querySelectorAll("[data-go-ledger]").forEach(btn => btn.addEventListener("click", () => { showPage("list"); setLedger(btn.dataset.goLedger); }));
-  renderSourceReviewPanel(ALL);
+  // The per-ledger totals (active count, counties, withheld) are shown once,
+  // on the Home ledger cards above (homeLedgerCardHtml) - the operating
+  // view's own ledger tiles and its counts sentence repeated them and are
+  // gone (remediation, 2026-10-10). What follows is only what those cards do
+  // not say: attention, verified paths, source freshness, watchlist changes.
 
   // Needs attention: only what the data can actually say.
   const attEl = document.getElementById("dashAttentionRows");
@@ -12658,9 +12853,9 @@ function renderDashboard() {
     items.push(dashRow("layers", `Available rows not read from the source in 14+ days`, ops.laft.length
       ? `<span><b>${ops.laftStale.length}</b> of ${ops.laft.length}${ops.laftNeverRead.length ? ` · ${ops.laftNeverRead.length} never read by a lifecycle run` : ""}</span>`
       : `<span>No Available rows</span>`, ' data-att="stale"'));
-    items.push(dashRow("refresh", `Sources unavailable or in back-off`, UNIT_FRESHNESS === null
+    items.push(dashRow("refresh", `Sources unavailable or awaiting retry`, UNIT_FRESHNESS === null
       ? `<span>Not recorded on this deployment</span>`
-      : `<span><b>${ops.unavailable.length}</b> unavailable at the last read · <b>${ops.backoff.length}</b> in back-off</span>`, ' data-att="sources"'));
+      : `<span><b>${ops.unavailable.length}</b> unavailable at the last read · <b>${ops.backoff.length}</b> update unsuccessful; retry pending</span>`, ' data-att="sources"'));
     attEl.innerHTML = items.join("");
   }
 
@@ -12832,12 +13027,12 @@ document.addEventListener("click", e => {
 
 function clearDetailPanel() {
   selectedPid = null;
+  try { if (pidFromHash() != null) history.replaceState(history.state, "", "#/" + LEDGERS[state.ledger].slug); } catch { /* file:// etc */ }
   const panel = document.getElementById("detailPanel");
   if (!panel) return;
   panel.className = "detail-panel";
   panel.innerHTML = `<div class="detail-panel-empty">Select a property from the list to see its full page here.</div>`;
   document.querySelectorAll(".data-table tbody tr.selected").forEach(tr => tr.classList.remove("selected"));
-  if (SHELL_UI.lastShown) renderListCountyPanel(SHELL_UI.lastShown);
   document.querySelectorAll("#main .prop-card.selected").forEach(c => c.classList.remove("selected"));
 }
 
@@ -12846,10 +13041,15 @@ function selectProperty(p) {
   if (!panel || !p) return;
   if (selectedPid !== p.id) track("property_viewed", { property_id: p.id, ledger: p.source, surface: "panel" });
   selectedPid = p.id;
+  try { history.replaceState(history.state, "", "#/" + (LEDGERS[p.source] || LEDGERS[state.ledger]).slug + "/" + p.id); } catch { /* file:// etc */ }
   panel.className = "detail-panel prop-card " + cardStatus(p);
   panel.innerHTML = detailHtml(p);
   ensureFullProvenance(p);
   hydrateVisuals(panel);
+  // Same hydration openDetail() gives the modal: one property page, whichever
+  // surface shows it (remediation - the panel had lost these two sections).
+  if (p.source !== "certificate") hydrateEventHistory(panel, p);
+  if (p.source === "laft") hydrateInventoryHistory(panel, p);
   hydrateChangeHistory(panel, p);
   researchAfterOpen(p);
   observeAcquisitionSection(panel, p);
@@ -12888,8 +13088,14 @@ function renderShellExtras(shown, activeLedger) {
     TABLE_STATE.listed = Math.min(shown.length, Math.max(TABLE_PAGE, TABLE_STATE.listed || 0));
     appendTableRows(tbody, 0, TABLE_STATE.listed);
   }
-  if (selectedPid != null && !shown.some(p => String(p.id) === String(selectedPid))) {
-    clearDetailPanel();
+  // Remediation: the panel is cleared when its property is gone, hidden, or
+  // belongs to another ledger - not merely filtered out of the list. A deep
+  // link (or a search result) to a property the filters exclude is the same
+  // property page the modal would show, so it stays open, as the modal does.
+  if (selectedPid != null) {
+    const cur = ALL.find(p => String(p.id) === String(selectedPid));
+    const gone = !cur || HIDDEN.has(cur.id) || (activeLedger && cur.source !== activeLedger);
+    if (gone) clearDetailPanel();
   }
 }
 
@@ -13136,7 +13342,7 @@ function applySavedSearch(s) {
   const c = s.criteria || {};
   if (c.ledger && c.ledger !== state.ledger) setLedger(c.ledger);
   state.counties = new Set(c.counties && c.counties.length ? c.counties : ALL_COUNTIES);
-  syncCountyQuickSelect();
+  syncCountyPickers();
   state.assessedMin = c.assessed_min !== undefined ? Number(c.assessed_min) : null;
   state.acreageMin = c.acreage_min !== undefined ? Number(c.acreage_min) : null;
   state.taxableMin = c.taxable_min !== undefined ? Number(c.taxable_min) : null;
@@ -13411,10 +13617,6 @@ function renderRunRows() {
 function installMonitoringUi() {
   const qc = document.getElementById("quickControls");
   const exportBtn = document.getElementById("exportCsvBtn");
-  if (qc && !document.getElementById("savedSearchesBtn")) {
-    const btn = `<button class="export-btn saved-searches-btn" id="savedSearchesBtn" type="button" title="Save these filters and see what is new or changed since you last looked"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3h12v18l-6-4-6 4z"/></svg> Saved searches <b class="ss-badge" id="savedSearchesCount" hidden></b></button>`;
-    if (exportBtn) exportBtn.insertAdjacentHTML("beforebegin", btn); else qc.insertAdjacentHTML("beforeend", btn);
-  }
   const menu = document.getElementById("accountMenu");
   const helpItem = document.getElementById("helpBtnMenu");
   if (menu && !document.getElementById("alertsMenuItem")) {
@@ -13535,7 +13737,7 @@ function installMonitoringUi() {
   document.addEventListener("click", e => {
     const a = e.target.closest && e.target.closest("a[href]");
     if (!a) return;
-    const host = a.closest("#detailModalInner, #detailPanel, #bidListModalInner");
+    const host = a.closest("#detailModalInner, #detailPanel, #pageWatchlist");
     if (!host) return;
     const pidEl = a.closest("[data-pid]") || host.querySelector("[data-pid]");
     const pid = pidEl ? pidEl.dataset.pid : null;
@@ -13945,7 +14147,10 @@ function applyNaturalQuery(nq) {
     } else if (e.key === "Enter") {
       e.preventDefault();
       if (SHELL_UI.gsActive >= 0 && opts[SHELL_UI.gsActive]) { opts[SHELL_UI.gsActive].click(); return; }
-      goToListSearch(input.value);
+      // On the Map the same search filters the map; everywhere else it opens
+      // the List filtered by it. One search component, one meaning per page.
+      if (shellPage === "map") { mapFilter.search = input.value.trim(); renderMapPage(); closeGlobalSearch(); }
+      else goToListSearch(input.value);
       input.blur();
     } else if (e.key === "Escape") {
       closeGlobalSearch();
@@ -13984,7 +14189,7 @@ function homeLedgerCardHtml(k) {
   return `<button type="button" class="home-ledger-card${k === "laft" ? " primary" : ""}" data-ledger="${esc(k)}" data-home-ledger="${esc(k)}">
     <span class="home-ledger-kicker">${esc(ledgerNavName(k).toUpperCase())}</span>
     <span class="home-ledger-count" id="homeCount_${esc(k)}">${PROPERTIES_LOADED ? ledgerCountText(k, n, true) : "—"}</span>
-    <span class="home-ledger-unit">${esc(unit)}${PROPERTIES_LOADED && n ? ` across ${counties} ${esc(unitWordFor(counties))}` : ""}</span>
+    <span class="home-ledger-unit">${esc(unit)}${PROPERTIES_LOADED && n ? ` across ${counties} ${esc(unitWordFor(counties))}` : ""}${WITHHELD[k] ? ` · <span class="home-ledger-withheld" data-withheld="${esc(k)}">${WITHHELD[k]} withheld</span>` : ""}${k === "laft" && GATE_WITHHELD.total ? ` · <span class="home-ledger-withheld" data-gate-withheld="laft">${GATE_WITHHELD.total} pending verification</span>` : ""}</span>
     <span class="home-ledger-blurb">${esc(fin && !n ? `None listed for ${STATE_INFO.name} right now.` : !fin && PROPERTIES_LOADED ? "Loading…" : (cfg.sub || ""))}</span>
     <span class="home-ledger-go">${k === "laft" ? "Explore" : "Open"} &rarr;</span>
   </button>`;
@@ -14022,47 +14227,6 @@ function topCountyName() {
 // (no sample figures, no scores). Hidden per browser with "Hide this guide";
 // "How this works" brings it back.
 var GUIDE_KEY = "tdw_home_guide_hidden_v1";
-function guideHidden() { try { return localStorage.getItem(GUIDE_KEY) === "1"; } catch { return false; } }
-function setGuideHidden(v) { try { if (v) localStorage.setItem(GUIDE_KEY, "1"); else localStorage.removeItem(GUIDE_KEY); } catch { /* private mode */ } }
-function homeGuideHtml() {
-  if (guideHidden()) {
-    return `<p class="home-guide-collapsed"><button type="button" class="link-btn" data-guide="show" id="homeGuideShow">How this works</button></p>`;
-  }
-  const settled = PROPERTIES_LOADED && allLedgersSettled();
-  const active = ["laft", "auction", "certificate"].reduce((n, k) => n + shellActiveRows(k).length, 0);
-  const counties = new Set(ALL.filter(p => !isGone(p) && !isPastDue(p)).map(p => p.county).filter(Boolean)).size;
-  const avail = shellActiveRows("laft");
-  const verified = avail.filter(p => acquisitionOf(p).verified).length;
-  const searches = (MONITOR.savedSearches || []).filter(s => s.state === PAGE_STATE).length;
-  const n = v => Number(v).toLocaleString("en-US");
-  const steps = [
-    ["Find", !PROPERTIES_LOADED ? `Loading ${STATE_INFO.name}…`
-      : `${n(active)} active record${active === 1 ? "" : "s"} in ${STATE_INFO.name}${counties ? ` across ${n(counties)} ${unitWordFor(counties)}` : ""}${settled ? "" : " so far"}. Filter by ${UNIT_WORD.toLowerCase()}, source, amount and date.`,
-      `<button type="button" class="link-btn" data-guide="list">Open the list</button>`],
-    ["Research", `Start from a ${UNIT_WORD.toLowerCase()} - its inventory, sales, sources and gaps on County Intelligence - or open a property for its values, source and where each field came from.`,
-      `<button type="button" class="link-btn" data-guide="counties">County Intelligence</button>`],
-    ["Verify how to acquire", avail.length
-      ? `${n(verified)} of ${n(avail.length)} available propert${avail.length === 1 ? "y has" : "ies have"} a verified acquisition path; the rest say "Not yet verified". Always confirm with the official source before you apply or pay.`
-      : "Available properties show the office's acquisition process once it has been verified. Always confirm with the official source.", ""],
-    ["Save & work it", `Save properties to your own research lists, mark where each one stands, and work its due-diligence checklist (${RESEARCH && RESEARCH.items ? RESEARCH.items.length : 0} in My Research). Watch up to ${BID_LIST_MAX} for changes (${BIDLIST.size} watched).`,
-      `<button type="button" class="link-btn" data-guide="research">My Research</button> <button type="button" class="link-btn" data-guide="watchlist">Watchlist</button>`],
-    ["Track", `${n(searches)} saved search${searches === 1 ? "" : "es"} for ${STATE_INFO.name}. New matches and changes to saved properties are shown when you return.`,
-      `<button type="button" class="link-btn" data-guide="searches">Saved searches</button>`]
-  ];
-  return `<div class="home-guide-head"><b>How this works</b><span class="home-guide-actions"><button type="button" class="link-btn" data-guide="hide" id="homeGuideHide">Hide this guide</button></span></div>
-    <ol class="home-guide-steps">${steps.map(([t, body, act], i) => `<li class="home-guide-step" data-step="${i + 1}"><span class="home-guide-num" aria-hidden="true">${i + 1}</span><span class="home-guide-body"><b>${esc(t)}</b> ${esc(body)} ${act}</span></li>`).join("")}</ol>`;
-}
-function renderHomeGuide() {
-  const ledgersEl = document.getElementById("homeLedgers");
-  if (!ledgersEl) return;
-  let g = document.getElementById("homeGuide");
-  if (!g) {
-    ledgersEl.insertAdjacentHTML("beforebegin", `<section class="home-guide" id="homeGuide" aria-label="How this works"></section>`);
-    g = document.getElementById("homeGuide");
-  }
-  g.classList.toggle("collapsed", guideHidden());
-  g.innerHTML = homeGuideHtml();
-}
 // The Home workstation (identity redesign, 2026-10-05): four ruled lists -
 // Available now, upcoming sales, county intelligence and saved work. Every
 // line is a loaded row or a count over loaded rows; nothing is ranked or
@@ -14109,7 +14273,6 @@ function renderHomeDesk() {
 function renderHome() {
   const ledgersEl = document.getElementById("homeLedgers");
   if (!ledgersEl) return;
-  renderHomeGuide();
   const order = ["laft", "auction", "certificate"];
   ledgersEl.innerHTML = order.map(homeLedgerCardHtml).join("") + `
     <button type="button" class="home-ledger-card home-states-card" id="homeStatesCard" aria-haspopup="dialog" aria-controls="statePicker">
@@ -14152,13 +14315,15 @@ function renderHome() {
     if (led) { goToLedger(led.dataset.homeLedger); return; }
     const pid = e.target.closest("[data-home-pid]");
     if (pid) { const p = ALL.find(x => String(x.id) === pid.dataset.homePid); if (p) openDetail(p); return; }
-    if (e.target.closest("#homeStatesCard") || e.target.closest("#homeChangeState") || e.target.closest("#homeAllCounties")) { openStatePicker(e.target.closest("button")); return; }
+    // The header's state dropdown is the one state control: "Change state"
+    // focuses it; the states card and "All counties" open the coverage sheet.
+    if (e.target.closest("#homeChangeState")) { const sel = document.getElementById("stateSelect"); if (sel) sel.focus(); return; }
+    if (e.target.closest("#homeStatesCard") || e.target.closest("#homeAllCounties")) { openStatePicker(e.target.closest("button")); return; }
     if (e.target.closest("#homeRecentAll")) goToLedger(landingLedger(ALL, state.ledger));
     const guide = e.target.closest("[data-guide]");
     if (guide) {
       const g = guide.dataset.guide;
-      if (g === "hide" || g === "show") { setGuideHidden(g === "hide"); renderHomeGuide(); const f = document.getElementById(g === "hide" ? "homeGuideShow" : "homeGuideHide"); if (f) f.focus(); }
-      else if (g === "list") goToLedger(landingLedger(ALL, state.ledger));
+      if (g === "list") goToLedger(landingLedger(ALL, state.ledger));
       else if (g === "watchlist") openBidList();
       else if (g === "research") openResearchPage("all");
       else if (g === "counties") openCountyIndex();
@@ -14268,12 +14433,6 @@ function removeFilterChip(key) {
     const x = e.target.closest("[data-chip-remove]");
     if (x) { removeFilterChip(x.dataset.chipRemove); return; }
     if (e.target.closest("#filterChipsClear")) { const r = document.getElementById("resetBtn"); if (r) r.click(); }
-  });
-  const mapBtn = document.getElementById("listMapBtn");
-  if (mapBtn) mapBtn.addEventListener("click", () => {
-    mapFilter.ledger = state.ledger;
-    mapFilter.county = state.counties.size === 1 ? Array.from(state.counties)[0] : "ALL";
-    showPage("map");
   });
   // The filter panel is a bottom sheet on a phone / tablet; its own close
   // button runs the same toggle.
@@ -14430,8 +14589,6 @@ function openStatePicker(returnEl) {
     if (e.shiftKey && document.activeElement === f[0]) { e.preventDefault(); f[f.length - 1].focus(); }
     else if (!e.shiftKey && document.activeElement === f[f.length - 1]) { e.preventDefault(); f[0].focus(); }
   });
-  const btn = document.getElementById("statePickerBtn");
-  if (btn) btn.addEventListener("click", () => openStatePicker(btn));
 })();
 
 // ---- navigation actions (entries that are not pages) ----
@@ -14448,8 +14605,6 @@ function openStatePicker(returnEl) {
   if (states) states.addEventListener("click", () => openCountyIndex());
   const about = document.getElementById("navAboutBtn");
   if (about) about.addEventListener("click", () => helpUi.open());
-  const acct = document.getElementById("navBottomAccount");
-  if (acct) acct.addEventListener("click", e => { e.stopPropagation(); openAccountMenu(); });
   // Phone: the rail's workspace entries are not on the bottom bar, so the
   // Account sheet carries them as a short "Go to" group (hidden wherever the
   // rail shows). Each one runs the rail entry's own handler once the sheet's
@@ -14486,76 +14641,6 @@ function syncAdminNav() {
 // screen it holds, with the count in its tooltip. Clicking a county filters
 // the list to it. It is drawn only on wide screens and only while no
 // property is open in that column - the full property page takes it over.
-function listPanelWide() { try { return window.matchMedia("(min-width:1280px)").matches; } catch { return false; } }
-function renderListCountyPanel(shown) {
-  const panel = document.getElementById("detailPanel");
-  if (!panel || selectedPid != null || !listPanelWide()) return;
-  const empty = panel.querySelector(".detail-panel-empty");
-  if (!empty) return;
-  const counts = new Map();
-  shown.forEach(p => { if (p.county) counts.set(p.county, (counts.get(p.county) || 0) + 1); });
-  const max = Math.max(1, ...counts.values());
-  let host = panel.querySelector("#listCountyPanel");
-  if (!host) {
-    empty.insertAdjacentHTML("beforebegin", `<div class="list-county-panel" id="listCountyPanel">
-      <div class="lcp-head"><b id="lcpTitle">Where these are</b><span id="lcpSub"></span></div>
-      <div class="lcp-map" id="lcpMap" role="group" aria-label="${esc(UNIT_WORD)} map - choose one to filter the list"></div>
-      <div class="lcp-legend"><span>Fewer</span><span class="lcp-ramp" aria-hidden="true"></span><span>More</span></div>
-      <button type="button" class="link-btn" id="lcpOpenMap">Open the full map &rarr;</button>
-    </div>`);
-    host = panel.querySelector("#listCountyPanel");
-    host.querySelector("#lcpOpenMap").addEventListener("click", () => { const b = document.getElementById("listMapBtn"); if (b) b.click(); });
-  }
-  const sub = host.querySelector("#lcpSub");
-  if (sub) sub.textContent = `${shown.length.toLocaleString("en-US")} shown in ${counts.size} ${unitWordFor(counts.size)}`;
-  loadBasemapGeom().then(geom => {
-    const mapEl = host.querySelector("#lcpMap");
-    if (!mapEl || !geom || !geom.counties.size) { if (mapEl) mapEl.textContent = "Map outline unavailable."; return; }
-    const NS = "http://www.w3.org/2000/svg";
-    let svg = mapEl.querySelector("svg");
-    if (!svg) {
-      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
-      geom.counties.forEach(c => { x0 = Math.min(x0, c.box.x); y0 = Math.min(y0, c.box.y); x1 = Math.max(x1, c.box.x + c.box.w); y1 = Math.max(y1, c.box.y + c.box.h); });
-      svg = document.createElementNS(NS, "svg");
-      svg.setAttribute("viewBox", `${x0} ${y0} ${x1 - x0} ${y1 - y0}`);
-      svg.setAttribute("preserveAspectRatio", "xMidYMid meet");
-      geom.counties.forEach((c, name) => {
-        const path = document.createElementNS(NS, "path");
-        path.setAttribute("d", c.d);
-        path.setAttribute("data-county", name);
-        path.setAttribute("tabindex", "-1");
-        const t = document.createElementNS(NS, "title");
-        path.appendChild(t);
-        svg.appendChild(path);
-      });
-      mapEl.innerHTML = "";
-      mapEl.appendChild(svg);
-      svg.addEventListener("click", e => {
-        const path = e.target.closest("path[data-county]");
-        if (!path || !path.classList.contains("has")) return;
-        const cq = document.getElementById("countyQuick");
-        if (!cq) return;
-        cq.value = path.dataset.county;
-        if (cq.value !== path.dataset.county) return;     // not an option in this ledger
-        cq.dispatchEvent(new Event("change", { bubbles: true }));
-      });
-      svg.addEventListener("keydown", e => {
-        if (e.key !== "Enter" && e.key !== " ") return;
-        const path = e.target.closest("path[data-county]");
-        if (path) { e.preventDefault(); path.dispatchEvent(new MouseEvent("click", { bubbles: true })); }
-      });
-    }
-    svg.querySelectorAll("path[data-county]").forEach(path => {
-      const n = counts.get(path.dataset.county) || 0;
-      path.classList.toggle("has", n > 0);
-      path.setAttribute("tabindex", n > 0 ? "0" : "-1");
-      path.setAttribute("role", n > 0 ? "button" : "presentation");
-      path.style.setProperty("--lcp-level", n ? (0.25 + 0.75 * Math.sqrt(n / max)).toFixed(3) : "0");
-      const title = path.querySelector("title");
-      if (title) title.textContent = `${path.dataset.county} ${UNIT_WORD}: ${n.toLocaleString("en-US")} shown`;
-    });
-  });
-}
 
 // ---- property page: breadcrumb, "why am I seeing this", card acquisition badge ----
 function detailCrumbsHtml(p) {

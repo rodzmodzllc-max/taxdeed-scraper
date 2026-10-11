@@ -149,12 +149,21 @@ def test_g08_acquisition_gaps_and_frontend_parity_and_no_withholding():
     m = re.search(r"const ACQUISITION_GAP_REASONS = \{(.*?)\n\};", APP, re.S).group(1)
     js = dict(re.findall(r'(\w+): "([^"]+)"', m))
     assert js == PE.ACQUISITION_GAP_REASONS
-    # Publication is the source decision only: the customer filter never consults the acquisition record.
+    # Publication is the source decision (publication_status). The gap list
+    # above is enrichment and never withholds. Since 2026-10-10 a second,
+    # STAGED gate (config.js availableGate, shipped "off") withholds an
+    # unverified Available row from non-admins only when set to "enforce"
+    # (harvesters/sources/acquisition_gate.py = app.js acquisitionVerification);
+    # administrators are never gated, and the gap reasons never feed it.
     flt = APP[APP.index("  ALL = rows.filter(p => {"):APP.index("function loadIssueHtml() {")]   # 2026-10-05: re-run per ledger
     assert "if (isPublishable(p)) {" in flt and "if (p.source in WITHHELD) WITHHELD[p.source]++;" in flt
-    assert "acquisition" not in flt.lower()
-    assert "acquisitionGap" not in re.search(r"function isPublishable\(p\) \{(.*?)\n\}", APP, re.S).group(1)
-    assert "WITHHELD_ACQ" not in APP and "ledgerWithheldAcq" not in APP and "acquisitionGate" not in APP
+    assert "acquisitionGap" not in flt and "ACQUISITION_GAP_REASONS" not in flt
+    pub = re.search(r"function isPublishable\(p\) \{(.*?)\n\}", APP, re.S).group(1)
+    assert "acquisitionGap" not in pub and "acqGateAllows(p)" in pub and "if (IS_ADMIN) return true;" in pub
+    allows = re.search(r"function acqGateAllows\(p\) \{(.*?)\n\}", APP, re.S).group(1)
+    assert 'if (ACQ_GATE_MODE !== "enforce" || !p || p.source !== "laft") return true;' in allows
+    assert 'availableGate: "off"' in (REPO / "config.js").read_text(encoding="utf-8")
+    assert "WITHHELD_ACQ" not in APP and "ledgerWithheldAcq" not in APP
     assert PE.acquisition_state(_published()) == "partial"                   # a path without steps: partial, still a path
 
 
