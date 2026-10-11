@@ -260,16 +260,16 @@ renderHome() in app.js. The operating view below it is unchanged. -->
 <div class="dash-head dash-head-row">
 <div>
 <h2 class="dash-title">Operating view</h2>
-<p id="dashSubtitle">Operating view across every ledger.</p>
+<p id="dashSubtitle">What needs attention, verified acquisition paths, source freshness and your watchlist - counts over the records loaded for this state.</p>
 </div>
 </div>
-<!-- Unified navigation (2026-09-30): an operating view. One tile per ledger
-(active count, counties; opens the List page on that ledger), then what
-needs attention, what changed, verified purchase paths, counties, ledgers,
-upcoming sales, source freshness and watchlist changes - every figure a
-count over data the app already holds; "Not tracked" where it holds none.
-See renderDashboard() / dashboardOps() in app.js. -->
-<div class="dash-stats" id="dashStats"></div>
+<!-- Unified navigation (2026-09-30): an operating view - what needs
+attention, verified purchase paths, source freshness and watchlist changes,
+every figure a count over data the app already holds; "Not tracked" where
+it holds none. The per-ledger totals used to be repeated here as tiles
+(#dashStats); the ledger cards above (#homeLedgers) are the one place they
+are shown now (remediation, 2026-10-10). See renderDashboard() /
+dashboardOps() in app.js. -->
 <div class="dash-grid">
 <div class="dash-panel">
 <div class="dash-panel-head">Needs attention</div>
@@ -642,17 +642,13 @@ customers counted on customer-published rows only). -->
 <button class="nav-bottom-item" data-page="watchlist" id="navBottomWatchlistBtn" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 21V4a1 1 0 011-1c1.2 0 1.2 1 3 1s1.8-1 3.5-1 1.3 1 3.5 1a1 1 0 011 1v9a1 1 0 01-1 1c-2.2 0-2.3-1-3.5-1s-1.3 1-3.5 1-1.8-1-3-1"/></svg>Saved</button>
 </nav>
 
-<!-- ============ "My Watchlist" modal ============ -->
-<!-- Placed before detailModal in the DOM so, when both are open at once
-(viewing a property's full page from inside the watchlist), detailModal
-paints on top at the same z-index - later sibling wins. -->
-<div class="detail-modal" id="bidListModal" hidden>
-<div class="detail-modal-inner bidlist-modal-inner" id="bidListModalInner"></div>
-</div>
+<!-- The "My Watchlist" modal used to sit here. The watchlist is a page now
+(#pageWatchlist, created by app.js ensureWatchlistSection(), route
+#/watchlist) - remediation, 2026-10-10. -->
 
 <!-- ============ "Hidden Properties" modal ============ -->
-<!-- Same placement rationale as the watchlist modal above - stays before
-detailModal in the DOM so the detail modal always paints on top of it. -->
+<!-- Stays before detailModal in the DOM so the detail modal always paints on
+top of it (later sibling wins at the same z-index). -->
 <div class="detail-modal" id="hiddenModal" hidden>
 <div class="detail-modal-inner bidlist-modal-inner" id="hiddenModalInner"></div>
 </div>
@@ -664,7 +660,7 @@ detailModal in the DOM so the detail modal always paints on top of it. -->
 
 <!-- ============ change password modal ============
 Reuses the .detail-modal shell (same overlay/close-button/scroll pattern
-as bidListModal and detailModal above). See app.js for the flow: current
+as hiddenModal and detailModal above). See app.js for the flow: current
 password is re-verified via signInWithPassword before calling
 sb.auth.updateUser() - a plain updateUser() alone would let anyone using
 an already-open signed-in session change the password without proving
@@ -874,7 +870,7 @@ Texas statutory copy here without counsel review. -->
 <p>Confirm every figure against the county's own auction site, the Clerk of Court, the Property Appraiser and the Tax Collector, and have a title company or attorney review the parcel. A tax deed can carry liens, code enforcement actions, and other encumbrances this tool does not and cannot see.</p>
 
 <h3>Where the numbers come from</h3>
-<p>Property data is collected from county and vendor websites. Texas collection is currently run by hand, not on a fixed schedule, so a Texas listing can be days or weeks behind the source. Data can be wrong, incomplete, or out of date — a county or vendor can change or withdraw a listing at any time, including after our last sync.</p>
+<p>Property data is collected from the government offices and other sources named on each record. Texas collection is currently run by hand, not on a fixed schedule, so a Texas listing can be days or weeks behind the source. How that information is sourced, what is added to it and what you must verify before acting are stated once, in the <a href="source-disclaimer.html">Source &amp; research disclaimer</a>; the lines below explain the specific figures shown in this app.</p>
 <!-- Was a permanent line in the masthead. It is provenance, not a control -
      it belongs with the rest of "where the numbers come from" rather than
      above the tabs on every screen. app.js writes it here now; the amber
@@ -887,8 +883,8 @@ Texas statutory copy here without counsel review. -->
 <p><b>Fees and closing costs are not estimated for Texas.</b> This app has no Texas fee formula and shows none. Texas redemption rights, deed type and post-sale costs are not tracked here.</p>
 <p><b>Lien notes</b> are not tracked for Texas listings. This app does not run a title search or give a title opinion.</p>
 
-<h3>No warranty</h3>
-<p>This tool is provided as is, with no warranty of accuracy, completeness or fitness for any particular purpose. You are responsible for your own due diligence and for every bid you place. Nothing here creates an attorney-client, broker, or fiduciary relationship.</p>
+<h3>Warranty, liability, advice</h3>
+<p>The binding "as is" warranty disclaimer, limitation of liability and not-advice clauses are stated once, in the <a href="terms.html">Terms of Service</a> (sections 8 and 10). You are responsible for your own due diligence and for every bid, application or payment you make.</p>
 
 <h3>Your account</h3>
 <p>Access is granted by the account owner and may be withdrawn. Don't share your login. Favorites, hidden listings and your watchlist are stored against your account and are private to you. Team notes are shared: every approved member of this account can read the notes you leave on a property, along with the part of your email address before the @ - they are not private. You can reset your password from the sign-in screen and delete your account from the account menu; deleting removes your profile, favorites, hidden listings, watchlist and your notes, and nothing else.</p>

@@ -58,6 +58,32 @@ row-level security) whether the signed-in account is an admin. Anyone else
     <p class="admin-note" id="adminSourcesStatus" role="status">Loading sources</p>
     <div class="admin-sources" id="adminSourcesList"></div>
   </section>
+  <!-- Operator diagnostics (remediation, 2026-10-10). These two cards used to
+       be rendered for administrators inside the customer application's
+       Dashboard. They are operator views, so they live here, behind the same
+       server-side admin check as the rest of this page. The customer page
+       keeps one plain status per source and county. -->
+  <section class="admin-card" id="freshness" aria-labelledby="adminFreshnessLabel">
+    <p class="admin-label" id="adminFreshnessLabel">Source freshness and health (operator view)</p>
+    <p class="admin-note">Per dataset (public.source_health, migration 016): cadence, last success, last attempt and its status, row count, completeness and the incomplete units. Per county (county_source_registry, migration 021): last read, last complete read, rows at that read, consecutive failures, source-unavailable and back-off state. Derived at read time, same rules as the customer page (healthOf / unit freshness), with the operator detail the customer page does not show.</p>
+    <p class="admin-filters">
+      <label>State <select id="adminFreshnessState"><option value="">All states</option></select></label>
+    </p>
+    <p class="admin-note" id="adminFreshnessStatus" role="status">Loading freshness</p>
+    <div class="admin-freshness" id="adminFreshnessList"></div>
+    <div class="admin-freshness-units" id="adminUnitList"></div>
+  </section>
+  <section class="admin-card" id="inventory" aria-labelledby="adminInventoryLabel">
+    <p class="admin-label" id="adminInventoryLabel">Collected inventory by source</p>
+    <p class="admin-note">Every collected source in a state: its customer-publication review status, what is collected, how much of it is active, what a customer would see, the Detroit customer subset where it applies, and when it was last read. Read on request (the rows are paged from the properties table under your own row-level security); counts only.</p>
+    <p class="admin-filters">
+      <label>State <select id="adminInventoryState"></select></label>
+      <button class="admin-btn admin-btn-quiet" id="adminInventoryLoad" type="button">Load inventory</button>
+    </p>
+    <p class="admin-note" id="adminInventoryMode"></p>
+    <p class="admin-note" id="adminInventoryStatus" role="status">Choose a state and load its collected inventory.</p>
+    <div class="admin-inventory" id="adminInventoryList"></div>
+  </section>
   <section class="admin-card">
     <p class="admin-label">Administrative tools</p>
     <p class="admin-note">Source publication reviews are in the application's admin panel; every administrative operation is enforced on the server by the administrator role.</p>

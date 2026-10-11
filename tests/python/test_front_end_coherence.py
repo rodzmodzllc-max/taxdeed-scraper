@@ -70,10 +70,11 @@ def test_password_minimum_is_one_constant_everywhere():
 def test_removed_duplicate_controls_stay_removed():
     gone = ["statePickerBtn", "dashSettingsBtn", "navBottomAccount", "listMapBtn", 'id="mapContext"',
             'id="searchInput"', 'id="mapSearchInput"', "dashLedgerRows", "dashUpcomingRows", "dashRecentRows",
-            "dashCountyRows", "tabCountAuction", "tabCountLaft", "tabCountCertificate"]
+            "dashCountyRows", "tabCountAuction", "tabCountLaft", "tabCountCertificate",
+            'id="dashStats"', 'id="bidListModal"']   # 2026-10-10: ledger tiles and the watchlist modal
     for page in PAGES:
         text = Path(page).read_text(encoding="utf-8")
-        if "dashStats" not in text:
+        if 'id="navRail"' not in text:
             continue  # legal and admin pages have no app shell
         for marker in gone:
             assert marker not in text, (Path(page).name, marker)
@@ -90,17 +91,36 @@ def test_home_has_one_search_and_the_header_search_is_hidden_there():
 
 
 def test_customer_health_wording_hides_operator_diagnostics():
+    # Remediation (2026-10-10): the customer page carries one plain status per
+    # source and county for everyone; the operator detail (attempt status, row
+    # counts, incomplete units, back-off) lives in admin.js, server-gated.
     fn = APP[APP.index("function sourceHealthRowHtml(rec) {"):]
-    fn = fn[:fn.index("  const units")]
-    # The customer branch returns before the diagnostic strings are built.
-    assert "if (!IS_ADMIN) {" in fn
-    assert "CUSTOMER_HEALTH_TEXT" in APP
-    assert "back-off: attempted at most once per 48 hours" not in APP[APP.index("function unitFreshnessText"):][:900]
+    fn = fn[:fn.index("\n}\n")]
+    assert "IS_ADMIN" not in fn and "CUSTOMER_HEALTH_TEXT" in fn
+    assert "units complete" not in APP and "consecutive failed attempt" not in APP
+    assert "back-off: attempted at most once per 48 hours" not in APP
+    assert "renderSourceReviewPanel" not in APP and "dashSourceReview" not in APP
+    admin = (REPO / "public/admin.js").read_text(encoding="utf-8")
+    for s in ("function healthRowHtml(rec)", "function unitRowHtml(u)", "async function loadInventory(st)",
+              "back-off: attempted at most once per 48 hours", "units complete"):
+        assert s in admin, s
+    html = _page("admin.html")
+    assert 'id="adminFreshnessList"' in html and 'id="adminInventoryList"' in html
+
+
+def test_admin_detroit_subset_rule_matches_the_customer_page():
+    admin = (REPO / "public/admin.js").read_text(encoding="utf-8")
+    for line in ('const DETROIT_SOURCE_IDS = ["mi_detroit_landbank_lots", "mi_detroit_landbank_programs"];',
+                 'const DETROIT_STRUCTURE_SOURCE_ID = "mi_detroit_landbank_lots";',
+                 'const DETROIT_STRUCTURE_STATUSES = ["Marketed Structure For Sale"];',
+                 "const DETROIT_SUBSET_PERCENT = 50;",
+                 "return fnv1a32(`${p.source_id}|${parcel}`) % 100 < DETROIT_SUBSET_PERCENT ? \"in_subset\" : \"not_selected\";"):
+        assert line in APP and line in admin, line
 
 
 def test_service_worker_cache_is_bumped():
     sw = (REPO / "public/sw.js").read_text(encoding="utf-8")
-    assert re.search(r'const CACHE = "tdw-shell-v11[6-9]"', sw), "cache not bumped"
+    assert re.search(r'const CACHE = "tdw-shell-v1[2-9][0-9]"', sw), "cache not bumped"
 
 
 def test_acquisition_card_and_dashboard_share_one_verified_rule():

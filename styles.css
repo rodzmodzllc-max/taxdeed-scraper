@@ -896,14 +896,8 @@ summary.county-head::-webkit-details-marker{display:none}
   .detail-modal{align-items:center;padding:1.5rem}
   .detail-modal-inner{border-radius:16px;max-height:88vh}
 }
-/* My Bid List modal reuses the detail-modal shell (same overlay, close
-   button, scroll behavior) but holds up to BID_LIST_MAX full property cards
-   rather than one roomy detail page - wider than the single-property detail
-   modal so its .prop-list.flat can fall into the same auto-fill grid
-   (min 330px/column, see the 1024px breakpoint below) instead of forcing
-   ten cards into one long single-file scroll on a big screen. */
-.bidlist-modal-inner{max-width:600px}
-@media (min-width:1024px){.bidlist-modal-inner{max-width:1000px}}
+/* The My Watchlist modal (.bidlist-modal-inner) is gone: the watchlist is a
+   page now - see identity.css .watchlist-page (remediation, 2026-10-10). */
 /* Queued-while-full properties, shown below the main bid-list card grid -
    a plain stacked list (not cards) since these aren't on the list yet, just
    waiting their turn. */
