@@ -36,7 +36,7 @@ def test_n01_shell_navigation_pages_ledger_entries_and_actions_on_both_pages():
         assert _nav_pages(html, "nav-bottom-item") == ["dashboard", "list", "map", "watchlist"]
         assert re.findall(r'class="nav-item nav-ledger" data-nav-ledger="([a-z]+)"', html) == ["laft", "auction", "certificate"]
         assert re.findall(r'class="nav-item" data-nav="([a-z]+)"', html) == ["saved", "states", "about"]
-        assert 'id="navBottomAccount"' in html and 'aria-controls="accountMenu"' in html
+        assert 'id="navBottomAccount"' not in html and 'id="navSettingsBtn"' in html and 'aria-controls="accountMenu"' in html  # Remediation: one account entry per width (badge + rail foot)
         assert not re.search(r'class="nav-(bottom-)?item[^"]*" data-page="[a-z]+" data-ledger=', html)
         assert "Liens &amp; Certs<" not in html                      # the full ledger name only
         # The admin entry is hidden until the server profile says admin.
@@ -56,7 +56,7 @@ def test_n02_ledger_selector_lives_inside_the_list_page_and_names_all_three_ledg
         page = html[html.index('id="pageList"'):html.index('id="pageMap"')]
         assert 'id="ledgerTabs"' in page and 'id="regionTabs"' not in page      # the state is the header's #stateSelect
         assert [m for m in re.findall(r'class="ledger-tab" data-ledger="([a-z]+)"', page)] == ["auction", "laft", "certificate"]
-        assert cert_label + " <b" in page
+        assert 'id="tabCountCertificate"' not in page  # Remediation: the tab label carries no repeated count; the nav shows it once
 
 
 def test_n03_map_page_carries_state_ledger_county_context_and_selectors():
@@ -64,7 +64,7 @@ def test_n03_map_page_carries_state_ledger_county_context_and_selectors():
         page = html[html.index('id="pageMap"'):]
         assert 'id="mapCountySelect"' in page and 'id="mapLedgerPills"' in page
         assert 'id="mapStateSelect"' not in page and 'id="mapContextState"' not in page   # no competing state control / badge
-        assert 'id="mapContextLedger"' in page and 'id="mapContextCounty"' in page
+        assert 'id="mapContextLedger"' not in page and 'id="mapContextCounty"' not in page  # Remediation: the toolbar controls are the one display
         assert "All Ledgers</button>" in page and cert_label + "</button>" in page
         assert 'id="mapPageState"' not in page                       # the "Map · Florida" label is gone
     # The pills are exactly: the aggregation plus the three backend ledgers.
@@ -90,9 +90,12 @@ def test_n05_router_routes_four_pages_and_keeps_every_existing_hash_working():
     assert 'if (SLUG_TO_LEDGER[seg]) return { page: "list", ledger: SLUG_TO_LEDGER[seg], pid: sub, params };' in block  # #/auctions|lands|certificates[/pid]
     assert 'if (seg === "list")' in block and 'seg === "dashboard" || seg === "map" || seg === "watchlist"' in block
     # County Intelligence (2026-10-06) is a fourth shell page; the three original pages are unchanged.
-    assert 'const SHELL_PAGES = { dashboard: "pageDashboard", list: "pageList", map: "pageMap", county: "pageCounty", research: "pageResearch" };' in APP
+    assert 'const SHELL_PAGES = { dashboard: "pageDashboard", list: "pageList", map: "pageMap", county: "pageCounty", research: "pageResearch", watchlist: "pageWatchlist" };' in APP
     assert 'if (seg === "counties")' in block and 'if (seg === "county")' in block and 'if (seg === "research")' in block
-    assert 'if (name === "auctions") name = "list";' in APP and 'if (name === "watchlist") { openBidList(); return; }' in APP
+    assert 'if (name === "auctions") name = "list";' in APP
+    # Remediation (2026-10-10): the watchlist is a shell page of its own, not a
+    # layer opened over the List.
+    assert 'watchlist: "pageWatchlist"' in APP and 'if (name === "watchlist") renderWatchlistPage();' in APP
     # Map context is hash state, not routes per combination.
     assert 'q.set("ledger", mapFilter.ledger)' in APP and 'q.set("county", mapFilter.county)' in APP and 'q.set("q", mapFilter.search)' in APP
     assert 'return "#/map" + (qs ? "?" + qs : "");' in APP
@@ -107,7 +110,12 @@ def test_n06_map_county_select_is_scoped_to_state_and_ledger_and_counts_the_sele
     block = APP[APP.index("function mapCountyCandidates"):APP.index("function renderMapContext")]
     assert "regionOf(p) === PAGE_STATE" in block
     assert '(mapFilter.ledger === "all" || p.source === mapFilter.ledger)' in block
-    assert 'if (mapFilter.county !== "ALL" && !counts.has(mapFilter.county)) mapFilter.county = "ALL";' in block
+    # One county model (2026-10-10): a county with no rows in the chosen ledger
+    # clears the SHARED selection once that ledger's rows are settled (never a
+    # Map-only fallback), and is kept while they are still loading.
+    assert 'if (mapFilter.county !== "ALL" && !counts.has(mapFilter.county)) {' in block
+    assert 'if (mapLedgerSettled()) { applyCountySelection("ALL"); return; }' in block
+    assert "function mapLedgerSettled()" in block
     assert "countyCounts()" not in block                                # never the portfolio-wide count
     # The rows the map draws use the same ledger test.
     rows = APP[APP.index("function computeMapRows"):APP.index("function mapCountyCandidates")]
@@ -124,25 +132,37 @@ def test_n07_list_and_map_share_one_ledger_definition_from_the_backend_source_co
 
 def test_n08_dashboard_is_an_operating_view_with_no_score_and_honest_not_tracked_wording():
     block = APP[APP.index("function dashboardOps"):APP.index("// ---- desktop data table ----")]
-    for panel in ("dashAttentionRows", "dashRecentRows", "dashPathRows", "dashCountyRows", "dashLedgerRows", "dashUpcomingRows", "dashSourceRows", "dashUnitRows", "dashWatchChanges"):
+    # Remediation (2026-10-10): the Recent, By County, By Ledger and Upcoming
+    # panels repeated figures shown on Home; they are gone from the page.
+    for panel in ("dashAttentionRows", "dashPathRows", "dashSourceRows", "dashUnitRows", "dashWatchChanges"):
         assert panel in block, panel
         assert f'id="{panel}"' in INDEX and f'id="{panel}"' in TX, panel
+    for gone in ("dashRecentRows", "dashCountyRows", "dashLedgerRows", "dashUpcomingRows"):
+        assert f'id="{gone}"' not in INDEX and f'id="{gone}"' not in TX, gone
     assert "First-recorded date not tracked" in block and "Per-row read date not tracked" in block
     assert "Not recorded on this deployment" in block
     assert "Not yet verified - no purchase path established from evidence" in block
     assert "Sum of county values" not in block
     assert not re.search(r"\b(score|rank|recommend|estimate)\w*", block, re.I)
-    assert 'data-go-ledger="${esc(key)}"' in block and 'showPage("list"); setLedger(btn.dataset.goLedger);' in block
+    # Remediation (2026-10-10): the ledger totals are shown once, on the Home
+    # ledger cards; the operating view's own tiles (#dashStats) are gone.
+    assert 'id="dashStats"' not in INDEX and 'id="dashStats"' not in TX
+    assert "data-go-ledger" not in block and 'data-home-ledger="${esc(k)}"' in APP
 
 
 def test_n09_watchlist_folds_the_same_parcel_across_ledgers_and_is_a_destination():
-    block = APP[APP.index("function renderBidListModal"):APP.index("function openBidList")]
+    block = APP[APP.index("function renderWatchlistPage"):APP.index("function openBidList")]
     assert "relatedRecordsFor(p)" in block and "folded.add(o.id)" in block and "bidlist-related" in block
+    # A destination: #/watchlist is a page hash (pageHash), the page is created
+    # like County Intelligence / My Research, and no watchlist modal remains.
+    assert 'if (name === "watchlist") return "#/watchlist";' in APP
+    assert "function ensureWatchlistSection()" in APP
+    assert 'id="bidListModal"' not in INDEX and 'id="bidListModal"' not in TX
     opener = APP[APP.index("function openBidList"):APP.index("function closeBidList")]
-    assert 'history.replaceState(history.state, "", "#/watchlist");' in opener
+    assert 'showPage("watchlist");' in opener
 
 
 def test_n10_service_worker_bumped_and_root_mirror_matches_public():
-    assert (REPO / "public/sw.js").read_text(encoding="utf-8").count('const CACHE = "tdw-shell-v116"') == 1
+    assert (REPO / "public/sw.js").read_text(encoding="utf-8").count('const CACHE = "tdw-shell-v122"') == 1
     for f in ("app.js", "styles.css", "sw.js", "index.html", "tx.html", "explore.css"):
         assert (REPO / f).read_bytes() == (REPO / "public" / f).read_bytes(), f
