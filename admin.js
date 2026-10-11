@@ -64,6 +64,8 @@ async function gate() {
   await refreshCustomers();
   await refreshUsage();
   await refreshSources();
+  await refreshFreshness();
+  initInventory();
 }
 
 // Product usage (migration 024's product_usage_summary(), admin-only on the
@@ -100,6 +102,7 @@ async function refreshUsage() {
 // the registry does not track shows "not tracked", never a guessed date.
 let SOURCES = null;
 let FRESHNESS = new Map();
+let REGISTRY_UNITS = null;   // every county_source_registry row with its freshness columns (null = the columns are not live)
 const TYPE_LABELS = { GOVERNMENT: "Government", DOCUMENT: "PDF / document", GIS: "GIS / parcel", COURT_PUBLIC_RECORD: "Court / public record",
   PUBLIC_NOTICE: "Public notice", AUCTION_VENDOR: "Auction vendor", THIRD_PARTY: "Third party", FEDERAL_DATASET: "Federal dataset" };
 async function refreshSources() {
@@ -111,8 +114,9 @@ async function refreshSources() {
   } catch { SOURCES = null; }
   if (!SOURCES) { status.textContent = "The source inventory could not be loaded."; return; }
   const { data, error } = await sb.from("county_source_registry")
-    .select("state,county,source_id,last_attempt_at,last_attempt_status,last_success_at,consecutive_failures,last_error_category");
-  FRESHNESS = new Map((error ? [] : data || []).map(r => [`${r.state}:${r.county}:${r.source_id || "unharvested_list"}`, r]));
+    .select("state,county,source_id,ledgers,last_attempt_at,last_attempt_status,last_success_at,last_success_row_count,consecutive_failures,last_error_category");
+  REGISTRY_UNITS = error ? null : (data || []);
+  FRESHNESS = new Map((REGISTRY_UNITS || []).map(r => [`${r.state}:${r.county}:${r.source_id || "unharvested_list"}`, r]));
   const stSel = document.getElementById("adminSourcesState");
   const tySel = document.getElementById("adminSourcesType");
   if (stSel.options.length === 1) {
@@ -265,6 +269,186 @@ function customersTable(rows, billing) {
     </tr>`;
   }).join("");
   return `<table class="admin-usage-table admin-customers-table"><thead>${head}</thead><tbody>${body}</tbody></table>`;
+}
+
+// ---- Operator diagnostics (moved here from the customer Dashboard, 2026-10-10) ----
+// Dataset health is DERIVED at read time from public.source_health and must
+// stay in step with scripts/source_health.py derive_health() and with the
+// customer page's healthOf() in app.js (the customer page shows one plain
+// status per source; this page shows the operator detail behind it).
+const HEALTH_STALE_MULTIPLIER = 2;
+const HEALTH_TEXT = { HEALTHY: "Healthy", INCOMPLETE: "Incomplete", FAILED: "Failed", STALE: "Stale", NOT_RUN: "Not run" };
+function healthOf(rec, now) {
+  const t = now || Date.now();
+  if (!rec || !rec.last_attempt_at) return "NOT_RUN";
+  if (rec.last_attempt_status === "FAILED") return "FAILED";
+  if (rec.completeness === "INCOMPLETE") return "INCOMPLETE";
+  if (rec.mode === "scheduled" && rec.cadence_hours) {
+    if (!rec.last_success_at) return "FAILED";
+    const age = (t - Date.parse(rec.last_success_at)) / 3600000;
+    if (age > rec.cadence_hours * HEALTH_STALE_MULTIPLIER) return "STALE";
+  }
+  return "HEALTHY";
+}
+function relativeTime(iso) {
+  if (!iso) return "never";
+  const t = Date.parse(iso);
+  if (isNaN(t)) return "unknown";
+  const h = Math.round((Date.now() - t) / 3600000);
+  if (h < 1) return "under an hour ago";
+  if (h < 48) return `${h}h ago`;
+  return `${Math.round(h / 24)}d ago`;
+}
+// One row per dataset with the operator detail (cadence, last success, last
+// attempt and its status, row count, completeness, incomplete units, error).
+function healthRowHtml(rec) {
+  const health = healthOf(rec);
+  const units = rec.units_total !== null && rec.units_total !== undefined
+    ? `${rec.units_complete}/${rec.units_total} units complete` : "completeness not gated";
+  const bits = [
+    rec.mode === "manual" ? "manual runs, no schedule" : (rec.cadence_hours ? `every ${rec.cadence_hours}h` : "scheduled"),
+    `last success ${relativeTime(rec.last_success_at)}`,
+    `last attempt ${relativeTime(rec.last_attempt_at)} (${String(rec.last_attempt_status || "?").toLowerCase()})`,
+    rec.row_count !== null && rec.row_count !== undefined ? `${rec.row_count} rows` : "row count unknown",
+    units
+  ];
+  const inc = (rec.incomplete_units || []).slice(0, 4);
+  const detail = inc.length ? ` · incomplete: ${inc.join(", ")}${(rec.incomplete_units || []).length > 4 ? ", …" : ""}` : (rec.error && health === "FAILED" ? ` · ${rec.error}` : "");
+  return `<tr class="health-row" data-source="${esc(rec.source)}" data-health="${esc(health)}" data-state="${esc(rec.state || "")}"><td>${esc(rec.state || "")}</td><td>${esc(rec.label || rec.source)}</td><td><span class="health-badge ${esc(health.toLowerCase())}">${esc(HEALTH_TEXT[health] || health)}</span></td><td>${esc(bits.join(" · "))}${esc(detail)}</td></tr>`;
+}
+// One row per (county, source) unit: last read / last complete read / rows at
+// that read / consecutive failures, plus the three operator states the
+// customer page only summarises (source unavailable, no complete read in 36h,
+// back-off hold - scripts/unit_freshness.py).
+function unitRowHtml(u) {
+  const last = u.last_attempt_status ? String(u.last_attempt_status).toLowerCase() : "?";
+  const ok = u.last_attempt_status === "COMPLETE" || u.last_attempt_status === "EMPTY";
+  const bits = [
+    `last read ${relativeTime(u.last_attempt_at)} (${last})`,
+    u.last_success_at ? `last complete read ${relativeTime(u.last_success_at)}` : "no complete read recorded",
+    u.last_success_row_count !== null && u.last_success_row_count !== undefined ? `${u.last_success_row_count} rows at that read` : "row count unknown"
+  ];
+  if (Number(u.consecutive_failures) > 0) bits.push(`${u.consecutive_failures} consecutive failed attempt${Number(u.consecutive_failures) === 1 ? "" : "s"}`);
+  const unavailable = u.last_attempt_status === "SOURCE_UNAVAILABLE" || /^(TRANSPORT_|PROXY_|ACCESS_)/.test(String(u.last_error_category || ""));
+  if (unavailable) bits.push("source unavailable at the last attempt - inventory kept, nothing closed");
+  const sinceSuccess = u.last_success_at ? (Date.now() - Date.parse(u.last_success_at)) / 3600000 : null;
+  if (sinceSuccess === null || isNaN(sinceSuccess) || sinceSuccess > 36) bits.push("no complete read in the last 36 hours");
+  if (Number(u.consecutive_failures) >= 3) bits.push("back-off: attempted at most once per 48 hours until a read succeeds");
+  return `<tr class="unit-row" data-state="${esc(u.state)}" data-county="${esc(u.county)}" data-source="${esc(u.source_id || "")}" data-fresh="${ok ? "current" : "stale"}" data-unavailable="${unavailable ? "1" : "0"}"><td>${esc(u.state)}</td><td>${esc(u.county)}</td><td class="admin-sub">${esc(u.source_id || "")}${u.ledgers ? ` · ${esc(u.ledgers)}` : ""}</td><td><span class="health-badge ${ok ? "healthy" : "stale"}">${ok ? "Current" : "Stale"}</span></td><td>${esc(bits.join(" · "))}</td></tr>`;
+}
+let HEALTH_ROWS = null;
+async function refreshFreshness() {
+  const status = document.getElementById("adminFreshnessStatus");
+  if (!status) return;
+  const { data, error } = await sb.from("source_health").select("*").order("source");
+  HEALTH_ROWS = error ? null : (data || []);
+  const sel = document.getElementById("adminFreshnessState");
+  if (sel && sel.options.length === 1) {
+    const states = new Set();
+    (HEALTH_ROWS || []).forEach(r => { if (r.state && r.state !== "ALL") states.add(r.state); });
+    (REGISTRY_UNITS || []).forEach(r => { if (r.state) states.add(r.state); });
+    [...states].sort().forEach(st => sel.add(new Option(st, st)));
+    sel.addEventListener("change", renderFreshness);
+  }
+  renderFreshness();
+}
+function renderFreshness() {
+  const status = document.getElementById("adminFreshnessStatus");
+  const list = document.getElementById("adminFreshnessList");
+  const units = document.getElementById("adminUnitList");
+  if (!status || !list || !units) return;
+  const st = (document.getElementById("adminFreshnessState") || {}).value || "";
+  const health = HEALTH_ROWS === null ? null : HEALTH_ROWS.filter(r => !st || r.state === st || r.state === "ALL");
+  const reg = REGISTRY_UNITS === null ? null : REGISTRY_UNITS.filter(u => u.last_attempt_at && (!st || u.state === st))
+    .sort((a, b) => String(a.state).localeCompare(String(b.state)) || String(a.county).localeCompare(String(b.county)) || String(a.source_id || "").localeCompare(String(b.source_id || "")));
+  const parts = [];
+  if (health === null) parts.push("Dataset health is not recorded on this deployment (migration 016 / scripts/source_health.py not live).");
+  else parts.push(`${health.length} dataset${health.length === 1 ? "" : "s"} with a recorded run.`);
+  if (reg === null) parts.push("Per-county freshness is not recorded on this deployment (migration 021 / scripts/unit_freshness.py not live).");
+  else parts.push(`${reg.length} county source unit${reg.length === 1 ? "" : "s"} with a recorded read.`);
+  status.textContent = parts.join(" ");
+  list.innerHTML = health && health.length ? `<table class="admin-usage-table admin-sources-table admin-health-table"><thead><tr><th>State</th><th>Dataset</th><th>Health</th><th>Operator detail</th></tr></thead><tbody>${health.map(healthRowHtml).join("")}</tbody></table>` : "";
+  units.innerHTML = reg && reg.length ? `<table class="admin-usage-table admin-sources-table admin-units-table"><thead><tr><th>State</th><th>County</th><th>Source</th><th>Read</th><th>Operator detail</th></tr></thead><tbody>${reg.map(unitRowHtml).join("")}</tbody></table>` : "";
+}
+
+// Collected inventory by source: what is collected in a state against what a
+// customer sees. The Detroit customer subset rule is the same deterministic
+// rule the customer page applies (app.js detroitSubsetStatus /
+// harvesters/otc/detroit_subset.py; tests pin the constants equal).
+const DETROIT_SOURCE_IDS = ["mi_detroit_landbank_lots", "mi_detroit_landbank_programs"];
+const DETROIT_STRUCTURE_SOURCE_ID = "mi_detroit_landbank_lots";
+const DETROIT_STRUCTURE_STATUSES = ["Marketed Structure For Sale"];
+const DETROIT_SUBSET_PERCENT = 50;
+function fnv1a32(text) {
+  let h = 0x811c9dc5;
+  for (const b of new TextEncoder().encode(String(text))) { h ^= b; h = Math.imul(h, 0x01000193) >>> 0; }
+  return h >>> 0;
+}
+function detroitSubsetStatus(p) {
+  if (!p || !DETROIT_SOURCE_IDS.includes(p.source_id)) return null;
+  if (p.source_id !== DETROIT_STRUCTURE_SOURCE_ID || !DETROIT_STRUCTURE_STATUSES.includes(String(p.inventory_status_raw || "").trim())) return "not_structure";
+  const parcel = String(p.parcel || p.case_no || "").trim();
+  return fnv1a32(`${p.source_id}|${parcel}`) % 100 < DETROIT_SUBSET_PERCENT ? "in_subset" : "not_selected";
+}
+const REVIEW_LABELS = { APPROVED: "Approved", APPROVED_GRANDFATHERED: "Approved (grandfathered)", UNREVIEWED: "Unreviewed", RESTRICTED: "Review required", BLOCKED: "Blocked" };
+const LEDGER_NAMES = { auction: "Auctions", laft: "Available", certificate: "Liens & Certificates" };
+function customerPublishable(status) { return !status || status === "APPROVED" || status === "APPROVED_GRANDFATHERED"; }
+function isGoneRow(p) { return p.status && p.status !== "active" && p.status !== "available"; }
+const INVENTORY_PAGE = 1000;
+const INVENTORY_COLUMNS = "id,source,source_id,harvester_source,county,status,publication_status,last_seen_at,inventory_status_raw,parcel,case_no";
+function initInventory() {
+  const sel = document.getElementById("adminInventoryState");
+  const btn = document.getElementById("adminInventoryLoad");
+  const mode = document.getElementById("adminInventoryMode");
+  if (!sel || !btn) return;
+  const states = new Set((SOURCES && SOURCES.sources ? SOURCES.sources.map(s => s.state) : []).filter(Boolean));
+  (REGISTRY_UNITS || []).forEach(r => { if (r.state) states.add(r.state); });
+  if (!states.size) ["FL", "TX"].forEach(st => states.add(st));
+  if (!sel.options.length) [...states].sort().forEach(st => sel.add(new Option(st, st)));
+  if (mode) mode.textContent = String(cfg.publicationMode || "enforced") === "preview"
+    ? "Customer preview mode (config.js publicationMode): every collected source is shown to every user, labelled."
+    : "Customer mode: customers see approved sources only; administrators see every collected source, labelled.";
+  btn.addEventListener("click", () => loadInventory(sel.value));
+}
+async function loadInventory(st) {
+  const status = document.getElementById("adminInventoryStatus");
+  const list = document.getElementById("adminInventoryList");
+  const btn = document.getElementById("adminInventoryLoad");
+  if (!status || !list || !st) return;
+  btn.disabled = true;
+  list.innerHTML = "";
+  const rows = [];
+  try {
+    for (let off = 0; ; off += INVENTORY_PAGE) {
+      status.textContent = `Loading ${st}: ${rows.length.toLocaleString("en-US")} rows read so far`;
+      const { data, error } = await sb.from("properties").select(INVENTORY_COLUMNS).eq("state", st).order("id").range(off, off + INVENTORY_PAGE - 1);
+      if (error) { status.textContent = `Could not read ${st}: ${error.message}`; btn.disabled = false; return; }
+      const page = data || [];
+      rows.push(...page);
+      if (page.length < INVENTORY_PAGE) break;
+    }
+  } catch (e) { status.textContent = `Could not read ${st}: ${e && e.message ? e.message : e}`; btn.disabled = false; return; }
+  btn.disabled = false;
+  const by = new Map();
+  rows.forEach(p => {
+    const key = p.source_id || p.harvester_source || "(no source id)";
+    const e = by.get(key) || { source: key, ledger: p.source, status: p.publication_status || null, rows: 0, active: 0, customer: 0, counties: new Set(), lastSeen: null,
+      detroit: DETROIT_SOURCE_IDS.includes(key), structure: 0, subset: 0 };
+    e.rows++;
+    if (!isGoneRow(p)) e.active++;
+    const det = detroitSubsetStatus(p);
+    if (customerPublishable(p.publication_status) && (det === null || det === "in_subset")) e.customer++;
+    if (det && det !== "not_structure") e.structure++;
+    if (det === "in_subset") e.subset++;
+    e.counties.add(p.county || "Unknown");
+    if (p.last_seen_at && (!e.lastSeen || p.last_seen_at > e.lastSeen)) e.lastSeen = p.last_seen_at;
+    by.set(key, e);
+  });
+  const summary = [...by.values()].sort((x, y) => (customerPublishable(x.status) - customerPublishable(y.status)) || y.rows - x.rows);
+  const pending = summary.filter(e => !customerPublishable(e.status));
+  status.textContent = `${st}: ${rows.length.toLocaleString("en-US")} collected row${rows.length === 1 ? "" : "s"} across ${summary.length} source${summary.length === 1 ? "" : "s"}; ${pending.length} source${pending.length === 1 ? "" : "s"} awaiting customer-publication review.`;
+  list.innerHTML = summary.length ? `<table class="admin-usage-table admin-sources-table admin-inventory-table"><thead><tr><th>Source</th><th>Ledger</th><th>Source review</th><th>Collected</th><th>Active</th><th>Counties</th><th>Customer-visible</th><th>Detroit subset</th><th>Last read</th></tr></thead><tbody>${summary.map(e =>
+    `<tr data-source-id="${esc(e.source)}"><td>${esc(e.source)}</td><td>${esc(LEDGER_NAMES[e.ledger] || e.ledger)}</td><td>${esc(e.status ? (REVIEW_LABELS[e.status] || e.status) : "Not classified")}</td><td>${e.rows}</td><td>${e.active}</td><td>${e.counties.size}</td><td>${e.customer}</td><td>${e.detroit ? `${e.subset} of ${e.structure} with a verified structure` : ""}</td><td>${e.lastSeen ? esc(dateOnly(e.lastSeen)) : "not recorded"}</td></tr>`).join("")}</tbody></table>` : "";
 }
 
 document.getElementById("adminSignOut").addEventListener("click", async () => {

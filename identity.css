@@ -246,6 +246,7 @@ a{color:var(--copper-deep)}
 .home-ledger-kicker{color:var(--lc,var(--ink))!important;font-size:.82rem!important;letter-spacing:.14em}
 .home-ledger-count{font-family:var(--font-display)!important;font-weight:700!important;font-size:2.6rem!important;color:var(--ink)}
 .home-ledger-unit{color:var(--ink-soft)!important}
+.home-ledger-withheld{color:var(--rust,#9a4a2a);font-weight:600}
 .home-ledger-blurb{color:var(--ink)!important;font-size:.82rem!important;-webkit-line-clamp:3!important}
 .home-ledger-go{color:var(--lc,var(--copper-deep))!important;text-transform:uppercase;letter-spacing:.08em;font-size:.72rem!important}
 .home-states-card{--lc:var(--charcoal)}
@@ -795,6 +796,25 @@ body:has(#authGate:not([hidden])){padding-bottom:0!important}
   .cty-table td{display:block;border:0;padding:.1rem 0}
 }
 
+/* ---- Acquisition-path gate (2026-10-10) ------------------------------- */
+.acq-gate-chip{display:inline-block;font-size:.68rem;font-weight:700;letter-spacing:.02em;padding:.1rem .45rem;border:1px solid var(--rust,#9a4a2a);color:var(--rust,#9a4a2a);background:var(--paper-white,#fff);margin:.15rem .3rem 0 0}
+.acq-gate-chip[data-acq-gate="no_route"]{border-color:var(--bad,#8a1c1c);color:var(--bad,#8a1c1c)}
+.acq-gate-chip[data-acq-gate="metadata_gap"],.acq-gate-chip[data-acq-gate="stale"]{border-color:var(--warm-gray,#6b6660);color:var(--warm-gray,#6b6660)}
+.ledger-gate-withheld{border-left:3px solid var(--rust,#9a4a2a)}
+.acq-gate-verdict{font-weight:700}
+.acq-gate-verdict[data-acq-gate="verified"]{color:var(--sage,#4d6b4a)}
+.acq-gate-verdict:not([data-acq-gate="verified"]){color:var(--rust,#9a4a2a)}
+
+/* ---- Watchlist page (remediation, 2026-10-10) ---------------------- */
+/* The watchlist used to be a modal over the List (.bidlist-modal-inner); it is
+   a page now, laid out like My Research, with the card grid the modal used. */
+.watchlist-page{padding:1.25rem 1rem 3rem;max-width:1280px;margin:0 auto}
+.watchlist-head{margin-bottom:.9rem}
+.watchlist-back{display:inline-block;margin-bottom:.5rem;font-size:.85rem}
+.watchlist-title{margin:0 0 .25rem;font-size:1.5rem}
+.watchlist-count{color:var(--warm-gray);font-weight:600;font-size:1rem}
+.watchlist-sub{margin:0}
+
 /* ---- My Research (2026-10-06) ---------------------------------------- */
 .research-page{padding:1.25rem 1rem 3rem;max-width:1280px;margin:0 auto}
 .research-storage{font-size:.82rem;color:var(--warm-gray);border-left:3px solid var(--rule-strong);padding:.3rem .6rem;margin:.4rem 0 .9rem;background:var(--paper-white)}
@@ -918,3 +938,75 @@ body:has(#authGate:not([hidden])){padding-bottom:0!important}
 .account-goto{border-bottom:1px solid var(--rule);padding:.2rem 0 .3rem;margin-bottom:.2rem}
 .account-goto-head{margin:.3rem .9rem .1rem;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-soft)}
 @media (min-width:1024px){ .account-goto{display:none} }
+
+/* Remediation (2026-10-10): on a phone the three ledgers form one even row.
+   Long labels ("Liens & Certificates") wrap inside their tab instead of
+   clipping at the edge, and the row no longer scrolls sideways. */
+@media (max-width:1023px){
+  .ledger-tabs{display:grid!important;grid-template-columns:repeat(3,minmax(0,1fr))!important;overflow:visible!important;-webkit-mask-image:none!important;mask-image:none!important}
+  .ledger-tab{white-space:normal!important;text-align:center;line-height:1.2;min-height:44px}
+}
+
+/* Remediation (2026-10-10): the property page is also the desktop side panel
+   (a column of roughly 360px). Its wide parts - the diligence grid and the
+   parcel timeline - were forcing the whole page sideways at 1024-1920px. Inside
+   the panel every block may shrink, and long words wrap instead of widening it. */
+.auctions-body>.detail-panel{min-width:0;max-width:100%;overflow-wrap:anywhere}
+.auctions-body>.detail-panel *{min-width:0;max-width:100%;box-sizing:border-box}
+.auctions-body>.detail-panel table{display:block;overflow-x:auto}
+
+/* Sign-in visual (remediation 2026-10-10): a slow, unlabeled preview of property
+   card layouts behind the copy. The cards are sample layouts, not listings: no
+   identifiers, prices or dates, only the three ledger colours and skeleton lines,
+   captioned "Layout sample, not a listing." They stay sharp (no blur) and sit at
+   low opacity with faded top and bottom edges so the sign-in copy keeps its
+   contrast. Each column scrolls one copy of its cards per loop; the duplicate
+   group is aria-hidden. Reduced-motion users get the static layout (see the
+   global reduced-motion rule above). */
+@media (min-width:900px){
+  .auth-preview{position:absolute;inset:0;z-index:0;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;
+    padding:20px 22px;box-sizing:border-box;opacity:.32;overflow:hidden;pointer-events:none;
+    -webkit-mask-image:linear-gradient(to bottom,transparent,#000 22%,#000 78%,transparent);
+    mask-image:linear-gradient(to bottom,transparent,#000 22%,#000 78%,transparent)}
+  .auth-preview-col{overflow:hidden;min-height:0}
+  .auth-preview-track{display:flex;flex-direction:column;animation:auth-preview-up 48s linear infinite}
+  .auth-preview-col:nth-child(2) .auth-preview-track{animation-duration:58s;animation-delay:-20s}
+  .auth-preview-col:nth-child(3) .auth-preview-track{animation-duration:44s;animation-delay:-9s}
+  .auth-preview-group{display:flex;flex-direction:column;gap:16px;padding-bottom:16px}
+  .auth-preview-card{flex:none;height:206px;box-sizing:border-box;border:1px solid rgba(237,230,218,.5);border-radius:6px;
+    background:rgba(237,230,218,.05);overflow:hidden;display:flex;flex-direction:column}
+  .auth-preview-photo{height:118px;flex:none;background:linear-gradient(160deg,rgba(237,230,218,.10),rgba(237,230,218,.02));border-bottom:1px solid rgba(237,230,218,.3)}
+  .auth-preview-photo svg{display:block;width:100%;height:100%}
+  .auth-preview-body{padding:10px 12px;display:flex;flex-direction:column;gap:6px}
+  .auth-preview-price{font-family:var(--font-display);font-size:1.05rem;color:#EDE6DA;font-weight:700;letter-spacing:-.01em}
+  /* The street address is blurred on purpose, as on the real cards: the price and picture carry the preview. */
+  .auth-preview-addr{font-family:var(--font-sans);font-size:.72rem;color:#EDE6DA;filter:blur(3.5px);user-select:none}
+  .auth-preview-note{position:relative;z-index:1;margin:0 0 .9rem;font-family:var(--font-sans);font-size:.6rem;font-weight:700;
+    letter-spacing:.14em;text-transform:uppercase;color:#D08A63}
+  @keyframes auth-preview-up{from{transform:translateY(0)}to{transform:translateY(-50%)}}
+  /* The quote, caption and legend sit on a calm band: the cards fade out under it. */
+  .auth-visual-foot{background:linear-gradient(to top,var(--charcoal) 60%,rgba(0,0,0,0));padding:6rem 3.2rem 0;margin:-6rem -3.2rem 0}
+}
+
+/* Card redesign (remediation, 2026-10-11): the picture leads. Cards are a 4:3
+   image over a short body - type and county, address, parcel, one price and the
+   way in. Imagery is the public-domain USDA NAIP aerial where stored, else the
+   county context placeholder; nothing decorative is added. */
+.prop-card .prop-card-photo{width:100%;height:auto;aspect-ratio:4/3;max-height:none;border-radius:0}
+.prop-card .prop-card-photo img,.prop-card .prop-card-photo svg{width:100%;height:100%;object-fit:cover}
+.prop-card .prop-body{padding:12px 14px 14px;display:flex;flex-direction:column;gap:8px;min-width:0}
+.prop-card .prop-body .prop-top{align-items:flex-start;gap:6px}
+.prop-card .prop-body .prop-address{overflow-wrap:anywhere}
+.prop-card .card-price .card-stat-val{font-family:var(--font-display);font-size:1.45rem;line-height:1.15;color:var(--ink);font-weight:700}
+.prop-card .card-price .card-stat-label{font-size:.66rem;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft)}
+/* The ledger's long description sits behind a disclosure so the cards lead. */
+.ledger-about{margin:.4rem 0 .6rem}
+.ledger-about>summary{cursor:pointer;font-size:.72rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--copper-deep);padding:.2rem 0}
+.ledger-about>.mega-sub,.ledger-about>.ledger-how{margin-top:.5rem}
+/* Inside a county group the card stacks: the picture leads, full width of a
+   comfortable column, the facts follow. */
+.county-group .prop-list .prop-card,.county-group .prop-card{display:flex!important;flex-direction:column;grid-template-columns:none!important;max-width:420px}
+.county-group .prop-card .prop-card-photo{width:100%}
+.county-group .prop-card>.prop-card-photo{flex:0 0 auto;align-self:stretch;width:calc(100% + 1.6rem)!important;min-width:0;height:auto!important;max-height:none!important;aspect-ratio:4/3!important;box-sizing:border-box;margin:-.7rem -.8rem .6rem!important}
+.county-group .prop-card>.prop-body{width:100%;box-sizing:border-box}
+.county-group .prop-card>*{grid-column:auto!important;grid-row:auto!important}
