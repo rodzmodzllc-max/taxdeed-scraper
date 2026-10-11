@@ -3245,6 +3245,32 @@ Full description: `docs/source-coverage-verification.md`. Stable facts:
 - **`stamp_seen.py --provenance`** (both FL stamp steps) writes
   `vendor_listing` field provenance for list columns where none exists;
   never replaces an entry; idempotent.
+
+## Final backend completion sprint: gap closure (2026-10-11, PR open, no migration)
+
+Full description: `docs/gap-closure-2026-10-11.md`; the queue:
+`docs/gap-queue.md` (`scripts/build_gap_queue.py --check`). Stable facts:
+- **Every scheduled per-state population read pages by keyset.**
+  `detect_property_changes.Api.population`, `inventory_status_writer.fetch_rows`
+  and `publication_gate.fetch_rows` go through `rest_pages.read_all`; a test
+  forbids `offset` there. The LA / WY syncs failed on HTTP 500 at the offset
+  read on every run from 2026-10-07 to 2026-10-10 on `main`, whose
+  `sync_state_inventory.py` still lacks the keyset fix (PR #132's stack).
+- **`stamp_seen.CARRY_COLUMNS`** carries the RealAuction certificate number
+  (`cert` → `certificate_no`) and the LienHub legal description
+  (`legal_desc`) fill-blank under `field_provenance.may_write`, with a
+  `vendor_listing` entry per carried column; never replaces a higher-ranked
+  value; idempotent; one PATCH per changed row.
+- **`harvesters/governance/procedure_rules.py`**: one VERIFIED PROCEDURE rule
+  per applicable evidence row and ledger (`acquisition_procedure_<ledger>`),
+  statement = the evidence wording. `scripts/build_procedure_rules.py`
+  appends missing rules and never rewrites one; `--check` fails on a missing
+  or drifted rule. Rebuild the rules outputs after it.
+- **`harvesters/governance/gap_queue.py`**: categories A–F per unresolved
+  acquisition unit and non-current state × ledger unit, from the records.
+- The DLBA Vacant Land Policy is a verified evidence row (MI Wayne lots);
+  the source stays UNREVIEWED. No county or statute host is reachable from
+  the sandbox (proxy 403 / DNS); only `job=evidence` reads them.
 ## Front-end remediation + staged acquisition-path gate (2026-10-10/11, PR #137, no migration)
 
 Full description: `docs/acquisition-gate.md`; screenshots: `docs/review/pr-137-screenshots/`. Stable facts:

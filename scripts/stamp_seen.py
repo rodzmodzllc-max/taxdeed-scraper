@@ -44,6 +44,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 import urllib.parse
 import urllib.request
@@ -122,6 +123,30 @@ PROVENANCE_COLUMNS = {
                     "parcel": "parcel", "assessed": "assessed", "interest_rate": "interest_rate", "url_auction": "url_auction"},
 }
 PROVENANCE_SOURCE = "vendor_listing"   # RealAuction / Bid4Assets / LienHub: a vendor platform's list (scripts/field_provenance.RANK)
+# List columns the PowerShell syncs never send, carried onto the stored row
+# FILL-BLANK (scripts/field_provenance precedence: a blank takes the list's
+# value; a stored value is replaced only by a strictly higher-ranked source,
+# so an FDOR / hand-researched value is never overwritten by the list).
+# Production 2026-10-11 (read-only): FL auction certificate_no 0 of 1,185
+# active rows although every RealAuction 'Waiting' row publishes the tax
+# certificate number that opened the deed application (harvest key `cert`);
+# FL certificate legal_desc 525 of 1,611 although LienHub publishes a legal
+# description for every county-held certificate (harvest key `legal_desc`).
+# harvest key -> properties column.
+CARRY_COLUMNS = {
+    "auction": {"cert": "certificate_no"},
+    "certificate": {"legal_desc": "legal_desc"},
+}
+_TAG = re.compile(r"<[^>]+>")
+
+
+def clean_value(value) -> str | None:
+    """The list's own text with markup and surrounding whitespace removed;
+    None when nothing is left (a blank is never carried)."""
+    if value is None:
+        return None
+    text = _TAG.sub("", str(value)).strip()
+    return text or None
 
 
 def source_id_for(source: str, county: str) -> str:
@@ -164,24 +189,76 @@ def plan_provenance(rows: list, stored: list[dict], *, source: str, county: str,
     return out
 
 
+def plan_carry(rows: list, stored: list[dict], *, source: str, county: str, case_key: str, recorded_at: str) -> list[tuple]:
+    """[(row id, {column: value, ...})] for the stored rows of one county that
+    gain a CARRY_COLUMNS value this run: the list's non-blank value where the
+    stored column is blank or carries only a lower-ranked provenance entry
+    (field_provenance.may_write). Idempotent: once carried, the stored value
+    equals the list's and the entry is vendor_listing, so nothing is planned
+    again. Each carried column's provenance entry rides along in
+    `field_provenance` (merged, never replacing an unrelated entry)."""
+    import field_provenance as FP
+    carry = CARRY_COLUMNS.get(source, {})
+    if not carry:
+        return []
+    by_case = {}
+    for r in rows:
+        if str(r.get("county") or "") == county and r.get(case_key) not in (None, ""):
+            by_case[str(r[case_key])] = r
+    out = []
+    for st in stored:
+        hr = by_case.get(str(st.get("case_no") or ""))
+        if hr is None:
+            continue
+        fields, entries = {}, {}
+        for key, column in carry.items():
+            value = clean_value(hr.get(key))
+            if value is None or value == st.get(column):
+                continue
+            if not FP.may_write(st.get("field_provenance"), column, PROVENANCE_SOURCE, st.get(column)):
+                continue
+            fields[column] = value
+            entries[column] = FP.provenance_entry(PROVENANCE_SOURCE, source_id=source_id_for(source, county), recorded_at=recorded_at)
+        if fields:
+            out.append((st["id"], {**fields, "field_provenance": FP.merge_field_provenance(st.get("field_provenance"), entries)}))
+    return out
+
+
+def plan_patches(rows: list, stored: list[dict], *, source: str, county: str, case_key: str, recorded_at: str) -> list[tuple]:
+    """One PATCH body per stored row: the list-column provenance entries
+    (plan_provenance) and the carried columns (plan_carry) merged, so a row
+    is written at most once per run."""
+    import field_provenance as FP
+    bodies: dict = {}
+    for row_id, merged in plan_provenance(rows, stored, source=source, county=county, case_key=case_key, recorded_at=recorded_at):
+        bodies[row_id] = {"field_provenance": merged}
+    for row_id, body in plan_carry(rows, stored, source=source, county=county, case_key=case_key, recorded_at=recorded_at):
+        prior = bodies.get(row_id, {})
+        merged_prov = FP.merge_field_provenance(prior.get("field_provenance"), body["field_provenance"]) if prior else body["field_provenance"]
+        bodies[row_id] = {**prior, **body, "field_provenance": merged_prov}
+    return [(row_id, bodies[row_id]) for row_id in bodies]
+
+
 def stamp_provenance(base: str, key: str, *, state: str, source: str, rows: list, by_county: dict, case_key: str,
                      recorded_at: str) -> tuple[int, int, int]:
     """(rows read back, rows patched, failures). Reads each eligible county's
-    stored rows by keyset (scripts/rest_pages), plans, PATCHes by id."""
+    stored rows by keyset (scripts/rest_pages), plans the provenance entries
+    and the carried list columns, PATCHes each changed row once by id."""
     import rest_pages as RP
     headers = {"apikey": key, "Authorization": f"Bearer {key}", "Content-Type": "application/json", "User-Agent": USER_AGENT}
+    select = ",".join(["id", "case_no", "field_provenance", *sorted(set(CARRY_COLUMNS.get(source, {}).values()))])
     read = patched = failed = 0
     for county in sorted(by_county):
         try:
-            stored = RP.read_all(base, "properties", headers, {"select": "id,case_no,field_provenance", "state": f"eq.{state}",
+            stored = RP.read_all(base, "properties", headers, {"select": select, "state": f"eq.{state}",
                                                               "source": f"eq.{source}", "county": f"eq.{county}"})
         except Exception as exc:  # noqa: BLE001 - one county's read failing stamps nothing for it
             failed += 1
             print(f"::warning title=stamp_seen::provenance read failed for one county ({type(exc).__name__})")
             continue
         read += len(stored)
-        for row_id, merged in plan_provenance(rows, stored, source=source, county=county, case_key=case_key, recorded_at=recorded_at):
-            body = json.dumps({"field_provenance": merged}).encode()
+        for row_id, patch in plan_patches(rows, stored, source=source, county=county, case_key=case_key, recorded_at=recorded_at):
+            body = json.dumps(patch).encode()
             req = urllib.request.Request(f"{base.rstrip('/')}/rest/v1/properties?id=eq.{urllib.parse.quote(str(row_id))}",
                                          data=body, method="PATCH", headers={**headers, "Prefer": "return=minimal"})
             try:
@@ -245,7 +322,9 @@ def main(argv=None) -> int:
         sys.path.insert(0, str(Path(__file__).resolve().parent))
         read, patched, pfailed = stamp_provenance(base, key, state=a.state.upper(), source=a.source, rows=rows, by_county=by_county,
                                                   case_key=a.case_key, recorded_at=seen_at)
-        print(f"{a.state} {a.source}: provenance - {read} stored row(s) read back, {patched} gained list-column entries, {pfailed} failure(s)")
+        carried = ", ".join(sorted(CARRY_COLUMNS.get(a.source, {}).values())) or "none"
+        print(f"{a.state} {a.source}: provenance - {read} stored row(s) read back, {patched} gained list-column entries or carried "
+              f"columns ({carried}), {pfailed} failure(s)")
     return 0
 
 

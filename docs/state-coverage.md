@@ -60,7 +60,7 @@ LA - LIENS_CERTIFICATES: eligibility NOT_VERIFIED; no production source
 | Ledger | Eligibility | Classification | Sources known / implemented / approved | Active rows | Never stamped | Older than 36 h | Acquisition units VERIFIED | Next action |
 |---|---|---|---|---|---|---|---|---|
 | AUCTIONS | COUNTY_DEPENDENT | CURRENT | 2 / 2 / 2 | 38 | 0 | 0 | 0 of 0 | Keep reading; raise field population where a verified official layer exists (see fields). |
-| AVAILABLE | COUNTY_DEPENDENT | APPROVAL_UNRESOLVED | 3 / 3 / 0 | 30775 | 0 | 30770 | 1 of 3 | An administrator records a publication review for the source (data/available_publication_reviews.csv / admin panel); until then rows stay admin-only. |
+| AVAILABLE | COUNTY_DEPENDENT | APPROVAL_UNRESOLVED | 3 / 3 / 0 | 30775 | 0 | 30770 | 2 of 3 | An administrator records a publication review for the source (data/available_publication_reviews.csv / admin panel); until then rows stay admin-only. |
 | LIENS_CERTIFICATES | NOT_VERIFIED | RULES_NOT_VERIFIED | 0 / 0 / 0 | - | - | - | 0 of 0 | Read the state's statute / an official county procedure and record it in data/state_rules.csv before any source is built. |
 
 MI - AUCTIONS field population (active rows, snapshot): amount 38/38; bid_amount_mismatch 0/38; coords 38/38; dup_parcel 0/38; flood_checked 38/38; laft_bid_without_amount 0/38; link_not_https 0/38; list_as_of 0/38; list_as_of_future 0/38; never_seen 0/38; parcel 38/38; parcel_no_digit 0/38; past_sale 35/38; path_typed 38/38; provenance 38/38; seen_gt36h 0/38; seen_order_bad 0/38; source_link 38/38

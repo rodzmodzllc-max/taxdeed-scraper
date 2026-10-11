@@ -45,11 +45,12 @@
      "records": null,
      "rules": {
       "by_status": {
-       "VERIFIED": 1
+       "VERIFIED": 2
       },
-      "count": 1,
+      "count": 2,
       "county_rules": [
-       "Douglas"
+       "Douglas",
+       "Morgan"
       ],
       "unresolved": [],
       "verified_law": []
@@ -296,11 +297,12 @@
      "rules": {
       "by_status": {
        "NOT_VERIFIED": 1,
-       "VERIFIED": 1
+       "VERIFIED": 3
       },
-      "count": 2,
+      "count": 4,
       "county_rules": [
-       "Douglas"
+       "Douglas",
+       "Morgan"
       ],
       "unresolved": [
        "tax_lien_law"
@@ -3015,10 +3017,30 @@
      "rules": {
       "by_status": {
        "NOT_VERIFIED": 1,
-       "VERIFIED": 2
+       "VERIFIED": 21
       },
-      "count": 3,
-      "county_rules": [],
+      "count": 22,
+      "county_rules": [
+       "Alachua",
+       "Brevard",
+       "Calhoun",
+       "Citrus",
+       "Clay",
+       "Dixie",
+       "Duval",
+       "Franklin",
+       "Hernando",
+       "Highlands",
+       "Leon",
+       "Levy",
+       "Madison",
+       "Marion",
+       "Orange",
+       "Pasco",
+       "Sumter",
+       "Taylor",
+       "Volusia"
+      ],
       "unresolved": [
        "available_escheat"
       ],
@@ -5673,9 +5695,9 @@
      "rules": {
       "by_status": {
        "NOT_VERIFIED": 1,
-       "VERIFIED": 1
+       "VERIFIED": 2
       },
-      "count": 2,
+      "count": 3,
       "county_rules": [
        "East Baton Rouge"
       ],
@@ -5914,10 +5936,14 @@
      },
      "rules": {
       "by_status": {
-       "NOT_VERIFIED": 1
+       "NOT_VERIFIED": 1,
+       "VERIFIED": 2
       },
-      "count": 1,
-      "county_rules": [],
+      "count": 3,
+      "county_rules": [
+       "Eaton",
+       "Lenawee"
+      ],
       "unresolved": [
        "tax_sale_model"
       ],
@@ -5979,11 +6005,12 @@
     "AVAILABLE": {
      "acquisition": {
       "by_status": {
-       "NEEDS_REVIEW": 2,
-       "VERIFIED": 1
+       "NEEDS_REVIEW": 1,
+       "VERIFIED": 2
       },
       "units": 3,
       "verified_units": [
+       "Wayne (mi_detroit_landbank_lots)",
        "Oceana (mi_oceana_landbank)"
       ]
      },
@@ -6160,10 +6187,12 @@
      },
      "rules": {
       "by_status": {
-       "VERIFIED": 1
+       "VERIFIED": 2
       },
-      "count": 1,
-      "county_rules": [],
+      "count": 2,
+      "county_rules": [
+       "Wayne"
+      ],
       "unresolved": [],
       "verified_law": []
      },
@@ -7435,10 +7464,13 @@
      },
      "rules": {
       "by_status": {
-       "NOT_VERIFIED": 1
+       "NOT_VERIFIED": 1,
+       "VERIFIED": 1
       },
-      "count": 1,
-      "county_rules": [],
+      "count": 2,
+      "county_rules": [
+       "York"
+      ],
       "unresolved": [
        "redemption_law"
       ],
@@ -8446,10 +8478,11 @@
       "by_status": {
        "NOT_VERIFIED": 2,
        "SOURCE_RESTRICTED": 1,
-       "VERIFIED": 2
+       "VERIFIED": 3
       },
-      "count": 5,
+      "count": 6,
       "county_rules": [
+       "Galveston",
        "Harris"
       ],
       "unresolved": [
@@ -9356,10 +9389,12 @@
      },
      "rules": {
       "by_status": {
-       "VERIFIED": 2
+       "VERIFIED": 3
       },
-      "count": 2,
-      "county_rules": [],
+      "count": 3,
+      "county_rules": [
+       "Galveston"
+      ],
       "unresolved": [],
       "verified_law": []
      },
@@ -9939,10 +9974,14 @@
      },
      "rules": {
       "by_status": {
-       "NOT_VERIFIED": 1
+       "NOT_VERIFIED": 1,
+       "VERIFIED": 2
       },
-      "count": 1,
-      "county_rules": [],
+      "count": 3,
+      "county_rules": [
+       "Dane",
+       "Green"
+      ],
       "unresolved": [
        "tax_deed_law"
       ],

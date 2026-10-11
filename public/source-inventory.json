@@ -5059,6 +5059,28 @@
   },
   {
    "access": "ACCESSIBLE",
+   "access_note": "verified capture, observed 2026-10-03",
+   "county": "Wayne",
+   "evidence": "Official document read 2026-10-03 (docs/available-publication-evidence.md section 2): PDF created 2023-10-04, modified 2023-10-23, SHA-256 ac01ff4fa32154ca28c6bf04800124d77f1d90e56dab9485f093337823b6ffba. The policy names buildingdetroit.or",
+   "governance": "APPROVED",
+   "governance_reason": "",
+   "last_checked": "2026-10-03",
+   "legacy_status": "",
+   "name": "DETROIT LAND BANK AUTHORITY AMENDED AND RESTATED VACANT LAND POLICY (FINAL Oct 2023)",
+   "next_action": "",
+   "origin": "evidence",
+   "publisher": "Detroit Land Bank Authority",
+   "roles": [
+    "acquisition",
+    "source_date"
+   ],
+   "source_id": "evidence:MI:Wayne:30",
+   "source_type": "DOCUMENT",
+   "state": "MI",
+   "url": "https://dlba-production-bucket.s3.us-east-2.amazonaws.com/DLBA+Policies/POLICIES+-+Vacant+Land+Policy+(FINAL+Oct+2023).pdf"
+  },
+  {
+   "access": "ACCESSIBLE",
    "access_note": "production harvester harvest_expansion.py --state MI; last completeness UNKNOWN",
    "county": "Wayne",
    "evidence": "LIVE CAPTURE 2026-10-02 (GitHub Actions runs 37038385659): Wayne County - mi_detroit_landbank_lots; NO PUBLICATION DECISION YET (UNREVIEWED); docs/available-inventory.md",
@@ -8248,14 +8270,15 @@
    "sources": 11
   },
   "MI": {
-   "APPROVED": 6,
+   "APPROVED": 7,
    "HARD_BLOCKED": 0,
    "REVIEW_REQUIRED": 5,
    "by_type": {
+    "DOCUMENT": 1,
     "GIS": 1,
     "GOVERNMENT": 10
    },
-   "sources": 11
+   "sources": 12
   },
   "MN": {
    "APPROVED": 2,
