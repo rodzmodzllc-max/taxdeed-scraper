@@ -35,6 +35,20 @@ def to_cents(value: float | None) -> float | None:
     return float(Decimal(repr(float(value))).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
 
 
+def amounts_disagree(a: float | None, b: float | None) -> bool | None:
+    """Whether two stored currency figures (e.g. `bid` numeric(12,2) and
+    `purchase_amount` unbounded numeric) are different amounts. Compared at
+    whole cents, so a scale-only difference (1234.565 vs 1234.57, 0.3 vs
+    0.30000000000000004) is never a discrepancy and a real one (a cent or
+    more) always is. None when either side is missing: a missing figure is
+    neither equal nor unequal to a published one. The read-only checks
+    (scripts/sql/source_quality_matrix.sql) use the same rule:
+    round(a, 2) <> round(b, 2)."""
+    if a is None or b is None:
+        return None
+    return to_cents(a) != to_cents(b)
+
+
 # Currency columns an OtcRecord carries besides its amount / result_amount.
 CURRENCY_VALUE_FIELDS = ("assessed", "market", "taxable_value", "land_value", "improvement_value")
 
