@@ -26,7 +26,7 @@ import build_state_rules as B  # noqa: E402
 def _rule(**kw):
     base = dict(state="FL", county="", topic="t", kind="LAW", status="VERIFIED", statement="s",
                 source_url="https://example.gov/s", source_title="Statute", citation="F.S. 1.1", effective_date="",
-                verified_on="2026-10-05", evidence="read in run 1", ambiguity="")
+                verified_on="2026-10-05", evidence="read in run 1", ambiguity="", ledger="AUCTIONS", changed_on="2026-10-10")
     base.update(kw)
     return SR.Rule(**base)
 
@@ -65,7 +65,7 @@ def test_verified_law_rows_are_only_those_read_and_recorded():
     laws = [r for r in SR.load_rules() if r.kind == "LAW" and r.status == "VERIFIED"]
     assert {r.state for r in laws} == {"FL"}           # the only statutes read from this repository (2026-10-05)
     assert all("docs/available-amount-semantics.md" in r.evidence for r in laws)
-    assert {c for r in laws for c in [r.citation]} == {"F.S. 197.502(6)(a), (6)(c)", "F.S. 197.502(7)", "F.S. 197.542(1)"}
+    assert {c for r in laws for c in [r.citation]} == {"F.S. 197.502(6)(a), (6)(c)", "F.S. 197.502(6)(a)-(b)", "F.S. 197.502(7)", "F.S. 197.542(1)"}
     # Citations seen in the repository but never read stay leads, never verified.
     leads = {r.citation for r in SR.load_rules() if "lead only" in r.citation}
     assert {"F.S. 197.502(8) (lead only)", "Tex. Tax Code 34.21 (lead only)", "S.C. Code 12-51-90 (lead only)"} <= leads
