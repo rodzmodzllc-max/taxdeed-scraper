@@ -1303,19 +1303,23 @@ await page.waitForTimeout(150);
 results.bidBtnIconAfterAdd = (await firstBidBtn.textContent() || '').trim();
 results.bidListChipTextAfterAdd = (await page.locator('#bidListCount').textContent() || '').trim();
 
+// The Watchlist is a page (remediation, 2026-10-10): the List's chip opens
+// it, its own "Back" returns to the List, and no modal is involved.
 await page.click('#bidListToggle');
 await page.waitForTimeout(200);
-results.bidListModalVisible = await page.locator('#bidListModal').isVisible();
-results.bidListModalCardCount = await page.locator('#bidListModal .prop-card').count();
+results.bidListModalVisible = await page.locator('#pageWatchlist').isVisible();
+results.bidListPageHash = await page.evaluate(() => location.hash);
+results.bidListModalCardCount = await page.locator('#pageWatchlist .prop-card').count();
 
-await page.locator('#bidListModal .bid-btn').first().click();
+await page.locator('#pageWatchlist .bid-btn').first().click();
 await page.waitForTimeout(200);
-results.bidListModalCardCountAfterRemove = await page.locator('#bidListModal .prop-card').count();
+results.bidListModalCardCountAfterRemove = await page.locator('#pageWatchlist .prop-card').count();
 results.bidListChipTextAfterRemove = (await page.locator('#bidListCount').textContent() || '').trim();
 
 await page.click('[data-action="closebidlist"]');
 await page.waitForTimeout(150);
-results.bidListModalHiddenAfterClose = await page.locator('#bidListModal').isHidden();
+results.bidListModalHiddenAfterClose = await page.locator('#pageWatchlist').isHidden();
+results.bidListBackShowsList = await page.locator('#pageList').evaluate(el => !el.hidden);
 
 // ============================================================
 // Each ledger is its own page: own URL, own colour, own header, own set of
@@ -1966,6 +1970,12 @@ results.switchPinSelPid = await p67d.locator('#exploreMapCanvas .map-pin.sel').g
 await p67d.click('.nav-item[data-page="list"]');
 await p67d.waitForTimeout(400);
 if ((await p67d.locator('#expandAllBtn').textContent()) === 'Expand all') { await p67d.click('#expandAllBtn'); await p67d.waitForTimeout(200); }
+// One county selection (remediation 2026-10-10): the county picked on the Map
+// is the List's county too, so Brevard is still selected here. Record it,
+// then clear it so the Charlotte card below is on screen.
+results.countySharedMapToList = await p67d.inputValue('#countyQuick');
+await p67d.selectOption('#countyQuick', 'ALL');
+await p67d.waitForTimeout(300);
 const p5Vis = p67d.locator('.prop-card:has-text("500 Elm Way") .prop-card-photo');
 results.geocodedCardVisualClass = await p5Vis.evaluate(el => el.classList.contains('minimap'));
 await p5Vis.scrollIntoViewIfNeeded();
@@ -2086,7 +2096,9 @@ results.dashUnitEmptyGroups = await dashPage.locator('#dashUnitRows .unit-empty'
 // Remediation (2026-10-10): the "By Ledger" panel repeated the ledger tiles
 // above it, so it is removed; the withheld count is stated once, on the tile.
 results.dashLedgerPanelRemoved = (await dashPage.locator('#dashLedgerRows').count()) === 0;
-results.dashWithheldShownOnce = ((await dashPage.locator('#dashStats').textContent()) || '').includes('1 withheld');
+// Remediation (2026-10-10): the ledger totals - and the withheld count - are
+// shown once, on the Home ledger cards; the operating view's tiles are gone.
+results.dashWithheldShownOnce = ((await dashPage.locator('#homeLedgers').textContent()) || '').includes('1 withheld') && (await dashPage.locator('#dashStats').count()) === 0;
 results.dashUnitBayUnavailable = await dashPage.locator('#dashUnitRows .unit-row[data-county="Bay"]').getAttribute('data-unavailable');
 // Unified navigation (2026-09-30): exactly four destinations - Dashboard,
 // List, Map, Watchlist - in the rail and the bottom bar, no per-ledger
@@ -2123,14 +2135,15 @@ results.navLedgerCountsOnce = await dashPage.evaluate(() => ({
 // The List page no longer carries its own state tabs: the state is the
 // header's #stateSelect (see the global state context block below).
 results.listHasNoStateTabs = (await dashPage.locator('#regionTabs, a[data-state-link]').count()) === 0;
-// Watchlist: a destination with its own hash, lit while open; closing it
-// restores the page underneath and its hash.
+// Watchlist: a page with its own hash, lit while open; its "Back" returns
+// to the page it was opened from (the List here) and that page's hash.
 await dashPage.click('.nav-list .nav-item[data-page="watchlist"]');
 await dashPage.waitForTimeout(300);
-results.navWatchlistOpen = await dashPage.locator('#bidListModal').evaluate(el => !el.hidden);
+results.navWatchlistOpen = await dashPage.locator('#pageWatchlist').evaluate(el => !el.hidden);
+results.navWatchlistListHidden = await dashPage.locator('#pageList').evaluate(el => el.hidden);
 results.navWatchlistLit = await dashPage.locator('.nav-list .nav-item.on').evaluateAll(els => els.map(e => e.dataset.page || 'ledger:' + e.dataset.navLedger));
 results.navWatchlistHash = await dashPage.evaluate(() => location.hash);
-await dashPage.click('#bidListModal [data-action="closebidlist"]');
+await dashPage.click('#pageWatchlist [data-action="closebidlist"]');
 await dashPage.waitForTimeout(400);
 results.navWatchlistClosedLit = await dashPage.locator('.nav-list .nav-item.on').evaluateAll(els => els.map(e => e.dataset.page || 'ledger:' + e.dataset.navLedger));
 results.navWatchlistClosedHash = await dashPage.evaluate(() => location.hash);
@@ -3185,6 +3198,20 @@ await navMap.close();
   await adm.selectOption('#adminSourcesType', 'PUBLIC_NOTICE');
   results.adminSourcesNoticeRows = await adm.locator('#adminSourcesList tr[data-source]').count();
   await adm.selectOption('#adminSourcesType', '');
+  // Operator diagnostics (remediation, 2026-10-10): the per-dataset health
+  // detail and per-county freshness detail that used to be rendered for
+  // admins on the customer Dashboard are here now, and the collected
+  // inventory by source is read on request for a chosen state.
+  await adm.waitForSelector('#adminUnitList tr.unit-row', { timeout: 5000 }).catch(() => {});
+  results.adminFreshnessHealthRows = await adm.locator('#adminFreshnessList tr.health-row').count();
+  results.adminFreshnessUnitDetail = await adm.evaluate(() => { const r = document.querySelector('#adminUnitList tr.unit-row[data-county="Bay"]'); return r ? r.textContent.replace(/\s+/g, ' ').trim() : null; });
+  await adm.selectOption('#adminInventoryState', 'MI');
+  await adm.click('#adminInventoryLoad');
+  await adm.waitForSelector('#adminInventoryList tr[data-source-id]', { timeout: 8000 }).catch(() => {});
+  results.adminInventoryMi = await adm.evaluate(() => {
+    const row = id => { const e = document.querySelector(`#adminInventoryList tr[data-source-id="${id}"]`); return e ? e.textContent.replace(/\s+/g, ' ').trim() : null; };
+    return { status: (document.getElementById('adminInventoryStatus') || {}).textContent, lots: row('mi_detroit_landbank_lots'), programs: row('mi_detroit_landbank_programs') };
+  });
   // 8. Signing out removes admin access: redirected now, and on a revisit.
   await adm.click('#adminSignOut');
   await adm.waitForTimeout(600);
@@ -5047,11 +5074,31 @@ await navMap.close();
       await pg.route('https://imagery.nationalmap.gov/**', route => { requested.push(route.request().url()); return fail ? route.abort() : route.fulfill({ status: 200, contentType: 'image/png', body: PNG }); });
       await pg.goto(url, { waitUntil: 'networkidle' });
       await pg.waitForTimeout(300);
+      // The cards sit inside county groups that start collapsed. Open them the
+      // way a reader does (the summary click records the county as expanded,
+      // so a later render keeps it open). Under content-visibility a collapsed
+      // group's children keep a stale layout box, which is the only reason
+      // these checks ever hydrated anything before 2026-10-10 - and why a
+      // taller List head pushed the second card past the observer's margin
+      // on CI (PR #134, then PR #137).
+      for (const sm of await pg.$$('details.county-group:not([open]) > summary')) { await sm.click().catch(() => {}); }
+      await pg.waitForTimeout(300);
       // Lazy images load only in view: bring each one into view.
-      for (const h of await pg.$$('.naip-live')) { await h.scrollIntoViewIfNeeded().catch(() => {}); }
-      // Wait for the in-view images to receive their source rather than a fixed
-      // delay: a slower runner (CI) can still be hydrating after 500ms.
-      await pg.waitForFunction(() => { const imgs = [...document.querySelectorAll('.naip-live img')]; return imgs.length > 0 && imgs.every(i => i.src); }, null, { timeout: 15000 }).catch(() => {});
+      // Hydration is observer-driven (rootMargin 300px) and, with `fail`,
+      // each image then steps down a rung. The list can re-render after
+      // networkidle (a background ledger page arriving), which detaches any
+      // element handle taken before it, so: re-query and scroll every live
+      // host into view on each pass, until every image has its src (or,
+      // with `fail`, no live host is left) - never a fixed pause and never a
+      // stale handle (the fixed 500ms and a single pre-render scroll both
+      // failed on CI, 2026-10-10).
+      const naipDeadline = Date.now() + 10000;
+      while (Date.now() < naipDeadline) {
+        await pg.evaluate(() => document.querySelectorAll('.naip-live').forEach(h => h.scrollIntoView({ block: 'center' })));
+        await pg.waitForTimeout(250);
+        if (await pg.evaluate(() => [...document.querySelectorAll('.naip-live img')].every(i => i.src))) break;
+      }
+      await pg.waitForTimeout(300);
       return { pg, requested };
     };
     let { pg, requested } = await naipPage(BASE_URL.replace(/index\.html$/, 'la.html') + '#/lands');
@@ -5084,7 +5131,10 @@ await navMap.close();
     await pg.close();
     // USGS unreachable: the image steps down to the county context, never a broken image.
     ({ pg } = await naipPage(BASE_URL.replace(/index\.html$/, 'la.html') + '#/lands', null, true));
-    await pg.waitForTimeout(600);
+    for (let i = 0; i < 40 && await pg.evaluate(() => !!document.querySelector('#main .naip-live')); i++) {
+      await pg.evaluate(() => document.querySelectorAll('.naip-live').forEach(h => h.scrollIntoView({ block: 'center' })));
+      await pg.waitForTimeout(250);
+    }
     results.naipFallback = await pg.evaluate(() => ({ live: document.querySelectorAll('#main .naip-live').length,
       broken: [...document.querySelectorAll('#main .prop-card img')].filter(i => i.complete && i.naturalWidth === 0 && /nationalmap/.test(i.src)).length,
       minimap: document.querySelectorAll('#main .prop-card .minimap').length > 0,
@@ -5100,6 +5150,72 @@ await navMap.close();
     await off.waitForTimeout(300);
     results.naipOffNoRequests = offRequests;
     await off.close();
+  }
+  // ---- Acquisition-path gate for customer actionability (2026-10-10) ----
+  // The browser verdict (app.js acquisitionVerificationWith) must equal the
+  // Python gate (harvesters/sources/acquisition_gate.py) on the shared
+  // vectors; the gate ships OFF (config.js availableGate) and withholds
+  // unverified Available rows from non-admins only when set to "enforce".
+  {
+    const gv = JSON.parse(fs.readFileSync(new URL('./python/fixtures/acquisition_gate_cases.json', import.meta.url), 'utf8'));
+    const gatePage = async (url, enforce, width) => {
+      const pg = await newPage({ viewport: { width: width || 1280, height: 900 } });
+      pg.on('pageerror', e => errors.push('gate pageerror: ' + e.message));
+      if (enforce) await pg.route('**/config.js', async route => {
+        const r = await route.fetch(); await route.fulfill({ response: r, body: (await r.text()) + '\nwindow.TDW_CONFIG.availableGate = "enforce";\n' });
+      });
+      await pg.goto(url, { waitUntil: 'networkidle' });
+      await pg.waitForTimeout(400);
+      return pg;
+    };
+    const cards = pg => pg.evaluate(() => [...document.querySelectorAll('#main .prop-card[data-pid]')].map(e => e.dataset.pid).sort());
+    let pg = await gatePage(BASE_URL + '#/lands', false);
+    results.gateVectors = await pg.evaluate(v => v.cases.filter(c => {
+      const ref = x => (typeof x === 'string' ? v[x] : x || null);
+      const got = window.__tdwAcquisitionGate.verifyWith(c.row, ref(c.unit), ref(c.record), v.today);
+      return got.verified !== c.expect.verified || got.classification !== c.expect.classification || JSON.stringify(got.reasons) !== JSON.stringify(c.expect.reasons);
+    }).map(c => c.name), gv);
+    results.gateOffByDefault = await pg.evaluate(() => ({ mode: window.__tdwAcquisitionGate.mode(), gateNotice: !!document.getElementById('ledgerGateWithheld') }));
+    results.gateOffCards = (await cards(pg)).length;
+    await pg.close();
+    // Enforced, customer: every fixture Available row fails for a documented
+    // reason, so the ledger shows the withholding notice and no card.
+    pg = await gatePage(BASE_URL + '#/lands', true);
+    results.gateEnforcedCustomer = await pg.evaluate(() => {
+      const n = document.getElementById('ledgerGateWithheld');
+      return { mode: window.__tdwAcquisitionGate.mode(), cards: document.querySelectorAll('#main .prop-card[data-pid]').length,
+        notice: n ? n.textContent.replace(/\s+/g, ' ').trim() : null, chips: document.querySelectorAll('.acq-gate-chip').length };
+    });
+    await pg.close();
+    // Enforced, customer, Home: the Available card counts the withheld rows.
+    pg = await gatePage(BASE_URL + '#/dashboard', true);
+    results.gateEnforcedHome = await pg.evaluate(() => { const e = document.querySelector('#homeLedgers [data-gate-withheld="laft"]'); return e ? e.textContent.trim() : null; });
+    await pg.close();
+    // Enforced, customer, one row that passes (?gatefresh=1): only that row shows.
+    pg = await gatePage(BASE_URL + '?gatefresh=1#/lands', true);
+    results.gateEnforcedFreshCustomer = { cards: await cards(pg), notice: await pg.evaluate(() => { const n = document.getElementById('ledgerGateWithheld'); return n ? n.textContent.replace(/\s+/g, ' ').trim() : null; }) };
+    await pg.close();
+    // Enforced, admin: every row stays, withheld ones carry the chip.
+    pg = await gatePage(BASE_URL + '?profile=admin&gatefresh=1#/lands', true);
+    results.gateEnforcedAdmin = await pg.evaluate(() => {
+      const all = [...document.querySelectorAll('#main .prop-card[data-pid]')];
+      return { cards: all.length, chipped: all.filter(e => e.querySelector('.acq-gate-chip')).map(e => e.dataset.pid).sort(),
+        chip: (() => { const e = document.querySelector('.prop-card[data-pid="p15"] .acq-gate-chip'); return e ? { cls: e.dataset.acqGate, text: e.textContent.trim() } : null; })(),
+        freshChip: !!document.querySelector('.prop-card[data-pid="pgate1"] .acq-gate-chip') };
+    });
+    await pg.close();
+    // Source truth row (gate off, default config): verdict + every reason.
+    // 900px: the modal is the detail surface (the side panel takes over at 1280px).
+    pg = await gatePage(BASE_URL + '#/lands/p15', false, 900);
+    await pg.waitForSelector('#detailModal:not([hidden]) [data-section="truth"]', { timeout: 8000 });
+    results.gateTruthRow = await pg.evaluate(() => {
+      const m = (document.getElementById('detailModal').hidden ? document.getElementById('detailPanel') : document.getElementById('detailModalInner'));
+      const truth = m.querySelector('[data-section="truth"]');
+      const row = [...truth.querySelectorAll('dt')].find(d => d.textContent.trim() === 'Customer actionability');
+      const dd = row && row.nextElementSibling, v = dd && dd.querySelector('.acq-gate-verdict');
+      return { cls: v ? v.dataset.acqGate : null, verdict: v ? v.textContent.trim() : null, subs: dd ? [...dd.querySelectorAll('.kv-sub')].map(e => e.textContent.trim()) : null };
+    });
+    await pg.close();
   }
   // ---- Final visual refinement (2026-10-05) ----
   {
@@ -5444,8 +5560,8 @@ await navMap.close();
   // F. Florida -> Dashboard / List / Map / Watchlist.
   const fl = {};
   fl.dash = await snap(gs);
-  fl.dashAuctionTile = ((await gs.locator('[data-ledger-tile="auction"] .stat-tile-val').textContent()) || '').trim();
-  fl.dashCountiesSub = ((await gs.locator('#pageDashboard .stat-tile:not(.stat-tile-btn) .stat-tile-sub').first().textContent()) || '').trim();
+  fl.dashAuctionTile = ((await gs.locator('#homeCount_auction').textContent()) || '').trim();
+  fl.dashCountiesSub = ((await gs.locator('#homeLedgers [data-ledger="auction"] .home-ledger-unit').textContent()) || '').replace(/\s+/g, ' ').trim();
   await go(gs, 'list');
   fl.list = await snap(gs);
   const flPids = await cardPids(gs);
@@ -5477,8 +5593,8 @@ await navMap.close();
   tx.listAuctionOnlyTexas = txAuctionPids.length > 0 && txAuctionPids.every(id => id.startsWith('ptx'));
   await go(gs, 'dashboard');
   tx.dash = await snap(gs);
-  tx.dashAuctionTile = ((await gs.locator('[data-ledger-tile="auction"] .stat-tile-val').textContent()) || '').trim();
-  tx.dashCountiesSub = ((await gs.locator('#pageDashboard .stat-tile:not(.stat-tile-btn) .stat-tile-sub').first().textContent()) || '').trim();
+  tx.dashAuctionTile = ((await gs.locator('#homeCount_auction').textContent()) || '').trim();
+  tx.dashCountiesSub = ((await gs.locator('#homeLedgers [data-ledger="auction"] .home-ledger-unit').textContent()) || '').replace(/\s+/g, ' ').trim();
   await go(gs, 'map');
   tx.map = await snap(gs);
   tx.mapPaths = await gs.locator('#exploreMapCanvas path[data-county]').count();
@@ -5577,7 +5693,8 @@ await navLands.close();
 const navWl = await newPage({ viewport: { width: 1200, height: 900 } });
 await navWl.goto(BASE_URL + '#/watchlist', { waitUntil: 'networkidle' });
 await navWl.waitForTimeout(500);
-results.navWatchlistDeepOpen = await navWl.locator('#bidListModal').evaluate(el => !el.hidden);
+results.navWatchlistDeepOpen = await navWl.locator('#pageWatchlist').evaluate(el => !el.hidden);
+results.navWatchlistDeepOnlyPage = await navWl.locator('.page:not([hidden])').evaluateAll(els => els.map(e => e.id));
 results.navWatchlistDeepLit = await navWl.locator('.nav-list .nav-item.on').evaluateAll(els => els.map(e => e.dataset.page || 'ledger:' + e.dataset.navLedger));
 await navWl.close();
 const navList = await newPage({ viewport: { width: 1200, height: 900 } });
@@ -5594,14 +5711,17 @@ const navDash = await newPage({ viewport: { width: 1200, height: 900 } });
 await navDash.goto(BASE_URL + '#/dashboard', { waitUntil: 'networkidle' });
 await navDash.waitForTimeout(500);
 results.navDashDeepVisible = await navDash.locator('#pageDashboard').evaluate(el => !el.hidden);
-results.navDashTiles = await navDash.locator('#dashStats .stat-tile').evaluateAll(els => els.map(e => (e.dataset.ledgerTile || 'counties') + ':' + e.querySelector('.stat-tile-val').textContent.trim()));
-results.navDashNoValueTile = await navDash.locator('#dashStats').evaluate(el => !/Sum of county values/.test(el.textContent));
+// Remediation (2026-10-10): one place for the ledger totals - the Home
+// ledger cards; the operating view's own tiles (#dashStats) are gone.
+results.navDashTiles = await navDash.locator('#homeLedgers .home-ledger-card[data-ledger]').evaluateAll(els => els.map(e => e.dataset.ledger + ':' + e.querySelector('.home-ledger-count').textContent.trim()));
+results.navDashNoTiles = (await navDash.locator('#dashStats, .stat-tile').count()) === 0;
+results.navDashNoValueTile = await navDash.locator('#pageDashboard').evaluate(el => !/Sum of county values/.test(el.textContent));
 results.navDashAttention = await navDash.locator('#dashAttentionRows .dash-row').evaluateAll(els => els.map(e => e.dataset.att + ':' + e.querySelector('.dash-row-vals').textContent.replace(/\s+/g, ' ').trim()));
 results.navDashRecentPanelRemoved = (await navDash.locator('#dashRecentRows').count()) === 0; // Remediation: the Recent panel duplicated Home's recent changes
 results.navDashPaths = await navDash.locator('#dashPathRows .dash-row').evaluateAll(els => els.map(e => (e.dataset.path || e.dataset.pathType) + ':' + e.querySelector('.dash-row-vals').textContent.replace(/\s+/g, ' ').trim()));
 results.navDashNoScoreWords = await navDash.locator('#pageDashboard').evaluate(el => !/\b(score|ranking|recommend|AI)\b/i.test(el.textContent));
 results.navDashSubtitle = ((await navDash.locator('#dashSubtitle').textContent()) || '').trim();
-await navDash.click('#dashStats [data-go-ledger="laft"]');
+await navDash.click('#homeLedgers [data-home-ledger="laft"]');
 await navDash.waitForTimeout(300);
 results.navDashTileOpensList = await navDash.locator('#pageList').evaluate(el => !el.hidden);
 results.navDashTileHash = await navDash.evaluate(() => location.hash);
@@ -6026,7 +6146,13 @@ await monDash.close();
     tableMore: (document.getElementById('tableMoreBtn') || {}).textContent,
     domUnder15k: document.getElementsByTagName('*').length < 15000
   }));
-  await big.evaluate(() => { document.querySelector('.county-group[data-county="Wayne"]').open = true; });
+  // Open the group the way a reader does: the summary click records the
+  // county as expanded, so a render triggered by a background ledger page
+  // arriving keeps it open (setting .open directly was undone by such a
+  // render under load, 2026-10-10, and the Show-next button then stayed
+  // hidden).
+  if (!(await big.evaluate(() => document.querySelector('.county-group[data-county="Wayne"]').open))) await big.click('.county-group[data-county="Wayne"] > summary');
+  await big.waitForSelector('.county-group[data-county="Wayne"] .group-more', { state: 'visible', timeout: 15000 });
   await big.click('.county-group[data-county="Wayne"] .group-more');
   results.scaleListAfterMore = await big.evaluate(() => ({
     cards: document.querySelectorAll('.county-group[data-county="Wayne"] .prop-card').length,
@@ -6490,7 +6616,7 @@ const EXPECTED = {
   // Collection vs customer publication (2026-10-02).
   devVisAdminMiLands: {"cards": 6, "reviewChips": ["Source review: Unreviewed · not customer-published", "Source review: Unreviewed · not customer-published", "Source review: Unreviewed · not customer-published", "Source review: Unreviewed · not customer-published", "Source review: Unreviewed · not customer-published", "Source review: Unreviewed · not customer-published"], "programs": ["Marketed Structure For Sale", "Marketed Structure For Sale", "Marketed Structure For Sale", "Marketed Structure For Sale", "Own It Now", "Side Lot For Sale"], "pending": "6 records from sources awaiting customer-publication review are shown to you as an admin, each labelled \"Source review\". Customers in published mode do not see them.", "withheld": null},
   devVisAdminDetail: {"banner": "Source review: Unreviewed. This record comes from a source awaiting customer-publication review - shown to you as an admin. It is not customer-published. Its availability below is the source's own statement and is a separate fact.", "reviewRow": "Source publication review: Unreviewed Customer-visible: No (shown to you as an admin) Source program / status: Side Lot For Sale Detroit customer subset: Not included in current Detroit customer subset - no structure in the source's own status (vacant lot or program record) · structure evidence: none in the source's status", "identifier": true, "program": true, "lastRead": true, "neverApproved": true},
-  devVisAdminDash: {"mode": "Customer mode: customers see approved sources only; you see every collected source, labelled. 2 sources awaiting customer-publication review in Michigan.", "lots": "mi_detroit_landbank_lots Available Source review: Unreviewed5 collected · 5 active · 1 countyCustomer-visible: 0Customer subset: 2 of 4 with a verified structureLast read Oct 3, 2026", "programs": "mi_detroit_landbank_programs Available Source review: Unreviewed1 collected · 1 active · 1 countyCustomer-visible: 0Customer subset: 0 of 0 with a verified structureLast read Oct 2, 2026"},
+  devVisAdminDash: null,   // remediation 2026-10-10: the operator panel lives in admin.html (adminInventory* below)
   devVisCustomerDashPanel: false,
   devVisCustomerMiLands: { cards: 0, reviewChips: [], programs: [], pending: null, withheld: '2 records withheld - source not approved for customer publication (restricted or not yet reviewed). Counted, not shown.' },
   devVisCustomerScLands: { cards: 0, reviewChips: [], programs: [], pending: null, withheld: '1 record withheld - source not approved for customer publication (restricted or not yet reviewed). Counted, not shown.' },
@@ -6504,7 +6630,7 @@ const EXPECTED = {
   },
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v116"]},
+  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v120"]},
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · TAXACQ — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · TAXACQ — Florida", floridaCopy: true },
@@ -6796,6 +6922,7 @@ const EXPECTED = {
   stillZoomedAfterClose: true,
   switchPreviewTitle: '42 Palm Ave',
   switchPinSelPid: 'p12',
+  countySharedMapToList: 'Brevard',
   geocodedCardVisualClass: true,
   minimapHydrated: 1,
   minimapHasDot: 1,
@@ -6861,6 +6988,7 @@ const EXPECTED = {
   navLedgerCountsOnce: { tabCountsRemoved: true, navCountEachLedger: true },
   listHasNoStateTabs: true,
   navWatchlistOpen: true,
+  navWatchlistListHidden: true,
   navWatchlistLit: ['watchlist'],
   navWatchlistHash: '#/watchlist',
   navWatchlistClosedLit: ['ledger:laft'],
@@ -6931,6 +7059,9 @@ const EXPECTED = {
   adminSourcesLgbsReason: true,
   adminSourcesLaOnly: true,
   adminSourcesNoticeRows: 3,
+  adminFreshnessHealthRows: 5,
+  adminFreshnessUnitDetail: "FLBayfl_laft_pioneerStalelast read 2h ago (failed) · last complete read 3d ago · 3 rows at that read · 3 consecutive failed attempts · source unavailable at the last attempt - inventory kept, nothing closed · no complete read in the last 36 hours · back-off: attempted at most once per 48 hours until a read succeeds",
+  adminInventoryMi: {"status": "MI: 7 collected rows across 3 sources; 2 sources awaiting customer-publication review.", "lots": "mi_detroit_landbank_lotsAvailableUnreviewed55102 of 4 with a verified structure2026-10-03", "programs": "mi_detroit_landbank_programsAvailableUnreviewed11100 of 0 with a verified structure2026-10-02"},
   adminSignOutRedirected: true,
   adminAfterSignOutRedirected: true,
   signupFormOffered: true,
@@ -6999,8 +7130,8 @@ const EXPECTED = {
   gsOptions: ["FL:Florida", "TX:Texas", "LA:Louisiana", "MI:Michigan", "WY:Wyoming", "SC:South Carolina", "CO:Colorado", "WI:Wisconsin", "MO:Missouri", "OK:Oklahoma", "PA:Pennsylvania", "MN:Minnesota", "TN:Tennessee"],
   gsStateSelectCount: 1,
   gsAccountMenuOpens: true,
-  gsFlorida: {"dash": {"file": "index.html", "hash": "#/dashboard", "state": "FL"}, "dashAuctionTile": "9", "dashCountiesSub": "Florida · 12 tracked incl. no-longer-listed", "list": {"file": "index.html", "hash": "#/lands", "state": "FL"}, "listOnlyFlorida": true, "map": {"file": "index.html", "hash": "#/map", "state": "FL"}, "mapPaths": 67, "watch": {"file": "index.html", "hash": "#/watchlist", "state": "FL"}, "watchPids": ["p1"], "watchElsewhere": "1 saved item is not in Florida's current listings (saved under another state, or no longer listed). Switch state in the header to see another state's items."},
-  gsTexas: {"list": {"file": "tx.html", "hash": "#/lands", "state": "TX"}, "listLedgerOn": "laft", "listOnlyTexas": true, "listAuctionOnlyTexas": true, "dash": {"file": "tx.html", "hash": "#/dashboard", "state": "TX"}, "dashAuctionTile": "3", "dashCountiesSub": "Texas · 5 tracked incl. no-longer-listed", "map": {"file": "tx.html", "hash": "#/map", "state": "TX"}, "mapPaths": 254, "watch": {"file": "tx.html", "hash": "#/watchlist", "state": "TX"}, "watchPids": ["ptx1"], "watchElsewhere": "1 saved item is not in Texas's current listings (saved under another state, or no longer listed). Switch state in the header to see another state's items.", "watchCount": "2/10", "watchDeletes": 0},
+  gsFlorida: {"dash": {"file": "index.html", "hash": "#/dashboard", "state": "FL"}, "dashAuctionTile": "9", "dashCountiesSub": "upcoming sales across 6 counties", "list": {"file": "index.html", "hash": "#/lands", "state": "FL"}, "listOnlyFlorida": true, "map": {"file": "index.html", "hash": "#/map", "state": "FL"}, "mapPaths": 67, "watch": {"file": "index.html", "hash": "#/watchlist", "state": "FL"}, "watchPids": ["p1"], "watchElsewhere": "1 saved item is not in Florida's current listings (saved under another state, or no longer listed). Switch state in the header to see another state's items."},
+  gsTexas: {"list": {"file": "tx.html", "hash": "#/lands", "state": "TX"}, "listLedgerOn": "laft", "listOnlyTexas": true, "listAuctionOnlyTexas": true, "dash": {"file": "tx.html", "hash": "#/dashboard", "state": "TX"}, "dashAuctionTile": "3", "dashCountiesSub": "upcoming sales across 3 counties", "map": {"file": "tx.html", "hash": "#/map", "state": "TX"}, "mapPaths": 254, "watch": {"file": "tx.html", "hash": "#/watchlist", "state": "TX"}, "watchPids": ["ptx1"], "watchElsewhere": "1 saved item is not in Texas's current listings (saved under another state, or no longer listed). Switch state in the header to see another state's items.", "watchCount": "2/10", "watchDeletes": 0},
   gsTexasMapCounty: "Harris",
   gsReloadKeepsTexas: true,
   gsReloadMapVisible: true,
@@ -7035,19 +7166,21 @@ const EXPECTED = {
   navHashEditCertHeading: 'Liens & Certificates',
   navHashEditCertListVisible: true,
   navWatchlistDeepOpen: true,
+  navWatchlistDeepOnlyPage: ['pageWatchlist'],
   navWatchlistDeepLit: ['watchlist'],
   navListRouteVisible: true,
   navListRouteHash: "#/lands",
   navDashDeepVisible: true,
-  navDashTiles: ['auction:9', 'laft:2', 'certificate:1', 'counties:8'],
+  navDashTiles: ['laft:2', 'auction:9', 'certificate:1'],
+  navDashNoTiles: true,
   navDashNoValueTile: true,
   // Fixture p15 was last read 2026-09-20: from 2026-10-05 on it is permanently
   // outside the 14-day window, so it is not "read recently" and counts as stale.
-  navDashAttention: ['soon:4 properties · 4 sale dates', 'watched-gone:None', 'stale:2 of 2', 'sources:1 unavailable at the last read · 1 in back-off'],
+  navDashAttention: ['soon:4 properties · 4 sale dates', 'watched-gone:None', 'stale:2 of 2', 'sources:1 unavailable at the last read · 1 update unsuccessful; retry pending'],
   navDashRecentPanelRemoved: true,
   navDashPaths: ["verified:2 of 2", "phone_mail:1", "county_instructions:1", "unverified:0"],   // the Florida fixture rows both carry a verified path
   navDashNoScoreWords: true,
-  navDashSubtitle: 'Florida: 12 active properties across 3 ledgers in 8 counties.',
+  navDashSubtitle: 'What needs attention, verified acquisition paths, source freshness and your watchlist - counts over the records loaded for this state.',
   navDashTileOpensList: true,
   navDashTileHash: '#/lands',
   navDashTileHeading: 'Available',
@@ -7255,10 +7388,12 @@ const EXPECTED = {
   bidBtnIconAfterAdd: '⚑',
   bidListChipTextAfterAdd: '1/10',
   bidListModalVisible: true,
+  bidListPageHash: '#/watchlist',
   bidListModalCardCount: 1,
   bidListModalCardCountAfterRemove: 0,
   bidListChipTextAfterRemove: '0/10',
   bidListModalHiddenAfterClose: true,
+  bidListBackShowsList: true,
   // Phase 34: regression coverage for the state-aware fallback link fix -
   // must read "...Harris County, TX..." (URL-encoded), never "...FL".
   txCardStreetviewHref: /Harris%20County%2C%20TX/,
@@ -7657,7 +7792,7 @@ const EXPECTED = {
       "instructions": "known", "listing": "known", "contact": "known", "deadlines": "not_published", "verified": "known", "not_published": "summary"},
     "method": "Multi-step county process", "head": "10 of 13 on file", "firstInAcquire": true},
   acqChecklistNoInference: {"n": 14, "known": [], "summary": "summary"},
-  sourceTruth: {"labels": ["Source record", "Last read", "Source date", "Publication status", "Source health", "Acquisition path", "Price", "Official listing", "Imagery", "County intelligence"], "health": "CURRENT", "dossierBtn": true, "navPill": true},
+  sourceTruth: {"labels": ["Source record", "Last read", "Source date", "Publication status", "Source health", "Acquisition path", "Customer actionability", "Price", "Official listing", "Imagery", "County intelligence"], "health": "CURRENT", "dossierBtn": true, "navPill": true},
   sourceHealthVectors: [],
   dossierCitrus: {"title": "Citrus County, FL", "intel": "VERIFIED", "ledgers": {"laft": "COVERED", "auction": "COVERED", "certificate": "COVERED"}, "acq": true, "terms": true, "listBtn": true},
   dossierToList: {"modal": true, "hash": "#/lands", "counties": ["Citrus"]},
@@ -7775,6 +7910,14 @@ const EXPECTED = {
   naipDetail: {"hero": true, "big": true, "basis": "approximate", "contextNote": true, "caption": "Aerial imagery · USDA NAIP (public domain) · centered on the coordinates on file for this record (origin not recorded) · approximate point", "truth": "USDA NAIP aerial imagery (public domain), from USGS The National MapCentered on the coordinates on file for this record (origin not recorded). Imagery may be years old.Approximate point (not from an official parcel layer) - the image may show neighbouring land.Aerial imagery is context only: it does not show parcel boundaries, ownership, current condition or title."},
   naipFallback: {"live": 0, "broken": 0, "minimap": true, "saysUnavailable": true, "marked": true},
   naipOffNoRequests: 0,
+  gateVectors: [],
+  gateOffByDefault: {"mode": "off", "gateNotice": false},
+  gateOffCards: 2,
+  gateEnforcedCustomer: {"mode": "enforce", "cards": 0, "notice": "2 records withheld pending acquisition-path verification (1 no acquisition route found · 1 missing record metadata). Counted, not shown: a listing without a verified way to acquire it is not an actionable opportunity.", "chips": 0},
+  gateEnforcedHome: "2 pending verification",
+  gateEnforcedFreshCustomer: {"cards": ["pgate1"], "notice": "2 records withheld pending acquisition-path verification (1 no acquisition route found · 1 missing record metadata). Counted, not shown: a listing without a verified way to acquire it is not an actionable opportunity."},
+  gateEnforcedAdmin: {"cards": 4, "chipped": ["p14", "p15", "p3"], "chip": {"cls": "metadata_gap", "text": "Withheld from customers: Missing record metadata"}, "freshChip": false},
+  gateTruthRow: {"cls": "metadata_gap", "verdict": "Missing record metadata", "subs": ["The record was not read from its source in the last 14 days · No acquisition-evidence status exists for this source and county", "Gate not enforced on this deployment: shown for information."]},
   refineLedgerQuestions: {"laft": "What can I acquire now?", "auction": "What is coming up for sale?", "certificate": "What tax lien or certificate am I buying?"},
   refineDossier: {"status": ["Ledger", "Status", "Last read", "Your research (your label, not an official status)"], "lastRead": "Sep 20, 2026", "order": ["dossier-status", "acquire", "lien-banner", "risk", "truth", "sources"], "lede": true, "noScoreWords": true},
   refineViewports: [],
