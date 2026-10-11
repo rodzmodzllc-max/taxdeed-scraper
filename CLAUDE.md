@@ -2442,6 +2442,16 @@ dot). No request leaves the site. A real image for those rows still needs
 coordinates (an authorized geocode / enrichment run). Playwright block
 "Imagery without coordinates".
 
+## Sign-up asks for name and address only (2026-10-10, PR open, function NOT redeployed)
+
+- The sign-up form (index / tx / la / generated state pages) no longer has Company or Phone number fields;
+  `SIGNUP_PROFILE_FIELDS` is first name, last name, address. The pending-details screen for provider accounts asks for
+  the same three. Edit profile keeps Company and Phone as optional fields.
+- Server: `_shared/signup_request.js` `PROFILE_FIELDS` = first_name, last_name, address (required);
+  `OPTIONAL_PROFILE_FIELDS` = company, phone (stored only when sent non-empty, at most 200 characters). The deployed
+  `self-signup` still enforces the old five-field rule until the owner redeploys it - until then a sign-up from the
+  new form is refused with "missing_fields", so redeploy with the merge.
+- `sw.js` -> `tdw-shell-v115`.
 ## Current-state sprint: keyset reads, per-source status, enrichment isolation (2026-10-10, PR open, no migration)
 
 Full description: `docs/current-state-sprint.md`; coverage matrix: `docs/current-state-coverage.md`. Stable facts:
@@ -3261,3 +3271,30 @@ Full description: `docs/gap-closure-2026-10-11.md`; the queue:
 - The DLBA Vacant Land Policy is a verified evidence row (MI Wayne lots);
   the source stays UNREVIEWED. No county or statute host is reachable from
   the sandbox (proxy 403 / DNS); only `job=evidence` reads them.
+## Front-end remediation + staged acquisition-path gate (2026-10-10/11, PR #137, no migration)
+
+Full description: `docs/acquisition-gate.md`; screenshots: `docs/review/pr-137-screenshots/`. Stable facts:
+- **One county selection.** `state.counties` is the selection for the List quick select, the Filters
+  chips and the Map select (`applyCountySelection(v)`, `syncCountyPickers()`, `selectedCountyOrAll()`);
+  `mapFilter.county` is derived from it, never set on its own. A county picked on the Map is the
+  List's county too (`countySharedMapToList`).
+- **Watchlist is a page** (`#pageWatchlist`, `SHELL_PAGES.watchlist`, `#/watchlist`, created by
+  `ensureWatchlistSection()`; `WATCHLIST_FROM` remembers where "Back" goes). `renderBidListModal()`
+  keeps its historical name and renders the page; `renderWatchlistPage()` is the alias `showPage()`
+  calls. `#bidListModal` no longer exists.
+- **Home** has no `#dashStats` tiles or counts subtitle; the per-ledger cards (`#homeLedgers`) carry
+  counts, "N withheld" and "N pending verification".
+- **Operator diagnostics live in admin.html** (`#freshness`, `#inventory` cards in admin.js; the
+  Detroit subset rule is copied there and test-pinned equal). app.js keeps customer wording only
+  (`CUSTOMER_HEALTH_TEXT`); `unitLedgerKeys` / `ledgerFreshnessSummary` / `SOURCE_ID_LEDGERS` stay
+  in app.js because Home's freshness line uses them.
+- **Acquisition-path gate** (`harvesters/sources/acquisition_gate.py` = app.js
+  `acquisitionVerificationWith()`, vectors `tests/python/fixtures/acquisition_gate_cases.json`):
+  16 reasons in 5 classes (source_not_published / no_route / pending_verification / metadata_gap /
+  stale). **Staged off**: `config.js` `availableGate: "off"`; `"enforce"` withholds every failing
+  Available row from non-admins (tester preview included), never from admins, never deleting or
+  re-statusing a row. Dry run on production (read-only): 54,105 active Available rows → 185
+  customer-visible if enforced (FL 153→41, TX 421→144, LA 10,334→0 as a dated list). Louisiana's
+  `purchase_url` is one informational Parish instructions page on every row, not a transactional
+  link. Enabling the gate and the LA dated-list policy are owner decisions.
+- `sw.js` -> `tdw-shell-v120`.
