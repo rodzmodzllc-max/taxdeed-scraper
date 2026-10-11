@@ -131,13 +131,14 @@ def test_w01_louisiana_runs_in_the_existing_laft_job_after_florida_and_can_never
     names = [s.get("name", "") for s in steps]
     la = [i for i, n in enumerate(names) if n.startswith("Louisiana")]
     fl_gate = names.index("Publication gate (source-level customer publication, migration 022)")
-    assert len(la) == 4 and min(la) > fl_gate
+    assert len(la) == 5 and min(la) > fl_gate      # harvest, sync, lifecycle, inventory status (2026-10-11), freshness + gate
     for i in la:
         assert steps[i].get("continue-on-error") is True and str(steps[i].get("if", "")).startswith("always()"), names[i]
     runs = " ".join(steps[i]["run"] for i in la)
     assert "harvest_state_inventory.py --state LA" in runs and "sync_state_inventory.py --state LA" in runs
     assert "laft_lifecycle.py --state LA --status out/harvest_louisiana_status.json --harvest out/harvest_louisiana.json" in runs
     assert "publication-gate-la.json" in runs and "unit-freshness-la.json" in runs     # Florida's reports are never overwritten
+    assert "inventory_status_writer.py --state LA --report out/public/inventory-status-la.json" in runs
     # Texas / LGBS untouched: the texas job is still manual-only and names no Louisiana step.
     assert "Louisiana" not in json.dumps(wf["jobs"]["texas"]) and "harvest_state_inventory" not in json.dumps(wf["jobs"]["texas"])
 
