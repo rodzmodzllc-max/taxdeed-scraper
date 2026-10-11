@@ -80,6 +80,69 @@
      "topic": "tax_sale_model",
      "verified_on": "2026-10-01",
      "version": "1"
+    },
+    {
+     "changed_on": "2026-10-11",
+     "county": "Douglas",
+     "depends_on": "scripts/purchase_path_engine.py resolve(): the evidence row is the acquisition record carried onto every active row of the unit (otc_provenance.acquisition) and the county's VERIFIED acquisition-evidence status (public/acquisition-evidence.json)",
+     "evidence": "data/purchase_path_evidence_expansion.csv: CO/co_douglas_county_held_liens/Douglas (application_download; review_state verified)",
+     "implementation_status": "IMPLEMENTED",
+     "kind": "PROCEDURE",
+     "ledger": "LIENS_CERTIFICATES",
+     "office": "Douglas County Treasurer",
+     "related_sources": "co_douglas_county_held_liens",
+     "scope": "county",
+     "source_title": "Request for Assignment of County-Held Tax Lien (Douglas County, CO)",
+     "source_url": "https://www.douglasco.gov/documents/request-for-assignment-of-county-held.pdf/",
+     "state": "CO",
+     "statement": "Douglas County's 'Request for Assignment of County-Held Tax Lien' (PDF) and the Tax Liens dataset's own note 'For current payoff amount please call the Douglas County Treasurer's office'; the form states 'All County held liens on the parcel listed below MUST be redeemed if assignment is granted'",
+     "status": "VERIFIED",
+     "test_ref": "tests/python/test_gap_closure.py",
+     "topic": "acquisition_procedure_liens_certificates",
+     "verified_on": "2026-10-01",
+     "version": "1"
+    },
+    {
+     "changed_on": "2026-10-11",
+     "county": "Morgan",
+     "depends_on": "scripts/purchase_path_engine.py resolve(): the evidence row is the acquisition record carried onto every active row of the unit (otc_provenance.acquisition) and the county's VERIFIED acquisition-evidence status (public/acquisition-evidence.json)",
+     "evidence": "data/purchase_path_evidence_expansion.csv: CO/co_morgan_treasurer_deed_auctions/Morgan (in_person; review_state verified)",
+     "implementation_status": "IMPLEMENTED",
+     "kind": "PROCEDURE",
+     "ledger": "AUCTIONS",
+     "office": "Morgan County Treasurer",
+     "related_sources": "co_morgan_treasurer_deed_auctions",
+     "scope": "county",
+     "source_title": "Bidding Rules and Information | Morgan County",
+     "source_url": "https://morgancounty.colorado.gov/bidding-rules-and-information",
+     "state": "CO",
+     "statement": "Morgan County 'Bidding Rules and Information': auctions for a Certificate of Option for a Treasurer's Deed are conducted on Wednesdays at 9:30 a.m.; register with the Treasurer's office first; verbal bids; payment by noon the same day",
+     "status": "VERIFIED",
+     "test_ref": "tests/python/test_gap_closure.py",
+     "topic": "acquisition_procedure_auctions",
+     "verified_on": "2026-10-01",
+     "version": "1"
+    },
+    {
+     "changed_on": "2026-10-11",
+     "county": "Morgan",
+     "depends_on": "scripts/purchase_path_engine.py resolve(): the evidence row is the acquisition record carried onto every active row of the unit (otc_provenance.acquisition) and the county's VERIFIED acquisition-evidence status (public/acquisition-evidence.json)",
+     "evidence": "data/purchase_path_evidence_expansion.csv: CO/co_morgan_county_held_certificates/Morgan (quoted_amount; review_state verified)",
+     "implementation_status": "IMPLEMENTED",
+     "kind": "PROCEDURE",
+     "ledger": "LIENS_CERTIFICATES",
+     "office": "Morgan County Treasurer",
+     "related_sources": "co_morgan_county_held_certificates",
+     "scope": "county",
+     "source_title": "County Held Tax Lien Sale Certificates | Morgan County Where Prairie Meets the Sky",
+     "source_url": "https://morgancounty.colorado.gov/county-held-tax-lien-sale-certificates",
+     "state": "CO",
+     "statement": "The Treasurer's county-held certificate page says the listed Tax Lien Sale Certificates may be purchased from Morgan County for the amount shown, paid to the Morgan County Treasurer; the amount column's header names the date the amount is good to",
+     "status": "VERIFIED",
+     "test_ref": "tests/python/test_gap_closure.py",
+     "topic": "acquisition_procedure_liens_certificates",
+     "verified_on": "2026-09-30",
+     "version": "1"
     }
    ],
    "history": [],
@@ -101,6 +164,9 @@
       },
       {
        "county": "Morgan",
+       "procedures": [
+        "acquisition_procedure_auctions"
+       ],
        "sources": [
         {
          "authority": "GOVERNMENT_DIRECT",
@@ -132,7 +198,8 @@
       {
        "county": "Douglas",
        "procedures": [
-        "tax_sale_model"
+        "tax_sale_model",
+        "acquisition_procedure_liens_certificates"
        ],
        "sources": [
         {
@@ -144,6 +211,9 @@
       },
       {
        "county": "Morgan",
+       "procedures": [
+        "acquisition_procedure_liens_certificates"
+       ],
        "sources": [
         {
          "authority": "GOVERNMENT_DIRECT",
@@ -415,7 +485,407 @@
      "steps": "Call the Tax Deed Department at (386) 736-5919 for the current purchase price"
     }
    ],
-   "county_rules": [],
+   "county_rules": [
+    {
+     "changed_on": "2026-10-11",
+     "county": "Alachua",
+     "depends_on": "scripts/purchase_path_engine.py resolve(): the evidence row is the acquisition record carried onto every active row of the unit (otc_provenance.acquisition) and the county's VERIFIED acquisition-evidence status (public/acquisition-evidence.json)",
+     "evidence": "data/purchase_path_evidence.csv: FL/fl_laft_realtdm/Alachua (quoted_amount; review_state verified)",
+     "implementation_status": "IMPLEMENTED",
+     "kind": "PROCEDURE",
+     "ledger": "AVAILABLE",
+     "office": "Alachua County Clerk of the Circuit Court - Tax Deed department",
+     "related_sources": "fl_laft_realtdm",
+     "scope": "county",
+     "source_title": "List of Lands Available - Alachua County BoCC (Clerk of the Circuit Court)",
+     "source_url": "https://www.alachuaclerk.org/civil/taxlands.cfm",
+     "state": "FL",
+     "statement": "Clerk's List of Lands Available page ('Purchase Property from List of Lands Available'): contact the Clerk's Tax Deed department for the current cost of purchasing a property on the list; the Clerk issues the deed on full payment and deeding information",
+     "status": "VERIFIED",
+     "test_ref": "tests/python/test_gap_closure.py",
+     "topic": "acquisition_procedure_available",
+     "verified_on": "2026-10-01",
+     "version": "1"
+    },
+    {
+     "changed_on": "2026-10-11",
+     "county": "Brevard",
+     "depends_on": "scripts/purchase_path_engine.py resolve(): the evidence row is the acquisition record carried onto every active row of the unit (otc_provenance.acquisition) and the county's VERIFIED acquisition-evidence status (public/acquisition-evidence.json)",
+     "evidence": "data/purchase_path_evidence.csv: FL/fl_laft_pdfs/Brevard (phone_mail; review_state verified)",
+     "implementation_status": "IMPLEMENTED",
+     "kind": "PROCEDURE",
+     "ledger": "AVAILABLE",
+     "office": "Brevard County Clerk of Court - Tax Deed Clerks (Titusville office)",
+     "related_sources": "fl_laft_pdfs",
+     "scope": "county",
+     "source_title": "Lands Available - Tax Deeds / Auctions - Brevard County, Florida - Clerk of the Court",
+     "source_url": "https://www.brevardclerk.us/lands-available",
+     "state": "FL",
+     "statement": "Clerk's Lands Available page and the list document itself say a request for the current minimum bid must be in writing (email, fax or mail) and payment is accepted in the Titusville office only, in certified funds; first come, first served",
+     "status": "VERIFIED",
+     "test_ref": "tests/python/test_gap_closure.py",
+     "topic": "acquisition_procedure_available",
+     "verified_on": "2026-09-30",
+     "version": "1"
+    },
+    {
+     "changed_on": "2026-10-11",
+     "county": "Calhoun",
+     "depends_on": "scripts/purchase_path_engine.py resolve(): the evidence row is the acquisition record carried onto every active row of the unit (otc_provenance.acquisition) and the county's VERIFIED acquisition-evidence status (public/acquisition-evidence.json)",
+     "evidence": "data/purchase_path_evidence.csv: FL/fl_laft_html/Calhoun (quoted_amount; review_state verified)",
+     "implementation_status": "IMPLEMENTED",
+     "kind": "PROCEDURE",
+     "ledger": "AVAILABLE",
+     "office": "Calhoun County Clerk's Office",
+     "related_sources": "fl_laft_html",
+     "scope": "county",
+     "source_title": "Available Lands for Purchase in Calhoun County",
+     "source_url": "https://calhounclerk.com/court-services/property-sales/list-of-lands-available/",
+     "state": "FL",
+     "statement": "Clerk's List of Lands Available page says the amounts listed are no longer the opening bid and the Clerk's Office must be contacted to calculate the new amount",
+     "status": "VERIFIED",
+     "test_ref": "tests/python/test_gap_closure.py",
+     "topic": "acquisition_procedure_available",
+     "verified_on": "2026-09-30",
+     "version": "1"
+    },
+    {
+     "changed_on": "2026-10-11",
+     "county": "Citrus",
+     "depends_on": "scripts/purchase_path_engine.py resolve(): the evidence row is the acquisition record carried onto every active row of the unit (otc_provenance.acquisition) and the county's VERIFIED acquisition-evidence status (public/acquisition-evidence.json)",
+     "evidence": "data/purchase_path_evidence.csv: FL/fl_laft_pioneer/Citrus (phone_mail; review_state verified)",
+     "implementation_status": "IMPLEMENTED",
+     "kind": "PROCEDURE",
+     "ledger": "AVAILABLE",
+     "office": "Citrus County Clerk of the Circuit Court and Comptroller - Tax Deed Division",
+     "related_sources": "fl_laft_pioneer",
+     "scope": "county",
+     "source_title": "Citrus County Tax Deeds",
+     "source_url": "https://search.citrusclerk.org/TaxSmartWeb",
+     "state": "FL",
+     "statement": "Clerk's Tax Deed portal says List of Lands Available inquiries are sent by e-mail to the Tax Deed Division with the Case # and Certificate #, or by phone",
+     "status": "VERIFIED",
+     "test_ref": "tests/python/test_gap_closure.py",
+     "topic": "acquisition_procedure_available",
+     "verified_on": "2026-09-30",
+     "version": "1"
+    },
+    {
+     "changed_on": "2026-10-11",
+     "county": "Clay",
+     "depends_on": "scripts/purchase_path_engine.py resolve(): the evidence row is the acquisition record carried onto every active row of the unit (otc_provenance.acquisition) and the county's VERIFIED acquisition-evidence status (public/acquisition-evidence.json)",
+     "evidence": "data/purchase_path_evidence.csv: FL/fl_laft_pioneer/Clay (phone_mail; review_state verified)",
+     "implementation_status": "IMPLEMENTED",
+     "kind": "PROCEDURE",
+     "ledger": "AVAILABLE",
+     "office": "Clay County Clerk of the Circuit Court - Tax Deed Division",
+     "related_sources": "fl_laft_pioneer",
+     "scope": "county",
+     "source_title": "Clay County Tax Deeds",
+     "source_url": "https://landmark.clayclerk.com/TaxDeed",
+     "state": "FL",
+     "statement": "Clerk's Tax Deed portal says a purchase from the List of Lands is requested by e-mailing the Clerk's office with the certificate numbers (the address is protected on the page) or by phone; the purchase price is confirmed within about 72 hours",
+     "status": "VERIFIED",
+     "test_ref": "tests/python/test_gap_closure.py",
+     "topic": "acquisition_procedure_available",
+     "verified_on": "2026-09-30",
+     "version": "1"
+    },
+    {
+     "changed_on": "2026-10-11",
+     "county": "Dixie",
+     "depends_on": "scripts/purchase_path_engine.py resolve(): the evidence row is the acquisition record carried onto every active row of the unit (otc_provenance.acquisition) and the county's VERIFIED acquisition-evidence status (public/acquisition-evidence.json)",
+     "evidence": "data/purchase_path_evidence.csv: FL/fl_laft_html/Dixie (in_person; review_state verified)",
+     "implementation_status": "IMPLEMENTED",
+     "kind": "PROCEDURE",
+     "ledger": "AVAILABLE",
+     "office": "Dixie County Clerk of Court",
+     "related_sources": "fl_laft_html",
+     "scope": "county",
+     "source_title": "Lands Available for Taxes | Dixie County Clerk of Court",
+     "source_url": "https://dixieclerk.com/departments-services/court-services/lands-available-for-taxes/",
+     "state": "FL",
+     "statement": "Clerk's Lands Available for Taxes page says these properties must be purchased from the Clerk of Court in person, paid in full by certified or cashier's check; no electronic payments or wire transfers",
+     "status": "VERIFIED",
+     "test_ref": "tests/python/test_gap_closure.py",
+     "topic": "acquisition_procedure_available",
+     "verified_on": "2026-09-30",
+     "version": "1"
+    },
+    {
+     "changed_on": "2026-10-11",
+     "county": "Duval",
+     "depends_on": "scripts/purchase_path_engine.py resolve(): the evidence row is the acquisition record carried onto every active row of the unit (otc_provenance.acquisition) and the county's VERIFIED acquisition-evidence status (public/acquisition-evidence.json)",
+     "evidence": "data/purchase_path_evidence.csv: FL/fl_laft_pioneer/Duval (phone_mail; review_state verified)",
+     "implementation_status": "IMPLEMENTED",
+     "kind": "PROCEDURE",
+     "ledger": "AVAILABLE",
+     "office": "Duval County Clerk of the Circuit and County Courts - Tax Deeds",
+     "related_sources": "fl_laft_pioneer",
+     "scope": "county",
+     "source_title": "LANDS AVAILABLE FOR TAXES - Frequently Asked Questions (Duval County Clerk)",
+     "source_url": "https://www.duvalclerk.gov/getmedia/0c909a7f-583d-49c0-b5d3-da5c2cbe5ad0/392460_3_LANDS-AVAILABLE-FAQ-New.pdf",
+     "state": "FL",
+     "statement": "Clerk's 'Lands Available for Taxes - Frequently Asked Questions' document: after the County's 90 days anyone may purchase; complete the Statement Request for Lands Available form and submit it by e-mail or in person; the Clerk calculates the purchase amount",
+     "status": "VERIFIED",
+     "test_ref": "tests/python/test_gap_closure.py",
+     "topic": "acquisition_procedure_available",
+     "verified_on": "2026-10-01",
+     "version": "1"
+    },
+    {
+     "changed_on": "2026-10-11",
+     "county": "Franklin",
+     "depends_on": "scripts/purchase_path_engine.py resolve(): the evidence row is the acquisition record carried onto every active row of the unit (otc_provenance.acquisition) and the county's VERIFIED acquisition-evidence status (public/acquisition-evidence.json)",
+     "evidence": "data/purchase_path_evidence.csv: FL/fl_laft_html/Franklin (quoted_amount; review_state verified)",
+     "implementation_status": "IMPLEMENTED",
+     "kind": "PROCEDURE",
+     "ledger": "AVAILABLE",
+     "office": "Franklin County Tax Collector",
+     "related_sources": "fl_laft_html",
+     "scope": "county",
+     "source_title": "Lands Available | Franklin County Clerk of the Circuit Court & Comptroller",
+     "source_url": "https://www.franklinclerk.com/clerk-services/lands-available/",
+     "state": "FL",
+     "statement": "Clerk's Lands Available page says the purchase price amounts stated are estimates only and the Tax Collector must be contacted for the exact amount required for purchase",
+     "status": "VERIFIED",
+     "test_ref": "tests/python/test_gap_closure.py",
+     "topic": "acquisition_procedure_available",
+     "verified_on": "2026-09-30",
+     "version": "1"
+    },
+    {
+     "changed_on": "2026-10-11",
+     "county": "Hernando",
+     "depends_on": "scripts/purchase_path_engine.py resolve(): the evidence row is the acquisition record carried onto every active row of the unit (otc_provenance.acquisition) and the county's VERIFIED acquisition-evidence status (public/acquisition-evidence.json)",
+     "evidence": "data/purchase_path_evidence.csv: FL/fl_laft_pioneer/Hernando (quoted_amount; review_state verified)",
+     "implementation_status": "IMPLEMENTED",
+     "kind": "PROCEDURE",
+     "ledger": "AVAILABLE",
+     "office": "Hernando County Clerk of Court - Tax Deed Division (Room 161)",
+     "related_sources": "fl_laft_pioneer",
+     "scope": "county",
+     "source_title": "Hernando County Tax Deeds",
+     "source_url": "https://or.hernandoclerk.com/TaxSmart/",
+     "state": "FL",
+     "statement": "Clerk's Tax Deed portal says a buyer interested in a Lands Available property contacts the Tax Deed Department for the purchase amount",
+     "status": "VERIFIED",
+     "test_ref": "tests/python/test_gap_closure.py",
+     "topic": "acquisition_procedure_available",
+     "verified_on": "2026-09-30",
+     "version": "1"
+    },
+    {
+     "changed_on": "2026-10-11",
+     "county": "Highlands",
+     "depends_on": "scripts/purchase_path_engine.py resolve(): the evidence row is the acquisition record carried onto every active row of the unit (otc_provenance.acquisition) and the county's VERIFIED acquisition-evidence status (public/acquisition-evidence.json)",
+     "evidence": "data/purchase_path_evidence.csv: FL/fl_laft_realtdm/Highlands (quoted_amount; review_state verified)",
+     "implementation_status": "IMPLEMENTED",
+     "kind": "PROCEDURE",
+     "ledger": "AVAILABLE",
+     "office": "Highlands County Clerk of Courts - Tax Deeds Division",
+     "related_sources": "fl_laft_realtdm",
+     "scope": "county",
+     "source_title": "Lands Available - Highlands County Clerk of Courts",
+     "source_url": "https://www.highlandsclerkfl.gov/clerk_to_the_board/tax_deeds/lands_available.php",
+     "state": "FL",
+     "statement": "Clerk's Lands Available page: after the County's 90 days any person may purchase the property from the Clerk; the purchase amount changes on the first business day of each month; request the payoff amount from the Tax Deeds Division by phone or e-mail",
+     "status": "VERIFIED",
+     "test_ref": "tests/python/test_gap_closure.py",
+     "topic": "acquisition_procedure_available",
+     "verified_on": "2026-10-01",
+     "version": "1"
+    },
+    {
+     "changed_on": "2026-10-11",
+     "county": "Leon",
+     "depends_on": "scripts/purchase_path_engine.py resolve(): the evidence row is the acquisition record carried onto every active row of the unit (otc_provenance.acquisition) and the county's VERIFIED acquisition-evidence status (public/acquisition-evidence.json)",
+     "evidence": "data/purchase_path_evidence.csv: FL/fl_laft_leon/Leon (phone_mail; review_state verified)",
+     "implementation_status": "IMPLEMENTED",
+     "kind": "PROCEDURE",
+     "ledger": "AVAILABLE",
+     "office": "Leon County Clerk - Tax Deed Administration",
+     "related_sources": "fl_laft_leon",
+     "scope": "county",
+     "source_title": "Leon County Clerk - Lands Available",
+     "source_url": "https://lforms.leonclerk.com/tax_deeds/lands-available.html",
+     "state": "FL",
+     "statement": "Clerk's Lands Available page says information on purchasing property off the List of Lands Available is requested by e-mail to the Tax Deed administration address, with the parcel number and property address",
+     "status": "VERIFIED",
+     "test_ref": "tests/python/test_gap_closure.py",
+     "topic": "acquisition_procedure_available",
+     "verified_on": "2026-09-30",
+     "version": "1"
+    },
+    {
+     "changed_on": "2026-10-11",
+     "county": "Levy",
+     "depends_on": "scripts/purchase_path_engine.py resolve(): the evidence row is the acquisition record carried onto every active row of the unit (otc_provenance.acquisition) and the county's VERIFIED acquisition-evidence status (public/acquisition-evidence.json)",
+     "evidence": "data/purchase_path_evidence.csv: FL/fl_laft_pioneer/Levy (phone_mail; review_state verified)",
+     "implementation_status": "IMPLEMENTED",
+     "kind": "PROCEDURE",
+     "ledger": "AVAILABLE",
+     "office": "Levy County Clerk of the Circuit Court and Comptroller - Tax Deed Division",
+     "related_sources": "fl_laft_pioneer",
+     "scope": "county",
+     "source_title": "Levy County Tax Deeds",
+     "source_url": "https://online.levyclerk.com/TaxSmartWeb",
+     "state": "FL",
+     "statement": "Clerk's Tax Deed portal says List of Lands Available information, including the current purchase price, is obtained by phone or e-mail (the address is protected on the page)",
+     "status": "VERIFIED",
+     "test_ref": "tests/python/test_gap_closure.py",
+     "topic": "acquisition_procedure_available",
+     "verified_on": "2026-09-30",
+     "version": "1"
+    },
+    {
+     "changed_on": "2026-10-11",
+     "county": "Madison",
+     "depends_on": "scripts/purchase_path_engine.py resolve(): the evidence row is the acquisition record carried onto every active row of the unit (otc_provenance.acquisition) and the county's VERIFIED acquisition-evidence status (public/acquisition-evidence.json)",
+     "evidence": "data/purchase_path_evidence.csv: FL/fl_laft_html/Madison (quoted_amount; review_state verified)",
+     "implementation_status": "IMPLEMENTED",
+     "kind": "PROCEDURE",
+     "ledger": "AVAILABLE",
+     "office": "Madison County Clerk of Court & Comptroller - tax deed clerk",
+     "related_sources": "fl_laft_html",
+     "scope": "county",
+     "source_title": "Lands Available | Madison County Clerk of Court & Comptroller",
+     "source_url": "https://www.madisonclerk.com/list-of-lands-available-for-taxes/",
+     "state": "FL",
+     "statement": "Clerk's Lands Available page says the amounts listed are no longer the opening bid and the tax deed clerk must be contacted to calculate the new amount",
+     "status": "VERIFIED",
+     "test_ref": "tests/python/test_gap_closure.py",
+     "topic": "acquisition_procedure_available",
+     "verified_on": "2026-09-30",
+     "version": "1"
+    },
+    {
+     "changed_on": "2026-10-11",
+     "county": "Marion",
+     "depends_on": "scripts/purchase_path_engine.py resolve(): the evidence row is the acquisition record carried onto every active row of the unit (otc_provenance.acquisition) and the county's VERIFIED acquisition-evidence status (public/acquisition-evidence.json)",
+     "evidence": "data/purchase_path_evidence.csv: FL/fl_laft_pdfs/Marion (amount_plus_costs; review_state verified)",
+     "implementation_status": "IMPLEMENTED",
+     "kind": "PROCEDURE",
+     "ledger": "AVAILABLE",
+     "office": "Marion County Clerk of Court and Comptroller",
+     "related_sources": "fl_laft_pdfs",
+     "scope": "county",
+     "source_title": "Tax Deeds | Marion County Clerk of Court and Comptroller",
+     "source_url": "https://www.marioncountyclerk.org/departments/records-recording/tax-deeds-and-lands-available-for-taxes/",
+     "state": "FL",
+     "statement": "Clerk's Tax Deeds and Lands Available for Taxes page (linked from the Land Available for Taxes Information page) states the purchase amount (opening bid plus omitted years' taxes), where the current month's amounts are published, the accepted payment forms, the recording fees and documentary stamps, and that a tax deed is issued on receipt of the funds",
+     "status": "VERIFIED",
+     "test_ref": "tests/python/test_gap_closure.py",
+     "topic": "acquisition_procedure_available",
+     "verified_on": "2026-09-30",
+     "version": "1"
+    },
+    {
+     "changed_on": "2026-10-11",
+     "county": "Orange",
+     "depends_on": "scripts/purchase_path_engine.py resolve(): the evidence row is the acquisition record carried onto every active row of the unit (otc_provenance.acquisition) and the county's VERIFIED acquisition-evidence status (public/acquisition-evidence.json)",
+     "evidence": "data/purchase_path_evidence.csv: FL/fl_laft_orange/Orange (amount_plus_costs; review_state verified)",
+     "implementation_status": "IMPLEMENTED",
+     "kind": "PROCEDURE",
+     "ledger": "AVAILABLE",
+     "office": "Orange County Comptroller",
+     "related_sources": "fl_laft_orange",
+     "scope": "county",
+     "source_title": "Land Available For Taxes | Orange County Comptroller, FL",
+     "source_url": "https://occompt.com/158/Land-Available-For-Taxes",
+     "state": "FL",
+     "statement": "Comptroller's Land Available For Taxes page states the purchase amount as the opening bid plus omitted years' taxes under section 197.542(1), Florida Statutes, and names the Tax Deed Sale Search and the GIS application for finding the properties",
+     "status": "VERIFIED",
+     "test_ref": "tests/python/test_gap_closure.py",
+     "topic": "acquisition_procedure_available",
+     "verified_on": "2026-09-30",
+     "version": "1"
+    },
+    {
+     "changed_on": "2026-10-11",
+     "county": "Pasco",
+     "depends_on": "scripts/purchase_path_engine.py resolve(): the evidence row is the acquisition record carried onto every active row of the unit (otc_provenance.acquisition) and the county's VERIFIED acquisition-evidence status (public/acquisition-evidence.json)",
+     "evidence": "data/purchase_path_evidence.csv: FL/fl_laft_pdfs/Pasco (phone_mail; review_state verified)",
+     "implementation_status": "IMPLEMENTED",
+     "kind": "PROCEDURE",
+     "ledger": "AVAILABLE",
+     "office": "Pasco County Clerk & Comptroller - Tax Deed Division",
+     "related_sources": "fl_laft_pdfs",
+     "scope": "county",
+     "source_title": "Purchasing Property Off the Lists of Lands | Pasco County Clerk, FL",
+     "source_url": "https://www.pascoclerk.com/202/Purchasing-Property-off-the-Lists-of-Lan",
+     "state": "FL",
+     "statement": "Clerk's 'Purchasing Property Off the Lists of Lands' page and the list document say a request for the current purchase price must be submitted in writing to the Clerk's Dade City address with the parcel and tax-deed numbers; after notification the purchase is completed in person by certified cashier's check or cash",
+     "status": "VERIFIED",
+     "test_ref": "tests/python/test_gap_closure.py",
+     "topic": "acquisition_procedure_available",
+     "verified_on": "2026-09-30",
+     "version": "1"
+    },
+    {
+     "changed_on": "2026-10-11",
+     "county": "Sumter",
+     "depends_on": "scripts/purchase_path_engine.py resolve(): the evidence row is the acquisition record carried onto every active row of the unit (otc_provenance.acquisition) and the county's VERIFIED acquisition-evidence status (public/acquisition-evidence.json)",
+     "evidence": "data/purchase_path_evidence.csv: FL/fl_laft_html/Sumter (quoted_amount; review_state verified)",
+     "implementation_status": "IMPLEMENTED",
+     "kind": "PROCEDURE",
+     "ledger": "AVAILABLE",
+     "office": "Sumter County Clerk of Court & Comptroller",
+     "related_sources": "fl_laft_html",
+     "scope": "county",
+     "source_title": "List of Lands Available | Sumter County, FL | Clerk of Court & Comptroller",
+     "source_url": "https://www.sumterclerk.com/public-records/tax-deeds/land-available-for-taxes/",
+     "state": "FL",
+     "statement": "Clerk's List of Lands Available page says the amounts listed are no longer the opening bid and the Clerk's Office must be contacted to calculate the new amount",
+     "status": "VERIFIED",
+     "test_ref": "tests/python/test_gap_closure.py",
+     "topic": "acquisition_procedure_available",
+     "verified_on": "2026-09-30",
+     "version": "1"
+    },
+    {
+     "changed_on": "2026-10-11",
+     "county": "Taylor",
+     "depends_on": "scripts/purchase_path_engine.py resolve(): the evidence row is the acquisition record carried onto every active row of the unit (otc_provenance.acquisition) and the county's VERIFIED acquisition-evidence status (public/acquisition-evidence.json)",
+     "evidence": "data/purchase_path_evidence.csv: FL/fl_laft_html/Taylor (quoted_amount; review_state verified)",
+     "implementation_status": "IMPLEMENTED",
+     "kind": "PROCEDURE",
+     "ledger": "AVAILABLE",
+     "office": "Taylor County Clerk of the Circuit Court",
+     "related_sources": "fl_laft_html",
+     "scope": "county",
+     "source_title": "List of Lands Available | Taylor Clerk of the Circuit Court",
+     "source_url": "https://taylorclerk.com/departments/list-of-lands-available/",
+     "state": "FL",
+     "statement": "Clerk's List of Lands Available page says the amounts listed are no longer the opening bid and the Clerk's Office must be contacted to calculate the new amount",
+     "status": "VERIFIED",
+     "test_ref": "tests/python/test_gap_closure.py",
+     "topic": "acquisition_procedure_available",
+     "verified_on": "2026-09-30",
+     "version": "1"
+    },
+    {
+     "changed_on": "2026-10-11",
+     "county": "Volusia",
+     "depends_on": "scripts/purchase_path_engine.py resolve(): the evidence row is the acquisition record carried onto every active row of the unit (otc_provenance.acquisition) and the county's VERIFIED acquisition-evidence status (public/acquisition-evidence.json)",
+     "evidence": "data/purchase_path_evidence.csv: FL/fl_laft_pdfs/Volusia (quoted_amount; review_state verified)",
+     "implementation_status": "IMPLEMENTED",
+     "kind": "PROCEDURE",
+     "ledger": "AVAILABLE",
+     "office": "Volusia County Clerk - Tax Deed Department",
+     "related_sources": "fl_laft_pdfs",
+     "scope": "county",
+     "source_title": "Lands Available For Taxes (Volusia County Clerk list document)",
+     "source_url": "https://app02.clerk.org/cm_rpt/lands/LandsAvailableForTaxes.pdf",
+     "state": "FL",
+     "statement": "Clerk's Lands Available for Taxes list document says the current purchase price is obtained by calling the Tax Deed Department",
+     "status": "VERIFIED",
+     "test_ref": "tests/python/test_gap_closure.py",
+     "topic": "acquisition_procedure_available",
+     "verified_on": "2026-09-30",
+     "version": "1"
+    }
+   ],
    "history": [],
    "ledgers": {
     "AUCTIONS": {
@@ -904,6 +1374,9 @@
      "coverage": [
       {
        "county": "Alachua",
+       "procedures": [
+        "acquisition_procedure_available"
+       ],
        "sources": [
         {
          "authority": "GOVERNMENT_PLATFORM",
@@ -934,6 +1407,9 @@
       },
       {
        "county": "Brevard",
+       "procedures": [
+        "acquisition_procedure_available"
+       ],
        "sources": [
         {
          "authority": "GOVERNMENT_DIRECT",
@@ -944,6 +1420,9 @@
       },
       {
        "county": "Calhoun",
+       "procedures": [
+        "acquisition_procedure_available"
+       ],
        "sources": [
         {
          "authority": "GOVERNMENT_DIRECT",
@@ -954,6 +1433,9 @@
       },
       {
        "county": "Citrus",
+       "procedures": [
+        "acquisition_procedure_available"
+       ],
        "sources": [
         {
          "authority": "GOVERNMENT_PLATFORM",
@@ -964,6 +1446,9 @@
       },
       {
        "county": "Clay",
+       "procedures": [
+        "acquisition_procedure_available"
+       ],
        "sources": [
         {
          "authority": "GOVERNMENT_PLATFORM",
@@ -984,6 +1469,9 @@
       },
       {
        "county": "Dixie",
+       "procedures": [
+        "acquisition_procedure_available"
+       ],
        "sources": [
         {
          "authority": "GOVERNMENT_DIRECT",
@@ -994,6 +1482,9 @@
       },
       {
        "county": "Duval",
+       "procedures": [
+        "acquisition_procedure_available"
+       ],
        "sources": [
         {
          "authority": "GOVERNMENT_PLATFORM",
@@ -1024,6 +1515,9 @@
       },
       {
        "county": "Franklin",
+       "procedures": [
+        "acquisition_procedure_available"
+       ],
        "sources": [
         {
          "authority": "GOVERNMENT_DIRECT",
@@ -1094,6 +1588,9 @@
       },
       {
        "county": "Hernando",
+       "procedures": [
+        "acquisition_procedure_available"
+       ],
        "sources": [
         {
          "authority": "GOVERNMENT_PLATFORM",
@@ -1104,6 +1601,9 @@
       },
       {
        "county": "Highlands",
+       "procedures": [
+        "acquisition_procedure_available"
+       ],
        "sources": [
         {
          "authority": "GOVERNMENT_PLATFORM",
@@ -1164,6 +1664,9 @@
       },
       {
        "county": "Leon",
+       "procedures": [
+        "acquisition_procedure_available"
+       ],
        "sources": [
         {
          "authority": "GOVERNMENT_DIRECT",
@@ -1174,6 +1677,9 @@
       },
       {
        "county": "Levy",
+       "procedures": [
+        "acquisition_procedure_available"
+       ],
        "sources": [
         {
          "authority": "GOVERNMENT_PLATFORM",
@@ -1184,6 +1690,9 @@
       },
       {
        "county": "Madison",
+       "procedures": [
+        "acquisition_procedure_available"
+       ],
        "sources": [
         {
          "authority": "GOVERNMENT_DIRECT",
@@ -1204,6 +1713,9 @@
       },
       {
        "county": "Marion",
+       "procedures": [
+        "acquisition_procedure_available"
+       ],
        "sources": [
         {
          "authority": "GOVERNMENT_DIRECT",
@@ -1244,6 +1756,9 @@
       },
       {
        "county": "Orange",
+       "procedures": [
+        "acquisition_procedure_available"
+       ],
        "sources": [
         {
          "authority": "GOVERNMENT_DIRECT",
@@ -1274,6 +1789,9 @@
       },
       {
        "county": "Pasco",
+       "procedures": [
+        "acquisition_procedure_available"
+       ],
        "sources": [
         {
          "authority": "GOVERNMENT_DIRECT",
@@ -1364,6 +1882,9 @@
       },
       {
        "county": "Sumter",
+       "procedures": [
+        "acquisition_procedure_available"
+       ],
        "sources": [
         {
          "authority": "GOVERNMENT_DIRECT",
@@ -1374,6 +1895,9 @@
       },
       {
        "county": "Taylor",
+       "procedures": [
+        "acquisition_procedure_available"
+       ],
        "sources": [
         {
          "authority": "GOVERNMENT_DIRECT",
@@ -1394,6 +1918,9 @@
       },
       {
        "county": "Volusia",
+       "procedures": [
+        "acquisition_procedure_available"
+       ],
        "sources": [
         {
          "authority": "GOVERNMENT_DIRECT",
@@ -1985,6 +2512,27 @@
      "topic": "source_dated_list",
      "verified_on": "2026-09-30",
      "version": "1"
+    },
+    {
+     "changed_on": "2026-10-11",
+     "county": "East Baton Rouge",
+     "depends_on": "scripts/purchase_path_engine.py resolve(): the evidence row is the acquisition record carried onto every active row of the unit (otc_provenance.acquisition) and the county's VERIFIED acquisition-evidence status (public/acquisition-evidence.json)",
+     "evidence": "data/purchase_path_evidence.csv: LA/la_ebr_adjudicated/East Baton Rouge (county_instructions; review_state verified)",
+     "implementation_status": "IMPLEMENTED",
+     "kind": "PROCEDURE",
+     "ledger": "AVAILABLE",
+     "office": "Office of the Parish Attorney, Property Division, City of Baton Rouge / Parish of East Baton Rouge",
+     "related_sources": "la_ebr_adjudicated",
+     "scope": "county",
+     "source_title": "MEMORANDUM - Office of the Parish Attorney, Property Division (purchase of adjudicated property)",
+     "source_url": "https://www.brla.gov/DocumentCenter/View/795/Adjudicated-Memo-PDF",
+     "state": "LA",
+     "statement": "The Parish Attorney's Adjudicated Property page and FAQ say the Office of the Parish Attorney handles sales of adjudicated property; a buyer can purchase directly through that office using its Request to Purchase form, and should first confirm with the Sheriff that the property is still adjudicated",
+     "status": "VERIFIED",
+     "test_ref": "tests/python/test_gap_closure.py",
+     "topic": "acquisition_procedure_available",
+     "verified_on": "2026-10-01",
+     "version": "1"
     }
    ],
    "history": [],
@@ -2002,7 +2550,8 @@
       {
        "county": "East Baton Rouge",
        "procedures": [
-        "source_dated_list"
+        "source_dated_list",
+        "acquisition_procedure_available"
        ],
        "sources": [
         {
@@ -2077,15 +2626,94 @@
      "source_id": "mi_lenawee_tax_sale",
      "source_title": "Tax Sale | Lenawee County, MI",
      "steps": "Register online on the auction website the county names before the sale (registration ends 12:00 PM, October 5, 2026) | Bid online at the October 6, 2026, 10:00 AM sale (a minimum bid auction) | Pay the winning bid in full by 11:30 AM, Thursday, October 8, 2026, payable to Lenawee County Treasurer"
+    },
+    {
+     "county": "Wayne",
+     "evidence": "The DLBA's 'Amended and Restated Vacant Land Policy' (final October 2023, 26 pages): Side Lots, Neighborhood Lots and Oversize Lots are DLBA-owned vacant residential lots sold by application at policy prices - 'Side Lots are priced at $100 per lot', a Neighborhood Lot '$250 per lot, unless the estimated value of the lot exceeds $2,500', an Oversize Lot '$200 per lot, unless the estimated value of the lot as determined by the DLBA exceeds $2,500' - to a defined buyer: the owner-occupant of a Detroit home adjacent to (Side / Oversize Lot) or within 500 feet of (Neighborhood Lot) the lot, who holds title, is current on Detroit property taxes and is in good standing with the DLBA; a purchase is made by a 'Complete Application ... to purchase property under this Policy'",
+     "evidence_url": "https://dlba-production-bucket.s3.us-east-2.amazonaws.com/DLBA+Policies/POLICIES+-+Vacant+Land+Policy+(FINAL+Oct+2023).pdf",
+     "instructions": "A purchase is made by a 'Complete Application ... to purchase property under this Policy'. The DLBA holds applications for at least ten days after the first one arrives, then chooses by priority. The DLBA 'may choose to remove a property from ... eligibility at any time and for any reason'. A non-adjacent Neighborhood Lot needs an endorsement (block club, Community Partner, Council Member or District Manager); the application is cancelled after 60 days without one.",
+     "observed_on": "2026-10-03",
+     "office": "Detroit Land Bank Authority",
+     "path_type": "county_instructions",
+     "source_id": "mi_detroit_landbank_lots",
+     "source_title": "DETROIT LAND BANK AUTHORITY AMENDED AND RESTATED VACANT LAND POLICY (FINAL Oct 2023)",
+     "steps": "Hold title to, and occupy, the Detroit home adjacent to the lot (Side Lot / Oversize Lot) or within 500 feet of it (Neighborhood Lot), be current on Detroit property taxes and in good standing with the DLBA | Submit a Complete Application to purchase the lot under the DLBA Vacant Land Policy (a non-adjacent Neighborhood Lot needs an endorsement) | The DLBA holds applications for at least ten days after the first one arrives, then selects by the policy's priority order"
     }
    ],
-   "county_rules": [],
+   "county_rules": [
+    {
+     "changed_on": "2026-10-11",
+     "county": "Eaton",
+     "depends_on": "scripts/purchase_path_engine.py resolve(): the evidence row is the acquisition record carried onto every active row of the unit (otc_provenance.acquisition) and the county's VERIFIED acquisition-evidence status (public/acquisition-evidence.json)",
+     "evidence": "data/purchase_path_evidence_expansion.csv: MI/mi_eaton_treasurer_sale/Eaton (in_person; review_state verified)",
+     "implementation_status": "IMPLEMENTED",
+     "kind": "PROCEDURE",
+     "ledger": "AUCTIONS",
+     "office": "Eaton County Treasurer",
+     "related_sources": "mi_eaton_treasurer_sale",
+     "scope": "county",
+     "source_title": "2026 Foreclosure Sale | Eaton County, MI",
+     "source_url": "https://www.eatoncounty.org/1530/2026-Foreclosure-Sale",
+     "state": "MI",
+     "statement": "The Treasurer's '2026 Foreclosure Sale' page: 'Eaton County will hold the last foreclosed real estate property auction of 2026 on Thursday, October 22, 2026 at 6:00 p.m.' at the Eaton County Governmental Complex; all buyers must be in person",
+     "status": "VERIFIED",
+     "test_ref": "tests/python/test_gap_closure.py",
+     "topic": "acquisition_procedure_auctions",
+     "verified_on": "2026-10-01",
+     "version": "1"
+    },
+    {
+     "changed_on": "2026-10-11",
+     "county": "Lenawee",
+     "depends_on": "scripts/purchase_path_engine.py resolve(): the evidence row is the acquisition record carried onto every active row of the unit (otc_provenance.acquisition) and the county's VERIFIED acquisition-evidence status (public/acquisition-evidence.json)",
+     "evidence": "data/purchase_path_evidence_expansion.csv: MI/mi_lenawee_tax_sale/Lenawee (county_instructions; review_state verified)",
+     "implementation_status": "IMPLEMENTED",
+     "kind": "PROCEDURE",
+     "ledger": "AUCTIONS",
+     "office": "Lenawee County Treasurer",
+     "related_sources": "mi_lenawee_tax_sale",
+     "scope": "county",
+     "source_title": "Tax Sale | Lenawee County, MI",
+     "source_url": "https://www.lenawee.mi.us/712/Tax-Sale",
+     "state": "MI",
+     "statement": "The Treasurer's 'Tax Sale' page: 'The 2026 Tax Scavanger Sale will be held online ... on October 6, 2026 at 10:00 AM'; registration on the auction website; 'All tax sales are a minimum bid auction'; payment terms and deadlines",
+     "status": "VERIFIED",
+     "test_ref": "tests/python/test_gap_closure.py",
+     "topic": "acquisition_procedure_auctions",
+     "verified_on": "2026-10-01",
+     "version": "1"
+    },
+    {
+     "changed_on": "2026-10-11",
+     "county": "Wayne",
+     "depends_on": "scripts/purchase_path_engine.py resolve(): the evidence row is the acquisition record carried onto every active row of the unit (otc_provenance.acquisition) and the county's VERIFIED acquisition-evidence status (public/acquisition-evidence.json)",
+     "evidence": "data/purchase_path_evidence_expansion.csv: MI/mi_detroit_landbank_lots/Wayne (county_instructions; review_state verified)",
+     "implementation_status": "IMPLEMENTED",
+     "kind": "PROCEDURE",
+     "ledger": "AVAILABLE",
+     "office": "Detroit Land Bank Authority",
+     "related_sources": "mi_detroit_landbank_lots",
+     "scope": "county",
+     "source_title": "DETROIT LAND BANK AUTHORITY AMENDED AND RESTATED VACANT LAND POLICY (FINAL Oct 2023)",
+     "source_url": "https://dlba-production-bucket.s3.us-east-2.amazonaws.com/DLBA+Policies/POLICIES+-+Vacant+Land+Policy+(FINAL+Oct+2023).pdf",
+     "state": "MI",
+     "statement": "The DLBA's 'Amended and Restated Vacant Land Policy' (final October 2023, 26 pages): Side Lots, Neighborhood Lots and Oversize Lots are DLBA-owned vacant residential lots sold by application at policy prices - 'Side Lots are priced at $100 per lot', a Neighborhood Lot '$250 per lot, unless the estimated value of the lot exceeds $2,500', an Oversize Lot '$200 per lot, unless the estimated value of the lot as determined by the DLBA exceeds $2,500' - to a defined buyer: the owner-occupant of a Detroit home adjacent to (Side / Oversize Lot) or within 500 feet of (Neighborhood Lot) the lot, who holds title, is current on Detroit property taxes and is in good standing with the DLBA; a purchase is made by a 'Complete Application ... to purchase property under this Policy'",
+     "status": "VERIFIED",
+     "test_ref": "tests/python/test_gap_closure.py",
+     "topic": "acquisition_procedure_available",
+     "verified_on": "2026-10-03",
+     "version": "1"
+    }
+   ],
    "history": [],
    "ledgers": {
     "AUCTIONS": {
      "coverage": [
       {
        "county": "Eaton",
+       "procedures": [
+        "acquisition_procedure_auctions"
+       ],
        "sources": [
         {
          "authority": "GOVERNMENT_DIRECT",
@@ -2096,6 +2724,9 @@
       },
       {
        "county": "Lenawee",
+       "procedures": [
+        "acquisition_procedure_auctions"
+       ],
        "sources": [
         {
          "authority": "GOVERNMENT_DIRECT",
@@ -2128,6 +2759,9 @@
       },
       {
        "county": "Wayne",
+       "procedures": [
+        "acquisition_procedure_available"
+       ],
        "sources": [
         {
          "authority": "GOVERNMENT_DIRECT",
@@ -2613,6 +3247,27 @@
      "topic": "forfeited_land_deed",
      "verified_on": "2026-10-02",
      "version": "1"
+    },
+    {
+     "changed_on": "2026-10-11",
+     "county": "York",
+     "depends_on": "scripts/purchase_path_engine.py resolve(): the evidence row is the acquisition record carried onto every active row of the unit (otc_provenance.acquisition) and the county's VERIFIED acquisition-evidence status (public/acquisition-evidence.json)",
+     "evidence": "data/purchase_path_evidence_expansion.csv: SC/sc_york_tax_sale/York (in_person; review_state verified)",
+     "implementation_status": "IMPLEMENTED",
+     "kind": "PROCEDURE",
+     "ledger": "AUCTIONS",
+     "office": "York County Tax Collection Office",
+     "related_sources": "sc_york_tax_sale",
+     "scope": "county",
+     "source_title": "Tax Sale Fact Sheet and Disclaimer (York County, SC)",
+     "source_url": "https://www.yorkcountysc.gov/DocumentCenter/View/5241/Tax-Sale-Fact-Sheet",
+     "state": "SC",
+     "statement": "York County's 'Tax Sale Fact Sheet and Disclaimer' (PDF): opening bid made on behalf of the Forfeited Land Commission (all delinquent taxes, penalties and cost plus current year taxes); payment in full on the day of the sale; twelve-month redemption with 12% interest pro-rated quarterly",
+     "status": "VERIFIED",
+     "test_ref": "tests/python/test_gap_closure.py",
+     "topic": "acquisition_procedure_auctions",
+     "verified_on": "2026-10-01",
+     "version": "1"
     }
    ],
    "history": [],
@@ -2631,6 +3286,9 @@
       },
       {
        "county": "York",
+       "procedures": [
+        "acquisition_procedure_auctions"
+       ],
        "sources": [
         {
          "authority": "GOVERNMENT_DIRECT",
@@ -2860,6 +3518,27 @@
      "test_ref": "tests/python/test_state_coverage.py",
      "topic": "tax_sale_list_source",
      "version": "1"
+    },
+    {
+     "changed_on": "2026-10-11",
+     "county": "Galveston",
+     "depends_on": "scripts/purchase_path_engine.py resolve(): the evidence row is the acquisition record carried onto every active row of the unit (otc_provenance.acquisition) and the county's VERIFIED acquisition-evidence status (public/acquisition-evidence.json)",
+     "evidence": "data/purchase_path_evidence.csv: TX/tx_lgbs/Galveston (county_instructions; review_state verified)",
+     "implementation_status": "IMPLEMENTED",
+     "kind": "PROCEDURE",
+     "ledger": "AUCTIONS|AVAILABLE",
+     "office": "Galveston County Sheriff's Office",
+     "related_sources": "tx_lgbs",
+     "scope": "county",
+     "source_title": "Galveston County Sheriff's Office - Sheriff Sales Information & Procedures",
+     "source_url": "https://sheriff.galvestoncountytx.gov/Forms/Sale/Sheriff_Sale_Procedures.pdf",
+     "state": "TX",
+     "statement": "Galveston County Sheriff's Office 'Sheriff Sales Information & Procedures': tax foreclosure sales and RESALES are conducted by the Sheriff exclusively online through Real Auction - bidder registration, a bid deposit of at least 5%, payment on the sale day, and a Certificate of Eligibility from the County Tax Office before the Sheriff's Deed is recorded",
+     "status": "VERIFIED",
+     "test_ref": "tests/python/test_gap_closure.py",
+     "topic": "acquisition_procedure_auctions_available",
+     "verified_on": "2026-10-01",
+     "version": "1"
     }
    ],
    "history": [
@@ -2959,6 +3638,9 @@
       },
       {
        "county": "Galveston",
+       "procedures": [
+        "acquisition_procedure_auctions_available"
+       ],
        "sources": [
         {
          "authority": "VENDOR_COUNSEL",
@@ -3206,6 +3888,9 @@
      "coverage": [
       {
        "county": "Galveston",
+       "procedures": [
+        "acquisition_procedure_auctions_available"
+       ],
        "sources": [
         {
          "authority": "VENDOR_COUNSEL",
@@ -3409,13 +4094,59 @@
      "steps": "Complete the county's Tax Deed Bid Form | Return it to the Green County Clerk's Office in a sealed envelope labeled with the site address / parcel number | Pay in full within the business days the county states after the bid is awarded"
     }
    ],
-   "county_rules": [],
+   "county_rules": [
+    {
+     "changed_on": "2026-10-11",
+     "county": "Dane",
+     "depends_on": "scripts/purchase_path_engine.py resolve(): the evidence row is the acquisition record carried onto every active row of the unit (otc_provenance.acquisition) and the county's VERIFIED acquisition-evidence status (public/acquisition-evidence.json)",
+     "evidence": "data/purchase_path_evidence_expansion.csv: WI/wi_dane_tax_deed_auction/Dane (county_instructions; review_state verified)",
+     "implementation_status": "IMPLEMENTED",
+     "kind": "PROCEDURE",
+     "ledger": "AUCTIONS",
+     "office": "Dane County Treasurer",
+     "related_sources": "wi_dane_tax_deed_auction",
+     "scope": "county",
+     "source_title": "Tax Deed Details | Dane County Treasurer Office",
+     "source_url": "https://treasurer.danecounty.gov/Tax-Deed-Details",
+     "state": "WI",
+     "statement": "Dane County Treasurer 'Tax Deed Auction Details': auctions are conducted through a sealed bid; bids through the 'Bid Form' button next to each parcel; no registration; the Bid Opening is the day after the Bid Due date; awards only at or above the appraised value",
+     "status": "VERIFIED",
+     "test_ref": "tests/python/test_gap_closure.py",
+     "topic": "acquisition_procedure_auctions",
+     "verified_on": "2026-10-01",
+     "version": "1"
+    },
+    {
+     "changed_on": "2026-10-11",
+     "county": "Green",
+     "depends_on": "scripts/purchase_path_engine.py resolve(): the evidence row is the acquisition record carried onto every active row of the unit (otc_provenance.acquisition) and the county's VERIFIED acquisition-evidence status (public/acquisition-evidence.json)",
+     "evidence": "data/purchase_path_evidence_expansion.csv: WI/wi_green_tax_deed_sales/Green (application_download; review_state verified)",
+     "implementation_status": "IMPLEMENTED",
+     "kind": "PROCEDURE",
+     "ledger": "AUCTIONS",
+     "office": "Green County Clerk's Office",
+     "related_sources": "wi_green_tax_deed_sales",
+     "scope": "county",
+     "source_title": "Current Tax Deed Sales | Green County, WI",
+     "source_url": "https://www.greencountywi.org/492/Current-Tax-Deed-Sales",
+     "state": "WI",
+     "statement": "The Current Tax Deed Sales page says persons interested in bidding shall complete a bid form and return it to the Green County Clerk's Office in a sealed envelope labeled with the site address / parcel number, with full payment due within a stated number of business days of the award; the page links the county's Tax Deed Bid Form (PDF)",
+     "status": "VERIFIED",
+     "test_ref": "tests/python/test_gap_closure.py",
+     "topic": "acquisition_procedure_auctions",
+     "verified_on": "2026-09-30",
+     "version": "1"
+    }
+   ],
    "history": [],
    "ledgers": {
     "AUCTIONS": {
      "coverage": [
       {
        "county": "Dane",
+       "procedures": [
+        "acquisition_procedure_auctions"
+       ],
        "sources": [
         {
          "authority": "GOVERNMENT_DIRECT",
@@ -3426,6 +4157,9 @@
       },
       {
        "county": "Green",
+       "procedures": [
+        "acquisition_procedure_auctions"
+       ],
        "sources": [
         {
          "authority": "GOVERNMENT_DIRECT",
@@ -3607,7 +4341,7 @@
    "findings": [
     {
      "check": "rules_valid",
-     "detail": "2 rule(s) recorded",
+     "detail": "5 rule(s) recorded",
      "state": "CO",
      "status": "PASS"
     },
@@ -3778,7 +4512,7 @@
    "findings": [
     {
      "check": "rules_valid",
-     "detail": "9 rule(s) recorded",
+     "detail": "28 rule(s) recorded",
      "state": "FL",
      "status": "PASS"
     },
@@ -3990,7 +4724,7 @@
    "findings": [
     {
      "check": "rules_valid",
-     "detail": "2 rule(s) recorded",
+     "detail": "3 rule(s) recorded",
      "state": "LA",
      "status": "PASS"
     },
@@ -4119,7 +4853,7 @@
    "findings": [
     {
      "check": "rules_valid",
-     "detail": "2 rule(s) recorded",
+     "detail": "5 rule(s) recorded",
      "state": "MI",
      "status": "PASS"
     },
@@ -4262,7 +4996,7 @@
     },
     {
      "check": "acquisition_path",
-     "detail": "1/3 AVAILABLE unit(s) with a verified official process - the rest show 'Not yet verified' / 'No online purchase link on file'",
+     "detail": "2/3 AVAILABLE unit(s) with a verified official process - the rest show 'Not yet verified' / 'No online purchase link on file'",
      "state": "MI",
      "status": "NOT_VERIFIED"
     },
@@ -4897,7 +5631,7 @@
    "findings": [
     {
      "check": "rules_valid",
-     "detail": "3 rule(s) recorded",
+     "detail": "4 rule(s) recorded",
      "state": "SC",
      "status": "PASS"
     },
@@ -5218,7 +5952,7 @@
    "findings": [
     {
      "check": "rules_valid",
-     "detail": "5 rule(s) recorded",
+     "detail": "6 rule(s) recorded",
      "state": "TX",
      "status": "PASS"
     },
@@ -5367,7 +6101,7 @@
    "findings": [
     {
      "check": "rules_valid",
-     "detail": "1 rule(s) recorded",
+     "detail": "3 rule(s) recorded",
      "state": "WI",
      "status": "PASS"
     },

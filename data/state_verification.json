@@ -102,7 +102,7 @@
  "findings": [
   {
    "check": "rules_valid",
-   "detail": "2 rule(s) recorded",
+   "detail": "5 rule(s) recorded",
    "state": "CO",
    "status": "PASS"
   },
@@ -262,7 +262,7 @@
   },
   {
    "check": "rules_valid",
-   "detail": "9 rule(s) recorded",
+   "detail": "28 rule(s) recorded",
    "state": "FL",
    "status": "PASS"
   },
@@ -463,7 +463,7 @@
   },
   {
    "check": "rules_valid",
-   "detail": "2 rule(s) recorded",
+   "detail": "3 rule(s) recorded",
    "state": "LA",
    "status": "PASS"
   },
@@ -581,7 +581,7 @@
   },
   {
    "check": "rules_valid",
-   "detail": "2 rule(s) recorded",
+   "detail": "5 rule(s) recorded",
    "state": "MI",
    "status": "PASS"
   },
@@ -724,7 +724,7 @@
   },
   {
    "check": "acquisition_path",
-   "detail": "1/3 AVAILABLE unit(s) with a verified official process - the rest show 'Not yet verified' / 'No online purchase link on file'",
+   "detail": "2/3 AVAILABLE unit(s) with a verified official process - the rest show 'Not yet verified' / 'No online purchase link on file'",
    "state": "MI",
    "status": "NOT_VERIFIED"
   },
@@ -1304,7 +1304,7 @@
   },
   {
    "check": "rules_valid",
-   "detail": "3 rule(s) recorded",
+   "detail": "4 rule(s) recorded",
    "state": "SC",
    "status": "PASS"
   },
@@ -1603,7 +1603,7 @@
   },
   {
    "check": "rules_valid",
-   "detail": "5 rule(s) recorded",
+   "detail": "6 rule(s) recorded",
    "state": "TX",
    "status": "PASS"
   },
@@ -1741,7 +1741,7 @@
   },
   {
    "check": "rules_valid",
-   "detail": "1 rule(s) recorded",
+   "detail": "3 rule(s) recorded",
    "state": "WI",
    "status": "PASS"
   },
