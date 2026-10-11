@@ -570,22 +570,27 @@ results.laftCardCount = await page.locator('.prop-card').count();
 // County is shown on the group header now, not a per-card tag.
 results.laftCountyGroupName = (await page.locator('.county-group .county-name').first().textContent() || '').trim();
 results.laftGroupMeta = (await page.locator('.county-group .county-meta').first().textContent() || '').trim();
-// The acres branch. p3's lot is 43,560 sq ft - exactly an acre, and over the
-// 20,000 threshold - so it must read "1.00 acres", not a six-digit square
-// footage nobody can picture. It is also vacant land with no building, so its
-// spec line has to carry the lot and NOTHING else: no "Built", no living
-// area. That is the majority shape of this inventory, and the reason each
-// fact renders independently rather than as one block.
-await page.locator('.county-group[data-county="Bay"] summary.county-head').click();
+// The card face is lean (remediation 2026-10-11): kicker, identity, one
+// price, the CTA and the View button. Lot size, purchase path and the other
+// facts moved to the full property page, so the card is checked for what it
+// still shows, and the property page for the rest.
+// Groups open by default when there are three or fewer counties (2026-10-11), so expand only a closed one.
+await page.locator('.county-group[data-county="Bay"]').evaluate(el => { if (!el.open) el.querySelector('summary.county-head').click(); });
 await page.waitForTimeout(200);
-results.laftSpecBits = await page.locator('.prop-card').first().locator('.prop-spec span').allTextContents();
-results.laftValueLabel = (await page.locator('.prop-card').first().locator('.card-stat-label').nth(1).textContent() || '').trim();
+results.laftCardFaceParts = await page.locator('.prop-card').first().evaluate(el => ({
+  photo: !!el.querySelector('.prop-card-photo'),
+  price: !!el.querySelector('.card-price'),
+  cta: !!el.querySelector('.detail-btn'),
+  // The removed face elements must stay removed.
+  legacySpec: el.querySelectorAll('.prop-spec').length,
+  legacyLedgerLine: el.querySelectorAll('.prop-ledger-line').length,
+  legacyStatGrid: el.querySelectorAll('.card-stat-grid').length,
+  legacyPrimary: el.querySelectorAll('.prop-links').length,
+}));
+results.laftValueLabel = (await page.locator('.prop-card').first().locator('.card-price .card-stat-label').first().textContent() || '').trim();
 // Phase 65: a Lands Available row's first line names the ledger and says it
 // is a fixed-price listing, not a bidding event.
 results.laftKicker = await page.locator('.prop-card').first().locator('.prop-kicker').evaluate(el => Array.from(el.children).map(c => c.textContent.trim()).join(' '));
-// Three ledgers: an Available card leads with its PURCHASE PATH - p3 carries
-// no purchase_url, so the line says so rather than pointing at the list page.
-results.laftLedgerLine = await page.locator('.prop-card').first().locator('.prop-ledger-line > span').evaluateAll(els => els.map(el => Array.from(el.children).map(c => c.textContent.trim()).join(' ')));
 // Available filters (each reads a stored field): purchase path, amount kind,
 // availability status, acreage, recency. p3: no purchase_url, OPENING_BID,
 // available_otc, 1.0 acre, last read 2026-08-11 (older than 14 days).
@@ -618,7 +623,6 @@ results.availFilterCounts = availCounts;
 // p3 is the one fixture row with homestead:true - the badge should show up
 // right on the card, not just buried in the detail page, since it's exactly
 // the kind of risk flag a bidder needs before clicking into anything.
-results.laftHomesteadBadge = (await page.locator('.prop-card').first().locator('.lien-pill.homestead').textContent() || '').trim();
 // The bare-land branch (p3) is checked later, in the detail-modal section -
 // #detailModalInner picks up a permanent "prop-card" class the first time
 // ANY detail page is opened (see openDetail's className assignment, never
@@ -767,11 +771,8 @@ results.spreadBadgeCount = await page.locator('.spread-badge').count();
   results.cardKickerFirst = await first.locator('.prop-kicker').evaluate(spanText);
   results.cardKickerPhaseClassFirst = await first.locator('.kicker-phase').evaluate(el => Array.from(el.classList).find(c => c.startsWith('phase-')));
   results.cardCaseLineFirst = (await first.locator('.prop-case-line').textContent() || '').trim();
-  results.cardFactsFirst = await first.locator('.prop-facts > span').evaluateAll(els => els.map(el => Array.from(el.children).map(c => c.textContent.trim()).join(' ')));
-  results.cardFactsMutedCountFirst = await first.locator('.prop-facts .muted').count();
   // Three ledgers: an auction card leads with its RESULT - p1's sale is
   // upcoming, so "Sale not yet held"; never an inferred outcome.
-  results.cardLedgerLineFirst = await first.locator('.prop-ledger-line > span').evaluateAll(els => els.map(el => Array.from(el.children).map(c => c.textContent.trim()).join(' ')));
 }
 
 // --- county tax-roll facts on the card ---
@@ -781,14 +782,9 @@ results.spreadBadgeCount = await page.locator('.spread-badge').count();
 //
 // p1 is fully enriched WITH a building.
 const p1Card = page.locator('.prop-card').first();
-results.cardSpecBits = await p1Card.locator('.prop-spec span').allTextContents();
-results.cardLastSale = (await p1Card.locator('.prop-lastsale').textContent() || '').replace(/\s+/g, ' ').trim();
 // The legal description is a paragraph of surveyor's shorthand. On the card
 // it is one clamped line - the full text lives in the title attribute and on
 // the full property page.
-results.cardLegalIsOneLine = await p1Card.locator('.prop-legal').evaluate(el =>
-  getComputedStyle(el).whiteSpace === 'nowrap' && getComputedStyle(el).textOverflow === 'ellipsis');
-results.cardLegalFullTextInTitle = ((await p1Card.locator('.prop-legal').getAttribute('title')) || '').startsWith('BEG 418 FT S');
 
 // A row the enrichment script has NOT matched must still render the lean
 // card it always was - no empty spec line, no orphan "Last sold" label.
@@ -1133,7 +1129,6 @@ await page.click('#termsCloseBtn');
 await page.waitForTimeout(200);
 results.termsModalCloses = await page.locator('#termsModal').isHidden();
 results.cardStatGridCount = await page.locator('.prop-card .card-stat-grid').count();
-results.lienPillFirstText = (await page.locator('.prop-card .lien-pill').first().textContent() || '').trim();
 results.homesteadBadgeAbsentForP1 = await page.locator('.prop-card').first().locator('.lien-pill.homestead').count();
 // Phase 20: scoped to #detailModalInner for the same reason as the
 // calculator and closedetail locators above - by this point in the file a
@@ -1209,10 +1204,8 @@ await page.click('#detailModalInner [data-action="closedetail"]');
 await page.waitForTimeout(150);
 await page.click('.ledger-tab[data-ledger="auction"]');
 await page.waitForTimeout(150);
-results.linkIconPresent = (await page.locator('.prop-links a').first().innerHTML() || '').includes('link-icon');
 // p1 (Alachua, clean/12x+ ratio potential) should be a top pick - confirm the
 // upgraded pill-style banner renders with its ratio callout.
-results.toppickBannerText = (await page.locator('.toppick-banner').first().textContent().catch(() => '')) || '';
 
 // --- junk-land row is laft-only; the CSV export button and auction cards'
 // equity-spread bar are per-ledger too. Auction ledger is active here. ---
@@ -1648,8 +1641,6 @@ if ((await page.locator('#expandAllBtn').textContent()) === 'Expand all') {
   await page.waitForTimeout(200);
 }
 const txCard = page.locator('.prop-card[data-pid="ptx1"]');
-results.txCardStreetviewHref = await txCard.locator('.prop-links a', { hasText: 'Google Maps search' }).getAttribute('href');
-results.txCardZillowHref = await txCard.locator('.prop-links a', { hasText: 'Zillow' }).getAttribute('href');
 // ptx1 has neither url_streetview nor url_zillow (both null in the
 // fixture), so both are fallback/"estimated" links - the detail modal's
 // link labels should say so, and its harvester_source ("tx_lgbs") should
@@ -1664,7 +1655,6 @@ results.txDetailProvenanceText = ((await page.locator('#detailModalInner .detail
   const txHtml = await page.content();
   results.txNoFloridaStatuteCopy = !/197\.502|197\.542|doc stamps|documentary stamps/i.test(await page.locator('footer, #termsModal').allTextContents().then(t => t.join(' ')));
   results.txNoFilterMatchToggle = (await page.locator('#topOnly').count()) === 0 && (await page.locator('#qtToggle').count()) === 0;
-  results.txNoFilterMatchBanner = !/toppick-banner/.test(txHtml);
 }
 
 // Phase 36: fees(p) (app.js) used to apply Florida's statutory fee formula
@@ -1872,8 +1862,6 @@ results.photoCardBannerHeightCapped = await p6Card.locator('.prop-card-photo.has
 // location state) in two spans - read the photo one here.
 results.photoNotCheckedText = ((await p66.locator('.prop-card:has-text("1 Main St") .prop-card-photo.no-photo .vis-main').first().textContent()) || '').trim();
 results.placeholderLocationText = ((await p66.locator('.prop-card:has-text("1 Main St") .prop-card-photo.no-photo .vis-sub').first().textContent()) || '').trim();
-results.cardMoreClosedByDefault = await p66.locator('.prop-card:has-text("1 Main St") details.card-more').first().evaluate(el => !el.open);
-results.cardMoreSummaryText = ((await p66.locator('.prop-card:has-text("1 Main St") details.card-more summary').first().textContent()) || '').trim();
 // No horizontal overflow at phone width, and the icon buttons have a real hit area.
 results.noHorizontalOverflowMobile = await p66.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1);
 results.iconBtnHitAreaMobile = await p66.locator('.prop-card .icon-btn').first().evaluate(el => { const r = el.getBoundingClientRect(); return r.width >= 32 && r.height >= 32; });
@@ -2155,7 +2143,7 @@ await dashPage.waitForTimeout(300);
 // parcel with no match says so in words rather than showing nothing.
 await dashPage.click('.ledger-tab[data-ledger="certificate"]');
 await dashPage.waitForTimeout(300);
-await dashPage.locator('.county-group summary.county-head').first().click();   // county groups start collapsed
+await dashPage.locator('.county-group').first().evaluate(el => { if (!el.open) el.querySelector('summary.county-head').click(); });   // open by default when few counties
 await dashPage.waitForTimeout(200);
 await dashPage.locator('.cert-card [data-action="viewdetails"]').first().click();
 await dashPage.waitForTimeout(400);
@@ -6828,10 +6816,8 @@ const EXPECTED = {
   cardKickerFirst: /^Alachua, FL · Auction · Sale [A-Z][a-z]{2} \d{1,2}, \d{4}$/,
   cardKickerPhaseClassFirst: 'phase-soon',
   cardCaseLineFirst: 'Case A-1',
-  cardFactsFirst: ['Location Not yet geocoded', 'Flood Not checked', 'Value ÷ bid 18.0×'],
-  cardFactsMutedCountFirst: 2,
   laftKicker: "Bay, FL · Available · Lands Available list · over the counter",
-  laftLedgerLine: ['Purchase path No online purchase link on file', 'Amount Opening bid'],
+  laftCardFaceParts: { photo: true, price: true, cta: true, legacySpec: 0, legacyLedgerLine: 0, legacyStatGrid: 0, legacyPrimary: 0 },
   availFiltersHiddenOnAuctions: true,
   availFiltersShownOnAvailable: true,
   ledgerWithheldText: '1 record withheld - source not approved for customer publication (restricted or not yet reviewed). Counted, not shown.',
@@ -6856,7 +6842,6 @@ const EXPECTED = {
   bayPreviewHasAvailability: true,
   bayPreviewHasPurchasePath: true,
   bayPreviewHasAmountKind: true,   // p3's purchase_amount_kind is OPENING_BID (the list's own label)
-  cardLedgerLineFirst: ['Auction result Sale not yet held'],
   // Phase 66: "At a glance" summary + section nav + photo states + show-on-map
   oppCellLabels: ['What', 'Where', 'When', 'Opening bid', 'Value on file', 'Missing'],   // FL auction: the statutory opening bid (2026-10-05)
   oppWhatText: 'Florida tax deed auction Source: Fl Realauction Alachua',
@@ -6874,8 +6859,6 @@ const EXPECTED = {
   photoCardBannerHeightCapped: true,
   photoNotCheckedText: 'Image not checked yet',
   photoNoCoverageText: 'Checked - no stored image for this address',
-  cardMoreClosedByDefault: true,
-  cardMoreSummaryText: 'More · last sale, legal description',
   noHorizontalOverflowMobile: true,
   iconBtnHitAreaMobile: true,
   showOnMapClosesModal: true,
@@ -7245,11 +7228,9 @@ const EXPECTED = {
   auctionTabOffAfterLaftClick: false,
   laftCardCount: 2,
   laftCountyGroupName: 'Bay',
-  laftSpecBits: ['1.00 acres lot'],
   // A different roll year from p1's, so the label is genuinely per-row rather
   // than a constant with a year hardcoded into it.
   laftValueLabel: '2024 County Just Value',
-  laftHomesteadBadge: 'Homestead',
   laftBareLandStat: 'None (bare land)',
   junkLandRowVisibleOnLaft: true,
   laftCountBeforeJunkFilters: 2,
@@ -7294,10 +7275,6 @@ const EXPECTED = {
   cardStatLabelsFirst: ['Opening Bid', '2025 County Just Value'],
   // 16,456 sq ft is under the 20,000 threshold, so the lot stays in square
   // feet rather than being quoted as 0.38 acres.
-  cardSpecBits: ['Built 1958', '1,840 sq ft', '16,456 sq ft lot'],
-  cardLastSale: 'Last sold $41,500 in 2011',
-  cardLegalIsOneLine: true,
-  cardLegalFullTextInTitle: true,
   unenrichedCardExtras: '0,0,0',
   cardParcelLineFirst: 'Parcel # 111',
   spreadBadgeCount: 0,
@@ -7362,14 +7339,11 @@ const EXPECTED = {
   termsSayNotesShared: true,
   termsNoNotesPrivateClaim: true,
   cardStatGridCount: 8,
-  lienPillFirstText: 'Lien notes: No flags noted',
   homesteadBadgeAbsentForP1: 0,
   // Phase 35 added 3 more (Building/Improvement Value, Walk Away Above,
   // Gross Equity Spread) alongside the pre-existing Fees/muni-lien/
   // accrued-interest/TDA-eligibility tips.
   infoTipCount: 7,
-  linkIconPresent: true,
-  toppickBannerText: 'Filter match 18.0× county value ÷ bid · no lien flags noted',
   junkLandRowHiddenOnAuction: true,
   exportBtnLabelAuction: '⬇ Export to Auction Sheet',
   spreadBarPresentP1: 1,
@@ -7396,8 +7370,6 @@ const EXPECTED = {
   bidListBackShowsList: true,
   // Phase 34: regression coverage for the state-aware fallback link fix -
   // must read "...Harris County, TX..." (URL-encoded), never "...FL".
-  txCardStreetviewHref: /Harris%20County%2C%20TX/,
-  txCardZillowHref: /Harris%20County%2C%20TX/,
   // Phase 35: provenance/freshness/data-quality UX regression coverage.
   // Also confirms the stale-data warning renders as text (not just a card
   // border color) - p1's fixture updated_at (2026-08-10) is permanently
@@ -7406,7 +7378,6 @@ const EXPECTED = {
   detailLinksHaveNoEstimatedSuffix: true,
   txNoFloridaStatuteCopy: true,
   txNoFilterMatchToggle: true,
-  txNoFilterMatchBanner: true,
   txDetailLinksText: /Google Maps search \(estimated search\)[\s\S]*Zillow \(estimated search\)/,
   txDetailProvenanceText: /Data source: LGBS \(taxsales\.lgbs\.com\)/,
   // Phase 36: fees(p) is Florida-only now (no verified TX fee formula
