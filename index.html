@@ -333,6 +333,8 @@ not one long scroll where Lands Available sits under 300+ auction cards. -->
 then one removable chip per active filter (renderFilterChips() in app.js). -->
 <div class="list-head" id="listHead"><div><h1 class="list-title" id="listTitle">Properties</h1><p class="list-sub" id="listSubtitle"></p></div></div>
 <div class="filter-chips" id="filterChips" hidden></div>
+<!-- Recovery is a list action, not a filter: it stays visible beside the chips when the drawer is closed. -->
+<button class="reset-btn" id="hiddenListBtn" type="button" hidden><span id="hiddenCount">0</span> hidden - view &amp; recover</button>
 <div class="summary-strip">
 <button class="chip total" data-status="all" type="button">Shown&nbsp;<b id="chipTotal">0</b></button>
 <button class="chip ok" data-status="live" type="button">Active&nbsp;<b id="chipActive">0</b></button>
@@ -388,13 +390,13 @@ shell, no mode, no embedded map - and the desktop table view (#tableToggleBtn,
 a wholly separate feature from the old view-toggle) still sits right beside
 it exactly as before. -->
 <div class="auctions-body">
-<div class="filters-panel" id="filtersPanel" aria-label="Filters">
-<div class="filters-sheet-head"><span>Filters</span><button type="button" class="sheet-close" id="filtersSheetClose" aria-label="Close filters">&times;</button></div>
+<div class="filters-backdrop" id="filtersBackdrop" aria-hidden="true"></div>
+<div class="filters-panel" id="filtersPanel" role="dialog" aria-modal="true" aria-labelledby="filtersDrawerTitle" aria-hidden="true" tabindex="-1">
+<div class="filters-sheet-head"><span id="filtersDrawerTitle">Filters</span><button type="button" class="sheet-close" id="filtersSheetClose" aria-label="Close filters">&times;</button></div>
 
 <div class="filters-section">
 <div class="filters-section-head">
 <span class="filters-section-title">Bid / listed amount</span>
-<button class="reset-btn" id="resetBtn" type="button">Reset all filters</button>
 </div>
 <div class="filters-row">
 <div class="price-range-section">
@@ -508,7 +510,6 @@ applyLedgerChrome(); filtering is automatic, no Search button. -->
 <label class="tog"><input type="checkbox" id="availGeocoded"> <span>Coordinates on file</span></label>
 <label class="tog"><input type="checkbox" id="availValues"> <span>County value on file</span></label>
 </div>
-<button class="reset-btn" id="hiddenListBtn" type="button" hidden><span id="hiddenCount">0</span> hidden - view &amp; recover</button>
 </div>
 
 <!-- Advanced multi-select filters, collapsed behind dropdown-style
@@ -549,6 +550,10 @@ chips - each summary shows how many are currently selected. -->
 </details>
 </div>
 
+<div class="filters-drawer-foot">
+<button class="reset-btn" id="resetBtn" type="button">Clear all</button>
+<button class="filters-apply" id="filtersApply" type="button">Show results</button>
+</div>
 </div>
 <div class="data-table-wrap" id="dataTableWrap">
 <table class="data-table" id="dataTable">

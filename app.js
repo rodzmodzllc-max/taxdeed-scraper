@@ -1235,6 +1235,49 @@ const state = {
   counties: new Set(), types: new Set(TYPE_ORDER), liens: new Set(LIEN_ORDER)
 };
 
+// ---- Filter drawer: draft versus applied (2026-10-11) ----
+// `state` is the APPLIED filter set whenever the drawer is closed. While it is
+// open the drawer's controls edit `state` through their existing handlers,
+// but render() is held, so results, map and chips keep showing what was
+// applied: FILTER_DRAFT.applied is the snapshot taken when the drawer opened.
+// Show results releases the hold; Cancel, Escape and the backdrop restore the
+// snapshot. Declared with `var` because render() can run during module init.
+var FILTER_DRAFT = null;
+// Every drawer control: element id, the state key it reads and writes, its
+// kind and its default. The chips, the active count and the snapshot are all
+// derived from this one table, so they cannot disagree.
+var DRAFT_CTL = [
+  { id: "assessedMin", key: "assessedMin", kind: "num", def: null },
+  { id: "maxBidPct", key: "maxBidPct", kind: "num", def: 40 },
+  { id: "sortBy", key: "sortBy", kind: "sel", def: "county" },
+  { id: "sortSecondary", key: "sortSecondary", kind: "sel", def: "" },
+  { id: "favOnly", key: "favoritesOnly", kind: "chk", def: false },
+  { id: "topOnly", key: "topPicksOnly", kind: "chk", def: false },
+  { id: "soonOnly", key: "soonOnly", kind: "chk", def: false },
+  { id: "hideOldOnly", key: "hideOldListings", kind: "chk", def: false },
+  { id: "qtToggle", key: "includeQT", kind: "chk", def: false },
+  { id: "archiveToggle", key: "statusView", kind: "arch", def: "all" },
+  { id: "hideSliversOnly", key: "hideSlivers", kind: "chk", def: false },
+  { id: "hideBareLandOnly", key: "hideBareLandOnly", kind: "chk", def: false },
+  { id: "availPathFilter", key: "availPath", kind: "sel", def: "any" },
+  { id: "availAmountKindFilter", key: "availAmountKind", kind: "sel", def: "any" },
+  { id: "availStatusFilter", key: "availStatus", kind: "sel", def: "any" },
+  { id: "acreageMin", key: "acreageMin", kind: "num", def: null },
+  { id: "availSeenRecently", key: "availSeenRecently", kind: "chk", def: false },
+  { id: "availLandUseFilter", key: "availLandUse", kind: "sel", def: "any" },
+  { id: "availGeocoded", key: "availGeocoded", kind: "chk", def: false },
+  { id: "availValues", key: "availValues", kind: "chk", def: false },
+  { id: "taxableMin", key: "taxableMin", kind: "num", def: null },
+  { id: "imageryFilter", key: "imagery", kind: "sel", def: "any" },
+  { id: "acqStateFilter", key: "acqState", kind: "sel", def: "any" },
+  { id: "acqModeFilter", key: "acqMode", kind: "sel", def: "any" },
+  { id: "watchStatusFilter", key: "watchStatus", kind: "sel", def: "any" },
+  { id: "freshDaysFilter", key: "freshDays", kind: "sel", def: null },
+  { id: "sourceFilter", key: "sourceId", kind: "sel", def: "any" },
+  { id: "saleFromFilter", key: "saleFrom", kind: "date", def: "" },
+  { id: "saleToFilter", key: "saleTo", kind: "date", def: "" },
+];
+
 // Id of the property currently shown in the desktop persistent detail panel
 // (see the "APP SHELL" section at the end of this file for
 // selectProperty()/clearDetailPanel()/renderShellExtras(), which all read
@@ -9616,6 +9659,9 @@ function renderLedgerCounts(scrollActive) {
 }
 
 function render() {
+  // Held while a filter draft is open: results keep the applied set until
+  // Show results (see FILTER_DRAFT).
+  if (FILTER_DRAFT) return;
   const bidListCountEl = document.getElementById("bidListCount");
   if (bidListCountEl) bidListCountEl.textContent = `${BIDLIST.size}/${BID_LIST_MAX}` + (BID_LIST_PENDING.length ? ` +${BID_LIST_PENDING.length}⏳` : "");
   // Unified navigation (2026-09-30): the rail's Watchlist entry carries the same n/10.
@@ -10158,18 +10204,7 @@ document.addEventListener("click", e => {
 });
 
 function updateBadge() {
-  let n = 0;
-  if (state.search) n++;
-  if (state.bidMin !== null || state.bidMax !== null || state.assessedMin) n++;
-  if (state.sortBy !== "county") n++;
-  if (state.sortSecondary) n++;
-  if (state.favoritesOnly || state.topPicksOnly || state.soonOnly || state.hideOldListings || state.hideSlivers || state.hideBareLandOnly) n++;
-  if (state.statusView !== "all") n++;
-  if (state.maxBidPct !== 40) n++;
-  if (state.counties.size < ALL_COUNTIES.length) n++;
-  if (state.types.size !== TYPE_ORDER.length) n++;
-  if (state.liens.size !== LIEN_ORDER.length) n++;
-  if (state.taxableMin !== null || state.imagery !== "any" || state.acqState !== "any" || state.acqMode !== "any" || state.watchStatus !== "any" || state.freshDays !== null || state.saleFrom || state.saleTo || state.sourceId !== "any") n++;
+  const n = filterChipList().length;
   const b = document.getElementById("filtersBadge");
   if (b) { b.textContent = n; b.hidden = n === 0; }
   // Analytics: one search_performed per settled filter change (debounced),
@@ -10853,23 +10888,105 @@ if (exportCsvBtn) exportCsvBtn.addEventListener("click", () => {
 // ---- open/close ----
 const filtersToggleBtn = document.getElementById("filtersToggle");
 const filtersPanelEl = document.getElementById("filtersPanel");
+const filtersBackdropEl = document.getElementById("filtersBackdrop");
+// The filter drawer (2026-10-11): one overlay at every width. Opening takes a
+// snapshot of the applied filters; Show results commits the draft; Cancel,
+// Escape, the backdrop and the close button discard it.
+function setDrawerOpen(open) {
+  if (!filtersPanelEl || !filtersToggleBtn) return;
+  filtersPanelEl.classList.toggle("open", open);
+  filtersPanelEl.setAttribute("aria-hidden", String(!open));
+  if (filtersBackdropEl) filtersBackdropEl.classList.toggle("open", open);
+  document.documentElement.classList.toggle("filters-open", open);
+  filtersToggleBtn.classList.toggle("open", open);
+  filtersToggleBtn.setAttribute("aria-expanded", String(open));
+}
+function openFilterDrawer() {
+  if (!filtersPanelEl || FILTER_DRAFT) return;
+  FILTER_DRAFT = { applied: snapshotFilters() };
+  setDrawerOpen(true);
+  pushBackLayer("filters", () => closeFilterDrawer(false));
+  const first = filtersPanelEl.querySelector("#filtersSheetClose");
+  if (first) first.focus(); else filtersPanelEl.focus();
+}
+function closeFilterDrawer(commit) {
+  if (!FILTER_DRAFT) { setDrawerOpen(false); return; }
+  popBackLayer("filters");
+  if (commit) commitFilterDraft(); else cancelFilterDraft();
+  filtersToggleBtn.focus();
+}
+function commitFilterDraft() {
+  FILTER_DRAFT = null;
+  setDrawerOpen(false);
+  buildAllChips();
+  updateBadge();
+  render();
+}
+function cancelFilterDraft() {
+  const applied = FILTER_DRAFT.applied;
+  FILTER_DRAFT = null;
+  restoreFilters(applied);
+  syncFilterControls();
+  setDrawerOpen(false);
+  updateBadge();
+  render();
+}
+function snapshotFilters() {
+  const snap = { search: state.search, bidMin: state.bidMin, bidMax: state.bidMax, counties: new Set(state.counties), types: new Set(state.types), liens: new Set(state.liens), expanded: new Set(state.expandedCounties) };
+  DRAFT_CTL.forEach(d => { snap[d.key] = state[d.key]; });
+  return snap;
+}
+function restoreFilters(snap) {
+  state.search = snap.search; const si = document.getElementById("searchInput"); if (si) si.value = snap.search || "";
+  state.bidMin = snap.bidMin; state.bidMax = snap.bidMax;
+  state.counties = new Set(snap.counties); state.types = new Set(snap.types); state.liens = new Set(snap.liens);
+  state.expandedCounties = new Set(snap.expanded);
+  DRAFT_CTL.forEach(d => { state[d.key] = snap[d.key]; });
+}
+// state -> controls: after a restore, a chip removal, or a Clear all.
+function syncFilterControls() {
+  DRAFT_CTL.forEach(d => {
+    const el = document.getElementById(d.id);
+    if (!el) return;
+    const v = state[d.key];
+    if (d.kind === "chk") el.checked = !!v;
+    else if (d.kind === "arch") el.checked = v === "archive";
+    else el.value = v === null || v === undefined ? "" : String(v);
+  });
+  if (bindBidRangeSliders.apply) bindBidRangeSliders.apply(state.bidMin, state.bidMax);
+  syncMonitorFilterInputs();
+  buildAllChips();
+}
+// Clear all inside the open drawer: clears the draft only, never applies it.
+function resetDraftFields() {
+  // Reset all filters also clears the search text, as the original Reset did.
+  // It stays a draft: Show results applies it, Cancel restores it.
+  state.search = ""; const si = document.getElementById("searchInput"); if (si) si.value = "";
+  state.bidMin = null; state.bidMax = null;
+  state.counties = new Set(ALL_COUNTIES); state.types = new Set(TYPE_ORDER); state.liens = new Set(LIEN_ORDER);
+  // The original Reset also collapsed every county group.
+  state.expandedCounties = new Set();
+  DRAFT_CTL.forEach(d => { state[d.key] = d.def; });
+  syncFilterControls();
+  updateBadge();
+}
 if (filtersToggleBtn && filtersPanelEl) {
-  // Phase 63: aria-expanded kept in sync with the "open" class - every
-  // other disclosure control in the app (the account menu, both Settings
-  // buttons) already carries this; this one never did, so a screen-reader
-  // user got no announced open/closed state expanding Filters & Sort.
-  const closeFilters = () => {
-    filtersPanelEl.classList.remove("open");
-    filtersToggleBtn.classList.remove("open");
-    filtersToggleBtn.setAttribute("aria-expanded", "false");
-  };
-  filtersToggleBtn.addEventListener("click", () => {
-    const opening = !filtersPanelEl.classList.contains("open");
-    filtersPanelEl.classList.toggle("open");
-    filtersToggleBtn.classList.toggle("open");
-    filtersToggleBtn.setAttribute("aria-expanded", String(opening));
-    if (opening) pushBackLayer("filters", closeFilters);
-    else popBackLayer("filters");
+  filtersToggleBtn.addEventListener("click", () => { if (FILTER_DRAFT) closeFilterDrawer(false); else openFilterDrawer(); });
+  if (filtersBackdropEl) filtersBackdropEl.addEventListener("click", () => closeFilterDrawer(false));
+  const applyBtn = document.getElementById("filtersApply");
+  if (applyBtn) applyBtn.addEventListener("click", () => closeFilterDrawer(true));
+  // Escape closes the drawer and discards the draft. Tab stays inside it.
+  document.addEventListener("keydown", e => {
+    if (!FILTER_DRAFT) return;
+    if (e.key === "Escape") { e.preventDefault(); closeFilterDrawer(false); return; }
+    if (e.key !== "Tab") return;
+    const focusable = Array.from(filtersPanelEl.querySelectorAll("button:not([disabled]), input:not([disabled]), select:not([disabled]), summary, a[href]"))
+      .filter(el => el.offsetParent !== null);
+    if (!focusable.length) return;
+    const first = focusable[0], last = focusable[focusable.length - 1];
+    const inside = filtersPanelEl.contains(document.activeElement);
+    if (e.shiftKey && (!inside || document.activeElement === first)) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && (!inside || document.activeElement === last)) { e.preventDefault(); first.focus(); }
   });
 }
 
@@ -11061,6 +11178,7 @@ if (archiveToggleEl) archiveToggleEl.addEventListener("change", () => {
 // ---- reset ----
 const resetBtn = document.getElementById("resetBtn");
 if (resetBtn) resetBtn.addEventListener("click", () => {
+  if (FILTER_DRAFT) { resetDraftFields(); return; }
   state.bidMin = null; state.bidMax = null; state.assessedMin = null;
   state.sortBy = "county"; state.sortSecondary = ""; state.favoritesOnly = false; state.topPicksOnly = false;
   state.soonOnly = false; state.hideOldListings = false; state.includeQT = false; state.maxBidPct = 40;
@@ -14212,45 +14330,52 @@ function renderListHead(shown, k, tabCounts) {
 // One chip per active filter, read from the controls themselves; removing a
 // chip resets that one control through its own existing handler, so the
 // chips can never disagree with the panel.
-function controlActive(el) {
-  // A hidden filter row (another ledger's) is not active; a hidden PAGE is -
-  // the Map counts the List's filters while the List itself is off screen.
-  if (!el || el.closest("[hidden]:not(.page)")) return false;
-  if (el.type === "checkbox") return el.checked;
-  if (el.tagName === "SELECT") return el.value !== "any" && el.value !== "" && el.value !== "ALL";
-  return String(el.value || "").trim() !== "";
+// The applied view: the snapshot while a draft is open, otherwise state.
+// Chips and the active count read this, never the controls, so a draft that
+// has not been shown yet never reads as applied.
+function appliedView() { return FILTER_DRAFT ? FILTER_DRAFT.applied : state; }
+function drawerActive(d, v) {
+  if (d.kind === "arch") return v === "archive";
+  if (d.kind === "chk") return !!v;
+  if (v === null || v === undefined || v === "") return false;
+  return String(v) !== String(d.def) && !(d.kind === "sel" && v === "any");
 }
-function controlLabel(el) {
+// The control's own name, read from its label (static text, never its value).
+function drawerFieldName(el) {
   const field = el.closest(".field, .tog");
   const lab = field ? (field.querySelector(".field-label") || field.querySelector("span")) : null;
-  const name = lab ? lab.textContent.replace(/\s+/g, " ").trim() : (el.getAttribute("aria-label") || el.id);
-  if (el.type === "checkbox") return name;
-  if (el.tagName === "SELECT") return `${name}: ${el.options[el.selectedIndex] ? el.options[el.selectedIndex].text : el.value}`;
-  return `${name}: ${el.value}`;
+  return lab ? lab.textContent.replace(/\s+/g, " ").trim() : (el.getAttribute("aria-label") || el.id);
 }
-// Declared as a function, not a top-level const: render() reaches
-// filterChipList() during module init, before this line would have run.
-function chipControlIds() {
-  return ["favOnly", "topOnly", "soonOnly", "hideOldOnly", "archiveToggle", "hideSliversOnly", "hideBareLandOnly",
-  "assessedMin", "availPathFilter", "availAmountKindFilter", "availStatusFilter", "acreageMin", "availSeenRecently", "availLandUseFilter",
-  "availGeocoded", "availValues", "taxableMin", "imageryFilter", "acqStateFilter", "acqModeFilter", "watchStatusFilter", "freshDaysFilter", "sourceFilter", "saleFromFilter", "saleToFilter"];
+function drawerChipLabel(d, v) {
+  const el = document.getElementById(d.id);
+  const name = el ? drawerFieldName(el) : d.id;
+  if (d.kind === "chk" || d.kind === "arch") return name;
+  if (d.kind === "sel" && el) {
+    const opt = Array.from(el.options).find(o => o.value === String(v));
+    return `${name}: ${opt ? opt.text : v}`;
+  }
+  return `${name}: ${v}`;
 }
 function filterChipList() {
+  const v = appliedView();
   const chips = [];
-  if (state.search) chips.push({ key: "search", label: `Search: “${state.search}”` });
-  if (ALL_COUNTIES.length && state.counties.size < ALL_COUNTIES.length) {
-    chips.push({ key: "counties", label: state.counties.size === 1 ? `${UNIT_WORD}: ${Array.from(state.counties)[0]}` : `${UNIT_WORD}: ${state.counties.size} selected` });
+  if (v.search) chips.push({ key: "search", label: `Search: “${v.search}”` });
+  if (ALL_COUNTIES.length && v.counties.size < ALL_COUNTIES.length) {
+    chips.push({ key: "counties", label: v.counties.size === 1 ? `${UNIT_WORD}: ${Array.from(v.counties)[0]}` : `${UNIT_WORD}: ${v.counties.size} selected` });
   }
-  if (state.bidMin !== null || state.bidMax !== null) {
-    const lo = state.bidMin !== null ? fmtShort(state.bidMin) : "$0", hi = state.bidMax !== null ? fmtShort(state.bidMax) : "any";
+  if (v.bidMin !== null || v.bidMax !== null) {
+    const lo = v.bidMin !== null ? fmtShort(v.bidMin) : "$0", hi = v.bidMax !== null ? fmtShort(v.bidMax) : "any";
     chips.push({ key: "bid", label: `${state.ledger === "laft" ? "Listed amount" : "Amount"}: ${lo} – ${hi}` });
   }
-  if (state.types.size !== TYPE_ORDER.length) chips.push({ key: "types", label: `Property type: ${state.types.size} of ${TYPE_ORDER.length}` });
-  if (state.liens.size !== LIEN_ORDER.length) chips.push({ key: "liens", label: `Lien notes: ${state.liens.size} of ${LIEN_ORDER.length}` });
-  if (state.statusView === "live" || state.statusView === "gone") chips.push({ key: "status", label: state.statusView === "live" ? "Active only" : "No longer listed only" });
-  chipControlIds().forEach(id => {
-    const el = document.getElementById(id);
-    if (controlActive(el)) chips.push({ key: "ctl:" + id, label: controlLabel(el) });
+  if (v.types.size !== TYPE_ORDER.length) chips.push({ key: "types", label: `Property type: ${v.types.size} of ${TYPE_ORDER.length}` });
+  if (v.liens.size !== LIEN_ORDER.length) chips.push({ key: "liens", label: `Lien notes: ${v.liens.size} of ${LIEN_ORDER.length}` });
+  if (v.statusView === "live" || v.statusView === "gone") chips.push({ key: "status", label: v.statusView === "live" ? "Active only" : "No longer listed only" });
+  DRAFT_CTL.forEach(d => {
+    if (d.key === "bidMin" || d.key === "bidMax") return;
+    const el = document.getElementById(d.id);
+    // A row that belongs to another ledger is not a filter here.
+    if (!el || el.closest("[hidden]:not(.page)")) return;
+    if (drawerActive(d, v[d.key])) chips.push({ key: "ctl:" + d.id, label: drawerChipLabel(d, v[d.key]) });
   });
   return chips;
 }
@@ -14263,6 +14388,9 @@ function renderFilterChips() {
     (chips.length ? `<button type="button" class="filter-chip-clear" id="filterChipsClear">Clear all</button>` : "");
 }
 function removeFilterChip(key) {
+  // Chips show the applied set; while the drawer holds a draft they are
+  // covered by the drawer and cannot be removed.
+  if (FILTER_DRAFT) return;
   const fire = el => { el.dispatchEvent(new Event("input", { bubbles: true })); el.dispatchEvent(new Event("change", { bubbles: true })); };
   if (key === "search") {
     const si = document.getElementById("searchInput");
@@ -14281,13 +14409,12 @@ function removeFilterChip(key) {
   if (key === "types" || key === "liens") { const b = document.querySelector(`.mini-btn[data-group="${key}"][data-mode="all"]`); if (b) b.click(); return; }
   if (key === "status") { const c = document.querySelector('.summary-strip .chip[data-status="all"]'); if (c) c.click(); return; }
   if (key.startsWith("ctl:")) {
-    const el = document.getElementById(key.slice(4));
-    if (!el) return;
-    if (el.type === "checkbox") el.checked = false;
-    else if (el.tagName === "SELECT") el.value = Array.from(el.options).some(o => o.value === "any") ? "any" : "";
-    else el.value = "";
-    fire(el);
-    renderFilterChips();
+    const d = DRAFT_CTL.find(x => x.id === key.slice(4));
+    if (!d) return;
+    state[d.key] = d.def;
+    syncFilterControls();
+    updateBadge();
+    render();
   }
 }
 (function bindListHead() {
@@ -14300,7 +14427,7 @@ function removeFilterChip(key) {
   // The filter panel is a bottom sheet on a phone / tablet; its own close
   // button runs the same toggle.
   const close = document.getElementById("filtersSheetClose");
-  if (close) close.addEventListener("click", () => { const t = document.getElementById("filtersToggle"); if (t) t.click(); });
+  if (close) close.addEventListener("click", () => closeFilterDrawer(false));
 })();
 
 // ---- state picker sheet ----

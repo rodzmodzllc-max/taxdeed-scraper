@@ -202,7 +202,7 @@ a{color:var(--copper-deep)}
 .filter-chip{background:var(--paper-white)!important;color:var(--ink)!important;border:1px solid var(--rule)!important}
 .filter-chip-x{color:var(--warm-gray)!important}
 .filter-chip-clear{color:var(--copper-deep)!important}
-.quick-controls,.filters-panel{background:var(--paper-white)!important;border:1px solid var(--rule)!important;border-radius:var(--radius)!important;box-shadow:none!important}
+.quick-controls{background:var(--paper-white)!important;border:1px solid var(--rule)!important;border-radius:var(--radius)!important;box-shadow:none!important}
 .quick-controls input,.quick-controls select,.filters-panel input,.filters-panel select{border-radius:var(--radius)!important;border-color:var(--rule)!important;background:var(--paper-white)!important;color:var(--ink)!important}
 .quick-controls .export-btn,.quick-controls .expand-all-btn,.quick-controls button{border-radius:var(--radius)!important}
 #savedSearchesBtn,.export-btn{background:var(--charcoal)!important;color:var(--paper-white)!important;border-color:var(--charcoal)!important}
@@ -1010,3 +1010,32 @@ body:has(#authGate:not([hidden])){padding-bottom:0!important}
 .county-group .prop-card>.prop-card-photo{flex:0 0 auto;align-self:stretch;width:calc(100% + 1.6rem)!important;min-width:0;height:auto!important;max-height:none!important;aspect-ratio:4/3!important;box-sizing:border-box;margin:-.7rem -.8rem .6rem!important}
 .county-group .prop-card>.prop-body{width:100%;box-sizing:border-box}
 .county-group .prop-card>*{grid-column:auto!important;grid-row:auto!important}
+
+/* ---- Filter drawer (2026-10-11): one overlay at every width. The panel is
+   the dialog; the backdrop dims the page; Show results commits the draft.
+   Nothing here changes what a filter does - see app.js FILTER_DRAFT. ---- */
+html.filters-open{overflow:hidden}
+.filters-backdrop{display:none;position:fixed;inset:0;z-index:1000;background:rgba(20,18,16,.42)}
+.filters-backdrop.open{display:block}
+.filters-panel{position:fixed;top:0;right:0;bottom:0;left:auto;z-index:1001;
+  width:min(420px,calc(100vw - 2.5rem));max-height:none;margin:0;padding:0;border:0;border-left:1px solid var(--rule);
+  border-radius:0;background:var(--paper-white);box-shadow:-12px 0 32px rgba(0,0,0,.18);
+  display:none;flex-direction:column;overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain}
+.filters-panel.open{display:flex}
+.filters-panel:focus{outline:none}
+.filters-panel .filters-sheet-head{display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:1;
+  padding:1rem 1.1rem;margin:0;border-bottom:1px solid var(--rule);background:var(--paper-white);
+  font-weight:800;font-size:1rem;color:var(--ink)}
+.filters-panel>.filters-section{padding:.9rem 1.1rem;margin:0;border-bottom:1px solid var(--card-line)}
+.filters-panel>.filters-section:last-of-type{border-bottom:0}
+.filters-drawer-foot{position:sticky;bottom:0;z-index:1;display:flex;gap:.6rem;align-items:center;justify-content:space-between;
+  padding:.8rem 1.1rem;border-top:1px solid var(--rule);background:var(--paper-white)}
+.filters-drawer-foot .reset-btn{min-height:44px;padding:0 .9rem}
+.filters-apply{min-height:44px;padding:0 1.1rem;border:0;border-radius:var(--radius);background:var(--ink);color:var(--paper-white);
+  font-weight:700;font-size:.9rem;cursor:pointer}
+.filters-apply:hover{background:var(--accent)}
+.filters-panel button:focus-visible,.filters-panel input:focus-visible,.filters-panel select:focus-visible,
+.filters-panel summary:focus-visible,.filters-apply:focus-visible,.filters-toggle:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+/* A strip of backdrop stays visible on a phone, so a tap outside still closes the drawer. */
+@media (max-width:640px){ .filters-panel{border-left:0} }
+
