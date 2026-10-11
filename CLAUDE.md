@@ -2442,6 +2442,16 @@ dot). No request leaves the site. A real image for those rows still needs
 coordinates (an authorized geocode / enrichment run). Playwright block
 "Imagery without coordinates".
 
+## Sign-up asks for name and address only (2026-10-10, PR open, function NOT redeployed)
+
+- The sign-up form (index / tx / la / generated state pages) no longer has Company or Phone number fields;
+  `SIGNUP_PROFILE_FIELDS` is first name, last name, address. The pending-details screen for provider accounts asks for
+  the same three. Edit profile keeps Company and Phone as optional fields.
+- Server: `_shared/signup_request.js` `PROFILE_FIELDS` = first_name, last_name, address (required);
+  `OPTIONAL_PROFILE_FIELDS` = company, phone (stored only when sent non-empty, at most 200 characters). The deployed
+  `self-signup` still enforces the old five-field rule until the owner redeploys it - until then a sign-up from the
+  new form is refused with "missing_fields", so redeploy with the merge.
+- `sw.js` -> `tdw-shell-v115`.
 ## Current-state sprint: keyset reads, per-source status, enrichment isolation (2026-10-10, PR open, no migration)
 
 Full description: `docs/current-state-sprint.md`; coverage matrix: `docs/current-state-coverage.md`. Stable facts:
