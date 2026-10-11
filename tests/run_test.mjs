@@ -82,6 +82,13 @@ function detailSurfaceSelector(sel) {
     ? [`${part}:visible`, `${part.split(DETAIL_MODAL_SEL).join('#detailPanel')}:visible`]
     : [part]).join(', ');
 }
+// The open property surface for in-page readers (the same rule as the
+// selector above): the modal when it is visible, else the List's side panel
+// once it shows a property (its empty placeholder is not a property).
+const OPEN_DETAIL_SEL = '#detailModal:not([hidden]) #detailModalInner, #detailPanel.prop-card:not(:has(.detail-panel-empty))';
+async function waitDetailOpen(pg, ms = 4000) {
+  await pg.waitForSelector(OPEN_DETAIL_SEL, { state: 'attached', timeout: ms }).catch(() => {});
+}
 // Remediation (2026-10-10): the Map no longer prints a separate "Ledger · County"
 // line; its toolbar controls are the display. This reads them back in the same
 // "Ledger: X · County: Y" form the old line used, so each check compares the
@@ -4398,17 +4405,17 @@ await navMap.close();
     await pg.close();
     const d = await newPage({ viewport: { width: 1440, height: 900 } });
     await d.goto(TX_BASE_URL + '?txcause=1' + '#/lands/ptx3', { waitUntil: 'networkidle' });
-    await d.waitForTimeout(500);
-    results.txCauseDetail = await d.evaluate(() => {
+    await waitDetailOpen(d);
+    await d.waitForTimeout(300);
+    results.txCauseDetail = await d.evaluate((sel) => {
       // the open detail surface: the side panel from 1280px (remediation 2026-10-10), else the modal
-      const panel = document.querySelector('#detailPanel:not([hidden])');
-      const m = (panel && panel.innerText.trim()) ? panel : document.getElementById('detailModalInner');
+      const m = document.querySelector(sel);
       const txt = m ? m.innerText.replace(/\s+/g, ' ') : '';
       return { related: m ? m.querySelectorAll('.related-record').length : null,
         sameParcelClaim: /ptx8|6600 BLOCK/.test(m ? m.innerHTML : ''),
         causeAsParcel: /Parcel #? ?23-TX-0644/.test(txt),
         causeShown: /Cause 23-TX-0644/.test(txt) || /Tax suit cause # 23-TX-0644/.test(txt) };
-    });
+    }, OPEN_DETAIL_SEL);
     await d.close();
   }
   // ---- Opportunity finder + auction command center (2026-10-05) ----
@@ -5083,11 +5090,13 @@ await navMap.close();
     // Reached from a property page's Source truth and from the state picker.
     const d = await newPage({ viewport: { width: 1280, height: 900 } });
     await d.goto(TNR + '?profile=admin#/lands/ptn1', { waitUntil: 'networkidle' });
-    await d.waitForTimeout(500);
-    results.rulesFromProperty = await d.evaluate(() => {
-      const b = document.querySelector('#detailModalInner [data-action="staterules"]');
+    await waitDetailOpen(d);
+    await d.waitForTimeout(300);
+    results.rulesFromProperty = await d.evaluate((sel) => {
+      const s = document.querySelector(sel);
+      const b = s && s.querySelector('[data-action="staterules"]');
       return b ? { county: b.dataset.county, text: b.textContent.trim() } : null;
-    });
+    }, OPEN_DETAIL_SEL);
     await d.locator('#detailModalInner [data-action="staterules"]').first().click().catch(() => {});
     await d.waitForTimeout(500);
     results.rulesFromPropertyLanded = await d.evaluate(() => ({ hash: location.hash, shown: !!document.querySelector('#rulesPage[data-county="Shelby"]'),
@@ -5218,17 +5227,19 @@ await navMap.close();
     const gatePage = async (q, pid) => {
       const pg = await newPage({ viewport: { width: 1280, height: 900 } });
       await pg.goto(BASE_URL + q + '#/lands/' + pid, { waitUntil: 'networkidle' });
-      await pg.waitForTimeout(900);
-      const r = await pg.evaluate(() => {
+      await waitDetailOpen(pg, 3000);
+      await pg.waitForTimeout(600);
+      const r = await pg.evaluate((sel) => {
         const row = document.querySelector('.pub-gate-row');
         const b = document.getElementById('publicationGateBanner');
-        return { modal: !!document.querySelector('#detailModal:not([hidden])'), hash: location.hash, gate: row ? row.dataset.pubState : null,
+        // open = the property page is showing in whichever surface this width uses (side panel at 1280px since PR #137)
+        return { open: !!document.querySelector(sel), hash: location.hash, gate: row ? row.dataset.pubState : null,
           reached: row ? (row.textContent.match(/reached: ([^·]+)/) || [])[1]?.trim() || null : null,
           reasons: [...document.querySelectorAll('.pub-reason')].map(x => x.dataset.reason), path: (document.querySelector('.pub-gate-path') || {}).textContent || null,
           remediation: (document.querySelector('.pub-gate-remediation') || {}).textContent || null, banner: b ? b.dataset.pubState : null,
           visibleNo: /Customer-visible: No/.test((document.querySelector('.source-review-row') || {}).textContent || ''),
           allPassed: /source approved, state rules verified, record valid, acquisition path documented, observation current/.test((document.querySelector('.pub-gate-row') || {}).textContent || '') };
-      });
+      }, OPEN_DETAIL_SEL);
       await pg.close();
       return r;
     };
@@ -6822,10 +6833,10 @@ const EXPECTED = {
     certificate: { cards: ['p4'], zero: '', count: '1 instrument', withheld: '1 record withheld pending verification (1 stale observation or sale date)', withheldN: '1', chips: ['ADMIN_ONLY_STALE'], para: '1 record withheld pending verification (1 stale observation or sale date) · admin' },
     searchHits: 1, map: { head: 'Where these are 3 shown across 3 counties', pins: 3 }, tile: { val: '3', sub: 'active · 3 counties · 2 withheld pending verification' }, csvRows: 3 },
   gateOff: { withheld: [null, null, null], chips: [], cards: ['p15', 'p3'], para: null },
-  gatePageAdminWithheld: { modal: true, hash: '#/lands/p3', gate: 'ADMIN_ONLY_NO_PATH', reached: 'Source and rules verified', reasons: ['PATH_NOT_FOUND'], path: 'Acquisition path evidence: county-level · not found · No official acquisition page has been found for this county.', remediation: 'To publish: Add candidate pages (data/acquisition_candidate_pages.csv) and capture them.', banner: 'ADMIN_ONLY_NO_PATH', visibleNo: true, allPassed: false },
-  gatePageCustomerPublished: { modal: true, hash: '#/lands/p15', gate: 'CUSTOMER_PUBLISHED', reached: null, reasons: [], path: null, remediation: null, banner: null, visibleNo: false, allPassed: true },
-  gatePageCustomerWithheldDeepLink: { modal: false, hash: '#/lands', gate: null, reached: null, reasons: [], path: null, remediation: null, banner: null, visibleNo: false, allPassed: false },
-  gatePageOff: { modal: true, hash: '#/lands/p15', gate: '', reached: null, reasons: [], path: null, remediation: null, banner: null, visibleNo: false, allPassed: false },
+  gatePageAdminWithheld: { open: true, hash: '#/lands/p3', gate: 'ADMIN_ONLY_NO_PATH', reached: 'Source and rules verified', reasons: ['PATH_NOT_FOUND'], path: 'Acquisition path evidence: county-level · not found · No official acquisition page has been found for this county.', remediation: 'To publish: Add candidate pages (data/acquisition_candidate_pages.csv) and capture them.', banner: 'ADMIN_ONLY_NO_PATH', visibleNo: true, allPassed: false },
+  gatePageCustomerPublished: { open: true, hash: '#/lands/p15', gate: 'CUSTOMER_PUBLISHED', reached: null, reasons: [], path: null, remediation: null, banner: null, visibleNo: false, allPassed: true },
+  gatePageCustomerWithheldDeepLink: { open: false, hash: '#/lands', gate: null, reached: null, reasons: [], path: null, remediation: null, banner: null, visibleNo: false, allPassed: false },
+  gatePageOff: { open: true, hash: '#/lands/p15', gate: '', reached: null, reasons: [], path: null, remediation: null, banner: null, visibleNo: false, allPassed: false },
   rulesCoverage: { AUCTIONS: { cov: ['Oconee collected, awaiting review', 'York published'], here: 'Georgetown County: not covered by a tracked source or verified procedure.', covered: '0' },
     AVAILABLE: { cov: ['Georgetown collected, awaiting review', 'Horry collected, awaiting review'], here: 'Georgetown County: covered - collected, awaiting review.', covered: '1' },
     LIENS_CERTIFICATES: { cov: [], here: 'Georgetown County: not covered by a tracked source or verified procedure.', covered: '0' } },
