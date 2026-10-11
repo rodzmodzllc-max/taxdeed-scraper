@@ -175,7 +175,7 @@ def test_C_geocoding_enrichment_only_ever_targets_null_coordinates():
     # And that it carries no state filter (confirming it runs across both
     # TX and FL rows, not a TX-specific assumption creeping into a
     # cross-state script - Phase 12 Step 5's own explicit warning).
-    assert '"state"' not in source.split("def _fetch")[1].split("def fetch_ungeocoded")[0]
+    assert '"state"' not in source.split("def _fetch")[1].split("def read_pool")[0]
 
 
 def test_C_no_working_cad_enrichment_exists_for_texas_yet():

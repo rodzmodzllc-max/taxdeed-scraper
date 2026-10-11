@@ -1,0 +1,2 @@
+state,county,topic,version,changed_on,change,prior_status,prior_statement,affects
+TX,,tax_sale_model,1,2026-10-10,"Separated the sale, the strike-off and the taxing unit's resale; recorded that struck-off property is not automatically for sale at a fixed price",NOT_VERIFIED,Texas tax foreclosure sales and resales of struck-off property are conducted county by county (in Galveston by the Sheriff). The statewide statutory model (Tex. Tax Code chapter 34) has not been read and recorded here.,app.js LEDGERS.laft.tx copy; State rules page

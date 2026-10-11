@@ -1,0 +1,1888 @@
+{
+ "exported_on": "2026-10-10",
+ "scope": "properties where source = 'laft' and status = 'active'",
+ "today": "2026-10-10",
+ "windows": {
+  "observation_days": 14,
+  "list_days": 365,
+  "evidence_days": 180
+ },
+ "total": {
+  "active": 54105,
+  "visible_customer_mode": 10908,
+  "visible_preview_mode": 54105,
+  "proposed": 185,
+  "withheld": 53920,
+  "by_class": {
+   "no_route": 311,
+   "pending_verification": 38,
+   "metadata_gap": 40,
+   "stale": 10334,
+   "source_not_published": 43197
+  },
+  "by_reason": {
+   "EVIDENCE_NOT_FOUND": 2349,
+   "EVIDENCE_UNAVAILABLE": 28,
+   "OBSERVATION_MISSING": 41,
+   "EVIDENCE_NEEDS_REVIEW": 40915,
+   "EVIDENCE_NO_CHANNEL": 2,
+   "LIST_DATED_STALE": 10710,
+   "SOURCE_NOT_PUBLISHED": 43197,
+   "EVIDENCE_NO_RECORD": 252
+  }
+ },
+ "by_state": {
+  "FL": {
+   "active": 153,
+   "visible_customer_mode": 153,
+   "visible_preview_mode": 153,
+   "proposed": 41,
+   "withheld": 112,
+   "by_class": {
+    "no_route": 73,
+    "pending_verification": 38,
+    "metadata_gap": 1
+   },
+   "by_reason": {
+    "EVIDENCE_NOT_FOUND": 73,
+    "EVIDENCE_UNAVAILABLE": 28,
+    "OBSERVATION_MISSING": 2,
+    "EVIDENCE_NEEDS_REVIEW": 8,
+    "EVIDENCE_NO_CHANNEL": 2
+   }
+  },
+  "LA": {
+   "active": 10334,
+   "visible_customer_mode": 10334,
+   "visible_preview_mode": 10334,
+   "proposed": 0,
+   "withheld": 10334,
+   "by_class": {
+    "stale": 10334
+   },
+   "by_reason": {
+    "LIST_DATED_STALE": 10334
+   }
+  },
+  "MI": {
+   "active": 30775,
+   "visible_customer_mode": 0,
+   "visible_preview_mode": 30775,
+   "proposed": 0,
+   "withheld": 30775,
+   "by_class": {
+    "source_not_published": 30775
+   },
+   "by_reason": {
+    "SOURCE_NOT_PUBLISHED": 30775,
+    "EVIDENCE_NO_RECORD": 5,
+    "EVIDENCE_NEEDS_REVIEW": 30770
+   }
+  },
+  "MN": {
+   "active": 2,
+   "visible_customer_mode": 0,
+   "visible_preview_mode": 2,
+   "proposed": 0,
+   "withheld": 2,
+   "by_class": {
+    "source_not_published": 2
+   },
+   "by_reason": {
+    "SOURCE_NOT_PUBLISHED": 2,
+    "EVIDENCE_NEEDS_REVIEW": 2
+   }
+  },
+  "MO": {
+   "active": 9759,
+   "visible_customer_mode": 0,
+   "visible_preview_mode": 9759,
+   "proposed": 0,
+   "withheld": 9759,
+   "by_class": {
+    "source_not_published": 9759
+   },
+   "by_reason": {
+    "SOURCE_NOT_PUBLISHED": 9759,
+    "EVIDENCE_NEEDS_REVIEW": 9759
+   }
+  },
+  "OK": {
+   "active": 195,
+   "visible_customer_mode": 0,
+   "visible_preview_mode": 195,
+   "proposed": 0,
+   "withheld": 195,
+   "by_class": {
+    "source_not_published": 195
+   },
+   "by_reason": {
+    "SOURCE_NOT_PUBLISHED": 195,
+    "EVIDENCE_NO_RECORD": 195
+   }
+  },
+  "PA": {
+   "active": 376,
+   "visible_customer_mode": 0,
+   "visible_preview_mode": 376,
+   "proposed": 0,
+   "withheld": 376,
+   "by_class": {
+    "source_not_published": 376
+   },
+   "by_reason": {
+    "SOURCE_NOT_PUBLISHED": 376,
+    "LIST_DATED_STALE": 376,
+    "EVIDENCE_NEEDS_REVIEW": 376
+   }
+  },
+  "SC": {
+   "active": 52,
+   "visible_customer_mode": 0,
+   "visible_preview_mode": 52,
+   "proposed": 0,
+   "withheld": 52,
+   "by_class": {
+    "source_not_published": 52
+   },
+   "by_reason": {
+    "SOURCE_NOT_PUBLISHED": 52,
+    "EVIDENCE_NO_RECORD": 52
+   }
+  },
+  "TN": {
+   "active": 2038,
+   "visible_customer_mode": 0,
+   "visible_preview_mode": 2038,
+   "proposed": 0,
+   "withheld": 2038,
+   "by_class": {
+    "source_not_published": 2038
+   },
+   "by_reason": {
+    "SOURCE_NOT_PUBLISHED": 2038,
+    "EVIDENCE_NOT_FOUND": 2038
+   }
+  },
+  "TX": {
+   "active": 421,
+   "visible_customer_mode": 421,
+   "visible_preview_mode": 421,
+   "proposed": 144,
+   "withheld": 277,
+   "by_class": {
+    "metadata_gap": 39,
+    "no_route": 238
+   },
+   "by_reason": {
+    "OBSERVATION_MISSING": 39,
+    "EVIDENCE_NOT_FOUND": 238
+   }
+  }
+ },
+ "by_state_ledger": {
+  "FL \u00b7 Available": {
+   "active": 153,
+   "visible_customer_mode": 153,
+   "visible_preview_mode": 153,
+   "proposed": 41,
+   "withheld": 112,
+   "by_class": {
+    "no_route": 73,
+    "pending_verification": 38,
+    "metadata_gap": 1
+   },
+   "by_reason": {
+    "EVIDENCE_NOT_FOUND": 73,
+    "EVIDENCE_UNAVAILABLE": 28,
+    "OBSERVATION_MISSING": 2,
+    "EVIDENCE_NEEDS_REVIEW": 8,
+    "EVIDENCE_NO_CHANNEL": 2
+   }
+  },
+  "LA \u00b7 Available": {
+   "active": 10334,
+   "visible_customer_mode": 10334,
+   "visible_preview_mode": 10334,
+   "proposed": 0,
+   "withheld": 10334,
+   "by_class": {
+    "stale": 10334
+   },
+   "by_reason": {
+    "LIST_DATED_STALE": 10334
+   }
+  },
+  "MI \u00b7 Available": {
+   "active": 30775,
+   "visible_customer_mode": 0,
+   "visible_preview_mode": 30775,
+   "proposed": 0,
+   "withheld": 30775,
+   "by_class": {
+    "source_not_published": 30775
+   },
+   "by_reason": {
+    "SOURCE_NOT_PUBLISHED": 30775,
+    "EVIDENCE_NO_RECORD": 5,
+    "EVIDENCE_NEEDS_REVIEW": 30770
+   }
+  },
+  "MN \u00b7 Available": {
+   "active": 2,
+   "visible_customer_mode": 0,
+   "visible_preview_mode": 2,
+   "proposed": 0,
+   "withheld": 2,
+   "by_class": {
+    "source_not_published": 2
+   },
+   "by_reason": {
+    "SOURCE_NOT_PUBLISHED": 2,
+    "EVIDENCE_NEEDS_REVIEW": 2
+   }
+  },
+  "MO \u00b7 Available": {
+   "active": 9759,
+   "visible_customer_mode": 0,
+   "visible_preview_mode": 9759,
+   "proposed": 0,
+   "withheld": 9759,
+   "by_class": {
+    "source_not_published": 9759
+   },
+   "by_reason": {
+    "SOURCE_NOT_PUBLISHED": 9759,
+    "EVIDENCE_NEEDS_REVIEW": 9759
+   }
+  },
+  "OK \u00b7 Available": {
+   "active": 195,
+   "visible_customer_mode": 0,
+   "visible_preview_mode": 195,
+   "proposed": 0,
+   "withheld": 195,
+   "by_class": {
+    "source_not_published": 195
+   },
+   "by_reason": {
+    "SOURCE_NOT_PUBLISHED": 195,
+    "EVIDENCE_NO_RECORD": 195
+   }
+  },
+  "PA \u00b7 Available": {
+   "active": 376,
+   "visible_customer_mode": 0,
+   "visible_preview_mode": 376,
+   "proposed": 0,
+   "withheld": 376,
+   "by_class": {
+    "source_not_published": 376
+   },
+   "by_reason": {
+    "SOURCE_NOT_PUBLISHED": 376,
+    "LIST_DATED_STALE": 376,
+    "EVIDENCE_NEEDS_REVIEW": 376
+   }
+  },
+  "SC \u00b7 Available": {
+   "active": 52,
+   "visible_customer_mode": 0,
+   "visible_preview_mode": 52,
+   "proposed": 0,
+   "withheld": 52,
+   "by_class": {
+    "source_not_published": 52
+   },
+   "by_reason": {
+    "SOURCE_NOT_PUBLISHED": 52,
+    "EVIDENCE_NO_RECORD": 52
+   }
+  },
+  "TN \u00b7 Available": {
+   "active": 2038,
+   "visible_customer_mode": 0,
+   "visible_preview_mode": 2038,
+   "proposed": 0,
+   "withheld": 2038,
+   "by_class": {
+    "source_not_published": 2038
+   },
+   "by_reason": {
+    "SOURCE_NOT_PUBLISHED": 2038,
+    "EVIDENCE_NOT_FOUND": 2038
+   }
+  },
+  "TX \u00b7 Available": {
+   "active": 421,
+   "visible_customer_mode": 421,
+   "visible_preview_mode": 421,
+   "proposed": 144,
+   "withheld": 277,
+   "by_class": {
+    "metadata_gap": 39,
+    "no_route": 238
+   },
+   "by_reason": {
+    "OBSERVATION_MISSING": 39,
+    "EVIDENCE_NOT_FOUND": 238
+   }
+  }
+ },
+ "by_source": {
+  "FL \u00b7 fl_laft_hillsborough": {
+   "active": 3,
+   "visible_customer_mode": 3,
+   "visible_preview_mode": 3,
+   "proposed": 0,
+   "withheld": 3,
+   "by_class": {
+    "pending_verification": 3
+   },
+   "by_reason": {
+    "EVIDENCE_NEEDS_REVIEW": 3
+   }
+  },
+  "FL \u00b7 fl_laft_html": {
+   "active": 56,
+   "visible_customer_mode": 56,
+   "visible_preview_mode": 56,
+   "proposed": 0,
+   "withheld": 56,
+   "by_class": {
+    "pending_verification": 3,
+    "no_route": 53
+   },
+   "by_reason": {
+    "EVIDENCE_UNAVAILABLE": 1,
+    "EVIDENCE_NOT_FOUND": 53,
+    "EVIDENCE_NEEDS_REVIEW": 2
+   }
+  },
+  "FL \u00b7 fl_laft_leon": {
+   "active": 2,
+   "visible_customer_mode": 2,
+   "visible_preview_mode": 2,
+   "proposed": 2,
+   "withheld": 0,
+   "by_class": {},
+   "by_reason": {}
+  },
+  "FL \u00b7 fl_laft_orange": {
+   "active": 3,
+   "visible_customer_mode": 3,
+   "visible_preview_mode": 3,
+   "proposed": 3,
+   "withheld": 0,
+   "by_class": {},
+   "by_reason": {}
+  },
+  "FL \u00b7 fl_laft_osceola": {
+   "active": 10,
+   "visible_customer_mode": 10,
+   "visible_preview_mode": 10,
+   "proposed": 0,
+   "withheld": 10,
+   "by_class": {
+    "pending_verification": 10
+   },
+   "by_reason": {
+    "EVIDENCE_UNAVAILABLE": 10
+   }
+  },
+  "FL \u00b7 fl_laft_pdfs": {
+   "active": 14,
+   "visible_customer_mode": 14,
+   "visible_preview_mode": 14,
+   "proposed": 10,
+   "withheld": 4,
+   "by_class": {
+    "pending_verification": 3,
+    "metadata_gap": 1
+   },
+   "by_reason": {
+    "OBSERVATION_MISSING": 2,
+    "EVIDENCE_UNAVAILABLE": 1,
+    "EVIDENCE_NO_CHANNEL": 2
+   }
+  },
+  "FL \u00b7 fl_laft_pioneer": {
+   "active": 22,
+   "visible_customer_mode": 22,
+   "visible_preview_mode": 22,
+   "proposed": 17,
+   "withheld": 5,
+   "by_class": {
+    "no_route": 2,
+    "pending_verification": 3
+   },
+   "by_reason": {
+    "EVIDENCE_NOT_FOUND": 2,
+    "EVIDENCE_UNAVAILABLE": 3
+   }
+  },
+  "FL \u00b7 fl_laft_realtdm": {
+   "active": 40,
+   "visible_customer_mode": 40,
+   "visible_preview_mode": 40,
+   "proposed": 9,
+   "withheld": 31,
+   "by_class": {
+    "pending_verification": 13,
+    "no_route": 18
+   },
+   "by_reason": {
+    "EVIDENCE_UNAVAILABLE": 13,
+    "EVIDENCE_NOT_FOUND": 18
+   }
+  },
+  "FL \u00b7 fl_laft_stlucie": {
+   "active": 3,
+   "visible_customer_mode": 3,
+   "visible_preview_mode": 3,
+   "proposed": 0,
+   "withheld": 3,
+   "by_class": {
+    "pending_verification": 3
+   },
+   "by_reason": {
+    "EVIDENCE_NEEDS_REVIEW": 3
+   }
+  },
+  "LA \u00b7 la_ebr_adjudicated": {
+   "active": 10334,
+   "visible_customer_mode": 10334,
+   "visible_preview_mode": 10334,
+   "proposed": 0,
+   "withheld": 10334,
+   "by_class": {
+    "stale": 10334
+   },
+   "by_reason": {
+    "LIST_DATED_STALE": 10334
+   }
+  },
+  "MI \u00b7 mi_detroit_landbank_lots": {
+   "active": 30758,
+   "visible_customer_mode": 0,
+   "visible_preview_mode": 30758,
+   "proposed": 0,
+   "withheld": 30758,
+   "by_class": {
+    "source_not_published": 30758
+   },
+   "by_reason": {
+    "SOURCE_NOT_PUBLISHED": 30758,
+    "EVIDENCE_NEEDS_REVIEW": 30758
+   }
+  },
+  "MI \u00b7 mi_detroit_landbank_programs": {
+   "active": 12,
+   "visible_customer_mode": 0,
+   "visible_preview_mode": 12,
+   "proposed": 0,
+   "withheld": 12,
+   "by_class": {
+    "source_not_published": 12
+   },
+   "by_reason": {
+    "SOURCE_NOT_PUBLISHED": 12,
+    "EVIDENCE_NEEDS_REVIEW": 12
+   }
+  },
+  "MI \u00b7 mi_oceana_landbank": {
+   "active": 5,
+   "visible_customer_mode": 0,
+   "visible_preview_mode": 5,
+   "proposed": 0,
+   "withheld": 5,
+   "by_class": {
+    "source_not_published": 5
+   },
+   "by_reason": {
+    "SOURCE_NOT_PUBLISHED": 5,
+    "EVIDENCE_NO_RECORD": 5
+   }
+  },
+  "MN \u00b7 mn_ramsey_tax_forfeit": {
+   "active": 2,
+   "visible_customer_mode": 0,
+   "visible_preview_mode": 2,
+   "proposed": 0,
+   "withheld": 2,
+   "by_class": {
+    "source_not_published": 2
+   },
+   "by_reason": {
+    "SOURCE_NOT_PUBLISHED": 2,
+    "EVIDENCE_NEEDS_REVIEW": 2
+   }
+  },
+  "MO \u00b7 mo_stl_lra_inventory": {
+   "active": 9759,
+   "visible_customer_mode": 0,
+   "visible_preview_mode": 9759,
+   "proposed": 0,
+   "withheld": 9759,
+   "by_class": {
+    "source_not_published": 9759
+   },
+   "by_reason": {
+    "SOURCE_NOT_PUBLISHED": 9759,
+    "EVIDENCE_NEEDS_REVIEW": 9759
+   }
+  },
+  "OK \u00b7 ok_oklahoma_county_owned": {
+   "active": 195,
+   "visible_customer_mode": 0,
+   "visible_preview_mode": 195,
+   "proposed": 0,
+   "withheld": 195,
+   "by_class": {
+    "source_not_published": 195
+   },
+   "by_reason": {
+    "SOURCE_NOT_PUBLISHED": 195,
+    "EVIDENCE_NO_RECORD": 195
+   }
+  },
+  "PA \u00b7 pa_fayette_repository": {
+   "active": 376,
+   "visible_customer_mode": 0,
+   "visible_preview_mode": 376,
+   "proposed": 0,
+   "withheld": 376,
+   "by_class": {
+    "source_not_published": 376
+   },
+   "by_reason": {
+    "SOURCE_NOT_PUBLISHED": 376,
+    "LIST_DATED_STALE": 376,
+    "EVIDENCE_NEEDS_REVIEW": 376
+   }
+  },
+  "SC \u00b7 sc_georgetown_forfeited_land": {
+   "active": 1,
+   "visible_customer_mode": 0,
+   "visible_preview_mode": 1,
+   "proposed": 0,
+   "withheld": 1,
+   "by_class": {
+    "source_not_published": 1
+   },
+   "by_reason": {
+    "SOURCE_NOT_PUBLISHED": 1,
+    "EVIDENCE_NO_RECORD": 1
+   }
+  },
+  "SC \u00b7 sc_horry_forfeited_land": {
+   "active": 51,
+   "visible_customer_mode": 0,
+   "visible_preview_mode": 51,
+   "proposed": 0,
+   "withheld": 51,
+   "by_class": {
+    "source_not_published": 51
+   },
+   "by_reason": {
+    "SOURCE_NOT_PUBLISHED": 51,
+    "EVIDENCE_NO_RECORD": 51
+   }
+  },
+  "TN \u00b7 tn_shelby_landbank": {
+   "active": 2038,
+   "visible_customer_mode": 0,
+   "visible_preview_mode": 2038,
+   "proposed": 0,
+   "withheld": 2038,
+   "by_class": {
+    "source_not_published": 2038
+   },
+   "by_reason": {
+    "SOURCE_NOT_PUBLISHED": 2038,
+    "EVIDENCE_NOT_FOUND": 2038
+   }
+  },
+  "TX \u00b7 tx_lgbs": {
+   "active": 421,
+   "visible_customer_mode": 421,
+   "visible_preview_mode": 421,
+   "proposed": 144,
+   "withheld": 277,
+   "by_class": {
+    "metadata_gap": 39,
+    "no_route": 238
+   },
+   "by_reason": {
+    "OBSERVATION_MISSING": 39,
+    "EVIDENCE_NOT_FOUND": 238
+   }
+  }
+ },
+ "by_county": {
+  "FL \u00b7 Alachua": {
+   "active": 4,
+   "visible_customer_mode": 4,
+   "visible_preview_mode": 4,
+   "proposed": 4,
+   "withheld": 0,
+   "by_class": {},
+   "by_reason": {}
+  },
+  "FL \u00b7 Bay": {
+   "active": 2,
+   "visible_customer_mode": 2,
+   "visible_preview_mode": 2,
+   "proposed": 0,
+   "withheld": 2,
+   "by_class": {
+    "no_route": 2
+   },
+   "by_reason": {
+    "EVIDENCE_NOT_FOUND": 2
+   }
+  },
+  "FL \u00b7 Citrus": {
+   "active": 5,
+   "visible_customer_mode": 5,
+   "visible_preview_mode": 5,
+   "proposed": 5,
+   "withheld": 0,
+   "by_class": {},
+   "by_reason": {}
+  },
+  "FL \u00b7 Duval": {
+   "active": 1,
+   "visible_customer_mode": 1,
+   "visible_preview_mode": 1,
+   "proposed": 1,
+   "withheld": 0,
+   "by_class": {},
+   "by_reason": {}
+  },
+  "FL \u00b7 Escambia": {
+   "active": 1,
+   "visible_customer_mode": 1,
+   "visible_preview_mode": 1,
+   "proposed": 0,
+   "withheld": 1,
+   "by_class": {
+    "pending_verification": 1
+   },
+   "by_reason": {
+    "EVIDENCE_UNAVAILABLE": 1
+   }
+  },
+  "FL \u00b7 Gadsden": {
+   "active": 8,
+   "visible_customer_mode": 8,
+   "visible_preview_mode": 8,
+   "proposed": 0,
+   "withheld": 8,
+   "by_class": {
+    "no_route": 8
+   },
+   "by_reason": {
+    "EVIDENCE_NOT_FOUND": 8
+   }
+  },
+  "FL \u00b7 Hendry": {
+   "active": 1,
+   "visible_customer_mode": 1,
+   "visible_preview_mode": 1,
+   "proposed": 0,
+   "withheld": 1,
+   "by_class": {
+    "pending_verification": 1
+   },
+   "by_reason": {
+    "OBSERVATION_MISSING": 1,
+    "EVIDENCE_UNAVAILABLE": 1
+   }
+  },
+  "FL \u00b7 Hernando": {
+   "active": 6,
+   "visible_customer_mode": 6,
+   "visible_preview_mode": 6,
+   "proposed": 6,
+   "withheld": 0,
+   "by_class": {},
+   "by_reason": {}
+  },
+  "FL \u00b7 Highlands": {
+   "active": 5,
+   "visible_customer_mode": 5,
+   "visible_preview_mode": 5,
+   "proposed": 5,
+   "withheld": 0,
+   "by_class": {},
+   "by_reason": {}
+  },
+  "FL \u00b7 Hillsborough": {
+   "active": 3,
+   "visible_customer_mode": 3,
+   "visible_preview_mode": 3,
+   "proposed": 0,
+   "withheld": 3,
+   "by_class": {
+    "pending_verification": 3
+   },
+   "by_reason": {
+    "EVIDENCE_NEEDS_REVIEW": 3
+   }
+  },
+  "FL \u00b7 Indian River": {
+   "active": 2,
+   "visible_customer_mode": 2,
+   "visible_preview_mode": 2,
+   "proposed": 0,
+   "withheld": 2,
+   "by_class": {
+    "pending_verification": 2
+   },
+   "by_reason": {
+    "EVIDENCE_NEEDS_REVIEW": 2
+   }
+  },
+  "FL \u00b7 Lee": {
+   "active": 1,
+   "visible_customer_mode": 1,
+   "visible_preview_mode": 1,
+   "proposed": 0,
+   "withheld": 1,
+   "by_class": {
+    "pending_verification": 1
+   },
+   "by_reason": {
+    "EVIDENCE_UNAVAILABLE": 1
+   }
+  },
+  "FL \u00b7 Leon": {
+   "active": 2,
+   "visible_customer_mode": 2,
+   "visible_preview_mode": 2,
+   "proposed": 2,
+   "withheld": 0,
+   "by_class": {},
+   "by_reason": {}
+  },
+  "FL \u00b7 Levy": {
+   "active": 5,
+   "visible_customer_mode": 5,
+   "visible_preview_mode": 5,
+   "proposed": 5,
+   "withheld": 0,
+   "by_class": {},
+   "by_reason": {}
+  },
+  "FL \u00b7 Marion": {
+   "active": 2,
+   "visible_customer_mode": 2,
+   "visible_preview_mode": 2,
+   "proposed": 0,
+   "withheld": 2,
+   "by_class": {
+    "pending_verification": 2
+   },
+   "by_reason": {
+    "EVIDENCE_NO_CHANNEL": 2
+   }
+  },
+  "FL \u00b7 Miami-Dade": {
+   "active": 2,
+   "visible_customer_mode": 2,
+   "visible_preview_mode": 2,
+   "proposed": 0,
+   "withheld": 2,
+   "by_class": {
+    "no_route": 2
+   },
+   "by_reason": {
+    "EVIDENCE_NOT_FOUND": 2
+   }
+  },
+  "FL \u00b7 Orange": {
+   "active": 3,
+   "visible_customer_mode": 3,
+   "visible_preview_mode": 3,
+   "proposed": 3,
+   "withheld": 0,
+   "by_class": {},
+   "by_reason": {}
+  },
+  "FL \u00b7 Osceola": {
+   "active": 10,
+   "visible_customer_mode": 10,
+   "visible_preview_mode": 10,
+   "proposed": 0,
+   "withheld": 10,
+   "by_class": {
+    "pending_verification": 10
+   },
+   "by_reason": {
+    "EVIDENCE_UNAVAILABLE": 10
+   }
+  },
+  "FL \u00b7 Palm Beach": {
+   "active": 3,
+   "visible_customer_mode": 3,
+   "visible_preview_mode": 3,
+   "proposed": 0,
+   "withheld": 3,
+   "by_class": {
+    "pending_verification": 3
+   },
+   "by_reason": {
+    "EVIDENCE_UNAVAILABLE": 3
+   }
+  },
+  "FL \u00b7 Pasco": {
+   "active": 1,
+   "visible_customer_mode": 1,
+   "visible_preview_mode": 1,
+   "proposed": 0,
+   "withheld": 1,
+   "by_class": {
+    "metadata_gap": 1
+   },
+   "by_reason": {
+    "OBSERVATION_MISSING": 1
+   }
+  },
+  "FL \u00b7 Polk": {
+   "active": 16,
+   "visible_customer_mode": 16,
+   "visible_preview_mode": 16,
+   "proposed": 0,
+   "withheld": 16,
+   "by_class": {
+    "no_route": 16
+   },
+   "by_reason": {
+    "EVIDENCE_NOT_FOUND": 16
+   }
+  },
+  "FL \u00b7 Putnam": {
+   "active": 45,
+   "visible_customer_mode": 45,
+   "visible_preview_mode": 45,
+   "proposed": 0,
+   "withheld": 45,
+   "by_class": {
+    "no_route": 45
+   },
+   "by_reason": {
+    "EVIDENCE_NOT_FOUND": 45
+   }
+  },
+  "FL \u00b7 Sarasota": {
+   "active": 12,
+   "visible_customer_mode": 12,
+   "visible_preview_mode": 12,
+   "proposed": 0,
+   "withheld": 12,
+   "by_class": {
+    "pending_verification": 12
+   },
+   "by_reason": {
+    "EVIDENCE_UNAVAILABLE": 12
+   }
+  },
+  "FL \u00b7 St. Lucie": {
+   "active": 3,
+   "visible_customer_mode": 3,
+   "visible_preview_mode": 3,
+   "proposed": 0,
+   "withheld": 3,
+   "by_class": {
+    "pending_verification": 3
+   },
+   "by_reason": {
+    "EVIDENCE_NEEDS_REVIEW": 3
+   }
+  },
+  "FL \u00b7 Volusia": {
+   "active": 10,
+   "visible_customer_mode": 10,
+   "visible_preview_mode": 10,
+   "proposed": 10,
+   "withheld": 0,
+   "by_class": {},
+   "by_reason": {}
+  },
+  "LA \u00b7 East Baton Rouge": {
+   "active": 10334,
+   "visible_customer_mode": 10334,
+   "visible_preview_mode": 10334,
+   "proposed": 0,
+   "withheld": 10334,
+   "by_class": {
+    "stale": 10334
+   },
+   "by_reason": {
+    "LIST_DATED_STALE": 10334
+   }
+  },
+  "MI \u00b7 Oceana": {
+   "active": 5,
+   "visible_customer_mode": 0,
+   "visible_preview_mode": 5,
+   "proposed": 0,
+   "withheld": 5,
+   "by_class": {
+    "source_not_published": 5
+   },
+   "by_reason": {
+    "SOURCE_NOT_PUBLISHED": 5,
+    "EVIDENCE_NO_RECORD": 5
+   }
+  },
+  "MI \u00b7 Wayne": {
+   "active": 30770,
+   "visible_customer_mode": 0,
+   "visible_preview_mode": 30770,
+   "proposed": 0,
+   "withheld": 30770,
+   "by_class": {
+    "source_not_published": 30770
+   },
+   "by_reason": {
+    "SOURCE_NOT_PUBLISHED": 30770,
+    "EVIDENCE_NEEDS_REVIEW": 30770
+   }
+  },
+  "MN \u00b7 Ramsey": {
+   "active": 2,
+   "visible_customer_mode": 0,
+   "visible_preview_mode": 2,
+   "proposed": 0,
+   "withheld": 2,
+   "by_class": {
+    "source_not_published": 2
+   },
+   "by_reason": {
+    "SOURCE_NOT_PUBLISHED": 2,
+    "EVIDENCE_NEEDS_REVIEW": 2
+   }
+  },
+  "MO \u00b7 St. Louis City": {
+   "active": 9759,
+   "visible_customer_mode": 0,
+   "visible_preview_mode": 9759,
+   "proposed": 0,
+   "withheld": 9759,
+   "by_class": {
+    "source_not_published": 9759
+   },
+   "by_reason": {
+    "SOURCE_NOT_PUBLISHED": 9759,
+    "EVIDENCE_NEEDS_REVIEW": 9759
+   }
+  },
+  "OK \u00b7 Oklahoma": {
+   "active": 195,
+   "visible_customer_mode": 0,
+   "visible_preview_mode": 195,
+   "proposed": 0,
+   "withheld": 195,
+   "by_class": {
+    "source_not_published": 195
+   },
+   "by_reason": {
+    "SOURCE_NOT_PUBLISHED": 195,
+    "EVIDENCE_NO_RECORD": 195
+   }
+  },
+  "PA \u00b7 Fayette": {
+   "active": 376,
+   "visible_customer_mode": 0,
+   "visible_preview_mode": 376,
+   "proposed": 0,
+   "withheld": 376,
+   "by_class": {
+    "source_not_published": 376
+   },
+   "by_reason": {
+    "SOURCE_NOT_PUBLISHED": 376,
+    "LIST_DATED_STALE": 376,
+    "EVIDENCE_NEEDS_REVIEW": 376
+   }
+  },
+  "SC \u00b7 Georgetown": {
+   "active": 1,
+   "visible_customer_mode": 0,
+   "visible_preview_mode": 1,
+   "proposed": 0,
+   "withheld": 1,
+   "by_class": {
+    "source_not_published": 1
+   },
+   "by_reason": {
+    "SOURCE_NOT_PUBLISHED": 1,
+    "EVIDENCE_NO_RECORD": 1
+   }
+  },
+  "SC \u00b7 Horry": {
+   "active": 51,
+   "visible_customer_mode": 0,
+   "visible_preview_mode": 51,
+   "proposed": 0,
+   "withheld": 51,
+   "by_class": {
+    "source_not_published": 51
+   },
+   "by_reason": {
+    "SOURCE_NOT_PUBLISHED": 51,
+    "EVIDENCE_NO_RECORD": 51
+   }
+  },
+  "TN \u00b7 Shelby": {
+   "active": 2038,
+   "visible_customer_mode": 0,
+   "visible_preview_mode": 2038,
+   "proposed": 0,
+   "withheld": 2038,
+   "by_class": {
+    "source_not_published": 2038
+   },
+   "by_reason": {
+    "SOURCE_NOT_PUBLISHED": 2038,
+    "EVIDENCE_NOT_FOUND": 2038
+   }
+  },
+  "TX \u00b7 Galveston": {
+   "active": 183,
+   "visible_customer_mode": 183,
+   "visible_preview_mode": 183,
+   "proposed": 144,
+   "withheld": 39,
+   "by_class": {
+    "metadata_gap": 39
+   },
+   "by_reason": {
+    "OBSERVATION_MISSING": 39
+   }
+  },
+  "TX \u00b7 Goliad": {
+   "active": 1,
+   "visible_customer_mode": 1,
+   "visible_preview_mode": 1,
+   "proposed": 0,
+   "withheld": 1,
+   "by_class": {
+    "no_route": 1
+   },
+   "by_reason": {
+    "EVIDENCE_NOT_FOUND": 1
+   }
+  },
+  "TX \u00b7 Hardin": {
+   "active": 9,
+   "visible_customer_mode": 9,
+   "visible_preview_mode": 9,
+   "proposed": 0,
+   "withheld": 9,
+   "by_class": {
+    "no_route": 9
+   },
+   "by_reason": {
+    "EVIDENCE_NOT_FOUND": 9
+   }
+  },
+  "TX \u00b7 Jim Wells": {
+   "active": 11,
+   "visible_customer_mode": 11,
+   "visible_preview_mode": 11,
+   "proposed": 0,
+   "withheld": 11,
+   "by_class": {
+    "no_route": 11
+   },
+   "by_reason": {
+    "EVIDENCE_NOT_FOUND": 11
+   }
+  },
+  "TX \u00b7 Leon": {
+   "active": 84,
+   "visible_customer_mode": 84,
+   "visible_preview_mode": 84,
+   "proposed": 0,
+   "withheld": 84,
+   "by_class": {
+    "no_route": 84
+   },
+   "by_reason": {
+    "EVIDENCE_NOT_FOUND": 84
+   }
+  },
+  "TX \u00b7 Liberty": {
+   "active": 113,
+   "visible_customer_mode": 113,
+   "visible_preview_mode": 113,
+   "proposed": 0,
+   "withheld": 113,
+   "by_class": {
+    "no_route": 113
+   },
+   "by_reason": {
+    "EVIDENCE_NOT_FOUND": 113
+   }
+  },
+  "TX \u00b7 Maverick": {
+   "active": 14,
+   "visible_customer_mode": 14,
+   "visible_preview_mode": 14,
+   "proposed": 0,
+   "withheld": 14,
+   "by_class": {
+    "no_route": 14
+   },
+   "by_reason": {
+    "EVIDENCE_NOT_FOUND": 14
+   }
+  },
+  "TX \u00b7 Van Zandt": {
+   "active": 6,
+   "visible_customer_mode": 6,
+   "visible_preview_mode": 6,
+   "proposed": 0,
+   "withheld": 6,
+   "by_class": {
+    "no_route": 6
+   },
+   "by_reason": {
+    "EVIDENCE_NOT_FOUND": 6
+   }
+  }
+ },
+ "groups": [
+  {
+   "state": "FL",
+   "county": "Alachua",
+   "source_id": "fl_laft_realtdm",
+   "publication_status": "APPROVED_GRANDFATHERED",
+   "path_type": "quoted_amount",
+   "seen_bucket": "le14d",
+   "list_bucket": "none",
+   "n": 4,
+   "evidence_status": "VERIFIED",
+   "verified": true,
+   "classification": "verified",
+   "reasons": []
+  },
+  {
+   "state": "FL",
+   "county": "Bay",
+   "source_id": "fl_laft_pioneer",
+   "publication_status": "APPROVED_GRANDFATHERED",
+   "path_type": "",
+   "seen_bucket": "le14d",
+   "list_bucket": "none",
+   "n": 2,
+   "evidence_status": "NOT_FOUND",
+   "verified": false,
+   "classification": "no_route",
+   "reasons": [
+    "EVIDENCE_NOT_FOUND"
+   ]
+  },
+  {
+   "state": "FL",
+   "county": "Citrus",
+   "source_id": "fl_laft_pioneer",
+   "publication_status": "APPROVED_GRANDFATHERED",
+   "path_type": "phone_mail",
+   "seen_bucket": "le14d",
+   "list_bucket": "none",
+   "n": 5,
+   "evidence_status": "VERIFIED",
+   "verified": true,
+   "classification": "verified",
+   "reasons": []
+  },
+  {
+   "state": "FL",
+   "county": "Duval",
+   "source_id": "fl_laft_pioneer",
+   "publication_status": "APPROVED_GRANDFATHERED",
+   "path_type": "phone_mail",
+   "seen_bucket": "le14d",
+   "list_bucket": "none",
+   "n": 1,
+   "evidence_status": "VERIFIED",
+   "verified": true,
+   "classification": "verified",
+   "reasons": []
+  },
+  {
+   "state": "FL",
+   "county": "Escambia",
+   "source_id": "fl_laft_html",
+   "publication_status": "APPROVED_GRANDFATHERED",
+   "path_type": "",
+   "seen_bucket": "le14d",
+   "list_bucket": "none",
+   "n": 1,
+   "evidence_status": "UNAVAILABLE",
+   "verified": false,
+   "classification": "pending_verification",
+   "reasons": [
+    "EVIDENCE_UNAVAILABLE"
+   ]
+  },
+  {
+   "state": "FL",
+   "county": "Gadsden",
+   "source_id": "fl_laft_html",
+   "publication_status": "APPROVED_GRANDFATHERED",
+   "path_type": "",
+   "seen_bucket": "le14d",
+   "list_bucket": "none",
+   "n": 8,
+   "evidence_status": "NOT_FOUND",
+   "verified": false,
+   "classification": "no_route",
+   "reasons": [
+    "EVIDENCE_NOT_FOUND"
+   ]
+  },
+  {
+   "state": "FL",
+   "county": "Hendry",
+   "source_id": "fl_laft_pdfs",
+   "publication_status": "APPROVED_GRANDFATHERED",
+   "path_type": "",
+   "seen_bucket": "never",
+   "list_bucket": "none",
+   "n": 1,
+   "evidence_status": "UNAVAILABLE",
+   "verified": false,
+   "classification": "pending_verification",
+   "reasons": [
+    "OBSERVATION_MISSING",
+    "EVIDENCE_UNAVAILABLE"
+   ]
+  },
+  {
+   "state": "FL",
+   "county": "Hernando",
+   "source_id": "fl_laft_pioneer",
+   "publication_status": "APPROVED_GRANDFATHERED",
+   "path_type": "quoted_amount",
+   "seen_bucket": "le14d",
+   "list_bucket": "none",
+   "n": 6,
+   "evidence_status": "VERIFIED",
+   "verified": true,
+   "classification": "verified",
+   "reasons": []
+  },
+  {
+   "state": "FL",
+   "county": "Highlands",
+   "source_id": "fl_laft_realtdm",
+   "publication_status": "APPROVED_GRANDFATHERED",
+   "path_type": "quoted_amount",
+   "seen_bucket": "le14d",
+   "list_bucket": "none",
+   "n": 5,
+   "evidence_status": "VERIFIED",
+   "verified": true,
+   "classification": "verified",
+   "reasons": []
+  },
+  {
+   "state": "FL",
+   "county": "Hillsborough",
+   "source_id": "fl_laft_hillsborough",
+   "publication_status": "APPROVED_GRANDFATHERED",
+   "path_type": "",
+   "seen_bucket": "le14d",
+   "list_bucket": "none",
+   "n": 3,
+   "evidence_status": "NEEDS_REVIEW",
+   "verified": false,
+   "classification": "pending_verification",
+   "reasons": [
+    "EVIDENCE_NEEDS_REVIEW"
+   ]
+  },
+  {
+   "state": "FL",
+   "county": "Indian River",
+   "source_id": "fl_laft_html",
+   "publication_status": "APPROVED_GRANDFATHERED",
+   "path_type": "",
+   "seen_bucket": "le14d",
+   "list_bucket": "none",
+   "n": 2,
+   "evidence_status": "NEEDS_REVIEW",
+   "verified": false,
+   "classification": "pending_verification",
+   "reasons": [
+    "EVIDENCE_NEEDS_REVIEW"
+   ]
+  },
+  {
+   "state": "FL",
+   "county": "Lee",
+   "source_id": "fl_laft_realtdm",
+   "publication_status": "APPROVED_GRANDFATHERED",
+   "path_type": "",
+   "seen_bucket": "le14d",
+   "list_bucket": "none",
+   "n": 1,
+   "evidence_status": "UNAVAILABLE",
+   "verified": false,
+   "classification": "pending_verification",
+   "reasons": [
+    "EVIDENCE_UNAVAILABLE"
+   ]
+  },
+  {
+   "state": "FL",
+   "county": "Leon",
+   "source_id": "fl_laft_leon",
+   "publication_status": "APPROVED_GRANDFATHERED",
+   "path_type": "phone_mail",
+   "seen_bucket": "le14d",
+   "list_bucket": "none",
+   "n": 2,
+   "evidence_status": "VERIFIED",
+   "verified": true,
+   "classification": "verified",
+   "reasons": []
+  },
+  {
+   "state": "FL",
+   "county": "Levy",
+   "source_id": "fl_laft_pioneer",
+   "publication_status": "APPROVED_GRANDFATHERED",
+   "path_type": "phone_mail",
+   "seen_bucket": "le14d",
+   "list_bucket": "none",
+   "n": 5,
+   "evidence_status": "VERIFIED",
+   "verified": true,
+   "classification": "verified",
+   "reasons": []
+  },
+  {
+   "state": "FL",
+   "county": "Marion",
+   "source_id": "fl_laft_pdfs",
+   "publication_status": "APPROVED_GRANDFATHERED",
+   "path_type": "amount_plus_costs",
+   "seen_bucket": "le14d",
+   "list_bucket": "none",
+   "n": 2,
+   "evidence_status": "VERIFIED",
+   "verified": false,
+   "classification": "pending_verification",
+   "reasons": [
+    "EVIDENCE_NO_CHANNEL"
+   ]
+  },
+  {
+   "state": "FL",
+   "county": "Miami-Dade",
+   "source_id": "fl_laft_realtdm",
+   "publication_status": "APPROVED_GRANDFATHERED",
+   "path_type": "",
+   "seen_bucket": "le14d",
+   "list_bucket": "none",
+   "n": 2,
+   "evidence_status": "NOT_FOUND",
+   "verified": false,
+   "classification": "no_route",
+   "reasons": [
+    "EVIDENCE_NOT_FOUND"
+   ]
+  },
+  {
+   "state": "FL",
+   "county": "Orange",
+   "source_id": "fl_laft_orange",
+   "publication_status": "APPROVED_GRANDFATHERED",
+   "path_type": "amount_plus_costs",
+   "seen_bucket": "le14d",
+   "list_bucket": "none",
+   "n": 3,
+   "evidence_status": "VERIFIED",
+   "verified": true,
+   "classification": "verified",
+   "reasons": []
+  },
+  {
+   "state": "FL",
+   "county": "Osceola",
+   "source_id": "fl_laft_osceola",
+   "publication_status": "APPROVED_GRANDFATHERED",
+   "path_type": "",
+   "seen_bucket": "le14d",
+   "list_bucket": "none",
+   "n": 10,
+   "evidence_status": "UNAVAILABLE",
+   "verified": false,
+   "classification": "pending_verification",
+   "reasons": [
+    "EVIDENCE_UNAVAILABLE"
+   ]
+  },
+  {
+   "state": "FL",
+   "county": "Palm Beach",
+   "source_id": "fl_laft_pioneer",
+   "publication_status": "APPROVED_GRANDFATHERED",
+   "path_type": "",
+   "seen_bucket": "le14d",
+   "list_bucket": "none",
+   "n": 3,
+   "evidence_status": "UNAVAILABLE",
+   "verified": false,
+   "classification": "pending_verification",
+   "reasons": [
+    "EVIDENCE_UNAVAILABLE"
+   ]
+  },
+  {
+   "state": "FL",
+   "county": "Pasco",
+   "source_id": "fl_laft_pdfs",
+   "publication_status": "APPROVED_GRANDFATHERED",
+   "path_type": "",
+   "seen_bucket": "never",
+   "list_bucket": "none",
+   "n": 1,
+   "evidence_status": "VERIFIED",
+   "verified": false,
+   "classification": "metadata_gap",
+   "reasons": [
+    "OBSERVATION_MISSING"
+   ]
+  },
+  {
+   "state": "FL",
+   "county": "Polk",
+   "source_id": "fl_laft_realtdm",
+   "publication_status": "APPROVED_GRANDFATHERED",
+   "path_type": "",
+   "seen_bucket": "le14d",
+   "list_bucket": "none",
+   "n": 16,
+   "evidence_status": "NOT_FOUND",
+   "verified": false,
+   "classification": "no_route",
+   "reasons": [
+    "EVIDENCE_NOT_FOUND"
+   ]
+  },
+  {
+   "state": "FL",
+   "county": "Putnam",
+   "source_id": "fl_laft_html",
+   "publication_status": "APPROVED_GRANDFATHERED",
+   "path_type": "",
+   "seen_bucket": "le14d",
+   "list_bucket": "none",
+   "n": 45,
+   "evidence_status": "NOT_FOUND",
+   "verified": false,
+   "classification": "no_route",
+   "reasons": [
+    "EVIDENCE_NOT_FOUND"
+   ]
+  },
+  {
+   "state": "FL",
+   "county": "Sarasota",
+   "source_id": "fl_laft_realtdm",
+   "publication_status": "APPROVED_GRANDFATHERED",
+   "path_type": "",
+   "seen_bucket": "le14d",
+   "list_bucket": "none",
+   "n": 12,
+   "evidence_status": "UNAVAILABLE",
+   "verified": false,
+   "classification": "pending_verification",
+   "reasons": [
+    "EVIDENCE_UNAVAILABLE"
+   ]
+  },
+  {
+   "state": "FL",
+   "county": "St. Lucie",
+   "source_id": "fl_laft_stlucie",
+   "publication_status": "APPROVED_GRANDFATHERED",
+   "path_type": "",
+   "seen_bucket": "le14d",
+   "list_bucket": "none",
+   "n": 3,
+   "evidence_status": "NEEDS_REVIEW",
+   "verified": false,
+   "classification": "pending_verification",
+   "reasons": [
+    "EVIDENCE_NEEDS_REVIEW"
+   ]
+  },
+  {
+   "state": "FL",
+   "county": "Volusia",
+   "source_id": "fl_laft_pdfs",
+   "publication_status": "APPROVED_GRANDFATHERED",
+   "path_type": "quoted_amount",
+   "seen_bucket": "le14d",
+   "list_bucket": "none",
+   "n": 10,
+   "evidence_status": "VERIFIED",
+   "verified": true,
+   "classification": "verified",
+   "reasons": []
+  },
+  {
+   "state": "LA",
+   "county": "East Baton Rouge",
+   "source_id": "la_ebr_adjudicated",
+   "publication_status": "APPROVED",
+   "path_type": "county_instructions",
+   "seen_bucket": "le14d",
+   "list_bucket": "gt365d",
+   "n": 3500,
+   "evidence_status": "VERIFIED",
+   "verified": false,
+   "classification": "stale",
+   "reasons": [
+    "LIST_DATED_STALE"
+   ]
+  },
+  {
+   "state": "LA",
+   "county": "East Baton Rouge",
+   "source_id": "la_ebr_adjudicated",
+   "publication_status": "APPROVED",
+   "path_type": "county_instructions",
+   "seen_bucket": "le14d",
+   "list_bucket": "gt365d",
+   "n": 6834,
+   "evidence_status": "VERIFIED",
+   "verified": false,
+   "classification": "stale",
+   "reasons": [
+    "LIST_DATED_STALE"
+   ]
+  },
+  {
+   "state": "MI",
+   "county": "Oceana",
+   "source_id": "mi_oceana_landbank",
+   "publication_status": "UNREVIEWED",
+   "path_type": "application_download",
+   "seen_bucket": "le14d",
+   "list_bucket": "none",
+   "n": 5,
+   "evidence_status": "VERIFIED",
+   "verified": false,
+   "classification": "source_not_published",
+   "reasons": [
+    "SOURCE_NOT_PUBLISHED",
+    "EVIDENCE_NO_RECORD"
+   ]
+  },
+  {
+   "state": "MI",
+   "county": "Wayne",
+   "source_id": "mi_detroit_landbank_lots",
+   "publication_status": "UNREVIEWED",
+   "path_type": "",
+   "seen_bucket": "le14d",
+   "list_bucket": "none",
+   "n": 30758,
+   "evidence_status": "NEEDS_REVIEW",
+   "verified": false,
+   "classification": "source_not_published",
+   "reasons": [
+    "SOURCE_NOT_PUBLISHED",
+    "EVIDENCE_NEEDS_REVIEW"
+   ]
+  },
+  {
+   "state": "MI",
+   "county": "Wayne",
+   "source_id": "mi_detroit_landbank_programs",
+   "publication_status": "UNREVIEWED",
+   "path_type": "",
+   "seen_bucket": "le14d",
+   "list_bucket": "none",
+   "n": 12,
+   "evidence_status": "NEEDS_REVIEW",
+   "verified": false,
+   "classification": "source_not_published",
+   "reasons": [
+    "SOURCE_NOT_PUBLISHED",
+    "EVIDENCE_NEEDS_REVIEW"
+   ]
+  },
+  {
+   "state": "MN",
+   "county": "Ramsey",
+   "source_id": "mn_ramsey_tax_forfeit",
+   "publication_status": "UNREVIEWED",
+   "path_type": "",
+   "seen_bucket": "le14d",
+   "list_bucket": "none",
+   "n": 2,
+   "evidence_status": "NEEDS_REVIEW",
+   "verified": false,
+   "classification": "source_not_published",
+   "reasons": [
+    "SOURCE_NOT_PUBLISHED",
+    "EVIDENCE_NEEDS_REVIEW"
+   ]
+  },
+  {
+   "state": "MO",
+   "county": "St. Louis City",
+   "source_id": "mo_stl_lra_inventory",
+   "publication_status": "UNREVIEWED",
+   "path_type": "",
+   "seen_bucket": "le14d",
+   "list_bucket": "none",
+   "n": 9759,
+   "evidence_status": "NEEDS_REVIEW",
+   "verified": false,
+   "classification": "source_not_published",
+   "reasons": [
+    "SOURCE_NOT_PUBLISHED",
+    "EVIDENCE_NEEDS_REVIEW"
+   ]
+  },
+  {
+   "state": "OK",
+   "county": "Oklahoma",
+   "source_id": "ok_oklahoma_county_owned",
+   "publication_status": "UNREVIEWED",
+   "path_type": "application_download",
+   "seen_bucket": "le14d",
+   "list_bucket": "none",
+   "n": 195,
+   "evidence_status": "VERIFIED",
+   "verified": false,
+   "classification": "source_not_published",
+   "reasons": [
+    "SOURCE_NOT_PUBLISHED",
+    "EVIDENCE_NO_RECORD"
+   ]
+  },
+  {
+   "state": "PA",
+   "county": "Fayette",
+   "source_id": "pa_fayette_repository",
+   "publication_status": "UNREVIEWED",
+   "path_type": "",
+   "seen_bucket": "le14d",
+   "list_bucket": "gt365d",
+   "n": 376,
+   "evidence_status": "NEEDS_REVIEW",
+   "verified": false,
+   "classification": "source_not_published",
+   "reasons": [
+    "SOURCE_NOT_PUBLISHED",
+    "LIST_DATED_STALE",
+    "EVIDENCE_NEEDS_REVIEW"
+   ]
+  },
+  {
+   "state": "SC",
+   "county": "Georgetown",
+   "source_id": "sc_georgetown_forfeited_land",
+   "publication_status": "UNREVIEWED",
+   "path_type": "application_download",
+   "seen_bucket": "le14d",
+   "list_bucket": "none",
+   "n": 1,
+   "evidence_status": "VERIFIED",
+   "verified": false,
+   "classification": "source_not_published",
+   "reasons": [
+    "SOURCE_NOT_PUBLISHED",
+    "EVIDENCE_NO_RECORD"
+   ]
+  },
+  {
+   "state": "SC",
+   "county": "Horry",
+   "source_id": "sc_horry_forfeited_land",
+   "publication_status": "UNREVIEWED",
+   "path_type": "application_download",
+   "seen_bucket": "le14d",
+   "list_bucket": "none",
+   "n": 51,
+   "evidence_status": "VERIFIED",
+   "verified": false,
+   "classification": "source_not_published",
+   "reasons": [
+    "SOURCE_NOT_PUBLISHED",
+    "EVIDENCE_NO_RECORD"
+   ]
+  },
+  {
+   "state": "TN",
+   "county": "Shelby",
+   "source_id": "tn_shelby_landbank",
+   "publication_status": "UNREVIEWED",
+   "path_type": "",
+   "seen_bucket": "le14d",
+   "list_bucket": "none",
+   "n": 2038,
+   "evidence_status": "NOT_FOUND",
+   "verified": false,
+   "classification": "source_not_published",
+   "reasons": [
+    "SOURCE_NOT_PUBLISHED",
+    "EVIDENCE_NOT_FOUND"
+   ]
+  },
+  {
+   "state": "TX",
+   "county": "Galveston",
+   "source_id": "tx_lgbs",
+   "publication_status": "APPROVED_GRANDFATHERED",
+   "path_type": "county_instructions",
+   "seen_bucket": "le14d",
+   "list_bucket": "none",
+   "n": 144,
+   "evidence_status": "VERIFIED",
+   "verified": true,
+   "classification": "verified",
+   "reasons": []
+  },
+  {
+   "state": "TX",
+   "county": "Galveston",
+   "source_id": "tx_lgbs",
+   "publication_status": "APPROVED_GRANDFATHERED",
+   "path_type": "county_instructions",
+   "seen_bucket": "never",
+   "list_bucket": "none",
+   "n": 39,
+   "evidence_status": "VERIFIED",
+   "verified": false,
+   "classification": "metadata_gap",
+   "reasons": [
+    "OBSERVATION_MISSING"
+   ]
+  },
+  {
+   "state": "TX",
+   "county": "Goliad",
+   "source_id": "tx_lgbs",
+   "publication_status": "APPROVED_GRANDFATHERED",
+   "path_type": "",
+   "seen_bucket": "le14d",
+   "list_bucket": "none",
+   "n": 1,
+   "evidence_status": "NOT_FOUND",
+   "verified": false,
+   "classification": "no_route",
+   "reasons": [
+    "EVIDENCE_NOT_FOUND"
+   ]
+  },
+  {
+   "state": "TX",
+   "county": "Hardin",
+   "source_id": "tx_lgbs",
+   "publication_status": "APPROVED_GRANDFATHERED",
+   "path_type": "",
+   "seen_bucket": "le14d",
+   "list_bucket": "none",
+   "n": 9,
+   "evidence_status": "NOT_FOUND",
+   "verified": false,
+   "classification": "no_route",
+   "reasons": [
+    "EVIDENCE_NOT_FOUND"
+   ]
+  },
+  {
+   "state": "TX",
+   "county": "Jim Wells",
+   "source_id": "tx_lgbs",
+   "publication_status": "APPROVED_GRANDFATHERED",
+   "path_type": "",
+   "seen_bucket": "le14d",
+   "list_bucket": "none",
+   "n": 11,
+   "evidence_status": "NOT_FOUND",
+   "verified": false,
+   "classification": "no_route",
+   "reasons": [
+    "EVIDENCE_NOT_FOUND"
+   ]
+  },
+  {
+   "state": "TX",
+   "county": "Leon",
+   "source_id": "tx_lgbs",
+   "publication_status": "APPROVED_GRANDFATHERED",
+   "path_type": "",
+   "seen_bucket": "le14d",
+   "list_bucket": "none",
+   "n": 84,
+   "evidence_status": "NOT_FOUND",
+   "verified": false,
+   "classification": "no_route",
+   "reasons": [
+    "EVIDENCE_NOT_FOUND"
+   ]
+  },
+  {
+   "state": "TX",
+   "county": "Liberty",
+   "source_id": "tx_lgbs",
+   "publication_status": "APPROVED_GRANDFATHERED",
+   "path_type": "",
+   "seen_bucket": "le14d",
+   "list_bucket": "none",
+   "n": 113,
+   "evidence_status": "NOT_FOUND",
+   "verified": false,
+   "classification": "no_route",
+   "reasons": [
+    "EVIDENCE_NOT_FOUND"
+   ]
+  },
+  {
+   "state": "TX",
+   "county": "Maverick",
+   "source_id": "tx_lgbs",
+   "publication_status": "APPROVED_GRANDFATHERED",
+   "path_type": "",
+   "seen_bucket": "le14d",
+   "list_bucket": "none",
+   "n": 14,
+   "evidence_status": "NOT_FOUND",
+   "verified": false,
+   "classification": "no_route",
+   "reasons": [
+    "EVIDENCE_NOT_FOUND"
+   ]
+  },
+  {
+   "state": "TX",
+   "county": "Van Zandt",
+   "source_id": "tx_lgbs",
+   "publication_status": "APPROVED_GRANDFATHERED",
+   "path_type": "",
+   "seen_bucket": "le14d",
+   "list_bucket": "none",
+   "n": 6,
+   "evidence_status": "NOT_FOUND",
+   "verified": false,
+   "classification": "no_route",
+   "reasons": [
+    "EVIDENCE_NOT_FOUND"
+   ]
+  }
+ ]
+}

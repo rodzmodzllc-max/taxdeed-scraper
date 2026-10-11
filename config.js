@@ -47,6 +47,19 @@ window.TDW_CONFIG = {
   // customers see approved sources only.
   publicationMode: "preview",
 
+  // Acquisition-path gate (2026-10-10, docs/acquisition-gate.md). "off": the
+  // source publication decision alone decides what a customer sees (today's
+  // behaviour). "enforce": a non-admin sees an Available record only when
+  // its acquisition route is VERIFIED - the source is customer-published,
+  // the record was read in the last 14 days, its list is not a dated one,
+  // and the county's acquisition process was verified from the source's
+  // own page or document within 180 days and names a way to act.
+  // Administrators always see every record, labelled. Staged OFF: the
+  // read-only dry run (docs/review/acquisition-gate-dryrun-2026-10-10.md)
+  // shows what enforcing would withhold; switching it on is the owner's
+  // decision. Nothing else changes: no row is deleted or closed.
+  availableGate: "off",
+
   // Paid beta (2026-10-05). Switched OFF until the owner completes the
   // production steps in docs/commercial-layer.md (Stripe account, monthly
   // price, webhook, Edge Function secrets, migration 027). While off, nobody
