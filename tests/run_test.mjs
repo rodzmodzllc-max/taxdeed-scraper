@@ -2369,7 +2369,7 @@ await fpFailPage.close();
   const fl = await newPage({ viewport: { width: 1200, height: 900 } });
   await fl.goto(BASE_URL + '#/lands', { waitUntil: 'networkidle' });
   await fl.waitForTimeout(500);
-  results.brandFlContext = { title: await fl.title(), floridaCopy: /Florida/.test(await fl.locator('#main').innerText()) };
+  results.brandFlContext = { title: await fl.title(), floridaCopy: /in Florida/.test(await fl.locator('#pageList').innerText()) };  // the count line sits in the list header, not in #main
   await fl.close();
   const tx = await newPage({ viewport: { width: 1200, height: 900 } });
   await tx.goto(BASE_URL.replace(/index\.html$/, 'tx.html') + '#/lands', { waitUntil: 'networkidle' });
@@ -6618,7 +6618,7 @@ const EXPECTED = {
   },
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v120"]},
+  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v121"]},
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · TAXACQ — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · TAXACQ — Florida", floridaCopy: true },

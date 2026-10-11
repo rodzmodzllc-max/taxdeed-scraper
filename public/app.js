@@ -4671,6 +4671,10 @@ function card(p, showCounty) {
   const spec = specBits(p);
   const sale = lastSaleText(p);
   const isClosed = isGone(p);
+  // An auction the county's current list no longer carries: one muted line says
+  // so, and that no result is published - the kicker alone does not say that.
+  const offList = !isClosed && p.source === "auction" ? offCurrentSaleList(p) : null;
+  const offListNote = offList ? `<div class="prop-ledger-line" data-off-list="1"><span class="muted">Not on the county list read ${esc(offList.countyRead ? fmtDate(String(offList.countyRead).slice(0, 10)) : "")} · no result published</span></div>` : "";
   // Lean card (remediation, 2026-10-11): the picture is the focus, then the
   // facts a customer needs at a glance - what it is, where, the price, and the
   // way in. Lien, homestead, value-ratio, acquisition and financing figures and
@@ -4695,6 +4699,7 @@ function card(p, showCounty) {
         ${p.case_no ? `<span class="prop-case-line">Case ${esc(p.case_no)}</span>` : ""}
       </div>
       <div class="card-price">${p.source === "laft" ? availableHeadlineHtml(p) : `<div class="card-stat-label">${auctionBidLabel(p, true)}</div><div class="card-stat-val bid${bidPublished ? "" : " unpublished"}">${bidPublished ? bidDisplayCard(p) : "Not published"}</div>`}</div>
+      ${offListNote}
       ${auctionLinkHtml(p, "cta-btn")}
       <button class="detail-btn" data-action="viewdetails" data-pid="${p.id}" type="button">View property →</button>
     </div>`;
@@ -8697,6 +8702,7 @@ function detailHtml(p) {
     </div>
     <!--NAV-->
     ${detailStatusHtml(p)}
+    ${sourceLineHtml(p)}
     ${whySeeingHtml(p)}
     ${regionOf(p) === "TX" && classificationBadgeHtml(p) ? `<div class="prop-classification-line" style="margin:.2rem 0 .5rem">${classificationBadgeHtml(p)}</div>` : ""}
     ${isCert ? `
