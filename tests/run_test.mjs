@@ -5092,11 +5092,13 @@ await navMap.close();
     // Reached from a property page's Source truth and from the state picker.
     const d = await newPage({ viewport: { width: 1280, height: 900 } });
     await d.goto(TNR + '?profile=admin#/lands/ptn1', { waitUntil: 'networkidle' });
-    await d.waitForTimeout(500);
-    results.rulesFromProperty = await d.evaluate(() => {
-      const b = document.querySelector('#detailModalInner [data-action="staterules"]');
+    await waitDetailOpen(d);
+    await d.waitForTimeout(300);
+    results.rulesFromProperty = await d.evaluate((sel) => {
+      const s = document.querySelector(sel);
+      const b = s && s.querySelector('[data-action="staterules"]');
       return b ? { county: b.dataset.county, text: b.textContent.trim() } : null;
-    });
+    }, OPEN_DETAIL_SEL);
     await d.locator('#detailModalInner [data-action="staterules"]').first().click().catch(() => {});
     await d.waitForTimeout(500);
     results.rulesFromPropertyLanded = await d.evaluate(() => ({ hash: location.hash, shown: !!document.querySelector('#rulesPage[data-county="Shelby"]'),
