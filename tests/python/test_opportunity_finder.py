@@ -48,7 +48,9 @@ def test_badges_are_facts_with_no_score_or_weighting():
     # An expired clerk statement is never a published amount.
     assert 'ai.state !== "official_expired"' in block
     # Shown on both card kinds.
-    assert APP.count("${recordBadgesHtml(p)}") == 2
+    # The lean deed / LAFT card (2026-10-11) carries no record badges; the
+    # certificate card still does, so the call site count is one.
+    assert APP.count("${recordBadgesHtml(p)}") == 1
 
 
 def test_command_center_uses_only_row_fields_and_invents_no_sale_terms():
