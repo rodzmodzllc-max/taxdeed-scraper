@@ -14533,7 +14533,7 @@ function homeLedgerCardHtml(k) {
   return `<button type="button" class="home-ledger-card${k === "laft" ? " primary" : ""}" data-ledger="${esc(k)}" data-home-ledger="${esc(k)}">
     <span class="home-ledger-kicker">${esc(ledgerNavName(k).toUpperCase())}</span>
     <span class="home-ledger-count" id="homeCount_${esc(k)}">${PROPERTIES_LOADED ? ledgerCountText(k, n, true) : "—"}</span>
-    <span class="home-ledger-unit">${esc(unit)}${PROPERTIES_LOADED && n ? ` across ${counties} ${esc(unitWordFor(counties))}` : ""}${WITHHELD[k] ? ` · <span class="home-ledger-withheld" data-withheld="${esc(k)}">${WITHHELD[k]} withheld</span>` : ""}${k === "laft" && GATE_WITHHELD.total ? ` · <span class="home-ledger-withheld" data-gate-withheld="laft">${GATE_WITHHELD.total} pending verification</span>` : ""}</span>
+    <span class="home-ledger-unit">${esc(unit)}${PROPERTIES_LOADED && n ? ` across ${counties} ${esc(unitWordFor(counties))}` : ""}${WITHHELD[k] ? ` · <span class="home-ledger-withheld" data-withheld="${esc(k)}">${WITHHELD[k]} withheld</span>` : ""}${k === "laft" && GATE_WITHHELD.total ? ` · <span class="home-ledger-withheld" data-gate-withheld="laft">${GATE_WITHHELD.total} pending verification</span>` : ""}${publicationWithheld(k) && publicationWithheld(k).total ? ` · <span class="home-ledger-withheld" data-pub-withheld="${esc(k)}">${publicationWithheld(k).total.toLocaleString("en-US")} withheld pending verification</span>` : ""}</span>
     <span class="home-ledger-blurb">${esc(fin && !n ? `None listed for ${STATE_INFO.name} right now.` : !fin && PROPERTIES_LOADED ? "Loading…" : (cfg.sub || ""))}</span>
     <span class="home-ledger-go">${k === "laft" ? "Explore" : "Open"} &rarr;</span>
   </button>`;
