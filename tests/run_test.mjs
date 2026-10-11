@@ -4400,7 +4400,9 @@ await navMap.close();
     await d.goto(TX_BASE_URL + '?txcause=1' + '#/lands/ptx3', { waitUntil: 'networkidle' });
     await d.waitForTimeout(500);
     results.txCauseDetail = await d.evaluate(() => {
-      const m = document.getElementById('detailModalInner');
+      // the open detail surface: the side panel from 1280px (remediation 2026-10-10), else the modal
+      const panel = document.querySelector('#detailPanel:not([hidden])');
+      const m = (panel && panel.innerText.trim()) ? panel : document.getElementById('detailModalInner');
       const txt = m ? m.innerText.replace(/\s+/g, ' ') : '';
       return { related: m ? m.querySelectorAll('.related-record').length : null,
         sameParcelClaim: /ptx8|6600 BLOCK/.test(m ? m.innerHTML : ''),
