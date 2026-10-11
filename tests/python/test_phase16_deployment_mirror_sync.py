@@ -69,6 +69,7 @@ DEPLOYED_BUNDLE_FILES = (
     "available-coverage.json",
     "available-terms.json",
     "county-intelligence.json",   # 2026-10-05 county intelligence dossier
+    "state-rules.json",           # 2026-10-10 state rules page (scripts/build_state_rules.py)
     "identity.css",               # 2026-10-05 identity design language (TAXACQ)
     "acquisition-evidence.json",
     "explore.css",

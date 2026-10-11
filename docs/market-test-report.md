@@ -337,7 +337,7 @@ Counties (FOCUS first, then fewest failed rules and most visible records):
 * **Counties:** Wayne, Oceana
 * **Ledger:** AVAILABLE
 * **Usable inventory:** 0 customer-visible of 30,783 active
-* **Published path:** 0% (acquisition evidence); 1 county with a verified acquisition record
+* **Published path:** 0% (acquisition evidence); 2 counties with a verified acquisition record
 * **Property data:** legal 0%, value 0%, taxable 0%, acreage 0%, land use 0%
 * **Coordinates:** 100% (100% authoritative)
 * **Imagery:** 100% imagery-capable, 1% stored

@@ -47,6 +47,7 @@ REPO = HERE.parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(1, str(REPO))
 from harvesters.governance import inventory_status as IS  # noqa: E402
+import rest_pages as RP  # noqa: E402
 from harvesters.governance import states  # noqa: E402
 import outcome_ingest as OI  # noqa: E402
 
@@ -254,15 +255,14 @@ def fetch_rows(api: Api, state: str, *, with_results: bool = False) -> list[dict
     result_amount (probed by the caller): a published sale price in a
     county's past-sales table is what marks such a row sold
     (inventory_status.adapter_record_status)."""
-    out: list[dict] = []
-    offset, page = 0, 1000
     select = SELECT + (",result_amount" if with_results else "")
-    while True:
-        chunk = api.get("properties", f"select={select}&state=eq.{state}&order=id&limit={page}&offset={offset}")
-        out.extend(chunk)
-        if len(chunk) < page:
-            return out
-        offset += page
+    # Keyset pages (scripts/rest_pages), never offset pages: an offset page
+    # sorts the state's whole set before skipping (Michigan: 30,801 rows) and
+    # crossed the statement timeout under parallel state jobs (2026-10-10).
+    root = api.base[: -len("/rest/v1")] if api.base.endswith("/rest/v1") else api.base
+    rows = RP.read_all(root, "properties", api._headers(), {"select": select, "state": f"eq.{state}"})
+    api.requests_made += max(1, (len(rows) + RP.PAGE - 1) // RP.PAGE)
+    return rows
 
 
 def execute(api: Api, changes: list[dict], *, observed_at: str, run_id: str | None, include_transition: bool = False,

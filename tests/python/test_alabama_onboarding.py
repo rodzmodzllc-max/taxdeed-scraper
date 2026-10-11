@@ -139,11 +139,15 @@ def test_g01_committed_registry_has_exactly_one_alabama_candidate_that_is_not_pr
     assert "WEB SEARCH 2026-09-30" in AL_ROW.evidence_ref
     assert not AL_ROW.is_production and not AL_ROW.runnable
     assert csr.validate_registry(ROWS) == []
-    # The FL/TX AVAILABLE-ledger rows are untouched: 109 rows, all COUNTY, the new columns blank
+    # The FL/TX AVAILABLE-ledger rows: 109 rows, all COUNTY
     # (2026-09-30: the registry also carries the AUCTIONS / LIENS & CERTIFICATES sources - not counted here).
+    # 2026-10-11: the production rows now name their publisher, amount kind, cadence and terminology
+    # (tests/python/test_state_coverage.py); candidate rows that were never read stay blank.
     others = [r for r in ROWS if r.state in ("FL", "TX") and not (r.ledger_set and "AVAILABLE" not in r.ledger_set)]
-    assert len(others) == 109 and all(r.publishing_unit == "COUNTY" and r.publishing_unit_name == "" and r.amount_kind == ""
-                                      and r.update_frequency == "" and r.source_terminology == "" for r in others)
+    assert len(others) == 109 and all(r.publishing_unit == "COUNTY" for r in others)
+    for r in others:
+        filled = (r.publishing_unit_name != "", r.amount_kind != "", r.update_frequency != "", r.source_terminology != "")
+        assert all(filled) if r.is_production else not any(filled), (r.state, r.county, r.source_id)
     assert len(csr.expected_harvest_units(ROWS, "FL")) == 52 and len(csr.expected_harvest_units(ROWS, "TX")) == 8 and csr.production_rows(ROWS, "AL") == []
     with open(csr.REGISTRY_PATH, newline="", encoding="utf-8") as fh:
         assert csv.DictReader(fh).fieldnames == csr.EXTENDED_COLUMNS
@@ -181,7 +185,10 @@ def test_g03_to_db_rows_keeps_the_live_shape_for_fl_tx_and_needs_020_for_alabama
     assert all(set(d) == set(csr.EXTENDED_COLUMNS) and d["publication_status"] for d in ext22)
     al = next(d for d in ext if d["state"] == "AL")
     assert al["publishing_unit"] == "STATE" and al["canonical_url"] == ala.ADOR_SEARCH_URL and al["amount_kind"] == "QUOTED_ON_APPLICATION"
-    assert all(d["publishing_unit"] == "COUNTY" and d["amount_kind"] is None for d in ext if d["state"] in ("FL", "TX"))
+    assert all(d["publishing_unit"] == "COUNTY" for d in ext if d["state"] in ("FL", "TX"))
+    # 2026-10-11: production FL / TX rows carry their amount kind; candidates that were never read carry none.
+    prod = {(r.state, r.county, r.source_id) for r in ROWS if r.is_production}
+    assert all((d["amount_kind"] is not None) == ((d["state"], d["county"], d["source_id"]) in prod) for d in ext if d["state"] in ("FL", "TX"))
     with pytest.raises(ValueError, match="unknown registry schema"):
         csr.to_db_rows(ROWS, schema="019")
 

@@ -55,6 +55,7 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
+import rest_pages as RP  # noqa: E402
 import saved_search_match as SSM  # noqa: E402
 
 USER_AGENT = "taxdeed-scraper change-detection (+https://github.com/rodzmodzllc-max/taxdeed-scraper)"
@@ -246,6 +247,17 @@ class Api:
                 return out
             offset += len(page)
 
+    def population(self, table: str, params: dict) -> list[dict]:
+        """Every row of `table` matching `params`, by KEYSET pages
+        (scripts/rest_pages: id=gt.<last>&order=id.asc, bounded retry on a
+        transient 5xx). 2026-10-10, run 38070616741 (WY): the offset read of
+        the state's properties hit HTTP 500 under eleven parallel state jobs,
+        so no change was recorded for that state. `params` must select `id`
+        and must not carry order / limit / offset."""
+        root = self.base[: -len("/rest/v1")] if self.base.endswith("/rest/v1") else self.base
+        headers = {"apikey": self.key, "Authorization": f"Bearer {self.key}", "User-Agent": USER_AGENT}
+        return RP.read_all(root, table, headers, params)
+
 
 def _cache_name(state: str, source: str | None) -> str:
     return f"change_snapshots_{state}{'_' + source if source else ''}.json"
@@ -309,7 +321,10 @@ def main(argv=None) -> int:
     run_id = os.environ.get("GITHUB_RUN_ID") or datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%S")
     have_024 = api.has_table("property_change_events")
     src_q = f"&source=eq.{src}" if src else ""
-    rows = api.paged(f"properties?select={urllib.parse.quote(SELECT, safe=',:>-_')}&state=eq.{state}{src_q}&order=id.asc")
+    params = {"select": SELECT, "state": f"eq.{state}"}
+    if src:
+        params["source"] = f"eq.{src}"
+    rows = api.population("properties", params)
     ids = {str(r["id"]) for r in rows}
     if have_024:
         stored = {s["property_id"]: s["snapshot"] for s in api.paged(f"property_change_snapshots?select=property_id,snapshot&state=eq.{state}&order=property_id.asc")

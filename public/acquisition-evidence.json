@@ -1547,24 +1547,14 @@
    "state": "MI",
    "source_id": "mi_detroit_landbank_lots",
    "county": "Wayne",
-   "status": "NEEDS_REVIEW",
-   "basis": "document_read",
-   "reason": "The DLBA Vacant Land Policy (October 2023) was read: Side / Neighborhood / Oversized lots are sold by application to qualifying adjacent owner-occupants at policy prices. Whether that policy is still current and how Marketed Lots are sold is not verified",
+   "status": "VERIFIED",
+   "basis": "evidence_table",
+   "reason": "DETROIT LAND BANK AUTHORITY AMENDED AND RESTATED VACANT LAND POLICY (FINAL Oct 2023)",
    "attempted_on": "2026-10-03",
    "authority_type": "county_land_bank",
    "authority": "Detroit Land Bank Authority",
-   "scope": "source",
-   "candidates": [
-    {
-     "url": "https://buildingdetroit.org/purchase_property",
-     "doc_kind": "PROCEDURE"
-    },
-    {
-     "url": "https://buildingdetroit.org/land-reuse-programs",
-     "doc_kind": "INSTRUCTIONS"
-    }
-   ],
-   "document_url": "https://dlba-production-bucket.s3.us-east-2.amazonaws.com/DLBA+Policies/POLICIES+-+Vacant+Land+Policy+(FINAL+Oct+2023).pdf"
+   "path_type": "county_instructions",
+   "scope": "source"
   },
   {
    "state": "MI",
@@ -1706,10 +1696,20 @@
    "state": "TN",
    "source_id": "tn_shelby_landbank",
    "county": "Shelby",
-   "status": "NOT_FOUND",
-   "basis": "search_index",
-   "reason": "No official acquisition page identified yet",
-   "scope": "source"
+   "status": "NEEDS_REVIEW",
+   "basis": "capture",
+   "reason": "Land Bank Policies & Procedures page links an Offer to Purchase and Sales Agreement Packet; the packet is a scanned PDF with no text layer and its terms were not read",
+   "attempted_on": "2026-10-08",
+   "run_id": "37856189946 37856396525",
+   "authority_type": "county_land_bank",
+   "authority": "Shelby County Land Bank",
+   "scope": "source",
+   "candidates": [
+    {
+     "url": "https://landbank.shelbycountytn.gov",
+     "doc_kind": "SOURCE_PAGE"
+    }
+   ]
   },
   {
    "state": "TX",

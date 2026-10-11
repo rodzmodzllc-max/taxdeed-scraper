@@ -110,6 +110,23 @@ def _read(name: str) -> list[dict]:
         return list(csv.DictReader(fh))
 
 
+# 2026-10-11 (source metadata completion): every FL Lands Available row names
+# its publishing unit (the Clerk of the Circuit Court, or the Comptroller in
+# Orange County, per each harvester's own notes), what the list's figure is
+# (data/available_financial_terms.csv: OPENING_BID_PLUS_ADDITIONS for every
+# source but RealTDM, whose figure is the vendor's 'base purchase price' and is
+# not called a bid), and the read cadence. The lists publish no update cadence.
+def _fl_laft_meta(county: str, source_id: str) -> dict:
+    unit = "Orange County Comptroller" if county == "Orange" else f"{county} County Clerk of the Circuit Court"
+    if source_id == "fl_laft_realtdm":
+        kind, term = "PUBLISHED_AMOUNT_KIND_UNSPECIFIED", "realTDM 'base purchase price' (statutory additions apply; not an opening bid)"
+    else:
+        kind, term = "OPENING_BID", "the Clerk's Lands Available for Taxes list, F.S. 197.502(7): parcel, case, opening bid (additions apply)"
+    return dict(publishing_unit_name=unit, amount_kind=kind,
+                update_frequency="not published by the source; read daily by the laft job (12:00 UTC)",
+                source_terminology=term + " (AVAILABLE)")
+
+
 def fl_production_rows() -> list[dict]:
     rows: list[dict] = []
     common = dict(state="FL", inventory_type=FL_INVENTORY, verification_status="PRODUCTION_VERIFIED",
@@ -163,6 +180,10 @@ def fl_production_rows() -> list[dict]:
                          canonical_url=url, document_url=("https://lforms.leonclerk.com/tax_deeds/listoflands.txt" if county == "Leon" else ""),
                          access_method=access, machine_format=fmt, completeness_status=_completeness(county),
                          evidence_ref=f"scripts/{script}", notes=note))
+    for r in rows:
+        for k, v in _fl_laft_meta(r["county"], r["source_id"]).items():
+            if not r.get(k):
+                r[k] = v
     return rows
 
 
@@ -271,7 +292,15 @@ def tx_rows() -> list[dict]:
                          governance_status="APPROVED", last_checked="2026-09-23", completeness_status="FAILED",
                          ledgers=f"{AUCTIONS}|{AVAILABLE}", publication_status="APPROVED_GRANDFATHERED",
                          evidence_ref="harvesters/governance/registry.py tx_lgbs; data/tx_lgbs_observed_county_roster.csv",
-                         notes="Delinquent-tax counsel publication (not the county); rows carry no per-property URL; feed INCOMPLETE on 2026-09-29, last success 2026-09-23. Do not retry."))
+                         notes="Delinquent-tax counsel publication (not the county); rows carry no per-property URL; feed INCOMPLETE on 2026-09-29, last success 2026-09-23. Do not retry.",
+                         # 2026-10-11: the publisher is the taxing units' delinquent-tax
+                         # counsel (a vendor listing, never the county); its figure is
+                         # the firm's own 'Minimum Bid' column (data/available_financial_terms.csv
+                         # MINIMUM_BID); the feed is read only by hand and is not retried.
+                         publishing_unit_name="Linebarger Goggan Blair & Sampson, LLP (delinquent-tax counsel to the taxing units; vendor listing)",
+                         amount_kind="PUBLISHED_AMOUNT_KIND_UNSPECIFIED",
+                         update_frequency="not published by the vendor; read only when the texas job is dispatched by hand (never on cron); not retried after the 2026-09-29 INCOMPLETE read",
+                         source_terminology="LGBS struck-off / resale listing: 'Minimum Bid', cause number, account (AVAILABLE and AUCTIONS by the vendor's own sale status)"))
     for county, url, fmt, governance, note in TX_CANDIDATES:
         rows.append(_row(state="TX", county=county, source_id=("tx_hctax" if county == "Harris" else ""), harvester="",
                          inventory_type="", source_authority="GOVERNMENT_DIRECT", canonical_url=url, ledgers=AVAILABLE,
@@ -510,16 +539,31 @@ def fl_auction_rows() -> list[dict]:
                   governance_status="APPROVED_GRANDFATHERED", last_checked="2026-09-30",
                   completeness_status="UNKNOWN", ledgers=AUCTIONS, source_authority="VENDOR_AUCTION",
                   publication_status="APPROVED_GRANDFATHERED")
+    # 2026-10-11 (source metadata completion): the publishing unit, what the
+    # published figure is, the read cadence and the source's own terminology
+    # were blank on every FL auction row. Tax deed sales are the Clerk's
+    # (data/state_rules.csv FL purchaser_costs / opening_bid, F.S. 197.502 /
+    # 197.542, VERIFIED 2026-10-05); the harvested figure is the sale's
+    # opening bid (the rule's own definition). Nothing about the vendor
+    # platform's own update cadence is published, so only the pipeline's read
+    # schedule is stated.
+    auction_meta = dict(
+        amount_kind="OPENING_BID",
+        update_frequency="not published by the source; the sale calendar is read twice daily by the deeds job (10:00 / 22:00 UTC)",
+        source_terminology="the Clerk's tax deed sale calendar ('Waiting' auctions): case, parcel, opening bid, sale date (AUCTIONS)",
+    )
     for src in _read("realauction_counties.csv"):
-        rows.append(_row(**common, county=src["County"], source_id="fl_realauction", harvester="harvest_all_counties.ps1",
+        rows.append(_row(**common, **auction_meta, county=src["County"], source_id="fl_realauction", harvester="harvest_all_counties.ps1",
                          canonical_url=REALAUCTION_CALENDAR.format(host=src["Host"]),
                          access_method="HTTP_GET_HTML", machine_format="HTML_TABLE",
+                         publishing_unit_name=f"{src['County']} County Clerk of the Circuit Court (RealAuction platform)",
                          evidence_ref="data/realauction_counties.csv; harvesters/governance/registry.py fl_realauction",
                          notes="RealAuction / RealForeclose / RealTaxDeed tax-deed sale calendar contracted by the Clerk; per-sale "
                                "auction pages carry the case, bid, parcel and the county appraiser deep-link."))
-    rows.append(_row(**common, county="Okaloosa", source_id="fl_bid4assets_okaloosa", harvester="harvest_okaloosa_bid4assets.ps1",
+    rows.append(_row(**common, **auction_meta, county="Okaloosa", source_id="fl_bid4assets_okaloosa", harvester="harvest_okaloosa_bid4assets.ps1",
                      canonical_url="https://www.bid4assets.com/OkaloosaFLTax/listings",
                      access_method="HTTP_GET_HTML", machine_format="HTML_CARDS",
+                     publishing_unit_name="Okaloosa County Clerk of the Circuit Court (Bid4Assets platform)",
                      evidence_ref="scripts/harvest_okaloosa_bid4assets.ps1",
                      notes="Bid4Assets tax-deed listings for Okaloosa County (the only FL county on this platform, per the "
                            "script's own header); per-auction detail pages read one at a time."))
@@ -541,6 +585,22 @@ def fl_certificate_rows() -> list[dict]:
                          notes="LienHub county-held tax certificates (the certificate itself, never the parcel): DataTables JSON "
                                "endpoint behind the county-held certificates page; certificate number, account, purchase "
                                "amount, expiration, interest rate.",
+                         # 2026-10-11: county-held certificates are the Tax Collector's
+                         # (the page is the county's 'countyheld' list on the vendor
+                         # platform); LienHub labels the figure 'purchase amount' and
+                         # says nothing about its composition, so its kind is
+                         # unspecified rather than guessed. The source has answered
+                         # HTTP 403 to the runner for all 32 counties on every
+                         # certificates run since 2026-10-01 (CLAUDE.md, data-quality
+                         # fixes; no certificate row has a last_seen_at stamp) - a
+                         # source-availability fact the coverage report must carry.
+                         publishing_unit_name=f"{src['County']} County Tax Collector (LienHub platform)",
+                         amount_kind="PUBLISHED_AMOUNT_KIND_UNSPECIFIED",
+                         update_frequency="not published by the source; the county-held list is read daily by the certificates job (12:00 UTC)",
+                         source_terminology="LienHub 'county held' certificates: certificate number, tax year, 'purchase amount', expiration, interest rate (LIENS & CERTIFICATES)",
+                         restrictions="SOURCE_UNAVAILABLE since 2026-10-01: lienhub.com returns HTTP 403 to the GitHub runner for all 32 counties "
+                                      "on every scheduled read (no certificate row has been re-read or stamped since); not a usage restriction - "
+                                      "an access failure awaiting the owner's decision (contact the platform or change the read path)",
                          ledgers=LIENS))
     return rows
 
@@ -557,6 +617,15 @@ def tx_auction_rows() -> list[dict]:
                          evidence_ref="data/tx_realauction_counties.csv; harvesters/governance/registry.py tx_realauction",
                          notes="RealAuction sheriff-sale / tax-sale calendar (sheriffsaleauctions.com or realforeclose.com) "
                                "for the county's tax foreclosure sales; AUCTIONS only - Texas has no certificate ledger.",
+                         # 2026-10-11: the sale authority (sheriff / constable / the
+                         # taxing units' counsel) is not verified per county (TX
+                         # AUCTIONS eligibility is COUNTY_DEPENDENT), so only the
+                         # county is named. The calendar's figure is an opening /
+                         # minimum bid of unverified definition.
+                         publishing_unit_name=f"{src['County']} County (RealAuction platform; sale authority not verified per county)",
+                         amount_kind="PUBLISHED_AMOUNT_KIND_UNSPECIFIED",
+                         update_frequency="not published by the source; read only when the texas job is dispatched by hand (never on cron)",
+                         source_terminology="RealAuction tax foreclosure sale calendar: cause / account, published bid, sale date (AUCTIONS)",
                          ledgers=AUCTIONS))
     return rows
 

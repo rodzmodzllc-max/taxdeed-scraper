@@ -53,6 +53,7 @@ from harvesters.governance import county_source_registry as csr  # noqa: E402
 from harvesters.governance import publication as pub  # noqa: E402
 import laft_purchase_paths as PP  # noqa: E402
 import purchase_path_engine as PE  # noqa: E402
+import rest_pages as RP  # noqa: E402
 
 REPORT_PATH = REPO / "out" / "public" / "publication-gate.json"
 FRESHNESS_PERSIST = REPO / "out" / "unit-freshness-persist.json"
@@ -114,14 +115,13 @@ class Api:
 
 
 def fetch_rows(api: Api, state: str, *, select: str = SELECT) -> list[dict]:
-    rows: list[dict] = []
-    offset = 0
-    while True:
-        page = api.get("properties", f"select={select}&state=eq.{urllib.parse.quote(state)}&source=eq.laft&order=id.asc&limit=1000&offset={offset}")
-        rows.extend(page)
-        if len(page) < 1000:
-            return rows
-        offset += 1000
+    """Every laft row of the state, by keyset pages (scripts/rest_pages):
+    an offset page sorts the whole filtered set first and crossed the
+    statement timeout under parallel state jobs (2026-10-10, HTTP 500)."""
+    root = api.base[: -len("/rest/v1")] if api.base.endswith("/rest/v1") else api.base
+    rows = RP.read_all(root, "properties", api._headers(), {"select": select, "state": f"eq.{state}", "source": "eq.laft"})
+    api.requests_made += max(1, (len(rows) + RP.PAGE - 1) // RP.PAGE)
+    return rows
 
 
 def plan(rows: list[dict], decisions: dict[str, pub.PublicationDecision]) -> tuple[dict[str, list[str]], dict]:
