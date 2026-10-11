@@ -1603,13 +1603,13 @@
   },
   {
    "check": "rules_valid",
-   "detail": "4 rule(s) recorded",
+   "detail": "5 rule(s) recorded",
    "state": "TX",
    "status": "PASS"
   },
   {
    "check": "state_law_recorded",
-   "detail": "no statute has been read and recorded for this state; unresolved: redemption, tax_sale_model",
+   "detail": "no statute has been read and recorded for this state; unresolved: redemption, tax_sale_list_source, tax_sale_model",
    "state": "TX",
    "status": "NOT_VERIFIED"
   },

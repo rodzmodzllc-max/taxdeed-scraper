@@ -2839,7 +2839,29 @@
      "steps": "Watch for the property to be offered at a Galveston County Sheriff's tax foreclosure sale or resale - these are held only online through Real Auction | Register as a bidder on the Real Auction website | Deposit at least 5% of the total of your bids with the Sheriff (wire or ACH through Real Auction, at least 10 days before the sale) | If you win, pay the balance by wire through Real Auction, or by money order or cashier's check to the Sheriff's Office by 4:00 PM on the sale day | Obtain a Certificate of Eligibility from the Galveston County Tax Office and furnish it to the Sheriff's Office so the Sheriff's Deed can be recorded"
     }
    ],
-   "county_rules": [],
+   "county_rules": [
+    {
+     "ambiguity": "Whether the terms permit a read for display only has not been reviewed; until a review records permission the source stays restricted.",
+     "changed_on": "2026-10-11",
+     "county": "Harris",
+     "depends_on": "harvesters/otc/gate.py refuses tx_hctax; the AUCTIONS coverage report lists Harris County as SOURCE_RESTRICTED",
+     "evidence": "data/county_source_registry.csv row tx_hctax (verification_status SEARCH_EVIDENCE_ONLY, governance_status LEGAL_REVIEW_REQUIRED, restrictions \"hctax.net terms not cleared for redistribution; gate refuses until resolved\"); harvesters/otc/gate.py",
+     "implementation_status": "IMPLEMENTED",
+     "kind": "SOURCE",
+     "ledger": "AUCTIONS",
+     "office": "Harris County Tax Assessor-Collector",
+     "related_sources": "tx_hctax|tx_realauction",
+     "scope": "county",
+     "source_title": "Harris County Tax Office - Tax Sale Listing",
+     "source_url": "https://www.hctax.net/Property/listings/taxsalelisting",
+     "state": "TX",
+     "statement": "Harris County's own tax sale listing (hctax.net, the Tax Assessor-Collector's site) is the only official per-county tax-sale list located for Harris County, and it cannot be used: the site's terms were not cleared for redistribution (registry tx_hctax, Phase 9.5), so the ingestion gate refuses it and no Harris County auction row comes from it. The county's sales appear only through the vendor calendar (tx_realauction) where that platform lists them.",
+     "status": "SOURCE_RESTRICTED",
+     "test_ref": "tests/python/test_state_coverage.py",
+     "topic": "tax_sale_list_source",
+     "version": "1"
+    }
+   ],
    "history": [
     {
      "affects": "app.js LEDGERS.laft.tx copy; State rules page",
@@ -3569,6 +3591,8 @@
   "NOT_PUBLISHED": "Not published",
   "NOT_VERIFIED": "Not verified",
   "NOT_YET_IMPLEMENTED": "Not yet implemented",
+  "PARTIALLY_VERIFIED": "Partially verified",
+  "SOURCE_RESTRICTED": "Source restricted",
   "VERIFIED": "Verified"
  },
  "verification": {
@@ -5194,13 +5218,13 @@
    "findings": [
     {
      "check": "rules_valid",
-     "detail": "4 rule(s) recorded",
+     "detail": "5 rule(s) recorded",
      "state": "TX",
      "status": "PASS"
     },
     {
      "check": "state_law_recorded",
-     "detail": "no statute has been read and recorded for this state; unresolved: redemption, tax_sale_model",
+     "detail": "no statute has been read and recorded for this state; unresolved: redemption, tax_sale_list_source, tax_sale_model",
      "state": "TX",
      "status": "NOT_VERIFIED"
     },
