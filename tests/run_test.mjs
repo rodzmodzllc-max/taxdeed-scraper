@@ -5195,7 +5195,8 @@ await navMap.close();
       out.map = await pg.evaluate(() => ({ head: (document.querySelector('.map-side-head') || {}).textContent.replace(/\s+/g, ' ').trim(), pins: document.querySelectorAll('.explore-map .pin, .explore-map .cluster-bubble').length }));
       await pg.evaluate(() => { location.hash = '#/dashboard'; });
       await pg.waitForTimeout(800);
-      out.tile = await pg.evaluate(() => ({ val: document.querySelector('[data-ledger-tile="laft"] .stat-tile-val').textContent, sub: document.querySelector('[data-ledger-tile="laft"] .stat-tile-sub').textContent }));
+      // the per-ledger totals live on the Home ledger card since PR #137 (the operating-view tiles are gone)
+      out.tile = await pg.evaluate(() => ({ val: document.querySelector('#homeLedgers [data-home-ledger="laft"] .home-ledger-count').textContent.trim(), sub: document.querySelector('#homeLedgers [data-home-ledger="laft"] .home-ledger-unit').textContent.replace(/\s+/g, ' ').trim() }));
       // the Available export carries the gated rows only
       await pg.evaluate(() => { location.hash = '#/lands'; });
       await pg.waitForTimeout(600);
