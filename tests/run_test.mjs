@@ -1857,7 +1857,7 @@ results.photoCardHasPhoto = await p6Card.locator('.prop-card-photo.has-photo img
 results.photoCardCaption = ((await p6Card.locator('.photo-caption').textContent()) || '').trim();
 // The banner is capped so the address and both headline figures still sit
 // on the first phone screen under it.
-results.photoCardBannerHeightCapped = await p6Card.locator('.prop-card-photo.has-photo').evaluate(el => el.getBoundingClientRect().height <= 170);
+results.photoCardBannerHeightCapped = await p6Card.locator('.prop-card-photo.has-photo').evaluate(el => { const r = el.getBoundingClientRect(); return r.width > 0 && Math.abs(r.width / r.height - 4 / 3) < 0.05; });
 // Phase 67: the placeholder names both absences (photo state, then the
 // location state) in two spans - read the photo one here.
 results.photoNotCheckedText = ((await p66.locator('.prop-card:has-text("1 Main St") .prop-card-photo.no-photo .vis-main').first().textContent()) || '').trim();
@@ -4078,7 +4078,7 @@ await navMap.close();
       const ap = await newPage({ viewport: { width: 900, height: 900 } });
       await ap.goto(BASE_URL.replace(/index\.html$/, f) + '#/auctions', { waitUntil: 'networkidle' });
       await ap.waitForTimeout(400);
-      labels[k] = await ap.evaluate(() => [...new Set([...document.querySelectorAll('#main .prop-card .card-stat-headline .card-stat-label')].map(e => e.textContent.trim()))].slice(0, 3));
+      labels[k] = await ap.evaluate(() => [...new Set([...document.querySelectorAll('#main .prop-card .card-price .card-stat-label')].map(e => e.textContent.trim()))].slice(0, 3));
       await ap.close();
     }
     results.auctionHeadlineLabels = labels;
@@ -6299,7 +6299,7 @@ await big.press('#globalSearchInput', 'Enter');
     // ---- Every state / source type, from the source-aware terms table.
     const row = (st, county, sid, extra) => ({ source: 'laft', state: st, county, source_id: sid, parcel: '1', case_no: 'X-1', status: 'active', ...extra });
     // The card's own headline label / figure, read from its markup.
-    const headline = p => { const d = document.createElement('div'); d.innerHTML = window.__tdwCardHtml(p); const l = d.querySelector('.card-stat-headline .card-stat-label'); const v = d.querySelector('.card-stat-headline .card-stat-val'); return [l ? l.textContent.trim() : null, v ? v.textContent.trim() : null]; };
+    const headline = p => { const d = document.createElement('div'); d.innerHTML = window.__tdwCardHtml(p); const l = d.querySelector('.card-price .card-stat-label'); const v = d.querySelector('.card-price .card-stat-val'); return [l ? l.textContent.trim() : null, v ? v.textContent.trim() : null]; };
     const sem = p => { const i = ai(p); const b = block(p); return { state: i.state, label: i.label, value: i.value, display: i.display || null, current: i.current,
       headline: headline(p), basis: (b.match(/How the price is set (.+?) Source wording/) || [])[1] || null }; };
     const la = row('LA', 'East Baton Rouge', 'la_ebr_adjudicated', { bid: 0, purchase_amount: null, purchase_amount_kind: 'NOT_PUBLISHED', assessed: 50000, market: 52000, inventory_type: 'ADJUDICATED_PROPERTY' });
@@ -6856,7 +6856,7 @@ const EXPECTED = {
   showOnMapBtnText: 'Show county on the Map page',
   photoCardHasPhoto: 1,
   photoCardCaption: 'Aerial image · USDA NAIP',
-  photoCardBannerHeightCapped: true,
+  photoCardBannerHeightCapped: true,  // now a 4:3 frame, not a 170px cap
   photoNotCheckedText: 'Image not checked yet',
   photoNoCoverageText: 'Checked - no stored image for this address',
   noHorizontalOverflowMobile: true,
@@ -6999,7 +6999,7 @@ const EXPECTED = {
   rdCrumbHome: {"modalHidden": true, "dashVisible": true},
   rdGlobalEmpty: "No Florida property matches “zzzz-no-such”. Search covers address, parcel, case and certificate numbers and the county; to look in another state, switch state first.",
   rdGlobalEscape: true,
-  rdCardAcq: ["p3:Phone the county:1", "p15:Multi-step county process:1"],
+  rdCardAcq: [],  // the acquisition badge left the card face; the path is on the property page
   rdPicker: {"rows": ["CO=certificate", "FL=auction|laft|certificate", "LA=laft", "MI=auction", "MN=!none", "MO=!none", "OK=!none", "PA=!none", "SC=auction", "TN=!none", "TX=auction|laft", "WI=!none", "WY=auction"], "groups": ["States with Available properties", "Other states", "Coverage in Florida"], "visible": true, "coHref": "co.html#/certificates", "flCounts": ["Auctions 9", "Available 2", "Liens & Certificates 1"]},
   rdPickerSearch: ["WY"],
   rdPickerEscape: true,
@@ -7085,7 +7085,7 @@ const EXPECTED = {
   xsPages: Object.fromEntries([['MI', 'Michigan'], ['WY', 'Wyoming'], ['SC', 'South Carolina'], ['CO', 'Colorado'], ['WI', 'Wisconsin'],
     ['MO', 'Missouri'], ['OK', 'Oklahoma'], ['PA', 'Pennsylvania'], ['MN', 'Minnesota'], ['TN', 'Tennessee']].map(([c, n]) => [c,
     { state: c, title: `Auctions · TAXACQ — ${n}`, select: c, options: ['FL', 'TX', 'LA', 'MI', 'WY', 'SC', 'CO', 'WI', 'MO', 'OK', 'PA', 'MN', 'TN'], floridaWording: false, basemapOk: true }])),
-  xsMiCard: { count: 1, county: true, sev: true, noJustValue: true },
+  xsMiCard: { count: 1, county: true, sev: false, noJustValue: true },  // State Equalized Value moved off the card face to the property page
   xsCoCardCount: true,
   xsCoDetail: { treasurer: true, steps: true, noStreetView: true, noUndefined: true, sourceNamed: true },
   xsCoDouglas: { attribution: true, assignment: true, noStreetView: true, noUndefined: true },
@@ -7102,7 +7102,7 @@ const EXPECTED = {
   laCardSaysAvailableNow: false,
   laCardSaysParish: true,
   laCardSaysCounty: false,
-  laCardValueLabel: true,
+  laCardValueLabel: false,  // the tax-roll value label moved off the card face; the property page carries it
   laCardNoUndefined: true,
   laDetailNotVerifiedAvailable: true,
   laDetailInventoryLabel: true,
@@ -7230,7 +7230,7 @@ const EXPECTED = {
   laftCountyGroupName: 'Bay',
   // A different roll year from p1's, so the label is genuinely per-row rather
   // than a constant with a year hardcoded into it.
-  laftValueLabel: '2024 County Just Value',
+  laftValueLabel: 'Opening bid',
   laftBareLandStat: 'None (bare land)',
   junkLandRowVisibleOnLaft: true,
   laftCountBeforeJunkFilters: 2,
@@ -7272,7 +7272,7 @@ const EXPECTED = {
   // cannot legitimately obtain - the Zestimate API was retired in 2021. It is
   // the county appraiser's statutory just value, and value_year says which
   // roll year, so the label can say so exactly.
-  cardStatLabelsFirst: ['Opening Bid', '2025 County Just Value'],
+  cardStatLabelsFirst: ['Opening Bid'],
   // 16,456 sq ft is under the 20,000 threshold, so the lot stays in square
   // feet rather than being quoted as 0.38 acres.
   unenrichedCardExtras: '0,0,0',
@@ -7338,7 +7338,7 @@ const EXPECTED = {
   termsModalCloses: true,
   termsSayNotesShared: true,
   termsNoNotesPrivateClaim: true,
-  cardStatGridCount: 8,
+  cardStatGridCount: 0,  // lean card face: no stat grid on deed/LAFT cards (certificate cards keep theirs)
   homesteadBadgeAbsentForP1: 0,
   // Phase 35 added 3 more (Building/Improvement Value, Walk Away Above,
   // Gross Equity Spread) alongside the pre-existing Fees/muni-lien/
@@ -7346,7 +7346,7 @@ const EXPECTED = {
   infoTipCount: 7,
   junkLandRowHiddenOnAuction: true,
   exportBtnLabelAuction: '⬇ Export to Auction Sheet',
-  spreadBarPresentP1: 1,
+  spreadBarPresentP1: 0,  // the equity spread bar left the card face (2026-10-11)
   exportBtnLabelCertificate: '⬇ Export Certificates (CSV)',
   csvCertAccruedPlausible: true,
   csvCertTdaDate: '2025-06-01',
@@ -7754,8 +7754,7 @@ const EXPECTED = {
     "TX_lgbs_laft": "Minimum bid (vendor listing) | $4,500.00", "TX_lgbs_laft_nobid": "Price | Not published", "MI_dlba": "Published program price | $100.00",
     "MI_oceana": "Price | Application required", "SC_horry": "Minimum bid | $1,500.00", "SC_georgetown": "Opening bid | $1,500.00"},
   amountNeverPriceForBids: true,
-  auctionHeadlineLabels: {"TX": ["Minimum Bid", "Total value (source as published)", "Opening Bid"], "MI": ["Opening Bid", "State Equalized Value (county list)"],
-    "FL": ["Opening Bid", "County Just Value", "2025 County Just Value"], "SC": ["Opening Bid"]},
+  auctionHeadlineLabels: {"TX": ["Minimum Bid", "Opening Bid"], "MI": ["Opening Bid"], "FL": ["Opening Bid"], "SC": ["Opening Bid"]},  // one price label on the lean card face (2026-10-11)
   auctionNoPriceLabel: true,
   // Acquisition checklist, source truth, county intelligence (2026-10-05).
   acqChecklist: {"keys": ["status", "seller", "method", "amount", "amount_type", "form", "deposit", "documents", "instructions", "listing", "contact", "deadlines", "verified", "not_published"],
