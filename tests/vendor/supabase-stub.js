@@ -422,6 +422,8 @@ if (new URLSearchParams(location.search).get("txcause") === "1") {
   const ptx3 = FIXTURE_PROPERTIES.find(r => r.id === "ptx3");
   if (ptx3) FIXTURE_PROPERTIES.push(Object.assign({}, ptx3, { id: "ptx8", case_no: "129500040016000",
     address: "VACANT LOT IN 6600 BLOCK OF OBRIEN ST, Hitchcock, TX 77563", bid: 3100, min_bid: 3100 }));
+}
+
 // ?gatefresh=1 (2026-10-10, acquisition-path gate): one extra Florida
 // Available row that PASSES the gate - a customer-published source
 // (fl_laft_html), Calhoun County (a VERIFIED unit with a county process
