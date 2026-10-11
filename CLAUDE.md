@@ -3188,6 +3188,18 @@ Full description: `docs/auth-email.md`. Stable facts:
   - a used or expired token reads "That password-reset link has expired …".
 - **Tests.** `tests/recovery_flow_test.mjs` covers this with the real supabase-js (POST `/auth/v1/verify` fake).
 
+## Inventory status for every AVAILABLE source and Texas (2026-10-11, PR open, no migration)
+
+Full description: `docs/inventory-status.md`. Stable facts:
+- `status_for_row()` dispatches on `source_id_of(row)` (`source_id` else `harvester_source`), never on
+  `otc_provenance.adapter` for AVAILABLE rows. Every non-FL `laft` row goes through
+  `available_record_status`: `available_otc` only when `inventory_status_raw` is in
+  `AVAILABLE_OFFERED_WORDINGS` for that source (pinned to the adapter configs); otherwise `active` on list
+  presence (a dated list is named in the basis); `closed` on absence; `sold` only from the adapter's sold flag.
+- `feed_auction_status` serves FL and Texas RealAuction auctions. The observation rows carry `source_id`.
+- Before this, 54,102 rows outside Florida had no `inventory_status` (counts-only replay in
+  `docs/review/inventory-status-dryrun-2026-10-11.md`, pinned by `scripts/inventory_status_gap_report.py --check`).
+  The `laft` job now runs the writer for LA after the Louisiana lifecycle.
 ## Mandatory acquisition-path gate for customer publication (2026-10-10, PR open, migration 031 NOT applied)
 
 Full description: `docs/publication-gate.md`. Stable facts:

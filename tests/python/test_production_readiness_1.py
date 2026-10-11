@@ -93,7 +93,9 @@ def test_i02_results_come_only_from_the_source_never_from_absence_dates_or_count
     assert cert.status == "certificate_listed" and cert.basis == "LIST_PRESENCE"
     assert IS.status_for_row({"state": "FL", "source": "certificate", "status": "closed"}, today=TODAY).status == "closed"
     assert "certificate_redeemed" in IS.RESULT_STATUSES and "certificate_assigned" in IS.RESULT_STATUSES
-    assert IS.status_for_row({"state": "TX", "harvester_source": "tx_realauction", "source": "auction"}, today=TODAY) is None
+    # Texas RealAuction auctions follow the same sale-calendar rule as Florida's (2026-10-11); no date -> active.
+    ra = IS.status_for_row({"state": "TX", "harvester_source": "tx_realauction", "source": "auction"}, today=TODAY)
+    assert (ra.status, ra.basis) == ("active", "LIST_PRESENCE")
 
 
 # ==================== 2. migration 021 ====================

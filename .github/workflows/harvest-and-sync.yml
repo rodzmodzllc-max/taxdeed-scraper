@@ -1022,6 +1022,18 @@ jobs:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
         run: python3 scripts/laft_lifecycle.py --state LA --status out/harvest_louisiana_status.json --harvest out/harvest_louisiana.json --report out/public/laft-lifecycle-la.json
+      # Louisiana's 10,334 adjudicated rows had no inventory_status at all
+      # (2026-10-11): the writer only ran for FL and the expansion matrix, and
+      # its rule had no AVAILABLE mapping outside Florida. Same gated writer,
+      # same migration-021 probe; a failed lifecycle skips it (status would
+      # otherwise be derived from a pipeline status this run did not refresh).
+      - name: Louisiana - inventory status (normalized lifecycle state, migration 021)
+        if: always() && steps.la_sync.outcome == 'success'
+        continue-on-error: true
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+        run: python3 scripts/inventory_status_writer.py --state LA --report out/public/inventory-status-la.json
 
       - name: Louisiana - freshness and publication gate
         # No inventory-status mapping exists for an adjudicated list

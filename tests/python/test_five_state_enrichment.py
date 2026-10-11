@@ -68,9 +68,12 @@ def test_s03_certificates_listed_then_closed_never_redeemed():
 
 
 def test_s04_other_states_and_non_adapter_rows_are_not_touched():
-    # FL / TX / AL / LA keep their own mappings; a row with no adapter provenance maps to nothing.
+    # FL / TX / AL keep their own mappings; an auction row with no adapter provenance maps to nothing.
     assert IS.status_for_row(_row(otc_provenance={}), today=TODAY) is None
-    assert IS.status_for_row(_row(state="LA", source="laft"), today=TODAY) is None
+    # Since 2026-10-11 an AVAILABLE row of any other state is mapped by its source id
+    # (available_record_status): Louisiana's list presence reads "active", never more.
+    la = IS.status_for_row(_row(state="LA", source="laft", source_id="la_ebr_adjudicated"), today=TODAY)
+    assert (la.status, la.basis) == ("active", "LIST_PRESENCE")
     fl = IS.status_for_row({"state": "FL", "source": "auction", "status": "active", "sale_date": "2026-12-01"}, today=TODAY)
     assert fl.status == "upcoming" and "auction feed" in fl.note
 
