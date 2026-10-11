@@ -413,6 +413,21 @@ if (new URLSearchParams(location.search).get("offlist") === "1") {
   if (p8) p8.last_seen_at = new Date(Date.now() - 3600 * 1000).toISOString();
 }
 
+// ?gatefresh=1 (2026-10-10, acquisition-path gate): one extra Florida
+// Available row that PASSES the gate - a customer-published source
+// (fl_laft_html), Calhoun County (a VERIFIED unit with a county process
+// record in public/acquisition-evidence.json), read today, no list date, no
+// typed path of its own. Every other fixture Available row fails the gate
+// for a documented reason (stale read, never stamped, dated list, unit not
+// verified), so this is the one positive case. Off by default.
+if (new URLSearchParams(location.search).get("gatefresh") === "1") {
+  FIXTURE_PROPERTIES.push({ id: "pgate1", source: "laft", state: "FL", county: "Calhoun", case_no: "CAL-GATE-1", parcel: "0099001", address: "9 FIXTURE GATE RD",
+    owner_name: "", bid: 0, assessed: 12000, market: 12500, value_year: 2025, status: "available", lien_level: "unscreened", lien_note: "", prop_type: "Vacant Lot", sale_date: null,
+    homestead: false, url_auction: null, url_auction_kind: null, updated_at: new Date().toISOString(), last_seen_at: new Date().toISOString(), first_seen_at: "2026-10-01T00:00:00Z",
+    source_id: "fl_laft_html", harvester_source: "fl_laft_html", publication_status: "APPROVED_GRANDFATHERED", inventory_type: "LANDS_AVAILABLE",
+    purchase_amount: null, purchase_amount_kind: null, purchase_url: null, purchase_url_kind: null, list_url: "https://calhounclerk.com/court-services/", latitude: null, longitude: null });
+}
+
 const PROFILE_MODE = new URLSearchParams(location.search).get("profile") || "default";
 
 const PROFILES_TABLE = PROFILE_MODE === "notable" ? null : [
