@@ -14,6 +14,24 @@ import { chromium } from 'playwright';
 import fs from 'node:fs';
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:8934/index.html';
+// Filter drawer (2026-10-11): a change in the drawer is a draft until Show
+// results. This opens the drawer if needed, runs the change, applies it, and
+// leaves the drawer closed - so the results read after it are the applied ones.
+// Reads an element that lives in the drawer. Opens the drawer, reads, then
+// discards it (Escape), so nothing about the applied filters changes.
+async function inDrawer(pg, read) {
+  if (!(await pg.locator('#filtersPanel').evaluate(el => el.classList.contains('open')))) { await pg.click('#filtersToggle'); await pg.waitForTimeout(150); }
+  const r = await read();
+  await pg.keyboard.press('Escape');
+  await pg.waitForTimeout(150);
+  return r;
+}
+async function withDrawer(pg, change) {
+  if (!(await pg.locator('#filtersPanel').evaluate(el => el.classList.contains('open')))) { await pg.click('#filtersToggle'); await pg.waitForTimeout(150); }
+  await change();
+  // A drawer control inside `change` may already have applied and closed it (the shim does that).
+  if (await pg.locator('#filtersPanel').evaluate(el => el.classList.contains('open'))) { await pg.click('#filtersApply'); await pg.waitForTimeout(250); }
+}
 // Source-status chips (source review, Detroit subset, acquisition gate, source
 // program) render on the PROPERTY PAGE, not the card face (2026-10-11). This
 // opens each listed card's property page in turn and reads them there.
@@ -96,16 +114,62 @@ async function mapSelectionText(pg) {
     return `Ledger: ${ledger} · County: ${county}`;
   });
 }
+// Drawer shim (2026-10-11). Filter controls live in the filter drawer, and a
+// change there is a draft until Show results. The filter-correctness checks in
+// this file make a change and read the applied results, so a control action
+// here opens the drawer, performs the action, and applies it - the effect the
+// in-page controls had. The draft behaviour itself is asserted directly in the
+// "Filter drawer" checks, which use page.__rawDrawer to bypass this shim.
+const DRAWER_CONTROL_SEL = /^(#filtersPanel\b|\.filter-dropdown\b|\.mini-btn\[data-group="(types|liens|counties)"\]|#(sortBy|sortSecondary|favOnly|topOnly|soonOnly|hideOldOnly|qtToggle|archiveToggle|hideSliversOnly|hideBareLandOnly|assessedMin|maxBidPct|bidMin|bidMax|bidMinInput|bidMaxInput|availPathFilter|availAmountKindFilter|availStatusFilter|acreageMin|availSeenRecently|availLandUseFilter|availGeocoded|availValues|taxableMin|imageryFilter|acqStateFilter|acqModeFilter|watchStatusFilter|freshDaysFilter|sourceFilter|saleFromFilter|saleToFilter|typeChips|lienChips|countyChips)\b)/;
+const DRAWER_ACTIONS = new Set(['click', 'check', 'uncheck', 'fill', 'selectOption', 'press', 'type']);
+const DRAWER_EXEMPT = /#filtersApply|#resetBtn|#filtersToggle/;
+async function drawerOpen(raw) {
+  return raw.locator('#filtersPanel').evaluate(el => el.classList.contains('open'));
+}
+// Runs one action on a drawer control with the drawer open and applied after.
+async function drawerShim(raw, action) {
+  if (!(await drawerOpen(raw))) { await raw.click('#filtersToggle'); await raw.waitForTimeout(150); }
+  const r = await action();
+  await raw.waitForTimeout(350);   // the number-field debounce is 250 ms
+  await raw.click('#filtersApply');
+  await raw.waitForTimeout(250);
+  return r;
+}
+// A Locator whose actions on a drawer control go through drawerShim. Chains
+// (first, nth, last, locator, filter) keep the drawer-ness of their parent.
+function drawerLocator(raw, loc, sel) {
+  const inDrawer = DRAWER_CONTROL_SEL.test(sel) && !DRAWER_EXEMPT.test(sel);
+  return new Proxy(loc, {
+    get(t, p) {
+      const v = Reflect.get(t, p, t);
+      if (typeof v !== 'function') return v;
+      if (inDrawer && DRAWER_ACTIONS.has(p)) return (...args) => drawerShim(raw, () => v.apply(t, args));
+      if (['first', 'last', 'nth', 'locator', 'filter'].includes(p)) return (...args) => drawerLocator(raw, v.apply(t, args), sel + ' ' + String(args[0] ?? ''));
+      return v.bind(t);
+    }
+  });
+}
 async function newPage(opts) {
   const raw = await browser.newPage(opts);
   await raw.route(THIRD_PARTY_EMBED, route => route.fulfill({
     status: 200, contentType: 'text/html', body: '<!doctype html><title>embed stubbed by the suite</title>' }));
   const pg = new Proxy(raw, {
     get(target, prop) {
+      if (prop === '__rawDrawer') return target;
       const v = Reflect.get(target, prop, target);
       if (typeof v !== 'function') return v;
+      if (prop === 'locator') return (sel, ...rest) => {
+        const real = detailSurfaceSelector(sel);
+        return drawerLocator(target, target.locator(real, ...rest), real);
+      };
+      // Synchronous for everything except a drawer action: page.locator() must
+      // keep returning a Locator for chaining.
       return (...args) => {
         if (typeof args[0] === 'string') args[0] = detailSurfaceSelector(args[0]);
+        const sel = typeof args[0] === 'string' ? args[0] : '';
+        if (DRAWER_ACTIONS.has(prop) && DRAWER_CONTROL_SEL.test(sel) && !DRAWER_EXEMPT.test(sel)) {
+          return drawerShim(target, () => v.apply(target, args));
+        }
         return v.apply(target, args);
       };
     }
@@ -155,6 +219,66 @@ results.countyChipLabels = await page.locator('#countyChips .chipx').allTextCont
 await page.click('#filtersToggle');
 await page.waitForTimeout(100);
 results.filtersOpenAfterClick = await page.locator('#filtersPanel').evaluate(el => el.classList.contains('open'));
+// Escape discards the (empty) draft and closes the drawer.
+await page.keyboard.press('Escape');
+await page.waitForTimeout(150);
+results.filtersClosedAfterEscape = await page.locator('#filtersPanel').evaluate(el => !el.classList.contains('open'));
+
+// --- Filter drawer: draft versus applied (2026-10-11). These use the raw page,
+// so the drawer shim above does not apply: every step is an explicit action,
+// and each one opens or closes the drawer only when it is in the other state.
+{
+  const raw = page.__rawDrawer;
+  const applied = async () => raw.evaluate(() => ({
+    cards: document.querySelectorAll('#main .prop-card[data-pid]').length,
+    badge: (() => { const b = document.getElementById('filtersBadge'); return b.hidden ? 0 : Number(b.textContent); })(),
+    chips: [...document.querySelectorAll('#filterChips .filter-chip')].map(c => c.dataset.chip),
+    scrollLocked: document.documentElement.classList.contains('filters-open'),
+    open: document.getElementById('filtersPanel').classList.contains('open'),
+  }));
+  const fav = async () => raw.locator('#favOnly').isChecked();
+  const ensureOpen = async () => { if (!(await applied()).open) { await raw.click('#filtersToggle'); await raw.waitForTimeout(150); } };
+  const ensureClosed = async () => { if ((await applied()).open) { await raw.keyboard.press('Escape'); await raw.waitForTimeout(150); } };
+  await ensureClosed();
+  const before = await applied();
+  await ensureOpen();
+  results.drawerOpenedFromToggle = (await applied()).open;
+  results.drawerScrollLocked = (await applied()).scrollLocked;
+  // A draft edit changes the control, not the results or the count.
+  await raw.check('#favOnly'); await raw.waitForTimeout(150);
+  const draftEdit = await applied();
+  results.draftEditCards = { before: before.cards, during: draftEdit.cards };
+  results.draftEditBadge = draftEdit.badge;
+  // Escape discards the draft; reopening shows the applied (unchecked) state.
+  await ensureClosed();
+  results.escapeDiscardsDraft = { open: (await applied()).open, scrollLocked: (await applied()).scrollLocked, cards: (await applied()).cards };
+  await ensureOpen();
+  results.favAfterCancelReopen = await fav();
+  // Show results applies the draft: count, chip and results all move together.
+  await raw.check('#favOnly'); await raw.click('#filtersApply'); await raw.waitForTimeout(250);
+  const afterApply = await applied();
+  results.applyCommits = { open: afterApply.open, badge: afterApply.badge, chips: afterApply.chips, cards: afterApply.cards };
+  // Reopened after applying, the drawer shows the applied value.
+  await ensureOpen();
+  results.favAfterApplyReopen = await fav();
+  // Clear all inside the drawer clears the draft only.
+  await raw.click('#resetBtn'); await raw.waitForTimeout(150);
+  const clearDraft = await applied();
+  results.clearIsDraftOnly = { fav: await fav(), badge: clearDraft.badge, cards: clearDraft.cards, chips: clearDraft.chips };
+  // Backdrop click discards the cleared draft: the applied filter is back.
+  await raw.click('#filtersBackdrop', { position: { x: 5, y: 5 } }); await raw.waitForTimeout(150);
+  results.backdropCancelRestores = { open: (await applied()).open, badge: (await applied()).badge, cards: (await applied()).cards };
+  await ensureOpen();
+  results.favAfterBackdropCancel = await fav();
+  // Removing a chip outside the drawer applies at once; the drawer then reads clear.
+  await ensureClosed();
+  await raw.click('#filterChips .filter-chip-x'); await raw.waitForTimeout(250);
+  results.chipRemoveApplies = { badge: (await applied()).badge, chips: (await applied()).chips, cards: (await applied()).cards };
+  await ensureOpen();
+  results.favAfterChipRemove = await fav();
+  await ensureClosed();
+  results.restoredToUnfiltered = { cards: (await applied()).cards, badge: (await applied()).badge };
+}
 
 // --- county group header content: name, "Auction {date}" meta line (or the
 // county_calendar-driven date for Brevard specifically), and "N/M active" count.
@@ -561,7 +685,7 @@ results.viewToggleGoneFromAuctions = await page.locator('#viewToggle').count();
 results.exploreMapPanelGoneFromAuctions = await page.locator('#exploreMapPanel').count();
 
 // --- reset button: also collapses every county group back to closed ---
-await page.click('#resetBtn');
+await withDrawer(page, () => page.click('#resetBtn'));
 await page.waitForTimeout(150);
 results.cardsAfterReset = await page.locator('.prop-card').count();
 results.alachuaSelAfterReset = await page.locator('#exploreMapCanvas path[data-county="Alachua"]').evaluate(el => el.classList.contains('sel'));
@@ -1194,7 +1318,7 @@ if ((await page.locator('#expandAllBtn').textContent()) === 'Expand all') {
 // isBareLand branch this reuses) but is NOT a sliver (lot_sqft 43560 = 1
 // full acre) - so hideBareLandOnly should remove it and hideSlivers should
 // not. No new fixture row needed, and no detail modal opens here either. ---
-results.junkLandRowVisibleOnLaft = await page.locator('#junkLandRow').isVisible();
+results.junkLandRowVisibleOnLaft = await inDrawer(page, () => page.locator('#junkLandRow').isVisible());
 // Scoped to #main, not bare .prop-card - #detailModalInner permanently
 // gains the .prop-card class after the very first detail-modal open
 // anywhere in this file (see the note further up), and by this point in
@@ -1380,7 +1504,7 @@ for (const key of ['auction', 'laft', 'certificate']) {
   // specificity tie" bug class, and had never been checked visually before -
   // read with Playwright's own visibility check, not page.evaluate, so a
   // regression here can't hide behind the property alone again.
-  ledgerPages[key].archiveRowVisuallyHidden = await page.locator('#archiveToggleRow').isHidden();
+  ledgerPages[key].archiveRowVisuallyHidden = await inDrawer(page, () => page.locator('#archiveToggleRow').isHidden());
 }
 results.ledgerHashes = ['auction', 'laft', 'certificate'].map(k => ledgerPages[k].hash);
 results.ledgerDocAttr = ['auction', 'laft', 'certificate'].map(k => ledgerPages[k].docLedger);
@@ -2921,16 +3045,16 @@ if ((await filtPage.locator('#expandAllBtn').textContent()) === 'Expand all') { 
 if (!(await filtPage.locator('#filtersPanel').evaluate(el => el.classList.contains('open')))) { await filtPage.click('#filtersToggle'); await filtPage.waitForTimeout(250); }
 const filtCards = () => filtPage.locator('#main .prop-card');
 results.availLandUseOptions = await filtPage.locator('#availLandUseFilter option').allTextContents();
-await filtPage.selectOption('#availLandUseFilter', 'Vacant residential'); await filtPage.waitForTimeout(200);
+await withDrawer(filtPage, () => filtPage.selectOption('#availLandUseFilter', 'Vacant residential'));
 results.availAfterLandUse = await filtCards().count();
-await filtPage.selectOption('#availLandUseFilter', 'any'); await filtPage.waitForTimeout(200);
-await filtPage.check('#availGeocoded'); await filtPage.waitForTimeout(200);
+await withDrawer(filtPage, () => filtPage.selectOption('#availLandUseFilter', 'any'));
+await withDrawer(filtPage, () => filtPage.check('#availGeocoded'));
 results.availAfterGeocoded = await filtCards().count();
 results.availGeocodedCardAddress = ((await filtCards().first().locator('.prop-address, .detail-address, h3').first().textContent()) || '').trim();
-await filtPage.uncheck('#availGeocoded'); await filtPage.waitForTimeout(200);
-await filtPage.check('#availValues'); await filtPage.waitForTimeout(200);
+await withDrawer(filtPage, () => filtPage.uncheck('#availGeocoded'));
+await withDrawer(filtPage, () => filtPage.check('#availValues'));
 results.availAfterValues = await filtCards().count();
-await filtPage.click('#resetBtn'); await filtPage.waitForTimeout(250);
+await withDrawer(filtPage, () => filtPage.click('#resetBtn'));
 results.availAfterResetAll = await filtCards().count();
 results.availResetClearsNew = (await filtPage.locator('#availGeocoded').isChecked()) === false && (await filtPage.locator('#availValues').isChecked()) === false && (await filtPage.inputValue('#availLandUseFilter')) === 'any';
 // The Available export: published fields only, no governance / provenance
@@ -5834,14 +5958,11 @@ results.monSsAppliedLedger = await monPage.locator('#ledgerTabs .ledger-tab.on')
 await monPage.click('#filtersToggle');
 await monPage.waitForTimeout(150);
 results.monFiltersRow = await monPage.locator('#monitorFilters select, #monitorFilters input').count();
-await monPage.selectOption('#watchStatusFilter', 'watched');
-await monPage.waitForTimeout(200);
+await withDrawer(monPage, () => monPage.selectOption('#watchStatusFilter', 'watched'));
 results.monWatchedCards = await monPage.locator('#main .prop-card').evaluateAll(els => els.map(e => e.dataset.pid).sort());
-await monPage.selectOption('#watchStatusFilter', 'any');
-await monPage.selectOption('#acqStateFilter', 'verified');
-await monPage.waitForTimeout(200);
+await withDrawer(monPage, async () => { await monPage.selectOption('#watchStatusFilter', 'any'); await monPage.selectOption('#acqStateFilter', 'verified'); });
 results.monAcqVerifiedCards = await monPage.locator('#main .prop-card').evaluateAll(els => els.map(e => e.dataset.pid).sort());
-await monPage.click('#resetBtn');
+await withDrawer(monPage, () => monPage.click('#resetBtn'));
 await monPage.waitForTimeout(200);
 results.monResetClearsAcq = await monPage.locator('#acqStateFilter').inputValue();
 // 5. Available export carries acquisition status / imagery / freshness.
@@ -6654,7 +6775,7 @@ const EXPECTED = {
   },
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v121"]},
+  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v122"]},
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · TAXACQ — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · TAXACQ — Florida", floridaCopy: true },
@@ -7258,6 +7379,22 @@ const EXPECTED = {
   alachuaSelAfterReset: false,
   countyGroupsClosedAfterReset: true,
   expandAllLabelAfterReset: 'Expand all',
+  filtersClosedAfterEscape: true,
+  // Filter drawer: draft versus applied (2026-10-11).
+  drawerOpenedFromToggle: true,
+  drawerScrollLocked: true,
+  draftEditCards: { before: 9, during: 9 },
+  draftEditBadge: 0,
+  escapeDiscardsDraft: { open: false, scrollLocked: false, cards: 9 },
+  favAfterCancelReopen: false,
+  applyCommits: { open: false, badge: 1, chips: ['ctl:favOnly'], cards: 0 },
+  favAfterApplyReopen: true,
+  clearIsDraftOnly: { fav: false, badge: 1, cards: 0, chips: ['ctl:favOnly'] },
+  backdropCancelRestores: { open: false, badge: 1, cards: 0 },
+  favAfterBackdropCancel: true,
+  chipRemoveApplies: { badge: 0, chips: [], cards: 9 },
+  favAfterChipRemove: false,
+  restoredToUnfiltered: { cards: 9, badge: 0 },
   cardsAfterHide: 8,
   hiddenListBtnVisible: true,
   laftTabOnAfterClick: true,

@@ -1135,8 +1135,6 @@ footer{padding:1.2rem 1.1rem 0;font-size:.72rem;color:var(--ink-soft);text-align
   h1{font-size:1.9rem}
   main{padding:1.1rem 1.6rem 0}
   /* Room for the filters, so no collapse button is needed */
-  .filters-panel{display:block;max-height:none;overflow-y:visible}
-  .filters-toggle{display:none}
   .field{flex:0 1 190px}
   .prop-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));
     gap:.75rem;padding:0 .9rem;align-items:start}
@@ -2005,36 +2003,18 @@ a.ledger-badge:hover{text-decoration:underline}
 .why-seeing ul{margin:.45rem 0 .2rem;padding-left:1.1rem;font-size:.78rem;color:var(--ink-soft);display:flex;flex-direction:column;gap:.25rem}
 .why-seeing b{color:var(--ink)}
 
-/* ---- List layout: filters left, list centre, map / property right ---- */
-.filters-sheet-head{display:none}
+/* ---- List layout: the list and the property panel share the row. The filter
+   drawer is an overlay at every width (identity.css), so it takes no column. ---- */
 @media (min-width:1024px){
-  .auctions-body>.filters-panel{grid-column:1 / -1;grid-row:1;margin:0}
-  .auctions-body>.data-table-wrap,.auctions-body>#main{grid-row:2}
-  .auctions-body>.detail-panel{grid-row:2}
+  .auctions-body>.data-table-wrap,.auctions-body>#main{grid-row:1}
+  .auctions-body>.detail-panel{grid-row:1}
 }
-/* Three columns only where the centre list keeps a readable width (>=1440px);
-   below that the filters stay behind their toggle and the list gets the room. */
 @media (min-width:1440px){
-  .auctions-body{grid-template-columns:236px minmax(0,1fr) 360px}
-  .auctions-body>.filters-panel{display:block;grid-column:1;grid-row:1;position:sticky;top:4.2rem;max-height:calc(100vh - 5rem);
-    overflow-y:auto;box-shadow:none;border-radius:var(--radius);margin-top:1rem}
-  .auctions-body>.data-table-wrap,.auctions-body>#main{grid-column:2;grid-row:1}
-  .auctions-body>.detail-panel{grid-column:3;grid-row:1;margin-top:1rem;border-radius:var(--radius)}
-  .quick-controls .filters-toggle{display:none}
-  .auctions-body>.filters-panel .filters-row{flex-direction:column;align-items:stretch}
-  .auctions-body>.filters-panel .field{flex:none;width:100%}
-  .auctions-body>.filters-panel .price-range-display{flex-wrap:wrap}
-  .auctions-body>.filters-panel .filters-section-head{flex-wrap:wrap}
+  .auctions-body{grid-template-columns:minmax(0,1fr) 360px}
+  .auctions-body>.data-table-wrap,.auctions-body>#main{grid-column:1;grid-row:1}
+  .auctions-body>.detail-panel{grid-column:2;grid-row:1;margin-top:1rem;border-radius:var(--radius)}
 }
-@media (min-width:1700px){ .auctions-body{grid-template-columns:256px minmax(0,1fr) 420px} }
-/* Phone / tablet: the panel opens in place, between the controls and the
-   list, with its own header and close button - a fixed sheet would cover
-   the controls that are used with it open. */
-@media (max-width:1023.98px){
-  .auctions-body>.filters-panel{margin:.5rem .6rem}
-  .auctions-body>.filters-panel.open .filters-sheet-head{display:flex;align-items:center;justify-content:space-between;
-    padding:.1rem 0 .5rem;margin-bottom:.5rem;border-bottom:1px solid var(--card-line);font-weight:800;font-size:.95rem;color:var(--ink)}
-}
+@media (min-width:1700px){ .auctions-body{grid-template-columns:minmax(0,1fr) 420px} }
 .sheet-close{border:0;background:none;color:var(--ink-soft);font-size:1.4rem;line-height:1;width:36px;height:36px;border-radius:50%;cursor:pointer}
 .sheet-close:hover{background:var(--paper);color:var(--ink)}
 

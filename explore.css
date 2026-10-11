@@ -603,8 +603,6 @@ background:var(--paper);border:1px solid var(--card-line);color:var(--ink)}
 .quick-controls .filters-toggle .filters-badge{margin:0}
 
 @media (min-width:1024px){
-  .filters-panel{display:none;max-height:70vh;overflow-y:auto}
-  .filters-panel.open{display:block}
   .quick-controls .filters-toggle{display:inline-flex}
   .masthead{padding:.75rem 1.6rem .6rem}
   .quick-controls{position:sticky}
