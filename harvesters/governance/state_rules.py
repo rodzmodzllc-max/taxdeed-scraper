@@ -11,11 +11,20 @@ Two version-controlled tables:
     SOURCE      how a data source behaves (what it publishes, how it is read)
     UNRESOLVED  something not verified, not available, or in conflict
 
-  ``status`` is VERIFIED / NOT_VERIFIED / NOT_PUBLISHED / NOT_APPLICABLE /
-  NOT_YET_IMPLEMENTED / CONFLICT. A VERIFIED row must name its official source
-  (https), a title, the date it was verified and the repository evidence of
-  the read; a VERIFIED LAW row must also carry its citation. An UNRESOLVED
-  row is never VERIFIED. ``county`` empty = statewide; a county row applies
+  ``status`` is VERIFIED / PARTIALLY_VERIFIED / NOT_VERIFIED / NOT_PUBLISHED /
+  NOT_APPLICABLE / NOT_YET_IMPLEMENTED / SOURCE_RESTRICTED / CONFLICT. A
+  VERIFIED row must name its official source (https), a title, the date it
+  was verified and the repository evidence of the read; a VERIFIED LAW row
+  must also carry its citation. PARTIALLY_VERIFIED (2026-10-11) is a row
+  whose official source WAS read but which settles only part of its topic:
+  it carries everything a VERIFIED row carries plus ``ambiguity`` naming
+  exactly what remains unverified - it is never treated as VERIFIED by the
+  verification engine or the customer page. SOURCE_RESTRICTED (2026-10-11)
+  is a rule whose only source cannot be used under the approved access
+  rules (a licence, terms or a redistribution restriction recorded in the
+  registry): it carries the evidence of the restriction and never a
+  verification date. An UNRESOLVED row is never VERIFIED or
+  PARTIALLY_VERIFIED. ``county`` empty = statewide; a county row applies
   only to that county and never stands in for the state.
 
 * ``data/state_ledgers.csv`` - for each state and each of the three ledgers,
@@ -58,9 +67,15 @@ LEDGERS_PATH = REPO / "data" / "state_ledgers.csv"
 KINDS = ("LAW", "PROCEDURE", "SOURCE", "UNRESOLVED")
 KIND_LABELS = {"LAW": "State law", "PROCEDURE": "Government procedure", "SOURCE": "Source behaviour",
                "UNRESOLVED": "Unresolved"}
-STATUSES = ("VERIFIED", "NOT_VERIFIED", "NOT_PUBLISHED", "NOT_APPLICABLE", "NOT_YET_IMPLEMENTED", "CONFLICT")
-STATUS_LABELS = {"VERIFIED": "Verified", "NOT_VERIFIED": "Not verified", "NOT_PUBLISHED": "Not published",
-                 "NOT_APPLICABLE": "Not applicable", "NOT_YET_IMPLEMENTED": "Not yet implemented",
+STATUSES = ("VERIFIED", "PARTIALLY_VERIFIED", "NOT_VERIFIED", "NOT_PUBLISHED", "NOT_APPLICABLE", "NOT_YET_IMPLEMENTED",
+            "SOURCE_RESTRICTED", "CONFLICT")
+# Statuses that count as "the official source was read" - and only the first
+# of them as settled. Everything the engine treats as verified checks
+# `status == "VERIFIED"`; PARTIALLY_VERIFIED never passes that test.
+READ_STATUSES = ("VERIFIED", "PARTIALLY_VERIFIED")
+STATUS_LABELS = {"VERIFIED": "Verified", "PARTIALLY_VERIFIED": "Partially verified", "NOT_VERIFIED": "Not verified",
+                 "NOT_PUBLISHED": "Not published", "NOT_APPLICABLE": "Not applicable",
+                 "NOT_YET_IMPLEMENTED": "Not yet implemented", "SOURCE_RESTRICTED": "Source restricted",
                  "CONFLICT": "Sources conflict"}
 LEDGERS = ("AUCTIONS", "AVAILABLE", "LIENS_CERTIFICATES")
 LEDGER_STATUSES = ("TRACKED", "NOT_TRACKED", "NOT_OFFERED", "NOT_VERIFIED")
@@ -199,20 +214,24 @@ def rule_problems(r: Rule) -> list[str]:
         p.append(f"{where}: no statement")
     if r.source_url and not r.source_url.startswith("https://"):
         p.append(f"{where}: source_url must be https")
-    if r.kind == "UNRESOLVED" and r.status == "VERIFIED":
-        p.append(f"{where}: an UNRESOLVED row is never VERIFIED")
-    if r.status == "VERIFIED":
+    if r.kind == "UNRESOLVED" and r.status in READ_STATUSES:
+        p.append(f"{where}: an UNRESOLVED row is never {r.status}")
+    if r.status in READ_STATUSES:
         if not (r.source_url and r.source_title and r.evidence):
-            p.append(f"{where}: VERIFIED needs source_url, source_title and evidence")
+            p.append(f"{where}: {r.status} needs source_url, source_title and evidence")
         if not _DATE.match(r.verified_on):
-            p.append(f"{where}: VERIFIED needs verified_on (YYYY-MM-DD)")
+            p.append(f"{where}: {r.status} needs verified_on (YYYY-MM-DD)")
         if r.kind == "LAW" and not r.citation:
-            p.append(f"{where}: a VERIFIED LAW row needs its citation")
+            p.append(f"{where}: a {r.status} LAW row needs its citation")
         if "lead only" in r.citation:
-            p.append(f"{where}: a 'lead only' citation is never VERIFIED")
+            p.append(f"{where}: a 'lead only' citation is never {r.status}")
+        if r.status == "PARTIALLY_VERIFIED" and not r.ambiguity:
+            p.append(f"{where}: a PARTIALLY_VERIFIED row must say in `ambiguity` what remains unverified")
     else:
         if r.verified_on:
-            p.append(f"{where}: verified_on is set on a {r.status} row - only a verified row has a verification date")
+            p.append(f"{where}: verified_on is set on a {r.status} row - only a read source has a verification date")
+    if r.status == "SOURCE_RESTRICTED" and not r.evidence:
+        p.append(f"{where}: a SOURCE_RESTRICTED row must cite the recorded restriction in `evidence`")
     if r.status == "CONFLICT" and not r.ambiguity:
         p.append(f"{where}: a CONFLICT row must describe the conflict")
     return p

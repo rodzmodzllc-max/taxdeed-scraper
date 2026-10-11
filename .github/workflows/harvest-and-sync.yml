@@ -375,7 +375,7 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-        run: python3 scripts/stamp_seen.py --state FL --source auction --harvest out/harvest_all.json --case-key case
+        run: python3 scripts/stamp_seen.py --state FL --source auction --harvest out/harvest_all.json --case-key case --provenance
 
 
       - name: Source id - fill a blank source_id the row itself proves (auction)
@@ -661,7 +661,7 @@ jobs:
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-        run: python3 scripts/stamp_seen.py --state FL --source certificate --harvest out/harvest_certificates.json --case-key case_no --status out/harvest_certificates_status.json
+        run: python3 scripts/stamp_seen.py --state FL --source certificate --harvest out/harvest_certificates.json --case-key case_no --status out/harvest_certificates_status.json --provenance
 
 
       - name: Source id - fill a blank source_id the row itself proves (certificate)

@@ -278,10 +278,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_lienhub_certificates",
+   "name": "LienHub 'county held' certificates: certificate number, tax year, 'purchase amount', expiration, interest rate (LIENS & CERTIFICATES)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Alachua County Tax Collector (LienHub platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -300,10 +300,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_realauction",
+   "name": "the Clerk's tax deed sale calendar ('Waiting' auctions): case, parcel, opening bid, sale date (AUCTIONS)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Alachua County Clerk of the Circuit Court (RealAuction platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -322,10 +322,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-29",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_laft_realtdm",
+   "name": "realTDM 'base purchase price' (statutory additions apply; not an opening bid) (AVAILABLE)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "GOVERNMENT_PLATFORM",
+   "publisher": "Alachua County Clerk of the Circuit Court",
    "roles": [
     "availability",
     "identity",
@@ -412,10 +412,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_realauction",
+   "name": "the Clerk's tax deed sale calendar ('Waiting' auctions): case, parcel, opening bid, sale date (AUCTIONS)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Baker County Clerk of the Circuit Court (RealAuction platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -455,10 +455,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_lienhub_certificates",
+   "name": "LienHub 'county held' certificates: certificate number, tax year, 'purchase amount', expiration, interest rate (LIENS & CERTIFICATES)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Bay County Tax Collector (LienHub platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -477,10 +477,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_realauction",
+   "name": "the Clerk's tax deed sale calendar ('Waiting' auctions): case, parcel, opening bid, sale date (AUCTIONS)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Bay County Clerk of the Circuit Court (RealAuction platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -499,10 +499,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-29",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_laft_pioneer",
+   "name": "the Clerk's Lands Available for Taxes list, F.S. 197.502(7): parcel, case, opening bid (additions apply) (AVAILABLE)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "GOVERNMENT_PLATFORM",
+   "publisher": "Bay County Clerk of the Circuit Court",
    "roles": [
     "availability",
     "identity",
@@ -545,10 +545,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-29",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_laft_pdfs",
+   "name": "the Clerk's Lands Available for Taxes list, F.S. 197.502(7): parcel, case, opening bid (additions apply) (AVAILABLE)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "GOVERNMENT_DIRECT",
+   "publisher": "Bradford County Clerk of the Circuit Court",
    "roles": [
     "availability",
     "identity",
@@ -569,10 +569,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_lienhub_certificates",
+   "name": "LienHub 'county held' certificates: certificate number, tax year, 'purchase amount', expiration, interest rate (LIENS & CERTIFICATES)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Brevard County Tax Collector (LienHub platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -591,10 +591,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_realauction",
+   "name": "the Clerk's tax deed sale calendar ('Waiting' auctions): case, parcel, opening bid, sale date (AUCTIONS)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Brevard County Clerk of the Circuit Court (RealAuction platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -613,10 +613,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-29",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_laft_pdfs",
+   "name": "the Clerk's Lands Available for Taxes list, F.S. 197.502(7): parcel, case, opening bid (additions apply) (AVAILABLE)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "GOVERNMENT_DIRECT",
+   "publisher": "Brevard County Clerk of the Circuit Court",
    "roles": [
     "availability",
     "identity",
@@ -659,10 +659,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_lienhub_certificates",
+   "name": "LienHub 'county held' certificates: certificate number, tax year, 'purchase amount', expiration, interest rate (LIENS & CERTIFICATES)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Broward County Tax Collector (LienHub platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -681,10 +681,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_realauction",
+   "name": "the Clerk's tax deed sale calendar ('Waiting' auctions): case, parcel, opening bid, sale date (AUCTIONS)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Broward County Clerk of the Circuit Court (RealAuction platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -727,10 +727,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_realauction",
+   "name": "the Clerk's tax deed sale calendar ('Waiting' auctions): case, parcel, opening bid, sale date (AUCTIONS)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Calhoun County Clerk of the Circuit Court (RealAuction platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -749,10 +749,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-29",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_laft_html",
+   "name": "the Clerk's Lands Available for Taxes list, F.S. 197.502(7): parcel, case, opening bid (additions apply) (AVAILABLE)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "GOVERNMENT_DIRECT",
+   "publisher": "Calhoun County Clerk of the Circuit Court",
    "roles": [
     "availability",
     "identity",
@@ -795,10 +795,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_lienhub_certificates",
+   "name": "LienHub 'county held' certificates: certificate number, tax year, 'purchase amount', expiration, interest rate (LIENS & CERTIFICATES)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Charlotte County Tax Collector (LienHub platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -817,10 +817,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_realauction",
+   "name": "the Clerk's tax deed sale calendar ('Waiting' auctions): case, parcel, opening bid, sale date (AUCTIONS)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Charlotte County Clerk of the Circuit Court (RealAuction platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -863,10 +863,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_lienhub_certificates",
+   "name": "LienHub 'county held' certificates: certificate number, tax year, 'purchase amount', expiration, interest rate (LIENS & CERTIFICATES)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Citrus County Tax Collector (LienHub platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -885,10 +885,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_realauction",
+   "name": "the Clerk's tax deed sale calendar ('Waiting' auctions): case, parcel, opening bid, sale date (AUCTIONS)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Citrus County Clerk of the Circuit Court (RealAuction platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -907,10 +907,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-29",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_laft_pioneer",
+   "name": "the Clerk's Lands Available for Taxes list, F.S. 197.502(7): parcel, case, opening bid (additions apply) (AVAILABLE)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "GOVERNMENT_PLATFORM",
+   "publisher": "Citrus County Clerk of the Circuit Court",
    "roles": [
     "availability",
     "identity",
@@ -953,10 +953,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_lienhub_certificates",
+   "name": "LienHub 'county held' certificates: certificate number, tax year, 'purchase amount', expiration, interest rate (LIENS & CERTIFICATES)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Clay County Tax Collector (LienHub platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -975,10 +975,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_realauction",
+   "name": "the Clerk's tax deed sale calendar ('Waiting' auctions): case, parcel, opening bid, sale date (AUCTIONS)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Clay County Clerk of the Circuit Court (RealAuction platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -997,10 +997,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-29",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_laft_pioneer",
+   "name": "the Clerk's Lands Available for Taxes list, F.S. 197.502(7): parcel, case, opening bid (additions apply) (AVAILABLE)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "GOVERNMENT_PLATFORM",
+   "publisher": "Clay County Clerk of the Circuit Court",
    "roles": [
     "availability",
     "identity",
@@ -1043,10 +1043,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_lienhub_certificates",
+   "name": "LienHub 'county held' certificates: certificate number, tax year, 'purchase amount', expiration, interest rate (LIENS & CERTIFICATES)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Collier County Tax Collector (LienHub platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -1089,10 +1089,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-29",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_laft_html",
+   "name": "the Clerk's Lands Available for Taxes list, F.S. 197.502(7): parcel, case, opening bid (additions apply) (AVAILABLE)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "GOVERNMENT_DIRECT",
+   "publisher": "Columbia County Clerk of the Circuit Court",
    "roles": [
     "availability",
     "identity",
@@ -1137,10 +1137,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-29",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_laft_html",
+   "name": "the Clerk's Lands Available for Taxes list, F.S. 197.502(7): parcel, case, opening bid (additions apply) (AVAILABLE)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "GOVERNMENT_DIRECT",
+   "publisher": "Dixie County Clerk of the Circuit Court",
    "roles": [
     "availability",
     "identity",
@@ -1183,10 +1183,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_lienhub_certificates",
+   "name": "LienHub 'county held' certificates: certificate number, tax year, 'purchase amount', expiration, interest rate (LIENS & CERTIFICATES)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Duval County Tax Collector (LienHub platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -1205,10 +1205,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_realauction",
+   "name": "the Clerk's tax deed sale calendar ('Waiting' auctions): case, parcel, opening bid, sale date (AUCTIONS)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Duval County Clerk of the Circuit Court (RealAuction platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -1293,10 +1293,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-29",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_laft_pioneer",
+   "name": "the Clerk's Lands Available for Taxes list, F.S. 197.502(7): parcel, case, opening bid (additions apply) (AVAILABLE)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "GOVERNMENT_PLATFORM",
+   "publisher": "Duval County Clerk of the Circuit Court",
    "roles": [
     "availability",
     "identity",
@@ -1339,10 +1339,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_lienhub_certificates",
+   "name": "LienHub 'county held' certificates: certificate number, tax year, 'purchase amount', expiration, interest rate (LIENS & CERTIFICATES)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Escambia County Tax Collector (LienHub platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -1361,10 +1361,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_realauction",
+   "name": "the Clerk's tax deed sale calendar ('Waiting' auctions): case, parcel, opening bid, sale date (AUCTIONS)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Escambia County Clerk of the Circuit Court (RealAuction platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -1383,10 +1383,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-29",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_laft_html",
+   "name": "the Clerk's Lands Available for Taxes list, F.S. 197.502(7): parcel, case, opening bid (additions apply) (AVAILABLE)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "GOVERNMENT_DIRECT",
+   "publisher": "Escambia County Clerk of the Circuit Court",
    "roles": [
     "availability",
     "identity",
@@ -1451,10 +1451,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_lienhub_certificates",
+   "name": "LienHub 'county held' certificates: certificate number, tax year, 'purchase amount', expiration, interest rate (LIENS & CERTIFICATES)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Flagler County Tax Collector (LienHub platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -1473,10 +1473,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_realauction",
+   "name": "the Clerk's tax deed sale calendar ('Waiting' auctions): case, parcel, opening bid, sale date (AUCTIONS)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Flagler County Clerk of the Circuit Court (RealAuction platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -1495,10 +1495,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-29",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_laft_realtdm",
+   "name": "realTDM 'base purchase price' (statutory additions apply; not an opening bid) (AVAILABLE)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "GOVERNMENT_PLATFORM",
+   "publisher": "Flagler County Clerk of the Circuit Court",
    "roles": [
     "availability",
     "identity",
@@ -1519,10 +1519,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-29",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_laft_html",
+   "name": "the Clerk's Lands Available for Taxes list, F.S. 197.502(7): parcel, case, opening bid (additions apply) (AVAILABLE)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "GOVERNMENT_DIRECT",
+   "publisher": "Franklin County Clerk of the Circuit Court",
    "roles": [
     "availability",
     "identity",
@@ -1565,10 +1565,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-29",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_laft_html",
+   "name": "the Clerk's Lands Available for Taxes list, F.S. 197.502(7): parcel, case, opening bid (additions apply) (AVAILABLE)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "GOVERNMENT_DIRECT",
+   "publisher": "Gadsden County Clerk of the Circuit Court",
    "roles": [
     "availability",
     "identity",
@@ -1589,10 +1589,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_realauction",
+   "name": "the Clerk's tax deed sale calendar ('Waiting' auctions): case, parcel, opening bid, sale date (AUCTIONS)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Gilchrist County Clerk of the Circuit Court (RealAuction platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -1635,10 +1635,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-29",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_laft_pdfs",
+   "name": "the Clerk's Lands Available for Taxes list, F.S. 197.502(7): parcel, case, opening bid (additions apply) (AVAILABLE)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "GOVERNMENT_PLATFORM",
+   "publisher": "Glades County Clerk of the Circuit Court",
    "roles": [
     "availability",
     "identity",
@@ -1659,10 +1659,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_realauction",
+   "name": "the Clerk's tax deed sale calendar ('Waiting' auctions): case, parcel, opening bid, sale date (AUCTIONS)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Gulf County Clerk of the Circuit Court (RealAuction platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -1681,10 +1681,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-29",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_laft_html",
+   "name": "the Clerk's Lands Available for Taxes list, F.S. 197.502(7): parcel, case, opening bid (additions apply) (AVAILABLE)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "GOVERNMENT_DIRECT",
+   "publisher": "Gulf County Clerk of the Circuit Court",
    "roles": [
     "availability",
     "identity",
@@ -1705,10 +1705,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-29",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_laft_html",
+   "name": "the Clerk's Lands Available for Taxes list, F.S. 197.502(7): parcel, case, opening bid (additions apply) (AVAILABLE)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "GOVERNMENT_DIRECT",
+   "publisher": "Hamilton County Clerk of the Circuit Court",
    "roles": [
     "availability",
     "identity",
@@ -1729,10 +1729,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-29",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_laft_html",
+   "name": "the Clerk's Lands Available for Taxes list, F.S. 197.502(7): parcel, case, opening bid (additions apply) (AVAILABLE)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "GOVERNMENT_DIRECT",
+   "publisher": "Hardee County Clerk of the Circuit Court",
    "roles": [
     "availability",
     "identity",
@@ -1753,10 +1753,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_realauction",
+   "name": "the Clerk's tax deed sale calendar ('Waiting' auctions): case, parcel, opening bid, sale date (AUCTIONS)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Hendry County Clerk of the Circuit Court (RealAuction platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -1775,10 +1775,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-29",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_laft_pdfs",
+   "name": "the Clerk's Lands Available for Taxes list, F.S. 197.502(7): parcel, case, opening bid (additions apply) (AVAILABLE)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "GOVERNMENT_PLATFORM",
+   "publisher": "Hendry County Clerk of the Circuit Court",
    "roles": [
     "availability",
     "identity",
@@ -1843,10 +1843,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_lienhub_certificates",
+   "name": "LienHub 'county held' certificates: certificate number, tax year, 'purchase amount', expiration, interest rate (LIENS & CERTIFICATES)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Hernando County Tax Collector (LienHub platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -1865,10 +1865,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_realauction",
+   "name": "the Clerk's tax deed sale calendar ('Waiting' auctions): case, parcel, opening bid, sale date (AUCTIONS)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Hernando County Clerk of the Circuit Court (RealAuction platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -1887,10 +1887,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-29",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_laft_pioneer",
+   "name": "the Clerk's Lands Available for Taxes list, F.S. 197.502(7): parcel, case, opening bid (additions apply) (AVAILABLE)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "GOVERNMENT_PLATFORM",
+   "publisher": "Hernando County Clerk of the Circuit Court",
    "roles": [
     "availability",
     "identity",
@@ -1933,10 +1933,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_realauction",
+   "name": "the Clerk's tax deed sale calendar ('Waiting' auctions): case, parcel, opening bid, sale date (AUCTIONS)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Highlands County Clerk of the Circuit Court (RealAuction platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -1955,10 +1955,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-29",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_laft_realtdm",
+   "name": "realTDM 'base purchase price' (statutory additions apply; not an opening bid) (AVAILABLE)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "GOVERNMENT_PLATFORM",
+   "publisher": "Highlands County Clerk of the Circuit Court",
    "roles": [
     "availability",
     "identity",
@@ -2023,10 +2023,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_lienhub_certificates",
+   "name": "LienHub 'county held' certificates: certificate number, tax year, 'purchase amount', expiration, interest rate (LIENS & CERTIFICATES)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Hillsborough County Tax Collector (LienHub platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -2045,10 +2045,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_realauction",
+   "name": "the Clerk's tax deed sale calendar ('Waiting' auctions): case, parcel, opening bid, sale date (AUCTIONS)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Hillsborough County Clerk of the Circuit Court (RealAuction platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -2067,10 +2067,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-29",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_laft_hillsborough",
+   "name": "the Clerk's Lands Available for Taxes list, F.S. 197.502(7): parcel, case, opening bid (additions apply) (AVAILABLE)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "GOVERNMENT_PLATFORM",
+   "publisher": "Hillsborough County Clerk of the Circuit Court",
    "roles": [
     "availability",
     "identity",
@@ -2113,10 +2113,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-29",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_laft_html",
+   "name": "the Clerk's Lands Available for Taxes list, F.S. 197.502(7): parcel, case, opening bid (additions apply) (AVAILABLE)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "GOVERNMENT_DIRECT",
+   "publisher": "Holmes County Clerk of the Circuit Court",
    "roles": [
     "availability",
     "identity",
@@ -2137,10 +2137,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_lienhub_certificates",
+   "name": "LienHub 'county held' certificates: certificate number, tax year, 'purchase amount', expiration, interest rate (LIENS & CERTIFICATES)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Indian River County Tax Collector (LienHub platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -2159,10 +2159,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_realauction",
+   "name": "the Clerk's tax deed sale calendar ('Waiting' auctions): case, parcel, opening bid, sale date (AUCTIONS)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Indian River County Clerk of the Circuit Court (RealAuction platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -2181,10 +2181,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-29",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_laft_html",
+   "name": "the Clerk's Lands Available for Taxes list, F.S. 197.502(7): parcel, case, opening bid (additions apply) (AVAILABLE)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "GOVERNMENT_DIRECT",
+   "publisher": "Indian River County Clerk of the Circuit Court",
    "roles": [
     "availability",
     "identity",
@@ -2249,10 +2249,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_realauction",
+   "name": "the Clerk's tax deed sale calendar ('Waiting' auctions): case, parcel, opening bid, sale date (AUCTIONS)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Jackson County Clerk of the Circuit Court (RealAuction platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -2316,10 +2316,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-29",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_laft_html",
+   "name": "the Clerk's Lands Available for Taxes list, F.S. 197.502(7): parcel, case, opening bid (additions apply) (AVAILABLE)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "GOVERNMENT_DIRECT",
+   "publisher": "Lafayette County Clerk of the Circuit Court",
    "roles": [
     "availability",
     "identity",
@@ -2340,10 +2340,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_lienhub_certificates",
+   "name": "LienHub 'county held' certificates: certificate number, tax year, 'purchase amount', expiration, interest rate (LIENS & CERTIFICATES)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Lake County Tax Collector (LienHub platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -2362,10 +2362,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_realauction",
+   "name": "the Clerk's tax deed sale calendar ('Waiting' auctions): case, parcel, opening bid, sale date (AUCTIONS)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Lake County Clerk of the Circuit Court (RealAuction platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -2408,10 +2408,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_lienhub_certificates",
+   "name": "LienHub 'county held' certificates: certificate number, tax year, 'purchase amount', expiration, interest rate (LIENS & CERTIFICATES)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Lee County Tax Collector (LienHub platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -2430,10 +2430,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_realauction",
+   "name": "the Clerk's tax deed sale calendar ('Waiting' auctions): case, parcel, opening bid, sale date (AUCTIONS)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Lee County Clerk of the Circuit Court (RealAuction platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -2452,10 +2452,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-29",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_laft_realtdm",
+   "name": "realTDM 'base purchase price' (statutory additions apply; not an opening bid) (AVAILABLE)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "GOVERNMENT_PLATFORM",
+   "publisher": "Lee County Clerk of the Circuit Court",
    "roles": [
     "availability",
     "identity",
@@ -2520,10 +2520,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_realauction",
+   "name": "the Clerk's tax deed sale calendar ('Waiting' auctions): case, parcel, opening bid, sale date (AUCTIONS)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Leon County Clerk of the Circuit Court (RealAuction platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -2542,10 +2542,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-29",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_laft_leon",
+   "name": "the Clerk's Lands Available for Taxes list, F.S. 197.502(7): parcel, case, opening bid (additions apply) (AVAILABLE)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "GOVERNMENT_DIRECT",
+   "publisher": "Leon County Clerk of the Circuit Court",
    "roles": [
     "availability",
     "identity",
@@ -2588,10 +2588,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-29",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_laft_pioneer",
+   "name": "the Clerk's Lands Available for Taxes list, F.S. 197.502(7): parcel, case, opening bid (additions apply) (AVAILABLE)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "GOVERNMENT_PLATFORM",
+   "publisher": "Levy County Clerk of the Circuit Court",
    "roles": [
     "availability",
     "identity",
@@ -2655,10 +2655,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-29",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_laft_html",
+   "name": "the Clerk's Lands Available for Taxes list, F.S. 197.502(7): parcel, case, opening bid (additions apply) (AVAILABLE)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "GOVERNMENT_DIRECT",
+   "publisher": "Madison County Clerk of the Circuit Court",
    "roles": [
     "availability",
     "identity",
@@ -2701,10 +2701,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_realauction",
+   "name": "the Clerk's tax deed sale calendar ('Waiting' auctions): case, parcel, opening bid, sale date (AUCTIONS)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Manatee County Clerk of the Circuit Court (RealAuction platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -2723,10 +2723,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-29",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_laft_html",
+   "name": "the Clerk's Lands Available for Taxes list, F.S. 197.502(7): parcel, case, opening bid (additions apply) (AVAILABLE)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "GOVERNMENT_DIRECT",
+   "publisher": "Manatee County Clerk of the Circuit Court",
    "roles": [
     "availability",
     "identity",
@@ -2747,10 +2747,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_realauction",
+   "name": "the Clerk's tax deed sale calendar ('Waiting' auctions): case, parcel, opening bid, sale date (AUCTIONS)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Marion County Clerk of the Circuit Court (RealAuction platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -2769,10 +2769,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-29",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_laft_pdfs",
+   "name": "the Clerk's Lands Available for Taxes list, F.S. 197.502(7): parcel, case, opening bid (additions apply) (AVAILABLE)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "GOVERNMENT_DIRECT",
+   "publisher": "Marion County Clerk of the Circuit Court",
    "roles": [
     "availability",
     "identity",
@@ -2815,10 +2815,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_lienhub_certificates",
+   "name": "LienHub 'county held' certificates: certificate number, tax year, 'purchase amount', expiration, interest rate (LIENS & CERTIFICATES)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Martin County Tax Collector (LienHub platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -2837,10 +2837,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_realauction",
+   "name": "the Clerk's tax deed sale calendar ('Waiting' auctions): case, parcel, opening bid, sale date (AUCTIONS)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Martin County Clerk of the Circuit Court (RealAuction platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -2859,10 +2859,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-29",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_laft_pioneer",
+   "name": "the Clerk's Lands Available for Taxes list, F.S. 197.502(7): parcel, case, opening bid (additions apply) (AVAILABLE)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "GOVERNMENT_PLATFORM",
+   "publisher": "Martin County Clerk of the Circuit Court",
    "roles": [
     "availability",
     "identity",
@@ -2883,10 +2883,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_lienhub_certificates",
+   "name": "LienHub 'county held' certificates: certificate number, tax year, 'purchase amount', expiration, interest rate (LIENS & CERTIFICATES)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Miami-Dade County Tax Collector (LienHub platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -2905,10 +2905,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_realauction",
+   "name": "the Clerk's tax deed sale calendar ('Waiting' auctions): case, parcel, opening bid, sale date (AUCTIONS)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Miami-Dade County Clerk of the Circuit Court (RealAuction platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -2927,10 +2927,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-29",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_laft_realtdm",
+   "name": "realTDM 'base purchase price' (statutory additions apply; not an opening bid) (AVAILABLE)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "GOVERNMENT_PLATFORM",
+   "publisher": "Miami-Dade County Clerk of the Circuit Court",
    "roles": [
     "availability",
     "identity",
@@ -2973,10 +2973,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_lienhub_certificates",
+   "name": "LienHub 'county held' certificates: certificate number, tax year, 'purchase amount', expiration, interest rate (LIENS & CERTIFICATES)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Monroe County Tax Collector (LienHub platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -2995,10 +2995,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_realauction",
+   "name": "the Clerk's tax deed sale calendar ('Waiting' auctions): case, parcel, opening bid, sale date (AUCTIONS)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Monroe County Clerk of the Circuit Court (RealAuction platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -3041,10 +3041,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_lienhub_certificates",
+   "name": "LienHub 'county held' certificates: certificate number, tax year, 'purchase amount', expiration, interest rate (LIENS & CERTIFICATES)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Nassau County Tax Collector (LienHub platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -3063,10 +3063,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_realauction",
+   "name": "the Clerk's tax deed sale calendar ('Waiting' auctions): case, parcel, opening bid, sale date (AUCTIONS)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Nassau County Clerk of the Circuit Court (RealAuction platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -3109,10 +3109,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_bid4assets_okaloosa",
+   "name": "the Clerk's tax deed sale calendar ('Waiting' auctions): case, parcel, opening bid, sale date (AUCTIONS)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Okaloosa County Clerk of the Circuit Court (Bid4Assets platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -3131,10 +3131,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_lienhub_certificates",
+   "name": "LienHub 'county held' certificates: certificate number, tax year, 'purchase amount', expiration, interest rate (LIENS & CERTIFICATES)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Okaloosa County Tax Collector (LienHub platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -3177,10 +3177,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_realauction",
+   "name": "the Clerk's tax deed sale calendar ('Waiting' auctions): case, parcel, opening bid, sale date (AUCTIONS)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Okeechobee County Clerk of the Circuit Court (RealAuction platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -3199,10 +3199,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-29",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_laft_pioneer",
+   "name": "the Clerk's Lands Available for Taxes list, F.S. 197.502(7): parcel, case, opening bid (additions apply) (AVAILABLE)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "GOVERNMENT_PLATFORM",
+   "publisher": "Okeechobee County Clerk of the Circuit Court",
    "roles": [
     "availability",
     "identity",
@@ -3223,10 +3223,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_lienhub_certificates",
+   "name": "LienHub 'county held' certificates: certificate number, tax year, 'purchase amount', expiration, interest rate (LIENS & CERTIFICATES)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Orange County Tax Collector (LienHub platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -3245,10 +3245,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_realauction",
+   "name": "the Clerk's tax deed sale calendar ('Waiting' auctions): case, parcel, opening bid, sale date (AUCTIONS)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Orange County Clerk of the Circuit Court (RealAuction platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -3267,10 +3267,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-29",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_laft_orange",
+   "name": "the Clerk's Lands Available for Taxes list, F.S. 197.502(7): parcel, case, opening bid (additions apply) (AVAILABLE)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "GOVERNMENT_DIRECT",
+   "publisher": "Orange County Comptroller",
    "roles": [
     "availability",
     "identity",
@@ -3313,10 +3313,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_lienhub_certificates",
+   "name": "LienHub 'county held' certificates: certificate number, tax year, 'purchase amount', expiration, interest rate (LIENS & CERTIFICATES)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Osceola County Tax Collector (LienHub platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -3335,10 +3335,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_realauction",
+   "name": "the Clerk's tax deed sale calendar ('Waiting' auctions): case, parcel, opening bid, sale date (AUCTIONS)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Osceola County Clerk of the Circuit Court (RealAuction platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -3357,10 +3357,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-29",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_laft_osceola",
+   "name": "the Clerk's Lands Available for Taxes list, F.S. 197.502(7): parcel, case, opening bid (additions apply) (AVAILABLE)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "GOVERNMENT_PLATFORM",
+   "publisher": "Osceola County Clerk of the Circuit Court",
    "roles": [
     "availability",
     "identity",
@@ -3403,10 +3403,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_realauction",
+   "name": "the Clerk's tax deed sale calendar ('Waiting' auctions): case, parcel, opening bid, sale date (AUCTIONS)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Palm Beach County Clerk of the Circuit Court (RealAuction platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -3425,10 +3425,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-29",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_laft_pioneer",
+   "name": "the Clerk's Lands Available for Taxes list, F.S. 197.502(7): parcel, case, opening bid (additions apply) (AVAILABLE)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "GOVERNMENT_PLATFORM",
+   "publisher": "Palm Beach County Clerk of the Circuit Court",
    "roles": [
     "availability",
     "identity",
@@ -3493,10 +3493,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_lienhub_certificates",
+   "name": "LienHub 'county held' certificates: certificate number, tax year, 'purchase amount', expiration, interest rate (LIENS & CERTIFICATES)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Pasco County Tax Collector (LienHub platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -3515,10 +3515,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_realauction",
+   "name": "the Clerk's tax deed sale calendar ('Waiting' auctions): case, parcel, opening bid, sale date (AUCTIONS)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Pasco County Clerk of the Circuit Court (RealAuction platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -3537,10 +3537,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-29",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_laft_pdfs",
+   "name": "the Clerk's Lands Available for Taxes list, F.S. 197.502(7): parcel, case, opening bid (additions apply) (AVAILABLE)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "GOVERNMENT_DIRECT",
+   "publisher": "Pasco County Clerk of the Circuit Court",
    "roles": [
     "availability",
     "identity",
@@ -3583,10 +3583,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_lienhub_certificates",
+   "name": "LienHub 'county held' certificates: certificate number, tax year, 'purchase amount', expiration, interest rate (LIENS & CERTIFICATES)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Pinellas County Tax Collector (LienHub platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -3605,10 +3605,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_realauction",
+   "name": "the Clerk's tax deed sale calendar ('Waiting' auctions): case, parcel, opening bid, sale date (AUCTIONS)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Pinellas County Clerk of the Circuit Court (RealAuction platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -3627,10 +3627,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-29",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_laft_realtdm",
+   "name": "realTDM 'base purchase price' (statutory additions apply; not an opening bid) (AVAILABLE)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "GOVERNMENT_PLATFORM",
+   "publisher": "Pinellas County Clerk of the Circuit Court",
    "roles": [
     "availability",
     "identity",
@@ -3651,10 +3651,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_realauction",
+   "name": "the Clerk's tax deed sale calendar ('Waiting' auctions): case, parcel, opening bid, sale date (AUCTIONS)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Polk County Clerk of the Circuit Court (RealAuction platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -3673,10 +3673,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-29",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_laft_realtdm",
+   "name": "realTDM 'base purchase price' (statutory additions apply; not an opening bid) (AVAILABLE)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "GOVERNMENT_PLATFORM",
+   "publisher": "Polk County Clerk of the Circuit Court",
    "roles": [
     "availability",
     "identity",
@@ -3719,10 +3719,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_realauction",
+   "name": "the Clerk's tax deed sale calendar ('Waiting' auctions): case, parcel, opening bid, sale date (AUCTIONS)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Putnam County Clerk of the Circuit Court (RealAuction platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -3741,10 +3741,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-29",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_laft_html",
+   "name": "the Clerk's Lands Available for Taxes list, F.S. 197.502(7): parcel, case, opening bid (additions apply) (AVAILABLE)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "GOVERNMENT_DIRECT",
+   "publisher": "Putnam County Clerk of the Circuit Court",
    "roles": [
     "availability",
     "identity",
@@ -3881,10 +3881,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_lienhub_certificates",
+   "name": "LienHub 'county held' certificates: certificate number, tax year, 'purchase amount', expiration, interest rate (LIENS & CERTIFICATES)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Santa Rosa County Tax Collector (LienHub platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -3903,10 +3903,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_realauction",
+   "name": "the Clerk's tax deed sale calendar ('Waiting' auctions): case, parcel, opening bid, sale date (AUCTIONS)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Santa Rosa County Clerk of the Circuit Court (RealAuction platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -3925,10 +3925,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-29",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_laft_realtdm",
+   "name": "realTDM 'base purchase price' (statutory additions apply; not an opening bid) (AVAILABLE)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "GOVERNMENT_PLATFORM",
+   "publisher": "Santa Rosa County Clerk of the Circuit Court",
    "roles": [
     "availability",
     "identity",
@@ -3949,10 +3949,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_lienhub_certificates",
+   "name": "LienHub 'county held' certificates: certificate number, tax year, 'purchase amount', expiration, interest rate (LIENS & CERTIFICATES)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Sarasota County Tax Collector (LienHub platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -3971,10 +3971,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_realauction",
+   "name": "the Clerk's tax deed sale calendar ('Waiting' auctions): case, parcel, opening bid, sale date (AUCTIONS)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Sarasota County Clerk of the Circuit Court (RealAuction platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -3993,10 +3993,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-29",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_laft_realtdm",
+   "name": "realTDM 'base purchase price' (statutory additions apply; not an opening bid) (AVAILABLE)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "GOVERNMENT_PLATFORM",
+   "publisher": "Sarasota County Clerk of the Circuit Court",
    "roles": [
     "availability",
     "identity",
@@ -4039,10 +4039,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_lienhub_certificates",
+   "name": "LienHub 'county held' certificates: certificate number, tax year, 'purchase amount', expiration, interest rate (LIENS & CERTIFICATES)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Seminole County Tax Collector (LienHub platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -4061,10 +4061,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_realauction",
+   "name": "the Clerk's tax deed sale calendar ('Waiting' auctions): case, parcel, opening bid, sale date (AUCTIONS)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Seminole County Clerk of the Circuit Court (RealAuction platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -4083,10 +4083,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-29",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_laft_realtdm",
+   "name": "realTDM 'base purchase price' (statutory additions apply; not an opening bid) (AVAILABLE)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "GOVERNMENT_PLATFORM",
+   "publisher": "Seminole County Clerk of the Circuit Court",
    "roles": [
     "availability",
     "identity",
@@ -4107,10 +4107,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_realauction",
+   "name": "the Clerk's tax deed sale calendar ('Waiting' auctions): case, parcel, opening bid, sale date (AUCTIONS)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "St. Johns County Clerk of the Circuit Court (RealAuction platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -4129,10 +4129,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-29",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_laft_pioneer",
+   "name": "the Clerk's Lands Available for Taxes list, F.S. 197.502(7): parcel, case, opening bid (additions apply) (AVAILABLE)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "GOVERNMENT_PLATFORM",
+   "publisher": "St. Johns County Clerk of the Circuit Court",
    "roles": [
     "availability",
     "identity",
@@ -4153,10 +4153,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_lienhub_certificates",
+   "name": "LienHub 'county held' certificates: certificate number, tax year, 'purchase amount', expiration, interest rate (LIENS & CERTIFICATES)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "St. Lucie County Tax Collector (LienHub platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -4175,10 +4175,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_realauction",
+   "name": "the Clerk's tax deed sale calendar ('Waiting' auctions): case, parcel, opening bid, sale date (AUCTIONS)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "St. Lucie County Clerk of the Circuit Court (RealAuction platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -4197,10 +4197,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-29",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_laft_stlucie",
+   "name": "the Clerk's Lands Available for Taxes list, F.S. 197.502(7): parcel, case, opening bid (additions apply) (AVAILABLE)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "GOVERNMENT_PLATFORM",
+   "publisher": "St. Lucie County Clerk of the Circuit Court",
    "roles": [
     "availability",
     "identity",
@@ -4243,10 +4243,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_lienhub_certificates",
+   "name": "LienHub 'county held' certificates: certificate number, tax year, 'purchase amount', expiration, interest rate (LIENS & CERTIFICATES)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Sumter County Tax Collector (LienHub platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -4265,10 +4265,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-29",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_laft_html",
+   "name": "the Clerk's Lands Available for Taxes list, F.S. 197.502(7): parcel, case, opening bid (additions apply) (AVAILABLE)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "GOVERNMENT_DIRECT",
+   "publisher": "Sumter County Clerk of the Circuit Court",
    "roles": [
     "availability",
     "identity",
@@ -4311,10 +4311,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_realauction",
+   "name": "the Clerk's tax deed sale calendar ('Waiting' auctions): case, parcel, opening bid, sale date (AUCTIONS)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Suwannee County Clerk of the Circuit Court (RealAuction platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -4357,10 +4357,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-29",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_laft_html",
+   "name": "the Clerk's Lands Available for Taxes list, F.S. 197.502(7): parcel, case, opening bid (additions apply) (AVAILABLE)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "GOVERNMENT_DIRECT",
+   "publisher": "Taylor County Clerk of the Circuit Court",
    "roles": [
     "availability",
     "identity",
@@ -4403,10 +4403,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-29",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_laft_html",
+   "name": "the Clerk's Lands Available for Taxes list, F.S. 197.502(7): parcel, case, opening bid (additions apply) (AVAILABLE)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "GOVERNMENT_DIRECT",
+   "publisher": "Union County Clerk of the Circuit Court",
    "roles": [
     "availability",
     "identity",
@@ -4427,10 +4427,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_lienhub_certificates",
+   "name": "LienHub 'county held' certificates: certificate number, tax year, 'purchase amount', expiration, interest rate (LIENS & CERTIFICATES)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Volusia County Tax Collector (LienHub platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -4449,10 +4449,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_realauction",
+   "name": "the Clerk's tax deed sale calendar ('Waiting' auctions): case, parcel, opening bid, sale date (AUCTIONS)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Volusia County Clerk of the Circuit Court (RealAuction platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -4471,10 +4471,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-29",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_laft_pdfs",
+   "name": "the Clerk's Lands Available for Taxes list, F.S. 197.502(7): parcel, case, opening bid (additions apply) (AVAILABLE)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "GOVERNMENT_DIRECT",
+   "publisher": "Volusia County Clerk of the Circuit Court",
    "roles": [
     "availability",
     "identity",
@@ -4541,10 +4541,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_lienhub_certificates",
+   "name": "LienHub 'county held' certificates: certificate number, tax year, 'purchase amount', expiration, interest rate (LIENS & CERTIFICATES)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Walton County Tax Collector (LienHub platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -4563,10 +4563,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_realauction",
+   "name": "the Clerk's tax deed sale calendar ('Waiting' auctions): case, parcel, opening bid, sale date (AUCTIONS)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Walton County Clerk of the Circuit Court (RealAuction platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -4585,10 +4585,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-29",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_laft_pioneer",
+   "name": "the Clerk's Lands Available for Taxes list, F.S. 197.502(7): parcel, case, opening bid (additions apply) (AVAILABLE)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "GOVERNMENT_PLATFORM",
+   "publisher": "Walton County Clerk of the Circuit Court",
    "roles": [
     "availability",
     "identity",
@@ -4609,10 +4609,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_realauction",
+   "name": "the Clerk's tax deed sale calendar ('Waiting' auctions): case, parcel, opening bid, sale date (AUCTIONS)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Washington County Clerk of the Circuit Court (RealAuction platform)",
    "roles": [
     "identity",
     "lifecycle"
@@ -4631,10 +4631,10 @@
    "governance_reason": "",
    "last_checked": "2026-09-29",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "fl_laft_realtdm",
+   "name": "realTDM 'base purchase price' (statutory additions apply; not an opening bid) (AVAILABLE)",
    "next_action": "",
    "origin": "registry",
-   "publisher": "GOVERNMENT_PLATFORM",
+   "publisher": "Washington County Clerk of the Circuit Court",
    "roles": [
     "availability",
     "identity",
@@ -5856,10 +5856,10 @@
    "governance_reason": "grandfathered production source; docs/realauction-rights-audit.md (Phase 10B) recorded a platform-wide robots-disallow signal and no reviewed Terms of Use (LEGAL_REVIEW_REQUIRED).",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "tx_realauction",
+   "name": "RealAuction tax foreclosure sale calendar: cause / account, published bid, sale date (AUCTIONS)",
    "next_action": "Publication / rights review (registry restrictions: none recorded)",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Angelina County (RealAuction platform; sale authority not verified per county)",
    "roles": [
     "identity",
     "lifecycle"
@@ -5878,10 +5878,10 @@
    "governance_reason": "grandfathered production source; docs/realauction-rights-audit.md (Phase 10B) recorded a platform-wide robots-disallow signal and no reviewed Terms of Use (LEGAL_REVIEW_REQUIRED).",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "tx_realauction",
+   "name": "RealAuction tax foreclosure sale calendar: cause / account, published bid, sale date (AUCTIONS)",
    "next_action": "Publication / rights review (registry restrictions: none recorded)",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Aransas County (RealAuction platform; sale authority not verified per county)",
    "roles": [
     "identity",
     "lifecycle"
@@ -5900,10 +5900,10 @@
    "governance_reason": "grandfathered production source; docs/realauction-rights-audit.md (Phase 10B) recorded a platform-wide robots-disallow signal and no reviewed Terms of Use (LEGAL_REVIEW_REQUIRED).",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "tx_realauction",
+   "name": "RealAuction tax foreclosure sale calendar: cause / account, published bid, sale date (AUCTIONS)",
    "next_action": "Publication / rights review (registry restrictions: none recorded)",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Atascosa County (RealAuction platform; sale authority not verified per county)",
    "roles": [
     "identity",
     "lifecycle"
@@ -6039,10 +6039,10 @@
    "governance_reason": "grandfathered production source; docs/realauction-rights-audit.md (Phase 10B) recorded a platform-wide robots-disallow signal and no reviewed Terms of Use (LEGAL_REVIEW_REQUIRED).",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "tx_realauction",
+   "name": "RealAuction tax foreclosure sale calendar: cause / account, published bid, sale date (AUCTIONS)",
    "next_action": "Publication / rights review (registry restrictions: none recorded)",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Caldwell County (RealAuction platform; sale authority not verified per county)",
    "roles": [
     "identity",
     "lifecycle"
@@ -6082,10 +6082,10 @@
    "governance_reason": "grandfathered production source; docs/realauction-rights-audit.md (Phase 10B) recorded a platform-wide robots-disallow signal and no reviewed Terms of Use (LEGAL_REVIEW_REQUIRED).",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "tx_realauction",
+   "name": "RealAuction tax foreclosure sale calendar: cause / account, published bid, sale date (AUCTIONS)",
    "next_action": "Publication / rights review (registry restrictions: none recorded)",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Cameron County (RealAuction platform; sale authority not verified per county)",
    "roles": [
     "identity",
     "lifecycle"
@@ -6173,10 +6173,10 @@
    "governance_reason": "grandfathered production source; docs/realauction-rights-audit.md (Phase 10B) recorded a platform-wide robots-disallow signal and no reviewed Terms of Use (LEGAL_REVIEW_REQUIRED).",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "tx_realauction",
+   "name": "RealAuction tax foreclosure sale calendar: cause / account, published bid, sale date (AUCTIONS)",
    "next_action": "Publication / rights review (registry restrictions: none recorded)",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Dallas County (RealAuction platform; sale authority not verified per county)",
    "roles": [
     "identity",
     "lifecycle"
@@ -6219,10 +6219,10 @@
    "governance_reason": "grandfathered production source; docs/realauction-rights-audit.md (Phase 10B) recorded a platform-wide robots-disallow signal and no reviewed Terms of Use (LEGAL_REVIEW_REQUIRED).",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "tx_realauction",
+   "name": "RealAuction tax foreclosure sale calendar: cause / account, published bid, sale date (AUCTIONS)",
    "next_action": "Publication / rights review (registry restrictions: none recorded)",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "El Paso County (RealAuction platform; sale authority not verified per county)",
    "roles": [
     "identity",
     "lifecycle"
@@ -6241,10 +6241,10 @@
    "governance_reason": "grandfathered production source; docs/realauction-rights-audit.md (Phase 10B) recorded a platform-wide robots-disallow signal and no reviewed Terms of Use (LEGAL_REVIEW_REQUIRED).",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "tx_realauction",
+   "name": "RealAuction tax foreclosure sale calendar: cause / account, published bid, sale date (AUCTIONS)",
    "next_action": "Publication / rights review (registry restrictions: none recorded)",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Ellis County (RealAuction platform; sale authority not verified per county)",
    "roles": [
     "identity",
     "lifecycle"
@@ -6308,10 +6308,10 @@
    "governance_reason": "grandfathered production source; docs/realauction-rights-audit.md (Phase 10B) recorded a platform-wide robots-disallow signal and no reviewed Terms of Use (LEGAL_REVIEW_REQUIRED).",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "tx_realauction",
+   "name": "RealAuction tax foreclosure sale calendar: cause / account, published bid, sale date (AUCTIONS)",
    "next_action": "Publication / rights review (registry restrictions: none recorded)",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Galveston County (RealAuction platform; sale authority not verified per county)",
    "roles": [
     "identity",
     "lifecycle"
@@ -6418,10 +6418,10 @@
    "governance_reason": "grandfathered production source; docs/lgbs-rights-audit.md (Phase 10B) found a firm-wide reproduction/redistribution clause whose scope over taxsales.lgbs.com is unresolved (LEGAL_REVIEW_REQUIRED). Existing rows stay published under the registry decision.",
    "last_checked": "2026-09-23",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "tx_lgbs",
+   "name": "LGBS struck-off / resale listing: 'Minimum Bid', cause number, account (AVAILABLE and AUCTIONS by the vendor's own sale status)",
    "next_action": "Publication / rights review (registry restrictions: none recorded)",
    "origin": "registry",
-   "publisher": "VENDOR_COUNSEL",
+   "publisher": "Linebarger Goggan Blair & Sampson, LLP (delinquent-tax counsel to the taxing units; vendor listing)",
    "roles": [
     "availability",
     "identity",
@@ -6488,10 +6488,10 @@
    "governance_reason": "grandfathered production source; docs/lgbs-rights-audit.md (Phase 10B) found a firm-wide reproduction/redistribution clause whose scope over taxsales.lgbs.com is unresolved (LEGAL_REVIEW_REQUIRED). Existing rows stay published under the registry decision.",
    "last_checked": "2026-09-23",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "tx_lgbs",
+   "name": "LGBS struck-off / resale listing: 'Minimum Bid', cause number, account (AVAILABLE and AUCTIONS by the vendor's own sale status)",
    "next_action": "Publication / rights review (registry restrictions: none recorded)",
    "origin": "registry",
-   "publisher": "VENDOR_COUNSEL",
+   "publisher": "Linebarger Goggan Blair & Sampson, LLP (delinquent-tax counsel to the taxing units; vendor listing)",
    "roles": [
     "availability",
     "identity",
@@ -6536,10 +6536,10 @@
    "governance_reason": "grandfathered production source; docs/realauction-rights-audit.md (Phase 10B) recorded a platform-wide robots-disallow signal and no reviewed Terms of Use (LEGAL_REVIEW_REQUIRED).",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "tx_realauction",
+   "name": "RealAuction tax foreclosure sale calendar: cause / account, published bid, sale date (AUCTIONS)",
    "next_action": "Publication / rights review (registry restrictions: none recorded)",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Gregg County (RealAuction platform; sale authority not verified per county)",
    "roles": [
     "identity",
     "lifecycle"
@@ -6651,10 +6651,10 @@
    "governance_reason": "grandfathered production source; docs/lgbs-rights-audit.md (Phase 10B) found a firm-wide reproduction/redistribution clause whose scope over taxsales.lgbs.com is unresolved (LEGAL_REVIEW_REQUIRED). Existing rows stay published under the registry decision.",
    "last_checked": "2026-09-23",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "tx_lgbs",
+   "name": "LGBS struck-off / resale listing: 'Minimum Bid', cause number, account (AVAILABLE and AUCTIONS by the vendor's own sale status)",
    "next_action": "Publication / rights review (registry restrictions: none recorded)",
    "origin": "registry",
-   "publisher": "VENDOR_COUNSEL",
+   "publisher": "Linebarger Goggan Blair & Sampson, LLP (delinquent-tax counsel to the taxing units; vendor listing)",
    "roles": [
     "availability",
     "identity",
@@ -6744,10 +6744,10 @@
    "governance_reason": "grandfathered production source; docs/realauction-rights-audit.md (Phase 10B) recorded a platform-wide robots-disallow signal and no reviewed Terms of Use (LEGAL_REVIEW_REQUIRED).",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "tx_realauction",
+   "name": "RealAuction tax foreclosure sale calendar: cause / account, published bid, sale date (AUCTIONS)",
    "next_action": "Publication / rights review (registry restrictions: none recorded)",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Hopkins County (RealAuction platform; sale authority not verified per county)",
    "roles": [
     "identity",
     "lifecycle"
@@ -6766,10 +6766,10 @@
    "governance_reason": "grandfathered production source; docs/realauction-rights-audit.md (Phase 10B) recorded a platform-wide robots-disallow signal and no reviewed Terms of Use (LEGAL_REVIEW_REQUIRED).",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "tx_realauction",
+   "name": "RealAuction tax foreclosure sale calendar: cause / account, published bid, sale date (AUCTIONS)",
    "next_action": "Publication / rights review (registry restrictions: none recorded)",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Jackson County (RealAuction platform; sale authority not verified per county)",
    "roles": [
     "identity",
     "lifecycle"
@@ -6904,10 +6904,10 @@
    "governance_reason": "grandfathered production source; docs/lgbs-rights-audit.md (Phase 10B) found a firm-wide reproduction/redistribution clause whose scope over taxsales.lgbs.com is unresolved (LEGAL_REVIEW_REQUIRED). Existing rows stay published under the registry decision.",
    "last_checked": "2026-09-23",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "tx_lgbs",
+   "name": "LGBS struck-off / resale listing: 'Minimum Bid', cause number, account (AVAILABLE and AUCTIONS by the vendor's own sale status)",
    "next_action": "Publication / rights review (registry restrictions: none recorded)",
    "origin": "registry",
-   "publisher": "VENDOR_COUNSEL",
+   "publisher": "Linebarger Goggan Blair & Sampson, LLP (delinquent-tax counsel to the taxing units; vendor listing)",
    "roles": [
     "availability",
     "identity",
@@ -6928,10 +6928,10 @@
    "governance_reason": "grandfathered production source; docs/realauction-rights-audit.md (Phase 10B) recorded a platform-wide robots-disallow signal and no reviewed Terms of Use (LEGAL_REVIEW_REQUIRED).",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "tx_realauction",
+   "name": "RealAuction tax foreclosure sale calendar: cause / account, published bid, sale date (AUCTIONS)",
    "next_action": "Publication / rights review (registry restrictions: none recorded)",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Kaufman County (RealAuction platform; sale authority not verified per county)",
    "roles": [
     "identity",
     "lifecycle"
@@ -6994,10 +6994,10 @@
    "governance_reason": "grandfathered production source; docs/lgbs-rights-audit.md (Phase 10B) found a firm-wide reproduction/redistribution clause whose scope over taxsales.lgbs.com is unresolved (LEGAL_REVIEW_REQUIRED). Existing rows stay published under the registry decision.",
    "last_checked": "2026-09-23",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "tx_lgbs",
+   "name": "LGBS struck-off / resale listing: 'Minimum Bid', cause number, account (AVAILABLE and AUCTIONS by the vendor's own sale status)",
    "next_action": "Publication / rights review (registry restrictions: none recorded)",
    "origin": "registry",
-   "publisher": "VENDOR_COUNSEL",
+   "publisher": "Linebarger Goggan Blair & Sampson, LLP (delinquent-tax counsel to the taxing units; vendor listing)",
    "roles": [
     "availability",
     "identity",
@@ -7087,10 +7087,10 @@
    "governance_reason": "grandfathered production source; docs/lgbs-rights-audit.md (Phase 10B) found a firm-wide reproduction/redistribution clause whose scope over taxsales.lgbs.com is unresolved (LEGAL_REVIEW_REQUIRED). Existing rows stay published under the registry decision.",
    "last_checked": "2026-09-23",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "tx_lgbs",
+   "name": "LGBS struck-off / resale listing: 'Minimum Bid', cause number, account (AVAILABLE and AUCTIONS by the vendor's own sale status)",
    "next_action": "Publication / rights review (registry restrictions: none recorded)",
    "origin": "registry",
-   "publisher": "VENDOR_COUNSEL",
+   "publisher": "Linebarger Goggan Blair & Sampson, LLP (delinquent-tax counsel to the taxing units; vendor listing)",
    "roles": [
     "availability",
     "identity",
@@ -7111,10 +7111,10 @@
    "governance_reason": "grandfathered production source; docs/realauction-rights-audit.md (Phase 10B) recorded a platform-wide robots-disallow signal and no reviewed Terms of Use (LEGAL_REVIEW_REQUIRED).",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "tx_realauction",
+   "name": "RealAuction tax foreclosure sale calendar: cause / account, published bid, sale date (AUCTIONS)",
    "next_action": "Publication / rights review (registry restrictions: none recorded)",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Llano County (RealAuction platform; sale authority not verified per county)",
    "roles": [
     "identity",
     "lifecycle"
@@ -7133,10 +7133,10 @@
    "governance_reason": "grandfathered production source; docs/realauction-rights-audit.md (Phase 10B) recorded a platform-wide robots-disallow signal and no reviewed Terms of Use (LEGAL_REVIEW_REQUIRED).",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "tx_realauction",
+   "name": "RealAuction tax foreclosure sale calendar: cause / account, published bid, sale date (AUCTIONS)",
    "next_action": "Publication / rights review (registry restrictions: none recorded)",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Matagorda County (RealAuction platform; sale authority not verified per county)",
    "roles": [
     "identity",
     "lifecycle"
@@ -7198,10 +7198,10 @@
    "governance_reason": "grandfathered production source; docs/lgbs-rights-audit.md (Phase 10B) found a firm-wide reproduction/redistribution clause whose scope over taxsales.lgbs.com is unresolved (LEGAL_REVIEW_REQUIRED). Existing rows stay published under the registry decision.",
    "last_checked": "2026-09-23",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "tx_lgbs",
+   "name": "LGBS struck-off / resale listing: 'Minimum Bid', cause number, account (AVAILABLE and AUCTIONS by the vendor's own sale status)",
    "next_action": "Publication / rights review (registry restrictions: none recorded)",
    "origin": "registry",
-   "publisher": "VENDOR_COUNSEL",
+   "publisher": "Linebarger Goggan Blair & Sampson, LLP (delinquent-tax counsel to the taxing units; vendor listing)",
    "roles": [
     "availability",
     "identity",
@@ -7264,10 +7264,10 @@
    "governance_reason": "grandfathered production source; docs/realauction-rights-audit.md (Phase 10B) recorded a platform-wide robots-disallow signal and no reviewed Terms of Use (LEGAL_REVIEW_REQUIRED).",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "tx_realauction",
+   "name": "RealAuction tax foreclosure sale calendar: cause / account, published bid, sale date (AUCTIONS)",
    "next_action": "Publication / rights review (registry restrictions: none recorded)",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Montgomery County (RealAuction platform; sale authority not verified per county)",
    "roles": [
     "identity",
     "lifecycle"
@@ -7331,10 +7331,10 @@
    "governance_reason": "grandfathered production source; docs/realauction-rights-audit.md (Phase 10B) recorded a platform-wide robots-disallow signal and no reviewed Terms of Use (LEGAL_REVIEW_REQUIRED).",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "tx_realauction",
+   "name": "RealAuction tax foreclosure sale calendar: cause / account, published bid, sale date (AUCTIONS)",
    "next_action": "Publication / rights review (registry restrictions: none recorded)",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Nueces County (RealAuction platform; sale authority not verified per county)",
    "roles": [
     "identity",
     "lifecycle"
@@ -7353,10 +7353,10 @@
    "governance_reason": "grandfathered production source; docs/realauction-rights-audit.md (Phase 10B) recorded a platform-wide robots-disallow signal and no reviewed Terms of Use (LEGAL_REVIEW_REQUIRED).",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "tx_realauction",
+   "name": "RealAuction tax foreclosure sale calendar: cause / account, published bid, sale date (AUCTIONS)",
    "next_action": "Publication / rights review (registry restrictions: none recorded)",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Orange County (RealAuction platform; sale authority not verified per county)",
    "roles": [
     "identity",
     "lifecycle"
@@ -7560,10 +7560,10 @@
    "governance_reason": "grandfathered production source; docs/realauction-rights-audit.md (Phase 10B) recorded a platform-wide robots-disallow signal and no reviewed Terms of Use (LEGAL_REVIEW_REQUIRED).",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "tx_realauction",
+   "name": "RealAuction tax foreclosure sale calendar: cause / account, published bid, sale date (AUCTIONS)",
    "next_action": "Publication / rights review (registry restrictions: none recorded)",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "San Patricio County (RealAuction platform; sale authority not verified per county)",
    "roles": [
     "identity",
     "lifecycle"
@@ -7582,10 +7582,10 @@
    "governance_reason": "grandfathered production source; docs/realauction-rights-audit.md (Phase 10B) recorded a platform-wide robots-disallow signal and no reviewed Terms of Use (LEGAL_REVIEW_REQUIRED).",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "tx_realauction",
+   "name": "RealAuction tax foreclosure sale calendar: cause / account, published bid, sale date (AUCTIONS)",
    "next_action": "Publication / rights review (registry restrictions: none recorded)",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Smith County (RealAuction platform; sale authority not verified per county)",
    "roles": [
     "identity",
     "lifecycle"
@@ -7628,10 +7628,10 @@
    "governance_reason": "grandfathered production source; docs/realauction-rights-audit.md (Phase 10B) recorded a platform-wide robots-disallow signal and no reviewed Terms of Use (LEGAL_REVIEW_REQUIRED).",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "tx_realauction",
+   "name": "RealAuction tax foreclosure sale calendar: cause / account, published bid, sale date (AUCTIONS)",
    "next_action": "Publication / rights review (registry restrictions: none recorded)",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Travis County (RealAuction platform; sale authority not verified per county)",
    "roles": [
     "identity",
     "lifecycle"
@@ -7698,10 +7698,10 @@
    "governance_reason": "grandfathered production source; docs/realauction-rights-audit.md (Phase 10B) recorded a platform-wide robots-disallow signal and no reviewed Terms of Use (LEGAL_REVIEW_REQUIRED).",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "tx_realauction",
+   "name": "RealAuction tax foreclosure sale calendar: cause / account, published bid, sale date (AUCTIONS)",
    "next_action": "Publication / rights review (registry restrictions: none recorded)",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Tyler County (RealAuction platform; sale authority not verified per county)",
    "roles": [
     "identity",
     "lifecycle"
@@ -7785,10 +7785,10 @@
    "governance_reason": "grandfathered production source; docs/lgbs-rights-audit.md (Phase 10B) found a firm-wide reproduction/redistribution clause whose scope over taxsales.lgbs.com is unresolved (LEGAL_REVIEW_REQUIRED). Existing rows stay published under the registry decision.",
    "last_checked": "2026-09-23",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "tx_lgbs",
+   "name": "LGBS struck-off / resale listing: 'Minimum Bid', cause number, account (AVAILABLE and AUCTIONS by the vendor's own sale status)",
    "next_action": "Publication / rights review (registry restrictions: none recorded)",
    "origin": "registry",
-   "publisher": "VENDOR_COUNSEL",
+   "publisher": "Linebarger Goggan Blair & Sampson, LLP (delinquent-tax counsel to the taxing units; vendor listing)",
    "roles": [
     "availability",
     "identity",
@@ -7809,10 +7809,10 @@
    "governance_reason": "grandfathered production source; docs/realauction-rights-audit.md (Phase 10B) recorded a platform-wide robots-disallow signal and no reviewed Terms of Use (LEGAL_REVIEW_REQUIRED).",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "tx_realauction",
+   "name": "RealAuction tax foreclosure sale calendar: cause / account, published bid, sale date (AUCTIONS)",
    "next_action": "Publication / rights review (registry restrictions: none recorded)",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Victoria County (RealAuction platform; sale authority not verified per county)",
    "roles": [
     "identity",
     "lifecycle"
@@ -7852,10 +7852,10 @@
    "governance_reason": "grandfathered production source; docs/realauction-rights-audit.md (Phase 10B) recorded a platform-wide robots-disallow signal and no reviewed Terms of Use (LEGAL_REVIEW_REQUIRED).",
    "last_checked": "2026-09-30",
    "legacy_status": "APPROVED_GRANDFATHERED",
-   "name": "tx_realauction",
+   "name": "RealAuction tax foreclosure sale calendar: cause / account, published bid, sale date (AUCTIONS)",
    "next_action": "Publication / rights review (registry restrictions: none recorded)",
    "origin": "registry",
-   "publisher": "VENDOR_AUCTION",
+   "publisher": "Wilson County (RealAuction platform; sale authority not verified per county)",
    "roles": [
     "identity",
     "lifecycle"
