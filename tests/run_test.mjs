@@ -14,6 +14,33 @@ import { chromium } from 'playwright';
 import fs from 'node:fs';
 
 const BASE_URL = process.env.BASE_URL || 'http://localhost:8934/index.html';
+// Source-status chips (source review, Detroit subset, acquisition gate, source
+// program) render on the PROPERTY PAGE, not the card face (2026-10-11). This
+// opens each listed card's property page in turn and reads them there.
+async function cardDetailChips(pg) {
+  const cards = pg.locator('#main .prop-card[data-pid]');
+  const n = await cards.count();
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const pid = await cards.nth(i).getAttribute('data-pid');
+    // Groups can start collapsed: open the card's own county group first.
+    await cards.nth(i).evaluate(el => { const g = el.closest('details'); if (g && !g.open) g.open = true; });
+    await cards.nth(i).locator('.detail-btn').click();
+    await pg.waitForTimeout(250);
+    const r = await pg.evaluate(() => {
+      const m = document.getElementById('detailModal');
+      const s = (m && !m.hidden) ? document.getElementById('detailModalInner') : document.getElementById('detailPanel');
+      const t = sel => [...s.querySelectorAll(sel)].map(e => e.textContent.replace(/\s+/g, ' ').trim());
+      return { review: t('.source-review-chip'), subset: [...s.querySelectorAll('.source-subset-chip')].map(e => e.dataset.subset),
+        subsetText: t('.source-subset-chip'), gate: t('.acq-gate-chip'), gateCls: [...s.querySelectorAll('.acq-gate-chip')].map(e => e.dataset.acqGate), program: t('.source-program') };
+    });
+    out.push({ pid, ...r });
+    // A modal covers the list; the desktop side panel does not need closing.
+    const close = pg.locator('#detailModal:not([hidden]) #detailModalInner [data-action="closedetail"]');
+    if (await close.count()) { await close.first().click(); await pg.waitForTimeout(150); }
+  }
+  return out;
+}
 // This sandbox ships Chromium at a fixed path outside Playwright's normal
 // cache; CI installs its own via `npx playwright install chromium` and
 // should just use Playwright's default resolution.
@@ -5185,12 +5212,13 @@ await navMap.close();
     await pg.close();
     // Enforced, admin: every row stays, withheld ones carry the chip.
     pg = await gatePage(BASE_URL + '?profile=admin&gatefresh=1#/lands', true);
-    results.gateEnforcedAdmin = await pg.evaluate(() => {
-      const all = [...document.querySelectorAll('#main .prop-card[data-pid]')];
-      return { cards: all.length, chipped: all.filter(e => e.querySelector('.acq-gate-chip')).map(e => e.dataset.pid).sort(),
-        chip: (() => { const e = document.querySelector('.prop-card[data-pid="p15"] .acq-gate-chip'); return e ? { cls: e.dataset.acqGate, text: e.textContent.trim() } : null; })(),
-        freshChip: !!document.querySelector('.prop-card[data-pid="pgate1"] .acq-gate-chip') };
-    });
+    const gateDet = await cardDetailChips(pg);
+    results.gateEnforcedAdmin = {
+      cards: await pg.evaluate(() => document.querySelectorAll('#main .prop-card[data-pid]').length),
+      chipped: gateDet.filter(d => d.gate.length).map(d => d.pid).sort(),
+      chip: (() => { const d = gateDet.find(x => x.pid === 'p15'); return d && d.gate.length ? { cls: d.gateCls[0], text: d.gate[0] } : null; })(),
+      // pgate1 is not on the list (the gate fixture row is not a listed card), so the list-level flag stays false.
+      freshChip: await pg.evaluate(() => !!document.querySelector('.prop-card[data-pid="pgate1"] .acq-gate-chip')) };
     await pg.close();
     // Source truth row (gate off, default config): verdict + every reason.
     // 900px: the modal is the detail surface (the side panel takes over at 1280px).
@@ -5954,17 +5982,23 @@ await monDash.close();
   async function ledgerFacts(pg) {
     const btn = pg.locator('#expandAllBtn');
     if (await btn.count() && (await btn.getAttribute('data-mode')) === 'expand') { await btn.click(); await pg.waitForTimeout(300); }
-    return pg.evaluate(() => {
+    // List facts first: opening a property page adds related cards to the DOM.
+    const facts = await pg.evaluate(() => {
       const t = sel => { const e = document.querySelector(sel); return e ? e.textContent.replace(/\s+/g, ' ').trim() : null; };
       const cards = [...document.querySelectorAll('.prop-card')];
       return {
         cards: cards.length,
-        reviewChips: [...document.querySelectorAll('.prop-card .source-review-chip')].map(e => e.textContent.trim()),
-        programs: [...document.querySelectorAll('.prop-card .source-program')].map(e => e.textContent.trim()).sort(),
+        reviewChips: null,
+        programs: null,
         pending: t('#ledgerReviewPending'),
         withheld: t('#ledgerWithheld')
       };
     });
+    const detail = await cardDetailChips(pg);
+    const fromDetail = key => detail.flatMap(d => d[key]);
+    facts.reviewChips = fromDetail('review');
+    facts.programs = fromDetail('program').sort();
+    return facts;
   }
   const adminMi = await newPage({ viewport: { width: 1200, height: 900 } });
   await adminMi.goto(STATE_URL('mi') + '?profile=admin#/lands', { waitUntil: 'networkidle' });
@@ -6025,12 +6059,13 @@ await monDash.close();
   const detAdmin = await newPage({ viewport: { width: 1200, height: 900 } });
   await detAdmin.goto(STATE_URL('mi') + '?profile=admin#/lands', { waitUntil: 'networkidle' });
   await detAdmin.waitForTimeout(600);
+  const detAdminChips = await cardDetailChips(detAdmin);
   results.detroitSubsetAdmin = {
     ids: await listIds(detAdmin),
     reasons: await detAdmin.evaluate(() => Object.fromEntries((window.__tdwLastRender ? window.__tdwLastRender.rows : [])
       .filter(r => /^pmi_dlb/.test(String(r.id))).map(r => [r.id, window.__tdwDetroitSubset.status(r)]).sort())),
-    chips: await detAdmin.evaluate(() => [...document.querySelectorAll('.prop-card .source-subset-chip')].map(e => e.dataset.subset).sort()),
-    chipText: await detAdmin.evaluate(() => { const e = document.querySelector('.prop-card .source-subset-chip'); return e ? e.textContent.trim() : null; }),
+    chips: detAdminChips.flatMap(d => d.subset).sort(),
+    chipText: (detAdminChips.find(d => d.subsetText.length) || { subsetText: [null] }).subsetText[0],
     note: await detAdmin.evaluate(() => { const e = document.querySelector('#ledgerDetroitSubset'); return e ? e.textContent.replace(/\s+/g, ' ').trim() : null; }),
     statusesUntouched: await detAdmin.evaluate(() => (window.__tdwLastRender ? window.__tdwLastRender.rows : []).filter(r => /^pmi_dlb/.test(String(r.id))).every(r => r.status === 'active'))
   };
@@ -6040,11 +6075,12 @@ await monDash.close();
   await detPrev.route(/\/config\.js(\?|$)/, route => route.fulfill({ status: 200, contentType: 'application/javascript', body: detPrevCfg }));
   await detPrev.goto(STATE_URL('mi') + '#/lands', { waitUntil: 'networkidle' });
   await detPrev.waitForTimeout(600);
+  const detPrevChips = await cardDetailChips(detPrev);
   results.detroitSubsetPreview = {
     ids: await listIds(detPrev),
     note: await detPrev.evaluate(() => { const e = document.querySelector('#ledgerDetroitSubset'); return e ? e.textContent.replace(/\s+/g, ' ').trim() : null; }),
-    reviewChips: await detPrev.evaluate(() => [...document.querySelectorAll('.prop-card .source-review-chip')].length),
-    subsetChips: await detPrev.evaluate(() => document.querySelectorAll('.source-subset-chip').length)
+    reviewChips: detPrevChips.flatMap(d => d.review).length,
+    subsetChips: detPrevChips.flatMap(d => d.subset).length
   };
   // Map -> Available, same session: only the customer subset reaches the map.
   await detPrev.evaluate(() => { location.hash = '#/map?ledger=laft&county=Wayne'; });
@@ -6393,7 +6429,7 @@ await big.press('#globalSearchInput', 'Enter');
   const tester = await cfgPage(prevCfg, STATE_URL('sc') + '?entitlement=tester#/lands');
   results.paidTesterAccess = await tester.evaluate(() => { const a = window.__tdwAccess(); return [a.role, a.state, a.source, a.scope]; });
   results.paidTesterScLands = await shown(tester);
-  results.paidTesterReviewChips = await tester.evaluate(() => [...document.querySelectorAll('.prop-card .source-review-chip')].map(e => e.textContent.trim()));
+  results.paidTesterReviewChips = (await cardDetailChips(tester)).flatMap(d => d.review);
   results.paidTesterVisibility = await vis(tester);
   await tester.close();
 
