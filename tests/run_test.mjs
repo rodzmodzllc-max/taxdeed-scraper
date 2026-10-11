@@ -5049,7 +5049,9 @@ await navMap.close();
       await pg.waitForTimeout(300);
       // Lazy images load only in view: bring each one into view.
       for (const h of await pg.$$('.naip-live')) { await h.scrollIntoViewIfNeeded().catch(() => {}); }
-      await pg.waitForTimeout(500);
+      // Wait for the in-view images to receive their source rather than a fixed
+      // delay: a slower runner (CI) can still be hydrating after 500ms.
+      await pg.waitForFunction(() => { const imgs = [...document.querySelectorAll('.naip-live img')]; return imgs.length > 0 && imgs.every(i => i.src); }, null, { timeout: 15000 }).catch(() => {});
       return { pg, requested };
     };
     let { pg, requested } = await naipPage(BASE_URL.replace(/index\.html$/, 'la.html') + '#/lands');
