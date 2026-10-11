@@ -82,6 +82,13 @@ function detailSurfaceSelector(sel) {
     ? [`${part}:visible`, `${part.split(DETAIL_MODAL_SEL).join('#detailPanel')}:visible`]
     : [part]).join(', ');
 }
+// The open property surface for in-page readers (the same rule as the
+// selector above): the modal when it is visible, else the List's side panel
+// once it shows a property (its empty placeholder is not a property).
+const OPEN_DETAIL_SEL = '#detailModal:not([hidden]) #detailModalInner, #detailPanel.prop-card:not(:has(.detail-panel-empty))';
+async function waitDetailOpen(pg, ms = 4000) {
+  await pg.waitForSelector(OPEN_DETAIL_SEL, { state: 'attached', timeout: ms }).catch(() => {});
+}
 // Remediation (2026-10-10): the Map no longer prints a separate "Ledger · County"
 // line; its toolbar controls are the display. This reads them back in the same
 // "Ledger: X · County: Y" form the old line used, so each check compares the
@@ -4400,17 +4407,17 @@ await navMap.close();
     await pg.close();
     const d = await newPage({ viewport: { width: 1440, height: 900 } });
     await d.goto(TX_BASE_URL + '?txcause=1' + '#/lands/ptx3', { waitUntil: 'networkidle' });
-    await d.waitForTimeout(500);
-    results.txCauseDetail = await d.evaluate(() => {
+    await waitDetailOpen(d);
+    await d.waitForTimeout(300);
+    results.txCauseDetail = await d.evaluate((sel) => {
       // the open detail surface: the side panel from 1280px (remediation 2026-10-10), else the modal
-      const panel = document.querySelector('#detailPanel:not([hidden])');
-      const m = (panel && panel.innerText.trim()) ? panel : document.getElementById('detailModalInner');
+      const m = document.querySelector(sel);
       const txt = m ? m.innerText.replace(/\s+/g, ' ') : '';
       return { related: m ? m.querySelectorAll('.related-record').length : null,
         sameParcelClaim: /ptx8|6600 BLOCK/.test(m ? m.innerHTML : ''),
         causeAsParcel: /Parcel #? ?23-TX-0644/.test(txt),
         causeShown: /Cause 23-TX-0644/.test(txt) || /Tax suit cause # 23-TX-0644/.test(txt) };
-    });
+    }, OPEN_DETAIL_SEL);
     await d.close();
   }
   // ---- Opportunity finder + auction command center (2026-10-05) ----
