@@ -15,3 +15,17 @@ What to look for:
 
 Captured by a Playwright script against the fixture stub (no production
 data); the sheets are JPEG at reduced scale for repository size.
+
+## Added in the final UX/UI pass
+
+Before = `main` at 77688dc. After = branch head with this pass. Each pair is the same page and
+viewport, captured with the test stub (no live data).
+
+- `before-signin-<w>.jpg` / `after-signin-<w>.jpg`: signed-out sign-in page. After shows the
+  illustrative preview on desktop and the form alone on phones.
+- `before-detail-<w>.jpg` / `after-detail-<w>.jpg`: an Available property (`#/lands/p15`). Desktop
+  (1280px and up) shows the side panel; narrower widths show the full-page detail.
+- `before-states-<w>.jpg` / `after-states-<w>.jpg`: the header state selector, focused, on the
+  Available page. Before has a separate States button; after has the state selector only.
+
+Widths: 1400, 1280, 1024, 768 and 390px.

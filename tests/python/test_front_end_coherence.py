@@ -128,3 +128,27 @@ def test_acquisition_card_and_dashboard_share_one_verified_rule():
     # the dashboard's verified count uses (hasVerifiedPath).
     assert 'verified: tp.type !== "none_published" && !!p.source_id,' in APP
     assert "return !!p && !!p.source_id && acquisitionOf(p).verified;" in APP
+
+
+def test_signin_preview_is_labelled_illustrative_and_carries_no_live_data():
+    # The owner decision: the signed-out page shows illustrative content only.
+    for page in ["index.html", "la.html", "tx.html"]:
+        text = _page(page)
+        assert "Illustrative example — not a live listing." in text, page
+        # The preview block holds sample prices/addresses only - no record ids.
+        block = text[text.index('<div class="auth-preview"'):text.index('<p class="auth-preview-note">')]
+        assert "PARCEL" not in block and "CERT" not in block and "SALE " not in block, page
+
+
+def test_no_decorative_symbols_in_filter_labels():
+    for page in PAGES:
+        text = Path(page).read_text(encoding="utf-8")
+        for symbol in ("⏱", "🕐", "📁"):
+            assert symbol not in text, (Path(page).name, symbol)
+
+
+def test_customer_copy_has_no_internal_operational_phrases():
+    # Customer-facing strings only: the admin diagnostics live in admin.html.
+    for phrase in ("completeness not gated", "sync step outcome", "back-off: attempted"):
+        for page in PAGES:
+            assert phrase not in Path(page).read_text(encoding="utf-8"), (Path(page).name, phrase)
