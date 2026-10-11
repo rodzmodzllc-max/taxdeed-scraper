@@ -3210,3 +3210,28 @@ Full description: `docs/publication-gate.md`. Stable facts:
   `WITHHELD`, admin chips `.pub-state-chip`, property-page `publicationGateHtml`.
   Stub knob `?pubgate=1`. Tester preview no longer bypasses the gate once 031
   is applied. `sw.js` -> `tdw-shell-v119`.
+
+## State-by-state coverage report, registry metadata, rules vocabulary (2026-10-11, PR open, no migration)
+
+Full description: `docs/source-coverage-verification.md`. Stable facts:
+- **`harvesters/governance/state_coverage.py`** classifies every production
+  state x ledger into ONE of ten concepts (PRODUCT_NOT_OFFERED,
+  RULES_NOT_VERIFIED, SOURCE_RESTRICTED, OFFERED_SOURCE_NOT_IMPLEMENTED,
+  APPROVAL_UNRESOLVED, SOURCE_IMPLEMENTED_NEVER_READ, SOURCE_FAILED_OR_STALE,
+  RECORDS_WITHHELD_NO_PATH, OFFERED_VERIFIED_EMPTY, CURRENT) from the
+  registry, the rules, `state_ledgers.csv`, the counts-only snapshots and
+  `acquisition-evidence.json`. `scripts/build_state_coverage.py` ->
+  `data/current_state/state-coverage.json` + `docs/state-coverage.md`
+  (`--check` pinned). A NOT_VERIFIED zero is never OFFERED_VERIFIED_EMPTY.
+  Rebuild after editing the registry, the rules, the ledgers, the evidence
+  file or a snapshot.
+- **Every PRODUCTION_VERIFIED registry row names** `publishing_unit_name`,
+  `amount_kind`, `update_frequency`, `source_terminology` (filled by the
+  builder; a test forbids blanks). `publishing_unit` is a government unit;
+  a platform or vendor is named in `publishing_unit_name`, never as the unit.
+- **Rules statuses** gained `PARTIALLY_VERIFIED` (needs `ambiguity`) and
+  `SOURCE_RESTRICTED` (needs `evidence`, no date); `READ_STATUSES` names the
+  two read ones. The engine passes VERIFIED only. `test_ref` is a file path.
+- **`stamp_seen.py --provenance`** (both FL stamp steps) writes
+  `vendor_listing` field provenance for list columns where none exists;
+  never replaces an entry; idempotent.
