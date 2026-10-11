@@ -2040,7 +2040,7 @@
   },
   {
    "check": "zero_state_cases",
-   "detail": "every zero case has customer copy: NOT_OFFERED, NO_CURRENT_INVENTORY, COUNTY_DEPENDENT, NOT_VERIFIED, NOT_IMPLEMENTED, SOURCE_RESTRICTED, SOURCE_FAILURE",
+   "detail": "every zero case has customer copy: NOT_OFFERED, NO_CURRENT_INVENTORY, COUNTY_DEPENDENT, NOT_VERIFIED, NOT_IMPLEMENTED, SOURCE_RESTRICTED, SOURCE_FAILURE, WITHHELD",
    "state": "*",
    "status": "PASS"
   },

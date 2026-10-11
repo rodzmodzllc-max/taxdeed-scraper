@@ -5172,6 +5172,82 @@ await navMap.close();
       blocks: [...document.querySelectorAll('.rules-ledger')].map(l => [l.dataset.ledger, l.dataset.eligibility, l.dataset.status]),
       strips: document.querySelectorAll('#rulesPage .ledger-status').length, noScores: !/\b(score|confidence)\b/i.test(document.getElementById('rulesPage').textContent) }));
     await pgA.close();
+    // ==================== Mandatory acquisition-path gate (2026-10-10, migration 031, ?pubgate=1) ====================
+    // The stub plays the SERVER: a customer's property RPCs return only
+    // CUSTOMER_PUBLISHED rows, an admin's return every row, and the two RPCs
+    // (count_publication_states / get_withheld_states) answer as the real
+    // functions do. Withheld fixture rows: p2 (auction, homepage link), p3
+    // (Available, no acquisition page found), p4 (lien, stale observation),
+    // p13 (auction, sale date passed), p14 (restricted source).
+    const gateSurfaces = async (q) => {
+      const pg = await newPage({ viewport: { width: 1280, height: 900 } });
+      const out = {};
+      for (const [kind, hash] of [['auction', '#/auctions'], ['laft', '#/lands'], ['certificate', '#/certificates']]) {
+        await pg.goto(BASE_URL + q + hash, { waitUntil: 'networkidle' });
+        await pg.waitForTimeout(900);
+        out[kind] = await pg.evaluate((k) => {
+          const el = document.querySelector(`.ledger-status[data-ledger-status="${k}"]`);
+          const w = el && el.querySelector('[data-ls-withheld]');
+          const para = document.getElementById('ledgerPublicationWithheld');
+          return { cards: [...document.querySelectorAll('.prop-card')].map(c => c.dataset.pid).sort(), zero: el ? el.dataset.zeroCase : null,
+            count: el ? el.querySelector('[data-ls-count]').textContent : null, withheld: w ? w.textContent : null, withheldN: w ? w.dataset.lsWithheld : null,
+            // admin chips: the lean deed / Available card (PR #137) carries none - they live on the property page; the certificate card still does
+            chips: [...document.querySelectorAll('.pub-state-chip')].map(c => c.dataset.pubState).sort(),
+            para: para ? para.textContent.replace(/^(\d+ records? withheld pending verification \([^)]*\))\. .*$/, '$1 · ' + (/Shown to you as an admin/.test(para.textContent) ? 'admin' : /Counted, not shown/.test(para.textContent) ? 'customer' : '?')) : null };
+        }, kind);
+      }
+      // global search, Map and the Home tile all derive from the same gated rows
+      await pg.goto(BASE_URL + q + '#/lands', { waitUntil: 'networkidle' });
+      await pg.waitForTimeout(600);
+      await pg.fill('#globalSearchInput', 'Oak');
+      await pg.waitForTimeout(600);
+      out.searchHits = await pg.evaluate(() => document.querySelectorAll('#globalSearchResults .gs-row').length);
+      await pg.evaluate(() => { location.hash = '#/map?ledger=laft'; });
+      await pg.waitForTimeout(1500);
+      out.map = await pg.evaluate(() => ({ head: (document.querySelector('.map-side-head') || {}).textContent.replace(/\s+/g, ' ').trim(), pins: document.querySelectorAll('.explore-map .pin, .explore-map .cluster-bubble').length }));
+      await pg.evaluate(() => { location.hash = '#/dashboard'; });
+      await pg.waitForTimeout(800);
+      // the per-ledger totals live on the Home ledger card since PR #137 (the operating-view tiles are gone)
+      out.tile = await pg.evaluate(() => ({ val: document.querySelector('#homeLedgers [data-home-ledger="laft"] .home-ledger-count').textContent.trim(), sub: document.querySelector('#homeLedgers [data-home-ledger="laft"] .home-ledger-unit').textContent.replace(/\s+/g, ' ').trim() }));
+      // the Available export carries the gated rows only
+      await pg.evaluate(() => { location.hash = '#/lands'; });
+      await pg.waitForTimeout(600);
+      const dl = pg.waitForEvent('download');
+      await pg.click('#exportCsvBtn');
+      const csvPath = await (await dl).path();
+      out.csvRows = fs.readFileSync(csvPath, 'utf8').trim().split('\n').length - 1;
+      await pg.close();
+      return out;
+    };
+    results.gateCustomer = await gateSurfaces('?pubgate=1');
+    results.gateAdmin = await gateSurfaces('?pubgate=1&profile=admin');
+    // Off (031 not applied): no withheld item, no chips, today's behaviour.
+    const gateOff = await gateSurfaces('');
+    results.gateOff = { withheld: [gateOff.auction.withheld, gateOff.laft.withheld, gateOff.certificate.withheld], chips: gateOff.laft.chips, cards: gateOff.laft.cards, para: gateOff.laft.para };
+    // Property page: an admin sees the decision, its reasons, the path evidence and the remediation; a customer's published row says every gate passed; a customer deep link to a withheld row opens nothing.
+    const gatePage = async (q, pid) => {
+      const pg = await newPage({ viewport: { width: 1280, height: 900 } });
+      await pg.goto(BASE_URL + q + '#/lands/' + pid, { waitUntil: 'networkidle' });
+      await waitDetailOpen(pg, 3000);
+      await pg.waitForTimeout(600);
+      const r = await pg.evaluate((sel) => {
+        const row = document.querySelector('.pub-gate-row');
+        const b = document.getElementById('publicationGateBanner');
+        // open = the property page is showing in whichever surface this width uses (side panel at 1280px since PR #137)
+        return { open: !!document.querySelector(sel), hash: location.hash, gate: row ? row.dataset.pubState : null,
+          reached: row ? (row.textContent.match(/reached: ([^·]+)/) || [])[1]?.trim() || null : null,
+          reasons: [...document.querySelectorAll('.pub-reason')].map(x => x.dataset.reason), path: (document.querySelector('.pub-gate-path') || {}).textContent || null,
+          remediation: (document.querySelector('.pub-gate-remediation') || {}).textContent || null, banner: b ? b.dataset.pubState : null,
+          visibleNo: /Customer-visible: No/.test((document.querySelector('.source-review-row') || {}).textContent || ''),
+          allPassed: /source approved, state rules verified, record valid, acquisition path documented, observation current/.test((document.querySelector('.pub-gate-row') || {}).textContent || '') };
+      }, OPEN_DETAIL_SEL);
+      await pg.close();
+      return r;
+    };
+    results.gatePageAdminWithheld = await gatePage('?pubgate=1&profile=admin', 'p3');
+    results.gatePageCustomerPublished = await gatePage('?pubgate=1', 'p15');
+    results.gatePageCustomerWithheldDeepLink = await gatePage('?pubgate=1', 'p3');
+    results.gatePageOff = await gatePage('', 'p15');
     // County coverage and rule history on the rules page.
     const pgC = await newPage({ viewport: { width: 1280, height: 900 } });
     await pgC.goto(BASE_URL.replace(/index\.html$/, 'sc.html') + '#/rules?county=Georgetown', { waitUntil: 'networkidle' });
@@ -6749,6 +6825,19 @@ const EXPECTED = {
   zeroCountyDependent: { zeroCase: 'COUNTY_DEPENDENT', eligibility: 'COUNTY_DEPENDENT', whyLabel: 'County by county.', counties: 'Eaton, Lenawee' },
   zeroNotOfferedUnclaimed: { notOffered: false, offered: 'OFFERED' },
   zeroStripToRules: { hash: '#/rules', block: true, blocks: [['AUCTIONS', 'OFFERED', 'TRACKED'], ['AVAILABLE', 'OFFERED', 'TRACKED'], ['LIENS_CERTIFICATES', 'OFFERED', 'TRACKED']], strips: 3, noScores: true },
+  gateCustomer: { auction: { cards: ['p1', 'p10', 'p12', 'p5', 'p6', 'p7', 'p8', 'p9'], zero: '', count: '8 properties', withheld: '2 records withheld pending verification (1 no verified acquisition path, 1 stale observation or sale date)', withheldN: '2', chips: [], para: '2 records withheld pending verification (1 no verified acquisition path, 1 stale observation or sale date) · customer' },
+    laft: { cards: ['p15'], zero: '', count: '1 property', withheld: '2 records withheld pending verification (1 no verified acquisition path, 1 source or rules under review)', withheldN: '2', chips: [], para: '2 records withheld pending verification (1 no verified acquisition path, 1 source or rules under review) · customer' },
+    certificate: { cards: [], zero: 'WITHHELD', count: '0 instruments', withheld: '1 record withheld pending verification (1 stale observation or sale date)', withheldN: '1', chips: [], para: '1 record withheld pending verification (1 stale observation or sale date) · customer' },
+    searchHits: 0, map: { head: 'Where these are 1 shown across 1 county', pins: 1 }, tile: { val: '1', sub: 'properties across 1 county · 2 withheld pending verification' }, csvRows: 1 },
+  gateAdmin: { auction: { cards: ['p1', 'p10', 'p11', 'p12', 'p5', 'p6', 'p7', 'p8', 'p9'], zero: '', count: '11 properties', withheld: '2 records withheld pending verification (1 no verified acquisition path, 1 stale observation or sale date)', withheldN: '2', chips: [], para: '2 records withheld pending verification (1 no verified acquisition path, 1 stale observation or sale date) · admin' },
+    laft: { cards: ['p14', 'p15', 'p3'], zero: '', count: '3 properties', withheld: '2 records withheld pending verification (1 no verified acquisition path, 1 source or rules under review)', withheldN: '2', chips: [], para: '2 records withheld pending verification (1 no verified acquisition path, 1 source or rules under review) · admin' },
+    certificate: { cards: ['p4'], zero: '', count: '1 instrument', withheld: '1 record withheld pending verification (1 stale observation or sale date)', withheldN: '1', chips: ['ADMIN_ONLY_STALE'], para: '1 record withheld pending verification (1 stale observation or sale date) · admin' },
+    searchHits: 1, map: { head: 'Where these are 3 shown across 3 counties', pins: 3 }, tile: { val: '3', sub: 'properties across 3 counties · 2 withheld pending verification' }, csvRows: 3 },
+  gateOff: { withheld: [null, null, null], chips: [], cards: ['p15', 'p3'], para: null },
+  gatePageAdminWithheld: { open: true, hash: '#/lands/p3', gate: 'ADMIN_ONLY_NO_PATH', reached: 'Source and rules verified', reasons: ['PATH_NOT_FOUND'], path: 'Acquisition path evidence: county-level · not found · No official acquisition page has been found for this county.', remediation: 'To publish: Add candidate pages (data/acquisition_candidate_pages.csv) and capture them.', banner: 'ADMIN_ONLY_NO_PATH', visibleNo: true, allPassed: false },
+  gatePageCustomerPublished: { open: true, hash: '#/lands/p15', gate: 'CUSTOMER_PUBLISHED', reached: null, reasons: [], path: null, remediation: null, banner: null, visibleNo: false, allPassed: true },
+  gatePageCustomerWithheldDeepLink: { open: false, hash: '#/lands', gate: null, reached: null, reasons: [], path: null, remediation: null, banner: null, visibleNo: false, allPassed: false },
+  gatePageOff: { open: true, hash: '#/lands/p15', gate: '', reached: null, reasons: [], path: null, remediation: null, banner: null, visibleNo: false, allPassed: false },
   rulesCoverage: { AUCTIONS: { cov: ['Oconee collected, awaiting review', 'York published'], here: 'Georgetown County: not covered by a tracked source or verified procedure.', covered: '0' },
     AVAILABLE: { cov: ['Georgetown collected, awaiting review', 'Horry collected, awaiting review'], here: 'Georgetown County: covered - collected, awaiting review.', covered: '1' },
     LIENS_CERTIFICATES: { cov: [], here: 'Georgetown County: not covered by a tracked source or verified procedure.', covered: '0' } },
@@ -6839,7 +6928,7 @@ const EXPECTED = {
   acqPathHorryDetail: {"modes": ["bid"], "saysOnline": false, "saysPropertyLink": false, "saysBid": true, "pdfLinks": ["Bid form →", "Download bid form", "Bid form →", "County process page →", "Application form to download (published by the source) →", "Application / purchase instructions →", "Download the form - complete and submit it offline →"], "pathEvidence": true},
   // Collection vs customer publication (2026-10-02).
   devVisAdminMiLands: {"cards": 6, "reviewChips": ["Source review: Unreviewed · not customer-published", "Source review: Unreviewed · not customer-published", "Source review: Unreviewed · not customer-published", "Source review: Unreviewed · not customer-published", "Source review: Unreviewed · not customer-published", "Source review: Unreviewed · not customer-published"], "programs": ["Marketed Structure For Sale", "Marketed Structure For Sale", "Marketed Structure For Sale", "Marketed Structure For Sale", "Own It Now", "Side Lot For Sale"], "pending": "6 records from sources awaiting customer-publication review are shown to you as an admin, each labelled \"Source review\". Customers in published mode do not see them.", "withheld": null},
-  devVisAdminDetail: {"banner": "Source review: Unreviewed. This record comes from a source awaiting customer-publication review - shown to you as an admin. It is not customer-published. Its availability below is the source's own statement and is a separate fact.", "reviewRow": "Source publication review: Unreviewed Customer-visible: No (shown to you as an admin) Source program / status: Side Lot For Sale Detroit customer subset: Not included in current Detroit customer subset - no structure in the source's own status (vacant lot or program record) · structure evidence: none in the source's status", "identifier": true, "program": true, "lastRead": true, "neverApproved": true},
+  devVisAdminDetail: {"banner": "Source review: Unreviewed. This record comes from a source awaiting customer-publication review - shown to you as an admin. It is not customer-published. Its availability below is the source's own statement and is a separate fact.", "reviewRow": "Source publication review: Unreviewed Customer-visible: No (shown to you as an admin) Customer-publication gate: Not enforced on this deployment (migration 031 not applied) Source program / status: Side Lot For Sale Detroit customer subset: Not included in current Detroit customer subset - no structure in the source's own status (vacant lot or program record) · structure evidence: none in the source's status", "identifier": true, "program": true, "lastRead": true, "neverApproved": true},
   devVisAdminDash: null,   // remediation 2026-10-10: the operator panel lives in admin.html (adminInventory* below)
   devVisCustomerDashPanel: false,
   devVisCustomerMiLands: { cards: 0, reviewChips: [], programs: [], pending: null, withheld: '2 records withheld - source not approved for customer publication (restricted or not yet reviewed). Counted, not shown.' },
@@ -6854,7 +6943,7 @@ const EXPECTED = {
   },
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v125"]},
+  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v126"]},
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · TAXACQ — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · TAXACQ — Florida", floridaCopy: true },

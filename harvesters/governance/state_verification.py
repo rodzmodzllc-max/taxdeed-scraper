@@ -104,7 +104,7 @@ def county_coverage(st: str, ledger: str, sources: dict[str, dict[str, dict]] | 
 
 
 ZERO_CASES = ("NOT_OFFERED", "NO_CURRENT_INVENTORY", "COUNTY_DEPENDENT", "NOT_VERIFIED", "NOT_IMPLEMENTED",
-              "SOURCE_RESTRICTED", "SOURCE_FAILURE")
+              "SOURCE_RESTRICTED", "SOURCE_FAILURE", "WITHHELD")
 
 
 def app_ledger_copy(path: Path = APP_JS) -> dict:
