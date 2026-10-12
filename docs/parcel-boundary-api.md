@@ -64,3 +64,23 @@ is not part of this contract.
 - Any Colorado, FDOR, Santa Rosa, Louisiana, Wisconsin, Jim Wells or St. Louis
   polygon. Those stay disabled for boundary use until their permissions are
   established (see docs/parcel-boundaries-audit.md).
+
+## Authorization (as implemented; policy question open)
+
+Current behaviour, unchanged by this fix:
+
+- **Customer / approved account.** Reads a boundary only when all of these hold:
+  the account is approved (`is_approved()`); the property is visible to it under
+  `properties` RLS, which after migration 031 means `CUSTOMER_PUBLISHED`; and the
+  source has `parcel_boundary_source_grants.display_approved = true`.
+- **Admin.** The `properties` policy also admits `is_admin()` accounts to
+  `publication_state` values other than `CUSTOMER_PUBLISHED`. An admin therefore
+  receives the geometry of a withheld property, but only when its source is also
+  granted. The source grant applies to admins too.
+- **Anon.** No table or function access.
+
+Open question for the owner (not decided in code): should an admin see the
+geometry of a property the publication gate withholds from customers? The
+present policy allows it because admins need to review withheld records. If
+the answer is no, the change belongs in the `parcel_boundaries` policy, not in
+the client.
