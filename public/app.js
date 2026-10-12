@@ -2114,6 +2114,7 @@ function drawBoundary(host, boundary) {
   host.insertAdjacentHTML("beforeend",
     `<svg class="parcel-boundary" viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false"><path class="pb-halo" d="${d}"/><path class="pb-fill" fill-rule="evenodd" d="${d}"/><path class="pb-line" d="${d}"/></svg>` +
     `<span class="pb-attrib" title="${esc(boundary.attribution)}">${esc(boundary.attribution)}</span>`);
+  host.classList.add("has-boundary");
   host.setAttribute("aria-label", "Aerial image with the parcel outline of this property");
 }
 document.addEventListener("click", e => {
