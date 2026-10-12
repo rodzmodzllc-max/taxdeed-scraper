@@ -1,0 +1,11 @@
+source_id,state,enrichment_status,boundary_policy,geometry_verified,licence_evidence,reason
+co_oit_public_parcels,CO,APPROVED_FOR_ATTRIBUTES,DISABLED,yes,"Colorado OIT item: modified from original source, no warranty, resale of the data forbidden; display approved 2026-09-30 for attributes",Resale forbidden: a stored boundary is a copy. Owner decision required before any Colorado polygon is stored.
+ut_ugrc_lir_saltlake,UT,APPROVED_FOR_ATTRIBUTES,ELIGIBLE_NOT_ENABLED,yes,"UGRC licence page read live: CC BY 4.0 - credit UGRC, link the licence, note changes",Potentially eligible path only. Utah is not activated and no attribution template has been approved.
+wi_sco_v12_parcels,WI,UNREVIEWED,DISABLED,yes,"Item states free for public consumption as of 06/30/2026; no explicit reuse grant read",Terms not reviewed for storage or display.
+la_ebr_tax_parcels,LA,APPROVED_FOR_ATTRIBUTES,DISABLED,no,"Public Domain (metadata read live)",Geometry field of ei2c-krsr not verified live; no polygon published has been confirmed.
+la_ebr_tax_roll,LA,APPROVED_FOR_ATTRIBUTES,DISABLED,no,"Public Domain (metadata read live)",Tabular dataset: no geometry is published.
+tx_jim_wells_cad_parcels,TX,UNREVIEWED,DISABLED,yes,"No licence stated on the layer; no terms found",No licence or terms: never display or store.
+mo_stl_parcels_coordinates,MO,UNREVIEWED,DISABLED,no,"City open data; terms not reviewed for this product",Terms and columns unverified.
+fl_fdor_cadastral,FL,APPROVED_FOR_COORDINATES_ONLY,DISABLED,yes,"Approved for a parcel centroid point only",Polygon storage and display terms not read.
+fl_santa_rosa_parcels,FL,APPROVED_FOR_COORDINATES_ONLY,DISABLED,yes,"Approved for a parcel centroid point only",County terms for polygon storage and display not read.
+tx_stratmap,TX,NOT_CONFIGURED,DISABLED,no,"Not reachable from the runners; land-parcel licence unsettled",Not configured; licence unsettled.
