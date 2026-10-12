@@ -39,3 +39,41 @@ grant select on public.parcel_boundaries to authenticated;
 
 -- DOWN (manual, reversible):
 --   drop table if exists public.parcel_boundaries;
+
+-- Read contract for the front end (docs/parcel-boundary-api.md). Invoker
+-- rights: the caller's RLS on parcel_boundaries AND properties applies, so a
+-- customer only ever receives a boundary for a property they may see. Zero
+-- rows is the only answer for "no boundary", including every row whose
+-- source is not APPROVED for display or whose attribution is missing.
+create or replace function public.get_property_boundary(p_property_id bigint)
+returns table (
+  property_id bigint,
+  boundary jsonb,
+  display_permitted boolean,
+  attribution text,
+  source_id text,
+  match_method text,
+  source_observed_at timestamptz
+)
+language sql
+stable
+security invoker
+set search_path = public
+as $$
+  select b.property_id,
+         ST_AsGeoJSON(ST_Multi(b.geom), 9)::jsonb,
+         true,
+         b.attribution,
+         b.source_id,
+         b.match_method,
+         b.source_observed_at
+  from public.parcel_boundaries b
+  where b.property_id = p_property_id
+    and b.boundary_policy = 'APPROVED'
+    and coalesce(b.attribution, '') <> ''
+    and ST_SRID(b.geom) = 4326
+    and exists (select 1 from public.properties p where p.id = b.property_id);
+$$;
+
+revoke all on function public.get_property_boundary(bigint) from public, anon;
+grant execute on function public.get_property_boundary(bigint) to authenticated;

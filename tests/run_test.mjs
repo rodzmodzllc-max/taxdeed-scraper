@@ -6803,6 +6803,103 @@ await big.press('#globalSearchInput', 'Enter');
   await adm.close();
 }
 
+// ---- Parcel boundary over the live aerial (2026-10-12) --------------------
+// Deterministic fixture geometry from tests/vendor/supabase-stub.js only, behind
+// ?boundary=<mode>. Live imagery is switched on for these pages (the fixture
+// config switches it off) and USGS answers with a 1x1 PNG, never the real host.
+{
+  const BPNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
+  const boundaryPage = async (query, hash, vp) => {
+    const pg = await newPage({ viewport: vp || { width: 1280, height: 900 } });
+    pg.on('pageerror', e => errors.push('boundary pageerror: ' + e.message));
+    const usgs = [];
+    await pg.route('**/config.js', async route => {
+      const r = await route.fetch(); const body = (await r.text()).replace('naipLiveImagery: false', 'naipLiveImagery: true');
+      await route.fulfill({ response: r, body });
+    });
+    await pg.route('https://imagery.nationalmap.gov/**', route => { usgs.push(route.request().url()); return route.fulfill({ status: 200, contentType: 'image/png', body: BPNG }); });
+    await pg.goto(BASE_URL + (query ? '?' + query : '') + hash, { waitUntil: 'networkidle' });
+    await pg.waitForTimeout(400);
+    return { pg, usgs };
+  };
+  const hostState = pg => pg.evaluate(() => {
+    const h = document.querySelector('.detail-hero-photo.naip-live') || document.querySelector('#detailModalInner .naip-live, #detailPanel .naip-live');
+    if (!h) return { host: false };
+    const img = h.querySelector('img.naip-live-img');
+    const src = img ? (img.getAttribute('src') || img.dataset.naipSrc || '') : '';
+    const bb = (src.match(/bbox=([^&]+)/) || [])[1];
+    const c = bb ? bb.split(',').map(Number) : null;
+    const path = h.querySelector('.parcel-boundary .pb-line');
+    return { host: true, pid: h.dataset.boundaryPid || null,
+      outline: !!path, rings: path ? (path.getAttribute('d').match(/Z/g) || []).length : 0,
+      attrib: (h.querySelector('.pb-attrib') || {}).textContent || null,
+      state: (h.querySelector('.pb-state') || {}).textContent || null,
+      bboxCenter: c ? [Number(((c[0] + c[2]) / 2).toFixed(3)), Number(((c[1] + c[3]) / 2).toFixed(3))] : null,
+      fitted: !!c && Math.abs((c[2] - c[0]) - 0.0012) > 1e-6,
+      label: h.getAttribute('aria-label') || null };
+  });
+  // Verified boundary: outline drawn, attribution shown, aerial re-centred on the parcel.
+  let r = await boundaryPage('boundary=ok', '#/auctions/p5');
+  results.boundaryOk = await hostState(r.pg);
+  results.boundaryOkCalls = await r.pg.evaluate(() => window.__stubBoundaryCalls || []);
+  results.boundaryOkUsgsFitted = r.usgs.some(u => /bbox=/.test(u) && !/bbox=-82\.045.*,26\.935/.test(u));
+  await r.pg.close();
+  // No boundary: aerial unchanged, no outline, no message.
+  r = await boundaryPage('boundary=none', '#/auctions/p5');
+  results.boundaryNone = await hostState(r.pg);
+  await r.pg.close();
+  // Not deployed (no knob): PGRST202 is quiet, the aerial stays.
+  r = await boundaryPage('', '#/auctions/p5');
+  results.boundaryNotDeployed = await hostState(r.pg);
+  await r.pg.close();
+  // Unauthorized (server says not display-permitted): withheld, fails closed.
+  r = await boundaryPage('boundary=unauth', '#/auctions/p5');
+  results.boundaryUnauthorized = await hostState(r.pg);
+  await r.pg.close();
+  // Invalid geometry (open ring): refused, nothing drawn, aerial unchanged.
+  r = await boundaryPage('boundary=invalid', '#/auctions/p5');
+  results.boundaryInvalid = await hostState(r.pg);
+  await r.pg.close();
+  // MultiPolygon with a hole and a second component: three rings, all drawn.
+  r = await boundaryPage('boundary=multi', '#/auctions/p5');
+  results.boundaryMulti = await hostState(r.pg);
+  await r.pg.close();
+  // API error: map preserved, Retry shown, Retry asks again.
+  r = await boundaryPage('boundary=error', '#/auctions/p5');
+  results.boundaryError = await hostState(r.pg);
+  await r.pg.evaluate(() => document.querySelector('.pb-retry') && document.querySelector('.pb-retry').click());
+  await r.pg.waitForTimeout(400);
+  results.boundaryErrorRetried = await r.pg.evaluate(() => (window.__stubBoundaryCalls || []).length);
+  results.boundaryErrorStillShown = await hostState(r.pg).then(s => s.state);
+  await r.pg.close();
+  // Pending: the aerial is shown at once; the outline arrives later and draws.
+  r = await boundaryPage('boundary=ok&boundarydelay=900', '#/auctions/p5');
+  results.boundaryPendingBefore = await hostState(r.pg).then(s => ({ host: s.host, outline: s.outline }));
+  await r.pg.waitForTimeout(1400);
+  results.boundaryPendingAfter = await hostState(r.pg).then(s => ({ outline: s.outline }));
+  await r.pg.close();
+  // Stale: p5's slow answer arrives after the user has moved on to p12. The
+  // p12 host must show p12's own geometry, never p5's.
+  r = await boundaryPage('boundary=ok&boundarydelay=1000', '#/auctions/p5');
+  await r.pg.evaluate(() => { location.hash = '#/auctions/p12'; });
+  await r.pg.waitForTimeout(1600);
+  results.boundaryStaleSwitch = await hostState(r.pg).then(s => ({ pid: s.pid, center: s.bboxCenter && s.bboxCenter[0] > -80.8 && s.bboxCenter[0] < -80.4 }));
+  await r.pg.close();
+  // Layout: outline and attribution stay inside the aerial box at tablet and phone widths.
+  for (const [tag, vp] of [['tablet', { width: 768, height: 1000 }], ['phone', { width: 390, height: 844 }]]) {
+    r = await boundaryPage('boundary=ok', '#/auctions/p5', vp);
+    results['boundaryLayout_' + tag] = await r.pg.evaluate(() => {
+      const h = document.querySelector('.detail-hero-photo.naip-live'); if (!h) return null;
+      const hb = h.getBoundingClientRect(), a = h.querySelector('.pb-attrib'), sv = h.querySelector('.parcel-boundary');
+      const ab = a ? a.getBoundingClientRect() : null, sb = sv ? sv.getBoundingClientRect() : null;
+      return { overlayFills: !!sb && Math.abs(sb.width - hb.width) < 1 && Math.abs(sb.height - hb.height) < 1,
+        attribInside: !!ab && ab.left >= hb.left - 1 && ab.right <= hb.right + 1 && ab.top >= hb.top - 1 && ab.bottom <= hb.bottom + 1,
+        noPageOverflow: document.documentElement.scrollWidth <= window.innerWidth };
+    });
+    await r.pg.close();
+  }
+}
+
 await browser.close();
 
 // ============================================================

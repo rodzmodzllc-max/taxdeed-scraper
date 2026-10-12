@@ -1063,6 +1063,36 @@ export function createClient() {
     // found" shape (PGRST202) so app.js's own missingFn fallback-detection
     // logic can be exercised too if a future test needs it.
     async rpc(fnName, args) {
+      // Parcel boundary (2026-10-12). Deterministic fixture geometry only,
+      // built around the row's own point and labelled as a fixture. Modes via
+      // ?boundary=: absent = not deployed (PGRST202); ok = one polygon;
+      // multi = two components and a hole; none = zero rows; unauth = a row
+      // the server marks not display-permitted; invalid = an open ring;
+      // error = a read failure. ?boundarydelay=ms delays the answer.
+      if (fnName === "get_property_boundary") {
+        const qs = new URLSearchParams(location.search);
+        const mode = qs.get("boundary");
+        if (!mode) return { data: null, error: { message: "Could not find the function public.get_property_boundary(p_property_id) in the schema cache", code: "PGRST202" } };
+        window.__stubBoundaryCalls = (window.__stubBoundaryCalls || []).concat([String(args && args.p_property_id)]);
+        const delay = Number(qs.get("boundarydelay") || 0);
+        if (delay) await new Promise(res => setTimeout(res, delay));
+        if (mode === "error") return { data: null, error: { message: "stub: boundary read failed", code: "XX000" } };
+        const row = FIXTURE_PROPERTIES.find(r => r.id === String(args && args.p_property_id));
+        if (mode === "none" || !row || typeof row.latitude !== "number") return { data: [], error: null };
+        const cx = row.longitude, cy = row.latitude, h = 0.0004;
+        const sq = (x0, y0, x1, y1) => [[x0, y0], [x1, y0], [x1, y1], [x0, y1], [x0, y0]];
+        let coordinates = [[sq(cx - h, cy - h, cx + h, cy + h)]];
+        if (mode === "multi") {
+          // Second component off to one side, with a hole in the first.
+          coordinates = [
+            [sq(cx - h, cy - h, cx + h, cy + h), sq(cx - h / 3, cy - h / 3, cx + h / 3, cy + h / 3)],
+            [sq(cx + h * 1.4, cy - h / 2, cx + h * 2.2, cy + h / 2)]
+          ];
+        }
+        if (mode === "invalid") coordinates = [[[[cx - h, cy - h], [cx + h, cy - h], [cx + h, cy + h], [cx - h, cy + h]]]];
+        const boundary = { type: "MultiPolygon", coordinates };
+        return { data: [{ property_id: row.id, boundary, display_permitted: mode !== "unauth", attribution: "FIXTURE geometry (test only, not parcel data)", source_id: "fixture", match_method: "EXACT_PARCEL_ID", source_observed_at: "2026-10-01T00:00:00Z" }], error: null };
+      }
       // SaaS hardening: self-service account deletion (migration 015).
       // ?rpcmissing=1 mimics a deployment where 015 has not been applied.
       if (fnName === "delete_my_account") {

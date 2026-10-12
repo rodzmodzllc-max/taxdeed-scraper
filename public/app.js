@@ -1,4 +1,5 @@
 import { loadCreateClient } from "./supabase-loader.js";
+import { fetchPropertyBoundary, fitBox, boundaryPath } from "./parcel-boundary.js";
 // esm.sh first, this site's own copy if that fails or hangs (supabase-loader.js).
 const createClient = await loadCreateClient();
 
@@ -1874,7 +1875,8 @@ function naipLiveHtml(p, cls) {
   const approx = basis === "approximate";
   const caption = big ? "Aerial imagery · USDA NAIP (public domain) · " + IMAGERY_MATCH_LABELS[match].replace(/^Centered on /, "centered on ") + (approx ? " · approximate point" : "")
     : "Aerial · USDA NAIP" + (approx ? " · approx. point" : "");
-  return `<div class="${cls} has-photo naip-live" data-imagery="naip_live" data-match="${esc(match)}" data-basis="${esc(basis)}" data-lat="${Number(p.latitude)}" data-lng="${Number(p.longitude)}" data-county="${esc(p.county)}"><img class="naip-live-img" data-naip-src="${esc(naipExportUrl(p.latitude, p.longitude, sz))}" alt="USDA NAIP aerial image centered on this record's coordinates" loading="lazy" decoding="async" width="${sz[0]}" height="${sz[1]}"><span class="photo-caption" title="${esc(IMAGERY_BASIS_LABELS[basis] + ". Imagery may be years old. " + IMAGERY_CONTEXT_NOTE)}">${esc(caption)}</span></div>`;
+  const bpid = (big || cls === "pv-visual") && p.id !== undefined && p.id !== null ? ` data-boundary-pid="${esc(String(p.id))}"` : "";
+  return `<div class="${cls} has-photo naip-live" data-imagery="naip_live" data-match="${esc(match)}" data-basis="${esc(basis)}" data-lat="${Number(p.latitude)}" data-lng="${Number(p.longitude)}" data-county="${esc(p.county)}"${bpid}><img class="naip-live-img" data-naip-src="${esc(naipExportUrl(p.latitude, p.longitude, sz))}" alt="USDA NAIP aerial image centered on this record's coordinates" loading="lazy" decoding="async" width="${sz[0]}" height="${sz[1]}"><span class="photo-caption" title="${esc(IMAGERY_BASIS_LABELS[basis] + ". Imagery may be years old. " + IMAGERY_CONTEXT_NOTE)}">${esc(caption)}</span></div>`;
 }
 function propertyVisual(p, cls) {
   if (hasPhoto(p)) return photoOrPlaceholder(p, cls);
@@ -2050,9 +2052,83 @@ function hydrateNaip(scope) {
   hosts.forEach(h => { h.dataset.nv = "1"; NAIP_PENDING.add(h); if (naipObserver) naipObserver.observe(h); });
   naipQueueCheck();
 }
+// Parcel boundary over the live aerial (2026-10-12). Only the selected
+// property's detail and preview aerials ask for one: cards never do, so a
+// list of hundreds costs no requests. The read contract is
+// docs/parcel-boundary-api.md; validation and projection live in
+// parcel-boundary.js. Without a boundary the aerial stays exactly as it was.
+var BOUNDARY_CACHE = new Map();   // property id -> settled result (errors are not kept)
+function boundaryFor(pid, row) {
+  const key = String(pid);
+  if (!BOUNDARY_CACHE.has(key)) {
+    const pending = fetchPropertyBoundary(sb, pid, row).then(res => {
+      if (res.status === "error") BOUNDARY_CACHE.delete(key);
+      return res;
+    });
+    BOUNDARY_CACHE.set(key, pending);
+  }
+  return BOUNDARY_CACHE.get(key);
+}
+function naipExportUrlBox(box, w, h) {
+  return `${NAIP_EXPORT_ENDPOINT}?bbox=${box.map(v => v.toFixed(6)).join(",")}&bboxSR=4326&size=${w},${h}&format=jpg&f=image`;
+}
+function hydrateBoundaries(scope) {
+  if (!scope || !scope.querySelectorAll) return;
+  scope.querySelectorAll(".naip-live[data-boundary-pid]:not([data-bnd])").forEach(host => {
+    host.dataset.bnd = "1";
+    applyBoundary(host);
+  });
+}
+// A result applies only to the host it was asked for: the host must still be
+// connected, carry the same property id, and not have been superseded by a
+// newer request for the same host.
+async function applyBoundary(host) {
+  const pid = host.dataset.boundaryPid;
+  const gen = (host.__bgen = (host.__bgen || 0) + 1);
+  const res = await boundaryFor(pid, { latitude: host.dataset.lat, longitude: host.dataset.lng });
+  if (!host.isConnected || host.dataset.boundaryPid !== pid || host.__bgen !== gen) return;
+  if (res.status === "available") { drawBoundary(host, res.boundary); return; }
+  if (res.status === "error") {
+    console.warn("parcel boundary unavailable:", res.code);
+    showBoundaryState(host, pid);
+  }
+  // none / not_deployed / invalid: the aerial stays unchanged, no outline, no message.
+  if (res.status === "invalid") console.warn("parcel boundary refused:", res.reason);
+}
+function showBoundaryState(host, pid) {
+  if (host.querySelector(".pb-state")) return;
+  host.insertAdjacentHTML("beforeend", `<span class="pb-state" role="status">Boundary unavailable <button type="button" class="pb-retry" data-pb-retry="${esc(pid)}">Retry</button></span>`);
+}
+function drawBoundary(host, boundary) {
+  const img = host.querySelector("img.naip-live-img");
+  if (!img) return;
+  const w = Number(img.getAttribute("width")), h = Number(img.getAttribute("height"));
+  if (!(w > 0 && h > 0)) return;
+  // Round once, then project against exactly the box the server will render.
+  const box = fitBox(boundary.bbox, w / h).map(v => Math.round(v * 1e6) / 1e6);
+  const url = naipExportUrlBox(box, w, h);
+  img.dataset.naipSrc = url;
+  if (img.getAttribute("src")) img.src = url;
+  const d = boundaryPath(boundary.polygons, box, w, h);
+  host.querySelectorAll(".parcel-boundary, .pb-attrib, .pb-state").forEach(n => n.remove());
+  host.insertAdjacentHTML("beforeend",
+    `<svg class="parcel-boundary" viewBox="0 0 ${w} ${h}" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false"><path class="pb-halo" d="${d}"/><path class="pb-fill" fill-rule="evenodd" d="${d}"/><path class="pb-line" d="${d}"/></svg>` +
+    `<span class="pb-attrib" title="${esc(boundary.attribution)}">${esc(boundary.attribution)}</span>`);
+  host.setAttribute("aria-label", "Aerial image with the parcel outline of this property");
+}
+document.addEventListener("click", e => {
+  const b = e.target && e.target.closest ? e.target.closest("[data-pb-retry]") : null;
+  if (!b) return;
+  const host = b.closest(".naip-live");
+  if (!host) return;
+  BOUNDARY_CACHE.delete(host.dataset.boundaryPid);
+  b.closest(".pb-state")?.remove();
+  applyBoundary(host);
+});
 function hydrateVisuals(root) {
   const scope = root || document;
   hydrateNaip(scope);
+  hydrateBoundaries(scope);
   const hosts = scope.querySelectorAll ? scope.querySelectorAll(".minimap:not([data-mm])") : [];
   if (!hosts.length) return;
   if (!minimapObserver && typeof IntersectionObserver === "function") {

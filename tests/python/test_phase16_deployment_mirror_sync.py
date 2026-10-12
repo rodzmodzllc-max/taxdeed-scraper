@@ -42,6 +42,8 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 # set ever changes - and the guard step below will fail the build if you
 # forget"). This test is that same guard, run locally instead of in CI.
 DEPLOYED_BUNDLE_FILES = (
+    # 2026-10-12 parcel boundary client (app.js imports it).
+    "parcel-boundary.js",
     # 2026-10-05 paid beta: the paid-beta source scope and the legal pages.
     "commercial-scope.json",
     "legal.css",
