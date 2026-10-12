@@ -1,21 +1,26 @@
 # Parcel boundary read contract
 
-Status: front end implemented against this contract. The RPC is written in
-`scripts/migrations/032_parcel_boundaries.sql` and is NOT applied. Until it is,
+Status: front end implemented against this contract. The RPC and table are
+written in `scripts/migrations/032_parcel_boundaries.sql` and are NOT applied.
+The migration was live-tested against PostgreSQL 16 with PostGIS 3.3 in a
+scratch database (tests/python/test_migration_032_parcel_boundaries.py). Until it is,
 PostgREST answers `PGRST202` and the app shows the aerial image with no outline.
 
 ## Call
 
 `sb.rpc("get_property_boundary", { p_property_id: <properties.id> })`
 
-Security invoker. Caller RLS applies to `parcel_boundaries` and to
-`properties`, so the result is withheld whenever the caller cannot see the
-property.
+Security invoker. Caller RLS applies to `parcel_boundaries`,
+`parcel_boundary_source_grants` and `properties`, so the result is withheld
+whenever the caller cannot see the property or the source has no grant.
 
 ## Response
 
 Zero rows: no boundary. This is the only answer for missing geometry, a
-source not APPROVED for display, or missing attribution.
+source with no database grant (`parcel_boundary_source_grants.display_approved`
+not true), a source not APPROVED, missing or blank attribution, or a property
+the caller cannot see. The table policy applies the same four conditions, so a
+direct table read cannot return what the RPC withholds.
 
 One row:
 
