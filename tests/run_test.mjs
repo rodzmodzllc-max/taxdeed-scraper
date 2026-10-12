@@ -6875,14 +6875,19 @@ await big.press('#globalSearchInput', 'Enter');
   await r.pg.close();
   // Pending: the aerial is shown at once; the outline arrives later and draws.
   r = await boundaryPage('boundary=ok&boundarydelay=900', '#/auctions/p5', null, true);
+  // Wait for the aerial host to exist (the deep-linked detail opens after the
+  // list loads), then read it: the 900 ms answer has not arrived yet.
+  await r.pg.waitForSelector('.detail-hero-photo.naip-live', { timeout: 4000 }).catch(() => {});
   results.boundaryPendingBefore = await hostState(r.pg).then(s => ({ host: s.host, outline: s.outline }));
   await r.pg.waitForTimeout(1400);
   results.boundaryPendingAfter = await hostState(r.pg).then(s => ({ outline: s.outline }));
   await r.pg.close();
   // Stale: p5's slow answer arrives after the user has moved on to p12. The
   // p12 host must show p12's own geometry, never p5's.
+  // The host is removed before the slow answer arrives (as a closed or
+  // re-rendered detail would): the late answer must draw nothing.
   r = await boundaryPage('boundary=ok&boundarydelay=1000', '#/auctions/p5', null, true);
-  await r.pg.keyboard.press('Escape');
+  await r.pg.evaluate(() => document.querySelectorAll('.naip-live').forEach(h => h.remove()));
   await r.pg.waitForTimeout(1600);
   results.boundaryStaleSwitch = await r.pg.evaluate(() => document.querySelectorAll('.parcel-boundary').length === 0);
   await r.pg.close();
@@ -7057,7 +7062,7 @@ const EXPECTED = {
   },
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v126"]},
+  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v127"]},
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · TAXACQ — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · TAXACQ — Florida", floridaCopy: true },
