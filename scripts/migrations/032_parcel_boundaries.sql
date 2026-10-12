@@ -18,7 +18,9 @@ create table if not exists public.parcel_boundaries (
   source_observed_at timestamptz not null,
   checked_at        timestamptz not null default now(),
   content_sha256    text not null check (content_sha256 ~ '^[0-9a-f]{64}$'),
-  attribution       text,
+  -- Required and non-blank: a row without attribution can never be read,
+  -- by the RPC or directly from the table.
+  attribution       text not null check (btrim(attribution) <> ''),
   constraint parcel_boundaries_geom_valid check (ST_IsValid(geom)),
   constraint parcel_boundaries_geom_srid check (ST_SRID(geom) = 4326)
 );
@@ -27,12 +29,18 @@ create index if not exists parcel_boundaries_geom_gix on public.parcel_boundarie
 
 alter table public.parcel_boundaries enable row level security;
 
--- Customers and admins read only boundaries of an approved account. Writes are
--- service_role only (the harvester), so there is no client write policy.
+-- Readable only by an approved account AND only for a property that account
+-- may see: the exists() runs as the caller, so properties RLS (including the
+-- publication gate from migration 031) applies. A direct table read therefore
+-- cannot reach a boundary the RPC would withhold. Writes are service_role only
+-- (the harvester); there is no client write policy.
 drop policy if exists parcel_boundaries_approved_read on public.parcel_boundaries;
 create policy parcel_boundaries_approved_read on public.parcel_boundaries
   as permissive for select to authenticated
-  using ((select public.is_approved()));
+  using (
+    (select public.is_approved())
+    and exists (select 1 from public.properties p where p.id = parcel_boundaries.property_id)
+  );
 
 revoke all on public.parcel_boundaries from anon, authenticated;
 grant select on public.parcel_boundaries to authenticated;
