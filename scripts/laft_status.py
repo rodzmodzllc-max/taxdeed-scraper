@@ -94,7 +94,19 @@ CLOSEOUT_ELIGIBLE = frozenset({"COMPLETE", "EMPTY"})
 
 SOURCE_CLASSES = ("GOVERNMENT_DIRECT", "GOVERNMENT_PLATFORM", "VENDOR_COUNSEL", "VENDOR_AUCTION")
 
-EMPTY_SIGNALS = ("empty_marker", "empty_table", "reported_count_zero", "empty_list")
+EMPTY_SIGNALS = (
+    "empty_marker", "empty_table", "reported_count_zero", "empty_list",
+    # Signals the expansion runner (scripts/harvest_expansion.py) emits for
+    # its shared-adapter sources. Since the per-source status (2026-10-10)
+    # every source of a county reaches the recorder on its own, so a county
+    # with one COMPLETE source and one EMPTY source records both - the EMPTY
+    # one must carry a signal this list knows (Douglas CO, 2026-10-11: the
+    # tax-sale list for a past tax year beside a COMPLETE liens list).
+    "past_cycle",               # ArcGIS cycle guard: the list is for a past tax year
+    "no_list_past_redemption",  # SC FLC: no list year is past the redemption period
+    "no_offered_status",        # status-filtered list: no row carries an offered status
+    "empty_layer",              # the layer / table answered with zero features
+)
 
 ERROR_CATEGORIES = (
     "TRANSPORT_HTTP_403_BLOCKED",  # WAF / IP block signature (direct request)
