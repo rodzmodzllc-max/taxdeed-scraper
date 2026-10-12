@@ -6887,6 +6887,7 @@ await big.press('#globalSearchInput', 'Enter');
   // The host is removed before the slow answer arrives (as a closed or
   // re-rendered detail would): the late answer must draw nothing.
   r = await boundaryPage('boundary=ok&boundarydelay=1000', '#/auctions/p5', null, true);
+  await r.pg.waitForSelector('.detail-hero-photo.naip-live', { timeout: 4000 }).catch(() => {});
   await r.pg.evaluate(() => document.querySelectorAll('.naip-live').forEach(h => h.remove()));
   await r.pg.waitForTimeout(1600);
   results.boundaryStaleSwitch = await r.pg.evaluate(() => document.querySelectorAll('.parcel-boundary').length === 0);
