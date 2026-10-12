@@ -1,4 +1,23 @@
 $ErrorActionPreference = "Continue"
+
+# --- Source permission gate (2026-10-12) ---------------------------------------
+# Runs before any request or write. Fail closed: no Python, no governance
+# package, or a missing / expired / denied record in data/source_permissions.csv
+# stops this script with exit 3. scripts/source_permission_check.py is the CLI of
+# harvesters/governance/permissions.py (the one permission decision).
+$permPython = Get-Command python3 -ErrorAction SilentlyContinue
+if (-not $permPython) { $permPython = Get-Command python -ErrorAction SilentlyContinue }
+if (-not $permPython) {
+    Write-Host "::error title=source_permission::Python not found - permission cannot be checked; stopping before any request"
+    exit 3
+}
+& $permPython.Source (Join-Path $PSScriptRoot "source_permission_check.py") --source fl_realauction --operation fetch --operation parse --state FL --dataset sale_calendar
+if (0 -ne $LASTEXITCODE) {
+    Write-Host "::error title=source_permission::fl_realauction sale-calendar harvest not permitted (see the decision above) - stopping before any request or write"
+    exit 3
+}
+# --- end source permission gate ------------------------------------------------
+
 $ProgressPreference = "SilentlyContinue"
 
 # Harvest every scheduled tax deed auction property across all Realauction

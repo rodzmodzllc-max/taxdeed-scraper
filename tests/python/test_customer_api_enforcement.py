@@ -360,15 +360,12 @@ def test_P_florida_sources_project_unrestricted(fl_source_id):
 
 
 def test_P_florida_pipeline_has_no_reference_to_this_module():
-    import subprocess
-
-    result = subprocess.run(
-        ["grep", "-rl", "governance", "--include=*.ps1", "."],
-        cwd=str(__import__("pathlib").Path(__file__).resolve().parents[2]),
-        capture_output=True,
-        text=True,
-    )
-    assert result.stdout.strip() == ""  # no PowerShell (Florida) script references this package
+    # 2026-10-12: the gap this assertion documented is closed - the Florida
+    # PowerShell pipeline now consults governance through the source-permission
+    # guard. Pinned instead: governance appears ONLY inside that guard, which
+    # runs first (tests/python/ps1_permission_guard.py).
+    from ps1_permission_guard import assert_ps1_governance_only_through_guard
+    assert_ps1_governance_only_through_guard()
 
 
 # ---------------------------------------------------------------------------

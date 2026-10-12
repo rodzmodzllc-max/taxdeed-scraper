@@ -19,6 +19,15 @@ import enrich_available as EA  # noqa: E402
 import enrich_statewide_parcels as ESP  # noqa: E402
 from harvesters.documents import extract as D  # noqa: E402
 from harvesters.enrichment import parcels as P  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def _fixture_layers_hold_permission(monkeypatch):
+    """The invented layers below have no source-permission record; this module
+    tests matching mechanics, so the permission check is stood in for THOSE ids
+    only (real sources keep the real check - test_source_permissions.py)."""
+    from permission_fixtures import allow_fixture_layers
+    allow_fixture_layers(monkeypatch, P, {"t_layer", "t_ok", "t_unrev"})
 from harvesters.enrichment import sources as PS  # noqa: E402
 from harvesters.governance import states as ST  # noqa: E402
 from harvesters.sources import inventory as INV  # noqa: E402

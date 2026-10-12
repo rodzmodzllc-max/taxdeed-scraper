@@ -63,6 +63,7 @@ import re
 from dataclasses import dataclass, field, asdict
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import Callable
 from urllib.parse import urlparse
 
 from . import state_rules as SR
@@ -189,6 +190,14 @@ class Context:
     acquisition_status: dict[tuple[str, str, str], dict] = field(default_factory=dict)
     acquisition_records: dict[tuple[str, str, str], dict] = field(default_factory=dict)
     now: datetime = field(default_factory=lambda: datetime.now(timezone.utc))
+    # (source_id, state, county) -> may this source's records be shown to
+    # customers? The recorded `display` permission (permissions.py), fail closed.
+    display_permitted: Callable[[str, str, str], bool] = field(default_factory=lambda: _display_permitted)
+
+
+def _display_permitted(source_id: str, state: str, county: str) -> bool:
+    from . import permissions as PERM  # noqa: PLC0415
+    return PERM.authorize(source_id, "display", state=state, county=county or None).allowed
 
 
 def build_context(now: datetime | None = None, *, registry=None, ledgers=None, acquisition: dict | None = None,
@@ -342,8 +351,14 @@ def decide(row: dict, ctx: Context) -> Decision:
     st, county = str(row.get("state") or ""), str(row.get("county") or "")
     # 1. source
     publication = ctx.source_publication.get(sid)
-    if sid and publication in pub.PUBLISHABLE_STATUSES:
+    if sid and publication in pub.PUBLISHABLE_STATUSES and ctx.display_permitted(sid, st, county):
         gates["source"] = "PASS"
+    elif sid and publication in pub.PUBLISHABLE_STATUSES:
+        # Publication approved but no recorded `display` permission (or it has
+        # expired): withheld as restricted. SOURCE_RESTRICTED reuses the label
+        # the frontend already pins (app.js PUBLICATION reasons).
+        gates["source"] = "FAIL"
+        reasons.append("SOURCE_RESTRICTED")
     else:
         gates["source"] = "FAIL"
         reasons.append({"UNREVIEWED": "SOURCE_UNREVIEWED", "RESTRICTED": "SOURCE_RESTRICTED", "BLOCKED": "SOURCE_BLOCKED"}.get(publication or "", "SOURCE_UNKNOWN"))

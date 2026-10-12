@@ -254,11 +254,16 @@ def test_detroit_and_oceana_enter_the_sync_path_labelled_with_their_review_statu
     assert "publication=UNREVIEWED" in out
 
 
-def test_customer_publication_rule_is_independent_of_collection():
+def test_customer_publication_rule_is_independent_of_collection(monkeypatch):
     reg = _reg("MI")
     assert not SP.publishable(reg["mi_oceana_landbank"])            # customers: not published
     assert SP.collectable(reg["mi_oceana_landbank"], "laft")         # development: collected
     approved = dataclasses.replace(reg["mi_oceana_landbank"], publication_status="APPROVED")
+    # 2026-10-12: an APPROVED publication decision without a recorded `display`
+    # permission still publishes nothing; collection is unchanged.
+    assert not SP.publishable(approved) and SP.collectable(approved, "laft")
+    from permission_fixtures import install, record
+    install(monkeypatch, record(source_id="mi_oceana_landbank", jurisdiction="MI", operation="display"))
     assert SP.publishable(approved) and SP.collectable(approved, "laft")
 
 

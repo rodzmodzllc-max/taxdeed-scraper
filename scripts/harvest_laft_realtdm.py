@@ -96,6 +96,7 @@ import requests
 from bs4 import BeautifulSoup
 
 from harvest_cache import PARSER_VERSION, load_cache, record_cache_stats, save_cache
+import laft_status as _LS  # noqa: E402 - permission gate
 from laft_status import CategorizedError, StatusRecorder, describe_exception
 
 HERE = Path(__file__).resolve().parent
@@ -463,6 +464,11 @@ def harvest_county(session: requests.Session, county: str, subdomain: str,
 
 
 def main() -> int:
+    # Source permission (2026-10-12): no recorded fetch/parse permission for
+    # fl_laft_realtdm -> 0 requests, exit 3. data/source_permissions.csv.
+    _denied = _LS.permission_gate("fl_laft_realtdm")
+    if _denied:
+        return _denied
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     with open(SOURCES_CSV, newline="", encoding="utf-8") as f:
         sources = list(csv.DictReader(f))

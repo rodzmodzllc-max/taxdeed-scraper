@@ -90,6 +90,7 @@ from bs4 import BeautifulSoup
 from harvest_cache import PARSER_VERSION, conditional_get, load_cache, record_cache_stats, save_cache
 from laft_purchase_paths import apply_rules, capture_links, link_evidence, links_as_dicts, links_from_dicts, load_rules, write_evidence
 from unit_freshness import backoff_decision, load_persisted as load_freshness, lookup as freshness_lookup
+import laft_status as _LS  # noqa: E402 - permission gate
 from laft_status import (CategorizedError, StatusRecorder, amount_kind_for_header, describe_exception,
                          extract_list_as_of, record_identifiers_plausible)
 
@@ -193,6 +194,14 @@ def fetch(session: requests.Session, url: str, *, extra_headers: dict | None = N
     if resp.status_code != 403:
         resp.raise_for_status()
         return resp
+
+    # Routing around a block through a commercial proxy is its own operation
+    # (pre-sale blocker 4). Without a recorded fetch_via_proxy permission the
+    # 403 stands and the county reads FAILED / PERMISSION_DENIED.
+    _proxy = _LS.permission("fl_laft_html", "fetch_via_proxy")
+    if not _proxy.allowed:
+        raise CategorizedError("PERMISSION_DENIED", f"blocked with 403; proxy fallback not permitted "
+                                                    f"[{_proxy.reason_code}] {_proxy.reason}")
 
     if not SCRAPERAPI_KEY:
         raise CategorizedError(
@@ -551,6 +560,11 @@ def _sold_identity(record: dict) -> dict | None:
     return {"county": ident["county"], "case_no": ident.get("case_no"), "parcel": ident.get("parcel"), "source": "laft"}
 
 def main() -> int:
+    # Source permission (2026-10-12): no recorded fetch/parse permission for
+    # fl_laft_html -> 0 requests, exit 3. data/source_permissions.csv.
+    _denied = _LS.permission_gate("fl_laft_html")
+    if _denied:
+        return _denied
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     with open(SOURCES_CSV, newline="", encoding="utf-8") as f:
         sources = list(csv.DictReader(f))

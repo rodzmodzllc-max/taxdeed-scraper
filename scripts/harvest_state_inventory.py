@@ -126,6 +126,12 @@ def main(argv=None) -> int:
         if not decision.allowed:
             print(f"::error title=harvest_{state.lower()}::{decision.reason} - 0 requests made, nothing written")
             return 2
+        from harvesters.governance import permissions as PERM  # noqa: PLC0415
+        permission = PERM.authorize(cfg.source_id, "fetch", state=state)
+        if not permission.allowed:
+            print(f"::error title=harvest_{state.lower()}::{cfg.source_id} fetch denied [{permission.reason_code}] "
+                  f"{permission.reason} - 0 requests made, nothing written")
+            return 3
         fetch = live_fetcher()
         result = mod.harvest(cfg, fetch, retrieved_at=retrieved_at, counties=args.counties) if state == "AR" else mod.harvest(cfg, fetch, retrieved_at=retrieved_at)
         mode = "live"

@@ -201,8 +201,12 @@ def walk_feed() -> tuple[list[dict], dict]:
     import texas_harvester as TH  # noqa: PLC0415
     from governance.gate import check_ingestion_gate  # noqa: PLC0415
     decision = check_ingestion_gate(SOURCE_ID)
-    stats = {"gate_allowed": decision.allowed, "gate_reason": decision.reason, "pages": 0, "raw": 0, "complete": False}
-    if not decision.allowed:
+    from harvesters.governance import permissions as PERM  # noqa: PLC0415
+    permission = PERM.authorize(SOURCE_ID, "fetch", state="TX")
+    stats = {"gate_allowed": decision.allowed and permission.allowed,
+             "gate_reason": decision.reason if not decision.allowed else permission.reason,
+             "permission": permission.reason_code, "pages": 0, "raw": 0, "complete": False}
+    if not decision.allowed or not permission.allowed:
         return [], stats
     url = f"{TH.LGBS_API_URL}?{urllib.parse.urlencode({'area': 'TX', 'limit': str(TH.LGBS_PAGE_SIZE)})}"
     records: list[dict] = []
@@ -277,6 +281,11 @@ def main(argv=None) -> int:
           f"fills {dict(fields)}, provenance columns {dict(prov_cols)}")
     written = errors = 0
     if a.apply:
+        from harvesters.governance import permissions as PERM  # noqa: PLC0415
+        store = PERM.authorize(SOURCE_ID, "store", state="TX")
+        if not store.allowed:
+            print(f"apply refused: {SOURCE_ID} store denied [{store.reason_code}] {store.reason} - nothing written")
+            planned = []
         hdr = {"apikey": key, "Authorization": f"Bearer {key}", "Content-Type": "application/json", "Prefer": "return=minimal"}
         for rid, body in planned:
             try:

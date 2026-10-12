@@ -283,12 +283,19 @@ def test_g02_unreviewed_sources_make_no_request_and_write_no_row():
     assert sent == [] and counts["withheld_not_publishable"] == 2
 
 
-def test_g03_an_admin_review_turns_a_source_on_and_an_invalid_one_does_not():
+def test_g03_an_admin_review_turns_a_source_on_and_an_invalid_one_does_not(monkeypatch):
     review = {("WI", "wi_dane_tax_deed_auction"): {"id": 1, "state": "WI", "source_id": "wi_dane_tax_deed_auction",
                                                     "publication_status": "APPROVED", "restrictions": "owner decision (test)",
                                                     "decided_at": "2026-10-01T00:00:00Z"}}
     reg, report = SP.registry_with_reviews("WI", reviews=review)
-    assert SP.publishable(reg["wi_dane_tax_deed_auction"]) and "WI/wi_dane_tax_deed_auction" in report["reviews"]["applied"]
+    assert "WI/wi_dane_tax_deed_auction" in report["reviews"]["applied"]
+    # 2026-10-12: a publication review alone no longer publishes - the source
+    # also needs a recorded `display` permission (data/source_permissions.csv),
+    # which Dane does not have. With one recorded, the review turns it on.
+    assert not SP.publishable(reg["wi_dane_tax_deed_auction"])
+    from permission_fixtures import install, record
+    install(monkeypatch, record(source_id="wi_dane_tax_deed_auction", jurisdiction="WI", operation="display"))
+    assert SP.publishable(reg["wi_dane_tax_deed_auction"])
     # A review that tries to publish a blocked vendor is refused by the same validator publication_gate uses.
     bad = {("TX", "tx_govease"): {"id": 2, "state": "TX", "source_id": "tx_govease", "publication_status": "APPROVED",
                                   "restrictions": "", "decided_at": "2026-10-01T00:00:00Z"}}

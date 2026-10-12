@@ -130,15 +130,17 @@ def runnable_sources(state: str, reg: dict) -> tuple[list, list[tuple[str, str]]
     rows are synced with that publication_status and shown to admins / customer
     preview, never as approved. A BLOCKED source, and an auction / lien source
     that is not publishable, makes zero requests (auction and certificate logic
-    unchanged)."""
+    unchanged). Since 2026-10-12 a source must also hold a recorded `fetch`
+    permission (data/source_permissions.csv); without one it is reported as
+    PERMISSION_<reason> and makes zero requests."""
     import source_publication as SP  # noqa: PLC0415
     run, gated = [], []
     for src in EX.SOURCES.get(state, ()):
         row = reg.get(src.config.source_id)
         if SP.collectable(row, src.config.record_source):
             run.append(src)
-        elif (src.config.source_id, SP.decision(row)) not in gated:
-            gated.append((src.config.source_id, SP.decision(row)))
+        elif (src.config.source_id, SP.decision(row, src.config.record_source)) not in gated:
+            gated.append((src.config.source_id, SP.decision(row, src.config.record_source)))
     return run, gated
 
 

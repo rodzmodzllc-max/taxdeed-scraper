@@ -60,15 +60,33 @@ class CoordinateSource:
             return False, "SOURCE_NOT_APPROVED"
         if not self.verified:
             return False, "SOURCE_UNVERIFIED"
+        # The recorded permission for this coordinate use (fetch + enrich of
+        # the parcel-centroid dataset where one is recorded), fail closed.
+        try:
+            PERM = P._governance_permissions()
+        except Exception:  # noqa: BLE001
+            return False, "PERMISSION_UNAVAILABLE"
+        dataset = "parcel_centroid" if self.lookup_kind == "fdor" else None
+        for op in ("fetch", "enrich"):
+            if not PERM.authorize(self.source_id, op, state=self.state, dataset=dataset).allowed:
+                return False, "PERMISSION_DENIED"
         return True, ""
 
 
+# FDOR: NO LICENCE IS ON FILE (registry.py _FL_DOR: "no restriction found; no
+# permission found"; Chapter 119 access is not a reuse licence). Until
+# 2026-10-12 this read publication_status="APPROVED", which implied a licence
+# nobody has. It is APPROVED_GRANDFATHERED now - the production practice the
+# scheduled deeds job already performs - and usable() additionally requires the
+# recorded, expiring interim permission in data/source_permissions.csv
+# (fl_fdor_cadastral / parcel_centroid). Any other operation (polygon storage,
+# display, redistribution) has no record and is denied.
 FDOR_SOURCE = CoordinateSource(
     source_id="fl_fdor_cadastral", state="FL", method="TAX_ROLL", geometry="PARCEL_CENTROID",
     provenance_source="fdor_nal", agency="Florida Department of Revenue",
     dataset="Florida Statewide Cadastral (FDOR NAL parcel layer)", layer_url=FDOR_LAYER_URL,
     landing_url="https://floridarevenue.com/property/Pages/DataPortal.aspx",
-    publication_status="APPROVED", verified=True, lookup_kind="fdor",
+    publication_status="APPROVED_GRANDFATHERED", verified=True, lookup_kind="fdor",
 )
 
 # Santa Rosa's own parcel layer: FDOR never matches this county's numbering,
@@ -81,7 +99,9 @@ SANTA_ROSA_SOURCE = CoordinateSource(
     provenance_source="county_gis", agency="Santa Rosa County (ParcelsOpenData)",
     dataset="ParcelsOpenData", landing_url="https://www.santarosa.fl.gov/",
     layer_url="https://services.arcgis.com/Eg4L1xEv2R3abuQd/arcgis/rest/services/ParcelsOpenData/FeatureServer/0",
-    publication_status="APPROVED", verified=True, counties=("Santa Rosa",), lookup_kind="santa_rosa",
+    # No licence on file either (service terms not read): grandfathered practice,
+    # gated by the recorded interim permission like FDOR.
+    publication_status="APPROVED_GRANDFATHERED", verified=True, counties=("Santa Rosa",), lookup_kind="santa_rosa",
 )
 
 

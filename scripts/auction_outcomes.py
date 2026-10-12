@@ -514,6 +514,15 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--county", action="append", default=[])
     ap.add_argument("--report", default=str(REPORT_PATH))
     args = ap.parse_args(argv)
+    # 2026-10-12: recorded permission for the closed-results feed, before any
+    # read or write (data/source_permissions.csv). Fail closed.
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+    from harvesters.governance import permissions as PERM  # noqa: PLC0415
+    for op in ("fetch", "store"):
+        d = PERM.authorize("fl_realauction", op, state="FL", dataset="closed_results")
+        if not d.allowed:
+            print(f"::error title=auction_outcomes::fl_realauction closed_results {op} denied [{d.reason_code}] {d.reason} - 0 requests made")
+            return 3
     url, key = os.environ.get("SUPABASE_URL"), os.environ.get("SUPABASE_SERVICE_KEY")
     if not url or not key:
         print("SUPABASE_URL / SUPABASE_SERVICE_KEY not set", file=sys.stderr)

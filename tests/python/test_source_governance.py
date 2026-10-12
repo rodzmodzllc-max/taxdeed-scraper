@@ -455,13 +455,12 @@ def test_florida_sources_registered_for_state_agnostic_design_but_untouched():
     # structurally: no .ps1 file in scripts/ mentions "governance".
     import subprocess
 
-    result = subprocess.run(
-        ["grep", "-rl", "governance", "--include=*.ps1", "."],
-        cwd=str(__import__("pathlib").Path(__file__).resolve().parents[2] / "scripts"),
-        capture_output=True,
-        text=True,
-    )
-    assert result.stdout.strip() == "", "no PowerShell (Florida) script should reference the governance package"
+    # 2026-10-12: the gap this assertion documented is closed - the Florida
+    # PowerShell pipeline now consults governance through the source-permission
+    # guard. Pinned instead: governance appears ONLY inside that guard, which
+    # runs first (tests/python/ps1_permission_guard.py).
+    from ps1_permission_guard import assert_ps1_governance_only_through_guard
+    assert_ps1_governance_only_through_guard()
 
 
 # ---------------------------------------------------------------------------

@@ -3310,3 +3310,34 @@ Full description: `docs/acquisition-gate.md`; screenshots: `docs/review/pr-137-s
   `purchase_url` is one informational Parish instructions page on every row, not a transactional
   link. Enabling the gate and the LA dated-list policy are owner decisions.
 - `sw.js` -> `tdw-shell-v120`.
+
+## Source permissions: per-operation, expiring, fail closed (2026-10-12, PR open, no migration)
+
+Full description: `docs/source-permissions.md`. Stable facts:
+- **`harvesters/governance/permissions.authorize(source_id, operation, state=, county=, dataset=)`** is the one
+  permission decision. Records live in `data/source_permissions.csv`, one per source × dataset × jurisdiction ×
+  operation.
+  - Operations: discover / fetch / fetch_via_proxy / parse / store / enrich / display / redistribute / link.
+  - It allows only one applicable, in-date record that is either DOCUMENTED (a published licence or written
+    permission) or INTERIM (an open status with a dated, expiring internal-acceptance or grandfathered
+    allowance), with its conditions met.
+  - Anything else denies with a reason code. An invalid or unreadable file denies everything.
+- **INTERIM is never permission.** `decision.documented` is False for it, and validation refuses APPROVED on
+  internal / grandfathered evidence. WRITTEN_PERMISSION must match a granted `authorization.py` record.
+- **Expiry:** interim allowances expire 2027-04-12, documented licences are re-read by 2027-10-12, and expired
+  records deny. `python3 scripts/source_permission_check.py --due 60` lists what is due.
+- **Hard blocks:** tx_govease / tx_pbfcm / tx_mvba / tx_ctsa are denied in code, and a record saying otherwise
+  invalidates the file.
+- **Wired:**
+  - the six Florida PowerShell harvest / sync scripts (a guard first statement, exit 3; pinned by
+    `tests/python/ps1_permission_guard.py`);
+  - the nine LAFT harvesters (`laft_status.permission_gate`, per-county for PDFs, `fetch_via_proxy` for the
+    ScraperAPI fallback);
+  - Texas harvester and sync, LGBS refresh, auction outcomes, state inventory;
+  - expansion harvest / sync through `source_publication.collectable(row, record_source, operation)`;
+  - `publishable()` and `publication_state.decide()` require `display`;
+  - parcel / coordinate enrichment and the geocode / flood / NAIP / FDOR / Street View scripts.
+- **The permission module loads only as `harvesters.governance.permissions`**, never the bare `governance.*`
+  path, so a process has one permission set.
+- **FDOR / Santa Rosa** coordinate sources read `APPROVED_GRANDFATHERED` (no licence on file) and need the
+  recorded interim permission. FDOR display / redistribution / polygon storage is denied.

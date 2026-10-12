@@ -1165,6 +1165,12 @@ def main() -> None:
     from datetime import datetime, timezone
 
     from governance.gate import check_ingestion_gate
+    # The permission decision is always loaded as harvesters.governance.permissions
+    # (one module, one permission set per process, whichever way this file was run).
+    _repo = str(Path(__file__).resolve().parents[1])
+    if _repo not in sys.path:
+        sys.path.insert(0, _repo)
+    from harvesters.governance import permissions as PERM
 
     out_dir = HERE / "../out"
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -1186,6 +1192,13 @@ def main() -> None:
         decision = check_ingestion_gate(name)
         if not decision.allowed:
             print(f"main: skipping {name} - ingestion gate rejected it ({decision.reason})", file=sys.stderr)
+            continue
+        # 2026-10-12: a recorded per-operation permission is required as well
+        # (data/source_permissions.csv). Denied -> the vendor is never called.
+        permission = PERM.authorize(name, "fetch", state="TX")
+        if not permission.allowed:
+            print(f"main: skipping {name} - no fetch permission [{permission.reason_code}] {permission.reason}", file=sys.stderr)
+            status_by_source[name] = {"status": "PERMISSION_DENIED", "reason_code": permission.reason_code}
             continue
 
         source_stats: dict = {}

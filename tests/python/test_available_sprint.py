@@ -12,7 +12,17 @@ sys.path.insert(0, str(ROOT))
 sys.path.insert(0, str(ROOT / "scripts"))
 sys.path.insert(0, str(ROOT / "harvesters"))
 import lgbs_available_refresh as L  # noqa: E402
+import pytest  # noqa: E402
 from harvesters.enrichment import parcels as P  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def _fixture_layers_hold_permission(monkeypatch):
+    """The invented layers below have no source-permission record; this module
+    tests matching mechanics, so the permission check is stood in for THOSE ids
+    only (real sources keep the real check - test_source_permissions.py)."""
+    from permission_fixtures import allow_fixture_layers
+    allow_fixture_layers(monkeypatch, P, {"t_roll", "t_first", "t_second"})
 
 NOW = "2026-10-01T23:30:00+00:00"
 

@@ -206,12 +206,44 @@ def normalize_id(value: Any, rule: str) -> str | None:
     return key or None
 
 
+def _governance_permissions():
+    try:
+        from ..governance import permissions as PERM  # noqa: PLC0415
+    except ImportError:  # imported as top-level `enrichment` (harvesters/ on sys.path)
+        from governance import permissions as PERM  # noqa: PLC0415
+    return PERM
+
+
+def recorded_permission(cfg: ParcelSourceConfig) -> tuple[bool, str]:
+    """The source's recorded fetch AND enrich permission
+    (data/source_permissions.csv, harvesters/governance/permissions.py).
+    Fail closed: an error loading governance is a refusal."""
+    try:
+        PERM = _governance_permissions()
+    except Exception as exc:  # noqa: BLE001
+        return False, f"permission check unavailable ({type(exc).__name__})"
+    for op in ("fetch", "enrich"):
+        d = PERM.authorize(cfg.source_id, op, state=cfg.state)
+        if not d.allowed:
+            return False, f"no recorded {op} permission [{d.reason_code}]"
+    return True, ""
+
+
+# The permission check enrichment_allowed() applies. A module attribute so a
+# test exercising the matching mechanics on a FIXTURE layer can stand it in;
+# the real check is covered by tests/python/test_source_permissions.py.
+PERMISSION_CHECK = recorded_permission
+
+
 def enrichment_allowed(cfg: ParcelSourceConfig) -> tuple[bool, str]:
     if not cfg.columns_verified:
         return False, "layer columns not verified against the live source"
     if cfg.publication_status not in APPROVED_PUBLICATION:
         return False, f"publication status {cfg.publication_status} - reuse not cleared"
-    return True, "verified columns, approved publication"
+    ok, why = PERMISSION_CHECK(cfg)
+    if not ok:
+        return False, why
+    return True, "verified columns, approved publication, recorded permission"
 
 
 def _sql_str(v: str) -> str:

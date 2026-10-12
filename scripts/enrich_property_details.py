@@ -1365,7 +1365,32 @@ def write_report(report):
             pass
 
 
+def _permitted(source_id, dataset=None) -> bool:
+    """Recorded fetch + enrich permission (data/source_permissions.csv),
+    fail closed: any error loading governance is a refusal."""
+    try:
+        sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+        from harvesters.governance import permissions as PERM  # noqa: PLC0415
+    except Exception as exc:  # noqa: BLE001
+        print(f"::error title=enrich_property_details::governance unavailable ({type(exc).__name__}) - 0 requests")
+        return False
+    for op in ("fetch", "enrich"):
+        d = PERM.authorize(source_id, op, state="FL", dataset=dataset)
+        if not d.allowed:
+            print(f"::warning title=enrich_property_details::{source_id} {dataset or ''} {op} not permitted [{d.reason_code}]")
+            return False
+    return True
+
+
 def main():
+    # Source permission (2026-10-12). FDOR is the primary source: without a
+    # recorded permission for BOTH the attributes and the centroid point this
+    # job does not run. The two county fallbacks are skipped individually.
+    if not (_permitted("fl_fdor_cadastral", "parcel_attributes") and _permitted("fl_fdor_cadastral", "parcel_centroid")):
+        print("FDOR enrichment not permitted - nothing requested, nothing written.")
+        return
+    santa_rosa_ok = _permitted("fl_santa_rosa_parcels")
+    flagler_ok = _permitted("fl_palm_coast_flagler_parcels")
     counties = fetch_needing_enrichment_counties()
     print(f"{len(counties)} counties have rows needing enrichment (parcel set, not yet FDOR-enriched).")
     if not counties:
@@ -1480,7 +1505,7 @@ def main():
             # for this county (see lookup_santa_rosa_gis()'s docstring), so a
             # miss there is worth one extra request against the county's own
             # GIS layer before counting it as a real miss.
-            if attrs is None and COUNTY_ALIASES.get(county, county) == "Santa Rosa":
+            if attrs is None and santa_rosa_ok and COUNTY_ALIASES.get(county, county) == "Santa Rosa":
                 try:
                     attrs, centroid, matched_candidate = lookup_santa_rosa_gis(parcel)
                     provider = "county_gis"
@@ -1491,7 +1516,7 @@ def main():
             # FDOR is unreliable/non-matching for this county specifically
             # (see lookup_flagler_gis()'s docstring), so a miss there is
             # worth one extra request against Palm Coast's own GIS layer.
-            if attrs is None and COUNTY_ALIASES.get(county, county) == "Flagler":
+            if attrs is None and flagler_ok and COUNTY_ALIASES.get(county, county) == "Flagler":
                 try:
                     attrs, centroid, matched_candidate = lookup_flagler_gis(parcel)
                     provider = "county_gis"

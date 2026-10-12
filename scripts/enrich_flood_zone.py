@@ -336,6 +336,11 @@ def patch_property(property_id, fields):
 
 
 def main():
+    # Source permission (2026-10-12): recorded fetch/enrich permission for
+    # fema_nfhl (data/source_permissions.csv), checked before any request.
+    import permission_gate as _PG  # noqa: PLC0415
+    if not _PG.allowed("fema_nfhl", ('fetch', 'enrich'), state="US", label="enrich_flood_zone"):
+        sys.exit(_PG.DENIED_EXIT)
     if not schema_is_ready():
         print(
             "flood_zone / flood_checked_at are not in this database yet - apply "
