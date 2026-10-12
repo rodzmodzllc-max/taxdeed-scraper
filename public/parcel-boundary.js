@@ -149,6 +149,10 @@ export async function fetchPropertyBoundary(sb, propertyId, row) {
   const rows = Array.isArray(data) ? data : data ? [data] : [];
   if (rows.length === 0) return { status: "none" };
   const r = rows[0];
+  // The row must be the property that was asked for. The RPC filters by primary
+  // key, so this is a second, client-side guard. A row without a matching id
+  // (including a missing one) is refused before any of its fields are read.
+  if (String(r.property_id) !== String(propertyId)) return { status: "invalid", reason: "property_mismatch" };
   // Fail closed: the server must say the geometry is permitted for display,
   // and must name attribution the source supplied.
   if (r.display_permitted !== true) return { status: "none" };

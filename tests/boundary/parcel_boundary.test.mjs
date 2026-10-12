@@ -141,3 +141,40 @@ test("fetchPropertyBoundary: PGRST202 is not deployed, other errors are errors",
   const thrown = await B.fetchPropertyBoundary({ rpc: async () => { throw new Error("offline"); } }, "p5", row);
   assert.deepEqual(thrown, { status: "error", code: "NETWORK" });
 });
+
+// ---- property identity (regression: a row for another property is refused) --
+
+test("fetchPropertyBoundary refuses a valid-looking row that belongs to a different property", async () => {
+  // Same geometry, permission and attribution as a good row, but a different id:
+  // it must be refused before any geometry is validated, drawn or returned.
+  const other = { ...good, property_id: "p99" };
+  const res = await B.fetchPropertyBoundary(fakeSb({ data: [other], error: null }), "p5", row);
+  assert.deepEqual(res, { status: "invalid", reason: "property_mismatch" });
+  assert.equal(res.boundary, undefined, "no geometry may be returned for a mismatched row");
+});
+
+test("fetchPropertyBoundary refuses a row with no property id at all", async () => {
+  const { property_id, ...noId } = good;
+  const res = await B.fetchPropertyBoundary(fakeSb({ data: [noId], error: null }), "p5", row);
+  assert.deepEqual(res, { status: "invalid", reason: "property_mismatch" });
+});
+
+test("fetchPropertyBoundary refuses a numeric id that differs from the requested one", async () => {
+  const res = await B.fetchPropertyBoundary(fakeSb({ data: [{ ...good, property_id: 6 }], error: null }), "5", row);
+  assert.deepEqual(res, { status: "invalid", reason: "property_mismatch" });
+});
+
+test("fetchPropertyBoundary still succeeds when the row's property id matches (numeric and text)", async () => {
+  const numeric = { ...good, property_id: 5 };
+  assert.equal((await B.fetchPropertyBoundary(fakeSb({ data: [numeric], error: null }), "5", row)).status, "available");
+  const textual = { ...good, property_id: "p5" };
+  assert.equal((await B.fetchPropertyBoundary(fakeSb({ data: [textual], error: null }), "p5", row)).status, "available");
+});
+
+test("a mismatched row is refused even when every other field would have been rendered", async () => {
+  // Pins the order: the id check runs before permission, attribution and geometry.
+  const bad = { ...good, property_id: "p99", display_permitted: true, attribution: "A", boundary: ok };
+  const res = await B.fetchPropertyBoundary(fakeSb({ data: [bad], error: null }), "p5", row);
+  assert.equal(res.status, "invalid");
+  assert.equal(res.reason, "property_mismatch");
+});
