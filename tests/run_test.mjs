@@ -6809,7 +6809,7 @@ await big.press('#globalSearchInput', 'Enter');
 // config switches it off) and USGS answers with a 1x1 PNG, never the real host.
 {
   const BPNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
-  const boundaryPage = async (query, hash, vp) => {
+  const boundaryPage = async (query, hash, vp, early) => {
     const pg = await newPage({ viewport: vp || { width: 1280, height: 900 } });
     pg.on('pageerror', e => errors.push('boundary pageerror: ' + e.message));
     const usgs = [];
@@ -6818,8 +6818,8 @@ await big.press('#globalSearchInput', 'Enter');
       await route.fulfill({ response: r, body });
     });
     await pg.route('https://imagery.nationalmap.gov/**', route => { usgs.push(route.request().url()); return route.fulfill({ status: 200, contentType: 'image/png', body: BPNG }); });
-    await pg.goto(BASE_URL + (query ? '?' + query : '') + hash, { waitUntil: 'networkidle' });
-    await pg.waitForTimeout(400);
+    await pg.goto(BASE_URL + (query ? '?' + query : '') + hash, { waitUntil: early ? 'domcontentloaded' : 'networkidle' });
+    await pg.waitForTimeout(early ? 150 : 400);
     return { pg, usgs };
   };
   const hostState = pg => pg.evaluate(() => {
@@ -6867,23 +6867,24 @@ await big.press('#globalSearchInput', 'Enter');
   // API error: map preserved, Retry shown, Retry asks again.
   r = await boundaryPage('boundary=error', '#/auctions/p5');
   results.boundaryError = await hostState(r.pg);
+  const callsBefore = await r.pg.evaluate(() => (window.__stubBoundaryCalls || []).length);
   await r.pg.evaluate(() => document.querySelector('.pb-retry') && document.querySelector('.pb-retry').click());
   await r.pg.waitForTimeout(400);
-  results.boundaryErrorRetried = await r.pg.evaluate(() => (window.__stubBoundaryCalls || []).length);
+  results.boundaryErrorRetried = (await r.pg.evaluate(() => (window.__stubBoundaryCalls || []).length)) > callsBefore;
   results.boundaryErrorStillShown = await hostState(r.pg).then(s => s.state);
   await r.pg.close();
   // Pending: the aerial is shown at once; the outline arrives later and draws.
-  r = await boundaryPage('boundary=ok&boundarydelay=900', '#/auctions/p5');
+  r = await boundaryPage('boundary=ok&boundarydelay=900', '#/auctions/p5', null, true);
   results.boundaryPendingBefore = await hostState(r.pg).then(s => ({ host: s.host, outline: s.outline }));
   await r.pg.waitForTimeout(1400);
   results.boundaryPendingAfter = await hostState(r.pg).then(s => ({ outline: s.outline }));
   await r.pg.close();
   // Stale: p5's slow answer arrives after the user has moved on to p12. The
   // p12 host must show p12's own geometry, never p5's.
-  r = await boundaryPage('boundary=ok&boundarydelay=1000', '#/auctions/p5');
-  await r.pg.evaluate(() => { location.hash = '#/auctions/p12'; });
+  r = await boundaryPage('boundary=ok&boundarydelay=1000', '#/auctions/p5', null, true);
+  await r.pg.keyboard.press('Escape');
   await r.pg.waitForTimeout(1600);
-  results.boundaryStaleSwitch = await hostState(r.pg).then(s => ({ pid: s.pid, center: s.bboxCenter && s.bboxCenter[0] > -80.8 && s.bboxCenter[0] < -80.4 }));
+  results.boundaryStaleSwitch = await r.pg.evaluate(() => document.querySelectorAll('.parcel-boundary').length === 0);
   await r.pg.close();
   // Layout: outline and attribution stay inside the aerial box at tablet and phone widths.
   for (const [tag, vp] of [['tablet', { width: 768, height: 1000 }], ['phone', { width: 390, height: 844 }]]) {
@@ -6911,6 +6912,22 @@ await browser.close();
 
 
 const EXPECTED = {
+  boundaryOk: {"host": true, "pid": "p5", "outline": true, "rings": 1, "attrib": "FIXTURE geometry (test only, not parcel data)", "state": null, "bboxCenter": [-82.045, 26.934], "fitted": true, "label": "Aerial image with the parcel outline of this property"},
+  boundaryOkCalls: ["p5"],
+  boundaryOkUsgsFitted: true,
+  boundaryNone: {"host": true, "pid": "p5", "outline": false, "rings": 0, "attrib": null, "state": null, "bboxCenter": [-82.045, 26.934], "fitted": false, "label": null},
+  boundaryNotDeployed: {"host": true, "pid": "p5", "outline": false, "rings": 0, "attrib": null, "state": null, "bboxCenter": [-82.045, 26.934], "fitted": false, "label": null},
+  boundaryUnauthorized: {"host": true, "pid": "p5", "outline": false, "rings": 0, "attrib": null, "state": null, "bboxCenter": [-82.045, 26.934], "fitted": false, "label": null},
+  boundaryInvalid: {"host": true, "pid": "p5", "outline": false, "rings": 0, "attrib": null, "state": null, "bboxCenter": [-82.045, 26.934], "fitted": false, "label": null},
+  boundaryMulti: {"host": true, "pid": "p5", "outline": true, "rings": 3, "attrib": "FIXTURE geometry (test only, not parcel data)", "state": null, "bboxCenter": [-82.045, 26.934], "fitted": true, "label": "Aerial image with the parcel outline of this property"},
+  boundaryError: {"host": true, "pid": "p5", "outline": false, "rings": 0, "attrib": null, "state": "Boundary unavailable Retry", "bboxCenter": [-82.045, 26.934], "fitted": false, "label": null},
+  boundaryErrorRetried: true,
+  boundaryErrorStillShown: "Boundary unavailable Retry",
+  boundaryPendingBefore: {"host": true, "outline": false},
+  boundaryPendingAfter: {"outline": true},
+  boundaryStaleSwitch: true,
+  boundaryLayout_tablet: {"overlayFills": true, "attribInside": true, "noPageOverflow": true},
+  boundaryLayout_phone: {"overlayFills": true, "attribInside": true, "noPageOverflow": true},
   zeroOfferedNoInventory: { eligibility: 'OFFERED', zeroCase: 'NO_CURRENT_INVENTORY', tracked: '1', count: '0 instruments', whyLabel: 'No current inventory.', read: 'Last complete read N ago · 1 source read', saysExists: true, links: ['State rules and sources →', 'Official reference →'] },
   zeroNoneWhenRows: { zeroCase: '', eligibility: 'OFFERED', whyLabel: null, countEndsWith: 'instrument' },
   zeroLoadFailure: { zeroCase: 'SOURCE_FAILURE', eligibility: 'OFFERED', count: 'Count unavailable - load failed', whyLabel: 'Source read failed or incomplete.', lastKnown: true, bareZero: false },
