@@ -2102,11 +2102,18 @@ function showBoundaryState(host, pid) {
 function drawBoundary(host, boundary) {
   const img = host.querySelector("img.naip-live-img");
   if (!img) return;
-  const w = Number(img.getAttribute("width")), h = Number(img.getAttribute("height"));
-  if (!(w > 0 && h > 0)) return;
+  // The aerial is shown with object-fit: cover, so the request uses the box's
+  // own aspect: nothing is cropped and the outline lines up with the picture.
+  // A resize that changes the aspect redraws (see the ResizeObserver below).
+  const base = Number(img.getAttribute("width")) || 400;
+  const hw = host.clientWidth, hh = host.clientHeight;
+  const w = base;
+  const h = hw > 0 && hh > 0 ? Math.max(1, Math.round(base * hh / hw)) : Number(img.getAttribute("height")) || 300;
   // Round once, then project against exactly the box the server will render.
   const box = fitBox(boundary.bbox, w / h).map(v => Math.round(v * 1e6) / 1e6);
   const url = naipExportUrlBox(box, w, h);
+  img.setAttribute("width", w);
+  img.setAttribute("height", h);
   img.dataset.naipSrc = url;
   if (img.getAttribute("src")) img.src = url;
   const d = boundaryPath(boundary.polygons, box, w, h);
@@ -2116,6 +2123,16 @@ function drawBoundary(host, boundary) {
     `<span class="pb-attrib" title="${esc(boundary.attribution)}">${esc(boundary.attribution)}</span>`);
   host.classList.add("has-boundary");
   host.setAttribute("aria-label", "Aerial image with the parcel outline of this property");
+  host.__pbBoundary = boundary;
+  host.__pbAspect = hw > 0 && hh > 0 ? hw / hh : 0;
+  if (typeof ResizeObserver === "function" && !host.__pbRO) {
+    host.__pbRO = new ResizeObserver(() => {
+      const nw = host.clientWidth, nh = host.clientHeight;
+      if (!host.__pbBoundary || !(nw > 0 && nh > 0) || !host.__pbAspect) return;
+      if (Math.abs(nw / nh - host.__pbAspect) / host.__pbAspect > 0.02) drawBoundary(host, host.__pbBoundary);
+    });
+    host.__pbRO.observe(host);
+  }
 }
 document.addEventListener("click", e => {
   const b = e.target && e.target.closest ? e.target.closest("[data-pb-retry]") : null;

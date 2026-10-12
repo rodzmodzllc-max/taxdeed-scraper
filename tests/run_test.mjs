@@ -6893,7 +6893,7 @@ await big.press('#globalSearchInput', 'Enter');
   results.boundaryStaleSwitch = await r.pg.evaluate(() => document.querySelectorAll('.parcel-boundary').length === 0);
   await r.pg.close();
   // Layout: outline and attribution stay inside the aerial box at tablet and phone widths.
-  for (const [tag, vp] of [['tablet', { width: 768, height: 1000 }], ['phone', { width: 390, height: 844 }]]) {
+  for (const [tag, vp] of [['desktop', { width: 1280, height: 900 }], ['tablet', { width: 768, height: 1000 }], ['phone', { width: 390, height: 844 }]]) {
     r = await boundaryPage('boundary=ok', '#/auctions/p5', vp);
     results['boundaryLayout_' + tag] = await r.pg.evaluate(() => {
       const h = document.querySelector('.detail-hero-photo.naip-live'); if (!h) return null;
@@ -6901,6 +6901,12 @@ await big.press('#globalSearchInput', 'Enter');
       const ab = a ? a.getBoundingClientRect() : null, sb = sv ? sv.getBoundingClientRect() : null;
       return { overlayFills: !!sb && Math.abs(sb.width - hb.width) < 1 && Math.abs(sb.height - hb.height) < 1,
         attribInside: !!ab && ab.left >= hb.left - 1 && ab.right <= hb.right + 1 && ab.top >= hb.top - 1 && ab.bottom <= hb.bottom + 1,
+        // The outline sits inside the visible aerial box (no edge cropped away).
+        outlineInside: !!sv && (() => { const pl = sv.querySelector('.pb-line').getBoundingClientRect();
+          return pl.left >= hb.left - 1 && pl.right <= hb.right + 1 && pl.top >= hb.top - 1 && pl.bottom <= hb.bottom + 1; })(),
+        // The caption and the attribution strip never overlap.
+        captionClearsAttrib: !h.querySelector('.photo-caption') || !a || (() => { const c = h.querySelector('.photo-caption').getBoundingClientRect();
+          return c.right <= ab.left + 0.5 || ab.right <= c.left + 0.5 || c.bottom <= ab.top + 0.5 || ab.bottom <= c.top + 0.5; })(),
         noPageOverflow: document.documentElement.scrollWidth <= window.innerWidth };
     });
     await r.pg.close();
@@ -6932,8 +6938,9 @@ const EXPECTED = {
   boundaryPendingBefore: {"host": true, "outline": false},
   boundaryPendingAfter: {"outline": true},
   boundaryStaleSwitch: true,
-  boundaryLayout_tablet: {"overlayFills": true, "attribInside": true, "noPageOverflow": true},
-  boundaryLayout_phone: {"overlayFills": true, "attribInside": true, "noPageOverflow": true},
+  boundaryLayout_desktop: {"overlayFills": true, "attribInside": true, "outlineInside": true, "captionClearsAttrib": true, "noPageOverflow": true},
+  boundaryLayout_tablet: {"overlayFills": true, "attribInside": true, "outlineInside": true, "captionClearsAttrib": true, "noPageOverflow": true},
+  boundaryLayout_phone: {"overlayFills": true, "attribInside": true, "outlineInside": true, "captionClearsAttrib": true, "noPageOverflow": true},
   zeroOfferedNoInventory: { eligibility: 'OFFERED', zeroCase: 'NO_CURRENT_INVENTORY', tracked: '1', count: '0 instruments', whyLabel: 'No current inventory.', read: 'Last complete read N ago · 1 source read', saysExists: true, links: ['State rules and sources →', 'Official reference →'] },
   zeroNoneWhenRows: { zeroCase: '', eligibility: 'OFFERED', whyLabel: null, countEndsWith: 'instrument' },
   zeroLoadFailure: { zeroCase: 'SOURCE_FAILURE', eligibility: 'OFFERED', count: 'Count unavailable - load failed', whyLabel: 'Source read failed or incomplete.', lastKnown: true, bareZero: false },
