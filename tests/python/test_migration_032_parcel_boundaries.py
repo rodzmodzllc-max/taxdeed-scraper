@@ -46,12 +46,14 @@ create policy "properties: approved and published" on public.properties as permi
 grant select on public.properties to authenticated;
 insert into profiles values ('00000000-0000-0000-0000-000000000a01', true, false),
   ('00000000-0000-0000-0000-000000000b01', false, false), ('00000000-0000-0000-0000-0000000ad001', true, true);
-insert into properties values (1, 'CUSTOMER_PUBLISHED'), (2, 'WITHHELD');
+insert into properties values (1, 'CUSTOMER_PUBLISHED'), (2, 'WITHHELD'), (3, 'CUSTOMER_PUBLISHED');
 """
 
 SEED = """
+insert into public.parcel_boundary_source_grants (source_id, display_approved, reviewed_on) values ('fixture_src', true, '2026-10-12');
 insert into public.parcel_boundaries (property_id, state, county, parcel, geom, source_id, boundary_policy, match_method,
   source_observed_at, content_sha256, attribution) values
+ (3, 'FL', 'Test', 'P3', ST_Multi(ST_GeomFromText('POLYGON((7 7,7 8,8 8,8 7,7 7))', 4326)), 'ungranted_src', 'APPROVED', 'EXACT_PARCEL_ID', now(), repeat('d',64), 'Ungranted attribution'),
  (1, 'FL', 'Test', 'P1', ST_Multi(ST_GeomFromText('POLYGON((0 0,0 1,1 1,1 0,0 0))', 4326)), 'fixture_src', 'APPROVED', 'EXACT_PARCEL_ID', now(), repeat('a',64), 'Fixture attribution'),
  (2, 'FL', 'Test', 'P2', ST_Multi(ST_GeomFromText('POLYGON((2 2,2 3,3 3,3 2,2 2))', 4326)), 'fixture_src', 'APPROVED', 'EXACT_PARCEL_ID', now(), repeat('b',64), 'Fixture attribution');
 """
@@ -136,6 +138,12 @@ def scratch():
 def test_customer_rpc_returns_only_visible_property(scratch):
     assert scratch("authenticated", CUSTOMER, "select count(*) from public.get_property_boundary(1)") == "1"
     assert scratch("authenticated", CUSTOMER, "select count(*) from public.get_property_boundary(2)") == "0"
+
+
+def test_source_without_a_db_grant_is_unreadable(scratch):
+    # Property 3 has a row from a source with no grant: unreadable by table or RPC.
+    assert scratch("authenticated", CUSTOMER, "select count(*) from public.get_property_boundary(3)") == "0"
+    assert scratch("authenticated", ADMIN, "select count(*) from public.get_property_boundary(3)") == "0"
 
 
 def test_customer_direct_table_read_cannot_bypass_publication_gate(scratch):

@@ -25,6 +25,24 @@ create table if not exists public.parcel_boundaries (
   constraint parcel_boundaries_geom_srid check (ST_SRID(geom) = 4326)
 );
 
+-- Database-side source grant. A boundary is readable only when its source has
+-- display_approved = true here. Nothing is granted by default, and only
+-- service_role writes this table, so the permission decision made in
+-- data/parcel_boundary_permissions.csv has to be recorded here as well before
+-- any row is served. The writer's own check is not the last line of defence.
+create table if not exists public.parcel_boundary_source_grants (
+  source_id         text primary key,
+  display_approved  boolean not null default false,
+  reviewed_on       date
+);
+alter table public.parcel_boundary_source_grants enable row level security;
+drop policy if exists parcel_boundary_source_grants_read on public.parcel_boundary_source_grants;
+create policy parcel_boundary_source_grants_read on public.parcel_boundary_source_grants
+  as permissive for select to authenticated
+  using (display_approved);
+revoke all on public.parcel_boundary_source_grants from anon, authenticated;
+grant select on public.parcel_boundary_source_grants to authenticated;
+
 create index if not exists parcel_boundaries_geom_gix on public.parcel_boundaries using gist (geom);
 
 alter table public.parcel_boundaries enable row level security;
@@ -40,6 +58,8 @@ create policy parcel_boundaries_approved_read on public.parcel_boundaries
   using (
     (select public.is_approved())
     and exists (select 1 from public.properties p where p.id = parcel_boundaries.property_id)
+    and exists (select 1 from public.parcel_boundary_source_grants g
+                where g.source_id = parcel_boundaries.source_id and g.display_approved)
   );
 
 revoke all on public.parcel_boundaries from anon, authenticated;
@@ -47,6 +67,7 @@ grant select on public.parcel_boundaries to authenticated;
 
 -- DOWN (manual, reversible):
 --   drop table if exists public.parcel_boundaries;
+--   drop table if exists public.parcel_boundary_source_grants;
 
 -- Read contract for the front end (docs/parcel-boundary-api.md). Invoker
 -- rights: the caller's RLS on parcel_boundaries AND properties applies, so a
@@ -80,7 +101,9 @@ as $$
     and b.boundary_policy = 'APPROVED'
     and coalesce(b.attribution, '') <> ''
     and ST_SRID(b.geom) = 4326
-    and exists (select 1 from public.properties p where p.id = b.property_id);
+    and exists (select 1 from public.properties p where p.id = b.property_id)
+    and exists (select 1 from public.parcel_boundary_source_grants g
+                where g.source_id = b.source_id and g.display_approved);
 $$;
 
 revoke all on function public.get_property_boundary(bigint) from public, anon;
