@@ -7337,7 +7337,7 @@ const EXPECTED = {
   rdPhoneSearchVisible: true,
   landCO: { hash: '#/dashboard', cards: 2, issue: 0 },
   landWY: { hash: '#/dashboard', cards: 1, issue: 0 },
-  landLA: { hash: '#/dashboard', cards: 2, issue: 0 },
+  landLA: { hash: '#/lands', cards: 2, issue: 0 },
   landWIAvailable: false,
   partialFail: { cards: 2, banner: 'Some results could not be loaded. 4 records loaded in this list; the rest could not be loaded. Retry', retryButton: 1, attempts: 3, errorState: 0 },
   partialOtherLedger: { cards: 2, banner: 'Some results could not be loaded. Affected: Auctions. Counts there may be incomplete. Retry' },
