@@ -57,6 +57,28 @@ CHUNK = 150
 # The read outcomes that vouch for a county's whole list (laft_status's
 # CLOSEOUT_ELIGIBLE). INCOMPLETE / FAILED / SOURCE_UNAVAILABLE never stamp.
 STAMP_ELIGIBLE = frozenset({"COMPLETE", "EMPTY"})
+# (state, ledger source) -> the sources whose list this run's rows came from,
+# and the dataset their permission records name. Every one needs a recorded
+# `store` permission (data/source_permissions.csv) before anything is written;
+# a pair not listed here is never stamped (fail closed).
+STORE_SOURCES = {
+    ("FL", "auction"): (("fl_realauction", "fl_bid4assets_okaloosa"), "sale_calendar"),
+    ("FL", "certificate"): (("fl_lienhub_certificates",), "county_held_certificates"),
+}
+PERMISSION_DENIED_EXIT = 3
+
+
+def store_permitted(state: str, source: str) -> bool:
+    """True only when every source behind (state, source) has a recorded
+    `store` permission. Prints one annotation (no data values) otherwise."""
+    entry = STORE_SOURCES.get((state.upper(), source))
+    if entry is None:
+        print(f"::error title=stamp_seen::{state} {source}: no source permission mapping - nothing stamped (fail closed)")
+        return False
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    import permission_gate as PG  # noqa: PLC0415
+    ids, dataset = entry
+    return all(PG.allowed(s, ("store",), state=state.upper(), dataset=dataset, label="stamp_seen") for s in ids)
 
 
 def as_list(data) -> list:
@@ -279,6 +301,8 @@ def main(argv=None) -> int:
     ap.add_argument("--status", help="harvester status file; only its COMPLETE / EMPTY counties are stamped")
     ap.add_argument("--provenance", action="store_true", help="also record field_provenance for the list's own columns (idempotent)")
     a = ap.parse_args(argv)
+    if not store_permitted(a.state, a.source):
+        return PERMISSION_DENIED_EXIT
     path = Path(a.harvest)
     if not path.exists():
         print(f"{a.state} {a.source}: no harvest file ({path.name}) - nothing stamped")

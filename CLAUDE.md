@@ -3341,3 +3341,13 @@ Full description: `docs/source-permissions.md`. Stable facts:
   path, so a process has one permission set.
 - **FDOR / Santa Rosa** coordinate sources read `APPROVED_GRANDFATHERED` (no licence on file) and need the
   recorded interim permission. FDOR display / redistribution / polygon storage is denied.
+- **Gaps closed 2026-10-13** (`tests/python/test_permission_gaps.py`):
+  - store gates in `laft_lifecycle.py` (`apply_store_permission`; a denied county reads `NOT_PERMITTED`), `stamp_seen.py`,
+    `auction_events_writer.py` and `apply_acquisition_paths.py`;
+  - fetch/enrich checks *inside* the FDOR / Santa Rosa / Flagler lookups (`SourceNotPermitted`), so the FDOR backfill job
+    and any other caller are gated too;
+  - the draft TX CAD fetchers and the Alabama live mode deny (no record);
+  - the source inventory's built-in sources cite their permission records (`inventory.permission_basis`), never
+    "public domain" or a docstring.
+  An invented test source needs a fixture record (`permission_fixtures.install(record(...))`) to pass a gate.
+  Still unprotected: the manual evidence-capture / probe scripts (`discover`).

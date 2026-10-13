@@ -93,18 +93,40 @@ def fetch_targets():
     return rows[:LIMIT] if LIMIT else rows
 
 
+PERMISSION_DENIED_EXIT = 3
+# Source permission, as enrich_property_details.main() decides it: FDOR needs
+# fetch + enrich for BOTH datasets or nothing runs; each county fallback is
+# used only when its own permission is recorded (data/source_permissions.csv).
+_FALLBACKS = {"Santa Rosa": "fl_santa_rosa_parcels", "Flagler": "fl_palm_coast_flagler_parcels"}
+_FALLBACK_OK: dict[str, bool] = {}
+
+
+def fdor_permitted() -> bool:
+    return prod._permitted("fl_fdor_cadastral", "parcel_attributes") and prod._permitted("fl_fdor_cadastral", "parcel_centroid")
+
+
+def fallback_permitted(canon: str) -> bool:
+    source_id = _FALLBACKS.get(canon)
+    if source_id is None:
+        return False
+    if source_id not in _FALLBACK_OK:
+        _FALLBACK_OK[source_id] = prod._permitted(source_id)
+    return _FALLBACK_OK[source_id]
+
+
 def production_lookup(row):
-    """The exact order main() uses: FDOR, then the county-specific fallbacks."""
+    """The exact order main() uses: FDOR, then the county-specific fallbacks
+    (each only when its own permission is recorded)."""
     county = row["county"]
     canon = prod.COUNTY_ALIASES.get(county, county)
     if canon not in prod.COUNTY_CODES:
         return None, None, None, "unmapped"
     attrs, centroid, cand = prod.lookup_fdor(county, row["parcel"])
     path = "fdor"
-    if attrs is None and canon == "Santa Rosa":
+    if attrs is None and canon == "Santa Rosa" and fallback_permitted(canon):
         attrs, centroid, cand = prod.lookup_santa_rosa_gis(row["parcel"])
         path = "santa_rosa_gis" if attrs is not None else "fdor"
-    if attrs is None and canon == "Flagler":
+    if attrs is None and canon == "Flagler" and fallback_permitted(canon):
         attrs, centroid, cand = prod.lookup_flagler_gis(row["parcel"])
         path = "flagler_gis" if attrs is not None else "fdor"
     return attrs, centroid, cand, path
@@ -334,6 +356,9 @@ def run_apply():
 def main():
     if not prod.SUPABASE_URL or not prod.SERVICE_KEY:
         sys.exit("SUPABASE_URL / SUPABASE_SERVICE_KEY are required")
+    if not fdor_permitted():
+        print("FDOR fetch/enrich not permitted - nothing requested, nothing written.")
+        sys.exit(PERMISSION_DENIED_EXIT)
     if MODE == "dry-run":
         run_dry_run()
     elif MODE == "apply":

@@ -178,6 +178,24 @@ HCAD_ARCGIS_QUERY_URL = (
 # path, not by running this function. Run and smoke-test this for real
 # once it's wired into an environment with real outbound access before
 # trusting it in production.
+# Source permission (data/source_permissions.csv). No CAD below has a
+# recorded fetch permission - HCAD and TAD have no record at all - so every
+# live fetcher refuses before its first request (fail closed). A CAD becomes
+# usable only once a record for its source id grants fetch + enrich.
+CAD_SOURCE_IDS = {"harris": "tx_cad_harris", "tarrant": "tx_cad_tarrant"}
+
+
+class SourceNotPermitted(RuntimeError):
+    """A CAD fetcher was called without a recorded fetch + enrich permission."""
+
+
+def _require_cad_permission(cad: str) -> None:
+    source_id = CAD_SOURCE_IDS[cad]
+    import permission_gate as PG  # noqa: PLC0415
+    if not PG.allowed(source_id, ("fetch", "enrich"), state="TX", label="enrich_property_details_tx", level="warning"):
+        raise SourceNotPermitted(f"{source_id} fetch/enrich not permitted - 0 requests made")
+
+
 def _fetch_hcad(parcel_id: str, *, market_value_floor: float = 0.0) -> dict | None:
     """Query HCAD's public ArcGIS parcel layer for one account number.
 
@@ -190,6 +208,7 @@ def _fetch_hcad(parcel_id: str, *, market_value_floor: float = 0.0) -> dict | No
     itself still a stub - flagging the dependency rather than assuming it
     lines up.
     """
+    _require_cad_permission("harris")
     import json
     import urllib.parse
     import urllib.request
@@ -288,6 +307,7 @@ def _fetch_tad(parcel_id: str) -> dict | None:
     or a TAD-specific lookup step actually captures before wiring this
     in for real.
     """
+    _require_cad_permission("tarrant")
     import json
     import urllib.parse
     import urllib.request

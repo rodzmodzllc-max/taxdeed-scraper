@@ -299,6 +299,38 @@ def county_gates(status_entries: list[dict], expected: list[tuple[str, str]], *,
     return gates
 
 
+NOT_PERMITTED = "NOT_PERMITTED"
+
+
+def apply_store_permission(gates: dict[str, dict], state: str, *, authorize=None) -> dict[str, str]:
+    """Withdraw every county whose source has no recorded `store` permission
+    (data/source_permissions.csv): nothing is observed, reactivated, closed
+    or carried from its list. Fails closed - no source, a denial or a
+    governance error all withdraw the county. Returns {county: reason code}
+    for the withdrawn ones."""
+    if authorize is None:
+        import laft_status  # noqa: PLC0415 - the LAFT harvesters' own permission helper
+
+        def authorize(source_id, county):
+            return laft_status.permission(source_id, "store", state=state, county=county)
+    withdrawn: dict[str, str] = {}
+    for county, gate in gates.items():
+        entry = gate.get("entry") or {}
+        source_id = entry.get("source_id") or gate.get("harvester")
+        if not source_id:
+            reason = "NO_SOURCE"
+        else:
+            try:
+                d = authorize(source_id, county)
+                reason = "" if d.allowed else (d.reason_code or "DENIED")
+            except Exception as exc:  # noqa: BLE001 - no governance means no permission
+                reason = f"GOVERNANCE_UNAVAILABLE:{type(exc).__name__}"
+        if reason:
+            gate.update(status=NOT_PERMITTED, observed_ok=False, closeout_ok=False, permission=reason)
+            withdrawn[county] = reason
+    return withdrawn
+
+
 @dataclass
 class Plan:
     observe: list[tuple[str, str]] = field(default_factory=list)        # (county, case_no) seen this run
@@ -871,6 +903,8 @@ def main(argv=None) -> int:
     registry_paths = load_registry_purchase_paths(Path(args.registry), state)
     registry_modes = load_registry_purchase_modes(Path(args.registry), state)
     gates = county_gates(entries, expected, max_age_hours=args.max_age_hours, state=state) if entries else {}
+    for county, reason in sorted(apply_store_permission(gates, state).items()):
+        print(f"::warning title=laft_lifecycle::{county}: store not permitted [{reason}] - nothing observed, written or closed there")
     # A harvest row that names another state is not this run's (the FL
     # harvesters write no state key and are kept; the Alabama harvester
     # writes "AL" and is kept only by an AL run).

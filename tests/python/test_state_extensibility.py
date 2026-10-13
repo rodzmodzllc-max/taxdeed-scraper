@@ -31,6 +31,7 @@ from harvesters.governance.states import STATEWIDE_UNIT, PublishingUnit, StateCo
 from harvesters.otc import (DB_SUPPORTED_AMOUNT_KINDS, DB_SUPPORTED_INVENTORY_TYPES, AmountKind, InventoryType,  # noqa: E402
                             OtcRecord, SourceAuthority)
 import laft_lifecycle as L  # noqa: E402
+from permission_fixtures import install, record  # noqa: E402
 import laft_status as ls  # noqa: E402
 
 T = datetime(2026, 9, 29, 12, 0, tzinfo=timezone.utc)
@@ -446,7 +447,23 @@ ZZ_REGISTRY = ("state,county,source_id,verification_status\nZZ,Alpha,zz_state_la
                "FL,Marion,fl_laft_pdfs,PRODUCTION_VERIFIED\n")
 
 
+def _permit_zz_store(monkeypatch):
+    # The invented ZZ sources need a recorded `store` permission like any
+    # real source (laft_lifecycle.apply_store_permission); a fixture record.
+    install(monkeypatch, *(record(source_id=s, jurisdiction="ZZ", operation="store") for s in ("zz_state_land", "zz_h")))
+
+
+def test_l04_without_a_store_permission_nothing_is_observed_written_or_closed(tmp_path, monkeypatch):
+    store = _Store([dict(r) for r in ZZ_DB], "ZZ")
+    with states.registered(ZZ_ACTIVE):
+        rc, report = _run_main(tmp_path, monkeypatch, store, "ZZ", ZZ_STATUS, ZZ_HARVEST, ZZ_REGISTRY)
+    assert rc == 0 and set(report["counties"].values()) == {L.NOT_PERMITTED}
+    assert report["observed"] == 0 and report["reactivated"] == 0 and report["closed"] == 0
+    assert not [b for _p, b in store.patches if "last_seen_at" in b or b.get("status") in ("active", "closed")]
+
+
 def test_l04_end_to_end_for_an_activated_third_state_applies_the_same_gates(tmp_path, monkeypatch):
+    _permit_zz_store(monkeypatch)
     store = _Store([dict(r) for r in ZZ_DB], "ZZ")
     with states.registered(ZZ_ACTIVE):
         rc, report = _run_main(tmp_path, monkeypatch, store, "ZZ", ZZ_STATUS, ZZ_HARVEST, ZZ_REGISTRY)

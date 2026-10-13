@@ -110,6 +110,14 @@ Every listed point checks before its first request or write.
 | `scripts/enrich_flood_zone.py` | `fema_nfhl` | fetch, enrich |
 | `scripts/enrich_property_photos_naip.py` | `usda_naip` | fetch, store |
 | `scripts/fetch_property_photos.py` | `google_street_view` (BLOCKED) | fetch, store |
+| `scripts/laft_lifecycle.py` (`apply_store_permission`, per county) | the county's LAFT source (`fl_laft_*`, `la_ebr_adjudicated`) | store - a denied county is withdrawn: nothing observed, reactivated, closed or carried from its list |
+| `scripts/stamp_seen.py` | `fl_realauction` + `fl_bid4assets_okaloosa` (auction); `fl_lienhub_certificates` (certificate); any other ledger refused | store |
+| `scripts/auction_events_writer.py` (not in `--dry-run`) | `fl_realauction` + `fl_bid4assets_okaloosa` (fl); `tx_realauction` + `tx_lgbs` (tx) | store |
+| `scripts/apply_acquisition_paths.py` (per row's source) | the row's `source_id` / `harvester_source` | store |
+| `enrich_property_details.lookup_fdor` / `lookup_santa_rosa_gis` / `lookup_flagler_gis` (inside the functions) | `fl_fdor_cadastral` (both datasets), Santa Rosa, Palm Coast | fetch, enrich - raises `SourceNotPermitted` before any request, whoever calls it |
+| `scripts/backfill_fdor_phase52_fields.py` | `fl_fdor_cadastral` (both datasets); each fallback individually | fetch, enrich |
+| `scripts/enrich_property_details_tx.py` `_fetch_hcad` / `_fetch_tad` (draft, unscheduled) | `tx_cad_harris`, `tx_cad_tarrant` (no record: denied) | fetch, enrich |
+| `scripts/harvest_alabama_state_land.py` live mode (after activation) | `al_ador_state_land` (UNKNOWN: denied) | fetch, parse |
 
 **How the PowerShell guard fails closed.**
 
@@ -118,9 +126,11 @@ Every listed point checks before its first request or write.
 - It exits 3 if Python is missing or the check fails, before any `Invoke-*` or `curl` call.
 - `tests/python/ps1_permission_guard.py` pins all of the above.
 
-**Not wired, and why.**
+**Not wired, and why.** (Re-checked 2026-10-13 after the entry points above were closed.)
 
 - **The manual, value-free evidence-capture scripts** (`capture_*`, `discover_sources.py`, `probe_*`). They read candidate pages to learn what exists, write nothing to the database and never run on a schedule. They are the next candidates for a `discover` record.
+- **Writers of derived state only** (`inventory_status_writer.py`, `publication_gate.py`, `publication_state_writer.py`, `detect_property_changes.py`, `unit_freshness.py`, `export_backup.py`, `optimize_stored_images.py`). They read and write the project's own rows; they request nothing from a source. Customer display is gated separately by `display` in `publishable()` / `publication_state.decide()`.
+- **The browser.** `public/app.js` shows what the database returns; the `display` decision is made server-side by the writers above (and by migration 031 once applied).
 - **Parcel polygon storage and display.** These are governed separately by PR #144's boundary permission matrix, and nothing here grants a geometry operation.
 
 ## What the records say today

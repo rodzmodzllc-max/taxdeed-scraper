@@ -184,6 +184,11 @@ def main(argv=None) -> int:
         if not decision.allowed:
             print(f"::error title=harvest_alabama::{decision.reason} - 0 requests made, nothing written")
             return 2
+        # Recorded source permission (data/source_permissions.csv), checked
+        # after activation: the AL record is UNKNOWN / NO_EVIDENCE today.
+        import permission_gate as PG  # noqa: PLC0415
+        if not PG.allowed(cfg.source_id, ("fetch", "parse"), state=ala.STATE, label="harvest_alabama"):
+            return PG.DENIED_EXIT
         fetch_text = live_fetcher()
         result = ala.harvest(cfg, fetch_text, retrieved_at=retrieved_at, counties=args.counties)
         mode = "live"
