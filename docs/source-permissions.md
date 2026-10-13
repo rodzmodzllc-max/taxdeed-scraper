@@ -126,9 +126,29 @@ Every listed point checks before its first request or write.
 - It exits 3 if Python is missing or the check fails, before any `Invoke-*` or `curl` call.
 - `tests/python/ps1_permission_guard.py` pins all of the above.
 
+**Discovery, evidence capture and probes** (`capture_*`, `discover_sources.py`, `probe_*`; wired 2026-10-13).
+Each script's `main()` first calls `permission_gate.install_discovery_guard(label)`
+(`harvesters/governance/discovery_guard.py`). From then on every outbound request of the process
+(`requests` and `urllib`) is checked before a connection is opened:
+
+- The URL is matched to its source(s) from the repository's own records: the registry, the enrichment
+  catalog, the candidate and evidence tables, and the expansion and parcel-layer configs. The longest path
+  prefix on the same host wins; a shared host with no path match counts every source on it.
+- Every matched source needs an in-date **`discover`** permission. A fetch / store / display permission
+  does not cover discovery, and a working public URL is never permission.
+- No match, a row without a source id, a denial, an expired or not-yet-effective record, or an unreadable
+  permission file refuses the request (`DiscoveryDenied`, a transport error, so the script records the page
+  as failed and carries on). The project's own database host (`SUPABASE_URL`) is not a source.
+- At exit: one log line and `out/public/discovery-permission-<label>.json`, counts, hosts, reason codes and
+  source ids only - never a path, query, credential or row value.
+
+**Today no source holds a `discover` permission** (the only `discover` records are the four BLOCKED
+vendors), so every one of these scripts refuses every source request until the owner records a `discover`
+permission, with its evidence, for each source they are to read. Offline / fixture modes are unaffected.
+Pinned by `tests/python/test_discovery_guard.py`.
+
 **Not wired, and why.** (Re-checked 2026-10-13 after the entry points above were closed.)
 
-- **The manual, value-free evidence-capture scripts** (`capture_*`, `discover_sources.py`, `probe_*`). They read candidate pages to learn what exists, write nothing to the database and never run on a schedule. They are the next candidates for a `discover` record.
 - **Writers of derived state only** (`inventory_status_writer.py`, `publication_gate.py`, `publication_state_writer.py`, `detect_property_changes.py`, `unit_freshness.py`, `export_backup.py`, `optimize_stored_images.py`). They read and write the project's own rows; they request nothing from a source. Customer display is gated separately by `display` in `publishable()` / `publication_state.decide()`.
 - **The browser.** `public/app.js` shows what the database returns; the `display` decision is made server-side by the writers above (and by migration 031 once applied).
 - **Parcel polygon storage and display.** These are governed separately by PR #144's boundary permission matrix, and nothing here grants a geometry operation.
