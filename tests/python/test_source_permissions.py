@@ -70,14 +70,14 @@ def test_unknown_operation_and_missing_state_deny():
 
 
 def test_expired_permission_denies_and_in_date_allows():
-    p = perms(ok_row(effective_on="2026-01-01", expires_on="2026-06-30"))
+    p = perms(ok_row(evidence_date="2026-01-01", effective_on="2026-01-01", expires_on="2026-06-30"))
     assert p.authorize("src_a", "fetch", state="FL", today=date(2026, 6, 30)).allowed
     d = p.authorize("src_a", "fetch", state="FL", today=date(2026, 7, 1))
     assert not d.allowed and d.reason_code == "EXPIRED"
 
 
 def test_future_effective_permission_denies_until_its_day():
-    p = perms(ok_row(evidence_date="2026-01-01", effective_on="2026-11-01", expires_on="2027-11-01"))
+    p = perms(ok_row(evidence_date="2026-01-01", effective_on="2026-11-01", expires_on="2027-04-12"))
     assert p.authorize("src_a", "fetch", state="FL", today=DAY).reason_code == "NOT_YET_EFFECTIVE"
     assert p.authorize("src_a", "fetch", state="FL", today=date(2026, 11, 1)).allowed
 

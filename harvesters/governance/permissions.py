@@ -102,6 +102,13 @@ EVIDENCE_TYPES = (
 )
 DOCUMENTED_EVIDENCE = frozenset({"PUBLISHED_LICENSE", "WRITTEN_PERMISSION"})
 INTERIM_EVIDENCE = frozenset({"INTERNAL_RISK_ACCEPTANCE", "GRANDFATHERED_PRACTICE"})
+# An interim allowance (grandfathered practice or an internal risk
+# acceptance) is a stopgap, never a grant: it may run at most this many days
+# from its effective date. Every interim record on file runs to 2027-04-12,
+# 210 days after the earliest effective date (2026-09-14). A longer one is a
+# configuration error, which denies every source - it can never silently
+# extend an allowance. Renewing one needs a new, dated record.
+INTERIM_MAX_DAYS = 210
 
 COLUMNS = (
     "source_id", "provider", "dataset", "publisher", "jurisdiction", "operation", "status",
@@ -251,6 +258,10 @@ def validate(records: list[PermissionRecord]) -> list[str]:
         if r.status in DOCUMENTED_STATUSES and r.evidence_type not in DOCUMENTED_EVIDENCE:
             problems.append(f"line {L}: {r.status} requires PUBLISHED_LICENSE or WRITTEN_PERMISSION evidence, "
                             f"not {r.evidence_type} (internal acceptance is never documented permission)")
+        if (r.status in OPEN_STATUSES and r.evidence_type in INTERIM_EVIDENCE and eff and exp
+                and (exp - eff).days > INTERIM_MAX_DAYS):
+            problems.append(f"line {L}: interim allowance ({r.evidence_type}) runs {(exp - eff).days} days; "
+                            f"the limit is {INTERIM_MAX_DAYS} - record a dated renewal instead")
         if r.status in OPEN_STATUSES and r.evidence_type in DOCUMENTED_EVIDENCE:
             problems.append(f"line {L}: documented evidence on an open status {r.status} - record the decision instead")
         if r.status == "LINK_ONLY" and r.operation != "link":

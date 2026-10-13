@@ -1,0 +1,2919 @@
+{
+ "config_error": null,
+ "entries": [
+  {
+   "call_sites": [
+    "scripts/geocode_properties.py"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-09-14",
+   "evidence_date": "2026-09-14",
+   "evidence_ref": "scripts/geocode_properties.py; docs/legal/pre-sale-blockers.md (terms not read)",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "US",
+   "operation": "enrich",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "census_geocoder",
+   "status": "UNKNOWN"
+  },
+  {
+   "call_sites": [
+    "scripts/geocode_properties.py"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-09-14",
+   "evidence_date": "2026-09-14",
+   "evidence_ref": "scripts/geocode_properties.py; docs/legal/pre-sale-blockers.md (terms not read)",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "US",
+   "operation": "fetch",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "census_geocoder",
+   "status": "UNKNOWN"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-09-30",
+   "evidence_date": "2026-09-30",
+   "evidence_ref": "data/county_source_registry.csv co_morgan_county_held_certificates restrictions ('No explicit reuse licence ... approved for publication by the owner on 2026-09-30')",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "CO",
+   "operation": "display",
+   "reviewer": "product owner (internal publication decision 2026-09-30, recorded in county_source_registry.csv restrictions)",
+   "source_id": "co_morgan_county_held_certificates",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-09-30",
+   "evidence_date": "2026-09-30",
+   "evidence_ref": "data/county_source_registry.csv co_morgan_county_held_certificates restrictions ('No explicit reuse licence ... approved for publication by the owner on 2026-09-30')",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "CO",
+   "operation": "fetch",
+   "reviewer": "product owner (internal publication decision 2026-09-30, recorded in county_source_registry.csv restrictions)",
+   "source_id": "co_morgan_county_held_certificates",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-09-30",
+   "evidence_date": "2026-09-30",
+   "evidence_ref": "data/county_source_registry.csv co_morgan_county_held_certificates restrictions ('No explicit reuse licence ... approved for publication by the owner on 2026-09-30')",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "CO",
+   "operation": "parse",
+   "reviewer": "product owner (internal publication decision 2026-09-30, recorded in county_source_registry.csv restrictions)",
+   "source_id": "co_morgan_county_held_certificates",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-09-30",
+   "evidence_date": "2026-09-30",
+   "evidence_ref": "data/county_source_registry.csv co_morgan_county_held_certificates restrictions ('No explicit reuse licence ... approved for publication by the owner on 2026-09-30')",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "CO",
+   "operation": "store",
+   "reviewer": "product owner (internal publication decision 2026-09-30, recorded in county_source_registry.csv restrictions)",
+   "source_id": "co_morgan_county_held_certificates",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "harvesters/enrichment/parcels.py (enrichment_allowed)"
+   ],
+   "conditions": [
+    "excluded_from_paid_tier"
+   ],
+   "dataset": "*",
+   "effective_on": "2026-09-30",
+   "evidence_date": "2026-09-30",
+   "evidence_ref": "harvesters/enrichment/sources.py co_oit_public_parcels (licence: resale forbidden; owner approved display 2026-09-30); data/paid_beta_sources.csv",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "CO",
+   "operation": "enrich",
+   "reviewer": "product owner (internal publication decision 2026-09-30, recorded in county_source_registry.csv restrictions)",
+   "source_id": "co_oit_public_parcels",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "harvesters/enrichment/parcels.py (enrichment_allowed)"
+   ],
+   "conditions": [
+    "excluded_from_paid_tier"
+   ],
+   "dataset": "*",
+   "effective_on": "2026-09-30",
+   "evidence_date": "2026-09-30",
+   "evidence_ref": "harvesters/enrichment/sources.py co_oit_public_parcels (licence: resale forbidden; owner approved display 2026-09-30); data/paid_beta_sources.csv",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "CO",
+   "operation": "fetch",
+   "reviewer": "product owner (internal publication decision 2026-09-30, recorded in county_source_registry.csv restrictions)",
+   "source_id": "co_oit_public_parcels",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/enrich_flood_zone.py",
+    "scripts/permission_gate.py"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-09-17",
+   "evidence_date": "2026-09-17",
+   "evidence_ref": "scripts/enrich_flood_zone.py; docs/legal/pre-sale-blockers.md (terms not read)",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "US",
+   "operation": "enrich",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "fema_nfhl",
+   "status": "UNKNOWN"
+  },
+  {
+   "call_sites": [
+    "scripts/enrich_flood_zone.py",
+    "scripts/permission_gate.py"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-09-17",
+   "evidence_date": "2026-09-17",
+   "evidence_ref": "scripts/enrich_flood_zone.py; docs/legal/pre-sale-blockers.md (terms not read)",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "US",
+   "operation": "fetch",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "fema_nfhl",
+   "status": "UNKNOWN"
+  },
+  {
+   "call_sites": [
+    "scripts/auction_events_writer.py",
+    "scripts/harvest_okaloosa_bid4assets.ps1",
+    "scripts/stamp_seen.py",
+    "scripts/sync-harvest-to-supabase.ps1",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "sale_calendar",
+   "effective_on": "2026-09-30",
+   "evidence_date": "2026-09-30",
+   "evidence_ref": "data/county_source_registry.csv fl_bid4assets_okaloosa; docs/legal/pre-sale-blockers.md (Bid4Assets terms not read)",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "FL",
+   "operation": "display",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "fl_bid4assets_okaloosa",
+   "status": "UNKNOWN"
+  },
+  {
+   "call_sites": [
+    "scripts/auction_events_writer.py",
+    "scripts/harvest_okaloosa_bid4assets.ps1",
+    "scripts/stamp_seen.py",
+    "scripts/sync-harvest-to-supabase.ps1",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "sale_calendar",
+   "effective_on": "2026-09-30",
+   "evidence_date": "2026-09-30",
+   "evidence_ref": "data/county_source_registry.csv fl_bid4assets_okaloosa; docs/legal/pre-sale-blockers.md (Bid4Assets terms not read)",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "FL",
+   "operation": "fetch",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "fl_bid4assets_okaloosa",
+   "status": "UNKNOWN"
+  },
+  {
+   "call_sites": [
+    "scripts/auction_events_writer.py",
+    "scripts/harvest_okaloosa_bid4assets.ps1",
+    "scripts/stamp_seen.py",
+    "scripts/sync-harvest-to-supabase.ps1",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "sale_calendar",
+   "effective_on": "2026-09-30",
+   "evidence_date": "2026-09-30",
+   "evidence_ref": "data/county_source_registry.csv fl_bid4assets_okaloosa; docs/legal/pre-sale-blockers.md (Bid4Assets terms not read)",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "FL",
+   "operation": "parse",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "fl_bid4assets_okaloosa",
+   "status": "UNKNOWN"
+  },
+  {
+   "call_sites": [
+    "scripts/auction_events_writer.py",
+    "scripts/harvest_okaloosa_bid4assets.ps1",
+    "scripts/stamp_seen.py",
+    "scripts/sync-harvest-to-supabase.ps1",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "sale_calendar",
+   "effective_on": "2026-09-30",
+   "evidence_date": "2026-09-30",
+   "evidence_ref": "data/county_source_registry.csv fl_bid4assets_okaloosa; docs/legal/pre-sale-blockers.md (Bid4Assets terms not read)",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "FL",
+   "operation": "store",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "fl_bid4assets_okaloosa",
+   "status": "UNKNOWN"
+  },
+  {
+   "call_sites": [
+    "scripts/backfill_fdor_phase52_fields.py",
+    "scripts/enrich_property_details.py",
+    "harvesters/enrichment/geocode.py (CoordinateSource.usable)"
+   ],
+   "conditions": [],
+   "dataset": "parcel_attributes",
+   "effective_on": "2026-09-15",
+   "evidence_date": "2026-09-15",
+   "evidence_ref": "scripts/enrich_property_details.py (deeds job); harvesters/governance/registry.py _FL_DOR ('NO RESTRICTION FOUND; NO PERMISSION FOUND'); data/phase36_terms_review.csv FDOR",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "FL",
+   "operation": "enrich",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "fl_fdor_cadastral",
+   "status": "LEGAL_REVIEW_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/backfill_fdor_phase52_fields.py",
+    "scripts/enrich_property_details.py",
+    "harvesters/enrichment/geocode.py (CoordinateSource.usable)"
+   ],
+   "conditions": [],
+   "dataset": "parcel_attributes",
+   "effective_on": "2026-09-15",
+   "evidence_date": "2026-09-15",
+   "evidence_ref": "scripts/enrich_property_details.py (deeds job); harvesters/governance/registry.py _FL_DOR ('NO RESTRICTION FOUND; NO PERMISSION FOUND'); data/phase36_terms_review.csv FDOR",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "FL",
+   "operation": "fetch",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "fl_fdor_cadastral",
+   "status": "LEGAL_REVIEW_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/backfill_fdor_phase52_fields.py",
+    "scripts/enrich_property_details.py",
+    "harvesters/enrichment/geocode.py (CoordinateSource.usable)"
+   ],
+   "conditions": [],
+   "dataset": "parcel_centroid",
+   "effective_on": "2026-09-15",
+   "evidence_date": "2026-09-15",
+   "evidence_ref": "scripts/enrich_property_details.py (writes the polygon centroid as a point); harvesters/enrichment/geocode.py FDOR_SOURCE",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "FL",
+   "operation": "enrich",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "fl_fdor_cadastral",
+   "status": "LEGAL_REVIEW_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/backfill_fdor_phase52_fields.py",
+    "scripts/enrich_property_details.py",
+    "harvesters/enrichment/geocode.py (CoordinateSource.usable)"
+   ],
+   "conditions": [],
+   "dataset": "parcel_centroid",
+   "effective_on": "2026-09-15",
+   "evidence_date": "2026-09-15",
+   "evidence_ref": "scripts/enrich_property_details.py (writes the polygon centroid as a point); harvesters/enrichment/geocode.py FDOR_SOURCE",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "FL",
+   "operation": "fetch",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "fl_fdor_cadastral",
+   "status": "LEGAL_REVIEW_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/harvest_laft_hillsborough.py",
+    "scripts/sync-laft-to-supabase.ps1",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)",
+    "scripts/laft_lifecycle.py (apply_store_permission)"
+   ],
+   "conditions": [],
+   "dataset": "lands_available",
+   "effective_on": "2026-09-29",
+   "evidence_date": "2026-09-29",
+   "evidence_ref": "data/county_source_registry.csv fl_laft_hillsborough; docs/legal/pre-sale-blockers.md",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "FL",
+   "operation": "display",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "fl_laft_hillsborough",
+   "status": "UNKNOWN"
+  },
+  {
+   "call_sites": [
+    "scripts/harvest_laft_hillsborough.py",
+    "scripts/sync-laft-to-supabase.ps1",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)",
+    "scripts/laft_lifecycle.py (apply_store_permission)"
+   ],
+   "conditions": [],
+   "dataset": "lands_available",
+   "effective_on": "2026-09-29",
+   "evidence_date": "2026-09-29",
+   "evidence_ref": "data/county_source_registry.csv fl_laft_hillsborough; docs/legal/pre-sale-blockers.md",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "FL",
+   "operation": "fetch",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "fl_laft_hillsborough",
+   "status": "UNKNOWN"
+  },
+  {
+   "call_sites": [
+    "scripts/harvest_laft_hillsborough.py",
+    "scripts/sync-laft-to-supabase.ps1",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)",
+    "scripts/laft_lifecycle.py (apply_store_permission)"
+   ],
+   "conditions": [],
+   "dataset": "lands_available",
+   "effective_on": "2026-09-29",
+   "evidence_date": "2026-09-29",
+   "evidence_ref": "data/county_source_registry.csv fl_laft_hillsborough; docs/legal/pre-sale-blockers.md",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "FL",
+   "operation": "parse",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "fl_laft_hillsborough",
+   "status": "UNKNOWN"
+  },
+  {
+   "call_sites": [
+    "scripts/harvest_laft_hillsborough.py",
+    "scripts/sync-laft-to-supabase.ps1",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)",
+    "scripts/laft_lifecycle.py (apply_store_permission)"
+   ],
+   "conditions": [],
+   "dataset": "lands_available",
+   "effective_on": "2026-09-29",
+   "evidence_date": "2026-09-29",
+   "evidence_ref": "data/county_source_registry.csv fl_laft_hillsborough; docs/legal/pre-sale-blockers.md",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "FL",
+   "operation": "store",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "fl_laft_hillsborough",
+   "status": "UNKNOWN"
+  },
+  {
+   "call_sites": [
+    "scripts/harvest_laft_html.py",
+    "scripts/source_permission_check.py",
+    "scripts/sync-laft-to-supabase.ps1",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)",
+    "scripts/laft_lifecycle.py (apply_store_permission)"
+   ],
+   "conditions": [],
+   "dataset": "lands_available",
+   "effective_on": "2026-09-29",
+   "evidence_date": "2026-09-29",
+   "evidence_ref": "data/county_source_registry.csv fl_laft_html; docs/legal/pre-sale-blockers.md",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "FL",
+   "operation": "display",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "fl_laft_html",
+   "status": "UNKNOWN"
+  },
+  {
+   "call_sites": [
+    "scripts/harvest_laft_html.py",
+    "scripts/source_permission_check.py",
+    "scripts/sync-laft-to-supabase.ps1",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)",
+    "scripts/laft_lifecycle.py (apply_store_permission)"
+   ],
+   "conditions": [],
+   "dataset": "lands_available",
+   "effective_on": "2026-09-29",
+   "evidence_date": "2026-09-29",
+   "evidence_ref": "data/county_source_registry.csv fl_laft_html; docs/legal/pre-sale-blockers.md",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "FL",
+   "operation": "fetch",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "fl_laft_html",
+   "status": "UNKNOWN"
+  },
+  {
+   "call_sites": [
+    "scripts/harvest_laft_html.py",
+    "scripts/source_permission_check.py",
+    "scripts/sync-laft-to-supabase.ps1",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)",
+    "scripts/laft_lifecycle.py (apply_store_permission)"
+   ],
+   "conditions": [],
+   "dataset": "lands_available",
+   "effective_on": "2026-09-29",
+   "evidence_date": "2026-09-29",
+   "evidence_ref": "scripts/harvest_laft_html.py (SCRAPERAPI fallback); docs/legal/pre-sale-blockers.md item 4",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "FL",
+   "operation": "fetch_via_proxy",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "fl_laft_html",
+   "status": "LEGAL_REVIEW_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/harvest_laft_html.py",
+    "scripts/source_permission_check.py",
+    "scripts/sync-laft-to-supabase.ps1",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)",
+    "scripts/laft_lifecycle.py (apply_store_permission)"
+   ],
+   "conditions": [],
+   "dataset": "lands_available",
+   "effective_on": "2026-09-29",
+   "evidence_date": "2026-09-29",
+   "evidence_ref": "data/county_source_registry.csv fl_laft_html; docs/legal/pre-sale-blockers.md",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "FL",
+   "operation": "parse",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "fl_laft_html",
+   "status": "UNKNOWN"
+  },
+  {
+   "call_sites": [
+    "scripts/harvest_laft_html.py",
+    "scripts/source_permission_check.py",
+    "scripts/sync-laft-to-supabase.ps1",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)",
+    "scripts/laft_lifecycle.py (apply_store_permission)"
+   ],
+   "conditions": [],
+   "dataset": "lands_available",
+   "effective_on": "2026-09-29",
+   "evidence_date": "2026-09-29",
+   "evidence_ref": "data/county_source_registry.csv fl_laft_html; docs/legal/pre-sale-blockers.md",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "FL",
+   "operation": "store",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "fl_laft_html",
+   "status": "UNKNOWN"
+  },
+  {
+   "call_sites": [
+    "scripts/harvest_laft_leon.py",
+    "scripts/sync-laft-to-supabase.ps1",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)",
+    "scripts/laft_lifecycle.py (apply_store_permission)"
+   ],
+   "conditions": [],
+   "dataset": "lands_available",
+   "effective_on": "2026-09-29",
+   "evidence_date": "2026-09-29",
+   "evidence_ref": "data/county_source_registry.csv fl_laft_leon; docs/legal/pre-sale-blockers.md",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "FL",
+   "operation": "display",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "fl_laft_leon",
+   "status": "UNKNOWN"
+  },
+  {
+   "call_sites": [
+    "scripts/harvest_laft_leon.py",
+    "scripts/sync-laft-to-supabase.ps1",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)",
+    "scripts/laft_lifecycle.py (apply_store_permission)"
+   ],
+   "conditions": [],
+   "dataset": "lands_available",
+   "effective_on": "2026-09-29",
+   "evidence_date": "2026-09-29",
+   "evidence_ref": "data/county_source_registry.csv fl_laft_leon; docs/legal/pre-sale-blockers.md",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "FL",
+   "operation": "fetch",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "fl_laft_leon",
+   "status": "UNKNOWN"
+  },
+  {
+   "call_sites": [
+    "scripts/harvest_laft_leon.py",
+    "scripts/sync-laft-to-supabase.ps1",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)",
+    "scripts/laft_lifecycle.py (apply_store_permission)"
+   ],
+   "conditions": [],
+   "dataset": "lands_available",
+   "effective_on": "2026-09-29",
+   "evidence_date": "2026-09-29",
+   "evidence_ref": "data/county_source_registry.csv fl_laft_leon; docs/legal/pre-sale-blockers.md",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "FL",
+   "operation": "parse",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "fl_laft_leon",
+   "status": "UNKNOWN"
+  },
+  {
+   "call_sites": [
+    "scripts/harvest_laft_leon.py",
+    "scripts/sync-laft-to-supabase.ps1",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)",
+    "scripts/laft_lifecycle.py (apply_store_permission)"
+   ],
+   "conditions": [],
+   "dataset": "lands_available",
+   "effective_on": "2026-09-29",
+   "evidence_date": "2026-09-29",
+   "evidence_ref": "data/county_source_registry.csv fl_laft_leon; docs/legal/pre-sale-blockers.md",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "FL",
+   "operation": "store",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "fl_laft_leon",
+   "status": "UNKNOWN"
+  },
+  {
+   "call_sites": [
+    "scripts/harvest_laft_orange.py",
+    "scripts/sync-laft-to-supabase.ps1",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)",
+    "scripts/laft_lifecycle.py (apply_store_permission)"
+   ],
+   "conditions": [],
+   "dataset": "lands_available",
+   "effective_on": "2026-09-29",
+   "evidence_date": "2026-09-29",
+   "evidence_ref": "data/county_source_registry.csv fl_laft_orange; docs/legal/pre-sale-blockers.md",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "FL",
+   "operation": "display",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "fl_laft_orange",
+   "status": "LEGAL_REVIEW_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/harvest_laft_orange.py",
+    "scripts/sync-laft-to-supabase.ps1",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)",
+    "scripts/laft_lifecycle.py (apply_store_permission)"
+   ],
+   "conditions": [],
+   "dataset": "lands_available",
+   "effective_on": "2026-09-29",
+   "evidence_date": "2026-09-29",
+   "evidence_ref": "data/county_source_registry.csv fl_laft_orange; docs/legal/pre-sale-blockers.md",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "FL",
+   "operation": "fetch",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "fl_laft_orange",
+   "status": "LEGAL_REVIEW_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/harvest_laft_orange.py",
+    "scripts/sync-laft-to-supabase.ps1",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)",
+    "scripts/laft_lifecycle.py (apply_store_permission)"
+   ],
+   "conditions": [],
+   "dataset": "lands_available",
+   "effective_on": "2026-09-29",
+   "evidence_date": "2026-09-29",
+   "evidence_ref": "data/county_source_registry.csv fl_laft_orange; docs/legal/pre-sale-blockers.md",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "FL",
+   "operation": "parse",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "fl_laft_orange",
+   "status": "LEGAL_REVIEW_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/harvest_laft_orange.py",
+    "scripts/sync-laft-to-supabase.ps1",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)",
+    "scripts/laft_lifecycle.py (apply_store_permission)"
+   ],
+   "conditions": [],
+   "dataset": "lands_available",
+   "effective_on": "2026-09-29",
+   "evidence_date": "2026-09-29",
+   "evidence_ref": "data/county_source_registry.csv fl_laft_orange; docs/legal/pre-sale-blockers.md",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "FL",
+   "operation": "store",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "fl_laft_orange",
+   "status": "LEGAL_REVIEW_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/harvest_laft_osceola.py",
+    "scripts/sync-laft-to-supabase.ps1",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)",
+    "scripts/laft_lifecycle.py (apply_store_permission)"
+   ],
+   "conditions": [],
+   "dataset": "lands_available",
+   "effective_on": "2026-09-29",
+   "evidence_date": "2026-09-29",
+   "evidence_ref": "data/county_source_registry.csv fl_laft_osceola; docs/legal/pre-sale-blockers.md",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "FL",
+   "operation": "display",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "fl_laft_osceola",
+   "status": "LEGAL_REVIEW_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/harvest_laft_osceola.py",
+    "scripts/sync-laft-to-supabase.ps1",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)",
+    "scripts/laft_lifecycle.py (apply_store_permission)"
+   ],
+   "conditions": [],
+   "dataset": "lands_available",
+   "effective_on": "2026-09-29",
+   "evidence_date": "2026-09-29",
+   "evidence_ref": "data/county_source_registry.csv fl_laft_osceola; docs/legal/pre-sale-blockers.md",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "FL",
+   "operation": "fetch",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "fl_laft_osceola",
+   "status": "LEGAL_REVIEW_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/harvest_laft_osceola.py",
+    "scripts/sync-laft-to-supabase.ps1",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)",
+    "scripts/laft_lifecycle.py (apply_store_permission)"
+   ],
+   "conditions": [],
+   "dataset": "lands_available",
+   "effective_on": "2026-09-29",
+   "evidence_date": "2026-09-29",
+   "evidence_ref": "data/county_source_registry.csv fl_laft_osceola; docs/legal/pre-sale-blockers.md",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "FL",
+   "operation": "parse",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "fl_laft_osceola",
+   "status": "LEGAL_REVIEW_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/harvest_laft_osceola.py",
+    "scripts/sync-laft-to-supabase.ps1",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)",
+    "scripts/laft_lifecycle.py (apply_store_permission)"
+   ],
+   "conditions": [],
+   "dataset": "lands_available",
+   "effective_on": "2026-09-29",
+   "evidence_date": "2026-09-29",
+   "evidence_ref": "data/county_source_registry.csv fl_laft_osceola; docs/legal/pre-sale-blockers.md",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "FL",
+   "operation": "store",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "fl_laft_osceola",
+   "status": "LEGAL_REVIEW_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/harvest_laft_pdfs.py",
+    "scripts/source_permission_check.py",
+    "scripts/sync-laft-to-supabase.ps1",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)",
+    "scripts/laft_lifecycle.py (apply_store_permission)"
+   ],
+   "conditions": [],
+   "dataset": "lands_available",
+   "effective_on": "2026-09-29",
+   "evidence_date": "2026-09-29",
+   "evidence_ref": "data/county_source_registry.csv fl_laft_pdfs; docs/legal/pre-sale-blockers.md",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "FL",
+   "operation": "display",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "fl_laft_pdfs",
+   "status": "UNKNOWN"
+  },
+  {
+   "call_sites": [
+    "scripts/harvest_laft_pdfs.py",
+    "scripts/source_permission_check.py",
+    "scripts/sync-laft-to-supabase.ps1",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)",
+    "scripts/laft_lifecycle.py (apply_store_permission)"
+   ],
+   "conditions": [],
+   "dataset": "lands_available",
+   "effective_on": "2026-09-29",
+   "evidence_date": "2026-09-29",
+   "evidence_ref": "data/county_source_registry.csv fl_laft_pdfs; docs/legal/pre-sale-blockers.md",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "FL",
+   "operation": "fetch",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "fl_laft_pdfs",
+   "status": "UNKNOWN"
+  },
+  {
+   "call_sites": [
+    "scripts/harvest_laft_pdfs.py",
+    "scripts/source_permission_check.py",
+    "scripts/sync-laft-to-supabase.ps1",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)",
+    "scripts/laft_lifecycle.py (apply_store_permission)"
+   ],
+   "conditions": [],
+   "dataset": "lands_available",
+   "effective_on": "2026-09-29",
+   "evidence_date": "2026-09-29",
+   "evidence_ref": "data/county_source_registry.csv fl_laft_pdfs; docs/legal/pre-sale-blockers.md",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "FL",
+   "operation": "parse",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "fl_laft_pdfs",
+   "status": "UNKNOWN"
+  },
+  {
+   "call_sites": [
+    "scripts/harvest_laft_pdfs.py",
+    "scripts/source_permission_check.py",
+    "scripts/sync-laft-to-supabase.ps1",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)",
+    "scripts/laft_lifecycle.py (apply_store_permission)"
+   ],
+   "conditions": [],
+   "dataset": "lands_available",
+   "effective_on": "2026-09-29",
+   "evidence_date": "2026-09-29",
+   "evidence_ref": "data/county_source_registry.csv fl_laft_pdfs; docs/legal/pre-sale-blockers.md",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "FL",
+   "operation": "store",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "fl_laft_pdfs",
+   "status": "UNKNOWN"
+  },
+  {
+   "call_sites": [
+    "scripts/harvest_laft_pdfs.py",
+    "scripts/source_permission_check.py",
+    "scripts/sync-laft-to-supabase.ps1",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)",
+    "scripts/laft_lifecycle.py (apply_store_permission)"
+   ],
+   "conditions": [],
+   "dataset": "lands_available",
+   "effective_on": "2026-09-29",
+   "evidence_date": "2026-09-29",
+   "evidence_ref": "docs/legal/pre-sale-blockers.md item 4 (Volusia disclaimer bypass)",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "FL:Volusia",
+   "operation": "display",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "fl_laft_pdfs",
+   "status": "LEGAL_REVIEW_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/harvest_laft_pdfs.py",
+    "scripts/source_permission_check.py",
+    "scripts/sync-laft-to-supabase.ps1",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)",
+    "scripts/laft_lifecycle.py (apply_store_permission)"
+   ],
+   "conditions": [],
+   "dataset": "lands_available",
+   "effective_on": "2026-09-29",
+   "evidence_date": "2026-09-29",
+   "evidence_ref": "docs/legal/pre-sale-blockers.md item 4 (Volusia disclaimer bypass)",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "FL:Volusia",
+   "operation": "fetch",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "fl_laft_pdfs",
+   "status": "LEGAL_REVIEW_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/harvest_laft_pdfs.py",
+    "scripts/source_permission_check.py",
+    "scripts/sync-laft-to-supabase.ps1",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)",
+    "scripts/laft_lifecycle.py (apply_store_permission)"
+   ],
+   "conditions": [],
+   "dataset": "lands_available",
+   "effective_on": "2026-09-29",
+   "evidence_date": "2026-09-29",
+   "evidence_ref": "docs/legal/pre-sale-blockers.md item 4 (Volusia disclaimer bypass)",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "FL:Volusia",
+   "operation": "parse",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "fl_laft_pdfs",
+   "status": "LEGAL_REVIEW_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/harvest_laft_pdfs.py",
+    "scripts/source_permission_check.py",
+    "scripts/sync-laft-to-supabase.ps1",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)",
+    "scripts/laft_lifecycle.py (apply_store_permission)"
+   ],
+   "conditions": [],
+   "dataset": "lands_available",
+   "effective_on": "2026-09-29",
+   "evidence_date": "2026-09-29",
+   "evidence_ref": "docs/legal/pre-sale-blockers.md item 4 (Volusia disclaimer bypass)",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "FL:Volusia",
+   "operation": "store",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "fl_laft_pdfs",
+   "status": "LEGAL_REVIEW_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/harvest_laft_pioneer.py",
+    "scripts/sync-laft-to-supabase.ps1",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)",
+    "scripts/laft_lifecycle.py (apply_store_permission)"
+   ],
+   "conditions": [],
+   "dataset": "lands_available",
+   "effective_on": "2026-09-29",
+   "evidence_date": "2026-09-29",
+   "evidence_ref": "data/county_source_registry.csv fl_laft_pioneer; docs/legal/pre-sale-blockers.md",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "FL",
+   "operation": "display",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "fl_laft_pioneer",
+   "status": "UNKNOWN"
+  },
+  {
+   "call_sites": [
+    "scripts/harvest_laft_pioneer.py",
+    "scripts/sync-laft-to-supabase.ps1",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)",
+    "scripts/laft_lifecycle.py (apply_store_permission)"
+   ],
+   "conditions": [],
+   "dataset": "lands_available",
+   "effective_on": "2026-09-29",
+   "evidence_date": "2026-09-29",
+   "evidence_ref": "data/county_source_registry.csv fl_laft_pioneer; docs/legal/pre-sale-blockers.md",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "FL",
+   "operation": "fetch",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "fl_laft_pioneer",
+   "status": "UNKNOWN"
+  },
+  {
+   "call_sites": [
+    "scripts/harvest_laft_pioneer.py",
+    "scripts/sync-laft-to-supabase.ps1",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)",
+    "scripts/laft_lifecycle.py (apply_store_permission)"
+   ],
+   "conditions": [],
+   "dataset": "lands_available",
+   "effective_on": "2026-09-29",
+   "evidence_date": "2026-09-29",
+   "evidence_ref": "data/county_source_registry.csv fl_laft_pioneer; docs/legal/pre-sale-blockers.md",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "FL",
+   "operation": "parse",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "fl_laft_pioneer",
+   "status": "UNKNOWN"
+  },
+  {
+   "call_sites": [
+    "scripts/harvest_laft_pioneer.py",
+    "scripts/sync-laft-to-supabase.ps1",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)",
+    "scripts/laft_lifecycle.py (apply_store_permission)"
+   ],
+   "conditions": [],
+   "dataset": "lands_available",
+   "effective_on": "2026-09-29",
+   "evidence_date": "2026-09-29",
+   "evidence_ref": "data/county_source_registry.csv fl_laft_pioneer; docs/legal/pre-sale-blockers.md",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "FL",
+   "operation": "store",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "fl_laft_pioneer",
+   "status": "UNKNOWN"
+  },
+  {
+   "call_sites": [
+    "scripts/harvest_laft_realtdm.py",
+    "scripts/sync-laft-to-supabase.ps1",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)",
+    "scripts/laft_lifecycle.py (apply_store_permission)"
+   ],
+   "conditions": [],
+   "dataset": "lands_available",
+   "effective_on": "2026-09-29",
+   "evidence_date": "2026-09-29",
+   "evidence_ref": "data/county_source_registry.csv fl_laft_realtdm; docs/legal/pre-sale-blockers.md",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "FL",
+   "operation": "display",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "fl_laft_realtdm",
+   "status": "LEGAL_REVIEW_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/harvest_laft_realtdm.py",
+    "scripts/sync-laft-to-supabase.ps1",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)",
+    "scripts/laft_lifecycle.py (apply_store_permission)"
+   ],
+   "conditions": [],
+   "dataset": "lands_available",
+   "effective_on": "2026-09-29",
+   "evidence_date": "2026-09-29",
+   "evidence_ref": "data/county_source_registry.csv fl_laft_realtdm; docs/legal/pre-sale-blockers.md",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "FL",
+   "operation": "fetch",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "fl_laft_realtdm",
+   "status": "LEGAL_REVIEW_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/harvest_laft_realtdm.py",
+    "scripts/sync-laft-to-supabase.ps1",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)",
+    "scripts/laft_lifecycle.py (apply_store_permission)"
+   ],
+   "conditions": [],
+   "dataset": "lands_available",
+   "effective_on": "2026-09-29",
+   "evidence_date": "2026-09-29",
+   "evidence_ref": "data/county_source_registry.csv fl_laft_realtdm; docs/legal/pre-sale-blockers.md",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "FL",
+   "operation": "parse",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "fl_laft_realtdm",
+   "status": "LEGAL_REVIEW_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/harvest_laft_realtdm.py",
+    "scripts/sync-laft-to-supabase.ps1",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)",
+    "scripts/laft_lifecycle.py (apply_store_permission)"
+   ],
+   "conditions": [],
+   "dataset": "lands_available",
+   "effective_on": "2026-09-29",
+   "evidence_date": "2026-09-29",
+   "evidence_ref": "data/county_source_registry.csv fl_laft_realtdm; docs/legal/pre-sale-blockers.md",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "FL",
+   "operation": "store",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "fl_laft_realtdm",
+   "status": "LEGAL_REVIEW_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/harvest_laft_stlucie.py",
+    "scripts/sync-laft-to-supabase.ps1",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)",
+    "scripts/laft_lifecycle.py (apply_store_permission)"
+   ],
+   "conditions": [],
+   "dataset": "lands_available",
+   "effective_on": "2026-09-29",
+   "evidence_date": "2026-09-29",
+   "evidence_ref": "data/county_source_registry.csv fl_laft_stlucie; docs/legal/pre-sale-blockers.md",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "FL",
+   "operation": "display",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "fl_laft_stlucie",
+   "status": "UNKNOWN"
+  },
+  {
+   "call_sites": [
+    "scripts/harvest_laft_stlucie.py",
+    "scripts/sync-laft-to-supabase.ps1",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)",
+    "scripts/laft_lifecycle.py (apply_store_permission)"
+   ],
+   "conditions": [],
+   "dataset": "lands_available",
+   "effective_on": "2026-09-29",
+   "evidence_date": "2026-09-29",
+   "evidence_ref": "data/county_source_registry.csv fl_laft_stlucie; docs/legal/pre-sale-blockers.md",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "FL",
+   "operation": "fetch",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "fl_laft_stlucie",
+   "status": "UNKNOWN"
+  },
+  {
+   "call_sites": [
+    "scripts/harvest_laft_stlucie.py",
+    "scripts/sync-laft-to-supabase.ps1",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)",
+    "scripts/laft_lifecycle.py (apply_store_permission)"
+   ],
+   "conditions": [],
+   "dataset": "lands_available",
+   "effective_on": "2026-09-29",
+   "evidence_date": "2026-09-29",
+   "evidence_ref": "data/county_source_registry.csv fl_laft_stlucie; docs/legal/pre-sale-blockers.md",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "FL",
+   "operation": "parse",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "fl_laft_stlucie",
+   "status": "UNKNOWN"
+  },
+  {
+   "call_sites": [
+    "scripts/harvest_laft_stlucie.py",
+    "scripts/sync-laft-to-supabase.ps1",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)",
+    "scripts/laft_lifecycle.py (apply_store_permission)"
+   ],
+   "conditions": [],
+   "dataset": "lands_available",
+   "effective_on": "2026-09-29",
+   "evidence_date": "2026-09-29",
+   "evidence_ref": "data/county_source_registry.csv fl_laft_stlucie; docs/legal/pre-sale-blockers.md",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "FL",
+   "operation": "store",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "fl_laft_stlucie",
+   "status": "UNKNOWN"
+  },
+  {
+   "call_sites": [
+    "scripts/harvest_lienhub_certificates.ps1",
+    "scripts/stamp_seen.py",
+    "scripts/sync-certificates-to-supabase.ps1",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "county_held_certificates",
+   "effective_on": "2026-09-15",
+   "evidence_date": "2026-09-15",
+   "evidence_ref": "harvesters/governance/registry.py _FL_LIENHUB; harvesters/governance/authorization.py fl_lienhub_certificates__provider__grant_street_group; data/phase36_terms_review.csv (terms URL returned 403)",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "FL",
+   "operation": "display",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "fl_lienhub_certificates",
+   "status": "LEGAL_REVIEW_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/harvest_lienhub_certificates.ps1",
+    "scripts/stamp_seen.py",
+    "scripts/sync-certificates-to-supabase.ps1",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "county_held_certificates",
+   "effective_on": "2026-09-15",
+   "evidence_date": "2026-09-15",
+   "evidence_ref": "harvesters/governance/registry.py _FL_LIENHUB; harvesters/governance/authorization.py fl_lienhub_certificates__provider__grant_street_group; data/phase36_terms_review.csv (terms URL returned 403)",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "FL",
+   "operation": "fetch",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "fl_lienhub_certificates",
+   "status": "LEGAL_REVIEW_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/harvest_lienhub_certificates.ps1",
+    "scripts/stamp_seen.py",
+    "scripts/sync-certificates-to-supabase.ps1",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "county_held_certificates",
+   "effective_on": "2026-09-15",
+   "evidence_date": "2026-09-15",
+   "evidence_ref": "harvesters/governance/registry.py _FL_LIENHUB; harvesters/governance/authorization.py fl_lienhub_certificates__provider__grant_street_group; data/phase36_terms_review.csv (terms URL returned 403)",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "FL",
+   "operation": "parse",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "fl_lienhub_certificates",
+   "status": "LEGAL_REVIEW_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/harvest_lienhub_certificates.ps1",
+    "scripts/stamp_seen.py",
+    "scripts/sync-certificates-to-supabase.ps1",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "county_held_certificates",
+   "effective_on": "2026-09-15",
+   "evidence_date": "2026-09-15",
+   "evidence_ref": "harvesters/governance/registry.py _FL_LIENHUB; harvesters/governance/authorization.py fl_lienhub_certificates__provider__grant_street_group; data/phase36_terms_review.csv (terms URL returned 403)",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "FL",
+   "operation": "store",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "fl_lienhub_certificates",
+   "status": "LEGAL_REVIEW_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/enrich_property_details.py"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-09-30",
+   "evidence_date": "2026-09-30",
+   "evidence_ref": "scripts/enrich_property_details.py lookup_flagler_gis; docs/legal/pre-sale-blockers.md (terms not read)",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "FL",
+   "operation": "enrich",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "fl_palm_coast_flagler_parcels",
+   "status": "UNKNOWN"
+  },
+  {
+   "call_sites": [
+    "scripts/enrich_property_details.py"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-09-30",
+   "evidence_date": "2026-09-30",
+   "evidence_ref": "scripts/enrich_property_details.py lookup_flagler_gis; docs/legal/pre-sale-blockers.md (terms not read)",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "FL",
+   "operation": "fetch",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "fl_palm_coast_flagler_parcels",
+   "status": "UNKNOWN"
+  },
+  {
+   "call_sites": [
+    "scripts/auction_events_writer.py",
+    "scripts/auction_outcomes.py",
+    "scripts/harvest_all_counties.ps1",
+    "scripts/source_permission_check.py",
+    "scripts/stamp_seen.py",
+    "scripts/sync-harvest-to-supabase.ps1",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "closed_results",
+   "effective_on": "2026-09-30",
+   "evidence_date": "2026-09-30",
+   "evidence_ref": "docs/auction-outcomes.md; scripts/auction_outcomes.py",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "FL",
+   "operation": "display",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "fl_realauction",
+   "status": "LEGAL_REVIEW_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/auction_events_writer.py",
+    "scripts/auction_outcomes.py",
+    "scripts/harvest_all_counties.ps1",
+    "scripts/source_permission_check.py",
+    "scripts/stamp_seen.py",
+    "scripts/sync-harvest-to-supabase.ps1",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "closed_results",
+   "effective_on": "2026-09-30",
+   "evidence_date": "2026-09-30",
+   "evidence_ref": "docs/auction-outcomes.md; scripts/auction_outcomes.py",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "FL",
+   "operation": "fetch",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "fl_realauction",
+   "status": "LEGAL_REVIEW_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/auction_events_writer.py",
+    "scripts/auction_outcomes.py",
+    "scripts/harvest_all_counties.ps1",
+    "scripts/source_permission_check.py",
+    "scripts/stamp_seen.py",
+    "scripts/sync-harvest-to-supabase.ps1",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "closed_results",
+   "effective_on": "2026-09-30",
+   "evidence_date": "2026-09-30",
+   "evidence_ref": "docs/auction-outcomes.md; scripts/auction_outcomes.py",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "FL",
+   "operation": "parse",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "fl_realauction",
+   "status": "LEGAL_REVIEW_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/auction_events_writer.py",
+    "scripts/auction_outcomes.py",
+    "scripts/harvest_all_counties.ps1",
+    "scripts/source_permission_check.py",
+    "scripts/stamp_seen.py",
+    "scripts/sync-harvest-to-supabase.ps1",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "closed_results",
+   "effective_on": "2026-09-30",
+   "evidence_date": "2026-09-30",
+   "evidence_ref": "docs/auction-outcomes.md; scripts/auction_outcomes.py",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "FL",
+   "operation": "store",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "fl_realauction",
+   "status": "LEGAL_REVIEW_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/auction_events_writer.py",
+    "scripts/auction_outcomes.py",
+    "scripts/harvest_all_counties.ps1",
+    "scripts/source_permission_check.py",
+    "scripts/stamp_seen.py",
+    "scripts/sync-harvest-to-supabase.ps1",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "sale_calendar",
+   "effective_on": "2026-09-15",
+   "evidence_date": "2026-09-15",
+   "evidence_ref": "harvesters/governance/registry.py _FL_REALAUCTION; harvesters/governance/authorization.py fl_realauction__county__alachua/__volusia (LEGAL_REVIEW_REQUIRED); data/phase36_terms_review.csv",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "FL",
+   "operation": "display",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "fl_realauction",
+   "status": "LEGAL_REVIEW_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/auction_events_writer.py",
+    "scripts/auction_outcomes.py",
+    "scripts/harvest_all_counties.ps1",
+    "scripts/source_permission_check.py",
+    "scripts/stamp_seen.py",
+    "scripts/sync-harvest-to-supabase.ps1",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "sale_calendar",
+   "effective_on": "2026-09-15",
+   "evidence_date": "2026-09-15",
+   "evidence_ref": "harvesters/governance/registry.py _FL_REALAUCTION; harvesters/governance/authorization.py fl_realauction__county__alachua/__volusia (LEGAL_REVIEW_REQUIRED); data/phase36_terms_review.csv",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "FL",
+   "operation": "fetch",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "fl_realauction",
+   "status": "LEGAL_REVIEW_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/auction_events_writer.py",
+    "scripts/auction_outcomes.py",
+    "scripts/harvest_all_counties.ps1",
+    "scripts/source_permission_check.py",
+    "scripts/stamp_seen.py",
+    "scripts/sync-harvest-to-supabase.ps1",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "sale_calendar",
+   "effective_on": "2026-09-15",
+   "evidence_date": "2026-09-15",
+   "evidence_ref": "harvesters/governance/registry.py _FL_REALAUCTION; harvesters/governance/authorization.py fl_realauction__county__alachua/__volusia (LEGAL_REVIEW_REQUIRED); data/phase36_terms_review.csv",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "FL",
+   "operation": "parse",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "fl_realauction",
+   "status": "LEGAL_REVIEW_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/auction_events_writer.py",
+    "scripts/auction_outcomes.py",
+    "scripts/harvest_all_counties.ps1",
+    "scripts/source_permission_check.py",
+    "scripts/stamp_seen.py",
+    "scripts/sync-harvest-to-supabase.ps1",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "sale_calendar",
+   "effective_on": "2026-09-15",
+   "evidence_date": "2026-09-15",
+   "evidence_ref": "harvesters/governance/registry.py _FL_REALAUCTION; harvesters/governance/authorization.py fl_realauction__county__alachua/__volusia (LEGAL_REVIEW_REQUIRED); data/phase36_terms_review.csv",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "FL",
+   "operation": "store",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "fl_realauction",
+   "status": "LEGAL_REVIEW_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/enrich_property_details.py",
+    "harvesters/enrichment/geocode.py (CoordinateSource.usable)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-09-30",
+   "evidence_date": "2026-09-30",
+   "evidence_ref": "scripts/enrich_property_details.py lookup_santa_rosa_gis; harvesters/enrichment/geocode.py SANTA_ROSA_SOURCE; docs/legal/pre-sale-blockers.md (terms not read)",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "FL",
+   "operation": "enrich",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "fl_santa_rosa_parcels",
+   "status": "UNKNOWN"
+  },
+  {
+   "call_sites": [
+    "scripts/enrich_property_details.py",
+    "harvesters/enrichment/geocode.py (CoordinateSource.usable)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-09-30",
+   "evidence_date": "2026-09-30",
+   "evidence_ref": "scripts/enrich_property_details.py lookup_santa_rosa_gis; harvesters/enrichment/geocode.py SANTA_ROSA_SOURCE; docs/legal/pre-sale-blockers.md (terms not read)",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "FL",
+   "operation": "fetch",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "fl_santa_rosa_parcels",
+   "status": "UNKNOWN"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-02",
+   "evidence_date": "2026-10-02",
+   "evidence_ref": "data/county_source_registry.csv mi_detroit_landbank_lots restrictions ('collected and synced for development ... not customer-published'); docs/available-inventory.md",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MI",
+   "operation": "fetch",
+   "reviewer": "product owner (collection-not-publication decision 2026-10-02, docs/available-inventory.md)",
+   "source_id": "mi_detroit_landbank_lots",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-02",
+   "evidence_date": "2026-10-02",
+   "evidence_ref": "data/county_source_registry.csv mi_detroit_landbank_lots restrictions ('collected and synced for development ... not customer-published'); docs/available-inventory.md",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MI",
+   "operation": "parse",
+   "reviewer": "product owner (collection-not-publication decision 2026-10-02, docs/available-inventory.md)",
+   "source_id": "mi_detroit_landbank_lots",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-02",
+   "evidence_date": "2026-10-02",
+   "evidence_ref": "data/county_source_registry.csv mi_detroit_landbank_lots restrictions ('collected and synced for development ... not customer-published'); docs/available-inventory.md",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MI",
+   "operation": "store",
+   "reviewer": "product owner (collection-not-publication decision 2026-10-02, docs/available-inventory.md)",
+   "source_id": "mi_detroit_landbank_lots",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-02",
+   "evidence_date": "2026-10-02",
+   "evidence_ref": "data/county_source_registry.csv mi_detroit_landbank_programs restrictions ('collected and synced for development ... not customer-published'); docs/available-inventory.md",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MI",
+   "operation": "fetch",
+   "reviewer": "product owner (collection-not-publication decision 2026-10-02, docs/available-inventory.md)",
+   "source_id": "mi_detroit_landbank_programs",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-02",
+   "evidence_date": "2026-10-02",
+   "evidence_ref": "data/county_source_registry.csv mi_detroit_landbank_programs restrictions ('collected and synced for development ... not customer-published'); docs/available-inventory.md",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MI",
+   "operation": "parse",
+   "reviewer": "product owner (collection-not-publication decision 2026-10-02, docs/available-inventory.md)",
+   "source_id": "mi_detroit_landbank_programs",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-02",
+   "evidence_date": "2026-10-02",
+   "evidence_ref": "data/county_source_registry.csv mi_detroit_landbank_programs restrictions ('collected and synced for development ... not customer-published'); docs/available-inventory.md",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MI",
+   "operation": "store",
+   "reviewer": "product owner (collection-not-publication decision 2026-10-02, docs/available-inventory.md)",
+   "source_id": "mi_detroit_landbank_programs",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-09-30",
+   "evidence_date": "2026-09-30",
+   "evidence_ref": "data/county_source_registry.csv mi_eaton_treasurer_sale restrictions ('No explicit reuse licence ... approved for publication by the owner on 2026-09-30')",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MI",
+   "operation": "display",
+   "reviewer": "product owner (internal publication decision 2026-09-30, recorded in county_source_registry.csv restrictions)",
+   "source_id": "mi_eaton_treasurer_sale",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-09-30",
+   "evidence_date": "2026-09-30",
+   "evidence_ref": "data/county_source_registry.csv mi_eaton_treasurer_sale restrictions ('No explicit reuse licence ... approved for publication by the owner on 2026-09-30')",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MI",
+   "operation": "fetch",
+   "reviewer": "product owner (internal publication decision 2026-09-30, recorded in county_source_registry.csv restrictions)",
+   "source_id": "mi_eaton_treasurer_sale",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-09-30",
+   "evidence_date": "2026-09-30",
+   "evidence_ref": "data/county_source_registry.csv mi_eaton_treasurer_sale restrictions ('No explicit reuse licence ... approved for publication by the owner on 2026-09-30')",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MI",
+   "operation": "parse",
+   "reviewer": "product owner (internal publication decision 2026-09-30, recorded in county_source_registry.csv restrictions)",
+   "source_id": "mi_eaton_treasurer_sale",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-09-30",
+   "evidence_date": "2026-09-30",
+   "evidence_ref": "data/county_source_registry.csv mi_eaton_treasurer_sale restrictions ('No explicit reuse licence ... approved for publication by the owner on 2026-09-30')",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MI",
+   "operation": "store",
+   "reviewer": "product owner (internal publication decision 2026-09-30, recorded in county_source_registry.csv restrictions)",
+   "source_id": "mi_eaton_treasurer_sale",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-09-30",
+   "evidence_date": "2026-09-30",
+   "evidence_ref": "data/county_source_registry.csv mi_lenawee_tax_sale restrictions ('No explicit reuse licence ... approved for publication by the owner on 2026-09-30')",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MI",
+   "operation": "display",
+   "reviewer": "product owner (internal publication decision 2026-09-30, recorded in county_source_registry.csv restrictions)",
+   "source_id": "mi_lenawee_tax_sale",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-09-30",
+   "evidence_date": "2026-09-30",
+   "evidence_ref": "data/county_source_registry.csv mi_lenawee_tax_sale restrictions ('No explicit reuse licence ... approved for publication by the owner on 2026-09-30')",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MI",
+   "operation": "fetch",
+   "reviewer": "product owner (internal publication decision 2026-09-30, recorded in county_source_registry.csv restrictions)",
+   "source_id": "mi_lenawee_tax_sale",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-09-30",
+   "evidence_date": "2026-09-30",
+   "evidence_ref": "data/county_source_registry.csv mi_lenawee_tax_sale restrictions ('No explicit reuse licence ... approved for publication by the owner on 2026-09-30')",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MI",
+   "operation": "parse",
+   "reviewer": "product owner (internal publication decision 2026-09-30, recorded in county_source_registry.csv restrictions)",
+   "source_id": "mi_lenawee_tax_sale",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-09-30",
+   "evidence_date": "2026-09-30",
+   "evidence_ref": "data/county_source_registry.csv mi_lenawee_tax_sale restrictions ('No explicit reuse licence ... approved for publication by the owner on 2026-09-30')",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MI",
+   "operation": "store",
+   "reviewer": "product owner (internal publication decision 2026-09-30, recorded in county_source_registry.csv restrictions)",
+   "source_id": "mi_lenawee_tax_sale",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-02",
+   "evidence_date": "2026-10-02",
+   "evidence_ref": "data/county_source_registry.csv mi_oceana_landbank restrictions ('collected and synced for development ... not customer-published'); docs/available-inventory.md",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MI",
+   "operation": "fetch",
+   "reviewer": "product owner (collection-not-publication decision 2026-10-02, docs/available-inventory.md)",
+   "source_id": "mi_oceana_landbank",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-02",
+   "evidence_date": "2026-10-02",
+   "evidence_ref": "data/county_source_registry.csv mi_oceana_landbank restrictions ('collected and synced for development ... not customer-published'); docs/available-inventory.md",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MI",
+   "operation": "parse",
+   "reviewer": "product owner (collection-not-publication decision 2026-10-02, docs/available-inventory.md)",
+   "source_id": "mi_oceana_landbank",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-02",
+   "evidence_date": "2026-10-02",
+   "evidence_ref": "data/county_source_registry.csv mi_oceana_landbank restrictions ('collected and synced for development ... not customer-published'); docs/available-inventory.md",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MI",
+   "operation": "store",
+   "reviewer": "product owner (collection-not-publication decision 2026-10-02, docs/available-inventory.md)",
+   "source_id": "mi_oceana_landbank",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-02",
+   "evidence_date": "2026-10-02",
+   "evidence_ref": "data/county_source_registry.csv mn_ramsey_tax_forfeit restrictions ('collected and synced for development ... not customer-published'); docs/available-inventory.md",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MN",
+   "operation": "fetch",
+   "reviewer": "product owner (collection-not-publication decision 2026-10-02, docs/available-inventory.md)",
+   "source_id": "mn_ramsey_tax_forfeit",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-02",
+   "evidence_date": "2026-10-02",
+   "evidence_ref": "data/county_source_registry.csv mn_ramsey_tax_forfeit restrictions ('collected and synced for development ... not customer-published'); docs/available-inventory.md",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MN",
+   "operation": "parse",
+   "reviewer": "product owner (collection-not-publication decision 2026-10-02, docs/available-inventory.md)",
+   "source_id": "mn_ramsey_tax_forfeit",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-02",
+   "evidence_date": "2026-10-02",
+   "evidence_ref": "data/county_source_registry.csv mn_ramsey_tax_forfeit restrictions ('collected and synced for development ... not customer-published'); docs/available-inventory.md",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MN",
+   "operation": "store",
+   "reviewer": "product owner (collection-not-publication decision 2026-10-02, docs/available-inventory.md)",
+   "source_id": "mn_ramsey_tax_forfeit",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-02",
+   "evidence_date": "2026-10-02",
+   "evidence_ref": "data/county_source_registry.csv mo_stl_lra_inventory restrictions ('collected and synced for development ... not customer-published'); docs/available-inventory.md",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MO",
+   "operation": "fetch",
+   "reviewer": "product owner (collection-not-publication decision 2026-10-02, docs/available-inventory.md)",
+   "source_id": "mo_stl_lra_inventory",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-02",
+   "evidence_date": "2026-10-02",
+   "evidence_ref": "data/county_source_registry.csv mo_stl_lra_inventory restrictions ('collected and synced for development ... not customer-published'); docs/available-inventory.md",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MO",
+   "operation": "parse",
+   "reviewer": "product owner (collection-not-publication decision 2026-10-02, docs/available-inventory.md)",
+   "source_id": "mo_stl_lra_inventory",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-02",
+   "evidence_date": "2026-10-02",
+   "evidence_ref": "data/county_source_registry.csv mo_stl_lra_inventory restrictions ('collected and synced for development ... not customer-published'); docs/available-inventory.md",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "MO",
+   "operation": "store",
+   "reviewer": "product owner (collection-not-publication decision 2026-10-02, docs/available-inventory.md)",
+   "source_id": "mo_stl_lra_inventory",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-02",
+   "evidence_date": "2026-10-02",
+   "evidence_ref": "data/county_source_registry.csv ok_oklahoma_county_owned restrictions ('collected and synced for development ... not customer-published'); docs/available-inventory.md",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "OK",
+   "operation": "fetch",
+   "reviewer": "product owner (collection-not-publication decision 2026-10-02, docs/available-inventory.md)",
+   "source_id": "ok_oklahoma_county_owned",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-02",
+   "evidence_date": "2026-10-02",
+   "evidence_ref": "data/county_source_registry.csv ok_oklahoma_county_owned restrictions ('collected and synced for development ... not customer-published'); docs/available-inventory.md",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "OK",
+   "operation": "parse",
+   "reviewer": "product owner (collection-not-publication decision 2026-10-02, docs/available-inventory.md)",
+   "source_id": "ok_oklahoma_county_owned",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-02",
+   "evidence_date": "2026-10-02",
+   "evidence_ref": "data/county_source_registry.csv ok_oklahoma_county_owned restrictions ('collected and synced for development ... not customer-published'); docs/available-inventory.md",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "OK",
+   "operation": "store",
+   "reviewer": "product owner (collection-not-publication decision 2026-10-02, docs/available-inventory.md)",
+   "source_id": "ok_oklahoma_county_owned",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-02",
+   "evidence_date": "2026-10-02",
+   "evidence_ref": "data/county_source_registry.csv pa_fayette_repository restrictions ('collected and synced for development ... not customer-published'); docs/available-inventory.md",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "PA",
+   "operation": "fetch",
+   "reviewer": "product owner (collection-not-publication decision 2026-10-02, docs/available-inventory.md)",
+   "source_id": "pa_fayette_repository",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-02",
+   "evidence_date": "2026-10-02",
+   "evidence_ref": "data/county_source_registry.csv pa_fayette_repository restrictions ('collected and synced for development ... not customer-published'); docs/available-inventory.md",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "PA",
+   "operation": "parse",
+   "reviewer": "product owner (collection-not-publication decision 2026-10-02, docs/available-inventory.md)",
+   "source_id": "pa_fayette_repository",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-02",
+   "evidence_date": "2026-10-02",
+   "evidence_ref": "data/county_source_registry.csv pa_fayette_repository restrictions ('collected and synced for development ... not customer-published'); docs/available-inventory.md",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "PA",
+   "operation": "store",
+   "reviewer": "product owner (collection-not-publication decision 2026-10-02, docs/available-inventory.md)",
+   "source_id": "pa_fayette_repository",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-02",
+   "evidence_date": "2026-10-02",
+   "evidence_ref": "data/county_source_registry.csv sc_georgetown_forfeited_land restrictions ('collected and synced for development ... not customer-published'); docs/available-inventory.md",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "SC",
+   "operation": "fetch",
+   "reviewer": "product owner (collection-not-publication decision 2026-10-02, docs/available-inventory.md)",
+   "source_id": "sc_georgetown_forfeited_land",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-02",
+   "evidence_date": "2026-10-02",
+   "evidence_ref": "data/county_source_registry.csv sc_georgetown_forfeited_land restrictions ('collected and synced for development ... not customer-published'); docs/available-inventory.md",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "SC",
+   "operation": "parse",
+   "reviewer": "product owner (collection-not-publication decision 2026-10-02, docs/available-inventory.md)",
+   "source_id": "sc_georgetown_forfeited_land",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-02",
+   "evidence_date": "2026-10-02",
+   "evidence_ref": "data/county_source_registry.csv sc_georgetown_forfeited_land restrictions ('collected and synced for development ... not customer-published'); docs/available-inventory.md",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "SC",
+   "operation": "store",
+   "reviewer": "product owner (collection-not-publication decision 2026-10-02, docs/available-inventory.md)",
+   "source_id": "sc_georgetown_forfeited_land",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-02",
+   "evidence_date": "2026-10-02",
+   "evidence_ref": "data/county_source_registry.csv sc_horry_forfeited_land restrictions ('collected and synced for development ... not customer-published'); docs/available-inventory.md",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "SC",
+   "operation": "fetch",
+   "reviewer": "product owner (collection-not-publication decision 2026-10-02, docs/available-inventory.md)",
+   "source_id": "sc_horry_forfeited_land",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-02",
+   "evidence_date": "2026-10-02",
+   "evidence_ref": "data/county_source_registry.csv sc_horry_forfeited_land restrictions ('collected and synced for development ... not customer-published'); docs/available-inventory.md",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "SC",
+   "operation": "parse",
+   "reviewer": "product owner (collection-not-publication decision 2026-10-02, docs/available-inventory.md)",
+   "source_id": "sc_horry_forfeited_land",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-02",
+   "evidence_date": "2026-10-02",
+   "evidence_ref": "data/county_source_registry.csv sc_horry_forfeited_land restrictions ('collected and synced for development ... not customer-published'); docs/available-inventory.md",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "SC",
+   "operation": "store",
+   "reviewer": "product owner (collection-not-publication decision 2026-10-02, docs/available-inventory.md)",
+   "source_id": "sc_horry_forfeited_land",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-09-30",
+   "evidence_date": "2026-09-30",
+   "evidence_ref": "data/county_source_registry.csv sc_york_tax_sale restrictions ('No explicit reuse licence ... approved for publication by the owner on 2026-09-30')",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "SC",
+   "operation": "display",
+   "reviewer": "product owner (internal publication decision 2026-09-30, recorded in county_source_registry.csv restrictions)",
+   "source_id": "sc_york_tax_sale",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-09-30",
+   "evidence_date": "2026-09-30",
+   "evidence_ref": "data/county_source_registry.csv sc_york_tax_sale restrictions ('No explicit reuse licence ... approved for publication by the owner on 2026-09-30')",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "SC",
+   "operation": "fetch",
+   "reviewer": "product owner (internal publication decision 2026-09-30, recorded in county_source_registry.csv restrictions)",
+   "source_id": "sc_york_tax_sale",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-09-30",
+   "evidence_date": "2026-09-30",
+   "evidence_ref": "data/county_source_registry.csv sc_york_tax_sale restrictions ('No explicit reuse licence ... approved for publication by the owner on 2026-09-30')",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "SC",
+   "operation": "parse",
+   "reviewer": "product owner (internal publication decision 2026-09-30, recorded in county_source_registry.csv restrictions)",
+   "source_id": "sc_york_tax_sale",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-09-30",
+   "evidence_date": "2026-09-30",
+   "evidence_ref": "data/county_source_registry.csv sc_york_tax_sale restrictions ('No explicit reuse licence ... approved for publication by the owner on 2026-09-30')",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "SC",
+   "operation": "store",
+   "reviewer": "product owner (internal publication decision 2026-09-30, recorded in county_source_registry.csv restrictions)",
+   "source_id": "sc_york_tax_sale",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-02",
+   "evidence_date": "2026-10-02",
+   "evidence_ref": "data/county_source_registry.csv tn_shelby_landbank restrictions ('collected and synced for development ... not customer-published'); docs/available-inventory.md",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "TN",
+   "operation": "fetch",
+   "reviewer": "product owner (collection-not-publication decision 2026-10-02, docs/available-inventory.md)",
+   "source_id": "tn_shelby_landbank",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-02",
+   "evidence_date": "2026-10-02",
+   "evidence_ref": "data/county_source_registry.csv tn_shelby_landbank restrictions ('collected and synced for development ... not customer-published'); docs/available-inventory.md",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "TN",
+   "operation": "parse",
+   "reviewer": "product owner (collection-not-publication decision 2026-10-02, docs/available-inventory.md)",
+   "source_id": "tn_shelby_landbank",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-10-02",
+   "evidence_date": "2026-10-02",
+   "evidence_ref": "data/county_source_registry.csv tn_shelby_landbank restrictions ('collected and synced for development ... not customer-published'); docs/available-inventory.md",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "TN",
+   "operation": "store",
+   "reviewer": "product owner (collection-not-publication decision 2026-10-02, docs/available-inventory.md)",
+   "source_id": "tn_shelby_landbank",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/auction_events_writer.py",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-09-14",
+   "evidence_date": "2026-09-14",
+   "evidence_ref": "docs/lgbs-rights-audit.md (legal-disclosures clause); harvesters/governance/registry.py _TX_LGBS",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "TX",
+   "operation": "display",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "tx_lgbs",
+   "status": "LEGAL_REVIEW_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/auction_events_writer.py",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-09-14",
+   "evidence_date": "2026-09-14",
+   "evidence_ref": "docs/lgbs-rights-audit.md (legal-disclosures clause); harvesters/governance/registry.py _TX_LGBS",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "TX",
+   "operation": "fetch",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "tx_lgbs",
+   "status": "LEGAL_REVIEW_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/auction_events_writer.py",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-09-14",
+   "evidence_date": "2026-09-14",
+   "evidence_ref": "docs/lgbs-rights-audit.md (legal-disclosures clause); harvesters/governance/registry.py _TX_LGBS",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "TX",
+   "operation": "parse",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "tx_lgbs",
+   "status": "LEGAL_REVIEW_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/auction_events_writer.py",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-09-14",
+   "evidence_date": "2026-09-14",
+   "evidence_ref": "docs/lgbs-rights-audit.md (legal-disclosures clause); harvesters/governance/registry.py _TX_LGBS",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "TX",
+   "operation": "store",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "tx_lgbs",
+   "status": "LEGAL_REVIEW_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/auction_events_writer.py",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-09-14",
+   "evidence_date": "2026-09-14",
+   "evidence_ref": "docs/realauction-rights-audit.md; harvesters/governance/registry.py _TX_REALAUCTION",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "TX",
+   "operation": "display",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "tx_realauction",
+   "status": "LEGAL_REVIEW_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/auction_events_writer.py",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-09-14",
+   "evidence_date": "2026-09-14",
+   "evidence_ref": "docs/realauction-rights-audit.md; harvesters/governance/registry.py _TX_REALAUCTION",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "TX",
+   "operation": "fetch",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "tx_realauction",
+   "status": "LEGAL_REVIEW_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/auction_events_writer.py",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-09-14",
+   "evidence_date": "2026-09-14",
+   "evidence_ref": "docs/realauction-rights-audit.md; harvesters/governance/registry.py _TX_REALAUCTION",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "TX",
+   "operation": "parse",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "tx_realauction",
+   "status": "LEGAL_REVIEW_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/auction_events_writer.py",
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-09-14",
+   "evidence_date": "2026-09-14",
+   "evidence_ref": "docs/realauction-rights-audit.md; harvesters/governance/registry.py _TX_REALAUCTION",
+   "evidence_type": "GRANDFATHERED_PRACTICE",
+   "expires_on": "2027-04-12",
+   "findings": [
+    "REVIEWER_IS_NOT_A_DECISION"
+   ],
+   "jurisdiction": "TX",
+   "operation": "store",
+   "reviewer": "registry.py / county_source_registry.csv (grandfathered production practice; no reviewer decision on file)",
+   "source_id": "tx_realauction",
+   "status": "LEGAL_REVIEW_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-09-30",
+   "evidence_date": "2026-09-30",
+   "evidence_ref": "data/county_source_registry.csv wi_green_tax_deed_sales restrictions ('No explicit reuse licence ... approved for publication by the owner on 2026-09-30')",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "WI",
+   "operation": "display",
+   "reviewer": "product owner (internal publication decision 2026-09-30, recorded in county_source_registry.csv restrictions)",
+   "source_id": "wi_green_tax_deed_sales",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-09-30",
+   "evidence_date": "2026-09-30",
+   "evidence_ref": "data/county_source_registry.csv wi_green_tax_deed_sales restrictions ('No explicit reuse licence ... approved for publication by the owner on 2026-09-30')",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "WI",
+   "operation": "fetch",
+   "reviewer": "product owner (internal publication decision 2026-09-30, recorded in county_source_registry.csv restrictions)",
+   "source_id": "wi_green_tax_deed_sales",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-09-30",
+   "evidence_date": "2026-09-30",
+   "evidence_ref": "data/county_source_registry.csv wi_green_tax_deed_sales restrictions ('No explicit reuse licence ... approved for publication by the owner on 2026-09-30')",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "WI",
+   "operation": "parse",
+   "reviewer": "product owner (internal publication decision 2026-09-30, recorded in county_source_registry.csv restrictions)",
+   "source_id": "wi_green_tax_deed_sales",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-09-30",
+   "evidence_date": "2026-09-30",
+   "evidence_ref": "data/county_source_registry.csv wi_green_tax_deed_sales restrictions ('No explicit reuse licence ... approved for publication by the owner on 2026-09-30')",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "WI",
+   "operation": "store",
+   "reviewer": "product owner (internal publication decision 2026-09-30, recorded in county_source_registry.csv restrictions)",
+   "source_id": "wi_green_tax_deed_sales",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-09-30",
+   "evidence_date": "2026-09-30",
+   "evidence_ref": "data/county_source_registry.csv wy_albany_tax_sale restrictions ('No explicit reuse licence ... approved for publication by the owner on 2026-09-30')",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "WY",
+   "operation": "display",
+   "reviewer": "product owner (internal publication decision 2026-09-30, recorded in county_source_registry.csv restrictions)",
+   "source_id": "wy_albany_tax_sale",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-09-30",
+   "evidence_date": "2026-09-30",
+   "evidence_ref": "data/county_source_registry.csv wy_albany_tax_sale restrictions ('No explicit reuse licence ... approved for publication by the owner on 2026-09-30')",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "WY",
+   "operation": "fetch",
+   "reviewer": "product owner (internal publication decision 2026-09-30, recorded in county_source_registry.csv restrictions)",
+   "source_id": "wy_albany_tax_sale",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-09-30",
+   "evidence_date": "2026-09-30",
+   "evidence_ref": "data/county_source_registry.csv wy_albany_tax_sale restrictions ('No explicit reuse licence ... approved for publication by the owner on 2026-09-30')",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "WY",
+   "operation": "parse",
+   "reviewer": "product owner (internal publication decision 2026-09-30, recorded in county_source_registry.csv restrictions)",
+   "source_id": "wy_albany_tax_sale",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  },
+  {
+   "call_sites": [
+    "scripts/source_publication.py (collectable / publishable)",
+    "harvesters/governance/publication_state.py (display)"
+   ],
+   "conditions": [],
+   "dataset": "*",
+   "effective_on": "2026-09-30",
+   "evidence_date": "2026-09-30",
+   "evidence_ref": "data/county_source_registry.csv wy_albany_tax_sale restrictions ('No explicit reuse licence ... approved for publication by the owner on 2026-09-30')",
+   "evidence_type": "INTERNAL_RISK_ACCEPTANCE",
+   "expires_on": "2027-04-12",
+   "findings": [],
+   "jurisdiction": "WY",
+   "operation": "store",
+   "reviewer": "product owner (internal publication decision 2026-09-30, recorded in county_source_registry.csv restrictions)",
+   "source_id": "wy_albany_tax_sale",
+   "status": "OWNER_PERMISSION_REQUIRED"
+  }
+ ],
+ "interim_max_days": 210,
+ "summary": {
+  "by_expiry": {
+   "2027-04-12": 133
+  },
+  "by_finding": {
+   "REVIEWER_IS_NOT_A_DECISION": 77
+  },
+  "records": 133,
+  "sources": 36
+ }
+}
