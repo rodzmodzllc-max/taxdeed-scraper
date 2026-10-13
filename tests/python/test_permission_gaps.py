@@ -345,3 +345,42 @@ def test_powershell_guard_allows_with_the_real_records(name):
     cli, _ = _guard_cli(name)
     res = subprocess.run(cli, capture_output=True, text=True, cwd=str(ROOT))
     assert res.returncode == 0, res.stdout + res.stderr
+
+
+# --- GovEase: stays blocked with stale evidence, missing terms or a fallback ---
+
+def test_govease_stays_blocked_if_the_registry_entry_loses_its_terms_and_block(monkeypatch):
+    # Even if the registry entry were edited to drop its terms finding and its
+    # BLOCKED status (stale or missing evidence), the permission engine still
+    # refuses: the block is in code, not in the registry text.
+    import dataclasses
+
+    from harvesters.governance import registry as REG
+    entry = REG.SOURCE_REGISTRY["tx_govease"]
+    softened = dataclasses.replace(entry, terms_status="", robots_status="", legal_status=REG.SourceStatus.APPROVED)
+    monkeypatch.setitem(REG.SOURCE_REGISTRY, "tx_govease", softened)
+    for op in PERM.OPERATIONS:
+        d = PERM.Permissions.from_file().authorize("tx_govease", op, state="TX")
+        assert not d.allowed and d.reason_code == "HARD_BLOCKED", op
+
+
+@pytest.mark.parametrize("perms_factory", [
+    lambda: PERM.Permissions.from_file(Path("/nonexistent/source_permissions.csv")),   # no file
+    lambda: PERM.Permissions([], error="unreadable"),                                    # load error
+    lambda: PERM.Permissions([]),                                                        # empty set
+])
+@pytest.mark.parametrize("kw", [dict(state="TX"), dict(state="TX", county="Denton"), dict(state="TX", dataset="*"),
+                                dict(state="US"), dict(state=None)])
+def test_govease_has_no_default_fallback(perms_factory, kw):
+    d = perms_factory().authorize("tx_govease", "fetch", **kw)
+    assert not d.allowed
+
+
+def test_govease_denied_by_every_entry_point_helper():
+    import permission_gate as PG
+    import source_publication as SP
+    assert not PG.allowed("tx_govease", ("fetch",), state="TX", label="t")
+    for op in ("fetch", "store", "display", "link"):
+        assert not SP.permitted("tx_govease", op, "TX").allowed
+    import laft_status
+    assert not laft_status.permission("tx_govease", "fetch", state="TX").allowed
