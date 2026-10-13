@@ -81,7 +81,9 @@ def test_s04_requires_031_and_documents_order_and_rollback():
 
 def test_s05_numbering_is_next():
     names = sorted(p.name for p in MIG.glob("*.sql"))
-    assert names[-2:] == ["031_publication_state_gate.sql", "032_publication_gate_side_tables.sql"]
+    # 032 follows 031. Later drafts (033 billing, not applied) may come after it.
+    i = names.index("031_publication_state_gate.sql")
+    assert names[i + 1] == "032_publication_gate_side_tables.sql"
 
 
 # ==================== LIVE ====================

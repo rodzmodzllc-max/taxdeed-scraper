@@ -9,7 +9,10 @@
 //   - each event id is recorded once in public.billing_events; an event
 //     already processed is acknowledged and not applied again;
 //   - an older event never overwrites a newer subscription state;
-//   - only STRIPE_PRICE_ID (the one monthly plan) grants entitlement.
+//   - only STRIPE_PRICE_ID (the one monthly plan) grants entitlement;
+//   - refunds and disputes are recorded per charge (billing_charges, migration
+//     033, NOT yet applied). Until it is, those events fail, Stripe redelivers
+//     them, and public.billing_events shows them as failed.
 //
 // Deploy with JWT verification OFF (Stripe does not send a Supabase JWT):
 //   supabase functions deploy stripe-webhook --no-verify-jwt
@@ -54,9 +57,18 @@ function store(db: ReturnType<typeof createClient>) {
       return data ? data.user_id : null;
     },
     async getSubscription(id: string) {
-      const { data, error } = await db.from("subscriptions").select("user_id, stripe_event_created").eq("stripe_subscription_id", id).maybeSingle();
+      const { data, error } = await db.from("subscriptions").select("user_id, stripe_event_created, last_payment_event_at").eq("stripe_subscription_id", id).maybeSingle();
       if (error) throw error;
       return data;
+    },
+    async getCharge(id: string) {
+      const { data, error } = await db.from("billing_charges").select("*").eq("charge_id", id).maybeSingle();
+      if (error) throw error;
+      return data;
+    },
+    async saveCharge(row: Record<string, unknown>) {
+      const { error } = await db.from("billing_charges").upsert({ ...row, updated_at: new Date().toISOString() }, { onConflict: "charge_id" });
+      if (error) throw error;
     },
     async upsertSubscription(row: Record<string, unknown>) {
       const { error } = await db.from("subscriptions").upsert({ ...row, updated_at: new Date().toISOString() }, { onConflict: "stripe_subscription_id" });
@@ -65,10 +77,10 @@ function store(db: ReturnType<typeof createClient>) {
     async recordPayment(id: string, outcome: "paid" | "failed", at: string | null) {
       if (outcome === "failed") {
         const { data } = await db.from("subscriptions").select("payment_failed_at").eq("stripe_subscription_id", id).maybeSingle();
-        const { error } = await db.from("subscriptions").update({ last_payment_status: "failed", payment_failed_at: (data && data.payment_failed_at) || at, updated_at: new Date().toISOString() }).eq("stripe_subscription_id", id);
+        const { error } = await db.from("subscriptions").update({ last_payment_status: "failed", payment_failed_at: (data && data.payment_failed_at) || at, last_payment_event_at: at, updated_at: new Date().toISOString() }).eq("stripe_subscription_id", id);
         if (error) throw error;
       } else {
-        const { error } = await db.from("subscriptions").update({ last_payment_status: "paid", payment_failed_at: null, updated_at: new Date().toISOString() }).eq("stripe_subscription_id", id);
+        const { error } = await db.from("subscriptions").update({ last_payment_status: "paid", payment_failed_at: null, last_payment_event_at: at, updated_at: new Date().toISOString() }).eq("stripe_subscription_id", id);
         if (error) throw error;
       }
     },

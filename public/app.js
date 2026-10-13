@@ -3252,6 +3252,9 @@ const BILLING_STATE_LABELS = {
   payment_failed_grace: "Payment failed - grace period",
   payment_failed: "Payment failed - access paused",
   cancelled: "Cancelled",
+  refunded: "Refunded in full - paid access ended",
+  dispute_open: "Payment disputed - access held until the dispute is resolved",
+  dispute_lost: "Payment disputed - dispute lost, paid access ended",
   inactive: "No active subscription"
 };
 function billingConfig() {
