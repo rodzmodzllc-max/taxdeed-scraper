@@ -322,8 +322,8 @@ def _write_variant(tmp_path, args, mutate):
 @pytest.mark.parametrize("name", PS1)
 @pytest.mark.parametrize("case,mutate,code", [
     ("missing", lambda r: None, "UNKNOWN_SOURCE"),
-    ("expired", lambda r: {**r, "expires_on": "2020-01-01", "effective_on": "2019-01-01", "evidence_date": "2019-01-01",
-                           "last_verified_on": "2019-01-01"}, "EXPIRED"),
+    ("expired", lambda r: {**r, "expires_on": "2020-01-01", "effective_on": "2019-07-01", "evidence_date": "2019-07-01",
+                           "last_verified_on": "2019-07-01"}, "EXPIRED"),
     ("condition_unmet", lambda r: {**r, "conditions": "attribution_text_recorded", "attribution": ""}, "CONDITION_UNMET"),
     ("blocked", lambda r: {**r, "status": "BLOCKED", "evidence_type": "PROHIBITION_FOUND"}, "BLOCKED"),
 ])
