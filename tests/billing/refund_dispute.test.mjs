@@ -147,21 +147,81 @@ test("a full refund does not change cancellation-at-period-end state beyond endi
 });
 
 // ---------- disputes ----------
-test("an opened dispute is recorded and keeps access; it is not assumed won or lost", async () => {
+test("an opened dispute is recorded and temporarily holds paid access until it is resolved", async () => {
   const store = await paidAccount(memoryStore());
   await deliver(store, disputeEvent("charge.dispute.created", { id: "e_dc" }));
   const e = ent(store);
   assert.equal(store.charges.get("ch_1").dispute_status, "needs_response");
-  assert.equal(e.access, true);
+  assert.equal(e.access, false);
   assert.equal(e.disputed, true);
+  assert.equal(e.state, STATES.DISPUTE_OPEN);
+});
+
+test("a dispute under review is still open and holds access", async () => {
+  const store = await paidAccount(memoryStore());
+  await deliver(store, disputeEvent("charge.dispute.updated", { id: "e_du", status: "under_review" }));
+  assert.equal(ent(store).access, false);
+  assert.equal(ent(store).state, STATES.DISPUTE_OPEN);
+});
+
+test("resolution recalculates access: a won dispute removes the hold and access returns", async () => {
+  const store = await paidAccount(memoryStore());
+  await deliver(store, disputeEvent("charge.dispute.created", { id: "e_rh" }));
+  assert.equal(ent(store).access, false);
+  await deliver(store, disputeEvent("charge.dispute.closed", { id: "e_rw", created: NOW + 50, status: "won" }));
+  assert.equal(ent(store).access, true);
+  assert.equal(ent(store).state, STATES.ACTIVE);
+});
+
+test("resolution recalculates access: a lost dispute ends access and stays ended after later subscription events", async () => {
+  const store = await paidAccount(memoryStore());
+  await deliver(store, disputeEvent("charge.dispute.created", { id: "e_rl" }));
+  await deliver(store, disputeEvent("charge.dispute.closed", { id: "e_rlost", created: NOW + 50, status: "lost" }));
+  await deliver(store, subEvent("customer.subscription.updated", { id: "e_rsub", created: NOW + 60, status: "active" }));
+  assert.equal(ent(store).state, STATES.DISPUTE_LOST);
+  assert.equal(ent(store).access, false);
+});
+
+test("a dispute that resolves as won, when a full refund also applies, is still ended by the refund", async () => {
+  const store = await paidAccount(memoryStore());
+  await deliver(store, chargeEvent("charge.refunded", { id: "e_wr", amountRefunded: AMOUNT }));
+  await deliver(store, disputeEvent("charge.dispute.created", { id: "e_wd" }));
+  await deliver(store, disputeEvent("charge.dispute.closed", { id: "e_ww", created: NOW + 50, status: "won" }));
+  assert.equal(ent(store).state, STATES.REFUNDED);
+  assert.equal(ent(store).access, false);
+});
+
+test("a partial refund keeps access and flags the account for manual review", async () => {
+  const store = await paidAccount(memoryStore());
+  await deliver(store, chargeEvent("charge.refunded", { id: "e_pr", amountRefunded: 1000 }));
+  const e = ent(store);
+  assert.equal(e.access, true);
+  assert.equal(e.review_required, true);
   assert.equal(e.state, STATES.ACTIVE);
 });
 
-test("a dispute under review is still open and keeps access", async () => {
+test("a full refund does not raise the manual-review flag (it ends access by rule)", async () => {
   const store = await paidAccount(memoryStore());
-  await deliver(store, disputeEvent("charge.dispute.updated", { id: "e_du", status: "under_review" }));
-  assert.equal(ent(store).access, true);
-  assert.equal(ent(store).disputed, true);
+  await deliver(store, chargeEvent("charge.refunded", { id: "e_fr", amountRefunded: AMOUNT }));
+  assert.equal(ent(store).review_required, false, "manual review is for partial refunds; a full refund is decided by rule");
+  assert.equal(ent(store).access, false);
+});
+
+test("an older refunded payment does not affect a newer valid subscription", async () => {
+  const store = memoryStore();
+  await deliver(store, subEvent("customer.subscription.created", { id: "old_s" }));
+  await deliver(store, invoiceEvent("invoice.paid", { id: "old_inv", charge: "ch_old" }));
+  await deliver(store, chargeEvent("charge.refunded", { id: "old_ref", amountRefunded: AMOUNT, chargeId: "ch_old" }));
+  // A newer subscription on the same customer, with its own charge.
+  const newer = subEvent("customer.subscription.created", { id: "new_s", created: NOW + 100 });
+  newer.data.object.id = "sub_2";
+  await deliver(store, newer);
+  await deliver(store, { id: "new_inv", type: "invoice.paid", created: NOW + 101, livemode: false,
+    data: { object: { id: "in_2", customer: "cus_1", subscription: "sub_2", charge: "ch_new" } } });
+  const e = entitlementFor({ profile: { approved: false, is_admin: false, access_grant: "tester" },
+    subscriptions: [...store.subs.values()].filter((r) => r.user_id === USER), charges: [...store.charges.values()], nowMs: (NOW + 200) * 1000 });
+  assert.equal(e.access, true, "the newer subscription grants access; the refund is attached to the old subscription only");
+  assert.equal(e.subscription_status, "active");
 });
 
 test("a lost dispute ends paid access", async () => {
@@ -368,9 +428,9 @@ test("accessHolds reads only the given subscription's charges", () => {
     { stripe_subscription_id: "sub_a", refund_state: "full", dispute_status: "none" },
     { stripe_subscription_id: "sub_b", refund_state: "none", dispute_status: "lost" },
   ];
-  assert.deepEqual(accessHolds(charges, "sub_a"), { refunded: true, dispute_lost: false, dispute_open: false });
-  assert.deepEqual(accessHolds(charges, "sub_b"), { refunded: false, dispute_lost: true, dispute_open: false });
-  assert.deepEqual(accessHolds(charges, null), { refunded: false, dispute_lost: false, dispute_open: false });
+  assert.deepEqual(accessHolds(charges, "sub_a"), { refunded: true, dispute_lost: false, dispute_open: false, review_required: false });
+  assert.deepEqual(accessHolds(charges, "sub_b"), { refunded: false, dispute_lost: true, dispute_open: false, review_required: false });
+  assert.deepEqual(accessHolds(charges, null), { refunded: false, dispute_lost: false, dispute_open: false, review_required: false });
 });
 
 test("planEvent: a payment invoice that carries its charge also links the charge to the subscription", () => {

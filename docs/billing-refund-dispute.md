@@ -1,6 +1,6 @@
 # Refunds, disputes and the webhook: policy, changes and approvals
 
-Status: code and tests on branch `feat/billing-refund-dispute`. Billing stays
+Status: code and tests on branch `feat/billing-refund-dispute`; policy confirmed by the owner 2026-10-13. Billing stays
 OFF (`config.js` `billing.enabled: false`). Migration 033 is a DRAFT and is NOT
 applied. No live Stripe prices, no deploys, no production writes.
 
@@ -19,32 +19,27 @@ applied. No live Stripe prices, no deploys, no production writes.
   stale-subscription guard, failed-event retry, and the seven-day grace period
   were already in place, and they are unchanged.
 
-## 2. Access policy (proposed defaults, awaiting owner sign-off)
+## 2. Access policy (confirmed by the owner, 2026-10-13)
 
-| Event state | Access | Reason shown | Notes |
+| Event state | Access | State shown | Notes |
 |---|---|---|---|
-| Full refund on a paid subscription | ends (`refunded`) | "Refunded in full - paid access ended" | Overrides the Stripe status and the grace period. |
-| Partial refund | kept | normal state | Only the amount changes. |
-| Partial refund later becomes full | ends | as above | Refunded amounts never shrink. |
-| Dispute opened (`needs_response`, `under_review`) | kept, shown as `disputed` | normal state + disputed flag | Not assumed won or lost while open. |
-| Dispute lost | ends (`dispute_lost`) | "Payment disputed - dispute lost" | Persists after the subscription changes; cleared only by a won outcome, which Stripe never issues after a loss. |
-| Dispute won, or inquiry closed (`warning_closed`) | kept | normal state | Nothing is revoked. |
-| Manual customer grant (`access_grant = customer`) | kept | "Customer access granted by an administrator" | This is the documented support exception. It never depends on Stripe. |
+| Full refund on a paid subscription | ends | `refunded` | Overrides Stripe's status and the grace period. Manual customer grant still applies (support exception). |
+| Partial refund | kept, **flagged for manual review** | normal state, `review_required: true` | Never revokes by itself. An administrator checks the case. |
+| Partial refund later becomes full | ends | `refunded` | Refunded amounts never shrink. |
+| Dispute opened (`needs_response`, `under_review`) | **held** until resolved | `dispute_open` | Temporary hold, `disputed: true`. |
+| Dispute resolved as lost | ends | `dispute_lost` | Persists after later subscription events. |
+| Dispute resolved as won, or inquiry closed (`warning_closed`) | hold removed; access recalculated from all other conditions | normal state | A full refund still ends access. |
+| Manual customer grant (`access_grant = customer`) | kept | "Customer access granted by an administrator" | Documented support exception. |
 | Tester / admin | unaffected | unchanged | Holds apply only to paid subscriptions. |
-| Cancellation at period end | unchanged | "Cancellation scheduled" | A refund still ends access immediately. |
-| Payment failed (grace, then restricted) | unchanged | unchanged | A full refund ends access during grace too. |
+| Cancellation at period end | unchanged | "Cancellation scheduled" | A refund or dispute hold still applies on top. |
+| Payment failed (grace, then restricted) | unchanged | unchanged | A full refund or open dispute applies during grace too. |
 
-Decisions that need your sign-off before billing is enabled:
-1. **Open disputes keep access** (the default here). The alternative is to end
-   access as soon as a dispute opens. That would revoke on an outcome nobody
-   knows yet.
-2. **Full refund ends access immediately**, even mid-period. The alternative is
-   to end access at period end.
-3. **A refund not yet linked to a subscription does not revoke.** The charge
-   must first be linked from its invoice, which normally arrives within the same
-   minute. The brief gap is accepted; the alternative is to hold until linked.
-4. **A second dispute on the same charge is refused and marked failed**, not
-   merged. This needs a manual decision if it ever happens.
+Resolution is recalculated: after a dispute closes, entitlement is computed
+again from every remaining condition (refund, lost dispute, subscription state,
+grace period), not restored to a previous value.
+
+Each charge's refund and dispute facts apply only to the subscription the charge
+belongs to. A refund on an old payment never touches a newer subscription.
 
 ## 3. Event handling and ordering
 
@@ -74,7 +69,7 @@ sends none of these events and nothing is revoked on a refund.
 
 ## 4. Tests
 
-- `tests/billing/refund_dispute.test.mjs`: 30 checks covering full and partial
+- `tests/billing/refund_dispute.test.mjs`: 36 checks covering full and partial
   refunds, refund-to-full, opened / updated / won / lost / warning-closed
   disputes, duplicate refund and dispute events, out-of-order dispute and
   payment events, a dispute that arrives before its charge link, failed

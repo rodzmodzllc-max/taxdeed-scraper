@@ -220,7 +220,7 @@ const STATE_LABELS = {
   admin_override: "Administrator", tester_beta: "Approved tester", manual_customer: "Granted by an administrator",
   active: "Paid - active", trial: "Paid - trial", cancelling: "Paid - cancellation scheduled",
   payment_failed_grace: "Payment failed - in grace period", payment_failed: "Payment failed - access paused",
-  cancelled: "Cancelled", refunded: "Refunded in full - access ended", dispute_lost: "Dispute lost - access ended",
+  cancelled: "Cancelled", refunded: "Refunded in full - access ended", dispute_open: "Dispute open - access held", dispute_lost: "Dispute lost - access ended",
   inactive: "Pending / no subscription"
 };
 function dateOnly(v) { const t = v ? Date.parse(v) : NaN; return Number.isNaN(t) ? "" : new Date(t).toISOString().slice(0, 10); }

@@ -39,6 +39,7 @@ export const STATES = Object.freeze({
   PAYMENT_FAILED: "payment_failed",         // past_due beyond grace, or unpaid
   CANCELLED: "cancelled",                   // canceled, or cancel_at_period_end and the period is over
   REFUNDED: "refunded",                     // a charge on this subscription was refunded IN FULL (access hold)
+  DISPUTE_OPEN: "dispute_open",             // a chargeback is open: paid access held until it is resolved
   DISPUTE_LOST: "dispute_lost",             // a chargeback on this subscription was lost (access hold)
   INACTIVE: "inactive",                     // no access at all
 });
@@ -104,18 +105,19 @@ export function bestSubscription(subs, nowMs, graceDays = DEFAULT_GRACE_DAYS) {
 }
 
 // ==================== refunds and disputes ====================
-// Policy (docs/billing-refund-dispute.md, decided 2026-10-13, awaiting owner
-// sign-off):
-//   - a FULL refund ends paid access (state refunded). A PARTIAL refund never
-//     does. A manual customer grant (access_grant = customer) is the one
-//     documented support exception, because it never depends on Stripe.
-//   - an OPEN dispute (needs_response / under_review) keeps access and is
-//     shown as disputed. Nothing is assumed won or lost while it is open.
-//   - a LOST dispute ends paid access (state dispute_lost).
-//   - a WON dispute (or an inquiry closed without a chargeback) ends nothing.
-// Charge state only ever moves forward: refunded amounts never shrink, and a
-// dispute never moves back from won/lost, so out-of-order or duplicate events
-// cannot undo a later fact.
+// Policy (owner-confirmed 2026-10-13; docs/billing-refund-dispute.md):
+//   - a FULL refund ends paid access (state refunded), unless the manual
+//     customer grant (access_grant = customer) applies - the support exception.
+//   - a PARTIAL refund never revokes access by itself. It sets review_required
+//     so an administrator checks the case manually.
+//   - an OPEN dispute (needs_response / under_review) TEMPORARILY HOLDS paid
+//     access (state dispute_open) until the dispute is resolved.
+//   - once the dispute is resolved, access is recalculated from every remaining
+//     condition: a LOST dispute ends access (dispute_lost); a WON dispute or an
+//     inquiry closed without a chargeback removes the hold and nothing else.
+// Charge state only moves forward: refunded amounts never shrink, and a dispute
+// never moves back from won/lost, so out-of-order or duplicate events cannot
+// undo a later fact.
 export const DISPUTE_STATUSES = Object.freeze(["needs_response", "under_review", "won", "lost"]);
 const DISPUTE_RANK = Object.freeze({ none: 0, needs_response: 1, under_review: 2, won: 3, lost: 3 });
 
@@ -131,8 +133,6 @@ export function stripeDisputeStatus(s) {
   }
 }
 
-// One charge's new facts (an event's contribution), merged into what is stored.
-// existing = the stored row or null. Returns the row to store. Pure.
 export function mergeCharge(existing, patch) {
   if (!patch || typeof patch.charge_id !== "string" || !patch.charge_id) throw new Error("charge patch has no charge id");
   const row = existing ? { ...existing } : {
@@ -155,13 +155,15 @@ export function mergeCharge(existing, patch) {
   return row;
 }
 
-// The access holds one subscription's charges impose. Pure.
+// The conditions one subscription's charges impose. Pure. `dispute_open` holds
+// access; `refunded` and `dispute_lost` end it; `review_required` only flags.
 export function accessHolds(charges, stripeSubscriptionId) {
   const mine = (charges || []).filter((c) => c && stripeSubscriptionId && c.stripe_subscription_id === stripeSubscriptionId);
   return {
     refunded: mine.some((c) => c.refund_state === "full"),
     dispute_lost: mine.some((c) => c.dispute_status === "lost"),
     dispute_open: mine.some((c) => c.dispute_status === "needs_response" || c.dispute_status === "under_review"),
+    review_required: mine.some((c) => c.refund_state === "partial"),
   };
 }
 
@@ -175,13 +177,16 @@ export function entitlementFor({ profile, subscriptions, charges, nowMs, graceDa
   let subEnt = subscriptionEntitlement(sub, now, graceDays);
   const holds = accessHolds(charges, sub && sub.stripe_subscription_id);
   if (subEnt.access && holds.refunded) {
-    subEnt = { state: STATES.REFUNDED, access: false, reason: "Refunded in full - paid access ended (a partial refund keeps access)" };
+    subEnt = { state: STATES.REFUNDED, access: false, reason: "Refunded in full - paid access ended" };
   } else if (subEnt.access && holds.dispute_lost) {
     subEnt = { state: STATES.DISPUTE_LOST, access: false, reason: "Payment disputed and the dispute was lost - paid access ended" };
+  } else if (subEnt.access && holds.dispute_open) {
+    subEnt = { state: STATES.DISPUTE_OPEN, access: false, reason: "A payment dispute is open - paid access is held until it is resolved" };
   }
   const base = {
     subscription_state: sub ? subEnt.state : null, subscription_status: sub ? sub.status : null,
     disputed: !!(sub && holds.dispute_open),
+    review_required: !!(sub && holds.review_required),
   };
   if (profile && profile.is_admin) return { role: ROLES.ADMIN, state: STATES.ADMIN_OVERRIDE, access: true, scope: SCOPES.ALL, reason: "Administrator", ...base };
   if (profile && profile.approved && (profile.access_grant || "tester") === "tester") {
