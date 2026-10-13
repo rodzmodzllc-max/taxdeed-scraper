@@ -762,6 +762,25 @@ def fetch_county_batch(county, limit, outstanding=None):
     return rows[:limit]
 
 
+class SourceNotPermitted(RuntimeError):
+    """A lookup was called for a source whose fetch + enrich permission is
+    not recorded (data/source_permissions.csv). Raised BEFORE any request,
+    so a caller that skipped main()'s check (a backfill, a probe) can never
+    query the source or mistake the refusal for "no match"."""
+
+
+_LOOKUP_PERMISSIONS: dict[tuple[str, str | None], bool] = {}
+
+
+def _require_lookup_permission(source_id: str, *datasets) -> None:
+    for dataset in datasets or (None,):
+        key = (source_id, dataset)
+        if key not in _LOOKUP_PERMISSIONS:
+            _LOOKUP_PERMISSIONS[key] = _permitted(source_id, dataset)
+        if not _LOOKUP_PERMISSIONS[key]:
+            raise SourceNotPermitted(f"{source_id} {dataset or ''} fetch/enrich not permitted - 0 requests made")
+
+
 def lookup_fdor(county, parcel):
     """Returns (attributes, centroid, matched_candidate) or (None, None, None).
 
@@ -776,6 +795,7 @@ def lookup_fdor(county, parcel):
     coordinates, which is what makes the map pin, the Street View link and
     the coordinate-based Zillow link work for those rows.
     """
+    _require_lookup_permission("fl_fdor_cadastral", "parcel_attributes", "parcel_centroid")
     co_no = COUNTY_CODES.get(COUNTY_ALIASES.get(county, county))
     if co_no is None:
         return None, None, None  # unmapped county name - skip rather than guess
@@ -885,6 +905,7 @@ def lookup_santa_rosa_gis(parcel):
     lookup_fdor() - (None, None, None) on no match - so main()'s handling
     doesn't need to know which source actually matched.
     """
+    _require_lookup_permission("fl_santa_rosa_parcels")
     for candidate in _santa_rosa_candidates(parcel):
         safe = candidate.replace("'", "''")
         params = {
@@ -979,6 +1000,7 @@ def lookup_flagler_gis(parcel):
     lookup_fdor() - (None, None, None) on no match, centroid always None
     here since this layer doesn't support returnCentroid.
     """
+    _require_lookup_permission("fl_palm_coast_flagler_parcels")
     for candidate in _flagler_candidates(parcel):
         safe = candidate.replace("'", "''")
         params = {

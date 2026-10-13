@@ -12,7 +12,7 @@
 
 ## Mailbox status
 
-The Gmail connector returned `Forbidden` again on 2026-10-12, as it did on the earlier audit day. No sent message, date or reply could be read, so every response status below is UNKNOWN or NONE.
+The Gmail connector returned `Forbidden` on 2026-10-12, as it did on the earlier audit day. On 2026-10-13 it was not connected to the session at all. No sent message, date or reply could be read, so every response status below is UNKNOWN or NONE, and every delivery is unverified.
 
 ## Group A - counties with no inquiry on record
 

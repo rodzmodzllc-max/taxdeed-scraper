@@ -161,6 +161,30 @@ def fetch_rows(base: str, key: str, state: str, source_id: str | None) -> list[d
         offset += 1000
 
 
+def store_permitted_for(state: str, *, decide=None):
+    """A per-source cache of the recorded `store` permission
+    (data/source_permissions.csv). A row whose source is unknown, denied or
+    unreadable by governance is never written (fail closed)."""
+    if decide is None:
+        import permission_gate as PG  # noqa: PLC0415
+
+        def decide(source_id):
+            return PG.allowed(source_id, ("store",), state=state, label="apply_acquisition_paths", level="warning")
+    cache: dict[str, bool] = {}
+
+    def permitted(row: dict) -> bool:
+        source_id = row.get("source_id") or row.get("harvester_source") or ""
+        if not source_id:
+            return False
+        if source_id not in cache:
+            try:
+                cache[source_id] = bool(decide(source_id))
+            except Exception:  # noqa: BLE001 - no governance means no permission
+                cache[source_id] = False
+        return cache[source_id]
+    return permitted
+
+
 def main(argv=None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--state", required=True)
@@ -179,7 +203,12 @@ def main(argv=None) -> int:
     tally: Counter = Counter()
     by_county: dict[str, Counter] = {}
     patched = 0
+    permitted = store_permitted_for(a.state)
     for r in rows:
+        if not permitted(r):
+            tally["not_permitted"] += 1
+            by_county.setdefault(r.get("county") or "?", Counter())["not_permitted"] += 1
+            continue
         payload, outcome = plan_row(r, registry=registry, evidence=evidence, state=a.state, today=today)
         tally[outcome] += 1
         by_county.setdefault(r.get("county") or "?", Counter())[outcome] += 1
