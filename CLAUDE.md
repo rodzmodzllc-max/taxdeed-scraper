@@ -2533,6 +2533,17 @@ Full description: `docs/ledger-eligibility.md`. Stable facts:
   `no_false_zero_copy`, `no_false_zero_lifecycle`, `tx_classification`, `tx_struck_off_copy`, `fl_separation`.
   Stub knobs `?emptyledger=`, `?unitstatus=`. `sw.js` -> `tdw-shell-v118`.
 
+## Publication gate on the side tables (2026-10-13, PR open, migration 032 NOT applied)
+
+`scripts/migrations/032_publication_gate_side_tables.sql` ALTERs (never drops) the read policies of
+`auction_events`, `auction_event_observations`, `inventory_status_observations`, `property_change_events`,
+and adds a RESTRICTIVE SELECT policy on `user_alerts`, so a side row is readable only when the same caller can
+read its property (`exists (select 1 from public.properties p where p.id = ...)` under the caller's own RLS -
+no second copy of 031's rule). Requires 031; skips tables not yet created; idempotent; re-apply after 024.
+Order: 031 -> writer for every state -> 032. Review table of every customer surface: `docs/publication-gate.md`.
+Rule: a new table holding per-property rows for customers must gate its reads on the property's own
+readability, never on `is_approved()` alone.
+
 ## Where to look for more
 
 - `claude/improvement-roadmap.md` in the "tax florida app" claude.ai Project — the full dated log of every fix, audit finding, and open decision. This is where new findings should be appended, not here.
