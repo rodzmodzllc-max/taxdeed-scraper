@@ -151,7 +151,7 @@ a{color:var(--copper-deep)}
 :root[data-theme="dark"] .nav-rail-brand img{filter:grayscale(1) invert(.9)}
 
 /* Command bar (contextual toolbar): sticky, flat, one hairline. */
-.topbar{background:color-mix(in srgb, var(--stone) 94%, transparent)!important;border-bottom:1px solid var(--rule)!important;color:var(--ink)!important;
+.topbar{background:var(--stone)!important;border-bottom:1px solid var(--rule)!important;color:var(--ink)!important;
   backdrop-filter:none!important;box-shadow:none!important}
 @media (min-width:1024px){ .topbar{padding:.5rem 1.6rem!important} }
 .topbar .brand-name{font-family:var(--font-display)!important;font-weight:700!important;color:var(--ink)!important;letter-spacing:-.01em}

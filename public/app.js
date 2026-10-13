@@ -4959,7 +4959,9 @@ function card(p, showCounty) {
   // Lets the 60s countdown-badge refresh (see refreshAuctionCountdowns) find
   // this card's own row again without a full re-render.
   el.dataset.pid = p.id;
-  const d = daysUntil(p);
+  // A countdown means a sale date. Available rows carry a list date, not a sale,
+  // so "277d ago" would misread a listing as a past auction.
+  const d = p.source === "auction" ? daysUntil(p) : null;
   let cd = "";
   if (d !== null && d >= 0) { const cls = d <= 3 ? "urgent" : d <= SOON_DAYS ? "soon" : ""; cd = `<span class="countdown ${cls}">${d === 0 ? "TODAY" : d + "d"}</span>`; }
   else if (d !== null && d < 0) { cd = `<span class="countdown past">${-d}d ago</span>`; }

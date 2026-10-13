@@ -6803,6 +6803,16 @@ await big.press('#globalSearchInput', 'Enter');
   await adm.close();
 }
 
+// --- Hotfix (2026-10-11): an Available card carries no countdown (a list date is
+// not a sale), and the sticky top bar is opaque so the page cannot show through.
+{
+  const hp = await newPage({ viewport: { width: 1280, height: 900 } });
+  await hp.goto(BASE_URL + '#/lands', { waitUntil: 'networkidle' });
+  await hp.waitForTimeout(700);
+  results.availCardCountdownCount = await hp.locator('#main .prop-card[data-pid] .countdown').count();
+  results.topbarBackground = await hp.locator('.topbar').evaluate(el => getComputedStyle(el).backgroundColor);
+  await hp.close();
+}
 await browser.close();
 
 // ============================================================
@@ -6943,7 +6953,10 @@ const EXPECTED = {
   },
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v126"]},
+  // Hotfix (2026-10-11): no countdown on Available cards; the top bar is opaque.
+  availCardCountdownCount: 0,
+  topbarBackground: 'rgb(243, 239, 232)',
+  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v127"]},
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · TAXACQ — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · TAXACQ — Florida", floridaCopy: true },
