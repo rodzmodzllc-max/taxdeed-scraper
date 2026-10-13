@@ -3351,3 +3351,14 @@ Full description: `docs/source-permissions.md`. Stable facts:
     "public domain" or a docstring.
   An invented test source needs a fixture record (`permission_fixtures.install(record(...))`) to pass a gate.
   Still unprotected: the manual evidence-capture / probe scripts (`discover`).
+
+## Publication gate on the side tables (2026-10-13, PR open, migration 032 NOT applied)
+
+`scripts/migrations/032_publication_gate_side_tables.sql` ALTERs (never drops) the read policies of
+`auction_events`, `auction_event_observations`, `inventory_status_observations`, `property_change_events`,
+and adds a RESTRICTIVE SELECT policy on `user_alerts`, so a side row is readable only when the same caller can
+read its property (`exists (select 1 from public.properties p where p.id = ...)` under the caller's own RLS -
+no second copy of 031's rule). Requires 031; skips tables not yet created; idempotent; re-apply after 024.
+Order: 031 -> writer for every state -> 032. Review table of every customer surface: `docs/publication-gate.md`.
+Rule: a new table holding per-property rows for customers must gate its reads on the property's own
+readability, never on `is_approved()` alone.

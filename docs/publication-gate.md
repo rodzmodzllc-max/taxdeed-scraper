@@ -85,6 +85,26 @@ and `publication_state_at`.
   `get_withheld_states(p_state)` (SECURITY INVOKER: empty for customers,
   the withheld rows' decisions for admins). `publication_decisions`:
   service-role write, admin read.
+- **Side tables (migration 032, written, NOT applied):** 031 alone left the
+  per-property side tables readable to every approved account, because their
+  read policies check only `is_approved()`. The tables are `auction_events`,
+  `auction_event_observations`, `inventory_status_observations`,
+  `property_change_events` and `user_alerts`. A customer could read a
+  withheld property's events, outcomes, status history and changes directly,
+  and the app's own `fetchAuctionOutcomeIndex()` bulk-reads every past
+  `auction_events` row of the state. 032 ALTERs each read policy, never dropping
+  one, to `(select is_approved()) AND EXISTS (select 1 from properties p where
+  p.id = <row>.property_id)`. Observations go through their event, and
+  `user_alerts` gains a RESTRICTIVE SELECT policy. The subquery runs under the
+  caller's own RLS, so a side row is readable exactly when its property is:
+  the 031 rule, 027's paid-beta policy when applied, and admins reading
+  everything. There is no second copy of the rule. 032 refuses to run
+  without 031, skips tables that do not exist yet, and is idempotent.
+  Re-apply it after 024 (whose file re-creates its policies). The rollback
+  statements are in its header.
+  `tests/python/test_migration_032_publication_side_tables.py` shows the gap
+  before 032 and closes it after, against the same rows `get_properties()`
+  returns.
 - **Frontend (defence in depth, labels, counts):** `app.js` reads both RPCs
   in `loadAll` (PGRST202 = not enforced, today's behaviour). Every ledger
   strip gains "Withheld from customers: N records withheld pending
@@ -154,11 +174,31 @@ APPROVED*, all three ledgers OFFERED). The lien column is the gate doing its
 job: an inventory nobody has been able to re-read for weeks is not customer
 inventory until a successful read says so.
 
+## Review of 031 against every customer surface (2026-10-13)
+
+| Surface | How it reads | Agrees with 031 |
+|---|---|---|
+| List / search / table | `get_properties_list` / `get_properties` (SECURITY INVOKER) | yes, through properties RLS |
+| Map / Map preview | the same loaded rows | yes |
+| Property page | the loaded row + `get_property_provenance` (INVOKER) | yes |
+| Counts (ledger strips, Home) | the loaded rows, `count_properties` (024, INVOKER), `count_publication_states` (DEFINER, counts only by design) | yes; the withheld count is intentional and carries no row data |
+| Exports | built from the loaded rows | yes |
+| Admin withheld labels | `get_withheld_states` (INVOKER) | yes; empty for customers |
+| Sale event history, auction outcome index | `auction_events`, `auction_event_observations` | **only after 032** |
+| Inventory history | `inventory_status_observations` | **only after 032** |
+| What changed / alerts (024, not applied) | `property_change_events`, `user_alerts` | **only after 032**, re-applied after 024 |
+| Research lists (029, not applied) | the customer's own items (property ids and their own notes) | own data; a withheld property is shown as missing |
+
+Ledgers stay separate: the decision is each row's own `publication_state`.
+The withholding reasons stay in `properties.publication_reasons` and
+`publication_decisions` (admin read).
+
 ## Blocker
 
-Nothing here changes production. Applying 031 and the first writer run are
-the owner's decision, in that order, in one maintenance window: between the
-two steps customers see no inventory (NULL is withheld by design). The
+Nothing here changes production. Applying 031, the first writer run and 032
+are the owner's decision, in that order, in one maintenance window (032 can
+follow 031 immediately; it changes no data). Between applying 031 and the
+writer run, customers see no inventory (NULL is withheld by design). The
 expected first-run counts can be previewed without writing anything:
 `python3 scripts/publication_state_writer.py --state FL --dry-run` with the
 service key, or `--rows <file>` against an exported rows file.
