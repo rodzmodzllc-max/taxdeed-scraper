@@ -169,6 +169,7 @@ sys.path.insert(0, str(HERE / ".."))
 from harvesters.governance.authorization import authorized_for_customer_output  # noqa: E402  (Phase 34B)
 from harvesters.governance.gate import check_ingestion_gate  # noqa: E402
 from harvesters.governance import permissions as PERM  # noqa: E402
+from harvesters.ledgers import records as LEDGER_RECORDS  # noqa: E402
 
 _STORE_CACHE: dict = {}
 
@@ -259,7 +260,13 @@ def main() -> None:
     # time LienHub published a duplicate row (see that script's own
     # comment) - not just the duplicated rows. Keep the last-seen row per
     # key, same as that fix.
-    deduped: dict[tuple[str, str], dict] = {}
+    # The key carries the row's LEDGER (properties.source): the conflict
+    # target is (state, source, county, case_no), so an LGBS account that the
+    # vendor lists as an auction AND as struck-off inventory is two records in
+    # two ledgers - de-duplicating on (county, case_no) alone silently kept
+    # whichever came last and dropped the other ledger's record (2026-10-13).
+    deduped: dict[tuple[str, str, str], dict] = {}
+    skipped_ledger_contract = 0
     skipped = 0
     skipped_gate = 0
     skipped_customer_restriction = 0
@@ -345,6 +352,14 @@ def main() -> None:
         # APPROVED, zero restrictions, zero authorization records) this is
         # a verified no-op - `row` is returned unchanged - see both the
         # Phase 11 regression tests and the new Phase 34B ones.
+        # The ledger contract (harvesters/ledgers/records.py): a row whose
+        # source, ledger_type, source id or the vendor's own sale status put
+        # it in another ledger is never written (an LGBS row the vendor calls
+        # "Struck off to Jurisdiction" is never an auction, and vice versa).
+        if LEDGER_RECORDS.problems(row):
+            skipped_ledger_contract += 1
+            continue
+
         projected_row = authorized_for_customer_output(row, harvester_source, county=county)
         if projected_row is None:
             skipped_customer_restriction += 1
@@ -367,9 +382,12 @@ def main() -> None:
         )
         provenance_by_source[harvester_source] = provenance_by_source.get(harvester_source, 0) + 1
 
-        deduped[(county, case_no)] = projected_row
+        deduped[(source, county, case_no)] = projected_row
 
-    dupe_count = len(harvest) - skipped - skipped_gate - skipped_customer_restriction - len(deduped)
+    dupe_count = len(harvest) - skipped - skipped_gate - skipped_customer_restriction - skipped_ledger_contract - len(deduped)
+    if skipped_ledger_contract > 0:
+        print(f"Ledger contract refused {skipped_ledger_contract} row(s) classified into the wrong ledger "
+              "(harvesters/ledgers/records.py) - nothing was written for them.", file=sys.stderr)
     if dupe_count > 0:
         print(
             f"De-duplicated {dupe_count} row(s) sharing a (county, case_no) key with another row in this harvest.",
