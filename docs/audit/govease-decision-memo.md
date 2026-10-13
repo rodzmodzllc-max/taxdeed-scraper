@@ -52,7 +52,7 @@ A web search on 2026-10-12 returned the items below. These are search-result sni
 
 ## 5. How the block is enforced (unchanged; tested end to end in PR #145)
 
-The permission layer and its tests are in PR #145 (`claude/hopeful-feynman-ykxl7y-permission-gate`), not yet merged. The other layers are on `main` today.
+The permission layer and its tests came in PR #145, merged to `main` on 2026-10-13 (merge commit `a07f1ab`). Every layer below is on `main`.
 
 | Layer | Mechanism |
 |---|---|
@@ -63,7 +63,7 @@ The permission layer and its tests are in PR #145 (`claude/hopeful-feynman-ykxl7
 | Links and paths | `govease.com` is on the untrusted-host lists (`harvesters/sources/acquisition_gate.py`, `scripts/laft_purchase_paths.py`, `public/app.js`). |
 | Publication | A publication review approving GovEase is refused by the validator. |
 
-**Tests in `tests/python/test_source_permissions.py` (PR #145):**
+**Tests in `tests/python/test_source_permissions.py`:**
 
 - every operation is denied;
 - an edited record cannot unblock it;
