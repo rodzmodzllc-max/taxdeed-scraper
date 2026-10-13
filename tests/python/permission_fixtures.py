@@ -27,10 +27,15 @@ def allow_fixture_layers(monkeypatch, parcels_module, ids) -> None:
 
 
 def record(**kw) -> dict:
+    """A fixture interim record with the same window as the repository's own
+    interim allowances (2026-09-14 .. 2027-04-12, inside
+    permissions.INTERIM_MAX_DAYS). Like them, it stops allowing after that
+    date - a test that still needs it then needs a renewed window."""
+    eff, exp = "2026-09-14", "2027-04-12"
     base = {c: "" for c in PERM.COLUMNS}
     base.update(dataset="*", status="OWNER_PERMISSION_REQUIRED", evidence_type="INTERNAL_RISK_ACCEPTANCE",
-                evidence_ref="test fixture", evidence_date="2026-01-01", reviewer="test", effective_on="2026-01-01",
-                expires_on="2099-01-01", last_verified_on="2026-01-01", reason="test fixture")
+                evidence_ref="test fixture", evidence_date=eff, reviewer="test", effective_on=eff,
+                expires_on=exp, last_verified_on=eff, reason="test fixture")
     base.update(kw)
     return base
 

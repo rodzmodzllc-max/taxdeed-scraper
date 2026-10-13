@@ -52,7 +52,7 @@ A web search on 2026-10-12 returned the items below. These are search-result sni
 
 ## 5. How the block is enforced (unchanged; tested end to end in PR #145)
 
-The permission layer and its tests came in PR #145, merged to `main` on 2026-10-13 (merge commit `a07f1ab`). Every layer below is on `main`.
+The permission layer and its tests came in PR #145, merged to `main` on 2026-10-13 (merge commit `a07f1ab`). Every layer below is on `main`. PR #148 (merged as `a83da35`) added regression tests showing that stale evidence, missing terms and fallback records cannot unblock it. PR #149 (open) also refuses any discovery, evidence-capture or probe request to a GovEase host before a connection is made.
 
 | Layer | Mechanism |
 |---|---|

@@ -107,6 +107,11 @@ def fdor_exact(county, candidate):
 
 
 def main():
+    # Source permission for discovery (data/source_permissions.csv, operation
+    # "discover"): every request below is refused before any connection unless
+    # its URL belongs to a source with an in-date discover permission.
+    import permission_gate as _PG  # noqa: PLC0415
+    _PG.install_discovery_guard("probe_fdor_starvation")
     print("# FDOR starvation probe (read-only)\n")
     verdict = {}
     for county in COUNTIES:
