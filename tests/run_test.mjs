@@ -7967,7 +7967,7 @@ const EXPECTED = {
   govPhone: { itemVisible: true, viewVisible: true, noHorizontalScroll: true, formFits: true },
   govCustomerMenu: { itemVisible: false, accountMenuOpen: true },
   govCustomerTypedRoute: { viewHidden: true, hash: '#/auctions', rows: 0 },
-  govCustomerColdRoute: {"viewHidden": true, "hash": "#/dashboard", "rows": 0, "menuItemHidden": true},
+  govCustomerColdRoute: {"viewHidden": true, "hash": "#/lands", "rows": 0, "menuItemHidden": true},
   adminPubVisible: true,
   adminPubSources: ['fl_laft_broward_candidate:RESTRICTED', 'fl_laft_html:APPROVED_GRANDFATHERED', 'fl_laft_pdfs:APPROVED_GRANDFATHERED', 'fl_laft_pioneer:APPROVED_GRANDFATHERED', 'fl_laft_realtdm:APPROVED_GRANDFATHERED'],
   adminPubBrowardMeta: 'Governance LEGAL_REVIEW_REQUIRED · Verification CANDIDATE · Restrictions: terms of use under legal review',
