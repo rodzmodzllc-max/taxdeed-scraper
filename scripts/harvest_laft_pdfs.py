@@ -49,6 +49,7 @@ import pdfplumber
 import requests
 
 from harvest_cache import PARSER_VERSION, conditional_get, load_cache, record_cache_stats, save_cache
+import laft_status as _LS  # noqa: E402 - permission gate
 from laft_status import StatusRecorder, amount_kind_for_header, describe_exception, extract_list_as_of, record_identifiers_plausible
 
 HERE = Path(__file__).resolve().parent
@@ -481,6 +482,11 @@ def _fetch_with_successor(url: str, source_page: str | None, entry: dict | None)
 
 
 def main() -> int:
+    # Source permission (2026-10-12): no recorded fetch/parse permission for
+    # fl_laft_pdfs -> 0 requests, exit 3. data/source_permissions.csv.
+    _denied = _LS.permission_gate("fl_laft_pdfs")
+    if _denied:
+        return _denied
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     with open(SOURCES_CSV, newline="", encoding="utf-8") as f:
         sources = list(csv.DictReader(f))
@@ -504,6 +510,13 @@ def main() -> int:
         print(f"[{i}/{len(sources)}] {county}", flush=True)
         entry = cache.get(url)
         status_kw = dict(source_url=source_page or url, document_url=url, source_class=source_class_for_url(url))
+        # A county-specific record (e.g. Volusia's disclaimer step) decides for
+        # that county; denied -> recorded FAILED / PERMISSION_DENIED, 0 requests.
+        _cp = _LS.permission("fl_laft_pdfs", "fetch", county=county)
+        if not _cp.allowed:
+            recorder.failed(county, "PERMISSION_DENIED", f"{_cp.reason_code}: {_cp.reason}", **status_kw)
+            print(f"    {county}: fetch not permitted [{_cp.reason_code}] - skipped, 0 requests", flush=True)
+            continue
         try:
             status, content, validators, url_used, _discovered = _fetch_with_successor(url, source_page, entry)
             status_kw["document_url"] = url_used

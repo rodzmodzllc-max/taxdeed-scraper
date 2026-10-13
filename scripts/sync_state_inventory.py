@@ -251,7 +251,7 @@ def plan(state: str, rows: list[dict], registry: dict, status_units: dict[str, s
         if unit_status(status_units, r.get("source_id"), r.get("county")) not in OBSERVED:
             counts["skipped_unit_not_read"] += 1
             continue
-        if not collectable(reg, r.get("source") or ""):
+        if not collectable(reg, r.get("source") or "", "store"):
             # A BLOCKED source, or an auction / lien source without an APPROVED
             # publication decision: not written at all.
             counts["withheld_not_publishable"] += 1
@@ -483,7 +483,7 @@ def main(argv=None) -> int:
     if args.close_absent:
         # Only sources this run may publish: a gated source's stored rows are never
         # 'closed' by another source's read of the same county.
-        source_ids = {sid for sid, r in reg.items() if r.is_production and collectable(r, _record_source(sid))}
+        source_ids = {sid for sid, r in reg.items() if r.is_production and collectable(r, _record_source(sid), "store")}
         units = units_for(Path(args.status))
         closes = plan_close(args.state, rows, stored_active(url, key, args.state, source_ids), units, source_ids)
         close_rows(url, key, closes)

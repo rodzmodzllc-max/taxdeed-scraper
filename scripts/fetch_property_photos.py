@@ -59,6 +59,15 @@ if not SUPABASE_URL or not SERVICE_KEY:
     print("SUPABASE_URL / SUPABASE_SERVICE_KEY environment variables are not set - check the workflow's secrets.", file=sys.stderr)
     sys.exit(1)
 
+# Source permission (2026-10-12): Street View stills are BLOCKED in
+# data/source_permissions.csv (provider terms do not permit storing them as the
+# product's own photos). Checked before the key, so a key alone never turns
+# this on. Exit 0: nothing to do by design, not a failure.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import permission_gate as _PG  # noqa: E402
+if not _PG.allowed("google_street_view", ("fetch", "store"), state="US", label="fetch_property_photos", level="notice"):
+    sys.exit(0)
+
 if not GOOGLE_MAPS_API_KEY:
     print(
         "GOOGLE_MAPS_API_KEY is not set - skipping photo backfill for this run "

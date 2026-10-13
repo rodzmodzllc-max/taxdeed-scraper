@@ -1,5 +1,24 @@
 $ErrorActionPreference = "Stop"
 
+# --- Source permission gate (2026-10-12) ---------------------------------------
+# Runs before any request or write. Fail closed: no Python, no governance
+# package, or a missing / expired / denied record in data/source_permissions.csv
+# stops this script with exit 3. scripts/source_permission_check.py is the CLI of
+# harvesters/governance/permissions.py (the one permission decision).
+$permPython = Get-Command python3 -ErrorAction SilentlyContinue
+if (-not $permPython) { $permPython = Get-Command python -ErrorAction SilentlyContinue }
+if (-not $permPython) {
+    Write-Host "::error title=source_permission::Python not found - permission cannot be checked; stopping before any request"
+    exit 3
+}
+& $permPython.Source (Join-Path $PSScriptRoot "source_permission_check.py") --source fl_laft_pdfs --source fl_laft_html --source fl_laft_realtdm --source fl_laft_pioneer --source fl_laft_orange --source fl_laft_stlucie --source fl_laft_osceola --source fl_laft_hillsborough --source fl_laft_leon --operation store --state FL --dataset lands_available
+if (0 -ne $LASTEXITCODE) {
+    Write-Host "::error title=source_permission::LAFT sync not permitted (see the decision above) - stopping before any request or write"
+    exit 3
+}
+# --- end source permission gate ------------------------------------------------
+
+
 # Pushes the Lands Available for Taxes harvest (harvest_laft.json, produced
 # by harvest_laft_pdfs.py) into the same `properties` table the app reads
 # from, tagged source='laft' - a distinct ledger from 'auction' and

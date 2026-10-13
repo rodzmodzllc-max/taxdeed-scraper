@@ -360,10 +360,12 @@ def test_I_gate_decisions_unchanged_for_every_registered_source():
 
 
 def test_J_florida_ps1_pipeline_still_has_zero_governance_coupling():
-    ps1_dir = REPO_ROOT / "scripts"
-    for ps1_file in ps1_dir.glob("*.ps1"):
-        text = ps1_file.read_text(errors="ignore")
-        assert "governance" not in text.lower(), f"{ps1_file.name} now references governance - Florida must stay decoupled"
+    # 2026-10-12: the gap this assertion documented is closed - the Florida
+    # PowerShell pipeline now consults governance through the source-permission
+    # guard. Pinned instead: governance appears ONLY inside that guard, which
+    # runs first (tests/python/ps1_permission_guard.py).
+    from ps1_permission_guard import assert_ps1_governance_only_through_guard
+    assert_ps1_governance_only_through_guard()
 
 
 def test_J_the_new_label_helper_never_special_cases_florida_by_county_name_only_by_state():

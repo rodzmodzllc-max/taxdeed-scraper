@@ -365,6 +365,11 @@ def patch_property(property_id, fields):
 
 
 def main():
+    # Source permission (2026-10-12): recorded fetch/store permission for
+    # usda_naip (data/source_permissions.csv), checked before any request.
+    import permission_gate as _PG  # noqa: PLC0415
+    if not _PG.allowed("usda_naip", ('fetch', 'store'), state="US", label="enrich_property_photos_naip"):
+        sys.exit(_PG.DENIED_EXIT)
     used = storage_used_bytes()
     budget = int(STORAGE_BUDGET_MB * 1024 * 1024)
     report = {"budget_mb": STORAGE_BUDGET_MB, "used_mb": None if used is None else round(used / 1048576, 1),

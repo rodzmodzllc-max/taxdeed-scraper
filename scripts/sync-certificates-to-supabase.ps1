@@ -1,5 +1,24 @@
 $ErrorActionPreference = "Stop"
 
+# --- Source permission gate (2026-10-12) ---------------------------------------
+# Runs before any request or write. Fail closed: no Python, no governance
+# package, or a missing / expired / denied record in data/source_permissions.csv
+# stops this script with exit 3. scripts/source_permission_check.py is the CLI of
+# harvesters/governance/permissions.py (the one permission decision).
+$permPython = Get-Command python3 -ErrorAction SilentlyContinue
+if (-not $permPython) { $permPython = Get-Command python -ErrorAction SilentlyContinue }
+if (-not $permPython) {
+    Write-Host "::error title=source_permission::Python not found - permission cannot be checked; stopping before any request"
+    exit 3
+}
+& $permPython.Source (Join-Path $PSScriptRoot "source_permission_check.py") --source fl_lienhub_certificates --operation store --state FL --dataset county_held_certificates
+if (0 -ne $LASTEXITCODE) {
+    Write-Host "::error title=source_permission::certificate sync not permitted (see the decision above) - stopping before any request or write"
+    exit 3
+}
+# --- end source permission gate ------------------------------------------------
+
+
 # Pushes harvest_certificates.json (produced by
 # harvest_lienhub_certificates.ps1) into the same `properties` table as the
 # deed/LAFT sync, with source='certificate'.

@@ -430,6 +430,11 @@ def patch_property(property_id, latitude, longitude, provenance=None):
 
 
 def main():
+    # Source permission (2026-10-12): recorded fetch/enrich permission for
+    # census_geocoder (data/source_permissions.csv), checked before any request.
+    import permission_gate as _PG  # noqa: PLC0415
+    if not _PG.allowed("census_geocoder", ('fetch', 'enrich'), state="US", label="geocode_properties"):
+        sys.exit(_PG.DENIED_EXIT)
     checkpoint = EQ.Checkpoint(None if DRY_RUN else CHECKPOINT_PATH)
     pool = read_pool()
     work, plan = plan_work(pool, checkpoint)

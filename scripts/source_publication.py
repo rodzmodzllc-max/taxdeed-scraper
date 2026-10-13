@@ -66,24 +66,59 @@ def registry_with_reviews(state: str, *, path: Path = REGISTRY, reviews: dict | 
     return {r.source_id: r for r in rows if r.state == state}, report
 
 
+def permitted(source_id, operation: str, state: str, county: str | None = None):
+    """The per-operation permission decision (harvesters/governance/permissions.py)
+    for a registry source. Fail closed: any error is a denial."""
+    from harvesters.governance import permissions as PERM  # noqa: PLC0415
+    return PERM.authorize(source_id, operation, state=state, county=county)
+
+
 def publishable(row) -> bool:
-    return row is not None and effective_publication(row) in PUBLISHABLE_STATUSES
+    """Customer publication: the registry / admin-review decision AND a
+    recorded `display` permission for the source (2026-10-12)."""
+    if row is None or effective_publication(row) not in PUBLISHABLE_STATUSES:
+        return False
+    return permitted(row.source_id, "display", row.state).allowed
 
 
 # A hard block: never requested, never written, never shown - not even to admins.
 COLLECTION_BLOCKED = frozenset({"BLOCKED"})
 
 
-def collectable(row, record_source: str) -> bool:
-    """May this source be requested and its rows written? Publishable sources
-    always; an AVAILABLE (laft) source awaiting review too (UNREVIEWED /
-    RESTRICTED - a review status, not a prohibition); a BLOCKED source never."""
+def collectable(row, record_source: str, operation: str = "fetch") -> bool:
+    """May this source be requested (operation "fetch") or its rows written
+    (operation "store")? Two independent conditions, both required:
+
+      1. the publication rule - publishable sources always; an AVAILABLE
+         (laft) source awaiting review too (UNREVIEWED / RESTRICTED - a review
+         status, not a prohibition); a BLOCKED source never;
+      2. a recorded permission for that operation (data/source_permissions.csv),
+         which fails closed when missing, expired or unreadable."""
     if row is None:
         return False
-    if publishable(row):
-        return True
-    return record_source == "laft" and effective_publication(row) not in COLLECTION_BLOCKED
+    if not (publishable(row) or (record_source == "laft" and effective_publication(row) not in COLLECTION_BLOCKED)):
+        return False
+    return permitted(row.source_id, operation, row.state).allowed
 
 
-def decision(row) -> str:
-    return effective_publication(row) if row is not None else "UNREGISTERED"
+def permission_decision(row, operation: str) -> str:
+    """'' when allowed, else the permission reason code (for gate reports)."""
+    if row is None:
+        return "UNREGISTERED"
+    d = permitted(row.source_id, operation, row.state)
+    return "" if d.allowed else f"PERMISSION_{d.reason_code}"
+
+
+def decision(row, record_source: str = "", operation: str = "fetch") -> str:
+    """Why a source is or is not collected: its publication decision, or
+    PERMISSION_<code> when the publication rule would collect it but its
+    permission record does not allow `operation`."""
+    if row is None:
+        return "UNREGISTERED"
+    pub = effective_publication(row)
+    rule_ok = pub in PUBLISHABLE_STATUSES or (record_source == "laft" and pub not in COLLECTION_BLOCKED)
+    if rule_ok and record_source:
+        why = permission_decision(row, operation)
+        if why:
+            return why
+    return pub

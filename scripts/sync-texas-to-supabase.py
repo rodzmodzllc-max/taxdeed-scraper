@@ -168,6 +168,16 @@ JSON_PATH = HERE / "../out/harvest_texas.json"
 sys.path.insert(0, str(HERE / ".."))
 from harvesters.governance.authorization import authorized_for_customer_output  # noqa: E402  (Phase 34B)
 from harvesters.governance.gate import check_ingestion_gate  # noqa: E402
+from harvesters.governance import permissions as PERM  # noqa: E402
+
+_STORE_CACHE: dict = {}
+
+
+def _store_permitted(source_id) -> bool:
+    """The recorded `store` permission for a Texas source (fail closed)."""
+    if source_id not in _STORE_CACHE:
+        _STORE_CACHE[source_id] = PERM.authorize(source_id, "store", state="TX").allowed
+    return _STORE_CACHE[source_id]
 from harvesters.texas_harvester import build_row_provenance  # noqa: E402  (Phase 12)
 
 BATCH_SIZE = 40  # matches the FL sync scripts' batch size
@@ -268,7 +278,9 @@ def main() -> None:
         # here even if it somehow made it into harvest_texas.json.
         harvester_source = p.get("harvester_source")
         gate_decision = check_ingestion_gate(harvester_source)
-        if not gate_decision.allowed:
+        if gate_decision.allowed and not _store_permitted(harvester_source):
+            gate_decision = None
+        if gate_decision is None or not gate_decision.allowed:
             skipped_gate += 1
             gate_rejections[harvester_source or "(missing)"] = gate_rejections.get(harvester_source or "(missing)", 0) + 1
             continue
