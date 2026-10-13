@@ -38,6 +38,8 @@ export const STATES = Object.freeze({
   PAYMENT_FAILED_GRACE: "payment_failed_grace", // past_due, still inside the grace window
   PAYMENT_FAILED: "payment_failed",         // past_due beyond grace, or unpaid
   CANCELLED: "cancelled",                   // canceled, or cancel_at_period_end and the period is over
+  REFUNDED: "refunded",                     // a charge on this subscription was refunded IN FULL (access hold)
+  DISPUTE_LOST: "dispute_lost",             // a chargeback on this subscription was lost (access hold)
   INACTIVE: "inactive",                     // no access at all
 });
 
@@ -101,15 +103,86 @@ export function bestSubscription(subs, nowMs, graceDays = DEFAULT_GRACE_DAYS) {
     (ms(b.stripe_event_created) ?? ms(b.updated_at) ?? 0) - (ms(a.stripe_event_created) ?? ms(a.updated_at) ?? 0))[0];
 }
 
+// ==================== refunds and disputes ====================
+// Policy (docs/billing-refund-dispute.md, decided 2026-10-13, awaiting owner
+// sign-off):
+//   - a FULL refund ends paid access (state refunded). A PARTIAL refund never
+//     does. A manual customer grant (access_grant = customer) is the one
+//     documented support exception, because it never depends on Stripe.
+//   - an OPEN dispute (needs_response / under_review) keeps access and is
+//     shown as disputed. Nothing is assumed won or lost while it is open.
+//   - a LOST dispute ends paid access (state dispute_lost).
+//   - a WON dispute (or an inquiry closed without a chargeback) ends nothing.
+// Charge state only ever moves forward: refunded amounts never shrink, and a
+// dispute never moves back from won/lost, so out-of-order or duplicate events
+// cannot undo a later fact.
+export const DISPUTE_STATUSES = Object.freeze(["needs_response", "under_review", "won", "lost"]);
+const DISPUTE_RANK = Object.freeze({ none: 0, needs_response: 1, under_review: 2, won: 3, lost: 3 });
+
+// Stripe's dispute statuses -> ours. Unknown statuses throw, so the event is
+// recorded as failed rather than guessed at.
+export function stripeDisputeStatus(s) {
+  switch (s) {
+    case "needs_response": case "warning_needs_response": return "needs_response";
+    case "under_review": case "warning_under_review": return "under_review";
+    case "won": case "warning_closed": return "won";
+    case "lost": return "lost";
+    default: throw new Error(`unknown dispute status: ${String(s)}`);
+  }
+}
+
+// One charge's new facts (an event's contribution), merged into what is stored.
+// existing = the stored row or null. Returns the row to store. Pure.
+export function mergeCharge(existing, patch) {
+  if (!patch || typeof patch.charge_id !== "string" || !patch.charge_id) throw new Error("charge patch has no charge id");
+  const row = existing ? { ...existing } : {
+    charge_id: patch.charge_id, stripe_subscription_id: null, amount: null, amount_refunded: 0,
+    refund_state: "none", dispute_id: null, dispute_status: "none",
+  };
+  // A charge belongs to one subscription; the first link wins.
+  if (patch.stripe_subscription_id && !row.stripe_subscription_id) row.stripe_subscription_id = patch.stripe_subscription_id;
+  if (Number.isInteger(patch.amount)) row.amount = patch.amount;
+  if (Number.isInteger(patch.amount_refunded)) row.amount_refunded = Math.max(row.amount_refunded || 0, patch.amount_refunded);
+  row.refund_state = (row.amount_refunded || 0) <= 0 ? "none"
+    : row.amount !== null && row.amount_refunded >= row.amount ? "full" : "partial";
+  if (patch.dispute_id) {
+    if (row.dispute_id && row.dispute_id !== patch.dispute_id) throw new Error("charge already has a different dispute recorded");
+    row.dispute_id = patch.dispute_id;
+    if (patch.dispute_status && DISPUTE_RANK[patch.dispute_status] > (DISPUTE_RANK[row.dispute_status] || 0)) {
+      row.dispute_status = patch.dispute_status;
+    }
+  }
+  return row;
+}
+
+// The access holds one subscription's charges impose. Pure.
+export function accessHolds(charges, stripeSubscriptionId) {
+  const mine = (charges || []).filter((c) => c && stripeSubscriptionId && c.stripe_subscription_id === stripeSubscriptionId);
+  return {
+    refunded: mine.some((c) => c.refund_state === "full"),
+    dispute_lost: mine.some((c) => c.dispute_status === "lost"),
+    dispute_open: mine.some((c) => c.dispute_status === "needs_response" || c.dispute_status === "under_review"),
+  };
+}
+
 // THE access decision. profile = {approved, is_admin, access_grant}; subs =
 // the account's subscription rows. Precedence: admin > tester > customer
 // (manual or paid) > inactive. A tester who also pays keeps tester access
 // (the larger, labelled inventory) and their subscription is still reported.
-export function entitlementFor({ profile, subscriptions, nowMs, graceDays = DEFAULT_GRACE_DAYS }) {
+export function entitlementFor({ profile, subscriptions, charges, nowMs, graceDays = DEFAULT_GRACE_DAYS }) {
   const now = nowMs ?? Date.now();
   const sub = bestSubscription(subscriptions, now, graceDays);
-  const subEnt = subscriptionEntitlement(sub, now, graceDays);
-  const base = { subscription_state: sub ? subEnt.state : null, subscription_status: sub ? sub.status : null };
+  let subEnt = subscriptionEntitlement(sub, now, graceDays);
+  const holds = accessHolds(charges, sub && sub.stripe_subscription_id);
+  if (subEnt.access && holds.refunded) {
+    subEnt = { state: STATES.REFUNDED, access: false, reason: "Refunded in full - paid access ended (a partial refund keeps access)" };
+  } else if (subEnt.access && holds.dispute_lost) {
+    subEnt = { state: STATES.DISPUTE_LOST, access: false, reason: "Payment disputed and the dispute was lost - paid access ended" };
+  }
+  const base = {
+    subscription_state: sub ? subEnt.state : null, subscription_status: sub ? sub.status : null,
+    disputed: !!(sub && holds.dispute_open),
+  };
   if (profile && profile.is_admin) return { role: ROLES.ADMIN, state: STATES.ADMIN_OVERRIDE, access: true, scope: SCOPES.ALL, reason: "Administrator", ...base };
   if (profile && profile.approved && (profile.access_grant || "tester") === "tester") {
     return { role: ROLES.TESTER, state: STATES.TESTER_BETA, access: true, scope: SCOPES.PREVIEW, reason: "Approved tester (beta) - no subscription needed", ...base };
@@ -230,7 +303,24 @@ export function planEvent(event, plans) {
     case "invoice.payment_succeeded": {
       const subId = invoiceSubscriptionId(obj);
       if (!subId) return [{ op: "ignore", reason: "invoice without a subscription" }];
-      return [{ op: "payment", stripe_subscription_id: subId, outcome: event.type === "invoice.payment_failed" ? "failed" : "paid", at: iso(event.created) }];
+      const ops = [{ op: "payment", stripe_subscription_id: subId, outcome: event.type === "invoice.payment_failed" ? "failed" : "paid", at: iso(event.created) }];
+      // The invoice's charge is how a later refund or dispute finds its subscription.
+      const chargeId = idOf(obj.charge);
+      if (chargeId) ops.push({ op: "charge", charge: { charge_id: chargeId, stripe_subscription_id: subId } });
+      return ops;
+    }
+    case "charge.refunded": {
+      // amount_refunded is cumulative on Stripe's side; mergeCharge keeps the largest.
+      if (typeof obj.id !== "string" || !obj.id) throw new Error("charge without an id");
+      if (!Number.isInteger(obj.amount) || !Number.isInteger(obj.amount_refunded)) throw new Error("charge without amounts");
+      return [{ op: "charge", charge: { charge_id: obj.id, amount: obj.amount, amount_refunded: obj.amount_refunded } }];
+    }
+    case "charge.dispute.created":
+    case "charge.dispute.updated":
+    case "charge.dispute.closed": {
+      const chargeId = idOf(obj.charge);
+      if (typeof obj.id !== "string" || !obj.id || !chargeId) throw new Error("dispute without an id or charge");
+      return [{ op: "charge", charge: { charge_id: chargeId, dispute_id: obj.id, dispute_status: stripeDisputeStatus(obj.status) } }];
     }
     default:
       return [{ op: "ignore", reason: "event type not used" }];
@@ -241,7 +331,8 @@ export function planEvent(event, plans) {
 // store: { claimEvent(id, type, livemode) -> "new" | "retry" | "duplicate",
 //          finishEvent(id, outcome, error), linkCustomer(userId, customerId),
 //          userIdForCustomer(customerId), getSubscription(subId),
-//          upsertSubscription(row), recordPayment(subId, outcome, atIso) }
+//          upsertSubscription(row), recordPayment(subId, outcome, atIso),
+//          getCharge(chargeId), saveCharge(row) }
 export async function processWebhook({ rawBody, signatureHeader, secret, store, plans, nowSec, toleranceSec }) {
   if (!secret) return { status: 500, body: { error: "webhook_not_configured" } };
   const sig = await verifyStripeSignature(rawBody, signatureHeader, secret, { nowSec, toleranceSec });
@@ -280,9 +371,24 @@ export async function processWebhook({ rawBody, signatureHeader, secret, store, 
       }
       if (op.op === "payment") {
         const existing = await store.getSubscription(op.stripe_subscription_id);
-        if (!existing) { applied.push("payment_for_unknown_subscription"); continue; }
+        // An invoice can arrive before its subscription event. Failing lets
+        // Stripe redeliver it once the subscription is recorded; dropping it
+        // would lose a payment failure for good.
+        if (!existing) throw new Error("payment for a subscription not recorded yet");
+        // An older payment event never overwrites a newer one.
+        if (ms(existing.last_payment_event_at) !== null && ms(op.at) !== null && ms(existing.last_payment_event_at) > ms(op.at)) {
+          applied.push("payment_stale");
+          continue;
+        }
         await store.recordPayment(op.stripe_subscription_id, op.outcome, op.at);
         applied.push(`payment_${op.outcome}`);
+        continue;
+      }
+      if (op.op === "charge") {
+        const existing = await store.getCharge(op.charge.charge_id);
+        const row = mergeCharge(existing, op.charge);
+        await store.saveCharge(row);
+        applied.push(op.charge.dispute_id ? `dispute_${row.dispute_status}` : op.charge.amount_refunded !== undefined ? `refund_${row.refund_state}` : "charge_linked");
       }
     }
     const outcome = applied.every((a) => a === "ignored") ? "ignored" : "processed";
