@@ -18,10 +18,11 @@ def _page(name):
     return (REPO / "public" / name).read_text(encoding="utf-8")
 
 
-def test_bare_url_lands_on_home_not_the_list():
-    # showApp's dispatch: an unknown or missing route opens Home.
-    assert 'else showPage("dashboard");' in APP
-    assert 'else { showPage("list"); if (route && route.page === "watchlist")' not in APP
+def test_bare_url_lands_on_the_list_and_home_is_routed_explicitly():
+    # 2026-10-13: a bare URL opens the List (Available first where it has rows);
+    # Home stays at #/dashboard. showApp's dispatch names both explicitly.
+    assert 'else showPage("list");' in APP
+    assert 'else if (route && route.page === "dashboard") showPage("dashboard");' in APP
 
 
 def test_document_title_follows_the_page_and_is_set_on_every_page_change():

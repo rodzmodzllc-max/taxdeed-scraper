@@ -1083,3 +1083,14 @@ body:has(#authGate:not([hidden])){padding-bottom:0!important}
 .ledger-status-fold>summary::-webkit-details-marker{display:none}
 .ledger-status-fold>summary::before{content:"+ ";}
 .ledger-status-fold[open]>summary::before{content:"− ";}
+/* Detail panel fit (2026-10-13): the desktop side panel is only 360-460px wide,
+   so its four-cell status strip and two-column fact grids broke words mid-word
+   ("recorde d"). The panel is its own size container; below 520px its grids reflow. */
+#detailPanel{container-type:inline-size}
+@container (max-width:520px){
+  .dossier-status{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .dossier-status > div{border-bottom:1px solid var(--rule)}
+  .dossier-status > div + div{border-left:0;padding-left:0}
+  .dossier-status > div:nth-child(even){padding-left:.8rem;border-left:1px solid var(--rule)}
+  .fp-grid{grid-template-columns:1fr}
+}
