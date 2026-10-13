@@ -69,23 +69,56 @@ Feedback does not make anyone a tester and does not change access. Access comes
 from the approval record and, once migration 027 is applied, `access_grant`.
 Feedback is never used as a reason to grant or remove access.
 
-## 8. Storage destination and owner
+## 8. Storage: two supported routes (owner-confirmed 2026-10-13)
 
-Options, in order of recommendation:
+The owner has asked for both routes to be designed. Each is independently
+buildable; neither is applied. Route A is preferred for structured triage; route
+B is the fallback and the first contact point.
 
-1. **Recommended for the closed beta: a `tester_feedback` table in the existing
-   Supabase project**, with the RLS above, written through an RPC. Owner:
-   the product owner (decisions) and the site administrator (triage). It needs
-   migration `034_tester_feedback.sql` (drafted in this branch's successor, not
-   applied).
-2. **Interim, with no storage change: the existing support and help dialog**
-   (`supportEmail` in `config.js`, blank by design). A tester writes to the
-   support address. This needs the owner to fill in `supportEmail` and to accept
-   that the mailbox is the store. Nothing is sent by this sprint.
-3. Third-party forms: rejected. They would send tester text and account
-   identifiers outside the project without a data processing agreement.
+### Route A: restricted Supabase table
 
-Decision needed: option 1 or option 2 for the closed beta.
+- Table `tester_feedback` (migration 034, drafted, NOT applied), fields as in
+  section 2.
+- Writes only through an RPC `submit_tester_feedback(...)` that checks
+  `is_approved()`, applies the rate limit and duplicate check (section 5),
+  and inserts. Direct `insert` from `anon` or `authenticated` is revoked.
+- Reads: the submitter sees their own status and resolution; administrators
+  see all rows through an admin-only policy wrapped as `(select is_admin())`.
+- Grants follow the billing tables' pattern: `revoke all` from `anon` and
+  `authenticated` first, then explicit grants.
+- Operational owner: the site administrator, who triages from the admin area.
+- Test plan before any application: static checks plus live Postgres tests in a
+  scratch cluster (the pattern of `tests/python/test_migration_030_*`), covering
+  the rate limit, duplicate rejection, cross-account reads (must fail), and
+  anonymous writes (must fail).
+
+### Route B: monitored support mailbox
+
+- The support dialog's `supportEmail` in `config.js` is blank by design. Route B
+  needs the owner to set it to a real mailbox, and to name the person who reads it.
+- Operational requirements, which must be written down before go-live:
+  - a named monitor and a backup monitor;
+  - a response-time target (proposed: acknowledge within two business days);
+  - a spam filter and a rule that forwards nothing to personal mail;
+  - the mailbox retains messages for at most 12 months, then deletes them;
+  - messages are never copied into the repository, a spreadsheet, or a
+    public channel.
+- The form stays in the app: it opens a `mailto:` with the page and category
+  prefilled and a notice that the body is sent by e-mail. Nothing is sent by
+  TAXACQ itself, so no server state changes.
+- Minimisation: the mail body contains only what the tester types. The app adds
+  no account identifier or property detail unless the tester chooses to paste it.
+
+### Choosing between them
+
+- Route B works today once the mailbox exists. It has no triage state, no
+  duplicate detection and no admin count.
+- Route A needs migration 034 and the test plan above, and it gives structured
+  triage. It is the recommended long-term route.
+- A tester may be sent to route B until route A is approved and applied.
+
+Decisions needed: approve route A's migration for testing in a scratch cluster;
+name the mailbox and its monitors for route B.
 
 ## 9. Notifications
 
@@ -110,6 +143,7 @@ Nothing in steps 2 to 4 changes production until step 5 is approved.
 
 ## 11. Open decisions
 
-- Destination: option 1 or option 2 (section 8).
-- Who triages, and within what time (the owner has not set this).
+- Route A (table) or route B (mailbox), or both in sequence (section 8).
+- Route B: the mailbox address and the named monitors.
+- Route A: approval to test migration 034 in a scratch cluster.
 - Whether testers may attach screenshots in version 1 (recommended: no).
