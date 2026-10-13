@@ -10442,7 +10442,7 @@ function section(container, title, sub, rows, kind) {
         <h2>${title}</h2>
       </div>
       ${facts ? `<p class="ledger-facts">${esc(facts)}</p>` : ""}
-      ${ledgerStatusHtml(kind, shown)}
+      ${shown.length ? `<details class="ledger-status-fold"><summary>Source status and coverage</summary>${ledgerStatusHtml(kind, shown)}</details>` : ledgerStatusHtml(kind, shown)}
       ${kind === "auction" ? upcomingSalesHtml(shown) : ""}
       <p class="ledger-legend" aria-label="What the colour on each card's left edge means">
         <span class="lgd lgd-active">Active</span>
