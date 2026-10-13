@@ -3351,3 +3351,8 @@ Full description: `docs/source-permissions.md`. Stable facts:
     "public domain" or a docstring.
   An invented test source needs a fixture record (`permission_fixtures.install(record(...))`) to pass a gate.
   Still unprotected: the manual evidence-capture / probe scripts (`discover`).
+- **Discovery is gated too (2026-10-13):** every `capture_*` / `discover_sources.py` / `probe_*` script installs
+  `harvesters/governance/discovery_guard.py` as the first statement of `main()`; each request needs an in-date
+  `discover` permission for the source its URL belongs to, or it is refused before any connection. No source
+  holds one today, so these manual jobs read nothing until the owner records them. `tests/python/conftest.py`
+  uninstalls the guard after every test.
