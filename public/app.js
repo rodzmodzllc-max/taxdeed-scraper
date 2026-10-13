@@ -3547,15 +3547,16 @@ async function showApp() {
   // #/dashboard, #/map?... (context restored), #/watchlist (the watchlist
   // over the List page), the legacy #map - or the List page by default.
   if (route && route.page === "map") { applyMapParams(route.params); showPage("map"); }
-  else if (route && route.page === "dashboard") showPage("dashboard");
   else if (route && route.page === "county") { if (route.county) openCountyPage(route.county, PAGE_STATE); else openCountyIndex(); }
   else if (route && route.page === "research") openResearchPage();
   else if (route && route.page === "rules") openRulesPage(route.county);
-  // Landing (remediation): a bare URL, or any route not named here, opens
-  // Home. The Available list is reached from Home or the nav, never by default.
+  // Landing (2026-10-13): a bare URL, or any route not named here, opens the
+  // List on its landing ledger - Available first wherever it has rows (see
+  // landingLedger). Home stays one click away (#/dashboard) and in the nav.
   else if (route && route.page === "list") showPage("list");
   else if (route && route.page === "watchlist") showPage("watchlist");
-  else showPage("dashboard");
+  else if (route && route.page === "dashboard") showPage("dashboard");
+  else showPage("list");
   startIdleWatch();
   // Customer monitoring (saved searches, alerts, change events, analytics) -
   // after the first paint, never blocking it; each piece degrades on its own.
@@ -10396,6 +10397,33 @@ function upcomingSalesHtml(rows) {
 <button type="button" class="cc-dossier" data-action="countyintel" data-county="${esc(e.county)}">County process</button></span></li>`;
   }).join("")}</ol>${all.length > 4 ? `<p class="cc-more muted">${all.length} sale events in the next ${COMMAND_CENTER_DAYS} days${all.length > ev.length ? `, ${ev.length} shown here` : ""} - sort by sale date to see every one.</p>` : ""}</div>`;
 }
+// Info bubble (2026-10-13). A question or a note is shown as a small label; its
+// answer opens on hover, keyboard focus or tap, so the page reads as the
+// content first and the explanation on demand. `answerHtml` is trusted markup
+// built by the caller (same as the ledger copy it replaces); `label` is escaped.
+function infoBubbleHtml(label, answerHtml, opts = {}) {
+  globalThis.__tdwInfoSeq = (globalThis.__tdwInfoSeq || 0) + 1;
+  const id = "tdwInfo" + globalThis.__tdwInfoSeq;
+  return `<span class="ib${opts.corner ? " ib-corner" : ""}"><button type="button" class="ib-btn" aria-expanded="false" aria-controls="${id}"${opts.dataAttr ? ` ${opts.dataAttr}` : ""}>${esc(label)}</button><span class="ib-pop" id="${id}" role="tooltip">${answerHtml}</span></span>`;
+}
+function closeInfoBubbles(except) {
+  document.querySelectorAll(".ib.open").forEach(el => {
+    if (el === except) return;
+    el.classList.remove("open");
+    const b = el.querySelector(".ib-btn"); if (b) b.setAttribute("aria-expanded", "false");
+  });
+}
+document.addEventListener("click", (e) => {
+  const btn = e.target.closest && e.target.closest(".ib-btn");
+  if (!btn) { closeInfoBubbles(null); return; }
+  const wrap = btn.closest(".ib");
+  const open = !wrap.classList.contains("open");
+  closeInfoBubbles(wrap);
+  wrap.classList.toggle("open", open);
+  btn.setAttribute("aria-expanded", open ? "true" : "false");
+});
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeInfoBubbles(null); });
+
 function section(container, title, sub, rows, kind) {
   const sec = document.createElement("section"); sec.className = "mega-section";
   const shown = sortRows(rows.filter(passes));
@@ -10408,12 +10436,11 @@ function section(container, title, sub, rows, kind) {
   // a different word at the top.
   sec.innerHTML = `
     <div class="mega-head ledger-head">
-      ${cfg.question ? `<p class="ledger-question" data-ledger-question="${esc(kind)}">${esc(cfg.question)}</p>` : ""}
+      ${cfg.question ? infoBubbleHtml(cfg.question, `<p class="mega-sub">${sub}</p>${cfg.how ? `<p class="ledger-how">${cfg.how}</p>` : ""}`, { corner: true, dataAttr: `data-ledger-question="${esc(kind)}"` }) : ""}
       <div class="ledger-head-top">
         <span class="ledger-head-icon" aria-hidden="true">${cfg.icon || ""}</span>
         <h2>${title}</h2>
       </div>
-      <details class="ledger-about"><summary>About this list</summary><p class="mega-sub">${sub}</p>${cfg.how ? `<p class="ledger-how">${cfg.how}</p>` : ""}</details>
       ${facts ? `<p class="ledger-facts">${esc(facts)}</p>` : ""}
       ${ledgerStatusHtml(kind, shown)}
       ${kind === "auction" ? upcomingSalesHtml(shown) : ""}

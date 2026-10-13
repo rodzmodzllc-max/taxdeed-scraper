@@ -1062,3 +1062,17 @@ body:has(#authGate:not([hidden])){padding-bottom:0!important}
 .county-group .prop-card>.prop-card-photo{flex:0 0 auto;align-self:stretch;width:calc(100% + 1.6rem)!important;min-width:0;height:auto!important;max-height:none!important;aspect-ratio:4/3!important;box-sizing:border-box;margin:-.7rem -.8rem .6rem!important}
 .county-group .prop-card>.prop-body{width:100%;box-sizing:border-box}
 .county-group .prop-card>*{grid-column:auto!important;grid-row:auto!important}
+
+/* Info bubbles (2026-10-13): a question or note shows as a label; its answer
+   opens on hover, keyboard focus or tap. Desktop and touch share one rule. */
+.ledger-head{position:relative}
+.ib{position:relative;display:inline-flex;align-items:center;vertical-align:middle;max-width:100%}
+.ib-btn{font:inherit;font-size:.78rem;font-weight:600;line-height:1.3;color:var(--copper-d,var(--copper));background:transparent;border:1px dashed currentColor;border-radius:999px;padding:.3rem .7rem;min-height:32px;cursor:help;text-align:left}
+.ib-btn:focus-visible{outline:2px solid var(--copper);outline-offset:2px}
+.ib-pop{display:none;position:absolute;z-index:40;top:calc(100% + .45rem);left:0;width:min(360px,82vw);padding:.7rem .85rem;background:var(--card,var(--paper-white));color:var(--ink);border:1px solid var(--card-line);border-radius:6px;box-shadow:0 10px 28px rgba(0,0,0,.18);font-size:.8rem;line-height:1.5;font-weight:400;text-align:left}
+.ib:hover>.ib-pop,.ib:focus-within>.ib-pop,.ib.open>.ib-pop{display:block}
+.ib-pop p{margin:0 0 .4rem}
+.ib-pop p:last-child{margin:0}
+.ib-corner{position:absolute;top:0;right:0;z-index:5}
+.ib-corner>.ib-pop{left:auto;right:0}
+@media (max-width:640px){.ib-corner{position:static;justify-content:flex-end;margin-bottom:.3rem}}
