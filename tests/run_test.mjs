@@ -5166,6 +5166,8 @@ await navMap.close();
     results.zeroNotOfferedUnclaimed = await pgA.evaluate(() => ({ notOffered: !!document.querySelector('.ledger-status[data-eligibility="NOT_OFFERED"]'),
       offered: document.querySelector('.ledger-status[data-ledger-status="auction"]').dataset.eligibility }));
     // The strip's rules link opens the State rules page at that ledger's block.
+    // The status strip sits in a closed fold once a ledger has rows (2026-10-13).
+    await pgA.evaluate(() => document.querySelectorAll('.ledger-status-fold').forEach(d => { d.open = true; }));
     await pgA.locator('.ledger-status[data-ledger-status="auction"] [data-action="staterules"]').click();
     await pgA.waitForTimeout(500);
     results.zeroStripToRules = await pgA.evaluate(() => ({ hash: location.hash, block: !!document.querySelector('#rulesLedgerAUCTIONS'),
