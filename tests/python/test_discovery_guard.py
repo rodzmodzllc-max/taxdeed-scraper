@@ -133,9 +133,10 @@ def test_a_permission_for_another_operation_is_not_discovery(monkeypatch):
 
 @pytest.mark.parametrize("mutate,code", [
     ({}, None),                                                                          # in date -> allowed
-    ({"expires_on": "2020-01-01", "effective_on": "2019-01-01", "evidence_date": "2019-01-01",
-      "last_verified_on": "2019-01-01"}, "EXPIRED"),
-    ({"effective_on": "2099-01-01", "expires_on": "2100-01-01"}, "NOT_YET_EFFECTIVE"),
+    # Windows stay within an interim allowance's maximum length (210 days).
+    ({"expires_on": "2020-01-01", "effective_on": "2019-07-01", "evidence_date": "2019-07-01",
+      "last_verified_on": "2019-07-01"}, "EXPIRED"),
+    ({"effective_on": "2099-01-01", "expires_on": "2099-06-01"}, "NOT_YET_EFFECTIVE"),
     ({"status": "BLOCKED", "evidence_type": "PROHIBITION_FOUND"}, "BLOCKED"),
     # LINK_ONLY never authorizes discovery: the record itself is refused as invalid.
     ({"status": "LINK_ONLY", "evidence_type": "TERMS_SILENT"}, "CONFIG_INVALID"),
