@@ -1,0 +1,110 @@
+-- 032_parcel_boundaries.sql
+-- Verified parcel polygons, kept apart from `properties` so that a boundary
+-- write never bumps properties.updated_at (touch_updated_at) and so that the
+-- polygon never travels in the list payload (get_properties_list).
+--
+-- NOT APPLIED. Written for review. Apply only with explicit owner approval.
+-- Reversible: see the DOWN block at the end (commented).
+
+create table if not exists public.parcel_boundaries (
+  property_id       bigint primary key references public.properties(id) on delete cascade,
+  state             text not null,
+  county            text not null,
+  parcel            text not null,
+  geom              geometry(MultiPolygon, 4326) not null,
+  source_id         text not null,
+  boundary_policy   text not null check (boundary_policy in ('APPROVED')),
+  match_method      text not null check (match_method in ('EXACT_PARCEL_ID')),
+  source_observed_at timestamptz not null,
+  checked_at        timestamptz not null default now(),
+  content_sha256    text not null check (content_sha256 ~ '^[0-9a-f]{64}$'),
+  -- Required and non-blank: a row without attribution can never be read,
+  -- by the RPC or directly from the table.
+  attribution       text not null check (btrim(attribution) <> ''),
+  constraint parcel_boundaries_geom_valid check (ST_IsValid(geom)),
+  constraint parcel_boundaries_geom_srid check (ST_SRID(geom) = 4326)
+);
+
+-- Database-side source grant. A boundary is readable only when its source has
+-- display_approved = true here. Nothing is granted by default, and only
+-- service_role writes this table, so the permission decision made in
+-- data/parcel_boundary_permissions.csv has to be recorded here as well before
+-- any row is served. The writer's own check is not the last line of defence.
+create table if not exists public.parcel_boundary_source_grants (
+  source_id         text primary key,
+  display_approved  boolean not null default false,
+  reviewed_on       date
+);
+alter table public.parcel_boundary_source_grants enable row level security;
+drop policy if exists parcel_boundary_source_grants_read on public.parcel_boundary_source_grants;
+create policy parcel_boundary_source_grants_read on public.parcel_boundary_source_grants
+  as permissive for select to authenticated
+  using (display_approved);
+revoke all on public.parcel_boundary_source_grants from anon, authenticated;
+grant select on public.parcel_boundary_source_grants to authenticated;
+
+create index if not exists parcel_boundaries_geom_gix on public.parcel_boundaries using gist (geom);
+
+alter table public.parcel_boundaries enable row level security;
+
+-- Readable only by an approved account AND only for a property that account
+-- may see: the exists() runs as the caller, so properties RLS (including the
+-- publication gate from migration 031) applies. A direct table read therefore
+-- cannot reach a boundary the RPC would withhold. Writes are service_role only
+-- (the harvester); there is no client write policy.
+drop policy if exists parcel_boundaries_approved_read on public.parcel_boundaries;
+create policy parcel_boundaries_approved_read on public.parcel_boundaries
+  as permissive for select to authenticated
+  using (
+    (select public.is_approved())
+    and exists (select 1 from public.properties p where p.id = parcel_boundaries.property_id)
+    and exists (select 1 from public.parcel_boundary_source_grants g
+                where g.source_id = parcel_boundaries.source_id and g.display_approved)
+  );
+
+revoke all on public.parcel_boundaries from anon, authenticated;
+grant select on public.parcel_boundaries to authenticated;
+
+-- DOWN (manual, reversible):
+--   drop table if exists public.parcel_boundaries;
+--   drop table if exists public.parcel_boundary_source_grants;
+
+-- Read contract for the front end (docs/parcel-boundary-api.md). Invoker
+-- rights: the caller's RLS on parcel_boundaries AND properties applies, so a
+-- customer only ever receives a boundary for a property they may see. Zero
+-- rows is the only answer for "no boundary", including every row whose
+-- source is not APPROVED for display or whose attribution is missing.
+create or replace function public.get_property_boundary(p_property_id bigint)
+returns table (
+  property_id bigint,
+  boundary jsonb,
+  display_permitted boolean,
+  attribution text,
+  source_id text,
+  match_method text,
+  source_observed_at timestamptz
+)
+language sql
+stable
+security invoker
+set search_path = public
+as $$
+  select b.property_id,
+         ST_AsGeoJSON(ST_Multi(b.geom), 9)::jsonb,
+         true,
+         b.attribution,
+         b.source_id,
+         b.match_method,
+         b.source_observed_at
+  from public.parcel_boundaries b
+  where b.property_id = p_property_id
+    and b.boundary_policy = 'APPROVED'
+    and coalesce(b.attribution, '') <> ''
+    and ST_SRID(b.geom) = 4326
+    and exists (select 1 from public.properties p where p.id = b.property_id)
+    and exists (select 1 from public.parcel_boundary_source_grants g
+                where g.source_id = b.source_id and g.display_approved);
+$$;
+
+revoke all on function public.get_property_boundary(bigint) from public, anon;
+grant execute on function public.get_property_boundary(bigint) to authenticated;

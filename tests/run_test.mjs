@@ -6803,6 +6803,116 @@ await big.press('#globalSearchInput', 'Enter');
   await adm.close();
 }
 
+// ---- Parcel boundary over the live aerial (2026-10-12) --------------------
+// Deterministic fixture geometry from tests/vendor/supabase-stub.js only, behind
+// ?boundary=<mode>. Live imagery is switched on for these pages (the fixture
+// config switches it off) and USGS answers with a 1x1 PNG, never the real host.
+{
+  const BPNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
+  const boundaryPage = async (query, hash, vp, early) => {
+    const pg = await newPage({ viewport: vp || { width: 1280, height: 900 } });
+    pg.on('pageerror', e => errors.push('boundary pageerror: ' + e.message));
+    const usgs = [];
+    await pg.route('**/config.js', async route => {
+      const r = await route.fetch(); const body = (await r.text()).replace('naipLiveImagery: false', 'naipLiveImagery: true');
+      await route.fulfill({ response: r, body });
+    });
+    await pg.route('https://imagery.nationalmap.gov/**', route => { usgs.push(route.request().url()); return route.fulfill({ status: 200, contentType: 'image/png', body: BPNG }); });
+    await pg.goto(BASE_URL + (query ? '?' + query : '') + hash, { waitUntil: early ? 'domcontentloaded' : 'networkidle' });
+    await pg.waitForTimeout(early ? 150 : 400);
+    return { pg, usgs };
+  };
+  const hostState = pg => pg.evaluate(() => {
+    const h = document.querySelector('.detail-hero-photo.naip-live') || document.querySelector('#detailModalInner .naip-live, #detailPanel .naip-live');
+    if (!h) return { host: false };
+    const img = h.querySelector('img.naip-live-img');
+    const src = img ? (img.getAttribute('src') || img.dataset.naipSrc || '') : '';
+    const bb = (src.match(/bbox=([^&]+)/) || [])[1];
+    const c = bb ? bb.split(',').map(Number) : null;
+    const path = h.querySelector('.parcel-boundary .pb-line');
+    return { host: true, pid: h.dataset.boundaryPid || null,
+      outline: !!path, rings: path ? (path.getAttribute('d').match(/Z/g) || []).length : 0,
+      attrib: (h.querySelector('.pb-attrib') || {}).textContent || null,
+      state: (h.querySelector('.pb-state') || {}).textContent || null,
+      bboxCenter: c ? [Number(((c[0] + c[2]) / 2).toFixed(3)), Number(((c[1] + c[3]) / 2).toFixed(3))] : null,
+      fitted: !!c && Math.abs((c[2] - c[0]) - 0.0012) > 1e-6,
+      label: h.getAttribute('aria-label') || null };
+  });
+  // Verified boundary: outline drawn, attribution shown, aerial re-centred on the parcel.
+  let r = await boundaryPage('boundary=ok', '#/auctions/p5');
+  results.boundaryOk = await hostState(r.pg);
+  results.boundaryOkCalls = await r.pg.evaluate(() => window.__stubBoundaryCalls || []);
+  results.boundaryOkUsgsFitted = r.usgs.some(u => /bbox=/.test(u) && !/bbox=-82\.045.*,26\.935/.test(u));
+  await r.pg.close();
+  // No boundary: aerial unchanged, no outline, no message.
+  r = await boundaryPage('boundary=none', '#/auctions/p5');
+  results.boundaryNone = await hostState(r.pg);
+  await r.pg.close();
+  // Not deployed (no knob): PGRST202 is quiet, the aerial stays.
+  r = await boundaryPage('', '#/auctions/p5');
+  results.boundaryNotDeployed = await hostState(r.pg);
+  await r.pg.close();
+  // Unauthorized (server says not display-permitted): withheld, fails closed.
+  r = await boundaryPage('boundary=unauth', '#/auctions/p5');
+  results.boundaryUnauthorized = await hostState(r.pg);
+  await r.pg.close();
+  // Invalid geometry (open ring): refused, nothing drawn, aerial unchanged.
+  r = await boundaryPage('boundary=invalid', '#/auctions/p5');
+  results.boundaryInvalid = await hostState(r.pg);
+  await r.pg.close();
+  // MultiPolygon with a hole and a second component: three rings, all drawn.
+  r = await boundaryPage('boundary=multi', '#/auctions/p5');
+  results.boundaryMulti = await hostState(r.pg);
+  await r.pg.close();
+  // API error: map preserved, Retry shown, Retry asks again.
+  r = await boundaryPage('boundary=error', '#/auctions/p5');
+  results.boundaryError = await hostState(r.pg);
+  const callsBefore = await r.pg.evaluate(() => (window.__stubBoundaryCalls || []).length);
+  await r.pg.evaluate(() => document.querySelector('.pb-retry') && document.querySelector('.pb-retry').click());
+  await r.pg.waitForTimeout(400);
+  results.boundaryErrorRetried = (await r.pg.evaluate(() => (window.__stubBoundaryCalls || []).length)) > callsBefore;
+  results.boundaryErrorStillShown = await hostState(r.pg).then(s => s.state);
+  await r.pg.close();
+  // Pending: the aerial is shown at once; the outline arrives later and draws.
+  r = await boundaryPage('boundary=ok&boundarydelay=900', '#/auctions/p5', null, true);
+  // Wait for the aerial host to exist (the deep-linked detail opens after the
+  // list loads), then read it: the 900 ms answer has not arrived yet.
+  await r.pg.waitForSelector('.detail-hero-photo.naip-live', { timeout: 4000 }).catch(() => {});
+  results.boundaryPendingBefore = await hostState(r.pg).then(s => ({ host: s.host, outline: s.outline }));
+  await r.pg.waitForTimeout(1400);
+  results.boundaryPendingAfter = await hostState(r.pg).then(s => ({ outline: s.outline }));
+  await r.pg.close();
+  // Stale: p5's slow answer arrives after the user has moved on to p12. The
+  // p12 host must show p12's own geometry, never p5's.
+  // The host is removed before the slow answer arrives (as a closed or
+  // re-rendered detail would): the late answer must draw nothing.
+  r = await boundaryPage('boundary=ok&boundarydelay=1000', '#/auctions/p5', null, true);
+  await r.pg.waitForSelector('.detail-hero-photo.naip-live', { timeout: 4000 }).catch(() => {});
+  await r.pg.evaluate(() => document.querySelectorAll('.naip-live').forEach(h => h.remove()));
+  await r.pg.waitForTimeout(1600);
+  results.boundaryStaleSwitch = await r.pg.evaluate(() => document.querySelectorAll('.parcel-boundary').length === 0);
+  await r.pg.close();
+  // Layout: outline and attribution stay inside the aerial box at tablet and phone widths.
+  for (const [tag, vp] of [['desktop', { width: 1280, height: 900 }], ['tablet', { width: 768, height: 1000 }], ['phone', { width: 390, height: 844 }]]) {
+    r = await boundaryPage('boundary=ok', '#/auctions/p5', vp);
+    results['boundaryLayout_' + tag] = await r.pg.evaluate(() => {
+      const h = document.querySelector('.detail-hero-photo.naip-live'); if (!h) return null;
+      const hb = h.getBoundingClientRect(), a = h.querySelector('.pb-attrib'), sv = h.querySelector('.parcel-boundary');
+      const ab = a ? a.getBoundingClientRect() : null, sb = sv ? sv.getBoundingClientRect() : null;
+      return { overlayFills: !!sb && Math.abs(sb.width - hb.width) < 1 && Math.abs(sb.height - hb.height) < 1,
+        attribInside: !!ab && ab.left >= hb.left - 1 && ab.right <= hb.right + 1 && ab.top >= hb.top - 1 && ab.bottom <= hb.bottom + 1,
+        // The outline sits inside the visible aerial box (no edge cropped away).
+        outlineInside: !!sv && (() => { const pl = sv.querySelector('.pb-line').getBoundingClientRect();
+          return pl.left >= hb.left - 1 && pl.right <= hb.right + 1 && pl.top >= hb.top - 1 && pl.bottom <= hb.bottom + 1; })(),
+        // The caption and the attribution strip never overlap.
+        captionClearsAttrib: !h.querySelector('.photo-caption') || !a || (() => { const c = h.querySelector('.photo-caption').getBoundingClientRect();
+          return c.right <= ab.left + 0.5 || ab.right <= c.left + 0.5 || c.bottom <= ab.top + 0.5 || ab.bottom <= c.top + 0.5; })(),
+        noPageOverflow: document.documentElement.scrollWidth <= window.innerWidth };
+    });
+    await r.pg.close();
+  }
+}
+
 await browser.close();
 
 // ============================================================
@@ -6814,6 +6924,23 @@ await browser.close();
 
 
 const EXPECTED = {
+  boundaryOk: {"host": true, "pid": "p5", "outline": true, "rings": 1, "attrib": "FIXTURE geometry (test only, not parcel data)", "state": null, "bboxCenter": [-82.045, 26.934], "fitted": true, "label": "Aerial image with the parcel outline of this property"},
+  boundaryOkCalls: ["p5"],
+  boundaryOkUsgsFitted: true,
+  boundaryNone: {"host": true, "pid": "p5", "outline": false, "rings": 0, "attrib": null, "state": null, "bboxCenter": [-82.045, 26.934], "fitted": false, "label": null},
+  boundaryNotDeployed: {"host": true, "pid": "p5", "outline": false, "rings": 0, "attrib": null, "state": null, "bboxCenter": [-82.045, 26.934], "fitted": false, "label": null},
+  boundaryUnauthorized: {"host": true, "pid": "p5", "outline": false, "rings": 0, "attrib": null, "state": null, "bboxCenter": [-82.045, 26.934], "fitted": false, "label": null},
+  boundaryInvalid: {"host": true, "pid": "p5", "outline": false, "rings": 0, "attrib": null, "state": null, "bboxCenter": [-82.045, 26.934], "fitted": false, "label": null},
+  boundaryMulti: {"host": true, "pid": "p5", "outline": true, "rings": 3, "attrib": "FIXTURE geometry (test only, not parcel data)", "state": null, "bboxCenter": [-82.045, 26.934], "fitted": true, "label": "Aerial image with the parcel outline of this property"},
+  boundaryError: {"host": true, "pid": "p5", "outline": false, "rings": 0, "attrib": null, "state": "Boundary unavailable Retry", "bboxCenter": [-82.045, 26.934], "fitted": false, "label": null},
+  boundaryErrorRetried: true,
+  boundaryErrorStillShown: "Boundary unavailable Retry",
+  boundaryPendingBefore: {"host": true, "outline": false},
+  boundaryPendingAfter: {"outline": true},
+  boundaryStaleSwitch: true,
+  boundaryLayout_desktop: {"overlayFills": true, "attribInside": true, "outlineInside": true, "captionClearsAttrib": true, "noPageOverflow": true},
+  boundaryLayout_tablet: {"overlayFills": true, "attribInside": true, "outlineInside": true, "captionClearsAttrib": true, "noPageOverflow": true},
+  boundaryLayout_phone: {"overlayFills": true, "attribInside": true, "outlineInside": true, "captionClearsAttrib": true, "noPageOverflow": true},
   zeroOfferedNoInventory: { eligibility: 'OFFERED', zeroCase: 'NO_CURRENT_INVENTORY', tracked: '1', count: '0 instruments', whyLabel: 'No current inventory.', read: 'Last complete read N ago · 1 source read', saysExists: true, links: ['State rules and sources →', 'Official reference →'] },
   zeroNoneWhenRows: { zeroCase: '', eligibility: 'OFFERED', whyLabel: null, countEndsWith: 'instrument' },
   zeroLoadFailure: { zeroCase: 'SOURCE_FAILURE', eligibility: 'OFFERED', count: 'Count unavailable - load failed', whyLabel: 'Source read failed or incomplete.', lastKnown: true, bareZero: false },
@@ -6943,7 +7070,7 @@ const EXPECTED = {
   },
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v126"]},
+  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v127"]},
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · TAXACQ — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · TAXACQ — Florida", floridaCopy: true },
