@@ -494,6 +494,11 @@ def digest(gis: list, docs: list) -> str:
 
 
 def main(argv=None) -> int:
+    # Source permission for discovery (data/source_permissions.csv, operation
+    # "discover"): every request below is refused before any connection unless
+    # its URL belongs to a source with an in-date discover permission.
+    import permission_gate as _PG  # noqa: PLC0415
+    _PG.install_discovery_guard("discover_sources")
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("--gis", action="store_true")
     ap.add_argument("--documents", action="store_true")
