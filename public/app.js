@@ -4535,6 +4535,9 @@ function passes(p) {
   // has no equivalent taxonomy built yet (see the county-filter note above),
   // so every TX row skips this the same way certificates do.
   if (PAGE_STATE === "FL" && p.source !== "certificate" && (!state.types.has(propType(p)) || !state.liens.has(p.lien_level))) return false;
+  // A row with no published price is unknown, not $0: it never matches a bid
+  // bound (it used to pass every maximum, because a null bid read as 0).
+  if ((state.bidMin !== null || state.bidMax !== null) && !hasPublishedBid(p)) return false;
   if ((state.bidMin !== null && Number(p.bid) < state.bidMin) || (state.bidMax !== null && Number(p.bid) > state.bidMax)) return false;
   // Available ledger (2026-09-30): purchase path, amount kind, availability
   // status, acreage, recency - every one a stored field or its stated

@@ -6803,6 +6803,25 @@ await big.press('#globalSearchInput', 'Enter');
   await adm.close();
 }
 
+// ---- Unpriced rows never match a bid bound (2026-10-13) --------------------
+// A listing with no published price is unknown, not $0. Before this fix a
+// null bid read as 0 and passed every maximum. Fixture: the Citrus row has no
+// price; the Bay County row shows $2,000.
+{
+  const pg = await newPage({ viewport: { width: 1280, height: 900 } });
+  pg.on('pageerror', e => errors.push('bidbound pageerror: ' + e.message));
+  await pg.goto(BASE_URL + '#/list', { waitUntil: 'networkidle' });
+  await pg.waitForTimeout(500);
+  const count = (re) => pg.evaluate((src) => [...document.querySelectorAll('.prop-card')].filter(c => new RegExp(src, 'i').test(c.innerText)).length, re);
+  results.bidBoundUnpricedBaseline = await count('Location in Citrus');
+  await pg.click('#filtersToggle'); await pg.waitForTimeout(300);
+  await pg.click('#bidMaxInput'); await pg.keyboard.press('Control+A'); await pg.keyboard.type('5000', { delay: 20 });
+  await pg.keyboard.press('Enter'); await pg.waitForTimeout(500);
+  results.bidBoundUnpricedWithMax = await count('Location in Citrus');
+  results.bidBoundPricedWithMax = await count('\\$2,000');
+  await pg.close();
+}
+
 await browser.close();
 
 // ============================================================
@@ -6814,6 +6833,9 @@ await browser.close();
 
 
 const EXPECTED = {
+  bidBoundUnpricedBaseline: 1,
+  bidBoundUnpricedWithMax: 0,
+  bidBoundPricedWithMax: 1,
   zeroOfferedNoInventory: { eligibility: 'OFFERED', zeroCase: 'NO_CURRENT_INVENTORY', tracked: '1', count: '0 instruments', whyLabel: 'No current inventory.', read: 'Last complete read N ago · 1 source read', saysExists: true, links: ['State rules and sources →', 'Official reference →'] },
   zeroNoneWhenRows: { zeroCase: '', eligibility: 'OFFERED', whyLabel: null, countEndsWith: 'instrument' },
   zeroLoadFailure: { zeroCase: 'SOURCE_FAILURE', eligibility: 'OFFERED', count: 'Count unavailable - load failed', whyLabel: 'Source read failed or incomplete.', lastKnown: true, bareZero: false },
@@ -6943,7 +6965,7 @@ const EXPECTED = {
   },
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v126"]},
+  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v127"]},
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · TAXACQ — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · TAXACQ — Florida", floridaCopy: true },
