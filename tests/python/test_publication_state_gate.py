@@ -494,3 +494,15 @@ def test_l07_policy_stays_the_single_permissive_all_public_policy(scratch):
 def test_l08_a_state_the_check_does_not_allow_is_refused(scratch):
     out = scratch("reset role; set role service_role; update public.properties set publication_state = 'PUBLISHED' where id = 'aaaaaaaa-0000-0000-0000-000000000001';")
     assert "properties_publication_state_check" in out
+
+
+def test_e12b_a_record_breaking_its_ledger_contract_is_withheld():
+    # Three-ledger contract (2026-10-14): an auction row carrying an Available
+    # inventory type, or a certificate row carrying a property-sale result, is
+    # never customer inventory - withheld with its own reason, before any path.
+    d = PS.decide(row(inventory_type="POST_SALE_FIXED_PRICE"), ctx())
+    assert d.reasons == ["LEDGER_CONTRACT"] and d.state == "ADMIN_ONLY_SOURCE_REVIEW"
+    cert = row(source="certificate", ledger_type="lien", source_id="fl_lienhub_certificates", certificate_no="2024-1",
+               result_amount=9000, url_auction=None)
+    assert "LEDGER_CONTRACT" in PS.decide(cert, ctx()).reasons
+    assert PS.decide(row(), ctx()).state == "CUSTOMER_PUBLISHED"     # a clean auction row is unaffected

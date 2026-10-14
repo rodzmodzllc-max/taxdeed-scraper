@@ -2559,6 +2559,13 @@ Full description: `docs/three-ledgers.md` (last section). Stable facts:
   `plan_close()` closes only rows of a ledger the reading source feeds.
 - `inventory_status_writer.plan()` refuses a status outside the row's ledger; the Texas sync de-dups on
   `(source, county, case_no)`.
+- **Integrated 2026-10-14 (all paths):** the FL PowerShell syncs call `scripts/ledger_gate.py`
+  (`rows` / `closeable`) through one identical helper block (`Select-LedgerRows`,
+  `Get-LedgerCloseableCounties`) - never a PowerShell copy of the rules; `test_ledger_ps_syncs.py` runs the
+  real scripts under pwsh against a fake Supabase. `laft_lifecycle.county_gates()` health-checks every entry
+  and closes per source (`row_closeable`, `units`, `missing_sources`). `app.js ledgerRecordView()` mirrors
+  `customer_view()` (vectors `ledger_record_cases.json`); `publication_state` reason `LEDGER_CONTRACT`
+  (customer-binding only once 031 is applied).
 
 ## Where to look for more
 

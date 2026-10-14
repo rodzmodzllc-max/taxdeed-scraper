@@ -53,7 +53,8 @@ def reader_status(entry: dict) -> str:
     broken = _false(entry.get("transport_ok")) or _false(entry.get("parse_ok"))
     if recorded == "EMPTY":
         try:
-            rows = int(entry.get("row_count") or 0)
+            # The PowerShell harvesters spell it rowCount; laft_status row_count.
+            rows = int(entry.get("row_count", entry.get("rowCount")) or 0)
         except (TypeError, ValueError):
             rows = -1
         signal = entry.get("empty_signal") or entry.get("empty_marker_observed")

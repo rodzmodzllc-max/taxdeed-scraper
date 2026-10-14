@@ -80,6 +80,8 @@ import rest_pages as RP  # noqa: E402
 import purchase_path_engine as PE  # noqa: E402
 from harvesters.governance import states  # noqa: E402
 from harvesters.governance.county_source_registry import DB_SUPPORTED_INVENTORY_TYPES, PurchaseUrlKind  # noqa: E402
+from harvesters.ledgers import Ledger, ledgers_for_source_id  # noqa: E402
+from harvesters.ledgers import health as LH  # noqa: E402
 
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parent
@@ -285,18 +287,95 @@ def county_gates(status_entries: list[dict], expected: list[tuple[str, str]], *,
     kept, as before."""
     if state is not None:
         status_entries = [e for e in status_entries if not e.get("state") or str(e["state"]) == state]
+    # The ledger health reader first (harvesters/ledgers/health.py): an EMPTY
+    # without a valid empty signal, or a COMPLETE / EMPTY from a read that
+    # failed at transport or parse, is INCOMPLETE - observed, never closeable.
+    status_entries = [health_checked(e) for e in status_entries]
     by_county = statuses_by_county(status_entries, expected=expected, now=now, max_age_hours=max_age_hours)
+    units = source_units(status_entries, now=now, max_age_hours=max_age_hours)
+    expected_by_county: dict[str, set[str]] = {}
+    for sid, county in expected or []:
+        expected_by_county.setdefault(county, set()).add(sid)
     gates: dict[str, dict] = {}
     for county, info in by_county.items():
         status = info["status"]
+        county_units = {sid: st for (sid, c), st in units.items() if c == county}
         gates[county] = {
             "status": status,
             "observed_ok": status in OBSERVED_STATUSES,
             "closeout_ok": status in CLOSEOUT_ELIGIBLE,
             "harvester": info.get("harvester"),
             "entry": info.get("entry"),
+            # Per-source reads of this county, and the registry's sources for
+            # it that left no entry at all: one source's read never closes a
+            # sibling source's rows (plan_lifecycle).
+            "units": county_units,
+            "missing_sources": sorted(expected_by_county.get(county, set()) - set(county_units)),
         }
     return gates
+
+
+def health_checked(entry: dict) -> dict:
+    """The entry as the ledger health reader allows it to be acted on: a
+    recorded COMPLETE / EMPTY the reader does not accept becomes INCOMPLETE
+    (with `health_downgrade` naming why); every other entry is unchanged."""
+    recorded = str(entry.get("status") or "").upper()
+    if recorded not in CLOSEOUT_ELIGIBLE:
+        return entry
+    read = LH.reader_status(entry)
+    if read == recorded:
+        return entry
+    return {**entry, "status": "INCOMPLETE", "health_downgrade": f"{recorded}->{read}"}
+
+
+def entry_source(entry: dict) -> str:
+    return str(entry.get("source_id") or entry.get("harvester") or "")
+
+
+def source_units(entries: list[dict], *, now: float | None = None, max_age_hours: float = 36.0) -> dict[tuple[str, str], str]:
+    """{(source_id, county): weakest effective status} - each LAFT source's
+    own read of each county (laft_status.effective_status, so staleness
+    applies). An entry naming a source that does not feed the AVAILABLE
+    ledger is never a unit here."""
+    from laft_status import effective_status  # noqa: PLC0415
+    order = ("SOURCE_UNAVAILABLE", "FAILED", "NOT_RUN", "STALE", "INCOMPLETE", "EMPTY", "COMPLETE")
+    out: dict[tuple[str, str], str] = {}
+    for e in entries:
+        sid, county = entry_source(e), str(e.get("county") or "")
+        if not sid or not county:
+            continue
+        fed = ledgers_for_source_id(sid)
+        if fed and Ledger.AVAILABLE not in fed:
+            continue
+        eff = effective_status(e, now=now, max_age_hours=max_age_hours)
+        cur = out.get((sid, county))
+        if cur is None or order.index(eff) < order.index(cur):
+            out[(sid, county)] = eff
+    return out
+
+
+def row_closeable(row: dict, gate: dict) -> bool:
+    """May this stored row be closed by this run's read of its county?
+    The county gate must allow close-out (its weakest read COMPLETE / EMPTY),
+    and then:
+      * a row naming its source (source_id) closes only on THAT source's own
+        COMPLETE / EMPTY read - a sibling source's read never closes it, and a
+        source that does not feed the AVAILABLE ledger never closes anything;
+      * a row naming no source closes only when the county was read by exactly
+        one source and the registry expects no other (otherwise the row cannot
+        be attributed to the read that missed it)."""
+    if not gate.get("closeout_ok"):
+        return False
+    units = gate.get("units") or {}
+    sid = str(row.get("source_id") or "")
+    if sid:
+        fed = ledgers_for_source_id(sid)
+        if fed and Ledger.AVAILABLE not in fed:
+            return False
+        return LH.closeable(Ledger.AVAILABLE, units.get(sid))
+    if gate.get("missing_sources"):
+        return False
+    return len(units) <= 1
 
 
 NOT_PERMITTED = "NOT_PERMITTED"
@@ -338,6 +417,7 @@ class Plan:
     close: list[dict] = field(default_factory=list)                     # DB rows {id, county, case_no}
     skipped_counties: dict[str, str] = field(default_factory=dict)      # county -> why nothing may be closed
     ignored_rows: int = 0                                               # harvested rows from non-observed counties
+    kept_unattributed: int = 0                                          # absent rows another source's read cannot close
 
 
 def plan_lifecycle(gates: dict[str, dict], observed: dict[str, dict[str, dict]], db_rows: list[dict]) -> Plan:
@@ -369,6 +449,11 @@ def plan_lifecycle(gates: dict[str, dict], observed: dict[str, dict[str, dict]],
             if str(r.get("status") or "active").lower() in GONE_STATUSES:
                 continue
             if (county, str(r.get("case_no"))) in observed_keys:
+                continue
+            if not row_closeable(r, gate):
+                # Its own source's read did not confirm the whole list (see
+                # row_closeable): left exactly as it is.
+                plan.kept_unattributed += 1
                 continue
             plan.close.append({"id": r.get("id"), "county": county, "case_no": str(r.get("case_no"))})
     plan.observe.sort()
@@ -857,7 +942,8 @@ def summarize(plan: Plan, gates: dict[str, dict], counts: dict | None, have_017:
             lines.append(f"  {status}: {len(by_status[status])} - {', '.join(by_status[status])}")
     lines.append(f"  observed rows: {len(plan.observe)} (reactivated {len(plan.reactivate)}); "
                  f"close-out candidates: {len(plan.close)} across {len({r['county'] for r in plan.close})} county(ies); "
-                 f"rows ignored (county not COMPLETE/INCOMPLETE): {plan.ignored_rows}")
+                 f"rows ignored (county not COMPLETE/INCOMPLETE): {plan.ignored_rows}; "
+                 f"absent rows kept (their own source's read did not confirm the list): {plan.kept_unattributed}")
     if plan.skipped_counties:
         lines.append("  close-out skipped (fail closed): " + ", ".join(f"{c} [{s}]" for c, s in sorted(plan.skipped_counties.items())))
     lines.append("  migration 017 columns: " + ("present" if have_017 else "absent - last_seen_at/provenance not written" if have_017 is False else "not probed"))

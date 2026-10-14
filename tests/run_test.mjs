@@ -5420,6 +5420,35 @@ await navMap.close();
     results.naipOffNoRequests = offRequests;
     await off.close();
   }
+  // ---- Three-ledger record contract on the read path (2026-10-14) ----
+  // app.js ledgerRecordView() must equal harvesters/ledgers/records.py
+  // customer_view() on the shared cases, and the property page's status band
+  // names the record's ledger (AUCTIONS / AVAILABLE / LIENS_CERTIFICATES).
+  {
+    const lv = JSON.parse(fs.readFileSync(new URL('./python/fixtures/ledger_record_cases.json', import.meta.url), 'utf8'));
+    const band = {};
+    for (const [h, k] of [['#/auctions/p1', 'auction'], ['#/lands/p15', 'laft'], ['#/certificates/p4', 'certificate']]) {
+      const pg = await newPage({ viewport: { width: 900, height: 900 } });
+      pg.on('pageerror', e => errors.push('ledger record pageerror: ' + e.message));
+      await pg.goto(BASE_URL + h, { waitUntil: 'networkidle' });
+      await pg.waitForSelector('#detailModal:not([hidden]) .dossier-status', { timeout: 8000 });
+      if (k === 'auction') {
+        results.ledgerRecordVectors = await pg.evaluate(v => v.cases.filter(c => {
+          const got = window.__tdwLedgerRecord(c.row) || {};
+          return Object.keys(c.expect).some(key => JSON.stringify(got[key] === undefined ? null : got[key]) !== JSON.stringify(c.expect[key]));
+        }).map(c => c.name), lv);
+        results.ledgerRecordCaseCount = lv.cases.length;
+      }
+      band[k] = await pg.evaluate(() => {
+        const st = document.querySelector('#detailModal:not([hidden]) .dossier-status');
+        const dd = st.querySelector('dd');
+        const sub = dd.querySelector('.dossier-sub');
+        return { ledger: st.dataset.ledgerRecord || null, sub: sub ? sub.textContent.trim() : null };
+      });
+      await pg.close();
+    }
+    results.ledgerRecordBand = band;
+  }
   // ---- Acquisition-path gate for customer actionability (2026-10-10) ----
   // The browser verdict (app.js acquisitionVerificationWith) must equal the
   // Python gate (harvesters/sources/acquisition_gate.py) on the shared
@@ -6943,7 +6972,7 @@ const EXPECTED = {
   },
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v126"]},
+  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v127"]},
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · TAXACQ — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · TAXACQ — Florida", floridaCopy: true },
@@ -8210,6 +8239,9 @@ const EXPECTED = {
   naipDetail: {"hero": true, "big": true, "basis": "approximate", "contextNote": true, "caption": "Aerial imagery · USDA NAIP (public domain) · centered on the coordinates on file for this record (origin not recorded) · approximate point", "truth": "USDA NAIP aerial imagery (public domain), from USGS The National MapCentered on the coordinates on file for this record (origin not recorded). Imagery may be years old.Approximate point (not from an official parcel layer) - the image may show neighbouring land.Aerial imagery is context only: it does not show parcel boundaries, ownership, current condition or title."},
   naipFallback: {"live": 0, "broken": 0, "minimap": true, "saysUnavailable": true, "marked": true},
   naipOffNoRequests: 0,
+  ledgerRecordVectors: [],
+  ledgerRecordCaseCount: 16,
+  ledgerRecordBand: {"auction": {"ledger": "AUCTIONS", "sub": null}, "laft": {"ledger": "AVAILABLE", "sub": null}, "certificate": {"ledger": "LIENS_CERTIFICATES", "sub": null}},
   gateVectors: [],
   gateOffByDefault: {"mode": "off", "gateNotice": false},
   gateOffCards: 2,

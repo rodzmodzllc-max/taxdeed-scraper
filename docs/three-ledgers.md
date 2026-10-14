@@ -218,3 +218,69 @@ something. No migration: the schema already carries every field.
   - refuses rows that break the ledger contract.
 
 Tests: `tests/python/test_three_ledger_separation.py`.
+
+## Integration: Florida PowerShell syncs, LAFT lifecycle, customer read path (2026-10-14)
+
+The contracts above are now applied on every remaining path.
+
+### Florida PowerShell syncs (Gap A)
+
+`scripts/ledger_gate.py` is the command-line form of the two modules, so
+PowerShell never carries a second copy of the rules:
+
+- `rows --ledger L --in rows.json` prints the indices of refused rows. A row
+  is refused when it is not in ledger L or breaks L's contract.
+- `closeable --ledger L --status file` prints the counties whose read the
+  health reader accepts for close-out. A missing or unreadable file gives
+  `[]`.
+
+All three syncs (`sync-harvest-to-supabase.ps1`, `sync-certificates-to-supabase.ps1`
+and `sync-laft-to-supabase.ps1`) carry one identical helper block after the
+permission guard:
+
+- `Select-LedgerRows` runs before every upsert.
+- `Get-LedgerCloseableCounties` replaces the old inline `status -eq "COMPLETE"`
+  check in the deed close-out and the certificate reconciliation.
+
+Both fail closed. A gate that cannot run stops the write, and a status file
+that cannot be read closes nothing. One behavioural difference: a county
+whose entries disagree (a COMPLETE read and a failed retry) now reads as its
+worst entry, not as COMPLETE.
+
+`tests/python/test_ledger_ps_syncs.py` runs the real scripts under PowerShell 7
+against a local fake Supabase server.
+
+### Florida LAFT lifecycle (Gap B)
+
+`scripts/laft_lifecycle.py`:
+
+- `county_gates()` passes every entry through `health_checked()`. An EMPTY
+  without a valid signal, or a COMPLETE / EMPTY from a broken read, becomes
+  INCOMPLETE (`health_downgrade`).
+- Each gate now carries the per-source `units` (`source_units()`) and the
+  registry's `missing_sources`.
+- `row_closeable()` closes a row only on its own source's COMPLETE or EMPTY
+  read. A row with no source is closed only when the county has exactly one
+  source and no expected source is missing.
+- Reactivation still writes `status` alone.
+
+Tests: `tests/python/test_laft_lifecycle_ledger_health.py`.
+
+### Customer read path (Gap C)
+
+- **Frontend mirror:** `public/app.js` `ledgerRecordView(p)` mirrors
+  `records.customer_view()`, field for field, on
+  `tests/python/fixtures/ledger_record_cases.json`. Both Python and Playwright
+  run those cases.
+- **Purchase link:** `purchasePathOf()` refuses an Available row's
+  `purchase_url` when it is the list page, the source document or plain http.
+- **Status band:** the property status band names the record's ledger
+  (`data-ledger-record`, plus "<Ledger> ledger" when the state calls the list
+  something else).
+- **Backend gate:** `publication_state.decide()` withholds a row that breaks
+  its ledger contract (reason `LEDGER_CONTRACT`). The writer reads the columns
+  the contract needs.
+
+That backend gate becomes customer-binding only when migration 031 is
+applied, and 031 is NOT applied. Until then the publication-state writer
+plans only, and customers are protected by the existing read-path behaviour.

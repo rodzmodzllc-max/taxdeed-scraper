@@ -362,3 +362,32 @@ def test_clean_rows_have_no_problems():
     for row in (_auction(), _available(), _certificate()):
         assert LR.problems(row) == []
     assert LR.problems({"county": "X"})          # unclassifiable is a problem, never a guess
+
+
+# ------------------------------------------------ the customer read path (2026-10-14)
+
+CASES = json.loads((ROOT / "tests/python/fixtures/ledger_record_cases.json").read_text(encoding="utf-8"))["cases"]
+
+
+@pytest.mark.parametrize("case", CASES, ids=[c["name"] for c in CASES])
+def test_customer_view_matches_the_shared_cases(case):
+    view = LR.customer_view(case["row"])
+    got = {k: view.get(k) for k in case["expect"]}
+    assert got == case["expect"]
+
+
+def test_the_frontend_mirror_is_wired_into_the_read_path():
+    js = (ROOT / "public/app.js").read_text(encoding="utf-8")
+    assert "function ledgerRecordView(p)" in js and "window.__tdwLedgerRecord = ledgerRecordView" in js
+    # Available purchase paths and the property page's status band both read it.
+    body = js[js.index("function purchasePathOf(p) {"):]
+    assert "ledgerRecordView(p).purchase_link" in body[:600]
+    status = js[js.index("function detailStatusHtml(p) {"):]
+    assert "ledgerRecordView(p)" in status[:1600] and "data-ledger-record" in status[:1600]
+
+
+def test_publication_gate_withholds_a_ledger_contract_violation():
+    from harvesters.governance import publication_state as PS
+    assert "LEDGER_CONTRACT" in PS.REASONS and "LEDGER_CONTRACT" in PS.REMEDIATION
+    src = (ROOT / "harvesters/governance/publication_state.py").read_text(encoding="utf-8")
+    assert "ledger_records.problems(row)" in src
