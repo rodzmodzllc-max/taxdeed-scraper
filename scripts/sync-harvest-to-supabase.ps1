@@ -18,6 +18,48 @@ if (0 -ne $LASTEXITCODE) {
 }
 # --- end source permission gate ------------------------------------------------
 
+# --- Three-ledger contract (2026-10-14) ----------------------------------------
+# The row contract (harvesters/ledgers/records.py) and the status-file reader
+# (harvesters/ledgers/health.py) are applied through scripts/ledger_gate.py, the
+# same rules the Python syncs apply - never a second copy of them here. Both
+# helpers fail closed: a contract that cannot be checked writes nothing, and a
+# status file that cannot be read closes nothing.
+function Get-LedgerPython {
+    $py = Get-Command python3 -ErrorAction SilentlyContinue
+    if (-not $py) { $py = Get-Command python -ErrorAction SilentlyContinue }
+    if (-not $py) { throw "Python not found - the ledger contract cannot be checked; nothing is written." }
+    return $py.Source
+}
+function Select-LedgerRows([string]$Ledger, $Rows) {
+    $all = @($Rows)
+    if ($all.Count -eq 0) { return }
+    $tmp = [System.IO.Path]::GetTempFileName()
+    try {
+        $json = $all | ConvertTo-Json -Depth 6
+        if ($all.Count -eq 1) { $json = "[$json]" }
+        [System.IO.File]::WriteAllText($tmp, $json, [System.Text.UTF8Encoding]::new($false))
+        $out = & (Get-LedgerPython) (Join-Path $PSScriptRoot "ledger_gate.py") rows --ledger $Ledger --in $tmp
+        if (0 -ne $LASTEXITCODE) { throw "ledger_gate.py could not check the $Ledger rows (exit $LASTEXITCODE) - nothing is written." }
+        $verdict = ($out -join "`n") | ConvertFrom-Json
+        $refused = [System.Collections.Generic.HashSet[int]]::new()
+        foreach ($i in @($verdict.refused)) { $refused.Add([int]$i) | Out-Null }
+        if ($refused.Count -gt 0) {
+            Write-Warning "Ledger contract refused $($refused.Count) of $($all.Count) row(s) that do not belong to the $Ledger ledger - nothing is written for them."
+        }
+        for ($i = 0; $i -lt $all.Count; $i++) {
+            if (-not $refused.Contains($i)) { $all[$i] }
+        }
+    } finally {
+        Remove-Item $tmp -ErrorAction SilentlyContinue
+    }
+}
+function Get-LedgerCloseableCounties([string]$Ledger, [string]$StatusPath) {
+    $out = & (Get-LedgerPython) (Join-Path $PSScriptRoot "ledger_gate.py") closeable --ledger $Ledger --status $StatusPath
+    if (0 -ne $LASTEXITCODE) { throw "ledger_gate.py could not read $StatusPath (exit $LASTEXITCODE)" }
+    return @((($out -join "`n") | ConvertFrom-Json))
+}
+# --- end three-ledger contract -------------------------------------------------
+
 
 # Pushes the statewide harvest (harvest_all.json, produced by
 # harvest_all_counties.ps1 + harvest_okaloosa_bid4assets.ps1) into the same
@@ -138,6 +180,9 @@ foreach ($p in $harvest) {
     }
 }
 
+# Every row must belong to the AUCTIONS ledger and pass its record contract
+# (scripts/ledger_gate.py) before anything is written.
+$rows = @(Select-LedgerRows "AUCTIONS" $rows)
 if ($rows.Count -eq 0) { throw "Every harvested row was missing case # or address - nothing to sync." }
 Write-Output "Prepared $($rows.Count) properties ($skipped skipped for missing case/address)."
 
@@ -230,10 +275,10 @@ Write-Output "Counties covered: $((($rows | ForEach-Object { $_.county }) | Sele
 $completeCounties = [System.Collections.Generic.HashSet[string]]::new()
 if (Test-Path $statusPath) {
     try {
-        $countyStatusRaw = Get-Content $statusPath -Raw | ConvertFrom-Json
-        foreach ($cs in @($countyStatusRaw)) {
-            if ($cs.status -eq "COMPLETE") { $completeCounties.Add([string]$cs.county) | Out-Null }
-        }
+        # The ledger health reader decides which counties may close: COMPLETE
+        # (or EMPTY with a valid empty signal) from a read that did not fail at
+        # transport or parse; FAILED / INCOMPLETE / SOURCE_UNAVAILABLE never.
+        foreach ($c in (Get-LedgerCloseableCounties "AUCTIONS" $statusPath)) { $completeCounties.Add([string]$c) | Out-Null }
         Write-Output "Reconciliation-eligible (COMPLETE) counties this run: $($completeCounties.Count)"
     } catch {
         Write-Warning "harvest_all_status.json could not be parsed - skipping stale-property closeout entirely this run (fail closed): $($_.Exception.Message)"

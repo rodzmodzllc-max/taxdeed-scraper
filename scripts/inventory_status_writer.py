@@ -47,6 +47,8 @@ REPO = HERE.parent
 sys.path.insert(0, str(HERE))
 sys.path.insert(1, str(REPO))
 from harvesters.governance import inventory_status as IS  # noqa: E402
+from harvesters.ledgers import ledger_for_row  # noqa: E402
+from harvesters.ledgers import records as LR  # noqa: E402
 import rest_pages as RP  # noqa: E402
 from harvesters.governance import states  # noqa: E402
 import outcome_ingest as OI  # noqa: E402
@@ -106,6 +108,14 @@ def plan(rows: list[dict], *, today: date, sold: set[tuple[str, str]] | None = N
         obs = IS.status_for_row(r, today=today, sold_column_present=is_sold)
         if obs is None:
             counts["unmapped"] += 1
+            continue
+        # Each ledger keeps its own status vocabulary (harvesters/ledgers
+        # LEDGER_STATUSES): a status outside the row's ledger - e.g. a
+        # property 'sold' on a certificate row - is a classification bug and
+        # is never written. An unclassifiable row gets no status at all.
+        ledger = ledger_for_row(r)
+        if ledger is None or not LR.status_allowed(ledger, obs.status):
+            counts["refused_outside_ledger"] = counts.get("refused_outside_ledger", 0) + 1
             continue
         counts["mapped"] += 1
         counts["by_status"][obs.status] = counts["by_status"].get(obs.status, 0) + 1

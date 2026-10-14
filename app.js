@@ -736,6 +736,7 @@ const PUBLICATION_REASON_LABELS = {
   RULES_NOT_OFFERED: "The verified rules say this state does not offer this product.",
   COUNTY_NOT_COVERED: "The product is county-dependent and this county has no tracked source or verified procedure.",
   RECORD_INVALID: "The record is missing its state, county, ledger or identifier.",
+  LEDGER_CONTRACT: "The record carries fields or a status of another ledger.",
   PATH_MISSING: "No acquisition path is documented for this record or its county.",
   PATH_UNTRUSTED: "The only link on file is a homepage, a search page or not https - not a route to the process.",
   PATH_NEEDS_REVIEW: "The county's acquisition process was captured but not verified.",
@@ -8431,8 +8432,87 @@ const INSTRUCTION_PURCHASE_KINDS = ["purchase_instructions", "application_form"]
 // A function declaration (hoisted), not a const: acquisitionOf() above can
 // run during the first render, before this line is evaluated.
 function isDocumentUrl(u) { return !!u && /\.(?:pdf|docx?|xlsx?|rtf)(?:$|[?#/])|\/DocumentCenter\/View\//i.test(String(u)); }
+// The three-ledger record contract on the customer read path (2026-10-14):
+// the mirror of harvesters/ledgers/records.py customer_view(), pinned field by
+// field to tests/python/fixtures/ledger_record_cases.json. One property can
+// hold a record in each ledger; each record says which ledger it is and only
+// what that ledger means - an opening bid is never a winning bid, an
+// inventory list or source document is never a purchase link, a certificate's
+// redemption or assignment is never a property sale, and a missing figure
+// reads "Not published". Function declarations only (hoisted): render() can
+// reach this before the module's constants exist.
+// properties.source is the ledger discriminator on every customer row (the
+// RPCs never project the internal ledger_type alias - test_phase14b pins that).
+function ledgerRecordCode(p) {
+  var bySource = { auction: "AUCTIONS", laft: "AVAILABLE", certificate: "LIENS_CERTIFICATES" };
+  return (p && bySource[p.source]) || null;
+}
+function ledgerRecordView(p) {
+  var NP = "Not published", NO_LINK = "No online purchase link on file", NO_OUTCOME = "Not published by the source";
+  var NAMES = { AUCTIONS: "Auctions", AVAILABLE: "Available", LIENS_CERTIFICATES: "Liens & Certificates" };
+  var RESULTS = {
+    AUCTIONS: ["sold", "redeemed", "withdrawn", "cancelled", "struck_off"],
+    AVAILABLE: ["sold", "redeemed", "withdrawn", "cancelled"],
+    LIENS_CERTIFICATES: ["certificate_redeemed", "certificate_assigned", "certificate_expired"]
+  };
+  var blank = function (v) { return v === null || v === undefined || (typeof v === "string" && !v.trim()); };
+  var num = function (v) { if (blank(v)) return null; var n = Number(v); return Number.isFinite(n) ? n : null; };
+  var pos = function (v) { var n = num(v); return n !== null && n > 0 ? n : null; };
+  var code = ledgerRecordCode(p);
+  if (!code) return null;
+  var status = blank(p.inventory_status) ? null : String(p.inventory_status);
+  var result = RESULTS[code].indexOf(status) >= 0;
+  var v = { ledger: code, ledger_name: NAMES[code], status: status };
+  if (code === "AUCTIONS") {
+    var opening = null;
+    if (p.purchase_amount_kind !== "NOT_PUBLISHED") {
+      opening = pos(p.min_bid);
+      if (opening === null) opening = pos(p.purchase_amount);
+      if (opening === null) opening = pos(p.bid);
+    }
+    var winning = status === "sold" ? pos(p.result_amount) : null;
+    v.sale_date = p.sale_date || NP;
+    v.opening_bid = opening !== null ? opening : NP;
+    v.auction_url = p.url_auction || NP;
+    v.result = result ? status : NO_OUTCOME;
+    v.winning_bid = winning !== null ? winning : NP;
+    v.result_date = result ? (p.result_date || NP) : NP;
+  } else if (code === "AVAILABLE") {
+    var kind = blank(p.purchase_amount_kind) ? null : String(p.purchase_amount_kind);
+    var amount = null;
+    if (kind !== "QUOTED_ON_APPLICATION" && kind !== "NOT_PUBLISHED") {
+      amount = pos(p.purchase_amount);
+      if (amount === null && kind === null) amount = pos(p.bid);
+    }
+    var u = blank(p.purchase_url) ? "" : String(p.purchase_url).trim();
+    var link = u && u.indexOf("https://") === 0 && u !== String(p.list_url || "").trim() && u !== String(p.document_url || "").trim() ? u : null;
+    var prov = p.otc_provenance && typeof p.otc_provenance === "object" ? p.otc_provenance : {};
+    v.availability = status || NP;
+    v.amount = amount !== null ? amount : NP;
+    v.amount_kind = kind || (amount === null ? null : "LEGACY_BID");
+    v.purchase_link = link || NO_LINK;
+    v.inventory_list_url = p.list_url || NP;
+    v.application_instructions = prov.purchase_instructions || NP;
+  } else {
+    var face = pos(p.bid);
+    var rate = num(p.interest_rate);
+    v.certificate_no = p.certificate_no || p.case_no || null;
+    v.tax_year = p.tax_year || NP;
+    v.face_amount = face !== null ? face : NP;
+    v.interest_rate = rate !== null ? rate : NP;
+    v.certificate_sale_date = p.issued_date || NP;
+    v.redemption = result ? status : NO_OUTCOME;
+    v.holder = NP;
+  }
+  return v;
+}
+window.__tdwLedgerRecord = ledgerRecordView;
 function purchasePathOf(p) {
   if (!p || !p.purchase_url) return { kind: "none" };
+  // An Available row's purchase link is its own verified link only - never its
+  // inventory list, never its source document, never plain http (the ledger
+  // contract above; records.py AvailableRecord.purchase_link).
+  if (p.source === "laft" && ledgerRecordView(p).purchase_link === "No online purchase link on file") return { kind: "none" };
   const sourceLevel = p.purchase_path_scope === "source" || isDocumentUrl(p.purchase_url);
   if (PROPERTY_PURCHASE_KINDS.includes(p.purchase_url_kind) && !sourceLevel) return { kind: "property", url: p.purchase_url, label: PURCHASE_URL_KIND_LABELS[p.purchase_url_kind] };
   if (PROPERTY_PURCHASE_KINDS.includes(p.purchase_url_kind)) return { kind: "instructions", url: p.purchase_url, label: PURCHASE_URL_KIND_LABELS[p.purchase_url_kind] };
@@ -8997,7 +9077,11 @@ function detailStatusHtml(p) {
   ];
   const off = offCurrentSaleList(p);
   if (off) items[2] = ["Last read", `Not on the county list read ${dateOnly(off.countyRead)}${off.lastRead ? ` · last listed ${dateOnly(off.lastRead)}` : ""}`, "warn"];
-  return `<dl class="dossier-status" aria-label="Current status">${items.map(([t, v, c]) => `<div><dt>${esc(t)}</dt><dd class="${esc(c)}">${esc(v)}</dd></div>`).join("")}${researchStatusCellHtml(p)}</dl>`;
+  // The record says which of the three ledgers it is, whatever this state calls
+  // the list (ledgerRecordView: AUCTIONS / AVAILABLE / LIENS_CERTIFICATES).
+  const rec = ledgerRecordView(p);
+  const ledgerSub = rec && rec.ledger_name !== items[0][1] ? `<span class="dossier-sub">${esc(rec.ledger_name)} ledger</span>` : "";
+  return `<dl class="dossier-status" aria-label="Current status"${rec ? ` data-ledger-record="${esc(rec.ledger)}"` : ""}>${items.map(([t, v, c], i) => `<div><dt>${esc(t)}</dt><dd class="${esc(c)}">${esc(v)}${i === 0 ? ledgerSub : ""}</dd></div>`).join("")}${researchStatusCellHtml(p)}</dl>`;
 }
 // The customer's own research state in the property page's status band
 // (2026-10-06): visible at the top so it is never buried, styled and labelled

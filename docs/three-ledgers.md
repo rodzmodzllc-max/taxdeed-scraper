@@ -169,3 +169,118 @@ TERMS_NOT_VERIFIED, ledgers LIENS_CERTIFICATES. Arizona's tax-deeded land
   touched, no TX certificate ledger.
 - Migrations 020 and 021 remain unapplied; nothing was written to
   production; no workflow was dispatched.
+
+## Record contracts and read health (2026-10-13, implementation sprint 1)
+
+The ledgers already had separate rows (`properties.source` is part of the
+`(state, source, county, case_no)` identity), separate harvesters and
+separate status files. This sprint gave each ledger a record contract and
+the readers a health check, and enforced both in the places they decide
+something. No migration: the schema already carries every field.
+
+### `harvesters/ledgers/records.py`
+
+| Record | Row | Fields it owns | Missing values read |
+|---|---|---|---|
+| `AuctionRecord` | `source='auction'` | sale date, opening bid (`min_bid` / `purchase_amount` / `bid` > 0), auction URL + kind, raw source status, result / winning bid / result date (only beside a source-published `sold`) | "Not published"; result "Not published by the source" |
+| `AvailableRecord` | `source='laft'` | inventory type (017/020 Available set), amount + its kind (never assumed; QUOTED_ON_APPLICATION / NOT_PUBLISHED carry no figure), purchase link (https only, never the list or the document page), list URL, source document, application instructions, list date | "Not published"; link "No online purchase link on file" |
+| `CertificateRecord` | `source='certificate'` | certificate number, tax year, face amount, interest rate, certificate sale date (`issued_date`), expiration, redemption (instrument statuses only) | "Not published"; holder always "Not published" (never `owner_name`) |
+
+`problems(row)` names a classification bug:
+- the row's source / `ledger_type` / source id disagree;
+- the vendor's own LGBS sale status puts the row in another ledger;
+- a status lies outside the ledger's vocabulary;
+- an Available-only or certificate-only field sits on another ledger;
+- any result field sits on a certificate row (a certificate result is never a property sale);
+- a result field sits beside a non-result status.
+
+`property_key(row)` is the shared property reference: state, county, and the normalized parcel. For the Texas tax-suit sources it is the CAD account (`case_no`), never the cause number. One parcel can therefore be found in several ledgers while each keeps its own row, status and history.
+
+### `harvesters/ledgers/health.py`
+
+`reader_status(entry)` is the reader's check on a status-file entry:
+- EMPTY only with row count 0, an empty signal and no transport/parse failure;
+- COMPLETE only with no transport/parse failure;
+- otherwise INCOMPLETE;
+- a FAILED with a TRANSPORT_ / PROXY_ / ACCESS_ category is SOURCE_UNAVAILABLE.
+
+`ledger_units()` keys the entries by (source, county), scoped to a ledger. Its bare-county fallback is built only from entries that name no source. `closeable(ledger, status)` allows COMPLETE / EMPTY only.
+
+### Where it is enforced
+
+- **`scripts/sync_state_inventory.py`:**
+  - refuses rows with ledger problems (`refused_ledger_contract`);
+  - `units_for()` uses the health reader. Before this, the bare-county fallback was the worst of every entry, so a source with no entry of its own took a sibling's read;
+  - `plan_close()` closes only rows of a ledger that the reading source feeds.
+- **`scripts/inventory_status_writer.py`** never writes a status outside the row's ledger (`refused_outside_ledger`).
+- **`scripts/sync-texas-to-supabase.py`:**
+  - de-duplicates on `(source, county, case_no)`. Before this, an account listed in two ledgers kept only the last one;
+  - refuses rows that break the ledger contract.
+
+Tests: `tests/python/test_three_ledger_separation.py`.
+
+## Integration: Florida PowerShell syncs, LAFT lifecycle, customer read path (2026-10-14)
+
+The contracts above are now applied on every remaining path.
+
+### Florida PowerShell syncs (Gap A)
+
+`scripts/ledger_gate.py` is the command-line form of the two modules, so
+PowerShell never carries a second copy of the rules:
+
+- `rows --ledger L --in rows.json` prints the indices of refused rows. A row
+  is refused when it is not in ledger L or breaks L's contract.
+- `closeable --ledger L --status file` prints the counties whose read the
+  health reader accepts for close-out. A missing or unreadable file gives
+  `[]`.
+
+All three syncs (`sync-harvest-to-supabase.ps1`, `sync-certificates-to-supabase.ps1`
+and `sync-laft-to-supabase.ps1`) carry one identical helper block after the
+permission guard:
+
+- `Select-LedgerRows` runs before every upsert.
+- `Get-LedgerCloseableCounties` replaces the old inline `status -eq "COMPLETE"`
+  check in the deed close-out and the certificate reconciliation.
+
+Both fail closed. A gate that cannot run stops the write, and a status file
+that cannot be read closes nothing. One behavioural difference: a county
+whose entries disagree (a COMPLETE read and a failed retry) now reads as its
+worst entry, not as COMPLETE.
+
+`tests/python/test_ledger_ps_syncs.py` runs the real scripts under PowerShell 7
+against a local fake Supabase server.
+
+### Florida LAFT lifecycle (Gap B)
+
+`scripts/laft_lifecycle.py`:
+
+- `county_gates()` passes every entry through `health_checked()`. An EMPTY
+  without a valid signal, or a COMPLETE / EMPTY from a broken read, becomes
+  INCOMPLETE (`health_downgrade`).
+- Each gate now carries the per-source `units` (`source_units()`) and the
+  registry's `missing_sources`.
+- `row_closeable()` closes a row only on its own source's COMPLETE or EMPTY
+  read. A row with no source is closed only when the county has exactly one
+  source and no expected source is missing.
+- Reactivation still writes `status` alone.
+
+Tests: `tests/python/test_laft_lifecycle_ledger_health.py`.
+
+### Customer read path (Gap C)
+
+- **Frontend mirror:** `public/app.js` `ledgerRecordView(p)` mirrors
+  `records.customer_view()`, field for field, on
+  `tests/python/fixtures/ledger_record_cases.json`. Both Python and Playwright
+  run those cases.
+- **Purchase link:** `purchasePathOf()` refuses an Available row's
+  `purchase_url` when it is the list page, the source document or plain http.
+- **Status band:** the property status band names the record's ledger
+  (`data-ledger-record`, plus "<Ledger> ledger" when the state calls the list
+  something else).
+- **Backend gate:** `publication_state.decide()` withholds a row that breaks
+  its ledger contract (reason `LEDGER_CONTRACT`). The writer reads the columns
+  the contract needs.
+
+That backend gate becomes customer-binding only when migration 031 is
+applied, and 031 is NOT applied. Until then the publication-state writer
+plans only, and customers are protected by the existing read-path behaviour.

@@ -2544,6 +2544,29 @@ Order: 031 -> writer for every state -> 032. Review table of every customer surf
 Rule: a new table holding per-property rows for customers must gate its reads on the property's own
 readability, never on `is_approved()` alone.
 
+## Three ledgers: record contracts + read health (2026-10-13, PR open, no migration)
+
+Full description: `docs/three-ledgers.md` (last section). Stable facts:
+- `harvesters/ledgers/records.py`: `AuctionRecord` / `AvailableRecord` / `CertificateRecord` over the same
+  `properties` row; `problems(row)` = classification bugs (refused by `sync_state_inventory.py` and
+  `sync-texas-to-supabase.py` before any write); `customer_view(row)` = per-ledger fields with explicit
+  "Not published" / "No online purchase link on file" / "Not published by the source"; `property_key(row)` =
+  (state, county, normalized parcel; TX tax-suit sources use the CAD account in `case_no`).
+- An opening bid is never a winning bid; a certificate row never carries a result field; a list or document
+  page is never a purchase link; an amount's kind is never assumed.
+- `harvesters/ledgers/health.py`: `reader_status()` (false EMPTY/COMPLETE -> INCOMPLETE; transport FAILED ->
+  SOURCE_UNAVAILABLE); `ledger_units()` builds the bare-county fallback ONLY from source-less entries;
+  `plan_close()` closes only rows of a ledger the reading source feeds.
+- `inventory_status_writer.plan()` refuses a status outside the row's ledger; the Texas sync de-dups on
+  `(source, county, case_no)`.
+- **Integrated 2026-10-14 (all paths):** the FL PowerShell syncs call `scripts/ledger_gate.py`
+  (`rows` / `closeable`) through one identical helper block (`Select-LedgerRows`,
+  `Get-LedgerCloseableCounties`) - never a PowerShell copy of the rules; `test_ledger_ps_syncs.py` runs the
+  real scripts under pwsh against a fake Supabase. `laft_lifecycle.county_gates()` health-checks every entry
+  and closes per source (`row_closeable`, `units`, `missing_sources`). `app.js ledgerRecordView()` mirrors
+  `customer_view()` (vectors `ledger_record_cases.json`); `publication_state` reason `LEDGER_CONTRACT`
+  (customer-binding only once 031 is applied).
+
 ## Where to look for more
 
 - `claude/improvement-roadmap.md` in the "tax florida app" claude.ai Project — the full dated log of every fix, audit finding, and open decision. This is where new findings should be appended, not here.

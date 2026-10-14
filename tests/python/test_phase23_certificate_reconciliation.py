@@ -193,10 +193,16 @@ def test_reconciliation_fails_closed_when_status_file_is_unparseable():
 
 
 def test_reconciliation_only_considers_counties_explicitly_marked_complete():
+    # Since 2026-10-14 the eligible counties come from the ledger health
+    # reader (scripts/ledger_gate.py -> harvesters/ledgers/health.py); run end
+    # to end under PowerShell in test_ledger_ps_syncs.py.
+    import sys
+    sys.path.insert(0, str(REPO_ROOT))
+    from harvesters.ledgers import Ledger, health
     section = _sync_reconciliation_section()
-    assert 'if ($cs.status -eq "COMPLETE")' in section
-    # No other status string is ever treated as eligible.
-    assert '$cs.status -eq "INCOMPLETE"' not in section
+    assert 'Get-LedgerCloseableCounties "LIENS_CERTIFICATES" $statusPath' in section
+    assert "$cs.status" not in section
+    assert health.CLOSEABLE[Ledger.LIENS_CERTIFICATES] == frozenset({"COMPLETE", "EMPTY"})
 
 
 def test_reconciliation_query_is_scoped_to_state_source_status_and_complete_counties():
