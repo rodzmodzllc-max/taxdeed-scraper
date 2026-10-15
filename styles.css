@@ -2015,7 +2015,7 @@ a.ledger-badge:hover{text-decoration:underline}
 /* Three columns only where the centre list keeps a readable width (>=1440px);
    below that the filters stay behind their toggle and the list gets the room. */
 @media (min-width:1440px){
-  .auctions-body{grid-template-columns:236px minmax(0,1fr) 360px}
+  .auctions-body{grid-template-columns:236px minmax(0,1fr) 420px}
   .auctions-body>.filters-panel{display:block;grid-column:1;grid-row:1;position:sticky;top:4.2rem;max-height:calc(100vh - 5rem);
     overflow-y:auto;box-shadow:none;border-radius:var(--radius);margin-top:1rem}
   .auctions-body>.data-table-wrap,.auctions-body>#main{grid-column:2;grid-row:1}

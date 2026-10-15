@@ -5166,6 +5166,8 @@ await navMap.close();
     results.zeroNotOfferedUnclaimed = await pgA.evaluate(() => ({ notOffered: !!document.querySelector('.ledger-status[data-eligibility="NOT_OFFERED"]'),
       offered: document.querySelector('.ledger-status[data-ledger-status="auction"]').dataset.eligibility }));
     // The strip's rules link opens the State rules page at that ledger's block.
+    // The status strip sits in a closed fold once a ledger has rows (2026-10-13).
+    await pgA.evaluate(() => document.querySelectorAll('.ledger-status-fold').forEach(d => { d.open = true; }));
     await pgA.locator('.ledger-status[data-ledger-status="auction"] [data-action="staterules"]').click();
     await pgA.waitForTimeout(500);
     results.zeroStripToRules = await pgA.evaluate(() => ({ hash: location.hash, block: !!document.querySelector('#rulesLedgerAUCTIONS'),
@@ -6972,7 +6974,7 @@ const EXPECTED = {
   },
   // Multi-state product branding (2026-10-02).
   brandGate: {"index.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "tx.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "la.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "mi.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}, "wy.html": {"tagline": "Tax Acquisition Intelligence", "sub": true, "loginNoState": true, "signupNoState": true, "resetNoState": true, "titleNoState": true}},
-  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v127"]},
+  brandSwReload: {"ready": true, "controlled": true, "tagline": "Tax Acquisition Intelligence", "noState": true, "cache": ["tdw-shell-v129"]},
   brandShell: { shellNoOtherState: true, dataSourcesHead: true, title: "Auctions · TAXACQ — Michigan" },
   brandMiWhat: { michigan: true, noFlorida: true },
   brandFlContext: { title: "Available · TAXACQ — Florida", floridaCopy: true },
@@ -7362,9 +7364,9 @@ const EXPECTED = {
   rdPhoneBottom: ["Home", "Search", "Map", "Saved"],
   rdPhoneAccount: true,
   rdPhoneSearchVisible: true,
-  landCO: { hash: '#/dashboard', cards: 2, issue: 0 },
-  landWY: { hash: '#/dashboard', cards: 1, issue: 0 },
-  landLA: { hash: '#/dashboard', cards: 2, issue: 0 },
+  landCO: { hash: '#/certificates', cards: 2, issue: 0 },
+  landWY: { hash: '#/auctions', cards: 1, issue: 0 },
+  landLA: { hash: '#/lands', cards: 2, issue: 0 },
   landWIAvailable: false,
   partialFail: { cards: 2, banner: 'Some results could not be loaded. 4 records loaded in this list; the rest could not be loaded. Retry', retryButton: 1, attempts: 3, errorState: 0 },
   partialOtherLedger: { cards: 2, banner: 'Some results could not be loaded. Affected: Auctions. Counts there may be incomplete. Retry' },
@@ -7994,7 +7996,7 @@ const EXPECTED = {
   govPhone: { itemVisible: true, viewVisible: true, noHorizontalScroll: true, formFits: true },
   govCustomerMenu: { itemVisible: false, accountMenuOpen: true },
   govCustomerTypedRoute: { viewHidden: true, hash: '#/auctions', rows: 0 },
-  govCustomerColdRoute: {"viewHidden": true, "hash": "#/dashboard", "rows": 0, "menuItemHidden": true},
+  govCustomerColdRoute: {"viewHidden": true, "hash": "#/lands", "rows": 0, "menuItemHidden": true},
   adminPubVisible: true,
   adminPubSources: ['fl_laft_broward_candidate:RESTRICTED', 'fl_laft_html:APPROVED_GRANDFATHERED', 'fl_laft_pdfs:APPROVED_GRANDFATHERED', 'fl_laft_pioneer:APPROVED_GRANDFATHERED', 'fl_laft_realtdm:APPROVED_GRANDFATHERED'],
   adminPubBrowardMeta: 'Governance LEGAL_REVIEW_REQUIRED · Verification CANDIDATE · Restrictions: terms of use under legal review',
