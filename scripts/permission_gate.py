@@ -39,3 +39,15 @@ def allowed(source_id: str, operations, *, state: str, county: str | None = None
                   f"0 requests made, nothing written", flush=True)
             return False
     return True
+
+
+def install_discovery_guard(label: str):
+    """For the manual discovery / evidence-capture / probe scripts: from here
+    on every outbound request of the process is refused unless the URL
+    belongs to a source with an in-date `discover` permission
+    (harvesters/governance/discovery_guard.py). Returns the guard."""
+    repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if repo not in sys.path:
+        sys.path.insert(0, repo)
+    from harvesters.governance import discovery_guard as DG  # noqa: PLC0415
+    return DG.install(label)

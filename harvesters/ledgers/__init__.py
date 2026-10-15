@@ -39,7 +39,7 @@ from __future__ import annotations
 from enum import Enum
 
 __all__ = ["Ledger", "LEDGER_BY_SOURCE", "LEDGER_BY_LEDGER_TYPE", "CUSTOMER_NAMES", "ledger_for_source",
-           "ledger_for_ledger_type", "ledger_for_row", "ledgers_for_source_id"]
+           "ledger_for_ledger_type", "ledger_for_row", "ledgers_for_source_id", "lgbs_status_ledger"]
 
 
 class Ledger(str, Enum):
@@ -184,11 +184,18 @@ def ledger_for_row(row: dict) -> Ledger | None:
         return LEDGER_BY_LEDGER_TYPE[lt]
     status = row.get("sale_status") or row.get("tx_sale_status")
     if row.get("harvester_source") == "tx_lgbs" and status:
-        try:
-            from ..texas_harvester import LGBS_STATUS_TO_LEDGER
-        except Exception:  # pragma: no cover - the harvester module needs its own deps
-            LGBS_STATUS_TO_LEDGER = {"Scheduled for Auction": "auction", "Scheduled for Online Auction": "auction",
-                                     "Available for Future Sale": "laft", "Struck off to Jurisdiction": "laft"}
-        mapped = LGBS_STATUS_TO_LEDGER.get(status)
-        return LEDGER_BY_SOURCE.get(mapped) if mapped else None
+        return lgbs_status_ledger(status)
     return None
+
+
+def lgbs_status_ledger(status: str | None) -> Ledger | None:
+    """The ledger an LGBS row belongs to by the vendor's OWN raw sale status
+    (harvesters/texas_harvester.py LGBS_STATUS_TO_LEDGER); None = a wording
+    outside that map (nothing is assumed)."""
+    try:
+        from ..texas_harvester import LGBS_STATUS_TO_LEDGER
+    except Exception:  # pragma: no cover - the harvester module needs its own deps
+        LGBS_STATUS_TO_LEDGER = {"Scheduled for Auction": "auction", "Scheduled for Online Auction": "auction",
+                                 "Available for Future Sale": "laft", "Struck off to Jurisdiction": "laft"}
+    mapped = LGBS_STATUS_TO_LEDGER.get(str(status or "").strip())
+    return LEDGER_BY_SOURCE.get(mapped) if mapped else None

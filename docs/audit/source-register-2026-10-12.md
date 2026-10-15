@@ -25,7 +25,7 @@ The machine-readable register with all 21 fields per source is `data/audit/sourc
 
 1. **Counsel reads the four documents that gate the core product** (pre-sale blockers 1-3 in `docs/legal/pre-sale-blockers.md`): the Alachua and Volusia RealAuction EULAs, the LienHub User Agreement, and the Linebarger legal-disclosures clause. One sitting resolves the legal status of 46 FL auction counties, the closed-results feed, 11 RealTDM LAFT counties, 24 TX RealAuction counties, 32 certificate counties and 8 LGBS counties - 121 of the 237 registry rows.
 2. **Convert the six internal approvals into written permissions and close the loop on the six inquiries already sent.** Send the short county request (section 6, template C) to Morgan CO, Eaton MI, Lenawee MI, York SC, Green WI and Albany WY - five of these are the entire paid-beta scope (`data/paid_beta_sources.csv`). Record the status of the six inquiries the owner has already sent (FDOR, Detroit Enterprise GIS, St. Louis Assessor, Fayette GIS, Oklahoma OGI, RealAuction) in the repository; this session could not read the mailbox (section 9).
-3. **Make permission a per-operation, fail-closed, expiring record** (backlog B-1 to B-3): today `legal_status` is one value per source, the FDOR cadastral layer is marked `APPROVED` in code with no licence cited, the Florida PowerShell pipeline never consults the governance package, and no permission has an expiry or review date.
+3. **Make permission a per-operation, fail-closed, expiring record** (backlog B-1 to B-3; *implemented since this register - see section 13*): today `legal_status` is one value per source, the FDOR cadastral layer is marked `APPROVED` in code with no licence cited, the Florida PowerShell pipeline never consults the governance package, and no permission has an expiry or review date.
 
 **The specific evidence explaining GovEase's current status.** `tx_govease` is `legal_status=BLOCKED` in `harvesters/governance/registry.py` (review date 2026-09-14). The record's own words: commercial-use status is a *"LEGAL_REVIEW_REQUIRED-grade finding treated conservatively as BLOCKED for ingestion-gate purposes - robots.txt blanket disallow (`Disallow: /`) with no locatable Terms of Use to weigh against it"*; `robots_status` says the blanket disallow is *"the deciding factor for this source, in the absence of any locatable Terms of Use"*; `terms_status` says *"No Terms of Use page was located."* The cited reviewer document, `claude/govease-source-onboarding-blocked.md`, is a claude.ai project document and is **not in the repository**, so the robots.txt observation cannot be re-verified from the repo. `harvesters/governance/verification.py` records `contract_status NOT_CONTACTED` / `contact_status NOT_CONTACTED`; `data/tx_county_coverage_matrix.csv` carries four rows (Denton, Parker, Wichita, Wise) "BLOCKED, robots.txt Disallow: /"; `harvesters/texas_harvester.py` keeps `harvest_govease()` as a `NotImplementedError` stub; `govease.com` sits on the untrusted-host lists in `harvesters/sources/acquisition_gate.py`, `scripts/laft_purchase_paths.py` and `public/app.js`. In short: the block is a **technical signal (robots.txt) plus the absence of any terms**, applied under a conservative decision rule; it is not a legal finding, not a vendor refusal, and not a risk assessment of GovEase's data. It has not been re-checked since 2026-09-14, and this session could not resolve the GovEase hosts (DNS failure through the sandbox proxy on 2026-10-12). Full memo in section 4.
 
@@ -343,3 +343,22 @@ The owner states that personalized inquiries were sent to the six organisations 
 | P-5 | B-10 relabel + acquisition-gate `link_only_host` list. | No ingestion change; adds link-out. |
 
 None of these is implemented in this audit. P-2 and P-4 change data collection and require explicit approval.
+
+## 13. Status since this register (re-checked 2026-10-13)
+
+This register is a dated snapshot of 2026-10-12; its findings are unchanged. Only the implementation facts below have moved since, on `main` or in open PRs. No legal status, permission record, classification or expiry date changed, and no provider, county, government office or counsel was contacted.
+
+| Backlog item | Status on 2026-10-13 |
+|---|---|
+| B-1 per-operation registry | **Done** (PR #145, merged as `a07f1ab`). Implemented as `data/source_permissions.csv` + `harvesters/governance/permissions.py`, with operations `discover / fetch / fetch_via_proxy / parse / store / enrich / display / redistribute / link`. This is not the operation list proposed above. |
+| B-2 fail-closed consumers | **Done** (PR #145, and PR #148 merged as `a83da35`). The PowerShell FL pipeline uses a guard that calls the CLI as its first statement (exit 3), not a generated allow-list file. Discovery / evidence capture / probe scripts are gated in **PR #149 (open)**. |
+| B-3 expiry | **Done differently.** Every allowing record carries an explicit `expires_on`: 2027-04-12 for interim allowances, 2027-10-12 for documented licences. Expired records deny with no fallback; `scripts/source_permission_check.py --due N` lists them. **PR #150 (open)** caps an interim window at 210 days and generates `docs/interim-permissions.md`. |
+| B-4 attribution rendering | Not done. |
+| B-5 evidence-backed APPROVED in code | **Done** (PR #145). `geocode.py` FDOR / Santa Rosa read `APPROVED_GRANDFATHERED` and also need the recorded interim permission. FDOR display, redistribution and polygon storage are denied. |
+| B-6 ScraperAPI decision | **Done as a permission** (PR #145): the HTML LAFT harvester's proxy fallback requires a `fetch_via_proxy` record for `fl_laft_html`. |
+| B-7 link-only never copies | Partly. The `LINK_ONLY` status allows only `link`; the `link_only_host` acquisition-gate list is not built. |
+| B-8 terms capture | Not done. |
+| B-9 outreach ledger | Partly: `data/audit/permission_inquiry_tracker.csv` (owner-reported states only; no reply verified). |
+| B-10 GovEase relabel | Not done. GovEase stays **BLOCKED** (see `govease-decision-memo.md`). |
+| Customer publication | Migration 031 (written, NOT applied); its side-table follow-up, migration 032, is in **PR #151 (open, NOT applied)**. |
+

@@ -38,6 +38,9 @@ sys.path.insert(0, str(REPO))
 from harvesters.governance import states  # noqa: E402
 from harvesters.governance.county_source_registry import RUNNABLE_GOVERNANCE, load_registry  # noqa: E402
 from harvesters.governance.publication import PUBLISHABLE_STATUSES, effective_publication  # noqa: E402
+from harvesters.ledgers import ledger_for_row, ledgers_for_source_id  # noqa: E402
+from harvesters.ledgers import health as LH  # noqa: E402
+from harvesters.ledgers import records as LR  # noqa: E402
 sys.path.insert(1, str(Path(__file__).resolve().parent))
 from source_publication import collectable  # noqa: E402
 sys.path.insert(0, str(HERE))
@@ -265,6 +268,13 @@ def plan(state: str, rows: list[dict], registry: dict, status_units: dict[str, s
             counts["written_review_pending"] += 1
         row["ledger_type"] = LEDGER_TYPE_FOR_SOURCE[row["source"]]
         row["harvester_source"] = reg.source_id
+        # The ledger contract (harvesters/ledgers/records.py): a row whose
+        # source / ledger_type / source id / fields belong to another ledger
+        # is a classification bug and is never written (counts only).
+        bad = LR.problems(row)
+        if bad:
+            counts["refused_ledger_contract"] = counts.get("refused_ledger_contract", 0) + 1
+            continue
         row["last_seen_at"] = observed_at
         first = stored_first_seen.get(identity(row)) if identity(row) in stored_first_seen else observed_at
         row["first_seen_at"] = first if first is None or FP_ts(first) <= FP_ts(observed_at) else observed_at
@@ -317,7 +327,13 @@ def plan_close(state: str, harvested: list[dict], stored: list[dict], units: dic
     for r in stored:
         if r.get("state") != state or r.get("status") != "active" or r.get("harvester_source") not in source_ids:
             continue
-        if unit_status(units, r.get("harvester_source"), r.get("county")) not in CLOSEABLE:
+        # Ledger isolation: a source's read closes only rows of a ledger that
+        # source feeds (harvesters/ledgers SOURCE_LEDGERS); a row of another
+        # ledger - or an unclassifiable one - is never closed by this read.
+        ledger = ledger_for_row(r)
+        if ledger is None or ledger not in ledgers_for_source_id(str(r.get("harvester_source") or "")):
+            continue
+        if not LH.closeable(ledger, unit_status(units, r.get("harvester_source"), r.get("county"))):
             continue
         if (r.get("source"), r.get("county"), r.get("case_no")) not in seen:
             out.append({"id": r["id"], "status": "closed", "delisted_at": FP.now_iso()})
@@ -351,8 +367,7 @@ def unit_status(units: dict, source_id, county) -> str | None:
     """The status of ONE source's read of ONE county. A per-source entry
     ((source_id, county) key) decides for that source alone; a bare county
     key is the fallback for status files whose entries name no source."""
-    hit = units.get((str(source_id or ""), str(county or "")))
-    return hit if hit is not None else units.get(str(county or ""))
+    return LH.unit_status(units, source_id, county)
 
 
 def _entries(path: Path) -> list[dict]:
@@ -390,8 +405,16 @@ def source_units(path: Path) -> dict[tuple[str, str], str]:
 
 
 def units_for(path: Path) -> dict:
-    """Both maps in one: unit_status() reads the per-source key first."""
-    return {**status_units(path), **source_units(path)}
+    """{(source_id, county): status} plus the source-less county fallback,
+    through the ledger health reader (harvesters/ledgers/health.py):
+      * an EMPTY / COMPLETE entry from a read that failed at transport or
+        parse, or an EMPTY without an empty signal, reads INCOMPLETE;
+      * the bare-county fallback is built ONLY from entries that name no
+        source - one source's (or one ledger's) read of a county never
+        stands in for another source's (2026-10-13; before, the fallback was
+        the worst of every entry, so a source with no entry of its own took
+        a sibling's COMPLETE and its rows could be closed by that read)."""
+    return LH.ledger_units(_entries(path))
 
 
 def stored_provenance(base: str, key: str, state: str, source_ids: set[str], first_seen: dict | None = None,

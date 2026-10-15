@@ -2533,6 +2533,40 @@ Full description: `docs/ledger-eligibility.md`. Stable facts:
   `no_false_zero_copy`, `no_false_zero_lifecycle`, `tx_classification`, `tx_struck_off_copy`, `fl_separation`.
   Stub knobs `?emptyledger=`, `?unitstatus=`. `sw.js` -> `tdw-shell-v118`.
 
+## Publication gate on the side tables (2026-10-13, PR open, migration 032 NOT applied)
+
+`scripts/migrations/032_publication_gate_side_tables.sql` ALTERs (never drops) the read policies of
+`auction_events`, `auction_event_observations`, `inventory_status_observations`, `property_change_events`,
+and adds a RESTRICTIVE SELECT policy on `user_alerts`, so a side row is readable only when the same caller can
+read its property (`exists (select 1 from public.properties p where p.id = ...)` under the caller's own RLS -
+no second copy of 031's rule). Requires 031; skips tables not yet created; idempotent; re-apply after 024.
+Order: 031 -> writer for every state -> 032. Review table of every customer surface: `docs/publication-gate.md`.
+Rule: a new table holding per-property rows for customers must gate its reads on the property's own
+readability, never on `is_approved()` alone.
+
+## Three ledgers: record contracts + read health (2026-10-13, PR open, no migration)
+
+Full description: `docs/three-ledgers.md` (last section). Stable facts:
+- `harvesters/ledgers/records.py`: `AuctionRecord` / `AvailableRecord` / `CertificateRecord` over the same
+  `properties` row; `problems(row)` = classification bugs (refused by `sync_state_inventory.py` and
+  `sync-texas-to-supabase.py` before any write); `customer_view(row)` = per-ledger fields with explicit
+  "Not published" / "No online purchase link on file" / "Not published by the source"; `property_key(row)` =
+  (state, county, normalized parcel; TX tax-suit sources use the CAD account in `case_no`).
+- An opening bid is never a winning bid; a certificate row never carries a result field; a list or document
+  page is never a purchase link; an amount's kind is never assumed.
+- `harvesters/ledgers/health.py`: `reader_status()` (false EMPTY/COMPLETE -> INCOMPLETE; transport FAILED ->
+  SOURCE_UNAVAILABLE); `ledger_units()` builds the bare-county fallback ONLY from source-less entries;
+  `plan_close()` closes only rows of a ledger the reading source feeds.
+- `inventory_status_writer.plan()` refuses a status outside the row's ledger; the Texas sync de-dups on
+  `(source, county, case_no)`.
+- **Integrated 2026-10-14 (all paths):** the FL PowerShell syncs call `scripts/ledger_gate.py`
+  (`rows` / `closeable`) through one identical helper block (`Select-LedgerRows`,
+  `Get-LedgerCloseableCounties`) - never a PowerShell copy of the rules; `test_ledger_ps_syncs.py` runs the
+  real scripts under pwsh against a fake Supabase. `laft_lifecycle.county_gates()` health-checks every entry
+  and closes per source (`row_closeable`, `units`, `missing_sources`). `app.js ledgerRecordView()` mirrors
+  `customer_view()` (vectors `ledger_record_cases.json`); `publication_state` reason `LEDGER_CONTRACT`
+  (customer-binding only once 031 is applied).
+
 ## Where to look for more
 
 - `claude/improvement-roadmap.md` in the "tax florida app" claude.ai Project — the full dated log of every fix, audit finding, and open decision. This is where new findings should be appended, not here.
@@ -3350,4 +3384,8 @@ Full description: `docs/source-permissions.md`. Stable facts:
   - the source inventory's built-in sources cite their permission records (`inventory.permission_basis`), never
     "public domain" or a docstring.
   An invented test source needs a fixture record (`permission_fixtures.install(record(...))`) to pass a gate.
-  Still unprotected: the manual evidence-capture / probe scripts (`discover`).
+- **Discovery is gated too (2026-10-13):** every `capture_*` / `discover_sources.py` / `probe_*` script installs
+  `harvesters/governance/discovery_guard.py` as the first statement of `main()`; each request needs an in-date
+  `discover` permission for the source its URL belongs to, or it is refused before any connection. No source
+  holds one today, so these manual jobs read nothing until the owner records them. `tests/python/conftest.py`
+  uninstalls the guard after every test.

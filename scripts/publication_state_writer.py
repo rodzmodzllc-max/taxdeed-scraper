@@ -42,7 +42,8 @@ import rest_pages as RP  # noqa: E402
 
 SELECT = ("id,state,county,source,source_id,harvester_source,ledger_type,status,case_no,parcel,certificate_no,url_auction,"
           "url_auction_kind,sale_date,last_seen_at,updated_at,purchase_path_type,purchase_path_scope,purchase_path_observed_on,"
-          "purchase_url,inventory_type,publication_state,publication_progress,publication_reasons")
+          "purchase_url,inventory_type,inventory_status,tx_sale_status,issued_date,purchase_amount,purchase_amount_kind,"
+          "result_amount,result_date,result_party,publication_state,publication_progress,publication_reasons")
 USER_AGENT = "taxdeed-scraper publication-state (+https://github.com/rodzmodzllc-max/taxdeed-scraper)"
 CHUNK = 200
 REPORT_DIR = REPO / "out" / "public"

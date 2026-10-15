@@ -69,6 +69,7 @@ from urllib.parse import urlparse
 from . import state_rules as SR
 from . import publication as pub
 from . import county_source_registry as csr
+from ..ledgers import records as ledger_records
 
 REPO = Path(__file__).resolve().parents[2]
 ACQUISITION_EVIDENCE = REPO / "public" / "acquisition-evidence.json"
@@ -108,6 +109,7 @@ REASONS = {
     "RULES_NOT_OFFERED": "The verified rules say this state does not offer this product.",
     "COUNTY_NOT_COVERED": "The product is county-dependent and this county has no tracked source or verified procedure.",
     "RECORD_INVALID": "The record is missing its state, county, ledger or identifier.",
+    "LEDGER_CONTRACT": "The record carries fields or a status of another ledger.",
     "PATH_MISSING": "No acquisition path is documented for this record or its county.",
     "PATH_UNTRUSTED": "The only link on file is a homepage, a search page or not https - not a route to the process.",
     "PATH_NEEDS_REVIEW": "The county's acquisition process was captured but not verified.",
@@ -127,6 +129,7 @@ REMEDIATION = {
     "RULES_NOT_OFFERED": "None - show the verified rules explanation instead of inventory.",
     "COUNTY_NOT_COVERED": "Add the county's source or verified procedure to the registry / rules.",
     "RECORD_INVALID": "Fix the harvester so the record carries state, county, ledger and identifier.",
+    "LEDGER_CONTRACT": "Fix the harvester or sync that classified the record (harvesters/ledgers/records.py names the problem).",
     "PATH_MISSING": "Capture the county's official acquisition page (job=evidence) and record a verified evidence row.",
     "PATH_UNTRUSTED": "Record the actual process page or published procedure, not the homepage.",
     "PATH_NEEDS_REVIEW": "Read the capture digest and record a verified evidence row.",
@@ -370,11 +373,18 @@ def decide(row: dict, ctx: Context) -> Decision:
         gates["rules"] = "FAIL"
         reasons.append("RULES_NOT_OFFERED" if elig == "NOT_OFFERED" else "COUNTY_NOT_COVERED" if elig == "COUNTY_DEPENDENT" else "RULES_NOT_VERIFIED")
     # 3. validation
-    if st and county and ledger and (row.get("case_no") or row.get("parcel") or row.get("certificate_no")):
-        gates["validation"] = "PASS"
-    else:
+    if not (st and county and ledger and (row.get("case_no") or row.get("parcel") or row.get("certificate_no"))):
         gates["validation"] = "FAIL"
         reasons.append("RECORD_INVALID")
+    elif ledger_records.problems(row):
+        # The three-ledger record contract (harvesters/ledgers/records.py): a
+        # row carrying another ledger's fields or status - a certificate with
+        # a property-sale result, an auction with an Available inventory type
+        # - is never customer inventory, whatever else it passes.
+        gates["validation"] = "FAIL"
+        reasons.append("LEDGER_CONTRACT")
+    else:
+        gates["validation"] = "PASS"
     if "FAIL" in (gates["source"], gates["rules"], gates["validation"]):
         return Decision("ADMIN_ONLY_SOURCE_REVIEW", "DISCOVERED", reasons, gates, None, REMEDIATION[reasons[0]])
     # 4. path
